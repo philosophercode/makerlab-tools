@@ -4,6 +4,46 @@ A white-label digital inventory and discovery system for makerspaces and equipme
 
 Students and staff can browse equipment, ask an AI assistant questions about any tool, scan QR codes on machines, and report maintenance issues — all from a single web app.
 
+## Features
+
+### Browse & Search
+- Full-text search across tool names, descriptions, tags, and materials
+- Filter by category group, room/location, and material type
+- Three view modes: compact grid, large grid, and table
+- Toggle between real photos and AI-generated illustrations
+
+### Tool Detail Pages
+- Specs, safety requirements, PPE, location, materials
+- Image gallery with zoom
+- Links to safety docs, SOPs, and training videos
+- Document content fetched and displayed inline (Google Docs, PDFs)
+- Unit inventory table showing individual machines and their status
+- Flag button for users to report incorrect information
+
+### AI Chat Assistant
+- Conversational assistant that knows every tool in the inventory
+- Retrieves live tool data via function calling (not baked into the prompt)
+- Web search for questions beyond the tool catalog
+- Fetches and reads linked safety docs and SOPs to answer specific questions
+- Generates infographic-style images on request
+- Conversation history persisted in localStorage
+
+### QR Code Scanning
+- Camera-based QR scanner for physical machine labels
+- Manual code entry fallback
+- Scanned codes route to the unit's detail page
+
+### Maintenance Reporting
+- Multi-step form: select tool, select unit, describe issue
+- Pre-fill from QR code scan (`?unit=recXXX`)
+- Photo upload (up to 5 images, base64 encoded)
+- Creates a record in the Maintenance_Logs AirTable table
+
+### MCP Server
+- Built-in Model Context Protocol endpoint at `/api/mcp`
+- Exposes tool listing, tool details, and unit lookup as MCP tools
+- Allows external AI agents to query the inventory programmatically
+
 ## Architecture
 
 ```mermaid
@@ -148,46 +188,6 @@ erDiagram
 | Database | AirTable REST API (6 normalized tables) |
 | Testing | Vitest, React Testing Library, jsdom |
 | Hosting | Vercel |
-
-## Features
-
-### Browse & Search
-- Full-text search across tool names, descriptions, tags, and materials
-- Filter by category group, room/location, and material type
-- Three view modes: compact grid, large grid, and table
-- Toggle between real photos and AI-generated illustrations
-
-### Tool Detail Pages
-- Specs, safety requirements, PPE, location, materials
-- Image gallery with zoom
-- Links to safety docs, SOPs, and training videos
-- Document content fetched and displayed inline (Google Docs, PDFs)
-- Unit inventory table showing individual machines and their status
-- Flag button for users to report incorrect information
-
-### AI Chat Assistant
-- Conversational assistant that knows every tool in the inventory
-- Retrieves live tool data via function calling (not baked into the prompt)
-- Web search for questions beyond the tool catalog
-- Fetches and reads linked safety docs and SOPs to answer specific questions
-- Generates infographic-style images on request
-- Conversation history persisted in localStorage
-
-### QR Code Scanning
-- Camera-based QR scanner for physical machine labels
-- Manual code entry fallback
-- Scanned codes route to the unit's detail page
-
-### Maintenance Reporting
-- Multi-step form: select tool, select unit, describe issue
-- Pre-fill from QR code scan (`?unit=recXXX`)
-- Photo upload (up to 5 images, base64 encoded)
-- Creates a record in the Maintenance_Logs AirTable table
-
-### MCP Server
-- Built-in Model Context Protocol endpoint at `/api/mcp`
-- Exposes tool listing, tool details, and unit lookup as MCP tools
-- Allows external AI agents to query the inventory programmatically
 
 ## Project Structure
 
