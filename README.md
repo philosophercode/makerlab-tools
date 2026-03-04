@@ -44,6 +44,18 @@ Students and staff can browse equipment, ask an AI assistant questions about any
 - Exposes tool listing, tool details, and unit lookup as MCP tools
 - Allows external AI agents to query the inventory programmatically
 
+## Tech Stack
+
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16 (App Router), React 19 |
+| Styling | Tailwind CSS 4, CSS variables for theming |
+| AI Chat | Claude API via Vercel AI SDK |
+| Image Gen | Gemini API (optional) |
+| Database | AirTable REST API (6 normalized tables) |
+| Testing | Vitest, React Testing Library, jsdom |
+| Hosting | Vercel |
+
 ## Architecture
 
 ```mermaid
@@ -176,18 +188,6 @@ erDiagram
         string submitted_by
     }
 ```
-
-### Tech Stack
-
-| Layer | Technology |
-|-------|-----------|
-| Framework | Next.js 16 (App Router), React 19 |
-| Styling | Tailwind CSS 4, CSS variables for theming |
-| AI Chat | Claude API via Vercel AI SDK |
-| Image Gen | Gemini API (optional) |
-| Database | AirTable REST API (6 normalized tables) |
-| Testing | Vitest, React Testing Library, jsdom |
-| Hosting | Vercel |
 
 ## Project Structure
 
