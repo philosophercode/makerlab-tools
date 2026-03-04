@@ -1,0 +1,220 @@
+@import "tailwindcss";
+
+:root {
+  --primary: #B31B1B;
+  --primary-dark: #7E1416;
+  --background: #FAFAFA;
+  --foreground: #1A1A2E;
+  --card-bg: #FFFFFF;
+  --card-border: #E5E7EB;
+  --muted: #6B7280;
+  --muted-bg: #F3F4F6;
+  --success: #16A34A;
+  --warning: #F59E0B;
+  --danger: #DC2626;
+  --accent-teal: #0D9488;
+  --accent-blue: #6366F1;
+  --accent-amber: #D97706;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0F0F1A;
+    --foreground: #F0F0F5;
+    --card-bg: #1A1A2E;
+    --card-border: #2D2D44;
+    --muted: #9CA3AF;
+    --muted-bg: #1F1F35;
+    --accent-teal: #2DD4BF;
+    --accent-blue: #818CF8;
+    --accent-amber: #FBBF24;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-dark: var(--primary-dark);
+  --color-card-bg: var(--card-bg);
+  --color-card-border: var(--card-border);
+  --color-muted: var(--muted);
+  --color-muted-bg: var(--muted-bg);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-danger: var(--danger);
+  --color-accent-teal: var(--accent-teal);
+  --color-accent-blue: var(--accent-blue);
+  --color-accent-amber: var(--accent-amber);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+/* Keep logo black in light mode, white in dark mode. */
+.logo-invert-dark {
+  filter: none;
+}
+@media (prefers-color-scheme: dark) {
+  .logo-invert-dark {
+    filter: invert(1);
+  }
+}
+
+/* Global focus ring for keyboard navigation */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Remove default focus outline (focus-visible handles keyboard) */
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Hide page-level scrollbar (still scrollable) */
+body {
+  scrollbar-width: none; /* Firefox */
+}
+body::-webkit-scrollbar {
+  display: none; /* Chrome / Safari */
+}
+
+/* Thin scrollbar for inner scrollable areas */
+.thin-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+.thin-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.thin-scrollbar::-webkit-scrollbar-thumb {
+  background: var(--card-border);
+  border-radius: 3px;
+}
+.thin-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--card-border) transparent;
+}
+
+/* Chat markdown formatting */
+.chat-markdown p {
+  margin: 0.4em 0;
+}
+.chat-markdown p:first-child {
+  margin-top: 0;
+}
+.chat-markdown p:last-child {
+  margin-bottom: 0;
+}
+.chat-markdown strong {
+  font-weight: 600;
+}
+.chat-markdown ul,
+.chat-markdown ol {
+  margin: 0.4em 0;
+  padding-left: 1.4em;
+}
+.chat-markdown ul {
+  list-style-type: disc;
+}
+.chat-markdown ol {
+  list-style-type: decimal;
+}
+.chat-markdown li {
+  margin: 0.15em 0;
+}
+.chat-markdown li > p:first-child {
+  margin-top: 0;
+}
+.chat-markdown li > p:last-child {
+  margin-bottom: 0;
+}
+.chat-markdown li > ul,
+.chat-markdown li > ol {
+  margin: 0.1em 0;
+}
+.chat-markdown code {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 0.85em;
+  background: var(--card-border);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+}
+.chat-markdown pre {
+  margin: 0.5em 0;
+  padding: 0.6em 0.8em;
+  background: var(--card-border);
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.85em;
+}
+.chat-markdown pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+.chat-markdown h1,
+.chat-markdown h2,
+.chat-markdown h3 {
+  font-weight: 600;
+  margin: 0.6em 0 0.3em;
+}
+.chat-markdown h1:first-child,
+.chat-markdown h2:first-child,
+.chat-markdown h3:first-child {
+  margin-top: 0;
+}
+.chat-markdown h1 { font-size: 1.1em; }
+.chat-markdown h2 { font-size: 1.05em; }
+.chat-markdown h3 { font-size: 1em; }
+.chat-markdown a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.chat-markdown blockquote {
+  border-left: 3px solid var(--card-border);
+  padding-left: 0.8em;
+  margin: 0.4em 0;
+  color: var(--muted);
+}
+.chat-markdown hr {
+  border: none;
+  border-top: 1px solid var(--card-border);
+  margin: 0.6em 0;
+}
+.chat-markdown table {
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  font-size: 0.9em;
+  width: 100%;
+}
+.chat-markdown th,
+.chat-markdown td {
+  border: 1px solid var(--card-border);
+  padding: 0.3em 0.6em;
+  text-align: left;
+}
+.chat-markdown th {
+  font-weight: 600;
+  background: var(--muted-bg);
+}
+
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Hide scrollbar for carousel elements */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
