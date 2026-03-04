@@ -6,95 +6,135 @@ Students and staff can browse equipment, ask an AI assistant questions about any
 
 ## Architecture
 
-```
-                                    ┌─────────────────────────────────────────────┐
-                                    │              Vercel (Hosting)               │
-                                    │                                             │
-┌──────────────┐                    │  ┌───────────────────────────────────────┐  │
-│              │   HTTP/WebSocket   │  │         Next.js App Router            │  │
-│   Browser    │◄──────────────────►│  │                                       │  │
-│              │                    │  │  Pages (Server Components + ISR)       │  │
-│  - React 19  │                    │  │  ┌─────┐ ┌───────┐ ┌──────┐ ┌──────┐ │  │
-│  - Tailwind  │                    │  │  │  /  │ │/tools │ │/chat │ │/scan │ │  │
-│  - QR scan   │                    │  │  │     │ │ /[id] │ │      │ │      │ │  │
-│              │                    │  │  └─────┘ └───────┘ └──────┘ └──────┘ │  │
-└──────────────┘                    │  │  ┌────────┐ ┌──────────┐             │  │
-                                    │  │  │/report │ │/units/[id]│             │  │
-                                    │  │  └────────┘ └──────────┘             │  │
-                                    │  │                                       │  │
-                                    │  │  API Routes                           │  │
-                                    │  │  ┌──────────┐ ┌──────────────┐       │  │
-                                    │  │  │/api/chat │ │/api/maintenance│      │  │
-                                    │  │  └────┬─────┘ └──────┬───────┘       │  │
-                                    │  │  ┌────┴─────┐ ┌──────┴───────┐       │  │
-                                    │  │  │/api/flag │ │/api/image    │       │  │
-                                    │  │  └──────────┘ └──────────────┘       │  │
-                                    │  │  ┌──────────────┐ ┌─────────┐        │  │
-                                    │  │  │/api/image-   │ │/api/mcp │        │  │
-                                    │  │  │    search    │ │         │        │  │
-                                    │  │  └──────────────┘ └─────────┘        │  │
-                                    │  └───────────┬───────────┬───────────┘  │
-                                    └──────────────┼───────────┼──────────────┘
-                                                   │           │
-                                    ┌──────────────▼──┐  ┌─────▼──────────┐
-                                    │    AirTable     │  │   Claude API   │
-                                    │   REST API      │  │  (Anthropic)   │
-                                    │                 │  │                │
-                                    │  6 tables:      │  │  - Chat with   │
-                                    │  - Tools        │  │    tool context│
-                                    │  - Categories   │  │  - Web search  │
-                                    │  - Locations    │  │  - Doc fetching│
-                                    │  - Units        │  │                │
-                                    │  - Maint. Logs  │  └────────────────┘
-                                    │  - Flags        │
-                                    └─────────────────┘  ┌────────────────┐
-                                                         │  Gemini API    │
-                                                         │  (Google)      │
-                                                         │                │
-                                                         │  - Tool image  │
-                                                         │    generation  │
-                                                         └────────────────┘
+```mermaid
+graph TB
+    subgraph Browser["Browser"]
+        React["React 19 + Tailwind CSS 4"]
+        QR["QR Scanner"]
+    end
+
+    subgraph Vercel["Vercel"]
+        subgraph Pages["Pages (Server Components + ISR)"]
+            Home["/"]
+            Tools["/tools/[id]"]
+            Units["/units/[id]"]
+            Chat["/chat"]
+            Scan["/scan"]
+            Report["/report"]
+        end
+        subgraph API["API Routes"]
+            ChatAPI["/api/chat"]
+            MaintAPI["/api/maintenance"]
+            FlagAPI["/api/flag"]
+            ImageAPI["/api/image"]
+            SearchAPI["/api/image-search"]
+            MCP["/api/mcp"]
+        end
+    end
+
+    subgraph External["External Services"]
+        AirTable[("AirTable\n6 tables")]
+        Claude["Claude API\n(Anthropic)"]
+        Gemini["Gemini API\n(Google)"]
+    end
+
+    Browser <-->|HTTP| Vercel
+    Pages -->|REST| AirTable
+    ChatAPI -->|Streaming| Claude
+    ChatAPI -->|Tool lookup| AirTable
+    MaintAPI -->|Create record| AirTable
+    FlagAPI -->|Create record| AirTable
+    ImageAPI -->|Generate| Gemini
+    MCP -->|Query| AirTable
 ```
 
 ### Data Flow
 
+```mermaid
+graph LR
+    subgraph browse["Browsing"]
+        B1[Browser] -->|Request| B2[Server Component]
+        B2 -->|REST| B3[(AirTable)]
+        B2 -.->|ISR cache\n1 hour| B4[Static HTML]
+    end
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│ Browsing (no AI)                                                     │
-│                                                                      │
-│  Browser ──► Next.js Server Component ──► AirTable REST API          │
-│                                               │                      │
-│  Pages are statically generated with ISR      │                      │
-│  (revalidate every 1 hour), so most visits    ▼                      │
-│  are served from cache, not live API calls   Cache                   │
-└──────────────────────────────────────────────────────────────────────┘
 
-┌──────────────────────────────────────────────────────────────────────┐
-│ AI Chat                                                              │
-│                                                                      │
-│  Browser ──► /api/chat ──► Claude API (streaming)                    │
-│                   │                                                  │
-│                   ├──► Tool lookup (AirTable) ◄── injected as        │
-│                   ├──► Web search               tool/function calls  │
-│                   └──► Doc fetching (PDFs, Google Docs)              │
-└──────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph LR
+    subgraph chat["AI Chat"]
+        C1[Browser] -->|Stream| C2["/api/chat"]
+        C2 -->|Prompt + tools| C3[Claude API]
+        C3 -->|Function call| C4[(AirTable)]
+        C3 -->|Function call| C5[Web Search]
+        C3 -->|Function call| C6[Doc Fetcher\nPDFs / Google Docs]
+    end
+```
 
-┌──────────────────────────────────────────────────────────────────────┐
-│ QR Code Scan                                                         │
-│                                                                      │
-│  Camera ──► QR decode ──► /units/qr/[code] ──► Unit detail page      │
-│                                                   │                  │
-│                                                   ▼                  │
-│                                            Tool detail page          │
-└──────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph LR
+    subgraph qr["QR Code Scan"]
+        Q1[Camera] -->|Decode| Q2[QR Scanner]
+        Q2 -->|Redirect| Q3["/units/qr/[code]"]
+        Q3 --> Q4[Unit Page]
+        Q4 --> Q5[Tool Page]
+    end
+```
 
-┌──────────────────────────────────────────────────────────────────────┐
-│ Maintenance Reporting                                                │
-│                                                                      │
-│  Browser ──► /report form ──► /api/maintenance ──► AirTable          │
-│                                     │               (creates record) │
-│                                     └──► Photo upload (base64)       │
-└──────────────────────────────────────────────────────────────────────┘
+```mermaid
+graph LR
+    subgraph maint["Maintenance Reporting"]
+        M1["/report form"] -->|POST| M2["/api/maintenance"]
+        M2 -->|Create record| M3[(AirTable)]
+        M2 -->|Upload photos\nbase64| M3
+    end
+```
+
+### AirTable Schema
+
+```mermaid
+erDiagram
+    Tools ||--o{ Units : "has"
+    Tools }o--|| Categories : "belongs to"
+    Tools }o--|| Locations : "located in"
+    Units ||--o{ Maintenance_Logs : "has"
+    Tools ||--o{ Flags : "flagged by"
+
+    Tools {
+        string name
+        string description
+        string materials
+        string ppe_required
+        string image
+        string safety_doc_url
+        string sop_url
+    }
+    Categories {
+        string group
+        string subcategory
+    }
+    Locations {
+        string room
+        string zone
+    }
+    Units {
+        string unit_label
+        string serial_number
+        string qr_code
+        string status
+    }
+    Maintenance_Logs {
+        string type
+        string priority
+        string title
+        string description
+        string status
+        string photos
+    }
+    Flags {
+        string field
+        string message
+        string submitted_by
+    }
 ```
 
 ### Tech Stack
@@ -318,21 +358,6 @@ vercel
 ```
 
 Or connect your GitHub repo to Vercel for automatic deploys on push. Add all the environment variables from `.env.local` to your Vercel project settings.
-
-## AirTable Schema
-
-The app uses 6 normalized tables:
-
-| Table | Purpose | Key Fields |
-|-------|---------|------------|
-| **Tools** | Equipment catalog | name, description, category, location, materials, PPE, image, safety docs |
-| **Categories** | Two-level taxonomy | group (e.g. "3D Printing"), subcategory (e.g. "FDM") |
-| **Locations** | Physical layout | room, zone |
-| **Units** | Individual machines | tool (linked), unit_label, serial_number, qr_code, status |
-| **Maintenance_Logs** | Issue tracking | unit (linked), type, priority, title, description, photos, status |
-| **Flags** | Data corrections | tool (linked), field, message, submitted_by |
-
-Tools link to Categories and Locations. Units link to Tools. Maintenance_Logs link to Units.
 
 ## Commands
 
