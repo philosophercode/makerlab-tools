@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import {
   fetchAllTools,
   fetchAllCategories,
@@ -15,6 +17,9 @@ export default async function HomePage() {
   let error: string | null = null;
 
   try {
+    // eslint-disable-next-line no-console
+    console.log("[DEBUG] Home page is running tool fetch...");
+
     const [tools, categories, locations] = await Promise.all([
       fetchAllTools(),
       fetchAllCategories(),
