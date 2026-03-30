@@ -15,7 +15,7 @@ import FlagButton from "@/components/FlagButton";
 import ImageActions from "@/components/ImageActions";
 import MobileToolLayout from "@/components/MobileToolLayout";
 
-export const revalidate = 3600; // ISR: 1 hour — tool data rarely changes
+export const revalidate = 300; // ISR: 5 min — align with Airtable attachment URL lifetime
 
 export default async function ToolDetailPage({
   params,

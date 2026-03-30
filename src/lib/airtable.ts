@@ -40,6 +40,7 @@ async function airtableFetch(
   const url = `${API_URL}/${BASE_ID}${path}`;
   const res = await fetch(url, {
     ...options,
+    next: { revalidate: 300 },
     headers: {
       Authorization: `Bearer ${API_KEY}`,
       "Content-Type": "application/json",

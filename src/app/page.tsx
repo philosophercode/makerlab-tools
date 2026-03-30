@@ -8,7 +8,7 @@ import { Suspense } from "react";
 import HomeClient from "@/components/HomeClient";
 import { siteConfig } from "@/lib/site-config";
 
-export const revalidate = 3600; // ISR: 1 hour — tool data rarely changes
+export const revalidate = 300; // ISR: 5 min — align with Airtable attachment URL lifetime
 
 export default async function HomePage() {
   let resolved: import("@/lib/types").ToolWithMeta[] = [];
