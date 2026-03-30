@@ -123,9 +123,20 @@ async function createRecord<T>(
 // ── Public API ──────────────────────────────────────────────────────
 
 export async function fetchAllTools(): Promise<ToolRecord[]> {
-  return fetchTable<ToolFields>(TABLES.tools, {
+  const records = await fetchTable<ToolFields>(TABLES.tools, {
     sort: [{ field: "name", direction: "asc" }],
   });
+
+  // Temporary debug: inspect raw Airtable response when tools appear empty.
+  // eslint-disable-next-line no-console
+  console.log("[airtable] fetchAllTools records.length:", records.length);
+  // eslint-disable-next-line no-console
+  console.log(
+    "[airtable] fetchAllTools records[0]:",
+    records[0] ? JSON.stringify(records[0], null, 2) : null
+  );
+
+  return records;
 }
 
 export async function fetchTool(id: string): Promise<ToolRecord> {
