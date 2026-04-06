@@ -173,3 +173,14 @@ export interface FlagFields {
 }
 
 export type FlagRecord = AirtableRecord<FlagFields>;
+
+// ── Gallery (project cards) ─────────────────────────────────────────
+
+/** Shape for gallery list cards; shared by UI and mock data until a DB source is wired. */
+export interface GalleryCardProps {
+  id: string;
+  title: string;
+  description: string;
+  imageUrl: string;
+  tools: string[];
+}

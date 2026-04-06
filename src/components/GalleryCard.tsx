@@ -1,14 +1,6 @@
-"use client";
-
 import Link from "next/link";
 
-export interface GalleryCardProps {
-  id: string;
-  title: string;
-  description: string;
-  imageUrl: string;
-  tools: string[];
-}
+import type { GalleryCardProps } from "@/lib/types";
 
 function FallbackImage() {
   return (
