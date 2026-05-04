@@ -1,92 +1,146 @@
 # MakerLab Tools v5 — Architecture Plan
 
-> **Status:** Draft · **Author:** Isaac · **Date:** 2026-04-21
+> **Status:** Draft · **Author:** Isaac · **Date:** 2026-04-29
 >
-> This document describes three related changes planned for v5:
-> 1. Migrating the data layer from **AirTable → Notion**.
-> 2. Adding a new **Student Projects** section (scaffold only — not implemented in this plan).
-> 3. Adding **AI-Assisted Tool Ingestion** to the chat — drop a photo, AI fills the row, drafts land in Notion for staff to publish.
+> v5 narrows the v4 surface area to **two pages plus an everywhere-chat overlay**, backed by Notion instead of AirTable. This document covers the v5 initial release. Four post-v1 phases — MCP, Maintenance/Flag forms, Student Projects, and AI-Assisted Tool Ingestion — are sketched in §4 (Roadmap).
 
 ---
 
 ## 1. Why v5
 
-v4 works, but three friction points keep showing up:
+v4 works, but the data layer holds it back. Staff already live in Notion for docs, SOPs, and onboarding — keeping tool records in AirTable means double-entry whenever a tool gets a new manual or policy update, and the relations between "this tool" and "the doc page about this tool" today live as URL strings instead of real links.
 
-- **AirTable is a data silo.** Staff already live in Notion for docs, SOPs, and onboarding. Keeping tool records in a separate system means double-entry whenever a tool gets a new manual, a new safety doc, or a policy update. Relations between "this tool" and "the doc page about this tool" today live as URL strings, not real links.
-- **The catalog is read-mostly, but writes (maintenance reports, flags) need a human-friendly review surface.** AirTable's grid is great for that. Notion's database views + comments are arguably better, since reviewers can discuss individual reports inline.
-- **Inventory ingestion is manual and slow.** Adding a new tool today means creating an AirTable row by hand, hunting for an image, copy-pasting safety info from a manual. Quality varies; staff put it off. v5 introduces an AI-assisted ingestion flow inside the chat (§5) so adding a tool becomes "drop a photo and confirm."
-
-The v5 migration moves the source of truth to Notion while preserving the v4 Next.js frontend, the Claude chat tool-calling, and the MCP endpoint.
-
-Two new features ride on top of the migration: **Student Projects** (a gallery section that exercises bi-directional Notion relations) and **AI-Assisted Tool Ingestion** (chat-based intake that lets the AI fill out tool records from a photo).
+v5 makes Notion the single source of truth and trims the v4 UI surface to what's actually being used: a gallery, a tool detail page, and a context-aware chat overlay. Everything else (write surfaces, MCP, Student Projects, AI ingestion) is roadmapped for subsequent phases — see §4.
 
 ---
 
-## 2. Target Architecture
+## 2. Target Architecture (v1)
 
 ```mermaid
 graph TB
     subgraph Browser["Browser"]
-        React["React 19 + Tailwind CSS 4"]
-        Upload["Image upload (in chat)"]
-        QR["QR Scanner"]
+        Gallery["/  (Gallery)<br/>searchable + filterable"]
+        Detail["/tools/[id]  (Detail)<br/>tool info + inline units"]
+        ChatFAB["💬 Chat FAB<br/>(overlay on both pages)"]
     end
 
     subgraph Vercel["Vercel"]
-        subgraph Pages["Pages — Server Components<br/>(ISR: revalidate 3600s)<br/>filter: published=true"]
-            Home["/"]
-            Tools["/tools/[id]"]
-            Units["/units/[id]"]
-            Chat["/chat"]
-            Scan["/scan"]
-            Report["/report"]
-            Projects["/projects"]
-            ProjectDetail["/projects/[slug]"]
-        end
-        subgraph API["API Routes"]
-            ChatAPI["/api/chat<br/>tools: read · web_search · web_fetch · create_tool_draft"]
-            MaintAPI["/api/maintenance"]
-            FlagAPI["/api/flag"]
-            ProjectsAPI["/api/projects"]
-            MCP["/api/mcp"]
-        end
+        Pages["Server Components<br/>(ISR: revalidate 3600s)"]
+        ChatAPI["/api/chat  (read-only)<br/>tools: search_tools · get_tool ·<br/>web_search · web_fetch"]
     end
 
-    subgraph External["External Services"]
-        Notion[("Notion · 7 databases<br/>Tools.published checkbox")]
+    subgraph External["External"]
+        Notion[("Notion · 6 DBs<br/>Tools · Categories · Locations · Units<br/>Maintenance_Logs · Flags")]
         Claude["Claude API<br/>vision + tool use"]
     end
 
-    Browser <-->|HTTP| Vercel
-    Upload --> ChatAPI
+    Gallery -->|opens| ChatFAB
+    Detail -->|opens| ChatFAB
+    Gallery <-->|HTTP| Pages
+    Detail <-->|HTTP| Pages
+    ChatFAB -->|stream| ChatAPI
     Pages -->|Notion SDK| Notion
     ChatAPI -->|streaming + tool calls| Claude
-    ChatAPI -->|create_tool_draft<br/>published=false| Notion
-    MaintAPI -->|Create page| Notion
-    FlagAPI -->|Create page| Notion
-    ProjectsAPI -->|Query| Notion
-    MCP -->|Query| Notion
-
-    Staff["Staff in Notion<br/>flips published → true"]
-    Staff --> Notion
+    ChatAPI -->|read-only queries| Notion
 ```
 
-**What changes:**
-- `src/lib/airtable.ts` → `src/lib/notion.ts` (same public shape; different backend).
-- New `/projects` routes and `/api/projects` route.
-- Chat route gains write capability: one new tool `create_tool_draft`, plus reuse of native Claude vision + the existing `web_search` / `web_fetch` tools (see §5).
-- Chat route also gains a read tool: `search_student_projects` (see §4).
-- MCP gets two new methods: `list_projects`, `get_project`.
-- `Tools` Notion DB gains a `published` checkbox property; pages query filters on it.
+### The two pages
 
-**What stays the same:**
-- Page structure, component library, theming, site-config.
-- Claude chat UX (just expanded), QR scanner, maintenance form.
-- Vercel deploy, env-var pattern for white-labeling.
+| Path | Purpose | Data fetched |
+|---|---|---|
+| `/` | **Gallery** — all tools, searchable + filterable by name / category / location / tag | All `Tools`, with resolved Categories + Locations |
+| `/tools/[id]` | **Tool detail** — full info; inline list of Units for that tool | One `Tool` + its Category + Location + linked Units |
 
-**What's removed from v4:**
-- Gemini image generation (out of scope for v5; the `generated_image` field is deprecated).
+### The chat FAB (everywhere)
+
+A floating button in the bottom-right corner of every page opens a chat overlay (sheet/modal). The chat session opens with a **context-aware system prompt** assembled server-side based on which page invoked it:
+
+- **From Gallery:** system prompt includes a compact summary of every tool in the catalog (name, id, category, brief description). Claude can answer *"do you have a vinyl cutter?"* without needing a search call.
+- **From a Tool page:** same all-tools summary, **plus** the full detail of the focal tool — its description, SOP, manual contents (where extractable), materials, PPE, training requirements. Claude behaves as a domain expert on that specific tool.
+
+For v1, the chat is **read-only** — it can search and answer questions but cannot write to Notion. Write capability ships in phase §4.4 (AI Ingestion).
+
+### Visual Design — "Technical Schematic"
+
+Full design system: [`docs/MakerLab_design/DESIGN.md`](MakerLab_design/DESIGN.md). Reference HTML implementing the gallery: [`docs/MakerLab_design/code.html`](MakerLab_design/code.html). Target screenshot: [`docs/MakerLab_design/screen.png`](MakerLab_design/screen.png).
+
+The design philosophy is **Architectural Brutalism + Blueprint Archive**: dark, industrial-editorial, uncompromising. The intent is "live engineering tool" rather than soft consumer surface — the UI should feel constructed rather than decorated.
+
+**Color tokens** (Safety Orange primary, Cornell Crimson secondary):
+
+| Token | Hex | Use |
+|---|---|---|
+| `background` | `#0F0F0F` | Base; rendered with 32px blueprint dot pattern at ~3% opacity |
+| `surface-container-low` | `#131313` | Section backgrounds |
+| `surface-container` | `#1A1A1A` | Cards |
+| `surface-container-high` | `#2A2A2A` | Hover states / nested |
+| `primary` | `#FF6B35` | Safety Orange — CTAs, focus, brand |
+| `secondary` | `#B31B1B` | Cornell Crimson — heritage accents only |
+| `on-surface` | `#F5F5F0` | Body text (cream, not pure white) |
+| `outline` | `#2A2A2A` | Borders |
+
+**Typography stack:**
+
+| Role | Font | Notes |
+|---|---|---|
+| Display | **Space Grotesk** 500/700 | Headlines, ALL CAPS, tight tracking |
+| Body | **Inter** 400/500 | Standard tracking, high legibility |
+| Metadata / Labels | **JetBrains Mono** 500 | UPPERCASE, terminal-ish (`> TRAINING: ADVANCED`) |
+
+**Hard rules** (enforced at the Tailwind-config level):
+
+- **0px border radius everywhere** — even `rounded-full` is overridden to `0px`. The chat FAB is a square.
+- **No drop shadows.** Depth through tonal layering only. The exception: a single 64px-blur ambient glow at low opacity for floating overlays.
+- **No solid 1px dividers between sections.** Use surface tonality shifts.
+- Snap layout to a **32px blueprint grid**.
+- **Crosshair corner accents** (12px 1px lines) on featured cards / hero containers.
+- Animations are snappy: 150–200ms, linear or ease-in. No bouncy / elastic.
+
+### Gallery (`/`) — Layout Spec
+
+Derived from `code.html`. Top to bottom:
+
+- **Sticky top nav** — `MAKERLAB // CORNELL TECH` lockup; nav links `TOOLS / PROJECTS / ABOUT` (Projects link can be inert in v1 since the gallery is deferred to §4.3); settings + account icons.
+- **Status strip** — live-counter row with pulsing dots: `● 100 TOOLS ONLINE`, `● 12 AWAITING TRAINING`, `LAB OPEN 9AM–9PM`. *(v1 simplification: may need to derive from `Units.status` and hardcode lab hours from `site-config` since real-time machine status isn't yet wired in.)*
+- **Page header** — large `TOOLS // MACHINES` title in Space Grotesk uppercase, with a `my_location` material icon.
+- **Search + filters bar** with crosshair-corner accents:
+  - Search input prefixed with a `>` prompt glyph (terminal vibe)
+  - Category filter chips (driven by `Categories` table)
+  - Training filter chips (Beginner / Advanced)
+  - View toggle: `[ GRID ]` / `[ TABLE ]` *(table view nice-to-have for v1; grid is the default)*
+- **Card grid** — `grid-cols-1 md:grid-cols-2 xl:grid-cols-3`, 32px gap. Each card:
+  - Tool image, top, `h-48`, `mix-blend-luminosity opacity-80` by default → normal blend on hover
+  - Name in Space Grotesk uppercase
+  - Description in Inter
+  - Bottom metadata strip (JetBrains Mono): `> TRAINING: …` and `> ZONE: …`
+  - Border `outline` → `primary` (orange) on hover
+  - Pulsing dot in top-right for "In Use" units
+- **Floating chat FAB** (bottom-right, fixed): 56×56 square, `primary` background, `>_` label in JetBrains Mono, glow shadow `0 0 40px rgba(255,107,53,0.3)`. Inverts to white-on-orange on hover.
+
+### Tool Detail (`/tools/[id]`) — Layout Notes
+
+Same global chrome (top nav, status strip, FAB). Page-specific additions, applying the same Technical Schematic vocabulary:
+
+- Hero image + tool name (Space Grotesk uppercase) at top
+- Spec table using JetBrains Mono labels + Inter values
+- Inline `<UnitsList />` — each physical unit rendered as a row with status (pulsing dot for "In Use"), serial, condition
+- Safety / PPE info treated with `secondary` (Cornell Crimson) accent for a "warning stamp" feel
+- Manual / SOP / video links as JetBrains Mono chips
+- Crosshair corners on the hero card
+
+### What stays the same as v4
+
+- Next.js 16 + React 19 + Tailwind 4 + TypeScript
+- White-label site-config pattern, env-var contract
+- Vercel deploy
+
+### What's removed from v4
+
+- QR scanner (`/scan`)
+- Standalone chat page (`/chat`) — replaced by FAB overlay
+- Standalone Units pages (`/units/[id]`) — units inline on tool detail
+- Maintenance form (`/report`) and Flag form — UI surfaces dropped (returns in §4.2)
+- Gemini image generation — `generated_image` field deprecated
 
 ---
 
@@ -96,17 +150,52 @@ graph TB
 
 | v4 AirTable Table  | v5 Notion Database   | Notes                                                       |
 |--------------------|----------------------|-------------------------------------------------------------|
-| Tools              | `Tools`              | `category`, `location` become Notion **Relation** props. New `published` checkbox (schema default `false`; migration backfills existing tools to `true`; chat-created drafts stay `false`). |
+| Tools              | `Tools`              | `category`, `location` become Notion **Relation** props. Three fields removed (see below). |
 | Categories         | `Categories`         | Unchanged.                                                  |
-| Locations          | `Locations`          | Unchanged.                                                  |
-| Units              | `Units`              | `tool` = Relation to `Tools`.                               |
-| Maintenance_Logs   | `Maintenance_Logs`   | `unit` = Relation. Photos → Notion file property.           |
-| Flags              | `Flags`              | `tool` = Relation.                                          |
-| *(new)*            | `Projects`           | See §4. `tools` = Relation to `Tools` (bi-directional).     |
+| Locations          | `Locations`          | Restructured to a 3-level hierarchy: `room → zone → id` (see below). |
+| Units              | `Units`              | `tool` = Relation to `Tools`. Rendered inline on tool detail page. `qr_code_id` swapped for `uuid` (see below). |
+| Maintenance_Logs   | `Maintenance_Logs`   | Schema retained; UI returns in §4.2.                        |
+| Flags              | `Flags`              | Schema retained; gains a Title field (`title`); UI returns in §4.2. |
+
+### Field-level changes (v4 → v5)
+
+The migration is mostly a 1:1 port, but a few fields are removed, renamed, or restructured.
+
+**`Tools` — three removals, one restructure:**
+
+| Change | Field | Reason |
+|---|---|---|
+| Remove | `description_reviewed` | No AI-generated descriptions in v1 (returns with §4.4). |
+| Remove | `authorized_only` | Overlaps with `training_required`. |
+| Remove | `generated_image` | Gemini deprecated. |
+| Restructure | `map_tag` → moves into `Locations` as `id` | The physical map identifier belongs to the spot, not the tool. See `Locations` below. |
+
+**`Locations` — restructured to a 3-level hierarchy `room → zone → id`:**
+
+| Field | Notion type | Notes |
+|---|---|---|
+| `id` | **Title** | Physical map marker, e.g., `"L-12"`. One row per physical spot in the lab. |
+| `zone` | Select or Rich text | e.g., `"North Bench"`. |
+| `room` | Select or Rich text | e.g., `"Wood Shop"`. |
+
+The previous `name` (zone) field is replaced by promoting `id` to the Title slot and demoting `zone` to a regular property. Each tool relates to a single Location, and the gallery / detail page can render it as `Wood Shop → North Bench → L-12`.
+
+Trade-off vs. keeping `location_id` as a Tool field: more Location rows up-front (one per spot, ~50–100 depending on lab size), but moving a tool is a single relation change instead of editing two fields, and "what's at L-12?" becomes a one-query lookup.
+
+**`Units` — swap one field:**
+
+| Change | Field | Reason |
+|---|---|---|
+| Remove | `qr_code_id` | Conflated identity with QR encoding. |
+| Add | `uuid` | Canonical unit ID. The QR code is a *rendering* of the UUID, not a separate string. |
+
+**`Flags` — add a Title field:**
+
+Notion requires every database to have a Title property; v4's Flags has no obvious Title. Add `title` (Rich text, promoted to Title slot) and auto-derive it on create: `"<field_flagged> on <tool name>"` (e.g., `"description on Bambu X1"`).
 
 ### Env-var contract
 
-Keep the same pattern as v4 — each database ID lives behind an env var:
+Same pattern as v4 — each database ID lives behind an env var:
 
 ```
 NOTION_API_KEY=secret_...
@@ -116,10 +205,9 @@ NOTION_DB_LOCATIONS=...
 NOTION_DB_UNITS=...
 NOTION_DB_MAINTENANCE_LOGS=...
 NOTION_DB_FLAGS=...
-NOTION_DB_PROJECTS=...
 ```
 
-This keeps white-labeling identical: a new org creates a Notion workspace, runs a setup script, and pastes seven IDs into `.env.local`.
+White-labeling stays identical: a new org creates a Notion workspace, runs a setup script, pastes six IDs into `.env.local`.
 
 ### Type strategy
 
@@ -140,177 +228,80 @@ The existing `ToolWithMeta` (the resolved, denormalized shape used everywhere in
 
 Notion's API is rate-limited (3 req/sec avg) and each `tools` page touches several related records, so we cache aggressively. Two layers do the job:
 
-- **Route-level ISR** — every server-rendered page sets `export const revalidate = 3600`. Pages are regenerated at most once per hour per URL. This is the dumbest and most reliable cache strategy Next.js offers; it requires no wrappers, no tag schemes, and no webhooks. The cost is up to one hour of staleness when staff edit a tool in Notion — acceptable for a low-traffic catalog.
+- **Route-level ISR** — every server-rendered page sets `export const revalidate = 3600`. Pages are regenerated at most once per hour per URL. Dumbest, most reliable cache strategy Next.js offers; no wrappers, no tag schemes, no webhooks. Cost: up to one hour of staleness on edits — fine for a low-traffic catalog.
 - **Per-request memoization** — inside a single page render, hydrate a `Map<string, CategoryRecord>` once and reuse it. Solves the N+1 fan-out (a tool page resolves category + location + units in one render) without any cross-request infrastructure.
 
-A future v5.1 can add fine-grained tag invalidation via `unstable_cache` and a Notion webhook if staleness becomes a real complaint. Not needed for v1.
+A future v5.x can add fine-grained tag invalidation via `unstable_cache` and a Notion webhook if staleness becomes a real complaint. Not needed for v1.
 
 ---
 
-## 4. New Feature: Student Projects (Scaffold)
+## 4. Roadmap (post-v1)
 
-### User Stories
+Four planned phases, in priority order. Each becomes its own design doc and implementation plan when picked up.
 
-- **Student Priya** opens the laser cutter page. She scrolls down past the specs and sees a grid of 6 photos — "Projects made with this tool." She taps one, reads the build write-up, and notices it also used the CNC router. She taps that chip and ends up on the CNC page.
-- **Lab manager Joel** asks the chat: *"What are some good student projects for a beginner to see before using the laser cutter?"* Claude calls `search_student_projects({ tool_id: "tool_laser_cutter", difficulty: "beginner" })`, gets three projects back, and summarizes each with a link.
-- **Prospective student Sam** opens `/projects` to browse the gallery before applying. He filters by "wood" and finds the Cornell Maker Club build.
+### 4.1 MCP Endpoint
 
-### Data model — `Projects` database
+Expose the catalog over the Model Context Protocol so external agents (other Claude Code sessions, IDE plugins, etc.) can query tools without going through the browser. Read-only methods: `list_tools`, `get_tool`, `search_tools`.
 
-| Field           | Type                          | Notes                                                                    |
-|-----------------|-------------------------------|--------------------------------------------------------------------------|
-| `title`         | Title                         | "Kinetic Sand Table"                                                      |
-| `slug`          | Rich text (URL-safe)          | Used for `/projects/[slug]`.                                              |
-| `student_name`  | Rich text                     | Optional; may be omitted for privacy.                                     |
-| `summary`       | Rich text (≤240 chars)        | Shown on cards and in chat responses.                                     |
-| `hero_image`    | Files & media                 | Primary photo. Shown on card + top of detail page.                        |
-| `gallery`       | Files & media (multi)         | Additional photos for the detail page.                                    |
-| `body`          | Notion page body              | The blog-style writeup lives as page children, not a DB field.            |
-| `tools`         | **Relation → Tools**          | Many-to-many, bi-directional. Drives both sides of the UI.                |
-| `keywords`      | Multi-select                  | "kinetic," "wood," "arduino," "lighting." Used for filtering + chat search. |
-| `difficulty`    | Select                        | "beginner" · "intermediate" · "advanced".                                 |
-| `featured`      | Checkbox                      | Show on home page / featured rail.                                        |
-| `created_at`    | Created time                  | Auto.                                                                     |
+Lives at `/api/mcp` and reuses the same Notion fetchers as the public pages. Lowest-risk addition (no UI, no writes), so it goes first.
 
-**On the Tools database, add a corresponding Relation column** `projects` (the other side of `projects.tools`). Notion populates this automatically once the relation is marked bidirectional — no sync code required.
+### 4.2 Maintenance & Flag Forms
 
-### Routes & components (to scaffold)
+Bring back two write surfaces that v1 dropped:
 
-```
-src/app/projects/
-├── page.tsx                    # Gallery index — grid of ProjectCards with filters
-└── [slug]/page.tsx             # Detail page — hero, body, tool chips, keyword chips
+- **Maintenance reporting** — staff/students report a problem with a tool or unit. Writes to `Maintenance_Logs`.
+- **Content flags** — users flag incorrect catalog info (wrong description, missing PPE, etc.). Writes to `Flags`.
 
-src/app/api/projects/
-└── route.ts                    # GET (list + filters) for client-side filter UI & MCP
+Open design choice: implement these as small forms (modals on the tool detail page) **or** as chat tools (`report_maintenance`, `flag_tool`) inside the existing FAB. Tables already exist from the v1 migration, so this phase is purely about the write surface.
 
-src/components/
-├── ProjectCard.tsx             # Photo + title + summary + 2–3 tool chips
-├── ProjectToolChips.tsx        # Linked chips (→ /tools/[id])
-├── ProjectKeywordChips.tsx     # Non-linked chips; click filters the gallery
-└── ToolProjectsSection.tsx     # Rendered on /tools/[id] — "Projects using this tool"
-```
+### 4.3 Student Projects Gallery
 
-**Integration point in existing code:**
-- `src/app/tools/[id]/page.tsx` — add `<ToolProjectsSection toolId={tool.id} />` near the bottom of the page.
+Add a `Projects` Notion database with a bi-directional relation to `Tools`. New routes `/projects` (gallery) and `/projects/[slug]` (detail), plus a "Projects using this tool" rail on each tool page. Adds a chat tool `search_student_projects` for chat-based discovery.
 
-### Project Detail Page — Layout Sketch
+The showcase feature — a gallery of student build write-ups that exercises Notion's relational power and gives prospective students something to browse before applying.
 
-```
-┌────────────────────────────────────────────────┐
-│  [hero image — full bleed]                     │
-├────────────────────────────────────────────────┤
-│  Kinetic Sand Table                            │
-│  by Priya S. · intermediate · Mar 2026         │
-│                                                │
-│  Tools used:                                   │
-│  [Laser Cutter] [CNC Router] [Arduino Kit]     │
-│                                                │
-│  Keywords:                                     │
-│  [kinetic] [wood] [arduino] [lighting]         │
-├────────────────────────────────────────────────┤
-│  ## How I built it                             │
-│  I started with a 24×24 plywood base…          │
-│  (Notion page body rendered as Markdown)       │
-│                                                │
-│  [gallery photo]   [gallery photo]             │
-│                                                │
-│  ## What I'd do differently                    │
-│  …                                             │
-└────────────────────────────────────────────────┘
-```
+**Sketch of `Projects` data model:**
+- `title`, `slug`, `student_name` (optional), `summary`, `hero_image`, `gallery`, `body` (page content)
+- `tools` — Relation to `Tools` (many-to-many, bi-directional)
+- `keywords` (multi-select), `difficulty` (beginner/intermediate/advanced), `featured` (checkbox)
 
-### Tool Page — Integration Sketch
+Detailed design (full data model, layout sketches, integration points) will be its own doc when this phase is picked up.
 
-Appended to the bottom of each tool detail page:
+### 4.4 AI-Assisted Tool Ingestion (via Chat FAB)
 
-```
-─── Student Projects ──────────────────────────────
-[card] [card] [card] [card]   →  (View all N)
-```
+The chat FAB gains write capability: drop a photo (and optionally some text or a product URL), the AI identifies the product via vision, web-searches for canonical info, scrapes the seller page, and proposes a complete tool record. User confirms in chat → the row gets created in Notion as an unpublished draft.
 
-Each card is a `ProjectCard`. Clicking a card → `/projects/[slug]`. "View all" → `/projects?tool=<toolId>`.
+#### Who & Why
 
-### AI Chat Integration
+Anyone — student, intern, or admin — can add inventory through the chat. The AI does the heavy lifting (identification, data gathering, image fetching) so the user only has to confirm or correct. This makes the chat *both* an output surface ("what tools do you have?") and an input surface ("here's a new one") through the same UI.
 
-Add one new tool-use function to `src/app/api/chat/route.ts`:
+#### The Safety Boundary — Drafts Then Publish (Hard Policy)
 
-```ts
-{
-  name: "search_student_projects",
-  description:
-    "Search student projects in the gallery. Use when the user asks for examples of projects, " +
-    "projects made with a specific tool, or projects tagged with a theme/material.",
-  input_schema: {
-    type: "object",
-    properties: {
-      tool_id:    { type: "string", description: "Filter by projects that used this tool." },
-      keyword:    { type: "string", description: "Filter by keyword (matches any of the project's keywords)." },
-      difficulty: { type: "string", enum: ["beginner", "intermediate", "advanced"] },
-      limit:      { type: "number", default: 5 },
-    },
-  },
-}
-```
+The chatbot can write drafts but **cannot publish**. Enforced at the tool-surface level, not in prompt instructions:
 
-Claude will pick this up automatically from the user's question. No system-prompt changes needed beyond mentioning that student projects are now part of the catalog.
-
-Example interactions the tool enables:
-
-| User asks                                         | Claude calls                                                  |
-|---------------------------------------------------|---------------------------------------------------------------|
-| *"What can I build with the laser cutter?"*       | `search_student_projects({ tool_id: "recXYZ" })`              |
-| *"Show me beginner-friendly wood projects."*      | `search_student_projects({ keyword: "wood", difficulty: "beginner" })` |
-| *"What tools did Priya use for the sand table?"*  | `get_project({ slug: "kinetic-sand-table" })` → extracts tool IDs → `get_tool` per ID |
-
-### MCP Integration
-
-Expose two new methods in `src/app/api/mcp/route.ts`:
-
-- `list_projects({ tool_id?, keyword?, difficulty?, limit? })` — paginated list.
-- `get_project({ slug })` — full detail, including tool relations and markdown body.
-
-This lets external agents (and other Claude Code sessions) query the gallery without a browser.
-
----
-
-## 5. New Feature: AI-Assisted Tool Ingestion (Chat)
-
-### The Problem
-
-Adding a new tool to the catalog today is manual: open AirTable, fill 15 fields, hunt for an image, copy safety info from a manual. Quality is uneven, staff defer it, and the catalog drifts out of date. v5 makes ingestion a chat conversation: drop a photo, the AI fills the row, you confirm, it lands as a draft in Notion for staff to review and publish.
-
-### The Surface — Chat as Read+Write Interface
-
-Rather than building a new admin page, the existing `/chat` becomes the unified read+write interface. The same Claude conversation can search the catalog *and* propose new tool drafts. No new routes, no new auth surface.
-
-### The Safety Boundary — Drafts Then Publish (Hard Policy)
-
-The chatbot can write drafts but **cannot publish**. This is enforced at the tool-surface level, not in prompt instructions:
-
-- A new `published` checkbox on the `Tools` Notion DB defaults to `false`.
+- A new `published` checkbox on the `Tools` Notion DB defaults to `false`. (Schema migration ships with this phase; existing tools backfilled to `true` so nothing disappears from the public site.)
 - The chat has one new write tool (`create_tool_draft`) that always sets `published: false`.
-- **No `publish_tool` or `set_published` tool exists.** Publishing happens exclusively in Notion, by a human, by checking the box.
-- Pages query Notion with a `published = true` filter, so drafts never appear on the public site.
+- **No `publish_tool` or `set_published` tool exists.** Publishing happens exclusively in Notion, by an admin, by checking the box.
+- Pages query Notion with a `published = true` filter, so drafts never appear in the gallery or detail pages.
 
-This pattern is stronger than telling the model "please don't publish" — no system-prompt jailbreak can grant a capability that doesn't exist in the function-calling schema.
+This is stronger than telling the model "please don't publish" — no system-prompt jailbreak can grant a capability that doesn't exist in the function-calling schema. Acts as a vetting gate for chat-created content.
 
-### The AI Workflow — Vision + Web Search + Scrape
+#### The AI Workflow — Vision + Web Search + Scrape
 
-Three native Claude capabilities do all the analysis work; we add **one** custom write tool:
+Three native Claude capabilities do the analysis; we add **one** custom write tool:
 
 | Capability | Source | Role |
 |---|---|---|
 | Vision | Built into Claude (sees image in conversation) | Identify the product from the photo. |
-| `web_search` | Already wired in v4 chat | Find the canonical product page (manufacturer site, McMaster, Bambu, etc.). |
+| `web_search` | Already wired in v1 chat | Find the canonical product page (manufacturer site, McMaster, Bambu, etc.). |
 | `web_fetch` | Anthropic built-in tool | Scrape the canonical page for specs, materials, manual links, hero image URL. |
 | `create_tool_draft` | **New custom tool** | Write the draft row to Notion (atomic: also creates a new Category if the AI proposed one). |
 
-### Conversation Flow
+#### Conversation Flow
 
 **Happy path:**
 
-> **Staff:** *[attaches photo of a printer on a workbench]* "add this to the catalog"
+> **User (chat FAB on gallery):** *[attaches photo of a printer on a workbench]* "add this to the catalog"
 >
 > **Claude:** *(sees image natively → identifies "Bambu Lab X1 Carbon" → calls `web_search` → calls `web_fetch` on the manufacturer page)*
 >   "Here's a draft:
@@ -319,7 +310,6 @@ Three native Claude capabilities do all the analysis work; we add **one** custom
 >   - **Description:** Enclosed CoreXY 3D printer with auto bed leveling…
 >   - **Materials:** PLA, PETG, ABS, PA-CF
 >   - **PPE:** Safety glasses recommended near hot end
->   - **Training required:** Yes
 >   - **Hero image:** ![](https://bambulab.com/.../x1-hero.jpg)
 >   - **Manual:** [PDF](…)
 >
@@ -327,40 +317,14 @@ Three native Claude capabilities do all the analysis work; we add **one** custom
 >
 >   Save this as a draft? Reply 'yes' or tell me what to change."
 >
-> **Staff:** "yes"
+> **User:** "yes"
 >
 > **Claude:** *(calls `create_tool_draft({ ... published: false })`)*
 >   "Done. [Open in Notion to review and publish →](https://notion.so/...)"
 
-**Refinement path** — corrections happen in chat, no Notion writes until confirm:
+Refinement happens in chat (no Notion writes until confirm). Category creation is atomic with tool creation. The AI's chosen `hero_image_url` is server-side downloaded and uploaded to Notion's file property, so the catalog stays self-contained.
 
-> **Staff:** "category is wrong, that's a resin printer"
-> **Claude:** "Updated. **Category:** 3D Printing → Resin Printers. Save now?"
-
-**Shortcut path** — staff already has the URL:
-
-> **Staff:** "add https://bambulab.com/x1-carbon to the catalog"
-> **Claude:** *(skips identification, goes straight to `web_fetch`)* …draft as above…
-
-### Category Handling — AI Can Create New
-
-The AI tries to match an existing Category from Notion. If no match has high confidence:
-
-- The AI proposes a new Category by name (e.g., "Vinyl Cutters") in the chat preview.
-- On `create_tool_draft`, the server creates the new Category row in Notion atomically with the Tool row, then links them.
-- Staff can rename or remap the Category in Notion before flipping `published: true`.
-
-Categories created by chat aren't gated by a `published` flag of their own — the Tool referencing them stays drafted regardless, so unused new Categories are easy to spot and clean up.
-
-### Location Handling — Always Human
-
-The AI cannot know where a tool physically lives in the lab. `location` is left blank on the AI draft; staff sets it in Notion as part of the publish step.
-
-### Image Handling
-
-When `create_tool_draft` runs, the server-side handler downloads the AI's chosen `hero_image_url` and uploads it to Notion's file property (`image_attachments`). This matches the existing schema and avoids broken links if the seller URL changes. Vercel Blob remains a v5.1 option if Notion's 1-hour signed URLs become a real performance issue.
-
-### Tool Spec — `create_tool_draft`
+#### Tool Spec — `create_tool_draft`
 
 ```ts
 {
@@ -392,69 +356,50 @@ When `create_tool_draft` runs, the server-side handler downloads the AI's chosen
 }
 ```
 
-The "only call after explicit confirmation" rule lives in the tool description itself, not just the system prompt — Claude treats this as canonical.
+#### Open Questions for This Phase
 
-### Schema Change
-
-```diff
-  Tools (Notion database)
-+   published: Checkbox  # default false; pages query filters published=true
-```
-
-Migration: existing tools backfilled to `published: true` on cutover so nothing disappears from the public site.
-
-### Failure Modes Handled in Conversation
-
-- **Can't identify the product.** "I can't tell what this is from the photo. What's the product name or a URL?"
-- **Multiple candidates.** "This looks like either an Ultimaker S5 or S7 — which is it?"
-- **Notion write fails.** Surface the error in chat with a retry option. No partial state.
-- **Image download fails.** Save the draft without `image_attachments`; chat tells the staff to add it manually in Notion.
+- Rate-limiting `create_tool_draft` calls (anti-abuse / accidental-bulk).
+- Markdown preview (simplest) vs. rich card UI in chat with inline edit.
+- Cleanup workflow for orphan Categories the AI created and got remapped/abandoned.
+- Should chat-created drafts be visible to *anyone* (transparent) or hidden from the public site until published (current plan)? Current plan is hidden, but a "drafts pending review" page might be useful.
 
 ---
 
-## 6. Out of Scope for This Plan
+## 5. Out of Scope
 
-Intentionally *not* addressed here — would each be their own plan:
+Truly off the v5 plan (not roadmapped, not promised):
 
-- **Student authentication** — who can submit a project, how moderation works.
-- **Project submission form** — a `/projects/new` page with upload + tool picker.
-- **Auth-gated chat writes** — anyone with the URL can use `create_tool_draft`. Drafts-then-publish is the v1 mitigation; tighter auth (magic link, session) can be added if abuse appears.
-- **Notion → Vercel webhook** — fine-grained tag invalidation on Notion edits. Route-level ISR with a 1-hour TTL is the v1 stand-in (§3).
-- **Image optimization** — Notion hosts images with 1-hour signed URLs; a v5.1 task will need a proxy or re-upload-to-Vercel-blob strategy.
-- **Image generation (Gemini).** v4's `generated_image` field is deprecated and not used by ingestion.
-- **Bulk ingestion.** v5 ingestion handles one tool per chat turn. Drag-and-drop a folder of 30 photos → 30 drafts is a v5.1 idea.
-- **Unit creation in chat.** Adding individual `Units` rows to a Tool is staff-only in Notion for v1.
-- **Analytics** — which projects get viewed, which tool queries fail, which AI drafts get published vs discarded.
+- **Bulk ingestion** — drag-and-drop a folder of 30 photos → 30 drafts. May happen well after §4.4.
+- **Auth-gated chat writes** — the drafts-then-publish gate (§4.4) is the v1 mitigation; tighter auth would be a separate effort.
+- **Notion → Vercel webhook for cache invalidation** — route-level ISR is the v1 stand-in; revisit if staleness becomes a real complaint.
+- **Image optimization beyond Notion** — Notion hosts images with 1-hour signed URLs; a Vercel Blob proxy can come later if needed.
+- **Image generation (Gemini).** v4's `generated_image` field is deprecated.
+- **Analytics** — which tools get viewed, which AI drafts get published vs discarded.
 
 ---
 
-## 7. Open Questions
+## 6. Open Questions (v1)
 
-1. **Privacy default for student_name** — opt-in or opt-out? Proposed: opt-in (blank by default).
-2. **Who writes project pages?** — Staff from student photo submissions, or students directly in Notion? Affects whether we need a submission UI now vs later.
-3. **Categories for keywords** — freeform multi-select, or a curated vocabulary? Freeform is faster; curated keeps the filter UI clean.
-4. **Migration cutover** — dual-write for a week, then switch reads, then drop AirTable? Or big-bang on a quiet day?
-5. **Rate-limiting chat-created drafts** — is there a risk of accidental or malicious bulk-draft creation? If so, a simple per-IP cap on `create_tool_draft` calls per hour.
-6. **Draft preview format** — markdown text in chat (current plan, simplest) vs. a custom React card component with inline edit. Decide after using markdown for a week.
-7. **Cleanup of orphan Categories** — Categories the AI created and got remapped/abandoned. Worth a periodic Notion query, or trust staff to notice?
+1. **Migration cutover** — dual-write for a week, then switch reads, then drop AirTable? Or big-bang on a quiet day?
+2. **Manual-PDF parsing for tool-page chat context** — when injecting tool-specific context for the chat FAB on a tool page, do we extract text from the linked manual PDF, or just include the URL? Extraction is richer but slower and expensive on cold renders.
+3. **Chat session continuity across pages** — if a user opens the chat on the gallery, then navigates to a tool page, does the chat session reset (new context) or persist? Defaulting to reset keeps context coherent; persisting feels more app-like.
 
 ---
 
-## 8. Suggested Build Order
+## 7. Suggested Build Order (v1)
 
 > (High-level only — a separate plan will break each phase into tasks.)
 
-1. **Notion migration** — port the 6 existing tables, add `published` checkbox to Tools, backfill existing tools to `published=true`. Keep `/projects` stubbed.
-2. **Filter `published=true`** on all public reads in `src/lib/notion.ts`.
-3. **Wire `create_tool_draft`** into `/api/chat/route.ts` (the single new tool). Include atomic Category creation + image download.
-4. **Update chat system prompt** to mention ingestion capability and the confirmation rule.
-5. **Add `Projects` database** + types + `getProjects()` / `getProject(slug)`.
-6. **Build `/projects` and `/projects/[slug]`** with the layouts sketched in §4.
-7. **Add `<ToolProjectsSection />`** to the tool detail page.
-8. **Wire `search_student_projects`** into the chat route.
-9. **Expose `list_projects` / `get_project`** via MCP.
-10. **Seed** with 3–5 real projects, dogfood ingestion on 5 real tools, iterate copy/UX.
+1. **Notion migration** — port the 6 existing tables, applying the field-level changes from §3. Validate data fidelity against the v4 AirTable.
+2. **`src/lib/notion.ts`** — replace `src/lib/airtable.ts` behind the same `ToolWithMeta` shape.
+3. **Design system foundation** — port the `tailwind.config` from `docs/MakerLab_design/code.html` (color tokens, font stack, 0px radius enforcement, blueprint background pattern). Add the three Google Fonts to `app/layout.tsx`.
+4. **Global chrome** — sticky top nav + status strip components. Hardcode lab hours; derive counts from Notion where possible.
+5. **Build `/` (gallery)** — server-rendered list with search + filter, applying the gallery layout from §2. ISR revalidate 3600s.
+6. **Build `/tools/[id]` (detail)** — full tool info, inline `<UnitsList />`, applying the detail layout from §2. ISR revalidate 3600s.
+7. **Build `<ChatFAB />` component** — square 56×56 button with glow, overlay sheet. Mounts on both pages.
+8. **Server-side context assembly** — endpoint that builds the chat's system prompt based on `mode: 'gallery' | 'tool'` and an optional `tool_id`.
+9. **Polish & dogfood** — empty states, error handling, mobile layout. Walk through 5 real user flows.
 
 ---
 
-*See also: `makerlab-v5-architecture.png` (root of repo) for the diagrammed version of §2.*
+*Earlier v5 drafts included Student Projects, AI Ingestion, and several supporting screens as v1 features. The current plan narrows v1 to gallery + detail + read-only chat overlay; everything else is roadmapped in §4. See git history for the prior scope.*

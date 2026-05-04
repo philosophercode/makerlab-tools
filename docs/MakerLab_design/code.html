@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MakerLab Tool Inventory Gallery</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&amp;family=Inter:wght@400;500&amp;family=JetBrains+Mono:wght@500&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-secondary-fixed": "#410002",
+                        "surface-container-lowest": "#0F0F0F",
+                        "secondary": "#B31B1B", /* Adjusted to Cornell Crimson for secondary accents */
+                        "on-primary-container": "#5f1900",
+                        "tertiary-container": "#00a7cb",
+                        "on-tertiary-container": "#003744",
+                        "primary-fixed-dim": "#ffb59d",
+                        "surface-container-high": "#2A2A2A", /* Adjusted for dividers/hover */
+                        "on-tertiary": "#003543",
+                        "surface-container-low": "#131313",
+                        "secondary-fixed-dim": "#ffb4ab",
+                        "tertiary": "#59d5fb",
+                        "surface-dim": "#131313",
+                        "on-primary": "#0F0F0F", /* Dark text on primary button */
+                        "tertiary-fixed-dim": "#59d5fb",
+                        "outline": "#2A2A2A",
+                        "primary-container": "#FF6B35",
+                        "on-primary-fixed-variant": "#832600",
+                        "primary": "#FF6B35", /* Safety Orange */
+                        "on-primary-fixed": "#390c00",
+                        "on-error-container": "#ffdad6",
+                        "surface-tint": "#ffb59d",
+                        "error": "#ffb4ab",
+                        "surface-bright": "#3a3939",
+                        "secondary-container": "#9c020d",
+                        "on-secondary": "#690005",
+                        "on-background": "#F5F5F0", /* Light text on dark bg */
+                        "on-tertiary-fixed": "#001f28",
+                        "error-container": "#93000a",
+                        "inverse-primary": "#ab3500",
+                        "on-surface": "#F5F5F0",
+                        "on-error": "#690005",
+                        "on-tertiary-fixed-variant": "#004e60",
+                        "inverse-surface": "#e5e2e1",
+                        "tertiary-fixed": "#b5ebff",
+                        "surface-container-highest": "#353534",
+                        "surface-container": "#1A1A1A", /* Card BG */
+                        "on-secondary-container": "#ffa49a",
+                        "on-secondary-fixed-variant": "#93000b",
+                        "on-surface-variant": "#A1A1AA", /* Dim grey text */
+                        "outline-variant": "#2A2A2A",
+                        "primary-fixed": "#ffdbd0",
+                        "secondary-fixed": "#ffdad6",
+                        "surface-variant": "#353534",
+                        "surface": "#131313",
+                        "background": "#0F0F0F",
+                        "inverse-on-surface": "#313030"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0px",
+                        "lg": "0px",
+                        "xl": "0px",
+                        "full": "0px" /* Enforcing brutalist sharp edges */
+                    },
+                    fontFamily: {
+                        "headline": ["Space Grotesk", "sans-serif"],
+                        "body": ["Inter", "sans-serif"],
+                        "label": ["JetBrains Mono", "monospace"]
+                    },
+                    backgroundImage: {
+                        'blueprint-pattern': 'radial-gradient(#2A2A2A 1px, transparent 1px)',
+                    },
+                    backgroundSize: {
+                        'blueprint': '32px 32px',
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body {
+            background-color: #0F0F0F;
+            background-image: radial-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+            background-size: 32px 32px;
+            color: #F5F5F0;
+        }
+        /* Custom scrollbar for industrial feel */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0F0F0F; 
+            border-left: 1px solid #2A2A2A;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #2A2A2A; 
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #FF6B35; 
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24;
+        }
+        .text-metadata {
+            font-family: 'JetBrains Mono', monospace;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body class="font-body antialiased min-h-screen flex flex-col selection:bg-primary selection:text-on-primary">
+<!-- Top Navigation Anchor (Shared Component Map) -->
+<header class="w-full flex justify-between items-center px-8 py-4 bg-[#0F0F0F] border-b border-[#2A2A2A] z-50 sticky top-0">
+<div class="flex items-center gap-4">
+<h1 class="text-lg font-bold tracking-tight text-white font-headline">MAKERLAB <span class="font-label text-sm text-on-surface-variant font-normal tracking-normal">// CORNELL TECH</span></h1>
+</div>
+<nav class="hidden md:flex gap-8">
+<a class="text-primary border-b-2 border-primary pb-1 font-bold text-metadata text-xs tracking-wider" href="#">TOOLS</a>
+<a class="text-white/60 font-medium hover:text-white transition-colors duration-150 ease-in text-metadata text-xs tracking-wider" href="#">PROJECTS</a>
+<a class="text-white/60 font-medium hover:text-white transition-colors duration-150 ease-in text-metadata text-xs tracking-wider" href="#">ABOUT</a>
+</nav>
+<div class="flex items-center gap-4 text-on-surface-variant">
+<button class="hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl">settings</span>
+</button>
+<button class="hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-xl">account_circle</span>
+</button>
+</div>
+</header>
+<!-- Status Strip -->
+<div class="w-full bg-[#131313] border-b border-[#2A2A2A] py-2 px-8 flex gap-6 text-[11px] text-primary font-label uppercase tracking-widest items-center overflow-x-auto whitespace-nowrap">
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 bg-primary animate-pulse"></div>
+<span>100 TOOLS ONLINE</span>
+</div>
+<span class="text-outline-variant">|</span>
+<div class="flex items-center gap-2">
+<div class="w-2 h-2 bg-secondary"></div>
+<span class="text-on-surface-variant">12 AWAITING TRAINING</span>
+</div>
+<span class="text-outline-variant">|</span>
+<span class="text-on-surface-variant">LAB OPEN 9AM–9PM</span>
+</div>
+<!-- Main Content Canvas -->
+<main class="flex-grow flex flex-col p-8 gap-12 max-w-[1600px] mx-auto w-full">
+<!-- Header & Title -->
+<section class="flex flex-col gap-6">
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-primary text-4xl font-light">my_location</span>
+<h2 class="font-headline text-5xl md:text-6xl font-bold tracking-tight text-on-surface uppercase">TOOLS // MACHINES</h2>
+</div>
+<!-- Search & Filters -->
+<div class="flex flex-col gap-4 border border-outline bg-surface-container-low p-4 relative overflow-hidden">
+<!-- Decorative crosshairs -->
+<div class="absolute top-0 left-0 w-3 h-3 border-t border-l border-primary/50"></div>
+<div class="absolute top-0 right-0 w-3 h-3 border-t border-r border-primary/50"></div>
+<div class="absolute bottom-0 left-0 w-3 h-3 border-b border-l border-primary/50"></div>
+<div class="absolute bottom-0 right-0 w-3 h-3 border-b border-r border-primary/50"></div>
+<div class="w-full flex">
+<span class="font-label text-primary p-3 bg-surface-container border-y border-l border-outline">&gt;</span>
+<input class="w-full bg-surface-container border border-outline text-on-surface font-label text-sm px-4 py-3 focus:outline-none focus:border-primary focus:ring-0 transition-colors placeholder:text-on-surface-variant/50" placeholder="search inventory..." type="text"/>
+</div>
+<div class="flex flex-wrap items-center justify-between gap-4 mt-2">
+<div class="flex flex-wrap gap-4 items-center">
+<div class="flex gap-2 items-center">
+<span class="font-label text-[10px] text-on-surface-variant uppercase">CATEGORY:</span>
+<div class="flex flex-wrap gap-2">
+<button class="font-label text-[10px] px-2 py-1 border border-primary bg-primary text-on-primary uppercase transition-colors">3D Printing</button>
+<button class="font-label text-[10px] px-2 py-1 border border-outline text-on-surface-variant hover:border-primary hover:text-primary transition-colors uppercase">CNC</button>
+<button class="font-label text-[10px] px-2 py-1 border border-outline text-on-surface-variant hover:border-primary hover:text-primary transition-colors uppercase">Laser</button>
+</div>
+</div>
+<span class="text-outline-variant font-light hidden md:inline">/</span>
+<div class="flex gap-2 items-center">
+<span class="font-label text-[10px] text-on-surface-variant uppercase">TRAINING:</span>
+<div class="flex flex-wrap gap-2">
+<button class="font-label text-[10px] px-2 py-1 border border-outline text-on-surface-variant hover:border-primary hover:text-primary transition-colors uppercase">Beginner</button>
+<button class="font-label text-[10px] px-2 py-1 border border-outline text-on-surface-variant hover:border-primary hover:text-primary transition-colors uppercase">Advanced</button>
+</div>
+</div>
+</div>
+<div class="flex gap-4 font-label text-xs text-on-surface-variant">
+<button class="px-3 py-1 bg-primary text-on-primary border border-primary transition-colors">[ GRID ]</button>
+<button class="px-3 py-1 bg-surface-container border border-outline hover:border-primary hover:text-primary transition-colors">[ TABLE ]</button>
+</div>
+</div>
+</div>
+</section>
+<!-- Gallery Grid -->
+<section class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+<!-- Card 1 -->
+<div class="group flex flex-col bg-surface-container border border-outline hover:border-primary transition-colors duration-200 relative overflow-hidden h-full">
+<div class="absolute top-2 right-2 opacity-50 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-primary text-sm">crossword</span>
+</div>
+<div class="h-48 w-full bg-surface-container-high overflow-hidden border-b border-outline">
+<img alt="Formlabs Form 3+ 3D Printer" class="w-full h-full object-cover mix-blend-luminosity opacity-80 group-hover:mix-blend-normal group-hover:opacity-100 transition-all duration-300" data-alt="close-up of sleek grey resin 3d printer in dark workshop setting with dramatic overhead lighting highlighting technical details" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCoEiHrrX57KGs7Wmv1jyh3ebxSLyIylWRANCL4rhWFTeTE416Vy5jFI2M3MTl1y7h2AlG8AGKfWbfZ670cCpt91ZZAtvVXAGGps2mXWqyvK7PqswjgZ06jxT4YaitAi-13lTJ_6IawvHMqiZmJJ3w_7HSeBkegtCW_OI_QihjtXbPLCkXSrGYqv8WO1IIuLCOvVN3cZd3l5lFod-4eAZWrAu4RnvWZWm8jjqGRwytbPAHMkPkBWRHYGBiC8CXeYOLkIQqsDtDVi1_q"/>
+</div>
+<div class="p-5 flex flex-col flex-grow gap-3">
+<h3 class="font-headline text-lg text-on-surface font-bold uppercase tracking-tight">Formlabs Form 3+</h3>
+<p class="font-body text-sm text-on-surface-variant flex-grow">High-resolution SLA resin 3D printer for precise prototyping. Requires specialized ventilation and post-processing.</p>
+<div class="flex flex-col gap-1 mt-4 border-t border-outline/50 pt-4">
+<span class="font-label text-[10px] text-primary">&gt; TRAINING: INTERMEDIATE</span>
+<span class="font-label text-[10px] text-on-surface-variant">&gt; ZONE: STUDIO 101</span>
+</div>
+</div>
+</div>
+<!-- Card 2 -->
+<div class="group flex flex-col bg-surface-container border border-outline hover:border-primary transition-colors duration-200 relative overflow-hidden h-full">
+<div class="absolute top-2 right-2 opacity-50 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-primary text-sm">crossword</span>
+</div>
+<div class="h-48 w-full bg-surface-container-high overflow-hidden border-b border-outline">
+<img alt="Epilog Fusion Pro Laser Cutter" class="w-full h-full object-cover mix-blend-luminosity opacity-80 group-hover:mix-blend-normal group-hover:opacity-100 transition-all duration-300" data-alt="industrial flatbed laser cutter machine in moody dark room with bright orange warning labels and glowing internal light" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAYzYQk1VxU2KXMwz39qpFPI-CnzJR00jlBMJM-J5BDkKrTSTP1uTGHJh8ygXjuvorcOBWeC0dgPV_ILYvUjATUptWR_6pdf_qk4-BPEFFdAJK-aNDmqjI3Z1nguJ4XxA5yJWjRf1NQM0r5iKZjj7Qta1EZHo7tGjBQYLFm-oC7y59I0pTm9-ZI160FSpxtj6dX01oTK8g1H-zdL0xtfI0HisIpFffvhb5KIoSMofTO5SrncBw352l_0PDd7HEfn5DLc6ntSvUOdgQp"/>
+</div>
+<div class="p-5 flex flex-col flex-grow gap-3">
+<div class="flex justify-between items-start">
+<h3 class="font-headline text-lg text-on-surface font-bold uppercase tracking-tight">Epilog Fusion Pro</h3>
+<div class="w-2 h-2 bg-primary rounded-none animate-pulse" title="In Use"></div>
+</div>
+<p class="font-body text-sm text-on-surface-variant flex-grow">120W CO2 laser engraving and cutting system. 48" x 36" bed size. Capable of processing wood, acrylic, and leather.</p>
+<div class="flex flex-col gap-1 mt-4 border-t border-outline/50 pt-4">
+<span class="font-label text-[10px] text-secondary">&gt; TRAINING: ADVANCED</span>
+<span class="font-label text-[10px] text-on-surface-variant">&gt; ZONE: 101A (VENTILATED)</span>
+</div>
+</div>
+</div>
+<!-- Card 3 -->
+<div class="group flex flex-col bg-surface-container border border-outline hover:border-primary transition-colors duration-200 relative overflow-hidden h-full">
+<div class="absolute top-2 right-2 opacity-50 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-primary text-sm">crossword</span>
+</div>
+<div class="h-48 w-full bg-surface-container-high overflow-hidden border-b border-outline">
+<img alt="Bantam Tools Desktop CNC" class="w-full h-full object-cover mix-blend-luminosity opacity-80 group-hover:mix-blend-normal group-hover:opacity-100 transition-all duration-300" data-alt="compact metallic desktop cnc milling machine cutting aluminum block with flying chips in high contrast industrial lighting" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCgdx9_MwpraRodPiObou-0VLdY1SnJzzta9VXHmoRjO2Ulo5uW8cM0PIxb0Z16spQLnDtk22i1pgrTgpHPvrHc16wGpSeCnBi2pvQcx37GbX3VuicQtWfyYFLSbxISD2EGNICUjbxZ2aZTNvTT6V-_4k6cPOgpDFdNRexoyEJSX0FmO5UE6WbXtux7QHRqYuighn8N-VVQ5-wmeBfPE9_0f_TfuDIExStltR6awkiRQTkrHWhhoCyijuYl22189efmPj0BI44WD-_h"/>
+</div>
+<div class="p-5 flex flex-col flex-grow gap-3">
+<h3 class="font-headline text-lg text-on-surface font-bold uppercase tracking-tight">Bantam Desktop CNC</h3>
+<p class="font-body text-sm text-on-surface-variant flex-grow">Desktop PCB milling machine and light aluminum routing. Ideal for rapid prototyping of custom circuit boards.</p>
+<div class="flex flex-col gap-1 mt-4 border-t border-outline/50 pt-4">
+<span class="font-label text-[10px] text-primary">&gt; TRAINING: INTERMEDIATE</span>
+<span class="font-label text-[10px] text-on-surface-variant">&gt; ZONE: ELECTRONICS LAB</span>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Floating Chat / Action Widget -->
+<div class="fixed bottom-8 right-8 z-50">
+<button class="w-14 h-14 bg-primary text-on-primary flex items-center justify-center shadow-[0_0_40px_rgba(255,107,53,0.3)] hover:bg-white hover:text-primary transition-colors duration-150 relative rounded-full"><span class="font-label text-xl font-bold">&gt;_</span></button>
+</div>
+</body></html>
