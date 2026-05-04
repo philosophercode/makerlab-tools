@@ -16,6 +16,39 @@ v5 makes Notion the single source of truth and trims the v4 UI surface to the co
 
 ## 2. Target Architecture (v1)
 
+### Implementation Strategy — Greenfield Side-by-Side
+
+v5 should be built as a greenfield app in a new top-level folder, side-by-side with the current v4 implementation. Do **not** refactor v4 in place while building v5.
+
+Recommended workspace shape:
+
+```txt
+/
+  src/                  # current v4 app, kept stable during v5 build
+  v5/                   # new v5 app
+    src/app/
+    src/components/
+    src/lib/notion/
+    src/lib/catalog/
+    src/lib/chat/
+    src/styles/
+    scripts/notion/
+    README.md
+```
+
+The v5 folder owns its own app structure and may grow its own package/config files if that proves cleaner. Because v5 uses the same core stack (Next.js 16, React 19, Tailwind 4, TypeScript), shared root dependencies are acceptable at first; split package boundaries only when they reduce friction.
+
+Rules for build agents:
+
+- Treat `v5/` as the write scope for implementation work.
+- Leave v4 routes, components, and APIs stable unless a task explicitly asks for migration plumbing.
+- Use Notion from day one inside v5. Do not build new Airtable runtime paths except for migration validation.
+- Implement only v1 scope in the first pass: gallery, tool detail, global chrome, read-only chat FAB, and Notion data access.
+- Keep v4 deployable until v5 passes the acceptance criteria in §7.
+- The final cutover is an explicit eclipse step: either move/promote `v5` into the production app entrypoint or configure deployment to serve `v5` instead of v4.
+
+Even though v5 is greenfield, it still needs a migration validation harness. Add a script that compares the v4 AirTable export against the v5 Notion import for record counts, required fields, category/location/unit relations, and deprecated-field handling.
+
 ```mermaid
 graph TB
     subgraph Browser["Browser"]
