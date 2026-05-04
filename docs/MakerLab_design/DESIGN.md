@@ -1,10 +1,9 @@
-```markdown
 # Design System Strategy: The Technical Schematic
 
 ## 1. Overview & Creative North Star
 **Creative North Star: "The Blueprint Archive"**
 
-This design system is a digital extension of the workshop floor. It rejects the soft, consumer-grade aesthetics of modern web templates in favor of a high-end, industrial-editorial experience. It is a "Technical Schematic"—precise, utilitarian, and uncompromising. 
+This design system is a digital extension of the workshop floor. It rejects the soft, consumer-grade aesthetics of modern web templates in favor of a high-end, industrial-editorial experience. It is a "Technical Schematic"—precise, utilitarian, and uncompromising.
 
 We achieve a signature look by leaning into **Architectural Brutalism**. By combining the raw precision of 0px corner radii with the sophisticated rhythm of monospace metadata and high-contrast typography, we create an interface that feels less like a website and more like a high-performance engineering tool. The layout should feel intentionally "constructed," utilizing the blueprint grid not just as a background, but as a rigid structural guide for every element.
 
@@ -12,22 +11,35 @@ We achieve a signature look by leaning into **Architectural Brutalism**. By comb
 
 ## 2. Colors & Surface Architecture
 
-The palette is rooted in a deep, nocturnal environment that prioritizes focus and visual endurance.
+The palette supports both light and dark modes. Light mode is the default because the app is a daily lab reference surface; dark mode is a first-class alternate that leans harder into the blueprint archive mood.
 
-### The Color Tokens
-- **Background (`surface_container_lowest`):** `#0F0F0F`. The foundation. Must feature the blueprint-dot pattern (1px dots, 32px spacing, 3% opacity) to provide a sense of scale.
+### Light Mode Tokens (Default)
+- **Background (`surface_container_lowest`):** `#F7F4EE`. Warm technical-paper base. May feature the blueprint-dot pattern (1px dots, 32px spacing, very low opacity) to provide a sense of scale without darkening the page.
 - **Primary (`primary`):** `#FF6B35` (Safety Orange). This is our "Active State." Use it for high-priority CTAs and interactive focus.
 - **Secondary (`secondary`):** `#B31B1B` (Cornell Crimson). Reserved for heritage accents and subtle brand anchors.
+- **Text (`on_surface`):** `#171717`.
+- **Surface Tiers:**
+    - `surface_container_low`: `#EEE8DE` (General content areas)
+    - `surface_container`: `#FFFFFF` (Cards and distinct modules)
+    - `surface_container_high`: `#E2D8CA` (Hover states or nested components)
+    - `outline`: `#CFC6B8` (Technical borders)
+
+### Dark Mode Tokens (Alternate)
+- **Background (`surface_container_lowest`):** `#0F0F0F`. The blueprint archive foundation. Should feature the blueprint-dot pattern (1px dots, 32px spacing, 3% opacity) to provide a sense of scale.
+- **Primary (`primary`):** `#FF6B35` (Safety Orange).
+- **Secondary (`secondary`):** `#B31B1B` (Cornell Crimson).
+- **Text (`on_surface`):** `#F5F5F0`.
 - **Surface Tiers:**
     - `surface_container_low`: `#131313` (General content areas)
     - `surface_container`: `#1A1A1A` (Cards and distinct modules)
     - `surface_container_high`: `#201F1F` (Hover states or nested components)
+    - `outline`: `#2A2A2A` (Technical borders)
 
 ### The "No-Line" Rule for Sectioning
-While the industrial aesthetic allows for 1px technical accents, **do not use solid 1px borders to separate major sections of the page.** Structure must be defined through tonal shifts. A `surface_container_low` section should sit directly against the `surface` background to create a boundary through value, not lines. 
+While the industrial aesthetic allows for 1px technical accents, **do not use solid 1px borders to separate major sections of the page.** Structure must be defined through tonal shifts. A `surface_container_low` section should sit directly against the `surface` background to create a boundary through value, not lines.
 
 ### Surface Hierarchy & Nesting
-Treat the UI as a series of physical plates. Use the "Nested Depth" principle: an inner card (`#1A1A1A`) should feel like it has been machined out of the larger background (`#0F0F0F`). 
+Treat the UI as a series of physical plates. Use the "Nested Depth" principle: an inner card (`#1A1A1A`) should feel like it has been machined out of the larger background (`#0F0F0F`).
 
 ### The "Glass & Gradient" Rule
 To prevent the dark mode from feeling "flat" or "dead," use subtle gradients on primary CTAs (transitioning from `#FF6B35` to `primary_container`). For floating overlays (like tooltips or dropdowns), apply **Glassmorphism**: use a semi-transparent `#1A1A1A` with a 12px backdrop-blur. This simulates a "frosted polycarbonate" material common in lab environments.
@@ -40,7 +52,7 @@ Typography is our primary tool for hierarchy. We use a three-font system to deli
 
 | Role | Typeface | Weights | Style |
 | :--- | :--- | :--- | :--- |
-| **Headlines** | Space Grotesk | 500, 700 | Brutalist, tight tracking (-2%) |
+| **Headlines** | Space Grotesk | 500, 700 | Brutalist, uppercase where useful, no negative letter spacing |
 | **Body** | Inter | 400, 500 | High legibility, standard tracking |
 | **Metadata/Labels** | JetBrains Mono | 500 | ALL CAPS, Monospace technicality |
 
@@ -55,7 +67,7 @@ Typography is our primary tool for hierarchy. We use a three-font system to deli
 
 Traditional shadows are prohibited. In a workshop, objects have weight and physical presence.
 
-- **The Layering Principle:** Depth is achieved by stacking. A `surface_container_lowest` card on a `surface` background creates a "carved out" effect. 
+- **The Layering Principle:** Depth is achieved by stacking. A `surface_container_lowest` card on a `surface` background creates a "carved out" effect.
 - **Ambient Shadows:** When a floating effect is mandatory (e.g., a modal), use a massive, 64px blur at 8% opacity using the `on_surface` color. This creates an "atmospheric glow" rather than a drop shadow.
 - **The "Ghost Border" Fallback:** For secondary buttons or subtle containment, use the `outline_variant` at 20% opacity. It should be barely visible—a "ghost" of a line that suggests a boundary without cluttering the technical space.
 - **The Crosshair Motif:** Instead of rounded corners, use "Technical Crosshairs" (12px 1px lines) at the four corners of major hero sections or featured cards to reinforce the "targeting/precision" theme.
@@ -65,12 +77,12 @@ Traditional shadows are prohibited. In a workshop, objects have weight and physi
 ## 5. Components
 
 ### Buttons
-- **Primary:** Background `primary` (#FF6B35), text `#0F0F0F`. Rectangular (0px). 
+- **Primary:** Background `primary` (#FF6B35), text `#0F0F0F`. Rectangular (0px).
 - **Secondary:** Transparent background, 1px border `primary` at 40% opacity. Text `primary`.
 - **States:** On hover, the primary button should "flash" to a slightly lighter tint. On click, it should invert (Primary color text on transparent).
 
 ### Input Fields
-- **Style:** Background `surface_container_highest`, bottom-border only (1px, `#2A2A2A`). 
+- **Style:** Background `surface_container_highest`, bottom-border only (1px, `#2A2A2A`).
 - **Active State:** The bottom border transforms to `primary` (#FF6B35). Use JetBrains Mono for the label.
 
 ### Chips & Tags
@@ -95,9 +107,9 @@ A small, Cornell Crimson (#B31B1B) or Safety Orange (#FF6B35) "pulsing" dot next
 - **DON'T** use soft shadows or rounded corners (this breaks the industrial aesthetic).
 - **DON'T** use 100% opaque, high-contrast white dividers. They create "visual noise." Use background color shifts instead.
 - **DON'T** use Cornell Crimson for large surfaces. It is an accent—a "stamp" of authority—not a primary paint color.
-- **DON'T** use standard icons. Opt for thin-stroke (1px) technical icons that look like CAD drawings.
+- **DON'T** mix icon languages. Use one familiar thin-stroke icon set consistently, and prefer icons that read as technical controls rather than decorative illustrations.
 
 ---
 
 ## 7. Interaction Pattern: The "Haptic" Digital
-Interactions in this system should feel "mechanical." Use quick, snappy transitions (150ms-200ms) with a "Linear" or "Ease-In" curve. Avoid "bouncy" or "elastic" animations; the lab is a place of precision, not playfulness. Every hover state should feel like a light turning on in a machine.```
+Interactions in this system should feel "mechanical." Use quick, snappy transitions (150ms-200ms) with a "Linear" or "Ease-In" curve. Avoid "bouncy" or "elastic" animations; the lab is a place of precision, not playfulness. Every hover state should feel like a light turning on in a machine.

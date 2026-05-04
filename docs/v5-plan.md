@@ -10,7 +10,7 @@
 
 v4 works, but the data layer holds it back. Staff already live in Notion for docs, SOPs, and onboarding — keeping tool records in AirTable means double-entry whenever a tool gets a new manual or policy update, and the relations between "this tool" and "the doc page about this tool" today live as URL strings instead of real links.
 
-v5 makes Notion the single source of truth and trims the v4 UI surface to what's actually being used: a gallery, a tool detail page, and a context-aware chat overlay. Everything else (write surfaces, MCP, Student Projects, AI ingestion) is roadmapped for subsequent phases — see §4.
+v5 makes Notion the single source of truth and trims the v4 UI surface to the core discovery loop: a gallery, a tool detail page, and a context-aware chat overlay. This v1 is intentionally **not** a full v4 replacement: QR scanning, maintenance reporting, unit detail pages, MCP, Student Projects, and AI ingestion are paused so the catalog migration can ship cleanly first. Everything outside discovery/reference is roadmapped for subsequent phases — see §4.
 
 ---
 
@@ -26,7 +26,7 @@ graph TB
 
     subgraph Vercel["Vercel"]
         Pages["Server Components<br/>(ISR: revalidate 3600s)"]
-        ChatAPI["/api/chat  (read-only)<br/>tools: search_tools · get_tool ·<br/>web_search · web_fetch"]
+        ChatAPI["/api/chat  (read-only)<br/>tools: search_tools · get_tool ·<br/>web_search · doc_fetch"]
     end
 
     subgraph External["External"]
@@ -55,8 +55,10 @@ graph TB
 
 A floating button in the bottom-right corner of every page opens a chat overlay (sheet/modal). The chat session opens with a **context-aware system prompt** assembled server-side based on which page invoked it:
 
-- **From Gallery:** system prompt includes a compact summary of every tool in the catalog (name, id, category, brief description). Claude can answer *"do you have a vinyl cutter?"* without needing a search call.
-- **From a Tool page:** same all-tools summary, **plus** the full detail of the focal tool — its description, SOP, manual contents (where extractable), materials, PPE, training requirements. Claude behaves as a domain expert on that specific tool.
+- **From Gallery:** system prompt includes a bounded catalog index: name, id, category, location, and a short description for each published tool. Claude can answer *"do you have a vinyl cutter?"* without needing a search call at current MakerLab scale.
+- **From a Tool page:** same bounded catalog index, **plus** the full detail of the focal tool — its description, SOP, manual contents where extractable, materials, PPE, training requirements, and linked units. Claude behaves as a domain expert on that specific tool.
+
+The catalog index gets a hard token budget. If the catalog grows past what fits comfortably in the prompt, the chat falls back to a smaller index plus read-only retrieval tools (`search_tools`, `get_tool`) instead of injecting every record.
 
 For v1, the chat is **read-only** — it can search and answer questions but cannot write to Notion. Write capability ships in phase §4.4 (AI Ingestion).
 
@@ -64,9 +66,22 @@ For v1, the chat is **read-only** — it can search and answer questions but can
 
 Full design system: [`docs/MakerLab_design/DESIGN.md`](MakerLab_design/DESIGN.md). Reference HTML implementing the gallery: [`docs/MakerLab_design/code.html`](MakerLab_design/code.html). Target screenshot: [`docs/MakerLab_design/screen.png`](MakerLab_design/screen.png).
 
-The design philosophy is **Architectural Brutalism + Blueprint Archive**: dark, industrial-editorial, uncompromising. The intent is "live engineering tool" rather than soft consumer surface — the UI should feel constructed rather than decorated.
+The design philosophy is **Architectural Brutalism + Blueprint Archive**: industrial-editorial, precise, and constructed rather than decorated. Light mode is the default because this is a day-to-day lab reference tool; dark mode is a first-class alternate for the more dramatic blueprint/archive presentation.
 
-**Color tokens** (Safety Orange primary, Cornell Crimson secondary):
+**Light color tokens** (default; Safety Orange primary, Cornell Crimson secondary):
+
+| Token | Hex | Use |
+|---|---|---|
+| `background` | `#F7F4EE` | Warm paper base; optional 32px blueprint dot pattern at low opacity |
+| `surface-container-low` | `#EEE8DE` | Section backgrounds |
+| `surface-container` | `#FFFFFF` | Cards and controls |
+| `surface-container-high` | `#E2D8CA` | Hover states / nested |
+| `primary` | `#FF6B35` | Safety Orange — CTAs, focus, brand |
+| `secondary` | `#B31B1B` | Cornell Crimson — heritage accents only |
+| `on-surface` | `#171717` | Body text |
+| `outline` | `#CFC6B8` | Borders |
+
+**Dark color tokens** (alternate blueprint mode):
 
 | Token | Hex | Use |
 |---|---|---|
@@ -83,15 +98,15 @@ The design philosophy is **Architectural Brutalism + Blueprint Archive**: dark, 
 
 | Role | Font | Notes |
 |---|---|---|
-| Display | **Space Grotesk** 500/700 | Headlines, ALL CAPS, tight tracking |
+| Display | **Space Grotesk** 500/700 | Headlines, ALL CAPS where useful, normal letter spacing |
 | Body | **Inter** 400/500 | Standard tracking, high legibility |
 | Metadata / Labels | **JetBrains Mono** 500 | UPPERCASE, terminal-ish (`> TRAINING: ADVANCED`) |
 
-**Hard rules** (enforced at the Tailwind-config level):
+**Hard rules** (enforced in the Tailwind 4 CSS theme layer / global CSS):
 
 - **0px border radius everywhere** — even `rounded-full` is overridden to `0px`. The chat FAB is a square.
 - **No drop shadows.** Depth through tonal layering only. The exception: a single 64px-blur ambient glow at low opacity for floating overlays.
-- **No solid 1px dividers between sections.** Use surface tonality shifts.
+- **No solid 1px dividers between major content sections.** Use surface tonality shifts. Thin technical lines are still allowed inside controls, cards, global chrome, and crosshair accents.
 - Snap layout to a **32px blueprint grid**.
 - **Crosshair corner accents** (12px 1px lines) on featured cards / hero containers.
 - Animations are snappy: 150–200ms, linear or ease-in. No bouncy / elastic.
@@ -150,7 +165,7 @@ Same global chrome (top nav, status strip, FAB). Page-specific additions, applyi
 
 | v4 AirTable Table  | v5 Notion Database   | Notes                                                       |
 |--------------------|----------------------|-------------------------------------------------------------|
-| Tools              | `Tools`              | `category`, `location` become Notion **Relation** props. Three fields removed (see below). |
+| Tools              | `Tools`              | `category`, `location` become Notion **Relation** props. Several v4-only fields are removed or derived (see below). |
 | Categories         | `Categories`         | Unchanged.                                                  |
 | Locations          | `Locations`          | Restructured to a 3-level hierarchy: `room → zone → id` (see below). |
 | Units              | `Units`              | `tool` = Relation to `Tools`. Rendered inline on tool detail page. `qr_code_id` swapped for `uuid` (see below). |
@@ -166,7 +181,7 @@ The migration is mostly a 1:1 port, but a few fields are removed, renamed, or re
 | Change | Field | Reason |
 |---|---|---|
 | Remove | `description_reviewed` | No AI-generated descriptions in v1 (returns with §4.4). |
-| Remove | `authorized_only` | Overlaps with `training_required`. |
+| Remove | `authorized_only` | Overlaps with `training_required`; migrate any `true` values into `training_required` and/or `use_restrictions` before dropping. |
 | Remove | `generated_image` | Gemini deprecated. |
 | Restructure | `map_tag` → moves into `Locations` as `id` | The physical map identifier belongs to the spot, not the tool. See `Locations` below. |
 
@@ -191,7 +206,7 @@ Trade-off vs. keeping `location_id` as a Tool field: more Location rows up-front
 
 **`Flags` — add a Title field:**
 
-Notion requires every database to have a Title property; v4's Flags has no obvious Title. Add `title` (Rich text, promoted to Title slot) and auto-derive it on create: `"<field_flagged> on <tool name>"` (e.g., `"description on Bambu X1"`).
+Notion requires every database to have a Title property; v4's Flags has no obvious Title. Add `title` as the database's **Title** property and auto-derive it on create: `"<field_flagged> on <tool name>"` (e.g., `"description on Bambu X1"`).
 
 ### Env-var contract
 
@@ -222,11 +237,23 @@ export interface NotionRecord<T> {
 }
 ```
 
-The existing `ToolWithMeta` (the resolved, denormalized shape used everywhere in components) doesn't change. All the component code keeps working.
+The existing `ToolWithMeta` stays as the v1 component-facing adapter contract, but the Notion adapter must account for the schema cleanup:
+
+- `authorized_only` is returned as `false` after migration unless the value was folded into `training_required` / `use_restrictions`.
+- `map_tag` is derived from `Location.id`.
+- `generated_image_url` and `generated_image` return `null` / `[]`.
+
+That compatibility shim lets the migration land without rewriting every component in the same step. A later cleanup can remove those deprecated fields from `ToolWithMeta` once the UI no longer consumes them.
 
 ### Caching — Route-level ISR
 
-Notion's API is rate-limited (3 req/sec avg) and each `tools` page touches several related records, so we cache aggressively. Two layers do the job:
+Notion's API is rate-limited (3 req/sec avg) and each page touches related records, so v1 keeps query shapes coarse and cacheable:
+
+- **Gallery query shape:** fetch all published `Tools`, all `Categories`, and all `Locations` once, then resolve relations in memory. Do not fetch relation pages one tool at a time.
+- **Detail query shape:** fetch the focal `Tool`, all `Categories` / `Locations` needed for resolution, and `Units` filtered or client-filtered by the focal tool relation. Include Maintenance/Flags only after §4.2.
+- **Chat query shape:** reuse the same read fetchers as pages. Avoid separate bespoke Notion access paths.
+
+Two cache layers do the job:
 
 - **Route-level ISR** — every server-rendered page sets `export const revalidate = 3600`. Pages are regenerated at most once per hour per URL. Dumbest, most reliable cache strategy Next.js offers; no wrappers, no tag schemes, no webhooks. Cost: up to one hour of staleness on edits — fine for a low-traffic catalog.
 - **Per-request memoization** — inside a single page render, hydrate a `Map<string, CategoryRecord>` once and reuse it. Solves the N+1 fan-out (a tool page resolves category + location + units in one render) without any cross-request infrastructure.
@@ -294,7 +321,7 @@ Three native Claude capabilities do the analysis; we add **one** custom write to
 |---|---|---|
 | Vision | Built into Claude (sees image in conversation) | Identify the product from the photo. |
 | `web_search` | Already wired in v1 chat | Find the canonical product page (manufacturer site, McMaster, Bambu, etc.). |
-| `web_fetch` | Anthropic built-in tool | Scrape the canonical page for specs, materials, manual links, hero image URL. |
+| `web_fetch` / server fetch | Provider tool or app-owned fetcher | Read the canonical page for specs, materials, manual links, hero image URL. Use a server-side fallback if provider-native fetch is unavailable. |
 | `create_tool_draft` | **New custom tool** | Write the draft row to Notion (atomic: also creates a new Category if the AI proposed one). |
 
 #### Conversation Flow
@@ -303,7 +330,7 @@ Three native Claude capabilities do the analysis; we add **one** custom write to
 
 > **User (chat FAB on gallery):** *[attaches photo of a printer on a workbench]* "add this to the catalog"
 >
-> **Claude:** *(sees image natively → identifies "Bambu Lab X1 Carbon" → calls `web_search` → calls `web_fetch` on the manufacturer page)*
+> **Claude:** *(sees image natively → identifies "Bambu Lab X1 Carbon" → calls `web_search` → fetches the manufacturer page via provider tool or server fallback)*
 >   "Here's a draft:
 >   - **Name:** Bambu Lab X1 Carbon
 >   - **Category:** 3D Printing → Filament Printers *(matched existing)*
@@ -345,7 +372,6 @@ Refinement happens in chat (no Notion writes until confirm). Category creation i
       materials:             { type: "array", items: { type: "string" } },
       ppe_required:          { type: "array", items: { type: "string" } },
       training_required:     { type: "boolean" },
-      authorized_only:       { type: "boolean" },
       use_restrictions:      { type: "string" },
       hero_image_url:        { type: "string", description: "Server downloads and attaches to image_attachments." },
       manual_url:            { type: "string" },
@@ -370,7 +396,7 @@ Refinement happens in chat (no Notion writes until confirm). Category creation i
 Truly off the v5 plan (not roadmapped, not promised):
 
 - **Bulk ingestion** — drag-and-drop a folder of 30 photos → 30 drafts. May happen well after §4.4.
-- **Auth-gated chat writes** — the drafts-then-publish gate (§4.4) is the v1 mitigation; tighter auth would be a separate effort.
+- **Auth-gated chat writes** — the drafts-then-publish gate (§4.4) is the ingestion-phase mitigation; tighter auth would be a separate effort.
 - **Notion → Vercel webhook for cache invalidation** — route-level ISR is the v1 stand-in; revisit if staleness becomes a real complaint.
 - **Image optimization beyond Notion** — Notion hosts images with 1-hour signed URLs; a Vercel Blob proxy can come later if needed.
 - **Image generation (Gemini).** v4's `generated_image` field is deprecated.
@@ -386,13 +412,28 @@ Truly off the v5 plan (not roadmapped, not promised):
 
 ---
 
-## 7. Suggested Build Order (v1)
+## 7. Acceptance Criteria (v1)
+
+v1 is done when the read-only catalog is a credible replacement for the v4 browse/detail experience, even though operational workflows are deferred.
+
+- **Data fidelity:** all public v4 tool records migrate to Notion with validated Category, Location, and Unit relations. Removed fields are either migrated into replacement fields or safely defaulted by the adapter.
+- **Discovery parity:** the gallery supports search and filtering across the same practical dimensions as v4: name, category, location, tags/materials, and training requirements.
+- **Detail completeness:** each tool detail page shows the tool description, location, category, safety/PPE/training info, manual/SOP/video links, images, and inline unit status.
+- **Read-only chat boundary:** the v1 chat can answer from catalog data, tool details, docs, and web search, but exposes no Notion write tools.
+- **Route scope clarity:** removed v4 routes (`/scan`, `/report`, `/chat`, `/units/[id]`) are either deleted with clear navigation removed, or redirected to an intentional v5 replacement/error state.
+- **Cache behavior:** gallery and detail pages use `revalidate = 3600`; cold renders stay within Notion API limits for the current catalog size.
+- **Design implementation:** the gallery, detail page, global chrome, and chat FAB follow the Technical Schematic design rules while preserving readable text, keyboard focus states, and mobile layouts.
+- **Operational fallback:** staff can still edit/publish catalog data directly in Notion without redeploying the app.
+
+---
+
+## 8. Suggested Build Order (v1)
 
 > (High-level only — a separate plan will break each phase into tasks.)
 
-1. **Notion migration** — port the 6 existing tables, applying the field-level changes from §3. Validate data fidelity against the v4 AirTable.
+1. **Notion migration** — port the 6 existing tables, applying the field-level changes from §3. Validate data fidelity against the v4 AirTable, especially `authorized_only`, `map_tag`, `generated_image`, and `qr_code_id` migrations.
 2. **`src/lib/notion.ts`** — replace `src/lib/airtable.ts` behind the same `ToolWithMeta` shape.
-3. **Design system foundation** — port the `tailwind.config` from `docs/MakerLab_design/code.html` (color tokens, font stack, 0px radius enforcement, blueprint background pattern). Add the three Google Fonts to `app/layout.tsx`.
+3. **Design system foundation** — translate the light/dark tokens from `docs/MakerLab_design/DESIGN.md` and `code.html` into the Tailwind 4 CSS theme layer / global CSS (color tokens, font stack, 0px radius enforcement, blueprint background pattern). Light mode is default; dark mode is a first-class alternate. Add the three Google Fonts to `app/layout.tsx`.
 4. **Global chrome** — sticky top nav + status strip components. Hardcode lab hours; derive counts from Notion where possible.
 5. **Build `/` (gallery)** — server-rendered list with search + filter, applying the gallery layout from §2. ISR revalidate 3600s.
 6. **Build `/tools/[id]` (detail)** — full tool info, inline `<UnitsList />`, applying the detail layout from §2. ISR revalidate 3600s.
