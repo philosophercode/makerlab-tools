@@ -63,7 +63,7 @@ graph TB
     end
 
     subgraph External["External"]
-        Notion[("Notion · 6 DBs<br/>Tools · Categories · Locations · Units<br/>Maintenance_Logs · Flags")]
+        Notion[("Notion · 7 DBs<br/>Tools · Categories · Locations · Units<br/>Resources · Maintenance_Logs · Flags")]
         Claude["Claude API<br/>vision + tool use"]
     end
 
@@ -202,6 +202,7 @@ Same global chrome (top nav, status strip, FAB). Page-specific additions, applyi
 | Categories         | `Categories`         | Unchanged.                                                  |
 | Locations          | `Locations`          | Restructured to a 3-level hierarchy: `room → zone → id` (see below). |
 | Units              | `Units`              | `tool` = Relation to `Tools`. Rendered inline on tool detail page. `qr_code_id` swapped for `uuid` (see below). |
+| Resources          | `Resources`          | General related URLs, files, and content for tools. Replaces one-off SOP/manual/video columns for new data. |
 | Maintenance_Logs   | `Maintenance_Logs`   | Schema retained; UI returns in §4.2.                        |
 | Flags              | `Flags`              | Schema retained; gains a Title field (`title`); UI returns in §4.2. |
 
@@ -251,11 +252,12 @@ NOTION_DB_TOOLS=...
 NOTION_DB_CATEGORIES=...
 NOTION_DB_LOCATIONS=...
 NOTION_DB_UNITS=...
+NOTION_DB_RESOURCES=...
 NOTION_DB_MAINTENANCE_LOGS=...
 NOTION_DB_FLAGS=...
 ```
 
-White-labeling stays identical: a new org creates a Notion workspace, runs a setup script, pastes six IDs into `.env.local`.
+White-labeling stays identical: a new org creates a Notion workspace, runs a setup script, pastes seven IDs into `.env.local`.
 
 ### Type strategy
 
