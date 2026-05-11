@@ -36,7 +36,6 @@ export interface MakerLabTool {
 }
 
 export interface CatalogStats {
-  toolsOnline: number;
-  awaitingTraining: number;
+  toolsInInventory: number;
   labHours: string;
 }

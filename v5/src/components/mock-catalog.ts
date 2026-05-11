@@ -1,10 +1,4 @@
-import type { CatalogStats, MakerLabTool } from "./catalog-types";
-
-export const catalogStats: CatalogStats = {
-  toolsOnline: 100,
-  awaitingTraining: 12,
-  labHours: "LAB OPEN 9AM-9PM",
-};
+import type { MakerLabTool } from "./catalog-types";
 
 export const mockTools: MakerLabTool[] = [
   {

@@ -31,11 +31,8 @@ export function GlobalChrome({ stats }: GlobalChromeProps) {
       </header>
       <div className="status-strip" aria-label="Lab status">
         <span>
-          <i className="live-dot" aria-hidden="true" /> {stats.toolsOnline} TOOLS ONLINE
-        </span>
-        <span>
-          <i className="live-dot live-dot-secondary" aria-hidden="true" />{" "}
-          {stats.awaitingTraining} AWAITING TRAINING
+          <i className="live-dot" aria-hidden="true" /> {stats.toolsInInventory} TOOLS IN
+          INVENTORY
         </span>
         <span>{stats.labHours}</span>
       </div>

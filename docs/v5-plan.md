@@ -149,7 +149,7 @@ The design philosophy is **Architectural Brutalism + Blueprint Archive**: indust
 Derived from `code.html`. Top to bottom:
 
 - **Sticky top nav** — `MAKERLAB // CORNELL TECH` lockup; nav links `TOOLS / PROJECTS / ABOUT` (Projects link can be inert in v1 since the gallery is deferred to §4.3); settings + account icons.
-- **Status strip** — live-counter row with pulsing dots: `● 100 TOOLS ONLINE`, `● 12 AWAITING TRAINING`, `LAB OPEN 9AM–9PM`. *(v1 simplification: may need to derive from `Units.status` and hardcode lab hours from `site-config` since real-time machine status isn't yet wired in.)*
+- **Status strip** — inventory count plus lab hours: `● 100 TOOLS IN INVENTORY`, `LAB OPEN 9AM–9PM`. *(v1 simplification: derive inventory count from published tools and hardcode lab hours from `site-config` since real-time machine status isn't yet wired in.)*
 - **Page header** — large `TOOLS // MACHINES` title in Space Grotesk uppercase, with a `my_location` material icon.
 - **Search + filters bar** with crosshair-corner accents:
   - Search input prefixed with a `>` prompt glyph (terminal vibe)

@@ -10,7 +10,7 @@ import {
 } from "./notion";
 import type { ResourceRecord, ToolWithMeta, UnitRecord } from "./types";
 import type { CatalogStats, MakerLabTool, MakerLabUnit, ToolStatus } from "../components/catalog-types";
-import { catalogStats as mockStats, getToolBySlug, mockTools } from "../components/mock-catalog";
+import { getToolBySlug, mockTools } from "../components/mock-catalog";
 
 export function hasNotionCatalogEnv(): boolean {
   return getNotionEnvContract().every((key) => Boolean(process.env[key]));
@@ -36,11 +36,8 @@ export async function getCatalogTools(): Promise<MakerLabTool[]> {
 export async function getCatalogStats(): Promise<CatalogStats> {
   const tools = await getCatalogTools();
 
-  if (tools === mockTools) return mockStats;
-
   return {
-    toolsOnline: tools.filter((tool) => tool.status !== "Offline").length,
-    awaitingTraining: tools.filter((tool) => tool.trainingLevel !== "Beginner").length,
+    toolsInInventory: tools.length,
     labHours: "LAB OPEN 9AM-9PM",
   };
 }
