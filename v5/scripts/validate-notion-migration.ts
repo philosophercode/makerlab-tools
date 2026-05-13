@@ -49,8 +49,6 @@ async function main(): Promise<void> {
   const resourcesWithBrokenToolRelations = resources.filter((resource) =>
     (resource.fields.tool || []).some((id) => !toolIds.has(id))
   );
-  const unitsMissingUuid = units.filter((unit) => !unit.fields.uuid);
-
   console.log("Notion migration validation");
   console.log(`Tools: ${tools.length}`);
   console.log(`Categories: ${categories.length}`);
@@ -68,7 +66,6 @@ async function main(): Promise<void> {
   console.log(
     `Resources with broken tool relations: ${resourcesWithBrokenToolRelations.length}`
   );
-  console.log(`Units missing uuid: ${unitsMissingUuid.length}`);
   console.log(
     "TODO: compare these checks against the v4 Airtable export and verify deprecated fields were migrated intentionally."
   );

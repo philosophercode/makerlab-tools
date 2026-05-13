@@ -37,6 +37,11 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# Local screenshots & browser-MCP captures
+.playwright-mcp/
+/v3-*.png
+/v5-*.png
+
 # Python
 __pycache__/
 *.pyc

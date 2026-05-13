@@ -8,8 +8,6 @@ interface ToolDetailPageProps {
   }>;
 }
 
-export const revalidate = 3600;
-
 export async function generateStaticParams() {
   const tools = await getCatalogTools();
 

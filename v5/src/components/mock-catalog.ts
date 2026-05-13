@@ -1,31 +1,54 @@
-import type { MakerLabTool } from "./catalog-types";
+import type { MakerLabTool, MakerLabUnit } from "./catalog-types";
 
-export const mockTools: MakerLabTool[] = [
+interface MockSeed {
+  id: string;
+  slug: string;
+  name: string;
+  category: string;
+  categorySub: string;
+  location: string;
+  zone: string;
+  trainingLevel: MakerLabTool["trainingLevel"];
+  trainingLabel: string;
+  status: MakerLabTool["status"];
+  description: string;
+  imageSrc: string;
+  ppe: string[];
+  materials: string[];
+  tags: string[];
+  emergencyStop: string | null;
+  useRestrictions: string | null;
+  mapId: string | null;
+  notes: string | null;
+  links: MakerLabTool["links"];
+  units: MakerLabUnit[];
+}
+
+const seeds: MockSeed[] = [
   {
     id: "tool-form-4",
     slug: "form-4",
     name: "Form 4",
     category: "3D Printing",
+    categorySub: "Resin",
     location: "MakerLab",
     zone: "Resin Bench",
     trainingLevel: "Intermediate",
+    trainingLabel: "Intermediate checkout required",
     status: "In Use",
-    shortDescription:
-      "High-resolution SLA resin printer for precise prototypes, fixtures, and small batch parts.",
     description:
       "A production-grade resin printer used for detailed parts that need smooth surfaces, tight tolerances, or engineering material properties. Requires resin handling discipline, post-processing, and ventilation awareness.",
     imageSrc: "/tool-images/Form 4.png",
     ppe: ["Nitrile gloves", "Safety glasses", "Lab coat"],
-    specs: [
-      { label: "Process", value: "SLA resin printing" },
-      { label: "Build volume", value: "200 x 125 x 210 mm" },
-      { label: "Materials", value: "Standard, Tough, Flexible, Dental resins" },
-      { label: "Training", value: "Intermediate checkout required" },
-    ],
+    materials: ["Standard resin", "Tough resin", "Flexible resin", "Dental resin"],
+    tags: ["Resin", "SLA", "Prototyping"],
+    emergencyStop: "Lift the lid to immediately halt the print and pause the build.",
+    useRestrictions: "Resin handling training required before first print.",
+    mapId: "ML-RESIN-01",
+    notes: "Always wear nitrile gloves when handling uncured resin. Ventilation must be running.",
     links: [
-      { label: "SOP", href: "#" },
-      { label: "Manual", href: "#" },
-      { label: "Resin handling", href: "#" },
+      { label: "Form 4 SOP", href: "#", kind: "SOP" },
+      { label: "Resin handling safety", href: "#", kind: "Safety" },
     ],
     units: [
       {
@@ -35,14 +58,7 @@ export const mockTools: MakerLabTool[] = [
         status: "In Use",
         condition: "Excellent",
         location: "Resin Bench",
-      },
-      {
-        id: "unit-form-4-b",
-        name: "Form 4 // B",
-        serial: "ML-F4-002",
-        status: "Available",
-        condition: "Good",
-        location: "Resin Bench",
+        dateAcquired: "2024-08-12",
       },
     ],
   },
@@ -51,26 +67,25 @@ export const mockTools: MakerLabTool[] = [
     slug: "trotec-speedy-400",
     name: "Trotec Speedy 400",
     category: "Laser",
+    categorySub: "CO2",
     location: "Laser Room",
     zone: "Laser Bay",
     trainingLevel: "Advanced",
+    trainingLabel: "Advanced authorization required",
     status: "Available",
-    shortDescription:
-      "80W CO2 laser cutter and engraver for sheet goods, paper, acrylic, and approved woods.",
     description:
       "Large format laser platform for cutting and engraving approved flat stock. Users must verify material compatibility, ventilation, fire watch, and job setup before operation.",
     imageSrc: "/tool-images/Trotec Speedy 400, 80w.png",
     ppe: ["Safety glasses", "Fire watch", "Approved materials only"],
-    specs: [
-      { label: "Laser", value: "80W CO2" },
-      { label: "Bed", value: "1000 x 610 mm" },
-      { label: "Materials", value: "Acrylic, paper, cardboard, plywood" },
-      { label: "Training", value: "Advanced authorization required" },
-    ],
+    materials: ["Acrylic", "Paper", "Cardboard", "Plywood"],
+    tags: ["Laser", "CO2", "Cutting", "Engraving"],
+    emergencyStop: "Press the red E-stop on the right side of the gantry to cut power instantly.",
+    useRestrictions: "Authorized users only. Material list must be confirmed with staff.",
+    mapId: "ML-LSR-400",
+    notes: "Run exhaust for 60 seconds after cuts before opening the lid.",
     links: [
-      { label: "SOP", href: "#" },
-      { label: "Material list", href: "#" },
-      { label: "Job setup", href: "#" },
+      { label: "Trotec Speedy 400 SOP", href: "#", kind: "SOP" },
+      { label: "Approved material list", href: "#", kind: "Safety" },
     ],
     units: [
       {
@@ -80,83 +95,16 @@ export const mockTools: MakerLabTool[] = [
         status: "Available",
         condition: "Good",
         location: "Laser Bay",
-      },
-    ],
-  },
-  {
-    id: "tool-bantam-cnc",
-    slug: "bantam-cnc",
-    name: "Bantam Desktop CNC",
-    category: "CNC",
-    location: "Electronics Bench",
-    zone: "PCB Station",
-    trainingLevel: "Advanced",
-    status: "Training Required",
-    shortDescription:
-      "Compact CNC mill for PCBs, small aluminum parts, wax, plastics, and precision fixtures.",
-    description:
-      "Desktop CNC platform suited for electronics workflows and small mechanical parts. Requires CAM review, toolpath setup, stock fixturing, and supervised first run.",
-    imageSrc: "/tool-images/Bantam Tools Desktop CNC Milling Machine.png",
-    ppe: ["Safety glasses", "Hearing protection", "Closed-toe shoes"],
-    specs: [
-      { label: "Process", value: "3-axis subtractive milling" },
-      { label: "Materials", value: "FR-1, wax, plastic, aluminum" },
-      { label: "Workholding", value: "Tape, clamps, low-profile vises" },
-      { label: "Training", value: "Advanced checkout required" },
-    ],
-    links: [
-      { label: "SOP", href: "#" },
-      { label: "Tool library", href: "#" },
-      { label: "CAM notes", href: "#" },
-    ],
-    units: [
-      {
-        id: "unit-bantam-a",
-        name: "Bantam CNC // A",
-        serial: "ML-CNC-012",
-        status: "Training Required",
-        condition: "Service Soon",
-        location: "PCB Station",
-      },
-    ],
-  },
-  {
-    id: "tool-vinyl-cutter",
-    slug: "roland-vinyl-cutter",
-    name: "Roland Camm-1 GS-24",
-    category: "Vinyl",
-    location: "Assembly Studio",
-    zone: "Graphics Bench",
-    trainingLevel: "Beginner",
-    status: "Available",
-    shortDescription:
-      "Desktop vinyl cutter for decals, masking film, heat-transfer vinyl, and sign graphics.",
-    description:
-      "Precision drag-knife cutter for sheet and roll vinyl workflows. Good entry point for new lab users after a short orientation on blades, force, and weeding.",
-    imageSrc: "/tool-images/Roland Camm-1 GS-24 Desktop Vinyl Cutter.png",
-    ppe: ["Blade handling care"],
-    specs: [
-      { label: "Process", value: "Drag-knife vinyl cutting" },
-      { label: "Media", value: "Sheet and roll vinyl" },
-      { label: "Width", value: "Up to 24 in" },
-      { label: "Training", value: "Beginner orientation" },
-    ],
-    links: [
-      { label: "SOP", href: "#" },
-      { label: "CutStudio guide", href: "#" },
-    ],
-    units: [
-      {
-        id: "unit-roland-gs24",
-        name: "Roland GS-24",
-        serial: "ML-VIN-024",
-        status: "Available",
-        condition: "Excellent",
-        location: "Graphics Bench",
+        dateAcquired: "2022-04-03",
       },
     ],
   },
 ];
+
+export const mockTools: MakerLabTool[] = seeds.map((seed) => ({
+  ...seed,
+  shortDescription: seed.description,
+}));
 
 export function getToolBySlug(slug: string) {
   return mockTools.find((tool) => tool.slug === slug);

@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import type { MakerLabTool } from "./catalog-types";
 import { TechnicalFrame } from "./TechnicalFrame";
@@ -27,13 +28,14 @@ export function GalleryShell({ tools }: GalleryShellProps) {
       const searchable = [
         tool.name,
         tool.category,
+        tool.categorySub,
         tool.location,
         tool.zone,
         tool.trainingLevel,
-        tool.shortDescription,
         tool.description,
         ...tool.ppe,
-        ...tool.specs.map((spec) => spec.value),
+        ...tool.materials,
+        ...tool.tags,
       ]
         .join(" ")
         .toLowerCase();
@@ -131,14 +133,27 @@ export function GalleryShell({ tools }: GalleryShellProps) {
           viewMode === "grid" ? (
             filteredTools.map((tool) => <ToolCard key={tool.id} tool={tool} />)
           ) : (
-            filteredTools.map((tool) => (
-              <a className="tool-table-row" href={`/tools/${tool.slug}`} key={tool.id}>
-                <span>{tool.name}</span>
-                <span>{tool.category}</span>
-                <span>{tool.zone}</span>
-                <span>{tool.trainingLevel}</span>
-              </a>
-            ))
+            <>
+              <div className="tool-table-row tool-table-head" role="row" aria-hidden="true">
+                <span>Tool</span>
+                <span>Category</span>
+                <span>Zone</span>
+                <span>Training</span>
+              </div>
+              {filteredTools.map((tool) => (
+                <a className="tool-table-row" href={`/tools/${tool.slug}`} key={tool.id}>
+                  <span className="tool-table-name">
+                    <span className="tool-table-thumb" aria-hidden="true">
+                      <Image src={tool.imageSrc} alt="" fill sizes="40px" style={{ objectFit: "contain" }} />
+                    </span>
+                    <span>{tool.name}</span>
+                  </span>
+                  <span>{tool.category}</span>
+                  <span>{tool.zone}</span>
+                  <span>{tool.trainingLevel}</span>
+                </a>
+              ))}
+            </>
           )
         ) : (
           <p className="empty-state">No matching tools found.</p>

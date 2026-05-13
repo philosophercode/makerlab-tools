@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { CatalogStats } from "./catalog-types";
+import { PrimaryNav } from "./PrimaryNav";
+import { ThemeToggle } from "./ThemeToggle";
 
 interface GlobalChromeProps {
   stats: CatalogStats;
@@ -13,20 +15,9 @@ export function GlobalChrome({ stats }: GlobalChromeProps) {
           <span>MAKERLAB</span>
           <span>{"//"} CORNELL TECH</span>
         </Link>
-        <nav className="primary-nav" aria-label="Primary navigation">
-          <Link className="is-active" href="/">
-            TOOLS
-          </Link>
-          <a href="#">PROJECTS</a>
-          <a href="#">ABOUT</a>
-        </nav>
+        <PrimaryNav />
         <div className="nav-actions" aria-label="Utility controls">
-          <button type="button" aria-label="Settings">
-            [=]
-          </button>
-          <button type="button" aria-label="Account">
-            [@]
-          </button>
+          <ThemeToggle />
         </div>
       </header>
       <div className="status-strip" aria-label="Lab status">

@@ -1,32 +1,93 @@
+import { cacheLife, cacheTag } from "next/cache";
 import {
   fetchAllCategories,
   fetchAllLocations,
-  fetchCatalogTools,
-  fetchResourcesByTool,
-  fetchTool,
-  fetchUnitsByTool,
+  fetchAllResources,
+  fetchAllTools,
+  fetchAllUnits,
   getNotionEnvContract,
   resolveTools,
 } from "./notion";
-import type { ResourceRecord, ToolWithMeta, UnitRecord } from "./types";
-import type { CatalogStats, MakerLabTool, MakerLabUnit, ToolStatus } from "../components/catalog-types";
+import type {
+  CategoryRecord,
+  LocationRecord,
+  ResourceRecord,
+  ToolRecord,
+  ToolWithMeta,
+  UnitRecord,
+} from "./types";
+import type {
+  CatalogStats,
+  MakerLabTool,
+  MakerLabUnit,
+  ToolStatus,
+} from "../components/catalog-types";
 import { getToolBySlug, mockTools } from "../components/mock-catalog";
+
+interface FullCatalog {
+  tools: ToolRecord[];
+  categories: CategoryRecord[];
+  locations: LocationRecord[];
+  units: UnitRecord[];
+  resources: ResourceRecord[];
+}
 
 export function hasNotionCatalogEnv(): boolean {
   return getNotionEnvContract().every((key) => Boolean(process.env[key]));
+}
+
+async function fetchFullCatalog(): Promise<FullCatalog> {
+  "use cache";
+  cacheTag("catalog");
+  cacheLife("hours");
+
+  const [tools, categories, locations, units, resources] = await Promise.all([
+    fetchAllTools(),
+    fetchAllCategories(),
+    fetchAllLocations(),
+    fetchAllUnits(),
+    fetchAllResources(),
+  ]);
+  return { tools, categories, locations, units, resources };
+}
+
+function groupUnitsByTool(units: UnitRecord[]): Map<string, UnitRecord[]> {
+  const map = new Map<string, UnitRecord[]>();
+  for (const unit of units) {
+    for (const toolId of unit.fields.tool || []) {
+      const list = map.get(toolId);
+      if (list) list.push(unit);
+      else map.set(toolId, [unit]);
+    }
+  }
+  return map;
+}
+
+function groupResourcesByTool(resources: ResourceRecord[]): Map<string, ResourceRecord[]> {
+  const map = new Map<string, ResourceRecord[]>();
+  for (const resource of resources) {
+    if (resource.fields.published === false) continue;
+    for (const toolId of resource.fields.tool || []) {
+      const list = map.get(toolId);
+      if (list) list.push(resource);
+      else map.set(toolId, [resource]);
+    }
+  }
+  return map;
 }
 
 export async function getCatalogTools(): Promise<MakerLabTool[]> {
   if (!hasNotionCatalogEnv()) return mockTools;
 
   try {
-    const tools = await fetchCatalogTools();
-    const units = await Promise.all(
-      tools.map(async (tool) => [tool.id, await fetchUnitsByTool(tool.id)] as const)
-    );
-    const unitsByTool = new Map(units);
+    const catalog = await fetchFullCatalog();
+    const resolved = resolveTools(catalog.tools, catalog.categories, catalog.locations);
+    const unitsByTool = groupUnitsByTool(catalog.units);
+    const resourcesByTool = groupResourcesByTool(catalog.resources);
 
-    return tools.map((tool) => toMakerLabTool(tool, unitsByTool.get(tool.id) || []));
+    return resolved.map((tool) =>
+      toMakerLabTool(tool, unitsByTool.get(tool.id) || [], resourcesByTool.get(tool.id) || [])
+    );
   } catch (error) {
     console.warn("Falling back to mock catalog:", error);
     return mockTools;
@@ -48,15 +109,16 @@ export async function getCatalogTool(id: string): Promise<MakerLabTool | null> {
   }
 
   try {
-    const [tool, categories, locations, units, resources] = await Promise.all([
-      fetchTool(id),
-      fetchAllCategories(),
-      fetchAllLocations(),
-      fetchUnitsByTool(id),
-      fetchResourcesByTool(id),
-    ]);
-    const [resolved] = resolveTools([tool], categories, locations);
-    return resolved ? toMakerLabTool(resolved, units, resources) : null;
+    const catalog = await fetchFullCatalog();
+    const raw = catalog.tools.find((tool) => tool.id === id);
+    if (!raw) return null;
+
+    const [resolved] = resolveTools([raw], catalog.categories, catalog.locations);
+    if (!resolved) return null;
+
+    const units = groupUnitsByTool(catalog.units).get(id) || [];
+    const resources = groupResourcesByTool(catalog.resources).get(id) || [];
+    return toMakerLabTool(resolved, units, resources);
   } catch (error) {
     console.warn("Falling back to mock tool:", error);
     return getToolBySlug(id) || null;
@@ -70,42 +132,39 @@ function toMakerLabTool(
 ): MakerLabTool {
   const mappedUnits = units.map((unit) => toMakerLabUnit(unit, tool));
   const status = deriveStatus(tool, mappedUnits);
-  const materials = tool.materials.length ? tool.materials.join(", ") : "Contact MakerLab staff";
-  const location = [tool.location_room, tool.location_zone].filter(Boolean).join(" // ");
 
   return {
     id: tool.id,
     slug: tool.id,
     name: tool.name,
     category: tool.category_group,
+    categorySub: tool.category_sub,
     location: tool.location_room,
     zone: tool.location_zone,
     trainingLevel: deriveTrainingLevel(tool),
+    trainingLabel: deriveTrainingLabel(tool),
     status,
     shortDescription: tool.description || "Catalog record pending description.",
     description: tool.description || "This tool record is available in the MakerLab catalog.",
     imageSrc: tool.image_url || localToolImage(tool.name),
     ppe: tool.ppe_required.length ? tool.ppe_required : ["Check posted lab guidance"],
-    specs: [
-      { label: "Category", value: `${tool.category_group} // ${tool.category_sub}` },
-      { label: "Location", value: location || "Unknown" },
-      { label: "Materials", value: materials },
-      { label: "Training", value: deriveTrainingLabel(tool) },
-      ...(tool.map_tag ? [{ label: "Map ID", value: tool.map_tag }] : []),
-      ...(tool.emergency_stop ? [{ label: "Emergency Stop", value: tool.emergency_stop }] : []),
-      ...(tool.use_restrictions ? [{ label: "Restrictions", value: tool.use_restrictions }] : []),
-    ],
-    links: resourceLinks(resources, tool),
+    materials: tool.materials,
+    tags: tool.tags,
+    emergencyStop: tool.emergency_stop,
+    useRestrictions: tool.use_restrictions,
+    mapId: tool.map_tag,
+    notes: tool.notes,
+    links: resourceLinks(resources),
     units: mappedUnits,
   };
 }
 
-function resourceLinks(resources: ResourceRecord[], tool: ToolWithMeta): MakerLabTool["links"] {
-  const links = resources.flatMap((resource) => {
+function resourceLinks(resources: ResourceRecord[]): MakerLabTool["links"] {
+  return resources.flatMap((resource) => {
     const fields = resource.fields;
     const base = {
       kind: fields.type || "Resource",
-      description: fields.content || fields.notes || undefined,
+      description: fields.notes || undefined,
     };
     const urlLinks = fields.url
       ? [
@@ -125,31 +184,17 @@ function resourceLinks(resources: ResourceRecord[], tool: ToolWithMeta): MakerLa
 
     return [...urlLinks, ...fileLinks];
   });
-
-  if (links.length > 0) return links;
-
-  return [
-    ...(tool.sop_url ? [{ label: "SOP", href: tool.sop_url, kind: "SOP" }] : []),
-    ...(tool.safety_doc_url
-      ? [{ label: "Safety Doc", href: tool.safety_doc_url, kind: "Safety" }]
-      : []),
-    ...(tool.video_url ? [{ label: "Video", href: tool.video_url, kind: "Video" }] : []),
-    ...tool.manual_attachments.map((manual, index) => ({
-      label: manual.filename || `Manual ${index + 1}`,
-      href: manual.url,
-      kind: "Manual",
-    })),
-  ];
 }
 
 function toMakerLabUnit(unit: UnitRecord, tool: ToolWithMeta): MakerLabUnit {
   return {
     id: unit.id,
     name: unit.fields.unit_label || `${tool.name} // Unit`,
-    serial: unit.fields.serial_number || unit.fields.asset_tag || unit.fields.uuid || "Unlisted",
+    serial: unit.fields.serial_number || unit.fields.asset_tag || "Unlisted",
     status: toToolStatus(unit.fields.status, false),
     condition: toCondition(unit.fields.condition, unit.fields.status),
     location: tool.location_zone || tool.location_room || "Unknown",
+    dateAcquired: unit.fields.date_acquired || null,
   };
 }
 

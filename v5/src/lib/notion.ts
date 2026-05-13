@@ -223,11 +223,17 @@ function checkboxValue(page: NotionPage, names: string[]): boolean | undefined {
   return property?.type === "checkbox" ? property.checkbox : undefined;
 }
 
-function numberValue(page: NotionPage, names: string[]): number | undefined {
-  const property = prop(page, names);
-  return property?.type === "number" && typeof property.number === "number"
-    ? property.number
-    : undefined;
+const STALE_IMAGE_HOSTS = ["airtableusercontent.com"];
+
+function isStaleImageUrl(url: string | undefined): boolean {
+  if (!url) return true;
+  return STALE_IMAGE_HOSTS.some((host) => url.includes(host));
+}
+
+function pickFreshImageUrl(attachment: Attachment | undefined): string | null {
+  if (!attachment) return null;
+  const candidates = [attachment.thumbnails?.large?.url, attachment.url];
+  return candidates.find((candidate) => candidate && !isStaleImageUrl(candidate)) || null;
 }
 
 function fileAttachments(page: NotionPage, names: string[]): Attachment[] {
@@ -284,11 +290,7 @@ function pageToTool(page: NotionPage): ToolRecord {
     training_required: checkboxValue(page, ["training_required", "Training Required"]),
     use_restrictions: richTextValue(prop(page, ["use_restrictions", "Use Restrictions"])),
     emergency_stop: richTextValue(prop(page, ["emergency_stop", "Emergency Stop"])),
-    safety_doc_url: richTextValue(prop(page, ["safety_doc_url", "Safety Doc URL"])),
-    sop_url: richTextValue(prop(page, ["sop_url", "SOP URL"])),
-    video_url: richTextValue(prop(page, ["video_url", "Video URL"])),
     image_attachments: fileAttachments(page, ["image_attachments", "Images", "Image"]),
-    manual_attachments: fileAttachments(page, ["manual_attachments", "Manuals", "Manual"]),
     notes: richTextValue(prop(page, ["notes", "Notes"])),
     published: checkboxValue(page, ["published", "Published"]),
   });
@@ -304,7 +306,6 @@ function pageToUnit(page: NotionPage): UnitRecord {
     condition: selectValue(page, ["condition", "Condition"]) as UnitFields["condition"],
     date_acquired: richTextValue(prop(page, ["date_acquired", "Date Acquired"])),
     notes: richTextValue(prop(page, ["notes", "Notes"])),
-    uuid: richTextValue(prop(page, ["uuid", "UUID"])),
   });
 }
 
@@ -315,11 +316,8 @@ function pageToResource(page: NotionPage): ResourceRecord {
     type: selectValue(page, ["type", "Type", "kind", "Kind"]),
     url: richTextValue(prop(page, ["url", "URL"])),
     files: fileAttachments(page, ["files", "Files", "attachments", "Attachments"]),
-    content: richTextValue(prop(page, ["content", "Content"])),
     notes: richTextValue(prop(page, ["notes", "Notes"])),
     published: checkboxValue(page, ["published", "Published"]),
-    sort_order: numberValue(page, ["sort_order", "Sort Order"]),
-    source: richTextValue(prop(page, ["source", "Source"])),
   });
 }
 
@@ -365,81 +363,15 @@ export async function fetchAllUnits(): Promise<UnitRecord[]> {
 
 export async function fetchAllResources(): Promise<ResourceRecord[]> {
   const pages = await queryDatabase("resources", {
-    sorts: [{ property: "sort_order", direction: "ascending" }],
-  }).catch(() => queryDatabase("resources"));
+    sorts: [{ property: "title", direction: "ascending" }],
+  })
+    .catch(() => queryDatabase("resources", { sorts: [{ property: "Title", direction: "ascending" }] }))
+    .catch(() => queryDatabase("resources"));
   return pages.map(pageToResource);
 }
 
 export async function fetchUnit(id: string): Promise<UnitRecord> {
   return pageToUnit(await fetchPage(id));
-}
-
-export async function fetchResourcesByTool(toolPageId: string): Promise<ResourceRecord[]> {
-  const pages = await queryDatabase("resources", {
-    filter: {
-      and: [
-        { property: "tool", relation: { contains: toolPageId } },
-        { property: "published", checkbox: { equals: true } },
-      ],
-    },
-    sorts: [{ property: "sort_order", direction: "ascending" }],
-  })
-    .catch(() =>
-      queryDatabase("resources", {
-        filter: {
-          property: "tool",
-          relation: { contains: toolPageId },
-        },
-        sorts: [{ property: "sort_order", direction: "ascending" }],
-      })
-    )
-    .catch(() => queryDatabase("resources"));
-
-  return pages
-    .map(pageToResource)
-    .filter((resource) => resource.fields.tool?.includes(toolPageId));
-}
-
-export async function fetchUnitsByTool(toolPageId: string): Promise<UnitRecord[]> {
-  const pages = await queryDatabase("units", {
-    filter: {
-      property: "tool",
-      relation: { contains: toolPageId },
-    },
-  }).catch(async (error: unknown) => {
-    if (error instanceof Error && error.message.includes("property")) {
-      return queryDatabase("units", {
-        filter: {
-          property: "Tool",
-          relation: { contains: toolPageId },
-        },
-      });
-    }
-    throw error;
-  });
-
-  return pages.map(pageToUnit);
-}
-
-export async function fetchUnitByUuid(uuid: string): Promise<UnitRecord | null> {
-  const pages = await queryDatabase("units", {
-    filter: {
-      property: "uuid",
-      rich_text: { equals: uuid },
-    },
-  }).catch(async (error: unknown) => {
-    if (error instanceof Error && error.message.includes("property")) {
-      return queryDatabase("units", {
-        filter: {
-          property: "UUID",
-          rich_text: { equals: uuid },
-        },
-      });
-    }
-    throw error;
-  });
-
-  return pages.map(pageToUnit)[0] || null;
 }
 
 export function resolveTools(
@@ -475,25 +407,10 @@ export function resolveTools(
       use_restrictions: tool.fields.use_restrictions || null,
       emergency_stop: tool.fields.emergency_stop || null,
       notes: tool.fields.notes || null,
-      safety_doc_url: tool.fields.safety_doc_url || null,
-      sop_url: tool.fields.sop_url || null,
-      video_url: tool.fields.video_url || null,
       map_tag: location?.id || null,
-      image_url: firstImage?.thumbnails?.large?.url || firstImage?.url || null,
-      generated_image_url: null,
+      image_url: pickFreshImageUrl(firstImage),
       image_attachments: tool.fields.image_attachments || [],
-      generated_image: [],
-      manual_attachments: tool.fields.manual_attachments || [],
     };
   });
 }
 
-export async function fetchCatalogTools(): Promise<ToolWithMeta[]> {
-  const [tools, categories, locations] = await Promise.all([
-    fetchAllTools(),
-    fetchAllCategories(),
-    fetchAllLocations(),
-  ]);
-
-  return resolveTools(tools, categories, locations);
-}

@@ -1,10 +1,17 @@
+import { Suspense } from "react";
+import { GalleryFallback } from "../components/GalleryFallback";
 import { GalleryShell } from "../components/GalleryShell";
 import { getCatalogTools } from "../lib/catalog";
 
-export const revalidate = 3600;
+export default function GalleryPage() {
+  return (
+    <Suspense fallback={<GalleryFallback />}>
+      <GalleryData />
+    </Suspense>
+  );
+}
 
-export default async function GalleryPage() {
+async function GalleryData() {
   const tools = await getCatalogTools();
-
   return <GalleryShell tools={tools} />;
 }

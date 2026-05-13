@@ -46,11 +46,7 @@ export interface ToolFields {
   training_required?: boolean;
   use_restrictions?: string;
   emergency_stop?: string;
-  safety_doc_url?: string;
-  sop_url?: string;
-  video_url?: string;
   image_attachments?: Attachment[];
-  manual_attachments?: Attachment[];
   notes?: string;
   published?: boolean;
 }
@@ -63,11 +59,8 @@ export interface ResourceFields {
   type?: string;
   url?: string;
   files?: Attachment[];
-  content?: string;
   notes?: string;
   published?: boolean;
-  sort_order?: number;
-  source?: string;
 }
 
 export type ResourceRecord = NotionRecord<ResourceFields>;
@@ -88,15 +81,9 @@ export interface ToolWithMeta {
   use_restrictions: string | null;
   emergency_stop: string | null;
   notes: string | null;
-  safety_doc_url: string | null;
-  sop_url: string | null;
-  video_url: string | null;
   map_tag: string | null;
   image_url: string | null;
-  generated_image_url: string | null;
   image_attachments: Attachment[];
-  generated_image: Attachment[];
-  manual_attachments: Attachment[];
 }
 
 export type UnitStatus =
@@ -117,7 +104,6 @@ export interface UnitFields {
   condition?: UnitCondition;
   date_acquired?: string;
   notes?: string;
-  uuid?: string;
 }
 
 export type UnitRecord = NotionRecord<UnitFields>;

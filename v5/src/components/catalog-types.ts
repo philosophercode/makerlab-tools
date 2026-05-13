@@ -7,6 +7,7 @@ export interface MakerLabUnit {
   status: ToolStatus;
   condition: "Excellent" | "Good" | "Service Soon" | "Offline";
   location: string;
+  dateAcquired: string | null;
 }
 
 export interface MakerLabTool {
@@ -14,18 +15,22 @@ export interface MakerLabTool {
   slug: string;
   name: string;
   category: string;
+  categorySub: string;
   location: string;
   zone: string;
   trainingLevel: "Beginner" | "Intermediate" | "Advanced";
+  trainingLabel: string;
   status: ToolStatus;
   shortDescription: string;
   description: string;
   imageSrc: string;
   ppe: string[];
-  specs: Array<{
-    label: string;
-    value: string;
-  }>;
+  materials: string[];
+  tags: string[];
+  emergencyStop: string | null;
+  useRestrictions: string | null;
+  mapId: string | null;
+  notes: string | null;
   links: Array<{
     label: string;
     href: string;
