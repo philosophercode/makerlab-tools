@@ -1,0 +1,15 @@
+{
+  "name": "makerlab-tools-v5",
+  "version": "5.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "migrate:resources": "node --env-file=.env.local --experimental-strip-types scripts/migrate-tools-to-resources.ts",
+    "drop:deprecated-columns": "node --env-file=.env.local --experimental-strip-types scripts/drop-deprecated-notion-columns.ts",
+    "clear:migration-notes": "node --env-file=.env.local --experimental-strip-types scripts/clear-resource-migration-notes.ts"
+  }
+}

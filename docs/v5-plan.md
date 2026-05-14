@@ -63,7 +63,7 @@ graph TB
     end
 
     subgraph External["External"]
-        Notion[("Notion · 6 DBs<br/>Tools · Categories · Locations · Units<br/>Maintenance_Logs · Flags")]
+        Notion[("Notion · 7 DBs<br/>Tools · Categories · Locations · Units<br/>Resources · Maintenance_Logs · Flags")]
         Claude["Claude API<br/>vision + tool use"]
     end
 
@@ -149,7 +149,7 @@ The design philosophy is **Architectural Brutalism + Blueprint Archive**: indust
 Derived from `code.html`. Top to bottom:
 
 - **Sticky top nav** — `MAKERLAB // CORNELL TECH` lockup; nav links `TOOLS / PROJECTS / ABOUT` (Projects link can be inert in v1 since the gallery is deferred to §4.3); settings + account icons.
-- **Status strip** — live-counter row with pulsing dots: `● 100 TOOLS ONLINE`, `● 12 AWAITING TRAINING`, `LAB OPEN 9AM–9PM`. *(v1 simplification: may need to derive from `Units.status` and hardcode lab hours from `site-config` since real-time machine status isn't yet wired in.)*
+- **Status strip** — inventory count plus lab hours: `● 100 TOOLS IN INVENTORY`, `LAB OPEN 9AM–9PM`. *(v1 simplification: derive inventory count from published tools and hardcode lab hours from `site-config` since real-time machine status isn't yet wired in.)*
 - **Page header** — large `TOOLS // MACHINES` title in Space Grotesk uppercase, with a `my_location` material icon.
 - **Search + filters bar** with crosshair-corner accents:
   - Search input prefixed with a `>` prompt glyph (terminal vibe)
@@ -202,6 +202,7 @@ Same global chrome (top nav, status strip, FAB). Page-specific additions, applyi
 | Categories         | `Categories`         | Unchanged.                                                  |
 | Locations          | `Locations`          | Restructured to a 3-level hierarchy: `room → zone → id` (see below). |
 | Units              | `Units`              | `tool` = Relation to `Tools`. Rendered inline on tool detail page. `qr_code_id` swapped for `uuid` (see below). |
+| Resources          | `Resources`          | General related URLs, files, and content for tools. Replaces one-off SOP/manual/video columns for new data. |
 | Maintenance_Logs   | `Maintenance_Logs`   | Schema retained; UI returns in §4.2.                        |
 | Flags              | `Flags`              | Schema retained; gains a Title field (`title`); UI returns in §4.2. |
 
@@ -251,11 +252,12 @@ NOTION_DB_TOOLS=...
 NOTION_DB_CATEGORIES=...
 NOTION_DB_LOCATIONS=...
 NOTION_DB_UNITS=...
+NOTION_DB_RESOURCES=...
 NOTION_DB_MAINTENANCE_LOGS=...
 NOTION_DB_FLAGS=...
 ```
 
-White-labeling stays identical: a new org creates a Notion workspace, runs a setup script, pastes six IDs into `.env.local`.
+White-labeling stays identical: a new org creates a Notion workspace, runs a setup script, pastes seven IDs into `.env.local`.
 
 ### Type strategy
 
