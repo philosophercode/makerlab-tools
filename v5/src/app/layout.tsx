@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import "../styles/globals.css";
 import { ChatFab } from "../components/ChatFab";
 import { GlobalChrome } from "../components/GlobalChrome";
@@ -21,7 +22,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       <body>
         <GlobalChrome stats={catalogStats} />
         {children}
-        <ChatFab />
+        <Suspense fallback={null}>
+          <ChatFab />
+        </Suspense>
       </body>
     </html>
   );
