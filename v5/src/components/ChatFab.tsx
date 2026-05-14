@@ -19,7 +19,7 @@ const SUGGESTIONS: Suggestion[] = [
   { icon: "pin", label: "Ask about safety or policy" },
 ];
 
-function Icon({ name }: { name: Suggestion["icon"] | "send" | "close" }) {
+function Icon({ name }: { name: Suggestion["icon"] | "send" | "close" | "newchat" }) {
   switch (name) {
     case "search":
       return (
@@ -56,6 +56,13 @@ function Icon({ name }: { name: Suggestion["icon"] | "send" | "close" }) {
           <path d="M18 6 6 18M6 6l12 12" />
         </svg>
       );
+    case "newchat":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 20h9" />
+          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
+        </svg>
+      );
   }
 }
 
@@ -68,8 +75,19 @@ export function ChatFab() {
     return match ? match[1] : undefined;
   }, [pathname]);
 
+  // `useChat` bakes the transport into a ref on first mount and never refreshes
+  // it (see @ai-sdk/react useChat — only `id`/`chat` prop changes recreate the
+  // internal Chat). To make navigation update the toolId context without
+  // resetting the conversation, we keep a stable transport that reads the
+  // latest toolId from a ref at send time.
+  const toolIdRef = useRef(toolId);
+  useEffect(() => {
+    toolIdRef.current = toolId;
+  }, [toolId]);
+
   const transport = useMemo(
     () =>
+      // eslint-disable-next-line react-hooks/refs -- the closure below runs at send time inside an event handler, not during render. Reading toolIdRef.current there is safe.
       new DefaultChatTransport({
         api: "/api/chat",
         prepareSendMessagesRequest: ({ id, messages, trigger, messageId }) => ({
@@ -78,15 +96,20 @@ export function ChatFab() {
             messages,
             trigger,
             messageId,
-            ...(toolId ? { toolId } : {}),
+            ...(toolIdRef.current ? { toolId: toolIdRef.current } : {}),
           },
         }),
       }),
-    [toolId]
+    []
   );
 
-  const { messages, sendMessage, status, error } = useChat({ transport });
+  const { messages, sendMessage, setMessages, status, error } = useChat({ transport });
   const isLoading = status === "streaming" || status === "submitted";
+
+  function clearChat() {
+    setMessages([]);
+    setDraft("");
+  }
 
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -158,20 +181,38 @@ export function ChatFab() {
           <section className="chat-sheet" id="makerlab-chat-sheet">
             <header className="chat-header">
               <h2 id="chat-title">MAKERLAB ASSISTANT</h2>
-              <button
-                type="button"
-                className="chat-close"
-                onClick={close}
-                aria-label="Close assistant"
-              >
-                <Icon name="close" />
-              </button>
+              <div className="chat-header-actions">
+                {messages.length > 0 ? (
+                  <button
+                    type="button"
+                    className="chat-close"
+                    onClick={clearChat}
+                    aria-label="Start new chat"
+                    title="Start new chat"
+                  >
+                    <Icon name="newchat" />
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="chat-close"
+                  onClick={close}
+                  aria-label="Close assistant"
+                  title="Close (keeps conversation)"
+                >
+                  <Icon name="close" />
+                </button>
+              </div>
             </header>
 
             <div className="chat-body" ref={scrollRef}>
               {messages.length === 0 ? (
                 <>
-                  <p className="chat-greeting">How can I help you today?</p>
+                  <p className="chat-greeting">
+                    {toolId
+                      ? "Ask about this tool — I have its specs, materials, and resource links."
+                      : "How can I help you today?"}
+                  </p>
                   <div className="chat-suggestions">
                     {SUGGESTIONS.map((suggestion) => (
                       <button
