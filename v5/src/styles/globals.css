@@ -945,6 +945,12 @@ p {
   color: var(--on-surface);
 }
 
+.chat-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
 .chat-close {
   display: inline-flex;
   align-items: center;
