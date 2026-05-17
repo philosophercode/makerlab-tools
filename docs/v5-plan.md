@@ -478,4 +478,117 @@ v1 is done when the read-only catalog is a credible replacement for the v4 brows
 
 ---
 
-*Earlier v5 drafts included Student Projects, AI Ingestion, and several supporting screens as v1 features. The current plan narrows v1 to gallery + detail + read-only chat overlay; everything else is roadmapped in §4. See git history for the prior scope.*
+## 9. Long-term Vision
+
+> **Status:** Vision — directional, not committed. v1 scope (§§1–8) is unchanged.
+>
+> §§1–8 cover what ships first. §9 captures *where this is heading* so feature-level decisions ladder up to a coherent picture and future agents/contributors share the same north star.
+
+### 9.1 Core idea (sharpened)
+
+MakerLab Tools is **the operational front door to the lab — a digital twin and the interface between human intent (a student with a project idea) and machine capability (the tools, their state, who can use them, what materials are in stock).** The agent's job is to turn ideas into machine-executable plans, in conversation, across students and machines simultaneously.
+
+The catalog is the substrate, not the product. Tools, units, locations, materials, trainings, telemetry are typed knowledge the agent reasons over — so investing in structured data quality compounds across every future feature.
+
+### 9.2 Two users, two jobs to be done
+
+| User | Job to be done | What the app does for them |
+|---|---|---|
+| **Students** | Discover, learn, build | Removes friction between an idea and the right machine. Lowers activation energy for non-traditional users (MBA, LLM, design). |
+| **Staff / admins** | See, expand, coach | Makes the state of the lab legible at a glance. Frees admin time from busywork (translating manuals, fielding "where is X?") so they can problem-solve, mentor, and plan expansion. |
+
+Features that serve both users at once (e.g., AI ingestion, chat in your language) are highest-leverage.
+
+### 9.3 Four outcomes
+
+The app's success is measured in lab outcomes, not feature counts. Every future feature should ladder up to at least one:
+
+1. **Access widening** — non-traditional users (non-English speakers, design/MBA/LLM students who don't self-identify as builders) start using the lab.
+2. **Capability deepening** — existing users build more ambitious, multi-tool projects they wouldn't have attempted on their own.
+3. **Throughput** — more projects per student per semester; more students per semester. Every minute of friction removed compounds.
+4. **Visibility / institutional value** — projects gallery + utilization analytics become admissions, marketing, and fundraising material. The lab tells its own story.
+
+This re-prioritizes §4.3 (Student Projects) from "nice browse experience" to load-bearing institutional asset.
+
+### 9.4 What coordination means in practice — not reservations
+
+In observed practice, students don't want a booking UI; they want **the right machine for their job, their files on it, and a ping when it's done**. The coordination thesis is **visibility and routing, not reservations**:
+
+- **Smart routing** — agent picks the right printer/machine for the job based on size, material, queue depth. Solves the bottleneck case where a large print blocks a small one that could've gone elsewhere.
+- **File flow** — upload STL/G-code through chat or web, agent slices, pushes to the machine, returns queue position.
+- **Done-pings** — Slack DM the second a job finishes. Solves "whose print is on the bench?" because the job is tied to a user.
+- **Live job-board** — passive read-only view: what's running, ETA, on which machine. Glanceable before walking over.
+
+Explicitly **not** in scope: calendar-based reservation UI.
+
+### 9.5 Data-leverage thesis
+
+**Inventory enables expansion.** You can't make informed decisions about what to add to the lab if you don't know what you have and how it's used. So the highest-leverage thing to do *now*, even at v5 scope, is **log every chat question**. Chat-question frequency is a free proxy for utilization and demand, available before any telemetry hardware is installed. That data compounds.
+
+### 9.6 Admin-leverage features
+
+- **Utilization analytics** — which tools get asked about, used, sit idle, peak times. Drives expansion decisions.
+- **Procurement signal capture** — when chat is asked for a tool the lab doesn't have, auto-file to a `Procurement Requests` DB with requester + frequency. Staff get a ranked backlog of "tools students actually want" without fielding the question.
+- **Lab-map view** — 2D floor plan first, with tools placed by `Location.id`. Drag-to-reorganize, "what's at L-12?", plan a new zone visually. Upgrade to 3D once a building model is available.
+- **Weekly admin digest** — auto-emailed: top questions, top tools, open maintenance, training under-fills, gap requests. The system reports *to* admins instead of waiting to be asked.
+- **Admin-mode chat (Claude-as-lab-COO)** — same FAB, role-aware starter chips when an admin is signed in: *"Generate last month's analytics report,"* *"Top 5 most-requested missing tools,"* *"Trainings under-filled next month,"* *"Tools un-used for 90 days."* Same mechanism as per-tool starter chips for students, different prompt context.
+
+### 9.7 Localization & accessibility (pulled forward into v1 polish)
+
+Most of the localization win is dirt cheap because Claude is multilingual out of the box. Pareto-optimal sequencing:
+
+- **v1 polish** — confirm `/api/chat` doesn't force English; chat answers in any language out of the box. Add a *"Translate this page to..."* starter chip in the FAB on tool detail.
+- **v5.x** — first-visit language banner using `Accept-Language` as a *suggestion, not a switch*. Cookie-stored preference; persistent toggle in the top nav next to the theme toggle. No full UI translation yet.
+- **v6** — real `next-intl` UI translation for the top 2–3 languages, sized by actual chat-language frequency (which the v5.x logging already gives us).
+
+**Worked example — chat-mediated debugging in your language.** A printer throws an error. The student photographs the screen, asks in Mandarin *"什么错了?"*. Claude reads the error code (vision), pulls the matching section from the manual (resolves §6 open question: *yes, extract* — this is the use case that pays for the work), and responds in Mandarin with concrete next steps. Student unjams the printer themselves. Machine stays online. Admin never gets paged.
+
+This single workflow hits three outcomes at once: **throughput** (machines stay running), **access widening** (non-English speakers go from blocked to self-sufficient), and **admin leverage** (staff stop being human manual translators). It is the most concrete pitch this app makes to the lab director.
+
+Broader accessibility (screen readers, keyboard nav, plain-language descriptions over jargon) lives in the same outcome bucket and gets attention in v1 polish and v5.x.
+
+### 9.8 Practical telemetry path
+
+Vendor-specific CLI integration (Bambu CLI, OctoPrint, Klipper, …) is rich but expensive and per-device. **Smart plugs (Shelly, Sense, TP-Link Tapo) measuring current draw** give ~70% of the utilization signal — *"this machine is on / off / running hot"* — vendor-agnostic, ~$30 per outlet. Practical telemetry path:
+
+1. **Smart plugs first.** Covers every machine, including non-CNC equipment (sewing machines, soldering irons, kilns).
+2. **Vendor-specific integration later**, where the richer data (job progress, error codes, file pushes) pays for the per-device work — starting with the most-used machines.
+3. **Telemetry as a separate service**, not a feature of this app. The Tools app *consumes* the telemetry service via a `get_machine_status` tool in chat and via a live job-board view.
+
+### 9.9 Slack as a surface
+
+Students at Cornell Tech already live in Slack for the startup studio — meeting them there is higher-leverage than building another tab to remember. Two surfaces:
+
+- **DM the bot** for private questions (*"am I trained on the laser cutter?"*, *"is my print done?"*).
+- **`@makerlab` in a channel or thread** for group/project questions (*"we're building a wooden enclosure with electronics — what do we need?"*).
+
+Sequencing matters: ship **§4.1 MCP first**, then the Slack bot is a thin adapter that translates Slack events into MCP calls. The reverse order means duplicating catalog access logic.
+
+Two gotchas: (1) DM answers may include user-specific info; channel answers must stay public-only. (2) When `@`'d in a thread, the bot treats the thread as the conversation, not the channel.
+
+Once the bot lives in the workspace, **proactive push** is free: *"your print finished,"* *"your laser training is tomorrow at 3pm,"* *"the Bambu X1 is back online."* That's where it stops being a chatbot and starts feeling like a lab teammate.
+
+### 9.10 Updated horizon
+
+Indicative, not committed — re-prioritized in real time as data lands.
+
+| Phase | Focus | Includes |
+|---|---|---|
+| **v5 v1 polish** | Close §7 acceptance + cheap accessibility wins | Mobile full-screen chat overlay, per-tool cached starter questions, chat answers in any language, "translate this page" chip, chat-question logging |
+| **v5.x** | Foundation for everything after | §4.1 MCP, first-visit language banner + toggle, procurement signal capture (auto-file unrecognized tool requests to a `Procurement Requests` DB) |
+| **v6** | The operational front door lands | Auth (Vercel + Clerk via Marketplace), trainings + certifications + signup, project planner chat tool, admin-mode chat with role-aware starter chips, 2D lab map |
+| **v6.x** | Write surfaces + presence | §4.2 maintenance & flag forms as chat tools, §4.4 AI ingestion with `published` drafts-only gate, consumables inventory, Slack bot (DM + channel) |
+| **v7** | Live lab | Lab telemetry service (smart plugs first, vendor-specific later), `get_machine_status` chat tool, live job-board view, done-pings via Slack, file flow / smart routing |
+| **v8 (open)** | Re-platform if Notion pinches | SQL backend (Neon/Supabase via Marketplace) with in-app admin portal, 3D lab map, full UI translation discipline |
+
+### 9.11 Explicit non-goals
+
+- **Reservation / booking UI.** Coordination is visibility + routing + pings, not calendars.
+- **Replacing Notion as the editing surface.** Notion stays great for writing (descriptions, SOPs, drafts). The app handles what Notion can't: synthesis, analytics, maps, notifications, conversational ingestion.
+- **Image generation (Gemini).** Already deprecated in v4 → v5.
+- **Bulk ingestion of large photo sets.** Deferred well past §4.4.
+- **Tight authentication on the public catalog.** Catalog stays public-readable; the drafts-then-publish gate and rate-limited write tools handle the realistic threat model (chat spam / vandalism, not data theft).
+
+---
+
+*Earlier v5 drafts included Student Projects, AI Ingestion, and several supporting screens as v1 features. The current plan narrows v1 to gallery + detail + read-only chat overlay; everything else is roadmapped in §4. §9 added 2026-05-17 to capture the long-term vision discussed across early-May conversations. See git history for the prior scope.*
