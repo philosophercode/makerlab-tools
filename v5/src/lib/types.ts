@@ -132,6 +132,13 @@ export interface MaintenanceLogFields {
   date_reported?: string;
   date_resolved?: string;
   photo_attachments?: Attachment[];
+  /**
+   * Write-only: references to files already uploaded via the Notion
+   * file_upload API. The read path returns URL-based attachments in
+   * `photo_attachments`; this field is consumed when creating a record so
+   * the Notion `files` property is built with `type: "file_upload"` entries.
+   */
+  photo_uploads?: Array<{ id: string; name: string }>;
 }
 
 export type MaintenanceLogRecord = NotionRecord<MaintenanceLogFields>;

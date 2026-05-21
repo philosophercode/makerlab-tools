@@ -440,12 +440,19 @@ export async function fetchMaintenanceLogsByUnit(
     .filter((log) => log.fields.unit?.includes(unitId));
 }
 
+type NotionWriteFile = {
+  type: "file_upload";
+  file_upload: { id: string };
+  name: string;
+};
+
 type NotionWriteProperty =
   | { title: { text: { content: string } }[] }
   | { rich_text: { text: { content: string } }[] }
   | { select: { name: string } | null }
   | { relation: { id: string }[] }
-  | { date: { start: string } | null };
+  | { date: { start: string } | null }
+  | { files: NotionWriteFile[] };
 
 function titleProp(value: string): NotionWriteProperty {
   return { title: [{ text: { content: value } }] };
@@ -486,6 +493,19 @@ function formatTicketDescription(
   return sections.join("\n\n");
 }
 
+function fileUploadsProp(
+  uploads: Array<{ id: string; name: string }> | undefined
+): NotionWriteProperty {
+  return {
+    files: (uploads || []).map((u) => ({
+      type: "file_upload" as const,
+      file_upload: { id: u.id },
+      name: u.name,
+    })),
+  };
+}
+
+
 export async function createMaintenanceLog(
   fields: Partial<MaintenanceLogFields>
 ): Promise<MaintenanceLogRecord> {
@@ -503,6 +523,9 @@ export async function createMaintenanceLog(
     properties.description = richTextProp(templatedDescription);
   }
   if (fields.date_reported) properties.date_reported = dateProp(fields.date_reported);
+  if (fields.photo_uploads?.length) {
+    properties.photo_attachments = fileUploadsProp(fields.photo_uploads);
+  }
 
   const page = await notionFetch<NotionPage>("/pages", {
     method: "POST",
