@@ -1,33 +1,46 @@
 #!/usr/bin/env tsx
 /**
  * Offline ingestion script for tool documentation PDFs attached to Notion
- * Resources. Produces v5/src/lib/docs-index.json — a JSON embedding index
- * consumed by src/lib/rag.ts.
+ * Resources. Extracts the full text of each PDF and writes
+ * v5/src/lib/docs-text.json — a JSON map of tool_id → resources keyed by tool.
+ *
+ * No embeddings, no chunking. The chat route stuffs the full text of all
+ * docs for the focused tool directly into the system prompt, and exposes a
+ * `read_tool_docs(tool_id)` AI tool for on-demand loading in gallery mode.
  *
  * Required env (loaded from .env.local if present):
  *   - NOTION_API_KEY, NOTION_DB_RESOURCES (+ other catalog DB envs)
- *   - OPENAI_API_KEY
  *
  * Run with: npm run ingest-docs
  */
 
 import fs from "node:fs";
 import path from "node:path";
-import { embedMany } from "ai";
-import { openai } from "@ai-sdk/openai";
 import { extractText, getDocumentProxy } from "unpdf";
-import { fetchAllResources } from "../src/lib/notion";
-import type { DocChunk, DocIndex } from "../src/lib/rag";
+import { fetchAllResources, fetchAllTools } from "../src/lib/notion";
 
-const EMBEDDING_MODEL = "text-embedding-3-small";
-const CHUNK_CHARS = 2800; // ~800 tokens
-const CHUNK_OVERLAP = 350; // ~100 tokens
 const OUTPUT_PATH = path.join(
   process.cwd(),
   "src",
   "lib",
-  "docs-index.json"
+  "docs-text.json"
 );
+
+interface DocsText {
+  generated_at: string;
+  tools: Record<
+    string,
+    {
+      tool_name: string;
+      tool_slug: string;
+      resources: Array<{
+        resource_id: string;
+        resource_title: string;
+        text: string;
+      }>;
+    }
+  >;
+}
 
 function loadEnvLocal(): void {
   const envPath = path.join(process.cwd(), ".env.local");
@@ -57,21 +70,6 @@ function isPdf(filename: string, mime?: string): boolean {
   return /\.pdf(\?|$)/i.test(filename);
 }
 
-function chunkText(text: string): string[] {
-  const normalized = text.replace(/\s+/g, " ").trim();
-  if (!normalized) return [];
-  if (normalized.length <= CHUNK_CHARS) return [normalized];
-
-  const chunks: string[] = [];
-  const step = CHUNK_CHARS - CHUNK_OVERLAP;
-  for (let start = 0; start < normalized.length; start += step) {
-    const end = Math.min(start + CHUNK_CHARS, normalized.length);
-    chunks.push(normalized.slice(start, end));
-    if (end >= normalized.length) break;
-  }
-  return chunks;
-}
-
 async function extractPdfText(url: string): Promise<string> {
   const res = await fetch(url);
   if (!res.ok) {
@@ -80,7 +78,8 @@ async function extractPdfText(url: string): Promise<string> {
   const buffer = new Uint8Array(await res.arrayBuffer());
   const pdf = await getDocumentProxy(buffer);
   const { text } = await extractText(pdf, { mergePages: true });
-  return Array.isArray(text) ? text.join("\n") : text;
+  const merged = Array.isArray(text) ? text.join("\n") : text;
+  return merged.replace(/\s+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
 async function main(): Promise<void> {
@@ -89,17 +88,32 @@ async function main(): Promise<void> {
   if (!process.env.NOTION_API_KEY) {
     throw new Error("NOTION_API_KEY is required (set in .env.local).");
   }
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY is required (set in .env.local).");
+
+  console.log("Fetching Notion tools and resources…");
+  const [tools, resources] = await Promise.all([
+    fetchAllTools(),
+    fetchAllResources(),
+  ]);
+  console.log(
+    `Found ${tools.length} tools and ${resources.length} resources.`
+  );
+
+  const toolMeta = new Map<string, { name: string; slug: string }>();
+  for (const tool of tools) {
+    toolMeta.set(tool.id, {
+      name: tool.fields.name,
+      slug: tool.id, // catalog uses tool.id as the slug
+    });
   }
 
-  console.log("Fetching Notion resources…");
-  const resources = await fetchAllResources();
-  console.log(`Found ${resources.length} resources.`);
+  const output: DocsText = {
+    generated_at: new Date().toISOString(),
+    tools: {},
+  };
 
-  const chunks: DocChunk[] = [];
   let resourceIdx = 0;
   let failureCount = 0;
+  let pdfCount = 0;
 
   for (const resource of resources) {
     resourceIdx++;
@@ -108,44 +122,54 @@ async function main(): Promise<void> {
     const files = (resource.fields.files || []).filter((file) =>
       isPdf(file.filename, file.type)
     );
+
     if (resource.fields.published === false) {
-      console.log(`  [${resourceIdx}/${resources.length}] skip (unpublished): ${title}`);
+      console.log(
+        `  [${resourceIdx}/${resources.length}] skip (unpublished): ${title}`
+      );
+      continue;
+    }
+    if (!toolIds.length) {
+      if (files.length) {
+        console.log(
+          `  [${resourceIdx}/${resources.length}] skip (no tool relation): ${title}`
+        );
+      }
       continue;
     }
     if (!files.length) continue;
 
     console.log(
-      `  [${resourceIdx}/${resources.length}] ${title} — ${files.length} PDF(s)`
+      `  [${resourceIdx}/${resources.length}] ${title} — ${files.length} PDF(s) → ${toolIds.length} tool(s)`
     );
 
-    for (let fileIdx = 0; fileIdx < files.length; fileIdx++) {
-      const file = files[fileIdx];
+    for (const file of files) {
       try {
         const text = await extractPdfText(file.url);
-        const textChunks = chunkText(text);
-        if (!textChunks.length) {
+        if (!text) {
           console.log(`      · ${file.filename}: no extractable text`);
           continue;
         }
+        pdfCount++;
 
-        const { embeddings } = await embedMany({
-          model: openai.textEmbeddingModel(EMBEDDING_MODEL),
-          values: textChunks,
-        });
-
-        for (let i = 0; i < textChunks.length; i++) {
-          chunks.push({
-            id: `${resource.id}:${fileIdx}:${i}`,
+        for (const toolId of toolIds) {
+          const meta = toolMeta.get(toolId);
+          const bucket =
+            output.tools[toolId] ||
+            (output.tools[toolId] = {
+              tool_name: meta?.name || "Unknown tool",
+              tool_slug: meta?.slug || toolId,
+              resources: [],
+            });
+          bucket.resources.push({
             resource_id: resource.id,
             resource_title: title,
-            tool_ids: toolIds,
-            chunk_idx: chunks.length,
-            text: textChunks[i],
-            embedding: embeddings[i] as number[],
+            text,
           });
         }
+
         console.log(
-          `      · ${file.filename}: ${textChunks.length} chunk(s) embedded`
+          `      · ${file.filename}: ${text.length.toLocaleString()} chars extracted`
         );
       } catch (err) {
         failureCount++;
@@ -156,15 +180,10 @@ async function main(): Promise<void> {
     }
   }
 
-  const index: DocIndex = {
-    generated_at: new Date().toISOString(),
-    model: EMBEDDING_MODEL,
-    chunks,
-  };
-
-  fs.writeFileSync(OUTPUT_PATH, JSON.stringify(index, null, 2));
+  fs.writeFileSync(OUTPUT_PATH, JSON.stringify(output, null, 2));
+  const toolsWithDocs = Object.keys(output.tools).length;
   console.log(
-    `\nWrote ${chunks.length} chunks to ${path.relative(process.cwd(), OUTPUT_PATH)}` +
+    `\nWrote ${pdfCount} PDF(s) across ${toolsWithDocs} tool(s) to ${path.relative(process.cwd(), OUTPUT_PATH)}` +
       (failureCount ? ` (${failureCount} file failure(s))` : "")
   );
 }

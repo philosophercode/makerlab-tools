@@ -12,7 +12,7 @@ import {
   createMaintenanceLog,
   fetchMaintenanceLogsByUnit,
 } from "../../../lib/notion";
-import { getChunksForTool, searchDocs } from "../../../lib/rag";
+import { getToolDocs } from "../../../lib/docs";
 import type { MakerLabTool, MakerLabUnit } from "../../../components/catalog-types";
 
 export const maxDuration = 60;
@@ -141,21 +141,32 @@ export async function POST(req: Request) {
           }
         },
       }),
-      search_docs: tool({
+      read_tool_docs: tool({
         description:
-          "Search ingested tool manuals and resources for technical info, specifications, troubleshooting steps, etc. Use when the student asks about specs, error codes, materials compatibility, or anything that would be in a manual.",
+          "Fetch the full text of all documentation (manuals, datasheets, guides) for a specific tool. Use when the student asks a specific question about a tool's specs, error codes, troubleshooting, or operating procedures and you don't already have that tool's docs in context.",
         inputSchema: z.object({
-          query: z.string().describe("Natural-language search query"),
           tool_id: z
             .string()
-            .optional()
             .describe(
-              "Optional: scope search to a specific tool's documents. If the student is viewing a tool, scope to it."
+              "The catalog tool id (the `id` field from the catalog list)."
             ),
         }),
-        execute: async ({ query, tool_id }) => {
-          const hits = await searchDocs({ query, toolId: tool_id, topK: 5 });
-          return { hits };
+        execute: async ({ tool_id }) => {
+          const docs = getToolDocs(tool_id);
+          if (!docs.length) {
+            return {
+              found: false,
+              message:
+                "No documentation has been ingested for this tool.",
+            };
+          }
+          return {
+            found: true,
+            resources: docs.map((d) => ({
+              title: d.resource_title,
+              text: d.text,
+            })),
+          };
         },
       }),
     },
@@ -215,21 +226,21 @@ function buildSystemPrompt(
     `## Linking tools\n\nWhenever you mention a tool that exists in the catalog below, **format its name as a markdown link** to its detail page using the slug provided in the catalog: \`[Tool Name](/tools/<slug>)\`. This lets the student jump straight to the tool's page. Examples:\n- "You could use the [Bambu Lab X1-Carbon Combo 3D Printer](/tools/<slug>) for that."\n- "For laser cutting acrylic, check the [Epilog Helix 24](/tools/<slug>)."\n\nDo **not** link the tool the student is already viewing (see Active tool context). Do not invent slugs — only use slugs from the catalog list.`,
     `## Reporting maintenance issues\n\nIf a student describes a tool or unit problem (broken, jammed, misbehaving, missing parts, safety concern, etc.), gather a short title, a clear description, the affected unit if any, and the student's name, then call \`report_issue\`. After it succeeds, tell the student the ticket was filed and include the ticket ID. If they only name a tool (not a specific unit), it's fine to file the ticket without one — but ask first if they can tell you which unit. If they name a specific unit you don't recognize, call \`get_unit_details\` first to confirm it before filing.\n\nPriority guide: Critical = unsafe or blocks all lab use · High = tool unusable · Medium = degraded performance · Low = cosmetic.`,
     `## Unit details\n\nWhen a student asks about a specific unit ("how is Prusa #1 doing?", "is Form 2 #2 working?", "show me the history on the Trotec"), call \`get_unit_details\` to fetch its live status and recent maintenance history. Surface the status, condition, and a short recap of the most recent log entries.`,
-    `## Searching documentation\n\nFor questions that require deeper technical info than what's in the catalog summary — exact specifications, step-by-step setup, error codes, materials compatibility, troubleshooting, calibration, software workflows — call \`search_docs\` with a focused natural-language query. If the student is viewing a tool page (see Active tool context below), pass that tool's id as \`tool_id\` to scope the search. Use the returned chunks to ground your answer, and cite the source resource by name. If \`search_docs\` returns no hits, fall back to the catalog and (if needed) tell the student you don't have manual coverage for that question.`,
+    `## Tool documentation lookup\n\nIf the student asks a specific question about a tool's specs, error codes, troubleshooting, or operating procedures and you don't already see that tool's documentation above (under \`## Tool documentation\`), call \`read_tool_docs(tool_id)\` to load the full text of its manuals and resources. Use the tool's \`id\` from the catalog list below — not the slug or name. Don't call it if the relevant docs are already in context. After loading, ground your answer in the doc text and cite the source resource by name. If no docs come back, fall back to the catalog and tell the student you don't have manual coverage for that question.`,
   ];
 
   if (focused) {
     sections.push(
-      `## Active tool context\n\nThe student is currently viewing the **${focused.name}** detail page in the MakerLab catalog (tool id: \`${focused.id}\`). If they use pronouns like "this", "it", "that tool", or "the machine", or ask things like "how do I use it" / "what can I make with this" without naming a tool, assume they are asking about the ${focused.name}. When calling \`search_docs\`, pass \`tool_id: "${focused.id}"\` to scope the search. Use the resource links below when relevant — point to the SOP, safety doc, or manual when the student asks how to use, set up, or troubleshoot the tool. Do not wrap "${focused.name}" itself in a tool link — the student is already on its page.\n\n${describeTool(focused)}`
+      `## Active tool context\n\nThe student is currently viewing the **${focused.name}** detail page in the MakerLab catalog (tool id: \`${focused.id}\`). If they use pronouns like "this", "it", "that tool", or "the machine", or ask things like "how do I use it" / "what can I make with this" without naming a tool, assume they are asking about the ${focused.name}. Use the resource links below when relevant — point to the SOP, safety doc, or manual when the student asks how to use, set up, or troubleshoot the tool. Do not wrap "${focused.name}" itself in a tool link — the student is already on its page.\n\n${describeTool(focused)}`
     );
 
-    const docChunks = getChunksForTool(focused.id, 20);
-    if (docChunks.length) {
-      const formatted = docChunks
-        .map((chunk) => `### ${chunk.resource_title}\n${chunk.text}`)
+    const docs = getToolDocs(focused.id);
+    if (docs.length) {
+      const docsBlock = docs
+        .map((d) => `### ${d.resource_title}\n\n${d.text}`)
         .join("\n\n---\n\n");
       sections.push(
-        `## Tool documentation\n\nThe following excerpts are from manuals and resources attached to **${focused.name}**. Prefer these for technical questions; call \`search_docs\` for anything not covered here.\n\n${formatted}`
+        `## Tool documentation\n\nThe following is the full text of all documentation/manuals for ${focused.name}. Use this as your primary reference when answering questions about this tool.\n\n${docsBlock}`
       );
     }
   }
@@ -238,7 +249,7 @@ function buildSystemPrompt(
   sections.push(
     tools
       .map((tool) => {
-        const head = `- **${tool.name}** — slug: \`${tool.slug}\` — ${tool.category}${tool.categorySub ? ` / ${tool.categorySub}` : ""} · ${tool.location}${tool.zone ? ` / ${tool.zone}` : ""} · ${tool.trainingLevel}`;
+        const head = `- **${tool.name}** — id: \`${tool.id}\` — slug: \`${tool.slug}\` — ${tool.category}${tool.categorySub ? ` / ${tool.categorySub}` : ""} · ${tool.location}${tool.zone ? ` / ${tool.zone}` : ""} · ${tool.trainingLevel}`;
         if (!tool.units.length) return head;
         const units = tool.units
           .map((unit) => `${unit.name} [${unit.status}]`)
