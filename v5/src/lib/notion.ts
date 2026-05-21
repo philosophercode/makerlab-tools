@@ -4,6 +4,11 @@ import type {
   CategoryRecord,
   LocationFields,
   LocationRecord,
+  MaintenanceLogFields,
+  MaintenanceLogRecord,
+  MaintenancePriority,
+  MaintenanceStatus,
+  MaintenanceType,
   NotionRecord,
   ResourceFields,
   ResourceRecord,
@@ -372,6 +377,116 @@ export async function fetchAllResources(): Promise<ResourceRecord[]> {
 
 export async function fetchUnit(id: string): Promise<UnitRecord> {
   return pageToUnit(await fetchPage(id));
+}
+
+function dateValue(page: NotionPage, names: string[]): string {
+  const property = prop(page, names);
+  if (property?.type === "date") return property.date?.start || "";
+  return richTextValue(property);
+}
+
+function pageToMaintenanceLog(page: NotionPage): MaintenanceLogRecord {
+  return record<MaintenanceLogFields>(page, {
+    title: title(page, ["title", "Title", "name", "Name"]),
+    unit: relationIds(page, ["unit", "Unit"]),
+    type: (selectValue(page, ["type", "Type"]) || undefined) as MaintenanceType | undefined,
+    priority: (selectValue(page, ["priority", "Priority"]) || undefined) as
+      | MaintenancePriority
+      | undefined,
+    status: (selectValue(page, ["status", "Status"]) || undefined) as
+      | MaintenanceStatus
+      | undefined,
+    reported_by: richTextValue(prop(page, ["reported_by", "Reported By"])),
+    assigned_to: richTextValue(prop(page, ["assigned_to", "Assigned To"])),
+    description: richTextValue(prop(page, ["description", "Description"])),
+    resolution: richTextValue(prop(page, ["resolution", "Resolution"])),
+    date_reported: dateValue(page, ["date_reported", "Date Reported"]),
+    date_resolved: dateValue(page, ["date_resolved", "Date Resolved"]),
+    photo_attachments: fileAttachments(page, [
+      "photo_attachments",
+      "Photo Attachments",
+      "Photos",
+    ]),
+  });
+}
+
+export async function fetchMaintenanceLogsByUnit(
+  unitId: string
+): Promise<MaintenanceLogRecord[]> {
+  const pages = await queryDatabase("maintenance_logs", {
+    filter: {
+      property: "unit",
+      relation: { contains: unitId },
+    },
+    sorts: [{ property: "date_reported", direction: "descending" }],
+  })
+    .catch(() =>
+      queryDatabase("maintenance_logs", {
+        filter: {
+          property: "Unit",
+          relation: { contains: unitId },
+        },
+        sorts: [{ property: "Date Reported", direction: "descending" }],
+      })
+    )
+    .catch(() => queryDatabase("maintenance_logs"));
+
+  return pages
+    .map(pageToMaintenanceLog)
+    .filter((log) => log.fields.unit?.includes(unitId));
+}
+
+type NotionWriteProperty =
+  | { title: { text: { content: string } }[] }
+  | { rich_text: { text: { content: string } }[] }
+  | { select: { name: string } | null }
+  | { relation: { id: string }[] }
+  | { date: { start: string } | null };
+
+function titleProp(value: string): NotionWriteProperty {
+  return { title: [{ text: { content: value } }] };
+}
+
+function richTextProp(value: string): NotionWriteProperty {
+  return { rich_text: [{ text: { content: value } }] };
+}
+
+function selectProp(value: string | undefined): NotionWriteProperty {
+  return value ? { select: { name: value } } : { select: null };
+}
+
+function relationProp(ids: string[] | undefined): NotionWriteProperty {
+  return { relation: (ids || []).map((id) => ({ id })) };
+}
+
+function dateProp(value: string | undefined): NotionWriteProperty {
+  return value ? { date: { start: value } } : { date: null };
+}
+
+export async function createMaintenanceLog(
+  fields: Partial<MaintenanceLogFields>
+): Promise<MaintenanceLogRecord> {
+  const { databases } = getNotionEnv();
+  const properties: Record<string, NotionWriteProperty> = {
+    title: titleProp(fields.title || "Untitled issue"),
+  };
+  if (fields.unit?.length) properties.unit = relationProp(fields.unit);
+  if (fields.type) properties.type = selectProp(fields.type);
+  if (fields.priority) properties.priority = selectProp(fields.priority);
+  if (fields.status) properties.status = selectProp(fields.status);
+  if (fields.reported_by) properties.reported_by = richTextProp(fields.reported_by);
+  if (fields.description) properties.description = richTextProp(fields.description);
+  if (fields.date_reported) properties.date_reported = dateProp(fields.date_reported);
+
+  const page = await notionFetch<NotionPage>("/pages", {
+    method: "POST",
+    body: JSON.stringify({
+      parent: { database_id: databases.maintenance_logs },
+      properties,
+    }),
+  });
+
+  return pageToMaintenanceLog(page);
 }
 
 export function resolveTools(
