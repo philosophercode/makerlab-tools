@@ -467,6 +467,25 @@ function dateProp(value: string | undefined): NotionWriteProperty {
   return value ? { date: { start: value } } : { date: null };
 }
 
+function formatTicketDescription(
+  fields: Partial<MaintenanceLogFields>
+): string {
+  const sections: string[] = [];
+  if (fields.description) {
+    sections.push(`**What happened**\n${fields.description}`);
+  }
+  if (fields.reported_by) {
+    sections.push(`**Reported by**\n${fields.reported_by}`);
+  }
+  if (fields.date_reported) {
+    sections.push(`**Date reported**\n${fields.date_reported}`);
+  }
+  if (fields.priority) {
+    sections.push(`**Priority**\n${fields.priority}`);
+  }
+  return sections.join("\n\n");
+}
+
 export async function createMaintenanceLog(
   fields: Partial<MaintenanceLogFields>
 ): Promise<MaintenanceLogRecord> {
@@ -479,7 +498,10 @@ export async function createMaintenanceLog(
   if (fields.priority) properties.priority = selectProp(fields.priority);
   if (fields.status) properties.status = selectProp(fields.status);
   if (fields.reported_by) properties.reported_by = richTextProp(fields.reported_by);
-  if (fields.description) properties.description = richTextProp(fields.description);
+  const templatedDescription = formatTicketDescription(fields);
+  if (templatedDescription) {
+    properties.description = richTextProp(templatedDescription);
+  }
   if (fields.date_reported) properties.date_reported = dateProp(fields.date_reported);
 
   const page = await notionFetch<NotionPage>("/pages", {
