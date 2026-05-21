@@ -441,7 +441,8 @@ type NotionWriteProperty =
   | { rich_text: { text: { content: string } }[] }
   | { select: { name: string } | null }
   | { relation: { id: string }[] }
-  | { date: { start: string } | null };
+  | { date: { start: string } | null }
+  | { files: { name: string; external: { url: string } }[] };
 
 function titleProp(value: string): NotionWriteProperty {
   return { title: [{ text: { content: value } }] };
@@ -463,6 +464,15 @@ function dateProp(value: string | undefined): NotionWriteProperty {
   return value ? { date: { start: value } } : { date: null };
 }
 
+function filesProp(attachments: Attachment[] | undefined): NotionWriteProperty {
+  return {
+    files: (attachments || []).map((a) => ({
+      name: a.filename || "attachment",
+      external: { url: a.url },
+    })),
+  };
+}
+
 export async function createMaintenanceLog(
   fields: Partial<MaintenanceLogFields>
 ): Promise<MaintenanceLogRecord> {
@@ -477,6 +487,9 @@ export async function createMaintenanceLog(
   if (fields.reported_by) properties.reported_by = richTextProp(fields.reported_by);
   if (fields.description) properties.description = richTextProp(fields.description);
   if (fields.date_reported) properties.date_reported = dateProp(fields.date_reported);
+  if (fields.photo_attachments?.length) {
+    properties.photo_attachments = filesProp(fields.photo_attachments);
+  }
 
   const page = await notionFetch<NotionPage>("/pages", {
     method: "POST",

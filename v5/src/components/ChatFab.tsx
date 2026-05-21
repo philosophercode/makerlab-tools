@@ -19,8 +19,14 @@ const SUGGESTIONS: Suggestion[] = [
   { icon: "pin", label: "Ask about safety or policy" },
 ];
 
-function Icon({ name }: { name: Suggestion["icon"] | "send" | "close" | "newchat" }) {
+function Icon({ name }: { name: Suggestion["icon"] | "send" | "close" | "newchat" | "paperclip" }) {
   switch (name) {
+    case "paperclip":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+        </svg>
+      );
     case "search":
       return (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -66,9 +72,18 @@ function Icon({ name }: { name: Suggestion["icon"] | "send" | "close" | "newchat
   }
 }
 
+interface PendingPhoto {
+  url: string;
+  filename: string;
+}
+
 export function ChatFab() {
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState("");
+  const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const pathname = usePathname() || "/";
   const toolId = useMemo(() => {
     const match = pathname.match(/^\/tools\/(.+)$/);
@@ -152,9 +167,55 @@ export function ChatFab() {
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     const text = draft.trim();
-    if (!text || isLoading) return;
-    sendMessage({ text });
+    if ((!text && pendingPhotos.length === 0) || isLoading || uploading) return;
+    const photoLine =
+      pendingPhotos.length > 0
+        ? `\n\n[Attached photos: ${pendingPhotos.map((p) => p.url).join(", ")}]`
+        : "";
+    const finalText = `${text}${photoLine}`.trim();
+    sendMessage({ text: finalText });
     setDraft("");
+    setPendingPhotos([]);
+    setUploadError(null);
+  }
+
+  async function handleFiles(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const uploads = await Promise.all(
+        Array.from(files).map(async (file) => {
+          const form = new FormData();
+          form.append("file", file);
+          const res = await fetch("/api/upload", {
+            method: "POST",
+            body: form,
+          });
+          if (!res.ok) {
+            const data = (await res.json().catch(() => ({}))) as {
+              error?: string;
+            };
+            throw new Error(data.error || `Upload failed (${res.status})`);
+          }
+          const data = (await res.json()) as {
+            url: string;
+            filename: string;
+          };
+          return { url: data.url, filename: data.filename };
+        })
+      );
+      setPendingPhotos((prev) => [...prev, ...uploads]);
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  function removePhoto(url: string) {
+    setPendingPhotos((prev) => prev.filter((p) => p.url !== url));
   }
 
   return (
@@ -270,12 +331,54 @@ export function ChatFab() {
               )}
             </div>
 
+            {pendingPhotos.length > 0 || uploadError ? (
+              <div className="chat-pending-photos" aria-live="polite">
+                {pendingPhotos.map((photo) => (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <span key={photo.url} className="chat-pending-photo">
+                    <img src={photo.url} alt={photo.filename} />
+                    <button
+                      type="button"
+                      onClick={() => removePhoto(photo.url)}
+                      aria-label={`Remove ${photo.filename}`}
+                      title="Remove"
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {uploadError ? (
+                  <span className="chat-pending-error">{uploadError}</span>
+                ) : null}
+              </div>
+            ) : null}
+
             <form className="chat-composer" onSubmit={handleSubmit}>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                style={{ display: "none" }}
+                onChange={(event) => handleFiles(event.target.files)}
+              />
+              <button
+                type="button"
+                className="chat-attach"
+                aria-label="Attach photo"
+                title="Attach photo"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading || uploading}
+              >
+                <Icon name="paperclip" />
+              </button>
               <input
                 className="chat-input"
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
-                placeholder="Ask the lab console..."
+                placeholder={
+                  uploading ? "Uploading photo…" : "Ask the lab console..."
+                }
                 aria-label="Ask the lab console"
                 disabled={isLoading}
               />
@@ -283,7 +386,11 @@ export function ChatFab() {
                 type="submit"
                 className="chat-send"
                 aria-label="Send"
-                disabled={!draft.trim() || isLoading}
+                disabled={
+                  (!draft.trim() && pendingPhotos.length === 0) ||
+                  isLoading ||
+                  uploading
+                }
               >
                 <Icon name="send" />
               </button>
