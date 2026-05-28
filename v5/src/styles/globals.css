@@ -1166,6 +1166,12 @@ p {
   40% { opacity: 1; transform: translateY(-3px); }
 }
 
+.chat-reading {
+  font-size: 0.85rem;
+  color: var(--on-surface-muted);
+  font-style: italic;
+}
+
 /* Markdown rendered inside assistant chat bubbles. Inherits color from
    .chat-msg-assistant; everything is normalized to look like prose inside
    a chat sheet rather than a full-width document. */
