@@ -170,6 +170,17 @@ export async function POST(req: Request) {
           }
         },
       }),
+      web_fetch: anthropic.tools.webFetch_20250910({
+        maxUses: 5,
+        maxContentTokens: 20000,
+        citations: { enabled: true },
+        ...(focused
+          ? (() => {
+              const hosts = uniqueHosts(focused.links.map((l) => l.href));
+              return hosts.length ? { allowedDomains: hosts } : {};
+            })()
+          : {}),
+      }),
     },
     stopWhen: stepCountIs(5),
   });
@@ -220,6 +231,18 @@ function findUnit(
     units.find((u) => u.label.toLowerCase().includes(needle)) ||
     null
   );
+}
+
+function uniqueHosts(urls: string[]): string[] {
+  const set = new Set<string>();
+  for (const u of urls) {
+    try {
+      set.add(new URL(u).hostname);
+    } catch {
+      // skip malformed URLs
+    }
+  }
+  return [...set];
 }
 
 function isPdfUrl(url: string | undefined): boolean {
@@ -321,10 +344,28 @@ function buildSystemPrompt(
     sections.push(
       `## Available manuals\n\nThe following PDF manuals are attached to this conversation as documents — Claude can read both their text and figures directly:\n\n${list}`
     );
+  }
+
+  if (focused && focused.links.length > 0) {
+    const attachedUrls = new Set(manuals.map((m) => m.url));
+    const list = focused.links
+      .map((link) => {
+        const tag = attachedUrls.has(link.href) ? " (attached)" : "";
+        return `- [${link.kind || "Resource"}] ${link.label} — ${link.href}${tag}`;
+      })
+      .join("\n");
     sections.push(
-      `## Citing manuals\n\nWhen you draw on an attached manual, cite the source inline as a **markdown link** using the manual's exact URL from the "Available manuals" list above. Two cases:\n\n1. If you're confident about the page from the document content, link to that page using a \`#page=N\` fragment — e.g. \`[Form 4 Manual, p. 14](https://media.formlabs.com/.../-ENUS-Form-4-Manual.pdf#page=14)\`.\n2. If you can't identify the page, link the manual itself — e.g. \`[Form 4 Manual](https://media.formlabs.com/.../-ENUS-Form-4-Manual.pdf)\`.\n\nDo not invent page numbers. Always use the exact URL from the list above; do not shorten, paraphrase, or invent URLs.`
+      `## Resources for this tool\n\nThe following resources are linked from the **${focused.name}** Notion page. Items marked "(attached)" are already inlined above as PDF documents — read them directly. Anything else can be retrieved with the \`web_fetch\` tool.\n\n${list}`
     );
   }
+
+  sections.push(
+    `## Fetching resources\n\nUse the \`web_fetch\` tool to read any URL from the "Resources for this tool" list that isn't already attached — HTML SOPs, safety pages, manufacturer guides, etc. Rules:\n\n- Prefer attached PDFs when they exist; do not call \`web_fetch\` on a URL already marked "(attached)".\n- If an attached PDF was expected to answer the question but you can't actually read it (rare — usually means Anthropic's fetch was blocked by the host), call \`web_fetch\` on the same URL as a fallback.\n- Only call \`web_fetch\` on exact URLs that appear in "Resources for this tool". Do not invent URLs or fetch general web pages the student wasn't routed to.`
+  );
+
+  sections.push(
+    `## Citing sources\n\nWhen you draw on an attached manual or a \`web_fetch\`ed page, cite the source inline as a **markdown link** using the exact URL from the lists above. Two formats:\n\n1. PDF with a known page: \`[Form 4 Manual, p. 14](https://media.formlabs.com/.../-ENUS-Form-4-Manual.pdf#page=14)\` — append \`#page=N\` so browser PDF viewers jump to the page.\n2. HTML page or PDF with no known page: \`[Trotec Speedy 400 SOP](https://...)\`.\n\nDo not invent page numbers or URLs. Always use exact URLs from the lists above.`
+  );
 
   sections.push(`## MakerLab catalog (${tools.length} tools)`);
   sections.push(
