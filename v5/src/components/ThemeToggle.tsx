@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 type ThemeChoice = "light" | "dark" | "system";
 
 const STORAGE_KEY = "theme";
@@ -28,6 +30,8 @@ function applyChoice(choice: ThemeChoice) {
 }
 
 export function ThemeToggle() {
+  const t = useTranslations("nav");
+
   function cycle() {
     const next = CYCLE[readChoice()];
     applyChoice(next);
@@ -38,8 +42,8 @@ export function ThemeToggle() {
       type="button"
       className="theme-toggle"
       onClick={cycle}
-      aria-label="Cycle color theme (system → light → dark)"
-      title="Cycle color theme"
+      aria-label={t("themeToggleAria")}
+      title={t("themeToggleTitle")}
     />
   );
 }

@@ -179,7 +179,69 @@ img {
 
 .nav-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
+}
+
+/* Visually hidden but available to screen readers. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Language selector — matches the mono/uppercase nav aesthetic. */
+.lang-select {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  height: 32px;
+}
+
+.lang-select-glyph {
+  position: absolute;
+  inset-inline-start: 8px;
+  pointer-events: none;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--on-surface-muted);
+}
+
+.lang-select select {
+  appearance: none;
+  height: 32px;
+  padding-block: 0;
+  padding-inline: 30px 12px;
+  border: 1px solid var(--outline);
+  background: transparent;
+  color: var(--on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 160ms ease-in, color 160ms ease-in;
+}
+
+.lang-select select:hover,
+.lang-select select:focus-visible {
+  border-color: var(--primary);
+  color: var(--primary);
+  outline: none;
+}
+
+.lang-select select:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.lang-select option {
+  background: var(--background);
+  color: var(--on-surface);
 }
 
 .nav-actions button {
@@ -2236,5 +2298,36 @@ p {
   .td-doc .td-badge {
     grid-column: 1 / -1;
     width: fit-content;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   RTL support (Arabic, Hebrew)
+   The chat FAB + sheet are pinned to the right with physical `right` offsets;
+   flip them to the left edge in RTL. Other layout uses flex/grid + logical
+   properties, so it mirrors automatically.
+   --------------------------------------------------------------------------- */
+[dir="rtl"] .chat-fab {
+  right: auto;
+  left: 24px;
+}
+
+[dir="rtl"] .chat-sheet {
+  right: auto;
+  left: 24px;
+}
+
+[dir="rtl"] .search-row span,
+[dir="rtl"] .loading-line {
+  /* The leading ">" prompt glyph reads left-to-right; keep it on the
+     start (right) edge without mirroring the character itself. */
+  unicode-bidi: isolate;
+}
+
+@media (max-width: 860px) {
+  [dir="rtl"] .chat-fab,
+  [dir="rtl"] .chat-sheet {
+    right: auto;
+    left: 16px;
   }
 }

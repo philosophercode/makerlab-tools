@@ -5,27 +5,27 @@ import { DefaultChatTransport } from "ai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLocale, useTranslations } from "next-intl";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
 interface Suggestion {
   icon: "search" | "clipboard" | "pin";
-  label: string;
+  key: "suggestionFindMachine" | "suggestionTraining" | "suggestionSafety";
 }
 
 const SUGGESTIONS: Suggestion[] = [
-  { icon: "search", label: "Find a machine for a project" },
-  { icon: "clipboard", label: "Check training requirements" },
-  { icon: "pin", label: "Ask about safety or policy" },
+  { icon: "search", key: "suggestionFindMachine" },
+  { icon: "clipboard", key: "suggestionTraining" },
+  { icon: "pin", key: "suggestionSafety" },
 ];
 
-const TOOL_LABELS: Record<string, string> = {
-  "tool-get_unit_details": "🔍 Looking up unit details…",
-  "tool-report_issue": "📝 Filing maintenance ticket…",
-};
+type ChatT = ReturnType<typeof useTranslations<"chat">>;
 
-function toolStatusLabel(partType: string): string {
-  return TOOL_LABELS[partType] || "Working on it…";
+function toolStatusLabel(partType: string, t: ChatT): string {
+  if (partType === "tool-get_unit_details") return t("lookingUpUnit");
+  if (partType === "tool-report_issue") return t("filingTicket");
+  return t("working");
 }
 
 function Icon({
@@ -99,6 +99,8 @@ interface PendingPhoto {
 }
 
 export function ChatFab() {
+  const t = useTranslations("chat");
+  const locale = useLocale();
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState("");
   const pathname = usePathname() || "/";
@@ -111,15 +113,20 @@ export function ChatFab() {
   // it (see @ai-sdk/react useChat — only `id`/`chat` prop changes recreate the
   // internal Chat). To make navigation update the toolId context without
   // resetting the conversation, we keep a stable transport that reads the
-  // latest toolId from a ref at send time.
+  // latest toolId and locale from refs at send time.
   const toolIdRef = useRef(toolId);
   useEffect(() => {
     toolIdRef.current = toolId;
   }, [toolId]);
 
+  const localeRef = useRef(locale);
+  useEffect(() => {
+    localeRef.current = locale;
+  }, [locale]);
+
   const transport = useMemo(
     () =>
-      // eslint-disable-next-line react-hooks/refs -- the closure below runs at send time inside an event handler, not during render. Reading toolIdRef.current there is safe.
+      // eslint-disable-next-line react-hooks/refs -- the closure below runs at send time inside an event handler, not during render. Reading the refs there is safe.
       new DefaultChatTransport({
         api: "/api/chat",
         prepareSendMessagesRequest: ({ id, messages, trigger, messageId }) => ({
@@ -128,6 +135,7 @@ export function ChatFab() {
             messages,
             trigger,
             messageId,
+            locale: localeRef.current,
             ...(toolIdRef.current ? { toolId: toolIdRef.current } : {}),
           },
         }),
@@ -201,7 +209,7 @@ export function ChatFab() {
     setUploadError(null);
     const files = Array.from(fileList).filter((f) => f.type.startsWith("image/"));
     if (files.length === 0) {
-      setUploadError("Only image files are supported.");
+      setUploadError(t("onlyImages"));
       return;
     }
 
@@ -239,7 +247,7 @@ export function ChatFab() {
         } catch (err) {
           revokePreview(previewUrl);
           const message =
-            err instanceof Error ? err.message : "Photo upload failed";
+            err instanceof Error ? err.message : t("uploadFailed");
           setUploadError(message);
         } finally {
           setUploadingCount((n) => Math.max(0, n - 1));
@@ -312,7 +320,7 @@ export function ChatFab() {
         type="button"
         aria-expanded={isOpen}
         aria-controls="makerlab-chat-sheet"
-        aria-label="Open MakerLab assistant"
+        aria-label={t("openAria")}
         onClick={() => setIsOpen(true)}
       >
         &gt;_
@@ -323,20 +331,20 @@ export function ChatFab() {
           <button
             className="chat-scrim"
             type="button"
-            aria-label="Close MakerLab assistant"
+            aria-label={t("closeScrimAria")}
             onClick={close}
           />
           <section className="chat-sheet" id="makerlab-chat-sheet">
             <header className="chat-header">
-              <h2 id="chat-title">MAKERLAB ASSISTANT</h2>
+              <h2 id="chat-title">{t("title")}</h2>
               <div className="chat-header-actions">
                 {messages.length > 0 ? (
                   <button
                     type="button"
                     className="chat-close"
                     onClick={clearChat}
-                    aria-label="Start new chat"
-                    title="Start new chat"
+                    aria-label={t("newChatAria")}
+                    title={t("newChatTitle")}
                   >
                     <Icon name="newchat" />
                   </button>
@@ -345,8 +353,8 @@ export function ChatFab() {
                   type="button"
                   className="chat-close"
                   onClick={close}
-                  aria-label="Close assistant"
-                  title="Close (keeps conversation)"
+                  aria-label={t("closeAria")}
+                  title={t("closeTitle")}
                 >
                   <Icon name="close" />
                 </button>
@@ -357,25 +365,26 @@ export function ChatFab() {
               {messages.length === 0 ? (
                 <>
                   <p className="chat-greeting">
-                    {toolId
-                      ? "Ask about this tool — I have its specs, materials, and resource links."
-                      : "How can I help you today?"}
+                    {toolId ? t("greetingTool") : t("greetingGeneral")}
                   </p>
                   <div className="chat-suggestions">
-                    {SUGGESTIONS.map((suggestion) => (
-                      <button
-                        key={suggestion.label}
-                        type="button"
-                        className="chat-suggestion"
-                        onClick={() => handleSuggestion(suggestion.label)}
-                        disabled={isLoading}
-                      >
-                        <span className="chat-suggestion-icon" aria-hidden="true">
-                          <Icon name={suggestion.icon} />
-                        </span>
-                        <span>{suggestion.label}</span>
-                      </button>
-                    ))}
+                    {SUGGESTIONS.map((suggestion) => {
+                      const label = t(suggestion.key);
+                      return (
+                        <button
+                          key={suggestion.key}
+                          type="button"
+                          className="chat-suggestion"
+                          onClick={() => handleSuggestion(label)}
+                          disabled={isLoading}
+                        >
+                          <span className="chat-suggestion-icon" aria-hidden="true">
+                            <Icon name={suggestion.icon} />
+                          </span>
+                          <span>{label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </>
               ) : (
@@ -394,8 +403,8 @@ export function ChatFab() {
                     return (
                       <li key={message.id} className={`chat-msg chat-msg-${message.role}`}>
                         {textParts.length === 0 && pendingTool ? (
-                          <p className="chat-reading" aria-label="Tool running">
-                            {toolStatusLabel(pendingTool.type)}
+                          <p className="chat-reading" aria-label={t("toolRunningAria")}>
+                            {toolStatusLabel(pendingTool.type, t)}
                           </p>
                         ) : null}
                         {textParts.map((part, index) =>
@@ -418,11 +427,11 @@ export function ChatFab() {
                   {isLoading && messages[messages.length - 1]?.role !== "assistant" ? (
                     <li className="chat-msg chat-msg-assistant">
                       {readingManuals && readingManuals.length > 0 ? (
-                        <p className="chat-reading" aria-label="Reading manuals">
-                          Reading: {readingManuals.join(", ")}…
+                        <p className="chat-reading" aria-label={t("readingManualsAria")}>
+                          {t("reading", { titles: readingManuals.join(", ") })}
                         </p>
                       ) : (
-                        <p className="chat-typing" aria-label="Assistant is typing">
+                        <p className="chat-typing" aria-label={t("typingAria")}>
                           <span />
                           <span />
                           <span />
@@ -432,7 +441,7 @@ export function ChatFab() {
                   ) : null}
                   {error ? (
                     <li className="chat-msg chat-msg-error">
-                      <p>Something went wrong. Try again.</p>
+                      <p>{t("error")}</p>
                     </li>
                   ) : null}
                 </ul>
@@ -448,7 +457,7 @@ export function ChatFab() {
                     <button
                       type="button"
                       className="chat-attachment-remove"
-                      aria-label={`Remove ${photo.name}`}
+                      aria-label={t("removePhotoAria", { name: photo.name })}
                       onClick={() => removePhoto(photo.key)}
                     >
                       <Icon name="remove" />
@@ -458,7 +467,7 @@ export function ChatFab() {
                 {uploadingCount > 0 ? (
                   <div
                     className="chat-attachment chat-attachment-loading"
-                    aria-label="Uploading photo"
+                    aria-label={t("uploadingAria")}
                   >
                     <span className="chat-attachment-spinner" />
                   </div>
@@ -487,8 +496,8 @@ export function ChatFab() {
               <button
                 type="button"
                 className="chat-attach"
-                aria-label="Attach photos"
-                title="Attach photos"
+                aria-label={t("attachAria")}
+                title={t("attachTitle")}
                 onClick={() => fileInputRef.current?.click()}
                 disabled={isLoading}
               >
@@ -498,14 +507,14 @@ export function ChatFab() {
                 className="chat-input"
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
-                placeholder="Ask the lab console..."
-                aria-label="Ask the lab console"
+                placeholder={t("composerPlaceholder")}
+                aria-label={t("composerAria")}
                 disabled={isLoading}
               />
               <button
                 type="submit"
                 className="chat-send"
-                aria-label="Send"
+                aria-label={t("sendAria")}
                 disabled={!draft.trim() || isLoading || uploadingCount > 0}
               >
                 <Icon name="send" />

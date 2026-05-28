@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 import type { MakerLabTool } from "./catalog-types";
 import { TechnicalFrame } from "./TechnicalFrame";
 import { ToolCard } from "./ToolCard";
@@ -10,7 +11,14 @@ interface GalleryShellProps {
   tools: MakerLabTool[];
 }
 
+const TRAINING_LEVELS = [
+  { value: "Beginner", key: "trainingBeginner" },
+  { value: "Intermediate", key: "trainingIntermediate" },
+  { value: "Advanced", key: "trainingAdvanced" },
+] as const;
+
 export function GalleryShell({ tools }: GalleryShellProps) {
+  const t = useTranslations("gallery");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const [training, setTraining] = useState<string | null>(null);
@@ -55,15 +63,15 @@ export function GalleryShell({ tools }: GalleryShellProps) {
           <span className="target-glyph" aria-hidden="true">
             +
           </span>
-          <h1 id="gallery-title">TOOLS // MACHINES</h1>
+          <h1 id="gallery-title">{t("title")}</h1>
         </div>
 
         <TechnicalFrame className="filter-console">
           <label className="search-row">
             <span>&gt;</span>
             <input
-              placeholder="search inventory..."
-              aria-label="Search inventory"
+              placeholder={t("searchPlaceholder")}
+              aria-label={t("searchAria")}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
             />
@@ -71,7 +79,7 @@ export function GalleryShell({ tools }: GalleryShellProps) {
 
           <div className="filter-row">
             <div className="filter-group">
-              <span>CATEGORY:</span>
+              <span>{t("category")}</span>
               <div className="chip-row">
                 {categories.map((categoryName) => (
                   <button
@@ -90,55 +98,55 @@ export function GalleryShell({ tools }: GalleryShellProps) {
             </div>
 
             <div className="filter-group">
-              <span>TRAINING:</span>
+              <span>{t("training")}</span>
               <div className="chip-row">
-                {["Beginner", "Intermediate", "Advanced"].map((level) => (
+                {TRAINING_LEVELS.map((level) => (
                   <button
-                    className={training === level ? "chip chip-active" : "chip"}
-                    key={level}
+                    className={training === level.value ? "chip chip-active" : "chip"}
+                    key={level.value}
                     type="button"
-                    aria-pressed={training === level}
+                    aria-pressed={training === level.value}
                     onClick={() =>
-                      setTraining((selected) => (selected === level ? null : level))
+                      setTraining((selected) => (selected === level.value ? null : level.value))
                     }
                   >
-                    {level}
+                    {t(level.key)}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div className="view-toggle" aria-label="View mode">
+            <div className="view-toggle" aria-label={t("viewModeLabel")}>
               <button
                 className={viewMode === "grid" ? "is-active" : ""}
                 type="button"
                 onClick={() => setViewMode("grid")}
               >
-                [ GRID ]
+                {t("grid")}
               </button>
               <button
                 className={viewMode === "table" ? "is-active" : ""}
                 type="button"
                 onClick={() => setViewMode("table")}
               >
-                [ TABLE ]
+                {t("table")}
               </button>
             </div>
           </div>
         </TechnicalFrame>
       </section>
 
-      <section className={viewMode === "grid" ? "tool-grid" : "tool-table"} aria-label="Tool gallery">
+      <section className={viewMode === "grid" ? "tool-grid" : "tool-table"} aria-label={t("toolGalleryLabel")}>
         {filteredTools.length > 0 ? (
           viewMode === "grid" ? (
             filteredTools.map((tool) => <ToolCard key={tool.id} tool={tool} />)
           ) : (
             <>
               <div className="tool-table-row tool-table-head" role="row" aria-hidden="true">
-                <span>Tool</span>
-                <span>Category</span>
-                <span>Zone</span>
-                <span>Training</span>
+                <span>{t("columnTool")}</span>
+                <span>{t("columnCategory")}</span>
+                <span>{t("columnZone")}</span>
+                <span>{t("columnTraining")}</span>
               </div>
               {filteredTools.map((tool) => (
                 <a className="tool-table-row" href={`/tools/${tool.slug}`} key={tool.id}>
@@ -156,7 +164,7 @@ export function GalleryShell({ tools }: GalleryShellProps) {
             </>
           )
         ) : (
-          <p className="empty-state">No matching tools found.</p>
+          <p className="empty-state">{t("empty")}</p>
         )}
       </section>
     </main>

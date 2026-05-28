@@ -21,6 +21,7 @@ import {
 } from "../../../lib/notion";
 import type { MakerLabTool, MakerLabUnit } from "../../../components/catalog-types";
 import type { ResourceRecord } from "../../../lib/types";
+import { languageNameForLocale } from "../../../i18n/config";
 
 const MAX_PDFS_PER_CHAT = 3;
 const MAX_PDF_BYTES = 10 * 1024 * 1024; // 10MB ceiling
@@ -38,12 +39,13 @@ export const maxDuration = 60;
 interface ChatRequest {
   messages: UIMessage[];
   toolId?: string;
+  locale?: string;
 }
 
 const PRIORITIES = ["Critical", "High", "Medium", "Low"] as const;
 
 export async function POST(req: Request) {
-  const { messages, toolId }: ChatRequest = await req.json();
+  const { messages, toolId, locale }: ChatRequest = await req.json();
   const tools = await getCatalogTools();
   const focused = toolId ? await getCatalogTool(toolId) : null;
   const unitLookup = buildUnitLookup(tools);
@@ -61,7 +63,7 @@ export async function POST(req: Request) {
     console.info(`[chat] manuals attached: ${manuals.length}`);
     console.info(`[chat] manuals skipped (will web_fetch): ${skipped}`);
   }
-  const system = buildSystemPrompt(tools, focused, manuals);
+  const system = buildSystemPrompt(tools, focused, manuals, locale);
   const modelMessages = attachManualsToFirstUserMessage(
     await convertToModelMessages(messages),
     manuals
@@ -409,7 +411,8 @@ function attachManualsToFirstUserMessage(
 function buildSystemPrompt(
   tools: MakerLabTool[],
   focused: MakerLabTool | null,
-  manuals: AttachedManual[] = []
+  manuals: AttachedManual[] = [],
+  locale?: string
 ): string {
   const sections: string[] = [
     "You are the MakerLab Assistant — a friendly, knowledgeable helper for students using the Cornell Tech MakerLab. Answer questions about lab tools, training requirements, safety, materials, and which machines are right for a given project. Be concise, accurate, and grounded only in the catalog provided below. If the user asks about a tool that isn't in the catalog, say so honestly.",
@@ -417,6 +420,13 @@ function buildSystemPrompt(
     `## Reporting maintenance issues\n\nYou are a first-line helper, not a ticket-creation machine. Follow this order:\n\n1. **Diagnose conversationally first.** When a student describes a problem, ask a clarifying question or two and walk them through quick fixes they can likely do themselves — swap the filament, re-level the bed, clear a jam, restart the slicer, replace a worn bit, check the e-stop, power-cycle, reseat cables, re-home axes, etc. Start with the simplest plausible fix and escalate from there.\n2. **Recognize when to escalate.** Move toward filing a ticket if: the issue is unsafe, the tool clearly needs staff intervention, the student says they can't fix it, the problem keeps recurring, or the student explicitly asks to log it.\n3. **Proactively offer to log.** Even after a successful self-fix for things staff should know about (jams, low filament, missing parts, anything that affects the next user), gently offer: "Want me to log a quick note so staff knows this happened?" Don't push — just offer.\n4. **Gather details and file.** Once the student agrees (or asks directly), collect: a short title, a clear description of what's wrong and what's already been tried, the affected unit if any, a priority, and the student's name/NetID. If they named a specific unit you don't recognize, call \`get_unit_details\` first to verify it exists. Then call \`report_issue\`. After it succeeds, tell the student the ticket was filed and include the ticket ID. If they only name a tool (not a specific unit), it's fine to file without one — but ask first if they can tell you which unit.\n\nIf the student's message includes a hint like \`[Attached photos: file_upload_id=<id> name=<name>; ...]\`, parse each \`file_upload_id\` and \`name\` pair and pass them as the \`photo_uploads\` argument to \`report_issue\` (do not echo the raw hint back to the student). The IDs are already uploaded to Notion and will be attached to the ticket.\n\nPriority guide: Critical = unsafe or blocks all lab use · High = tool unusable · Medium = degraded performance · Low = cosmetic.`,
     `## Unit details\n\nWhen a student asks about a specific unit ("how is Prusa #1 doing?", "is Form 2 #2 working?", "show me the history on the Trotec"), call \`get_unit_details\` to fetch its live status and recent maintenance history. Surface the status, condition, and a short recap of the most recent log entries.`,
   ];
+
+  if (locale && locale !== "en") {
+    const language = languageNameForLocale(locale);
+    sections.push(
+      `## Response language\n\nRespond to the student in **${language}**, regardless of the language they write in. Translate your explanations and conversational text into ${language}. However, ALWAYS keep the following in English so MakerLab staff can read them: tool and equipment names (use the exact catalog names), unit labels (e.g. "Prusa #1"), and — critically — the \`title\` and \`description\` you pass to the \`report_issue\` tool when filing a maintenance ticket. Maintenance ticket content must be written in English even though you reply to the student in ${language}.`
+    );
+  }
 
   if (focused) {
     sections.push(
