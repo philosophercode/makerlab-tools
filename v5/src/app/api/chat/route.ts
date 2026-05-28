@@ -44,6 +44,16 @@ export async function POST(req: Request) {
   const focused = toolId ? await getCatalogTool(toolId) : null;
   const unitLookup = buildUnitLookup(tools);
   const manuals = focused ? await collectToolManuals(focused.id) : [];
+  if (focused) {
+    const hosts = uniqueHosts(focused.links.map((l) => l.href));
+    console.info(
+      `[chat] focused tool: ${focused.name} (${focused.id}), links: ${focused.links.length}`
+    );
+    console.info(
+      `[chat] web_fetch allowedDomains: ${hosts.length ? hosts.join(", ") : "empty"}`
+    );
+    console.info(`[chat] manuals attached: ${manuals.length}`);
+  }
   const system = buildSystemPrompt(tools, focused, manuals);
   const modelMessages = attachManualsToFirstUserMessage(
     await convertToModelMessages(messages),

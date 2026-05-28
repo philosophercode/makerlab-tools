@@ -39,7 +39,7 @@ export function hasNotionCatalogEnv(): boolean {
 async function fetchFullCatalog(): Promise<FullCatalog> {
   "use cache";
   cacheTag("catalog");
-  cacheLife("hours");
+  cacheLife("minutes");
 
   const [tools, categories, locations, units, resources] = await Promise.all([
     fetchAllTools(),
