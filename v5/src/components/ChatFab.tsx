@@ -155,10 +155,6 @@ export function ChatFab() {
   });
   const isLoading = status === "streaming" || status === "submitted";
 
-  useEffect(() => {
-    if (status === "submitted") setReadingManuals(null);
-  }, [status]);
-
   const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -289,9 +285,18 @@ export function ChatFab() {
     []
   );
 
+  // Send a message and clear the stale "Reading: …manuals…" indicator from any
+  // previous turn. Clearing on send (rather than in an effect reacting to
+  // `status`) keeps it next to where the request actually starts and avoids a
+  // synchronous setState-in-effect cascade.
+  function send(text: string) {
+    setReadingManuals(null);
+    sendMessage({ text });
+  }
+
   function handleSuggestion(label: string) {
     if (isLoading) return;
-    sendMessage({ text: label });
+    send(label);
   }
 
   function handleSubmit(event: React.FormEvent) {
@@ -307,7 +312,7 @@ export function ChatFab() {
         .join("; ");
       outgoing = `${text}\n\n[Attached photos: ${hint}]`;
     }
-    sendMessage({ text: outgoing });
+    send(outgoing);
     setDraft("");
     clearPendingPhotos();
     setUploadError(null);
