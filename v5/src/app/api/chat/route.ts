@@ -1,6 +1,8 @@
 import { anthropic } from "@ai-sdk/anthropic";
 import {
   convertToModelMessages,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
   stepCountIs,
   streamText,
   tool,
@@ -48,10 +50,20 @@ export async function POST(req: Request) {
     manuals
   );
 
-  const result = streamText({
-    model: anthropic("claude-sonnet-4-6"),
-    system,
-    messages: modelMessages,
+  const stream = createUIMessageStream({
+    execute: ({ writer }) => {
+      if (manuals.length > 0) {
+        writer.write({
+          type: "data-manuals-attached",
+          data: { titles: manuals.map((m) => m.title) },
+          transient: true,
+        });
+      }
+
+      const result = streamText({
+        model: anthropic("claude-sonnet-4-6"),
+        system,
+        messages: modelMessages,
     tools: {
       get_unit_details: tool({
         description:
@@ -162,7 +174,11 @@ export async function POST(req: Request) {
     stopWhen: stepCountIs(5),
   });
 
-  return result.toUIMessageStreamResponse();
+      writer.merge(result.toUIMessageStream());
+    },
+  });
+
+  return createUIMessageStreamResponse({ stream });
 }
 
 interface UnitLookupEntry {
@@ -306,7 +322,7 @@ function buildSystemPrompt(
       `## Available manuals\n\nThe following PDF manuals are attached to this conversation as documents — Claude can read both their text and figures directly:\n\n${list}`
     );
     sections.push(
-      `## Citing manuals\n\nWhen you draw on one of the attached manuals to answer, cite the source inline so the student can verify. Use the manual's title and, when you can identify it, the page number — e.g. "(Form 4 Manual, p. 14)". Keep citations short and concrete; do not invent page numbers if you're unsure.`
+      `## Citing manuals\n\nWhen you draw on an attached manual, cite the source inline as a **markdown link** using the manual's exact URL from the "Available manuals" list above. Two cases:\n\n1. If you're confident about the page from the document content, link to that page using a \`#page=N\` fragment — e.g. \`[Form 4 Manual, p. 14](https://media.formlabs.com/.../-ENUS-Form-4-Manual.pdf#page=14)\`.\n2. If you can't identify the page, link the manual itself — e.g. \`[Form 4 Manual](https://media.formlabs.com/.../-ENUS-Form-4-Manual.pdf)\`.\n\nDo not invent page numbers. Always use the exact URL from the list above; do not shorten, paraphrase, or invent URLs.`
     );
   }
 

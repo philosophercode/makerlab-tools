@@ -103,12 +103,26 @@ export function ChatFab() {
     []
   );
 
-  const { messages, sendMessage, setMessages, status, error } = useChat({ transport });
+  const [readingManuals, setReadingManuals] = useState<string[] | null>(null);
+  const { messages, sendMessage, setMessages, status, error } = useChat({
+    transport,
+    onData: ({ type, data }) => {
+      if (type === "data-manuals-attached") {
+        const titles = (data as { titles?: string[] })?.titles;
+        if (Array.isArray(titles) && titles.length > 0) setReadingManuals(titles);
+      }
+    },
+  });
   const isLoading = status === "streaming" || status === "submitted";
+
+  useEffect(() => {
+    if (status === "submitted") setReadingManuals(null);
+  }, [status]);
 
   function clearChat() {
     setMessages([]);
     setDraft("");
+    setReadingManuals(null);
   }
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -254,11 +268,17 @@ export function ChatFab() {
                   ))}
                   {isLoading && messages[messages.length - 1]?.role !== "assistant" ? (
                     <li className="chat-msg chat-msg-assistant">
-                      <p className="chat-typing" aria-label="Assistant is typing">
-                        <span />
-                        <span />
-                        <span />
-                      </p>
+                      {readingManuals && readingManuals.length > 0 ? (
+                        <p className="chat-reading" aria-label="Reading manuals">
+                          Reading: {readingManuals.join(", ")}…
+                        </p>
+                      ) : (
+                        <p className="chat-typing" aria-label="Assistant is typing">
+                          <span />
+                          <span />
+                          <span />
+                        </p>
+                      )}
                     </li>
                   ) : null}
                   {error ? (
