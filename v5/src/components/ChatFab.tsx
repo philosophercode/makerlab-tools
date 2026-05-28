@@ -19,6 +19,15 @@ const SUGGESTIONS: Suggestion[] = [
   { icon: "pin", label: "Ask about safety or policy" },
 ];
 
+const TOOL_LABELS: Record<string, string> = {
+  "tool-get_unit_details": "🔍 Looking up unit details…",
+  "tool-report_issue": "📝 Filing maintenance ticket…",
+};
+
+function toolStatusLabel(partType: string): string {
+  return TOOL_LABELS[partType] || "Working on it…";
+}
+
 function Icon({ name }: { name: Suggestion["icon"] | "send" | "close" | "newchat" }) {
   switch (name) {
     case "search":
@@ -246,12 +255,26 @@ export function ChatFab() {
                 </>
               ) : (
                 <ul className="chat-messages">
-                  {messages.map((message) => (
-                    <li key={message.id} className={`chat-msg chat-msg-${message.role}`}>
-                      {message.parts.map((part, index) => {
-                        if (part.type !== "text") return null;
-                        if (message.role === "assistant") {
-                          return (
+                  {messages.map((message) => {
+                    const textParts = message.parts.filter(
+                      (p): p is Extract<typeof p, { type: "text" }> =>
+                        p.type === "text" && p.text.trim().length > 0
+                    );
+                    const pendingTool = message.parts.find(
+                      (p) =>
+                        p.type.startsWith("tool-") &&
+                        (p as { state?: string }).state !== "output-available"
+                    );
+                    if (textParts.length === 0 && !pendingTool) return null;
+                    return (
+                      <li key={message.id} className={`chat-msg chat-msg-${message.role}`}>
+                        {textParts.length === 0 && pendingTool ? (
+                          <p className="chat-reading" aria-label="Tool running">
+                            {toolStatusLabel(pendingTool.type)}
+                          </p>
+                        ) : null}
+                        {textParts.map((part, index) =>
+                          message.role === "assistant" ? (
                             <div key={index} className="chat-markdown">
                               <ReactMarkdown
                                 remarkPlugins={[remarkGfm]}
@@ -260,12 +283,13 @@ export function ChatFab() {
                                 {part.text}
                               </ReactMarkdown>
                             </div>
-                          );
-                        }
-                        return <p key={index}>{part.text}</p>;
-                      })}
-                    </li>
-                  ))}
+                          ) : (
+                            <p key={index}>{part.text}</p>
+                          )
+                        )}
+                      </li>
+                    );
+                  })}
                   {isLoading && messages[messages.length - 1]?.role !== "assistant" ? (
                     <li className="chat-msg chat-msg-assistant">
                       {readingManuals && readingManuals.length > 0 ? (
