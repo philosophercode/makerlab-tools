@@ -28,7 +28,11 @@ function toolStatusLabel(partType: string): string {
   return TOOL_LABELS[partType] || "Working on it…";
 }
 
-function Icon({ name }: { name: Suggestion["icon"] | "send" | "close" | "newchat" }) {
+function Icon({
+  name,
+}: {
+  name: Suggestion["icon"] | "send" | "close" | "newchat" | "paperclip" | "remove";
+}) {
   switch (name) {
     case "search":
       return (
@@ -72,7 +76,26 @@ function Icon({ name }: { name: Suggestion["icon"] | "send" | "close" | "newchat
           <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
         </svg>
       );
+    case "paperclip":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+        </svg>
+      );
+    case "remove":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 6 6 18M6 6l12 12" />
+        </svg>
+      );
   }
+}
+
+interface PendingPhoto {
+  key: string;
+  file_upload_id: string;
+  name: string;
+  previewUrl: string;
 }
 
 export function ChatFab() {
@@ -128,10 +151,101 @@ export function ChatFab() {
     if (status === "submitted") setReadingManuals(null);
   }, [status]);
 
+  const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  // Track preview URLs so we can revoke them on unmount.
+  const previewUrlsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const urls = previewUrlsRef.current;
+    return () => {
+      urls.forEach((url) => URL.revokeObjectURL(url));
+      urls.clear();
+    };
+  }, []);
+
+  function revokePreview(url: string) {
+    if (previewUrlsRef.current.has(url)) {
+      URL.revokeObjectURL(url);
+      previewUrlsRef.current.delete(url);
+    }
+  }
+
+  function clearPendingPhotos() {
+    setPendingPhotos((prev) => {
+      prev.forEach((photo) => revokePreview(photo.previewUrl));
+      return [];
+    });
+  }
+
   function clearChat() {
     setMessages([]);
     setDraft("");
     setReadingManuals(null);
+    clearPendingPhotos();
+    setUploadError(null);
+  }
+
+  function removePhoto(key: string) {
+    setPendingPhotos((prev) => {
+      const target = prev.find((p) => p.key === key);
+      if (target) revokePreview(target.previewUrl);
+      return prev.filter((p) => p.key !== key);
+    });
+  }
+
+  async function handleFiles(fileList: FileList | null) {
+    if (!fileList || fileList.length === 0) return;
+    setUploadError(null);
+    const files = Array.from(fileList).filter((f) => f.type.startsWith("image/"));
+    if (files.length === 0) {
+      setUploadError("Only image files are supported.");
+      return;
+    }
+
+    setUploadingCount((n) => n + files.length);
+    await Promise.all(
+      files.map(async (file) => {
+        const previewUrl = URL.createObjectURL(file);
+        previewUrlsRef.current.add(previewUrl);
+        try {
+          const form = new FormData();
+          form.append("file", file);
+          const res = await fetch("/api/upload-notion", {
+            method: "POST",
+            body: form,
+          });
+          if (!res.ok) {
+            const body = (await res.json().catch(() => null)) as
+              | { error?: string }
+              | null;
+            throw new Error(body?.error || "Upload failed");
+          }
+          const data = (await res.json()) as {
+            file_upload_id: string;
+            name: string;
+          };
+          setPendingPhotos((prev) => [
+            ...prev,
+            {
+              key: `${data.file_upload_id}-${Date.now()}-${Math.random()}`,
+              file_upload_id: data.file_upload_id,
+              name: data.name,
+              previewUrl,
+            },
+          ]);
+        } catch (err) {
+          revokePreview(previewUrl);
+          const message =
+            err instanceof Error ? err.message : "Photo upload failed";
+          setUploadError(message);
+        } finally {
+          setUploadingCount((n) => Math.max(0, n - 1));
+        }
+      })
+    );
   }
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -175,9 +289,20 @@ export function ChatFab() {
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     const text = draft.trim();
-    if (!text || isLoading) return;
-    sendMessage({ text });
+    if (!text || isLoading || uploadingCount > 0) return;
+    let outgoing = text;
+    if (pendingPhotos.length > 0) {
+      const hint = pendingPhotos
+        .map(
+          (p) => `file_upload_id=${p.file_upload_id} name=${p.name}`
+        )
+        .join("; ");
+      outgoing = `${text}\n\n[Attached photos: ${hint}]`;
+    }
+    sendMessage({ text: outgoing });
     setDraft("");
+    clearPendingPhotos();
+    setUploadError(null);
   }
 
   return (
@@ -314,7 +439,61 @@ export function ChatFab() {
               )}
             </div>
 
+            {pendingPhotos.length > 0 || uploadingCount > 0 || uploadError ? (
+              <div className="chat-attachments" aria-live="polite">
+                {pendingPhotos.map((photo) => (
+                  <div key={photo.key} className="chat-attachment">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={photo.previewUrl} alt={photo.name} />
+                    <button
+                      type="button"
+                      className="chat-attachment-remove"
+                      aria-label={`Remove ${photo.name}`}
+                      onClick={() => removePhoto(photo.key)}
+                    >
+                      <Icon name="remove" />
+                    </button>
+                  </div>
+                ))}
+                {uploadingCount > 0 ? (
+                  <div
+                    className="chat-attachment chat-attachment-loading"
+                    aria-label="Uploading photo"
+                  >
+                    <span className="chat-attachment-spinner" />
+                  </div>
+                ) : null}
+                {uploadError ? (
+                  <p className="chat-attachment-error" role="alert">
+                    {uploadError}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
             <form className="chat-composer" onSubmit={handleSubmit}>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="chat-file-input"
+                onChange={(event) => {
+                  handleFiles(event.target.files);
+                  // Allow re-selecting the same file.
+                  event.target.value = "";
+                }}
+              />
+              <button
+                type="button"
+                className="chat-attach"
+                aria-label="Attach photos"
+                title="Attach photos"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading}
+              >
+                <Icon name="paperclip" />
+              </button>
               <input
                 className="chat-input"
                 value={draft}
@@ -327,7 +506,7 @@ export function ChatFab() {
                 type="submit"
                 className="chat-send"
                 aria-label="Send"
-                disabled={!draft.trim() || isLoading}
+                disabled={!draft.trim() || isLoading || uploadingCount > 0}
               >
                 <Icon name="send" />
               </button>
