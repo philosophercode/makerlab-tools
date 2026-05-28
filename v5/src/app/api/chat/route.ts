@@ -4,15 +4,28 @@ import {
   stepCountIs,
   streamText,
   tool,
+  type FilePart,
+  type ModelMessage,
+  type TextPart,
   type UIMessage,
+  type UserModelMessage,
 } from "ai";
 import { z } from "zod";
 import { getCatalogTool, getCatalogTools } from "../../../lib/catalog";
 import {
   createMaintenanceLog,
+  fetchAllResources,
   fetchMaintenanceLogsByUnit,
 } from "../../../lib/notion";
 import type { MakerLabTool, MakerLabUnit } from "../../../components/catalog-types";
+import type { ResourceRecord } from "../../../lib/types";
+
+const MAX_PDFS_PER_CHAT = 3;
+
+interface AttachedManual {
+  title: string;
+  url: string;
+}
 
 export const maxDuration = 60;
 
@@ -28,12 +41,17 @@ export async function POST(req: Request) {
   const tools = await getCatalogTools();
   const focused = toolId ? await getCatalogTool(toolId) : null;
   const unitLookup = buildUnitLookup(tools);
-  const system = buildSystemPrompt(tools, focused);
+  const manuals = focused ? await collectToolManuals(focused.id) : [];
+  const system = buildSystemPrompt(tools, focused, manuals);
+  const modelMessages = attachManualsToFirstUserMessage(
+    await convertToModelMessages(messages),
+    manuals
+  );
 
   const result = streamText({
     model: anthropic("claude-sonnet-4-6"),
     system,
-    messages: await convertToModelMessages(messages),
+    messages: modelMessages,
     tools: {
       get_unit_details: tool({
         description:
@@ -188,9 +206,84 @@ function findUnit(
   );
 }
 
+function isPdfUrl(url: string | undefined): boolean {
+  if (!url) return false;
+  const cleaned = url.split("?")[0].toLowerCase();
+  return cleaned.endsWith(".pdf");
+}
+
+function pickPdfUrl(resource: ResourceRecord): string | null {
+  if (isPdfUrl(resource.fields.url)) return resource.fields.url ?? null;
+  const file = (resource.fields.files || []).find((f) => isPdfUrl(f.filename) || isPdfUrl(f.url));
+  return file?.url || null;
+}
+
+async function collectToolManuals(toolId: string): Promise<AttachedManual[]> {
+  let resources: ResourceRecord[];
+  try {
+    resources = await fetchAllResources();
+  } catch (err) {
+    console.warn("[chat] failed to load resources for manuals", err);
+    return [];
+  }
+
+  const forTool = resources.filter(
+    (r) => r.fields.published !== false && (r.fields.tool || []).includes(toolId)
+  );
+
+  const manuals: AttachedManual[] = [];
+  for (const r of forTool) {
+    const url = pickPdfUrl(r);
+    if (!url) {
+      if (r.fields.url) {
+        console.info(`[chat] skipping non-PDF resource: ${r.fields.title} (${r.fields.url})`);
+      }
+      continue;
+    }
+    if (manuals.length >= MAX_PDFS_PER_CHAT) {
+      console.info(`[chat] PDF cap reached (${MAX_PDFS_PER_CHAT}); skipping: ${r.fields.title}`);
+      continue;
+    }
+    manuals.push({ title: r.fields.title || "Manual", url });
+  }
+  return manuals;
+}
+
+function attachManualsToFirstUserMessage(
+  messages: ModelMessage[],
+  manuals: AttachedManual[]
+): ModelMessage[] {
+  if (manuals.length === 0) return messages;
+  const firstUserIdx = messages.findIndex((m) => m.role === "user");
+  if (firstUserIdx === -1) return messages;
+
+  const fileParts: FilePart[] = manuals.map((m) => ({
+    type: "file",
+    mediaType: "application/pdf",
+    data: new URL(m.url),
+    filename: `${m.title}.pdf`,
+    providerOptions: {
+      anthropic: { cacheControl: { type: "ephemeral" } },
+    },
+  }));
+
+  const target = messages[firstUserIdx] as UserModelMessage;
+  const existing = target.content;
+  const existingParts: (TextPart | FilePart)[] = Array.isArray(existing)
+    ? (existing.filter((p) => p.type === "text" || p.type === "file") as (TextPart | FilePart)[])
+    : [{ type: "text", text: String(existing ?? "") }];
+
+  const updated: UserModelMessage = {
+    role: "user",
+    content: [...fileParts, ...existingParts],
+  };
+  return [...messages.slice(0, firstUserIdx), updated, ...messages.slice(firstUserIdx + 1)];
+}
+
 function buildSystemPrompt(
   tools: MakerLabTool[],
-  focused: MakerLabTool | null
+  focused: MakerLabTool | null,
+  manuals: AttachedManual[] = []
 ): string {
   const sections: string[] = [
     "You are the MakerLab Assistant — a friendly, knowledgeable helper for students using the Cornell Tech MakerLab. Answer questions about lab tools, training requirements, safety, materials, and which machines are right for a given project. Be concise, accurate, and grounded only in the catalog provided below. If the user asks about a tool that isn't in the catalog, say so honestly.",
@@ -202,6 +295,18 @@ function buildSystemPrompt(
   if (focused) {
     sections.push(
       `## Active tool context\n\nThe student is currently viewing the **${focused.name}** detail page in the MakerLab catalog. If they use pronouns like "this", "it", "that tool", or "the machine", or ask things like "how do I use it" / "what can I make with this" without naming a tool, assume they are asking about the ${focused.name}. Use the resource links below when relevant — point to the SOP, safety doc, or manual when the student asks how to use, set up, or troubleshoot the tool. Do not wrap "${focused.name}" itself in a tool link — the student is already on its page.\n\n${describeTool(focused)}`
+    );
+  }
+
+  if (manuals.length > 0) {
+    const list = manuals
+      .map((m) => `- **${m.title}** — ${m.url}`)
+      .join("\n");
+    sections.push(
+      `## Available manuals\n\nThe following PDF manuals are attached to this conversation as documents — Claude can read both their text and figures directly:\n\n${list}`
+    );
+    sections.push(
+      `## Citing manuals\n\nWhen you draw on one of the attached manuals to answer, cite the source inline so the student can verify. Use the manual's title and, when you can identify it, the page number — e.g. "(Form 4 Manual, p. 14)". Keep citations short and concrete; do not invent page numbers if you're unsure.`
     );
   }
 

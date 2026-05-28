@@ -199,6 +199,10 @@ function richTextValue(property?: NotionProperty): string {
   return "";
 }
 
+function urlValue(property?: NotionProperty): string {
+  return property?.type === "url" ? property.url ?? "" : "";
+}
+
 function selectValue(page: NotionPage, names: string[]): string {
   const property = prop(page, names);
   if (!property) return "";
@@ -319,7 +323,7 @@ function pageToResource(page: NotionPage): ResourceRecord {
     title: title(page, ["title", "Title", "name", "Name"]),
     tool: relationIds(page, ["tool", "Tool"]),
     type: selectValue(page, ["type", "Type", "kind", "Kind"]),
-    url: richTextValue(prop(page, ["url", "URL"])),
+    url: urlValue(prop(page, ["url", "URL"])),
     files: fileAttachments(page, ["files", "Files", "attachments", "Attachments"]),
     notes: richTextValue(prop(page, ["notes", "Notes"])),
     published: checkboxValue(page, ["published", "Published"]),
