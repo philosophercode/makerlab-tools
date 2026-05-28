@@ -23,10 +23,14 @@ import type { MakerLabTool, MakerLabUnit } from "../../../components/catalog-typ
 import type { ResourceRecord } from "../../../lib/types";
 
 const MAX_PDFS_PER_CHAT = 3;
+const MAX_PDF_BYTES = 10 * 1024 * 1024; // 10MB ceiling
+const PDF_FETCH_UA = "Mozilla/5.0 (compatible; MakerLabBot/1.0)";
 
 interface AttachedManual {
   title: string;
   url: string;
+  /** Base64-encoded PDF bytes, present only if the server-side fetch succeeded. */
+  data: string;
 }
 
 export const maxDuration = 60;
@@ -43,7 +47,9 @@ export async function POST(req: Request) {
   const tools = await getCatalogTools();
   const focused = toolId ? await getCatalogTool(toolId) : null;
   const unitLookup = buildUnitLookup(tools);
-  const manuals = focused ? await collectToolManuals(focused.id) : [];
+  const { manuals, skipped } = focused
+    ? await collectToolManuals(focused.id)
+    : { manuals: [], skipped: 0 };
   if (focused) {
     const hosts = uniqueHosts(focused.links.map((l) => l.href));
     console.info(
@@ -53,6 +59,7 @@ export async function POST(req: Request) {
       `[chat] web_fetch allowedDomains: ${hosts.length ? hosts.join(", ") : "empty"}`
     );
     console.info(`[chat] manuals attached: ${manuals.length}`);
+    console.info(`[chat] manuals skipped (will web_fetch): ${skipped}`);
   }
   const system = buildSystemPrompt(tools, focused, manuals);
   const modelMessages = attachManualsToFirstUserMessage(
@@ -280,13 +287,55 @@ function pickPdfUrl(resource: ResourceRecord): string | null {
   return file?.url || null;
 }
 
-async function collectToolManuals(toolId: string): Promise<AttachedManual[]> {
+/**
+ * Fetch a PDF server-side (from the Vercel function, not Anthropic's fetcher)
+ * and return it base64-encoded. Returns null on any failure so the caller can
+ * fall back to web_fetch instead of 400-ing the whole chat request.
+ */
+async function fetchPdfAsBase64(
+  title: string,
+  url: string
+): Promise<string | null> {
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": PDF_FETCH_UA },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) {
+      console.warn(
+        "[chat] PDF fetch failed, will rely on web_fetch:",
+        title,
+        url,
+        `status ${res.status}`
+      );
+      return null;
+    }
+    const buf = await res.arrayBuffer();
+    if (buf.byteLength > MAX_PDF_BYTES) {
+      console.warn(
+        "[chat] PDF too large, will rely on web_fetch:",
+        title,
+        url,
+        `${buf.byteLength} bytes`
+      );
+      return null;
+    }
+    return Buffer.from(buf).toString("base64");
+  } catch (err) {
+    console.warn("[chat] PDF fetch failed, will rely on web_fetch:", title, url, err);
+    return null;
+  }
+}
+
+async function collectToolManuals(
+  toolId: string
+): Promise<{ manuals: AttachedManual[]; skipped: number }> {
   let resources: ResourceRecord[];
   try {
     resources = await fetchAllResources();
   } catch (err) {
     console.warn("[chat] failed to load resources for manuals", err);
-    return [];
+    return { manuals: [], skipped: 0 };
   }
 
   const forTool = resources.filter(
@@ -294,21 +343,34 @@ async function collectToolManuals(toolId: string): Promise<AttachedManual[]> {
   );
 
   const manuals: AttachedManual[] = [];
-  for (const r of forTool) {
-    const url = pickPdfUrl(r);
-    if (!url) {
-      if (r.fields.url) {
-        console.info(`[chat] skipping non-PDF resource: ${r.fields.title} (${r.fields.url})`);
+  let skipped = 0;
+  try {
+    for (const r of forTool) {
+      const url = pickPdfUrl(r);
+      if (!url) {
+        if (r.fields.url) {
+          console.info(`[chat] skipping non-PDF resource: ${r.fields.title} (${r.fields.url})`);
+        }
+        continue;
       }
-      continue;
+      if (manuals.length >= MAX_PDFS_PER_CHAT) {
+        console.info(`[chat] PDF cap reached (${MAX_PDFS_PER_CHAT}); skipping: ${r.fields.title}`);
+        continue;
+      }
+      const title = r.fields.title || "Manual";
+      const data = await fetchPdfAsBase64(title, url);
+      if (!data) {
+        skipped += 1;
+        continue;
+      }
+      manuals.push({ title, url, data });
     }
-    if (manuals.length >= MAX_PDFS_PER_CHAT) {
-      console.info(`[chat] PDF cap reached (${MAX_PDFS_PER_CHAT}); skipping: ${r.fields.title}`);
-      continue;
-    }
-    manuals.push({ title: r.fields.title || "Manual", url });
+  } catch (err) {
+    // Never let base64 collection take down the request; fall back to web_fetch.
+    console.warn("[chat] manual collection failed, falling back to web_fetch", err);
+    return { manuals: [], skipped: skipped + manuals.length };
   }
-  return manuals;
+  return { manuals, skipped };
 }
 
 function attachManualsToFirstUserMessage(
@@ -322,7 +384,9 @@ function attachManualsToFirstUserMessage(
   const fileParts: FilePart[] = manuals.map((m) => ({
     type: "file",
     mediaType: "application/pdf",
-    data: new URL(m.url),
+    // Base64 of bytes we fetched server-side — avoids handing Anthropic a URL
+    // it can't fetch (e.g. hosts that block its fetcher, returning a 400).
+    data: m.data,
     filename: `${m.title}.pdf`,
     providerOptions: {
       anthropic: { cacheControl: { type: "ephemeral" } },
