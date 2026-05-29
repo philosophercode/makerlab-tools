@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import type { MakerLabTool, ToolStatus } from "./catalog-types";
 
 interface DetailShellProps {
@@ -25,10 +26,10 @@ function resourceTone(kind?: string): "safety" | "sop" | "manual" | "video" | "n
   return RESOURCE_TONES[kind] || "neutral";
 }
 
-function resourceLabel(link: MakerLabTool["links"][number]): string {
+function resourceLabel(link: MakerLabTool["links"][number], fallback: string): string {
   if (link.label && !looksLikeUrl(link.label)) return link.label;
   if (link.kind) return link.kind;
-  return "Open resource";
+  return fallback;
 }
 
 function looksLikeUrl(text: string): boolean {
@@ -50,6 +51,7 @@ function findResource(
 }
 
 export function DetailShell({ tool }: DetailShellProps) {
+  const t = useTranslations("detail");
   const status = STATUS_CHIP[tool.status];
   const safetyLink = findResource(tool, "Safety");
   const sopLink = findResource(tool, "SOP");
@@ -58,9 +60,9 @@ export function DetailShell({ tool }: DetailShellProps) {
     <main className="tool-detail">
       <div className="td-breadcrumbs">
         <div>
-          <Link href="/">Tools</Link>
+          <Link href="/">{t("breadcrumbTools")}</Link>
           <span aria-hidden="true">›</span>
-          <span>Inventory</span>
+          <span>{t("breadcrumbInventory")}</span>
           <span aria-hidden="true">›</span>
           <span>{tool.name}</span>
         </div>
@@ -82,19 +84,19 @@ export function DetailShell({ tool }: DetailShellProps) {
           <h1>{tool.name}</h1>
           <p>{tool.description}</p>
 
-          <div className="td-chip-row" aria-label="Tool status">
+          <div className="td-chip-row" aria-label={t("toolStatusLabel")}>
             <span className={`td-chip td-chip-${status.tone}`}>
               <span className="td-dot" />
               {status.label}
             </span>
             <span className="td-chip td-chip-warning">
               <span className="td-dot" />
-              {tool.trainingLevel} training
+              {t("trainingChip", { level: tool.trainingLevel })}
             </span>
             {tool.ppe.length > 0 ? (
               <span className="td-chip td-chip-danger">
                 <span className="td-dot" />
-                PPE Required
+                {t("ppeRequired")}
               </span>
             ) : null}
             <span className="td-chip">{tool.categorySub || tool.category}</span>
@@ -104,33 +106,33 @@ export function DetailShell({ tool }: DetailShellProps) {
           <div className="td-actions">
             {safetyLink ? (
               <a className="td-button td-button-primary" href={safetyLink.href}>
-                View Safety Doc
+                {t("viewSafetyDoc")}
               </a>
             ) : null}
             {sopLink ? (
               <a className="td-button" href={sopLink.href}>
-                View SOP
+                {t("viewSop")}
               </a>
             ) : null}
           </div>
         </div>
       </section>
 
-      <section className="td-glance" aria-label="At a glance">
+      <section className="td-glance" aria-label={t("atAGlanceLabel")}>
         <article className="td-glance-card">
-          <p className="td-eyebrow">Materials</p>
-          <strong>{tool.materials.length > 0 ? tool.materials.join(", ") : "Contact MakerLab staff"}</strong>
+          <p className="td-eyebrow">{t("materials")}</p>
+          <strong>{tool.materials.length > 0 ? tool.materials.join(", ") : t("contactStaff")}</strong>
         </article>
       </section>
 
       <section className="td-panel td-safety">
         <header className="td-section-title td-section-title-danger">
-          <h2>Safety &amp; Access</h2>
+          <h2>{t("safetyAccess")}</h2>
         </header>
 
         <div className="td-safety-grid">
           <div className="td-safety-item">
-            <h3>PPE Required</h3>
+            <h3>{t("ppeRequired")}</h3>
             <div className="td-chip-row">
               {tool.ppe.map((item) => (
                 <span className="td-chip" key={item}>
@@ -138,24 +140,24 @@ export function DetailShell({ tool }: DetailShellProps) {
                 </span>
               ))}
             </div>
-            <p>PPE must be worn before use. Review posted guidelines.</p>
+            <p>{t("ppeNotice")}</p>
           </div>
 
           <div className="td-safety-item">
-            <h3>Emergency Stop</h3>
+            <h3>{t("emergencyStop")}</h3>
             {tool.emergencyStop ? (
               <p>{tool.emergencyStop}</p>
             ) : (
-              <p>Follow posted lab guidance and notify staff in an emergency.</p>
+              <p>{t("emergencyStopFallback")}</p>
             )}
           </div>
 
           <div className="td-safety-item">
-            <h3>Use Restrictions</h3>
+            <h3>{t("useRestrictions")}</h3>
             {tool.useRestrictions ? (
               <p>{tool.useRestrictions}</p>
             ) : (
-              <p>Open to all trained MakerLab users during lab hours.</p>
+              <p>{t("useRestrictionsFallback")}</p>
             )}
           </div>
         </div>
@@ -164,7 +166,7 @@ export function DetailShell({ tool }: DetailShellProps) {
       <section className="td-content-grid">
         <article className="td-panel">
           <header className="td-section-title td-section-title-bordered">
-            <h2>Documents &amp; Resources</h2>
+            <h2>{t("documentsResources")}</h2>
           </header>
 
           {tool.links.length > 0 ? (
@@ -172,10 +174,10 @@ export function DetailShell({ tool }: DetailShellProps) {
               {tool.links.map((link) => (
                 <a className="td-doc" href={link.href} key={`${link.kind}-${link.href}`}>
                   <span className={`td-badge td-badge-${resourceTone(link.kind)}`}>
-                    {link.kind || "Resource"}
+                    {link.kind || t("resourceFallback")}
                   </span>
                   <span className="td-doc-body">
-                    <strong>{resourceLabel(link)}</strong>
+                    <strong>{resourceLabel(link, t("openResource"))}</strong>
                     {link.description ? <p>{link.description}</p> : null}
                   </span>
                   <span className="td-doc-arrow" aria-hidden="true">
@@ -185,44 +187,44 @@ export function DetailShell({ tool }: DetailShellProps) {
               ))}
             </div>
           ) : (
-            <p className="td-empty">No documents linked yet.</p>
+            <p className="td-empty">{t("noDocuments")}</p>
           )}
         </article>
 
         <article className="td-panel">
           <header className="td-section-title td-section-title-bordered">
-            <h2>Details</h2>
+            <h2>{t("details")}</h2>
           </header>
 
           <table className="td-kv-table">
             <tbody>
               <tr>
-                <th>Category</th>
+                <th>{t("category")}</th>
                 <td>
                   {tool.category}
                   {tool.categorySub ? ` / ${tool.categorySub}` : ""}
                 </td>
               </tr>
               <tr>
-                <th>Location</th>
+                <th>{t("location")}</th>
                 <td>
                   {tool.location}
                   {tool.zone ? ` / ${tool.zone}` : ""}
                 </td>
               </tr>
               <tr>
-                <th>Materials</th>
+                <th>{t("materials")}</th>
                 <td>
-                  {tool.materials.length > 0 ? tool.materials.join(", ") : "Contact MakerLab staff"}
+                  {tool.materials.length > 0 ? tool.materials.join(", ") : t("contactStaff")}
                 </td>
               </tr>
               <tr>
-                <th>Training</th>
+                <th>{t("trainingRow")}</th>
                 <td>{tool.trainingLabel}</td>
               </tr>
               {tool.mapId ? (
                 <tr>
-                  <th>Map ID</th>
+                  <th>{t("mapId")}</th>
                   <td>
                     <code>{tool.mapId}</code>
                   </td>
@@ -230,13 +232,13 @@ export function DetailShell({ tool }: DetailShellProps) {
               ) : null}
               {tool.tags.length > 0 ? (
                 <tr>
-                  <th>Tags</th>
+                  <th>{t("tags")}</th>
                   <td>{tool.tags.join(", ")}</td>
                 </tr>
               ) : null}
               {tool.notes ? (
                 <tr>
-                  <th>Notes</th>
+                  <th>{t("notes")}</th>
                   <td>{tool.notes}</td>
                 </tr>
               ) : null}
@@ -248,19 +250,19 @@ export function DetailShell({ tool }: DetailShellProps) {
       {tool.units.length > 0 ? (
         <section className="td-panel">
           <header className="td-section-title td-section-title-bordered">
-            <h2>Physical Machines</h2>
+            <h2>{t("physicalMachines")}</h2>
           </header>
 
           <div className="td-machines-scroll">
             <table className="td-machines">
               <thead>
                 <tr>
-                  <th>Unit</th>
-                  <th>Location</th>
-                  <th>Status</th>
-                  <th>Condition</th>
-                  <th>Serial</th>
-                  <th>Acquired</th>
+                  <th>{t("unit")}</th>
+                  <th>{t("location")}</th>
+                  <th>{t("status")}</th>
+                  <th>{t("condition")}</th>
+                  <th>{t("serial")}</th>
+                  <th>{t("acquired")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -302,14 +304,14 @@ export function DetailShell({ tool }: DetailShellProps) {
       {tool.notes ? (
         <section className="td-panel td-notes">
           <header className="td-section-title td-section-title-bordered">
-            <h2>Notes &amp; Tips</h2>
+            <h2>{t("notesTips")}</h2>
           </header>
           <p>{tool.notes}</p>
         </section>
       ) : null}
 
       <Link className="td-back" href="/">
-        ‹ Back to all tools
+        {t("backToTools")}
       </Link>
     </main>
   );
