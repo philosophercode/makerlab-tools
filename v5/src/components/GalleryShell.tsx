@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { matchSorter } from "match-sorter";
 import type { MakerLabTool } from "./catalog-types";
 import { TechnicalFrame } from "./TechnicalFrame";
 import { ToolCard } from "./ToolCard";
@@ -17,11 +18,30 @@ const TRAINING_LEVELS = [
   { value: "Advanced", key: "trainingAdvanced" },
 ] as const;
 
+// Ranked, typo-tolerant search keys. match-sorter ranks earlier keys above
+// later ones when match quality ties, so key order doubles as relevance
+// weight: name first, then the structured metadata (category / tags /
+// materials), then the free-text description last.
+const SEARCH_KEYS: ReadonlyArray<keyof MakerLabTool> = [
+  "name",
+  "category",
+  "categorySub",
+  "tags",
+  "materials",
+  "location",
+  "zone",
+  "ppe",
+  "trainingLevel",
+  "description",
+];
+
 export function GalleryShell({ tools }: GalleryShellProps) {
   const t = useTranslations("gallery");
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string | null>(null);
   const [training, setTraining] = useState<string | null>(null);
+  const [material, setMaterial] = useState<string | null>(null);
+  const [location, setLocation] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
 
   const categories = useMemo(
@@ -29,32 +49,39 @@ export function GalleryShell({ tools }: GalleryShellProps) {
     [tools]
   );
 
+  // Facet options are derived from the loaded catalog, mirroring `categories`.
+  const materials = useMemo(
+    () => Array.from(new Set(tools.flatMap((tool) => tool.materials))).sort(),
+    [tools]
+  );
+
+  const locations = useMemo(
+    () => Array.from(new Set(tools.map((tool) => tool.location).filter(Boolean))).sort(),
+    [tools]
+  );
+
   const filteredTools = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
-    return tools.filter((tool) => {
-      const searchable = [
-        tool.name,
-        tool.category,
-        tool.categorySub,
-        tool.location,
-        tool.zone,
-        tool.trainingLevel,
-        tool.description,
-        ...tool.ppe,
-        ...tool.materials,
-        ...tool.tags,
-      ]
-        .join(" ")
-        .toLowerCase();
-
-      const matchesQuery = !normalizedQuery || searchable.includes(normalizedQuery);
+    // Apply facet filters first; each dimension is single-select and they
+    // combine with AND across dimensions.
+    const faceted = tools.filter((tool) => {
       const matchesCategory = !category || tool.category === category;
       const matchesTraining = !training || tool.trainingLevel === training;
+      const matchesMaterial = !material || tool.materials.includes(material);
+      const matchesLocation = !location || tool.location === location;
 
-      return matchesQuery && matchesCategory && matchesTraining;
+      return matchesCategory && matchesTraining && matchesMaterial && matchesLocation;
     });
-  }, [category, query, tools, training]);
+
+    const normalizedQuery = query.trim();
+
+    // Empty query preserves the catalog's existing order (show all).
+    if (!normalizedQuery) {
+      return faceted;
+    }
+
+    // Fuzzy, ranked match across the weighted keys (typo tolerant).
+    return matchSorter(faceted, normalizedQuery, { keys: SEARCH_KEYS.slice() });
+  }, [category, location, material, query, tools, training]);
 
   return (
     <main className="page-shell">
@@ -111,6 +138,44 @@ export function GalleryShell({ tools }: GalleryShellProps) {
                     }
                   >
                     {t(level.key)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="filter-group">
+              <span>{t("materials")}</span>
+              <div className="chip-row">
+                {materials.map((materialName) => (
+                  <button
+                    className={material === materialName ? "chip chip-active" : "chip"}
+                    key={materialName}
+                    type="button"
+                    aria-pressed={material === materialName}
+                    onClick={() =>
+                      setMaterial((selected) => (selected === materialName ? null : materialName))
+                    }
+                  >
+                    {materialName}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="filter-group">
+              <span>{t("location")}</span>
+              <div className="chip-row">
+                {locations.map((locationName) => (
+                  <button
+                    className={location === locationName ? "chip chip-active" : "chip"}
+                    key={locationName}
+                    type="button"
+                    aria-pressed={location === locationName}
+                    onClick={() =>
+                      setLocation((selected) => (selected === locationName ? null : locationName))
+                    }
+                  >
+                    {locationName}
                   </button>
                 ))}
               </div>

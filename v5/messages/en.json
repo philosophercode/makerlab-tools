@@ -21,6 +21,8 @@
     "searchAria": "Search inventory",
     "category": "CATEGORY:",
     "training": "TRAINING:",
+    "materials": "MATERIALS:",
+    "location": "LOCATION:",
     "viewModeLabel": "View mode",
     "grid": "[ GRID ]",
     "table": "[ TABLE ]",

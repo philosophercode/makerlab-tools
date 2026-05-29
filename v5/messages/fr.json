@@ -21,6 +21,8 @@
     "searchAria": "Rechercher dans l'inventaire",
     "category": "CATÉGORIE :",
     "training": "FORMATION :",
+    "materials": "MATÉRIAUX :",
+    "location": "EMPLACEMENT :",
     "viewModeLabel": "Mode d'affichage",
     "grid": "[ GRILLE ]",
     "table": "[ TABLEAU ]",

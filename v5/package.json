@@ -16,6 +16,7 @@
     "@ai-sdk/anthropic": "^3.0.46",
     "@ai-sdk/react": "^3.0.97",
     "ai": "^6.0.95",
+    "match-sorter": "^8.3.0",
     "next": "16.1.6",
     "next-intl": "^4.13.0",
     "react": "19.2.3",
