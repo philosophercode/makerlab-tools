@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { siteConfig } from "../../lib/site-config";
 
 export const metadata = {
-  title: "About — MakerLab Tools v5",
+  title: `About — ${siteConfig.name}`,
 };
 
 export default function AboutPage() {

@@ -3,7 +3,10 @@
   --surface-container-low: #eee8de;
   --surface-container: #ffffff;
   --surface-container-high: #e2d8ca;
+  /* Brand colors — defaults mirror siteConfig; the root layout overrides
+     --primary / --primary-dark inline from NEXT_PUBLIC_COLOR_* env. */
   --primary: #ff6b35;
+  --primary-dark: #cc4f1f;
   --secondary: #b31b1b;
   --on-surface: #171717;
   --on-surface-muted: #59524a;
