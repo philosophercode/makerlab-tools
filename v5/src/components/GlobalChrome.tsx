@@ -4,6 +4,7 @@ import type { CatalogStats } from "./catalog-types";
 import { PrimaryNav } from "./PrimaryNav";
 import { ThemeToggle } from "./ThemeToggle";
 import { LanguageSelector } from "./LanguageSelector";
+import { siteConfig } from "../lib/site-config";
 
 interface GlobalChromeProps {
   stats: CatalogStats;
@@ -16,7 +17,7 @@ export function GlobalChrome({ stats }: GlobalChromeProps) {
     <>
       <header className="top-nav">
         <Link className="brand-lockup" href="/">
-          <span>MAKERLAB</span>
+          <span>{siteConfig.name}</span>
           <span>{t("nav.brandTagline")}</span>
         </Link>
         <PrimaryNav />
