@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { getClientIp, rateLimitAsync } from "../../../lib/rate-limit";
 
 const NOTION_API = "https://api.notion.com/v1";
 // file_uploads requires a newer Notion-Version than the catalog reads use.
@@ -16,6 +17,19 @@ interface CreateFileUploadResponse {
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limit before any expensive work (Notion upload session / byte transfer).
+  const ip = getClientIp(req);
+  const { allowed } = await rateLimitAsync(`upload:${ip}`, {
+    limit: 15,
+    windowMs: 60_000,
+  });
+  if (!allowed) {
+    return Response.json(
+      { error: "Too many requests. Please slow down." },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
+  }
+
   const token = process.env.NOTION_API_KEY;
   if (!token) {
     return Response.json({ error: "Server misconfigured" }, { status: 500 });
