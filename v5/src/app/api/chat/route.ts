@@ -22,6 +22,7 @@ import {
 import type { MakerLabTool, MakerLabUnit } from "../../../components/catalog-types";
 import type { ResourceRecord } from "../../../lib/types";
 import { languageNameForLocale } from "../../../i18n/config";
+import { getClientIp, rateLimitAsync } from "../../../lib/rate-limit";
 
 const MAX_PDFS_PER_CHAT = 3;
 const MAX_PDF_BYTES = 10 * 1024 * 1024; // 10MB ceiling
@@ -45,6 +46,19 @@ interface ChatRequest {
 const PRIORITIES = ["Critical", "High", "Medium", "Low"] as const;
 
 export async function POST(req: Request) {
+  // Rate limit before any expensive work (Notion fetch / model call).
+  const ip = getClientIp(req);
+  const { allowed } = await rateLimitAsync(`chat:${ip}`, {
+    limit: 20,
+    windowMs: 60_000,
+  });
+  if (!allowed) {
+    return Response.json(
+      { error: "Too many requests. Please slow down." },
+      { status: 429, headers: { "Retry-After": "60" } }
+    );
+  }
+
   const { messages, toolId, locale }: ChatRequest = await req.json();
   const tools = await getCatalogTools();
   const focused = toolId ? await getCatalogTool(toolId) : null;
