@@ -28,6 +28,14 @@ function toolStatusLabel(partType: string, t: ChatT): string {
   return t("working");
 }
 
+// The assistant can wrap grounded text in inline source markup such as
+// <cite index="1-9">…</cite>. react-markdown has no raw-HTML plugin, so those
+// tags would render as literal text. Strip the tags while keeping the cited
+// prose intact.
+function stripCitations(text: string): string {
+  return text.replace(/<cite\b[^>]*>/gi, "").replace(/<\/cite>/gi, "");
+}
+
 function Icon({
   name,
 }: {
@@ -419,7 +427,7 @@ export function ChatFab() {
                                 remarkPlugins={[remarkGfm]}
                                 components={markdownComponents}
                               >
-                                {part.text}
+                                {stripCitations(part.text)}
                               </ReactMarkdown>
                             </div>
                           ) : (
