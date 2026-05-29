@@ -1,5 +1,8 @@
 {
   "nav": {
+    "report": "REPORTAR",
+    "reportAria": "Reportar un problema",
+    "reportSeed": "Quiero reportar un problema.",
     "tools": "HERRAMIENTAS",
     "projects": "PROYECTOS",
     "about": "ACERCA DE",

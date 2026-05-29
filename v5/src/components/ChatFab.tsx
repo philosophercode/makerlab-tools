@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { useChatLauncher } from "./ChatLauncherContext";
 
 interface Suggestion {
   icon: "search" | "clipboard" | "pin";
@@ -101,7 +102,7 @@ interface PendingPhoto {
 export function ChatFab() {
   const t = useTranslations("chat");
   const locale = useLocale();
-  const [isOpen, setIsOpen] = useState(false);
+  const { isOpen, open, close, pendingSeed, consumeSeed } = useChatLauncher();
   const [draft, setDraft] = useState("");
   const pathname = usePathname() || "/";
   const toolId = useMemo(() => {
@@ -259,10 +260,6 @@ export function ChatFab() {
     }
   }, [messages]);
 
-  function close() {
-    setIsOpen(false);
-  }
-
   const markdownComponents = useMemo<Components>(
     () => ({
       a({ href, children }) {
@@ -282,7 +279,7 @@ export function ChatFab() {
         );
       },
     }),
-    []
+    [close]
   );
 
   // Send a message and clear the stale "Reading: …manuals…" indicator from any
@@ -293,6 +290,21 @@ export function ChatFab() {
     setReadingManuals(null);
     sendMessage({ text });
   }
+
+  // Auto-send a seeded message when something outside ChatFab (e.g. the nav
+  // "Report" button) opens the chat with an intent. The nonce guard makes this
+  // idempotent so a re-render never resends, and we wait until any in-flight
+  // turn finishes before sending.
+  const lastSeedNonce = useRef<number | null>(null);
+  useEffect(() => {
+    if (!pendingSeed || isLoading) return;
+    if (lastSeedNonce.current !== pendingSeed.nonce) {
+      lastSeedNonce.current = pendingSeed.nonce;
+      send(pendingSeed.text);
+    }
+    consumeSeed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `send`/`consumeSeed` are stable for this purpose; the nonce ref guards against resends.
+  }, [pendingSeed, isLoading]);
 
   function handleSuggestion(label: string) {
     if (isLoading) return;
@@ -326,7 +338,7 @@ export function ChatFab() {
         aria-expanded={isOpen}
         aria-controls="makerlab-chat-sheet"
         aria-label={t("openAria")}
-        onClick={() => setIsOpen(true)}
+        onClick={() => open()}
       >
         &gt;_
       </button>

@@ -1,5 +1,8 @@
 {
   "nav": {
+    "report": "REPORT",
+    "reportAria": "Report a problem",
+    "reportSeed": "I'd like to report a problem.",
     "tools": "TOOLS",
     "projects": "PROJECTS",
     "about": "ABOUT",

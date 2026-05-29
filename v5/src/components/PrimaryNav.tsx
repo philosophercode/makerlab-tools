@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { useChatLauncher } from "./ChatLauncherContext";
 
 const LINKS = [
   { href: "/", key: "tools", match: (path: string) => path === "/" || path.startsWith("/tools") },
@@ -13,6 +14,7 @@ const LINKS = [
 export function PrimaryNav() {
   const pathname = usePathname() || "/";
   const t = useTranslations("nav");
+  const { open } = useChatLauncher();
 
   return (
     <nav className="primary-nav" aria-label={t("primaryNavLabel")}>
@@ -25,6 +27,14 @@ export function PrimaryNav() {
           {t(link.key)}
         </Link>
       ))}
+      <button
+        type="button"
+        className="primary-nav-report"
+        onClick={() => open(t("reportSeed"))}
+        aria-label={t("reportAria")}
+      >
+        {t("report")}
+      </button>
     </nav>
   );
 }

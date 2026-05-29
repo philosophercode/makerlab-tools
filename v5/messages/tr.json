@@ -1,5 +1,8 @@
 {
   "nav": {
+    "report": "BİLDİR",
+    "reportAria": "Sorun bildir",
+    "reportSeed": "Bir sorun bildirmek istiyorum.",
     "tools": "ARAÇLAR",
     "projects": "PROJELER",
     "about": "HAKKINDA",

@@ -1,5 +1,8 @@
 {
   "nav": {
+    "report": "신고",
+    "reportAria": "문제 신고",
+    "reportSeed": "문제를 신고하고 싶어요.",
     "tools": "도구",
     "projects": "프로젝트",
     "about": "소개",

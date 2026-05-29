@@ -1,5 +1,8 @@
 {
   "nav": {
+    "report": "报告",
+    "reportAria": "报告问题",
+    "reportSeed": "我想报告一个问题。",
     "tools": "工具",
     "projects": "项目",
     "about": "关于",
