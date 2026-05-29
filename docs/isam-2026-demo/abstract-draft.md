@@ -1,4 +1,4 @@
-# MakerBot: An AI Assistant for Makerspace Operations
+# The MakerLab Assistant: Conversational AI for Makerspace Operations
 
 **ISAM 2026 — Demo Extended Abstract (draft)**
 
@@ -11,7 +11,7 @@
 ² Niti Parikh; Director, Learning Spaces and MakerLABs, Cornell Tech; ntp27@cornell.edu
 ³ Miguel Ramirez Peraza; Intern, Cornell Tech MakerLAB; ramirezperazamiguel@gmail.com
 
-*(Assistant = "MakerBot", app = "MakerLab AI Assistant".)*
+*(Assistant = "the MakerLab Assistant" — matches the live app UI; app/platform = "MakerLab Tools". "MakerBot" dropped per Niti: trademark of the 3D-printer company.)*
 
 ---
 
@@ -22,9 +22,9 @@ safety rules, materials, inventory, and fabrication workflows — that is hard t
 are not physically present. The Cornell Tech MakerLAB is a case in point: a lean-staff lab that
 gives students seven-day access, often outside staffed hours, supported by trained student
 volunteers ("SuperMakers"). This model rewards ownership and peer learning but strains onboarding,
-troubleshooting, and workflow planning. We demonstrate **MakerBot**, the conversational assistant in
-the *MakerLab AI Assistant* app, which layers an AI interface over a structured operational database
-(hosted in Notion) so students can, in plain language and in any language, find the right tool,
+troubleshooting, and workflow planning. We demonstrate the **MakerLab Assistant**, a conversational
+AI layered over a structured operational database (hosted in Notion) within the *MakerLab Tools* app,
+so students can, in plain language and in any language, find the right tool,
 follow manual-grounded setup and troubleshooting, and scope multi-machine projects. The same
 database is exposed as a live Model Context Protocol (MCP) server, so attendees can query the lab
 from their *own* Claude or ChatGPT client. The demonstration is participatory: visitors use the live
@@ -35,7 +35,7 @@ operations, participatory interface design, and distributed fabrication support.
 
 ## 1. Background and Motivation
 
-The project began on the floor of the Cornell Tech MakerLAB. An intern (a co-author) built a first
+The project began on the floor of the Cornell Tech MakerLAB. An intern (a co-author) built the first
 inventory app in Streamlit to search the lab's hardware — work that organized the data and framed the
 problem. Another co-author, volunteering as a "SuperMaker," added an AI layer; the lab's director
 posed the guiding ask: could a student *describe a project* and have it **decomposed against the
@@ -60,7 +60,7 @@ at once, for the broadest set of users.
 
 ## 2. System Overview
 
-The *MakerLab AI Assistant* app treats the lab's operational knowledge as structured, typed data
+*MakerLab Tools* treats the lab's operational knowledge as structured, typed data
 rather than a static list. The layer is a normalized schema — tools, categories, locations,
 individual units, resources, setup/safety procedures, and maintenance logs — hosted in Notion, which
 keeps staff editing in a tool they already use. The web application (Next.js / React, deployed on
@@ -70,14 +70,14 @@ showing description, location, required training, PPE and use restrictions, emer
 linked SOPs and manuals, and a live table of individual units with their status, condition, and
 serial.
 
-Overlaying both pages is **MakerBot**, a conversational assistant invoked from any page (Fig. 2).
-Rather than baking the catalog into a prompt, MakerBot reasons over it through tool-calling,
+Overlaying both pages is the **MakerLab Assistant**, invoked from any page (Fig. 2). Rather than
+baking the catalog into a prompt, it reasons over it through tool-calling,
 augmented with web search, document fetch (manuals and SOPs are pulled server-side and read in full),
 and vision (a photo of a machine or an error screen). Its context scales with place: from the gallery
 it carries a lightweight index of every tool and its resources; opened from a tool page it loads that
 machine's full detail and linked manuals, becoming a domain expert on the machine in front of you.
 Access is built in end to end: the interface localizes into 12 languages (including right-to-left
-Arabic and Hebrew), and MakerBot answers in the language asked. The app is **white-label** — a new
+Arabic and Hebrew), and the assistant answers in the language asked. The app is **white-label** — a new
 lab rebrands and connects its own Notion workspace through environment variables.
 
 ## 3. The Demonstration
@@ -85,17 +85,17 @@ lab rebrands and connects its own Notion workspace through environment variables
 The demonstration is both **hands-on and participatory**: visitors drive the live prototype, then
 help critique and redesign it.
 
-**3.1 Converse and troubleshoot.** Attendees open MakerBot on a machine page and ask operational
-questions in plain language. On the Trotec Speedy 400 laser, *"my acrylic edges are rough and there's
-a lot of smoke — how do I focus the laser and manage the exhaust?"* prompts the assistant to pull the
-machine's manual and return concrete focusing (JobControl autofocus) and exhaust steps (Fig. 2). The
+**3.1 Converse and troubleshoot.** Attendees open the MakerLab Assistant on a machine page and ask
+operational questions in plain language. On the Bambu Lab X1-Carbon, a first-timer asks how to get a
+PLA print to stick; the assistant pulls the printer's SOP and returns a pre-print checklist — glue,
+the right build plate, bed leveling in Bambu Studio, and a matching filament profile (Fig. 2). The
 same flow handles a fault on a staged sample device — photograph the error, get manual-grounded
 recovery steps in any language, and file a repair report on the spot — so the machine stays online
 and the incident is captured rather than lost.
 
 **3.2 Scope a project across machines.** From the gallery, a newcomer asks *"I want to make a wooden
-box for my phone with a hinged lid — which machines and steps would I need?"* MakerBot returns a
-start-to-finish, training-aware build plan across the right tools, grounded in the lab's actual
+box for my phone with a hinged lid — which machines and steps would I need?"* the MakerLab Assistant
+returns a start-to-finish, training-aware build plan across the right tools, grounded in the lab's actual
 inventory (Fig. 3) — turning a vague idea into an executable workflow.
 
 **3.3 Bring your own AI (MCP).** The database is also a live, standards-based MCP server (streamable
@@ -163,5 +163,5 @@ all technical claims, design decisions, and the system itself are the authors' o
 ### Figures
 
 - **Fig. 1** `fig-gallery.png` — gallery: fuzzy search + category/training/material/location facets across ~100 machines; 12-language selector top-right.
-- **Fig. 2** `fig-assistant.png` — live MakerBot exchange on the Trotec Speedy 400 page (rough edges + smoke → manual-grounded focusing/exhaust guidance).
-- **Fig. 3** `fig-project.png` — live MakerBot project scoping (wooden phone box → start-to-finish, training-aware build plan).
+- **Fig. 2** `fig-assistant.png` — live MakerLab Assistant exchange on the Bambu Lab X1-Carbon page (first PLA print / bed adhesion → SOP-grounded pre-print checklist).
+- **Fig. 3** `fig-project.png` — live MakerLab Assistant project scoping (wooden phone box → start-to-finish, training-aware build plan).

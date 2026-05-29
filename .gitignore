@@ -56,3 +56,6 @@ scripts/tool_images/
 .vscode/
 *.swp
 *.swo
+
+# Office temp/lock files
+~$*

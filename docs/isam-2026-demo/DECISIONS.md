@@ -6,9 +6,8 @@
 
 ## Locked decisions
 
-- **Title:** "MakerBot: An AI Assistant for Makerspace Operations and Cross-Campus Fabrication
-  Support" (merges the assistant name *MakerBot* with the app name *MakerLab AI Assistant* and
-  Niti's operations/cross-campus framing).
+- **Title:** "The MakerLab Assistant: Conversational AI for Makerspace Operations."
+  (Earlier drafts led with "MakerBot" and/or "…and Cross-Campus Fabrication Support" — both removed.)
 - **Authors (3), confirmed order:** Isaac (primary) → Niti → Miguel.
   - Isaac Steinberg — Johnson Cornell Tech MBA '26, Cornell Tech — ies22@cornell.edu
   - Niti Parikh — Director, Learning Spaces and MakerLABs, Cornell Tech — ntp27@cornell.edu
@@ -16,8 +15,10 @@
     (built the first Streamlit inventory-search app that framed the problem)
 - **System demoed:** v5 (Notion-backed: gallery + tool detail + everywhere-chat overlay),
   framed around the §9 long-term vision in `docs/v5-plan.md`.
-- **Assistant name:** **MakerBot** (per author request; brand-overlap with the MakerBot
-  3D-printer company was flagged and accepted — revisit before final/commercial use).
+- **Assistant name:** **the MakerLab Assistant** (matches the live app UI label "MAKERLAB
+  ASSISTANT"). App/platform = **MakerLab Tools** (matches the header "MAKERLAB TOOLS"). "MakerBot"
+  was DROPPED per Niti — it is a registered trademark of the MakerBot 3D-printer company
+  (makerbot.com). Confirm the new name with the user.
 - **Framing:** "activation energy" pedagogical spine (A) + bring-your-own-AI via MCP as the
   novelty moment (C) + a discussion paragraph of the digital-twin vision (B).
 - **Headline contribution:** lowering the barrier to **use**, **debug**, and **scope across**
@@ -71,8 +72,11 @@
 ## Figures (captured, in this folder)
 
 - `fig-gallery.png` — Fig 1: gallery (light), now showing material/location facets + 12-language selector.
-- `fig-assistant.png` — Fig 2: **real live exchange** on the Trotec Speedy 400 page — rough acrylic
-  edges + smoke → MakerBot pulls the manual, returns JobControl autofocus + exhaust steps.
+- `fig-assistant.png` — Fig 2: **real live exchange** on the Bambu Lab X1-Carbon page — first PLA
+  print / bed adhesion → SOP-grounded pre-print checklist (glue, plate, bed leveling, filament).
+  (Switched from a Trotec laser example per Niti's preference for a 3D-printer example.)
+  NOTE: the chat UI leaked raw `<cite …>` markup on grounded answers (an app rendering bug);
+  stripped from the DOM before screenshotting. **TODO (app): parse/strip `<cite>` tags in chat output.**
 - `fig-project.png` — Fig 3: **real live exchange** — "wooden box for my phone, hinged lid" →
   start-to-finish, training-aware multi-machine build plan (project scoping).
 - `fig-tool-detail.png` — captured earlier (Bambu detail); **no longer used** in the abstract.
