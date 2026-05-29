@@ -10,6 +10,8 @@ import type {
   MaintenanceStatus,
   MaintenanceType,
   NotionRecord,
+  ProjectFields,
+  ProjectRecord,
   ResourceFields,
   ResourceRecord,
   ToolFields,
@@ -450,8 +452,11 @@ type NotionWriteProperty =
   | { title: { text: { content: string } }[] }
   | { rich_text: { text: { content: string } }[] }
   | { select: { name: string } | null }
+  | { multi_select: { name: string }[] }
   | { relation: { id: string }[] }
   | { date: { start: string } | null }
+  | { url: string | null }
+  | { checkbox: boolean }
   | { files: NotionWriteFile[] };
 
 function titleProp(value: string): NotionWriteProperty {
@@ -536,6 +541,159 @@ export async function createMaintenanceLog(
   });
 
   return pageToMaintenanceLog(page);
+}
+
+// ---------------------------------------------------------------------------
+// Projects (Student Projects Gallery)
+//
+// The Projects DB is optional and independent of the catalog env contract:
+// `NOTION_DB_PROJECTS` may be unset without breaking the rest of the catalog,
+// and these helpers only need `NOTION_API_KEY` + that single DB id. So they
+// avoid `getNotionEnv()` (which is strict about all catalog tables).
+// ---------------------------------------------------------------------------
+
+export function getProjectsDbId(): string | undefined {
+  return process.env.NOTION_DB_PROJECTS || undefined;
+}
+
+export function hasProjectsEnv(): boolean {
+  return Boolean(process.env.NOTION_API_KEY && getProjectsDbId());
+}
+
+async function projectsRequest<T>(
+  path: string,
+  init?: RequestInit
+): Promise<T> {
+  const apiKey = process.env.NOTION_API_KEY;
+  if (!apiKey) throw new Error("Missing NOTION_API_KEY");
+
+  const res = await fetch(`${NOTION_API_URL}${path}`, {
+    ...init,
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "Notion-Version": NOTION_VERSION,
+      ...init?.headers,
+    },
+  });
+
+  if (res.status === 429) {
+    const retryAfter = Number(res.headers.get("Retry-After") || "1");
+    await new Promise((resolve) => setTimeout(resolve, retryAfter * 1000));
+    return projectsRequest<T>(path, init);
+  }
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Notion API ${res.status}: ${body}`);
+  }
+
+  return res.json() as Promise<T>;
+}
+
+async function queryProjectsDb(body: QueryBody = {}): Promise<NotionPage[]> {
+  const dbId = getProjectsDbId();
+  if (!dbId) return [];
+
+  const pages: NotionPage[] = [];
+  let startCursor: string | undefined;
+
+  do {
+    const data = await projectsRequest<NotionQueryResponse>(
+      `/databases/${dbId}/query`,
+      {
+        method: "POST",
+        body: JSON.stringify({
+          page_size: 100,
+          ...body,
+          ...(startCursor ? { start_cursor: startCursor } : {}),
+        }),
+      }
+    );
+    pages.push(...data.results);
+    startCursor = data.next_cursor || undefined;
+  } while (startCursor);
+
+  return pages;
+}
+
+export function pageToProject(page: NotionPage): ProjectRecord {
+  return record<ProjectFields>(page, {
+    title: title(page, ["title", "Title", "name", "Name"]),
+    author: richTextValue(prop(page, ["author", "Author"])),
+    body: richTextValue(prop(page, ["body", "Body"])),
+    photos: fileAttachments(page, ["photos", "Photos", "images", "Images"]),
+    tools_used: relationIds(page, ["tools_used", "Tools Used", "tools", "Tools"]),
+    link: urlValue(prop(page, ["link", "Link", "url", "URL"])),
+    materials: multiSelectValue(page, ["materials", "Materials"]),
+    published: checkboxValue(page, ["published", "Published"]),
+    // created_time lives on the page envelope, not in a typed property here.
+    date: page.created_time,
+  });
+}
+
+export async function fetchAllProjects(
+  options: { publishedOnly?: boolean } = {}
+): Promise<ProjectRecord[]> {
+  const sortByDate = [
+    { property: "date", direction: "descending" as const },
+  ];
+
+  // The `date` property is a created_time field; if it's named differently the
+  // sort silently falls back to unsorted (then JS-sorted below).
+  const pages = await queryProjectsDb({ sorts: sortByDate })
+    .catch(() => queryProjectsDb({ sorts: [{ property: "Date", direction: "descending" }] }))
+    .catch(() => queryProjectsDb());
+
+  const projects = pages
+    .map(pageToProject)
+    .sort((a, b) => (b.fields.date || "").localeCompare(a.fields.date || ""));
+
+  if (options.publishedOnly) {
+    return projects.filter((project) => project.fields.published === true);
+  }
+  return projects;
+}
+
+export async function fetchProject(id: string): Promise<ProjectRecord> {
+  return pageToProject(await projectsRequest<NotionPage>(`/pages/${id}`));
+}
+
+export async function createProject(
+  fields: Partial<ProjectFields>
+): Promise<ProjectRecord> {
+  const dbId = getProjectsDbId();
+  if (!dbId) throw new Error("Missing NOTION_DB_PROJECTS");
+
+  const properties: Record<string, NotionWriteProperty> = {
+    title: titleProp(fields.title || "Untitled project"),
+    // Submissions always land unpublished; staff flip this in Notion.
+    published: { checkbox: false },
+  };
+  if (fields.author) properties.author = richTextProp(fields.author);
+  if (fields.body) properties.body = richTextProp(fields.body);
+  if (fields.tools_used?.length) {
+    properties.tools_used = relationProp(fields.tools_used);
+  }
+  if (fields.link) properties.link = { url: fields.link };
+  if (fields.materials?.length) {
+    properties.materials = {
+      multi_select: fields.materials.map((name) => ({ name })),
+    };
+  }
+  if (fields.photo_uploads?.length) {
+    properties.photos = fileUploadsProp(fields.photo_uploads);
+  }
+
+  const page = await projectsRequest<NotionPage>("/pages", {
+    method: "POST",
+    body: JSON.stringify({
+      parent: { database_id: dbId },
+      properties,
+    }),
+  });
+
+  return pageToProject(page);
 }
 
 export function resolveTools(

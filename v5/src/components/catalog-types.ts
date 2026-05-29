@@ -44,3 +44,23 @@ export interface CatalogStats {
   toolsInInventory: number;
   labHours: string;
 }
+
+export interface ProjectToolRef {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface MakerLabProject {
+  id: string;
+  title: string;
+  author: string;
+  /** Markdown write-up (rendered with react-markdown + remark-gfm). */
+  body: string;
+  /** First photo is treated as the cover. */
+  photos: string[];
+  tools: ProjectToolRef[];
+  link: string | null;
+  materials: string[];
+  date: string | null;
+}

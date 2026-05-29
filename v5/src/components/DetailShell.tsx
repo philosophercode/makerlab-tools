@@ -1,10 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import type { MakerLabTool, ToolStatus } from "./catalog-types";
+import type { MakerLabProject, MakerLabTool, ToolStatus } from "./catalog-types";
 
 interface DetailShellProps {
   tool: MakerLabTool;
+  /** Published projects that reference this tool ("Built with this"). */
+  projects?: MakerLabProject[];
 }
 
 const STATUS_CHIP: Record<ToolStatus, { label: string; tone: "success" | "warning" | "danger" | "neutral" }> = {
@@ -50,7 +52,7 @@ function findResource(
   return tool.links.find((link) => link.kind === kind);
 }
 
-export function DetailShell({ tool }: DetailShellProps) {
+export function DetailShell({ tool, projects = [] }: DetailShellProps) {
   const t = useTranslations("detail");
   const status = STATUS_CHIP[tool.status];
   const safetyLink = findResource(tool, "Safety");
@@ -307,6 +309,27 @@ export function DetailShell({ tool }: DetailShellProps) {
             <h2>{t("notesTips")}</h2>
           </header>
           <p>{tool.notes}</p>
+        </section>
+      ) : null}
+
+      {projects.length > 0 ? (
+        <section className="td-panel">
+          <header className="td-section-title td-section-title-bordered">
+            <h2>{t("builtWithThis")}</h2>
+          </header>
+          <div className="td-doc-list">
+            {projects.map((project) => (
+              <Link className="td-doc" href={`/projects/${project.id}`} key={project.id}>
+                <span className="td-doc-body">
+                  <strong>{project.title}</strong>
+                  <p>{t("builtWithThisBy", { author: project.author })}</p>
+                </span>
+                <span className="td-doc-arrow" aria-hidden="true">
+                  ↗
+                </span>
+              </Link>
+            ))}
+          </div>
         </section>
       ) : null}
 
