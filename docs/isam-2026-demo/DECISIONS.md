@@ -6,13 +6,15 @@
 
 ## Version log
 
-- **V1.1 — SUBMITTED to ISAM 2026 (2026-05-30).** Title: *"The MakerLAB Assistant: AI to Help Operate,
-  Fix, and Build in Makerspaces."* 2 pages, 3 figures, 3 references (MCP, Claude, ChatGPT).
-  Files: `abstract-v1.1.{html,pdf,docx}`, `abstract-v1.1.md`, `The MakerLAB Assistant - ISAM 2026 Demo V1.1.pdf`.
-  Regenerate from `abstract-v1.1.html`:
+- **V1 — SUBMITTED to ISAM 2026 (2026-05-30). FROZEN — do not edit.** Title: *"The MakerLAB Assistant:
+  AI to Help Operate, Fix, and Build in Makerspaces."* 2 pages, 3 figures, 3 references (MCP, Claude,
+  ChatGPT). Files: `abstract-v1.{html,pdf,docx}`, `abstract-v1.md`,
+  `The MakerLAB Assistant - ISAM 2026 Demo V1.pdf`. This is the record of exactly what was submitted.
+- **V1.1 — WORKING copy** for post-submission edits (currently identical to V1). Files:
+  `abstract-v1.1.{html,pdf,docx}`, `abstract-v1.1.md`, `The MakerLAB Assistant - ISAM 2026 Demo V1.1.pdf`.
+  Edit `abstract-v1.1.html`, then regenerate:
   - PDF: `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf=abstract-v1.1.pdf "file://$PWD/abstract-v1.1.html"`
   - DOCX: `pandoc abstract-v1.1.html -o abstract-v1.1.docx --resource-path="$PWD"`
-  - **For a V2, copy `abstract-v1.1.*` → `abstract-v2.*` first and edit the v2 source — leave V1 frozen.**
 
 ## Planned for V2 (Isaac, post-submission — there is more time before the final 15 Sep version)
 
