@@ -19,6 +19,7 @@ export function ToolCard({ tool }: ToolCardProps) {
           fill
           sizes="(min-width: 1280px) 25vw, (min-width: 768px) 33vw, 50vw"
           style={{ objectFit: "contain" }}
+          unoptimized
         />
       </div>
       <div className="tool-card-body">

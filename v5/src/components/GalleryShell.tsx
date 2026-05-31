@@ -43,6 +43,7 @@ export function GalleryShell({ tools }: GalleryShellProps) {
   const [material, setMaterial] = useState<string | null>(null);
   const [location, setLocation] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const categories = useMemo(
     () => Array.from(new Set(tools.map((tool) => tool.category))).sort(),
@@ -83,6 +84,15 @@ export function GalleryShell({ tools }: GalleryShellProps) {
     return matchSorter(faceted, normalizedQuery, { keys: SEARCH_KEYS.slice() });
   }, [category, location, material, query, tools, training]);
 
+  const activeFilterCount = [category, training, material, location].filter(Boolean).length;
+
+  function clearFilters() {
+    setCategory(null);
+    setTraining(null);
+    setMaterial(null);
+    setLocation(null);
+  }
+
   return (
     <main className="page-shell">
       <section className="gallery-header" aria-labelledby="gallery-title">
@@ -104,82 +114,16 @@ export function GalleryShell({ tools }: GalleryShellProps) {
             />
           </label>
 
-          <div className="filter-row">
-            <div className="filter-group">
-              <span>{t("category")}</span>
-              <div className="chip-row">
-                {categories.map((categoryName) => (
-                  <button
-                    className={category === categoryName ? "chip chip-active" : "chip"}
-                    key={categoryName}
-                    type="button"
-                    aria-pressed={category === categoryName}
-                    onClick={() =>
-                      setCategory((selected) => (selected === categoryName ? null : categoryName))
-                    }
-                  >
-                    {categoryName}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="filter-group">
-              <span>{t("training")}</span>
-              <div className="chip-row">
-                {TRAINING_LEVELS.map((level) => (
-                  <button
-                    className={training === level.value ? "chip chip-active" : "chip"}
-                    key={level.value}
-                    type="button"
-                    aria-pressed={training === level.value}
-                    onClick={() =>
-                      setTraining((selected) => (selected === level.value ? null : level.value))
-                    }
-                  >
-                    {t(level.key)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="filter-group">
-              <span>{t("materials")}</span>
-              <div className="chip-row">
-                {materials.map((materialName) => (
-                  <button
-                    className={material === materialName ? "chip chip-active" : "chip"}
-                    key={materialName}
-                    type="button"
-                    aria-pressed={material === materialName}
-                    onClick={() =>
-                      setMaterial((selected) => (selected === materialName ? null : materialName))
-                    }
-                  >
-                    {materialName}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="filter-group">
-              <span>{t("location")}</span>
-              <div className="chip-row">
-                {locations.map((locationName) => (
-                  <button
-                    className={location === locationName ? "chip chip-active" : "chip"}
-                    key={locationName}
-                    type="button"
-                    aria-pressed={location === locationName}
-                    onClick={() =>
-                      setLocation((selected) => (selected === locationName ? null : locationName))
-                    }
-                  >
-                    {locationName}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="filter-toolbar">
+            <button
+              className={filtersOpen || activeFilterCount > 0 ? "filter-toggle is-active" : "filter-toggle"}
+              type="button"
+              aria-expanded={filtersOpen}
+              aria-controls="gallery-filter-controls"
+              onClick={() => setFiltersOpen((open) => !open)}
+            >
+              Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+            </button>
 
             <div className="view-toggle" aria-label={t("viewModeLabel")}>
               <button
@@ -196,6 +140,67 @@ export function GalleryShell({ tools }: GalleryShellProps) {
               >
                 {t("table")}
               </button>
+            </div>
+          </div>
+
+          <div className={filtersOpen ? "filter-row is-open" : "filter-row"}>
+            <div className="filter-controls">
+              <label className="filter-group filter-select-group">
+                <span>{t("category")}</span>
+                <select value={category ?? ""} onChange={(event) => setCategory(event.target.value || null)}>
+                  <option value="">All</option>
+                  {categories.map((categoryName) => (
+                    <option key={categoryName} value={categoryName}>
+                      {categoryName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="filter-group filter-select-group">
+                <span>{t("training")}</span>
+                <select value={training ?? ""} onChange={(event) => setTraining(event.target.value || null)}>
+                  <option value="">All</option>
+                  {TRAINING_LEVELS.map((level) => (
+                    <option key={level.value} value={level.value}>
+                      {t(level.key)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="filter-group filter-select-group">
+                <span>{t("materials")}</span>
+                <select value={material ?? ""} onChange={(event) => setMaterial(event.target.value || null)}>
+                  <option value="">All</option>
+                  {materials.map((materialName) => (
+                    <option key={materialName} value={materialName}>
+                      {materialName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="filter-group filter-select-group">
+                <span>{t("location")}</span>
+                <select value={location ?? ""} onChange={(event) => setLocation(event.target.value || null)}>
+                  <option value="">All</option>
+                  {locations.map((locationName) => (
+                    <option key={locationName} value={locationName}>
+                      {locationName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="filter-actions">
+              {activeFilterCount > 0 ? (
+                <button className="filter-clear" type="button" onClick={clearFilters}>
+                  Clear {activeFilterCount}
+                </button>
+              ) : null}
+
             </div>
           </div>
         </TechnicalFrame>
@@ -217,7 +222,7 @@ export function GalleryShell({ tools }: GalleryShellProps) {
                 <a className="tool-table-row" href={`/tools/${tool.slug}`} key={tool.id}>
                   <span className="tool-table-name">
                     <span className="tool-table-thumb" aria-hidden="true">
-                      <Image src={tool.imageSrc} alt="" fill sizes="40px" style={{ objectFit: "contain" }} />
+                      <Image src={tool.imageSrc} alt="" fill sizes="40px" style={{ objectFit: "contain" }} unoptimized />
                     </span>
                     <span>{tool.name}</span>
                   </span>

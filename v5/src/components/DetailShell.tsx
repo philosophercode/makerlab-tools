@@ -77,6 +77,7 @@ export function DetailShell({ tool }: DetailShellProps) {
             sizes="(min-width: 980px) 45vw, 100vw"
             style={{ objectFit: "contain" }}
             priority
+            unoptimized
           />
         </div>
 
