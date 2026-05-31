@@ -1,8 +1,32 @@
 # ISAM 2026 Demo Abstract — Decisions Log
 
-> Working notes for the extended abstract submission. Draft: `abstract-draft.md`.
+> Working notes for the extended abstract submission. Source: `abstract-v1.1.html` (mirror: `abstract-v1.1.md`).
 > Submission deadline: **10 July 2026**. Final publication version: **15 September 2026**.
 > Demo install/session: **Sunday evening, 10 October 2026**, on-site.
+
+## Version log
+
+- **V1.1 — SUBMITTED to ISAM 2026 (2026-05-30).** Title: *"The MakerLAB Assistant: AI to Help Operate,
+  Fix, and Build in Makerspaces."* 2 pages, 3 figures, 3 references (MCP, Claude, ChatGPT).
+  Files: `abstract-v1.1.{html,pdf,docx}`, `abstract-v1.1.md`, `The MakerLAB Assistant - ISAM 2026 Demo V1.1.pdf`.
+  Regenerate from `abstract-v1.1.html`:
+  - PDF: `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf=abstract-v1.1.pdf "file://$PWD/abstract-v1.1.html"`
+  - DOCX: `pandoc abstract-v1.1.html -o abstract-v1.1.docx --resource-path="$PWD"`
+  - **For a V2, copy `abstract-v1.1.*` → `abstract-v2.*` first and edit the v2 source — leave V1 frozen.**
+
+## Planned for V2 (Isaac, post-submission — there is more time before the final 15 Sep version)
+
+- **Add the public demo URL:** https://makerlab-tools-v5.vercel.app (the ISAM template even expects a
+  "Public Demo" line). Pairs with one clause on how a lab adopts it.
+- **Data provenance** (answers the recurring "how was the inventory collected?" question): the
+  catalogue was sourced largely **by hand** — a MakerLAB worker entered each tool via a **Google Form /
+  manual spreadsheet input**; it then took **substantial data cleaning and restructuring** before the
+  data could be turned into a usable, normalized catalog. Worth a clause in §1 or §2.
+- **Stronger, well-cited answers:** update the assistant's **system prompt** so it *always* cites with
+  real citations; when it cannot cite a lab source, it must say the info comes from the **model** or a
+  **website** (not the SOPs) — i.e., grounded and clearly attributed. (Chat UI already strips leaked
+  `<cite>` tags — PR #22.)
+- **Demo video:** record a short walkthrough (browse → scope → troubleshoot) for the demo page.
 
 ## Locked decisions
 
