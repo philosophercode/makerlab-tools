@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { matchSorter } from "match-sorter";
 import type { MakerLabTool } from "./catalog-types";
@@ -11,12 +11,6 @@ import { ToolCard } from "./ToolCard";
 interface GalleryShellProps {
   tools: MakerLabTool[];
 }
-
-const TRAINING_LEVELS = [
-  { value: "Beginner", key: "trainingBeginner" },
-  { value: "Intermediate", key: "trainingIntermediate" },
-  { value: "Advanced", key: "trainingAdvanced" },
-] as const;
 
 // Ranked, typo-tolerant search keys. match-sorter ranks earlier keys above
 // later ones when match quality ties, so key order doubles as relevance
@@ -35,14 +29,77 @@ const SEARCH_KEYS: ReadonlyArray<keyof MakerLabTool> = [
   "description",
 ];
 
+type SortKey = "name" | "category" | "zone" | "trainingLevel";
+type SortState = { key: SortKey; dir: "asc" | "desc" };
+
+// Table columns, in render order. `key` drives sorting; `labelKey` is the i18n
+// header string.
+const TABLE_COLUMNS: ReadonlyArray<{ key: SortKey; labelKey: string }> = [
+  { key: "name", labelKey: "columnTool" },
+  { key: "category", labelKey: "columnCategory" },
+  { key: "zone", labelKey: "columnZone" },
+  { key: "trainingLevel", labelKey: "columnTraining" },
+];
+
+// The catalog stores materials as a flat list with no type, so the grouping
+// for the Materials dropdown is defined here. Matching is case-insensitive;
+// anything not listed falls into "Other". Order here is the display order.
+const MATERIAL_GROUPS: ReadonlyArray<{ label: string; values: string[] }> = [
+  {
+    label: "Plastics & Polymers",
+    values: ["ABS", "Acrylic", "Composite", "Nylon", "PETG", "PLA", "Plastic", "Polycarbonate", "PVC", "Resin", "TPU", "Vinyl"],
+  },
+  { label: "Wood", values: ["Hardwood", "Softwood", "Plywood", "MDF", "Veneer", "Laminate", "Wood"] },
+  { label: "Metal", values: ["Aluminum", "Brass", "Copper", "Steel"] },
+  { label: "Other", values: ["Cardboard", "Ceramic", "Fabric", "Foam", "Glass", "Leather", "Paper", "Rubber"] },
+];
+
+const OTHER_GROUP_LABEL = "Other";
+
 export function GalleryShell({ tools }: GalleryShellProps) {
   const t = useTranslations("gallery");
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<string | null>(null);
-  const [training, setTraining] = useState<string | null>(null);
-  const [material, setMaterial] = useState<string | null>(null);
+  // Category and materials are multi-select facets (OR within each facet);
+  // location stays single-select.
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [location, setLocation] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
+  const [materialsOpen, setMaterialsOpen] = useState(false);
+  const [sort, setSort] = useState<SortState | null>(null);
+  // Close the open dropdown menus on an outside click or Escape, like a
+  // native <select>.
+  const categoryRef = useRef<HTMLDivElement>(null);
+  const materialsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!categoryOpen && !materialsOpen) {
+      return;
+    }
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target as Node;
+      if (categoryOpen && categoryRef.current && !categoryRef.current.contains(target)) {
+        setCategoryOpen(false);
+      }
+      if (materialsOpen && materialsRef.current && !materialsRef.current.contains(target)) {
+        setMaterialsOpen(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setCategoryOpen(false);
+        setMaterialsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [categoryOpen, materialsOpen]);
 
   const categories = useMemo(
     () => Array.from(new Set(tools.map((tool) => tool.category))).sort(),
@@ -60,28 +117,103 @@ export function GalleryShell({ tools }: GalleryShellProps) {
     [tools]
   );
 
+  // Bucket the catalog's materials into the MATERIAL_GROUPS taxonomy for the
+  // grouped dropdown. Unknown values land in "Other"; empty groups are dropped.
+  const materialGroups = useMemo(() => {
+    const labelByValue = new Map<string, string>();
+    MATERIAL_GROUPS.forEach((group) =>
+      group.values.forEach((value) => labelByValue.set(value.toLowerCase(), group.label))
+    );
+
+    const itemsByLabel = new Map<string, string[]>();
+    materials.forEach((material) => {
+      const label = labelByValue.get(material.toLowerCase()) ?? OTHER_GROUP_LABEL;
+      const bucket = itemsByLabel.get(label) ?? [];
+      bucket.push(material);
+      itemsByLabel.set(label, bucket);
+    });
+
+    return MATERIAL_GROUPS.map((group) => ({
+      label: group.label,
+      items: itemsByLabel.get(group.label) ?? [],
+    })).filter((group) => group.items.length > 0);
+  }, [materials]);
+
   const filteredTools = useMemo(() => {
-    // Apply facet filters first; each dimension is single-select and they
-    // combine with AND across dimensions.
+    // Apply facet filters first. Within a multi-select facet the values OR
+    // together; the facets then AND across dimensions.
     const faceted = tools.filter((tool) => {
-      const matchesCategory = !category || tool.category === category;
-      const matchesTraining = !training || tool.trainingLevel === training;
-      const matchesMaterial = !material || tool.materials.includes(material);
+      const matchesCategory =
+        selectedCategories.length === 0 || selectedCategories.includes(tool.category);
+      const matchesMaterial =
+        selectedMaterials.length === 0 ||
+        selectedMaterials.some((value) => tool.materials.includes(value));
       const matchesLocation = !location || tool.location === location;
 
-      return matchesCategory && matchesTraining && matchesMaterial && matchesLocation;
+      return matchesCategory && matchesMaterial && matchesLocation;
     });
 
     const normalizedQuery = query.trim();
 
-    // Empty query preserves the catalog's existing order (show all).
-    if (!normalizedQuery) {
-      return faceted;
+    // Empty query preserves the catalog's existing order; a query applies a
+    // fuzzy, ranked match across the weighted keys (typo tolerant).
+    const searched = normalizedQuery
+      ? matchSorter(faceted, normalizedQuery, { keys: SEARCH_KEYS.slice() })
+      : faceted;
+
+    // An explicit column sort overrides both catalog order and search ranking.
+    if (!sort) {
+      return searched;
     }
 
-    // Fuzzy, ranked match across the weighted keys (typo tolerant).
-    return matchSorter(faceted, normalizedQuery, { keys: SEARCH_KEYS.slice() });
-  }, [category, location, material, query, tools, training]);
+    return [...searched].sort((a, b) => {
+      const left = String(a[sort.key] ?? "").toLowerCase();
+      const right = String(b[sort.key] ?? "").toLowerCase();
+      const comparison = left.localeCompare(right);
+      return sort.dir === "asc" ? comparison : -comparison;
+    });
+  }, [location, query, selectedCategories, selectedMaterials, sort, tools]);
+
+  const activeFilterCount =
+    selectedCategories.length + selectedMaterials.length + (location ? 1 : 0);
+
+  function toggleCategory(value: string) {
+    setSelectedCategories((prev) =>
+      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]
+    );
+  }
+
+  function toggleMaterial(value: string) {
+    setSelectedMaterials((prev) =>
+      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]
+    );
+  }
+
+  // Clicking a type heading selects every material in that group, or clears
+  // them all if they're already selected.
+  function toggleMaterialGroup(items: string[], allSelected: boolean) {
+    setSelectedMaterials((prev) => {
+      if (allSelected) {
+        const toRemove = new Set(items);
+        return prev.filter((item) => !toRemove.has(item));
+      }
+      return Array.from(new Set([...prev, ...items]));
+    });
+  }
+
+  function clearFilters() {
+    setSelectedCategories([]);
+    setSelectedMaterials([]);
+    setLocation(null);
+  }
+
+  function toggleSort(key: SortKey) {
+    setSort((prev) =>
+      prev && prev.key === key
+        ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: "asc" }
+    );
+  }
 
   return (
     <main className="page-shell">
@@ -104,82 +236,22 @@ export function GalleryShell({ tools }: GalleryShellProps) {
             />
           </label>
 
-          <div className="filter-row">
-            <div className="filter-group">
-              <span>{t("category")}</span>
-              <div className="chip-row">
-                {categories.map((categoryName) => (
-                  <button
-                    className={category === categoryName ? "chip chip-active" : "chip"}
-                    key={categoryName}
-                    type="button"
-                    aria-pressed={category === categoryName}
-                    onClick={() =>
-                      setCategory((selected) => (selected === categoryName ? null : categoryName))
-                    }
-                  >
-                    {categoryName}
-                  </button>
-                ))}
-              </div>
-            </div>
+          <div className="filter-toolbar">
+            <button
+              className={filtersOpen || activeFilterCount > 0 ? "filter-toggle is-active" : "filter-toggle"}
+              type="button"
+              aria-expanded={filtersOpen}
+              aria-controls="gallery-filter-controls"
+              onClick={() => setFiltersOpen((open) => !open)}
+            >
+              Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
+            </button>
 
-            <div className="filter-group">
-              <span>{t("training")}</span>
-              <div className="chip-row">
-                {TRAINING_LEVELS.map((level) => (
-                  <button
-                    className={training === level.value ? "chip chip-active" : "chip"}
-                    key={level.value}
-                    type="button"
-                    aria-pressed={training === level.value}
-                    onClick={() =>
-                      setTraining((selected) => (selected === level.value ? null : level.value))
-                    }
-                  >
-                    {t(level.key)}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="filter-group">
-              <span>{t("materials")}</span>
-              <div className="chip-row">
-                {materials.map((materialName) => (
-                  <button
-                    className={material === materialName ? "chip chip-active" : "chip"}
-                    key={materialName}
-                    type="button"
-                    aria-pressed={material === materialName}
-                    onClick={() =>
-                      setMaterial((selected) => (selected === materialName ? null : materialName))
-                    }
-                  >
-                    {materialName}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="filter-group">
-              <span>{t("location")}</span>
-              <div className="chip-row">
-                {locations.map((locationName) => (
-                  <button
-                    className={location === locationName ? "chip chip-active" : "chip"}
-                    key={locationName}
-                    type="button"
-                    aria-pressed={location === locationName}
-                    onClick={() =>
-                      setLocation((selected) => (selected === locationName ? null : locationName))
-                    }
-                  >
-                    {locationName}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {activeFilterCount > 0 ? (
+              <button className="filter-clear" type="button" onClick={clearFilters}>
+                Clear {activeFilterCount}
+              </button>
+            ) : null}
 
             <div className="view-toggle" aria-label={t("viewModeLabel")}>
               <button
@@ -198,6 +270,121 @@ export function GalleryShell({ tools }: GalleryShellProps) {
               </button>
             </div>
           </div>
+
+          <div className={filtersOpen ? "filter-row is-open" : "filter-row"} id="gallery-filter-controls">
+            <div className="filter-controls">
+              <div className="filter-group filter-dropdown-group" role="group" aria-label={t("category")} ref={categoryRef}>
+                <span>{t("category")}</span>
+                <button
+                  type="button"
+                  className={
+                    categoryOpen || selectedCategories.length > 0
+                      ? "filter-dropdown-toggle is-active"
+                      : "filter-dropdown-toggle"
+                  }
+                  aria-expanded={categoryOpen}
+                  onClick={() => setCategoryOpen((open) => !open)}
+                >
+                  <span>
+                    {selectedCategories.length > 0 ? `${selectedCategories.length} selected` : "All categories"}
+                  </span>
+                  <span className="filter-dropdown-caret" aria-hidden="true">
+                    {categoryOpen ? "▲" : "▼"}
+                  </span>
+                </button>
+
+                {categoryOpen ? (
+                  <div className="filter-dropdown-panel" role="listbox" aria-multiselectable="true">
+                    {categories.map((categoryName) => {
+                      const active = selectedCategories.includes(categoryName);
+                      return (
+                        <button
+                          key={categoryName}
+                          type="button"
+                          role="option"
+                          aria-selected={active}
+                          className="filter-option"
+                          onClick={() => toggleCategory(categoryName)}
+                        >
+                          <span className="filter-option-check" aria-hidden="true">{active ? "✓" : ""}</span>
+                          <span>{categoryName}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="filter-group filter-dropdown-group" role="group" aria-label={t("materials")} ref={materialsRef}>
+                <span>{t("materials")}</span>
+                <button
+                  type="button"
+                  className={
+                    materialsOpen || selectedMaterials.length > 0
+                      ? "filter-dropdown-toggle is-active"
+                      : "filter-dropdown-toggle"
+                  }
+                  aria-expanded={materialsOpen}
+                  onClick={() => setMaterialsOpen((open) => !open)}
+                >
+                  <span>
+                    {selectedMaterials.length > 0 ? `${selectedMaterials.length} selected` : "All materials"}
+                  </span>
+                  <span className="filter-dropdown-caret" aria-hidden="true">
+                    {materialsOpen ? "▲" : "▼"}
+                  </span>
+                </button>
+
+                {materialsOpen ? (
+                  <div className="filter-dropdown-panel" role="listbox" aria-multiselectable="true">
+                    {materialGroups.map((group) => {
+                      const allSelected = group.items.every((value) => selectedMaterials.includes(value));
+                      return (
+                        <div className="filter-menu-section" key={group.label}>
+                          <button
+                            type="button"
+                            className="filter-menu-section-head"
+                            aria-pressed={allSelected}
+                            onClick={() => toggleMaterialGroup(group.items, allSelected)}
+                          >
+                            {group.label}
+                          </button>
+                          {group.items.map((materialName) => {
+                            const active = selectedMaterials.includes(materialName);
+                            return (
+                              <button
+                                key={materialName}
+                                type="button"
+                                role="option"
+                                aria-selected={active}
+                                className="filter-option"
+                                onClick={() => toggleMaterial(materialName)}
+                              >
+                                <span className="filter-option-check" aria-hidden="true">{active ? "✓" : ""}</span>
+                                <span>{materialName}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+
+              <label className="filter-group filter-select-group">
+                <span>{t("location")}</span>
+                <select value={location ?? ""} onChange={(event) => setLocation(event.target.value || null)}>
+                  <option value="">All</option>
+                  {locations.map((locationName) => (
+                    <option key={locationName} value={locationName}>
+                      {locationName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
         </TechnicalFrame>
       </section>
 
@@ -207,23 +394,36 @@ export function GalleryShell({ tools }: GalleryShellProps) {
             filteredTools.map((tool) => <ToolCard key={tool.id} tool={tool} />)
           ) : (
             <>
-              <div className="tool-table-row tool-table-head" role="row" aria-hidden="true">
-                <span>{t("columnTool")}</span>
-                <span>{t("columnCategory")}</span>
-                <span>{t("columnZone")}</span>
-                <span>{t("columnTraining")}</span>
+              <div className="tool-table-row tool-table-head" role="row">
+                {TABLE_COLUMNS.map((column) => {
+                  const active = sort?.key === column.key;
+                  return (
+                    <button
+                      key={column.key}
+                      type="button"
+                      className={active ? "tool-table-sort is-active" : "tool-table-sort"}
+                      aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : "none"}
+                      onClick={() => toggleSort(column.key)}
+                    >
+                      <span>{t(column.labelKey)}</span>
+                      <span className="sort-indicator" aria-hidden="true">
+                        {active ? (sort!.dir === "asc" ? "▲" : "▼") : "↕"}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
               {filteredTools.map((tool) => (
                 <a className="tool-table-row" href={`/tools/${tool.slug}`} key={tool.id}>
                   <span className="tool-table-name">
                     <span className="tool-table-thumb" aria-hidden="true">
-                      <Image src={tool.imageSrc} alt="" fill sizes="40px" style={{ objectFit: "contain" }} />
+                      <Image src={tool.imageSrc} alt="" fill sizes="40px" style={{ objectFit: "contain" }} unoptimized />
                     </span>
                     <span>{tool.name}</span>
                   </span>
-                  <span>{tool.category}</span>
-                  <span>{tool.zone}</span>
-                  <span>{tool.trainingLevel}</span>
+                  <span data-label={t("columnCategory")}>{tool.category}</span>
+                  <span data-label={t("columnZone")}>{tool.zone}</span>
+                  <span data-label={t("columnTraining")}>{tool.trainingLevel}</span>
                 </a>
               ))}
             </>
