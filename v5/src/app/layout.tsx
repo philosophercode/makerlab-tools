@@ -3,6 +3,7 @@ import { Suspense } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import "../styles/globals.css";
 import { ChatFab } from "../components/ChatFab";
+import { ChatLauncherProvider } from "../components/ChatLauncherContext";
 import { GlobalChrome } from "../components/GlobalChrome";
 import { ThemeScript } from "../components/ThemeScript";
 import { LocaleHtmlScript } from "../components/LocaleHtmlScript";
@@ -53,11 +54,13 @@ async function LocalizedTree({
 }) {
   return (
     <NextIntlClientProvider>
-      <GlobalChrome stats={catalogStats} />
-      {children}
-      <Suspense fallback={null}>
-        <ChatFab />
-      </Suspense>
+      <ChatLauncherProvider>
+        <GlobalChrome stats={catalogStats} />
+        {children}
+        <Suspense fallback={null}>
+          <ChatFab />
+        </Suspense>
+      </ChatLauncherProvider>
     </NextIntlClientProvider>
   );
 }

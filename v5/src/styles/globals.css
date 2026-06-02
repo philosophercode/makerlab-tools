@@ -180,6 +180,25 @@ img {
   border-color: var(--primary);
 }
 
+/* "Report" is an action, not a page — accent-colored to stand out, but it
+   inherits the nav's mono/uppercase/size so it sits inline with the links. */
+.primary-nav-report {
+  padding-block: 8px;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  cursor: pointer;
+  transition: color 160ms ease-in, border-color 160ms ease-in;
+}
+
+.primary-nav-report:hover,
+.primary-nav-report:focus-visible {
+  border-color: var(--primary);
+  outline: none;
+}
+
 .nav-actions {
   display: flex;
   align-items: center;

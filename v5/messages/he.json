@@ -1,5 +1,8 @@
 {
   "nav": {
+    "report": "דיווח",
+    "reportAria": "דיווח על תקלה",
+    "reportSeed": "אני רוצה לדווח על תקלה.",
     "tools": "כלים",
     "projects": "פרויקטים",
     "about": "אודות",
