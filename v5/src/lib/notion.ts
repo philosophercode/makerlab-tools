@@ -470,11 +470,18 @@ function selectProp(value: string | undefined): NotionWriteProperty {
 }
 
 function multiSelectProp(values: string[] | undefined): NotionWriteProperty {
-  return {
-    multi_select: (values || [])
-      .filter((value) => Boolean(value))
-      .map((name) => ({ name })),
-  };
+  // Notion rejects commas in multi-select option names ("commas not allowed").
+  // Replace any commas (e.g. "Wood (plywood, hardwood, veneer)") with " /" so the
+  // write succeeds without losing readability, then de-dupe and drop empties.
+  const seen = new Set<string>();
+  const options: { name: string }[] = [];
+  for (const raw of values || []) {
+    const name = (raw || "").replace(/\s*,\s*/g, " / ").trim();
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    options.push({ name });
+  }
+  return { multi_select: options };
 }
 
 function relationProp(ids: string[] | undefined): NotionWriteProperty {

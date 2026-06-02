@@ -591,7 +591,10 @@ const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
   card: (result: CreateResult): IdentificationCardPayload => ({
     kind: "identification",
     candidateId: candidateId(result.name),
-    state: "success",
+    // Honest state: only "success" when the tool actually landed. A failed or
+    // partial write (e.g. a Notion validation error) shows the "error" banner
+    // with the warnings as detail lines, never a misleading "saved" badge.
+    state: result.success && result.tool_id ? "success" : "error",
     name: result.name,
     photoUrls: [],
     specLines: result.warnings.map((w) => ({ label: "Note", value: w })),
@@ -630,6 +633,7 @@ function promptFragment(_env: PromptEnv): string {
     `**Keep your messages tight.** Do not narrate every \`web_fetch\`/\`web_search\` step in long paragraphs — a single short line like "Researching the Creality Ender-3 V3…" is enough while you work. Let the identification card carry the structured result; don't restate the whole card as prose. Use clean markdown (bold labels, tight bullet lists), never a wall of text.`,
     `1. **Research first.** Use the native \`web_search\` and \`web_fetch\` tools (and any attached photos) to identify the equipment: canonical name and manufacturer, a one-paragraph description, key specs, typical materials and required PPE, sensible tags, a manual PDF URL, and a setup/overview video URL. Read product pages and manuals before guessing. Track every URL you actually read so you can pass it as \`source_urls\` for provenance.`,
     `   **Never fabricate or guess a URL.** Only include a manual or video link that you actually opened with \`web_fetch\` and confirmed is the correct item — especially video URLs (never assemble a \`youtube.com/watch?v=…\` link from memory; you must have retrieved that exact video). If you can't find a real link, omit it rather than inventing one. \`research_tool\` and \`create_tool\` independently verify every link server-side (YouTube via oEmbed, others via an HTTP check) and drop any that don't resolve, returning them as \`dropped_links\` / \`warnings\`. When a link is dropped, tell the user it couldn't be verified and was left out — do not invent a replacement.`,
+    `   **Materials, PPE, and tags are short discrete labels**, not sentences — e.g. materials \`["Wood", "Acrylic", "Leather"]\`, not \`["Wood (plywood, hardwood, veneer)"]\`. Avoid commas inside any single value (Notion multi-select options can't contain them; they'll be rewritten to " / " on write).`,
     `2. **Normalize.** Call \`research_tool\` with your best-effort \`ToolCandidate\`. It checks the catalog for duplicates and returns the candidate annotated with \`duplicate_of\` when a strong match already exists. Propose a \`category\` (with its group) and a \`location\` (room + zone), setting \`isNew\` to your best judgment; staff will confirm. Include at least one \`unit\` (e.g. "<Tool> #1") unless the user is clearly describing a consumable.`,
     `3. **Confirm — always.** Call \`propose_listing\` with the candidate(s). This renders an identification card. **Never call \`create_tool\` without first calling \`propose_listing\` and getting an explicit user confirmation** (a click on "Looks right — add it", or a typed "yes / add it"). Wait for that confirmation.`,
     `4. **Handle duplicates.** If \`research_tool\` reported a \`duplicate_of\`, the card surfaces "Already in catalog". Offer to **add a unit to the existing tool** rather than creating a new tool, unless the user explicitly wants a separate listing.`,

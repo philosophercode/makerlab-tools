@@ -129,7 +129,7 @@ export interface Capability {
 // ── Card payloads (chat widgets) ───────────────────────────────────
 
 /** Lifecycle state of an identification card (design spec §4.1 / §6.3). */
-export type CardState = "proposed" | "success" | "duplicate";
+export type CardState = "proposed" | "success" | "duplicate" | "error";
 
 /** A single line of spec text rendered on a card (e.g. "Bed: 256mm"). */
 export interface CardSpecLine {

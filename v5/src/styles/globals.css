@@ -1682,6 +1682,12 @@ p {
   border: 1px solid var(--secondary);
 }
 
+.id-card-banner-error {
+  background: var(--surface-container-low);
+  color: #d9534f;
+  border: 1px solid #d9534f;
+}
+
 .id-card-banner-icon {
   display: inline-flex;
 }

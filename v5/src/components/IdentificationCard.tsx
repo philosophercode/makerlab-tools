@@ -129,6 +129,7 @@ function Identification({
 }) {
   const isSuccess = card.state === "success";
   const isDuplicate = card.state === "duplicate";
+  const isError = card.state === "error";
   const photo = card.photoUrls[0];
 
   return (
@@ -142,6 +143,11 @@ function Identification({
             <CheckIcon />
           </span>
           Saved as a draft — staff will publish it.
+        </p>
+      ) : null}
+      {isError ? (
+        <p className="id-card-banner id-card-banner-error">
+          Couldn’t be saved — see the details below.
         </p>
       ) : null}
       {isDuplicate && card.duplicateOf ? (
