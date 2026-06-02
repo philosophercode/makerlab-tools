@@ -88,6 +88,100 @@ async function detectDuplicate(
   return match ? { id: match.id, name: match.name } : null;
 }
 
+// ── Link verification ──────────────────────────────────────────────
+
+const VERIFY_UA = "Mozilla/5.0 (compatible; MakerLabBot/1.0)";
+const VERIFY_TIMEOUT_MS = 8000;
+
+function isYouTubeHost(host: string): boolean {
+  const h = host.replace(/^www\./, "");
+  return (
+    h === "youtube.com" ||
+    h === "m.youtube.com" ||
+    h === "youtu.be" ||
+    h.endsWith(".youtube.com")
+  );
+}
+
+/**
+ * Verify a single resource URL actually resolves to a real page/video, to catch
+ * the model fabricating plausible-looking URLs (e.g. invented YouTube video ids).
+ *
+ * - YouTube: the oEmbed endpoint is authoritative — it returns 404 for a video
+ *   id that does not exist (a normal `watch?v=` page returns HTTP 200 even for
+ *   dead videos, so a status check alone is not enough).
+ * - Everything else: a GET that only treats definitive "not found" signals
+ *   (404/410, DNS/network failure, malformed URL) as invalid. 401/403/429/5xx
+ *   are kept — they mean the resource exists but is gated or transiently
+ *   erroring, and we'd rather not drop a real manual on a bot block.
+ */
+async function verifyUrl(url: string): Promise<{ ok: boolean; reason?: string }> {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return { ok: false, reason: "malformed URL" };
+  }
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return { ok: false, reason: "not an http(s) URL" };
+  }
+
+  if (isYouTubeHost(parsed.hostname)) {
+    try {
+      const res = await fetch(
+        `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
+        { signal: AbortSignal.timeout(VERIFY_TIMEOUT_MS) }
+      );
+      if (res.status === 200) return { ok: true };
+      if (res.status === 404 || res.status === 401)
+        return { ok: false, reason: "video does not exist" };
+      return { ok: true }; // transient/unknown — don't false-drop
+    } catch {
+      return { ok: false, reason: "video lookup failed" };
+    }
+  }
+
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      redirect: "follow",
+      headers: { "User-Agent": VERIFY_UA },
+      signal: AbortSignal.timeout(VERIFY_TIMEOUT_MS),
+    });
+    if (res.status === 404 || res.status === 410) {
+      return { ok: false, reason: `HTTP ${res.status}` };
+    }
+    return { ok: true };
+  } catch {
+    return { ok: false, reason: "unreachable" };
+  }
+}
+
+/**
+ * Verify every resource link, preserving order. Returns the verified resources
+ * (safe to surface/write) and a human-readable note for each dropped link so the
+ * agent can tell the user instead of silently omitting it.
+ */
+async function verifyResourceLinks(
+  resources: ToolCandidate["resources"]
+): Promise<{ verified: ToolCandidate["resources"]; dropped: string[] }> {
+  const checked = await Promise.all(
+    resources.map(async (r) => ({ resource: r, result: await verifyUrl(r.url) }))
+  );
+  const verified: ToolCandidate["resources"] = [];
+  const dropped: string[] = [];
+  for (const { resource, result } of checked) {
+    if (result.ok) {
+      verified.push(resource);
+    } else {
+      dropped.push(
+        `${resource.type} "${resource.title}" (${resource.url}) — ${result.reason}`
+      );
+    }
+  }
+  return { verified, dropped };
+}
+
 // ── research_tool ──────────────────────────────────────────────────
 
 const researchInputSchema = z.object({
@@ -100,6 +194,12 @@ type ResearchInput = z.infer<typeof researchInputSchema>;
 interface ResearchResult {
   candidate: ToolCandidate;
   duplicate: { id: string; name: string } | null;
+  /**
+   * Resource links that failed verification and were removed from the candidate
+   * (e.g. a fabricated YouTube URL). Tell the user these could not be verified
+   * and were left out — do NOT invent replacements.
+   */
+  dropped_links: string[];
 }
 
 const researchTool: CapabilityTool<ResearchInput, ResearchResult> = {
@@ -121,19 +221,25 @@ const researchTool: CapabilityTool<ResearchInput, ResearchResult> = {
 
     const duplicate = await detectDuplicate(candidate.name);
 
+    // Verify every resource link actually resolves, dropping fabricated or dead
+    // URLs (e.g. an invented YouTube video id) so they never reach the card.
+    const { verified, dropped } = await verifyResourceLinks(
+      candidate.resources || []
+    );
+
     const normalized: ToolCandidate = {
       ...candidate,
       materials: candidate.materials || [],
       ppe_required: candidate.ppe_required || [],
       tags: candidate.tags || [],
       units: candidate.units || [],
-      resources: candidate.resources || [],
+      resources: verified,
       image_upload_ids: mergedImageIds,
       source_urls: candidate.source_urls || [],
       duplicate_of: duplicate,
     };
 
-    return { candidate: normalized, duplicate };
+    return { candidate: normalized, duplicate, dropped_links: dropped };
   },
 };
 
@@ -448,7 +554,15 @@ const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
     }
 
     // 4. Create resources linked to the tool (best-effort per resource).
-    for (const resource of candidate.resources) {
+    //    Re-verify links here as a hard gate: even if research_tool already
+    //    pruned fabricated URLs, the model could pass a fresh unverified link
+    //    straight to create_tool. Dropped links are reported, never written.
+    const { verified: verifiedResources, dropped: droppedResources } =
+      await verifyResourceLinks(candidate.resources);
+    for (const link of droppedResources) {
+      warnings.push(`Skipped unverifiable link — ${link}`);
+    }
+    for (const resource of verifiedResources) {
       try {
         await createResource({
           title: resource.title,
@@ -512,8 +626,10 @@ function errMsg(err: unknown): string {
 function promptFragment(_env: PromptEnv): string {
   return [
     `## Adding equipment to the inventory (intake)`,
-    `When someone wants to add a tool to the catalog — from a free-text description, dictated notes, attached photos, or pasted product/store/manual URLs — act as an intake agent and follow this flow:`,
+    `When someone wants to add a tool to the catalog — from a free-text description, dictated notes, attached photos, or pasted product/store/manual URLs — act as an intake agent and follow this flow.`,
+    `**Keep your messages tight.** Do not narrate every \`web_fetch\`/\`web_search\` step in long paragraphs — a single short line like "Researching the Creality Ender-3 V3…" is enough while you work. Let the identification card carry the structured result; don't restate the whole card as prose. Use clean markdown (bold labels, tight bullet lists), never a wall of text.`,
     `1. **Research first.** Use the native \`web_search\` and \`web_fetch\` tools (and any attached photos) to identify the equipment: canonical name and manufacturer, a one-paragraph description, key specs, typical materials and required PPE, sensible tags, a manual PDF URL, and a setup/overview video URL. Read product pages and manuals before guessing. Track every URL you actually read so you can pass it as \`source_urls\` for provenance.`,
+    `   **Never fabricate or guess a URL.** Only include a manual or video link that you actually opened with \`web_fetch\` and confirmed is the correct item — especially video URLs (never assemble a \`youtube.com/watch?v=…\` link from memory; you must have retrieved that exact video). If you can't find a real link, omit it rather than inventing one. \`research_tool\` and \`create_tool\` independently verify every link server-side (YouTube via oEmbed, others via an HTTP check) and drop any that don't resolve, returning them as \`dropped_links\` / \`warnings\`. When a link is dropped, tell the user it couldn't be verified and was left out — do not invent a replacement.`,
     `2. **Normalize.** Call \`research_tool\` with your best-effort \`ToolCandidate\`. It checks the catalog for duplicates and returns the candidate annotated with \`duplicate_of\` when a strong match already exists. Propose a \`category\` (with its group) and a \`location\` (room + zone), setting \`isNew\` to your best judgment; staff will confirm. Include at least one \`unit\` (e.g. "<Tool> #1") unless the user is clearly describing a consumable.`,
     `3. **Confirm — always.** Call \`propose_listing\` with the candidate(s). This renders an identification card. **Never call \`create_tool\` without first calling \`propose_listing\` and getting an explicit user confirmation** (a click on "Looks right — add it", or a typed "yes / add it"). Wait for that confirmation.`,
     `4. **Handle duplicates.** If \`research_tool\` reported a \`duplicate_of\`, the card surfaces "Already in catalog". Offer to **add a unit to the existing tool** rather than creating a new tool, unless the user explicitly wants a separate listing.`,
