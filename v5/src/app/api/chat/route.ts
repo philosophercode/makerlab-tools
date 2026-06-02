@@ -86,6 +86,9 @@ export async function POST(req: Request) {
   const modelMessages = attachManualsToFirstUserMessage(baseMessages, manuals);
 
   const stream = createUIMessageStream({
+    // Surface a useful, user-facing reason instead of the SDK's masked default
+    // (e.g. distinguish an Anthropic "overloaded" 529 from a real bug).
+    onError: describeChatError,
     execute: ({ writer }) => {
       if (manuals.length > 0) {
         writer.write({
@@ -138,11 +141,43 @@ export async function POST(req: Request) {
         stopWhen: stepCountIs(10),
       });
 
-      writer.merge(result.toUIMessageStream());
+      writer.merge(result.toUIMessageStream({ onError: describeChatError }));
     },
   });
 
   return createUIMessageStreamResponse({ stream });
+}
+
+/**
+ * Map a streaming/model error to a concise, user-facing message. The AI SDK
+ * masks error text by default ("An error occurred"); this surfaces the actual
+ * reason so users aren't left with a dead-end "Something went wrong" — most
+ * importantly distinguishing a transient Anthropic overload (HTTP 529) from a
+ * genuine bug. Returned text is shown verbatim in the chat error row.
+ */
+function describeChatError(error: unknown): string {
+  const err = error as
+    | { statusCode?: number; status?: number; message?: string; name?: string }
+    | undefined;
+  const status = err?.statusCode ?? err?.status;
+  const message = (err?.message || "").toLowerCase();
+
+  if (status === 529 || message.includes("overloaded")) {
+    return "The AI service is temporarily overloaded (this is on the provider's side, not your request). Please try again in a few moments.";
+  }
+  if (status === 429 || message.includes("rate limit") || message.includes("too many requests")) {
+    return "Too many requests right now — please wait a moment and try again.";
+  }
+  if (message.includes("timeout") || message.includes("timed out") || err?.name === "TimeoutError") {
+    return "The request took too long and timed out. Please try again.";
+  }
+  if (status === 401 || status === 403 || message.includes("api key") || message.includes("authentication")) {
+    return "The assistant is misconfigured (authentication failed). Please let a lab admin know.";
+  }
+  const detail = err?.message?.trim();
+  return detail
+    ? `Something went wrong: ${detail}`
+    : "Something went wrong. Please try again.";
 }
 
 // ── Attachments / vision (design spec §6.1) ────────────────────────

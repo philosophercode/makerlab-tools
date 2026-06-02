@@ -643,7 +643,7 @@ export function ChatFab() {
                   ) : null}
                   {error ? (
                     <li className="chat-msg chat-msg-error">
-                      <p>{t("error")}</p>
+                      <p>{error.message?.trim() ? error.message : t("error")}</p>
                     </li>
                   ) : null}
                 </ul>
