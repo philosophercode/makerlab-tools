@@ -12,7 +12,13 @@
     "themeToggleAria": "Cycle color theme (system → light → dark)",
     "themeToggleTitle": "Cycle color theme",
     "languageLabel": "Language",
-    "languageSelectorAria": "Select language"
+    "languageSelectorAria": "Select language",
+    "report": "REPORT",
+    "reportAria": "Report a problem",
+    "reportSeed": "I'd like to report a problem.",
+    "add": "ADD",
+    "addAria": "Add new equipment to the inventory",
+    "addSeed": "I'd like to add new equipment to the inventory."
   },
   "status": {
     "labStatusLabel": "Lab status",

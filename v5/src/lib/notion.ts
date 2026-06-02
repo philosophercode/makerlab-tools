@@ -450,8 +450,11 @@ type NotionWriteProperty =
   | { title: { text: { content: string } }[] }
   | { rich_text: { text: { content: string } }[] }
   | { select: { name: string } | null }
+  | { multi_select: { name: string }[] }
   | { relation: { id: string }[] }
   | { date: { start: string } | null }
+  | { checkbox: boolean }
+  | { url: string | null }
   | { files: NotionWriteFile[] };
 
 function titleProp(value: string): NotionWriteProperty {
@@ -466,12 +469,28 @@ function selectProp(value: string | undefined): NotionWriteProperty {
   return value ? { select: { name: value } } : { select: null };
 }
 
+function multiSelectProp(values: string[] | undefined): NotionWriteProperty {
+  return {
+    multi_select: (values || [])
+      .filter((value) => Boolean(value))
+      .map((name) => ({ name })),
+  };
+}
+
 function relationProp(ids: string[] | undefined): NotionWriteProperty {
   return { relation: (ids || []).map((id) => ({ id })) };
 }
 
 function dateProp(value: string | undefined): NotionWriteProperty {
   return value ? { date: { start: value } } : { date: null };
+}
+
+function checkboxProp(value: boolean | undefined): NotionWriteProperty {
+  return { checkbox: Boolean(value) };
+}
+
+function urlProp(value: string | undefined): NotionWriteProperty {
+  return { url: value ? value : null };
 }
 
 function formatTicketDescription(
@@ -536,6 +555,176 @@ export async function createMaintenanceLog(
   });
 
   return pageToMaintenanceLog(page);
+}
+
+async function createPage(
+  table: CatalogTable,
+  properties: Record<string, NotionWriteProperty>
+): Promise<NotionPage> {
+  const { databases } = getNotionEnv();
+  return notionFetch<NotionPage>("/pages", {
+    method: "POST",
+    body: JSON.stringify({
+      parent: { database_id: databases[table] },
+      properties,
+    }),
+  });
+}
+
+export async function createTool(
+  fields: Partial<ToolFields>
+): Promise<ToolRecord> {
+  const properties: Record<string, NotionWriteProperty> = {
+    name: titleProp(fields.name || "Untitled tool"),
+    // Draft-by-default: always unpublished regardless of input (spec §5/§8).
+    published: checkboxProp(false),
+  };
+
+  if (fields.description) {
+    properties.description = richTextProp(fields.description);
+  }
+  if (fields.category?.length) {
+    properties.category = relationProp(fields.category);
+  }
+  if (fields.location?.length) {
+    properties.location = relationProp(fields.location);
+  }
+  if (fields.materials?.length) {
+    properties.materials = multiSelectProp(fields.materials);
+  }
+  if (fields.ppe_required?.length) {
+    properties.ppe_required = multiSelectProp(fields.ppe_required);
+  }
+  if (fields.tags?.length) {
+    properties.tags = multiSelectProp(fields.tags);
+  }
+  if (typeof fields.training_required === "boolean") {
+    properties.training_required = checkboxProp(fields.training_required);
+  }
+  if (fields.use_restrictions) {
+    properties.use_restrictions = richTextProp(fields.use_restrictions);
+  }
+  if (fields.emergency_stop) {
+    properties.emergency_stop = richTextProp(fields.emergency_stop);
+  }
+  if (fields.notes) {
+    properties.notes = richTextProp(fields.notes);
+  }
+
+  // Image uploads ride on `fields.image_uploads` (Notion file_upload ids from
+  // /api/upload-notion), mirroring MaintenanceLogFields.photo_uploads. They are
+  // attached to the tool page's `image_attachments` files property at create time.
+  if (fields.image_uploads?.length) {
+    properties.image_attachments = fileUploadsProp(fields.image_uploads);
+  }
+
+  const page = await createPage("tools", properties);
+  return pageToTool(page);
+}
+
+export async function createUnit(
+  fields: Partial<UnitFields>
+): Promise<UnitRecord> {
+  const properties: Record<string, NotionWriteProperty> = {
+    unit_label: titleProp(fields.unit_label || "Unit"),
+    status: selectProp(fields.status || "Available"),
+  };
+
+  if (fields.tool?.length) {
+    properties.tool = relationProp(fields.tool);
+  }
+  if (fields.serial_number) {
+    properties.serial_number = richTextProp(fields.serial_number);
+  }
+  if (fields.asset_tag) {
+    properties.asset_tag = richTextProp(fields.asset_tag);
+  }
+  if (fields.condition) {
+    properties.condition = selectProp(fields.condition);
+  }
+  if (fields.date_acquired) {
+    properties.date_acquired = dateProp(fields.date_acquired);
+  }
+  if (fields.notes) {
+    properties.notes = richTextProp(fields.notes);
+  }
+
+  const page = await createPage("units", properties);
+  return pageToUnit(page);
+}
+
+export async function findOrCreateCategory(
+  name: string,
+  group: string
+): Promise<{ id: string; isNew: boolean }> {
+  const target = name.trim().toLowerCase();
+  const pages = await queryDatabase("categories").catch(() => [] as NotionPage[]);
+  const match = pages.find(
+    (page) => pageToCategory(page).fields.name.trim().toLowerCase() === target
+  );
+  if (match) {
+    return { id: match.id, isNew: false };
+  }
+
+  const page = await createPage("categories", {
+    name: titleProp(name),
+    group: selectProp(group),
+  });
+  return { id: page.id, isNew: true };
+}
+
+export async function findOrCreateLocation(
+  room: string,
+  zone: string
+): Promise<{ id: string; isNew: boolean }> {
+  const targetRoom = room.trim().toLowerCase();
+  const targetZone = zone.trim().toLowerCase();
+  const pages = await queryDatabase("locations").catch(() => [] as NotionPage[]);
+  const match = pages.find((page) => {
+    const location = pageToLocation(page).fields;
+    return (
+      location.room.trim().toLowerCase() === targetRoom &&
+      location.zone.trim().toLowerCase() === targetZone
+    );
+  });
+  if (match) {
+    return { id: match.id, isNew: false };
+  }
+
+  // LocationFields.id is the title property; compose a readable label.
+  const label = [room, zone].filter(Boolean).join(" — ") || room || zone;
+  const page = await createPage("locations", {
+    id: titleProp(label),
+    room: selectProp(room),
+    zone: selectProp(zone),
+  });
+  return { id: page.id, isNew: true };
+}
+
+export async function createResource(
+  fields: Partial<ResourceFields>
+): Promise<ResourceRecord> {
+  const properties: Record<string, NotionWriteProperty> = {
+    title: titleProp(fields.title || "Untitled resource"),
+    // Draft-by-default: always unpublished (spec §5/§8).
+    published: checkboxProp(false),
+  };
+
+  if (fields.tool?.length) {
+    properties.tool = relationProp(fields.tool);
+  }
+  if (fields.type) {
+    properties.type = selectProp(fields.type);
+  }
+  if (fields.url) {
+    properties.url = urlProp(fields.url);
+  }
+  if (fields.notes) {
+    properties.notes = richTextProp(fields.notes);
+  }
+
+  const page = await createPage("resources", properties);
+  return pageToResource(page);
 }
 
 export function resolveTools(

@@ -12,7 +12,13 @@
     "themeToggleAria": "החלפת ערכת צבעים (מערכת ← בהיר ← כהה)",
     "themeToggleTitle": "החלפת ערכת צבעים",
     "languageLabel": "שפה",
-    "languageSelectorAria": "בחירת שפה"
+    "languageSelectorAria": "בחירת שפה",
+    "report": "דיווח",
+    "reportAria": "דיווח על תקלה",
+    "reportSeed": "אני רוצה לדווח על תקלה.",
+    "add": "הוספה",
+    "addAria": "הוספת ציוד חדש למלאי",
+    "addSeed": "אני רוצה להוסיף ציוד חדש למלאי."
   },
   "status": {
     "labStatusLabel": "מצב המעבדה",

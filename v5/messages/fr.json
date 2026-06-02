@@ -12,7 +12,13 @@
     "themeToggleAria": "Changer le thème de couleur (système → clair → sombre)",
     "themeToggleTitle": "Changer le thème de couleur",
     "languageLabel": "Langue",
-    "languageSelectorAria": "Choisir la langue"
+    "languageSelectorAria": "Choisir la langue",
+    "report": "SIGNALER",
+    "reportAria": "Signaler un problème",
+    "reportSeed": "Je voudrais signaler un problème.",
+    "add": "AJOUTER",
+    "addAria": "Ajouter un nouvel équipement à l'inventaire",
+    "addSeed": "Je voudrais ajouter un nouvel équipement à l'inventaire."
   },
   "status": {
     "labStatusLabel": "État du labo",

@@ -12,7 +12,13 @@
     "themeToggleAria": "カラーテーマを切り替え（システム → ライト → ダーク）",
     "themeToggleTitle": "カラーテーマを切り替え",
     "languageLabel": "言語",
-    "languageSelectorAria": "言語を選択"
+    "languageSelectorAria": "言語を選択",
+    "report": "報告",
+    "reportAria": "問題を報告",
+    "reportSeed": "問題を報告したいです。",
+    "add": "追加",
+    "addAria": "在庫に新しい機材を追加",
+    "addSeed": "在庫に新しい機材を追加したいです。"
   },
   "status": {
     "labStatusLabel": "ラボの状況",

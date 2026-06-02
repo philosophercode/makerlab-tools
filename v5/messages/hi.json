@@ -12,7 +12,13 @@
     "themeToggleAria": "रंग थीम बदलें (सिस्टम → हल्का → गहरा)",
     "themeToggleTitle": "रंग थीम बदलें",
     "languageLabel": "भाषा",
-    "languageSelectorAria": "भाषा चुनें"
+    "languageSelectorAria": "भाषा चुनें",
+    "report": "रिपोर्ट करें",
+    "reportAria": "समस्या की रिपोर्ट करें",
+    "reportSeed": "मैं एक समस्या की रिपोर्ट करना चाहता हूँ।",
+    "add": "जोड़ें",
+    "addAria": "इन्वेंट्री में नया उपकरण जोड़ें",
+    "addSeed": "मैं इन्वेंट्री में नया उपकरण जोड़ना चाहता हूँ।"
   },
   "status": {
     "labStatusLabel": "लैब की स्थिति",

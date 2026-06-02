@@ -2,13 +2,15 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { IdentificationCard } from "./IdentificationCard";
 import { useChatLauncher } from "./ChatLauncherContext";
+import type { CardPayload } from "../lib/capabilities/types";
 
 interface Suggestion {
   icon: "search" | "clipboard" | "pin";
@@ -40,7 +42,14 @@ function stripCitations(text: string): string {
 function Icon({
   name,
 }: {
-  name: Suggestion["icon"] | "send" | "close" | "newchat" | "paperclip" | "remove";
+  name:
+    | Suggestion["icon"]
+    | "send"
+    | "close"
+    | "newchat"
+    | "paperclip"
+    | "remove"
+    | "mic";
 }) {
   switch (name) {
     case "search":
@@ -97,8 +106,69 @@ function Icon({
           <path d="M18 6 6 18M6 6l12 12" />
         </svg>
       );
+    case "mic":
+      return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="9" y="3" width="6" height="11" rx="3" />
+          <path d="M5 11a7 7 0 0 0 14 0" />
+          <path d="M12 18v3" />
+        </svg>
+      );
   }
 }
+
+// ── Browser dictation (Web Speech API) ──────────────────────────────
+// Minimal structural types for the SpeechRecognition API. It is not in the
+// standard DOM lib typings and is vendor-prefixed in Chromium (`webkit`). We
+// feature-detect at runtime and hide the mic where it is unavailable, so these
+// types only describe the shape we actually touch.
+interface SpeechRecognitionAlternativeLike {
+  transcript: string;
+}
+interface SpeechRecognitionResultLike {
+  readonly length: number;
+  isFinal: boolean;
+  [index: number]: SpeechRecognitionAlternativeLike;
+}
+interface SpeechRecognitionResultListLike {
+  readonly length: number;
+  [index: number]: SpeechRecognitionResultLike;
+}
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: SpeechRecognitionResultListLike;
+}
+interface SpeechRecognitionLike {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  start(): void;
+  stop(): void;
+  abort(): void;
+  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+}
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
+
+function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
+  if (typeof window === "undefined") return null;
+  const w = window as unknown as {
+    SpeechRecognition?: SpeechRecognitionCtor;
+    webkitSpeechRecognition?: SpeechRecognitionCtor;
+  };
+  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
+}
+
+// Whether browser dictation is available. Read via `useSyncExternalStore` so
+// the server snapshot is always `false` (no mic on the server-rendered HTML),
+// the client snapshot reflects the real API, and React reconciles the
+// difference on hydration without a synchronous setState-in-effect.
+const SPEECH_STORE = {
+  subscribe: () => () => {},
+  getSnapshot: () => getSpeechRecognitionCtor() !== null,
+  getServerSnapshot: () => false,
+};
 
 interface PendingPhoto {
   key: string;
@@ -261,6 +331,76 @@ export function ChatFab() {
     );
   }
 
+  // ── Dictation (Web Speech API) ──────────────────────────────────
+  // Feature-detect once on mount so the mic button only renders where the API
+  // exists (Chrome/Safari). The active recognition instance is kept in a ref so
+  // the toggle handler can stop it without re-rendering on every interim result.
+  const speechSupported = useSyncExternalStore(
+    SPEECH_STORE.subscribe,
+    SPEECH_STORE.getSnapshot,
+    SPEECH_STORE.getServerSnapshot
+  );
+  const [isListening, setIsListening] = useState(false);
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  // Text captured before dictation started, so interim results append rather
+  // than overwrite what the user already typed.
+  const dictationBaseRef = useRef("");
+
+  useEffect(() => {
+    return () => {
+      recognitionRef.current?.abort();
+      recognitionRef.current = null;
+    };
+  }, []);
+
+  function stopDictation() {
+    recognitionRef.current?.stop();
+  }
+
+  function startDictation() {
+    const Ctor = getSpeechRecognitionCtor();
+    if (!Ctor) return;
+    const recognition = new Ctor();
+    recognition.lang = localeRef.current || locale || "en";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+    dictationBaseRef.current = draft;
+
+    recognition.onresult = (event) => {
+      let transcript = "";
+      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+        transcript += event.results[i][0]?.transcript ?? "";
+      }
+      const base = dictationBaseRef.current;
+      const next = base ? `${base.replace(/\s+$/, "")} ${transcript}` : transcript;
+      setDraft(next);
+    };
+    recognition.onerror = () => {
+      setIsListening(false);
+    };
+    recognition.onend = () => {
+      recognitionRef.current = null;
+      setIsListening(false);
+    };
+
+    recognitionRef.current = recognition;
+    try {
+      recognition.start();
+      setIsListening(true);
+    } catch {
+      recognitionRef.current = null;
+      setIsListening(false);
+    }
+  }
+
+  function toggleDictation() {
+    if (isListening) {
+      stopDictation();
+    } else {
+      startDictation();
+    }
+  }
+
   const scrollRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (scrollRef.current) {
@@ -300,9 +440,9 @@ export function ChatFab() {
   }
 
   // Auto-send a seeded message when something outside ChatFab (e.g. the nav
-  // "Report" button) opens the chat with an intent. The nonce guard makes this
-  // idempotent so a re-render never resends, and we wait until any in-flight
-  // turn finishes before sending.
+  // "Report" / "Add equipment" buttons) opens the chat with an intent. The
+  // nonce guard makes this idempotent so a re-render never resends, and we wait
+  // until any in-flight turn finishes before sending.
   const lastSeedNonce = useRef<number | null>(null);
   useEffect(() => {
     if (!pendingSeed || isLoading) return;
@@ -319,8 +459,18 @@ export function ChatFab() {
     send(label);
   }
 
+  // An identification-card button was clicked: seed a follow-up user message
+  // through the existing send path (e.g. "confirm add: <id>"), which the intake
+  // agent resolves into the right tool call.
+  function handleCardAction(seedMessage: string) {
+    if (isLoading || !seedMessage.trim()) return;
+    if (isListening) stopDictation();
+    send(seedMessage);
+  }
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (isListening) stopDictation();
     const text = draft.trim();
     if (!text || isLoading || uploadingCount > 0) return;
     let outgoing = text;
@@ -424,10 +574,29 @@ export function ChatFab() {
                         p.type.startsWith("tool-") &&
                         (p as { state?: string }).state !== "output-available"
                     );
-                    if (textParts.length === 0 && !pendingTool) return null;
+                    // Identification cards arrive as `data-card` parts emitted by
+                    // the intake capability's `card()` (design spec §6.3).
+                    const cardParts = message.parts.filter(
+                      (p): p is typeof p & { data: CardPayload } =>
+                        p.type === "data-card" &&
+                        (p as { data?: unknown }).data != null
+                    );
+                    if (
+                      textParts.length === 0 &&
+                      cardParts.length === 0 &&
+                      !pendingTool
+                    )
+                      return null;
                     return (
-                      <li key={message.id} className={`chat-msg chat-msg-${message.role}`}>
-                        {textParts.length === 0 && pendingTool ? (
+                      <li
+                        key={message.id}
+                        className={`chat-msg chat-msg-${message.role}${
+                          cardParts.length > 0 ? " chat-msg-has-card" : ""
+                        }`}
+                      >
+                        {textParts.length === 0 &&
+                        cardParts.length === 0 &&
+                        pendingTool ? (
                           <p className="chat-reading" aria-label={t("toolRunningAria")}>
                             {toolStatusLabel(pendingTool.type, t)}
                           </p>
@@ -446,6 +615,14 @@ export function ChatFab() {
                             <p key={index}>{part.text}</p>
                           )
                         )}
+                        {cardParts.map((part, index) => (
+                          <IdentificationCard
+                            key={(part as { id?: string }).id ?? `card-${index}`}
+                            card={part.data}
+                            onAction={handleCardAction}
+                            disabled={isLoading}
+                          />
+                        ))}
                       </li>
                     );
                   })}
@@ -528,6 +705,19 @@ export function ChatFab() {
               >
                 <Icon name="paperclip" />
               </button>
+              {speechSupported ? (
+                <button
+                  type="button"
+                  className={`chat-mic${isListening ? " chat-mic-active" : ""}`}
+                  aria-label="Dictate"
+                  aria-pressed={isListening}
+                  title="Dictate"
+                  onClick={toggleDictation}
+                  disabled={isLoading}
+                >
+                  <Icon name="mic" />
+                </button>
+              ) : null}
               <input
                 className="chat-input"
                 value={draft}

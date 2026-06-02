@@ -12,7 +12,13 @@
     "themeToggleAria": "색상 테마 전환 (시스템 → 라이트 → 다크)",
     "themeToggleTitle": "색상 테마 전환",
     "languageLabel": "언어",
-    "languageSelectorAria": "언어 선택"
+    "languageSelectorAria": "언어 선택",
+    "report": "신고",
+    "reportAria": "문제 신고",
+    "reportSeed": "문제를 신고하고 싶어요.",
+    "add": "추가",
+    "addAria": "재고에 새 장비 추가",
+    "addSeed": "재고에 새 장비를 추가하고 싶어요."
   },
   "status": {
     "labStatusLabel": "랩 상태",

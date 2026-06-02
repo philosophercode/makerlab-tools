@@ -12,7 +12,13 @@
     "themeToggleAria": "Alternar tema de color (sistema → claro → oscuro)",
     "themeToggleTitle": "Alternar tema de color",
     "languageLabel": "Idioma",
-    "languageSelectorAria": "Seleccionar idioma"
+    "languageSelectorAria": "Seleccionar idioma",
+    "report": "REPORTAR",
+    "reportAria": "Reportar un problema",
+    "reportSeed": "Quiero reportar un problema.",
+    "add": "AGREGAR",
+    "addAria": "Agregar nuevo equipo al inventario",
+    "addSeed": "Quiero agregar nuevo equipo al inventario."
   },
   "status": {
     "labStatusLabel": "Estado del laboratorio",

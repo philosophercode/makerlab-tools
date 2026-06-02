@@ -12,7 +12,13 @@
     "themeToggleAria": "Renk temasını değiştir (sistem → açık → koyu)",
     "themeToggleTitle": "Renk temasını değiştir",
     "languageLabel": "Dil",
-    "languageSelectorAria": "Dil seç"
+    "languageSelectorAria": "Dil seç",
+    "report": "BİLDİR",
+    "reportAria": "Sorun bildir",
+    "reportSeed": "Bir sorun bildirmek istiyorum.",
+    "add": "EKLE",
+    "addAria": "Envantere yeni ekipman ekle",
+    "addSeed": "Envantere yeni ekipman eklemek istiyorum."
   },
   "status": {
     "labStatusLabel": "Laboratuvar durumu",

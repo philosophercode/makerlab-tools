@@ -1445,6 +1445,51 @@ p {
   height: 16px;
 }
 
+.chat-mic {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container-low);
+  color: var(--on-surface-muted);
+  cursor: pointer;
+  border-radius: 10px !important;
+  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+}
+
+.chat-mic:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.chat-mic:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.chat-mic svg {
+  width: 16px;
+  height: 16px;
+}
+
+.chat-mic-active {
+  border-color: var(--secondary);
+  color: var(--secondary);
+  animation: chat-mic-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes chat-mic-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
 .chat-file-input {
   display: none;
 }
@@ -1575,6 +1620,301 @@ p {
   color: var(--secondary);
   border: 1px solid var(--secondary);
   font-size: 12px;
+}
+
+/* A message bubble that hosts an identification card needs the full column
+   width and no bubble chrome — the card supplies its own surface. */
+.chat-msg-has-card {
+  max-width: 100%;
+  align-self: stretch;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 0 !important;
+}
+
+/* ── Identification card (intake) ────────────────────────────────── */
+.id-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 8px;
+  padding: 14px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container);
+  border-radius: 14px !important;
+  font-size: 13px;
+  color: var(--on-surface);
+}
+
+.id-card:first-child {
+  margin-top: 0;
+}
+
+.id-card-success {
+  border-color: var(--primary);
+}
+
+.id-card-duplicate {
+  border-color: var(--secondary);
+}
+
+.id-card-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 10px !important;
+}
+
+.id-card-banner-success {
+  background: var(--surface-container-low);
+  color: var(--primary);
+  border: 1px solid var(--primary);
+}
+
+.id-card-banner-duplicate {
+  background: var(--surface-container-low);
+  color: var(--secondary);
+  border: 1px solid var(--secondary);
+}
+
+.id-card-banner-icon {
+  display: inline-flex;
+}
+
+.id-card-banner-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.id-card-head {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.id-card-photo {
+  position: relative;
+  flex: 0 0 auto;
+  width: 64px;
+  height: 64px;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid var(--outline);
+  background: var(--surface-container-low);
+}
+
+.id-card-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.id-card-photo-count {
+  position: absolute;
+  right: 3px;
+  bottom: 3px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.7);
+  border-radius: 6px !important;
+}
+
+.id-card-headings {
+  min-width: 0;
+}
+
+.id-card-name {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1.3;
+  color: var(--on-surface);
+}
+
+.id-card-meta {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: var(--on-surface-muted);
+}
+
+.id-card-specs {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 0;
+  padding: 10px 0;
+  border-top: 1px solid var(--outline);
+  border-bottom: 1px solid var(--outline);
+}
+
+.id-card-spec {
+  display: contents;
+}
+
+.id-card-spec dt {
+  font-weight: 600;
+  color: var(--on-surface-muted);
+}
+
+.id-card-spec dd {
+  margin: 0;
+  color: var(--on-surface);
+}
+
+.id-card-resources {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.id-card-resource {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container-low);
+  border-radius: 10px !important;
+  color: var(--on-surface);
+  text-decoration: none;
+  transition: border-color 120ms ease;
+}
+
+.id-card-resource:hover {
+  border-color: var(--primary);
+}
+
+.id-card-resource-icon {
+  display: inline-flex;
+  color: var(--on-surface-muted);
+}
+
+.id-card-resource-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.id-card-resource-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.id-card-resource-type {
+  flex: 0 0 auto;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--on-surface-muted);
+}
+
+.id-card-also-label {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--on-surface-muted);
+}
+
+.id-card-also-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.id-card-also-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--on-surface);
+}
+
+.id-card-badge-new {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.id-card-draft-link {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.id-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.id-card-action {
+  flex: 1 1 auto;
+  min-width: 96px;
+  padding: 9px 12px;
+  font-family: var(--font-body);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  border-radius: 10px !important;
+  border: 1px solid var(--outline);
+  background: var(--surface-container-low);
+  color: var(--on-surface);
+  transition: border-color 120ms ease, background 120ms ease, transform 80ms ease,
+    opacity 120ms ease;
+}
+
+.id-card-action:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+
+.id-card-action:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.id-card-action:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.id-card-action-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #0f0f0f;
+}
+
+.id-card-action-primary:hover:not(:disabled) {
+  background: var(--primary-dark);
+  border-color: var(--primary-dark);
+}
+
+.id-card-action-danger {
+  color: var(--secondary);
+  border-color: var(--outline);
+}
+
+.id-card-action-danger:hover:not(:disabled) {
+  border-color: var(--secondary);
 }
 
 .chat-typing {

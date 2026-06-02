@@ -12,7 +12,13 @@
     "themeToggleAria": "تبديل سمة الألوان (النظام ← فاتح ← داكن)",
     "themeToggleTitle": "تبديل سمة الألوان",
     "languageLabel": "اللغة",
-    "languageSelectorAria": "اختيار اللغة"
+    "languageSelectorAria": "اختيار اللغة",
+    "report": "إبلاغ",
+    "reportAria": "الإبلاغ عن مشكلة",
+    "reportSeed": "أريد الإبلاغ عن مشكلة.",
+    "add": "إضافة",
+    "addAria": "إضافة معدات جديدة إلى المخزون",
+    "addSeed": "أريد إضافة معدات جديدة إلى المخزون."
   },
   "status": {
     "labStatusLabel": "حالة المختبر",
