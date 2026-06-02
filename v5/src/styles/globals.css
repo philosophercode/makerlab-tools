@@ -489,7 +489,8 @@ p {
 
 .filter-toolbar {
   display: flex;
-  align-items: end;
+  align-items: center;
+  align-self: end;
   justify-content: flex-end;
   gap: 10px;
   grid-column: 2;
@@ -512,13 +513,6 @@ p {
   flex: 1 1 200px;
   min-width: 180px;
   max-width: 280px;
-}
-
-.filter-actions {
-  display: flex;
-  align-items: end;
-  justify-content: flex-end;
-  gap: 10px;
 }
 
 .filter-group {
@@ -568,7 +562,6 @@ p {
   justify-content: space-between;
   gap: 10px;
   width: 100%;
-  max-width: 320px;
   height: 36px;
   padding: 0 12px;
   border: 1px solid var(--outline);
@@ -1849,23 +1842,26 @@ p {
     grid-template-columns: 1fr;
   }
 
+  /* Toolbar wraps: Filters on its own row, then Clear + the Grid/Table
+     switcher share the next row. */
   .filter-toolbar {
     grid-column: 1;
-    align-items: stretch;
-    justify-content: space-between;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
   }
 
   .filter-toggle {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 112px;
+    flex: 1 1 100%;
   }
 
-  /* Grid is forced on mobile (see GalleryShell), so the view switcher has
-     nothing to toggle — hide it and let Filters own the toolbar row. */
+  .filter-clear,
   .view-toggle {
-    display: none;
+    flex: 1 1 0;
   }
 
   .filter-row {
@@ -1902,11 +1898,6 @@ p {
     margin-top: 8px;
   }
 
-  .filter-actions {
-    align-items: stretch;
-    justify-content: space-between;
-  }
-
   .detail-hero,
   .unit-row {
     grid-template-columns: 1fr;
@@ -1920,31 +1911,15 @@ p {
     grid-template-columns: 1fr;
   }
 
-  /* The sticky header can't align to a stacked layout — hide it and turn
-     each row into a labeled card (tool name on top, metadata as key/value
-     lines) so the table stays readable on phones. */
-  .tool-table-head {
-    display: none;
+  /* Keep the desktop columnar table on mobile — just let it scroll sideways
+     instead of collapsing the columns. */
+  .tool-table {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
   }
 
   .tool-table-row {
-    grid-template-columns: 1fr;
-    gap: 8px;
-    padding: 14px 16px;
-  }
-
-  .tool-table-row > span[data-label] {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    gap: 12px;
-  }
-
-  .tool-table-row > span[data-label]::before {
-    content: attr(data-label);
-    color: var(--on-surface-muted);
-    font-size: 10px;
-    letter-spacing: 0.08em;
+    min-width: 600px;
   }
 
   .chat-fab {
@@ -2024,20 +1999,10 @@ p {
     gap: 8px;
   }
 
-  .filter-toolbar,
-  .view-toggle {
+  .filter-toolbar {
     width: 100%;
   }
 
-  .filter-toggle {
-    flex: 1;
-  }
-
-  .view-toggle {
-    flex: 1;
-  }
-
-  .filter-clear,
   .view-toggle button {
     flex: 1;
   }

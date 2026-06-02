@@ -69,20 +69,6 @@ export function GalleryShell({ tools }: GalleryShellProps) {
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [materialsOpen, setMaterialsOpen] = useState(false);
   const [sort, setSort] = useState<SortState | null>(null);
-  // The table is a dense desktop view; on phones it degrades to an oversized
-  // card stack, so we force the grid (and hide the toggle) below this width.
-  const [isNarrow, setIsNarrow] = useState(false);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(max-width: 860px)");
-    const update = () => setIsNarrow(mediaQuery.matches);
-    update();
-    mediaQuery.addEventListener("change", update);
-    return () => mediaQuery.removeEventListener("change", update);
-  }, []);
-
-  const effectiveViewMode = isNarrow ? "grid" : viewMode;
-
   // Close the open dropdown menus on an outside click or Escape, like a
   // native <select>.
   const categoryRef = useRef<HTMLDivElement>(null);
@@ -261,6 +247,12 @@ export function GalleryShell({ tools }: GalleryShellProps) {
               Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
             </button>
 
+            {activeFilterCount > 0 ? (
+              <button className="filter-clear" type="button" onClick={clearFilters}>
+                Clear {activeFilterCount}
+              </button>
+            ) : null}
+
             <div className="view-toggle" aria-label={t("viewModeLabel")}>
               <button
                 className={viewMode === "grid" ? "is-active" : ""}
@@ -392,21 +384,13 @@ export function GalleryShell({ tools }: GalleryShellProps) {
                 </select>
               </label>
             </div>
-
-            <div className="filter-actions">
-              {activeFilterCount > 0 ? (
-                <button className="filter-clear" type="button" onClick={clearFilters}>
-                  Clear {activeFilterCount}
-                </button>
-              ) : null}
-            </div>
           </div>
         </TechnicalFrame>
       </section>
 
-      <section className={effectiveViewMode === "grid" ? "tool-grid" : "tool-table"} aria-label={t("toolGalleryLabel")}>
+      <section className={viewMode === "grid" ? "tool-grid" : "tool-table"} aria-label={t("toolGalleryLabel")}>
         {filteredTools.length > 0 ? (
-          effectiveViewMode === "grid" ? (
+          viewMode === "grid" ? (
             filteredTools.map((tool) => <ToolCard key={tool.id} tool={tool} />)
           ) : (
             <>
