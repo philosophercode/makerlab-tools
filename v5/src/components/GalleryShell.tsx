@@ -12,12 +12,6 @@ interface GalleryShellProps {
   tools: MakerLabTool[];
 }
 
-const TRAINING_LEVELS = [
-  { value: "Beginner", key: "trainingBeginner" },
-  { value: "Intermediate", key: "trainingIntermediate" },
-  { value: "Advanced", key: "trainingAdvanced" },
-] as const;
-
 // Ranked, typo-tolerant search keys. match-sorter ranks earlier keys above
 // later ones when match quality ties, so key order doubles as relevance
 // weight: name first, then the structured metadata (category / tags /
@@ -35,15 +29,29 @@ const SEARCH_KEYS: ReadonlyArray<keyof MakerLabTool> = [
   "description",
 ];
 
+type SortKey = "name" | "category" | "zone" | "trainingLevel";
+type SortState = { key: SortKey; dir: "asc" | "desc" };
+
+// Table columns, in render order. `key` drives sorting; `labelKey` is the i18n
+// header string.
+const TABLE_COLUMNS: ReadonlyArray<{ key: SortKey; labelKey: string }> = [
+  { key: "name", labelKey: "columnTool" },
+  { key: "category", labelKey: "columnCategory" },
+  { key: "zone", labelKey: "columnZone" },
+  { key: "trainingLevel", labelKey: "columnTraining" },
+];
+
 export function GalleryShell({ tools }: GalleryShellProps) {
   const t = useTranslations("gallery");
   const [query, setQuery] = useState("");
-  const [category, setCategory] = useState<string | null>(null);
-  const [training, setTraining] = useState<string | null>(null);
-  const [material, setMaterial] = useState<string | null>(null);
+  // Category and materials are multi-select facets (OR within each facet);
+  // location stays single-select.
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
   const [location, setLocation] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [sort, setSort] = useState<SortState | null>(null);
 
   const categories = useMemo(
     () => Array.from(new Set(tools.map((tool) => tool.category))).sort(),
@@ -62,35 +70,67 @@ export function GalleryShell({ tools }: GalleryShellProps) {
   );
 
   const filteredTools = useMemo(() => {
-    // Apply facet filters first; each dimension is single-select and they
-    // combine with AND across dimensions.
+    // Apply facet filters first. Within a multi-select facet the values OR
+    // together; the facets then AND across dimensions.
     const faceted = tools.filter((tool) => {
-      const matchesCategory = !category || tool.category === category;
-      const matchesTraining = !training || tool.trainingLevel === training;
-      const matchesMaterial = !material || tool.materials.includes(material);
+      const matchesCategory =
+        selectedCategories.length === 0 || selectedCategories.includes(tool.category);
+      const matchesMaterial =
+        selectedMaterials.length === 0 ||
+        selectedMaterials.some((value) => tool.materials.includes(value));
       const matchesLocation = !location || tool.location === location;
 
-      return matchesCategory && matchesTraining && matchesMaterial && matchesLocation;
+      return matchesCategory && matchesMaterial && matchesLocation;
     });
 
     const normalizedQuery = query.trim();
 
-    // Empty query preserves the catalog's existing order (show all).
-    if (!normalizedQuery) {
-      return faceted;
+    // Empty query preserves the catalog's existing order; a query applies a
+    // fuzzy, ranked match across the weighted keys (typo tolerant).
+    const searched = normalizedQuery
+      ? matchSorter(faceted, normalizedQuery, { keys: SEARCH_KEYS.slice() })
+      : faceted;
+
+    // An explicit column sort overrides both catalog order and search ranking.
+    if (!sort) {
+      return searched;
     }
 
-    // Fuzzy, ranked match across the weighted keys (typo tolerant).
-    return matchSorter(faceted, normalizedQuery, { keys: SEARCH_KEYS.slice() });
-  }, [category, location, material, query, tools, training]);
+    return [...searched].sort((a, b) => {
+      const left = String(a[sort.key] ?? "").toLowerCase();
+      const right = String(b[sort.key] ?? "").toLowerCase();
+      const comparison = left.localeCompare(right);
+      return sort.dir === "asc" ? comparison : -comparison;
+    });
+  }, [location, query, selectedCategories, selectedMaterials, sort, tools]);
 
-  const activeFilterCount = [category, training, material, location].filter(Boolean).length;
+  const activeFilterCount =
+    selectedCategories.length + selectedMaterials.length + (location ? 1 : 0);
+
+  function toggleCategory(value: string) {
+    setSelectedCategories((prev) =>
+      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]
+    );
+  }
+
+  function toggleMaterial(value: string) {
+    setSelectedMaterials((prev) =>
+      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]
+    );
+  }
 
   function clearFilters() {
-    setCategory(null);
-    setTraining(null);
-    setMaterial(null);
+    setSelectedCategories([]);
+    setSelectedMaterials([]);
     setLocation(null);
+  }
+
+  function toggleSort(key: SortKey) {
+    setSort((prev) =>
+      prev && prev.key === key
+        ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
+        : { key, dir: "asc" }
+    );
   }
 
   return (
@@ -143,43 +183,47 @@ export function GalleryShell({ tools }: GalleryShellProps) {
             </div>
           </div>
 
-          <div className={filtersOpen ? "filter-row is-open" : "filter-row"}>
+          <div className={filtersOpen ? "filter-row is-open" : "filter-row"} id="gallery-filter-controls">
             <div className="filter-controls">
-              <label className="filter-group filter-select-group">
+              <div className="filter-group filter-chip-group" role="group" aria-label={t("category")}>
                 <span>{t("category")}</span>
-                <select value={category ?? ""} onChange={(event) => setCategory(event.target.value || null)}>
-                  <option value="">All</option>
-                  {categories.map((categoryName) => (
-                    <option key={categoryName} value={categoryName}>
-                      {categoryName}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <div className="filter-chip-options">
+                  {categories.map((categoryName) => {
+                    const active = selectedCategories.includes(categoryName);
+                    return (
+                      <button
+                        key={categoryName}
+                        type="button"
+                        className={active ? "filter-chip is-active" : "filter-chip"}
+                        aria-pressed={active}
+                        onClick={() => toggleCategory(categoryName)}
+                      >
+                        {categoryName}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
-              <label className="filter-group filter-select-group">
-                <span>{t("training")}</span>
-                <select value={training ?? ""} onChange={(event) => setTraining(event.target.value || null)}>
-                  <option value="">All</option>
-                  {TRAINING_LEVELS.map((level) => (
-                    <option key={level.value} value={level.value}>
-                      {t(level.key)}
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              <label className="filter-group filter-select-group">
+              <div className="filter-group filter-chip-group" role="group" aria-label={t("materials")}>
                 <span>{t("materials")}</span>
-                <select value={material ?? ""} onChange={(event) => setMaterial(event.target.value || null)}>
-                  <option value="">All</option>
-                  {materials.map((materialName) => (
-                    <option key={materialName} value={materialName}>
-                      {materialName}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <div className="filter-chip-options">
+                  {materials.map((materialName) => {
+                    const active = selectedMaterials.includes(materialName);
+                    return (
+                      <button
+                        key={materialName}
+                        type="button"
+                        className={active ? "filter-chip is-active" : "filter-chip"}
+                        aria-pressed={active}
+                        onClick={() => toggleMaterial(materialName)}
+                      >
+                        {materialName}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
 
               <label className="filter-group filter-select-group">
                 <span>{t("location")}</span>
@@ -200,7 +244,6 @@ export function GalleryShell({ tools }: GalleryShellProps) {
                   Clear {activeFilterCount}
                 </button>
               ) : null}
-
             </div>
           </div>
         </TechnicalFrame>
@@ -212,11 +255,24 @@ export function GalleryShell({ tools }: GalleryShellProps) {
             filteredTools.map((tool) => <ToolCard key={tool.id} tool={tool} />)
           ) : (
             <>
-              <div className="tool-table-row tool-table-head" role="row" aria-hidden="true">
-                <span>{t("columnTool")}</span>
-                <span>{t("columnCategory")}</span>
-                <span>{t("columnZone")}</span>
-                <span>{t("columnTraining")}</span>
+              <div className="tool-table-row tool-table-head" role="row">
+                {TABLE_COLUMNS.map((column) => {
+                  const active = sort?.key === column.key;
+                  return (
+                    <button
+                      key={column.key}
+                      type="button"
+                      className={active ? "tool-table-sort is-active" : "tool-table-sort"}
+                      aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : "none"}
+                      onClick={() => toggleSort(column.key)}
+                    >
+                      <span>{t(column.labelKey)}</span>
+                      <span className="sort-indicator" aria-hidden="true">
+                        {active ? (sort!.dir === "asc" ? "▲" : "▼") : "↕"}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
               {filteredTools.map((tool) => (
                 <a className="tool-table-row" href={`/tools/${tool.slug}`} key={tool.id}>
@@ -226,9 +282,9 @@ export function GalleryShell({ tools }: GalleryShellProps) {
                     </span>
                     <span>{tool.name}</span>
                   </span>
-                  <span>{tool.category}</span>
-                  <span>{tool.zone}</span>
-                  <span>{tool.trainingLevel}</span>
+                  <span data-label={t("columnCategory")}>{tool.category}</span>
+                  <span data-label={t("columnZone")}>{tool.zone}</span>
+                  <span data-label={t("columnTraining")}>{tool.trainingLevel}</span>
                 </a>
               ))}
             </>

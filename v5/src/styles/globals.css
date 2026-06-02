@@ -481,7 +481,7 @@ p {
 .filter-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
+  align-items: start;
   gap: 12px 16px;
   grid-column: 1;
   grid-row: 2;
@@ -497,9 +497,9 @@ p {
 }
 
 .filter-controls {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(140px, 1fr));
-  gap: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
   min-width: 0;
 }
 
@@ -549,6 +549,27 @@ p {
   border-color: var(--primary);
 }
 
+/* Location keeps the single-select dropdown but shouldn't stretch the full
+   width of the stacked filter column. */
+.filter-select-group {
+  max-width: 260px;
+}
+
+/* Category + materials are multi-select facets rendered as toggle chips. */
+.filter-chip-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.filter-chip {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
 .chip-row,
 .detail-actions,
 .ppe-list {
@@ -561,6 +582,7 @@ p {
 .view-toggle button,
 .filter-toggle,
 .filter-clear,
+.filter-chip,
 .doc-chip {
   border: 1px solid var(--outline);
   background: transparent;
@@ -588,9 +610,11 @@ p {
 .view-toggle button:hover,
 .filter-toggle:hover,
 .filter-clear:hover,
+.filter-chip:hover,
 .doc-chip:hover,
 .chip-active,
 .filter-toggle.is-active,
+.filter-chip.is-active,
 .view-toggle .is-active {
   border-color: var(--primary);
   background: var(--primary);
@@ -625,8 +649,8 @@ p {
 
 .tool-grid {
   display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
 }
 
 .tool-table {
@@ -686,13 +710,12 @@ p {
   position: sticky;
   top: var(--sticky-chrome-height);
   z-index: 5;
-  padding: 14px 16px;
+  padding: 6px 16px;
   background: var(--surface-container-high);
   color: var(--on-surface);
   font-size: 12px;
   font-weight: 800;
   letter-spacing: 0.12em;
-  pointer-events: none;
   margin-bottom: 2px;
   box-shadow: 0 6px 12px -8px rgba(0, 0, 0, 0.18);
 }
@@ -703,8 +726,40 @@ p {
   color: var(--on-surface);
 }
 
-.tool-table-head > span:first-child {
+/* Sortable column headers. */
+.tool-table-sort {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: uppercase;
+  text-align: left;
+  cursor: pointer;
+  transition: color 160ms ease-in;
+}
+
+.tool-table-sort:first-child {
   padding-left: 54px;
+}
+
+.tool-table-sort:hover,
+.tool-table-sort.is-active {
+  color: var(--primary);
+}
+
+.sort-indicator {
+  font-size: 9px;
+  opacity: 0.55;
+}
+
+.tool-table-sort.is-active .sort-indicator {
+  opacity: 1;
 }
 
 .empty-state {
@@ -1570,19 +1625,19 @@ p {
 
 @media (min-width: 768px) {
   .tool-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
 @media (min-width: 1024px) {
   .tool-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
 @media (min-width: 1280px) {
   .tool-grid {
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(5, minmax(0, 1fr));
   }
 }
 
@@ -1722,8 +1777,31 @@ p {
     grid-template-columns: 1fr;
   }
 
+  /* The sticky header can't align to a stacked layout — hide it and turn
+     each row into a labeled card (tool name on top, metadata as key/value
+     lines) so the table stays readable on phones. */
+  .tool-table-head {
+    display: none;
+  }
+
   .tool-table-row {
     grid-template-columns: 1fr;
+    gap: 8px;
+    padding: 14px 16px;
+  }
+
+  .tool-table-row > span[data-label] {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .tool-table-row > span[data-label]::before {
+    content: attr(data-label);
+    color: var(--on-surface-muted);
+    font-size: 10px;
+    letter-spacing: 0.08em;
   }
 
   .chat-fab {
@@ -1825,27 +1903,25 @@ p {
     gap: 10px;
   }
 
+  /* Two columns of compact square cards on phones (image on top, label
+     below) — replaces the older horizontal list-row layout. */
   .tool-card {
-    display: grid;
-    grid-template-columns: 112px minmax(0, 1fr);
-    min-height: 118px;
+    display: flex;
+    flex-direction: column;
   }
 
   .tool-card-image {
-    aspect-ratio: auto;
-    height: 100%;
-    min-height: 118px;
+    aspect-ratio: 1 / 1;
     padding: 10px;
   }
 
   .tool-card-body {
-    justify-content: center;
-    gap: 8px;
-    padding: 14px;
+    gap: 6px;
+    padding: 10px 10px 12px;
   }
 
   .tool-card-body h2 {
-    font-size: 14px;
+    font-size: 13px;
     line-height: 1.2;
   }
 
