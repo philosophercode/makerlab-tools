@@ -290,3 +290,215 @@ describe("ChatFab", () => {
     expect(typeof opts.onData).toBe("function");
   });
 });
+
+// ── Citation stripping (#22) ───────────────────────────────────────
+//
+// The assistant grounds answers with inline <cite index="…">…</cite> markup.
+// react-markdown has no raw-HTML plugin, so without stripping these would
+// render as literal text. Assert the tags are removed but the prose survives.
+describe("ChatFab — <cite> tag stripping", () => {
+  async function open(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(
+      screen.getByRole("button", { name: "Open MakerLab assistant" })
+    );
+  }
+
+  it("removes a <cite> tag (with attributes) while keeping the cited prose", async () => {
+    const user = userEvent.setup();
+    useChatReturn = baseReturn({
+      messages: [
+        userMsg("u1", "how do I cut acrylic?"),
+        assistantMsg(
+          "a1",
+          'Use the laser cutter <cite index="1-9">after safety training</cite> first.'
+        ),
+      ],
+    });
+    render(<ChatFab />);
+    await open(user);
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent(
+      "Use the laser cutter after safety training first."
+    );
+    expect(dialog.textContent).not.toContain("<cite");
+    expect(dialog.textContent).not.toContain("</cite>");
+    expect(dialog.textContent).not.toContain("index=");
+  });
+
+  it("removes multiple <cite> tags in one message", async () => {
+    const user = userEvent.setup();
+    useChatReturn = baseReturn({
+      messages: [
+        assistantMsg(
+          "a1",
+          '<cite index="1">First</cite> and <cite>second</cite> point.'
+        ),
+      ],
+    });
+    render(<ChatFab />);
+    await open(user);
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent("First and second point.");
+    expect(dialog.textContent).not.toContain("cite");
+  });
+
+  it("leaves a message without citations untouched", async () => {
+    const user = userEvent.setup();
+    useChatReturn = baseReturn({
+      messages: [assistantMsg("a1", "Just plain advice, no sources.")],
+    });
+    render(<ChatFab />);
+    await open(user);
+
+    expect(
+      screen.getByText("Just plain advice, no sources.")
+    ).toBeInTheDocument();
+  });
+});
+
+// ── Pending tool-call status ───────────────────────────────────────
+//
+// While a tool call is mid-flight (state !== "output-available") and the
+// assistant message has no text yet, the UI shows a per-tool status line.
+describe("ChatFab — pending tool-call status", () => {
+  function toolMsg(id: string, toolType: string, state = "input-available") {
+    return {
+      id,
+      role: "assistant" as const,
+      parts: [{ type: toolType, state }],
+    };
+  }
+
+  async function openWith(messages: UseChatReturn["messages"]) {
+    const user = userEvent.setup();
+    useChatReturn = baseReturn({ messages });
+    render(<ChatFab />);
+    await user.click(
+      screen.getByRole("button", { name: "Open MakerLab assistant" })
+    );
+  }
+
+  it("shows the unit-lookup label for a pending get_unit_details call", async () => {
+    await openWith([
+      userMsg("u1", "is Prusa #1 ok?"),
+      toolMsg("a1", "tool-get_unit_details"),
+    ]);
+    expect(
+      screen.getByText("🔍 Looking up unit details…")
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText("Tool running")).toBeInTheDocument();
+  });
+
+  it("shows the ticket-filing label for a pending report_issue call", async () => {
+    await openWith([toolMsg("a1", "tool-report_issue")]);
+    expect(
+      screen.getByText("📝 Filing maintenance ticket…")
+    ).toBeInTheDocument();
+  });
+
+  it("shows a generic working label for any other pending tool", async () => {
+    await openWith([toolMsg("a1", "tool-web_fetch")]);
+    expect(screen.getByText("Working on it…")).toBeInTheDocument();
+  });
+});
+
+// ── Photo upload + attachment hint ─────────────────────────────────
+//
+// Selecting an image uploads it to /api/upload-notion, shows a removable
+// preview, and on submit appends a parseable [Attached photos: …] hint that
+// the chat route turns into report_issue photo_uploads.
+describe("ChatFab — photo uploads", () => {
+  let origCreate: typeof URL.createObjectURL;
+  let origRevoke: typeof URL.revokeObjectURL;
+
+  beforeEach(() => {
+    origCreate = URL.createObjectURL;
+    origRevoke = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn(() => "blob:preview");
+    URL.revokeObjectURL = vi.fn();
+  });
+
+  afterEach(() => {
+    URL.createObjectURL = origCreate;
+    URL.revokeObjectURL = origRevoke;
+    vi.unstubAllGlobals();
+  });
+
+  it("uploads an image and includes its file_upload hint in the sent message", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({ file_upload_id: "fu_123", name: "broken.png" }),
+          { status: 200, headers: { "content-type": "application/json" } }
+        )
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ChatFab />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Open MakerLab assistant" })
+    );
+
+    const fileInput = document.querySelector(
+      'input[type="file"]'
+    ) as HTMLInputElement;
+    const file = new File([new Uint8Array([1, 2, 3])], "broken.png", {
+      type: "image/png",
+    });
+    await user.upload(fileInput, file);
+
+    // Preview + remove control appear once the upload resolves.
+    expect(
+      await screen.findByRole("button", { name: "Remove broken.png" })
+    ).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/upload-notion",
+      expect.objectContaining({ method: "POST" })
+    );
+
+    const input = screen.getByRole("textbox", { name: "Ask the lab console" });
+    await user.type(input, "the printer is broken");
+    await user.click(screen.getByRole("button", { name: "Send" }));
+
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    const arg = sendMessage.mock.calls[0][0] as { text: string };
+    expect(arg.text).toContain("the printer is broken");
+    expect(arg.text).toContain(
+      "[Attached photos: file_upload_id=fu_123 name=broken.png]"
+    );
+  });
+
+  it("surfaces an upload error and does not add a preview", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ error: "File too large (max 18MB)" }), {
+          status: 400,
+          headers: { "content-type": "application/json" },
+        })
+    );
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ChatFab />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Open MakerLab assistant" })
+    );
+    const fileInput = document.querySelector(
+      'input[type="file"]'
+    ) as HTMLInputElement;
+    await user.upload(
+      fileInput,
+      new File([new Uint8Array([1])], "huge.png", { type: "image/png" })
+    );
+
+    expect(
+      await screen.findByText("File too large (max 18MB)")
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^Remove / })
+    ).not.toBeInTheDocument();
+  });
+});
