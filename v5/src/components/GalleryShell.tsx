@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { matchSorter } from "match-sorter";
 import type { MakerLabTool } from "./catalog-types";
@@ -82,6 +82,38 @@ export function GalleryShell({ tools }: GalleryShellProps) {
   }, []);
 
   const effectiveViewMode = isNarrow ? "grid" : viewMode;
+
+  // Close the open dropdown menus on an outside click or Escape, like a
+  // native <select>.
+  const categoryRef = useRef<HTMLDivElement>(null);
+  const materialsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!categoryOpen && !materialsOpen) {
+      return;
+    }
+    function handlePointerDown(event: MouseEvent) {
+      const target = event.target as Node;
+      if (categoryOpen && categoryRef.current && !categoryRef.current.contains(target)) {
+        setCategoryOpen(false);
+      }
+      if (materialsOpen && materialsRef.current && !materialsRef.current.contains(target)) {
+        setMaterialsOpen(false);
+      }
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setCategoryOpen(false);
+        setMaterialsOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [categoryOpen, materialsOpen]);
 
   const categories = useMemo(
     () => Array.from(new Set(tools.map((tool) => tool.category))).sort(),
@@ -249,7 +281,7 @@ export function GalleryShell({ tools }: GalleryShellProps) {
 
           <div className={filtersOpen ? "filter-row is-open" : "filter-row"} id="gallery-filter-controls">
             <div className="filter-controls">
-              <div className="filter-group filter-dropdown-group" role="group" aria-label={t("category")}>
+              <div className="filter-group filter-dropdown-group" role="group" aria-label={t("category")} ref={categoryRef}>
                 <span>{t("category")}</span>
                 <button
                   type="button"
@@ -270,28 +302,28 @@ export function GalleryShell({ tools }: GalleryShellProps) {
                 </button>
 
                 {categoryOpen ? (
-                  <div className="filter-dropdown-panel">
-                    <div className="filter-chip-options">
-                      {categories.map((categoryName) => {
-                        const active = selectedCategories.includes(categoryName);
-                        return (
-                          <button
-                            key={categoryName}
-                            type="button"
-                            className={active ? "filter-chip is-active" : "filter-chip"}
-                            aria-pressed={active}
-                            onClick={() => toggleCategory(categoryName)}
-                          >
-                            {categoryName}
-                          </button>
-                        );
-                      })}
-                    </div>
+                  <div className="filter-dropdown-panel" role="listbox" aria-multiselectable="true">
+                    {categories.map((categoryName) => {
+                      const active = selectedCategories.includes(categoryName);
+                      return (
+                        <button
+                          key={categoryName}
+                          type="button"
+                          role="option"
+                          aria-selected={active}
+                          className="filter-option"
+                          onClick={() => toggleCategory(categoryName)}
+                        >
+                          <span className="filter-option-check" aria-hidden="true">{active ? "✓" : ""}</span>
+                          <span>{categoryName}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 ) : null}
               </div>
 
-              <div className="filter-group filter-dropdown-group" role="group" aria-label={t("materials")}>
+              <div className="filter-group filter-dropdown-group" role="group" aria-label={t("materials")} ref={materialsRef}>
                 <span>{t("materials")}</span>
                 <button
                   type="button"
@@ -312,35 +344,35 @@ export function GalleryShell({ tools }: GalleryShellProps) {
                 </button>
 
                 {materialsOpen ? (
-                  <div className="filter-dropdown-panel">
+                  <div className="filter-dropdown-panel" role="listbox" aria-multiselectable="true">
                     {materialGroups.map((group) => {
                       const allSelected = group.items.every((value) => selectedMaterials.includes(value));
                       return (
-                        <div className="filter-material-group" key={group.label}>
+                        <div className="filter-menu-section" key={group.label}>
                           <button
                             type="button"
-                            className="filter-material-group-heading"
+                            className="filter-menu-section-head"
                             aria-pressed={allSelected}
                             onClick={() => toggleMaterialGroup(group.items, allSelected)}
                           >
                             {group.label}
                           </button>
-                          <div className="filter-chip-options">
-                            {group.items.map((materialName) => {
-                              const active = selectedMaterials.includes(materialName);
-                              return (
-                                <button
-                                  key={materialName}
-                                  type="button"
-                                  className={active ? "filter-chip is-active" : "filter-chip"}
-                                  aria-pressed={active}
-                                  onClick={() => toggleMaterial(materialName)}
-                                >
-                                  {materialName}
-                                </button>
-                              );
-                            })}
-                          </div>
+                          {group.items.map((materialName) => {
+                            const active = selectedMaterials.includes(materialName);
+                            return (
+                              <button
+                                key={materialName}
+                                type="button"
+                                role="option"
+                                aria-selected={active}
+                                className="filter-option"
+                                onClick={() => toggleMaterial(materialName)}
+                              >
+                                <span className="filter-option-check" aria-hidden="true">{active ? "✓" : ""}</span>
+                                <span>{materialName}</span>
+                              </button>
+                            );
+                          })}
                         </div>
                       );
                     })}
