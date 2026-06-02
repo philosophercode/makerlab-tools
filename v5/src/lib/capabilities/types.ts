@@ -81,6 +81,13 @@ export interface CapabilityTool<I = unknown, R = unknown> {
   inputSchema: z.ZodType<I>;
   /** "write" tools are only registered over MCP when `MCP_TOKEN` is set. */
   kind: CapabilityKind;
+  /**
+   * Optional. When true, the tool is exposed only on the chat surface and never
+   * registered over MCP. Use for chat-orchestration tools that have no meaning
+   * headlessly — e.g. tools that drive interactive cards or rely on the chat
+   * model's native web tools (intake's `research_tool` / `propose_listing`).
+   */
+  chatOnly?: boolean;
   /** Pure-ish: data in, structured data out. */
   run: (input: I, ctx: CapabilityCtx) => Promise<R>;
   /**

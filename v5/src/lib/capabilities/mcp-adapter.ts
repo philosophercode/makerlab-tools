@@ -72,6 +72,9 @@ export function registerAll(
 ): void {
   for (const capability of capabilities) {
     for (const tool of capability.tools) {
+      // Chat-only tools (interactive cards / chat-native web research) have no
+      // meaning headlessly and are never exposed over MCP.
+      if (tool.chatOnly) continue;
       if (tool.kind === "write" && !opts.allowWrites) continue;
       registerTool(server, tool);
     }

@@ -218,29 +218,32 @@ describe("JSON-RPC protocol", () => {
 // ── tools/call: list_tools ───────────────────────────────────────────
 
 describe("tools/call: list_tools", () => {
-  it("returns a 'Found N tools' summary of the whole catalog", async () => {
+  // The MCP adapter serializes each tool's structured result as pretty-printed
+  // JSON (design spec §3.3), so we parse and assert on the data shape.
+  it("returns a structured summary of the whole catalog", async () => {
     const { json } = await callTool("list_tools");
-    const text = resultText(json);
+    const parsed = JSON.parse(resultText(json));
     // mock-catalog has 2 tools (Form 4, Trotec Speedy 400).
-    expect(text).toMatch(/Found 2 tools/);
-    expect(text).toContain("Form 4");
-    expect(text).toContain("Trotec Speedy 400");
+    expect(parsed.count).toBe(2);
+    const names = parsed.tools.map((t: { name: string }) => t.name);
+    expect(names).toContain("Form 4");
+    expect(names).toContain("Trotec Speedy 400");
   });
 
   it("narrows results with a category filter", async () => {
     const { json } = await callTool("list_tools", { category: "laser" });
-    const text = resultText(json);
-    expect(text).toMatch(/Found 1 tools/);
-    expect(text).toContain("Trotec Speedy 400");
-    expect(text).not.toContain("Form 4 |");
+    const parsed = JSON.parse(resultText(json));
+    expect(parsed.count).toBe(1);
+    const names = parsed.tools.map((t: { name: string }) => t.name);
+    expect(names).toEqual(["Trotec Speedy 400"]);
   });
 
   it("narrows results with a location filter", async () => {
     const { json } = await callTool("list_tools", { location: "Resin" });
-    const text = resultText(json);
-    expect(text).toMatch(/Found 1 tools/);
-    expect(text).toContain("Form 4");
-    expect(text).not.toContain("Trotec Speedy 400");
+    const parsed = JSON.parse(resultText(json));
+    expect(parsed.count).toBe(1);
+    const names = parsed.tools.map((t: { name: string }) => t.name);
+    expect(names).toEqual(["Form 4"]);
   });
 });
 
@@ -249,15 +252,17 @@ describe("tools/call: list_tools", () => {
 describe("tools/call: search_tools", () => {
   it("returns matching tools on a hit", async () => {
     const { json } = await callTool("search_tools", { query: "resin" });
-    const text = resultText(json);
-    expect(text).toMatch(/Found 1 tools/);
-    expect(text).toContain("Form 4");
+    const parsed = JSON.parse(resultText(json));
+    expect(parsed.count).toBe(1);
+    expect(parsed.tools.map((t: { name: string }) => t.name)).toContain("Form 4");
   });
 
-  it("returns a 'No tools found matching' message on a miss", async () => {
+  it("returns an empty result set on a miss", async () => {
     const { json } = await callTool("search_tools", { query: "nonexistent-widget-xyz" });
-    const text = resultText(json);
-    expect(text).toMatch(/No tools found matching "nonexistent-widget-xyz"/);
+    const parsed = JSON.parse(resultText(json));
+    expect(parsed.query).toBe("nonexistent-widget-xyz");
+    expect(parsed.count).toBe(0);
+    expect(parsed.tools).toEqual([]);
   });
 });
 
@@ -283,11 +288,13 @@ describe("tools/call: get_tool_details", () => {
     expect(parsed.name).toBe("Trotec Speedy 400");
   });
 
-  it("returns isError:true for an unknown id", async () => {
+  it("returns a structured not-found result for an unknown id", async () => {
     const { json } = await callTool("get_tool_details", { id_or_name: "no-such-tool-id" });
-    expect(json.result.isError).toBe(true);
-    const text = resultText(json);
-    expect(text).toMatch(/Tool not found: no-such-tool-id/);
+    // Not-found is a normal structured result (found:false), not a tool error.
+    expect(json.result.isError).toBeFalsy();
+    const parsed = JSON.parse(resultText(json));
+    expect(parsed.found).toBe(false);
+    expect(parsed.message).toMatch(/Tool not found: no-such-tool-id/);
   });
 });
 
@@ -305,10 +312,11 @@ describe("tools/call: get_unit_details", () => {
     expect(parsed.maintenance_logs).toEqual([]);
   });
 
-  it("returns a 'No unit found' message for an unknown label", async () => {
+  it("returns a structured not-found result for an unknown label", async () => {
     const { json } = await callTool("get_unit_details", { unit_label: "no-such-unit-999" });
-    const text = resultText(json);
-    expect(text).toMatch(/No unit found matching "no-such-unit-999"/);
+    const parsed = JSON.parse(resultText(json));
+    expect(parsed.found).toBe(false);
+    expect(parsed.message).toMatch(/No unit found matching "no-such-unit-999"/);
   });
 });
 
@@ -345,21 +353,24 @@ describe("tools/call: get_maintenance_history", () => {
     expect(fetchLogsMock).toHaveBeenCalledWith("unit-form-4-a");
   });
 
-  it("returns 'No maintenance history' when the unit has no logs", async () => {
+  it("returns an empty log list when the unit has no logs", async () => {
     fetchLogsMock.mockResolvedValue([]);
     const { json } = await callTool("get_maintenance_history", {
       unit_label: "Form 4 // A",
     });
-    const text = resultText(json);
-    expect(text).toMatch(/No maintenance history for Form 4 \/\/ A/);
+    const parsed = JSON.parse(resultText(json));
+    expect(parsed.found).toBe(true);
+    expect(parsed.unit_label).toBe("Form 4 // A");
+    expect(parsed.maintenance_logs).toEqual([]);
   });
 
-  it("returns isError:true for an unknown unit label", async () => {
+  it("returns a structured not-found result for an unknown unit label", async () => {
     const { json } = await callTool("get_maintenance_history", {
       unit_label: "no-such-unit-999",
     });
-    expect(json.result.isError).toBe(true);
-    const text = resultText(json);
-    expect(text).toMatch(/No unit found matching "no-such-unit-999"/);
+    expect(json.result.isError).toBeFalsy();
+    const parsed = JSON.parse(resultText(json));
+    expect(parsed.found).toBe(false);
+    expect(parsed.message).toMatch(/No unit found matching "no-such-unit-999"/);
   });
 });

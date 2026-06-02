@@ -108,6 +108,9 @@ const researchTool: CapabilityTool<ResearchInput, ResearchResult> = {
     "Normalize a researched equipment candidate and check the catalog for duplicates. BEFORE calling this, use the native web_search / web_fetch tools (and any attached photos) to gather the canonical name, manufacturer, specs, materials, PPE, a manual PDF URL, and a setup video URL. Pass your best-effort ToolCandidate; this tool runs a catalog search on the name and returns the candidate annotated with duplicate_of when a strong existing match is found. Read-only — it writes nothing.",
   inputSchema: researchInputSchema,
   kind: "read",
+  // Relies on the chat model's native web_search/web_fetch + attached photos;
+  // has no meaning as a standalone headless MCP tool.
+  chatOnly: true,
   run: async ({ candidate }, ctx: CapabilityCtx): Promise<ResearchResult> => {
     // Carry through any image uploads attached to this chat turn so the eventual
     // create_tool can re-attach the same photos without re-uploading.
@@ -292,6 +295,8 @@ const proposeListing: CapabilityTool<ProposeInput, ProposeResult> = {
     "Show the user an identification card for each researched candidate so they can confirm before anything is written. This is the mandatory confirmation gate: ALWAYS call propose_listing and wait for an explicit user confirmation before create_tool. Pass multiple candidates to confirm a batch — each renders an independent card. When a candidate has a duplicate_of match, its card offers 'Add a unit to the existing tool' instead of creating a new tool. Read-only.",
   inputSchema: proposeInputSchema,
   kind: "read",
+  // Drives interactive identification cards in the chat UI; not an MCP tool.
+  chatOnly: true,
   run: async ({ candidates }): Promise<ProposeResult> => {
     return { candidates };
   },

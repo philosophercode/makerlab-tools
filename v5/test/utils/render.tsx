@@ -6,6 +6,7 @@ import {
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import enMessages from "../../messages/en.json";
+import { ChatLauncherProvider } from "../../src/components/ChatLauncherContext";
 
 type Messages = typeof enMessages;
 
@@ -32,7 +33,7 @@ export function render(
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <NextIntlClientProvider locale={locale} messages={messages}>
-        {children}
+        <ChatLauncherProvider>{children}</ChatLauncherProvider>
       </NextIntlClientProvider>
     );
   }

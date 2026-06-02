@@ -15,6 +15,7 @@ vi.mock("@ai-sdk/anthropic", () => {
     {
       tools: {
         webFetch_20250910: vi.fn(() => ({ type: "web_fetch_mock" })),
+        webSearch_20250305: vi.fn(() => ({ type: "web_search_mock" })),
       },
     }
   );
