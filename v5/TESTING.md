@@ -26,6 +26,7 @@ Shared infra lives in `test/` (MSW server + handlers, fixtures, mocks, the RTL
 ## How to run
 
 ```bash
+npm run test:all    # everything: lint + typecheck + vitest + playwright (one command)
 npm test            # vitest run — one-shot, runs unit + integration + component
 npm run test:watch  # vitest watch mode
 npm run test:coverage   # vitest run --coverage (v8 reporter: text + html)
@@ -146,16 +147,18 @@ directly. Also mock `@ai-sdk/anthropic`. The full verified snippet is in
 
 ## E2E notes
 
-- Playwright's `webServer` boots `npm run dev` with all `NOTION_*` vars set to
-  `""`, so `hasNotionCatalogEnv()` is false and the app serves the built-in mock
-  catalog (`src/components/mock-catalog.ts`) regardless of your dev shell's
-  environment. `testDir` is `./e2e`; `baseURL` is `http://localhost:3000`.
+- Playwright's `webServer` boots `npx next dev -p 3100` with all `NOTION_*` vars
+  set to `""`, so `hasNotionCatalogEnv()` is false and the app serves the
+  built-in mock catalog (`src/components/mock-catalog.ts`) regardless of your
+  dev shell's environment. `testDir` is `./e2e`; `baseURL` is
+  `http://localhost:3100`.
 - `/api/chat` is intercepted **inside each spec** at the network layer via
   `page.route()` returning a UI-message stream chunk — no real Anthropic call.
-- `reuseExistingServer: true` (when not in CI) means an already-running dev
-  server on port 3000 is reused instead of starting a fresh one; in CI a new
-  server is always spawned. If you have a stale dev server with the wrong env,
-  stop it so Playwright boots its own with Notion unset.
+- `reuseExistingServer: false` — Playwright **always** boots its own fresh
+  mock-backed server on the dedicated port 3100. This means E2E never collides
+  with (or accidentally reuses) a `next dev` you have running on the default
+  port 3000 against real Notion, so results are deterministic no matter what you
+  have running locally. Port 3000 is left untouched.
 
 ## Coverage
 

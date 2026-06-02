@@ -13,6 +13,7 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
+    "test:all": "npm run lint && npm run typecheck && npm run test && npm run test:e2e",
     "migrate:resources": "node --env-file=.env.local --experimental-strip-types scripts/migrate-tools-to-resources.ts",
     "drop:deprecated-columns": "node --env-file=.env.local --experimental-strip-types scripts/drop-deprecated-notion-columns.ts",
     "clear:migration-notes": "node --env-file=.env.local --experimental-strip-types scripts/clear-resource-migration-notes.ts"

@@ -14,7 +14,10 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? "github" : "list",
   use: {
-    baseURL: "http://localhost:3000",
+    // Dedicated test port (not 3000) so the suite never collides with — or
+    // accidentally reuses — a `next dev` you have running locally against real
+    // Notion. The webServer below always boots its own mock-backed instance.
+    baseURL: "http://localhost:3100",
     trace: "on-first-retry",
   },
   projects: [
@@ -24,9 +27,11 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
+    command: "npx next dev -p 3100",
+    url: "http://localhost:3100",
+    // Always boot a fresh mock-backed server; never reuse whatever is on the
+    // port. Keeps E2E deterministic regardless of the local dev environment.
+    reuseExistingServer: false,
     timeout: 120_000,
     // Unset Notion env so the app serves the mock catalog. Spreading
     // process.env first, then overwriting with "" makes hasNotionCatalogEnv()
