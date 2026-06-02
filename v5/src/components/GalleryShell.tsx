@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { matchSorter } from "match-sorter";
 import type { MakerLabTool } from "./catalog-types";
@@ -52,6 +52,19 @@ export function GalleryShell({ tools }: GalleryShellProps) {
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [sort, setSort] = useState<SortState | null>(null);
+  // The table is a dense desktop view; on phones it degrades to an oversized
+  // card stack, so we force the grid (and hide the toggle) below this width.
+  const [isNarrow, setIsNarrow] = useState(false);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 860px)");
+    const update = () => setIsNarrow(mediaQuery.matches);
+    update();
+    mediaQuery.addEventListener("change", update);
+    return () => mediaQuery.removeEventListener("change", update);
+  }, []);
+
+  const effectiveViewMode = isNarrow ? "grid" : viewMode;
 
   const categories = useMemo(
     () => Array.from(new Set(tools.map((tool) => tool.category))).sort(),
@@ -249,9 +262,9 @@ export function GalleryShell({ tools }: GalleryShellProps) {
         </TechnicalFrame>
       </section>
 
-      <section className={viewMode === "grid" ? "tool-grid" : "tool-table"} aria-label={t("toolGalleryLabel")}>
+      <section className={effectiveViewMode === "grid" ? "tool-grid" : "tool-table"} aria-label={t("toolGalleryLabel")}>
         {filteredTools.length > 0 ? (
-          viewMode === "grid" ? (
+          effectiveViewMode === "grid" ? (
             filteredTools.map((tool) => <ToolCard key={tool.id} tool={tool} />)
           ) : (
             <>

@@ -1743,6 +1743,12 @@ p {
     min-width: 112px;
   }
 
+  /* Grid is forced on mobile (see GalleryShell), so the view switcher has
+     nothing to toggle — hide it and let Filters own the toolbar row. */
+  .view-toggle {
+    display: none;
+  }
+
   .filter-row {
     display: none;
     grid-column: 1;
