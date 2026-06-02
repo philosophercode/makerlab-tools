@@ -41,6 +41,21 @@ const TABLE_COLUMNS: ReadonlyArray<{ key: SortKey; labelKey: string }> = [
   { key: "trainingLevel", labelKey: "columnTraining" },
 ];
 
+// The catalog stores materials as a flat list with no type, so the grouping
+// for the Materials dropdown is defined here. Matching is case-insensitive;
+// anything not listed falls into "Other". Order here is the display order.
+const MATERIAL_GROUPS: ReadonlyArray<{ label: string; values: string[] }> = [
+  {
+    label: "Plastics & Polymers",
+    values: ["ABS", "Acrylic", "Composite", "Nylon", "PETG", "PLA", "Plastic", "Polycarbonate", "PVC", "Resin", "TPU", "Vinyl"],
+  },
+  { label: "Wood", values: ["Hardwood", "Softwood", "Plywood", "MDF", "Veneer", "Laminate", "Wood"] },
+  { label: "Metal", values: ["Aluminum", "Brass", "Copper", "Steel"] },
+  { label: "Other", values: ["Cardboard", "Ceramic", "Fabric", "Foam", "Glass", "Leather", "Paper", "Rubber"] },
+];
+
+const OTHER_GROUP_LABEL = "Other";
+
 export function GalleryShell({ tools }: GalleryShellProps) {
   const t = useTranslations("gallery");
   const [query, setQuery] = useState("");
@@ -51,6 +66,7 @@ export function GalleryShell({ tools }: GalleryShellProps) {
   const [location, setLocation] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [materialsOpen, setMaterialsOpen] = useState(false);
   const [sort, setSort] = useState<SortState | null>(null);
   // The table is a dense desktop view; on phones it degrades to an oversized
   // card stack, so we force the grid (and hide the toggle) below this width.
@@ -81,6 +97,28 @@ export function GalleryShell({ tools }: GalleryShellProps) {
     () => Array.from(new Set(tools.map((tool) => tool.location).filter(Boolean))).sort(),
     [tools]
   );
+
+  // Bucket the catalog's materials into the MATERIAL_GROUPS taxonomy for the
+  // grouped dropdown. Unknown values land in "Other"; empty groups are dropped.
+  const materialGroups = useMemo(() => {
+    const labelByValue = new Map<string, string>();
+    MATERIAL_GROUPS.forEach((group) =>
+      group.values.forEach((value) => labelByValue.set(value.toLowerCase(), group.label))
+    );
+
+    const itemsByLabel = new Map<string, string[]>();
+    materials.forEach((material) => {
+      const label = labelByValue.get(material.toLowerCase()) ?? OTHER_GROUP_LABEL;
+      const bucket = itemsByLabel.get(label) ?? [];
+      bucket.push(material);
+      itemsByLabel.set(label, bucket);
+    });
+
+    return MATERIAL_GROUPS.map((group) => ({
+      label: group.label,
+      items: itemsByLabel.get(group.label) ?? [],
+    })).filter((group) => group.items.length > 0);
+  }, [materials]);
 
   const filteredTools = useMemo(() => {
     // Apply facet filters first. Within a multi-select facet the values OR
@@ -130,6 +168,18 @@ export function GalleryShell({ tools }: GalleryShellProps) {
     setSelectedMaterials((prev) =>
       prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]
     );
+  }
+
+  // Clicking a type heading selects every material in that group, or clears
+  // them all if they're already selected.
+  function toggleMaterialGroup(items: string[], allSelected: boolean) {
+    setSelectedMaterials((prev) => {
+      if (allSelected) {
+        const toRemove = new Set(items);
+        return prev.filter((item) => !toRemove.has(item));
+      }
+      return Array.from(new Set([...prev, ...items]));
+    });
   }
 
   function clearFilters() {
@@ -218,24 +268,61 @@ export function GalleryShell({ tools }: GalleryShellProps) {
                 </div>
               </div>
 
-              <div className="filter-group filter-chip-group" role="group" aria-label={t("materials")}>
+              <div className="filter-group filter-dropdown-group" role="group" aria-label={t("materials")}>
                 <span>{t("materials")}</span>
-                <div className="filter-chip-options">
-                  {materials.map((materialName) => {
-                    const active = selectedMaterials.includes(materialName);
-                    return (
-                      <button
-                        key={materialName}
-                        type="button"
-                        className={active ? "filter-chip is-active" : "filter-chip"}
-                        aria-pressed={active}
-                        onClick={() => toggleMaterial(materialName)}
-                      >
-                        {materialName}
-                      </button>
-                    );
-                  })}
-                </div>
+                <button
+                  type="button"
+                  className={
+                    materialsOpen || selectedMaterials.length > 0
+                      ? "filter-dropdown-toggle is-active"
+                      : "filter-dropdown-toggle"
+                  }
+                  aria-expanded={materialsOpen}
+                  onClick={() => setMaterialsOpen((open) => !open)}
+                >
+                  <span>
+                    {selectedMaterials.length > 0 ? `${selectedMaterials.length} selected` : "All materials"}
+                  </span>
+                  <span className="filter-dropdown-caret" aria-hidden="true">
+                    {materialsOpen ? "▲" : "▼"}
+                  </span>
+                </button>
+
+                {materialsOpen ? (
+                  <div className="filter-dropdown-panel">
+                    {materialGroups.map((group) => {
+                      const allSelected = group.items.every((value) => selectedMaterials.includes(value));
+                      return (
+                        <div className="filter-material-group" key={group.label}>
+                          <button
+                            type="button"
+                            className="filter-material-group-heading"
+                            aria-pressed={allSelected}
+                            onClick={() => toggleMaterialGroup(group.items, allSelected)}
+                          >
+                            {group.label}
+                          </button>
+                          <div className="filter-chip-options">
+                            {group.items.map((materialName) => {
+                              const active = selectedMaterials.includes(materialName);
+                              return (
+                                <button
+                                  key={materialName}
+                                  type="button"
+                                  className={active ? "filter-chip is-active" : "filter-chip"}
+                                  aria-pressed={active}
+                                  onClick={() => toggleMaterial(materialName)}
+                                >
+                                  {materialName}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : null}
               </div>
 
               <label className="filter-group filter-select-group">

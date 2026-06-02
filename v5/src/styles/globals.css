@@ -570,6 +570,77 @@ p {
   cursor: pointer;
 }
 
+/* Materials is a collapsible dropdown whose panel groups the chips by type. */
+.filter-dropdown-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  max-width: 320px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container);
+  color: var(--on-surface);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: border-color 160ms ease-in;
+}
+
+.filter-dropdown-toggle:hover,
+.filter-dropdown-toggle.is-active {
+  border-color: var(--primary);
+}
+
+.filter-dropdown-caret {
+  font-size: 8px;
+  color: var(--on-surface-muted);
+}
+
+.filter-dropdown-panel {
+  display: grid;
+  gap: 16px;
+  margin-top: 8px;
+  padding: 14px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container-low);
+}
+
+.filter-material-group {
+  display: grid;
+  gap: 8px;
+}
+
+.filter-material-group-heading {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 160ms ease-in;
+}
+
+.filter-material-group-heading::before {
+  content: "+ ";
+}
+
+.filter-material-group-heading[aria-pressed="true"]::before {
+  content: "− ";
+}
+
+.filter-material-group-heading:hover,
+.filter-material-group-heading[aria-pressed="true"] {
+  color: var(--primary);
+}
+
 .chip-row,
 .detail-actions,
 .ppe-list {
