@@ -66,6 +66,7 @@ export function GalleryShell({ tools }: GalleryShellProps) {
   const [location, setLocation] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [categoryOpen, setCategoryOpen] = useState(false);
   const [materialsOpen, setMaterialsOpen] = useState(false);
   const [sort, setSort] = useState<SortState | null>(null);
   // The table is a dense desktop view; on phones it degrades to an oversized
@@ -248,24 +249,46 @@ export function GalleryShell({ tools }: GalleryShellProps) {
 
           <div className={filtersOpen ? "filter-row is-open" : "filter-row"} id="gallery-filter-controls">
             <div className="filter-controls">
-              <div className="filter-group filter-chip-group" role="group" aria-label={t("category")}>
+              <div className="filter-group filter-dropdown-group" role="group" aria-label={t("category")}>
                 <span>{t("category")}</span>
-                <div className="filter-chip-options">
-                  {categories.map((categoryName) => {
-                    const active = selectedCategories.includes(categoryName);
-                    return (
-                      <button
-                        key={categoryName}
-                        type="button"
-                        className={active ? "filter-chip is-active" : "filter-chip"}
-                        aria-pressed={active}
-                        onClick={() => toggleCategory(categoryName)}
-                      >
-                        {categoryName}
-                      </button>
-                    );
-                  })}
-                </div>
+                <button
+                  type="button"
+                  className={
+                    categoryOpen || selectedCategories.length > 0
+                      ? "filter-dropdown-toggle is-active"
+                      : "filter-dropdown-toggle"
+                  }
+                  aria-expanded={categoryOpen}
+                  onClick={() => setCategoryOpen((open) => !open)}
+                >
+                  <span>
+                    {selectedCategories.length > 0 ? `${selectedCategories.length} selected` : "All categories"}
+                  </span>
+                  <span className="filter-dropdown-caret" aria-hidden="true">
+                    {categoryOpen ? "▲" : "▼"}
+                  </span>
+                </button>
+
+                {categoryOpen ? (
+                  <div className="filter-dropdown-panel">
+                    <div className="filter-chip-options">
+                      {categories.map((categoryName) => {
+                        const active = selectedCategories.includes(categoryName);
+                        return (
+                          <button
+                            key={categoryName}
+                            type="button"
+                            className={active ? "filter-chip is-active" : "filter-chip"}
+                            aria-pressed={active}
+                            onClick={() => toggleCategory(categoryName)}
+                          >
+                            {categoryName}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               <div className="filter-group filter-dropdown-group" role="group" aria-label={t("materials")}>
