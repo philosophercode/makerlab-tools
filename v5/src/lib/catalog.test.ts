@@ -421,27 +421,31 @@ describe("resourceLinks (via Notion path)", () => {
     expect(pngLink).toBeDefined();
   });
 
-  it("excludes resources where published === false", async () => {
+  it("includes a resource even when published === false (gated by its tool's visibility)", async () => {
+    // Resources are created as drafts alongside the tool; tool-level publishing
+    // already gates the catalog, so a tool's links show with it regardless of
+    // the resource's own published flag.
     stubNotionEnv();
-    const unpublished: NotionPageFixture = {
+    const draftResource: NotionPageFixture = {
       object: "page",
-      id: "res-unpublished",
+      id: "res-draft",
       created_time: "2024-08-12T10:00:00.000Z",
       last_edited_time: "2024-08-12T10:00:00.000Z",
       properties: {
-        title: titleProp("Hidden SOP"),
+        title: titleProp("Draft SOP"),
         tool: relationProp(["tool-1"]),
         type: selectProp("SOP"),
-        url: urlProp("https://example.com/hidden"),
+        url: urlProp("https://example.com/draft-sop"),
         files: filesProp([]),
         published: checkboxProp(false),
       },
     };
-    routeCatalog({ resources: [unpublished] });
+    routeCatalog({ resources: [draftResource] });
     const { getCatalogTool } = await importCatalog();
 
     const tool = await getCatalogTool("tool-1");
-    expect(tool!.links).toEqual([]);
+    expect(tool!.links).toHaveLength(1);
+    expect(tool!.links[0].href).toBe("https://example.com/draft-sop");
   });
 
   it("emits only file links when a resource has files but no url", async () => {
