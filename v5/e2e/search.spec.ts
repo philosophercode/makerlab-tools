@@ -45,12 +45,14 @@ test.describe("Search and filter", () => {
     ).toHaveCount(0);
   });
 
-  test("a category facet chip filters the grid", async ({ page }) => {
+  test("a category facet filters the grid", async ({ page }) => {
     await page.goto("/");
 
-    // Category chips are buttons labelled with the category name. Selecting
-    // "Laser" should keep Trotec and drop Form 4.
-    await page.getByRole("button", { name: "Laser", exact: true }).click();
+    // Categories live in a collapsible listbox (see GalleryShell): a toggle
+    // button opens the panel, and each category is an `option` inside it.
+    // Selecting "Laser" should keep Trotec and drop Form 4.
+    await page.getByRole("button", { name: /categor/i }).first().click();
+    await page.getByRole("option", { name: "Laser", exact: true }).click();
 
     await expect(
       page.getByRole("heading", { name: "Trotec Speedy 400", level: 2 })

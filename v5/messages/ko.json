@@ -13,12 +13,13 @@
     "themeToggleTitle": "색상 테마 전환",
     "languageLabel": "언어",
     "languageSelectorAria": "언어 선택",
-    "report": "신고",
-    "reportAria": "문제 신고",
-    "reportSeed": "문제를 신고하고 싶어요.",
     "add": "추가",
     "addAria": "재고에 새 장비 추가",
-    "addSeed": "재고에 새 장비를 추가하고 싶어요."
+    "addSeed": "재고에 새 장비를 추가하고 싶어요.",
+    "signIn": "로그인",
+    "signInAria": "{institution} 계정으로 로그인",
+    "signOut": "로그아웃",
+    "signedInAria": "{name}(으)로 로그인됨"
   },
   "status": {
     "labStatusLabel": "랩 상태",
@@ -87,7 +88,7 @@
   },
   "projects": {
     "title": "학생 프로젝트",
-    "lede": "MakerLab 커뮤니티의 작품, 실험, 수업 결과물.",
+    "lede": "{institution} 커뮤니티의 작품, 실험, 수업 결과물.",
     "galleryLabel": "학생 프로젝트 갤러리",
     "submit": "프로젝트 제출",
     "by": "{author} 작성",
@@ -105,7 +106,7 @@
   "projectForm": {
     "eyebrow": "프로젝트 제출",
     "title": "프로젝트를 공유하세요",
-    "lede": "무엇을 만들었는지 MakerLab 커뮤니티에 알려주세요. 제출물은 갤러리에 게시되기 전에 검토됩니다.",
+    "lede": "무엇을 만들었는지 {institution} 커뮤니티에 알려주세요. 제출물은 갤러리에 게시되기 전에 검토됩니다.",
     "breadcrumbProjects": "프로젝트",
     "breadcrumbNew": "제출",
     "titleLabel": "프로젝트 제목",
@@ -173,6 +174,75 @@
     "error": "문제가 발생했습니다. 다시 시도하세요.",
     "lookingUpUnit": "🔍 장치 세부 정보 조회 중…",
     "filingTicket": "📝 유지보수 티켓 등록 중…",
-    "working": "처리 중…"
+    "working": "처리 중…",
+    "rateLimitSignIn": "로그인하지 않은 방문자의 메시지 한도에 도달했습니다. {institution} 계정으로 로그인하면 대화를 계속할 수 있습니다. 카탈로그 둘러보기는 어느 쪽이든 계속 열려 있습니다.",
+    "rateLimitSignInCta": "로그인",
+    "rateLimited": "시간당 메시지 한도에 도달했습니다. 잠시 후 다시 시도해 주세요."
+  },
+  "qr": {
+    "arrivalLabel": "이 장비에서 스캔함",
+    "arrivalEyebrow": "장비 앞에서 스캔함",
+    "arrivalTitle": "{tool}에 대해 물어보기",
+    "arrivalBody": "이 장비의 코드를 스캔했습니다. 어시스턴트가 장비에 대한 질문에 답하고, 설정을 안내하고, 정비 요청을 접수할 수 있습니다.",
+    "arrivalAction": "이 장비에 대해 물어보기",
+    "arrivalSeed": "{tool} 앞에 있는데 이 장비에 대해 질문이 있습니다.",
+    "sheetTitle": "QR 라벨",
+    "sheetSubtitle": "스티커 용지에 인쇄해 잘라낸 뒤 각 장비에 한 장씩 붙이세요.",
+    "labelCta": "도움이 필요하면 스캔하세요",
+    "sheetEmpty": "라벨을 만들 게시된 장비가 없습니다."
+  },
+  "intake": {
+    "confidenceHigh": "높은 신뢰도",
+    "confidenceMedium": "확인 필요",
+    "confidenceLow": "낮은 신뢰도",
+    "confidenceHeldAria": "확인됨",
+    "confidenceUnknownAria": "알 수 없음",
+    "confidenceSources": "출처",
+    "basisUserStatedModel": "제조사와 모델을 직접 알려주셨습니다",
+    "basisModelPlateRead": "모델 명판에 “{plate}”라고 표시됨",
+    "basisManufacturerPage": "제조사 또는 판매처 페이지를 확인함",
+    "basisManual": "설명서를 찾음",
+    "basisSpecsFromSource": "사양을 확인한 페이지에서 가져옴",
+    "unknownModel": "모델 번호를 읽을 수 없습니다 — 라벨 사진이 있으면 확인됩니다",
+    "unknownCategory": "장비의 대략적인 종류만 확인할 수 있었습니다",
+    "unknownSource": "대조할 제조사 페이지나 설명서를 찾지 못했습니다",
+    "unknownManual": "설명서를 찾지 못했습니다",
+    "unknownSpecs": "사양이 확인한 페이지로 검증되지 않았습니다"
+  },
+  "flag": {
+    "eyebrow": "카탈로그 피드백",
+    "trigger": "잘못된 정보 신고",
+    "title": "잘못된 정보 신고",
+    "lede": "어떤 항목이 잘못됐는지 알려주세요. 담당자가 Notion에서 검토합니다.",
+    "fieldLabel": "어떤 항목이 잘못됐나요?",
+    "descriptionLabel": "무엇이 잘못됐나요?",
+    "descriptionPlaceholder": "출력 크기가 220mm로 되어 있지만 실제로는 256mm입니다.",
+    "suggestionLabel": "올바른 내용은 무엇인가요? (선택)",
+    "nameLabel": "이름 (선택)",
+    "submit": "신고 보내기",
+    "submitting": "보내는 중…",
+    "cancel": "취소",
+    "close": "닫기",
+    "sentTitle": "신고를 보냈습니다",
+    "sentBody": "감사합니다. 담당자가 검토합니다. 답장은 드리지 않습니다.",
+    "errorInvalid": "보내기 전에 무엇이 잘못됐는지 적어주세요.",
+    "errorRateLimited": "이 기기에서 신고가 너무 많습니다. 한 시간 뒤에 다시 시도해 주세요.",
+    "errorFailed": "신고를 보내지 못했습니다. 입력한 내용은 그대로 있습니다. 다시 시도해 주세요.",
+    "fields": {
+      "description": "설명",
+      "image": "사진",
+      "name": "이름",
+      "category": "카테고리",
+      "location": "위치",
+      "materials": "재료",
+      "safety_info": "안전 정보"
+    }
+  },
+  "auth": {
+    "eyebrow": "로그인",
+    "title": "이 계정은 {institution} 계정이 아닙니다",
+    "body": "{site}은(는) {institution} 계정으로만 로그인할 수 있어 이 계정은 사용할 수 없습니다.",
+    "stillWorks": "잠긴 것은 없습니다. 로그인하지 않아도 전체 카탈로그를 둘러보고 어시스턴트에게 질문할 수 있습니다. 로그인하면 시간당 메시지 한도가 늘어나고 제출한 내용에 확인된 이름이 기록됩니다.",
+    "browseTools": "카탈로그 둘러보기"
   }
 }

@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
-import { getClientIp, rateLimitAsync } from "../../../lib/rate-limit";
+import { rateLimitAsync } from "../../../lib/rate-limit";
+import { resolveIdentity } from "../../../lib/auth/identity";
 
 const NOTION_API = "https://api.notion.com/v1";
 // file_uploads requires a newer Notion-Version than the catalog reads use.
@@ -18,8 +19,8 @@ interface CreateFileUploadResponse {
 
 export async function POST(req: NextRequest) {
   // Rate limit before any expensive work (Notion upload session / byte transfer).
-  const ip = getClientIp(req);
-  const { allowed } = await rateLimitAsync(`upload:${ip}`, {
+  const identity = await resolveIdentity(req);
+  const { allowed } = await rateLimitAsync(`upload:${identity.rateLimitKey}`, {
     limit: 15,
     windowMs: 60_000,
   });

@@ -1,0 +1,28 @@
+# Finds the right machine from a natural request.
+#
+# The fixture catalog has exactly two machines — Form 4 (resin printer) and
+# Trotec Speedy 400 (CO2 laser) — so "the right answer" is unambiguous.
+
+- id: laser-by-capability
+  prompt: "I need to cut a sheet of 3mm acrylic for a class project. What should I use?"
+  context: { page: gallery }
+  assert:
+    - kind: mentions_tool
+      value: "Trotec Speedy 400"
+    - kind: no_unknown_tools
+
+- id: resin-printer-by-capability
+  prompt: "I need a really smooth, high-detail miniature for a design review. Which printer should I use?"
+  context: { page: gallery }
+  assert:
+    - kind: mentions_tool
+      value: "Form 4"
+    - kind: no_unknown_tools
+
+- id: full-catalog-listing
+  prompt: "What machines does the lab have?"
+  context: { page: gallery }
+  assert:
+    - kind: contains_all
+      value: ["Form 4", "Trotec Speedy 400"]
+    - kind: no_unknown_tools

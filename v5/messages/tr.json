@@ -13,12 +13,13 @@
     "themeToggleTitle": "Renk temasını değiştir",
     "languageLabel": "Dil",
     "languageSelectorAria": "Dil seç",
-    "report": "BİLDİR",
-    "reportAria": "Sorun bildir",
-    "reportSeed": "Bir sorun bildirmek istiyorum.",
     "add": "EKLE",
     "addAria": "Envantere yeni ekipman ekle",
-    "addSeed": "Envantere yeni ekipman eklemek istiyorum."
+    "addSeed": "Envantere yeni ekipman eklemek istiyorum.",
+    "signIn": "OTURUM AÇ",
+    "signInAria": "{institution} hesabınızla oturum açın",
+    "signOut": "OTURUMU KAPAT",
+    "signedInAria": "{name} olarak oturum açıldı"
   },
   "status": {
     "labStatusLabel": "Laboratuvar durumu",
@@ -87,7 +88,7 @@
   },
   "projects": {
     "title": "ÖĞRENCİ PROJELERİ",
-    "lede": "MakerLab topluluğundan yapımlar, denemeler ve ders çıktıları.",
+    "lede": "{institution} topluluğundan yapımlar, denemeler ve ders çıktıları.",
     "galleryLabel": "Öğrenci projeleri galerisi",
     "submit": "Proje gönder",
     "by": "{author} tarafından",
@@ -105,7 +106,7 @@
   "projectForm": {
     "eyebrow": "Proje gönder",
     "title": "Projeni paylaş",
-    "lede": "MakerLab topluluğuna ne yaptığını anlat. Gönderiler galeride görünmeden önce incelenir.",
+    "lede": "{institution} topluluğuna ne yaptığını anlat. Gönderiler galeride görünmeden önce incelenir.",
     "breadcrumbProjects": "Projeler",
     "breadcrumbNew": "Gönder",
     "titleLabel": "Proje başlığı",
@@ -173,6 +174,75 @@
     "error": "Bir şeyler ters gitti. Tekrar deneyin.",
     "lookingUpUnit": "🔍 Birim ayrıntıları aranıyor…",
     "filingTicket": "📝 Bakım talebi oluşturuluyor…",
-    "working": "Üzerinde çalışılıyor…"
+    "working": "Üzerinde çalışılıyor…",
+    "rateLimitSignIn": "Oturum açmamış ziyaretçiler için mesaj sınırına ulaştınız. Sohbete devam etmek için {institution} hesabınızla oturum açın — katalogda gezinmek her durumda açık kalır.",
+    "rateLimitSignInCta": "Oturum aç",
+    "rateLimited": "Saatlik mesaj sınırına ulaştınız. Lütfen biraz sonra tekrar deneyin."
+  },
+  "qr": {
+    "arrivalLabel": "Bu makineden tarandı",
+    "arrivalEyebrow": "Makinenin başında tarandı",
+    "arrivalTitle": "{tool} hakkında soru sor",
+    "arrivalBody": "Bu makinedeki kodu taradınız. Asistan makineyle ilgili sorularınızı yanıtlayabilir, kurulumda yol gösterebilir veya bakım kaydı açabilir.",
+    "arrivalAction": "Bu makine hakkında sor",
+    "arrivalSeed": "{tool} başındayım ve bu makineyle ilgili bir sorum var.",
+    "sheetTitle": "QR etiketleri",
+    "sheetSubtitle": "Etiket kağıdına yazdırın, kesin ve her makineye bir etiket yapıştırın.",
+    "labelCta": "Yardım için tarayın",
+    "sheetEmpty": "Etiketlenecek yayımlanmış alet yok."
+  },
+  "intake": {
+    "confidenceHigh": "Yüksek güven",
+    "confidenceMedium": "Onay gerekiyor",
+    "confidenceLow": "Düşük güven",
+    "confidenceHeldAria": "Doğrulandı",
+    "confidenceUnknownAria": "Bilinmiyor",
+    "confidenceSources": "Kaynaklar",
+    "basisUserStatedModel": "Marka ve modeli siz belirttiniz",
+    "basisModelPlateRead": "Model etiketinde “{plate}” yazıyor",
+    "basisManufacturerPage": "Üretici veya satıcı sayfası okundu",
+    "basisManual": "Kılavuz bulundu",
+    "basisSpecsFromSource": "Teknik özellikler okunan bir sayfadan alındı",
+    "unknownModel": "Model numarası okunamadı — etiketin fotoğrafı bunu çözer",
+    "unknownCategory": "Yalnızca ekipmanın genel türü belirlenebildi",
+    "unknownSource": "Karşılaştırmak için üretici sayfası veya kılavuz bulunamadı",
+    "unknownManual": "Kılavuz bulunamadı",
+    "unknownSpecs": "Teknik özellikler okunan bir sayfayla doğrulanmadı"
+  },
+  "flag": {
+    "eyebrow": "KATALOG GERİ BİLDİRİMİ",
+    "trigger": "Bir hatayı bildir",
+    "title": "Bir hatayı bildir",
+    "lede": "Hangi alanın yanlış olduğunu yazın; ekip Notion'da inceleyecek.",
+    "fieldLabel": "Hangi alan yanlış?",
+    "descriptionLabel": "Ne yanlış?",
+    "descriptionPlaceholder": "Baskı hacmi 220 mm yazıyor ama 256 mm.",
+    "suggestionLabel": "Ne yazmalı? (isteğe bağlı)",
+    "nameLabel": "Adınız (isteğe bağlı)",
+    "submit": "Bildirimi gönder",
+    "submitting": "Gönderiliyor…",
+    "cancel": "İptal",
+    "close": "Kapat",
+    "sentTitle": "Bildirim gönderildi",
+    "sentBody": "Teşekkürler — ekip inceleyecek. Size yanıt gönderilmeyecek.",
+    "errorInvalid": "Göndermeden önce neyin yanlış olduğunu yazın.",
+    "errorRateLimited": "Bu cihazdan çok fazla bildirim geldi. Bir saat sonra tekrar deneyin.",
+    "errorFailed": "Bildirim gönderilemedi. Yazdıklarınız duruyor — tekrar deneyin.",
+    "fields": {
+      "description": "Açıklama",
+      "image": "Fotoğraf",
+      "name": "Ad",
+      "category": "Kategori",
+      "location": "Konum",
+      "materials": "Malzemeler",
+      "safety_info": "Güvenlik bilgileri"
+    }
+  },
+  "auth": {
+    "eyebrow": "Oturum açma",
+    "title": "Bu hesap bir {institution} hesabı değil",
+    "body": "{site} yalnızca {institution} hesaplarıyla oturum açar, bu yüzden bu hesap kullanılamaz.",
+    "stillWorks": "Hiçbir şey kilitli değil. Oturum açmadan katalogun tamamına göz atabilir ve asistana soru sorabilirsiniz; oturum açmak yalnızca saatlik mesaj sınırını yükseltir ve gönderdiklerinize doğrulanmış adınızı ekler.",
+    "browseTools": "Kataloga göz at"
   }
 }

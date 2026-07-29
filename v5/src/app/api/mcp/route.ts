@@ -2,7 +2,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
 import { CAPABILITIES } from "../../../lib/capabilities";
 import { registerAll } from "../../../lib/capabilities/mcp-adapter";
-import { getClientIp, rateLimitAsync } from "../../../lib/rate-limit";
+import { rateLimitAsync } from "../../../lib/rate-limit";
+import { resolveIdentity } from "../../../lib/auth/identity";
 
 // ── Server factory ─────────────────────────────────────────────────
 
@@ -42,9 +43,13 @@ async function handler(req: Request): Promise<Response> {
     }
   }
 
-  // Always rate-limit by IP.
-  const ip = getClientIp(req);
-  const { allowed } = await rateLimitAsync(`mcp:${ip}`, { limit: 30, windowMs: 60_000 });
+  // Always rate-limit. MCP callers are machines with a bearer token rather than
+  // a session cookie, so in practice this resolves to the hashed-IP key.
+  const identity = await resolveIdentity(req);
+  const { allowed } = await rateLimitAsync(`mcp:${identity.rateLimitKey}`, {
+    limit: 30,
+    windowMs: 60_000,
+  });
   if (!allowed) {
     return Response.json(
       {

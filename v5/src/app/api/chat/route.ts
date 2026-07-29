@@ -16,12 +16,18 @@ import { getCatalogTool, getCatalogTools } from "../../../lib/catalog";
 import { fetchAllResources } from "../../../lib/notion";
 import type { MakerLabTool } from "../../../components/catalog-types";
 import type { ResourceRecord } from "../../../lib/types";
-import { getClientIp, rateLimitAsync } from "../../../lib/rate-limit";
+import { checkRateLimit, type RateLimitDecision } from "../../../lib/rate-limit";
+import { resolveIdentity } from "../../../lib/auth/identity";
+import { siteConfig } from "../../../lib/site-config";
+import { chatModel } from "../../../lib/model";
 import { CAPABILITIES, composeChat } from "../../../lib/capabilities";
 import type {
   CapabilityCtx,
   UploadedImage,
 } from "../../../lib/capabilities";
+
+/** Where the "sign in to keep chatting" affordance points. */
+const SIGN_IN_PATH = "/api/auth/sign-in/google";
 
 const MAX_PDFS_PER_CHAT = 3;
 const MAX_PDF_BYTES = 10 * 1024 * 1024; // 10MB ceiling
@@ -43,17 +49,14 @@ interface ChatRequest {
 }
 
 export async function POST(req: Request) {
-  // Rate limit before any expensive work (Notion fetch / model call).
-  const ip = getClientIp(req);
-  const { allowed } = await rateLimitAsync(`chat:${ip}`, {
-    limit: 20,
-    windowMs: 60_000,
-  });
-  if (!allowed) {
-    return Response.json(
-      { error: "Too many requests. Please slow down." },
-      { status: 429, headers: { "Retry-After": "60" } }
-    );
+  // Who is asking, then how much they are allowed — both before any expensive
+  // work (Notion fetch / model call). Anonymous visitors get a small allowance
+  // keyed by hashed IP; signed-in callers get a generous one keyed by user id
+  // (auth design spec §8).
+  const identity = await resolveIdentity(req);
+  const decision = await checkRateLimit("chat", identity);
+  if (!decision.allowed) {
+    return rateLimitedResponse(decision);
   }
 
   const { messages, toolId, locale }: ChatRequest = await req.json();
@@ -118,7 +121,7 @@ export async function POST(req: Request) {
       });
 
       const result = streamText({
-        model: anthropic("claude-sonnet-4-6"),
+        model: chatModel,
         system: appendManualSections(system, focused, manuals),
         messages: modelMessages,
         tools: {
@@ -146,6 +149,36 @@ export async function POST(req: Request) {
   });
 
   return createUIMessageStreamResponse({ stream });
+}
+
+/**
+ * The refusal at the allowance ceiling.
+ *
+ * An anonymous visitor gets a way forward, not a dead end: `code` is
+ * `rate_limited_sign_in` and `signInPath` points at the sign-in route, so the
+ * chat UI renders it as an assistant message offering sign-in rather than a bare
+ * 429 (spec §5, §6). `code` is the contract — the English `error` is only a
+ * fallback for non-UI clients, since translated copy lives in `messages/*.json`
+ * (Article 6).
+ */
+function rateLimitedResponse(decision: RateLimitDecision): Response {
+  const canSignIn = decision.role === "anonymous";
+  return Response.json(
+    {
+      code: canSignIn ? "rate_limited_sign_in" : "rate_limited",
+      ...(canSignIn ? { signInPath: SIGN_IN_PATH } : {}),
+      limit: decision.limit,
+      windowMs: decision.windowMs,
+      retryAfterSeconds: decision.retryAfterSeconds,
+      error: canSignIn
+        ? `Too many requests. That is the hourly limit for visitors who are not signed in — sign in with your ${siteConfig.institution} account to keep chatting.`
+        : "Too many requests. Please slow down.",
+    },
+    {
+      status: 429,
+      headers: { "Retry-After": String(decision.retryAfterSeconds) },
+    }
+  );
 }
 
 /**

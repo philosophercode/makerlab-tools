@@ -59,6 +59,20 @@ function assistantMsg(id: string, text: string) {
   return { id, role: "assistant" as const, parts: [{ type: "text", text }] };
 }
 
+// The ceiling message offers sign-in, which hands the browser to Google. Mock
+// the helper so nothing navigates; its own behaviour is covered in
+// `lib/auth/sign-in-client.test.ts`.
+const startGoogleSignIn = vi.fn<(callbackURL: string) => Promise<boolean>>(
+  async () => true
+);
+vi.mock("../lib/auth/sign-in-client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/auth/sign-in-client")>();
+  return {
+    ...actual,
+    startGoogleSignIn: (callbackURL: string) => startGoogleSignIn(callbackURL),
+  };
+});
+
 // Imported after the mocks above are hoisted.
 import { ChatFab } from "./ChatFab";
 
@@ -68,6 +82,7 @@ beforeEach(() => {
   // standalone vi.fn() instances).
   sendMessage.mockClear();
   setMessages.mockClear();
+  startGoogleSignIn.mockClear();
   pathnameMock.mockReturnValue("/");
   useChatReturn = baseReturn();
   lastUseChatOptions = undefined;
@@ -518,5 +533,96 @@ describe("ChatFab — photo uploads", () => {
     expect(
       screen.queryByRole("button", { name: /^Remove / })
     ).not.toBeInTheDocument();
+  });
+});
+
+/**
+ * The allowance ceiling (auth design spec §6).
+ *
+ * `useChat` surfaces the route's 429 as an Error whose message is the raw
+ * response body, so these tests feed exactly that. What matters is the shape of
+ * what the visitor sees: an assistant message with a way forward — never an
+ * error row, never a toast.
+ */
+describe("ChatFab — rate-limit ceiling", () => {
+  const anonymousCeiling = JSON.stringify({
+    code: "rate_limited_sign_in",
+    signInPath: "/api/auth/sign-in/google",
+    limit: 8,
+    windowMs: 3600000,
+    retryAfterSeconds: 3600,
+    error: "Too many requests. …sign in with your Cornell Tech account…",
+  });
+
+  const signedInCeiling = JSON.stringify({
+    code: "rate_limited",
+    limit: 60,
+    windowMs: 3600000,
+    retryAfterSeconds: 3600,
+    error: "Too many requests. Please slow down.",
+  });
+
+  async function openWith(error: Error) {
+    const user = userEvent.setup();
+    useChatReturn = baseReturn({
+      messages: [userMsg("u1", "how do I use the laser cutter?")],
+      error,
+    });
+    render(<ChatFab />);
+    await user.click(
+      screen.getByRole("button", { name: "Open MakerLab assistant" })
+    );
+    return user;
+  }
+
+  it("renders the anonymous ceiling as an assistant message, not an error", async () => {
+    await openWith(new Error(anonymousCeiling));
+
+    const message = screen.getByText(/message limit for visitors who aren't signed in/i);
+    const bubble = message.closest("li");
+    expect(bubble).toHaveClass("chat-msg-assistant");
+    expect(bubble).not.toHaveClass("chat-msg-error");
+  });
+
+  it("offers sign-in inside that message and starts from the current page", async () => {
+    pathnameMock.mockReturnValue("/tools/form-4");
+    const user = await openWith(new Error(anonymousCeiling));
+
+    const signIn = screen.getByRole("button", { name: "Sign in" });
+    expect(signIn.closest("li")).toHaveClass("chat-msg-assistant");
+
+    await user.click(signIn);
+    expect(startGoogleSignIn).toHaveBeenCalledWith("/tools/form-4");
+  });
+
+  it("never shows the raw 429 body to the user", async () => {
+    await openWith(new Error(anonymousCeiling));
+
+    expect(screen.queryByText(/rate_limited_sign_in/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/retryAfterSeconds/)).not.toBeInTheDocument();
+  });
+
+  it("tells a signed-in caller to wait, without offering sign-in again", async () => {
+    await openWith(new Error(signedInCeiling));
+
+    const message = screen.getByText(/hourly message limit/i);
+    expect(message.closest("li")).toHaveClass("chat-msg-assistant");
+    expect(
+      screen.queryByRole("button", { name: "Sign in" })
+    ).not.toBeInTheDocument();
+  });
+
+  it("still renders an ordinary streaming failure as an error row", async () => {
+    await openWith(new Error("The AI service is temporarily overloaded."));
+
+    const message = screen.getByText("The AI service is temporarily overloaded.");
+    expect(message.closest("li")).toHaveClass("chat-msg-error");
+  });
+
+  it("does not mistake unrelated JSON for a ceiling", async () => {
+    await openWith(new Error(JSON.stringify({ error: "Something else broke" })));
+
+    const message = screen.getByText(/Something else broke/);
+    expect(message.closest("li")).toHaveClass("chat-msg-error");
   });
 });

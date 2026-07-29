@@ -10,6 +10,8 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { IdentificationCard } from "./IdentificationCard";
 import { useChatLauncher } from "./ChatLauncherContext";
+import { siteConfig } from "../lib/site-config";
+import { startGoogleSignIn } from "../lib/auth/sign-in-client";
 import type { CardPayload } from "../lib/capabilities/types";
 
 interface Suggestion {
@@ -30,6 +32,51 @@ function toolStatusLabel(partType: string, t: ChatT): string {
   if (partType === "tool-report_issue") return t("filingTicket");
   return t("working");
 }
+
+/**
+ * The two ways `/api/chat` refuses at the allowance ceiling: an anonymous
+ * visitor who can sign in to continue, and a signed-in caller who can only wait.
+ */
+type Ceiling = "sign-in" | "wait";
+
+/**
+ * Recognize the rate-limit ceiling in a chat error.
+ *
+ * `useChat` surfaces a non-OK response as an `Error` whose message is the raw
+ * response body, so the refusal arrives here as JSON text. It matters that we
+ * unpack it: hitting the ceiling is a normal thing that happens to a visitor
+ * mid-conversation, and it renders as an assistant message offering a way
+ * forward — never as an error row and never as a toast (design spec §6).
+ *
+ * Matching is on `code`, not on the English `error` text, because the copy the
+ * user reads comes from `messages/*.json` (Article 6).
+ */
+function parseCeiling(error: Error | undefined): Ceiling | null {
+  const raw = error?.message?.trim();
+  if (!raw || !raw.startsWith("{")) return null;
+  try {
+    const body = JSON.parse(raw) as { code?: string };
+    if (body.code === "rate_limited_sign_in") return "sign-in";
+    if (body.code === "rate_limited") return "wait";
+  } catch {
+    // Not JSON — an ordinary streaming error. Falls through to the error row.
+  }
+  return null;
+}
+
+/**
+ * Chrome reset for the inline sign-in affordance. It belongs in `globals.css`
+ * next to `.chat-tool-link`; it lives here because this change does not own that
+ * file. Colors come from CSS variables, never literals (Article 6).
+ */
+const SIGN_IN_LINK_STYLE: React.CSSProperties = {
+  background: "none",
+  border: "none",
+  borderRadius: 0,
+  padding: 0,
+  color: "var(--primary)",
+  textDecoration: "underline",
+};
 
 // The assistant can wrap grounded text in inline source markup such as
 // <cite index="1-9">…</cite>. react-markdown has no raw-HTML plugin, so those
@@ -233,6 +280,8 @@ export function ChatFab() {
     },
   });
   const isLoading = status === "streaming" || status === "submitted";
+  // A refusal at the allowance ceiling is not an error state — see parseCeiling.
+  const ceiling = parseCeiling(error);
 
   const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
@@ -468,6 +517,12 @@ export function ChatFab() {
     send(seedMessage);
   }
 
+  // Sign-in offered at the ceiling. Comes back to the page the conversation
+  // started on, so the visitor lands where they were (spec §10).
+  function handleCeilingSignIn() {
+    void startGoogleSignIn(pathname);
+  }
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (isListening) stopDictation();
@@ -641,7 +696,29 @@ export function ChatFab() {
                       )}
                     </li>
                   ) : null}
-                  {error ? (
+                  {ceiling ? (
+                    <li className="chat-msg chat-msg-assistant">
+                      <p>
+                        {ceiling === "sign-in"
+                          ? t("rateLimitSignIn", {
+                              institution: siteConfig.institution,
+                            })
+                          : t("rateLimited")}
+                      </p>
+                      {ceiling === "sign-in" ? (
+                        <p>
+                          <button
+                            type="button"
+                            className="chat-tool-link"
+                            style={SIGN_IN_LINK_STYLE}
+                            onClick={handleCeilingSignIn}
+                          >
+                            {t("rateLimitSignInCta")}
+                          </button>
+                        </p>
+                      ) : null}
+                    </li>
+                  ) : error ? (
                     <li className="chat-msg chat-msg-error">
                       <p>{error.message?.trim() ? error.message : t("error")}</p>
                     </li>

@@ -126,6 +126,64 @@ export interface Capability {
   tools: CapabilityTool<unknown, unknown>[];
 }
 
+// ── Intake evidence + confidence (confidence spec §3.1) ────────────
+
+/**
+ * What the research step either found or did not find. Every field is a
+ * *observation*, not a judgement: the model is reliable at reporting what it
+ * read, and unreliable at grading itself. The grade is computed from these
+ * fields by {@link ../capabilities/confidence.scoreConfidence}.
+ */
+export interface IntakeEvidence {
+  /** User typed an explicit make/model, e.g. "Bambu Lab X1-Carbon". */
+  userStatedModel: boolean;
+  /** A model/serial plate was legible in an attached photo. */
+  modelPlateRead: string | null;
+  /** A manufacturer or retailer page was fetched for this exact model. */
+  manufacturerPageFound: boolean;
+  /** A manual PDF was located. */
+  manualFound: boolean;
+  /** Specs came from a fetched source rather than the model's own knowledge. */
+  specsFromSource: boolean;
+  /** Only the category was inferable — "some kind of 3D printer". */
+  categoryOnly: boolean;
+}
+
+/** The three grades a proposal can carry (confidence spec §3.1). */
+export type IntakeConfidenceLevel = "high" | "medium" | "low";
+
+/**
+ * The derived grade. **Never asked of the model** — self-reported confidence is
+ * highest exactly when the model is fluently wrong, and a fetched manufacturer
+ * page must not be able to talk its own score up (confidence spec §3.1, §8).
+ * `basis` / `unknowns` are the English, model-facing rendering of the same
+ * evidence; the card localizes its own copy from {@link IntakeEvidence}.
+ */
+export interface IntakeConfidence {
+  level: IntakeConfidenceLevel;
+  /** Human-readable: what we actually have. */
+  basis: string[];
+  /** What is missing, phrased as the question that would resolve it. */
+  unknowns: string[];
+}
+
+/** Zod schema for {@link IntakeEvidence}. */
+export const intakeEvidenceSchema: z.ZodType<IntakeEvidence> = z.object({
+  userStatedModel: z.boolean(),
+  modelPlateRead: z.string().nullable(),
+  manufacturerPageFound: z.boolean(),
+  manualFound: z.boolean(),
+  specsFromSource: z.boolean(),
+  categoryOnly: z.boolean(),
+});
+
+/** Zod schema for {@link IntakeConfidence}. */
+export const intakeConfidenceSchema: z.ZodType<IntakeConfidence> = z.object({
+  level: z.enum(["high", "medium", "low"]),
+  basis: z.array(z.string()),
+  unknowns: z.array(z.string()),
+});
+
 // ── Card payloads (chat widgets) ───────────────────────────────────
 
 /** Lifecycle state of an identification card (design spec §4.1 / §6.3). */
@@ -195,6 +253,16 @@ export interface IdentificationCardPayload {
   alsoCreating: CardAlsoCreating[];
   /** Action buttons (confirm / edit / discard / add-unit / add-all). */
   actions: CardAction[];
+  /** Derived grade for this proposal — drives the confidence strip's heading. */
+  confidence?: IntakeConfidence;
+  /**
+   * The evidence the grade was computed from. The card renders its own
+   * localized basis / unknown lines from this rather than from
+   * `confidence.basis`, which is English (confidence spec §6).
+   */
+  evidence?: IntakeEvidence;
+  /** Provenance: the URLs the agent read, rendered as links. */
+  sourceUrls?: string[];
   /** Populated on `state: "success"` — link to the created draft page. */
   draftUrl?: string;
   /** Populated on `state: "duplicate"` — the existing catalog match. */
@@ -232,6 +300,18 @@ export interface ToolCandidate {
   source_urls: string[];
   /** Catalog match, if any (drives the "add a unit instead" path). */
   duplicate_of?: { id: string; name: string } | null;
+  /**
+   * What research found — reported by the model, which is what it is good at.
+   * Optional on the wire: an omitted field is treated as "not found", which
+   * grades *down*, so under-reporting can only produce a question.
+   */
+  evidence?: IntakeEvidence;
+  /**
+   * Derived from {@link evidence} in code. Never taken from model input — the
+   * intake tools recompute it on every call, so nothing the model (or a page it
+   * read) says can raise the grade.
+   */
+  confidence?: IntakeConfidence;
 }
 
 /** Zod schema for {@link ToolCandidate}, for tool input validation. */
@@ -270,4 +350,6 @@ export const toolCandidateSchema: z.ZodType<ToolCandidate> = z.object({
     .object({ id: z.string(), name: z.string() })
     .nullable()
     .optional(),
+  evidence: intakeEvidenceSchema.optional(),
+  confidence: intakeConfidenceSchema.optional(),
 });

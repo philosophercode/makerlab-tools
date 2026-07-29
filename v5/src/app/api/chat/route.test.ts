@@ -45,22 +45,31 @@ vi.mock("ai", async (importOriginal) => {
 // vi.hoisted so they exist when the (hoisted) vi.mock factories run.
 const mocks = vi.hoisted(() => ({
   rateLimitAsync: vi.fn(),
+  checkRateLimit: vi.fn(),
   fetchMaintenanceLogsByUnit: vi.fn(),
   createMaintenanceLog: vi.fn(),
   fetchAllResources: vi.fn(),
 }));
 const {
-  rateLimitAsync,
+  checkRateLimit,
   fetchMaintenanceLogsByUnit,
   createMaintenanceLog,
   fetchAllResources,
 } = mocks;
 
 // ── Mock the rate limiter (default: allowed, set in beforeEach) ──────
-vi.mock("@/lib/rate-limit", () => ({
-  rateLimitAsync: mocks.rateLimitAsync,
-  getClientIp: vi.fn(() => "1.2.3.4"),
-}));
+// The route calls the identity-keyed `checkRateLimit`; the rest of the module
+// is kept real so `resolveIdentity`'s use of `getClientIp` still works. The
+// tiered-ceiling behavior itself is covered in `rate-limit.route.test.ts`.
+vi.mock("@/lib/rate-limit", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/rate-limit")>();
+  return {
+    ...actual,
+    rateLimitAsync: mocks.rateLimitAsync,
+    checkRateLimit: mocks.checkRateLimit,
+    getClientIp: vi.fn(() => "1.2.3.4"),
+  };
+});
 
 // ── Mock Notion calls used by the route's tools / manual collection ──
 vi.mock("@/lib/notion", () => ({
@@ -135,11 +144,13 @@ beforeEach(() => {
   // Undo any `vi.stubGlobal("fetch", …)` from a prior PDF test (the shared
   // setup file does not call vi.unstubAllGlobals).
   vi.unstubAllGlobals();
-  rateLimitAsync.mockResolvedValue({
+  checkRateLimit.mockResolvedValue({
     allowed: true,
-    remaining: 19,
-    limit: 20,
-    reset: Date.now() + 60_000,
+    remaining: 59,
+    limit: 60,
+    windowMs: 60 * 60_000,
+    retryAfterSeconds: 3600,
+    role: "student",
   });
   fetchMaintenanceLogsByUnit.mockReset();
   fetchMaintenanceLogsByUnit.mockResolvedValue([]);
@@ -150,18 +161,20 @@ beforeEach(() => {
 
 describe("POST /api/chat — rate limiting", () => {
   it("returns 429 with Retry-After and never calls streamText when denied", async () => {
-    rateLimitAsync.mockResolvedValueOnce({
+    checkRateLimit.mockResolvedValueOnce({
       allowed: false,
       remaining: 0,
-      limit: 20,
-      reset: Date.now() + 60_000,
+      limit: 60,
+      windowMs: 60 * 60_000,
+      retryAfterSeconds: 3600,
+      role: "student",
     });
 
     const { streamText } = await import("ai");
     const res = await POST(chatRequest({ messages: [userMessage("hi")] }));
 
     expect(res.status).toBe(429);
-    expect(res.headers.get("Retry-After")).toBe("60");
+    expect(res.headers.get("Retry-After")).toBe("3600");
     const json = await res.json();
     expect(json.error).toMatch(/too many requests/i);
     expect(vi.mocked(streamText)).not.toHaveBeenCalled();

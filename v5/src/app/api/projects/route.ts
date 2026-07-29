@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { createProject, hasProjectsEnv } from "../../../lib/notion";
-import { getClientIp, rateLimitAsync } from "../../../lib/rate-limit";
+import { rateLimitAsync } from "../../../lib/rate-limit";
+import { resolveIdentity } from "../../../lib/auth/identity";
 
 // `runtime` cannot be set when nextConfig.cacheComponents is enabled.
 // Default Node.js runtime is used.
@@ -63,8 +64,8 @@ function isValidUrl(value: string): boolean {
 
 export async function POST(req: NextRequest) {
   // Rate limit before any expensive work (Notion page create).
-  const ip = getClientIp(req);
-  const { allowed } = await rateLimitAsync(`projects:${ip}`, {
+  const identity = await resolveIdentity(req);
+  const { allowed } = await rateLimitAsync(`projects:${identity.rateLimitKey}`, {
     limit: 10,
     windowMs: 60_000,
   });
@@ -112,6 +113,20 @@ export async function POST(req: NextRequest) {
   if (link && !isValidUrl(link)) {
     return Response.json(
       { error: "Link must be a valid http(s) URL." },
+      { status: 400 }
+    );
+  }
+  // Count the *submitted* items, not the truncated ones: silently dropping a
+  // student's 9th photo is worse than telling them it didn't fit.
+  if (Array.isArray(payload.photos) && payload.photos.length > MAX_PHOTOS) {
+    return Response.json(
+      { error: `Please attach at most ${MAX_PHOTOS} photos.` },
+      { status: 400 }
+    );
+  }
+  if (Array.isArray(payload.tools) && payload.tools.length > MAX_TOOLS) {
+    return Response.json(
+      { error: `Please select at most ${MAX_TOOLS} tools.` },
       { status: 400 }
     );
   }

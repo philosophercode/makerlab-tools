@@ -22,7 +22,9 @@ export default async function ProjectsPage() {
           <h1 id="projects-title">{t("title")}</h1>
         </div>
         <div className="projects-header-actions">
-          <p className="projects-lede">{t("lede")}</p>
+          <p className="projects-lede">
+            {t("lede", { institution: siteConfig.institution })}
+          </p>
           <Link className="td-button td-button-primary" href="/projects/new">
             {t("submit")}
           </Link>

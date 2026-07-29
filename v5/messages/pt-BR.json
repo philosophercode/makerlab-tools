@@ -13,12 +13,13 @@
     "themeToggleTitle": "Alternar tema de cores",
     "languageLabel": "Idioma",
     "languageSelectorAria": "Selecionar idioma",
-    "report": "RELATAR",
-    "reportAria": "Relatar um problema",
-    "reportSeed": "Quero relatar um problema.",
     "add": "ADICIONAR",
     "addAria": "Adicionar novo equipamento ao inventário",
-    "addSeed": "Quero adicionar novo equipamento ao inventário."
+    "addSeed": "Quero adicionar novo equipamento ao inventário.",
+    "signIn": "ENTRAR",
+    "signInAria": "Entre com sua conta {institution}",
+    "signOut": "SAIR",
+    "signedInAria": "Conectado como {name}"
   },
   "status": {
     "labStatusLabel": "Status do laboratório",
@@ -87,7 +88,7 @@
   },
   "projects": {
     "title": "PROJETOS DE ESTUDANTES",
-    "lede": "Criações, experimentos e resultados de cursos da comunidade do MakerLab.",
+    "lede": "Criações, experimentos e resultados de cursos da comunidade do {institution}.",
     "galleryLabel": "Galeria de projetos de estudantes",
     "submit": "Enviar um projeto",
     "by": "por {author}",
@@ -105,7 +106,7 @@
   "projectForm": {
     "eyebrow": "Enviar um projeto",
     "title": "Compartilhe seu projeto",
-    "lede": "Conte à comunidade do MakerLab o que você construiu. As submissões são revisadas antes de aparecer na galeria.",
+    "lede": "Conte à comunidade do {institution} o que você construiu. As submissões são revisadas antes de aparecer na galeria.",
     "breadcrumbProjects": "Projetos",
     "breadcrumbNew": "Enviar",
     "titleLabel": "Título do projeto",
@@ -173,6 +174,75 @@
     "error": "Algo deu errado. Tente novamente.",
     "lookingUpUnit": "🔍 Consultando detalhes da unidade…",
     "filingTicket": "📝 Registrando chamado de manutenção…",
-    "working": "Trabalhando nisso…"
+    "working": "Trabalhando nisso…",
+    "rateLimitSignIn": "Você atingiu o limite de mensagens para visitantes não conectados. Entre com sua conta {institution} para continuar conversando — navegar pelo catálogo continua liberado de qualquer forma.",
+    "rateLimitSignInCta": "Entrar",
+    "rateLimited": "Você atingiu o limite de mensagens por hora. Tente novamente daqui a pouco."
+  },
+  "qr": {
+    "arrivalLabel": "Escaneado nesta máquina",
+    "arrivalEyebrow": "Escaneado na máquina",
+    "arrivalTitle": "Pergunte sobre a {tool}",
+    "arrivalBody": "Você escaneou o código desta máquina. O assistente pode responder perguntas sobre ela, orientar a configuração ou registrar um chamado de manutenção.",
+    "arrivalAction": "Perguntar sobre esta máquina",
+    "arrivalSeed": "Estou na frente da {tool} e tenho uma dúvida sobre ela.",
+    "sheetTitle": "Etiquetas QR",
+    "sheetSubtitle": "Imprima em papel adesivo, recorte e cole uma etiqueta em cada máquina.",
+    "labelCta": "Escaneie para obter ajuda",
+    "sheetEmpty": "Nenhuma ferramenta publicada para etiquetar."
+  },
+  "intake": {
+    "confidenceHigh": "Confiança alta",
+    "confidenceMedium": "Precisa de confirmação",
+    "confidenceLow": "Confiança baixa",
+    "confidenceHeldAria": "Confirmado",
+    "confidenceUnknownAria": "Desconhecido",
+    "confidenceSources": "Fontes",
+    "basisUserStatedModel": "Você informou a marca e o modelo",
+    "basisModelPlateRead": "A placa de identificação indica “{plate}”",
+    "basisManufacturerPage": "Página do fabricante ou da loja consultada",
+    "basisManual": "Manual encontrado",
+    "basisSpecsFromSource": "Especificações obtidas de uma página consultada",
+    "unknownModel": "Não foi possível ler o número do modelo — uma foto da etiqueta resolveria",
+    "unknownCategory": "Só foi possível identificar o tipo geral de equipamento",
+    "unknownSource": "Nenhuma página do fabricante ou manual foi encontrada para conferir",
+    "unknownManual": "Nenhum manual foi encontrado",
+    "unknownSpecs": "As especificações não foram conferidas em uma página consultada"
+  },
+  "flag": {
+    "eyebrow": "FEEDBACK DO CATÁLOGO",
+    "trigger": "Relatar uma correção",
+    "title": "Relatar uma correção",
+    "lede": "Diga qual campo está errado e a equipe revisará no Notion.",
+    "fieldLabel": "Qual campo está errado?",
+    "descriptionLabel": "O que está errado?",
+    "descriptionPlaceholder": "O volume de impressão diz 220 mm, mas são 256 mm.",
+    "suggestionLabel": "O que deveria dizer? (opcional)",
+    "nameLabel": "Seu nome (opcional)",
+    "submit": "Enviar relato",
+    "submitting": "Enviando…",
+    "cancel": "Cancelar",
+    "close": "Fechar",
+    "sentTitle": "Relato enviado",
+    "sentBody": "Obrigado — a equipe vai revisar. Você não receberá resposta.",
+    "errorInvalid": "Descreva o que está errado antes de enviar.",
+    "errorRateLimited": "Muitos relatos deste dispositivo. Tente de novo em uma hora.",
+    "errorFailed": "O relato não foi enviado. Seu texto continua aqui — tente de novo.",
+    "fields": {
+      "description": "Descrição",
+      "image": "Foto",
+      "name": "Nome",
+      "category": "Categoria",
+      "location": "Localização",
+      "materials": "Materiais",
+      "safety_info": "Informações de segurança"
+    }
+  },
+  "auth": {
+    "eyebrow": "Entrada",
+    "title": "Essa conta não é uma conta {institution}",
+    "body": "O {site} só permite entrar com contas {institution}, portanto esta não pode ser usada.",
+    "stillWorks": "Nada fica bloqueado. Você pode navegar por todo o catálogo e fazer perguntas ao assistente sem entrar; entrar apenas aumenta o limite de mensagens por hora e registra seu nome verificado no que você enviar.",
+    "browseTools": "Navegar pelo catálogo"
   }
 }

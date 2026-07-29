@@ -1,4 +1,5 @@
 import { cacheLife, cacheTag } from "next/cache";
+import { CATALOG_CACHE } from "./cache";
 import {
   fetchAllCategories,
   fetchAllLocations,
@@ -39,7 +40,7 @@ export function hasNotionCatalogEnv(): boolean {
 async function fetchFullCatalog(): Promise<FullCatalog> {
   "use cache";
   cacheTag("catalog");
-  cacheLife("minutes");
+  cacheLife(CATALOG_CACHE);
 
   const [tools, categories, locations, units, resources] = await Promise.all([
     fetchAllTools(),

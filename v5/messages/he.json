@@ -13,12 +13,13 @@
     "themeToggleTitle": "החלפת ערכת צבעים",
     "languageLabel": "שפה",
     "languageSelectorAria": "בחירת שפה",
-    "report": "דיווח",
-    "reportAria": "דיווח על תקלה",
-    "reportSeed": "אני רוצה לדווח על תקלה.",
     "add": "הוספה",
     "addAria": "הוספת ציוד חדש למלאי",
-    "addSeed": "אני רוצה להוסיף ציוד חדש למלאי."
+    "addSeed": "אני רוצה להוסיף ציוד חדש למלאי.",
+    "signIn": "התחברות",
+    "signInAria": "התחבר עם חשבון {institution} שלך",
+    "signOut": "התנתקות",
+    "signedInAria": "מחובר בתור {name}"
   },
   "status": {
     "labStatusLabel": "מצב המעבדה",
@@ -87,7 +88,7 @@
   },
   "projects": {
     "title": "פרויקטים של סטודנטים",
-    "lede": "יצירות, ניסויים ותוצרי קורסים מקהילת MakerLab.",
+    "lede": "יצירות, ניסויים ותוצרי קורסים מקהילת {institution}.",
     "galleryLabel": "גלריית פרויקטים של סטודנטים",
     "submit": "שליחת פרויקט",
     "by": "מאת {author}",
@@ -105,7 +106,7 @@
   "projectForm": {
     "eyebrow": "שליחת פרויקט",
     "title": "שתפו את הפרויקט שלכם",
-    "lede": "ספרו לקהילת MakerLab מה בניתם. ההגשות נבדקות לפני שהן מופיעות בגלריה.",
+    "lede": "ספרו לקהילת {institution} מה בניתם. ההגשות נבדקות לפני שהן מופיעות בגלריה.",
     "breadcrumbProjects": "פרויקטים",
     "breadcrumbNew": "שליחה",
     "titleLabel": "שם הפרויקט",
@@ -173,6 +174,75 @@
     "error": "משהו השתבש. נסו שוב.",
     "lookingUpUnit": "🔍 מחפש פרטי יחידה…",
     "filingTicket": "📝 פותח כרטיס תחזוקה…",
-    "working": "עובד על זה…"
+    "working": "עובד על זה…",
+    "rateLimitSignIn": "הגעת למכסת ההודעות למבקרים שאינם מחוברים. התחבר עם חשבון {institution} כדי להמשיך לשוחח — עיון בקטלוג נשאר פתוח בכל מקרה.",
+    "rateLimitSignInCta": "התחברות",
+    "rateLimited": "הגעת למכסת ההודעות לשעה. נסה שוב בעוד זמן מה."
+  },
+  "qr": {
+    "arrivalLabel": "נסרק מהמכונה הזו",
+    "arrivalEyebrow": "נסרק ליד המכונה",
+    "arrivalTitle": "שאל על {tool}",
+    "arrivalBody": "סרקת את הקוד שעל המכונה הזו. העוזר יכול לענות על שאלות לגביה, להדריך אותך בהתקנה או לפתוח דיווח תחזוקה.",
+    "arrivalAction": "שאל על המכונה הזו",
+    "arrivalSeed": "אני עומד ליד {tool} ויש לי שאלה עליה.",
+    "sheetTitle": "תוויות QR",
+    "sheetSubtitle": "הדפיסו על נייר מדבקה, גזרו והדביקו תווית אחת על כל מכונה.",
+    "labelCta": "סרקו לקבלת עזרה",
+    "sheetEmpty": "אין כלים שפורסמו ליצירת תוויות."
+  },
+  "intake": {
+    "confidenceHigh": "ביטחון גבוה",
+    "confidenceMedium": "דרוש אישור",
+    "confidenceLow": "ביטחון נמוך",
+    "confidenceHeldAria": "מאושר",
+    "confidenceUnknownAria": "לא ידוע",
+    "confidenceSources": "מקורות",
+    "basisUserStatedModel": "ציינת את היצרן והדגם",
+    "basisModelPlateRead": "בלוחית הדגם כתוב “{plate}”",
+    "basisManufacturerPage": "נקרא דף של היצרן או של החנות",
+    "basisManual": "נמצא מדריך",
+    "basisSpecsFromSource": "המפרט נלקח מדף שנקרא",
+    "unknownModel": "לא ניתן היה לקרוא את מספר הדגם — תמונה של התווית תפתור זאת",
+    "unknownCategory": "ניתן היה לזהות רק את סוג הציוד הכללי",
+    "unknownSource": "לא נמצא דף יצרן או מדריך להשוואה",
+    "unknownManual": "לא נמצא מדריך",
+    "unknownSpecs": "המפרט לא אומת מול דף שנקרא"
+  },
+  "flag": {
+    "eyebrow": "משוב על הקטלוג",
+    "trigger": "דיווח על טעות",
+    "title": "דיווח על טעות",
+    "lede": "כתבו איזה שדה שגוי, והצוות יבדוק את זה ב-Notion.",
+    "fieldLabel": "איזה שדה שגוי?",
+    "descriptionLabel": "מה לא נכון?",
+    "descriptionPlaceholder": "נפח ההדפסה רשום 220 מ\"מ, אבל הוא 256 מ\"מ.",
+    "suggestionLabel": "מה צריך להיות כתוב? (לא חובה)",
+    "nameLabel": "השם שלך (לא חובה)",
+    "submit": "שליחת דיווח",
+    "submitting": "שולח…",
+    "cancel": "ביטול",
+    "close": "סגירה",
+    "sentTitle": "הדיווח נשלח",
+    "sentBody": "תודה — הצוות יבדוק. לא תישלח תשובה.",
+    "errorInvalid": "כתבו מה לא נכון לפני השליחה.",
+    "errorRateLimited": "יותר מדי דיווחים מהמכשיר הזה. נסו שוב בעוד שעה.",
+    "errorFailed": "הדיווח לא נשלח. הטקסט שלכם נשמר — נסו שוב.",
+    "fields": {
+      "description": "תיאור",
+      "image": "תמונה",
+      "name": "שם",
+      "category": "קטגוריה",
+      "location": "מיקום",
+      "materials": "חומרים",
+      "safety_info": "מידע בטיחות"
+    }
+  },
+  "auth": {
+    "eyebrow": "התחברות",
+    "title": "החשבון הזה אינו חשבון {institution}",
+    "body": "{site} מאפשר התחברות רק עם חשבונות {institution}, ולכן אי אפשר להשתמש בחשבון הזה.",
+    "stillWorks": "שום דבר לא נעול. אפשר לעיין בקטלוג המלא ולשאול את העוזר שאלות בלי להתחבר; ההתחברות רק מגדילה את מכסת ההודעות לשעה ומוסיפה את שמך המאומת לכל מה שאתה שולח.",
+    "browseTools": "עיון בקטלוג"
   }
 }

@@ -1,0 +1,23 @@
+# Calls the right capability instead of guessing from the prompt's catalog
+# listing. Write tools are stubbed by the harness — no Notion record is created.
+
+- id: unit-status-calls-tool
+  prompt: "Is Form 4 // A working right now?"
+  context: { page: gallery }
+  assert:
+    - kind: called_tool
+      value: get_unit_details
+
+- id: maintenance-history-calls-tool
+  prompt: "Has Form 4 // A had any repairs or servicing recently?"
+  context: { page: gallery }
+  assert:
+    - kind: called_tool
+      value: get_maintenance_history
+
+- id: issue-report-calls-tool
+  prompt: "The exhaust fan on the Trotec Speedy 400 is making a loud grinding noise. Please file a maintenance ticket for it."
+  context: { page: gallery }
+  assert:
+    - kind: called_tool
+      value: report_issue

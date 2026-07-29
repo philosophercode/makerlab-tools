@@ -13,12 +13,13 @@
     "themeToggleTitle": "Changer le thème de couleur",
     "languageLabel": "Langue",
     "languageSelectorAria": "Choisir la langue",
-    "report": "SIGNALER",
-    "reportAria": "Signaler un problème",
-    "reportSeed": "Je voudrais signaler un problème.",
     "add": "AJOUTER",
     "addAria": "Ajouter un nouvel équipement à l'inventaire",
-    "addSeed": "Je voudrais ajouter un nouvel équipement à l'inventaire."
+    "addSeed": "Je voudrais ajouter un nouvel équipement à l'inventaire.",
+    "signIn": "SE CONNECTER",
+    "signInAria": "Connectez-vous avec votre compte {institution}",
+    "signOut": "SE DÉCONNECTER",
+    "signedInAria": "Connecté en tant que {name}"
   },
   "status": {
     "labStatusLabel": "État du labo",
@@ -87,7 +88,7 @@
   },
   "projects": {
     "title": "PROJETS ÉTUDIANTS",
-    "lede": "Réalisations, expériences et résultats de cours de la communauté du MakerLab.",
+    "lede": "Réalisations, expériences et résultats de cours de la communauté du {institution}.",
     "galleryLabel": "Galerie de projets étudiants",
     "submit": "Soumettre un projet",
     "by": "par {author}",
@@ -105,7 +106,7 @@
   "projectForm": {
     "eyebrow": "Soumettre un projet",
     "title": "Partagez votre projet",
-    "lede": "Racontez à la communauté du MakerLab ce que vous avez créé. Les soumissions sont examinées avant d'apparaître dans la galerie.",
+    "lede": "Racontez à la communauté du {institution} ce que vous avez créé. Les soumissions sont examinées avant d'apparaître dans la galerie.",
     "breadcrumbProjects": "Projets",
     "breadcrumbNew": "Soumettre",
     "titleLabel": "Titre du projet",
@@ -173,6 +174,75 @@
     "error": "Une erreur s'est produite. Réessayez.",
     "lookingUpUnit": "🔍 Recherche des détails de l'unité…",
     "filingTicket": "📝 Création du ticket de maintenance…",
-    "working": "Traitement en cours…"
+    "working": "Traitement en cours…",
+    "rateLimitSignIn": "Vous avez atteint la limite de messages pour les visiteurs non connectés. Connectez-vous avec votre compte {institution} pour continuer la conversation — la consultation du catalogue reste ouverte dans tous les cas.",
+    "rateLimitSignInCta": "Se connecter",
+    "rateLimited": "Vous avez atteint la limite horaire de messages. Réessayez dans un moment."
+  },
+  "qr": {
+    "arrivalLabel": "Scanné depuis cette machine",
+    "arrivalEyebrow": "Scanné sur la machine",
+    "arrivalTitle": "Poser une question sur {tool}",
+    "arrivalBody": "Vous avez scanné le code de cette machine. L'assistant peut répondre à vos questions, vous guider dans la configuration ou signaler un problème de maintenance.",
+    "arrivalAction": "Poser une question sur cette machine",
+    "arrivalSeed": "Je suis devant {tool} et j'ai une question à son sujet.",
+    "sheetTitle": "Étiquettes QR",
+    "sheetSubtitle": "Imprimez sur du papier autocollant, découpez et collez une étiquette sur chaque machine.",
+    "labelCta": "Scannez pour obtenir de l'aide",
+    "sheetEmpty": "Aucun outil publié à étiqueter."
+  },
+  "intake": {
+    "confidenceHigh": "Confiance élevée",
+    "confidenceMedium": "À confirmer",
+    "confidenceLow": "Confiance faible",
+    "confidenceHeldAria": "Confirmé",
+    "confidenceUnknownAria": "Inconnu",
+    "confidenceSources": "Sources",
+    "basisUserStatedModel": "Vous avez indiqué la marque et le modèle",
+    "basisModelPlateRead": "La plaque signalétique indique « {plate} »",
+    "basisManufacturerPage": "Page du fabricant ou du revendeur consultée",
+    "basisManual": "Manuel trouvé",
+    "basisSpecsFromSource": "Caractéristiques issues d’une page consultée",
+    "unknownModel": "Le numéro de modèle n’a pas pu être lu — une photo de l’étiquette suffirait",
+    "unknownCategory": "Seul le type général d’équipement a pu être identifié",
+    "unknownSource": "Aucune page du fabricant ni manuel trouvé pour vérification",
+    "unknownManual": "Aucun manuel trouvé",
+    "unknownSpecs": "Les caractéristiques ne sont pas vérifiées par une page consultée"
+  },
+  "flag": {
+    "eyebrow": "RETOUR SUR LE CATALOGUE",
+    "trigger": "Signaler une erreur",
+    "title": "Signaler une erreur",
+    "lede": "Indiquez le champ erroné ; l'équipe le vérifiera dans Notion.",
+    "fieldLabel": "Quel champ est erroné ?",
+    "descriptionLabel": "Qu'est-ce qui ne va pas ?",
+    "descriptionPlaceholder": "Le volume d'impression indique 220 mm, mais c'est 256 mm.",
+    "suggestionLabel": "Que devrait-il indiquer ? (facultatif)",
+    "nameLabel": "Votre nom (facultatif)",
+    "submit": "Envoyer le signalement",
+    "submitting": "Envoi…",
+    "cancel": "Annuler",
+    "close": "Fermer",
+    "sentTitle": "Signalement envoyé",
+    "sentBody": "Merci — l'équipe l'examinera. Vous ne recevrez pas de réponse.",
+    "errorInvalid": "Décrivez le problème avant d'envoyer.",
+    "errorRateLimited": "Trop de signalements depuis cet appareil. Réessayez dans une heure.",
+    "errorFailed": "Le signalement n'a pas été envoyé. Votre texte est conservé — réessayez.",
+    "fields": {
+      "description": "Description",
+      "image": "Photo",
+      "name": "Nom",
+      "category": "Catégorie",
+      "location": "Emplacement",
+      "materials": "Matériaux",
+      "safety_info": "Informations de sécurité"
+    }
+  },
+  "auth": {
+    "eyebrow": "Connexion",
+    "title": "Ce compte n'est pas un compte {institution}",
+    "body": "{site} n'accepte que les comptes {institution} pour la connexion, celui-ci ne peut donc pas être utilisé.",
+    "stillWorks": "Rien n'est verrouillé. Vous pouvez parcourir tout le catalogue et poser des questions à l'assistant sans vous connecter ; la connexion ne fait qu'augmenter la limite horaire de messages et associer votre nom vérifié à ce que vous envoyez.",
+    "browseTools": "Parcourir le catalogue"
   }
 }

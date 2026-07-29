@@ -13,12 +13,13 @@
     "themeToggleTitle": "カラーテーマを切り替え",
     "languageLabel": "言語",
     "languageSelectorAria": "言語を選択",
-    "report": "報告",
-    "reportAria": "問題を報告",
-    "reportSeed": "問題を報告したいです。",
     "add": "追加",
     "addAria": "在庫に新しい機材を追加",
-    "addSeed": "在庫に新しい機材を追加したいです。"
+    "addSeed": "在庫に新しい機材を追加したいです。",
+    "signIn": "サインイン",
+    "signInAria": "{institution} のアカウントでサインイン",
+    "signOut": "サインアウト",
+    "signedInAria": "{name} としてサインイン中"
   },
   "status": {
     "labStatusLabel": "ラボの状況",
@@ -87,7 +88,7 @@
   },
   "projects": {
     "title": "学生プロジェクト",
-    "lede": "MakerLab コミュニティによる制作物、実験、授業の成果。",
+    "lede": "{institution} コミュニティによる制作物、実験、授業の成果。",
     "galleryLabel": "学生プロジェクトギャラリー",
     "submit": "プロジェクトを投稿",
     "by": "作: {author}",
@@ -105,7 +106,7 @@
   "projectForm": {
     "eyebrow": "プロジェクトを投稿",
     "title": "プロジェクトを共有",
-    "lede": "あなたが作ったものを MakerLab コミュニティに伝えましょう。投稿はギャラリーに表示される前に審査されます。",
+    "lede": "あなたが作ったものを {institution} コミュニティに伝えましょう。投稿はギャラリーに表示される前に審査されます。",
     "breadcrumbProjects": "プロジェクト",
     "breadcrumbNew": "投稿",
     "titleLabel": "プロジェクト名",
@@ -173,6 +174,75 @@
     "error": "問題が発生しました。もう一度お試しください。",
     "lookingUpUnit": "🔍 ユニットの詳細を確認中…",
     "filingTicket": "📝 メンテナンスチケットを作成中…",
-    "working": "処理中…"
+    "working": "処理中…",
+    "rateLimitSignIn": "サインインしていない訪問者向けのメッセージ上限に達しました。{institution} のアカウントでサインインすると会話を続けられます。カタログの閲覧はどちらの場合も引き続きご利用いただけます。",
+    "rateLimitSignInCta": "サインイン",
+    "rateLimited": "1 時間あたりのメッセージ上限に達しました。しばらくしてからもう一度お試しください。"
+  },
+  "qr": {
+    "arrivalLabel": "この機械から読み取りました",
+    "arrivalEyebrow": "機械の前で読み取り",
+    "arrivalTitle": "{tool} について質問する",
+    "arrivalBody": "この機械のコードを読み取りました。アシスタントが機械に関する質問に答えたり、セットアップを案内したり、メンテナンス報告を登録したりできます。",
+    "arrivalAction": "この機械について質問する",
+    "arrivalSeed": "{tool} の前にいます。この機械について質問があります。",
+    "sheetTitle": "QR ラベル",
+    "sheetSubtitle": "シール用紙に印刷し、切り取って各機械に 1 枚ずつ貼ってください。",
+    "labelCta": "スキャンしてヘルプを見る",
+    "sheetEmpty": "ラベルを作成できる公開済みの機器がありません。"
+  },
+  "intake": {
+    "confidenceHigh": "確度: 高",
+    "confidenceMedium": "確認が必要",
+    "confidenceLow": "確度: 低",
+    "confidenceHeldAria": "確認済み",
+    "confidenceUnknownAria": "不明",
+    "confidenceSources": "出典",
+    "basisUserStatedModel": "メーカーと型番の指定あり",
+    "basisModelPlateRead": "型番プレートに「{plate}」と記載",
+    "basisManufacturerPage": "メーカーまたは販売店のページを確認済み",
+    "basisManual": "マニュアルを発見",
+    "basisSpecsFromSource": "仕様は参照したページから取得",
+    "unknownModel": "型番を読み取れませんでした — ラベルの写真があれば特定できます",
+    "unknownCategory": "機器の大まかな種類しか特定できませんでした",
+    "unknownSource": "照合できるメーカーページやマニュアルが見つかりませんでした",
+    "unknownManual": "マニュアルが見つかりませんでした",
+    "unknownSpecs": "仕様は参照したページで確認されていません"
+  },
+  "flag": {
+    "eyebrow": "カタログへのフィードバック",
+    "trigger": "誤りを報告する",
+    "title": "誤りを報告する",
+    "lede": "どの項目が間違っているか教えてください。スタッフが Notion で確認します。",
+    "fieldLabel": "間違っている項目は？",
+    "descriptionLabel": "どこが間違っていますか？",
+    "descriptionPlaceholder": "造形サイズが 220 mm と表示されていますが、実際は 256 mm です。",
+    "suggestionLabel": "正しい内容は？（任意）",
+    "nameLabel": "お名前（任意）",
+    "submit": "報告を送信",
+    "submitting": "送信中…",
+    "cancel": "キャンセル",
+    "close": "閉じる",
+    "sentTitle": "報告を送信しました",
+    "sentBody": "ありがとうございます。スタッフが確認します。返信はありません。",
+    "errorInvalid": "送信する前に、どこが間違っているか記入してください。",
+    "errorRateLimited": "この端末からの報告が多すぎます。1 時間後にもう一度お試しください。",
+    "errorFailed": "報告を送信できませんでした。入力内容は残っています。もう一度お試しください。",
+    "fields": {
+      "description": "説明",
+      "image": "写真",
+      "name": "名称",
+      "category": "カテゴリ",
+      "location": "場所",
+      "materials": "材料",
+      "safety_info": "安全に関する情報"
+    }
+  },
+  "auth": {
+    "eyebrow": "サインイン",
+    "title": "このアカウントは {institution} のアカウントではありません",
+    "body": "{site} は {institution} のアカウントでのみサインインできるため、このアカウントは使用できません。",
+    "stillWorks": "何もロックされていません。サインインしなくてもカタログ全体を閲覧し、アシスタントに質問できます。サインインすると 1 時間あたりのメッセージ上限が増え、提出内容に確認済みの名前が記録されます。",
+    "browseTools": "カタログを閲覧"
   }
 }

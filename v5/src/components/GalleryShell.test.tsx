@@ -40,6 +40,29 @@ function cardNames() {
   );
 }
 
+/**
+ * Category and Materials are collapsible multi-select dropdowns: a labelled
+ * group holds an `aria-expanded` toggle that reveals a listbox of options.
+ * Open the named facet and hand back its group for option queries.
+ */
+async function openFacet(
+  user: ReturnType<typeof userEvent.setup>,
+  groupLabel: string
+) {
+  const group = screen.getByRole("group", { name: groupLabel });
+  await user.click(within(group).getByRole("button", { expanded: false }));
+  return group;
+}
+
+/** Click one option inside an already-open facet dropdown. */
+async function clickOption(
+  user: ReturnType<typeof userEvent.setup>,
+  group: HTMLElement,
+  name: string
+) {
+  await user.click(within(group).getByRole("option", { name }));
+}
+
 describe("GalleryShell", () => {
   it("renders one card per tool in the catalog", () => {
     render(<GalleryShell tools={mockCatalog} />);
@@ -108,18 +131,38 @@ describe("GalleryShell", () => {
     expect(within(grid).queryAllByRole("link")).toHaveLength(0);
   });
 
-  it("filters by category facet (single-select chip)", async () => {
+  it("filters by category facet", async () => {
     const user = userEvent.setup();
     render(<GalleryShell tools={mockCatalog} />);
 
     // Two tools are in "3D Printing": Prusa MK4 and Form 4.
-    await user.click(screen.getByRole("button", { name: "3D Printing" }));
+    const category = await openFacet(user, "CATEGORY:");
+    await clickOption(user, category, "3D Printing");
 
     const names = cardNames();
     expect(names).toEqual(
       expect.arrayContaining(["Prusa MK4", "Form 4"])
     );
     expect(names).not.toContain("Bandsaw");
+    expect(names).not.toContain("Trotec Speedy 400");
+    // Selection state is exposed to assistive tech, not just to CSS.
+    expect(
+      within(category).getByRole("option", { name: "3D Printing" })
+    ).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("selects multiple categories, OR-ing within the facet", async () => {
+    const user = userEvent.setup();
+    render(<GalleryShell tools={mockCatalog} />);
+
+    const category = await openFacet(user, "CATEGORY:");
+    await clickOption(user, category, "3D Printing");
+    await clickOption(user, category, "Woodworking");
+
+    const names = cardNames();
+    expect(names).toEqual(
+      expect.arrayContaining(["Prusa MK4", "Form 4", "Bandsaw"])
+    );
     expect(names).not.toContain("Trotec Speedy 400");
   });
 
@@ -128,17 +171,37 @@ describe("GalleryShell", () => {
     render(<GalleryShell tools={mockCatalog} />);
 
     // "PLA" is a material only on the Prusa MK4.
-    await user.click(screen.getByRole("button", { name: "PLA" }));
+    const materials = await openFacet(user, "MATERIALS:");
+    await clickOption(user, materials, "PLA");
 
     expect(cardNames()).toEqual(["Prusa MK4"]);
   });
 
-  it("filters by location facet", async () => {
+  it("selects a whole material group from its heading", async () => {
+    const user = userEvent.setup();
+    render(<GalleryShell tools={mockCatalog} />);
+
+    // "Wood" groups Plywood + Hardwood: the Bandsaw and the Trotec both cut
+    // plywood, the printers do not.
+    const materials = await openFacet(user, "MATERIALS:");
+    await user.click(within(materials).getByRole("button", { name: "Wood" }));
+
+    const names = cardNames();
+    expect(names).toEqual(
+      expect.arrayContaining(["Bandsaw", "Trotec Speedy 400"])
+    );
+    expect(names).not.toContain("Prusa MK4");
+  });
+
+  it("filters by the location select", async () => {
     const user = userEvent.setup();
     render(<GalleryShell tools={mockCatalog} />);
 
     // "Laser Room" is the location of the Trotec Speedy 400 only.
-    await user.click(screen.getByRole("button", { name: "Laser Room" }));
+    await user.selectOptions(
+      screen.getByRole("combobox", { name: "LOCATION:" }),
+      "Laser Room"
+    );
 
     expect(cardNames()).toEqual(["Trotec Speedy 400"]);
   });
@@ -147,23 +210,39 @@ describe("GalleryShell", () => {
     const user = userEvent.setup();
     render(<GalleryShell tools={mockCatalog} />);
 
-    // Category "Woodworking" (Bandsaw) AND training "Advanced" (Trotec) — no
-    // tool satisfies both, so the empty state appears.
-    await user.click(screen.getByRole("button", { name: "Woodworking" }));
-    await user.click(screen.getByRole("button", { name: "Advanced" }));
+    // Category "Woodworking" (Bandsaw) AND material "PLA" (Prusa) — no tool
+    // satisfies both, so the facets AND down to the empty state.
+    const category = await openFacet(user, "CATEGORY:");
+    await clickOption(user, category, "Woodworking");
+
+    const materials = await openFacet(user, "MATERIALS:");
+    await clickOption(user, materials, "PLA");
 
     expect(screen.getByText("No matching tools found.")).toBeInTheDocument();
   });
 
-  it("toggles a category chip off to restore the full grid", async () => {
+  it("toggles a category option off to restore the full grid", async () => {
     const user = userEvent.setup();
     render(<GalleryShell tools={mockCatalog} />);
 
-    const woodworking = screen.getByRole("button", { name: "Woodworking" });
-    await user.click(woodworking);
+    const category = await openFacet(user, "CATEGORY:");
+    await clickOption(user, category, "Woodworking");
     expect(cardNames()).toEqual(["Bandsaw"]);
 
-    await user.click(woodworking);
+    await clickOption(user, category, "Woodworking");
+    expect(cardNames()).toHaveLength(mockCatalog.length);
+  });
+
+  it("clears every facet from the Clear button", async () => {
+    const user = userEvent.setup();
+    render(<GalleryShell tools={mockCatalog} />);
+
+    const category = await openFacet(user, "CATEGORY:");
+    await clickOption(user, category, "Woodworking");
+    expect(cardNames()).toEqual(["Bandsaw"]);
+
+    await user.click(screen.getByRole("button", { name: "Clear 1" }));
+
     expect(cardNames()).toHaveLength(mockCatalog.length);
   });
 });

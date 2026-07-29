@@ -1,0 +1,27 @@
+# Honest absence: the lab does not have these machines, and the assistant must
+# say so rather than produce a confident location for a machine that doesn't
+# exist. This is the behaviour students are most damaged by when it regresses.
+
+- id: waterjet-absent
+  prompt: "Do you have a waterjet cutter?"
+  context: { page: gallery }
+  assert:
+    - kind: not_contains_any
+      value: ["yes, we have", "yes we have", "yes, the lab has"]
+    - kind: no_unknown_tools
+
+- id: bambu-printer-absent
+  prompt: "Where in the lab is the Bambu Lab X1-Carbon?"
+  context: { page: gallery }
+  assert:
+    - kind: not_contains_any
+      value: ["it's located in", "you'll find it in", "it is located in"]
+    - kind: no_unknown_tools
+
+- id: glowforge-absent-suggests-real-laser
+  prompt: "Can I book the Glowforge Pro for tomorrow afternoon?"
+  context: { page: gallery }
+  assert:
+    - kind: no_unknown_tools
+    - kind: mentions_tool
+      value: "Trotec Speedy 400"

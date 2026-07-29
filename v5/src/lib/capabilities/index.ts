@@ -2,6 +2,7 @@ import { catalog } from "./catalog";
 import { units } from "./units";
 import { maintenance } from "./maintenance";
 import { intake } from "./intake";
+import { flags } from "./flags";
 import type { Capability } from "./types";
 
 /**
@@ -17,14 +18,15 @@ import type { Capability } from "./types";
  *  - `units`       — per-unit status + maintenance history (read).
  *  - `maintenance` — file maintenance tickets (write).
  *  - `intake`      — research / propose / create catalog listings (read+write).
+ *  - `flags`       — file catalog corrections (write).
  *
  * This module is the canonical import for everything in the capabilities layer:
  * the registry itself, the two adapters, and the shared contract types.
  */
-export const CAPABILITIES: Capability[] = [catalog, units, maintenance, intake];
+export const CAPABILITIES: Capability[] = [catalog, units, maintenance, intake, flags];
 
 // Re-export the individual capabilities for direct/selective use and testing.
-export { catalog, units, maintenance, intake };
+export { catalog, units, maintenance, intake, flags };
 
 // Re-export the surface adapters so consumers import from one place.
 export {

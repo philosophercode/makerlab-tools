@@ -13,12 +13,13 @@
     "themeToggleTitle": "切换配色主题",
     "languageLabel": "语言",
     "languageSelectorAria": "选择语言",
-    "report": "报告",
-    "reportAria": "报告问题",
-    "reportSeed": "我想报告一个问题。",
     "add": "添加",
     "addAria": "向库存添加新设备",
-    "addSeed": "我想向库存添加新设备。"
+    "addSeed": "我想向库存添加新设备。",
+    "signIn": "登录",
+    "signInAria": "使用您的 {institution} 账号登录",
+    "signOut": "退出登录",
+    "signedInAria": "已以 {name} 身份登录"
   },
   "status": {
     "labStatusLabel": "实验室状态",
@@ -87,7 +88,7 @@
   },
   "projects": {
     "title": "学生项目",
-    "lede": "来自 MakerLab 社区的作品、实验和课程成果。",
+    "lede": "来自 {institution} 社区的作品、实验和课程成果。",
     "galleryLabel": "学生项目图库",
     "submit": "提交项目",
     "by": "作者：{author}",
@@ -105,7 +106,7 @@
   "projectForm": {
     "eyebrow": "提交项目",
     "title": "分享你的项目",
-    "lede": "告诉 MakerLab 社区你制作了什么。提交内容经过审核后才会出现在图库中。",
+    "lede": "告诉 {institution} 社区你制作了什么。提交内容经过审核后才会出现在图库中。",
     "breadcrumbProjects": "项目",
     "breadcrumbNew": "提交",
     "titleLabel": "项目标题",
@@ -173,6 +174,75 @@
     "error": "出错了，请重试。",
     "lookingUpUnit": "🔍 正在查询设备详情…",
     "filingTicket": "📝 正在提交维护工单…",
-    "working": "正在处理…"
+    "working": "正在处理…",
+    "rateLimitSignIn": "您已达到未登录访客的消息上限。使用您的 {institution} 账号登录即可继续对话——无论是否登录，浏览目录始终开放。",
+    "rateLimitSignInCta": "登录",
+    "rateLimited": "您已达到每小时消息上限，请稍后再试。"
+  },
+  "qr": {
+    "arrivalLabel": "从这台设备扫码进入",
+    "arrivalEyebrow": "在设备旁扫码",
+    "arrivalTitle": "咨询关于 {tool} 的问题",
+    "arrivalBody": "你扫描了这台设备上的二维码。助手可以解答相关问题、指导你完成设置，或帮你提交维修报告。",
+    "arrivalAction": "询问这台设备",
+    "arrivalSeed": "我正站在 {tool} 旁边，有一个关于它的问题。",
+    "sheetTitle": "二维码标签",
+    "sheetSubtitle": "打印在不干胶纸上，裁切后贴到每台设备上。",
+    "labelCta": "扫码获取帮助",
+    "sheetEmpty": "没有可制作标签的已发布设备。"
+  },
+  "intake": {
+    "confidenceHigh": "高置信度",
+    "confidenceMedium": "需要确认",
+    "confidenceLow": "低置信度",
+    "confidenceHeldAria": "已确认",
+    "confidenceUnknownAria": "未知",
+    "confidenceSources": "来源",
+    "basisUserStatedModel": "您提供了品牌和型号",
+    "basisModelPlateRead": "型号铭牌显示“{plate}”",
+    "basisManufacturerPage": "已查阅制造商或经销商页面",
+    "basisManual": "已找到说明书",
+    "basisSpecsFromSource": "规格来自已查阅的页面",
+    "unknownModel": "无法读取型号 — 拍一张标签照片即可确认",
+    "unknownCategory": "只能识别出设备的大致类型",
+    "unknownSource": "未找到可核对的制造商页面或说明书",
+    "unknownManual": "未找到说明书",
+    "unknownSpecs": "规格未经已查阅页面核实"
+  },
+  "flag": {
+    "eyebrow": "目录反馈",
+    "trigger": "报告错误信息",
+    "title": "报告错误信息",
+    "lede": "告诉我们哪个字段有误，工作人员会在 Notion 中查看。",
+    "fieldLabel": "哪个字段有误？",
+    "descriptionLabel": "哪里不对？",
+    "descriptionPlaceholder": "打印尺寸写的是 220 毫米，实际是 256 毫米。",
+    "suggestionLabel": "正确内容是什么？（选填）",
+    "nameLabel": "你的姓名（选填）",
+    "submit": "提交报告",
+    "submitting": "提交中…",
+    "cancel": "取消",
+    "close": "关闭",
+    "sentTitle": "报告已提交",
+    "sentBody": "谢谢，工作人员会查看。我们不会另行回复。",
+    "errorInvalid": "请先说明哪里有误，再提交。",
+    "errorRateLimited": "此设备提交的报告过多，请一小时后再试。",
+    "errorFailed": "报告未能提交。你输入的内容仍在——请再试一次。",
+    "fields": {
+      "description": "说明",
+      "image": "照片",
+      "name": "名称",
+      "category": "分类",
+      "location": "位置",
+      "materials": "材料",
+      "safety_info": "安全信息"
+    }
+  },
+  "auth": {
+    "eyebrow": "登录",
+    "title": "该账号不是 {institution} 账号",
+    "body": "{site} 只能使用 {institution} 账号登录，因此无法使用该账号。",
+    "stillWorks": "没有任何内容被锁定。无需登录即可浏览完整目录并向助手提问；登录只会提高每小时消息上限，并在您提交的内容上记录经过验证的姓名。",
+    "browseTools": "浏览目录"
   }
 }

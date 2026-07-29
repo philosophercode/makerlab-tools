@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { siteConfig } from "../lib/site-config";
 
 interface ToolOption {
   id: string;
@@ -167,7 +168,9 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
       <form className="td-panel project-form" onSubmit={handleSubmit}>
         <p className="td-eyebrow">{t("eyebrow")}</p>
         <h1>{t("title")}</h1>
-        <p className="project-form-lede">{t("lede")}</p>
+        <p className="project-form-lede">
+          {t("lede", { institution: siteConfig.institution })}
+        </p>
 
         <label className="project-field">
           <span>{t("titleLabel")}</span>

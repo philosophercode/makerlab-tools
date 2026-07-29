@@ -47,14 +47,18 @@ describe("POST /api/admin/revalidate", () => {
     expect(vi.mocked(revalidateTag)).not.toHaveBeenCalled();
   });
 
-  it("returns 200 {ok:true, tag:'catalog'} and calls revalidateTag when the secret matches", async () => {
+  it("returns 200 {ok:true, tags:[…]} and revalidates every cached tag when the secret matches", async () => {
     vi.stubEnv("ADMIN_REVALIDATE_SECRET", "s3cret");
 
     const res = await POST(makeRequest({ "x-admin-secret": "s3cret" }));
 
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body).toEqual({ ok: true, tag: "catalog" });
+    // Both catalog and projects are cached under their own tag, so one admin
+    // revalidate has to invalidate both.
+    expect(body).toEqual({ ok: true, tags: ["catalog", "projects"] });
     expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("catalog", "minutes");
+    expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("projects", "minutes");
+    expect(vi.mocked(revalidateTag)).toHaveBeenCalledTimes(2);
   });
 });

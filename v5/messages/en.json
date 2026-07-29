@@ -13,12 +13,13 @@
     "themeToggleTitle": "Cycle color theme",
     "languageLabel": "Language",
     "languageSelectorAria": "Select language",
-    "report": "REPORT",
-    "reportAria": "Report a problem",
-    "reportSeed": "I'd like to report a problem.",
     "add": "ADD",
     "addAria": "Add new equipment to the inventory",
-    "addSeed": "I'd like to add new equipment to the inventory."
+    "addSeed": "I'd like to add new equipment to the inventory.",
+    "signIn": "SIGN IN",
+    "signInAria": "Sign in with your {institution} account",
+    "signOut": "SIGN OUT",
+    "signedInAria": "Signed in as {name}"
   },
   "status": {
     "labStatusLabel": "Lab status",
@@ -87,7 +88,7 @@
   },
   "projects": {
     "title": "STUDENT PROJECTS",
-    "lede": "Builds, experiments, and course outcomes from the MakerLab community.",
+    "lede": "Builds, experiments, and course outcomes from the {institution} community.",
     "galleryLabel": "Student projects gallery",
     "submit": "Submit a project",
     "by": "by {author}",
@@ -105,7 +106,7 @@
   "projectForm": {
     "eyebrow": "Submit a project",
     "title": "Share your project",
-    "lede": "Tell the MakerLab community what you built. Submissions are reviewed before they appear in the gallery.",
+    "lede": "Tell the {institution} community what you built. Submissions are reviewed before they appear in the gallery.",
     "breadcrumbProjects": "Projects",
     "breadcrumbNew": "Submit",
     "titleLabel": "Project title",
@@ -173,6 +174,75 @@
     "error": "Something went wrong. Try again.",
     "lookingUpUnit": "🔍 Looking up unit details…",
     "filingTicket": "📝 Filing maintenance ticket…",
-    "working": "Working on it…"
+    "working": "Working on it…",
+    "rateLimitSignIn": "You've reached the message limit for visitors who aren't signed in. Sign in with your {institution} account to keep chatting — browsing the catalog stays open either way.",
+    "rateLimitSignInCta": "Sign in",
+    "rateLimited": "You've reached the hourly message limit. Please try again in a little while."
+  },
+  "qr": {
+    "arrivalLabel": "Scanned from this machine",
+    "arrivalEyebrow": "Scanned at the machine",
+    "arrivalTitle": "Ask about the {tool}",
+    "arrivalBody": "You scanned the code on this machine. The assistant can answer questions about it, walk you through setup, or file a maintenance report.",
+    "arrivalAction": "Ask about this machine",
+    "arrivalSeed": "I'm standing at the {tool} and I have a question about it.",
+    "sheetTitle": "QR labels",
+    "sheetSubtitle": "Print on sticker stock, cut, and apply one label to each machine.",
+    "labelCta": "Scan for help",
+    "sheetEmpty": "No published tools to label."
+  },
+  "intake": {
+    "confidenceHigh": "High confidence",
+    "confidenceMedium": "Needs confirmation",
+    "confidenceLow": "Low confidence",
+    "confidenceHeldAria": "Confirmed",
+    "confidenceUnknownAria": "Unknown",
+    "confidenceSources": "Sources",
+    "basisUserStatedModel": "You gave the make and model",
+    "basisModelPlateRead": "Model plate reads “{plate}”",
+    "basisManufacturerPage": "Manufacturer or retailer page read",
+    "basisManual": "Manual found",
+    "basisSpecsFromSource": "Specs taken from a page that was read",
+    "unknownModel": "The model number couldn’t be read — a photo of the label would settle it",
+    "unknownCategory": "Only the general type of equipment could be identified",
+    "unknownSource": "No manufacturer page or manual was found to check against",
+    "unknownManual": "No manual was found",
+    "unknownSpecs": "The specs aren’t confirmed against a page that was read"
+  },
+  "flag": {
+    "eyebrow": "CATALOG FEEDBACK",
+    "trigger": "Report a correction",
+    "title": "Report a correction",
+    "lede": "Tell us which field is wrong and staff will review it in Notion.",
+    "fieldLabel": "Which field is wrong?",
+    "descriptionLabel": "What's wrong?",
+    "descriptionPlaceholder": "The build volume says 220 mm, but it's 256 mm.",
+    "suggestionLabel": "What should it say? (optional)",
+    "nameLabel": "Your name (optional)",
+    "submit": "Send report",
+    "submitting": "Sending…",
+    "cancel": "Cancel",
+    "close": "Close",
+    "sentTitle": "Report sent",
+    "sentBody": "Thanks — staff will review this. You won't get a reply.",
+    "errorInvalid": "Please describe what's wrong before sending.",
+    "errorRateLimited": "Too many reports from this device. Try again in an hour.",
+    "errorFailed": "The report didn't send. Your text is still here — try again.",
+    "fields": {
+      "description": "Description",
+      "image": "Photo",
+      "name": "Name",
+      "category": "Category",
+      "location": "Location",
+      "materials": "Materials",
+      "safety_info": "Safety information"
+    }
+  },
+  "auth": {
+    "eyebrow": "Sign-in",
+    "title": "That account isn't a {institution} account",
+    "body": "{site} signs in with {institution} accounts only, so this one can't be used.",
+    "stillWorks": "Nothing is locked. You can browse the whole catalog and ask the assistant questions without signing in — signing in only raises the hourly message limit and puts your verified name on anything you file.",
+    "browseTools": "Browse the catalog"
   }
 }

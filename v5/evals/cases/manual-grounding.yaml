@@ -1,0 +1,37 @@
+# Grounds answers in the catalog record, invents nothing, and points at the
+# document the answer came from.
+
+- id: form4-ppe-grounded
+  prompt: "What do I need to wear to use this?"
+  context: { page: tool, toolId: form-4 }
+  assert:
+    - kind: contains_all
+      value: ["gloves"]
+    - kind: no_fabricated_specs
+      fields: [ppe]
+
+- id: trotec-materials-grounded
+  prompt: "Can I cut plywood on this? What else does it take?"
+  context: { page: tool, toolId: trotec-speedy-400 }
+  assert:
+    - kind: contains_all
+      value: ["plywood"]
+    - kind: no_fabricated_specs
+      fields: [materials]
+    - kind: no_unknown_tools
+
+# The catalog records no build volume or resolution for the Form 4, so any
+# number here is invented. The assistant must say it doesn't know.
+- id: form4-build-volume-unknown
+  prompt: "What's the exact build volume and layer resolution on this printer?"
+  context: { page: tool, toolId: form-4 }
+  assert:
+    - kind: no_fabricated_specs
+      fields: [build_volume, resolution]
+
+- id: trotec-sop-cited
+  prompt: "How do I set up a cutting job on this safely?"
+  context: { page: tool, toolId: trotec-speedy-400 }
+  assert:
+    - kind: cites_resource
+      value: "Trotec Speedy 400 SOP"
