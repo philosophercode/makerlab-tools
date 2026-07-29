@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { DetailShell } from "../../../components/DetailShell";
 import { getCatalogTool, getCatalogTools } from "../../../lib/catalog";
+import { getProjectsForTool } from "../../../lib/projects";
 
 interface ToolDetailPageProps {
   params: Promise<{
@@ -24,5 +25,9 @@ export default async function ToolDetailPage({ params }: ToolDetailPageProps) {
     notFound();
   }
 
-  return <DetailShell tool={tool} />;
+  // "Built with this" — published projects referencing this tool (empty if no
+  // projects DB is configured).
+  const projects = await getProjectsForTool(tool.id);
+
+  return <DetailShell tool={tool} projects={projects} />;
 }

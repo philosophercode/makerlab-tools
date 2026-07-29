@@ -73,6 +73,31 @@ export interface ResourceFields {
 
 export type ResourceRecord = NotionRecord<ResourceFields>;
 
+export interface ProjectFields {
+  title: string;
+  author: string;
+  /** Markdown write-up. */
+  body: string;
+  photos?: Attachment[];
+  /** Relation IDs into the Tools DB. */
+  tools_used?: string[];
+  link?: string;
+  materials?: string[];
+  published?: boolean;
+  /** created_time submission timestamp. */
+  date?: string;
+  /**
+   * Write-only: references to files already uploaded via the Notion
+   * file_upload API. Mirrors the maintenance photo flow — the read path
+   * returns URL-based attachments in `photos`; this field is consumed when
+   * creating a record so the Notion `files` property is built with
+   * `type: "file_upload"` entries.
+   */
+  photo_uploads?: Array<{ id: string; name: string }>;
+}
+
+export type ProjectRecord = NotionRecord<ProjectFields>;
+
 export interface ToolWithMeta {
   id: string;
   name: string;

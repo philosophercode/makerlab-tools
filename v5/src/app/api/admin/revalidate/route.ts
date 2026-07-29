@@ -12,5 +12,6 @@ export async function POST(req: Request) {
     return Response.json({ ok: false, error: "forbidden" }, { status: 403 });
   }
   revalidateTag("catalog", "minutes");
-  return Response.json({ ok: true, tag: "catalog" });
+  revalidateTag("projects", "minutes");
+  return Response.json({ ok: true, tags: ["catalog", "projects"] });
 }
