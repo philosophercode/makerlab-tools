@@ -207,7 +207,7 @@ Full variable list with explanations: `v5/.env.example`.
 ## 9. Known limitations — say these out loud at handover
 
 - **No sign-in yet.** The assistant is open to anyone with the URL. Specced, not built.
-- **The fallback is silent** (§6). Fix specced under constitution Article 4.
+- **The fallback is silent** (§6). Fix specced in the operational-hardening spec.
 - **No analytics.** Notion cannot aggregate, so there is no way to see which machines get
   asked about most. This is the main reason a successor project exists.
 - **No backup beyond Notion's own version history.** Notion keeps page history; there is no

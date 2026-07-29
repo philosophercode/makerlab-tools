@@ -32,6 +32,7 @@ point: the more moving parts the handover has, the less likely it survives.
 - Someone gets notified when the site goes down, without watching a dashboard.
 - Notion data is recoverable if a database is deleted or the integration is revoked.
 - Notion is read on the order of once a day rather than once a minute.
+- Repeated model context is cached rather than re-sent every turn.
 - Staff can force a refresh without a developer or a terminal.
 - Zero new services to operate.
 
@@ -145,7 +146,33 @@ answering "when did this get wrong?"
 **Contains student names and emails** from Maintenance_Logs. Private storage only, and it
 belongs in whatever data inventory the university keeps.
 
-### 3.4 Error visibility
+### 3.4 Model-side efficiency — prompt caching and lazy context
+
+Notion is not the only metered service. Every chat turn re-sends the system prompt, the
+catalogue index, and — on a tool page — that machine's full manual, which can run to tens of
+thousands of tokens. Across a ten-turn conversation the same content is paid for ten times.
+
+**Prompt caching.** Mark the stable prefix — system prompt, capability instructions,
+catalogue index, attached documents — with Anthropic's `cache_control`. It is identical
+turn to turn within a conversation, so subsequent turns read it from cache at a fraction of
+the input cost and lower latency. This is the single largest cost reduction available and
+it changes no behaviour.
+
+Order matters: cacheable content must come **first** in the prompt, with the volatile part
+(the user's message, recent turns) after it. If the manual is appended after the
+conversation history, nothing caches. Composing the prompt in the wrong order is the way
+this silently fails to work — worth an explicit assertion in a test.
+
+**Lazy manual attachment.** Today a tool page attaches that machine's PDFs on every turn.
+Most turns do not need them — "where is it?" and "do I need training?" are answered from
+the catalogue record alone. Attach documents when the conversation is actually about
+procedure or troubleshooting, either by letting the model request them through a tool or by
+attaching on first need and relying on the cache thereafter.
+
+**Both are Article 4 obligations**, not optimisations to do later: they are the difference
+between a bill that scales with conversations and one that scales with turns.
+
+### 3.5 Error visibility
 
 **Start with Vercel's built-in observability — no new account.** Combined with the health
 check, that covers the failures that actually happen: a bad deploy, a broken route, an
@@ -184,7 +211,8 @@ swallowing it.
 - **Refresh catalogue** — a staff-only control. Blocked on the auth spec; ship the rest
   first.
 - **Degraded banner** — when the catalogue is running on mock data, an unmistakable banner
-  says so. Constitution Article 4 requires this, and it is the visible half of §3.1.
+  says so. Article 4's "fail toward stale, not toward wrong" requires this, and it is the
+  visible half of §3.1.
 
 ## 7. Relationship to existing work
 
@@ -210,9 +238,10 @@ swallowing it.
 1. **Health endpoint** + the degraded banner. Highest value, no dependencies.
 2. **Uptime monitor** pointed at it, with an email destination that is not one person.
 3. **Caching profile** (`src/lib/cache.ts`), `catalog.ts` switched over.
-4. **Backup route** + cron + retention.
-5. **Notion automation → webhook**, if the plan supports it.
-6. **Refresh button** — after auth.
+4. **Prompt caching** + lazy manual attachment (§3.4).
+5. **Backup route** + cron + retention.
+6. **Notion automation → webhook**, if the plan supports it.
+7. **Refresh button** — after auth.
 
 Steps 1–2 are the ones worth doing this week; they are small and they convert the worst
 silent failure in the system into an email.

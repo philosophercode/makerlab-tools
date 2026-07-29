@@ -99,7 +99,7 @@ and shares it with the integration before the code ships.**
 | `date` | Created time | |
 
 Env: `NOTION_DB_PROJECTS`. Absent → the gallery renders an empty state and submission
-returns a clear error. It must **not** fall back to mock data (Article 4).
+returns a clear error. It must **not** fall back to mock data — fail toward stale, never toward wrong (Article 4).
 
 `author_email` is the only change from the branch and depends on the auth spec.
 
@@ -118,7 +118,7 @@ appear once staff publish it. **Say this plainly** — a student who submits and
 appear assumes it was lost.
 
 **Publishing.** Staff review in Notion and tick `published`, then hit the existing admin
-revalidate endpoint. No in-app moderation queue (Article 8).
+revalidate endpoint. No in-app moderation queue (Article 7).
 
 **Browsing.** `/projects` lists published projects newest-first with photo, title, author,
 and the machines used. `/projects/[id]` renders the write-up, photo set, tool links, and
@@ -145,7 +145,7 @@ shadows, CSS variables, crosshair accents on cards.
   uploading, visible upload progress, and preserved input on failure.
 - **Built with this** — a section on tool detail.
 
-All strings through `next-intl`, all 12 locale files together (Article 7). The branch
+All strings through `next-intl`, all 12 locale files together (Article 6). The branch
 already added these; verify none were missed in the rebase.
 
 Mobile: the submit form is the risk — file inputs and long text on a phone. Test it on a

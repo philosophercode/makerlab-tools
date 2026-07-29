@@ -69,7 +69,7 @@ user abandons midway. For agent features, sketch the tool-call sequence.
 
 Components added or changed, states (loading / empty / error / success), and how
 it behaves on mobile. Note new user-facing strings — all 12 locale files are
-updated together (Article 7).
+updated together (Article 6).
 
 ## 7. Relationship to existing work
 
@@ -80,7 +80,8 @@ is a rebase discovered too late.
 ## 8. Security and safety
 
 - **Authorization:** who may call this, and what happens when they may not.
-- **Rate limiting:** which routes, what limits (Article 6).
+- **Rate limiting:** which routes, what limits (Article 4).
+- **External calls:** what is cached, for how long, and what invalidates it (Article 4).
 - **Write safety:** drafts-by-default, human confirmation, moderation gates.
 - **Untrusted input:** user text, uploaded files, fetched web content, and what
   stops any of it from reaching the model or the database unchecked.

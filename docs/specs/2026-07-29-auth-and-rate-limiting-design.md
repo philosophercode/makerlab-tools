@@ -41,7 +41,7 @@ ability the agent invokes.
 
 ### Non-goals (this iteration)
 
-- **No in-app admin CRUD.** Notion remains the editing surface (Article 8). Roles exist to
+- **No in-app admin CRUD.** Notion remains the editing surface (Article 7). Roles exist to
   gate actions, not to unlock a dashboard that does not exist.
 - **No Shibboleth / SAML.** Google Workspace covers every `cornell.edu` account and needs
   no institutional approval; SAML needs an IT ticket and months of lead time.
@@ -198,7 +198,7 @@ at the next navigation; an in-flight chat completes.
   toast and not an error state.
 - **Domain-rejected page:** a minimal panel with the explanation and a link to the catalog.
 
-New user-facing strings go into all 12 locale files (Article 7). Roughly six strings.
+New user-facing strings go into all 12 locale files (Article 6). Roughly six strings.
 
 ## 7. Relationship to existing work
 

@@ -34,7 +34,7 @@ harness needs and does not have.
 
 ### Non-goals (this iteration)
 
-- **No in-app review queue.** Staff triage in Notion (Article 8). A moderation UI is a
+- **No in-app review queue.** Staff triage in Notion (Article 7). A moderation UI is a
   dashboard v5 deliberately does not have.
 - **No suggested edits applied automatically.** A student proposes; a human decides. Applying
   crowd edits to a safety-relevant catalogue is a category of risk this lab should not take.

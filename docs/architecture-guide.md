@@ -60,7 +60,7 @@ deploy does not error — it serves plausible fake equipment and looks perfectly
 If the catalogue shows machines the lab does not own, the cause is almost always a missing
 or misspelled env var. Check the server logs for `Falling back to mock catalog`.
 
-Constitution Article 4 requires making this loud and visible in the UI. If that has not been
+Article 4 ("fail toward stale, not toward wrong") requires making this loud and visible. If that has not been
 done yet, it is the highest-value small fix in the codebase.
 
 ---

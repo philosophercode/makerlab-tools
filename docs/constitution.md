@@ -42,55 +42,84 @@ route handler works in exactly one place and is invisible to the other surface.
 
 Adapters translate. They do not decide.
 
-## Article 3 — The test suite is green, and never touches live services
+## Article 3 — Every change ships with tests, and the suite never touches live services
 
-`npm run test:all` passes before any merge, and makes no network calls to Notion,
-Anthropic, or Redis — the mock catalog and MSW guarantee it. Anyone can clone this repo
-and run the full suite with no credentials and no cost.
+**Comprehensive, not incidental.** New behaviour is covered at the layer it lives in:
 
-**How to check:** unset every environment variable and run the suite. It passes.
+| Layer | Covers |
+|---|---|
+| Unit | Pure logic — parsing, mapping, validation, derivation |
+| Integration | API routes, with every external service mocked |
+| Component | Rendering, states, interaction |
+| E2E | The user path end to end, in a real browser |
 
-## Article 4 — The mock-catalog fallback must be visible in production
+A pull request that adds behaviour without tests is incomplete, and "hard to test" usually
+means the code is shaped wrong rather than that the test is unnecessary.
 
-v5 falls back to built-in mock data whenever a Notion env var is missing or a fetch
-throws. That is correct for tests and dangerous in production: a misconfigured deploy
-serves invented equipment while appearing perfectly healthy.
+**No test makes a network call.** The mock catalogue serves the data layer, MSW intercepts
+HTTP, and model calls are stubbed at the `streamText` boundary. This is what lets anyone
+clone the repository and run everything with no credentials, no API key, and no cost — and
+it is why the suite is deterministic.
 
-The fallback stays — the test suite depends on it — but when it engages outside of tests
-it must log loudly and surface an unmistakable indicator in the UI. Silent wrong data is
-worse than an honest error.
+**How to check:** unset every environment variable and run `npm run test:all`. It passes.
 
-The same standard applies to the assistant: **grounded or explicitly uncertain, never
-fabricated.**
+*(The agent eval harness is deliberately separate. It makes real model calls, costs money,
+and is run on demand — it is not part of this suite and must never gate a merge.)*
+
+## Article 4 — Be a good client of every external service
+
+Notion, Anthropic, and any service added later are metered, rate-limited, and occasionally
+down. Treat every outbound call as something to avoid making. In descending order of
+importance:
+
+**Cache reads aggressively, and get freshness from invalidation rather than polling.** A
+catalogue edited a few times a week does not need revalidating every minute. Cache for
+hours or days, and refresh on the event that actually changes the data — a staff action, a
+webhook, an explicit revalidate call.
+
+**Rate-limit inbound before doing expensive outbound.** Every API route, keyed by user when
+known and by IP otherwise, checked *before* any Notion fetch or model call. The catalogue is
+publicly readable and the model bill is real, so an unmetered route is a cost incident
+waiting to happen.
+
+**Use prompt caching for repeated model context.** The system prompt, the catalogue index,
+and attached manuals are large and largely identical across the turns of a conversation.
+Mark them cacheable rather than re-sending them every turn.
+
+**Load context lazily.** Fetch what the turn needs, not what it might need. A manual that
+weighs more than the rest of the request should be attached when the conversation is
+actually about that machine, not on every message.
+
+**Bound concurrency and never call a service in an unbounded loop.** Fan-out is fine;
+unbounded fan-out is how a single user action becomes a rate-limit ban or a surprising bill.
+
+**Fail toward stale, not toward wrong.** When a refresh fails, serving slightly old cached
+data is correct. Serving invented data because a fetch threw is not — the failure must be
+visible in logs and, where a person could act on it, in the interface.
 
 ## Article 5 — Writes are drafts by default
 
-Anything the agent or a student creates — catalog entries from intake, project
+Anything the agent or a student creates — catalogue entries from intake, project
 submissions — is written unpublished and requires a human to publish it in Notion.
 
 This is the entire security model for write paths. There is no admin approval queue in the
 app; Notion is the approval surface. Do not add a write path that bypasses it.
 
-## Article 6 — Every API route is rate-limited before expensive work
+## Article 6 — Branding, institution, and locale strings come from config
 
-By IP, and before any Notion fetch or model call. The Anthropic bill is real and the
-catalog is publicly readable, so an unmetered route is a cost incident waiting to happen.
-
-## Article 7 — Branding, institution, and locale strings come from config
-
-No hardcoded `"Cornell Tech"`, `"MakerLab"`, brand colors, or English-only user-facing
-text. Branding comes from `siteConfig`, colors from CSS variables, user-facing strings
+No hardcoded `"Cornell Tech"`, `"MakerLab"`, brand colours, or English-only user-facing
+text. Branding comes from `siteConfig`, colours from CSS variables, user-facing strings
 from `next-intl` — all 12 locale files updated together.
 
 Maintenance tickets are the deliberate exception: their title and description are always
 written in **English** so staff can read them, even when the assistant replies in another
 language.
 
-## Article 8 — Notion is the source of truth and the editing surface
+## Article 7 — Notion is the source of truth and the editing surface
 
 The app reads and writes the documented Notion databases and nothing else. It does not
-become the place staff edit records — that is Notion's job, and it is why v5 needs no
-admin CRUD.
+become the place staff edit records — that is Notion's job, and it is why v5 needs no admin
+CRUD.
 
 ---
 
@@ -98,6 +127,7 @@ admin CRUD.
 
 Strong defaults rather than invariants.
 
+- **The assistant is grounded or explicitly uncertain — never fabricated.** If the catalogue does not say it, the assistant does not assert it.
 - **Server components by default.** `"use client"` only when the component needs interactivity.
 - **`@/` import alias** for everything under `src/`.
 - **Server-only modules import `"server-only"`.**
