@@ -241,8 +241,16 @@ export interface CardAlsoCreating {
 export interface CardAction {
   /** Stable id, e.g. "confirm" | "edit" | "discard" | "add-unit" | "add-all". */
   id: string;
-  /** Button label, e.g. "Looks right — add it". */
+  /** English fallback label, e.g. "Looks right — add it". */
   label: string;
+  /**
+   * `intake` message key the renderer localizes (Article 6). Cards are built
+   * server-side where no locale is resolved, so the label travels as a key plus
+   * its values and {@link label} is only the fallback when the key is absent.
+   */
+  labelKey?: string;
+  /** ICU values for {@link labelKey}, e.g. `{ variant: "MK4S" }`. */
+  labelValues?: Record<string, string>;
   /** Text seeded into the chat input / send path when clicked. */
   seedMessage: string;
   /** Visual emphasis hint for the renderer. */
@@ -323,6 +331,13 @@ export interface ToolCandidate {
   /** Catalog match, if any (drives the "add a unit instead" path). */
   duplicate_of?: { id: string; name: string } | null;
   /**
+   * The specific variants research could not choose between, e.g.
+   * `["Prusa MK4", "Prusa MK4S"]`. Only meaningful at `medium` — it turns the
+   * card's primary action into picking one, so the ambiguity is resolved by the
+   * person rather than silently by the model (confidence spec §3.2, §6).
+   */
+  variants?: string[];
+  /**
    * What research found — reported by the model, which is what it is good at.
    * Optional on the wire: an omitted field is treated as "not found", which
    * grades *down*, so under-reporting can only produce a question.
@@ -372,6 +387,7 @@ export const toolCandidateSchema: z.ZodType<ToolCandidate> = z.object({
     .object({ id: z.string(), name: z.string() })
     .nullable()
     .optional(),
+  variants: z.array(z.string()).optional(),
   evidence: intakeEvidenceSchema.optional(),
   confidence: intakeConfidenceSchema.optional(),
 });

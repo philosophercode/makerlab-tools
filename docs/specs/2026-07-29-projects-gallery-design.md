@@ -243,3 +243,92 @@ the repo and the reason this spec exists.
 3. **Anonymous submissions — keep them?** Convenient for the demo, and an unattributed
    project is weak as an institutional record. Recommend keeping, revisiting with data.
 4. **Retention.** Do projects stay after a student graduates? Assume yes; confirm.
+
+---
+
+## Amendments
+
+Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited — the reason a
+design changed usually outlives the change.
+
+### 2026-07-29 — phase 3 built (`author_email`), with four as-built details
+
+**What changed.** §9 phase 3 is implemented. `POST /api/projects` already resolved an
+`Identity` for rate limiting; it now also writes `author_email` from that session, and
+`ProjectSubmitForm` asks `GET /api/identity` after mount to pre-fill the byline.
+
+Four things the spec did not describe:
+
+1. **The server writes the byline, not just the email.** §5 says the name field is
+   read-only when signed in, which the form does — but read-only in a browser is a
+   suggestion, not a control. The route therefore prefers `identity.name` over
+   `payload.author` for a signed-in submission, so the displayed guarantee and the recorded
+   value cannot disagree. Anonymous submission still uses the typed name, unchanged. This
+   mirrors `report_issue`, which prefers `ctx.identity.name` over the model's `reported_by`.
+
+2. **`author_email` is write-only and not on `ProjectFields`.** `createProject` takes a
+   `ProjectWriteFields = Partial<ProjectFields> & { author_email?: string }` instead. The
+   read path never surfaces the address (nothing renders it, and §8's PII question is still
+   open), and a type with no reader is the clearest way to say a client may not supply one.
+   Same shape as `FlagWriteFields`.
+
+3. **Notion property fallback.** §4 requires a person to add the `author_email` Email
+   column, and Notion rejects a write naming a property that does not exist. The route
+   retries once without the email and logs a warning, so a column nobody has added yet
+   cannot cost a student their write-up (Article 4 — fail toward stale, not toward wrong).
+   Identical to `report_issue`'s `reporter_email` fallback.
+
+4. **One new string, `projectForm.authorFromAccount`.** A required field that silently
+   refuses typing reads as broken, so a note under it says where the name came from. It
+   uses the `{institution}` placeholder, passed at the call site, in all 12 locale files
+   (Article 6). It sits **outside** the `<label>` and is wired with `aria-describedby` —
+   text inside the label would become part of the field's accessible name.
+
+**What did not change.** `published` is still never settable from the API, and the
+assertion that proves it is still the most important test in the feature. Anonymous
+submission still works and still records no email: the ISAM demo depends on it (§5), and
+`GET /api/identity` failing entirely is indistinguishable from being signed out.
+
+**Status.** Accepted — the spec was right about the shape and silent on these details.
+
+### 2026-07-29 — E2E coverage added, two of §10's four cases not exercisable
+
+**What changed.** `v5/e2e/projects.spec.ts` closes the browser-layer half of §9
+phase 2 — seven Playwright tests over `/projects` and `/projects/new`.
+
+**What §10 asked for, and what was built.** §10's E2E list has four cases. Two are
+covered as written: *submit the form → confirmation message appears* (plus the
+failed-submission case, since §5 and §10 both name a lost write-up as the
+embarrassing failure), and the gallery rendering. Two are **not**:
+
+- *Browse `/projects` → open a project → click through to a tool page*
+- *A tool page with projects shows "Built with this"; one without omits the section*
+
+**Why.** E2E boots with `NOTION_*` unset (`playwright.config.ts`), so
+`hasProjectsEnv()` is false and `getPublishedProjects()` returns `[]` **without a
+Notion call**. There is no mock projects backend the way there is a mock catalog:
+the published set is empty by construction, so there is no project to open and no
+tool page that has one. Writing those two tests today would produce assertions
+that pass because nothing renders — the failure mode §10 is trying to prevent.
+Both paths are covered at the component layer (`ProjectDetail`, the "Built with
+this" section) and at the data layer (`getProjectsForTool`).
+
+**What is asserted instead.** That the empty state reads as *intentional* — the
+"no projects published yet" copy and the submit call-to-action are present, and no
+error language is — which is the behaviour a lab without the database actually
+gets, and which §6 explicitly calls for.
+
+**One general assertion worth keeping.** Both page tests assert the rendered body
+contains no literal `{institution}`. A `next-intl` placeholder with no param at
+the call site renders as its own name, which is invisible to typecheck and to
+every test that matches on a substring; it has already happened once on this
+branch (Article 6).
+
+**Unblocking the two skipped cases** needs a seeded projects fixture — either a
+mock projects module parallel to `mock-catalog.ts`, or intercepting the Notion
+API at the server boundary rather than the browser. Both are more machinery than
+the remaining gap justifies; recorded here so the next person decides rather than
+rediscovers.
+
+**Status.** Accepted — the spec's E2E list was written before it was known that
+the mock backend has no projects.

@@ -21,6 +21,13 @@
     "signOut": "로그아웃",
     "signedInAria": "{name}(으)로 로그인됨"
   },
+  "catalogRefresh": {
+    "action": "새로고침",
+    "actionAria": "{institution} 카탈로그를 Notion에서 새로고침",
+    "refreshing": "새로고침 중…",
+    "refreshed": "카탈로그를 새로고침했습니다",
+    "failed": "새로고침 실패 — 다시 시도하세요"
+  },
   "status": {
     "labStatusLabel": "랩 상태",
     "toolsInInventory": "재고 도구 {count}개"
@@ -111,6 +118,7 @@
     "breadcrumbNew": "제출",
     "titleLabel": "프로젝트 제목",
     "authorLabel": "이름",
+    "authorFromAccount": "{institution} 계정에서 가져왔습니다.",
     "bodyLabel": "설명 (Markdown 지원)",
     "bodyPlaceholder": "프로젝트, 제작 방법, 배운 점을 설명하세요…",
     "previewLabel": "미리보기",
@@ -207,7 +215,15 @@
     "unknownCategory": "장비의 대략적인 종류만 확인할 수 있었습니다",
     "unknownSource": "대조할 제조사 페이지나 설명서를 찾지 못했습니다",
     "unknownManual": "설명서를 찾지 못했습니다",
-    "unknownSpecs": "사양이 확인한 페이지로 검증되지 않았습니다"
+    "unknownSpecs": "사양이 확인한 페이지로 검증되지 않았습니다",
+    "actionConfirm": "맞습니다 — 추가하기",
+    "actionConfirmModel": "{name}이(가) 맞는지 확인",
+    "actionConfirmVariant": "{variant}입니다",
+    "actionEdit": "편집",
+    "actionDiscard": "버리기",
+    "actionAddUnit": "기존 도구에 유닛 추가",
+    "actionCreateAnyway": "아니요, 새 도구 만들기",
+    "actionOpenDraft": "Notion에서 초안 열기"
   },
   "flag": {
     "eyebrow": "카탈로그 피드백",

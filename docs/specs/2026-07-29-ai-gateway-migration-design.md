@@ -160,3 +160,45 @@ after all this.
 3. **What monthly ceiling?** Unknowable without data. Suggest setting it deliberately low at
    first with an alert, then raising it — a limit that trips is a conversation, a limit that
    never trips teaches nothing.
+
+---
+
+## Amendments
+
+Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited — the reason a
+design changed usually outlives the change.
+
+### 2026-07-29 — gateway model id, and what phase 2 could not verify (as-built)
+
+**What changed.** Two departures from §3 and §9 phase 2.
+
+*The gateway model id is not the string in §3.* §3 writes
+`gateway("anthropic/claude-sonnet-4-6")`. The code uses
+`anthropic/claude-sonnet-4.6` — dot, not dash — and keeps it as a second constant
+(`GATEWAY_CHAT_MODEL_ID`) alongside the direct id `claude-sonnet-4-6`.
+
+**Why.** Anthropic's own API spells model versions with dashes; the Vercel AI Gateway
+namespaces by provider and spells them with dots (`anthropic/claude-sonnet-4.5`,
+`openai/gpt-4o`). §3's string is the direct id with a provider prefix bolted on, which is
+what you write when the two conventions look interchangeable. They are not, and neither
+string works in the other place. Two constants rather than one derived from the other,
+because that relationship is a coincidence of naming and not a rule that will keep holding.
+
+*Phase 2 says "verify locally with a key" and that did not happen.* Nobody holds an
+`AI_GATEWAY_API_KEY`. The dependency is added, the branch is written and unit-tested, and
+the model id above is **unverified against a live gateway** — if it is wrong, the failure is
+a `GatewayModelNotFoundError` on the first real request, not a silent fallback. Phase 3 is
+where a person creates the key; whoever does that should send one message through a preview
+deploy before production, per §9 phase 4.
+
+**Scope.** `@ai-sdk/gateway` is pinned to `^3` rather than the latest `4.x`: `ai@6` speaks
+provider spec v3, and gateway 4.x is spec v4. The newer major installs cleanly and then
+fails to typecheck as a `LanguageModel`. This is the kind of thing that looks like a routine
+dependency bump later, so: **the gateway major is tied to `ai`'s provider spec, not free to
+float.**
+
+The direct Anthropic path remains the default and is unchanged, per §3 — a contributor with
+only an `ANTHROPIC_API_KEY` still runs the app with no Vercel account. The existing
+`/api/chat` integration tests pass untouched, which is the assertion §10 asks for.
+
+**Status.** Accepted — the code is right and the spec's example string was wrong.

@@ -1,5 +1,10 @@
 import { NextRequest } from "next/server";
-import { createProject, hasProjectsEnv } from "../../../lib/notion";
+import {
+  createProject,
+  hasProjectsEnv,
+  type ProjectWriteFields,
+} from "../../../lib/notion";
+import type { ProjectRecord } from "../../../lib/types";
 import { rateLimitAsync } from "../../../lib/rate-limit";
 import { resolveIdentity } from "../../../lib/auth/identity";
 
@@ -12,6 +17,10 @@ const MAX_PHOTOS = 8;
 const MAX_TOOLS = 20;
 const MAX_MATERIALS = 20;
 
+/**
+ * What a submission may send. There is deliberately no `author_email` here:
+ * the verified author comes from the session and nowhere else.
+ */
 interface ProjectPayload {
   title?: unknown;
   author?: unknown;
@@ -91,7 +100,11 @@ export async function POST(req: NextRequest) {
   }
 
   const title = asString(payload.title);
-  const author = asString(payload.author);
+  // The session wins over whatever the client typed: when the server knows who
+  // is submitting, the byline is theirs. The form makes the field read-only for
+  // a signed-in student, and this is what makes that guarantee real rather than
+  // cosmetic. Anonymous submission keeps working — the typed name is used.
+  const author = asString(identity.name) || asString(payload.author);
   const body = asString(payload.body);
   const link = asString(payload.link);
   const tools = asStringArray(payload.tools, MAX_TOOLS);
@@ -132,10 +145,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const record = await createProject({
+    const record = await submitProject({
       title,
       author,
       body,
+      // Server-resolved only (spec §4). `payload.author_email` is never read —
+      // a client may not assert who it is. Anonymous stays a first-class path:
+      // no session, no email, submission still succeeds.
+      author_email: identity.email || undefined,
       link: link || undefined,
       tools_used: tools,
       materials,
@@ -149,4 +166,43 @@ export async function POST(req: NextRequest) {
       { status: 502 }
     );
   }
+}
+
+/**
+ * Create the project, retrying once without `author_email` if Notion refuses
+ * that property.
+ *
+ * `author_email` is a new Email column a person has to add to the Projects
+ * database by hand (spec §4) — Notion has no migrations and rejects any write
+ * naming a property that does not exist. Losing a student's write-up to a
+ * missing column is the wrong way to fail: record the project, drop the email,
+ * and make the misconfiguration loud in the logs (Article 4 — fail toward
+ * stale, not toward wrong). Mirrors `report_issue`'s `reporter_email` fallback.
+ */
+async function submitProject(fields: ProjectWriteFields): Promise<ProjectRecord> {
+  try {
+    return await createProject(fields);
+  } catch (err) {
+    if (!fields.author_email || !isUnknownPropertyError(err, "author_email")) {
+      throw err;
+    }
+    console.warn(
+      "[projects] Notion rejected `author_email` — recording the submission without it. Add the Email property to the Projects database (projects spec §4).",
+      err
+    );
+    const withoutEmail = { ...fields };
+    delete withoutEmail.author_email;
+    return createProject(withoutEmail);
+  }
+}
+
+/**
+ * Does this look like Notion refusing an unknown property? `projectsRequest`
+ * throws `Notion API <status>: <body>`, and a schema mismatch is a 400 whose
+ * body names the offending property. Narrow on both so a 401 or a network blip
+ * still surfaces as the failure it is.
+ */
+function isUnknownPropertyError(err: unknown, property: string): boolean {
+  const message = err instanceof Error ? err.message : String(err);
+  return message.includes("400") && message.includes(property);
 }

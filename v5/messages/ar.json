@@ -21,6 +21,13 @@
     "signOut": "تسجيل الخروج",
     "signedInAria": "مسجّل الدخول باسم {name}"
   },
+  "catalogRefresh": {
+    "action": "تحديث",
+    "actionAria": "تحديث كتالوج {institution} من Notion",
+    "refreshing": "جارٍ التحديث…",
+    "refreshed": "تم تحديث الكتالوج",
+    "failed": "تعذّر التحديث — حاول مرة أخرى"
+  },
   "status": {
     "labStatusLabel": "حالة المختبر",
     "toolsInInventory": "{count} أداة في المخزون"
@@ -111,6 +118,7 @@
     "breadcrumbNew": "إرسال",
     "titleLabel": "عنوان المشروع",
     "authorLabel": "اسمك",
+    "authorFromAccount": "مأخوذ من حساب {institution} الخاص بك.",
     "bodyLabel": "الوصف (يدعم Markdown)",
     "bodyPlaceholder": "صِف مشروعك وكيف صنعته وما تعلمته…",
     "previewLabel": "معاينة",
@@ -207,7 +215,15 @@
     "unknownCategory": "أمكن تحديد النوع العام للجهاز فقط",
     "unknownSource": "لم يتم العثور على صفحة للشركة المصنّعة أو دليل للمقارنة",
     "unknownManual": "لم يتم العثور على أي دليل",
-    "unknownSpecs": "لم يتم التحقق من المواصفات عبر صفحة تمت قراءتها"
+    "unknownSpecs": "لم يتم التحقق من المواصفات عبر صفحة تمت قراءتها",
+    "actionConfirm": "يبدو صحيحًا — أضِفه",
+    "actionConfirmModel": "أكِّد أنه {name}",
+    "actionConfirmVariant": "إنه {variant}",
+    "actionEdit": "تعديل",
+    "actionDiscard": "تجاهل",
+    "actionAddUnit": "أضِف وحدة إلى الأداة الموجودة",
+    "actionCreateAnyway": "لا، أنشئ أداة جديدة",
+    "actionOpenDraft": "افتح المسودة في Notion"
   },
   "flag": {
     "eyebrow": "ملاحظات على الفهرس",

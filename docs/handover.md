@@ -44,12 +44,35 @@ owner.
 | GitHub repository | github.com | ⬜ **TBD** | The code |
 | Domain / DNS | ⬜ | ⬜ **TBD** | |
 | `ADMIN_REVALIDATE_SECRET` | Vercel env vars | ⬜ **TBD** | Forces the site to refresh |
+| `AI_GATEWAY_API_KEY` | Vercel → AI Gateway | ⬜ **TBD** | *Optional.* Puts model spend on the Vercel invoice |
+| Vercel Blob store | Vercel → Storage | ⬜ **TBD** | Holds the nightly Notion backup. Sets `BLOB_READ_WRITE_TOKEN`. **Contains student PII — keep private** |
+| `CRON_SECRET` | Vercel env vars | ⬜ **TBD** | Lets the nightly backup cron prove it is Vercel (§3) |
 
 > [!WARNING]
 > **The Anthropic key is a live bill.** Every question a student asks costs a small amount.
 > It must be owned by the institution, not an individual, and it must have a spend limit.
 > Until sign-in and rate limiting ship, the assistant is open to anyone on the internet who
 > finds the URL. This is the single most important thing to resolve at handover.
+
+**`AI_GATEWAY_API_KEY` — the alternative to holding an Anthropic key.** Setting it routes
+every model call through the Vercel AI Gateway, so model spend lands on the same invoice as
+hosting and gets a platform-enforced ceiling instead of a promise. Leave it unset and the app
+calls Anthropic directly with `ANTHROPIC_API_KEY` — that is the default and it is what runs
+today. Set both and the gateway wins; the Anthropic key is then unused and should be revoked
+rather than left lying around.
+
+Two things a person has to do, neither of which is code:
+
+1. Create the key in the Vercel dashboard (**AI Gateway → API keys**) and **set a monthly
+   spend limit and an alert threshold at the same time.** A key without a limit is the whole
+   financial risk of this app in one credential.
+2. Confirm with the university that routing student questions — and the photos they upload —
+   through Vercel's infrastructure is acceptable. This is a real change in where data flows,
+   not a formality.
+
+The gateway path has never been exercised against a live gateway; see
+[`specs/2026-07-29-ai-gateway-migration-design.md`](specs/2026-07-29-ai-gateway-migration-design.md)
+for what remains to verify before production traffic goes through it.
 
 ---
 
@@ -99,6 +122,49 @@ Environment variables in Vercel, no code change: `NEXT_PUBLIC_SITE_NAME`,
 `NEXT_PUBLIC_CHAT_ASSISTANT_NAME`, and `AUDIENCE`. Full explanations in
 `v5/.env.example`. Redeploy after changing them.
 
+### Check the nightly backup is still running
+
+**Every night at 07:17 UTC (about 03:17 New York) the site backs up Notion.** Vercel Cron
+calls `/api/admin/backup`, which reads every Notion database and writes one file to private
+Vercel Blob storage as `backups/YYYY-MM-DD.json`. Files older than **30 days** are deleted
+by the same job, so the store holds roughly a month at any time.
+
+**This is the only copy of the Notion data outside Notion.** Before it existed, one deleted
+database meant ~100 machines of staff work was gone for good.
+
+Three settings in Vercel make it work, and it does nothing without all three:
+
+| Setting | Where | What it is |
+|---|---|---|
+| A **Blob store** linked to the project | Vercel → Storage | Sets `BLOB_READ_WRITE_TOKEN` automatically |
+| `CRON_SECRET` | Vercel env vars | Vercel sends it so the route knows the nightly call is genuine |
+| `ADMIN_REVALIDATE_SECRET` | Vercel env vars | Lets a person trigger a backup by hand (same secret as §4) |
+
+**How to check it, once a month:** Vercel dashboard → your project → **Cron Jobs**. A green
+run means a file was written. **A red run means the backup did not happen** — the route
+deliberately fails loudly rather than reporting success, because a backup that fails quietly
+is discovered on the day you need it. The failure reason is in the run's log.
+
+To run one by hand, or to confirm it works after changing anything:
+
+```
+GET https://<your-site>/api/admin/backup
+Header: x-admin-secret: <ADMIN_REVALIDATE_SECRET>
+```
+
+It answers with the file it wrote, how many rows came from each database, and which old
+files it deleted. Anything other than `200` is a real failure.
+
+> [!WARNING]
+> **The backup contains student names and email addresses** from Maintenance_Logs. It is
+> written to *private* blob storage and must stay that way — never make the store public,
+> never share a download link, and list it in whatever data inventory the university keeps.
+
+**To restore:** download the file from Vercel → Storage → Blob, and re-import the affected
+database. The file holds the raw Notion rows, so a person can read it and rebuild from it.
+There is no automated restore, on purpose — it is far more work than the failure justifies.
+**[dev]** for anything beyond reading the file.
+
 ---
 
 ## 4. Forcing the site to refresh
@@ -123,6 +189,7 @@ effect.
 | Anthropic console | **Spend.** Set a limit and an alert. | Weekly, at minimum |
 | Vercel dashboard | Failed deploys, function errors | When something looks wrong |
 | Vercel logs | `Falling back to mock catalog` | Whenever the catalogue looks odd |
+| Vercel → Cron Jobs | The nightly backup ran green | Monthly — see §3 |
 | Notion: Maintenance_Logs | Open tickets | Per §3 |
 
 **The one alert that matters: an Anthropic spend threshold.** Everything else is

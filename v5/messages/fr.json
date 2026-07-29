@@ -21,6 +21,13 @@
     "signOut": "SE DÉCONNECTER",
     "signedInAria": "Connecté en tant que {name}"
   },
+  "catalogRefresh": {
+    "action": "ACTUALISER",
+    "actionAria": "Actualiser le catalogue de {institution} depuis Notion",
+    "refreshing": "Actualisation…",
+    "refreshed": "Catalogue actualisé",
+    "failed": "Échec de l’actualisation — réessayez"
+  },
   "status": {
     "labStatusLabel": "État du labo",
     "toolsInInventory": "{count} OUTILS EN INVENTAIRE"
@@ -111,6 +118,7 @@
     "breadcrumbNew": "Soumettre",
     "titleLabel": "Titre du projet",
     "authorLabel": "Votre nom",
+    "authorFromAccount": "Repris de votre compte {institution}.",
     "bodyLabel": "Description (Markdown pris en charge)",
     "bodyPlaceholder": "Décrivez votre projet, comment vous l'avez réalisé et ce que vous avez appris…",
     "previewLabel": "Aperçu",
@@ -207,7 +215,15 @@
     "unknownCategory": "Seul le type général d’équipement a pu être identifié",
     "unknownSource": "Aucune page du fabricant ni manuel trouvé pour vérification",
     "unknownManual": "Aucun manuel trouvé",
-    "unknownSpecs": "Les caractéristiques ne sont pas vérifiées par une page consultée"
+    "unknownSpecs": "Les caractéristiques ne sont pas vérifiées par une page consultée",
+    "actionConfirm": "C’est bien ça — ajoutez-le",
+    "actionConfirmModel": "Confirmer qu’il s’agit du {name}",
+    "actionConfirmVariant": "C’est le {variant}",
+    "actionEdit": "Modifier",
+    "actionDiscard": "Écarter",
+    "actionAddUnit": "Ajouter une unité à l’outil existant",
+    "actionCreateAnyway": "Non, créer un nouvel outil",
+    "actionOpenDraft": "Ouvrir le brouillon dans Notion"
   },
   "flag": {
     "eyebrow": "RETOUR SUR LE CATALOGUE",

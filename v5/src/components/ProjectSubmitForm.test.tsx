@@ -17,7 +17,19 @@ vi.mock("next/link", () => ({
   ),
 }));
 
+// The form asks `/api/identity` who is submitting after mount, exactly as the
+// header does. Mock the one network-touching helper — the pure `isSignedIn`
+// stays real, since what the form does with the answer is the thing under test.
+// `fetchIdentity`'s own behaviour is covered in `lib/auth/sign-in-client.test.ts`.
+const fetchIdentity = vi.fn<() => Promise<ClientIdentity | null>>(async () => null);
+
+vi.mock("../lib/auth/sign-in-client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/auth/sign-in-client")>();
+  return { ...actual, fetchIdentity: () => fetchIdentity() };
+});
+
 import { ProjectSubmitForm } from "./ProjectSubmitForm";
+import type { ClientIdentity } from "../lib/auth/sign-in-client";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -66,6 +78,11 @@ function submitButton() {
   return screen.getByRole("button", { name: "Submit project" });
 }
 
+beforeEach(() => {
+  fetchIdentity.mockClear();
+  fetchIdentity.mockResolvedValue(null);
+});
+
 afterEach(() => {
   vi.unstubAllGlobals();
 });
@@ -110,6 +127,95 @@ describe("ProjectSubmitForm validation", () => {
     expect(
       screen.getByLabelText("Write-up (Markdown supported)")
     ).toHaveValue("A write-up.");
+  });
+});
+
+// ── Verified author (spec §5) ───────────────────────────────────────
+
+describe("ProjectSubmitForm author identity", () => {
+  function authorField() {
+    return screen.getByLabelText("Your name");
+  }
+
+  it("pre-fills the name from the session and makes it read-only", async () => {
+    fetchIdentity.mockResolvedValue({ role: "student", name: "Ada Lovelace" });
+    stubFetch(async () => jsonResponse({ id: "p1" }, 201));
+    render(<ProjectSubmitForm tools={TOOLS} />);
+
+    await waitFor(() => expect(authorField()).toHaveValue("Ada Lovelace"));
+    expect(authorField()).toHaveAttribute("readonly");
+    // And the student is told where the name came from, rather than being left
+    // to wonder why a required field will not take their typing.
+    expect(
+      screen.getByText("Taken from your Cornell Tech account.")
+    ).toBeInTheDocument();
+  });
+
+  it("submits the session name and asserts no email of its own", async () => {
+    fetchIdentity.mockResolvedValue({ role: "student", name: "Ada Lovelace" });
+    const user = userEvent.setup();
+    const fetchMock = stubFetch(async () => jsonResponse({ id: "p1" }, 201));
+    render(<ProjectSubmitForm tools={TOOLS} />);
+
+    await waitFor(() => expect(authorField()).toHaveValue("Ada Lovelace"));
+    await user.type(screen.getByLabelText("Project title"), "Plywood lamp");
+    await user.type(
+      screen.getByLabelText("Write-up (Markdown supported)"),
+      "Cut on the laser, then glued."
+    );
+    await user.click(submitButton());
+
+    await screen.findByRole("heading", {
+      name: "Thanks — your project is pending review",
+    });
+    const body = lastSubmitBody(fetchMock);
+    expect(body.author).toBe("Ada Lovelace");
+    // The verified author comes from the server-resolved session; the browser
+    // has no email to send and must never send one.
+    expect(body).not.toHaveProperty("author_email");
+  });
+
+  it("leaves the name editable for an anonymous visitor", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubFetch(async () => jsonResponse({ id: "p1" }, 201));
+    render(<ProjectSubmitForm tools={TOOLS} />);
+
+    // Anonymous submission is a deliberate path, not a degraded one.
+    await waitFor(() => expect(fetchIdentity).toHaveBeenCalled());
+    expect(authorField()).not.toHaveAttribute("readonly");
+    expect(
+      screen.queryByText("Taken from your Cornell Tech account.")
+    ).toBeNull();
+
+    await fillRequired(user);
+    await user.click(submitButton());
+
+    await screen.findByRole("heading", {
+      name: "Thanks — your project is pending review",
+    });
+    expect(lastSubmitBody(fetchMock).author).toBe("Ada Lovelace");
+  });
+
+  it("stays editable when the identity endpoint cannot answer", async () => {
+    fetchIdentity.mockResolvedValue(null);
+    const user = userEvent.setup();
+    stubFetch(async () => jsonResponse({ id: "p1" }, 201));
+    render(<ProjectSubmitForm tools={TOOLS} />);
+
+    await waitFor(() => expect(fetchIdentity).toHaveBeenCalled());
+    await user.type(authorField(), "Grace Hopper");
+    expect(authorField()).toHaveValue("Grace Hopper");
+  });
+
+  it("does not lock the field for a session Google gave no name for", async () => {
+    fetchIdentity.mockResolvedValue({ role: "student", name: null });
+    const user = userEvent.setup();
+    render(<ProjectSubmitForm tools={TOOLS} />);
+
+    await waitFor(() => expect(fetchIdentity).toHaveBeenCalled());
+    await user.type(authorField(), "Grace Hopper");
+    expect(authorField()).toHaveValue("Grace Hopper");
+    expect(authorField()).not.toHaveAttribute("readonly");
   });
 });
 

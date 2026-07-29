@@ -21,6 +21,13 @@
     "signOut": "SIGN OUT",
     "signedInAria": "Signed in as {name}"
   },
+  "catalogRefresh": {
+    "action": "REFRESH",
+    "actionAria": "Refresh the {institution} catalog from Notion",
+    "refreshing": "Refreshing…",
+    "refreshed": "Catalog refreshed",
+    "failed": "Refresh failed — try again"
+  },
   "status": {
     "labStatusLabel": "Lab status",
     "toolsInInventory": "{count} TOOLS IN INVENTORY"
@@ -111,6 +118,7 @@
     "breadcrumbNew": "Submit",
     "titleLabel": "Project title",
     "authorLabel": "Your name",
+    "authorFromAccount": "Taken from your {institution} account.",
     "bodyLabel": "Write-up (Markdown supported)",
     "bodyPlaceholder": "Describe your project, how you made it, and what you learned…",
     "previewLabel": "Preview",
@@ -207,7 +215,15 @@
     "unknownCategory": "Only the general type of equipment could be identified",
     "unknownSource": "No manufacturer page or manual was found to check against",
     "unknownManual": "No manual was found",
-    "unknownSpecs": "The specs aren’t confirmed against a page that was read"
+    "unknownSpecs": "The specs aren’t confirmed against a page that was read",
+    "actionConfirm": "Looks right — add it",
+    "actionConfirmModel": "Confirm it’s the {name}",
+    "actionConfirmVariant": "It’s the {variant}",
+    "actionEdit": "Edit",
+    "actionDiscard": "Discard",
+    "actionAddUnit": "Add a unit to the existing tool",
+    "actionCreateAnyway": "No, create a new tool",
+    "actionOpenDraft": "Open draft in Notion"
   },
   "flag": {
     "eyebrow": "CATALOG FEEDBACK",

@@ -21,6 +21,13 @@
     "signOut": "SAIR",
     "signedInAria": "Conectado como {name}"
   },
+  "catalogRefresh": {
+    "action": "ATUALIZAR",
+    "actionAria": "Atualizar o catálogo do {institution} pelo Notion",
+    "refreshing": "Atualizando…",
+    "refreshed": "Catálogo atualizado",
+    "failed": "Falha na atualização — tente novamente"
+  },
   "status": {
     "labStatusLabel": "Status do laboratório",
     "toolsInInventory": "{count} FERRAMENTAS NO INVENTÁRIO"
@@ -111,6 +118,7 @@
     "breadcrumbNew": "Enviar",
     "titleLabel": "Título do projeto",
     "authorLabel": "Seu nome",
+    "authorFromAccount": "Obtido da sua conta {institution}.",
     "bodyLabel": "Descrição (suporta Markdown)",
     "bodyPlaceholder": "Descreva seu projeto, como você o fez e o que aprendeu…",
     "previewLabel": "Pré-visualização",
@@ -207,7 +215,15 @@
     "unknownCategory": "Só foi possível identificar o tipo geral de equipamento",
     "unknownSource": "Nenhuma página do fabricante ou manual foi encontrada para conferir",
     "unknownManual": "Nenhum manual foi encontrado",
-    "unknownSpecs": "As especificações não foram conferidas em uma página consultada"
+    "unknownSpecs": "As especificações não foram conferidas em uma página consultada",
+    "actionConfirm": "Está certo — adicionar",
+    "actionConfirmModel": "Confirmar que é o {name}",
+    "actionConfirmVariant": "É o {variant}",
+    "actionEdit": "Editar",
+    "actionDiscard": "Descartar",
+    "actionAddUnit": "Adicionar uma unidade à ferramenta existente",
+    "actionCreateAnyway": "Não, criar uma ferramenta nova",
+    "actionOpenDraft": "Abrir o rascunho no Notion"
   },
   "flag": {
     "eyebrow": "FEEDBACK DO CATÁLOGO",

@@ -21,6 +21,13 @@
     "signOut": "התנתקות",
     "signedInAria": "מחובר בתור {name}"
   },
+  "catalogRefresh": {
+    "action": "רענון",
+    "actionAria": "רענון הקטלוג של {institution} מ‑Notion",
+    "refreshing": "מרענן…",
+    "refreshed": "הקטלוג רוענן",
+    "failed": "הרענון נכשל — נסו שוב"
+  },
   "status": {
     "labStatusLabel": "מצב המעבדה",
     "toolsInInventory": "{count} כלים במלאי"
@@ -111,6 +118,7 @@
     "breadcrumbNew": "שליחה",
     "titleLabel": "שם הפרויקט",
     "authorLabel": "השם שלכם",
+    "authorFromAccount": "נלקח מחשבון ה-{institution} שלכם.",
     "bodyLabel": "תיאור (תומך ב-Markdown)",
     "bodyPlaceholder": "תארו את הפרויקט, איך יצרתם אותו ומה למדתם…",
     "previewLabel": "תצוגה מקדימה",
@@ -207,7 +215,15 @@
     "unknownCategory": "ניתן היה לזהות רק את סוג הציוד הכללי",
     "unknownSource": "לא נמצא דף יצרן או מדריך להשוואה",
     "unknownManual": "לא נמצא מדריך",
-    "unknownSpecs": "המפרט לא אומת מול דף שנקרא"
+    "unknownSpecs": "המפרט לא אומת מול דף שנקרא",
+    "actionConfirm": "נראה נכון — הוסיפו אותו",
+    "actionConfirmModel": "אשרו שזה {name}",
+    "actionConfirmVariant": "זה {variant}",
+    "actionEdit": "עריכה",
+    "actionDiscard": "התעלמות",
+    "actionAddUnit": "הוספת יחידה לכלי הקיים",
+    "actionCreateAnyway": "לא, ליצור כלי חדש",
+    "actionOpenDraft": "פתיחת הטיוטה ב-Notion"
   },
   "flag": {
     "eyebrow": "משוב על הקטלוג",

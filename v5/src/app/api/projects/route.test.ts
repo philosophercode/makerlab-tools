@@ -1,9 +1,15 @@
 import { http, HttpResponse } from "msw";
 
 import { server } from "../../../../test/msw/server";
+import {
+  SESSION_COOKIE_NAME,
+  createSessionPayload,
+  signSession,
+} from "@/lib/auth/session-cookie";
 
 const NOTION = "https://api.notion.com/v1";
 const PROJECTS_DB = "db-projects";
+const AUTH_SECRET = "projects-route-test-secret";
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -24,20 +30,37 @@ function stubProjectsEnv() {
 interface SubmitOptions {
   ip?: string;
   raw?: string;
+  cookie?: string;
 }
 
-// The route only uses `getClientIp(req)` (headers) and `req.json()`, so a plain
-// Request is enough; it's cast at the call site because the signature asks for
-// a NextRequest.
-function submitRequest(payload: unknown, { ip, raw }: SubmitOptions = {}) {
+// The route only uses `getClientIp(req)` (headers), the session cookie, and
+// `req.json()`, so a plain Request is enough; it's cast at the call site because
+// the signature asks for a NextRequest.
+function submitRequest(payload: unknown, { ip, raw, cookie }: SubmitOptions = {}) {
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+    "x-forwarded-for": ip ?? uniqueIp(),
+  };
+  if (cookie) headers.cookie = cookie;
   return new Request("http://localhost/api/projects", {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-forwarded-for": ip ?? uniqueIp(),
-    },
+    headers,
     body: raw ?? JSON.stringify(payload),
   });
+}
+
+/**
+ * A session cookie signed exactly the way the OAuth callback signs one — the
+ * only way to reach the route as a signed-in student without a network call
+ * (Article 3).
+ */
+async function cookieFor(email: string, name: string | null) {
+  vi.stubEnv("AUTH_SECRET", AUTH_SECRET);
+  const token = await signSession(
+    createSessionPayload({ sub: `sub-${email}`, email, name }),
+    AUTH_SECRET
+  );
+  return `${SESSION_COOKIE_NAME}=${token}`;
 }
 
 function validPayload(overrides: Record<string, unknown> = {}) {
@@ -170,6 +193,151 @@ describe("POST /api/projects (drafts by default)", () => {
         },
       ],
     });
+  });
+});
+
+// ── Verified authorship (spec §4, §5) ───────────────────────────────
+
+describe("POST /api/projects (author identity)", () => {
+  it("records author_email from the session of a signed-in student", async () => {
+    stubProjectsEnv();
+    const calls = captureNotionCreate();
+    const cookie = await cookieFor("ada@cornell.edu", "Ada Lovelace");
+
+    const res = await post(submitRequest(validPayload(), { cookie }));
+
+    expect(res.status).toBe(201);
+    const properties = calls[0].properties as Record<string, unknown>;
+    expect(properties.author_email).toEqual({ email: "ada@cornell.edu" });
+    // The byline comes from the session too — the form makes the field
+    // read-only, and this is what makes that guarantee real.
+    expect(properties.author).toEqual({
+      rich_text: [{ text: { content: "Ada Lovelace" } }],
+    });
+  });
+
+  it("uses the session name even when the body claims a different author", async () => {
+    stubProjectsEnv();
+    const calls = captureNotionCreate();
+    const cookie = await cookieFor("ada@cornell.edu", "Ada Lovelace");
+
+    const res = await post(
+      submitRequest(validPayload({ author: "Somebody Else" }), { cookie })
+    );
+
+    expect(res.status).toBe(201);
+    expect((calls[0].properties as Record<string, unknown>).author).toEqual({
+      rich_text: [{ text: { content: "Ada Lovelace" } }],
+    });
+  });
+
+  it("records no author_email for an anonymous submission, which still succeeds", async () => {
+    stubProjectsEnv();
+    const calls = captureNotionCreate();
+
+    const res = await post(submitRequest(validPayload()));
+
+    // Anonymous submission is deliberate (spec §5) — the ISAM demo and any
+    // student who has not signed in must still be able to contribute.
+    expect(res.status).toBe(201);
+    const properties = calls[0].properties as Record<string, unknown>;
+    expect(properties).not.toHaveProperty("author_email");
+    expect(JSON.stringify(calls[0])).not.toContain("author_email");
+    expect(properties.author).toEqual({
+      rich_text: [{ text: { content: "Ada Lovelace" } }],
+    });
+  });
+
+  it("IGNORES author_email supplied in the body by an anonymous caller", async () => {
+    stubProjectsEnv();
+    const calls = captureNotionCreate();
+
+    const res = await post(
+      submitRequest(
+        validPayload({
+          author_email: "dean@cornell.edu",
+          authorEmail: "dean@cornell.edu",
+        })
+      )
+    );
+
+    expect(res.status).toBe(201);
+    // A client may not assert who it is: no session, no verified author.
+    expect(JSON.stringify(calls[0])).not.toContain("dean@cornell.edu");
+    expect(calls[0].properties).not.toHaveProperty("author_email");
+  });
+
+  it("IGNORES author_email in the body when a session says something else", async () => {
+    stubProjectsEnv();
+    const calls = captureNotionCreate();
+    const cookie = await cookieFor("ada@cornell.edu", "Ada Lovelace");
+
+    const res = await post(
+      submitRequest(validPayload({ author_email: "dean@cornell.edu" }), { cookie })
+    );
+
+    expect(res.status).toBe(201);
+    expect((calls[0].properties as Record<string, unknown>).author_email).toEqual({
+      email: "ada@cornell.edu",
+    });
+    expect(JSON.stringify(calls[0])).not.toContain("dean@cornell.edu");
+  });
+
+  it("still refuses published:true from a signed-in client", async () => {
+    stubProjectsEnv();
+    const calls = captureNotionCreate();
+    const cookie = await cookieFor("ada@cornell.edu", "Ada Lovelace");
+
+    const res = await post(
+      submitRequest(validPayload({ published: true }), { cookie })
+    );
+
+    expect(res.status).toBe(201);
+    // Signing in verifies who submitted; it does not publish anything.
+    expect(calls[0].properties?.published).toEqual({ checkbox: false });
+    expect(JSON.stringify(calls[0])).not.toContain('"checkbox":true');
+  });
+
+  it("records the submission without the email when Notion has no author_email property", async () => {
+    stubProjectsEnv();
+    const cookie = await cookieFor("ada@cornell.edu", "Ada Lovelace");
+    const bodies: NotionCreateBody[] = [];
+    server.use(
+      http.post(`${NOTION}/pages`, async ({ request }) => {
+        const body = (await request.json()) as NotionCreateBody;
+        bodies.push(body);
+        if (body.properties?.author_email) {
+          return HttpResponse.json(
+            {
+              object: "error",
+              status: 400,
+              code: "validation_error",
+              message: "author_email is not a property that exists",
+            },
+            { status: 400 }
+          );
+        }
+        return HttpResponse.json({
+          object: "page",
+          id: "created-project-1",
+          created_time: "2024-09-01T10:00:00.000Z",
+          last_edited_time: "2024-09-01T10:00:00.000Z",
+          properties: body.properties ?? {},
+        });
+      })
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const res = await post(submitRequest(validPayload(), { cookie }));
+
+    // A column a person has not added yet must not cost a student their
+    // write-up (Article 4 — fail toward stale, not toward wrong).
+    expect(res.status).toBe(201);
+    expect(bodies).toHaveLength(2);
+    expect(bodies[1].properties).not.toHaveProperty("author_email");
+    expect(bodies[1].properties?.published).toEqual({ checkbox: false });
+    // And the misconfiguration is loud in the logs.
+    expect(warn).toHaveBeenCalled();
   });
 });
 

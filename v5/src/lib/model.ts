@@ -1,4 +1,5 @@
 import { anthropic } from "@ai-sdk/anthropic";
+import { gateway } from "@ai-sdk/gateway";
 import type { LanguageModel } from "ai";
 
 /**
@@ -43,21 +44,26 @@ export function usesGateway(): boolean {
 /**
  * Pick the model for this deployment.
  *
- * The gateway branch returns a bare model id. The AI SDK resolves a plain
- * string model through its global provider, which is the Vercel AI Gateway and
- * reads `AI_GATEWAY_API_KEY` itself — so no extra dependency is needed to
- * address it, and a misconfigured gateway fails loudly instead of silently
- * spending the personal Anthropic key.
+ * The gateway branch goes through the explicit `gateway(...)` provider from
+ * `@ai-sdk/gateway` rather than a bare model id. A bare string would also
+ * resolve — the AI SDK's global provider *is* the gateway — but the explicit
+ * provider is the seam per-request provider options and failover config attach
+ * to, and it makes the dependency visible in `package.json` instead of implied
+ * by a transitive one. The provider reads `AI_GATEWAY_API_KEY` itself; it is
+ * constructed lazily, so building the model makes no network call.
  *
- * TODO(ai-gateway phase 2): this branch is **unverified** — it has never been
- * run against a real gateway key, because nobody holds one yet. Phase 2 of
- * `docs/specs/2026-07-29-ai-gateway-migration-design.md` adds `@ai-sdk/gateway`
- * as a direct dependency, swaps this for an explicit `gateway(...)` provider
- * call (which allows per-request provider options and failover config), and
- * verifies a full conversation locally with a key before anything is deployed.
+ * **The direct path stays the default.** A contributor with only an
+ * `ANTHROPIC_API_KEY` must be able to run the app, so the gateway is opt-in and
+ * an absent (or blank) gateway key falls back to the provider that works.
+ *
+ * NOTE: the gateway branch is **unverified against a live gateway** — nobody
+ * holds an `AI_GATEWAY_API_KEY` yet. The selection logic is tested; the
+ * round trip is not. Phase 3+ of
+ * `docs/specs/2026-07-29-ai-gateway-migration-design.md` (Vercel config, then a
+ * preview deploy) is where a full conversation gets exercised for real.
  */
 export function resolveChatModel(): LanguageModel {
-  return usesGateway() ? GATEWAY_CHAT_MODEL_ID : anthropic(CHAT_MODEL_ID);
+  return usesGateway() ? gateway(GATEWAY_CHAT_MODEL_ID) : anthropic(CHAT_MODEL_ID);
 }
 
 /** The chat model for this process. */

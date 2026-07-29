@@ -1,11 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { siteConfig } from "../lib/site-config";
+import {
+  fetchIdentity,
+  isSignedIn,
+  type ClientIdentity,
+} from "../lib/auth/sign-in-client";
 
 interface ToolOption {
   id: string;
@@ -21,6 +26,18 @@ interface UploadedPhoto {
   name: string;
 }
 
+/** Ties the read-only byline to the note explaining where the name came from. */
+const AUTHOR_NOTE_ID = "project-author-note";
+
+/**
+ * The display name of a signed-in identity, or "" for anyone else — including a
+ * signed-in account Google gave no name for, which is indistinguishable from
+ * anonymous as far as the byline is concerned.
+ */
+function nameOf(identity: ClientIdentity | null): string {
+  return isSignedIn(identity) ? (identity?.name || "").trim() : "";
+}
+
 export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
   const t = useTranslations("projectForm");
 
@@ -32,11 +49,39 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
   const [selectedTools, setSelectedTools] = useState<string[]>([]);
   const [photos, setPhotos] = useState<UploadedPhoto[]>([]);
 
+  // Who is submitting is request state, and this form renders inside a
+  // statically-shelled layout — so it asks after mount, exactly as the header
+  // does (auth spec §6). Until it answers, and whenever it cannot, the student
+  // types their own name: anonymous submission is a deliberate path (spec §5),
+  // not a degraded one, and nothing here waits on the answer.
+  const [identity, setIdentity] = useState<ClientIdentity | null>(null);
+
   const [toolQuery, setToolQuery] = useState("");
   const [uploading, setUploading] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+    fetchIdentity(controller.signal).then((resolved) => {
+      if (!active) return;
+      setIdentity(resolved);
+      // Pre-fill the byline from the session. The server writes the session name
+      // regardless of what is posted, so the field is read-only rather than
+      // merely suggested — showing an editable name it would then override is
+      // the kind of lie that makes a form feel broken.
+      const name = nameOf(resolved);
+      if (name) setAuthor(name);
+    });
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, []);
+
+  const verifiedName = nameOf(identity);
 
   const filteredTools = toolQuery.trim()
     ? tools.filter((tool) =>
@@ -191,8 +236,18 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
             onChange={(event) => setAuthor(event.target.value)}
             maxLength={120}
             required
+            readOnly={Boolean(verifiedName)}
+            aria-describedby={verifiedName ? AUTHOR_NOTE_ID : undefined}
           />
         </label>
+        {/* Outside the <label> on purpose: text inside it would become part of
+            the field's accessible name ("Your name Taken from…"). Described-by
+            keeps it announced as help text, which is what it is. */}
+        {verifiedName ? (
+          <p className="project-form-note" id={AUTHOR_NOTE_ID}>
+            {t("authorFromAccount", { institution: siteConfig.institution })}
+          </p>
+        ) : null}
 
         <label className="project-field">
           <span>{t("bodyLabel")}</span>

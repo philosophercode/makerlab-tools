@@ -278,3 +278,91 @@ silent failure in the system into an email.
 4. **Is 24 hours the right floor?** It suits a catalogue edited weekly. If the lab starts
    editing daily and the refresh button goes unused, shorten to 6 hours — still 240× less
    traffic than today.
+
+## Amendments
+
+### 2026-07-29 — `/api/admin/revalidate` accepts a staff session (as-built)
+
+**What changed.** §7 said the Refresh button "changes what calls it, not the endpoint."
+It changed the endpoint. `POST /api/admin/revalidate` now authorises **either** a
+signed-in `staff`/`admin` session (via `resolveIdentity`) **or** the existing
+`x-admin-secret` header, and it is rate-limited (30/min, keyed per identity) before it
+invalidates anything.
+
+**Why.** A browser cannot hold `ADMIN_REVALIDATE_SECRET`, so a button that authenticated
+only by shared secret would have had to either ship the secret to the client or proxy
+through a second route that decides the same question twice. Neither is better than
+teaching the one endpoint about the one auth mechanism the app already has. The header
+path is untouched, because the callers that have no session — a Notion automation
+webhook, cron, `curl` during an incident — are exactly the ones §3.2 path 2 depends on.
+
+The rate limit is Article 4: invalidation is cheap here and expensive on the next
+request, which re-reads all of Notion.
+
+**Scope.** §3.2 path 1 and §9 phase 7. Server-side authorisation is the control; the
+component renders `null` below `staff` purely to spare everyone else a button they
+cannot use, and the route re-resolves identity regardless.
+
+**Also as-built:**
+- **Admins see it too.** §3.2 says "visible to `staff`". `isAtLeast(role, "staff")` includes
+  `admin`, which is the only reading that does not lock the operator out of the operator's
+  own control.
+- **It lives in the header** (`PrimaryNav`), not on a page: the catalogue is what every page
+  shows, and `PrimaryNav` has already resolved the identity, so the control costs no second
+  `/api/identity` call.
+- **Feedback is a persistent live region**, not a toast — refreshing / refreshed / failed
+  stays on screen until the next attempt. Same reasoning as `FlagButton`'s in-place
+  confirmation: a toast is gone before it is read.
+- **Strings** live in a new `catalogRefresh` namespace across all 12 `messages/*.json`, with
+  `{institution}` supplied at the call site from `siteConfig` (Article 6).
+
+**Status.** Accepted — the code is right and §7's prediction about the endpoint was wrong.
+
+### 2026-07-29 — backup route, as built (phase 5)
+
+**What changed.** Three departures from §3.3, all small.
+
+**1. It backs up eight databases, not seven.** §3.3 says "all seven Notion databases".
+The route enumerates its targets from `notion.ts`'s `getNotionEnvContract()` and appends
+`NOTION_DB_PROJECTS` when that variable is set.
+
+*Why.* Two reasons, and the second is the important one. Student project submissions are
+staff-moderated work that is lost exactly the way everything else is, so excluding them
+from the only backup would be an odd place to draw a line. More to the point, deriving the
+list from the env contract rather than hard-coding it means **the ninth database gets
+backed up the day it is added**, instead of being silently missed until someone needs it —
+which is precisely the class of failure this spec exists to end. A second hard-coded list
+of databases would have been a new thing to keep in sync, and things that must be kept in
+sync do not stay in sync.
+
+**2. `vercel.json` is `v5/vercel.json`.** §3's file listing is relative to `v5/`, and the
+Vercel project's Root Directory is `v5/` (the repo root holds the retired v4 app). The
+schedule is `17 7 * * *` — 07:17 UTC, roughly 03:17 in New York. **If the Vercel project's
+Root Directory is ever set to the repo root, the `crons` block has to move to the root
+`vercel.json` or the job simply never fires.** Noted here because a cron that was never
+registered looks identical to a cron that is working.
+
+**3. A prune failure returns 500 with `written: true`.** §5 says the job returns non-200 on
+failure, and it does. But the two failures are not equally bad: if the dump was written and
+only the 30-day cleanup threw, today's data is safe and the operator should know that from
+the cron log rather than assuming the worst. The status code still says "look at this".
+
+**Also as-built:**
+- **Raw Notion pages are stored**, not the records `notion.ts` maps. That mapping is lossy
+  on purpose — it keeps the properties the site renders — and a backup exists to restore
+  what Notion had rather than what the site showed.
+- **A partial dump is never written.** Any database failing aborts the whole job with a 500.
+  A file that is missing a database while looking complete is worse than no file, because
+  the restore succeeds and is wrong.
+- **`src/lib/blob.ts` is a three-verb seam** (`put` / `list` / `del`) over `@vercel/blob`,
+  with `access: "private"` hard-coded and no parameter to override it. §3.3 and §8 both say
+  private-only; making it un-expressible is stronger than documenting it. The seam is also
+  what lets the route be tested without a blob token.
+- **Rate-limited at 10/hour** after the secret check (Article 4). The route is secret-gated,
+  so this is the second line: a leaked secret in a loop would otherwise be one full Notion
+  dump per request.
+- **Pagination is bounded** at 100 pages per database and **the prune never deletes a
+  pathname it does not recognise** — both are "fail toward stale, not toward wrong".
+
+**Status.** Accepted — §3.3's intent is met; the deviations are narrower than the prose,
+except the eighth database, which is broader and deliberately so.

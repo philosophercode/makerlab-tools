@@ -289,3 +289,94 @@ intake is the more pressing need.
    bad at. v5 has nowhere good to put them; Blueprint does. *Not blocking.*
 4. **Concurrency of 4 — right?** A guess. Instrument and tune once there is real bulk-intake
    usage.
+
+---
+
+## Amendments
+
+Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited — the reason a
+design changed usually outlives the change.
+
+### 2026-07-29 — phases 4 and 5 built (as-built)
+
+**What changed.** §9 phases 4 (behaviour gating) and 5 (parallel fan-out) are implemented.
+Confidence now changes what the agent does rather than only what it reports.
+
+- **Low proposes nothing.** `propose_listing` splits its input by grade. A low candidate
+  gets no card and comes back under `needs_more_info` with the specific unknowns; the
+  prompt fragment tells the agent to ask for the one thing named there and forbids
+  describing the listing in prose instead. `IdentificationCard` independently returns
+  `null` for a low-confidence card in a pre-write state.
+- **Medium leads with the ambiguity.** The confidence strip moves above the listing and
+  puts its unresolved lines first, and the primary action resolves the ambiguity rather
+  than accepting it — one button per reported variant, or an explicit
+  "Confirm it's the &lt;name&gt;" when none were reported.
+- **`research_tool` takes an array** and fans out through `mapWithConcurrency` with
+  `RESEARCH_CONCURRENCY = 4`, all-settled: a throwing item returns a low-confidence
+  candidate whose unknowns name the failure, and the other items are unaffected.
+
+**No change to the write model.** `create_tool` still requires an explicit human
+confirmation and still writes `published: false`. The gating only decides which question
+gets asked; it never authorises a write, and there is no path that skips the card.
+
+Seven things the spec did not describe:
+
+1. **`propose_listing` no longer declares a `card` renderer — it writes its own cards.**
+   The chat adapter emits exactly one `data-card` per tool call, so the pre-existing
+   "pass several candidates, each gets its own card" promise only ever rendered the first
+   one. A required `card(result)` also cannot express "emit zero cards", which the low
+   branch needs. The tool now writes one `data-card` per proposable candidate through
+   `ctx.writer` and returns `{ proposed, needs_more_info }` to the model. It degrades
+   cleanly with no writer (the MCP-shaped ctx), returning the same summary and no cards.
+
+2. **Cards stream at the propose step, not during research.** §3.3 puts progressive cards
+   in the fan-out. They are emitted per candidate as the propose loop yields instead,
+   because the card *is* the Article 5 confirmation gate: emitting one from `research_tool`
+   would put a proposal on screen before the model had proposed it and before §3.2's
+   gating had been applied to it. The latency win §3.3 actually wanted — eight items in
+   the time of the slowest rather than the sum — is in the research fan-out and is
+   unaffected. The per-card emission is what fixes the batch, and the honest description
+   of the current behaviour is "one card per candidate" rather than "the first card
+   appears while the last is still resolving".
+
+3. **`ToolCandidate.variants?: string[]` added.** §3.2 and §6 want "It's the MK4" /
+   "It's the MK4S" buttons but §4 does not say where the two names come from. The model
+   reports the variants it could not choose between — an observation, which §3.1 says it
+   is reliable at — and code decides what to do with them. Capped at four buttons. With
+   fewer than two variants the medium card falls back to "Confirm it's the &lt;name&gt;",
+   so the branch never silently degrades to the high-confidence action.
+
+4. **`CardAction.labelKey` / `labelValues` added, and every intake action label moved onto
+   them.** Cards are built server-side where no locale is resolved, so the existing labels
+   were hardcoded English in `intake.ts` — an Article 6 gap that new medium-branch buttons
+   would have widened. Labels now travel as `intake` message keys plus their ICU values
+   and are translated by the renderer; the English `label` remains as the fallback for any
+   action without a key. Eight keys added to all 12 locale files.
+
+5. **A turn's photo attachments are merged into a lone candidate only.** `research_tool`
+   used to fold every attachment on the turn into the single candidate. Under fan-out that
+   would attach all eight of a bench's photos to all eight tools, so in a batch each
+   candidate keeps the `image_upload_ids` the model assigned it, and the prompt says so.
+
+6. **A low-confidence duplicate match renders no card either.** A `duplicate_of` hit is
+   matched on a name the evidence does not support, so the "add a unit to the existing
+   tool" offer is no more trustworthy than the listing would have been.
+
+7. **Suppression is enforced in two places.** The server withholds the card and the
+   component refuses to render one. Either alone would be sufficient today; both together
+   mean a future surface that builds a card payload some other way still cannot put an
+   unsupported proposal in front of someone.
+
+**Testing.** 20 unit/integration cases in `intake.test.ts` (fan-out order, all-settled with
+a throwing item, the concurrency cap observed at 4 across 30 items, per-candidate photo
+assignment, and the three gating branches) and 14 component cases in
+`IdentificationCard.test.tsx` (low renders an empty DOM, medium leads with the ambiguity
+and renders variant actions, high unchanged, labels localized from their keys). No test
+makes a network call.
+
+**Still open.** §10's E2E case — "a batch upload produces multiple cards progressively" —
+is not covered: E2E boots with no model credentials, so there is no agent turn to drive it.
+§11's open questions are untouched; the concurrency of 4 is still the spec's guess.
+
+**Status.** Accepted — the code is right and the spec was incomplete on where variants come
+from, how a card gets emitted, and how a card's labels get localized.

@@ -21,6 +21,13 @@
     "signOut": "OTURUMU KAPAT",
     "signedInAria": "{name} olarak oturum açıldı"
   },
+  "catalogRefresh": {
+    "action": "YENİLE",
+    "actionAria": "{institution} kataloğunu Notion’dan yenile",
+    "refreshing": "Yenileniyor…",
+    "refreshed": "Katalog yenilendi",
+    "failed": "Yenileme başarısız — tekrar deneyin"
+  },
   "status": {
     "labStatusLabel": "Laboratuvar durumu",
     "toolsInInventory": "ENVANTERDE {count} ARAÇ"
@@ -111,6 +118,7 @@
     "breadcrumbNew": "Gönder",
     "titleLabel": "Proje başlığı",
     "authorLabel": "Adın",
+    "authorFromAccount": "{institution} hesabından alındı.",
     "bodyLabel": "Açıklama (Markdown destekli)",
     "bodyPlaceholder": "Projeni, nasıl yaptığını ve neler öğrendiğini anlat…",
     "previewLabel": "Önizleme",
@@ -207,7 +215,15 @@
     "unknownCategory": "Yalnızca ekipmanın genel türü belirlenebildi",
     "unknownSource": "Karşılaştırmak için üretici sayfası veya kılavuz bulunamadı",
     "unknownManual": "Kılavuz bulunamadı",
-    "unknownSpecs": "Teknik özellikler okunan bir sayfayla doğrulanmadı"
+    "unknownSpecs": "Teknik özellikler okunan bir sayfayla doğrulanmadı",
+    "actionConfirm": "Doğru görünüyor — ekle",
+    "actionConfirmModel": "{name} olduğunu onayla",
+    "actionConfirmVariant": "Bu {variant}",
+    "actionEdit": "Düzenle",
+    "actionDiscard": "Vazgeç",
+    "actionAddUnit": "Mevcut araca bir birim ekle",
+    "actionCreateAnyway": "Hayır, yeni bir araç oluştur",
+    "actionOpenDraft": "Taslağı Notion’da aç"
   },
   "flag": {
     "eyebrow": "KATALOG GERİ BİLDİRİMİ",

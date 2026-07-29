@@ -333,10 +333,82 @@ principle (constitution Article 6) implies but did not state.
 **Status.** Accepted. All four are documented in `v5/.env.example` and in
 [`../handover.md`](../handover.md) §2.
 
-### Open — phase 5 not built
+### ~~Open — phase 5 not built~~ (superseded 2026-07-29, see below)
 
 §9 phase 5 (identity into `CapabilityCtx`) is **not implemented**. `CapabilityCtx` has no
 `identity` field, so `report_issue` still takes a model-supplied `reported_by` string and
 maintenance tickets carry names typed into chat rather than the verified session. Verified
 authorship was one of the reasons sign-in was specified. Tracked in
 [`README.md`](README.md).
+
+### 2026-07-29 — phase 5 built, with three as-built details
+
+**What changed.** §9 phase 5 is now implemented, which closes the amendment above.
+`CapabilityCtx` and `PromptEnv` each carry an optional `identity`; the chat route passes the
+`Identity` it already resolved, the MCP route passes its own (normally anonymous, since an
+MCP caller presents a bearer token rather than a session cookie); and `report_issue` prefers
+`ctx.identity.name` over the model-supplied `reported_by` and writes `reporter_email`
+**only** from `ctx.identity.email`. There is no tool-input field for the email and
+deliberately no path that would let one exist — a client may never assert its own identity.
+Absent identity behaves exactly as before, so anonymous reporting, MCP, and scheduled
+callers are unaffected.
+
+Three things the spec did not describe:
+
+1. **Notion property fallback.** §4 requires a person to add the `reporter_email` Email
+   column to `Maintenance_Logs` by hand, and Notion rejects any write naming a property
+   that does not exist. If that write is refused, the ticket is re-filed without the email
+   and the misconfiguration is logged loudly. Losing a student's report of an unsafe
+   machine to a missing column is the wrong way to fail (Article 4 — fail toward stale, not
+   toward wrong). **This means the feature degrades silently-but-loudly rather than
+   blocking on the Notion change**, which is why phase 5 could ship before it.
+2. **Display names are escaped before reaching the system prompt.** §8 says to escape the
+   name; the as-built rule is specifically: strip newlines and the markdown characters that
+   could close a span or open something that reads as an instruction, collapse whitespace,
+   cap at 80 characters. A display name arrives from Google and is not an instruction
+   channel. Emails never enter the prompt at all.
+3. **The prompt fragment branches on identity.** Signed in, it names the student and tells
+   the assistant not to ask who they are and to leave `reported_by` empty. Signed out, it
+   asks for a name exactly as before — and still files without one if the student declines,
+   because an anonymous report beats an unreported fault.
+
+**Status.** Accepted. Verified by 19 tests in `v5/src/lib/capabilities/maintenance.test.ts`
+covering verified name and email, fallback to the model-supplied name with no email,
+`reporter_email` in tool input being ignored (signed in and signed out), the Notion
+property fallback, and prompt-fragment escaping.
+
+**Still needs a person.** The `reporter_email` Email property in `Maintenance_Logs`, and
+open question 2 (§11) — whether student email in Notion is acceptable to the university.
+Until the column exists, tickets file with the verified *name* and no email.
+
+### 2026-07-29 — the E2E session is stubbed at `/api/identity`, not signed (as-built)
+
+**What changed.** §10 calls for "Playwright with a stubbed session cookie." `v5/e2e/auth.spec.ts`
+sets a session cookie under the real name (`makerlab.identity`), but its **value is opaque and
+nothing verifies it**. The signed-in state is produced by intercepting `GET /api/identity` with
+`page.route()` and answering from the cookie the browser actually sent.
+
+**Why.** The cookie is an HMAC over `AUTH_SECRET`, and the Playwright web server boots with no
+credentials at all (constitution Article 3 — the suite runs with every environment variable
+unset, which is exactly what makes it deterministic). A cookie signed with a secret the server
+does not hold verifies to `null`, so a real token could only be minted by giving the E2E server
+an `AUTH_SECRET` — a change to `playwright.config.ts`, outside this work's ownership, and one
+that would make the auth E2E the only spec in the suite that depends on a configured server.
+
+The stub sits where the header's *entire* view of the session already is: per the
+`/api/identity` amendment above, `PrimaryNav` renders in a statically-shelled layout and knows
+nothing except what that route answers. Keying the stub on the cookie header keeps the cookie —
+not the stub — the thing that flips the assertion, and the spec asserts both directions from the
+same handler (no cookie ⇒ sign-in control; cookie ⇒ first name and sign-out).
+
+**What is therefore *not* covered by E2E**, and is covered by unit tests instead:
+`verifySessionToken` (`src/lib/auth/session-cookie.test.ts`) and `resolveIdentity` across
+absent, expired, tampered, non-domain, staff and admin cookies (`src/lib/auth/identity.test.ts`).
+The browser-side seam — cookie present ⇒ header shows the name — is what E2E adds.
+
+**Also.** §10's third E2E assertion, "anonymous chat works", was already covered before this
+change: `v5/e2e/chat.spec.ts` never signs in, so its whole path is the anonymous one. It is not
+duplicated in `auth.spec.ts`.
+
+**Status.** Accepted. The spec's intent (no live OAuth, assert the header states) is met; the
+mechanism is one layer up from the cookie because the suite deliberately has no secret.

@@ -23,8 +23,10 @@
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.46",
+    "@ai-sdk/gateway": "^3.0.160",
     "@ai-sdk/react": "^3.0.97",
     "@modelcontextprotocol/sdk": "^1.29.0",
+    "@vercel/blob": "^2.6.1",
     "ai": "^6.0.95",
     "better-auth": "^1.6.25",
     "match-sorter": "^8.3.0",

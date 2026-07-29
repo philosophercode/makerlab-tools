@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useChatLauncher } from "./ChatLauncherContext";
+import { RefreshCatalogButton } from "./RefreshCatalogButton";
 import { siteConfig } from "../lib/site-config";
 import {
   fetchIdentity,
@@ -90,6 +91,11 @@ export function PrimaryNav() {
       >
         {t("report")}
       </button>
+      {/* Staff-only, and it renders nothing for everyone else. The header is
+          where it belongs: the catalog is what every page shows, so the control
+          that refreshes it should not live on one of them. It reuses the
+          identity this component already resolved rather than asking again. */}
+      <RefreshCatalogButton role={identity?.role} />
       {signedIn ? (
         <>
           {/* Name only — no avatar image, per the technical-schematic system

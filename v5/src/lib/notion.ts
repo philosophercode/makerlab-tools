@@ -864,8 +864,17 @@ export async function fetchProject(id: string): Promise<ProjectRecord> {
   return pageToProject(await projectsRequest<NotionPage>(`/pages/${id}`));
 }
 
+/**
+ * What a submission may write. `author_email` is **write-only and
+ * server-resolved**: it is not on `ProjectFields` because nothing reads it back,
+ * and there is deliberately no path by which a client could supply one.
+ */
+export type ProjectWriteFields = Partial<ProjectFields> & {
+  author_email?: string;
+};
+
 export async function createProject(
-  fields: Partial<ProjectFields>
+  fields: ProjectWriteFields
 ): Promise<ProjectRecord> {
   const dbId = getProjectsDbId();
   if (!dbId) throw new Error("Missing NOTION_DB_PROJECTS");
@@ -876,6 +885,12 @@ export async function createProject(
     published: { checkbox: false },
   };
   if (fields.author) properties.author = richTextProp(fields.author);
+  // Only ever set from a server-resolved session (projects spec §4). Requires
+  // the `author_email` Email property to exist in Notion; the route retries
+  // without it if it does not, so a missing column cannot lose a submission.
+  if (fields.author_email) {
+    properties.author_email = emailProp(fields.author_email);
+  }
   if (fields.body) properties.body = richTextProp(fields.body);
   if (fields.tools_used?.length) {
     properties.tools_used = relationProp(fields.tools_used);

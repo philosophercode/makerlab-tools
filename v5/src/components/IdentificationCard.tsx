@@ -9,6 +9,7 @@ import {
 import type {
   CardAction,
   CardPayload,
+  CardState,
   IdentificationCardPayload,
   IntakeConfidenceLevel,
 } from "../lib/capabilities/types";
@@ -25,6 +26,10 @@ import type {
  * The card itself owns no chat/network state; all behavior flows up through
  * `onAction`. It switches on the discriminated `kind` so future card types can
  * extend `CardPayload` without changing the call site.
+ *
+ * The confidence grade changes what gets rendered, not just what it says
+ * (confidence spec §3.2): a **low** grade renders nothing at all, and a
+ * **medium** one leads with what is unresolved. See {@link Identification}.
  */
 export function IdentificationCard({
   card,
@@ -193,7 +198,14 @@ function isWebLink(url: string): boolean {
  * are rebuilt from the card's structured `evidence` so they are localized like
  * every other string — `confidence.basis` is the English, model-facing copy.
  */
-function ConfidenceStrip({ card }: { card: IdentificationCardPayload }) {
+function ConfidenceStrip({
+  card,
+  unknownsFirst,
+}: {
+  card: IdentificationCardPayload;
+  /** Lead with what is unresolved rather than with what is held (medium). */
+  unknownsFirst?: boolean;
+}) {
   const t = useTranslations("intake");
   const confidence = card.confidence;
   const evidence = card.evidence;
@@ -201,6 +213,27 @@ function ConfidenceStrip({ card }: { card: IdentificationCardPayload }) {
 
   const lines = confidenceLines(evidence);
   const sources = (card.sourceUrls || []).filter(isWebLink);
+
+  const basisRows = lines.basis.map((line) => (
+    <li
+      key={`basis-${line.code}`}
+      className="id-card-also-row id-card-confidence-line"
+    >
+      <EvidenceMarker held />
+      <span className="sr-only">{t("confidenceHeldAria")}</span>
+      <span>{t(BASIS_KEYS[line.code], line.values)}</span>
+    </li>
+  ));
+  const unknownRows = lines.unknowns.map((line) => (
+    <li
+      key={`unknown-${line.code}`}
+      className="id-card-also-row id-card-confidence-line id-card-confidence-line-unknown"
+    >
+      <EvidenceMarker held={false} />
+      <span className="sr-only">{t("confidenceUnknownAria")}</span>
+      <span>{t(UNKNOWN_KEYS[line.code])}</span>
+    </li>
+  ));
 
   // The strip reuses the "also creating" list styles so it is presentable
   // before any `.id-card-confidence*` rules exist in globals.css (a file this
@@ -213,26 +246,17 @@ function ConfidenceStrip({ card }: { card: IdentificationCardPayload }) {
         {t(LEVEL_KEYS[confidence.level])}
       </p>
       <ul className="id-card-also-list id-card-confidence-lines">
-        {lines.basis.map((line) => (
-          <li
-            key={`basis-${line.code}`}
-            className="id-card-also-row id-card-confidence-line"
-          >
-            <EvidenceMarker held />
-            <span className="sr-only">{t("confidenceHeldAria")}</span>
-            <span>{t(BASIS_KEYS[line.code], line.values)}</span>
-          </li>
-        ))}
-        {lines.unknowns.map((line) => (
-          <li
-            key={`unknown-${line.code}`}
-            className="id-card-also-row id-card-confidence-line id-card-confidence-line-unknown"
-          >
-            <EvidenceMarker held={false} />
-            <span className="sr-only">{t("confidenceUnknownAria")}</span>
-            <span>{t(UNKNOWN_KEYS[line.code])}</span>
-          </li>
-        ))}
+        {unknownsFirst ? (
+          <>
+            {unknownRows}
+            {basisRows}
+          </>
+        ) : (
+          <>
+            {basisRows}
+            {unknownRows}
+          </>
+        )}
       </ul>
       {sources.length > 0 ? (
         <p className="id-card-confidence-sources">
@@ -264,6 +288,45 @@ function actionClass(variant: CardAction["variant"]): string {
   return "id-card-action id-card-action-secondary";
 }
 
+/**
+ * A card in one of the pre-write states is a *proposal* — something the person
+ * is being asked to accept. `success` / `error` are records of a write that
+ * already happened and are always shown.
+ */
+function isProposal(state: CardState): boolean {
+  return state === "proposed" || state === "duplicate";
+}
+
+/** Action buttons, localized from `labelKey` where the server supplied one. */
+function ActionButtons({
+  actions,
+  onAction,
+  disabled,
+}: {
+  actions: CardAction[];
+  onAction: (seedMessage: string) => void;
+  disabled?: boolean;
+}) {
+  const t = useTranslations("intake");
+  return (
+    <div className="id-card-actions">
+      {actions.map((action) => (
+        <button
+          key={action.id}
+          type="button"
+          className={actionClass(action.variant)}
+          disabled={disabled}
+          onClick={() => onAction(action.seedMessage)}
+        >
+          {action.labelKey
+            ? t(action.labelKey, action.labelValues)
+            : action.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function Identification({
   card,
   onAction,
@@ -277,6 +340,20 @@ function Identification({
   const isDuplicate = card.state === "duplicate";
   const isError = card.state === "error";
   const photo = card.photoUrls[0];
+  const level = card.confidence?.level;
+
+  // **Low confidence renders no card at all** (confidence spec §3.2, §6). The
+  // server already withholds these, and this is the second half of the same
+  // rule: a proposal the evidence cannot support must not appear as a
+  // plausible-looking listing someone can accept with one click. The honest
+  // representation of "I don't have a proposal yet" is the agent's question in
+  // the conversation, and nothing else.
+  if (level === "low" && isProposal(card.state)) return null;
+
+  // Medium leads with the ambiguity: the strip moves above the listing and puts
+  // its unresolved lines first, so the first thing read is what still has to be
+  // settled rather than a confident-looking name.
+  const leadsWithConfidence = level === "medium" && isProposal(card.state);
 
   return (
     <article
@@ -301,6 +378,8 @@ function Identification({
           Already in catalog: {card.duplicateOf.name}
         </p>
       ) : null}
+
+      {leadsWithConfidence ? <ConfidenceStrip card={card} unknownsFirst /> : null}
 
       <div className="id-card-head">
         {photo ? (
@@ -373,7 +452,7 @@ function Identification({
         </div>
       ) : null}
 
-      <ConfidenceStrip card={card} />
+      {leadsWithConfidence ? null : <ConfidenceStrip card={card} />}
 
       {isSuccess && card.draftUrl ? (
         <a
@@ -387,19 +466,11 @@ function Identification({
       ) : null}
 
       {card.actions.length > 0 ? (
-        <div className="id-card-actions">
-          {card.actions.map((action) => (
-            <button
-              key={action.id}
-              type="button"
-              className={actionClass(action.variant)}
-              disabled={disabled}
-              onClick={() => onAction(action.seedMessage)}
-            >
-              {action.label}
-            </button>
-          ))}
-        </div>
+        <ActionButtons
+          actions={card.actions}
+          onAction={onAction}
+          disabled={disabled}
+        />
       ) : null}
     </article>
   );

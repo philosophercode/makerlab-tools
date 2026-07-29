@@ -21,6 +21,13 @@
     "signOut": "ВЫЙТИ",
     "signedInAria": "Вы вошли как {name}"
   },
+  "catalogRefresh": {
+    "action": "ОБНОВИТЬ",
+    "actionAria": "Обновить каталог {institution} из Notion",
+    "refreshing": "Обновление…",
+    "refreshed": "Каталог обновлён",
+    "failed": "Не удалось обновить — попробуйте ещё раз"
+  },
   "status": {
     "labStatusLabel": "Статус лаборатории",
     "toolsInInventory": "ИНСТРУМЕНТОВ НА СКЛАДЕ: {count}"
@@ -111,6 +118,7 @@
     "breadcrumbNew": "Отправить",
     "titleLabel": "Название проекта",
     "authorLabel": "Ваше имя",
+    "authorFromAccount": "Взято из вашей учётной записи {institution}.",
     "bodyLabel": "Описание (поддерживается Markdown)",
     "bodyPlaceholder": "Опишите свой проект, как вы его сделали и чему научились…",
     "previewLabel": "Предпросмотр",
@@ -207,7 +215,15 @@
     "unknownCategory": "Удалось определить только общий тип оборудования",
     "unknownSource": "Не найдено ни страницы производителя, ни руководства для проверки",
     "unknownManual": "Руководство не найдено",
-    "unknownSpecs": "Характеристики не подтверждены прочитанной страницей"
+    "unknownSpecs": "Характеристики не подтверждены прочитанной страницей",
+    "actionConfirm": "Всё верно — добавить",
+    "actionConfirmModel": "Подтвердить, что это {name}",
+    "actionConfirmVariant": "Это {variant}",
+    "actionEdit": "Изменить",
+    "actionDiscard": "Отклонить",
+    "actionAddUnit": "Добавить единицу к существующему инструменту",
+    "actionCreateAnyway": "Нет, создать новый инструмент",
+    "actionOpenDraft": "Открыть черновик в Notion"
   },
   "flag": {
     "eyebrow": "ОТЗЫВ О КАТАЛОГЕ",

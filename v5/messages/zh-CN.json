@@ -21,6 +21,13 @@
     "signOut": "退出登录",
     "signedInAria": "已以 {name} 身份登录"
   },
+  "catalogRefresh": {
+    "action": "刷新",
+    "actionAria": "从 Notion 刷新 {institution} 目录",
+    "refreshing": "正在刷新…",
+    "refreshed": "目录已刷新",
+    "failed": "刷新失败——请重试"
+  },
   "status": {
     "labStatusLabel": "实验室状态",
     "toolsInInventory": "库存中有 {count} 件工具"
@@ -111,6 +118,7 @@
     "breadcrumbNew": "提交",
     "titleLabel": "项目标题",
     "authorLabel": "你的姓名",
+    "authorFromAccount": "来自你的 {institution} 账户。",
     "bodyLabel": "说明（支持 Markdown）",
     "bodyPlaceholder": "描述你的项目、制作过程以及收获…",
     "previewLabel": "预览",
@@ -207,7 +215,15 @@
     "unknownCategory": "只能识别出设备的大致类型",
     "unknownSource": "未找到可核对的制造商页面或说明书",
     "unknownManual": "未找到说明书",
-    "unknownSpecs": "规格未经已查阅页面核实"
+    "unknownSpecs": "规格未经已查阅页面核实",
+    "actionConfirm": "没问题 — 添加",
+    "actionConfirmModel": "确认是 {name}",
+    "actionConfirmVariant": "是 {variant}",
+    "actionEdit": "编辑",
+    "actionDiscard": "丢弃",
+    "actionAddUnit": "为已有工具添加一台设备",
+    "actionCreateAnyway": "不，创建新工具",
+    "actionOpenDraft": "在 Notion 中打开草稿"
   },
   "flag": {
     "eyebrow": "目录反馈",

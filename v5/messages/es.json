@@ -21,6 +21,13 @@
     "signOut": "CERRAR SESIÓN",
     "signedInAria": "Sesión iniciada como {name}"
   },
+  "catalogRefresh": {
+    "action": "ACTUALIZAR",
+    "actionAria": "Actualizar el catálogo de {institution} desde Notion",
+    "refreshing": "Actualizando…",
+    "refreshed": "Catálogo actualizado",
+    "failed": "La actualización falló: inténtalo de nuevo"
+  },
   "status": {
     "labStatusLabel": "Estado del laboratorio",
     "toolsInInventory": "{count} HERRAMIENTAS EN INVENTARIO"
@@ -111,6 +118,7 @@
     "breadcrumbNew": "Enviar",
     "titleLabel": "Título del proyecto",
     "authorLabel": "Tu nombre",
+    "authorFromAccount": "Se toma de tu cuenta de {institution}.",
     "bodyLabel": "Descripción (admite Markdown)",
     "bodyPlaceholder": "Describe tu proyecto, cómo lo hiciste y qué aprendiste…",
     "previewLabel": "Vista previa",
@@ -207,7 +215,15 @@
     "unknownCategory": "Solo se pudo identificar el tipo general de equipo",
     "unknownSource": "No se encontró ninguna página del fabricante ni manual para comprobarlo",
     "unknownManual": "No se encontró ningún manual",
-    "unknownSpecs": "Las especificaciones no están verificadas con una página consultada"
+    "unknownSpecs": "Las especificaciones no están verificadas con una página consultada",
+    "actionConfirm": "Se ve bien — añádelo",
+    "actionConfirmModel": "Confirmar que es el {name}",
+    "actionConfirmVariant": "Es el {variant}",
+    "actionEdit": "Editar",
+    "actionDiscard": "Descartar",
+    "actionAddUnit": "Añadir una unidad a la herramienta existente",
+    "actionCreateAnyway": "No, crear una herramienta nueva",
+    "actionOpenDraft": "Abrir el borrador en Notion"
   },
   "flag": {
     "eyebrow": "COMENTARIOS DEL CATÁLOGO",

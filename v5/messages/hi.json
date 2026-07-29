@@ -21,6 +21,13 @@
     "signOut": "साइन आउट",
     "signedInAria": "{name} के रूप में साइन इन"
   },
+  "catalogRefresh": {
+    "action": "रीफ़्रेश",
+    "actionAria": "{institution} की सूची Notion से रीफ़्रेश करें",
+    "refreshing": "रीफ़्रेश हो रहा है…",
+    "refreshed": "सूची रीफ़्रेश हो गई",
+    "failed": "रीफ़्रेश विफल — फिर से कोशिश करें"
+  },
   "status": {
     "labStatusLabel": "लैब की स्थिति",
     "toolsInInventory": "इन्वेंटरी में {count} उपकरण"
@@ -111,6 +118,7 @@
     "breadcrumbNew": "सबमिट करें",
     "titleLabel": "परियोजना शीर्षक",
     "authorLabel": "आपका नाम",
+    "authorFromAccount": "आपके {institution} खाते से लिया गया।",
     "bodyLabel": "विवरण (Markdown समर्थित)",
     "bodyPlaceholder": "अपनी परियोजना, उसे बनाने का तरीका और आपने क्या सीखा, इसका वर्णन करें…",
     "previewLabel": "पूर्वावलोकन",
@@ -207,7 +215,15 @@
     "unknownCategory": "केवल उपकरण का सामान्य प्रकार पहचाना जा सका",
     "unknownSource": "जाँचने के लिए कोई निर्माता पेज या मैनुअल नहीं मिला",
     "unknownManual": "कोई मैनुअल नहीं मिला",
-    "unknownSpecs": "विनिर्देश किसी पढ़े गए पेज से सत्यापित नहीं हैं"
+    "unknownSpecs": "विनिर्देश किसी पढ़े गए पेज से सत्यापित नहीं हैं",
+    "actionConfirm": "सही लग रहा है — इसे जोड़ें",
+    "actionConfirmModel": "पुष्टि करें कि यह {name} है",
+    "actionConfirmVariant": "यह {variant} है",
+    "actionEdit": "संपादित करें",
+    "actionDiscard": "छोड़ दें",
+    "actionAddUnit": "मौजूदा टूल में एक यूनिट जोड़ें",
+    "actionCreateAnyway": "नहीं, नया टूल बनाएँ",
+    "actionOpenDraft": "Notion में ड्राफ़्ट खोलें"
   },
   "flag": {
     "eyebrow": "कैटलॉग फ़ीडबैक",

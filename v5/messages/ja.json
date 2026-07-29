@@ -21,6 +21,13 @@
     "signOut": "サインアウト",
     "signedInAria": "{name} としてサインイン中"
   },
+  "catalogRefresh": {
+    "action": "更新",
+    "actionAria": "{institution} のカタログを Notion から更新",
+    "refreshing": "更新中…",
+    "refreshed": "カタログを更新しました",
+    "failed": "更新に失敗しました — もう一度お試しください"
+  },
   "status": {
     "labStatusLabel": "ラボの状況",
     "toolsInInventory": "在庫ツール {count} 件"
@@ -111,6 +118,7 @@
     "breadcrumbNew": "投稿",
     "titleLabel": "プロジェクト名",
     "authorLabel": "お名前",
+    "authorFromAccount": "{institution} アカウントから取得しています。",
     "bodyLabel": "説明（Markdown 対応）",
     "bodyPlaceholder": "プロジェクトの内容、作り方、学んだことを説明してください…",
     "previewLabel": "プレビュー",
@@ -207,7 +215,15 @@
     "unknownCategory": "機器の大まかな種類しか特定できませんでした",
     "unknownSource": "照合できるメーカーページやマニュアルが見つかりませんでした",
     "unknownManual": "マニュアルが見つかりませんでした",
-    "unknownSpecs": "仕様は参照したページで確認されていません"
+    "unknownSpecs": "仕様は参照したページで確認されていません",
+    "actionConfirm": "問題ありません — 追加する",
+    "actionConfirmModel": "{name} で確定する",
+    "actionConfirmVariant": "{variant} です",
+    "actionEdit": "編集",
+    "actionDiscard": "破棄",
+    "actionAddUnit": "既存のツールにユニットを追加",
+    "actionCreateAnyway": "いいえ、新しいツールを作成",
+    "actionOpenDraft": "Notion で下書きを開く"
   },
   "flag": {
     "eyebrow": "カタログへのフィードバック",

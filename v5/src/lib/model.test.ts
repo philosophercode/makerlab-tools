@@ -15,9 +15,13 @@ describe("resolveChatModel", () => {
     vi.stubEnv("AI_GATEWAY_API_KEY", "vck_test");
 
     expect(usesGateway()).toBe(true);
-    // A bare model id — the AI SDK resolves it through its global (gateway)
-    // provider rather than the direct Anthropic client.
-    expect(resolveChatModel()).toBe(GATEWAY_CHAT_MODEL_ID);
+    // The explicit `@ai-sdk/gateway` provider, not the direct Anthropic client.
+    // Constructing it is pure — no request is made, which is what keeps this
+    // test offline (constitution Article 3).
+    expect(resolveChatModel()).toMatchObject({
+      modelId: GATEWAY_CHAT_MODEL_ID,
+      provider: "gateway",
+    });
   });
 
   it("uses the direct Anthropic provider when AI_GATEWAY_API_KEY is absent", () => {
@@ -53,13 +57,25 @@ describe("chatModel", () => {
   }
 
   it("exports the gateway model when the gateway key is present at load", async () => {
-    await expect(importChatModel("vck_test")).resolves.toBe(GATEWAY_CHAT_MODEL_ID);
+    await expect(importChatModel("vck_test")).resolves.toMatchObject({
+      modelId: GATEWAY_CHAT_MODEL_ID,
+      provider: "gateway",
+    });
   });
 
   it("exports the direct model when no gateway key is present at load", async () => {
     await expect(importChatModel(undefined)).resolves.toMatchObject({
       modelId: CHAT_MODEL_ID,
+      provider: expect.stringContaining("anthropic"),
     });
+  });
+
+  it("names the gateway model with the gateway's own provider-namespaced id", async () => {
+    // Guards the pair of ids against being "helpfully" unified: Anthropic's own
+    // API spells the version with dashes, the gateway with dots, and neither
+    // string works in the other place.
+    expect(GATEWAY_CHAT_MODEL_ID).toBe("anthropic/claude-sonnet-4.6");
+    expect(GATEWAY_CHAT_MODEL_ID).not.toBe(CHAT_MODEL_ID);
   });
 
   it("keeps the direct model id the chat route used before centralization", () => {

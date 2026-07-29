@@ -226,3 +226,51 @@ describe("PrimaryNav — sign-in control", () => {
     expect(button).not.toBeDisabled();
   });
 });
+
+// The header is where the staff refresh control lives (ops hardening spec §3.2),
+// because it reuses the identity this component already resolved. Its own
+// behaviour is covered in RefreshCatalogButton.test.tsx.
+describe("PrimaryNav — staff refresh control", () => {
+  beforeEach(() => {
+    usePathname.mockReturnValue("/");
+    fetchIdentity.mockClear();
+    fetchIdentity.mockResolvedValue(null);
+  });
+
+  it("offers the refresh control to staff", async () => {
+    fetchIdentity.mockResolvedValue({ role: "staff", name: "Niti Parikh" });
+    render(<PrimaryNav />);
+
+    expect(
+      await screen.findByRole("button", { name: /Refresh the/ })
+    ).toBeInTheDocument();
+  });
+
+  it("offers the refresh control to admins", async () => {
+    fetchIdentity.mockResolvedValue({ role: "admin", name: "Isaac Steinberg" });
+    render(<PrimaryNav />);
+
+    expect(
+      await screen.findByRole("button", { name: /Refresh the/ })
+    ).toBeInTheDocument();
+  });
+
+  it("does not show it to a signed-in student", async () => {
+    fetchIdentity.mockResolvedValue({ role: "student", name: "Ada Lovelace" });
+    render(<PrimaryNav />);
+
+    await screen.findByRole("button", { name: "SIGN OUT" });
+    expect(
+      screen.queryByRole("button", { name: /Refresh the/ })
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not show it to an anonymous visitor", async () => {
+    render(<PrimaryNav />);
+
+    await screen.findByRole("button", { name: /Sign in/ });
+    expect(
+      screen.queryByRole("button", { name: /Refresh the/ })
+    ).not.toBeInTheDocument();
+  });
+});
