@@ -292,3 +292,51 @@ Each phase leaves `main` deployable. Phases 1–3 are invisible to users.
    ceiling behind an env var, in case conference wifi puts every visitor behind one NAT'd
    IP — which would exhaust a per-IP allowance almost immediately. **This is a real
    scenario, not a hypothetical, and it should be resolved before the conference.**
+
+---
+
+## Amendments
+
+Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited — the reason a
+design changed usually outlives the change.
+
+### 2026-07-29 — `GET /api/identity` added (as-built)
+
+**What changed.** A route not present in §3.2's file list: `src/app/api/identity/route.ts`.
+
+**Why.** The header renders inside a statically-shelled layout and cannot read the session
+cookie during render, so it needs a small endpoint to ask the server who the caller is.
+Not foreseen when this spec was written — §6 assumed the header could resolve identity
+directly.
+
+**Scope.** Projects `resolveIdentity` down to **role and display name only**; the email
+stays server-side per §8. Always returns 200 with `role: "anonymous"` rather than 401,
+because anonymous is a normal answer and not an error. Rate-limited per identity before
+any work, though generously — it is one HMAC verification per page load with no outbound
+call behind it, and a header showing "Sign in" to someone already signed in is worse than
+the traffic it saves.
+
+**Status.** Accepted. The code is right and the spec was incomplete.
+
+### 2026-07-29 — additional environment variables (as-built)
+
+**What changed.** §4 and §11 name `AUTH_SECRET`, `AUTH_STAFF_EMAILS`, and
+`AUTH_ADMIN_EMAILS`. The implementation also requires `GOOGLE_CLIENT_ID`,
+`GOOGLE_CLIENT_SECRET`, `AUTH_BASE_URL`, and `AUTH_ALLOWED_EMAIL_DOMAIN`.
+
+**Why.** The first two are the OAuth client credentials, which the spec assumed rather than
+listed. `AUTH_BASE_URL` is required by Better Auth for callback construction on a custom
+domain and in local development. `AUTH_ALLOWED_EMAIL_DOMAIN` makes the `cornell.edu`
+restriction configuration rather than a constant — which the spec's own white-label
+principle (constitution Article 6) implies but did not state.
+
+**Status.** Accepted. All four are documented in `v5/.env.example` and in
+[`../handover.md`](../handover.md) §2.
+
+### Open — phase 5 not built
+
+§9 phase 5 (identity into `CapabilityCtx`) is **not implemented**. `CapabilityCtx` has no
+`identity` field, so `report_issue` still takes a model-supplied `reported_by` string and
+maintenance tickets carry names typed into chat rather than the verified session. Verified
+authorship was one of the reasons sign-in was specified. Tracked in
+[`README.md`](README.md).

@@ -13,6 +13,10 @@
 the code it calls for exist and do its tests pass. Verified 2026-07-29 against commit
 `cf46fc2`, with `npm run test:all` exiting 0 (661 unit/integration across 47 files, 17 E2E).
 
+Two mechanisms keep it current: `npm run spec:coverage` (mechanical — every route,
+capability tool, script, and env var must appear somewhere in `docs/`) and `/drift`
+(semantic — an agent reads specs against code). See [`DRIFT.md`](DRIFT.md).
+
 **What this is not.** It is not a line-by-line conformance proof. A phase marked *built*
 means its artifacts exist and are tested, not that every clause of the spec's prose is
 satisfied. Where a phase was deliberately skipped, the reason is recorded.

@@ -18,7 +18,8 @@
     "qr:labels": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/generate-qr-labels.ts",
     "migrate:resources": "node --env-file=.env.local --experimental-strip-types scripts/migrate-tools-to-resources.ts",
     "drop:deprecated-columns": "node --env-file=.env.local --experimental-strip-types scripts/drop-deprecated-notion-columns.ts",
-    "clear:migration-notes": "node --env-file=.env.local --experimental-strip-types scripts/clear-resource-migration-notes.ts"
+    "clear:migration-notes": "node --env-file=.env.local --experimental-strip-types scripts/clear-resource-migration-notes.ts",
+    "spec:coverage": "node --experimental-strip-types scripts/check-spec-coverage.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.46",

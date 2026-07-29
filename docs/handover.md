@@ -93,9 +93,10 @@ If it is wrong *and* the Notion record is right, that is a real bug — see §6.
 
 ### Change branding, colours, or the assistant's name
 
-Environment variables in Vercel, no code change. `NEXT_PUBLIC_SITE_NAME`,
-`NEXT_PUBLIC_INSTITUTION`, `NEXT_PUBLIC_COLOR_PRIMARY`,
-`NEXT_PUBLIC_CHAT_ASSISTANT_NAME`, and others — the full list with explanations is in
+Environment variables in Vercel, no code change: `NEXT_PUBLIC_SITE_NAME`,
+`NEXT_PUBLIC_INSTITUTION`, `NEXT_PUBLIC_TAGLINE`, `NEXT_PUBLIC_LOGO`,
+`NEXT_PUBLIC_COLOR_PRIMARY`, `NEXT_PUBLIC_COLOR_PRIMARY_DARK`,
+`NEXT_PUBLIC_CHAT_ASSISTANT_NAME`, and `AUDIENCE`. Full explanations in
 `v5/.env.example`. Redeploy after changing them.
 
 ---
