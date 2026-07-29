@@ -56,3 +56,7 @@ scripts/tool_images/
 .vscode/
 *.swp
 *.swo
+
+# Private working notes — never committed, never published.
+# This repo is public; keep strategy/commercial notes out of it.
+docs/private/

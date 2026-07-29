@@ -76,7 +76,7 @@ first), `npm run test:coverage`.
 - **Vitest** (jsdom) + React Testing Library + MSW; **Playwright** for E2E.
 - E2E boots its own server on **port 3100** with `NOTION_*` unset (mock catalog) and intercepts `/api/chat` — it never touches your `:3000` dev server or real services.
 - Tests are colocated (`*.test.ts(x)` next to source); shared harness in `test/`.
-- **Read these before writing tests:** `TESTING.md` (runbook), `test/README.md` (harness internals + the `streamText`-capture and env-stubbing patterns), and `docs/superpowers/specs/2026-05-29-v5-test-suite-design.md` (design + coverage matrix). The harness deps/scripts are already wired — don't hand-edit `package.json` for them.
+- **Read these before writing tests:** `TESTING.md` (runbook), `test/README.md` (harness internals + the `streamText`-capture and env-stubbing patterns), and `docs/specs/2026-05-29-v5-test-suite-design.md` (design + coverage matrix). The harness deps/scripts are already wired — don't hand-edit `package.json` for them.
 
 ## Commands
 
