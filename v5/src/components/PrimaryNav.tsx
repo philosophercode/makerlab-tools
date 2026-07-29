@@ -29,6 +29,14 @@ export function PrimaryNav() {
       ))}
       <button
         type="button"
+        className="primary-nav-add"
+        onClick={() => open(t("addSeed"))}
+        aria-label={t("addAria")}
+      >
+        {t("add")}
+      </button>
+      <button
+        type="button"
         className="primary-nav-report"
         onClick={() => open(t("reportSeed"))}
         aria-label={t("reportAria")}

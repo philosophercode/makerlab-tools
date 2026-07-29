@@ -49,6 +49,14 @@ export interface ToolFields {
   image_attachments?: Attachment[];
   notes?: string;
   published?: boolean;
+  /**
+   * Write-only: references to images already uploaded via the Notion
+   * file_upload API. The read path returns URL-based attachments in
+   * `image_attachments`; this field is consumed when creating a record so
+   * the Notion `image_attachments` files property is built with
+   * `type: "file_upload"` entries.
+   */
+  image_uploads?: Array<{ id: string; name: string }>;
 }
 
 export type ToolRecord = NotionRecord<ToolFields>;

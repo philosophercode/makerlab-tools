@@ -224,11 +224,29 @@ describe("ChatFab", () => {
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
   });
 
-  it("renders the error row when useChat returns an error", async () => {
+  it("surfaces the actual error message when useChat returns an error", async () => {
     const user = userEvent.setup();
     useChatReturn = baseReturn({
       messages: [userMsg("u1", "hi"), assistantMsg("a1", "hello")],
-      error: new Error("boom"),
+      error: new Error("The AI service is temporarily overloaded."),
+    });
+    render(<ChatFab />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Open MakerLab assistant" })
+    );
+
+    // The real message is shown verbatim, not the generic fallback.
+    expect(
+      screen.getByText("The AI service is temporarily overloaded.")
+    ).toBeInTheDocument();
+  });
+
+  it("falls back to the generic error text when the error has no message", async () => {
+    const user = userEvent.setup();
+    useChatReturn = baseReturn({
+      messages: [userMsg("u1", "hi"), assistantMsg("a1", "hello")],
+      error: new Error(""),
     });
     render(<ChatFab />);
 

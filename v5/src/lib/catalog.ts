@@ -66,7 +66,11 @@ function groupUnitsByTool(units: UnitRecord[]): Map<string, UnitRecord[]> {
 function groupResourcesByTool(resources: ResourceRecord[]): Map<string, ResourceRecord[]> {
   const map = new Map<string, ResourceRecord[]>();
   for (const resource of resources) {
-    if (resource.fields.published === false) continue;
+    // Resources are gated by their parent tool's visibility, not their own
+    // `published` flag: the catalog only surfaces published tools, so an
+    // unpublished tool already hides its resources. Filtering resources here too
+    // meant intake-created links (created as drafts alongside the tool) stayed
+    // invisible even after staff published the tool — so we show them with it.
     for (const toolId of resource.fields.tool || []) {
       const list = map.get(toolId);
       if (list) list.push(resource);

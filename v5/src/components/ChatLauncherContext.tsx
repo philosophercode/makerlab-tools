@@ -35,8 +35,9 @@ const ChatLauncherContext = createContext<ChatLauncher | null>(null);
 
 /**
  * Owns just the chat launcher's open state and any one-shot seed message, so
- * that entry points outside `ChatFab` (e.g. the nav "Report" button) can open
- * and seed the chat. All conversation/message state stays inside `ChatFab`.
+ * that entry points outside `ChatFab` (e.g. the nav "Report" / "Add equipment"
+ * buttons) can open and seed the chat. All conversation/message state stays
+ * inside `ChatFab`.
  */
 export function ChatLauncherProvider({
   children,

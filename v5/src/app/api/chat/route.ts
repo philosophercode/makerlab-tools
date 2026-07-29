@@ -5,25 +5,23 @@ import {
   createUIMessageStreamResponse,
   stepCountIs,
   streamText,
-  tool,
   type FilePart,
+  type ImagePart,
   type ModelMessage,
   type TextPart,
   type UIMessage,
   type UserModelMessage,
 } from "ai";
-import { z } from "zod";
 import { getCatalogTool, getCatalogTools } from "../../../lib/catalog";
-import {
-  createMaintenanceLog,
-  fetchAllResources,
-  fetchMaintenanceLogsByUnit,
-} from "../../../lib/notion";
-import type { MakerLabTool, MakerLabUnit } from "../../../components/catalog-types";
+import { fetchAllResources } from "../../../lib/notion";
+import type { MakerLabTool } from "../../../components/catalog-types";
 import type { ResourceRecord } from "../../../lib/types";
-import { languageNameForLocale } from "../../../i18n/config";
 import { getClientIp, rateLimitAsync } from "../../../lib/rate-limit";
-import { siteConfig } from "../../../lib/site-config";
+import { CAPABILITIES, composeChat } from "../../../lib/capabilities";
+import type {
+  CapabilityCtx,
+  UploadedImage,
+} from "../../../lib/capabilities";
 
 const MAX_PDFS_PER_CHAT = 3;
 const MAX_PDF_BYTES = 10 * 1024 * 1024; // 10MB ceiling
@@ -44,8 +42,6 @@ interface ChatRequest {
   locale?: string;
 }
 
-const PRIORITIES = ["Critical", "High", "Medium", "Low"] as const;
-
 export async function POST(req: Request) {
   // Rate limit before any expensive work (Notion fetch / model call).
   const ip = getClientIp(req);
@@ -63,7 +59,6 @@ export async function POST(req: Request) {
   const { messages, toolId, locale }: ChatRequest = await req.json();
   const tools = await getCatalogTools();
   const focused = toolId ? await getCatalogTool(toolId) : null;
-  const unitLookup = buildUnitLookup(tools);
   const { manuals, skipped } = focused
     ? await collectToolManuals(focused.id)
     : { manuals: [], skipped: 0 };
@@ -78,13 +73,22 @@ export async function POST(req: Request) {
     console.info(`[chat] manuals attached: ${manuals.length}`);
     console.info(`[chat] manuals skipped (will web_fetch): ${skipped}`);
   }
-  const system = buildSystemPrompt(tools, focused, manuals, locale);
-  const modelMessages = attachManualsToFirstUserMessage(
-    await convertToModelMessages(messages),
-    manuals
-  );
+
+  // Convert the UI messages, attach any server-fetched manuals, and surface the
+  // uploaded photos for this turn both to the model (image bytes — design spec
+  // §6.1) and to the capability layer (file_upload ids the intake `create_tool`
+  // re-uses to attach the same photo to the new Notion page).
+  const baseMessages = await convertToModelMessages(messages);
+  const attachments = collectAttachments(baseMessages);
+  if (attachments.length > 0) {
+    console.info(`[chat] attachments for this turn: ${attachments.length}`);
+  }
+  const modelMessages = attachManualsToFirstUserMessage(baseMessages, manuals);
 
   const stream = createUIMessageStream({
+    // Surface a useful, user-facing reason instead of the SDK's masked default
+    // (e.g. distinguish an Anthropic "overloaded" 529 from a real bug).
+    onError: describeChatError,
     execute: ({ writer }) => {
       if (manuals.length > 0) {
         writer.write({
@@ -94,191 +98,231 @@ export async function POST(req: Request) {
         });
       }
 
+      // Build the capability context for this turn. The chat surface populates
+      // every field; capabilities degrade gracefully when one is absent.
+      const ctx: CapabilityCtx = {
+        writer,
+        attachments,
+        locale,
+        focusedToolId: focused?.id,
+      };
+
+      // Compose the system prompt + capability tools from the shared registry,
+      // then add the provider-native research tools (Anthropic web tools are not
+      // capabilities — the intake capability's prompt tells the agent to use
+      // them). web_fetch keeps the focused-tool domain allow-list.
+      const { tools: capabilityTools, system } = composeChat(CAPABILITIES, ctx, {
+        tools,
+        focusedTool: focused,
+        locale,
+      });
+
       const result = streamText({
         model: anthropic("claude-sonnet-4-6"),
-        system,
+        system: appendManualSections(system, focused, manuals),
         messages: modelMessages,
-    tools: {
-      get_unit_details: tool({
-        description:
-          "Fetch details for a specific physical unit, including its status, condition, and recent maintenance history. Use when the student names or asks about a specific unit (e.g. 'Prusa #1', 'Form 2 #2') or reports an issue tied to one.",
-        inputSchema: z.object({
-          unit_label: z
-            .string()
-            .describe("The unit label, e.g. 'Prusa #1' or 'Form 2 #1'."),
-        }),
-        execute: async ({ unit_label }) => {
-          const match = findUnit(unitLookup, unit_label);
-          if (!match) {
-            const sample = unitLookup
-              .slice(0, 8)
-              .map((u) => u.label)
-              .join(", ");
-            return {
-              found: false,
-              message: `No unit found matching "${unit_label}". Some known units: ${sample}${unitLookup.length > 8 ? "…" : ""}`,
-            };
-          }
-
-          const logs = await fetchMaintenanceLogsByUnit(match.id).catch(
-            () => []
-          );
-
-          return {
-            found: true,
-            unit_id: match.id,
-            unit_label: match.label,
-            tool_name: match.toolName,
-            tool_slug: match.toolSlug,
-            status: match.status,
-            condition: match.condition,
-            location: match.location,
-            serial: match.serial,
-            date_acquired: match.dateAcquired,
-            detail_page: `/tools/${match.toolSlug}`,
-            maintenance_logs: logs.slice(0, 10).map((log) => ({
-              title: log.fields.title,
-              type: log.fields.type || "",
-              priority: log.fields.priority || "",
-              status: log.fields.status || "",
-              date_reported: log.fields.date_reported || "",
-              description: log.fields.description || "",
-            })),
-          };
+        tools: {
+          ...capabilityTools,
+          web_search: anthropic.tools.webSearch_20250305({
+            maxUses: 5,
+          }),
+          web_fetch: anthropic.tools.webFetch_20250910({
+            maxUses: 5,
+            maxContentTokens: 20000,
+            citations: { enabled: true },
+            ...(focused
+              ? (() => {
+                  const hosts = uniqueHosts(focused.links.map((l) => l.href));
+                  return hosts.length ? { allowedDomains: hosts } : {};
+                })()
+              : {}),
+          }),
         },
-      }),
-      report_issue: tool({
-        description:
-          "File a maintenance ticket in Notion when a student reports a problem with a tool or unit. Gather a short title and a clear description first. If they named a specific unit (like 'Prusa #1'), include it so the log is linked. Ask for the reporter's name if they haven't given it.",
-        inputSchema: z.object({
-          title: z.string().describe("Short summary of the issue"),
-          description: z
-            .string()
-            .describe("Full description of what's wrong"),
-          unit_label: z
-            .string()
-            .optional()
-            .describe("Unit label if the issue is tied to a specific unit"),
-          priority: z
-            .enum(PRIORITIES)
-            .default("Medium")
-            .describe(
-              "Critical = unsafe / lab-blocking, High = unusable, Medium = degraded, Low = cosmetic"
-            ),
-          reported_by: z
-            .string()
-            .optional()
-            .describe("Student name or NetID if provided"),
-          photo_uploads: z
-            .array(
-              z.object({
-                id: z.string().describe("Notion file_upload_id"),
-                name: z.string().describe("Original filename"),
-              })
-            )
-            .optional()
-            .describe(
-              "Notion file_upload references. Parse these from the [Attached photos: file_upload_id=... name=...] hint in the student's message."
-            ),
-        }),
-        execute: async ({
-          title,
-          description,
-          unit_label,
-          priority,
-          reported_by,
-          photo_uploads,
-        }) => {
-          const match = unit_label ? findUnit(unitLookup, unit_label) : null;
-          try {
-            const record = await createMaintenanceLog({
-              title,
-              description,
-              type: "Issue Report",
-              priority,
-              status: "Open",
-              reported_by: reported_by || undefined,
-              unit: match ? [match.id] : undefined,
-              date_reported: new Date().toISOString().split("T")[0],
-              photo_uploads: photo_uploads?.length ? photo_uploads : undefined,
-            });
-            return {
-              success: true,
-              ticket_id: record.id,
-              unit_resolved: match
-                ? { id: match.id, label: match.label }
-                : null,
-              message: `Logged maintenance ticket ${record.id}.`,
-            };
-          } catch (err) {
-            const message =
-              err instanceof Error ? err.message : "Failed to file ticket";
-            return { success: false, error: message };
-          }
-        },
-      }),
-      web_fetch: anthropic.tools.webFetch_20250910({
-        maxUses: 5,
-        maxContentTokens: 20000,
-        citations: { enabled: true },
-        ...(focused
-          ? (() => {
-              const hosts = uniqueHosts(focused.links.map((l) => l.href));
-              return hosts.length ? { allowedDomains: hosts } : {};
-            })()
-          : {}),
-      }),
-    },
-    stopWhen: stepCountIs(5),
-  });
+        stopWhen: stepCountIs(10),
+      });
 
-      writer.merge(result.toUIMessageStream());
+      writer.merge(result.toUIMessageStream({ onError: describeChatError }));
     },
   });
 
   return createUIMessageStreamResponse({ stream });
 }
 
-interface UnitLookupEntry {
-  id: string;
-  label: string;
-  toolName: string;
-  toolSlug: string;
-  status: MakerLabUnit["status"];
-  condition: MakerLabUnit["condition"];
-  location: string;
-  serial: string;
-  dateAcquired: string | null;
+/**
+ * Map a streaming/model error to a concise, user-facing message. The AI SDK
+ * masks error text by default ("An error occurred"); this surfaces the actual
+ * reason so users aren't left with a dead-end "Something went wrong" — most
+ * importantly distinguishing a transient Anthropic overload (HTTP 529) from a
+ * genuine bug. Returned text is shown verbatim in the chat error row.
+ */
+function describeChatError(error: unknown): string {
+  const err = error as
+    | { statusCode?: number; status?: number; message?: string; name?: string }
+    | undefined;
+  const status = err?.statusCode ?? err?.status;
+  const message = (err?.message || "").toLowerCase();
+
+  if (status === 529 || message.includes("overloaded")) {
+    return "The AI service is temporarily overloaded (this is on the provider's side, not your request). Please try again in a few moments.";
+  }
+  if (status === 429 || message.includes("rate limit") || message.includes("too many requests")) {
+    return "Too many requests right now — please wait a moment and try again.";
+  }
+  if (message.includes("timeout") || message.includes("timed out") || err?.name === "TimeoutError") {
+    return "The request took too long and timed out. Please try again.";
+  }
+  if (status === 401 || status === 403 || message.includes("api key") || message.includes("authentication")) {
+    return "The assistant is misconfigured (authentication failed). Please let a lab admin know.";
+  }
+  const detail = err?.message?.trim();
+  return detail
+    ? `Something went wrong: ${detail}`
+    : "Something went wrong. Please try again.";
 }
 
-function buildUnitLookup(tools: MakerLabTool[]): UnitLookupEntry[] {
-  return tools.flatMap((tool) =>
-    tool.units.map((unit) => ({
-      id: unit.id,
-      label: unit.name,
-      toolName: tool.name,
-      toolSlug: tool.slug,
-      status: unit.status,
-      condition: unit.condition,
-      location: unit.location,
-      serial: unit.serial,
-      dateAcquired: unit.dateAcquired,
-    }))
-  );
+// ── Attachments / vision (design spec §6.1) ────────────────────────
+
+/**
+ * Reconstruct the uploaded photos for this turn into {@link UploadedImage}s.
+ *
+ * The chat client uploads each photo to Notion and appends a text hint
+ * (`[Attached photos: file_upload_id=<id> name=<name>; ...]`) to the user
+ * message; for vision it also includes the image bytes as image/file parts so
+ * Claude can see them. We pair the hint entries (which carry the durable Notion
+ * `file_upload_id` the intake `create_tool` re-uses) with the inline image bytes
+ * (the `dataUrl` the model sees) from the latest user message, in order.
+ */
+function collectAttachments(messages: ModelMessage[]): UploadedImage[] {
+  const lastUser = [...messages]
+    .reverse()
+    .find((m): m is UserModelMessage => m.role === "user");
+  if (!lastUser) return [];
+
+  const text = userMessageText(lastUser);
+  const hints = parsePhotoHints(text);
+  const images = userMessageImages(lastUser);
+
+  if (hints.length === 0 && images.length === 0) return [];
+
+  // Pair hints (file_upload_id + name) with inline image bytes by position. Some
+  // entries may have only one side: a hint without bytes still feeds the intake
+  // layer; bytes without a hint still let the model see the photo.
+  const count = Math.max(hints.length, images.length);
+  const attachments: UploadedImage[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const hint = hints[i];
+    const image = images[i];
+    attachments.push({
+      file_upload_id: hint?.file_upload_id ?? "",
+      name: hint?.name ?? image?.name ?? `photo-${i + 1}`,
+      contentType: image?.contentType ?? "image/jpeg",
+      dataUrl: image?.dataUrl,
+    });
+  }
+  return attachments;
 }
 
-function findUnit(
-  units: UnitLookupEntry[],
-  label: string
-): UnitLookupEntry | null {
-  const needle = label.trim().toLowerCase();
-  if (!needle) return null;
-  return (
-    units.find((u) => u.label.toLowerCase() === needle) ||
-    units.find((u) => u.label.toLowerCase().includes(needle)) ||
-    null
-  );
+/** Flatten a user message's text parts into a single string. */
+function userMessageText(message: UserModelMessage): string {
+  const content = message.content;
+  if (typeof content === "string") return content;
+  return content
+    .filter((p): p is TextPart => p.type === "text")
+    .map((p) => p.text)
+    .join("\n");
 }
+
+interface InlineImage {
+  name?: string;
+  contentType: string;
+  dataUrl: string;
+}
+
+/**
+ * Extract inline image bytes from a user message as data URLs the model can see.
+ * Handles both image parts and file parts with an `image/*` media type.
+ */
+function userMessageImages(message: UserModelMessage): InlineImage[] {
+  const content = message.content;
+  if (typeof content === "string") return [];
+  const images: InlineImage[] = [];
+  for (const part of content) {
+    if (part.type === "image") {
+      const dataUrl = imageDataToUrl(
+        (part as ImagePart).image,
+        (part as ImagePart).mediaType
+      );
+      if (dataUrl) {
+        images.push({
+          contentType: (part as ImagePart).mediaType ?? "image/jpeg",
+          dataUrl,
+        });
+      }
+    } else if (part.type === "file") {
+      const file = part as FilePart;
+      // mediaType may be a full IANA type ("image/png") or the top-level
+      // segment ("image") — accept both.
+      if (typeof file.mediaType === "string" && file.mediaType.startsWith("image")) {
+        const mime = file.mediaType.includes("/") ? file.mediaType : "image/jpeg";
+        const dataUrl = imageDataToUrl(file.data, mime);
+        if (dataUrl) {
+          images.push({
+            name: file.filename,
+            contentType: mime,
+            dataUrl,
+          });
+        }
+      }
+    }
+  }
+  return images;
+}
+
+/** Normalize AI SDK image/file data (URL | data URL | base64 | bytes) to a data URL. */
+function imageDataToUrl(
+  data: unknown,
+  mediaType: string | undefined
+): string | undefined {
+  const mime = mediaType || "image/jpeg";
+  if (data instanceof URL) return data.toString();
+  if (typeof data === "string") {
+    if (data.startsWith("http://") || data.startsWith("https://")) return data;
+    if (data.startsWith("data:")) return data;
+    return `data:${mime};base64,${data}`;
+  }
+  if (data instanceof Uint8Array) {
+    return `data:${mime};base64,${Buffer.from(data).toString("base64")}`;
+  }
+  if (data instanceof ArrayBuffer) {
+    return `data:${mime};base64,${Buffer.from(data).toString("base64")}`;
+  }
+  return undefined;
+}
+
+const PHOTO_HINT_RE = /\[Attached photos:\s*([^\]]+)\]/i;
+
+interface PhotoHint {
+  file_upload_id: string;
+  name: string;
+}
+
+/** Parse the `[Attached photos: file_upload_id=… name=…; …]` hint into entries. */
+function parsePhotoHints(text: string): PhotoHint[] {
+  const block = text.match(PHOTO_HINT_RE);
+  if (!block) return [];
+  return block[1]
+    .split(";")
+    .map((entry) => entry.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const id = entry.match(/file_upload_id=(\S+)/)?.[1] ?? "";
+      const name = entry.match(/name=([^;]+?)\s*$/)?.[1]?.trim() ?? "";
+      return { file_upload_id: id, name };
+    })
+    .filter((hint) => hint.file_upload_id || hint.name);
+}
+
+// ── Helpers (focused tool / manuals) ───────────────────────────────
 
 function uniqueHosts(urls: string[]): string[] {
   const set = new Set<string>();
@@ -300,7 +344,9 @@ function isPdfUrl(url: string | undefined): boolean {
 
 function pickPdfUrl(resource: ResourceRecord): string | null {
   if (isPdfUrl(resource.fields.url)) return resource.fields.url ?? null;
-  const file = (resource.fields.files || []).find((f) => isPdfUrl(f.filename) || isPdfUrl(f.url));
+  const file = (resource.fields.files || []).find(
+    (f) => isPdfUrl(f.filename) || isPdfUrl(f.url)
+  );
   return file?.url || null;
 }
 
@@ -366,12 +412,16 @@ async function collectToolManuals(
       const url = pickPdfUrl(r);
       if (!url) {
         if (r.fields.url) {
-          console.info(`[chat] skipping non-PDF resource: ${r.fields.title} (${r.fields.url})`);
+          console.info(
+            `[chat] skipping non-PDF resource: ${r.fields.title} (${r.fields.url})`
+          );
         }
         continue;
       }
       if (manuals.length >= MAX_PDFS_PER_CHAT) {
-        console.info(`[chat] PDF cap reached (${MAX_PDFS_PER_CHAT}); skipping: ${r.fields.title}`);
+        console.info(
+          `[chat] PDF cap reached (${MAX_PDFS_PER_CHAT}); skipping: ${r.fields.title}`
+        );
         continue;
       }
       const title = r.fields.title || "Manual";
@@ -412,115 +462,56 @@ function attachManualsToFirstUserMessage(
 
   const target = messages[firstUserIdx] as UserModelMessage;
   const existing = target.content;
-  const existingParts: (TextPart | FilePart)[] = Array.isArray(existing)
-    ? (existing.filter((p) => p.type === "text" || p.type === "file") as (TextPart | FilePart)[])
+  const existingParts: (TextPart | FilePart | ImagePart)[] = Array.isArray(existing)
+    ? (existing.filter(
+        (p) => p.type === "text" || p.type === "file" || p.type === "image"
+      ) as (TextPart | FilePart | ImagePart)[])
     : [{ type: "text", text: String(existing ?? "") }];
 
   const updated: UserModelMessage = {
     role: "user",
     content: [...fileParts, ...existingParts],
   };
-  return [...messages.slice(0, firstUserIdx), updated, ...messages.slice(firstUserIdx + 1)];
+  return [
+    ...messages.slice(0, firstUserIdx),
+    updated,
+    ...messages.slice(firstUserIdx + 1),
+  ];
 }
 
-function buildSystemPrompt(
-  tools: MakerLabTool[],
+/**
+ * Append the per-request manual sections to the composed system prompt. These
+ * depend on the server-side PDF fetch for the focused tool, so they live in the
+ * route rather than the surface-agnostic chat adapter (which only knows the
+ * catalog/focused-tool/locale env). When no manuals were attached this is a
+ * no-op and the adapter's prompt is returned unchanged.
+ */
+function appendManualSections(
+  system: string,
   focused: MakerLabTool | null,
-  manuals: AttachedManual[] = [],
-  locale?: string
+  manuals: AttachedManual[]
 ): string {
-  const sections: string[] = [
-    `You are the ${siteConfig.chatAssistantName} — a friendly, knowledgeable helper for ${siteConfig.audience} using the ${siteConfig.institution} MakerLab. Answer questions about lab tools, training requirements, safety, materials, and which machines are right for a given project. Be concise, accurate, and grounded only in the catalog provided below. If the user asks about a tool that isn't in the catalog, say so honestly.`,
-    `## Linking tools\n\nWhenever you mention a tool that exists in the catalog below, **format its name as a markdown link** to its detail page using the slug provided in the catalog: \`[Tool Name](/tools/<slug>)\`. This lets the student jump straight to the tool's page. Examples:\n- "You could use the [Bambu Lab X1-Carbon Combo 3D Printer](/tools/<slug>) for that."\n- "For laser cutting acrylic, check the [Epilog Helix 24](/tools/<slug>)."\n\nDo **not** link the tool the student is already viewing (see Active tool context). Do not invent slugs — only use slugs from the catalog list.`,
-    `## Reporting maintenance issues\n\nYou are a first-line helper, not a ticket-creation machine. Follow this order:\n\n1. **Diagnose conversationally first.** When a student describes a problem, ask a clarifying question or two and walk them through quick fixes they can likely do themselves — swap the filament, re-level the bed, clear a jam, restart the slicer, replace a worn bit, check the e-stop, power-cycle, reseat cables, re-home axes, etc. Start with the simplest plausible fix and escalate from there.\n2. **Recognize when to escalate.** Move toward filing a ticket if: the issue is unsafe, the tool clearly needs staff intervention, the student says they can't fix it, the problem keeps recurring, or the student explicitly asks to log it.\n3. **Proactively offer to log.** Even after a successful self-fix for things staff should know about (jams, low filament, missing parts, anything that affects the next user), gently offer: "Want me to log a quick note so staff knows this happened?" Don't push — just offer.\n4. **Gather details and file.** Once the student agrees (or asks directly), collect: a short title, a clear description of what's wrong and what's already been tried, the affected unit if any, a priority, and the student's name/NetID. If they named a specific unit you don't recognize, call \`get_unit_details\` first to verify it exists. Then call \`report_issue\`. After it succeeds, tell the student the ticket was filed and include the ticket ID. If they only name a tool (not a specific unit), it's fine to file without one — but ask first if they can tell you which unit.\n\nIf the student's message includes a hint like \`[Attached photos: file_upload_id=<id> name=<name>; ...]\`, parse each \`file_upload_id\` and \`name\` pair and pass them as the \`photo_uploads\` argument to \`report_issue\` (do not echo the raw hint back to the student). The IDs are already uploaded to Notion and will be attached to the ticket.\n\nPriority guide: Critical = unsafe or blocks all lab use · High = tool unusable · Medium = degraded performance · Low = cosmetic.`,
-    `## Unit details\n\nWhen a student asks about a specific unit ("how is Prusa #1 doing?", "is Form 2 #2 working?", "show me the history on the Trotec"), call \`get_unit_details\` to fetch its live status and recent maintenance history. Surface the status, condition, and a short recap of the most recent log entries.`,
-  ];
+  if (manuals.length === 0) return system;
 
-  if (locale && locale !== "en") {
-    const language = languageNameForLocale(locale);
-    sections.push(
-      `## Response language\n\nRespond to the student in **${language}**, regardless of the language they write in. Translate your explanations and conversational text into ${language}. However, ALWAYS keep the following in English so MakerLab staff can read them: tool and equipment names (use the exact catalog names), unit labels (e.g. "Prusa #1"), and — critically — the \`title\` and \`description\` you pass to the \`report_issue\` tool when filing a maintenance ticket. Maintenance ticket content must be written in English even though you reply to the student in ${language}.`
-    );
-  }
+  const sections: string[] = [system];
 
-  if (focused) {
-    sections.push(
-      `## Active tool context\n\nThe student is currently viewing the **${focused.name}** detail page in the MakerLab catalog. If they use pronouns like "this", "it", "that tool", or "the machine", or ask things like "how do I use it" / "what can I make with this" without naming a tool, assume they are asking about the ${focused.name}. Use the resource links below when relevant — point to the SOP, safety doc, or manual when the student asks how to use, set up, or troubleshoot the tool. Do not wrap "${focused.name}" itself in a tool link — the student is already on its page.\n\n${describeTool(focused)}`
-    );
-  }
-
-  if (manuals.length > 0) {
-    const list = manuals
-      .map((m) => `- **${m.title}** — ${m.url}`)
-      .join("\n");
-    sections.push(
-      `## Available manuals\n\nThe following PDF manuals are attached to this conversation as documents — Claude can read both their text and figures directly:\n\n${list}`
-    );
-  }
+  const list = manuals.map((m) => `- **${m.title}** — ${m.url}`).join("\n");
+  sections.push(
+    `## Available manuals\n\nThe following PDF manuals are attached to this conversation as documents — Claude can read both their text and figures directly:\n\n${list}`
+  );
 
   if (focused && focused.links.length > 0) {
     const attachedUrls = new Set(manuals.map((m) => m.url));
-    const list = focused.links
+    const annotated = focused.links
       .map((link) => {
         const tag = attachedUrls.has(link.href) ? " (attached)" : "";
         return `- [${link.kind || "Resource"}] ${link.label} — ${link.href}${tag}`;
       })
       .join("\n");
     sections.push(
-      `## Resources for this tool\n\nThe following resources are linked from the **${focused.name}** Notion page. Items marked "(attached)" are already inlined above as PDF documents — read them directly. Anything else can be retrieved with the \`web_fetch\` tool.\n\n${list}`
+      `## Attached manuals vs. fetchable resources\n\nItems marked "(attached)" below are already inlined above as PDF documents — read them directly instead of calling \`web_fetch\`. If an attached PDF was expected to answer the question but you can't actually read it (rare — usually means Anthropic's fetch was blocked by the host), call \`web_fetch\` on the same URL as a fallback.\n\n${annotated}`
     );
   }
 
-  sections.push(
-    `## Fetching resources\n\nUse the \`web_fetch\` tool to read any URL from the "Resources for this tool" list that isn't already attached — HTML SOPs, safety pages, manufacturer guides, etc. Rules:\n\n- Prefer attached PDFs when they exist; do not call \`web_fetch\` on a URL already marked "(attached)".\n- If an attached PDF was expected to answer the question but you can't actually read it (rare — usually means Anthropic's fetch was blocked by the host), call \`web_fetch\` on the same URL as a fallback.\n- Only call \`web_fetch\` on exact URLs that appear in "Resources for this tool". Do not invent URLs or fetch general web pages the student wasn't routed to.`
-  );
-
-  sections.push(
-    `## Citing sources\n\nWhen you draw on an attached manual or a \`web_fetch\`ed page, cite the source inline as a **markdown link** using the exact URL from the lists above. Two formats:\n\n1. PDF with a known page: \`[Form 4 Manual, p. 14](https://media.formlabs.com/.../-ENUS-Form-4-Manual.pdf#page=14)\` — append \`#page=N\` so browser PDF viewers jump to the page.\n2. HTML page or PDF with no known page: \`[Trotec Speedy 400 SOP](https://...)\`.\n\nDo not invent page numbers or URLs. Always use exact URLs from the lists above.`
-  );
-
-  sections.push(`## MakerLab catalog (${tools.length} tools)`);
-  sections.push(
-    tools
-      .map((tool) => {
-        const head = `- **${tool.name}** — slug: \`${tool.slug}\` — ${tool.category}${tool.categorySub ? ` / ${tool.categorySub}` : ""} · ${tool.location}${tool.zone ? ` / ${tool.zone}` : ""} · ${tool.trainingLevel}`;
-        if (!tool.units.length) return head;
-        const units = tool.units
-          .map((unit) => `${unit.name} [${unit.status}]`)
-          .join(", ");
-        return `${head}\n  units: ${units}`;
-      })
-      .join("\n")
-  );
-
   return sections.join("\n\n");
-}
-
-function describeTool(tool: MakerLabTool): string {
-  const lines: string[] = [
-    `**${tool.name}**`,
-    `- Category: ${tool.category}${tool.categorySub ? ` / ${tool.categorySub}` : ""}`,
-    `- Location: ${tool.location}${tool.zone ? ` / ${tool.zone}` : ""}`,
-    `- Training: ${tool.trainingLabel} (level: ${tool.trainingLevel})`,
-  ];
-  if (tool.materials.length) lines.push(`- Materials: ${tool.materials.join(", ")}`);
-  if (tool.ppe.length) lines.push(`- PPE: ${tool.ppe.join(", ")}`);
-  if (tool.useRestrictions) lines.push(`- Restrictions: ${tool.useRestrictions}`);
-  if (tool.emergencyStop) lines.push(`- Emergency stop: ${tool.emergencyStop}`);
-  if (tool.description) lines.push(`- Description: ${tool.description}`);
-  if (tool.units.length) {
-    lines.push("- Units:");
-    for (const unit of tool.units) {
-      lines.push(
-        `  - ${unit.name} — status: ${unit.status}, condition: ${unit.condition}${unit.serial && unit.serial !== "Unlisted" ? `, serial: ${unit.serial}` : ""}`
-      );
-    }
-  }
-  if (tool.links.length) {
-    lines.push("- Resources:");
-    for (const link of tool.links) {
-      lines.push(`  - ${link.kind || "Resource"}: ${link.label} — ${link.href}`);
-    }
-  }
-  return lines.join("\n");
 }
