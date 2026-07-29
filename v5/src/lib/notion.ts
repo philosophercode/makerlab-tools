@@ -457,6 +457,7 @@ type NotionWriteProperty =
   | { date: { start: string } | null }
   | { checkbox: boolean }
   | { url: string | null }
+  | { email: string | null }
   | { files: NotionWriteFile[] };
 
 function titleProp(value: string): NotionWriteProperty {
@@ -500,6 +501,10 @@ function checkboxProp(value: boolean | undefined): NotionWriteProperty {
 
 function urlProp(value: string | undefined): NotionWriteProperty {
   return { url: value ? value : null };
+}
+
+function emailProp(value: string | undefined): NotionWriteProperty {
+  return { email: value ? value : null };
 }
 
 function formatTicketDescription(
@@ -546,6 +551,12 @@ export async function createMaintenanceLog(
   if (fields.priority) properties.priority = selectProp(fields.priority);
   if (fields.status) properties.status = selectProp(fields.status);
   if (fields.reported_by) properties.reported_by = richTextProp(fields.reported_by);
+  // Only ever set from a server-resolved session (auth spec §4). Requires the
+  // `reporter_email` Email property to exist in Notion; `report_issue` retries
+  // without it if it does not, so a missing property cannot lose a ticket.
+  if (fields.reporter_email) {
+    properties.reporter_email = emailProp(fields.reporter_email);
+  }
   const templatedDescription = formatTicketDescription(fields);
   if (templatedDescription) {
     properties.description = richTextProp(templatedDescription);

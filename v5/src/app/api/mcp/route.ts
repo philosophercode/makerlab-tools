@@ -3,7 +3,7 @@ import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/
 import { CAPABILITIES } from "../../../lib/capabilities";
 import { registerAll } from "../../../lib/capabilities/mcp-adapter";
 import { rateLimitAsync } from "../../../lib/rate-limit";
-import { resolveIdentity } from "../../../lib/auth/identity";
+import { resolveIdentity, type Identity } from "../../../lib/auth/identity";
 
 // ── Server factory ─────────────────────────────────────────────────
 
@@ -17,10 +17,15 @@ import { resolveIdentity } from "../../../lib/auth/identity";
  * they are exposed over MCP **only when `MCP_TOKEN` is configured** (which
  * token-gates the whole endpoint). With no token set, the MCP surface is
  * read-only — write tools are omitted entirely (design spec §3.3 / §8).
+ *
+ * `identity` is passed through as the capability ctx (auth design spec §3.4).
+ * An MCP client authenticates with a bearer token rather than a session cookie,
+ * so in practice it is the anonymous identity — tools then behave exactly as
+ * they did before, which is the intended degradation and not a gap.
  */
-function createServer(allowWrites: boolean): McpServer {
+function createServer(allowWrites: boolean, identity: Identity): McpServer {
   const server = new McpServer({ name: "makerlab", version: "1.0.0" });
-  registerAll(server, CAPABILITIES, { allowWrites });
+  registerAll(server, CAPABILITIES, { allowWrites, ctx: { identity } });
   return server;
 }
 
@@ -72,7 +77,7 @@ async function handler(req: Request): Promise<Response> {
   // Write capabilities are only exposed when MCP_TOKEN is configured (the
   // endpoint is then token-gated end to end). Read tools stay available.
   const allowWrites = Boolean(expectedToken);
-  const server = createServer(allowWrites);
+  const server = createServer(allowWrites, identity);
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true, // Return JSON instead of SSE — required for serverless

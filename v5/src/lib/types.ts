@@ -159,6 +159,13 @@ export interface MaintenanceLogFields {
   priority?: MaintenancePriority;
   status?: MaintenanceStatus;
   reported_by?: string;
+  /**
+   * Write-only: the verified reporter's email, taken from the server-resolved
+   * session and never from tool or request input (auth spec §4). Empty on
+   * anonymous reports and on every record created before this property existed,
+   * which the read path simply ignores.
+   */
+  reporter_email?: string;
   assigned_to?: string;
   description?: string;
   resolution?: string;

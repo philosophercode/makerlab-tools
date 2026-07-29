@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import type { Capability, CapabilityTool } from "./types";
+import type { Capability, CapabilityCtx, CapabilityTool } from "./types";
 
 /**
  * MCP adapter (design spec §3.3): expose the capability registry through the
@@ -19,6 +19,14 @@ import type { Capability, CapabilityTool } from "./types";
 export interface RegisterAllOptions {
   /** Register `kind: "write"` tools. True only when MCP_TOKEN is configured. */
   allowWrites: boolean;
+  /**
+   * The context every tool's `run()` receives. MCP has no stream writer and no
+   * attachments, so in practice this carries only the resolved `identity` — and
+   * an MCP caller is a machine with a bearer token rather than a session cookie,
+   * so that identity is normally anonymous. Omitted entirely, tools get `{}`,
+   * which is the shape they have always been called with here.
+   */
+  ctx?: CapabilityCtx;
 }
 
 /**
@@ -36,7 +44,11 @@ function toRawShape(schema: CapabilityTool["inputSchema"]): z.ZodRawShape {
 }
 
 /** Register a single capability tool on the MCP server. */
-function registerTool(server: McpServer, tool: CapabilityTool<unknown, unknown>): void {
+function registerTool(
+  server: McpServer,
+  tool: CapabilityTool<unknown, unknown>,
+  ctx: CapabilityCtx
+): void {
   server.registerTool(
     tool.name,
     {
@@ -45,7 +57,7 @@ function registerTool(server: McpServer, tool: CapabilityTool<unknown, unknown>)
     },
     async (input: unknown) => {
       try {
-        const result = await tool.run(input, {});
+        const result = await tool.run(input, ctx);
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
         };
@@ -76,7 +88,7 @@ export function registerAll(
       // meaning headlessly and are never exposed over MCP.
       if (tool.chatOnly) continue;
       if (tool.kind === "write" && !opts.allowWrites) continue;
-      registerTool(server, tool);
+      registerTool(server, tool, opts.ctx ?? {});
     }
   }
 }

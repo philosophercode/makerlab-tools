@@ -103,6 +103,11 @@ vi.mock("next/cache", () => ({
 }));
 
 import { POST } from "@/app/api/chat/route";
+import {
+  SESSION_COOKIE_NAME,
+  createSessionPayload,
+  signSession,
+} from "@/lib/auth/session-cookie";
 
 // A mock-catalog resource fixture builder (mirrors ResourceRecord shape).
 function resource(
@@ -122,12 +127,16 @@ function resource(
   } as ResourceRecord;
 }
 
-function chatRequest(body: Record<string, unknown>): Request {
+function chatRequest(
+  body: Record<string, unknown>,
+  headers: Record<string, string> = {}
+): Request {
   return new Request("http://localhost/api/chat", {
     method: "POST",
     headers: {
       "content-type": "application/json",
       "x-forwarded-for": "1.2.3.4",
+      ...headers,
     },
     body: JSON.stringify(body),
   });
@@ -345,6 +354,71 @@ describe("report_issue.execute", () => {
     expect(createMaintenanceLog).toHaveBeenCalledWith(
       expect.objectContaining({ unit: ["unit-form-4-a"] })
     );
+  });
+
+  it("records the verified session name and email for a signed-in student", async () => {
+    // The end-to-end proof of the pass-through: a real signed cookie on the
+    // request, through resolveIdentity, onto the CapabilityCtx, into the write.
+    vi.stubEnv("AUTH_SECRET", "chat-route-test-secret");
+    const token = await signSession(
+      createSessionPayload({
+        sub: "google-sub-1",
+        email: "ada@cornell.edu",
+        name: "Ada Lovelace",
+      }),
+      "chat-route-test-secret"
+    );
+    createMaintenanceLog.mockResolvedValueOnce({
+      id: "created-page-3",
+      createdTime: "2024-09-01T10:00:00.000Z",
+      lastEditedTime: "2024-09-01T10:00:00.000Z",
+      fields: { title: "x" },
+    });
+
+    await POST(
+      chatRequest(
+        { messages: [userMessage("hi")] },
+        { cookie: `${SESSION_COOKIE_NAME}=${token}` }
+      )
+    );
+    // The assistant is told who it is talking to, and told not to ask.
+    expect(captured.args.system).toContain("Ada Lovelace");
+    expect(captured.args.system).not.toContain("ada@cornell.edu");
+
+    await captured.args.tools.report_issue.execute({
+      title: "Resin leak",
+      description: "Leaking resin",
+      priority: "High",
+      reported_by: "Somebody Else",
+    });
+
+    expect(createMaintenanceLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reported_by: "Ada Lovelace",
+        reporter_email: "ada@cornell.edu",
+      })
+    );
+  });
+
+  it("records no email and the supplied name for an anonymous reporter", async () => {
+    createMaintenanceLog.mockResolvedValueOnce({
+      id: "created-page-4",
+      createdTime: "2024-09-01T10:00:00.000Z",
+      lastEditedTime: "2024-09-01T10:00:00.000Z",
+      fields: { title: "x" },
+    });
+
+    const tools = await getTools();
+    await tools.report_issue.execute({
+      title: "Resin leak",
+      description: "Leaking resin",
+      priority: "High",
+      reported_by: "Grace Hopper",
+    });
+
+    const fields = createMaintenanceLog.mock.calls[0][0];
+    expect(fields.reported_by).toBe("Grace Hopper");
+    expect(fields.reporter_email).toBeUndefined();
   });
 
   it("returns { success:false, error } when createMaintenanceLog rejects", async () => {

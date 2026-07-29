@@ -1,6 +1,10 @@
 import { z } from "zod";
 import type { UIMessageStreamWriter } from "ai";
 import type { MakerLabTool } from "../../components/catalog-types";
+// Type-only, deliberately: `auth/identity` is `server-only`, and this module is
+// imported by client components (ChatFab, IdentificationCard). A `import type`
+// is erased at emit, so no server module reaches the browser bundle.
+import type { Identity } from "../auth/identity";
 
 /**
  * Shared contract for the capability-registry architecture (design spec §3,
@@ -59,6 +63,16 @@ export interface CapabilityCtx {
   locale?: string;
   /** Notion page id of the tool the user is currently viewing, if any. */
   focusedToolId?: string;
+  /**
+   * Who is making this request, resolved **server-side** from the session
+   * cookie (auth spec §3.4). Absent for MCP and scheduled callers, and that is
+   * normal — every tool must still work without it.
+   *
+   * This is the only trustworthy source of a caller's name and email. Tool
+   * *input* is written by the model from whatever the conversation contained,
+   * so a client can never assert its own identity through it.
+   */
+  identity?: Identity;
 }
 
 // ── Capability + tool shapes ───────────────────────────────────────
@@ -110,6 +124,14 @@ export interface PromptEnv {
   focusedTool?: MakerLabTool | null;
   /** Response locale, e.g. "en". */
   locale?: string;
+  /**
+   * The caller, when the surface resolved one. Fragments use it to stop asking
+   * for something already known — a signed-in student should not be asked their
+   * name. Anything derived from it that reaches the prompt is escaped and
+   * length-capped by the fragment, and an email address never goes in at all
+   * (auth spec §8).
+   */
+  identity?: Identity;
 }
 
 /**

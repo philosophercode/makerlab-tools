@@ -154,7 +154,11 @@ export function composeChat(
 ): { tools: Record<string, Tool>; system: string } {
   return {
     tools: toAiTools(capabilities, ctx),
-    system: buildSystemPrompt(capabilities, env),
+    // The prompt env inherits the request's identity from the ctx, so the route
+    // supplies it once and both the tools and the prompt fragments see the same
+    // caller. An explicit `env.identity` still wins, for tests and future
+    // surfaces that compose a prompt without a ctx.
+    system: buildSystemPrompt(capabilities, { identity: ctx.identity, ...env }),
   };
 }
 

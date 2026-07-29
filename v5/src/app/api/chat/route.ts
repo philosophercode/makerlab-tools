@@ -102,12 +102,15 @@ export async function POST(req: Request) {
       }
 
       // Build the capability context for this turn. The chat surface populates
-      // every field; capabilities degrade gracefully when one is absent.
+      // every field; capabilities degrade gracefully when one is absent. The
+      // identity resolved above rides along so tools record the verified caller
+      // rather than a name typed into chat (auth design spec §3.4).
       const ctx: CapabilityCtx = {
         writer,
         attachments,
         locale,
         focusedToolId: focused?.id,
+        identity,
       };
 
       // Compose the system prompt + capability tools from the shared registry,
