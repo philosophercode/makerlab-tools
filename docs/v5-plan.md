@@ -570,6 +570,20 @@ Once the bot lives in the workspace, **proactive push** is free: *"your print fi
 
 ### 9.10 Updated horizon
 
+> [!NOTE]
+> **Superseded, 2026-07-29.** Everything below labelled **v6 and later became a separate
+> project — `philosophercode/blueprint`** — rather than further versions of this codebase.
+> Blueprint rebuilds the system on Postgres with a built-in admin surface and a
+> self-hosted deployment story, so that it can be adopted by labs beyond Cornell.
+>
+> **This repository ends at v5**, which stays the live Cornell Tech deployment on Notion.
+> Its remaining scope is the four specs in `docs/specs/`: sign-in and rate limiting, the
+> projects gallery, an agent eval harness, and the AI Gateway migration.
+>
+> The table is kept as written because the reasoning behind each phase still holds and
+> Blueprint's architecture was derived from it. Read it as the origin of that plan, not as
+> a roadmap for this repository.
+
 Indicative, not committed — re-prioritized in real time as data lands.
 
 | Phase | Focus | Includes |
