@@ -1,7 +1,7 @@
 # Sign-in and Tiered Rate Limiting — Design Spec
 
 **Date:** 2026-07-29
-**Status:** Draft — awaiting approval
+**Status:** Approved for planning — 2026-07-29
 **Target:** `v5/`
 **Branch:** `v5/auth`
 **Spec PR:** TBD · **Implementation PR:** TBD
