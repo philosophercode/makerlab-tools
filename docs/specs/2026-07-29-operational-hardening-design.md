@@ -1,0 +1,251 @@
+# Operational Hardening — Design Spec
+
+**Date:** 2026-07-29
+**Status:** Draft — awaiting approval
+**Target:** `v5/`
+**Branch:** `v5/ops-hardening`
+
+## 1. Summary
+
+Everything in this spec exists for one reason: **someone other than the author has to run
+this, and right now the system cannot tell them when it is broken.**
+
+Three specific failures are currently silent. The catalogue can fall back to built-in demo
+data and serve fictional equipment while looking perfectly healthy. The site can be down
+and nobody knows until a student mentions it. And there is no backup of the Notion data at
+all — one deleted database and ~100 machines of accumulated staff work is gone.
+
+This adds a **health endpoint** that detects the fallback, an **uptime check** watching it,
+a **daily backup** of every Notion database, and — separately but related — a **caching
+change** that cuts Notion API traffic by roughly 99% and makes the app more resilient as a
+side effect.
+
+**Nothing here adds infrastructure to operate.** No database, no container, no service to
+patch. Everything runs on the Vercel deployment that already exists, which is the whole
+point: the more moving parts the handover has, the less likely it survives.
+
+## 2. Goals / Non-goals
+
+### Goals
+
+- The mock-catalogue fallback becomes an alert instead of a mystery.
+- Someone gets notified when the site goes down, without watching a dashboard.
+- Notion data is recoverable if a database is deleted or the integration is revoked.
+- Notion is read on the order of once a day rather than once a minute.
+- Staff can force a refresh without a developer or a terminal.
+- Zero new services to operate.
+
+### Non-goals (this iteration)
+
+- **No self-hosting story.** v5 targets Vercel deliberately; portability is Blueprint's
+  concern. Adding a Docker path here would trade the thing that makes v5 maintainable —
+  nobody administers a server — for a property v5 does not need.
+- **No metrics or analytics.** Notion cannot aggregate, so usage analytics are not
+  buildable here at any reasonable cost. This is a known limitation, not an oversight.
+- **No paging / on-call.** An email is the right escalation for a lab tool.
+- **No automated restore.** The backup produces files a human can read and re-import.
+  Automated restore into Notion is substantially more work than the failure justifies.
+
+## 3. Architecture
+
+Four independent pieces. Any can ship alone.
+
+```
+src/app/api/health/route.ts     # NEW — is the data real?
+src/app/api/admin/backup/route.ts  # NEW — daily Notion export (cron)
+src/lib/cache.ts                # NEW — cacheLife profile, one place
+src/lib/catalog.ts              # CHANGED — use the profile; report source
+vercel.json                     # CHANGED — cron schedule
+```
+
+### 3.1 Health endpoint
+
+`GET /api/health` — public, unauthenticated, so any uptime service can watch it.
+
+```json
+{
+  "status": "ok",
+  "notion": "ok",
+  "catalog": "live",
+  "toolCount": 103,
+  "checkedAt": "2026-07-29T14:02:11Z"
+}
+```
+
+| Field | Values |
+|---|---|
+| `status` | `ok` \| `degraded` |
+| `notion` | `ok` \| `unreachable` \| `unconfigured` |
+| `catalog` | `live` \| `mock` |
+
+**HTTP 200 when `ok`, HTTP 503 when `degraded`.** This matters more than the body: uptime
+monitors alert on status codes, so returning 200 with `"status": "degraded"` would be
+invisible — exactly the failure mode being fixed.
+
+Implementation: check every required `NOTION_*` variable is present, then make one
+**uncached, minimal** Notion query (page size 1) against the Tools database. Env missing →
+`unconfigured`. Query throws → `unreachable`. Either → 503.
+
+Cached for **30 seconds** and rate-limited, so a monitor polling every minute costs roughly
+one Notion call per 30s, and the endpoint cannot be used to hammer Notion.
+
+**Deliberately does not verify Claude.** A model outage does not make the catalogue wrong,
+and folding it in would make the alert fire for something students can route around.
+
+### 3.2 Caching — the change you actually notice
+
+Today `catalog.ts` calls `cacheLife("minutes")`, Next's built-in profile, which revalidates
+about **once a minute**. For a catalogue edited a few times a week, that is roughly 1,400
+unnecessary Notion round-trips a day.
+
+Replace it with one named profile:
+
+```ts
+// src/lib/cache.ts — the only place cache timing is decided
+export const CATALOG_CACHE = {
+  stale: 60 * 60,        //  1 h  — browser may serve stale
+  revalidate: 60 * 60 * 24,  // 24 h — background refresh
+  expire: 60 * 60 * 24 * 7,  //  7 d — hard ceiling
+} as const;
+```
+
+Freshness comes from **invalidation, not polling** — three paths, in increasing
+convenience:
+
+1. **Staff button.** Once sign-in ships, a "Refresh catalogue" control visible to `staff`
+   calls the existing revalidate endpoint. Today that endpoint needs a custom header and an
+   HTTP client, which in practice means it never gets used. A button is the difference
+   between a feature existing and a feature being used.
+2. **Notion automation → webhook.** A Notion database automation POSTs to the revalidate
+   endpoint whenever a row changes, so the site refreshes itself the moment staff edit.
+   **Verify this is available on the workspace's Notion plan before relying on it** —
+   automations are plan-gated. This is the ideal path; treat it as a bonus, not the
+   mechanism.
+3. **The 24-hour background refresh**, as the floor.
+
+**Two consequences worth stating plainly.** Longer caching means a Notion outage is
+*less* visible, because stale data keeps serving — which is why §3.1 probes Notion
+directly rather than inferring health from the catalogue. And it makes the mock-fallback
+failure *less likely*, since far fewer live fetches means far fewer chances to throw.
+
+### 3.3 Backup
+
+`GET /api/admin/backup`, triggered by Vercel Cron daily, secret-protected exactly like the
+revalidate endpoint.
+
+Reads all seven Notion databases and writes one timestamped JSON file to **Vercel Blob
+(private)**: `backups/2026-07-29.json`. Retains 30 days; older files are pruned by the same
+job.
+
+Vercel Blob because it adds no new account — the goal is fewest moving parts. A private
+GitHub repository is the documented alternative and has one real advantage: commits give
+you a diff of what changed in the catalogue over time, which is occasionally useful for
+answering "when did this get wrong?"
+
+**Contains student names and emails** from Maintenance_Logs. Private storage only, and it
+belongs in whatever data inventory the university keeps.
+
+### 3.4 Error visibility
+
+**Start with Vercel's built-in observability — no new account.** Combined with the health
+check, that covers the failures that actually happen: a bad deploy, a broken route, an
+expired token.
+
+Sentry (`@sentry/nextjs`, free tier) is the documented upgrade if debugging proves painful,
+and is deliberately *not* the default. It is one more account, one more key, and one more
+thing to explain at handover — and the constraint here is simplicity, not completeness.
+
+## 4. Data model
+
+None. Backups are files; health is computed.
+
+## 5. Behavior / flow
+
+**Healthy:** `/api/health` → 200. Monitor is quiet.
+
+**Misconfigured deploy** (the important one): a `NOTION_DB_*` variable is dropped. Today the
+site silently serves demo equipment. After this: `/api/health` returns 503 with
+`"notion": "unconfigured"`, the uptime monitor emails within minutes, and the handover guide
+names the exact cause.
+
+**Notion outage:** health returns 503 `"unreachable"`; the catalogue keeps serving cached
+data. The site stays useful while someone is told something is wrong — which is the correct
+behaviour, and only possible because §3.2 caches for a day.
+
+**Staff edit a machine:** they tick `published`, then either click Refresh (post-auth), or
+the Notion automation fires, or it appears within 24 hours.
+
+**Backup runs:** daily at a quiet hour; failures surface in Vercel's cron log. A silently
+failing backup is worse than none, so the job returns a non-200 on failure rather than
+swallowing it.
+
+## 6. UI
+
+- **Refresh catalogue** — a staff-only control. Blocked on the auth spec; ship the rest
+  first.
+- **Degraded banner** — when the catalogue is running on mock data, an unmistakable banner
+  says so. Constitution Article 4 requires this, and it is the visible half of §3.1.
+
+## 7. Relationship to existing work
+
+- **`/api/admin/revalidate` already exists** and works; §3.2 changes what calls it, not the
+  endpoint.
+- The **Refresh button** depends on the auth spec (`staff` role).
+- Independent of projects, intake, evals, and the Gateway migration. Can ship first, and
+  probably should — it makes everything after it debuggable.
+
+## 8. Security and safety
+
+- **`/api/health` is public** and deliberately leaks almost nothing: status, whether Notion
+  is reachable, and a tool count that is already public. **No error strings, no env var
+  names, no Notion IDs** — a health endpoint that reports `NOTION_DB_TOOLS is missing` tells
+  an attacker your configuration.
+- **`/api/admin/backup`** uses `ADMIN_REVALIDATE_SECRET` (or its own). Vercel Cron requests
+  are verified via `CRON_SECRET`.
+- **Backups contain PII** — private blob storage, 30-day retention, never public.
+- Health is rate-limited despite being cheap; it touches Notion.
+
+## 9. Phased build order
+
+1. **Health endpoint** + the degraded banner. Highest value, no dependencies.
+2. **Uptime monitor** pointed at it, with an email destination that is not one person.
+3. **Caching profile** (`src/lib/cache.ts`), `catalog.ts` switched over.
+4. **Backup route** + cron + retention.
+5. **Notion automation → webhook**, if the plan supports it.
+6. **Refresh button** — after auth.
+
+Steps 1–2 are the ones worth doing this week; they are small and they convert the worst
+silent failure in the system into an email.
+
+## 10. Testing
+
+- **Unit** — health status derivation across all inputs: env complete/incomplete, query
+  succeeds/throws. Cache profile constants are asserted so nobody silently returns to
+  minute-level polling. Backup serialization shape.
+- **Integration** — `/api/health` returns 200/`ok` with Notion mocked healthy; **503/
+  `unconfigured`** with env stubbed empty; **503/`unreachable`** when the mock throws.
+  Response body contains no env var names or raw error text. `/api/admin/backup` rejects a
+  missing or wrong secret.
+- **Component** — the degraded banner renders when the catalogue is mock, and does not when
+  it is live.
+- **E2E** — `/api/health` responds on a running server.
+
+**Cases that would embarrass us**
+- Health returning 200 while serving mock data — the exact bug this spec exists to kill.
+- Health leaking an env var name or a Notion error verbatim.
+- A backup job silently failing for weeks and being discovered when it is needed.
+- Cache invalidation not actually invalidating, so staff edits never appear and everyone
+  concludes the site is broken.
+
+## 11. Open questions
+
+1. **Which uptime service?** Any free tier works — Better Stack, UptimeRobot, or Vercel's
+   own monitoring. **Recommend whichever the person who will receive the emails already
+   uses.** The tool matters far less than the address it mails.
+2. **Where do alerts go?** Must not be one individual. A shared lab address or a Slack
+   channel. *Blocks step 2, and it is a decision, not a task.*
+3. **Does the Notion plan support automations with webhooks?** Determines whether §3.2's
+   ideal path is available. *Not blocking; the 24-hour refresh is the fallback.*
+4. **Is 24 hours the right floor?** It suits a catalogue edited weekly. If the lab starts
+   editing daily and the refresh button goes unused, shorten to 6 hours — still 240× less
+   traffic than today.
