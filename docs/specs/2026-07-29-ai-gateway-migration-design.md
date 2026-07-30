@@ -202,3 +202,28 @@ only an `ANTHROPIC_API_KEY` still runs the app with no Vercel account. The exist
 `/api/chat` integration tests pass untouched, which is the assertion §10 asks for.
 
 **Status.** Accepted — the code is right and the spec's example string was wrong.
+
+### 2026-07-30 — the gateway is the production path; the direct key stays (decision)
+
+**Decided.** Run the gateway. Keep `ANTHROPIC_API_KEY` configured alongside it.
+
+**Why keep the direct path.** §3 justified both branches with "a contributor cloning the
+repo with only an `ANTHROPIC_API_KEY` must still be able to run the app." That argument is
+weaker than it looks *for v5* — v5 is not the open-source artifact, Blueprint is, and
+Blueprint keeps direct provider calls under its own Article 3. v5 is a hosted app for one
+institution, so contributor friction barely applies.
+
+The argument that does hold is operational: **it is a one-env-var lever back to a working
+assistant** if the gateway has an outage, if billing lapses, or if `GATEWAY_CHAT_MODEL_ID`
+turns out wrong mid-demo. The branch is already written and tested, so keeping it costs
+nothing and removing it takes an option away from whoever inherits this. A gateway key also
+requires a Vercel account *with billing*, where an Anthropic key is standalone — so the
+direct path remains the easier local-development story.
+
+**Status.** No code change; `src/lib/model.ts` already implements exactly this. The change
+is which path the documentation tells an operator to run: `.env.example` and
+`docs/handover.md` §2 now present the gateway first and the direct key as a deliberate
+fallback rather than the default.
+
+**Unchanged and still blocking phase 3:** the gateway branch has never made a live call, and
+whether student prompts may transit Vercel's infrastructure is a question for the university.

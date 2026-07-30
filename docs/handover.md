@@ -40,26 +40,42 @@ owner.
 | Vercel project | vercel.com | ⬜ **TBD** | Hosting, deploys, env vars, logs |
 | Notion workspace | notion.so | ⬜ **TBD** | The seven databases |
 | Notion integration token | Notion settings | ⬜ **TBD** | `NOTION_API_KEY` |
-| Anthropic API key | console.anthropic.com | ⬜ **TBD** | **This one costs money per use** |
+| `AI_GATEWAY_API_KEY` | Vercel → AI Gateway | ⬜ **TBD** | **The intended production path.** Model spend on the hosting invoice, with a platform spend limit |
+| Anthropic API key | console.anthropic.com | ⬜ **TBD** | **Fallback.** Costs money per use. Keep it — it is the lever back if the gateway fails |
 | GitHub repository | github.com | ⬜ **TBD** | The code |
 | Domain / DNS | ⬜ | ⬜ **TBD** | |
 | `ADMIN_REVALIDATE_SECRET` | Vercel env vars | ⬜ **TBD** | Forces the site to refresh |
-| `AI_GATEWAY_API_KEY` | Vercel → AI Gateway | ⬜ **TBD** | *Optional.* Puts model spend on the Vercel invoice |
 | Vercel Blob store | Vercel → Storage | ⬜ **TBD** | Holds the nightly Notion backup. Sets `BLOB_READ_WRITE_TOKEN`. **Contains student PII — keep private** |
 | `CRON_SECRET` | Vercel env vars | ⬜ **TBD** | Lets the nightly backup cron prove it is Vercel (§3) |
 
 > [!WARNING]
-> **The Anthropic key is a live bill.** Every question a student asks costs a small amount.
-> It must be owned by the institution, not an individual, and it must have a spend limit.
-> Until sign-in and rate limiting ship, the assistant is open to anyone on the internet who
-> finds the URL. This is the single most important thing to resolve at handover.
+> **Inference is a live bill and the only cost here that scales with use.** Every question a
+> student asks costs a small amount. Whichever path you run, it must be owned by the
+> institution rather than an individual, and it must have a spend limit.
 
-**`AI_GATEWAY_API_KEY` — the alternative to holding an Anthropic key.** Setting it routes
-every model call through the Vercel AI Gateway, so model spend lands on the same invoice as
-hosting and gets a platform-enforced ceiling instead of a promise. Leave it unset and the app
-calls Anthropic directly with `ANTHROPIC_API_KEY` — that is the default and it is what runs
-today. Set both and the gateway wins; the Anthropic key is then unused and should be revoked
-rather than left lying around.
+### Which model path to run
+
+**Run the gateway.** Set `AI_GATEWAY_API_KEY` and every model call routes through the Vercel
+AI Gateway: spend lands on the invoice you already pay, a platform-enforced ceiling replaces
+a promise to watch the dashboard, and whoever operates the app can see usage without holding
+the Anthropic key.
+
+**Keep the Anthropic key anyway.** Set both and the gateway wins — but do not revoke the
+direct one. It is a one-env-var lever back to a working assistant if the gateway has an
+outage, if billing lapses, or if the model id turns out wrong during a demo. It costs nothing
+to keep and it is the only fallback the app has.
+
+> [!IMPORTANT]
+> **The gateway path has never made a live call.** It is written and unit-tested, but nobody
+> has held a key. The gateway spells model versions with dots (`anthropic/claude-sonnet-4.6`)
+> where Anthropic's own API uses dashes, and the two are not interchangeable. **Send one
+> message through a preview deploy before production.** A wrong id fails loudly with
+> `GatewayModelNotFoundError` on the first request — it does not silently fall back.
+
+> [!NOTE]
+> Routing through the gateway means student questions, and any photos they attach, transit
+> Vercel's infrastructure. That is a genuine change in data flow and worth an explicit answer
+> from the university rather than an assumption.
 
 Two things a person has to do, neither of which is code:
 
