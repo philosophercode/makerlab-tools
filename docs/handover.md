@@ -275,6 +275,8 @@ The live app is `v5/`. The root `src/` directory is the old v4 app and is not us
 
 ## 8. Setting this up for another lab **[dev]**
 
+> Full step-by-step for a first deployment: [`deploy.md`](deploy.md).
+
 Nothing about Cornell is hardcoded.
 
 1. Duplicate the seven Notion databases into the new workspace.

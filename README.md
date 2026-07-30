@@ -63,6 +63,7 @@ The full suite needs **no credentials and makes no network calls.**
 
 | Document | For |
 |---|---|
+| [`docs/deploy.md`](docs/deploy.md) | **Setting it up.** Run it locally in stages, then host it on Vercel. |
 | [`docs/architecture-guide.md`](docs/architecture-guide.md) | **How it works.** Start here if you're inheriting the code. |
 | [`docs/handover.md`](docs/handover.md) | **Running it.** Accounts, keys, routine operations, what to do when it breaks. |
 | [`docs/constitution.md`](docs/constitution.md) | The rules any change must respect. |
