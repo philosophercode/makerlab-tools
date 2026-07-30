@@ -380,3 +380,33 @@ is not covered: E2E boots with no model credentials, so there is no agent turn t
 
 **Status.** Accepted — the code is right and the spec was incomplete on where variants come
 from, how a card gets emitted, and how a card's labels get localized.
+
+---
+
+## Amendments
+
+Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited.
+
+### 2026-07-30 — §3.3 progressive cards: partially achieved (divergence, open)
+
+**What §3.3 asked for.** "Cards stream as they resolve… The first card should appear in a
+few seconds even if the last takes thirty."
+
+**What the code does.** `research_tool` fans out with bounded concurrency (4) and
+`allSettled`, exactly as specified, then returns the whole batch. `propose_listing`
+subsequently emits one `data-card` per candidate through `ctx.writer`. So cards *are*
+emitted individually — but only after the **slowest** item finishes researching, not as
+each one lands.
+
+**Why it came out this way.** Research and proposal are two separate tools, and the model
+calls them in sequence. Emitting cards during research would move card rendering into
+`research_tool`, blurring a boundary the intake design deliberately draws: research
+gathers, propose renders and asks.
+
+**What is actually lost.** Only latency perception on large batches. Correctness,
+concurrency, and the all-settled guarantee are all as specified.
+
+**Status. Open — a decision, not a defect.** Either accept this and amend §3.3 to describe
+batch-then-emit, or merge the two tools to get true progressive streaming. Recommend
+accepting: the architectural clarity is worth more than a few seconds on an uncommon
+bulk-intake path.

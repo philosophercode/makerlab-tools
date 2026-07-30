@@ -260,5 +260,9 @@
     "body": "{site} n'accepte que les comptes {institution} pour la connexion, celui-ci ne peut donc pas être utilisé.",
     "stillWorks": "Rien n'est verrouillé. Vous pouvez parcourir tout le catalogue et poser des questions à l'assistant sans vous connecter ; la connexion ne fait qu'augmenter la limite horaire de messages et associer votre nom vérifié à ce que vous envoyez.",
     "browseTools": "Parcourir le catalogue"
+  },
+  "demoBanner": {
+    "label": "Données de démonstration",
+    "body": "Ce catalogue contient des données d'exemple intégrées, et non l'inventaire réel de {institution}. Notion n'est pas configuré."
   }
 }

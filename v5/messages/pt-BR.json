@@ -260,5 +260,9 @@
     "body": "O {site} só permite entrar com contas {institution}, portanto esta não pode ser usada.",
     "stillWorks": "Nada fica bloqueado. Você pode navegar por todo o catálogo e fazer perguntas ao assistente sem entrar; entrar apenas aumenta o limite de mensagens por hora e registra seu nome verificado no que você enviar.",
     "browseTools": "Navegar pelo catálogo"
+  },
+  "demoBanner": {
+    "label": "Dados de demonstração",
+    "body": "Este catálogo contém dados de exemplo integrados, não o inventário real de {institution}. O Notion não está configurado."
   }
 }

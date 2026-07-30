@@ -3708,3 +3708,27 @@ p {
   font-size: 14px;
   margin: 0;
 }
+
+/* Demo-data banner — the catalogue is built-in sample data, not the lab's
+   inventory (operational-hardening spec §6). Deliberately loud: the failure it
+   describes used to be invisible. Uses the secondary (crimson) token rather
+   than the primary orange, so it reads as a warning and not as an accent. */
+.demo-banner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 12px;
+  align-items: baseline;
+  padding: 10px 24px;
+  border-bottom: 1px solid var(--secondary);
+  background: var(--surface-container-low);
+  color: var(--on-surface);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  line-height: 1.6;
+}
+.demo-banner strong {
+  color: var(--secondary);
+  font-weight: 500;
+  text-transform: uppercase;
+}

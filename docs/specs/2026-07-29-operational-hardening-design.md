@@ -366,3 +366,42 @@ the cron log rather than assuming the worst. The status code still says "look at
 
 **Status.** Accepted — §3.3's intent is met; the deviations are narrower than the prose,
 except the eighth database, which is broader and deliberately so.
+
+---
+
+## Amendments
+
+Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited.
+
+### 2026-07-30 — phase 1's banner arrived late (drift, now closed)
+
+**What happened.** Phase 1 is "health endpoint **+ the degraded banner**." The health
+endpoint shipped; the banner did not, and the master index recorded the phase as built on
+the strength of the endpoint alone. It was caught by running the app and looking at it —
+the page said "2 TOOLS IN INVENTORY" with nothing indicating those two machines were
+invented.
+
+**Resolution.** `src/components/DemoDataBanner.tsx`, mounted in the root layout, with
+strings in all 12 locales. **Status: closed.** Phase 1 is now genuinely complete.
+
+**Worth keeping.** Neither the test suite nor `spec:coverage` could have caught this — a
+missing banner adds no surface and breaks no test. Only opening the page did. That is the
+argument for `/drift` being a *semantic* check and for actually running the app.
+
+### 2026-07-30 — §3.4 lazy manual attachment: superseded by a better approach (as-built)
+
+**What §3.4 asked for.** Attach a machine's manuals "when the conversation is actually
+about procedure or troubleshooting," because "a ten-turn conversation pays for the same
+manual ten times."
+
+**What the code does instead.** `attachManualsToFirstUserMessage` attaches manuals once, to
+the **first** user message, marked `cacheControl: { type: "ephemeral" }` — so they sit in
+the cacheable prefix and later turns read them from cache.
+
+**Why this is better and the spec is stale.** It solves the same cost problem with no
+conditional logic and no judgement call about whether a turn "is about procedure" — a
+judgement that would sometimes be wrong, and wrong in the direction of the assistant not
+having the manual when it needed it. The spec's framing was the weaker idea.
+
+**Status.** Accepted. §3.4's prompt-caching half is built as written; the lazy-attachment
+half is superseded, not skipped.

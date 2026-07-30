@@ -5,6 +5,7 @@ import "../styles/globals.css";
 import { ChatFab } from "../components/ChatFab";
 import { ChatLauncherProvider } from "../components/ChatLauncherContext";
 import { GlobalChrome } from "../components/GlobalChrome";
+import { DemoDataBanner } from "../components/DemoDataBanner";
 import { ThemeScript } from "../components/ThemeScript";
 import { LocaleHtmlScript } from "../components/LocaleHtmlScript";
 import { getCatalogStats } from "../lib/catalog";
@@ -56,6 +57,7 @@ async function LocalizedTree({
     <NextIntlClientProvider>
       <ChatLauncherProvider>
         <GlobalChrome stats={catalogStats} />
+        <DemoDataBanner />
         {children}
         <Suspense fallback={null}>
           <ChatFab />

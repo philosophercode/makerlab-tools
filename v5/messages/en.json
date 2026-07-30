@@ -260,5 +260,9 @@
     "body": "{site} signs in with {institution} accounts only, so this one can't be used.",
     "stillWorks": "Nothing is locked. You can browse the whole catalog and ask the assistant questions without signing in — signing in only raises the hourly message limit and puts your verified name on anything you file.",
     "browseTools": "Browse the catalog"
+  },
+  "demoBanner": {
+    "label": "Demo data",
+    "body": "This catalogue is built-in sample data, not {institution}'s real inventory. Notion is not configured."
   }
 }

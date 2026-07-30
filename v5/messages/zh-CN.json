@@ -260,5 +260,9 @@
     "body": "{site} 只能使用 {institution} 账号登录，因此无法使用该账号。",
     "stillWorks": "没有任何内容被锁定。无需登录即可浏览完整目录并向助手提问；登录只会提高每小时消息上限，并在您提交的内容上记录经过验证的姓名。",
     "browseTools": "浏览目录"
+  },
+  "demoBanner": {
+    "label": "演示数据",
+    "body": "此目录为内置示例数据，并非 {institution} 的真实库存。Notion 尚未配置。"
   }
 }

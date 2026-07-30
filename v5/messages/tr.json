@@ -260,5 +260,9 @@
     "body": "{site} yalnızca {institution} hesaplarıyla oturum açar, bu yüzden bu hesap kullanılamaz.",
     "stillWorks": "Hiçbir şey kilitli değil. Oturum açmadan katalogun tamamına göz atabilir ve asistana soru sorabilirsiniz; oturum açmak yalnızca saatlik mesaj sınırını yükseltir ve gönderdiklerinize doğrulanmış adınızı ekler.",
     "browseTools": "Kataloga göz at"
+  },
+  "demoBanner": {
+    "label": "Demo verileri",
+    "body": "Bu katalog yerleşik örnek verilerdir, {institution} kurumunun gerçek envanteri değildir. Notion yapılandırılmamış."
   }
 }

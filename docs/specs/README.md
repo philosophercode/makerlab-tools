@@ -1,6 +1,6 @@
 # v5 Specification Set — Master Index
 
-> **Status as of 2026-07-29.** The eight specs below are the source of truth for the
+> **Status as of 2026-07-30.** The eight specs below are the source of truth for the
 > remaining v5 scope. This file tracks what each one specifies and **what is actually built
 > against it**, because a spec set with no conformance record is a wish list.
 >
@@ -56,6 +56,22 @@ configuration a person does. Six of the eight specs are complete. Everything rem
 *(Ops was recorded as 6 built on 2026-07-29 and corrected to 5 in the same day's audit: its
 phases 1, 3, 4, 5, and 7 have artifacts in code, and 7 − 2 open is 5. The row and its "phases
 2, 6 open" note disagreed with each other.)*
+
+### Drift check, 2026-07-30
+
+A semantic pass (`/drift`) after the build, plus actually running the app. `spec:coverage`
+was clean at 67 items / 0 undocumented; the findings below were all invisible to it,
+because none of them add or remove surface.
+
+| Finding | Bucket | Outcome |
+|---|---|---|
+| Ops phase 1's **degraded banner** was never built, though the phase was recorded as complete | NOT-BUILT | **Closed** — `DemoDataBanner`, 12 locales, 10 tests |
+| Ops §3.4 **lazy manual attachment** — code attaches once to the first message with `cacheControl` instead | SPEC-STALE | Amended; the code's approach is better |
+| Intake §3.3 **progressive cards** — emitted per item, but only after the whole batch researches | DIVERGENT | Amended, **open as a decision** |
+
+The banner is the one worth learning from: **no test and no mechanical check could have
+caught it.** A missing banner adds no surface and breaks nothing. It took opening the page
+and noticing the catalogue claimed two machines with nothing saying they were invented.
 
 Also here: [`2026-05-29-v5-test-suite-design.md`](2026-05-29-v5-test-suite-design.md)
 (implemented) and [`2026-06-01-chat-inventory-intake-design.md`](2026-06-01-chat-inventory-intake-design.md)

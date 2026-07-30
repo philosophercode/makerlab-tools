@@ -260,5 +260,9 @@
     "body": "{site} solo permite iniciar sesión con cuentas de {institution}, así que esta no se puede usar.",
     "stillWorks": "No hay nada bloqueado. Puedes explorar todo el catálogo y hacerle preguntas al asistente sin iniciar sesión; iniciar sesión solo aumenta el límite de mensajes por hora y añade tu nombre verificado a lo que envíes.",
     "browseTools": "Explorar el catálogo"
+  },
+  "demoBanner": {
+    "label": "Datos de demostración",
+    "body": "Este catálogo son datos de muestra integrados, no el inventario real de {institution}. Notion no está configurado."
   }
 }
