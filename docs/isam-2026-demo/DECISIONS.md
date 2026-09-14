@@ -1,8 +1,10 @@
 # ISAM 2026 Demo Abstract — Decisions Log
 
 > Working notes for the extended abstract submission. Source: `abstract-v1.1.html` (mirror: `abstract-v1.1.md`).
-> Submission deadline: **10 July 2026**. Final publication version: **15 September 2026**.
-> Demo install/session: **Sunday evening, 10 October 2026**, on-site.
+> Submission deadline: **10 July 2026** (submitted 30 May). Final upload, via the presenter portal: **30 September 2026**.
+> Regular registration closes **15 September 2026**; at least one author must be registered to present.
+> Demo install/session: **Sunday evening, 11 October 2026**, on-site at Rice University, Houston (symposium 11–13 October).
+> Dates checked 2026-09-14 against the [official Important Dates page](https://event.fourwaves.com/isam-2026/pages/9461609a-3902-42e5-b714-d8e074366b3a).
 
 ## Version log
 
@@ -16,7 +18,7 @@
   - PDF: `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf=abstract-v1.1.pdf "file://$PWD/abstract-v1.1.html"`
   - DOCX: `pandoc abstract-v1.1.html -o abstract-v1.1.docx --resource-path="$PWD"`
 
-## Planned for V2 (Isaac, post-submission — there is more time before the final 15 Sep version)
+## Planned for V2 (Isaac, post-submission — there is more time before the 30 Sep final upload)
 
 - **Add the public demo URL:** https://makerlab-tools-v5.vercel.app (the ISAM template even expects a
   "Public Demo" line). Pairs with one clause on how a lab adopts it.

@@ -38,15 +38,6 @@ Development of the next generation happens in **`philosophercode/blueprint`**
 sign-in, and a self-hosted deployment story. This repository is unaffected by
 that work until a migration is offered.
 
-Three branches here hold finished work relevant to the successor and worth
-merging or porting before they rot:
-
-| Branch | Contains |
-|---|---|
-| `philosophercode/chat-inventory-intake` | Capability registry + AI inventory intake. Up to date with `main`. |
-| `philosophercode/projects-gallery` | Student projects gallery, read and submit. Behind `main`; needs a rebase. |
-| `philosophercode/isam-2026-demo-abstract` | The ISAM submission. `abstract-v1.*` is the frozen submitted record. |
-
 ## Documents
 
 | Document | What it's for |
@@ -56,7 +47,7 @@ merging or porting before they rot:
 | `v5/AGENTS.md` | App-level detail for `v5/`: stack, key files, gotchas |
 | `v5/TESTING.md` | Test suite runbook |
 | `docs/MakerLab_design/DESIGN.md` | The "Architectural Brutalism + Blueprint Archive" design system |
-| `docs/isam-2026-demo/` | Conference abstract and figures |
+| `docs/isam-2026-demo/` | ISAM 2026 demo abstract and figures. `abstract-v1.*` is the frozen submitted record; edit `abstract-v1.1.html`. Dates and open items in `DECISIONS.md` |
 
 ## Stack (v5)
 
