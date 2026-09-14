@@ -60,3 +60,6 @@ scripts/tool_images/
 # Private working notes — never committed, never published.
 # This repo is public; keep strategy/commercial notes out of it.
 docs/private/
+
+# Office temp/lock files
+~$*

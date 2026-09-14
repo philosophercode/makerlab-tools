@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The MakerLAB Assistant — ISAM 2026 Demo Extended Abstract</title>
+<style>
+  @page { size: 8.5in 11in; margin: 0.75in; }
+  html { font-family: "Times New Roman", Times, serif; }
+  body { margin: 0; font-size: 10pt; line-height: 1.1; text-align: justify; }
+
+  /* Two-column body with full-width header */
+  .doc { column-count: 2; column-gap: 0.2in; }
+  .span { column-span: all; -webkit-column-span: all; }
+
+  .title { font-size: 16pt; font-weight: normal; text-align: center; margin: 0 0 6pt 0; line-height: 1.1; }
+  .venue { text-align: center; font-size: 10pt; margin: 0 0 2pt 0; }
+  .demo-no { text-align: center; font-size: 10pt; margin: 0 0 8pt 0; }
+  .authors { text-align: center; font-size: 12pt; margin: 0 0 3pt 0; }
+  .affil { text-align: center; font-size: 10pt; margin: 0; line-height: 1.25; }
+  .header { margin-bottom: 0.4in; }
+
+  h2 { font-size: 10pt; font-weight: bold; margin: 7pt 0 2pt 0; }
+  h3 { font-size: 10pt; font-weight: bold; font-style: italic; margin: 5pt 0 2pt 0; }
+  p { margin: 0 0 4pt 0; }
+  .abstract-label { font-weight: bold; font-style: italic; }
+  .abstract p { font-style: normal; }
+
+  figure { margin: 5pt 0 6pt 0; break-inside: avoid; }
+  figure img { width: 100%; height: auto; border: 0.5pt solid #999; display: block; }
+  figcaption { font-size: 8.5pt; line-height: 1.1; margin-top: 2pt; text-align: left; }
+
+  .refs p { font-size: 8pt; margin: 0 0 3pt 0; text-indent: -1.2em; padding-left: 1.2em; }
+  .ack p { font-size: 9pt; margin: 0 0 2pt 0; }
+  em.note { color: #444; }
+</style>
+</head>
+<body>
+
+  <!-- ===== Full-width header ===== -->
+  <div class="header">
+    <p class="venue">International Symposium on Academic Makerspaces — ISAM 2026</p>
+    <h1 class="title">The MakerLAB Assistant: AI to Help Operate, Fix, and Build in Makerspaces</h1>
+    <p class="authors">Isaac Steinberg<sup>1</sup>, Niti Parikh<sup>2</sup>, and Miguel Ramirez Peraza<sup>3</sup></p>
+    <p class="affil"><sup>1</sup>Isaac Steinberg; MBA &rsquo;26, Johnson Cornell Tech; ies22@cornell.edu</p>
+    <p class="affil"><sup>2</sup>Niti Parikh; Director, Learning Spaces &amp; MakerLABs, Cornell Tech; ntp27@cornell.edu</p>
+    <p class="affil"><sup>3</sup>Miguel Ramirez Peraza; MakerLAB Intern, Cornell Tech; ramirezperazamiguel@gmail.com</p>
+  </div>
+
+<div class="doc">
+
+  <!-- ===== Abstract ===== -->
+  <div class="abstract">
+    <p><span class="abstract-label">Abstract&mdash;</span>Academic makerspaces accumulate substantial
+    operational knowledge: machine documentation, setup procedures, safety rules, materials, inventory,
+    and fabrication know-how. That knowledge is scattered across shared drives, URLs, videos,
+    institutional memory, staff, and repair vendors rather than centralized, and it is mostly in
+    English. At a lab like the Cornell Tech MakerLAB&mdash;seven-day access, lean staff, students at
+    every skill level&mdash;access to this knowledge ends up unevenly distributed, and the learning
+    curve is steep: students must ideate, find the right hardware, recall procedures, and run complex
+    multi-machine setups. We demonstrate the
+    <b>MakerLAB Assistant</b>, a conversational AI layered over a structured operational database
+    (hosted in Notion) within the <i>MakerLAB Tools</i> app. It gives students instant, anytime access
+    to the inventory and the lab&rsquo;s specifications in plain language and many languages: find the
+    right tool, follow manual-grounded setup and troubleshooting, log a maintenance ticket, and scope
+    multi-machine projects. The same database is exposed as a live Model Context Protocol (MCP) server,
+    so attendees can query the lab from an LLM client such as Claude or ChatGPT. The demonstration is interactive:
+    visitors browse the catalog, scope a project, and troubleshoot an example issue on a 3D printer. The
+    app is already deployed at the Cornell Tech MakerLAB over an initial catalogue of 100 machines, and
+    we frame this as an ongoing R&amp;D initiative whose long-term goal is a shared operational framework
+    across Cornell&rsquo;s campuses while preserving each lab&rsquo;s local identity.</p>
+  </div>
+
+  <!-- ===== Body ===== -->
+  <h2>1. Background and Motivation</h2>
+  <p>The project began on the floor of the Cornell Tech MakerLAB. An intern (a co-author) built the
+  first inventory app in Streamlit to search the lab&rsquo;s hardware&mdash;work that organized the
+  data and framed the problem. A second co-author, volunteering as a &ldquo;SuperMaker,&rdquo; kept
+  hitting the same friction: looking up a manual whenever something broke, or digging for a laser
+  cutter&rsquo;s specs just to design a case that would fit. He added an AI layer over the inventory.
+  The director then posed the guiding question: could a student <i>describe a project</i> and have it
+  <b>decomposed against the tools the lab actually has</b>? Pairing the inventory with each
+  machine&rsquo;s manual and setup procedures turns a static list into something generative&mdash;a
+  step-by-step account of the tooling and workflow a project requires. (An early version produced
+  how-to infographics and renders; today the system generates grounded text that can seed an image on
+  demand.)</p>
+
+  <p>The lab runs on lean staff and offers open access, and staff are often busy fabricating for
+  classes and projects. When no one is on the floor, the knowledge of what each machine does, who may
+  use it, and how to set it up is distributed, imperfect, and mostly in English&mdash;so access falls
+  unevenly across students.</p>
+
+  <p>Three needs recur, and each routes today to a human bottleneck. Students need to <b>operate</b> a
+  machine (where is it, how do I start, what training and PPE does it require?); to <b>debug</b> a
+  machine and <b>log a maintenance ticket</b> when it throws an error mid-job; and to <b>scope</b> a
+  project spanning several machines. The MakerLAB Assistant lowers all three at once&mdash;shared
+  context for operating, planning, and creating in the lab.</p>
+
+  <h2>2. System Overview</h2>
+  <p><i>MakerLAB Tools</i> treats the lab&rsquo;s operational knowledge as structured, typed data
+  rather than a static list. The schema is normalized&mdash;tools, categories, locations, individual
+  units, resources, setup/safety procedures, and maintenance logs&mdash;and hosted in Notion, keeping
+  staff editing in a tool they already use. The web application (Next.js / React, deployed on Vercel)
+  presents two surfaces: a <b>gallery</b> with fuzzy ranked search and category, material, training,
+  and location facets across every published machine (Fig.&nbsp;1), and a <b>tool detail</b> page
+  showing description, location, required training, PPE and use restrictions, emergency-stop guidance,
+  linked SOPs and manuals, and a live table of individual units with status, condition, and serial.</p>
+
+  <figure>
+    <img src="fig-gallery.png" alt="MakerLAB Tools gallery" style="max-height:1.1in; width:auto; margin-left:auto; margin-right:auto;">
+    <figcaption>Fig. 1: The gallery&mdash;fuzzy search with category, training, material, and location
+    facets across ~100 machines; the language selector sits top-right.</figcaption>
+  </figure>
+
+  <p>Overlaying both surfaces is the <b>MakerLAB Assistant</b>&mdash;a single unified assistant rather
+  than a handful of separate tools (Fig.&nbsp;2). From any page it answers questions, walks through
+  setups, and logs maintenance tickets; near-term, it will also help create and manage inventory and
+  schedule trainings. Rather than baking the catalog into a prompt, it reasons over the data through
+  tool-calling, augmented with web search, document fetch (manuals and SOPs are pulled server-side and
+  read in full), and vision (a photo of a machine or an error screen). Its context scales with place:
+  from the gallery it carries a lightweight index of every tool and its resources; opened from a tool
+  page it loads that machine&rsquo;s full detail and linked manuals, becoming a domain expert on the
+  machine in front of you. It answers in the language it is asked. The app is lightweight and
+  <b>white-label</b>&mdash;a new lab connects its own Notion workspace through environment variables
+  and hosts on serverless infrastructure&mdash;so other labs can adopt it.</p>
+
+  <figure>
+    <img src="fig-project.png" alt="The MakerLAB Assistant scoping a project across machines" style="max-height:2.0in; width:auto; margin-left:auto; margin-right:auto;">
+    <figcaption>Fig. 2: Project scoping. The assistant decomposes a phone-and-tablet stand into
+    laser-cut Baltic-birch parts (including a living hinge) and 3D-printed parts, each mapped to the
+    right machine.</figcaption>
+  </figure>
+
+  <h2>3. The Demonstration</h2>
+  <p>The demonstration is interactive: visitors drive the live app.</p>
+
+  <h3>3.1 Browse and scope.</h3>
+  <p>Visitors browse the catalog, then ask the assistant to scope a project&mdash;e.g., <i>&ldquo;I
+  want to make a wooden stand for my phone and tablet with 3D-printed parts; which machines and steps
+  would I need?&rdquo;</i> It returns a start-to-finish, training-aware plan that decomposes the build
+  into laser-cut plywood parts and 3D-printed parts, each mapped to the right machine and grounded in
+  the lab&rsquo;s actual inventory (Fig.&nbsp;2)&mdash;turning a vague idea into an executable plan.</p>
+
+  <h3>3.2 Troubleshoot and log a ticket.</h3>
+  <p>On a machine page, visitors ask a hands-on question&mdash;say, how to replace the filament on the
+  Bambu Lab X1-Carbon. The assistant pulls the printer&rsquo;s SOP and walks through it step by step on
+  the touchscreen (Fig.&nbsp;3), in any language. And when a machine actually faults, the same chat
+  files a maintenance ticket on the spot&mdash;so the machine stays online and the issue is captured
+  rather than lost.</p>
+
+  <figure>
+    <img src="fig-assistant.png" alt="The MakerLAB Assistant answering a 3D-printer question" style="max-height:1.3in; width:auto; margin-left:auto; margin-right:auto;">
+    <figcaption>Fig. 3: A live exchange on the Bambu Lab X1-Carbon page&mdash;&ldquo;how do I replace the
+    filament?&rdquo;&mdash;answered step by step from the printer&rsquo;s SOP (unload the old, load the
+    new).</figcaption>
+  </figure>
+
+  <h3>3.3 Bring your own AI (MCP).</h3>
+  <p>The database is also a live, standards-based MCP server [1] (streamable HTTP) with tools to list,
+  search, and inspect machines, units, and maintenance history. Attendees connect an LLM
+  client&mdash;such as Claude [2] or ChatGPT [3]&mdash;and query the lab from a tool they already
+  use&mdash;reaching the linked manuals and grounding
+  a 3D print or laser-cut SVG in the lab&rsquo;s actual build and bed dimensions, coupling design files
+  to the hardware that will make them.</p>
+
+  <h3>3.4 Feedback and requirements.</h3>
+  <p>We gather visitor feedback throughout. Requirements are light&mdash;the footprint of a standard
+  table, plus power, reliable Wi-Fi, a couple of tablets, and a monitor.</p>
+
+  <h2>4. Why a Demonstration</h2>
+  <p>This work is best experienced, not read. The point is what the assistant takes off a
+  student&rsquo;s plate&mdash;planning a build, recalling a setup, fixing a jam, filing a
+  ticket&mdash;normally a hunt through manuals or a wait for staff. By simplifying these
+  workflows, it lets students take on more ambitious projects, finish them faster, and learn the tools
+  sooner&mdash;raising the number, complexity, and quality of what gets made. A demo is the best way to
+  show this, gather feedback from students and other labs, and let those labs adopt it; the code will
+  be openly accessible to read and run. As AI makes these labs easier to use and to teach, we expect
+  more of them&mdash;and tools like this to help.</p>
+
+  <h2>5. Early Deployment and Planned Evaluation</h2>
+  <p>With the app live over the lab&rsquo;s real inventory, we are in a data-collection phase to assess
+  whether it helps students. Early signals we will watch: whether more issues get surfaced and fixed
+  (more uptime, less downtime), and whether students use the machines more because the lab is easier to
+  navigate. We frame this as an in-progress study.</p>
+
+  <h2>6. Discussion and Future Direction</h2>
+  <p>This is an ongoing R&amp;D initiative, not a finished product. Two near-term directions add the
+  most value. First, a <b>student-projects gallery</b> linked to the devices that made each
+  project&mdash;an archive and portfolio of student work and an institutional record of it. Second,
+  <b>AI-assisted inventory creation</b> through the chat: a student uploads a few
+  photos of tools or hardware and a short description, and the assistant fetches the manuals and drafts
+  a catalog row for each&mdash;making inventory far faster to add and maintain. Farther out: a
+  <b>digital twin</b> with a lab-wide agent that routes fabrication jobs and coordinates schedules and
+  trainings; and, longest horizon, a shared operational framework across Cornell&rsquo;s campuses, so
+  students move fluidly between labs while each keeps its identity.</p>
+
+  <h2 class="ack">Acknowledgements</h2>
+  <div class="ack">
+  <p>We thank the staff and interns who helped build the MakerLAB; Cornell Tech and Cornell University;
+  and all the students who have helped make it such an exciting, generative place. Isaac Steinberg
+  designed the system architecture and wrote all application code for v5 and the current version,
+  developed with the AI coding assistants Claude Code and Codex.</p>
+  <p>In accordance with ISAM policy, we disclose that a large language model (Anthropic&rsquo;s Claude)
+  assisted in drafting and editing this abstract; all technical claims, design decisions, and the
+  system itself are the authors&rsquo; own.</p>
+  </div>
+
+  <h2>References</h2>
+  <div class="refs">
+    <p>[1] Anthropic, &ldquo;Model Context Protocol,&rdquo; 2024. [Online]. Available:
+    https://modelcontextprotocol.io. [Accessed: May&nbsp;30, 2026].</p>
+    <p>[2] Anthropic, &ldquo;Claude,&rdquo; 2023. [Online]. Available: https://www.anthropic.com/claude.
+    [Accessed: May&nbsp;30, 2026].</p>
+    <p>[3] OpenAI, &ldquo;ChatGPT,&rdquo; 2022. [Online]. Available: https://openai.com/chatgpt.
+    [Accessed: May&nbsp;30, 2026].</p>
+  </div>
+
+</div>
+</body>
+</html>
