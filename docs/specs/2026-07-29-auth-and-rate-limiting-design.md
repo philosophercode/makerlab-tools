@@ -412,3 +412,26 @@ duplicated in `auth.spec.ts`.
 
 **Status.** Accepted. The spec's intent (no live OAuth, assert the header states) is met; the
 mechanism is one layer up from the cookie because the suite deliberately has no secret.
+
+### 2026-09-14 — adding equipment is staff-only (amends §3.4 and §8)
+
+**What changed.** §3.4 and §8 say no capability is role-gated in v5. The intake capability
+(`research_tool`, `propose_listing`, `create_tool`) now declares a minimum role of `staff`.
+On the chat surface an anonymous visitor or a signed-in student gets none of its tools, and
+its prompt fragment is replaced by a short note telling the assistant that adding equipment
+is limited to staff. The header's "Add" entry point appears only for staff and admins.
+
+**Where the rule lives.** A capability declares `minimumRole`; `capabilitiesForRole` in
+`v5/src/lib/capabilities/access.ts` enforces it once, when the chat composes its tools. That
+keeps §3.4's rule that authorization is enforced once rather than per tool, and no tool's
+`run()` checks a role. MCP is unchanged: its trust boundary is `MCP_TOKEN`, which already
+gates `create_tool` there, and an MCP caller has no role to check.
+
+**Why.** Drafts-by-default (Article 5) kept unreviewed listings out of the catalog, but not out
+of Notion: any visitor could create draft pages and trigger paid web research. The ISAM demo
+puts the live app in front of a public audience on shared wifi, and the lab's direction as of
+2026-09-14 is that admins and SuperMakers add equipment, not visitors. Until in-app roles
+exist, SuperMakers belong on `AUTH_STAFF_EMAILS`.
+
+**Status.** Accepted. Covered by `src/lib/capabilities/access.test.ts`, the chat route tests
+(anonymous, student, staff), `intake.test.ts`, and `PrimaryNav.test.tsx`.
