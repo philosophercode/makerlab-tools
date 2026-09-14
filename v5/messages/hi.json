@@ -221,7 +221,6 @@
     "actionConfirmVariant": "यह {variant} है",
     "actionEdit": "संपादित करें",
     "actionDiscard": "छोड़ दें",
-    "actionAddUnit": "मौजूदा टूल में एक यूनिट जोड़ें",
     "actionCreateAnyway": "नहीं, नया टूल बनाएँ",
     "actionOpenDraft": "Notion में ड्राफ़्ट खोलें"
   },

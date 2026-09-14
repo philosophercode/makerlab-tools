@@ -221,7 +221,6 @@
     "actionConfirmVariant": "Bu {variant}",
     "actionEdit": "Düzenle",
     "actionDiscard": "Vazgeç",
-    "actionAddUnit": "Mevcut araca bir birim ekle",
     "actionCreateAnyway": "Hayır, yeni bir araç oluştur",
     "actionOpenDraft": "Taslağı Notion’da aç"
   },

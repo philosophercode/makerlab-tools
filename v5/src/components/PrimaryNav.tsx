@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useChatLauncher } from "./ChatLauncherContext";
 import { RefreshCatalogButton } from "./RefreshCatalogButton";
+import { canAddEquipment } from "../lib/capabilities/access";
 import { siteConfig } from "../lib/site-config";
 import {
   fetchIdentity,
@@ -75,14 +76,19 @@ export function PrimaryNav() {
           {t(link.key)}
         </Link>
       ))}
-      <button
-        type="button"
-        className="primary-nav-add"
-        onClick={() => open(t("addSeed"))}
-        aria-label={t("addAria")}
-      >
-        {t("add")}
-      </button>
+      {/* Adding equipment is staff-only (auth spec amendment 2026-09-14), so the
+          entry point waits for an identity that may use it. The chat enforces
+          the same rule server-side; hiding the button is only presentation. */}
+      {canAddEquipment(identity?.role) ? (
+        <button
+          type="button"
+          className="primary-nav-add"
+          onClick={() => open(t("addSeed"))}
+          aria-label={t("addAria")}
+        >
+          {t("add")}
+        </button>
+      ) : null}
       <button
         type="button"
         className="primary-nav-report"

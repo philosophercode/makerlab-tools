@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport } from "ai";
+import { DefaultChatTransport, type FileUIPart } from "ai";
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -13,6 +13,8 @@ import { useChatLauncher } from "./ChatLauncherContext";
 import { siteConfig } from "../lib/site-config";
 import { startGoogleSignIn } from "../lib/auth/sign-in-client";
 import type { CardPayload } from "../lib/capabilities/types";
+import { downscaleForVision } from "../lib/chat/downscale-image";
+import { toVisionFileParts, withRecentPhotos } from "../lib/chat/photo-parts";
 
 interface Suggestion {
   icon: "search" | "clipboard" | "pin";
@@ -222,6 +224,8 @@ interface PendingPhoto {
   file_upload_id: string;
   name: string;
   previewUrl: string;
+  /** Downscaled copy the model sees; absent when the browser could not encode it. */
+  dataUrl?: string;
 }
 
 export function ChatFab() {
@@ -258,7 +262,9 @@ export function ChatFab() {
         prepareSendMessagesRequest: ({ id, messages, trigger, messageId }) => ({
           body: {
             id,
-            messages,
+            // Every turn re-sends the conversation; keep earlier photos bounded
+            // so their bytes do not ride along forever (Article 4).
+            messages: withRecentPhotos(messages),
             trigger,
             messageId,
             locale: localeRef.current,
@@ -345,10 +351,16 @@ export function ChatFab() {
         try {
           const form = new FormData();
           form.append("file", file);
-          const res = await fetch("/api/upload-notion", {
-            method: "POST",
-            body: form,
-          });
+          // The Notion upload is the record; the downscaled copy is what the
+          // model looks at (intake spec §6.1). They run side by side, and a
+          // photo the browser cannot encode still uploads.
+          const [res, dataUrl] = await Promise.all([
+            fetch("/api/upload-notion", {
+              method: "POST",
+              body: form,
+            }),
+            downscaleForVision(file),
+          ]);
           if (!res.ok) {
             const body = (await res.json().catch(() => null)) as
               | { error?: string }
@@ -366,6 +378,7 @@ export function ChatFab() {
               file_upload_id: data.file_upload_id,
               name: data.name,
               previewUrl,
+              dataUrl: dataUrl ?? undefined,
             },
           ]);
         } catch (err) {
@@ -483,9 +496,9 @@ export function ChatFab() {
   // previous turn. Clearing on send (rather than in an effect reacting to
   // `status`) keeps it next to where the request actually starts and avoids a
   // synchronous setState-in-effect cascade.
-  function send(text: string) {
+  function send(text: string, files: FileUIPart[] = []) {
     setReadingManuals(null);
-    sendMessage({ text });
+    sendMessage(files.length > 0 ? { text, files } : { text });
   }
 
   // Auto-send a seeded message when something outside ChatFab (e.g. the nav
@@ -537,7 +550,7 @@ export function ChatFab() {
         .join("; ");
       outgoing = `${text}\n\n[Attached photos: ${hint}]`;
     }
-    send(outgoing);
+    send(outgoing, toVisionFileParts(pendingPhotos));
     setDraft("");
     clearPendingPhotos();
     setUploadError(null);

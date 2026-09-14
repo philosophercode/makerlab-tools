@@ -8,6 +8,7 @@ import {
   findOrCreateLocation,
 } from "../notion";
 import type { MakerLabTool } from "../../components/catalog-types";
+import { INTAKE_MINIMUM_ROLE } from "./access";
 import { scoreConfidence, toEvidence } from "./confidence";
 import { findTool } from "./helpers";
 import {
@@ -555,14 +556,10 @@ function buildActions(
   };
 
   if (c.duplicate_of) {
+    // No "add a unit to the existing tool": nothing can act on it yet, and a
+    // button that visibly does nothing is worse than none (intake spec amendment
+    // 2026-09-14). The person either lists it separately on purpose or drops it.
     return [
-      {
-        id: "add-unit",
-        label: "Add a unit to the existing tool",
-        labelKey: "actionAddUnit",
-        seedMessage: `add unit to existing: ${c.duplicate_of.id}`,
-        variant: "primary",
-      },
       {
         id: "create-anyway",
         label: "No, create a new tool",
@@ -665,7 +662,7 @@ function candidateToCard(c: ToolCandidate): IdentificationCardPayload {
 const proposeListing: CapabilityTool<ProposeInput, ProposeResult> = {
   name: "propose_listing",
   description:
-    "Show the user an identification card for each researched candidate so they can confirm before anything is written. This is the mandatory confirmation gate: ALWAYS call propose_listing and wait for an explicit user confirmation before create_tool. Pass multiple candidates to confirm a batch — each renders its own card, emitted as it is prepared. A candidate whose evidence only supports a low grade is NOT proposed: no card is rendered and it comes back under `needs_more_info` with the specific thing to ask for. A candidate with a duplicate_of match offers 'Add a unit to the existing tool' instead of creating a new tool. Read-only.",
+    "Show the user an identification card for each researched candidate so they can confirm before anything is written. This is the mandatory confirmation gate: ALWAYS call propose_listing and wait for an explicit user confirmation before create_tool. Pass multiple candidates to confirm a batch — each renders its own card, emitted as it is prepared. A candidate whose evidence only supports a low grade is NOT proposed: no card is rendered and it comes back under `needs_more_info` with the specific thing to ask for. A candidate with a duplicate_of match renders as 'Already in catalog' and is only listed separately if the user explicitly asks for that. Read-only.",
   inputSchema: proposeInputSchema,
   kind: "read",
   // Drives interactive identification cards in the chat UI; not an MCP tool.
@@ -939,10 +936,22 @@ function promptFragment(_env: PromptEnv): string {
     `   - **High** — the card is on screen with "Looks right — add it". Say one short line and stop talking.`,
     `   - **Medium** — the card leads with what is unresolved and its primary button resolves it. Do not talk the user past it; the ambiguity is the point.`,
     `   - **Low** — **no card was rendered, and you must not describe the item as though one was.** Do not restate a listing in prose, and do not offer to add it. Ask for the single thing named in that item's \`ask\` array, in one short sentence, phrased as something the person can do in five seconds — e.g. "I can see it's a filament 3D printer but I can't read the model — could you photograph the label on the front or side?" When they answer, re-run \`research_tool\` with the new information.`,
-    `4. **Handle duplicates.** If \`research_tool\` reported a \`duplicate_of\`, the card surfaces "Already in catalog". Offer to **add a unit to the existing tool** rather than creating a new tool, unless the user explicitly wants a separate listing.`,
+    `4. **Handle duplicates.** If \`research_tool\` reported a \`duplicate_of\`, the card surfaces "Already in catalog". Tell the user it is already listed and link the existing tool using its catalog slug. Adding another unit to an existing tool is not available here yet — staff add units for now. Only create a separate listing if the user explicitly asks for one.`,
     `5. **Create on confirmation.** Once the user confirms, call \`create_tool\` with that single candidate. Everything is saved as a **draft** (\`published = false\`) — tell the user it's saved as a draft and that staff will publish it. If \`create_tool\` reports \`warnings\` (a partial write), relay exactly what landed and what to finish in Notion; never claim full success when steps failed.`,
     `**Batches:** when the user describes several items at once (a long list, or multiple photos), assemble one candidate per item, pass them all to a single \`research_tool\` call, then all of them to a single \`propose_listing\` call so each gets its own card. Confirm and \`create_tool\` each item independently; if the user says "add all", create each confirmed candidate in turn — but never create one that came back under \`needs_more_info\`, since the user never saw a card for it. In a batch, assign each photo to the candidate it actually shows via that candidate's \`image_upload_ids\`; the turn's photos are not applied to every item.`,
-    `Confirmation messages from card buttons arrive as short follow-ups like \`confirm add: <candidate-id>\`, \`confirm model: <candidate-id> = <name>\`, \`confirm variant: <candidate-id> = <variant>\`, \`add unit to existing: <tool-id>\`, \`edit: <candidate-id>\`, or \`discard: <candidate-id>\`. Resolve \`confirm add\` to a \`create_tool\` call for the matching candidate. \`confirm model\` and \`confirm variant\` are the user resolving an ambiguity: adopt the named model as the candidate's \`name\`, correct any spec that differs between the variants (re-fetch the right page if they do), and then call \`create_tool\` — that click is the human confirmation, so no second one is needed. On \`edit\`, ask what to change and re-run \`propose_listing\`; on \`discard\`, drop that candidate.`,
+    `Confirmation messages from card buttons arrive as short follow-ups like \`confirm add: <candidate-id>\`, \`confirm model: <candidate-id> = <name>\`, \`confirm variant: <candidate-id> = <variant>\`, \`create new tool anyway: <candidate-id>\`, \`edit: <candidate-id>\`, or \`discard: <candidate-id>\`. Resolve \`confirm add\` to a \`create_tool\` call for the matching candidate. \`create new tool anyway\` is the user explicitly asking for a separate listing despite a catalog match — treat it the same way. \`confirm model\` and \`confirm variant\` are the user resolving an ambiguity: adopt the named model as the candidate's \`name\`, correct any spec that differs between the variants (re-fetch the right page if they do), and then call \`create_tool\` — that click is the human confirmation, so no second one is needed. On \`edit\`, ask what to change and re-run \`propose_listing\`; on \`discard\`, drop that candidate.`,
+  ].join("\n\n");
+}
+
+/**
+ * What the assistant is told when the caller may not add equipment (auth spec
+ * amendment 2026-09-14). Without it the model would improvise around tools it
+ * cannot see — researching a listing it can never create.
+ */
+function lockedPromptFragment(): string {
+  return [
+    `## Adding equipment to the inventory`,
+    `Adding tools to the catalog is limited to lab staff. If someone asks to add equipment, say in one short sentence that staff can add it after signing in with a staff account, then offer to help with anything else. Do not research the item as a listing, and never describe a listing as though you could create one.`,
   ].join("\n\n");
 }
 
@@ -950,7 +959,10 @@ function promptFragment(_env: PromptEnv): string {
 
 export const intake: Capability = {
   id: "intake",
+  // Staff and admins only on the chat surface — enforced in `access.ts`.
+  minimumRole: INTAKE_MINIMUM_ROLE,
   promptFragment,
+  lockedPromptFragment,
   // Heterogeneous tool input/output types are erased to the registry's loose
   // element type; the adapters re-validate each tool's input via its own schema.
   tools: [researchTool, proposeListing, createToolTool] as unknown as CapabilityTool<
