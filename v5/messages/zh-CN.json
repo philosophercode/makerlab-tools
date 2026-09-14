@@ -221,7 +221,6 @@
     "actionConfirmVariant": "是 {variant}",
     "actionEdit": "编辑",
     "actionDiscard": "丢弃",
-    "actionAddUnit": "为已有工具添加一台设备",
     "actionCreateAnyway": "不，创建新工具",
     "actionOpenDraft": "在 Notion 中打开草稿"
   },

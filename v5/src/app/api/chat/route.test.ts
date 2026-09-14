@@ -563,3 +563,98 @@ describe("PDF manual collection (focused tool)", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+// ── Adding equipment is staff-only (auth spec amendment 2026-09-14) ──
+describe("POST /api/chat — who may add equipment", () => {
+  const INTAKE_TOOLS = ["research_tool", "propose_listing", "create_tool"];
+  const SECRET = "chat-route-test-secret";
+  const ASK = "I'd like to add new equipment to the inventory.";
+
+  async function postAs(email: string, name: string) {
+    vi.stubEnv("AUTH_SECRET", SECRET);
+    const token = await signSession(
+      createSessionPayload({ sub: `sub-${email}`, email, name }),
+      SECRET
+    );
+    await POST(
+      chatRequest(
+        { messages: [userMessage(ASK)] },
+        { cookie: `${SESSION_COOKIE_NAME}=${token}` }
+      )
+    );
+  }
+
+  it("gives an anonymous visitor no intake tools, and tells the assistant why", async () => {
+    await POST(chatRequest({ messages: [userMessage(ASK)] }));
+
+    for (const name of INTAKE_TOOLS) {
+      expect(captured.args.tools).not.toHaveProperty(name);
+    }
+    expect(captured.args.system).toContain("limited to lab staff");
+    expect(captured.args.system).not.toContain("act as an intake agent");
+  });
+
+  it("gives a signed-in student no intake tools either", async () => {
+    await postAs("ada@cornell.edu", "Ada Lovelace");
+
+    for (const name of INTAKE_TOOLS) {
+      expect(captured.args.tools).not.toHaveProperty(name);
+    }
+    expect(captured.args.system).toContain("limited to lab staff");
+  });
+
+  it("gives staff the intake tools and the full intake instructions", async () => {
+    vi.stubEnv("AUTH_STAFF_EMAILS", "niti@cornell.edu");
+    await postAs("niti@cornell.edu", "Niti Parikh");
+
+    for (const name of INTAKE_TOOLS) {
+      expect(captured.args.tools).toHaveProperty(name);
+    }
+    expect(captured.args.system).toContain("act as an intake agent");
+    expect(captured.args.system).not.toContain("limited to lab staff");
+  });
+
+  it("keeps reporting a problem open to anonymous visitors", async () => {
+    await POST(chatRequest({ messages: [userMessage("the printer is jammed")] }));
+    expect(captured.args.tools).toHaveProperty("report_issue");
+  });
+});
+
+// ── Photos reach the model (intake spec §6.1) ────────────────────────
+describe("POST /api/chat — photos reach the model", () => {
+  it("passes an attached photo to the model on the user message", async () => {
+    await POST(
+      chatRequest({
+        messages: [
+          {
+            id: "1",
+            role: "user",
+            parts: [
+              {
+                type: "text",
+                text: "what printer is this?\n\n[Attached photos: file_upload_id=fu_1 name=plate.jpg]",
+              },
+              {
+                type: "file",
+                mediaType: "image/jpeg",
+                filename: "plate.jpg",
+                url: "data:image/jpeg;base64,AAAA",
+              },
+            ],
+          },
+        ],
+      })
+    );
+
+    const user = captured.args.messages.find((m: any) => m.role === "user");
+    expect(user.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: "file",
+          mediaType: "image/jpeg",
+          data: "data:image/jpeg;base64,AAAA",
+        }),
+      ])
+    );
+  });
+});

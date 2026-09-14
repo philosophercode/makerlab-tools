@@ -221,7 +221,6 @@
     "actionConfirmVariant": "Это {variant}",
     "actionEdit": "Изменить",
     "actionDiscard": "Отклонить",
-    "actionAddUnit": "Добавить единицу к существующему инструменту",
     "actionCreateAnyway": "Нет, создать новый инструмент",
     "actionOpenDraft": "Открыть черновик в Notion"
   },

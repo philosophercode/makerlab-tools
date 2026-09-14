@@ -221,7 +221,6 @@
     "actionConfirmVariant": "إنه {variant}",
     "actionEdit": "تعديل",
     "actionDiscard": "تجاهل",
-    "actionAddUnit": "أضِف وحدة إلى الأداة الموجودة",
     "actionCreateAnyway": "لا، أنشئ أداة جديدة",
     "actionOpenDraft": "افتح المسودة في Notion"
   },

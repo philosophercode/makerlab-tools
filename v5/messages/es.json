@@ -221,7 +221,6 @@
     "actionConfirmVariant": "Es el {variant}",
     "actionEdit": "Editar",
     "actionDiscard": "Descartar",
-    "actionAddUnit": "Añadir una unidad a la herramienta existente",
     "actionCreateAnyway": "No, crear una herramienta nueva",
     "actionOpenDraft": "Abrir el borrador en Notion"
   },
