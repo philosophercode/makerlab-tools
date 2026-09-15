@@ -202,19 +202,31 @@ Vercel Blob (`@vercel/blob`, already a dependency for backups).
 
 ### 3.4 Accounts and roles
 
-**Sign-in stays as the auth spec describes.** Better Auth runs the Google handshake, and the app
-mints its own signed session cookie. Two things change:
+**Better Auth runs the way it is meant to be run.** The auth spec of 2026-07-29 used Better Auth
+for the Google handshake only, with an in-memory adapter and a hand-written HMAC cookie
+(`makerlab.identity`), because there was no database to keep sessions in. There is one now, so
+that workaround goes and the library's standard setup takes its place:
 
-1. **A user row on sign-in.** The after-hook in `src/lib/auth/config.ts` upserts `users` by
-   lower-cased email — Google `sub`, name, `last_sign_in_at` — before minting the cookie.
-2. **The role comes from the database, per request.** `resolveIdentity` reads the role from
-   `users` in one indexed lookup, memoized per request with React `cache()`, instead of from
-   `AUTH_STAFF_EMAILS` and `AUTH_ADMIN_EMAILS`. This is what makes Goal 3 true: a role embedded in
-   the 30-day cookie would leave a demoted admin with their old role until it expired. A row with
-   `disabled_at` set resolves to anonymous.
+- **Storage:** the Drizzle adapter on the same Neon database (PGlite in tests). Better Auth owns
+  four tables — `user`, `session`, `account`, `verification` — whose Drizzle schema is generated
+  by `npx @better-auth/cli generate` and committed like any other migration.
+- **Sessions in the database**, not in a self-describing cookie. The cookie carries only a session
+  token; each request looks the session and its user up. That is what makes Goal 3 true: a role
+  change is visible on the person's next request, with nothing to expire. (Better Auth's optional
+  cookie cache stays off.)
+- **Roles from the admin plugin** (`better-auth/plugins/admin`), which adds `role`, `banned`,
+  `banReason` and `banExpires` to `user`, plus the `set-role`, `ban-user`, `unban-user` and
+  `list-users` endpoints that `/admin/users` calls. `defaultRole` is `user`; `adminRoles` is
+  `["super_admin"]`, so only super admins can reach those endpoints.
+- **Domain enforcement** moves from the after-hook into `databaseHooks.user.create.before`, which
+  refuses to create a user outside `AUTH_ALLOWED_EMAIL_DOMAIN`. Google's `hd` hint stays as a
+  courtesy for the account picker.
+- **`resolveIdentity`** becomes a thin wrapper over `auth.api.getSession()`, memoized per request
+  with React `cache()`. The `Identity` type it returns keeps its shape, so every caller is
+  unchanged. A banned user resolves to anonymous.
 
-**Roles** (`src/lib/auth/roles.ts`), least to most privileged. The names are the standard ones;
-the lab can rename the labels shown in the UI without touching the stored values.
+**Roles**, least to most privileged. The names are the standard ones; the lab can rename the
+labels shown in the UI without touching the stored values.
 
 | Role | Who at the lab | How it is assigned |
 |---|---|---|
@@ -223,49 +235,64 @@ the lab can rename the labels shown in the UI without touching the stored values
 | `admin` | A SuperMaker | By a super admin, on `/admin/users` |
 | `super_admin` | A director | By a super admin, or by `AUTH_SUPER_ADMIN_EMAILS` |
 
-`AUTH_SUPER_ADMIN_EMAILS` is a **floor**, not a roster: an address listed there is always
-`super_admin`, whatever its row says. It guarantees the lab cannot lock itself out, and it is how
-the first super admin comes to exist. It starts as `ies22@cornell.edu` (Isaac). Once Niti is a
-super admin through the UI, the floor can name her instead.
+`AUTH_SUPER_ADMIN_EMAILS` is a **floor**, not a roster: an address listed there is created as
+`super_admin` (in the same `user.create.before` hook) and resolves as `super_admin` whatever its
+row says. It guarantees the lab cannot lock itself out, and it is how the first super admin
+comes to exist. It is `ies22@cornell.edu` (Isaac, whose Cornell address is permanent).
 
 ### 3.5 Permissions
 
-Permissions are named in code, and which roles hold each one is a table in code. A super admin
-holds everything. This replaces both the env-list roles of the auth spec and the `minimumRole`
-gate that PR #31 introduced.
+This is the ordinary pattern: **the role is a column on the user row, and what each role may do
+is declared in code.** A permissions table in the database is what you build when admins need to
+edit permissions at runtime, and the lab decided on 2026-09-14 that it does not.
+
+The declaration uses Better Auth's access-control module, which is how the admin plugin expects
+roles to be described:
 
 ```ts
 // src/lib/auth/permissions.ts
-export const PERMISSIONS = {
-  "projects.submit":    ["user", "admin", "super_admin"],  // post a project write-up
-  "catalog.view_drafts": ["admin", "super_admin"],         // see unpublished and archived tools
-  "tools.add":          ["admin", "super_admin"],          // identify tools; send them for research
-  "tools.approve":      ["admin", "super_admin"],          // approve a researched tool into the inventory
-  "tools.edit":         ["admin", "super_admin"],          // edit tools, units, resources, categories, locations
-  "tools.publish":      ["admin", "super_admin"],          // publish, unpublish, archive
-  "maintenance.manage": ["admin", "super_admin"],          // work the maintenance queue
-  "feedback.manage":    ["admin", "super_admin"],          // work the corrections queue
-  "projects.moderate":  ["admin", "super_admin"],          // publish and unpublish projects
-  "mirror.manage":      ["admin", "super_admin"],          // set up and run one's own Notion mirror
-  "users.manage":       ["super_admin"],                   // change roles; disable accounts
-} as const satisfies Record<string, readonly Role[]>;
+import { createAccessControl } from "better-auth/plugins/access";
 
-export type Permission = keyof typeof PERMISSIONS;
+export const statement = {
+  projects:    ["submit", "moderate"],
+  catalog:     ["view_drafts"],
+  tools:       ["add", "approve", "edit", "publish"],
+  maintenance: ["manage"],
+  feedback:    ["manage"],
+  mirror:      ["manage"],
+  users:       ["manage"],
+} as const;
+
+export const ac = createAccessControl(statement);
+
+export const roles = {
+  user:        ac.newRole({ projects: ["submit"] }),
+  admin:       ac.newRole({
+    projects: ["submit", "moderate"], catalog: ["view_drafts"],
+    tools: ["add", "approve", "edit", "publish"],
+    maintenance: ["manage"], feedback: ["manage"], mirror: ["manage"],
+  }),
+  super_admin: ac.newRole({ ...everything }),
+};
+
+export type Permission = "projects.submit" | "tools.approve" | /* … */ "users.manage";
 export function can(identity: Identity | null, permission: Permission): boolean;
+// can() splits "tools.approve" into { tools: ["approve"] } and calls roles[role].authorize().
 ```
 
-Three roles make most rows identical, and that is fine: the table exists so the *next* change —
-"SuperMakers may add tools but not publish them" — is one line, reviewed in a PR, rather than a
-search through route handlers.
+Three roles make most rows identical, and that is fine: the declaration exists so the *next*
+change — "SuperMakers may add tools but not publish them" — is one line, reviewed in a PR,
+rather than a search through route handlers.
 
 **One check, everywhere.**
 
 - **Server-side:** server actions, route handlers, and capability composition call `can()`.
 - **Client-side:** `GET /api/identity` returns `role`, and components hide controls with the same
-  table. Hiding is presentation; the server check is the control.
+  declaration. Hiding is presentation; the server check is the control.
 
 **Capabilities declare permissions, not roles.** A capability gains
-`requiredPermission?: Permission`, enforced once when the chat composes its tools.
+`requiredPermission?: Permission`, enforced once when the chat composes its tools. This replaces
+both the env-list roles of the auth spec and the `minimumRole` gate that PR #31 introduced.
 
 ### 3.6 Capabilities (Article 2)
 
@@ -325,6 +352,10 @@ async function researchItem(id: string) {
 - **Hobby allowance.** 50,000 workflow events and 1 GB written per month; a step is about three
   events. Researching 100 tools is a few hundred events. Run history is kept for one day on Hobby,
   so the item's own `research_error` column, not the run log, is the record of what went wrong.
+- **No extra resource.** On Vercel the SDK stores runs in the platform's own backend
+  (`@workflow/world-vercel`); there is nothing to provision and no second database. Locally it
+  uses a folder on disk. If the app ever leaves Vercel, `@workflow/world-postgres` runs the same
+  workflows against the same Neon database.
 
 ### 3.8 The Notion mirror (built last)
 
@@ -418,13 +449,17 @@ changes.
 | Variable | Status | Purpose |
 |---|---|---|
 | `DATABASE_URL` | New (Neon) | Postgres connection; unset means PGlite demo |
-| `AUTH_SUPER_ADMIN_EMAILS` | New | Super-admin floor; starts as `ies22@cornell.edu` |
+| `AUTH_SUPER_ADMIN_EMAILS` | New | Super-admin floor: `ies22@cornell.edu` |
 | `LAB_TIMEZONE` | New, default `America/New_York` | Dates on tickets (Article 6: configuration, not a constant) |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Existing, **unset in production today** | The OAuth client; Phase 0 |
+| `AUTH_SECRET`, `AUTH_BASE_URL`, `AUTH_ALLOWED_EMAIL_DOMAIN` | Existing | Better Auth; `AUTH_SECRET` also derives the key that encrypts mirror tokens (§8) |
 | `BLOB_READ_WRITE_TOKEN` | Existing | Uploads and backups |
 | `CRON_SECRET` | Existing | The daily cron route |
-| `AUTH_SECRET` | Existing | Session cookie; also derives the key that encrypts mirror tokens (§8) |
 | `NOTION_API_KEY`, `NOTION_DB_*` (8) | Import only, then removed | Source databases. Mirrors carry their own tokens. |
 | `AUTH_STAFF_EMAILS`, `AUTH_ADMIN_EMAILS` | Removed in Phase 4 | Read once, to seed the first admin rows |
+
+Locally these live in `v5/.env.local`; in production they are the Vercel project's environment
+variables, which `vercel env pull` copies down.
 
 ## 4. Data model
 
@@ -463,17 +498,19 @@ export const ATTACHMENT_OWNER = ["tool", "resource", "maintenance_log", "project
 export const MIRROR_ENTITY = ["categories", "locations", "tools", "units", "resources", "maintenance", "projects"] as const;
 ```
 
-### 4.2 `users`
+### 4.2 `user`, `session`, `account`, `verification`
+
+Better Auth's tables, generated by its CLI and not hand-edited. What the rest of the schema
+depends on:
 
 | Column | Type | Notes |
 |---|---|---|
-| `id` | uuid pk | |
-| `email` | text; unique on `lower(email)` | From Google, lower-cased |
-| `name` | text null | |
-| `google_sub` | text unique null | |
-| `role` | text; CHECK in `ROLES`; default `user` | |
-| `disabled_at` | timestamptz null | Set → resolves to anonymous |
-| `last_sign_in_at` | timestamptz null | |
+| `user.id` | text pk | Better Auth's id; every `created_by`-style column below is `text` referencing it |
+| `user.email` | text unique | Lower-cased by Better Auth |
+| `user.name` | text | |
+| `user.role` | text | Admin plugin; CHECK in `ROLES` added by our migration; default `user` |
+| `user.banned`, `user.banReason`, `user.banExpires` | | Admin plugin; a banned user resolves to anonymous |
+| `session.*`, `account.*` | | Sessions and the Google account link; `account.accountId` is Google's `sub` |
 
 ### 4.3 `categories`, `locations`
 
@@ -498,9 +535,9 @@ export const MIRROR_ENTITY = ["categories", "locations", "tools", "units", "reso
 | `use_restrictions`, `emergency_stop`, `notes` | text null | |
 | `published` | boolean not null default false | Article 5 |
 | `archived_at` | timestamptz null | Retiring a tool; never a hard delete |
-| `last_reviewed_at`, `last_reviewed_by` | timestamptz null / uuid fk `users` null | The **Looks good** mark from an inventory review |
+| `last_reviewed_at`, `last_reviewed_by` | timestamptz null / text fk `user` null | The **Looks good** mark from an inventory review |
 | `notion_page_id` | text unique null | The legacy URL key for Goal 2 |
-| `created_by`, `updated_by` | uuid fk `users` null | Null on imported rows |
+| `created_by`, `updated_by` | text fk `user` null | Null on imported rows |
 
 ### 4.5 `units`
 
@@ -536,7 +573,7 @@ export const MIRROR_ENTITY = ["categories", "locations", "tools", "units", "reso
 | `access` | text; CHECK in (`public`, `private`) | |
 | `public_url` | text null | Public blobs only |
 | `content_type`, `size_bytes`, `width`, `height`, `original_filename` | | |
-| `uploaded_by` | uuid fk `users` null | |
+| `uploaded_by` | text fk `user` null | |
 
 When a pending tool is approved its attachments are re-owned to the new tool by updating
 `owner_type` and `owner_id`; the bytes do not move.
@@ -649,7 +686,7 @@ export interface ResearchResult {
 Append-only: the data layer exposes insert and select, never update or delete.
 
 - **Columns:** `at`, `actor_user_id`, `action`, `subject_type`, `subject_id`, `detail` (jsonb).
-- **`action` values:** `role.changed`, `user.disabled`, `tool.published`, `tool.unpublished`,
+- **`action` values:** `role.changed`, `user.banned`, `tool.published`, `tool.unpublished`,
   `tool.archived`, `project.published`, `project.unpublished`, `pending.approved`,
   `mirror.connected`, `mirror.disconnected`.
 - **Scope:** security-relevant actions only. Ordinary edits are not logged here (Non-goals).
@@ -661,7 +698,7 @@ Append-only: the data layer exposes insert and select, never update or delete.
 | Column | Type | Notes |
 |---|---|---|
 | `id` | uuid pk | |
-| `owner_user_id` | uuid fk `users`, unique | One mirror per admin |
+| `owner_user_id` | text fk `user`, unique | One mirror per admin |
 | `token_ciphertext` | bytea not null | AES-256-GCM; key derived from `AUTH_SECRET` (§8) |
 | `parent_page_id` | text not null | The shared Notion page |
 | `mapping` | jsonb not null | `{ [entity in MIRROR_ENTITY]?: string }` — database ids |
@@ -702,26 +739,24 @@ and it already works.
 
 ### 5.2 Signing in, and changing a role
 
-1. A person signs in with Google. The after-hook enforces the domain as it does today, upserts
-   their `users` row, and sets the cookie.
-2. On their next request, `resolveIdentity` reads their role. A new address is `user`; an address
-   in `AUTH_SUPER_ADMIN_EMAILS` is `super_admin`.
+1. A person signs in with Google. Better Auth's `user.create.before` hook refuses an address
+   outside the allowed domain; otherwise it creates the user (`role = user`, or `super_admin`
+   for an address in `AUTH_SUPER_ADMIN_EMAILS`), creates a session row, and sets the cookie.
+2. On every request, `resolveIdentity` looks up the session and its user.
 3. A super admin opens `/admin/users`, finds the person, and picks a new role — `user`, `admin`
    or `super_admin`. The server action:
    - checks `users.manage`;
-   - refuses to demote or disable an address in `AUTH_SUPER_ADMIN_EMAILS`, and the UI explains
-     why;
-   - writes the role;
-   - records `role.changed`.
+   - refuses to demote or ban an address in `AUTH_SUPER_ADMIN_EMAILS`, and the UI explains why;
+   - calls the admin plugin's `set-role` (or `ban-user`);
+   - records `role.changed` (or `user.banned`).
 4. The person's next request resolves the new role. Nothing is cached across requests.
 
 **Unhappy paths.**
 
-- **The database is down during sign-in.** The upsert fails but sign-in still completes. The person
-  resolves as `user` until a request can read their row. Sign-in never fails because of the
-  upsert.
-- **A disabled account** resolves to anonymous, and the header offers sign-in as if they were
-  signed out.
+- **The database is down during sign-in.** Sign-in fails with the error page, like any other
+  uncached request. With sessions in the database there is no half-signed-in state.
+- **A banned account** resolves to anonymous, and the header offers sign-in as if they were
+  signed out. Signing in again is refused with the ban reason.
 
 ### 5.3 Editing inventory
 
@@ -877,8 +912,8 @@ Notifications, service targets and assignment rules are out of scope.
 
 ### 5.7 Import
 
-The import replaces cutover planning: it runs into the production database before the read-path
-phase merges, and then the app simply reads Postgres.
+The import replaces cutover planning: it is a one-time script Isaac runs by hand into the
+production database before the read-path phase merges, and then the app simply reads Postgres.
 
 **`scripts/import-notion.ts`**, read-only against Notion:
 
@@ -976,8 +1011,7 @@ locale's messages). Phase 9 fills the other locales in one pass. The admin surfa
   > permission, in the app, and is recorded in `audit_events`. Do not add a write path that
   > publishes without one.
 - **Article 6, one clause changed.** "all 12 locale files updated together" becomes "English in
-  the same PR; the other locales fall back to English until a translation pass fills them, and no
-  release to students ships with an untranslated public page."
+  the same PR; the other locales fall back to English until a translation pass fills them."
 - **Article 7, replaced:**
   > **Postgres is the source of truth; Notion is a mirror.** The app reads and writes its Postgres
   > database. A Notion mirror, when an admin connects one, receives a one-way copy and is never
@@ -987,7 +1021,7 @@ locale's messages). Phase 9 fills the other locales in one pass. The admin surfa
 
 | Spec | Superseded | Kept |
 |---|---|---|
-| Auth and rate limiting (2026-07-29) | §3.3 env-list roles; §8 "no capability is role-gated" | Google sign-in, the signed cookie, domain enforcement, rate-limit tiers |
+| Auth and rate limiting (2026-07-29) | §3.3 env-list roles; the in-memory adapter and the hand-written `makerlab.identity` cookie; §8 "no capability is role-gated" | Google sign-in through Better Auth, domain enforcement, rate-limit tiers |
 | Chat inventory intake (2026-06-01) | §4 research in the turn; §5 Notion write layer; §6.3 identification card for intake | §6.1 vision, §6.2 dictation, the capability registry |
 | Intake confidence (2026-07-29) | §3.3 fan-out inside the chat turn | Evidence reporting, graded confidence, the behaviour gate (moved to the preliminary page) |
 | Student projects gallery (2026-07-29) | Anonymous submission; moderation in Notion | Gallery, detail pages, "built with this" |
@@ -1023,8 +1057,10 @@ production sign-in is not configured.
 - `can(identity, permission)` runs server-side in every server action, route handler, and
   capability composition. Hiding a control is presentation only.
 - `users.manage` belongs to `super_admin` alone.
-- An address in `AUTH_SUPER_ADMIN_EMAILS` cannot be demoted or disabled from the UI, so the lab can
+- An address in `AUTH_SUPER_ADMIN_EMAILS` cannot be demoted or banned from the UI, so the lab can
   always recover.
+- The admin plugin's `impersonate-user` and `create-user` endpoints are disabled; nothing in the
+  app needs them.
 - A mirror can be read, run, paused and disconnected only by its owner.
 - Server actions are reachable by a direct POST, so each one checks its own permission and trusts
   nothing from the page that rendered it.
@@ -1111,7 +1147,8 @@ JSON export to private Blob, kept for 30 days.
    allowance. Everything here fits with room to spare; the first limit hit is the moment to move to
    Pro, not before.
 5. **Translation debt.** About 250 admin keys plus every new public string wait for Phase 9. The
-   amended Article 6 makes this explicit and gates the student beta on it.
+   amended Article 6 makes this explicit; until then non-English visitors see English on new
+   pages.
 6. **Mirror drift.** Anyone who edits a mirror database loses the edit. Mitigation: the database
    description, and saying so at the SuperMaker session.
 7. **Key coupling.** Rotating `AUTH_SECRET` forgets mirror tokens (§8, Secrets at rest).
@@ -1127,7 +1164,7 @@ Phase 2 merges.
 | **1** | Schema and import | `src/lib/db/*` (schema, migrations, client, triggers, demo seed); `scripts/import-notion.ts` with pre-flight; `scripts/verify-import.ts`. No runtime change. | 0 | — |
 | **2** | Read path and switch | `catalog.ts`, `projects.ts`, capability reads, chat manuals, `/api/health`, the legacy-id redirect, Blob images; E2E on PGlite; the import run into production before merge; Notion read code, the mock catalogue and the Notion scripts retired (each deletion proposed separately); repo docs say Postgres | 1 | — |
 | **3** | Write paths | `report_issue`, `report_correction`, project submission, `POST /api/uploads`, `/api/cron/daily` (backup, cleanup) | 2 | 4 |
-| **4** | Accounts | `users` upsert; role from the database; `PERMISSIONS` and `can()`; `role` in `/api/identity`; `requiredPermission`; `/admin/users`; `audit_events`; projects require sign-in; the env lists retired | 2 | 3 |
+| **4** | Accounts | Better Auth on the Drizzle adapter with database sessions and the admin plugin; the `makerlab.identity` cookie retired; the access-control declaration and `can()`; `role` in `/api/identity`; `requiredPermission`; `/admin/users`; `audit_events`; projects require sign-in; the env lists retired | 2 | 3 |
 | **5** | Inventory editing | `/admin/inventory`, `ToolEditorPanel`, edit mode on tool pages, publish and archive, Looks good, `/admin/maintenance`, `/admin/corrections`, `/admin/projects`, cache-tag invalidation | 3, 4 | — |
 | **6** | Two-step add-tool | `pending_tools`, `identify_tools`, `IntakeTableCard` with selection, `src/lib/research/*`, the `researchBatch` workflow, `/admin/intake` and preliminary pages; `research_tool` and `propose_listing` leave the chat | 5 | — |
 | **7** | Load and validate | Not code: Isaac and Luis review the imported inventory through `/admin/inventory`, add missing tools through intake, and file what breaks as issues | 6 | 8 |
@@ -1204,8 +1241,9 @@ Notion and Blob, and `streamText` / `generateText` stubbed for models.
 
 **E2E** (Playwright, PGlite demo database).
 
-The E2E server gets a test-only `AUTH_SECRET`, so server-rendered admin pages can read a real signed
-cookie. This amends the auth spec's E2E note and still makes no network call.
+The E2E server gets a test-only `AUTH_SECRET`, and the demo seed inserts a `user` and `session`
+row per role, so a test signs in by setting the session cookie. This amends the auth spec's E2E
+note and still makes no network call.
 
 1. An anonymous visitor browses, opens a tool, reports a problem, and cannot submit a project.
 2. A user submits a project; it is not in the gallery until an admin publishes it.
@@ -1238,10 +1276,12 @@ Decisions the lab made on 2026-09-14 are in the body. What is left:
 
 | # | Question | Recommendation | Who | By |
 |---|---|---|---|---|
-| 1 | **"Anyone can make projects."** This spec reads it as *anyone signed in*. If anonymous posting is wanted, the author field comes back and the gallery moderation queue carries the spam risk. | Signed in only | Isaac | Before Phase 4 |
-| 2 | **The super-admin address after graduation.** `ies22@cornell.edu` is the floor and sign-in is limited to `cornell.edu`. If that address stops working, Niti must already be a super admin through the UI, or the floor must change. | Make Niti a super admin during the SuperMaker session and move the floor to her address | Isaac, Niti | Before handover |
-| 3 | **Locale count.** 12 today; "maybe keep like 10". Dropping two is deleting two files and two entries in `LOCALES`, and it halves nothing. | Keep 12 unless the translation pass is the constraint | Isaac | Phase 9 |
-| 4 | **Who owns the Google OAuth client** — Cornell's Google Workspace or a personal Google Cloud project — and so who can rotate it after handover | Cornell-owned | Isaac, Niti | Phase 0 |
-| 5 | **Initial admins.** Who is `admin` at launch, seeded from today's `AUTH_STAFF_EMAILS` / `AUTH_ADMIN_EMAILS`, and who is added at the SuperMaker session | Everyone on either list becomes `admin`; the rest are promoted at the session | Niti, Isaac | Phase 4 |
-| 6 | **Reporter names in the mirror.** Emails are excluded; should names be too? | Names in, emails out | Niti | Phase 8 |
-| 7 | **Mirror token key.** Derived from `AUTH_SECRET` (§8) or a separate `MIRROR_KEY` env var that survives session-secret rotation | Derived, for now; a separate key if rotation ever becomes routine | Isaac | Phase 8 |
+| 1 | **Locale count.** 12 today; "maybe keep like 10". Dropping two is deleting two files and two entries in `LOCALES`, and it halves nothing. | Keep 12 unless the translation pass is the constraint | Isaac | Phase 9 |
+| 2 | **Who owns the Google OAuth client** — Cornell's Google Workspace or a personal Google Cloud project — and so who can rotate it after handover. Isaac configures it either way; the values go into the production environment variables (§3.11). | Cornell-owned | Isaac, Niti | Phase 0 |
+| 3 | **Initial admins.** Who is `admin` at launch, seeded from today's `AUTH_STAFF_EMAILS` / `AUTH_ADMIN_EMAILS`, and who is added at the SuperMaker session | Everyone on either list becomes `admin`; the rest are promoted at the session | Niti, Isaac | Phase 4 |
+| 4 | **Reporter names in the mirror.** Emails are excluded; should names be too? | Names in, emails out | Niti | Phase 8 |
+| 5 | **Mirror token key.** Derived from `AUTH_SECRET` (§8) or a separate `MIRROR_KEY` env var that survives session-secret rotation | Derived, for now; a separate key if rotation ever becomes routine | Isaac | Phase 8 |
+
+Settled since the first draft: projects are for anyone *signed in*, never anonymous visitors;
+permissions are declared in code, the ordinary way; `ies22@cornell.edu` is permanent, so the
+super-admin floor needs no succession plan; the import is a one-time script run by hand.

@@ -113,8 +113,7 @@ surface. Do not add a write path that publishes without a person holding the per
 No hardcoded `"Cornell Tech"`, `"MakerLab"`, brand colours, or English-only user-facing
 text. Branding comes from `siteConfig`, colours from CSS variables, user-facing strings
 from `next-intl`. English is added in the same PR as the string; the other locales fall back
-to English until a translation pass fills them, and no release to students ships with an
-untranslated public page.
+to English until a translation pass fills them.
 
 Maintenance tickets are the deliberate exception: their title and description are always
 written in **English** so staff can read them, even when the assistant replies in another
