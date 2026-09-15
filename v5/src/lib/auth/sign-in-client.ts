@@ -72,27 +72,36 @@ export async function fetchIdentity(
 }
 
 /**
+ * How an attempt to start sign-in ended. `started` means the browser is on
+ * its way to Google; the other two mean it is still here and the caller has
+ * something to tell the visitor: this deployment has no sign-in set up
+ * (`/api/auth` answers 503), or the request itself failed.
+ */
+export type SignInStart = "started" | "unconfigured" | "failed";
+
+/**
  * Start the Google flow and hand the browser to Google.
  *
  * `callbackURL` is where the user comes back to — the page they were on, never
  * `/`, which is on the spec's list of things that would embarrass us (§10).
- * Returns `false` when sign-in is not configured or the request failed, so the
- * caller can stop showing a spinner.
+ * Never throws; the result says why the browser is still here, so a click on
+ * "Sign in" is never silently nothing.
  */
-export async function startGoogleSignIn(callbackURL: string): Promise<boolean> {
+export async function startGoogleSignIn(callbackURL: string): Promise<SignInStart> {
   try {
     const res = await fetch(SIGN_IN_ENDPOINT, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ provider: PROVIDER, callbackURL: callbackURL || "/" }),
     });
-    if (!res.ok) return false;
+    if (res.status === 503) return "unconfigured";
+    if (!res.ok) return "failed";
     const body = (await res.json()) as { url?: string } | null;
-    if (!body?.url) return false;
+    if (!body?.url) return "failed";
     window.location.assign(body.url);
-    return true;
+    return "started";
   } catch {
-    return false;
+    return "failed";
   }
 }
 

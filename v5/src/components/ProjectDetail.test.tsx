@@ -52,6 +52,7 @@ import { ProjectDetail } from "./ProjectDetail";
 function project(overrides: Partial<MakerLabProject> = {}): MakerLabProject {
   return {
     id: "project-1",
+    slug: "lamp-from-scrap-plywood",
     title: "Lamp from scrap plywood",
     author: "Ada Lovelace",
     body: "## How I made it\n\nCut on the laser, then glued.",

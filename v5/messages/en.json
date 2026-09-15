@@ -18,6 +18,8 @@
     "addSeed": "I'd like to add new equipment to the inventory.",
     "signIn": "SIGN IN",
     "signInAria": "Sign in with your {institution} account",
+    "signInUnconfigured": "Sign-in isn't set up on this deployment yet.",
+    "signInFailed": "Couldn't start sign-in. Try again.",
     "signOut": "SIGN OUT",
     "signedInAria": "Signed in as {name}"
   },

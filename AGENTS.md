@@ -15,15 +15,15 @@ accepted ISAM 2026 demo paper.
 
 > [!IMPORTANT]
 > **This repository is in maintenance mode.** v5 is the live Cornell Tech
-> deployment and stays on Notion. Active development continues in a separate
-> repository — see below. Changes here should be fixes and operational
-> improvements, not new architecture.
+> deployment. Active development continues in a separate repository — see
+> below. Changes here should be fixes and operational improvements, not new
+> architecture.
 
 ## Repository layout — two apps
 
 | Path | Version | Status | Data layer |
 |---|---|---|---|
-| `v5/` | v5 | **Live — work here** | Notion (`NOTION_DB_*`) |
+| `v5/` | v5 | **Live — work here** | Postgres (`DATABASE_URL`); Notion read only by the one-time import |
 | `src/` (root) | v4 | Legacy, frozen | AirTable (`AIRTABLE_TABLE_*`) |
 
 **Default to `v5/` unless a task explicitly names v4.** The root app is retained
@@ -62,7 +62,7 @@ Run from `v5/`:
 
 ```bash
 npm run dev          # dev server (:3000)
-npm run build        # production build
+npm run build        # runs db:migrate, then production build
 npm run lint         # eslint
 npm run typecheck    # tsc --noEmit
 npm test             # vitest (unit + integration + component)
@@ -70,8 +70,9 @@ npm run test:e2e     # playwright (needs: npx playwright install chromium)
 npm run test:all     # lint + typecheck + vitest + playwright
 ```
 
-`npm run test:all` must pass before any merge. It needs no credentials — the
-mock catalog and MSW cover every external service.
+`npm run test:all` must pass before any merge. It needs no credentials — an
+in-process PGlite database (seeded with demo data) covers Postgres and MSW
+covers every other external service.
 
 ## Conventions
 
@@ -90,8 +91,11 @@ mock catalog and MSW cover every external service.
   the default Node runtime.
 - The in-memory rate limiter is a per-process singleton and resets on cold start.
   Upstash backs it only when **both** `UPSTASH_REDIS_REST_*` vars are set.
-- The mock-catalog fallback triggers when **any** Notion env var is missing *or* a
-  fetch throws. Great for tests; means a misconfigured deploy fails soft and
-  silently serves mock data. Check the logs before concluding the catalog is empty.
+- `DATABASE_URL` unset serves an in-process PGlite database seeded with demo
+  data — great for tests and a fresh clone, but check that it's actually set
+  in a real deploy before concluding the catalog is empty. Unlike the old
+  Notion fallback, a **configured but unreachable** Postgres never falls back
+  to demo data — it fails toward stale cache or an explicit error state
+  (constitution Article 4).
 - Scripts under `v5/scripts/` run via `node --experimental-strip-types`. They are
   migration and maintenance tools, not part of the app build.

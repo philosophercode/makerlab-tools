@@ -9,15 +9,15 @@ import paths), see [`test/README.md`](./test/README.md).
 ## Overview
 
 The suite has four layers, all **fully mocked — no live services**. Tests never
-hit Notion, Anthropic, or Upstash; there are no API keys and no network cost.
-Everything is deterministic and offline.
+hit Postgres, Notion, Anthropic, or Upstash; there are no API keys and no
+network cost. Everything is deterministic and offline.
 
 | Layer | What | Where it lives | Runner |
 |---|---|---|---|
 | Unit | `src/lib`, `src/i18n` pure logic | colocated `*.test.ts` next to source | Vitest |
 | Integration | API routes (`/api/*`) with HTTP + module mocks | colocated `route.test.ts` next to the route | Vitest |
 | Component | React UI via React Testing Library | colocated `*.test.tsx` next to the component | Vitest |
-| E2E | Full app against the mock catalog | `e2e/*.spec.ts` | Playwright |
+| E2E | Full app against the PGlite demo catalog | `e2e/*.spec.ts` | Playwright |
 
 Shared infra lives in `test/` (MSW server + handlers, fixtures, mocks, the RTL
 `render` helper). Tests import from there; **don't edit `package.json` or run
@@ -58,16 +58,21 @@ Playwright boots its own dev server (see E2E notes below), so no separate
   `test/mocks/next-cache.ts`.
 - **`server-only`** is aliased to an empty stub (`test/mocks/server-only.ts`) in
   `vitest.config.ts`, so `rate-limit.ts` and its importers load under Vitest.
-- **Mock-catalog fallback rule.** `getCatalogTools()` / `getCatalogTool(id)`
-  return the built-in `src/components/mock-catalog.ts` data when
-  `hasNotionCatalogEnv()` is false — i.e. **any** of the 8 Notion env vars
-  (`NOTION_API_KEY` + the 7 `NOTION_DB_*`) is missing — and also on any thrown
-  error during fetch. So:
-  - **Mock path** (default in tests): leave `NOTION_*` unset → mock data, no MSW
-    needed.
-  - **Real Notion path**: `vi.stubEnv` all 8 vars (set `NOTION_DB_*` to the
-    `DB_IDS` sentinels from `test/msw/handlers.ts`) → MSW serves
-    `api.notion.com`. See the `stubNotionEnv()` helper in `test/README.md`.
+- **The PGlite rule.** `getCatalogTools()` / `getCatalogTool(id)` read from an
+  in-process **PGlite** database — real Postgres, compiled to WebAssembly,
+  migrated and seeded with demo data (two tools: `form-4`,
+  `trotec-speedy-400`) — whenever `DATABASE_URL` is unset, which is the
+  default in every test. So:
+  - **Demo-seed path** (default in tests): leave `DATABASE_URL` unset → the
+    seeded PGlite database, no MSW needed, no Notion env at all. Put
+    `// @vitest-environment node` at the top of any file that touches PGlite.
+  - **An isolated database**: `createPgliteDb()` from `src/lib/db/pglite.ts`
+    returns a fresh instance for a test that seeds its own rows.
+  - **Write paths still on Notion this phase** (tickets, corrections, project
+    submission, uploads, intake): `vi.stubEnv` all 8 Notion vars (set
+    `NOTION_DB_*` to the `DB_IDS` sentinels from `test/msw/handlers.ts`) → MSW
+    serves `api.notion.com`. See the `stubNotionEnv()` helper in
+    `test/README.md`.
 
 ## How to add a test
 
@@ -147,18 +152,17 @@ directly. Also mock `@ai-sdk/anthropic`. The full verified snippet is in
 
 ## E2E notes
 
-- Playwright's `webServer` boots `npx next dev -p 3100` with all `NOTION_*` vars
-  set to `""`, so `hasNotionCatalogEnv()` is false and the app serves the
-  built-in mock catalog (`src/components/mock-catalog.ts`) regardless of your
+- Playwright's `webServer` boots `npx next dev -p 3100` with `DATABASE_URL`
+  unset, so the app serves the seeded PGlite demo database regardless of your
   dev shell's environment. `testDir` is `./e2e`; `baseURL` is
   `http://localhost:3100`.
 - `/api/chat` is intercepted **inside each spec** at the network layer via
   `page.route()` returning a UI-message stream chunk — no real Anthropic call.
 - `reuseExistingServer: false` — Playwright **always** boots its own fresh
-  mock-backed server on the dedicated port 3100. This means E2E never collides
-  with (or accidentally reuses) a `next dev` you have running on the default
-  port 3000 against real Notion, so results are deterministic no matter what you
-  have running locally. Port 3000 is left untouched.
+  PGlite-backed server on the dedicated port 3100. This means E2E never
+  collides with (or accidentally reuses) a `next dev` you have running on the
+  default port 3000 against a real database, so results are deterministic no
+  matter what you have running locally. Port 3000 is left untouched.
 
 ## Coverage
 

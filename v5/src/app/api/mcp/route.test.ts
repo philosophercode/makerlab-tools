@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * Integration tests for the MCP API route (`src/app/api/mcp/route.ts`).
  *
@@ -7,10 +8,10 @@
  *   the route's `POST` handler and assert the JSON responses.
  * - `enableJsonResponse: true` in the route means the transport returns a single
  *   JSON object (not an SSE stream), so `await res.json()` works directly.
- * - Catalog comes from the mock-catalog fallback (no NOTION_* env set), so tool
- *   results are deterministic and offline.
- * - `@/lib/notion`'s `fetchMaintenanceLogsByUnit` is mocked so the maintenance
- *   tools are deterministic without any network.
+ * - Catalog and maintenance history come from the demo-seeded PGlite database
+ *   `getDb()` hands out with `DATABASE_URL` unset, so results are deterministic
+ *   and offline. The seed has no maintenance logs; the tests that need them
+ *   write them.
  *
  * SDK quirk discovered: the WebStandardStreamableHTTPServerTransport is created
  * with `sessionIdGenerator: undefined` (stateless mode). In that mode the
@@ -23,26 +24,29 @@
  * each method statelessly.
  */
 
+// `nextCacheMock` is imported first on purpose: `vi.mock` is hoisted above every
+// import, and its factory can only reach a module imported before the one it
+// replaces. `catalog.ts` imports `cacheTag`/`cacheLife`, which only work inside
+// the Next build.
+import { nextCacheMock } from "../../../../test/mocks/next-cache";
+import { eq } from "drizzle-orm";
 import { POST, GET } from "@/app/api/mcp/route";
+import { getDb, resetDbForTests } from "@/lib/db/client";
+import { maintenanceLogs, units } from "@/lib/db/schema/index";
 
-// Partial-mock @/lib/notion: override ONLY `fetchMaintenanceLogsByUnit` and keep
-// every other export real. (catalog.ts also imports from this module — e.g.
-// getNotionEnvContract, fetchAllTools — so a full replacement would break the
-// catalog's mock-fallback path.) The catalog itself still comes from the
-// mock-catalog because NOTION_* env stays unset.
-vi.mock("@/lib/notion", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/notion")>();
-  return {
-    ...actual,
-    fetchMaintenanceLogsByUnit: vi.fn(async () => []),
-  };
-});
-
-import { fetchMaintenanceLogsByUnit } from "@/lib/notion";
-
-const fetchLogsMock = vi.mocked(fetchMaintenanceLogsByUnit);
+vi.mock("next/cache", () => nextCacheMock());
 
 const MCP_URL = "http://localhost/api/mcp";
+
+/** The uuid of a seeded unit — what the capability resolves a label to. */
+async function unitId(label: string): Promise<string> {
+  const db = await getDb();
+  const [row] = await db
+    .select({ id: units.id })
+    .from(units)
+    .where(eq(units.unitLabel, label));
+  return row.id;
+}
 
 /** Build a JSON-RPC POST Request with the Accept header the transport requires. */
 function rpcRequest(
@@ -89,8 +93,18 @@ async function callTool(name: string, args: Record<string, unknown> = {}) {
 }
 
 beforeEach(() => {
-  fetchLogsMock.mockReset();
-  fetchLogsMock.mockResolvedValue([]);
+  vi.stubEnv("DATABASE_URL", "");
+});
+
+afterEach(async () => {
+  // The seeded catalogue rows are read, never written; only the logs a test
+  // wrote need clearing.
+  const db = await getDb();
+  await db.delete(maintenanceLogs);
+});
+
+afterAll(() => {
+  resetDbForTests();
 });
 
 // ── GET handler ──────────────────────────────────────────────────────
@@ -223,7 +237,7 @@ describe("tools/call: list_tools", () => {
   it("returns a structured summary of the whole catalog", async () => {
     const { json } = await callTool("list_tools");
     const parsed = JSON.parse(resultText(json));
-    // mock-catalog has 2 tools (Form 4, Trotec Speedy 400).
+    // The demo seed is 2 tools (Form 4, Trotec Speedy 400).
     expect(parsed.count).toBe(2);
     const names = parsed.tools.map((t: { name: string }) => t.name);
     expect(names).toContain("Form 4");
@@ -301,7 +315,7 @@ describe("tools/call: get_tool_details", () => {
 // ── tools/call: get_unit_details ─────────────────────────────────────
 
 describe("tools/call: get_unit_details", () => {
-  it("returns JSON for a real mock unit label", async () => {
+  it("returns JSON for a seeded unit label", async () => {
     const { json } = await callTool("get_unit_details", { unit_label: "Form 4 // A" });
     const text = resultText(json);
     const parsed = JSON.parse(text);
@@ -324,37 +338,44 @@ describe("tools/call: get_unit_details", () => {
 
 describe("tools/call: get_maintenance_history", () => {
   it("returns a JSON list of logs when the unit has maintenance history", async () => {
-    fetchLogsMock.mockResolvedValue([
+    const db = await getDb();
+    const form4A = await unitId("Form 4 // A");
+    await db.insert(maintenanceLogs).values([
       {
-        id: "log-1",
-        createdTime: "2024-09-01T10:00:00.000Z",
-        lastEditedTime: "2024-09-01T10:00:00.000Z",
-        fields: {
-          title: "Resin tank cloudy",
-          type: "Repair",
-          priority: "High",
-          status: "Open",
-          date_reported: "2024-09-01",
-          description: "The resin tank film is clouded and needs replacement.",
-        },
+        title: "Resin tank cloudy",
+        unitId: form4A,
+        type: "repair",
+        priority: "high",
+        status: "open",
+        dateReported: "2024-09-01",
+        description: "The resin tank film is clouded and needs replacement.",
       },
-    ] as Awaited<ReturnType<typeof fetchMaintenanceLogsByUnit>>);
+      // A log on another unit, to prove the tool reads by unit rather than
+      // returning everything.
+      {
+        title: "Lens dirty",
+        unitId: await unitId("Trotec Speedy 400"),
+        dateReported: "2024-09-02",
+      },
+    ]);
 
     const { json } = await callTool("get_maintenance_history", {
       unit_label: "Form 4 // A",
     });
     const text = resultText(json);
     const parsed = JSON.parse(text);
+    expect(parsed.unit_id).toBe(form4A);
     expect(parsed.unit_label).toBe("Form 4 // A");
     expect(parsed.maintenance_logs).toHaveLength(1);
     expect(parsed.maintenance_logs[0].title).toBe("Resin tank cloudy");
+    // Stored `repair` / `high` / `open`, shown in the words the assistant has
+    // always been given.
+    expect(parsed.maintenance_logs[0].type).toBe("Repair");
     expect(parsed.maintenance_logs[0].priority).toBe("High");
-    // Confirm the fetch was driven with the matched unit's id.
-    expect(fetchLogsMock).toHaveBeenCalledWith("unit-form-4-a");
+    expect(parsed.maintenance_logs[0].status).toBe("Open");
   });
 
   it("returns an empty log list when the unit has no logs", async () => {
-    fetchLogsMock.mockResolvedValue([]);
     const { json } = await callTool("get_maintenance_history", {
       unit_label: "Form 4 // A",
     });

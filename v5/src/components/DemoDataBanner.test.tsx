@@ -1,6 +1,11 @@
+import { nextCacheMock } from "../../test/mocks/next-cache";
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { DemoDataBanner } from "./DemoDataBanner";
+
+// The banner reaches `isDemoCatalog` through `lib/catalog`, which imports
+// `next/cache` at module load.
+vi.mock("next/cache", () => nextCacheMock());
 
 // The banner asks next-intl for copy on the server; the message content is not
 // what is under test here, only whether the banner appears at all.
@@ -14,21 +19,6 @@ vi.mock("next-intl/server", () => ({
   },
 }));
 
-const NOTION_ENV = [
-  "NOTION_API_KEY",
-  "NOTION_DB_TOOLS",
-  "NOTION_DB_CATEGORIES",
-  "NOTION_DB_LOCATIONS",
-  "NOTION_DB_UNITS",
-  "NOTION_DB_RESOURCES",
-  "NOTION_DB_MAINTENANCE_LOGS",
-  "NOTION_DB_FLAGS",
-];
-
-function configureNotion() {
-  for (const key of NOTION_ENV) vi.stubEnv(key, "configured");
-}
-
 async function renderBanner() {
   render(await DemoDataBanner());
 }
@@ -37,7 +27,8 @@ describe("DemoDataBanner", () => {
   beforeEach(() => vi.unstubAllEnvs());
   afterEach(() => vi.unstubAllEnvs());
 
-  it("warns when Notion is not configured at all", async () => {
+  it("warns when there is no database and the catalogue is the demo seed", async () => {
+    vi.stubEnv("DATABASE_URL", "");
     await renderBanner();
     const banner = screen.getByRole("status");
     expect(banner).toHaveTextContent("Demo data");
@@ -46,19 +37,18 @@ describe("DemoDataBanner", () => {
     expect(banner.textContent).toMatch(/inventory/);
   });
 
-  it("stays out of the way when the catalogue is real", async () => {
-    configureNotion();
+  it("stays out of the way when a real database is configured", async () => {
+    vi.stubEnv("DATABASE_URL", "postgres://user:pass@example.neon.tech/db");
     await renderBanner();
     expect(screen.queryByRole("status")).toBeNull();
   });
 
-  // The failure that actually reaches production is not "Notion is unset" — it is
-  // one variable dropped during a deploy. The catalogue silently falls back to
-  // invented equipment, so the banner has to fire on a partial contract too.
-  it.each(NOTION_ENV)("warns when only %s is missing", async (missing) => {
-    configureNotion();
-    vi.stubEnv(missing, "");
+  // A configured-but-unreachable database is a different failure: the catalogue
+  // throws rather than serving sample data, so the banner must not claim the
+  // page is a demo. It keys on the substrate alone.
+  it("does not fire for a database that is merely unhealthy", async () => {
+    vi.stubEnv("DATABASE_URL", "postgres://user:pass@unreachable.invalid/db");
     await renderBanner();
-    expect(screen.getByRole("status")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).toBeNull();
   });
 });

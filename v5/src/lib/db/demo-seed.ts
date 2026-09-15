@@ -1,12 +1,41 @@
-import { categories, locations, resources, tools, units } from "./schema/index.ts";
+import {
+  attachments,
+  categories,
+  locations,
+  projectTools,
+  projects,
+  resources,
+  tools,
+  units,
+} from "./schema/index.ts";
 import type { Db } from "./types.ts";
 
 /**
  * Sample data for a database with no `DATABASE_URL` (spec §3.10): the two
  * tools the mock catalogue has always shown, now as real rows so the same
- * query modules serve tests, E2E and a fresh clone. Idempotent — a database
- * that already has tools is left alone.
+ * query modules serve tests, E2E and a fresh clone, plus one published
+ * sample project built with them so the gallery, the project page and a
+ * tool's "built with this" section all have something to show. Idempotent —
+ * a database that already has tools is left alone.
+ *
+ * Images are `attachments` rows whose `public_url` points at files under
+ * `public/` (allowed by `images.localPatterns` in next.config.ts), the same
+ * shape an imported Blob attachment has, so no code path is demo-specific.
+ *
+ * Form 4 carries a `notionPageId`, exercising the legacy `/tools/<notion-id>`
+ * redirect (spec Goal 2) end to end without a real database. Its unit carries
+ * one too: the writes still on Notion until Phase 3 relate rows by page id, so
+ * an imported row and a purely local one (the Trotec, which has neither) are
+ * both worth having in the seed.
  */
+export const DEMO_FORM_4_NOTION_PAGE_ID = "1f2e3d4c-5b6a-4789-8abc-def012345678";
+
+/** The Notion page behind the Form 4's one unit — the `unit` relation target. */
+export const DEMO_FORM_4_UNIT_NOTION_PAGE_ID = "2a3b4c5d-6e7f-4890-9abc-def012345678";
+
+/** The sample project's slug, for tests and E2E. */
+export const DEMO_PROJECT_SLUG = "laser-cut-plywood-lamp";
+
 export async function seedDemo(db: Db): Promise<void> {
   const existing = await db.select({ id: tools.id }).from(tools).limit(1);
   if (existing.length > 0) return;
@@ -46,6 +75,7 @@ export async function seedDemo(db: Db): Promise<void> {
           emergencyStop: "Lift the lid to immediately halt the print and pause the build.",
           notes: "Always wear nitrile gloves when handling uncured resin. Ventilation must be running.",
           published: true,
+          notionPageId: DEMO_FORM_4_NOTION_PAGE_ID,
         },
         {
           slug: "trotec-speedy-400",
@@ -74,6 +104,7 @@ export async function seedDemo(db: Db): Promise<void> {
         status: "in_use",
         condition: "excellent",
         dateAcquired: "2024-08-12",
+        notionPageId: DEMO_FORM_4_UNIT_NOTION_PAGE_ID,
       },
       {
         toolId: trotec.id,
@@ -90,6 +121,73 @@ export async function seedDemo(db: Db): Promise<void> {
       { toolId: form4.id, title: "Resin handling safety", type: "Safety", url: "#" },
       { toolId: trotec.id, title: "Trotec Speedy 400 SOP", type: "SOP", url: "#" },
       { toolId: trotec.id, title: "Approved material list", type: "Safety", url: "#" },
+    ]);
+
+    // Tool photos. The Form 4's bundled image matches its name, so the
+    // catalogue's fallback finds it; the Trotec's does not ("…, 80w.png"), so
+    // it gets an explicit attachment like an imported tool would.
+    await tx.insert(attachments).values({
+      ownerType: "tool",
+      ownerId: trotec.id,
+      position: 0,
+      blobPathname: "demo/tools/trotec-speedy-400.png",
+      access: "public",
+      publicUrl: "/tool-images/Trotec Speedy 400, 80w.png",
+      contentType: "image/png",
+      originalFilename: "Trotec Speedy 400, 80w.png",
+    });
+
+    const [lamp] = await tx
+      .insert(projects)
+      .values({
+        slug: DEMO_PROJECT_SLUG,
+        title: "Laser-cut plywood lamp",
+        body: [
+          "A bedside lamp cut from a single sheet of 3 mm birch plywood on the Trotec, with a resin diffuser printed on the Form 4.",
+          "",
+          "## How it went",
+          "",
+          "The slats are a living hinge pattern, so the shade bends round a hexagonal base without any steam. Two passes at 60 % power cut cleanly; the first attempt at 80 % scorched the edges.",
+          "",
+          "The diffuser is a 1 mm resin shell that slots over an LED strip. Sanding the cut edges before glue-up made the joints close up properly.",
+          "",
+          "Read more about the process on [Wikipedia](https://en.wikipedia.org/wiki/Laser_cutting).",
+        ].join("\n"),
+        link: "https://en.wikipedia.org/wiki/Laser_cutting",
+        materials: ["3 mm birch plywood", "Wood glue", "LED strip", "Standard resin", "Sandpaper"],
+        authorName: "MakerLab demo",
+        published: true,
+        publishedAt: new Date("2026-03-02T15:00:00.000Z"),
+        createdAt: new Date("2026-03-01T15:00:00.000Z"),
+      })
+      .returning({ id: projects.id });
+
+    await tx.insert(projectTools).values([
+      { projectId: lamp.id, toolId: trotec.id },
+      { projectId: lamp.id, toolId: form4.id },
+    ]);
+
+    await tx.insert(attachments).values([
+      {
+        ownerType: "project",
+        ownerId: lamp.id,
+        position: 0,
+        blobPathname: "demo/projects/laser-cut-lamp-lit.png",
+        access: "public",
+        publicUrl: "/sample-projects/laser-cut-lamp-lit.png",
+        contentType: "image/png",
+        originalFilename: "laser-cut-lamp-lit.png",
+      },
+      {
+        ownerType: "project",
+        ownerId: lamp.id,
+        position: 1,
+        blobPathname: "demo/projects/laser-cut-lamp-parts.png",
+        access: "public",
+        publicUrl: "/sample-projects/laser-cut-lamp-parts.png",
+        contentType: "image/png",
+        originalFilename: "laser-cut-lamp-parts.png",
+      },
     ]);
   });
 }

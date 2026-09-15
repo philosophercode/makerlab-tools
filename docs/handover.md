@@ -13,19 +13,24 @@
 ## 1. What this system is, in operational terms
 
 A website that lists the lab's machines and answers questions about them. The data lives in
-**Notion** — seven databases that staff edit directly. The website reads from Notion and
-adds an AI assistant on top.
+**Postgres** (Neon, provisioned through Vercel) and the website reads from there, with an AI
+assistant on top. **The website no longer reads Notion.** Notion was the source of truth
+before this phase; its seven databases were read once, by a developer, to move everything
+into Postgres, and are not read again. A one-way mirror back into an admin's own Notion
+workspace is planned for a later phase.
 
-**Editing the catalogue means editing Notion.** There is no admin login and no dashboard,
-by design. If a machine's description is wrong, you fix it in Notion, and the website
-catches up within minutes.
+**There is no admin login or dashboard yet, so there is currently no way to edit the
+catalogue from the website.** Editing the old Notion databases no longer has any effect —
+the website stopped reading them. Until inventory editing ships on the website, a wrong
+record needs a developer **[dev]** to fix directly in Postgres.
 
 Three moving parts, and it is worth knowing which is which when something is wrong:
 
 | Part | What it is | Who provides it |
 |---|---|---|
 | **The website** | The app itself | Hosted on Vercel |
-| **The data** | Seven databases | Notion workspace |
+| **The data** | Tools, units, categories, locations, resources, tickets, projects | Neon Postgres (provisioned through Vercel) |
+| **Files** | Tool images, manuals, project photos | Vercel Blob |
 | **The assistant** | The AI | Anthropic API (Claude) |
 
 ---
@@ -38,14 +43,15 @@ owner.
 | Thing | Where | Who owns it | Notes |
 |---|---|---|---|
 | Vercel project | vercel.com | ⬜ **TBD** | Hosting, deploys, env vars, logs |
-| Notion workspace | notion.so | ⬜ **TBD** | The seven databases |
-| Notion integration token | Notion settings | ⬜ **TBD** | `NOTION_API_KEY` |
+| Neon Postgres | Vercel → Storage → Marketplace | ⬜ **TBD** | **The catalogue's source of truth.** Provisioned through the Vercel Marketplace; sets `DATABASE_URL` automatically |
+| Notion workspace | notion.so | ⬜ **TBD** | The seven original databases. No longer read by the website — kept for reference until a one-way mirror is set up |
+| Notion integration token | Notion settings | ⬜ **TBD** | `NOTION_API_KEY`. Needed only to re-run the one-time import; not required for the website to run |
 | `AI_GATEWAY_API_KEY` | Vercel → AI Gateway | ⬜ **TBD** | **The intended production path.** Model spend on the hosting invoice, with a platform spend limit |
 | Anthropic API key | console.anthropic.com | ⬜ **TBD** | **Fallback.** Costs money per use. Keep it — it is the lever back if the gateway fails |
 | GitHub repository | github.com | ⬜ **TBD** | The code |
 | Domain / DNS | ⬜ | ⬜ **TBD** | |
 | `ADMIN_REVALIDATE_SECRET` | Vercel env vars | ⬜ **TBD** | Forces the site to refresh |
-| Vercel Blob store | Vercel → Storage | ⬜ **TBD** | Holds the nightly Notion backup. Sets `BLOB_READ_WRITE_TOKEN`. **Contains student PII — keep private** |
+| Vercel Blob store | Vercel → Storage | ⬜ **TBD** | Holds tool images, manuals and project photos (public) alongside maintenance photos and the nightly backup (private). Sets `BLOB_READ_WRITE_TOKEN`. **The private files contain student PII — keep those private** |
 | `CRON_SECRET` | Vercel env vars | ⬜ **TBD** | Lets the nightly backup cron prove it is Vercel (§3) |
 
 > [!WARNING]
@@ -96,20 +102,29 @@ for what remains to verify before production traffic goes through it.
 
 ### Add a machine to the catalogue
 
-1. In Notion, add a row to the **Tools** database.
-2. Fill in at least: name, description, category, location.
-3. Add units in the **Units** database, linked to the tool — one row per physical machine,
-   with serial and status.
-4. Add manuals or SOPs to **Resources**, linked to the tool.
-5. Tick **published**. Until you do, it will not appear on the site.
-6. Wait a few minutes, or force a refresh (§4).
-
-**The assistant picks it up automatically.** No deploy, no developer.
+> [!WARNING]
+> **This no longer works.** The steps below edited Notion, which the website read. The
+> website now reads Postgres and does not read Notion at all, and the on-website editor that
+> replaces this is not built yet. Adding a machine today needs a developer **[dev]** to
+> insert it directly in Postgres. Once inventory editing ships on the website, this section
+> will be rewritten to match it.
+>
+> ~~1. In Notion, add a row to the **Tools** database.~~
+> ~~2. Fill in at least: name, description, category, location.~~
+> ~~3. Add units in the **Units** database, linked to the tool — one row per physical machine,
+>    with serial and status.~~
+> ~~4. Add manuals or SOPs to **Resources**, linked to the tool.~~
+> ~~5. Tick **published**. Until you do, it will not appear on the site.~~
+> ~~6. Wait a few minutes, or force a refresh (§4).~~
 
 ### Mark a machine out of service
 
-Change the unit's **status** in the Units database to `Under Maintenance` or `Out of
-Service`. The site shows it as offline, and the assistant stops recommending it.
+> [!WARNING]
+> **This no longer works** — editing Notion has no effect on the website (see above).
+> ~~Change the unit's **status** in the Units database to `Under Maintenance` or `Out of
+> Service`. The site shows it as offline, and the assistant stops recommending it.~~ Until
+> inventory editing ships on the website, this needs a developer **[dev]** to change directly
+> in Postgres.
 
 ### Handle a maintenance ticket
 
@@ -125,10 +140,12 @@ it and how often, and write that down here:
 
 ### Fix something the assistant got wrong
 
-Almost always a data problem, not an AI problem. The assistant answers from Notion, so a
-wrong answer usually means a wrong or empty field. Fix the record; the answer changes.
+Almost always a data problem, not an AI problem. The assistant answers from Postgres, so a
+wrong answer usually means a wrong or empty field there — which, until inventory editing
+ships on the website, needs a developer **[dev]** to fix directly. Editing the old Notion
+record does nothing; the website does not read it.
 
-If it is wrong *and* the Notion record is right, that is a real bug — see §6.
+If it is wrong *and* the underlying record is right, that is a real bug — see §6.
 
 ### Change branding, colours, or the assistant's name
 
@@ -185,7 +202,8 @@ There is no automated restore, on purpose — it is far more work than the failu
 
 ## 4. Forcing the site to refresh
 
-The site caches Notion data for a few minutes. To make a change appear immediately:
+The site caches catalogue data from Postgres for a few minutes. To make a change appear
+immediately:
 
 ```
 POST https://<your-site>/api/admin/revalidate
@@ -204,7 +222,8 @@ effect.
 |---|---|---|
 | Anthropic console | **Spend.** Set a limit and an alert. | Weekly, at minimum |
 | Vercel dashboard | Failed deploys, function errors | When something looks wrong |
-| Vercel logs | `Falling back to mock catalog` | Whenever the catalogue looks odd |
+| Vercel logs | `DbUnavailableError` (Postgres unreachable) | Whenever the catalogue looks odd |
+| Vercel → Storage | The Neon database is reachable | Whenever the catalogue looks odd |
 | Vercel → Cron Jobs | The nightly backup ran green | Monthly — see §3 |
 | Notion: Maintenance_Logs | Open tickets | Per §3 |
 
@@ -217,25 +236,33 @@ recoverable; an unbounded bill is not.
 
 ### The site shows machines the lab doesn't own
 
-**Most likely cause, and it is not obvious.** The app falls back to a built-in demo
-catalogue whenever it cannot reach Notion — a missing or misspelled environment variable, an
-expired integration token, or a database that stopped being shared with the integration.
+**Now much less likely, and it no longer fails silently.** Before this phase, the app fell
+back to a built-in demo catalogue whenever it could not reach Notion, with no visible error.
+That is no longer how a database problem shows up:
 
-The site does **not** show an error. It looks perfectly healthy while serving fictional
-equipment.
+- If `DATABASE_URL` is missing from the Vercel project — a genuine misconfiguration — the
+  site serves the same small built-in demo catalogue used in development and testing, and
+  shows a banner saying so.
+- If `DATABASE_URL` is set but Postgres cannot be reached, the site keeps serving whatever it
+  last cached rather than switching to demo data, and any page that isn't cached shows an
+  error instead of inventing machines.
 
-1. Check the Vercel logs for `Falling back to mock catalog`.
-2. Check every `NOTION_DB_*` variable and `NOTION_API_KEY` in Vercel.
-3. In Notion, confirm each database is still shared with the integration.
+1. Check the Vercel logs for `DbUnavailableError`.
+2. Check `DATABASE_URL` is set in the Vercel project's environment variables.
+3. Check the Neon dashboard (Vercel → Storage) — a suspended or deleted branch is the usual
+   cause. **[dev]**
 
 ### A machine is missing from the site
 
-Check `published` is ticked in Notion. Then force a refresh (§4).
+Check `published` is set on the tool in Postgres. Then force a refresh (§4). Until inventory
+editing ships on the website, changing `published` needs a developer **[dev]**.
 
-### A field is empty on the site but filled in Notion
+### A field is empty on the site but filled in the old Notion databases
 
-Someone probably renamed the property in Notion. The app matches property names and cannot
-follow a rename. Compare against `v5/.env.example` and the other rows. **[dev]** if unclear.
+The website reads Postgres, not Notion, so this means the one-time import either mapped that
+field differently than expected or the field has since been edited in Postgres. **[dev]**:
+compare the row in Postgres against the Notion page it was imported from
+(`notion_page_id` on the row) to see where the two diverge.
 
 ### The assistant is down or erroring
 
@@ -279,10 +306,14 @@ The live app is `v5/`. The root `src/` directory is the old v4 app and is not us
 
 Nothing about Cornell is hardcoded.
 
-1. Duplicate the seven Notion databases into the new workspace.
-2. Create a Notion integration and share all seven databases with it.
-3. Deploy the repo to Vercel.
-4. Set `NOTION_API_KEY`, the seven `NOTION_DB_*` IDs, and `ANTHROPIC_API_KEY`.
+1. Deploy the repo to Vercel.
+2. Add Neon Postgres and a Blob store to the project through the Vercel Marketplace /
+   Storage tab — this sets `DATABASE_URL` and `BLOB_READ_WRITE_TOKEN` automatically. Run
+   `npm run db:migrate` once to apply the schema.
+3. Set `ANTHROPIC_API_KEY` (or `AI_GATEWAY_API_KEY`, §2).
+4. **Only if migrating an existing Notion-based catalogue:** set `NOTION_API_KEY` and the
+   seven `NOTION_DB_*` IDs, and run `npm run import:notion` once against the new database. A
+   brand-new lab with no existing data skips this step entirely.
 5. Override the `NEXT_PUBLIC_*` branding variables.
 6. Replace the logo in `v5/public/`.
 
@@ -293,9 +324,13 @@ Full variable list with explanations: `v5/.env.example`.
 ## 9. Known limitations — say these out loud at handover
 
 - **No sign-in yet.** The assistant is open to anyone with the URL. Specced, not built.
-- **The fallback is silent** (§6). Fix specced in the operational-hardening spec.
-- **No analytics.** Notion cannot aggregate, so there is no way to see which machines get
-  asked about most. This is the main reason a successor project exists.
+- **No catalogue editing on the website yet.** Postgres is the source of truth, but the
+  admin inventory pages that let staff edit it there are a later phase (§6, §8). Until then, a
+  wrong or missing record needs a developer.
+- **The old silent fallback is fixed.** A configured-but-unreachable database now fails
+  toward stale cached data or an explicit error, never toward invented equipment (§6).
+- **No analytics.** There is no way to see which machines get asked about most. This is the
+  main reason a successor project exists.
 - **No backup beyond Notion's own version history.** Notion keeps page history; there is no
   separate export. Consider a periodic manual export of the databases.
 - **One person built this.** That is the risk this document exists to reduce. If something

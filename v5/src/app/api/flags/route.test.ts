@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { http, HttpResponse } from "msw";
 import { server } from "../../../../test/msw/server";
 import { DB_IDS } from "../../../../test/msw/handlers";
@@ -6,10 +7,27 @@ import { nextCacheMock } from "../../../../test/mocks/next-cache";
 // The route reaches the catalog (for tool resolution) which imports next/cache.
 vi.mock("next/cache", () => nextCacheMock());
 
+import { getCatalogTools } from "@/lib/catalog";
+import { resetDbForTests } from "@/lib/db/client";
+import { DEMO_FORM_4_NOTION_PAGE_ID } from "@/lib/db/demo-seed";
 import { POST } from "./route";
 
 const NOTION = "https://api.notion.com/v1";
-const FORM_4_ID = "tool-form-4";
+
+// The route resolves the flagged tool against the demo-seeded PGlite database
+// (`DATABASE_URL` unset). Its id is a Postgres uuid minted at seed time, so it
+// is looked up rather than hard-coded.
+let FORM_4_ID = "";
+
+beforeEach(async () => {
+  vi.stubEnv("DATABASE_URL", "");
+  const tools = await getCatalogTools();
+  FORM_4_ID = tools.find((tool) => tool.slug === "form-4")?.id ?? "";
+});
+
+afterAll(() => {
+  resetDbForTests();
+});
 
 // The in-memory limiter is a per-process singleton keyed by IP, so each test
 // gets its own IP to avoid bleeding a spent window into the next one.
@@ -79,6 +97,8 @@ describe("POST /api/flags", () => {
     expect(creates[0].properties).toMatchObject({
       status: { select: { name: "New" } },
       field_flagged: { select: { name: "location" } },
+      // The relation addresses the tool's Notion page, not its Postgres id.
+      tool: { relation: [{ id: DEMO_FORM_4_NOTION_PAGE_ID }] },
     });
   });
 

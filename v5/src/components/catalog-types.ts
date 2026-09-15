@@ -53,6 +53,8 @@ export interface ProjectToolRef {
 
 export interface MakerLabProject {
   id: string;
+  /** Readable URL key, assigned once from the title; `/projects/<slug>`. */
+  slug: string;
   title: string;
   author: string;
   /** Markdown write-up (rendered with react-markdown + remark-gfm). */

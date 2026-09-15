@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { http, HttpResponse } from "msw";
 import { server } from "../../../test/msw/server";
 import { DB_IDS } from "../../../test/msw/handlers";
@@ -6,6 +7,9 @@ import { nextCacheMock } from "../../../test/mocks/next-cache";
 // `catalog.ts` (pulled in for tool resolution) imports cacheTag/cacheLife.
 vi.mock("next/cache", () => nextCacheMock());
 
+import { getCatalogTools } from "../catalog";
+import { resetDbForTests } from "../db/client";
+import { DEMO_FORM_4_NOTION_PAGE_ID } from "../db/demo-seed";
 import {
   FLAG_FIELDS,
   MAX_FLAG_TEXT,
@@ -19,11 +23,27 @@ import {
 
 const NOTION = "https://api.notion.com/v1";
 
-// The mock catalog is served whenever the Notion catalog env is incomplete; its
-// first tool is the Form 4. Stubbing only the two flag vars keeps reads on the
-// mock path while the write path is fully configured.
-const FORM_4_ID = "tool-form-4";
+// Reads run against the demo-seeded PGlite database (`DATABASE_URL` unset),
+// which holds the same two tools the mock catalogue used to. The Form 4's
+// catalogue id is a Postgres uuid minted at seed time, so it is resolved rather
+// than hard-coded; the Flags relation needs its *Notion page* id instead.
 const FORM_4_NAME = "Form 4";
+let FORM_4_ID = "";
+
+beforeEach(async () => {
+  vi.stubEnv("DATABASE_URL", "");
+  const tools = await getCatalogTools();
+  FORM_4_ID = tools.find((tool) => tool.slug === "form-4")?.id ?? "";
+});
+
+afterAll(() => {
+  resetDbForTests();
+});
+
+/** The Form 4 as `buildFlagFields` receives it, with its Notion page by default. */
+function flaggedTool(notionPageId: string | null = DEMO_FORM_4_NOTION_PAGE_ID) {
+  return { id: FORM_4_ID, name: FORM_4_NAME, notionPageId };
+}
 
 function stubFlagsEnv() {
   vi.stubEnv("NOTION_API_KEY", "secret_test");
@@ -166,27 +186,34 @@ describe("parseCorrectionReport", () => {
 });
 
 describe("buildFlagFields", () => {
-  const tool = { id: FORM_4_ID, name: FORM_4_NAME };
-
   it("generates the title as '<tool> — <field>' and opens the row as New", () => {
-    const fields = buildFlagFields(report({ field_flagged: "safety_info" }), tool);
+    const fields = buildFlagFields(report({ field_flagged: "safety_info" }), flaggedTool());
     expect(fields.title).toBe(`${FORM_4_NAME} — safety_info`);
     expect(fields.status).toBe("New");
-    expect(fields.tool).toEqual([FORM_4_ID]);
+    // The relation addresses the Notion page, never the Postgres id.
+    expect(fields.tool).toEqual([DEMO_FORM_4_NOTION_PAGE_ID]);
+  });
+
+  it("omits the relation for a tool that never came from Notion", () => {
+    // Notion refuses a relation to a page it cannot find, and the correction
+    // itself is worth more than the link (Article 4).
+    const fields = buildFlagFields(report(), flaggedTool(null));
+    expect(fields.tool).toBeUndefined();
+    expect(fields.title).toBe(`${FORM_4_NAME} — materials`);
   });
 
   it("omits the optional fields when they were not supplied", () => {
-    const fields = buildFlagFields(report(), tool);
+    const fields = buildFlagFields(report(), flaggedTool());
     expect(fields.suggested_fix).toBeUndefined();
     expect(fields.reporter).toBeUndefined();
     expect(fields.reporter_email).toBeUndefined();
   });
 
   it("writes reporter_email only for a signed-in reporter", () => {
-    const anonymous = buildFlagFields(report(), tool);
+    const anonymous = buildFlagFields(report(), flaggedTool());
     expect(anonymous.reporter_email).toBeUndefined();
 
-    const signedIn = buildFlagFields(report(), tool, {
+    const signedIn = buildFlagFields(report(), flaggedTool(), {
       name: "Ada",
       email: "ada@example.edu",
     });
@@ -195,7 +222,7 @@ describe("buildFlagFields", () => {
   });
 
   it("prefers a self-declared name over the session name", () => {
-    const fields = buildFlagFields(report({ reporter: "Grace" }), tool, {
+    const fields = buildFlagFields(report({ reporter: "Grace" }), flaggedTool(), {
       name: "Ada",
       email: "ada@example.edu",
     });
@@ -230,18 +257,20 @@ describe("submitCorrection", () => {
     expect(creates[0].properties).toMatchObject({
       status: { select: { name: "New" } },
       field_flagged: { select: { name: "materials" } },
-      tool: { relation: [{ id: FORM_4_ID }] },
+      tool: { relation: [{ id: DEMO_FORM_4_NOTION_PAGE_ID }] },
     });
   });
 
-  it("resolves the tool by slug as well as by page id", async () => {
+  it("resolves the tool by slug as well as by catalogue id", async () => {
     stubFlagsEnv();
     const creates = capturePageCreates();
 
     const result = await submitCorrection(report({ tool_id: "form-4" }));
 
     expect(result.ok).toBe(true);
-    expect(creates[0].properties.tool).toEqual({ relation: [{ id: FORM_4_ID }] });
+    expect(creates[0].properties.tool).toEqual({
+      relation: [{ id: DEMO_FORM_4_NOTION_PAGE_ID }],
+    });
   });
 
   it("returns unknown_tool without writing anything", async () => {
@@ -317,7 +346,9 @@ describe("report_correction capability tool", () => {
     )) as { success: boolean };
 
     expect(result.success).toBe(true);
-    expect(creates[0].properties.tool).toEqual({ relation: [{ id: FORM_4_ID }] });
+    expect(creates[0].properties.tool).toEqual({
+      relation: [{ id: DEMO_FORM_4_NOTION_PAGE_ID }],
+    });
   });
 
   it("rejects an empty description without calling Notion", async () => {
