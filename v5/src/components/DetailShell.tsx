@@ -320,7 +320,7 @@ export function DetailShell({ tool, projects = [] }: DetailShellProps) {
           </header>
           <div className="td-doc-list">
             {projects.map((project) => (
-              <Link className="td-doc" href={`/projects/${project.id}`} key={project.id}>
+              <Link className="td-doc" href={`/projects/${project.slug}`} key={project.id}>
                 <span className="td-doc-body">
                   <strong>{project.title}</strong>
                   <p>{t("builtWithThisBy", { author: project.author })}</p>

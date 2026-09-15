@@ -14,6 +14,7 @@ import {
   signOutAndReload,
   startGoogleSignIn,
   type ClientIdentity,
+  type SignInStart,
 } from "../lib/auth/sign-in-client";
 
 const LINKS = [
@@ -22,7 +23,10 @@ const LINKS = [
   { href: "/about", key: "about", match: (path: string) => path.startsWith("/about") },
 ] as const;
 
-export function PrimaryNav() {
+/** How long a sign-in notice stays before it fades. Long enough to read twice. */
+export const SIGN_IN_NOTICE_MS = 6000;
+
+export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDurationMs?: number } = {}) {
   const pathname = usePathname() || "/";
   const t = useTranslations("nav");
   const { open } = useChatLauncher();
@@ -34,6 +38,18 @@ export function PrimaryNav() {
   // not a loading failure, and nothing on the page is gated behind signing in.
   const [identity, setIdentity] = useState<ClientIdentity | null>(null);
   const [busy, setBusy] = useState(false);
+  // Why the last sign-in attempt left the visitor here. A click that does
+  // nothing looks broken; this says what happened, in a sentence, beside the
+  // control.
+  const [signInNotice, setSignInNotice] = useState<Exclude<SignInStart, "started"> | null>(null);
+
+  // The notice is transient: it fades and goes after a few seconds rather than
+  // sitting in the header for the rest of the visit.
+  useEffect(() => {
+    if (!signInNotice) return;
+    const timer = setTimeout(() => setSignInNotice(null), noticeDurationMs);
+    return () => clearTimeout(timer);
+  }, [signInNotice, noticeDurationMs]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -52,11 +68,15 @@ export function PrimaryNav() {
 
   async function handleSignIn() {
     setBusy(true);
+    setSignInNotice(null);
     // Come back to the page the user started on, never to "/" (spec §10).
-    const started = await startGoogleSignIn(pathname);
-    // On success the browser is already leaving for Google; this only matters
-    // when sign-in is unconfigured or the request failed.
-    if (!started) setBusy(false);
+    const result = await startGoogleSignIn(pathname);
+    // On success the browser is already leaving for Google; the rest only
+    // matters when sign-in is unconfigured or the request failed.
+    if (result !== "started") {
+      setBusy(false);
+      setSignInNotice(result);
+    }
   }
 
   async function handleSignOut() {
@@ -75,9 +95,10 @@ export function PrimaryNav() {
           {t(link.key)}
         </Link>
       ))}
+      {/* Same nav-action chrome as Report: an action, not a page. */}
       <button
         type="button"
-        className="primary-nav-add"
+        className="primary-nav-report primary-nav-add"
         onClick={() => open(t("addSeed"))}
         aria-label={t("addAria")}
       >
@@ -121,15 +142,26 @@ export function PrimaryNav() {
           </button>
         </>
       ) : (
-        <button
-          type="button"
-          className="primary-nav-report primary-nav-auth"
-          onClick={handleSignIn}
-          disabled={busy}
-          aria-label={t("signInAria", { institution: siteConfig.institution })}
-        >
-          {t("signIn")}
-        </button>
+        <>
+          <button
+            type="button"
+            className="primary-nav-report primary-nav-auth"
+            onClick={handleSignIn}
+            disabled={busy}
+            aria-label={t("signInAria", { institution: siteConfig.institution })}
+          >
+            {t("signIn")}
+          </button>
+          {signInNotice ? (
+            <span
+              role="status"
+              className="primary-nav-notice"
+              style={{ animationDuration: `${noticeDurationMs}ms` }}
+            >
+              {t(signInNotice === "unconfigured" ? "signInUnconfigured" : "signInFailed")}
+            </span>
+          ) : null}
+        </>
       )}
     </nav>
   );

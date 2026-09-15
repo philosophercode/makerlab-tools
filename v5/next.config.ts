@@ -18,6 +18,10 @@ const nextConfig: NextConfig = {
         pathname: "/tool-images/**",
       },
       {
+        // Photos for the demo seed's sample project (src/lib/db/demo-seed.ts).
+        pathname: "/sample-projects/**",
+      },
+      {
         pathname: "/makerlab-logo-transparent.png",
       },
       {

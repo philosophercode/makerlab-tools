@@ -120,6 +120,7 @@ async function loadToolRefs(db: Db, projectIds: string[]): Promise<Map<string, P
 function toMakerLabProject(row: ProjectRow, photos: string[], toolRefs: ProjectToolRef[]): MakerLabProject {
   return {
     id: row.id,
+    slug: row.slug,
     title: row.title,
     author: row.authorName ?? "Anonymous",
     body: row.body,

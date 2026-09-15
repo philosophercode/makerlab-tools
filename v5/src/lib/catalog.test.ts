@@ -78,7 +78,9 @@ describe("getCatalogTools", () => {
   it("falls back to the bundled photo when no attachment carries one", async () => {
     const [form4, trotec] = await getCatalogTools();
     expect(form4.imageSrc).toBe("/tool-images/Form%204.png");
-    expect(trotec.imageSrc).toBe("/tool-images/Trotec%20Speedy%20400.png");
+    // The Trotec's bundled image does not match its name, so the seed gives it
+    // an attachment and the catalogue uses that URL as-is.
+    expect(trotec.imageSrc).toBe("/tool-images/Trotec Speedy 400, 80w.png");
   });
 
   it("attaches each tool's resource links", async () => {

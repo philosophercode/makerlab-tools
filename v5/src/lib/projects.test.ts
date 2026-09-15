@@ -23,6 +23,7 @@ import { getProject, getProjectsForTool, getPublishedProjects } from "./projects
 function project(overrides: Partial<MakerLabProject> = {}): MakerLabProject {
   return {
     id: "11111111-1111-1111-1111-111111111111",
+    slug: "lamp-from-scrap-plywood",
     title: "Lamp from scrap plywood",
     author: "Ada Lovelace",
     body: "## How I made it",
