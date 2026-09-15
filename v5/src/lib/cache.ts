@@ -13,9 +13,9 @@
  */
 
 /**
- * Catalog reads (`fetchFullCatalog`). Long by design — a Notion outage keeps
- * serving cached data rather than falling back to the mock catalog, which is
- * "fail toward stale, not toward wrong". `/api/health` probes Notion directly so
+ * Catalog reads (`getCatalogTools`). Long by design — a database outage keeps
+ * serving cached data rather than falling back to sample data, which is "fail
+ * toward stale, not toward wrong". `/api/health` probes Postgres directly so
  * the outage is still visible.
  */
 export const CATALOG_CACHE = {

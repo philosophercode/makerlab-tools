@@ -6,7 +6,18 @@ import type { Db } from "./types.ts";
  * tools the mock catalogue has always shown, now as real rows so the same
  * query modules serve tests, E2E and a fresh clone. Idempotent — a database
  * that already has tools is left alone.
+ *
+ * Form 4 carries a `notionPageId`, exercising the legacy `/tools/<notion-id>`
+ * redirect (spec Goal 2) end to end without a real database. Its unit carries
+ * one too: the writes still on Notion until Phase 3 relate rows by page id, so
+ * an imported row and a purely local one (the Trotec, which has neither) are
+ * both worth having in the seed.
  */
+export const DEMO_FORM_4_NOTION_PAGE_ID = "1f2e3d4c-5b6a-4789-8abc-def012345678";
+
+/** The Notion page behind the Form 4's one unit — the `unit` relation target. */
+export const DEMO_FORM_4_UNIT_NOTION_PAGE_ID = "2a3b4c5d-6e7f-4890-9abc-def012345678";
+
 export async function seedDemo(db: Db): Promise<void> {
   const existing = await db.select({ id: tools.id }).from(tools).limit(1);
   if (existing.length > 0) return;
@@ -46,6 +57,7 @@ export async function seedDemo(db: Db): Promise<void> {
           emergencyStop: "Lift the lid to immediately halt the print and pause the build.",
           notes: "Always wear nitrile gloves when handling uncured resin. Ventilation must be running.",
           published: true,
+          notionPageId: DEMO_FORM_4_NOTION_PAGE_ID,
         },
         {
           slug: "trotec-speedy-400",
@@ -74,6 +86,7 @@ export async function seedDemo(db: Db): Promise<void> {
         status: "in_use",
         condition: "excellent",
         dateAcquired: "2024-08-12",
+        notionPageId: DEMO_FORM_4_UNIT_NOTION_PAGE_ID,
       },
       {
         toolId: trotec.id,

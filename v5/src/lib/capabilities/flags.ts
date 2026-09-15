@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getCatalogTools } from "../catalog";
+import { notionPageIdForTool } from "../data/notion-ids";
 import type { FlagFields, FlaggedField } from "../types";
 import type { Capability, CapabilityCtx, CapabilityTool } from "./types";
 
@@ -153,16 +154,21 @@ export function parseCorrectionReport(
  */
 export function buildFlagFields(
   report: CorrectionReport,
-  tool: { id: string; name: string },
+  tool: FlaggedTool,
   identity?: ReporterIdentity
 ): FlagWriteFields {
   const fields: FlagWriteFields = {
     title: `${tool.name} — ${report.field_flagged}`,
-    tool: [tool.id],
     field_flagged: report.field_flagged,
     issue_description: report.issue_description,
     status: "New",
   };
+
+  // The `tool` relation addresses a Notion page, and `tool.id` is a Postgres
+  // uuid since the read path moved (spec §3.10). A tool with no imported page
+  // is filed without the relation rather than with an id Notion would reject:
+  // a correction staff have to match up by title beats one that never arrived.
+  if (tool.notionPageId) fields.tool = [tool.notionPageId];
 
   if (report.suggested_fix) fields.suggested_fix = report.suggested_fix;
 
@@ -247,11 +253,28 @@ async function createFlagPage(fields: FlagWriteFields): Promise<string> {
 
 // ── Submission (shared by both surfaces) ───────────────────────────
 
-/** Resolve by Notion page id or slug — surfaces disagree about which they hold. */
-async function findTool(toolId: string): Promise<{ id: string; name: string } | null> {
+/**
+ * The tool a report is about, with the Notion page behind it.
+ *
+ * `id` is the catalogue id (a Postgres uuid); `notionPageId` is what the Flags
+ * relation needs, and is null for a tool that never came from Notion.
+ */
+export interface FlaggedTool {
+  id: string;
+  name: string;
+  notionPageId?: string | null;
+}
+
+/** Resolve by catalogue id or slug — surfaces disagree about which they hold. */
+async function findTool(toolId: string): Promise<FlaggedTool | null> {
   const tools = await getCatalogTools();
   const match = tools.find((tool) => tool.id === toolId || tool.slug === toolId);
-  return match ? { id: match.id, name: match.name } : null;
+  if (!match) return null;
+  return {
+    id: match.id,
+    name: match.name,
+    notionPageId: await notionPageIdForTool(match.id),
+  };
 }
 
 /**

@@ -1,90 +1,84 @@
 import { cacheLife } from "next/cache";
 import { HEALTH_CACHE } from "../../../lib/cache";
 import { getCatalogTools } from "../../../lib/catalog";
-import { getNotionEnvContract } from "../../../lib/notion";
+import { dataSubstrate, pingDb } from "../../../lib/db/client";
 import { rateLimitAsync } from "../../../lib/rate-limit";
 import { resolveIdentity } from "../../../lib/auth/identity";
-import { mockTools } from "../../../components/mock-catalog";
 
 // `runtime` cannot be set when nextConfig.cacheComponents is enabled.
 // Default Node.js runtime is used.
 
-const NOTION_API_URL = "https://api.notion.com/v1";
-const NOTION_VERSION = "2022-06-28";
 const PROBE_TIMEOUT_MS = 5_000;
 
-type NotionHealth = "ok" | "unreachable" | "unconfigured";
+type DatabaseHealth = "ok" | "unreachable" | "demo";
 
 interface HealthReport {
   status: "ok" | "degraded";
-  notion: NotionHealth;
-  catalog: "live" | "mock";
+  database: DatabaseHealth;
+  catalog: "live" | "demo";
   toolCount: number;
   checkedAt: string;
 }
 
 /**
- * One minimal, uncached Notion call — `page_size: 1` against the Tools database.
- * It deliberately does *not* go through `catalog.ts`, whose day-long cache would
- * happily keep answering through an outage (which is the point of that cache and
- * the reason this probe exists).
- *
- * Nothing about the failure escapes this function: the caller gets one of three
- * words. A health endpoint that reports `NOTION_DB_TOOLS is missing` or echoes a
- * Notion error body hands an attacker the configuration, so the detail is logged
- * server-side and nowhere else.
+ * `pingDb()` carries no signal of its own (spec §3.2), and a hung connection
+ * must not hang this endpoint — race it against a plain timer instead.
  */
-async function probeNotion(): Promise<NotionHealth> {
-  const configured = getNotionEnvContract().every((key) => Boolean(process.env[key]));
-  if (!configured) return "unconfigured";
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error("Health probe timed out")), ms);
+  });
+  return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
+}
+
+/**
+ * One `select 1` against Postgres — or `"demo"` with no round trip at all when
+ * `DATABASE_URL` is unset, since that runs the app on the in-process PGlite
+ * demo seed (spec §3.10) rather than on nothing. Demo is a known, expected
+ * substrate, not a failure, so it gets its own word instead of collapsing into
+ * `"ok"` or `"unreachable"`.
+ *
+ * Nothing about a real failure escapes this function beyond one of three
+ * words — a health endpoint that echoes a connection string or driver error
+ * hands an attacker the configuration, so the detail is logged server-side
+ * and nowhere else.
+ */
+async function probeDatabase(): Promise<DatabaseHealth> {
+  if (dataSubstrate() === "pglite-demo") return "demo";
 
   try {
-    const res = await fetch(
-      `${NOTION_API_URL}/databases/${process.env.NOTION_DB_TOOLS}/query`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${process.env.NOTION_API_KEY}`,
-          "Content-Type": "application/json",
-          "Notion-Version": NOTION_VERSION,
-        },
-        body: JSON.stringify({ page_size: 1 }),
-        signal: AbortSignal.timeout(PROBE_TIMEOUT_MS),
-      }
-    );
-
-    if (!res.ok) {
-      console.warn("Health probe: Notion query failed with status", res.status);
-      return "unreachable";
-    }
+    await withTimeout(pingDb(), PROBE_TIMEOUT_MS);
     return "ok";
   } catch (error) {
-    console.warn("Health probe: Notion unreachable:", error);
+    console.warn("Health probe: database unreachable:", error);
     return "unreachable";
   }
 }
 
 /**
- * Cached for ~30s so a monitor polling every minute costs at most one Notion
- * call per 30s and the endpoint cannot be used to hammer Notion. `checkedAt` is
+ * Cached for ~30s so a monitor polling every minute costs at most one probe
+ * per 30s and the endpoint cannot be used to hammer Postgres. `checkedAt` is
  * captured with the cached value, so it reports when the probe actually ran.
  *
- * The tool count comes from the catalog only when Notion answered; otherwise the
- * catalog is on its mock fallback and counting it would mean five more failing
- * Notion calls to learn something already known.
+ * The tool count comes from the catalogue whenever there is one to safely
+ * read: on the demo seed `getCatalogTools()` reads the local PGlite instance,
+ * which costs nothing extra to ask. A configured-but-unreachable Postgres is
+ * the one case that skips it — counting from a database this same probe just
+ * proved was down would mean either inventing a number or making the failing
+ * call twice, and Article 4 rules out the former.
  */
 async function checkHealth(): Promise<HealthReport> {
   "use cache";
   cacheLife(HEALTH_CACHE);
 
-  const notion = await probeNotion();
-  const live = notion === "ok";
-  const toolCount = live ? (await getCatalogTools()).length : mockTools.length;
+  const database = await probeDatabase();
+  const toolCount = database === "unreachable" ? 0 : (await getCatalogTools()).length;
 
   return {
-    status: live ? "ok" : "degraded",
-    notion,
-    catalog: live ? "live" : "mock",
+    status: database === "unreachable" ? "degraded" : "ok",
+    database,
+    catalog: database === "ok" ? "live" : "demo",
     toolCount,
     checkedAt: new Date().toISOString(),
   };
@@ -102,7 +96,7 @@ async function checkHealth(): Promise<HealthReport> {
  * around.
  */
 export async function GET(req: Request) {
-  // Rate limit before the probe — cheap as it is, it still touches Notion.
+  // Rate limit before the probe — cheap as it is, it still touches Postgres.
   const identity = await resolveIdentity(req);
   const { allowed } = await rateLimitAsync(`health:${identity.rateLimitKey}`, {
     limit: 30,

@@ -1,11 +1,11 @@
 import { test, expect } from "@playwright/test";
 
-// The app boots with NOTION_* unset (see playwright.config.ts webServer.env),
-// so getCatalogTools() serves the built-in mock catalog
-// (src/components/mock-catalog.ts): "Form 4" and "Trotec Speedy 400".
+// The app boots with DATABASE_URL and NOTION_* unset (see playwright.config.ts
+// webServer.env), so getCatalogTools() serves the PGlite demo seed
+// (src/lib/db/demo-seed.ts): "Form 4" and "Trotec Speedy 400".
 
 test.describe("Gallery", () => {
-  test("loads at / and shows the mock-catalog tools", async ({ page }) => {
+  test("loads at / and shows the demo-catalogue tools", async ({ page }) => {
     await page.goto("/");
 
     // Gallery heading from messages/en.json gallery.title => "TOOLS // MACHINES".
@@ -34,7 +34,7 @@ test.describe("Gallery", () => {
   test("shows the catalog status strip count", async ({ page }) => {
     await page.goto("/");
     // GlobalChrome status strip renders status.toolsInInventory:
-    // "{count} TOOLS IN INVENTORY" with count=2 (mock catalog has 2 tools).
+    // "{count} TOOLS IN INVENTORY" with count=2 (the demo seed has 2 tools).
     await expect(page.getByText("2 TOOLS IN INVENTORY")).toBeVisible();
   });
 });

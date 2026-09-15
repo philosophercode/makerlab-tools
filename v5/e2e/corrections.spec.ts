@@ -10,11 +10,12 @@ import { test, expect } from "@playwright/test";
 // intercepts that request with page.route() instead — the same technique
 // chat.spec.ts uses — so nothing leaves the machine.
 //
-// Mock catalog: "Form 4" is slug `form-4`, Notion id `tool-form-4`
-// (src/components/mock-catalog.ts). Strings are `flag.*` in messages/en.json.
+// Demo catalogue: "Form 4" is slug `form-4`; its id is the Postgres uuid the
+// seed assigned (src/lib/db/demo-seed.ts). Strings are `flag.*` in
+// messages/en.json.
 
 const FLAG_ENDPOINT = "**/api/flags";
-const TOOL_ID = "tool-form-4";
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 test.describe("Report a correction", () => {
   test("the control is reachable from a tool detail page", async ({ page }) => {
@@ -102,9 +103,9 @@ test.describe("Report a correction", () => {
     ).toHaveCount(0);
 
     // The report identifies the specific field, not just the tool (spec §2), and
-    // carries the tool's Notion id rather than its slug.
+    // carries the tool's database id rather than its slug.
     expect(submitted).toMatchObject({
-      tool_id: TOOL_ID,
+      tool_id: expect.stringMatching(UUID),
       field_flagged: "description",
       issue_description: "The build volume says 220 mm, but it is 256 mm.",
     });

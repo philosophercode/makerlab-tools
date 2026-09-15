@@ -105,7 +105,7 @@ test.describe("Project submission form", () => {
       page.getByRole("textbox", { name: "Link (optional)" })
     ).toBeVisible();
 
-    // Tools-used chips come from the mock catalog via getCatalogTools().
+    // Tools-used chips come from the demo catalogue via getCatalogTools().
     await expect(
       page.getByRole("button", { name: "Form 4", exact: true })
     ).toBeVisible();
@@ -223,7 +223,10 @@ test.describe("Project submission form", () => {
     const payload = bodies[0] as Record<string, unknown>;
     expect(payload.title).toBe("Parametric stool");
     expect(payload.author).toBe("Ada Lovelace");
-    expect(payload.tools).toEqual(["tool-trotec-speedy-400"]);
+    // The chosen tool travels as its database id (a uuid), not its slug.
+    expect(payload.tools).toEqual([
+      expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
+    ]);
     expect(payload).not.toHaveProperty("published");
   });
 

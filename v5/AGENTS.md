@@ -6,8 +6,8 @@ active application. Everything below is scoped to the `v5/` directory.
 > [!IMPORTANT]
 > The **root `CLAUDE.md` describes v4** — an AirTable-backed app with
 > `AIRTABLE_TABLE_*` env vars. **That does not apply to v5.** v5's data layer is
-> **Notion** (`NOTION_DB_*`). When working in `v5/`, follow this file, not the
-> root v4 doc.
+> **Postgres** (`DATABASE_URL`), not Notion and not AirTable. When working in
+> `v5/`, follow this file, not the root v4 doc.
 
 ## What this is
 
@@ -24,23 +24,54 @@ the catalog to external agents. White-labelled via env vars.
 - **MCP:** `@modelcontextprotocol/sdk` (HTTP JSON-RPC server at `/api/mcp`).
 - **Validation:** `zod`. **Search:** `match-sorter` (fuzzy, ranked).
 
-## Data layer — Notion (not AirTable)
+## Data layer — Postgres (not Notion, not AirTable)
 
-Seven Notion databases, IDs supplied via env (`NOTION_DB_TOOLS`, `_CATEGORIES`,
-`_LOCATIONS`, `_UNITS`, `_RESOURCES`, `_MAINTENANCE_LOGS`, `_FLAGS`) plus
-`NOTION_API_KEY`. See `.env.example` for the full list and defaults.
+**Postgres is the source of truth (constitution Article 7).** Neon Postgres,
+provisioned through the Vercel Marketplace, reached through Drizzle ORM.
+`DATABASE_URL` set → Neon. `DATABASE_URL` unset → an in-process PGlite
+database, migrated and seeded with demo data on first use (two tools: "Form
+4", "Trotec Speedy 400"), so a fresh clone, local dev, and the whole test
+suite run with no credentials and no network. See `.env.example` for the full
+variable list.
 
-- `src/lib/notion.ts` — server-only Notion REST client: page→record parsers, pagination, 429 retry, `createMaintenanceLog`. Tolerant of snake_case **and** Title-case property names.
-- `src/lib/catalog.ts` — orchestration: fetch + join + derive `MakerLabTool`s, cached with `cacheTag("catalog")` / `cacheLife("minutes")`.
-- **Mock-catalog fallback (important):** `getCatalogTools()` / `getCatalogTool(id)` return the built-in `src/components/mock-catalog.ts` data whenever `hasNotionCatalogEnv()` is false (**any** Notion env var missing) **or** a fetch throws. So the app — and the whole E2E/test suite — runs with no Notion creds.
+- `src/lib/db/client.ts` — the one entry point: `getDb()` (a Drizzle handle),
+  `dataSubstrate()` (`"neon" | "pglite-demo"`), `pingDb()` (throws
+  `DbUnavailableError`), `resetDbForTests()`.
+- `src/lib/db/schema/index.ts` — tables and vocabulary constants (stored
+  snake_case, e.g. `in_use`; display text is derived, never stored).
+- `src/lib/catalog.ts` — orchestration: fetch + join + derive `MakerLabTool`s
+  from Postgres, cached with `cacheTag("catalog")` / `cacheLife("minutes")`.
+- `src/lib/data/*.ts` — the query modules underneath: `catalog.ts`,
+  `projects.ts`, `maintenance.ts`, `resources.ts`, plus `uuid.ts` (the shape
+  guard every untrusted id passes before it reaches a uuid column) and
+  `notion-ids.ts`. Relative imports with `.ts` extensions, no `@/` alias, no
+  `"server-only"` — `scripts/` loads them under plain Node.
+- **Notion is read only by the one-time import** (`npm run import:notion`).
+  No request path reads Notion. A one-way mirror (app → an admin's own Notion
+  workspace) is a later phase, not built yet.
+- **The three writes still on Notion address pages, not rows.** A correction,
+  a maintenance ticket and a project submission create Notion pages whose
+  `relation` properties need *Notion page ids*, while everything the app hands
+  around is now a Postgres uuid. `src/lib/data/notion-ids.ts` translates
+  through `notion_page_id`, and a row that has none is written without the
+  relation rather than with an id Notion would reject — a ticket a human has
+  to link by hand beats a ticket that never arrived (Article 4). It goes away
+  with those writes in Phase 3.
+- **Files** (tool images, manuals, project photos) live in **Vercel Blob**,
+  not Notion attachments — see `next.config.ts`'s `images.remotePatterns`.
+- **Failing toward stale, not wrong (Article 4).** `DATABASE_URL` unset serves
+  the PGlite demo seed with `DemoDataBanner` shown. `DATABASE_URL` set but
+  unreachable never falls back to demo or invented data — cached pages keep
+  serving and an uncached read renders the error state.
 
 ## Key files
 
 | Path | Purpose |
 |---|---|
 | `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults) |
-| `src/lib/notion.ts` | Notion API client (server-only) |
-| `src/lib/catalog.ts` | Catalog orchestration + cache + mock fallback |
+| `src/lib/db/client.ts` | `getDb()`, `dataSubstrate()`, `pingDb()` — the one entry point to Postgres/PGlite |
+| `src/lib/notion.ts` | Notion API client — write paths still on Notion until Phase 3 (tickets, corrections, project submission); no request path reads it |
+| `src/lib/catalog.ts` | Catalog orchestration + cache, reading Postgres |
 | `src/lib/rate-limit.ts` | In-memory (or Upstash) sliding-window limiter |
 | `src/lib/types.ts` / `src/components/catalog-types.ts` | Notion record types / resolved view types |
 | `src/app/api/chat/route.ts` | Claude chat: streaming, tools (`get_unit_details`, `report_issue`, `web_fetch`), PDF manual attach |
@@ -62,8 +93,8 @@ Seven Notion databases, IDs supplied via env (`NOTION_DB_TOOLS`, `_CATEGORIES`,
 
 ## Testing
 
-Comprehensive, **fully-mocked** suite (no live Notion/Anthropic/Redis). Run
-everything with one command:
+Comprehensive, **fully-mocked** suite (no live Notion/Anthropic/Redis/Postgres —
+Article 3). Run everything with one command:
 
 ```bash
 npm run test:all     # lint + typecheck + vitest + playwright
@@ -74,7 +105,10 @@ Or individually: `npm test` (Vitest: unit + integration + component),
 first), `npm run test:coverage`.
 
 - **Vitest** (jsdom) + React Testing Library + MSW; **Playwright** for E2E.
-- E2E boots its own server on **port 3100** with `NOTION_*` unset (mock catalog) and intercepts `/api/chat` — it never touches your `:3000` dev server or real services.
+- Catalogue reads run against an in-process PGlite database seeded with demo
+  data (`getCatalogTools()` needs no Notion env at all); write paths still on
+  Notion (§ above) are covered with `vi.stubEnv` + MSW as before.
+- E2E boots its own server on **port 3100** with `DATABASE_URL` unset (PGlite demo catalog) and intercepts `/api/chat` — it never touches your `:3000` dev server or real services.
 - Tests are colocated (`*.test.ts(x)` next to source); shared harness in `test/`.
 - **Read these before writing tests:** `TESTING.md` (runbook), `test/README.md` (harness internals + the `streamText`-capture and env-stubbing patterns), and `docs/specs/2026-05-29-v5-test-suite-design.md` (design + coverage matrix). The harness deps/scripts are already wired — don't hand-edit `package.json` for them.
 
@@ -82,7 +116,7 @@ first), `npm run test:coverage`.
 
 ```bash
 npm run dev          # dev server (:3000)
-npm run build        # production build
+npm run build        # runs db:migrate, then production build
 npm run lint         # eslint
 npm run typecheck    # tsc --noEmit
 npm run test:all     # full test suite

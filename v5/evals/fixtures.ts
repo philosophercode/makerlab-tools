@@ -2,13 +2,16 @@ import { mockTools } from "@/components/mock-catalog";
 import type { MakerLabTool } from "@/components/catalog-types";
 
 /**
- * Eval fixtures (design spec §3). The eval suite runs with every `NOTION_*`
- * variable unset, so `getCatalogTools()` serves `src/components/mock-catalog.ts`
- * — a fixed, two-machine catalog. This module pins that same data into the
- * shape the assertions need, so an assertion can name exact values instead of
- * guessing what the live catalog happens to contain today.
+ * Eval fixtures (design spec §3). The eval suite runs with `DATABASE_URL`
+ * unset, so `getCatalogTools()` serves the PGlite demo seed — a fixed,
+ * two-machine catalog — and `run.eval.ts` builds the fixture from that same
+ * catalogue, so an assertion can name exact values and can never police a
+ * machine the model was not given.
  *
- * Everything here is pure data derived from the mock catalog plus two small
+ * {@link evalFixture} is the offline default the assertion unit tests use: the
+ * same two machines, pinned as literal data so those tests need no database.
+ *
+ * Everything here is pure data derived from a catalog plus two small
  * hand-maintained lists:
  *
  *  - {@link EXTRA_ALIASES} — other names a catalog machine legitimately goes by
@@ -198,7 +201,7 @@ function toFixtureTool(tool: MakerLabTool): EvalFixtureTool {
   };
 }
 
-/** Build the fixture from a catalog (defaults to the mock catalog). */
+/** Build the fixture from a catalog (defaults to the pinned two machines). */
 export function buildFixture(tools: MakerLabTool[] = mockTools): EvalFixture {
   const fixtureTools = tools.map(toFixtureTool);
 
@@ -213,5 +216,5 @@ export function buildFixture(tools: MakerLabTool[] = mockTools): EvalFixture {
   };
 }
 
-/** The fixture the runner uses: the mock catalog, pinned. */
+/** The offline fixture the assertion tests use: the two machines, pinned. */
 export const evalFixture: EvalFixture = buildFixture();

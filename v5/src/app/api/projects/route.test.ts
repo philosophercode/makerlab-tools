@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { http, HttpResponse } from "msw";
 
 import { server } from "../../../../test/msw/server";
@@ -6,10 +7,37 @@ import {
   createSessionPayload,
   signSession,
 } from "@/lib/auth/session-cookie";
+import { nextCacheMock } from "../../../../test/mocks/next-cache";
+
+// The route translates catalogue ids to Notion page ids through Postgres, and
+// that module's neighbours import cacheTag/cacheLife.
+vi.mock("next/cache", () => nextCacheMock());
+
+import { getCatalogTools } from "@/lib/catalog";
+import { resetDbForTests } from "@/lib/db/client";
+import { DEMO_FORM_4_NOTION_PAGE_ID } from "@/lib/db/demo-seed";
 
 const NOTION = "https://api.notion.com/v1";
 const PROJECTS_DB = "db-projects";
 const AUTH_SECRET = "projects-route-test-secret";
+
+// `tools_used` is a Notion relation, but the form now submits catalogue ids —
+// Postgres uuids minted at seed time. The demo seed is the substrate here
+// (`DATABASE_URL` unset): the Form 4 came from Notion and has a page id, the
+// Trotec did not and has none.
+let FORM_4_ID = "";
+let TROTEC_ID = "";
+
+beforeEach(async () => {
+  vi.stubEnv("DATABASE_URL", "");
+  const tools = await getCatalogTools();
+  FORM_4_ID = tools.find((tool) => tool.slug === "form-4")?.id ?? "";
+  TROTEC_ID = tools.find((tool) => tool.slug === "trotec-speedy-400")?.id ?? "";
+});
+
+afterAll(() => {
+  resetDbForTests();
+});
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -68,7 +96,7 @@ function validPayload(overrides: Record<string, unknown> = {}) {
     title: "Lamp from scrap plywood",
     author: "Ada Lovelace",
     body: "Cut on the laser, glued, sanded.",
-    tools: ["tool-form-4"],
+    tools: [FORM_4_ID],
     materials: ["Plywood"],
     photos: [{ id: "file-upload-1", name: "cover.png" }],
     ...overrides,
@@ -167,7 +195,10 @@ describe("POST /api/projects (drafts by default)", () => {
 
     await post(
       submitRequest(
-        validPayload({ link: "https://example.com/lamp", tools: ["tool-form-4", "tool-2"] })
+        validPayload({
+          link: "https://example.com/lamp",
+          tools: [FORM_4_ID, TROTEC_ID],
+        })
       )
     );
 
@@ -179,8 +210,10 @@ describe("POST /api/projects (drafts by default)", () => {
       rich_text: [{ text: { content: "Ada Lovelace" } }],
     });
     expect(properties.link).toEqual({ url: "https://example.com/lamp" });
+    // Each catalogue id is translated to the tool's Notion page; the Trotec has
+    // no imported page, so it drops out rather than failing the whole write.
     expect(properties.tools_used).toEqual({
-      relation: [{ id: "tool-form-4" }, { id: "tool-2" }],
+      relation: [{ id: DEMO_FORM_4_NOTION_PAGE_ID }],
     });
     expect(properties.materials).toEqual({ multi_select: [{ name: "Plywood" }] });
     // Photos go in as file_upload references from /api/upload-notion.
@@ -439,14 +472,16 @@ describe("POST /api/projects (validation)", () => {
   it("accepts exactly 20 tools", async () => {
     stubProjectsEnv();
     const calls = captureNotionCreate();
-    const tools = Array.from({ length: 20 }, (_, i) => `tool-${i}`);
+    const tools = Array.from({ length: 20 }, () => crypto.randomUUID());
 
     const res = await post(submitRequest(validPayload({ tools })));
 
+    // The cap is what is under test: twenty is not one too many. None of these
+    // ids is a real tool, so nothing survives the Notion-page translation and
+    // the submission is filed without a relation rather than refused.
     expect(res.status).toBe(201);
-    expect(
-      (calls[0].properties?.tools_used as { relation: unknown[] }).relation
-    ).toHaveLength(20);
+    expect(calls).toHaveLength(1);
+    expect(calls[0].properties?.tools_used).toBeUndefined();
   });
 
   it("ignores non-string entries in tools and materials", async () => {
@@ -455,13 +490,13 @@ describe("POST /api/projects (validation)", () => {
 
     const res = await post(
       submitRequest(
-        validPayload({ tools: ["tool-form-4", 7, null], materials: [{}, "Plywood"] })
+        validPayload({ tools: [FORM_4_ID, 7, null], materials: [{}, "Plywood"] })
       )
     );
 
     expect(res.status).toBe(201);
     expect(calls[0].properties?.tools_used).toEqual({
-      relation: [{ id: "tool-form-4" }],
+      relation: [{ id: DEMO_FORM_4_NOTION_PAGE_ID }],
     });
     expect(calls[0].properties?.materials).toEqual({
       multi_select: [{ name: "Plywood" }],
