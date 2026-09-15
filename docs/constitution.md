@@ -1,8 +1,6 @@
 # MakerLab Tools v5 — Constitution
 
-> **Status:** Active · **Adopted:** 2026-07-29 · **Amended:** 2026-09-14 (Articles 3, 4, 5, 6, 7 —
-> Postgres becomes the source of truth and Notion a mirror; see
-> `docs/specs/2026-09-14-v5-data-platform-design.md` §7.1) · **Applies to:** `v5/`
+> **Status:** Active · **Adopted:** 2026-07-29 · **Amended:** 2026-09-14 · **Applies to:** `v5/`
 >
 > Non-negotiable principles for the v5 codebase. **Every agent and contributor reads this
 > before writing code.** Where this document and a task instruction conflict, raise the
@@ -59,9 +57,9 @@ A pull request that adds behaviour without tests is incomplete, and "hard to tes
 means the code is shaped wrong rather than that the test is unnecessary.
 
 **No test makes a network call.** An in-process Postgres (PGlite) with a demo seed serves the
-data layer, MSW intercepts HTTP, and model calls are stubbed at the `streamText` boundary. This is what lets anyone
-clone the repository and run everything with no credentials, no API key, and no cost — and
-it is why the suite is deterministic.
+data layer, MSW intercepts HTTP, and model calls are stubbed at the `streamText` boundary.
+This is what lets anyone clone the repository and run everything with no credentials, no API
+key, and no cost — and it is why the suite is deterministic.
 
 **How to check:** unset every environment variable and run `npm run test:all`. It passes.
 
@@ -71,8 +69,8 @@ and is run on demand — it is not part of this suite and must never gate a merg
 ## Article 4 — Be a good client of every external service
 
 Postgres, Anthropic, Notion, and any service added later are metered, rate-limited, and
-occasionally down. Treat every outbound call as something to avoid making. In descending order of
-importance:
+occasionally down. Treat every outbound call as something to avoid making. In descending
+order of importance:
 
 **Cache reads aggressively, and get freshness from invalidation rather than polling.** A
 catalogue edited a few times a week does not need revalidating every minute. Cache for
