@@ -1,6 +1,8 @@
 # MakerLab Tools v5 — Constitution
 
-> **Status:** Active · **Adopted:** 2026-07-29 · **Applies to:** `v5/`
+> **Status:** Active · **Adopted:** 2026-07-29 · **Amended:** 2026-09-14 (Articles 3, 4, 5, 6, 7 —
+> Postgres becomes the source of truth and Notion a mirror; see
+> `docs/specs/2026-09-14-v5-data-platform-design.md` §7.1) · **Applies to:** `v5/`
 >
 > Non-negotiable principles for the v5 codebase. **Every agent and contributor reads this
 > before writing code.** Where this document and a task instruction conflict, raise the
@@ -56,8 +58,8 @@ Adapters translate. They do not decide.
 A pull request that adds behaviour without tests is incomplete, and "hard to test" usually
 means the code is shaped wrong rather than that the test is unnecessary.
 
-**No test makes a network call.** The mock catalogue serves the data layer, MSW intercepts
-HTTP, and model calls are stubbed at the `streamText` boundary. This is what lets anyone
+**No test makes a network call.** An in-process Postgres (PGlite) with a demo seed serves the
+data layer, MSW intercepts HTTP, and model calls are stubbed at the `streamText` boundary. This is what lets anyone
 clone the repository and run everything with no credentials, no API key, and no cost — and
 it is why the suite is deterministic.
 
@@ -68,8 +70,8 @@ and is run on demand — it is not part of this suite and must never gate a merg
 
 ## Article 4 — Be a good client of every external service
 
-Notion, Anthropic, and any service added later are metered, rate-limited, and occasionally
-down. Treat every outbound call as something to avoid making. In descending order of
+Postgres, Anthropic, Notion, and any service added later are metered, rate-limited, and
+occasionally down. Treat every outbound call as something to avoid making. In descending order of
 importance:
 
 **Cache reads aggressively, and get freshness from invalidation rather than polling.** A
@@ -100,26 +102,28 @@ visible in logs and, where a person could act on it, in the interface.
 ## Article 5 — Writes are drafts by default
 
 Anything the agent or a student creates — catalogue entries from intake, project
-submissions — is written unpublished and requires a human to publish it in Notion.
+submissions — is written unpublished. Publishing takes a person with the permission, in the
+app, and is recorded in `audit_events`.
 
-This is the entire security model for write paths. There is no admin approval queue in the
-app; Notion is the approval surface. Do not add a write path that bypasses it.
+This is the entire security model for write paths. The app's admin pages are the approval
+surface. Do not add a write path that publishes without a person holding the permission.
 
 ## Article 6 — Branding, institution, and locale strings come from config
 
 No hardcoded `"Cornell Tech"`, `"MakerLab"`, brand colours, or English-only user-facing
 text. Branding comes from `siteConfig`, colours from CSS variables, user-facing strings
-from `next-intl` — all 12 locale files updated together.
+from `next-intl`. English is added in the same PR as the string; the other locales fall back
+to English until a translation pass fills them, and no release to students ships with an
+untranslated public page.
 
 Maintenance tickets are the deliberate exception: their title and description are always
 written in **English** so staff can read them, even when the assistant replies in another
 language.
 
-## Article 7 — Notion is the source of truth and the editing surface
+## Article 7 — Postgres is the source of truth; Notion is a mirror
 
-The app reads and writes the documented Notion databases and nothing else. It does not
-become the place staff edit records — that is Notion's job, and it is why v5 needs no admin
-CRUD.
+The app reads and writes its Postgres database. A Notion mirror, when an admin connects one,
+receives a one-way copy and is never read. Staff edit records in the app.
 
 ---
 

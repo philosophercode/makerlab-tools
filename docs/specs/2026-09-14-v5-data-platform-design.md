@@ -1,47 +1,53 @@
-# v5 Data Platform — Postgres, Blob, a Notion Mirror, Accounts and Admin Inventory — Design Spec
+# v5 Data Platform — Postgres, Blob, Accounts, Admin Inventory, Two-Step Intake, a Notion Mirror — Design Spec
 
 **Date:** 2026-09-14
 **Status:** Draft
 **Target:** `v5/`
 **Branch:** `v5/data-platform-spec`
-**Spec PR:** #TBD · **Implementation PRs:** one per phase (§9)
+**Spec PR:** #32 · **Implementation PRs:** one per phase (§9)
 
-> Per constitution Article 1, this merges before implementation begins. It also proposes
-> amendments to Articles 3, 5 and 7 (§7.1), which merge with it or before it.
+> Per constitution Article 1, this merges before implementation begins. It amends Articles 3,
+> 5, 6 and 7 of the constitution; the amended text ships in this PR.
 
 ## 1. Summary
 
 v5 keeps every record in Notion, and the constitution makes that a principle: Notion is the
 source of truth and the editing surface (Article 7), and publishing a draft happens there
 (Article 5). That was right for a catalogue edited a few times a week by one person. It stops
-being right once the app needs people in it: accounts with roles, a user-management page,
-project posts tied to a signed-in author, and editing that staff and SuperMakers do on the
-website rather than in a workspace most of them cannot open. Notion has no users table, no
-transactions, no constraints, and file URLs that expire about an hour after they are read.
+being right once the app needs people in it: accounts with roles, project posts tied to a
+signed-in author, and editing that SuperMakers do on the website rather than in a workspace most
+of them cannot open. Notion has no users table, no transactions, no constraints, and file URLs
+that expire about an hour after they are read.
 
 This spec moves v5's data to **Postgres** (Neon, provisioned through the Vercel Marketplace) and
-its files to **Vercel Blob**. Notion becomes a **one-way mirror**: the app pushes to a set of
-*new* Notion databases so Niti can still see the inventory in Notion, and never reads them back.
-The databases v5 uses today are imported once and then frozen as an archive.
+its files to **Vercel Blob**. The app becomes the source of truth. Notion becomes an optional,
+**one-way mirror** that an admin bolts on from a settings page, so the lab can still see the
+inventory in Notion. The app never reads Notion again after the one-time import.
 
 On that foundation it adds what the lab asked for on 2026-09-14:
 
-- **Accounts.** A users table, four roles (member, SuperMaker, admin, super admin), and
-  permissions expressed as **scopes granted to roles**, which a super admin switches on and off
-  without a deploy.
-- **Inventory editing on the website**, in two places: an admin inventory table for reviewing
-  everything, and an edit mode on each tool page for quick fixes.
-- **A two-step add-tool flow.** The assistant only identifies what a tool is and proposes a short
-  pending table; a person checks it and presses Research; research runs in the background,
-  outside the chat turn; a person reviews and approves the result.
-- **Project posts require sign-in.** Anonymous visitors still browse, ask the assistant, and
-  report problems.
+- **Accounts.** A users table and three roles with standard names: `user` (a student), `admin`
+  (a SuperMaker), `super_admin` (a director). Permissions are fixed per role in one file.
+- **Inventory editing on the website**: an admin inventory table for reviewing everything, and an
+  edit mode on each tool page for quick fixes.
+- **A two-step add-tool flow.** The assistant only identifies what each tool is and puts it in an
+  intake table with checkboxes. An admin selects rows and sends them for research. Research runs
+  as a durable background job and produces a preliminary page per tool. An admin approves each
+  page into the inventory.
+- **Projects need sign-in.** Anyone signed in can post one. Anonymous visitors still browse, use
+  the assistant, and report problems.
 
 **This is an architecture change, and that is the consequential part.** The source of truth moves
 from Notion to Postgres, the approval surface moves from Notion into the app, and the test
 suite's offline data moves from a mock catalogue to an in-process Postgres (PGlite). The data
 layer is a fresh schema written for v5 — one lab, no multi-tenant scoping — as decided on
 2026-09-14.
+
+**Where the app is.** v5 is alpha with no users. There is no cutover date and no rollback
+window: the read path switches to Postgres when its phase merges, and problems are fixed
+forward. When the phases in §9 are done the app is beta: Isaac and Luis load the real inventory
+and prove intake works, SuperMakers get a one-off session on using and updating the app, and
+then real students test it.
 
 **Prerequisite.** Google sign-in is not configured in production today:
 `POST /api/auth/sign-in/social` returns 503. Every role-based feature here depends on it.
@@ -50,52 +56,65 @@ layer is a fresh schema written for v5 — one lab, no multi-tenant scoping — 
 
 ### Goals
 
-1. **No request path reads Notion.** After cutover, catalogue pages, tool pages, projects, unit
-   status, maintenance history, chat and MCP read Postgres. `api.notion.com` is called only by
-   the mirror job and the one-time import.
+1. **No request path reads Notion.** Catalogue pages, tool pages, projects, unit status,
+   maintenance history, chat and MCP read Postgres. `api.notion.com` is called only by the
+   mirror push and the one-time import.
 2. **Old links keep working.** Every URL and printed QR code of the form
    `/tools/<notion-page-id>` redirects permanently to `/tools/<slug>`.
-3. **Roles change without a deploy.** A super admin changes a person's role on `/admin/users`, or
-   which scopes a role has on `/admin/roles`, and it applies on that person's next request.
-4. **Inventory is editable on the website.** Anyone with `tools.edit` can edit a tool, its units
-   and its resources from `/admin/inventory` or from edit mode on `/tools/<slug>`, and the
-   public page shows the change on its next load.
-5. **Adding equipment never blocks the chat.** A person with `tools.add` gets a pending table in
-   one chat turn, with no manual or spec research in that turn. Pressing **Research** runs
-   research in the background. Nothing reaches the public catalogue until someone with
-   `tools.publish` approves it.
+3. **Roles change without a deploy.** A super admin changes a person's role on `/admin/users`,
+   and it applies on that person's next request.
+4. **Inventory is editable on the website.** An admin edits a tool, its units and its resources
+   from `/admin/inventory` or from edit mode on `/tools/<slug>`, and the public page shows the
+   change on its next load.
+5. **Adding equipment never blocks the chat.** An admin gets an intake table in one chat turn,
+   with no manual or spec research in that turn. Selected rows are researched in the background.
+   Nothing reaches the public catalogue until an admin approves it.
 6. **Duplicates are caught before research.** The check covers published tools, drafts and
    pending items, and offers **Add as another unit** (with a serial number) alongside **It's a
    different tool** and **Remove**.
 7. **Anonymous visitors keep what they have** — browsing, the assistant, reporting problems and
    corrections — and lose only project submission.
-8. **The Notion mirror is visibly fresh or visibly failing.** A change reaches the mirror within
-   about two minutes; the last run's status and error show on `/admin`; a failed mirror never
-   affects the app.
+8. **The Notion mirror is a bolt-on.** An admin sets it up from `/admin/mirror` with their own
+   Notion token, sees when it last synced, can pause it, and can press **Sync now**. A failed
+   push never affects the app.
 9. **Article 3 still holds.** `npm run test:all` passes with every environment variable unset and
    no network.
-10. **Cutover is reversible** for a stated window (§5.8).
+10. **Built for translation.** Every static string goes through `next-intl`. English ships with
+    each phase; the other locales fall back to English until the translation pass (§9, Phase 9).
 
 ### Non-goals (this iteration)
 
 - **Multi-lab support.** v5 serves one lab. There is no `org_id`. Multi-tenancy belongs to
-  Blueprint, which is a separate product (decided 2026-09-14).
-- **Reading from Notion after cutover, or editing in the mirror.** The mirror is write-only from
-  the app's side. An edit made in a mirror database is overwritten by the next push, and each
+  Blueprint, which is a separate product.
+- **Reading from Notion after the import, or editing in the mirror.** The mirror is write-only
+  from the app's side. An edit made in a mirror database is overwritten by the next push, and each
   mirror database's description says so.
-- **Writing to the old databases.** They are imported once and archived. The mirror job refuses
-  their ids (§8).
+- **Touching the old Notion databases.** They are imported once and then left alone, on Niti's
+  Notion, exactly as they are. No renaming, no archiving, no export.
+- **A permissions toggle page.** Permissions are a table in code (§3.5). Changing one is a
+  one-line edit and a deploy. A `/admin/roles` matrix was considered and set aside on 2026-09-14.
+- **Student settings or saved sessions.** The `user` role exists so students can post projects.
+  Anything else a signed-in student might get comes later.
+- **Consent, licensing or other legal features** for project photos or anything else. Added only
+  if Niti asks.
+- **A rollback window, a cutover date, or running two backends side by side.** Nobody uses the
+  app yet; §9 sequences the switch so `main` is always deployable, and that is enough.
+- **Leaving the Vercel Hobby plan.** Hobby's limits are stated where they matter (§3.7, §3.9, §8).
+  The lab moves to Pro only when it hits one.
 - **Photo cleanup** — background removal, cropping, enhancement. An admin uploads a photo, and
   that is the whole flow for now.
 - **Other sign-in providers, passwords, or accounts outside the institution's email domain.**
-- **Field-level history or undo.** Edits record who and when (`updated_by`, `updated_at`), and
-  security-relevant actions are logged (§4.12). There is no per-field revision history.
+- **Field-level history or undo.** Edits record who and when. Security-relevant actions are
+  logged (§4.11). There is no per-field revision history.
 - **Hard-deleting tools.** Tools are archived, because maintenance history refers to them. Only
   pending items, units with no history, and orphaned uploads are ever deleted.
 - **Changing MCP's trust model.** `MCP_TOKEN` stays the gate for MCP writes, and MCP callers have
   no role.
 - **Live co-editing.** Concurrent edits are detected with an `updated_at` check and refused, not
   merged.
+- **eve.** Research runs on the Workflow SDK directly (§3.7). eve is built on the same SDK and is
+  the path if research ever grows into a full agent with skills, schedules and sandboxes; today
+  it would add a second project and an HTTP hop for no gain.
 - **Blueprint compatibility.** Nothing here shares code or data with Blueprint.
 
 ## 3. Architecture
@@ -107,38 +126,38 @@ layer is a fresh schema written for v5 — one lab, no multi-tenant scoping — 
                    │  capabilities (chat, MCP) ─▶ src/lib/data/*   src/lib/files/*   │
                    │                             (query modules)    (uploads)        │
                    │  workflows/research-batch ─▶ src/lib/research/*                 │
-                   │  workflows/mirror, cron ───▶ src/lib/mirror/*                   │
+                   │  workflows/mirror-push ────▶ src/lib/mirror/*                   │
+                   │  /api/cron/daily ──────────▶ backup · cleanup · mirror backstop │
                    └────────────────────────────────┬────────────────────┬───────────┘
                                                     ▼                    ▼
                                              Neon Postgres          Vercel Blob
                                                     │
-                        src/lib/mirror ─ push ────▶ Notion: new mirror databases
+                        src/lib/mirror ─ push ────▶ Notion: an admin's mirror databases
                         scripts/import-notion ◀─── read once ── Notion: today's databases
-                                                                (archived afterwards)
 ```
 
 ### 3.1 The source of truth moves
 
-Postgres is authoritative for every record. Notion is demoted twice over: the current databases
-become a read-only archive after a one-time import, and a new set of databases receives a
-one-way copy. This requires amending Articles 3, 5 and 7. The proposed text is in §7.1, so it can
-be argued with before anything is built.
+Postgres is authoritative for every record. Today's Notion databases are read once by the import
+and never again. A mirror, when an admin sets one up, receives a one-way copy. This requires
+amending Articles 3, 5, 6 and 7; the amended text is in §7.1 and ships in this PR.
 
 ### 3.2 Database
 
 - **Host.** Neon Postgres, installed on the `makerlab-tools-v5` Vercel project through the
   Marketplace (`vercel integration add neon`). The integration injects `DATABASE_URL` for
-  production and creates a branch database per preview deployment. The per-preview branch is
-  what makes a rehearsed cutover possible (§5.8).
+  production and creates a branch database per preview deployment, so a preview can run the
+  import and be clicked through before the read path merges.
 - **ORM and migrations.** Drizzle ORM. `drizzle-kit generate` produces SQL migrations, committed
-  under `v5/src/lib/db/migrations/`. Migrations run in a deploy step, never at request time.
-  The `pg_trgm` extension is enabled in the first migration, for duplicate matching (§5.4).
+  under `v5/src/lib/db/migrations/`. Migrations run in a deploy step (`npm run db:migrate`,
+  called from the Vercel build command), never at request time. The `pg_trgm` extension is
+  enabled in the first migration, for duplicate matching (§5.4).
 - **Drivers.**
   - Production and preview: `@neondatabase/serverless` through `drizzle-orm/neon-serverless`.
     This is the pooled client, which transactions need.
   - Tests, local development and demo mode: `@electric-sql/pglite` through `drizzle-orm/pglite`.
     It is Postgres compiled to WebAssembly, running in-process with no network, and it is what
-    keeps Article 3 true.
+    keeps Article 3 true. It runs the same migrations on first use.
 - **One entry point.** `src/lib/db/client.ts` exports `getDb()`, created lazily on first call so
   `next build` never needs `DATABASE_URL`. There is no `Proxy` wrapper.
 
@@ -158,51 +177,30 @@ catalogue. After this change:
 - **`DATABASE_URL` set but unreachable:** cached catalogue pages keep serving, and an uncached read
   renders the error state. Invented data is never served in production.
 
-### 3.3 The transition switch
-
-Phases 1–7 land on `main` while production keeps running on Notion. A temporary environment
-variable selects the backend:
-
-```
-DATA_BACKEND = "notion" | "postgres"     # default "notion" until Phase 8
-```
-
-- **One branch point.** `src/lib/catalog.ts`, `src/lib/projects.ts`, and each capability's data
-  calls branch on it through `dataBackend()`.
-- **Environments.** Preview deployments set `postgres` and get a Neon branch. Production stays on
-  `notion` until cutover.
-- **Postgres-only features** — accounts, admin pages, the add-tool flow — render nothing while
-  the backend is `notion`.
-- **Removal.** Phase 9 deletes the switch and the Notion code paths.
-
-Carrying both paths for a few weeks is the price of keeping `main` deployable. It is named as a
-risk in §8.
-
-### 3.4 Files
+### 3.3 Files
 
 Vercel Blob (`@vercel/blob`, already a dependency for backups).
 
 | Kind | Access | Why |
 |---|---|---|
-| Tool images, resource files (manuals) | `public` | Shown on public pages and served from the CDN |
-| Maintenance photos | `private` | May show people; staff-only |
-| Project photos | `private`, served through `GET /api/files/[id]` | Students may appear in them; readable only once published, or by the author and moderators |
-| Photos on pending tools | `private`; copied to a public path on approval | Not yet reviewed |
+| Tool images, resource files (manuals), project photos, photos on pending tools | `public` | Shown on public pages once published; stored at random pathnames, so unpublished ones are unguessable |
+| Maintenance photos | `private` | May show people; admin-only |
+| Nightly backups | `private` | |
 
 - **One upload route.** `POST /api/uploads` replaces `/api/upload-notion`.
   - It accepts `image/*` up to 18 MB, and `application/pdf` up to 20 MB for resources only.
   - It writes to a random pathname and records an `attachments` row with no owner.
   - It returns `{ attachmentId, previewUrl }`.
   - Anonymous uploads stay allowed for maintenance reports and chat vision, rate-limited as today.
-  - A daily job deletes unowned attachments older than 24 hours.
+  - The daily cron deletes unowned attachments older than 24 hours.
 - **Chat vision** depends on PR #31's downscaled-image fix (§7.3). This spec does not change the
   image the model receives.
 - **Images stop expiring.** Notion file URLs are signed and expire, which is the source of the
   broken catalogue images behind the 24-hour cache. Blob URLs do not expire. `next.config.ts`
   gains the Blob hostname in `images.remotePatterns`, and the import copies file bytes, never
-  URLs (§5.8).
+  URLs (§5.7).
 
-### 3.5 Accounts, roles and scopes
+### 3.4 Accounts and roles
 
 **Sign-in stays as the auth spec describes.** Better Auth runs the Google handshake, and the app
 mints its own signed session cookie. Two things change:
@@ -215,73 +213,59 @@ mints its own signed session cookie. Two things change:
    the 30-day cookie would leave a demoted admin with their old role until it expired. A row with
    `disabled_at` set resolves to anonymous.
 
-**Roles** (`src/lib/auth/roles.ts`), least to most privileged:
+**Roles** (`src/lib/auth/roles.ts`), least to most privileged. The names are the standard ones;
+the lab can rename the labels shown in the UI without touching the stored values.
 
-| Role | Who | How it is assigned |
+| Role | Who at the lab | How it is assigned |
 |---|---|---|
 | `anonymous` | Not signed in | — |
-| `member` | Anyone signed in with an allowed address — students | Automatically, on first sign-in |
-| `supermaker` | SuperMaker volunteers | By a super admin |
-| `admin` | MakerLab staff | By a super admin |
-| `super_admin` | MakerLab directors | By a super admin, or by `AUTH_SUPER_ADMIN_EMAILS` |
+| `user` | A student, or anyone signed in with an allowed address | Automatically, on first sign-in |
+| `admin` | A SuperMaker | By a super admin, on `/admin/users` |
+| `super_admin` | A director | By a super admin, or by `AUTH_SUPER_ADMIN_EMAILS` |
 
 `AUTH_SUPER_ADMIN_EMAILS` is a **floor**, not a roster: an address listed there is always
 `super_admin`, whatever its row says. It guarantees the lab cannot lock itself out, and it is how
-the first super admin comes to exist.
+the first super admin comes to exist. It starts as `ies22@cornell.edu` (Isaac). Once Niti is a
+super admin through the UI, the floor can name her instead.
 
-**Scopes are defined in code**, because a scope means nothing until code checks it:
+### 3.5 Permissions
+
+Permissions are named in code, and which roles hold each one is a table in code. A super admin
+holds everything. This replaces both the env-list roles of the auth spec and the `minimumRole`
+gate that PR #31 introduced.
 
 ```ts
-// src/lib/auth/scopes.ts
-export const SCOPES = [
-  "catalog.view_drafts",  // see unpublished and archived tools
-  "tools.add",            // identify tools and start research
-  "tools.edit",           // edit tools, resources, categories, locations
-  "tools.publish",        // publish, unpublish, archive; approve researched items
-  "units.edit",           // add units; change status, condition, serial
-  "maintenance.manage",   // work the maintenance queue
-  "feedback.manage",      // work the corrections queue
-  "projects.submit",      // post a project write-up
-  "projects.moderate",    // publish and unpublish projects
-  "mirror.run",           // run the Notion mirror now; see its status
-  "users.manage",         // change a person's role; disable an account
-  "roles.manage",         // switch scopes on and off for a role
-] as const;
-export type Scope = (typeof SCOPES)[number];
+// src/lib/auth/permissions.ts
+export const PERMISSIONS = {
+  "projects.submit":    ["user", "admin", "super_admin"],  // post a project write-up
+  "catalog.view_drafts": ["admin", "super_admin"],         // see unpublished and archived tools
+  "tools.add":          ["admin", "super_admin"],          // identify tools; send them for research
+  "tools.approve":      ["admin", "super_admin"],          // approve a researched tool into the inventory
+  "tools.edit":         ["admin", "super_admin"],          // edit tools, units, resources, categories, locations
+  "tools.publish":      ["admin", "super_admin"],          // publish, unpublish, archive
+  "maintenance.manage": ["admin", "super_admin"],          // work the maintenance queue
+  "feedback.manage":    ["admin", "super_admin"],          // work the corrections queue
+  "projects.moderate":  ["admin", "super_admin"],          // publish and unpublish projects
+  "mirror.manage":      ["admin", "super_admin"],          // set up and run one's own Notion mirror
+  "users.manage":       ["super_admin"],                   // change roles; disable accounts
+} as const satisfies Record<string, readonly Role[]>;
 
-/** Never grantable below super_admin, so no role can grant itself more. */
-export const SUPER_ADMIN_ONLY: readonly Scope[] = ["users.manage", "roles.manage"];
+export type Permission = keyof typeof PERMISSIONS;
+export function can(identity: Identity | null, permission: Permission): boolean;
 ```
 
-**Which role has which scope lives in the database** (`role_scopes`), because the lab asked for it
-to be "a very easy switch". `/admin/roles` is a role × scope matrix of toggles. `super_admin` holds
-every scope implicitly and has no rows. The two `SUPER_ADMIN_ONLY` scopes cannot be toggled on for
-any other role, so a mistaken toggle cannot escalate anyone.
+Three roles make most rows identical, and that is fine: the table exists so the *next* change —
+"SuperMakers may add tools but not publish them" — is one line, reviewed in a PR, rather than a
+search through route handlers.
 
-**Default grants**, seeded by migration and changeable afterwards:
+**One check, everywhere.**
 
-| Scope | member | supermaker | admin |
-|---|:-:|:-:|:-:|
-| `projects.submit` | ✓ | ✓ | ✓ |
-| `tools.add` | | ✓ | ✓ |
-| `units.edit` | | ✓ | ✓ |
-| `maintenance.manage` | | ✓ | ✓ |
-| `catalog.view_drafts` | | ✓ | ✓ |
-| `tools.edit` | | | ✓ |
-| `tools.publish` | | | ✓ |
-| `feedback.manage` | | | ✓ |
-| `projects.moderate` | | | ✓ |
-| `mirror.run` | | | ✓ |
+- **Server-side:** server actions, route handlers, and capability composition call `can()`.
+- **Client-side:** `GET /api/identity` returns `role`, and components hide controls with the same
+  table. Hiding is presentation; the server check is the control.
 
-**One check, everywhere.** `can(identity, scope)` in `src/lib/auth/permissions.ts`.
-
-- **Server-side:** server actions, route handlers, and capability composition call it.
-- **Client-side:** `GET /api/identity` now also returns `scopes: Scope[]`, and components use it to
-  hide controls. Hiding is presentation; the server check is the control.
-
-**Capabilities declare scopes, not roles.** A capability or tool gains `requiredScope?: Scope`,
-enforced once when the chat composes its tools. This replaces the `minimumRole` that PR #31
-introduced (§7.3).
+**Capabilities declare permissions, not roles.** A capability gains
+`requiredPermission?: Permission`, enforced once when the chat composes its tools.
 
 ### 3.6 Capabilities (Article 2)
 
@@ -291,35 +275,35 @@ introduced (§7.3).
 | `units` | `get_unit_details`, `get_maintenance_history` | Reads Postgres. |
 | `maintenance` | `report_issue` | Writes `maintenance_logs`. The Notion retry-without-`reporter_email` workaround is deleted. |
 | `flags` | `report_correction` | Writes `feedback`. Its raw Notion `fetch` is deleted. |
-| `intake` | `identify_tools` (new, chat-only, `requiredScope: "tools.add"`); `create_tool` stays, **MCP-only** | `research_tool` and `propose_listing` leave the chat. Research moves into the workflow (§3.7). |
+| `intake` | `identify_tools` (new, chat-only, `requiredPermission: "tools.add"`); `create_tool` stays, **MCP-only** | `research_tool` and `propose_listing` leave the chat. Research moves into the workflow (§3.7). |
 
 `identify_tools` is the only intake tool the model can call, and it creates pending rows owned by
 the caller and nothing else. Starting research is a button press handled by a route, not a tool
 call, so the model never spends research budget on its own initiative.
 
-### 3.7 Background research: Vercel Workflow
+### 3.7 Background research: the Workflow SDK
 
 Research runs as a durable workflow, `v5/src/workflows/research-batch.ts`, using the Workflow SDK:
 the `workflow` package, `withWorkflow` from `workflow/next` in `next.config.ts`, and `start()` from
-`workflow/api`.
+`workflow/api`. On Vercel this is Vercel Workflows.
 
-**Why a workflow**, rather than the chat turn or a plain background function:
+**Why a workflow**, rather than the chat turn, a plain background function, or a queue library:
 
 - The chat route has `maxDuration = 60`, a 10-step budget, and 5 searches and 5 fetches per turn —
   not enough to research a batch.
 - A plain background function has no retries and loses its state when it times out.
+- pg-boss and similar need a worker process that is always running, which Vercel does not provide.
 - Workflow steps retry, persist their results, survive deploys, and appear in Vercel
   Observability, so a stuck research run can be diagnosed.
 
 ```ts
 // v5/src/workflows/research-batch.ts (sketch)
-export async function researchBatch(batchId: string) {
+export async function researchBatch(batchId: string, itemIds: string[]) {
   "use workflow";
-  const ids = await loadQueuedItems(batchId);                // step
-  for (const group of chunk(ids, RESEARCH_CONCURRENCY)) {    // 4 at a time (Article 4)
+  for (const group of chunk(itemIds, RESEARCH_CONCURRENCY)) {   // 3 at a time (Article 4)
     await Promise.allSettled(group.map((id) => researchItem(id)));
   }
-  await finishBatch(batchId);                                // step: revalidate the intake view
+  await finishBatch(batchId);                                    // step: revalidate the intake views
 }
 
 async function researchItem(id: string) {
@@ -338,33 +322,41 @@ async function researchItem(id: string) {
 - **Errors.** A 429 or 5xx from the model or a fetch throws `RetryableError`, with at most 3
   attempts. Anything else throws `FatalError`, which marks that item `failed` with its error and
   leaves the other items running.
-- **If Workflows prove unsuitable** (§11 q3), `researchItem` runs from a `research_jobs` claim
-  table instead, driven by a trigger route. Nothing outside `src/workflows/` knows which runner is
-  in use.
+- **Hobby allowance.** 50,000 workflow events and 1 GB written per month; a step is about three
+  events. Researching 100 tools is a few hundred events. Run history is kept for one day on Hobby,
+  so the item's own `research_error` column, not the run log, is the record of what went wrong.
 
-### 3.8 The Notion mirror
+### 3.8 The Notion mirror (built last)
 
-**Setup.**
+The mirror is a settings page, `/admin/mirror`, that belongs to the signed-in admin. It is the
+simplest thing that pushes the inventory into a Notion workspace and says when it last did so.
 
-1. A person creates a page, "MakerLab Tools — mirror", and shares it with the integration.
-2. `scripts/notion-mirror-setup.ts` creates seven databases under it — Categories, Locations,
-   Tools, Units, Resources, Maintenance, Projects — with fixed property schemas.
-3. The script records their ids in `mirror_targets`.
+**What an admin sees.**
 
-**Push** (`src/lib/mirror/`):
+- **Connect:** a field for a Notion internal-integration token and a field for the URL of a page
+  the integration has been shared with. **Test connection** reads the page and shows its title.
+- **Mapping:** a fixed list of the app's tables — categories, locations, tools, units, resources,
+  maintenance, projects — each with the id of its Notion database. **Create databases** makes all
+  seven under the connected page with fixed property schemas and fills the mapping in. An admin
+  who already has databases can paste ids instead; the page validates each one's properties
+  against the expected schema before saving.
+- **Status:** last synced time, last result (ok, partial, failed) and the last error text.
+- **Controls:** **Sync now**, **Pause** / **Resume**, **Disconnect** (which forgets the token).
 
-1. Take the lease: a conditional update on `mirror_lease.running_since`, expiring after 15 minutes,
-   so two runs never overlap.
-2. For each entity, in dependency order — categories, locations, tools, units, resources,
-   maintenance, projects — select rows with `updated_at > mirror_targets.last_pushed_at`.
+**Push** (`src/lib/mirror/`, run by the `mirrorPush(mirrorId)` workflow):
+
+1. Skip if the mirror is paused or another push for it started less than 15 minutes ago
+   (`running_since`, a conditional update).
+2. For each mapped entity, in dependency order — categories, locations, tools, units, resources,
+   maintenance, projects — select rows with `updated_at > last_synced_at`.
 3. Upsert each page through its `mirror_pages` row: update the page if the row exists; otherwise
    create it and record its id.
 4. Archive the pages of archived tools.
-5. Advance `last_pushed_at` only past rows that succeeded, and record status and error.
-6. Release the lease.
+5. Record `last_synced_at`, status and error. On partial failure, `last_synced_at` does not
+   advance, so the next push retries the rows that failed.
 
-Requests are throttled to 3 per second and retried on 429 using `Retry-After`. A run stops after 45
-seconds and leaves the rest for the next run.
+Requests are throttled to 3 per second and retried on 429 using `Retry-After`. One push is
+bounded at 45 seconds; what is left waits for the next one.
 
 **What is mirrored.**
 
@@ -372,20 +364,22 @@ seconds and leaves the rest for the next run.
 - Units, resources, categories and locations.
 - Maintenance logs **without reporter emails**.
 - Published projects only.
-- Images: public URLs go into files properties as external URLs; private photos are never mirrored.
+- Images: public Blob URLs go into files properties as external URLs; private photos are never
+  mirrored.
 
-**Triggers.**
+**Triggers**, in order of how much they matter:
 
-- A write to a mirrored table calls `requestMirror()`. It starts a short workflow that sleeps 60
-  seconds, so a burst of edits coalesces into one push, and then pushes.
-- A daily cron is the backstop. Hobby allows cron jobs at most once per day, so the cron alone
-  could not deliver Goal 8.
-- `/admin` has a **Run mirror now** button (`mirror.run`).
+1. **A change in the app.** Approving a tool, publishing, and saving an edit call
+   `requestMirrorPush()`, which starts a short workflow that sleeps two minutes, so a burst of
+   edits coalesces, then pushes every active mirror.
+2. **Sync now** on the page.
+3. **The daily cron** as a backstop, for anything the triggers missed.
 
-**Never the archive.** The push refuses any database id equal to one of the archived `NOTION_DB_*`
-ids, so a misconfigured target cannot overwrite history.
+**Owners.** A mirror is one admin's. The first is Isaac's, on Isaac's Notion. When Niti wants one
+on hers, she opens the same page and connects her own token; nothing about the first mirror
+changes.
 
-### 3.9 Caching and invalidation (Article 4)
+### 3.9 Caching, invalidation and the daily cron (Article 4)
 
 - **Reads.** Catalogue reads keep `'use cache'` with `cacheTag("catalog")`. Detail reads add
   `cacheTag("tool:<id>")`, and project reads add `cacheTag("projects")`.
@@ -393,8 +387,12 @@ ids, so a misconfigured target cannot overwrite history.
   their own change on the next render. Route handlers and workflow steps call
   `revalidateTag(tag, "max")`.
 - **Cache lifetime.** The 24-hour revalidation window was sized for slow, rate-limited Notion
-  reads. With invalidation on every write, it can stay long: staleness now comes only from writes
-  the app did not make, and after cutover there are none.
+  reads. With invalidation on every write it can stay long: staleness now comes only from writes
+  the app did not make, and there are none.
+- **One cron.** Hobby allows a cron job to run at most once a day, so `vercel.json` keeps one
+  entry, `/api/cron/daily`, which does the nightly backup (a JSON export of every table to a
+  private blob, kept 30 days), deletes orphaned uploads and stale pending items, and pushes any
+  mirror whose data is newer than its last sync.
 
 ### 3.10 What moves where
 
@@ -404,29 +402,29 @@ ids, so a misconfigured target cannot overwrite history.
 | `src/lib/notion.ts` writes | `src/lib/data/*` | Yes |
 | `capabilities/flags.ts` raw Notion `fetch` | `src/lib/data/feedback.ts` | Yes |
 | `POST /api/upload-notion` | `POST /api/uploads` (Blob) | Yes for callers; the response shape changes |
-| `GET /api/health` Notion probe | Postgres probe plus mirror status | Yes |
-| `GET /api/admin/backup` (Notion to Blob) | Postgres dump to private Blob, same schedule and retention | Yes |
+| `GET /api/health` Notion probe | Postgres probe | Yes |
+| `GET /api/admin/backup` (Notion to Blob) | Part of `/api/cron/daily`, JSON export of Postgres | Yes |
 | `src/components/mock-catalog.ts` | PGlite demo seed, `src/lib/db/demo-seed.ts` | Yes, for tests and E2E |
-| `AUTH_STAFF_EMAILS`, `AUTH_ADMIN_EMAILS` | `users.role` + `role_scopes`; `AUTH_SUPER_ADMIN_EMAILS` as floor | No — roles move into the app |
-| Chat intake with research in the turn | `identify_tools` in chat; research in a workflow; review on `/admin/intake` | No — the new flow |
-| Anonymous project submission | Requires `projects.submit` | No — deliberate |
-| Publishing in Notion | `tools.publish` / `projects.moderate` in the app | No — deliberate |
-| `scripts/migrate-tools-to-resources.ts`, `drop-deprecated-notion-columns.ts`, `clear-resource-migration-notes.ts`, `validate-notion-migration.ts` | Retired in Phase 9; deletion proposed separately | — |
+| `AUTH_STAFF_EMAILS`, `AUTH_ADMIN_EMAILS` | `users.role`; `AUTH_SUPER_ADMIN_EMAILS` as floor | No — roles move into the app |
+| Chat intake with research in the turn | `identify_tools` in chat; research in a workflow; preliminary pages on `/admin/intake` | No — the new flow |
+| Anonymous project submission | Requires sign-in | No — deliberate |
+| Publishing in Notion | Approve and publish in the app | No — deliberate |
+| `scripts/migrate-tools-to-resources.ts`, `drop-deprecated-notion-columns.ts`, `clear-resource-migration-notes.ts`, `validate-notion-migration.ts` | Retired in Phase 2; deletion proposed separately | — |
 | `scripts/generate-qr-labels.ts` | Reads Postgres and prints `/tools/<slug>` | Old labels still resolve (Goal 2) |
+| "Notion-backed" in `AGENTS.md`, `v5/AGENTS.md`, `CLAUDE.md` | "Postgres-backed, with an optional Notion mirror" | Docs, updated in Phase 2 |
 
 ### 3.11 Environment contract
 
 | Variable | Status | Purpose |
 |---|---|---|
 | `DATABASE_URL` | New (Neon) | Postgres connection; unset means PGlite demo |
-| `DATA_BACKEND` | New, temporary | `notion` or `postgres`; removed in Phase 9 |
-| `AUTH_SUPER_ADMIN_EMAILS` | New | Super-admin floor |
+| `AUTH_SUPER_ADMIN_EMAILS` | New | Super-admin floor; starts as `ies22@cornell.edu` |
 | `LAB_TIMEZONE` | New, default `America/New_York` | Dates on tickets (Article 6: configuration, not a constant) |
 | `BLOB_READ_WRITE_TOKEN` | Existing | Uploads and backups |
-| `CRON_SECRET` | Existing | Cron routes |
-| `NOTION_API_KEY` | Kept | Mirror and import only |
-| `NOTION_DB_*` (8) | Import only, then removed | Source databases; also the archive-id guard |
-| `AUTH_STAFF_EMAILS`, `AUTH_ADMIN_EMAILS` | Removed in Phase 4 | Read once, by the roster import (§11 q4) |
+| `CRON_SECRET` | Existing | The daily cron route |
+| `AUTH_SECRET` | Existing | Session cookie; also derives the key that encrypts mirror tokens (§8) |
+| `NOTION_API_KEY`, `NOTION_DB_*` (8) | Import only, then removed | Source databases. Mirrors carry their own tokens. |
+| `AUTH_STAFF_EMAILS`, `AUTH_ADMIN_EMAILS` | Removed in Phase 4 | Read once, to seed the first admin rows |
 
 ## 4. Data model
 
@@ -446,13 +444,13 @@ audit of this workspace (recorded in the Blueprint repository) found that every 
 log was `Open`. A constraint built from observed values would have allowed only `open`, and
 resolving a ticket would have failed in production. The same audit found options that v5's
 TypeScript types do not list: unit condition `New` and maintenance status `Closed`. The import's
-pre-flight re-reads the defined options and stops on anything unmapped (§5.8).
+pre-flight re-reads the defined options and stops on anything unmapped (§5.7).
 
 ### 4.1 Vocabularies
 
 ```ts
 // src/lib/db/vocabulary.ts
-export const ROLES = ["member", "supermaker", "admin", "super_admin"] as const;
+export const ROLES = ["user", "admin", "super_admin"] as const;   // stored; "anonymous" is never a row
 export const UNIT_STATUS = ["available", "in_use", "under_maintenance", "out_of_service", "retired"] as const;
 export const UNIT_CONDITION = ["excellent", "good", "fair", "needs_repair", "new"] as const;
 export const MAINTENANCE_TYPE = ["issue_report", "preventive_maintenance", "repair", "inspection", "calibration"] as const;
@@ -462,9 +460,10 @@ export const FEEDBACK_STATUS = ["new", "reviewed", "fixed", "dismissed"] as cons
 export const FLAG_FIELDS = ["description", "image", "name", "category", "location", "materials", "safety_info"] as const;
 export const PENDING_STATUS = ["identified", "queued", "researching", "researched", "failed", "approved", "discarded"] as const;
 export const ATTACHMENT_OWNER = ["tool", "resource", "maintenance_log", "project", "pending_tool"] as const;
+export const MIRROR_ENTITY = ["categories", "locations", "tools", "units", "resources", "maintenance", "projects"] as const;
 ```
 
-### 4.2 `users`, `role_scopes`
+### 4.2 `users`
 
 | Column | Type | Notes |
 |---|---|---|
@@ -472,13 +471,9 @@ export const ATTACHMENT_OWNER = ["tool", "resource", "maintenance_log", "project
 | `email` | text; unique on `lower(email)` | From Google, lower-cased |
 | `name` | text null | |
 | `google_sub` | text unique null | |
-| `role` | text; CHECK in `ROLES`; default `member` | |
+| `role` | text; CHECK in `ROLES`; default `user` | |
 | `disabled_at` | timestamptz null | Set → resolves to anonymous |
 | `last_sign_in_at` | timestamptz null | |
-
-`role_scopes` has columns `role` (text, CHECK in `ROLES` and `<> 'super_admin'`) and `scope`
-(text), with primary key `(role, scope)`. The query module validates `scope` against `SCOPES`,
-because the list lives in code.
 
 ### 4.3 `categories`, `locations`
 
@@ -487,7 +482,7 @@ because the list lives in code.
   has three case-insensitive name collisions across different groups.
 - **`locations`:** `room` and `zone` not null; `map_tag` null, unique when present. Unique on
   `(lower(room), lower(zone))`.
-- **Both** carry `notion_page_id` (text, unique, null) — the archive id from the import.
+- **Both** carry `notion_page_id` (text, unique, null) — the source page id from the import.
 
 ### 4.4 `tools`
 
@@ -543,6 +538,9 @@ because the list lives in code.
 | `content_type`, `size_bytes`, `width`, `height`, `original_filename` | | |
 | `uploaded_by` | uuid fk `users` null | |
 
+When a pending tool is approved its attachments are re-owned to the new tool by updating
+`owner_type` and `owner_id`; the bytes do not move.
+
 ### 4.8 `maintenance_logs`
 
 | Column(s) | Notes |
@@ -577,7 +575,7 @@ title.
 | `status` | CHECK `FEEDBACK_STATUS`, default `new` |
 | `notion_page_id` | |
 
-### 4.10 `projects`, `project_tools`
+### 4.10 `projects`, `project_tools`, `pending_tools`
 
 **`projects`:**
 
@@ -595,7 +593,7 @@ title.
 
 **`project_tools(project_id, tool_id)`** — both foreign keys cascade.
 
-### 4.11 `pending_tools`
+**`pending_tools`:**
 
 ```ts
 // src/lib/data/pending-tools.ts (types)
@@ -604,7 +602,7 @@ export type DuplicateResolution = "new_tool" | "add_unit" | "discard";
 
 export interface PendingTool {
   id: string;
-  batchId: string;               // items identified together
+  batchId: string;               // items identified together, in one chat turn
   status: PendingStatus;
   name: string;                  // full name, e.g. "Bambu Lab X1-Carbon Combo"
   brand: string | null;
@@ -641,29 +639,40 @@ export interface ResearchResult {
 ```
 
 - **Storage.** `research` is `jsonb`, validated by the same zod schema on write and on read.
+- **Selection is not stored.** Which rows to research is chosen on the card and sent as a list of
+  ids; the batch only groups rows that were identified together.
 - **Cleanup.** An item left `identified` for 14 days is discarded, and its attachments deleted, by
-  the daily cleanup job.
+  the daily cron.
 
-### 4.12 `audit_events`
+### 4.11 `audit_events`
 
 Append-only: the data layer exposes insert and select, never update or delete.
 
 - **Columns:** `at`, `actor_user_id`, `action`, `subject_type`, `subject_id`, `detail` (jsonb).
-- **`action` values:** `role.changed`, `scope.granted`, `scope.revoked`, `user.disabled`,
-  `tool.published`, `tool.unpublished`, `tool.archived`, `project.published`,
-  `project.unpublished`, `pending.approved`.
+- **`action` values:** `role.changed`, `user.disabled`, `tool.published`, `tool.unpublished`,
+  `tool.archived`, `project.published`, `project.unpublished`, `pending.approved`,
+  `mirror.connected`, `mirror.disconnected`.
 - **Scope:** security-relevant actions only. Ordinary edits are not logged here (Non-goals).
 
-### 4.13 Mirror tables
+### 4.12 Mirror tables
 
-- `mirror_targets` — `entity` (text pk), `notion_database_id` (text not null), `last_pushed_at`
-  (timestamptz null), `last_status` (text null), `last_error` (text null).
-- `mirror_pages` — `entity` (text), `entity_id` (uuid), `notion_page_id` (text unique), `pushed_at`
-  (timestamptz); primary key `(entity, entity_id)`.
-- `mirror_lease` — a single row (`id` smallint pk, CHECK `id = 1`), with `running_since` and
-  `requested_at` (both timestamptz null).
+**`notion_mirrors`** — one row per admin who has set one up.
 
-### 4.14 View models keep their shape
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid pk | |
+| `owner_user_id` | uuid fk `users`, unique | One mirror per admin |
+| `token_ciphertext` | bytea not null | AES-256-GCM; key derived from `AUTH_SECRET` (§8) |
+| `parent_page_id` | text not null | The shared Notion page |
+| `mapping` | jsonb not null | `{ [entity in MIRROR_ENTITY]?: string }` — database ids |
+| `paused_at` | timestamptz null | |
+| `running_since` | timestamptz null | The overlap guard |
+| `last_synced_at`, `last_status`, `last_error` | timestamptz null / text null / text null | |
+
+**`mirror_pages`** — `mirror_id` (fk, cascade), `entity` (CHECK `MIRROR_ENTITY`), `entity_id`
+(uuid), `notion_page_id` (text), `pushed_at`; primary key `(mirror_id, entity, entity_id)`.
+
+### 4.13 View models keep their shape
 
 `MakerLabTool`, `MakerLabUnit` and `MakerLabProject` in `src/components/catalog-types.ts` keep
 their fields, so pages, components and capability outputs are untouched.
@@ -673,35 +682,35 @@ their fields, so pages, components and capability outputs are untouched.
 - **Derived fields** (`status`, `trainingLevel`, `trainingLabel`, and unit `condition`) are computed
   exactly as `catalog.ts` computes them today, from the new stored values.
 
-### 4.15 What a person must do in Notion
+### 4.14 What a person must do in Notion
 
-Notion has no migrations. These steps are manual and happen in the phase named.
+Notion has no migrations. These steps are manual and happen in the phase named. Nothing is done
+to today's databases; they stay as they are on Niti's Notion.
 
 | When | Action | Who |
 |---|---|---|
-| Phase 6 | Create a page "MakerLab Tools — mirror" and share it, with edit access, with the integration behind `NOTION_API_KEY` | Niti or Isaac |
-| Phase 6 | Run `scripts/notion-mirror-setup.ts`, which creates the seven databases. No properties are built by hand. | Isaac |
-| Phase 8, after the final import | Rename today's databases with an `ARCHIVE — ` prefix, and set workspace members to view-only on them | Niti |
-| Phase 8 | Tell staff: edit on the website; the mirror is view-only; the archive is history | Niti |
-
-Records created before cutover are imported with their Notion page ids. Nothing in Notion is
-deleted.
+| Phase 1 | Confirm the existing integration behind `NOTION_API_KEY` can still read all eight databases, so the import can run | Isaac |
+| Phase 8 | Create an internal integration in one's own Notion workspace, create a page "MakerLab Tools — mirror", share the page with the integration, and paste the token and page URL into `/admin/mirror`. **Create databases** does the rest. | Isaac first; Niti later, on her own workspace |
 
 ## 5. Behaviour / flow
 
 ### 5.1 Browsing and chat
 
-Unchanged for visitors. Reads come from Postgres, and images come from Blob.
+Unchanged for visitors. Reads come from Postgres, and images come from Blob. The assistant keeps
+answering in the visitor's selected language; this is the translation feature that matters most
+and it already works.
 
 ### 5.2 Signing in, and changing a role
 
 1. A person signs in with Google. The after-hook enforces the domain as it does today, upserts
    their `users` row, and sets the cookie.
-2. On their next request, `resolveIdentity` reads their role. A new address is `member`; an
-   address in `AUTH_SUPER_ADMIN_EMAILS` is `super_admin`.
-3. A super admin opens `/admin/users`, finds the person, and picks a new role. The server action:
+2. On their next request, `resolveIdentity` reads their role. A new address is `user`; an address
+   in `AUTH_SUPER_ADMIN_EMAILS` is `super_admin`.
+3. A super admin opens `/admin/users`, finds the person, and picks a new role — `user`, `admin`
+   or `super_admin`. The server action:
    - checks `users.manage`;
-   - refuses to demote an address in `AUTH_SUPER_ADMIN_EMAILS`, and the UI explains why;
+   - refuses to demote or disable an address in `AUTH_SUPER_ADMIN_EMAILS`, and the UI explains
+     why;
    - writes the role;
    - records `role.changed`.
 4. The person's next request resolves the new role. Nothing is cached across requests.
@@ -709,18 +718,18 @@ Unchanged for visitors. Reads come from Postgres, and images come from Blob.
 **Unhappy paths.**
 
 - **The database is down during sign-in.** The upsert fails but sign-in still completes. The person
-  resolves as `member` until a request can read their row. Sign-in never fails because of the
+  resolves as `user` until a request can read their row. Sign-in never fails because of the
   upsert.
 - **A disabled account** resolves to anonymous, and the header offers sign-in as if they were
   signed out.
 
 ### 5.3 Editing inventory
 
-**(a) `/admin/inventory` — the review table.** Requires `tools.edit` or `units.edit`.
+**(a) `/admin/inventory` — the review table.** Requires `tools.edit`.
 
-1. A server-rendered table of every tool, with drafts and archived tools included for
-   `catalog.view_drafts`. Columns: photo, name, category, location, units (count and worst
-   status), state (published, draft, archived), last reviewed, last updated.
+1. A server-rendered table of every tool, drafts and archived tools included. Columns: photo,
+   name, category, location, units (count and worst status), state (published, draft, archived),
+   last reviewed, last updated.
 2. Filters: state, category, location, free-text search, and **Needs attention** — no photo, no
    manual, unlinked units, open tickets, or never reviewed.
 3. Selecting a row opens the **tool editor** in a side panel:
@@ -728,19 +737,18 @@ Unchanged for visitors. Reads come from Postgres, and images come from Blob.
    - **Units:** add one; edit label, serial, asset tag, status, condition, date acquired.
    - **Resources:** add a URL or upload a PDF.
    - **Photos:** upload, reorder, remove.
-   - **Looks good**, which sets `last_reviewed_at`. A full inventory review is this table filtered
-     to *never reviewed*, one row at a time: good, edit, or archive.
+   - **Looks good**, which sets `last_reviewed_at`. A full inventory review — what Isaac and Luis
+     do after the phases land — is this table filtered to *never reviewed*, one row at a time:
+     good, edit, or archive.
 4. **Save** calls `updateTool(id, patch, expectedUpdatedAt)`. If `updated_at` has moved since the
    panel opened, nothing is written; the panel says someone else changed this tool and offers to
    reload. There is never a silent overwrite.
-5. **Publish**, **Unpublish** and **Archive** appear only with `tools.publish`, and each writes an
-   audit event.
+5. **Publish**, **Unpublish** and **Archive** write an audit event each.
 
-**(b) Edit mode on `/tools/<slug>`.** Requires `tools.edit` or `units.edit`.
+**(b) Edit mode on `/tools/<slug>`.** Requires `tools.edit`.
 
-- An **Edit** control opens the same tool editor over the detail page.
-- A person with only `units.edit` sees just the units section — for example, a SuperMaker marking a
-  printer out of service from their phone.
+- An **Edit** control opens the same tool editor over the detail page. It is designed phone-first,
+  because a SuperMaker marking a printer out of service is standing next to the machine.
 - Drafts are reachable at their slug only with `catalog.view_drafts`. Everyone else gets the 404
   page.
 
@@ -753,7 +761,7 @@ Unchanged for visitors. Reads come from Postgres, and images come from Blob.
 
 **Step 1 — identify, in the chat** (`tools.add`).
 
-1. The person opens the chat and sends photos, text, or both. The header's **Add** button seeds "I'd
+1. The admin opens the chat and sends photos, text, or both. The header's **Add** button seeds "I'd
    like to add new equipment to the inventory."
 2. The model looks at the photos and the words and works out what each item is. For example, "a
    Bambu X-something" plus a photo of the front becomes *Bambu Lab X1-Carbon Combo*.
@@ -784,77 +792,81 @@ Unchanged for visitors. Reads come from Postgres, and images come from Blob.
    - attaches the photos;
    - runs the **duplicate check** against published tools, drafts and other pending items (a
      normalized name-plus-brand match first, then `pg_trgm` similarity above a threshold);
-   - emits a `data-pending-table` card.
-5. **The pending table card** is an editable table, not a row of chat buttons.
-   - **Columns:** photo, name, brand, category, and a duplicate badge.
+   - emits a `data-intake-table` card.
+5. **The intake table card** is an editable table with a checkbox on every row.
+   - **Columns:** checkbox, photo, name, brand, category, and a duplicate badge.
+   - **Selection:** a header checkbox selects all or none; row checkboxes select some. Every row
+     starts selected.
    - **Row actions:** edit inline, or remove.
    - **Duplicate rows** must choose one of **Add as another unit** (which asks for a serial number),
-     **It's a different tool**, or **Remove**.
+     **It's a different tool**, or **Remove**. An unresolved duplicate cannot be selected.
    - **Edits** go through `PATCH /api/pending-tools/[id]`, never through the model, so fixing a typo
      costs no tokens.
-   - **Research N tools** stays disabled while any row is being edited or any duplicate is
-     unresolved.
+   - **Research selected (N)** is disabled while any selected row is being edited, and when nothing
+     is selected. Unselected rows stay `identified` and appear on `/admin/intake` for later.
 
 **Step 2 — research, in the background.**
 
-6. **Research N tools** calls `POST /api/pending-tools/batches/[batchId]/research`. The route:
-   - checks `tools.add`, and that the caller created the batch or holds `tools.publish`;
-   - enforces the limits: 25 items per batch, and 100 researched items per person per day;
+6. **Research selected (N)** calls `POST /api/pending-tools/research` with the item ids. The route:
+   - checks `tools.add`, and that every item belongs to a batch the caller created or that the
+     caller holds `tools.approve`;
+   - enforces the limits: 25 items per request, and 100 researched items per person per day;
    - sets the items to `queued`;
-   - calls `start(researchBatch, [batchId])` and stores the run id;
+   - calls `start(researchBatch, [batchId, itemIds])` and stores the run id on each item;
    - returns immediately.
 7. The card changes to "Researching 5 tools — you can close this. Results will be on the Intake
-   page," with a link to `/admin/intake?batch=…`.
+   page," with a link to `/admin/intake`.
 8. **Add as another unit** rows skip research: they become `researched` straight away with their
    target tool, because there is nothing to look up.
-9. The workflow researches the rest, four at a time (§3.7). Each item finishes as `researched` or
+9. The workflow researches the rest, three at a time (§3.7). Each item finishes as `researched` or
    `failed` independently.
 
-**Step 3 — review and approve** (`/admin/intake`).
+**Step 3 — review and approve** (`/admin/intake`, `tools.approve`).
 
-10. The queue groups items by batch. Each researched item shows:
+10. The intake page lists every pending item, newest batch first, with its status. A `researched`
+    item opens its **preliminary page**, `/admin/intake/[id]`, which shows:
     - the proposed record, editable in the same fields as the tool editor;
     - the confidence strip, reused from the identification card;
     - sources, verified links and dropped links;
-    - the photo.
+    - the photos.
 
-    The page polls every 5 seconds while any item in view is `queued` or `researching`.
-11. **Actions.**
-    - **Approve as draft** (`tools.add`) — creates the unpublished tool, its units, resources and
-      attachments, in one transaction.
-    - **Approve and publish** (`tools.publish`) — the same with `published = true`, plus an audit
-      event.
-    - **Add unit** (`units.edit`) — creates the unit on the existing tool.
-    - **Re-run research**, or **Discard**.
-12. **Low confidence** disables both Approve actions until the person either changes the name or
-    brand and re-runs research, or ticks "I've checked this" and adds a note. This is the
-    confidence spec's behaviour gate, moved from the chat card to the review page.
+    The list polls every 5 seconds while any item in view is `queued` or `researching`.
+11. **Actions on a preliminary page.**
+    - **Approve** — creates the tool, its units, resources and attachments in one transaction,
+      **published**, and records `pending.approved` and `tool.published`. This is the human
+      approval Article 5 requires.
+    - **Approve as draft** — the same, unpublished, for an admin who wants to finish it in the
+      editor first.
+    - **Add unit** — for an `add_unit` item, creates the unit on the existing tool.
+    - **Research again**, or **Discard**.
+12. **Low confidence** disables both Approve actions until the admin either changes the name or
+    brand and researches again, or ticks "I've checked this" and adds a note. This is the
+    confidence spec's behaviour gate, moved from the chat card to the preliminary page.
 
 **Unhappy paths.**
 
 - **The workflow fails to start:** the items stay `queued`, the error shows, and a **Retry** button
-  appears.
+  appears on the intake page.
 - **The model cannot identify an item:** it asks one short question instead of calling
   `identify_tools` for that item.
 - **The browser cannot encode a photo:** identification proceeds from the text, and the photo still
   attaches.
-- **Two people add the same tool at the same time:** the second duplicate check sees the first
-  person's pending row.
+- **Two admins add the same tool at the same time:** the second duplicate check sees the first
+  admin's pending row.
 - **Research finds nothing:** the item becomes `researched` with low confidence and empty
   resources, never invented ones.
 
 ### 5.5 Projects
 
-- `/projects/new` requires `projects.submit`. Anonymous visitors see "Sign in to share your project"
-  in place of the form.
+- `/projects/new` requires `projects.submit`, which every signed-in person has. Anonymous visitors
+  see "Sign in to share your project" in place of the form.
 - The author is the signed-in user; the typed-name field is removed.
-- Submissions stay unpublished until someone with `projects.moderate` publishes them on
-  `/admin/projects`.
+- Submissions stay unpublished until an admin publishes them on `/admin/projects`.
 
 ### 5.6 Maintenance and corrections
 
-Anyone can still report a problem or a correction. After cutover staff can no longer work tickets
-in Notion, so this spec includes the smallest queues that keep that work possible:
+Anyone can still report a problem or a correction. Admins can no longer work tickets in Notion, so
+this spec includes the smallest queues that keep that work possible:
 
 - **`/admin/maintenance`** (`maintenance.manage`): list tickets; change status, priority and
   assignee; write a resolution.
@@ -863,19 +875,12 @@ in Notion, so this spec includes the smallest queues that keep that work possibl
 
 Notifications, service targets and assignment rules are out of scope.
 
-### 5.7 The mirror at work
+### 5.7 Import
 
-Setup, push and triggers are in §3.8.
+The import replaces cutover planning: it runs into the production database before the read-path
+phase merges, and then the app simply reads Postgres.
 
-- **A failed push** is logged, shown on `/admin` as the last status and error, and retried on the
-  next trigger.
-- **Notion's API is down:** the app is unaffected.
-- **A mirror database was deleted by hand:** that entity's push fails with "database not found", and
-  `/admin` offers to re-run setup for it.
-
-### 5.8 Import and cutover
-
-**Import** (`scripts/import-notion.ts`, read-only against Notion):
+**`scripts/import-notion.ts`**, read-only against Notion:
 
 1. **Pre-flight.** Read each database's schema and compare every select and multi-select option
    with §4.1. **Stop** on an unmapped value, naming the database, property and option. Silently
@@ -888,55 +893,53 @@ Setup, push and triggers are in §3.8.
 5. **Split maintenance descriptions.** v5 composes "What happened / Reported by / Date reported /
    Priority" into one description. The import parses these back into columns, and keeps the
    original text in `description` whenever parsing is not exact.
-6. **Idempotent.** A re-run updates rows by `notion_page_id` and reports a diff. That is what makes
-   a rehearsal followed by a final run safe.
+6. **Idempotent.** A re-run updates rows by `notion_page_id` and reports a diff, so it can be run
+   on a preview branch first and again into production.
 
-**Verification** (`scripts/verify-import.ts`) checks:
+**`scripts/verify-import.ts`** checks:
 
 - row counts per entity;
 - relation integrity — every unit's tool, every resource's tool;
 - files — every attachment has bytes in Blob;
 - five named tools — their rendered `MakerLabTool` objects compared field by field between the
-  Notion path and the Postgres path.
+  Notion path (on the branch before the switch) and the Postgres path.
 
-**Cutover runbook.**
+**The switch**, in Phase 2: import into a Neon preview branch and click through the preview; import
+into production; merge the read-path PR; check the gallery count, three tool pages with images,
+an old `/tools/<notion-id>` URL, an anonymous chat answer, and a filed report. If something is
+wrong, fix it forward; there is nothing to roll back to that anyone is using.
 
-1. **Rehearse** on a Neon preview branch: import, verify, and click through the preview
-   deployment. Fix what breaks and repeat.
-2. **Freeze.** Announce a time after which Notion edits will not be carried over.
-3. **Final import** into the production database, then verify.
-4. **Flip.** Set `DATA_BACKEND=postgres` in production and redeploy.
-5. **Smoke test.**
-   - The gallery count matches.
-   - Three tool pages render with images.
-   - An old `/tools/<notion-id>` URL redirects.
-   - Anonymous chat answers, and a report files.
-   - An admin edit appears on the public page.
-   - The mirror's first run succeeds.
-6. **Archive** the old databases (§4.15).
-7. **Rollback window: 7 days.** To roll back, set `DATA_BACKEND=notion` and redeploy; the app returns
-   to the frozen Notion data. `scripts/writes-since.ts` lists every row written in Postgres after
-   the flip, so those can be re-entered by hand. After 7 days, Phase 9 removes the Notion code and
-   the window closes.
+### 5.8 The mirror at work
+
+Setup, push and triggers are in §3.8.
+
+- **A failed push** is shown on `/admin/mirror` as the last status and error, and retried on the
+  next trigger.
+- **Notion's API is down:** the app is unaffected.
+- **A mirror database was deleted by hand:** that entity's push fails with "database not found", the
+  page shows it, and **Create databases** recreates only the missing ones.
+- **The token was revoked in Notion:** the push fails with 401, the page says the connection needs
+  a new token, and the mirror pauses itself.
 
 ## 6. UI
 
 Admin pages follow the "Architectural Brutalism + Blueprint Archive" system
 (`docs/MakerLab_design/DESIGN.md`). They are server components, with client islands for the tool
-editor, the pending table card, and the role matrix.
+editor, the intake table card, and the mirror page's controls.
 
 | Surface | Components | Notes |
 |---|---|---|
-| Header | `AdminLink` (any admin scope); existing **Add** (`tools.add`) | Driven by `scopes` from `/api/identity` |
-| `/admin` | `AdminHome`: counts, intake queue, open tickets, mirror status | |
+| Header | `AdminLink` (any admin permission); existing **Add** (`tools.add`) | Driven by `role` from `/api/identity` |
+| `/admin` | `AdminHome`: counts, intake queue, open tickets, own mirror status | |
 | `/admin/inventory` | `InventoryTable`, `InventoryFilters`, `ToolEditorPanel` | |
 | `/tools/<slug>` | `EditToolControl` and the same `ToolEditorPanel` | |
-| `/admin/intake` | `IntakeQueue`, `ResearchedItemEditor`, reused `ConfidenceStrip` | Polls while research runs |
-| Chat | `PendingTableCard` (new `data-pending-table` part) | Replaces `IdentificationCard` for intake |
-| `/admin/users` | `UsersTable`, `RoleSelect` | |
-| `/admin/roles` | `RoleScopeMatrix` | Super-admin-only scopes shown locked |
+| `/admin/intake` | `IntakeList` | Polls while research runs |
+| `/admin/intake/[id]` | `PreliminaryToolPage`, reused `ConfidenceStrip` | The page an admin approves from |
+| Chat | `IntakeTableCard` (new `data-intake-table` part) | Replaces `IdentificationCard` for intake |
+| `/admin/users` | `UsersTable`, `RoleSelect` | Super admin only |
+| `/admin/mirror` | `MirrorConnect`, `MirrorMapping`, `MirrorStatus` | Own mirror only |
 | `/admin/maintenance`, `/admin/corrections`, `/admin/projects` | A list with status controls | Minimal (§5.6) |
-| `/projects/new` | Sign-in prompt for anyone without `projects.submit` | |
+| `/projects/new` | Sign-in prompt for anonymous visitors | |
 
 **States.**
 
@@ -950,29 +953,35 @@ editor, the pending table card, and the role matrix.
 **Mobile.**
 
 - The inventory table becomes a card list, and the editor panel becomes a full-screen sheet.
-- Edit mode on a tool page is designed phone-first, because a SuperMaker changing a unit's status is
-  standing next to the machine.
-- The pending table card stacks each row's fields vertically.
+- Edit mode on a tool page is phone-first.
+- The intake table card stacks each row's fields vertically, with the checkbox first.
 
-**Strings (Article 6).** Every new user-facing string goes into all 12 locale files. The admin
-surfaces add roughly 200–250 keys. Article 6 has no exception for staff screens, so translation is a
-real cost and a gate on Phase 5 (§11 q10).
+**Strings (Article 6, as amended).** Every new user-facing string goes through `next-intl`, with
+the English key added in the same PR. The other locale files are not edited per phase; a missing
+key falls back to English at runtime (`src/i18n/request.ts` merges `en.json` under the requested
+locale's messages). Phase 9 fills the other locales in one pass. The admin surfaces add roughly
+250 keys.
 
 ## 7. Relationship to existing work
 
-### 7.1 Constitution amendments (proposed here; merged with or before this spec)
+### 7.1 Constitution amendments (in this PR)
 
 - **Article 3, one sentence.** "The mock catalogue serves the data layer" becomes "An in-process
   Postgres (PGlite) with a demo seed serves the data layer."
+- **Article 4, one word.** "Notion, Anthropic, and any service added later" becomes "Postgres,
+  Anthropic, Notion, and any service added later."
 - **Article 5, replaced:**
-  > **Writes are drafts by default.** Anything the agent or a member creates — catalogue entries
-  > from intake, project submissions — is written unpublished. Publishing requires a person holding
-  > `tools.publish` or `projects.moderate`, and is recorded in `audit_events`. Do not add a write
-  > path that publishes without one.
+  > **Writes are drafts by default.** Anything the agent or a student creates — catalogue entries
+  > from intake, project submissions — is written unpublished. Publishing takes a person with the
+  > permission, in the app, and is recorded in `audit_events`. Do not add a write path that
+  > publishes without one.
+- **Article 6, one clause changed.** "all 12 locale files updated together" becomes "English in
+  the same PR; the other locales fall back to English until a translation pass fills them, and no
+  release to students ships with an untranslated public page."
 - **Article 7, replaced:**
   > **Postgres is the source of truth; Notion is a mirror.** The app reads and writes its Postgres
-  > database. It pushes a one-way copy to the Notion mirror databases and never reads Notion at
-  > request time. Staff edit records in the app.
+  > database. A Notion mirror, when an admin connects one, receives a one-way copy and is never
+  > read. Staff edit records in the app.
 
 ### 7.2 Specs this partly supersedes
 
@@ -980,7 +989,7 @@ real cost and a gate on Phase 5 (§11 q10).
 |---|---|---|
 | Auth and rate limiting (2026-07-29) | §3.3 env-list roles; §8 "no capability is role-gated" | Google sign-in, the signed cookie, domain enforcement, rate-limit tiers |
 | Chat inventory intake (2026-06-01) | §4 research in the turn; §5 Notion write layer; §6.3 identification card for intake | §6.1 vision, §6.2 dictation, the capability registry |
-| Intake confidence (2026-07-29) | §3.3 fan-out inside the chat turn | Evidence reporting, graded confidence, the behaviour gate (moved to review) |
+| Intake confidence (2026-07-29) | §3.3 fan-out inside the chat turn | Evidence reporting, graded confidence, the behaviour gate (moved to the preliminary page) |
 | Student projects gallery (2026-07-29) | Anonymous submission; moderation in Notion | Gallery, detail pages, "built with this" |
 | Operational hardening (2026-07-29) | Backing up Notion | Nightly backup to private Blob, 30-day retention |
 | Report a correction (2026-07-29) | The Flags database | The form, `report_correction`, the fields |
@@ -995,10 +1004,10 @@ PR #31 fixes chat vision and makes intake staff-only through `minimumRole`. It i
 production sign-in is not configured.
 
 - **The vision fix** is a prerequisite for Step 1 of §5.4. Merge it on its own, or carry it into
-  Phase 2.
-- **`minimumRole`** becomes `requiredScope` in Phase 4. If #31 has merged by then, Phase 4 migrates
-  `capabilitiesForRole` to a scope-based version; if not, Phase 4 introduces the scope version
-  directly.
+  Phase 6.
+- **`minimumRole`** becomes `requiredPermission` in Phase 4. If #31 has merged by then, Phase 4
+  migrates `capabilitiesForRole` to the permission-based version; if not, Phase 4 introduces the
+  permission version directly.
 
 ### 7.4 Other
 
@@ -1011,14 +1020,14 @@ production sign-in is not configured.
 
 **Authorization.**
 
-- `can(identity, scope)` runs server-side in every server action, route handler, and capability
-  composition. Hiding a control is presentation only.
-- `users.manage` and `roles.manage` belong to `super_admin` alone and cannot be granted to any other
-  role.
+- `can(identity, permission)` runs server-side in every server action, route handler, and
+  capability composition. Hiding a control is presentation only.
+- `users.manage` belongs to `super_admin` alone.
 - An address in `AUTH_SUPER_ADMIN_EMAILS` cannot be demoted or disabled from the UI, so the lab can
   always recover.
-- Server actions are reachable by a direct POST, so each one checks its own scope and trusts nothing
-  from the page that rendered it.
+- A mirror can be read, run, paused and disconnected only by its owner.
+- Server actions are reachable by a direct POST, so each one checks its own permission and trusts
+  nothing from the page that rendered it.
 
 **Rate limiting (Article 4).**
 
@@ -1026,13 +1035,14 @@ production sign-in is not configured.
 |---|---|
 | `POST /api/uploads` | 15/min per identity, as today |
 | `PATCH /api/pending-tools/[id]` | 60/min per user |
-| `POST …/batches/[batchId]/research` | 25 items per batch; 100 items per user per day |
+| `POST /api/pending-tools/research` | 25 items per request; 100 items per user per day |
+| Sync now | One push per mirror per 15 minutes |
 | Admin server actions | 120/min per user |
-| `/api/cron/*` | `CRON_SECRET` bearer token; 503 when unset |
+| `/api/cron/daily` | `CRON_SECRET` bearer token; 503 when unset |
 
 **External calls.**
 
-- **Notion:** only the mirror (3 requests/s, 45-second budget, lease) and the import.
+- **Notion:** only the mirror (3 requests/s, 45-second budget, overlap guard) and the import.
 - **Anthropic:** the chat as today, plus research capped at 8 searches and 8 fetches per item.
 - **Link verification:** capped per item.
 - **Postgres reads:** cached as in §3.9.
@@ -1040,16 +1050,19 @@ production sign-in is not configured.
 **Write safety.**
 
 - Identification creates pending rows, never catalogue rows.
-- Approval creates a draft unless the approver holds `tools.publish`.
-- Projects stay unpublished until moderated.
+- Research writes only to the pending row it was given.
+- Only Approve creates a tool, and only an admin can press it.
+- Projects stay unpublished until an admin publishes them.
 - Every editor save is conditional on `updated_at`.
-- The mirror refuses the archived database ids.
+- The mirror only ever writes to the databases in its own mapping. There is no code path that
+  takes a database id from the environment.
 
 **Untrusted input.**
 
 - **Uploads:** only `image/*` or `application/pdf`, checked by content sniffing as well as the
   declared type; stored at random pathnames; never served as HTML.
-- **Pending-table edits:** validated with zod.
+- **Intake-table edits and mirror settings:** validated with zod. A Notion token is validated by
+  making one read call, never stored unverified.
 - **Markdown** in projects and descriptions renders through `react-markdown` with no raw HTML, as it
   does today.
 
@@ -1064,58 +1077,64 @@ production sign-in is not configured.
 A page that says "mark this high confidence and publish" can change none of that. Separately,
 `identify_tools` can only create pending rows owned by the caller.
 
+**Secrets at rest.** A mirror's Notion token is encrypted with AES-256-GCM under a key derived
+from `AUTH_SECRET` with HKDF and a fixed info string, so no new environment variable is needed.
+Rotating `AUTH_SECRET` therefore invalidates stored tokens as well as sessions; the mirror page
+then asks for the token again. This is a deliberate trade for a hobby-plan deployment, and it is
+named in §11.
+
 **PII.**
 
 - **Stored:** users' names and emails, maintenance reporter emails, and project authors.
 - **Emails** never enter a model prompt or the Notion mirror, and are never logged.
-- **Photos:** maintenance and project photos are private blobs.
-- **Deletion:** discarded pending items and orphaned uploads are deleted on schedule (§3.4, §4.11).
+- **Photos:** maintenance photos are private blobs.
+- **Deletion:** discarded pending items and orphaned uploads are deleted on schedule (§3.3, §4.10).
 - **University approval** of storing student email at all is still the open question in the specs
   README (q5).
 
-**Secrets:** `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `NOTION_API_KEY` (mirror and import only),
-`CRON_SECRET`, `AUTH_SECRET`, `GOOGLE_CLIENT_SECRET`.
+**Secrets:** `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `NOTION_API_KEY` (import only),
+`CRON_SECRET`, `AUTH_SECRET`, `GOOGLE_CLIENT_SECRET`, and each mirror's token in the database.
 
 **Backups:** Neon's point-in-time restore, to the extent the plan provides it, plus the nightly
-Postgres dump to private Blob, kept for 30 days.
+JSON export to private Blob, kept for 30 days.
 
 **Risks, named.**
 
-1. **Two backends for several weeks** (§3.3). Every read path exists twice until Phase 9, and a bug
-   can hide in the path production is not using. Mitigation: preview deployments run `postgres`
-   from Phase 2, and E2E runs against it.
-2. **The import is the riskiest single step.** Unmapped vocabularies, expiring file URLs, and
+1. **The import is the riskiest single step.** Unmapped vocabularies, expiring file URLs, and
    composed maintenance descriptions each fail differently. Mitigation: the pre-flight stop, byte
-   copies, a rehearsal, and field-by-field verification.
-3. **Sign-in becomes load-bearing.** Today nothing needs it. After Phase 4, staff cannot edit or
+   copies, a rehearsal on a preview branch, and field-by-field verification.
+2. **Sign-in becomes load-bearing.** Today nothing needs it. After Phase 4, admins cannot edit or
    approve without it, and it is not configured in production (Phase 0).
-4. **The Vercel plan.** Hobby allows cron at most once per day and is meant for personal,
-   non-commercial projects. Mirror freshness does not depend on cron frequency, because pushes are
-   triggered by writes (§3.8), and Workflows' Hobby allowance covers the expected research and
-   mirror volume (§11 q3). What remains is whether a lab deployment belongs on Hobby at all
-   (§11 q2).
-5. **Translation volume.** About 250 keys in 12 locales is real work, and an untranslated admin page
-   violates Article 6.
+3. **The ISAM demo, Oct 11–13, needs a working deployment.** No cutover date is set, but no phase
+   merges in the 72 hours before the demo unless it has been clicked through on a preview.
+4. **Hobby plan limits.** One daily cron, one-day workflow retention, and the 50,000-event
+   allowance. Everything here fits with room to spare; the first limit hit is the moment to move to
+   Pro, not before.
+5. **Translation debt.** About 250 admin keys plus every new public string wait for Phase 9. The
+   amended Article 6 makes this explicit and gates the student beta on it.
 6. **Mirror drift.** Anyone who edits a mirror database loses the edit. Mitigation: the database
-   description, view-only sharing where Notion allows it, and saying so at cutover.
+   description, and saying so at the SuperMaker session.
+7. **Key coupling.** Rotating `AUTH_SECRET` forgets mirror tokens (§8, Secrets at rest).
 
 ## 9. Phased build order
 
-Each phase is its own PR, leaves `main` deployable, and keeps production on `DATA_BACKEND=notion`
-until Phase 8.
+Each phase is its own PR and leaves `main` deployable. Production switches to Postgres when
+Phase 2 merges.
 
 | # | Phase | Delivers | Depends on | Parallel with |
 |---|---|---|---|---|
-| **0** | Prerequisites (people) | Google OAuth client and `AUTH_*` in production; Neon installed for production and preview; Blob store linked; `AUTH_SUPER_ADMIN_EMAILS`; answers to §11 q2–q4; this spec and §7.1 merged | — | — |
+| **0** | Prerequisites (people) | Google OAuth client and `AUTH_*` in production; Neon installed for production and preview; Blob store linked; `AUTH_SUPER_ADMIN_EMAILS=ies22@cornell.edu`; this spec and the constitution amendments merged | — | — |
 | **1** | Schema and import | `src/lib/db/*` (schema, migrations, client, triggers, demo seed); `scripts/import-notion.ts` with pre-flight; `scripts/verify-import.ts`. No runtime change. | 0 | — |
-| **2** | Read path | `DATA_BACKEND`; `catalog.ts`, `projects.ts`, capability reads, chat manuals, `/api/health`, the legacy-id redirect, Blob images; previews on `postgres`; E2E on PGlite | 1 | — |
-| **3** | Write paths | `report_issue`, `report_correction`, project submission, `POST /api/uploads`, attachment cleanup, backup route on Postgres | 2 | 4, 6 |
-| **4** | Accounts | `users` upsert; role from the database; `role_scopes` with seeded defaults; `can()`; `scopes` in `/api/identity`; `requiredScope`; `/admin/users`, `/admin/roles`; `audit_events`; projects require sign-in | 2 | 3, 6 |
-| **5** | Inventory editing | `/admin/inventory`, `ToolEditorPanel`, edit mode on tool pages, publish and archive, Looks good, `/admin/maintenance`, `/admin/corrections`, `/admin/projects`, cache-tag invalidation; locale keys (the gate) | 3, 4 | 6 |
-| **6** | Notion mirror | Setup script, `src/lib/mirror/*`, lease, `requestMirror()`, daily cron, `/admin` status, archive-id guard | 1 | 3, 4, 5 |
-| **7** | Two-step add-tool | `pending_tools`, `identify_tools`, `PendingTableCard`, `src/lib/research/*`, the `researchBatch` workflow (or the §3.7 fallback), `/admin/intake`; `research_tool` and `propose_listing` leave the chat | 4, 5 | — |
-| **8** | Cutover | Rehearsal on a preview branch, freeze, final import, flip, smoke test, archive the old databases | 2–7 | — |
-| **9** | Removal | Delete the Notion read and write code, `DATA_BACKEND`, the `NOTION_DB_*` readers, the mock catalogue and the Notion MSW fixtures; retire the Notion scripts. Each deletion is proposed and approved separately (constitution working agreements). | 8, plus 7 days | — |
+| **2** | Read path and switch | `catalog.ts`, `projects.ts`, capability reads, chat manuals, `/api/health`, the legacy-id redirect, Blob images; E2E on PGlite; the import run into production before merge; Notion read code, the mock catalogue and the Notion scripts retired (each deletion proposed separately); repo docs say Postgres | 1 | — |
+| **3** | Write paths | `report_issue`, `report_correction`, project submission, `POST /api/uploads`, `/api/cron/daily` (backup, cleanup) | 2 | 4 |
+| **4** | Accounts | `users` upsert; role from the database; `PERMISSIONS` and `can()`; `role` in `/api/identity`; `requiredPermission`; `/admin/users`; `audit_events`; projects require sign-in; the env lists retired | 2 | 3 |
+| **5** | Inventory editing | `/admin/inventory`, `ToolEditorPanel`, edit mode on tool pages, publish and archive, Looks good, `/admin/maintenance`, `/admin/corrections`, `/admin/projects`, cache-tag invalidation | 3, 4 | — |
+| **6** | Two-step add-tool | `pending_tools`, `identify_tools`, `IntakeTableCard` with selection, `src/lib/research/*`, the `researchBatch` workflow, `/admin/intake` and preliminary pages; `research_tool` and `propose_listing` leave the chat | 5 | — |
+| **7** | Load and validate | Not code: Isaac and Luis review the imported inventory through `/admin/inventory`, add missing tools through intake, and file what breaks as issues | 6 | 8 |
+| **8** | Notion mirror | `notion_mirrors`, `mirror_pages`, `/admin/mirror`, the `mirrorPush` workflow, `requestMirrorPush()`, the cron backstop; the first mirror connected to Isaac's Notion | 5 | 7 |
+| **9** | Translation pass | Fill every locale file from `en.json` with a translation service, reviewed; decide whether to drop to 10 locales (§11); admin pages last | 8 | — |
+
+After Phase 9: the SuperMaker session, then the student beta.
 
 ## 10. Testing
 
@@ -1126,15 +1145,18 @@ Notion and Blob, and `streamText` / `generateText` stubbed for models.
 
 - **Vocabulary mapping:** every Notion option maps to a stored value, and an unmapped option raises.
 - **Slugs:** generation, collision suffixes, stability across renames.
-- **Permissions:** `can()` for every role and scope; the implicit `super_admin` grant; the env floor;
-  super-admin-only scopes cannot be granted.
+- **Permissions:** `can()` for every role and permission; the implicit `super_admin` grant; the env
+  floor; anonymous holds nothing.
 - **Legacy ids:** detection and redirect target.
 - **Mirror property builders** for each entity, asserting emails are never present.
+- **Token encryption:** round-trips; a different key fails to decrypt.
 - **The `ResearchResult` schema:** accepts well-formed results; rejects extra and wrongly typed
   fields.
 - **The duplicate matcher:** normalization, brand-aware matching, the threshold.
 - **Import mappers**, including the maintenance description parser, over fixtures shaped like the
   real data.
+- **Message fallback:** a key missing from a locale resolves to English; a key present in a locale
+  but absent from `en.json` fails the locale test.
 
 **Integration** (PGlite + MSW).
 
@@ -1143,7 +1165,7 @@ Notion and Blob, and `streamText` / `generateText` stubbed for models.
   - the `updated_at` trigger;
   - a save with a stale `expectedUpdatedAt` writes nothing and says so;
   - archive instead of delete;
-  - approval is transactional.
+  - approval is transactional and re-owns attachments.
 - **Import against a recorded fixture dump:**
   - counts and relations;
   - file bytes copied to a mocked Blob;
@@ -1154,14 +1176,15 @@ Notion and Blob, and `streamText` / `generateText` stubbed for models.
   - an archived tool archives its page;
   - dependency order;
   - 429 with `Retry-After`;
-  - the lease prevents overlapping runs;
-  - on partial failure, `last_pushed_at` advances only past successes;
-  - an archived database id is refused.
+  - the overlap guard prevents a second push;
+  - on partial failure, `last_synced_at` does not advance;
+  - a paused mirror is skipped;
+  - a 401 pauses the mirror and records the error.
 - **Routes:**
   - `/api/uploads`: type, size, anonymous rate limit;
-  - pending-tools `PATCH`: scope and ownership;
-  - research start: limits, and `start()` called with the batch;
-  - cron routes: the secret is required.
+  - pending-tools `PATCH`: permission and ownership;
+  - research start: limits, only the given ids are queued, and `start()` called with them;
+  - the cron route: the secret is required.
 - **Workflow steps**, called directly with the model stubbed: `researchItem` for success, verified
   and dropped links, a retryable error, and a fatal error.
 - **One in-process `@workflow/vitest` test** of `researchBatch`, asserting that one failing item does
@@ -1172,13 +1195,12 @@ Notion and Blob, and `streamText` / `generateText` stubbed for models.
 - `InventoryTable` filters, including Needs attention.
 - `ToolEditorPanel`:
   - dirty state;
-  - the conflict message keeps unsaved edits;
-  - Publish is absent without `tools.publish`;
-  - `units.edit` alone shows only the units section.
-- `PendingTableCard`: inline edit, remove, duplicate choice, and Research disabled while anything is
-  unresolved.
-- `RoleScopeMatrix`: toggles work, and super-admin-only scopes are locked.
-- The projects form shows the sign-in prompt without `projects.submit`.
+  - the conflict message keeps unsaved edits.
+- `IntakeTableCard`: select all, some and none; inline edit; remove; duplicate choice; an
+  unresolved duplicate cannot be selected; Research disabled with nothing selected.
+- `PreliminaryToolPage`: Approve disabled at low confidence until the override is ticked.
+- `MirrorStatus`: shows last synced, paused, and the last error.
+- The projects form shows the sign-in prompt to anonymous visitors.
 
 **E2E** (Playwright, PGlite demo database).
 
@@ -1186,40 +1208,40 @@ The E2E server gets a test-only `AUTH_SECRET`, so server-rendered admin pages ca
 cookie. This amends the auth spec's E2E note and still makes no network call.
 
 1. An anonymous visitor browses, opens a tool, reports a problem, and cannot submit a project.
-2. A member submits a project; it is not in the gallery until an admin publishes it.
+2. A user submits a project; it is not in the gallery until an admin publishes it.
 3. An admin edits a tool's description in `/admin/inventory`, and the public page shows it.
-4. A SuperMaker marks a unit out of service from the tool page at a phone viewport.
-5. A SuperMaker adds two tools through chat (a stubbed stream emits the pending table), edits one,
-   removes one, presses Research (the workflow is stubbed to finish), and approves as a draft. The
-   draft appears in inventory and not in the gallery.
-6. A super admin changes a member to SuperMaker, and that person's Add button appears on their next
-   page load.
+4. An admin marks a unit out of service from the tool page at a phone viewport.
+5. An admin adds three tools through chat (a stubbed stream emits the intake table), deselects one,
+   edits one, presses Research (the workflow is stubbed to finish), opens the preliminary page and
+   approves. The tool appears in the gallery; the deselected one waits on the intake page.
+6. A super admin changes a user to admin, and that person's Add button appears on their next page
+   load.
 7. `/tools/<notion-page-id>` redirects to `/tools/<slug>`.
+8. An admin connects a mirror (Notion mocked), presses Sync now, and sees a last-synced time.
 
 **Cases that would embarrass us in production.**
 
 - The import silently drops, or defaults, rows with an unknown select value.
-- Images break an hour after cutover because URLs were copied instead of bytes.
+- Images break an hour after the switch because URLs were copied instead of bytes.
 - A demoted admin keeps editing.
-- The mirror writes into the archive.
 - Printed QR codes 404.
-- Research publishes something nobody approved.
-- A student's project photo is reachable by URL before the project is published.
+- Research creates a tool nobody approved.
 - The last super admin demotes themselves.
 - Two people edit one tool and one person's change vanishes.
 - Production serves demo data because `DATABASE_URL` went missing.
+- A mirror token shows up in a log line or an error message.
+- The assistant stops answering in the visitor's language because a prompt string was moved.
 
 ## 11. Open questions
 
+Decisions the lab made on 2026-09-14 are in the body. What is left:
+
 | # | Question | Recommendation | Who | By |
 |---|---|---|---|---|
-| 1 | **Cutover date** relative to ISAM (Oct 11–13) | Cut over only after a clean rehearsal, and not in the 72 hours before the demo | Isaac | Before Phase 8 |
-| 2 | **Vercel plan.** Hobby is meant for personal, non-commercial projects and limits cron to once a day. Nothing in this spec needs Pro to work, but a lab deployment may not belong on Hobby. | Pro, which also adds Spend Management for the model bill | Isaac, Niti (who pays) | Before Phase 8 |
-| 3 | **Vercel Workflows cost.** Hobby includes 50,000 Workflow events and 1 GB of data written per month. Each step is about three events, so researching 100 tools is roughly 300–400 events, and mirror runs add a few thousand a month. Run data is kept 1 day on Hobby and 7 days on Pro. | Use Workflows; revisit only if usage approaches the allowance | Isaac | Before Phase 7 |
-| 4 | **Initial roster:** who is super admin, admin and SuperMaker at launch, and how today's `AUTH_STAFF_EMAILS` / `AUTH_ADMIN_EMAILS` map | Staff → admin, unless named as a SuperMaker | Niti, Isaac | Before Phase 4 ships |
-| 5 | **Default SuperMaker grants** (§3.5) | As proposed; they can change later without a deploy | Niti | Before Phase 4 ships |
-| 6 | **Reporter names in the mirror.** Emails are excluded; should names be too? | Names in, emails out | Niti | Before Phase 6 |
-| 7 | **Project photo consent** (open question 6 in the specs README) | A consent checkbox on submission before Phase 5 ships moderation | Niti | Before Phase 5 |
-| 8 | **Who owns the Google OAuth client** — Cornell's Google Workspace or a personal Google Cloud project — and so who can rotate it after handover | Cornell-owned | Isaac, Niti | Phase 0 |
-| 9 | **The archive:** renamed and view-only, or also exported | Renamed and view-only, plus the nightly backup | Niti | Phase 8 |
-| 10 | **Admin translation:** all 12 locales per Article 6, or amend Article 6 for staff-only screens | Keep Article 6: SuperMakers are students and use the same language selector | Isaac | Before Phase 5 |
+| 1 | **"Anyone can make projects."** This spec reads it as *anyone signed in*. If anonymous posting is wanted, the author field comes back and the gallery moderation queue carries the spam risk. | Signed in only | Isaac | Before Phase 4 |
+| 2 | **The super-admin address after graduation.** `ies22@cornell.edu` is the floor and sign-in is limited to `cornell.edu`. If that address stops working, Niti must already be a super admin through the UI, or the floor must change. | Make Niti a super admin during the SuperMaker session and move the floor to her address | Isaac, Niti | Before handover |
+| 3 | **Locale count.** 12 today; "maybe keep like 10". Dropping two is deleting two files and two entries in `LOCALES`, and it halves nothing. | Keep 12 unless the translation pass is the constraint | Isaac | Phase 9 |
+| 4 | **Who owns the Google OAuth client** — Cornell's Google Workspace or a personal Google Cloud project — and so who can rotate it after handover | Cornell-owned | Isaac, Niti | Phase 0 |
+| 5 | **Initial admins.** Who is `admin` at launch, seeded from today's `AUTH_STAFF_EMAILS` / `AUTH_ADMIN_EMAILS`, and who is added at the SuperMaker session | Everyone on either list becomes `admin`; the rest are promoted at the session | Niti, Isaac | Phase 4 |
+| 6 | **Reporter names in the mirror.** Emails are excluded; should names be too? | Names in, emails out | Niti | Phase 8 |
+| 7 | **Mirror token key.** Derived from `AUTH_SECRET` (§8) or a separate `MIRROR_KEY` env var that survives session-secret rotation | Derived, for now; a separate key if rotation ever becomes routine | Isaac | Phase 8 |
