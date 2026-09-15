@@ -53,6 +53,12 @@ on code**: Gateway 3–5 need a key and a Vercel project; Ops 2 and 6 are dashbo
 configuration a person does. Six of the eight specs are complete. Everything remaining is in
 [Blocking questions](#blocking-questions-for-a-person).
 
+### In design
+
+| Spec | State |
+|---|---|
+| [v5 Data Platform](2026-09-14-v5-data-platform-design.md) — Postgres, Blob, three roles, admin inventory, two-step intake with background research, a per-admin Notion mirror | Draft · awaiting approval · amends constitution Articles 3, 4, 5, 6 and 7 in the same PR |
+
 *(Ops was recorded as 6 built on 2026-07-29 and corrected to 5 in the same day's audit: its
 phases 1, 3, 4, 5, and 7 have artifacts in code, and 7 − 2 open is 5. The row and its "phases
 2, 6 open" note disagreed with each other.)*
