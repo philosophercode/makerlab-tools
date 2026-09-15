@@ -44,12 +44,10 @@ On that foundation it adds what the lab asked for on 2026-09-14:
 
 ### Non-goals (this iteration)
 
-- **Multi-lab support.** v5 serves one lab. There is no `org_id`. Multi-tenancy belongs to Blueprint, which is a separate product.
 - **Reading from Notion after the import, or editing in the mirror.** The mirror is write-only from the app's side. An edit made in a mirror database is overwritten by the next push, and each mirror database's description says so.
 - **Touching the old Notion databases.** They are imported once and then left alone, on Niti's Notion, exactly as they are. No renaming, no archiving, no export.
 - **A permissions toggle page.** Permissions are a table in code (§3.5). Changing one is a one-line edit and a deploy. A `/admin/roles` matrix was considered and set aside on 2026-09-14.
 - **Student settings or saved sessions.** The `user` role exists so students can post projects. Anything else a signed-in student might get comes later.
-- **Consent, licensing or other legal features** for project photos or anything else. Added only if Niti asks.
 - **A rollback window, a cutover date, or running two backends side by side.** Nobody uses the app yet; §9 sequences the switch so `main` is always deployable, and that is enough.
 - **Leaving the Vercel Hobby plan.** Hobby's limits are stated where they matter (§3.7, §3.9, §8). The lab moves to Pro only when it hits one.
 - **Photo cleanup** — background removal, cropping, enhancement. An admin uploads a photo, and that is the whole flow for now.
@@ -59,7 +57,6 @@ On that foundation it adds what the lab asked for on 2026-09-14:
 - **Changing MCP's trust model.** `MCP_TOKEN` stays the gate for MCP writes, and MCP callers have no role.
 - **Live co-editing.** Concurrent edits are detected with an `updated_at` check and refused, not merged.
 - **eve.** Research runs on the Workflow SDK directly (§3.7). eve is built on the same SDK and is the path if research ever grows into a full agent with skills, schedules and sandboxes; today it would add a second project and an HTTP hop for no gain.
-- **Blueprint compatibility.** Nothing here shares code or data with Blueprint.
 
 ## 3. Architecture
 
