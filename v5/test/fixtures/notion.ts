@@ -53,6 +53,11 @@ export const dateProp = (start: string | null) => ({
   date: start ? { start } : null,
 });
 
+export const emailProp = (email: string | null) => ({
+  type: "email" as const,
+  email,
+});
+
 /** External file (URL-hosted, e.g. a manufacturer link). */
 export const externalFile = (name: string, url: string) => ({
   name,
@@ -217,6 +222,32 @@ export function notionQueryResponse(
   };
 }
 
+// A Flags row, with the property names `capabilities/flags.ts` writes. Not in
+// the default query handler (the flags DB returns [] by default); the import
+// tests serve it with `server.use(...)`.
+export const flagsPage: NotionPageFixture = page("flag-1", {
+  title: titleProp("Form 4 — description"),
+  tool: relationProp(["tool-1"]),
+  field_flagged: selectProp("description"),
+  issue_description: richTextProp("The description says 80W but the label says 60W."),
+  suggested_fix: richTextProp("Change 80W to 60W."),
+  reporter: richTextProp("Ada Lovelace"),
+  reporter_email: emailProp("ada@cornell.edu"),
+  status: selectProp("New"),
+});
+
+// A published project with one photo, built with the Form 4.
+export const projectsPage: NotionPageFixture = page("project-1", {
+  title: titleProp("Laser-cut lamp"),
+  author: richTextProp("Ada Lovelace"),
+  body: richTextProp("A lamp cut from plywood."),
+  photos: filesProp([hostedFile("lamp.jpg", "https://files.notion.so/lamp.jpg")]),
+  tools_used: relationProp(["tool-1"]),
+  link: urlProp("https://example.com/lamp"),
+  materials: multiSelectProp(["Plywood"]),
+  published: checkboxProp(true),
+});
+
 /** All single-record fixtures keyed by id — handy for `GET /pages/:id`. */
 export const pagesById: Record<string, NotionPageFixture> = {
   [toolsPage.id]: toolsPage,
@@ -225,4 +256,65 @@ export const pagesById: Record<string, NotionPageFixture> = {
   [unitsPage.id]: unitsPage,
   [resourcesPage.id]: resourcesPage,
   [maintenanceLogsPage.id]: maintenanceLogsPage,
+  [flagsPage.id]: flagsPage,
+  [projectsPage.id]: projectsPage,
 };
+
+// ── Database schemas (GET /databases/:id) ───────────────────────────
+//
+// What the import pre-flight reads: each property's type and, for selects,
+// the *defined* options. These are the option sets the live workspace defines
+// (2026-08-14 audit), including `New` and `Closed`, which are defined but unused.
+
+export interface DatabaseSchemaFixture {
+  object: "database";
+  id: string;
+  properties: Record<
+    string,
+    {
+      type: string;
+      select?: { options: { name: string }[] };
+      multi_select?: { options: { name: string }[] };
+    }
+  >;
+}
+
+export type SchemaTable =
+  | "tools"
+  | "categories"
+  | "locations"
+  | "units"
+  | "resources"
+  | "maintenance_logs"
+  | "flags"
+  | "projects";
+
+const SELECT_OPTIONS: Record<SchemaTable, Record<string, string[]>> = {
+  tools: {},
+  categories: { group: ["3D Printing", "Laser"] },
+  locations: { room: ["MakerLab", "Laser Room"], zone: ["Resin Bench", "Laser Bay"] },
+  units: {
+    status: ["Available", "In Use", "Under Maintenance", "Out of Service", "Retired"],
+    condition: ["Excellent", "Good", "Fair", "Needs Repair", "New"],
+  },
+  resources: { type: ["SOP", "Manual", "Video", "Other"] },
+  maintenance_logs: {
+    type: ["Issue Report", "Preventive Maintenance", "Repair", "Inspection", "Calibration"],
+    priority: ["Critical", "High", "Medium", "Low"],
+    status: ["Open", "In Progress", "Resolved", "Closed"],
+  },
+  flags: {
+    field_flagged: ["description", "image", "name", "category", "location", "materials", "safety_info"],
+    status: ["New", "Reviewed", "Fixed", "Dismissed"],
+  },
+  projects: {},
+};
+
+/** A fresh, mutable schema fixture for `table` (tests may edit the options). */
+export function databaseSchema(table: SchemaTable): DatabaseSchemaFixture {
+  const properties: DatabaseSchemaFixture["properties"] = {};
+  for (const [name, options] of Object.entries(SELECT_OPTIONS[table])) {
+    properties[name] = { type: "select", select: { options: options.map((option) => ({ name: option })) } };
+  }
+  return { object: "database", id: `db-${table.replace("_logs", "")}`, properties };
+}

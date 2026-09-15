@@ -1,6 +1,7 @@
 import { http, HttpResponse } from "msw";
 import {
   categoriesPage,
+  databaseSchema,
   locationsPage,
   maintenanceLogsPage,
   notionQueryResponse,
@@ -9,6 +10,7 @@ import {
   toolsPage,
   unitsPage,
   type NotionPageFixture,
+  type SchemaTable,
 } from "../fixtures/notion";
 
 const NOTION = "https://api.notion.com/v1";
@@ -27,7 +29,12 @@ export const DB_IDS = {
   resources: "db-resources",
   maintenance_logs: "db-maintenance",
   flags: "db-flags",
+  projects: "db-projects",
 } as const;
+
+const TABLE_BY_DB_ID: Record<string, SchemaTable> = Object.fromEntries(
+  Object.entries(DB_IDS).map(([table, id]) => [id, table as SchemaTable])
+);
 
 const PAGES_BY_DB: Record<string, NotionPageFixture[]> = {
   [DB_IDS.tools]: [toolsPage],
@@ -68,6 +75,19 @@ export const handlers = [
       last_edited_time: "2024-09-01T10:00:00.000Z",
       properties: body.properties ?? {},
     });
+  }),
+
+  // GET /databases/:id — the database schema (property types and defined
+  // select options), which the import pre-flight reads. Routed by DB_IDS.
+  http.get(`${NOTION}/databases/:id`, ({ params }) => {
+    const table = TABLE_BY_DB_ID[params.id as string];
+    if (!table) {
+      return HttpResponse.json(
+        { object: "error", status: 404, code: "object_not_found", message: "Not found" },
+        { status: 404 }
+      );
+    }
+    return HttpResponse.json(databaseSchema(table));
   }),
 
   // GET /pages/:id — single page fetch. Returns the matching fixture or 404.
