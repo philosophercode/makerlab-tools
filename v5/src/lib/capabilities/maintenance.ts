@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getCatalogTools } from "../catalog";
+import { notionPageIdForUnit } from "../data/notion-ids";
 import { createMaintenanceLog } from "../notion";
 import type { MaintenanceLogFields, MaintenanceLogRecord } from "../types";
 import { buildUnitLookup, findUnit } from "./helpers";
@@ -88,6 +89,18 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
     const tools = await getCatalogTools();
     const unitLookup = buildUnitLookup(tools);
     const match = unit_label ? findUnit(unitLookup, unit_label) : null;
+    // The `unit` relation addresses a Notion page; `match.id` is the Postgres
+    // uuid the catalogue now hands out (spec §3.10). A unit with no imported
+    // page is linked in the description-by-title sense only — the ticket is
+    // filed either way, because Notion rejects a relation to a page it cannot
+    // find and a rejected write loses the student's report (Article 4).
+    const unitPageId = match ? await notionPageIdForUnit(match.id) : null;
+    if (match && !unitPageId) {
+      console.warn(
+        "[maintenance] no Notion page for unit — filing the ticket unlinked",
+        match.label
+      );
+    }
     try {
       const record = await createTicket({
         title,
@@ -102,7 +115,7 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
         // Server-resolved only. There is no input field for this, and there is
         // deliberately no path that would let one exist.
         reporter_email: ctx.identity?.email || undefined,
-        unit: match ? [match.id] : undefined,
+        unit: unitPageId ? [unitPageId] : undefined,
         date_reported: new Date().toISOString().split("T")[0],
         photo_uploads: photo_uploads?.length ? photo_uploads : undefined,
       });

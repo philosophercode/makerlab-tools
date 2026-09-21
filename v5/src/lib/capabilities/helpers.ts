@@ -1,4 +1,4 @@
-import { fetchMaintenanceLogsByUnit } from "../notion";
+import { listMaintenanceHistoryForUnit } from "../data/maintenance";
 import type {
   MakerLabTool,
   MakerLabUnit,
@@ -10,8 +10,9 @@ import type {
  * (`app/api/chat/route.ts`) and the MCP route (`app/api/mcp/route.ts`); they are
  * collapsed here so both adapters resolve units and summarize tools identically.
  *
- * Pure data transforms plus one thin Notion read wrapper — server-only via the
- * `../notion` import.
+ * Pure data transforms plus one thin Postgres read wrapper (`../data/maintenance`,
+ * spec §3.10 — the maintenance read left Notion in Phase 2; filing a ticket has
+ * not).
  */
 
 // ── Unit lookup ────────────────────────────────────────────────────
@@ -68,7 +69,7 @@ export function findUnit(
 
 // ── Tool lookup / summaries ────────────────────────────────────────
 
-/** Resolve a tool by Notion page id, slug, exact name, or partial name. */
+/** Resolve a tool by id, slug, exact name, or partial name. */
 export function findTool(
   tools: MakerLabTool[],
   idOrName: string
@@ -109,21 +110,34 @@ export interface MaintenanceEntry {
   description: string;
 }
 
+/** The model sees a recap, not an archive — and the read is bounded to match. */
+const MAX_MAINTENANCE_ENTRIES = 10;
+
 /**
  * Fetch the most recent maintenance logs for a unit (cap 10), flattened to the
- * shape both chat and MCP return. Best-effort: resolves to [] on failure.
+ * shape both chat and MCP return — unchanged from when these rows lived in
+ * Notion, so the tool descriptions and prompt fragments still describe what the
+ * model gets. The query module carries more (resolution, resolved date,
+ * reporter name); this is the subset the assistant has always been given.
+ *
+ * Best-effort: resolves to [] on failure, as it always has. A failure here is
+ * odd — resolving the unit already read the same database — so it is logged
+ * rather than swallowed silently (Article 4).
  */
 export function recentMaintenance(unitId: string): Promise<MaintenanceEntry[]> {
-  return fetchMaintenanceLogsByUnit(unitId)
-    .catch(() => [])
+  return listMaintenanceHistoryForUnit(unitId, { limit: MAX_MAINTENANCE_ENTRIES })
+    .catch((err) => {
+      console.warn("[capabilities] maintenance history unavailable", unitId, err);
+      return [];
+    })
     .then((logs) =>
-      logs.slice(0, 10).map((log) => ({
-        title: log.fields.title,
-        type: log.fields.type || "",
-        priority: log.fields.priority || "",
-        status: log.fields.status || "",
-        date_reported: log.fields.date_reported || "",
-        description: log.fields.description || "",
+      logs.map((log) => ({
+        title: log.title,
+        type: log.type,
+        priority: log.priority,
+        status: log.status,
+        date_reported: log.dateReported,
+        description: log.description,
       }))
     );
 }

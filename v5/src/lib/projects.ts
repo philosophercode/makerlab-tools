@@ -1,84 +1,50 @@
 import { cacheLife, cacheTag } from "next/cache";
-import { fetchAllProjects, hasProjectsEnv } from "./notion";
-import type { ProjectRecord } from "./types";
-import type { MakerLabProject, ProjectToolRef } from "../components/catalog-types";
-import { getCatalogTools } from "./catalog";
+import { findPublishedProject, listPublishedProjects, listPublishedProjectsForTool } from "./data/projects";
+import type { MakerLabProject } from "../components/catalog-types";
 
-// Cached, published-only view of every project. Behind `"use cache"` with the
-// `projects` tag so the admin revalidate endpoint can bust it on publish.
-async function fetchPublishedProjects(): Promise<ProjectRecord[]> {
+// Cached, published-only reads over `src/lib/data/projects.ts`. Every export
+// below shares the `projects` cache tag (spec §3.9), so publishing,
+// unpublishing or editing a project in `/admin/projects` busts every one of
+// these with a single `revalidateTag("projects")` / `updateTag("projects")`
+// call. A thrown database read is not caught here: it surfaces as a stale
+// cached page (Article 4, fail toward stale), never an invented empty result.
+
+async function fetchPublishedProjects(): Promise<MakerLabProject[]> {
   "use cache";
   cacheTag("projects");
   cacheLife("minutes");
 
-  return fetchAllProjects({ publishedOnly: true });
+  return listPublishedProjects();
 }
 
-async function toMakerLabProjects(
-  records: ProjectRecord[]
-): Promise<MakerLabProject[]> {
-  // Resolve tool relation ids → {id,name,slug} via the catalog (slug === id).
-  const tools = await getCatalogTools();
-  const toolMap = new Map<string, ProjectToolRef>(
-    tools.map((tool) => [tool.id, { id: tool.id, name: tool.name, slug: tool.slug }])
-  );
+async function fetchProject(idOrSlug: string): Promise<MakerLabProject | null> {
+  "use cache";
+  cacheTag("projects");
+  cacheLife("minutes");
 
-  return records.map((record) => toMakerLabProject(record, toolMap));
+  return findPublishedProject(idOrSlug);
 }
 
-function toMakerLabProject(
-  record: ProjectRecord,
-  toolMap: Map<string, ProjectToolRef>
-): MakerLabProject {
-  const fields = record.fields;
-  return {
-    id: record.id,
-    title: fields.title,
-    author: fields.author || "Anonymous",
-    body: fields.body || "",
-    // Notion file URLs are signed and expire; surfaced as-is for the short
-    // cacheLife window (mirrors the catalog image approach).
-    photos: (fields.photos || []).map((photo) => photo.url).filter(Boolean),
-    tools: (fields.tools_used || [])
-      .map((id) => toolMap.get(id))
-      .filter((ref): ref is ProjectToolRef => Boolean(ref)),
-    link: fields.link || null,
-    materials: fields.materials || [],
-    date: fields.date || record.createdTime || null,
-  };
+async function fetchProjectsForTool(toolId: string): Promise<MakerLabProject[]> {
+  "use cache";
+  cacheTag("projects");
+  cacheLife("minutes");
+
+  return listPublishedProjectsForTool(toolId);
 }
 
 export async function getPublishedProjects(): Promise<MakerLabProject[]> {
-  if (!hasProjectsEnv()) return [];
-
-  try {
-    const records = await fetchPublishedProjects();
-    return toMakerLabProjects(records);
-  } catch (error) {
-    console.warn("Failed to load projects:", error);
-    return [];
-  }
+  return fetchPublishedProjects();
 }
 
-export async function getProject(id: string): Promise<MakerLabProject | null> {
-  if (!hasProjectsEnv()) return null;
-
-  // Resolve from the cached published set so unpublished projects never surface
-  // via the detail route either.
-  const projects = await getPublishedProjects();
-  return projects.find((project) => project.id === id) || null;
+export async function getProject(idOrSlug: string): Promise<MakerLabProject | null> {
+  return fetchProject(idOrSlug);
 }
 
 /**
  * Published projects that reference a given tool id (the "Built with this"
- * section on the tool detail). Derived by scanning each project's
- * `tools_used`. Returns [] when no projects DB is configured.
+ * section on the tool detail).
  */
-export async function getProjectsForTool(
-  toolId: string
-): Promise<MakerLabProject[]> {
-  const projects = await getPublishedProjects();
-  return projects.filter((project) =>
-    project.tools.some((tool) => tool.id === toolId)
-  );
+export async function getProjectsForTool(toolId: string): Promise<MakerLabProject[]> {
+  return fetchProjectsForTool(toolId);
 }

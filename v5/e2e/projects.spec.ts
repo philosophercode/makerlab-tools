@@ -1,11 +1,10 @@
 import { test, expect } from "@playwright/test";
 
-// The app boots with NOTION_* unset (see playwright.config.ts webServer.env),
-// so `hasProjectsEnv()` is false: `getPublishedProjects()` returns [] without
-// ever calling Notion, and `POST /api/projects` answers 503 "not configured".
-// That is the correct production behaviour for a lab that has not created the
-// Projects database yet — so the gallery here is asserted as an *intentional*
-// empty state, not a broken one.
+// The app boots with no DATABASE_URL and NOTION_* unset (see
+// playwright.config.ts webServer.env), so the gallery reads the PGlite demo
+// seed — one published sample project, "Laser-cut plywood lamp"
+// (src/lib/db/demo-seed.ts) — and `POST /api/projects`, still a Notion write
+// until Phase 3, would answer 503 "not configured".
 //
 // The submit path is therefore exercised with `page.route("**/api/projects")`
 // standing in for the route handler, exactly as chat.spec.ts stands in for
@@ -31,9 +30,7 @@ async function fillRequiredFields(page: import("@playwright/test").Page) {
 }
 
 test.describe("Projects gallery", () => {
-  test("renders an intentional empty state with no Projects database", async ({
-    page,
-  }) => {
+  test("renders the sample project and opens its page", async ({ page }) => {
     await page.goto("/projects");
 
     // projects.title => "STUDENT PROJECTS".
@@ -41,23 +38,31 @@ test.describe("Projects gallery", () => {
       page.getByRole("heading", { name: "STUDENT PROJECTS", level: 1 })
     ).toBeVisible();
 
-    // The lede describes the gallery rather than apologising for it, and its
-    // {institution} placeholder resolved.
+    // The lede describes the gallery, and its {institution} placeholder resolved.
     await expect(
       page.getByText(/Builds, experiments, and course outcomes from/i)
     ).toBeVisible();
 
-    // projects.empty — reads as "nothing published yet", not as an error. No
-    // failure language, and the invitation to submit is still offered.
-    await expect(
-      page.getByText("No projects published yet. Be the first to share your build.")
-    ).toBeVisible();
+    // The demo seed's one published project is listed, with no failure language.
+    const card = page.getByRole("link").filter({ hasText: "Laser-cut plywood lamp" }).first();
+    await expect(card).toBeVisible();
     await expect(
       page.getByText(/error|failed|unavailable|something went wrong/i)
     ).toHaveCount(0);
 
     // Whole-page check: no locale placeholder rendered literally anywhere.
     await expect(page.locator("body")).not.toContainText(PLACEHOLDER_LEAK);
+
+    // Its page shows the write-up, the outside link and the tools it was built with.
+    await card.click();
+    await expect(page).toHaveURL(/\/projects\/laser-cut-plywood-lamp$/);
+    await expect(
+      page.getByRole("heading", { name: "Laser-cut plywood lamp", level: 1 })
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: /wikipedia/i }).first()
+    ).toHaveAttribute("href", /en\.wikipedia\.org\/wiki\/Laser_cutting/);
+    await expect(page.getByRole("link", { name: "Trotec Speedy 400" })).toBeVisible();
   });
 
   test("the empty state's call to action reaches the submit form", async ({
@@ -105,7 +110,7 @@ test.describe("Project submission form", () => {
       page.getByRole("textbox", { name: "Link (optional)" })
     ).toBeVisible();
 
-    // Tools-used chips come from the mock catalog via getCatalogTools().
+    // Tools-used chips come from the demo catalogue via getCatalogTools().
     await expect(
       page.getByRole("button", { name: "Form 4", exact: true })
     ).toBeVisible();
@@ -223,7 +228,10 @@ test.describe("Project submission form", () => {
     const payload = bodies[0] as Record<string, unknown>;
     expect(payload.title).toBe("Parametric stool");
     expect(payload.author).toBe("Ada Lovelace");
-    expect(payload.tools).toEqual(["tool-trotec-speedy-400"]);
+    // The chosen tool travels as its database id (a uuid), not its slug.
+    expect(payload.tools).toEqual([
+      expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
+    ]);
     expect(payload).not.toHaveProperty("published");
   });
 

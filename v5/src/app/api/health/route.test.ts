@@ -1,39 +1,17 @@
-import { http, HttpResponse } from "msw";
-
-import { server } from "../../../../test/msw/server";
-import { DB_IDS } from "../../../../test/msw/handlers";
+// @vitest-environment node
+// `nextCacheMock` is imported first on purpose: `vi.mock` is hoisted above
+// every import, and its factory can only reach a module imported before the
+// one it replaces.
 import { nextCacheMock } from "../../../../test/mocks/next-cache";
 
 vi.mock("next/cache", () => nextCacheMock());
 
 import { cacheLife } from "next/cache";
-import { mockTools } from "../../../components/mock-catalog";
 import { HEALTH_CACHE } from "../../../lib/cache";
+import { resetDbForTests } from "../../../lib/db/client";
 import { GET } from "./route";
 
 // ── Helpers ─────────────────────────────────────────────────────────
-
-function stubNotionEnv() {
-  vi.stubEnv("NOTION_API_KEY", "secret_test");
-  vi.stubEnv("NOTION_DB_TOOLS", DB_IDS.tools);
-  vi.stubEnv("NOTION_DB_CATEGORIES", DB_IDS.categories);
-  vi.stubEnv("NOTION_DB_LOCATIONS", DB_IDS.locations);
-  vi.stubEnv("NOTION_DB_UNITS", DB_IDS.units);
-  vi.stubEnv("NOTION_DB_RESOURCES", DB_IDS.resources);
-  vi.stubEnv("NOTION_DB_MAINTENANCE_LOGS", DB_IDS.maintenance_logs);
-  vi.stubEnv("NOTION_DB_FLAGS", DB_IDS.flags);
-}
-
-function unsetNotionEnv() {
-  vi.stubEnv("NOTION_API_KEY", "");
-  vi.stubEnv("NOTION_DB_TOOLS", "");
-  vi.stubEnv("NOTION_DB_CATEGORIES", "");
-  vi.stubEnv("NOTION_DB_LOCATIONS", "");
-  vi.stubEnv("NOTION_DB_UNITS", "");
-  vi.stubEnv("NOTION_DB_RESOURCES", "");
-  vi.stubEnv("NOTION_DB_MAINTENANCE_LOGS", "");
-  vi.stubEnv("NOTION_DB_FLAGS", "");
-}
 
 // The in-memory limiter is a per-process singleton keyed by IP, so every test
 // gets its own address rather than eating a shared window.
@@ -45,196 +23,130 @@ function makeRequest(ip = `10.0.0.${++ipCounter}`) {
 }
 
 beforeEach(() => {
-  // The degraded paths log the real reason server-side; keep it out of the
+  // Force the demo substrate regardless of the host shell's own env, matching
+  // the rest of the catalogue test suite (see src/lib/catalog.test.ts).
+  vi.stubEnv("DATABASE_URL", "");
+  // The degraded path logs the real reason server-side; keep it out of the
   // test output (and prove nothing about it reaches the response body below).
   vi.spyOn(console, "warn").mockImplementation(() => {});
 });
 
-// ── Healthy ─────────────────────────────────────────────────────────
+afterEach(() => {
+  resetDbForTests();
+});
 
-describe("GET /api/health — healthy", () => {
-  it("returns 200 with status ok, notion ok, and a live catalog", async () => {
-    stubNotionEnv();
+// ── Healthy (demo substrate) ────────────────────────────────────────
+//
+// `DATABASE_URL` unset is the default in every test, and it is a normal,
+// expected state — not a failure — so it reports `status: "ok"` with
+// `database: "demo"`, distinct from a real Postgres that is actually down.
 
+describe("GET /api/health — healthy (demo substrate)", () => {
+  it("returns 200 with status ok, database demo, and the seeded tool count", async () => {
     const res = await GET(makeRequest());
 
     expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.status).toBe("ok");
-    expect(body.notion).toBe("ok");
-    expect(body.catalog).toBe("live");
-    expect(body.toolCount).toBeGreaterThan(0);
+    expect(body.database).toBe("demo");
+    expect(body.catalog).toBe("demo");
+    expect(body.toolCount).toBe(2); // the seeded demo catalogue: form-4, trotec-speedy-400
     expect(Number.isNaN(Date.parse(body.checkedAt))).toBe(false);
   });
 
-  it("probes Notion with a single page_size:1 query against the Tools database", async () => {
-    stubNotionEnv();
-
-    const probes: Array<{ db: string; body: unknown }> = [];
-    server.use(
-      http.post(
-        `https://api.notion.com/v1/databases/${DB_IDS.tools}/query`,
-        async ({ request }) => {
-          probes.push({ db: DB_IDS.tools, body: await request.json() });
-          return HttpResponse.json({ results: [], has_more: false, next_cursor: null });
-        }
-      )
-    );
-
-    await GET(makeRequest());
-
-    // First hit is the health probe itself; anything after is the catalog read.
-    expect(probes.length).toBeGreaterThan(0);
-    expect(probes[0].body).toEqual({ page_size: 1 });
-  });
-
   it("caches the probe on the 30s health profile", async () => {
-    stubNotionEnv();
-
     await GET(makeRequest());
 
     expect(vi.mocked(cacheLife)).toHaveBeenCalledWith(HEALTH_CACHE);
   });
 
   it("does not let a client or CDN store the verdict", async () => {
-    stubNotionEnv();
-
     const res = await GET(makeRequest());
 
     expect(res.headers.get("cache-control")).toBe("no-store");
   });
 });
 
-// ── Unconfigured ────────────────────────────────────────────────────
-
-describe("GET /api/health — unconfigured", () => {
-  it("returns 503 with notion unconfigured when the Notion env is empty", async () => {
-    unsetNotionEnv();
-
-    const res = await GET(makeRequest());
-
-    // The status code is the point: an uptime monitor alerts on 503, and would
-    // never notice a 200 carrying "degraded".
-    expect(res.status).toBe(503);
-    const body = await res.json();
-    expect(body.status).toBe("degraded");
-    expect(body.notion).toBe("unconfigured");
-    expect(body.catalog).toBe("mock");
-    expect(body.toolCount).toBe(mockTools.length);
-  });
-
-  it("returns 503 when a single NOTION_DB_* variable is dropped", async () => {
-    stubNotionEnv();
-    vi.stubEnv("NOTION_DB_UNITS", "");
-
-    const res = await GET(makeRequest());
-
-    expect(res.status).toBe(503);
-    const body = await res.json();
-    expect(body.notion).toBe("unconfigured");
-  });
-});
-
-// ── Unreachable ─────────────────────────────────────────────────────
+// ── Unreachable (a configured database that pingDb cannot reach) ────
+//
+// `dataSubstrate()` and `pingDb()` are mocked directly rather than pointed at
+// a real broken connection string, matching the `src/lib/catalog.test.ts`
+// "a database failure" pattern: `vi.doMock` + a fresh dynamic `import()`, so
+// only this one route instance sees the failure and every other test keeps
+// the real module and its memoised PGlite handle.
 
 describe("GET /api/health — unreachable", () => {
-  it("returns 503 with notion unreachable when the Notion query throws", async () => {
-    stubNotionEnv();
-    server.use(
-      http.post("https://api.notion.com/v1/databases/:id/query", () => HttpResponse.error())
-    );
+  afterEach(() => {
+    vi.doUnmock("../../../lib/db/client");
+    vi.resetModules();
+  });
 
-    const res = await GET(makeRequest());
+  it("returns 503 with database unreachable, degraded status, no live catalog, and no invented count", async () => {
+    vi.resetModules();
+    vi.doMock("../../../lib/db/client", () => ({
+      dataSubstrate: () => "neon",
+      pingDb: () => Promise.reject(new Error("connection terminated unexpectedly")),
+    }));
+    const { GET: GETWithBrokenDb } = await import("./route");
+
+    const res = await GETWithBrokenDb(makeRequest());
 
     expect(res.status).toBe(503);
     const body = await res.json();
     expect(body.status).toBe("degraded");
-    expect(body.notion).toBe("unreachable");
-    expect(body.catalog).toBe("mock");
-    expect(body.toolCount).toBe(mockTools.length);
-  });
-
-  it("returns 503 with notion unreachable when Notion answers non-2xx", async () => {
-    stubNotionEnv();
-    server.use(
-      http.post("https://api.notion.com/v1/databases/:id/query", () =>
-        HttpResponse.json({ object: "error", code: "unauthorized" }, { status: 401 })
-      )
-    );
-
-    const res = await GET(makeRequest());
-
-    expect(res.status).toBe(503);
-    expect((await res.json()).notion).toBe("unreachable");
+    expect(body.database).toBe("unreachable");
+    expect(body.catalog).toBe("demo");
+    // Article 4: never invented data — a Postgres this probe just proved down
+    // is never asked for a tool count.
+    expect(body.toolCount).toBe(0);
   });
 });
 
 // ── Disclosure ──────────────────────────────────────────────────────
 //
-// A health endpoint that names the missing variable or echoes the Notion error
-// hands an attacker the configuration. The body is three enum words, a count,
-// and a timestamp — nothing else, on any path.
+// A health endpoint that echoes a driver error or connection string hands an
+// attacker the configuration. The body is three enum words, a count, and a
+// timestamp — nothing else, on any path.
 
 describe("GET /api/health — leaks nothing", () => {
-  const FORBIDDEN = [
-    "NOTION_",
-    "notion.com",
-    "secret_test",
-    "Bearer",
-    DB_IDS.tools,
-    DB_IDS.units,
-  ];
-
-  it("names no env var, Notion id, or error text when unconfigured", async () => {
-    unsetNotionEnv();
-
-    const raw = await (await GET(makeRequest())).text();
-
-    for (const needle of FORBIDDEN) expect(raw).not.toContain(needle);
-  });
-
-  it("does not echo the Notion error body when unreachable", async () => {
-    stubNotionEnv();
-    server.use(
-      http.post("https://api.notion.com/v1/databases/:id/query", () =>
-        HttpResponse.json(
-          {
-            object: "error",
-            code: "unauthorized",
-            message: "API token is invalid: secret_test against db-tools",
-          },
-          { status: 401 }
-        )
-      )
-    );
-
-    const raw = await (await GET(makeRequest())).text();
-
-    for (const needle of FORBIDDEN) expect(raw).not.toContain(needle);
-    expect(raw).not.toContain("API token is invalid");
-    expect(raw).not.toContain("unauthorized");
+  afterEach(() => {
+    vi.doUnmock("../../../lib/db/client");
+    vi.resetModules();
   });
 
   it("returns exactly the documented fields and nothing more", async () => {
-    unsetNotionEnv();
-
     const body = await (await GET(makeRequest())).json();
 
     expect(Object.keys(body).sort()).toEqual([
       "catalog",
       "checkedAt",
-      "notion",
+      "database",
       "status",
       "toolCount",
     ]);
+  });
+
+  it("does not echo the driver error or connection string when unreachable", async () => {
+    const SENSITIVE = "postgres://admin:hunter2@db.internal.example.com/prod";
+    vi.resetModules();
+    vi.doMock("../../../lib/db/client", () => ({
+      dataSubstrate: () => "neon",
+      pingDb: () => Promise.reject(new Error(`could not connect to ${SENSITIVE}: ECONNREFUSED`)),
+    }));
+    const { GET: GETWithBrokenDb } = await import("./route");
+
+    const raw = await (await GETWithBrokenDb(makeRequest())).text();
+
+    for (const needle of [SENSITIVE, "hunter2", "ECONNREFUSED", "postgres://"]) {
+      expect(raw).not.toContain(needle);
+    }
   });
 });
 
 // ── Rate limiting ───────────────────────────────────────────────────
 
 describe("GET /api/health — rate limiting", () => {
-  it("429s a caller that hammers it, before touching Notion", async () => {
-    unsetNotionEnv();
+  it("429s a caller that hammers it, before touching the database", async () => {
     const ip = "10.9.9.9";
 
     let last = await GET(makeRequest(ip));

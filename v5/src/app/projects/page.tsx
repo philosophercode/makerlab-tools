@@ -36,7 +36,7 @@ export default async function ProjectsPage() {
           projects.map((project) => (
             <Link
               className="project-card"
-              href={`/projects/${project.id}`}
+              href={`/projects/${project.slug}`}
               key={project.id}
             >
               <span className="project-card-cover" aria-hidden="true">

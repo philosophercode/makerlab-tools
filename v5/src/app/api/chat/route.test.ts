@@ -1,7 +1,7 @@
+// @vitest-environment node
 /* eslint-disable @typescript-eslint/no-explicit-any -- this suite inspects the
    loosely-typed { system, messages, tools } object captured from the mocked
    streamText call; precise typing here would add noise without value. */
-import type { MaintenanceLogRecord, ResourceRecord } from "@/lib/types";
 
 // ── Captured streamText args ─────────────────────────────────────────
 // streamText is mocked so we can inspect the { system, messages, tools }
@@ -46,16 +46,9 @@ vi.mock("ai", async (importOriginal) => {
 const mocks = vi.hoisted(() => ({
   rateLimitAsync: vi.fn(),
   checkRateLimit: vi.fn(),
-  fetchMaintenanceLogsByUnit: vi.fn(),
   createMaintenanceLog: vi.fn(),
-  fetchAllResources: vi.fn(),
 }));
-const {
-  checkRateLimit,
-  fetchMaintenanceLogsByUnit,
-  createMaintenanceLog,
-  fetchAllResources,
-} = mocks;
+const { checkRateLimit, createMaintenanceLog } = mocks;
 
 // ── Mock the rate limiter (default: allowed, set in beforeEach) ──────
 // The route calls the identity-keyed `checkRateLimit`; the rest of the module
@@ -71,29 +64,14 @@ vi.mock("@/lib/rate-limit", async (importOriginal) => {
   };
 });
 
-// ── Mock Notion calls used by the route's tools / manual collection ──
-vi.mock("@/lib/notion", () => ({
-  fetchMaintenanceLogsByUnit: mocks.fetchMaintenanceLogsByUnit,
-  createMaintenanceLog: mocks.createMaintenanceLog,
-  fetchAllResources: mocks.fetchAllResources,
-  // catalog.ts also imports from notion.ts, but with NOTION_* env unset the
-  // catalog uses the mock fallback and never touches these, so stub the rest.
-  getNotionEnvContract: () => [
-    "NOTION_API_KEY",
-    "NOTION_DB_TOOLS",
-    "NOTION_DB_CATEGORIES",
-    "NOTION_DB_LOCATIONS",
-    "NOTION_DB_UNITS",
-    "NOTION_DB_RESOURCES",
-    "NOTION_DB_MAINTENANCE_LOGS",
-    "NOTION_DB_FLAGS",
-  ],
-  fetchAllTools: vi.fn(async () => []),
-  fetchAllCategories: vi.fn(async () => []),
-  fetchAllLocations: vi.fn(async () => []),
-  fetchAllUnits: vi.fn(async () => []),
-  resolveTools: vi.fn(() => []),
-}));
+// ── Mock the one Notion call left in the route's tools ───────────────
+// `report_issue` still files its ticket in Notion (spec §9, Phase 3). Every
+// other export stays real: nothing else in this request path reads Notion, and
+// a full replacement would have to track every import in the capability layer.
+vi.mock("@/lib/notion", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/notion")>();
+  return { ...actual, createMaintenanceLog: mocks.createMaintenanceLog };
+});
 
 // next/cache is imported by catalog.ts ("use cache" / cacheTag / cacheLife).
 vi.mock("next/cache", () => ({
@@ -102,29 +80,75 @@ vi.mock("next/cache", () => ({
   revalidateTag: vi.fn(),
 }));
 
+import { eq, inArray } from "drizzle-orm";
 import { POST } from "@/app/api/chat/route";
+import { getDb, resetDbForTests } from "@/lib/db/client";
+import { DEMO_FORM_4_UNIT_NOTION_PAGE_ID } from "@/lib/db/demo-seed";
+import {
+  attachments,
+  maintenanceLogs,
+  resources,
+  tools as toolsTable,
+  units,
+} from "@/lib/db/schema/index";
 import {
   SESSION_COOKIE_NAME,
   createSessionPayload,
   signSession,
 } from "@/lib/auth/session-cookie";
 
-// A mock-catalog resource fixture builder (mirrors ResourceRecord shape).
-function resource(
-  partial: Partial<ResourceRecord["fields"]> & { id?: string }
-): ResourceRecord {
-  const { id = "res-1", ...fields } = partial;
-  return {
-    id,
-    createdTime: "2024-01-01T00:00:00.000Z",
-    lastEditedTime: "2024-01-01T00:00:00.000Z",
-    fields: {
-      title: "Manual",
-      tool: ["tool-form-4"],
-      published: true,
-      ...fields,
-    },
-  } as ResourceRecord;
+/**
+ * The catalogue, the units and the resources all come from the demo-seeded
+ * PGlite database `getDb()` hands out with `DATABASE_URL` unset — the two
+ * tools `Form 4` (unit `Form 4 // A`) and `Trotec Speedy 400`. The seed carries
+ * no maintenance logs and no PDF resources; the tests that need them write
+ * them and clean up after themselves.
+ */
+
+/** Resource rows this file inserted, removed after each test. */
+const insertedResourceIds: string[] = [];
+
+async function toolId(slug: string): Promise<string> {
+  const db = await getDb();
+  const [row] = await db
+    .select({ id: toolsTable.id })
+    .from(toolsTable)
+    .where(eq(toolsTable.slug, slug));
+  return row.id;
+}
+
+async function unitId(label: string): Promise<string> {
+  const db = await getDb();
+  const [row] = await db
+    .select({ id: units.id })
+    .from(units)
+    .where(eq(units.unitLabel, label));
+  return row.id;
+}
+
+/** Add resources to a seeded tool (default: the Form 4). */
+async function addResources(
+  rows: Array<{ title: string; url?: string | null; published?: boolean; slug?: string }>
+): Promise<void> {
+  const db = await getDb();
+  const values = await Promise.all(
+    rows.map(async ({ slug = "form-4", ...row }) => ({
+      toolId: await toolId(slug),
+      type: "Manual",
+      ...row,
+    }))
+  );
+  const created = await db.insert(resources).values(values).returning({ id: resources.id });
+  insertedResourceIds.push(...created.map((row) => row.id));
+}
+
+async function addMaintenanceLogs(
+  label: string,
+  rows: Array<Partial<typeof maintenanceLogs.$inferInsert>>
+): Promise<void> {
+  const db = await getDb();
+  const id = await unitId(label);
+  await db.insert(maintenanceLogs).values(rows.map((row) => ({ title: "Issue", unitId: id, ...row })));
 }
 
 function chatRequest(
@@ -150,6 +174,7 @@ const userMessage = (text: string) => ({
 
 beforeEach(() => {
   captured.args = undefined;
+  vi.stubEnv("DATABASE_URL", "");
   // Undo any `vi.stubGlobal("fetch", …)` from a prior PDF test (the shared
   // setup file does not call vi.unstubAllGlobals).
   vi.unstubAllGlobals();
@@ -161,11 +186,23 @@ beforeEach(() => {
     retryAfterSeconds: 3600,
     role: "student",
   });
-  fetchMaintenanceLogsByUnit.mockReset();
-  fetchMaintenanceLogsByUnit.mockResolvedValue([]);
-  fetchAllResources.mockReset();
-  fetchAllResources.mockResolvedValue([]);
   createMaintenanceLog.mockReset();
+});
+
+afterEach(async () => {
+  const db = await getDb();
+  await db.delete(maintenanceLogs);
+  // The seed carries no attachments, so clearing the table only drops what a
+  // test wrote.
+  await db.delete(attachments);
+  if (insertedResourceIds.length > 0) {
+    await db.delete(resources).where(inArray(resources.id, insertedResourceIds));
+    insertedResourceIds.length = 0;
+  }
+});
+
+afterAll(() => {
+  resetDbForTests();
 });
 
 describe("POST /api/chat — rate limiting", () => {
@@ -248,7 +285,7 @@ describe("get_unit_details.execute", () => {
       unit_label: "no-such-unit",
     });
     expect(result.found).toBe(false);
-    // Sample list drawn from the mock catalog's units.
+    // Sample list drawn from the seeded catalogue's units.
     expect(result.message).toMatch(/Form 4 \/\/ A|Trotec Speedy 400/);
   });
 
@@ -265,21 +302,18 @@ describe("get_unit_details.execute", () => {
     expect(result.maintenance_logs).toEqual([]);
   });
 
-  it("surfaces maintenance logs, sliced to 10", async () => {
-    const logs: MaintenanceLogRecord[] = Array.from({ length: 12 }, (_, i) => ({
-      id: `log-${i}`,
-      createdTime: "2024-01-01T00:00:00.000Z",
-      lastEditedTime: "2024-01-01T00:00:00.000Z",
-      fields: {
+  it("surfaces maintenance logs, capped at 10 and newest first", async () => {
+    await addMaintenanceLogs(
+      "Form 4 // A",
+      Array.from({ length: 12 }, (_, i) => ({
         title: `Issue ${i}`,
-        type: "Issue Report",
-        priority: "Medium",
-        status: "Open",
-        date_reported: "2024-09-01",
+        type: "issue_report",
+        priority: "medium",
+        status: "open",
         description: `desc ${i}`,
-      },
-    })) as MaintenanceLogRecord[];
-    fetchMaintenanceLogsByUnit.mockResolvedValueOnce(logs);
+        dateReported: `2024-09-${String(i + 1).padStart(2, "0")}`,
+      }))
+    );
 
     const tools = await getTools();
     const result = await tools.get_unit_details.execute({
@@ -288,8 +322,9 @@ describe("get_unit_details.execute", () => {
 
     expect(result.found).toBe(true);
     expect(result.maintenance_logs).toHaveLength(10);
+    // Stored snake_case, shown in the words the assistant has always seen.
     expect(result.maintenance_logs[0]).toMatchObject({
-      title: "Issue 0",
+      title: "Issue 11",
       type: "Issue Report",
       priority: "Medium",
       status: "Open",
@@ -346,13 +381,14 @@ describe("report_issue.execute", () => {
       priority: "High",
     });
 
+    // The caller is told the Postgres uuid the catalogue resolved; the ticket,
+    // still filed in Notion, carries the unit's imported Notion page id — the
+    // only id that database's `unit` relation can address.
+    const form4A = await unitId("Form 4 // A");
     expect(result.success).toBe(true);
-    expect(result.unit_resolved).toEqual({
-      id: "unit-form-4-a",
-      label: "Form 4 // A",
-    });
+    expect(result.unit_resolved).toEqual({ id: form4A, label: "Form 4 // A" });
     expect(createMaintenanceLog).toHaveBeenCalledWith(
-      expect.objectContaining({ unit: ["unit-form-4-a"] })
+      expect.objectContaining({ unit: [DEMO_FORM_4_UNIT_NOTION_PAGE_ID] })
     );
   });
 
@@ -451,11 +487,11 @@ describe("PDF manual collection (focused tool)", () => {
   }
 
   it("attaches small PDFs to the first user message and caps at 3", async () => {
-    fetchAllResources.mockResolvedValueOnce([
-      resource({ id: "r1", title: "Manual 1", url: "https://x.test/m1.pdf" }),
-      resource({ id: "r2", title: "Manual 2", url: "https://x.test/m2.pdf" }),
-      resource({ id: "r3", title: "Manual 3", url: "https://x.test/m3.pdf" }),
-      resource({ id: "r4", title: "Manual 4", url: "https://x.test/m4.pdf" }),
+    await addResources([
+      { title: "Manual 1", url: "https://x.test/m1.pdf" },
+      { title: "Manual 2", url: "https://x.test/m2.pdf" },
+      { title: "Manual 3", url: "https://x.test/m3.pdf" },
+      { title: "Manual 4", url: "https://x.test/m4.pdf" },
     ]);
 
     const fetchMock = vi.fn(async () => okPdf(PDF_SMALL));
@@ -482,12 +518,12 @@ describe("PDF manual collection (focused tool)", () => {
   });
 
   it("skips PDFs that are too large or return non-ok, and skips non-PDF resources", async () => {
-    fetchAllResources.mockResolvedValueOnce([
-      resource({ id: "r1", title: "Good", url: "https://x.test/good.pdf" }),
-      resource({ id: "r2", title: "Huge", url: "https://x.test/huge.pdf" }),
-      resource({ id: "r3", title: "Dead", url: "https://x.test/dead.pdf" }),
+    await addResources([
+      { title: "Good", url: "https://x.test/good.pdf" },
+      { title: "Huge", url: "https://x.test/huge.pdf" },
+      { title: "Dead", url: "https://x.test/dead.pdf" },
       // Non-PDF url → skipped entirely (never fetched).
-      resource({ id: "r4", title: "Webpage", url: "https://x.test/page.html" }),
+      { title: "Webpage", url: "https://x.test/page.html" },
     ]);
 
     const fetchMock = vi.fn(async (url: string) => {
@@ -525,19 +561,9 @@ describe("PDF manual collection (focused tool)", () => {
   });
 
   it("ignores unpublished resources and resources for other tools", async () => {
-    fetchAllResources.mockResolvedValueOnce([
-      resource({
-        id: "r1",
-        title: "Unpublished",
-        url: "https://x.test/u.pdf",
-        published: false,
-      }),
-      resource({
-        id: "r2",
-        title: "OtherTool",
-        url: "https://x.test/o.pdf",
-        tool: ["tool-trotec-speedy-400"],
-      }),
+    await addResources([
+      { title: "Unpublished", url: "https://x.test/u.pdf", published: false },
+      { title: "OtherTool", url: "https://x.test/o.pdf", slug: "trotec-speedy-400" },
     ]);
     const fetchMock = vi.fn(async () => okPdf(PDF_SMALL));
     vi.stubGlobal("fetch", fetchMock);
@@ -550,17 +576,44 @@ describe("PDF manual collection (focused tool)", () => {
     expect(captured.args.system).not.toContain("Available manuals");
   });
 
+  it("attaches a resource's uploaded file when the resource itself has no url", async () => {
+    await addResources([{ title: "Scanned manual", url: null }]);
+    const db = await getDb();
+    const [scanned] = await db
+      .select({ id: resources.id })
+      .from(resources)
+      .where(eq(resources.title, "Scanned manual"));
+    await db.insert(attachments).values({
+      ownerType: "resource",
+      ownerId: scanned.id,
+      blobPathname: "resources/scanned-abc123.pdf",
+      access: "public",
+      publicUrl: "https://blob.test/resources/scanned-abc123.pdf",
+    });
+
+    const fetchMock = vi.fn(async () => okPdf(PDF_SMALL));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await POST(
+      chatRequest({ messages: [userMessage("help")], toolId: "form-4" })
+    );
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://blob.test/resources/scanned-abc123.pdf",
+      expect.anything()
+    );
+    expect(captured.args.system).toContain("Scanned manual");
+  });
+
   it("does not run manual collection when no toolId is provided", async () => {
-    fetchAllResources.mockResolvedValueOnce([
-      resource({ id: "r1", title: "Manual 1", url: "https://x.test/m1.pdf" }),
-    ]);
+    await addResources([{ title: "Manual 1", url: "https://x.test/m1.pdf" }]);
     const fetchMock = vi.fn(async () => okPdf(PDF_SMALL));
     vi.stubGlobal("fetch", fetchMock);
 
     await POST(chatRequest({ messages: [userMessage("hi")] }));
 
-    expect(fetchAllResources).not.toHaveBeenCalled();
     expect(fetchMock).not.toHaveBeenCalled();
+    expect(captured.args.system).not.toContain("Available manuals");
   });
 });
 

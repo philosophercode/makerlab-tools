@@ -1,6 +1,7 @@
+import { waitForElementToBeRemoved } from "@testing-library/react";
 import { PrimaryNav } from "./PrimaryNav";
 import { render, screen, userEvent } from "../../test/utils/render";
-import type { ClientIdentity } from "../lib/auth/sign-in-client";
+import type { ClientIdentity, SignInStart } from "../lib/auth/sign-in-client";
 
 // PrimaryNav is a client component that reads the active route from
 // `usePathname`. Mock `next/navigation` so each test can control the path
@@ -16,8 +17,8 @@ vi.mock("next/navigation", () => ({
 // real, since the header's job is to render what they derive). Their own
 // behaviour is covered in `lib/auth/sign-in-client.test.ts`.
 const fetchIdentity = vi.fn<() => Promise<ClientIdentity | null>>(async () => null);
-const startGoogleSignIn = vi.fn<(callbackURL: string) => Promise<boolean>>(
-  async () => true
+const startGoogleSignIn = vi.fn<(callbackURL: string) => Promise<SignInStart>>(
+  async () => "started"
 );
 const signOutAndReload = vi.fn(async () => {});
 
@@ -217,13 +218,58 @@ describe("PrimaryNav — sign-in control", () => {
 
   it("re-enables the control when sign-in could not start", async () => {
     const user = userEvent.setup();
-    startGoogleSignIn.mockResolvedValue(false);
+    startGoogleSignIn.mockResolvedValue("failed");
     render(<PrimaryNav />);
 
     const button = await screen.findByRole("button", { name: /Sign in/ });
     await user.click(button);
 
     expect(button).not.toBeDisabled();
+  });
+
+  it("says so, beside the control, when this deployment has no sign-in set up", async () => {
+    const user = userEvent.setup();
+    startGoogleSignIn.mockResolvedValue("unconfigured");
+    render(<PrimaryNav />);
+
+    await user.click(await screen.findByRole("button", { name: /Sign in/ }));
+
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      "Sign-in isn't set up on this deployment yet."
+    );
+  });
+
+  it("says the attempt failed when the request did, and clears the notice on the next try", async () => {
+    const user = userEvent.setup();
+    startGoogleSignIn.mockResolvedValue("failed");
+    render(<PrimaryNav />);
+
+    const button = await screen.findByRole("button", { name: /Sign in/ });
+    await user.click(button);
+    expect(await screen.findByRole("status")).toHaveTextContent("Couldn't start sign-in. Try again.");
+
+    // A retry that leaves for Google renders no notice at all.
+    startGoogleSignIn.mockResolvedValue("started");
+    await user.click(button);
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("shows no notice before anyone has tried", async () => {
+    render(<PrimaryNav />);
+    await screen.findByRole("button", { name: /Sign in/ });
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+  });
+
+  it("lets the notice go after its duration instead of keeping it in the header", async () => {
+    const user = userEvent.setup();
+    startGoogleSignIn.mockResolvedValue("unconfigured");
+    render(<PrimaryNav noticeDurationMs={40} />);
+
+    await user.click(await screen.findByRole("button", { name: /Sign in/ }));
+    const notice = await screen.findByRole("status");
+    expect(notice).toHaveStyle({ animationDuration: "40ms" });
+
+    await waitForElementToBeRemoved(() => screen.queryByRole("status"));
   });
 });
 

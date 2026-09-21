@@ -1,3 +1,4 @@
+// @vitest-environment node
 import { resolve } from "node:path";
 import {
   buildLabelSheet,
@@ -5,6 +6,7 @@ import {
   deriveLabels,
   formatLabelLocation,
   loadSheetStrings,
+  loadSources,
   MIN_QR_MM,
   parseArgs,
   pickSheetStrings,
@@ -13,7 +15,6 @@ import {
   type LabelSheetStrings,
   type QrLabelSource,
 } from "./generate-qr-labels.ts";
-import { mockTools } from "@/components/mock-catalog";
 import enMessages from "../messages/en.json";
 
 const MESSAGES_DIR = resolve(process.cwd(), "messages");
@@ -173,27 +174,31 @@ describe("renderLabelSheet", () => {
   });
 });
 
-describe("buildLabelSheet (integration, mock catalog)", () => {
-  it("produces one label per tool in the mock catalog", async () => {
-    const html = await buildLabelSheet(mockTools, {
+// The whole script, end to end, over the catalogue it reads in production —
+// the demo seed standing in for a real database (spec §3.2).
+describe("buildLabelSheet (integration, demo catalogue)", () => {
+  it("produces one label per tool in the catalogue", async () => {
+    const sources = await loadSources();
+    const html = await buildLabelSheet(sources, {
       baseUrl: BASE,
       strings: STRINGS,
       encodeQr: fakeEncoder,
     });
 
     const labels = html.match(/class="qr-label"/g) || [];
-    expect(labels).toHaveLength(mockTools.length);
-    expect(mockTools.length).toBeGreaterThan(0);
+    expect(labels).toHaveLength(sources.length);
+    expect(sources.length).toBeGreaterThan(0);
   });
 
   it("encodes each tool's own ?src=qr URL and prints its name", async () => {
-    const html = await buildLabelSheet(mockTools, {
+    const sources = await loadSources();
+    const html = await buildLabelSheet(sources, {
       baseUrl: BASE,
       strings: STRINGS,
       encodeQr: fakeEncoder,
     });
 
-    for (const tool of mockTools) {
+    for (const tool of sources) {
       expect(html).toContain(`${BASE}/tools/${tool.slug}?src=qr`);
       expect(html).toContain(tool.name);
     }
@@ -201,13 +206,34 @@ describe("buildLabelSheet (integration, mock catalog)", () => {
   });
 
   it("drops unpublished tools from the sheet", async () => {
+    const sources = await loadSources();
     const html = await buildLabelSheet(
-      [...mockTools.map((tool) => ({ ...tool, published: false })), source()],
+      [...sources.map((tool) => ({ ...tool, published: false })), source()],
       { baseUrl: BASE, strings: STRINGS, encodeQr: fakeEncoder }
     );
 
     expect(html.match(/class="qr-label"/g) || []).toHaveLength(1);
     expect(html).toContain("Form 4");
+  });
+});
+
+describe("loadSources (Postgres, PGlite demo seed)", () => {
+  it("reads published, non-archived tools ordered by name", async () => {
+    const sources = await loadSources();
+
+    expect(sources.map((source) => source.slug)).toEqual(["form-4", "trotec-speedy-400"]);
+    expect(sources.every((source) => source.published)).toBe(true);
+
+    const form4 = sources.find((source) => source.slug === "form-4");
+    expect(form4).toMatchObject({ name: "Form 4", location: "MakerLab", zone: "Resin Bench" });
+  });
+
+  it("produces working label URLs end to end from Postgres", async () => {
+    const sources = await loadSources();
+    expect(deriveLabels(sources, BASE).map((label) => label.url)).toEqual([
+      "https://tools.example.edu/tools/form-4?src=qr",
+      "https://tools.example.edu/tools/trotec-speedy-400?src=qr",
+    ]);
   });
 });
 

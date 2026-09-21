@@ -1,13 +1,17 @@
+// @vitest-environment node
 import { nextCacheMock } from "../../../test/mocks/next-cache";
+import { getCatalogTools } from "../catalog";
+import { resetDbForTests } from "../db/client";
+import { DEMO_FORM_4_UNIT_NOTION_PAGE_ID } from "../db/demo-seed";
 import type { CapabilityCtx } from "./types";
 import type { Identity } from "../auth/identity";
 
 // `catalog.ts` (pulled in to resolve unit labels) imports cacheTag/cacheLife.
 vi.mock("next/cache", () => nextCacheMock());
 
-// Only the write is mocked; everything else in notion.ts stays real. With the
-// NOTION_* env unset the catalog serves the mock catalog, so no test here needs
-// a network call to resolve "Form 4 // A" (Article 3).
+// Only the write is mocked; everything else in notion.ts stays real. Units are
+// resolved against the demo-seeded PGlite database (`DATABASE_URL` unset), so
+// no test here needs a network call to resolve "Form 4 // A" (Article 3).
 const mocks = vi.hoisted(() => ({ createMaintenanceLog: vi.fn() }));
 vi.mock("../notion", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../notion")>();
@@ -66,9 +70,22 @@ function ticket(id = "ticket-1") {
 }
 
 beforeEach(() => {
+  vi.stubEnv("DATABASE_URL", "");
   createMaintenanceLog.mockReset();
   createMaintenanceLog.mockResolvedValue(ticket());
 });
+
+afterAll(() => {
+  resetDbForTests();
+});
+
+/** The seeded unit behind a label, as the capability resolves it. */
+async function seededUnit(toolName: string) {
+  const tools = await getCatalogTools();
+  const tool = tools.find((t) => t.name === toolName);
+  if (!tool?.units[0]) throw new Error(`No seeded unit for ${toolName}`);
+  return tool.units[0];
+}
 
 describe("report_issue — verified authorship", () => {
   it("records the session's name and email when the student is signed in", async () => {
@@ -133,17 +150,39 @@ describe("report_issue — verified authorship", () => {
   });
 
   it("still links a resolved unit and reports the ticket id", async () => {
+    const unit = await seededUnit("Form 4");
+
     const result = (await reportIssue.run(
       issue({ unit_label: "Form 4 // A", priority: "High" }),
       { identity: signedIn() }
     )) as { success: boolean; ticket_id?: string; unit_resolved?: unknown };
 
     expect(result.ticket_id).toBe("ticket-1");
+    // The caller is told the catalogue id — a Postgres uuid, the one every
+    // other capability accepts back.
     expect(result.unit_resolved).toEqual({
-      id: "unit-form-4-a",
+      id: unit.id,
       label: "Form 4 // A",
     });
-    expect(writtenFields().unit).toEqual(["unit-form-4-a"]);
+    // The Notion relation is the imported page id, not the uuid: Notion rejects
+    // a relation to a page it cannot find.
+    expect(writtenFields().unit).toEqual([DEMO_FORM_4_UNIT_NOTION_PAGE_ID]);
+  });
+
+  it("files the ticket unlinked when the unit never came from Notion", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const unit = await seededUnit("Trotec Speedy 400");
+
+    const result = (await reportIssue.run(
+      issue({ unit_label: "Trotec Speedy 400" }),
+      {}
+    )) as { success: boolean; ticket_id?: string; unit_resolved?: unknown };
+
+    // The resolution still happened and is reported; only the relation is gone.
+    expect(result.success).toBe(true);
+    expect(result.unit_resolved).toEqual({ id: unit.id, label: "Trotec Speedy 400" });
+    expect(writtenFields().unit).toBeUndefined();
+    expect(warn).toHaveBeenCalled();
   });
 });
 

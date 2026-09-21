@@ -17,7 +17,7 @@ your `*.test.ts(x)` files and import from here.
 | `test/mocks/next-cache.ts` | `nextCacheMock()` factory for `vi.mock("next/cache", …)` |
 | `test/mocks/server-only.ts` | empty stub aliased for `import "server-only"` |
 | `test/utils/render.tsx` | RTL `render` wrapped in `NextIntlClientProvider` + `userEvent` |
-| `playwright.config.ts` | E2E config; dev server boots with Notion env unset |
+| `playwright.config.ts` | E2E config; dev server boots with `DATABASE_URL` unset (PGlite demo seed) |
 
 ## Scripts
 
@@ -59,18 +59,62 @@ import { render, screen, userEvent } from "../../test/utils/render";
 
 ---
 
-## The mock-catalog fallback rule (read this first)
+## The PGlite rule (read this first)
 
-`getCatalogTools()` / `getCatalogTool(id)` return the built-in mock catalog when
-`hasNotionCatalogEnv()` is false — i.e. **any** of the 8 Notion env vars
-(`NOTION_API_KEY` + the 7 `NOTION_DB_*`) is missing — **and** on any thrown
-error during the Notion fetch.
+Catalogue reads run against Postgres, and the test suite never needs Notion
+env for them. `getCatalogTools()` / `getCatalogTool(id)` read from **PGlite**
+— an in-process Postgres, migrated and seeded with demo data (two tools:
+`form-4`, `trotec-speedy-400`) — whenever `DATABASE_URL` is unset, which is
+the default in every test. No MSW, no `vi.stubEnv` for Notion, no network.
 
-- **Mock path** (default in tests): leave Notion env unset. Catalog comes from
-  `src/components/mock-catalog.ts`. No MSW needed.
-- **Real Notion path**: `vi.stubEnv` all 8 vars (set the `NOTION_DB_*` ones to
-  the `DB_IDS` sentinels so the default handlers route correctly), then let MSW
-  serve `api.notion.com`.
+- **The seeded demo database** (most catalogue tests): leave `DATABASE_URL`
+  unset and call `getDb()` from `../../src/lib/db/client` — it lazily creates
+  and memoises one PGlite instance per test file. Put `resetDbForTests()` in
+  an `afterEach` if a test stubs `DATABASE_URL` to something else.
+- **An isolated database** (schema tests, or a test that needs to seed its own
+  rows without touching the shared demo data): call `createPgliteDb()` from
+  `../../src/lib/db/pglite` directly — it returns a fresh, empty (or
+  custom-seeded via its `seed` option) instance, migrated the same way Neon
+  is.
+- **`// @vitest-environment node` is required** at the top of any file that
+  creates or touches a PGlite database — jsdom (the suite's default
+  environment) doesn't have what PGlite's WASM build needs.
+
+```ts
+// @vitest-environment node
+import { createPgliteDb } from "../../src/lib/db/pglite";
+import type { Db } from "../../src/lib/db/types";
+
+let db: Db;
+
+beforeAll(async () => {
+  db = await createPgliteDb();
+});
+```
+
+```ts
+// @vitest-environment node
+import { getDb, resetDbForTests } from "../../src/lib/db/client";
+
+afterEach(() => {
+  resetDbForTests();
+});
+
+it("reads the seeded demo tools", async () => {
+  vi.stubEnv("DATABASE_URL", "");
+  const db = await getDb();
+  // ...
+});
+```
+
+`vi.unstubAllEnvs()` runs automatically after every test (setup file).
+
+**Write paths are still on Notion in this phase** (maintenance tickets,
+corrections, project submission, uploads, intake) — see
+`docs/specs/2026-09-14-v5-data-platform-design.md` §9. Testing those still
+uses the real-Notion MSW path: `vi.stubEnv` all 8 Notion vars (set the
+`NOTION_DB_*` ones to the `DB_IDS` sentinels so the default handlers route
+correctly), then let MSW serve `api.notion.com`.
 
 ```ts
 import { DB_IDS } from "../../test/msw/handlers";
@@ -86,8 +130,6 @@ function stubNotionEnv() {
   vi.stubEnv("NOTION_DB_FLAGS", DB_IDS.flags);
 }
 ```
-
-`vi.unstubAllEnvs()` runs automatically after every test (setup file).
 
 ---
 
@@ -233,7 +275,7 @@ it("wires system + tools and runs a captured tool.execute", async () => {
   expect(captured.args.tools).toHaveProperty("report_issue");
   expect(captured.args.tools).toHaveProperty("web_fetch");
 
-  // Invoke a tool.execute directly (mock-catalog path — no Notion env):
+  // Invoke a tool.execute directly (PGlite demo seed — DATABASE_URL unset):
   const miss = await captured.args.tools.get_unit_details.execute({
     unit_label: "no-such-unit",
   });
@@ -251,5 +293,5 @@ Notes:
 - To test `report_issue.execute` filing a ticket, stub the Notion env and let
   MSW's `POST /pages` handler respond (returns `id: "created-page-1"`), then
   assert `result.success === true` and `result.ticket_id`.
-- For `get_unit_details` / `report_issue` against the **mock catalog** (no env),
-  the catalog units come from `mock-catalog.ts` (`Form 4 // A`, `Trotec Speedy 400`).
+- For `get_unit_details` against the **PGlite demo seed** (`DATABASE_URL`
+  unset), the catalog units are `Form 4 // A` and `Trotec Speedy 400`.

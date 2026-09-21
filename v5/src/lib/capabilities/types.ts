@@ -62,7 +62,7 @@ export interface CapabilityCtx {
   attachments?: UploadedImage[];
   /** Response/UI locale, e.g. "en" / "es". */
   locale?: string;
-  /** Notion page id of the tool the user is currently viewing, if any. */
+  /** Catalogue id (a Postgres uuid) of the tool the user is viewing, if any. */
   focusedToolId?: string;
   /**
    * Who is making this request, resolved **server-side** from the session

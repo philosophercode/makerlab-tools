@@ -13,9 +13,11 @@ import {
   type UserModelMessage,
 } from "ai";
 import { getCatalogTool, getCatalogTools } from "../../../lib/catalog";
-import { fetchAllResources } from "../../../lib/notion";
+import {
+  listResourcesForTool,
+  type ToolResource,
+} from "../../../lib/data/resources";
 import type { MakerLabTool } from "../../../components/catalog-types";
-import type { ResourceRecord } from "../../../lib/types";
 import { checkRateLimit, type RateLimitDecision } from "../../../lib/rate-limit";
 import { resolveIdentity } from "../../../lib/auth/identity";
 import { siteConfig } from "../../../lib/site-config";
@@ -54,7 +56,7 @@ interface ChatRequest {
 
 export async function POST(req: Request) {
   // Who is asking, then how much they are allowed — both before any expensive
-  // work (Notion fetch / model call). Anonymous visitors get a small allowance
+  // work (catalogue read / model call). Anonymous visitors get a small allowance
   // keyed by hashed IP; signed-in callers get a generous one keyed by user id
   // (auth design spec §8).
   const identity = await resolveIdentity(req);
@@ -380,18 +382,15 @@ function uniqueHosts(urls: string[]): string[] {
   return [...set];
 }
 
-function isPdfUrl(url: string | undefined): boolean {
+function isPdfUrl(url: string | null | undefined): boolean {
   if (!url) return false;
   const cleaned = url.split("?")[0].toLowerCase();
   return cleaned.endsWith(".pdf");
 }
 
-function pickPdfUrl(resource: ResourceRecord): string | null {
-  if (isPdfUrl(resource.fields.url)) return resource.fields.url ?? null;
-  const file = (resource.fields.files || []).find(
-    (f) => isPdfUrl(f.filename) || isPdfUrl(f.url)
-  );
-  return file?.url || null;
+function pickPdfUrl(resource: ToolResource): string | null {
+  if (isPdfUrl(resource.url)) return resource.url;
+  return resource.fileUrls.find(isPdfUrl) ?? null;
 }
 
 /**
@@ -437,17 +436,16 @@ async function fetchPdfAsBase64(
 async function collectToolManuals(
   toolId: string
 ): Promise<{ manuals: AttachedManual[]; skipped: number }> {
-  let resources: ResourceRecord[];
+  // Only the focused tool's resources are read (spec §3.10, Article 4's "load
+  // context lazily") — the whole resource table used to come back from Notion
+  // just to be filtered down to one tool's rows here.
+  let forTool: ToolResource[];
   try {
-    resources = await fetchAllResources();
+    forTool = await listResourcesForTool(toolId);
   } catch (err) {
     console.warn("[chat] failed to load resources for manuals", err);
     return { manuals: [], skipped: 0 };
   }
-
-  const forTool = resources.filter(
-    (r) => r.fields.published !== false && (r.fields.tool || []).includes(toolId)
-  );
 
   const manuals: AttachedManual[] = [];
   let skipped = 0;
@@ -455,20 +453,18 @@ async function collectToolManuals(
     for (const r of forTool) {
       const url = pickPdfUrl(r);
       if (!url) {
-        if (r.fields.url) {
-          console.info(
-            `[chat] skipping non-PDF resource: ${r.fields.title} (${r.fields.url})`
-          );
+        if (r.url) {
+          console.info(`[chat] skipping non-PDF resource: ${r.title} (${r.url})`);
         }
         continue;
       }
       if (manuals.length >= MAX_PDFS_PER_CHAT) {
         console.info(
-          `[chat] PDF cap reached (${MAX_PDFS_PER_CHAT}); skipping: ${r.fields.title}`
+          `[chat] PDF cap reached (${MAX_PDFS_PER_CHAT}); skipping: ${r.title}`
         );
         continue;
       }
-      const title = r.fields.title || "Manual";
+      const title = r.title || "Manual";
       const data = await fetchPdfAsBase64(title, url);
       if (!data) {
         skipped += 1;

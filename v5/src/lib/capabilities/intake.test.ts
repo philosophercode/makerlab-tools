@@ -13,7 +13,7 @@ vi.mock("next/cache", () => nextCacheMock());
 
 /**
  * Intake ↔ confidence wiring (confidence spec phases 2, 4 and 5). The catalog
- * read runs against the built-in mock catalog (no `NOTION_*` env is stubbed, so
+ * read runs against the PGlite demo seed (no `DATABASE_URL`, so
  * `getCatalogTools()` never touches the network) and every candidate here
  * carries no resources, so no link verification fetch is made either.
  *
@@ -45,7 +45,7 @@ function toolByName(name: string): CapabilityTool<unknown, unknown> {
   return found;
 }
 
-/** A candidate that matches nothing in the mock catalog. */
+/** A candidate that matches nothing in the demo catalogue. */
 function candidate(over: Partial<ToolCandidate> = {}): ToolCandidate {
   return {
     name: "Zorbex Filament Extruder 9000",

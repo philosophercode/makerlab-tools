@@ -7,9 +7,9 @@ one place stops the two documents from drifting apart.
 
 Two things to know before anything else:
 
-1. **The active app is `v5/`** (Notion-backed), not the root `src/` tree (v4,
-   AirTable, frozen). When working in `v5/`, also read
-   [`v5/AGENTS.md`](./v5/AGENTS.md).
+1. **The active app is `v5/`** (Postgres-backed, with Notion read only by the
+   one-time import), not the root `src/` tree (v4, AirTable, frozen). When
+   working in `v5/`, also read [`v5/AGENTS.md`](./v5/AGENTS.md).
 2. **This repository is in maintenance mode.** v5 is the live Cornell Tech
    deployment. Next-generation development happens in a separate repository —
    see `AGENTS.md`.

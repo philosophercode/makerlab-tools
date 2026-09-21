@@ -1,524 +1,189 @@
-import { http, HttpResponse } from "msw";
-
-import { server } from "../../test/msw/server";
-import { DB_IDS } from "../../test/msw/handlers";
-import {
-  categoriesPage,
-  locationsPage,
-  notionQueryResponse,
-  resourcesPage,
-  toolsPage,
-  unitsPage,
-  selectProp,
-  relationProp,
-  titleProp,
-  richTextProp,
-  checkboxProp,
-  multiSelectProp,
-  filesProp,
-  externalFile,
-  hostedFile,
-  urlProp,
-  STALE_IMAGE_URL,
-  FRESH_IMAGE_URL,
-  type NotionPageFixture,
-} from "../../test/fixtures/notion";
+// @vitest-environment node
+// `nextCacheMock` is imported first on purpose: `vi.mock` is hoisted above
+// every import, and its factory can only reach a module imported before the one
+// it replaces.
 import { nextCacheMock } from "../../test/mocks/next-cache";
+import { cacheLife, cacheTag } from "next/cache";
+import { CATALOG_CACHE } from "./cache";
+import { getCatalogStats, getCatalogTool, getCatalogTools, isDemoCatalog } from "./catalog";
+import { getDb, resetDbForTests } from "./db/client";
+import { tools } from "./db/schema/index";
 
 vi.mock("next/cache", () => nextCacheMock());
 
-// ── Helpers ─────────────────────────────────────────────────────────
+/**
+ * The catalogue against the demo-seeded PGlite database `getDb()` hands out
+ * when `DATABASE_URL` is unset — the same substrate the test suite, E2E and a
+ * fresh clone run on. The seed is two tools, so these assertions are about the
+ * wiring and the derivation, not about the lab's real inventory.
+ */
 
-function stubNotionEnv() {
-  vi.stubEnv("NOTION_API_KEY", "secret_test");
-  vi.stubEnv("NOTION_DB_TOOLS", DB_IDS.tools);
-  vi.stubEnv("NOTION_DB_CATEGORIES", DB_IDS.categories);
-  vi.stubEnv("NOTION_DB_LOCATIONS", DB_IDS.locations);
-  vi.stubEnv("NOTION_DB_UNITS", DB_IDS.units);
-  vi.stubEnv("NOTION_DB_RESOURCES", DB_IDS.resources);
-  vi.stubEnv("NOTION_DB_MAINTENANCE_LOGS", DB_IDS.maintenance_logs);
-  vi.stubEnv("NOTION_DB_FLAGS", DB_IDS.flags);
-}
+beforeEach(() => {
+  vi.stubEnv("DATABASE_URL", "");
+});
 
-function unsetNotionEnv() {
-  vi.stubEnv("NOTION_API_KEY", "");
-  vi.stubEnv("NOTION_DB_TOOLS", "");
-  vi.stubEnv("NOTION_DB_CATEGORIES", "");
-  vi.stubEnv("NOTION_DB_LOCATIONS", "");
-  vi.stubEnv("NOTION_DB_UNITS", "");
-  vi.stubEnv("NOTION_DB_RESOURCES", "");
-  vi.stubEnv("NOTION_DB_MAINTENANCE_LOGS", "");
-  vi.stubEnv("NOTION_DB_FLAGS", "");
-}
+// One in-process database for the file: nothing here writes, so there is
+// nothing to isolate between tests, and a fresh PGlite per test would pay for
+// the migrations every time.
+afterAll(() => {
+  resetDbForTests();
+});
 
-// Route the standard catalog DBs to a custom set of pages. tools / categories /
-// locations / units / resources can each be overridden; anything else returns
-// empty. Used to drive status + training-level derivation through the real path.
-function routeCatalog(opts: {
-  tools?: NotionPageFixture[];
-  categories?: NotionPageFixture[];
-  locations?: NotionPageFixture[];
-  units?: NotionPageFixture[];
-  resources?: NotionPageFixture[];
-}) {
-  const byId: Record<string, NotionPageFixture[]> = {
-    [DB_IDS.tools]: opts.tools ?? [toolsPage],
-    [DB_IDS.categories]: opts.categories ?? [categoriesPage],
-    [DB_IDS.locations]: opts.locations ?? [locationsPage],
-    [DB_IDS.units]: opts.units ?? [unitsPage],
-    [DB_IDS.resources]: opts.resources ?? [resourcesPage],
-  };
-  server.use(
-    http.post("https://api.notion.com/v1/databases/:id/query", ({ params }) => {
-      const id = params.id as string;
-      return HttpResponse.json(notionQueryResponse(byId[id] ?? []));
-    })
-  );
-}
+// ── getCatalogTools ─────────────────────────────────────────────────
 
-// Reset modules + re-import so catalog.ts re-reads process.env at module load.
-async function importCatalog() {
-  vi.resetModules();
-  return import("@/lib/catalog");
-}
-
-// ── hasNotionCatalogEnv ─────────────────────────────────────────────
-
-describe("hasNotionCatalogEnv", () => {
-  it("returns true when all NOTION_* vars are set", async () => {
-    stubNotionEnv();
-    const { hasNotionCatalogEnv } = await importCatalog();
-    expect(hasNotionCatalogEnv()).toBe(true);
+describe("getCatalogTools", () => {
+  it("returns the seeded catalogue ordered by name", async () => {
+    const catalog = await getCatalogTools();
+    expect(catalog.map((tool) => tool.slug)).toEqual(["form-4", "trotec-speedy-400"]);
   });
 
-  it("returns false when any NOTION_* var is missing", async () => {
-    stubNotionEnv();
-    vi.stubEnv("NOTION_DB_UNITS", "");
-    const { hasNotionCatalogEnv } = await importCatalog();
-    expect(hasNotionCatalogEnv()).toBe(false);
+  it("resolves a tool's category, location and map tag through the joins", async () => {
+    const [form4] = await getCatalogTools();
+    expect(form4).toMatchObject({
+      name: "Form 4",
+      category: "3D Printing",
+      categorySub: "Resin",
+      location: "MakerLab",
+      zone: "Resin Bench",
+      mapId: "ML-RESIN-01",
+    });
+    expect(form4.id).toMatch(/^[0-9a-f-]{36}$/);
   });
 
-  it("returns false when NOTION_API_KEY is missing", async () => {
-    stubNotionEnv();
-    vi.stubEnv("NOTION_API_KEY", "");
-    const { hasNotionCatalogEnv } = await importCatalog();
-    expect(hasNotionCatalogEnv()).toBe(false);
+  it("derives status from the units' stored snake_case values", async () => {
+    const [form4, trotec] = await getCatalogTools();
+    // The Form 4's one unit is `in_use`; the Trotec's is `available`, so its
+    // status falls through to the tool's training gate.
+    expect(form4.status).toBe("In Use");
+    expect(form4.units[0]).toMatchObject({
+      name: "Form 4 // A",
+      serial: "ML-F4-001",
+      status: "In Use",
+      condition: "Excellent",
+      location: "Resin Bench",
+      dateAcquired: "2024-08-12",
+    });
+    expect(trotec.status).toBe("Training Required");
+    expect(trotec.units[0]).toMatchObject({ status: "Available", condition: "Good" });
+  });
+
+  it("derives the training level from the restrictions and tags", async () => {
+    const [form4, trotec] = await getCatalogTools();
+    expect(form4.trainingLevel).toBe("Intermediate");
+    expect(form4.trainingLabel).toBe("Resin handling training required before first print.");
+    // "Authorized" is one of the Trotec's tags.
+    expect(trotec.trainingLevel).toBe("Advanced");
+  });
+
+  it("falls back to the bundled photo when no attachment carries one", async () => {
+    const [form4, trotec] = await getCatalogTools();
+    expect(form4.imageSrc).toBe("/tool-images/Form%204.png");
+    // The Trotec's bundled image does not match its name, so the seed gives it
+    // an attachment and the catalogue uses that URL as-is.
+    expect(trotec.imageSrc).toBe("/tool-images/Trotec Speedy 400, 80w.png");
+  });
+
+  it("attaches each tool's resource links", async () => {
+    const [form4] = await getCatalogTools();
+    expect(form4.links.map((link) => link.label)).toEqual([
+      "Form 4 SOP",
+      "Resin handling safety",
+    ]);
+    expect(form4.links[0].kind).toBe("SOP");
+  });
+
+  it("leaves a draft or archived tool out of the catalogue", async () => {
+    const db = await getDb();
+    await db
+      .insert(tools)
+      .values([
+        { slug: "draft-tool", name: "Draft tool", published: false },
+        { slug: "archived-tool", name: "Archived tool", published: true, archivedAt: new Date() },
+      ])
+      .onConflictDoNothing();
+
+    const slugs = (await getCatalogTools()).map((tool) => tool.slug);
+    expect(slugs).not.toContain("draft-tool");
+    expect(slugs).not.toContain("archived-tool");
   });
 });
 
-// ── getCatalogTools — mock fallback ─────────────────────────────────
-
-describe("getCatalogTools (mock fallback)", () => {
-  it("returns the built-in mockTools when Notion env is unset", async () => {
-    unsetNotionEnv();
-    const catalog = await importCatalog();
-    const { mockTools } = await import("@/components/mock-catalog");
-
-    const tools = await catalog.getCatalogTools();
-    expect(tools).toBe(mockTools);
-    expect(tools.map((t) => t.slug)).toEqual(["form-4", "trotec-speedy-400"]);
-  });
-});
-
-// ── getCatalogTools — real Notion path ──────────────────────────────
-
-describe("getCatalogTools (Notion path)", () => {
-  it("resolves tools from Notion fixtures", async () => {
-    stubNotionEnv();
-    const { getCatalogTools } = await importCatalog();
-
-    const tools = await getCatalogTools();
-    expect(tools).toHaveLength(1);
-
-    const [tool] = tools;
-    expect(tool.id).toBe("tool-1");
-    expect(tool.slug).toBe("tool-1");
-    expect(tool.name).toBe("Form 4");
-    // category resolved via relation -> categoriesPage
-    expect(tool.category).toBe("3D Printing");
-    expect(tool.categorySub).toBe("Resin");
-    // location resolved via relation -> locationsPage
-    expect(tool.location).toBe("MakerLab");
-    expect(tool.zone).toBe("Resin Bench");
-    expect(tool.materials).toEqual(["Standard resin", "Tough resin"]);
-    expect(tool.ppe).toEqual(["Nitrile gloves", "Safety glasses"]);
-    // The first image_attachment is the stale airtable host; pickFreshImageUrl
-    // only inspects the *first* attachment's own url candidates and rejects it,
-    // so image_url is null and toMakerLabTool falls back to the local path.
-    expect(tool.imageSrc).toBe("/tool-images/Form%204.png");
-    // mapId from resolved location.id
-    expect(tool.mapId).toBe("ML-RESIN-01");
-  });
-
-  it("keeps a fresh first-attachment image url and drops a stale one", async () => {
-    stubNotionEnv();
-    const freshFirst: NotionPageFixture = {
-      ...toolsPage,
-      properties: {
-        ...toolsPage.properties,
-        image_attachments: filesProp([externalFile("fresh.png", FRESH_IMAGE_URL)]),
-      },
-    };
-    const staleFirst: NotionPageFixture = {
-      ...toolsPage,
-      properties: {
-        ...toolsPage.properties,
-        image_attachments: filesProp([externalFile("stale.png", STALE_IMAGE_URL)]),
-      },
-    };
-
-    routeCatalog({ tools: [freshFirst] });
-    const fresh = await importCatalog();
-    expect((await fresh.getCatalogTools())[0].imageSrc).toBe(FRESH_IMAGE_URL);
-
-    routeCatalog({ tools: [staleFirst] });
-    const stale = await importCatalog();
-    // stale first-attachment rejected -> local fallback
-    expect((await stale.getCatalogTools())[0].imageSrc).toBe("/tool-images/Form%204.png");
-  });
-
-  it("attaches the unit grouped by tool id", async () => {
-    stubNotionEnv();
-    const { getCatalogTools } = await importCatalog();
-
-    const [tool] = await getCatalogTools();
-    expect(tool.units).toHaveLength(1);
-    expect(tool.units[0].name).toBe("Form 4 #1");
-    expect(tool.units[0].serial).toBe("ML-F4-001");
-  });
-
-  it("falls back to mockTools and warns when the fetch errors (500)", async () => {
-    stubNotionEnv();
-    server.use(
-      http.post("https://api.notion.com/v1/databases/:id/query", () =>
-        HttpResponse.json({ message: "boom" }, { status: 500 })
-      )
-    );
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const catalog = await importCatalog();
-    const { mockTools } = await import("@/components/mock-catalog");
-
-    const tools = await catalog.getCatalogTools();
-    expect(tools).toBe(mockTools);
-    expect(warn).toHaveBeenCalledWith(
-      "Falling back to mock catalog:",
-      expect.anything()
-    );
-  });
-});
-
-// ── getCatalogTool(id) ──────────────────────────────────────────────
+// ── getCatalogTool ──────────────────────────────────────────────────
 
 describe("getCatalogTool", () => {
-  it("returns the tool found via the Notion path by id", async () => {
-    stubNotionEnv();
-    const { getCatalogTool } = await importCatalog();
-
-    const tool = await getCatalogTool("tool-1");
-    expect(tool).not.toBeNull();
-    expect(tool?.name).toBe("Form 4");
-    expect(tool?.units).toHaveLength(1);
-  });
-
-  it("returns null when the id is not found via the Notion path", async () => {
-    stubNotionEnv();
-    const { getCatalogTool } = await importCatalog();
-
-    const tool = await getCatalogTool("does-not-exist");
-    expect(tool).toBeNull();
-  });
-
-  it("resolves a tool by slug from the mock catalog when env is unset", async () => {
-    unsetNotionEnv();
-    const { getCatalogTool } = await importCatalog();
-
+  it("resolves a slug", async () => {
     const tool = await getCatalogTool("trotec-speedy-400");
     expect(tool?.name).toBe("Trotec Speedy 400");
   });
 
-  it("returns null for an unknown slug in the mock fallback", async () => {
-    unsetNotionEnv();
-    const { getCatalogTool } = await importCatalog();
+  it("resolves the Postgres uuid capabilities pass back as tool.id", async () => {
+    const [form4] = await getCatalogTools();
+    const tool = await getCatalogTool(form4.id);
+    expect(tool?.slug).toBe("form-4");
+  });
 
+  it("returns null for an unknown slug or uuid", async () => {
     expect(await getCatalogTool("nope")).toBeNull();
+    expect(await getCatalogTool("11111111-2222-3333-4444-555555555555")).toBeNull();
   });
 });
 
 // ── getCatalogStats ─────────────────────────────────────────────────
 
 describe("getCatalogStats", () => {
-  it("counts tools in inventory and reports lab hours (mock path)", async () => {
-    unsetNotionEnv();
-    const { getCatalogStats } = await importCatalog();
-
+  it("counts the published tools and reports lab hours", async () => {
     const stats = await getCatalogStats();
     expect(stats.toolsInInventory).toBe(2);
     expect(stats.labHours).toBe("LAB OPEN 9AM-9PM");
   });
+});
 
-  it("counts tools resolved from the Notion path", async () => {
-    stubNotionEnv();
-    const { getCatalogStats } = await importCatalog();
+// ── Caching and the substrate ───────────────────────────────────────
 
-    const stats = await getCatalogStats();
-    expect(stats.toolsInInventory).toBe(1);
+describe("caching", () => {
+  it("tags every read `catalog` and gives it the long catalogue lifetime", async () => {
+    vi.mocked(cacheTag).mockClear();
+    vi.mocked(cacheLife).mockClear();
+
+    await getCatalogTools();
+    await getCatalogTool("form-4");
+    await getCatalogStats();
+
+    expect(vi.mocked(cacheTag).mock.calls).toEqual([["catalog"], ["catalog"], ["catalog"]]);
+    expect(vi.mocked(cacheLife)).toHaveBeenCalledWith(CATALOG_CACHE);
   });
 });
 
-// ── Status derivation ───────────────────────────────────────────────
-
-describe("status derivation (via Notion path)", () => {
-  const toolNoTraining: NotionPageFixture = {
-    ...toolsPage,
-    properties: { ...toolsPage.properties, training_required: checkboxProp(false) },
-  };
-
-  function unit(id: string, status: string): NotionPageFixture {
-    return {
-      object: "page",
-      id,
-      created_time: "2024-08-12T10:00:00.000Z",
-      last_edited_time: "2024-08-12T10:00:00.000Z",
-      properties: {
-        unit_label: titleProp(`Unit ${id}`),
-        tool: relationProp(["tool-1"]),
-        status: selectProp(status),
-        condition: selectProp("Good"),
-      },
-    };
-  }
-
-  it('derives "In Use" when any unit is In Use', async () => {
-    stubNotionEnv();
-    routeCatalog({ units: [unit("u1", "Available"), unit("u2", "In Use")] });
-    const { getCatalogTools } = await importCatalog();
-
-    const [tool] = await getCatalogTools();
-    expect(tool.status).toBe("In Use");
-  });
-
-  it('derives "Offline" when all units are Offline (Out of Service)', async () => {
-    stubNotionEnv();
-    routeCatalog({ units: [unit("u1", "Out of Service"), unit("u2", "Retired")] });
-    const { getCatalogTools } = await importCatalog();
-
-    const [tool] = await getCatalogTools();
-    expect(tool.status).toBe("Offline");
-  });
-
-  it('derives "Training Required" when training_required and no units gate it', async () => {
-    stubNotionEnv();
-    // toolsPage has training_required: true; give it no units so unit-based
-    // status does not apply.
-    routeCatalog({ tools: [toolsPage], units: [] });
-    const { getCatalogTools } = await importCatalog();
-
-    const [tool] = await getCatalogTools();
-    expect(tool.status).toBe("Training Required");
-  });
-
-  it('derives "Available" when no training required and no gating units', async () => {
-    stubNotionEnv();
-    routeCatalog({ tools: [toolNoTraining], units: [] });
-    const { getCatalogTools } = await importCatalog();
-
-    const [tool] = await getCatalogTools();
-    expect(tool.status).toBe("Available");
+describe("isDemoCatalog", () => {
+  it("is true on the PGlite demo seed and false once a database is configured", () => {
+    expect(isDemoCatalog()).toBe(true);
+    vi.stubEnv("DATABASE_URL", "postgres://user:pass@example.neon.tech/db");
+    expect(isDemoCatalog()).toBe(false);
   });
 });
 
-// ── Training level / label derivation ───────────────────────────────
+// ── Failing toward stale, never toward invented data ────────────────
 
-describe("training level + label derivation (via Notion path)", () => {
-  function toolWith(props: Record<string, unknown>): NotionPageFixture {
-    return { ...toolsPage, properties: { ...toolsPage.properties, ...props } };
-  }
-
-  it('derives "Advanced" when restrictions mention "authorized"', async () => {
-    stubNotionEnv();
-    routeCatalog({
-      tools: [toolWith({ use_restrictions: richTextProp("Authorized users only.") })],
-      units: [],
-    });
-    const { getCatalogTools } = await importCatalog();
-
-    const [tool] = await getCatalogTools();
-    expect(tool.trainingLevel).toBe("Advanced");
-    // training_required true + use_restrictions set -> label is the restriction
-    expect(tool.trainingLabel).toBe("Authorized users only.");
+describe("a database failure", () => {
+  afterEach(() => {
+    vi.doUnmock("./data/catalog");
+    vi.resetModules();
   });
 
-  it('derives "Advanced" when a tag contains "advanced"', async () => {
-    stubNotionEnv();
-    routeCatalog({
-      tools: [
-        toolWith({
-          use_restrictions: richTextProp(""),
-          tags: multiSelectProp(["Advanced", "Laser"]),
-        }),
-      ],
-      units: [],
-    });
-    const { getCatalogTools } = await importCatalog();
+  // Article 4: the old code caught a Notion failure and served the mock
+  // catalogue, so a broken deploy looked healthy and showed equipment the lab
+  // does not own. The error has to reach the page instead.
+  it("propagates instead of falling back to sample data", async () => {
+    vi.resetModules();
+    vi.doMock("./data/catalog", () => ({
+      listCatalogTools: () => Promise.reject(new Error("the database is unavailable")),
+      findToolByIdOrSlug: () => Promise.reject(new Error("the database is unavailable")),
+      countPublishedTools: () => Promise.reject(new Error("the database is unavailable")),
+    }));
+    const catalog = await import("./catalog");
 
-    const [tool] = await getCatalogTools();
-    expect(tool.trainingLevel).toBe("Advanced");
-  });
-
-  it('derives "Intermediate" when training_required and no advanced keyword', async () => {
-    stubNotionEnv();
-    // toolsPage: training_required true, restrictions "Resin handling..." (no
-    // advanced/authorized keyword), tags Resin/SLA.
-    routeCatalog({ tools: [toolsPage], units: [] });
-    const { getCatalogTools } = await importCatalog();
-
-    const [tool] = await getCatalogTools();
-    expect(tool.trainingLevel).toBe("Intermediate");
-    expect(tool.trainingLabel).toBe("Resin handling training required.");
-  });
-
-  it('derives "Beginner" when no training required and no keywords', async () => {
-    stubNotionEnv();
-    routeCatalog({
-      tools: [
-        toolWith({
-          training_required: checkboxProp(false),
-          use_restrictions: richTextProp(""),
-          tags: multiSelectProp(["Resin"]),
-        }),
-      ],
-      units: [],
-    });
-    const { getCatalogTools } = await importCatalog();
-
-    const [tool] = await getCatalogTools();
-    expect(tool.trainingLevel).toBe("Beginner");
-    expect(tool.trainingLabel).toBe("Beginner orientation");
-  });
-});
-
-// ── resourceLinks ───────────────────────────────────────────────────
-
-describe("resourceLinks (via Notion path)", () => {
-  it("emits a url link plus a link per file attachment", async () => {
-    stubNotionEnv();
-    // Default resourcesPage: url + 2 files (external pdf + hosted png).
-    const { getCatalogTool } = await importCatalog();
-
-    const tool = await getCatalogTool("tool-1");
-    expect(tool).not.toBeNull();
-
-    const links = tool!.links;
-    // 1 url link + 2 file links
-    expect(links).toHaveLength(3);
-
-    const urlLink = links.find((l) => l.href === "https://example.com/form4-sop");
-    expect(urlLink).toMatchObject({ label: "Form 4 SOP", kind: "SOP" });
-
-    const pdfLink = links.find((l) => l.href === "https://example.com/form4-manual.pdf");
-    expect(pdfLink).toBeDefined();
-    const pngLink = links.find((l) => l.href === "https://files.notion.so/safety.png");
-    expect(pngLink).toBeDefined();
-  });
-
-  it("includes a resource even when published === false (gated by its tool's visibility)", async () => {
-    // Resources are created as drafts alongside the tool; tool-level publishing
-    // already gates the catalog, so a tool's links show with it regardless of
-    // the resource's own published flag.
-    stubNotionEnv();
-    const draftResource: NotionPageFixture = {
-      object: "page",
-      id: "res-draft",
-      created_time: "2024-08-12T10:00:00.000Z",
-      last_edited_time: "2024-08-12T10:00:00.000Z",
-      properties: {
-        title: titleProp("Draft SOP"),
-        tool: relationProp(["tool-1"]),
-        type: selectProp("SOP"),
-        url: urlProp("https://example.com/draft-sop"),
-        files: filesProp([]),
-        published: checkboxProp(false),
-      },
-    };
-    routeCatalog({ resources: [draftResource] });
-    const { getCatalogTool } = await importCatalog();
-
-    const tool = await getCatalogTool("tool-1");
-    expect(tool!.links).toHaveLength(1);
-    expect(tool!.links[0].href).toBe("https://example.com/draft-sop");
-  });
-
-  it("emits only file links when a resource has files but no url", async () => {
-    stubNotionEnv();
-    const filesOnly: NotionPageFixture = {
-      object: "page",
-      id: "res-files-only",
-      created_time: "2024-08-12T10:00:00.000Z",
-      last_edited_time: "2024-08-12T10:00:00.000Z",
-      properties: {
-        title: titleProp("Manual"),
-        tool: relationProp(["tool-1"]),
-        type: selectProp("Manual"),
-        url: urlProp(null),
-        files: filesProp([
-          externalFile("a.pdf", "https://example.com/a.pdf"),
-          hostedFile("b.pdf", "https://files.notion.so/b.pdf"),
-        ]),
-        published: checkboxProp(true),
-      },
-    };
-    routeCatalog({ resources: [filesOnly] });
-    const { getCatalogTool } = await importCatalog();
-
-    const tool = await getCatalogTool("tool-1");
-    expect(tool!.links).toHaveLength(2);
-    expect(tool!.links.every((l) => l.href.endsWith(".pdf"))).toBe(true);
-  });
-});
-
-// ── units / resources grouping ──────────────────────────────────────
-
-describe("units + resources grouping by tool id", () => {
-  it("only attaches units/resources whose relation points at the tool", async () => {
-    stubNotionEnv();
-
-    const otherUnit: NotionPageFixture = {
-      object: "page",
-      id: "unit-other",
-      created_time: "2024-08-12T10:00:00.000Z",
-      last_edited_time: "2024-08-12T10:00:00.000Z",
-      properties: {
-        unit_label: titleProp("Other unit"),
-        tool: relationProp(["tool-2"]),
-        status: selectProp("Available"),
-        condition: selectProp("Good"),
-      },
-    };
-    const otherResource: NotionPageFixture = {
-      object: "page",
-      id: "res-other",
-      created_time: "2024-08-12T10:00:00.000Z",
-      last_edited_time: "2024-08-12T10:00:00.000Z",
-      properties: {
-        title: titleProp("Other SOP"),
-        tool: relationProp(["tool-2"]),
-        type: selectProp("SOP"),
-        url: urlProp("https://example.com/other"),
-        files: filesProp([]),
-        published: checkboxProp(true),
-      },
-    };
-
-    routeCatalog({
-      units: [unitsPage, otherUnit],
-      resources: [resourcesPage, otherResource],
-    });
-    const { getCatalogTool } = await importCatalog();
-
-    const tool = await getCatalogTool("tool-1");
-    // only the unit/resource pointing at tool-1 are attached
-    expect(tool!.units).toHaveLength(1);
-    expect(tool!.units[0].id).toBe("unit-1");
-    expect(tool!.links.some((l) => l.href.includes("/other"))).toBe(false);
+    await expect(catalog.getCatalogTools()).rejects.toThrow("the database is unavailable");
+    await expect(catalog.getCatalogTool("form-4")).rejects.toThrow("the database is unavailable");
+    await expect(catalog.getCatalogStats()).rejects.toThrow("the database is unavailable");
   });
 });

@@ -129,7 +129,7 @@ describe("startGoogleSignIn", () => {
       json({ url: "https://accounts.google.com/o/oauth2/auth?hd=cornell.edu" })
     );
 
-    await expect(startGoogleSignIn("/tools/form-4")).resolves.toBe(true);
+    await expect(startGoogleSignIn("/tools/form-4")).resolves.toBe("started");
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0];
@@ -158,15 +158,21 @@ describe("startGoogleSignIn", () => {
     expect(JSON.parse(String(fetchMock.mock.calls[0][1]?.body)).callbackURL).toBe("/");
   });
 
-  it("reports failure and navigates nowhere when sign-in is unconfigured", async () => {
+  it("says sign-in is unconfigured, and navigates nowhere, on the 503 the auth route answers", async () => {
     stubFetch(async () => json({ error: "Sign-in is not configured." }, 503));
-    await expect(startGoogleSignIn("/")).resolves.toBe(false);
+    await expect(startGoogleSignIn("/")).resolves.toBe("unconfigured");
+    expect(assign).not.toHaveBeenCalled();
+  });
+
+  it("reports failure on any other non-OK answer", async () => {
+    stubFetch(async () => json({ error: "nope" }, 500));
+    await expect(startGoogleSignIn("/")).resolves.toBe("failed");
     expect(assign).not.toHaveBeenCalled();
   });
 
   it("reports failure when the response carries no URL", async () => {
     stubFetch(async () => json({ redirect: true }));
-    await expect(startGoogleSignIn("/")).resolves.toBe(false);
+    await expect(startGoogleSignIn("/")).resolves.toBe("failed");
     expect(assign).not.toHaveBeenCalled();
   });
 
@@ -174,7 +180,7 @@ describe("startGoogleSignIn", () => {
     stubFetch(async () => {
       throw new TypeError("Failed to fetch");
     });
-    await expect(startGoogleSignIn("/")).resolves.toBe(false);
+    await expect(startGoogleSignIn("/")).resolves.toBe("failed");
   });
 });
 

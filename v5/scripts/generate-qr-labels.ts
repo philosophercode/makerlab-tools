@@ -15,11 +15,15 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { and, asc, eq, isNull } from "drizzle-orm";
 import { getDirection, isSupportedLocale, DEFAULT_LOCALE } from "../src/i18n/config.ts";
+import { getDb } from "../src/lib/db/client.ts";
+import { locations, tools } from "../src/lib/db/schema/index.ts";
 
 /**
  * The minimum a label needs: something to route to, something to print. Both
- * the resolved catalog (`MakerLabTool`) and raw Notion metadata satisfy it.
+ * the resolved catalog (`MakerLabTool`) and a raw Postgres `tools` row (joined
+ * to its location) satisfy it.
  */
 export interface QrLabelSource {
   id: string;
@@ -338,34 +342,37 @@ export function parseArgs(argv: string[]): CliOptions {
 }
 
 /**
- * Catalog source. With Notion configured we read the published Tools DB
- * directly — `src/lib/catalog.ts` caches through `next/cache`, which only
- * works inside a Next runtime. Without credentials we fall back to the mock
- * catalog, so staff can dry-run the layout before wiring anything up.
+ * Catalog source: published, non-archived tools straight from Postgres
+ * (spec §3.10 — old labels still resolve because `notion_page_id` isn't
+ * touched here, and new ones are printed from `slug`). `getDb()` resolves to
+ * the PGlite demo seed when `DATABASE_URL` is unset, so staff can dry-run the
+ * layout before a real database is wired up.
  */
-async function loadSources(): Promise<QrLabelSource[]> {
-  const { getNotionEnvContract, fetchAllTools, fetchAllLocations, resolveTools } =
-    await import("../src/lib/notion.ts");
+export async function loadSources(): Promise<QrLabelSource[]> {
+  const db = await getDb();
 
-  if (!getNotionEnvContract().every((key) => Boolean(process.env[key]))) {
-    console.warn("Notion env not configured — generating labels from the mock catalog.");
-    const { mockTools } = await import("../src/components/mock-catalog.ts");
-    return mockTools;
-  }
+  const rows = await db
+    .select({
+      id: tools.id,
+      slug: tools.slug,
+      name: tools.name,
+      room: locations.room,
+      zone: locations.zone,
+    })
+    .from(tools)
+    .leftJoin(locations, eq(tools.locationId, locations.id))
+    .where(and(eq(tools.published, true), isNull(tools.archivedAt)))
+    .orderBy(asc(tools.name));
 
-  const [tools, locations] = await Promise.all([fetchAllTools(), fetchAllLocations()]);
-  // `fetchAllTools` already filters to published records; keep the flag so
-  // `deriveLabels` stays the single place that decides.
-  const publishedById = new Map(tools.map((tool) => [tool.id, tool.fields.published]));
-
-  return resolveTools(tools, [], locations).map((tool) => ({
-    id: tool.id,
-    // Notion-backed tool pages route by page id (catalog.ts sets slug = id).
-    slug: tool.id,
-    name: tool.name,
-    location: tool.location_room,
-    zone: tool.location_zone,
-    published: publishedById.get(tool.id),
+  return rows.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    name: row.name,
+    location: row.room,
+    zone: row.zone,
+    // The query already filters to published tools; the flag stays true so
+    // `deriveLabels` remains the single place that decides.
+    published: true,
   }));
 }
 

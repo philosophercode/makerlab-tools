@@ -6,9 +6,11 @@ import { composeCase, stubWrites } from "./harness";
 
 vi.mock("next/cache", () => nextCacheMock());
 
-// Blank the Notion contract so the catalog is the mock catalog no matter what
-// the developer has in their shell — the same rail `npm run eval` applies.
+// Blank `DATABASE_URL` so the catalog is the demo seed, and the Notion contract
+// so no write path can reach Notion, no matter what the developer has in their
+// shell — the same rails `npm run eval` applies.
 beforeEach(() => {
+  vi.stubEnv("DATABASE_URL", "");
   for (const key of getNotionEnvContract()) vi.stubEnv(key, "");
 });
 

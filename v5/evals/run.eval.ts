@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { anthropic } from "@ai-sdk/anthropic";
 import { generateText, stepCountIs, type LanguageModel } from "ai";
-import { hasNotionCatalogEnv } from "@/lib/catalog";
+import { getCatalogTools, isDemoCatalog } from "@/lib/catalog";
 import {
   CHAT_MODEL_ID,
   GATEWAY_CHAT_MODEL_ID,
@@ -12,7 +12,7 @@ import {
 } from "@/lib/model";
 import { getNotionEnvContract } from "@/lib/notion";
 import { loadCases, type EvalCase } from "./cases";
-import { evalFixture } from "./fixtures";
+import { buildFixture } from "./fixtures";
 import { composeCase } from "./harness";
 import { formatReport, runSuite, type CaseExecution } from "./runner";
 
@@ -30,8 +30,9 @@ import { formatReport, runSuite, type CaseExecution } from "./runner";
  * eval that tested a reimplementation of the prompt would test nothing.
  *
  * Safety rails, in order:
- *  - every `NOTION_*` variable is blanked, so the catalog is the fixed mock
- *    catalog and no Notion request is possible;
+ *  - `DATABASE_URL` and every `NOTION_*` variable are blanked, so the catalog
+ *    is the fixed demo seed in an in-process PGlite database (spec §3.2) and
+ *    neither a real database nor Notion can be reached;
  *  - every `write` capability tool is stubbed, so an eval can never create a
  *    Notion record even if the model decides to call one;
  *  - the provider-native `web_search` / `web_fetch` tools the chat route adds
@@ -79,11 +80,13 @@ async function executeCase(evalCase: EvalCase): Promise<CaseExecution> {
 
 describe("agent evals", () => {
   beforeAll(() => {
-    // Blank the Notion contract so `getCatalogTools()` serves the mock catalog
-    // regardless of what the developer has in their shell.
+    // Blank `DATABASE_URL` so `getCatalogTools()` serves the demo seed, and the
+    // Notion contract so the write paths cannot reach Notion either, regardless
+    // of what the developer has in their shell.
+    vi.stubEnv("DATABASE_URL", "");
     for (const key of getNotionEnvContract()) vi.stubEnv(key, "");
-    if (hasNotionCatalogEnv()) {
-      throw new Error("refusing to run: the Notion environment is still configured");
+    if (!isDemoCatalog()) {
+      throw new Error("refusing to run: the catalog is a real database, not the demo seed");
     }
     if (!process.env.ANTHROPIC_API_KEY && !process.env.AI_GATEWAY_API_KEY) {
       throw new Error(
@@ -96,7 +99,11 @@ describe("agent evals", () => {
     const cases = loadCases();
     console.info(`Running ${cases.length} eval cases against ${MODEL_LABEL}…`);
 
-    const report = await runSuite(cases, executeCase, evalFixture, {
+    // Built from the catalogue the harness actually composes with, so an
+    // assertion can never police a machine or a manual the model was not given.
+    const fixture = buildFixture(await getCatalogTools());
+
+    const report = await runSuite(cases, executeCase, fixture, {
       onCase: (result) => console.info(`  ${result.status.toUpperCase()} ${result.id}`),
     });
 

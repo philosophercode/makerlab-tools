@@ -163,6 +163,7 @@ img {
 }
 
 .primary-nav {
+  position: relative; /* anchors .primary-nav-notice */
   display: flex;
   gap: 32px;
   color: var(--on-surface-muted);
@@ -198,6 +199,40 @@ img {
 .primary-nav-report:focus-visible {
   border-color: var(--primary);
   outline: none;
+}
+
+/* Why the last "Sign in" click went nowhere. Anchored under the nav's right
+   edge and taken out of the flow, so it never pushes the links or the rows
+   beneath the header when it appears. */
+.primary-nav-notice {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 20;
+  max-width: 32ch;
+  padding: 6px 10px;
+  border: 1px solid var(--outline);
+  background: var(--background);
+  color: var(--on-surface-muted);
+  font-size: 11px;
+  line-height: 1.3;
+  text-transform: none;
+  white-space: normal;
+  /* Holds, then fades over the last fifth of its life; the component removes
+     it when the duration (set inline) is up. */
+  animation-name: primary-nav-notice-fade;
+  animation-timing-function: ease-in;
+  animation-fill-mode: forwards;
+}
+
+@keyframes primary-nav-notice-fade {
+  0%,
+  80% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
 }
 
 .nav-actions {

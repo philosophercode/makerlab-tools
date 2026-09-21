@@ -4,6 +4,7 @@ import {
   hasProjectsEnv,
   type ProjectWriteFields,
 } from "../../../lib/notion";
+import { notionPageIdsForTools } from "../../../lib/data/notion-ids";
 import type { ProjectRecord } from "../../../lib/types";
 import { rateLimitAsync } from "../../../lib/rate-limit";
 import { resolveIdentity } from "../../../lib/auth/identity";
@@ -144,6 +145,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // `tools` arrives as catalogue ids, which are Postgres uuids since the read
+  // path moved (spec §3.10), while `tools_used` is a Notion relation. Translate
+  // through `tools.notion_page_id` and drop what does not resolve: Notion
+  // rejects the whole page for one unknown relation id, and losing a student's
+  // whole write-up over a tool link is the wrong way to fail (Article 4).
+  const toolPageIds = await notionPageIdsForTools(tools);
+
   try {
     const record = await submitProject({
       title,
@@ -154,7 +162,7 @@ export async function POST(req: NextRequest) {
       // no session, no email, submission still succeeds.
       author_email: identity.email || undefined,
       link: link || undefined,
-      tools_used: tools,
+      tools_used: toolPageIds,
       materials,
       photo_uploads: photoUploads,
     });

@@ -1,3 +1,4 @@
+// @vitest-environment node
 /**
  * `/api/chat` at and over the tiered ceiling (auth design spec §8, §10).
  *
@@ -6,13 +7,15 @@
  * an anonymous visitor and a signed-in student hitting the same endpoint from
  * the same IP get different allowances, and the refusal offers a way forward.
  *
- * The model is still stubbed at the `streamText` boundary — no network (Art. 3).
+ * The model is still stubbed at the `streamText` boundary, and the catalogue
+ * comes from the demo-seeded PGlite database — no network (Art. 3).
  */
 import {
   SESSION_COOKIE_NAME,
   createSessionPayload,
   signSession,
 } from "@/lib/auth/session-cookie";
+import { resetDbForTests } from "@/lib/db/client";
 
 const AUTH_SECRET = "chat-ceiling-test-secret";
 
@@ -42,19 +45,9 @@ vi.mock("ai", async (importOriginal) => {
   };
 });
 
-// Notion is never reached (NOTION_* unset → mock catalog), but catalog.ts
-// imports it, so stub the module surface it uses.
-vi.mock("@/lib/notion", () => ({
-  fetchMaintenanceLogsByUnit: vi.fn(async () => []),
-  createMaintenanceLog: vi.fn(),
-  fetchAllResources: vi.fn(async () => []),
-  getNotionEnvContract: () => ["NOTION_API_KEY"],
-  fetchAllTools: vi.fn(async () => []),
-  fetchAllCategories: vi.fn(async () => []),
-  fetchAllLocations: vi.fn(async () => []),
-  fetchAllUnits: vi.fn(async () => []),
-  resolveTools: vi.fn(() => []),
-}));
+// Notion is not stubbed here: no request path in this suite reaches it. The
+// catalogue reads Postgres, and the one Notion write left in the capability
+// layer (`report_issue`, spec Phase 3) is never called from a ceiling test.
 
 vi.mock("next/cache", () => ({
   cacheTag: vi.fn(),
@@ -97,6 +90,11 @@ function chatRequest({ ip, cookie }: { ip: string; cookie?: string }): Request {
 
 beforeEach(() => {
   vi.stubEnv("AUTH_SECRET", AUTH_SECRET);
+  vi.stubEnv("DATABASE_URL", "");
+});
+
+afterAll(() => {
+  resetDbForTests();
 });
 
 describe("POST /api/chat — anonymous ceiling", () => {
