@@ -22,7 +22,11 @@ import { checkRateLimit, type RateLimitDecision } from "../../../lib/rate-limit"
 import { resolveIdentity } from "../../../lib/auth/identity";
 import { siteConfig } from "../../../lib/site-config";
 import { chatModel } from "../../../lib/model";
-import { CAPABILITIES, composeChat } from "../../../lib/capabilities";
+import {
+  CAPABILITIES,
+  capabilitiesForRole,
+  composeChat,
+} from "../../../lib/capabilities";
 import type {
   CapabilityCtx,
   UploadedImage,
@@ -119,11 +123,15 @@ export async function POST(req: Request) {
       // then add the provider-native research tools (Anthropic web tools are not
       // capabilities — the intake capability's prompt tells the agent to use
       // them). web_fetch keeps the focused-tool domain allow-list.
-      const { tools: capabilityTools, system } = composeChat(CAPABILITIES, ctx, {
-        tools,
-        focusedTool: focused,
-        locale,
-      });
+      //
+      // The registry is composed as this caller may use it: a capability whose
+      // minimum role they do not meet contributes no tools, only a note on why
+      // (auth spec amendment 2026-09-14).
+      const { tools: capabilityTools, system } = composeChat(
+        capabilitiesForRole(CAPABILITIES, identity.role),
+        ctx,
+        { tools, focusedTool: focused, locale }
+      );
 
       const result = streamText({
         model: chatModel,

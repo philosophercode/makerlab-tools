@@ -73,6 +73,16 @@ vi.mock("../lib/auth/sign-in-client", async (importOriginal) => {
   };
 });
 
+// The copy of a photo the model sees is drawn on a canvas, which jsdom does not
+// have. Its own behaviour is covered in `lib/chat/downscale-image.test.ts`; here
+// each test decides whether the browser could encode the photo.
+const downscaleForVision = vi.hoisted(() =>
+  vi.fn<(file: Blob) => Promise<string | null>>(async () => null)
+);
+vi.mock("../lib/chat/downscale-image", () => ({
+  downscaleForVision: (file: Blob) => downscaleForVision(file),
+}));
+
 // Imported after the mocks above are hoisted.
 import { ChatFab } from "./ChatFab";
 
@@ -322,6 +332,44 @@ describe("ChatFab", () => {
     expect(opts.transport).toBeDefined();
     expect(typeof opts.onData).toBe("function");
   });
+
+  it("bounds earlier photos in the request it sends", () => {
+    render(<ChatFab />);
+    const { transport } = lastUseChatOptions as {
+      transport: {
+        prepareSendMessagesRequest: (options: {
+          id: string;
+          messages: unknown[];
+          trigger: string;
+          messageId: string | undefined;
+        }) => { body: { messages: Array<{ parts: Array<{ type: string }> }> } };
+      };
+    };
+    const photo = (n: number) => ({
+      type: "file",
+      mediaType: "image/jpeg",
+      filename: `p${n}.jpg`,
+      url: `data:image/jpeg;base64,P${n}`,
+    });
+
+    const { body } = transport.prepareSendMessagesRequest({
+      id: "chat-1",
+      messages: [
+        {
+          id: "u1",
+          role: "user",
+          parts: [{ type: "text", text: "earlier" }, ...[1, 2, 3, 4, 5, 6].map(photo)],
+        },
+        { id: "a1", role: "assistant", parts: [{ type: "text", text: "ok" }] },
+        { id: "u2", role: "user", parts: [{ type: "text", text: "a follow-up" }] },
+      ],
+      trigger: "submit-message",
+      messageId: undefined,
+    });
+
+    const earlierPhotos = body.messages[0].parts.filter((p) => p.type === "file");
+    expect(earlierPhotos).toHaveLength(4);
+  });
 });
 
 // ── Citation stripping (#22) ───────────────────────────────────────
@@ -533,6 +581,80 @@ describe("ChatFab — photo uploads", () => {
     expect(
       screen.queryByRole("button", { name: /^Remove / })
     ).not.toBeInTheDocument();
+  });
+
+  async function attachPhotoAndSend(
+    user: ReturnType<typeof userEvent.setup>,
+    message: string
+  ) {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify({ file_upload_id: "fu_123", name: "plate.jpg" }),
+            { status: 200, headers: { "content-type": "application/json" } }
+          )
+      )
+    );
+    render(<ChatFab />);
+    await user.click(
+      screen.getByRole("button", { name: "Open MakerLab assistant" })
+    );
+    const fileInput = document.querySelector(
+      'input[type="file"]'
+    ) as HTMLInputElement;
+    await user.upload(
+      fileInput,
+      new File([new Uint8Array([1, 2, 3])], "plate.jpg", { type: "image/jpeg" })
+    );
+    await screen.findByRole("button", { name: "Remove plate.jpg" });
+    await user.type(
+      screen.getByRole("textbox", { name: "Ask the lab console" }),
+      message
+    );
+    await user.click(screen.getByRole("button", { name: "Send" }));
+  }
+
+  it("sends the photo itself with the message, so the model can see it", async () => {
+    // Intake spec §6.1: the Notion upload is the record and the downscaled copy
+    // is what the model looks at. Both go out on the same message.
+    downscaleForVision.mockClear();
+    downscaleForVision.mockResolvedValue("data:image/jpeg;base64,SMALL");
+    const user = userEvent.setup();
+
+    await attachPhotoAndSend(user, "what printer is this?");
+
+    expect(downscaleForVision).toHaveBeenCalledTimes(1);
+    expect(sendMessage).toHaveBeenCalledTimes(1);
+    const arg = sendMessage.mock.calls[0][0] as {
+      text: string;
+      files?: unknown[];
+    };
+    expect(arg.text).toContain(
+      "[Attached photos: file_upload_id=fu_123 name=plate.jpg]"
+    );
+    expect(arg.files).toEqual([
+      {
+        type: "file",
+        mediaType: "image/jpeg",
+        filename: "plate.jpg",
+        url: "data:image/jpeg;base64,SMALL",
+      },
+    ]);
+  });
+
+  it("still sends the upload hint when the browser cannot encode the photo", async () => {
+    downscaleForVision.mockResolvedValue(null);
+    const user = userEvent.setup();
+
+    await attachPhotoAndSend(user, "what printer is this?");
+
+    expect(sendMessage).toHaveBeenCalledWith({
+      text: expect.stringContaining(
+        "[Attached photos: file_upload_id=fu_123 name=plate.jpg]"
+      ),
+    });
   });
 });
 

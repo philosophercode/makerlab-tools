@@ -320,3 +320,43 @@ describe("PrimaryNav — staff refresh control", () => {
     ).not.toBeInTheDocument();
   });
 });
+
+// en.json: nav.add = "ADD", nav.addAria = "Add new equipment to the inventory".
+// Adding equipment is staff-only (auth spec amendment 2026-09-14); the chat
+// enforces it server-side, so this only asserts the entry point's visibility.
+describe("PrimaryNav — add equipment", () => {
+  const ADD = "Add new equipment to the inventory";
+
+  beforeEach(() => {
+    usePathname.mockReturnValue("/");
+    fetchIdentity.mockClear();
+    fetchIdentity.mockResolvedValue(null);
+  });
+
+  it.each([
+    ["staff", "Niti Parikh"],
+    ["admin", "Isaac Steinberg"],
+  ] as const)("offers it to %s", async (role, name) => {
+    fetchIdentity.mockResolvedValue({ role, name });
+    render(<PrimaryNav />);
+
+    expect(await screen.findByRole("button", { name: ADD })).toHaveTextContent(
+      "ADD"
+    );
+  });
+
+  it("does not offer it to a signed-in student", async () => {
+    fetchIdentity.mockResolvedValue({ role: "student", name: "Ada Lovelace" });
+    render(<PrimaryNav />);
+
+    await screen.findByRole("button", { name: "SIGN OUT" });
+    expect(screen.queryByRole("button", { name: ADD })).not.toBeInTheDocument();
+  });
+
+  it("does not offer it to an anonymous visitor", async () => {
+    render(<PrimaryNav />);
+
+    await screen.findByRole("button", { name: /Sign in/ });
+    expect(screen.queryByRole("button", { name: ADD })).not.toBeInTheDocument();
+  });
+});

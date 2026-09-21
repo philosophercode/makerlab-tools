@@ -223,7 +223,6 @@
     "actionConfirmVariant": "It’s the {variant}",
     "actionEdit": "Edit",
     "actionDiscard": "Discard",
-    "actionAddUnit": "Add a unit to the existing tool",
     "actionCreateAnyway": "No, create a new tool",
     "actionOpenDraft": "Open draft in Notion"
   },

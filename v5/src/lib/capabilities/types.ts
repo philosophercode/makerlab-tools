@@ -5,6 +5,7 @@ import type { MakerLabTool } from "../../components/catalog-types";
 // imported by client components (ChatFab, IdentificationCard). A `import type`
 // is erased at emit, so no server module reaches the browser bundle.
 import type { Identity } from "../auth/identity";
+import type { Role } from "../auth/roles";
 
 /**
  * Shared contract for the capability-registry architecture (design spec §3,
@@ -143,6 +144,19 @@ export interface Capability {
   id: string;
   /** Instructions appended to the system prompt for this capability. */
   promptFragment: (env: PromptEnv) => string;
+  /**
+   * Optional. The least-privileged role that may use this capability on a
+   * session surface (chat). Absent means everyone, anonymous visitors included.
+   * Enforced once, by `capabilitiesForRole` in `access.ts` — never inside a
+   * tool's `run()`.
+   */
+  minimumRole?: Role;
+  /**
+   * Optional. Used in place of {@link promptFragment} when the caller does not
+   * meet {@link minimumRole}, so the assistant can explain the limit instead of
+   * improvising around tools it cannot see.
+   */
+  lockedPromptFragment?: (env: PromptEnv) => string;
   /** The tools this capability contributes. */
   // Heterogeneous tools live together, so the element type is intentionally loose.
   tools: CapabilityTool<unknown, unknown>[];
@@ -239,7 +253,7 @@ export interface CardAlsoCreating {
 
 /** An action button rendered on a card; clicking seeds a follow-up message. */
 export interface CardAction {
-  /** Stable id, e.g. "confirm" | "edit" | "discard" | "add-unit" | "add-all". */
+  /** Stable id, e.g. "confirm" | "edit" | "discard" | "create-anyway" | "add-all". */
   id: string;
   /** English fallback label, e.g. "Looks right — add it". */
   label: string;
@@ -328,7 +342,7 @@ export interface ToolCandidate {
   image_upload_ids: string[];
   /** Provenance: URLs the agent read. */
   source_urls: string[];
-  /** Catalog match, if any (drives the "add a unit instead" path). */
+  /** Catalog match, if any (drives the card's "Already in catalog" state). */
   duplicate_of?: { id: string; name: string } | null;
   /**
    * The specific variants research could not choose between, e.g.

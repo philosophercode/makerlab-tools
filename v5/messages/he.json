@@ -221,7 +221,6 @@
     "actionConfirmVariant": "זה {variant}",
     "actionEdit": "עריכה",
     "actionDiscard": "התעלמות",
-    "actionAddUnit": "הוספת יחידה לכלי הקיים",
     "actionCreateAnyway": "לא, ליצור כלי חדש",
     "actionOpenDraft": "פתיחת הטיוטה ב-Notion"
   },

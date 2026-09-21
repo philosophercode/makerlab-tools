@@ -221,7 +221,6 @@
     "actionConfirmVariant": "{variant} です",
     "actionEdit": "編集",
     "actionDiscard": "破棄",
-    "actionAddUnit": "既存のツールにユニットを追加",
     "actionCreateAnyway": "いいえ、新しいツールを作成",
     "actionOpenDraft": "Notion で下書きを開く"
   },
