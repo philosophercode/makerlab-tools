@@ -991,3 +991,24 @@ Decisions the lab made on 2026-09-14 are in the body. What is left:
 | 5 | **Mirror token key.** Derived from `AUTH_SECRET` (§8) or a separate `MIRROR_KEY` env var that survives session-secret rotation | Derived, for now; a separate key if rotation ever becomes routine | Isaac | Phase 8 |
 
 Settled since the first draft: projects are for anyone *signed in*, never anonymous visitors; permissions are declared in code, the ordinary way; `ies22@cornell.edu` is permanent, so the super-admin floor needs no succession plan; the import is a one-time script run by hand.
+
+---
+
+## Amendments
+
+Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited — the reason a design changed usually outlives the change.
+
+### 2026-09-14 — Phase 1 built, with as-built details
+
+**What changed.** Phase 1 (§9) is implemented: `src/lib/db/` (schema, three migrations, the PGlite and Neon constructors, `getDb()`, the demo seed, slugs), `src/lib/import/` (vocabulary mapping, pre-flight, the ticket-description parser, row mappers, the file copier, the Notion snapshot reader and the runner), and three scripts. Details the spec did not name:
+
+- **npm scripts.** `db:generate` runs `drizzle-kit generate` after a schema edit. `db:migrate` applies committed migrations to `DATABASE_URL` and exits 0 with a note when it is unset. `import:notion` is the one-time import, with `--dry-run` (reads Notion into an in-memory PGlite, copies no files, prints the report — the rehearsal §5.7 describes, needing no Neon) and `--skip-files`. `verify:import` is §5.7's verification script.
+- **`DB_MIGRATIONS_DIR`** overrides where the migrations folder is resolved from (`src/lib/db/migrations` under the working directory by default). Every entry point runs from `v5/`, so it is unset in practice; it exists for anything that does not.
+- **`attachments.source_key`** (text, unique, nullable) is the import's idempotency key — Notion page id, property and index — so a re-run recognises a file it already copied. Null on files uploaded through the app.
+- **`created_by`-style columns have no foreign key yet.** They are `text` and reference Better Auth's `user.id` once Phase 4 creates that table; Phase 4's migration adds the constraints.
+- **Scripts load the database and import modules under plain Node** (type stripping). Those modules therefore use relative imports with `.ts` extensions, no `@/` alias, no `server-only`, and no TypeScript-only class syntax. Nothing under `src/lib/db/` or `src/lib/import/` is imported by a client component.
+- **`rawRows(db, sql)`** is the one place raw SQL results are typed, because the driver-agnostic `Db` handle cannot know a driver's result shape.
+- **The five-tool field-by-field comparison** in §5.7's verification waits for Phase 2, which is what renders the Postgres side. `verify:import` checks counts, relations and Blob bytes now.
+- **`db:migrate` is not yet part of the Vercel build.** Phase 2 adds it to the build command when Neon exists; until then a build needs no database.
+
+**Status.** Accepted. Each is a detail the spec left to implementation.

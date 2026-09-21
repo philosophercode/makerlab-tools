@@ -2,6 +2,10 @@ import type {
   Attachment,
   CategoryFields,
   CategoryRecord,
+  FlagFields,
+  FlagRecord,
+  FlagStatus,
+  FlaggedField,
   LocationFields,
   LocationRecord,
   MaintenanceLogFields,
@@ -24,7 +28,7 @@ import type {
 const NOTION_API_URL = "https://api.notion.com/v1";
 const NOTION_VERSION = "2022-06-28";
 
-type CatalogTable =
+export type CatalogTable =
   | "tools"
   | "categories"
   | "locations"
@@ -61,14 +65,34 @@ type NotionProperty = {
   files?: NotionFile[];
   date?: { start?: string } | null;
   number?: number | null;
+  email?: string | null;
 };
 
-type NotionPage = {
+export type NotionPage = {
   object: "page";
   id: string;
   created_time: string;
   last_edited_time: string;
   properties: Record<string, NotionProperty>;
+};
+
+/** One option of a select or multi-select property, as `GET /databases/:id` reports it. */
+export type NotionSelectOption = { name: string };
+
+/**
+ * The part of a database's schema the import pre-flight reads: each
+ * property's type and, for selects, its defined options.
+ */
+export type NotionDatabaseSchema = {
+  id: string;
+  properties: Record<
+    string,
+    {
+      type: string;
+      select?: { options: NotionSelectOption[] };
+      multi_select?: { options: NotionSelectOption[] };
+    }
+  >;
 };
 
 type NotionQueryResponse = {
@@ -147,9 +171,15 @@ async function notionFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+type QueryOptions = {
+  /** Pause between pages; the import uses it to stay under Notion's rate limit. */
+  throttleMs?: number;
+};
+
 async function queryDatabase(
   table: CatalogTable,
-  body: QueryBody = {}
+  body: QueryBody = {},
+  options: QueryOptions = {}
 ): Promise<NotionPage[]> {
   const { databases } = getNotionEnv();
   const pages: NotionPage[] = [];
@@ -170,9 +200,29 @@ async function queryDatabase(
 
     pages.push(...data.results);
     startCursor = data.next_cursor || undefined;
+    if (startCursor && options.throttleMs) {
+      await new Promise((resolve) => setTimeout(resolve, options.throttleMs));
+    }
   } while (startCursor);
 
   return pages;
+}
+
+/**
+ * Every page in `table`, drafts included, in Notion's default order. The
+ * one-time import reads with this; the app's own readers filter and sort.
+ */
+export async function queryAllPages(
+  table: CatalogTable,
+  options: QueryOptions = {}
+): Promise<NotionPage[]> {
+  return queryDatabase(table, {}, options);
+}
+
+/** The database's property schema — types and defined select options. */
+export async function getDatabaseSchema(table: CatalogTable): Promise<NotionDatabaseSchema> {
+  const { databases } = getNotionEnv();
+  return notionFetch<NotionDatabaseSchema>(`/databases/${databases[table]}`);
 }
 
 async function fetchPage(id: string): Promise<NotionPage> {
@@ -234,6 +284,16 @@ function checkboxValue(page: NotionPage, names: string[]): boolean | undefined {
   return property?.type === "checkbox" ? property.checkbox : undefined;
 }
 
+/**
+ * An Email property's value, or "" when absent. Exported for the import only:
+ * the app's read path deliberately never surfaces `reporter_email`, so the
+ * record parsers leave it out and the import reads it from the raw page.
+ */
+export function readEmailProperty(page: NotionPage, names: string[]): string {
+  const property = prop(page, names);
+  return property?.type === "email" ? property.email ?? "" : "";
+}
+
 const STALE_IMAGE_HOSTS = ["airtableusercontent.com"];
 
 function isStaleImageUrl(url: string | undefined): boolean {
@@ -274,14 +334,14 @@ function record<T>(page: NotionPage, fields: T): NotionRecord<T> {
   };
 }
 
-function pageToCategory(page: NotionPage): CategoryRecord {
+export function pageToCategory(page: NotionPage): CategoryRecord {
   return record<CategoryFields>(page, {
     name: title(page, ["name", "Name"]),
     group: selectValue(page, ["group", "Group"]),
   });
 }
 
-function pageToLocation(page: NotionPage): LocationRecord {
+export function pageToLocation(page: NotionPage): LocationRecord {
   return record<LocationFields>(page, {
     id: title(page, ["id", "ID", "Name"]),
     zone: selectValue(page, ["zone", "Zone", "name", "Name"]),
@@ -289,7 +349,7 @@ function pageToLocation(page: NotionPage): LocationRecord {
   });
 }
 
-function pageToTool(page: NotionPage): ToolRecord {
+export function pageToTool(page: NotionPage): ToolRecord {
   return record<ToolFields>(page, {
     name: title(page, ["name", "Name"]),
     description: richTextValue(prop(page, ["description", "Description"])),
@@ -307,7 +367,7 @@ function pageToTool(page: NotionPage): ToolRecord {
   });
 }
 
-function pageToUnit(page: NotionPage): UnitRecord {
+export function pageToUnit(page: NotionPage): UnitRecord {
   return record<UnitFields>(page, {
     unit_label: title(page, ["unit_label", "Unit Label", "Name"]),
     tool: relationIds(page, ["tool", "Tool"]),
@@ -320,7 +380,7 @@ function pageToUnit(page: NotionPage): UnitRecord {
   });
 }
 
-function pageToResource(page: NotionPage): ResourceRecord {
+export function pageToResource(page: NotionPage): ResourceRecord {
   return record<ResourceFields>(page, {
     title: title(page, ["title", "Title", "name", "Name"]),
     tool: relationIds(page, ["tool", "Tool"]),
@@ -391,7 +451,7 @@ function dateValue(page: NotionPage, names: string[]): string {
   return richTextValue(property);
 }
 
-function pageToMaintenanceLog(page: NotionPage): MaintenanceLogRecord {
+export function pageToMaintenanceLog(page: NotionPage): MaintenanceLogRecord {
   return record<MaintenanceLogFields>(page, {
     title: title(page, ["title", "Title", "name", "Name"]),
     unit: relationIds(page, ["unit", "Unit"]),
@@ -413,6 +473,25 @@ function pageToMaintenanceLog(page: NotionPage): MaintenanceLogRecord {
       "Photo Attachments",
       "Photos",
     ]),
+  });
+}
+
+/**
+ * A Flags row. The property names are the ones `capabilities/flags.ts` writes.
+ * Read only by the import; the app has no Flags read path.
+ */
+export function pageToFlag(page: NotionPage): FlagRecord {
+  return record<FlagFields>(page, {
+    title: title(page, ["title", "Title", "name", "Name"]),
+    tool: relationIds(page, ["tool", "Tool"]),
+    field_flagged: (selectValue(page, ["field_flagged", "Field Flagged"]) || undefined) as
+      | FlaggedField
+      | undefined,
+    issue_description: richTextValue(prop(page, ["issue_description", "Issue Description"])),
+    suggested_fix: richTextValue(prop(page, ["suggested_fix", "Suggested Fix"])),
+    reporter: richTextValue(prop(page, ["reporter", "Reporter"])),
+    status: (selectValue(page, ["status", "Status"]) || undefined) as FlagStatus | undefined,
+    created_at: page.created_time,
   });
 }
 
