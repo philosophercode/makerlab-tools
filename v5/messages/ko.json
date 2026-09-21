@@ -221,7 +221,6 @@
     "actionConfirmVariant": "{variant}입니다",
     "actionEdit": "편집",
     "actionDiscard": "버리기",
-    "actionAddUnit": "기존 도구에 유닛 추가",
     "actionCreateAnyway": "아니요, 새 도구 만들기",
     "actionOpenDraft": "Notion에서 초안 열기"
   },

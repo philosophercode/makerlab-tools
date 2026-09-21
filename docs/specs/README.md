@@ -79,6 +79,17 @@ The banner is the one worth learning from: **no test and no mechanical check cou
 caught it.** A missing banner adds no surface and breaks nothing. It took opening the page
 and noticing the catalogue claimed two machines with nothing saying they were invented.
 
+### Pre-ISAM fixes, 2026-09-14
+
+Found by reading the code ahead of the ISAM demo. None of them adds or removes surface, so
+`spec:coverage` could not see them.
+
+| Finding | Bucket | Outcome |
+|---|---|---|
+| Intake §6.1 **photos never reached the model** — the client sent only the text hint | NOT-BUILT | **Closed** — a downscaled image part goes out with the message; intake spec amended |
+| Intake §4.4 **"add a unit" button** seeded a message no tool could act on | NOT-BUILT | **Closed** — button withdrawn; intake spec amended |
+| **Anyone could add equipment**, anonymous visitors included | DECISION | **Closed** — intake is staff-only; auth spec amended |
+
 Also here: [`2026-05-29-v5-test-suite-design.md`](2026-05-29-v5-test-suite-design.md)
 (implemented) and [`2026-06-01-chat-inventory-intake-design.md`](2026-06-01-chat-inventory-intake-design.md)
 (implemented; extended by #8).

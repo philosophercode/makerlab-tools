@@ -36,6 +36,16 @@ export {
 } from "./chat-adapter";
 export { registerAll, type RegisterAllOptions } from "./mcp-adapter";
 
+// Who may use which capability on a session surface (auth spec amendment
+// 2026-09-14). Client components import `./access` directly instead, so the
+// header never pulls the registry into the browser bundle.
+export {
+  INTAKE_MINIMUM_ROLE,
+  canAddEquipment,
+  capabilitiesForRole,
+  meetsMinimumRole,
+} from "./access";
+
 // Re-export the contract types most consumers need.
 export type {
   Capability,

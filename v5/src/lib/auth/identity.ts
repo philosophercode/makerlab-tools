@@ -14,9 +14,10 @@ import {
  * making a request (auth design spec 2026-07-29 §3.2).
  *
  * Identity is **context, not a capability**: it is resolved once per request and
- * handed to whatever needs it. Nothing here is an authorization decision — v5
- * gates no capability on role, and the write-safety model is still
- * drafts-by-default (Article 5).
+ * handed to whatever needs it. Nothing here is an authorization decision — the
+ * one role gate, on adding equipment, is declared by the intake capability and
+ * enforced in `capabilities/access.ts`, and writes are still drafts by default
+ * (Article 5).
  *
  * **It never throws.** An absent, expired, tampered, or nonsense cookie yields
  * the anonymous identity, because anonymous is a first-class state and not a

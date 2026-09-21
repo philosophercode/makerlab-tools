@@ -310,3 +310,54 @@ Each phase is independently shippable.
 - Promoting the registry so the chat consumes capabilities *over* MCP (Approach 3),
   once capabilities stabilize.
 - Optional light gate on the intake front door if draft spam becomes a problem.
+
+---
+
+## Amendments
+
+Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited.
+
+### 2026-09-14 — §6.1 vision now reaches the model (as-built fix)
+
+**What changed.** §6.1 requires the photo's bytes on the outgoing user message. The chat
+client never sent them: `ChatFab` called `sendMessage({ text })`, so only the
+`[Attached photos: …]` hint went out and the model never saw a photo, although the route
+already accepted image parts. Now, alongside the Notion upload, the browser draws a JPEG copy
+no larger than 1568px on the long edge and sends it as a file part on the same message. The
+hint is unchanged, so `create_tool` still attaches the same Notion upload.
+
+**Two details §6.1 did not specify.**
+
+1. **Earlier photos are bounded.** The chat re-sends the whole conversation every turn. The
+   latest user message keeps all its photos; earlier turns keep at most four more, newest
+   first (`withRecentPhotos`), so a follow-up about a recent photo still works without every
+   photo riding along forever (Article 4).
+2. **A photo the browser cannot decode still uploads.** HEIC in most browsers produces no copy
+   for the model, which is exactly the behaviour before this fix.
+
+**Why it was missed.** No test followed a photo from the client to the model; the component
+test checked only the hint text. Both ends are now asserted: `ChatFab.test.tsx` checks the file
+part is sent, and the chat route test checks it reaches `streamText`.
+
+**Status.** Accepted. The spec was right and the code did not meet it.
+
+### 2026-09-14 — the duplicate card no longer offers "add a unit" (amends §4.4)
+
+**What changed.** §4.4's duplicate card offered **Add a unit to the existing tool**. The button
+seeded a message nothing could act on: `create_tool` always creates a new tool, and no tool
+adds a unit to an existing one. The card now offers **No, create a new tool** and **Discard**,
+and the prompt tells the assistant to point at the existing listing and say that staff add
+units for now. The prompt also now says how to resolve **No, create a new tool**, which it
+never listed. `intake.actionAddUnit` is removed from all 12 locale files.
+
+**Why remove rather than build.** Adding units is being redesigned as part of moving v5's data
+off Notion, and a button that visibly does nothing is worse than no button.
+
+**Status.** Accepted.
+
+### 2026-09-14 — intake is staff-only (answers §11's light gate)
+
+§11 left open a gate on the intake front door. It now exists — see the auth spec's amendment
+of the same date. Anonymous visitors and students cannot use intake on the chat surface.
+
+**Status.** Accepted.

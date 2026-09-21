@@ -465,3 +465,45 @@ describe("identification card payload", () => {
     expect(card.actions.every((a) => Boolean(a.labelKey))).toBe(true);
   });
 });
+
+// ── Duplicates (intake spec amendment 2026-09-14) ────────────────────
+describe("duplicate card", () => {
+  const existing = { id: "tool-form-4", name: "Form 4" };
+
+  it("offers a separate listing or discard, never a unit it cannot add", async () => {
+    const { cards } = await propose([
+      candidate({
+        name: "Form 4",
+        evidence: STRONG_EVIDENCE,
+        duplicate_of: existing,
+      }),
+    ]);
+
+    expect(cards[0].state).toBe("duplicate");
+    expect(cards[0].duplicateOf).toEqual(existing);
+    expect(cards[0].actions.map((a) => a.id)).toEqual([
+      "create-anyway",
+      "discard",
+    ]);
+    expect(cards[0].actions.every((a) => Boolean(a.labelKey))).toBe(true);
+  });
+
+  it("tells the assistant how to resolve every button a card can show", () => {
+    const prompt = intake.promptFragment({ tools: [] });
+    expect(prompt).toContain("create new tool anyway: <candidate-id>");
+    expect(prompt).not.toContain("add unit to existing");
+  });
+});
+
+// ── Who may add equipment (auth spec amendment 2026-09-14) ───────────
+describe("intake access", () => {
+  it("requires staff", () => {
+    expect(intake.minimumRole).toBe("staff");
+  });
+
+  it("explains the limit instead of the flow when locked", () => {
+    const locked = intake.lockedPromptFragment?.({ tools: [] }) ?? "";
+    expect(locked).toContain("limited to lab staff");
+    expect(locked).not.toContain("research_tool");
+  });
+});

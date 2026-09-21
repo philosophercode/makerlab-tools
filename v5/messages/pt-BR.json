@@ -221,7 +221,6 @@
     "actionConfirmVariant": "É o {variant}",
     "actionEdit": "Editar",
     "actionDiscard": "Descartar",
-    "actionAddUnit": "Adicionar uma unidade à ferramenta existente",
     "actionCreateAnyway": "Não, criar uma ferramenta nova",
     "actionOpenDraft": "Abrir o rascunho no Notion"
   },

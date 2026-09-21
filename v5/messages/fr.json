@@ -221,7 +221,6 @@
     "actionConfirmVariant": "C’est le {variant}",
     "actionEdit": "Modifier",
     "actionDiscard": "Écarter",
-    "actionAddUnit": "Ajouter une unité à l’outil existant",
     "actionCreateAnyway": "Non, créer un nouvel outil",
     "actionOpenDraft": "Ouvrir le brouillon dans Notion"
   },
