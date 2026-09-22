@@ -124,24 +124,42 @@ interface SessionResult {
  * count as one. Four ways it must not:
  *
  * - **No session.** Nobody is signed in.
- * - **Banned.** The person still holds a valid cookie; a ban has to bite on the
- *   next request, which is only true if it is checked on every one.
  * - **Out of domain.** The create hook refuses such a row, so one existing is a
  *   bug, a restored backup, or a reconfigured domain — never a reason to trust it.
+ * - **Banned**, unless the floor names them. The person still holds a valid
+ *   cookie; a ban has to bite on the next request, which is only true if it is
+ *   checked on every one.
  * - **A role outside the vocabulary**, which `storedRoleOr` maps to anonymous.
  */
 function identityFromSession(result: SessionResult | null | undefined): Identity | null {
   const user = result?.user;
   if (!user) return null;
-  if (user.banned) return null;
   if (!isAllowedEmail(user.email)) return null;
 
   // The floor (§3.4): a listed address resolves `super_admin` whatever its row
   // says, so a mistaken demotion or ban cannot lock the lab out of its own
   // admin surface. It is the only place the environment still names a role.
-  const role = isSuperAdminFloor(user.email)
-    ? "super_admin"
-    : storedRoleOr(user.role);
+  //
+  // **Read before the ban check, not after, and that ordering is the whole
+  // point.** `banned` is part of what "whatever its row says" means: a floor
+  // address whose row is banned used to resolve anonymous, which made the
+  // environment variable a recovery for exactly half of what this module and
+  // `super-admins.ts` both promise. The app refuses to ban a floor address
+  // (`app/admin/users/actions.ts`), so a banned one means a restored backup, a
+  // manual `UPDATE`, or an address added to the list after the ban — none of
+  // which delete the person's sessions, so the session they still hold now
+  // resolves and `/admin/users` opens.
+  //
+  // It does not rescue a sign-in: the admin plugin refuses to create a session
+  // for a banned row (`session.create.before`, thrown as `BANNED_USER`), and
+  // that hook runs ahead of anything this app can register. What closes the
+  // gap is `reconcileSuperAdminFloor`, which lifts the ban off the row on the
+  // first write the recovered director performs — after which the row and the
+  // running app agree again and an ordinary sign-in works.
+  const onFloor = isSuperAdminFloor(user.email);
+  if (user.banned && !onFloor) return null;
+
+  const role = onFloor ? "super_admin" : storedRoleOr(user.role);
   if (role === "anonymous") return null;
 
   return {

@@ -231,6 +231,44 @@ describe("resolveIdentity — the super-admin floor", () => {
     expect((await resolveIdentity(requestWith(signedIn))).role).toBe("user");
   });
 
+  it("resolves a floor address whose row is banned", async () => {
+    // "Whatever its row says" includes `banned`. The floor is the lock-out
+    // guarantee, and a ban that resolved anonymous made it a recovery for
+    // exactly half of what `super-admins.ts` promises — with the ban being the
+    // half nobody can undo from the UI, because the app refuses to ban a floor
+    // address in the first place.
+    vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "ies22@cornell.edu");
+    const signedIn = await signInAsNew({
+      email: "ies22@cornell.edu",
+      role: "user",
+      banned: true,
+      banReason: "a restored backup said so",
+    });
+
+    const identity = await resolveIdentity(requestWith(signedIn));
+    expect(identity.role).toBe("super_admin");
+    expect(identity.userId).toBe(signedIn.user.id);
+  });
+
+  it("still refuses a banned address the floor does not name", async () => {
+    // The override is the floor's, not a hole in the ban.
+    vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "ies22@cornell.edu");
+    const signedIn = await signInAsNew({
+      email: "someone@cornell.edu",
+      role: "admin",
+      banned: true,
+    });
+
+    expect((await resolveIdentity(requestWith(signedIn))).role).toBe("anonymous");
+  });
+
+  it("does not rescue a banned floor address that is out of domain", async () => {
+    vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "attacker@gmail.com");
+    const signedIn = await signInAsNew({ email: "attacker@gmail.com", banned: true });
+
+    expect((await resolveIdentity(requestWith(signedIn))).role).toBe("anonymous");
+  });
+
   it("does not rescue a floor address that is out of domain", async () => {
     vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "attacker@gmail.com");
     const signedIn = await signInAsNew({ email: "attacker@gmail.com" });

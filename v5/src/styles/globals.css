@@ -3744,6 +3744,16 @@ p {
   margin: 0;
 }
 
+/* "We could not check whether you are signed in" — the note plus its retry
+   control, kept on one line where there is room. The form stays usable behind
+   it, so this is a notice and not a banner. */
+.project-form-unknown {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Demo-data banner — the catalogue is built-in sample data, not the lab's
    inventory (operational-hardening spec §6). Deliberately loud: the failure it
    describes used to be invisible. Uses the secondary (crimson) token rather
@@ -3955,6 +3965,13 @@ p {
 
 .admin-row-status.is-error {
   color: var(--secondary);
+}
+
+/* A change that landed, minus a guarantee — the row moved and the audit trail
+   did not record it. Not the error colour, because nothing failed to save, and
+   not the muted default, because somebody has to notice. */
+.admin-row-status.is-warning {
+  color: var(--td-warning);
 }
 
 /* Visually hidden, still announced: the role select's label is the person's

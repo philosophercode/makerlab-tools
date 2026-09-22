@@ -65,7 +65,12 @@ variable list.
   upload route; it writes the blob, inserts an **unowned** `attachments` row and
   returns `{ attachmentId, previewUrl }`. The write that follows *claims* those
   ids (`claimAttachments`), and `/api/cron/daily` deletes anything still
-  unclaimed after 24 hours. With no `BLOB_READ_WRITE_TOKEN` the route answers
+  unclaimed after 24 hours. **Both write paths say when a photo did not stick**
+  — `report_issue` appends it to the message the assistant paraphrases, and
+  `POST /api/projects` answers `photosSubmitted` / `photosAttached` so the form
+  can say it on the confirmation. A form left open overnight submits ids the
+  cron has already swept, and thanking a student for pictures nobody has is the
+  quiet lie Article 4 forbids. With no `BLOB_READ_WRITE_TOKEN` the route answers
   503 `{ code: "blob_not_configured" }` and both clients show a translated
   "photo uploads are unavailable" — never a fabricated id (Article 4).
 - **Failing toward stale, not wrong (Article 4).** `DATABASE_URL` unset serves
@@ -84,8 +89,9 @@ approval. Do not mint one.
 
 - **Sessions are rows.** The cookie carries only a token; `resolveIdentity`
   looks the session and its user up on every request. That is why a role change
-  lands on the person's next request and a ban bites immediately. Better Auth's
-  cookie cache is deliberately off.
+  lands on the person's next request and a ban bites immediately — **with one
+  exception, a floor address, described under `AUTH_SUPER_ADMIN_EMAILS`
+  below.** Better Auth's cookie cache is deliberately off.
 - **Roles** are `anonymous` (never a row) plus the stored `user | admin |
   super_admin` (`src/lib/db/schema/vocabulary.ts`, which also backs the
   `user_role_check` constraint). `student` and `staff` are gone; today's `admin`
@@ -106,6 +112,21 @@ approval. Do not mint one.
   `super_admin` and resolves as `super_admin` whatever its row says. It is the
   bootstrap (no user row exists until somebody signs in) and the lock-out
   guarantee.
+- **"Whatever its row says" includes `banned`**, and that is the one exception
+  to "a ban bites immediately". `identityFromSession` reads the floor *before*
+  the ban check, so a listed address keeps resolving `super_admin` on a session
+  it already holds. It does not rescue a *sign-in*: the admin plugin throws
+  `BANNED_USER` from its own `session.create.before` hook, which runs ahead of
+  anything this app can register, so the row itself has to change.
+  `src/lib/auth/floor-role.ts` (`reconcileSuperAdminFloor`) is where it does —
+  called from `/admin/users`' `authorize()` after the permission check, it
+  writes the floor's `role` **and** clears `banned` on the caller's own row, so
+  the first admin write a recovered director performs makes ordinary sign-in
+  work again. It only ever promotes and unbans, only for an address the
+  environment already names, and it records both as audit events with a null
+  actor. It exists because `can()` honours the floor and the admin plugin does
+  not: the plugin reads the stored `role` and `banned` for itself, so a row left
+  disagreeing produces an opaque `failed` on every save.
 - **Everything stays optional.** `AUTH_SECRET` alone gives database sessions;
   the two `GOOGLE_*` variables are what make *starting* one possible, and
   without them `/api/auth/sign-in/social` answers 503 and the header says
@@ -137,6 +158,21 @@ Phase 5 extends both. The shape it sets:
   trusts nothing from the page that rendered the control (spec §8). Refusals are
   **values** (`{ ok: false, error }`), not exceptions, so the island can render
   the reason; every code has an `admin.errors.<code>` string.
+- **The server actions are the only way in.** The admin plugin also mounts its
+  own HTTP endpoints under `/api/auth/admin/*`, which would be a second,
+  unreviewed door onto the same writes. `src/app/api/auth/[...all]/route.ts`
+  refuses every path under that prefix with 403 `admin_api_not_exposed`, before
+  the auth instance is even constructed — percent-decoding and lower-casing the
+  path first, so `%61dmin` and `/ADMIN/` are the same refusal.
+- **A change that landed minus a guarantee is a warning, not an error.** The
+  audit write happens *after* `auth.api.setRole` / `banUser` has committed, so
+  throwing there would make the page show the old value over a database holding
+  the new one. `record()` reports instead, and the action answers
+  `{ ok: true, …, warning: "audit_unavailable" }`. Both islands keep the new
+  value and show `admin.warnings.<code>` in `.admin-row-status.is-warning`.
+  **Never answer `{ ok: false }` for a write that landed** — both islands
+  respond to a refusal by restoring the previous value, which would then assert
+  a state the database does not hold. Phase 5's admin writes should reuse this.
 - **Two things cannot be undone, so they cannot be done.** An address in
   `AUTH_SUPER_ADMIN_EMAILS` cannot be demoted or banned, and the last
   unbanned `super_admin` cannot be demoted. The table disables those rows with
@@ -177,6 +213,7 @@ Phase 5 extends both. The shape it sets:
 | `src/lib/auth/identity.ts` | `resolveIdentity(req)` — the one way to learn who is calling. Never throws |
 | `src/lib/auth/permissions.ts` | `statement` / `ac` / `roles` / `can()` — what each role may do |
 | `src/lib/auth/super-admins.ts` | `AUTH_SUPER_ADMIN_EMAILS`, the lock-out floor |
+| `src/lib/auth/floor-role.ts` | `reconcileSuperAdminFloor` — writes the floor's role and lifts its ban onto the row, because the admin plugin reads the row and not `can()` |
 | `src/app/admin/layout.tsx` | The `/admin` front door — signed in? holds an admin permission? |
 | `src/app/admin/users/actions.ts` | `setUserRole` / `setUserBanned` — the app's first server actions |
 | `src/lib/data/users.ts` | The `/admin/users` roster, read straight from Postgres |

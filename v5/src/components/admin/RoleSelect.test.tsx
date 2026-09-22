@@ -82,6 +82,21 @@ describe("RoleSelect — changing it", () => {
     await waitFor(() => expect(theSelect()).toHaveValue("super_admin"));
   });
 
+  it("keeps the new role and names the gap when the audit write failed", async () => {
+    const user = userEvent.setup();
+    const { action } = renderSelect();
+    action.mockResolvedValue({ ok: true, role: "admin", warning: "audit_unavailable" });
+
+    await user.selectOptions(theSelect(), "admin");
+
+    expect(await screen.findByText(/could not be written to the audit log/i)).toBeInTheDocument();
+    // The change landed, so the control must not snap back — that is the whole
+    // reason the action reports this as a success.
+    expect(theSelect()).toHaveValue("admin");
+    // And it is not "Saved": something is missing and somebody has to see it.
+    expect(screen.queryByText("Saved")).not.toBeInTheDocument();
+  });
+
   it("reports a refusal the page did not anticipate, rather than nothing", async () => {
     const user = userEvent.setup();
     const { action } = renderSelect();

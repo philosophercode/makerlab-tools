@@ -35,6 +35,22 @@ export type AdminActionError =
   | "self_ban"
   | "failed";
 
+/**
+ * A change that landed with less than the full guarantee behind it.
+ *
+ * - `audit_unavailable` — the row changed and `audit_events` did not record it.
+ *
+ * It rides on `ok: true` deliberately. The plugin's write commits in its own
+ * statement, and with the Neon HTTP driver the audit insert is a second request
+ * that can fail on its own; reporting that as a failure would make the island
+ * snap back to the previous value and leave the page asserting a role the
+ * database no longer holds — the one thing `RoleSelect` promises never to do.
+ * Reporting it as a plain success would leave a hole in the trail nobody was
+ * told about (spec §4.11, Article 4). So it is a success that says what is
+ * missing, and every code has an `admin.warnings.<code>` message.
+ */
+export type AdminActionWarning = "audit_unavailable";
+
 export type AdminActionResult =
-  | { ok: true; role?: Role; banned?: boolean }
+  | { ok: true; role?: Role; banned?: boolean; warning?: AdminActionWarning }
   | { ok: false; error: AdminActionError };

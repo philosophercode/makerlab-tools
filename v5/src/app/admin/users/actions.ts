@@ -7,7 +7,7 @@ import { reconcileSuperAdminFloor } from "../../../lib/auth/floor-role";
 import { resolveIdentityFromHeaders, type Identity } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { isSuperAdminFloor } from "../../../lib/auth/super-admins";
-import { recordAuditEvent } from "../../../lib/data/audit";
+import { recordAuditEvent, type NewAuditEvent } from "../../../lib/data/audit";
 import { countUsersWithRole, findUserById, type UserRecord } from "../../../lib/data/users";
 import { isOneOf, ROLES, type Role } from "../../../lib/db/schema/vocabulary";
 import { ADMIN_ACTION_TIER, rateLimitAsync } from "../../../lib/rate-limit";
@@ -15,6 +15,7 @@ import {
   ADMIN_USERS_PATH,
   type AdminActionError,
   type AdminActionResult,
+  type AdminActionWarning,
 } from "./action-result";
 
 /**
@@ -37,6 +38,10 @@ import {
  * `next-intl` string. A thrown error in a server action reaches the browser as
  * a digest and an error boundary, which is the wrong shape for "you cannot
  * demote the floor address, and here is why" (§5.2).
+ *
+ * **And a change that lands without its audit event is a success with a
+ * warning, not a failure.** The two writes are two statements and only the
+ * first one is the change; see {@link record}.
  */
 
 /**
@@ -84,7 +89,7 @@ export async function setUserRole(input: {
     return { ok: false, error: "failed" };
   }
 
-  await recordAuditEvent({
+  const recorded = await record({
     actorUserId: identity.userId,
     action: "role.changed",
     subjectType: "user",
@@ -95,7 +100,7 @@ export async function setUserRole(input: {
   });
 
   revalidatePath(ADMIN_USERS_PATH);
-  return { ok: true, role };
+  return { ok: true, role, ...(recorded ? {} : { warning: AUDIT_WARNING }) };
 }
 
 /**
@@ -154,7 +159,7 @@ export async function setUserBanned(input: {
     return { ok: false, error: "failed" };
   }
 
-  await recordAuditEvent({
+  const recorded = await record({
     actorUserId: identity.userId,
     action: "user.banned",
     subjectType: "user",
@@ -166,7 +171,11 @@ export async function setUserBanned(input: {
   });
 
   revalidatePath(ADMIN_USERS_PATH);
-  return { ok: true, banned: input.banned };
+  return {
+    ok: true,
+    banned: input.banned,
+    ...(recorded ? {} : { warning: AUDIT_WARNING }),
+  };
 }
 
 // ── The shared preamble ─────────────────────────────────────────────
@@ -263,4 +272,39 @@ async function requestHeaders(): Promise<Headers> {
   const cookie = incoming.get("cookie");
   if (cookie) copy.set("cookie", cookie);
   return copy;
+}
+
+// ── Recording it ────────────────────────────────────────────────────
+
+/** The one warning either action can carry. Named so the two cannot drift. */
+const AUDIT_WARNING: AdminActionWarning = "audit_unavailable";
+
+/**
+ * Write the audit event, and say whether it landed.
+ *
+ * **The order is not negotiable and neither is the shape.** The event describes
+ * a change that has already committed — `auth.api.setRole` / `banUser` have
+ * returned — and `recordAuditEvent` throws on any database failure. With the
+ * Neon HTTP driver each statement is its own request, so a transient 5xx
+ * between the two is an ordinary outcome rather than an exotic one, and there
+ * is no transaction spanning them to roll back.
+ *
+ * Letting the throw propagate would reach the island as a rejected action, and
+ * both islands answer a rejection by restoring the previous value: the page
+ * would show the old role over a database holding the new one, which is exactly
+ * what `RoleSelect`'s comment says it never does. Swallowing it silently would
+ * leave a gap in the trail nobody was told about (spec §4.11).
+ *
+ * So the failure becomes a `warning` on a successful result: the row changed,
+ * the page says so, and it also says the change was not recorded. The console
+ * line is the operator's copy — it is the only place the event now exists.
+ */
+async function record(event: NewAuditEvent): Promise<boolean> {
+  try {
+    await recordAuditEvent(event);
+    return true;
+  } catch (err) {
+    console.error("[admin/users] audit write failed after the change landed", err);
+    return false;
+  }
 }

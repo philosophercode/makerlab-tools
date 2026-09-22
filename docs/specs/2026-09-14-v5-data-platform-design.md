@@ -1147,3 +1147,110 @@ defect was found between the phases and fixed.
 
 **Status.** Accepted. Phases 3 and 4 are integrated and green; what remains before
 production is credentials, which no test can stand in for.
+
+### 2026-09-22 — Nine review findings, and one sentence in §3.4 that needs choosing
+
+**What changed.** The Phase 3/4 branch was reviewed three times over and nine findings
+came back. Four described code that was already on the branch — the review had read an
+earlier working state, and the fixes had been amended into `1c967c4` itself, whose message
+still says they are "outstanding and fixed in the next commit". They are not outstanding;
+that line is stale. For the record, the three the message meant are the admin plugin's HTTP
+endpoints (`/api/auth/admin/*` refused with 403 `admin_api_not_exposed` before the auth
+instance is constructed), the super-admin floor the plugin could not see
+(`src/lib/auth/floor-role.ts`), and `POST /api/uploads` granting a public Blob URL on the
+caller's say-so (`KIND_POLICY` plus `uploadRefusal`, which pairs each `kind` with both its
+access and the permission the consuming surface enforces). **Anyone reading a review of
+this branch should check the current file before trusting a cited line number** — every one
+of them is off by the size of those fixes.
+
+Four findings held up and were fixed. Details the spec did not name:
+
+- **A banned floor address is no longer anonymous, and this contradicts §3.4.** The section
+  says both "resolves as `super_admin` whatever its row says" and "A banned user resolves
+  to anonymous" (also §4.11's table and §6's signed-out note), which cannot both be true of
+  the same row. `identityFromSession` now reads the floor *first*: a listed address survives
+  a ban on a session it already holds. The domain rule still runs before both, and
+  `isSuperAdminFloor` applies it itself, so an out-of-domain floor entry still fails closed.
+  Half a recovery was the alternative, and the floor exists precisely so that "a mistaken
+  demotion **or ban** cannot lock the lab out".
+
+  It does not rescue a sign-in, and the reason is worth not rediscovering: the admin plugin
+  registers `databaseHooks.session.create.before` and throws `BANNED_USER` there, and
+  `runPluginInit` (`better-auth/dist/context/helpers.mjs`) pushes plugin hooks *ahead* of
+  the app's own, so no hook this app can register runs in front of it. The row itself has to
+  change. `reconcileSuperAdminFloor` therefore reconciles `banned` as well as `role`
+  (clearing `banReason` and `banExpires` with it, so the plugin's auto-unban branch cannot
+  fire later against a row nobody banned), which means the first admin write a recovered
+  director performs restores ordinary sign-in. It still only ever promotes and unbans, only
+  for an address the environment already names, and the lift is recorded as `user.banned`
+  with `detail.banned: false` because `AUDIT_ACTIONS` has no `user.unbanned` (§4.11) — the
+  same shape `setUserBanned` writes.
+
+  **This is the one item in this entry that is a decision and not a detail.** The code, both
+  module docstrings and §8's "so the lab can always recover" agree; §3.4's sentence does
+  not. It is written up here rather than edited into §3.4 because the original text is never
+  edited, and flagged rather than settled because it is the lab's call: if the ban should
+  win instead, it is a two-line revert in `identity.ts` plus the `lift` branch in
+  `floor-role.ts`, and the docstrings are what need correcting.
+
+- **An audit write that fails after the change committed is a warning on a success.**
+  `recordAuditEvent` was awaited unguarded after `auth.api.setRole` had already returned, so
+  a transient failure threw out of the server action and the island restored the *old* role
+  over a database holding the new one — asserting a state that does not exist, which is the
+  quiet lie Article 4 forbids, with the sign flipped. `AdminActionResult`'s ok variant gains
+  `warning?: AdminActionWarning`, a `record()` helper reports rather than throws, and both
+  islands keep the new value and render `admin.warnings.audit_unavailable` in
+  `.admin-row-status.is-warning`. The rule this sets, which Phase 5's admin writes inherit:
+  **a change that landed minus a guarantee is `{ ok: true, …, warning }`, never
+  `{ ok: false }`**, because a refusal is what the islands answer by rolling back.
+
+  One deliberate asymmetry: `reconcileSuperAdminFloor`'s own audit writes are *not* on this
+  channel. If one fails, `authorize()` answers `failed` and the requested action never runs
+  — which is honest, because nothing the director asked for was saved — and the row it
+  already wrote makes the next attempt a no-op that succeeds. It self-heals in one click,
+  and plumbing a warning out through the gate would cost more than it buys.
+
+- **`POST /api/projects` answers `photosSubmitted` and `photosAttached`.** It discarded
+  `createProjectSubmission`'s count and returned a bare 201, so a student whose photos had
+  been swept by the nightly cron — a form left open overnight submits ids that are already
+  gone — was thanked for a write-up with no pictures. The form now says so on the
+  confirmation. **Partial loss counts too** (`photosAttached < photosSubmitted`), which is a
+  deliberate departure from the sibling write path in `capabilities/maintenance.ts`, whose
+  check is `photosAttached === 0`: two of three lost is exactly as silent as three of three.
+  Making maintenance symmetric is a reasonable follow-up; its tests pin the current
+  behaviour.
+
+- **`/projects/new` tells three states apart, not two.** A failed `/api/identity` fetch was
+  read as "not signed in", so a 429 or a dropped connection replaced the whole form with a
+  sign-in wall. The distinction was already in the data and was being thrown away:
+  `/api/identity` answers **200 `{role:"anonymous"}`** for a signed-out visitor, so
+  `fetchIdentity`'s `null` means only "could not ask". `IdentityStatus` is now
+  `pending | answered | unavailable`; `unavailable` keeps the form up with a notice and a
+  "Check again" control, and the server stays the authority, so a signed-in student can
+  still submit. A 401 from the submit now renders a translated sentence rather than the
+  route's English prose. **That invariant is now load-bearing** (`src/lib/auth/
+  sign-in-client.ts`, both halves pinned by its test): if `/api/identity` is ever changed to
+  answer 401 for anonymous, this branch starts catching genuinely signed-out visitors.
+  `PrimaryNav`'s opposite choice was checked and left alone — it maps `null` to "signed
+  out" deliberately and documents why, and it withholds nothing, so there is no false
+  assertion with a cost.
+
+**Refusal strings on the two write routes are hardcoded English**, not `next-intl` keys —
+`POST /api/uploads` matches `POST /api/projects`' existing idiom and `ProjectSubmitForm`
+renders `data.error` verbatim, so a refusal reads English in all twelve locales. Translating
+them is one job across both routes, not one route. Everything else new is seven keys in
+`messages/en.json`, inherited by the other eleven through `withEnglishFallback` (Article 6
+as amended), which `src/i18n/messages.test.ts` enforces.
+
+**Gate.** Observed green with every environment variable unset: `npm run lint` (0 errors, the
+same 3 pre-existing warnings), `npm run typecheck` (clean), `npx vitest run` (**97 files,
+1356 tests**), `npx playwright test` (**49 passed**; an earlier run of the same commit was
+48 passed and one flaky — `tool-detail.spec.ts`'s gallery-card click, green on retry, the
+client-router race under load the Phase 2 amendment describes and not a new defect),
+`npm run spec:coverage` (73 surface items · 0 undocumented) and `npm run build`
+(succeeds with no database). Each of the three code fixes was confirmed red with the fix
+reverted. Not covered: nothing in `e2e/` exercises a banned floor address or a failed audit
+write — both are proved at unit and component level only.
+
+**Status.** Accepted, except the §3.4 sentence, which is open. Everything else is a detail
+the spec left to implementation.

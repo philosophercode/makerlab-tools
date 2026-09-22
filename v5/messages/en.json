@@ -141,12 +141,18 @@
     "uploadsUnavailable": "Photo uploads are unavailable right now. You can still submit your project without photos.",
     "requiredError": "A title and a write-up are required.",
     "submitError": "Something went wrong. Please try again.",
+    "signInRequiredError": "You need to be signed in to submit a project. Use the Sign in control in the header, then submit again — nothing you have typed is lost.",
     "thanksTitle": "Thanks — your project is pending review",
     "thanksBody": "A staff member will review your submission and publish it to the gallery soon.",
+    "thanksPhotosNone": "Your photos were not attached, so the write-up was saved without them. An uploaded photo is discarded after a day, so pictures added to a form left open overnight are already gone.",
+    "thanksPhotosSome": "Some of your photos were not attached, so the write-up was saved without them. An uploaded photo is discarded after a day, so pictures added to a form left open overnight are already gone.",
     "backToGallery": "Back to gallery",
     "signInTitle": "Sign in to share your project",
     "signInBody": "Project write-ups are credited to your {institution} account, so you need to be signed in to submit one. Use the Sign in control in the header.",
     "signInBrowse": "Browse projects",
+    "identityUnknown": "We could not check whether you are signed in just now, so this page cannot tell you either way. You can keep writing — if you are signed in, submitting will work.",
+    "identityRetry": "Check again",
+    "identityChecking": "Checking…",
     "authorNote": "Your project will be credited to {name}."
   },
   "about": {
@@ -318,6 +324,9 @@
       "last_super_admin": "This is the last director. Promote somebody else first, or nobody could undo it.",
       "self_ban": "You cannot ban yourself.",
       "failed": "That did not save. Nothing was changed."
+    },
+    "warnings": {
+      "audit_unavailable": "Saved, but this change could not be written to the audit log. Tell whoever runs the deployment."
     }
   }
 }

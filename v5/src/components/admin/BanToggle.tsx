@@ -2,7 +2,11 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import type { AdminActionError, AdminActionResult } from "../../app/admin/users/action-result";
+import type {
+  AdminActionError,
+  AdminActionResult,
+  AdminActionWarning,
+} from "../../app/admin/users/action-result";
 
 /**
  * Ban and unban, beside the role select on `/admin/users` (spec §5.2).
@@ -47,6 +51,9 @@ export function BanToggle({
   const [current, setCurrent] = useState(banned);
   const [reason, setReason] = useState("");
   const [error, setError] = useState<AdminActionError | null>(null);
+  // As in `RoleSelect`: the ban landed, the audit trail did not record it, and
+  // the button must keep showing the state the database now holds.
+  const [warning, setWarning] = useState<AdminActionWarning | null>(null);
 
   // A lift is never refused for these reasons — they are all about *removing*
   // someone's access, and restoring it cannot lock anybody out.
@@ -57,6 +64,7 @@ export function BanToggle({
     const next = !current;
     setCurrent(next);
     setError(null);
+    setWarning(null);
     setPending(true);
 
     try {
@@ -67,6 +75,7 @@ export function BanToggle({
       });
       if (result.ok) {
         if (next) setReason("");
+        setWarning(result.warning ?? null);
         return;
       }
       setCurrent(!next);
@@ -105,8 +114,14 @@ export function BanToggle({
           ? t("liftBanFor", { name: personName })
           : t("banFor", { name: personName })}
       </button>
-      <span className={`admin-row-status${error ? " is-error" : ""}`} role="status">
+      <span
+        className={`admin-row-status${error ? " is-error" : ""}${
+          !error && warning ? " is-warning" : ""
+        }`}
+        role="status"
+      >
         {pending ? t("saving") : null}
+        {!pending && warning ? t(`warnings.${warning}`) : null}
         {!pending && note ? t(`errors.${note}`) : null}
       </span>
     </div>

@@ -31,7 +31,20 @@ let TROTEC_ID = "";
 let defaultSession: Awaited<ReturnType<typeof signInAsNew>>;
 let sessionCounter = 0;
 
+/**
+ * The route warns when a submission's photos did not attach, and most payloads
+ * here carry a photo id no `attachments` row answers to — so the warning is the
+ * expected case, not a surprise. Captured rather than printed, and read back
+ * with `vi.mocked(console.warn)` where it is the thing under test.
+ * `vi.restoreAllMocks()` in the global setup puts the real console back after
+ * every test.
+ */
+function warnings() {
+  return vi.mocked(console.warn);
+}
+
 beforeEach(async () => {
+  vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.stubEnv("DATABASE_URL", "");
   vi.stubEnv("AUTH_SECRET", AUTH_SECRET);
   resetAuthForTests();
@@ -160,7 +173,14 @@ describe("POST /api/projects (drafts by default)", () => {
     expect(res.status).toBe(201);
     const rows = await storedProjects();
     expect(rows).toHaveLength(1);
-    expect(await res.json()).toEqual({ id: rows[0].id, slug: rows[0].slug });
+    expect(await res.json()).toEqual({
+      id: rows[0].id,
+      slug: rows[0].slug,
+      // The photo counts ride along on every submission — see the "photos that
+      // did not attach" block below for why they are there.
+      photosSubmitted: 1,
+      photosAttached: 0,
+    });
     expect(rows[0].published).toBe(false);
     expect(rows[0].slug).toBe("lamp-from-scrap-plywood");
   });
@@ -257,6 +277,81 @@ describe("POST /api/projects (drafts by default)", () => {
 
     expect(res.status).toBe(201);
     expect((await res.json()).slug).toBe("lamp-from-scrap-plywood-2");
+  });
+});
+
+// ── Photos that did not attach (Article 4) ──────────────────────────
+
+describe("POST /api/projects (photos that did not attach)", () => {
+  it("reports both counts so the form can tell the student what landed", async () => {
+    const kept = await upload();
+
+    const res = await post(
+      submitRequest(
+        validPayload({
+          photos: [
+            { id: kept, name: "cover.png" },
+            // Uploaded, then swept by the nightly cron while the tab sat open:
+            // uuid-shaped, and nothing answers to it any more.
+            { id: crypto.randomUUID(), name: "detail.png" },
+          ],
+        })
+      )
+    );
+
+    expect(res.status).toBe(201);
+    expect(await res.json()).toMatchObject({ photosSubmitted: 2, photosAttached: 1 });
+  });
+
+  it("says none attached rather than thanking the student for pictures nobody has", async () => {
+    // The exact shape of the reviewed bug: three photos uploaded yesterday,
+    // `runCleanup` deleted the unclaimed rows overnight, the write-up lands and
+    // the pictures do not. A 201 that says nothing about it is a quiet lie.
+    const stale = Array.from({ length: 3 }, (_, i) => ({
+      id: crypto.randomUUID(),
+      name: `photo-${i}.png`,
+    }));
+
+    const res = await post(submitRequest(validPayload({ photos: stale })));
+
+    expect(res.status).toBe(201);
+    expect(await res.json()).toMatchObject({ photosSubmitted: 3, photosAttached: 0 });
+    // And staff can find it afterwards, the way the maintenance path already
+    // logs its own lost photos.
+    expect(warnings()).toHaveBeenCalledWith(
+      expect.stringContaining("saved without 3 of its 3 photo(s)")
+    );
+    // The write-up itself is still there — losing the photos never costs the
+    // student the submission.
+    expect(await storedProjects()).toHaveLength(1);
+  });
+
+  it("claims nothing and says so when the photos belong to somebody else", async () => {
+    // An already-claimed attachment is not annexable (`owner_id is null` is part
+    // of the WHERE), so the count tells the truth here too.
+    const someoneElses = await upload();
+    await post(submitRequest(validPayload({ photos: [{ id: someoneElses, name: "a.png" }] })));
+
+    const res = await post(
+      submitRequest(validPayload({ photos: [{ id: someoneElses, name: "a.png" }] }))
+    );
+
+    expect(res.status).toBe(201);
+    expect(await res.json()).toMatchObject({ photosSubmitted: 1, photosAttached: 0 });
+  });
+
+  it("stays quiet when every photo attached, and when none was sent", async () => {
+    const first = await upload();
+    const both = await post(
+      submitRequest(validPayload({ photos: [{ id: first, name: "cover.png" }] }))
+    );
+    expect(await both.json()).toMatchObject({ photosSubmitted: 1, photosAttached: 1 });
+
+    const none = await post(submitRequest(validPayload({ photos: [] })));
+    expect(await none.json()).toMatchObject({ photosSubmitted: 0, photosAttached: 0 });
+
+    // Nothing was lost in either case, so nothing is logged about it.
+    expect(warnings()).not.toHaveBeenCalled();
   });
 });
 

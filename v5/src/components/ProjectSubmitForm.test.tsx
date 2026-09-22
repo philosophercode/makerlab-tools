@@ -78,6 +78,9 @@ function submitButton() {
 }
 
 const SIGNED_IN: ClientIdentity = { role: "user", name: "Ada Lovelace" };
+// The answer a signed-out visitor gets: a 200 that says so. Told apart from
+// `null` — "the endpoint could not answer" — everywhere below.
+const ANONYMOUS: ClientIdentity = { role: "anonymous", name: null };
 
 beforeEach(() => {
   fetchIdentity.mockClear();
@@ -137,7 +140,7 @@ describe("ProjectSubmitForm validation", () => {
 
 describe("ProjectSubmitForm — signing in is the gate", () => {
   it("shows the sign-in prompt instead of the form for an anonymous visitor", async () => {
-    fetchIdentity.mockResolvedValue(null);
+    fetchIdentity.mockResolvedValue(ANONYMOUS);
     render(<ProjectSubmitForm tools={TOOLS} />);
 
     expect(
@@ -152,7 +155,7 @@ describe("ProjectSubmitForm — signing in is the gate", () => {
   });
 
   it("names the institution from config rather than leaving the placeholder", async () => {
-    fetchIdentity.mockResolvedValue(null);
+    fetchIdentity.mockResolvedValue(ANONYMOUS);
     render(<ProjectSubmitForm tools={TOOLS} />);
 
     const body = await screen.findByText(/credited to your/);
@@ -160,11 +163,10 @@ describe("ProjectSubmitForm — signing in is the gate", () => {
     expect(body.textContent).not.toContain("{institution}");
   });
 
-  it("treats an identity endpoint that cannot answer as anonymous", async () => {
-    // A failed `/api/identity` used to mean "type your own name"; now it means
-    // the form cannot know who is submitting, and the server would refuse the
-    // post anyway. Showing the prompt is the honest answer (Article 4).
-    fetchIdentity.mockResolvedValue(null);
+  it("shows the prompt for the anonymous answer, which is an answer", async () => {
+    // `/api/identity` answers 200 `{ role: "anonymous" }` for a signed-out
+    // visitor — a fact, unlike the `null` below.
+    fetchIdentity.mockResolvedValue(ANONYMOUS);
     render(<ProjectSubmitForm tools={TOOLS} />);
 
     expect(
@@ -182,7 +184,7 @@ describe("ProjectSubmitForm — signing in is the gate", () => {
     expect(screen.queryByRole("heading", { name: "Sign in to share your project" })).toBeNull();
     expect(screen.getByRole("button", { name: "Submit project" })).toBeInTheDocument();
 
-    pending.resolve(null);
+    pending.resolve(ANONYMOUS);
     expect(
       await screen.findByRole("heading", { name: "Sign in to share your project" })
     ).toBeInTheDocument();
@@ -235,6 +237,82 @@ describe("ProjectSubmitForm — signing in is the gate", () => {
   });
 });
 
+
+// ── When the identity endpoint cannot answer (Article 4) ────────────
+
+describe("ProjectSubmitForm — an identity that could not be checked", () => {
+  // `fetchIdentity` resolves to `null` for a 429 from the identity tier
+  // (120/min), a 5xx, or a dropped connection — never for a signed-out visitor,
+  // who comes back as `{ role: "anonymous" }`. The form must not turn "we could
+  // not ask" into "you are signed out".
+  it("keeps the form up rather than telling a signed-in student to sign in", async () => {
+    fetchIdentity.mockResolvedValue(null);
+    render(<ProjectSubmitForm tools={TOOLS} />);
+
+    expect(
+      await screen.findByText(/could not check whether you are signed in/)
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Sign in to share your project" })
+    ).toBeNull();
+    // The server is the authority on the session, and it would accept the post.
+    expect(submitButton()).toBeInTheDocument();
+  });
+
+  it("offers a way to ask again, and takes the answer when it comes", async () => {
+    const user = userEvent.setup();
+    fetchIdentity.mockResolvedValue(null);
+    render(<ProjectSubmitForm tools={TOOLS} />);
+
+    await screen.findByText(/could not check whether you are signed in/);
+    fetchIdentity.mockResolvedValue(SIGNED_IN);
+    await user.click(screen.getByRole("button", { name: "Check again" }));
+
+    expect(
+      await screen.findByText(/Your project will be credited to Ada Lovelace/)
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/could not check whether you are signed in/)
+    ).toBeNull();
+  });
+
+  it("shows the sign-in prompt once a retry says the visitor really is signed out", async () => {
+    const user = userEvent.setup();
+    fetchIdentity.mockResolvedValue(null);
+    render(<ProjectSubmitForm tools={TOOLS} />);
+
+    await screen.findByText(/could not check whether you are signed in/);
+    fetchIdentity.mockResolvedValue(ANONYMOUS);
+    await user.click(screen.getByRole("button", { name: "Check again" }));
+
+    expect(
+      await screen.findByRole("heading", { name: "Sign in to share your project" })
+    ).toBeInTheDocument();
+  });
+
+  it("says a 401 in the visitor's own words instead of the route's English", async () => {
+    // The other half of the same honesty: the form rendered without knowing,
+    // the post came back 401, and "sign in, then submit again" is what the
+    // student needs to read — translated, like every other string here
+    // (Article 6).
+    const user = userEvent.setup();
+    fetchIdentity.mockResolvedValue(null);
+    stubFetch(async () =>
+      jsonResponse({ error: "Sign in to share a project.", code: "sign_in_required" }, 401)
+    );
+    render(<ProjectSubmitForm tools={TOOLS} />);
+
+    await screen.findByText(/could not check whether you are signed in/);
+    await fillRequired(user);
+    await user.click(submitButton());
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "You need to be signed in to submit a project."
+    );
+    // And the write-up survives the refusal.
+    expect(screen.getByLabelText("Project title")).toHaveValue("Plywood lamp");
+  });
+});
 
 // ── Successful submission ───────────────────────────────────────────
 
@@ -512,6 +590,58 @@ describe("ProjectSubmitForm photos", () => {
       name: "Thanks — your project is pending review",
     });
     expect(lastSubmitBody(fetchMock).photos).toEqual([]);
+  });
+
+  it("tells the student when none of the photos attached, instead of a plain thank-you", async () => {
+    // The reviewed bug: photos uploaded yesterday, swept by the nightly cron
+    // overnight, claimed by nothing — and the student thanked as if the
+    // gallery would show them. The route reports the counts; this renders them.
+    const user = userEvent.setup();
+    stubFetch(async () =>
+      jsonResponse({ id: "p1", slug: "lamp", photosSubmitted: 3, photosAttached: 0 }, 201)
+    );
+    render(<ProjectSubmitForm tools={TOOLS} />);
+
+    await fillRequired(user);
+    await user.click(submitButton());
+
+    await screen.findByRole("heading", {
+      name: "Thanks — your project is pending review",
+    });
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Your photos were not attached"
+    );
+  });
+
+  it("says *some* when only some of them attached", async () => {
+    const user = userEvent.setup();
+    stubFetch(async () =>
+      jsonResponse({ id: "p1", slug: "lamp", photosSubmitted: 3, photosAttached: 2 }, 201)
+    );
+    render(<ProjectSubmitForm tools={TOOLS} />);
+
+    await fillRequired(user);
+    await user.click(submitButton());
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Some of your photos were not attached"
+    );
+  });
+
+  it("says nothing about photos when they all landed, or when none was sent", async () => {
+    const user = userEvent.setup();
+    stubFetch(async () =>
+      jsonResponse({ id: "p1", slug: "lamp", photosSubmitted: 0, photosAttached: 0 }, 201)
+    );
+    render(<ProjectSubmitForm tools={TOOLS} />);
+
+    await fillRequired(user);
+    await user.click(submitButton());
+
+    await screen.findByRole("heading", {
+      name: "Thanks — your project is pending review",
+    });
+    expect(screen.queryByRole("alert")).toBeNull();
   });
 
   it("surfaces an upload failure and adds no photo", async () => {

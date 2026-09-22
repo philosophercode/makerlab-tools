@@ -193,9 +193,34 @@ export async function POST(req: NextRequest) {
       toolIds: tools,
       photoAttachmentIds: photoIds,
     });
+    // Photos offered but not all of them claimed: say so rather than let the
+    // student believe the gallery will show a picture that is not there
+    // (Article 4). `createProjectSubmission` returns the count for exactly this
+    // reason, and the sibling write path — `report_issue` in
+    // `src/lib/capabilities/maintenance.ts` — already tells the student the same
+    // thing, so answering 201 and dropping the count on the floor here was the
+    // odd one out. The usual cause is time: an upload nobody claims is deleted
+    // by the nightly cron after 24 hours, so a form left open overnight submits
+    // ids that no `attachments` row answers to any more.
+    const photosLost = photoIds.length - record.photosAttached;
+    if (photosLost > 0) {
+      console.warn(
+        `[projects] submission ${record.id} saved without ${photosLost} of its ${photoIds.length} photo(s) — no unclaimed attachment matched the ids supplied`
+      );
+    }
     // The id is what the form has always been handed back; the slug rides
-    // along for the admin page that will publish it.
-    return Response.json({ id: record.id, slug: record.slug }, { status: 201 });
+    // along for the admin page that will publish it. The two counts are the
+    // form's evidence — it renders the "saved without your photos" line off
+    // the server's answer rather than assuming its own uploads stuck.
+    return Response.json(
+      {
+        id: record.id,
+        slug: record.slug,
+        photosSubmitted: photoIds.length,
+        photosAttached: record.photosAttached,
+      },
+      { status: 201 }
+    );
   } catch (err) {
     console.error("Project submission failed", err);
     return Response.json(

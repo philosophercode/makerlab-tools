@@ -31,6 +31,26 @@ interface UploadedPhoto {
 const AUTHOR_NOTE_ID = "project-author-note";
 
 /**
+ * What the form knows about who is submitting.
+ *
+ * Three states, not two, because `/api/identity` has three answers: a signed-in
+ * identity, the anonymous identity (a normal 200), and *no answer at all* — a
+ * 429 from the identity tier (120/min), or a dropped connection on lab wifi.
+ * `fetchIdentity` resolves the last of those to `null`, which is why `null`
+ * here means "could not ask" and never "signed out": an anonymous visitor comes
+ * back as `{ role: "anonymous" }`. Collapsing the two would tell a signed-in
+ * student they are signed out — an assertion the form has no evidence for, and
+ * one the server would contradict if they posted anyway (Article 4).
+ */
+type IdentityStatus = "pending" | "answered" | "unavailable";
+
+/** How many of a submission's photos actually landed, as the route reports it. */
+interface PhotoOutcome {
+  submitted: number;
+  attached: number;
+}
+
+/**
  * The display name of a signed-in identity, or "" for anyone else — including a
  * signed-in account Google gave no name for, which is indistinguishable from
  * anonymous as far as the byline is concerned.
@@ -53,18 +73,24 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
   // statically-shelled layout — so it asks after mount, exactly as the header
   // does (auth spec §6). Since Phase 4 the answer decides what renders at all:
   // submitting requires an account (spec §5.5), so an anonymous visitor gets
-  // the sign-in prompt in place of the form. `resolved` is what tells "not
-  // signed in" apart from "has not answered yet" — showing the prompt to
-  // somebody who *is* signed in, for the half-second before the fetch lands,
-  // would be the most annoying possible bug here.
+  // the sign-in prompt in place of the form. `status` is what tells the three
+  // answers apart — showing the prompt to somebody who *is* signed in, either
+  // for the half-second before the fetch lands or because the fetch never
+  // landed, would be the most annoying possible bug here.
   const [identity, setIdentity] = useState<ClientIdentity | null>(null);
-  const [resolved, setResolved] = useState(false);
+  const [status, setStatus] = useState<IdentityStatus>("pending");
+  // Bumped by "Try again". A failed identity fetch is the one state here the
+  // visitor can do something about, so it gets a way to do it rather than a
+  // dead end that only a reload escapes.
+  const [attempt, setAttempt] = useState(0);
+  const [retrying, setRetrying] = useState(false);
 
   const [toolQuery, setToolQuery] = useState("");
   const [uploading, setUploading] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [photoOutcome, setPhotoOutcome] = useState<PhotoOutcome | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -72,13 +98,15 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
     fetchIdentity(controller.signal).then((answer) => {
       if (!active) return;
       setIdentity(answer);
-      setResolved(true);
+      // `null` is "no answer", not "anonymous" — see IdentityStatus.
+      setStatus(answer ? "answered" : "unavailable");
+      setRetrying(false);
     });
     return () => {
       active = false;
       controller.abort();
     };
-  }, []);
+  }, [attempt]);
 
   const signedIn = isSignedIn(identity);
   const verifiedName = nameOf(identity);
@@ -181,7 +209,30 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
         const data = (await res.json().catch(() => null)) as
           | { error?: string }
           | null;
+        // 401 is its own sentence, in the visitor's language (Article 6): it
+        // means the session ended — or never resolved, when the identity fetch
+        // failed and the form rendered optimistically — and "sign in, then
+        // submit again" is advice the route's English prose does not give.
+        if (res.status === 401) throw new Error(t("signInRequiredError"));
         throw new Error(data?.error || t("submitError"));
+      }
+
+      // The route reports how many of the photo ids actually attached, because
+      // an upload nobody claimed is deleted after 24 hours and a form left open
+      // overnight submits ids that no longer name anything. Thanking a student
+      // for a write-up whose pictures were silently dropped is the kind of
+      // quiet lie Article 4 exists to forbid, so the confirmation says it.
+      const data = (await res.json().catch(() => null)) as
+        | { photosSubmitted?: number; photosAttached?: number }
+        | null;
+      if (
+        typeof data?.photosSubmitted === "number" &&
+        typeof data.photosAttached === "number"
+      ) {
+        setPhotoOutcome({
+          submitted: data.photosSubmitted,
+          attached: data.photosAttached,
+        });
       }
 
       setSubmitted(true);
@@ -199,6 +250,13 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
           <p className="td-eyebrow">{t("eyebrow")}</p>
           <h1>{t("thanksTitle")}</h1>
           <p>{t("thanksBody")}</p>
+          {photoOutcome && photoOutcome.attached < photoOutcome.submitted ? (
+            <p className="project-form-error" role="alert">
+              {photoOutcome.attached === 0
+                ? t("thanksPhotosNone")
+                : t("thanksPhotosSome")}
+            </p>
+          ) : null}
           <div className="td-prose-actions">
             <Link className="td-button td-button-primary" href="/projects">
               {t("backToGallery")}
@@ -209,11 +267,12 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
     );
   }
 
-  // Anonymous, and we know it: the prompt replaces the form (spec §5.5, §6).
-  // Deliberately not a redirect to sign-in — the visitor asked for this page,
-  // and a header control they can use without losing their place is a better
-  // answer than a bounce. Browsing the gallery stays open to them.
-  if (resolved && !signedIn) {
+  // Anonymous, and we know it — `status === "answered"` is the part that makes
+  // it knowledge rather than a guess: the prompt replaces the form (spec §5.5,
+  // §6). Deliberately not a redirect to sign-in — the visitor asked for this
+  // page, and a header control they can use without losing their place is a
+  // better answer than a bounce. Browsing the gallery stays open to them.
+  if (status === "answered" && !signedIn) {
     return (
       <main className="tool-detail">
         <section className="td-panel td-prose project-sign-in">
@@ -246,6 +305,29 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
         <p className="project-form-lede">
           {t("lede", { institution: siteConfig.institution })}
         </p>
+
+        {/* The identity endpoint could not answer — a 429 from its 120/min tier,
+            or a connection that dropped. The form stays open rather than
+            claiming the visitor is signed out: the server is the authority on
+            that and would accept a signed-in student's post. What the page owes
+            them is the truth about what it does not know, and a way to ask
+            again (Article 4). */}
+        {status === "unavailable" ? (
+          <div className="project-form-unknown" role="status">
+            <p className="project-form-note">{t("identityUnknown")}</p>
+            <button
+              type="button"
+              className="chip"
+              onClick={() => {
+                setRetrying(true);
+                setAttempt((n) => n + 1);
+              }}
+              disabled={retrying}
+            >
+              {retrying ? t("identityChecking") : t("identityRetry")}
+            </button>
+          </div>
+        ) : null}
 
         <label className="project-field">
           <span>{t("titleLabel")}</span>

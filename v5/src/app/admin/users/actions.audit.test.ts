@@ -1,0 +1,132 @@
+// @vitest-environment node
+import { nextCacheMock } from "../../../../test/mocks/next-cache";
+import { nextHeadersMock, setMockHeaders } from "../../../../test/mocks/next-headers";
+
+vi.mock("next/cache", () => nextCacheMock());
+vi.mock("next/headers", () => nextHeadersMock());
+
+// The one seam `actions.test.ts` cannot have: a database that answers the
+// *second* statement with an error. `vi.hoisted` because the `vi.mock` factory
+// runs before module scope exists.
+const audit = vi.hoisted(() => ({ failing: false }));
+
+vi.mock("../../../lib/data/audit", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../../lib/data/audit")>();
+  return {
+    ...actual,
+    recordAuditEvent: async (event: Parameters<typeof actual.recordAuditEvent>[0]) => {
+      if (audit.failing) throw new Error("connection terminated unexpectedly");
+      return actual.recordAuditEvent(event);
+    },
+  };
+});
+
+import { resetAuthForTests } from "../../../lib/auth/config";
+import { getDb, resetDbForTests } from "../../../lib/db/client";
+import { auditEvents, session, user } from "../../../lib/db/schema/index";
+import { findUserById } from "../../../lib/data/users";
+import { seedUser, signInAsNew } from "../../../../test/utils/session";
+import { setUserBanned, setUserRole } from "./actions";
+
+/**
+ * What happens when the change lands and the audit event does not (§4.11).
+ *
+ * Its own file because it is the only one here that replaces `data/audit.ts`:
+ * `actions.test.ts` asserts against the real table, and a module mocked for one
+ * test in a file is a module mocked for all of them. The failure is worth
+ * provoking because it is not exotic — `auth.api.setRole` commits in its own
+ * statement and, on the Neon HTTP driver, the audit insert is a separate
+ * request that can fail on its own.
+ *
+ * **The property under test is that the browser is never told the change failed
+ * when it did not.** `RoleSelect` and `BanToggle` answer a refusal by restoring
+ * the previous value, so an exception here would leave the page asserting a
+ * role the database no longer holds.
+ */
+
+const AUTH_SECRET = "admin-users-audit-test-secret";
+
+beforeEach(async () => {
+  vi.stubEnv("DATABASE_URL", "");
+  vi.stubEnv("AUTH_SECRET", AUTH_SECRET);
+  vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "");
+  resetAuthForTests();
+  audit.failing = false;
+
+  const db = await getDb();
+  await db.delete(auditEvents);
+  await db.delete(session);
+  await db.delete(user);
+});
+
+afterEach(() => {
+  audit.failing = false;
+  resetAuthForTests();
+  resetDbForTests();
+});
+
+async function asDirector() {
+  const signedIn = await signInAsNew({
+    email: "director@cornell.edu",
+    role: "super_admin",
+    name: "Dee Rector",
+  });
+  setMockHeaders({ cookie: signedIn.cookie });
+  return signedIn;
+}
+
+describe("an audit write that fails after the change landed", () => {
+  it("reports the role change as a success, with the gap named", async () => {
+    await asDirector();
+    const target = await seedUser({ email: "student@cornell.edu", role: "user" });
+    audit.failing = true;
+
+    expect(await setUserRole({ userId: target.id, role: "admin" })).toEqual({
+      ok: true,
+      role: "admin",
+      warning: "audit_unavailable",
+    });
+    // The half that makes the answer honest: the row really did move.
+    expect((await findUserById(target.id))?.role).toBe("admin");
+  });
+
+  it("does not throw out of the server action", async () => {
+    await asDirector();
+    const target = await seedUser({ email: "student@cornell.edu", role: "user" });
+    audit.failing = true;
+
+    // A rejected action reaches the island as a caught failure, and the island
+    // answers that by putting the old role back — over a database holding the
+    // new one.
+    await expect(setUserRole({ userId: target.id, role: "admin" })).resolves.toMatchObject(
+      { ok: true }
+    );
+  });
+
+  it("reports a ban the same way, and the ban still stands", async () => {
+    await asDirector();
+    const target = await seedUser({ email: "student@cornell.edu", role: "user" });
+    audit.failing = true;
+
+    expect(
+      await setUserBanned({ userId: target.id, banned: true, reason: "spam" })
+    ).toEqual({
+      ok: true,
+      banned: true,
+      warning: "audit_unavailable",
+    });
+    expect((await findUserById(target.id))?.banned).toBe(true);
+  });
+
+  it("carries no warning when the trail was written", async () => {
+    await asDirector();
+    const target = await seedUser({ email: "student@cornell.edu", role: "user" });
+
+    // The ordinary path, asserted here too so the warning cannot become a
+    // constant that nobody notices is always set.
+    expect(await setUserRole({ userId: target.id, role: "admin" })).toEqual({
+      ok: true,
+      role: "admin",
+    });
+  });
+});

@@ -44,10 +44,14 @@ function identityFor(
   };
 }
 
-async function roleOf(id: string) {
+async function rowOf(id: string) {
   const db = await getDb();
   const [row] = await db.select().from(user).where(eq(user.id, id));
-  return row?.role;
+  return row;
+}
+
+async function roleOf(id: string) {
+  return (await rowOf(id))?.role;
 }
 
 describe("reconcileSuperAdminFloor", () => {
@@ -65,6 +69,90 @@ describe("reconcileSuperAdminFloor", () => {
 
     expect(await reconcileSuperAdminFloor(identityFor(person))).toBe(false);
     expect(await listAuditEvents()).toEqual([]);
+  });
+
+  it("lifts a ban off a floor row, so sign-in works again", async () => {
+    // `identityFromSession` overrides the ban, which gets the person back in on
+    // the session they still hold. The *plugin* refuses to create a new one
+    // while the row says banned (`session.create.before`), so until this runs
+    // the recovery expires with that session.
+    const person = await seedUser({
+      email: "founder@cornell.edu",
+      role: "super_admin",
+      banned: true,
+      banReason: "a restored backup said so",
+    });
+    vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "founder@cornell.edu");
+
+    expect(await reconcileSuperAdminFloor(identityFor(person))).toBe(true);
+
+    const row = await rowOf(person.id);
+    expect(row?.banned).toBe(false);
+    expect(row?.banReason).toBeNull();
+    expect(row?.banExpires).toBeNull();
+  });
+
+  it("records the lift as the ban event it is, and not as a role change", async () => {
+    const person = await seedUser({
+      email: "founder@cornell.edu",
+      role: "super_admin",
+      banned: true,
+    });
+    vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "founder@cornell.edu");
+
+    await reconcileSuperAdminFloor(identityFor(person));
+
+    // `AUDIT_ACTIONS` has no `user.unbanned`, so a lift is `user.banned` with
+    // `banned: false` — the same shape `setUserBanned` writes. The role was
+    // already right, so nothing claims it changed.
+    expect(await listAuditEvents()).toMatchObject([
+      {
+        actorUserId: null,
+        action: "user.banned",
+        subjectId: person.id,
+        detail: { banned: false, reason: "super_admin_floor" },
+      },
+    ]);
+  });
+
+  it("lifts the ban and the demotion together when the row holds both", async () => {
+    const person = await seedUser({
+      email: "founder@cornell.edu",
+      role: "user",
+      banned: true,
+    });
+    vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "founder@cornell.edu");
+
+    expect(await reconcileSuperAdminFloor(identityFor(person))).toBe(true);
+    expect(await roleOf(person.id)).toBe("super_admin");
+    expect((await rowOf(person.id))?.banned).toBe(false);
+
+    const actions = (await listAuditEvents()).map((event) => event.action).sort();
+    expect(actions).toEqual(["role.changed", "user.banned"]);
+  });
+
+  it("never bans anybody — a floor row that is not banned is left alone", async () => {
+    const person = await seedUser({ email: "founder@cornell.edu", role: "user" });
+    vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "founder@cornell.edu");
+
+    await reconcileSuperAdminFloor(identityFor(person));
+
+    expect((await rowOf(person.id))?.banned).toBe(false);
+    expect((await listAuditEvents()).map((event) => event.action)).toEqual([
+      "role.changed",
+    ]);
+  });
+
+  it("leaves a banned address the floor does not name banned", async () => {
+    const person = await seedUser({
+      email: "someone@cornell.edu",
+      role: "user",
+      banned: true,
+    });
+    vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "founder@cornell.edu");
+
+    expect(await reconcileSuperAdminFloor(identityFor(person))).toBe(false);
+    expect((await rowOf(person.id))?.banned).toBe(true);
   });
 
   it("leaves an address the floor does not name alone", async () => {

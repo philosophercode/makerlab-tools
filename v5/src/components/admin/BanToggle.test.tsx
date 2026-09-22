@@ -72,6 +72,21 @@ describe("BanToggle — banning", () => {
     expect(screen.queryByLabelText(/Reason for banning/)).not.toBeInTheDocument();
   });
 
+  it("keeps the ban and names the gap when the audit write failed", async () => {
+    const user = userEvent.setup();
+    const { action } = renderToggle();
+    action.mockResolvedValue({ ok: true, banned: true, warning: "audit_unavailable" });
+
+    await user.click(screen.getByRole("button", { name: "Ban" }));
+
+    expect(
+      await screen.findByText(/could not be written to the audit log/i)
+    ).toBeInTheDocument();
+    // The ban landed. Restoring the button would tell the director the person
+    // is still welcome, over a database that has already shut them out.
+    expect(screen.getByRole("button", { name: "Lift ban" })).toBeInTheDocument();
+  });
+
   it("puts the control back and explains when the server refuses", async () => {
     const user = userEvent.setup();
     const { action } = renderToggle();

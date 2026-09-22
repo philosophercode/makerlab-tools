@@ -3,7 +3,11 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { ROLES, type Role } from "../../lib/db/schema/vocabulary";
-import type { AdminActionError, AdminActionResult } from "../../app/admin/users/action-result";
+import type {
+  AdminActionError,
+  AdminActionResult,
+  AdminActionWarning,
+} from "../../app/admin/users/action-result";
 
 /**
  * The one interactive control on `/admin/users`: pick a role, and the change
@@ -49,6 +53,10 @@ export function RoleSelect({
   const [current, setCurrent] = useState<Role>(role);
   const [error, setError] = useState<AdminActionError | null>(null);
   const [saved, setSaved] = useState(false);
+  // A success that is worth qualifying: the role changed and the audit trail
+  // did not record it. It cannot be an error, because the select must keep
+  // showing what the database now holds.
+  const [warning, setWarning] = useState<AdminActionWarning | null>(null);
 
   /**
    * Deliberately **not** wrapped in `useTransition`.
@@ -65,6 +73,7 @@ export function RoleSelect({
     const previous = current;
     setCurrent(next as Role);
     setError(null);
+    setWarning(null);
     setSaved(false);
     setPending(true);
 
@@ -72,6 +81,7 @@ export function RoleSelect({
       const result = await action({ userId, role: next });
       if (result.ok) {
         setSaved(true);
+        setWarning(result.warning ?? null);
         return;
       }
       setCurrent(previous);
@@ -109,11 +119,14 @@ export function RoleSelect({
       {/* One live region for every outcome this control can have, so a screen
           reader hears the refusal in the same place it heard the confirmation. */}
       <span
-        className={`admin-row-status${error ? " is-error" : ""}`}
+        className={`admin-row-status${error ? " is-error" : ""}${
+          !error && warning ? " is-warning" : ""
+        }`}
         role="status"
       >
         {pending ? t("saving") : null}
-        {!pending && saved && !error ? t("saved") : null}
+        {!pending && saved && !error && !warning ? t("saved") : null}
+        {!pending && warning ? t(`warnings.${warning}`) : null}
         {!pending && note ? t(`errors.${note}`) : null}
       </span>
     </div>
