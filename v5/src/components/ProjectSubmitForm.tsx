@@ -149,6 +149,11 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
             // pictures is still worth having (Article 4).
             throw new Error(t("uploadsUnavailable"));
           }
+          // A photo picked while signed out — routine now that an unreachable
+          // `/api/identity` leaves the form up rather than the sign-in wall.
+          // The route answers in English; every other string on this page is in
+          // the reader's language, so the translated one wins here too.
+          if (res.status === 401) throw new Error(t("signInRequiredError"));
           if (!res.ok) {
             const data = (await res.json().catch(() => null)) as
               | { error?: string }

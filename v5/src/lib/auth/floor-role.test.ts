@@ -59,7 +59,7 @@ describe("reconcileSuperAdminFloor", () => {
     const person = await seedUser({ email: "founder@cornell.edu", role: "user" });
     vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "founder@cornell.edu");
 
-    expect(await reconcileSuperAdminFloor(identityFor(person))).toBe(true);
+    expect(await reconcileSuperAdminFloor(identityFor(person))).toEqual({ changed: true, audited: true });
     expect(await roleOf(person.id)).toBe("super_admin");
   });
 
@@ -67,7 +67,7 @@ describe("reconcileSuperAdminFloor", () => {
     const person = await seedUser({ email: "founder@cornell.edu", role: "super_admin" });
     vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "founder@cornell.edu");
 
-    expect(await reconcileSuperAdminFloor(identityFor(person))).toBe(false);
+    expect(await reconcileSuperAdminFloor(identityFor(person))).toEqual({ changed: false, audited: true });
     expect(await listAuditEvents()).toEqual([]);
   });
 
@@ -84,7 +84,7 @@ describe("reconcileSuperAdminFloor", () => {
     });
     vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "founder@cornell.edu");
 
-    expect(await reconcileSuperAdminFloor(identityFor(person))).toBe(true);
+    expect(await reconcileSuperAdminFloor(identityFor(person))).toEqual({ changed: true, audited: true });
 
     const row = await rowOf(person.id);
     expect(row?.banned).toBe(false);
@@ -123,7 +123,7 @@ describe("reconcileSuperAdminFloor", () => {
     });
     vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "founder@cornell.edu");
 
-    expect(await reconcileSuperAdminFloor(identityFor(person))).toBe(true);
+    expect(await reconcileSuperAdminFloor(identityFor(person))).toEqual({ changed: true, audited: true });
     expect(await roleOf(person.id)).toBe("super_admin");
     expect((await rowOf(person.id))?.banned).toBe(false);
 
@@ -151,7 +151,7 @@ describe("reconcileSuperAdminFloor", () => {
     });
     vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "founder@cornell.edu");
 
-    expect(await reconcileSuperAdminFloor(identityFor(person))).toBe(false);
+    expect(await reconcileSuperAdminFloor(identityFor(person))).toEqual({ changed: false, audited: true });
     expect((await rowOf(person.id))?.banned).toBe(true);
   });
 
@@ -159,14 +159,14 @@ describe("reconcileSuperAdminFloor", () => {
     const person = await seedUser({ email: "someone@cornell.edu", role: "user" });
     vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "founder@cornell.edu");
 
-    expect(await reconcileSuperAdminFloor(identityFor(person))).toBe(false);
+    expect(await reconcileSuperAdminFloor(identityFor(person))).toEqual({ changed: false, audited: true });
     expect(await roleOf(person.id)).toBe("user");
   });
 
   it("does nothing at all when no floor is configured", async () => {
     const person = await seedUser({ email: "founder@cornell.edu", role: "user" });
 
-    expect(await reconcileSuperAdminFloor(identityFor(person))).toBe(false);
+    expect(await reconcileSuperAdminFloor(identityFor(person))).toEqual({ changed: false, audited: true });
     expect(await roleOf(person.id)).toBe("user");
   });
 
@@ -176,7 +176,7 @@ describe("reconcileSuperAdminFloor", () => {
     const person = await seedUser({ email: "outsider@example.com", role: "user" });
     vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "outsider@example.com");
 
-    expect(await reconcileSuperAdminFloor(identityFor(person))).toBe(false);
+    expect(await reconcileSuperAdminFloor(identityFor(person))).toEqual({ changed: false, audited: true });
     expect(await roleOf(person.id)).toBe("user");
   });
 
@@ -190,14 +190,14 @@ describe("reconcileSuperAdminFloor", () => {
       name: null,
       rateLimitKey: "ip:abc",
     };
-    expect(await reconcileSuperAdminFloor(anonymous)).toBe(false);
+    expect(await reconcileSuperAdminFloor(anonymous)).toEqual({ changed: false, audited: true });
   });
 
   it("does nothing when the id names no row", async () => {
     vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "founder@cornell.edu");
 
     const ghost = identityFor({ id: "deleted-mid-request", email: "founder@cornell.edu" });
-    expect(await reconcileSuperAdminFloor(ghost)).toBe(false);
+    expect(await reconcileSuperAdminFloor(ghost)).toEqual({ changed: false, audited: true });
     expect(await listAuditEvents()).toEqual([]);
   });
 });

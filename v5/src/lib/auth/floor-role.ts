@@ -2,7 +2,7 @@ import "server-only";
 
 import { eq } from "drizzle-orm";
 
-import { recordAuditEvent } from "../data/audit";
+import { recordAuditEvent, type NewAuditEvent } from "../data/audit";
 import { findUserById } from "../data/users";
 import { getDb } from "../db/client";
 import { user } from "../db/schema/index";
@@ -61,26 +61,46 @@ import { isSuperAdminFloor } from "./super-admins";
  * comes off the row, the recovered director can use the session they already
  * have and nothing else.
  *
- * Returns true when a row was changed. A no-op — and one cheap query — for
- * everybody else, which is every caller in a deployment with no floor set.
+ * Reports what happened rather than returning a bare flag, because the two
+ * halves fail independently: `changed` says whether a row moved, `audited`
+ * whether the trail records it.
  *
- * Throws on a database failure. The caller is about to perform a write that
- * depends on this having happened, so a silent failure here would surface as
- * the same unexplained `failed` this function exists to remove.
+ * Throws on a failure of the row UPDATE itself. The caller is about to perform
+ * a write that depends on this having happened, so a silent failure there would
+ * surface as the same unexplained `failed` this function exists to remove.
+ *
+ * It does **not** throw when only the audit write fails, and that asymmetry is
+ * the whole point. The UPDATE has already committed by then — a promotion, and
+ * possibly a ban lifted — so throwing would hand the caller `failed` for a
+ * change the database has kept, which is the "nothing was changed" lie Article 4
+ * forbids. The gap travels back as `audited: false` and reaches the admin as a
+ * warning on a success, exactly as `actions.ts` treats its own audit writes.
  */
-export async function reconcileSuperAdminFloor(identity: Identity): Promise<boolean> {
-  if (!identity.userId) return false;
-  if (!isSuperAdminFloor(identity.email)) return false;
+export type FloorReconciliation = {
+  /** True when a row was changed. */
+  changed: boolean;
+  /** False when a change landed but the audit trail did not record it. */
+  audited: boolean;
+};
+
+/** Nothing to do — and so nothing to record. */
+const UNCHANGED: FloorReconciliation = { changed: false, audited: true };
+
+export async function reconcileSuperAdminFloor(
+  identity: Identity
+): Promise<FloorReconciliation> {
+  if (!identity.userId) return UNCHANGED;
+  if (!isSuperAdminFloor(identity.email)) return UNCHANGED;
 
   const stored = await findUserById(identity.userId);
   // No row (deleted mid-request): nothing to write.
-  if (!stored) return false;
+  if (!stored) return UNCHANGED;
 
   const promote = stored.role !== "super_admin";
   const lift = stored.banned;
   // Already correct — the common case by far, once the first reconciliation
   // has happened.
-  if (!promote && !lift) return false;
+  if (!promote && !lift) return UNCHANGED;
 
   const db = await getDb();
   await db
@@ -98,8 +118,10 @@ export async function reconcileSuperAdminFloor(identity: Identity): Promise<bool
   // role that appeared without anybody clicking anything is exactly the entry
   // somebody reading the trail later will want an explanation for. The actor
   // is null: the environment did this, not a person.
+  let audited = true;
+
   if (promote) {
-    await recordAuditEvent({
+    audited = await record({
       actorUserId: null,
       action: "role.changed",
       subjectType: "user",
@@ -116,14 +138,35 @@ export async function reconcileSuperAdminFloor(identity: Identity): Promise<bool
   // no `user.unbanned` (spec §4.11), so a lift is `user.banned` with
   // `banned: false` — the same shape `setUserBanned` writes.
   if (lift) {
-    await recordAuditEvent({
-      actorUserId: null,
-      action: "user.banned",
-      subjectType: "user",
-      subjectId: identity.userId,
-      detail: { banned: false, reason: "super_admin_floor" },
-    });
+    // `&&` on purpose: a promotion whose event was lost stays lost even if this
+    // one lands. One missing entry is a gap in the trail.
+    audited =
+      (await record({
+        actorUserId: null,
+        action: "user.banned",
+        subjectType: "user",
+        subjectId: identity.userId,
+        detail: { banned: false, reason: "super_admin_floor" },
+      })) && audited;
   }
 
-  return true;
+  return { changed: true, audited };
+}
+
+/**
+ * Write one event, and say whether it landed.
+ *
+ * The twin of `record()` in `app/admin/users/actions.ts`, for the same reason:
+ * past the row UPDATE, an unreachable audit table is a gap to report, never a
+ * reason to tell somebody their change did not happen. The console line is the
+ * only durable trace of the gap — the table cannot record its own absence.
+ */
+async function record(event: NewAuditEvent): Promise<boolean> {
+  try {
+    await recordAuditEvent(event);
+    return true;
+  } catch (err) {
+    console.error("[auth/floor] audit write failed after the row changed", err);
+    return false;
+  }
 }

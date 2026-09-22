@@ -318,12 +318,18 @@ describe("POST /api/uploads — who may ask for a public URL", () => {
     }
   });
 
-  it("refuses before reading the file, so the refusal costs nothing", async () => {
+  it("refuses on the permission, not on the size", async () => {
     const res = await POST(
       uploadRequest(imageFile(19 * 1024 * 1024), { kind: "resource", cookie: null })
     );
-    // 401 rather than the 400 the oversize check would give: the caller is
-    // told they may not ask, without the route reading 19 MB to find out.
+    // 401 rather than the 400 the oversize check would give: the caller is told
+    // they may not ask at all, which is the more useful of the two answers.
+    //
+    // It is not free, though. `req.formData()` has already parsed the body by
+    // the time the permission is checked, so an anonymous caller can still make
+    // the server read 19 MB; only the 15/min-per-IP limiter bounds that. Nothing
+    // is stored and no URL comes back, which is what the check is for — moving
+    // it ahead of the parse would be a separate change.
     expect(res.status).toBe(401);
   });
 

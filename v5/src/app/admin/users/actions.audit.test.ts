@@ -21,6 +21,8 @@ vi.mock("../../../lib/data/audit", async (importOriginal) => {
   };
 });
 
+import { eq } from "drizzle-orm";
+
 import { resetAuthForTests } from "../../../lib/auth/config";
 import { getDb, resetDbForTests } from "../../../lib/db/client";
 import { auditEvents, session, user } from "../../../lib/db/schema/index";
@@ -128,5 +130,78 @@ describe("an audit write that fails after the change landed", () => {
       ok: true,
       role: "admin",
     });
+  });
+});
+
+/**
+ * The same property, one function earlier.
+ *
+ * `authorize()` reconciles the super-admin floor *before* the action's own
+ * write, and that reconciliation is itself a row UPDATE followed by audit
+ * inserts. While those inserts threw, a floor director whose row was stale hit
+ * this: their own row was promoted — and any ban on it lifted — and then the
+ * throw was caught and returned as `failed`, so the page said "nothing was
+ * changed" over a database that had changed two columns and recorded neither.
+ *
+ * The recovery path is exactly where a silent, unrecorded promotion is least
+ * acceptable, which is why it is asserted separately from the actions above.
+ */
+describe("an audit write that fails during the floor reconciliation", () => {
+  it("still performs the action, and names the gap instead of denying it", async () => {
+    vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "founder@cornell.edu");
+    resetAuthForTests();
+
+    // Signed in first, then the row is spoiled behind them: a restored backup
+    // or a manual UPDATE, which is the only way a floor row is banned at all.
+    const founder = await signInAsNew({
+      email: "founder@cornell.edu",
+      role: "user",
+      name: "Fou Nder",
+    });
+    setMockHeaders({ cookie: founder.cookie });
+    const db = await getDb();
+    await db
+      .update(user)
+      .set({ banned: true, banReason: "mistake" })
+      .where(eq(user.id, founder.user.id));
+
+    const target = await seedUser({ email: "student@cornell.edu", role: "user" });
+    audit.failing = true;
+
+    expect(await setUserRole({ userId: target.id, role: "admin" })).toEqual({
+      ok: true,
+      role: "admin",
+      warning: "audit_unavailable",
+    });
+
+    // Both rows moved, and the caller is told the trail is incomplete rather
+    // than being told nothing happened.
+    expect((await findUserById(target.id))?.role).toBe("admin");
+    const reconciled = await findUserById(founder.user.id);
+    expect(reconciled?.role).toBe("super_admin");
+    expect(reconciled?.banned).toBe(false);
+  });
+
+  it("warns even when the action itself changes nothing", async () => {
+    vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "founder@cornell.edu");
+    resetAuthForTests();
+
+    const founder = await signInAsNew({
+      email: "founder@cornell.edu",
+      role: "user",
+      name: "Fou Nder",
+    });
+    setMockHeaders({ cookie: founder.cookie });
+    const target = await seedUser({ email: "student@cornell.edu", role: "admin" });
+    audit.failing = true;
+
+    // "admin → admin" writes no event of its own, so the only gap in the trail
+    // is the reconciliation's — and it is still a gap.
+    expect(await setUserRole({ userId: target.id, role: "admin" })).toEqual({
+      ok: true,
+      role: "admin",
+      warning: "audit_unavailable",
+    });
+    expect((await findUserById(founder.user.id))?.role).toBe("super_admin");
   });
 });

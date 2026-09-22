@@ -62,14 +62,17 @@ export async function setUserRole(input: {
 }): Promise<AdminActionResult> {
   const gate = await authorize();
   if (!gate.ok) return gate;
-  const { identity } = gate;
+  // `gateWarning` is the reconciliation's own audit gap, if it had one. It
+  // rides on every success below, including the ones that change nothing here:
+  // the caller's row still moved.
+  const { identity, warning: gateWarning } = gate;
 
   if (!isOneOf(ROLES, input.role)) return { ok: false, error: "invalid_role" };
   const role: Role = input.role;
 
   const target = await findUserById(input.userId);
   if (!target) return { ok: false, error: "unknown_user" };
-  if (target.role === role) return { ok: true, role };
+  if (target.role === role) return { ok: true, role, ...warn(gateWarning) };
 
   const protection = await demotionProtection(target, role);
   if (protection) return { ok: false, error: protection };
@@ -100,7 +103,7 @@ export async function setUserRole(input: {
   });
 
   revalidatePath(ADMIN_USERS_PATH);
-  return { ok: true, role, ...(recorded ? {} : { warning: AUDIT_WARNING }) };
+  return { ok: true, role, ...warn(gateWarning, recorded) };
 }
 
 /**
@@ -121,11 +124,13 @@ export async function setUserBanned(input: {
 }): Promise<AdminActionResult> {
   const gate = await authorize();
   if (!gate.ok) return gate;
-  const { identity } = gate;
+  const { identity, warning: gateWarning } = gate;
 
   const target = await findUserById(input.userId);
   if (!target) return { ok: false, error: "unknown_user" };
-  if (target.banned === input.banned) return { ok: true, banned: input.banned };
+  if (target.banned === input.banned) {
+    return { ok: true, banned: input.banned, ...warn(gateWarning) };
+  }
 
   if (input.banned) {
     // Self-ban first: the plugin refuses it too, but with an error code the
@@ -174,13 +179,15 @@ export async function setUserBanned(input: {
   return {
     ok: true,
     banned: input.banned,
-    ...(recorded ? {} : { warning: AUDIT_WARNING }),
+    ...warn(gateWarning, recorded),
   };
 }
 
 // ── The shared preamble ─────────────────────────────────────────────
 
-type Gate = { ok: true; identity: Identity } | { ok: false; error: AdminActionError };
+type Gate =
+  | { ok: true; identity: Identity; warning?: AdminActionWarning }
+  | { ok: false; error: AdminActionError };
 
 /**
  * Resolve the caller, bound their attempts, and check `users.manage`.
@@ -212,8 +219,9 @@ async function authorize(): Promise<Gate> {
   if (identity.role === "anonymous") return { ok: false, error: "not_signed_in" };
   if (!can(identity, "users.manage")) return { ok: false, error: "not_permitted" };
 
+  let reconciliation;
   try {
-    await reconcileSuperAdminFloor(identity);
+    reconciliation = await reconcileSuperAdminFloor(identity);
   } catch (err) {
     // The write that follows depends on this having landed, so reporting
     // "failed" is the honest answer — better than letting the plugin refuse
@@ -222,7 +230,14 @@ async function authorize(): Promise<Gate> {
     return { ok: false, error: "failed" };
   }
 
-  return { ok: true, identity };
+  // The reconciliation may have promoted this caller — and lifted a ban — with
+  // no trail. That rides back as a warning on whatever the action goes on to
+  // do, because refusing here would deny a change the database has kept.
+  return {
+    ok: true,
+    identity,
+    ...(reconciliation.audited ? {} : { warning: AUDIT_WARNING }),
+  };
 }
 
 /**
@@ -299,6 +314,23 @@ const AUDIT_WARNING: AdminActionWarning = "audit_unavailable";
  * the page says so, and it also says the change was not recorded. The console
  * line is the operator's copy — it is the only place the event now exists.
  */
+/**
+ * The warning half of a successful result, or nothing.
+ *
+ * Two audit writes can go missing on one action — the floor reconciliation's,
+ * before the action ran, and the action's own — and there is one warning for
+ * both, because the admin's question is the same either way: *did the trail
+ * record this?* Spread into the result so a success without a gap carries no
+ * `warning` key at all.
+ */
+function warn(
+  gateWarning: AdminActionWarning | undefined,
+  recorded = true
+): { warning?: AdminActionWarning } {
+  const warning = gateWarning ?? (recorded ? undefined : AUDIT_WARNING);
+  return warning ? { warning } : {};
+}
+
 async function record(event: NewAuditEvent): Promise<boolean> {
   try {
     await recordAuditEvent(event);
