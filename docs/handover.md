@@ -128,9 +128,12 @@ for what remains to verify before production traffic goes through it.
 
 ### Handle a maintenance ticket
 
-Tickets from the assistant land in **Maintenance_Logs**, with photos if the student attached
-any. Work them in Notion: set `status` to `In Progress`, then `Resolved`, and fill in
-`resolution`.
+Tickets from the assistant land in the **`maintenance_logs`** table in Postgres, with photos
+if the student attached any. Corrections students report land in **`feedback`**, and project
+submissions in **`projects`** (unpublished until staff publish them). None of the three go
+to Notion any more, and the admin queues that work them are a later phase — until then,
+working a ticket (`status` → `in_progress` → `resolved`, plus `resolution`) needs a
+developer **[dev]**.
 
 Nothing in the app enforces this. **A ticket queue nobody reads is worse than no ticket
 queue** — students stop reporting after a couple of unanswered reports. Decide who checks
@@ -157,21 +160,26 @@ Environment variables in Vercel, no code change: `NEXT_PUBLIC_SITE_NAME`,
 
 ### Check the nightly backup is still running
 
-**Every night at 07:17 UTC (about 03:17 New York) the site backs up Notion.** Vercel Cron
-calls `/api/admin/backup`, which reads every Notion database and writes one file to private
-Vercel Blob storage as `backups/YYYY-MM-DD.json`. Files older than **30 days** are deleted
-by the same job, so the store holds roughly a month at any time.
+**Every night at 07:17 UTC (about 03:17 New York) the site backs itself up.** Vercel Cron
+calls `/api/cron/daily`, which exports **every Postgres table** and writes one file to
+private Vercel Blob storage as `backups/YYYY-MM-DD.json`. Files older than **30 days** are
+deleted by the same job, so the store holds roughly a month at any time. The same run also
+deletes photos that were uploaded but never attached to anything within 24 hours.
 
-**This is the only copy of the Notion data outside Notion.** Before it existed, one deleted
-database meant ~100 machines of staff work was gone for good.
+**This is the only copy of the data outside Neon.** Before it existed, one deleted database
+meant ~100 machines of staff work was gone for good.
+
+> The job used to dump Notion at `/api/admin/backup`. Postgres is the source of truth now,
+> so the file holds database rows and its `source` field reads `postgres`. A file written
+> before September 2026 holds raw Notion pages instead.
 
 Three settings in Vercel make it work, and it does nothing without all three:
 
 | Setting | Where | What it is |
 |---|---|---|
-| A **Blob store** linked to the project | Vercel → Storage | Sets `BLOB_READ_WRITE_TOKEN` automatically |
+| A **Blob store** linked to the project | Vercel → Storage | Sets `BLOB_READ_WRITE_TOKEN` automatically. **Also required for photo uploads** — with no store, the chat and the project form say photo uploads are unavailable instead of failing silently |
 | `CRON_SECRET` | Vercel env vars | Vercel sends it so the route knows the nightly call is genuine |
-| `ADMIN_REVALIDATE_SECRET` | Vercel env vars | Lets a person trigger a backup by hand (same secret as §4) |
+| `ADMIN_REVALIDATE_SECRET` | Vercel env vars | Lets a person trigger the job by hand (same secret as §4) |
 
 **How to check it, once a month:** Vercel dashboard → your project → **Cron Jobs**. A green
 run means a file was written. **A red run means the backup did not happen** — the route
@@ -181,21 +189,28 @@ is discovered on the day you need it. The failure reason is in the run's log.
 To run one by hand, or to confirm it works after changing anything:
 
 ```
-GET https://<your-site>/api/admin/backup
+GET https://<your-site>/api/cron/daily
 Header: x-admin-secret: <ADMIN_REVALIDATE_SECRET>
 ```
 
-It answers with the file it wrote, how many rows came from each database, and which old
-files it deleted. Anything other than `200` is a real failure.
+It answers with the file it wrote, how many rows came from each table, which old files it
+deleted, and what the orphaned-photo sweep removed. Anything other than `200` is a real
+failure, and the body names which stage broke.
 
 > [!WARNING]
-> **The backup contains student names and email addresses** from Maintenance_Logs. It is
-> written to *private* blob storage and must stay that way — never make the store public,
-> never share a download link, and list it in whatever data inventory the university keeps.
+> **The backup contains student names and email addresses** from `maintenance_logs` and
+> `feedback`. It is written to *private* blob storage and must stay that way — never make
+> the store public, never share a download link, and list it in whatever data inventory the
+> university keeps.
+>
+> It deliberately contains **no sign-in credentials**: the `session` and `verification`
+> tables are skipped and the Google tokens on `account` are blanked, so somebody holding a
+> backup file cannot use it to sign in as anybody. People, their roles and their bans *are*
+> in it, because that is the state a restore most needs to get right.
 
-**To restore:** download the file from Vercel → Storage → Blob, and re-import the affected
-database. The file holds the raw Notion rows, so a person can read it and rebuild from it.
-There is no automated restore, on purpose — it is far more work than the failure justifies.
+**To restore:** download the file from Vercel → Storage → Blob. The file holds the table
+rows as JSON, so a person can read it and rebuild from it. There is no automated restore, on
+purpose — it is far more work than the failure justifies.
 **[dev]** for anything beyond reading the file.
 
 ---
@@ -225,7 +240,7 @@ effect.
 | Vercel logs | `DbUnavailableError` (Postgres unreachable) | Whenever the catalogue looks odd |
 | Vercel → Storage | The Neon database is reachable | Whenever the catalogue looks odd |
 | Vercel → Cron Jobs | The nightly backup ran green | Monthly — see §3 |
-| Notion: Maintenance_Logs | Open tickets | Per §3 |
+| Postgres: `maintenance_logs` | Open tickets | Per §3 |
 
 **The one alert that matters: an Anthropic spend threshold.** Everything else is
 recoverable; an unbounded bill is not.

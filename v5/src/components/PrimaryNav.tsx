@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useChatLauncher } from "./ChatLauncherContext";
+import { AdminLink } from "./AdminLink";
 import { RefreshCatalogButton } from "./RefreshCatalogButton";
 import { canAddEquipment } from "../lib/capabilities/access";
 import { siteConfig } from "../lib/site-config";
@@ -96,10 +97,14 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
           {t(link.key)}
         </Link>
       ))}
-      {/* Adding equipment is staff-only (auth spec amendment 2026-09-14), so the
-          entry point waits for an identity that may use it. The chat enforces
-          the same rule server-side; hiding the button is only presentation. */}
-      {canAddEquipment(identity?.role) ? (
+      {/* Adding equipment needs `tools.add` (spec §3.5), so the entry point
+          waits for an identity that holds it. The chat enforces the same
+          declaration server-side; hiding the button is only presentation. */}
+      {/* The way into `/admin`, for anyone holding an admin-surface permission
+          (spec §6). Like every other control here it is presentation: the
+          layout behind it resolves the identity again and refuses. */}
+      <AdminLink role={identity?.role} />
+      {canAddEquipment(identity) ? (
         /* Same nav-action chrome as Report: an action, not a page. */
         <button
           type="button"

@@ -5,7 +5,7 @@ import type { MakerLabTool } from "../../components/catalog-types";
 // imported by client components (ChatFab, IdentificationCard). A `import type`
 // is erased at emit, so no server module reaches the browser bundle.
 import type { Identity } from "../auth/identity";
-import type { Role } from "../auth/roles";
+import type { Permission } from "../auth/permissions";
 
 /**
  * Shared contract for the capability-registry architecture (design spec §3,
@@ -22,15 +22,22 @@ import type { Role } from "../auth/roles";
 
 /**
  * A photo the user attached to the current chat turn. Mirrors the response
- * shape of `/api/upload-notion` (`{ file_upload_id, name, contentType, size }`)
- * and the client-side `PendingPhoto` tracked in `ChatFab`. The `file_upload_id`
- * is what `create_tool` re-uses to attach the same photo to the new Notion page
- * without re-uploading; `dataUrl` (optional) carries the image bytes so the
- * model can actually see the picture for identification (design spec §6.1).
+ * shape of `POST /api/uploads` (`{ attachmentId, previewUrl, name, ... }`) and
+ * the client-side `PendingPhoto` tracked in `ChatFab`.
+ *
+ * **`attachmentId` is a Postgres uuid, not a Notion handle.** Until the data
+ * platform spec moved uploads to Blob (§3.3) this field was a Notion
+ * `file_upload_id` and `create_tool` re-used it to attach the same photo to the
+ * Notion page it created. That is no longer possible: the id now addresses an
+ * `attachments` row, and a write claims it (`data/attachments.ts`) rather than
+ * forwarding it to Notion.
+ *
+ * `dataUrl` (optional) carries the image bytes so the model can actually see
+ * the picture for identification (design spec §6.1).
  */
 export interface UploadedImage {
-  /** Notion file_upload id returned by `/api/upload-notion`. */
-  file_upload_id: string;
+  /** `attachments.id` — the uuid returned by `POST /api/uploads`. */
+  attachmentId: string;
   /** Original filename. */
   name: string;
   /** MIME type, e.g. "image/png" / "image/jpeg". */
@@ -41,7 +48,7 @@ export interface UploadedImage {
 
 /** Zod schema for {@link UploadedImage}. */
 export const uploadedImageSchema = z.object({
-  file_upload_id: z.string(),
+  attachmentId: z.string(),
   name: z.string(),
   contentType: z.string(),
   dataUrl: z.string().optional(),
@@ -145,16 +152,20 @@ export interface Capability {
   /** Instructions appended to the system prompt for this capability. */
   promptFragment: (env: PromptEnv) => string;
   /**
-   * Optional. The least-privileged role that may use this capability on a
+   * Optional. The permission a caller must hold to use this capability on a
    * session surface (chat). Absent means everyone, anonymous visitors included.
-   * Enforced once, by `capabilitiesForRole` in `access.ts` — never inside a
+   * Enforced once, by `capabilitiesForIdentity` in `access.ts` — never inside a
    * tool's `run()`.
+   *
+   * A permission rather than a role since Phase 4 (spec §3.5): the same
+   * declaration gates the routes, the admin plugin and the chat, so a change to
+   * who may add equipment is one line in `auth/permissions.ts`.
    */
-  minimumRole?: Role;
+  requiredPermission?: Permission;
   /**
    * Optional. Used in place of {@link promptFragment} when the caller does not
-   * meet {@link minimumRole}, so the assistant can explain the limit instead of
-   * improvising around tools it cannot see.
+   * hold {@link requiredPermission}, so the assistant can explain the limit
+   * instead of improvising around tools it cannot see.
    */
   lockedPromptFragment?: (env: PromptEnv) => string;
   /** The tools this capability contributes. */
@@ -338,7 +349,15 @@ export interface ToolCandidate {
   use_restrictions?: string;
   units: { label: string; status?: string; condition?: string; serial?: string }[];
   resources: { title: string; url: string; type: "Manual" | "Video" | "Other" }[];
-  /** Notion file_upload ids from `/api/upload-notion`. */
+  /**
+   * `attachments.id`s from `POST /api/uploads`, one per photo of this item.
+   *
+   * The field keeps its name because it is part of the candidate shape the
+   * model assembles and `propose_listing` renders, but the values are Postgres
+   * uuids now, not Notion `file_upload_id`s. They ride along so a batch keeps
+   * each photo with the item it actually shows; `create_tool` cannot yet attach
+   * them, and says so (see `intake.ts`).
+   */
   image_upload_ids: string[];
   /** Provenance: URLs the agent read. */
   source_urls: string[];

@@ -182,15 +182,15 @@ describe("chat tiers", () => {
     expect(chatTierFor("anonymous")).toEqual({ limit: 8, windowMs: 3_600_000 });
   });
 
-  it("gives signed-in students a generous allowance", async () => {
+  it("gives an ordinary signed-in user a generous allowance", async () => {
     const { chatTierFor } = await freshModule();
-    expect(chatTierFor("student")).toEqual({ limit: 60, windowMs: 3_600_000 });
+    expect(chatTierFor("user")).toEqual({ limit: 60, windowMs: 3_600_000 });
   });
 
-  it("gives staff and admins the same, highest allowance", async () => {
+  it("gives admins and super admins the same, highest allowance", async () => {
     const { chatTierFor } = await freshModule();
-    expect(chatTierFor("staff")).toEqual({ limit: 200, windowMs: 3_600_000 });
     expect(chatTierFor("admin")).toEqual({ limit: 200, windowMs: 3_600_000 });
+    expect(chatTierFor("super_admin")).toEqual({ limit: 200, windowMs: 3_600_000 });
   });
 
   it("lets RATE_LIMIT_ANON_CHAT raise the anonymous ceiling (conference NAT)", async () => {
@@ -211,7 +211,7 @@ describe("chat tiers", () => {
 describe("tierFor", () => {
   it("returns the chat tier for the chat scope", async () => {
     const { tierFor, chatTierFor } = await freshModule();
-    expect(tierFor("chat", "student")).toEqual(chatTierFor("student"));
+    expect(tierFor("chat", "user")).toEqual(chatTierFor("user"));
   });
 
   it("returns each route's unchanged pre-auth limit, regardless of role", async () => {
@@ -238,16 +238,16 @@ describe("checkRateLimit", () => {
     expect(allowed).toEqual([...Array(8).fill(true), false]);
   });
 
-  it("gives a student far more than the anonymous ceiling", async () => {
+  it("gives a signed-in user far more than the anonymous ceiling", async () => {
     const { checkRateLimit } = await freshModule();
-    const student = identity("student", "user:sub-1");
+    const signedIn = identity("user", "user:sub-1");
 
     for (let i = 0; i < 20; i += 1) {
-      expect((await checkRateLimit("chat", student)).allowed).toBe(true);
+      expect((await checkRateLimit("chat", signedIn)).allowed).toBe(true);
     }
-    const decision = await checkRateLimit("chat", student);
+    const decision = await checkRateLimit("chat", signedIn);
     expect(decision.limit).toBe(60);
-    expect(decision.role).toBe("student");
+    expect(decision.role).toBe("user");
   });
 
   it("keys per identity — one caller's ceiling does not spend another's", async () => {
@@ -288,7 +288,7 @@ describe("checkRateLimit", () => {
     expect((await checkRateLimit("chat", anon)).allowed).toBe(false);
 
     // Same person, same IP, now signed in — a fresh, larger allowance.
-    const signedIn = identity("student", "user:sub-upgrade");
+    const signedIn = identity("user", "user:sub-upgrade");
     expect((await checkRateLimit("chat", signedIn)).allowed).toBe(true);
   });
 });

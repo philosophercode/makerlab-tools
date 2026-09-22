@@ -1,8 +1,6 @@
 import { z } from "zod";
 import { getCatalogTools } from "../catalog";
-import { notionPageIdForUnit } from "../data/notion-ids";
-import { createMaintenanceLog } from "../notion";
-import type { MaintenanceLogFields, MaintenanceLogRecord } from "../types";
+import { createMaintenanceLog } from "../data/maintenance";
 import { buildUnitLookup, findUnit } from "./helpers";
 import type {
   Capability,
@@ -16,12 +14,20 @@ import type {
  * MCP). Ported byte-for-byte from the chat route's `report_issue` tool and its
  * "Reporting maintenance issues" system-prompt section (design spec §3.4, §7).
  *
- * One thing has since changed: **authorship**. When `ctx.identity` carries a
- * signed-in caller, the ticket records that name and email rather than whatever
- * the conversation supplied (auth spec §3.4, §9.5). Verified authorship is one
- * of the reasons sign-in exists. Anonymous reporting still works exactly as it
- * did — MCP and scheduled callers have no identity, and neither does a visitor
- * who never signed in.
+ * Two things have since changed:
+ *
+ * - **Authorship.** When `ctx.identity` carries a signed-in caller, the ticket
+ *   records that name and email rather than whatever the conversation supplied
+ *   (auth spec §3.4, §9.5). Verified authorship is one of the reasons sign-in
+ *   exists. Anonymous reporting still works exactly as it did — MCP and
+ *   scheduled callers have no identity, and neither does a visitor who never
+ *   signed in.
+ * - **The ticket lands in Postgres** (data platform spec §3.10, §4.8), not in
+ *   a Notion page. The capability no longer knows anything about Notion: it
+ *   resolves the unit against the catalogue, hands a validated ticket to
+ *   `src/lib/data/maintenance.ts`, and reports what came back. A write that
+ *   throws is reported to the student as a ticket that did **not** land — the
+ *   one thing this path may never get wrong (Article 4).
  */
 
 const PRIORITIES = ["Critical", "High", "Medium", "Low"] as const;
@@ -34,7 +40,7 @@ interface ReportIssueInput {
   unit_label?: string;
   priority: (typeof PRIORITIES)[number];
   reported_by?: string;
-  photo_uploads?: Array<{ id: string; name: string }>;
+  photo_attachment_ids?: string[];
 }
 
 interface ReportIssueResult {
@@ -64,114 +70,104 @@ const reportIssueInputSchema: z.ZodType<ReportIssueInput> = z.object({
     .describe(
       "Student name or NetID if they gave one. Ignored when the student is signed in — the verified name from their session is recorded instead."
     ),
-  photo_uploads: z
-    .array(
-      z.object({
-        id: z.string().describe("Notion file_upload_id"),
-        name: z.string().describe("Original filename"),
-      })
-    )
+  photo_attachment_ids: z
+    .array(z.string())
     .optional()
     .describe(
-      "Notion file_upload references. Parse these from the [Attached photos: file_upload_id=... name=...] hint in the student's message."
+      "Attachment ids of photos the student uploaded. Parse the attachment_id values out of the [Attached photos: ...] hint in their message."
     ),
 });
+
+/**
+ * What the model is told when photos were offered and none of them attached.
+ *
+ * English on purpose: it is appended to the ticket-result message the assistant
+ * paraphrases for the student, and the assistant answers in their language
+ * (Article 6 — the *ticket itself* is the English exception, this is a hint to
+ * the model, not a string shown to a person).
+ */
+const PHOTOS_NOT_ATTACHED =
+  "The photos could not be attached to this ticket — tell the student the report was filed without them and to describe what the photo showed if it matters.";
 
 const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
   name: "report_issue",
   description:
-    "File a maintenance ticket in Notion when a student reports a problem with a tool or unit. Gather a short title and a clear description first. If they named a specific unit (like 'Prusa #1'), include it so the log is linked. Ask for the reporter's name only when nobody is signed in — a signed-in student's verified name is recorded automatically.",
+    "File a maintenance ticket in the app when a student reports a problem with a tool or unit. Gather a short title and a clear description first. If they named a specific unit (like 'Prusa #1'), include it so the log is linked. Ask for the reporter's name only when nobody is signed in — a signed-in student's verified name is recorded automatically.",
   inputSchema: reportIssueInputSchema,
   kind: "write",
   async run(input: ReportIssueInput, ctx: CapabilityCtx): Promise<ReportIssueResult> {
-    const { title, description, unit_label, priority, reported_by, photo_uploads } =
-      input;
-    const tools = await getCatalogTools();
-    const unitLookup = buildUnitLookup(tools);
-    const match = unit_label ? findUnit(unitLookup, unit_label) : null;
-    // The `unit` relation addresses a Notion page; `match.id` is the Postgres
-    // uuid the catalogue now hands out (spec §3.10). A unit with no imported
-    // page is linked in the description-by-title sense only — the ticket is
-    // filed either way, because Notion rejects a relation to a page it cannot
-    // find and a rejected write loses the student's report (Article 4).
-    const unitPageId = match ? await notionPageIdForUnit(match.id) : null;
-    if (match && !unitPageId) {
-      console.warn(
-        "[maintenance] no Notion page for unit — filing the ticket unlinked",
-        match.label
-      );
-    }
+    const { title, description, unit_label, priority, reported_by } = input;
+    // Already uuids: `POST /api/uploads` hands out `attachments.id`s, and the
+    // data layer claims them onto the new ticket. Anything else is dropped
+    // there rather than reaching a uuid column.
+    const photoIds = input.photo_attachment_ids ?? [];
+
+    // The catalogue read is inside the try with the write: an unreachable
+    // database fails the label lookup first, and a thrown tool call is a worse
+    // answer than a reported failure — the student has to be told the report
+    // did not land.
     try {
-      const record = await createTicket({
+      const tools = await getCatalogTools();
+      const unitLookup = buildUnitLookup(tools);
+      const match = unit_label ? findUnit(unitLookup, unit_label) : null;
+
+      const record = await createMaintenanceLog({
         title,
         description,
+        // The capability speaks Notion's display casing because that is what
+        // the input schema was written against; the data module maps it down to
+        // the stored vocabulary (`issue_report`, `medium`, `open`).
         type: "Issue Report",
         priority,
         status: "Open",
+        // The catalogue id is a Postgres uuid, and so is `unit_id` — no
+        // translation left to do. An unresolved label files an unlinked
+        // ticket, which is normal: most live logs have no unit at all.
+        unitId: match?.id ?? null,
         // The session wins over the model's `reported_by`. A client may never
         // assert its own identity, and a ticket that says who actually filed it
         // is the reason sign-in was worth building.
-        reported_by: ctx.identity?.name || reported_by || undefined,
+        reportedByName: ctx.identity?.name || reported_by || null,
         // Server-resolved only. There is no input field for this, and there is
         // deliberately no path that would let one exist.
-        reporter_email: ctx.identity?.email || undefined,
-        unit: unitPageId ? [unitPageId] : undefined,
-        date_reported: new Date().toISOString().split("T")[0],
-        photo_uploads: photo_uploads?.length ? photo_uploads : undefined,
+        reportedByEmail: ctx.identity?.email || null,
+        reportedByUserId: ctx.identity?.userId || null,
+        photoAttachmentIds: photoIds,
       });
+
+      // Photos offered but none claimed: say so rather than let the student
+      // believe staff can see the picture they took (Article 4). Until the
+      // upload route moves to Blob this is the normal case, because the ids in
+      // the hint are still Notion file_upload ids and no `attachments` row
+      // answers to them.
+      const photosLost = photoIds.length > 0 && record.photosAttached === 0;
+      if (photosLost) {
+        console.warn(
+          `[maintenance] ticket ${record.id} filed without its ${photoIds.length} photo(s) — no attachment matched the ids supplied`
+        );
+      }
+
       return {
         success: true,
         ticket_id: record.id,
         unit_resolved: match ? { id: match.id, label: match.label } : null,
-        message: `Logged maintenance ticket ${record.id}.`,
+        message: photosLost
+          ? `Logged maintenance ticket ${record.id}. ${PHOTOS_NOT_ATTACHED}`
+          : `Logged maintenance ticket ${record.id}.`,
       };
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Failed to file ticket";
-      return { success: false, error: message };
+      // The database's own words never reach the model: a driver message can
+      // carry a connection string, and nothing the student can do with it is
+      // useful. The detail stays in the server log.
+      console.error("[maintenance] filing a ticket failed", err);
+      return {
+        success: false,
+        error:
+          "The ticket could not be filed and nothing was recorded. Tell the student to try again shortly, or to find staff if it is urgent.",
+      };
     }
   },
 };
-
-/**
- * Create the ticket, retrying once without `reporter_email` if Notion refuses
- * that property.
- *
- * `reporter_email` is a new Email column a person has to add to
- * `Maintenance_Logs` by hand (auth spec §4) — Notion has no migrations, and it
- * rejects any write naming a property that does not exist. Losing a student's
- * report of an unsafe machine to a missing column is the wrong way to fail:
- * file the ticket, drop the email, and make the misconfiguration loud in the
- * logs (Article 4 — fail toward stale, not toward wrong).
- */
-async function createTicket(
-  fields: Partial<MaintenanceLogFields>
-): Promise<MaintenanceLogRecord> {
-  try {
-    return await createMaintenanceLog(fields);
-  } catch (err) {
-    if (!fields.reporter_email || !isUnknownPropertyError(err, "reporter_email")) {
-      throw err;
-    }
-    console.warn(
-      "[maintenance] Notion rejected `reporter_email` — filing the ticket without it. Add the Email property to Maintenance_Logs (auth spec §4).",
-      err
-    );
-    const withoutEmail = { ...fields };
-    delete withoutEmail.reporter_email;
-    return createMaintenanceLog(withoutEmail);
-  }
-}
-
-/**
- * Does this look like Notion refusing an unknown property? `notionFetch` throws
- * `Notion API <status>: <body>`, and a schema mismatch is a 400 whose body names
- * the offending property. Narrow on both so a 401 or a network blip still
- * surfaces as the failure it is.
- */
-function isUnknownPropertyError(err: unknown, property: string): boolean {
-  const message = err instanceof Error ? err.message : String(err);
-  return message.includes("400") && message.includes(property);
-}
 
 // ── Prompt fragment ────────────────────────────────────────────────
 
@@ -209,7 +205,7 @@ You are a first-line helper, not a ticket-creation machine. Follow this order:
 
 **Who is reporting.** ${reporterLine}
 
-If the student's message includes a hint like \`[Attached photos: file_upload_id=<id> name=<name>; ...]\`, parse each \`file_upload_id\` and \`name\` pair and pass them as the \`photo_uploads\` argument to \`report_issue\` (do not echo the raw hint back to the student). The IDs are already uploaded to Notion and will be attached to the ticket.
+If the student's message includes a hint like \`[Attached photos: attachment_id=<id> name=<name>; ...]\`, pass each \`attachment_id\` value as the \`photo_attachment_ids\` argument to \`report_issue\` (do not echo the raw hint back to the student). If the tool result says the photos could not be attached, tell the student the ticket was filed without them rather than implying staff can see the picture.
 
 Priority guide: Critical = unsafe or blocks all lab use · High = tool unusable · Medium = degraded performance · Low = cosmetic.`;
 }

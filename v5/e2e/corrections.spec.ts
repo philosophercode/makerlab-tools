@@ -5,10 +5,11 @@ import { test, expect } from "@playwright/test";
 // description; the confirmation replaces the form in place rather than firing a
 // toast.
 //
-// The E2E server boots with NOTION_DB_FLAGS unset (see playwright.config.ts), so
-// the real POST /api/flags would answer 503 `not_configured`. The submit test
-// intercepts that request with page.route() instead — the same technique
-// chat.spec.ts uses — so nothing leaves the machine.
+// The write is local as of Phase 3: POST /api/flags inserts into the E2E
+// server's PGlite database with no credential at all, so one test submits for
+// real end to end. The other submit test keeps its page.route() interception —
+// not because the route would refuse, but because asserting the exact request
+// body is the cheapest way to prove the field travels.
 //
 // Demo catalogue: "Form 4" is slug `form-4`; its id is the Postgres uuid the
 // seed assigned (src/lib/db/demo-seed.ts). Strings are `flag.*` in
@@ -109,5 +110,35 @@ test.describe("Report a correction", () => {
       field_flagged: "description",
       issue_description: "The build volume says 220 mm, but it is 256 mm.",
     });
+  });
+});
+
+// One genuinely end-to-end submission. Nothing is intercepted: the browser
+// posts to the real route, which writes a `feedback` row into the E2E server's
+// PGlite database. This is only possible because the write no longer needs a
+// Notion credential (data platform spec §3.10).
+test.describe("Report a correction — the real write path", () => {
+  test("a report submitted with no interception reaches the route and confirms", async ({
+    page,
+  }) => {
+    const posted: number[] = [];
+    page.on("response", (res) => {
+      if (res.url().includes("/api/flags")) posted.push(res.status());
+    });
+
+    await page.goto("/tools/form-4");
+    await page.getByRole("button", { name: "Report a correction" }).click();
+
+    const dialog = page.getByRole("dialog");
+    await dialog
+      .getByRole("textbox", { name: /what.s wrong/i })
+      .fill("This lives in the Resin Bench, not the Wood Shop.");
+    await dialog.getByRole("button", { name: "Send report" }).click();
+
+    await expect(
+      dialog.getByRole("heading", { name: "Report sent" })
+    ).toBeVisible();
+    // A 503 here would mean the route still thinks it needs a credential.
+    expect(posted).toEqual([201]);
   });
 });

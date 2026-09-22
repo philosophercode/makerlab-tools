@@ -1,3 +1,14 @@
+/**
+ * **SUPERSEDED — retired in Phase 3, kept on disk pending deletion approval.**
+ *
+ * `GET /api/cron/daily` replaces this route (data platform design spec §3.9):
+ * the source of truth is Postgres now, so the nightly job exports tables rather
+ * than dumping Notion, and `vercel.json`'s single cron entry points there. Both
+ * of this route's accepted callers (the cron bearer and the
+ * `ADMIN_REVALIDATE_SECRET` hand-trigger) were carried across. Nothing schedules
+ * or calls this handler any more.
+ */
+
 import { getBlobStore, isBlobConfigured } from "../../../../lib/blob";
 import { getNotionEnvContract } from "../../../../lib/notion";
 import { rateLimitAsync } from "../../../../lib/rate-limit";

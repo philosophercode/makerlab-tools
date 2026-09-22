@@ -1,31 +1,38 @@
 import {
-  ROLES,
-  adminEmails,
+  IDENTITY_ROLES,
   allowedEmailDomain,
   isAllowedEmail,
-  isAtLeast,
+  isRole,
   parseEmailList,
-  roleForEmail,
-  roleRank,
-  staffEmails,
+  storedRoleOr,
 } from "@/lib/auth/roles";
+import { ROLES } from "@/lib/db/schema/vocabulary";
 
 // Every helper reads process.env at call time, so `vi.stubEnv` alone is enough
 // — no resetModules()/dynamic import dance (the setup file unstubs after each).
 
-describe("role ordering", () => {
-  it("orders roles least- to most-privileged", () => {
-    expect([...ROLES]).toEqual(["anonymous", "student", "staff", "admin"]);
-    expect(roleRank("anonymous")).toBeLessThan(roleRank("student"));
-    expect(roleRank("student")).toBeLessThan(roleRank("staff"));
-    expect(roleRank("staff")).toBeLessThan(roleRank("admin"));
+describe("the role vocabulary", () => {
+  it("is the stored roles plus anonymous, in that order", () => {
+    // The stored list is also what the `user_role_check` constraint is built
+    // from, so this is the assertion that keeps the type and the database in
+    // step. `anonymous` is never a row — it is the absence of a session.
+    expect([...IDENTITY_ROLES]).toEqual(["anonymous", ...ROLES]);
+    expect([...ROLES]).toEqual(["user", "admin", "super_admin"]);
   });
 
-  it("isAtLeast compares by rank, inclusive of equality", () => {
-    expect(isAtLeast("admin", "staff")).toBe(true);
-    expect(isAtLeast("staff", "staff")).toBe(true);
-    expect(isAtLeast("student", "staff")).toBe(false);
-    expect(isAtLeast("anonymous", "student")).toBe(false);
+  it("no longer carries the env-list role names", () => {
+    // `student` and `staff` are gone: a fixture or a script still using them
+    // must fail loudly rather than silently resolve to nothing.
+    expect(isRole("student")).toBe(false);
+    expect(isRole("staff")).toBe(false);
+  });
+
+  it("resolves a stored value, and anything else, through storedRoleOr", () => {
+    expect(storedRoleOr("admin")).toBe("admin");
+    expect(storedRoleOr("super_admin")).toBe("super_admin");
+    expect(storedRoleOr("staff")).toBe("anonymous");
+    expect(storedRoleOr(null)).toBe("anonymous");
+    expect(storedRoleOr(undefined)).toBe("anonymous");
   });
 });
 
@@ -84,50 +91,5 @@ describe("parseEmailList", () => {
     expect(parseEmailList("a@cornell.edu,,  ,")).toEqual(["a@cornell.edu"]);
     expect(parseEmailList(undefined)).toEqual([]);
     expect(parseEmailList(null)).toEqual([]);
-  });
-
-  it("reads the staff and admin rosters from env", () => {
-    vi.stubEnv("AUTH_STAFF_EMAILS", "niti@cornell.edu");
-    vi.stubEnv("AUTH_ADMIN_EMAILS", "isaac@cornell.edu");
-    expect(staffEmails()).toEqual(["niti@cornell.edu"]);
-    expect(adminEmails()).toEqual(["isaac@cornell.edu"]);
-  });
-});
-
-describe("roleForEmail", () => {
-  it("defaults a valid institutional address to student", () => {
-    expect(roleForEmail("student@cornell.edu")).toBe("student");
-  });
-
-  it("promotes an address listed in AUTH_STAFF_EMAILS", () => {
-    vi.stubEnv("AUTH_STAFF_EMAILS", "niti@cornell.edu, other@cornell.edu");
-    expect(roleForEmail("niti@cornell.edu")).toBe("staff");
-  });
-
-  it("promotes an address listed in AUTH_ADMIN_EMAILS", () => {
-    vi.stubEnv("AUTH_ADMIN_EMAILS", "isaac@cornell.edu");
-    expect(roleForEmail("isaac@cornell.edu")).toBe("admin");
-  });
-
-  it("prefers admin when an address is on both lists", () => {
-    vi.stubEnv("AUTH_STAFF_EMAILS", "isaac@cornell.edu");
-    vi.stubEnv("AUTH_ADMIN_EMAILS", "isaac@cornell.edu");
-    expect(roleForEmail("isaac@cornell.edu")).toBe("admin");
-  });
-
-  it("matches roster entries case-insensitively", () => {
-    vi.stubEnv("AUTH_STAFF_EMAILS", "Niti@Cornell.edu");
-    expect(roleForEmail("NITI@CORNELL.EDU")).toBe("staff");
-  });
-
-  it("refuses to grant a role to an address outside the domain, even if listed", () => {
-    // A roster typo must not become a privilege escalation.
-    vi.stubEnv("AUTH_ADMIN_EMAILS", "attacker@gmail.com");
-    expect(roleForEmail("attacker@gmail.com")).toBe("anonymous");
-  });
-
-  it("resolves an absent address to anonymous", () => {
-    expect(roleForEmail(null)).toBe("anonymous");
-    expect(roleForEmail("")).toBe("anonymous");
   });
 });

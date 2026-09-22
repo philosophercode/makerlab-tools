@@ -156,7 +156,7 @@ describe("PrimaryNav — sign-in control", () => {
   });
 
   it("shows the first name and a sign-out control once signed in", async () => {
-    fetchIdentity.mockResolvedValue({ role: "student", name: "Ada Lovelace" });
+    fetchIdentity.mockResolvedValue({ role: "user", name: "Ada Lovelace" });
     render(<PrimaryNav />);
 
     expect(await screen.findByText("Ada")).toBeInTheDocument();
@@ -171,7 +171,7 @@ describe("PrimaryNav — sign-in control", () => {
   });
 
   it("names the signed-in state for screen readers", async () => {
-    fetchIdentity.mockResolvedValue({ role: "staff", name: "Niti Parikh" });
+    fetchIdentity.mockResolvedValue({ role: "admin", name: "Niti Parikh" });
     render(<PrimaryNav />);
 
     expect(await screen.findByLabelText("Signed in as Niti")).toHaveTextContent(
@@ -180,7 +180,7 @@ describe("PrimaryNav — sign-in control", () => {
   });
 
   it("renders no avatar image in either state (technical-schematic system)", async () => {
-    fetchIdentity.mockResolvedValue({ role: "student", name: "Ada Lovelace" });
+    fetchIdentity.mockResolvedValue({ role: "user", name: "Ada Lovelace" });
     const { container } = render(<PrimaryNav />);
 
     await screen.findByText("Ada");
@@ -188,7 +188,7 @@ describe("PrimaryNav — sign-in control", () => {
   });
 
   it("still offers sign-out when Google supplied no display name", async () => {
-    fetchIdentity.mockResolvedValue({ role: "student", name: null });
+    fetchIdentity.mockResolvedValue({ role: "user", name: null });
     render(<PrimaryNav />);
 
     expect(
@@ -208,7 +208,7 @@ describe("PrimaryNav — sign-in control", () => {
 
   it("signs out through the shared helper", async () => {
     const user = userEvent.setup();
-    fetchIdentity.mockResolvedValue({ role: "student", name: "Ada Lovelace" });
+    fetchIdentity.mockResolvedValue({ role: "user", name: "Ada Lovelace" });
     render(<PrimaryNav />);
 
     await user.click(await screen.findByRole("button", { name: "SIGN OUT" }));
@@ -283,8 +283,8 @@ describe("PrimaryNav — staff refresh control", () => {
     fetchIdentity.mockResolvedValue(null);
   });
 
-  it("offers the refresh control to staff", async () => {
-    fetchIdentity.mockResolvedValue({ role: "staff", name: "Niti Parikh" });
+  it("offers the refresh control to an admin", async () => {
+    fetchIdentity.mockResolvedValue({ role: "admin", name: "Niti Parikh" });
     render(<PrimaryNav />);
 
     expect(
@@ -292,8 +292,8 @@ describe("PrimaryNav — staff refresh control", () => {
     ).toBeInTheDocument();
   });
 
-  it("offers the refresh control to admins", async () => {
-    fetchIdentity.mockResolvedValue({ role: "admin", name: "Isaac Steinberg" });
+  it("offers the refresh control to a super admin", async () => {
+    fetchIdentity.mockResolvedValue({ role: "super_admin", name: "Isaac Steinberg" });
     render(<PrimaryNav />);
 
     expect(
@@ -301,8 +301,8 @@ describe("PrimaryNav — staff refresh control", () => {
     ).toBeInTheDocument();
   });
 
-  it("does not show it to a signed-in student", async () => {
-    fetchIdentity.mockResolvedValue({ role: "student", name: "Ada Lovelace" });
+  it("does not show it to an ordinary signed-in user", async () => {
+    fetchIdentity.mockResolvedValue({ role: "user", name: "Ada Lovelace" });
     render(<PrimaryNav />);
 
     await screen.findByRole("button", { name: "SIGN OUT" });
@@ -322,8 +322,8 @@ describe("PrimaryNav — staff refresh control", () => {
 });
 
 // en.json: nav.add = "ADD", nav.addAria = "Add new equipment to the inventory".
-// Adding equipment is staff-only (auth spec amendment 2026-09-14); the chat
-// enforces it server-side, so this only asserts the entry point's visibility.
+// Adding equipment needs `tools.add` (spec §3.5); the chat enforces it
+// server-side, so this only asserts the entry point's visibility.
 describe("PrimaryNav — add equipment", () => {
   const ADD = "Add new equipment to the inventory";
 
@@ -334,8 +334,8 @@ describe("PrimaryNav — add equipment", () => {
   });
 
   it.each([
-    ["staff", "Niti Parikh"],
-    ["admin", "Isaac Steinberg"],
+    ["admin", "Niti Parikh"],
+    ["super_admin", "Isaac Steinberg"],
   ] as const)("offers it to %s", async (role, name) => {
     fetchIdentity.mockResolvedValue({ role, name });
     render(<PrimaryNav />);
@@ -345,8 +345,8 @@ describe("PrimaryNav — add equipment", () => {
     );
   });
 
-  it("does not offer it to a signed-in student", async () => {
-    fetchIdentity.mockResolvedValue({ role: "student", name: "Ada Lovelace" });
+  it("does not offer it to an ordinary signed-in user", async () => {
+    fetchIdentity.mockResolvedValue({ role: "user", name: "Ada Lovelace" });
     render(<PrimaryNav />);
 
     await screen.findByRole("button", { name: "SIGN OUT" });

@@ -1,13 +1,30 @@
 import { NextRequest } from "next/server";
-import {
-  createProject,
-  hasProjectsEnv,
-  type ProjectWriteFields,
-} from "../../../lib/notion";
-import { notionPageIdsForTools } from "../../../lib/data/notion-ids";
-import type { ProjectRecord } from "../../../lib/types";
+import { createProjectSubmission } from "../../../lib/data/projects";
 import { rateLimitAsync } from "../../../lib/rate-limit";
 import { resolveIdentity } from "../../../lib/auth/identity";
+import { can } from "../../../lib/auth/permissions";
+
+/**
+ * `POST /api/projects` — a student's project write-up.
+ *
+ * Since Phase 3 the submission is a `projects` row plus its `project_tools`
+ * links (data platform spec §3.10, §4.10), written by
+ * `src/lib/data/projects.ts` in one transaction. Nothing here decides anything
+ * about publication: `createProjectSubmission` takes no `published` argument,
+ * so there is no field a client could send that would put a write-up in the
+ * gallery (Article 5).
+ *
+ * **Phase 4 made sign-in a requirement here** (spec §5.5) — the one place in
+ * the app where it is. Browsing, searching, chatting and reporting a problem
+ * are all still anonymous; submitting is not, because a project carries a
+ * byline into a public gallery and "who wrote this" has to be something the
+ * server knows rather than something the request claimed. `projects.submit` is
+ * held by every signed-in role, so the gate is sign-in, not seniority.
+ *
+ * There is no "not configured" state any more. The database is always there —
+ * Neon in production, PGlite when `DATABASE_URL` is unset — so a submission
+ * either lands or reports that it did not.
+ */
 
 // `runtime` cannot be set when nextConfig.cacheComponents is enabled.
 // Default Node.js runtime is used.
@@ -19,22 +36,18 @@ const MAX_TOOLS = 20;
 const MAX_MATERIALS = 20;
 
 /**
- * What a submission may send. There is deliberately no `author_email` here:
- * the verified author comes from the session and nowhere else.
+ * What a submission may send. There is deliberately no `author` and no
+ * `author_email`: since Phase 4 the byline and the author id both come from the
+ * session, and a field the server ignores is a field somebody will eventually
+ * believe in.
  */
 interface ProjectPayload {
   title?: unknown;
-  author?: unknown;
   body?: unknown;
   link?: unknown;
   tools?: unknown;
   materials?: unknown;
   photos?: unknown;
-}
-
-interface PhotoUpload {
-  id: string;
-  name: string;
 }
 
 function asString(value: unknown): string {
@@ -50,16 +63,21 @@ function asStringArray(value: unknown, max: number): string[] {
     .slice(0, max);
 }
 
-function asPhotoUploads(value: unknown): PhotoUpload[] {
+/**
+ * The upload ids out of the `photos` array. The `name` each entry also carries
+ * is the client's own label for its preview; the filename staff see comes from
+ * the `attachments` row the upload wrote, not from the request body.
+ */
+function asPhotoIds(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
   return value
     .filter(
-      (item): item is { id: string; name?: string } =>
+      (item): item is { id: string } =>
         typeof item === "object" &&
         item !== null &&
         typeof (item as { id?: unknown }).id === "string"
     )
-    .map((item) => ({ id: item.id, name: asString(item.name) || "upload" }))
+    .map((item) => item.id)
     .slice(0, MAX_PHOTOS);
 }
 
@@ -73,7 +91,7 @@ function isValidUrl(value: string): boolean {
 }
 
 export async function POST(req: NextRequest) {
-  // Rate limit before any expensive work (Notion page create).
+  // Rate limit before any expensive work (Article 4).
   const identity = await resolveIdentity(req);
   const { allowed } = await rateLimitAsync(`projects:${identity.rateLimitKey}`, {
     limit: 10,
@@ -86,10 +104,20 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (!hasProjectsEnv()) {
+  // Told apart on purpose (spec §5.5). 401 means "sign in and this will work",
+  // which is true for everybody with an institutional address; 403 would mean
+  // "signing in will not help", which is only true for a banned account — and
+  // a banned account resolves to anonymous, so it lands on the 401 too.
+  if (identity.role === "anonymous") {
     return Response.json(
-      { error: "Project submissions are not configured yet." },
-      { status: 503 }
+      { error: "Sign in to share a project.", code: "sign_in_required" },
+      { status: 401 }
+    );
+  }
+  if (!can(identity, "projects.submit")) {
+    return Response.json(
+      { error: "Your account cannot submit projects.", code: "forbidden" },
+      { status: 403 }
     );
   }
 
@@ -101,20 +129,22 @@ export async function POST(req: NextRequest) {
   }
 
   const title = asString(payload.title);
-  // The session wins over whatever the client typed: when the server knows who
-  // is submitting, the byline is theirs. The form makes the field read-only for
-  // a signed-in student, and this is what makes that guarantee real rather than
-  // cosmetic. Anonymous submission keeps working — the typed name is used.
-  const author = asString(identity.name) || asString(payload.author);
+  // **The byline is the session's, full stop.** `payload.author` is no longer
+  // read at all: the form stopped offering the field (spec §5.5), and leaving
+  // the fallback in would mean a request that simply omitted its cookie could
+  // still choose its own byline. A signed-in account with no display name gets
+  // a null byline, which the gallery renders as "Anonymous" — an account we
+  // know but cannot name, which is the truth.
+  const author = asString(identity.name);
   const body = asString(payload.body);
   const link = asString(payload.link);
   const tools = asStringArray(payload.tools, MAX_TOOLS);
   const materials = asStringArray(payload.materials, MAX_MATERIALS);
-  const photoUploads = asPhotoUploads(payload.photos);
+  const photoIds = asPhotoIds(payload.photos);
 
-  if (!title || !author || !body) {
+  if (!title || !body) {
     return Response.json(
-      { error: "Title, author, and a write-up are required." },
+      { error: "A title and a write-up are required." },
       { status: 400 }
     );
   }
@@ -145,28 +175,27 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // `tools` arrives as catalogue ids, which are Postgres uuids since the read
-  // path moved (spec §3.10), while `tools_used` is a Notion relation. Translate
-  // through `tools.notion_page_id` and drop what does not resolve: Notion
-  // rejects the whole page for one unknown relation id, and losing a student's
-  // whole write-up over a tool link is the wrong way to fail (Article 4).
-  const toolPageIds = await notionPageIdsForTools(tools);
-
   try {
-    const record = await submitProject({
+    const record = await createProjectSubmission({
       title,
-      author,
       body,
-      // Server-resolved only (spec §4). `payload.author_email` is never read —
-      // a client may not assert who it is. Anonymous stays a first-class path:
-      // no session, no email, submission still succeeds.
-      author_email: identity.email || undefined,
-      link: link || undefined,
-      tools_used: toolPageIds,
+      authorName: author || null,
+      // Server-resolved only (spec §4). Nothing in the request body reaches
+      // either of these — a client may not assert who it is — and after the
+      // gate above `identity.userId` is always a real `user.id`, which the
+      // `created_by` foreign key now requires anyway.
+      authorUserId: identity.userId,
+      link: link || null,
       materials,
-      photo_uploads: photoUploads,
+      // Unknown ids are dropped inside the write rather than refused here: a
+      // stale catalogue id in a form that has been open a while must not cost
+      // a student their write-up (Article 4).
+      toolIds: tools,
+      photoAttachmentIds: photoIds,
     });
-    return Response.json({ id: record.id }, { status: 201 });
+    // The id is what the form has always been handed back; the slug rides
+    // along for the admin page that will publish it.
+    return Response.json({ id: record.id, slug: record.slug }, { status: 201 });
   } catch (err) {
     console.error("Project submission failed", err);
     return Response.json(
@@ -174,43 +203,4 @@ export async function POST(req: NextRequest) {
       { status: 502 }
     );
   }
-}
-
-/**
- * Create the project, retrying once without `author_email` if Notion refuses
- * that property.
- *
- * `author_email` is a new Email column a person has to add to the Projects
- * database by hand (spec §4) — Notion has no migrations and rejects any write
- * naming a property that does not exist. Losing a student's write-up to a
- * missing column is the wrong way to fail: record the project, drop the email,
- * and make the misconfiguration loud in the logs (Article 4 — fail toward
- * stale, not toward wrong). Mirrors `report_issue`'s `reporter_email` fallback.
- */
-async function submitProject(fields: ProjectWriteFields): Promise<ProjectRecord> {
-  try {
-    return await createProject(fields);
-  } catch (err) {
-    if (!fields.author_email || !isUnknownPropertyError(err, "author_email")) {
-      throw err;
-    }
-    console.warn(
-      "[projects] Notion rejected `author_email` — recording the submission without it. Add the Email property to the Projects database (projects spec §4).",
-      err
-    );
-    const withoutEmail = { ...fields };
-    delete withoutEmail.author_email;
-    return createProject(withoutEmail);
-  }
-}
-
-/**
- * Does this look like Notion refusing an unknown property? `projectsRequest`
- * throws `Notion API <status>: <body>`, and a schema mismatch is a 400 whose
- * body names the offending property. Narrow on both so a 401 or a network blip
- * still surfaces as the failure it is.
- */
-function isUnknownPropertyError(err: unknown, property: string): boolean {
-  const message = err instanceof Error ? err.message : String(err);
-  return message.includes("400") && message.includes(property);
 }

@@ -7,7 +7,13 @@ import { isUuid } from "./uuid.ts";
 /**
  * Postgres row → Notion page id (spec §3.10, §9 Phase 2).
  *
- * Reads moved to Postgres in Phase 2; three writes have not yet (a correction,
+ * **SUPERSEDED — this bridge has no importers as of Phase 3**, and is kept on
+ * disk only because deletions are approved separately. Its three call sites
+ * (`capabilities/maintenance.ts`, `capabilities/flags.ts` and
+ * `api/projects/route.ts`) all write to Postgres now, so there is no longer a
+ * Notion page id to translate to. Everything below describes why it existed.
+ *
+ * Reads moved to Postgres in Phase 2; three writes had not yet (a correction,
  * a maintenance ticket, a project submission). Those still create Notion pages
  * whose `relation` properties address Notion **page** ids, while every id the
  * app now hands around — `tool.id`, `unit.id` — is a Postgres uuid. Notion

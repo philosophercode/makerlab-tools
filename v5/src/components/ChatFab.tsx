@@ -221,7 +221,8 @@ const SPEECH_STORE = {
 
 interface PendingPhoto {
   key: string;
-  file_upload_id: string;
+  /** `attachments.id` from `POST /api/uploads` — a Postgres uuid. */
+  attachmentId: string;
   name: string;
   previewUrl: string;
   /** Downscaled copy the model sees; absent when the browser could not encode it. */
@@ -351,16 +352,24 @@ export function ChatFab() {
         try {
           const form = new FormData();
           form.append("file", file);
-          // The Notion upload is the record; the downscaled copy is what the
+          form.append("kind", "chat");
+          // The stored upload is the record; the downscaled copy is what the
           // model looks at (intake spec §6.1). They run side by side, and a
           // photo the browser cannot encode still uploads.
           const [res, dataUrl] = await Promise.all([
-            fetch("/api/upload-notion", {
+            fetch("/api/uploads", {
               method: "POST",
               body: form,
             }),
             downscaleForVision(file),
           ]);
+          if (res.status === 503) {
+            // No Blob store is configured, so there is nowhere to keep the
+            // photo. Say so in the visitor's language and let them send the
+            // message anyway — a report without a picture still beats no
+            // report (Article 4).
+            throw new Error(t("uploadsUnavailable"));
+          }
           if (!res.ok) {
             const body = (await res.json().catch(() => null)) as
               | { error?: string }
@@ -368,15 +377,18 @@ export function ChatFab() {
             throw new Error(body?.error || "Upload failed");
           }
           const data = (await res.json()) as {
-            file_upload_id: string;
+            attachmentId: string;
             name: string;
           };
           setPendingPhotos((prev) => [
             ...prev,
             {
-              key: `${data.file_upload_id}-${Date.now()}-${Math.random()}`,
-              file_upload_id: data.file_upload_id,
+              key: `${data.attachmentId}-${Date.now()}-${Math.random()}`,
+              attachmentId: data.attachmentId,
               name: data.name,
+              // A chat photo is stored privately (it may show a person), so
+              // the response carries no URL — the local object URL made above
+              // is the preview, and always was.
               previewUrl,
               dataUrl: dataUrl ?? undefined,
             },
@@ -545,7 +557,7 @@ export function ChatFab() {
     if (pendingPhotos.length > 0) {
       const hint = pendingPhotos
         .map(
-          (p) => `file_upload_id=${p.file_upload_id} name=${p.name}`
+          (p) => `attachment_id=${p.attachmentId} name=${p.name}`
         )
         .join("; ");
       outgoing = `${text}\n\n[Attached photos: ${hint}]`;

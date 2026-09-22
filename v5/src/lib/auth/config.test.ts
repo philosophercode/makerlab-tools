@@ -3,9 +3,10 @@
  *
  * Node, not jsdom: Better Auth encrypts the provider's OAuth tokens through
  * `jose`, which checks `plaintext instanceof Uint8Array` — and jsdom's realm
- * makes that check fail on a perfectly good Uint8Array. This route only ever
- * runs on the server anyway.
+ * makes that check fail on a perfectly good Uint8Array. PGlite needs node too.
+ * This module only ever runs on the server anyway.
  */
+import { eq } from "drizzle-orm";
 import { http, HttpResponse } from "msw";
 
 import { server } from "../../../test/msw/server";
@@ -14,28 +15,33 @@ import {
   DOMAIN_REJECTED_PATH,
   createAuth,
   getAuth,
-  hasAuthEnv,
+  hasGoogleEnv,
+  hasSessionEnv,
   resetAuthForTests,
 } from "@/lib/auth/config";
-import {
-  SESSION_COOKIE_NAME,
-  verifySessionToken,
-} from "@/lib/auth/session-cookie";
+import { getDb, resetDbForTests } from "@/lib/db/client";
+import { session, user } from "@/lib/db/schema/index";
 
 // No live OAuth (Article 3). Google's token endpoint is mocked by MSW and the
 // id_token is a hand-built JWT — the Google provider decodes it rather than
 // verifying its signature on the authorization-code path, so a forged one is
-// enough to drive the whole callback.
+// enough to drive the whole callback. Every row lands in PGlite.
 
 const SECRET = "config-test-secret";
 const ORIGIN = "http://localhost:3000";
 const CLIENT_ID = "test-client-id.apps.googleusercontent.com";
 
-function stubAuthEnv(overrides: Record<string, string> = {}) {
+function stubSessionEnv(overrides: Record<string, string> = {}) {
+  vi.stubEnv("DATABASE_URL", "");
   vi.stubEnv("AUTH_SECRET", SECRET);
+  vi.stubEnv("AUTH_BASE_URL", ORIGIN);
+  for (const [key, value] of Object.entries(overrides)) vi.stubEnv(key, value);
+}
+
+function stubAuthEnv(overrides: Record<string, string> = {}) {
+  stubSessionEnv();
   vi.stubEnv("GOOGLE_CLIENT_ID", CLIENT_ID);
   vi.stubEnv("GOOGLE_CLIENT_SECRET", "test-client-secret");
-  vi.stubEnv("AUTH_BASE_URL", ORIGIN);
   for (const [key, value] of Object.entries(overrides)) vi.stubEnv(key, value);
 }
 
@@ -86,13 +92,15 @@ function setCookieFor(res: Response, name: string): string | undefined {
   return res.headers.getSetCookie().find((c) => c.startsWith(`${name}=`));
 }
 
+let sub = 0;
+
 /**
  * Run the full authorization-code flow and return the callback response.
  * Step 1 gets the state cookie + state param; step 2 is the callback Google
  * would redirect the browser to.
  */
 async function signInThroughGoogle(email: string, name = "Ada Lovelace") {
-  const auth = createAuth();
+  const auth = createAuth(await getDb());
 
   const start = await auth.handler(
     new Request(`${ORIGIN}${AUTH_BASE_PATH}/sign-in/social`, {
@@ -107,9 +115,10 @@ async function signInThroughGoogle(email: string, name = "Ada Lovelace") {
   const state = authorizeUrl.searchParams.get("state");
   expect(state).toBeTruthy();
 
+  sub += 1;
   mockGoogleToken(
     idToken({
-      sub: "google-sub-42",
+      sub: `google-sub-${sub}`,
       email,
       name,
       hd: email.split("@")[1],
@@ -127,35 +136,75 @@ async function signInThroughGoogle(email: string, name = "Ada Lovelace") {
   return { authorizeUrl, callback };
 }
 
+async function userRow(email: string) {
+  const db = await getDb();
+  const [row] = await db.select().from(user).where(eq(user.email, email));
+  return row;
+}
+
 beforeEach(() => {
+  vi.stubEnv("DATABASE_URL", "");
   resetAuthForTests();
 });
 
-describe("hasAuthEnv / getAuth", () => {
-  it("is false and yields no instance when Google is not configured", () => {
-    expect(hasAuthEnv()).toBe(false);
-    expect(getAuth()).toBeNull();
+afterEach(() => {
+  resetAuthForTests();
+  resetDbForTests();
+});
+
+describe("hasSessionEnv / hasGoogleEnv / getAuth", () => {
+  it("has no instance with nothing configured", async () => {
+    expect(hasSessionEnv()).toBe(false);
+    expect(hasGoogleEnv()).toBe(false);
+    expect(await getAuth()).toBeNull();
   });
 
-  it("still requires every variable — a partial config is not configured", () => {
-    vi.stubEnv("AUTH_SECRET", SECRET);
+  it("builds an instance from AUTH_SECRET alone", async () => {
+    // The split that Phase 4 needed: database sessions require a secret and
+    // nothing else, and the E2E suite runs exactly this way — real signed
+    // cookies against seeded rows, with Google deliberately unconfigured.
+    stubSessionEnv();
+    expect(hasSessionEnv()).toBe(true);
+    expect(hasGoogleEnv()).toBe(false);
+    expect(await getAuth()).not.toBeNull();
+  });
+
+  it("needs both Google variables before it calls Google configured", () => {
+    stubSessionEnv();
     vi.stubEnv("GOOGLE_CLIENT_ID", CLIENT_ID);
-    expect(hasAuthEnv()).toBe(false);
-    expect(getAuth()).toBeNull();
+    expect(hasGoogleEnv()).toBe(false);
   });
 
-  it("builds and memoizes an instance once fully configured", () => {
+  it("memoizes the instance and rebuilds when the configuration changes", async () => {
     stubAuthEnv();
-    const first = getAuth();
-    expect(first).not.toBeNull();
-    expect(getAuth()).toBe(first);
-  });
+    const first = await getAuth();
+    expect(await getAuth()).toBe(first);
 
-  it("rebuilds when the configuration changes", () => {
-    stubAuthEnv();
-    const first = getAuth();
     vi.stubEnv("GOOGLE_CLIENT_ID", "a-different-client");
-    expect(getAuth()).not.toBe(first);
+    expect(await getAuth()).not.toBe(first);
+  });
+
+  it("rebuilds when the data substrate changes", async () => {
+    // A memo keyed only on env would hand back an instance still pointed at
+    // the previous database.
+    stubAuthEnv();
+    const first = await getAuth();
+    vi.stubEnv("DATABASE_URL", "postgres://example.invalid/db");
+    expect(await getAuth()).not.toBe(first);
+  });
+
+  it("refuses social sign-in when Google is not configured", async () => {
+    stubSessionEnv();
+    const { POST } = await import("@/app/api/auth/[...all]/route");
+    const res = await POST(
+      new Request(`${ORIGIN}${AUTH_BASE_PATH}/sign-in/social`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-forwarded-for": "9.9.9.9" },
+        body: JSON.stringify({ provider: "google", callbackURL: "/" }),
+      })
+    );
+    // 503 is what the header renders as "sign-in is not set up here".
+    expect(res.status).toBe(503);
   });
 });
 
@@ -178,45 +227,79 @@ describe("Google authorization URL", () => {
 });
 
 describe("sign-in callback — institutional account", () => {
-  it("sets a signed session cookie carrying sub, email, and name", async () => {
+  it("writes a user row with the default role and a session row", async () => {
     stubAuthEnv();
     const { callback } = await signInThroughGoogle("student@cornell.edu");
 
-    const cookie = setCookieFor(callback, SESSION_COOKIE_NAME);
+    const row = await userRow("student@cornell.edu");
+    expect(row).toBeDefined();
+    expect(row.role).toBe("user");
+    expect(row.name).toBe("Ada Lovelace");
+
+    const db = await getDb();
+    const sessions = await db.select().from(session).where(eq(session.userId, row.id));
+    expect(sessions).toHaveLength(1);
+    expect(sessions[0].expiresAt.getTime()).toBeGreaterThan(Date.now());
+
+    const cookie = setCookieFor(callback, "better-auth.session_token");
     expect(cookie).toBeDefined();
     expect(cookie).toContain("HttpOnly");
     expect(cookie).toContain("SameSite=Lax");
-
-    const token = cookie!.split(";")[0].split("=")[1];
-    const payload = await verifySessionToken(token, SECRET);
-    expect(payload).not.toBeNull();
-    expect(payload!.email).toBe("student@cornell.edu");
-    expect(payload!.name).toBe("Ada Lovelace");
-    expect(payload!.sub).toBeTruthy();
   });
 
-  it("issues a cookie no other secret can verify", async () => {
+  it("no longer mints the retired makerlab.identity cookie", async () => {
+    // The stateless cookie *was* the session until Phase 4. Nothing reads it
+    // now, and leaving one behind would be a second, un-revocable identity.
     stubAuthEnv();
     const { callback } = await signInThroughGoogle("student@cornell.edu");
-    const token = setCookieFor(callback, SESSION_COOKIE_NAME)!
-      .split(";")[0]
-      .split("=")[1];
-    expect(await verifySessionToken(token, "not-the-secret")).toBeNull();
+    expect(setCookieFor(callback, "makerlab.identity")).toBeUndefined();
+  });
+
+  it("creates an AUTH_SUPER_ADMIN_EMAILS address as super_admin", async () => {
+    // The bootstrap: no user row exists before the first sign-in, so there is
+    // no admin to promote anybody. The floor is how the first one comes to be.
+    stubAuthEnv({ AUTH_SUPER_ADMIN_EMAILS: "ies22@cornell.edu" });
+    await signInThroughGoogle("ies22@cornell.edu", "Isaac S");
+
+    expect((await userRow("ies22@cornell.edu")).role).toBe("super_admin");
+  });
+
+  it("does not raise anyone else to super_admin", async () => {
+    stubAuthEnv({ AUTH_SUPER_ADMIN_EMAILS: "ies22@cornell.edu" });
+    await signInThroughGoogle("student@cornell.edu");
+
+    expect((await userRow("student@cornell.edu")).role).toBe("user");
   });
 });
 
 describe("sign-in callback — non-institutional account", () => {
-  it("refuses the domain server-side and never issues a session cookie", async () => {
+  it("creates no user row at all", async () => {
+    // Enforcement #1, in `databaseHooks.user.create.before`. `hd` alone would
+    // not have stopped this — it only narrows Google's account picker.
+    stubAuthEnv();
+    await signInThroughGoogle("someone@gmail.com");
+
+    expect(await userRow("someone@gmail.com")).toBeUndefined();
+  });
+
+  it("issues no usable session", async () => {
     stubAuthEnv();
     const { callback } = await signInThroughGoogle("someone@gmail.com");
 
-    const cookie = setCookieFor(callback, SESSION_COOKIE_NAME);
-    // Either no cookie at all, or an explicitly cleared one — never a usable
-    // session. `hd` alone would not have stopped this; the server-side check did.
+    const cookie = setCookieFor(callback, "better-auth.session_token");
     if (cookie) {
-      const token = cookie.split(";")[0].split("=")[1];
-      expect(await verifySessionToken(token, SECRET)).toBeNull();
+      // Either no cookie at all, or an explicitly cleared one.
+      expect(cookie.split(";")[0].split("=")[1]).toBe("");
     }
+    // No user row was created, so no session can point at one. (The demo seed
+    // ships three sessions of its own; none of them is this person's.)
+    const db = await getDb();
+    const sessions = await db.select().from(session);
+    const users = await db.select().from(user);
+    const emails = new Map(users.map((row) => [row.id, row.email]));
+    expect(
+      sessions.filter((row) => emails.get(row.userId) === "someone@gmail.com")
+    ).toHaveLength(0);
   });
 
   it("redirects rather than dead-ending on a stack trace", async () => {

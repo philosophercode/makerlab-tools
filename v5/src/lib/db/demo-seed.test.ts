@@ -1,13 +1,23 @@
 // @vitest-environment node
 import { and, eq } from "drizzle-orm";
 import {
+  DEMO_ACCOUNTS,
   DEMO_FORM_4_NOTION_PAGE_ID,
   DEMO_FORM_4_UNIT_NOTION_PAGE_ID,
   DEMO_PROJECT_SLUG,
   seedDemo,
 } from "./demo-seed";
 import { createPgliteDb } from "./pglite";
-import { attachments, projectTools, projects, resources, tools, units } from "./schema/index";
+import {
+  attachments,
+  projectTools,
+  projects,
+  resources,
+  session,
+  tools,
+  units,
+  user,
+} from "./schema/index";
 
 describe("seedDemo", () => {
   it("inserts the two demo tools with their units and resources", async () => {
@@ -78,6 +88,31 @@ describe("seedDemo", () => {
       "/sample-projects/laser-cut-lamp-parts.png",
     ]);
     expect(photos.every((p) => p.access === "public")).toBe(true);
+  });
+
+  it("seeds an account per role, plus one to promote, each with a constant session token", async () => {
+    // What makes a role testable without Google: the E2E browser presents a
+    // cookie carrying one of these tokens and the server reads the role off
+    // the `user` row. `promotable` is the spare the role-change E2E changes,
+    // so that test cannot race the ones asserting an ordinary account's
+    // controls.
+    const db = await createPgliteDb({ seed: seedDemo });
+
+    const users = await db.select().from(user).orderBy(user.email);
+    expect(users.map((row) => [row.email, row.role])).toEqual([
+      [DEMO_ACCOUNTS.user.email, "user"],
+      [DEMO_ACCOUNTS.superAdmin.email, "super_admin"],
+      [DEMO_ACCOUNTS.admin.email, "admin"],
+      [DEMO_ACCOUNTS.promotable.email, "user"],
+    ]);
+
+    const sessions = await db.select().from(session);
+    expect(sessions.map((row) => row.token).sort()).toEqual(
+      Object.values(DEMO_ACCOUNTS)
+        .map((account) => account.sessionToken)
+        .sort()
+    );
+    expect(sessions.every((row) => row.expiresAt.getTime() > Date.now())).toBe(true);
   });
 
   it("is idempotent", async () => {

@@ -1,4 +1,5 @@
 import { index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { user } from "./auth.ts";
 
 /**
  * Audit events — append-only (spec §4.11). The data layer exposes insert and
@@ -25,7 +26,10 @@ export const auditEvents = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     at: timestamp("at", { withTimezone: true }).notNull().defaultNow(),
-    actorUserId: text("actor_user_id"),
+    // Deferred from Phase 1 to Phase 4's migration, when `user` came to exist.
+    // `set null` rather than `cascade`: deleting the person must not delete the
+    // record that they changed someone's role.
+    actorUserId: text("actor_user_id").references(() => user.id, { onDelete: "set null" }),
     action: text("action").notNull(),
     subjectType: text("subject_type").notNull(),
     subjectId: text("subject_id").notNull(),

@@ -1,16 +1,20 @@
+// @vitest-environment node
 /**
- * `GET /api/identity` — the projection the header reads (auth design spec §6).
+ * `GET /api/identity` — the projection the header reads (spec §3.5, auth spec §6).
  *
- * Uses the real `resolveIdentity` and the real limiter; the only thing minted
- * here is a session cookie, signed exactly the way the callback signs one. No
- * network, no OAuth (Article 3).
+ * Uses the real `resolveIdentity` and the real limiter against real session
+ * rows in PGlite. No network, no OAuth (Article 3): `signInAsNew` seeds the
+ * row and mints the cookie Better Auth would have set.
  */
-import {
-  SESSION_COOKIE_NAME,
-  createSessionPayload,
-  signSession,
-} from "@/lib/auth/session-cookie";
 import { GET } from "@/app/api/identity/route";
+import { resetAuthForTests } from "@/lib/auth/config";
+import { resetDbForTests } from "@/lib/db/client";
+import {
+  BETTER_AUTH_SESSION_COOKIE,
+  seedUser,
+  signInAs,
+  signInAsNew,
+} from "../../../../test/utils/session";
 
 const AUTH_SECRET = "identity-route-test-secret";
 
@@ -22,14 +26,6 @@ function uniqueIp() {
   return `203.0.113.${counter}`;
 }
 
-async function cookieFor(sub: string, email: string, name: string | null) {
-  const token = await signSession(
-    createSessionPayload({ sub, email, name }),
-    AUTH_SECRET
-  );
-  return `${SESSION_COOKIE_NAME}=${token}`;
-}
-
 function identityRequest({ ip = uniqueIp(), cookie }: { ip?: string; cookie?: string } = {}) {
   const headers: Record<string, string> = { "x-forwarded-for": ip };
   if (cookie) headers.cookie = cookie;
@@ -37,7 +33,14 @@ function identityRequest({ ip = uniqueIp(), cookie }: { ip?: string; cookie?: st
 }
 
 beforeEach(() => {
+  vi.stubEnv("DATABASE_URL", "");
   vi.stubEnv("AUTH_SECRET", AUTH_SECRET);
+  resetAuthForTests();
+});
+
+afterEach(() => {
+  resetAuthForTests();
+  resetDbForTests();
 });
 
 describe("GET /api/identity", () => {
@@ -48,24 +51,33 @@ describe("GET /api/identity", () => {
     expect(await res.json()).toEqual({ role: "anonymous", name: null });
   });
 
-  it("returns the role and display name of a signed-in student", async () => {
-    const cookie = await cookieFor("sub-1", "ada@cornell.edu", "Ada Lovelace");
+  it("returns the role and display name of a signed-in user", async () => {
+    const { cookie } = await signInAsNew({
+      email: "ada@cornell.edu",
+      name: "Ada Lovelace",
+    });
 
     const res = await GET(identityRequest({ cookie }));
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ role: "student", name: "Ada Lovelace" });
+    expect(await res.json()).toEqual({ role: "user", name: "Ada Lovelace" });
   });
 
-  it("reflects the staff role from AUTH_STAFF_EMAILS", async () => {
-    vi.stubEnv("AUTH_STAFF_EMAILS", "niti@cornell.edu");
-    const cookie = await cookieFor("sub-2", "niti@cornell.edu", "Niti");
-
-    expect((await (await GET(identityRequest({ cookie }))).json()).role).toBe("staff");
+  it("reports the role from the database, for every stored role", async () => {
+    // What the header reads to decide whether to show Add and Refresh. The
+    // env lists that used to answer this question are gone.
+    for (const role of ["user", "admin", "super_admin"] as const) {
+      const { cookie } = await signInAsNew({ role });
+      const body = await (await GET(identityRequest({ cookie }))).json();
+      expect(body.role).toBe(role);
+    }
   });
 
   it("never returns the email address — the header only needs a name", async () => {
-    const cookie = await cookieFor("sub-3", "ada@cornell.edu", "Ada Lovelace");
+    const { cookie } = await signInAsNew({
+      email: "ada@cornell.edu",
+      name: "Ada Lovelace",
+    });
 
     const body = await (await GET(identityRequest({ cookie }))).json();
 
@@ -75,10 +87,8 @@ describe("GET /api/identity", () => {
   });
 
   it("degrades to anonymous on a tampered cookie rather than throwing", async () => {
-    const cookie = await cookieFor("sub-4", "ada@cornell.edu", "Ada");
-    const [name, token] = cookie.split("=");
-    const [payload, signature] = token.split(".");
-    const forged = `${name}=${payload}.${signature.startsWith("A") ? "B" : "A"}${signature.slice(1)}`;
+    const { cookie } = await signInAsNew();
+    const forged = cookie.replace(/.$/, (c) => (c === "A" ? "B" : "A"));
 
     const res = await GET(identityRequest({ cookie: forged }));
 
@@ -86,22 +96,29 @@ describe("GET /api/identity", () => {
     expect((await res.json()).role).toBe("anonymous");
   });
 
-  it("degrades to anonymous on an expired cookie", async () => {
-    const token = await signSession(
-      createSessionPayload(
-        { sub: "sub-5", email: "ada@cornell.edu", name: "Ada" },
-        Date.now() - 60_000,
-        1 // one-second lifetime, already spent
-      ),
-      AUTH_SECRET
-    );
+  it("degrades to anonymous on an expired session", async () => {
+    const { cookie } = await signInAsNew({}, { expiresInSeconds: -60 });
 
-    const res = await GET(
-      identityRequest({ cookie: `${SESSION_COOKIE_NAME}=${token}` })
-    );
+    const res = await GET(identityRequest({ cookie }));
 
     expect(res.status).toBe(200);
     expect((await res.json()).role).toBe("anonymous");
+  });
+
+  it("degrades to anonymous for a banned user", async () => {
+    const banned = await seedUser({ banned: true, banReason: "spam" });
+    const { cookie } = await signInAs(banned);
+
+    expect((await (await GET(identityRequest({ cookie }))).json()).role).toBe(
+      "anonymous"
+    );
+  });
+
+  it("degrades to anonymous when the cookie names no session at all", async () => {
+    const cookie = `${BETTER_AUTH_SESSION_COOKIE}=not-a-real-token`;
+    expect((await (await GET(identityRequest({ cookie }))).json()).role).toBe(
+      "anonymous"
+    );
   });
 
   it("is never cached — it is per-request and per-person", async () => {

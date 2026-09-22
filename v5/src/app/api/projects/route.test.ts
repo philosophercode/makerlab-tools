@@ -1,38 +1,63 @@
 // @vitest-environment node
-import { http, HttpResponse } from "msw";
+import { eq } from "drizzle-orm";
 
-import { server } from "../../../../test/msw/server";
-import {
-  SESSION_COOKIE_NAME,
-  createSessionPayload,
-  signSession,
-} from "@/lib/auth/session-cookie";
+import { resetAuthForTests } from "@/lib/auth/config";
+import { signInAsNew } from "../../../../test/utils/session";
 import { nextCacheMock } from "../../../../test/mocks/next-cache";
 
-// The route translates catalogue ids to Notion page ids through Postgres, and
-// that module's neighbours import cacheTag/cacheLife.
+// The route's neighbours in `src/lib/data` pull in modules that import
+// cacheTag/cacheLife.
 vi.mock("next/cache", () => nextCacheMock());
 
 import { getCatalogTools } from "@/lib/catalog";
-import { resetDbForTests } from "@/lib/db/client";
-import { DEMO_FORM_4_NOTION_PAGE_ID } from "@/lib/db/demo-seed";
+import { getPublishedProjects } from "@/lib/projects";
+import { getDb, resetDbForTests } from "@/lib/db/client";
+import { attachments, projectTools, projects } from "@/lib/db/schema/index";
 
-const NOTION = "https://api.notion.com/v1";
-const PROJECTS_DB = "db-projects";
+/**
+ * `POST /api/projects` against the demo-seeded PGlite database, with **no
+ * environment variables stubbed** — the submission is a Postgres row now, so
+ * there is no credential this route could be missing (Article 3).
+ */
+
 const AUTH_SECRET = "projects-route-test-secret";
 
-// `tools_used` is a Notion relation, but the form now submits catalogue ids —
-// Postgres uuids minted at seed time. The demo seed is the substrate here
-// (`DATABASE_URL` unset): the Form 4 came from Notion and has a page id, the
-// Trotec did not and has none.
+// The form submits catalogue ids — Postgres uuids minted at seed time — so
+// they are resolved rather than hard-coded.
 let FORM_4_ID = "";
 let TROTEC_ID = "";
 
+// The signed-in student every test submits as unless it says otherwise.
+let defaultSession: Awaited<ReturnType<typeof signInAsNew>>;
+let sessionCounter = 0;
+
 beforeEach(async () => {
   vi.stubEnv("DATABASE_URL", "");
+  vi.stubEnv("AUTH_SECRET", AUTH_SECRET);
+  resetAuthForTests();
   const tools = await getCatalogTools();
   FORM_4_ID = tools.find((tool) => tool.slug === "form-4")?.id ?? "";
   TROTEC_ID = tools.find((tool) => tool.slug === "trotec-speedy-400")?.id ?? "";
+
+  const db = await getDb();
+  // The demo seed ships one published sample project; clearing the table keeps
+  // each test's assertions about "the submission" unambiguous.
+  await db.delete(attachments);
+  await db.delete(projects);
+
+  // Since Phase 4 this route requires sign-in (spec §5.5), so the *default*
+  // caller is a signed-in student. A fresh account per test on purpose: the
+  // limiter keys a signed-in caller by user id, so one test's ten requests
+  // must not be another's, the way `uniqueIp()` already isolates anonymous ones.
+  sessionCounter += 1;
+  defaultSession = await signInAsNew({
+    email: `ada-${sessionCounter}@cornell.edu`,
+    name: "Ada Lovelace",
+  });
+});
+
+afterEach(() => {
+  resetAuthForTests();
 });
 
 afterAll(() => {
@@ -50,21 +75,20 @@ function uniqueIp() {
   return `10.1.0.${ipCounter}`;
 }
 
-function stubProjectsEnv() {
-  vi.stubEnv("NOTION_API_KEY", "secret_test");
-  vi.stubEnv("NOTION_DB_PROJECTS", PROJECTS_DB);
-}
-
 interface SubmitOptions {
   ip?: string;
   raw?: string;
-  cookie?: string;
+  /** A different session, or `null` to submit as an anonymous visitor. */
+  cookie?: string | null;
 }
 
 // The route only uses `getClientIp(req)` (headers), the session cookie, and
 // `req.json()`, so a plain Request is enough; it's cast at the call site because
 // the signature asks for a NextRequest.
-function submitRequest(payload: unknown, { ip, raw, cookie }: SubmitOptions = {}) {
+function submitRequest(payload: unknown, options: SubmitOptions = {}) {
+  const { ip, raw } = options;
+  const cookie =
+    "cookie" in options ? options.cookie : defaultSession.cookie;
   const headers: Record<string, string> = {
     "content-type": "application/json",
     "x-forwarded-for": ip ?? uniqueIp(),
@@ -78,57 +102,23 @@ function submitRequest(payload: unknown, { ip, raw, cookie }: SubmitOptions = {}
 }
 
 /**
- * A session cookie signed exactly the way the OAuth callback signs one — the
- * only way to reach the route as a signed-in student without a network call
- * (Article 3).
+ * A seeded session — a `user` row, a `session` row and the cookie Better Auth
+ * would have set. The only way to reach the route as a signed-in person
+ * without a network call (Article 3).
  */
-async function cookieFor(email: string, name: string | null) {
-  vi.stubEnv("AUTH_SECRET", AUTH_SECRET);
-  const token = await signSession(
-    createSessionPayload({ sub: `sub-${email}`, email, name }),
-    AUTH_SECRET
-  );
-  return `${SESSION_COOKIE_NAME}=${token}`;
+async function signedIn(email: string, name: string) {
+  return signInAsNew({ email, name });
 }
 
 function validPayload(overrides: Record<string, unknown> = {}) {
   return {
     title: "Lamp from scrap plywood",
-    author: "Ada Lovelace",
     body: "Cut on the laser, glued, sanded.",
     tools: [FORM_4_ID],
     materials: ["Plywood"],
     photos: [{ id: "file-upload-1", name: "cover.png" }],
     ...overrides,
   };
-}
-
-type NotionCreateBody = {
-  parent?: { database_id?: string };
-  properties?: Record<string, { checkbox?: boolean; files?: unknown[] }>;
-};
-
-/**
- * Capture the body of the Notion page-create call. Returns a getter that is
- * `undefined` when the route never reached Notion — which is itself the
- * assertion for every rejected payload.
- */
-function captureNotionCreate() {
-  const calls: NotionCreateBody[] = [];
-  server.use(
-    http.post(`${NOTION}/pages`, async ({ request }) => {
-      const body = (await request.json()) as NotionCreateBody;
-      calls.push(body);
-      return HttpResponse.json({
-        object: "page",
-        id: "created-project-1",
-        created_time: "2024-09-01T10:00:00.000Z",
-        last_edited_time: "2024-09-01T10:00:00.000Z",
-        properties: body.properties ?? {},
-      });
-    })
-  );
-  return calls;
 }
 
 async function loadRoute() {
@@ -140,41 +130,42 @@ async function post(req: Request) {
   return POST(req as never);
 }
 
-// ── Configuration ───────────────────────────────────────────────────
+/** Every project row currently in the table. */
+async function storedProjects() {
+  const db = await getDb();
+  return db.select().from(projects);
+}
 
-describe("POST /api/projects (not configured)", () => {
-  it("returns 503 with a clear message and never calls Notion", async () => {
-    vi.stubEnv("NOTION_API_KEY", "");
-    vi.stubEnv("NOTION_DB_PROJECTS", "");
-
-    const res = await post(submitRequest(validPayload()));
-
-    expect(res.status).toBe(503);
-    const body = await res.json();
-    expect(body.error).toMatch(/not configured/i);
-  });
-});
+/** An uploaded-but-unattached file, as `POST /api/uploads` will leave one. */
+async function upload(): Promise<string> {
+  const db = await getDb();
+  const [row] = await db
+    .insert(attachments)
+    .values({
+      blobPathname: `uploads/${crypto.randomUUID()}.png`,
+      access: "public",
+      publicUrl: `https://blob.test/${crypto.randomUUID()}.png`,
+      contentType: "image/png",
+    })
+    .returning({ id: attachments.id });
+  return row.id;
+}
 
 // ── The moderation gate (Article 5) ─────────────────────────────────
 
 describe("POST /api/projects (drafts by default)", () => {
-  it("creates the page with published explicitly false", async () => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
-
+  it("records one unpublished row and answers with its id and slug", async () => {
     const res = await post(submitRequest(validPayload()));
 
     expect(res.status).toBe(201);
-    expect(await res.json()).toEqual({ id: "created-project-1" });
-    expect(calls).toHaveLength(1);
-    expect(calls[0].parent?.database_id).toBe(PROJECTS_DB);
-    expect(calls[0].properties?.published).toEqual({ checkbox: false });
+    const rows = await storedProjects();
+    expect(rows).toHaveLength(1);
+    expect(await res.json()).toEqual({ id: rows[0].id, slug: rows[0].slug });
+    expect(rows[0].published).toBe(false);
+    expect(rows[0].slug).toBe("lamp-from-scrap-plywood");
   });
 
   it("IGNORES published:true from the client — the submission stays a draft", async () => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
-
     const res = await post(
       submitRequest(
         validPayload({ published: true, Published: true, fields: { published: true } })
@@ -183,17 +174,22 @@ describe("POST /api/projects (drafts by default)", () => {
 
     expect(res.status).toBe(201);
     // The single most important assertion in this feature: nothing a client
-    // sends may publish a project. Staff tick the box in Notion, or it stays
+    // sends may publish a project. Staff publish it in the app, or it stays
     // invisible.
-    expect(calls[0].properties?.published).toEqual({ checkbox: false });
-    expect(JSON.stringify(calls[0])).not.toContain('"checkbox":true');
+    const [row] = await storedProjects();
+    expect(row.published).toBe(false);
+    expect(row.publishedAt).toBeNull();
+    expect(row.publishedBy).toBeNull();
   });
 
-  it("writes the submitted fields through to Notion", async () => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
+  it("does not appear in the gallery, which is what 'draft' actually means", async () => {
+    await post(submitRequest(validPayload()));
 
-    await post(
+    expect(await getPublishedProjects()).toEqual([]);
+  });
+
+  it("writes the submitted fields through to the row", async () => {
+    const res = await post(
       submitRequest(
         validPayload({
           link: "https://example.com/lamp",
@@ -202,89 +198,150 @@ describe("POST /api/projects (drafts by default)", () => {
       )
     );
 
-    const properties = calls[0].properties as Record<string, unknown>;
-    expect(properties.title).toEqual({
-      title: [{ text: { content: "Lamp from scrap plywood" } }],
+    expect(res.status).toBe(201);
+    const [row] = await storedProjects();
+    expect(row.title).toBe("Lamp from scrap plywood");
+    expect(row.authorName).toBe("Ada Lovelace");
+    expect(row.body).toBe("Cut on the laser, glued, sanded.");
+    expect(row.link).toBe("https://example.com/lamp");
+    expect(row.materials).toEqual(["Plywood"]);
+
+    const db = await getDb();
+    const links = await db
+      .select()
+      .from(projectTools)
+      .where(eq(projectTools.projectId, row.id));
+    expect(links.map((link) => link.toolId).sort()).toEqual([FORM_4_ID, TROTEC_ID].sort());
+  });
+
+  it("claims the uploaded photos onto the project, cover first", async () => {
+    const cover = await upload();
+    const second = await upload();
+
+    const res = await post(
+      submitRequest(
+        validPayload({
+          photos: [
+            { id: cover, name: "cover.png" },
+            { id: second, name: "detail.png" },
+          ],
+        })
+      )
+    );
+
+    expect(res.status).toBe(201);
+    const [row] = await storedProjects();
+    const db = await getDb();
+    const photos = await db
+      .select()
+      .from(attachments)
+      .where(eq(attachments.ownerId, row.id))
+      .orderBy(attachments.position);
+    expect(photos.map((photo) => photo.id)).toEqual([cover, second]);
+    expect(photos.every((photo) => photo.ownerType === "project")).toBe(true);
+  });
+
+  it("records the submission even when no photo id matches an upload", async () => {
+    // The write-up is worth more than the photos (Article 4) — and until
+    // `/api/uploads` lands, the ids the form holds are Notion file_upload ids
+    // that no `attachments` row answers to.
+    const res = await post(submitRequest(validPayload()));
+
+    expect(res.status).toBe(201);
+    expect(await storedProjects()).toHaveLength(1);
+  });
+
+  it("gives a second submission with the same title its own slug", async () => {
+    await post(submitRequest(validPayload()));
+    const res = await post(submitRequest(validPayload()));
+
+    expect(res.status).toBe(201);
+    expect((await res.json()).slug).toBe("lamp-from-scrap-plywood-2");
+  });
+});
+
+// ── Signing in is the gate (spec §5.5) ──────────────────────────────
+
+describe("POST /api/projects (sign-in required)", () => {
+  it("answers 401 to an anonymous submission and writes nothing", async () => {
+    const res = await post(submitRequest(validPayload(), { cookie: null }));
+
+    expect(res.status).toBe(401);
+    // 401, not 403: signing in is something the visitor can actually do, and
+    // the browser tells them so.
+    expect(await res.json()).toMatchObject({ code: "sign_in_required" });
+    expect(await storedProjects()).toHaveLength(0);
+  });
+
+  it("answers 401 to a forged cookie rather than trusting it", async () => {
+    const forged = defaultSession.cookie.replace(/.$/, (c) => (c === "A" ? "B" : "A"));
+
+    const res = await post(submitRequest(validPayload(), { cookie: forged }));
+
+    expect(res.status).toBe(401);
+    expect(await storedProjects()).toHaveLength(0);
+  });
+
+  it("answers 401 to a banned account — a ban resolves to anonymous", async () => {
+    const banned = await signInAsNew({
+      email: "banned@cornell.edu",
+      name: "Ben Banned",
+      banned: true,
     });
-    expect(properties.author).toEqual({
-      rich_text: [{ text: { content: "Ada Lovelace" } }],
-    });
-    expect(properties.link).toEqual({ url: "https://example.com/lamp" });
-    // Each catalogue id is translated to the tool's Notion page; the Trotec has
-    // no imported page, so it drops out rather than failing the whole write.
-    expect(properties.tools_used).toEqual({
-      relation: [{ id: DEMO_FORM_4_NOTION_PAGE_ID }],
-    });
-    expect(properties.materials).toEqual({ multi_select: [{ name: "Plywood" }] });
-    // Photos go in as file_upload references from /api/upload-notion.
-    expect(properties.photos).toEqual({
-      files: [
-        {
-          type: "file_upload",
-          file_upload: { id: "file-upload-1" },
-          name: "cover.png",
-        },
-      ],
-    });
+
+    const res = await post(submitRequest(validPayload(), { cookie: banned.cookie }));
+
+    expect(res.status).toBe(401);
+    expect(await storedProjects()).toHaveLength(0);
+  });
+
+  it("accepts a signed-in student — `projects.submit` is what signing in grants", async () => {
+    const res = await post(submitRequest(validPayload()));
+    expect(res.status).toBe(201);
+  });
+
+  it("accepts a SuperMaker and a director too", async () => {
+    for (const role of ["admin", "super_admin"] as const) {
+      const { cookie } = await signInAsNew({
+        email: `${role}@cornell.edu`,
+        name: "Staff Person",
+        role,
+      });
+      const res = await post(submitRequest(validPayload(), { cookie }));
+      expect(res.status).toBe(201);
+    }
   });
 });
 
 // ── Verified authorship (spec §4, §5) ───────────────────────────────
 
 describe("POST /api/projects (author identity)", () => {
-  it("records author_email from the session of a signed-in student", async () => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
-    const cookie = await cookieFor("ada@cornell.edu", "Ada Lovelace");
+  it("records the author id from the session", async () => {
+    const author = await signedIn("author@cornell.edu", "Ada Lovelace");
 
-    const res = await post(submitRequest(validPayload(), { cookie }));
+    const res = await post(submitRequest(validPayload(), { cookie: author.cookie }));
 
     expect(res.status).toBe(201);
-    const properties = calls[0].properties as Record<string, unknown>;
-    expect(properties.author_email).toEqual({ email: "ada@cornell.edu" });
-    // The byline comes from the session too — the form makes the field
-    // read-only, and this is what makes that guarantee real.
-    expect(properties.author).toEqual({
-      rich_text: [{ text: { content: "Ada Lovelace" } }],
-    });
+    const [row] = await storedProjects();
+    expect(row.authorUserId).toBe(author.user.id);
+    expect(row.createdBy).toBe(author.user.id);
+    // The byline comes from the session too — the form stopped offering the
+    // field, and this is what makes that guarantee real rather than cosmetic.
+    expect(row.authorName).toBe("Ada Lovelace");
   });
 
-  it("uses the session name even when the body claims a different author", async () => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
-    const cookie = await cookieFor("ada@cornell.edu", "Ada Lovelace");
+  it("IGNORES an author supplied in the body", async () => {
+    const { cookie } = await signedIn("author@cornell.edu", "Ada Lovelace");
 
     const res = await post(
       submitRequest(validPayload({ author: "Somebody Else" }), { cookie })
     );
 
     expect(res.status).toBe(201);
-    expect((calls[0].properties as Record<string, unknown>).author).toEqual({
-      rich_text: [{ text: { content: "Ada Lovelace" } }],
-    });
+    expect((await storedProjects())[0].authorName).toBe("Ada Lovelace");
   });
 
-  it("records no author_email for an anonymous submission, which still succeeds", async () => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
-
-    const res = await post(submitRequest(validPayload()));
-
-    // Anonymous submission is deliberate (spec §5) — the ISAM demo and any
-    // student who has not signed in must still be able to contribute.
-    expect(res.status).toBe(201);
-    const properties = calls[0].properties as Record<string, unknown>;
-    expect(properties).not.toHaveProperty("author_email");
-    expect(JSON.stringify(calls[0])).not.toContain("author_email");
-    expect(properties.author).toEqual({
-      rich_text: [{ text: { content: "Ada Lovelace" } }],
-    });
-  });
-
-  it("IGNORES author_email supplied in the body by an anonymous caller", async () => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
-
+  it("IGNORES author_email supplied in the body", async () => {
     const res = await post(
       submitRequest(
         validPayload({
@@ -295,82 +352,17 @@ describe("POST /api/projects (author identity)", () => {
     );
 
     expect(res.status).toBe(201);
-    // A client may not assert who it is: no session, no verified author.
-    expect(JSON.stringify(calls[0])).not.toContain("dean@cornell.edu");
-    expect(calls[0].properties).not.toHaveProperty("author_email");
-  });
-
-  it("IGNORES author_email in the body when a session says something else", async () => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
-    const cookie = await cookieFor("ada@cornell.edu", "Ada Lovelace");
-
-    const res = await post(
-      submitRequest(validPayload({ author_email: "dean@cornell.edu" }), { cookie })
-    );
-
-    expect(res.status).toBe(201);
-    expect((calls[0].properties as Record<string, unknown>).author_email).toEqual({
-      email: "ada@cornell.edu",
-    });
-    expect(JSON.stringify(calls[0])).not.toContain("dean@cornell.edu");
+    // A client may not assert who it is, and `projects` has no email column to
+    // put one in even if it could.
+    expect(JSON.stringify(await storedProjects())).not.toContain("dean@cornell.edu");
   });
 
   it("still refuses published:true from a signed-in client", async () => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
-    const cookie = await cookieFor("ada@cornell.edu", "Ada Lovelace");
-
-    const res = await post(
-      submitRequest(validPayload({ published: true }), { cookie })
-    );
+    const res = await post(submitRequest(validPayload({ published: true })));
 
     expect(res.status).toBe(201);
     // Signing in verifies who submitted; it does not publish anything.
-    expect(calls[0].properties?.published).toEqual({ checkbox: false });
-    expect(JSON.stringify(calls[0])).not.toContain('"checkbox":true');
-  });
-
-  it("records the submission without the email when Notion has no author_email property", async () => {
-    stubProjectsEnv();
-    const cookie = await cookieFor("ada@cornell.edu", "Ada Lovelace");
-    const bodies: NotionCreateBody[] = [];
-    server.use(
-      http.post(`${NOTION}/pages`, async ({ request }) => {
-        const body = (await request.json()) as NotionCreateBody;
-        bodies.push(body);
-        if (body.properties?.author_email) {
-          return HttpResponse.json(
-            {
-              object: "error",
-              status: 400,
-              code: "validation_error",
-              message: "author_email is not a property that exists",
-            },
-            { status: 400 }
-          );
-        }
-        return HttpResponse.json({
-          object: "page",
-          id: "created-project-1",
-          created_time: "2024-09-01T10:00:00.000Z",
-          last_edited_time: "2024-09-01T10:00:00.000Z",
-          properties: body.properties ?? {},
-        });
-      })
-    );
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    const res = await post(submitRequest(validPayload(), { cookie }));
-
-    // A column a person has not added yet must not cost a student their
-    // write-up (Article 4 — fail toward stale, not toward wrong).
-    expect(res.status).toBe(201);
-    expect(bodies).toHaveLength(2);
-    expect(bodies[1].properties).not.toHaveProperty("author_email");
-    expect(bodies[1].properties?.published).toEqual({ checkbox: false });
-    // And the misconfiguration is loud in the logs.
-    expect(warn).toHaveBeenCalled();
+    expect((await storedProjects())[0].published).toBe(false);
   });
 });
 
@@ -378,58 +370,44 @@ describe("POST /api/projects (author identity)", () => {
 
 describe("POST /api/projects (validation)", () => {
   it("rejects malformed JSON with 400", async () => {
-    stubProjectsEnv();
-    captureNotionCreate();
-
     const res = await post(submitRequest(null, { raw: "{not json" }));
 
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/invalid json/i);
+    expect(await storedProjects()).toHaveLength(0);
   });
 
   it.each([
     ["title", { title: "" }],
-    ["author", { author: "   " }],
     ["body", { body: "" }],
   ])("rejects a submission missing %s with 400", async (_field, overrides) => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
-
     const res = await post(submitRequest(validPayload(overrides)));
 
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/required/i);
-    expect(calls).toHaveLength(0);
+    expect(await storedProjects()).toHaveLength(0);
   });
 
   it("rejects an oversized write-up with 400", async () => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
-
     const res = await post(
       submitRequest(validPayload({ body: "x".repeat(20_001) }))
     );
 
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/too long/i);
-    expect(calls).toHaveLength(0);
+    expect(await storedProjects()).toHaveLength(0);
   });
 
   it("accepts a write-up right at the size limit", async () => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
-
     const res = await post(
       submitRequest(validPayload({ body: "x".repeat(20_000) }))
     );
 
     expect(res.status).toBe(201);
-    expect(calls).toHaveLength(1);
+    expect(await storedProjects()).toHaveLength(1);
   });
 
   it("rejects more than 8 photos with 400 rather than silently dropping them", async () => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
     const photos = Array.from({ length: 9 }, (_, i) => ({
       id: `file-upload-${i}`,
       name: `photo-${i}.png`,
@@ -439,55 +417,52 @@ describe("POST /api/projects (validation)", () => {
 
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/8 photos/i);
-    expect(calls).toHaveLength(0);
+    expect(await storedProjects()).toHaveLength(0);
   });
 
   it("accepts exactly 8 photos", async () => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
-    const photos = Array.from({ length: 8 }, (_, i) => ({
-      id: `file-upload-${i}`,
-      name: `photo-${i}.png`,
-    }));
+    const ids = await Promise.all(Array.from({ length: 8 }, () => upload()));
+    const photos = ids.map((id, i) => ({ id, name: `photo-${i}.png` }));
 
     const res = await post(submitRequest(validPayload({ photos })));
 
     expect(res.status).toBe(201);
-    expect(calls[0].properties?.photos).toHaveProperty("files");
-    expect((calls[0].properties?.photos as { files: unknown[] }).files).toHaveLength(8);
+    const [row] = await storedProjects();
+    const db = await getDb();
+    const owned = await db
+      .select()
+      .from(attachments)
+      .where(eq(attachments.ownerId, row.id));
+    expect(owned).toHaveLength(8);
   });
 
   it("rejects more than 20 tools with 400", async () => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
     const tools = Array.from({ length: 21 }, (_, i) => `tool-${i}`);
 
     const res = await post(submitRequest(validPayload({ tools })));
 
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/20 tools/i);
-    expect(calls).toHaveLength(0);
+    expect(await storedProjects()).toHaveLength(0);
   });
 
   it("accepts exactly 20 tools", async () => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
     const tools = Array.from({ length: 20 }, () => crypto.randomUUID());
 
     const res = await post(submitRequest(validPayload({ tools })));
 
     // The cap is what is under test: twenty is not one too many. None of these
-    // ids is a real tool, so nothing survives the Notion-page translation and
-    // the submission is filed without a relation rather than refused.
+    // ids names a real tool, so the submission is filed with no links rather
+    // than refused.
     expect(res.status).toBe(201);
-    expect(calls).toHaveLength(1);
-    expect(calls[0].properties?.tools_used).toBeUndefined();
+    const [row] = await storedProjects();
+    const db = await getDb();
+    expect(
+      await db.select().from(projectTools).where(eq(projectTools.projectId, row.id))
+    ).toEqual([]);
   });
 
   it("ignores non-string entries in tools and materials", async () => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
-
     const res = await post(
       submitRequest(
         validPayload({ tools: [FORM_4_ID, 7, null], materials: [{}, "Plywood"] })
@@ -495,12 +470,14 @@ describe("POST /api/projects (validation)", () => {
     );
 
     expect(res.status).toBe(201);
-    expect(calls[0].properties?.tools_used).toEqual({
-      relation: [{ id: DEMO_FORM_4_NOTION_PAGE_ID }],
-    });
-    expect(calls[0].properties?.materials).toEqual({
-      multi_select: [{ name: "Plywood" }],
-    });
+    const [row] = await storedProjects();
+    expect(row.materials).toEqual(["Plywood"]);
+    const db = await getDb();
+    const links = await db
+      .select()
+      .from(projectTools)
+      .where(eq(projectTools.projectId, row.id));
+    expect(links.map((link) => link.toolId)).toEqual([FORM_4_ID]);
   });
 });
 
@@ -513,27 +490,21 @@ describe("POST /api/projects (link validation)", () => {
     "data:text/html;base64,PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==",
     "file:///etc/passwd",
     "not a url at all",
-  ])("rejects %s with 400 and never reaches Notion", async (link) => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
-
+  ])("rejects %s with 400 and writes nothing", async (link) => {
     const res = await post(submitRequest(validPayload({ link })));
 
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/http/i);
-    expect(calls).toHaveLength(0);
+    expect(await storedProjects()).toHaveLength(0);
   });
 
   it.each(["https://example.com/lamp", "http://example.com/lamp"])(
     "accepts %s",
     async (link) => {
-      stubProjectsEnv();
-      const calls = captureNotionCreate();
-
       const res = await post(submitRequest(validPayload({ link })));
 
       expect(res.status).toBe(201);
-      expect(calls[0].properties?.link).toEqual({ url: link });
+      expect((await storedProjects())[0].link).toBe(link);
     }
   );
 });
@@ -542,8 +513,6 @@ describe("POST /api/projects (link validation)", () => {
 
 describe("POST /api/projects (rate limiting)", () => {
   it("returns 429 with Retry-After once the limiter says no", async () => {
-    stubProjectsEnv();
-    const calls = captureNotionCreate();
     vi.resetModules();
     vi.doMock("@/lib/rate-limit", async () => {
       const actual = await vi.importActual<typeof import("@/lib/rate-limit")>(
@@ -561,21 +530,17 @@ describe("POST /api/projects (rate limiting)", () => {
     expect(res.status).toBe(429);
     expect(res.headers.get("Retry-After")).toBe("60");
     expect((await res.json()).error).toMatch(/too many requests/i);
-    // Rate limiting happens before the expensive outbound call (Article 4).
-    expect(calls).toHaveLength(0);
+    // Rate limiting happens before any database work (Article 4).
+    expect(await storedProjects()).toHaveLength(0);
 
     vi.doUnmock("@/lib/rate-limit");
     vi.resetModules();
   });
 
-  it("starts refusing the same IP once its window is exhausted", async () => {
-    stubProjectsEnv();
-    captureNotionCreate();
-    const ip = uniqueIp();
-
+  it("starts refusing the same person once their window is exhausted", async () => {
     const statuses: number[] = [];
     for (let i = 0; i < 12; i += 1) {
-      const res = await post(submitRequest(validPayload(), { ip }));
+      const res = await post(submitRequest(validPayload()));
       statuses.push(res.status);
     }
 
@@ -583,47 +548,101 @@ describe("POST /api/projects (rate limiting)", () => {
     expect(statuses).toContain(429);
     // Once refused, it stays refused for the rest of the window.
     expect(statuses.at(-1)).toBe(429);
+    expect(await storedProjects()).toHaveLength(10);
   });
 
-  it("does not penalize a different IP", async () => {
-    stubProjectsEnv();
-    captureNotionCreate();
-    const noisy = uniqueIp();
+  it("keys a signed-in caller by who they are, not where they are", async () => {
+    // Every request below comes from a different address. A signed-in caller
+    // is keyed on their user id, so moving networks does not buy a fresh
+    // allowance — and, the other way round, sharing a campus NAT does not
+    // spend somebody else's.
+    const statuses: number[] = [];
     for (let i = 0; i < 12; i += 1) {
-      await post(submitRequest(validPayload(), { ip: noisy }));
+      const res = await post(submitRequest(validPayload(), { ip: uniqueIp() }));
+      statuses.push(res.status);
     }
 
-    const res = await post(submitRequest(validPayload(), { ip: uniqueIp() }));
+    expect(statuses.at(-1)).toBe(429);
+  });
+
+  it("does not penalize a different person", async () => {
+    for (let i = 0; i < 12; i += 1) {
+      await post(submitRequest(validPayload()));
+    }
+
+    const other = await signInAsNew({ email: "quiet@cornell.edu", name: "Quiet Person" });
+    const res = await post(submitRequest(validPayload(), { cookie: other.cookie }));
     expect(res.status).toBe(201);
+  });
+
+  it("bounds an anonymous caller by IP, before telling them to sign in", async () => {
+    const ip = uniqueIp();
+
+    const statuses: number[] = [];
+    for (let i = 0; i < 12; i += 1) {
+      const res = await post(submitRequest(validPayload(), { ip, cookie: null }));
+      statuses.push(res.status);
+    }
+
+    // The ordering is the point (Article 4): the limiter runs before the
+    // sign-in check, so an unauthenticated flood is shed rather than answered.
+    expect(statuses[0]).toBe(401);
+    expect(statuses.at(-1)).toBe(429);
   });
 });
 
-// ── Notion failure ──────────────────────────────────────────────────
+// ── Database failure ────────────────────────────────────────────────
 
-describe("POST /api/projects (Notion failure)", () => {
-  it("returns 502 and does not leak the raw Notion error", async () => {
-    stubProjectsEnv();
-    const notionMessage =
-      "validation_error: body.properties.tools_used[0].id is not a valid uuid (db-projects, token secret_test)";
-    server.use(
-      http.post(`${NOTION}/pages`, () =>
-        HttpResponse.json(
-          { object: "error", status: 400, code: "validation_error", message: notionMessage },
-          { status: 400 }
-        )
-      )
-    );
+describe("POST /api/projects (database failure)", () => {
+  it("returns 502 and does not leak the driver's error when the write fails", async () => {
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.resetModules();
+    vi.doMock("@/lib/data/projects", async () => {
+      const actual =
+        await vi.importActual<typeof import("@/lib/data/projects")>("@/lib/data/projects");
+      return {
+        ...actual,
+        createProjectSubmission: vi.fn(async () => {
+          throw new Error("connect ECONNREFUSED postgres://user:hunter2@127.0.0.1:1/none");
+        }),
+      };
+    });
+    const { POST } = await import("./route");
 
-    const res = await post(submitRequest(validPayload()));
+    const res = await POST(submitRequest(validPayload()) as never);
 
     expect(res.status).toBe(502);
     const raw = await res.text();
-    expect(raw).not.toContain(notionMessage);
-    expect(raw).not.toContain("validation_error");
-    expect(raw).not.toContain("secret_test");
+    expect(raw).not.toMatch(/hunter2|postgres|ECONNREFUSED/i);
     expect(JSON.parse(raw).error).toMatch(/try again/i);
     // The detail is still logged server-side.
     expect(error).toHaveBeenCalled();
+
+    vi.doUnmock("@/lib/data/projects");
+    vi.resetModules();
+  });
+
+  it("degrades to 401 when the session store itself is unreachable", async () => {
+    // Documented consequence of Phase 4's ordering, not an accident:
+    // `resolveIdentity` treats an unreachable database as "nobody is signed
+    // in" so that public pages keep serving (Article 4), and this route checks
+    // sign-in before it writes. A signed-in student therefore sees "sign in to
+    // share a project" during an outage rather than "submission failed" — a
+    // worse sentence than it could be, but it still leaks nothing and still
+    // writes nothing.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubEnv("DATABASE_URL", "postgres://user:hunter2@127.0.0.1:1/none");
+    resetDbForTests();
+    resetAuthForTests();
+
+    const res = await post(submitRequest(validPayload()));
+
+    expect(res.status).toBe(401);
+    expect(await res.text()).not.toMatch(/hunter2|ECONNREFUSED/i);
+
+    warn.mockRestore();
+    vi.stubEnv("DATABASE_URL", "");
+    resetDbForTests();
+    resetAuthForTests();
   });
 });

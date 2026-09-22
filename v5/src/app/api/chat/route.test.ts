@@ -46,9 +46,8 @@ vi.mock("ai", async (importOriginal) => {
 const mocks = vi.hoisted(() => ({
   rateLimitAsync: vi.fn(),
   checkRateLimit: vi.fn(),
-  createMaintenanceLog: vi.fn(),
 }));
-const { checkRateLimit, createMaintenanceLog } = mocks;
+const { checkRateLimit } = mocks;
 
 // ── Mock the rate limiter (default: allowed, set in beforeEach) ──────
 // The route calls the identity-keyed `checkRateLimit`; the rest of the module
@@ -64,14 +63,9 @@ vi.mock("@/lib/rate-limit", async (importOriginal) => {
   };
 });
 
-// ── Mock the one Notion call left in the route's tools ───────────────
-// `report_issue` still files its ticket in Notion (spec §9, Phase 3). Every
-// other export stays real: nothing else in this request path reads Notion, and
-// a full replacement would have to track every import in the capability layer.
-vi.mock("@/lib/notion", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("@/lib/notion")>();
-  return { ...actual, createMaintenanceLog: mocks.createMaintenanceLog };
-});
+// No Notion mock: since Phase 3 nothing in this request path reads or writes
+// Notion. `report_issue` files its ticket into the demo-seeded PGlite database
+// and the assertions below read the row back out.
 
 // next/cache is imported by catalog.ts ("use cache" / cacheTag / cacheLife).
 vi.mock("next/cache", () => ({
@@ -83,7 +77,6 @@ vi.mock("next/cache", () => ({
 import { eq, inArray } from "drizzle-orm";
 import { POST } from "@/app/api/chat/route";
 import { getDb, resetDbForTests } from "@/lib/db/client";
-import { DEMO_FORM_4_UNIT_NOTION_PAGE_ID } from "@/lib/db/demo-seed";
 import {
   attachments,
   maintenanceLogs,
@@ -91,11 +84,8 @@ import {
   tools as toolsTable,
   units,
 } from "@/lib/db/schema/index";
-import {
-  SESSION_COOKIE_NAME,
-  createSessionPayload,
-  signSession,
-} from "@/lib/auth/session-cookie";
+import { resetAuthForTests } from "@/lib/auth/config";
+import { signInAsNew } from "../../../../test/utils/session";
 
 /**
  * The catalogue, the units and the resources all come from the demo-seeded
@@ -175,6 +165,7 @@ const userMessage = (text: string) => ({
 beforeEach(() => {
   captured.args = undefined;
   vi.stubEnv("DATABASE_URL", "");
+  resetAuthForTests();
   // Undo any `vi.stubGlobal("fetch", …)` from a prior PDF test (the shared
   // setup file does not call vi.unstubAllGlobals).
   vi.unstubAllGlobals();
@@ -184,9 +175,8 @@ beforeEach(() => {
     limit: 60,
     windowMs: 60 * 60_000,
     retryAfterSeconds: 3600,
-    role: "student",
+    role: "user",
   });
-  createMaintenanceLog.mockReset();
 });
 
 afterEach(async () => {
@@ -338,14 +328,17 @@ describe("report_issue.execute", () => {
     return captured.args.tools;
   }
 
-  it("returns { success:true, ticket_id } when createMaintenanceLog resolves", async () => {
-    createMaintenanceLog.mockResolvedValueOnce({
-      id: "created-page-1",
-      createdTime: "2024-09-01T10:00:00.000Z",
-      lastEditedTime: "2024-09-01T10:00:00.000Z",
-      fields: { title: "Bed not leveling" },
-    });
+  /** The ticket the tool call actually wrote. */
+  async function ticket(id: string) {
+    const db = await getDb();
+    const [row] = await db
+      .select()
+      .from(maintenanceLogs)
+      .where(eq(maintenanceLogs.id, id));
+    return row;
+  }
 
+  it("writes an open issue_report and returns its id", async () => {
     const tools = await getTools();
     const result = await tools.report_issue.execute({
       title: "Bed not leveling",
@@ -354,25 +347,16 @@ describe("report_issue.execute", () => {
     });
 
     expect(result.success).toBe(true);
-    expect(result.ticket_id).toBe("created-page-1");
-    expect(createMaintenanceLog).toHaveBeenCalledTimes(1);
-    expect(createMaintenanceLog).toHaveBeenCalledWith(
-      expect.objectContaining({
-        title: "Bed not leveling",
-        type: "Issue Report",
-        status: "Open",
-      })
-    );
+    const row = await ticket(result.ticket_id);
+    expect(row).toMatchObject({
+      title: "Bed not leveling",
+      type: "issue_report",
+      priority: "medium",
+      status: "open",
+    });
   });
 
   it("links the resolved unit when a known unit_label is supplied", async () => {
-    createMaintenanceLog.mockResolvedValueOnce({
-      id: "created-page-2",
-      createdTime: "2024-09-01T10:00:00.000Z",
-      lastEditedTime: "2024-09-01T10:00:00.000Z",
-      fields: { title: "x" },
-    });
-
     const tools = await getTools();
     const result = await tools.report_issue.execute({
       title: "Resin leak",
@@ -381,86 +365,68 @@ describe("report_issue.execute", () => {
       priority: "High",
     });
 
-    // The caller is told the Postgres uuid the catalogue resolved; the ticket,
-    // still filed in Notion, carries the unit's imported Notion page id — the
-    // only id that database's `unit` relation can address.
+    // The catalogue id and the ticket's `unit_id` are the same Postgres uuid —
+    // there is no translation left between them.
     const form4A = await unitId("Form 4 // A");
     expect(result.success).toBe(true);
     expect(result.unit_resolved).toEqual({ id: form4A, label: "Form 4 // A" });
-    expect(createMaintenanceLog).toHaveBeenCalledWith(
-      expect.objectContaining({ unit: [DEMO_FORM_4_UNIT_NOTION_PAGE_ID] })
-    );
+    expect((await ticket(result.ticket_id)).unitId).toBe(form4A);
   });
 
-  it("records the verified session name and email for a signed-in student", async () => {
-    // The end-to-end proof of the pass-through: a real signed cookie on the
-    // request, through resolveIdentity, onto the CapabilityCtx, into the write.
+  it("records the verified session name and email for a signed-in user", async () => {
+    // The end-to-end proof of the pass-through: a real session row and the
+    // cookie that addresses it, through resolveIdentity, onto the
+    // CapabilityCtx, into the write.
     vi.stubEnv("AUTH_SECRET", "chat-route-test-secret");
-    const token = await signSession(
-      createSessionPayload({
-        sub: "google-sub-1",
-        email: "ada@cornell.edu",
-        name: "Ada Lovelace",
-      }),
-      "chat-route-test-secret"
-    );
-    createMaintenanceLog.mockResolvedValueOnce({
-      id: "created-page-3",
-      createdTime: "2024-09-01T10:00:00.000Z",
-      lastEditedTime: "2024-09-01T10:00:00.000Z",
-      fields: { title: "x" },
+    resetAuthForTests();
+    const reporter = await signInAsNew({
+      email: "ada@cornell.edu",
+      name: "Ada Lovelace",
     });
 
     await POST(
-      chatRequest(
-        { messages: [userMessage("hi")] },
-        { cookie: `${SESSION_COOKIE_NAME}=${token}` }
-      )
+      chatRequest({ messages: [userMessage("hi")] }, { cookie: reporter.cookie })
     );
     // The assistant is told who it is talking to, and told not to ask.
     expect(captured.args.system).toContain("Ada Lovelace");
     expect(captured.args.system).not.toContain("ada@cornell.edu");
 
-    await captured.args.tools.report_issue.execute({
+    const result = await captured.args.tools.report_issue.execute({
       title: "Resin leak",
       description: "Leaking resin",
       priority: "High",
       reported_by: "Somebody Else",
     });
 
-    expect(createMaintenanceLog).toHaveBeenCalledWith(
-      expect.objectContaining({
-        reported_by: "Ada Lovelace",
-        reporter_email: "ada@cornell.edu",
-      })
-    );
+    expect(await ticket(result.ticket_id)).toMatchObject({
+      reportedByName: "Ada Lovelace",
+      reportedByEmail: "ada@cornell.edu",
+      reportedByUserId: reporter.user.id,
+    });
   });
 
   it("records no email and the supplied name for an anonymous reporter", async () => {
-    createMaintenanceLog.mockResolvedValueOnce({
-      id: "created-page-4",
-      createdTime: "2024-09-01T10:00:00.000Z",
-      lastEditedTime: "2024-09-01T10:00:00.000Z",
-      fields: { title: "x" },
-    });
-
     const tools = await getTools();
-    await tools.report_issue.execute({
+    const result = await tools.report_issue.execute({
       title: "Resin leak",
       description: "Leaking resin",
       priority: "High",
       reported_by: "Grace Hopper",
     });
 
-    const fields = createMaintenanceLog.mock.calls[0][0];
-    expect(fields.reported_by).toBe("Grace Hopper");
-    expect(fields.reporter_email).toBeUndefined();
+    const row = await ticket(result.ticket_id);
+    expect(row.reportedByName).toBe("Grace Hopper");
+    expect(row.reportedByEmail).toBeNull();
   });
 
-  it("returns { success:false, error } when createMaintenanceLog rejects", async () => {
-    createMaintenanceLog.mockRejectedValueOnce(new Error("Notion is down"));
-
+  it("returns { success:false, error } when the write fails, and files nothing", async () => {
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
     const tools = await getTools();
+    // A configured database nobody can reach — the case that must never come
+    // back as "logged your ticket".
+    vi.stubEnv("DATABASE_URL", "postgres://user:hunter2@127.0.0.1:1/none");
+    resetDbForTests();
+
     const result = await tools.report_issue.execute({
       title: "Broken",
       description: "It is broken",
@@ -468,7 +434,14 @@ describe("report_issue.execute", () => {
     });
 
     expect(result.success).toBe(false);
-    expect(result.error).toBe("Notion is down");
+    expect(result.ticket_id).toBeUndefined();
+    expect(result.error).not.toMatch(/hunter2|postgres|ECONNREFUSED/i);
+    expect(logged).toHaveBeenCalled();
+
+    // Put the demo substrate back before the file's own cleanup runs: the
+    // stub is still in force until vitest's global afterEach clears it.
+    vi.stubEnv("DATABASE_URL", "");
+    resetDbForTests();
   });
 });
 
@@ -617,24 +590,18 @@ describe("PDF manual collection (focused tool)", () => {
   });
 });
 
-// ── Adding equipment is staff-only (auth spec amendment 2026-09-14) ──
+// ── Adding equipment needs `tools.add` (spec §3.5) ───────────────────
 describe("POST /api/chat — who may add equipment", () => {
   const INTAKE_TOOLS = ["research_tool", "propose_listing", "create_tool"];
   const SECRET = "chat-route-test-secret";
   const ASK = "I'd like to add new equipment to the inventory.";
 
-  async function postAs(email: string, name: string) {
+  /** Post as a seeded session in `role`. No Google, no env roster. */
+  async function postAs(role: "user" | "admin" | "super_admin", name: string) {
     vi.stubEnv("AUTH_SECRET", SECRET);
-    const token = await signSession(
-      createSessionPayload({ sub: `sub-${email}`, email, name }),
-      SECRET
-    );
-    await POST(
-      chatRequest(
-        { messages: [userMessage(ASK)] },
-        { cookie: `${SESSION_COOKIE_NAME}=${token}` }
-      )
-    );
+    resetAuthForTests();
+    const { cookie } = await signInAsNew({ role, name });
+    await POST(chatRequest({ messages: [userMessage(ASK)] }, { cookie }));
   }
 
   it("gives an anonymous visitor no intake tools, and tells the assistant why", async () => {
@@ -647,8 +614,8 @@ describe("POST /api/chat — who may add equipment", () => {
     expect(captured.args.system).not.toContain("act as an intake agent");
   });
 
-  it("gives a signed-in student no intake tools either", async () => {
-    await postAs("ada@cornell.edu", "Ada Lovelace");
+  it("gives an ordinary signed-in user no intake tools either", async () => {
+    await postAs("user", "Ada Lovelace");
 
     for (const name of INTAKE_TOOLS) {
       expect(captured.args.tools).not.toHaveProperty(name);
@@ -656,9 +623,9 @@ describe("POST /api/chat — who may add equipment", () => {
     expect(captured.args.system).toContain("limited to lab staff");
   });
 
-  it("gives staff the intake tools and the full intake instructions", async () => {
-    vi.stubEnv("AUTH_STAFF_EMAILS", "niti@cornell.edu");
-    await postAs("niti@cornell.edu", "Niti Parikh");
+  it("gives an admin the intake tools and the full intake instructions", async () => {
+    // The role comes from the `user` row. `AUTH_STAFF_EMAILS` is retired.
+    await postAs("admin", "Niti Parikh");
 
     for (const name of INTAKE_TOOLS) {
       expect(captured.args.tools).toHaveProperty(name);
@@ -685,7 +652,7 @@ describe("POST /api/chat — photos reach the model", () => {
             parts: [
               {
                 type: "text",
-                text: "what printer is this?\n\n[Attached photos: file_upload_id=fu_1 name=plate.jpg]",
+                text: "what printer is this?\n\n[Attached photos: attachment_id=3f2504e0-4f89-41d3-9a0c-0305e82c3301 name=plate.jpg]",
               },
               {
                 type: "file",
@@ -707,6 +674,42 @@ describe("POST /api/chat — photos reach the model", () => {
           mediaType: "image/jpeg",
           data: "data:image/jpeg;base64,AAAA",
         }),
+      ])
+    );
+  });
+
+  it("still shows the model a photo whose hint entry is malformed", async () => {
+    // The hint is assembled by the client and re-sent verbatim on every turn,
+    // so a truncated one must degrade to "no id" rather than throwing the
+    // request away — the model can still look at the picture.
+    const res = await POST(
+      chatRequest({
+        messages: [
+          {
+            id: "1",
+            role: "user",
+            parts: [
+              {
+                type: "text",
+                text: "what is this?\n\n[Attached photos: name=plate.jpg; attachment_id=]",
+              },
+              {
+                type: "file",
+                mediaType: "image/jpeg",
+                filename: "plate.jpg",
+                url: "data:image/jpeg;base64,AAAA",
+              },
+            ],
+          },
+        ],
+      })
+    );
+
+    expect(res.status).toBe(200);
+    const user = captured.args.messages.find((m: any) => m.role === "user");
+    expect(user.content).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: "file", mediaType: "image/jpeg" }),
       ])
     );
   });

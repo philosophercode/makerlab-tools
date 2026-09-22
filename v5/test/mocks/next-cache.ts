@@ -25,5 +25,6 @@ export function nextCacheMock() {
     cacheLife: vi.fn(),
     cacheTag: vi.fn(),
     revalidateTag: vi.fn(),
+    revalidatePath: vi.fn(),
   };
 }

@@ -22,6 +22,7 @@ interface ProjectSubmitFormProps {
 }
 
 interface UploadedPhoto {
+  /** `attachments.id` from `POST /api/uploads` — a Postgres uuid. */
   id: string;
   name: string;
 }
@@ -42,7 +43,6 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
   const t = useTranslations("projectForm");
 
   const [title, setTitle] = useState("");
-  const [author, setAuthor] = useState("");
   const [body, setBody] = useState("");
   const [link, setLink] = useState("");
   const [materials, setMaterials] = useState("");
@@ -51,10 +51,14 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
 
   // Who is submitting is request state, and this form renders inside a
   // statically-shelled layout — so it asks after mount, exactly as the header
-  // does (auth spec §6). Until it answers, and whenever it cannot, the student
-  // types their own name: anonymous submission is a deliberate path (spec §5),
-  // not a degraded one, and nothing here waits on the answer.
+  // does (auth spec §6). Since Phase 4 the answer decides what renders at all:
+  // submitting requires an account (spec §5.5), so an anonymous visitor gets
+  // the sign-in prompt in place of the form. `resolved` is what tells "not
+  // signed in" apart from "has not answered yet" — showing the prompt to
+  // somebody who *is* signed in, for the half-second before the fetch lands,
+  // would be the most annoying possible bug here.
   const [identity, setIdentity] = useState<ClientIdentity | null>(null);
+  const [resolved, setResolved] = useState(false);
 
   const [toolQuery, setToolQuery] = useState("");
   const [uploading, setUploading] = useState(0);
@@ -65,15 +69,10 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
   useEffect(() => {
     const controller = new AbortController();
     let active = true;
-    fetchIdentity(controller.signal).then((resolved) => {
+    fetchIdentity(controller.signal).then((answer) => {
       if (!active) return;
-      setIdentity(resolved);
-      // Pre-fill the byline from the session. The server writes the session name
-      // regardless of what is posted, so the field is read-only rather than
-      // merely suggested — showing an editable name it would then override is
-      // the kind of lie that makes a form feel broken.
-      const name = nameOf(resolved);
-      if (name) setAuthor(name);
+      setIdentity(answer);
+      setResolved(true);
     });
     return () => {
       active = false;
@@ -81,6 +80,7 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
     };
   }, []);
 
+  const signedIn = isSignedIn(identity);
   const verifiedName = nameOf(identity);
 
   const filteredTools = toolQuery.trim()
@@ -110,21 +110,29 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
         try {
           const form = new FormData();
           form.append("file", file);
-          const res = await fetch("/api/upload-notion", {
+          form.append("kind", "project");
+          const res = await fetch("/api/uploads", {
             method: "POST",
             body: form,
           });
+          if (res.status === 503) {
+            // No Blob store is configured, so there is nowhere to keep the
+            // photo. The form stays submittable: a project write-up without
+            // pictures is still worth having (Article 4).
+            throw new Error(t("uploadsUnavailable"));
+          }
           if (!res.ok) {
             const data = (await res.json().catch(() => null)) as
               | { error?: string }
               | null;
             throw new Error(data?.error || t("uploadFailed"));
           }
+          // `attachmentId` is an `attachments` row; the submission claims it.
           const data = (await res.json()) as {
-            file_upload_id: string;
+            attachmentId: string;
             name: string;
           };
-          setPhotos((prev) => [...prev, { id: data.file_upload_id, name: data.name }]);
+          setPhotos((prev) => [...prev, { id: data.attachmentId, name: data.name }]);
         } catch (err) {
           setError(err instanceof Error ? err.message : t("uploadFailed"));
         } finally {
@@ -142,7 +150,7 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
     event.preventDefault();
     setError(null);
 
-    if (!title.trim() || !author.trim() || !body.trim()) {
+    if (!title.trim() || !body.trim()) {
       setError(t("requiredError"));
       return;
     }
@@ -158,8 +166,9 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          // No `author`: the route takes the byline from the session and
+          // ignores anything sent here (spec §5.5).
           title: title.trim(),
-          author: author.trim(),
           body: body.trim(),
           link: link.trim() || undefined,
           tools: selectedTools,
@@ -200,6 +209,27 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
     );
   }
 
+  // Anonymous, and we know it: the prompt replaces the form (spec §5.5, §6).
+  // Deliberately not a redirect to sign-in — the visitor asked for this page,
+  // and a header control they can use without losing their place is a better
+  // answer than a bounce. Browsing the gallery stays open to them.
+  if (resolved && !signedIn) {
+    return (
+      <main className="tool-detail">
+        <section className="td-panel td-prose project-sign-in">
+          <p className="td-eyebrow">{t("eyebrow")}</p>
+          <h1>{t("signInTitle")}</h1>
+          <p>{t("signInBody", { institution: siteConfig.institution })}</p>
+          <div className="td-prose-actions">
+            <Link className="td-button td-button-primary" href="/projects">
+              {t("signInBrowse")}
+            </Link>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="tool-detail">
       <div className="td-breadcrumbs">
@@ -228,23 +258,12 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
           />
         </label>
 
-        <label className="project-field">
-          <span>{t("authorLabel")}</span>
-          <input
-            type="text"
-            value={author}
-            onChange={(event) => setAuthor(event.target.value)}
-            maxLength={120}
-            required
-            readOnly={Boolean(verifiedName)}
-            aria-describedby={verifiedName ? AUTHOR_NOTE_ID : undefined}
-          />
-        </label>
-        {/* Outside the <label> on purpose: text inside it would become part of
-            the field's accessible name ("Your name Taken from…"). Described-by
-            keeps it announced as help text, which is what it is. */}
+        {/* The byline, not a field. It is the session's display name and the
+            server writes it whatever the request says, so offering an input
+            would be offering a choice that is not there. */}
         {verifiedName ? (
           <p className="project-form-note" id={AUTHOR_NOTE_ID}>
+            {t("authorNote", { name: verifiedName })}{" "}
             {t("authorFromAccount", { institution: siteConfig.institution })}
           </p>
         ) : null}

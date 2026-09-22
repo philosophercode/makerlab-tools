@@ -1,11 +1,16 @@
 // @vitest-environment node
+import { eq } from "drizzle-orm";
 import { createPgliteDb } from "../db/pglite";
-import { maintenanceLogs, tools, units } from "../db/schema/index";
+import { attachments, maintenanceLogs, tools, units } from "../db/schema/index";
+import { MAINTENANCE_PRIORITY, MAINTENANCE_TYPE } from "../db/schema/vocabulary";
+import { insertUserRow } from "../../../test/utils/session";
 import type { Db } from "../db/types";
 import {
+  createMaintenanceLog,
   listMaintenanceHistoryForUnit,
   toDisplayLabel,
   toMaintenanceHistoryEntry,
+  toStoredValue,
 } from "./maintenance";
 
 /**
@@ -14,6 +19,7 @@ import {
  */
 
 let db: Db;
+let toolId: string;
 let unitId: string;
 let otherUnitId: string;
 
@@ -22,6 +28,8 @@ beforeAll(async () => {
 });
 
 beforeEach(async () => {
+  vi.stubEnv("LAB_TIMEZONE", "America/New_York");
+  await db.delete(attachments);
   await db.delete(maintenanceLogs);
   // Deleting the tools cascades to their units.
   await db.delete(tools);
@@ -37,6 +45,7 @@ beforeEach(async () => {
       { toolId: form4.id, unitLabel: "Form 4 // B" },
     ])
     .returning({ id: units.id });
+  toolId = form4.id;
   unitId = unitA.id;
   otherUnitId = unitB.id;
 });
@@ -189,5 +198,199 @@ describe("toDisplayLabel", () => {
     expect(toDisplayLabel(null)).toBe("");
     expect(toDisplayLabel(undefined)).toBe("");
     expect(toDisplayLabel("")).toBe("");
+  });
+});
+
+// ── createMaintenanceLog (spec §4.8) ────────────────────────────────
+
+describe("createMaintenanceLog", () => {
+  /** Everything the filed row holds, read straight back out. */
+  async function storedLog(id: string) {
+    const [row] = await db.select().from(maintenanceLogs).where(eq(maintenanceLogs.id, id));
+    return row;
+  }
+
+  it("copies the unit's tool and snapshots both display names", async () => {
+    const created = await createMaintenanceLog(
+      {
+        title: "Resin tank cloudy",
+        description: "Prints are coming out foggy.",
+        type: "Issue Report",
+        priority: "Medium",
+        status: "Open",
+        unitId,
+      },
+      { db }
+    );
+
+    const row = await storedLog(created.id);
+    expect(row.unitId).toBe(unitId);
+    // `tool_id` is copied from the unit at write time, and the two names are
+    // snapshots so the history survives the unit being retired (§4.8).
+    expect(row.toolId).toBe(toolId);
+    expect(row.toolName).toBe("Form 4");
+    expect(row.unitLabel).toBe("Form 4 // A");
+    expect(created.toolId).toBe(toolId);
+  });
+
+  it("maps the capability's display casing down to the stored vocabulary", async () => {
+    const created = await createMaintenanceLog(
+      { title: "Bed not leveling", type: "Issue Report", priority: "Medium", status: "Open" },
+      { db }
+    );
+
+    const row = await storedLog(created.id);
+    // The CHECK constraints store snake_case; the capability speaks Notion's
+    // select casing. A mismatch here fails the whole insert.
+    expect(row.type).toBe("issue_report");
+    expect(row.priority).toBe("medium");
+    expect(row.status).toBe("open");
+    // And it round-trips back to what the assistant has always seen.
+    expect(toDisplayLabel(row.type)).toBe("Issue Report");
+    expect(toDisplayLabel(row.priority)).toBe("Medium");
+  });
+
+  it("stores an unrecognised priority as null rather than failing the insert", async () => {
+    const created = await createMaintenanceLog(
+      { title: "Odd one", priority: "Spicy", type: "Issue Report" },
+      { db }
+    );
+
+    // Losing a report of an unsafe machine to a priority spelled oddly is the
+    // wrong failure (Article 4).
+    const row = await storedLog(created.id);
+    expect(row.priority).toBeNull();
+    expect(row.title).toBe("Odd one");
+  });
+
+  it("files a ticket with no unit at all", async () => {
+    const created = await createMaintenanceLog({ title: "Lab smells of solvent" }, { db });
+
+    // No CHECK requires a unit: most live logs have neither unit nor tool, and
+    // a ticket with no target is still a ticket (§4.8).
+    const row = await storedLog(created.id);
+    expect(row.unitId).toBeNull();
+    expect(row.toolId).toBeNull();
+    expect(row.status).toBe("open");
+  });
+
+  it("ignores a unit id that is not uuid-shaped", async () => {
+    const created = await createMaintenanceLog(
+      { title: "Unresolvable", unitId: "Form 4 // A" },
+      { db }
+    );
+
+    expect((await storedLog(created.id)).unitId).toBeNull();
+  });
+
+  it("dates the ticket in the lab's timezone, not the server's", async () => {
+    vi.stubEnv("LAB_TIMEZONE", "Pacific/Kiritimati");
+
+    const created = await createMaintenanceLog({ title: "Dated" }, { db });
+
+    // +14: the lab's day is reliably ahead of UTC's, which is what makes this
+    // assertion about the timezone rather than about the clock.
+    const row = await storedLog(created.id);
+    expect(row.dateReported).toBe(created.dateReported);
+    expect(row.dateReported).not.toBeNull();
+    expect(row.dateReported! >= new Date().toISOString().slice(0, 10)).toBe(true);
+  });
+
+  it("writes reported_by_email only when one was passed, and never reads it back", async () => {
+    // `created_by` references `user.id` since Phase 4; the reporter is a row.
+    await insertUserRow(db, { id: "google-sub-1", email: "ada@cornell.edu" });
+    const created = await createMaintenanceLog(
+      {
+        title: "Signed in",
+        unitId,
+        reportedByName: "Ada Lovelace",
+        reportedByEmail: "ada@cornell.edu",
+        reportedByUserId: "google-sub-1",
+      },
+      { db }
+    );
+
+    const row = await storedLog(created.id);
+    expect(row.reportedByEmail).toBe("ada@cornell.edu");
+    expect(row.reportedByName).toBe("Ada Lovelace");
+    // The audit columns record who filed it.
+    expect(row.createdBy).toBe("google-sub-1");
+
+    // …and the history read never selects the email (spec §8, PII).
+    const [entry] = await listMaintenanceHistoryForUnit(unitId, { db });
+    expect(entry.reportedByName).toBe("Ada Lovelace");
+    expect(JSON.stringify(entry)).not.toContain("ada@cornell.edu");
+  });
+
+  it("files anonymously with no reporter columns at all", async () => {
+    const created = await createMaintenanceLog({ title: "Anonymous" }, { db });
+
+    const row = await storedLog(created.id);
+    expect(row.reportedByName).toBeNull();
+    expect(row.reportedByEmail).toBeNull();
+    expect(row.reportedByUserId).toBeNull();
+    expect(row.createdBy).toBeNull();
+  });
+
+  it("claims the photos onto the new ticket and says how many stuck", async () => {
+    const [photo] = await db
+      .insert(attachments)
+      .values({ blobPathname: "uploads/a.png", access: "private", contentType: "image/png" })
+      .returning({ id: attachments.id });
+
+    const created = await createMaintenanceLog(
+      { title: "With a photo", unitId, photoAttachmentIds: [photo.id, "file-upload-2"] },
+      { db }
+    );
+
+    expect(created.photosAttached).toBe(1);
+    const [row] = await db.select().from(attachments).where(eq(attachments.id, photo.id));
+    expect(row).toMatchObject({ ownerType: "maintenance_log", ownerId: created.id, position: 0 });
+  });
+
+  it("reports zero photos attached when none of the ids matched", async () => {
+    const created = await createMaintenanceLog(
+      { title: "Photo lost", photoAttachmentIds: ["file-upload-1"] },
+      { db }
+    );
+
+    // Zero is what lets the capability tell the student the ticket was filed
+    // without their picture instead of implying staff can see it.
+    expect(created.photosAttached).toBe(0);
+  });
+
+  it("shows up in the unit's history immediately", async () => {
+    await createMaintenanceLog(
+      { title: "Freshly filed", type: "Issue Report", priority: "High", unitId },
+      { db }
+    );
+
+    const history = await listMaintenanceHistoryForUnit(unitId, { db });
+    expect(history.map((entry) => entry.title)).toEqual(["Freshly filed"]);
+    expect(history[0].priority).toBe("High");
+    // And only on that unit.
+    expect(await listMaintenanceHistoryForUnit(otherUnitId, { db })).toEqual([]);
+  });
+});
+
+describe("toStoredValue", () => {
+  it("is the exact inverse of toDisplayLabel for every vocabulary value", () => {
+    for (const value of [...MAINTENANCE_TYPE, ...MAINTENANCE_PRIORITY]) {
+      const list = (MAINTENANCE_TYPE as readonly string[]).includes(value)
+        ? MAINTENANCE_TYPE
+        : MAINTENANCE_PRIORITY;
+      expect(toStoredValue(toDisplayLabel(value), list)).toBe(value);
+    }
+  });
+
+  it("accepts a value that is already stored-shaped", () => {
+    expect(toStoredValue("issue_report", MAINTENANCE_TYPE)).toBe("issue_report");
+  });
+
+  it("returns null for anything outside the vocabulary", () => {
+    expect(toStoredValue("Spicy", MAINTENANCE_PRIORITY)).toBeNull();
+    expect(toStoredValue("", MAINTENANCE_PRIORITY)).toBeNull();
+    expect(toStoredValue(null, MAINTENANCE_PRIORITY)).toBeNull();
+    expect(toStoredValue(undefined, MAINTENANCE_PRIORITY)).toBeNull();
   });
 });

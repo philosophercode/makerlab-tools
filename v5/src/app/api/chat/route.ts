@@ -24,7 +24,7 @@ import { siteConfig } from "../../../lib/site-config";
 import { chatModel } from "../../../lib/model";
 import {
   CAPABILITIES,
-  capabilitiesForRole,
+  capabilitiesForIdentity,
   composeChat,
 } from "../../../lib/capabilities";
 import type {
@@ -85,8 +85,8 @@ export async function POST(req: Request) {
 
   // Convert the UI messages, attach any server-fetched manuals, and surface the
   // uploaded photos for this turn both to the model (image bytes — design spec
-  // §6.1) and to the capability layer (file_upload ids the intake `create_tool`
-  // re-uses to attach the same photo to the new Notion page).
+  // §6.1) and to the capability layer (`attachments.id`s a write such as
+  // `report_issue` claims onto the row it creates).
   const baseMessages = await convertToModelMessages(messages);
   const attachments = collectAttachments(baseMessages);
   if (attachments.length > 0) {
@@ -125,10 +125,10 @@ export async function POST(req: Request) {
       // them). web_fetch keeps the focused-tool domain allow-list.
       //
       // The registry is composed as this caller may use it: a capability whose
-      // minimum role they do not meet contributes no tools, only a note on why
-      // (auth spec amendment 2026-09-14).
+      // required permission they do not hold contributes no tools, only a note
+      // on why (spec §3.5).
       const { tools: capabilityTools, system } = composeChat(
-        capabilitiesForRole(CAPABILITIES, identity.role),
+        capabilitiesForIdentity(CAPABILITIES, identity),
         ctx,
         { tools, focusedTool: focused, locale }
       );
@@ -231,12 +231,13 @@ function describeChatError(error: unknown): string {
 /**
  * Reconstruct the uploaded photos for this turn into {@link UploadedImage}s.
  *
- * The chat client uploads each photo to Notion and appends a text hint
- * (`[Attached photos: file_upload_id=<id> name=<name>; ...]`) to the user
- * message; for vision it also includes the image bytes as image/file parts so
- * Claude can see them. We pair the hint entries (which carry the durable Notion
- * `file_upload_id` the intake `create_tool` re-uses) with the inline image bytes
- * (the `dataUrl` the model sees) from the latest user message, in order.
+ * The chat client uploads each photo to Blob through `POST /api/uploads` and
+ * appends a text hint (`[Attached photos: attachment_id=<uuid> name=<name>;
+ * ...]`) to the user message; for vision it also includes the image bytes as
+ * image/file parts so Claude can see them. We pair the hint entries (which
+ * carry the durable `attachments.id` a write later claims) with the inline
+ * image bytes (the `dataUrl` the model sees) from the latest user message, in
+ * order.
  */
 function collectAttachments(messages: ModelMessage[]): UploadedImage[] {
   const lastUser = [...messages]
@@ -250,7 +251,7 @@ function collectAttachments(messages: ModelMessage[]): UploadedImage[] {
 
   if (hints.length === 0 && images.length === 0) return [];
 
-  // Pair hints (file_upload_id + name) with inline image bytes by position. Some
+  // Pair hints (attachment_id + name) with inline image bytes by position. Some
   // entries may have only one side: a hint without bytes still feeds the intake
   // layer; bytes without a hint still let the model see the photo.
   const count = Math.max(hints.length, images.length);
@@ -259,7 +260,7 @@ function collectAttachments(messages: ModelMessage[]): UploadedImage[] {
     const hint = hints[i];
     const image = images[i];
     attachments.push({
-      file_upload_id: hint?.file_upload_id ?? "",
+      attachmentId: hint?.attachmentId ?? "",
       name: hint?.name ?? image?.name ?? `photo-${i + 1}`,
       contentType: image?.contentType ?? "image/jpeg",
       dataUrl: image?.dataUrl,
@@ -348,11 +349,11 @@ function imageDataToUrl(
 const PHOTO_HINT_RE = /\[Attached photos:\s*([^\]]+)\]/i;
 
 interface PhotoHint {
-  file_upload_id: string;
+  attachmentId: string;
   name: string;
 }
 
-/** Parse the `[Attached photos: file_upload_id=… name=…; …]` hint into entries. */
+/** Parse the `[Attached photos: attachment_id=… name=…; …]` hint into entries. */
 function parsePhotoHints(text: string): PhotoHint[] {
   const block = text.match(PHOTO_HINT_RE);
   if (!block) return [];
@@ -361,11 +362,11 @@ function parsePhotoHints(text: string): PhotoHint[] {
     .map((entry) => entry.trim())
     .filter(Boolean)
     .map((entry) => {
-      const id = entry.match(/file_upload_id=(\S+)/)?.[1] ?? "";
+      const id = entry.match(/attachment_id=(\S+)/)?.[1] ?? "";
       const name = entry.match(/name=([^;]+?)\s*$/)?.[1]?.trim() ?? "";
-      return { file_upload_id: id, name };
+      return { attachmentId: id, name };
     })
-    .filter((hint) => hint.file_upload_id || hint.name);
+    .filter((hint) => hint.attachmentId || hint.name);
 }
 
 // ── Helpers (focused tool / manuals) ───────────────────────────────

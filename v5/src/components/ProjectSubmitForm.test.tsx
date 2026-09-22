@@ -70,7 +70,6 @@ async function fillRequired(
   { body = "Cut on the laser, then glued." } = {}
 ) {
   await user.type(screen.getByLabelText("Project title"), "Plywood lamp");
-  await user.type(screen.getByLabelText("Your name"), "Ada Lovelace");
   await user.type(screen.getByLabelText("Write-up (Markdown supported)"), body);
 }
 
@@ -78,9 +77,15 @@ function submitButton() {
   return screen.getByRole("button", { name: "Submit project" });
 }
 
+const SIGNED_IN: ClientIdentity = { role: "user", name: "Ada Lovelace" };
+
 beforeEach(() => {
   fetchIdentity.mockClear();
-  fetchIdentity.mockResolvedValue(null);
+  // Signed in by default: since Phase 4 submitting requires an account (spec
+  // §5.5), so a signed-in visitor is what every test about *the form* needs.
+  // The anonymous path renders the sign-in prompt instead and has its own
+  // describe below.
+  fetchIdentity.mockResolvedValue(SIGNED_IN);
 });
 
 afterEach(() => {
@@ -96,7 +101,6 @@ describe("ProjectSubmitForm validation", () => {
     render(<ProjectSubmitForm tools={TOOLS} />);
 
     await user.type(screen.getByLabelText("Project title"), "Plywood lamp");
-    await user.type(screen.getByLabelText("Your name"), "Ada Lovelace");
     await user.type(
       screen.getByLabelText("Write-up (Markdown supported)"),
       "   "
@@ -104,7 +108,7 @@ describe("ProjectSubmitForm validation", () => {
     await user.click(submitButton());
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Title, your name, and a write-up are required."
+      "A title and a write-up are required."
     );
     expect(fetchMock).not.toHaveBeenCalled();
   });
@@ -114,8 +118,7 @@ describe("ProjectSubmitForm validation", () => {
     stubFetch(async () => jsonResponse({ id: "p1" }, 201));
     render(<ProjectSubmitForm tools={TOOLS} />);
 
-    await user.type(screen.getByLabelText("Project title"), "Plywood lamp");
-    await user.type(screen.getByLabelText("Your name"), "  ");
+    await user.type(screen.getByLabelText("Project title"), "  ");
     await user.type(
       screen.getByLabelText("Write-up (Markdown supported)"),
       "A write-up."
@@ -123,101 +126,115 @@ describe("ProjectSubmitForm validation", () => {
     await user.click(submitButton());
 
     await screen.findByRole("alert");
-    expect(screen.getByLabelText("Project title")).toHaveValue("Plywood lamp");
+    expect(screen.getByLabelText("Project title")).toHaveValue("  ");
     expect(
       screen.getByLabelText("Write-up (Markdown supported)")
     ).toHaveValue("A write-up.");
   });
 });
 
-// ── Verified author (spec §5) ───────────────────────────────────────
+// ── Sign-in and the byline (spec §5.5) ──────────────────────────────
 
-describe("ProjectSubmitForm author identity", () => {
-  function authorField() {
-    return screen.getByLabelText("Your name");
-  }
-
-  it("pre-fills the name from the session and makes it read-only", async () => {
-    fetchIdentity.mockResolvedValue({ role: "student", name: "Ada Lovelace" });
-    stubFetch(async () => jsonResponse({ id: "p1" }, 201));
+describe("ProjectSubmitForm — signing in is the gate", () => {
+  it("shows the sign-in prompt instead of the form for an anonymous visitor", async () => {
+    fetchIdentity.mockResolvedValue(null);
     render(<ProjectSubmitForm tools={TOOLS} />);
 
-    await waitFor(() => expect(authorField()).toHaveValue("Ada Lovelace"));
-    expect(authorField()).toHaveAttribute("readonly");
-    // And the student is told where the name came from, rather than being left
-    // to wonder why a required field will not take their typing.
     expect(
-      screen.getByText("Taken from your Cornell Tech account.")
+      await screen.findByRole("heading", { name: "Sign in to share your project" })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Submit project" })).toBeNull();
+    // Browsing stays open — the prompt offers the gallery, not a dead end.
+    expect(screen.getByRole("link", { name: "Browse projects" })).toHaveAttribute(
+      "href",
+      "/projects"
+    );
+  });
+
+  it("names the institution from config rather than leaving the placeholder", async () => {
+    fetchIdentity.mockResolvedValue(null);
+    render(<ProjectSubmitForm tools={TOOLS} />);
+
+    const body = await screen.findByText(/credited to your/);
+    expect(body).toHaveTextContent("Cornell Tech");
+    expect(body.textContent).not.toContain("{institution}");
+  });
+
+  it("treats an identity endpoint that cannot answer as anonymous", async () => {
+    // A failed `/api/identity` used to mean "type your own name"; now it means
+    // the form cannot know who is submitting, and the server would refuse the
+    // post anyway. Showing the prompt is the honest answer (Article 4).
+    fetchIdentity.mockResolvedValue(null);
+    render(<ProjectSubmitForm tools={TOOLS} />);
+
+    expect(
+      await screen.findByRole("heading", { name: "Sign in to share your project" })
     ).toBeInTheDocument();
   });
 
-  it("submits the session name and asserts no email of its own", async () => {
-    fetchIdentity.mockResolvedValue({ role: "student", name: "Ada Lovelace" });
-    const user = userEvent.setup();
-    const fetchMock = stubFetch(async () => jsonResponse({ id: "p1" }, 201));
+  it("shows neither the form nor the prompt until the answer arrives", async () => {
+    // The half-second where a signed-in student is told to sign in would be
+    // the most annoying possible bug on this page.
+    const pending = deferred<ClientIdentity | null>();
+    fetchIdentity.mockReturnValue(pending.promise);
     render(<ProjectSubmitForm tools={TOOLS} />);
 
-    await waitFor(() => expect(authorField()).toHaveValue("Ada Lovelace"));
-    await user.type(screen.getByLabelText("Project title"), "Plywood lamp");
-    await user.type(
-      screen.getByLabelText("Write-up (Markdown supported)"),
-      "Cut on the laser, then glued."
-    );
-    await user.click(submitButton());
+    expect(screen.queryByRole("heading", { name: "Sign in to share your project" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Submit project" })).toBeInTheDocument();
 
-    await screen.findByRole("heading", {
-      name: "Thanks — your project is pending review",
-    });
-    const body = lastSubmitBody(fetchMock);
-    expect(body.author).toBe("Ada Lovelace");
-    // The verified author comes from the server-resolved session; the browser
-    // has no email to send and must never send one.
-    expect(body).not.toHaveProperty("author_email");
+    pending.resolve(null);
+    expect(
+      await screen.findByRole("heading", { name: "Sign in to share your project" })
+    ).toBeInTheDocument();
   });
 
-  it("leaves the name editable for an anonymous visitor", async () => {
+  it("shows the byline it will use, and offers no field to change it", async () => {
+    render(<ProjectSubmitForm tools={TOOLS} />);
+
+    expect(
+      await screen.findByText(/Your project will be credited to Ada Lovelace/)
+    ).toBeInTheDocument();
+    // The server writes the session name whatever is posted, so an input here
+    // would be offering a choice that is not there.
+    expect(screen.queryByLabelText("Your name")).toBeNull();
+  });
+
+  it("sends no author of its own — the byline is the server's to decide", async () => {
     const user = userEvent.setup();
     const fetchMock = stubFetch(async () => jsonResponse({ id: "p1" }, 201));
     render(<ProjectSubmitForm tools={TOOLS} />);
 
-    // Anonymous submission is a deliberate path, not a degraded one.
     await waitFor(() => expect(fetchIdentity).toHaveBeenCalled());
-    expect(authorField()).not.toHaveAttribute("readonly");
-    expect(
-      screen.queryByText("Taken from your Cornell Tech account.")
-    ).toBeNull();
-
     await fillRequired(user);
     await user.click(submitButton());
 
     await screen.findByRole("heading", {
       name: "Thanks — your project is pending review",
     });
-    expect(lastSubmitBody(fetchMock).author).toBe("Ada Lovelace");
+    const body = lastSubmitBody(fetchMock);
+    expect(body).not.toHaveProperty("author");
+    expect(body).not.toHaveProperty("author_email");
   });
 
-  it("stays editable when the identity endpoint cannot answer", async () => {
-    fetchIdentity.mockResolvedValue(null);
+  it("still submits for a signed-in account Google gave no name for", async () => {
+    fetchIdentity.mockResolvedValue({ role: "user", name: null });
     const user = userEvent.setup();
-    stubFetch(async () => jsonResponse({ id: "p1" }, 201));
+    const fetchMock = stubFetch(async () => jsonResponse({ id: "p1" }, 201));
     render(<ProjectSubmitForm tools={TOOLS} />);
 
     await waitFor(() => expect(fetchIdentity).toHaveBeenCalled());
-    await user.type(authorField(), "Grace Hopper");
-    expect(authorField()).toHaveValue("Grace Hopper");
-  });
+    // No byline note — there is no name to promise — but the form is there.
+    expect(screen.queryByText(/will be credited to/)).toBeNull();
+    await fillRequired(user);
+    await user.click(submitButton());
 
-  it("does not lock the field for a session Google gave no name for", async () => {
-    fetchIdentity.mockResolvedValue({ role: "student", name: null });
-    const user = userEvent.setup();
-    render(<ProjectSubmitForm tools={TOOLS} />);
-
-    await waitFor(() => expect(fetchIdentity).toHaveBeenCalled());
-    await user.type(authorField(), "Grace Hopper");
-    expect(authorField()).toHaveValue("Grace Hopper");
-    expect(authorField()).not.toHaveAttribute("readonly");
+    await screen.findByRole("heading", {
+      name: "Thanks — your project is pending review",
+    });
+    expect(fetchMock).toHaveBeenCalled();
   });
 });
+
 
 // ── Successful submission ───────────────────────────────────────────
 
@@ -263,7 +280,6 @@ describe("ProjectSubmitForm submission", () => {
     );
     expect(lastSubmitBody(fetchMock)).toEqual({
       title: "Plywood lamp",
-      author: "Ada Lovelace",
       body: "Cut on the laser, then glued.",
       link: "https://example.com/lamp",
       tools: ["tool-form-4"],
@@ -328,7 +344,6 @@ describe("ProjectSubmitForm failure handling", () => {
     );
     // A failed submission must never lose the write-up.
     expect(screen.getByLabelText("Project title")).toHaveValue("Plywood lamp");
-    expect(screen.getByLabelText("Your name")).toHaveValue("Ada Lovelace");
     expect(
       screen.getByLabelText("Write-up (Markdown supported)")
     ).toHaveValue("Two evenings of sanding.");
@@ -378,11 +393,11 @@ describe("ProjectSubmitForm photos", () => {
     return document.querySelector('input[type="file"]') as HTMLInputElement;
   }
 
-  it("uploads an image and includes its file_upload id in the submission", async () => {
+  it("uploads an image and includes its attachment id in the submission", async () => {
     const user = userEvent.setup();
     const fetchMock = stubFetch(async (url) =>
-      url === "/api/upload-notion"
-        ? jsonResponse({ file_upload_id: "fu_1", name: "lamp.png" })
+      url === "/api/uploads"
+        ? jsonResponse({ attachmentId: "3f2504e0-4f89-41d3-9a0c-0305e82c3303", previewUrl: null, name: "lamp.png" })
         : jsonResponse({ id: "p1" }, 201)
     );
     render(<ProjectSubmitForm tools={TOOLS} />);
@@ -400,8 +415,9 @@ describe("ProjectSubmitForm photos", () => {
     await screen.findByRole("heading", {
       name: "Thanks — your project is pending review",
     });
+    // The id is an `attachments` row the submission claims, not a Notion handle.
     expect(lastSubmitBody(fetchMock).photos).toEqual([
-      { id: "fu_1", name: "lamp.png" },
+      { id: "3f2504e0-4f89-41d3-9a0c-0305e82c3303", name: "lamp.png" },
     ]);
   });
 
@@ -419,7 +435,9 @@ describe("ProjectSubmitForm photos", () => {
     expect(await screen.findByText("Uploading photos…")).toBeInTheDocument();
     expect(submitButton()).toBeDisabled();
 
-    pending.resolve(jsonResponse({ file_upload_id: "fu_1", name: "lamp.png" }));
+    pending.resolve(
+      jsonResponse({ attachmentId: "3f2504e0-4f89-41d3-9a0c-0305e82c3303", previewUrl: null, name: "lamp.png" })
+    );
     await waitFor(() => expect(submitButton()).toBeEnabled());
     expect(screen.queryByText("Uploading photos…")).toBeNull();
   });
@@ -427,8 +445,8 @@ describe("ProjectSubmitForm photos", () => {
   it("lets a student remove an uploaded photo before submitting", async () => {
     const user = userEvent.setup();
     const fetchMock = stubFetch(async (url) =>
-      url === "/api/upload-notion"
-        ? jsonResponse({ file_upload_id: "fu_1", name: "lamp.png" })
+      url === "/api/uploads"
+        ? jsonResponse({ attachmentId: "3f2504e0-4f89-41d3-9a0c-0305e82c3303", previewUrl: null, name: "lamp.png" })
         : jsonResponse({ id: "p1" }, 201)
     );
     render(<ProjectSubmitForm tools={TOOLS} />);
@@ -466,6 +484,34 @@ describe("ProjectSubmitForm photos", () => {
       "Only image files are supported."
     );
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("says photo uploads are unavailable when no blob store is configured, and stays submittable", async () => {
+    const user = userEvent.setup();
+    const fetchMock = stubFetch(async (url) =>
+      url === "/api/uploads"
+        ? jsonResponse({ code: "blob_not_configured" }, 503)
+        : jsonResponse({ id: "p1", slug: "plywood-lamp" }, 201)
+    );
+    render(<ProjectSubmitForm tools={TOOLS} />);
+
+    await user.upload(
+      fileInput(),
+      new File([new Uint8Array([1])], "lamp.png", { type: "image/png" })
+    );
+
+    // Translated, not the route's English prose (Article 6).
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Photo uploads are unavailable right now. You can still submit your project without photos."
+    );
+
+    // The write-up is the part worth keeping; the form must not be blocked.
+    await fillRequired(user);
+    await user.click(submitButton());
+    await screen.findByRole("heading", {
+      name: "Thanks — your project is pending review",
+    });
+    expect(lastSubmitBody(fetchMock).photos).toEqual([]);
   });
 
   it("surfaces an upload failure and adds no photo", async () => {

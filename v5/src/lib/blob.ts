@@ -8,20 +8,43 @@ import { del, list, put } from "@vercel/blob";
  *
  * Vercel Blob is the store because it adds **no new account**: the backup job
  * has to survive a handover, and every extra provider is one more credential
- * for someone to lose. The seam exists so the job depends on three verbs it can
- * be tested against rather than on the SDK's surface.
+ * for someone to lose. The seam exists so the job depends on a handful of verbs
+ * it can be tested against rather than on the SDK's surface.
  *
- * **Everything written here is PRIVATE, and that is not a caller's decision.**
- * The daily Notion dump contains student names and email addresses from
- * Maintenance_Logs, and a public blob URL is unauthenticated, guessable-adjacent
- * and permanent. `access: "private"` is therefore hard-coded and there is
- * deliberately no parameter to override it.
+ * **There are two write verbs, and the split is real.** Until the data platform
+ * spec (2026-09-14 §3.3) this module wrote one kind of file — the nightly dump —
+ * and hard-coded `access: "private"` with `addRandomSuffix: false` because
+ * neither was a caller's decision. Uploads need the opposite of both, so the
+ * invariant is amended rather than worked around:
+ *
+ * - {@link BlobStore.put} still writes the **backup**: private, and at exactly
+ *   the pathname it was given, because that pathname *is* the retention key.
+ *   The dump carries student names and reporter emails from `maintenance_logs`,
+ *   and a public blob URL is unauthenticated and permanent — there is still no
+ *   parameter that can make it public.
+ * - {@link BlobStore.putUpload} writes a **user upload** at a *random* pathname.
+ *   Random because a tool image that has not been published yet must not be
+ *   guessable from the tool's name, and because two students uploading
+ *   `IMG_0001.jpg` must not overwrite each other. Its access is the caller's
+ *   decision — a maintenance photo may show a person and stays private, while a
+ *   project photo is about to be shown on a public page.
  */
 
 /** A blob as reported by {@link BlobStore.list}. */
 export interface ListedBlob {
   pathname: string;
   uploadedAt: string;
+}
+
+/** Whether a stored file is reachable by URL. Mirrors `attachments.access`. */
+export type BlobAccess = "public" | "private";
+
+/** What the store recorded for an uploaded file. */
+export interface StoredUpload {
+  /** The *actual* pathname, random suffix included — not the one requested. */
+  pathname: string;
+  /** The blob URL. Only usable by an unauthenticated viewer when public. */
+  url: string;
 }
 
 export interface BlobStore {
@@ -31,6 +54,16 @@ export interface BlobStore {
     body: string,
     contentType: string
   ): Promise<{ pathname: string }>;
+  /**
+   * Store one uploaded file under `prefix`, at a random pathname. The file's
+   * own content type is kept so the browser renders it rather than downloading
+   * it.
+   */
+  putUpload(
+    prefix: string,
+    file: File,
+    access: BlobAccess
+  ): Promise<StoredUpload>;
   /** Every blob under `prefix`, following pagination to the end. */
   list(prefix: string): Promise<ListedBlob[]>;
   /** Delete by pathname. A no-op when the list is empty. */
@@ -50,6 +83,20 @@ export function isBlobConfigured(): boolean {
 /** Guards a runaway `list` loop; 30 days of daily backups is ~30 blobs. */
 const MAX_LIST_PAGES = 20;
 
+/**
+ * A filename is whatever the browser sent, so it is treated as untrusted text:
+ * path separators would move the file out of its prefix, and a very long name
+ * is pointless once a random suffix is appended anyway. The result is cosmetic —
+ * it only makes the stored path readable in the Blob dashboard.
+ */
+function safeFilename(name: string): string {
+  const cleaned = (name || "upload")
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/^[.-]+/, "")
+    .slice(0, 64);
+  return cleaned || "upload";
+}
+
 export function getBlobStore(): BlobStore {
   return {
     async put(pathname, body, contentType) {
@@ -63,6 +110,19 @@ export function getBlobStore(): BlobStore {
         allowOverwrite: true,
       });
       return { pathname: result.pathname };
+    },
+
+    async putUpload(prefix, file, access) {
+      // The requested pathname is only a *stem*: `addRandomSuffix` appends
+      // entropy, so `uploads/photo.jpg` becomes `uploads/photo-Xa9k2.jpg` and
+      // the caller records whatever came back. The original filename is kept in
+      // the `attachments` row, not relied on here — it is untrusted input.
+      const result = await put(`${prefix}${safeFilename(file.name)}`, file, {
+        access,
+        contentType: file.type || "application/octet-stream",
+        addRandomSuffix: true,
+      });
+      return { pathname: result.pathname, url: result.url };
     },
 
     async list(prefix) {

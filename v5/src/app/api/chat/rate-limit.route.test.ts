@@ -4,18 +4,15 @@
  *
  * Unlike `route.test.ts`, this suite uses the **real** rate limiter and the
  * **real** `resolveIdentity`, so it exercises the thing that actually matters:
- * an anonymous visitor and a signed-in student hitting the same endpoint from
- * the same IP get different allowances, and the refusal offers a way forward.
+ * an anonymous visitor and a signed-in user hitting the same endpoint from the
+ * same IP get different allowances, and the refusal offers a way forward.
  *
  * The model is still stubbed at the `streamText` boundary, and the catalogue
  * comes from the demo-seeded PGlite database — no network (Art. 3).
  */
-import {
-  SESSION_COOKIE_NAME,
-  createSessionPayload,
-  signSession,
-} from "@/lib/auth/session-cookie";
+import { resetAuthForTests } from "@/lib/auth/config";
 import { resetDbForTests } from "@/lib/db/client";
+import { signInAsNew } from "../../../../test/utils/session";
 
 const AUTH_SECRET = "chat-ceiling-test-secret";
 
@@ -65,12 +62,10 @@ function uniqueIp() {
   return `192.0.2.${counter}`;
 }
 
-async function studentCookie(sub: string, email = "student@cornell.edu") {
-  const token = await signSession(
-    createSessionPayload({ sub, email, name: "Ada" }),
-    AUTH_SECRET
-  );
-  return `${SESSION_COOKIE_NAME}=${token}`;
+/** A seeded `user` session — a real row and the cookie that addresses it. */
+async function userCookie(): Promise<string> {
+  const { cookie } = await signInAsNew({ role: "user", name: "Ada" });
+  return cookie;
 }
 
 function chatRequest({ ip, cookie }: { ip: string; cookie?: string }): Request {
@@ -91,6 +86,11 @@ function chatRequest({ ip, cookie }: { ip: string; cookie?: string }): Request {
 beforeEach(() => {
   vi.stubEnv("AUTH_SECRET", AUTH_SECRET);
   vi.stubEnv("DATABASE_URL", "");
+  resetAuthForTests();
+});
+
+afterEach(() => {
+  resetAuthForTests();
 });
 
 afterAll(() => {
@@ -154,19 +154,19 @@ describe("POST /api/chat — anonymous ceiling", () => {
 });
 
 describe("POST /api/chat — signed in", () => {
-  it("gets the higher student ceiling from the same IP that was exhausted", async () => {
+  it("gets the higher signed-in ceiling from the same IP that was exhausted", async () => {
     const ip = uniqueIp();
     for (let i = 0; i < 8; i += 1) await POST(chatRequest({ ip }));
     expect((await POST(chatRequest({ ip }))).status).toBe(429);
 
-    const cookie = await studentCookie("sub-signed-in-1");
+    const cookie = await userCookie();
     for (let i = 0; i < 20; i += 1) {
       expect((await POST(chatRequest({ ip, cookie }))).status).toBe(200);
     }
   });
 
   it("keys on the user, so changing IP neither resets nor escapes the ceiling", async () => {
-    const cookie = await studentCookie("sub-roaming");
+    const cookie = await userCookie();
     const first = await POST(chatRequest({ ip: uniqueIp(), cookie }));
     expect(first.status).toBe(200);
 
@@ -174,12 +174,12 @@ describe("POST /api/chat — signed in", () => {
     for (let i = 0; i < 59; i += 1) {
       expect((await POST(chatRequest({ ip: uniqueIp(), cookie }))).status).toBe(200);
     }
-    // 61st message overall: the student ceiling, reached despite the IP churn.
+    // 61st message overall: the signed-in ceiling, despite the IP churn.
     expect((await POST(chatRequest({ ip: uniqueIp(), cookie }))).status).toBe(429);
   });
 
   it("refuses without offering sign-in to someone already signed in", async () => {
-    const cookie = await studentCookie("sub-at-ceiling");
+    const cookie = await userCookie();
     for (let i = 0; i < 60; i += 1) await POST(chatRequest({ ip: uniqueIp(), cookie }));
 
     const res = await POST(chatRequest({ ip: uniqueIp(), cookie }));
@@ -191,10 +191,8 @@ describe("POST /api/chat — signed in", () => {
   });
 
   it("falls back to the anonymous ceiling when the cookie is tampered with", async () => {
-    const cookie = await studentCookie("sub-tampered");
-    const [name, token] = cookie.split("=");
-    const [payload, sig] = token.split(".");
-    const forged = `${name}=${payload}.${sig.startsWith("A") ? "B" : "A"}${sig.slice(1)}`;
+    const cookie = await userCookie();
+    const forged = cookie.replace(/.$/, (c) => (c === "A" ? "B" : "A"));
 
     const ip = uniqueIp();
     const statuses: number[] = [];

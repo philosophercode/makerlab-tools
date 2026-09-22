@@ -1,3 +1,13 @@
+/**
+ * **SUPERSEDED — retired in Phase 3, kept on disk pending deletion approval.**
+ *
+ * `POST /api/uploads` replaces this route (data platform design spec §3.3).
+ * Uploads go to Vercel Blob and are recorded in `attachments`; nothing in the
+ * app calls this handler any more. It is left in place only because deletions
+ * are approved separately — do not wire anything new to it, and do not treat
+ * its `file_upload_id` response as a live contract.
+ */
+
 import { NextRequest } from "next/server";
 import { rateLimitAsync } from "../../../lib/rate-limit";
 import { resolveIdentity } from "../../../lib/auth/identity";

@@ -105,20 +105,42 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 AUTH_BASE_URL=http://localhost:3000
 AUTH_ALLOWED_EMAIL_DOMAIN=cornell.edu
-AUTH_STAFF_EMAILS=you@cornell.edu     # gives you the Refresh catalogue button
+AUTH_SUPER_ADMIN_EMAILS=you@cornell.edu   # the floor — see below
 ```
+
+`AUTH_SECRET` alone is enough for sessions; the two `GOOGLE_*` variables are
+what make *starting* one possible. With them unset, `/api/auth/sign-in/social`
+answers 503 and the header says sign-in is not set up here.
+
+`AUTH_SUPER_ADMIN_EMAILS` is a **floor, not a roster**. Everyone else's role is
+the `user.role` column, changed on `/admin/users`; an address listed here is
+created as `super_admin` on first sign-in and stays one whatever its row says.
+It is the only way the first super admin comes to exist (no user row exists
+until somebody signs in) and the reason the lab cannot lock itself out.
+`AUTH_STAFF_EMAILS` and `AUTH_ADMIN_EMAILS` were removed in Phase 4 — nothing
+reads them, so delete them from the deployment's environment rather than
+leaving a list that grants nothing.
 
 Tickets and projects now record the **verified session** instead of a typed name. Anonymous
 browsing and chat keep working — sign-in unlocks, it does not gate the front door.
 
-## Stage 4 · Backups locally (optional)
+## Stage 4 · The nightly job locally (optional)
 
 Cron does not run locally. Trigger it by hand:
 
 ```bash
 curl -H "x-admin-secret: $ADMIN_REVALIDATE_SECRET" \
-     http://localhost:3000/api/admin/backup
+     http://localhost:3000/api/cron/daily
 ```
+
+It exports every Postgres table to a private blob and sweeps photos that were uploaded but
+never attached to anything. It needs `BLOB_READ_WRITE_TOKEN` and refuses without it — the
+old `/api/admin/backup` route it replaces dumped Notion and is no longer scheduled.
+
+Two tables are held out of the file on purpose: `session` and `verification` are sign-in
+credentials, not records, and the Google tokens on `account` are blanked. A backup is
+something you might email to yourself at 2am; it must not double as a way to sign in as
+somebody. People, roles and bans are all still in there.
 
 ---
 
@@ -145,8 +167,17 @@ ADMIN_REVALIDATE_SECRET                cache invalidation
 **Sign-in** — same as Stage 3, but `AUTH_BASE_URL=https://<your-domain>` and the Google
 redirect URI updated to match.
 
-**Backups** — link a Vercel Blob store (sets `BLOB_READ_WRITE_TOKEN`), then set
-`CRON_SECRET`. The cron itself is already in `vercel.json`, nightly at 07:17.
+**Blob store** — link one (it sets `BLOB_READ_WRITE_TOKEN`). It carries **both** jobs now:
+every photo a student uploads through the chat or the project form, and the nightly backup.
+Without it the site still runs — uploads say so and the catalogue is unaffected — but
+nothing is backed up and no photo can be attached.
+
+**Backups** — with the store linked, set `CRON_SECRET`. The cron is already in
+`vercel.json`, nightly at 07:17, pointing at `/api/cron/daily`.
+
+**`LAB_TIMEZONE`** — optional, defaults to `America/New_York`. It decides the date on a
+maintenance ticket; a function running in UTC would otherwise date an evening report
+tomorrow. Set it before the first ticket is filed, or leave it to the default.
 
 **Optional** — `NOTION_DB_PROJECTS`, `UPSTASH_REDIS_REST_*` (rate limits enforced across
 instances rather than per-process), `MCP_TOKEN` (also the switch that exposes write tools
@@ -188,10 +219,9 @@ Send alerts to a shared address, never one person.
 | | Blocks |
 |---|---|
 | Google OAuth client | Sign-in anywhere |
-| `AUTH_STAFF_EMAILS` / `AUTH_ADMIN_EMAILS` | Staff features — **these two lists are the entire role system**; there is no user database |
-| Notion: Flags `status` → `New` option | Corrections, silently |
-| Notion: Projects DB + `published` checkbox | The gallery |
-| Vercel Blob + `CRON_SECRET` | Backups — **there is currently no backup at all** |
+| `AUTH_SUPER_ADMIN_EMAILS` | The first super admin, and therefore **every role**: nobody can be promoted until somebody can reach `/admin/users`. Roles live in `user.role` now; `AUTH_STAFF_EMAILS` / `AUTH_ADMIN_EMAILS` are retired and should be deleted from the environment |
+| Vercel Blob store | **Photo uploads** (chat, maintenance, projects) and backups. Without it uploads refuse with a translated message rather than failing silently |
+| Vercel Blob + `CRON_SECRET` | The nightly backup — **there is currently no backup at all** |
 | Inference spend limit | Nothing, until it does |
 | Uptime monitor | Nothing, until something breaks quietly |
 

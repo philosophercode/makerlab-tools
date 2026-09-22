@@ -1,6 +1,18 @@
 import "server-only";
 
 /**
+ * RETIRED in Phase 4 (data platform design spec §3.4). Nothing in the
+ * application imports this module any more: sessions are rows, the cookie
+ * Better Auth sets carries only a token, and `resolveIdentity` looks the row
+ * up on every request. The file is left in place because deleting it is a
+ * separate approval; it is reported for deletion, not kept for use.
+ *
+ * **Do not reach for it.** A second identity cookie that nothing can revoke is
+ * exactly what Phase 4 removed. If you need a signed-in caller in a test, use
+ * `test/utils/session.ts`.
+ *
+ * ---
+ *
  * The stateless signed session cookie (auth design spec 2026-07-29 §3.1).
  *
  * v5's only datastore is Notion, which is the wrong place for session rows, and

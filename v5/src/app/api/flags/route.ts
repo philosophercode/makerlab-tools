@@ -9,8 +9,8 @@ import { resolveIdentity } from "../../../lib/auth/identity";
 
 /**
  * `POST /api/flags` — the form path for "report a correction" (design spec
- * 2026-07-29 §3, §9.2). It owns nothing: validation and the Notion write both
- * live in the `flags` capability, so this route and the assistant's
+ * 2026-07-29 §3, §9.2). It owns nothing: validation and the write both live in
+ * the `flags` capability, so this route and the assistant's
  * `report_correction` tool share one code path (constitution Art. 2).
  *
  * Responses carry a machine-readable `code` rather than a prose message —
@@ -25,6 +25,10 @@ export const maxDuration = 15;
 /** 5 per hour per IP — tighter than chat, looser than project submission (§8). */
 const RATE_LIMIT = { limit: 5, windowMs: 60 * 60_000 };
 
+// `not_configured` is unreachable since the write moved to Postgres — there is
+// no credential left that could be missing — but the code stays declared here
+// and in `FlagButton`'s message map rather than being retired across three
+// files for nothing.
 const STATUS_BY_CODE: Record<FlagErrorCode, number> = {
   invalid_input: 400,
   unknown_tool: 404,
@@ -61,14 +65,18 @@ export async function POST(req: NextRequest) {
   const parsed = parseCorrectionReport(payload);
   if (!parsed.ok) return fail(parsed.code);
 
-  // `reporter_email` is only ever written from the server-resolved session
-  // above — a client may not assert its own identity. Anonymous reporting stays
-  // the intended default (§8): an unauthenticated caller simply has no email,
-  // and the report is filed without one.
+  // `reporter_email` and `reporter_user_id` are only ever written from the
+  // server-resolved session above — a client may not assert its own identity.
+  // Anonymous reporting stays the intended default (§8): an unauthenticated
+  // caller simply has no email, and the report is filed without one.
   const result = await submitCorrection(
     parsed.report,
     identity.email
-      ? { name: identity.name ?? undefined, email: identity.email }
+      ? {
+          name: identity.name ?? undefined,
+          email: identity.email,
+          userId: identity.userId ?? undefined,
+        }
       : undefined
   );
   if (!result.ok) return fail(result.code);
