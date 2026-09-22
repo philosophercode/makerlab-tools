@@ -1254,3 +1254,110 @@ write — both are proved at unit and component level only.
 
 **Status.** Accepted, except the §3.4 sentence, which is open. Everything else is a detail
 the spec left to implementation.
+
+### 2026-09-22 — §3.4 settled, the floor's own audit gap closed, and Phase 6's engine confirmed
+
+**§3.4 is settled: the environment variable wins.** The sentence left open by the previous
+amendment — §3.4 says both "resolves as `super_admin` whatever its row says" and "a banned user
+resolves to anonymous", which conflict when a floor address is banned — is decided in favour of
+the floor. A banned address named in `AUTH_SUPER_ADMIN_EMAILS` resolves `super_admin`, and
+`reconcileSuperAdminFloor` lifts the ban off the row on that person's first admin write.
+
+The reason is that the alternative is a dead end. The floor exists so the lab can always recover;
+if a ban outranked it, the documented recovery — add the address, redeploy — would leave the
+person still locked out, with no UI able to lift the ban and a manual `UPDATE` the only way
+back. The cost is that anyone who can edit the production environment can un-ban themselves,
+which is already true of anyone who can deploy, and who could reach the database directly
+regardless. Decided by Isaac, 2026-09-22.
+
+**One hole remains, and it is narrow.** `auth.api.banUser` deletes the target's sessions, so if a
+ban was applied through the app *before* the address was added to the floor, there is no session
+left to carry the override and `session.create.before` refuses a fresh sign-in with
+`BANNED_USER`. The app refuses to ban an address already on the floor, so reaching this state
+takes a manual `UPDATE`, a restored backup, or a late addition to the list. Recovery there is
+`UPDATE "user" SET banned = false` by hand. Documented rather than fixed: closing it means
+running ahead of a plugin hook that better-auth pushes in front of the app's own.
+
+**The floor's own audit writes are guarded now.** Adversarial verification of `3c76839` found the
+guard it added to `app/admin/users/actions.ts` missing one function away.
+`reconcileSuperAdminFloor` committed its row `UPDATE` and then wrote two audit events unguarded,
+so an unreachable `audit_events` threw past a committed change; `authorize()` caught it and
+returned `failed`, which the page renders as "That did not save. Nothing was changed" — over a
+row that had just been promoted and un-banned. A ban lifted with no trail, reported as nothing
+having happened, which is the Article 4 lie in its purest form.
+
+The function now returns `{ changed, audited }` rather than a bare boolean and guards its audit
+writes the way `actions.ts` guards its own. The gap travels back through `authorize()` as the
+existing `audit_unavailable` warning, so both halves of a two-write action answer the admin's one
+question — *did the trail record this* — with one warning. Only the row `UPDATE` itself still
+throws. `actions.audit.test.ts` covers both shapes and both were confirmed red against the
+unguarded version.
+
+**Phase 6's engine is confirmed: the Workflow SDK, as §3.7 specifies.** Re-decided rather than
+assumed, because the question was reopened. Every API name in §3.7 is still current against
+`workflow@4.8.9`, and the composition was verified by building a scratch app on this project's
+exact stack — Next 16.1.6, Turbopack, `cacheComponents: true`, `next-intl` — where
+`withWorkflow(withNextIntl(nextConfig))` compiles clean. Three corrections to §3.7:
+`@workflow/world-vercel` is never installed (it is selected automatically); `@workflow/world-postgres`
+needs a long-lived polling worker and is a real escape hatch rather than a config flip; and
+`maxRetries` is a property on the step function (`researchItem.maxRetries = 2`), not an option.
+
+**eve was considered and rejected.** eve is a consumer of the Workflow SDK — "every session runs
+as one durable workflow" — not an alternative to it, so adopting it would mean taking this same
+layer plus an agent runtime, a session model and a second deploy surface (it runs as a peer Nitro
+service, not a library). Three hard blockers independent of that: it requires `ai@^7` as a
+non-optional peer dependency against this app's `ai@^6`, forcing an AI SDK major upgrade across
+the live chat surface for a background job; it requires Node 24; and its eval runner always
+targets an HTTP URL in a separate process, which Article 3's "every test passes with no
+environment variables and no network" cannot accommodate. It is also in preview. Worth
+revisiting only if the assistant itself ever becomes a durable multi-channel agent.
+
+**Phase 6 is sized for the Hobby plan.** The binding constraint is not Workflow but the Function
+duration behind each step: Hobby caps it at 300s with no extension, and a model call with eight
+web searches and eight fetches can exceed that. Decided by Isaac, 2026-09-22: stay on Hobby and
+engineer around it.
+
+- **Four searches and four fetches per item**, not eight and eight. Halves the cost, halves what a
+  retry re-buys, and fits inside 300s with room. Thin results surface as low confidence, which is
+  the behaviour gate §5.4 already describes — never as an invented answer.
+- **Two steps per item** — search, then fetch and verify — so neither alone approaches the ceiling.
+- **A 240s `AbortSignal` inside each step**, so a slow item fails cleanly into `research_error`
+  rather than being killed mid-flight by the platform.
+- **25 items per batch**, matching the per-request limit §5.4 already sets, rather than 100.
+
+**Two things Phase 6 must not do.** `mapWithConcurrency` (`src/lib/capabilities/intake.ts`) must
+not move into the workflow function: it is a shared-cursor worker pool whose index claims depend
+on completion order, so a replay can issue a different sequence of step calls and diverge. The
+chunked `Promise.allSettled` in §3.7's sketch is correct and is deterministic. And `vi.mock()`
+does not reach step code — `@workflow/vitest` loads steps from a pre-built esbuild bundle through
+native `import()`, outside Vite's module graph — so this project's `vi.mock("ai")` pattern must
+become an MSW handler on `api.anthropic.com` at that tier. MSW *does* reach step code, verified,
+so the no-network guarantee holds. Testing steps and the workflow function as plain functions in
+the existing config needs no new infrastructure and covers everything except retry semantics.
+
+**A scope correction to §3.7's "reused code".** Today's `research_tool` makes no model call at
+all — the chat model does the searching with its native tools, and `research_tool` only dedupes,
+verifies links and scores confidence. So `verifyResourceLinks` and `confidence.ts` genuinely
+move, but the server-side research prompt and its `generateText` call are **new code**. Phase 6 is
+larger than "lift and shift".
+
+**`research_error` is the diagnosis record, not the dashboard.** vercel/workflow#3373 (run history
+on Next 16 with Turbopack) is still open, and Hobby retains run history for one day. §3.7 already
+says the column is the record; build as though the dashboard does not exist.
+
+**Phase plan changes.** Decided by Isaac, 2026-09-22: **Phase 7 leaves the build plan** — Isaac and
+Luis will review the imported inventory on their own time, and it was never code. **Phase 9 is
+deferred** until the app is otherwise in good shape, then layered on; English-only keys with the
+`withEnglishFallback` behaviour remain correct in the meantime. Phase 8, the Notion mirror, stays.
+Open questions 4 and 5 — reporter names in the mirror, and whether the mirror key is derived from
+`AUTH_SECRET` — are still unanswered and are due before Phase 8.
+
+**Residual risks accepted, not fixed.** A lost audit event survives only as a `console.error`: no
+retry, no outbox, so the gap in `audit_events` is invisible to anyone reading the table later.
+`report_issue` still reports photo loss only when *every* photo is lost, where `POST /api/projects`
+now reports partial loss — the same Article 4 hole, on the other side, and worth closing when the
+maintenance path is next touched. `POST /api/uploads` parses the multipart body before checking the
+permission, so an anonymous caller can make the server read up to 18 MB before its 401; nothing is
+stored and no URL is returned, and the 15/min-per-IP limiter is what bounds it.
+
+**Status.** Accepted. §3.4 is no longer open.
