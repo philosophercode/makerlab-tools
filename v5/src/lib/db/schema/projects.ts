@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { boolean, index, pgTable, primaryKey, text, timestamp, uuid } from "drizzle-orm/pg-core";
-import { actorColumns, notionPageId, timestamps } from "./helpers.ts";
+import { actorColumns, notionPageId, timestamps, userReference } from "./helpers.ts";
 import { tools } from "./tools.ts";
 
 /**
@@ -23,7 +23,7 @@ export const projects = pgTable(
     authorName: text("author_name"),
     published: boolean("published").notNull().default(false),
     publishedAt: timestamp("published_at", { withTimezone: true }),
-    publishedBy: text("published_by"),
+    publishedBy: userReference("published_by"),
     notionPageId: notionPageId(),
     ...actorColumns(),
     ...timestamps(),

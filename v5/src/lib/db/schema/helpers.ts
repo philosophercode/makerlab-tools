@@ -40,6 +40,26 @@ export function actorColumns() {
   };
 }
 
+/**
+ * A nullable column naming a person, with the foreign key that makes it mean
+ * something (spec §4.4, §4.8, §4.10; migration `0004`).
+ *
+ * The columns that are not `created_by` / `updated_by` but still hold a
+ * `user.id` — who marked a tool reviewed, who published a project, who a
+ * ticket is assigned to. Phase 1 wrote them as bare `text` because Better
+ * Auth's `user` table did not exist until Phase 3's migration, and Phase 5 is
+ * the first code to write two of them: an id naming no row would have been
+ * stored without complaint and rendered as nothing.
+ *
+ * `on delete set null` for the reason {@link actorColumns} gives — removing a
+ * person must never remove the work — and it is why the accompanying
+ * `*_at` / `*_name` columns are worth keeping: they are what is left when the
+ * account goes.
+ */
+export function userReference(column: string) {
+  return text(column).references(() => user.id, { onDelete: "set null" });
+}
+
 /** The legacy Notion page id: the import's upsert key and the `/tools/<id>` redirect key. */
 export function notionPageId() {
   return text("notion_page_id").unique();

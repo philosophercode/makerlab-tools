@@ -1,5 +1,7 @@
 import { Suspense } from "react";
-import { notFound, permanentRedirect } from "next/navigation";
+import { permanentRedirect } from "next/navigation";
+import { DraftToolView } from "./DraftToolView";
+import { EditToolControl } from "./EditToolControl";
 import { QrArrivalNotice } from "./QrArrivalNotice";
 import { DetailShell } from "../../../components/DetailShell";
 import { FlagButton } from "../../../components/FlagButton";
@@ -7,6 +9,52 @@ import { getCatalogTool } from "../../../lib/catalog";
 import { findToolByNotionPageId } from "../../../lib/data/catalog";
 import { isLegacyNotionId } from "../../../lib/legacy-id";
 import { getProjectsForTool } from "../../../lib/projects";
+import type { ToolEditorActions } from "../../../components/admin/tool-editor-actions";
+import {
+  archive,
+  loadToolForEditor,
+  markToolReviewed,
+  publish,
+  restore,
+  saveTool,
+  unpublish,
+} from "../../admin/inventory/actions";
+import { attachPhotos, removePhoto, reorderPhotos } from "../../admin/inventory/photo-actions";
+import {
+  addResource,
+  editResource,
+  removeResource,
+} from "../../admin/inventory/resource-actions";
+import { addUnit, deleteUnit, editUnit, retireUnit } from "../../admin/inventory/unit-actions";
+
+/**
+ * The tool editor's actions, handed to the page's Edit control (spec §5.3(b)).
+ *
+ * The same endpoints `/admin/inventory` uses — one editor, one set of writes,
+ * one place each permission is checked. They travel as props because a client
+ * island that imported them would drag `next/headers` and the limiter into the
+ * browser bundle; handing them down is not a grant, since every one of them
+ * re-checks its own permission (§8).
+ */
+const EDITOR_ACTIONS: ToolEditorActions = {
+  load: loadToolForEditor,
+  save: saveTool,
+  markReviewed: markToolReviewed,
+  publish,
+  unpublish,
+  archive,
+  restore,
+  addUnit,
+  editUnit,
+  retireUnit,
+  deleteUnit,
+  addResource,
+  editResource,
+  removeResource,
+  attachPhotos,
+  reorderPhotos,
+  removePhoto,
+};
 
 interface ToolDetailPageProps {
   params: Promise<{
@@ -48,7 +96,7 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
     // Printed QR labels and old links encode a Notion page id rather than a
     // slug (spec Goal 2). A match redirects permanently to the tool's current
     // slug; anything else — a stale id, a typo, a slug that never existed —
-    // 404s exactly as it did before this check existed.
+    // falls through to the draft check below.
     if (isLegacyNotionId(id)) {
       const match = await findToolByNotionPageId(id);
       if (match) {
@@ -56,7 +104,19 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
         permanentRedirect(`/tools/${match.slug}${query}`);
       }
     }
-    notFound();
+
+    // The catalogue read is cached and published-only, so a miss is not yet a
+    // 404: it may be a draft, and somebody holding `catalog.view_drafts` is
+    // allowed to open it (§5.3(b)). The identity read happens inside this
+    // boundary and nowhere above it, which is what keeps every *published*
+    // tool page prerenderable. `DraftToolView` calls `notFound()` for everyone
+    // else — the same refusal a slug nobody owns gets, so neither answer
+    // reveals that a draft exists.
+    return (
+      <Suspense fallback={null}>
+        <DraftToolView idOrSlug={id} />
+      </Suspense>
+    );
   }
 
   // "Built with this" — published projects referencing this tool (empty if no
@@ -72,6 +132,10 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
         <QrArrivalNotice toolName={tool.name} />
       </Suspense>
       <DetailShell tool={tool} projects={projects} />
+      {/* Edit mode, phone-first (§5.3(b)). Another dynamic hole of its own:
+          the control asks `/api/identity` after mount, so the shell above it
+          stays cached for the visitors who are not staff. */}
+      <EditToolControl slug={tool.slug} toolName={tool.name} actions={EDITOR_ACTIONS} />
       {/* Quiet footer control for reporting a wrong field (report-a-correction
           spec §6). Deliberately below the content, not competing with it. */}
       <FlagButton toolId={tool.id} />

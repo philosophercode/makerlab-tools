@@ -1,4 +1,5 @@
 import { desc, eq, sql } from "drizzle-orm";
+import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { getDb } from "../db/client.ts";
 import { maintenanceLogs, tools, units } from "../db/schema/index.ts";
 import {
@@ -10,11 +11,13 @@ import {
 import type { Db } from "../db/types.ts";
 import { labToday } from "../lab-time.ts";
 import { claimAttachments } from "./attachments.ts";
+import { rankByVocabulary } from "./rank.ts";
 import { isUuid } from "./uuid.ts";
 
 /**
- * Maintenance logs on Postgres — the reads (spec §3.10) and, since Phase 3,
- * the write (§4.8).
+ * Maintenance logs on Postgres — the reads (spec §3.10), the filing write
+ * (§4.8) since Phase 3, and since Phase 5 the queue `/admin/maintenance` works
+ * them in (§5.6).
  *
  * The write lives beside the read on purpose: this module is already this
  * table's data access, and the two share the vocabulary translation that is
@@ -27,9 +30,15 @@ import { isUuid } from "./uuid.ts";
  *   and prompt fragments say so. {@link toDisplayLabel} is the exact inverse of
  *   the import's `toStoredValue`, so a value that survived the import round
  *   trips back to the words Notion showed.
- * - **Never the reporter's email.** `reported_by_email` is set only from a
- *   resolved session and must not enter a model prompt (spec §8, PII). It is
- *   not selected here at all, so no caller can leak it by accident.
+ * - **The reporter's email is selected by exactly one read.**
+ *   `reported_by_email` is set only from a resolved session and must not enter
+ *   a model prompt or the mirror (spec §8, PII), so the history read — whose
+ *   rows a model sees — does not select the column at all. Phase 5's
+ *   {@link listMaintenanceQueue} does, because `/admin/maintenance` is gated on
+ *   `maintenance.manage` and answering a confusing ticket means writing back to
+ *   the person who filed it. Which read a caller picks is therefore the whole
+ *   of that decision, which is why they are two functions and not one with a
+ *   flag.
  *
  * Relative imports with `.ts` extensions and no `@/` alias, and no
  * `"server-only"`: `scripts/` loads these modules under plain Node.
@@ -303,4 +312,243 @@ async function findUnitTarget(db: Db, unitId: string | null | undefined): Promis
     .limit(1);
 
   return row ?? null;
+}
+
+// ── The queue (spec §5.6, §9) ───────────────────────────────────────
+
+/**
+ * One ticket as `/admin/maintenance` works it.
+ *
+ * **Stored values, not display labels** — the opposite of
+ * {@link MaintenanceHistoryEntry}, and for the opposite reason. That one is
+ * read by a model, so `in_progress` becomes `"In Progress"` at the boundary.
+ * This one is read by a person through `next-intl`, which needs the machine
+ * value to look a message up by (`admin.maintenance.status.in_progress`) and
+ * the `<select>` needs it to post back. Translating here would force the page
+ * to translate back before it could write, and a round trip through display
+ * text is exactly where a vocabulary drifts.
+ */
+export interface MaintenanceQueueEntry {
+  id: string;
+  title: string;
+  description: string;
+  resolution: string;
+  /** Stored vocabulary values, or null where the ticket records none. */
+  type: string | null;
+  priority: string | null;
+  status: string;
+  /** The tool, when the ticket names a unit that still belongs to one. */
+  toolId: string | null;
+  toolSlug: string | null;
+  /** The live tool name, or the snapshot taken when the ticket was filed. */
+  toolName: string;
+  unitId: string | null;
+  unitLabel: string;
+  reportedByName: string;
+  /**
+   * The reporter's address, **only on this projection**.
+   *
+   * {@link listMaintenanceHistoryForUnit} deliberately does not select this
+   * column, because its rows reach a model prompt and the Notion mirror (§8).
+   * This read has one caller — a page gated on `maintenance.manage` — and the
+   * first thing an admin does with a confusing ticket is ask the person who
+   * filed it. Showing a name they cannot reach is a queue that sends them back
+   * to their inbox to guess. It goes no further than the page, exactly as
+   * `listUsers`' emails do.
+   */
+  reportedByEmail: string;
+  assignedToUserId: string | null;
+  assignedToName: string;
+  dateReported: string;
+  dateResolved: string;
+  createdAt: Date;
+}
+
+/**
+ * How many tickets one queue read returns.
+ *
+ * Bounded like every other read here (Article 4). A lab with more than two
+ * hundred tickets on file has a backlog problem that a longer page does not
+ * solve, and the filters on the page narrow what is shown from these rows
+ * without another round trip.
+ */
+const QUEUE_LIMIT = 200;
+
+/**
+ * Open work first, then the worst of it — the order the queue is worked in.
+ *
+ * `MAINTENANCE_STATUS` is declared in the order work moves through it (open →
+ * closed), so its own index is the rank. `MAINTENANCE_PRIORITY` is declared
+ * *ascending* in severity (low → critical), so it is reversed: a queue that put
+ * the low-priority tickets at the top would be worse than no order at all. The
+ * two lists are the source either way, so a value added to one sorts where it
+ * was declared rather than silently last.
+ */
+const STATUS_RANK = rankByVocabulary(maintenanceLogs.status, MAINTENANCE_STATUS);
+const PRIORITY_RANK = rankByVocabulary(
+  maintenanceLogs.priority,
+  [...MAINTENANCE_PRIORITY].reverse()
+);
+
+/**
+ * Every ticket, the open ones first (spec §5.6).
+ *
+ * Ranked by {@link STATUS_RANK} then {@link PRIORITY_RANK}, which puts the
+ * queue in the order somebody with ten minutes needs it: everything still open,
+ * critical first. A ticket with no priority sorts after the ones that have one
+ * rather than ahead of them, and the report date breaks any remaining tie.
+ *
+ * Resolved and closed tickets stay in the list: the page folds them behind a
+ * disclosure, because "what did we do about the last one of these" is the
+ * question a resolution field exists to answer. **One statement** whatever the
+ * size of the queue — the join carries the tool, and nothing is resolved per
+ * row (Article 4).
+ */
+export async function listMaintenanceQueue(
+  options: MaintenanceQueryOptions = {}
+): Promise<MaintenanceQueueEntry[]> {
+  const db = options.db ?? (await getDb());
+
+  const rows = await db
+    .select({
+      id: maintenanceLogs.id,
+      title: maintenanceLogs.title,
+      description: maintenanceLogs.description,
+      resolution: maintenanceLogs.resolution,
+      type: maintenanceLogs.type,
+      priority: maintenanceLogs.priority,
+      status: maintenanceLogs.status,
+      toolId: maintenanceLogs.toolId,
+      toolSlug: tools.slug,
+      liveToolName: tools.name,
+      snapshotToolName: maintenanceLogs.toolName,
+      unitId: maintenanceLogs.unitId,
+      unitLabel: maintenanceLogs.unitLabel,
+      reportedByName: maintenanceLogs.reportedByName,
+      reportedByEmail: maintenanceLogs.reportedByEmail,
+      assignedToUserId: maintenanceLogs.assignedToUserId,
+      assignedToName: maintenanceLogs.assignedToName,
+      dateReported: maintenanceLogs.dateReported,
+      dateResolved: maintenanceLogs.dateResolved,
+      createdAt: maintenanceLogs.createdAt,
+    })
+    .from(maintenanceLogs)
+    .leftJoin(tools, eq(maintenanceLogs.toolId, tools.id))
+    .orderBy(
+      STATUS_RANK,
+      PRIORITY_RANK,
+      sql`${maintenanceLogs.dateReported} desc nulls last`,
+      desc(maintenanceLogs.createdAt)
+    )
+    .limit(options.limit ?? QUEUE_LIMIT);
+
+  return rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    description: row.description || "",
+    resolution: row.resolution || "",
+    type: row.type,
+    priority: row.priority,
+    status: row.status,
+    toolId: row.toolId,
+    toolSlug: row.toolSlug,
+    // The live name when the tool still exists, the snapshot when it does not:
+    // a renamed tool should read as itself, and an archived one should still
+    // say which machine the ticket was about (§4.8).
+    toolName: row.liveToolName || row.snapshotToolName || "",
+    unitId: row.unitId,
+    unitLabel: row.unitLabel || "",
+    reportedByName: row.reportedByName || "",
+    reportedByEmail: row.reportedByEmail || "",
+    assignedToUserId: row.assignedToUserId,
+    assignedToName: row.assignedToName || "",
+    dateReported: row.dateReported || "",
+    dateResolved: row.dateResolved || "",
+    createdAt: row.createdAt,
+  }));
+}
+
+// ── Working a ticket (spec §5.6) ────────────────────────────────────
+
+/** What `/admin/maintenance` can change about a ticket. */
+export interface MaintenanceLogPatch {
+  /** One of `MAINTENANCE_STATUS`, stored-cased. */
+  status?: string;
+  /** One of `MAINTENANCE_PRIORITY`, or null to clear it. */
+  priority?: string | null;
+  /** `user.id`, or null to unassign. The name is stored beside it. */
+  assignedToUserId?: string | null;
+  assignedToName?: string | null;
+  resolution?: string | null;
+}
+
+export type MaintenanceWriteResult =
+  | { ok: true }
+  | { ok: false; reason: "not_found" | "invalid_field" };
+
+/**
+ * Change one ticket's status, priority, assignee or resolution.
+ *
+ * **`date_resolved` is computed in SQL, from `labToday()`.** A ticket that
+ * reaches `resolved` or `closed` is dated the day it happened *in the lab's
+ * timezone* (§4.8) — a Vercel function runs in UTC, so a ticket closed at 9pm
+ * in New York would otherwise be dated tomorrow, which is a day staff would not
+ * find it under. `coalesce` keeps the first resolution date rather than moving
+ * it every time somebody edits the note afterwards, and re-opening a ticket
+ * clears the date, because a ticket that is open was not resolved.
+ *
+ * **No revision token here, unlike the tool editor.** These are single-field
+ * changes to one ticket from one person's screen; there is nothing to lose to
+ * a concurrent write but a status somebody can set again in one click, and a
+ * conflict dialogue on a queue somebody is trying to clear in ten minutes costs
+ * more than it protects. The tool editor's fields are a form full of typing,
+ * which is a different bargain (§5.3(4)).
+ *
+ * Vocabulary is checked here rather than by the CHECK constraint, which rejects
+ * the whole statement with a message no page can render.
+ *
+ * Throws on a database failure; the caller reports that as `failed`.
+ */
+export async function updateMaintenanceLog(
+  logId: string,
+  patch: MaintenanceLogPatch,
+  options: MaintenanceWriteOptions & { actorUserId?: string | null } = {}
+): Promise<MaintenanceWriteResult> {
+  if (!isUuid(logId)) return { ok: false, reason: "not_found" };
+
+  // `PgUpdateSetSource` rather than `Partial<$inferInsert>`, for the reason
+  // `tools.ts` gives: `date_resolved` is computed by an expression, and only
+  // this type admits raw SQL as a column value.
+  const values: PgUpdateSetSource<typeof maintenanceLogs> = {
+    updatedBy: options.actorUserId ?? null,
+  };
+
+  if (patch.status !== undefined) {
+    if (!isOneOf(MAINTENANCE_STATUS, patch.status)) return { ok: false, reason: "invalid_field" };
+    values.status = patch.status;
+    const settled = patch.status === "resolved" || patch.status === "closed";
+    values.dateResolved = settled
+      ? sql`coalesce(${maintenanceLogs.dateResolved}, ${labToday()}::date)`
+      : null;
+  }
+
+  if (patch.priority !== undefined) {
+    if (patch.priority !== null && !isOneOf(MAINTENANCE_PRIORITY, patch.priority)) {
+      return { ok: false, reason: "invalid_field" };
+    }
+    values.priority = patch.priority;
+  }
+
+  if (patch.assignedToUserId !== undefined) values.assignedToUserId = patch.assignedToUserId || null;
+  if (patch.assignedToName !== undefined) values.assignedToName = patch.assignedToName || null;
+  if (patch.resolution !== undefined) values.resolution = patch.resolution || null;
+
+  const db = options.db ?? (await getDb());
+  const rows = await db
+    .update(maintenanceLogs)
+    .set(values)
+    .where(eq(maintenanceLogs.id, logId))
+    .returning({ id: maintenanceLogs.id });
+
+  return rows.length > 0 ? { ok: true } : { ok: false, reason: "not_found" };
 }

@@ -1,4 +1,4 @@
-import { and, asc, count, eq, isNull, ne, or } from "drizzle-orm";
+import { and, asc, count, eq, inArray, isNull, ne, or } from "drizzle-orm";
 import { getDb } from "../db/client.ts";
 import { user } from "../db/schema/index.ts";
 import type { Role } from "../db/schema/vocabulary.ts";
@@ -119,4 +119,35 @@ function toUserRecord(row: typeof user.$inferSelect): UserRecord {
     banReason: row.banReason ?? null,
     createdAt: row.createdAt,
   };
+}
+
+/**
+ * The accounts a maintenance ticket can be assigned to (spec §5.6).
+ *
+ * Everyone who holds an admin role and is not banned, by name. It is a
+ * *convenience*, not a permission model: `assigned_to_user_id` has no meaning
+ * to `can()` — assigning a ticket to somebody grants them nothing and requires
+ * nothing of them — so this list only has to be the people it is plausible to
+ * assign work to. Offering the whole roster would put four hundred students in
+ * a select whose job is picking one of three SuperMakers.
+ *
+ * Banned accounts are left out because they cannot sign in to see the ticket.
+ * A ticket already assigned to somebody who has since been banned or demoted
+ * keeps its `assigned_to_name` snapshot, so the queue still says who has it.
+ */
+export async function listAssignableStaff(options: UserQueryOptions = {}): Promise<UserRecord[]> {
+  const db = options.db ?? (await getDb());
+  const rows = await db
+    .select()
+    .from(user)
+    .where(
+      and(
+        inArray(user.role, ["admin", "super_admin"]),
+        // `banned` is nullable, and `banned <> true` is *unknown* for a null in
+        // SQL — the same trap `countUsersWithRole` spells out.
+        or(eq(user.banned, false), isNull(user.banned))
+      )
+    )
+    .orderBy(asc(user.name), asc(user.email));
+  return rows.map(toUserRecord);
 }

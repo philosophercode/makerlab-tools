@@ -1361,3 +1361,158 @@ permission, so an anonymous caller can make the server read up to 18 MB before i
 stored and no URL is returned, and the 15/min-per-IP limiter is what bounds it.
 
 **Status.** Accepted. §3.4 is no longer open.
+
+### 2026-09-22 — Phase 5 part 4 built (the three queues), with as-built details
+
+**What changed.** §5.6 is implemented, and with it the Phase 5 row of §9 that made the lab
+runnable on this app rather than on Notion. Three pages, each gated on its own permission and each
+refusing in words rather than a 404: `/admin/maintenance` (`maintenance.manage`),
+`/admin/corrections` (`feedback.manage`) and `/admin/projects` (`projects.moderate`). `/admin`
+now lists exactly the surfaces the viewer's permissions open, from one table rather than a stack of
+conditionals, so a page added without an entry is simply unreachable.
+
+**All three tables needed new read paths, which the brief did not expect.** `feedback` was
+insert-only — there was no read of the table anywhere in the app. `maintenance.ts` read one unit's
+history and nothing else. Every read in `projects.ts` filtered `published = true`. So
+`listMaintenanceQueue`, `listFeedbackQueue` and `listProjectsForModeration` are genuinely new, and
+the last of them is the only read in that module that can see an unpublished row.
+
+**The queues do not carry a revision token, and that is a decision rather than an omission.** The
+tool editor's optimistic concurrency exists because its panel is a form full of typing that a
+conflict would discard. A queue control is a single click on a single field; there is nothing to
+lose to a concurrent write but a value somebody can set again, and a conflict dialogue on a queue
+somebody is trying to clear in ten minutes costs more than it protects. `runQueueWrite`
+(`src/lib/admin/queue-write.ts`) is therefore the queue counterpart of the editor's
+`tool-write-context.ts` and deliberately not the same helper.
+
+**Only the project queue audits, and only it invalidates.** Publishing decides what the public
+gallery shows, so `setPublished` writes `project.published` / `project.unpublished` and calls
+`invalidateProjects()`. A lost audit event there is still `{ ok: true, warning:
+"audit_unavailable" }` — the row has already changed, and the island answers a refusal by restoring
+the previous value, which would leave the page asserting an unpublished project over a database
+that has published it. Maintenance and correction edits write no events at all: §4.11 scopes the
+trail to security-relevant actions and says ordinary edits are not logged, and nothing cached reads
+either table.
+
+**`published_at` and `published_by` describe the current publication, not the history**, so
+unpublishing clears both. `audit_events` is the history, and it is append-only by construction. The
+alternative — leaving a stamp on a row that is not published — gives the columns two meanings, and
+the one a reader would guess is the wrong one.
+
+**`date_resolved` is computed in SQL, from `labToday()`**, as `coalesce(date_resolved, <today>)`
+when a ticket reaches `resolved` or `closed`, and null when it is reopened. §4.8's rule about
+`LAB_TIMEZONE` is not pedantic: a ticket closed at nine on a Tuesday evening in New York is
+Wednesday in UTC, and a day staff would not find it under. The `coalesce` keeps the first
+resolution date rather than moving it every time somebody edits the note afterwards.
+
+**One read selects a reporter's email now, and exactly one.** `listMaintenanceQueue` and
+`listFeedbackQueue` carry `reported_by_email` / `reporter_email`, because the first thing an admin
+does with a confusing ticket is ask the person who filed it, and a queue that shows a name they
+cannot reach sends them back to their inbox to guess. `listMaintenanceHistoryForUnit` still does
+not select the column at all — its rows reach a model prompt and the Notion mirror (§8). Which
+function a caller picks is the whole of that decision, which is why they are two functions rather
+than one with a flag, and why `maintenance.ts`'s module docstring now says so.
+
+**Each queue's test proves the action checks *its own* permission.** No role holds `tools.edit`
+without also holding `feedback.manage`, so a test signed in as an `admin` cannot tell a correct
+gate from one that checks the wrong declaration. Each `actions.test.ts` therefore mocks `can()` for
+one case, grants `tools.edit` and `tools.publish` only, and asserts the endpoint refuses — then
+grants the surface's own permission and asserts it succeeds. Every other test in those files runs
+against the real `can()`.
+
+**Ordering comes from the vocabulary constants, with one reversal.** `MAINTENANCE_STATUS` and
+`FEEDBACK_STATUS` are declared in the order work moves through them, so ranking by index is the
+queue order and a value added later sorts where it was declared. `MAINTENANCE_PRIORITY` is declared
+*ascending* in severity, so it is reversed — ranking it as declared put the low-priority tickets at
+the top, which a test caught.
+
+**The demo seed gained one row per queue** — an open ticket against the Trotec's unit, a correction
+about the Form 4's materials, and an unpublished project — so each page has something real to show
+and `e2e/admin-queues.spec.ts` has something to assert on. It deliberately did **not** gain a draft
+tool, which the plan asked for: `e2e/admin-inventory.spec.ts` asserts that both seeded tools are
+published and that `?state=draft` therefore empties the table.
+
+**Still outstanding from the Phase 5 plan.** Migration `0004`, which was to add the `user.id`
+foreign keys on `tools.last_reviewed_by` (§4.4), `projects.published_by` (§4.10) and
+`maintenance_logs.assigned_to_user_id` (§4.8), was not written in any of the four parts. All three
+columns are still bare `text` while the spec says they are foreign keys, and Phase 5 is the first
+code to write two of them. Every existing row is null, so the ALTERs remain safe; it wants one
+migration and a `db:generate` whose output is read before it is committed. *(Written at the
+integration gate — see the amendment below.)*
+
+**The gate, with every environment variable unset:** `npm run lint` (0 errors, 3 pre-existing
+warnings), `npm run typecheck`, `npx vitest run` — **136 files / 1707 tests**, `npx playwright
+test` — **65 passed**, `npm run spec:coverage` — 73 items, 0 undocumented, and `npm run build`,
+which still reports `/tools/[id]` as Partial Prerender.
+
+**Status.** Accepted.
+
+### 2026-09-22 — Phase 5 integrated, four seams closed and migration `0004` written
+
+Four agents built Phase 5 in parallel — the write layer, the review table, the editor panel, the
+three queues — and each ran the gate green on its own. This amendment records what only showed up
+when the four were read together, and what the gate found.
+
+**Migration `0004` exists.** The three `user.id` foreign keys the plan asked for and no part
+wrote — `tools.last_reviewed_by` (§4.4), `maintenance_logs.assigned_to_user_id` (§4.8) and
+`projects.published_by` (§4.10) — are in `src/lib/db/migrations/0004_user_foreign_keys.sql`, three
+`ALTER TABLE … ADD CONSTRAINT` statements and nothing else (the generated SQL was read before it
+was committed, which is what that instruction was for). All three are `on delete set null`, so
+removing a person never removes the work: the review date, the assignee's name snapshot and
+`published_at` all survive the account that made them, and `audit_events` holds who. The three
+columns now share one helper, `userReference()` in `schema/helpers.ts`, beside the `actorColumns()`
+that already did this — a fourth spelling of the same foreign key was the thing to avoid.
+`schema/user-references.test.ts` asserts both halves against PGlite: the key refuses an id naming
+nobody, and a deleted account nulls the column rather than taking the row with it.
+
+**The `/admin` pages were rendering with an unresolvable palette.** Every admin surface uses the
+tool-detail utilities — `.td-panel`, `.td-eyebrow`, `.td-empty`, `.td-prose` — and
+`.admin-row-status.is-warning` reads `--td-warning`. Those *rules* are global; their *tokens* are
+scoped to `.tool-detail`. An unresolvable `var()` does not fall back to anything: the declaration
+computes to `unset`, so a panel's border came out `currentColor` and the amber warning line came
+out the colour of body text — the one line on the page whose whole job is to be noticed, silently
+not being noticeable. `.admin-shell` now supplies the tokens, mapped onto the global theme tokens
+so light and dark follow, with `--td-warning` the only one needing a pair of its own. Part 2 found
+this and correctly left it as out of its scope; it was nobody's part and belonged to the gate.
+
+**A resource's lost PDF no longer reports itself as a lost photo.** Part 3 made `addResource`
+raise a warning on a file shortfall — right, since silently creating a manual with no manual is the
+quiet lie Article 4 is about — but reused `photos_not_attached`, whose message is "some photos did
+not attach". Told about a manual that sends somebody to the Photos section looking for a file that
+was never there. `files_not_attached` is now a code of its own, because these codes *are* message
+keys and the message is the only reason to raise one.
+
+**Two smaller drifts, each a value declared twice.** The three queue surfaces each spelled their
+refusal codes once in an exported `…ActionError` alias and again inside `QueueActionResult<…>`;
+they now derive from one `…WriteError` declaration, so the union a page renders and the union its
+action answers cannot drift apart. And `markToolReviewed` said `withToolWrite("tools.edit", …)`
+where every other edit on the surface says `withToolEdit(…)` — one action quietly gating on
+another's permission is exactly what a second spelling buys.
+
+**The §10 scenario that needed a browser is covered.** `e2e/tool-editor.spec.ts` gained the flow
+this phase exists for: a SuperMaker at a 390px viewport opens the sheet on a machine's own page,
+marks its unit out of service in one gesture, and **the public tool page stops saying the machine
+is available**. That last step is a seam no unit test could reach — the catalogue is cached behind
+`cacheTag("catalog")`, the write busts it from `src/lib/revalidate.ts`, and a tag that did not
+match would fail silently: no error, no failing test, a student walking to a dead machine. The test
+was verified to have teeth by pointing `invalidateCatalog()` at the wrong tag, at which point it
+failed with the page still reading "Available". It is `serial`, it touches the Trotec's unit status
+(a field no other spec reads), and it puts the value back; the suite's one database and its
+parallel workers leave no other honest way to write in E2E until the seed carries a row nothing
+asserts on.
+
+**The gate, run from `v5/` with every environment variable unset:** `npm run test:all` — lint 0
+errors and the same 3 pre-existing warnings, `tsc --noEmit` clean, **137 files / 1711 tests**
+passed, **67 Playwright tests** passed with none flaky; `npm run spec:coverage` — 73 items, 0
+undocumented; `npm run build` — succeeds, `/tools/[id]` and all five `/admin` routes still Partial
+Prerender.
+
+**Still not built, and deliberately.** `markReviewed` writes no audit event: §4.11 scopes the trail
+to security-relevant actions and `AUDIT_ACTIONS` has no `tool.reviewed`, so adding one is a spec
+change rather than an implementation detail. `projects.author_user_id`, `feedback.reporter_user_id`
+and `maintenance_logs.reported_by_user_id` are still bare `text` — §4.10 calls the first of them a
+foreign key, and `0004` deliberately covered only the three the Phase 5 plan named. And the demo
+seed still has no draft or archived tool, so no E2E exercises publish, archive or restore in a
+browser; each is covered against PGlite in `src/app/admin/inventory/actions.test.ts`.
+
+**Status.** Accepted.

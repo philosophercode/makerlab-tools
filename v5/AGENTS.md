@@ -138,6 +138,14 @@ approval. Do not mint one.
 - **`created_by` / `updated_by` now reference `user.id`** (`on delete set null`),
   the foreign keys Phase 1 deferred. A write whose author is not a row is
   refused — correct, because in production that id comes from a session.
+- **So do the three other columns that name a person**, as of migration `0004`:
+  `tools.last_reviewed_by`, `maintenance_logs.assigned_to_user_id` and
+  `projects.published_by`, which Phase 5 is the first code to write. They share
+  `userReference()` in `src/lib/db/schema/helpers.ts` with `actorColumns()` — a
+  fourth spelling of the same foreign key is the thing to avoid. All are
+  `on delete set null`: removing a person must never remove the work, which is
+  why `last_reviewed_at`, `assigned_to_name` and `published_at` are worth
+  keeping beside them. They are what is left when the account goes.
 
 ## The admin surface (`/admin`)
 
@@ -172,7 +180,70 @@ Phase 5 extends both. The shape it sets:
   value and show `admin.warnings.<code>` in `.admin-row-status.is-warning`.
   **Never answer `{ ok: false }` for a write that landed** — both islands
   respond to a refusal by restoring the previous value, which would then assert
-  a state the database does not hold. Phase 5's admin writes should reuse this.
+  a state the database does not hold. Phase 5 reuses this rather than repeating
+  it: `record` and `warn` now live in `src/lib/admin/audit-warning.ts`, and the
+  codes every admin surface shares in `src/lib/admin/action-result.ts`.
+- **`/admin/inventory` is the review table, and it is not the catalogue.** It
+  lists every tool including drafts and archived ones, with the flags a review
+  runs on — no photo, no manual, open tickets, never reviewed — computed in SQL
+  by `src/lib/data/inventory.ts` in five statements whatever the size of the
+  inventory. An *archived* tool carries no flags: archiving is one of the three
+  outcomes of a review, so settled equipment stays out of the queue. Units that
+  belong to no tool come back as their own list rather than being attached to a
+  guessed tool.
+- **The filters are client-side and in the URL, both on purpose.** The server
+  renders every row and `InventoryFilters` narrows them in the browser (the
+  `GalleryShell` idiom), so a facet costs no round trip; it then writes the
+  filters back with `history.replaceState`, so "every tool with no manual" is a
+  link somebody can send and the Back button still points where the reviewer
+  came from. `inventory-filters.ts` is the directive-free sibling both the page
+  and the island import — it owns which values a URL may carry, and drops any
+  it does not offer. An empty table names the filter that emptied it; "no
+  results" on its own tells a reviewer nothing (§6).
+- **Editing inventory is optimistic, and its token is a string.** The tool
+  editor reads a revision when it opens and hands it back with the save; the
+  write happens only if `tools.updated_at` has not moved. The token is
+  `extract(epoch from updated_at)::text`, computed and compared by Postgres,
+  **never a JavaScript `Date`** — `now()` has microsecond resolution and a
+  `Date` has milliseconds, so a `Date` comparison matches nothing on Neon while
+  matching forever on PGlite. See `src/lib/data/revision.ts`. A unit, resource
+  or photo edit touches the tool row in the same transaction, so the tool is the
+  token for the whole panel; a *refused* child write rolls that touch back.
+- **The tool editor is one panel offered from two places.**
+  `ToolEditorPanel` opens as a side panel from a row of the review table and as
+  a **full-screen sheet over a tool's own page** (§5.3(b)) — the phone-first
+  case, because a SuperMaker marking a printer out of service is standing next
+  to the machine. `EditToolControl` is what offers it there: it asks
+  `/api/identity` *after mount*, like `AdminLink`, so the cached tool page stays
+  cached for everyone who is not staff.
+- **A conflict never costs anybody their typing.** The panel keeps the unsaved
+  edits, says so inline (never a modal — §6), and **Reload** fetches the newer
+  version and shows the other person's value beside every field they disagree
+  on, with a control that takes it. The fields form is *rebased*, never
+  synchronised: nothing copies fresh server values over a box somebody is
+  typing in, so the panel remounts it with a new `key` after a save it knows
+  landed. It also sends **only the fields that changed**, because a patch
+  carrying every field would overwrite an edit the revision check cannot see.
+- **Every editor action is gated by `authorizeAdminAction`**
+  (`src/lib/admin/action-gate.ts`): identity, then the limiter, then the one
+  permission it needs — the sequence `/admin/users` established, now shared and
+  parameterised. Editing is `tools.edit`; publish, unpublish, archive and
+  restore are `tools.publish`. Both are `admin` today, so the split costs
+  nothing and makes "SuperMakers may add tools but not publish them" a one-line
+  change. `canPublish` hides those four controls; hiding is presentation.
+- **Drafts are reachable at their slug only with `catalog.view_drafts`, and the
+  refusal is a 404.** `getCatalogTool` is `"use cache"` and published-only and
+  cannot see the caller, so a miss renders `DraftToolView` inside its own
+  Suspense boundary — an async child that reads headers, checks the permission
+  and calls `notFound()` for everyone else. Keeping that read inside the
+  boundary is what leaves every *published* tool page prerenderable under
+  `cacheComponents` (`npm run build` is the check); a different-looking refusal
+  would confirm the draft exists.
+- **With no `BLOB_READ_WRITE_TOKEN` the panel says photos cannot be added and
+  stays usable for everything else.** `POST /api/uploads` answers 503, the
+  Photos and Resources sections show that sentence, and reordering, removal and
+  every text field keep working — a deployment with no Blob store is still one
+  where a wrong description is worth fixing (Article 4).
 - **Two things cannot be undone, so they cannot be done.** An address in
   `AUTH_SUPER_ADMIN_EMAILS` cannot be demoted or banned, and the last
   unbanned `super_admin` cannot be demoted. The table disables those rows with
@@ -195,6 +266,41 @@ Phase 5 extends both. The shape it sets:
   `sign_in_required` to an anonymous caller, the byline comes from the session
   and the typed-name field is gone. Browsing, chatting and reporting a problem
   are all still anonymous.
+- **The three queues are what the lab actually runs on** (§5.6).
+  `/admin/maintenance` (`maintenance.manage`), `/admin/corrections`
+  (`feedback.manage`) and `/admin/projects` (`projects.moderate`) are the
+  surfaces that replace working tickets in Notion. Each is a card list rather
+  than a table, because every row carries prose somebody typed; each puts the
+  open work on the page and folds the settled work behind a disclosure, because
+  the person using these has twenty tickets and ten minutes; and each one's
+  control **saves on the click**, with `useRowAction` giving all of them the
+  same contract (optimistic, a refusal restores, a warning keeps). The shared
+  preamble is `src/lib/admin/queue-write.ts` — gate, write, record, refresh,
+  each step only as far as the last one earned.
+- **Each queue checks its own permission, and a test proves it is its own.** No
+  role holds `tools.edit` without `feedback.manage`, so each `actions.test.ts`
+  mocks `can()` for one case and asserts the endpoint is refused to a caller
+  holding the *adjacent* permission. That is the only way to catch an action
+  that gates on the wrong declaration.
+- **Only the project one audits, and only it invalidates.** Publishing decides
+  what the public gallery shows, so it writes `project.published` /
+  `project.unpublished` and calls `invalidateProjects()` — and a lost audit
+  event is still `{ ok: true, warning: "audit_unavailable" }`, never a failure.
+  Maintenance and correction edits are ordinary edits, which §4.11 says are
+  deliberately not logged, and nothing cached reads either table.
+- **A correction is one click from the field it corrects.** The row links to
+  the tool's own page — where the field is shown and where `EditToolControl`
+  opens the editor — not to `/admin/inventory`, which would land the reviewer
+  in a table they then have to search.
+- **`published_at` / `published_by` describe the current publication, not the
+  history**, so unpublishing clears both. The history is `audit_events`.
+- **One read selects a reporter's email, on purpose.** `listMaintenanceQueue`
+  and `listFeedbackQueue` carry `reported_by_email` / `reporter_email`, because
+  the first thing an admin does with a confusing ticket is ask the person who
+  filed it. `listMaintenanceHistoryForUnit` still does not select it at all —
+  its rows reach a model prompt and the mirror (§8). Which function a caller
+  picks is the whole of that decision, which is why they are two functions and
+  not one with a flag.
 
 ## Key files
 
@@ -203,7 +309,19 @@ Phase 5 extends both. The shape it sets:
 | `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults) |
 | `src/lib/db/client.ts` | `getDb()`, `dataSubstrate()`, `pingDb()` — the one entry point to Postgres/PGlite |
 | `src/lib/notion.ts` | Notion API client — read by the one-time import and by intake's `create_tool` (Phase 6); no other write and no request path reads it |
-| `src/lib/data/attachments.ts` | `attachments` rows: create, claim onto an owner, list orphans, delete |
+| `src/lib/data/attachments.ts` | `attachments` rows: create, claim onto an owner, reorder, release, list orphans, delete |
+| `src/lib/data/revision.ts` | The editor's concurrency token — `extract(epoch from updated_at)::text`, **never a `Date`** (read the docstring before touching a conflict check) |
+| `src/lib/data/tools.ts` / `units.ts` | Row-level inventory writes, every one revision-checked. Tools are archived, never deleted |
+| `src/lib/data/inventory.ts` | The `/admin/inventory` read — every tool, its state and its needs-attention flags, plus the units that belong to no tool |
+| `src/lib/data/taxonomy.ts` | `listCategories()` / `listLocations()` — the two option lists an editing surface needs, the only place these tables are read whole |
+| `src/lib/inventory/*` | Those writes composed with cache invalidation and the audit trail — the layer `/admin/inventory`'s server actions call |
+| `src/lib/admin/audit-warning.ts` | `record` / `warn` — the shared "a lost audit event is a warning on a success" channel |
+| `src/lib/admin/action-gate.ts` | `authorizeAdminAction(permission)` — identity, limiter, permission: the preamble every admin server action runs |
+| `src/lib/data/tool-editor.ts` | The editor panel's read — one tool with its units, resources and photos, drafts and retired rows included |
+| `src/app/admin/inventory/actions.ts` + `unit-`/`resource-`/`photo-actions.ts` | The editor's server actions, one module per section, each checking its own permission |
+| `src/components/admin/ToolEditorPanel.tsx` | The editor itself: the revision token, the conflict, and the five sections beside it |
+| `src/app/tools/[id]/EditToolControl.tsx` / `DraftToolView.tsx` | Edit mode on a tool page (phone-first), and drafts at their slug for `catalog.view_drafts` |
+| `src/lib/revalidate.ts` | `invalidateCatalog()` / `invalidateProjects()` — the one home for the cache tag strings |
 | `src/lib/blob.ts` | The Blob seam — `put` (private backups, fixed pathname) and `putUpload` (random pathname, caller's access) |
 | `src/lib/cron/backup.ts`, `src/lib/cron/cleanup.ts` | The nightly Postgres export and the orphaned-upload sweep |
 | `src/lib/cron/backup-policy.ts` | What the nightly export holds back — `session` / `verification` skipped, `account` tokens blanked. A backup is data, not credentials |
@@ -215,8 +333,13 @@ Phase 5 extends both. The shape it sets:
 | `src/lib/auth/super-admins.ts` | `AUTH_SUPER_ADMIN_EMAILS`, the lock-out floor |
 | `src/lib/auth/floor-role.ts` | `reconcileSuperAdminFloor` — writes the floor's role and lifts its ban onto the row, because the admin plugin reads the row and not `can()` |
 | `src/app/admin/layout.tsx` | The `/admin` front door — signed in? holds an admin permission? |
+| `src/app/admin/inventory/page.tsx` | The review table (`tools.edit`), uncached, filtered from the URL |
 | `src/app/admin/users/actions.ts` | `setUserRole` / `setUserBanned` — the app's first server actions |
 | `src/lib/data/users.ts` | The `/admin/users` roster, read straight from Postgres |
+| `src/lib/admin/queue-write.ts` | `runQueueWrite` — the gate/write/record/refresh preamble the three §5.6 queues share |
+| `src/app/admin/maintenance/`, `corrections/`, `projects/` | The three queues: one page, one result module and one action apiece |
+| `src/components/admin/use-row-action.ts` | What every queue control does around its action — optimistic, refusal restores, warning keeps |
+| `src/components/admin/MaintenanceQueue.tsx` / `CorrectionsQueue.tsx` / `ProjectQueue.tsx` | The three card lists, each with its own small island |
 | `src/lib/data/audit.ts` | `audit_events` — insert and select, never update or delete |
 | `src/lib/db/schema/auth.ts` | Better Auth's four tables; property keys are its field names |
 | `src/lib/types.ts` / `src/components/catalog-types.ts` | Notion record types / resolved view types |
@@ -234,6 +357,11 @@ Phase 5 extends both. The shape it sets:
 - Server components by default; add `"use client"` only when needed.
 - Server-only modules import `"server-only"` (e.g. `rate-limit.ts`).
 - Theme/brand via **CSS variables** (`--primary`, `--background`, …) — `[data-theme="light|dark"]` on `<html>`, never hardcoded colors.
+- **The `.td-*` utilities are global; their `--td-*` tokens are not.** They are
+  declared on `.tool-detail`, and `.admin-shell` supplies its own mapped onto
+  the global theme tokens. Using a `.td-*` class anywhere else means supplying
+  the tokens there too: an unresolvable `var()` does not fall back, it computes
+  to `unset`, so the rule fails *silently and wrongly* rather than visibly.
 - All branding strings come from `siteConfig` (`@/lib/site-config`).
 - Every API route is **rate-limited by identity** before expensive work — user id when signed in, hashed IP when not.
 - Authorization is **always** `can(subject, permission)` from `src/lib/auth/permissions.ts`. Never compare role names, and never gate inside a capability tool's `run()`.

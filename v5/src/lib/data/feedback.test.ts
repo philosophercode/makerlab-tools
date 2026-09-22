@@ -4,7 +4,7 @@ import { createPgliteDb } from "../db/pglite";
 import { feedback, tools } from "../db/schema/index";
 import { insertUserRow } from "../../../test/utils/session";
 import type { Db } from "../db/types";
-import { createFeedback } from "./feedback";
+import { createFeedback, listFeedbackQueue, updateFeedbackStatus } from "./feedback";
 
 /**
  * Corrections against a real (in-process) Postgres. No env, no network.
@@ -122,5 +122,112 @@ describe("createFeedback", () => {
     // The assertion that matters (spec §8): a flag is inert.
     const after = await db.select().from(tools).where(eq(tools.id, toolId));
     expect(after).toEqual(before);
+  });
+});
+
+describe("listFeedbackQueue", () => {
+  async function fileCorrection(values: Partial<typeof feedback.$inferInsert> = {}) {
+    await db.insert(feedback).values({
+      toolId,
+      issueDescription: "Something is wrong.",
+      ...values,
+    });
+  }
+
+  it("puts the untriaged ones first, in the order the vocabulary is declared", async () => {
+    await fileCorrection({ issueDescription: "Dismissed", status: "dismissed" });
+    await fileCorrection({ issueDescription: "Fixed", status: "fixed" });
+    await fileCorrection({ issueDescription: "New", status: "new" });
+    await fileCorrection({ issueDescription: "Reviewed", status: "reviewed" });
+
+    const queue = await listFeedbackQueue({ db });
+
+    expect(queue.map((entry) => entry.issueDescription)).toEqual([
+      "New",
+      "Reviewed",
+      "Fixed",
+      "Dismissed",
+    ]);
+  });
+
+  it("carries the tool's slug, so an accepted correction is one click from the field", async () => {
+    await fileCorrection({ fieldFlagged: "materials", suggestedFix: "Add Rigid 10K." });
+
+    const [entry] = await listFeedbackQueue({ db });
+
+    expect(entry.toolSlug).toBe("form-4");
+    expect(entry.toolName).toBe("Form 4");
+    // Stored, not display text: the page translates, and the value posts back.
+    expect(entry.fieldFlagged).toBe("materials");
+    expect(entry.suggestedFix).toBe("Add Rigid 10K.");
+  });
+
+  it("keeps a correction whose tool never resolved, and links nowhere rather than wrongly", async () => {
+    await fileCorrection({ toolId: null, issueDescription: "The laser near the door" });
+
+    const [entry] = await listFeedbackQueue({ db });
+
+    expect(entry.toolId).toBeNull();
+    expect(entry.toolSlug).toBeNull();
+    expect(entry.toolName).toBe("");
+    expect(entry.issueDescription).toBe("The laser near the door");
+  });
+
+  it("selects the reporter's address for the one page that may see it", async () => {
+    await fileCorrection({ reporterName: "Ada", reporterEmail: "ada@cornell.edu" });
+
+    const [entry] = await listFeedbackQueue({ db });
+
+    expect(entry.reporterName).toBe("Ada");
+    expect(entry.reporterEmail).toBe("ada@cornell.edu");
+  });
+
+  it("is bounded", async () => {
+    await fileCorrection();
+    await fileCorrection();
+
+    expect(await listFeedbackQueue({ db, limit: 1 })).toHaveLength(1);
+  });
+});
+
+describe("updateFeedbackStatus", () => {
+  it("marks a correction fixed and records who did it", async () => {
+    const staff = await insertUserRow(db, { email: "niti@cornell.edu", role: "admin" });
+    const { id } = await createFeedback(
+      { toolId, fieldFlagged: "materials", issueDescription: "Missing Rigid 10K." },
+      { db }
+    );
+
+    expect(await updateFeedbackStatus(id, "fixed", { db, actorUserId: staff.id })).toEqual({
+      ok: true,
+    });
+
+    const row = await storedRow(id);
+    expect(row.status).toBe("fixed");
+    expect(row.updatedBy).toBe(staff.id);
+    // The report itself is untouched — the queue triages, it does not rewrite
+    // what somebody said.
+    expect(row.issueDescription).toBe("Missing Rigid 10K.");
+  });
+
+  it("refuses a status outside the vocabulary and changes nothing", async () => {
+    const { id } = await createFeedback({ toolId, fieldFlagged: null, issueDescription: "?" }, { db });
+
+    expect(await updateFeedbackStatus(id, "resolved", { db })).toEqual({
+      ok: false,
+      reason: "invalid_field",
+    });
+    expect((await storedRow(id)).status).toBe("new");
+  });
+
+  it("answers not_found for an unknown id and for anything that is not a uuid", async () => {
+    expect(await updateFeedbackStatus(crypto.randomUUID(), "fixed", { db })).toEqual({
+      ok: false,
+      reason: "not_found",
+    });
+    expect(await updateFeedbackStatus("form-4", "fixed", { db })).toEqual({
+      ok: false,
+      reason: "not_found",
+    });
   });
 });

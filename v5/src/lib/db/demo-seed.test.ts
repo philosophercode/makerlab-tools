@@ -5,11 +5,14 @@ import {
   DEMO_FORM_4_NOTION_PAGE_ID,
   DEMO_FORM_4_UNIT_NOTION_PAGE_ID,
   DEMO_PROJECT_SLUG,
+  DEMO_WAITING_PROJECT_SLUG,
   seedDemo,
 } from "./demo-seed";
 import { createPgliteDb } from "./pglite";
 import {
   attachments,
+  feedback,
+  maintenanceLogs,
   projectTools,
   projects,
   resources,
@@ -113,6 +116,26 @@ describe("seedDemo", () => {
         .sort()
     );
     expect(sessions.every((row) => row.expiresAt.getTime() > Date.now())).toBe(true);
+  });
+
+  it("gives each of the three queues one row to show (spec §5.6)", async () => {
+    const db = await createPgliteDb({ seed: seedDemo });
+
+    const [ticket] = await db.select().from(maintenanceLogs);
+    expect(ticket).toMatchObject({ status: "open", priority: "high", toolName: "Trotec Speedy 400" });
+    // It names a real unit, not just the snapshot, so the queue can link to it.
+    expect(ticket.unitId).not.toBeNull();
+
+    const [correction] = await db.select().from(feedback);
+    expect(correction).toMatchObject({ status: "new", fieldFlagged: "materials" });
+
+    const [waiting] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.slug, DEMO_WAITING_PROJECT_SLUG));
+    // Article 5: it waits for a person, so the gallery cannot see it.
+    expect(waiting.published).toBe(false);
+    expect(waiting.publishedAt).toBeNull();
   });
 
   it("is idempotent", async () => {

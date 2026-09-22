@@ -1,5 +1,5 @@
 import { date, index, pgTable, text, uuid } from "drizzle-orm/pg-core";
-import { actorColumns, inListCheck, notionPageId, timestamps } from "./helpers.ts";
+import { actorColumns, inListCheck, notionPageId, timestamps, userReference } from "./helpers.ts";
 import { tools } from "./tools.ts";
 import { units } from "./units.ts";
 import { MAINTENANCE_PRIORITY, MAINTENANCE_STATUS, MAINTENANCE_TYPE } from "./vocabulary.ts";
@@ -33,7 +33,7 @@ export const maintenanceLogs = pgTable(
     reportedByName: text("reported_by_name"),
     reportedByEmail: text("reported_by_email"),
     reportedByUserId: text("reported_by_user_id"),
-    assignedToUserId: text("assigned_to_user_id"),
+    assignedToUserId: userReference("assigned_to_user_id"),
     assignedToName: text("assigned_to_name"),
     dateReported: date("date_reported", { mode: "string" }),
     dateResolved: date("date_resolved", { mode: "string" }),

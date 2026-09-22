@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, lt } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt } from "drizzle-orm";
 import { getDb } from "../db/client.ts";
 import { attachments } from "../db/schema/index.ts";
 import type { AttachmentAccess, AttachmentOwner } from "../db/schema/vocabulary.ts";
@@ -66,6 +66,118 @@ export async function claimAttachments(
     claimed += rows.length;
   }
   return claimed;
+}
+
+/**
+ * Every file this owner holds, cover first (`position` 0 is the cover, §4.7).
+ *
+ * Takes its handle explicitly for the same reason {@link claimAttachments}
+ * does: the editor reads an owner's photos inside the transaction that is about
+ * to reorder them.
+ */
+export async function listAttachmentsForOwner(
+  db: Db,
+  owner: ClaimOwner
+): Promise<StoredAttachment[]> {
+  if (!isUuid(owner.ownerId)) return [];
+  return db
+    .select(ATTACHMENT_COLUMNS)
+    .from(attachments)
+    .where(and(eq(attachments.ownerType, owner.ownerType), eq(attachments.ownerId, owner.ownerId)))
+    .orderBy(asc(attachments.position), asc(attachments.id));
+}
+
+/**
+ * Rewrite this owner's photo order, and report how many rows moved.
+ *
+ * `orderedIds` is the whole order the panel is asserting; whatever is at the
+ * front becomes the cover. Two rules, both about not trusting the list:
+ *
+ * - **Owner-scoped.** `owner_type` and `owner_id` are part of every WHERE, so
+ *   an id belonging to another tool changes nothing — a reorder cannot reach
+ *   across records.
+ * - **Anything not named is left alone.** A photo added by somebody else while
+ *   the panel was open keeps its position rather than being silently dropped to
+ *   the end of a list that never knew about it.
+ */
+export async function reorderAttachments(
+  db: Db,
+  owner: ClaimOwner,
+  orderedIds: readonly string[]
+): Promise<number> {
+  if (!isUuid(owner.ownerId)) return 0;
+  const candidates = [...new Set(orderedIds.filter(isUuid))];
+  if (candidates.length === 0) return 0;
+
+  let moved = 0;
+  // One statement per id, as in `claimAttachments` and for the same reason:
+  // `position` is the caller's order, and the panel is capped at a handful of
+  // photos (§3.3).
+  for (const [position, id] of candidates.entries()) {
+    const rows = await db
+      .update(attachments)
+      .set({ position })
+      .where(
+        and(
+          eq(attachments.id, id),
+          eq(attachments.ownerType, owner.ownerType),
+          eq(attachments.ownerId, owner.ownerId)
+        )
+      )
+      .returning({ id: attachments.id });
+    moved += rows.length;
+  }
+  return moved;
+}
+
+/**
+ * Take files off their owner — the inverse of {@link claimAttachments} — and
+ * report how many were released.
+ *
+ * **This is how a photo is removed, and the bytes are not deleted here.** An
+ * unowned row is exactly what `POST /api/uploads` leaves behind, so the daily
+ * cron's existing sweep (`listOrphanedAttachments` → blob, then row) collects
+ * it, in that order, with the retry behaviour that path already has. Deleting
+ * the blob from inside a request would either sit inside a transaction that can
+ * still roll back, or commit ahead of a write that can still fail — and a blob
+ * whose row is gone is invisible to every sweep there is.
+ *
+ * The trade is that the bytes outlive the removal by up to a day. The photo
+ * leaves the page the moment this commits, which is what "remove" means to the
+ * person clicking it.
+ *
+ * Omit `ids` to release everything this owner holds — what deleting the owning
+ * row needs, so its files become sweepable instead of pointing at nothing.
+ */
+export async function releaseAttachments(
+  db: Db,
+  owner: ClaimOwner,
+  ids?: readonly string[]
+): Promise<number> {
+  if (!isUuid(owner.ownerId)) return 0;
+
+  const owned = and(
+    eq(attachments.ownerType, owner.ownerType),
+    eq(attachments.ownerId, owner.ownerId)
+  );
+
+  let where = owned;
+  if (ids !== undefined) {
+    const candidates = [...new Set(ids.filter(isUuid))];
+    if (candidates.length === 0) return 0;
+    where = and(owned, inArray(attachments.id, candidates));
+  }
+
+  const rows = await db
+    .update(attachments)
+    // `position` goes back to the default too: the row is about to be swept,
+    // and leaving a stale cover position on it would be a small lie in the one
+    // table the integrity walk reads.
+    .set({ ownerType: null, ownerId: null, position: 0 })
+    .where(where)
+    .returning({ id: attachments.id });
+
+  return rows.length;
 }
 
 /** One uploaded file, before anything owns it. */

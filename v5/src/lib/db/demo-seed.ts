@@ -1,7 +1,9 @@
 import {
   attachments,
   categories,
+  feedback,
   locations,
+  maintenanceLogs,
   projectTools,
   projects,
   resources,
@@ -38,6 +40,17 @@ export const DEMO_FORM_4_UNIT_NOTION_PAGE_ID = "2a3b4c5d-6e7f-4890-9abc-def01234
 
 /** The sample project's slug, for tests and E2E. */
 export const DEMO_PROJECT_SLUG = "laser-cut-plywood-lamp";
+
+/**
+ * The submission waiting for a decision on `/admin/projects`, for tests and
+ * E2E (spec §5.6).
+ *
+ * Unpublished, so it is invisible to the gallery, to `findPublishedProject`
+ * and to every cached read — which is exactly the point. A moderation queue
+ * with nothing in it demonstrates nothing, and Article 5's gate is only
+ * visible when there is something standing at it.
+ */
+export const DEMO_WAITING_PROJECT_SLUG = "resin-dice-tower";
 
 /**
  * One demo account per role, each with a session row whose token is a constant
@@ -158,25 +171,30 @@ export async function seedDemo(db: Db): Promise<void> {
       ])
       .returning({ id: tools.id });
 
-    await tx.insert(units).values([
-      {
-        toolId: form4.id,
-        unitLabel: "Form 4 // A",
-        serialNumber: "ML-F4-001",
-        status: "in_use",
-        condition: "excellent",
-        dateAcquired: "2024-08-12",
-        notionPageId: DEMO_FORM_4_UNIT_NOTION_PAGE_ID,
-      },
-      {
-        toolId: trotec.id,
-        unitLabel: "Trotec Speedy 400",
-        serialNumber: "ML-LSR-400",
-        status: "available",
-        condition: "good",
-        dateAcquired: "2022-04-03",
-      },
-    ]);
+    const [, trotecUnit] = await tx
+      .insert(units)
+      .values([
+        {
+          toolId: form4.id,
+          unitLabel: "Form 4 // A",
+          serialNumber: "ML-F4-001",
+          status: "in_use",
+          condition: "excellent",
+          dateAcquired: "2024-08-12",
+          notionPageId: DEMO_FORM_4_UNIT_NOTION_PAGE_ID,
+        },
+        {
+          toolId: trotec.id,
+          unitLabel: "Trotec Speedy 400",
+          serialNumber: "ML-LSR-400",
+          status: "available",
+          condition: "good",
+          dateAcquired: "2022-04-03",
+        },
+      ])
+      // The Trotec's unit, so the demo maintenance ticket below can name a real
+      // machine. Postgres returns the rows in the order they were given.
+      .returning({ id: units.id });
 
     await tx.insert(resources).values([
       { toolId: form4.id, title: "Form 4 SOP", type: "SOP", url: "#" },
@@ -251,6 +269,77 @@ export async function seedDemo(db: Db): Promise<void> {
         originalFilename: "laser-cut-lamp-parts.png",
       },
     ]);
+
+    // ── One row for each of the three queues (spec §5.6) ──────────────
+    //
+    // Phase 5 gave the lab three admin surfaces whose whole content is rows
+    // somebody filed, and a demo database with none of them shows three empty
+    // states to anybody trying the app out. These are the smallest set that
+    // makes each queue demonstrable — and deliberately *not* a draft tool,
+    // because `e2e/admin-inventory.spec.ts` asserts that both seeded tools are
+    // published and that `?state=draft` therefore empties the table.
+    //
+    // All three are attributed to the demo student account, which
+    // `seedDemoAccounts` has already inserted: `created_by` has a foreign key
+    // since migration 0003, so an author that is not a row would be refused.
+    const student = DEMO_ACCOUNTS.user;
+
+    await tx.insert(maintenanceLogs).values({
+      title: "Laser bed out of focus",
+      description:
+        "Cuts on the left half of the bed are not going all the way through 3 mm ply. The focus gauge is in the drawer under the machine.",
+      type: "issue_report",
+      priority: "high",
+      status: "open",
+      unitId: trotecUnit.id,
+      toolId: trotec.id,
+      // Snapshots, so the ticket stays readable if the unit is retired (§4.8).
+      toolName: "Trotec Speedy 400",
+      unitLabel: "Trotec Speedy 400",
+      reportedByName: student.name,
+      reportedByEmail: student.email,
+      reportedByUserId: student.id,
+      dateReported: "2026-03-04",
+      createdBy: student.id,
+      updatedBy: student.id,
+    });
+
+    await tx.insert(feedback).values({
+      toolId: form4.id,
+      fieldFlagged: "materials",
+      issueDescription:
+        "The resin list is missing Rigid 10K, which the lab has had since January.",
+      suggestedFix: "Add Rigid 10K to the materials.",
+      reporterName: student.name,
+      reporterEmail: student.email,
+      reporterUserId: student.id,
+      status: "new",
+      createdBy: student.id,
+      updatedBy: student.id,
+    });
+
+    const [diceTower] = await tx
+      .insert(projects)
+      .values({
+        slug: DEMO_WAITING_PROJECT_SLUG,
+        title: "Resin dice tower",
+        body: [
+          "A dice tower printed in three parts on the Form 4 and glued up, with a felt-lined tray so the dice stop rattling off the desk.",
+          "",
+          "The baffles are angled at 40 degrees, which was the third try — at 30 the dice stall on the top one.",
+        ].join("\n"),
+        materials: ["Standard resin", "Felt", "Cyanoacrylate"],
+        authorName: student.name,
+        authorUserId: student.id,
+        // Article 5: a submission arrives unpublished and waits for a person.
+        published: false,
+        createdAt: new Date("2026-03-05T18:00:00.000Z"),
+        createdBy: student.id,
+        updatedBy: student.id,
+      })
+      .returning({ id: projects.id });
+
+    await tx.insert(projectTools).values({ projectId: diceTower.id, toolId: form4.id });
   });
 }
 

@@ -8,9 +8,11 @@ import type { Db } from "../db/types";
 import {
   createMaintenanceLog,
   listMaintenanceHistoryForUnit,
+  listMaintenanceQueue,
   toDisplayLabel,
   toMaintenanceHistoryEntry,
   toStoredValue,
+  updateMaintenanceLog,
 } from "./maintenance";
 
 /**
@@ -392,5 +394,183 @@ describe("toStoredValue", () => {
     expect(toStoredValue("", MAINTENANCE_PRIORITY)).toBeNull();
     expect(toStoredValue(null, MAINTENANCE_PRIORITY)).toBeNull();
     expect(toStoredValue(undefined, MAINTENANCE_PRIORITY)).toBeNull();
+  });
+});
+
+describe("listMaintenanceQueue", () => {
+  it("puts open work first, worst first, and dates the tie-break", async () => {
+    await insertLog({ title: "Closed long ago", status: "closed", priority: "critical" });
+    await insertLog({ title: "Open, low", status: "open", priority: "low" });
+    await insertLog({ title: "In progress", status: "in_progress", priority: "critical" });
+    await insertLog({ title: "Open, critical", status: "open", priority: "critical" });
+    await insertLog({ title: "Open, unprioritised", status: "open", priority: null });
+
+    const queue = await listMaintenanceQueue({ db });
+
+    // Status first (the order MAINTENANCE_STATUS is declared in), then
+    // priority, and a ticket with no priority after the ones that have one.
+    expect(queue.map((entry) => entry.title)).toEqual([
+      "Open, critical",
+      "Open, low",
+      "Open, unprioritised",
+      "In progress",
+      "Closed long ago",
+    ]);
+  });
+
+  it("carries stored values, not the display text the history read returns", async () => {
+    await insertLog({ status: "in_progress", priority: "high", type: "issue_report" });
+
+    const [entry] = await listMaintenanceQueue({ db });
+
+    expect(entry.status).toBe("in_progress");
+    expect(entry.priority).toBe("high");
+    expect(entry.type).toBe("issue_report");
+    // The history read, whose rows a model sees, still translates.
+    expect((await listMaintenanceHistoryForUnit(unitId, { db }))[0].status).toBe("In Progress");
+  });
+
+  it("names the tool it is about, preferring the live name over the snapshot", async () => {
+    await insertLog({ toolId, toolName: "Form 4 (as filed)", unitLabel: "Form 4 // A" });
+    await db.update(tools).set({ name: "Form 4 (renamed)" }).where(eq(tools.id, toolId));
+
+    const [entry] = await listMaintenanceQueue({ db });
+
+    expect(entry.toolName).toBe("Form 4 (renamed)");
+    expect(entry.toolSlug).toBe("form-4");
+    expect(entry.unitLabel).toBe("Form 4 // A");
+  });
+
+  it("falls back to the snapshot for a ticket whose tool is gone", async () => {
+    await insertLog({ toolId: null, unitId: null, toolName: "A printer we sold" });
+
+    const [entry] = await listMaintenanceQueue({ db });
+
+    expect(entry.toolName).toBe("A printer we sold");
+    expect(entry.toolSlug).toBeNull();
+  });
+
+  it("selects the reporter's address, which the history read deliberately does not", async () => {
+    await insertLog({ reportedByName: "Casey", reportedByEmail: "casey@cornell.edu" });
+
+    const [entry] = await listMaintenanceQueue({ db });
+    expect(entry.reportedByEmail).toBe("casey@cornell.edu");
+
+    // The read a model's answer is built from still has no way to leak it.
+    const [history] = await listMaintenanceHistoryForUnit(unitId, { db });
+    expect(JSON.stringify(history)).not.toContain("casey@cornell.edu");
+  });
+
+  it("is bounded", async () => {
+    await insertLog({ title: "One" });
+    await insertLog({ title: "Two" });
+
+    expect(await listMaintenanceQueue({ db, limit: 1 })).toHaveLength(1);
+  });
+});
+
+describe("updateMaintenanceLog", () => {
+  async function onlyLog(): Promise<typeof maintenanceLogs.$inferSelect> {
+    const [row] = await db.select().from(maintenanceLogs).limit(1);
+    return row;
+  }
+
+  it("resolves a ticket and dates it in the lab's timezone, not the server's", async () => {
+    // 01:30 UTC on the 3rd is still the 2nd in New York. A ticket resolved at
+    // half nine on Tuesday evening must not be filed under Wednesday (§4.8).
+    vi.setSystemTime(new Date("2026-03-03T01:30:00.000Z"));
+    await insertLog();
+    const before = await onlyLog();
+
+    const result = await updateMaintenanceLog(before.id, { status: "resolved" }, { db });
+
+    expect(result).toEqual({ ok: true });
+    const after = await onlyLog();
+    expect(after.status).toBe("resolved");
+    expect(after.dateResolved).toBe("2026-03-02");
+    vi.useRealTimers();
+  });
+
+  it("keeps the first resolution date when the note is edited afterwards", async () => {
+    await insertLog();
+    const { id } = await onlyLog();
+    vi.setSystemTime(new Date("2026-03-02T15:00:00.000Z"));
+    await updateMaintenanceLog(id, { status: "resolved" }, { db });
+
+    vi.setSystemTime(new Date("2026-04-09T15:00:00.000Z"));
+    await updateMaintenanceLog(id, { status: "closed", resolution: "Tank replaced" }, { db });
+
+    const after = await onlyLog();
+    expect(after.dateResolved).toBe("2026-03-02");
+    expect(after.resolution).toBe("Tank replaced");
+    vi.useRealTimers();
+  });
+
+  it("clears the resolution date when a ticket is reopened", async () => {
+    await insertLog({ status: "resolved", dateResolved: "2026-03-02" });
+    const { id } = await onlyLog();
+
+    await updateMaintenanceLog(id, { status: "open" }, { db });
+
+    expect((await onlyLog()).dateResolved).toBeNull();
+  });
+
+  it("assigns and unassigns, stamping who made the change", async () => {
+    const staff = await insertUserRow(db, { email: "niti@cornell.edu", role: "admin" });
+    await insertLog();
+    const { id } = await onlyLog();
+
+    await updateMaintenanceLog(
+      id,
+      { assignedToUserId: staff.id, assignedToName: staff.name },
+      { db, actorUserId: staff.id }
+    );
+    let after = await onlyLog();
+    expect(after.assignedToUserId).toBe(staff.id);
+    expect(after.assignedToName).toBe(staff.name);
+    expect(after.updatedBy).toBe(staff.id);
+
+    await updateMaintenanceLog(id, { assignedToUserId: null, assignedToName: null }, { db });
+    after = await onlyLog();
+    expect(after.assignedToUserId).toBeNull();
+    expect(after.assignedToName).toBeNull();
+  });
+
+  it("refuses a value outside the vocabulary before Postgres sees it, and writes nothing", async () => {
+    await insertLog({ status: "open" });
+    const { id } = await onlyLog();
+
+    expect(await updateMaintenanceLog(id, { status: "spicy" }, { db })).toEqual({
+      ok: false,
+      reason: "invalid_field",
+    });
+    expect(await updateMaintenanceLog(id, { priority: "urgent" }, { db })).toEqual({
+      ok: false,
+      reason: "invalid_field",
+    });
+
+    expect((await onlyLog()).status).toBe("open");
+  });
+
+  it("answers not_found for an unknown id and for anything that is not a uuid", async () => {
+    expect(await updateMaintenanceLog(crypto.randomUUID(), { status: "open" }, { db })).toEqual({
+      ok: false,
+      reason: "not_found",
+    });
+    expect(await updateMaintenanceLog("form-4", { status: "open" }, { db })).toEqual({
+      ok: false,
+      reason: "not_found",
+    });
+  });
+
+  it("leaves the fields the patch does not mention alone", async () => {
+    await insertLog({ priority: "high", description: "Cloudy after every print" });
+    const { id } = await onlyLog();
+
+    await updateMaintenanceLog(id, { status: "in_progress" }, { db });
+
+    const after = await onlyLog();
+    expect(after.priority).toBe("high");
+    expect(after.description).toBe("Cloudy after every print");
   });
 });

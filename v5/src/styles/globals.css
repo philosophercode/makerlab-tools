@@ -3785,6 +3785,37 @@ p {
    address, and it is set in mono because it is an identifier, not prose. */
 .admin-shell {
   padding-bottom: 64px;
+
+  /* Every `/admin` page borrows the tool-detail utilities — `.td-panel` for a
+     card, `.td-eyebrow` above a title, `.td-empty` for an empty state, and
+     `.admin-row-status.is-warning` for a change that landed minus its audit
+     event. Those RULES are global; their TOKENS are scoped to `.tool-detail`,
+     which is a room no admin page is in. An unresolvable `var()` does not fall
+     back — the declaration computes to `unset`, so the panel's border came out
+     as `currentColor` and the amber warning line came out the colour of body
+     text: the one line on the page whose whole job is to be noticed. Supplying
+     them here is the fix `.projects-header-actions` already models. They are
+     mapped onto the global theme tokens, so light and dark follow without a
+     second palette to keep in step. */
+  --td-surface: var(--surface-container);
+  --td-line: var(--outline);
+  --td-muted: var(--on-surface-muted);
+  --td-ink-2: var(--on-surface);
+  --td-accent: var(--primary);
+  --td-accent-soft: color-mix(in srgb, var(--primary) 14%, transparent);
+  /* The one colour with no global counterpart: not an error (nothing failed to
+     save) and not muted (somebody has to notice). Same pair `.tool-detail` uses. */
+  --td-warning: #b56b00;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) .admin-shell {
+    --td-warning: #e0a23a;
+  }
+}
+
+:root[data-theme="dark"] .admin-shell {
+  --td-warning: #e0a23a;
 }
 
 .admin-section {
@@ -3985,4 +4016,751 @@ p {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* ── /admin/inventory (spec §5.3a, §6) ──────────────────────────────
+   The review table and its filter console. Same schematic system as the
+   roster: 0px radii, mono metadata, tonal separation. Every colour is a
+   theme token, so the page follows the light/dark switch like everything
+   else — there is no hardcoded colour here on purpose. */
+.admin-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  padding: 16px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container-low);
+}
+
+.admin-filter {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-filter input,
+.admin-filter select {
+  min-width: 15ch;
+  padding: 8px 10px;
+  border: 1px solid var(--outline);
+  background: var(--background);
+  color: var(--on-surface);
+  font-family: var(--font-body);
+  font-size: 13px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.admin-filter input:focus,
+.admin-filter select:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+/* Pushed to the end of the row: the count and the escape hatch belong
+   together, and the clear button only exists while there is something to
+   clear. */
+.admin-filter-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-left: auto;
+}
+
+.admin-filter-count {
+  margin: 0;
+  color: var(--on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.admin-filter-clear {
+  padding: 8px 12px;
+  border: 1px solid var(--outline);
+  background: transparent;
+  color: var(--on-surface);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-filter-clear:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.admin-inventory-table {
+  min-width: 900px;
+}
+
+/* Archived rows are dimmed, not dropped: an archived tool is still inventory,
+   and finding one is how it gets restored. */
+.admin-inventory-table tbody tr.is-archived th,
+.admin-inventory-table tbody tr.is-archived td {
+  color: var(--on-surface-muted);
+}
+
+.admin-thumb {
+  position: relative;
+  display: block;
+  width: 48px;
+  height: 48px;
+  overflow: hidden;
+  border: 1px solid var(--outline);
+  background: var(--surface-container-low);
+}
+
+/* A missing photo is drawn as an empty frame rather than filled with a stand-in
+   the catalogue would never show — the "no photo" flag means somebody has to go
+   and take one. */
+.admin-thumb.is-empty {
+  display: grid;
+  place-items: center;
+  color: var(--on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 16px;
+}
+
+.admin-inventory-name {
+  color: var(--on-surface);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.admin-inventory-name:hover {
+  color: var(--primary);
+}
+
+.admin-cell-note {
+  display: block;
+  margin-top: 2px;
+  color: var(--on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.admin-muted {
+  color: var(--on-surface-muted);
+}
+
+.admin-unit-count {
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+.admin-state {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--outline);
+  color: var(--on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* A draft is unfinished work, not a fault — the accent marks it as the state
+   somebody is expected to move out of. */
+.admin-state.is-draft {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.admin-attention {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-attention-flag {
+  padding: 1px 6px;
+  border: 1px solid var(--outline);
+  color: var(--on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* An open ticket is the one flag that means a machine may be unusable right
+   now, so it gets the alert colour and the others stay quiet. */
+.admin-attention-flag.is-tickets {
+  border-color: var(--secondary);
+  color: var(--secondary);
+}
+
+.admin-unlinked {
+  padding: 16px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container-low);
+}
+
+.admin-unlinked h3 {
+  margin: 0 0 4px;
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.admin-unlinked-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-unlinked-list li {
+  padding: 8px 12px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container);
+}
+
+.admin-unlinked-label {
+  font-weight: 500;
+}
+
+/* Spec §6, Mobile: the inventory table becomes a card list. Eight columns is
+   too many to scroll sideways through on a phone, and a review often happens
+   standing next to the machine. Each cell carries its own label instead of
+   relying on a header row that has scrolled away. */
+@media (max-width: 760px) {
+  .admin-inventory-table {
+    min-width: 0;
+    border: none;
+    background: none;
+  }
+
+  .admin-inventory-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .admin-inventory-table tbody tr {
+    display: block;
+    margin-bottom: 12px;
+    padding: 12px;
+    border: 1px solid var(--outline);
+    background: var(--surface-container);
+  }
+
+  .admin-inventory-table tbody th,
+  .admin-inventory-table tbody td {
+    display: block;
+    padding: 2px 0;
+    border-bottom: none;
+  }
+
+  .admin-inventory-table tbody td[data-label]::before {
+    content: attr(data-label) ": ";
+    color: var(--on-surface-muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* The photo needs no label: it is a picture of the thing the card names. */
+  .admin-inventory-table tbody td:first-child::before {
+    content: none;
+  }
+
+  .admin-cell-note {
+    display: inline;
+    margin-left: 6px;
+  }
+
+  .admin-filter-actions {
+    margin-left: 0;
+  }
+}
+
+/* ── The tool editor (spec §5.3(3)-(5), §6) ─────────────────────────
+   One panel, two shapes: a side panel beside the review table, and a
+   full-screen sheet over a tool's own page — which is the phone-first case,
+   because a SuperMaker marking a printer out of service is standing next to
+   the machine. Below 760px the panel becomes the sheet too: there is no room
+   beside anything on a phone. Same schematic system as the rest of /admin —
+   0px radii, mono labels, every colour a theme token. */
+.admin-editor {
+  position: fixed;
+  inset: 0 0 0 auto;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  width: min(560px, 100vw);
+  padding: 20px;
+  overflow-y: auto;
+  border-left: 1px solid var(--outline);
+  background: var(--surface-container);
+  box-shadow: -8px 0 24px rgb(0 0 0 / 0.18);
+}
+
+/* The phone-first variant — a full-screen sheet over the tool's own page. */
+.admin-editor.is-sheet {
+  width: 100vw;
+  border-left: none;
+}
+
+/* And what every variant becomes on a phone: there is no room beside anything. */
+@media (max-width: 760px) {
+  .admin-editor {
+    width: 100vw;
+    border-left: none;
+  }
+}
+
+.admin-editor-head {
+  display: flex;
+  gap: 12px;
+  align-items: baseline;
+  justify-content: space-between;
+  position: sticky;
+  top: -20px;
+  margin: -20px -20px 0;
+  padding: 20px;
+  background: var(--surface-container-high);
+}
+
+.admin-editor-head h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 500;
+}
+
+/* Inline, above the form, and it removes nothing from the page: the unsaved
+   edits below it are the only copy of that work there is (§6, States). A modal
+   here is how the work gets lost. */
+.admin-editor-conflict {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--td-warning);
+  background: var(--surface-container-low);
+  color: var(--on-surface);
+  font-size: 13px;
+}
+
+.admin-editor-conflict p {
+  margin: 0;
+}
+
+.admin-editor-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 16px;
+  border-top: 1px solid var(--outline);
+}
+
+.admin-editor-section h4 {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--on-surface-muted);
+}
+
+.admin-editor-form,
+.admin-inline-form,
+.admin-unit-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-field.is-check {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-field input,
+.admin-field select,
+.admin-field textarea {
+  padding: 8px 10px;
+  border: 1px solid var(--outline);
+  background: var(--background);
+  color: var(--on-surface);
+  font-family: var(--font-body);
+  font-size: 14px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.admin-field input:focus,
+.admin-field select:focus,
+.admin-field textarea:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+/* The other person's value, after a conflict reload — shown beside the box
+   rather than in it, because both versions are somebody's work. */
+.admin-field-theirs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+  color: var(--td-warning);
+  font-family: var(--font-body);
+  font-size: 12px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.admin-field-theirs button {
+  padding: 2px 8px;
+  border: 1px solid var(--td-warning);
+  background: transparent;
+  color: var(--td-warning);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.admin-button {
+  padding: 8px 12px;
+  border: 1px solid var(--outline);
+  background: transparent;
+  color: var(--on-surface);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-button:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.admin-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-button.is-primary {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.admin-button.is-danger:hover:not(:disabled) {
+  border-color: var(--secondary);
+  color: var(--secondary);
+}
+
+.admin-editor-actions,
+.admin-unit-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-editor-state,
+.admin-state-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.admin-editor-state {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.admin-state-summary {
+  margin: 0;
+}
+
+.admin-unit-list,
+.admin-resource-list,
+.admin-photo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-unit,
+.admin-resource-list li,
+.admin-photo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  background: var(--surface-container-low);
+}
+
+/* A hidden resource is dimmed rather than dropped: the editor is the one place
+   in the app that shows an unpublished one, which is the point of showing it. */
+.admin-resource-list li.is-unpublished {
+  color: var(--on-surface-muted);
+}
+
+.admin-resource-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.admin-resource-title {
+  font-weight: 500;
+}
+
+.admin-resource-link {
+  color: var(--primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+/* Photos lay out as a row of thumbnails with their controls under each, and
+   wrap rather than scroll — a horizontal scroller inside a sheet is a gesture
+   fight on a phone. */
+.admin-photo-list {
+  flex-direction: row;
+  flex-wrap: wrap;
+}
+
+.admin-photo {
+  width: 140px;
+}
+
+.admin-photo .admin-thumb {
+  width: 100%;
+  height: 96px;
+}
+
+.admin-photo .admin-unit-actions {
+  flex-direction: column;
+}
+
+/* The row's way into the editor, beside the link to the public page. */
+.admin-inventory-edit {
+  margin-left: 8px;
+}
+
+/* Edit mode on a tool page (§5.3(b)). Sits under the detail shell, beside the
+   report control, and is invisible to everyone who cannot edit. */
+.tool-edit-control {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 24px 24px;
+}
+
+/* ── The three queues (spec §5.6, §6) ───────────────────────────────
+   `/admin/maintenance`, `/admin/corrections` and `/admin/projects` are one
+   layout with three payloads: a card per row, the words at the top and the
+   controls under them, because every one of these rows carries prose that a
+   table cell cannot hold. Cards also make the phone case work without a second
+   layout — which matters for maintenance, where the person reading a ticket is
+   often standing in front of the machine it is about. */
+.admin-queue {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.admin-queue-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-queue-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container);
+}
+
+.admin-queue-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.admin-queue-card-head h3 {
+  margin: 0;
+  flex: 1 1 18ch;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 500;
+}
+
+/* Every fact about a row that is not its body: who filed it, when, what it is
+   about. Mono and muted, like every other identifier in /admin. */
+.admin-queue-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  color: var(--on-surface-muted);
+  font-size: 12px;
+}
+
+.admin-queue-meta a {
+  color: var(--primary);
+}
+
+.admin-queue-body {
+  margin: 0;
+  max-width: 78ch;
+  /* Somebody typed this into a textarea; their line breaks are part of what
+     they said. */
+  white-space: pre-wrap;
+  line-height: 1.6;
+}
+
+/* The work that is finished. Present, and out of the way of the work that is
+   not — a queue somebody has ten minutes for shows them the open tickets, and
+   "what did we do last time" is one click, not a search. */
+.admin-queue-settled > summary {
+  padding: 8px 0;
+  color: var(--on-surface-muted);
+  cursor: pointer;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-queue-settled[open] > summary {
+  margin-bottom: 12px;
+}
+
+/* A settled card is dimmed rather than restyled: it is the same row, and the
+   controls on it still work — reopening a ticket is a legitimate act. */
+.admin-queue-settled .admin-queue-card {
+  background: var(--surface-container-low);
+}
+
+.admin-ticket-controls,
+.admin-correction-controls,
+.admin-publish-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  padding-top: 4px;
+  border-top: 1px solid var(--outline);
+}
+
+.admin-correction-controls,
+.admin-publish-toggle {
+  align-items: center;
+}
+
+/* The resolution takes the rest of the row and then the whole of it, because
+   it is the only field here somebody writes a sentence into. */
+.admin-field-wide {
+  flex: 1 1 28ch;
+}
+
+.admin-field-wide textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+/* The unit a ticket names, beside the tool it belongs to — an identifier, so
+   it is set like one. */
+.admin-unit-label {
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+/* A ticket's priority, next to its status. Only the top two are coloured: if
+   everything is marked, nothing is. */
+.admin-priority {
+  display: inline-block;
+  padding: 1px 6px;
+  border: 1px solid var(--outline);
+  color: var(--on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-priority.is-high,
+.admin-priority.is-critical {
+  border-color: var(--secondary);
+  color: var(--secondary);
+}
+
+/* A published row's badge. The draft accent already marks work somebody is
+   expected to move out of; this marks the one that is done. */
+.admin-state.is-published {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.admin-project-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Bigger than the review table's 48px thumbnail, because this is the picture
+   the decision is made on rather than a way of recognising a row. */
+.admin-thumb.is-project {
+  width: 96px;
+  height: 96px;
+}
+
+@media (max-width: 640px) {
+  /* Every control its own line: three selects side by side at phone width are
+     three selects nobody can hit. */
+  .admin-ticket-controls > .admin-field {
+    flex: 1 1 100%;
+  }
 }
