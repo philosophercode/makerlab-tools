@@ -74,7 +74,8 @@ export function assembleResearchResult(input: AssembleInput): ResearchResult {
     description: draft.description.trim(),
     specs: draft.specs.slice(0, MAX_SPECS),
     materials: labels(draft.materials),
-    ppeRequired: labels(draft.ppeRequired),
+    // PPE is the lab's call, set by staff on the review page; research never proposes it (Isaac, 2026-09-23).
+    ppeRequired: [],
     tags: labels(draft.tags),
     trainingRequired: draft.trainingRequired,
     useRestrictions: draft.useRestrictions?.trim() || null,

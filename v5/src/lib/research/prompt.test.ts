@@ -273,10 +273,9 @@ describe('Luna research tuning (amendment "Luna research tuning")', () => {
     expect(read).toContain("without footnote marks, test conditions or marketing claims");
   });
 
-  it("asks for PPE by machine type, as trainingRequired already is, and an empty list only when none is needed", () => {
-    expect(read).toContain("`ppeRequired` is the protective equipment a makerspace would normally require for this type of machine");
-    expect(read).toContain("what a page states first, then the standard items for its type");
-    expect(read).toContain("An empty list only when the item needs none.");
+  it("leaves PPE to the lab's staff", () => {
+    expect(read).toContain("Leave `ppeRequired` as an empty list");
+    expect(read).not.toContain("standard items for its type");
   });
 
   it("counts a shop page on the brand's own site as the manufacturer's page, in both passes", () => {

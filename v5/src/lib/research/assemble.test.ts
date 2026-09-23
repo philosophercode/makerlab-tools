@@ -44,6 +44,17 @@ function draft(overrides: Partial<Record<string, unknown>> = {}): FetchDraft {
 }
 
 describe("assembleResearchResult", () => {
+  it("never proposes PPE, even when the model returns some — the lab's staff set it", () => {
+    const result = assembleResearchResult({
+      draft: draft({ ppeRequired: ["Safety glasses", "Dust mask"] }),
+      verified: [MANUAL],
+      dropped: [],
+      categories: CATEGORIES,
+      fallbackName: "Prusa MK4S",
+    });
+    expect(result.ppeRequired).toEqual([]);
+  });
+
   it("builds a result that parses, with a high grade computed from the evidence", () => {
     const result = assembleResearchResult({
       draft: draft(),

@@ -1430,3 +1430,12 @@ read-pass rules.
 Exa).
 
 **Status.** Built on `v5/gateway-images` (uncommitted).
+
+### 2026-09-23 — PPE is the lab's call, not research's
+
+Decided by Isaac, 2026-09-23: protective equipment comes from the MakerLab's staff, not from a
+model. Research no longer proposes `ppeRequired`. The read prompt tells the model to leave it
+empty, and `assembleResearchResult` sets it to `[]` whatever the model returns, which is
+pinned by a test. The preliminary page's PPE field arrives empty for staff to fill. This
+supersedes the "Luna research tuning" amendment's PPE-by-machine-type rule. The
+refresh-research spec (PR #41) likewise proposes no PPE.
