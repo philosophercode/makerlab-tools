@@ -58,8 +58,8 @@ existing seams.
   fills an empty field.
 - **Verified quotes.** Every proposal shows the quote and URL it rests on, and code checks
   that the quote really appears in the page text research read.
-- **Safety first.** The review queue shows safety fields first: PPE, use restrictions,
-  emergency stop, training required.
+- **Safety first.** The review queue shows safety fields first: use restrictions,
+  emergency stop, training required. PPE is not proposed, because lab staff set it.
 - **Per-field decisions.**
   - Accept or reject each field, or accept a whole tool's proposals at once.
   - Accepting writes through the editor's save path with its optimistic-concurrency
@@ -122,14 +122,16 @@ research result and returns the proposals:
 |---|---|---|
 | `name` | Normalized (case, punctuation, whitespace) | *differs* only when the normalized names differ and research's canonical name has a verified source |
 | `description` | Always proposed when research wrote one and the current one is empty or shorter than 120 chars; otherwise *differs* only if the admin asked for descriptions on this run | Descriptions are prose: comparing them word by word is noise, so they're opt-in (§5.1) |
-| `materials`, `ppe_required`, `tags` | Set comparison after label normalization | *new* for additions to an empty list; *differs* when the sets disagree; each added item listed |
+| `materials`, `tags` | Set comparison after label normalization | *new* for additions to an empty list; *differs* when the sets disagree; each added item listed |
 | `training_required` | Boolean | *differs* / *new* only with a quote |
 | `use_restrictions`, `emergency_stop` | Text, normalized | *new* when empty; *differs* when research found a different quoted restriction |
 | Resources (manuals, videos) | By URL, after the same size-variant and locale normalization the image finder uses | *new* for verified links the tool doesn't have; existing links never proposed for removal |
 | Cover photo | Only when the tool has none | *new*, using the image finder's chosen candidate |
 
-- **Safety marker.** `ppe_required`, `use_restrictions`, `emergency_stop` and
-  `training_required` are marked **safety**.
+- **Safety marker.** `use_restrictions`, `emergency_stop` and `training_required` are
+  marked **safety**.
+- **No PPE.** The lab's staff set `ppe_required` themselves (Isaac, 2026-09-23), so
+  research leaves it empty and refresh never proposes it.
 - **Unverified.** A field research left empty is recorded as *unverified*, so the review
   page can say "no manufacturer source found", which is different from "matches".
 - **Values that match.** A proposal whose value equals the record is dropped, not shown.
@@ -195,7 +197,7 @@ export interface Citation {
 }
 
 export interface FieldProposal {
-  field: "name" | "description" | "materials" | "ppe_required" | "tags"
+  field: "name" | "description" | "materials" | "tags"
        | "training_required" | "use_restrictions" | "emergency_stop"
        | "resource" | "cover_photo" | "floor_check";
   kind: ProposalKind;
@@ -327,7 +329,7 @@ the build. The first run is Isaac's choice of tools, afterwards.
   - WEN DC3401's 1-micron vs 5-micron → safety *differs*;
   - RYOBI PCL235 drill vs impact driver → a name *differs* with a quote;
   - Form 2's 25-micron XY vs 140 µm → *differs*;
-  - an empty PPE list → safety *new*;
+  - PPE returned by a model → no proposal, since staff set PPE;
   - matching values dropped;
   - an empty research field → *unverified*;
   - description rules, set comparison, resource URL normalization.
