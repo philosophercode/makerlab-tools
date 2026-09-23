@@ -34,7 +34,7 @@ EVAL_MODEL=anthropic/claude-sonnet-5 npm run eval # or a different provider enti
 ```
 
 The suite runs the deployment's own model — job `chat` in `src/lib/ai/models.ts`
-(`anthropic/claude-sonnet-5` by default, `MODEL_CHAT` overrides it) — so a run says
+(`openai/gpt-6-luna` by default, `MODEL_CHAT` overrides it) — so a run says
 something about production. `EVAL_MODEL` overrides the eval's model
 independently of `MODEL_CHAT`, with an explicit Gateway id (`provider/model`,
 lower case), which is exactly what this harness is for when the question is
@@ -60,9 +60,13 @@ EVAL_MODEL=openai/gpt-6-luna npm run eval
 EVAL_MODEL=openai/gpt-6-luna npm run eval   # again — a FLAKY case on run 1 must not recur on run 2
 ```
 
-The 2026-09-23 result — Luna missed the gate, chat defaults to
-`anthropic/claude-sonnet-5` — is recorded, run by run, in the gateway spec's
-amendment "The chat eval gate".
+The 2026-09-23 results are recorded, run by run, in the gateway spec: Luna first
+missed the gate (amendment "The chat eval gate") and chat ran on
+`anthropic/claude-sonnet-5`; after the chat prompt was tuned, Luna passed it on
+three runs and chat moved to `openai/gpt-6-luna` (amendment "Chat prompt tuning
+for Luna"). `issue-report-calls-tool` is the one tolerated miss on every model:
+with nobody signed in, the assistant asks for a name before filing, so the case
+cannot pass in a single turn.
 
 Read every `cases/honest-absence.yaml` and `cases/manual-grounding.yaml` case as
 a hard requirement (no `FAIL`, no `FLAKY`, on either run) and every other case

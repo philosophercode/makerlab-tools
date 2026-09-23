@@ -140,9 +140,36 @@ function focusedToolSection(focused: MakerLabTool): string {
 
 function resourcesSection(focused: MakerLabTool): string {
   const list = focused.links
-    .map((link) => `- [${link.kind || "Resource"}] ${link.label} — ${link.href}`)
+    .map((link) => `- [${link.kind || "Resource"}] ${link.label} — ${resourceHref(link.href)}`)
     .join("\n");
-  return `## Resources for this tool\n\nThe following resources are linked from the **${focused.name}** catalog entry. Read any web page among them with the \`read_page\` tool when relevant.\n\n${list}`;
+  return `## Resources for this tool\n\nThe following resources are linked from the **${focused.name}** catalog entry. Read any web page among them with the \`read_page\` tool when relevant.\n\n${list}\n\n${pointingRule(focused)}`;
+}
+
+/**
+ * The rule that makes the assistant name the document, not just allude to it
+ * (gateway spec amendment "Chat prompt tuning for Luna"). Without it Luna
+ * answered "how do I set this up safely?" from the catalog fields and wrote
+ * "follow the lab SOP" — true, but it never said which document, and a
+ * resource with no link on file read to it as one it could not mention.
+ */
+function pointingRule(focused: MakerLabTool): string {
+  const sop = focused.links.find((link) => /sop/i.test(link.kind ?? ""));
+  const example = (sop ?? focused.links[0])?.label ?? `${focused.name} SOP`;
+  return `**Point to these by name.** When the student asks how to use, set up, operate, maintain or troubleshoot the ${focused.name}, or how to do it safely, name the matching resource above **by its exact title** in your answer — for example "follow the **${example}**" — not just "the SOP" or "the manual". Link it with its exact URL when it has one; when it says "no link on file", name it by title and tell the student to ask staff for a copy. Never invent a URL for it, and do not claim to know what a resource says unless you have read it.`;
+}
+
+/** A resource's URL as the prompt shows it — or a plain note when there is none. */
+function resourceHref(href: string | undefined): string {
+  return hasUsableUrl(href) ? (href as string) : "no link on file";
+}
+
+/**
+ * Whether a resource link is a real address the student can open. The demo
+ * seed's placeholder `#` (and an empty href) is not: shown raw, it read as a
+ * broken link the assistant avoided naming at all.
+ */
+export function hasUsableUrl(href: string | undefined): boolean {
+  return typeof href === "string" && /^(https?:\/\/|\/)/i.test(href.trim()) && href.trim() !== "/";
 }
 
 function readingSection(): string {
@@ -150,7 +177,7 @@ function readingSection(): string {
 }
 
 function citingSection(): string {
-  return `## Citing sources\n\nWhen you draw on an attached manual, a page read with \`read_page\`, or an \`exa_search\` result, cite the source inline as a **markdown link** using its exact URL — from the lists above, or the result's own URL for a search. Two formats:\n\n1. PDF with a known page: \`[Form 4 Manual, p. 14](https://media.formlabs.com/.../-ENUS-Form-4-Manual.pdf#page=14)\` — append \`#page=N\` so browser PDF viewers jump to the page.\n2. HTML page or PDF with no known page: \`[Trotec Speedy 400 SOP](https://...)\`.\n\nDo not invent page numbers or URLs. Always use exact URLs from the lists above or from a search result.`;
+  return `## Citing sources\n\nWhen you draw on an attached manual, a page read with \`read_page\`, or an \`exa_search\` result, cite the source inline as a **markdown link** using its exact URL — from the lists above, or the result's own URL for a search. Three formats:\n\n1. PDF with a known page: \`[Form 4 Manual, p. 14](https://media.formlabs.com/.../-ENUS-Form-4-Manual.pdf#page=14)\` — append \`#page=N\` so browser PDF viewers jump to the page.\n2. HTML page or PDF with no known page: \`[Trotec Speedy 400 SOP](https://...)\`.\n3. A resource with "no link on file": its exact title in bold, \`**Trotec Speedy 400 SOP**\`, with no link.\n\nDo not invent page numbers or URLs. Always use exact URLs from the lists above or from a search result.`;
 }
 
 function catalogSection(tools: MakerLabTool[]): string {
@@ -190,7 +217,7 @@ function describeTool(t: MakerLabTool): string {
   if (t.links.length) {
     lines.push("- Resources:");
     for (const link of t.links) {
-      lines.push(`  - ${link.kind || "Resource"}: ${link.label} — ${link.href}`);
+      lines.push(`  - ${link.kind || "Resource"}: ${link.label} — ${resourceHref(link.href)}`);
     }
   }
   return lines.join("\n");

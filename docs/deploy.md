@@ -235,9 +235,10 @@ no live code path (`@ai-sdk/anthropic` is unused and awaiting removal from
 Vercel too** if it is still set from before this migration.
 
 Per-job model ids default in code (`v5/src/lib/ai/models.ts`'s `MODEL_JOBS`) —
-`anthropic/claude-sonnet-5` for chat (Luna missed the eval gate — gateway spec
-amendment "The chat eval gate"), `openai/gpt-6-luna` for research and image
-ranking. There is no image model: background removal is a deterministic cutout in
+`openai/gpt-6-luna` for every job — chat included, since it passed the eval gate
+once its prompt was tuned (gateway spec amendments "The chat eval gate" and "Chat
+prompt tuning for Luna"; `MODEL_CHAT=anthropic/claude-sonnet-5` switches chat
+back without a deploy). There is no image model: background removal is a deterministic cutout in
 code (gateway spec amendment "No generative redraw"), so **remove `MODEL_IMAGE_CLEAN`
 from Vercel** if it was set — nothing reads it. Override one with `MODEL_CHAT` / `MODEL_RESEARCH_SEARCH` /
 `MODEL_RESEARCH_READ` / `MODEL_IMAGE_RANK`, a Gateway id

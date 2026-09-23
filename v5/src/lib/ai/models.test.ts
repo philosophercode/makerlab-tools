@@ -30,8 +30,8 @@ function clearOverrides() {
 beforeEach(clearOverrides);
 
 describe("MODEL_JOBS", () => {
-  it("defaults chat to Sonnet 5 (Luna missed the eval gate) and every other job to Luna — there is no image job", () => {
-    expect(modelIdFor("chat")).toBe("anthropic/claude-sonnet-5");
+  it("defaults every job to Luna — chat passed the eval gate after its prompt was tuned — and there is no image job", () => {
+    expect(modelIdFor("chat")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("researchSearch")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("researchRead")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("imageRank")).toBe("openai/gpt-6-luna");
@@ -61,9 +61,9 @@ describe("modelIdFor", () => {
   });
 
   it("reads the override at call time, not at import", () => {
-    expect(modelIdFor("chat")).toBe("anthropic/claude-sonnet-5");
-    vi.stubEnv("MODEL_CHAT", "openai/gpt-6-luna");
     expect(modelIdFor("chat")).toBe("openai/gpt-6-luna");
+    vi.stubEnv("MODEL_CHAT", "anthropic/claude-sonnet-5");
+    expect(modelIdFor("chat")).toBe("anthropic/claude-sonnet-5");
   });
 
   it("treats a blank or whitespace-only override as unset", () => {

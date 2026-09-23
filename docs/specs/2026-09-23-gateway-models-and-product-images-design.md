@@ -1439,3 +1439,90 @@ empty, and `assembleResearchResult` sets it to `[]` whatever the model returns, 
 pinned by a test. The preliminary page's PPE field arrives empty for staff to fill. This
 supersedes the "Luna research tuning" amendment's PPE-by-machine-type rule. The
 refresh-research spec (PR #41) likewise proposes no PPE.
+
+### 2026-09-23 — Chat prompt tuning for Luna (§3.1, §10, open question 3)
+
+**Question.** Did Luna miss the chat eval gate because of the model or because of the
+prompt? **The prompt.** The same approach as "Luna research tuning": read the failing
+transcripts, fix the wording they point at, re-run the gate. Chat's default is now
+`openai/gpt-6-luna`. This supersedes the "The chat eval gate" amendment's choice of
+`anthropic/claude-sonnet-5`, which stays one `MODEL_CHAT` away.
+
+**What the transcripts showed** (baseline, production prompt, `openai/gpt-6-luna`):
+- **`trotec-sop-cited`, both attempts.** Luna answered from the catalogue fields, and
+  its steps were right: authorised users only, staff-confirmed materials, glasses, fire
+  watch, the E-stop, 60 s of exhaust. It pointed only at "the lab SOP", or said "the
+  catalog's SOP link isn't usable", and never named the **Trotec Speedy 400 SOP**. Two
+  causes. First, nothing told it to *name* the document; the prompt said "point to the
+  SOP" and to cite with "exact URLs". Second, the demo seed's resources have `#` as
+  their URL, and Luna read that as a document it could not mention. (A PDF attachment
+  was not a factor: the eval attaches no manuals, and neither does the chat route when
+  a resource has no URL.) The assertion was not biased: it matches the resource's
+  title, case- and apostrophe-insensitively, and Sonnet passed it with the same prompt.
+- **`maintenance-history-calls-tool`** was FLAKY. Luna called `get_unit_details`,
+  which also returns recent logs, so its answer was correct. But the "Unit details"
+  fragment gave "show me the history on the Trotec" as an example for
+  `get_unit_details`, so the prompt pointed the wrong way.
+- **`issue-report-calls-tool`** failed on both attempts, as it does for every model.
+  With nobody signed in, the assistant asks for a name or NetID before filing, which is
+  what the maintenance fragment tells it to do. The case cannot pass in one turn. It
+  is the gate's one tolerated miss and was left alone: filing without asking would be a
+  product change, not prompt tuning.
+
+**What changed.**
+- **`chat-adapter.ts`, "Resources for this tool".** A "**Point to these by name.**"
+  rule: when the student asks how to use, set up, operate, maintain or troubleshoot the
+  focused tool, or how to do it safely, name the matching resource by its exact title.
+  The example is the tool's own SOP (else its first resource). Link the resource when
+  it has a URL. When it has none, name it and tell the student to ask staff for a copy.
+  Never invent a URL, and never claim to know what an unread resource says.
+- **A resource whose href is not a real address** (`#`, empty, `/`, anything that is
+  not `http(s)://` or a site path) is shown as "no link on file" instead of the raw
+  `#`. This applies in both "Resources for this tool" and the focused tool's
+  description (`hasUsableUrl`). In production `resourceLinks` already drops resources
+  with no URL, so this mostly affects the demo seed.
+- **"Citing sources"** gains a third format: a resource with no link is cited by its
+  bold title.
+- **`units.ts`, "Unit details".** Routed by question: status or condition goes to
+  `get_unit_details`; repairs, servicing or maintenance history goes to
+  `get_maintenance_history`. The "show me the history" example moved to the second.
+  Answer from the tool, not from the catalogue listing, and say so when no repairs are
+  logged.
+- No safety or honesty rule was removed or weakened. Tool descriptions, step limits
+  and the manual-attachment sections in `route.ts` are unchanged.
+
+**Runs.** One variant was enough. 13 cases, one retry per case. Cost uses Gateway list
+prices with no caching (Luna $0.10/$0.50 per M tokens, Sonnet 5 $2/$10).
+
+| Run | Model | Result | Failed / flaky | Tokens in / out | Cost |
+|---|---|---|---|---|---|
+| Baseline (production prompt) | Luna | 10/13 | FAIL `trotec-sop-cited`, FAIL `issue-report-calls-tool`, FLAKY `maintenance-history-calls-tool` | 68.6k / 2.4k | $0.008 |
+| Tuned, run 1 | Luna | 12/13 | FAIL `issue-report-calls-tool` | 60.6k / 1.6k | $0.007 |
+| Tuned, run 2 | Luna | 12/13 | FAIL `issue-report-calls-tool` | 60.7k / 1.8k | $0.007 |
+| Tuned, run 3 (extra) | Luna | 12/13 | FAIL `issue-report-calls-tool` | 60.6k / 1.8k | $0.007 |
+| Tuned | Sonnet 5 | 12/13 | FAIL `issue-report-calls-tool` | 105.3k / 4.2k | $0.25 |
+
+**Gate: passed.** Every honest-absence and manual-grounding case passed on the first
+attempt of all three tuned Luna runs, with no FLAKY. All but one of the other cases
+passed, and the one was `issue-report-calls-tool`. Sonnet 5 did no worse on the tuned
+prompt: 12/13 with no FLAKY, against 12/13 and 11/13 on the old one. No answer in any
+run linked a URL other than a `/tools/<slug>` page. Total spend was about $0.28.
+
+**Side effect to know.** On the demo seed, answers now often say the SOP has "no link on
+file — ask staff for a copy". That is accurate for the seed and does not happen for a
+catalogue whose resources have URLs.
+
+**Also noticed, not changed.** The composed chat prompt repeats three sections. "Linking
+tools", "Active tool context" and the catalogue listing appear once in the `catalog`
+capability's fragment and again in the adapter's own sections. Luna passes with the
+repetition, and removing it would change the MCP-facing fragment as well, so it is left
+for a separate change.
+
+**§10.** `chat-adapter.test.ts` (new) pins the rule, its SOP example and its fallback,
+the "no link on file" rendering, real URLs kept exactly, the honesty clauses, the
+third citing format, and no resource rules when nothing is focused. `units.test.ts`
+pins the routing and the "answer from the tool" line. `models.test.ts` pins chat's new
+default.
+
+**Status.** Built on `v5/gateway-images` (uncommitted). Re-run the gate when the case set
+or the chat prompt changes.

@@ -154,7 +154,7 @@ const getMaintenanceHistory: CapabilityTool<
  * returns only the log history.
  */
 function promptFragment(_env: PromptEnv): string {
-  return `## Unit details\n\nWhen a student asks about a specific unit ("how is Prusa #1 doing?", "is Form 2 #2 working?", "show me the history on the Trotec"), call \`get_unit_details\` to fetch its live status and recent maintenance history. Surface the status, condition, and a short recap of the most recent log entries. If the student only wants the maintenance history, \`get_maintenance_history\` returns just the recent log entries for a unit.`;
+  return `## Unit details\n\nPick the tool by what the student asks about a specific unit:\n\n- **Status or condition** ("how is Prusa #1 doing?", "is Form 2 #2 working right now?") — call \`get_unit_details\` for its live status, condition and location, plus a short recap of its most recent log entries.\n- **Repairs, servicing or maintenance history** ("has the Trotec been repaired lately?", "any servicing on Form 2 #2?", "show me the history on the Trotec") — call \`get_maintenance_history\`, which returns the unit's recent log entries.\n\nAnswer from what the tool returns, never from the catalog listing alone: the listing shows a status, not the logs. If the logs are empty, say no repairs or servicing are recorded.`;
 }
 
 // ── Capability ─────────────────────────────────────────────────────

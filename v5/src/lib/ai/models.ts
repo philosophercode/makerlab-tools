@@ -29,15 +29,16 @@ import { createGateway, type GatewayProvider } from "@ai-sdk/gateway";
  */
 
 /**
- * Chat is **not** on Luna: it missed the §10 eval gate (2026-09-23 amendment
- * "The chat eval gate"). Luna failed `trotec-sop-cited`, a manual-grounding
- * case the gate treats as a hard requirement, on every attempt of both runs;
- * `openai/gpt-6-sol` failed it too. `anthropic/claude-sonnet-5` passed every
- * manual-grounding case on both runs, so chat stays on it (§9 Phase 3, open
- * question 3) until a model that is cheaper passes the gate.
+ * Every job, chat included, is on Luna. Chat first missed the §10 eval gate on
+ * Luna (2026-09-23 amendment "The chat eval gate": it never named the Trotec
+ * SOP) and ran on `anthropic/claude-sonnet-5`. The chat prompt was then tuned
+ * (amendment "Chat prompt tuning for Luna") — name a resource by its exact
+ * title, and route repair questions to `get_maintenance_history` — and Luna
+ * passed the gate on three runs, so chat moved to it. `MODEL_CHAT` switches it
+ * back without a deploy.
  */
 export const MODEL_JOBS = {
-  chat: { kind: "language", env: "MODEL_CHAT", default: "anthropic/claude-sonnet-5" },
+  chat: { kind: "language", env: "MODEL_CHAT", default: "openai/gpt-6-luna" },
   researchSearch: { kind: "language", env: "MODEL_RESEARCH_SEARCH", default: "openai/gpt-6-luna" },
   researchRead: { kind: "language", env: "MODEL_RESEARCH_READ", default: "openai/gpt-6-luna" },
   imageRank: { kind: "language", env: "MODEL_IMAGE_RANK", default: "openai/gpt-6-luna" },
