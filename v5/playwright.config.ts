@@ -16,7 +16,7 @@ import { NOTION_STUB_ORIGIN } from "./e2e/stubs/notion-fixture";
 // (e2e/stubs/gateway-stub.ts) answers `/v3/ai/language-model` on
 // localhost (background removal calls no model), and the app reaches it through
 // AI_GATEWAY_BASE_URL with a fake AI_GATEWAY_API_KEY. It is still no network:
-// the stub is on this machine. (This replaces the old anthropic-stub.ts, which
+// the stub is on this machine. (This replaces the old Anthropic stub, which
 // answered the Anthropic Messages API directly — retired with the direct
 // provider path; see docs/specs/2026-09-23-gateway-models-and-product-images-design.md.)
 //

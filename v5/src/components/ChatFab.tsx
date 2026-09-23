@@ -8,12 +8,10 @@ import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { IdentificationCard } from "./IdentificationCard";
 import { IntakeTableCard } from "./IntakeTableCard";
 import { useChatLauncher } from "./ChatLauncherContext";
 import { siteConfig } from "../lib/site-config";
 import { startGoogleSignIn } from "../lib/auth/sign-in-client";
-import type { CardPayload } from "../lib/capabilities/types";
 import type { IntakeTablePayload } from "../lib/intake/types";
 import { downscaleForVision } from "../lib/chat/downscale-image";
 import { toVisionFileParts, withRecentPhotos } from "../lib/chat/photo-parts";
@@ -539,15 +537,6 @@ export function ChatFab() {
     send(label);
   }
 
-  // An identification-card button was clicked: seed a follow-up user message
-  // through the existing send path (e.g. "confirm add: <id>"), which the intake
-  // agent resolves into the right tool call.
-  function handleCardAction(seedMessage: string) {
-    if (isLoading || !seedMessage.trim()) return;
-    if (isListening) stopDictation();
-    send(seedMessage);
-  }
-
   // Sign-in offered at the ceiling. Comes back to the page the conversation
   // started on, so the visitor lands where they were (spec §10).
   function handleCeilingSignIn() {
@@ -660,15 +649,6 @@ export function ChatFab() {
                         p.type.startsWith("tool-") &&
                         (p as { state?: string }).state !== "output-available"
                     );
-                    // Cards from a capability tool's `card()` arrive as `data-card`
-                    // parts (design spec §6.3). Intake no longer emits one — it
-                    // writes the table below — but the renderer stays for any
-                    // tool that declares a card.
-                    const cardParts = message.parts.filter(
-                      (p): p is typeof p & { data: CardPayload } =>
-                        p.type === "data-card" &&
-                        (p as { data?: unknown }).data != null
-                    );
                     // The intake table arrives as a `data-intake-table` part
                     // written by `identify_tools` (data platform spec §5.4).
                     const intakeParts = message.parts.filter(
@@ -676,7 +656,7 @@ export function ChatFab() {
                         p.type === "data-intake-table" &&
                         (p as { data?: { kind?: unknown } }).data?.kind === "intake-table"
                     );
-                    const hasCard = cardParts.length > 0 || intakeParts.length > 0;
+                    const hasCard = intakeParts.length > 0;
                     if (textParts.length === 0 && !hasCard && !pendingTool) return null;
                     return (
                       <li
@@ -704,14 +684,6 @@ export function ChatFab() {
                             <p key={index}>{part.text}</p>
                           )
                         )}
-                        {cardParts.map((part, index) => (
-                          <IdentificationCard
-                            key={(part as { id?: string }).id ?? `card-${index}`}
-                            card={part.data}
-                            onAction={handleCardAction}
-                            disabled={isLoading}
-                          />
-                        ))}
                         {intakeParts.map((part) => (
                           <IntakeTableCard key={part.data.batchId} payload={part.data} />
                         ))}

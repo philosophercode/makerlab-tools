@@ -66,12 +66,5 @@ export type {
   PromptEnv,
   UploadedImage,
   ToolCandidate,
-  CardPayload,
-  CardState,
-  CardAction,
-  CardResource,
-  CardSpecLine,
-  CardAlsoCreating,
-  IdentificationCardPayload,
 } from "./types";
 export { uploadedImageSchema, toolCandidateSchema } from "./types";

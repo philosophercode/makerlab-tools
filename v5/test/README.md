@@ -333,8 +333,7 @@ Every model call in the app goes through one place, `src/lib/ai/models.ts`'s
 job registry (`MODEL_JOBS`: `chat`, `researchSearch`, `researchRead`,
 `imageRank` — every one a language job; background removal is a deterministic
 cutout that calls no model) — there is no direct-provider path, so a test never
-mocks `@ai-sdk/gateway` or `@ai-sdk/anthropic` (the latter is unused and
-proposed for removal). Two seams, chosen by what the code under test can be reached from:
+mocks `@ai-sdk/gateway`. Two seams, chosen by what the code under test can be reached from:
 
 ### `test/ai/models-stub.ts` — for anything that imports the registry
 

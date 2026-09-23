@@ -15,11 +15,10 @@ import type {
  * research is, on what basis, what it still does not know, and the pages it
  * actually read.
  *
- * Extracted from `IdentificationCard` so the preliminary page on
- * `/admin/intake/[id]` can show the same strip over a `ResearchResult` — the
- * grade an admin approves against should read exactly like the one the chat
- * card showed. It keeps the `intake` message keys and the `id-card-*` class
- * names it had there, so the card renders what it always rendered.
+ * Originally part of the chat's identification card (since removed); the
+ * preliminary page on `/admin/intake/[id]` shows it over a `ResearchResult`.
+ * It keeps the `intake` message keys and the `id-card-*` class names it had
+ * there.
  *
  * The lines are rebuilt from the structured `evidence` so they are localized
  * like every other string — `confidence.basis` is the English, model-facing

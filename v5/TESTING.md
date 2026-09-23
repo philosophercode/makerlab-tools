@@ -170,8 +170,8 @@ in a production build — the intake E2E server's switch; never on Vercel.
 unit-test them directly. Instead mock the registry — `vi.mock("@/lib/ai/models", …)`
 through `test/ai/models-stub.ts` — call `POST(req)`, and assert on the
 response; `recordedCalls(model)` gives you back the `{ prompt, tools,
-providerOptions }` a stubbed model received. Never mock `@ai-sdk/gateway` or
-`@ai-sdk/anthropic` (unused) directly. The workflow tier, which `vi.mock` cannot reach,
+providerOptions }` a stubbed model received. Never mock `@ai-sdk/gateway`
+directly. The workflow tier, which `vi.mock` cannot reach,
 stubs the Gateway's own HTTP boundary instead with `test/gateway/msw.ts`. The
 full verified snippet and both seams are in
 [`test/README.md`](./test/README.md#stubbing-the-model--two-seams-never-a-provider-mock).

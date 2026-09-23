@@ -14,11 +14,9 @@ import type { MakerLabTool } from "../../components/catalog-types";
  * registry to the Vercel AI SDK:
  *
  * - {@link toAiTools} wraps each {@link CapabilityTool} in the AI SDK `tool()`
- *   shape. The `execute` runs the tool's `run(input, ctx)`. When the tool
- *   declares a `card`, the adapter emits a `data-card` UI part through
- *   `ctx.writer` after `run()` resolves so the client renders an interactive
- *   widget, then hands the model a compact text result instead of the full
- *   payload.
+ *   shape. The `execute` runs the tool's `run(input, ctx)` and hands the model
+ *   its structured result. A tool that renders a widget writes its own UI part
+ *   through `ctx.writer` (intake's `data-intake-table`).
  * - {@link buildSystemPrompt} composes the system prompt by joining the chat
  *   surface's scaffolding (intro, tool-linking, focused-tool context, resource
  *   reading/citing, catalog listing) with each capability's `promptFragment`.
@@ -31,9 +29,8 @@ import type { MakerLabTool } from "../../components/catalog-types";
 
 /**
  * Convert every capability's tools into a `Record<name, Tool>` for the AI SDK.
- * Tools with a `card` emit a `data-card` part via `ctx.writer` and return a
- * compact acknowledgement to the model; tools without a card return their full
- * structured result. Tools marked `mcpOnly` are left out.
+ * Each tool returns its full structured result. Tools marked `mcpOnly` are
+ * left out.
  */
 export function toAiTools(
   capabilities: Capability[],
@@ -61,53 +58,8 @@ function wrapTool(
   return tool({
     description: capTool.description,
     inputSchema: capTool.inputSchema,
-    execute: async (input: unknown) => {
-      const result = await capTool.run(input, ctx);
-      if (capTool.card) {
-        const card = capTool.card(result);
-        if (ctx.writer) {
-          ctx.writer.write({ type: "data-card", data: card });
-        }
-        return compactCardResult(card, result);
-      }
-      return result;
-    },
+    execute: (input: unknown) => capTool.run(input, ctx),
   });
-}
-
-/**
- * Build the compact text/object result returned to the model for a card-bearing
- * tool. The full card payload is rendered client-side via the streamed
- * `data-card` part, so the model only needs a short, structured summary it can
- * reason about (and reference when proposing the next step).
- */
-function compactCardResult(
-  card: ReturnType<NonNullable<CapabilityTool["card"]>>,
-  result: unknown
-): unknown {
-  // Identification cards (the only card kind today) summarize to a compact
-  // object the model can act on without re-deriving from the raw result.
-  if (card.kind === "identification") {
-    return {
-      card_rendered: true,
-      kind: card.kind,
-      candidate_id: card.candidateId,
-      state: card.state,
-      name: card.name,
-      category: card.category,
-      location: card.location,
-      duplicate_of: card.duplicateOf ?? null,
-      draft_url: card.draftUrl,
-      also_creating: card.alsoCreating.map((row) => ({
-        label: row.label,
-        entity: row.entity,
-        is_new: row.isNew,
-      })),
-    };
-  }
-  // Unknown future card kinds: acknowledge and fall back to the raw result so
-  // nothing is silently dropped from the model's view.
-  return { card_rendered: true, result };
 }
 
 /**

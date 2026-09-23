@@ -219,14 +219,7 @@
     "unknownManual": "कोई मैनुअल नहीं मिला",
     "unknownSpecs": "विनिर्देश किसी पढ़े गए पेज से सत्यापित नहीं हैं",
     "unknownVideoOnly": "केवल एक वीडियो देखा गया — कोई उत्पाद पेज, मैनुअल या स्पेक शीट नहीं",
-    "unknownNothingRead": "कोई पेज पढ़ा नहीं जा सका, इसलिए किसी स्रोत से कुछ भी जाँचा नहीं गया",
-    "actionConfirm": "सही लग रहा है — इसे जोड़ें",
-    "actionConfirmModel": "पुष्टि करें कि यह {name} है",
-    "actionConfirmVariant": "यह {variant} है",
-    "actionEdit": "संपादित करें",
-    "actionDiscard": "छोड़ दें",
-    "actionCreateAnyway": "नहीं, नया टूल बनाएँ",
-    "actionOpenDraft": "Notion में ड्राफ़्ट खोलें"
+    "unknownNothingRead": "कोई पेज पढ़ा नहीं जा सका, इसलिए किसी स्रोत से कुछ भी जाँचा नहीं गया"
   },
   "flag": {
     "eyebrow": "कैटलॉग फ़ीडबैक",

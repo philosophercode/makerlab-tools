@@ -219,14 +219,7 @@
     "unknownManual": "No se encontró ningún manual",
     "unknownSpecs": "Las especificaciones no están verificadas con una página consultada",
     "unknownVideoOnly": "Solo se consultó un vídeo: ninguna página de producto, manual ni ficha técnica",
-    "unknownNothingRead": "No se pudo leer ninguna página, así que nada se comprobó con una fuente",
-    "actionConfirm": "Se ve bien — añádelo",
-    "actionConfirmModel": "Confirmar que es el {name}",
-    "actionConfirmVariant": "Es el {variant}",
-    "actionEdit": "Editar",
-    "actionDiscard": "Descartar",
-    "actionCreateAnyway": "No, crear una herramienta nueva",
-    "actionOpenDraft": "Abrir el borrador en Notion"
+    "unknownNothingRead": "No se pudo leer ninguna página, así que nada se comprobó con una fuente"
   },
   "flag": {
     "eyebrow": "COMENTARIOS DEL CATÁLOGO",

@@ -238,13 +238,6 @@
     "unknownSpecs": "The specs aren’t confirmed against a page that was read",
     "unknownVideoOnly": "Only a video was read — no product page, manual or spec sheet",
     "unknownNothingRead": "No page could be read, so nothing was checked against a source",
-    "actionConfirm": "Looks right — add it",
-    "actionConfirmModel": "Confirm it’s the {name}",
-    "actionConfirmVariant": "It’s the {variant}",
-    "actionEdit": "Edit",
-    "actionDiscard": "Discard",
-    "actionCreateAnyway": "No, create a new tool",
-    "actionOpenDraft": "Open draft in Notion",
     "status": {
       "identified": "Identified",
       "queued": "Queued",

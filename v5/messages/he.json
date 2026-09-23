@@ -219,14 +219,7 @@
     "unknownManual": "לא נמצא מדריך",
     "unknownSpecs": "המפרט לא אומת מול דף שנקרא",
     "unknownVideoOnly": "נצפה רק סרטון — אין דף מוצר, מדריך או דף מפרט",
-    "unknownNothingRead": "לא ניתן היה לקרוא אף דף, ולכן דבר לא אומת מול מקור",
-    "actionConfirm": "נראה נכון — הוסיפו אותו",
-    "actionConfirmModel": "אשרו שזה {name}",
-    "actionConfirmVariant": "זה {variant}",
-    "actionEdit": "עריכה",
-    "actionDiscard": "התעלמות",
-    "actionCreateAnyway": "לא, ליצור כלי חדש",
-    "actionOpenDraft": "פתיחת הטיוטה ב-Notion"
+    "unknownNothingRead": "לא ניתן היה לקרוא אף דף, ולכן דבר לא אומת מול מקור"
   },
   "flag": {
     "eyebrow": "משוב על הקטלוג",

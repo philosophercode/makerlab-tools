@@ -26,7 +26,6 @@
     "verify:import": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/verify-import.ts"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.46",
     "@ai-sdk/gateway": "^3.0.160",
     "@ai-sdk/react": "^3.0.97",
     "@electric-sql/pglite": "^0.5.8",

@@ -5,9 +5,8 @@ import { ConfidenceStrip } from "./ConfidenceStrip";
 /**
  * The strip on its own (confidence spec §6, spec §5.4 step 10).
  *
- * `IdentificationCard.test.tsx` covers it inside the chat card; these cover the
- * props the preliminary page passes directly — a `ResearchResult`'s grade,
- * evidence and sources, with no card around them.
+ * These cover the props the preliminary page passes directly — a
+ * `ResearchResult`'s grade, evidence and sources.
  */
 
 function evidence(over: Partial<IntakeEvidence> = {}): IntakeEvidence {

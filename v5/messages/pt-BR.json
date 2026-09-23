@@ -219,14 +219,7 @@
     "unknownManual": "Nenhum manual foi encontrado",
     "unknownSpecs": "As especificações não foram conferidas em uma página consultada",
     "unknownVideoOnly": "Apenas um vídeo foi consultado — nenhuma página do produto, manual ou ficha técnica",
-    "unknownNothingRead": "Nenhuma página pôde ser lida, então nada foi conferido em uma fonte",
-    "actionConfirm": "Está certo — adicionar",
-    "actionConfirmModel": "Confirmar que é o {name}",
-    "actionConfirmVariant": "É o {variant}",
-    "actionEdit": "Editar",
-    "actionDiscard": "Descartar",
-    "actionCreateAnyway": "Não, criar uma ferramenta nova",
-    "actionOpenDraft": "Abrir o rascunho no Notion"
+    "unknownNothingRead": "Nenhuma página pôde ser lida, então nada foi conferido em uma fonte"
   },
   "flag": {
     "eyebrow": "FEEDBACK DO CATÁLOGO",

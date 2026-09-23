@@ -31,8 +31,8 @@ import {
 /**
  * A stand-in for the Vercel AI Gateway, for the intake E2E only (gateway spec
  * §10, E2E scenario 5 — formerly the data platform spec's; this file replaces
- * `anthropic-stub.ts`, which answered the Anthropic Messages API directly and
- * is retired now that every model call goes through the Gateway).
+ * the old Anthropic stub, which answered the Anthropic Messages API directly
+ * and was removed once every model call went through the Gateway).
  *
  * Every other spec intercepts `/api/chat` in the browser, which cannot reach
  * what scenario 5 needs: `identify_tools` writing real pending rows, and the
@@ -56,13 +56,13 @@ import {
  *   follow-up request after running `identify_tools` itself) gets
  *   {@link AFTER_TABLE_REPLY}; anything else — the `IDENTIFY_PROMPT` message —
  *   gets one `identify_tools` tool call with the three {@link INTAKE_ITEMS},
- *   using the same input `anthropic-stub.ts` used to send. `exa_search` and
+ *   using the same input the old Anthropic stub used to send. `exa_search` and
  *   `read_page` may both be in the tool list here too (the chat route adds
  *   them the way it once added `web_search`/`web_fetch`); this stub ignores
  *   them for chat, since only the message content decides the answer.
  * - **non-streaming, tools include `exa_search`** → **research, search step**.
  *   An `exaSearchResponse` whose results point at this server's own product
- *   page and manual, plus the same findings JSON `anthropic-stub.ts` returned,
+ *   page and manual, plus the same findings JSON the old Anthropic stub returned,
  *   as the trailing text.
  * - **non-streaming, an image part in the prompt** → **image ranking**. A
  *   strict `{"order": number[], "reasons": string[]}`, sized to how many
@@ -119,7 +119,7 @@ function sendBadJson(res: ServerResponse): void {
 
 // ── The chat ─────────────────────────────────────────────────────────────
 
-/** The `identify_tools` input, matching `anthropic-stub.ts`'s (intake capability contract, `identify_tools`). */
+/** The `identify_tools` input, matching the old Anthropic stub's (intake capability contract, `identify_tools`). */
 function identifyToolInput() {
   return {
     items: Object.values(INTAKE_ITEMS).map((item) => ({
@@ -169,7 +169,7 @@ function pagesFor(item: IntakeFixtureItem) {
   };
 }
 
-/** Which fixture item a research prompt is about — by the name it carries, exactly as `anthropic-stub.ts` matched it. */
+/** Which fixture item a research prompt is about — by the name it carries, exactly as the old Anthropic stub matched it. */
 function itemIn(raw: string): IntakeFixtureItem | null {
   for (const item of Object.values(INTAKE_ITEMS)) {
     if (raw.includes(item.name) || raw.includes(item.identifiedAs)) return item;

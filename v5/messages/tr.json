@@ -219,14 +219,7 @@
     "unknownManual": "Kılavuz bulunamadı",
     "unknownSpecs": "Teknik özellikler okunan bir sayfayla doğrulanmadı",
     "unknownVideoOnly": "Yalnızca bir video incelendi — ürün sayfası, kılavuz veya teknik föy yok",
-    "unknownNothingRead": "Hiçbir sayfa okunamadı, bu yüzden hiçbir şey bir kaynakla doğrulanmadı",
-    "actionConfirm": "Doğru görünüyor — ekle",
-    "actionConfirmModel": "{name} olduğunu onayla",
-    "actionConfirmVariant": "Bu {variant}",
-    "actionEdit": "Düzenle",
-    "actionDiscard": "Vazgeç",
-    "actionCreateAnyway": "Hayır, yeni bir araç oluştur",
-    "actionOpenDraft": "Taslağı Notion’da aç"
+    "unknownNothingRead": "Hiçbir sayfa okunamadı, bu yüzden hiçbir şey bir kaynakla doğrulanmadı"
   },
   "flag": {
     "eyebrow": "KATALOG GERİ BİLDİRİMİ",

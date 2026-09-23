@@ -26,8 +26,7 @@ import type { EvalCase } from "./cases";
  * Replace every `write` tool's behavior with a recorded no-op (design spec §8).
  * The tool keeps its name, description, kind and schema, so the model sees —
  * and can still call — exactly the tool surface the chat route exposes; it just
- * cannot write anything. The `card` renderer is dropped with it, since it
- * expects the real result shape.
+ * cannot write anything.
  */
 export function stubWrites(capabilities: Capability[] = CAPABILITIES): Capability[] {
   return capabilities.map((capability) => ({
@@ -36,7 +35,6 @@ export function stubWrites(capabilities: Capability[] = CAPABILITIES): Capabilit
       if (capTool.kind !== "write") return capTool;
       return {
         ...capTool,
-        card: undefined,
         run: async (input: unknown) => ({
           stubbed: true,
           tool: capTool.name,
@@ -79,7 +77,6 @@ export function stubLiveReads(capabilities: Capability[] = CAPABILITIES): Capabi
       if (!LIVE_NETWORK_TOOLS.includes(capTool.name)) return capTool;
       return {
         ...capTool,
-        card: undefined,
         run: async (input: unknown) => ({
           stubbed: true,
           tool: capTool.name,
