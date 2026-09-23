@@ -170,7 +170,23 @@ export function ToolEditorPanel({
     }
   }
 
-  /** Re-read units, resources and photos, keeping the token the write returned. */
+  /**
+   * Re-read the children **and the tool's state**, keeping the token the write
+   * returned.
+   *
+   * The state half is not incidental: Publish, Unpublish, Archive, Restore and
+   * *Looks good* all commit through here, and a panel that went on rendering
+   * the old state would say "Saved" over a badge still reading Published and a
+   * button still offering to unpublish — the page asserting what the database
+   * no longer holds, which is the one thing `./action-result.ts` says a write
+   * that landed must never do. Clicking it again would then write a second
+   * `tool.unpublished`, and Archive would hide Restore behind a reopen.
+   *
+   * The tool's **text** is deliberately left alone, for the reason
+   * `ToolFieldsForm` documents: somebody may be halfway through typing it, and
+   * nothing copies a server value over a box in use. Only `refreshFields`,
+   * called after a fields save this panel performed, replaces those.
+   */
   async function refreshChildren() {
     const result = await actions.load(idOrSlug);
     if (!result.ok) return;
@@ -181,6 +197,7 @@ export function ToolEditorPanel({
             units: result.editor.units,
             resources: result.editor.resources,
             photos: result.editor.photos,
+            tool: { ...current.tool, ...stateOnly(result.editor) },
           }
         : result.editor
     );
@@ -204,12 +221,19 @@ export function ToolEditorPanel({
         current
           ? {
               ...current,
-              // The children are theirs now — those sections have no unsaved
-              // state of their own to protect.
+              // The children are theirs now. The sections that hold no unsaved
+              // state simply re-render; the one that does — a unit row's text
+              // boxes — rebases itself field by field, taking the newer value
+              // wherever nobody has typed and keeping the typing where they
+              // have. Handing them the newer rows is what makes that possible.
               units: result.editor.units,
               resources: result.editor.resources,
               photos: result.editor.photos,
-              tool: { ...current.tool, ...stateOnly(result.editor) },
+              tool: {
+                ...current.tool,
+                ...stateOnly(result.editor),
+                revision: result.editor.tool.revision,
+              },
             }
           : result.editor
       );
@@ -422,9 +446,15 @@ function args(toolId: string, expectedRevision: string) {
  * After a conflict reload the panel adopts the other person's *state* — whether
  * the tool is published, archived, reviewed — because those are not fields
  * anybody is halfway through typing, and showing the old ones would put a
- * Publish button on a tool somebody already published.
+ * Publish button on a tool somebody already published. `refreshChildren` adopts
+ * the same set after a state change of the panel's own.
+ *
+ * **The revision is not in here**, because the two callers want different ones:
+ * a reload takes the token it just read, and a refresh after a write keeps the
+ * token that write returned — taking the fresher one there would let the next
+ * save overwrite somebody else's change without ever reporting a conflict.
  */
 function stateOnly(editor: ToolEditorPayload) {
-  const { published, archivedAt, lastReviewedAt, lastReviewedBy, revision } = editor.tool;
-  return { published, archivedAt, lastReviewedAt, lastReviewedBy, revision };
+  const { published, archivedAt, lastReviewedAt, lastReviewedBy } = editor.tool;
+  return { published, archivedAt, lastReviewedAt, lastReviewedBy };
 }

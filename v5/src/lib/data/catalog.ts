@@ -226,10 +226,22 @@ async function loadTools(db: Db, where: SQL | undefined): Promise<MakerLabTool[]
     .where(inArray(units.toolId, toolIds))
     .orderBy(asc(units.unitLabel), asc(units.id));
 
-  // Deliberately not filtered by `resources.published`: resources are created
-  // as drafts alongside their tool, and tool-level publishing already gates the
-  // catalogue. Filtering here too kept intake-created links invisible after
-  // staff published the tool.
+  // Filtered by `resources.published`, and it has to be: Phase 5 gave the
+  // editor a **Hide** control on every resource (§5.3(3)), and an internal SOP
+  // somebody deliberately hid staying on the tool's public page would make that
+  // control a lie — the worse kind, because the panel tags the row "Hidden"
+  // while an anonymous visitor reads it. It also matches
+  // `listResourcesForTool`, the read the assistant uses, so the two agree about
+  // what "hidden" means.
+  //
+  // This used to be unfiltered because resources once arrived as drafts and
+  // stayed invisible after staff published the tool. They do not any more:
+  // `resources.published` defaults to **true** (§4.6), so a hidden resource is
+  // always one a person chose to hide.
+  //
+  // What it does *not* do is unpublish the file itself: a resource's PDF is a
+  // public blob at a random pathname and stays fetchable by anyone holding the
+  // URL. Hiding removes the link, not the document.
   const resourceRows: ResourceRow[] = await db
     .select({
       id: resources.id,
@@ -240,7 +252,7 @@ async function loadTools(db: Db, where: SQL | undefined): Promise<MakerLabTool[]
       notes: resources.notes,
     })
     .from(resources)
-    .where(inArray(resources.toolId, toolIds))
+    .where(and(inArray(resources.toolId, toolIds), eq(resources.published, true)))
     .orderBy(asc(resources.createdAt), asc(resources.title), asc(resources.id));
 
   const files = indexAttachments(

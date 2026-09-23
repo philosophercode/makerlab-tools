@@ -162,7 +162,7 @@ it("publishes, stamps the row, records the event and busts the gallery cache", a
 
   // Unlike a submission, which deliberately invalidates nothing: this write is
   // the one that changes which rows the cached gallery should hold (§3.9).
-  expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith(PROJECTS_TAG, "minutes");
+  expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith(PROJECTS_TAG, { expire: 0 });
   expect(vi.mocked(revalidatePath)).toHaveBeenCalledWith("/admin/projects");
 });
 

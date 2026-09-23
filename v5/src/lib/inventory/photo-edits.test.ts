@@ -89,7 +89,7 @@ describe("attachPhotos", () => {
 
     expect(result).toMatchObject({ ok: true, photosSubmitted: 2, photosAttached: 2 });
     expect(await order()).toEqual([first, second]);
-    expect(revalidateTag).toHaveBeenCalledWith("catalog", "minutes");
+    expect(revalidateTag).toHaveBeenCalledWith("catalog", { expire: 0 });
   });
 
   it("appends rather than taking over the cover", async () => {

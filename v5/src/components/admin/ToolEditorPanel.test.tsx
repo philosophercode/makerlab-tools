@@ -316,6 +316,79 @@ describe("the state controls", () => {
     expect(screen.getByRole("button", { name: "Looks good" })).toBeInTheDocument();
   });
 
+  /**
+   * The regression: all five state controls commit through `run(…, { refresh:
+   * true })`, and the refresh used to re-read the units, resources and photos
+   * while leaving the tool row exactly as the panel opened it. The write landed,
+   * the live region said "Saved", and the badge and the button went on asserting
+   * the state the database had just stopped holding — which is what
+   * `action-result.ts` and `audit-warning.ts` say must never happen. Clicking
+   * again wrote a second audit event for a change already made.
+   */
+  it("shows the tool as a draft after Unpublish, rather than still offering Unpublish", async () => {
+    const actions = stubActions();
+    vi.mocked(actions.load)
+      .mockResolvedValueOnce({ ok: true, editor: payload() })
+      .mockResolvedValue({ ok: true, editor: payload({ published: false }) });
+    await openPanel(actions);
+
+    await userEvent.click(screen.getByRole("button", { name: "Unpublish" }));
+
+    expect(await screen.findByRole("button", { name: "Publish" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Unpublish" })).not.toBeInTheDocument();
+    expect(screen.getByText("Draft")).toBeInTheDocument();
+  });
+
+  it("offers Restore after Archive, so the tool can be restored without reopening", async () => {
+    const actions = stubActions();
+    vi.mocked(actions.load)
+      .mockResolvedValueOnce({ ok: true, editor: payload() })
+      .mockResolvedValue({
+        ok: true,
+        editor: payload({ archivedAt: new Date("2026-01-05T00:00:00.000Z") }),
+      });
+    await openPanel(actions);
+
+    await userEvent.click(screen.getByRole("button", { name: "Archive" }));
+
+    expect(await screen.findByRole("button", { name: "Restore" })).toBeInTheDocument();
+    expect(screen.getByText("Archived")).toBeInTheDocument();
+  });
+
+  it("stops saying 'Never reviewed' once Looks good has landed", async () => {
+    const actions = stubActions();
+    vi.mocked(actions.load)
+      .mockResolvedValueOnce({ ok: true, editor: payload() })
+      .mockResolvedValue({
+        ok: true,
+        editor: payload({ lastReviewedAt: new Date("2026-09-22T10:00:00.000Z") }),
+      });
+    await openPanel(actions);
+    expect(screen.getByText("Never reviewed")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Looks good" }));
+
+    expect(await screen.findByText("Last reviewed 2026-09-22")).toBeInTheDocument();
+  });
+
+  it("leaves the text somebody is typing alone while it adopts the new state", async () => {
+    const actions = stubActions();
+    vi.mocked(actions.load)
+      .mockResolvedValueOnce({ ok: true, editor: payload() })
+      .mockResolvedValue({
+        ok: true,
+        editor: payload({ published: false, description: "Whatever the server holds" }),
+      });
+    await openPanel(actions);
+
+    await userEvent.clear(descriptionBox());
+    await userEvent.type(descriptionBox(), "Half a sentence");
+    await userEvent.click(screen.getByRole("button", { name: "Unpublish" }));
+
+    await screen.findByRole("button", { name: "Publish" });
+    expect(descriptionBox()).toHaveValue("Half a sentence");
+  });
+
   it("marks a tool reviewed with the token it holds", async () => {
     const actions = stubActions();
     await openPanel(actions);

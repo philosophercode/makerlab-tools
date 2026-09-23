@@ -83,7 +83,7 @@ describe("publishTool", () => {
       { action: "tool.published", subjectType: "tool", subjectId: toolId, actorUserId: actor },
     ]);
     // A save the catalogue does not show is the bug people actually report.
-    expect(revalidateTag).toHaveBeenCalledWith("catalog", "minutes");
+    expect(revalidateTag).toHaveBeenCalledWith("catalog", { expire: 0 });
   });
 });
 
@@ -152,7 +152,7 @@ describe("markReviewed", () => {
     // Deliberate: §4.11 scopes the trail to security-relevant actions and has no
     // entry for a review. See the docstring on `markReviewed`.
     expect(await trail()).toEqual([]);
-    expect(revalidateTag).toHaveBeenCalledWith("catalog", "minutes");
+    expect(revalidateTag).toHaveBeenCalledWith("catalog", { expire: 0 });
   });
 });
 

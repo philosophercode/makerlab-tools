@@ -32,8 +32,11 @@ function renderEditor(units: UnitRecord[] = []) {
     onRetire: vi.fn(),
     onDelete: vi.fn(),
   };
-  render(<UnitsEditor units={units} pending={false} {...handlers} />);
-  return handlers;
+  const { rerender } = render(<UnitsEditor units={units} pending={false} {...handlers} />);
+  /** What the panel does after a save or a conflict reload: new rows, same keys. */
+  const reload = (next: UnitRecord[]) =>
+    rerender(<UnitsEditor units={next} pending={false} {...handlers} />);
+  return { ...handlers, reload };
 }
 
 function row(label: string) {
@@ -82,15 +85,58 @@ it("saves the transcribed fields together, when the person is done typing", asyn
   const fields = row("Form 4 #1");
 
   await userEvent.type(fields.getByLabelText("Serial number"), "FL-0042");
+  await userEvent.type(fields.getByLabelText("Asset tag"), "CT-9");
   await userEvent.click(fields.getByRole("button", { name: "Save unit" }));
 
+  // Only what they changed: a patch carrying every field would post this row's
+  // whole copy over anything the panel has not seen (the `ToolFieldsForm` rule).
   expect(handlers.onEdit).toHaveBeenCalledWith("unit-1", {
-    unitLabel: "Form 4 #1",
     serialNumber: "FL-0042",
-    assetTag: "",
-    dateAcquired: "",
-    notes: "",
+    assetTag: "CT-9",
   });
+});
+
+it("has nothing to save until something changes", () => {
+  renderEditor([unit()]);
+  expect(row("Form 4 #1").getByRole("button", { name: "Save unit" })).toBeDisabled();
+});
+
+/**
+ * The regression, and the expensive one.
+ *
+ * These rows are keyed by unit id, so a re-read replaces `units` without
+ * remounting them: the row goes on holding whatever it opened with. Somebody
+ * else fills in the serial number, this panel hits a conflict, the person
+ * clicks Reload — and then saves a date. Under the old rule that save also
+ * carried this row's ten-minute-old empty serial, the fresh token accepted it,
+ * and the transcribed serial was gone with no conflict and no audit event.
+ */
+it("does not post a stale value over somebody else's edit after a reload", async () => {
+  const handlers = renderEditor([unit()]);
+
+  await userEvent.type(row("Form 4 #1").getByLabelText("Acquired"), "2026-03-04");
+
+  // Somebody else filled the serial in; the panel re-read and handed it down.
+  handlers.reload([unit({ serialNumber: "F4-0192" })]);
+
+  const fields = row("Form 4 #1");
+  // The box the person never touched now shows the other person's value…
+  expect(fields.getByLabelText("Serial number")).toHaveValue("F4-0192");
+  // …and the one they were typing in is still theirs.
+  expect(fields.getByLabelText("Acquired")).toHaveValue("2026-03-04");
+
+  await userEvent.click(fields.getByRole("button", { name: "Save unit" }));
+  expect(handlers.onEdit).toHaveBeenCalledWith("unit-1", { dateAcquired: "2026-03-04" });
+});
+
+it("never rewrites notes, which this section has no box for", async () => {
+  const handlers = renderEditor([unit({ notes: "Tank replaced 2026-02" })]);
+  const fields = row("Form 4 #1");
+
+  await userEvent.type(fields.getByLabelText("Serial number"), "FL-0042");
+  await userEvent.click(fields.getByRole("button", { name: "Save unit" }));
+
+  expect(Object.keys(vi.mocked(handlers.onEdit).mock.calls[0][1])).toEqual(["serialNumber"]);
 });
 
 it("offers retire beside delete, because delete usually refuses", async () => {

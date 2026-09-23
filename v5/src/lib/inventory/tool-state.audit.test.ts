@@ -116,7 +116,7 @@ describe.each([
       expect.any(Error)
     );
     // And the catalogue still has to be told, because the row really did change.
-    expect(revalidateTag).toHaveBeenCalledWith("catalog", "minutes");
+    expect(revalidateTag).toHaveBeenCalledWith("catalog", { expire: 0 });
 
     console_.mockRestore();
   });

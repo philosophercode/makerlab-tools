@@ -94,6 +94,21 @@ export function UnitsEditor({
  * Its text fields are a small form of their own with a Save of its own, because
  * a serial number is transcribed from a plate and half-typed for a while; the
  * two selects save on change, because that is one decision and one gesture.
+ *
+ * **It sends only the fields that changed, and it rebases the rest** — the same
+ * two rules `ToolFieldsForm` follows, for the same reason and one more. These
+ * rows are keyed by unit id, so they never remount when the panel re-reads the
+ * list: a row opened ten minutes ago still holds the values it opened with. A
+ * patch carrying all five would then post that decade-old copy over whatever
+ * somebody else has since typed, and *the revision check cannot see it* — the
+ * panel's token is fresh, the write is accepted, and a serial number somebody
+ * transcribed off the machine is gone with no conflict and no audit event.
+ *
+ * So: a field the person has not touched follows the server (that is what makes
+ * the panel's conflict reload honest for this section), a field they have
+ * touched is theirs and is never overwritten, and Save posts the second kind
+ * only. `notes` has no box here at all, which under the old rule meant every
+ * save rewrote it from whatever the panel had last read.
  */
 function UnitRow({
   unit,
@@ -109,23 +124,27 @@ function UnitRow({
   onDelete: (unitId: string) => void;
 }) {
   const t = useTranslations("admin.inventory.editor");
-  const [fields, setFields] = useState({
-    unitLabel: unit.unitLabel,
-    serialNumber: unit.serialNumber ?? "",
-    assetTag: unit.assetTag ?? "",
-    dateAcquired: unit.dateAcquired ?? "",
-    notes: unit.notes ?? "",
-  });
+
+  const server = textOf(unit);
+  /** What the server said when these boxes were last rebased onto it. */
+  const [baseline, setBaseline] = useState(server);
+  const [fields, setFields] = useState(server);
+
+  // Adjusting state while rendering, rather than in an effect: React re-renders
+  // this component before anything reaches the screen, so the boxes never show
+  // the old value for a frame. (The React docs' "adjusting state when a prop
+  // changes" pattern.)
+  if (!sameText(baseline, server)) {
+    setFields((current) => rebase(current, baseline, server));
+    setBaseline(server);
+  }
+
+  const changed = changedText(fields, baseline);
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    onEdit(unit.id, {
-      unitLabel: fields.unitLabel,
-      serialNumber: fields.serialNumber,
-      assetTag: fields.assetTag,
-      dateAcquired: fields.dateAcquired,
-      notes: fields.notes,
-    });
+    if (Object.keys(changed).length === 0) return;
+    onEdit(unit.id, changed);
   }
 
   return (
@@ -164,7 +183,13 @@ function UnitRow({
           />
         </label>
 
-        <button type="submit" className="admin-button" disabled={pending}>
+        {/* Nothing to save is a disabled button, not a click that quietly
+            writes nothing — the same rule Add unit follows above. */}
+        <button
+          type="submit"
+          className="admin-button"
+          disabled={pending || Object.keys(changed).length === 0}
+        >
           {t("saveUnit")}
         </button>
       </form>
@@ -226,4 +251,73 @@ function UnitRow({
       </div>
     </li>
   );
+}
+
+// ── The five typed fields, and the three rules about them ───────────
+//
+// Kept together at the bottom of the file because they are one idea in three
+// parts: what the server says, what the boxes hold, and which of the two wins
+// for each field.
+
+/** The fields a person types. `status` and `condition` are chosen, not typed. */
+type UnitText = Pick<
+  UnitRecord,
+  "unitLabel" | "serialNumber" | "assetTag" | "dateAcquired" | "notes"
+>;
+
+type UnitTextKey = keyof UnitText;
+
+const TEXT_KEYS: readonly UnitTextKey[] = [
+  "unitLabel",
+  "serialNumber",
+  "assetTag",
+  "dateAcquired",
+  "notes",
+];
+
+/** A unit as boxes hold it: an absent value is an empty box, never "null". */
+function textOf(unit: UnitRecord): Record<UnitTextKey, string> {
+  return {
+    unitLabel: unit.unitLabel,
+    serialNumber: unit.serialNumber ?? "",
+    assetTag: unit.assetTag ?? "",
+    dateAcquired: unit.dateAcquired ?? "",
+    notes: unit.notes ?? "",
+  };
+}
+
+function sameText(
+  a: Record<UnitTextKey, string>,
+  b: Record<UnitTextKey, string>
+): boolean {
+  return TEXT_KEYS.every((key) => a[key] === b[key]);
+}
+
+/**
+ * The server moved. Take its value for every field this person has left alone,
+ * and keep theirs for every field they have not — nothing copies a fresh value
+ * over a box somebody is typing in.
+ */
+function rebase(
+  current: Record<UnitTextKey, string>,
+  baseline: Record<UnitTextKey, string>,
+  server: Record<UnitTextKey, string>
+): Record<UnitTextKey, string> {
+  const next = { ...current };
+  for (const key of TEXT_KEYS) {
+    if (current[key] === baseline[key]) next[key] = server[key];
+  }
+  return next;
+}
+
+/** Only what this person changed, which is the only thing Save may post. */
+function changedText(
+  fields: Record<UnitTextKey, string>,
+  baseline: Record<UnitTextKey, string>
+): UnitPatch {
+  const patch: UnitPatch = {};
+  for (const key of TEXT_KEYS) {
+    if (fields[key] !== baseline[key]) patch[key] = fields[key];
+  }
+  return patch;
 }

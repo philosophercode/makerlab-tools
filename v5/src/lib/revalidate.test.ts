@@ -19,16 +19,29 @@ beforeEach(() => {
 });
 
 describe("invalidateCatalog", () => {
-  it("clears the catalog tag under the profile the cached reads use", () => {
+  it("clears the catalog tag", () => {
     invalidateCatalog();
-    expect(revalidateTag).toHaveBeenCalledWith("catalog", "minutes");
+    expect(revalidateTag).toHaveBeenCalledWith("catalog", { expire: 0 });
+  });
+
+  /**
+   * The regression: a *named* profile is stale-while-revalidate in Next 16, so
+   * the first reader after a publish is still served the pre-publish page —
+   * which is the one failure §3.9 says invalidation exists to prevent. Only
+   * `expire: 0` expires the entry where it stands.
+   */
+  it("expires it on the spot rather than letting one more reader have the old page", () => {
+    invalidateCatalog();
+    const [, profile] = vi.mocked(revalidateTag).mock.calls[0];
+    expect(profile).not.toBe("minutes");
+    expect(profile).toEqual({ expire: 0 });
   });
 });
 
 describe("invalidateProjects", () => {
-  it("clears the projects tag", () => {
+  it("clears the projects tag, expiring it on the spot", () => {
     invalidateProjects();
-    expect(revalidateTag).toHaveBeenCalledWith("projects", "minutes");
+    expect(revalidateTag).toHaveBeenCalledWith("projects", { expire: 0 });
   });
 });
 

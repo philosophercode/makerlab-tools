@@ -68,7 +68,7 @@ describe("addUnit", () => {
     expect(result.ok && result.revision).not.toBe(before);
     expect(result.ok && result.revision).toBe(await revision());
     expect(await db.select().from(units)).toHaveLength(1);
-    expect(revalidateTag).toHaveBeenCalledWith("catalog", "minutes");
+    expect(revalidateTag).toHaveBeenCalledWith("catalog", { expire: 0 });
   });
 
   it("refuses a stale token and adds nothing", async () => {

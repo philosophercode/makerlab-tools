@@ -61,7 +61,7 @@ describe("addResource", () => {
       toolId,
       title: "Form 4 manual",
     });
-    expect(revalidateTag).toHaveBeenCalledWith("catalog", "minutes");
+    expect(revalidateTag).toHaveBeenCalledWith("catalog", { expire: 0 });
   });
 
   it("claims an uploaded PDF onto the resource", async () => {

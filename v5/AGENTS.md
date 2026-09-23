@@ -224,6 +224,23 @@ Phase 5 extends both. The shape it sets:
   typing in, so the panel remounts it with a new `key` after a save it knows
   landed. It also sends **only the fields that changed**, because a patch
   carrying every field would overwrite an edit the revision check cannot see.
+  **A unit row follows both rules for itself**, and has to: the rows are keyed
+  by unit id and never remount, so one opened ten minutes ago still holds what
+  it opened with. Each field the person has not touched rebases onto the newer
+  server value; each field they have is theirs; Save posts the second kind only.
+- **A write that changed the tool's *state* re-reads it.** Publish, Unpublish,
+  Archive, Restore and "Looks good" all commit through `run(…, { refresh: true
+  })`, and that refresh takes the tool's state as well as its children — a panel
+  still offering **Unpublish** under a "Saved" it just earned is the page
+  asserting what the database no longer holds, and a second click writes a
+  second audit event. The tool's *text* is left alone, because somebody may be
+  halfway through typing it.
+- **Hiding a resource hides it from visitors, not just from the assistant.**
+  The editor's **Hide** flips `resources.published`, and `loadTools` filters on
+  it exactly like `listResourcesForTool` does, so an internal SOP staff
+  restricted leaves the public tool page. What it does not do is unpublish the
+  file: a resource's PDF is a public blob at a random pathname and stays
+  fetchable by anyone who already has the URL.
 - **Every editor action is gated by `authorizeAdminAction`**
   (`src/lib/admin/action-gate.ts`): identity, then the limiter, then the one
   permission it needs — the sequence `/admin/users` established, now shared and
@@ -321,7 +338,7 @@ Phase 5 extends both. The shape it sets:
 | `src/app/admin/inventory/actions.ts` + `unit-`/`resource-`/`photo-actions.ts` | The editor's server actions, one module per section, each checking its own permission |
 | `src/components/admin/ToolEditorPanel.tsx` | The editor itself: the revision token, the conflict, and the five sections beside it |
 | `src/app/tools/[id]/EditToolControl.tsx` / `DraftToolView.tsx` | Edit mode on a tool page (phone-first), and drafts at their slug for `catalog.view_drafts` |
-| `src/lib/revalidate.ts` | `invalidateCatalog()` / `invalidateProjects()` — the one home for the cache tag strings |
+| `src/lib/revalidate.ts` | `invalidateCatalog()` / `invalidateProjects()` — the one home for the cache tag strings, and `{ expire: 0 }`, because `revalidateTag` with a *named* profile is stale-while-revalidate and would serve the pre-publish page to one more reader |
 | `src/lib/blob.ts` | The Blob seam — `put` (private backups, fixed pathname) and `putUpload` (random pathname, caller's access) |
 | `src/lib/cron/backup.ts`, `src/lib/cron/cleanup.ts` | The nightly Postgres export and the orphaned-upload sweep |
 | `src/lib/cron/backup-policy.ts` | What the nightly export holds back — `session` / `verification` skipped, `account` tokens blanked. A backup is data, not credentials |

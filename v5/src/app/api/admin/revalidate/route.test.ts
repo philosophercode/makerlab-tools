@@ -61,8 +61,8 @@ describe("POST /api/admin/revalidate", () => {
     // Both catalog and projects are cached under their own tag, so one admin
     // revalidate has to invalidate both.
     expect(body).toEqual({ ok: true, tags: ["catalog", "projects"] });
-    expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("catalog", "minutes");
-    expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("projects", "minutes");
+    expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("catalog", { expire: 0 });
+    expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("projects", { expire: 0 });
     expect(vi.mocked(revalidateTag)).toHaveBeenCalledTimes(2);
   });
 });
@@ -115,8 +115,8 @@ describe("POST /api/admin/revalidate — a signed-in session", () => {
 
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ ok: true, tags: ["catalog", "projects"] });
-    expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("catalog", "minutes");
-    expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("projects", "minutes");
+    expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("catalog", { expire: 0 });
+    expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("projects", { expire: 0 });
   });
 
   it("accepts a super admin session", async () => {

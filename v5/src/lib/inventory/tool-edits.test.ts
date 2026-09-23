@@ -49,7 +49,7 @@ it("writes the patch and drops the catalogue cache", async () => {
   expect(result).toEqual({ ok: true, revision: expect.any(String) });
   const [row] = await db.select().from(tools);
   expect(row.description).toBe("after");
-  expect(revalidateTag).toHaveBeenCalledWith("catalog", "minutes");
+  expect(revalidateTag).toHaveBeenCalledWith("catalog", { expire: 0 });
 });
 
 it("refuses a stale token, writes nothing, and busts no cache", async () => {
