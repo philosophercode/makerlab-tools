@@ -64,9 +64,10 @@ The 2026-09-23 results are recorded, run by run, in the gateway spec: Luna first
 missed the gate (amendment "The chat eval gate") and chat ran on
 `anthropic/claude-sonnet-5`; after the chat prompt was tuned, Luna passed it on
 three runs and chat moved to `openai/gpt-6-luna` (amendment "Chat prompt tuning
-for Luna"). `issue-report-calls-tool` is the one tolerated miss on every model:
-with nobody signed in, the assistant asks for a name before filing, so the case
-cannot pass in a single turn.
+for Luna"). The anonymous-report behaviour is covered by two cases: with nobody
+signed in the assistant asks for a name first (`issue-report-asks-for-name`), and
+a reporter who declines still gets the ticket filed (`issue-report-calls-tool`):
+an anonymous report beats no report. Luna passed all 14 cases on 2026-09-23.
 
 Read every `cases/honest-absence.yaml` and `cases/manual-grounding.yaml` case as
 a hard requirement (no `FAIL`, no `FLAKY`, on either run) and every other case
