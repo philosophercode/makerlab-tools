@@ -409,3 +409,34 @@ describe("POST /api/pending-tools/research — what moves", () => {
     for (const row of await rows(ids)) expect(row.researchRequestId).toBe(res.body.requestId);
   });
 });
+
+describe('POST /api/pending-tools/research — a reviewer\'s note (amendment "reviewer notes")', () => {
+  it("hands the cleaned note to the run with the one item", async () => {
+    const [a] = await items(1);
+    const res = await post({ ids: [a], note: "  use the bambulab.com\nX2D product page " });
+    expect(res.status).toBe(202);
+    expect(wf.start).toHaveBeenCalledWith(wf.researchBatch, [res.body.requestId, [a], "use the bambulab.com X2D product page"]);
+  });
+
+  it("starts with no note when the note is blank", async () => {
+    const [a] = await items(1);
+    const res = await post({ ids: [a], note: "   " });
+    expect(res.status).toBe(202);
+    expect(wf.start).toHaveBeenCalledWith(wf.researchBatch, [res.body.requestId, [a]]);
+  });
+
+  it("refuses a note over the cap, a note on several items, and a note from someone who cannot approve — moving nothing", async () => {
+    const [a, b] = await items(2);
+    expect((await post({ ids: [a], note: "x".repeat(301) })).status).toBe(400);
+    expect((await post({ ids: [a, b], note: "use the product page" })).status).toBe(400);
+
+    override.permissions = new Set(["tools.add"]);
+    const refused = await post({ ids: [a], note: "use the product page" });
+    expect(refused.status).toBe(403);
+    expect(refused.body.code).toBe("forbidden");
+    override.permissions = null;
+
+    expect(wf.start).not.toHaveBeenCalled();
+    expect(await statuses([a, b])).toEqual(["identified", "identified"]);
+  });
+});

@@ -6,6 +6,7 @@ const sdk = vi.hoisted(() => ({
   copy: vi.fn(),
   list: vi.fn(),
   del: vi.fn(),
+  get: vi.fn(),
 }));
 
 vi.mock("@vercel/blob", () => ({
@@ -13,8 +14,12 @@ vi.mock("@vercel/blob", () => ({
   copy: sdk.copy,
   list: sdk.list,
   del: sdk.del,
+  get: sdk.get,
 }));
 
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { getBlobStore, isBlobConfigured } from "./blob";
 
 beforeEach(() => {
@@ -25,6 +30,7 @@ beforeEach(() => {
   });
   sdk.list.mockReset().mockResolvedValue({ blobs: [], hasMore: false });
   sdk.del.mockReset().mockResolvedValue(undefined);
+  sdk.get.mockReset().mockResolvedValue(null);
 });
 
 describe("isBlobConfigured", () => {
@@ -226,5 +232,85 @@ describe("del", () => {
       "backups/a.json",
       "backups/b.json",
     ]);
+  });
+});
+
+describe("read", () => {
+  it("reads a private blob by default and hands back the stream and its type", async () => {
+    const stream = new ReadableStream<Uint8Array>();
+    sdk.get.mockResolvedValueOnce({
+      statusCode: 200,
+      stream,
+      headers: new Headers(),
+      blob: { contentType: "image/png", size: 3 },
+    });
+
+    const blob = await getBlobStore().read("research/cleaned/p1s-Xa9k2.png");
+
+    expect(sdk.get).toHaveBeenCalledExactlyOnceWith("research/cleaned/p1s-Xa9k2.png", {
+      access: "private",
+    });
+    expect(blob).toEqual({ body: stream, contentType: "image/png" });
+  });
+
+  it("passes a public access through when asked", async () => {
+    await getBlobStore().read("uploads/tool/p1s.png", "public");
+    expect(sdk.get.mock.calls[0][1]).toEqual({ access: "public" });
+  });
+
+  it("answers null for a blob that is not there, never an empty body", async () => {
+    expect(await getBlobStore().read("research/cleaned/gone.png")).toBeNull();
+  });
+
+  it("answers null to a 304, which carries no bytes", async () => {
+    sdk.get.mockResolvedValueOnce({
+      statusCode: 304,
+      stream: null,
+      headers: new Headers(),
+      blob: { contentType: null, size: null },
+    });
+    expect(await getBlobStore().read("research/cleaned/p1s.png")).toBeNull();
+  });
+});
+
+describe("read — the local folder", () => {
+  beforeEach(async () => {
+    // Local mode: no token, not on Vercel, not switched off — in a temporary
+    // folder standing in for the working directory.
+    const dir = await mkdtemp(join(tmpdir(), "blob-read-"));
+    vi.spyOn(process, "cwd").mockReturnValue(dir);
+    vi.stubEnv("BLOB_READ_WRITE_TOKEN", "");
+    vi.stubEnv("VERCEL", "");
+    vi.stubEnv("NODE_ENV", "development");
+    vi.stubEnv("BLOB_LOCAL_DISABLE", "");
+  });
+
+  function png(): File {
+    return new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "cleaned.png", { type: "image/png" });
+  }
+
+  it("reads back the bytes a private upload wrote, with their content type", async () => {
+    const store = getBlobStore();
+    const stored = await store.putUpload("research/cleaned/", png(), "private");
+
+    const blob = await store.read(stored.pathname);
+
+    expect(blob?.contentType).toBe("image/png");
+    expect(Array.from(blob?.body as Uint8Array)).toEqual([0x89, 0x50, 0x4e, 0x47]);
+    expect(sdk.get).not.toHaveBeenCalled();
+  });
+
+  it("will not read a file through the wrong access, as the real store would not", async () => {
+    const store = getBlobStore();
+    const stored = await store.putUpload("uploads/tool/", png(), "public");
+
+    expect(await store.read(stored.pathname)).toBeNull();
+    expect(await store.read(stored.pathname, "public")).not.toBeNull();
+  });
+
+  it("answers null for a missing file and for a pathname that would leave the folder", async () => {
+    const store = getBlobStore();
+    expect(await store.read("research/cleaned/nothing.png")).toBeNull();
+    expect(await store.read("../outside.png")).toBeNull();
   });
 });

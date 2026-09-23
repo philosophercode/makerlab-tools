@@ -9,11 +9,13 @@ function env(vars: {
   vercel?: string;
   nodeEnv?: string;
   disable?: string;
+  dir?: string;
 }) {
   vi.stubEnv("BLOB_READ_WRITE_TOKEN", vars.token ?? "");
   vi.stubEnv("VERCEL", vars.vercel ?? "");
   vi.stubEnv("NODE_ENV", vars.nodeEnv ?? "development");
   vi.stubEnv("BLOB_LOCAL_DISABLE", vars.disable ?? "");
+  vi.stubEnv("BLOB_LOCAL_DIR", vars.dir ?? "");
 }
 
 describe("blobMode", () => {
@@ -31,6 +33,23 @@ describe("blobMode", () => {
 
   it("is none in a production build without a token", () => {
     env({ nodeEnv: "production" });
+    expect(blobMode()).toBe("none");
+  });
+
+  it("is local in a production build only when BLOB_LOCAL_DIR names a folder (the E2E server)", () => {
+    env({ nodeEnv: "production", dir: ".blob-data-e2e" });
+    expect(blobMode()).toBe("local");
+    env({ nodeEnv: "production", dir: "   " });
+    expect(blobMode()).toBe("none");
+  });
+
+  it("never honours BLOB_LOCAL_DIR on Vercel", () => {
+    env({ vercel: "1", nodeEnv: "production", dir: ".blob-data-e2e" });
+    expect(blobMode()).toBe("none");
+  });
+
+  it("still lets BLOB_LOCAL_DISABLE switch the store off with BLOB_LOCAL_DIR set", () => {
+    env({ nodeEnv: "production", dir: ".blob-data-e2e", disable: "1" });
     expect(blobMode()).toBe("none");
   });
 

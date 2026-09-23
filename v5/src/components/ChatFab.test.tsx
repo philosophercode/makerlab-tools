@@ -485,8 +485,18 @@ describe("ChatFab — pending tool-call status", () => {
     expect(screen.getByText("Identifying the equipment…")).toBeInTheDocument();
   });
 
+  it("shows the searching label for a pending exa_search call", async () => {
+    await openWith([toolMsg("a1", "tool-exa_search")]);
+    expect(screen.getByText("🔍 Searching the web…")).toBeInTheDocument();
+  });
+
+  it("shows the reading label for a pending read_page call", async () => {
+    await openWith([toolMsg("a1", "tool-read_page")]);
+    expect(screen.getByText("📄 Reading the page…")).toBeInTheDocument();
+  });
+
   it("shows a generic working label for any other pending tool", async () => {
-    await openWith([toolMsg("a1", "tool-web_fetch")]);
+    await openWith([toolMsg("a1", "tool-search_tools")]);
     expect(screen.getByText("Working on it…")).toBeInTheDocument();
   });
 });

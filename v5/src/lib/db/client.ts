@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { createNeonDb } from "./neon.ts";
-import { createPgliteDb } from "./pglite.ts";
+import { createPgliteDb, openPersistentPglite } from "./pglite.ts";
+import { localDataDir } from "./local-dir.ts";
 import { seedDemo } from "./demo-seed.ts";
 import type { DataSubstrate, Db } from "./types.ts";
 
@@ -10,8 +11,13 @@ import type { DataSubstrate, Db } from "./types.ts";
  * - `DATABASE_URL` set → Neon. Created lazily on first call, so `next build`
  *   never needs the variable and a missing one fails at request time with
  *   {@link DbUnavailableError}, never at build time.
- * - `DATABASE_URL` unset → PGlite with the demo seed: tests, E2E, a fresh
- *   clone. The `DemoDataBanner` tells visitors the catalogue is sample data.
+ * - `DATABASE_URL` unset, `PGLITE_DATA_DIR` set → PGlite persisted in that
+ *   directory, migrated and never seeded: real data (a local Notion import) on
+ *   a laptop. Local only — refused on Vercel and in production builds
+ *   (`local-dir.ts`), and one process at a time (`pglite-lock.ts`), so the dev
+ *   server must be stopped while `npm run import:notion` writes to it.
+ * - Neither → in-memory PGlite with the demo seed: tests, E2E, a fresh clone.
+ *   The `DemoDataBanner` tells visitors the catalogue is sample data.
  *
  * The handle is memoised on `globalThis` so Next's dev-server module reloads
  * reuse one PGlite instance instead of starting a new one per reload. There is
@@ -31,11 +37,24 @@ export class DbUnavailableError extends Error {
   }
 }
 
+/** Throws when `PGLITE_DATA_DIR` is set on Vercel or in production (see `localDataDir`). */
 export function dataSubstrate(): DataSubstrate {
-  return process.env.DATABASE_URL ? "neon" : "pglite-demo";
+  if (process.env.DATABASE_URL) return "neon";
+  return localDataDir() ? "pglite-local" : "pglite-demo";
 }
 
-type DbCache = { substrate: DataSubstrate; promise: Promise<Db> } | undefined;
+function openDb(substrate: DataSubstrate): Promise<Db> {
+  switch (substrate) {
+    case "neon":
+      return Promise.resolve(createNeonDb(process.env.DATABASE_URL as string));
+    case "pglite-local":
+      return openPersistentPglite(localDataDir() as string).then((local) => local.db);
+    default:
+      return createPgliteDb({ seed: seedDemo });
+  }
+}
+
+type DbCache = { key: string; promise: Promise<Db> } | undefined;
 const CACHE_KEY = "__makerlab_db__" as const;
 
 function cache(): DbCache {
@@ -46,16 +65,22 @@ function setCache(value: DbCache): void {
   (globalThis as Record<string, unknown>)[CACHE_KEY] = value;
 }
 
+/**
+ * Keyed on the substrate and, for the local one, its directory. A failed open
+ * is not memoised: a local directory locked by `npm run import:notion` works
+ * on the first request after the import finishes, with no restart.
+ */
 export function getDb(): Promise<Db> {
   const substrate = dataSubstrate();
+  const key = substrate === "pglite-local" ? `${substrate}:${localDataDir()}` : substrate;
   const cached = cache();
-  if (cached && cached.substrate === substrate) return cached.promise;
+  if (cached && cached.key === key) return cached.promise;
 
-  const promise =
-    substrate === "neon"
-      ? Promise.resolve(createNeonDb(process.env.DATABASE_URL as string))
-      : createPgliteDb({ seed: seedDemo });
-  setCache({ substrate, promise });
+  const promise = openDb(substrate);
+  setCache({ key, promise });
+  promise.catch(() => {
+    if (cache()?.promise === promise) setCache(undefined);
+  });
   return promise;
 }
 

@@ -16,11 +16,36 @@ export const RESEARCH_DAILY_ITEM_LIMIT = 100;
 /** Items researched at once inside one workflow run (§3.7: three at a time). */
 export const RESEARCH_CONCURRENCY = 3;
 
-/** Web searches per item — four, not §3.7's eight (2026-09-22 amendment). */
+/**
+ * Exa searches per item — four, not §3.7's eight (2026-09-22 amendment). An
+ * **advisory** budget since the Gateway migration: the search prompt asks for at
+ * most this many, and the step logs an overshoot afterwards. It cannot withdraw
+ * `exa_search` mid-call — the Gateway runs every search inside the step's one
+ * request (gateway spec §3.2 and its 2026-09-23 amendment; `research/steps.ts`).
+ */
 export const RESEARCH_MAX_WEB_SEARCHES = 4;
 
-/** Web fetches per item — four, not §3.7's eight (2026-09-22 amendment). */
-export const RESEARCH_MAX_WEB_FETCHES = 4;
+/**
+ * Pages the research read step fetches server-side per item (gateway spec
+ * §3.3) — the same four `web_fetch` was allowed.
+ */
+export const RESEARCH_MAX_PAGE_READS = 4;
+
+/** @deprecated The read step no longer has a `web_fetch` tool; use {@link RESEARCH_MAX_PAGE_READS}. */
+export const RESEARCH_MAX_WEB_FETCHES = RESEARCH_MAX_PAGE_READS;
+
+/** PDFs, of those pages, handed to the read model as file parts (gateway spec §3.3). */
+export const RESEARCH_MAX_PDFS_READ = 2;
+
+/** Exa searches per chat turn — `web_search`'s old `maxUses: 5` (gateway spec §3.2). */
+export const CHAT_MAX_EXA_SEARCHES = 5;
+
+/**
+ * `read_page` calls per chat turn (gateway spec §3.3). Enforced twice: inside the
+ * tool, per turn (`capabilities/web.ts` — parallel calls in one step included),
+ * and by `prepareStep`, which withdraws the tool for the rest of the turn.
+ */
+export const CHAT_MAX_PAGE_READS = 5;
 
 /**
  * The `AbortSignal` budget inside each research step. Hobby kills a function at
@@ -31,6 +56,53 @@ export const RESEARCH_STEP_TIMEOUT_MS = 240_000;
 
 /** `researchItem.maxRetries` — a property on the step function, not an option. */
 export const RESEARCH_STEP_MAX_RETRIES = 2;
+
+// ── The image stage (gateway spec §3.5) ──────────────────────────────
+
+/** `findImages`' own `AbortSignal` budget — the same 240 s as the other steps. */
+export const IMAGE_STEP_TIMEOUT_MS = 240_000;
+
+/** `findImages.maxRetries` — a property on the step function, as above. */
+export const IMAGE_STEP_MAX_RETRIES = 2;
+
+/**
+ * Candidates gathered from the read pages (metadata, JSON-LD and gallery) and
+ * Exa, de-duplicated, before probing (amendment "Composites and product crop").
+ */
+export const IMAGE_MAX_CANDIDATES = 10;
+
+/** Probed images the ranking model is shown. */
+export const IMAGE_MAX_RANKED = 8;
+
+/** Ranked candidates recorded and shown on the preliminary page. */
+export const IMAGE_MAX_SHOWN = 3;
+
+/** Exa's images are added only when the read pages declared fewer than this many. */
+export const IMAGE_EXA_TOPUP_BELOW = 3;
+
+/** A candidate's shorter side must be at least this many pixels. */
+export const IMAGE_MIN_SHORT_EDGE = 400;
+
+/** The most a probed candidate (or a chosen original, at approval) may weigh. */
+export const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
+
+/**
+ * The longest reviewer's instruction — the optional note on **Research again**
+ * and on **Find a different image** (amendment "Product-page first, front-facing
+ * images, reviewer notes"). One line: it is collapsed to one before it is
+ * counted, stored or put in a prompt.
+ */
+export const REVIEWER_NOTE_MAX_CHARS = 300;
+
+/**
+ * A **Find a different image** run still marked running this long after it was
+ * requested is taken to have died: the page stops waiting for it and offers the
+ * button again. Two image-stage attempts at 240 s each fit inside it.
+ */
+export const IMAGE_RETRY_STALE_MS = 15 * 60_000;
+
+/** Exa searches one **Find a different image** run may make — one, and only when it helps. */
+export const IMAGE_RETRY_MAX_SEARCHES = 1;
 
 /**
  * How long an item may sit `queued` with no workflow run and no recorded start

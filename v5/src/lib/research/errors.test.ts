@@ -1,20 +1,29 @@
 // @vitest-environment node
+import {
+  GatewayAuthenticationError,
+  GatewayInternalServerError,
+  GatewayModelNotFoundError,
+  GatewayRateLimitError,
+} from "@ai-sdk/gateway";
 import { APICallError, LoadAPIKeyError, RetryError } from "ai";
 import { FatalError, RetryableError } from "workflow";
 import { z } from "zod";
+import { ModelConfigError } from "../ai/models";
 import { classifyResearchError, scrub } from "./errors";
 import { ModelOutputError } from "./model-output";
 
 /**
  * Which failures a research step retries and which it gives up on (spec §3.7
- * "Errors"). The message matters as much as the class: it is what
- * `research_error` will say once the workflow gives up (2026-09-22 amendment).
+ * "Errors"; gateway spec §3.1). The message matters as much as the class: it is
+ * what `research_error` will say once the workflow gives up (2026-09-22
+ * amendment). Errors are the real classes the Gateway provider and the AI SDK
+ * throw, against the Gateway's URL — nothing here knows a provider.
  */
 
 function apiError(statusCode: number | undefined, message = "boom", headers?: Record<string, string>) {
   return new APICallError({
     message,
-    url: "https://api.anthropic.com/v1/messages",
+    url: "https://ai-gateway.vercel.sh/v3/ai/language-model",
     requestBodyValues: { secret: "the whole prompt" },
     statusCode,
     responseHeaders: headers,
@@ -31,13 +40,13 @@ describe("classifyResearchError", () => {
   });
 
   it("honours a 429's retry-after, within the step's budget", () => {
-    const soon = classifyResearchError(apiError(429, "slow down", { "retry-after": "7" }), "fetch");
+    const soon = classifyResearchError(apiError(429, "slow down", { "retry-after": "7" }), "read");
     expect(RetryableError.is(soon)).toBe(true);
     const wait = (soon as RetryableError).retryAfter.getTime() - Date.now();
     expect(wait).toBeGreaterThan(5_000);
     expect(wait).toBeLessThanOrEqual(7_000);
 
-    const tooLong = classifyResearchError(apiError(429, "slow down", { "retry-after": "3600" }), "fetch");
+    const tooLong = classifyResearchError(apiError(429, "slow down", { "retry-after": "3600" }), "read");
     expect((tooLong as RetryableError).retryAfter.getTime() - Date.now()).toBeLessThanOrEqual(60_000);
   });
 
@@ -45,11 +54,65 @@ describe("classifyResearchError", () => {
     expect(RetryableError.is(classifyResearchError(apiError(undefined, "socket hang up"), "search"))).toBe(true);
   });
 
-  it.each([400, 401, 403, 404, 413])("gives up on HTTP %i", (status) => {
-    const classified = classifyResearchError(apiError(status, "invalid request: bad tool"), "fetch");
+  it.each([400, 404, 413])("gives up on HTTP %i, keeping the provider's reason", (status) => {
+    const classified = classifyResearchError(apiError(status, "invalid request: bad tool"), "read");
     expect(FatalError.is(classified)).toBe(true);
     expect(classified.message).toContain(`HTTP ${status}`);
     expect(classified.message).toContain("invalid request: bad tool");
+  });
+
+  it.each([401, 403])("gives up on HTTP %i as a Gateway that is not authenticated", (status) => {
+    const classified = classifyResearchError(apiError(status, "unauthorized"), "search");
+    expect(FatalError.is(classified)).toBe(true);
+    expect(classified.message).toBe(
+      "Research (search): the AI Gateway is not authenticated (AI_GATEWAY_API_KEY or the deployment's OIDC token)."
+    );
+  });
+
+  it("retries the Gateway's own rate limit and server errors", () => {
+    const limited = classifyResearchError(new GatewayRateLimitError({ message: "slow down", statusCode: 429 }), "search");
+    expect(RetryableError.is(limited)).toBe(true);
+    expect(limited.message).toContain("rate limiting");
+
+    const down = classifyResearchError(
+      new GatewayInternalServerError({ message: "upstream exploded", statusCode: 500 }),
+      "read"
+    );
+    expect(RetryableError.is(down)).toBe(true);
+    expect(down.message).toBe("Research (reading pages): the model provider failed (HTTP 500): upstream exploded.");
+  });
+
+  it.each([
+    ["search", "MODEL_RESEARCH_SEARCH"],
+    ["read", "MODEL_RESEARCH_READ"],
+  ] as const)("names the %s stage's variable when the Gateway does not know the model", (stage, envVar) => {
+    const classified = classifyResearchError(
+      new GatewayModelNotFoundError({ message: "Model 'openai/gpt-nope' not found", statusCode: 404 }),
+      stage
+    );
+    expect(FatalError.is(classified)).toBe(true);
+    expect(classified.message).toMatch(new RegExp(`: model not available \\(${envVar}\\)\\.$`));
+    expect(classified.message).not.toContain("gpt-nope");
+  });
+
+  it("names the variable of a malformed override, never its value", () => {
+    const config = new ModelConfigError("MODEL_RESEARCH_SEARCH is not a Gateway model id.", {
+      job: "researchSearch",
+      envVar: "MODEL_RESEARCH_SEARCH",
+    });
+    const classified = classifyResearchError(config, "search");
+    expect(FatalError.is(classified)).toBe(true);
+    expect(classified.message).toBe("Research (search): model not available (MODEL_RESEARCH_SEARCH).");
+  });
+
+  it("gives up when the Gateway refuses the credentials", () => {
+    const classified = classifyResearchError(
+      new GatewayAuthenticationError({ message: "Invalid API key vck_abcdefghijklmnop", statusCode: 401 }),
+      "read"
+    );
+    expect(FatalError.is(classified)).toBe(true);
+    expect(classified.message).toContain("the AI Gateway is not authenticated");
+    expect(classified.message).not.toContain("vck_");
   });
 
   it("judges the last error inside generateText's RetryError", () => {
@@ -71,10 +134,10 @@ describe("classifyResearchError", () => {
     }
   });
 
-  it("gives up when there is no API key", () => {
-    const classified = classifyResearchError(new LoadAPIKeyError({ message: "missing ANTHROPIC_API_KEY" }), "search");
+  it("gives up when there is no Gateway credential at all", () => {
+    const classified = classifyResearchError(new LoadAPIKeyError({ message: "missing AI_GATEWAY_API_KEY" }), "search");
     expect(FatalError.is(classified)).toBe(true);
-    expect(classified.message).toContain("no model API key");
+    expect(classified.message).toContain("AI_GATEWAY_API_KEY or the deployment's OIDC token");
   });
 
   it("gives up on an answer that does not parse, or does not fit the schema", () => {
@@ -103,7 +166,7 @@ describe("classifyResearchError", () => {
   });
 
   it("treats an unknown error as fatal, so a bug does not burn three attempts", () => {
-    const classified = classifyResearchError(new TypeError("cannot read properties of undefined"), "fetch");
+    const classified = classifyResearchError(new TypeError("cannot read properties of undefined"), "read");
     expect(FatalError.is(classified)).toBe(true);
     expect(classified.message).toContain("cannot read properties of undefined");
   });
@@ -121,6 +184,8 @@ describe("classifyResearchError", () => {
 describe("scrub", () => {
   it("removes key-shaped text and bearer tokens", () => {
     expect(scrub("key sk-ant-abcdefghijklmnop failed")).toBe("key [redacted] failed");
+    expect(scrub("gateway key vck_1234567890abcdef refused")).toBe("gateway key [redacted] refused");
+    expect(scrub("token eyJhbGciOiJSUzI1NiJ9.eyJzdWIiOiJ4In0.c2lnbmF0dXJl expired")).toBe("token [redacted] expired");
     expect(scrub("Authorization: Bearer abc.def")).toBe("Authorization: Bearer [redacted]");
     expect(scrub("x-api-key: 12345")).toBe("x-api-key [redacted]");
   });

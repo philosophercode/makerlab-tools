@@ -5,15 +5,11 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import { useChatLauncher } from "./ChatLauncherContext";
-import { AdminLink } from "./AdminLink";
-import { RefreshCatalogButton } from "./RefreshCatalogButton";
-import { canAddEquipment } from "../lib/capabilities/access";
+import { ProfileMenu } from "./ProfileMenu";
 import { siteConfig } from "../lib/site-config";
 import {
   fetchIdentity,
-  firstNameOf,
   isSignedIn,
-  signOutAndReload,
   startGoogleSignIn,
   type ClientIdentity,
   type SignInStart,
@@ -66,7 +62,6 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
   }, []);
 
   const signedIn = isSignedIn(identity);
-  const firstName = firstNameOf(identity?.name);
 
   async function handleSignIn() {
     setBusy(true);
@@ -81,11 +76,6 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
     }
   }
 
-  async function handleSignOut() {
-    setBusy(true);
-    await signOutAndReload();
-  }
-
   return (
     <nav className="primary-nav" aria-label={t("primaryNavLabel")}>
       {LINKS.map((link) => (
@@ -97,24 +87,6 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
           {t(link.key)}
         </Link>
       ))}
-      {/* Adding equipment needs `tools.add` (spec §3.5), so the entry point
-          waits for an identity that holds it. The chat enforces the same
-          declaration server-side; hiding the button is only presentation. */}
-      {/* The way into `/admin`, for anyone holding an admin-surface permission
-          (spec §6). Like every other control here it is presentation: the
-          layout behind it resolves the identity again and refuses. */}
-      <AdminLink role={identity?.role} />
-      {canAddEquipment(identity) ? (
-        /* Same nav-action chrome as Report: an action, not a page. */
-        <button
-          type="button"
-          className="primary-nav-report primary-nav-add"
-          onClick={() => open(t("addSeed"))}
-          aria-label={t("addAria")}
-        >
-          {t("add")}
-        </button>
-      ) : null}
       <button
         type="button"
         className="primary-nav-report"
@@ -123,35 +95,15 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
       >
         {t("report")}
       </button>
-      {/* Staff-only, and it renders nothing for everyone else. The header is
-          where it belongs: the catalog is what every page shows, so the control
-          that refreshes it should not live on one of them. It reuses the
-          identity this component already resolved rather than asking again. */}
-      <RefreshCatalogButton role={identity?.role} />
-      {signedIn ? (
-        <>
-          {/* Name only — no avatar image, per the technical-schematic system
-              (spec §6). The nav's own mono/uppercase/0-radius treatment applies. */}
-          {firstName ? (
-            <span
-              className="primary-nav-identity"
-              aria-label={t("signedInAria", { name: firstName })}
-            >
-              {firstName}
-            </span>
-          ) : null}
-          <button
-            type="button"
-            // Borrows the report control's chrome: same nav-action treatment
-            // (transparent, 0 radius, inherited mono label). The modifier class
-            // is the hook if the two ever need to diverge.
-            className="primary-nav-report primary-nav-auth"
-            onClick={handleSignOut}
-            disabled={busy}
-          >
-            {t("signOut")}
-          </button>
-        </>
+      {/* Everything a signed-in person can do beyond browsing — Admin, Add
+          equipment, Sign out — lives in their profile menu, not the bar
+          (Isaac, 2026-09-23). Refresh moved to `/admin`.
+          The control shows the Google photo beside the first name. It used to
+          be name only, with no avatar image, per the technical-schematic system
+          (spec §6); Isaac chose a square avatar on 2026-09-23, and it keeps the
+          system's 0 radius. */}
+      {signedIn && identity ? (
+        <ProfileMenu identity={identity} />
       ) : (
         <>
           <button

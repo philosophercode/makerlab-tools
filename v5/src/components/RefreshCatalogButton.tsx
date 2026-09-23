@@ -20,6 +20,10 @@ import { siteConfig } from "../lib/site-config";
  * identity and refuses anyone without `tools.edit`; rendering `null` here only
  * spares everyone else a control they cannot use.
  *
+ * It lives on `/admin`, in the action row above the surfaces list. It sat in the
+ * header until 2026-09-23, when Isaac cleared the bar down to the page links,
+ * Report and the profile menu.
+ *
  * Feedback stays on screen until the next attempt rather than firing a toast —
  * a refresh is something staff want confirmed, and a toast is gone before it is
  * read (the same reasoning as `FlagButton`'s in-place confirmation).
@@ -38,9 +42,8 @@ export function RefreshCatalogButton({ role }: RefreshCatalogButtonProps) {
   const t = useTranslations("catalogRefresh");
   const [state, setState] = useState<RefreshState>("idle");
 
-  // Until identity resolves, `role` is undefined and nothing renders — the same
-  // treatment the header gives the signed-in name, and the reason a student
-  // never sees the control flicker into existence.
+  // Without a role that holds `tools.edit` nothing renders — a SuperMaker whose
+  // grants change sees the control go, and nobody sees it flicker in.
   if (!can({ role }, "tools.edit")) return null;
 
   async function handleRefresh() {
@@ -70,9 +73,8 @@ export function RefreshCatalogButton({ role }: RefreshCatalogButtonProps) {
 
       <button
         type="button"
-        // Borrows the report control's nav-action chrome (transparent, 0 radius,
-        // inherited mono label); the modifier is the hook if they diverge.
-        className="primary-nav-report primary-nav-refresh"
+        // The admin action row's chrome (globals.css, `.admin-action`).
+        className="admin-action catalog-refresh"
         onClick={handleRefresh}
         disabled={state === "refreshing"}
         aria-label={t("actionAria", { institution: siteConfig.institution })}
@@ -82,7 +84,7 @@ export function RefreshCatalogButton({ role }: RefreshCatalogButtonProps) {
       {/* Always in the DOM so the live region is there before it has anything
           to say; `:empty` keeps it out of the layout until it does. */}
       <span
-        className={`primary-nav-refresh-status${state === "failed" ? " is-failed" : ""}`}
+        className={`catalog-refresh-status${state === "failed" ? " is-failed" : ""}`}
         role="status"
       >
         {statusKey ? t(statusKey) : ""}
@@ -95,20 +97,19 @@ export function RefreshCatalogButton({ role }: RefreshCatalogButtonProps) {
  * Scoped styles, hoisted and deduped by React 19 (`precedence`). They live here
  * rather than in `globals.css` for the same reason `FlagButton`'s do — the
  * component arrived under separate file ownership, and folding them into the
- * stylesheet later is a no-op. Everything reads global theme tokens, and the
- * nav's own mono/uppercase treatment already applies.
+ * stylesheet later is a no-op. Everything reads global theme tokens; the
+ * action row supplies the mono/uppercase treatment.
  */
 const REFRESH_STYLES = `
-.primary-nav-refresh-status {
+.catalog-refresh-status {
   align-self: center;
-  padding-block: 8px;
   color: var(--on-surface-muted);
   font: inherit;
 }
-.primary-nav-refresh-status:empty {
+.catalog-refresh-status:empty {
   display: none;
 }
-.primary-nav-refresh-status.is-failed {
+.catalog-refresh-status.is-failed {
   color: var(--secondary);
 }
 `;

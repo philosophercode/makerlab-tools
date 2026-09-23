@@ -4,12 +4,14 @@
  *
  *   npm run verify:import
  *
- * Reads Notion again (read-only) and the Postgres database in `DATABASE_URL`,
- * then reports:
+ * Reads Notion again (read-only) and the import's target — `DATABASE_URL`, or
+ * the local PGlite in `PGLITE_DATA_DIR` when that is unset (stop the dev
+ * server first; see `src/lib/import/target.ts`) — then reports:
  *   - row counts per entity, Notion vs Postgres;
  *   - relation integrity: every unit and resource whose Notion relation points
  *     at a tool that exists has a `tool_id`;
- *   - files: every attachment row has bytes in Blob.
+ *   - files: every attachment row has bytes in Blob (Vercel Blob, or the local
+ *     `.blob-data/` store for a local target without a token).
  *
  * Exits 1 on any mismatch. The field-by-field comparison of five named tools
  * between the Notion path and the Postgres path arrives with the Postgres read
@@ -17,7 +19,9 @@
  */
 import { head } from "@vercel/blob";
 import { count, isNotNull } from "drizzle-orm";
-import { createNeonDb } from "../src/lib/db/neon.ts";
+import { blobMode } from "../src/lib/blob-mode.ts";
+import { createLocalBlobBackend } from "../src/lib/blob-local.ts";
+import { PgliteLockedError } from "../src/lib/db/pglite-lock.ts";
 import {
   attachments,
   categories,
@@ -31,6 +35,13 @@ import {
 } from "../src/lib/db/schema/index.ts";
 import type { Db } from "../src/lib/db/types.ts";
 import { readNotionSnapshot } from "../src/lib/import/source.ts";
+import {
+  describeImportTarget,
+  NoImportTargetError,
+  openImportTarget,
+  resolveImportTarget,
+  type ImportTarget,
+} from "../src/lib/import/target.ts";
 
 let failures = 0;
 
@@ -45,11 +56,34 @@ async function rowCount(db: Db, table: typeof tools | typeof units | typeof cate
   return Number(row.n);
 }
 
-async function main(): Promise<void> {
-  const url = process.env.DATABASE_URL;
-  if (!url) throw new Error("DATABASE_URL is not set.");
-  const db = createNeonDb(url);
+/** Whether a pathname has bytes in the store the import wrote to. */
+function blobExists(target: ImportTarget): (pathname: string) => Promise<boolean> {
+  if (target.kind === "pglite-local" && blobMode() === "local") {
+    const disk = createLocalBlobBackend();
+    return async (pathname) => (await disk.read(pathname)) !== null;
+  }
+  return async (pathname) => {
+    try {
+      await head(pathname);
+      return true;
+    } catch {
+      return false;
+    }
+  };
+}
 
+async function main(): Promise<void> {
+  const target = resolveImportTarget();
+  console.log(`Target: ${describeImportTarget(target)}`);
+  const opened = await openImportTarget(target);
+  try {
+    await verify(opened.db, target);
+  } finally {
+    await opened.close();
+  }
+}
+
+async function verify(db: Db, target: ImportTarget): Promise<void> {
   console.log("Reading Notion.");
   const snapshot = await readNotionSnapshot({ log: (line) => console.log(`  ${line}`) });
 
@@ -74,11 +108,10 @@ async function main(): Promise<void> {
 
   console.log("\nFiles (every attachment row has bytes in Blob)");
   const rows = await db.select({ pathname: attachments.blobPathname }).from(attachments);
+  const exists = blobExists(target);
   let missing = 0;
   for (const row of rows) {
-    try {
-      await head(row.pathname);
-    } catch {
+    if (!(await exists(row.pathname))) {
       missing += 1;
       console.log(`  FAIL missing in Blob: ${row.pathname}`);
     }
@@ -93,6 +126,10 @@ async function main(): Promise<void> {
 main()
   .then(() => process.exit(process.exitCode ?? 0))
   .catch((error) => {
-    console.error(error);
+    if (error instanceof PgliteLockedError || error instanceof NoImportTargetError) {
+      console.error(`\n${error.message}`);
+    } else {
+      console.error(error);
+    }
     process.exit(1);
   });

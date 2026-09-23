@@ -29,7 +29,14 @@ export function intakeItemPath(id: string): string {
  * and `not_editable` are also what a discard or a rename answers — the item is
  * gone, or has moved on to researching, approved or discarded.
  */
-export type IntakeWriteError = IntakeApprovalError;
+export type IntakeWriteError = IntakeApprovalError | ImageRetryError;
+
+/**
+ * What **Find a different image** can answer besides the shared codes: a run
+ * is already going, the day's research allowance is spent, or the workflow
+ * would not start.
+ */
+export type ImageRetryError = "image_retry_running" | "daily_limit" | "start_failed";
 
 export type IntakeActionError = AdminGateError | IntakeWriteError;
 
@@ -40,10 +47,20 @@ export type IntakeActionResult =
 /**
  * An approval that created catalogue: where the tool now lives, and whether
  * the public can see it yet. A lost audit event rides on `ok: true` as
- * `warning` — the tool exists either way (§4.11).
+ * `warning` — the tool exists either way (§4.11) — and so does a product image
+ * that did not attach (`image_not_attached`, gateway spec §5.2). When both
+ * happen the audit wins the slot, and `imageAttached: false` still says the
+ * image is missing.
  */
 export type IntakeApproveResult =
-  | { ok: true; toolId: string; slug: string; published: boolean; warning?: AdminActionWarning }
+  | {
+      ok: true;
+      toolId: string;
+      slug: string;
+      published: boolean;
+      warning?: AdminActionWarning;
+      imageAttached?: boolean;
+    }
   | { ok: false; error: IntakeActionError };
 
 /** The preliminary page's form, sent with **Approve** or **Approve as draft**. */
@@ -65,6 +82,8 @@ export type AddPendingUnitAction = (input: {
 
 export type DiscardPendingAction = (input: { id: string }) => Promise<IntakeActionResult>;
 
+export type RequestDifferentImageAction = (input: { id: string; note: string | null }) => Promise<IntakeActionResult>;
+
 export type SavePendingIdentityAction = (input: {
   id: string;
   name: string;
@@ -82,4 +101,6 @@ export interface IntakeActions {
   addUnit: AddPendingUnitAction;
   discard: DiscardPendingAction;
   saveIdentity: SavePendingIdentityAction;
+  /** **Find a different image** — optional so a page built before it still renders. */
+  differentImage?: RequestDifferentImageAction;
 }

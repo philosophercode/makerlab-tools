@@ -34,6 +34,11 @@ export interface Identity {
   userId: string | null;
   email: string | null;
   name: string | null;
+  /**
+   * The profile photo URL Google supplied (Better Auth's `user.image`), or null.
+   * Optional so identities built by hand elsewhere need not name it.
+   */
+  image?: string | null;
   /** Stable key for rate limiting: user id when signed in, hashed IP otherwise. */
   rateLimitKey: string;
 }
@@ -114,6 +119,7 @@ interface SessionResult {
     id: string;
     email: string;
     name?: string | null;
+    image?: string | null;
     role?: string | null;
     banned?: boolean | null;
   };
@@ -167,6 +173,7 @@ function identityFromSession(result: SessionResult | null | undefined): Identity
     userId: user.id,
     email: user.email,
     name: user.name ?? null,
+    image: user.image || null,
     rateLimitKey: `user:${user.id}`,
   };
 }

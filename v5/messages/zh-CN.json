@@ -218,6 +218,8 @@
     "unknownSource": "未找到可核对的制造商页面或说明书",
     "unknownManual": "未找到说明书",
     "unknownSpecs": "规格未经已查阅页面核实",
+    "unknownVideoOnly": "仅查阅了视频——没有产品页面、说明书或规格表",
+    "unknownNothingRead": "无法读取任何页面，因此未对照任何来源核实",
     "actionConfirm": "没问题 — 添加",
     "actionConfirmModel": "确认是 {name}",
     "actionConfirmVariant": "是 {variant}",

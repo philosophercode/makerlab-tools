@@ -121,7 +121,7 @@ export const offlineTool: MakerLabTool = {
 /**
  * A tool with rich links (both a url-kind and a file-kind), PPE, materials,
  * and tags — exercises DetailShell resource rendering and the chat route's
- * manual collection / web_fetch allowedDomains logic.
+ * manual collection / read_page allowed-hosts logic.
  */
 export const toolWithLinks: MakerLabTool = {
   id: "tool-links",

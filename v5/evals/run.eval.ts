@@ -1,15 +1,9 @@
 import { writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
-import { anthropic } from "@ai-sdk/anthropic";
 import { generateText, stepCountIs, type LanguageModel } from "ai";
 import { getCatalogTools, isDemoCatalog } from "@/lib/catalog";
-import {
-  CHAT_MODEL_ID,
-  GATEWAY_CHAT_MODEL_ID,
-  resolveChatModel,
-  usesGateway,
-} from "@/lib/model";
+import { gatewayLanguageModel, languageModelFor, modelIdFor } from "@/lib/ai/models";
 import { getNotionEnvContract } from "@/lib/notion";
 import { loadCases, type EvalCase } from "./cases";
 import { buildFixture } from "./fixtures";
@@ -17,12 +11,13 @@ import { composeCase } from "./harness";
 import { formatReport, runSuite, type CaseExecution } from "./runner";
 
 /**
- * `npm run eval` — the on-demand agent eval suite (design spec §5).
+ * `npm run eval` — the on-demand agent eval suite (design spec §5; gateway spec
+ * §10, the eval gate).
  *
- * **This makes real, paid model calls.** It is deliberately not part of
- * `npm test` / `npm run test:all`, which stay free, offline and green
- * (constitution Article 3), and it must never be wired into a pull-request
- * trigger.
+ * **This makes real, paid model calls, through the Vercel AI Gateway.** It is
+ * deliberately not part of `npm test` / `npm run test:all`, which stay free,
+ * offline and green (constitution Article 3), and it must never be wired into
+ * a pull-request trigger.
  *
  * It runs Vitest purely as a TypeScript task runner (`evals/vitest.config.ts`),
  * which is how the harness reaches the app's real modules — the same capability
@@ -35,20 +30,33 @@ import { formatReport, runSuite, type CaseExecution } from "./runner";
  *    neither a real database nor Notion can be reached;
  *  - every `write` capability tool is stubbed, so an eval can never write a
  *    row even if the model decides to call one;
- *  - the provider-native `web_search` / `web_fetch` tools the chat route adds
- *    are omitted — they are live network, unbounded cost and non-deterministic,
- *    and nothing in the case set depends on them.
+ *  - `read_page` — the one `read` capability tool that makes a real,
+ *    network-calling HTTP request rather than a lookup over the fixture
+ *    catalogue — is recorded the same way, so a run cannot fetch an arbitrary
+ *    page the model names. See `harness.ts`'s `stubLiveReads` for why this
+ *    tool, specifically, gets the write tools' treatment despite being `kind:
+ *    "read"`, and why `exa_search` needs no such stub (it never reaches the
+ *    harness at all — see below).
+ *  - the Gateway's own `exa_search` tool, which the chat route adds directly
+ *    (like the old provider-native `web_search`/`web_fetch` before it — see
+ *    `src/app/api/chat/route.ts`), is never added here: `composeCase` builds
+ *    the tool set from `CAPABILITIES` alone, which is a capability registry,
+ *    not the route. Nothing in the case set depends on the assistant
+ *    searching the live web, so this omission costs nothing.
  */
 
 /**
- * The suite runs the deployment's own model (`@/lib/model`) so a run says
- * something about production. `EVAL_MODEL` overrides it — that is the point of
- * the harness when the question is "does the next model still behave?".
+ * The suite runs the deployment's own model (`@/lib/ai/models`, job `chat`) so
+ * a run says something about production. `EVAL_MODEL` overrides it with an
+ * explicit Gateway id (e.g. `openai/gpt-6-luna`, `anthropic/claude-sonnet-5`) —
+ * that is the point of the harness when the question is "does the next model
+ * still behave?".
  */
 const MODEL_OVERRIDE = process.env.EVAL_MODEL;
-const MODEL_LABEL =
-  MODEL_OVERRIDE ?? (usesGateway() ? GATEWAY_CHAT_MODEL_ID : CHAT_MODEL_ID);
-const model: LanguageModel = MODEL_OVERRIDE ? anthropic(MODEL_OVERRIDE) : resolveChatModel();
+const MODEL_LABEL = MODEL_OVERRIDE ?? modelIdFor("chat");
+const model: LanguageModel = MODEL_OVERRIDE
+  ? gatewayLanguageModel(MODEL_OVERRIDE, "EVAL_MODEL")
+  : languageModelFor("chat");
 
 // Resolved with path.dirname rather than `new URL(..., import.meta.url)`, which
 // Vite rewrites into an asset URL instead of a filesystem path.
@@ -88,9 +96,11 @@ describe("agent evals", () => {
     if (!isDemoCatalog()) {
       throw new Error("refusing to run: the catalog is a real database, not the demo seed");
     }
-    if (!process.env.ANTHROPIC_API_KEY && !process.env.AI_GATEWAY_API_KEY) {
+    // Gateway-only (gateway spec §3.1): a key or the deployment's OIDC token,
+    // never `ANTHROPIC_API_KEY`, which nothing in this app reads any more.
+    if (!process.env.AI_GATEWAY_API_KEY && !process.env.VERCEL_OIDC_TOKEN) {
       throw new Error(
-        "ANTHROPIC_API_KEY (or AI_GATEWAY_API_KEY) is required — `npm run eval` makes real model calls"
+        "AI_GATEWAY_API_KEY (or VERCEL_OIDC_TOKEN) is required — `npm run eval` makes real model calls through the Gateway"
       );
     }
   });

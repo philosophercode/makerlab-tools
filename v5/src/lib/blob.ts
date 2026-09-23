@@ -1,6 +1,6 @@
 import "server-only";
 
-import { copy, del, list, put } from "@vercel/blob";
+import { copy, del, get, list, put } from "@vercel/blob";
 import { createLocalBlobBackend } from "./blob-local";
 import { blobMode } from "./blob-mode";
 
@@ -34,7 +34,18 @@ import { blobMode } from "./blob-mode";
  * {@link BlobStore.copyToPublic} is the third, and the only way a private file
  * becomes public: a copy at a new random pathname (spec §3.3, Phase 6). Access
  * cannot be changed in place, so the pathname changes with it.
+ *
+ * {@link BlobStore.read} is the one read verb, for a *private* file the app
+ * serves to somebody entitled to it — the review page's background-removed
+ * image (gateway spec §5.2). A public file needs no read: its URL is the read.
  */
+
+/** A stored file's bytes, as {@link BlobStore.read} hands them back. */
+export interface ReadBlob {
+  /** A stream from Vercel Blob; the bytes themselves from the local folder. */
+  body: ReadableStream<Uint8Array> | Uint8Array;
+  contentType: string | null;
+}
 
 /** A blob as reported by {@link BlobStore.list}. */
 export interface ListedBlob {
@@ -80,6 +91,13 @@ export interface BlobStore {
    * lands on a pending tool is about to be shown on a tool page (spec §3.3).
    */
   copyToPublic(pathname: string, prefix: string): Promise<StoredUpload>;
+  /**
+   * The bytes at `pathname`, or null when there is no such blob **with that
+   * access** (private by default) — the same answer the real store gives, so
+   * a caller cannot read a file through the wrong door locally and then find
+   * it missing on Vercel.
+   */
+  read(pathname: string, access?: BlobAccess): Promise<ReadBlob | null>;
   /** Every blob under `prefix`, following pagination to the end. */
   list(prefix: string): Promise<ListedBlob[]>;
   /** Delete by pathname. A no-op when the list is empty. */
@@ -154,6 +172,18 @@ function localBlobStore(): BlobStore {
         addRandomSuffix: true,
       });
     },
+    async read(pathname, access = "private") {
+      let blob: Awaited<ReturnType<typeof disk.read>>;
+      try {
+        blob = await disk.read(pathname);
+      } catch {
+        // A pathname that could leave the folder is refused by the disk layer;
+        // to a reader it is simply not there.
+        return null;
+      }
+      if (!blob || blob.meta.access !== access) return null;
+      return { body: blob.body, contentType: blob.meta.contentType };
+    },
     list(prefix) {
       return disk.list(prefix);
     },
@@ -205,6 +235,15 @@ function vercelBlobStore(): BlobStore {
         addRandomSuffix: true,
       });
       return { pathname: result.pathname, url: result.url };
+    },
+
+    async read(pathname, access = "private") {
+      // `get` answers null for a blob that is not there and a 304 only to a
+      // conditional request, which this never makes; either way there are no
+      // bytes to hand back.
+      const result = await get(pathname, { access });
+      if (!result || result.statusCode !== 200) return null;
+      return { body: result.stream, contentType: result.blob.contentType };
     },
 
     async list(prefix) {

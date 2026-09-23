@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { http, HttpResponse } from "msw";
 import { server } from "../../../test/msw/server";
+import { setResolvedAddresses } from "../../../test/web/resolver";
 import { NOT_CHECKED_REASON, verifyResourceLinks, verifyUrl } from "./verify-links";
 
 /**
@@ -72,6 +73,49 @@ describe("verifyUrl", () => {
       ok: false,
       reason: "not an http(s) URL",
     });
+  });
+
+  it("drops a link to a private, loopback or metadata address without requesting it (gateway spec §8)", async () => {
+    let requested = 0;
+    server.use(
+      http.get("http://169.254.169.254/latest/meta-data/", () => {
+        requested += 1;
+        return new HttpResponse("secret");
+      }),
+      http.get("https://intranet.maker.example/manual.pdf", () => {
+        requested += 1;
+        return new HttpResponse("pdf");
+      })
+    );
+    setResolvedAddresses({ "intranet.maker.example": ["10.0.0.5"] });
+    const refused = { ok: false, reason: "refused (not a public web address)" };
+
+    expect(await verifyUrl("http://169.254.169.254/latest/meta-data/")).toEqual(refused);
+    expect(await verifyUrl("https://intranet.maker.example/manual.pdf")).toEqual(refused);
+    expect(await verifyUrl("http://localhost:8080/admin")).toEqual(refused);
+    expect(requested).toBe(0);
+  });
+
+  it("drops a public link that redirects inward", async () => {
+    server.use(
+      http.get("https://maker.example/sneaky", () =>
+        new HttpResponse(null, { status: 302, headers: { location: "http://169.254.169.254/" } })
+      )
+    );
+    expect(await verifyUrl("https://maker.example/sneaky")).toEqual({
+      ok: false,
+      reason: "refused (not a public web address)",
+    });
+  });
+
+  it("follows a public redirect to the page it lands on", async () => {
+    server.use(
+      http.get("https://maker.example/moved", () =>
+        new HttpResponse(null, { status: 301, headers: { location: "https://maker.example/manual-v2.pdf" } })
+      ),
+      http.get("https://maker.example/manual-v2.pdf", () => new HttpResponse(null, { status: 404 }))
+    );
+    expect(await verifyUrl("https://maker.example/moved")).toEqual({ ok: false, reason: "HTTP 404" });
   });
 
   it("throws when the caller's deadline has passed, rather than blaming the link", async () => {

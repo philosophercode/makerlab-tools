@@ -91,12 +91,13 @@ function isApiErrorCode(value: unknown): value is PendingApiErrorCode {
  * Send one item to research. Answers null when the route accepted it, or the
  * refusal's code. A dropped connection is `failed`, like any other surprise.
  */
-export async function requestResearch(id: string): Promise<PendingApiErrorCode | null> {
+export async function requestResearch(id: string, note?: string | null): Promise<PendingApiErrorCode | null> {
   try {
     const res = await fetch(RESEARCH_ENDPOINT, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ids: [id] }),
+      // A reviewer's note travels only when there is one (amendment "reviewer notes").
+      body: JSON.stringify(note ? { ids: [id], note } : { ids: [id] }),
     });
     return await answer(res);
   } catch {

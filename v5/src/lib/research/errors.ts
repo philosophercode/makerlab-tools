@@ -1,23 +1,32 @@
-import { APICallError, LoadAPIKeyError, RetryError } from "ai";
+import { RetryError } from "ai";
 import { FatalError, RetryableError } from "workflow";
 import { ZodError } from "zod";
+import { classifyModelError, type ModelErrorClassification } from "../ai/gateway-errors.ts";
+import { MODEL_JOBS } from "../ai/models.ts";
 import { ModelOutputError } from "./model-output.ts";
 
 /**
  * What a research step does with an error (spec §3.7 "Errors", the 2026-09-22
- * amendment).
+ * amendment; gateway spec §3.1).
  *
  * Two answers, because the Workflow SDK has two:
  *
- * - **{@link RetryableError}** — the provider or the network was having a bad
- *   minute. A 429, any 5xx (Anthropic's 529 "overloaded" included), or the
- *   step's own 240-second `AbortSignal` firing on a slow provider. The step
- *   runs again, up to `RESEARCH_STEP_MAX_RETRIES` more times, and the row stays
- *   `researching` in between so the retry resumes it.
- * - **{@link FatalError}** — asking again will get the same answer. A 4xx other
- *   than 429 (a malformed request, a refused key), an answer that does not
- *   parse, a result that fails the schema, or no API key at all. The item goes
+ * - **{@link RetryableError}** — the Gateway, the provider behind it or the
+ *   network was having a bad minute. A rate limit, a 5xx, a connection that
+ *   never answered, or the step's own 240-second `AbortSignal` firing on a slow
+ *   provider. The step runs again, up to `RESEARCH_STEP_MAX_RETRIES` more
+ *   times, and the row stays `researching` in between so the retry resumes it.
+ * - **{@link FatalError}** — asking again will get the same answer. A model id
+ *   the Gateway does not know or an override that is not an id at all, a
+ *   Gateway that is not authenticated, any other refused request, an answer
+ *   that does not parse, or a result that fails the schema. The item goes
  *   straight to `failed`.
+ *
+ * **Model-call failures are judged by `classifyModelError` first**, so this
+ * file knows the app's words for a failure ("rate limited", "model not found")
+ * and never a provider's. A configuration error names the variable to fix —
+ * `model not available (MODEL_RESEARCH_READ)` — taken from the stage that
+ * failed, never the variable's value.
  *
  * Whichever it is, **the message is what `research_error` will say** once the
  * workflow gives up on the item, and that column is the diagnosis record — run
@@ -30,14 +39,26 @@ import { ModelOutputError } from "./model-output.ts";
  * step bundle loads this under plain Node.
  */
 
-export type ResearchStage = "search" | "fetch" | "verify" | "assemble";
+export type ResearchStage = "search" | "read" | "verify" | "assemble";
 
 const STAGE_LABEL: Record<ResearchStage, string> = {
   search: "Research (search)",
-  fetch: "Research (reading pages)",
+  read: "Research (reading pages)",
   verify: "Research (checking links)",
   assemble: "Research (assembling the result)",
 };
+
+/**
+ * The variable that picks each model-calling stage's model — what a
+ * "model not available" message tells somebody to fix.
+ */
+const STAGE_MODEL_ENV: Partial<Record<ResearchStage, string>> = {
+  search: MODEL_JOBS.researchSearch.env,
+  read: MODEL_JOBS.researchRead.env,
+};
+
+/** Where the Gateway's credentials come from, for an authentication failure. */
+const GATEWAY_AUTH_HINT = "AI_GATEWAY_API_KEY or the deployment's OIDC token";
 
 /** A provider's own reason is kept, but only this much of it. */
 const MAX_REASON_LENGTH = 160;
@@ -63,37 +84,8 @@ export function classifyResearchError(error: unknown, stage: ResearchStage): Fat
   // generateText's own retry loop wraps the last failure; judge that one.
   const cause = RetryError.isInstance(error) ? error.lastError : error;
 
-  if (APICallError.isInstance(cause)) {
-    const status = cause.statusCode;
-    const reason = providerReason(cause);
-    if (status === 429) {
-      return new RetryableError(`${label}: the model provider is rate limiting (HTTP 429).`, {
-        retryAfter: retryAfterMs(cause.responseHeaders),
-      });
-    }
-    if (status !== undefined && status >= 500) {
-      return new RetryableError(`${label}: the model provider failed (HTTP ${status})${reason}.`, {
-        retryAfter: SERVER_ERROR_WAIT_MS,
-      });
-    }
-    if (status === undefined) {
-      // No response at all — a dropped connection, which is the network's bad minute.
-      return new RetryableError(`${label}: the model provider could not be reached${reason}.`, {
-        retryAfter: SERVER_ERROR_WAIT_MS,
-      });
-    }
-    return new FatalError(`${label}: the model provider refused the request (HTTP ${status})${reason}.`);
-  }
-
-  if (isTimeout(cause)) {
-    return new RetryableError(`${label}: timed out — the model provider was too slow.`, {
-      retryAfter: SERVER_ERROR_WAIT_MS,
-    });
-  }
-
-  if (LoadAPIKeyError.isInstance(cause)) {
-    return new FatalError(`${label}: no model API key is configured.`);
-  }
+  const model = classifyModelError(error);
+  if (model) return fromModelError(model, cause, stage);
 
   if (cause instanceof ModelOutputError) {
     return new FatalError(`${label}: ${cause.message}`);
@@ -122,11 +114,48 @@ export function classifyResearchError(error: unknown, stage: ResearchStage): Fat
   return new FatalError(`${label}: ${clip(errorMessage(cause))}`);
 }
 
-/** The step's deadline, or the provider SDK's name for it. */
-function isTimeout(error: unknown): boolean {
-  if (typeof error !== "object" || error === null) return false;
-  const name = (error as { name?: unknown }).name;
-  return name === "AbortError" || name === "TimeoutError";
+/** A model-call failure, in `classifyModelError`'s words, as the error the step throws. */
+function fromModelError(
+  model: ModelErrorClassification,
+  cause: unknown,
+  stage: ResearchStage
+): FatalError | RetryableError {
+  const label = STAGE_LABEL[stage];
+  const http = model.statusCode === null ? "" : ` (HTTP ${model.statusCode})`;
+
+  switch (model.kind) {
+    case "model_config":
+    case "model_not_found": {
+      // A malformed override names its own variable; an unknown id is the stage's.
+      const envVar = (model.kind === "model_config" ? model.envVar : null) ?? STAGE_MODEL_ENV[stage] ?? null;
+      return new FatalError(`${label}: model not available${envVar ? ` (${envVar})` : ""}.`);
+    }
+    case "auth":
+      return new FatalError(`${label}: the AI Gateway is not authenticated (${GATEWAY_AUTH_HINT}).`);
+    case "rate_limited": {
+      const wait = model.retryAfterMs;
+      return new RetryableError(`${label}: the model provider is rate limiting (HTTP 429).`, {
+        retryAfter:
+          wait !== null && wait > 0 ? Math.min(wait, MAX_RATE_LIMIT_WAIT_MS) : DEFAULT_RATE_LIMIT_WAIT_MS,
+      });
+    }
+    case "provider_unavailable":
+      return new RetryableError(
+        model.statusCode === null
+          ? `${label}: the model provider could not be reached${reason(cause)}.`
+          : `${label}: the model provider failed${http}${reason(cause)}.`,
+        { retryAfter: SERVER_ERROR_WAIT_MS }
+      );
+    case "timeout":
+      return new RetryableError(
+        STAGE_MODEL_ENV[stage]
+          ? `${label}: timed out — the model provider was too slow.`
+          : `${label}: timed out.`,
+        { retryAfter: SERVER_ERROR_WAIT_MS }
+      );
+    case "invalid_request":
+      return new FatalError(`${label}: the model provider refused the request${http}${reason(cause)}.`);
+  }
 }
 
 /** A `{ status }` or `{ statusCode }` on an error some fetch wrapper threw. */
@@ -137,23 +166,14 @@ function fetchStatus(error: unknown): number | null {
   return value !== null && value >= 400 && value < 600 ? value : null;
 }
 
-/** `retry-after` in seconds, as milliseconds, clamped to something a step can afford. */
-function retryAfterMs(headers: Record<string, string> | undefined): number {
-  const raw = headers?.["retry-after"] ?? headers?.["Retry-After"];
-  const seconds = raw === undefined ? NaN : Number(raw);
-  if (!Number.isFinite(seconds) || seconds <= 0) return DEFAULT_RATE_LIMIT_WAIT_MS;
-  return Math.min(seconds * 1000, MAX_RATE_LIMIT_WAIT_MS);
-}
-
 /**
  * The provider's own one-line reason, when it gave one — `: model not found` —
- * clipped and scrubbed. Anthropic's error body is `{ error: { message } }`;
- * the SDK already lifts that into `message`.
+ * clipped and scrubbed. The SDK lifts the Gateway's `{ error: { message } }`
+ * into `message`.
  */
-function providerReason(error: APICallError): string {
-  const message = error.message?.trim();
-  if (!message) return "";
-  return `: ${clip(message)}`;
+function reason(error: unknown): string {
+  const message = error instanceof Error ? error.message?.trim() : "";
+  return message ? `: ${clip(message)}` : "";
 }
 
 function errorMessage(error: unknown): string {
@@ -167,9 +187,15 @@ function clip(message: string): string {
   return oneLine.length > MAX_REASON_LENGTH ? `${oneLine.slice(0, MAX_REASON_LENGTH - 1)}…` : oneLine;
 }
 
-/** Remove anything that looks like a credential before it can reach a column or a log. */
+/**
+ * Remove anything that looks like a credential before it can reach a column or
+ * a log: provider keys (`sk-…`), AI Gateway keys (`vck_…`), a JWT such as the
+ * deployment's OIDC token, and whatever follows a bearer or key header.
+ */
 export function scrub(message: string): string {
   return message
     .replace(/sk-[A-Za-z0-9_-]{8,}/g, "[redacted]")
+    .replace(/\bvck_[A-Za-z0-9_-]{8,}/g, "[redacted]")
+    .replace(/\beyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]*/g, "[redacted]")
     .replace(/(bearer|x-api-key)\s*[:=]?\s*\S+/gi, "$1 [redacted]");
 }

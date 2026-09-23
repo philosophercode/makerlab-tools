@@ -54,9 +54,15 @@ export interface LocalBlobBackend {
   read(pathname: string): Promise<{ body: Uint8Array; meta: LocalBlobMeta } | null>;
 }
 
-/** Where the folder is: `.blob-data/` in the working directory (v5/ under `next dev`). */
+/**
+ * Where the folder is: `.blob-data/` in the working directory (v5/ under
+ * `next dev`), or `BLOB_LOCAL_DIR` when set (test-only — the intake E2E keeps
+ * its files apart from a developer's own; relative paths resolve against the
+ * working directory).
+ */
 export function localBlobRoot(): string {
-  return join(process.cwd(), ".blob-data");
+  const explicit = (process.env.BLOB_LOCAL_DIR ?? "").trim();
+  return explicit ? resolve(process.cwd(), explicit) : join(process.cwd(), ".blob-data");
 }
 
 const META_DIR = ".meta";

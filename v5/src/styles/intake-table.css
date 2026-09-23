@@ -246,11 +246,17 @@
   color: var(--secondary);
 }
 
+/* Stays in view while the rows scroll past, so Research is never hidden under the composer. */
 .intake-card-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
   display: flex;
   flex-direction: column;
   align-items: stretch;
   gap: 8px;
+  padding-block: 8px 2px;
+  background: var(--surface-container);
 }
 
 .intake-card-footer > .intake-button {
@@ -308,9 +314,16 @@
     display: none;
   }
 
+  /* Same inset as the row checkboxes below, so the two columns of boxes line up. */
   .intake-table thead th.intake-col-select {
     width: auto;
     border-bottom: 0;
+    padding: 2px 0 6px;
+  }
+
+  /* One row: "Research all" would only repeat "Research this one". */
+  .intake-table.is-single thead {
+    display: none;
   }
 
   .intake-row {

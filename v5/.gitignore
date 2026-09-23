@@ -23,3 +23,9 @@ tsconfig.tsbuildinfo
 # Local Blob store: without BLOB_READ_WRITE_TOKEN, `next dev` writes uploads,
 # archived manuals and backups here (src/lib/blob-local.ts).
 .blob-data/
+# The intake E2E server's own local store (BLOB_LOCAL_DIR, playwright.config.ts).
+.blob-data-e2e/
+
+# Local persistent database (PGLITE_DATA_DIR, src/lib/db/local-dir.ts): a real
+# import reviewed on a laptop before it goes to Neon.
+.pglite-data/

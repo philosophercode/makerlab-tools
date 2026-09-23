@@ -2,12 +2,20 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 
 import {
   AFTER_TABLE_REPLY,
-  ANTHROPIC_STUB_ORIGIN,
-  ANTHROPIC_STUB_PORT,
   ASK_FOR_ITEMS_REPLY,
+  GATEWAY_STUB_ORIGIN as ANTHROPIC_STUB_ORIGIN,
+  GATEWAY_STUB_PORT as ANTHROPIC_STUB_PORT,
   INTAKE_ITEMS,
   type IntakeFixtureItem,
 } from "./intake-fixture.ts";
+
+// NOTE (gateway migration): this file is retired and unused — nothing in
+// playwright.config.ts references it any more (see gateway-stub.ts, which
+// replaces it). It is kept only because deleting it needs separate approval
+// (see proposedDeletions in the migration's report); `intake-fixture.ts`'s
+// ANTHROPIC_STUB_* names were renamed to GATEWAY_STUB_* for the file that
+// actually runs, so the aliases above are only to keep this dead file
+// type-checking until it is deleted.
 
 /**
  * A stand-in for the Anthropic Messages API, for the intake E2E only (data

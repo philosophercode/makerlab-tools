@@ -165,6 +165,10 @@ img {
 .primary-nav {
   position: relative; /* anchors .primary-nav-notice */
   display: flex;
+  /* One center line for every item — links, Report, the profile control and
+     Sign in. Without it the row stretched, and a child with no padding of its
+     own (the old name label) sat at the top of the row, above the rest. */
+  align-items: center;
   gap: 32px;
   color: var(--on-surface-muted);
   font-size: 12px;
@@ -232,6 +236,179 @@ img {
   }
   100% {
     opacity: 0;
+  }
+}
+
+/* ── Profile control and menu (Isaac, 2026-09-23) ─────────────────────────
+   Square Google photo + first name + caret; the menu holds Admin, Add
+   equipment and Sign out. 0 radius throughout, per the Blueprint system. */
+.profile-menu {
+  position: relative; /* anchors .profile-menu-panel */
+  display: flex;
+  align-items: center;
+}
+
+.primary-nav-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  /* Same box as a nav link — 2px of transparent underline under the content —
+     so its text sits on the same line as TOOLS, REPORT and the rest. */
+  padding: 2px 0;
+  border: none;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--on-surface-muted);
+  font: inherit;
+  line-height: 1;
+  transition: color 160ms ease-in, border-color 160ms ease-in;
+}
+
+.primary-nav-profile:hover,
+.primary-nav-profile[aria-expanded="true"] {
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+.primary-nav-profile:focus-visible {
+  outline: 1px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.primary-nav-profile-caret {
+  font-size: 10px;
+  transition: transform 160ms ease-in;
+}
+
+.primary-nav-profile[aria-expanded="true"] .primary-nav-profile-caret {
+  transform: rotate(180deg);
+}
+
+.profile-avatar {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 0;
+  object-fit: cover;
+  background: var(--surface-container-high);
+}
+
+.profile-avatar-initial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--on-surface);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+/* A floating overlay: frosted surface, ghost border, ambient glow (DESIGN §2, §4). */
+.profile-menu-panel {
+  position: absolute;
+  top: calc(100% + 10px);
+  inset-inline-end: 0;
+  z-index: 40;
+  width: 280px;
+  max-width: calc(100vw - 32px);
+  border: 1px solid var(--outline);
+  background: color-mix(in srgb, var(--surface-container) 92%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 0 64px color-mix(in srgb, var(--on-surface) 8%, transparent);
+  color: var(--on-surface);
+  text-align: start;
+}
+
+.profile-menu-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: var(--surface-container-low);
+  text-transform: none;
+}
+
+.profile-menu-header .profile-avatar {
+  width: 40px;
+  height: 40px;
+}
+
+.profile-menu-who {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.profile-menu-who p {
+  margin: 0;
+}
+
+.profile-menu-name {
+  font-family: var(--font-display);
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.profile-menu-email {
+  color: var(--on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+
+/* A technical tag: mono caps, ghost border, no fill. */
+.profile-menu-who .profile-menu-role {
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 2px 6px;
+  border: 1px solid var(--outline);
+  color: var(--primary);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.profile-menu-list {
+  margin: 0;
+  padding: 8px 0;
+  list-style: none;
+}
+
+/* Beats `.primary-nav a` (and its mobile variant), which would otherwise give
+   the Admin link a nav tab's underline and centered flex sizing. */
+.primary-nav .profile-menu-item {
+  display: block;
+  flex: none;
+  width: 100%;
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  color: var(--on-surface);
+  font: inherit;
+  text-align: start;
+  transition: background-color 160ms ease-in, color 160ms ease-in;
+}
+
+.primary-nav .profile-menu-item:hover,
+.primary-nav .profile-menu-item:focus-visible {
+  background: var(--surface-container-high);
+  color: var(--primary);
+  outline: none;
+}
+
+.primary-nav .profile-menu-item:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+@media (max-width: 480px) {
+  /* Photo and caret only on a phone; the menu header still names them. */
+  .primary-nav-profile-name {
+    display: none;
   }
 }
 
@@ -3862,6 +4039,56 @@ p {
   line-height: 1.6;
 }
 
+/* Add equipment + Refresh catalog, above the surfaces list (2026-09-23). */
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 16px;
+  margin: 16px 0 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.admin-action {
+  height: 36px;
+  padding: 0 16px;
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  border-radius: 0;
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  transition: background-color 160ms ease-in, color 160ms ease-in;
+}
+
+.admin-action:hover,
+.admin-action:focus-visible {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  outline: none;
+}
+
+.admin-action:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.admin-action-primary {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: #0f0f0f;
+}
+
+.admin-action-primary:hover,
+.admin-action-primary:focus-visible {
+  background: color-mix(in srgb, var(--primary) 85%, #ffffff);
+}
+
+.admin-action-primary:active {
+  background: transparent;
+  color: var(--primary);
+}
+
 .admin-index-list {
   margin: 16px 0 0;
   padding: 0;
@@ -3947,6 +4174,12 @@ p {
   color: var(--on-surface-muted);
   font-family: var(--font-mono);
   font-size: 12px;
+}
+
+/* In a table the date is a cell: `display: block` pushed it out of its column. */
+td.admin-date {
+  display: table-cell;
+  white-space: nowrap;
 }
 
 .admin-tag {

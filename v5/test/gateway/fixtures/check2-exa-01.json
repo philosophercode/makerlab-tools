@@ -1,0 +1,263 @@
+{
+  "label": "check2-exa",
+  "index": 1,
+  "durationMs": 4470,
+  "request": {
+    "url": "https://ai-gateway.vercel.sh/v3/ai/language-model",
+    "method": "POST",
+    "headers": {
+      "ai-gateway-auth-method": "oidc",
+      "ai-gateway-protocol-version": "0.0.1",
+      "ai-language-model-id": "openai/gpt-6-luna",
+      "ai-language-model-specification-version": "3",
+      "ai-language-model-streaming": "false",
+      "authorization": "[REDACTED]",
+      "content-type": "application/json",
+      "user-agent": "ai/6.0.182 ai-sdk/provider-utils/4.0.41 runtime/node.js/25"
+    },
+    "body": {
+      "tools": [
+        {
+          "type": "provider",
+          "name": "exa_search",
+          "id": "gateway.exa_search",
+          "args": {
+            "numResults": 3,
+            "contents": {
+              "highlights": true,
+              "extras": {
+                "imageLinks": 3
+              }
+            }
+          }
+        }
+      ],
+      "toolChoice": {
+        "type": "auto"
+      },
+      "prompt": [
+        {
+          "role": "user",
+          "content": [
+            {
+              "type": "text",
+              "text": "Search the web for \"Formlabs Form 4 3D printer\" using the exa_search tool, then tell me in one sentence what kind of printer it is, based only on the search results."
+            }
+          ]
+        }
+      ],
+      "headers": {
+        "user-agent": "ai/6.0.182"
+      }
+    }
+  },
+  "response": {
+    "status": 200,
+    "headers": {
+      "access-control-allow-headers": "Content-Type, Authorization, ai-gateway-auth-method, ai-gateway-protocol-version, ai-model-id, ai-language-model-id, ai-language-model-specification-version, ai-image-model-specification-version, ai-embedding-model-specification-version, ai-language-model-streaming, ai-reporting-tags, ai-reporting-user, http-referer, x-title, x-ai-gateway-api-key, x-api-key, anthropic-beta, anthropic-version, idempotency-key, x-vercel-ai-gateway-team, x-vercel-gateway-extended-time, x-session-id, x-session-affinity",
+      "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+      "access-control-allow-origin": "*",
+      "access-control-expose-headers": "retry-after, x-should-retry",
+      "cache-control": "public, max-age=0, must-revalidate",
+      "content-encoding": "br",
+      "content-type": "application/json",
+      "date": "Wed, 23 Sep 2026 15:58:13 GMT",
+      "server": "Vercel",
+      "strict-transport-security": "max-age=63072000; includeSubDomains; preload",
+      "transfer-encoding": "chunked",
+      "x-matched-path": "/v3/ai/language-model",
+      "x-vercel-cache": "MISS",
+      "x-vercel-id": "iad1::iad1::k7kmw-1790179088922-c4f7541bae0e"
+    },
+    "body": {
+      "content": [
+        {
+          "type": "tool-call",
+          "toolCallId": "call_cPdwWqJXQt4Xn7woAQUCISzY",
+          "toolName": "exa_search",
+          "input": "{\"query\":\"Formlabs Form 4 3D printer\",\"num_results\":5}",
+          "providerMetadata": {
+            "openai": {
+              "itemId": "fc_0b8236c6cbe58e96016ab3f712292887d1917e5b0b691930b0"
+            }
+          },
+          "providerExecuted": true
+        },
+        {
+          "type": "tool-result",
+          "toolCallId": "call_cPdwWqJXQt4Xn7woAQUCISzY",
+          "toolName": "exa_search",
+          "toolType": "exa_search",
+          "result": {
+            "requestId": "79cacf9de4e242bb4c8e8ba30e2b794c",
+            "resolvedSearchType": "",
+            "results": [
+              {
+                "id": "https://formlabs.com/3d-printers/form-4/",
+                "title": "Form 4: The Fastest Professional Resin 3D Printer - Formlabs",
+                "url": "https://formlabs.com/3d-printers/form-4/",
+                "highlights": [
+                  "Form 4: Blazing Speed Meets Industrial Production | Formlabs\n...\n# Form4\n...\nBlazing Speed Meets Industrial Production\n...\nMost prints in less than 2 hours\n...\n# Form4\n...\n# Get more done with most prints in under 2 hours.1\n...\nlabs Form 4\n...\n1 Minute per Part. Reach peak production efficiency\n...\n# Produce stunning parts that always fit, rivaling injection molded parts.\n...\nTackle any problem wi...[truncated, total length 1582]"
+                ],
+                "image": "https://formlabs-media.formlabs.com/filer_public_thumbnails/filer_public/85/9e/859ed97e-9f47-42b5-9a57-f0daa2b5ad51/form4_seo.jpg__640x0_q85_subsampling-2.jpg",
+                "extras": {
+                  "imageLinks": [
+                    "https://formlabs.com/_next/image/?url=https%3A%2F%2Fformlabs-media.formlabs.com%2Ffiler_public%2F34%2Fba%2F34ba1c17-fddb-4df3-9593-604426c04731%2Fmicrosoftlogo.png&amp;w=3840&amp;q=75",
+                    "https://formlabs.com/_next/image/?url=https%3A%2F%2Fformlabs-media.formlabs.com%2Ffiler_public%2F3e%2F52%2F3e52195a-9cbb-4844-926f-813e41d5d4fa%2Fnasalogo.png&amp;w=3840&amp;q=75",
+                    "https://formlabs.com/_next/image/?url=https%3A%2F%2Fformlabs-media.formlabs.com%2Ffiler_public%2F8f%2F49%2F8f495638-21b1-4ca3-a614-366ceb412b6b%2Ffordlogo.png&amp;w=3840&amp;q=75"
+                  ]
+                }
+              },
+              {
+                "id": "https://formlabs.com/products/form-4-complete-package/",
+                "title": "Form 4 Complete Package 120V - Formlabs",
+                "url": "https://formlabs.com/products/form-4-complete-package/",
+                "highlights": [
+                  "Form 4 Complete Package | Formlabs\n...\n# Form 4 Complete Package 120V\n...\nMasked Stereolithography (MSLA)\n...\nForm 4 is a blazing fast masked SLA 3D printer that combines an industry-leading materials library with a reliable, accurate print engine. Turn your ideas into reality faster than ever with easy workflows, leading reliability, and stunning part quality using the Form 4 ecosystem.\n...\n## Fo...[truncated, total length 3921]"
+                ],
+                "image": "https://formlabs.com/default_seo_image.jpg",
+                "extras": {
+                  "imageLinks": [
+                    "https://formlabs.com/_next/image/?url=https%3A%2F%2Fformlabs-media.formlabs.com%2Ffiler_public%2F3f%2F30%2F3f30aed3-1e0c-44e5-9750-7465ecc415cc%2Fformlabs_f4_front_cover_closed_eng_light_ik_240321_store.png&w=3840&q=75",
+                    "https://formlabs.com/_next/image/?url=https%3A%2F%2Fformlabs-media.formlabs.com%2Ffiler_public%2F6d%2F16%2F6d166906-d0c6-4ebf-b693-516aea4d7583%2Fgood-better-bestcore-good-2.png&w=3840&q=75",
+                    "https://formlabs.com/_next/image/?url=https%3A%2F%2Fformlabs-media.formlabs.com%2Ffiler_public%2F26%2F95%2F2695d83b-6443-4f0a-8f73-796ee5d818df%2Fform4packagecore.png&w=3840&q=75"
+                  ]
+                }
+              },
+              {
+                "id": "https://formlabs.com/global/products/form-4-basic-package/",
+                "title": "Form 4 | Formlabs",
+                "url": "https://formlabs.com/global/products/form-4-basic-package/",
+                "highlights": [
+                  "Form 4 | Formlabs\n...\n# Form 4 Basic Package\n...\n(MSLA\n...\nForm 4 is a blazing fast masked SLA 3D printer that combines an industry-leading materials library with a reliable, accurate print engine. Turn your ideas into reality faster than ever with easy workflows, leading reliability, and stunning part quality using the Form 4 ecosystem.\n...\n## Form 4\n...\n- Form 4 Basic Package\n...\n## Package: For...[truncated, total length 3654]"
+                ],
+                "image": "https://formlabs.com/default_seo_image.jpg",
+                "extras": {
+                  "imageLinks": [
+                    "https://formlabs.com/_next/image/?url=https%3A%2F%2Fformlabs-media.formlabs.com%2Ffiler_public%2F3f%2F30%2F3f30aed3-1e0c-44e5-9750-7465ecc415cc%2Fformlabs_f4_front_cover_closed_eng_light_ik_240321_store.png&w=3840&q=75",
+                    "https://formlabs.com/_next/image/?url=https%3A%2F%2Fformlabs-media.formlabs.com%2Ffiler_public%2F6d%2F16%2F6d166906-d0c6-4ebf-b693-516aea4d7583%2Fgood-better-bestcore-good-2.png&w=3840&q=75"
+                  ]
+                }
+              }
+            ],
+            "searchTime": 873.5,
+            "costDollars": {
+              "total": 0.007,
+              "search": {
+                "neural": 0.007
+              }
+            }
+          },
+          "isError": false,
+          "providerExecuted": true,
+          "usage": {
+            "searchCalls": 1,
+            "resultCount": 3,
+            "requestedResults": 3
+          },
+          "durationMs": 986
+        },
+        {
+          "type": "text",
+          "text": "The Formlabs Form 4 is a professional masked stereolithography (MSLA) resin 3D printer that uses Low Force Display technology to cure resin.",
+          "providerMetadata": {
+            "openai": {
+              "itemId": "msg_0f95871682dd1357016ab3f714b74c87d1ab010d8bf8e380c0",
+              "phase": "final_answer"
+            }
+          }
+        }
+      ],
+      "finishReason": {
+        "unified": "stop"
+      },
+      "usage": {
+        "inputTokens": {
+          "total": 4433,
+          "noCache": 587,
+          "cacheRead": 0,
+          "cacheWrite": 3846
+        },
+        "outputTokens": {
+          "total": 68,
+          "text": 68,
+          "reasoning": 0
+        },
+        "raw": {
+          "input_tokens": 3849,
+          "input_tokens_details": {
+            "cache_write_tokens": 3846,
+            "cached_tokens": 0
+          },
+          "output_tokens": 36,
+          "output_tokens_details": {
+            "reasoning_tokens": 0
+          },
+          "total_tokens": 3885
+        }
+      },
+      "providerMetadata": {
+        "openai": {
+          "responseId": "resp_0f95871682dd1357016ab3f713c8d887d18d4c1d50b8a1f479",
+          "serviceTier": "default",
+          "reasoningContext": "all_turns"
+        },
+        "gateway": {
+          "routing": {
+            "originalModelId": "openai/gpt-6-luna",
+            "resolvedProvider": "openai",
+            "fallbacksAvailable": [],
+            "planningReasoning": "System credentials planned for: openai. Total execution order: openai(system)",
+            "canonicalSlug": "openai/gpt-6-luna",
+            "finalProvider": "openai",
+            "modelAttemptCount": 1,
+            "modelAttempts": [
+              {
+                "canonicalSlug": "openai/gpt-6-luna",
+                "success": true,
+                "providerAttemptCount": 2,
+                "providerAttempts": [
+                  {
+                    "provider": "openai",
+                    "credentialType": "system",
+                    "success": true,
+                    "startTime": 1790179088972,
+                    "endTime": 1790179090719,
+                    "providerRequestId": "req_b6137517d2ac4e0dbfcd56e69c4e6c63",
+                    "statusCode": 200,
+                    "providerResponseId": "resp_0b8236c6cbe58e96016ab3f7110dc487d1bf7b72dd228995ef",
+                    "toolLoopLegIndex": 0
+                  },
+                  {
+                    "provider": "openai",
+                    "credentialType": "system",
+                    "success": true,
+                    "startTime": 1790179091707,
+                    "endTime": 1790179093313,
+                    "providerRequestId": "req_a49eca8d027d4aea9bbfdc555d86d64c",
+                    "statusCode": 200,
+                    "providerResponseId": "resp_0f95871682dd1357016ab3f713c8d887d18d4c1d50b8a1f479",
+                    "toolLoopLegIndex": 1
+                  }
+                ]
+              }
+            ],
+            "totalProviderAttemptCount": 2
+          },
+          "cost": "0.00757345",
+          "marketCost": "0.00757345",
+          "surchargeCost": "0",
+          "gatewayCost": "0.00757345",
+          "inferenceCost": "0.00057345",
+          "inputInferenceCost": "0.00053945",
+          "outputInferenceCost": "0.000034",
+          "generationId": "gen_01M37FT6H2ADJ6A5FMX2VTVW39",
+          "gatewayToolCalls": {
+            "exa_search": 1
+          }
+        }
+      },
+      "warnings": []
+    }
+  }
+}

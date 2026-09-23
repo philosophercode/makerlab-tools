@@ -1,5 +1,6 @@
 import { catalog } from "./catalog";
 import { units } from "./units";
+import { web } from "./web";
 import { maintenance } from "./maintenance";
 import { intake } from "./intake";
 import { flags } from "./flags";
@@ -16,6 +17,10 @@ import type { Capability } from "./types";
  * each capability's prompt fragment appears in the composed system prompt.
  *  - `catalog`     — read-only discovery (list / search / details).
  *  - `units`       — per-unit status + maintenance history (read).
+ *  - `web`         — `read_page` on the focused tool's resource links (chat
+ *                    only), and the prompt for web search (`exa_search`,
+ *                    which the chat route adds beside the registry). Placed
+ *                    before intake, whose prompt limits that search.
  *  - `maintenance` — file maintenance tickets (write).
  *  - `intake`      — `identify_tools` records equipment as pending rows (chat
  *                    only; research and approval happen off the chat), and
@@ -28,10 +33,10 @@ import type { Capability } from "./types";
  * This module is the canonical import for everything in the capabilities layer:
  * the registry itself, the two adapters, and the shared contract types.
  */
-export const CAPABILITIES: Capability[] = [catalog, units, maintenance, intake, flags];
+export const CAPABILITIES: Capability[] = [catalog, units, web, maintenance, intake, flags];
 
 // Re-export the individual capabilities for direct/selective use and testing.
-export { catalog, units, maintenance, intake, flags };
+export { catalog, units, web, maintenance, intake, flags };
 
 // Re-export the surface adapters so consumers import from one place.
 export {

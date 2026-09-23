@@ -218,6 +218,8 @@
     "unknownSource": "照合できるメーカーページやマニュアルが見つかりませんでした",
     "unknownManual": "マニュアルが見つかりませんでした",
     "unknownSpecs": "仕様は参照したページで確認されていません",
+    "unknownVideoOnly": "参照できたのは動画のみです — 製品ページ・マニュアル・仕様書はありません",
+    "unknownNothingRead": "ページを読み込めなかったため、情報源で確認されたものはありません",
     "actionConfirm": "問題ありません — 追加する",
     "actionConfirmModel": "{name} で確定する",
     "actionConfirmVariant": "{variant} です",

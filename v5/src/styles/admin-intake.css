@@ -293,6 +293,141 @@
   color: var(--primary);
 }
 
+/* ── Product image (gateway spec §6) ───────────────────────────────── */
+
+.admin-intake-image-line {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.admin-intake-image-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* The cleaned copy and the original it was cut from, side by side where
+   there is room — a cutout is only ever judged against its source. */
+.admin-intake-image-pair,
+.admin-intake-image-more {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-intake-image-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container-low);
+}
+
+.admin-intake-image-tile.is-selected,
+.admin-intake-image-none.is-selected {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.admin-intake-image-tile.is-disabled {
+  opacity: 0.6;
+}
+
+.admin-intake-image-choice,
+.admin-intake-image-none {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.admin-intake-image-none {
+  padding: 8px;
+  border: 1px solid var(--outline);
+}
+
+.admin-intake-image-badge {
+  padding: 1px 6px;
+  border: 1px solid var(--outline);
+  color: var(--on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-intake-image-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--surface-container);
+  cursor: pointer;
+}
+
+.admin-intake-image-tile.is-disabled .admin-intake-image-frame {
+  cursor: default;
+}
+
+.admin-intake-image-tile.is-small .admin-intake-image-frame {
+  aspect-ratio: 1 / 1;
+}
+
+/* Transparency made visible: a checkerboard of two theme surfaces, so it
+   follows light and dark like everything else here. */
+.admin-intake-image-frame.is-checkerboard {
+  background-color: var(--surface-container);
+  background-image: conic-gradient(
+    var(--surface-container-high) 25%,
+    var(--surface-container) 0 50%,
+    var(--surface-container-high) 0 75%,
+    var(--surface-container) 0
+  );
+  background-size: 16px 16px;
+}
+
+.admin-intake-image-frame img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.admin-intake-image-broken {
+  margin: 0;
+  padding: 8px;
+  color: var(--on-surface-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.admin-intake-image-note {
+  margin: 0;
+  color: var(--td-warning);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.admin-intake-image-source {
+  color: var(--primary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+/* A phone: one column, and each tile's radio above its picture (DOM order). */
+@media (max-width: 639px) {
+  .admin-intake-image-pair,
+  .admin-intake-image-more {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* On a phone every button takes the full width, so the decision is not a
    row of small targets beside the thumb. */
 @media (max-width: 639px) {

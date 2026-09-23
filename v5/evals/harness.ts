@@ -48,6 +48,49 @@ export function stubWrites(capabilities: Capability[] = CAPABILITIES): Capabilit
   }));
 }
 
+/**
+ * Tools that are `kind: "read"` — no persisted write — but still reach the
+ * live network rather than looking something up in the fixture catalogue.
+ * `read_page` (gateway spec §3.3) fetches whatever URL the model names with
+ * `guardedFetch`; an automated eval run must not do that.
+ *
+ * **This harness records it, rather than allowing it.** Both are legitimate
+ * per the brief; recording is the one consistent with the rest of this file
+ * and with `evals/README.md`'s stated policy — "nothing in the case set
+ * depends on the assistant reading a page" (the same reasoning that already
+ * kept the old provider-native `web_search`/`web_fetch` out of every case).
+ * Recording, not just omitting, is necessary here in a way it never was for
+ * those: `web_search`/`web_fetch` were added directly in the chat route,
+ * outside `CAPABILITIES`, so `composeCase` never saw them. `read_page` is a
+ * capability tool, so it *is* in `CAPABILITIES` and would otherwise reach a
+ * real host on every run that calls it.
+ */
+const LIVE_NETWORK_TOOLS: readonly string[] = ["read_page"];
+
+/**
+ * Replace `read_page`'s behavior with a recorded no-op, the same shape
+ * `stubWrites` gives a write tool — see {@link LIVE_NETWORK_TOOLS}. Every other
+ * `read` tool (catalogue lookups) is untouched.
+ */
+export function stubLiveReads(capabilities: Capability[] = CAPABILITIES): Capability[] {
+  return capabilities.map((capability) => ({
+    ...capability,
+    tools: capability.tools.map((capTool) => {
+      if (!LIVE_NETWORK_TOOLS.includes(capTool.name)) return capTool;
+      return {
+        ...capTool,
+        card: undefined,
+        run: async (input: unknown) => ({
+          stubbed: true,
+          tool: capTool.name,
+          input,
+          message: "Recorded (eval harness stub — no page was actually read).",
+        }),
+      };
+    }),
+  }));
+}
+
 /** What the assistant is given for one case. */
 export interface ComposedCase {
   system: string;
@@ -70,7 +113,7 @@ export async function composeCase(evalCase: EvalCase): Promise<ComposedCase> {
   }
 
   const ctx: CapabilityCtx = { locale: "en", focusedToolId: focused?.id };
-  const composed = composeChat(stubWrites(CAPABILITIES), ctx, {
+  const composed = composeChat(stubLiveReads(stubWrites(CAPABILITIES)), ctx, {
     tools,
     focusedTool: focused,
     locale: "en",

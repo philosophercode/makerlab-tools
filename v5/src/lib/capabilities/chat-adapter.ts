@@ -21,7 +21,7 @@ import type { MakerLabTool } from "../../components/catalog-types";
  *   payload.
  * - {@link buildSystemPrompt} composes the system prompt by joining the chat
  *   surface's scaffolding (intro, tool-linking, focused-tool context, resource
- *   fetching/citing, catalog listing) with each capability's `promptFragment`.
+ *   reading/citing, catalog listing) with each capability's `promptFragment`.
  * - {@link composeChat} is a convenience that returns both at once.
  *
  * Manual (PDF) attachment sections remain owned by the chat route itself — they
@@ -114,7 +114,7 @@ function compactCardResult(
  * Compose the chat system prompt: the chat surface scaffolding plus every
  * capability's `promptFragment(env)`, in registry order. Preserves parity with
  * the original chat route prompt (intro, tool-linking, focused-tool context,
- * resource fetching/citing, catalog listing) while letting capabilities inject
+ * resource reading/citing, catalog listing) while letting capabilities inject
  * their own instructions (unit lookups, maintenance flow, intake, …).
  */
 export function buildSystemPrompt(
@@ -141,7 +141,7 @@ export function buildSystemPrompt(
     sections.push(resourcesSection(focusedTool));
   }
 
-  sections.push(fetchingSection());
+  sections.push(readingSection());
   sections.push(citingSection());
   sections.push(catalogSection(tools));
 
@@ -190,15 +190,15 @@ function resourcesSection(focused: MakerLabTool): string {
   const list = focused.links
     .map((link) => `- [${link.kind || "Resource"}] ${link.label} — ${link.href}`)
     .join("\n");
-  return `## Resources for this tool\n\nThe following resources are linked from the **${focused.name}** Notion page. Retrieve any of them with the \`web_fetch\` tool when relevant.\n\n${list}`;
+  return `## Resources for this tool\n\nThe following resources are linked from the **${focused.name}** catalog entry. Read any web page among them with the \`read_page\` tool when relevant.\n\n${list}`;
 }
 
-function fetchingSection(): string {
-  return `## Fetching resources\n\nUse the \`web_fetch\` tool to read any URL from the "Resources for this tool" list — HTML SOPs, safety pages, manufacturer guides, manual PDFs, etc. Rules:\n\n- Only call \`web_fetch\` on exact URLs that appear in "Resources for this tool" (or, during intake, on a product page the person supplied, and only to settle a model name). Do not invent URLs or fetch general web pages the student wasn't routed to.`;
+function readingSection(): string {
+  return `## Reading resources\n\nUse the \`read_page\` tool to read a URL from the "Resources for this tool" list — HTML SOPs, safety pages, manufacturer guides. Rules:\n\n- Only call \`read_page\` on exact URLs that appear in "Resources for this tool". It refuses every other URL, so do not invent URLs or try general web pages the student wasn't routed to.\n- \`read_page\` returns page text, not PDFs. Manual PDFs reach you as attached documents, when there are any; for a PDF that is not attached, give the student the link rather than guessing what it says.\n- To look something up beyond these resources, use \`exa_search\`.`;
 }
 
 function citingSection(): string {
-  return `## Citing sources\n\nWhen you draw on a \`web_fetch\`ed page, cite the source inline as a **markdown link** using the exact URL from the lists above. Two formats:\n\n1. PDF with a known page: \`[Form 4 Manual, p. 14](https://media.formlabs.com/.../-ENUS-Form-4-Manual.pdf#page=14)\` — append \`#page=N\` so browser PDF viewers jump to the page.\n2. HTML page or PDF with no known page: \`[Trotec Speedy 400 SOP](https://...)\`.\n\nDo not invent page numbers or URLs. Always use exact URLs from the lists above.`;
+  return `## Citing sources\n\nWhen you draw on an attached manual, a page read with \`read_page\`, or an \`exa_search\` result, cite the source inline as a **markdown link** using its exact URL — from the lists above, or the result's own URL for a search. Two formats:\n\n1. PDF with a known page: \`[Form 4 Manual, p. 14](https://media.formlabs.com/.../-ENUS-Form-4-Manual.pdf#page=14)\` — append \`#page=N\` so browser PDF viewers jump to the page.\n2. HTML page or PDF with no known page: \`[Trotec Speedy 400 SOP](https://...)\`.\n\nDo not invent page numbers or URLs. Always use exact URLs from the lists above or from a search result.`;
 }
 
 function catalogSection(tools: MakerLabTool[]): string {

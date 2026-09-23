@@ -25,6 +25,7 @@ import {
   approvePending,
   approvePendingAsDraft,
   discardPending,
+  requestDifferentImage,
   savePendingIdentity,
 } from "../actions";
 
@@ -60,6 +61,7 @@ const ACTIONS: IntakeActions = {
   addUnit: addPendingUnit,
   discard: discardPending,
   saveIdentity: savePendingIdentity,
+  differentImage: requestDifferentImage,
 };
 
 /** The statuses the preliminary page itself renders. */

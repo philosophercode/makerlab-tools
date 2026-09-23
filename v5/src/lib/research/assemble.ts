@@ -4,6 +4,8 @@ import type { IntakeEvidence } from "../capabilities/types.ts";
 import type { CategoryOption } from "../data/taxonomy.ts";
 import type { EvidencePartial, FetchDraft, ModelLink, SearchFindings } from "./model-output.ts";
 import { researchResultSchema, type ResearchResult } from "./result.ts";
+import { reviewerNoteForPrompt } from "../intake/reviewer-note.ts";
+import { classifyPage, isVideoUrl, type PageSubject } from "./source-pages.ts";
 import { matchCategory } from "./taxonomy-match.ts";
 
 /**
@@ -22,10 +24,14 @@ import { matchCategory } from "./taxonomy-match.ts";
  *   - no page was read (`sourceUrls` empty) → nothing external was found, and
  *     the name was not confirmed against anything;
  *   - no verified manual survived link checking → `manualFound` is false;
- *   - research is shown no photos → no plate was read.
- *   That last rule and the first are also what make "research found nothing"
+ *   - research is shown no photos → no plate was read;
+ *   - a video, or the search's copy of a page that is not the brand's product
+ *     page, is never the manufacturer's page or where the specs came from.
+ *   That third rule and the first are also what make "research found nothing"
  *   come out **low**, as §5.4 requires, rather than medium on the strength of
  *   a name somebody typed.
+ * - **The grade is capped by what was read**: only videos, or nothing, and it
+ *   cannot be high (`readCap` in `confidence.ts`).
  * - **Resources are the verified links only**; the dropped ones travel as text
  *   in `droppedLinks` so the reviewer is told rather than the link vanishing.
  * - **The category is resolved** against the existing taxonomy.
@@ -48,12 +54,20 @@ export interface AssembleInput {
   categories: readonly CategoryOption[];
   /** The pending item's own name, for a draft that settled on none. */
   fallbackName: string;
+  /** The reviewer's instruction this research ran with, recorded on the result; absent or null for none. */
+  reviewerNote?: string | null;
+  /** Pages among `draft.sourceUrls` whose text came from the search's copy, not the server's own read. */
+  searchTextUrls?: readonly string[];
+  /** The item's brand and name — what decides whether a search copy is the brand's product page. */
+  subject?: PageSubject;
 }
 
 export function assembleResearchResult(input: AssembleInput): ResearchResult {
-  const { draft, verified, dropped, categories, fallbackName } = input;
+  const { draft, verified, dropped, categories, fallbackName, reviewerNote } = input;
   const sourceUrls = httpUrls(draft.sourceUrls).slice(0, MAX_SOURCE_URLS);
-  const evidence = groundedEvidence(draft.evidence, { sourceUrls, verified });
+  const fromSearch = new Set((input.searchTextUrls ?? []).filter((url) => sourceUrls.includes(url)));
+  const subject: PageSubject = input.subject ?? { brand: null, name: draft.canonicalName || fallbackName };
+  const evidence = groundedEvidence(draft.evidence, { sourceUrls, verified, fromSearch, subject });
 
   const result: ResearchResult = {
     canonicalName: draft.canonicalName.trim() || fallbackName.trim(),
@@ -69,7 +83,9 @@ export function assembleResearchResult(input: AssembleInput): ResearchResult {
     droppedLinks: [...dropped],
     sourceUrls,
     evidence,
-    confidence: scoreConfidence(evidence),
+    confidence: scoreConfidence(evidence, { sourceUrls }),
+    ...(fromSearch.size > 0 ? { searchTextSources: [...fromSearch] } : {}),
+    ...(reviewerNoteForPrompt(reviewerNote) ? { reviewerNote: reviewerNoteForPrompt(reviewerNote) } : {}),
   };
 
   const parsed = researchResultSchema.safeParse(result);
@@ -84,12 +100,20 @@ export function assembleResearchResult(input: AssembleInput): ResearchResult {
 }
 
 /**
- * The draft for an item the search turned up nothing to open for (§5.4
- * unhappy paths: "research finds nothing"). No second model call — there is no
- * page to read — and nothing invented: no specs, no links, no sources, and the
- * evidence that follows from that, which grades low.
+ * The draft for an item with no page to read (§5.4 unhappy paths: "research
+ * finds nothing"). No second model call — there is nothing to give it — and
+ * nothing invented: no specs, no sources, and the evidence that follows from
+ * that, which grades low.
+ *
+ * Two cases, told apart by `keepCandidateLinks`:
+ *
+ * - **The search found no page** (the default): no links either.
+ * - **The search found pages, but none could be read** — a manufacturer site
+ *   that refuses bots, a manual behind a redirect off its host. The links the
+ *   search saw are kept as resources, because they are real search results,
+ *   and link verification still opens each one before anybody is shown it.
  */
-export function draftFromFindings(findings: SearchFindings): FetchDraft {
+export function draftFromFindings(findings: SearchFindings, options: { keepCandidateLinks?: boolean } = {}): FetchDraft {
   return {
     canonicalName: findings.canonicalName,
     description: findings.description,
@@ -100,7 +124,7 @@ export function draftFromFindings(findings: SearchFindings): FetchDraft {
     trainingRequired: null,
     useRestrictions: null,
     category: findings.category,
-    resources: [],
+    resources: options.keepCandidateLinks ? [...findings.candidateLinks] : [],
     sourceUrls: [],
     evidence: findings.evidence,
   };
@@ -117,7 +141,11 @@ export function uniqueLinks(links: readonly ModelLink[]): ModelLink[] {
   });
 }
 
-/** The hosts of `urls`, once each — `web_fetch`'s allow-list, like the chat route's. */
+/**
+ * The hosts of `urls`, once each — the read step's host rule: the server reads
+ * a page only on a host the search found (a subdomain of one included), at
+ * every redirect hop, like the chat route's `read_page`.
+ */
 export function uniqueHosts(urls: readonly string[]): string[] {
   const hosts = new Set<string>();
   for (const url of httpUrls(urls)) hosts.add(new URL(url).hostname);
@@ -126,17 +154,26 @@ export function uniqueHosts(urls: readonly string[]): string[] {
 
 function groundedEvidence(
   reported: EvidencePartial,
-  facts: { sourceUrls: string[]; verified: ModelLink[] }
+  facts: { sourceUrls: string[]; verified: ModelLink[]; fromSearch: ReadonlySet<string>; subject: PageSubject }
 ): IntakeEvidence {
   const evidence = toEvidence(reported);
   const readSomething = facts.sourceUrls.length > 0;
+  // A video is never the manufacturer's page, nor where specs come from
+  // (amendment "Product-page first"): the X2D draft claimed both on the
+  // strength of a YouTube video alone. The search's copy of a page counts only
+  // when it is the brand's own product or specs page (amendment "Search text
+  // fallback"): that copy is what stands in for a product page behind a bot
+  // challenge, and nothing else is let in on the strength of it.
+  const readAPage = facts.sourceUrls.some(
+    (url) => !isVideoUrl(url) && (!facts.fromSearch.has(url) || classifyPage(url, facts.subject) === "product")
+  );
   return {
     ...evidence,
     userStatedModel: evidence.userStatedModel && readSomething,
     modelPlateRead: null,
-    manufacturerPageFound: evidence.manufacturerPageFound && readSomething,
+    manufacturerPageFound: evidence.manufacturerPageFound && readAPage,
     manualFound: evidence.manualFound && facts.verified.some((link) => link.type === "Manual"),
-    specsFromSource: evidence.specsFromSource && readSomething,
+    specsFromSource: evidence.specsFromSource && readAPage,
   };
 }
 

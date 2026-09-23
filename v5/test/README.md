@@ -19,6 +19,11 @@ your `*.test.ts(x)` files and import from here.
 | `test/utils/render.tsx` | RTL `render` wrapped in `NextIntlClientProvider` + `userEvent` |
 | `test/utils/session.ts` | `seedUser` / `signInAs` — be somebody, with no Google (see below) |
 | `test/utils/better-auth-cookie.ts` | Just the cookie format, import-free, so Playwright can use it too |
+| `test/ai/models-stub.ts` | `MockLanguageModelV3`/`MockImageModelV3` (from `ai/test`) wired to `src/lib/ai/models.ts`'s registry — the seam for most model tests (see below) |
+| `test/gateway/wire.ts` | Dependency-free builders/parsers for the Gateway's own wire format — shared by `test/gateway/msw.ts` (Vitest) and `e2e/stubs/gateway-stub.ts` (Playwright, under `node --experimental-strip-types`) |
+| `test/gateway/msw.ts` | `gatewayHandlers({ language?, image? })` — MSW handlers over `wire.ts`, for the workflow tier where `vi.mock` cannot reach step code |
+| `test/gateway/png.ts` | `makePng` / `makePngBase64` — a real decodable PNG, with or without alpha, no deps |
+| `test/web/resolver.ts` | The DNS stand-in `src/lib/web/guarded-fetch.ts` resolves hosts through; `setResolvedAddresses` / `resetResolver` |
 | `playwright.config.ts` | E2E config; dev server boots with `DATABASE_URL` unset (PGlite demo seed) |
 
 ## Scripts
@@ -322,79 +327,114 @@ inline (as above) is safe — its import is hoisted alongside the mock. The
 
 ---
 
-## streamText-capture pattern (chat route) — VERIFIED
+## Stubbing the model — two seams, never a provider mock
 
-The chat route's tool `execute` fns are defined inline inside `POST` and the
-helpers are module-private. Don't unit-test them directly — instead **mock
-`ai`'s `streamText`** to capture the `{ system, messages, tools }` it receives,
-then call `POST(req)` and assert on the captured args. You can invoke the
-captured `tools.*.execute(...)` directly. Also mock `@ai-sdk/anthropic`
-(`anthropic` model factory + `anthropic.tools.webFetch_20250910`).
+Every model call in the app goes through one place, `src/lib/ai/models.ts`'s
+job registry (`MODEL_JOBS`: `chat`, `researchSearch`, `researchRead`,
+`imageRank` — every one a language job; background removal is a deterministic
+cutout that calls no model) — there is no direct-provider path, so a test never
+mocks `@ai-sdk/gateway` or `@ai-sdk/anthropic` (the latter is unused and
+proposed for removal). Two seams, chosen by what the code under test can be reached from:
 
-This exact snippet was run against the real route and passes:
+### `test/ai/models-stub.ts` — for anything that imports the registry
+
+The default for unit and route-integration tests, including the chat route.
 
 ```ts
-const captured: { args?: any } = {};
+vi.mock("@/lib/ai/models", async (importOriginal) =>
+  (await import("../../../test/ai/models-stub")).stubModelsModule(await importOriginal())
+);
+// No "@/test" alias exists ("@" maps to src/) — the relative path above is required.
+// It also covers a relative "../ai/models.ts" import (step code uses that form).
 
-vi.mock("@ai-sdk/anthropic", () => {
-  const anthropic = Object.assign(
-    vi.fn(() => ({ modelId: "mock-model" })),
-    { tools: { webFetch_20250910: vi.fn(() => ({ type: "web_fetch_mock" })) } }
-  );
-  return { anthropic };
-});
+import { resetModelStubs, setLanguageModel, textModel, toolCallModel, recordedCalls } from "../../../test/ai/models-stub";
 
-vi.mock("ai", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("ai")>();
-  return {
-    ...actual, // keep convertToModelMessages, createUIMessageStream, tool, stepCountIs, ...
-    streamText: vi.fn((args: unknown) => {
-      captured.args = args;
-      return {
-        toUIMessageStream: () =>
-          new ReadableStream({ start(c) { c.close(); } }),
-      };
-    }),
-  };
-});
-
-import { POST } from "@/app/api/chat/route";
-
-it("wires system + tools and runs a captured tool.execute", async () => {
-  const req = new Request("http://localhost/api/chat", {
-    method: "POST",
-    headers: { "content-type": "application/json", "x-forwarded-for": "1.2.3.4" },
-    body: JSON.stringify({
-      messages: [{ id: "1", role: "user", parts: [{ type: "text", text: "hi" }] }],
-    }),
-  });
-
-  const res = await POST(req);
-  expect(res).toBeInstanceOf(Response);
-
-  expect(typeof captured.args.system).toBe("string");
-  expect(captured.args.tools).toHaveProperty("get_unit_details");
-  expect(captured.args.tools).toHaveProperty("report_issue");
-  expect(captured.args.tools).toHaveProperty("web_fetch");
-
-  // Invoke a tool.execute directly (PGlite demo seed — DATABASE_URL unset):
-  const miss = await captured.args.tools.get_unit_details.execute({
-    unit_label: "no-such-unit",
-  });
-  expect(miss.found).toBe(false);
-});
+beforeEach(() => setLanguageModel("chat", textModel("Hello.")));
+afterEach(resetModelStubs);
 ```
 
-Notes:
-- Spread `...actual` so the route's other `ai` imports (`convertToModelMessages`,
-  `createUIMessageStream`, `createUIMessageStreamResponse`, `tool`,
-  `stepCountIs`) still work — only `streamText` is replaced.
-- The route rate-limits **before** parsing. To assert the 429 path, drive the
-  in-memory limiter over its limit (21 calls in a window) or stub Upstash +
-  override the `*/pipeline` handler to return a count over the limit.
-- To test `report_issue.execute` filing a ticket, set nothing: the write lands
-  in the same PGlite database (`DATABASE_URL` unset). Assert
+- `textModel(text | (callIndex) => string)`, `toolCallModel(calls, finalText?)`,
+  `scriptedModel(turns)` build a `MockLanguageModelV3` (from `ai/test`).
+  `recordedCalls(model)` returns every call's `{ prompt, tools, providerOptions, options }`, across
+  both `generateText` and `streamText`.
+- Everything else in the module stays real — `modelIdFor`, `MODEL_JOBS`, the
+  Exa tools' `gatewayProvider()` — so a `MODEL_*` misconfiguration still
+  throws the way it would in production. A job nobody stubbed throws `"no
+  model stubbed for <job>"` instead of reaching the network.
+- This exact snippet was run against the real chat route and passes:
+
+  ```ts
+  vi.mock("@/lib/ai/models", async (importOriginal) =>
+    (await import("../../../test/ai/models-stub")).stubModelsModule(await importOriginal())
+  );
+
+  import { setLanguageModel, textModel } from "../../../test/ai/models-stub";
+  import { POST } from "@/app/api/chat/route";
+
+  beforeEach(() => setLanguageModel("chat", textModel("Hello.")));
+  afterEach(resetModelStubs);
+
+  it("wires the capability tools", async () => {
+    const req = new Request("http://localhost/api/chat", {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-forwarded-for": "1.2.3.4" },
+      body: JSON.stringify({
+        messages: [{ id: "1", role: "user", parts: [{ type: "text", text: "hi" }] }],
+      }),
+    });
+    const res = await POST(req);
+    expect(res).toBeInstanceOf(Response);
+  });
+  ```
+
+  Notes: the route rate-limits **before** parsing — to assert the 429 path,
+  drive the in-memory limiter over its limit (21 calls in a window) or stub
+  Upstash + override the `*/pipeline` handler to return a count over the
+  limit. To test `report_issue`'s tool filing a ticket, set nothing: the write
+  lands in the same PGlite database (`DATABASE_URL` unset) — assert
   `result.success === true`, then read the `maintenance_logs` row back by
-  `result.ticket_id`.
-- For `get_unit_details` against the **PGlite demo seed** (`DATABASE_URL`
-  unset), the catalog units are `Form 4 // A` and `Trotec Speedy 400`.
+  `result.ticket_id`. For `get_unit_details` against the **PGlite demo seed**
+  (`DATABASE_URL` unset), the catalog units are `Form 4 // A` and `Trotec
+  Speedy 400`.
+
+### `test/gateway/*` — for the workflow tier
+
+`vi.mock` does not reach a `"use step"` function's bundle, so the workflow
+project (`*.workflow.test.ts` under `@workflow/vitest`) stubs the Gateway at
+its own HTTP boundary instead — `https://ai-gateway.vercel.sh`, not
+`api.anthropic.com`, which nothing calls any more:
+
+```ts
+import { server } from "../../test/msw/server"; // or @workflow/vitest's own MSW server
+import { gatewayHandlers } from "../../test/gateway/msw";
+import { textResponse, exaSearchResponse, toolCallResponse } from "../../test/gateway/wire";
+import { makePngBase64 } from "../../test/gateway/png";
+import { imageResponse } from "../../test/gateway/wire";
+
+vi.stubEnv("AI_GATEWAY_API_KEY", "test-key"); // any value — the handlers never check it
+
+server.use(
+  ...gatewayHandlers({
+    language: (req) =>
+      req.tools.some((t) => t.name === "exa_search")
+        ? exaSearchResponse({ query: "…", results: [{ url: "https://example.com", title: "…" }], text: "{...}" })
+        : textResponse("{...}"),
+    image: () => imageResponse([makePngBase64({ width: 1024, height: 1024, alpha: true })]),
+  })
+);
+```
+
+`parseLanguageRequest` / `parseImageRequest` and the helpers `promptText`,
+`promptHasImage`, `promptFiles` read the parsed request (`req` above); a reply
+can be a generate result, streamed parts, or `errorBody(status, type, message)`.
+Only the handlers given are registered — an unexpected call to the other
+endpoint fails the test as an unhandled request, by design.
+
+### The E2E equivalent
+
+`e2e/stubs/gateway-stub.ts` serves the same `test/gateway/wire.ts` /
+`png.ts` builders from plain `node:http` (Playwright cannot use MSW), reached
+through `AI_GATEWAY_BASE_URL` by the intake scenario's own app server
+(port 3103, with a local Blob folder so the image stage can clean and store).
+See `TESTING.md`'s E2E notes and the file's own
+doc comment for the request classification it uses.

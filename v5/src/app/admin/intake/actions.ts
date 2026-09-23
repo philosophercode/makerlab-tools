@@ -8,6 +8,8 @@ import { can, type Permission } from "../../../lib/auth/permissions";
 import { discardPendingTool, updatePendingTool } from "../../../lib/data/pending-tools";
 import { isUuid } from "../../../lib/data/uuid";
 import { addUnitAndRecord, approveAndRecord } from "../../../lib/intake/approve";
+import { requestImageRetry } from "../../../lib/intake/image-retry";
+import { parseReviewerNote } from "../../../lib/intake/reviewer-note";
 import {
   ADMIN_INTAKE_PATH,
   intakeItemPath,
@@ -71,6 +73,18 @@ function optionalText(max: number) {
 
 const list = z.array(z.string().trim().min(1).max(MAX_LINE)).max(50);
 
+/**
+ * The product image (gateway spec §4.3). Strict: a `candidateUrl` on a choice
+ * that is not `original` is a shape error, not something to ignore. Whether the
+ * URL is one research recorded is decided by `intake/approval-image.ts`, which
+ * refuses anything else before fetching.
+ */
+const imageChoice = z.discriminatedUnion("choice", [
+  z.strictObject({ choice: z.literal("cleaned") }),
+  z.strictObject({ choice: z.literal("original"), candidateUrl: z.string().min(1).max(2048) }),
+  z.strictObject({ choice: z.literal("none") }),
+]);
+
 const approvalFields = z.strictObject({
   name: z.string().trim().min(1).max(MAX_LINE),
   description: optionalText(MAX_DESCRIPTION),
@@ -90,6 +104,7 @@ const approvalFields = z.strictObject({
   useRestrictions: optionalText(2000),
   serialNumber: optionalText(MAX_LINE),
   resourceUrls: z.array(z.string().max(2048)).max(50).optional(),
+  image: imageChoice.optional(),
 });
 
 const approveInput = z.strictObject({
@@ -104,6 +119,16 @@ const addUnitInput = z.strictObject({
 });
 
 const discardInput = z.strictObject({ id });
+
+/**
+ * **Find a different image**. The note is parsed again by `parseReviewerNote`
+ * — one line, at most `REVIEWER_NOTE_MAX_CHARS` once cleaned — and a longer
+ * one is `invalid_field`, never silently cut.
+ */
+const differentImageInput = z.strictObject({
+  id,
+  note: z.string().max(2000).nullable().optional(),
+});
 
 const identityInput = z.strictObject({
   id,
@@ -170,6 +195,31 @@ export async function savePendingIdentity(input: unknown): Promise<IntakeActionR
         brand: parsed.brand,
       });
       return updated.ok ? { ok: true } : { ok: false, error: updated.reason };
+    }
+  );
+}
+
+/**
+ * **Find a different image** — the image stage alone, again, for a researched
+ * item, with the reviewer's optional note (amendment "Product-page first,
+ * front-facing images, reviewer notes"). `tools.approve`, like the page. Costs
+ * one against the caller's daily research allowance (`daily_limit` past it),
+ * refuses while a run is already going (`image_retry_running`) and says
+ * `start_failed` when the workflow would not start. The page polls for the
+ * result.
+ */
+export async function requestDifferentImage(input: unknown): Promise<IntakeActionResult> {
+  return run(
+    "tools.approve",
+    differentImageInput,
+    input,
+    async (identity, parsed): Promise<IntakeActionResult> => {
+      const userId = identity.userId;
+      if (!userId) return { ok: false, error: "not_signed_in" };
+      const note = parseReviewerNote(parsed.note);
+      if (note === "too_long" || note === "invalid") return { ok: false, error: "invalid_field" };
+      const result = await requestImageRetry({ userId }, { id: parsed.id, note });
+      return result.ok ? { ok: true } : { ok: false, error: result.error };
     }
   );
 }

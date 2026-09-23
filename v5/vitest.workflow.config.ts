@@ -18,8 +18,13 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  *   outside Vite's module graph.** So `vi.mock()` does not reach it, and
  *   neither do this config's aliases — the step bundle inlines project files
  *   itself and leaves packages external. A model call inside a step is stubbed
- *   with an MSW handler on the provider's host (`api.anthropic.com` for the
- *   default path in `src/lib/model.ts`); MSW does reach step code.
+ *   with MSW on the Vercel AI Gateway's endpoint
+ *   (`https://ai-gateway.vercel.sh/v3/ai`, the provider's default base), in the
+ *   Gateway's own wire format — `gatewayHandlers` from `test/gateway/msw.ts`
+ *   with the builders in `test/gateway/wire.ts`; MSW does reach step code. A
+ *   test stubs `AI_GATEWAY_API_KEY` with any value so the provider can build
+ *   its headers. Host names resolve through `test/web/resolver.ts`, which lives
+ *   on `globalThis` so the step bundle's copy of the page reader sees it.
  * - **A step must not import `server-only`**, directly or transitively: the
  *   bundle loads packages from `node_modules` at runtime, where that package
  *   throws outside a React server build.

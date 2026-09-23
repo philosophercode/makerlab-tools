@@ -20,7 +20,7 @@ the catalog to external agents. White-labelled via env vars.
 
 - **Next.js 16** (App Router, React Server Components, `cacheComponents` enabled), **React 19**, **TypeScript**, **Tailwind CSS 4**.
 - **i18n:** `next-intl`, **12 locales**, cookie-based (`NEXT_LOCALE`) — no URL-prefix routing. Config in `src/i18n/config.ts`; messages in `messages/*.json`.
-- **AI:** Vercel **AI SDK v6** (`ai`, `@ai-sdk/react`) with `@ai-sdk/anthropic` → `claude-sonnet-4-6`. Markdown via `react-markdown` + `remark-gfm`.
+- **AI:** Vercel **AI SDK v6** (`ai`, `@ai-sdk/react`) through the **Vercel AI Gateway** (`@ai-sdk/gateway`) — the *only* model path (gateway spec 2026-09-23: `ANTHROPIC_API_KEY` and `@ai-sdk/anthropic` are retired; no live code path reads either — the now-unimported `src/lib/model.ts` and the `@ai-sdk/anthropic` entry in `package.json` remain only until their removal is approved). Every model call names a **job**, not a model — `chat`, `researchSearch`, `researchRead`, `imageRank` — resolved by `src/lib/ai/models.ts`'s `MODEL_JOBS`, each with a code default (`anthropic/claude-sonnet-5` for chat — Luna missed the §10 eval gate —, `openai/gpt-6-luna` for the others) and one `MODEL_<JOB>` env override. There is **no image model**: the `imageClean` redraw was retired on 2026-09-23 because it altered product labels (spec amendment "No generative redraw"); background removal is a deterministic cutout in code. Web search is `gateway.tools.exaSearch` (Exa, provider-executed — one request leaves our process regardless of how many search legs the Gateway runs); reading a specific page is `read_page`, our own capability tool over `src/lib/web/*`'s SSRF-guarded fetch, not a provider tool. Auth is `AI_GATEWAY_API_KEY` when set, else the deployment's own Vercel OIDC token — production sets neither key nor a fallback, only the Gateway. Markdown via `react-markdown` + `remark-gfm`.
 - **MCP:** `@modelcontextprotocol/sdk` (HTTP JSON-RPC server at `/api/mcp`).
 - **Validation:** `zod`. **Search:** `match-sorter` (fuzzy, ranked).
 
@@ -35,8 +35,25 @@ suite run with no credentials and no network. See `.env.example` for the full
 variable list.
 
 - `src/lib/db/client.ts` — the one entry point: `getDb()` (a Drizzle handle),
-  `dataSubstrate()` (`"neon" | "pglite-demo"`), `pingDb()` (throws
-  `DbUnavailableError`), `resetDbForTests()`.
+  `dataSubstrate()` (`"neon" | "pglite-local" | "pglite-demo"`), `pingDb()`
+  (throws `DbUnavailableError`), `resetDbForTests()`.
+- **Local database (`PGLITE_DATA_DIR`).** Precedence is `DATABASE_URL` >
+  `PGLITE_DATA_DIR` > demo seed. With `DATABASE_URL` unset and
+  `PGLITE_DATA_DIR` set (e.g. `.pglite-data`, git-ignored; relative to `v5/`),
+  `getDb()` opens a **persistent** PGlite in that directory — created if
+  missing, migrated on every open, **never demo-seeded** — as substrate
+  `"pglite-local"`: no `DemoDataBanner`, `/api/health` answers
+  `"database": "local"`, `"catalog": "live"`. It exists to import the real
+  Notion inventory and review it in the dev app before importing into Neon.
+  Local only: `localDataDir()` (`src/lib/db/local-dir.ts`) **throws** on Vercel
+  or with `NODE_ENV=production`, so unset it before `next build`.
+  **Single-process:** `dir/lock` holds the owner's pid
+  (`src/lib/db/pglite-lock.ts`); a second process gets `PgliteLockedError`
+  ("in use by process N … stop that process"), so **stop `npm run dev` while an
+  import, `verify:import` or `db:migrate` runs against it**. A stale lock (dead
+  pid) is taken over; a failed open is not memoised, so the dev server recovers
+  on the next request. The cluster itself is `dir/pgdata`. Vitest and the E2E
+  servers blank the variable.
 - `src/lib/db/schema/index.ts` — tables and vocabulary constants (stored
   snake_case, e.g. `in_use`; display text is derived, never stored).
 - `src/lib/catalog.ts` — orchestration: fetch + join + derive `MakerLabTool`s
@@ -46,7 +63,10 @@ variable list.
   guard every untrusted id passes before it reaches a uuid column) and
   `notion-ids.ts`. Relative imports with `.ts` extensions, no `@/` alias, no
   `"server-only"` — `scripts/` loads them under plain Node.
-- **Notion is read only by the one-time import** (`npm run import:notion`).
+- **Notion is read only by the one-time import** (`npm run import:notion`;
+  target per `src/lib/import/target.ts`: `--dry-run` → memory, else
+  `DATABASE_URL`, else `PGLITE_DATA_DIR`; `verify:import` and `db:migrate`
+  follow the same order).
   No request path reads Notion *as data*. The one-way mirror (app → an admin's
   own Notion workspace, Phase 8) writes to Notion through its own client in
   `src/lib/mirror/` — see "The Notion mirror" below.
@@ -85,8 +105,17 @@ variable list.
   `<AUTH_BASE_URL>/api/dev-blob/<pathname>`, served by that route (404 for
   private files and outside local mode); `next.config.ts` allows those URLs for
   `next/image` in dev only. `BLOB_LOCAL_DISABLE=1` forces "none" — the Vitest
-  setup sets it, so tests opt in to local mode with a temp `cwd`. The Notion
-  import still requires a real token (`createVercelBlobUploader`).
+  setup sets it, so tests opt in to local mode with a temp `cwd`.
+  `BLOB_LOCAL_DIR` (test-only) moves the folder and is the one thing that
+  allows the local store in a production build (never on Vercel): the intake
+  E2E's second `next start` server uses it to store and publish the cleaned
+  product image. The Notion
+  import's file store depends on its target (`src/lib/import/target.ts`,
+  `uploaderForTarget`): a `DATABASE_URL` target still requires a real token
+  (`createVercelBlobUploader` — a shared database must never hold localhost
+  URLs); a `PGLITE_DATA_DIR` target uses `createBlobUploader()`, i.e.
+  `.blob-data/` with `<AUTH_BASE_URL>/api/dev-blob/…` URLs when there is no
+  token.
 - **Failing toward stale, not wrong (Article 4).** `DATABASE_URL` unset serves
   the PGlite demo seed with `DemoDataBanner` shown. `DATABASE_URL` set but
   unreachable never falls back to demo or invented data — cached pages keep
@@ -333,10 +362,11 @@ Phase 5 extends both. The shape it sets:
   picks is the whole of that decision, which is why they are two functions and
   not one with a flag.
 
-## Adding equipment (`pending_tools`, Phase 6)
+## Adding equipment (`pending_tools`, Phase 6; the image stage is gateway spec §3.5)
 
-Two steps with a person between them (spec §5.4). **Identify** in the chat,
-**research** in the background, **approve** on `/admin/intake` — research never
+Three steps with a person at the end (spec §5.4). **Identify** in the chat,
+**research** in the background — which now includes finding a product image —
+**approve** on `/admin/intake`, choosing the image there — research never
 creates a tool (Article 5).
 
 - **The chat identifies and nothing more.** `identify_tools`
@@ -355,22 +385,98 @@ creates a tool (Article 5).
   and the same POST is the Retry.
 - **Research is a Workflow SDK run** (`src/workflows/research-batch.ts`, steps
   in `src/lib/research/steps.ts`): three items at a time by chunked
-  `Promise.allSettled`, two steps per item (search, then fetch and verify),
+  `Promise.allSettled`, two model steps per item (search with `exa_search`,
+  then a read step that fetches its candidate pages itself with `readPage` and
+  hands the model their text, rather than giving the model a fetch tool),
   each with its own 240-second deadline and `maxRetries = 2` set as a property.
   The prompt, output parsing, error classification and assembly are
   `src/lib/research/*`. **Confidence is computed in code** (`scoreConfidence`),
   and the model's reported evidence is only ever lowered to match what
   verification found — so "research found nothing" grades low, never medium.
   Step code runs under plain Node: relative imports, no `"server-only"`
-  anywhere below it, and `vi.mock` does not reach it under `@workflow/vitest`.
-  The research route imports `researchBatch`, which is what makes `next build`
-  compile the workflow at all.
+  anywhere below it, and `vi.mock` does not reach it under `@workflow/vitest`
+  (models are stubbed at the Gateway's HTTP boundary with `test/gateway/*`
+  instead). The research route imports `researchBatch`, which is what makes
+  `next build` compile the workflow at all.
+- **A third workflow step finds a product image** (gateway spec §3.5,
+  `src/lib/research/image-steps.ts`'s `findImages`), after the read step
+  succeeds: candidates from the read pages' `og:image`/`twitter:image`/JSON-LD
+  and from Exa's own image links, probed for real dimensions and format
+  (`src/lib/images/inspect.ts`, no deps), ranked by a model shown up to
+  `IMAGE_MAX_RANKED` of them, and — for the top candidate only — cleaned
+  (background removed). **Never a generative redraw** (spec amendment "No
+  generative redraw: deterministic cutout"): each probed candidate's
+  background is classified from its border pixels (`images/background.ts`:
+  `transparent` / `plain` / `busy`, recorded on the candidate); ranking is
+  told the class and a clean background wins a close call (`images/rank.ts`,
+  `BUSY_PENALTY`). Candidates include the pages' gallery `<img>`s, and size
+  variants count once (`web/image-url.ts`); ranking also flags **composites**
+  (banners, price overlays, collages — ranked below every plain photo, tagged
+  "Banner") and boxes the product, and a rank 1 that is a composite, busy or
+  small in its frame is **cropped** to that box, then cut when the crop's
+  backdrop is plain (`images/crop.ts`, `images/clean-copy.ts`;
+  `cleaned.kind` `cropped_and_cut` / `cropped` — amendment "Composites and
+  product crop"). Otherwise a `plain` rank 1 is cut out by a flood fill from the frame
+  that keeps the original's pixels (`images/clean.ts` — validated, feathered,
+  trimmed; a rejected cut records `images.cleanNote`); a `transparent` rank 1
+  *is* the clean version and gets no copy; a `busy` one gets none either
+  (`cleanNote: "busy_background"`). `sharp` does the decoding, loaded through
+  `images/downscale.ts`'s guarded `loadSharp` (Next's own dependency; without
+  it nothing is classified or cut). **Cleaning needs a Blob store**; with none
+  configured the stage skips it and offers the research candidates alone (the
+  intake E2E runs on a server with a local store, so it cuts the stub's
+  plain-backdrop product out, picks the cleaned copy and sees it in the
+  gallery — see `e2e/intake.spec.ts`). The result is `images` on
+  the stored `ResearchResult` (`src/lib/research/result.ts`): up to three
+  ranked candidates plus the cleaned copy's private attachment id, or
+  `imageError` when the stage failed — never a reason to fail research itself.
+- **Nothing is stored until approval.** The preliminary page's "Product image"
+  control (spec §3.5, the *ProductImage* group) offers the cleaned copy (when
+  there is one), each ranked candidate with a "From `<host>`" attribution, and
+  "No image" — a choice, not a default. `GET
+  /api/pending-tools/[id]/cleaned-image` streams the private cleaned PNG to a
+  reviewer holding `tools.approve`, rate-limited; nothing else can read it.
+- **Product page first, front-facing covers, reviewer corrections** (gateway
+  spec amendment "Product-page first, front-facing images, reviewer notes").
+  `research/source-pages.ts` classifies a URL from its address (the brand's
+  product page, a manual/wiki/support page, a video). The read step always
+  reads a found product page, videos go last, and a video never satisfies
+  `manufacturerPageFound` / `specsFromSource`. Ranking also reports each image's
+  `view`, and back views, details and parts sort last. **Research again** takes an
+  optional one-line note (≤300, `tools.approve`, fenced in both prompts,
+  recorded as `research.reviewerNote`). **Find a different image**
+  (`requestDifferentImage` → `src/workflows/image-retry.ts` →
+  `research/image-retry-steps.ts`) reruns only the image stage, with its own note
+  and at most one Exa search. It costs one against the daily allowance, keeps its
+  state in `research.imageRetry` (no migration) and replaces `research.images`,
+  releasing the old cleaned copy. **A step module exports only steps**: the
+  shared probe/rank/clean middle is `research/image-stage.ts`, imported directly,
+  because a workflow bundle keeps every export of a step module (a re-export once
+  pulled `guardedFetch` into it and broke `next dev`).
+- **A page our server cannot open is read from the search's copy** (gateway
+  spec amendment "Search text fallback and confidence cap"). Research's Exa
+  search returns page text (12k chars per result); `searchItem` carries the
+  texts of candidate pages (`research/search-text.ts`), and the read step uses
+  one when `readPage` failed (403 bot challenge, 429, timeout), was too large or
+  had no text — never for a `blocked` (SSRF-guard) result. It is fenced and
+  labelled "text captured by search", recorded as `research.searchTextSources`,
+  and counts for `manufacturerPageFound` / `specsFromSource` only when it is the
+  brand's product page. **Confidence is capped at medium** when every page read
+  was a video, or none was (`readCap` in `capabilities/confidence.ts`), and the
+  strip says why.
 - **Approval is one transaction** (`approvePendingTool` / `approvePendingAsUnit`
   in `src/lib/data/pending-tools.ts`), composed with the audit trail and
   `invalidateCatalog()` by `src/lib/intake/approve.ts`. Approving published
   records `pending.approved` **and** `tool.published`; a lost audit event is a
-  warning on a success, as everywhere else. Low confidence keeps both Approve
-  buttons off until "I've checked this" is ticked and a note written.
+  warning on a success, as everywhere else. **The image choice is resolved
+  here too:** "cleaned" promotes the already-stored private attachment to
+  public; "original" downloads the candidate's own URL and stores it (both as
+  `attachments.origin`, `research_image` / `research_image_cleaned` — see
+  C11 in the gateway spec); a download or store failure is never a reason to
+  fail the rest of the approval — it is the `image_not_attached` warning
+  (`admin.warnings.image_not_attached`), the same "warning on a landed write"
+  shape every admin surface uses. Low confidence keeps both Approve buttons off
+  until "I've checked this" is ticked and a note written.
 - **The daily cron expires what nobody researched.** `identified` rows older
   than 14 days are discarded and their photos released (`runPendingExpiry`),
   just before the orphan sweep deletes them from Blob.
@@ -490,7 +596,20 @@ is copied into Blob once, and the tool page and the chat prefer the copy.
 | `src/lib/data/pending-tools.ts` | `pending_tools`: the batch, every status transition as a conditional write, and the two approval transactions |
 | `src/lib/data/duplicates.ts` / `tool-create.ts` | The intake duplicate check (same normalisation in TypeScript and SQL), and `createToolRecord` — one tool with its units and resources, slug retried in a savepoint |
 | `src/lib/intake/*` | Client-safe intake types, limits and `canActOnPendingTool` / `isResearchable`; `approve.ts` composes approval with audit and invalidation |
-| `src/lib/research/*` | The research engine: `prompt`, `model-output`, `errors`, `taxonomy-match`, `assemble`, `verify-links`, `result` (the `ResearchResult` schema) and `steps` (the workflow's steps) |
+| `src/lib/research/*` | The research engine: `prompt`, `model-output`, `errors`, `taxonomy-match`, `assemble`, `verify-links`, `result` (the `ResearchResult` schema, `ImageCandidate`/`ResearchImages`), `step-types` (the steps' shared result types) and `steps` / `image-steps` (the workflow's steps) |
+| `src/lib/research/images/*` | The image stage's parts: `candidates`, `probe` (SSRF-guarded download, then `background`'s `transparent`/`plain`/`busy` classification), `rank` (the vision call, plus the `BUSY_PENALTY` nudge and composites last), `crop` (the product box: validation, padding, the crop), `clean-copy` (what rank 1's cleaned copy is: crop, cut, both or none), `clean` (the deterministic flood-fill cutout and its validation — never a generative redraw), `pixels` (RGBA decoding and border helpers), `downscale` (`loadSharp`, and the ranking model's JPEG view) |
+| `src/lib/ai/models.ts` | The job registry (gateway spec §3.1) — `MODEL_JOBS` (language jobs only; the image job was retired), `modelIdFor`/`languageModelFor`, `gatewayProvider()`. No `"server-only"`: step code imports it |
+| `src/lib/ai/gateway-errors.ts` | `classifyModelError` — a Gateway failure in the app's own words (`model_not_found`, `auth`, `rate_limited`, …), never a provider's |
+| `src/lib/ai/exa.ts` | `chatExaSearch()` / `researchExaSearch()` — the Gateway's provider-executed web search; `countExaCalls` / `exaImageHints` read it back off `result.steps` |
+| `src/lib/ai/tool-caps.ts` | `countToolCalls` / `activeToolsWithinCaps` — the chat's `prepareStep` cap that drops a tool from `activeTools` once its call budget is spent (between steps only: `read_page` also enforces its cap inside the tool; research's Exa budget is advisory, one Gateway request, logged on overshoot) |
+| `src/lib/web/read-page.ts` | `readPage()` — the read step's and the chat's `read_page` tool's page fetch: HTML/PDF, capped, timed out, never throws for an expected failure |
+| `src/lib/web/guarded-fetch.ts` / `address-guard.ts` | The SSRF guard everything above reads through — `readPage`, the image probe, approval's download of a chosen original, link verification (`research/verify-links.ts`, since the gateway migration: a model-proposed resource link to a private address is dropped unopened), the manual archiver's download (`manuals/archive.ts`) and the chat's download of a manual from its source link (`chat/fetch-manual-pdf.ts`; the app's own Blob copies are fetched plainly) — refuses loopback/private/link-local/metadata addresses, `READ_PAGE_TEST_ORIGIN` exempts one exact origin for tests only |
+| `src/lib/web/html-text.ts` | `extractPage()` — a page's readable text plus its `og:image`/`twitter:image`/JSON-LD product image, no HTML parser dependency |
+| `src/lib/images/inspect.ts` | `inspectImage()` — a JPEG/PNG/WebP's real dimensions and alpha channel from its header bytes, no deps |
+| `src/lib/research/image-steps.ts` | `findImages` (probe, rank, clean the top candidate, write `images`) / `completeWithoutImages` — the workflow's third step per item |
+| `src/lib/research/image-stage.ts` / `image-retry-steps.ts` | The image stage's shared probe → rank → clean (no steps, never exported through a step module); **Find a different image**'s step, run by `src/workflows/image-retry.ts` |
+| `src/lib/research/source-pages.ts` | Product page vs manual/wiki/support vs video, from the URL — page order for reading, image source weighting, the video evidence rule |
+| `src/app/api/pending-tools/[id]/cleaned-image/route.ts` | Streams the private cleaned PNG to a reviewer holding `tools.approve`; 404 otherwise |
 | `src/workflows/research-batch.ts` | `researchBatch` — the `"use workflow"` function, started only by the research route |
 | `src/app/api/pending-tools/research/route.ts`, `[id]/route.ts` | **Research selected** and the table card's edits |
 | `src/app/admin/intake/` | The queue (`IntakeList`, polls while research runs) and each item's preliminary page (`PreliminaryToolPage`, `ConfidenceStrip`) with their server actions |
@@ -525,7 +644,7 @@ is copied into Blob once, and the tool page and the chat prefer the copy.
 | `src/lib/data/audit.ts` | `audit_events` — insert and select, never update or delete |
 | `src/lib/db/schema/auth.ts` | Better Auth's four tables; property keys are its field names |
 | `src/lib/types.ts` / `src/components/catalog-types.ts` | Notion record types / resolved view types |
-| `src/app/api/chat/route.ts` | Claude chat: streaming, capability tools (`get_unit_details`, `report_issue`, `identify_tools`, …) plus `web_search` / `web_fetch`, PDF manual attach |
+| `src/app/api/chat/route.ts` | The chat: streaming, through the Gateway (job `chat`); capability tools (`get_unit_details`, `report_issue`, `identify_tools`, `read_page`, …) plus `exa_search` (added directly, like the retired `web_search` before it — not a capability), PDF manual attach |
 | `src/app/api/mcp/route.ts` | MCP JSON-RPC server (5 tools), bearer-token auth |
 | `src/app/api/uploads/route.ts` | The one upload route → Vercel Blob + an `attachments` row |
 | `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup, then the mirror backstop, then the manual archive backfill |
@@ -559,7 +678,7 @@ is copied into Blob once, and the tool page and the chat prefer the copy.
 
 ## Testing
 
-Comprehensive, **fully-mocked** suite (no live Notion/Anthropic/Redis/Postgres —
+Comprehensive, **fully-mocked** suite (no live Notion/Gateway/Redis/Postgres —
 Article 3). Run everything with one command:
 
 ```bash
@@ -578,15 +697,29 @@ first), `npm run test:coverage`.
   store"; the local-store tests opt in and write to a temp folder.
   Only the mirror writes Notion; its tests talk to an in-memory Notion
   (`test/fakes/notion-fake.ts`) through MSW, never to `api.notion.com`.
-- **Two Vitest projects.** `unit` is the existing config; `workflow`
-  (`vitest.workflow.config.ts`) runs `*.workflow.test.ts` under
-  `@workflow/vitest`, where the model is stubbed with MSW on
-  `api.anthropic.com` because `vi.mock` does not reach step code.
+- **Every model call is stubbed, at one of two seams, and never with a
+  provider-specific mock** (never `vi.mock("@ai-sdk/gateway")` or
+  `"@ai-sdk/anthropic"` — the latter is unused and proposed for removal):
+  - **`test/ai/models-stub.ts`** — `vi.mock("@/lib/ai/models", …)` swaps
+    `languageModelFor` for a `MockLanguageModelV3` (from `ai/test`) built
+    with `textModel`, `toolCallModel`, `scriptedModel`, etc. This is
+    the seam for anything that imports the registry directly — most unit and
+    route-integration tests.
+  - **`test/gateway/*`** — `wire.ts` (dependency-free request/response
+    builders matching the Gateway's own wire format), `msw.ts`
+    (`gatewayHandlers({ language?, image? })`, MSW handlers over it) and
+    `png.ts` (`makePng`, a real decodable PNG with or without alpha, and
+    `makeProductPng`, a product on a plain white backdrop — both no deps).
+    `test/images/synthetic.ts` paints synthetic photos with `sharp` for the
+    classifier and cutout tests. This is the seam for the **workflow tier**
+    (`*.workflow.test.ts` under `@workflow/vitest`, where `vi.mock` does not
+    reach step code) — it now talks to `https://ai-gateway.vercel.sh`
+    (stubbed by MSW), not `api.anthropic.com`.
 - E2E boots its own server on **port 3100** with `DATABASE_URL` unset (PGlite demo catalog) and intercepts `/api/chat` — it never touches your `:3000` dev server or real services.
-- **The intake E2E is the exception** (`e2e/intake.spec.ts`): it needs `identify_tools` and the research workflow to run server-side, so the model is stubbed at the provider boundary by a second local server (`e2e/stubs/anthropic-stub.ts`, reached through `ANTHROPIC_BASE_URL`), and the workflow runs on the SDK's local world. It is its own Playwright project that runs after every other spec, because approving publishes a third tool into the shared demo database.
+- **The intake E2E is the exception** (`e2e/intake.spec.ts`): it needs `identify_tools` and the research workflow (including the image stage) to run server-side, so the model is stubbed at the Gateway's own wire format by a second local server (`e2e/stubs/gateway-stub.ts`, reached through `AI_GATEWAY_BASE_URL`, using the same `test/gateway/wire.ts`/`png.ts` builders under `node --experimental-strip-types`), and `READ_PAGE_TEST_ORIGIN` exempts that one loopback origin from the SSRF guard so the read step and `read_page` can reach the stub's own pages. The workflow runs on the SDK's local world. It is its own Playwright project, run after every other spec, **against its own server**: the same build started again on port 3103 with a local Blob folder (`BLOB_LOCAL_DIR=.blob-data-e2e`), so the image stage cleans the top candidate, the review page shows it through the cleaned-image route, and the test picks it and sees it on the gallery card — while the main server keeps the "uploads unavailable" branch `projects.spec.ts` asserts. Its demo database is separate, so the approved tool never reaches `gallery.spec.ts`'s count.
 - **The mirror E2E** (`e2e/mirror.spec.ts`) is the same shape: Notion is a local stub (`e2e/stubs/notion-stub.ts`, port 3102, reached through `NOTION_API_BASE_URL`) serving the same fake, and the project runs after `intake`, last of all.
 - Tests are colocated (`*.test.ts(x)` next to source); shared harness in `test/`.
-- **Read these before writing tests:** `TESTING.md` (runbook), `test/README.md` (harness internals + the `streamText`-capture and env-stubbing patterns), and `docs/specs/2026-05-29-v5-test-suite-design.md` (design + coverage matrix). The harness deps/scripts are already wired — don't hand-edit `package.json` for them.
+- **Read these before writing tests:** `TESTING.md` (runbook), `test/README.md` (harness internals, the two model-stubbing seams above, and env-stubbing patterns), and `docs/specs/2026-05-29-v5-test-suite-design.md` (design + coverage matrix). The harness deps/scripts are already wired — don't hand-edit `package.json` for them.
 
 ## Commands
 

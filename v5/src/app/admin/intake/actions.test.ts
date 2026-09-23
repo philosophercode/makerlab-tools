@@ -19,6 +19,11 @@ vi.mock("../../../lib/auth/permissions", async (importOriginal) => {
   };
 });
 
+/** `start()` for Find a different image — the workflow tier has its own tests. */
+const wf = vi.hoisted(() => ({ start: vi.fn(), findDifferentImage: vi.fn() }));
+vi.mock("workflow/api", () => ({ start: wf.start }));
+vi.mock("../../../workflows/image-retry", () => ({ findDifferentImage: wf.findDifferentImage }));
+
 /** The audit insert failing on its own, after the approval committed. */
 const audit = vi.hoisted(() => ({ failing: false }));
 
@@ -57,6 +62,7 @@ import {
   approvePending,
   approvePendingAsDraft,
   discardPending,
+  requestDifferentImage,
   savePendingIdentity,
 } from "./actions";
 
@@ -83,6 +89,8 @@ beforeEach(async () => {
   resetAuthForTests();
   override.permissions = null;
   audit.failing = false;
+  wf.start.mockReset();
+  wf.start.mockResolvedValue({ runId: "wrun_image" });
   vi.mocked(revalidateTag).mockClear();
   vi.mocked(revalidatePath).mockClear();
 
@@ -361,6 +369,81 @@ describe("approvePending and approvePendingAsDraft", () => {
   });
 });
 
+describe("the product image choice", () => {
+  const IMAGE_URL = "https://images.example.com/p1s.png";
+
+  function withImages(): ResearchResult {
+    return research({
+      images: {
+        candidates: [
+          {
+            url: IMAGE_URL,
+            pageUrl: "https://example.com/p1s",
+            source: "og",
+            width: 1200,
+            height: 900,
+            contentType: "image/png",
+            rank: 1,
+            reason: "Front on.",
+          },
+        ],
+        cleaned: { attachmentId: crypto.randomUUID(), fromUrl: IMAGE_URL },
+      },
+    });
+  }
+
+  it("parses the choice strictly, and a shape that does not parse reaches nothing", async () => {
+    const id = await researchedItem(withImages());
+
+    for (const image of [
+      { choice: "cleaned", candidateUrl: IMAGE_URL },
+      { choice: "original" },
+      { choice: "original", candidateUrl: "" },
+      { choice: "original", candidateUrl: `https://example.com/${"x".repeat(2048)}` },
+      { choice: "stock photo" },
+      "cleaned",
+    ]) {
+      expect(await approvePending({ id, fields: { ...fields(), image } })).toEqual({
+        ok: false,
+        error: "invalid_field",
+      });
+    }
+    expect(await toolCount()).toBe(2);
+  });
+
+  it("refuses an original research never recorded, before anything is downloaded", async () => {
+    const id = await researchedItem(withImages());
+
+    expect(
+      await approvePending({
+        id,
+        fields: { ...fields(), image: { choice: "original", candidateUrl: "http://169.254.169.254/" } },
+      })
+    ).toEqual({ ok: false, error: "invalid_field" });
+    expect(await toolCount()).toBe(2);
+  });
+
+  it("approves without the image and says so when it cannot be attached (no Blob store here)", async () => {
+    const id = await researchedItem(withImages());
+
+    const result = await approvePending({ id, fields: { ...fields(), image: { choice: "cleaned" } } });
+
+    expect(result).toMatchObject({ ok: true, published: true, warning: "image_not_attached", imageAttached: false });
+    expect(await toolCount()).toBe(3);
+    const [event] = await db.select().from(auditEvents).where(eq(auditEvents.subjectId, id));
+    expect(event.detail).toMatchObject({ image: { choice: "cleaned", attached: false } });
+  });
+
+  it("takes an explicit none like no choice at all", async () => {
+    const id = await researchedItem(withImages());
+
+    const result = await approvePendingAsDraft({ id, fields: { ...fields(), image: { choice: "none" } } });
+
+    expect(result).toMatchObject({ ok: true, published: false, imageAttached: false });
+    expect(result).not.toHaveProperty("warning");
+  });
+});
+
 describe("addPendingUnit", () => {
   it("adds the unit to the tool it matched", async () => {
     const id = await unitItem("F4-NEW-1");
@@ -427,3 +510,75 @@ describe("discardPending and savePendingIdentity", () => {
     expect(item?.duplicateOf).toMatchObject({ kind: "tool", slug: "form-4" });
   });
 });
+
+describe('Find a different image (amendment "Product-page first, front-facing images, reviewer notes")', () => {
+  const images = {
+    candidates: [
+      {
+        url: "https://example.com/p1s-back.jpg",
+        pageUrl: "https://example.com/p1s",
+        source: "og" as const,
+        width: 1200,
+        height: 900,
+        contentType: "image/jpeg" as const,
+        rank: 1 as const,
+        reason: "back",
+        view: "back" as const,
+      },
+    ],
+    cleaned: null,
+  };
+
+  it("refuses an anonymous caller and one holding only the adjacent permission, and starts nothing", async () => {
+    const id = await researchedItem(research({ images }));
+    setMockHeaders();
+    expect(await requestDifferentImage({ id, note: null })).toEqual({ ok: false, error: "not_signed_in" });
+
+    const signedIn = await signInAsNew({ email: "maker@cornell.edu", role: "admin" });
+    setMockHeaders({ cookie: signedIn.cookie });
+    override.permissions = new Set(["tools.add", "tools.edit", "tools.publish"]);
+    expect(await requestDifferentImage({ id, note: null })).toEqual({ ok: false, error: "not_permitted" });
+    expect(wf.start).not.toHaveBeenCalled();
+    expect((await getPendingTool(id))?.research?.imageRetry).toBeUndefined();
+  });
+
+  it("marks the run, charges the allowance and starts the workflow with the cleaned note", async () => {
+    const id = await researchedItem(research({ images }));
+    expect(await requestDifferentImage({ id, note: "  a front-facing photo\nof the whole printer " })).toEqual({ ok: true });
+
+    const retry = (await getPendingTool(id))?.research?.imageRetry;
+    expect(retry).toMatchObject({ status: "running", note: "a front-facing photo of the whole printer", error: null });
+    expect(wf.start).toHaveBeenCalledWith(wf.findDifferentImage, [retry!.requestId, id, "a front-facing photo of the whole printer"]);
+    expect(vi.mocked(revalidatePath)).toHaveBeenCalledWith(`/admin/intake/${id}`);
+
+    // A second press while it runs is refused, and starts nothing more.
+    expect(await requestDifferentImage({ id, note: null })).toEqual({ ok: false, error: "image_retry_running" });
+    expect(wf.start).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses a note over the cap without starting anything", async () => {
+    const id = await researchedItem(research({ images }));
+    expect(await requestDifferentImage({ id, note: "x".repeat(301) })).toEqual({ ok: false, error: "invalid_field" });
+    expect(wf.start).not.toHaveBeenCalled();
+  });
+
+  it("says start_failed, and marks the run failed, when the workflow will not start", async () => {
+    const id = await researchedItem(research({ images }));
+    wf.start.mockRejectedValueOnce(new Error("world unavailable"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await requestDifferentImage({ id, note: null })).toEqual({ ok: false, error: "start_failed" });
+    expect((await getPendingTool(id))?.research?.imageRetry?.status).toBe("failed");
+  });
+
+  it("counts against the daily research limit", async () => {
+    const id = await researchedItem(research({ images }));
+    const { RESEARCH_DAILY_ITEM_LIMIT } = await import("../../../lib/intake/limits");
+    const { researchRequests } = await import("../../../lib/db/schema/index");
+    await db.insert(researchRequests).values(
+      Array.from({ length: RESEARCH_DAILY_ITEM_LIMIT }, () => ({ requestId: crypto.randomUUID(), userId: adminId, pendingToolId: null }))
+    );
+    expect(await requestDifferentImage({ id, note: null })).toEqual({ ok: false, error: "daily_limit" });
+    expect(wf.start).not.toHaveBeenCalled();
+  });
+});
+

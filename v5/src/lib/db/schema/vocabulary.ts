@@ -97,6 +97,25 @@ export const ATTACHMENT_ACCESS = ["public", "private"] as const;
 export type AttachmentAccess = (typeof ATTACHMENT_ACCESS)[number];
 
 /**
+ * How a file came to be stored (gateway spec §4.2): a person's upload, the
+ * Notion import, the manual archiver's copy of a manufacturer PDF, a product
+ * image an admin chose at approval, or the background-removed copy research
+ * made of one. Null on rows written before migration `0008`.
+ *
+ * It is what tells a cleaned candidate from a person's own photo when both are
+ * owned by the same pending item — "an uploaded photo" is `origin` null or
+ * `upload`, never a `research_image*` row.
+ */
+export const ATTACHMENT_ORIGIN = [
+  "upload",
+  "import",
+  "manual_archive",
+  "research_image",
+  "research_image_cleaned",
+] as const;
+export type AttachmentOrigin = (typeof ATTACHMENT_ORIGIN)[number];
+
+/**
  * What a Notion mirror pushes, one Notion database each (spec §3.8, §4.12).
  *
  * **Declared in dependency order, and that order is the push order**: a tool

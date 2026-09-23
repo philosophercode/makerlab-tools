@@ -24,11 +24,22 @@ export const IDENTITY_ENDPOINT = "/api/identity";
 
 const PROVIDER = "google";
 
-/** What `/api/identity` tells the browser. Deliberately no email — see §8 (PII). */
+/**
+ * What `/api/identity` tells the browser.
+ *
+ * `email` and `image` are the signed-in person's own, and are present only for
+ * them — the route never sends either to an anonymous caller (the profile menu,
+ * 2026-09-23; §8 still keeps everyone else's address server-side). Both are
+ * optional so an identity without them is still a whole identity.
+ */
 export interface ClientIdentity {
   role: Role;
   /** Display name from Google, or null when anonymous (or when Google had none). */
   name: string | null;
+  /** The signed-in person's own address. Absent when anonymous. */
+  email?: string | null;
+  /** Google profile photo URL. Absent when anonymous or when Google had none. */
+  image?: string | null;
 }
 
 /** True when this identity may show a name and a sign-out control. */
@@ -62,10 +73,15 @@ export async function fetchIdentity(
     if (!res.ok) return null;
     const body = (await res.json()) as Partial<ClientIdentity> | null;
     if (!body || typeof body.role !== "string") return null;
-    return {
+    const identity: ClientIdentity = {
       role: body.role as Role,
       name: typeof body.name === "string" && body.name ? body.name : null,
     };
+    // Only carried when the server sent a usable value, so an anonymous answer
+    // keeps its two-field shape.
+    if (typeof body.email === "string" && body.email) identity.email = body.email;
+    if (typeof body.image === "string" && body.image) identity.image = body.image;
+    return identity;
   } catch {
     return null;
   }

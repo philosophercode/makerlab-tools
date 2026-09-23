@@ -35,6 +35,9 @@ function toolStatusLabel(partType: string, t: ChatT): string {
   if (partType === "tool-get_unit_details") return t("lookingUpUnit");
   if (partType === "tool-report_issue") return t("filingTicket");
   if (partType === "tool-identify_tools") return t("identifyingEquipment");
+  // Web search runs inside the Gateway, but its call still streams as a tool part.
+  if (partType === "tool-exa_search") return t("searchingWeb");
+  if (partType === "tool-read_page") return t("readingPage");
   return t("working");
 }
 

@@ -223,6 +223,9 @@ export async function POST(req: NextRequest) {
       sizeBytes: file.size,
       originalFilename: file.name || "upload",
       uploadedBy: identity.userId,
+      // A person's own file — what tells it apart from a research image owned
+      // by the same pending item (gateway spec §4.2).
+      origin: "upload",
     });
     attachmentId = created.id;
   } catch (err) {

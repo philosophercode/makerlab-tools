@@ -9,8 +9,8 @@ import paths), see [`test/README.md`](./test/README.md).
 ## Overview
 
 The suite has four layers, all **fully mocked — no live services**. Tests never
-hit Postgres, Notion, Anthropic, or Upstash; there are no API keys and no
-network cost. Everything is deterministic and offline.
+hit Postgres, Notion, the Vercel AI Gateway, or Upstash; there are no API keys
+and no network cost. Everything is deterministic and offline.
 
 | Layer | What | Where it lives | Runner |
 |---|---|---|---|
@@ -47,11 +47,15 @@ Playwright boots its own dev server (see E2E notes below), so no separate
 ## The mocking model
 
 - **MSW (Mock Service Worker)** intercepts all outbound HTTP: Notion
-  (`api.notion.com/v1/*`), the Anthropic web-fetch host, and the Upstash
-  `*/pipeline` REST endpoint. The node `server` lives in `test/msw/server.ts`;
-  default handlers in `test/msw/handlers.ts`. Lifecycle (start / reset / stop) is
-  managed in `vitest.setup.ts`. **Unhandled outbound requests fail the test by
-  design** (`onUnhandledRequest: "error"`).
+  (`api.notion.com/v1/*`), the Upstash `*/pipeline` REST endpoint, and — for
+  the workflow tier only, which `vi.mock` cannot reach — the Gateway
+  (`https://ai-gateway.vercel.sh`, via `test/gateway/msw.ts`'s
+  `gatewayHandlers`). Everywhere else, the model is stubbed one layer up, at
+  the registry (`test/ai/models-stub.ts`) — see "Stubbing the model" below.
+  The node `server` lives in `test/msw/server.ts`; default handlers in
+  `test/msw/handlers.ts`. Lifecycle (start / reset / stop) is managed in
+  `vitest.setup.ts`. **Unhandled outbound requests fail the test by design**
+  (`onUnhandledRequest: "error"`).
 - **The Notion mirror** (`src/lib/mirror/*`) is tested against a stateful
   in-memory Notion, `test/fakes/notion-fake.ts` (`createNotionFake`), which
   checks the bearer token and the `Notion-Version` header, validates page
@@ -158,14 +162,19 @@ window.
 deploy without one does. To test the local `.blob-data/` store, stub
 `BLOB_LOCAL_DISABLE` / `VERCEL` to `""` and `NODE_ENV` to `"development"`, and
 point `process.cwd()` at a temp folder (`src/lib/blob-local.test.ts`).
+`BLOB_LOCAL_DIR` (test-only) moves the folder and also allows the local store
+in a production build — the intake E2E server's switch; never on Vercel.
 
-**streamText-capture pattern (chat route).** The chat route's tool `execute`
-functions are inline and its helpers are module-private, so don't unit-test them
-directly. Instead mock `ai`'s `streamText` (spreading `...actual`) to capture
-the `{ system, messages, tools }` it receives, call `POST(req)`, and assert on
-the captured args — you can also invoke the captured `tools.*.execute(...)`
-directly. Also mock `@ai-sdk/anthropic`. The full verified snippet is in
-[`test/README.md`](./test/README.md#streamtext-capture-pattern-chat-route--verified).
+**Stubbing the model (chat route and elsewhere).** The chat route's tool
+`execute` functions are inline and its helpers are module-private, so don't
+unit-test them directly. Instead mock the registry — `vi.mock("@/lib/ai/models", …)`
+through `test/ai/models-stub.ts` — call `POST(req)`, and assert on the
+response; `recordedCalls(model)` gives you back the `{ prompt, tools,
+providerOptions }` a stubbed model received. Never mock `@ai-sdk/gateway` or
+`@ai-sdk/anthropic` (unused) directly. The workflow tier, which `vi.mock` cannot reach,
+stubs the Gateway's own HTTP boundary instead with `test/gateway/msw.ts`. The
+full verified snippet and both seams are in
+[`test/README.md`](./test/README.md#stubbing-the-model--two-seams-never-a-provider-mock).
 
 ## E2E notes
 
@@ -174,16 +183,30 @@ directly. Also mock `@ai-sdk/anthropic`. The full verified snippet is in
   dev shell's environment. `testDir` is `./e2e`; `baseURL` is
   `http://localhost:3100`.
 - `/api/chat` is intercepted **inside each spec** at the network layer via
-  `page.route()` returning a UI-message stream chunk — no real Anthropic call.
-- **Except `e2e/intake.spec.ts`** (§10 scenario 5), which needs
-  `identify_tools` and the research workflow to run on the server. Playwright
-  boots a second web server, `e2e/stubs/anthropic-stub.ts` on port 3101, and the
-  app reaches it through `ANTHROPIC_BASE_URL` with a fake key — the model is
-  stubbed at the provider boundary, and everything else is the real app,
-  including the Workflow SDK's local world. It is its own Playwright project
-  (`intake`) that depends on `chromium`, so it runs after every other spec:
-  approving publishes a tool into the demo database they all share. Run it
-  alone with `npx playwright test --project=intake --no-deps`.
+  `page.route()` returning a UI-message stream chunk — no real model call.
+- **Except `e2e/intake.spec.ts`** (gateway spec §10, formerly data platform
+  spec §10 scenario 5), which needs `identify_tools` and the research
+  workflow — including the image stage — to run on the server. Playwright
+  boots a second web server, `e2e/stubs/gateway-stub.ts` on port 3101 (plain
+  `node:http`, serving `test/gateway/wire.ts`'s builders under `node
+  --experimental-strip-types`), and the app reaches it through
+  `AI_GATEWAY_BASE_URL` with a fake `AI_GATEWAY_API_KEY` —
+  `READ_PAGE_TEST_ORIGIN` also points at it, so the read step's and the
+  chat's `read_page` fetches are exempted from the SSRF guard that would
+  otherwise refuse a loopback address. The model is stubbed at the Gateway's
+  own wire format, and everything else is the real app, including the
+  Workflow SDK's local world. It is its own Playwright project (`intake`)
+  that depends on `chromium`, so it runs after every other spec, and it runs
+  **against its own server**: the same build started again with `npx next
+  start -p 3103` and a local Blob folder (`BLOB_LOCAL_DIR=.blob-data-e2e`,
+  git-ignored). So the image stage cuts the backdrop out of the stub's one
+  candidate (a product on plain white; the cutout is deterministic and calls
+  no model), the review page preselects
+  the cleaned copy, and the test approves it and checks the gallery card shows
+  the published copy — while port 3100 keeps no Blob store for
+  `projects.spec.ts`'s "uploads unavailable" assertion. Its demo database is
+  its own. Run it alone with `npx playwright test --project=intake --no-deps`
+  (Playwright still starts every web server, including the 3100 build).
 - **And `e2e/mirror.spec.ts`** (§10 scenario 8), the same shape for Notion: the
   mirror calls Notion from server actions and workflow steps, so a third web
   server, `e2e/stubs/notion-stub.ts` on port 3102, answers `/v1/*` with the

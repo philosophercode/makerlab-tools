@@ -218,6 +218,8 @@
     "unknownSource": "לא נמצא דף יצרן או מדריך להשוואה",
     "unknownManual": "לא נמצא מדריך",
     "unknownSpecs": "המפרט לא אומת מול דף שנקרא",
+    "unknownVideoOnly": "נצפה רק סרטון — אין דף מוצר, מדריך או דף מפרט",
+    "unknownNothingRead": "לא ניתן היה לקרוא אף דף, ולכן דבר לא אומת מול מקור",
     "actionConfirm": "נראה נכון — הוסיפו אותו",
     "actionConfirmModel": "אשרו שזה {name}",
     "actionConfirmVariant": "זה {variant}",

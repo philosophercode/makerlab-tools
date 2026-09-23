@@ -435,3 +435,36 @@ exist, SuperMakers belong on `AUTH_STAFF_EMAILS`.
 
 **Status.** Accepted. Covered by `src/lib/capabilities/access.test.ts`, the chat route tests
 (anonymous, student, staff), `intake.test.ts`, and `PrimaryNav.test.tsx`.
+
+### 2026-09-23 — The header gets a profile menu with the person's own photo and email
+
+**What changed.** The header is reorganized. It now shows:
+
+- TOOLS, PROJECTS, ABOUT;
+- REPORT;
+- a profile control: the signed-in person's Google photo (a 28px square, 0 radius, falling back to their initial), first name and a caret.
+
+The profile control opens a menu with:
+
+- the person's full name, email and role;
+- ADMIN, for holders of an admin-surface permission;
+- ADD EQUIPMENT, for holders of `tools.add`;
+- SIGN OUT.
+
+REFRESH and ADD EQUIPMENT also appear as an action row on `/admin`, and REFRESH no longer sits in the header.
+
+**This reverses two lines above**, by Isaac's decision of 2026-09-23:
+
+- The non-goal "no avatars" (§2).
+- The §6 note "mono label, no avatar image". A square photo keeps the technical-schematic system's 0px radius.
+
+**What `/api/identity` returns now.** For a signed-in caller it also returns `email` and `image`,
+which is Better Auth's `user.image`. Both are the caller's *own* values, and anonymous callers
+still receive only `{ role, name }`; the user id is never sent. §8's rule stands for every
+other surface: no model prompt, log line or other user's view receives a person's email from
+this change.
+
+**Covered by** `ProfileMenu.test.tsx`, `AdminActions.test.tsx` and the updated `PrimaryNav`,
+identity-route and sign-in-client tests. The E2E specs open the menu before choosing an item.
+
+**Status.** Accepted.

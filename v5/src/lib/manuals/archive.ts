@@ -13,6 +13,8 @@ import { resources } from "../db/schema/index.ts";
 import type { Db } from "../db/types.ts";
 import { createBlobUploader } from "../import/blob-uploader.ts";
 import { safeFilename, type BlobUploader } from "../import/files.ts";
+import { guardedFetch, type GuardedFetchResult } from "../web/guarded-fetch.ts";
+import { hasPdfMagic } from "../web/pdf-magic.ts";
 
 /**
  * `archiveManual(resourceId)` — copy a resource's manual PDF into Blob, so the
@@ -28,6 +30,13 @@ import { safeFilename, type BlobUploader } from "../import/files.ts";
  * its first kilobyte, or `application/pdf` on a body that is not markup — so a
  * manual link that points at an HTML product page is refused, not stored as a
  * "manual". 30 seconds, 25 MB, and nothing larger is read.
+ *
+ * **The download goes through the SSRF guard** (`web/guarded-fetch.ts`). The
+ * link was proposed by research from a page on the web, and only checked once,
+ * when research verified it; by the time it is archived its host may answer
+ * with a redirect inward. So every hop is re-checked, at most
+ * {@link MANUAL_MAX_REDIRECTS} are followed, and a private, loopback,
+ * link-local or metadata address is `blocked` without a request.
  *
  * **It never throws for an expected failure.** Every outcome is a value:
  * `archived`, `skipped` (nothing to do, or nothing it may do) or `failed`
@@ -50,8 +59,8 @@ export const MANUAL_FETCH_TIMEOUT_MS = 30_000;
 /** Largest manual archived. Bigger ones are refused, not truncated. */
 export const MAX_MANUAL_BYTES = 25 * 1024 * 1024;
 
-/** How far into the body `%PDF-` may appear (the PDF spec allows leading junk). */
-const PDF_MAGIC_WINDOW = 1024;
+/** Redirects followed. More than the guard's default 3: download links bounce through CDNs. */
+export const MANUAL_MAX_REDIRECTS = 5;
 
 const FETCH_USER_AGENT = "Mozilla/5.0 (compatible; MakerLabBot/1.0; manual archive)";
 
@@ -74,6 +83,8 @@ export type ArchiveSkipReason =
 export type ArchiveFailReason =
   /** The request never got an answer: DNS, connection, timeout. */
   | "download_failed"
+  /** The link, or a redirect from it, leads to a private, loopback or metadata address. */
+  | "blocked"
   /** The host answered with an error status. */
   | "http_error"
   /** A Manual whose link answered something other than a PDF — a product page, usually. */
@@ -93,8 +104,6 @@ export type ArchiveManualResult =
 export interface ArchiveManualOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
-  /** The download. Tests pass one; MSW answers it. */
-  fetchImpl?: typeof fetch;
   /** Cancels the download along with the 30-second timeout. */
   signal?: AbortSignal;
   /**
@@ -170,6 +179,10 @@ async function archive(resourceId: string, options: ArchiveManualOptions): Promi
     sizeBytes: downloaded.bytes.byteLength,
     originalFilename: filename,
     uploadedBy: null,
+    // `source_key` is the idempotency key; `source_url` is the attribution
+    // every copy the app makes records (gateway spec §4.2).
+    origin: "manual_archive" as const,
+    sourceUrl: url,
   };
 
   let attachmentId: string | null;
@@ -221,55 +234,48 @@ type Download =
     };
 
 async function download(url: string, options: ArchiveManualOptions): Promise<Download> {
-  const fetchImpl = options.fetchImpl ?? fetch;
   const timeout = AbortSignal.timeout(MANUAL_FETCH_TIMEOUT_MS);
   const signal = options.signal ? AbortSignal.any([options.signal, timeout]) : timeout;
 
-  let response: Response;
-  try {
-    response = await fetchImpl(url, {
-      headers: { "User-Agent": FETCH_USER_AGENT, Accept: "application/pdf,*/*;q=0.5" },
-      redirect: "follow",
-      signal,
-    });
-  } catch {
-    return refused("download_failed", true);
-  }
+  const fetched = await guardedFetch(url, {
+    signal,
+    maxBytes: MAX_MANUAL_BYTES,
+    maxRedirects: MANUAL_MAX_REDIRECTS,
+    accept: "application/pdf,*/*;q=0.5",
+    userAgent: FETCH_USER_AGENT,
+    // Markup is refused on the header alone, before a product page's body is
+    // read — unless it is lying, which the magic bytes would show, and a server
+    // that labels a PDF `text/html` is not one worth downloading 25 MB to catch.
+    refuseTypes: ["text/html", "application/xhtml+xml"],
+  });
+  if (!fetched.ok) return downloadFailure(fetched);
 
-  if (!response.ok) {
-    discard(response);
-    const status = response.status;
-    return refused("http_error", status >= 500 || status === 429 || status === 408, status);
-  }
-
-  const declared = Number(response.headers.get("content-length"));
-  if (Number.isFinite(declared) && declared > MAX_MANUAL_BYTES) {
-    discard(response);
-    return refused("too_large", false);
-  }
-
-  const contentType = response.headers.get("content-type")?.split(";")[0].trim().toLowerCase() ?? "";
-  // Markup is refused on the header alone, before a product page's body is
-  // read — unless it is lying, which the magic bytes would show, and a server
-  // that labels a PDF `text/html` is not one worth downloading 25 MB to catch.
-  if (contentType === "text/html" || contentType === "application/xhtml+xml") {
-    discard(response);
-    return refused("not_pdf", false);
-  }
-
-  let bytes: Uint8Array;
-  try {
-    const read = await readCapped(response, MAX_MANUAL_BYTES);
-    if (read === "too_large") return refused("too_large", false);
-    bytes = read;
-  } catch {
-    return refused("download_failed", true);
-  }
-
+  const contentType = fetched.contentType?.split(";")[0].trim().toLowerCase() ?? "";
+  const bytes = fetched.bytes;
   if (bytes.byteLength === 0) return refused("empty", false);
   if (!looksLikePdf(bytes, contentType)) return refused("not_pdf", false);
 
-  return { ok: true, bytes, filename: filenameFromDisposition(response.headers.get("content-disposition")) };
+  return { ok: true, bytes, filename: filenameFromDisposition(fetched.headers.get("content-disposition")) };
+}
+
+/** The guard's failure in the archive's words, transient where a retry could help. */
+function downloadFailure(failure: Extract<GuardedFetchResult, { ok: false }>): Download {
+  switch (failure.reason) {
+    case "blocked":
+      return refused("blocked", false);
+    case "unsupported":
+      return refused("not_pdf", false);
+    case "too_large":
+      return refused("too_large", false);
+    case "http_error": {
+      const status = failure.status;
+      if (status === undefined) return refused("http_error", false);
+      return refused("http_error", status >= 500 || status === 429 || status === 408, status);
+    }
+    case "timeout":
+    case "failed":
+      return refused("download_failed", true);
+  }
 }
 
 function refused(reason: ArchiveFailReason, transient: boolean, httpStatus?: number): Download {
@@ -280,58 +286,13 @@ function refused(reason: ArchiveFailReason, transient: boolean, httpStatus?: num
   };
 }
 
-/** The body, or `"too_large"` the moment it passes `cap` — never more than that is held. */
-async function readCapped(response: Response, cap: number): Promise<Uint8Array | "too_large"> {
-  if (!response.body) return new Uint8Array(await response.arrayBuffer());
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let total = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    total += value.byteLength;
-    if (total > cap) {
-      await reader.cancel().catch(() => {});
-      return "too_large";
-    }
-    chunks.push(value);
-  }
-  const bytes = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return bytes;
-}
-
-/**
- * Let go of a body that is not wanted. Not awaited: a cancel can wait on the
- * other end, and nothing here depends on it having finished.
- */
-function discard(response: Response): void {
-  try {
-    response.body?.cancel().catch(() => {});
-  } catch {
-    // Nothing to do: the body is being thrown away either way.
-  }
-}
-
-const PDF_MAGIC = [0x25, 0x50, 0x44, 0x46, 0x2d]; // %PDF-
-
 /**
  * `%PDF-` near the start, or a body declared `application/pdf` that does not
  * open like markup (some servers gzip-wrap or prefix; an error page still
  * starts with `<`).
  */
 export function looksLikePdf(bytes: Uint8Array, contentType: string): boolean {
-  const window = Math.min(bytes.byteLength, PDF_MAGIC_WINDOW);
-  outer: for (let i = 0; i + PDF_MAGIC.length <= window; i += 1) {
-    for (let j = 0; j < PDF_MAGIC.length; j += 1) {
-      if (bytes[i + j] !== PDF_MAGIC[j]) continue outer;
-    }
-    return true;
-  }
+  if (hasPdfMagic(bytes)) return true;
   if (contentType !== "application/pdf") return false;
   const head = new TextDecoder().decode(bytes.subarray(0, 64)).trimStart();
   return !head.startsWith("<");

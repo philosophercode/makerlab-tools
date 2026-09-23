@@ -218,6 +218,9 @@ describe("POST /api/uploads — the happy path", () => {
       access: "public",
       contentType: "image/png",
       originalFilename: "lamp.png",
+      // A person's own upload — never mistaken for a research image (gateway spec §4.2).
+      origin: "upload",
+      sourceUrl: null,
     });
   });
 

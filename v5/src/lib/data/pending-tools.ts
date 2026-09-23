@@ -89,7 +89,14 @@ export interface PendingToolRecord {
   updatedAt: Date;
 }
 
-/** A photo on a pending item, cover first. `url` is null for a private blob. */
+/**
+ * A photo on a pending item, cover first. `url` is null for a private blob.
+ *
+ * Never the research image stage's background-removed copy (`origin`
+ * `research_image_cleaned`): that is owned by the item too, but it is a
+ * candidate an admin has not chosen, not a photo anybody attached — it reaches
+ * the review page through `research.images`, and nowhere else.
+ */
 export interface PendingPhoto {
   attachmentId: string;
   url: string | null;
@@ -162,6 +169,16 @@ export type DiscardResult =
   | { ok: true; item: PendingTool; released: number }
   | Refused<"not_found" | "not_editable">;
 
+/**
+ * The product image an approval makes the tool's cover (gateway spec §4.3):
+ * the background-removed copy of rank 1, one of the recorded candidates by its
+ * exact URL, or none. Absent means none.
+ */
+export type ApprovalImageChoice =
+  | { choice: "cleaned" }
+  | { choice: "original"; candidateUrl: string }
+  | { choice: "none" };
+
 /** What approval turns into the tool's fields — the preliminary page's form. */
 export interface ApprovalFields {
   name: string;
@@ -178,6 +195,12 @@ export interface ApprovalFields {
   serialNumber: string | null;
   /** A subset of `research.resources[].url`; all of them when omitted. */
   resourceUrls?: string[];
+  /**
+   * The product image to use as the cover. Read by `intake/approval-image.ts`,
+   * which turns it into {@link ApprovePendingInput.coverAttachmentId} before the
+   * transaction; the transaction itself never downloads anything.
+   */
+  image?: ApprovalImageChoice;
 }
 
 export interface ApprovePendingInput {
@@ -188,6 +211,12 @@ export interface ApprovePendingInput {
   fields: ApprovalFields;
   /** Required, non-blank, when research graded the item low (§5.4 step 12). */
   overrideNote?: string | null;
+  /**
+   * The prepared cover (gateway spec §5.2 step 3): a public `research_image`
+   * nobody owns yet, or this item's own `research_image_cleaned` copy, already
+   * made public. Null or absent for no image.
+   */
+  coverAttachmentId?: string | null;
 }
 
 export type ApprovePendingResult =
@@ -203,6 +232,12 @@ export type ApprovePendingResult =
       published: boolean;
       /** True when a low-confidence grade was overridden with a note. */
       overridden: boolean;
+      /**
+       * True when {@link ApprovePendingInput.coverAttachmentId} is now the
+       * tool's cover. False when none was given, or when it was no longer
+       * there to take — the caller says so rather than claim a photo.
+       */
+      coverAttached: boolean;
     }
   | Refused<"not_found" | "not_editable" | "low_confidence" | "invalid_field">;
 
@@ -957,8 +992,12 @@ class Refusal<R extends WriteRefusal> extends Error {
  *    verified.
  * 3. The tool, its one unit ("<name> #1") and those resources, through
  *    {@link createToolRecord}.
- * 4. The photos re-owned from the pending item to the tool, order kept.
- * 5. The row marked `approved`, with who, when, the note and what it created.
+ * 4. The product image (gateway spec §5.2 step 3): every background-removed
+ *    copy the item holds **except the chosen cover** is released for the orphan
+ *    sweep; the cover, when there is one, becomes the tool's at position 0.
+ * 5. The photos re-owned from the pending item to the tool, order kept, after
+ *    the cover — so a chosen image is the cover and an uploaded photo is next.
+ * 6. The row marked `approved`, with who, when, the note and what it created.
  *
  * Anything thrown along the way rolls every step back, photos included. No
  * audit event and no cache invalidation here — the caller does both, after
@@ -1027,6 +1066,10 @@ export async function approvePendingTool(
         input.actorUserId
       );
 
+      const coverId = input.coverAttachmentId ?? null;
+      await releaseUnchosenCleaned(tx, input.id, coverId);
+      const coverAttached = coverId ? await takeCover(tx, input.id, created.toolId, coverId) : false;
+
       const photosMoved = await reownAttachments(
         tx,
         { ownerType: "pending_tool", ownerId: input.id },
@@ -1051,6 +1094,7 @@ export async function approvePendingTool(
         photosMoved,
         published: input.publish,
         overridden,
+        coverAttached,
       };
     });
   } catch (err) {
@@ -1109,6 +1153,12 @@ export async function approvePendingAsUnit(
           updatedBy: input.actorUserId,
         })
         .returning({ id: units.id });
+
+      // A unit has no cover to choose, so a background-removed copy research
+      // made for this item is never kept: it is an AI redraw nobody picked, and
+      // re-owning it would publish it as a photo of an existing tool. Released
+      // for the orphan sweep, as approval does with every unchosen copy.
+      await releaseUnchosenCleaned(tx, input.id, null);
 
       const photosMoved = await reownAttachments(
         tx,
@@ -1182,6 +1232,54 @@ async function markApproved(
   // The row is locked, so this cannot miss; if it somehow did, the tool must
   // not commit without the row that explains it.
   if (rows.length === 0) throw new Refusal("not_editable");
+}
+
+/**
+ * Let go of the item's background-removed copies, all but `keep` (gateway
+ * spec §5.2 step 3). Released, not deleted: the orphan sweep collects the
+ * bytes, as it does for every other photo nobody kept.
+ */
+async function releaseUnchosenCleaned(tx: Db, pendingId: string, keep: string | null): Promise<void> {
+  await tx
+    .update(attachments)
+    .set({ ownerType: null, ownerId: null, position: 0 })
+    .where(
+      and(
+        eq(attachments.ownerType, "pending_tool"),
+        eq(attachments.ownerId, pendingId),
+        eq(attachments.origin, "research_image_cleaned"),
+        keep && isUuid(keep) ? sql`${attachments.id} <> ${keep}` : undefined
+      )
+    );
+}
+
+/**
+ * Make `coverId` the new tool's cover, at position 0, and say whether it
+ * worked. Only two kinds of row qualify, which is what keeps this from being a
+ * way to annex somebody else's file:
+ *
+ * - a `research_image` **nobody owns** — the original an admin chose, which
+ *   `intake/approval-image.ts` stored moments ago;
+ * - this item's own `research_image_cleaned` copy.
+ *
+ * Runs before the item's photos are re-owned, so they land after it. The tool
+ * is new, so position 0 is before everything it has.
+ */
+async function takeCover(tx: Db, pendingId: string, toolId: string, coverId: string): Promise<boolean> {
+  if (!isUuid(coverId)) return false;
+  const rows = await tx
+    .update(attachments)
+    .set({ ownerType: "tool", ownerId: toolId, position: 0 })
+    .where(
+      and(
+        eq(attachments.id, coverId),
+        sql`((${attachments.ownerId} is null and ${attachments.origin} = 'research_image')
+             or (${attachments.ownerType} = 'pending_tool' and ${attachments.ownerId} = ${pendingId}
+                 and ${attachments.origin} = 'research_image_cleaned'))`
+      )
+    )
+    .returning({ id: attachments.id });
+  return rows.length > 0;
 }
 
 /** The verified resources the reviewer kept, or null when they named one research never verified. */
@@ -1259,7 +1357,14 @@ async function readPendingTools(db: Db, where: SQL | undefined, limit: number | 
         position: attachments.position,
       })
       .from(attachments)
-      .where(and(eq(attachments.ownerType, "pending_tool"), inArray(attachments.ownerId, ids)))
+      .where(
+        and(
+          eq(attachments.ownerType, "pending_tool"),
+          inArray(attachments.ownerId, ids),
+          // The cleaned copy is a research candidate, not a photo (see PendingPhoto).
+          sql`${attachments.origin} is distinct from 'research_image_cleaned'`
+        )
+      )
       .orderBy(asc(attachments.position), asc(attachments.id)),
   ]);
 

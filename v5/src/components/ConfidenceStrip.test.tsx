@@ -92,4 +92,41 @@ describe("ConfidenceStrip", () => {
     );
     expect(screen.queryByText(/Sources/)).not.toBeInTheDocument();
   });
+  it("says why a research result that read only a video is not high, first", () => {
+    render(
+      <ConfidenceStrip
+        confidence={{ level: "medium", basis: [], unknowns: [] }}
+        evidence={evidence({ userStatedModel: true, manualFound: true })}
+        sourceUrls={["https://www.youtube.com/watch?v=x2d"]}
+        sourcesAreReads
+        unknownsFirst
+      />
+    );
+    const items = within(screen.getByRole("list")).getAllByRole("listitem");
+    expect(items[0]).toHaveTextContent("Only a video was read — no product page, manual or spec sheet");
+  });
+
+  it("says nothing could be read, instead of the no-source line", () => {
+    render(
+      <ConfidenceStrip
+        confidence={{ level: "low", basis: [], unknowns: [] }}
+        evidence={evidence()}
+        sourceUrls={[]}
+        sourcesAreReads
+      />
+    );
+    expect(screen.getByText("No page could be read, so nothing was checked against a source")).toBeInTheDocument();
+    expect(screen.queryByText(/No manufacturer page or manual was found/)).not.toBeInTheDocument();
+  });
+
+  it("adds neither line where the sources are not what research read (the chat card)", () => {
+    render(
+      <ConfidenceStrip
+        confidence={{ level: "high", basis: [], unknowns: [] }}
+        evidence={evidence({ userStatedModel: true, manualFound: true })}
+        sourceUrls={["https://www.youtube.com/watch?v=x2d"]}
+      />
+    );
+    expect(screen.queryByText(/Only a video was read/)).not.toBeInTheDocument();
+  });
 });

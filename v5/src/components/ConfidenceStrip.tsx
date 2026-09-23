@@ -36,6 +36,12 @@ export interface ConfidenceStripProps {
   sourceUrls?: string[];
   /** Lead with what is unresolved rather than with what is held (medium). */
   unknownsFirst?: boolean;
+  /**
+   * True when `sourceUrls` are the pages research actually read (background
+   * research's result), so a result that read only a video, or nothing, says
+   * why its grade is capped (`readCap`). The chat card leaves it off.
+   */
+  sourcesAreReads?: boolean;
 }
 
 /**
@@ -80,6 +86,8 @@ const BASIS_KEYS: Record<ConfidenceBasisCode, string> = {
 };
 
 const UNKNOWN_KEYS: Record<ConfidenceUnknownCode, string> = {
+  videoOnly: "unknownVideoOnly",
+  nothingRead: "unknownNothingRead",
   model: "unknownModel",
   category: "unknownCategory",
   source: "unknownSource",
@@ -111,10 +119,11 @@ export function ConfidenceStrip({
   evidence,
   sourceUrls,
   unknownsFirst,
+  sourcesAreReads,
 }: ConfidenceStripProps) {
   const t = useTranslations("intake");
 
-  const lines = confidenceLines(evidence);
+  const lines = confidenceLines(evidence, sourcesAreReads ? { sourceUrls: sourceUrls ?? [] } : null);
   const sources = (sourceUrls || []).filter(isWebLink);
 
   const basisRows = lines.basis.map((line) => (

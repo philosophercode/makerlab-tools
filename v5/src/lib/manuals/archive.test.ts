@@ -2,6 +2,7 @@
 import { eq } from "drizzle-orm";
 import { http, HttpResponse } from "msw";
 import { server } from "../../../test/msw/server";
+import { setResolvedAddresses } from "../../../test/web/resolver";
 import { manualSourceKey } from "../data/manual-archives";
 import { createPgliteDb } from "../db/pglite";
 import { attachments, resources, tools } from "../db/schema/index";
@@ -96,6 +97,9 @@ describe("archiveManual", () => {
       originalFilename: "p1s-manual.pdf",
       sourceKey: manualSourceKey(id, "https://maker.test/p1s-manual.pdf"),
       publicUrl: `https://blob.test/manuals/${toolId}/${id}-r1.pdf`,
+      // The attribution every copy records (gateway spec §4.2).
+      origin: "manual_archive",
+      sourceUrl: "https://maker.test/p1s-manual.pdf",
     });
     // The manufacturer's link stays on the resource.
     const [kept] = await db.select({ url: resources.url }).from(resources).where(eq(resources.id, id));
@@ -197,6 +201,42 @@ describe("archiveManual", () => {
       transient: false,
       httpStatus: 404,
     });
+  });
+
+  it("never follows a manual link that redirects inward, and does not retry it", async () => {
+    // Verified as public when research checked it; now it bounces to the
+    // cloud metadata service. The guard re-checks every hop.
+    const id = await resource({ url: "https://attacker.example/manual.pdf" });
+    let metadataHit = false;
+    server.use(
+      http.get("https://attacker.example/manual.pdf", () =>
+        new HttpResponse(null, { status: 302, headers: { Location: "http://169.254.169.254/latest/meta-data/" } })
+      ),
+      http.get("http://169.254.169.254/latest/meta-data/", () => {
+        metadataHit = true;
+        return HttpResponse.arrayBuffer(PDF.slice().buffer, { headers: { "content-type": "application/pdf" } });
+      })
+    );
+
+    expect(await archiveManual(id, { db, uploader })).toEqual({ status: "failed", reason: "blocked", transient: false });
+    expect(metadataHit).toBe(false);
+    expect(puts).toEqual([]);
+    expect(await owned(id)).toEqual([]);
+  });
+
+  it("refuses a manual link whose host is private, without a request", async () => {
+    const id = await resource({ url: "https://intranet.maker.test/manual.pdf" });
+    setResolvedAddresses({ "intranet.maker.test": ["10.0.0.9"] });
+    let hit = false;
+    server.use(
+      http.get("https://intranet.maker.test/manual.pdf", () => {
+        hit = true;
+        return HttpResponse.arrayBuffer(PDF.slice().buffer, { headers: { "content-type": "application/pdf" } });
+      })
+    );
+
+    expect(await archiveManual(id, { db, uploader })).toMatchObject({ status: "failed", reason: "blocked" });
+    expect(hit).toBe(false);
   });
 
   it("marks a network failure transient", async () => {

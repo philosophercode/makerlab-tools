@@ -97,6 +97,34 @@ describe("fetchIdentity", () => {
     );
   });
 
+  it("carries a signed-in person's own email and photo when the server sends them", async () => {
+    stubFetch(async () =>
+      json({
+        role: "admin",
+        name: "Niti Parikh",
+        email: "niti@cornell.edu",
+        image: "https://lh3.googleusercontent.com/a/niti",
+      })
+    );
+
+    await expect(fetchIdentity()).resolves.toEqual({
+      role: "admin",
+      name: "Niti Parikh",
+      email: "niti@cornell.edu",
+      image: "https://lh3.googleusercontent.com/a/niti",
+    });
+  });
+
+  it("drops an empty or non-string photo rather than passing it on", async () => {
+    stubFetch(async () =>
+      json({ role: "user", name: "Ada", email: "ada@cornell.edu", image: null })
+    );
+
+    const identity = await fetchIdentity();
+    expect(identity).not.toHaveProperty("image");
+    expect(identity?.email).toBe("ada@cornell.edu");
+  });
+
   it("keeps the anonymous answer, which is a normal answer", async () => {
     stubFetch(async () => json({ role: "anonymous", name: null }));
     await expect(fetchIdentity()).resolves.toEqual({

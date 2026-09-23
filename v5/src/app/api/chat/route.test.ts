@@ -1,45 +1,16 @@
 // @vitest-environment node
-/* eslint-disable @typescript-eslint/no-explicit-any -- this suite inspects the
-   loosely-typed { system, messages, tools } object captured from the mocked
-   streamText call; precise typing here would add noise without value. */
+/* eslint-disable @typescript-eslint/no-explicit-any -- this suite reads the
+   loosely-typed prompt and tool list a stub model recorded; precise typing
+   here would add noise without value. */
 
-// ── Captured streamText args ─────────────────────────────────────────
-// streamText is mocked so we can inspect the { system, messages, tools }
-// the route hands the model, and invoke the inline tool.execute fns directly.
-const captured: { args?: any } = {};
-
-// ── Mock @ai-sdk/anthropic (model factory + web_fetch tool) ──────────
-vi.mock("@ai-sdk/anthropic", () => {
-  const anthropic = Object.assign(
-    vi.fn(() => ({ modelId: "mock-model" })),
-    {
-      tools: {
-        webFetch_20250910: vi.fn(() => ({ type: "web_fetch_mock" })),
-        webSearch_20250305: vi.fn(() => ({ type: "web_search_mock" })),
-      },
-    }
-  );
-  return { anthropic };
-});
-
-// ── Mock ai: keep everything real except streamText ──────────────────
-vi.mock("ai", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("ai")>();
-  return {
-    ...actual,
-    streamText: vi.fn((args: unknown) => {
-      captured.args = args;
-      return {
-        toUIMessageStream: () =>
-          new ReadableStream({
-            start(c) {
-              c.close();
-            },
-          }),
-      };
-    }),
-  };
-});
+// ── The model: stubbed at the job registry, never the provider ───────
+// `languageModelFor("chat")` hands the route a MockLanguageModelV3 (gateway spec
+// §10: nothing in a test knows the provider). The route runs for real —
+// streamText, the tools, prepareStep — and the tests read what the model was
+// sent from `recordedCalls`.
+vi.mock("@/lib/ai/models", async (importOriginal) =>
+  (await import("../../../../test/ai/models-stub")).stubModelsModule(await importOriginal())
+);
 
 // Mock fns shared between the factories and the tests. Declared via
 // vi.hoisted so they exist when the (hoisted) vi.mock factories run.
@@ -89,6 +60,15 @@ import {
 import { resetAuthForTests } from "@/lib/auth/config";
 import { server } from "../../../../test/msw/server";
 import { signInAsNew } from "../../../../test/utils/session";
+import {
+  recordedCalls,
+  resetModelStubs,
+  scriptedModel,
+  setLanguageModel,
+  textModel,
+  toolCallModel,
+  type RecordedCall,
+} from "../../../../test/ai/models-stub";
 
 /**
  * The catalogue, the units and the resources all come from the demo-seeded
@@ -159,6 +139,90 @@ function chatRequest(
   });
 }
 
+/** The chat model this test's route will be handed. */
+let model = textModel("Hello.");
+
+function stubChatModel(next: typeof model): void {
+  model = next;
+  setLanguageModel("chat", next);
+}
+
+/**
+ * POST and read the whole stream. The response is lazy: the model is called,
+ * and the tools run, only as the body is consumed.
+ */
+async function send(
+  body: Record<string, unknown>,
+  headers: Record<string, string> = {}
+): Promise<{ res: Response; text: string }> {
+  const res = await POST(chatRequest(body, headers));
+  const text = await res.text();
+  return { res, text };
+}
+
+/** The first call the chat model received this test. */
+function firstCall(): RecordedCall {
+  const [call] = recordedCalls(model);
+  if (!call) throw new Error("the chat model was never called");
+  return call;
+}
+
+function systemOf(call: RecordedCall = firstCall()): string {
+  const message = call.prompt.find((m) => m.role === "system");
+  return typeof message?.content === "string" ? message.content : "";
+}
+
+function toolNamesOf(call: RecordedCall = firstCall()): string[] {
+  return (call.tools ?? []).map((t) => t.name);
+}
+
+function firstUserOf(call: RecordedCall = firstCall()): any {
+  return call.prompt.find((m) => m.role === "user");
+}
+
+/**
+ * Run one capability tool the way the model would: the stub calls it, the SDK
+ * executes it, and the result is read back from the model's second call.
+ */
+async function runTool(
+  name: string,
+  input: unknown,
+  headers: Record<string, string> = {}
+): Promise<any> {
+  stubChatModel(toolCallModel([{ toolName: name, input }], "Done."));
+  await send({ messages: [userMessage("hi")] }, headers);
+  return toolResultOf(name);
+}
+
+/** The output of the `name` tool call, as the model's next call received it. */
+function toolResultOf(name: string): any {
+  const calls = recordedCalls(model);
+  const toolMessage: any = calls[1]?.prompt.find((m) => m.role === "tool");
+  const part = toolMessage?.content.find(
+    (p: any) => p.type === "tool-result" && p.toolName === name
+  );
+  if (!part) throw new Error(`no ${name} result reached the model`);
+  return part.output.type === "json" ? part.output.value : part.output;
+}
+
+/** Every key under a `providerOptions`, anywhere in `value`. */
+function providerOptionKeys(value: unknown, found = new Set<string>()): Set<string> {
+  if (Array.isArray(value)) {
+    for (const item of value) providerOptionKeys(item, found);
+    return found;
+  }
+  if (typeof value !== "object" || value === null) return found;
+  const proto = Object.getPrototypeOf(value);
+  if (proto !== Object.prototype && proto !== null) return found;
+  for (const [key, child] of Object.entries(value)) {
+    if (key === "providerOptions" && typeof child === "object" && child !== null) {
+      for (const name of Object.keys(child)) found.add(name);
+    }
+    providerOptionKeys(child, found);
+  }
+  return found;
+}
+
 const userMessage = (text: string) => ({
   id: "1",
   role: "user" as const,
@@ -166,12 +230,12 @@ const userMessage = (text: string) => ({
 });
 
 beforeEach(() => {
-  captured.args = undefined;
   vi.stubEnv("DATABASE_URL", "");
   resetAuthForTests();
   // Undo any `vi.stubGlobal("fetch", …)` from a prior PDF test (the shared
   // setup file does not call vi.unstubAllGlobals).
   vi.unstubAllGlobals();
+  stubChatModel(textModel("Hello."));
   checkRateLimit.mockResolvedValue({
     allowed: true,
     remaining: 59,
@@ -183,6 +247,7 @@ beforeEach(() => {
 });
 
 afterEach(async () => {
+  resetModelStubs();
   const db = await getDb();
   await db.delete(maintenanceLogs);
   // The seed carries no attachments, so clearing the table only drops what a
@@ -199,7 +264,7 @@ afterAll(() => {
 });
 
 describe("POST /api/chat — rate limiting", () => {
-  it("returns 429 with Retry-After and never calls streamText when denied", async () => {
+  it("returns 429 with Retry-After and never calls the model when denied", async () => {
     checkRateLimit.mockResolvedValueOnce({
       allowed: false,
       remaining: 0,
@@ -209,84 +274,157 @@ describe("POST /api/chat — rate limiting", () => {
       role: "student",
     });
 
-    const { streamText } = await import("ai");
     const res = await POST(chatRequest({ messages: [userMessage("hi")] }));
 
     expect(res.status).toBe(429);
     expect(res.headers.get("Retry-After")).toBe("3600");
     const json = await res.json();
     expect(json.error).toMatch(/too many requests/i);
-    expect(vi.mocked(streamText)).not.toHaveBeenCalled();
+    expect(recordedCalls(model)).toHaveLength(0);
   });
 });
 
 describe("POST /api/chat — response", () => {
-  it("returns a streamed Response with status 200 on an allowed request", async () => {
-    const res = await POST(chatRequest({ messages: [userMessage("hi")] }));
+  it("streams the model's answer with status 200 on an allowed request", async () => {
+    stubChatModel(textModel("The Form 4 is in the resin bench."));
+    const { res, text } = await send({ messages: [userMessage("hi")] });
     expect(res).toBeInstanceOf(Response);
     expect(res.status).toBe(200);
+    expect(text).toContain("The Form 4 is in the resin bench.");
+    expect(recordedCalls(model)).toHaveLength(1);
+    expect(firstCall().mode).toBe("stream");
+  });
+
+  it("names MODEL_CHAT, never its value, when the override is malformed", async () => {
+    const warned = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubEnv("MODEL_CHAT", "sk-live-not-a-model-id-1234");
+
+    const { res, text } = await send({ messages: [userMessage("hi")] });
+
+    expect(res.status).toBe(200);
+    expect(text).toContain("The assistant's model is not available (MODEL_CHAT).");
+    expect(text).not.toContain("sk-live");
+    expect(recordedCalls(model)).toHaveLength(0);
+    const logged = warned.mock.calls.flat().join(" ");
+    expect(logged).toContain("MODEL_CHAT");
+    expect(logged).not.toContain("sk-live");
   });
 });
 
 describe("POST /api/chat — system prompt", () => {
   it("includes the catalog header and a known mock tool name", async () => {
-    await POST(chatRequest({ messages: [userMessage("hi")] }));
+    await send({ messages: [userMessage("hi")] });
 
-    expect(typeof captured.args.system).toBe("string");
-    expect(captured.args.system).toContain("MakerLab catalog");
-    expect(captured.args.system).toContain("Form 4");
-    expect(captured.args.system).toContain("Trotec Speedy 400");
+    const system = systemOf();
+    expect(system).toContain("MakerLab catalog");
+    expect(system).toContain("Form 4");
+    expect(system).toContain("Trotec Speedy 400");
   });
 
   it("adds the Response language section naming Spanish when locale is 'es'", async () => {
-    await POST(chatRequest({ messages: [userMessage("hi")], locale: "es" }));
+    await send({ messages: [userMessage("hi")], locale: "es" });
 
-    expect(captured.args.system).toContain("Response language");
-    expect(captured.args.system).toContain("Spanish");
+    expect(systemOf()).toContain("Response language");
+    expect(systemOf()).toContain("Spanish");
   });
 
   it("omits the Response language section when locale is omitted", async () => {
-    await POST(chatRequest({ messages: [userMessage("hi")] }));
-    expect(captured.args.system).not.toContain("Response language");
+    await send({ messages: [userMessage("hi")] });
+    expect(systemOf()).not.toContain("Response language");
   });
 
   it("omits the Response language section when locale is 'en'", async () => {
-    await POST(chatRequest({ messages: [userMessage("hi")], locale: "en" }));
-    expect(captured.args.system).not.toContain("Response language");
+    await send({ messages: [userMessage("hi")], locale: "en" });
+    expect(systemOf()).not.toContain("Response language");
+  });
+
+  it("describes exa_search and read_page, and no retired provider tool", async () => {
+    await send({ messages: [userMessage("hi")], toolId: "form-4" });
+
+    const system = systemOf();
+    expect(system).toContain("`exa_search`");
+    expect(system).toContain("`read_page`");
+    expect(system).toMatch(/untrusted data/);
+    expect(system).not.toContain("web_fetch");
+    expect(system).not.toContain("web_search");
+    expect(system).not.toMatch(/Claude|Anthropic/);
   });
 });
 
 describe("POST /api/chat — tools wired", () => {
-  it("exposes get_unit_details, report_issue, and web_fetch", async () => {
-    await POST(chatRequest({ messages: [userMessage("hi")] }));
+  it("hands the model the capability tools, read_page, and Exa search through the Gateway", async () => {
+    await send({ messages: [userMessage("hi")] });
 
-    expect(captured.args.tools).toHaveProperty("get_unit_details");
-    expect(captured.args.tools).toHaveProperty("report_issue");
-    expect(captured.args.tools).toHaveProperty("web_fetch");
+    const names = toolNamesOf();
+    expect(names).toEqual(expect.arrayContaining(["get_unit_details", "report_issue", "read_page", "exa_search"]));
+    expect(names).not.toContain("web_fetch");
+    expect(names).not.toContain("web_search");
+
+    const exa = firstCall().tools?.find((t) => t.name === "exa_search");
+    expect(exa).toMatchObject({
+      type: "provider",
+      id: "gateway.exa_search",
+      args: { numResults: 5, contents: { highlights: true } },
+    });
+    expect(firstCall().tools?.find((t) => t.name === "read_page")).toMatchObject({ type: "function" });
+  });
+
+  it("sends no Anthropic provider option anywhere — prompt parts, tools or call options", async () => {
+    await addResources([{ title: "Manual 1", url: "https://x.test/m1.pdf" }]);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(new TextEncoder().encode("%PDF-1.4\n"), { status: 200 }))
+    );
+
+    await send({ messages: [userMessage("how do I use this")], toolId: "form-4" });
+
+    const call = firstCall();
+    expect(call.prompt.some((m: any) => Array.isArray(m.content) && m.content.some((p: any) => p.type === "file"))).toBe(true);
+    expect([...providerOptionKeys(call.options)]).not.toContain("anthropic");
+    expect(JSON.stringify(call.tools)).not.toMatch(/anthropic/i);
+  });
+
+  it("stops offering read_page after five calls in one turn, and keeps everything else", async () => {
+    // No focused tool, so each read_page call is refused without a fetch.
+    stubChatModel(
+      scriptedModel((i) =>
+        i < 5
+          ? {
+              content: [
+                {
+                  type: "tool-call",
+                  toolCallId: `call_${i}`,
+                  toolName: "read_page",
+                  input: JSON.stringify({ url: "https://example.com/sop" }),
+                },
+              ],
+              finishReason: "tool-calls",
+            }
+          : { content: [{ type: "text", text: "I could not open that page." }], finishReason: "stop" }
+      )
+    );
+
+    await send({ messages: [userMessage("read the SOP")] });
+
+    const calls = recordedCalls(model);
+    expect(calls).toHaveLength(6);
+    for (const call of calls.slice(0, 5)) expect(toolNamesOf(call)).toContain("read_page");
+    expect(toolNamesOf(calls[5])).not.toContain("read_page");
+    expect(toolNamesOf(calls[5])).toEqual(expect.arrayContaining(["exa_search", "get_unit_details", "report_issue"]));
+    expect(toolResultOf("read_page")).toMatchObject({ status: "refused", reason: "no_focused_tool" });
   });
 });
 
-describe("get_unit_details.execute", () => {
-  async function getTools() {
-    await POST(chatRequest({ messages: [userMessage("hi")] }));
-    return captured.args.tools;
-  }
-
+describe("get_unit_details, run by the model", () => {
   it("returns { found:false } with a sample list for an unknown unit", async () => {
-    const tools = await getTools();
-    const result = await tools.get_unit_details.execute({
-      unit_label: "no-such-unit",
-    });
+    const result = await runTool("get_unit_details", { unit_label: "no-such-unit" });
     expect(result.found).toBe(false);
     // Sample list drawn from the seeded catalogue's units.
     expect(result.message).toMatch(/Form 4 \/\/ A|Trotec Speedy 400/);
   });
 
   it("returns { found:true } with status/condition/detail_page for a real unit", async () => {
-    const tools = await getTools();
-    const result = await tools.get_unit_details.execute({
-      unit_label: "Form 4 // A",
-    });
+    const result = await runTool("get_unit_details", { unit_label: "Form 4 // A" });
     expect(result.found).toBe(true);
     expect(result.unit_label).toBe("Form 4 // A");
     expect(result.status).toBe("In Use");
@@ -308,10 +446,7 @@ describe("get_unit_details.execute", () => {
       }))
     );
 
-    const tools = await getTools();
-    const result = await tools.get_unit_details.execute({
-      unit_label: "Form 4 // A",
-    });
+    const result = await runTool("get_unit_details", { unit_label: "Form 4 // A" });
 
     expect(result.found).toBe(true);
     expect(result.maintenance_logs).toHaveLength(10);
@@ -325,12 +460,7 @@ describe("get_unit_details.execute", () => {
   });
 });
 
-describe("report_issue.execute", () => {
-  async function getTools() {
-    await POST(chatRequest({ messages: [userMessage("hi")] }));
-    return captured.args.tools;
-  }
-
+describe("report_issue, run by the model", () => {
   /** The ticket the tool call actually wrote. */
   async function ticket(id: string) {
     const db = await getDb();
@@ -342,8 +472,7 @@ describe("report_issue.execute", () => {
   }
 
   it("writes an open issue_report and returns its id", async () => {
-    const tools = await getTools();
-    const result = await tools.report_issue.execute({
+    const result = await runTool("report_issue", {
       title: "Bed not leveling",
       description: "The print bed will not auto-level.",
       priority: "Medium",
@@ -360,8 +489,7 @@ describe("report_issue.execute", () => {
   });
 
   it("links the resolved unit when a known unit_label is supplied", async () => {
-    const tools = await getTools();
-    const result = await tools.report_issue.execute({
+    const result = await runTool("report_issue", {
       title: "Resin leak",
       description: "Leaking resin",
       unit_label: "Form 4 // A",
@@ -387,20 +515,20 @@ describe("report_issue.execute", () => {
       name: "Ada Lovelace",
     });
 
-    await POST(
-      chatRequest({ messages: [userMessage("hi")] }, { cookie: reporter.cookie })
+    const result = await runTool(
+      "report_issue",
+      {
+        title: "Resin leak",
+        description: "Leaking resin",
+        priority: "High",
+        reported_by: "Somebody Else",
+      },
+      { cookie: reporter.cookie }
     );
+
     // The assistant is told who it is talking to, and told not to ask.
-    expect(captured.args.system).toContain("Ada Lovelace");
-    expect(captured.args.system).not.toContain("ada@cornell.edu");
-
-    const result = await captured.args.tools.report_issue.execute({
-      title: "Resin leak",
-      description: "Leaking resin",
-      priority: "High",
-      reported_by: "Somebody Else",
-    });
-
+    expect(systemOf()).toContain("Ada Lovelace");
+    expect(systemOf()).not.toContain("ada@cornell.edu");
     expect(await ticket(result.ticket_id)).toMatchObject({
       reportedByName: "Ada Lovelace",
       reportedByEmail: "ada@cornell.edu",
@@ -409,8 +537,7 @@ describe("report_issue.execute", () => {
   });
 
   it("records no email and the supplied name for an anonymous reporter", async () => {
-    const tools = await getTools();
-    const result = await tools.report_issue.execute({
+    const result = await runTool("report_issue", {
       title: "Resin leak",
       description: "Leaking resin",
       priority: "High",
@@ -424,17 +551,30 @@ describe("report_issue.execute", () => {
 
   it("returns { success:false, error } when the write fails, and files nothing", async () => {
     const logged = vi.spyOn(console, "error").mockImplementation(() => {});
-    const tools = await getTools();
     // A configured database nobody can reach — the case that must never come
-    // back as "logged your ticket".
-    vi.stubEnv("DATABASE_URL", "postgres://user:hunter2@127.0.0.1:1/none");
-    resetDbForTests();
+    // back as "logged your ticket". Switched on as the model calls the tool,
+    // after the route has read the catalogue.
+    stubChatModel(
+      scriptedModel((i) => {
+        if (i > 0) return { content: [{ type: "text", text: "Sorry." }], finishReason: "stop" };
+        vi.stubEnv("DATABASE_URL", "postgres://user:hunter2@127.0.0.1:1/none");
+        resetDbForTests();
+        return {
+          content: [
+            {
+              type: "tool-call",
+              toolCallId: "call_1",
+              toolName: "report_issue",
+              input: JSON.stringify({ title: "Broken", description: "It is broken", priority: "Low" }),
+            },
+          ],
+          finishReason: "tool-calls",
+        };
+      })
+    );
 
-    const result = await tools.report_issue.execute({
-      title: "Broken",
-      description: "It is broken",
-      priority: "Low",
-    });
+    await send({ messages: [userMessage("hi")] });
+    const result = toolResultOf("report_issue");
 
     expect(result.success).toBe(false);
     expect(result.ticket_id).toBeUndefined();
@@ -449,8 +589,29 @@ describe("report_issue.execute", () => {
 });
 
 describe("PDF manual collection (focused tool)", () => {
-  const PDF_SMALL = new Uint8Array([1, 2, 3, 4]);
+  const PDF_SMALL = new TextEncoder().encode("%PDF-1.4\n% a small manual\n");
   const TEN_MB_PLUS = 10 * 1024 * 1024 + 1;
+
+  /**
+   * Answer each `url` over MSW — the resource's own link is fetched through
+   * the SSRF guard, which reads a real `Response` — and record the hits.
+   */
+  function servePdfs(urls: Record<string, () => Response>): string[] {
+    const hits: string[] = [];
+    server.use(
+      ...Object.entries(urls).map(([url, respond]) =>
+        http.get(url, ({ request }) => {
+          hits.push(request.url);
+          return respond();
+        })
+      )
+    );
+    return hits;
+  }
+
+  function pdfResponse(bytes: Uint8Array = PDF_SMALL): Response {
+    return HttpResponse.arrayBuffer(bytes.slice().buffer, { headers: { "content-type": "application/pdf" } });
+  }
 
   function okPdf(bytes: Uint8Array | number) {
     const body =
@@ -462,7 +623,11 @@ describe("PDF manual collection (focused tool)", () => {
     } as unknown as Response;
   }
 
-  it("attaches small PDFs to the first user message and caps at 3", async () => {
+  function fileParts(): any[] {
+    return (firstUserOf().content as any[]).filter((p) => p.type === "file");
+  }
+
+  it("attaches small PDFs to the first user message as plain file parts, and caps at 3", async () => {
     await addResources([
       { title: "Manual 1", url: "https://x.test/m1.pdf" },
       { title: "Manual 2", url: "https://x.test/m2.pdf" },
@@ -470,27 +635,26 @@ describe("PDF manual collection (focused tool)", () => {
       { title: "Manual 4", url: "https://x.test/m4.pdf" },
     ]);
 
-    const fetchMock = vi.fn(async () => okPdf(PDF_SMALL));
-    vi.stubGlobal("fetch", fetchMock);
-
-    await POST(
-      chatRequest({ messages: [userMessage("how do I use this")], toolId: "form-4" })
+    const hits = servePdfs(
+      Object.fromEntries([1, 2, 3, 4].map((n) => [`https://x.test/m${n}.pdf`, () => pdfResponse()]))
     );
+
+    await send({ messages: [userMessage("how do I use this")], toolId: "form-4" });
 
     // Cap of 3 PDFs: only 3 fetched, only 3 attached.
-    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(hits).toHaveLength(3);
 
-    const msgs = captured.args.messages;
-    const firstUser = msgs.find((m: any) => m.role === "user");
-    const fileParts = (firstUser.content as any[]).filter(
-      (p) => p.type === "file"
-    );
-    expect(fileParts).toHaveLength(3);
-    expect(fileParts[0]).toMatchObject({ mediaType: "application/pdf" });
+    const parts = fileParts();
+    expect(parts).toHaveLength(3);
+    for (const part of parts) {
+      // Provider-neutral: no cache markers, no options for any provider (spec §3.4).
+      expect(part).toMatchObject({ mediaType: "application/pdf", filename: expect.stringMatching(/\.pdf$/) });
+      expect(part.providerOptions).toBeUndefined();
+    }
 
     // System prompt lists the attached manuals.
-    expect(captured.args.system).toContain("Available manuals");
-    expect(captured.args.system).toContain("Manual 1");
+    expect(systemOf()).toContain("## Available manuals");
+    expect(systemOf()).toContain("Manual 1");
   });
 
   it("skips PDFs that are too large or return non-ok, and skips non-PDF resources", async () => {
@@ -502,20 +666,19 @@ describe("PDF manual collection (focused tool)", () => {
       { title: "Webpage", url: "https://x.test/page.html" },
     ]);
 
-    const fetchMock = vi.fn(async (url: string) => {
-      if (url.includes("huge")) return okPdf(TEN_MB_PLUS);
-      if (url.includes("dead"))
-        return { ok: false, status: 404 } as unknown as Response;
-      return okPdf(PDF_SMALL);
+    const huge = new Uint8Array(TEN_MB_PLUS);
+    huge.set(PDF_SMALL);
+    const fetchedUrls = servePdfs({
+      "https://x.test/good.pdf": () => pdfResponse(),
+      "https://x.test/huge.pdf": () => pdfResponse(huge),
+      "https://x.test/dead.pdf": () => new HttpResponse(null, { status: 404 }),
+      "https://x.test/page.html": () => HttpResponse.html("<p>never fetched</p>"),
     });
-    vi.stubGlobal("fetch", fetchMock);
+    vi.spyOn(console, "warn").mockImplementation(() => {});
 
-    await POST(
-      chatRequest({ messages: [userMessage("help")], toolId: "form-4" })
-    );
+    await send({ messages: [userMessage("help")], toolId: "form-4" });
 
     // The .html resource is never fetched (not a PDF url).
-    const fetchedUrls = fetchMock.mock.calls.map((c) => c[0]);
     expect(fetchedUrls).not.toContain("https://x.test/page.html");
     expect(fetchedUrls).toEqual(
       expect.arrayContaining([
@@ -526,14 +689,44 @@ describe("PDF manual collection (focused tool)", () => {
     );
 
     // Only the small "Good" PDF actually attaches.
-    const firstUser = captured.args.messages.find(
-      (m: any) => m.role === "user"
+    expect(fileParts()).toHaveLength(1);
+    expect(systemOf()).toContain("Good");
+  });
+
+  it("never follows a manual link that redirects inward, and attaches nothing from it", async () => {
+    // Research verified this link as public; now its host bounces the chat's
+    // server-side download to the cloud metadata service.
+    await addResources([{ title: "Evil manual", url: "https://attacker.example/manual.pdf" }]);
+    let metadataHit = false;
+    server.use(
+      http.get("https://attacker.example/manual.pdf", () =>
+        new HttpResponse(null, { status: 302, headers: { Location: "http://169.254.169.254/latest/meta-data/" } })
+      ),
+      http.get("http://169.254.169.254/latest/meta-data/", () => {
+        metadataHit = true;
+        return pdfResponse();
+      })
     );
-    const fileParts = (firstUser.content as any[]).filter(
-      (p) => p.type === "file"
-    );
-    expect(fileParts).toHaveLength(1);
-    expect(captured.args.system).toContain("Good");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await send({ messages: [userMessage("help")], toolId: "form-4" });
+
+    expect(metadataHit).toBe(false);
+    expect(fileParts()).toHaveLength(0);
+    expect(warn.mock.calls.map((call) => call.join(" ")).join("\n")).toContain("blocked");
+  });
+
+  it("attaches nothing that is not a PDF, whatever its content type says", async () => {
+    await addResources([{ title: "Fake manual", url: "https://x.test/fake.pdf" }]);
+    servePdfs({
+      "https://x.test/fake.pdf": () =>
+        new HttpResponse("root:x:0:0:root:/root:/bin/bash", { headers: { "content-type": "application/pdf" } }),
+    });
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await send({ messages: [userMessage("help")], toolId: "form-4" });
+
+    expect(fileParts()).toHaveLength(0);
   });
 
   it("ignores unpublished resources and resources for other tools", async () => {
@@ -544,12 +737,10 @@ describe("PDF manual collection (focused tool)", () => {
     const fetchMock = vi.fn(async () => okPdf(PDF_SMALL));
     vi.stubGlobal("fetch", fetchMock);
 
-    await POST(
-      chatRequest({ messages: [userMessage("help")], toolId: "form-4" })
-    );
+    await send({ messages: [userMessage("help")], toolId: "form-4" });
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(captured.args.system).not.toContain("Available manuals");
+    expect(systemOf()).not.toContain("## Available manuals");
   });
 
   it("attaches a resource's uploaded file when the resource itself has no url", async () => {
@@ -570,15 +761,13 @@ describe("PDF manual collection (focused tool)", () => {
     const fetchMock = vi.fn(async () => okPdf(PDF_SMALL));
     vi.stubGlobal("fetch", fetchMock);
 
-    await POST(
-      chatRequest({ messages: [userMessage("help")], toolId: "form-4" })
-    );
+    await send({ messages: [userMessage("help")], toolId: "form-4" });
 
     expect(fetchMock).toHaveBeenCalledWith(
       "https://blob.test/resources/scanned-abc123.pdf",
       expect.anything()
     );
-    expect(captured.args.system).toContain("Scanned manual");
+    expect(systemOf()).toContain("Scanned manual");
   });
 
   it("attaches the archived copy instead of the manufacturer's link, once, and marks it attached", async () => {
@@ -601,26 +790,28 @@ describe("PDF manual collection (focused tool)", () => {
     server.use(
       http.get(ARCHIVE, ({ request }) => {
         fetched.push(request.url);
-        return HttpResponse.arrayBuffer(new Uint8Array([0x25, 0x50, 0x44, 0x46]).buffer, {
+        return HttpResponse.arrayBuffer(new TextEncoder().encode("%PDF-1.4\n").buffer, {
           headers: { "content-type": "application/pdf" },
         });
       })
       // No handler for SOURCE: fetching it would fail the test.
     );
 
-    await POST(chatRequest({ messages: [userMessage("help")], toolId: "form-4" }));
+    await send({ messages: [userMessage("help")], toolId: "form-4" });
 
     expect(fetched).toEqual([ARCHIVE]);
-    const firstUser = captured.args.messages.find((m: any) => m.role === "user");
-    expect((firstUser.content as any[]).filter((p) => p.type === "file")).toHaveLength(1);
-    const system: string = captured.args.system;
+    expect(fileParts()).toHaveLength(1);
+    const system = systemOf();
     expect(system).toContain(`${ARCHIVE} (attached)`);
     // One line for the one manual in the annotated list — the copy and the
     // source are not listed as two resources.
-    const annotated = system.slice(system.indexOf("## Attached manuals vs. fetchable resources"));
+    const annotated = system.slice(system.indexOf("## Attached manuals vs. readable resources"));
     expect(annotated.split("\n").filter((line) => line.includes("Form 4 manual"))).toEqual([
       `- [Manual] Form 4 manual — ${ARCHIVE} (attached)`,
     ]);
+    // The fallback for what is not attached is read_page on a link, never a provider tool.
+    expect(annotated).toContain("`read_page`");
+    expect(annotated).not.toContain("web_fetch");
   });
 
   it("does not run manual collection when no toolId is provided", async () => {
@@ -628,10 +819,10 @@ describe("PDF manual collection (focused tool)", () => {
     const fetchMock = vi.fn(async () => okPdf(PDF_SMALL));
     vi.stubGlobal("fetch", fetchMock);
 
-    await POST(chatRequest({ messages: [userMessage("hi")] }));
+    await send({ messages: [userMessage("hi")] });
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(captured.args.system).not.toContain("Available manuals");
+    expect(systemOf()).not.toContain("## Available manuals");
   });
 });
 
@@ -648,26 +839,26 @@ describe("POST /api/chat — who may add equipment", () => {
     vi.stubEnv("AUTH_SECRET", SECRET);
     resetAuthForTests();
     const { cookie } = await signInAsNew({ role, name });
-    await POST(chatRequest({ messages: [userMessage(ASK)] }, { cookie }));
+    await send({ messages: [userMessage(ASK)] }, { cookie });
   }
 
   it("gives an anonymous visitor no intake tools, and tells the assistant why", async () => {
-    await POST(chatRequest({ messages: [userMessage(ASK)] }));
+    await send({ messages: [userMessage(ASK)] });
 
     for (const name of INTAKE_TOOLS) {
-      expect(captured.args.tools).not.toHaveProperty(name);
+      expect(toolNamesOf()).not.toContain(name);
     }
-    expect(captured.args.system).toContain("limited to lab staff");
-    expect(captured.args.system).not.toContain("act as an intake agent");
+    expect(systemOf()).toContain("limited to lab staff");
+    expect(systemOf()).not.toContain("act as an intake agent");
   });
 
   it("gives an ordinary signed-in user no intake tools either", async () => {
     await postAs("user", "Ada Lovelace");
 
     for (const name of INTAKE_TOOLS) {
-      expect(captured.args.tools).not.toHaveProperty(name);
+      expect(toolNamesOf()).not.toContain(name);
     }
-    expect(captured.args.system).toContain("limited to lab staff");
+    expect(systemOf()).toContain("limited to lab staff");
   });
 
   it("gives an admin the intake tools and the full intake instructions", async () => {
@@ -675,10 +866,10 @@ describe("POST /api/chat — who may add equipment", () => {
     await postAs("admin", "Niti Parikh");
 
     for (const name of INTAKE_TOOLS) {
-      expect(captured.args.tools).toHaveProperty(name);
+      expect(toolNamesOf()).toContain(name);
     }
-    expect(captured.args.system).toContain("act as an intake agent");
-    expect(captured.args.system).not.toContain("limited to lab staff");
+    expect(systemOf()).toContain("act as an intake agent");
+    expect(systemOf()).not.toContain("limited to lab staff");
   });
 
   it("never gives even an admin create_tool, research_tool or propose_listing", async () => {
@@ -687,84 +878,74 @@ describe("POST /api/chat — who may add equipment", () => {
     await postAs("admin", "Niti Parikh");
 
     for (const name of NEVER_IN_CHAT) {
-      expect(captured.args.tools).not.toHaveProperty(name);
+      expect(toolNamesOf()).not.toContain(name);
     }
   });
 
   it("keeps reporting a problem open to anonymous visitors", async () => {
-    await POST(chatRequest({ messages: [userMessage("the printer is jammed")] }));
-    expect(captured.args.tools).toHaveProperty("report_issue");
+    await send({ messages: [userMessage("the printer is jammed")] });
+    expect(toolNamesOf()).toContain("report_issue");
   });
 });
 
 // ── Photos reach the model (intake spec §6.1) ────────────────────────
 describe("POST /api/chat — photos reach the model", () => {
   it("passes an attached photo to the model on the user message", async () => {
-    await POST(
-      chatRequest({
-        messages: [
-          {
-            id: "1",
-            role: "user",
-            parts: [
-              {
-                type: "text",
-                text: "what printer is this?\n\n[Attached photos: attachment_id=3f2504e0-4f89-41d3-9a0c-0305e82c3301 name=plate.jpg]",
-              },
-              {
-                type: "file",
-                mediaType: "image/jpeg",
-                filename: "plate.jpg",
-                url: "data:image/jpeg;base64,AAAA",
-              },
-            ],
-          },
-        ],
-      })
-    );
+    await send({
+      messages: [
+        {
+          id: "1",
+          role: "user",
+          parts: [
+            {
+              type: "text",
+              text: "what printer is this?\n\n[Attached photos: attachment_id=3f2504e0-4f89-41d3-9a0c-0305e82c3301 name=plate.jpg]",
+            },
+            {
+              type: "file",
+              mediaType: "image/jpeg",
+              filename: "plate.jpg",
+              url: "data:image/jpeg;base64,AAAA",
+            },
+          ],
+        },
+      ],
+    });
 
-    const user = captured.args.messages.find((m: any) => m.role === "user");
-    expect(user.content).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          type: "file",
-          mediaType: "image/jpeg",
-          data: "data:image/jpeg;base64,AAAA",
-        }),
-      ])
-    );
+    const image = (firstUserOf().content as any[]).find((p) => p.type === "file");
+    expect(image).toMatchObject({ mediaType: "image/jpeg" });
+    // The SDK hands the model the data URL's bytes, as bytes or as base64.
+    const bytes = image.data instanceof Uint8Array ? image.data : Buffer.from(String(image.data), "base64");
+    expect(Buffer.from(bytes).toString("base64")).toBe("AAAA");
   });
 
   it("still shows the model a photo whose hint entry is malformed", async () => {
     // The hint is assembled by the client and re-sent verbatim on every turn,
     // so a truncated one must degrade to "no id" rather than throwing the
     // request away — the model can still look at the picture.
-    const res = await POST(
-      chatRequest({
-        messages: [
-          {
-            id: "1",
-            role: "user",
-            parts: [
-              {
-                type: "text",
-                text: "what is this?\n\n[Attached photos: name=plate.jpg; attachment_id=]",
-              },
-              {
-                type: "file",
-                mediaType: "image/jpeg",
-                filename: "plate.jpg",
-                url: "data:image/jpeg;base64,AAAA",
-              },
-            ],
-          },
-        ],
-      })
-    );
+    const { res } = await send({
+      messages: [
+        {
+          id: "1",
+          role: "user",
+          parts: [
+            {
+              type: "text",
+              text: "what is this?\n\n[Attached photos: name=plate.jpg; attachment_id=]",
+            },
+            {
+              type: "file",
+              mediaType: "image/jpeg",
+              filename: "plate.jpg",
+              url: "data:image/jpeg;base64,AAAA",
+            },
+          ],
+        },
+      ],
+    });
 
     expect(res.status).toBe(200);
-    const user = captured.args.messages.find((m: any) => m.role === "user");
-    expect(user.content).toEqual(
+    expect(firstUserOf().content).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ type: "file", mediaType: "image/jpeg" }),
       ])

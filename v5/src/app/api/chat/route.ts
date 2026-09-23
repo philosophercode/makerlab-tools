@@ -1,4 +1,3 @@
-import { anthropic } from "@ai-sdk/anthropic";
 import {
   convertToModelMessages,
   createUIMessageStream,
@@ -9,6 +8,7 @@ import {
   type ImagePart,
   type ModelMessage,
   type TextPart,
+  type Tool,
   type UIMessage,
   type UserModelMessage,
 } from "ai";
@@ -21,7 +21,12 @@ import type { MakerLabTool } from "../../../components/catalog-types";
 import { checkRateLimit, type RateLimitDecision } from "../../../lib/rate-limit";
 import { resolveIdentity } from "../../../lib/auth/identity";
 import { siteConfig } from "../../../lib/site-config";
-import { chatModel } from "../../../lib/model";
+import { languageModelFor } from "../../../lib/ai/models";
+import { chatExaSearch, EXA_SEARCH_TOOL } from "../../../lib/ai/exa";
+import { describeChatError } from "../../../lib/chat/describe-chat-error";
+import { resourceHosts } from "../../../lib/capabilities/web";
+import { fetchManualPdf, type ManualPdfSource } from "../../../lib/chat/fetch-manual-pdf";
+import { chatPrepareStep } from "./prepare-step";
 import {
   CAPABILITIES,
   capabilitiesForIdentity,
@@ -38,6 +43,7 @@ const SIGN_IN_PATH = "/api/auth/sign-in/google";
 const MAX_PDFS_PER_CHAT = 3;
 const MAX_PDF_BYTES = 10 * 1024 * 1024; // 10MB ceiling
 const PDF_FETCH_UA = "Mozilla/5.0 (compatible; MakerLabBot/1.0)";
+const PDF_FETCH_TIMEOUT_MS = 8000;
 
 interface AttachedManual {
   title: string;
@@ -78,15 +84,15 @@ export async function POST(req: Request) {
     ? await collectToolManuals(focused.id)
     : { manuals: [], skipped: 0 };
   if (focused) {
-    const hosts = uniqueHosts(linkUrls(focused));
+    const hosts = resourceHosts(focused);
     console.info(
       `[chat] focused tool: ${focused.name} (${focused.id}), links: ${focused.links.length}`
     );
     console.info(
-      `[chat] web_fetch allowedDomains: ${hosts.length ? hosts.join(", ") : "empty"}`
+      `[chat] read_page hosts: ${hosts.length ? hosts.join(", ") : "none"}`
     );
     console.info(`[chat] manuals attached: ${manuals.length}`);
-    console.info(`[chat] manuals skipped (will web_fetch): ${skipped}`);
+    console.info(`[chat] manuals not attached (link only): ${skipped}`);
   }
 
   // Convert the UI messages, attach any server-fetched manuals, and surface the
@@ -102,8 +108,9 @@ export async function POST(req: Request) {
 
   const stream = createUIMessageStream({
     // Surface a useful, user-facing reason instead of the SDK's masked default
-    // (e.g. distinguish an Anthropic "overloaded" 529 from a real bug).
-    onError: describeChatError,
+    // (e.g. tell a provider's bad minute from a real bug) — worded by kind, so
+    // it names no provider and no configuration value.
+    onError: reportChatError,
     execute: ({ writer }) => {
       if (manuals.length > 0) {
         writer.write({
@@ -125,10 +132,10 @@ export async function POST(req: Request) {
         identity,
       };
 
-      // Compose the system prompt + capability tools from the shared registry,
-      // then add the provider-native research tools (Anthropic web tools are not
-      // capabilities — the intake capability's prompt tells the agent to use
-      // them). web_fetch keeps the focused-tool domain allow-list.
+      // Compose the system prompt + capability tools from the shared registry
+      // (`read_page` among them, confined to the focused tool's hosts), then add
+      // web search: Exa, which the Gateway runs for any model, so it is not a
+      // capability — the `web` capability's prompt tells the agent about it.
       //
       // The registry is composed as this caller may use it: a capability whose
       // required permission they do not hold contributes no tools, only a note
@@ -139,31 +146,24 @@ export async function POST(req: Request) {
         { tools, focusedTool: focused, locale }
       );
 
+      const chatTools: Record<string, Tool> = {
+        ...capabilityTools,
+        [EXA_SEARCH_TOOL]: chatExaSearch(),
+      };
+
       const result = streamText({
-        model: chatModel,
+        // Resolved here, inside the stream, so a misconfigured MODEL_CHAT
+        // reaches the student as the error row naming the variable.
+        model: languageModelFor("chat"),
         system: appendManualSections(system, focused, manuals),
         messages: modelMessages,
-        tools: {
-          ...capabilityTools,
-          web_search: anthropic.tools.webSearch_20250305({
-            maxUses: 5,
-          }),
-          web_fetch: anthropic.tools.webFetch_20250910({
-            maxUses: 5,
-            maxContentTokens: 20000,
-            citations: { enabled: true },
-            ...(focused
-              ? (() => {
-                  const hosts = uniqueHosts(linkUrls(focused));
-                  return hosts.length ? { allowedDomains: hosts } : {};
-                })()
-              : {}),
-          }),
-        },
+        tools: chatTools,
+        // Exa and read_page carry no per-turn cap of their own; we count.
+        prepareStep: chatPrepareStep(Object.keys(chatTools)),
         stopWhen: stepCountIs(10),
       });
 
-      writer.merge(result.toUIMessageStream({ onError: describeChatError }));
+      writer.merge(result.toUIMessageStream({ onError: reportChatError }));
     },
   });
 
@@ -201,35 +201,15 @@ function rateLimitedResponse(decision: RateLimitDecision): Response {
 }
 
 /**
- * Map a streaming/model error to a concise, user-facing message. The AI SDK
- * masks error text by default ("An error occurred"); this surfaces the actual
- * reason so users aren't left with a dead-end "Something went wrong" — most
- * importantly distinguishing a transient Anthropic overload (HTTP 529) from a
- * genuine bug. Returned text is shown verbatim in the chat error row.
+ * The chat error row's text for a failed turn, logged once as it goes out.
+ * The log line is the same sanitized sentence the student sees — it names the
+ * variable to fix, never a value, and nothing key-shaped survives it — rather
+ * than the raw error, whose request body would carry the whole conversation.
  */
-function describeChatError(error: unknown): string {
-  const err = error as
-    | { statusCode?: number; status?: number; message?: string; name?: string }
-    | undefined;
-  const status = err?.statusCode ?? err?.status;
-  const message = (err?.message || "").toLowerCase();
-
-  if (status === 529 || message.includes("overloaded")) {
-    return "The AI service is temporarily overloaded (this is on the provider's side, not your request). Please try again in a few moments.";
-  }
-  if (status === 429 || message.includes("rate limit") || message.includes("too many requests")) {
-    return "Too many requests right now — please wait a moment and try again.";
-  }
-  if (message.includes("timeout") || message.includes("timed out") || err?.name === "TimeoutError") {
-    return "The request took too long and timed out. Please try again.";
-  }
-  if (status === 401 || status === 403 || message.includes("api key") || message.includes("authentication")) {
-    return "The assistant is misconfigured (authentication failed). Please let a lab admin know.";
-  }
-  const detail = err?.message?.trim();
-  return detail
-    ? `Something went wrong: ${detail}`
-    : "Something went wrong. Please try again.";
+function reportChatError(error: unknown): string {
+  const message = describeChatError(error);
+  console.warn(`[chat] turn failed: ${message}`);
+  return message;
 }
 
 // ── Attachments / vision (design spec §6.1) ────────────────────────
@@ -240,7 +220,7 @@ function describeChatError(error: unknown): string {
  * The chat client uploads each photo to Blob through `POST /api/uploads` and
  * appends a text hint (`[Attached photos: attachment_id=<uuid> name=<name>;
  * ...]`) to the user message; for vision it also includes the image bytes as
- * image/file parts so Claude can see them. We pair the hint entries (which
+ * image/file parts so the model can see them. We pair the hint entries (which
  * carry the durable `attachments.id` a write later claims) with the inline
  * image bytes (the `dataUrl` the model sees) from the latest user message, in
  * order.
@@ -377,26 +357,6 @@ function parsePhotoHints(text: string): PhotoHint[] {
 
 // ── Helpers (focused tool / manuals) ───────────────────────────────
 
-/**
- * Every URL the focused tool's links name — the archived copy *and* the
- * manufacturer's original, so `web_fetch` may still fall back to the source.
- */
-function linkUrls(tool: MakerLabTool): string[] {
-  return tool.links.flatMap((link) => (link.sourceHref ? [link.href, link.sourceHref] : [link.href]));
-}
-
-function uniqueHosts(urls: string[]): string[] {
-  const set = new Set<string>();
-  for (const u of urls) {
-    try {
-      set.add(new URL(u).hostname);
-    } catch {
-      // skip malformed URLs
-    }
-  }
-  return [...set];
-}
-
 function isPdfUrl(url: string | null | undefined): boolean {
   if (!url) return false;
   const cleaned = url.split("?")[0].toLowerCase();
@@ -408,52 +368,33 @@ function isPdfUrl(url: string | null | undefined): boolean {
  * manual archive — it outlives the manufacturer's link, and matches the href
  * the tool's links carry, which keeps "(attached)" honest), then the source
  * link, then an uploaded file. One per resource, so a manual is never attached
- * twice.
+ * twice. `ownStore` marks the copies our own uploaders wrote; the source link
+ * is the web's, and is fetched through the SSRF guard (`fetch-manual-pdf.ts`).
  */
-function pickPdfUrl(resource: ToolResource): string | null {
-  if (resource.archivedUrl) return resource.archivedUrl;
-  if (isPdfUrl(resource.url)) return resource.url;
-  return resource.fileUrls.find(isPdfUrl) ?? null;
+function pickPdfSource(resource: ToolResource): ManualPdfSource | null {
+  if (resource.archivedUrl) return { url: resource.archivedUrl, ownStore: true };
+  if (resource.url && isPdfUrl(resource.url)) return { url: resource.url, ownStore: false };
+  const uploaded = resource.fileUrls.find(isPdfUrl);
+  return uploaded ? { url: uploaded, ownStore: true } : null;
 }
 
 /**
- * Fetch a PDF server-side (from the Vercel function, not Anthropic's fetcher)
- * and return it base64-encoded. Returns null on any failure so the caller can
- * fall back to web_fetch instead of 400-ing the whole chat request.
+ * Fetch a PDF server-side and return it base64-encoded, so the model receives
+ * the bytes rather than a URL its provider may not be able to fetch. Returns
+ * null on any failure — a blocked or non-PDF answer included; the manual is
+ * then only a link in the prompt, and the chat request carries on without it.
  */
-async function fetchPdfAsBase64(
-  title: string,
-  url: string
-): Promise<string | null> {
-  try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": PDF_FETCH_UA },
-      signal: AbortSignal.timeout(8000),
-    });
-    if (!res.ok) {
-      console.warn(
-        "[chat] PDF fetch failed, will rely on web_fetch:",
-        title,
-        url,
-        `status ${res.status}`
-      );
-      return null;
-    }
-    const buf = await res.arrayBuffer();
-    if (buf.byteLength > MAX_PDF_BYTES) {
-      console.warn(
-        "[chat] PDF too large, will rely on web_fetch:",
-        title,
-        url,
-        `${buf.byteLength} bytes`
-      );
-      return null;
-    }
-    return Buffer.from(buf).toString("base64");
-  } catch (err) {
-    console.warn("[chat] PDF fetch failed, will rely on web_fetch:", title, url, err);
+async function fetchPdfAsBase64(title: string, source: ManualPdfSource): Promise<string | null> {
+  const fetched = await fetchManualPdf(source, {
+    maxBytes: MAX_PDF_BYTES,
+    timeoutMs: PDF_FETCH_TIMEOUT_MS,
+    userAgent: PDF_FETCH_UA,
+  });
+  if (!fetched.ok) {
+    console.warn("[chat] PDF not attached:", title, source.url, fetched.reason);
     return null;
   }
+  return Buffer.from(fetched.bytes).toString("base64");
 }
 
 async function collectToolManuals(
@@ -474,8 +415,8 @@ async function collectToolManuals(
   let skipped = 0;
   try {
     for (const r of forTool) {
-      const url = pickPdfUrl(r);
-      if (!url) {
+      const source = pickPdfSource(r);
+      if (!source) {
         if (r.url) {
           console.info(`[chat] skipping non-PDF resource: ${r.title} (${r.url})`);
         }
@@ -488,7 +429,8 @@ async function collectToolManuals(
         continue;
       }
       const title = r.title || "Manual";
-      const data = await fetchPdfAsBase64(title, url);
+      const { url } = source;
+      const data = await fetchPdfAsBase64(title, source);
       if (!data) {
         skipped += 1;
         continue;
@@ -498,8 +440,8 @@ async function collectToolManuals(
       );
     }
   } catch (err) {
-    // Never let base64 collection take down the request; fall back to web_fetch.
-    console.warn("[chat] manual collection failed, falling back to web_fetch", err);
+    // Never let base64 collection take down the request; the manuals stay links.
+    console.warn("[chat] manual collection failed; manuals stay links only", err);
     return { manuals: [], skipped: skipped + manuals.length };
   }
   return { manuals, skipped };
@@ -516,13 +458,12 @@ function attachManualsToFirstUserMessage(
   const fileParts: FilePart[] = manuals.map((m) => ({
     type: "file",
     mediaType: "application/pdf",
-    // Base64 of bytes we fetched server-side — avoids handing Anthropic a URL
-    // it can't fetch (e.g. hosts that block its fetcher, returning a 400).
+    // Base64 of bytes we fetched server-side — avoids handing the provider a
+    // URL it can't fetch (hosts that block its fetcher answer with an error).
+    // A plain file part, with no provider options: every Gateway model reads
+    // it, and caching repeated context is the provider's own (spec §3.4).
     data: m.data,
     filename: `${m.title}.pdf`,
-    providerOptions: {
-      anthropic: { cacheControl: { type: "ephemeral" } },
-    },
   }));
 
   const target = messages[firstUserIdx] as UserModelMessage;
@@ -562,7 +503,7 @@ function appendManualSections(
 
   const list = manuals.map((m) => `- **${m.title}** — ${m.url}`).join("\n");
   sections.push(
-    `## Available manuals\n\nThe following PDF manuals are attached to this conversation as documents — Claude can read both their text and figures directly:\n\n${list}`
+    `## Available manuals\n\nThe following PDF manuals are attached to this conversation as documents — read both their text and figures directly:\n\n${list}`
   );
 
   if (focused && focused.links.length > 0) {
@@ -574,7 +515,7 @@ function appendManualSections(
       })
       .join("\n");
     sections.push(
-      `## Attached manuals vs. fetchable resources\n\nItems marked "(attached)" below are already inlined above as PDF documents — read them directly instead of calling \`web_fetch\`. If an attached PDF was expected to answer the question but you can't actually read it (rare — usually means Anthropic's fetch was blocked by the host), call \`web_fetch\` on the same URL as a fallback.\n\n${annotated}`
+      `## Attached manuals vs. readable resources\n\nItems marked "(attached)" below are already inlined above as PDF documents — read them directly; do not call \`read_page\` on them. For a web page among the other links, call \`read_page\` on its exact URL when the answer needs it. \`read_page\` does not read PDFs: for a PDF that is not attached, give the student the link rather than guessing what it says.\n\n${annotated}`
     );
   }
 

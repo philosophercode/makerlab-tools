@@ -5,7 +5,7 @@ import "../../styles/admin-intake.css";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import type {
   ApprovePendingAction,
@@ -13,12 +13,16 @@ import type {
   IntakeApproveResult,
 } from "../../app/admin/intake/action-result";
 import type { AdminActionWarning } from "../../lib/admin/action-result";
-import type { ApprovalFields } from "../../lib/data/pending-tools";
+import type { ApprovalFields, ApprovalImageChoice } from "../../lib/data/pending-tools";
 import type { CategoryOption, LocationOption } from "../../lib/data/taxonomy";
+import { imageRetryInProgress } from "../../lib/intake/image-retry-state";
+import { INTAKE_POLL_INTERVAL_MS, REVIEWER_NOTE_MAX_CHARS } from "../../lib/intake/limits";
+import { cleanReviewerNote } from "../../lib/intake/reviewer-note";
 import { ADMIN_INTAKE_PATH, type PendingToolView } from "../../lib/intake/types";
-import type { ResearchResult } from "../../lib/research/result";
+import type { ResearchImages, ResearchResult } from "../../lib/research/result";
 import { ConfidenceStrip, isWebLink } from "../ConfidenceStrip";
 import { requestResearch } from "./IntakeList";
+import { initialImageChoice, ProductImage } from "./ProductImage";
 
 /**
  * `/admin/intake/[id]` — the page an admin approves from (spec §5.4 steps
@@ -47,6 +51,22 @@ import { requestResearch } from "./IntakeList";
  * No `useTransition` around them, for the reason `use-row-action.ts` gives:
  * each ends in `revalidatePath`, and a transition would hold the confirmation
  * hostage to the re-render behind it.
+ *
+ * **The product image is part of the decision** (gateway spec §5.2). The
+ * `ProductImage` section offers research's candidates above the read-only
+ * photos, preselects one, and the choice travels with either Approve as
+ * `fields.image`. An image that could not be attached is a warning on the
+ * success, never a failure: the tool exists, and the settled panel says the
+ * cover is missing.
+ *
+ * **The reviewer can correct the research** (amendment "Product-page first,
+ * front-facing images, reviewer notes"). **Research again** carries an
+ * optional one-line note ("use the bambulab.com X2D product page") that both
+ * research passes see, fenced, and the result records — it starts as the note
+ * the last research ran with. **Find a different image** runs the image stage
+ * alone with its own note; while it runs the page polls, and when the new
+ * pictures land the image choice is re-derived from them, because a choice of
+ * a picture that is no longer offered cannot be approved.
  *
  * The component stays mounted when the page re-renders with the item approved
  * or discarded, which is what keeps a success's warning on screen after the
@@ -98,8 +118,14 @@ type Busy = "approve" | "draft" | "unit" | "discard" | "save" | "research" | nul
 
 /** How the item left the queue, as far as this page saw it happen. */
 type Settled =
-  | { kind: "approved"; tool: IntakeToolLink; warning: AdminActionWarning | null }
-  | { kind: "unit"; tool: IntakeToolLink; warning: AdminActionWarning | null }
+  | {
+      kind: "approved";
+      tool: IntakeToolLink;
+      warning: AdminActionWarning | null;
+      /** An image was chosen and did not attach — said even when `warning` went to the audit. */
+      imageMissing: boolean;
+    }
+  | { kind: "unit"; tool: IntakeToolLink; warning: AdminActionWarning | null; imageMissing: boolean }
   | { kind: "discarded" };
 
 const LIST_FIELDS = ["materials", "ppeRequired", "tags"] as const;
@@ -128,8 +154,37 @@ export function PreliminaryToolPage({
   const [identity, setIdentity] = useState({ name: item.name, brand: item.brand ?? "" });
   const [unitSerial, setUnitSerial] = useState(item.serialNumber ?? "");
   const [checked, setChecked] = useState(false);
+  // An uploaded photo is the cover, so research looked for no other (§5.1 step 3).
+  const hasUploadedPhoto = item.photos.length > 0;
+  const [imageChoice, setImageChoice] = useState<ApprovalImageChoice>(() =>
+    initialImageChoice(research?.images, hasUploadedPhoto)
+  );
   const [note, setNote] = useState("");
+  const [researchNote, setResearchNote] = useState(research?.reviewerNote ?? "");
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+
+  // New pictures (Find a different image) mean a fresh preselection: the old
+  // choice may name a candidate or a cleaned copy that is gone.
+  const imagesKey = imageSetKey(research?.images);
+  const [choiceFor, setChoiceFor] = useState(imagesKey);
+  if (choiceFor !== imagesKey) {
+    setChoiceFor(imagesKey);
+    setImageChoice(initialImageChoice(research?.images, hasUploadedPhoto));
+  }
+
+  // A Find a different image run in flight: poll like the queue does, and
+  // stop once it lands or goes stale.
+  const [now, setNow] = useState(() => Date.now());
+  const retry = research?.imageRetry ?? null;
+  const retryRunning = imageRetryInProgress(retry, now);
+  useEffect(() => {
+    if (!retryRunning) return;
+    const timer = setInterval(() => {
+      setNow(Date.now());
+      router.refresh();
+    }, INTAKE_POLL_INTERVAL_MS);
+    return () => clearInterval(timer);
+  }, [retryRunning, router]);
 
   const [busy, setBusy] = useState<Busy>(null);
   /** A message key under `admin` — `errors.<code>` or `intake.errors.<code>`. */
@@ -179,7 +234,12 @@ export function PreliminaryToolPage({
     }
   }
 
-  function settle(result: IntakeApproveResult | null, kind: "approved" | "unit", name: string) {
+  function settle(
+    result: IntakeApproveResult | null,
+    kind: "approved" | "unit",
+    name: string,
+    imageSent = false
+  ) {
     if (!result) return;
     if (!result.ok) {
       setError(`errors.${result.error}`);
@@ -189,16 +249,19 @@ export function PreliminaryToolPage({
       kind,
       tool: { name, slug: result.slug, published: result.published },
       warning: result.warning ?? null,
+      imageMissing: imageSent && result.imageAttached === false,
     });
   }
 
   async function approve(action: ApprovePendingAction, which: "approve" | "draft") {
     if (!research) return;
-    const fields = toFields(draft, research);
+    // The admin's own photo is the cover; nothing else is sent in its place.
+    const image = hasUploadedPhoto ? ({ choice: "none" } as const) : imageChoice;
+    const fields = toFields(draft, research, image);
     const result = await write(which, () =>
       action({ id: item.id, fields, overrideNote: low ? note.trim() : null })
     );
-    settle(result, "approved", fields.name);
+    settle(result, "approved", fields.name, image.choice !== "none");
   }
 
   async function addUnit() {
@@ -243,13 +306,29 @@ export function PreliminaryToolPage({
    */
   async function researchAgain() {
     if (identityDirty && !(await saveIdentity())) return;
-    const code = await write("research", () => requestResearch(item.id));
+    const code = await write("research", () => requestResearch(item.id, cleanReviewerNote(researchNote) || null));
     if (code) {
       setError(`intake.errors.${code}`);
       return;
     }
     setNotice("intake.researchStarted");
     router.refresh();
+  }
+
+  /** **Find a different image**: null when it started, else the message key to show. */
+  async function findDifferentImage(imageNote: string | null): Promise<string | null> {
+    const action = actions.differentImage;
+    if (!action) return null;
+    let result;
+    try {
+      result = await action({ id: item.id, note: imageNote });
+    } catch {
+      return "errors.failed";
+    }
+    if (!result.ok) return `errors.${result.error}`;
+    setNow(Date.now());
+    router.refresh();
+    return null;
   }
 
   const locked = busy !== null;
@@ -294,6 +373,18 @@ export function PreliminaryToolPage({
                       : t("duplicateOfPending", { name: item.duplicateOf.name })}
                   </p>
                 ) : null}
+                <div className="admin-field">
+                  <label htmlFor="intake-research-note">{t("researchNote")}</label>
+                  <textarea
+                    id="intake-research-note"
+                    rows={2}
+                    maxLength={REVIEWER_NOTE_MAX_CHARS}
+                    placeholder={t("researchNotePlaceholder")}
+                    value={researchNote}
+                    onChange={(event) => setResearchNote(event.target.value)}
+                  />
+                  <p className="admin-intake-hint">{t("researchNoteHint", { max: REVIEWER_NOTE_MAX_CHARS })}</p>
+                </div>
                 <div className="admin-editor-actions">
                   <button
                     type="button"
@@ -328,6 +419,7 @@ export function PreliminaryToolPage({
                   confidence={research.confidence}
                   evidence={research.evidence}
                   sourceUrls={research.sourceUrls}
+                  sourcesAreReads
                   unknownsFirst={research.confidence.level !== "high"}
                 />
 
@@ -439,6 +531,21 @@ export function PreliminaryToolPage({
           </div>
 
           <aside className="admin-intake-side">
+            {research && !isUnit ? (
+              <ProductImage
+                key={imagesKey}
+                pendingId={item.id}
+                name={item.name}
+                images={research.images}
+                imageError={research.imageError}
+                hasUploadedPhoto={hasUploadedPhoto}
+                value={imageChoice}
+                onChange={setImageChoice}
+                retry={retry}
+                retryRunning={retryRunning}
+                onFindDifferent={actions.differentImage ? findDifferentImage : undefined}
+              />
+            ) : null}
             <Photos item={item} />
             {research && !isUnit ? <DroppedLinks research={research} /> : null}
           </aside>
@@ -446,6 +553,12 @@ export function PreliminaryToolPage({
       </fieldset>
     </div>
   );
+}
+
+/** What identifies a set of pictures: its candidates' URLs and its cleaned copy. */
+function imageSetKey(images: ResearchImages | null | undefined): string {
+  if (!images) return "none";
+  return [images.cleaned?.attachmentId ?? "", ...images.candidates.map((candidate) => candidate.url)].join("|");
 }
 
 /** The proposed record, in the tool editor's fields. */
@@ -745,6 +858,9 @@ function SettledPanel({ outcome }: { outcome: Settled }) {
       {outcome.warning ? (
         <p className="admin-row-status is-warning">{tAdmin(`warnings.${outcome.warning}`)}</p>
       ) : null}
+      {outcome.imageMissing && outcome.warning !== "image_not_attached" ? (
+        <p className="admin-row-status is-warning">{tAdmin("warnings.image_not_attached")}</p>
+      ) : null}
       <Link href={ADMIN_INTAKE_PATH}>{t("backToQueue")}</Link>
     </section>
   );
@@ -760,7 +876,7 @@ function settledFromProps(
 ): Settled | null {
   if (item.status === "discarded") return { kind: "discarded" };
   if (item.status === "approved" && createdTool) {
-    return { kind: isUnit ? "unit" : "approved", tool: createdTool, warning: null };
+    return { kind: isUnit ? "unit" : "approved", tool: createdTool, warning: null, imageMissing: false };
   }
   return null;
 }
@@ -834,8 +950,8 @@ function splitList(value: string): string[] {
     .filter(Boolean);
 }
 
-/** The draft as `approvePendingTool` takes it. */
-function toFields(draft: Draft, research: ResearchResult): ApprovalFields {
+/** The draft as `approvePendingTool` takes it, with the chosen image. */
+function toFields(draft: Draft, research: ResearchResult, image: ApprovalImageChoice): ApprovalFields {
   const isNew = draft.category === NEW_CATEGORY;
   return {
     name: draft.name.trim(),
@@ -850,5 +966,6 @@ function toFields(draft: Draft, research: ResearchResult): ApprovalFields {
     useRestrictions: draft.useRestrictions.trim() || null,
     serialNumber: draft.serialNumber.trim() || null,
     resourceUrls: draft.resourceUrls,
+    image,
   };
 }

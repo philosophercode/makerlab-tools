@@ -608,8 +608,9 @@ describe("the intake prompt", () => {
   it("identifies only, with the two-search rule", () => {
     expect(IDENTIFY_MAX_MODEL_NAME_SEARCHES).toBe(2);
     expect(prompt).toContain("act as an intake agent");
-    expect(prompt).toContain("at most 2 times");
+    expect(prompt).toContain("You may use `exa_search` at most 2 times");
     expect(prompt).toMatch(/only when a model name is genuinely unclear/);
+    expect(prompt).toContain("never `read_page` a manual");
     expect(prompt).toContain("identify_tools");
     expect(prompt).toContain("[Attached photos: attachment_id=");
   });
@@ -623,6 +624,9 @@ describe("the intake prompt", () => {
       "evidence",
       "manual PDF URL",
       "confirm add:",
+      // Anthropic's server tools, retired with the Gateway (gateway spec §3.2–3.3).
+      "web_search",
+      "web_fetch",
     ]) {
       expect(prompt).not.toContain(gone);
     }

@@ -88,13 +88,16 @@ interface Check {
 // ── Text helpers ───────────────────────────────────────────────────
 
 /**
- * Lowercase, drop markdown emphasis, collapse whitespace. Lets a check match
- * "Trotec Speedy 400" whether the model wrote it plain, as `**bold**`, or as
- * the label of a markdown link.
+ * Lowercase, drop markdown emphasis, collapse whitespace, and straighten
+ * typographic apostrophes. Lets a check match "Trotec Speedy 400" whether the
+ * model wrote it plain, as `**bold**`, or as the label of a markdown link — and
+ * a denial match "n't" whether the model wrote "don't" or "don’t" (U+2019),
+ * which some models do by default.
  */
 function normalize(text: string): string {
   return text
     .toLowerCase()
+    .replace(/[\u2018\u2019\u02bc]/g, "'")
     .replace(/[*_`]/g, "")
     .replace(/\s+/g, " ")
     .trim();

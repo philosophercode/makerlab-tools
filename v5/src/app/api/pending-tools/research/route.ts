@@ -14,7 +14,12 @@ import {
 } from "../../../../lib/data/pending-tools";
 import { isUuid } from "../../../../lib/data/uuid";
 import { canActOnPendingTool, hasUnresolvedDuplicate, isResearchable } from "../../../../lib/intake/access";
-import { RESEARCH_DAILY_ITEM_LIMIT, RESEARCH_MAX_ITEMS_PER_REQUEST } from "../../../../lib/intake/limits";
+import {
+  RESEARCH_DAILY_ITEM_LIMIT,
+  RESEARCH_MAX_ITEMS_PER_REQUEST,
+  REVIEWER_NOTE_MAX_CHARS,
+} from "../../../../lib/intake/limits";
+import { parseReviewerNote } from "../../../../lib/intake/reviewer-note";
 import type {
   PendingApiError,
   PendingApiErrorCode,
@@ -76,6 +81,13 @@ export const maxDuration = 30;
  */
 const bodySchema = z.strictObject({
   ids: z.array(z.string().refine(isUuid)).min(1).max(1000),
+  /**
+   * The reviewer's instruction beside **Research again** (amendment "reviewer
+   * notes"): one item only, `tools.approve` only, one line of at most
+   * `REVIEWER_NOTE_MAX_CHARS` once cleaned (`parseReviewerNote`). The raw bound
+   * here only stops a body no textarea could have produced.
+   */
+  note: z.string().max(2000).nullable().optional(),
 });
 
 const DAY_MS = 24 * 60 * 60_000;
@@ -118,6 +130,16 @@ export async function POST(req: NextRequest) {
     return refuse(400, "invalid_body", "Send { ids: [...] } with at least one item id.");
   }
   const ids = [...new Set(parsed.data.ids)];
+  const note = parseReviewerNote(parsed.data.note);
+  if (note === "too_long" || note === "invalid") {
+    return refuse(400, "invalid_body", `A note for research is one line of at most ${REVIEWER_NOTE_MAX_CHARS} characters.`);
+  }
+  if (note !== null && ids.length !== 1) {
+    return refuse(400, "invalid_body", "A note for research goes with one item at a time.");
+  }
+  if (note !== null && !can(identity, "tools.approve")) {
+    return refuse(403, "forbidden", "Only a reviewer can send research a note.");
+  }
   if (ids.length > RESEARCH_MAX_ITEMS_PER_REQUEST) {
     return refuse(
       400,
@@ -171,7 +193,8 @@ export async function POST(req: NextRequest) {
 
     let runId: string;
     try {
-      const run = await start(researchBatch, [requestId, queued]);
+      // The note travels to both model steps and is recorded on the result.
+      const run = await start(researchBatch, note ? [requestId, queued, note] : [requestId, queued]);
       runId = run.runId;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

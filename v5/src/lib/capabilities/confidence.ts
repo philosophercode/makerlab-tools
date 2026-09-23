@@ -1,3 +1,4 @@
+import { isVideoUrl } from "../research/source-pages.ts";
 import type {
   IntakeConfidence,
   IntakeConfidenceLevel,
@@ -61,6 +62,39 @@ function externalSource(e: IntakeEvidence): boolean {
   return e.manufacturerPageFound || e.manualFound;
 }
 
+// ── What was read ──────────────────────────────────────────────────
+
+/**
+ * What research actually read, when the caller knows it — background research
+ * does (`ResearchResult.sourceUrls`, the pages the server read). The chat's
+ * identification card does not, and passes nothing: the cap below then never
+ * applies.
+ */
+export interface ConfidenceReads {
+  /** The pages read, video or not. */
+  sourceUrls: readonly string[];
+}
+
+/** Why the grade is capped: only videos were read, or nothing was. */
+export type ReadCap = "videoOnly" | "nothingRead";
+
+/**
+ * The cap on a grade whose research read no page (amendment "Search text
+ * fallback and confidence cap"). The Bambu Lab X2D run read one YouTube video —
+ * bambulab.com refused the rest — and still graded **high**, on the name the
+ * user typed plus a manual link that passed link checking. Evidence that was
+ * never read against a page cannot be high, however the flags add up:
+ *
+ * - `videoOnly` — every page read was a video;
+ * - `nothingRead` — no page was read at all;
+ * - null — a page that is not a video was read (or the caller cannot say).
+ */
+export function readCap(reads?: ConfidenceReads | null): ReadCap | null {
+  if (!reads) return null;
+  if (reads.sourceUrls.length === 0) return "nothingRead";
+  return reads.sourceUrls.every((url) => isVideoUrl(url)) ? "videoOnly" : null;
+}
+
 // ── Level ──────────────────────────────────────────────────────────
 
 /**
@@ -80,8 +114,16 @@ function externalSource(e: IntakeEvidence): boolean {
  * `specsFromSource` alone corroborates specs but is not a page or a manual, so
  * it never reaches high on its own — it lifts a model-less candidate to medium
  * ("we read something, but which variant?").
+ *
+ * With `reads`, a result that read no page other than a video is **at most
+ * medium** ({@link readCap}).
  */
-export function confidenceLevel(e: IntakeEvidence): IntakeConfidenceLevel {
+export function confidenceLevel(e: IntakeEvidence, reads?: ConfidenceReads | null): IntakeConfidenceLevel {
+  const level = levelFromEvidence(e);
+  return level === "high" && readCap(reads) ? "medium" : level;
+}
+
+function levelFromEvidence(e: IntakeEvidence): IntakeConfidenceLevel {
   if (e.categoryOnly) return "low";
   if (modelIdentified(e)) {
     return externalSource(e) ? "high" : "medium";
@@ -102,6 +144,8 @@ export type ConfidenceBasisCode =
 
 /** Evidence we lack, one code per line, phrased as the question that fixes it. */
 export type ConfidenceUnknownCode =
+  | "videoOnly"
+  | "nothingRead"
   | "model"
   | "category"
   | "source"
@@ -125,10 +169,16 @@ export interface ConfidenceLines {
  * Derive the strip lines from evidence. Generated from the evidence rather than
  * written per case, so a new evidence combination cannot produce a card with an
  * empty basis and a confident heading.
+ *
+ * With `reads`, a result capped by {@link readCap} leads its unknowns with why.
+ * "Nothing was read" says everything the `source` line would, so that line is
+ * then left out.
  */
-export function confidenceLines(e: IntakeEvidence): ConfidenceLines {
+export function confidenceLines(e: IntakeEvidence, reads?: ConfidenceReads | null): ConfidenceLines {
   const basis: ConfidenceLine<ConfidenceBasisCode>[] = [];
   const unknowns: ConfidenceLine<ConfidenceUnknownCode>[] = [];
+  const cap = readCap(reads);
+  if (cap) unknowns.push({ code: cap });
 
   if (e.userStatedModel) basis.push({ code: "userStatedModel" });
   if (e.modelPlateRead !== null) {
@@ -143,7 +193,7 @@ export function confidenceLines(e: IntakeEvidence): ConfidenceLines {
   if (!externalSource(e)) {
     // Nothing was fetched at all — that single line says everything the
     // per-source lines below would, so they are suppressed.
-    unknowns.push({ code: "source" });
+    if (cap !== "nothingRead") unknowns.push({ code: "source" });
   } else {
     if (!e.manualFound) unknowns.push({ code: "manual" });
     if (!e.specsFromSource) unknowns.push({ code: "specs" });
@@ -171,6 +221,8 @@ const BASIS_TEXT: Record<
 };
 
 const UNKNOWN_TEXT: Record<ConfidenceUnknownCode, string> = {
+  videoOnly: "Only a video was read — no product page, manual or spec sheet, so this cannot be high confidence",
+  nothingRead: "No page could be read, so nothing was checked against a source",
   model: "The model number could not be read — ask for a photo of the label",
   category: "Only the general type of equipment could be identified",
   source: "No manufacturer page or manual was found to check against",
@@ -180,15 +232,18 @@ const UNKNOWN_TEXT: Record<ConfidenceUnknownCode, string> = {
 
 /**
  * Grade a candidate. The whole point of this module: `(evidence) =>
- * IntakeConfidence`, pure, with no model call and no prompt involved.
+ * IntakeConfidence`, pure, with no model call and no prompt involved. `reads`,
+ * when the caller knows what was read, caps a grade no page supports
+ * ({@link readCap}).
  */
 export function scoreConfidence(
-  evidence?: Partial<IntakeEvidence> | null
+  evidence?: Partial<IntakeEvidence> | null,
+  reads?: ConfidenceReads | null
 ): IntakeConfidence {
   const e = toEvidence(evidence);
-  const lines = confidenceLines(e);
+  const lines = confidenceLines(e, reads);
   return {
-    level: confidenceLevel(e),
+    level: confidenceLevel(e, reads),
     basis: lines.basis.map((line) => BASIS_TEXT[line.code](line.values)),
     unknowns: lines.unknowns.map((line) => UNKNOWN_TEXT[line.code]),
   };

@@ -2,6 +2,7 @@ import { GlobalChrome } from "./GlobalChrome";
 import type { CatalogStats } from "./catalog-types";
 import { render, screen } from "../../test/utils/render";
 import { siteConfig } from "../lib/site-config";
+import type { ClientIdentity } from "../lib/auth/sign-in-client";
 
 // GlobalChrome is a plain (non-async) function component, so the custom render
 // drives it directly. It composes PrimaryNav (usePathname) and LanguageSelector
@@ -15,6 +16,18 @@ vi.mock("next/navigation", () => ({
 vi.mock("../i18n/actions", () => ({
   changeLocale: vi.fn(async () => {}),
 }));
+
+// The header asks `/api/identity` after mount; each test decides the answer.
+const fetchIdentity = vi.fn<() => Promise<ClientIdentity | null>>(async () => null);
+vi.mock("../lib/auth/sign-in-client", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../lib/auth/sign-in-client")>();
+  return { ...actual, fetchIdentity: () => fetchIdentity() };
+});
+
+beforeEach(() => {
+  fetchIdentity.mockReset();
+  fetchIdentity.mockResolvedValue(null);
+});
 
 const stats: CatalogStats = {
   toolsInInventory: 42,
@@ -94,5 +107,33 @@ describe("GlobalChrome", () => {
   it("labels the lab-status strip from the catalog", () => {
     render(<GlobalChrome stats={stats} />);
     expect(screen.getByLabelText("Lab status")).toBeInTheDocument();
+  });
+
+  // Isaac, 2026-09-23: links, REPORT, then the profile control or SIGN IN.
+  it("keeps the header to links, Report and Sign in for a visitor", async () => {
+    render(<GlobalChrome stats={stats} />);
+
+    const nav = screen.getByRole("navigation", { name: "Primary navigation" });
+    expect(await screen.findByRole("button", { name: /Sign in/ })).toBeInTheDocument();
+    expect(nav.querySelectorAll("a")).toHaveLength(3);
+    expect(screen.getByRole("button", { name: "Report a problem" })).toBeInTheDocument();
+  });
+
+  it("gives a director the profile control and nothing else new in the bar", async () => {
+    fetchIdentity.mockResolvedValue({
+      role: "super_admin",
+      name: "Isaac Steinberg",
+      email: "isaac@cornell.edu",
+      image: "https://lh3.googleusercontent.com/a/isaac",
+    });
+    render(<GlobalChrome stats={stats} />);
+
+    expect(
+      await screen.findByRole("button", { name: "Signed in as Isaac" })
+    ).toHaveAttribute("aria-haspopup", "menu");
+    expect(screen.queryByRole("link", { name: "ADMIN" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Add new equipment/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Refresh the/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "SIGN OUT" })).not.toBeInTheDocument();
   });
 });

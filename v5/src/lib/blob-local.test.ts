@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { getBlobStore, isBlobConfigured } from "./blob";
 import {
   createLocalBlobBackend,
+  localBlobRoot,
   localBlobUrl,
   resolveLocalPath,
 } from "./blob-local";
@@ -25,6 +26,7 @@ beforeEach(async () => {
   vi.stubEnv("VERCEL", "");
   vi.stubEnv("NODE_ENV", "development");
   vi.stubEnv("BLOB_LOCAL_DISABLE", "");
+  vi.stubEnv("BLOB_LOCAL_DIR", "");
   vi.stubEnv("AUTH_BASE_URL", "http://localhost:3001/");
 });
 
@@ -160,5 +162,21 @@ describe("createBlobUploader (the step-code path)", () => {
   it("is null with no store at all", () => {
     vi.stubEnv("BLOB_LOCAL_DISABLE", "1");
     expect(createBlobUploader()).toBeNull();
+  });
+});
+
+describe("localBlobRoot", () => {
+  it("is .blob-data/ in the working directory by default", () => {
+    expect(localBlobRoot()).toBe(join(dir, ".blob-data"));
+  });
+
+  it("is BLOB_LOCAL_DIR when set (the E2E server's own folder), relative to the working directory", async () => {
+    vi.stubEnv("BLOB_LOCAL_DIR", ".blob-data-e2e");
+    expect(localBlobRoot()).toBe(join(dir, ".blob-data-e2e"));
+    const stored = await createBlobUploader()!.put("research/cleaned/x.png", new Uint8Array([1]), {
+      access: "private",
+      contentType: "image/png",
+    });
+    expect(await readFile(join(dir, ".blob-data-e2e", stored.pathname))).toHaveLength(1);
   });
 });

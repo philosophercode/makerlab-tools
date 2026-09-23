@@ -185,6 +185,32 @@ describe("draftFromFindings", () => {
     expect(result.confidence.level).toBe("low");
     expect(result.resources).toEqual([]);
   });
+
+  it("keeps the search's links, and still no sources, when its pages could not be read", () => {
+    const findings = parseSearchFindings(
+      JSON.stringify({
+        canonicalName: "Original Prusa MK4S",
+        candidateLinks: [{ title: "Manual", url: MANUAL.url, type: "Manual" }],
+        sourceUrls: [MANUAL.url],
+        evidence: { userStatedModel: true, manufacturerPageFound: true },
+      })
+    );
+    expect(draftFromFindings(findings).resources).toEqual([]);
+    const kept = draftFromFindings(findings, { keepCandidateLinks: true });
+    expect(kept.resources).toEqual([{ title: "Manual", url: MANUAL.url, type: "Manual" }]);
+    expect(kept.sourceUrls).toEqual([]);
+
+    // Nothing was read, so nothing the search claimed about a page survives.
+    const result = assembleResearchResult({
+      draft: kept,
+      verified: kept.resources,
+      dropped: [],
+      categories: [],
+      fallbackName: "MK4S",
+    });
+    expect(result.evidence.manufacturerPageFound).toBe(false);
+    expect(result.evidence.userStatedModel).toBe(false);
+  });
 });
 
 describe("uniqueLinks / uniqueHosts", () => {
@@ -195,5 +221,103 @@ describe("uniqueLinks / uniqueHosts", () => {
       "prusa3d.com",
       "www.prusa3d.com",
     ]);
+  });
+});
+
+describe('a video is not a source (amendment "Product-page first")', () => {
+  it("does not let a YouTube page alone satisfy manufacturerPageFound or specsFromSource", () => {
+    const result = assembleResearchResult({
+      draft: draft({ sourceUrls: ["https://www.youtube.com/watch?v=x2d"] }),
+      verified: [],
+      dropped: [],
+      categories: CATEGORIES,
+      fallbackName: "Bambu Lab X2D",
+    });
+    expect(result.evidence.manufacturerPageFound).toBe(false);
+    expect(result.evidence.specsFromSource).toBe(false);
+  });
+
+  it("still counts them when a real page was read beside the video", () => {
+    const result = assembleResearchResult({
+      draft: draft({ sourceUrls: ["https://vimeo.com/1", "https://prusa3d.com/mk4s"] }),
+      verified: [MANUAL],
+      dropped: [],
+      categories: CATEGORIES,
+      fallbackName: "Prusa MK4S",
+    });
+    expect(result.evidence.manufacturerPageFound).toBe(true);
+    expect(result.evidence.specsFromSource).toBe(true);
+  });
+
+  it("caps the grade at medium when only a video was read, and says why (the luna-2 X2D run)", () => {
+    // The user typed the model and a manual link passed checking: high on the
+    // flags alone — but the only page read was a YouTube video.
+    const result = assembleResearchResult({
+      draft: draft({ sourceUrls: ["https://www.youtube.com/watch?v=x2d"] }),
+      verified: [MANUAL],
+      dropped: [],
+      categories: CATEGORIES,
+      fallbackName: "Bambu Lab X2D",
+    });
+    expect(result.evidence).toMatchObject({ userStatedModel: true, manualFound: true, manufacturerPageFound: false });
+    expect(scoreConfidence(result.evidence).level).toBe("high");
+    expect(result.confidence.level).toBe("medium");
+    expect(result.confidence.unknowns[0]).toMatch(/^Only a video was read/);
+  });
+
+  it("records the reviewer's note on the result, cleaned, and nothing when there is none", () => {
+    const base = { draft: draft(), verified: [MANUAL], dropped: [], categories: CATEGORIES, fallbackName: "Prusa MK4S" };
+    expect(assembleResearchResult({ ...base, reviewerNote: " use the\nprusa3d.com page " }).reviewerNote).toBe("use the prusa3d.com page");
+    expect("reviewerNote" in assembleResearchResult(base)).toBe(false);
+  });
+});
+
+
+describe('the search\'s copy of a page (amendment "Search text fallback and confidence cap")', () => {
+  const X2D = { brand: "Bambu Lab", name: "Bambu Lab X2D" };
+  const base = { verified: [], dropped: [], categories: CATEGORIES, fallbackName: "Bambu Lab X2D", subject: X2D };
+
+  it("counts the brand's product page read through the search's copy as the manufacturer's page and the specs source", () => {
+    const result = assembleResearchResult({
+      ...base,
+      draft: draft({ sourceUrls: ["https://bambulab.com/en/x2d", "https://www.youtube.com/watch?v=x2d"] }),
+      searchTextUrls: ["https://bambulab.com/en/x2d"],
+    });
+    expect(result.evidence.manufacturerPageFound).toBe(true);
+    expect(result.evidence.specsFromSource).toBe(true);
+    expect(result.confidence.level).toBe("high");
+    expect(result.searchTextSources).toEqual(["https://bambulab.com/en/x2d"]);
+    expect(researchResultSchema.parse(result)).toEqual(result);
+  });
+
+  it("does not count a copy of any other page — a wiki, a retailer — toward either", () => {
+    const result = assembleResearchResult({
+      ...base,
+      draft: draft({ sourceUrls: ["https://wiki.bambulab.com/en/x2d/manual", "https://shop.example/x2d"] }),
+      searchTextUrls: ["https://wiki.bambulab.com/en/x2d/manual", "https://shop.example/x2d"],
+    });
+    expect(result.evidence.manufacturerPageFound).toBe(false);
+    expect(result.evidence.specsFromSource).toBe(false);
+    // They were read, so the grade is not capped for it — only the evidence is held down.
+    expect(result.confidence.unknowns.join(" ")).not.toContain("Only a video");
+  });
+
+  it("still counts a page the server read itself beside such a copy", () => {
+    const result = assembleResearchResult({
+      ...base,
+      draft: draft({ sourceUrls: ["https://wiki.bambulab.com/en/x2d/manual", "https://shop.example/x2d"] }),
+      searchTextUrls: ["https://wiki.bambulab.com/en/x2d/manual"],
+    });
+    expect(result.evidence.manufacturerPageFound).toBe(true);
+    expect(result.searchTextSources).toEqual(["https://wiki.bambulab.com/en/x2d/manual"]);
+  });
+
+  it("records no searchTextSources when no copy was used, and ignores a copy that is not a source", () => {
+    const result = assembleResearchResult({
+      ...base,
+      draft: draft({ sourceUrls: ["https://bambulab.com/en/x2d"] }),
+      searchTextUrls: ["https://elsewhere.example/x2d"],
+    });
+    expect("searchTextSources" in result).toBe(false);
   });
 });
