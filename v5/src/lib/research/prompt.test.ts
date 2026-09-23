@@ -249,3 +249,45 @@ describe('search text fallback and description depth (amendment "Search text fal
     expect(read).not.toContain("The description is one short paragraph");
   });
 });
+
+describe('Luna research tuning (amendment "Luna research tuning")', () => {
+  const read = researchSystemPrompt("read");
+
+  it("orders the description and gives it a length to aim for", () => {
+    expect(read).toContain("in this order: (1) what the machine is — its type as the product page states it");
+    expect(read).toContain("(2) what it is for in a makerspace — the kinds of student projects it suits");
+    expect(read).toContain("with the pages' own numbers");
+    expect(read).toContain("Aim for 450–800 characters when the pages support it");
+  });
+
+  it("keeps the research out of the description, and still gives a variant's specs", () => {
+    expect(read).toContain("**The description is for students, not about the research.**");
+    expect(read).toContain("doubt about the exact model belongs in the evidence fields");
+    expect(read).toContain("still give that variant's specs and name it in `canonicalName`");
+  });
+
+  it("asks for every spec row a student would care about, numbers kept exactly, one clean value each", () => {
+    expect(read).toContain("**Specs: every row of a specs table or key-value list**");
+    expect(read).toContain("usually 10–30");
+    expect(read).toContain("Keep the page's numbers and units exactly (do not convert or round)");
+    expect(read).toContain("without footnote marks, test conditions or marketing claims");
+  });
+
+  it("asks for PPE by machine type, as trainingRequired already is, and an empty list only when none is needed", () => {
+    expect(read).toContain("`ppeRequired` is the protective equipment a makerspace would normally require for this type of machine");
+    expect(read).toContain("what a page states first, then the standard items for its type");
+    expect(read).toContain("An empty list only when the item needs none.");
+  });
+
+  it("counts a shop page on the brand's own site as the manufacturer's page, in both passes", () => {
+    for (const stage of ["search", "read"] as const) {
+      expect(researchSystemPrompt(stage)).toContain("a shop page on the brand's own website counts");
+    }
+  });
+
+  it("changes nothing in the search pass's own instructions", () => {
+    const search = researchSystemPrompt("search");
+    expect(search).not.toContain("ppeRequired");
+    expect(search).not.toContain("Aim for 450–800 characters");
+  });
+});

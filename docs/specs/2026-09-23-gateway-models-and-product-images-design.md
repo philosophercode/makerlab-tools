@@ -1345,3 +1345,88 @@ checking.
 - `research-batch.test.ts`: the search's texts reach the read step.
 
 **Status.** Built on `v5/gateway-images` (uncommitted).
+
+### 2026-09-23 — Luna research tuning (§3.1, §3.3, §10)
+
+**Question.** Is `openai/gpt-6-luna` worse than `anthropic/claude-sonnet-5` at the research
+read, or is the prompt the problem? **It is the prompt.** Both models were given the same
+page texts. Luna got the facts right as often as Sonnet did, but it wrote less. The read
+prompt now asks for the missing parts. `researchSearch` and `researchRead` stay on Luna,
+and `reasoningEffort` stays unset.
+
+**Method.** The script is `v5/.livecheck/compare/` (git-excluded). The report is
+`.livecheck/out/model-compare.html`, and the raw data is in `model-compare.json`.
+- **Six tools**, named as the inventory names them: Bambu Lab X2D, Makera Carvera Air,
+  Formlabs Form 4, WEN DC3401, "RYOBI PCL235 ONE+ 18V Drill/ Driver" (it is an impact
+  driver), and the SUIZAN Dozuki saw.
+- **Search**: one real Luna search per tool, then `readCandidatePages` (at most 4 pages,
+  `maxPdfs: 0`). The inputs were then frozen.
+- **Read**: the real read call was replayed on those frozen inputs for each variant.
+- **Scoring**: code checks whether each spec value, or every number in it, appears in
+  the page text. A person checked the output for invented facts.
+
+| Read variant (6 tools) | Specs | In page text | Avg description | PPE given | Cost | Avg latency |
+|---|---|---|---|---|---|---|
+| Luna, production prompt (2 runs) | 95 / 80 | 99% / 96% | 391 / 472 chars | 0 / 6 | $0.009 | 12 s |
+| Luna, `reasoningEffort` medium / high | 93 / 94 | 96% / 96% | 400 / 460 | 0 / 6 | $0.009 / $0.013 | 14 / 21 s |
+| **Luna, tuned prompt (3 runs)** | **144 / 137 / 136** | **100%** | **510 / 496 / 543** | **5 / 6** | **$0.010–0.011** | **20–23 s** |
+| Sonnet 5, production prompt | 101 | 94% (the misses are paraphrases) | 718 | 4 / 6 | $0.282 | 30 s |
+
+- **Facts.** No model invented a fact. Every run got the WEN at 660 CFM with a 5-micron
+  bag; the inventory's old text says 750 CFM and 1-micron. Every run named the RYOBI an
+  impact driver.
+- **What Luna lacked.**
+  - Shorter descriptions, often with no sentence on what the tool is for in a makerspace.
+  - No PPE on any tool.
+  - On SUIZAN, a sentence about the request inside the description ("the supplied item
+    name does not confirm a size"). One run dropped every spec for that reason.
+- **Reasoning effort reaches the model through the Gateway.** Set it with
+  `providerOptions.openai.reasoningEffort`. Average reasoning tokens were 654 at the
+  default, 888 at medium and 1,909 at high. It added latency and nothing else, so it is
+  not set.
+- **Three prompt variants were tried:**
+  1. Field-by-field guidance.
+  2. The same guidance plus a worked example.
+  3. The same guidance with reasoning set to high.
+
+  The guidance alone captured almost all of the gain; the example and high reasoning
+  added nothing clear. The guidance was moved into `prompt.ts`. A first draft said "copy
+  exactly", which produced multi-line values full of footnote marks (64 specs on the
+  X2D), so the spec line was rewritten.
+- **Search, Luna against Sonnet** (RYOBI and WEN). Sonnet's search found more pages for
+  the WEN (manuals.plus and Home Depot). Tuned Luna read them and got 13 specs, against 10
+  from Luna's own pages. But Sonnet's search cost $0.24–0.28, against $0.017–0.025 for
+  Luna's, and took 33–46 s against 22 s. Not worth it.
+
+**What changed** (`research/prompt.ts`, read pass only unless noted):
+- **The description** has an order: (1) what it is, taking its type from the product page;
+  (2) what it is for in a makerspace; (3–4) its key capabilities, with the pages' own
+  numbers; (5) optionally, something a student must know first. It aims for 450–800
+  characters when the pages support that. The existing "write less" rule still applies.
+- **The description is for students**, not about the research. When the pages describe
+  one size or variant of a product line, the listing still gives that variant's specs
+  and names it in `canonicalName`.
+- **Specs** means every row of a spec table that a student would care about, usually
+  10–30. Numbers and units are kept exactly, one short value per line, with no footnote
+  marks, test conditions or marketing claims.
+- **`ppeRequired`** lists what a page states first, then the standard PPE for that type
+  of machine. This is the same basis `trainingRequired` already uses.
+- **`manufacturerPageFound`** counts a shop page on the brand's own site. This change is
+  in the shared evidence paragraph, so both passes get it.
+
+**Open (Isaac):**
+- PPE is now inferred from the machine's type, so it has no page quote to cite. The
+  refresh-research spec asks for a quote behind every proposal, so PPE needs a decision
+  there.
+- `candidatePageUrls` does not remove a URL that differs only by its query
+  (`?Title=Default+Title`). One Sonnet search spent a read slot on such a duplicate.
+
+**§10.** `prompt.test.ts` pins the description order and its length target, the
+"for students" rule and the variant rule, the specs rule, the PPE rule, and the shop-page
+evidence line in both passes. It also checks that the search pass gains none of the
+read-pass rules.
+
+**Spend.** $1.38 across 16 read variants, 8 searches and their Exa calls ($0.15 of it
+Exa).
+
+**Status.** Built on `v5/gateway-images` (uncommitted).
