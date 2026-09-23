@@ -52,6 +52,17 @@ Playwright boots its own dev server (see E2E notes below), so no separate
   default handlers in `test/msw/handlers.ts`. Lifecycle (start / reset / stop) is
   managed in `vitest.setup.ts`. **Unhandled outbound requests fail the test by
   design** (`onUnhandledRequest: "error"`).
+- **The Notion mirror** (`src/lib/mirror/*`) is tested against a stateful
+  in-memory Notion, `test/fakes/notion-fake.ts` (`createNotionFake`), which
+  checks the bearer token and the `Notion-Version` header, validates page
+  properties against the database schema, and can be told to fail
+  (`failNext`, including 429 with `Retry-After`). Install it into a test's MSW
+  server with `useNotionFake(server, fake)` from `test/msw/notion-mirror.ts` —
+  imported under another name (`import { useNotionFake as installNotionFake }`)
+  outside a component, because ESLint's hooks rule reads any `use*` call as a
+  hook. Workflow tests use the same fake through MSW, since `vi.mock` does not
+  reach step code. PGlite's session time zone is the machine's, so compare
+  `timestamptz` text in SQL (`$1::timestamptz = …`), never as strings.
 - **`vi.mock("next/cache", …)`** — `catalog.ts` uses `cacheTag`/`cacheLife` and
   `admin/revalidate/route.ts` uses `revalidateTag`; these only work inside a Next
   build. Mock them with the `nextCacheMock()` factory from
@@ -167,6 +178,17 @@ directly. Also mock `@ai-sdk/anthropic`. The full verified snippet is in
   (`intake`) that depends on `chromium`, so it runs after every other spec:
   approving publishes a tool into the demo database they all share. Run it
   alone with `npx playwright test --project=intake --no-deps`.
+- **And `e2e/mirror.spec.ts`** (§10 scenario 8), the same shape for Notion: the
+  mirror calls Notion from server actions and workflow steps, so a third web
+  server, `e2e/stubs/notion-stub.ts` on port 3102, answers `/v1/*` with the
+  in-memory fake the Vitest suites use (`test/fakes/notion-fake.ts`), and the
+  app reaches it through `NOTION_API_BASE_URL` (test-only; production never
+  sets it). Fixture values (fake token, page id and URL) are in
+  `e2e/stubs/notion-fixture.ts`. It is its own project (`mirror`) that depends
+  on `intake`, so it runs last of all: while a mirror is connected every write
+  in the app schedules a push, and no other spec may be writing then. One
+  test, `retries: 0` — each step is the next one's precondition. Run it alone
+  with `npx playwright test --project=mirror --no-deps`.
 - `reuseExistingServer: false` — Playwright **always** boots its own fresh
   PGlite-backed server on the dedicated port 3100. This means E2E never
   collides with (or accidentally reuses) a `next dev` you have running on the

@@ -163,6 +163,16 @@ export function chatTierFor(role: Role): RateLimitTier {
 export const ADMIN_ACTION_TIER: RateLimitTier = { limit: 120, windowMs: 60_000 };
 
 /**
+ * Notion mirror setup calls per minute, per admin (spec §8), keyed
+ * `mirror-setup:<identity>`: test connection, connect, create databases and
+ * save mapping. Each one calls Notion with the admin's own token, so this
+ * bounds how hard a script holding a session could drive that token against
+ * Notion's rate limit — on top of `ADMIN_ACTION_TIER`, which every action
+ * passes as well.
+ */
+export const MIRROR_SETUP_TIER: RateLimitTier = { limit: 10, windowMs: 60_000 };
+
+/**
  * Limits for the non-chat routes — unchanged from before sign-in existed. Only
  * the *key* got better (identity rather than raw IP); the numbers are the same.
  *

@@ -21,7 +21,10 @@ import type { Db } from "../db/types.ts";
  * Emails *are* returned, unlike everywhere else in the app: this is the one
  * surface whose whole job is telling a super admin which account is which, and
  * a roster of display names cannot do that. It goes no further — not into a
- * prompt, not into the mirror, not into a log line (spec §8).
+ * prompt and not into a log line (spec §8). This roster is not the mirror's
+ * source: the Notion mirror selects the emails it carries (maintenance reporter
+ * and assignee, project author) itself, in `mirror/source.ts`, as the
+ * 2026-09-23 amendment decided.
  *
  * Relative imports with `.ts` extensions, no `@/` alias and no `"server-only"`,
  * like every other module under `src/lib/data/`.

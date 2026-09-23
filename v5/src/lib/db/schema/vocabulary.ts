@@ -96,6 +96,34 @@ export type AttachmentOwner = (typeof ATTACHMENT_OWNER)[number];
 export const ATTACHMENT_ACCESS = ["public", "private"] as const;
 export type AttachmentAccess = (typeof ATTACHMENT_ACCESS)[number];
 
+/**
+ * What a Notion mirror pushes, one Notion database each (spec §3.8, §4.12).
+ *
+ * **Declared in dependency order, and that order is the push order**: a tool
+ * page relates to its category and location, a unit to its tool, and so on, so
+ * a page is only ever created after the pages it points at. `maintenance` is
+ * `maintenance_logs` in Postgres; the short name is what the admin page shows
+ * and what `mirror_pages.entity` stores.
+ */
+export const MIRROR_ENTITY = [
+  "categories",
+  "locations",
+  "tools",
+  "units",
+  "resources",
+  "maintenance",
+  "projects",
+] as const;
+export type MirrorEntity = (typeof MIRROR_ENTITY)[number];
+
+/**
+ * The result of a mirror's last push (spec §3.8 "Status"): everything pushed,
+ * some rows failed (`last_synced_at` does not advance, so they are retried), or
+ * nothing could be pushed at all.
+ */
+export const MIRROR_STATUS = ["ok", "partial", "failed"] as const;
+export type MirrorStatus = (typeof MIRROR_STATUS)[number];
+
 /** True when `value` is one of `list`; narrows the type. */
 export function isOneOf<const T extends readonly string[]>(
   list: T,

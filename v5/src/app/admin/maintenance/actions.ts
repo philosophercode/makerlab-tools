@@ -2,6 +2,7 @@
 
 import { runQueueWrite } from "../../../lib/admin/queue-write";
 import { updateMaintenanceLog } from "../../../lib/data/maintenance";
+import { requestMirrorPush } from "../../../lib/mirror/trigger";
 import {
   MAINTENANCE_PATH,
   type MaintenanceActionResult,
@@ -26,6 +27,12 @@ import {
  * shows unit *status*, which is the tool editor's field and a different write.
  * Busting the catalogue here would cost a full re-read every time somebody
  * ticked a box.
+ *
+ * **But it does tell the Notion mirror.** The mirror carries every maintenance
+ * log (§3.8), so a ticket's status, priority, assignee or resolution is a
+ * change it should hold. `requestMirrorPush()` runs after the write commits,
+ * never throws, and coalesces: a reviewer clearing ten tickets starts one
+ * push two minutes later, not ten. A refused write never reaches it.
  */
 
 /** Names this surface in the console line a failure leaves behind. */
@@ -49,5 +56,9 @@ export async function updateTicket(input: {
     surface: SURFACE,
     write: (identity) =>
       updateMaintenanceLog(input.logId, input.patch, { actorUserId: identity.userId }),
+    afterCommit: async () => {
+      await requestMirrorPush();
+      return undefined;
+    },
   });
 }

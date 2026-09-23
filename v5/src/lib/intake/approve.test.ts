@@ -19,6 +19,12 @@ vi.mock("../data/audit", async (importOriginal) => {
   };
 });
 
+// The mirror trigger has its own tests; here it is only asked whether it was
+// called — after a committed approval, never after a refused one.
+const mirror = vi.hoisted(() => ({ requestMirrorPush: vi.fn() }));
+
+vi.mock("../mirror/trigger", () => ({ requestMirrorPush: mirror.requestMirrorPush }));
+
 import { revalidateTag } from "next/cache";
 import { eq } from "drizzle-orm";
 import { seedUser } from "../../../test/utils/session";
@@ -55,6 +61,7 @@ let approver: string;
 beforeEach(async () => {
   vi.stubEnv("DATABASE_URL", "");
   vi.mocked(revalidateTag).mockClear();
+  mirror.requestMirrorPush.mockReset().mockResolvedValue(undefined);
   audit.failing = false;
   db = await getDb();
   approver = (await seedUser({ email: "luis@cornell.edu", role: "admin" })).id;
@@ -299,5 +306,44 @@ describe("addUnitAndRecord", () => {
     });
     expect(await events(second)).toEqual([]);
     expect(vi.mocked(revalidateTag)).not.toHaveBeenCalled();
+  });
+});
+
+describe("the Notion mirror (§3.8 trigger 1)", () => {
+  it("asks for a push once an approval has committed, published or draft", async () => {
+    const published = await researchedItem();
+    expect((await approveAndRecord({ userId: approver }, { id: published, publish: true, fields: fields() })).ok).toBe(true);
+    expect(mirror.requestMirrorPush).toHaveBeenCalledTimes(1);
+
+    const draft = await researchedItem();
+    expect(
+      (await approveAndRecord({ userId: approver }, { id: draft, publish: false, fields: fields({ serialNumber: "P1S-002" }) })).ok
+    ).toBe(true);
+    expect(mirror.requestMirrorPush).toHaveBeenCalledTimes(2);
+  });
+
+  it("asks for a push when a unit is added", async () => {
+    const id = await unitItem("F4-MIRROR-1");
+    expect((await addUnitAndRecord({ userId: approver }, { id })).ok).toBe(true);
+    expect(mirror.requestMirrorPush).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes the caller's database handle through", async () => {
+    const id = await unitItem("F4-MIRROR-2");
+    await addUnitAndRecord({ userId: approver }, { id }, { db });
+    expect(mirror.requestMirrorPush).toHaveBeenCalledWith({ db });
+  });
+
+  it("asks for nothing when the approval is refused", async () => {
+    const low = await researchedItem(research(LOW));
+    expect((await approveAndRecord({ userId: approver }, { id: low, publish: true, fields: fields() })).ok).toBe(false);
+
+    const first = await unitItem("F4-MIRROR-SAME");
+    const second = await unitItem("F4-MIRROR-SAME");
+    expect((await addUnitAndRecord({ userId: approver }, { id: first })).ok).toBe(true);
+    mirror.requestMirrorPush.mockClear();
+    expect((await addUnitAndRecord({ userId: approver }, { id: second })).ok).toBe(false);
+
+    expect(mirror.requestMirrorPush).not.toHaveBeenCalled();
   });
 });

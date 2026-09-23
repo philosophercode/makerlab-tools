@@ -1,6 +1,7 @@
 import { getBlobStore, isBlobConfigured } from "../../../../lib/blob";
 import { runBackup } from "../../../../lib/cron/backup";
 import { runCleanup } from "../../../../lib/cron/cleanup";
+import { runMirrorBackstop } from "../../../../lib/cron/mirror-backstop";
 import { runPendingExpiry } from "../../../../lib/cron/pending-expiry";
 import { rateLimitAsync } from "../../../../lib/rate-limit";
 import { resolveIdentity } from "../../../../lib/auth/identity";
@@ -25,8 +26,11 @@ import { resolveIdentity } from "../../../../lib/auth/identity";
  *    `identified` for two weeks, always well past the 24-hour orphan window —
  *    so a photo an expired item held is deleted from Blob and from the table
  *    in this same run (§4.10 "its attachments deleted").
- *
- * Mirror pushes (§3.8) join this list in a later phase; it has no writer yet.
+ * 4. **Mirror backstop** (Phase 8) — a `mirrorPush` workflow started for every
+ *    active Notion mirror whose data is newer than its last sync, or whose
+ *    last push was not `ok` (§3.8 trigger 3). The stage only starts the runs;
+ *    each pushes in its own workflow, outside this function's 60 seconds. A
+ *    run that could not be started fails the stage, as a throw does.
  *
  * **Nothing here fails quietly.** Every stage reports, and any one failing
  * makes the whole invocation non-200 so it shows in Vercel's cron log as
@@ -131,9 +135,9 @@ export async function GET(req: Request) {
     );
   }
 
+  let cleanup: Awaited<ReturnType<typeof runCleanup>>;
   try {
-    const cleanup = await runCleanup(store);
-    return Response.json({ ok: true, backup, pendingExpiry, cleanup });
+    cleanup = await runCleanup(store);
   } catch (error) {
     console.error("[cron] cleanup failed:", error);
     return Response.json(
@@ -141,4 +145,36 @@ export async function GET(req: Request) {
       { status: 500 }
     );
   }
+
+  // Last, because it is the least urgent and the only stage that hands work
+  // to something else: every earlier stage has landed, and reports, whatever
+  // happens here.
+  let mirror: Awaited<ReturnType<typeof runMirrorBackstop>>;
+  try {
+    mirror = await runMirrorBackstop();
+  } catch (error) {
+    console.error("[cron] mirror backstop failed:", error);
+    return Response.json(
+      { ok: false, stage: "mirror", backup, pendingExpiry, cleanup, error: message(error) },
+      { status: 500 }
+    );
+  }
+  if (mirror.failed > 0) {
+    // The ids and the reasons are already in the log (`start.ts`); the body
+    // says how many, so the cron log shows a failed invocation.
+    return Response.json(
+      {
+        ok: false,
+        stage: "mirror",
+        backup,
+        pendingExpiry,
+        cleanup,
+        mirror,
+        error: `${mirror.failed} mirror push(es) could not be started`,
+      },
+      { status: 500 }
+    );
+  }
+
+  return Response.json({ ok: true, backup, pendingExpiry, cleanup, mirror });
 }

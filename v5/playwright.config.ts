@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 
 import { ANTHROPIC_STUB_ORIGIN } from "./e2e/stubs/intake-fixture";
+import { NOTION_STUB_ORIGIN } from "./e2e/stubs/notion-fixture";
 
 // E2E runs against a PRODUCTION build (`next build && next start`) booted with
 // no `DATABASE_URL` and no Notion env, so the catalogue is the in-process
@@ -14,6 +15,11 @@ import { ANTHROPIC_STUB_ORIGIN } from "./e2e/stubs/intake-fixture";
 // provider boundary instead — a second web server (e2e/stubs/anthropic-stub.ts)
 // answers the Messages API on localhost, and the app reaches it through
 // ANTHROPIC_BASE_URL. It is still no network: the stub is on this machine.
+//
+// The mirror scenario (e2e/mirror.spec.ts) is the same shape: the mirror calls
+// Notion from server actions and workflow steps, so a third web server
+// (e2e/stubs/notion-stub.ts) answers the Notion API on localhost with the same
+// in-memory fake the Vitest suites use, reached through NOTION_API_BASE_URL.
 //
 // Why not `next dev`: with parallel workers, the first request to each route
 // compiled it on demand and Turbopack rewrote the root layout's client chunk
@@ -46,7 +52,7 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-      testIgnore: /intake\.spec\.ts/,
+      testIgnore: /(intake|mirror)\.spec\.ts/,
     },
     {
       // Last, on purpose. Approving an item publishes a third tool into the one
@@ -58,12 +64,32 @@ export default defineConfig({
       testMatch: /intake\.spec\.ts/,
       dependencies: ["chromium"],
     },
+    {
+      // Last of all: while a mirror is connected, every change in the app
+      // schedules a push, and no other spec should be writing then. That
+      // includes intake, whose approval would schedule a coalesced push that
+      // could meet Sync now's push at the overlap guard and leave the status
+      // panel waiting on a run that sleeps two minutes first. Depending on
+      // "intake" (which depends on "chromium") serialises all three, so the
+      // mirror scenario meets a quiet app. The spec disconnects at the end.
+      name: "mirror",
+      use: { ...devices["Desktop Chrome"] },
+      testMatch: /mirror\.spec\.ts/,
+      dependencies: ["intake"],
+    },
   ],
   webServer: [
     {
       // The stand-in for the Anthropic API (see the note at the top).
       command: "node --experimental-strip-types e2e/stubs/anthropic-stub.ts",
       url: ANTHROPIC_STUB_ORIGIN,
+      reuseExistingServer: false,
+      timeout: 30_000,
+    },
+    {
+      // The stand-in for the Notion API, for the mirror scenario.
+      command: "node --experimental-strip-types e2e/stubs/notion-stub.ts",
+      url: NOTION_STUB_ORIGIN,
       reuseExistingServer: false,
       timeout: 30_000,
     },
@@ -118,6 +144,10 @@ export default defineConfig({
         ANTHROPIC_API_KEY: "e2e-stub-key",
         ANTHROPIC_BASE_URL: `${ANTHROPIC_STUB_ORIGIN}/v1`,
         AI_GATEWAY_API_KEY: "",
+        // The mirror's Notion calls go to the stub on this machine (test-only
+        // override; production never sets it). The token the spec connects with
+        // is accepted by nothing else, and is encrypted under AUTH_SECRET above.
+        NOTION_API_BASE_URL: `${NOTION_STUB_ORIGIN}/v1`,
         // The Workflow SDK's local world (spec §3.7): its queue calls this
         // server's own /.well-known/workflow routes, so it needs the address
         // `next start -p 3100` serves on. Runs are kept in their own folder, and

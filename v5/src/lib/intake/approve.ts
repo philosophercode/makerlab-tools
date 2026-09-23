@@ -9,6 +9,7 @@ import {
 } from "../data/pending-tools";
 import { getDb } from "../db/client";
 import type { Db } from "../db/types";
+import { requestMirrorPush } from "../mirror/trigger";
 import { invalidateCatalog } from "../revalidate";
 
 /**
@@ -30,6 +31,11 @@ import { invalidateCatalog } from "../revalidate";
  * 2. **The catalogue cache.** `invalidateCatalog()`, for a draft too — the
  *    inventory table and `catalog.view_drafts` read it, and a draft is one
  *    click from published.
+ * 3. **The Notion mirror.** `requestMirrorPush()` (§3.8 trigger 1: "Approving
+ *    a tool … calls `requestMirrorPush()`"), for a draft too, since the mirror
+ *    carries every tool with a Published checkbox. It never throws and costs
+ *    one query when nobody has a mirror; the push itself runs minutes later
+ *    in a workflow, so Notion being down cannot touch an approval.
  *
  * **A lost audit event is a warning on a success, never a failure.** The tool
  * exists by the time the event is written; answering `{ ok: false }` would tell
@@ -75,8 +81,8 @@ export interface IntakeApprovalOptions {
  *
  * The write is one transaction in the data layer; everything here runs only
  * once it has committed, and only as far as each step earns. A refusal stops
- * at the write — nothing changed, so there is nothing to record and nothing
- * stale to bust.
+ * at the write — nothing changed, so there is nothing to record, nothing
+ * stale to bust and nothing to mirror.
  */
 export async function approveAndRecord(
   approver: IntakeApprover,
@@ -124,6 +130,7 @@ export async function approveAndRecord(
     : true;
 
   invalidateCatalog();
+  await requestMirrorPush({ db: options.db });
 
   return {
     ok: true,
@@ -158,8 +165,10 @@ export async function addUnitAndRecord(
   if (!added.ok) return { ok: false, error: added.reason };
   const published = added.published;
 
-  // A new unit changes what the tool page says about availability.
+  // A new unit changes what the tool page says about availability — and what
+  // the mirror's Units database holds. Neither can throw.
   invalidateCatalog();
+  await requestMirrorPush({ db });
 
   const recorded = await record(
     {

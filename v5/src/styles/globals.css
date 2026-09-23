@@ -3832,8 +3832,7 @@ p {
   font-weight: 500;
 }
 
-.admin-lede,
-.admin-index-note {
+.admin-lede {
   margin: 0;
   max-width: 68ch;
   color: var(--on-surface-muted);

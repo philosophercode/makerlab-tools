@@ -3,15 +3,20 @@ import { authorizeAdminAction } from "../../../lib/admin/action-gate";
 import type { Permission } from "../../../lib/auth/permissions";
 import type { Revision } from "../../../lib/data/revision";
 import type { InventoryWriteResult } from "../../../lib/inventory/result";
+import { requestMirrorPush } from "../../../lib/mirror/trigger";
 import { INVENTORY_PATH, type InventoryActionResult } from "./action-result";
 
 /**
  * The preamble every tool-editor write shares (spec §5.3, §8).
  *
  * Whatever a panel control changes — a field, a unit, a resource, a photo, the
- * tool's state — the action behind it is the same three moves: check its own
+ * tool's state — the action behind it is the same moves: check its own
  * permission, build the write context out of the caller's identity and the
- * token the panel holds, and refresh the review table only if the write landed.
+ * token the panel holds, and — only if the write landed — refresh the review
+ * table and ask the Notion mirror to catch up (`requestMirrorPush()`, §3.8
+ * trigger 1: "publishing, and saving an edit"). Doing it here is what makes
+ * every editor write, publish, archive and Looks good a trigger, without each
+ * action having to remember.
  * This module owns those moves so `actions.ts` and the three child-section
  * modules beside it hold nothing but the writes they are named after.
  *
@@ -54,10 +59,15 @@ export async function withToolWrite<T>(
   });
 
   // Only on a success: a refused write changed nothing, and re-rendering the
-  // review table for it buys a page of queries for no reason. The catalogue's
-  // own invalidation happened inside `src/lib/inventory/`, which is the layer
-  // that knows whether the transaction committed.
-  if (result.ok) revalidatePath(INVENTORY_PATH);
+  // review table for it buys a page of queries for no reason — and a push for
+  // it would mirror nothing. The catalogue's own invalidation happened inside
+  // `src/lib/inventory/`, which is the layer that knows whether the
+  // transaction committed. `requestMirrorPush` never throws, so a mirror that
+  // cannot be told never turns a landed write into a failure (Article 4).
+  if (result.ok) {
+    revalidatePath(INVENTORY_PATH);
+    await requestMirrorPush();
+  }
   return result;
 }
 
