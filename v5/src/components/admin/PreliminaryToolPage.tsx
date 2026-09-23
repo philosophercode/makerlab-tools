@@ -6,7 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import type {
   ApprovePendingAction,
   IntakeActions,
@@ -16,13 +16,15 @@ import type { AdminActionWarning } from "../../lib/admin/action-result";
 import type { ApprovalFields, ApprovalImageChoice } from "../../lib/data/pending-tools";
 import type { CategoryOption, LocationOption } from "../../lib/data/taxonomy";
 import { imageRetryInProgress } from "../../lib/intake/image-retry-state";
-import { INTAKE_POLL_INTERVAL_MS, REVIEWER_NOTE_MAX_CHARS } from "../../lib/intake/limits";
-import { cleanReviewerNote } from "../../lib/intake/reviewer-note";
+import { INTAKE_POLL_INTERVAL_MS, REDO_HIGHLIGHT_SHOW_MS } from "../../lib/intake/limits";
+import { isImageOnlyFocus, type ResearchFocusField } from "../../lib/intake/research-focus";
 import { ADMIN_INTAKE_PATH, type PendingToolView } from "../../lib/intake/types";
 import type { ResearchImages, ResearchResult } from "../../lib/research/result";
 import { ConfidenceStrip, isWebLink } from "../ConfidenceStrip";
 import { requestResearch } from "./IntakeList";
 import { initialImageChoice, ProductImage } from "./ProductImage";
+import { recentlyUpdatedSections, redoWhat } from "./redo-status";
+import { ResearchAgainDialog } from "./ResearchAgainDialog";
 
 /**
  * `/admin/intake/[id]` — the page an admin approves from (spec §5.4 steps
@@ -60,13 +62,19 @@ import { initialImageChoice, ProductImage } from "./ProductImage";
  * cover is missing.
  *
  * **The reviewer can correct the research** (amendment "Product-page first,
- * front-facing images, reviewer notes"). **Research again** carries an
- * optional one-line note ("use the bambulab.com X2D product page") that both
+ * front-facing images, reviewer notes"). **Research again** opens a small
+ * inline panel, "Anything to focus on?" (`ResearchAgainDialog`, amendment
+ * "Guided redo"): what to redo — everything, or some of the description, the
+ * specs, the links and manuals, the image — quick suggestions, and an optional
+ * one-paragraph note ("use the bambulab.com X2D product page") that both
  * research passes see, fenced, and the result records — it starts as the note
- * the last research ran with. **Find a different image** runs the image stage
- * alone with its own note; while it runs the page polls, and when the new
- * pictures land the image choice is re-derived from them, because a choice of
- * a picture that is no longer offered cannot be approved.
+ * the last research ran with. A scoped redo keeps every other field as it was;
+ * an image-only one is **Find a different image**. When a redo lands, the
+ * sections it changed are marked "Updated just now" for a moment.
+ * **Find a different image** runs the image stage alone with its own note;
+ * while it runs the page polls, and when the new pictures land the image
+ * choice is re-derived from them, because a choice of a picture that is no
+ * longer offered cannot be approved.
  *
  * The component stays mounted when the page re-renders with the item approved
  * or discarded, which is what keeps a success's warning on screen after the
@@ -160,8 +168,11 @@ export function PreliminaryToolPage({
     initialImageChoice(research?.images, hasUploadedPhoto)
   );
   const [note, setNote] = useState("");
-  const [researchNote, setResearchNote] = useState(research?.reviewerNote ?? "");
+  const [redoOpen, setRedoOpen] = useState(false);
+  /** A redo this page just started: its focus (null for everything), until the page moves on. */
+  const [redoStarted, setRedoStarted] = useState<{ focus: ResearchFocusField[] | null } | null>(null);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const locale = useLocale();
 
   // New pictures (Find a different image) mean a fresh preselection: the old
   // choice may name a candidate or a cleaned copy that is gone.
@@ -185,6 +196,24 @@ export function PreliminaryToolPage({
     }, INTAKE_POLL_INTERVAL_MS);
     return () => clearInterval(timer);
   }, [retryRunning, router]);
+
+  // What the last redo changed, marked "Updated just now" briefly. Keyed by
+  // the record itself, so a new landing (an image search finishing while the
+  // page is open) marks again, and a poll that changed nothing does not.
+  const updatedKey = research?.updated ? JSON.stringify(research.updated) : null;
+  const [updatedSections, setUpdatedSections] = useState<ResearchFocusField[]>(() =>
+    recentlyUpdatedSections(research?.updated, Date.now())
+  );
+  useEffect(() => {
+    if (!updatedKey) return;
+    const sections = recentlyUpdatedSections(JSON.parse(updatedKey) as ResearchResult["updated"], Date.now());
+    const show = setTimeout(() => setUpdatedSections(sections), 0);
+    const hide = setTimeout(() => setUpdatedSections([]), REDO_HIGHLIGHT_SHOW_MS);
+    return () => {
+      clearTimeout(show);
+      clearTimeout(hide);
+    };
+  }, [updatedKey]);
 
   const [busy, setBusy] = useState<Busy>(null);
   /** A message key under `admin` — `errors.<code>` or `intake.errors.<code>`. */
@@ -301,17 +330,22 @@ export function PreliminaryToolPage({
   }
 
   /**
-   * **Research again.** A corrected name is saved first — researching the old
-   * one would spend the budget confirming the mistake.
+   * **Research again**, from the "Anything to focus on?" panel. A corrected
+   * name is saved first — researching the old one would spend the budget
+   * confirming the mistake. The panel stays open on a refusal, so the choices
+   * and the note are still there to try again with.
    */
-  async function researchAgain() {
+  async function researchAgain(request: { focus: ResearchFocusField[] | null; note: string | null }) {
     if (identityDirty && !(await saveIdentity())) return;
-    const code = await write("research", () => requestResearch(item.id, cleanReviewerNote(researchNote) || null));
+    const code = await write("research", () => requestResearch(item.id, request.note, request.focus));
     if (code) {
       setError(`intake.errors.${code}`);
       return;
     }
-    setNotice("intake.researchStarted");
+    setRedoOpen(false);
+    setRedoStarted({ focus: request.focus });
+    // An image-only redo is an image search on this page: start polling for it.
+    if (isImageOnlyFocus(request.focus)) setNow(Date.now());
     router.refresh();
   }
 
@@ -373,18 +407,6 @@ export function PreliminaryToolPage({
                       : t("duplicateOfPending", { name: item.duplicateOf.name })}
                   </p>
                 ) : null}
-                <div className="admin-field">
-                  <label htmlFor="intake-research-note">{t("researchNote")}</label>
-                  <textarea
-                    id="intake-research-note"
-                    rows={2}
-                    maxLength={REVIEWER_NOTE_MAX_CHARS}
-                    placeholder={t("researchNotePlaceholder")}
-                    value={researchNote}
-                    onChange={(event) => setResearchNote(event.target.value)}
-                  />
-                  <p className="admin-intake-hint">{t("researchNoteHint", { max: REVIEWER_NOTE_MAX_CHARS })}</p>
-                </div>
                 <div className="admin-editor-actions">
                   <button
                     type="button"
@@ -397,12 +419,21 @@ export function PreliminaryToolPage({
                   <button
                     type="button"
                     className="admin-button"
+                    aria-expanded={redoOpen}
                     disabled={identity.name.trim() === ""}
-                    onClick={() => void researchAgain()}
+                    onClick={() => setRedoOpen((open) => !open)}
                   >
                     {t("researchAgain")}
                   </button>
                 </div>
+                {redoOpen ? (
+                  <ResearchAgainDialog
+                    initialNote={research?.reviewerNote ?? ""}
+                    imageAvailable={!hasUploadedPhoto && research !== null}
+                    onSubmit={(request) => void researchAgain(request)}
+                    onCancel={() => setRedoOpen(false)}
+                  />
+                ) : null}
               </section>
             )}
 
@@ -460,6 +491,7 @@ export function PreliminaryToolPage({
                   locations={locations}
                   set={set}
                   toggleResource={toggleResource}
+                  updated={updatedSections}
                 />
               </>
             ) : (
@@ -527,11 +559,16 @@ export function PreliminaryToolPage({
               {busy ? t(`busy.${busy}`) : null}
               {!busy && error ? tAdmin(error) : null}
               {!busy && !error && notice ? tAdmin(notice) : null}
+              {!busy && !error && !notice && redoStarted && (!isImageOnlyFocus(redoStarted.focus) || retryRunning)
+                ? redoWhat(t, locale, redoStarted.focus)
+                : null}
             </p>
           </div>
 
           <aside className="admin-intake-side">
             {research && !isUnit ? (
+              <div className={updatedSections.includes("image") ? "admin-intake-updated is-updated" : "admin-intake-updated"}>
+                {updatedSections.includes("image") ? <UpdatedTag /> : null}
               <ProductImage
                 key={imagesKey}
                 pendingId={item.id}
@@ -545,6 +582,7 @@ export function PreliminaryToolPage({
                 retryRunning={retryRunning}
                 onFindDifferent={actions.differentImage ? findDifferentImage : undefined}
               />
+              </div>
             ) : null}
             <Photos item={item} />
             {research && !isUnit ? <DroppedLinks research={research} /> : null}
@@ -553,6 +591,12 @@ export function PreliminaryToolPage({
       </fieldset>
     </div>
   );
+}
+
+/** "Updated just now", beside a section the last redo changed. */
+function UpdatedTag() {
+  const t = useTranslations("admin.intake");
+  return <span className="admin-intake-updated-tag">{t("redo.updated")}</span>;
 }
 
 /** What identifies a set of pictures: its candidates' URLs and its cleaned copy. */
@@ -569,6 +613,7 @@ function ProposedRecord({
   locations,
   set,
   toggleResource,
+  updated,
 }: {
   draft: Draft;
   research: ResearchResult;
@@ -576,12 +621,17 @@ function ProposedRecord({
   locations: LocationOption[];
   set: <K extends keyof Draft>(field: K, value: Draft[K]) => void;
   toggleResource: (url: string, on: boolean) => void;
+  /** The sections the last redo changed, while they are marked. */
+  updated: readonly ResearchFocusField[];
 }) {
   const t = useTranslations("admin.intake");
   const tEditor = useTranslations("admin.inventory.editor");
   const proposed = research.category;
   const offersNew =
     proposed.name.trim() !== "" && !categories.some((c) => c.id === proposed.existingId);
+  // The specs ride in the description box, so either marks it.
+  const textUpdated = updated.includes("description") || updated.includes("specs");
+  const linksUpdated = updated.includes("links");
 
   return (
     <section className="admin-intake-panel" aria-labelledby="intake-record-title">
@@ -600,8 +650,11 @@ function ProposedRecord({
           />
         </div>
 
-        <div className="admin-field">
-          <label htmlFor="intake-description">{tEditor("fieldDescription")}</label>
+        <div className={`admin-field${textUpdated ? " is-updated" : ""}`}>
+          <label htmlFor="intake-description">
+            {tEditor("fieldDescription")}
+            {textUpdated ? <UpdatedTag /> : null}
+          </label>
           <textarea
             id="intake-description"
             rows={8}
@@ -688,8 +741,11 @@ function ProposedRecord({
           />
         </div>
 
-        <fieldset className="admin-intake-resources">
-          <legend>{t("resourcesTitle")}</legend>
+        <fieldset className={`admin-intake-resources${linksUpdated ? " is-updated" : ""}`}>
+          <legend>
+            {t("resourcesTitle")}
+            {linksUpdated ? <UpdatedTag /> : null}
+          </legend>
           {research.resources.length === 0 ? (
             <p className="admin-intake-hint">{t("noResources")}</p>
           ) : (

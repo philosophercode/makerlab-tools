@@ -10,6 +10,7 @@ import { useTranslations } from "next-intl";
 import type { IntakeConfidenceLevel } from "../../lib/capabilities/types";
 import { hasStalledStart } from "../../lib/intake/access";
 import { INTAKE_POLL_INTERVAL_MS } from "../../lib/intake/limits";
+import type { ResearchFocusField } from "../../lib/intake/research-focus";
 import {
   ADMIN_INTAKE_PATH,
   type PendingApiErrorCode,
@@ -80,6 +81,7 @@ const API_ERROR_CODES: Record<PendingApiErrorCode, true> = {
   unresolved_duplicate: true,
   not_researchable: true,
   start_failed: true,
+  image_retry_running: true,
   failed: true,
 };
 
@@ -91,13 +93,18 @@ function isApiErrorCode(value: unknown): value is PendingApiErrorCode {
  * Send one item to research. Answers null when the route accepted it, or the
  * refusal's code. A dropped connection is `failed`, like any other surprise.
  */
-export async function requestResearch(id: string, note?: string | null): Promise<PendingApiErrorCode | null> {
+export async function requestResearch(
+  id: string,
+  note?: string | null,
+  focus?: readonly ResearchFocusField[] | null
+): Promise<PendingApiErrorCode | null> {
   try {
     const res = await fetch(RESEARCH_ENDPOINT, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      // A reviewer's note travels only when there is one (amendment "reviewer notes").
-      body: JSON.stringify(note ? { ids: [id], note } : { ids: [id] }),
+      // A reviewer's note travels only when there is one (amendment "reviewer
+      // notes"), and a focus only when it is not everything ("Guided redo").
+      body: JSON.stringify({ ids: [id], ...(note ? { note } : {}), ...(focus?.length ? { focus } : {}) }),
     });
     return await answer(res);
   } catch {

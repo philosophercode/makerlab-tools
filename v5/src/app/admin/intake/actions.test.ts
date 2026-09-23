@@ -53,6 +53,7 @@ import {
   type ApprovalFields,
 } from "../../../lib/data/pending-tools";
 import { getDb, resetDbForTests } from "../../../lib/db/client";
+import { REVIEWER_NOTE_MAX_CHARS } from "../../../lib/intake/limits";
 import { auditEvents, tools, units } from "../../../lib/db/schema/index";
 import type { Db } from "../../../lib/db/types";
 import type { ResearchResult } from "../../../lib/research/result";
@@ -558,7 +559,10 @@ describe('Find a different image (amendment "Product-page first, front-facing im
 
   it("refuses a note over the cap without starting anything", async () => {
     const id = await researchedItem(research({ images }));
-    expect(await requestDifferentImage({ id, note: "x".repeat(301) })).toEqual({ ok: false, error: "invalid_field" });
+    expect(await requestDifferentImage({ id, note: "x".repeat(REVIEWER_NOTE_MAX_CHARS + 1) })).toEqual({
+      ok: false,
+      error: "invalid_field",
+    });
     expect(wf.start).not.toHaveBeenCalled();
   });
 

@@ -2,7 +2,7 @@ import { generateText } from "ai";
 import { countExaCalls, EXA_SEARCH_TOOL, exaImageHints, exaPageTexts, researchExaSearch } from "../ai/exa.ts";
 import { languageModelFor } from "../ai/models.ts";
 import type { StepLike } from "../ai/tool-caps.ts";
-import { failResearch, getPendingTool, markResearching, type PendingTool } from "../data/pending-tools.ts";
+import { completeResearch, failResearch, getPendingTool, markResearching, type PendingTool } from "../data/pending-tools.ts";
 import { listCategories } from "../data/taxonomy.ts";
 import {
   RESEARCH_MAX_PAGE_READS,
@@ -11,6 +11,7 @@ import {
   RESEARCH_STEP_MAX_RETRIES,
   RESEARCH_STEP_TIMEOUT_MS,
 } from "../intake/limits.ts";
+import type { ResearchFocusField } from "../intake/research-focus.ts";
 import type { ImageHint } from "../web/read-page.ts";
 import { assembleResearchResult, draftFromFindings, uniqueHosts, uniqueLinks } from "./assemble.ts";
 import { classifyResearchError, scrub } from "./errors.ts";
@@ -25,7 +26,8 @@ import {
   type ReadPagesResult,
 } from "./read-pages.ts";
 import { selectSearchTexts, type SearchPageText } from "./search-text.ts";
-import type { BatchSummary, ReadStepResult, SearchStepResult } from "./step-types.ts";
+import type { ResearchResult } from "./result.ts";
+import type { BatchSummary, ItemStepResult, ReadStepResult, SearchStepResult } from "./step-types.ts";
 import { DEFAULT_MAX_LINKS, verifyResourceLinks } from "./verify-links.ts";
 
 export type { BatchSummary, ImageHint, ItemStepResult, ReadStepResult, SearchStepResult } from "./step-types.ts";
@@ -105,7 +107,8 @@ export type { BatchSummary, ImageHint, ItemStepResult, ReadStepResult, SearchSte
 export async function searchItem(
   id: string,
   requestId: string,
-  reviewerNote: string | null = null
+  reviewerNote: string | null = null,
+  focus: ResearchFocusField[] | null = null
 ): Promise<SearchStepResult> {
   "use step";
   const item = await claimForResearch(id, requestId);
@@ -118,7 +121,7 @@ export async function searchItem(
     const result = await generateText({
       model: languageModelFor("researchSearch"),
       system: researchSystemPrompt("search"),
-      prompt: buildSearchPrompt(item, categories, reviewerNote),
+      prompt: buildSearchPrompt(item, categories, reviewerNote, focus),
       tools: { [EXA_SEARCH_TOOL]: researchExaSearch() },
       abortSignal: signal,
       maxRetries: 0,
@@ -170,7 +173,8 @@ export async function readAndVerifyItem(
   requestId: string,
   findings: SearchFindings,
   reviewerNote: string | null = null,
-  searchTexts: readonly SearchPageText[] = []
+  searchTexts: readonly SearchPageText[] = [],
+  focus: ResearchFocusField[] | null = null
 ): Promise<ReadStepResult> {
   "use step";
   const item = await getPendingTool(id);
@@ -220,7 +224,7 @@ export async function readAndVerifyItem(
         const { text } = await generateText({
           model: languageModelFor("researchRead"),
           system: researchSystemPrompt("read"),
-          messages: buildReadMessages(item, findings, read, categories, reviewerNote),
+          messages: buildReadMessages(item, findings, read, categories, reviewerNote, focus),
           abortSignal: signal,
           maxRetries: 0,
         });
@@ -252,6 +256,28 @@ export async function readAndVerifyItem(
   return { outcome: "drafted", result, imageHints };
 }
 readAndVerifyItem.maxRetries = RESEARCH_STEP_MAX_RETRIES;
+
+/**
+ * The last step of a **scoped** Research again that leaves the image alone
+ * (amendment "Guided redo"): write the read step's result as a merge — only
+ * the focused fields replace the stored ones (`completeResearch` with `focus`,
+ * `research/focus-merge.ts`). No image stage runs, so nothing is spent on
+ * pictures and the stored images and their cleaned copy stay exactly as they
+ * were.
+ */
+export async function completeFocusedItem(
+  id: string,
+  requestId: string,
+  result: ResearchResult,
+  focus: ResearchFocusField[]
+): Promise<ItemStepResult> {
+  "use step";
+  const stored = await completeResearch(id, result, { requestId, focus });
+  if (!stored) return { outcome: "skipped" };
+  const item = await getPendingTool(id);
+  return { outcome: "researched", confidence: item?.research?.confidence.level ?? result.confidence.level };
+}
+completeFocusedItem.maxRetries = RESEARCH_STEP_MAX_RETRIES;
 
 /**
  * The workflow gave up on an item: `queued` or `researching` → `failed`, with

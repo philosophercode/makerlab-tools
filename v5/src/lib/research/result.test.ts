@@ -1,3 +1,4 @@
+import { REVIEWER_NOTE_MAX_CHARS } from "../intake/limits";
 import {
   imageCandidateSchema,
   parseResearchResult,
@@ -242,8 +243,40 @@ describe('views, reviewer notes and image reruns (amendment "Product-page first,
       imageRetry: { requestId: "r1", requestedAt: "2026-09-23T12:00:00.000Z", status: "failed", note: null, error: "nothing new" },
     };
     expect(parseResearchResult(next)).toEqual(next);
-    expect(researchResultSchema.safeParse({ ...wellFormed(), reviewerNote: "x".repeat(301) }).success).toBe(false);
+    expect(researchResultSchema.safeParse({ ...wellFormed(), reviewerNote: "x".repeat(REVIEWER_NOTE_MAX_CHARS + 1) }).success).toBe(false);
     expect(researchResultSchema.safeParse({ ...next, imageRetry: { ...next.imageRetry, status: "queued" } }).success).toBe(false);
   });
 });
 
+
+describe('a guided redo\'s record (amendment "Guided redo (focus + guidance)")', () => {
+  it("parses a result from before focus existed to itself, with none of the new keys", () => {
+    const old = wellFormed();
+    const parsed = parseResearchResult(old);
+    expect(parsed).toEqual(old);
+    for (const key of ["researchFocus", "researchedAs", "redoRequest", "updated"]) {
+      expect(key in (parsed as object)).toBe(false);
+    }
+  });
+
+  it("parses a result carrying a focus, the saved name, a redo marker and what changed", () => {
+    const next: ResearchResult = {
+      ...wellFormed(),
+      reviewerNote: "x".repeat(REVIEWER_NOTE_MAX_CHARS),
+      researchFocus: ["specs", "links"],
+      researchedAs: { name: "Prusa MK4S", brand: null },
+      redoRequest: { requestId: "r1", requestedAt: "2026-09-23T12:00:00.000Z", focus: [] },
+      updated: { at: "2026-09-23T12:05:00.000Z", sections: ["specs"] },
+    };
+    expect(parseResearchResult(next)).toEqual(next);
+  });
+
+  it("refuses an unknown focus, an empty recorded focus and an unknown section", () => {
+    expect(researchResultSchema.safeParse({ ...wellFormed(), researchFocus: ["everything"] }).success).toBe(false);
+    expect(researchResultSchema.safeParse({ ...wellFormed(), researchFocus: [] }).success).toBe(false);
+    expect(
+      researchResultSchema.safeParse({ ...wellFormed(), updated: { at: "2026-09-23T12:05:00.000Z", sections: ["tags"] } })
+        .success
+    ).toBe(false);
+  });
+});

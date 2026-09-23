@@ -436,3 +436,130 @@
     flex: 1 1 100%;
   }
 }
+
+/* ── Research again, guided (amendment "Guided redo") ─────────────────
+   An inline panel under the identity fields — never a modal. The chips wrap,
+   so the row fits a phone; the two buttons take the full width there. */
+.admin-intake-redo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--primary);
+  background: var(--surface-container-low);
+}
+
+.admin-intake-redo h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+}
+
+.admin-intake-redo-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-intake-redo-label {
+  color: var(--on-surface-muted);
+  font-size: 12px;
+}
+
+.admin-intake-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-intake-chip {
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--outline);
+  border-radius: 999px;
+  background: var(--surface-container);
+  color: var(--on-surface);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-intake-chip.is-pressed {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--surface-container-low);
+}
+
+.admin-intake-chip.is-suggestion {
+  border-style: dashed;
+}
+
+.admin-intake-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-intake-chip:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.admin-intake-redo-count {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-intake-redo-count span:last-child {
+  flex: none;
+  font-family: var(--font-mono);
+}
+
+@media (max-width: 639px) {
+  .admin-intake-redo-actions .admin-button {
+    flex: 1 1 100%;
+  }
+}
+
+/* A section the last redo changed: a brief wash, and "Updated just now". */
+.admin-intake-updated-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: normal;
+  vertical-align: middle;
+}
+
+.admin-field.is-updated,
+.admin-intake-resources.is-updated,
+.admin-intake-updated.is-updated {
+  animation: admin-intake-updated 4s ease-out;
+}
+
+@keyframes admin-intake-updated {
+  from {
+    background-color: color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-field.is-updated,
+  .admin-intake-resources.is-updated,
+  .admin-intake-updated.is-updated {
+    animation: none;
+  }
+}
+
+.admin-intake-updated {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

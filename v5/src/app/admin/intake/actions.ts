@@ -127,7 +127,7 @@ const discardInput = z.strictObject({ id });
  */
 const differentImageInput = z.strictObject({
   id,
-  note: z.string().max(2000).nullable().optional(),
+  note: z.string().max(4000).nullable().optional(),
 });
 
 const identityInput = z.strictObject({

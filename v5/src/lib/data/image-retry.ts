@@ -114,6 +114,8 @@ export async function finishImageRetry(
       images,
       imageError: null,
       imageRetry: { ...retry, status: "done", error: null },
+      // The page marks the image "Updated just now" (amendment "Guided redo").
+      updated: { at: new Date().toISOString(), sections: ["image"] },
     });
     return { ok: true, previousCleanedId };
   });

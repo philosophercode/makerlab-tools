@@ -17,6 +17,7 @@ import {
   listIntakeQueue,
   listPendingTools,
   markReadyAsUnit,
+  markRedoRequest,
   markResearching,
   queueForResearch,
   queueForResearchWithinAllowance,
@@ -661,5 +662,80 @@ describe("listIntakeQueue", () => {
     expect(queue.filter((item) => item.status === "approved" || item.status === "discarded")).toHaveLength(2);
     // The single capped read this replaces loses the waiting item.
     expect((await listPendingTools({ limit: 2 }, { db })).map((item) => item.id)).not.toContain(waiting);
+  });
+});
+
+describe('a guided redo (amendment "Guided redo (focus + guidance)")', () => {
+  /** An item researched once, with `first` stored, then queued and claimed again under a new request. */
+  async function redoing(first: ResearchResult): Promise<{ id: string; requestId: string }> {
+    const id = await oneItem("Prusa MK4S", { brand: "Prusa Research" });
+    await queueForResearch([id], { requestedBy: OWNER }, { db });
+    await markResearching(id, { db });
+    expect(await completeResearch(id, first, { db })).toBe(true);
+    const requestId = crypto.randomUUID();
+    expect(await queueForResearch([id], { requestedBy: OWNER, requestId }, { db })).toEqual([id]);
+    return { id, requestId };
+  }
+
+  const redone = (): ResearchResult => ({
+    ...research("low"),
+    canonicalName: "Something else entirely",
+    description: "A longer, better paragraph.",
+    specs: [{ label: "Build volume", value: "250 × 210 × 220 mm" }],
+    materials: ["ABS"],
+  });
+
+  it("records the saved name and brand on a first research", async () => {
+    const id = await oneItem("Prusa MK4S", { brand: "Prusa Research" });
+    await queueForResearch([id], { requestedBy: OWNER }, { db });
+    await markResearching(id, { db });
+    await completeResearch(id, research(), { db });
+    expect((await getPendingTool(id, { db }))?.research?.researchedAs).toEqual({ name: "Prusa MK4S", brand: "Prusa Research" });
+  });
+
+  it("marks the stored result with the redo while it waits, and the redo's write drops the mark", async () => {
+    const { id, requestId } = await redoing(research());
+    expect(await markRedoRequest(id, { requestId, focus: ["specs"] }, { db })).toBe(true);
+    expect((await getPendingTool(id, { db }))?.research?.redoRequest).toMatchObject({ requestId, focus: ["specs"] });
+    // Not another request's, and not a row with nothing stored.
+    expect(await markRedoRequest(id, { requestId: crypto.randomUUID(), focus: null }, { db })).toBe(false);
+
+    await markResearching(id, { db, requestId });
+    expect(await completeResearch(id, redone(), { db, requestId, focus: ["specs"] })).toBe(true);
+    expect((await getPendingTool(id, { db }))?.research?.redoRequest).toBeUndefined();
+  });
+
+  it("merges only the focused fields: everything else is stored exactly as it was", async () => {
+    const first = research();
+    const { id, requestId } = await redoing(first);
+    const before = (await getPendingTool(id, { db }))?.research;
+    await markResearching(id, { db, requestId });
+
+    expect(await completeResearch(id, redone(), { db, requestId, focus: ["description"] })).toBe(true);
+    const after = (await getPendingTool(id, { db }))?.research;
+    expect(after?.description).toBe("A longer, better paragraph.");
+    const { updated, researchFocus, ...keptAfter } = after!;
+    expect({ ...keptAfter, description: before!.description }).toEqual(before);
+    expect(researchFocus).toEqual(["description"]);
+    expect(updated?.sections).toEqual(["description"]);
+  });
+
+  it("replaces the whole result for everything, as research always did", async () => {
+    const { id, requestId } = await redoing(research());
+    await markResearching(id, { db, requestId });
+    expect(await completeResearch(id, redone(), { db, requestId })).toBe(true);
+    const after = (await getPendingTool(id, { db }))?.research;
+    expect(after).toMatchObject({ ...redone(), researchedAs: { name: "Prusa MK4S", brand: "Prusa Research" } });
+    expect(after?.updated?.sections).toEqual(["description", "specs"]);
+  });
+
+  it("keeps a name the reviewer saved after the first research", async () => {
+    const { id, requestId } = await redoing(research());
+    // Research again saves a corrected name first; the row is queued by then,
+    // so this stands in for the save that came before the press.
+    await setStatus(id, { name: "Prusa MK4S+" });
+    await markResearching(id, { db, requestId });
+    await completeResearch(id, redone(), { db, requestId, focus: ["specs"] });
+    expect((await getPendingTool(id, { db }))?.research?.canonicalName).toBe("Prusa MK4S+");
   });
 });

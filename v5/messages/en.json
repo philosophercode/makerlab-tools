@@ -740,6 +740,41 @@
       "researchNote": "Note for research (optional)",
       "researchNotePlaceholder": "e.g. use the bambulab.com X2D product page",
       "researchNoteHint": "Tells research where to look or what it got wrong. One line, up to {max} characters.",
+      "redo": {
+        "title": "Anything to focus on?",
+        "hint": "Pick what to redo. Everything else stays exactly as it is now.",
+        "focusLegend": "Focus on",
+        "focus": {
+          "everything": "Everything",
+          "description": "Description",
+          "specs": "Specs",
+          "links": "Links & manuals",
+          "image": "Image"
+        },
+        "imageUnavailable": "The photo added in the chat is the cover, so research does not look for an image.",
+        "suggestionsLabel": "Quick suggestions",
+        "suggestion": {
+          "specs": "Beef up the specs from the spec table or manual",
+          "manual": "Find the official manual",
+          "variant": "Wrong model or variant — it's …",
+          "shorter": "Shorter, clearer description"
+        },
+        "noteHint": "Tells research where to look or what it got wrong. One paragraph, up to {max} characters.",
+        "noteCount": "{count}/{max}",
+        "submit": "Research",
+        "cancel": "Cancel",
+        "what": {
+          "description": "the description",
+          "specs": "the specs",
+          "links": "links & manuals",
+          "image": "the image"
+        },
+        "running": "Re-researching {what}…",
+        "runningEverything": "Researching everything again…",
+        "notice": "Re-researching {what}. This page updates when it finishes.",
+        "noticeEverything": "Researching everything again. This page updates when it finishes.",
+        "updated": "Updated just now"
+      },
       "lowTitle": "Research could not confirm this item",
       "lowExplain": "Approving stays off until you either correct the name and research again, or tick the box below and say what you checked.",
       "overrideCheck": "I've checked this",
@@ -797,6 +832,7 @@
         "unresolved_duplicate": "This item matches something already here. Add it as another unit, mark it as a different tool, or discard it, then research it.",
         "not_researchable": "This item cannot be researched in its current state. Reload to see where it is.",
         "start_failed": "Research could not start. The item is still queued — press Retry.",
+        "image_retry_running": "An image search is still running for this item. Wait for it to finish, then try again.",
         "failed": "That did not go through. Nothing was changed; try again."
       },
       "image": {

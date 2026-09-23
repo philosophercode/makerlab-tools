@@ -21,4 +21,14 @@ describe("reviewer notes", () => {
     expect(clipped).toHaveLength(REVIEWER_NOTE_MAX_CHARS);
     expect(reviewerNoteForPrompt("")).toBeNull();
   });
+
+  it('takes one paragraph of up to 1000 characters, line breaks collapsed (amendment "Guided redo")', () => {
+    expect(REVIEWER_NOTE_MAX_CHARS).toBe(1000);
+    const typed = "The specs are thin.\n\nUse the spec table on bambulab.com/en/x2d/specs,\r\nand the manual PDF.";
+    expect(parseReviewerNote(typed)).toBe(
+      "The specs are thin. Use the spec table on bambulab.com/en/x2d/specs, and the manual PDF."
+    );
+    // Counted after collapsing: a note padded with line breaks is not refused for them.
+    expect(parseReviewerNote(`${"a ".repeat(499)}a\n\n\n`)).toHaveLength(999);
+  });
 });

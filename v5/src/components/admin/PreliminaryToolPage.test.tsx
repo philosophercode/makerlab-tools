@@ -4,7 +4,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => router,
 }));
 
-import { render, screen, userEvent, within } from "../../../test/utils/render";
+import { act, render, screen, userEvent, within } from "../../../test/utils/render";
 import type { IntakeActions, IntakeApproveResult } from "../../app/admin/intake/action-result";
 import type { CategoryOption, LocationOption } from "../../lib/data/taxonomy";
 import type { PendingToolView } from "../../lib/intake/types";
@@ -584,6 +584,7 @@ describe("PreliminaryToolPage — name, brand and Research again", () => {
     await userEvent.clear(name);
     await userEvent.type(name, "Cricut Maker 3");
     await userEvent.click(screen.getByRole("button", { name: "Research again" }));
+    await userEvent.click(screen.getByRole("button", { name: "Research" }));
 
     expect(props.actions.saveIdentity).toHaveBeenCalledTimes(1);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -600,8 +601,11 @@ describe("PreliminaryToolPage — name, brand and Research again", () => {
     renderPage();
 
     await userEvent.click(screen.getByRole("button", { name: "Research again" }));
+    await userEvent.click(screen.getByRole("button", { name: "Research" }));
 
     expect(await screen.findByText(/today's research limit/)).toBeInTheDocument();
+    // The panel stays open, so the choices are still there to try again with.
+    expect(screen.getByRole("dialog", { name: "Anything to focus on?" })).toBeInTheDocument();
     expect(router.refresh).not.toHaveBeenCalled();
   });
 });
@@ -704,13 +708,14 @@ describe('PreliminaryToolPage — correcting the AI (amendment "reviewer notes")
       .mockResolvedValue(new Response(JSON.stringify({ requestId: "r", runId: "run", queued: [ID], readyAsUnit: [] }), { status: 202 }));
     renderPage({ research: research({ reviewerNote: "use the prusa3d.com page" }) });
 
+    await userEvent.click(screen.getByRole("button", { name: "Research again" }));
     const box = screen.getByLabelText("Note for research (optional)");
     expect(box).toHaveValue("use the prusa3d.com page");
-    expect(box).toHaveAttribute("maxLength", "300");
+    expect(box).toHaveAttribute("maxLength", "1000");
     expect(box).toHaveAttribute("placeholder", "e.g. use the bambulab.com X2D product page");
     await userEvent.clear(box);
     await userEvent.type(box, "use the bambulab.com{Enter}X2D product page");
-    await userEvent.click(screen.getByRole("button", { name: "Research again" }));
+    await userEvent.click(screen.getByRole("button", { name: "Research" }));
 
     expect(JSON.parse(String(fetchSpy.mock.calls[0][1]?.body))).toEqual({
       ids: [ID],
@@ -724,6 +729,7 @@ describe('PreliminaryToolPage — correcting the AI (amendment "reviewer notes")
       .mockResolvedValue(new Response(JSON.stringify({ requestId: "r", runId: "run", queued: [ID], readyAsUnit: [] }), { status: 202 }));
     renderPage();
     await userEvent.click(screen.getByRole("button", { name: "Research again" }));
+    await userEvent.click(screen.getByRole("button", { name: "Research" }));
     expect(JSON.parse(String(fetchSpy.mock.calls[0][1]?.body))).toEqual({ ids: [ID] });
   });
 
@@ -803,5 +809,74 @@ describe('PreliminaryToolPage — correcting the AI (amendment "reviewer notes")
     rerender(<PreliminaryToolPage {...props} research={research({ images: { candidates: [next], cleaned: null } })} />);
     expect(screen.getByRole("radio", { name: "Option 1" })).toBeChecked();
     expect(screen.queryByText("Back view")).not.toBeInTheDocument();
+  });
+});
+
+describe('PreliminaryToolPage — a guided redo (amendment "Guided redo (focus + guidance)")', () => {
+  const started = () =>
+    vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ requestId: "r", runId: "run", queued: [ID], readyAsUnit: [] }), { status: 202 }));
+
+  it("opens an inline panel, not a modal, and Cancel closes it without sending anything", async () => {
+    const fetchSpy = started();
+    renderPage();
+    const button = screen.getByRole("button", { name: "Research again" });
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(button);
+    const dialog = screen.getByRole("dialog", { name: "Anything to focus on?" });
+    expect(dialog).not.toHaveAttribute("aria-modal", "true");
+    expect(button).toHaveAttribute("aria-expanded", "true");
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("sends the focus with the note, then says what it is redoing", async () => {
+    const fetchSpy = started();
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "Research again" }));
+    await userEvent.click(screen.getByRole("button", { name: "Specs" }));
+    await userEvent.click(screen.getByRole("button", { name: "Links & manuals" }));
+    await userEvent.click(screen.getByRole("button", { name: "Find the official manual" }));
+    await userEvent.click(screen.getByRole("button", { name: "Research" }));
+
+    expect(JSON.parse(String(fetchSpy.mock.calls[0][1]?.body))).toEqual({
+      ids: [ID],
+      note: "Find the official manual",
+      focus: ["specs", "links"],
+    });
+    expect(await screen.findByText("Re-researching the specs and links & manuals…")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(router.refresh).toHaveBeenCalled();
+  });
+
+  it("does not offer the image when the item has its own photo", async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "Research again" }));
+    expect(screen.getByRole("button", { name: "Image" })).toBeDisabled();
+  });
+
+  it("marks the sections the last redo changed as updated just now, briefly", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      renderPage({
+        research: research({ updated: { at: new Date().toISOString(), sections: ["specs", "links"] } }),
+      });
+      expect(await screen.findAllByText("Updated just now")).toHaveLength(2);
+      expect(screen.getByLabelText(/Description/).closest(".admin-field")).toHaveClass("is-updated");
+      act(() => {
+        vi.advanceTimersByTime(9_000);
+      });
+      expect(screen.queryByText("Updated just now")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("marks nothing for a redo that landed long ago", () => {
+    renderPage({ research: research({ updated: { at: "2020-01-01T00:00:00.000Z", sections: ["description"] } }) });
+    expect(screen.queryByText("Updated just now")).not.toBeInTheDocument();
   });
 });

@@ -3,6 +3,7 @@ import { hasUploadedPhoto, releaseCleanedImages } from "../data/research-images.
 import { getDb } from "../db/client.ts";
 import type { Db } from "../db/types.ts";
 import { IMAGE_STEP_MAX_RETRIES, IMAGE_STEP_TIMEOUT_MS, RESEARCH_STEP_MAX_RETRIES } from "../intake/limits.ts";
+import type { ResearchFocusField } from "../intake/research-focus.ts";
 import type { ImageHint } from "../web/read-page.ts";
 import { errorName, imageErrorText, rankAndClean, type StageOutcome } from "./image-stage.ts";
 import { collectCandidates } from "./images/candidates.ts";
@@ -72,16 +73,23 @@ import type { ItemStepResult } from "./step-types.ts";
  * Step 3: find the item's product image and write the item. `hints` is every
  * hint the earlier steps found, the read pages' and Exa's together; they are
  * told apart by `source`.
+ *
+ * `focus` is a scoped **Research again** that includes the image (amendment
+ * "Guided redo"): the images found here replace the stored ones, and of the
+ * rest of `result` only the other focused fields are written
+ * (`completeResearch` merges). A scoped redo *without* the image never reaches
+ * this step (`completeFocusedItem` in `steps.ts`).
  */
 export async function findImages(
   id: string,
   requestId: string,
   result: ResearchResult,
-  hints: ImageHint[]
+  hints: ImageHint[],
+  focus: ResearchFocusField[] | null = null
 ): Promise<ItemStepResult> {
   "use step";
   try {
-    return await findImagesFor(id, requestId, result, hints);
+    return await findImagesFor(id, requestId, result, hints, focus);
   } catch (error) {
     // Whatever escapes is unexpected — the database, a bug. Say which kind
     // without quoting it (a query error carries its SQL and parameters), and
@@ -100,13 +108,14 @@ export async function completeWithoutImages(
   id: string,
   requestId: string,
   result: ResearchResult,
-  reason: string
+  reason: string,
+  focus: ResearchFocusField[] | null = null
 ): Promise<ItemStepResult> {
   "use step";
   if (!(await stillResearching(id, requestId))) return { outcome: "skipped" };
   const db = await getDb();
   await releaseCleanedImages(db, id);
-  return write(db, id, requestId, { ...result, images: null, imageError: imageErrorText(reason) });
+  return write(db, id, requestId, { ...result, images: null, imageError: imageErrorText(reason) }, focus);
 }
 completeWithoutImages.maxRetries = RESEARCH_STEP_MAX_RETRIES;
 
@@ -114,7 +123,8 @@ async function findImagesFor(
   id: string,
   requestId: string,
   result: ResearchResult,
-  hints: readonly ImageHint[]
+  hints: readonly ImageHint[],
+  focus: ResearchFocusField[] | null
 ): Promise<ItemStepResult> {
   const item = await stillResearching(id, requestId);
   if (!item) return { outcome: "skipped" };
@@ -126,7 +136,7 @@ async function findImagesFor(
     ? { images: null, imageError: null }
     : await runStage(db, id, { name: result.canonicalName.trim() || item.name, brand: item.brand }, hints);
 
-  return write(db, id, requestId, { ...result, images: outcome.images, imageError: outcome.imageError });
+  return write(db, id, requestId, { ...result, images: outcome.images, imageError: outcome.imageError }, focus);
 }
 
 async function runStage(
@@ -148,8 +158,14 @@ async function runStage(
 }
 
 /** Store the result, or — the row was taken away meanwhile — let go of what this attempt made. */
-async function write(db: Db, id: string, requestId: string, next: ResearchResult): Promise<ItemStepResult> {
-  const stored = await completeResearch(id, next, { requestId });
+async function write(
+  db: Db,
+  id: string,
+  requestId: string,
+  next: ResearchResult,
+  focus: ResearchFocusField[] | null = null
+): Promise<ItemStepResult> {
+  const stored = await completeResearch(id, next, focus ? { requestId, focus } : { requestId });
   if (!stored) {
     await releaseCleanedImages(db, id);
     return { outcome: "skipped" };

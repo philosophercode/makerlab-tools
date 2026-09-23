@@ -1526,3 +1526,198 @@ default.
 
 **Status.** Built on `v5/gateway-images` (uncommitted). Re-run the gate when the case set
 or the chat prompt changes.
+
+### 2026-09-23 — Guided redo (focus + guidance) (§3.5, §4.1, §5.1, §5.2, §6, §8, §10)
+
+**What changed.** **Research again** on the preliminary page no longer fires at once. It
+opens a small inline panel, "Anything to focus on?", where the reviewer says *what* to
+redo and *why*. Research then redoes only that part, and every other field of the
+listing stays exactly as it was.
+
+**Why (Isaac).** A reviewer who liked the description but found the specs thin had one
+button, and it replaced the whole result: a good description could come back worse, an
+image already chosen was searched for again, and the note said what was wrong but not
+what to keep.
+
+**The design, as built.**
+- **The panel** (`components/admin/ResearchAgainDialog.tsx`, inline under the identity
+  fields, never a browser modal, §6):
+  - **Focus chips** (toggle buttons with `aria-pressed`): Everything (the default),
+    Description, Specs, Links & manuals, Image. Pressing a field lets go of Everything;
+    letting go of the last field, or pressing Everything, goes back to it. Image is off
+    when the item has an uploaded photo, because research never looks for one then.
+  - **Quick suggestions** write into the note, after what is there, as a new sentence,
+    never past the cap: "Beef up the specs from the spec table or manual", "Find the
+    official manual", "Wrong model or variant — it's …" (which leaves the cursor after
+    "it's " for the reviewer to finish), "Shorter, clearer description".
+  - **The note** ("Note for research (optional)"), starting with the note the last
+    research ran with, with a character count.
+  - **Research** and **Cancel** (Escape too). On a phone the chips wrap and both buttons
+    take the full width. A refusal leaves the panel open with its choices.
+- **The note is one paragraph of up to 1000 characters** (`REVIEWER_NOTE_MAX_CHARS`,
+  raised from 300 for both notes, Research again and Find a different image). The
+  cleaning rules are unchanged: line breaks and runs of whitespace become single spaces
+  before it is counted, so a note typed over several lines arrives as one paragraph;
+  control characters, angle brackets and backticks are dropped. It is still
+  `tools.approve` only and still fenced as `## Reviewer's instruction` /
+  `<reviewer-instruction>` in the prompts, and it is still refused over the cap
+  (`invalid_body` / `invalid_field`), never cut.
+- **The focus** (`lib/intake/research-focus.ts`): `description | specs | links | image`.
+  **Everything is not a field.** It is the absence of a focus, so every request, run and
+  row from before this means what it meant then. `parseResearchFocus` returns null for
+  an absent or empty focus, or for one that names `everything`. Otherwise it returns the
+  fields in canonical order, once each, or `invalid`.
+- **The route** (`POST /api/pending-tools/research`) accepts `focus` (the choices above,
+  plus `everything`). A focus other than everything goes with one item only (400
+  `invalid_body` otherwise), needs `tools.approve` (403), and needs a stored result to
+  merge into (409 `not_researchable`). It costs **one** against the daily allowance, like
+  any press.
+  - **Image only** does not queue the item. The route calls `requestImageRetry`, which
+    is **Find a different image** with the note (`findDifferentImage`, one step, at most
+    one Exa search). It answers 202 `{ imageOnly: true, queued: [] }`, and the item stays
+    `researched` while its image search runs.
+  - **Anything else** is queued as today and started as `start(researchBatch,
+    [requestId, ids, note, focus])`. A run with no focus is started with exactly the
+    arguments it always had.
+  - **An item whose image search is still running is not researched again** (409 with a
+    new code, `image_retry_running`, `admin.intake.errors.image_retry_running`). Queueing
+    it would move the row out from under the search, which could then never land.
+- **The workflow** (`researchBatch`, fourth argument `focus`). With a focus it runs
+  `researchFocused`, which is search and read as today, each told the focus. Then:
+  - **Without the image**, the new step `completeFocusedItem` (`research/steps.ts`)
+    writes the merge. No image stage runs, so nothing is spent on pictures, and the
+    stored images and their cleaned copy are untouched.
+  - **With the image**, `findImages` / `completeWithoutImages` run as always, told the
+    focus. Their pictures replace the stored ones.
+
+  Without a focus, `researchOne` is unchanged, call for call, so a replay of an older
+  run matches its event log.
+- **The prompts** (`research/prompt.ts`'s `reviewerBlock`, both passes). The focus sits
+  in the same `## Reviewer's instruction` section as the note, fenced in its own
+  `<reviewer-focus>` tag: "The reviewer wants you to focus on: the specs". The section
+  says only those parts of the answer will be used, the rest of the listing is kept from
+  the earlier research, and the answer must still be the complete JSON object. The words
+  are built in code from the fixed list, never typed. The image is not named to the text
+  passes. The search pass hears the focus too, because "find the official manual" is a
+  search task.
+- **The merge** (`research/focus-merge.ts`'s `mergeResearch`, called by
+  `completeResearch` inside the transaction that writes the row, with the stored result
+  read `for update`). **Everything** replaces the result whole, as before. A **scoped**
+  redo starts from the stored result and takes only these fields from the new run:
+
+  | Focus | Taken from the new run |
+  |---|---|
+  | Description | `description` |
+  | Specs | `specs`, `evidence.specsFromSource` |
+  | Links & manuals | `resources`, `droppedLinks`, `evidence.manualFound` |
+  | Image | `images`, `imageError` (the old `imageRetry` is dropped) |
+
+  Every other field comes back byte-identical, including the name, category,
+  materials, tags, training, restrictions, the images when they were not focused, and
+  the grade.
+- **The evidence and confidence rule.** Only specs and links are evidence-bearing.
+  - For those two, the flag in the table is **replaced**, because the list it vouches
+    for was replaced. The pages the new run read join `sourceUrls` (and
+    `searchTextSources`), capped at 20, and `manufacturerPageFound` becomes old **or**
+    new, because both runs' pages are now sources.
+  - A description or image redo leaves `evidence`, `sourceUrls` and `confidence` exactly
+    as stored.
+  - **Confidence is recomputed only when the merged evidence or sources differ from the
+    stored ones**, with `scoreConfidence(evidence, { sourceUrls })`, the call research
+    makes. Otherwise the stored grade is kept as it was.
+- **The name the reviewer saved wins.** Research again saves a corrected name first, as
+  before, and research never writes the row's `name` or `brand`. Every result now
+  records the saved name and brand it was written under (`researchedAs`). A scoped redo
+  keeps the old `canonicalName` unless the saved name or brand changed since the old
+  result was written; then the saved name is used. An older row with no `researchedAs`
+  keeps its name.
+- **§4.1 gains optional fields. Old rows parse unchanged, and there is no migration:**
+
+  ```ts
+  researchFocus?: ("description" | "specs" | "links" | "image")[]; // the scoped redo that wrote this; absent = one whole run
+  researchedAs?: { name: string; brand: string | null };             // the saved name and brand at write time
+  redoRequest?: { requestId: string; requestedAt: string; focus: Field[] } | null; // a pressed redo, for the page
+  updated?: { at: string; sections: Field[] } | null;                 // what the last redo changed
+  ```
+
+  - `redoRequest` is written on the stored result by `markRedoRequest`, right after
+    queueing, only while the row is `queued` under that request. It is best effort:
+    only the status line depends on it. The redo's own write drops it.
+  - `updated` lists the sections among the four that now read differently. A scoped
+    redo lists only the fields it focused; everything compares all four.
+    `finishImageRetry` sets `updated: { sections: ["image"] }` as well.
+- **Status (§6).**
+  - Right after the press, the status line reads "Re-researching the specs and links &
+    manuals…", or "Researching everything again…".
+  - While the item is queued or researching, the item page's notice says the same in
+    its longer form, "Re-researching the specs. This page updates when it finishes."
+    (`components/admin/redo-status.ts`, list words from `Intl.ListFormat` in the
+    reader's locale), in place of "Being researched now". The queue's polling carries
+    on.
+  - An image-only redo stays on the preliminary page with the image search's own
+    status and polling.
+  - When a redo lands within `REDO_HIGHLIGHT_WINDOW_MS` (3 min), the changed sections
+    get a brief wash and an "Updated just now" tag. The tag is taken down after
+    `REDO_HIGHLIGHT_SHOW_MS` (8 s), and reduced motion gets no wash. The description box
+    carries both Description and Specs, because the specs ride in it, and the tag also
+    goes on "Links and manuals" and on the Product image.
+  - All strings are English only, under `admin.intake.redo.*`.
+- **Daily limit.** One per press, whatever the focus, as today. The image-only path
+  counts through `startImageRetry` under the same per-person lock.
+
+**§10.** New tests, all with no network:
+- `ResearchAgainDialog.test.tsx`:
+  - Everything is the default and sends no focus.
+  - A field lets go of Everything, and several fields go in order.
+  - Pressing Everything, or letting go of the last field, goes back to Everything.
+  - Image is off with an uploaded photo.
+  - Suggestions append as sentences, the variant suggestion leaves the cursor, and the
+    note is capped, with the counter.
+  - A note typed over several lines is sent as one paragraph.
+  - Cancel and Escape send nothing.
+- `PreliminaryToolPage.test.tsx`:
+  - The panel is inline, `aria-expanded`, and Cancel closes it.
+  - The focus and note are sent, and the running line is shown.
+  - The panel stays open on a refusal.
+  - "Updated just now" is shown and taken down, and not shown for an old landing.
+  - The existing note tests go through the panel, with the cap at 1000.
+- `route.test.ts`:
+  - The focus and note are forwarded, and the redo marker is written.
+  - A focus with no note is forwarded as `[…, null, focus]`, and everything as no focus.
+  - Image only runs Find a different image, with one ledger row, and leaves the item
+    researched.
+  - `image_retry_running` is refused.
+  - A focus is refused on several items, when unknown, without `tools.approve`, and with
+    nothing stored.
+  - A 1000-character note is accepted.
+- `research-batch.test.ts`:
+  - The focus reaches search and read.
+  - Without the image, `completeFocusedItem` runs and there is no image stage.
+  - With the image, `findImages` / `completeWithoutImages` get the focus.
+  - With no focus, every call is exactly as before.
+- `focus-merge.test.ts`:
+  - Each field's merge keeps the unfocused fields byte-identical, and the grade is kept
+    or recomputed by the rule.
+  - The saved-name rule, including a legacy row.
+  - The note is replaced or dropped, and the marker is dropped.
+  - Only changed sections are listed.
+  - Everything is replaced whole.
+  - A first research carries only `researchedAs`.
+- `pending-tools.test.ts` (PGlite):
+  - `researchedAs` is recorded on a first research.
+  - `markRedoRequest` writes only for its own request, and the redo's write drops it.
+  - A description-only redo stores every other field as it was.
+  - Everything replaces the result, and a name saved since is kept.
+- `steps.test.ts`: search → read → `completeFocusedItem` against the stubbed models.
+  Both prompts carry the fenced focus and note, only the specs change, and a superseded
+  run writes nothing.
+- `prompt.test.ts`: the `<reviewer-focus>` line, fenced, before the note in one section.
+  Several fields are named in order, and the search pass hears them too. The image is
+  not named, and there is nothing for everything or with no focus.
+- `result.test.ts`: an old row without the new keys parses to itself, a new row with all
+  of them parses, and an unknown focus or section is refused.
+- `research-focus.test.ts`, `redo-status.test.ts`, and `reviewer-note.test.ts` (one
+  paragraph, 1000 cap).
+
+**Status.** Built on `v5/gateway-images` (uncommitted). Not checked live: no model call
+or network was made for this change.

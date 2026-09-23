@@ -4,6 +4,7 @@ import type {
   IntakeEvidence,
 } from "../capabilities/types.ts";
 import { REVIEWER_NOTE_MAX_CHARS } from "../intake/limits.ts";
+import { RESEARCH_FOCUS_FIELDS, type ResearchFocusField } from "../intake/research-focus.ts";
 
 /**
  * What background research produces for one pending tool (spec §4.10), and the
@@ -62,7 +63,7 @@ export interface ResearchResult {
   imageError?: string | null;
   /**
    * The reviewer's instruction this research ran with (the note on **Research
-   * again**), one line, at most `REVIEWER_NOTE_MAX_CHARS`. Absent when there was
+   * again**), one paragraph on one line, at most `REVIEWER_NOTE_MAX_CHARS`. Absent when there was
    * none — and on every row researched before notes existed.
    */
   reviewerNote?: string | null;
@@ -77,6 +78,40 @@ export interface ResearchResult {
    * (with why), or done. Absent when nobody asked for one.
    */
   imageRetry?: ImageRetryState | null;
+  /**
+   * The focus of the **Research again** that last wrote this result, when it
+   * was scoped (amendment "Guided redo"): only these fields came from that run,
+   * everything else was kept from the result before it. Absent means the whole
+   * result came from one run — every row researched before focus existed.
+   */
+  researchFocus?: ResearchFocusField[];
+  /**
+   * The item's saved name and brand when this result was written. A scoped
+   * redo keeps the old `canonicalName` only while these still match the row —
+   * a name the reviewer saved since wins. Absent on older rows.
+   */
+  researchedAs?: { name: string; brand: string | null };
+  /**
+   * A **Research again** waiting or running for this result, written when it
+   * was pressed so the page can say what is being redone ("Re-researching
+   * specs…"). `focus` is empty for everything. Meaningful only while the row is
+   * queued or researching under `requestId`; the redo's own result drops it.
+   */
+  redoRequest?: RedoRequest | null;
+  /**
+   * What the last redo changed, and when — the page marks those sections
+   * "Updated just now" for a short while (`REDO_HIGHLIGHT_WINDOW_MS`).
+   */
+  updated?: { at: string; sections: ResearchFocusField[] } | null;
+}
+
+/** A pressed **Research again**, as `research.redoRequest` records it. */
+export interface RedoRequest {
+  requestId: string;
+  /** ISO 8601. */
+  requestedAt: string;
+  /** The fields being redone; empty for everything. */
+  focus: ResearchFocusField[];
 }
 
 /** A **Find a different image** run, as the review page polls it. */
@@ -298,6 +333,23 @@ export const researchResultSchema: z.ZodType<ResearchResult> = z.strictObject({
       status: z.enum(["running", "failed", "done"]),
       note: z.string().max(REVIEWER_NOTE_MAX_CHARS).nullable(),
       error: z.string().max(300).nullable(),
+    })
+    .nullable()
+    .optional(),
+  researchFocus: z.array(z.enum(RESEARCH_FOCUS_FIELDS)).min(1).max(RESEARCH_FOCUS_FIELDS.length).optional(),
+  researchedAs: z.strictObject({ name: z.string().max(200), brand: z.string().max(200).nullable() }).optional(),
+  redoRequest: z
+    .strictObject({
+      requestId: z.string().min(1).max(100),
+      requestedAt: z.string().min(1).max(40),
+      focus: z.array(z.enum(RESEARCH_FOCUS_FIELDS)).max(RESEARCH_FOCUS_FIELDS.length),
+    })
+    .nullable()
+    .optional(),
+  updated: z
+    .strictObject({
+      at: z.string().min(1).max(40),
+      sections: z.array(z.enum(RESEARCH_FOCUS_FIELDS)).max(RESEARCH_FOCUS_FIELDS.length),
     })
     .nullable()
     .optional(),

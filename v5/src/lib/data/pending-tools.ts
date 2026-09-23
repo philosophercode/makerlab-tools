@@ -19,7 +19,9 @@ import {
 } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
 import { RESEARCH_START_STALE_MS } from "../intake/limits.ts";
+import type { ResearchFocus, ResearchFocusField } from "../intake/research-focus.ts";
 import type { DuplicateOf } from "../intake/types.ts";
+import { mergeResearch } from "../research/focus-merge.ts";
 import { parseResearchResult, researchResultSchema, type ResearchResult } from "../research/result.ts";
 import { claimAttachments, releaseAttachments, reownAttachments } from "./attachments.ts";
 import { findDuplicate, findDuplicates } from "./duplicates.ts";
@@ -766,21 +768,79 @@ export async function markResearching(
  * holding output that does not parse has a bug, not a finding. False when the
  * row is not `researching` (discarded meanwhile): research writes only to the
  * row it was given, and only while that row is waiting for it (§8).
+ *
+ * **A redo lands on the result it replaces** (amendment "Guided redo"): the row
+ * is read `for update` and `mergeResearch` (`research/focus-merge.ts`) decides
+ * what is written — with a `focus`, only the focused fields of `result` over
+ * the stored ones; without, `result` whole. Either way the saved name and brand
+ * are recorded (`researchedAs`), and the sections that changed (`updated`).
  */
 export async function completeResearch(
   id: string,
   result: ResearchResult,
-  options: ResearchWriteOptions = {}
+  options: ResearchWriteOptions & { focus?: ResearchFocus; now?: Date } = {}
 ): Promise<boolean> {
-  const parsed = researchResultSchema.parse(result);
+  researchResultSchema.parse(result);
   if (!isUuid(id)) return false;
   const db = options.db ?? (await getDb());
-  const rows = await db
-    .update(pendingTools)
-    .set({ status: "researched", research: parsed, researchError: null })
-    .where(and(eq(pendingTools.id, id), eq(pendingTools.status, "researching"), ownRequest(options.requestId)))
-    .returning({ id: pendingTools.id });
-  return rows.length > 0;
+  const at = (options.now ?? new Date()).toISOString();
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ name: pendingTools.name, brand: pendingTools.brand, research: pendingTools.research })
+      .from(pendingTools)
+      .where(and(eq(pendingTools.id, id), eq(pendingTools.status, "researching"), ownRequest(options.requestId)))
+      .for("update");
+    if (!row) return false;
+    const merged = mergeResearch({
+      previous: row.research == null ? null : parseResearchResult(row.research),
+      next: result,
+      focus: options.focus ?? null,
+      saved: { name: row.name, brand: row.brand },
+      at,
+    });
+    const rows = await tx
+      .update(pendingTools)
+      .set({ status: "researched", research: researchResultSchema.parse(merged), researchError: null })
+      .where(and(eq(pendingTools.id, id), eq(pendingTools.status, "researching"), ownRequest(options.requestId)))
+      .returning({ id: pendingTools.id });
+    return rows.length > 0;
+  });
+}
+
+/**
+ * Mark the stored result with the **Research again** just queued for it
+ * (`research.redoRequest`), so the page can say what is being redone while it
+ * runs. Only while the row is `queued` under `requestId` and holds a result;
+ * false otherwise. The redo's own write drops the marker.
+ */
+export async function markRedoRequest(
+  id: string,
+  redo: { requestId: string; focus: ResearchFocus; now?: Date },
+  options: PendingToolOptions = {}
+): Promise<boolean> {
+  if (!isUuid(id) || !isUuid(redo.requestId)) return false;
+  const db = options.db ?? (await getDb());
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ research: pendingTools.research })
+      .from(pendingTools)
+      .where(
+        and(eq(pendingTools.id, id), eq(pendingTools.status, "queued"), eq(pendingTools.researchRequestId, redo.requestId))
+      )
+      .for("update");
+    const research = row?.research == null ? null : parseResearchResult(row.research);
+    if (!research) return false;
+    const focus: ResearchFocusField[] = redo.focus ? [...redo.focus] : [];
+    const next: ResearchResult = {
+      ...research,
+      redoRequest: { requestId: redo.requestId, requestedAt: (redo.now ?? new Date()).toISOString(), focus },
+    };
+    await tx
+      .update(pendingTools)
+      .set({ research: researchResultSchema.parse(next) })
+      .where(eq(pendingTools.id, id));
+    return true;
+  });
 }
 
 /**

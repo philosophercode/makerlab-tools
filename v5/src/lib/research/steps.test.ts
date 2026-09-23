@@ -12,7 +12,14 @@ import {
 } from "../../../test/ai/models-stub";
 import { server } from "../../../test/msw/server";
 import { setResolvedAddresses } from "../../../test/web/resolver";
-import { createPendingBatch, discardPendingTool, getPendingTool, queueForResearch } from "../data/pending-tools";
+import {
+  completeResearch,
+  createPendingBatch,
+  discardPendingTool,
+  getPendingTool,
+  markResearching,
+  queueForResearch,
+} from "../data/pending-tools";
 import { DEMO_ACCOUNTS } from "../db/demo-seed";
 import { getDb, resetDbForTests } from "../db/client";
 import { pendingTools } from "../db/schema/index";
@@ -34,7 +41,15 @@ vi.mock("@/lib/ai/models", async (importOriginal) =>
   (await import("../../../test/ai/models-stub")).stubModelsModule(await importOriginal())
 );
 
-import { finishBatch, markItemFailed, readAndVerifyItem, reportSearchOvershoot, searchItem } from "./steps";
+import {
+  completeFocusedItem,
+  finishBatch,
+  markItemFailed,
+  readAndVerifyItem,
+  reportSearchOvershoot,
+  searchItem,
+} from "./steps";
+import type { ResearchResult } from "./result";
 
 const MANUAL_URL = "https://prusa.example/mk4s-manual.pdf";
 const GONE_URL = "https://prusa.example/gone.pdf";
@@ -659,5 +674,106 @@ describe("markItemFailed / finishBatch", () => {
     await finishBatch("request-1", { researched: 2, failed: 1, skipped: 0 });
     expect(info).toHaveBeenCalledTimes(1);
     expect(info.mock.calls[0][0]).toBe("[research] batch request-1 finished: researched=2 failed=1 skipped=0");
+  });
+});
+
+describe('a guided redo, search to write (amendment "Guided redo (focus + guidance)")', () => {
+  const STORED: ResearchResult = {
+    canonicalName: "Original Prusa MK4S",
+    description: "The old description, kept.",
+    specs: [{ label: "Old spec", value: "1" }],
+    materials: ["PLA"],
+    ppeRequired: [],
+    tags: ["old-tag"],
+    trainingRequired: false,
+    useRestrictions: "Old restriction",
+    category: { name: "FDM", group: "3D Printing", existingId: null },
+    resources: [],
+    droppedLinks: [],
+    sourceUrls: [],
+    evidence: {
+      userStatedModel: false,
+      modelPlateRead: null,
+      manufacturerPageFound: false,
+      manualFound: false,
+      specsFromSource: false,
+      categoryOnly: true,
+    },
+    confidence: { level: "low", basis: [], unknowns: [] },
+    images: {
+      candidates: [
+        {
+          url: "https://prusa.example/img/old.jpg",
+          pageUrl: PRODUCT_URL,
+          source: "og",
+          width: 1000,
+          height: 1000,
+          contentType: "image/jpeg",
+          rank: 1,
+          reason: "front",
+        },
+      ],
+      cleaned: null,
+    },
+    imageError: null,
+  };
+
+  /** An item researched once (STORED), queued again under `requestId` as the route leaves a Research again. */
+  async function researchedThenQueued(requestId: string): Promise<string> {
+    const first = crypto.randomUUID();
+    const { items } = await createPendingBatch({
+      createdBy: DEMO_ACCOUNTS.admin.id,
+      items: [{ name: `Redo item ${crypto.randomUUID().slice(0, 8)}`, brand: "Prusa" }],
+    });
+    const id = items[0].id;
+    await queueForResearch([id], { requestedBy: DEMO_ACCOUNTS.admin.id, requestId: first });
+    await markResearching(id, { requestId: first });
+    expect(await completeResearch(id, STORED, { requestId: first })).toBe(true);
+    expect(await queueForResearch([id], { requestedBy: DEMO_ACCOUNTS.admin.id, requestId })).toEqual([id]);
+    return id;
+  }
+
+  it("tells both passes the focus and the note, fenced, and writes only the specs", async () => {
+    const models = answer(FINDINGS);
+    const requestId = crypto.randomUUID();
+    const id = await researchedThenQueued(requestId);
+    const before = (await getPendingTool(id))?.research;
+
+    const search = await searchItem(id, requestId, "use the spec table", ["specs"]);
+    if (search.skip) throw new Error("expected findings");
+    const read = await readAndVerifyItem(id, requestId, search.findings, "use the spec table", search.searchTexts ?? [], [
+      "specs",
+    ]);
+    if (read.outcome !== "drafted") throw new Error("expected a draft");
+
+    for (const model of [models.search, models.read]) {
+      const text = promptText(recordedCalls(model)[0]);
+      expect(text).toContain("<reviewer-focus>\nThe reviewer wants you to focus on: the specs\n</reviewer-focus>");
+      expect(text).toContain("<reviewer-instruction>\nuse the spec table\n</reviewer-instruction>");
+    }
+
+    expect(await completeFocusedItem(id, requestId, read.result, ["specs"])).toMatchObject({ outcome: "researched" });
+    const after = (await getPendingTool(id))?.research;
+    expect(after?.specs).toEqual(DRAFT.specs);
+    expect(after?.evidence.specsFromSource).toBe(true);
+    // Everything the focus did not name is exactly as it was stored.
+    for (const key of ["description", "materials", "tags", "trainingRequired", "useRestrictions", "category", "images", "resources"] as const) {
+      expect(JSON.stringify(after?.[key])).toBe(JSON.stringify(before?.[key]));
+    }
+    expect(after?.researchFocus).toEqual(["specs"]);
+    expect(after?.reviewerNote).toBe("use the spec table");
+    expect(await statusOf(id)).toBe("researched");
+  });
+
+  it("writes nothing for a run that is no longer the row's", async () => {
+    answer(FINDINGS);
+    const requestId = crypto.randomUUID();
+    const id = await researchedThenQueued(requestId);
+    const search = await searchItem(id, requestId, null, ["description"]);
+    if (search.skip) throw new Error("expected findings");
+    const read = await readAndVerifyItem(id, requestId, search.findings, null, [], ["description"]);
+    if (read.outcome !== "drafted") throw new Error("expected a draft");
+    expect(await completeFocusedItem(id, crypto.randomUUID(), read.result, ["description"])).toEqual({ outcome: "skipped" });
+    expect((await getPendingTool(id))?.research?.description).toBe("The old description, kept.");
   });
 });

@@ -1,6 +1,7 @@
 import type { ModelMessage } from "ai";
 import type { CategoryOption } from "../data/taxonomy.ts";
 import { RESEARCH_MAX_PAGE_READS, RESEARCH_MAX_PDFS_READ } from "../intake/limits.ts";
+import type { ResearchFocus } from "../intake/research-focus.ts";
 import { readPage, type ImageHint, type ReadPageResult } from "../web/read-page.ts";
 import type { SearchFindings } from "./model-output.ts";
 import { buildReadPrompt, type ResearchItemInput } from "./prompt.ts";
@@ -193,13 +194,14 @@ export function buildReadMessages(
   findings: SearchFindings,
   read: Pick<ReadPagesResult, "pages" | "pdfs" | "failures">,
   categories: readonly CategoryOption[],
-  reviewerNote?: string | null
+  reviewerNote?: string | null,
+  focus: ResearchFocus = null
 ): ModelMessage[] {
   return [
     {
       role: "user",
       content: [
-        { type: "text", text: buildReadPrompt(item, findings, read, categories, reviewerNote) },
+        { type: "text", text: buildReadPrompt(item, findings, read, categories, reviewerNote, focus) },
         ...read.pdfs.map((pdf) => ({ type: "file" as const, mediaType: "application/pdf", data: pdf.data })),
       ],
     },

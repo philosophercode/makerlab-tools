@@ -18,6 +18,7 @@ const steps = vi.hoisted(() => ({
   readAndVerifyItem: vi.fn(),
   markItemFailed: vi.fn(),
   finishBatch: vi.fn(),
+  completeFocusedItem: vi.fn(),
 }));
 
 const imageSteps = vi.hoisted(() => ({
@@ -73,6 +74,10 @@ function behave(
   });
   steps.finishBatch.mockImplementation(async () => {
     log.push("finish");
+  });
+  steps.completeFocusedItem.mockImplementation(async (id: string) => {
+    log.push(`focused:${id}`);
+    return { outcome: "researched", confidence: "high" };
   });
 }
 
@@ -216,5 +221,51 @@ describe("researchBatch", () => {
     expect(await researchBatch("req-6", [])).toEqual({ researched: 0, failed: 0 });
     expect(steps.searchItem).not.toHaveBeenCalled();
     expect(steps.finishBatch).toHaveBeenCalledWith("req-6", { researched: 0, failed: 0, skipped: 0 });
+  });
+});
+
+describe('researchBatch — a guided redo (amendment "Guided redo (focus + guidance)")', () => {
+  it("hands the focus to search and read, and writes the merge without an image stage when the image is not focused", async () => {
+    behave();
+    expect(await researchBatch("req-20", ["a1"], "use the spec table", ["specs", "links"])).toEqual({
+      researched: 1,
+      failed: 0,
+    });
+    expect(steps.searchItem).toHaveBeenCalledWith("a1", "req-20", "use the spec table", ["specs", "links"]);
+    expect(steps.readAndVerifyItem).toHaveBeenCalledWith("a1", "req-20", FINDINGS, "use the spec table", [SEARCH_TEXT], [
+      "specs",
+      "links",
+    ]);
+    expect(steps.completeFocusedItem).toHaveBeenCalledWith("a1", "req-20", draft("a1"), ["specs", "links"]);
+    expect(imageSteps.findImages).not.toHaveBeenCalled();
+    expect(log.filter((entry) => entry !== "finish")).toEqual(["search:a1", "read:a1", "focused:a1"]);
+  });
+
+  it("runs the image stage, told the focus, when the image is among the fields", async () => {
+    behave();
+    await researchBatch("req-21", ["a1"], null, ["description", "image"]);
+    expect(imageSteps.findImages).toHaveBeenCalledWith("a1", "req-21", draft("a1"), [PAGE_IMAGE, EXA_IMAGE], [
+      "description",
+      "image",
+    ]);
+    expect(steps.completeFocusedItem).not.toHaveBeenCalled();
+  });
+
+  it("falls back to writing the focused fields without images when that image stage throws", async () => {
+    behave({ imagesFailing: { a1: new Error("images down") } });
+    await researchBatch("req-22", ["a1"], null, ["image", "specs"]);
+    expect(imageSteps.completeWithoutImages).toHaveBeenCalledWith("a1", "req-22", draft("a1"), "images down", [
+      "image",
+      "specs",
+    ]);
+  });
+
+  it("calls every step exactly as before when there is no focus", async () => {
+    behave();
+    await researchBatch("req-23", ["a1"], null, null);
+    expect(steps.searchItem).toHaveBeenCalledWith("a1", "req-23", null);
+    expect(steps.readAndVerifyItem).toHaveBeenCalledWith("a1", "req-23", FINDINGS, null, [SEARCH_TEXT]);
+    expect(imageSteps.findImages).toHaveBeenCalledWith("a1", "req-23", draft("a1"), [PAGE_IMAGE, EXA_IMAGE]);
+    expect(steps.completeFocusedItem).not.toHaveBeenCalled();
   });
 });

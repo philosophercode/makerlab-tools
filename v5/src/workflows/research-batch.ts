@@ -1,7 +1,8 @@
 import { RESEARCH_CONCURRENCY } from "../lib/intake/limits.ts";
+import type { ResearchFocusField } from "../lib/intake/research-focus.ts";
 import { completeWithoutImages, findImages } from "../lib/research/image-steps.ts";
 import type { ItemStepResult } from "../lib/research/step-types.ts";
-import { finishBatch, markItemFailed, readAndVerifyItem, searchItem } from "../lib/research/steps.ts";
+import { completeFocusedItem, finishBatch, markItemFailed, readAndVerifyItem, searchItem } from "../lib/research/steps.ts";
 
 /**
  * `researchBatch` — background research for the items one Research press sent
@@ -39,13 +40,24 @@ import { finishBatch, markItemFailed, readAndVerifyItem, searchItem } from "../l
  *    the reason: **the image stage never fails an item**, only search and read
  *    can.
  *
+ * **A scoped redo** (amendment "Guided redo"): `focus`, the fourth argument,
+ * names the fields a reviewer's **Research again** asked for — one item only,
+ * like the note. Search and read run as always, told the focus; the write then
+ * merges only those fields into the stored result (`completeResearch`). With
+ * the image among them, the image stage runs and its pictures replace the
+ * stored ones; without it, `completeFocusedItem` writes the merge and no
+ * picture is looked for. Absent (every run started before focus existed, and
+ * every "everything") is exactly the flow above. An image-only focus never
+ * starts this workflow: it is **Find a different image** (`image-retry.ts`).
+ *
  * Everything that touches the database, the model or the network is a step in
  * `src/lib/research/steps.ts` or `image-steps.ts`.
  */
 export async function researchBatch(
   requestId: string,
   itemIds: string[],
-  reviewerNote: string | null = null
+  reviewerNote: string | null = null,
+  focus: ResearchFocusField[] | null = null
 ): Promise<{ researched: number; failed: number }> {
   "use workflow";
   let researched = 0;
@@ -53,7 +65,9 @@ export async function researchBatch(
   let skipped = 0;
 
   for (const group of chunk(itemIds, RESEARCH_CONCURRENCY)) {
-    const settled = await Promise.allSettled(group.map((id) => researchOne(id, requestId, reviewerNote)));
+    const settled = await Promise.allSettled(
+      group.map((id) => (focus ? researchFocused(id, requestId, reviewerNote, focus) : researchOne(id, requestId, reviewerNote)))
+    );
     for (let i = 0; i < group.length; i += 1) {
       const outcome = settled[i];
       if (outcome.status === "fulfilled") {
@@ -93,6 +107,36 @@ async function researchOne(id: string, requestId: string, reviewerNote: string |
     written = await findImages(id, requestId, read.result, [...read.imageHints, ...search.exaImages]);
   } catch (error) {
     written = await completeWithoutImages(id, requestId, read.result, failureMessage(error));
+  }
+  return written.outcome;
+}
+
+/**
+ * One item, redone in part: the same search and read, told the focus, then the
+ * image stage only when the image is focused — otherwise the merge is written
+ * straight away. Its own function, so an unscoped run's step calls stay exactly
+ * what they were (a replay of a run started before focus existed must match).
+ */
+async function researchFocused(
+  id: string,
+  requestId: string,
+  reviewerNote: string | null,
+  focus: ResearchFocusField[]
+): Promise<"researched" | "skipped"> {
+  const search = await searchItem(id, requestId, reviewerNote, focus);
+  if (search.skip) return "skipped";
+  const read = await readAndVerifyItem(id, requestId, search.findings, reviewerNote, search.searchTexts ?? [], focus);
+  if (read.outcome === "skipped") return "skipped";
+
+  let written: ItemStepResult;
+  if (!focus.includes("image")) {
+    written = await completeFocusedItem(id, requestId, read.result, focus);
+    return written.outcome;
+  }
+  try {
+    written = await findImages(id, requestId, read.result, [...read.imageHints, ...search.exaImages], focus);
+  } catch (error) {
+    written = await completeWithoutImages(id, requestId, read.result, failureMessage(error), focus);
   }
   return written.outcome;
 }

@@ -442,9 +442,15 @@ creates a tool (Article 5).
   product page, a manual/wiki/support page, a video). The read step always
   reads a found product page, videos go last, and a video never satisfies
   `manufacturerPageFound` / `specsFromSource`. Ranking also reports each image's
-  `view`, and back views, details and parts sort last. **Research again** takes an
-  optional one-line note (≤300, `tools.approve`, fenced in both prompts,
-  recorded as `research.reviewerNote`). **Find a different image**
+  `view`, and back views, details and parts sort last. **Research again** opens an
+  inline "Anything to focus on?" panel (`ResearchAgainDialog`, amendment "Guided
+  redo"): focus chips (everything, or some of description / specs / links /
+  image), quick suggestions, and an optional one-paragraph note (≤1000,
+  `tools.approve`, fenced in both prompts, recorded as `research.reviewerNote`).
+  A scoped redo sends `focus`; `completeResearch` then **merges** only those
+  fields into the stored result (`research/focus-merge.ts` — evidence and
+  confidence move only when specs or links did), an image-only focus is **Find a
+  different image**, and the page marks what changed "Updated just now". **Find a different image**
   (`requestDifferentImage` → `src/workflows/image-retry.ts` →
   `research/image-retry-steps.ts`) reruns only the image stage, with its own note
   and at most one Exa search. It costs one against the daily allowance, keeps its

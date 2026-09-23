@@ -89,10 +89,22 @@ export const IMAGE_MAX_BYTES = 8 * 1024 * 1024;
 /**
  * The longest reviewer's instruction — the optional note on **Research again**
  * and on **Find a different image** (amendment "Product-page first, front-facing
- * images, reviewer notes"). One line: it is collapsed to one before it is
- * counted, stored or put in a prompt.
+ * images, reviewer notes"). One paragraph: line breaks and runs of whitespace
+ * collapse to single spaces before it is counted, stored or put in a prompt.
+ * Raised from 300 by the amendment "Guided redo (focus + guidance)", so a
+ * reviewer can say what was wrong and where to look in one go.
  */
-export const REVIEWER_NOTE_MAX_CHARS = 300;
+export const REVIEWER_NOTE_MAX_CHARS = 1000;
+
+/**
+ * How long after a redo lands the preliminary page marks the sections it
+ * changed ("Updated just now") — the page polls while it runs, so the reviewer
+ * who pressed it sees the result well inside this (amendment "Guided redo").
+ */
+export const REDO_HIGHLIGHT_WINDOW_MS = 3 * 60_000;
+
+/** How long the "Updated just now" mark stays on screen once shown. */
+export const REDO_HIGHLIGHT_SHOW_MS = 8_000;
 
 /**
  * A **Find a different image** run still marked running this long after it was

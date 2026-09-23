@@ -21,7 +21,7 @@ import { RESEARCH_DAILY_ITEM_LIMIT } from "./limits";
  */
 
 export type ImageRetryRequestResult =
-  | { ok: true }
+  | { ok: true; requestId: string }
   | { ok: false; error: "not_found" | "not_editable" | "image_retry_running" | "daily_limit" | "start_failed" };
 
 const DAY_MS = 24 * 60 * 60_000;
@@ -48,5 +48,5 @@ export async function requestImageRetry(
     await failImageRetry(input.id, requestId, "The image search could not start. Try again.");
     return { ok: false, error: "start_failed" };
   }
-  return { ok: true };
+  return { ok: true, requestId };
 }
