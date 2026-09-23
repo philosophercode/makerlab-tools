@@ -17,8 +17,13 @@ import type { Capability } from "./types";
  *  - `catalog`     — read-only discovery (list / search / details).
  *  - `units`       — per-unit status + maintenance history (read).
  *  - `maintenance` — file maintenance tickets (write).
- *  - `intake`      — research / propose / create catalog listings (read+write).
+ *  - `intake`      — `identify_tools` records equipment as pending rows (chat
+ *                    only; research and approval happen off the chat), and
+ *                    `create_tool` writes a draft tool (MCP only).
  *  - `flags`       — file catalog corrections (write).
+ *
+ * Not every tool reaches both surfaces: `chatOnly` tools are never registered
+ * over MCP, and `mcpOnly` tools are never handed to the chat model.
  *
  * This module is the canonical import for everything in the capabilities layer:
  * the registry itself, the two adapters, and the shared contract types.

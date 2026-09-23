@@ -7,11 +7,12 @@ import { can, type Permission } from "../../lib/auth/permissions";
  * `/admin` — the index the header's `AdminLink` points at.
  *
  * This is still a short list rather than the `AdminHome` of spec §6 (counts,
- * the intake queue, open tickets, mirror status) — those need the tables Phase
- * 6 adds. What it must do now is be honest: it lists exactly the surfaces the
- * viewer's own permissions open, so nobody follows a link into a refusal, and
- * a SuperMaker who holds `tools.edit` but not `users.manage` sees the inventory
- * and not the roster.
+ * open tickets, mirror status). The intake queue now exists — `/admin/intake`,
+ * Phase 6 — and is listed here like every other surface; the counts and the
+ * mirror's status still wait for the phases that add them. What the page must
+ * do is be honest: it lists exactly the surfaces the viewer's own permissions
+ * open, so nobody follows a link into a refusal, and a SuperMaker who holds
+ * `tools.edit` but not `users.manage` sees the inventory and not the roster.
  *
  * The layout above has already established that this person may see an admin
  * surface at all.
@@ -30,6 +31,7 @@ import { can, type Permission } from "../../lib/auth/permissions";
  */
 const SURFACES: ReadonlyArray<{ href: string; permission: Permission; key: string }> = [
   { href: "/admin/inventory", permission: "tools.edit", key: "inventory" },
+  { href: "/admin/intake", permission: "tools.approve", key: "intake" },
   { href: "/admin/maintenance", permission: "maintenance.manage", key: "maintenance" },
   { href: "/admin/corrections", permission: "feedback.manage", key: "corrections" },
   { href: "/admin/projects", permission: "projects.moderate", key: "projects" },

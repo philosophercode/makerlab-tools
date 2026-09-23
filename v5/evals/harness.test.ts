@@ -76,8 +76,11 @@ describe("composeCase", () => {
     expect(system).toContain("MakerLab catalog");
     expect(system).toContain("Form 4");
     expect(system).toContain("Trotec Speedy 400");
+    // Every chat tool, and nothing marked MCP-only (create_tool).
     expect(Object.keys(tools)).toEqual(
-      CAPABILITIES.flatMap((c) => c.tools).map((t) => t.name)
+      CAPABILITIES.flatMap((c) => c.tools)
+        .filter((t) => !t.mcpOnly)
+        .map((t) => t.name)
     );
   });
 

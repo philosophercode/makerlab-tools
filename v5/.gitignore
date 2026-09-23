@@ -12,3 +12,10 @@ tsconfig.tsbuildinfo
 /playwright/.cache/
 .vercel
 .env*
+
+# Workflow SDK (Phase 6): local run data, the vitest tier's bundles, the SWC
+# plugin cache, and the routes `withWorkflow` generates at build time.
+.workflow-data/
+.workflow-vitest/
+.swc/
+/src/app/.well-known/workflow/

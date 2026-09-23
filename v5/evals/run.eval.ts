@@ -33,8 +33,8 @@ import { formatReport, runSuite, type CaseExecution } from "./runner";
  *  - `DATABASE_URL` and every `NOTION_*` variable are blanked, so the catalog
  *    is the fixed demo seed in an in-process PGlite database (spec §3.2) and
  *    neither a real database nor Notion can be reached;
- *  - every `write` capability tool is stubbed, so an eval can never create a
- *    Notion record even if the model decides to call one;
+ *  - every `write` capability tool is stubbed, so an eval can never write a
+ *    row even if the model decides to call one;
  *  - the provider-native `web_search` / `web_fetch` tools the chat route adds
  *    are omitted — they are live network, unbounded cost and non-deterministic,
  *    and nothing in the case set depends on them.

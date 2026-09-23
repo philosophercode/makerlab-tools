@@ -55,10 +55,10 @@ variable list.
   `src/lib/data/notion-ids.ts` (the Phase-2 page-id bridge) has no importers
   left and is awaiting deletion approval, as are `/api/upload-notion` and
   `/api/admin/backup`.
-- **The one write still on Notion is intake's `create_tool`** (`capabilities/
-  intake.ts`), which stays there until Phase 6. Its photos no longer travel
-  with it: an upload id is a Postgres uuid now, Notion would reject the page,
-  so the tool is created without pictures and says so in its `warnings[]`.
+- **No request path writes Notion** as of Phase 6. Intake's chat tool,
+  `identify_tools`, writes `pending_tools` rows and makes the photos it claims
+  public; `create_tool` is **MCP-only** now and writes an unpublished Postgres
+  draft (`createToolRecord`). See "Adding equipment" below.
 - **Files** (tool images, manuals, project photos, maintenance photos) live in
   **Vercel Blob**, recorded row-by-row in `attachments` — see
   `next.config.ts`'s `images.remotePatterns`. `POST /api/uploads` is the one
@@ -319,18 +319,69 @@ Phase 5 extends both. The shape it sets:
   picks is the whole of that decision, which is why they are two functions and
   not one with a flag.
 
+## Adding equipment (`pending_tools`, Phase 6)
+
+Two steps with a person between them (spec §5.4). **Identify** in the chat,
+**research** in the background, **approve** on `/admin/intake` — research never
+creates a tool (Article 5).
+
+- **The chat identifies and nothing more.** `identify_tools`
+  (`capabilities/intake.ts`, `tools.add`, chat-only) records each item as a
+  `pending_tools` row in one batch, runs the duplicate check
+  (`src/lib/data/duplicates.ts` — normalised name-plus-brand, then `pg_trgm`
+  at 0.5) and emits one `data-intake-table` part. `research_tool` and
+  `propose_listing` are gone; the intake prompt allows two web searches, only
+  to settle a model name.
+- **The table card talks to routes, never to the model.** `IntakeTableCard`
+  edits, removes and resolves duplicates through `PATCH
+  /api/pending-tools/[id]`, and **Research selected (N)** is `POST
+  /api/pending-tools/research` with exactly the ticked ids. Every check in that
+  route runs before any row moves; add-unit items skip research; a `start()`
+  that throws leaves the items `queued` with the reason in `research_error`,
+  and the same POST is the Retry.
+- **Research is a Workflow SDK run** (`src/workflows/research-batch.ts`, steps
+  in `src/lib/research/steps.ts`): three items at a time by chunked
+  `Promise.allSettled`, two steps per item (search, then fetch and verify),
+  each with its own 240-second deadline and `maxRetries = 2` set as a property.
+  The prompt, output parsing, error classification and assembly are
+  `src/lib/research/*`. **Confidence is computed in code** (`scoreConfidence`),
+  and the model's reported evidence is only ever lowered to match what
+  verification found — so "research found nothing" grades low, never medium.
+  Step code runs under plain Node: relative imports, no `"server-only"`
+  anywhere below it, and `vi.mock` does not reach it under `@workflow/vitest`.
+  The research route imports `researchBatch`, which is what makes `next build`
+  compile the workflow at all.
+- **Approval is one transaction** (`approvePendingTool` / `approvePendingAsUnit`
+  in `src/lib/data/pending-tools.ts`), composed with the audit trail and
+  `invalidateCatalog()` by `src/lib/intake/approve.ts`. Approving published
+  records `pending.approved` **and** `tool.published`; a lost audit event is a
+  warning on a success, as everywhere else. Low confidence keeps both Approve
+  buttons off until "I've checked this" is ticked and a note written.
+- **The daily cron expires what nobody researched.** `identified` rows older
+  than 14 days are discarded and their photos released (`runPendingExpiry`),
+  just before the orphan sweep deletes them from Blob.
+
 ## Key files
 
 | Path | Purpose |
 |---|---|
 | `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults) |
 | `src/lib/db/client.ts` | `getDb()`, `dataSubstrate()`, `pingDb()` — the one entry point to Postgres/PGlite |
-| `src/lib/notion.ts` | Notion API client — read by the one-time import and by intake's `create_tool` (Phase 6); no other write and no request path reads it |
+| `src/lib/notion.ts` | Notion API client — used by the one-time import and its scripts (and the retired `/api/admin/backup`, awaiting deletion); no request path reads or writes Notion |
 | `src/lib/data/attachments.ts` | `attachments` rows: create, claim onto an owner, reorder, release, list orphans, delete |
 | `src/lib/data/revision.ts` | The editor's concurrency token — `extract(epoch from updated_at)::text`, **never a `Date`** (read the docstring before touching a conflict check) |
 | `src/lib/data/tools.ts` / `units.ts` | Row-level inventory writes, every one revision-checked. Tools are archived, never deleted |
 | `src/lib/data/inventory.ts` | The `/admin/inventory` read — every tool, its state and its needs-attention flags, plus the units that belong to no tool |
-| `src/lib/data/taxonomy.ts` | `listCategories()` / `listLocations()` — the two option lists an editing surface needs, the only place these tables are read whole |
+| `src/lib/data/taxonomy.ts` | `listCategories()` / `listLocations()` — the two option lists an editing surface needs, the only place these tables are read whole — plus `findOrCreateCategory` / `findOrCreateLocation` for intake |
+| `src/lib/data/pending-tools.ts` | `pending_tools`: the batch, every status transition as a conditional write, and the two approval transactions |
+| `src/lib/data/duplicates.ts` / `tool-create.ts` | The intake duplicate check (same normalisation in TypeScript and SQL), and `createToolRecord` — one tool with its units and resources, slug retried in a savepoint |
+| `src/lib/intake/*` | Client-safe intake types, limits and `canActOnPendingTool` / `isResearchable`; `approve.ts` composes approval with audit and invalidation |
+| `src/lib/research/*` | The research engine: `prompt`, `model-output`, `errors`, `taxonomy-match`, `assemble`, `verify-links`, `result` (the `ResearchResult` schema) and `steps` (the workflow's steps) |
+| `src/workflows/research-batch.ts` | `researchBatch` — the `"use workflow"` function, started only by the research route |
+| `src/app/api/pending-tools/research/route.ts`, `[id]/route.ts` | **Research selected** and the table card's edits |
+| `src/app/admin/intake/` | The queue (`IntakeList`, polls while research runs) and each item's preliminary page (`PreliminaryToolPage`, `ConfidenceStrip`) with their server actions |
+| `src/components/IntakeTableCard.tsx` | The chat's intake table (`data-intake-table`) |
+| `src/lib/files/promote.ts` | Copies a claimed chat photo to a public pathname before it is shown as equipment |
 | `src/lib/inventory/*` | Those writes composed with cache invalidation and the audit trail — the layer `/admin/inventory`'s server actions call |
 | `src/lib/admin/audit-warning.ts` | `record` / `warn` — the shared "a lost audit event is a warning on a success" channel |
 | `src/lib/admin/action-gate.ts` | `authorizeAdminAction(permission)` — identity, limiter, permission: the preamble every admin server action runs |
@@ -360,10 +411,10 @@ Phase 5 extends both. The shape it sets:
 | `src/lib/data/audit.ts` | `audit_events` — insert and select, never update or delete |
 | `src/lib/db/schema/auth.ts` | Better Auth's four tables; property keys are its field names |
 | `src/lib/types.ts` / `src/components/catalog-types.ts` | Notion record types / resolved view types |
-| `src/app/api/chat/route.ts` | Claude chat: streaming, tools (`get_unit_details`, `report_issue`, `web_fetch`), PDF manual attach |
+| `src/app/api/chat/route.ts` | Claude chat: streaming, capability tools (`get_unit_details`, `report_issue`, `identify_tools`, …) plus `web_search` / `web_fetch`, PDF manual attach |
 | `src/app/api/mcp/route.ts` | MCP JSON-RPC server (5 tools), bearer-token auth |
 | `src/app/api/uploads/route.ts` | The one upload route → Vercel Blob + an `attachments` row |
-| `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then orphaned-upload cleanup |
+| `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup |
 | `src/app/api/admin/revalidate/route.ts` | Cache invalidation (`tools.edit`, or `x-admin-secret` for session-less callers) |
 | `src/components/ChatFab.tsx` | Chat UI (`useChat`, citations stripped, photo upload) |
 | `src/app/page.tsx`, `tools/[id]/page.tsx` | Gallery + tool detail |
@@ -401,8 +452,13 @@ first), `npm run test:coverage`.
 - **The whole suite runs with every environment variable unset.** Reads *and*
   writes go to an in-process PGlite database seeded with demo data; Vercel Blob
   is stubbed at the `src/lib/blob.ts` seam (`vi.mock`), never called for real.
-  The only MSW-stubbed Notion left is intake's `create_tool`.
+  No write reaches Notion, so no test stubs it for one.
+- **Two Vitest projects.** `unit` is the existing config; `workflow`
+  (`vitest.workflow.config.ts`) runs `*.workflow.test.ts` under
+  `@workflow/vitest`, where the model is stubbed with MSW on
+  `api.anthropic.com` because `vi.mock` does not reach step code.
 - E2E boots its own server on **port 3100** with `DATABASE_URL` unset (PGlite demo catalog) and intercepts `/api/chat` — it never touches your `:3000` dev server or real services.
+- **The intake E2E is the exception** (`e2e/intake.spec.ts`): it needs `identify_tools` and the research workflow to run server-side, so the model is stubbed at the provider boundary by a second local server (`e2e/stubs/anthropic-stub.ts`, reached through `ANTHROPIC_BASE_URL`), and the workflow runs on the SDK's local world. It is its own Playwright project that runs after every other spec, because approving publishes a third tool into the shared demo database.
 - Tests are colocated (`*.test.ts(x)` next to source); shared harness in `test/`.
 - **Read these before writing tests:** `TESTING.md` (runbook), `test/README.md` (harness internals + the `streamText`-capture and env-stubbing patterns), and `docs/specs/2026-05-29-v5-test-suite-design.md` (design + coverage matrix). The harness deps/scripts are already wired — don't hand-edit `package.json` for them.
 

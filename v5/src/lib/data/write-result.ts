@@ -20,6 +20,11 @@
  *   index (§4.5), surfaced as a named refusal instead of a raw constraint error.
  * - `unit_has_history` — the unit has maintenance logs, so it is retired, never
  *   deleted (§5.3 "Deleting").
+ * - `not_editable` — a pending tool has moved on to a state this write does not
+ *   apply to: researching, approved or discarded (§5.4). Not a conflict — there
+ *   is no newer version of the same edit to reload, the item is simply past it.
+ * - `low_confidence` — research could not confirm the item, and approval needs
+ *   the person's "I've checked this" and a note first (§5.4 step 12).
  *
  * Relative imports with `.ts` extensions, no `@/` alias and no `"server-only"`,
  * like every other module under `src/lib/data/`.
@@ -30,6 +35,8 @@ export const WRITE_REFUSALS = [
   "invalid_field",
   "duplicate_serial",
   "unit_has_history",
+  "not_editable",
+  "low_confidence",
 ] as const;
 
 export type WriteRefusal = (typeof WRITE_REFUSALS)[number];

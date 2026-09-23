@@ -223,6 +223,8 @@ describe("tierFor", () => {
     expect(tierFor("projects", "anonymous")).toEqual({ limit: 10, windowMs: 60_000 });
     expect(tierFor("upload", "anonymous")).toEqual({ limit: 15, windowMs: 60_000 });
     expect(tierFor("auth", "anonymous")).toEqual({ limit: 20, windowMs: 60_000 });
+    expect(tierFor("pendingTools", "admin")).toEqual({ limit: 60, windowMs: 60_000 });
+    expect(tierFor("research", "admin")).toEqual({ limit: 10, windowMs: 60_000 });
   });
 });
 

@@ -22,7 +22,7 @@ interface UseChatReturn {
   messages: Array<{
     id: string;
     role: "user" | "assistant";
-    parts: Array<{ type: string; text?: string; state?: string }>;
+    parts: Array<{ type: string; text?: string; state?: string; data?: unknown }>;
   }>;
   sendMessage: typeof sendMessage;
   setMessages: typeof setMessages;
@@ -85,6 +85,7 @@ vi.mock("../lib/chat/downscale-image", () => ({
 
 // Imported after the mocks above are hoisted.
 import { ChatFab } from "./ChatFab";
+import type { IntakeTablePayload } from "../lib/intake/types";
 
 beforeEach(() => {
   // These mocks are module-scoped, so their call history survives between
@@ -479,9 +480,85 @@ describe("ChatFab — pending tool-call status", () => {
     ).toBeInTheDocument();
   });
 
+  it("shows the identifying label for a pending identify_tools call", async () => {
+    await openWith([toolMsg("a1", "tool-identify_tools")]);
+    expect(screen.getByText("Identifying the equipment…")).toBeInTheDocument();
+  });
+
   it("shows a generic working label for any other pending tool", async () => {
     await openWith([toolMsg("a1", "tool-web_fetch")]);
     expect(screen.getByText("Working on it…")).toBeInTheDocument();
+  });
+});
+
+// ── The intake table (data platform spec §5.4) ─────────────────────
+describe("ChatFab — intake table", () => {
+  const payload: IntakeTablePayload = {
+    kind: "intake-table",
+    batchId: "0b7e3f7e-5c1a-4f64-9d2e-6a1b2c3d4e5f",
+    warnings: [],
+    items: [
+      {
+        id: "7c9e6679-7425-40de-944b-e07fc1f90ae7",
+        batchId: "0b7e3f7e-5c1a-4f64-9d2e-6a1b2c3d4e5f",
+        status: "identified",
+        name: "Bambu Lab X1-Carbon Combo",
+        brand: "Bambu Lab",
+        categoryHint: "3D Printing",
+        locationHint: null,
+        serialNumber: null,
+        duplicateOf: null,
+        duplicateResolution: null,
+        photos: [],
+        confidenceLevel: null,
+        researchError: null,
+        researchRequestedAt: null,
+        hasWorkflowRun: false,
+        createdByName: "Niti Parikh",
+        createdAt: "2026-09-23T12:00:00.000Z",
+        updatedAt: "2026-09-23T12:00:00.000Z",
+      },
+    ],
+  };
+
+  it("renders a data-intake-table part as the intake table card", async () => {
+    const user = userEvent.setup();
+    useChatReturn = baseReturn({
+      messages: [
+        userMsg("u1", "add this printer"),
+        {
+          id: "a1",
+          role: "assistant",
+          parts: [
+            { type: "tool-identify_tools", state: "output-available" },
+            { type: "data-intake-table", data: payload },
+            { type: "text", text: "Untick anything you don't want, then press Research." },
+          ],
+        },
+      ],
+    });
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", { name: "Open MakerLab assistant" }));
+
+    const card = screen.getByRole("region", { name: "Identified equipment" });
+    expect(card).toBeInTheDocument();
+    expect(screen.getByText("Bambu Lab X1-Carbon Combo")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Research selected (1)" })).toBeEnabled();
+    // The bubble gives the card the full column, as it does for an identification card.
+    expect(card.closest("li")).toHaveClass("chat-msg-has-card");
+  });
+
+  it("renders a message that carries only the table", async () => {
+    const user = userEvent.setup();
+    useChatReturn = baseReturn({
+      messages: [
+        { id: "a1", role: "assistant", parts: [{ type: "data-intake-table", data: payload }] },
+      ],
+    });
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", { name: "Open MakerLab assistant" }));
+
+    expect(screen.getByRole("region", { name: "Identified equipment" })).toBeInTheDocument();
   });
 });
 

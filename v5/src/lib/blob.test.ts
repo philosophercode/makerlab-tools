@@ -3,12 +3,14 @@
 // runs before module scope exists.
 const sdk = vi.hoisted(() => ({
   put: vi.fn(),
+  copy: vi.fn(),
   list: vi.fn(),
   del: vi.fn(),
 }));
 
 vi.mock("@vercel/blob", () => ({
   put: sdk.put,
+  copy: sdk.copy,
   list: sdk.list,
   del: sdk.del,
 }));
@@ -17,6 +19,10 @@ import { getBlobStore, isBlobConfigured } from "./blob";
 
 beforeEach(() => {
   sdk.put.mockReset().mockResolvedValue({ pathname: "backups/2026-07-29.json" });
+  sdk.copy.mockReset().mockResolvedValue({
+    pathname: "uploads/tool/plate-Xa9k2-Qm7p1.jpg",
+    url: "https://store.public.blob.vercel-storage.com/uploads/tool/plate-Xa9k2-Qm7p1.jpg",
+  });
   sdk.list.mockReset().mockResolvedValue({ blobs: [], hasMore: false });
   sdk.del.mockReset().mockResolvedValue(undefined);
 });
@@ -130,6 +136,44 @@ describe("putUpload", () => {
     expect(sdk.put.mock.calls[0][2].contentType).toBe(
       "application/octet-stream"
     );
+  });
+});
+
+describe("copyToPublic", () => {
+  it("copies to a PUBLIC, random pathname under the prefix, keeping the file name", async () => {
+    await getBlobStore().copyToPublic("uploads/chat/plate-Xa9k2.jpg", "uploads/tool/");
+
+    expect(sdk.copy).toHaveBeenCalledTimes(1);
+    const [from, to, options] = sdk.copy.mock.calls[0];
+    expect(from).toBe("uploads/chat/plate-Xa9k2.jpg");
+    expect(to).toBe("uploads/tool/plate-Xa9k2.jpg");
+    expect(options.access).toBe("public");
+    // A photo on an unpublished pending tool must not be guessable.
+    expect(options.addRandomSuffix).toBe(true);
+  });
+
+  it("returns the pathname and URL the store chose", async () => {
+    const stored = await getBlobStore().copyToPublic(
+      "uploads/chat/plate-Xa9k2.jpg",
+      "uploads/tool/"
+    );
+
+    expect(stored).toEqual({
+      pathname: "uploads/tool/plate-Xa9k2-Qm7p1.jpg",
+      url: "https://store.public.blob.vercel-storage.com/uploads/tool/plate-Xa9k2-Qm7p1.jpg",
+    });
+  });
+
+  it("never deletes the source — the caller does, once the row points at the copy", async () => {
+    await getBlobStore().copyToPublic("uploads/chat/plate-Xa9k2.jpg", "uploads/tool/");
+    expect(sdk.del).not.toHaveBeenCalled();
+  });
+
+  it("lets a refused copy reject rather than report a URL it does not have", async () => {
+    sdk.copy.mockRejectedValueOnce(new Error("access denied"));
+    await expect(
+      getBlobStore().copyToPublic("uploads/chat/plate-Xa9k2.jpg", "uploads/tool/")
+    ).rejects.toThrow("access denied");
   });
 });
 

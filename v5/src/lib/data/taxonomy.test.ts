@@ -2,7 +2,12 @@
 import { createPgliteDb } from "../db/pglite";
 import { categories, locations } from "../db/schema/index";
 import type { Db } from "../db/types";
-import { listCategories, listLocations } from "./taxonomy";
+import {
+  findOrCreateCategory,
+  findOrCreateLocation,
+  listCategories,
+  listLocations,
+} from "./taxonomy";
 
 /**
  * The two option lists an editing surface needs.
@@ -60,5 +65,67 @@ describe("listLocations", () => {
       ["Bloomberg 061", "Resin Bay"],
     ]);
     expect((await listLocations({ db }))[0].mapTag).toBeNull();
+  });
+});
+
+describe("findOrCreateCategory", () => {
+  it("finds an existing category case-insensitively, group included", async () => {
+    const [existing] = await db
+      .insert(categories)
+      .values({ name: "FDM", group: "3D Printing" })
+      .returning({ id: categories.id });
+
+    expect(await findOrCreateCategory(db, { name: " fdm ", group: "3d printing" })).toEqual({
+      id: existing.id,
+      created: false,
+    });
+    expect(await db.select().from(categories)).toHaveLength(1);
+  });
+
+  it("creates one that is missing — and a null group is its own group", async () => {
+    await db.insert(categories).values({ name: "Vinyl", group: "Cutting" });
+
+    const created = await findOrCreateCategory(db, { name: "Vinyl", group: null });
+    expect(created.created).toBe(true);
+    const again = await findOrCreateCategory(db, { name: "vinyl", group: "  " });
+    expect(again).toEqual({ id: created.id, created: false });
+    expect(await db.select().from(categories)).toHaveLength(2);
+  });
+
+  it("runs inside a caller's transaction and rolls back with it", async () => {
+    await expect(
+      db.transaction(async (tx) => {
+        const made = await findOrCreateCategory(tx, { name: "Temporary", group: null });
+        expect(made.created).toBe(true);
+        throw new Error("caller changed its mind");
+      })
+    ).rejects.toThrow("caller changed its mind");
+    expect(await db.select().from(categories)).toHaveLength(0);
+  });
+
+  it("refuses a blank name", async () => {
+    await expect(findOrCreateCategory(db, { name: "  ", group: null })).rejects.toThrow(/name/);
+  });
+});
+
+describe("findOrCreateLocation", () => {
+  it("finds an existing location case-insensitively, or creates it", async () => {
+    const [existing] = await db
+      .insert(locations)
+      .values({ room: "MakerLab", zone: "Resin Bench" })
+      .returning({ id: locations.id });
+
+    expect(await findOrCreateLocation(db, { room: "makerlab", zone: "RESIN BENCH" })).toEqual({
+      id: existing.id,
+      created: false,
+    });
+
+    const created = await findOrCreateLocation(db, { room: "MakerLab", zone: "Laser Bay" });
+    expect(created.created).toBe(true);
+    expect(await db.select().from(locations)).toHaveLength(2);
+  });
+
+  it("refuses a blank room or zone", async () => {
+    await expect(findOrCreateLocation(db, { room: "MakerLab", zone: " " })).rejects.toThrow();
   });
 });

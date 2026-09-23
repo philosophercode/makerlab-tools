@@ -165,6 +165,12 @@ export const ADMIN_ACTION_TIER: RateLimitTier = { limit: 120, windowMs: 60_000 }
 /**
  * Limits for the non-chat routes — unchanged from before sign-in existed. Only
  * the *key* got better (identity rather than raw IP); the numbers are the same.
+ *
+ * The two pending-tools tiers arrived with Phase 6 (spec §8). `pendingTools`
+ * bounds intake-table edits — generous, because fixing typos across a batch of
+ * twenty-five is a lot of PATCHes. `research` bounds how often somebody may
+ * *press* Research; what each press may spend is bounded separately, by the
+ * per-request and per-day item limits in `intake/limits.ts`.
  */
 export const ROUTE_TIERS = {
   flags: { limit: 5, windowMs: HOUR_MS },
@@ -173,6 +179,8 @@ export const ROUTE_TIERS = {
   projects: { limit: 10, windowMs: 60_000 },
   upload: { limit: 15, windowMs: 60_000 },
   auth: { limit: 20, windowMs: 60_000 },
+  pendingTools: { limit: 60, windowMs: 60_000 },
+  research: { limit: 10, windowMs: 60_000 },
 } as const;
 
 export type RouteScope = keyof typeof ROUTE_TIERS;

@@ -1,5 +1,5 @@
 # Calls the right capability instead of guessing from the prompt's catalog
-# listing. Write tools are stubbed by the harness — no Notion record is created.
+# listing. Write tools are stubbed by the harness — no row is written.
 
 - id: unit-status-calls-tool
   prompt: "Is Form 4 // A working right now?"

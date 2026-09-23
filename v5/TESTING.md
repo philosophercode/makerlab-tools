@@ -152,12 +152,21 @@ directly. Also mock `@ai-sdk/anthropic`. The full verified snippet is in
 
 ## E2E notes
 
-- Playwright's `webServer` boots `npx next dev -p 3100` with `DATABASE_URL`
+- Playwright's `webServer` builds and boots `npx next start -p 3100` with `DATABASE_URL`
   unset, so the app serves the seeded PGlite demo database regardless of your
   dev shell's environment. `testDir` is `./e2e`; `baseURL` is
   `http://localhost:3100`.
 - `/api/chat` is intercepted **inside each spec** at the network layer via
   `page.route()` returning a UI-message stream chunk — no real Anthropic call.
+- **Except `e2e/intake.spec.ts`** (§10 scenario 5), which needs
+  `identify_tools` and the research workflow to run on the server. Playwright
+  boots a second web server, `e2e/stubs/anthropic-stub.ts` on port 3101, and the
+  app reaches it through `ANTHROPIC_BASE_URL` with a fake key — the model is
+  stubbed at the provider boundary, and everything else is the real app,
+  including the Workflow SDK's local world. It is its own Playwright project
+  (`intake`) that depends on `chromium`, so it runs after every other spec:
+  approving publishes a tool into the demo database they all share. Run it
+  alone with `npx playwright test --project=intake --no-deps`.
 - `reuseExistingServer: false` — Playwright **always** boots its own fresh
   PGlite-backed server on the dedicated port 3100. This means E2E never
   collides with (or accidentally reuses) a `next dev` you have running on the

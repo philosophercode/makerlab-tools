@@ -9,10 +9,12 @@ import { useLocale, useTranslations } from "next-intl";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { IdentificationCard } from "./IdentificationCard";
+import { IntakeTableCard } from "./IntakeTableCard";
 import { useChatLauncher } from "./ChatLauncherContext";
 import { siteConfig } from "../lib/site-config";
 import { startGoogleSignIn } from "../lib/auth/sign-in-client";
 import type { CardPayload } from "../lib/capabilities/types";
+import type { IntakeTablePayload } from "../lib/intake/types";
 import { downscaleForVision } from "../lib/chat/downscale-image";
 import { toVisionFileParts, withRecentPhotos } from "../lib/chat/photo-parts";
 
@@ -32,6 +34,7 @@ type ChatT = ReturnType<typeof useTranslations<"chat">>;
 function toolStatusLabel(partType: string, t: ChatT): string {
   if (partType === "tool-get_unit_details") return t("lookingUpUnit");
   if (partType === "tool-report_issue") return t("filingTicket");
+  if (partType === "tool-identify_tools") return t("identifyingEquipment");
   return t("working");
 }
 
@@ -654,29 +657,32 @@ export function ChatFab() {
                         p.type.startsWith("tool-") &&
                         (p as { state?: string }).state !== "output-available"
                     );
-                    // Identification cards arrive as `data-card` parts emitted by
-                    // the intake capability's `card()` (design spec §6.3).
+                    // Cards from a capability tool's `card()` arrive as `data-card`
+                    // parts (design spec §6.3). Intake no longer emits one — it
+                    // writes the table below — but the renderer stays for any
+                    // tool that declares a card.
                     const cardParts = message.parts.filter(
                       (p): p is typeof p & { data: CardPayload } =>
                         p.type === "data-card" &&
                         (p as { data?: unknown }).data != null
                     );
-                    if (
-                      textParts.length === 0 &&
-                      cardParts.length === 0 &&
-                      !pendingTool
-                    )
-                      return null;
+                    // The intake table arrives as a `data-intake-table` part
+                    // written by `identify_tools` (data platform spec §5.4).
+                    const intakeParts = message.parts.filter(
+                      (p): p is typeof p & { data: IntakeTablePayload } =>
+                        p.type === "data-intake-table" &&
+                        (p as { data?: { kind?: unknown } }).data?.kind === "intake-table"
+                    );
+                    const hasCard = cardParts.length > 0 || intakeParts.length > 0;
+                    if (textParts.length === 0 && !hasCard && !pendingTool) return null;
                     return (
                       <li
                         key={message.id}
                         className={`chat-msg chat-msg-${message.role}${
-                          cardParts.length > 0 ? " chat-msg-has-card" : ""
+                          hasCard ? " chat-msg-has-card" : ""
                         }`}
                       >
-                        {textParts.length === 0 &&
-                        cardParts.length === 0 &&
-                        pendingTool ? (
+                        {textParts.length === 0 && !hasCard && pendingTool ? (
                           <p className="chat-reading" aria-label={t("toolRunningAria")}>
                             {toolStatusLabel(pendingTool.type, t)}
                           </p>
@@ -702,6 +708,9 @@ export function ChatFab() {
                             onAction={handleCardAction}
                             disabled={isLoading}
                           />
+                        ))}
+                        {intakeParts.map((part) => (
+                          <IntakeTableCard key={part.data.batchId} payload={part.data} />
                         ))}
                       </li>
                     );

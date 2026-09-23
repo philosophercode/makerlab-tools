@@ -10,8 +10,10 @@ import {
   findAttachmentsByIds,
   listAttachmentsForOwner,
   listOrphanedAttachments,
+  markAttachmentPublic,
   releaseAttachments,
   reorderAttachments,
+  reownAttachments,
 } from "./attachments";
 
 /**
@@ -352,5 +354,83 @@ describe("releaseAttachments", () => {
       await releaseAttachments(db, { ownerType: "project", ownerId: mine }, [theirPhoto])
     ).toBe(0);
     expect((await readAttachment(theirPhoto)).ownerId).toBe(theirs);
+  });
+});
+
+describe("reownAttachments", () => {
+  it("moves every file to the new owner, order kept, after what it already holds", async () => {
+    const from = { ownerType: "project" as const, ownerId: await ownerRow() };
+    const to = { ownerType: "project" as const, ownerId: await ownerRow() };
+    const existingCover = await upload();
+    await claimAttachments(db, [existingCover], to);
+    const first = await upload();
+    const second = await upload();
+    const third = await upload();
+    await claimAttachments(db, [second, first, third], from);
+
+    expect(await reownAttachments(db, from, to)).toBe(3);
+
+    expect((await listAttachmentsForOwner(db, to)).map((row) => [row.id, row.position])).toEqual([
+      [existingCover, 0],
+      [second, 1],
+      [first, 2],
+      [third, 3],
+    ]);
+    expect(await listAttachmentsForOwner(db, from)).toEqual([]);
+  });
+
+  it("starts at the cover position when the new owner has nothing", async () => {
+    const from = { ownerType: "project" as const, ownerId: await ownerRow() };
+    const to = { ownerType: "project" as const, ownerId: await ownerRow() };
+    const photo = await upload();
+    await claimAttachments(db, [photo], from);
+
+    expect(await reownAttachments(db, from, to)).toBe(1);
+    expect(await readAttachment(photo)).toMatchObject({ ownerId: to.ownerId, position: 0 });
+  });
+
+  it("moves nothing for an owner with nothing, or a non-uuid id", async () => {
+    const to = { ownerType: "project" as const, ownerId: await ownerRow() };
+    expect(await reownAttachments(db, { ownerType: "project", ownerId: await ownerRow() }, to)).toBe(0);
+    expect(await reownAttachments(db, { ownerType: "project", ownerId: "not-a-uuid" }, to)).toBe(0);
+  });
+
+  it("rolls back with the caller's transaction", async () => {
+    const from = { ownerType: "project" as const, ownerId: await ownerRow() };
+    const to = { ownerType: "project" as const, ownerId: await ownerRow() };
+    const photo = await upload();
+    await claimAttachments(db, [photo], from);
+
+    await expect(
+      db.transaction(async (tx) => {
+        await reownAttachments(tx, from, to);
+        throw new Error("approval failed later");
+      })
+    ).rejects.toThrow("approval failed later");
+    expect((await readAttachment(photo)).ownerId).toBe(from.ownerId);
+  });
+});
+
+describe("markAttachmentPublic", () => {
+  it("records the public copy's pathname and URL", async () => {
+    const photo = await upload({ access: "private", blobPathname: "uploads/chat/a.png" });
+
+    expect(
+      await markAttachmentPublic(db, photo, {
+        blobPathname: "uploads/tool/a.png",
+        publicUrl: "https://x.public.blob.vercel-storage.com/uploads/tool/a.png",
+      })
+    ).toBe(true);
+    expect(await readAttachment(photo)).toMatchObject({
+      access: "public",
+      blobPathname: "uploads/tool/a.png",
+      publicUrl: "https://x.public.blob.vercel-storage.com/uploads/tool/a.png",
+    });
+  });
+
+  it("is false for a row that does not exist", async () => {
+    const blob = { blobPathname: "p", publicUrl: "https://example.com/p" };
+    expect(await markAttachmentPublic(db, crypto.randomUUID(), blob)).toBe(false);
+    expect(await markAttachmentPublic(db, "nope", blob)).toBe(false);
   });
 });

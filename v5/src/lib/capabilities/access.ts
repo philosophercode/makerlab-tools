@@ -18,7 +18,7 @@ import type { Capability } from "./types";
  *
  * Client-safe: `permissions.ts` is pure data and the `Capability` import is
  * type-only, so the header can ask {@link canAddEquipment} without pulling the
- * registry (and the Notion client behind it) into the browser bundle.
+ * registry (and the database modules behind it) into the browser bundle.
  */
 
 /** The permission intake requires. Named so call sites read as intent. */

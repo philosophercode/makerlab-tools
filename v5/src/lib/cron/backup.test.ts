@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { eq, getTableName } from "drizzle-orm";
 import { createPgliteDb } from "../db/pglite";
-import { DEMO_ACCOUNTS, seedDemo } from "../db/demo-seed";
+import { DEMO_ACCOUNTS, DEMO_PENDING, DEMO_PRUSA_RESEARCH, seedDemo } from "../db/demo-seed";
 import { account, attachments, session, tools, user } from "../db/schema/index";
 import type { Db } from "../db/types";
 import type { BlobStore } from "../blob";
@@ -45,6 +45,9 @@ describe("backupTables", () => {
     expect(names).toContain("projects");
     expect(names).toContain("attachments");
     expect(names).toContain("audit_events");
+    // Phase 6's table, by the same discovery — nobody had to remember to list
+    // it here either.
+    expect(names).toContain("pending_tools");
 
     // Phase 4's people, yes — their roles and bans are the state a restore
     // would most need to get right.
@@ -138,6 +141,18 @@ describe("runBackup", () => {
     expect(file.tables.tools.rowCount).toBe(seeded.length);
     expect(file.tables.tools.rows).toHaveLength(seeded.length);
     expect(file.tables.tools.rows[0].name).toBeTruthy();
+  });
+
+  it("exports a pending row's research jsonb, not just its columns", async () => {
+    const store = fakeStore();
+
+    await runBackup(store, { db, now: new Date("2026-09-20T07:17:00.000Z") });
+    const file = writtenFile(store);
+
+    const row = file.tables.pending_tools.rows.find(
+      (r: { id: string }) => r.id === DEMO_PENDING.researched.id
+    );
+    expect(row.research).toMatchObject({ canonicalName: DEMO_PRUSA_RESEARCH.canonicalName });
   });
 
   it("reports each table's row count in its result", async () => {

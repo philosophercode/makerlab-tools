@@ -1,60 +1,65 @@
+// @vitest-environment node
+import { eq, inArray, notInArray } from "drizzle-orm";
+import { http, HttpResponse } from "msw";
+import type { UIMessageStreamWriter } from "ai";
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { nextCacheMock } from "../../../test/mocks/next-cache";
-import { intake, mapWithConcurrency, RESEARCH_CONCURRENCY } from "./intake";
-import type {
-  CapabilityCtx,
-  CapabilityTool,
-  IdentificationCardPayload,
-  IntakeConfidence,
-  ToolCandidate,
-} from "./types";
-import type { MakerLabTool } from "../../components/catalog-types";
+import { server } from "../../../test/msw/server";
 
 vi.mock("next/cache", () => nextCacheMock());
 
-// `create_tool` still writes to Notion until Phase 6, so the one write it makes
-// is captured at the module boundary rather than stubbed with MSW — what these
-// tests care about is the *arguments*, specifically that no upload id travels.
-const notionHook = vi.hoisted(() => ({
-  createTool: vi
-    .fn<(fields: Record<string, unknown>) => Promise<{ id: string }>>()
-    .mockResolvedValue({ id: "notion-tool-1" }),
+// Promotion copies blobs, and the Blob SDK is never called for real. Its own
+// behaviour is covered in `files/promote.test.ts`; here it is a seam whose
+// calls are observed. The default stands in for a store that works: it marks
+// the rows public the way the real function would.
+const promote = vi.hoisted(() => ({
+  fn: vi.fn<(ids: string[]) => Promise<{ promoted: number; failed: number; skipped: number }>>(),
+}));
+vi.mock("../files/promote", () => ({
+  promoteAttachmentsToPublic: (ids: string[]) => promote.fn(ids),
 }));
 
-vi.mock("../notion", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../notion")>();
+// `createPendingBatch` is wrapped so one test can make the database go away.
+const pendingHook = vi.hoisted(() => ({ failWith: null as null | Error }));
+vi.mock("../data/pending-tools", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../data/pending-tools")>();
   return {
     ...actual,
-    createTool: (fields: unknown) => notionHook.createTool(fields as never),
+    createPendingBatch: (...args: Parameters<typeof actual.createPendingBatch>) => {
+      if (pendingHook.failWith) return Promise.reject(pendingHook.failWith);
+      return actual.createPendingBatch(...args);
+    },
   };
 });
+
+import { revalidateTag } from "next/cache";
+import type { Identity } from "../auth/identity";
+import { DbUnavailableError, getDb, resetDbForTests } from "../db/client";
+import { DEMO_ACCOUNTS, DEMO_PENDING } from "../db/demo-seed";
+import {
+  attachments,
+  categories,
+  locations,
+  pendingTools,
+  resources,
+  tools,
+  units,
+} from "../db/schema/index";
+import { IDENTIFY_MAX_ITEMS, IDENTIFY_MAX_MODEL_NAME_SEARCHES } from "../intake/limits";
+import type { IntakeTablePayload } from "../intake/types";
+import { toAiTools } from "./chat-adapter";
+import { intake } from "./intake";
+import { registerAll } from "./mcp-adapter";
+import type { CapabilityCtx, CapabilityTool, ToolCandidate } from "./types";
 
 /**
- * Intake ↔ confidence wiring (confidence spec phases 2, 4 and 5). The catalog
- * read runs against the PGlite demo seed (no `DATABASE_URL`, so
- * `getCatalogTools()` never touches the network) and every candidate here
- * carries no resources, so no link verification fetch is made either.
- *
- * `../catalog` is wrapped rather than replaced: by default the real
- * `getCatalogTools` runs, and a test that needs to observe or delay the read
- * (the fan-out cases) swaps in its own implementation for the duration.
+ * Intake, as Phase 6 left it: `identify_tools` in the chat writes pending rows
+ * and nothing else, and `create_tool` is an MCP-only Postgres draft. Both run
+ * against the demo-seeded PGlite database with no environment variables; the
+ * only network is link verification, stubbed with MSW.
  */
 
-const catalogHook = vi.hoisted(() => ({
-  impl: null as null | (() => Promise<MakerLabTool[]>),
-}));
-
-vi.mock("../catalog", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../catalog")>();
-  return {
-    ...actual,
-    getCatalogTools: (): Promise<MakerLabTool[]> =>
-      catalogHook.impl ? catalogHook.impl() : actual.getCatalogTools(),
-  };
-});
-
-afterEach(() => {
-  catalogHook.impl = null;
-});
+const DEMO_PENDING_IDS = Object.values(DEMO_PENDING).map((item) => item.id);
 
 function toolByName(name: string): CapabilityTool<unknown, unknown> {
   const found = intake.tools.find((t) => t.name === name);
@@ -62,14 +67,372 @@ function toolByName(name: string): CapabilityTool<unknown, unknown> {
   return found;
 }
 
+const identify = toolByName("identify_tools");
+const createTool = toolByName("create_tool");
+
+/** The demo admin, as `resolveIdentity` returns them from a session. */
+function admin(): Identity {
+  const account = DEMO_ACCOUNTS.admin;
+  return {
+    role: "admin",
+    userId: account.id,
+    email: account.email,
+    name: account.name,
+    rateLimitKey: `user:${account.id}`,
+  };
+}
+
+function fakeWriter() {
+  const writer = { write: vi.fn(), merge: vi.fn(), onError: undefined };
+  return writer as typeof writer & UIMessageStreamWriter;
+}
+
+function ctx(over: Partial<CapabilityCtx> = {}): CapabilityCtx {
+  return { identity: admin(), writer: fakeWriter(), attachments: [], ...over };
+}
+
+function photo(attachmentId: string, name = "photo.jpg") {
+  return { attachmentId, name, contentType: "image/jpeg" };
+}
+
+/** An unowned private upload, as `POST /api/uploads` leaves one for chat — by the demo admin unless said otherwise. */
+async function upload(uploadedBy: string | null = DEMO_ACCOUNTS.admin.id): Promise<string> {
+  const db = await getDb();
+  const [row] = await db
+    .insert(attachments)
+    .values({ blobPathname: `uploads/chat/${crypto.randomUUID()}.jpg`, access: "private", uploadedBy })
+    .returning({ id: attachments.id });
+  return row.id;
+}
+
+async function attachmentRow(id: string) {
+  const db = await getDb();
+  const [row] = await db.select().from(attachments).where(eq(attachments.id, id));
+  return row;
+}
+
+interface IdentifyResult {
+  card_rendered: boolean;
+  batchId: string;
+  items: { id: string; name: string; duplicateOf: { kind: string; name: string } | null }[];
+  warnings: string[];
+  error?: string;
+}
+
+async function runIdentify(
+  items: Record<string, unknown>[],
+  context: CapabilityCtx = ctx()
+): Promise<IdentifyResult> {
+  // Parsed the way both adapters parse it, so defaults and trimming apply.
+  return (await identify.run(identify.inputSchema.parse({ items }), context)) as IdentifyResult;
+}
+
+/** The one `data-intake-table` part a run wrote. */
+function writtenPayload(context: CapabilityCtx): IntakeTablePayload {
+  const write = (context.writer as ReturnType<typeof fakeWriter>).write;
+  expect(write).toHaveBeenCalledTimes(1);
+  const [part] = write.mock.calls[0];
+  expect(part.type).toBe("data-intake-table");
+  return part.data as IntakeTablePayload;
+}
+
+beforeAll(() => {
+  // A fresh demo database for this file, whatever ran before it in the worker.
+  resetDbForTests();
+});
+
+beforeEach(() => {
+  vi.stubEnv("DATABASE_URL", "");
+  pendingHook.failWith = null;
+  promote.fn.mockReset().mockImplementation(async (ids) => {
+    const db = await getDb();
+    for (const id of ids) {
+      await db
+        .update(attachments)
+        .set({ access: "public", publicUrl: `https://store.public.blob.vercel-storage.com/${id}.jpg` })
+        .where(eq(attachments.id, id));
+    }
+    return { promoted: ids.length, failed: 0, skipped: 0 };
+  });
+});
+
+afterEach(async () => {
+  // Every row these tests made, so a name used twice is never its own duplicate.
+  const db = await getDb();
+  await db.delete(pendingTools).where(notInArray(pendingTools.id, DEMO_PENDING_IDS));
+});
+
+afterAll(() => {
+  resetDbForTests();
+});
+
+// ── identify_tools ─────────────────────────────────────────────────
+
+describe("identify_tools — the rows it writes", () => {
+  it("creates identified rows owned by the caller, all in one batch", async () => {
+    const result = await runIdentify([
+      { name: "Zorbex Filament Extruder 9000", brand: "Zorbex", categoryHint: "Extrusion" },
+      { name: "Quillon Bench Grinder QB-6", serialNumber: "QB6-0042" },
+    ]);
+
+    expect(result.items).toHaveLength(2);
+    const db = await getDb();
+    const rows = await db
+      .select()
+      .from(pendingTools)
+      .where(inArray(pendingTools.id, result.items.map((item) => item.id)));
+
+    expect(rows).toHaveLength(2);
+    for (const row of rows) {
+      expect(row.status).toBe("identified");
+      expect(row.createdBy).toBe(DEMO_ACCOUNTS.admin.id);
+      expect(row.batchId).toBe(result.batchId);
+      expect(row.research).toBeNull();
+    }
+    const extruder = rows.find((row) => row.name === "Zorbex Filament Extruder 9000");
+    expect(extruder?.brand).toBe("Zorbex");
+    expect(extruder?.categoryHint).toBe("Extrusion");
+    expect(rows.find((row) => row.name === "Quillon Bench Grinder QB-6")?.serialNumber).toBe(
+      "QB6-0042"
+    );
+  });
+
+  it("claims only this turn's photos, ignoring an id from anywhere else", async () => {
+    const mine = await upload();
+    const elsewhere = await upload();
+
+    const result = await runIdentify(
+      [{ name: "Zorbex Filament Extruder 9000", attachmentIds: [mine, elsewhere] }],
+      ctx({ attachments: [photo(mine)] })
+    );
+
+    const [item] = result.items;
+    expect((await attachmentRow(mine)).ownerId).toBe(item.id);
+    expect((await attachmentRow(mine)).ownerType).toBe("pending_tool");
+    // Not in ctx.attachments: never claimed, whatever the model said.
+    expect((await attachmentRow(elsewhere)).ownerId).toBeNull();
+  });
+
+  it("gives a lone item that names no photos every photo in the turn", async () => {
+    const front = await upload();
+    const plate = await upload();
+
+    const result = await runIdentify(
+      [{ name: "Zorbex Filament Extruder 9000" }],
+      ctx({ attachments: [photo(front, "front.jpg"), photo(plate, "plate.jpg")] })
+    );
+
+    const [item] = result.items;
+    expect((await attachmentRow(front)).ownerId).toBe(item.id);
+    expect((await attachmentRow(plate)).ownerId).toBe(item.id);
+  });
+
+  it("does not spread the turn's photos across a batch, and says one went unused", async () => {
+    const front = await upload();
+
+    const result = await runIdentify(
+      [{ name: "Zorbex Filament Extruder 9000" }, { name: "Quillon Bench Grinder QB-6" }],
+      ctx({ attachments: [photo(front)] })
+    );
+
+    expect((await attachmentRow(front)).ownerId).toBeNull();
+    expect(result.warnings).toContain("photos_unassigned");
+  });
+
+  it("says so when the model maps some of the turn's photos to no item", async () => {
+    const [a, b, stray] = [await upload(), await upload(), await upload()];
+
+    const result = await runIdentify(
+      [
+        { name: "Zorbex Filament Extruder 9000", attachmentIds: [a] },
+        { name: "Quillon Bench Grinder QB-6", attachmentIds: [b] },
+      ],
+      ctx({ attachments: [photo(a), photo(b), photo(stray)] })
+    );
+
+    expect((await attachmentRow(a)).ownerId).toBe(result.items[0].id);
+    expect((await attachmentRow(stray)).ownerId).toBeNull();
+    expect(result.warnings).toContain("photos_unassigned");
+  });
+
+  it("never claims somebody else's upload, even when its id is in the message", async () => {
+    const theirs = await upload(DEMO_ACCOUNTS.user.id);
+
+    const result = await runIdentify(
+      [{ name: "Zorbex Filament Extruder 9000", attachmentIds: [theirs] }],
+      ctx({ attachments: [photo(theirs)] })
+    );
+
+    const row = await attachmentRow(theirs);
+    expect(row.ownerId).toBeNull();
+    expect(row.access).toBe("private");
+    expect(result.warnings).toContain("photos_not_attached");
+  });
+
+  it("takes at most IDENTIFY_MAX_ITEMS items and no blank names", () => {
+    const many = Array.from({ length: IDENTIFY_MAX_ITEMS + 1 }, (_, i) => ({ name: `Item ${i}` }));
+    expect(identify.inputSchema.safeParse({ items: many }).success).toBe(false);
+    expect(identify.inputSchema.safeParse({ items: [{ name: "   " }] }).success).toBe(false);
+    expect(identify.inputSchema.safeParse({ items: [] }).success).toBe(false);
+  });
+
+  it("flags a duplicate of a tool already in the catalogue", async () => {
+    const result = await runIdentify([{ name: "Form 4" }]);
+
+    expect(result.items[0].duplicateOf).toMatchObject({ kind: "tool", name: "Form 4" });
+  });
+});
+
+describe("identify_tools — the card and the model's answer", () => {
+  it("emits exactly one data-intake-table part with the payload shape", async () => {
+    const context = ctx();
+    const result = await runIdentify(
+      [{ name: "Zorbex Filament Extruder 9000", brand: "Zorbex" }, { name: "Form 4" }],
+      context
+    );
+
+    const payload = writtenPayload(context);
+    expect(payload.kind).toBe("intake-table");
+    expect(payload.batchId).toBe(result.batchId);
+    expect(payload.warnings).toEqual([]);
+    expect(payload.items.map((item) => item.name)).toEqual([
+      "Zorbex Filament Extruder 9000",
+      "Form 4",
+    ]);
+    const [extruder, form4] = payload.items;
+    expect(extruder).toMatchObject({
+      id: result.items[0].id,
+      batchId: result.batchId,
+      status: "identified",
+      brand: "Zorbex",
+      duplicateOf: null,
+      duplicateResolution: null,
+      confidenceLevel: null,
+      photos: [],
+    });
+    expect(typeof extruder.createdAt).toBe("string");
+    expect(form4.duplicateOf).toMatchObject({ kind: "tool", name: "Form 4" });
+  });
+
+  it("hands the model a compact result with no research and no confidence", async () => {
+    const result = await runIdentify([{ name: "Zorbex Filament Extruder 9000" }]);
+
+    expect(Object.keys(result).sort()).toEqual(["batchId", "card_rendered", "items", "warnings"]);
+    expect(result.card_rendered).toBe(true);
+    expect(Object.keys(result.items[0]).sort()).toEqual(["duplicateOf", "id", "name"]);
+    const text = JSON.stringify(result);
+    expect(text).not.toMatch(/research|confidence|evidence/i);
+  });
+
+  it("refuses without a signed-in person, and saves nothing", async () => {
+    const context = ctx({ identity: undefined });
+    const result = await runIdentify([{ name: "Zorbex Filament Extruder 9000" }], context);
+
+    expect(result.card_rendered).toBe(false);
+    expect(result.error).toMatch(/sign in/i);
+    expect((context.writer as ReturnType<typeof fakeWriter>).write).not.toHaveBeenCalled();
+    const db = await getDb();
+    const rows = await db
+      .select()
+      .from(pendingTools)
+      .where(eq(pendingTools.name, "Zorbex Filament Extruder 9000"));
+    expect(rows).toHaveLength(0);
+  });
+
+  it("refuses an anonymous identity the same way", async () => {
+    const result = await runIdentify(
+      [{ name: "Zorbex Filament Extruder 9000" }],
+      ctx({ identity: { ...admin(), role: "anonymous", userId: null } })
+    );
+    expect(result.error).toMatch(/sign in/i);
+  });
+
+  it("turns an unreachable database into one sentence for the model", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    pendingHook.failWith = new DbUnavailableError(new Error("ECONNREFUSED"));
+    const context = ctx();
+
+    const result = await runIdentify([{ name: "Zorbex Filament Extruder 9000" }], context);
+
+    expect(result.card_rendered).toBe(false);
+    expect(result.error).toMatch(/unreachable.*nothing was saved/i);
+    expect((context.writer as ReturnType<typeof fakeWriter>).write).not.toHaveBeenCalled();
+  });
+});
+
+describe("identify_tools — photos", () => {
+  it("promotes the claimed photos, and the card shows them", async () => {
+    const front = await upload();
+    const context = ctx({ attachments: [photo(front)] });
+
+    await runIdentify([{ name: "Zorbex Filament Extruder 9000" }], context);
+
+    expect(promote.fn).toHaveBeenCalledExactlyOnceWith([front]);
+    const payload = writtenPayload(context);
+    expect(payload.warnings).toEqual([]);
+    expect(payload.items[0].photos).toEqual([
+      expect.objectContaining({
+        attachmentId: front,
+        url: `https://store.public.blob.vercel-storage.com/${front}.jpg`,
+      }),
+    ]);
+  });
+
+  it("says the photos are not public when promotion fails", async () => {
+    const front = await upload();
+    promote.fn.mockResolvedValue({ promoted: 0, failed: 1, skipped: 0 });
+    const context = ctx({ attachments: [photo(front)] });
+
+    const result = await runIdentify([{ name: "Zorbex Filament Extruder 9000" }], context);
+
+    expect(result.warnings).toEqual(["photos_not_public"]);
+    const payload = writtenPayload(context);
+    expect(payload.warnings).toEqual(["photos_not_public"]);
+    expect(payload.items[0].photos[0].url).toBeNull();
+  });
+
+  it("says the photos are not public when promotion throws, and still renders the card", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const front = await upload();
+    promote.fn.mockRejectedValue(new Error("blob down"));
+    const context = ctx({ attachments: [photo(front)] });
+
+    const result = await runIdentify([{ name: "Zorbex Filament Extruder 9000" }], context);
+
+    expect(result.card_rendered).toBe(true);
+    expect(result.warnings).toEqual(["photos_not_public"]);
+  });
+
+  it("never promotes a photo it did not claim", async () => {
+    // Already somebody else's — say, the photo on a maintenance ticket.
+    const taken = await upload();
+    const db = await getDb();
+    await db
+      .update(attachments)
+      .set({ ownerType: "maintenance_log", ownerId: crypto.randomUUID() })
+      .where(eq(attachments.id, taken));
+
+    const result = await runIdentify(
+      [{ name: "Zorbex Filament Extruder 9000", attachmentIds: [taken] }],
+      ctx({ attachments: [photo(taken)] })
+    );
+
+    expect(promote.fn).not.toHaveBeenCalled();
+    expect(result.warnings).toEqual(["photos_not_attached"]);
+    expect((await attachmentRow(taken)).access).toBe("private");
+  });
+});
+
+// ── create_tool (MCP only) ─────────────────────────────────────────
+
 /** A candidate that matches nothing in the demo catalogue. */
 function candidate(over: Partial<ToolCandidate> = {}): ToolCandidate {
   return {
-    name: "Zorbex Filament Extruder 9000",
-    description: "A desktop filament extruder.",
-    materials: [],
+    name: `Zorbex Laminator ${crypto.randomUUID().slice(0, 8)}`,
+    description: "A desktop laminator.",
+    materials: ["Paper"],
     ppe_required: [],
-    tags: [],
+    tags: ["laminating"],
     units: [],
     resources: [],
     image_upload_ids: [],
@@ -78,441 +441,198 @@ function candidate(over: Partial<ToolCandidate> = {}): ToolCandidate {
   };
 }
 
-/** Evidence that grades `high`: a stated model corroborated by a fetched page. */
-const STRONG_EVIDENCE: ToolCandidate["evidence"] = {
-  userStatedModel: true,
-  modelPlateRead: null,
-  manufacturerPageFound: true,
-  manualFound: true,
-  specsFromSource: true,
-  categoryOnly: false,
-};
-
-/** Evidence that grades `medium`: a model, but nothing external to check it. */
-const THIN_EVIDENCE: ToolCandidate["evidence"] = {
-  userStatedModel: true,
-  modelPlateRead: null,
-  manufacturerPageFound: false,
-  manualFound: false,
-  specsFromSource: false,
-  categoryOnly: false,
-};
-
-/** Evidence that grades `low`: only the general type of machine was inferable. */
-const CATEGORY_ONLY_EVIDENCE: ToolCandidate["evidence"] = {
-  userStatedModel: false,
-  modelPlateRead: null,
-  manufacturerPageFound: false,
-  manualFound: false,
-  specsFromSource: false,
-  categoryOnly: true,
-};
-
-interface ResearchItem {
-  candidate: ToolCandidate;
-  duplicate: { id: string; name: string } | null;
-  dropped_links: string[];
-  confidence: IntakeConfidence;
-  error?: string;
+interface CreateResult {
+  success: boolean;
+  tool_id: string | null;
+  unit_ids: string[];
+  slug: string | null;
+  draft_url: string | null;
+  created: {
+    tool: boolean;
+    category: { id: string; isNew: boolean } | null;
+    location: { id: string; isNew: boolean } | null;
+    units: number;
+    resources: number;
+  };
+  warnings: string[];
 }
 
-async function research(candidates: ToolCandidate[]): Promise<ResearchItem[]> {
-  const result = (await toolByName("research_tool").run(
-    { candidates },
-    {}
-  )) as { items: ResearchItem[] };
-  return result.items;
+async function runCreate(c: ToolCandidate): Promise<CreateResult> {
+  return (await createTool.run(createTool.inputSchema.parse({ candidate: c }), {})) as CreateResult;
 }
 
-async function researchOne(input: ToolCandidate): Promise<ResearchItem> {
-  return (await research([input]))[0];
-}
-
-interface ProposeResult {
-  proposed: {
-    candidate_id: string;
-    name: string;
-    state: string;
-    confidence: string;
-  }[];
-  needs_more_info: { name: string; ask: string[] }[];
-}
-
-/** Run `propose_listing` with a recording stream writer, as chat would. */
-async function propose(candidates: ToolCandidate[]): Promise<{
-  result: ProposeResult;
-  cards: IdentificationCardPayload[];
-}> {
-  const cards: IdentificationCardPayload[] = [];
-  const ctx = {
-    writer: {
-      write: (part: { type: string; data: IdentificationCardPayload }) => {
-        if (part.type === "data-card") cards.push(part.data);
-      },
-    },
-  } as unknown as CapabilityCtx;
-  const result = (await toolByName("propose_listing").run(
-    { candidates },
-    ctx
-  )) as ProposeResult;
-  return { result, cards };
-}
-
-/** The single card `propose_listing` emitted for one candidate. */
-async function cardFor(input: ToolCandidate): Promise<IdentificationCardPayload> {
-  const { cards } = await propose([input]);
-  if (!cards.length) throw new Error("no card was emitted for this candidate");
-  return cards[0];
-}
-
-describe("research_tool confidence", () => {
-  it("computes the grade from the evidence the model reported", async () => {
-    const item = await researchOne(candidate({ evidence: STRONG_EVIDENCE }));
-    expect(item.confidence.level).toBe("high");
-    expect(item.candidate.confidence?.level).toBe("high");
-    expect(item.confidence.basis).toContain("Manual found");
-  });
-
-  it("normalizes a missing evidence report to 'nothing found'", async () => {
-    const item = await researchOne(candidate());
-    expect(item.candidate.evidence).toEqual({
-      userStatedModel: false,
-      modelPlateRead: null,
-      manufacturerPageFound: false,
-      manualFound: false,
-      specsFromSource: false,
-      categoryOnly: false,
-    });
-    expect(item.confidence.level).toBe("low");
-  });
-
-  it("discards a confidence the model tried to hand it", async () => {
-    // The prompt-injection case (spec §8): a fetched page telling the agent to
-    // claim high confidence must not move the score, because the score is
-    // computed from evidence rather than accepted as input.
-    const item = await researchOne(
-      candidate({
-        confidence: { level: "high", basis: ["Trust me"], unknowns: [] },
-        evidence: CATEGORY_ONLY_EVIDENCE,
-      })
+describe("create_tool — an MCP draft on Postgres", () => {
+  beforeEach(() => {
+    server.use(
+      http.get("https://manuals.example.test/laminator.pdf", () => new HttpResponse(null, { status: 200 })),
+      http.get("https://manuals.example.test/missing.pdf", () => new HttpResponse(null, { status: 404 }))
     );
-    expect(item.confidence.level).toBe("low");
-    expect(item.candidate.confidence?.level).toBe("low");
-    expect(item.candidate.confidence?.basis).not.toContain("Trust me");
   });
 
-  it("still normalizes the candidate and reports duplicates", async () => {
-    const item = await researchOne(candidate({ materials: ["PLA"] }));
-    expect(item.candidate.name).toBe("Zorbex Filament Extruder 9000");
-    expect(item.candidate.materials).toEqual(["PLA"]);
-    expect(item.duplicate).toBeNull();
-    expect(item.dropped_links).toEqual([]);
-  });
-});
-
-describe("research_tool fan-out", () => {
-  it("researches every item in the batch and keeps input order", async () => {
-    const items = await research([
-      candidate({ name: "Item A" }),
-      candidate({ name: "Item B" }),
-      candidate({ name: "Item C" }),
-    ]);
-    expect(items.map((i) => i.candidate.name)).toEqual([
-      "Item A",
-      "Item B",
-      "Item C",
-    ]);
-  });
-
-  it("lets one unidentifiable item fail without failing the batch", async () => {
-    // allSettled, not all (spec §3.3). Reading `source_urls` throws for this one
-    // candidate, standing in for any way a single research pass can blow up.
-    const exploding = candidate({ name: "Exploding Item" });
-    Object.defineProperty(exploding, "source_urls", {
-      get() {
-        throw new Error("vision call failed");
-      },
-    });
-
-    const items = await research([
-      candidate({ name: "Good One", evidence: STRONG_EVIDENCE }),
-      exploding,
-      candidate({ name: "Good Two", evidence: STRONG_EVIDENCE }),
-    ]);
-
-    expect(items).toHaveLength(3);
-    expect(items[0].confidence.level).toBe("high");
-    expect(items[2].confidence.level).toBe("high");
-
-    // The failure is reported as a low-confidence candidate with an explanatory
-    // unknown, not as a gap in the batch — so it turns into a question.
-    expect(items[1].error).toContain("vision call failed");
-    expect(items[1].confidence.level).toBe("low");
-    expect(items[1].candidate.name).toBe("Exploding Item");
-    expect(
-      items[1].confidence.unknowns.some((u) => u.includes("vision call failed"))
-    ).toBe(true);
-  });
-
-  it("never runs more than four research passes at once", async () => {
-    let inFlight = 0;
-    let peak = 0;
-    catalogHook.impl = async () => {
-      inFlight += 1;
-      peak = Math.max(peak, inFlight);
-      await new Promise((resolve) => setTimeout(resolve, 1));
-      inFlight -= 1;
-      return [];
-    };
-
-    const items = await research(
-      Array.from({ length: 30 }, (_, i) => candidate({ name: `Photo ${i}` }))
-    );
-
-    expect(items).toHaveLength(30);
-    expect(peak).toBeGreaterThan(1); // it really did fan out
-    expect(peak).toBeLessThanOrEqual(RESEARCH_CONCURRENCY);
-    expect(RESEARCH_CONCURRENCY).toBe(4);
-  });
-
-  it("applies the turn's photos to a lone candidate but not across a batch", async () => {
-    const ctx = {
-      attachments: [
-        { attachmentId: "up_1", name: "a.jpg", contentType: "image/jpeg" },
-        { attachmentId: "up_2", name: "b.jpg", contentType: "image/jpeg" },
+  it("writes an unpublished tool with its units, taxonomy and verified resources", async () => {
+    const c = candidate({
+      category: { name: "Laminating", group: "Paper Craft", isNew: true },
+      location: { room: "Studio B", zone: "Bench 3", isNew: true },
+      units: [
+        { label: "Laminator #1", serial: "LAM-001", status: "Available", condition: "New" },
+        { label: "Laminator #2" },
       ],
-    } as CapabilityCtx;
-    const run = toolByName("research_tool").run;
-
-    const single = (await run({ candidates: [candidate()] }, ctx)) as {
-      items: ResearchItem[];
-    };
-    expect(single.items[0].candidate.image_upload_ids).toEqual(["up_1", "up_2"]);
-
-    // Eight photos of eight machines must not all land on all eight tools.
-    const batch = (await run(
-      {
-        candidates: [
-          candidate({ name: "One", image_upload_ids: ["up_1"] }),
-          candidate({ name: "Two", image_upload_ids: ["up_2"] }),
-        ],
-      },
-      ctx
-    )) as { items: ResearchItem[] };
-    expect(batch.items[0].candidate.image_upload_ids).toEqual(["up_1"]);
-    expect(batch.items[1].candidate.image_upload_ids).toEqual(["up_2"]);
-  });
-});
-
-describe("mapWithConcurrency", () => {
-  it("holds the cap and still settles everything, in order", async () => {
-    let inFlight = 0;
-    let peak = 0;
-    const settled = await mapWithConcurrency([1, 2, 3, 4, 5, 6, 7, 8], 4, async (n) => {
-      inFlight += 1;
-      peak = Math.max(peak, inFlight);
-      await new Promise((resolve) => setTimeout(resolve, 1));
-      inFlight -= 1;
-      if (n === 3) throw new Error("nope");
-      return n * 2;
+      resources: [
+        { title: "Laminator manual", url: "https://manuals.example.test/laminator.pdf", type: "Manual" },
+      ],
     });
 
-    expect(peak).toBe(4);
-    expect(settled).toHaveLength(8);
-    expect(settled[0]).toEqual({ status: "fulfilled", value: 2 });
-    expect(settled[2].status).toBe("rejected");
-    expect(settled[7]).toEqual({ status: "fulfilled", value: 16 });
+    const result = await runCreate(c);
+
+    expect(result.success).toBe(true);
+    expect(result.warnings).toEqual([]);
+    expect(result.draft_url).toBe(`/tools/${result.slug}`);
+    const db = await getDb();
+    const [tool] = await db.select().from(tools).where(eq(tools.id, result.tool_id!));
+    expect(tool.name).toBe(c.name);
+    expect(tool.published).toBe(false);
+    expect(tool.materials).toEqual(["Paper"]);
+
+    const [category] = await db.select().from(categories).where(eq(categories.id, tool.categoryId!));
+    expect(category.name).toBe("Laminating");
+    const [location] = await db.select().from(locations).where(eq(locations.id, tool.locationId!));
+    expect(location.room).toBe("Studio B");
+    expect(result.created.category?.isNew).toBe(true);
+
+    const toolUnits = await db.select().from(units).where(eq(units.toolId, tool.id));
+    expect(toolUnits.map((u) => u.unitLabel).sort()).toEqual(["Laminator #1", "Laminator #2"]);
+    const first = toolUnits.find((u) => u.unitLabel === "Laminator #1");
+    expect(first?.serialNumber).toBe("LAM-001");
+    expect(first?.status).toBe("available");
+    expect(first?.condition).toBe("new");
+    expect(result.unit_ids).toHaveLength(2);
+
+    const toolResources = await db.select().from(resources).where(eq(resources.toolId, tool.id));
+    expect(toolResources.map((r) => r.url)).toEqual(["https://manuals.example.test/laminator.pdf"]);
   });
 
-  it("never starts more workers than there are items", async () => {
-    let peak = 0;
-    let inFlight = 0;
-    await mapWithConcurrency([1], 4, async (n) => {
-      inFlight += 1;
-      peak = Math.max(peak, inFlight);
-      inFlight -= 1;
-      return n;
-    });
-    expect(peak).toBe(1);
+  it("invalidates the catalogue once the draft has landed", async () => {
+    vi.mocked(revalidateTag).mockClear();
+    await runCreate(candidate());
+    expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("catalog", { expire: 0 });
   });
-});
 
-describe("propose_listing behaviour gating", () => {
-  it("re-derives the grade for every candidate it is given", async () => {
-    // Candidates make a round trip through the model between research and
-    // propose, so whatever confidence comes back is recomputed, not trusted.
-    const { result } = await propose([
+  it("drops a link that does not verify, and says so", async () => {
+    const result = await runCreate(
       candidate({
-        name: "Overclaimed",
-        confidence: { level: "high", basis: [], unknowns: [] },
-        evidence: THIN_EVIDENCE,
-      }),
-      candidate({ name: "Prusa MK4", evidence: STRONG_EVIDENCE }),
-    ]);
-    expect(result.proposed.map((p) => p.confidence)).toEqual([
-      "medium",
-      "high",
-    ]);
-  });
-
-  it("proposes a well-evidenced candidate with the plain confirm action", async () => {
-    const { result, cards } = await propose([
-      candidate({ evidence: STRONG_EVIDENCE }),
-    ]);
-    expect(result.needs_more_info).toEqual([]);
-    expect(cards).toHaveLength(1);
-    expect(cards[0].confidence?.level).toBe("high");
-    expect(cards[0].actions.map((a) => a.id)).toEqual([
-      "confirm",
-      "edit",
-      "discard",
-    ]);
-  });
-
-  it("renders NO card at low confidence and names what to ask for instead", async () => {
-    // The valuable branch (spec §3.2): weak information used to produce a
-    // plausible-looking card someone accepted. It now produces a question.
-    const { result, cards } = await propose([
-      candidate({ name: "Some 3D printer", evidence: CATEGORY_ONLY_EVIDENCE }),
-    ]);
-    expect(cards).toEqual([]);
-    expect(result.proposed).toEqual([]);
-    expect(result.needs_more_info).toHaveLength(1);
-    expect(result.needs_more_info[0].name).toBe("Some 3D printer");
-    expect(result.needs_more_info[0].ask.join(" ")).toContain(
-      "photo of the label"
-    );
-  });
-
-  it("emits a card per proposable candidate and withholds only the weak one", async () => {
-    const { result, cards } = await propose([
-      candidate({ name: "Solid One", evidence: STRONG_EVIDENCE }),
-      candidate({ name: "Mystery Box", evidence: CATEGORY_ONLY_EVIDENCE }),
-      candidate({ name: "Solid Two", evidence: STRONG_EVIDENCE }),
-    ]);
-    expect(cards.map((c) => c.name)).toEqual(["Solid One", "Solid Two"]);
-    expect(result.needs_more_info.map((n) => n.name)).toEqual(["Mystery Box"]);
-  });
-
-  it("turns a medium card's primary action into resolving the ambiguity", async () => {
-    const { cards } = await propose([
-      candidate({
-        name: "Prusa MK4",
-        evidence: THIN_EVIDENCE,
-        variants: ["Prusa MK4", "Prusa MK4S"],
-      }),
-    ]);
-    const actions = cards[0].actions;
-    expect(cards[0].confidence?.level).toBe("medium");
-    // No "Looks right — add it": the uncertainty has to be resolved to proceed.
-    expect(actions.map((a) => a.id)).toEqual([
-      "variant-0",
-      "variant-1",
-      "edit",
-      "discard",
-    ]);
-    expect(actions[0].labelKey).toBe("actionConfirmVariant");
-    expect(actions[0].labelValues).toEqual({ variant: "Prusa MK4" });
-    expect(actions[1].labelValues).toEqual({ variant: "Prusa MK4S" });
-    expect(actions[1].seedMessage).toBe(
-      "confirm variant: prusa-mk4 = Prusa MK4S"
-    );
-  });
-
-  it("asks a medium candidate with no named variants to confirm the model", async () => {
-    const { cards } = await propose([
-      candidate({ name: "Zorbex 9000", evidence: THIN_EVIDENCE }),
-    ]);
-    const [primary] = cards[0].actions;
-    expect(primary.id).toBe("confirm-model");
-    expect(primary.labelKey).toBe("actionConfirmModel");
-    expect(primary.labelValues).toEqual({ name: "Zorbex 9000" });
-    expect(primary.seedMessage).toBe("confirm model: zorbex-9000 = Zorbex 9000");
-  });
-
-  it("works without a stream writer (MCP-shaped ctx) without throwing", async () => {
-    const result = (await toolByName("propose_listing").run(
-      { candidates: [candidate({ evidence: STRONG_EVIDENCE })] },
-      {}
-    )) as ProposeResult;
-    expect(result.proposed).toHaveLength(1);
-  });
-});
-
-describe("identification card payload", () => {
-  it("carries the grade and the evidence it was derived from", async () => {
-    const card = await cardFor(
-      candidate({
-        evidence: {
-          userStatedModel: false,
-          modelPlateRead: "X1-Carbon",
-          manufacturerPageFound: true,
-          manualFound: false,
-          specsFromSource: true,
-          categoryOnly: false,
-        },
-      })
-    );
-    expect(card.confidence?.level).toBe("high");
-    expect(card.evidence?.modelPlateRead).toBe("X1-Carbon");
-  });
-
-  it("passes only http(s) source URLs through to the card", async () => {
-    const card = await cardFor(
-      candidate({
-        evidence: STRONG_EVIDENCE,
-        source_urls: [
-          "https://bambulab.com/x1c",
-          "http://store.example.com/item",
-          "javascript:alert(1)",
-          "not a url",
+        resources: [
+          { title: "Laminator manual", url: "https://manuals.example.test/laminator.pdf", type: "Manual" },
+          { title: "Missing manual", url: "https://manuals.example.test/missing.pdf", type: "Manual" },
         ],
       })
     );
-    expect(card.sourceUrls).toEqual([
-      "https://bambulab.com/x1c",
-      "http://store.example.com/item",
+
+    expect(result.success).toBe(true);
+    expect(result.created.resources).toBe(1);
+    expect(result.warnings).toEqual([
+      expect.stringMatching(/^Skipped unverifiable link — Manual "Missing manual".*HTTP 404/),
     ]);
+    const db = await getDb();
+    const rows = await db.select().from(resources).where(eq(resources.toolId, result.tool_id!));
+    expect(rows.map((r) => r.title)).toEqual(["Laminator manual"]);
   });
 
-  it("localizes every action through a message key", async () => {
-    // Article 6: card labels are built server-side with no locale resolved, so
-    // they travel as keys the renderer translates.
-    const card = await cardFor(candidate({ evidence: STRONG_EVIDENCE }));
-    expect(card.actions.every((a) => Boolean(a.labelKey))).toBe(true);
+  it("warns that photos cannot come over MCP, and never claims them", async () => {
+    const orphan = await upload();
+
+    const result = await runCreate(candidate({ image_upload_ids: [orphan] }));
+
+    expect(result.success).toBe(true);
+    expect(result.warnings).toEqual([expect.stringMatching(/photo was not attached.*MCP/i)]);
+    expect((await attachmentRow(orphan)).ownerId).toBeNull();
+  });
+
+  it("keeps an unknown unit status to the default and reports it", async () => {
+    const result = await runCreate(candidate({ units: [{ label: "L #1", status: "Sparkling" }] }));
+
+    expect(result.success).toBe(true);
+    expect(result.warnings).toEqual([expect.stringContaining('status "Sparkling"')]);
+    const db = await getDb();
+    const [unit] = await db.select().from(units).where(eq(units.id, result.unit_ids[0]));
+    expect(unit.status).toBe("available");
+  });
+
+  it("reports that nothing landed when the write fails, taxonomy included", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const categoryName = `Rollback Category ${crypto.randomUUID().slice(0, 8)}`;
+
+    // A blank name is refused inside the transaction, after the category.
+    const result = await runCreate(
+      candidate({ name: "   ", category: { name: categoryName, group: "Test", isNew: true } })
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.tool_id).toBeNull();
+    expect(result.created).toEqual({ tool: false, category: null, location: null, units: 0, resources: 0 });
+    expect(result.warnings.at(-1)).toMatch(/nothing was saved/);
+    const db = await getDb();
+    const leftovers = await db.select().from(categories).where(eq(categories.name, categoryName));
+    expect(leftovers).toHaveLength(0);
   });
 });
 
-// ── Duplicates (intake spec amendment 2026-09-14) ────────────────────
-describe("duplicate card", () => {
-  const existing = { id: "tool-form-4", name: "Form 4" };
+// ── Surfaces ───────────────────────────────────────────────────────
 
-  it("offers a separate listing or discard, never a unit it cannot add", async () => {
-    const { cards } = await propose([
-      candidate({
-        name: "Form 4",
-        evidence: STRONG_EVIDENCE,
-        duplicate_of: existing,
-      }),
-    ]);
-
-    expect(cards[0].state).toBe("duplicate");
-    expect(cards[0].duplicateOf).toEqual(existing);
-    expect(cards[0].actions.map((a) => a.id)).toEqual([
-      "create-anyway",
-      "discard",
-    ]);
-    expect(cards[0].actions.every((a) => Boolean(a.labelKey))).toBe(true);
+describe("which surface sees which intake tool", () => {
+  it("gives the chat identify_tools and never create_tool", () => {
+    const names = Object.keys(toAiTools([intake], ctx()));
+    expect(names).toEqual(["identify_tools"]);
   });
 
-  it("tells the assistant how to resolve every button a card can show", () => {
-    const prompt = intake.promptFragment({ tools: [] });
-    expect(prompt).toContain("create new tool anyway: <candidate-id>");
-    expect(prompt).not.toContain("add unit to existing");
+  it("registers create_tool over MCP with writes allowed, and never identify_tools", () => {
+    const registered: string[] = [];
+    const fake = { registerTool: (name: string) => registered.push(name) };
+    registerAll(fake as unknown as McpServer, [intake], { allowWrites: true });
+    expect(registered).toEqual(["create_tool"]);
+  });
+
+  it("registers nothing from intake over a read-only MCP", () => {
+    const registered: string[] = [];
+    const fake = { registerTool: (name: string) => registered.push(name) };
+    registerAll(fake as unknown as McpServer, [intake], { allowWrites: false });
+    expect(registered).toEqual([]);
   });
 });
 
-// ── Who may add equipment (data platform design spec §3.5) ──────────
+// ── Prompt and access ──────────────────────────────────────────────
+
+describe("the intake prompt", () => {
+  const env = { tools: [] };
+  const prompt = intake.promptFragment(env);
+
+  it("identifies only, with the two-search rule", () => {
+    expect(IDENTIFY_MAX_MODEL_NAME_SEARCHES).toBe(2);
+    expect(prompt).toContain("act as an intake agent");
+    expect(prompt).toContain("at most 2 times");
+    expect(prompt).toMatch(/only when a model name is genuinely unclear/);
+    expect(prompt).toContain("identify_tools");
+    expect(prompt).toContain("[Attached photos: attachment_id=");
+  });
+
+  it("carries none of the old research instructions", () => {
+    for (const gone of [
+      "research_tool",
+      "propose_listing",
+      "create_tool",
+      "source_urls",
+      "evidence",
+      "manual PDF URL",
+      "confirm add:",
+    ]) {
+      expect(prompt).not.toContain(gone);
+    }
+  });
+
+  it("resolves duplicates on the table, not in chat", () => {
+    expect(prompt).toMatch(/Duplicates are resolved on the table, not in chat/);
+  });
+});
+
 describe("intake access", () => {
   it("requires the tools.add permission", () => {
     expect(intake.requiredPermission).toBe("tools.add");
@@ -521,56 +641,6 @@ describe("intake access", () => {
   it("explains the limit instead of the flow when locked", () => {
     const locked = intake.lockedPromptFragment?.({ tools: [] }) ?? "";
     expect(locked).toContain("limited to lab staff");
-    expect(locked).not.toContain("research_tool");
-  });
-});
-
-describe("create_tool — photos do not travel to Notion", () => {
-  beforeEach(() => {
-    notionHook.createTool.mockClear();
-  });
-
-  it("sends no image uploads, because a Postgres uuid is not a Notion file_upload id", async () => {
-    const run = toolByName("create_tool").run;
-
-    await run(
-      {
-        candidate: candidate({
-          image_upload_ids: ["8f14e45f-ceea-467a-9f36-3a1c6e3c1a11"],
-        }),
-      },
-      {} as CapabilityCtx
-    );
-
-    const [fields] = notionHook.createTool.mock.calls[0];
-    // Notion rejects the whole page when it does not recognise a file_upload
-    // id, so sending one would lose the listing, not just the picture.
-    expect(fields.image_uploads).toBeUndefined();
-  });
-
-  it("warns that the photos stayed in the app rather than implying they attached", async () => {
-    const run = toolByName("create_tool").run;
-
-    const result = (await run(
-      {
-        candidate: candidate({
-          image_upload_ids: ["8f14e45f-ceea-467a-9f36-3a1c6e3c1a11"],
-        }),
-      },
-      {} as CapabilityCtx
-    )) as { success: boolean; warnings: string[] };
-
-    expect(result.warnings.some((w) => /stayed in the app/i.test(w))).toBe(true);
-  });
-
-  it("says nothing about photos when none were offered", async () => {
-    const run = toolByName("create_tool").run;
-
-    const result = (await run(
-      { candidate: candidate() },
-      {} as CapabilityCtx
-    )) as { warnings: string[] };
-
-    expect(result.warnings.some((w) => /photo/i.test(w))).toBe(false);
+    expect(locked).not.toContain("identify_tools");
   });
 });

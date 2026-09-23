@@ -106,10 +106,18 @@ export interface CapabilityTool<I = unknown, R = unknown> {
   /**
    * Optional. When true, the tool is exposed only on the chat surface and never
    * registered over MCP. Use for chat-orchestration tools that have no meaning
-   * headlessly — e.g. tools that drive interactive cards or rely on the chat
-   * model's native web tools (intake's `research_tool` / `propose_listing`).
+   * headlessly — e.g. tools that drive interactive cards or need the turn's
+   * uploaded photos (intake's `identify_tools`).
    */
   chatOnly?: boolean;
+  /**
+   * Optional. The counterpart of {@link chatOnly}: when true, the tool is
+   * registered over MCP and never handed to the chat model. Use for a write the
+   * chat reaches another way — intake's `create_tool`, which an MCP client may
+   * call directly, while the chat adds equipment through `identify_tools`, the
+   * background research and a human approval (spec §3.6, §5.4).
+   */
+  mcpOnly?: boolean;
   /** Pure-ish: data in, structured data out. */
   run: (input: I, ctx: CapabilityCtx) => Promise<R>;
   /**
@@ -333,9 +341,12 @@ export type CardPayload = IdentificationCardPayload;
 // ── ToolCandidate (design spec §4.2) ───────────────────────────────
 
 /**
- * A normalized, researched equipment listing produced by `research_tool`,
- * shown by `propose_listing`, and written by `create_tool`. Exactly the shape
- * in design spec §4.2.
+ * A normalized, researched equipment listing, written by `create_tool` over MCP
+ * as a Postgres draft. Exactly the shape in design spec §4.2.
+ *
+ * The chat no longer builds one: since Phase 6 of the data platform spec it
+ * identifies items into `pending_tools` rows and research runs in the
+ * background (§5.4), so this shape is what an MCP client sends.
  */
 export interface ToolCandidate {
   name: string;
@@ -352,11 +363,12 @@ export interface ToolCandidate {
   /**
    * `attachments.id`s from `POST /api/uploads`, one per photo of this item.
    *
-   * The field keeps its name because it is part of the candidate shape the
-   * model assembles and `propose_listing` renders, but the values are Postgres
-   * uuids now, not Notion `file_upload_id`s. They ride along so a batch keeps
-   * each photo with the item it actually shows; `create_tool` cannot yet attach
-   * them, and says so (see `intake.ts`).
+   * The field keeps its name because it is part of the candidate shape, but
+   * the values are Postgres uuids, not Notion `file_upload_id`s. `create_tool`
+   * runs over MCP, which carries no uploads and no session to have made them,
+   * so it never claims these: any it is given come back as a warning that the
+   * photos were not attached (see `intake.ts`). Photos reach a tool through
+   * the chat's `identify_tools` and the approval that follows.
    */
   image_upload_ids: string[];
   /** Provenance: URLs the agent read. */
