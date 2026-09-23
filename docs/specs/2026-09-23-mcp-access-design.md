@@ -39,8 +39,9 @@ With identity in place, MCP gains **role-scoped tools**:
 - nothing an agent does over MCP publishes or edits the live catalogue without a person
   accepting it in the app (Article 5).
 
-A **how-to guide**, `docs/mcp.md`, ships with the build and covers setup in Claude Code,
-Claude Desktop, claude.ai and a generic client.
+A **how-to guide**, `docs/mcp.md`, ships with the build. It covers setup in Claude Code,
+Claude Desktop, claude.ai, ChatGPT, Codex and a generic client, plus a copy-paste prompt
+that lets a coding agent configure the connection itself without ever seeing the token.
 
 ## 2. Goals / Non-goals
 
@@ -252,8 +253,43 @@ The guide ships with Phase 2. Draft:
 > sign-in is enabled (Phase 3) you'll be sent to MakerLab to sign in with Google; no token
 > needed.
 >
+> **ChatGPT** — Settings → Connectors → create a custom connector with the MCP URL (custom
+> MCP connectors sit behind ChatGPT's developer-mode / connector settings, depending on plan).
+> ChatGPT connectors authenticate with OAuth or no auth, not a pasted header, so: no auth gives
+> the public read-only tools today; your own account's tools arrive with sign-in (Phase 3).
+>
+> **Codex (CLI / IDE)** — add a streamable-HTTP server to `~/.codex/config.toml`, with the
+> token read from an environment variable rather than written into the file:
+> ```toml
+> [mcp_servers.makerlab]
+> url = "https://<your-deployment>/api/mcp"
+> bearer_token_env_var = "MAKERLAB_MCP_TOKEN"
+> ```
+> then `export MAKERLAB_MCP_TOKEN=mlt_…` in your shell profile. (Or `codex mcp add …` if your
+> Codex version has it.) Check with `/mcp` inside Codex.
+>
 > **Other MCP clients** — any client that speaks Streamable HTTP with JSON responses:
 > URL above, optional bearer header.
+>
+> **Let the assistant set itself up** — put the token in an environment variable yourself
+> (so it never appears in the chat), then paste this into Claude Code, Codex, or any coding
+> agent that can edit its own MCP config:
+>
+> ```text
+> Set up the MakerLab Tools MCP server for yourself.
+> - Server URL: https://<your-deployment>/api/mcp  (Streamable HTTP, JSON responses)
+> - Auth: bearer token, read from the environment variable MAKERLAB_MCP_TOKEN.
+>   Never print, echo, or write the token's value into any file or message — reference the
+>   variable by name only. If the variable is unset, stop and tell me to set it.
+> - Use your own supported way to add a remote MCP server (for example `claude mcp add
+>   --transport http …` for Claude Code, or an `[mcp_servers.makerlab]` entry with
+>   `bearer_token_env_var` in ~/.codex/config.toml for Codex). Name it "makerlab".
+> - Then verify: list the server's tools and call `search_tools` with the query "laser".
+>   Report which tools you can see (they depend on my role) and the first result.
+> - Don't change any other MCP server or setting.
+> ```
+>
+> For read-only browsing with no account, drop the auth lines — the public tools need none.
 >
 > **What you can do** — a table of tools by role (§3.2), with example prompts.
 >
@@ -293,7 +329,7 @@ merges. §7 above is a draft of the shape, not verified instructions.
 
 | # | Phase | Delivers |
 |---|---|---|
-| **0** | Check | Confirm the `better-auth` `mcp` plugin's API and spec compatibility; confirm Claude Code / Desktop / claude.ai connector steps for the guide |
+| **0** | Check | Confirm the `better-auth` `mcp` plugin's API and spec compatibility; confirm the Claude Code / Desktop / claude.ai / ChatGPT / Codex connector steps for the guide, including whether ChatGPT custom connectors accept a static bearer header (assumed not: OAuth or none) and Codex's `bearer_token_env_var` key |
 | **1** | Public hardening | Maintenance history without names for public/user callers; tool listing filtered by identity; `MCP_TOKEN` deprecation path |
 | **2** | Personal tokens | `api_tokens` + migration; bearer branch in `resolveIdentity`; `/account/tokens`; role-scoped tools (`list_my_reports`, `list_intake_queue`, `list_open_tickets`, `update_ticket`, admin draft visibility); audit events; **`docs/mcp.md`** |
 | **3** | OAuth | Better Auth `mcp` plugin, discovery endpoints, consent page, Connected apps |
