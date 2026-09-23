@@ -4,6 +4,18 @@ import { withWorkflow } from "workflow/next";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
+// Without `BLOB_READ_WRITE_TOKEN`, `next dev` stores uploads in `.blob-data/`
+// and serves public ones from `/api/dev-blob/…` on its own origin
+// (src/lib/blob-local.ts). Allowed for next/image in development only; a
+// production build never has these patterns.
+const isDev = process.env.NODE_ENV !== "production";
+const devBlobPatterns: NonNullable<NonNullable<NextConfig["images"]>["remotePatterns"]> = isDev
+  ? [
+      { protocol: "http", hostname: "localhost", pathname: "/api/dev-blob/**" },
+      { protocol: "http", hostname: "127.0.0.1", pathname: "/api/dev-blob/**" },
+    ]
+  : [];
+
 const nextConfig: NextConfig = {
   cacheComponents: true,
   // PGlite ships its WASM build and its extension tarballs as files it locates
@@ -53,7 +65,11 @@ const nextConfig: NextConfig = {
       // The Notion/S3/Airtable patterns above can go once every image has been
       // re-imported to Vercel Blob; until then, rows imported before the switch
       // may still reference them.
+      ...devBlobPatterns,
     ],
+    // The local Blob store's files are served by this same dev server, and the
+    // optimizer refuses loopback addresses unless told otherwise. Dev only.
+    dangerouslyAllowLocalIP: isDev,
     minimumCacheTTL: 3600,
   },
 };

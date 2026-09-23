@@ -72,9 +72,21 @@ variable list.
   `POST /api/projects` answers `photosSubmitted` / `photosAttached` so the form
   can say it on the confirmation. A form left open overnight submits ids the
   cron has already swept, and thanking a student for pictures nobody has is the
-  quiet lie Article 4 forbids. With no `BLOB_READ_WRITE_TOKEN` the route answers
+  quiet lie Article 4 forbids. With no Blob store the route answers
   503 `{ code: "blob_not_configured" }` and both clients show a translated
   "photo uploads are unavailable" — never a fabricated id (Article 4).
+- **Blob locally.** `blobMode()` (`src/lib/blob-mode.ts`) is the one rule:
+  a `BLOB_READ_WRITE_TOKEN` → Vercel Blob; no token on Vercel (`VERCEL`) or in
+  a production build → **none** (503 as above, never a disk fallback); no token
+  in local dev → **local**: `.blob-data/<pathname>` (git-ignored), metadata in
+  `.blob-data/.meta/`, via `src/lib/blob-local.ts`. Both write paths use it —
+  `lib/blob.ts`'s `getBlobStore()` and step code's `createBlobUploader()`
+  (`import/blob-uploader.ts`, used by the manual archiver). Public files get
+  `<AUTH_BASE_URL>/api/dev-blob/<pathname>`, served by that route (404 for
+  private files and outside local mode); `next.config.ts` allows those URLs for
+  `next/image` in dev only. `BLOB_LOCAL_DISABLE=1` forces "none" — the Vitest
+  setup sets it, so tests opt in to local mode with a temp `cwd`. The Notion
+  import still requires a real token (`createVercelBlobUploader`).
 - **Failing toward stale, not wrong (Article 4).** `DATABASE_URL` unset serves
   the PGlite demo seed with `DemoDataBanner` shown. `DATABASE_URL` set but
   unreachable never falls back to demo or invented data — cached pages keep
@@ -258,7 +270,7 @@ Phase 5 extends both. The shape it sets:
   boundary is what leaves every *published* tool page prerenderable under
   `cacheComponents` (`npm run build` is the check); a different-looking refusal
   would confirm the draft exists.
-- **With no `BLOB_READ_WRITE_TOKEN` the panel says photos cannot be added and
+- **With no Blob store (see "Blob locally") the panel says photos cannot be added and
   stays usable for everything else.** `POST /api/uploads` answers 503, the
   Photos and Resources sections show that sentence, and reordering, removal and
   every text field keep working — a deployment with no Blob store is still one
@@ -426,6 +438,43 @@ A one-way copy of the inventory into an admin's own Notion workspace (spec
   `2022-06-28`) — no SDK. `NOTION_API_BASE_URL` overrides the base URL for the
   E2E stub only; production never sets it.
 
+## Archived manuals (link rot)
+
+A manufacturer moves a PDF and the tool loses its manual. So each manual link
+is copied into Blob once, and the tool page and the chat prefer the copy.
+
+- **No table of its own.** The copy is an `attachments` row owned by the
+  resource — public, `application/pdf`, `source_key =
+  manual:<resource id>:<source url>` (`src/lib/data/manual-archives.ts`). The
+  resource keeps its own `url`, the manufacturer's link. A copy whose key does
+  not match the resource's current `url` is stale: hidden everywhere, and
+  released to the orphan sweep when the new link is archived.
+- **`archiveManual(resourceId)`** (`src/lib/manuals/archive.ts`) archives a
+  Manual, or any resource whose link answers a PDF. The body must *be* a PDF
+  (`%PDF-`, or `application/pdf` that is not markup) — an HTML product page is
+  refused. 30 s, 25 MB. Skips a resource that already holds a PDF (uploaded,
+  imported, or this link's copy), and skips as `blob_not_configured` without a
+  token. It returns `archived | skipped | failed` with a reason and never
+  throws for an expected failure; it logs the link's host only, never the path
+  or query. Step code: it writes Blob through `import/blob-uploader.ts`, not
+  the `server-only` `lib/blob.ts`.
+- **Runs in a workflow**, `archiveManuals(resourceIds)`
+  (`src/workflows/archive-manuals.ts`), one step per resource, `maxRetries = 2`,
+  retrying only a transient failure (network, 5xx/429, a Blob write, the
+  database). Started by `requestManualArchive()` (`src/lib/manuals/trigger.ts`)
+  after approving a tool, after MCP `create_tool`, and after the editor adds a
+  resource or changes its link or type. It never throws and never fails the
+  write that called it.
+- **The daily cron's `manuals` stage** (`src/lib/cron/manual-archive.ts`) hands
+  up to ten due Manuals to one run each night — the backfill for imported
+  manuals and the backstop for a start that never happened. The window moves
+  each night and wraps, so a manual that always fails cannot stall it.
+- **Readers.** `resourceLinks` gives an archived manual **one** link, to the
+  copy, with the manufacturer's URL as `sourceHref` (the tool page shows only
+  `href`). `listResourcesForTool` sets it apart as `archivedUrl` and leaves it
+  out of `fileUrls`; the chat attaches `archivedUrl` first, so one manual is
+  attached once, and "(attached)" matches the copy or the source.
+
 ## Key files
 
 | Path | Purpose |
@@ -479,7 +528,10 @@ A one-way copy of the inventory into an admin's own Notion workspace (spec
 | `src/app/api/chat/route.ts` | Claude chat: streaming, capability tools (`get_unit_details`, `report_issue`, `identify_tools`, …) plus `web_search` / `web_fetch`, PDF manual attach |
 | `src/app/api/mcp/route.ts` | MCP JSON-RPC server (5 tools), bearer-token auth |
 | `src/app/api/uploads/route.ts` | The one upload route → Vercel Blob + an `attachments` row |
-| `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup, then the mirror backstop |
+| `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup, then the mirror backstop, then the manual archive backfill |
+| `src/lib/manuals/*` | The manual archive: `archive` (`archiveManual`), `steps`, `start` (the one `workflow/api` import), `trigger` (`requestManualArchive`, never throws) |
+| `src/workflows/archive-manuals.ts` | `archiveManuals(resourceIds)` — one step per resource |
+| `src/lib/data/manual-archives.ts` / `src/lib/cron/manual-archive.ts` | The archive's key, stale-copy release and the nightly due list; the cron stage |
 | `src/lib/db/schema/mirror.ts`, `src/lib/data/mirrors.ts` / `mirror-pages.ts` | `notion_mirrors` and `mirror_pages`; every claim (run, Sync now, coalesced push) is one conditional `UPDATE` |
 | `src/lib/mirror/*` | The mirror: `notion-client` (raw fetch, throttle, 429), `token-crypto`, `credentials`, `notion-id`, `database-schemas`, `databases` (create / validate pasted ids), `source` (what changed), `properties` (pure row → Notion builders), `push`, `steps`, `start`, `trigger`, `connect` |
 | `src/workflows/mirror-push.ts` | `mirrorPush(mirrorId)` and `mirrorPushAfterChange()` — the `"use workflow"` functions |
@@ -522,6 +574,8 @@ first), `npm run test:coverage`.
 - **The whole suite runs with every environment variable unset.** Reads *and*
   writes go to an in-process PGlite database seeded with demo data; Vercel Blob
   is stubbed at the `src/lib/blob.ts` seam (`vi.mock`), never called for real.
+  `vitest.setup.ts` sets `BLOB_LOCAL_DISABLE=1`, so "no token" still means "no
+  store"; the local-store tests opt in and write to a temp folder.
   Only the mirror writes Notion; its tests talk to an in-memory Notion
   (`test/fakes/notion-fake.ts`) through MSW, never to `api.notion.com`.
 - **Two Vitest projects.** `unit` is the existing config; `workflow`

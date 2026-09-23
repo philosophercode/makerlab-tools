@@ -42,6 +42,12 @@ const PDF_FETCH_UA = "Mozilla/5.0 (compatible; MakerLabBot/1.0)";
 interface AttachedManual {
   title: string;
   url: string;
+  /**
+   * The resource's own link when `url` is its archived copy. The tool page's
+   * links come from a cached read that may predate the copy, so "(attached)"
+   * matches either.
+   */
+  sourceUrl?: string;
   /** Base64-encoded PDF bytes, present only if the server-side fetch succeeded. */
   data: string;
 }
@@ -72,7 +78,7 @@ export async function POST(req: Request) {
     ? await collectToolManuals(focused.id)
     : { manuals: [], skipped: 0 };
   if (focused) {
-    const hosts = uniqueHosts(focused.links.map((l) => l.href));
+    const hosts = uniqueHosts(linkUrls(focused));
     console.info(
       `[chat] focused tool: ${focused.name} (${focused.id}), links: ${focused.links.length}`
     );
@@ -148,7 +154,7 @@ export async function POST(req: Request) {
             citations: { enabled: true },
             ...(focused
               ? (() => {
-                  const hosts = uniqueHosts(focused.links.map((l) => l.href));
+                  const hosts = uniqueHosts(linkUrls(focused));
                   return hosts.length ? { allowedDomains: hosts } : {};
                 })()
               : {}),
@@ -371,6 +377,14 @@ function parsePhotoHints(text: string): PhotoHint[] {
 
 // ── Helpers (focused tool / manuals) ───────────────────────────────
 
+/**
+ * Every URL the focused tool's links name — the archived copy *and* the
+ * manufacturer's original, so `web_fetch` may still fall back to the source.
+ */
+function linkUrls(tool: MakerLabTool): string[] {
+  return tool.links.flatMap((link) => (link.sourceHref ? [link.href, link.sourceHref] : [link.href]));
+}
+
 function uniqueHosts(urls: string[]): string[] {
   const set = new Set<string>();
   for (const u of urls) {
@@ -389,7 +403,15 @@ function isPdfUrl(url: string | null | undefined): boolean {
   return cleaned.endsWith(".pdf");
 }
 
+/**
+ * The PDF to attach for one resource: its archived copy in Blob first (the
+ * manual archive — it outlives the manufacturer's link, and matches the href
+ * the tool's links carry, which keeps "(attached)" honest), then the source
+ * link, then an uploaded file. One per resource, so a manual is never attached
+ * twice.
+ */
 function pickPdfUrl(resource: ToolResource): string | null {
+  if (resource.archivedUrl) return resource.archivedUrl;
   if (isPdfUrl(resource.url)) return resource.url;
   return resource.fileUrls.find(isPdfUrl) ?? null;
 }
@@ -471,7 +493,9 @@ async function collectToolManuals(
         skipped += 1;
         continue;
       }
-      manuals.push({ title, url, data });
+      manuals.push(
+        r.archivedUrl && r.url && url === r.archivedUrl ? { title, url, sourceUrl: r.url, data } : { title, url, data }
+      );
     }
   } catch (err) {
     // Never let base64 collection take down the request; fall back to web_fetch.
@@ -542,7 +566,7 @@ function appendManualSections(
   );
 
   if (focused && focused.links.length > 0) {
-    const attachedUrls = new Set(manuals.map((m) => m.url));
+    const attachedUrls = new Set(manuals.flatMap((m) => (m.sourceUrl ? [m.url, m.sourceUrl] : [m.url])));
     const annotated = focused.links
       .map((link) => {
         const tag = attachedUrls.has(link.href) ? " (attached)" : "";

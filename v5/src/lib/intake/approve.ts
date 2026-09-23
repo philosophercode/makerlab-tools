@@ -9,6 +9,7 @@ import {
 } from "../data/pending-tools";
 import { getDb } from "../db/client";
 import type { Db } from "../db/types";
+import { requestManualArchive } from "../manuals/trigger";
 import { requestMirrorPush } from "../mirror/trigger";
 import { invalidateCatalog } from "../revalidate";
 
@@ -36,6 +37,10 @@ import { invalidateCatalog } from "../revalidate";
  *    carries every tool with a Published checkbox. It never throws and costs
  *    one query when nobody has a mirror; the push itself runs minutes later
  *    in a workflow, so Notion being down cannot touch an approval.
+ * 4. **The manual archive.** `requestManualArchive()` with the resources the
+ *    approval created, so each manual PDF is copied into Blob before the
+ *    manufacturer moves it. Also a workflow, also never throws: a run that
+ *    could not be started is logged and left to the nightly backfill.
  *
  * **A lost audit event is a warning on a success, never a failure.** The tool
  * exists by the time the event is written; answering `{ ok: false }` would tell
@@ -131,6 +136,7 @@ export async function approveAndRecord(
 
   invalidateCatalog();
   await requestMirrorPush({ db: options.db });
+  await requestManualArchive(approved.resourceIds);
 
   return {
     ok: true,

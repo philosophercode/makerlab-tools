@@ -36,6 +36,11 @@ export interface MakerLabTool {
     href: string;
     kind?: string;
     description?: string;
+    /**
+     * The manufacturer's link, when `href` is the archived copy of it in Blob
+     * (the manual archive). Kept so a caller can still name the original.
+     */
+    sourceHref?: string;
   }>;
   units: MakerLabUnit[];
 }

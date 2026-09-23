@@ -75,7 +75,9 @@ vi.mock("next/cache", () => ({
 }));
 
 import { eq, inArray } from "drizzle-orm";
+import { http, HttpResponse } from "msw";
 import { POST } from "@/app/api/chat/route";
+import { manualSourceKey } from "@/lib/data/manual-archives";
 import { getDb, resetDbForTests } from "@/lib/db/client";
 import {
   attachments,
@@ -85,6 +87,7 @@ import {
   units,
 } from "@/lib/db/schema/index";
 import { resetAuthForTests } from "@/lib/auth/config";
+import { server } from "../../../../test/msw/server";
 import { signInAsNew } from "../../../../test/utils/session";
 
 /**
@@ -576,6 +579,48 @@ describe("PDF manual collection (focused tool)", () => {
       expect.anything()
     );
     expect(captured.args.system).toContain("Scanned manual");
+  });
+
+  it("attaches the archived copy instead of the manufacturer's link, once, and marks it attached", async () => {
+    const SOURCE = "https://maker.test/support/form-4-manual";
+    const ARCHIVE = "https://blob.test/manuals/form-4/manual-abc.pdf";
+    await addResources([{ title: "Form 4 manual", url: SOURCE }]);
+    const id = insertedResourceIds[insertedResourceIds.length - 1];
+    const db = await getDb();
+    await db.insert(attachments).values({
+      ownerType: "resource",
+      ownerId: id,
+      blobPathname: "manuals/form-4/manual-abc.pdf",
+      access: "public",
+      publicUrl: ARCHIVE,
+      contentType: "application/pdf",
+      sourceKey: manualSourceKey(id, SOURCE),
+    });
+
+    const fetched: string[] = [];
+    server.use(
+      http.get(ARCHIVE, ({ request }) => {
+        fetched.push(request.url);
+        return HttpResponse.arrayBuffer(new Uint8Array([0x25, 0x50, 0x44, 0x46]).buffer, {
+          headers: { "content-type": "application/pdf" },
+        });
+      })
+      // No handler for SOURCE: fetching it would fail the test.
+    );
+
+    await POST(chatRequest({ messages: [userMessage("help")], toolId: "form-4" }));
+
+    expect(fetched).toEqual([ARCHIVE]);
+    const firstUser = captured.args.messages.find((m: any) => m.role === "user");
+    expect((firstUser.content as any[]).filter((p) => p.type === "file")).toHaveLength(1);
+    const system: string = captured.args.system;
+    expect(system).toContain(`${ARCHIVE} (attached)`);
+    // One line for the one manual in the annotated list — the copy and the
+    // source are not listed as two resources.
+    const annotated = system.slice(system.indexOf("## Attached manuals vs. fetchable resources"));
+    expect(annotated.split("\n").filter((line) => line.includes("Form 4 manual"))).toEqual([
+      `- [Manual] Form 4 manual — ${ARCHIVE} (attached)`,
+    ]);
   });
 
   it("does not run manual collection when no toolId is provided", async () => {

@@ -10,6 +10,7 @@ import {
 } from "../db/schema/index.ts";
 import type { Db } from "../db/types.ts";
 import { compactNotionId } from "../legacy-id.ts";
+import { isManualArchiveKey, manualSourceKey } from "./manual-archives.ts";
 import { isUuid } from "./uuid.ts";
 import type { MakerLabTool, MakerLabUnit, ToolStatus } from "../../components/catalog-types.ts";
 
@@ -81,6 +82,8 @@ export interface AttachmentRow {
   access: string;
   publicUrl: string | null;
   originalFilename: string | null;
+  /** Set on an archived manual (`manual:<resource id>:<url>`); see `./manual-archives.ts`. */
+  sourceKey?: string | null;
 }
 
 /** Attachments grouped by `<owner type>:<owner id>`, each list in position order. */
@@ -292,6 +295,7 @@ async function selectAttachments(
       access: attachments.access,
       publicUrl: attachments.publicUrl,
       originalFilename: attachments.originalFilename,
+      sourceKey: attachments.sourceKey,
     })
     .from(attachments)
     .where(and(or(ownedByTool, ownedByResource), isNotNull(attachments.publicUrl)))
@@ -379,7 +383,16 @@ export function toolImageSrc(tool: Pick<ToolRow, "name">, files: AttachmentRow[]
   return image?.publicUrl || localToolImage(tool.name);
 }
 
-/** A link per resource url, plus one per file the resource owns. */
+/**
+ * A link per resource url, plus one per file the resource owns.
+ *
+ * **An archived manual replaces its link rather than joining it.** When the
+ * resource owns a public copy of the PDF its `url` points at (the manual
+ * archive, `./manual-archives.ts`), the one link goes to the copy — it
+ * survives the manufacturer moving the file — and the manufacturer's URL rides
+ * along as `sourceHref`. The copy is never listed as a second file link, and a
+ * copy of a link the resource no longer carries (stale) is not listed at all.
+ */
 export function resourceLinks(
   resourceRows: ResourceRow[],
   files: AttachmentIndex = new Map()
@@ -389,19 +402,22 @@ export function resourceLinks(
       kind: resource.type || "Resource",
       description: resource.notes || undefined,
     };
+    const owned = attachmentsFor(files, "resource", resource.id);
+    const archive = resource.url ? archivedCopy(owned, resource.id, resource.url) : undefined;
     const urlLinks = resource.url
       ? [
           {
             label: resource.title || resource.type || "Resource",
-            href: resource.url,
+            href: archive?.publicUrl || resource.url,
+            ...(archive ? { sourceHref: resource.url } : {}),
             ...base,
           },
         ]
       : [];
     // A private file has no public URL to link to, and would not be one a
     // visitor is allowed to open even if it did.
-    const fileLinks = attachmentsFor(files, "resource", resource.id).flatMap((file) =>
-      file.access === "public" && file.publicUrl
+    const fileLinks = owned.flatMap((file) =>
+      file.access === "public" && file.publicUrl && !isManualArchiveKey(file.sourceKey)
         ? [
             {
               label: resource.title || file.originalFilename || resource.type || "Resource",
@@ -414,6 +430,12 @@ export function resourceLinks(
 
     return [...urlLinks, ...fileLinks];
   });
+}
+
+/** The resource's public archive of exactly this link, if it has one. */
+function archivedCopy(owned: AttachmentRow[], resourceId: string, url: string): AttachmentRow | undefined {
+  const key = manualSourceKey(resourceId, url);
+  return owned.find((file) => file.sourceKey === key && file.access === "public" && Boolean(file.publicUrl));
 }
 
 export function toMakerLabUnit(

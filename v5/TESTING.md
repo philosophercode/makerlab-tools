@@ -153,6 +153,12 @@ test (the setup file). The in-memory rate limiter is a per-process singleton
 `Map` — use distinct keys per test, or `resetModules()` + re-import for a fresh
 window.
 
+**Blob mode.** The setup file sets `BLOB_LOCAL_DISABLE=1`, so with no
+`BLOB_READ_WRITE_TOKEN` a test sees "no store" (`blob_not_configured`), as a
+deploy without one does. To test the local `.blob-data/` store, stub
+`BLOB_LOCAL_DISABLE` / `VERCEL` to `""` and `NODE_ENV` to `"development"`, and
+point `process.cwd()` at a temp folder (`src/lib/blob-local.test.ts`).
+
 **streamText-capture pattern (chat route).** The chat route's tool `execute`
 functions are inline and its helpers are module-private, so don't unit-test them
 directly. Instead mock `ai`'s `streamText` (spreading `...actual`) to capture

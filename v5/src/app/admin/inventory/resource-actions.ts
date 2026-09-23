@@ -8,6 +8,7 @@ import {
   type ResourceCreatePayload,
   type ResourceWritePayload,
 } from "../../../lib/inventory/resource-edits";
+import { requestManualArchive } from "../../../lib/manuals/trigger";
 import type { InventoryActionResult } from "./action-result";
 import { withToolEdit, type ToolWriteInput } from "./tool-write-context";
 
@@ -43,18 +44,28 @@ export async function addResource(
     fileAttachmentIds?: readonly string[];
   }
 ): Promise<InventoryActionResult<ResourceCreatePayload>> {
-  return withToolEdit(input, (context) =>
+  const result = await withToolEdit(input, (context) =>
     addResourceWrite(context, input.resource, input.fileAttachmentIds ?? [])
   );
+  // A link may be a manual worth keeping a copy of. Only after the write
+  // landed, and never able to fail it (`requestManualArchive` never throws).
+  if (result.ok && input.resource.url) await requestManualArchive([result.resourceId]);
+  return result;
 }
 
 /** Edit a resource — title, type, link, notes, or whether it is published. */
 export async function editResource(
   input: ToolWriteInput & { resourceId: string; patch: ResourcePatch }
 ): Promise<InventoryActionResult<ResourceWritePayload>> {
-  return withToolEdit(input, (context) =>
+  const result = await withToolEdit(input, (context) =>
     editResourceWrite(context, input.resourceId, input.patch)
   );
+  // A new link (or a new type) may mean a manual to copy; the archive skips
+  // one it already holds, so an unchanged link costs a query and no download.
+  if (result.ok && (input.patch.url || input.patch.type !== undefined)) {
+    await requestManualArchive([result.resourceId]);
+  }
+  return result;
 }
 
 /**

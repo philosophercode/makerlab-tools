@@ -197,6 +197,8 @@ export type ApprovePendingResult =
       slug: string;
       unitId: string | null;
       resourcesCreated: number;
+      /** The resources created, for the manual archive to copy after the commit. */
+      resourceIds: string[];
       photosMoved: number;
       published: boolean;
       /** True when a low-confidence grade was overridden with a note. */
@@ -1045,6 +1047,7 @@ export async function approvePendingTool(
         slug: created.slug,
         unitId,
         resourcesCreated: created.resourceIds.length,
+        resourceIds: created.resourceIds,
         photosMoved,
         published: input.publish,
         overridden,

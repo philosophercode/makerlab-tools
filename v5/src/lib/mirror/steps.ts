@@ -147,7 +147,7 @@ const CONNECTION_MESSAGE =
  * unreachable rather than the query being wrong. Read by shape, not
  * `instanceof`: the error may come from another bundle's copy of the class.
  */
-function isTransientDbError(error: unknown): boolean {
+export function isTransientDbError(error: unknown): boolean {
   let current: unknown = error;
   for (let depth = 0; depth < 6 && typeof current === "object" && current !== null; depth += 1) {
     const { name, code, message, cause, sourceError } = current as {

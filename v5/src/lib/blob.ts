@@ -1,6 +1,8 @@
 import "server-only";
 
 import { copy, del, list, put } from "@vercel/blob";
+import { createLocalBlobBackend } from "./blob-local";
+import { blobMode } from "./blob-mode";
 
 /**
  * Blob storage — one narrow seam over Vercel Blob (ops hardening design spec
@@ -86,12 +88,16 @@ export interface BlobStore {
 
 /**
  * `BLOB_READ_WRITE_TOKEN` is injected by Vercel when a Blob store is linked to
- * the project, and is absent locally. Callers check this up front so a
- * misconfigured deploy fails with a clear answer instead of an SDK error buried
- * in a cron log — the whole point of §3.3 is that a backup never fails quietly.
+ * the project. Callers check this up front so a misconfigured deploy fails with
+ * a clear answer instead of an SDK error buried in a cron log — the whole point
+ * of §3.3 is that a backup never fails quietly.
+ *
+ * Without a token, local development still has a store: `.blob-data/` on disk
+ * (`blob-mode.ts` decides; `blob-local.ts` is the folder). On Vercel or in a
+ * production build there is no such fallback, and this stays false.
  */
 export function isBlobConfigured(): boolean {
-  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+  return blobMode() !== "none";
 }
 
 /** Guards a runaway `list` loop; 30 days of daily backups is ~30 blobs. */
@@ -111,7 +117,54 @@ function safeFilename(name: string): string {
   return cleaned || "upload";
 }
 
+/**
+ * The store for this process: Vercel Blob with a token, the `.blob-data/`
+ * folder in local development without one. Callers check
+ * {@link isBlobConfigured} first; the local store follows the same rules as the
+ * real one (private backups at their exact path, random upload pathnames,
+ * copy-to-public at a new pathname).
+ */
 export function getBlobStore(): BlobStore {
+  return blobMode() === "local" ? localBlobStore() : vercelBlobStore();
+}
+
+function localBlobStore(): BlobStore {
+  const disk = createLocalBlobBackend();
+  return {
+    async put(pathname, body, contentType) {
+      const result = await disk.put(pathname, body, {
+        access: "private",
+        contentType,
+        addRandomSuffix: false,
+        allowOverwrite: true,
+      });
+      return { pathname: result.pathname };
+    },
+    putUpload(prefix, file, access) {
+      return disk.put(`${prefix}${safeFilename(file.name)}`, file, {
+        access,
+        contentType: file.type || "application/octet-stream",
+        addRandomSuffix: true,
+      });
+    },
+    copyToPublic(pathname, prefix) {
+      const basename = pathname.slice(pathname.lastIndexOf("/") + 1);
+      return disk.copy(pathname, `${prefix}${safeFilename(basename)}`, {
+        access: "public",
+        addRandomSuffix: true,
+      });
+    },
+    list(prefix) {
+      return disk.list(prefix);
+    },
+    async del(pathnames) {
+      if (pathnames.length === 0) return;
+      await disk.del(pathnames);
+    },
+  };
+}
+
+function vercelBlobStore(): BlobStore {
   return {
     async put(pathname, body, contentType) {
       const result = await put(pathname, body, {

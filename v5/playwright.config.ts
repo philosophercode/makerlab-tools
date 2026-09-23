@@ -123,6 +123,9 @@ export default defineConfig({
         // is itself asserted in projects.spec.ts, and no test may put bytes in
         // somebody's real store.
         BLOB_READ_WRITE_TOKEN: "",
+        // `next start` is a production build, so the local `.blob-data/` store
+        // is off anyway; this says so explicitly (src/lib/blob-mode.ts).
+        BLOB_LOCAL_DISABLE: "1",
         // Same reasoning for the nightly job: no E2E test should be able to
         // trigger a real backup.
         CRON_SECRET: "",

@@ -2723,12 +2723,35 @@ p {
   text-transform: uppercase;
 }
 
-.td-hero-copy > p {
+.td-hero-description {
   max-width: 620px;
-  margin: 0;
   color: var(--td-ink-2);
   font-size: 16px;
   line-height: 1.65;
+  display: grid;
+  gap: 12px;
+}
+
+.td-hero-description > * {
+  margin: 0;
+}
+
+.td-hero-description ul,
+.td-hero-description ol {
+  padding-left: 20px;
+  display: grid;
+  gap: 2px;
+}
+
+.td-hero-description strong {
+  color: var(--td-ink);
+  font-weight: 600;
+}
+
+.td-hero-description a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .td-chip-row {
@@ -3289,7 +3312,7 @@ p {
     font-size: 26px;
   }
 
-  .td-hero-copy > p {
+  .td-hero-description {
     font-size: 15px;
     overflow-wrap: anywhere;
   }

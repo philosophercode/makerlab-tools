@@ -1,6 +1,7 @@
 import { getBlobStore, isBlobConfigured } from "../../../../lib/blob";
 import { runBackup } from "../../../../lib/cron/backup";
 import { runCleanup } from "../../../../lib/cron/cleanup";
+import { runManualArchiveBackfill } from "../../../../lib/cron/manual-archive";
 import { runMirrorBackstop } from "../../../../lib/cron/mirror-backstop";
 import { runPendingExpiry } from "../../../../lib/cron/pending-expiry";
 import { rateLimitAsync } from "../../../../lib/rate-limit";
@@ -31,6 +32,12 @@ import { resolveIdentity } from "../../../../lib/auth/identity";
  *    last push was not `ok` (§3.8 trigger 3). The stage only starts the runs;
  *    each pushes in its own workflow, outside this function's 60 seconds. A
  *    run that could not be started fails the stage, as a throw does.
+ * 5. **Manual archive backfill** — up to ten Manual resources whose link has
+ *    no PDF copy in Blob yet, handed to one `archiveManuals` run
+ *    (`src/lib/cron/manual-archive.ts`). Backfills imported manuals over time
+ *    and catches any approval whose run never started. Like the mirror stage
+ *    it only starts the run, and a run that could not be started fails the
+ *    stage.
  *
  * **Nothing here fails quietly.** Every stage reports, and any one failing
  * makes the whole invocation non-200 so it shows in Vercel's cron log as
@@ -176,5 +183,33 @@ export async function GET(req: Request) {
     );
   }
 
-  return Response.json({ ok: true, backup, pendingExpiry, cleanup, mirror });
+  // After the mirror, for the same reason it is after everything else: it only
+  // hands work to a workflow, and every earlier stage has already reported.
+  let manuals: Awaited<ReturnType<typeof runManualArchiveBackfill>>;
+  try {
+    manuals = await runManualArchiveBackfill();
+  } catch (error) {
+    console.error("[cron] manual archive backfill failed:", error);
+    return Response.json(
+      { ok: false, stage: "manuals", backup, pendingExpiry, cleanup, mirror, error: message(error) },
+      { status: 500 }
+    );
+  }
+  if (manuals.failed > 0) {
+    return Response.json(
+      {
+        ok: false,
+        stage: "manuals",
+        backup,
+        pendingExpiry,
+        cleanup,
+        mirror,
+        manuals,
+        error: "the manual archive run could not be started",
+      },
+      { status: 500 }
+    );
+  }
+
+  return Response.json({ ok: true, backup, pendingExpiry, cleanup, mirror, manuals });
 }
