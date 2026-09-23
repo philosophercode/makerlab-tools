@@ -18,6 +18,17 @@ interface ChatSeed {
   nonce: number;
 }
 
+/**
+ * The starter questions of the tool whose page is showing (spec amendment
+ * "Tool-specific starter questions"), registered by `ToolChatStarters` on that
+ * page. `keys` are the path segments that page answers to — its slug and its
+ * id — so `ChatFab` uses them only while the path still names this tool.
+ */
+export interface ToolStarters {
+  keys: string[];
+  questions: string[];
+}
+
 interface ChatLauncher {
   /** Whether the chat sheet is open. */
   isOpen: boolean;
@@ -29,6 +40,10 @@ interface ChatLauncher {
   close: () => void;
   /** Clear the pending seed once it has been sent. */
   consumeSeed: () => void;
+  /** The showing tool's starter questions, or null off a tool page. */
+  toolStarters: ToolStarters | null;
+  /** Register (or, with null, clear) the showing tool's starter questions. */
+  setToolStarters: (value: ToolStarters | null) => void;
 }
 
 const ChatLauncherContext = createContext<ChatLauncher | null>(null);
@@ -46,6 +61,7 @@ export function ChatLauncherProvider({
 }) {
   const [isOpen, setIsOpen] = useState(false);
   const [pendingSeed, setPendingSeed] = useState<ChatSeed | null>(null);
+  const [toolStarters, setToolStarters] = useState<ToolStarters | null>(null);
 
   const open = useCallback((seedText?: string) => {
     setIsOpen(true);
@@ -61,8 +77,8 @@ export function ChatLauncherProvider({
   const consumeSeed = useCallback(() => setPendingSeed(null), []);
 
   const value = useMemo(
-    () => ({ isOpen, pendingSeed, open, close, consumeSeed }),
-    [isOpen, pendingSeed, open, close, consumeSeed]
+    () => ({ isOpen, pendingSeed, open, close, consumeSeed, toolStarters, setToolStarters }),
+    [isOpen, pendingSeed, open, close, consumeSeed, toolStarters]
   );
 
   return (

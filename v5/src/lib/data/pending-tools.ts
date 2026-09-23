@@ -1119,6 +1119,8 @@ export async function approvePendingTool(
           tags: fields.tags,
           trainingRequired: fields.trainingRequired,
           useRestrictions: fields.useRestrictions,
+          // Research's proposal, as it stands; staff edit it in the tool editor afterwards.
+          starterQuestions: research.starterQuestions ?? [],
           published: input.publish,
           units: [{ unitLabel: `${name} #1`, serialNumber: fields.serialNumber }],
           resources: chosen,

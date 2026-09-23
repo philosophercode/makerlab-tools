@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { IntakeEvidence } from "../capabilities/types.ts";
+import { cleanStarterQuestions } from "../starter-questions.ts";
 import { RESEARCH_RESOURCE_TYPES } from "./result.ts";
 
 /**
@@ -148,6 +149,12 @@ export const fetchDraftSchema = z.object({
   resources: linksSchema,
   sourceUrls: urlList,
   evidence: evidencePartialSchema.default({}),
+  /**
+   * Up to three questions for the assistant's starter chips (amendment
+   * "Tool-specific starter questions"). Lenient: anything that is not a usable
+   * question is dropped, and a missing or malformed list is no questions.
+   */
+  starterQuestions: z.unknown().optional().transform(cleanStarterQuestions),
 });
 
 export type FetchDraft = z.infer<typeof fetchDraftSchema>;

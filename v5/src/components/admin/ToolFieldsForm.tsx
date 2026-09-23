@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { CategoryOption, LocationOption } from "../../lib/data/taxonomy";
 import type { EditableTool, ToolPatch } from "../../lib/data/tools";
+import { STARTER_QUESTION_MAX_CHARS, STARTER_QUESTIONS_MAX } from "../../lib/starter-questions";
 
 /**
  * The tool's own fields, in the editor panel (spec §5.3(3)).
@@ -49,6 +50,12 @@ interface Draft {
   useRestrictions: string;
   emergencyStop: string;
   notes: string;
+  /**
+   * The assistant's starter questions, one per line, always
+   * {@link STARTER_QUESTIONS_MAX} lines (blank for an empty slot) — a string so
+   * the conflict diff treats it like every other field.
+   */
+  starterQuestions: string;
 }
 
 /** The three list fields, entered as comma-separated text because they are chips. */
@@ -87,6 +94,7 @@ export function ToolFieldsForm({
     const mine = draft[field];
     const other = theirDraft[field];
     if (mine === other) return null;
+    if (field === "starterQuestions") return questionLines(other as string).join(" · ");
     return typeof other === "boolean" ? (other ? t("yes") : t("no")) : other;
   }
 
@@ -217,6 +225,26 @@ export function ToolFieldsForm({
         {theirValue("emergencyStop")}
       </div>
 
+      <fieldset className="admin-field">
+        <legend>{t("fieldStarterQuestions")}</legend>
+        <p className="admin-field-hint">{t("starterQuestionsHint")}</p>
+        {slots(draft.starterQuestions).map((question, n) => (
+          <input
+            key={n}
+            id={`tool-starter-question-${n + 1}`}
+            aria-label={t("starterQuestionN", { n: n + 1 })}
+            value={question}
+            maxLength={STARTER_QUESTION_MAX_CHARS}
+            onChange={(event) => {
+              const next = slots(draft.starterQuestions);
+              next[n] = event.target.value.replace(/\n/g, " ");
+              set("starterQuestions", next.join("\n"));
+            }}
+          />
+        ))}
+        {theirValue("starterQuestions")}
+      </fieldset>
+
       <div className="admin-field">
         <label htmlFor="tool-notes">{t("fieldNotes")}</label>
         <textarea
@@ -251,7 +279,23 @@ function toDraft(tool: EditableTool): Draft {
     useRestrictions: tool.useRestrictions ?? "",
     emergencyStop: tool.emergencyStop ?? "",
     notes: tool.notes ?? "",
+    starterQuestions: slots((tool.starterQuestions ?? []).join("\n")).join("\n"),
   };
+}
+
+/** The draft's lines, exactly {@link STARTER_QUESTIONS_MAX} of them. */
+function slots(value: string): string[] {
+  const lines = value.split("\n").slice(0, STARTER_QUESTIONS_MAX);
+  while (lines.length < STARTER_QUESTIONS_MAX) lines.push("");
+  return lines;
+}
+
+/** The draft's non-blank lines, trimmed — what a save sends. */
+function questionLines(value: string): string[] {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
 }
 
 /**
@@ -277,6 +321,9 @@ function patchOf(base: Draft, draft: Draft): ToolPatch {
   }
   if (draft.emergencyStop !== base.emergencyStop) patch.emergencyStop = draft.emergencyStop;
   if (draft.notes !== base.notes) patch.notes = draft.notes;
+  if (draft.starterQuestions !== base.starterQuestions) {
+    patch.starterQuestions = questionLines(draft.starterQuestions);
+  }
 
   // The three list fields share a key name with their `ToolPatch` entry, which
   // is what lets one loop cover them.

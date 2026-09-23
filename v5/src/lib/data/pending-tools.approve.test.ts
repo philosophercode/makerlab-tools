@@ -687,3 +687,22 @@ describe("the cleaned copy is not a photo", () => {
     expect(expired).toEqual({ discarded: [id], releasedAttachments: 1 });
   });
 });
+
+describe('approvePendingTool — starter questions (amendment "Tool-specific starter questions")', () => {
+  it("copies research's questions onto the tool", async () => {
+    const questions = ["What filaments can I print?", "How big can a part be?", "How do I level the bed?"];
+    const id = await researchedItem({ research: research({ starterQuestions: questions }) });
+    const result = await approvePendingTool({ id, actorUserId: APPROVER, publish: true, fields: fields() }, { db });
+    if (!result.ok) throw new Error(`approval refused: ${result.reason}`);
+    const [tool] = await db.select({ starterQuestions: tools.starterQuestions }).from(tools).where(eq(tools.id, result.toolId));
+    expect(tool.starterQuestions).toEqual(questions);
+  });
+
+  it("gives a tool researched before them none — the generic chips", async () => {
+    const id = await researchedItem();
+    const result = await approvePendingTool({ id, actorUserId: APPROVER, publish: true, fields: fields() }, { db });
+    if (!result.ok) throw new Error(`approval refused: ${result.reason}`);
+    const [tool] = await db.select({ starterQuestions: tools.starterQuestions }).from(tools).where(eq(tools.id, result.toolId));
+    expect(tool.starterQuestions).toEqual([]);
+  });
+});

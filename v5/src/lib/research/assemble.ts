@@ -7,6 +7,7 @@ import { researchResultSchema, type ResearchResult } from "./result.ts";
 import { reviewerNoteForPrompt } from "../intake/reviewer-note.ts";
 import { classifyPage, isVideoUrl, type PageSubject } from "./source-pages.ts";
 import { matchCategory } from "./taxonomy-match.ts";
+import { cleanStarterQuestions } from "../starter-questions.ts";
 
 /**
  * Turn the model's draft into the {@link ResearchResult} that is stored (spec
@@ -68,6 +69,8 @@ export function assembleResearchResult(input: AssembleInput): ResearchResult {
   const fromSearch = new Set((input.searchTextUrls ?? []).filter((url) => sourceUrls.includes(url)));
   const subject: PageSubject = input.subject ?? { brand: null, name: draft.canonicalName || fallbackName };
   const evidence = groundedEvidence(draft.evidence, { sourceUrls, verified, fromSearch, subject });
+  // Cleaned once more: the parser already did, but a draft built in code (tests, `draftFromFindings`) did not.
+  const starterQuestions = cleanStarterQuestions(draft.starterQuestions);
 
   const result: ResearchResult = {
     canonicalName: draft.canonicalName.trim() || fallbackName.trim(),
@@ -85,6 +88,7 @@ export function assembleResearchResult(input: AssembleInput): ResearchResult {
     sourceUrls,
     evidence,
     confidence: scoreConfidence(evidence, { sourceUrls }),
+    ...(starterQuestions.length > 0 ? { starterQuestions } : {}),
     ...(fromSearch.size > 0 ? { searchTextSources: [...fromSearch] } : {}),
     ...(reviewerNoteForPrompt(reviewerNote) ? { reviewerNote: reviewerNoteForPrompt(reviewerNote) } : {}),
   };
@@ -128,6 +132,7 @@ export function draftFromFindings(findings: SearchFindings, options: { keepCandi
     resources: options.keepCandidateLinks ? [...findings.candidateLinks] : [],
     sourceUrls: [],
     evidence: findings.evidence,
+    starterQuestions: [],
   };
 }
 

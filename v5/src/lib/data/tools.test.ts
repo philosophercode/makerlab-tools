@@ -276,3 +276,56 @@ describe("inside one transaction", () => {
     expect(one.ok && two.ok && one.revision).toBe(two.ok && two.revision);
   });
 });
+
+describe('starter questions (amendment "Tool-specific starter questions")', () => {
+  it("are read for the editor and saved through the revision-checked patch", async () => {
+    const id = await insertTool();
+    const opened = await findToolForEditor(id, { db });
+    expect(opened?.starterQuestions).toEqual([]);
+
+    const written = await updateTool(
+      id,
+      { starterQuestions: ["  What resins can I print with? ", "", "How big can a part be?"] },
+      opened!.revision,
+      { db, actorUserId: actor }
+    );
+    expect(written.ok).toBe(true);
+    expect((await readTool(id)).starterQuestions).toEqual(["What resins can I print with?", "How big can a part be?"]);
+    expect((await findToolForEditor(id, { db }))?.starterQuestions).toEqual([
+      "What resins can I print with?",
+      "How big can a part be?",
+    ]);
+  });
+
+  it("clears them, which is the generic chips", async () => {
+    const id = await insertTool({ starterQuestions: ["What is it for?"] });
+    const revision = await readToolRevision(id, { db });
+    expect((await updateTool(id, { starterQuestions: [] }, revision!, { db, actorUserId: actor })).ok).toBe(true);
+    expect((await readTool(id)).starterQuestions).toEqual([]);
+  });
+
+  it("refuses more than three or an over-long one, and writes nothing", async () => {
+    const id = await insertTool({ starterQuestions: ["What is it for?"] });
+    const revision = await readToolRevision(id, { db });
+    expect(await updateTool(id, { starterQuestions: ["A?", "B?", "C?", "D?"] }, revision!, { db, actorUserId: actor })).toEqual({
+      ok: false,
+      reason: "invalid_field",
+    });
+    expect(await updateTool(id, { starterQuestions: ["x".repeat(81)] }, revision!, { db, actorUserId: actor })).toEqual({
+      ok: false,
+      reason: "invalid_field",
+    });
+    expect((await readTool(id)).starterQuestions).toEqual(["What is it for?"]);
+  });
+
+  it("refuses a stale token like every other field", async () => {
+    const id = await insertTool();
+    const stale = await readToolRevision(id, { db });
+    await otherWriterEdits(id, "Form 4L");
+    expect(await updateTool(id, { starterQuestions: ["What is it for?"] }, stale!, { db, actorUserId: actor })).toEqual({
+      ok: false,
+      reason: "conflict",
+    });
+    expect((await readTool(id)).starterQuestions).toEqual([]);
+  });
+});

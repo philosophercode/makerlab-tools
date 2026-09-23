@@ -280,3 +280,22 @@ describe('a guided redo\'s record (amendment "Guided redo (focus + guidance)")',
     ).toBe(false);
   });
 });
+
+describe('ResearchResult.starterQuestions (amendment "Tool-specific starter questions")', () => {
+  it("parses a row researched before them to exactly itself", () => {
+    const old = wellFormed();
+    expect(parseResearchResult(old)).toEqual(old);
+    expect("starterQuestions" in (parseResearchResult(old) ?? {})).toBe(false);
+  });
+
+  it("parses up to three short questions", () => {
+    const row = { ...wellFormed(), starterQuestions: ["What resins can I print with?", "How big can a part be?"] };
+    expect(parseResearchResult(row)).toEqual(row);
+  });
+
+  it("refuses more than three, an empty or over-long one", () => {
+    expect(parseResearchResult({ ...wellFormed(), starterQuestions: ["A?", "B?", "C?", "D?"] })).toBeNull();
+    expect(parseResearchResult({ ...wellFormed(), starterQuestions: [""] })).toBeNull();
+    expect(parseResearchResult({ ...wellFormed(), starterQuestions: [`${"x".repeat(80)}?`] })).toBeNull();
+  });
+});

@@ -138,6 +138,32 @@ DATABASE_URL=postgres://… BLOB_READ_WRITE_TOKEN=vercel_blob_rw_… npm run ver
 A `DATABASE_URL` target always copies files to Vercel Blob and refuses to run without the
 token (or pass `--skip-files`). Unset `PGLITE_DATA_DIR` before `next build`.
 
+### Stage 2c · Starter questions for tools that have none (optional, a few cents)
+
+On a tool's page the assistant opens with three questions about *that* tool instead of the
+generic chips (gateway spec amendment "Tool-specific starter questions"). Research writes
+them for new tools; migration `0009` gives every existing tool an empty list, which shows
+the generic chips. `scripts/generate-starter-questions.ts` fills them in, one `researchRead`
+model call per tool, from the tool's own name, description and resource titles — no web
+search. It needs `AI_GATEWAY_API_KEY` (or a pulled `VERCEL_OIDC_TOKEN`) in `.env.local`,
+follows the import scripts' target order (`DATABASE_URL` > `PGLITE_DATA_DIR`; stop the dev
+server for a local database), prints an estimate first and the real usage last, and never
+overwrites questions a tool already has.
+
+```bash
+cd v5
+# rehearse on five tools: calls the model, prints the questions, writes nothing
+PGLITE_DATA_DIR=.pglite-data node --env-file-if-exists=.env.local --experimental-strip-types \
+  scripts/generate-starter-questions.ts --dry-run --limit 5
+# then for real (drop --limit for every tool; --ids form-4,trotec-speedy-400 for some)
+DATABASE_URL=postgres://… node --env-file-if-exists=.env.local --experimental-strip-types \
+  scripts/generate-starter-questions.ts
+```
+
+Run `db:migrate` against Neon first. Staff can edit the questions afterwards in the tool
+editor ("Assistant starter questions"); the tool pages pick them up once the catalogue's
+few-minute cache expires.
+
 ## Stage 3 · Sign-in (15 minutes)
 
 Google Cloud Console → **OAuth 2.0 Client ID (Web)** → authorized redirect URI exactly:

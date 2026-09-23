@@ -483,6 +483,29 @@ creates a tool (Article 5).
   (`admin.warnings.image_not_attached`), the same "warning on a landed write"
   shape every admin surface uses. Low confidence keeps both Approve buttons off
   until "I've checked this" is ticked and a note written.
+- **Starter questions** (gateway spec amendment "Tool-specific starter
+  questions"). The read step's JSON also carries `starterQuestions`: three
+  short questions (≤80 chars) a student might ask the assistant about the
+  tool, in the same call, so no extra cost. `src/lib/starter-questions.ts` is
+  the one rule — `cleanStarterQuestions` reads a model's answer leniently
+  (trimmed, one line, ends in "?", once each, three at most, an over-long one
+  dropped, never refused); `starterQuestionsFromEditor` refuses staff input
+  over three or over 80 (`invalid_field`) rather than cutting it. They are
+  optional on `ResearchResult` (old rows parse), a **Description** redo
+  regenerates them (`focus-merge.ts`; a run with none keeps the stored ones),
+  approval copies them onto `tools.starter_questions` (migration `0009`,
+  `text[] not null default '{}'`), the tool editor edits them (three boxes,
+  saved through `updateTool` with the revision check), and the catalogue
+  carries them as `MakerLabTool.starterQuestions`. The tool page renders
+  `ToolChatStarters`, which registers them with `ChatLauncherContext`;
+  `ChatFab` shows them as its chips while the path still names that tool (slug
+  or id), and the generic, translated chips everywhere else and for a tool
+  with none. The questions are data, English as written. Not carried by the
+  Notion mirror (a new property would put existing mirrors in
+  `schema_mismatch`) or MCP. **Backfill:** `scripts/generate-starter-questions.ts`
+  (`--dry-run`, `--limit N`, `--ids a,b`) asks the `researchRead` model for
+  tools whose list is empty, from name, description and resource titles only,
+  and writes through `updateTool`; see `docs/deploy.md` Stage 2c.
 - **The daily cron expires what nobody researched.** `identified` rows older
   than 14 days are discarded and their photos released (`runPendingExpiry`),
   just before the orphan sweep deletes them from Blob.
@@ -663,7 +686,8 @@ is copied into Blob once, and the tool page and the chat prefer the copy.
 | `src/app/admin/mirror/` + `src/components/admin/Mirror*.tsx` | The settings page, its seven server actions, and the four islands (`MirrorConnect`, `MirrorMapping`, `MirrorStatus`, `MirrorControls`) |
 | `test/fakes/notion-fake.ts` | The in-memory Notion every mirror test (and the E2E stub) talks to |
 | `src/app/api/admin/revalidate/route.ts` | Cache invalidation (`tools.edit`, or `x-admin-secret` for session-less callers) |
-| `src/components/ChatFab.tsx` | Chat UI (`useChat`, citations stripped, photo upload) |
+| `src/components/ChatFab.tsx` | Chat UI (`useChat`, citations stripped, photo upload); starter chips are the tool's own on its page (`ToolChatStarters` → `ChatLauncherContext`), else the generic three |
+| `src/lib/starter-questions.ts` / `scripts/generate-starter-questions.ts` | A tool's assistant starter questions — the cleaning rules, and the backfill for tools that have none |
 | `src/app/page.tsx`, `tools/[id]/page.tsx` | Gallery + tool detail |
 
 ## Conventions

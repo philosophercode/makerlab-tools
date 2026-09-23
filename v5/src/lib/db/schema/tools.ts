@@ -30,6 +30,13 @@ export const tools = pgTable(
     useRestrictions: text("use_restrictions"),
     emergencyStop: text("emergency_stop"),
     notes: text("notes"),
+    /**
+     * Up to three questions the assistant offers as starter chips on this
+     * tool's page (spec amendment "Tool-specific starter questions"). Written
+     * by approval from research, or by staff in the editor; empty means the
+     * generic chips.
+     */
+    starterQuestions: text("starter_questions").array().notNull().default(sql`'{}'::text[]`),
     published: boolean("published").notNull().default(false),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }),

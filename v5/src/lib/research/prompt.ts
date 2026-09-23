@@ -3,6 +3,7 @@ import { EXA_SEARCH_TOOL } from "../ai/exa.ts";
 import { RESEARCH_MAX_WEB_SEARCHES } from "../intake/limits.ts";
 import type { ResearchFocus, ResearchFocusField } from "../intake/research-focus.ts";
 import { reviewerNoteForPrompt } from "../intake/reviewer-note.ts";
+import { STARTER_QUESTION_MAX_CHARS, STARTER_QUESTIONS_MAX } from "../starter-questions.ts";
 import { fenceUntrusted } from "../web/fence.ts";
 import type { SearchFindings } from "./model-output.ts";
 
@@ -116,6 +117,14 @@ const LINKS_PARAGRAPH = [
   `- Each link has a \`title\` (what it is, e.g. "MK4S user manual (PDF)"), the exact \`url\`, and a \`type\`: "Manual" for manuals, user guides and quick-start guides; "Video" for a setup or overview video; "Other" for anything else worth keeping, such as the product page or a safety data sheet.`,
 ].join("\n");
 
+/**
+ * The assistant's starter chips for this tool (amendment "Tool-specific
+ * starter questions"). Written in the same call as the listing, so they cost
+ * nothing extra; `cleanStarterQuestions` drops anything that is not a short
+ * question on the way in.
+ */
+const STARTER_QUESTIONS_RULE = `- \`starterQuestions\`: exactly ${STARTER_QUESTIONS_MAX} short questions (at most ${STARTER_QUESTION_MAX_CHARS} characters each) that a student might ask the lab's assistant about this tool, to spark their curiosity — each one answerable from the listing you are writing or the manual, and specific to this machine rather than to any tool (for a resin printer: "What resins can I print with?", "How do I wash and cure a print?", "How big can a part be?"). Each is a question ending in "?", never a statement. Do not state a safety rule or protective equipment as a fact inside a question, and do not ask about PPE — safety is the lab's staff's to answer.`;
+
 const LABELS_PARAGRAPH = [
   `## Writing the listing`,
   `- **Materials and tags are short labels, not sentences** — one to three words each, e.g. materials \`["PLA", "PETG", "TPU"]\`, tags \`["FDM", "Enclosed"]\`. Never \`"Wood (plywood, hardwood, veneer)"\`.`,
@@ -126,6 +135,7 @@ const LABELS_PARAGRAPH = [
   `- \`trainingRequired\` is true when the machine is one a makerspace would normally require training for (a laser cutter, a CNC, a resin printer), false when it clearly is not, and null when you cannot tell.`,
   `- \`useRestrictions\` is a short sentence about who may use it or what it must not be used for, when a source says so; otherwise null.`,
   `- For the category, prefer one of the lab's existing categories listed in the request, using its exact name and group. Propose a new name only when none fits.`,
+  STARTER_QUESTIONS_RULE,
 ].join("\n");
 
 const ANSWER_RULE = `## Your answer
@@ -166,7 +176,8 @@ const FETCH_SHAPE = `{
     "manualFound": false,
     "specsFromSource": false,
     "categoryOnly": false
-  }
+  },
+  "starterQuestions": [ "a short question a student might ask about this tool?" ]
 }`;
 
 /**

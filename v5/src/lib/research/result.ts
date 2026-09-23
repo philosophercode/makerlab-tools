@@ -5,6 +5,7 @@ import type {
 } from "../capabilities/types.ts";
 import { REVIEWER_NOTE_MAX_CHARS } from "../intake/limits.ts";
 import { RESEARCH_FOCUS_FIELDS, type ResearchFocusField } from "../intake/research-focus.ts";
+import { STARTER_QUESTION_MAX_CHARS, STARTER_QUESTIONS_MAX } from "../starter-questions.ts";
 
 /**
  * What background research produces for one pending tool (spec §4.10), and the
@@ -103,6 +104,13 @@ export interface ResearchResult {
    * "Updated just now" for a short while (`REDO_HIGHLIGHT_WINDOW_MS`).
    */
   updated?: { at: string; sections: ResearchFocusField[] } | null;
+  /**
+   * Up to three short questions a student might ask the assistant about this
+   * tool, copied onto `tools.starter_questions` at approval (amendment
+   * "Tool-specific starter questions"). Absent on rows researched before they
+   * existed, and when research proposed none worth keeping.
+   */
+  starterQuestions?: string[];
 }
 
 /** A pressed **Research again**, as `research.redoRequest` records it. */
@@ -353,6 +361,8 @@ export const researchResultSchema: z.ZodType<ResearchResult> = z.strictObject({
     })
     .nullable()
     .optional(),
+  // Optional, no default: a row researched before starter questions parses to itself.
+  starterQuestions: z.array(z.string().min(1).max(STARTER_QUESTION_MAX_CHARS)).max(STARTER_QUESTIONS_MAX).optional(),
 });
 
 /**

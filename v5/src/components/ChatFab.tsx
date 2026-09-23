@@ -29,6 +29,15 @@ const SUGGESTIONS: Suggestion[] = [
 
 type ChatT = ReturnType<typeof useTranslations<"chat">>;
 
+/** A path segment as written, decoded when it can be. */
+function safeDecode(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
 function toolStatusLabel(partType: string, t: ChatT): string {
   if (partType === "tool-get_unit_details") return t("lookingUpUnit");
   if (partType === "tool-report_issue") return t("filingTicket");
@@ -236,13 +245,32 @@ interface PendingPhoto {
 export function ChatFab() {
   const t = useTranslations("chat");
   const locale = useLocale();
-  const { isOpen, open, close, pendingSeed, consumeSeed } = useChatLauncher();
+  const { isOpen, open, close, pendingSeed, consumeSeed, toolStarters } = useChatLauncher();
   const [draft, setDraft] = useState("");
   const pathname = usePathname() || "/";
   const toolId = useMemo(() => {
     const match = pathname.match(/^\/tools\/(.+)$/);
     return match ? match[1] : undefined;
   }, [pathname]);
+
+  // The starter chips: the showing tool's own questions when its page
+  // registered some and the path still names it (spec amendment "Tool-specific
+  // starter questions"), else the generic three. Tool questions are data,
+  // English as researched; the generic ones are translated.
+  const suggestions = useMemo<{ key: string; icon: Suggestion["icon"]; label: string }[]>(() => {
+    const own =
+      toolId && toolStarters && toolStarters.keys.some((key) => key === toolId || key === safeDecode(toolId))
+        ? toolStarters.questions
+        : [];
+    if (own.length > 0) {
+      return own.map((question, n) => ({
+        key: `tool-${n}`,
+        icon: SUGGESTIONS[n % SUGGESTIONS.length].icon,
+        label: question,
+      }));
+    }
+    return SUGGESTIONS.map((suggestion) => ({ key: suggestion.key, icon: suggestion.icon, label: t(suggestion.key) }));
+  }, [toolId, toolStarters, t]);
 
   // `useChat` bakes the transport into a ref on first mount and never refreshes
   // it (see @ai-sdk/react useChat — only `id`/`chat` prop changes recreate the
@@ -618,8 +646,8 @@ export function ChatFab() {
                     {toolId ? t("greetingTool") : t("greetingGeneral")}
                   </p>
                   <div className="chat-suggestions">
-                    {SUGGESTIONS.map((suggestion) => {
-                      const label = t(suggestion.key);
+                    {suggestions.map((suggestion) => {
+                      const label = suggestion.label;
                       return (
                         <button
                           key={suggestion.key}

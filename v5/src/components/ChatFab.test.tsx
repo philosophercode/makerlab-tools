@@ -85,6 +85,7 @@ vi.mock("../lib/chat/downscale-image", () => ({
 
 // Imported after the mocks above are hoisted.
 import { ChatFab } from "./ChatFab";
+import { ToolChatStarters } from "./ToolChatStarters";
 import type { IntakeTablePayload } from "../lib/intake/types";
 
 beforeEach(() => {
@@ -876,5 +877,86 @@ describe("ChatFab — rate-limit ceiling", () => {
 
     const message = screen.getByText(/Something else broke/);
     expect(message.closest("li")).toHaveClass("chat-msg-error");
+  });
+
+  describe('tool-specific starter chips (amendment "Tool-specific starter questions")', () => {
+    const FORM_4 = ["What resins can I print with?", "How do I wash and cure a print?", "How big can a part be?"];
+
+    async function openChat() {
+      await userEvent.setup().click(screen.getByRole("button", { name: "Open MakerLab assistant" }));
+    }
+
+    it("offers the tool's own questions on its page, and sends one when clicked", async () => {
+      pathnameMock.mockReturnValue("/tools/form-4");
+      render(
+        <>
+          <ToolChatStarters slug="form-4" id="tool-uuid" questions={FORM_4} />
+          <ChatFab />
+        </>
+      );
+      await openChat();
+
+      for (const question of FORM_4) expect(screen.getByRole("button", { name: question })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "Find a machine for a project" })).not.toBeInTheDocument();
+
+      await userEvent.setup().click(screen.getByRole("button", { name: "How big can a part be?" }));
+      expect(sendMessage).toHaveBeenCalledWith({ text: "How big can a part be?" });
+    });
+
+    it("matches the page by the tool's id too", async () => {
+      pathnameMock.mockReturnValue("/tools/tool-uuid");
+      render(
+        <>
+          <ToolChatStarters slug="form-4" id="tool-uuid" questions={FORM_4} />
+          <ChatFab />
+        </>
+      );
+      await openChat();
+      expect(screen.getByRole("button", { name: FORM_4[0] })).toBeInTheDocument();
+    });
+
+    it("keeps the generic chips for a tool with no questions of its own", async () => {
+      pathnameMock.mockReturnValue("/tools/form-4");
+      render(
+        <>
+          <ToolChatStarters slug="form-4" id="tool-uuid" questions={[]} />
+          <ChatFab />
+        </>
+      );
+      await openChat();
+      expect(screen.getByRole("button", { name: "Find a machine for a project" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Check training requirements" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Ask about safety or policy" })).toBeInTheDocument();
+    });
+
+    it("keeps the generic chips on a page that is not that tool's", async () => {
+      pathnameMock.mockReturnValue("/tools/trotec-speedy-400");
+      render(
+        <>
+          <ToolChatStarters slug="form-4" id="tool-uuid" questions={FORM_4} />
+          <ChatFab />
+        </>
+      );
+      await openChat();
+      expect(screen.getByRole("button", { name: "Find a machine for a project" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: FORM_4[0] })).not.toBeInTheDocument();
+    });
+
+    it("goes back to the generic chips when the tool page goes away", async () => {
+      pathnameMock.mockReturnValue("/tools/form-4");
+      const { rerender } = render(
+        <>
+          <ToolChatStarters slug="form-4" id="tool-uuid" questions={FORM_4} />
+          <ChatFab />
+        </>
+      );
+      await openChat();
+      expect(screen.getByRole("button", { name: FORM_4[0] })).toBeInTheDocument();
+
+      pathnameMock.mockReturnValue("/");
+      rerender(<ChatFab />);
+      expect(screen.getByRole("button", { name: "Find a machine for a project" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: FORM_4[0] })).not.toBeInTheDocument();
+    });
   });
 });

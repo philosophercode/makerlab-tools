@@ -30,6 +30,7 @@ function payload(overrides: Partial<ToolEditorPayload["tool"]> = {}): ToolEditor
       useRestrictions: null,
       emergencyStop: null,
       notes: null,
+      starterQuestions: [],
       published: true,
       archivedAt: null,
       lastReviewedAt: null,

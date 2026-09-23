@@ -335,3 +335,24 @@ describe('the focus of a guided redo (amendment "Guided redo (focus + guidance)"
     expect(buildSearchPrompt(ITEM, CATEGORIES)).not.toContain("<reviewer-focus>");
   });
 });
+
+describe('starter questions (amendment "Tool-specific starter questions")', () => {
+  const read = researchSystemPrompt("read");
+  const search = researchSystemPrompt("search");
+
+  it("asks the read pass for exactly three short questions, in the answer's shape", () => {
+    expect(read).toContain("`starterQuestions`: exactly 3 short questions (at most 80 characters each)");
+    expect(read).toContain('"starterQuestions": [');
+    expect(read).toContain("answerable from the listing you are writing or the manual");
+    expect(read).toContain('"What resins can I print with?"');
+  });
+
+  it("asks for questions, not statements, and keeps safety claims and PPE out of them", () => {
+    expect(read).toContain('Each is a question ending in "?", never a statement.');
+    expect(read).toContain("Do not state a safety rule or protective equipment as a fact inside a question, and do not ask about PPE");
+  });
+
+  it("asks the search pass for none", () => {
+    expect(search).not.toContain("starterQuestions");
+  });
+});

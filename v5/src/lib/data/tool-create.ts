@@ -3,6 +3,7 @@ import { resources, tools, units } from "../db/schema/index.ts";
 import { slugify, uniqueSlug } from "../db/slug.ts";
 import type { UnitCondition, UnitStatus } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
+import { cleanStarterQuestions } from "../starter-questions.ts";
 import { isUniqueViolation } from "./pg-errors.ts";
 
 /**
@@ -40,6 +41,8 @@ export interface NewToolRecord {
   tags?: string[];
   trainingRequired?: boolean;
   useRestrictions?: string | null;
+  /** The assistant's starter chips; cleaned with `cleanStarterQuestions`, so anything unusable is dropped. */
+  starterQuestions?: string[];
   published: boolean;
   units?: {
     unitLabel: string;
@@ -82,6 +85,7 @@ export async function createToolRecord(
     tags: cleanList(input.tags),
     trainingRequired: input.trainingRequired ?? false,
     useRestrictions: emptyToNull(input.useRestrictions),
+    starterQuestions: cleanStarterQuestions(input.starterQuestions ?? []),
     published: input.published,
     ...actor,
   };

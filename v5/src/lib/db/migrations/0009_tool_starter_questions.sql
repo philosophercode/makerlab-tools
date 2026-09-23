@@ -1,0 +1,1 @@
+ALTER TABLE "tools" ADD COLUMN "starter_questions" text[] DEFAULT '{}'::text[] NOT NULL;

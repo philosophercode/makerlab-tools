@@ -26,6 +26,7 @@ function tool(overrides: Partial<EditableTool> = {}): EditableTool {
     useRestrictions: null,
     emergencyStop: null,
     notes: null,
+    starterQuestions: [],
     revision: "1758000000.1",
     published: true,
     archivedAt: null,
@@ -110,4 +111,50 @@ it("keeps the field labels clean when the other version is showing", () => {
 it("shows nothing beside the fields the other person did not touch", () => {
   renderForm({ theirs: tool({ description: "Their rewrite" }) });
   expect(screen.getAllByText(/^Their version:/)).toHaveLength(1);
+});
+
+describe('assistant starter questions (amendment "Tool-specific starter questions")', () => {
+  it("shows three boxes, holding the tool's questions and blanks for the rest", () => {
+    renderForm({ values: tool({ starterQuestions: ["What resins can I print with?"] }) });
+    expect(screen.getByRole("group", { name: "Assistant starter questions" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Starter question 1")).toHaveValue("What resins can I print with?");
+    expect(screen.getByLabelText("Starter question 2")).toHaveValue("");
+    expect(screen.getByLabelText("Starter question 3")).toHaveValue("");
+    expect(screen.getByLabelText("Starter question 1")).toHaveAttribute("maxLength", "80");
+  });
+
+  it("sends only the questions when they change, blanks dropped", async () => {
+    const { onSave } = renderForm({ values: tool({ starterQuestions: ["What resins can I print with?"] }) });
+    await userEvent.type(screen.getByLabelText("Starter question 3"), "How big can a part be?");
+    await save();
+    expect(onSave).toHaveBeenCalledWith({
+      starterQuestions: ["What resins can I print with?", "How big can a part be?"],
+    });
+  });
+
+  it("sends an empty list when every box is cleared — the generic chips", async () => {
+    const { onSave } = renderForm({ values: tool({ starterQuestions: ["What resins can I print with?"] }) });
+    await userEvent.clear(screen.getByLabelText("Starter question 1"));
+    await save();
+    expect(onSave).toHaveBeenCalledWith({ starterQuestions: [] });
+  });
+
+  it("does not send them when nobody touched them", async () => {
+    const { onSave } = renderForm({ values: tool({ starterQuestions: ["What resins can I print with?"] }) });
+    await userEvent.type(screen.getByLabelText("Notes"), "Tank replaced");
+    await save();
+    expect(onSave).toHaveBeenCalledWith({ notes: "Tank replaced" });
+  });
+
+  it("shows the other person's questions after a conflict, and takes them", async () => {
+    const { onSave } = renderForm({
+      values: tool({ starterQuestions: ["Mine?"] }),
+      theirs: tool({ starterQuestions: ["Theirs one?", "Theirs two?"] }),
+    });
+    expect(screen.getByText("Their version: Theirs one? · Theirs two?")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Use theirs" }));
+    expect(screen.getByLabelText("Starter question 2")).toHaveValue("Theirs two?");
+    await save();
+    expect(onSave).toHaveBeenCalledWith({ starterQuestions: ["Theirs one?", "Theirs two?"] });
+  });
 });

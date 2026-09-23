@@ -211,3 +211,36 @@ describe("mergeResearch — everything, and a first research", () => {
     expect(changedSections(previous(), next(), ["specs"])).toEqual(["specs"]);
   });
 });
+
+describe('starter questions ride with the description (amendment "Tool-specific starter questions")', () => {
+  const OLD = ["What is the build volume?"];
+  const NEW = ["Can it print two colours at once?", "What filaments can I use?", "How hot does the bed get?"];
+
+  it("a description redo takes the new questions, and every other field stays", () => {
+    const prev = { ...previous(), starterQuestions: OLD };
+    const merged = mergeResearch({ previous: prev, next: { ...next(), starterQuestions: NEW }, focus: ["description"], saved: SAVED, at: AT });
+    expect(merged.starterQuestions).toEqual(NEW);
+    const except = ["description", "starterQuestions", ...BOOKKEEPING];
+    expect(rest(merged, except)).toBe(rest(prev, except));
+  });
+
+  it("a description redo that proposed none keeps the stored ones", () => {
+    const prev = { ...previous(), starterQuestions: OLD };
+    const merged = mergeResearch({ previous: prev, next: next(), focus: ["description"], saved: SAVED, at: AT });
+    expect(merged.starterQuestions).toEqual(OLD);
+  });
+
+  it("a specs, links or image redo keeps the stored ones", () => {
+    const prev = { ...previous(), starterQuestions: OLD };
+    for (const focus of [["specs"], ["links"], ["image"]] as const) {
+      const merged = mergeResearch({ previous: prev, next: { ...next(), starterQuestions: NEW }, focus: [...focus], saved: SAVED, at: AT });
+      expect(merged.starterQuestions).toEqual(OLD);
+    }
+  });
+
+  it("everything takes the new run's questions — or none", () => {
+    const prev = { ...previous(), starterQuestions: OLD };
+    expect(mergeResearch({ previous: prev, next: { ...next(), starterQuestions: NEW }, focus: null, saved: SAVED, at: AT }).starterQuestions).toEqual(NEW);
+    expect(mergeResearch({ previous: prev, next: next(), focus: null, saved: SAVED, at: AT }).starterQuestions).toBeUndefined();
+  });
+});

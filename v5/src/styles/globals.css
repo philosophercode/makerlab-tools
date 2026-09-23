@@ -4657,6 +4657,28 @@ td.admin-date {
   text-transform: uppercase;
 }
 
+/* A field of several boxes (the assistant's starter questions): a fieldset
+   that looks like every other field, its legend like a label. */
+fieldset.admin-field {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+fieldset.admin-field legend {
+  margin-bottom: 4px;
+  padding: 0;
+}
+
+.admin-field-hint {
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 12px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
 .admin-field.is-check {
   flex-direction: row;
   align-items: center;

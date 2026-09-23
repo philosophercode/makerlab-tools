@@ -5,6 +5,7 @@ import { EditToolControl } from "./EditToolControl";
 import { QrArrivalNotice } from "./QrArrivalNotice";
 import { DetailShell } from "../../../components/DetailShell";
 import { FlagButton } from "../../../components/FlagButton";
+import { ToolChatStarters } from "../../../components/ToolChatStarters";
 import { getCatalogTool } from "../../../lib/catalog";
 import { findToolByNotionPageId } from "../../../lib/data/catalog";
 import { isLegacyNotionId } from "../../../lib/legacy-id";
@@ -132,6 +133,10 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
         <QrArrivalNotice toolName={tool.name} />
       </Suspense>
       <DetailShell tool={tool} projects={projects} />
+      {/* The assistant's starter chips for this tool, handed to the chat in
+          the layout; nothing is rendered (amendment "Tool-specific starter
+          questions"). */}
+      <ToolChatStarters slug={tool.slug} id={tool.id} questions={tool.starterQuestions ?? []} />
       {/* Edit mode, phone-first (§5.3(b)). Another dynamic hole of its own:
           the control asks `/api/identity` after mount, so the shell above it
           stays cached for the visitors who are not staff. */}

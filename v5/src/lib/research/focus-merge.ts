@@ -20,7 +20,7 @@ import type { ResearchResult } from "./result.ts";
  *
  * | Focus | Taken from the new run |
  * |---|---|
- * | `description` | `description` |
+ * | `description` | `description`, `starterQuestions` |
  * | `specs` | `specs`; `evidence.specsFromSource` |
  * | `links` | `resources`, `droppedLinks`; `evidence.manualFound` |
  * | `image` | `images`, `imageError` (and the old `imageRetry` is dropped) |
@@ -75,7 +75,13 @@ export function mergeResearch({ previous, next, focus, saved, at }: MergeInput):
   let sourceUrls = previous.sourceUrls;
   let searchTextSources = previous.searchTextSources;
 
-  if (focus.includes("description")) merged.description = next.description;
+  if (focus.includes("description")) {
+    merged.description = next.description;
+    // The starter chips are written from the description, and redone with it
+    // (amendment "Tool-specific starter questions"). A run that proposed none
+    // keeps the stored ones rather than taking the chips away.
+    if (next.starterQuestions && next.starterQuestions.length > 0) merged.starterQuestions = next.starterQuestions;
+  }
   if (focus.includes("specs")) {
     merged.specs = next.specs;
     evidence.specsFromSource = next.evidence.specsFromSource;

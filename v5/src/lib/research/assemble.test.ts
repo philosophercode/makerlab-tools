@@ -332,3 +332,28 @@ describe('the search\'s copy of a page (amendment "Search text fallback and conf
     expect("searchTextSources" in result).toBe(false);
   });
 });
+
+describe('starter questions (amendment "Tool-specific starter questions")', () => {
+  it("carries the draft's questions onto the result, cleaned", () => {
+    const result = assembleResearchResult({
+      draft: draft({ starterQuestions: ["What can it print?", "What can it print?", "It prints PLA."] }),
+      verified: [MANUAL],
+      dropped: [],
+      categories: CATEGORIES,
+      fallbackName: "Prusa MK4S",
+    });
+    expect(result.starterQuestions).toEqual(["What can it print?"]);
+    expect(researchResultSchema.safeParse(result).success).toBe(true);
+  });
+
+  it("leaves the key off when there are none, so the result looks like any before them", () => {
+    const result = assembleResearchResult({
+      draft: draft(),
+      verified: [MANUAL],
+      dropped: [],
+      categories: CATEGORIES,
+      fallbackName: "Prusa MK4S",
+    });
+    expect("starterQuestions" in result).toBe(false);
+  });
+});
