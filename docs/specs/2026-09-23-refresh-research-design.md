@@ -378,3 +378,103 @@ page shows the accepted value.
 | 2 | **Periodic freshness checks** (re-verify links and a few tools per night) | Later; this spec's queue is what it would call | Isaac | Later |
 | 3 | **Brand as a real column** | Not now; parse from the name. Revisit if refresh keeps misreading brands | Isaac | After first runs |
 | 4 | **Description rewrites** | Off by default, opt in per run; Isaac and Luis tune the research prompt's descriptions first | Isaac, Luis | Phase 1 |
+
+## 12. Research with the assistant
+
+Added 2026-09-23 at Isaac's request. The refresh queue in §3–§5 works in batches and in the
+background. This section is the **conversational** way into the same proposals: an admin on
+a tool's page, or on a pending item's preliminary page, tells the assistant what to change
+("the specs are thin — check the manual", "this is the 80 W version, fix the power"). The
+assistant researches it in that chat turn and answers with proposals the admin accepts or
+rejects inline.
+
+*Mode 1*, "guided redo", is a separate thing, built in `v5/gateway-images`: Research again
+with focus chips and a guidance note, re-running only the chosen parts in the background.
+It's recorded in the Gateway/images spec's amendments, not here.
+
+### 12.1 What the assistant gets
+
+- **A new capability, `curation`** (Article 2): `chatOnly`, and `requiredPermission:
+  "tools.edit"`, or `tools.approve` for pending items.
+- **Its tools:**
+
+  ```ts
+  // Read the record the admin is looking at, as the model may see it for curation.
+  get_record({ subject: { kind: "tool" | "pending", id: string } })
+    → { fields: Record<ProposalField, unknown>; revision: string; sources: string[] }
+
+  // Put a change in front of the admin. Writes nothing.
+  propose_change({
+    subject: { kind: "tool" | "pending", id: string },
+    field: ProposalField,          // same list as §4.2; never PPE
+    value: unknown,                // validated per field (string, string[], boolean, resource)
+    citations: { quote: string; url: string }[],
+    reason: string,                // ≤200 chars, shown on the card
+  }) → { proposalId: string; verified: boolean[] }
+  ```
+
+- **Search and page reading use tools chat already has:** `exa_search` and `read_page`.
+  In curation turns `read_page` may also open the subject's own source hosts and the hosts
+  of pages this turn's searches returned. The SSRF guard is unchanged.
+- **A fenced "Curating: <tool name>" block in the system prompt:** the record's current
+  values and revision, and the rule that the assistant proposes changes and never claims
+  to have made them.
+
+  This is the one place a model *does* see the current record, on purpose. The admin is
+  steering a targeted fix, not asking for a blind check. Blind research stays the batch
+  refresh's job (§3.1).
+
+### 12.2 Proposals in chat
+
+- **`propose_change` stores a `FieldProposal`** (§4.2) in a new `chat_proposals` table:
+  - the same shape as a refresh proposal, plus `subject_kind`, `subject_id`,
+    `base_revision`, `created_by` and `chat_id`;
+  - it expires after 7 days;
+  - citations are verified in code against the page text read *in this turn*, exactly as
+    in §4.2.
+- **It emits a `data-proposal` UI part:** a card with field, current → proposed, the quote
+  and link, a *quote not found* warning when a quote couldn't be verified, and **Accept** /
+  **Reject**.
+- **Accept calls a server action, never a model tool.**
+  - It re-checks the permission, then writes through the same path as §3.3: the editor
+    save with `base_revision`, so a stale revision shows a conflict on the card.
+  - For a pending item it updates `research` and the preliminary page's draft instead.
+  - The model can't accept its own proposals; only the admin's click can.
+- **Several proposals can arrive in one turn** (e.g. five specs), with **Accept all
+  verified**.
+
+### 12.3 Where it appears
+
+- **The chat FAB on `/tools/<slug>`** (for `tools.edit` holders) and on
+  `/admin/intake/[id]` gets a "Curate this entry" starter chip. The chat is told which
+  record the page shows (the focused tool, as today, or the pending id).
+- **Visitors never see curation.** For anyone without the permission, the capability
+  isn't composed at all.
+
+### 12.4 Security and safety
+
+- **Proposals only, no writes by the model** (Article 5). The accept action re-checks
+  permission and the revision.
+- **Prompt injection:** a hostile page can at most produce a proposal the admin sees,
+  quote and all, and a quote that doesn't appear on a page read that turn is shown
+  unverified. No proposal can publish, archive or delete anything.
+- **Cost:** a curation turn runs on the chat model with at most 5 searches and 5 page reads,
+  and chat's existing rate limits apply.
+
+### 12.5 Build order and testing
+
+- **Build order:** Phase 4, after Phases 1–2, because it reuses `FieldProposal`,
+  verification and the accept path.
+- **Unit:**
+  - `propose_change` validation per field, with PPE refused;
+  - citation verification against this turn's pages;
+  - the capability isn't composed without permission.
+- **Integration:**
+  - accept through the server action (success, stale revision → conflict, permission
+    refused);
+  - a pending-item accept updates `research`;
+  - the model calling a write path is impossible (no such tool).
+- **Component:** proposal card states (verified, unverified, conflict, accepted, rejected),
+  and Accept all verified.
+- **E2E:** an admin on a tool page asks the stubbed assistant to fix a spec, a card
+  appears, Accept, and the public page shows the new value.
