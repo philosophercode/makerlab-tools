@@ -1,6 +1,7 @@
 import { RESEARCH_MAX_WEB_SEARCHES, REVIEWER_NOTE_MAX_CHARS } from "../intake/limits";
 import { parseSearchFindings } from "./model-output";
 import { SEARCH_TEXT_LABEL, buildReadPrompt, buildSearchPrompt, researchSystemPrompt, type ReadPromptInput } from "./prompt";
+import { STARTER_QUESTION_GUIDANCE } from "../starter-questions";
 
 /**
  * The research prompt (spec §3.7, §8; gateway spec §3.2–§3.3). What a test can
@@ -341,10 +342,11 @@ describe('starter questions (amendment "Tool-specific starter questions")', () =
   const search = researchSystemPrompt("search");
 
   it("asks the read pass for exactly three short questions, in the answer's shape", () => {
-    expect(read).toContain("`starterQuestions`: exactly 3 short questions (at most 80 characters each)");
+    expect(read).toContain("`starterQuestions`: exactly 3 questions a student might ask");
     expect(read).toContain('"starterQuestions": [');
-    expect(read).toContain("answerable from the listing you are writing or the manual");
-    expect(read).toContain('"What resins can I print with?"');
+    expect(read).toContain(STARTER_QUESTION_GUIDANCE);
+    expect(read).toContain("a curious student who has never used this machine");
+    expect(read).toContain("Only ask what the tool's record or manual can answer");
   });
 
   it("asks for questions, not statements, and keeps safety claims and PPE out of them", () => {

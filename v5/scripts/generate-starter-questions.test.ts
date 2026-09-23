@@ -15,6 +15,7 @@ import {
   runBackfill,
   usd,
 } from "./generate-starter-questions.ts";
+import { STARTER_QUESTION_GUIDANCE } from "../src/lib/starter-questions";
 
 /**
  * The starter-question backfill (spec amendment "Tool-specific starter
@@ -84,7 +85,8 @@ describe("the prompt", () => {
   });
 
   it("asks for three short questions, not statements, and no PPE", () => {
-    expect(BACKFILL_SYSTEM_PROMPT).toContain("exactly 3 short questions, each at most 80 characters");
+    expect(BACKFILL_SYSTEM_PROMPT).toContain("exactly 3 questions, each at most 80 characters");
+    expect(BACKFILL_SYSTEM_PROMPT).toContain(STARTER_QUESTION_GUIDANCE);
     expect(BACKFILL_SYSTEM_PROMPT).toContain('Each is a question ending in "?", never a statement.');
     expect(BACKFILL_SYSTEM_PROMPT).toContain("do not ask about PPE");
   });

@@ -3,7 +3,7 @@ import { EXA_SEARCH_TOOL } from "../ai/exa.ts";
 import { RESEARCH_MAX_WEB_SEARCHES } from "../intake/limits.ts";
 import type { ResearchFocus, ResearchFocusField } from "../intake/research-focus.ts";
 import { reviewerNoteForPrompt } from "../intake/reviewer-note.ts";
-import { STARTER_QUESTION_MAX_CHARS, STARTER_QUESTIONS_MAX } from "../starter-questions.ts";
+import { STARTER_QUESTION_GUIDANCE, STARTER_QUESTIONS_MAX } from "../starter-questions.ts";
 import { fenceUntrusted } from "../web/fence.ts";
 import type { SearchFindings } from "./model-output.ts";
 
@@ -123,7 +123,7 @@ const LINKS_PARAGRAPH = [
  * nothing extra; `cleanStarterQuestions` drops anything that is not a short
  * question on the way in.
  */
-const STARTER_QUESTIONS_RULE = `- \`starterQuestions\`: exactly ${STARTER_QUESTIONS_MAX} short questions (at most ${STARTER_QUESTION_MAX_CHARS} characters each) that a student might ask the lab's assistant about this tool, to spark their curiosity — each one answerable from the listing you are writing or the manual, and specific to this machine rather than to any tool (for a resin printer: "What resins can I print with?", "How do I wash and cure a print?", "How big can a part be?"). Each is a question ending in "?", never a statement. Do not state a safety rule or protective equipment as a fact inside a question, and do not ask about PPE — safety is the lab's staff's to answer.`;
+const STARTER_QUESTIONS_RULE = `- \`starterQuestions\`: exactly ${STARTER_QUESTIONS_MAX} questions a student might ask the lab's assistant about this tool, shown as clickable chips on its page. ${STARTER_QUESTION_GUIDANCE}`;
 
 const LABELS_PARAGRAPH = [
   `## Writing the listing`,

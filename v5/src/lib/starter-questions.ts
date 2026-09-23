@@ -23,6 +23,19 @@ export const STARTER_QUESTIONS_MAX = 3;
 /** How long one question may be — a chip, not a paragraph. */
 export const STARTER_QUESTION_MAX_CHARS = 80;
 
+/**
+ * How to write the questions, shared by research's read prompt and the
+ * backfill script so the two can't drift. Tuned 2026-09-23 for curious first-
+ * time students: plain words a newcomer would use, one "can I make…" question,
+ * one "how do I start…" question, one about what makes the machine special —
+ * and only questions the record or manual can actually answer.
+ */
+export const STARTER_QUESTION_GUIDANCE = [
+  `Write for a curious student who has never used this machine and may not know its jargon: plain, friendly words they would actually type, starting with "Can I", "How do I", "What can", "What's" or "Which". Keep each under ${STARTER_QUESTION_MAX_CHARS} characters; shorter is better. Don't repeat the full product name — the student is already on its page; "this" or "it" is fine.`,
+  `Make the three different kinds: (1) what they could make or which materials it takes ("Can I cut acrylic with this?", "What can I make with it?"); (2) how to get started with a first project or a basic step ("How do I start my first print?", "How do I change the blade?"); (3) the one feature that makes this machine interesting or different ("How is resin printing different from filament?", "What does the tool changer do?").`,
+  `Only ask what the tool's record or manual can answer — never about a spec or feature the record doesn't mention. Each is a question ending in "?", never a statement. Do not state a safety rule or protective equipment as a fact inside a question, and do not ask about PPE — safety is the lab's staff's to answer.`,
+].join(" ");
+
 /** "1. ", "- ", "• ", "* ", "2) " at the start of a line: list formatting, not part of the question. */
 const LIST_MARKER = /^(?:[-*•–]\s+|\d{1,2}[.)]\s+)/;
 
