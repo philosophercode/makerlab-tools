@@ -121,13 +121,14 @@ describe("the shipped case set", () => {
     expect(new Set(cases.map((c) => c.id)).size).toBe(cases.length);
   });
 
-  it("covers catalog lookup, manual grounding, tool calling and honest absence", () => {
+  it("covers catalog lookup, manual grounding, manual search, tool calling and honest absence", () => {
     const files = new Set(loadCases().map((c) => c.file));
     expect(files).toEqual(
       new Set([
         "catalog-lookup.yaml",
         "honest-absence.yaml",
         "manual-grounding.yaml",
+        "manual-search.yaml",
         "tool-calling.yaml",
       ])
     );

@@ -5,6 +5,7 @@ import {
   type CapabilityCtx,
 } from "@/lib/capabilities";
 import { getCatalogTool, getCatalogTools } from "@/lib/catalog";
+import { loadToolManualsForChat } from "@/lib/chat/tool-manuals";
 import type { Tool } from "ai";
 import type { EvalCase } from "./cases";
 
@@ -110,10 +111,16 @@ export async function composeCase(evalCase: EvalCase): Promise<ComposedCase> {
   }
 
   const ctx: CapabilityCtx = { locale: "en", focusedToolId: focused?.id };
+  // The focused tool's searchable manuals, as the chat route loads them — the
+  // eval's fixture manual (`manual-fixture.ts`) once `npm run eval` seeded it,
+  // nothing offline. `search_manual` itself stays live: it reads the eval's
+  // own PGlite database and nothing else.
+  const manualOutlines = focused ? (await loadToolManualsForChat(focused.id, null)).outlines : [];
   const composed = composeChat(stubLiveReads(stubWrites(CAPABILITIES)), ctx, {
     tools,
     focusedTool: focused,
     locale: "en",
+    manualOutlines,
   });
 
   return { system: composed.system, tools: composed.tools };

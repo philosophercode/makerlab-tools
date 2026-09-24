@@ -1,4 +1,6 @@
 import {
+  citesPage,
+  saysNotCovered,
   ASSERTION_KINDS,
   calledTool,
   citesResource,
@@ -164,9 +166,26 @@ describe("cites_resource", () => {
   });
 });
 
+describe("cites_page", () => {
+  it("accepts a #page=N link or p. N, and checks the page when one is named", () => {
+    expect(citesPage("See [Replacing the resin tank (Form 4 Manual, p. 42)](https://b.test/m.pdf#page=42).").ok).toBe(true);
+    expect(citesPage("See page 42 of the manual.", "42").ok).toBe(true);
+    expect(citesPage("See [the manual](https://b.test/m.pdf#page=41).", "42")).toMatchObject({ ok: false });
+    expect(citesPage("Lift the tank straight up.")).toMatchObject({ ok: false });
+  });
+});
+
+describe("says_not_covered", () => {
+  it("accepts an honest 'the manual does not cover it', in either apostrophe", () => {
+    expect(saysNotCovered("The Form 4 manual doesn’t cover warranty terms.").ok).toBe(true);
+    expect(saysNotCovered("I could not find that in the manual.").ok).toBe(true);
+    expect(saysNotCovered("The warranty is two years.").ok).toBe(false);
+  });
+});
+
 describe("runAssertion dispatch", () => {
   it("handles every declared kind", () => {
-    expect(ASSERTION_KINDS).toHaveLength(7);
+    expect(ASSERTION_KINDS).toHaveLength(9);
     for (const kind of ASSERTION_KINDS) {
       const outcome = runAssertion(
         {

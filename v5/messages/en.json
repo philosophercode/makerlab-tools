@@ -207,7 +207,9 @@
     "rateLimitSignInCta": "Sign in",
     "rateLimited": "You've reached the hourly message limit. Please try again in a little while.",
     "searchingWeb": "🔍 Searching the web…",
-    "readingPage": "📄 Reading the page…"
+    "readingPage": "📄 Reading the page…",
+    "searchingManual": "📖 Searching the {tool} manual…",
+    "searchingManuals": "📖 Searching the manual…"
   },
   "qr": {
     "arrivalLabel": "Scanned from this machine",
@@ -384,6 +386,19 @@
     "usersLede": "Everyone who has signed in. A role change takes effect on that person's next request.",
     "intakeTitle": "Intake",
     "intakeLede": "New equipment, researched in the background and waiting for approval.",
+    "researchTitle": "Research and manuals",
+    "researchLede": "How much of the lab's manual library the assistant can read and search.",
+    "research": {
+      "manualsHeading": "Manuals by state",
+      "searchable": "Searchable",
+      "textOnly": "Text stored, not yet searchable",
+      "noText": "No text (scanned)",
+      "failed": "Failed",
+      "processing": "Processing",
+      "pages": "Pages stored",
+      "passages": "Search passages",
+      "note": "Counts every current PDF on a resource. A manual that is not searchable is attached whole to the chat instead. Run npm run manuals:index to process what is missing."
+    },
     "mirrorTitle": "Notion mirror",
     "mirrorLede": "Your own copy of the inventory in a Notion workspace, pushed after every change, and when it last was.",
     "tableLabel": "People and their roles",
@@ -534,6 +549,8 @@
         "resourceFile": "Open the file",
         "resourceHidden": "Hidden",
         "manualState": {
+          "searchable": "Searchable",
+          "searchablePages": "Searchable · {pages, plural, one {# page} other {# pages}}",
           "ready": "Text stored",
           "readyPages": "Text stored · {pages, plural, one {# page} other {# pages}}",
           "noText": "No text (scanned)",
@@ -549,7 +566,8 @@
         "hideResource": "Hide",
         "showResource": "Show",
         "removeResource": "Remove",
-        "noPhotos": "No photos. The gallery shows a placeholder until somebody takes one.",
+        "reprocessManual": "Re-process",
+        "reprocessManualTitle": "Read this PDF again: extract its text and rebuild its search passages",        "noPhotos": "No photos. The gallery shows a placeholder until somebody takes one.",
         "addPhotos": "Add photos",
         "coverPhoto": "Cover",
         "movePhotoEarlier": "Move earlier",

@@ -26,6 +26,7 @@ import { chatExaSearch, EXA_SEARCH_TOOL } from "../../../lib/ai/exa";
 import { describeChatError } from "../../../lib/chat/describe-chat-error";
 import { resourceHosts } from "../../../lib/capabilities/web";
 import { fetchManualPdf, type ManualPdfSource } from "../../../lib/chat/fetch-manual-pdf";
+import { loadToolManualsForChat } from "../../../lib/chat/tool-manuals";
 import { chatPrepareStep } from "./prepare-step";
 import {
   CAPABILITIES,
@@ -80,8 +81,14 @@ export async function POST(req: Request) {
   const { messages, toolId, locale }: ChatRequest = await req.json();
   const tools = await getCatalogTools();
   const focused = toolId ? await getCatalogTool(toolId) : null;
+  // Searchable manuals are answered through `search_manual` and listed in the
+  // prompt with their contents; only the rest are attached whole (manual text
+  // spec §3.6 — the fallback for `no_text`, `failed` or unprocessed manuals).
+  const toolManuals = focused
+    ? await loadToolManualsForChat(focused.id, identity)
+    : { outlines: [], searchableResourceIds: new Set<string>() };
   const { manuals, skipped } = focused
-    ? await collectToolManuals(focused.id)
+    ? await collectToolManuals(focused.id, toolManuals.searchableResourceIds)
     : { manuals: [], skipped: 0 };
   if (focused) {
     const hosts = resourceHosts(focused);
@@ -91,6 +98,7 @@ export async function POST(req: Request) {
     console.info(
       `[chat] read_page hosts: ${hosts.length ? hosts.join(", ") : "none"}`
     );
+    console.info(`[chat] manuals searchable: ${toolManuals.outlines.length}`);
     console.info(`[chat] manuals attached: ${manuals.length}`);
     console.info(`[chat] manuals not attached (link only): ${skipped}`);
   }
@@ -143,7 +151,7 @@ export async function POST(req: Request) {
       const { tools: capabilityTools, system } = composeChat(
         capabilitiesForIdentity(CAPABILITIES, identity),
         ctx,
-        { tools, focusedTool: focused, locale }
+        { tools, focusedTool: focused, locale, manualOutlines: toolManuals.outlines }
       );
 
       const chatTools: Record<string, Tool> = {
@@ -398,7 +406,8 @@ async function fetchPdfAsBase64(title: string, source: ManualPdfSource): Promise
 }
 
 async function collectToolManuals(
-  toolId: string
+  toolId: string,
+  searchableResourceIds: ReadonlySet<string> = new Set()
 ): Promise<{ manuals: AttachedManual[]; skipped: number }> {
   // Only the focused tool's resources are read (spec §3.10, Article 4's "load
   // context lazily") — the whole resource table used to come back from Notion
@@ -415,6 +424,9 @@ async function collectToolManuals(
   let skipped = 0;
   try {
     for (const r of forTool) {
+      // Searchable: `search_manual` reads it page by page — never attached, and
+      // never counted against MAX_PDFS_PER_CHAT.
+      if (searchableResourceIds.has(r.id)) continue;
       const source = pickPdfSource(r);
       if (!source) {
         if (r.url) {

@@ -8,6 +8,7 @@ import { getNotionEnvContract } from "@/lib/notion";
 import { loadCases, type EvalCase } from "./cases";
 import { buildFixture } from "./fixtures";
 import { composeCase } from "./harness";
+import { seedEvalManual } from "./manual-fixture";
 import { formatReport, runSuite, type CaseExecution } from "./runner";
 
 /**
@@ -106,6 +107,9 @@ describe("agent evals", () => {
   });
 
   it("answers every case in evals/cases", async () => {
+    // The Form 4's fixture manual, processed and searchable (manual text spec
+    // §10) — one sub-cent embedding call through the Gateway.
+    await seedEvalManual();
     const cases = loadCases();
     console.info(`Running ${cases.length} eval cases against ${MODEL_LABEL}…`);
 
