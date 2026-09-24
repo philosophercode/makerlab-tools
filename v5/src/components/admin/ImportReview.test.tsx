@@ -155,7 +155,7 @@ describe("ImportReview", () => {
   });
 
   it("researches the decided rows in chunks and says what waits and what needs a decision", async () => {
-    const post: ResearchPost = vi.fn(async (ids: string[]) => ({
+    const post: ResearchPost = vi.fn(async () => ({
       ok: false as const,
       status: 429,
       body: { code: "daily_limit" as const, error: "", remaining: 0 },

@@ -217,12 +217,20 @@ export function defaultLabDocTitle(url: string): string {
   return host ? `${host} — Lab document` : "Lab document";
 }
 
-/** A title from the row ("SOP", "Past projects"), or the default. */
+/**
+ * A title from the row ("SOP", "Past projects"), or the default. The words
+ * that only say "this is a link" are dropped first, so a header "SOP / Doc"
+ * titles its links "SOP" and a header "Google Doc" leaves the default.
+ */
 function labDocTitle(title: string | null | undefined, url: string): string {
   const cleaned = clean(title);
   if (!cleaned || GENERIC_DOC_HEADERS.has(cleaned.toLowerCase())) return defaultLabDocTitle(url);
-  return cleaned;
+  const words = cleaned.split(/[^A-Za-z0-9]+/).filter((word) => word && !GENERIC_DOC_WORDS.has(word.toLowerCase()));
+  return words.length > 0 ? words.join(" ") : defaultLabDocTitle(url);
 }
+
+/** Words in a lab-document header that name the kind of link, not the document. */
+const GENERIC_DOC_WORDS = new Set(["doc", "docs", "document", "documents", "link", "links", "url", "urls", "google", "gdoc", "lab"]);
 
 /** Likely a consumable rather than equipment ("10 boxes of screws", "PLA filament"). */
 export function looksConsumable(name: string): boolean {

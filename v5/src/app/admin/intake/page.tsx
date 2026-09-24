@@ -48,7 +48,12 @@ export default async function AdminIntakePage() {
 
   let items: PendingToolView[] | null;
   try {
-    items = (await listIntakeQueue()).map(toPendingToolView);
+    // An imported row not yet sent to research is reviewed on its import's page
+    // (bulk intake spec §5): four hundred of them here would bury the queue.
+    // Once researched it appears here like any other item.
+    items = (await listIntakeQueue())
+      .filter((item) => !(item.importId && item.status === "identified"))
+      .map(toPendingToolView);
   } catch (err) {
     console.error("[admin/intake] could not read the queue", err);
     items = null;

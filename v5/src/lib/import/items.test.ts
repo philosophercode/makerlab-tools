@@ -74,6 +74,10 @@ describe("links and lab documents (§3.4)", () => {
     expect(sop.ok && sop.item.labDocs[0].title).toBe("SOP");
     const generic = normalizeImportItem({ name: "Laser", labDocs: [{ title: "Docs", url: "https://docs.google.com/d/1" }] });
     expect(generic.ok && generic.item.labDocs[0].title).toBe("docs.google.com — Lab document");
+    const mixed = normalizeImportItem({ name: "Laser", labDocs: [{ title: "SOP / Doc", url: "https://docs.google.com/d/1" }] });
+    expect(mixed.ok && mixed.item.labDocs[0].title).toBe("SOP");
+    const past = normalizeImportItem({ name: "Laser", labDocs: [{ title: "Past projects", url: "https://docs.google.com/d/2" }] });
+    expect(past.ok && past.item.labDocs[0].title).toBe("Past projects");
   });
 });
 

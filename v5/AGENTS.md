@@ -20,7 +20,7 @@ the catalog to external agents. White-labelled via env vars.
 
 - **Next.js 16** (App Router, React Server Components, `cacheComponents` enabled), **React 19**, **TypeScript**, **Tailwind CSS 4**.
 - **i18n:** `next-intl`, **12 locales**, cookie-based (`NEXT_LOCALE`) — no URL-prefix routing. Config in `src/i18n/config.ts`; messages in `messages/*.json`.
-- **AI:** Vercel **AI SDK v6** (`ai`, `@ai-sdk/react`) through the **Vercel AI Gateway** (`@ai-sdk/gateway`) — the *only* model path (gateway spec 2026-09-23: `ANTHROPIC_API_KEY`, `@ai-sdk/anthropic` and the direct-provider `src/lib/model.ts` are retired and removed). Every model call names a **job**, not a model — `chat`, `researchSearch`, `researchRead`, `imageRank`, and the embedding job `embed` (`openai/text-embedding-3-small` at 512 dimensions, manual search — manual text spec phase 2) — resolved by `src/lib/ai/models.ts`'s `MODEL_JOBS`, each with a code default (`openai/gpt-6-luna` for every language job — chat passed the §10 eval gate once its prompt was tuned, gateway spec amendment "Chat prompt tuning for Luna") and one `MODEL_<JOB>` env override. Each job also names a Gateway **service tier** — `flex` for the background jobs (research search/read, image ranking, the starter-question backfill), none for chat — sent by `providerOptionsFor(job)` and overridden by `MODEL_<JOB>_TIER` (`default`/`flex`/`priority`; amendment "Manuals as text and flex tier for research"). Research's read step gives a manual PDF as **text**, not a file part (`RESEARCH_ATTACH_PDFS = false` in `intake/limits.ts`) — the lab's own extraction first (a stored manual, or the downloaded PDF extracted in memory: outline plus the pages richest in specs), the search's captured copy only as the fallback (manual text spec, phase 1); chat answers from a processed manual with `search_manual` and attaches only the manuals not yet processed (phase 2). There is **no image model**: the `imageClean` redraw was retired on 2026-09-23 because it altered product labels (spec amendment "No generative redraw"); background removal is a deterministic cutout in code. Web search is `gateway.tools.exaSearch` (Exa, provider-executed — one request leaves our process regardless of how many search legs the Gateway runs); reading a specific page is `read_page`, our own capability tool over `src/lib/web/*`'s SSRF-guarded fetch, not a provider tool. Auth is `AI_GATEWAY_API_KEY` when set, else the deployment's own Vercel OIDC token — production sets neither key nor a fallback, only the Gateway. Markdown via `react-markdown` + `remark-gfm`.
+- **AI:** Vercel **AI SDK v6** (`ai`, `@ai-sdk/react`) through the **Vercel AI Gateway** (`@ai-sdk/gateway`) — the *only* model path (gateway spec 2026-09-23: `ANTHROPIC_API_KEY`, `@ai-sdk/anthropic` and the direct-provider `src/lib/model.ts` are retired and removed). Every model call names a **job**, not a model — `chat`, `researchSearch`, `researchRead`, `imageRank`, bulk intake's `importParse` and `nameSuggest` (`MODEL_IMPORT_PARSE`, `MODEL_NAME_SUGGEST`, both flex), and the embedding job `embed` (`openai/text-embedding-3-small` at 512 dimensions, manual search — manual text spec phase 2) — resolved by `src/lib/ai/models.ts`'s `MODEL_JOBS`, each with a code default (`openai/gpt-6-luna` for every language job — chat passed the §10 eval gate once its prompt was tuned, gateway spec amendment "Chat prompt tuning for Luna") and one `MODEL_<JOB>` env override. Each job also names a Gateway **service tier** — `flex` for the background jobs (research search/read, image ranking, the starter-question backfill), none for chat — sent by `providerOptionsFor(job)` and overridden by `MODEL_<JOB>_TIER` (`default`/`flex`/`priority`; amendment "Manuals as text and flex tier for research"). Research's read step gives a manual PDF as **text**, not a file part (`RESEARCH_ATTACH_PDFS = false` in `intake/limits.ts`) — the lab's own extraction first (a stored manual, or the downloaded PDF extracted in memory: outline plus the pages richest in specs), the search's captured copy only as the fallback (manual text spec, phase 1); chat answers from a processed manual with `search_manual` and attaches only the manuals not yet processed (phase 2). There is **no image model**: the `imageClean` redraw was retired on 2026-09-23 because it altered product labels (spec amendment "No generative redraw"); background removal is a deterministic cutout in code. Web search is `gateway.tools.exaSearch` (Exa, provider-executed — one request leaves our process regardless of how many search legs the Gateway runs); reading a specific page is `read_page`, our own capability tool over `src/lib/web/*`'s SSRF-guarded fetch, not a provider tool. Auth is `AI_GATEWAY_API_KEY` when set, else the deployment's own Vercel OIDC token — production sets neither key nor a fallback, only the Gateway. Markdown via `react-markdown` + `remark-gfm`.
 - **MCP:** `@modelcontextprotocol/sdk` (HTTP JSON-RPC server at `/api/mcp`).
 - **Validation:** `zod`. **Search:** `match-sorter` (fuzzy, ranked).
 
@@ -540,6 +540,38 @@ Existing tools researched again, **blind**, with every change a proposal a perso
   (`propose`, `citations`, `decide`, `blind-input`) have fixture tests shaped like the Aug 29
   reconciliation; `fixtures.test-helpers.ts` holds the shared fixtures.
 
+## Bulk intake (`bulk_imports`, `research_allowances`; bulk intake spec, migration `0013`)
+
+Importing a list — a CSV/TSV file, pasted cells, a plain list, a document or a PDF — as
+**identified** pending items, reviewed before a cent is spent. Nothing an import makes is
+researched or published on its own (Article 5). See the spec's 2026-09-24 amendment.
+
+- **Parsing is code** (`src/lib/import/`, client-safe and plain Node): `table.ts` (RFC 4180,
+  BOM, delimiter sniffing — tab first), `columns.ts` (header synonyms, the column map),
+  `items.ts` (validation: names, http(s) links, lab documents by host, quantity 1–50,
+  serials, `consumable?`), `line-list.ts` (plain lists), `detect.ts` (table / list /
+  document). Only prose and PDF text reach a model: job **`importParse`**, no tools, the text
+  fenced (`extract.ts`), run by `src/workflows/import-document.ts`.
+- **`src/lib/import/service.ts`** (`startImport`, `confirmImportMapping`) is the one path for
+  `POST /api/imports`, the mapping step and the chat's `start_import`. Rows are made only by
+  `addImportItems` (`data/bulk-imports.ts`): one transaction, the import locked, each row
+  duplicate-checked against inventory, waiting items and the import's earlier rows.
+- **The review page** `/admin/intake/imports/[id]` (`ImportReview`, `ImportTable`,
+  `ImportMapping`; server actions in `app/admin/intake/imports/actions.ts`, each checking
+  `tools.add` and ownership). **Research selected** goes to the existing research route 25 at
+  a time from the browser (`import/research-queue.ts`) — a partial chunk at the allowance's
+  edge, the rest said to wait. **Suggest names** is job **`nameSuggest`** (one call with Exa,
+  name/brand/category only), workflow `suggest-names.ts`, charged a quarter item each.
+- **Units and lab documents at approval**: `max(quantity, serials)` units of one tool
+  (`import/resources.ts`); lab documents become `resources.origin = 'lab_document'` — never
+  archived, never in the chat's manual list, never a `read_page` host, badged *Lab document*
+  on the tool page. The list's own links are offered on the preliminary page.
+- **Setup allowances**: `researchLimitFor` (`data/research-allowances.ts`) = 100 + running
+  grants, used by research, refresh and Find a different image; granted on `/admin/users`
+  (`users.manage`), audited `allowance.granted`.
+- **Uploads**: kind `import` on `POST /api/uploads` (private, `tools.add`). The chat's
+  paperclip takes list files and names them to the model as `[Attached documents: …]`.
+
 ## The Notion mirror (`notion_mirrors`, Phase 8)
 
 A one-way copy of the inventory into an admin's own Notion workspace (spec
@@ -824,6 +856,10 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `scripts/index-manuals.ts` | `npm run manuals:index` — the manual-text and passages backfill (tokens and cost printed) |
 | `src/workflows/archive-manuals.ts` | `archiveManuals(resourceIds)` — one step per resource |
 | `src/lib/data/manual-archives.ts` / `src/lib/cron/manual-archive.ts` | The archive's key, stale-copy release and the nightly due list; the cron stage |
+| `src/lib/import/*` | Bulk intake: the parsers and validation (pure), `service.ts` (starting an import), `extract.ts` / `suggest-names.ts` (the two model calls), `import-steps.ts` / `suggest-steps.ts` (steps), `research-queue.ts` (chunked Research selected) |
+| `src/lib/data/bulk-imports.ts` / `research-allowances.ts` | `bulk_imports` and the rows it makes; setup allowances and `researchLimitFor` |
+| `src/app/api/imports/route.ts`, `src/app/admin/intake/imports/` | **Import a list**, and the import review page with its server actions |
+| `src/workflows/import-document.ts` / `suggest-names.ts` | Reading a document into rows; the Suggest names pass |
 | `src/lib/db/schema/mirror.ts`, `src/lib/data/mirrors.ts` / `mirror-pages.ts` | `notion_mirrors` and `mirror_pages`; every claim (run, Sync now, coalesced push) is one conditional `UPDATE` |
 | `src/lib/mirror/*` | The mirror: `notion-client` (raw fetch, throttle, 429), `token-crypto`, `credentials`, `notion-id`, `database-schemas`, `databases` (create / validate pasted ids), `source` (what changed), `properties` (pure row → Notion builders), `push`, `steps`, `start`, `trigger`, `connect` |
 | `src/workflows/mirror-push.ts` | `mirrorPush(mirrorId)` and `mirrorPushAfterChange()` — the `"use workflow"` functions |
