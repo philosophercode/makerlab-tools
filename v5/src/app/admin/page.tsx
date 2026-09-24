@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
 import { can, type Permission } from "../../lib/auth/permissions";
 import { AdminActions } from "../../components/admin/AdminActions";
+import { countRefreshesWaiting } from "../../lib/data/tool-refreshes";
 
 /**
  * `/admin` — the index the header's `AdminLink` points at.
@@ -35,6 +36,7 @@ import { AdminActions } from "../../components/admin/AdminActions";
 const SURFACES: ReadonlyArray<{ href: string; permission: Permission; key: string }> = [
   { href: "/admin/inventory", permission: "tools.edit", key: "inventory" },
   { href: "/admin/intake", permission: "tools.approve", key: "intake" },
+  { href: "/admin/refresh", permission: "tools.edit", key: "refresh" },
   { href: "/admin/research", permission: "tools.edit", key: "research" },
   { href: "/admin/maintenance", permission: "maintenance.manage", key: "maintenance" },
   { href: "/admin/corrections", permission: "feedback.manage", key: "corrections" },
@@ -47,6 +49,9 @@ export default async function AdminHomePage() {
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
   const open = SURFACES.filter((surface) => can(identity, surface.permission));
+  // The Refresh entry says how many refreshes wait for a decision (refresh
+  // research spec §6). A count that cannot be read is left out, not zero.
+  const refreshWaiting = can(identity, "tools.edit") ? await countRefreshesWaiting().catch(() => null) : null;
 
   return (
     <section className="admin-index td-panel td-prose">
@@ -62,7 +67,10 @@ export default async function AdminHomePage() {
           {open.map((surface) => (
             <li key={surface.href}>
               <Link href={surface.href}>{t(`${surface.key}Title`)}</Link>
-              <span>{t(`${surface.key}Lede`)}</span>
+              <span>
+                {t(`${surface.key}Lede`)}
+                {surface.key === "refresh" && refreshWaiting ? ` ${t("refreshWaitingCount", { count: refreshWaiting })}.` : null}
+              </span>
             </li>
           ))}
         </ul>

@@ -35,6 +35,12 @@ export interface InventoryTableProps {
    * "no results" on its own tells a reviewer nothing (spec §6, States).
    */
   emptyMessage: string;
+  /**
+   * Row selection for **Refresh research** (refresh research spec §6): when
+   * `onToggle` is given, each row gets a checkbox. The island owns the set.
+   */
+  selected?: ReadonlySet<string>;
+  onToggle?: (row: InventoryRow) => void;
 }
 
 /** The flags that are plain booleans, in the order the badges read. */
@@ -42,15 +48,17 @@ const PLAIN_FLAGS: ReadonlyArray<Exclude<keyof InventoryAttention, "openTickets"
   "noPhoto",
   "noManual",
   "neverReviewed",
+  "floorCheck",
 ];
 
 const FLAG_KEYS: Record<(typeof PLAIN_FLAGS)[number], string> = {
   noPhoto: "no_photo",
   noManual: "no_manual",
   neverReviewed: "never_reviewed",
+  floorCheck: "floor_check",
 };
 
-export function InventoryTable({ rows, emptyMessage, onEdit }: InventoryTableProps) {
+export function InventoryTable({ rows, emptyMessage, onEdit, selected, onToggle }: InventoryTableProps) {
   const t = useTranslations("admin.inventory");
 
   if (rows.length === 0) {
@@ -62,6 +70,11 @@ export function InventoryTable({ rows, emptyMessage, onEdit }: InventoryTablePro
       <table className="admin-table admin-inventory-table" aria-label={t("tableLabel")}>
         <thead>
           <tr>
+            {onToggle ? (
+              <th scope="col" className="admin-select-cell">
+                <span className="admin-visually-hidden">{t("columnSelect")}</span>
+              </th>
+            ) : null}
             <th scope="col">{t("columnPhoto")}</th>
             <th scope="col">{t("columnTool")}</th>
             <th scope="col">{t("columnCategory")}</th>
@@ -75,6 +88,16 @@ export function InventoryTable({ rows, emptyMessage, onEdit }: InventoryTablePro
         <tbody>
           {rows.map((row) => (
             <tr key={row.id} className={row.state === "archived" ? "is-archived" : undefined}>
+              {onToggle ? (
+                <td className="admin-select-cell" data-label={t("columnSelect")}>
+                  <input
+                    type="checkbox"
+                    checked={selected?.has(row.id) ?? false}
+                    onChange={() => onToggle(row)}
+                    aria-label={t("selectRow", { name: row.name })}
+                  />
+                </td>
+              ) : null}
               <td data-label={t("columnPhoto")}>
                 {row.photoUrl ? (
                   <span className="admin-thumb">
@@ -109,6 +132,11 @@ export function InventoryTable({ rows, emptyMessage, onEdit }: InventoryTablePro
                   >
                     {t("edit")}
                   </button>
+                ) : null}
+                {row.openRefreshId ? (
+                  <Link className="admin-refresh-open-tag" href={`/admin/refresh/${row.openRefreshId}`}>
+                    {t("refreshOpen")}
+                  </Link>
                 ) : null}
                 <AttentionBadges row={row} />
               </th>

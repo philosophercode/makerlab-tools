@@ -23,6 +23,7 @@ import {
 import { attachPhotos, removePhoto, reorderPhotos } from "./photo-actions";
 import { addResource, editResource, removeResource, reprocessManual } from "./resource-actions";
 import { addUnit, deleteUnit, editUnit, retireUnit } from "./unit-actions";
+import { queueToolRefresh } from "../refresh/actions";
 
 /**
  * `/admin/inventory` — the review table (spec §5.3(a), §6).
@@ -113,6 +114,8 @@ export default async function AdminInventoryPage({
         // Hiding the publish controls from somebody who only holds `tools.edit`
         // is presentation; the actions check `tools.publish` themselves.
         canPublish={can(identity, "tools.publish")}
+        // Refresh research is `tools.edit`, which this page already requires.
+        queueRefresh={queueToolRefresh}
       />
     </section>
   );

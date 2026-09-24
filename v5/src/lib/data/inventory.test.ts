@@ -243,6 +243,7 @@ describe("listInventoryRows — needs attention", () => {
       noManual: false,
       openTickets: false,
       neverReviewed: false,
+      floorCheck: false,
     });
     expect(row.needsAttention).toBe(false);
   });
@@ -275,8 +276,9 @@ describe("listInventoryRows — cost", () => {
       return countSelects(db, (counting) => listInventoryRows({ db: counting }));
     }
 
-    expect(await statementsFor(2)).toBe(5);
-    expect(await statementsFor(20)).toBe(5);
+    // Six since refresh research: the open refreshes are read in bulk too.
+    expect(await statementsFor(2)).toBe(6);
+    expect(await statementsFor(20)).toBe(6);
   });
 });
 
