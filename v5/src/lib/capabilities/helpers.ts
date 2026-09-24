@@ -108,23 +108,39 @@ export interface MaintenanceEntry {
   status: string;
   date_reported: string;
   description: string;
+  /**
+   * Who filed it — **only for a caller holding `maintenance.manage`** (MCP
+   * access spec §3.2). Absent, not empty, for everyone else, so a model cannot
+   * tell a redacted name from a ticket nobody signed. Never an email.
+   */
+  reported_by?: string;
 }
 
 /** The model sees a recap, not an archive — and the read is bounded to match. */
 const MAX_MAINTENANCE_ENTRIES = 10;
+
+export interface RecentMaintenanceOptions {
+  /** Include the reporter's name. The caller decides with `can(identity, "maintenance.manage")`. */
+  includeReporter?: boolean;
+}
 
 /**
  * Fetch the most recent maintenance logs for a unit (cap 10), flattened to the
  * shape both chat and MCP return — unchanged from when these rows lived in
  * Notion, so the tool descriptions and prompt fragments still describe what the
  * model gets. The query module carries more (resolution, resolved date,
- * reporter name); this is the subset the assistant has always been given.
+ * reporter name); this is the subset the assistant has always been given, plus
+ * the reporter's name for lab staff, who work the tickets (MCP access spec
+ * §3.2: public and signed-in callers get dates, status and summaries only).
  *
  * Best-effort: resolves to [] on failure, as it always has. A failure here is
  * odd — resolving the unit already read the same database — so it is logged
  * rather than swallowed silently (Article 4).
  */
-export function recentMaintenance(unitId: string): Promise<MaintenanceEntry[]> {
+export function recentMaintenance(
+  unitId: string,
+  options: RecentMaintenanceOptions = {}
+): Promise<MaintenanceEntry[]> {
   return listMaintenanceHistoryForUnit(unitId, { limit: MAX_MAINTENANCE_ENTRIES })
     .catch((err) => {
       console.warn("[capabilities] maintenance history unavailable", unitId, err);
@@ -138,6 +154,7 @@ export function recentMaintenance(unitId: string): Promise<MaintenanceEntry[]> {
         status: log.status,
         date_reported: log.dateReported,
         description: log.description,
+        ...(options.includeReporter && log.reportedByName ? { reported_by: log.reportedByName } : {}),
       }))
     );
 }

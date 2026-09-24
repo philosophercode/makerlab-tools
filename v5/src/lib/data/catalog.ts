@@ -97,6 +97,27 @@ export interface CatalogQueryOptions {
   db?: Db;
   /** Include unpublished tools. Off by default: the catalogue is published-only. */
   includeDrafts?: boolean;
+  /**
+   * Include archived tools too. Only the MCP catalogue tools ask, for a caller
+   * holding `tools.edit`, and mark each one (MCP access spec §3.2).
+   */
+  includeArchived?: boolean;
+}
+
+/** Published, still a draft, or archived — the same rule `inventory.ts` uses. */
+export type CatalogToolState = "published" | "draft" | "archived";
+
+/** Every tool's state by id, drafts and archived rows included. One statement. */
+export async function listToolStates(
+  options: Pick<CatalogQueryOptions, "db"> = {}
+): Promise<Map<string, CatalogToolState>> {
+  const db = await resolveDb(options);
+  const rows = await db
+    .select({ id: tools.id, published: tools.published, archived: isNotNull(tools.archivedAt) })
+    .from(tools);
+  return new Map(
+    rows.map((row) => [row.id, row.archived ? "archived" : row.published ? "published" : "draft"] as const)
+  );
 }
 
 // ── Queries ─────────────────────────────────────────────────────────
@@ -178,7 +199,8 @@ async function resolveDb(options: CatalogQueryOptions): Promise<Db> {
 
 /** Archived tools are never shown; drafts only when the caller asks. */
 function visibility(options: CatalogQueryOptions): SQL[] {
-  const clauses = [isNull(tools.archivedAt)];
+  const clauses: SQL[] = [];
+  if (!options.includeArchived) clauses.push(isNull(tools.archivedAt));
   if (!options.includeDrafts) clauses.push(eq(tools.published, true));
   return clauses;
 }

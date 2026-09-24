@@ -7,6 +7,7 @@ import { inArray } from "drizzle-orm";
 import { http, HttpResponse } from "msw";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { server } from "../../../test/msw/server";
+import { mcpAccessFor } from "../../../test/utils/identities";
 import { setResolvedAddresses } from "../../../test/web/resolver";
 import { toolWithLinks } from "../../../test/fixtures/catalog";
 import { getCatalogTools } from "../catalog";
@@ -250,10 +251,10 @@ describe("the web capability on each surface", () => {
     expect(Object.keys(toAiTools([web], {}))).toEqual(["read_page"]);
   });
 
-  it("never registers read_page over MCP, even with writes allowed", () => {
+  it("never registers read_page over MCP, even for a super admin", () => {
     const registered: string[] = [];
     const fake = { registerTool: (name: string) => registered.push(name) };
-    registerAll(fake as unknown as McpServer, [web], { allowWrites: true });
+    registerAll(fake as unknown as McpServer, [web], { access: mcpAccessFor("super_admin") });
     expect(registered).toEqual([]);
     expect(readPageTool()).toMatchObject({ kind: "read", chatOnly: true });
   });

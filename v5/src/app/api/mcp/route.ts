@@ -1,98 +1,21 @@
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js";
-import { CAPABILITIES } from "../../../lib/capabilities";
-import { registerAll } from "../../../lib/capabilities/mcp-adapter";
-import { rateLimitAsync } from "../../../lib/rate-limit";
-import { resolveIdentity, type Identity } from "../../../lib/auth/identity";
-
-// ── Server factory ─────────────────────────────────────────────────
+import { handleMcpRequest } from "../../../lib/mcp/handler";
 
 /**
- * Build a fresh MCP server with every capability tool registered. The capability
- * registry (design spec §3) is the single source of truth for both the chat and
- * MCP surfaces; the MCP adapter (`registerAll`) wraps each tool's `run()` in an
- * MCP handler.
+ * `POST /api/mcp` — the MCP endpoint (MCP access spec §3).
  *
- * `allowWrites` gates `kind: "write"` tools (e.g. `report_issue`, `create_tool`):
- * they are exposed over MCP **only when `MCP_TOKEN` is configured** (which
- * token-gates the whole endpoint). With no token set, the MCP surface is
- * read-only — write tools are omitted entirely (design spec §3.3 / §8).
- *
- * `identity` is passed through as the capability ctx (auth design spec §3.4).
- * An MCP client authenticates with a bearer token rather than a session cookie,
- * so in practice it is the anonymous identity — tools then behave exactly as
- * they did before, which is the intended degradation and not a gap.
+ * Open: with no credential it serves the public, read-only tools (the "open
+ * MCP"); with `Authorization: Bearer mlt_…` (a personal access token from
+ * `/account/tokens`) or an OAuth access token it acts as that person, with
+ * their role's tools. A bad, revoked or expired token is a 401, never
+ * anonymous. Everything is in `lib/mcp/handler.ts`, shared with
+ * `/api/mcp/signed-in`.
  */
-function createServer(allowWrites: boolean, identity: Identity): McpServer {
-  const server = new McpServer({ name: "makerlab", version: "1.0.0" });
-  registerAll(server, CAPABILITIES, { allowWrites, ctx: { identity } });
-  return server;
-}
 
-// ── Route handler ──────────────────────────────────────────────────
+// `runtime` cannot be set when nextConfig.cacheComponents is enabled.
+// Default Node.js runtime is used.
 
-async function handler(req: Request): Promise<Response> {
-  // Optional bearer-token auth: if MCP_TOKEN is set, require it. If unset, the
-  // endpoint is open so it works out of the box but can be locked down later.
-  const expectedToken = process.env.MCP_TOKEN;
-  if (expectedToken) {
-    const authHeader = req.headers.get("authorization") || "";
-    const bearer = authHeader.toLowerCase().startsWith("bearer ")
-      ? authHeader.slice(7).trim()
-      : "";
-    if (bearer !== expectedToken) {
-      return Response.json(
-        { jsonrpc: "2.0", error: { code: -32001, message: "Unauthorized" }, id: null },
-        { status: 401 }
-      );
-    }
-  }
-
-  // Always rate-limit. MCP callers are machines with a bearer token rather than
-  // a session cookie, so in practice this resolves to the hashed-IP key.
-  const identity = await resolveIdentity(req);
-  const { allowed } = await rateLimitAsync(`mcp:${identity.rateLimitKey}`, {
-    limit: 30,
-    windowMs: 60_000,
-  });
-  if (!allowed) {
-    return Response.json(
-      {
-        jsonrpc: "2.0",
-        error: { code: -32000, message: "Too many requests. Please wait a moment." },
-        id: null,
-      },
-      { status: 429 }
-    );
-  }
-
-  // GET is used for SSE streams — not supported in stateless serverless mode.
-  if (req.method === "GET") {
-    return Response.json(
-      { jsonrpc: "2.0", error: { code: -32000, message: "SSE not supported in serverless mode" }, id: null },
-      { status: 405 }
-    );
-  }
-
-  // Write capabilities are only exposed when MCP_TOKEN is configured (the
-  // endpoint is then token-gated end to end). Read tools stay available.
-  const allowWrites = Boolean(expectedToken);
-  const server = createServer(allowWrites, identity);
-  const transport = new WebStandardStreamableHTTPServerTransport({
-    sessionIdGenerator: undefined,
-    enableJsonResponse: true, // Return JSON instead of SSE — required for serverless
-  });
-
-  await server.connect(transport);
-
-  try {
-    return await transport.handleRequest(req);
-  } catch {
-    return Response.json(
-      { jsonrpc: "2.0", error: { code: -32603, message: "Internal server error" }, id: null },
-      { status: 500 }
-    );
-  }
+function handler(req: Request): Promise<Response> {
+  return handleMcpRequest(req, { requireSignIn: false, resourcePath: "/api/mcp" });
 }
 
 export const POST = handler;

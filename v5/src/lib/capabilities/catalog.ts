@@ -1,8 +1,11 @@
 import { z } from "zod";
 import { getCatalogTool, getCatalogTools } from "../catalog";
+import { can } from "../auth/permissions";
+import { listCatalogTools, listToolStates, type CatalogToolState } from "../data/catalog";
 import { findTool, summarizeTool } from "./helpers";
 import type {
   Capability,
+  CapabilityCtx,
   CapabilityTool,
   PromptEnv,
 } from "./types";
@@ -29,6 +32,8 @@ interface ToolListEntry {
   slug: string;
   name: string;
   summary: string;
+  /** Only for a caller holding `tools.edit`, who also sees drafts and archived tools. */
+  state?: CatalogToolState;
 }
 
 interface ListToolsResult {
@@ -67,6 +72,37 @@ interface ToolDetailsResult {
   links?: MakerLabTool["links"];
   units?: MakerLabTool["units"];
   detail_page?: string;
+  /** Only for a caller holding `tools.edit`: published, draft or archived. */
+  state?: CatalogToolState;
+}
+
+// ── Whose catalogue ────────────────────────────────────────────────
+
+/** The tools a caller may browse, and — for staff — each one's state. */
+interface CatalogView {
+  tools: MakerLabTool[];
+  /** Null for everyone but staff, who alone see drafts and archived tools. */
+  states: Map<string, CatalogToolState> | null;
+}
+
+/**
+ * The published catalogue for everybody; for a caller holding `tools.edit`,
+ * every tool including drafts and archived ones, each marked with its state
+ * (MCP access spec §3.2). Staff read it uncached: it is the review view, and a
+ * draft someone just created should be there on the next call.
+ */
+async function catalogFor(ctx: CapabilityCtx): Promise<CatalogView> {
+  if (!can(ctx.identity, "tools.edit")) return { tools: await getCatalogTools(), states: null };
+  const [tools, states] = await Promise.all([
+    listCatalogTools({ includeDrafts: true, includeArchived: true }),
+    listToolStates(),
+  ]);
+  return { tools, states };
+}
+
+function stateOf(view: CatalogView, id: string): { state?: CatalogToolState } {
+  const state = view.states?.get(id);
+  return state ? { state } : {};
 }
 
 // ── Inputs ─────────────────────────────────────────────────────────
@@ -101,8 +137,9 @@ const listTools: CapabilityTool<ListToolsInput, ListToolsResult> = {
     "List all tools in the MakerLab catalog. Returns name, id, category, location, training level, and status. Optionally filter by category or location (partial match).",
   inputSchema: listToolsInput,
   kind: "read",
-  async run({ category, location }) {
-    let tools = await getCatalogTools();
+  async run({ category, location }, ctx) {
+    const view = await catalogFor(ctx);
+    let tools = view.tools;
     if (category) {
       const cat = category.toLowerCase();
       tools = tools.filter(
@@ -126,6 +163,7 @@ const listTools: CapabilityTool<ListToolsInput, ListToolsResult> = {
         slug: t.slug,
         name: t.name,
         summary: summarizeTool(t),
+        ...stateOf(view, t.id),
       })),
     };
   },
@@ -137,9 +175,10 @@ const searchTools: CapabilityTool<SearchToolsInput, SearchToolsResult> = {
     "Keyword search across tool names, descriptions, materials, and tags. Returns matching tools with a short summary.",
   inputSchema: searchToolsInput,
   kind: "read",
-  async run({ query }) {
+  async run({ query }, ctx) {
     const q = query.toLowerCase();
-    const tools = await getCatalogTools();
+    const view = await catalogFor(ctx);
+    const tools = view.tools;
     const results = tools.filter((t) =>
       [t.name, t.description, t.shortDescription, ...t.materials, ...t.tags]
         .join(" ")
@@ -155,6 +194,7 @@ const searchTools: CapabilityTool<SearchToolsInput, SearchToolsResult> = {
         name: t.name,
         summary: summarizeTool(t),
         short_description: t.shortDescription,
+        ...stateOf(view, t.id),
       })),
     };
   },
@@ -166,14 +206,16 @@ const getToolDetails: CapabilityTool<GetToolDetailsInput, ToolDetailsResult> = {
     "Get full details for a tool by id, slug, or name. Includes description, materials, PPE, training, use restrictions, emergency stop, units, and resource links (SOPs, safety docs, manuals).",
   inputSchema: getToolDetailsInput,
   kind: "read",
-  async run({ id_or_name }) {
+  async run({ id_or_name }, ctx) {
     const needle = id_or_name.trim();
-    // Try a direct id/slug lookup first (cheaper, single record), then fall
-    // back to a name search across the full catalog.
-    let tool = await getCatalogTool(needle);
+    // Everybody but staff: a direct id/slug lookup first (cheaper, single
+    // record), then a name search across the published catalogue. Staff search
+    // every tool, drafts and archived ones included.
+    let view: CatalogView | null = null;
+    let tool = can(ctx.identity, "tools.edit") ? null : await getCatalogTool(needle);
     if (!tool) {
-      const tools = await getCatalogTools();
-      tool = findTool(tools, needle);
+      view = await catalogFor(ctx);
+      tool = findTool(view.tools, needle);
     }
     if (!tool) {
       return { found: false, message: `Tool not found: ${id_or_name}` };
@@ -202,6 +244,7 @@ const getToolDetails: CapabilityTool<GetToolDetailsInput, ToolDetailsResult> = {
       links: tool.links,
       units: tool.units,
       detail_page: `/tools/${tool.slug}`,
+      ...(view ? stateOf(view, tool.id) : {}),
     };
   },
 };

@@ -283,8 +283,9 @@ const reportCorrection: CapabilityTool<ReportCorrectionInput, ReportCorrectionRe
 
     // The session, when the surface resolved one — the same rule `report_issue`
     // follows: a client may never assert its own identity, so `reporter_email`
-    // and `reporter_user_id` come from `ctx.identity` and nowhere else. MCP and
-    // scheduled callers have no identity, and anonymous stays the default (§8).
+    // and `reporter_user_id` come from `ctx.identity` and nowhere else. Over MCP
+    // that is the token's owner (MCP access spec §3.2); in the chat anonymous
+    // stays the default (§8).
     const result = await submitCorrection(parsed.report, identityOf(ctx));
     if (!result.ok) {
       return { success: false, error: FAILURE_MESSAGES[result.code] };

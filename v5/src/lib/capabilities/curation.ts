@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { EXA_SEARCH_TOOL } from "../ai/exa";
 import { turnTexts } from "../chat/turn-sources";
-import { createChatProposal } from "../data/chat-proposals";
+import { createChatProposal, MCP_PROPOSAL_CHAT_ID } from "../data/chat-proposals";
 import { CHAT_MAX_EXA_SEARCHES, CHAT_MAX_PAGE_READS } from "../intake/limits";
 import { verifyQuotes } from "../refresh/citations";
 import { loadCurationSubject, recordFields, type CurationSubject } from "../refresh/curation";
@@ -67,7 +67,7 @@ interface GetRecordInput {
   subject: { kind: "tool" | "pending"; id: string };
 }
 
-interface ProposeChangeInput {
+export interface ProposeChangeInput {
   subject: { kind: "tool" | "pending"; id: string };
   field: string;
   value?: unknown;
@@ -77,7 +77,7 @@ interface ProposeChangeInput {
 
 const getRecordSchema: z.ZodType<GetRecordInput> = z.object({ subject: subjectSchema });
 
-const proposeChangeSchema: z.ZodType<ProposeChangeInput> = z.object({
+export const proposeChangeSchema: z.ZodType<ProposeChangeInput> = z.object({
   subject: subjectSchema,
   field: z
     .string()
@@ -96,7 +96,7 @@ const proposeChangeSchema: z.ZodType<ProposeChangeInput> = z.object({
   reason: z.string().max(1000).optional().describe("One short line on why, shown on the card."),
 });
 
-type ToolResult = Record<string, unknown>;
+export type ToolResult = Record<string, unknown>;
 
 function refuse(code: string, message: string): ToolResult {
   return { status: "refused", code, message };
@@ -135,45 +135,73 @@ const proposeChangeTool: CapabilityTool<ProposeChangeInput, ToolResult> = {
   run: async (input, ctx) => {
     const own = ownSubject(ctx, input.subject);
     if (!own) return refuse("not_this_record", "You can only propose changes to the record this page shows.");
-    if (/ppe|protective/i.test(input.field)) {
-      return refuse("ppe_not_proposed", "Protective equipment is set by the lab's staff, never proposed. Do not propose it; tell the admin to set it in the editor.");
-    }
-    if (!(CHAT_PROPOSAL_FIELDS as readonly string[]).includes(input.field)) {
-      return refuse("unknown_field", `That field cannot be proposed here. Use one of: ${CHAT_PROPOSAL_FIELDS.join(", ")}.`);
-    }
-    const field = input.field as ChatProposalField;
-    if (field === "floor_check" && own.kind === "pending") {
-      return refuse("unknown_field", "A floor check is for tools in the catalogue, not a pending item.");
-    }
-    const value = cleanValue(field, input.value);
-    if (value === undefined) return refuse("invalid_value", valueHint(field));
+    return proposeChange(input, ctx, own, "chat");
+  },
+};
 
-    const subject = await loadCurationSubject(own.kind, own.id);
-    if (!subject) return refuse("not_found", "This record is no longer there to curate.");
-    const proposal = buildProposal(field, value, subject, input, ctx);
-    if (!proposal) return refuse("matches", "The record already says that. Nothing to propose.");
+/** Where a proposal came from — decides the reply's wording, never what is stored. */
+export type ProposalSurface = "chat" | "mcp";
 
-    const proposalId = await createChatProposal({
-      subjectKind: subject.kind,
-      subjectId: subject.id,
-      proposal,
-      baseRevision: subject.revision,
-      chatId: ctx.chatId ?? null,
-      createdBy: ctx.identity?.userId ?? null,
-    });
-    ctx.writer?.write({
-      type: "data-proposal",
-      data: { kind: "proposal", proposalId, subject: { kind: subject.kind, id: subject.id, name: subject.name }, proposal },
-    });
+export { MCP_PROPOSAL_CHAT_ID };
+
+/**
+ * Validate one proposed change to `own` and store it as a `chat_proposals`
+ * row — the half the chat's `propose_change` and MCP's share. **It writes no
+ * record**: accepting is an admin's click (Article 5). PPE is refused.
+ */
+export async function proposeChange(
+  input: ProposeChangeInput,
+  ctx: CapabilityCtx,
+  own: { kind: "tool" | "pending"; id: string },
+  surface: ProposalSurface
+): Promise<ToolResult> {
+  if (/ppe|protective/i.test(input.field)) {
+    return refuse("ppe_not_proposed", "Protective equipment is set by the lab's staff, never proposed. Do not propose it; tell the admin to set it in the editor.");
+  }
+  if (!(CHAT_PROPOSAL_FIELDS as readonly string[]).includes(input.field)) {
+    return refuse("unknown_field", `That field cannot be proposed here. Use one of: ${CHAT_PROPOSAL_FIELDS.join(", ")}.`);
+  }
+  const field = input.field as ChatProposalField;
+  if (field === "floor_check" && own.kind === "pending") {
+    return refuse("unknown_field", "A floor check is for tools in the catalogue, not a pending item.");
+  }
+  const value = cleanValue(field, input.value);
+  if (value === undefined) return refuse("invalid_value", valueHint(field));
+
+  const subject = await loadCurationSubject(own.kind, own.id);
+  if (!subject) return refuse("not_found", "This record is no longer there to curate.");
+  const proposal = buildProposal(field, value, subject, input, ctx);
+  if (!proposal) return refuse("matches", "The record already says that. Nothing to propose.");
+
+  const proposalId = await createChatProposal({
+    subjectKind: subject.kind,
+    subjectId: subject.id,
+    proposal,
+    baseRevision: subject.revision,
+    chatId: surface === "mcp" ? MCP_PROPOSAL_CHAT_ID : ctx.chatId ?? null,
+    createdBy: ctx.identity?.userId ?? null,
+  });
+  if (surface === "mcp") {
     return {
       status: "proposed",
       proposalId,
-      card_rendered: Boolean(ctx.writer),
       verified: proposal.citations.map((c) => c.verified),
-      message: "A card is in front of the admin to accept or reject. Nothing has changed yet — do not say it has.",
+      message:
+        "Proposed, not applied. It waits under 'Proposals from assistants' on /admin/refresh for a person to accept or reject. Nothing has changed yet — do not say it has.",
     };
-  },
-};
+  }
+  ctx.writer?.write({
+    type: "data-proposal",
+    data: { kind: "proposal", proposalId, subject: { kind: subject.kind, id: subject.id, name: subject.name }, proposal },
+  });
+  return {
+    status: "proposed",
+    proposalId,
+    card_rendered: Boolean(ctx.writer),
+    verified: proposal.citations.map((c) => c.verified),
+    message: "A card is in front of the admin to accept or reject. Nothing has changed yet — do not say it has.",
+  };
+}
 
 /** The value, shaped and bounded for its field, or undefined when it does not fit. */
 export function cleanValue(field: ChatProposalField, value: unknown): unknown {

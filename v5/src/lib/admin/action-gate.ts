@@ -39,8 +39,16 @@ export type AdminGate =
  * actionable and the other is not, and showing the wrong one is how a page
  * feels broken.
  */
-export async function authorizeAdminAction(permission: Permission): Promise<AdminGate> {
-  const identity = await resolveIdentityFromHeaders();
+export async function authorizeAdminAction(
+  permission: Permission,
+  /**
+   * An identity the caller already resolved — the MCP route's, from a bearer
+   * token (MCP access spec §3.2, `update_ticket`). Omitted, the session cookie
+   * on the request is read, as every server action does.
+   */
+  resolved?: Identity
+): Promise<AdminGate> {
+  const identity = resolved ?? (await resolveIdentityFromHeaders());
 
   const { allowed } = await rateLimitAsync(
     `admin-action:${identity.rateLimitKey}`,

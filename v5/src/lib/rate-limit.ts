@@ -185,7 +185,15 @@ export const MIRROR_SETUP_TIER: RateLimitTier = { limit: 10, windowMs: 60_000 };
 export const ROUTE_TIERS = {
   flags: { limit: 5, windowMs: HOUR_MS },
   health: { limit: 30, windowMs: 60_000 },
+  // MCP (MCP access spec §5.2): anonymous callers per hashed IP; a personal
+  // access token per token, an OAuth grant per person; and every write tool
+  // call per identity on top of either.
   mcp: { limit: 30, windowMs: 60_000 },
+  mcpSignedIn: { limit: 60, windowMs: 60_000 },
+  mcpWrite: { limit: 10, windowMs: 60_000 },
+  // Creating and revoking tokens and connected apps on /account/tokens, and
+  // answering the OAuth consent page, per person.
+  account: { limit: 30, windowMs: 60_000 },
   projects: { limit: 10, windowMs: 60_000 },
   upload: { limit: 15, windowMs: 60_000 },
   auth: { limit: 20, windowMs: 60_000 },

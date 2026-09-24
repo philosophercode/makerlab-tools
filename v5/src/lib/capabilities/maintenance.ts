@@ -19,9 +19,10 @@ import type {
  * - **Authorship.** When `ctx.identity` carries a signed-in caller, the ticket
  *   records that name and email rather than whatever the conversation supplied
  *   (auth spec §3.4, §9.5). Verified authorship is one of the reasons sign-in
- *   exists. Anonymous reporting still works exactly as it did — MCP and
- *   scheduled callers have no identity, and neither does a visitor who never
- *   signed in.
+ *   exists. Anonymous reporting still works exactly as it did in the chat.
+ *   Over MCP the tool is offered only to a signed-in caller (a personal
+ *   access token or an OAuth grant — MCP access spec §3.2), so a ticket filed
+ *   there always carries a verified name.
  * - **The ticket lands in Postgres** (data platform spec §3.10, §4.8), not in
  *   a Notion page. The capability no longer knows anything about Notion: it
  *   resolves the unit against the catalogue, hands a validated ticket to

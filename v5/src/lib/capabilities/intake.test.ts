@@ -5,6 +5,7 @@ import type { UIMessageStreamWriter } from "ai";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { nextCacheMock } from "../../../test/mocks/next-cache";
 import { server } from "../../../test/msw/server";
+import { mcpAccessFor } from "../../../test/utils/identities";
 
 vi.mock("next/cache", () => nextCacheMock());
 
@@ -634,18 +635,20 @@ describe("which surface sees which intake tool", () => {
     expect(names).toEqual(["identify_tools", "start_import"]);
   });
 
-  it("registers create_tool over MCP with writes allowed, and never identify_tools", () => {
+  it("registers create_tool over MCP for an admin, and never identify_tools", () => {
     const registered: string[] = [];
     const fake = { registerTool: (name: string) => registered.push(name) };
-    registerAll(fake as unknown as McpServer, [intake], { allowWrites: true });
+    registerAll(fake as unknown as McpServer, [intake], { access: mcpAccessFor("admin") });
     expect(registered).toEqual(["create_tool"]);
   });
 
-  it("registers nothing from intake over a read-only MCP", () => {
-    const registered: string[] = [];
-    const fake = { registerTool: (name: string) => registered.push(name) };
-    registerAll(fake as unknown as McpServer, [intake], { allowWrites: false });
-    expect(registered).toEqual([]);
+  it("registers nothing from intake for a read-only token, a student or an anonymous caller", () => {
+    for (const access of [mcpAccessFor("admin", true), mcpAccessFor("user"), mcpAccessFor("anonymous")]) {
+      const registered: string[] = [];
+      const fake = { registerTool: (name: string) => registered.push(name) };
+      registerAll(fake as unknown as McpServer, [intake], { access });
+      expect(registered).toEqual([]);
+    }
   });
 });
 

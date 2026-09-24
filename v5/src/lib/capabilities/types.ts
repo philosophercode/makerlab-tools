@@ -73,7 +73,8 @@ export interface CapabilityCtx {
   focusedToolId?: string;
   /**
    * Who is making this request, resolved **server-side** from the session
-   * cookie (auth spec §3.4). Absent for MCP and scheduled callers, and that is
+   * cookie (auth spec §3.4) — or, on MCP, from a personal access token or an
+   * OAuth grant (MCP access spec §3.1). Absent for scheduled callers, and that is
    * normal — every tool must still work without it.
    *
    * This is the only trustworthy source of a caller's name and email. Tool
@@ -106,7 +107,12 @@ export interface CurationContext {
 
 // ── Capability + tool shapes ───────────────────────────────────────
 
-/** Read tools are unrestricted; write tools are MCP-gated by `MCP_TOKEN`. */
+/**
+ * Read tools answer from the catalogue; write tools record something. Over MCP
+ * a write tool needs a signed-in caller whose token is not read-only (MCP
+ * access spec §3.2) — and every write is a draft, a report or a proposal a
+ * person acts on, except `update_ticket` (§3.3).
+ */
 export type CapabilityKind = "read" | "write";
 
 /**
@@ -122,7 +128,7 @@ export interface CapabilityTool<I = unknown, R = unknown> {
   description: string;
   /** Zod schema validating the tool input. */
   inputSchema: z.ZodType<I>;
-  /** "write" tools are only registered over MCP when `MCP_TOKEN` is set. */
+  /** "write" tools reach an MCP caller only when signed in and not read-only. */
   kind: CapabilityKind;
   /**
    * Optional. When true, the tool is exposed only on the chat surface and never
@@ -139,6 +145,19 @@ export interface CapabilityTool<I = unknown, R = unknown> {
    * background research and a human approval (spec §3.6, §5.4).
    */
   mcpOnly?: boolean;
+  /**
+   * Optional. The permission a caller must hold to be offered this one tool,
+   * on top of its capability's {@link Capability.requiredPermission}. Enforced
+   * by `capabilitiesForIdentity` (chat) and `mcpToolAllowed` (MCP) — never
+   * inside `run()`.
+   */
+  requiredPermission?: Permission;
+  /**
+   * Optional. The tool needs a signed-in person even though no permission
+   * names it — `list_my_reports` has nobody to report on without one. Every
+   * `kind: "write"` tool is treated this way over MCP (MCP access spec §3.2).
+   */
+  requiresSignIn?: boolean;
   /** Pure-ish: data in, structured data out. */
   run: (input: I, ctx: CapabilityCtx) => Promise<R>;
 }

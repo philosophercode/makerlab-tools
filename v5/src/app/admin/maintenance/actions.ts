@@ -1,13 +1,7 @@
 "use server";
 
-import { runQueueWrite } from "../../../lib/admin/queue-write";
-import { updateMaintenanceLog } from "../../../lib/data/maintenance";
-import { requestMirrorPush } from "../../../lib/mirror/trigger";
-import {
-  MAINTENANCE_PATH,
-  type MaintenanceActionResult,
-  type TicketPatch,
-} from "./action-result";
+import { writeTicket } from "../../../lib/admin/ticket-write";
+import { type MaintenanceActionResult, type TicketPatch } from "./action-result";
 
 /**
  * Working a ticket (spec §5.6, §4.8, §8).
@@ -50,15 +44,7 @@ export async function updateTicket(input: {
   logId: string;
   patch: TicketPatch;
 }): Promise<MaintenanceActionResult> {
-  return runQueueWrite({
-    permission: "maintenance.manage",
-    path: MAINTENANCE_PATH,
-    surface: SURFACE,
-    write: (identity) =>
-      updateMaintenanceLog(input.logId, input.patch, { actorUserId: identity.userId }),
-    afterCommit: async () => {
-      await requestMirrorPush();
-      return undefined;
-    },
-  });
+  // The write itself is shared with MCP's `update_ticket` (MCP access spec
+  // §3.2), so the two cannot disagree about what working a ticket means.
+  return writeTicket(input, { surface: SURFACE });
 }
