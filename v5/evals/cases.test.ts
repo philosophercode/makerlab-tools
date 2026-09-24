@@ -104,6 +104,17 @@ describe("parseCaseFile validation", () => {
     expect(() =>
       parseCaseFile(`- id: a\n  prompt: "hi"\n  context: { surface: chat }\n  assert:\n    - kind: no_unknown_tools\n`, "t.yaml")
     ).toThrow(/unknown context key/);
+    expect(() =>
+      parseCaseFile(`- id: a\n  prompt: "hi"\n  context: { page: gallery, curate: true }\n  assert:\n    - kind: no_unknown_tools\n`, "t.yaml")
+    ).toThrow(/curate requires page: tool/);
+  });
+
+  it("accepts a curation case on a tool page", () => {
+    const [parsed] = parseCaseFile(
+      `- id: a\n  prompt: "hi"\n  context: { page: tool, toolId: form-4, curate: true }\n  assert:\n    - kind: not_called_tool\n      value: propose_change\n`,
+      "t.yaml"
+    );
+    expect(parsed.context).toEqual({ page: "tool", toolId: "form-4", curate: true });
   });
 
   it("requires an id, a prompt and at least one assertion", () => {
@@ -121,11 +132,12 @@ describe("the shipped case set", () => {
     expect(new Set(cases.map((c) => c.id)).size).toBe(cases.length);
   });
 
-  it("covers catalog lookup, manual grounding, manual search, tool calling and honest absence", () => {
+  it("covers catalog lookup, curation, manual grounding, manual search, tool calling and honest absence", () => {
     const files = new Set(loadCases().map((c) => c.file));
     expect(files).toEqual(
       new Set([
         "catalog-lookup.yaml",
+        "curation.yaml",
         "honest-absence.yaml",
         "manual-grounding.yaml",
         "manual-search.yaml",

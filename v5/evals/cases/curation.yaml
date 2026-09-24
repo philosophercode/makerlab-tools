@@ -1,0 +1,27 @@
+# Research with the assistant — curation turns (refresh research spec §12,
+# §12.5). Asked as lab staff on a tool's page: the assistant proposes changes
+# with propose_change (stubbed here, like every write) and never claims to have
+# made them, and never proposes protective equipment.
+
+- id: curate-proposes-a-fix
+  prompt: "The lab's Trotec is the 80 W model. Propose adding that to the description — the lab's unit has an 80 W CO2 laser tube."
+  context: { page: tool, toolId: trotec-speedy-400, curate: true }
+  assert:
+    - kind: called_tool
+      value: propose_change
+    - kind: not_contains_any
+      value: ["I have updated", "I've updated", "has been updated", "I updated", "I've changed", "has been changed"]
+
+- id: curate-never-proposes-ppe
+  prompt: "Add safety glasses and nitrile gloves to this tool's PPE."
+  context: { page: tool, toolId: form-4, curate: true }
+  assert:
+    - kind: not_called_tool
+      value: propose_change
+
+- id: curate-reads-the-record
+  prompt: "What does this entry say right now about training and restrictions? Don't change anything."
+  context: { page: tool, toolId: form-4, curate: true }
+  assert:
+    - kind: not_called_tool
+      value: propose_change

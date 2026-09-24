@@ -9,6 +9,7 @@ import { useLocale, useTranslations } from "next-intl";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { IntakeTableCard } from "./IntakeTableCard";
+import { ChatProposalCards, type ChatProposalItem } from "./ChatProposalCards";
 import { useChatLauncher } from "./ChatLauncherContext";
 import { siteConfig } from "../lib/site-config";
 import { startGoogleSignIn } from "../lib/auth/sign-in-client";
@@ -53,6 +54,8 @@ function toolStatusLabel(partType: string, t: ChatT, input?: unknown): string {
   // Web search runs inside the Gateway, but its call still streams as a tool part.
   if (partType === "tool-exa_search") return t("searchingWeb");
   if (partType === "tool-read_page") return t("readingPage");
+  if (partType === "tool-get_record") return t("readingRecord");
+  if (partType === "tool-propose_change") return t("proposingChange");
   return t("working");
 }
 
@@ -253,13 +256,27 @@ interface PendingPhoto {
 export function ChatFab() {
   const t = useTranslations("chat");
   const locale = useLocale();
-  const { isOpen, open, close, pendingSeed, consumeSeed, toolStarters } = useChatLauncher();
+  const { isOpen, open, close, pendingSeed, consumeSeed, toolStarters, curate } = useChatLauncher();
   const [draft, setDraft] = useState("");
   const pathname = usePathname() || "/";
   const toolId = useMemo(() => {
     const match = pathname.match(/^\/tools\/(.+)$/);
     return match ? match[1] : undefined;
   }, [pathname]);
+  // A pending item's preliminary page: the chat is told which item it shows,
+  // so an admin can curate it (refresh research spec §12.3). The server
+  // decides whether this caller may.
+  const pendingId = useMemo(() => {
+    const match = pathname.match(/^\/admin\/intake\/([0-9a-f-]{36})$/i);
+    return match ? match[1] : undefined;
+  }, [pathname]);
+  // "Curate this entry" — offered while the page's record is one this viewer
+  // may curate (its page registered it through the launcher).
+  const curateHere = useMemo(() => {
+    if (!curate) return false;
+    const here = [toolId, toolId ? safeDecode(toolId) : undefined, pendingId].filter(Boolean);
+    return curate.keys.some((key) => here.includes(key));
+  }, [curate, toolId, pendingId]);
 
   // The starter chips: the showing tool's own questions when its page
   // registered some and the path still names it (spec amendment "Tool-specific
@@ -279,6 +296,13 @@ export function ChatFab() {
     }
     return SUGGESTIONS.map((suggestion) => ({ key: suggestion.key, icon: suggestion.icon, label: t(suggestion.key) }));
   }, [toolId, toolStarters, t]);
+  const chips = useMemo(
+    () =>
+      curateHere
+        ? [{ key: "curate", icon: "clipboard" as Suggestion["icon"], label: t("curateStarter"), send: t("curatePrompt") }, ...suggestions]
+        : suggestions,
+    [curateHere, suggestions, t]
+  );
 
   // `useChat` bakes the transport into a ref on first mount and never refreshes
   // it (see @ai-sdk/react useChat — only `id`/`chat` prop changes recreate the
@@ -289,6 +313,11 @@ export function ChatFab() {
   useEffect(() => {
     toolIdRef.current = toolId;
   }, [toolId]);
+
+  const pendingIdRef = useRef(pendingId);
+  useEffect(() => {
+    pendingIdRef.current = pendingId;
+  }, [pendingId]);
 
   const localeRef = useRef(locale);
   useEffect(() => {
@@ -310,6 +339,7 @@ export function ChatFab() {
             messageId,
             locale: localeRef.current,
             ...(toolIdRef.current ? { toolId: toolIdRef.current } : {}),
+            ...(pendingIdRef.current ? { pendingId: pendingIdRef.current } : {}),
           },
         }),
       }),
@@ -654,14 +684,15 @@ export function ChatFab() {
                     {toolId ? t("greetingTool") : t("greetingGeneral")}
                   </p>
                   <div className="chat-suggestions">
-                    {suggestions.map((suggestion) => {
+                    {chips.map((suggestion) => {
                       const label = suggestion.label;
+                      const text = "send" in suggestion && typeof suggestion.send === "string" ? suggestion.send : label;
                       return (
                         <button
                           key={suggestion.key}
                           type="button"
                           className="chat-suggestion"
-                          onClick={() => handleSuggestion(label)}
+                          onClick={() => handleSuggestion(text)}
                           disabled={isLoading}
                         >
                           <span className="chat-suggestion-icon" aria-hidden="true">
@@ -692,7 +723,15 @@ export function ChatFab() {
                         p.type === "data-intake-table" &&
                         (p as { data?: { kind?: unknown } }).data?.kind === "intake-table"
                     );
-                    const hasCard = intakeParts.length > 0;
+                    // The assistant's proposals arrive as `data-proposal` parts
+                    // written by `propose_change` (refresh research spec §12.2).
+                    const proposalItems = message.parts
+                      .filter(
+                        (p): p is typeof p & { data: ChatProposalItem } =>
+                          p.type === "data-proposal" && (p as { data?: { kind?: unknown } }).data?.kind === "proposal"
+                      )
+                      .map((p) => p.data);
+                    const hasCard = intakeParts.length > 0 || proposalItems.length > 0;
                     if (textParts.length === 0 && !hasCard && !pendingTool) return null;
                     return (
                       <li
@@ -723,6 +762,7 @@ export function ChatFab() {
                         {intakeParts.map((part) => (
                           <IntakeTableCard key={part.data.batchId} payload={part.data} />
                         ))}
+                        {proposalItems.length > 0 ? <ChatProposalCards items={proposalItems} /> : null}
                       </li>
                     );
                   })}

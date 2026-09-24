@@ -7,6 +7,9 @@ import {
 import { getCatalogTool, getCatalogTools } from "@/lib/catalog";
 import { loadToolManualsForChat } from "@/lib/chat/tool-manuals";
 import type { Tool } from "ai";
+import { curationCapability } from "@/lib/capabilities/curation";
+import type { CurationContext } from "@/lib/capabilities/types";
+import { loadCurationSubject, recordFields } from "@/lib/refresh/curation";
 import type { EvalCase } from "./cases";
 
 /**
@@ -110,18 +113,37 @@ export async function composeCase(evalCase: EvalCase): Promise<ComposedCase> {
     );
   }
 
-  const ctx: CapabilityCtx = { locale: "en", focusedToolId: focused?.id };
+  // A curation case (refresh research spec §12): the tool's record, as the
+  // chat route loads it for staff; `propose_change` is a write and is stubbed.
+  const curation = evalCase.context.curate && focused ? await curationFor(focused.id) : null;
+  const ctx: CapabilityCtx = { locale: "en", focusedToolId: focused?.id, ...(curation ? { curation } : {}) };
   // The focused tool's searchable manuals, as the chat route loads them — the
   // eval's fixture manual (`manual-fixture.ts`) once `npm run eval` seeded it,
   // nothing offline. `search_manual` itself stays live: it reads the eval's
   // own PGlite database and nothing else.
   const manualOutlines = focused ? (await loadToolManualsForChat(focused.id, null)).outlines : [];
-  const composed = composeChat(stubLiveReads(stubWrites(CAPABILITIES)), ctx, {
+  const capabilities = curation ? [...CAPABILITIES, curationCapability("tool")] : CAPABILITIES;
+  const composed = composeChat(stubLiveReads(stubWrites(capabilities)), ctx, {
     tools,
     focusedTool: focused,
     locale: "en",
     manualOutlines,
+    ...(curation ? { curation } : {}),
   });
 
   return { system: composed.system, tools: composed.tools };
+}
+
+/** The focused tool's record for a curation case, shaped as the chat route shapes it. */
+async function curationFor(toolId: string): Promise<CurationContext | null> {
+  const subject = await loadCurationSubject("tool", toolId);
+  if (!subject) return null;
+  return {
+    kind: "tool",
+    id: subject.id,
+    name: subject.name,
+    revision: subject.revision,
+    fields: recordFields(subject.record),
+    sources: subject.sources,
+  };
 }

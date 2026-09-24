@@ -138,6 +138,29 @@ export function exaImageHints(steps: readonly StepLike[]): ImageHint[] {
   return hints;
 }
 
+/**
+ * Every result Exa returned across `steps`, as the text the model was shown of
+ * it: its title, its highlights (chat's search) and its text (research's), one
+ * entry per URL. A curation turn checks quotes against these (refresh research
+ * spec §12.2) and lets `read_page` open their hosts (§12.1).
+ */
+export function exaResultTexts(steps: readonly StepLike[]): SearchPageText[] {
+  const out: SearchPageText[] = [];
+  const seen = new Set<string>();
+  for (const output of exaOutputs(steps)) {
+    for (const result of resultsOf(output)) {
+      const url = httpUrl(result.url);
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      const title = typeof result.title === "string" && result.title.trim() ? result.title.trim() : null;
+      const highlights = Array.isArray(result.highlights) ? result.highlights.filter((h): h is string => typeof h === "string") : [];
+      const text = typeof result.text === "string" ? result.text : "";
+      out.push({ url, title, text: [title ?? "", ...highlights, text].filter(Boolean).join("\n").slice(0, RESEARCH_EXA_TEXT_MAX_CHARS) });
+    }
+  }
+  return out;
+}
+
 function* exaOutputs(steps: readonly StepLike[]): Generator<unknown> {
   for (const step of steps) {
     if (step.toolResults) {

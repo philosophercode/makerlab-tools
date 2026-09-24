@@ -81,6 +81,27 @@ export interface CapabilityCtx {
    * so a client can never assert its own identity through it.
    */
   identity?: Identity;
+  /**
+   * Chat only, admins only — the record a curation turn is about (refresh
+   * research spec §12): the tool or pending item the page shows. Set by the
+   * route only for a caller who may curate it; absent otherwise.
+   */
+  curation?: CurationContext;
+  /** Chat only — the conversation's id, recorded on the proposals it produces. */
+  chatId?: string;
+}
+
+/** The record a curation turn is about, as the tools and the prompt see it (§12.1). */
+export interface CurationContext {
+  kind: "tool" | "pending";
+  id: string;
+  name: string;
+  /** The record's revision when the turn began. */
+  revision: string;
+  /** Its current values, by proposal field. */
+  fields: Record<string, unknown>;
+  /** The URLs its facts came from — `read_page` may open their hosts in this turn. */
+  sources: string[];
 }
 
 // ── Capability + tool shapes ───────────────────────────────────────
@@ -148,6 +169,8 @@ export interface PromptEnv {
    * the `manuals` fragment can list their contents without a query of its own.
    */
   manualOutlines?: ManualOutlineForPrompt[];
+  /** The record being curated, for the fenced "Curating" block (refresh research spec §12.1). */
+  curation?: CurationContext;
 }
 
 /** One searchable manual of the focused tool, as the prompt lists it. */

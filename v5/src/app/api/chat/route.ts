@@ -27,6 +27,8 @@ import { describeChatError } from "../../../lib/chat/describe-chat-error";
 import { resourceHosts } from "../../../lib/capabilities/web";
 import { fetchManualPdf, type ManualPdfSource } from "../../../lib/chat/fetch-manual-pdf";
 import { loadToolManualsForChat } from "../../../lib/chat/tool-manuals";
+import { curationForChat, recordSearchResults } from "../../../lib/chat/curation";
+import { curationCapability } from "../../../lib/capabilities/curation";
 import { chatPrepareStep } from "./prepare-step";
 import {
   CAPABILITIES,
@@ -62,8 +64,12 @@ interface AttachedManual {
 export const maxDuration = 60;
 
 interface ChatRequest {
+  /** The conversation's id (`useChat`), recorded on the proposals a curation turn makes. */
+  id?: string;
   messages: UIMessage[];
   toolId?: string;
+  /** The pending item a preliminary page shows (refresh research spec §12.3). */
+  pendingId?: string;
   locale?: string;
 }
 
@@ -78,9 +84,12 @@ export async function POST(req: Request) {
     return rateLimitedResponse(decision);
   }
 
-  const { messages, toolId, locale }: ChatRequest = await req.json();
+  const { messages, toolId, locale, pendingId, id: chatId }: ChatRequest = await req.json();
   const tools = await getCatalogTools();
   const focused = toolId ? await getCatalogTool(toolId) : null;
+  // Curation (refresh research spec §12): the record the page shows, only for
+  // a caller who may curate it — never composed for anyone else.
+  const curation = await curationForChat(identity, { toolId, pendingId });
   // Searchable manuals are answered through `search_manual` and listed in the
   // prompt with their contents; only the rest are attached whole (manual text
   // spec §3.6 — the fallback for `no_text`, `failed` or unprocessed manuals).
@@ -138,6 +147,8 @@ export async function POST(req: Request) {
         locale,
         focusedToolId: focused?.id,
         identity,
+        ...(curation ? { curation } : {}),
+        ...(typeof chatId === "string" ? { chatId: chatId.slice(0, 200) } : {}),
       };
 
       // Compose the system prompt + capability tools from the shared registry
@@ -148,10 +159,11 @@ export async function POST(req: Request) {
       // The registry is composed as this caller may use it: a capability whose
       // required permission they do not hold contributes no tools, only a note
       // on why (spec §3.5).
+      const capabilities = curation ? [...CAPABILITIES, curationCapability(curation.kind)] : CAPABILITIES;
       const { tools: capabilityTools, system } = composeChat(
-        capabilitiesForIdentity(CAPABILITIES, identity),
+        capabilitiesForIdentity(capabilities, identity),
         ctx,
-        { tools, focusedTool: focused, locale, manualOutlines: toolManuals.outlines }
+        { tools, focusedTool: focused, locale, manualOutlines: toolManuals.outlines, ...(curation ? { curation } : {}) }
       );
 
       const chatTools: Record<string, Tool> = {
@@ -168,6 +180,8 @@ export async function POST(req: Request) {
         tools: chatTools,
         // Exa and read_page carry no per-turn cap of their own; we count.
         prepareStep: chatPrepareStep(Object.keys(chatTools)),
+        // What the searches returned, for a curation turn's quote check and read_page hosts.
+        onStepFinish: (step) => recordSearchResults(ctx, step),
         stopWhen: stepCountIs(10),
       });
 

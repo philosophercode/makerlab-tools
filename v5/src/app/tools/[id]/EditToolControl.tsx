@@ -6,6 +6,7 @@ import { ToolEditorPanel } from "../../../components/admin/ToolEditorPanel";
 import type { ToolEditorActions } from "../../../components/admin/tool-editor-actions";
 import { fetchIdentity, type ClientIdentity } from "../../../lib/auth/sign-in-client";
 import { can } from "../../../lib/auth/permissions";
+import { CurateChatStarter } from "../../../components/CurateChatStarter";
 
 /**
  * Edit mode on a tool's own page (spec §5.3(b), §6).
@@ -55,6 +56,8 @@ export function EditToolControl({ slug, toolName, actions }: EditToolControlProp
 
   return (
     <div className="tool-edit-control">
+      {/* Staff who may edit may also curate it with the assistant (refresh research spec §12.3). */}
+      <CurateChatStarter keys={[slug]} />
       <button type="button" className="admin-button is-primary" onClick={() => setOpen(true)}>
         {t("editThisTool")}
       </button>

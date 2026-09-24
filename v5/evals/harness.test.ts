@@ -164,6 +164,17 @@ describe("composeCase", () => {
     expect(system).toContain("Form 4");
   });
 
+  it("composes curation for a curate case, with propose_change stubbed like every write", async () => {
+    const { system, tools } = await composeCase(
+      testCase({ context: { page: "tool", toolId: "form-4", curate: true }, prompt: "Curate this entry" })
+    );
+    expect(system).toContain("## Curating: Form 4");
+    expect(Object.keys(tools)).toEqual(expect.arrayContaining(["get_record", "propose_change"]));
+    const { system: plain, tools: plainTools } = await composeCase(testCase({ context: { page: "tool", toolId: "form-4" } }));
+    expect(plain).not.toContain("Curating:");
+    expect(Object.keys(plainTools)).not.toContain("propose_change");
+  });
+
   it("refuses a case that focuses a machine the fixture does not have", async () => {
     await expect(
       composeCase(testCase({ context: { page: "tool", toolId: "bambu-x1-carbon" } }))
