@@ -143,6 +143,23 @@ export type MirrorEntity = (typeof MIRROR_ENTITY)[number];
 export const MIRROR_STATUS = ["ok", "partial", "failed"] as const;
 export type MirrorStatus = (typeof MIRROR_STATUS)[number];
 
+/**
+ * What processing a stored manual PDF came to (manual text spec §3.2, §4;
+ * migration `0010`): its text is stored page by page (`ready`), it has no text
+ * layer worth storing — a scan (`no_text`) — or it could not be read at all
+ * (`failed`: encrypted, corrupt, or over the size, page or time limits).
+ * "Processing" is not a stored state: it is a PDF with no document row yet.
+ */
+export const MANUAL_DOCUMENT_STATUS = ["ready", "no_text", "failed"] as const;
+export type ManualDocumentStatus = (typeof MANUAL_DOCUMENT_STATUS)[number];
+
+/**
+ * Where a manual's outline came from (§3.2): the PDF's own bookmarks,
+ * headings inferred from font size, or neither.
+ */
+export const MANUAL_OUTLINE_SOURCE = ["pdf", "inferred", "none"] as const;
+export type ManualOutlineSource = (typeof MANUAL_OUTLINE_SOURCE)[number];
+
 /** True when `value` is one of `list`; narrows the type. */
 export function isOneOf<const T extends readonly string[]>(
   list: T,

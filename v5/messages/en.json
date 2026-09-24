@@ -80,6 +80,8 @@
     "openResource": "Open resource",
     "resourceFallback": "Resource",
     "noDocuments": "No documents linked yet.",
+    "manualContents": "Contents",
+    "manualContentsPage": "p. {page}",
     "details": "Details",
     "category": "Category",
     "location": "Location",
@@ -531,6 +533,18 @@
         "resourceFileField": "PDF",
         "resourceFile": "Open the file",
         "resourceHidden": "Hidden",
+        "manualState": {
+          "ready": "Text stored",
+          "readyPages": "Text stored · {pages, plural, one {# page} other {# pages}}",
+          "noText": "No text (scanned)",
+          "failed": "Failed: {reason}",
+          "processing": "Processing",
+          "reasons": {
+            "encrypted": "encrypted",
+            "corrupt": "unreadable file",
+            "too_large": "too large"
+          }
+        },
         "addResource": "Add",
         "hideResource": "Hide",
         "showResource": "Show",

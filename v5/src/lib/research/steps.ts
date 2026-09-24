@@ -28,6 +28,9 @@ import {
   type ReadPagesResult,
 } from "./read-pages.ts";
 import { selectSearchTexts, type SearchPageText } from "./search-text.ts";
+import { pickManualPdfs, withManualPdf } from "./manual-pdfs.ts";
+import { findStoredManualByUrl } from "../data/manual-documents.ts";
+import { getDb } from "../db/client.ts";
 import type { ResearchResult } from "./result.ts";
 import type { BatchSummary, ItemStepResult, ReadStepResult, SearchStepResult } from "./step-types.ts";
 import { DEFAULT_MAX_LINKS, verifyResourceLinks } from "./verify-links.ts";
@@ -136,9 +139,14 @@ export async function searchItem(
     console.info(`[research] ${requestId}: search call ${describeGatewayCall(gatewayCallReport(result.providerMetadata))}`);
     reportSearchOvershoot(requestId, result.steps);
     const findings = parseSearchFindings(result.text);
+    const allTexts = exaPageTexts(result.steps);
+    // A manual PDF the search saw but did not list (manual text spec §3.7):
+    // its captured text crosses with the rest, and the read step picks it up.
+    const manualPdfs = pickManualPdfs(allTexts, { brand: item.brand, name: findings.canonicalName.trim() || item.name });
     // Only the texts of pages the read step may try cross the step boundary.
-    const searchTexts = selectSearchTexts(exaPageTexts(result.steps), [
+    const searchTexts = selectSearchTexts(allTexts, [
       ...findings.candidateLinks.map((link) => link.url),
+      ...manualPdfs,
       ...findings.sourceUrls,
     ]);
     return { skip: false, findings, exaImages: exaImageHints(result.steps), searchTexts };
@@ -195,7 +203,10 @@ export async function readAndVerifyItem(
   // The brand's product page, when the search found one, is always among the
   // pages read (amendment "Product-page first").
   const subject = { brand: item.brand, name: findings.canonicalName.trim() || item.name };
-  const urls = candidatePageUrls(findings, RESEARCH_MAX_PAGE_READS, subject);
+  // A manual PDF among the search's results, when none of the pages chosen is
+  // one: it takes a place in the four reads (manual text spec §3.7).
+  const manualPdfs = pickManualPdfs(searchTexts, subject);
+  const urls = withManualPdf(candidatePageUrls(findings, RESEARCH_MAX_PAGE_READS, subject), manualPdfs, RESEARCH_MAX_PAGE_READS);
 
   let draft: FetchDraft;
   let imageHints: ImageHint[] = [];
@@ -207,21 +218,29 @@ export async function readAndVerifyItem(
     try {
       read = await readCandidatePages(urls, {
         signal,
-        allowedHosts: uniqueHosts([...findings.candidateLinks.map((link) => link.url), ...findings.sourceUrls]),
+        allowedHosts: uniqueHosts([
+          ...findings.candidateLinks.map((link) => link.url),
+          ...findings.sourceUrls,
+          ...urls.filter((url) => manualPdfs.includes(url)),
+        ]),
         max: RESEARCH_MAX_PAGE_READS,
         maxPdfs: RESEARCH_MAX_PDFS_READ,
         searchTexts,
+        storedManual: storedManualText,
       });
     } catch (error) {
       throw classifyResearchError(error, "read");
     }
     imageHints = read.imageHints;
     fromSearch = searchTextUrls(read);
-    if (read.failures.length > 0 || fromSearch.length > 0) {
+    if (read.failures.length > 0 || fromSearch.length > 0 || manualTextUrls(read).length > 0) {
       // Hosts and status codes only — never a path, a query or an item name.
       const viaSearch = fromSearch.length > 0 ? `; ${fromSearch.length} from the search's text` : "";
-      const manuals = manualTextUrls(read).length;
-      const asText = manuals > 0 ? `; ${manuals} manual(s) as text` : "";
+      const manuals = read.pages.filter((page) => page.via === "manual");
+      const asText =
+        manuals.length > 0
+          ? `; ${manuals.length} manual(s) as text (${manuals.map((page) => page.manualSource ?? "search").join(", ")})`
+          : "";
       console.info(
         `[research] read ${urls.length - read.failures.length}/${urls.length} pages${viaSearch}${asText}; not read: ${read.failures.join("; ") || "none"}`
       );
@@ -312,6 +331,20 @@ export async function finishBatch(requestId: string, summary: BatchSummary): Pro
   console.info(
     `[research] batch ${requestId} finished: researched=${summary.researched} failed=${summary.failed} skipped=${summary.skipped}`
   );
+}
+
+/**
+ * The lab's own processed text of the manual at `url`, if a tool already holds
+ * it (manual text spec §3.7) — so research reads our extraction instead of
+ * downloading the PDF again. A database error is "none": the download is the
+ * fallback, and a lookup must never fail the read.
+ */
+async function storedManualText(url: string) {
+  try {
+    return await findStoredManualByUrl(await getDb(), url);
+  } catch {
+    return null;
+  }
 }
 
 /**

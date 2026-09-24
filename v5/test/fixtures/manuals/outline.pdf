@@ -1,0 +1,115 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /Outlines 12 0 R /PageMode /UseOutlines >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [5 0 R 7 0 R 9 0 R 11 0 R] /Count 4 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Length 573 >>
+stream
+BT /F1 9 Tf 1 0 0 1 72 760 Tm (Acme Laser 40 - User Manual) Tj ET
+BT /F1 18 Tf 1 0 0 1 72 700 Tm (Introduction) Tj ET
+BT /F1 11 Tf 1 0 0 1 72 670 Tm (The Acme Laser 40 is a desktop CO2 laser cutter for wood, acrylic, card) Tj ET
+BT /F1 11 Tf 1 0 0 1 72 655 Tm (and fabric. This manual covers setup, daily use and routine care. Read the) Tj ET
+BT /F1 11 Tf 1 0 0 1 72 640 Tm (whole manual before the first job, and keep it beside the machine for calibra-) Tj ET
+BT /F1 11 Tf 1 0 0 1 72 625 Tm (tion and cleaning reference.) Tj ET
+BT /F1 9 Tf 1 0 0 1 290 40 Tm (Page 1) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 4 0 R >>
+endobj
+6 0 obj
+<< /Length 563 >>
+stream
+BT /F1 9 Tf 1 0 0 1 72 760 Tm (Acme Laser 40 - User Manual) Tj ET
+BT /F1 18 Tf 1 0 0 1 72 700 Tm (Specifications) Tj ET
+BT /F1 11 Tf 1 0 0 1 72 670 Tm (Work area: 400 x 300 mm) Tj ET
+BT /F1 11 Tf 1 0 0 1 72 655 Tm (Laser power: 40 W CO2 tube) Tj ET
+BT /F1 11 Tf 1 0 0 1 72 640 Tm (Maximum engraving speed: 600 mm/s) Tj ET
+BT /F1 11 Tf 1 0 0 1 72 625 Tm (Positioning accuracy: 0.01 mm) Tj ET
+BT /F1 11 Tf 1 0 0 1 72 610 Tm (Supported files: SVG, DXF, PDF, PNG) Tj ET
+BT /F1 11 Tf 1 0 0 1 72 595 Tm (Weight: 32 kg) Tj ET
+BT /F1 9 Tf 1 0 0 1 290 40 Tm (Page 2) Tj ET
+endstream
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 6 0 R >>
+endobj
+8 0 obj
+<< /Length 461 >>
+stream
+BT /F1 9 Tf 1 0 0 1 72 760 Tm (Acme Laser 40 - User Manual) Tj ET
+BT /F1 14 Tf 1 0 0 1 72 700 Tm (Electrical) Tj ET
+BT /F1 11 Tf 1 0 0 1 72 670 Tm (Input voltage: 110-120 V AC, 60 Hz) Tj ET
+BT /F1 11 Tf 1 0 0 1 72 655 Tm (Rated current: 5 A) Tj ET
+BT /F1 11 Tf 1 0 0 1 72 640 Tm (Connect the machine to a grounded outlet on its own circuit. Do not use an) Tj ET
+BT /F1 11 Tf 1 0 0 1 72 625 Tm (extension cord.) Tj ET
+BT /F1 9 Tf 1 0 0 1 290 40 Tm (Page 3) Tj ET
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 8 0 R >>
+endobj
+10 0 obj
+<< /Length 479 >>
+stream
+BT /F1 9 Tf 1 0 0 1 72 760 Tm (Acme Laser 40 - User Manual) Tj ET
+BT /F1 18 Tf 1 0 0 1 72 700 Tm (Maintenance) Tj ET
+BT /F1 11 Tf 1 0 0 1 72 670 Tm (Clean the lens and mirrors every 20 hours of cutting with the supplied wipes.) Tj ET
+BT /F1 11 Tf 1 0 0 1 72 655 Tm (Empty the crumb tray weekly and check the exhaust hose for blockages. Replace) Tj ET
+BT /F1 11 Tf 1 0 0 1 72 640 Tm (the air filter when the indicator turns red.) Tj ET
+BT /F1 9 Tf 1 0 0 1 290 40 Tm (Page 4) Tj ET
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R >> >> /Contents 10 0 R >>
+endobj
+12 0 obj
+<< /Type /Outlines /First 13 0 R /Last 15 0 R /Count 4 >>
+endobj
+13 0 obj
+<< /Title (Introduction) /Parent 12 0 R /Next 14 0 R /Dest [5 0 R /XYZ 0 792 0] >>
+endobj
+14 0 obj
+<< /Title (Specifications) /Parent 12 0 R /Prev 13 0 R /Next 15 0 R /First 16 0 R /Last 16 0 R /Count 1 /Dest [7 0 R /XYZ 0 792 0] >>
+endobj
+15 0 obj
+<< /Title (Maintenance) /Parent 12 0 R /Prev 14 0 R /Dest [11 0 R /XYZ 0 792 0] >>
+endobj
+16 0 obj
+<< /Title (Electrical) /Parent 14 0 R /Dest [9 0 R /XYZ 0 792 0] >>
+endobj
+17 0 obj
+<< /Title (Acme Laser 40 User Manual) >>
+endobj
+xref
+0 18
+0000000000 65535 f 
+0000000015 00000 n 
+0000000104 00000 n 
+0000000180 00000 n 
+0000000277 00000 n 
+0000000901 00000 n 
+0000001027 00000 n 
+0000001641 00000 n 
+0000001767 00000 n 
+0000002279 00000 n 
+0000002405 00000 n 
+0000002936 00000 n 
+0000003064 00000 n 
+0000003138 00000 n 
+0000003237 00000 n 
+0000003387 00000 n 
+0000003486 00000 n 
+0000003570 00000 n 
+trailer
+<< /Size 18 /Root 1 0 R /Info 17 0 R >>
+startxref
+3627
+%%EOF

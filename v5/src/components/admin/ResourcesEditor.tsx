@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { EditorResource, NewResource } from "../../lib/data/resources";
+import { ManualStateTag } from "./ManualStateTag";
 import { uploadFile, type UploadFailure } from "./upload-file";
 
 /**
@@ -94,6 +95,7 @@ export function ResourcesEditor({
                 {!resource.published ? (
                   <span className="admin-tag">{t("resourceHidden")}</span>
                 ) : null}
+                {resource.manual ? <ManualStateTag state={resource.manual} /> : null}
               </div>
 
               {resource.url ? (

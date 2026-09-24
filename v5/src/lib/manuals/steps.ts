@@ -1,6 +1,7 @@
 import { FatalError, RetryableError } from "workflow";
 import { isTransientDbError } from "../mirror/steps.ts";
 import { archiveManual, type ArchiveManualResult } from "./archive.ts";
+import { indexResourceManuals, type IndexManualOutcome } from "./index-document.ts";
 
 /**
  * The manual archive's workflow step (see `archive.ts`, and
@@ -44,10 +45,52 @@ export async function archiveManualStep(resourceId: string): Promise<ArchiveManu
 }
 archiveManualStep.maxRetries = MANUAL_STEP_MAX_RETRIES;
 
+/**
+ * Process the resource's stored PDFs into text (manual text spec §3.1, phase
+ * 1) — `index-document.ts`. Runs after {@link archiveManualStep} in the same
+ * workflow, whatever the archive came to short of a failure, so it also picks
+ * up a PDF staff uploaded (`has_file`) or one archived on an earlier run.
+ *
+ * **Only the Blob read is retried**, and the database when it was
+ * unreachable. `no_text`, `failed` (encrypted, corrupt, too large) and a
+ * missing blob are stored or returned as values: the same file would give the
+ * same answer. Anything else is a {@link FatalError}, which the workflow
+ * counts and moves past — processing never fails the archive.
+ */
+export async function indexManualStep(resourceId: string): Promise<IndexManualOutcome[]> {
+  "use step";
+  let outcomes: IndexManualOutcome[];
+  try {
+    outcomes = await indexResourceManuals(resourceId);
+  } catch (error) {
+    if (isTransientDbError(error)) {
+      throw new RetryableError("Manual index: the database could not be reached.", { retryAfter: RETRY_AFTER });
+    }
+    throw new FatalError(`Manual index failed for resource ${resourceId}.`);
+  }
+  if (outcomes.some((outcome) => outcome.status === "failed" && outcome.transient)) {
+    throw new RetryableError(`Manual index: the stored PDF could not be read for resource ${resourceId}.`, {
+      retryAfter: RETRY_AFTER,
+    });
+  }
+  return outcomes;
+}
+indexManualStep.maxRetries = MANUAL_STEP_MAX_RETRIES;
+
+/** What one archive run came to. `indexed` counts PDFs processed into text; `indexFailed` those that could not be. */
+export interface ManualArchiveCounts {
+  archived: number;
+  skipped: number;
+  failed: number;
+  indexed: number;
+  indexFailed: number;
+}
+
 /** The run is done: one line of counts. */
-export async function finishManualArchive(counts: { archived: number; skipped: number; failed: number }): Promise<void> {
+export async function finishManualArchive(counts: ManualArchiveCounts): Promise<void> {
   "use step";
   console.info(
-    `[manuals] archive run finished: archived=${counts.archived} skipped=${counts.skipped} failed=${counts.failed}`
+    `[manuals] archive run finished: archived=${counts.archived} skipped=${counts.skipped} failed=${counts.failed}` +
+      ` indexed=${counts.indexed} index_failed=${counts.indexFailed}`
   );
 }

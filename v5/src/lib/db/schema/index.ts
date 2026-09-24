@@ -23,3 +23,4 @@ export * from "./projects.ts";
 export * from "./audit.ts";
 export * from "./pending-tools.ts";
 export * from "./mirror.ts";
+export * from "./manuals.ts";

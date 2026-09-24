@@ -3170,6 +3170,53 @@ p {
   background: var(--td-surface-3);
 }
 
+.td-doc-contents {
+  padding: 0 18px 12px 114px;
+  border-bottom: 1px solid var(--td-line-soft);
+  font-size: 13px;
+}
+
+.td-doc-contents:last-child {
+  border-bottom: none;
+}
+
+.td-doc-contents summary {
+  cursor: pointer;
+  color: var(--td-muted);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.td-doc-contents ol {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.td-doc-contents li.is-nested {
+  padding-left: 14px;
+}
+
+.td-doc-contents a {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 3px 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.td-doc-contents a:hover span:first-child {
+  text-decoration: underline;
+}
+
+.td-doc-contents-page {
+  flex-shrink: 0;
+  color: var(--td-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .td-doc-body strong {
   display: block;
   margin-bottom: 3px;
@@ -3521,6 +3568,10 @@ p {
   .td-doc .td-badge {
     grid-column: 1 / -1;
     width: fit-content;
+  }
+
+  .td-doc-contents {
+    padding-left: 18px;
   }
 
   .td-kv-table th,

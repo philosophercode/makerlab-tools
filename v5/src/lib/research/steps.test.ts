@@ -1,4 +1,6 @@
 // @vitest-environment node
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { GatewayInternalServerError, GatewayModelNotFoundError, GatewayRateLimitError } from "@ai-sdk/gateway";
 import { eq } from "drizzle-orm";
 import { MockLanguageModelV3 } from "ai/test";
@@ -361,7 +363,7 @@ describe("searchItem + readAndVerifyItem", () => {
     expect(fileParts(call)).toEqual([]);
   });
 
-  it("skips a manual PDF the search captured no text for, and still finds the manual by its verified link", async () => {
+  it("skips a manual PDF that gave no text when the search captured none, and still finds the manual by its verified link", async () => {
     const id = await queuedItem();
     const models = answer(FINDINGS);
     const info = vi.spyOn(console, "info").mockImplementation(() => {});
@@ -371,11 +373,11 @@ describe("searchItem + readAndVerifyItem", () => {
 
     const [call] = recordedCalls(models.read);
     expect(fileParts(call)).toEqual([]);
-    expect(promptText(call)).toContain("- prusa.example: skipped (PDF, no text)");
+    expect(promptText(call)).toContain("- prusa.example: skipped (PDF corrupt, no text)");
     expect(read.result.sourceUrls).toEqual([PRODUCT_URL]);
     expect(read.result.evidence.manualFound).toBe(true);
     const logged = info.mock.calls.map(([line]) => String(line)).join("\n");
-    expect(logged).toContain("prusa.example: skipped (PDF, no text)");
+    expect(logged).toContain("prusa.example: skipped (PDF corrupt, no text)");
   });
 
   it("asks for no tier when MODEL_RESEARCH_READ_TIER is default, and logs the cost and tier the Gateway reports", async () => {
@@ -706,6 +708,49 @@ describe("searchItem + readAndVerifyItem", () => {
     expect(text).not.toContain("A copy that must not be used.");
     expect(text).not.toContain("text captured by search)");
     expect("searchTextSources" in step.result).toBe(false);
+  });
+
+  it("reads a manual PDF the search returned but did not list, and gives the model our extraction of it (manual text spec §3.7)", async () => {
+    const CDN_PDF = "https://cdn.prusa.example/hub/5f1c0a.pdf";
+    server.use(
+      http.get(CDN_PDF, () => {
+        pageHits.push(CDN_PDF);
+        const bytes = readFileSync(join(process.cwd(), "test/fixtures/manuals/outline.pdf"));
+        return HttpResponse.arrayBuffer(new Uint8Array(bytes).buffer, { headers: { "content-type": "application/pdf" } });
+      })
+    );
+    const exaCopy = "Original Prusa MK4S user manual. Exa's copy of the cover pages. ".repeat(5);
+    const search = scriptedModel(() => ({
+      content: [
+        { type: "tool-call", toolCallId: "exa_1", toolName: "exa_search", input: "{}", providerExecuted: true },
+        {
+          type: "tool-result",
+          toolCallId: "exa_1",
+          toolName: "exa_search",
+          result: { requestId: "exa_req", results: [EXA_RESULTS[0], { id: CDN_PDF, url: CDN_PDF, title: "User manual", text: exaCopy }] },
+        },
+        // The search lists the product page only — not the PDF.
+        { type: "text", text: JSON.stringify({ ...FINDINGS, candidateLinks: [FINDINGS.candidateLinks[0]] }) },
+      ],
+      finishReason: "stop",
+    }));
+    const read = textModel(JSON.stringify(DRAFT));
+    setLanguageModel("researchSearch", search);
+    setLanguageModel("researchRead", read);
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const id = await queuedItem();
+
+    const found = await searched(id);
+    expect(found.searchTexts?.map((t) => t.url)).toEqual([CDN_PDF]);
+    await readAndVerifyItem(id, REQUEST, found.findings, null, found.searchTexts);
+
+    expect(pageHits).toEqual(expect.arrayContaining([PRODUCT_URL, CDN_PDF]));
+    const text = promptText(recordedCalls(read)[0]);
+    expect(text).toMatch(new RegExp(`source="${CDN_PDF} \\(manual text\\)"[^>]*>[\\s\\S]*extracted from this PDF manual by the lab's server`));
+    expect(text).toContain("[page 2]\nSpecifications\nWork area: 400 x 300 mm");
+    expect(text).not.toContain("Exa's copy of the cover pages");
+    const logged = info.mock.calls.map(([line]) => String(line)).join("\n");
+    expect(logged).toContain("1 manual(s) as text (pdf)");
   });
 
   it("sets maxRetries as a property on each model step", () => {

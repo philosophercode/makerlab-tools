@@ -1902,3 +1902,47 @@ search and read only; both on `openai/gpt-6-luna`; output `.livecheck/out/manual
   flex on the image ranking, image-redo search and backfill calls.
 
 **Status.** Built on `v5/gateway-images` (uncommitted).
+
+### 2026-09-23 — Luna description tuning (§3.3, §10)
+
+**Question.** The model bake-off kept research on `openai/gpt-6-luna`, but Luna's descriptions
+ran short (RYOBI 279–305 chars; average ~540) and only 4 of 12 said what a student would use
+the tool for in a makerspace. Model unchanged; only the read prompt's description rules moved.
+
+**What changed** (`research/prompt.ts`, read pass only; every earlier rule kept):
+- The description is **4–6 sentences, 550–800 characters**: (1) **open with what the tool is**;
+  (2) **one concrete sentence on what students could make or do with it in a makerspace**, from
+  what the pages say it does and the materials it works (with an example sentence); (3–5) key
+  capabilities and specs with the pages' numbers; (6, optional) a stated requirement or limit.
+- **Strictly factual**: every number, material, feature and use from the pages — never a voltage,
+  battery, wattage, size or capacity they do not state. "Write less when the pages say little"
+  stays; the 550 floor applies only when the pages give enough facts.
+- **No PPE in the description** (the lab's staff set PPE; `ppeRequired` stays empty as before).
+- **No meta-talk**: never the request, the name given, which pages were read or what they did
+  not say — and state facts directly, never "the product page says".
+- The JSON shape's description hint says the same in one line.
+
+**Method.** `.livecheck/compare/bakeoff-read-v2.ts` (git-excluded): the frozen bake-off read
+messages (same page text as the old Luna runs) with the current system prompt, default tier as
+before, scored by the unchanged `bakeoff-analyze.ts` (six tools, two runs each).
+
+| Luna read (6 tools × 2 runs) | Avg description | Makerspace use | Specs in page text | Specs | Cost / read |
+|---|---|---|---|---|---|
+| Old prompt (r1 / r2) | 547 / 525 chars | 4 / 12 | 100% / 100% | 150 / 143 | $0.0016 |
+| Tuned, first draft (v2r1 / v2r2) | 702 / 672 | 12 / 12 | 100% / 99% | 140 / 143 | $0.0018 |
+| **Tuned, final (v3r1 / v3r2)** | **677 / 667** | **12 / 12** | **100% / 100%** | **148 / 125** | **$0.0017** |
+
+- RYOBI went from 279–305 to 469–626 characters; Form 4 568–589 → 733–798; no description has
+  a number the pages do not contain (`unsup#` 0), none mentions PPE, none trips the meta check.
+- The first draft let two descriptions attribute ("the product page describes…"), hence the
+  "state facts directly" line in the final; two final descriptions still say "described as".
+- Spec counts vary run to run as before (X2D 36–50); support stays 100%.
+
+**§10.** `prompt.test.ts` pins the length, the opening, the makerspace sentence, the factual
+rule, the PPE rule and the direct-statement rule.
+
+**Spend.** $0.042 for the four tuned runs (24 reads).
+
+**Related.** The "Manuals as text" amendment's "no PDF text extraction" is superseded by the
+manual text spec's phase 1 (`2026-09-23-manual-text-and-search-design.md`, Amendments): the
+read step now extracts a manual PDF itself, and Exa's copy is the fallback.

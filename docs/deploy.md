@@ -164,6 +164,27 @@ Run `db:migrate` against Neon first. Staff can edit the questions afterwards in 
 editor ("Assistant starter questions"); the tool pages pick them up once the catalogue's
 few-minute cache expires.
 
+### Stage 2d · Manual text for manuals already stored (optional, free)
+
+Each stored manual PDF is also kept as text, page by page, with its outline (manual text
+spec, phase 1; migration `0010`). New manuals are processed right after they are archived;
+manuals archived or uploaded before that need one backfill. It runs pdf.js locally — **no
+Gateway calls, no cost** — reading each PDF back from Blob (`BLOB_READ_WRITE_TOKEN`, or
+`.blob-data/` for a local database) and follows the import scripts' target order
+(`DATABASE_URL` > `PGLITE_DATA_DIR`; stop the dev server for a local database).
+
+```bash
+cd v5
+# rehearse: reads and extracts every stored PDF, reports ready / no_text / failed and pages, writes nothing
+PGLITE_DATA_DIR=.pglite-data npm run manuals:index -- --dry-run
+# then for real (--limit N, --ids <resource ids>; --force re-processes everything)
+DATABASE_URL=postgres://… BLOB_READ_WRITE_TOKEN=… npm run manuals:index
+```
+
+Run `db:migrate` against Neon first. The `no_text` count is how many manuals are scans
+(the spec's OCR question). The tool pages show each manual's **Contents** once the
+catalogue's few-minute cache expires.
+
 ## Stage 3 · Sign-in (15 minutes)
 
 Google Cloud Console → **OAuth 2.0 Client ID (Web)** → authorized redirect URI exactly:

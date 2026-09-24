@@ -7,6 +7,8 @@ import {
   RESEARCH_MAX_PDFS_READ,
 } from "../intake/limits.ts";
 import type { ResearchFocus } from "../intake/research-focus.ts";
+import { manualDigest, type DigestSource } from "../manuals/digest.ts";
+import { extractManual, MANUAL_EXTRACT_MAX_BYTES, type ExtractedManual } from "../manuals/extract.ts";
 import { readPage, type ImageHint, type ReadPageResult } from "../web/read-page.ts";
 import type { SearchFindings } from "./model-output.ts";
 import { buildReadPrompt, type ResearchItemInput } from "./prompt.ts";
@@ -44,12 +46,16 @@ import { orderPagesForReading, type PageSubject } from "./source-pages.ts";
  *   prompt labels it "text captured by search". No GET is added: the attempt
  *   already spent its place.
  * - **A manual is read as its text, not attached** (amendment "Manuals as text
- *   and flex tier for research"), while {@link RESEARCH_ATTACH_PDFS} is off: a
- *   PDF the server read is given to the model as the text the search captured
- *   for that URL, capped at {@link RESEARCH_MANUAL_TEXT_MAX_CHARS} and marked
- *   `via: "manual"`. There is no PDF text extractor in the tree, so a PDF the
- *   search captured no text for is skipped and recorded as a failure. At most
- *   `maxPdfs` manuals are given either way.
+ *   and flex tier for research"), while {@link RESEARCH_ATTACH_PDFS} is off, and
+ *   **our own extraction comes first** (manual text spec §3.7): a manual the lab
+ *   already stores as text (`storedManual`, looked up by URL before anything is
+ *   downloaded) is given as its outline and the pages richest in specs; a PDF
+ *   the server downloads (up to the archive's 25 MB) is extracted in memory
+ *   (`manuals/extract.ts`) and given the same way. Only when neither yields text
+ *   — a scan, an encrypted file, too large — does the search's captured copy
+ *   stand in, capped at {@link RESEARCH_MANUAL_TEXT_MAX_CHARS}. All three are
+ *   marked `via: "manual"`, with `manualSource` saying which. At most `maxPdfs`
+ *   manuals are given either way.
  *
  * Plain Node: step code imports this.
  */
@@ -68,6 +74,12 @@ export interface ReadPageText {
    * (the search's copy of it, capped) instead of as a file.
    */
   via?: "search" | "manual";
+  /**
+   * For `via: "manual"`: where the text came from — `"stored"` (the lab's own
+   * processed copy), `"pdf"` (extracted from the file just downloaded) or
+   * `"search"` (the search's captured copy, the fallback).
+   */
+  manualSource?: "stored" | "pdf" | "search";
 }
 
 /** A PDF read whole, for a file part. */
@@ -101,7 +113,21 @@ export interface ReadCandidatePagesOptions {
    * search's text of it instead (`false`). Default {@link RESEARCH_ATTACH_PDFS}.
    */
   attachPdfs?: boolean;
+  /**
+   * The lab's stored text of the manual at a URL (its source link or its
+   * archived copy), or null. Looked up before a target is fetched: a manual the
+   * lab already processed is not downloaded again. Absent: nothing is stored.
+   */
+  storedManual?: (url: string) => Promise<DigestSource | null>;
+  /** The extractor for a downloaded PDF; {@link extractManual} with {@link RESEARCH_PDF_EXTRACT_TIMEOUT_MS} unless a test passes its own. */
+  extract?: (bytes: Uint8Array) => Promise<ExtractedManual>;
 }
+
+/** How long research gives pdf.js to extract one manual — well inside the read step's 240 s. */
+export const RESEARCH_PDF_EXTRACT_TIMEOUT_MS = 30_000;
+
+/** A target that names a PDF is given the manual archive's download time, not a page's 15 s. */
+export const RESEARCH_PDF_READ_TIMEOUT_MS = 30_000;
 
 /** Reads in flight at once: enough to overlap two slow servers, few enough to be polite. */
 export const READ_CONCURRENCY = 2;
@@ -138,9 +164,20 @@ export async function readCandidatePages(
   const read = opts.read ?? readPage;
   const targets = urls.slice(0, Math.max(0, max));
 
-  const results = await inOrder(targets, READ_CONCURRENCY, async (url): Promise<ReadPageResult> => {
+  // A manual the lab has already processed is used as stored, not downloaded.
+  const stored = await Promise.all(
+    targets.map(async (url) => (opts.storedManual ? await opts.storedManual(url).catch(() => null) : null))
+  );
+
+  const results = await inOrder(targets, READ_CONCURRENCY, async (url, index): Promise<ReadPageResult | null> => {
+    if (stored[index]) return null;
     try {
-      return await read(url, { signal: opts.signal, allowedHosts: opts.allowedHosts });
+      return await read(url, {
+        signal: opts.signal,
+        allowedHosts: opts.allowedHosts,
+        maxPdfBytes: MANUAL_EXTRACT_MAX_BYTES,
+        ...(looksLikePdfUrl(url) ? { timeoutMs: RESEARCH_PDF_READ_TIMEOUT_MS } : {}),
+      });
     } catch {
       // readPage does not throw for an expected failure; a reader that does is one failed page, not a failed step.
       return { url, status: "failed", contentType: null, title: null, text: null, pdf: null, images: [], reason: "unexpected" };
@@ -152,8 +189,27 @@ export async function readCandidatePages(
   const searchTexts = opts.searchTexts ?? [];
   const usedSearchTexts = new Set<string>();
   let manualTexts = 0;
+  const extract =
+    opts.extract ?? ((bytes: Uint8Array) => extractManual(bytes, { timeoutMs: RESEARCH_PDF_EXTRACT_TIMEOUT_MS }));
 
   for (const [n, result] of results.entries()) {
+    const storedManual = stored[n];
+    if (storedManual || !result) {
+      if (!storedManual) continue;
+      if (manualTexts >= maxPdfs) {
+        out.failures.push(`${hostOf(targets[n]) ?? "(unknown host)"}: skipped (PDF limit)`);
+        continue;
+      }
+      manualTexts += 1;
+      out.pages.push({
+        url: targets[n],
+        title: null,
+        text: manualDigest(storedManual, RESEARCH_MANUAL_TEXT_MAX_CHARS),
+        via: "manual",
+        manualSource: "stored",
+      });
+      continue;
+    }
     const host = hostOf(result.url) ?? hostOf(targets[n]) ?? "(unknown host)";
 
     // A page's declared images count even when its body text is thin.
@@ -185,15 +241,28 @@ export async function readCandidatePages(
         else out.failures.push(`${host}: skipped (PDF limit)`);
         continue;
       }
-      // Text, not a file: the search's copy of this PDF, capped. No extractor
-      // runs on the bytes, so without a copy the manual is not read.
+      // Text, not a file. Our own extraction first: the outline and the pages
+      // richest in specs. The search's copy only when the PDF gave no text.
       if (manualTexts >= maxPdfs) {
         out.failures.push(`${host}: skipped (PDF limit)`);
         continue;
       }
+      const extracted = await extract(result.pdf).catch(() => null);
+      if (extracted?.status === "ready") {
+        manualTexts += 1;
+        out.pages.push({
+          url: result.url,
+          title: extracted.title,
+          text: manualDigest(extracted, RESEARCH_MANUAL_TEXT_MAX_CHARS),
+          via: "manual",
+          manualSource: "pdf",
+        });
+        continue;
+      }
       const copy = findSearchText(targets[n], searchTexts) ?? findSearchText(result.url, searchTexts);
       if (!copy || usedSearchTexts.has(copy.url)) {
-        out.failures.push(`${host}: skipped (PDF, no text)`);
+        const why = extracted?.status === "no_text" ? "scanned" : extracted?.reason ?? "unreadable";
+        out.failures.push(`${host}: skipped (PDF ${why}, no text)`);
         continue;
       }
       usedSearchTexts.add(copy.url);
@@ -203,6 +272,7 @@ export async function readCandidatePages(
         title: copy.title ?? result.title,
         text: capManualText(copy.text),
         via: "manual",
+        manualSource: "search",
       });
       continue;
     }
@@ -221,6 +291,15 @@ export function capManualText(text: string, max = RESEARCH_MANUAL_TEXT_MAX_CHARS
   const cut = trimmed.slice(0, max);
   const lastBreak = Math.max(cut.lastIndexOf("\n"), cut.lastIndexOf(" "));
   return `${(lastBreak > max * 0.9 ? cut.slice(0, lastBreak) : cut).trimEnd()} …[manual text cut]`;
+}
+
+/** True when a URL's path names a PDF (`….pdf`), query and fragment ignored. */
+export function looksLikePdfUrl(raw: string): boolean {
+  try {
+    return new URL(raw).pathname.toLowerCase().endsWith(".pdf");
+  } catch {
+    return false;
+  }
 }
 
 /** The manuals given to the model as their text, not as files. */
@@ -270,14 +349,18 @@ export function buildReadMessages(
 }
 
 /** `fn` over `items`, at most `limit` at a time, results in the items' order. */
-async function inOrder<T, R>(items: readonly T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+async function inOrder<T, R>(
+  items: readonly T[],
+  limit: number,
+  fn: (item: T, index: number) => Promise<R>
+): Promise<R[]> {
   const results = new Array<R>(items.length);
   let next = 0;
   const worker = async () => {
     while (next < items.length) {
       const index = next;
       next += 1;
-      results[index] = await fn(items[index]);
+      results[index] = await fn(items[index], index);
     }
   };
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));

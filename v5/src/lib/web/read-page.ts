@@ -56,23 +56,34 @@ export interface ReadPageResult {
 const HTMLISH = new Set(["text/html", "application/xhtml+xml", "text/plain", "application/xml", "text/xml"]);
 const ACCEPT = "text/html,application/xhtml+xml,application/pdf;q=0.9,text/plain;q=0.8,*/*;q=0.1";
 
-export async function readPage(
-  url: string,
-  opts: { signal: AbortSignal; allowedHosts?: readonly string[] }
-): Promise<ReadPageResult> {
+export interface ReadPageOptions {
+  signal: AbortSignal;
+  allowedHosts?: readonly string[];
+  /**
+   * The largest PDF read, default {@link READ_PAGE_MAX_PDF_BYTES}. Research
+   * raises it to the manual archive's 25 MB, because it now extracts a manual's
+   * text itself (manual text spec §3.7).
+   */
+  maxPdfBytes?: number;
+  /** The whole read's budget, default {@link READ_PAGE_TIMEOUT_MS}. */
+  timeoutMs?: number;
+}
+
+export async function readPage(url: string, opts: ReadPageOptions): Promise<ReadPageResult> {
+  const maxPdfBytes = opts.maxPdfBytes ?? READ_PAGE_MAX_PDF_BYTES;
   // setTimeout rather than AbortSignal.timeout, so a test's fake clock drives it.
   const deadline = new AbortController();
   const timer = setTimeout(
     () => deadline.abort(new DOMException("The page took too long to answer.", "TimeoutError")),
-    READ_PAGE_TIMEOUT_MS
+    opts.timeoutMs ?? READ_PAGE_TIMEOUT_MS
   );
   const signal = AbortSignal.any([opts.signal, deadline.signal]);
 
   try {
     const fetched = await guardedFetch(url, {
       signal,
-      maxBytes: READ_PAGE_MAX_PDF_BYTES,
-      maxBytesFor: (type) => (type !== null && HTMLISH.has(type) ? READ_PAGE_MAX_HTML_BYTES : READ_PAGE_MAX_PDF_BYTES),
+      maxBytes: Math.max(maxPdfBytes, READ_PAGE_MAX_HTML_BYTES),
+      maxBytesFor: (type) => (type !== null && HTMLISH.has(type) ? READ_PAGE_MAX_HTML_BYTES : maxPdfBytes),
       allowedHosts: opts.allowedHosts,
       accept: ACCEPT,
       maxRedirects: READ_PAGE_MAX_REDIRECTS,

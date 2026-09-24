@@ -280,14 +280,14 @@ describe('search text fallback and description depth (amendment "Search text fal
     expect(researchSystemPrompt("search")).not.toContain(MANUAL_TEXT_LABEL);
   });
 
-  it("asks for a real paragraph of 3–5 sentences, sourced, and less when the pages say little", () => {
+  it("asks for a real paragraph, sourced, and less when the pages say little", () => {
     const read = researchSystemPrompt("read");
-    expect(read).toContain("**The description is a real paragraph of 3–5 sentences**");
-    expect(read).toContain("what it is for in a makerspace");
-    expect(read).toContain("its key capabilities as the pages state them");
-    expect(read).toContain("**When the pages say little, write less**");
+    expect(read).toContain("**The description is a real paragraph of 4–6 sentences, 550–800 characters**");
+    expect(read).toContain("what students could make or do with it in a makerspace");
+    expect(read).toContain("**key capabilities and specs as the pages state them**");
+    expect(read).toContain("**when the pages say little, write less**");
     expect(read).toContain("never fill a gap from memory");
-    expect(read).toContain('"description": "a paragraph of 3–5 sentences');
+    expect(read).toContain('"description": "4–6 sentences, 550–800 characters');
     expect(read).not.toContain("The description is one short paragraph");
   });
 });
@@ -296,10 +296,28 @@ describe('Luna research tuning (amendment "Luna research tuning")', () => {
   const read = researchSystemPrompt("read");
 
   it("orders the description and gives it a length to aim for", () => {
-    expect(read).toContain("in this order: (1) what the machine is — its type as the product page states it");
-    expect(read).toContain("(2) what it is for in a makerspace — the kinds of student projects it suits");
+    expect(read).toContain("in this order: (1) **open with what the tool is** — its type as the product page states it");
+    expect(read).toContain("(2) **one concrete sentence on what students could make or do with it in a makerspace**");
     expect(read).toContain("with the pages' own numbers");
-    expect(read).toContain("Aim for 450–800 characters when the pages support it");
+    expect(read).toContain("550–800 characters");
+    expect(read).toContain("Reach 550 characters whenever the pages give enough facts to");
+    expect(read).not.toContain("Aim for 450–800 characters");
+  });
+
+  it("keeps the description strictly factual: nothing the pages do not state", () => {
+    expect(read).toContain("**The description is strictly factual.**");
+    expect(read).toContain("never add a voltage, battery, wattage, size or capacity the pages do not state");
+    expect(read).toContain("never a capability a page does not describe");
+  });
+
+  it("keeps PPE out of the description as well as out of ppeRequired", () => {
+    expect(read).toContain("**Never mention protective equipment in the description**");
+    expect(read).toContain("no PPE");
+  });
+
+  it("never lets the description talk about the pages or the request", () => {
+    expect(read).toContain("Never mention the request, the name you were given, which pages you read or what they did not say");
+    expect(read).toContain('state each fact directly — never "the product page says"');
   });
 
   it("keeps the research out of the description, and still gives a variant's specs", () => {

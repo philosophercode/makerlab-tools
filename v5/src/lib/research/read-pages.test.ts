@@ -1,12 +1,16 @@
 // @vitest-environment node
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { http, HttpResponse } from "msw";
 import { server } from "../../../test/msw/server";
 import { setResolvedAddresses } from "../../../test/web/resolver";
 import type { ReadPageResult } from "../web/read-page";
 import { RESEARCH_ATTACH_PDFS, RESEARCH_MANUAL_TEXT_MAX_CHARS, RESEARCH_MAX_PDFS_READ } from "../intake/limits";
+import { MANUAL_EXTRACT_MAX_BYTES } from "../manuals/extract";
 import { parseSearchFindings } from "./model-output";
 import {
   READ_CONCURRENCY,
+  RESEARCH_PDF_READ_TIMEOUT_MS,
   buildReadMessages,
   candidatePageUrls,
   capManualText,
@@ -97,7 +101,15 @@ describe("readCandidatePages", () => {
   it("passes the signal and the allowed hosts to every read", async () => {
     const read = vi.fn(async (url: string) => page(url));
     await readCandidatePages(["https://a.test/"], { signal, allowedHosts: ["a.test"], read });
-    expect(read).toHaveBeenCalledWith("https://a.test/", { signal, allowedHosts: ["a.test"] });
+    expect(read).toHaveBeenCalledWith("https://a.test/", { signal, allowedHosts: ["a.test"], maxPdfBytes: MANUAL_EXTRACT_MAX_BYTES });
+    // A URL that names a PDF gets the manual archive's download time.
+    await readCandidatePages(["https://a.test/m.pdf"], { signal, allowedHosts: ["a.test"], read });
+    expect(read).toHaveBeenLastCalledWith("https://a.test/m.pdf", {
+      signal,
+      allowedHosts: ["a.test"],
+      maxPdfBytes: MANUAL_EXTRACT_MAX_BYTES,
+      timeoutMs: RESEARCH_PDF_READ_TIMEOUT_MS,
+    });
   });
 
   it("records a failure as host and status only — never the path or the query", async () => {
@@ -201,11 +213,13 @@ describe('readCandidatePages — manuals as text (amendment "Manuals as text and
     expect(RESEARCH_MANUAL_TEXT_MAX_CHARS).toBeLessThanOrEqual(20_000);
   });
 
-  it("gives a PDF the server read as the search's text of it, marked as a manual — no bytes kept", async () => {
+  it("gives a PDF with no text of its own as the search's text of it, marked as a manual — no bytes kept", async () => {
     const searchTexts = [{ url: MANUAL, title: "X2D user manual", text: manualCopy(1) }];
     const result = await readCandidatePages([MANUAL], { signal, allowedHosts: [], read: async (url) => pdfPage(url), searchTexts });
     expect(result.pdfs).toEqual([]);
-    expect(result.pages).toEqual([{ url: MANUAL, title: "X2D user manual", text: manualCopy(1).trim(), via: "manual" }]);
+    expect(result.pages).toEqual([
+      { url: MANUAL, title: "X2D user manual", text: manualCopy(1).trim(), via: "manual", manualSource: "search" },
+    ]);
     expect(manualTextUrls(result)).toEqual([MANUAL]);
     // A source like any page read — and not "via search": the server did read the PDF.
     expect(readSourceUrls(result)).toEqual([MANUAL]);
@@ -232,11 +246,11 @@ describe('readCandidatePages — manuals as text (amendment "Manuals as text and
     expect(result.failures).toEqual(["maker.test: skipped (PDF limit)"]);
   });
 
-  it("skips a PDF the search captured no text for (there is no PDF text extractor), and records why", async () => {
+  it("skips a PDF that gave no text when the search captured none either, and records why", async () => {
     const result = await readCandidatePages([MANUAL], { signal, allowedHosts: [], read: async (url) => pdfPage(url), searchTexts: [] });
     expect(result.pages).toEqual([]);
     expect(result.pdfs).toEqual([]);
-    expect(result.failures).toEqual(["maker.test: skipped (PDF, no text)"]);
+    expect(result.failures).toEqual(["maker.test: skipped (PDF corrupt, no text)"]);
   });
 
   it("matches the copy by the URL tried or the PDF's final URL", async () => {
@@ -244,7 +258,7 @@ describe('readCandidatePages — manuals as text (amendment "Manuals as text and
     const read = async () => ({ ...pdfPage(MANUAL), url: "https://maker.test/files/x2d.pdf" });
     const result = await readCandidatePages([MANUAL], { signal, allowedHosts: [], read, searchTexts });
     expect(result.pages).toEqual([
-      { url: "https://maker.test/files/x2d.pdf", title: null, text: manualCopy(4).trim(), via: "manual" },
+      { url: "https://maker.test/files/x2d.pdf", title: null, text: manualCopy(4).trim(), via: "manual", manualSource: "search" },
     ]);
   });
 
@@ -434,3 +448,72 @@ describe('candidatePageUrls — the product page first (amendment "Product-page 
   });
 });
 
+
+describe("readCandidatePages — our own extraction first (manual text spec §3.7)", () => {
+  const MANUAL = "https://maker.test/acme-manual.pdf";
+  const fixture = (name: string) => new Uint8Array(readFileSync(join(process.cwd(), "test/fixtures/manuals", name)));
+  const pdfPage = (url: string, bytes: Uint8Array) =>
+    page(url, { contentType: "application/pdf", text: null, title: null, pdf: bytes });
+
+  it("extracts a downloaded PDF and gives its contents and spec pages, labelled with pages, ahead of the search's copy", async () => {
+    const searchTexts = [{ url: MANUAL, title: "Acme manual", text: "Exa's copy of the cover and the safety notices. ".repeat(10) }];
+    const result = await readCandidatePages([MANUAL], {
+      signal,
+      allowedHosts: [],
+      read: async (url) => pdfPage(url, fixture("outline.pdf")),
+      searchTexts,
+    });
+    expect(result.pages).toHaveLength(1);
+    const [manual] = result.pages;
+    expect(manual).toMatchObject({ url: MANUAL, via: "manual", manualSource: "pdf", title: "Acme Laser 40 User Manual" });
+    expect(manual.text).toContain("Contents:\n- Introduction (p. 1)\n- Specifications (p. 2)\n  - Electrical (p. 3)");
+    expect(manual.text).toContain("[page 2]\nSpecifications\nWork area: 400 x 300 mm");
+    expect(manual.text).not.toContain("Exa's copy");
+    expect(manualTextUrls(result)).toEqual([MANUAL]);
+    expect(searchTextUrls(result)).toEqual([]);
+  });
+
+  it("falls back to the search's copy for a scan, and says so when there is none", async () => {
+    const searchTexts = [{ url: MANUAL, title: "Scan", text: "Exa read this scan with OCR. Work area 400 x 300 mm. ".repeat(6) }];
+    const scanned = fixture("scanned.pdf");
+    const withCopy = await readCandidatePages([MANUAL], { signal, allowedHosts: [], read: async (url) => pdfPage(url, scanned), searchTexts });
+    expect(withCopy.pages[0]).toMatchObject({ via: "manual", manualSource: "search" });
+
+    const without = await readCandidatePages([MANUAL], { signal, allowedHosts: [], read: async (url) => pdfPage(url, scanned) });
+    expect(without.pages).toEqual([]);
+    expect(without.failures).toEqual(["maker.test: skipped (PDF scanned, no text)"]);
+  });
+
+  it("uses the lab's stored text of a manual without downloading it", async () => {
+    const read = vi.fn(async (url: string) => page(url));
+    const storedManual = vi.fn(async (url: string) =>
+      url === MANUAL
+        ? {
+            outline: [{ title: "Specifications", page: 12, level: 1 }],
+            pages: [
+              { pageNumber: 11, label: null, text: "Welcome to your new laser." },
+              { pageNumber: 12, label: "3-1", text: "Laser power: 40 W\nWork area: 400 x 300 mm" },
+            ],
+          }
+        : null
+    );
+    const result = await readCandidatePages(["https://maker.test/p", MANUAL], { signal, allowedHosts: [], read, storedManual });
+    expect(read.mock.calls.map(([url]) => url)).toEqual(["https://maker.test/p"]);
+    expect(result.pages[1]).toMatchObject({ url: MANUAL, via: "manual", manualSource: "stored" });
+    expect(result.pages[1].text).toContain("[page 12 (printed 3-1)]\nLaser power: 40 W");
+    expect(readSourceUrls(result)).toEqual(["https://maker.test/p", MANUAL]);
+  });
+
+  it("labels extracted text as the lab's extraction in the read prompt, and the search's copy as before", async () => {
+    const read = await readCandidatePages([MANUAL], {
+      signal,
+      allowedHosts: [],
+      read: async (url) => pdfPage(url, fixture("outline.pdf")),
+    });
+    const [message] = buildReadMessages(ITEM, parseSearchFindings("{}"), read, []);
+    const text = String((message.content as Array<Record<string, unknown>>)[0].text);
+    expect(text).toContain(`source="${MANUAL} (manual text)"`);
+    expect(text).toContain("extracted from this PDF manual by the lab's server");
+    expect(text).not.toContain("as the search engine captured it");
+  });
+});

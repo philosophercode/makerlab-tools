@@ -71,6 +71,13 @@
       "when": 1790205764120,
       "tag": "0009_tool_starter_questions",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1790210242460,
+      "tag": "0010_manual_text",
+      "breakpoints": true
     }
   ]
 }

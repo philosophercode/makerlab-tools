@@ -140,6 +140,19 @@ describe("readPage — size caps", () => {
     expect(await readPage("https://maker.test/huge.pdf", { signal: signal() })).toMatchObject({ status: "too_large", pdf: null });
   });
 
+  it("reads a larger PDF when the caller raises the limit (research: the archive's 25 MB), and HTML stays capped", async () => {
+    const huge = new Uint8Array(READ_PAGE_MAX_PDF_BYTES + 1);
+    huge.set(PDF);
+    const page = new Uint8Array(6 * MB).fill(0x61);
+    server.use(
+      http.get("https://maker.test/huge.pdf", () => new HttpResponse(huge, { headers: { "content-type": "application/pdf" } })),
+      http.get("https://maker.test/page.html", () => new HttpResponse(page, { headers: { "content-type": "text/html" } }))
+    );
+    const opts = { signal: signal(), maxPdfBytes: 25 * MB };
+    expect((await readPage("https://maker.test/huge.pdf", opts)).status).toBe("ok");
+    expect((await readPage("https://maker.test/page.html", opts)).status).toBe("too_large");
+  });
+
   it("holds an unlabelled body to the HTML cap", async () => {
     const body = new TextEncoder().encode(`<html><body>${"a".repeat(READ_PAGE_MAX_HTML_BYTES)}</body></html>`);
     server.use(http.get("https://maker.test/unlabelled", () => new HttpResponse(body)));

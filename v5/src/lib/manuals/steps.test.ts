@@ -8,9 +8,11 @@
 
 const archive = vi.hoisted(() => ({ archiveManual: vi.fn() }));
 vi.mock("./archive", () => archive);
+const indexer = vi.hoisted(() => ({ indexResourceManuals: vi.fn() }));
+vi.mock("./index-document", () => indexer);
 
 import { FatalError, RetryableError } from "workflow";
-import { archiveManualStep, MANUAL_STEP_MAX_RETRIES } from "./steps";
+import { archiveManualStep, indexManualStep, MANUAL_STEP_MAX_RETRIES } from "./steps";
 
 const ID = "675596a3-081a-41a5-88e2-91353a18f759";
 
@@ -45,5 +47,39 @@ describe("archiveManualStep", () => {
 
   it("sets maxRetries as a property on the step", () => {
     expect((archiveManualStep as unknown as { maxRetries: number }).maxRetries).toBe(MANUAL_STEP_MAX_RETRIES);
+  });
+});
+
+describe("indexManualStep (manual text spec §3.1)", () => {
+  beforeEach(() => {
+    indexer.indexResourceManuals.mockReset();
+  });
+
+  it("returns stored outcomes — ready, no_text, failed — as they came, without retrying any", async () => {
+    const outcomes = [
+      { status: "indexed", attachmentId: "a", documentStatus: "ready", reason: null, pageCount: 4, outlineEntries: 4, chars: 1, ms: 1 },
+      { status: "indexed", attachmentId: "b", documentStatus: "no_text", reason: "no_text_layer", pageCount: 3, outlineEntries: 0, chars: 0, ms: 1 },
+      { status: "indexed", attachmentId: "c", documentStatus: "failed", reason: "encrypted", pageCount: null, outlineEntries: 0, chars: 0, ms: 1 },
+      { status: "skipped", attachmentId: "d", reason: "already_indexed" },
+      { status: "failed", attachmentId: "e", reason: "read_failed", transient: false },
+    ];
+    indexer.indexResourceManuals.mockResolvedValue(outcomes);
+    expect(await indexManualStep(ID)).toEqual(outcomes);
+  });
+
+  it("retries a Blob read that failed transiently", async () => {
+    indexer.indexResourceManuals.mockResolvedValue([{ status: "failed", attachmentId: "a", reason: "read_failed", transient: true }]);
+    expect(RetryableError.is(await indexManualStep(ID).catch((e: unknown) => e))).toBe(true);
+  });
+
+  it("retries an unreachable database and gives up on anything else", async () => {
+    indexer.indexResourceManuals.mockRejectedValueOnce(Object.assign(new Error("x"), { code: "ECONNREFUSED" }));
+    expect(RetryableError.is(await indexManualStep(ID).catch((e: unknown) => e))).toBe(true);
+    indexer.indexResourceManuals.mockRejectedValueOnce(new Error("pdf.js exploded"));
+    expect(FatalError.is(await indexManualStep(ID).catch((e: unknown) => e))).toBe(true);
+  });
+
+  it("sets maxRetries as a property on the step", () => {
+    expect((indexManualStep as unknown as { maxRetries: number }).maxRetries).toBe(MANUAL_STEP_MAX_RETRIES);
   });
 });

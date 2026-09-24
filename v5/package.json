@@ -23,7 +23,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/db-migrate.ts",
     "import:notion": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/import-notion.ts",
-    "verify:import": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/verify-import.ts"
+    "verify:import": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/verify-import.ts",
+    "manuals:index": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/index-manuals.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.160",
@@ -43,6 +44,7 @@
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
     "sharp": "^0.34.5",
+    "unpdf": "^1.8.1",
     "workflow": "^4.8.9",
     "zod": "^4.4.3"
   },
