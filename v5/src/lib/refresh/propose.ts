@@ -1,0 +1,264 @@
+import type { CitedField } from "../research/model-output.ts";
+import type { ResearchResult } from "../research/result.ts";
+import { imageIdentity } from "../web/image-url.ts";
+import { SAFETY_FIELDS, type Citation, type FieldProposal, type ProposalField, type ProposalKind } from "./types.ts";
+
+/**
+ * The diff, in code (refresh research spec §3.2).
+ *
+ * `proposeChanges` compares a tool's record with what blind research found and
+ * returns one {@link FieldProposal} per field worth a person's attention. The
+ * model never decides what counts as a change — it never even saw the record.
+ *
+ * - **Kinds.** *new* fills an empty field; *differs* disagrees with a filled
+ *   one; *unverified* is a field research left empty ("no manufacturer source
+ *   found" — which is not "matches"). A value equal to the record is dropped.
+ * - **Name** differs only when the normalized names differ **and** research's
+ *   name has a verified quote.
+ * - **Description** is prose, so comparing it word by word is noise: it is
+ *   proposed when the record's is empty (*new*) or under 120 characters
+ *   (*differs*), and otherwise only when the admin asked for descriptions.
+ * - **Materials and tags** are compared as sets of normalized labels. Only
+ *   additions are proposed — the proposed list is the record's plus research's
+ *   new labels, each listed in `added`; research never removes a label.
+ * - **Training, restrictions, emergency stop** are the safety fields.
+ * - **Resources** are compared by URL, after the image finder's size-variant
+ *   normalization and a leading locale segment dropped; only links the tool
+ *   lacks are proposed, never a removal.
+ * - **Cover photo** only when the tool has none: research's first-ranked image.
+ * - **No PPE, ever**: staff set it (Isaac, 2026-09-23). There is no PPE field.
+ * - **A tool research could not identify** — nothing read, or only its type
+ *   known — gets one `floor_check` proposal and nothing else (§5.3).
+ *
+ * Pure. Plain Node: the refresh workflow's step imports it.
+ */
+
+/** What refresh compares against: the record's own fields. */
+export interface ProposeTool {
+  name: string;
+  description: string | null;
+  materials: readonly string[];
+  tags: readonly string[];
+  trainingRequired: boolean;
+  useRestrictions: string | null;
+  emergencyStop: string | null;
+  floorCheck: string | null;
+  resourceUrls: readonly string[];
+  hasCover: boolean;
+}
+
+export interface ProposeInput {
+  tool: ProposeTool;
+  research: ResearchResult;
+  /** Whether the admin asked for description rewrites on this run (§5.1). */
+  includeDescription: boolean;
+}
+
+/** A description shorter than this is proposed for replacement whatever the admin chose. */
+export const SHORT_DESCRIPTION_CHARS = 120;
+
+/** What a floor check asks staff to write down (§5.3). Stored as data, like a ticket, in English. */
+export const FLOOR_CHECK_TEXT = "Record the brand, model and serial number from the machine's nameplate.";
+
+const FIELD_ORDER: readonly ProposalField[] = [
+  "use_restrictions",
+  "emergency_stop",
+  "training_required",
+  "name",
+  "description",
+  "materials",
+  "tags",
+  "resource",
+  "cover_photo",
+  "floor_check",
+];
+
+const KIND_ORDER: readonly ProposalKind[] = ["differs", "new", "unverified"];
+
+export function proposeChanges(input: ProposeInput): FieldProposal[] {
+  const { tool, research } = input;
+  if (!isIdentified(research)) return floorCheckOnly(tool);
+
+  const out: FieldProposal[] = [];
+  const cited = (field: CitedField): Citation[] => research.citations?.[field] ?? [];
+
+  // Name — differs only with a verified source (§3.2).
+  const canonical = research.canonicalName.trim();
+  if (canonical && normalizeText(canonical) !== normalizeText(tool.name) && cited("name").some((c) => c.verified)) {
+    out.push(proposal("name", "differs", tool.name, canonical, cited("name")));
+  }
+
+  // Description — opt-in unless the record's is missing or thin.
+  const description = research.description.trim();
+  const currentDescription = (tool.description ?? "").trim();
+  if (!description) {
+    out.push(unverified("description", tool.description));
+  } else if (!currentDescription) {
+    out.push(proposal("description", "new", tool.description, description, cited("description")));
+  } else if (
+    normalizeText(description) !== normalizeText(currentDescription) &&
+    (currentDescription.length < SHORT_DESCRIPTION_CHARS || input.includeDescription)
+  ) {
+    out.push(proposal("description", "differs", tool.description, description, cited("description")));
+  }
+
+  // Materials and tags — additions only.
+  for (const [field, current, found] of [
+    ["materials", tool.materials, research.materials],
+    ["tags", tool.tags, research.tags],
+  ] as const) {
+    const list = listProposal(field, current, found, cited(field));
+    if (list) out.push(list);
+  }
+
+  // Training required — a boolean research may not know.
+  if (research.trainingRequired === null) {
+    out.push(unverified("training_required", tool.trainingRequired));
+  } else if (research.trainingRequired !== tool.trainingRequired) {
+    out.push(proposal("training_required", "differs", tool.trainingRequired, research.trainingRequired, cited("training_required")));
+  }
+
+  // Restrictions and emergency stop — text.
+  const textFields = [
+    ["use_restrictions", tool.useRestrictions, research.useRestrictions],
+    ["emergency_stop", tool.emergencyStop, research.emergencyStop ?? null],
+  ] as const;
+  for (const [field, current, found] of textFields) {
+    const value = (found ?? "").trim();
+    const now = (current ?? "").trim();
+    if (!value) out.push(unverified(field, current));
+    else if (!now) out.push(proposal(field, "new", current, value, cited(field)));
+    else if (normalizeText(value) !== normalizeText(now)) out.push(proposal(field, "differs", current, value, cited(field)));
+  }
+
+  // Resources — only links the tool lacks.
+  const have = new Set(tool.resourceUrls.map(resourceKey).filter((key): key is string => key !== null));
+  const proposedKeys = new Set<string>();
+  for (const resource of research.resources) {
+    const key = resourceKey(resource.url);
+    if (!key || have.has(key) || proposedKeys.has(key)) continue;
+    proposedKeys.add(key);
+    out.push({
+      id: `resource:${resource.url}`,
+      field: "resource",
+      kind: "new",
+      safety: false,
+      current: null,
+      proposed: { title: resource.title, url: resource.url, type: resource.type },
+      citations: [],
+      decision: "pending",
+    });
+  }
+
+  // Cover photo — only when there is none.
+  const top = research.images?.candidates[0];
+  if (!tool.hasCover && top) {
+    out.push({
+      id: "cover_photo",
+      field: "cover_photo",
+      kind: "new",
+      safety: false,
+      current: null,
+      proposed: { url: top.url, pageUrl: top.pageUrl, width: top.width, height: top.height },
+      citations: [],
+      decision: "pending",
+    });
+  }
+
+  return sortProposals(out);
+}
+
+/** Research identified the machine: it read something, and knew more than the kind of machine. */
+export function isIdentified(research: ResearchResult): boolean {
+  return research.sourceUrls.length > 0 && !research.evidence.categoryOnly;
+}
+
+function floorCheckOnly(tool: ProposeTool): FieldProposal[] {
+  if ((tool.floorCheck ?? "").trim() === FLOOR_CHECK_TEXT) return [];
+  return [
+    {
+      id: "floor_check",
+      field: "floor_check",
+      kind: tool.floorCheck ? "differs" : "new",
+      safety: false,
+      current: tool.floorCheck,
+      proposed: FLOOR_CHECK_TEXT,
+      citations: [],
+      decision: "pending",
+    },
+  ];
+}
+
+function listProposal(
+  field: "materials" | "tags",
+  current: readonly string[],
+  found: readonly string[],
+  citations: Citation[]
+): FieldProposal | null {
+  if (found.length === 0) return unverified(field, [...current]);
+  const have = new Set(current.map(normalizeLabel));
+  const added: string[] = [];
+  const seen = new Set<string>();
+  for (const label of found) {
+    const key = normalizeLabel(label);
+    if (!key || have.has(key) || seen.has(key)) continue;
+    seen.add(key);
+    added.push(label.trim());
+  }
+  if (added.length === 0) return null;
+  if (current.length === 0) return { ...proposal(field, "new", [], added, citations), added };
+  return { ...proposal(field, "differs", [...current], [...current, ...added], citations), added };
+}
+
+function proposal(field: ProposalField, kind: ProposalKind, current: unknown, proposed: unknown, citations: Citation[]): FieldProposal {
+  return { id: field, field, kind, safety: SAFETY_FIELDS.includes(field), current, proposed, citations, decision: "pending" };
+}
+
+function unverified(field: ProposalField, current: unknown): FieldProposal {
+  return { id: field, field, kind: "unverified", safety: SAFETY_FIELDS.includes(field), current, citations: [], decision: "pending" };
+}
+
+/** Safety first, then differs before new before unverified, then the field order. */
+export function sortProposals(proposals: readonly FieldProposal[]): FieldProposal[] {
+  return [...proposals].sort(
+    (a, b) =>
+      Number(b.safety) - Number(a.safety) ||
+      KIND_ORDER.indexOf(a.kind) - KIND_ORDER.indexOf(b.kind) ||
+      FIELD_ORDER.indexOf(a.field) - FIELD_ORDER.indexOf(b.field)
+  );
+}
+
+/** Case, punctuation and whitespace flattened — for names and sentences. */
+export function normalizeText(value: string): string {
+  return value
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+}
+
+/** A label as a set member: "PLA+" and "pla" are two labels, "Wood." and "wood" one. */
+export function normalizeLabel(value: string): string {
+  return value.normalize("NFKC").toLowerCase().replace(/[\s._\-/]+/g, " ").trim();
+}
+
+/** A leading locale path segment: /en/, /en-us/, /de_DE/. */
+const LOCALE_SEGMENT = /^\/[a-z]{2}(?:[-_][a-z]{2})?(?=\/|$)/i;
+
+/**
+ * The key two spellings of one resource share: the image finder's
+ * size-variant normalization (`imageIdentity`: scheme, `www.`, trailing slash,
+ * size parameters) and a leading locale segment dropped. Null for a non-URL.
+ */
+export function resourceKey(raw: string): string | null {
+  try {
+    const identity = imageIdentity(raw.trim());
+    const slash = identity.indexOf("/");
+    if (slash < 0) return identity.toLowerCase();
+    const host = identity.slice(0, slash).toLowerCase();
+    const rest = identity.slice(slash).replace(LOCALE_SEGMENT, "");
+    return `${host}${rest}`;
+  } catch {
+    return null;
+  }
+}

@@ -229,7 +229,7 @@ Phase 5 extends both. The shape it sets:
 - **`/admin/inventory` is the review table, and it is not the catalogue.** It
   lists every tool including drafts and archived ones, with the flags a review
   runs on — no photo, no manual, open tickets, never reviewed — computed in SQL
-  by `src/lib/data/inventory.ts` in five statements whatever the size of the
+  by `src/lib/data/inventory.ts` in six statements whatever the size of the
   inventory. An *archived* tool carries no flags: archiving is one of the three
   outcomes of a review, so settled equipment stays out of the queue. Units that
   belong to no tool come back as their own list rather than being attached to a
@@ -509,6 +509,36 @@ creates a tool (Article 5).
 - **The daily cron expires what nobody researched.** `identified` rows older
   than 14 days are discarded and their photos released (`runPendingExpiry`),
   just before the orphan sweep deletes them from Blob.
+
+## Refresh research (`tool_refreshes`, `chat_proposals`; refresh research spec, migration `0012`)
+
+Existing tools researched again, **blind**, with every change a proposal a person accepts
+(Article 5). See the spec's 2026-09-23 amendment for the as-built detail.
+
+- **The engine** is `research/engine.ts` (`runSearch`, `runRead`) — intake's steps and
+  refresh's steps (`src/lib/refresh/steps.ts`, run by `src/workflows/refresh-batch.ts`)
+  both call it. Refresh tells it only the tool's name and category name
+  (`refresh/blind-input.ts`); the tool's own processed manual is given as its outline plus
+  the passages for fixed spec-like queries (`refresh/manual-context.ts`, 16k budget). The
+  read step asks every run for verbatim `citations` and an `emergencyStop`; code checks each
+  quote against the page it names (`refresh/citations.ts`).
+- **The diff is code** (`refresh/propose.ts`): kinds *differs* / *new* / *unverified*,
+  safety fields first, list additions only, links the tool lacks, a cover only when it has
+  none (ranked, never stored until accepted), a `floor_check` for a tool research could not
+  identify. **Never PPE.**
+- **Queue**: `/admin/inventory` checkboxes → **Refresh research (N)** → `queueToolRefresh`
+  (`tools.edit`, ≤ 25, the same daily ledger and lock as intake). **Review**:
+  `/admin/refresh` and `/admin/refresh/[id]`. **Accept** writes through the editor's save
+  path at `base_revision` (`refresh/apply.ts`, `refresh/decisions.ts`); a conflict writes
+  nothing and re-bases the cards. A published rename needs `tools.publish`.
+- **Research with the assistant** (§12): `capabilities/curation.ts` (`get_record`,
+  `propose_change`) is composed by the chat route only for a caller who may curate the
+  page's record (`lib/chat/curation.ts`); quotes are checked against what the turn read
+  (`lib/chat/turn-sources.ts`); cards are `data-proposal` parts (`ChatProposalCards`), decided
+  through `POST /api/chat-proposals` (`refresh/chat-decisions.ts`) — never a model tool.
+- **Tests**: `refresh-batch.workflow.test.ts` stubs the Gateway's wire; the pure parts
+  (`propose`, `citations`, `decide`, `blind-input`) have fixture tests shaped like the Aug 29
+  reconciliation; `fixtures.test-helpers.ts` holds the shared fixtures.
 
 ## The Notion mirror (`notion_mirrors`, Phase 8)
 

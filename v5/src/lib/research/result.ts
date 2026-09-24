@@ -6,6 +6,19 @@ import type {
 import { REVIEWER_NOTE_MAX_CHARS } from "../intake/limits.ts";
 import { RESEARCH_FOCUS_FIELDS, type ResearchFocusField } from "../intake/research-focus.ts";
 import { STARTER_QUESTION_MAX_CHARS, STARTER_QUESTIONS_MAX } from "../starter-questions.ts";
+import { CITATION_QUOTE_MAX_CHARS, CITATIONS_PER_FIELD_MAX, type Citation } from "../refresh/types.ts";
+import type { CitedField } from "./model-output.ts";
+
+/** The fields research quotes for (proposal field names). */
+export const CITED_FIELDS = [
+  "name",
+  "description",
+  "materials",
+  "tags",
+  "training_required",
+  "use_restrictions",
+  "emergency_stop",
+] as const satisfies readonly CitedField[];
 
 /**
  * What background research produces for one pending tool (spec §4.10), and the
@@ -111,6 +124,17 @@ export interface ResearchResult {
    * existed, and when research proposed none worth keeping.
    */
   starterQuestions?: string[];
+  /**
+   * Where the emergency stop is, when a page said (refresh research spec §3.2).
+   * Absent on rows researched before it was asked; intake does not copy it.
+   */
+  emergencyStop?: string | null;
+  /**
+   * The quotes the fields rest on, by proposal field, each **checked by code**
+   * against the text of the page it names (`refresh/citations.ts`). Absent on
+   * rows researched before quotes were asked for.
+   */
+  citations?: Partial<Record<CitedField, Citation[]>>;
 }
 
 /** A pressed **Research again**, as `research.redoRequest` records it. */
@@ -363,6 +387,15 @@ export const researchResultSchema: z.ZodType<ResearchResult> = z.strictObject({
     .optional(),
   // Optional, no default: a row researched before starter questions parses to itself.
   starterQuestions: z.array(z.string().min(1).max(STARTER_QUESTION_MAX_CHARS)).max(STARTER_QUESTIONS_MAX).optional(),
+  emergencyStop: z.string().max(1000).nullable().optional(),
+  citations: z
+    .partialRecord(
+      z.enum(CITED_FIELDS),
+      z
+        .array(z.strictObject({ quote: z.string().max(CITATION_QUOTE_MAX_CHARS), url: z.string().max(2000), verified: z.boolean() }))
+        .max(CITATIONS_PER_FIELD_MAX)
+    )
+    .optional(),
 });
 
 /**

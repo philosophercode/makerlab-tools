@@ -145,10 +145,19 @@ export const fetchDraftSchema = z.object({
   tags: labelList,
   trainingRequired: z.boolean().nullable().default(null),
   useRestrictions: text(1000).nullable().default(null),
+  /** Where the emergency stop is and how to use it, when a page says (refresh research spec §3.2). */
+  emergencyStop: text(1000).nullable().default(null),
   category: categorySchema.nullable().default(null),
   resources: linksSchema,
   sourceUrls: urlList,
   evidence: evidencePartialSchema.default({}),
+  /**
+   * The verbatim quotes the draft's fields rest on (refresh research spec
+   * §4.2), by field. Lenient: an entry that is not `{ quote, url }` is dropped,
+   * and a missing or malformed map is no quotes. **Unverified here** — code
+   * checks each quote against the page it names (`citations.ts`).
+   */
+  citations: z.unknown().optional().transform(readDraftCitations),
   /**
    * Up to three questions for the assistant's starter chips (amendment
    * "Tool-specific starter questions"). Lenient: anything that is not a usable
@@ -158,6 +167,58 @@ export const fetchDraftSchema = z.object({
 });
 
 export type FetchDraft = z.infer<typeof fetchDraftSchema>;
+
+/** The fields a draft may quote for, as the read prompt names them (camelCase), mapped to proposal fields. */
+export const DRAFT_CITATION_FIELDS = {
+  canonicalName: "name",
+  description: "description",
+  materials: "materials",
+  tags: "tags",
+  trainingRequired: "training_required",
+  useRestrictions: "use_restrictions",
+  emergencyStop: "emergency_stop",
+} as const;
+
+export type CitedField = (typeof DRAFT_CITATION_FIELDS)[keyof typeof DRAFT_CITATION_FIELDS];
+
+/** A quote as the model gave it: not yet checked against anything. */
+export interface DraftCitation {
+  quote: string;
+  url: string;
+}
+
+/** The longest quote read from the model — longer ones are cut, then fail verification if the cut broke them. */
+const DRAFT_QUOTE_MAX = 300;
+
+/**
+ * `{ "useRestrictions": [{ "quote": "…", "url": "…" }], … }` → proposal-field
+ * keys with at most three `{ quote, url }` each. The model may use either the
+ * JSON key (`useRestrictions`) or the proposal field name (`use_restrictions`).
+ */
+export function readDraftCitations(value: unknown): Partial<Record<CitedField, DraftCitation[]>> {
+  if (!isPlainObject(value)) return {};
+  const out: Partial<Record<CitedField, DraftCitation[]>> = {};
+  const byName = new Map<string, CitedField>();
+  for (const [key, field] of Object.entries(DRAFT_CITATION_FIELDS)) {
+    byName.set(key, field);
+    byName.set(field, field);
+  }
+  for (const [key, entries] of Object.entries(value)) {
+    const field = byName.get(key);
+    if (!field || !Array.isArray(entries)) continue;
+    const kept: DraftCitation[] = [];
+    for (const entry of entries) {
+      if (!isPlainObject(entry)) continue;
+      const quote = typeof entry.quote === "string" ? entry.quote.replace(/\s+/g, " ").trim().slice(0, DRAFT_QUOTE_MAX) : "";
+      const url = typeof entry.url === "string" ? entry.url.trim().slice(0, 2000) : "";
+      if (!quote || !url) continue;
+      kept.push({ quote, url });
+      if (kept.length === 3) break;
+    }
+    if (kept.length > 0) out[field] = [...(out[field] ?? []), ...kept].slice(0, 3);
+  }
+  return out;
+}
 
 /**
  * The last top-level JSON object in `text` that parses.

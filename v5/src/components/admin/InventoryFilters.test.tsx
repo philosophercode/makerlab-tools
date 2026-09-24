@@ -22,6 +22,7 @@ function row(overrides: RowOverrides = {}): InventoryRow {
     noManual: false,
     openTickets: false,
     neverReviewed: false,
+    floorCheck: false,
     ...overrides.attention,
   };
   return {
@@ -195,5 +196,41 @@ describe("InventoryFilters", () => {
 
     await user.selectOptions(selectFor("State"), "draft");
     expect(screen.getByRole("button", { name: "Clear filters" })).toBeInTheDocument();
+  });
+});
+
+describe("InventoryFilters — refresh research (refresh research spec §5.1, §6)", () => {
+  it("offers no checkboxes without the refresh action", () => {
+    setup();
+    expect(screen.queryByRole("checkbox", { name: "Select Form 4" })).not.toBeInTheDocument();
+  });
+
+  it("selects rows by checkbox or all shown, and opens the dialog with them", async () => {
+    window.history.replaceState(null, "", "/admin/inventory");
+    const action = vi.fn(async () => ({ ok: true as const, queued: 2, skipped: 0, missing: 0 }));
+    render(<InventoryFilters rows={ROWS} initial={{ ...NO_FILTERS, state: "published" }} queueRefresh={action} />);
+    const user = userEvent.setup();
+
+    await user.click(screen.getByRole("button", { name: "Select all shown" }));
+    expect(screen.getByText("1 tool selected")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Clear filters" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select Trotec Speedy 400" }));
+    expect(screen.getByText("2 tools selected")).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Refresh research (2)" }));
+    await user.click(screen.getByRole("button", { name: "Refresh 2" }));
+    expect(action).toHaveBeenCalledWith({ toolIds: ["a", "b"], includeDescription: false, note: null });
+    expect(await screen.findByText("Refreshing 2 tools — results appear on the Refresh page.")).toBeInTheDocument();
+    // Queued: the selection is cleared.
+    expect(screen.queryByText("2 tools selected")).not.toBeInTheDocument();
+  });
+
+  it("filters by Needs floor check, and tags a row with an open refresh", async () => {
+    const rows = [...ROWS, row({ id: "d", slug: "grey-box", name: "Grey box", attention: { floorCheck: true }, openRefreshId: "r1" })];
+    const user = setup(NO_FILTERS, rows);
+    await user.selectOptions(selectFor("Needs attention"), "floor_check");
+    expect(screen.getByRole("link", { name: "Grey box" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Form 4" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Refresh open" })).toHaveAttribute("href", "/admin/refresh/r1");
   });
 });

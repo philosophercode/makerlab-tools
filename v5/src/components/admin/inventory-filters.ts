@@ -29,6 +29,7 @@ export const ATTENTION_FILTERS = [
   "no_manual",
   "open_tickets",
   "never_reviewed",
+  "floor_check",
 ] as const;
 
 export type AttentionFilter = (typeof ATTENTION_FILTERS)[number];
@@ -115,6 +116,8 @@ function matchesAttention(row: InventoryRow, attention: AttentionFilter): boolea
       return row.attention.openTickets;
     case "never_reviewed":
       return row.attention.neverReviewed;
+    case "floor_check":
+      return row.attention.floorCheck;
   }
 }
 

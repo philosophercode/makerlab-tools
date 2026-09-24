@@ -3,6 +3,7 @@ import {
   saysNotCovered,
   ASSERTION_KINDS,
   calledTool,
+  notCalledTool,
   citesResource,
   containsAll,
   isAssertionKind,
@@ -79,6 +80,15 @@ describe("no_unknown_tools", () => {
     const text =
       "We don't have a waterjet cutter in the MakerLab. For flat stock, the Trotec Speedy 400 can cut acrylic and plywood.";
     expect(noUnknownTools(text, evalFixture).ok).toBe(true);
+  });
+});
+
+describe("not_called_tool", () => {
+  it("passes when the tool was never called, and counts the calls when it was", () => {
+    expect(notCalledTool([{ name: "search_tools" }], "propose_change").ok).toBe(true);
+    const result = notCalledTool([{ name: "propose_change" }, { name: "propose_change" }], "propose_change");
+    expect(result.ok).toBe(false);
+    expect(result.detail).toContain("2 time");
   });
 });
 
@@ -185,12 +195,12 @@ describe("says_not_covered", () => {
 
 describe("runAssertion dispatch", () => {
   it("handles every declared kind", () => {
-    expect(ASSERTION_KINDS).toHaveLength(9);
+    expect(ASSERTION_KINDS).toHaveLength(10);
     for (const kind of ASSERTION_KINDS) {
       const outcome = runAssertion(
         {
           kind,
-          value: kind === "called_tool" ? "get_unit_details" : "Form 4",
+          value: kind === "called_tool" || kind === "not_called_tool" ? "get_unit_details" : "Form 4",
           fields: ["materials"],
         },
         { text: "The Form 4 is a resin printer.", toolCalls: noCalls, fixture: evalFixture }

@@ -113,6 +113,21 @@ export async function prepareApprovalImage(
   return publishCleaned(item.id, cleaned.attachmentId, store, options);
 }
 
+/**
+ * Download a research image an admin accepted and store it **public**, owned by
+ * nobody until the caller claims it — the same guarded download, format check
+ * and `research_image` origin as an approval's "original" (refresh research
+ * spec §3.3: "the approval image path"). The caller has already checked that
+ * `url` is one research recorded. Null, with the reason logged by host only,
+ * for anything that fails: the caller answers `image_not_attached`.
+ */
+export async function storeResearchImage(url: string, options: ApprovalImageOptions): Promise<string | null> {
+  const store = resolveStore(options.store);
+  if (!store) return null;
+  const stored = await storeOriginal(url, store, options);
+  return stored.ok ? stored.coverId : null;
+}
+
 function resolveStore(store: BlobStore | null | undefined): BlobStore | null {
   if (store !== undefined) return store;
   return isBlobConfigured() ? getBlobStore() : null;

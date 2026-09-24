@@ -209,7 +209,13 @@
     "searchingWeb": "🔍 Searching the web…",
     "readingPage": "📄 Reading the page…",
     "searchingManual": "📖 Searching the {tool} manual…",
-    "searchingManuals": "📖 Searching the manual…"
+    "searchingManuals": "📖 Searching the manual…",
+    "curateStarter": "Curate this entry",
+    "curatePrompt": "Help me curate this entry: check it against the manufacturer's pages and propose fixes.",
+    "readingRecord": "📋 Reading the record…",
+    "proposingChange": "✏️ Proposing a change…",
+    "proposalsAcceptAll": "Accept all verified",
+    "proposalFailed": "That did not save: {reason}"
   },
   "qr": {
     "arrivalLabel": "Scanned from this machine",
@@ -454,7 +460,8 @@
         "no_photo": "No photo",
         "no_manual": "No manual",
         "open_tickets": "Open tickets",
-        "never_reviewed": "Never reviewed"
+        "never_reviewed": "Never reviewed",
+        "floor_check": "Needs floor check"
       },
       "openTicketsWithCount": "{count} open",
       "filtersLabel": "Filter the inventory",
@@ -567,7 +574,8 @@
         "showResource": "Show",
         "removeResource": "Remove",
         "reprocessManual": "Re-process",
-        "reprocessManualTitle": "Read this PDF again: extract its text and rebuild its search passages",        "noPhotos": "No photos. The gallery shows a placeholder until somebody takes one.",
+        "reprocessManualTitle": "Read this PDF again: extract its text and rebuild its search passages",
+        "noPhotos": "No photos. The gallery shows a placeholder until somebody takes one.",
         "addPhotos": "Add photos",
         "coverPhoto": "Cover",
         "movePhotoEarlier": "Move earlier",
@@ -592,9 +600,18 @@
           "published": "Published",
           "draft": "Draft",
           "archived": "Archived"
-        }
+        },
+        "fieldFloorCheck": "Floor check",
+        "floorCheckHint": "Refresh research could not identify this machine. Write down what the nameplate says, then clear this box."
       },
-      "edit": "Edit"
+      "edit": "Edit",
+      "refreshOpen": "Refresh open",
+      "selectRow": "Select {name}",
+      "selectAllShown": "Select all shown",
+      "clearSelection": "Clear selection",
+      "selectedCount": "{count, plural, one {# tool selected} other {# tools selected}}",
+      "refreshSelected": "Refresh research ({count})",
+      "columnSelect": "Select"
     },
     "errors": {
       "not_signed_in": "You are not signed in any more. Sign in and try again.",
@@ -615,7 +632,11 @@
       "image_retry_running": "A search for another image is already running. Wait for it to finish.",
       "daily_limit": "You have reached today's research limit. It frees up over the next 24 hours.",
       "start_failed": "The search could not start. Nothing was changed; try again.",
-      "failed": "That did not save. Nothing was changed."
+      "failed": "That did not save. Nothing was changed.",
+      "stale_refresh": "Somebody else decided proposals on this refresh while it was open. Reload to see what is left.",
+      "unverified_quote": "None of this proposal's quotes were found on the page it names, so it cannot be accepted here. Open the editor and check the manufacturer's page yourself.",
+      "too_many_tools": "Refresh at most 25 tools at a time.",
+      "expired": "This proposal is more than a week old. Ask the assistant again."
     },
     "warnings": {
       "audit_unavailable": "Saved, but this change could not be written to the audit log. Tell whoever runs the deployment.",
@@ -1055,6 +1076,101 @@
         "sync_running": "A push is running now. Press Sync now again once it finishes.",
         "start_failed": "The push could not be started. Nothing was pushed — try again."
       }
+    },
+    "refreshTitle": "Refresh research",
+    "refreshLede": "Proposed changes from re-researching existing tools, safety first. Nothing changes until you accept it.",
+    "refreshWaitingCount": "{count, plural, one {# refresh waiting} other {# refreshes waiting}}",
+    "refresh": {
+      "listLabel": "Refreshes waiting for a decision",
+      "empty": "No refreshes waiting. Select tools in the inventory and press Refresh research.",
+      "unavailable": "The refresh queue could not be read — the database is not answering. Nothing was lost; try again in a moment.",
+      "columnTool": "Tool",
+      "columnProposals": "Proposals",
+      "columnStatus": "Status",
+      "columnRequested": "Requested",
+      "status": {
+        "queued": "Queued",
+        "researching": "Researching…",
+        "proposed": "Waiting for you",
+        "failed": "Failed",
+        "decided": "Decided"
+      },
+      "counts": "Differs {differs} · New {new} · Not found {unverified}",
+      "safetyCount": "{count} safety",
+      "nothingToChange": "Matches the manufacturer's pages",
+      "open": "Review",
+      "back": "All refreshes",
+      "failedLabel": "Why it failed",
+      "archivedNote": "This tool is archived. Accepting a change does not restore it.",
+      "queuedNote": "Research is running. This page updates when it finishes.",
+      "requestedNote": "Note sent with this refresh: {note}",
+      "categorySuggestion": "Research would file this under {category}. Category and location stay your call in the editor.",
+      "duplicateOf": "Possible duplicate of {name}. Merging tools is done by hand.",
+      "matches": "Matches the manufacturer's pages — nothing to change.",
+      "proposalsLabel": "Proposed changes",
+      "notFoundLabel": "No manufacturer source found",
+      "notFoundHint": "Research found nothing for these fields. That is not the same as “matches”.",
+      "acceptAll": "Accept all verified",
+      "rejectAll": "Reject all",
+      "openEditor": "Open in editor",
+      "again": "Refresh again",
+      "againNote": "Note for research (optional)",
+      "againNotePlaceholder": "e.g. the lab's unit is the 80 W model",
+      "againDescriptions": "Propose description rewrites",
+      "againSend": "Start refresh",
+      "cancel": "Cancel",
+      "saving": "Saving…",
+      "applied": "{count, plural, one {# change saved.} other {# changes saved.}}",
+      "conflictNote": "The tool was edited since this refresh was queued. Cards marked “Changed since” show its value now — decide them again.",
+      "queuedAgain": "Refresh queued. Results appear on the Refresh page when it finishes.",
+      "skippedAgain": "This tool already has a refresh running.",
+      "dialogTitle": "Refresh research",
+      "dialogBody": "{count, plural, one {Research # tool again from the manufacturer's pages.} other {Research # tools again from the manufacturer's pages.}} Research is told only the name and category, never the current values. Nothing changes until you accept a proposal.",
+      "dialogDescriptions": "Also propose description rewrites",
+      "dialogNote": "Note for research (one tool only)",
+      "dialogStart": "Refresh {count}",
+      "dialogStarted": "{count, plural, one {Refreshing # tool} other {Refreshing # tools}} — results appear on the Refresh page.",
+      "dialogSkipped": "{count, plural, one {# already had a refresh open and was skipped.} other {# already had a refresh open and were skipped.}}",
+      "dialogLimit": "That would pass today's research limit. {remaining} left today.",
+      "goToRefresh": "Open the Refresh page"
+    },
+    "proposal": {
+      "field": {
+        "name": "Name",
+        "description": "Description",
+        "materials": "Materials",
+        "tags": "Tags",
+        "training_required": "Training required",
+        "use_restrictions": "Use restrictions",
+        "emergency_stop": "Emergency stop",
+        "resource": "New resource",
+        "cover_photo": "Cover photo",
+        "floor_check": "Floor check"
+      },
+      "kind": {
+        "differs": "Differs",
+        "new": "New",
+        "unverified": "Not found"
+      },
+      "safety": "Safety",
+      "current": "Now",
+      "proposed": "Proposed",
+      "empty": "(empty)",
+      "yes": "Yes",
+      "no": "No",
+      "added": "Adds: {labels}",
+      "quotes": "Sources",
+      "quoteNotFound": "Quote not found on the page",
+      "noQuote": "No quote — no page stated it",
+      "unverifiedHint": "No quote was found on the page, so this cannot be accepted here. Open the editor to change it.",
+      "publishNeeded": "Renaming a published tool needs publish permission.",
+      "imageFrom": "From {host}",
+      "accept": "Accept",
+      "reject": "Reject",
+      "accepted": "Accepted",
+      "rejected": "Rejected",
+      "conflict": "Changed since — decide again",
+      "reason": "Why: {reason}"
     }
   }
 }

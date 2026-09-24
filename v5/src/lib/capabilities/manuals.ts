@@ -2,6 +2,7 @@ import { z } from "zod";
 import { getCatalogTool, getCatalogTools } from "../catalog";
 import { getDb } from "../db/client";
 import { searchManuals, type ManualPassage } from "../manuals/search";
+import { recordTurnText } from "../chat/turn-sources";
 import { fenceUntrusted } from "../web/fence";
 import type { MakerLabTool } from "../../components/catalog-types";
 import type { Capability, CapabilityTool, ManualOutlineForPrompt, PromptEnv } from "./types";
@@ -112,6 +113,11 @@ const searchManualTool: CapabilityTool<SearchManualInput, SearchManualResult> = 
         scope,
         message: `Nothing in the ${scope} matches this. Tell the student the manual does not cover it (or that no searchable manual is on file), and do not answer from memory as if it did.`,
       };
+    }
+    // What this turn read — a curation quote from a manual is checked against it
+    // (refresh research spec §12.2). A private file has no URL to quote from.
+    for (const passage of result.passages) {
+      if (passage.pdfUrl) recordTurnText(ctx, passage.pdfUrl, passage.content);
     }
     return {
       status: "ok",

@@ -152,8 +152,19 @@ const LABELS_PARAGRAPH = [
   `- Leave \`ppeRequired\` as an empty list. Protective equipment is set by the lab's staff, not by research.`,
   `- \`trainingRequired\` is true when the machine is one a makerspace would normally require training for (a laser cutter, a CNC, a resin printer), false when it clearly is not, and null when you cannot tell.`,
   `- \`useRestrictions\` is a short sentence about who may use it or what it must not be used for, when a source says so; otherwise null.`,
+  `- \`emergencyStop\` is a short sentence on where the emergency stop is and how it is used, when a page says; otherwise null. Never guess one.`,
   `- For the category, prefer one of the lab's existing categories listed in the request, using its exact name and group. Propose a new name only when none fits.`,
   STARTER_QUESTIONS_RULE,
+].join("\n");
+
+/**
+ * Verbatim quotes (refresh research spec §4.2). Each field's value is backed by
+ * a sentence copied from a page; code checks every quote against the page it
+ * names, so an invented or paraphrased one is shown to staff as not found.
+ */
+const QUOTES_PARAGRAPH = [
+  `## Quote your sources`,
+  `In \`citations\`, for each of \`canonicalName\`, \`description\`, \`materials\`, \`tags\`, \`trainingRequired\`, \`useRestrictions\` and \`emergencyStop\` that you filled in from a page, give one to three **verbatim** quotes — each a sentence or table row copied exactly from one of the pages above (at most 300 characters, no ellipsis in the middle), with the \`url\` of the page it is on, exactly as that page is labelled. The lab's server checks every quote against that page's text and shows a quote it cannot find as unverified, so never paraphrase, translate or join sentences from different places. Leave a field out of \`citations\` when no page states it.`,
 ].join("\n");
 
 const ANSWER_RULE = `## Your answer
@@ -184,6 +195,7 @@ const FETCH_SHAPE = `{
   "tags": [ "short label" ],
   "trainingRequired": true | false | null,
   "useRestrictions": "a short sentence, or null",
+  "emergencyStop": "a short sentence, or null",
   "category": { "name": "category name", "group": "category group, or null" },
   "resources": [ { "title": "…", "url": "https://…", "type": "Manual" | "Video" | "Other" } ],
   "sourceUrls": [ "https://… every page above you relied on" ],
@@ -195,7 +207,8 @@ const FETCH_SHAPE = `{
     "specsFromSource": false,
     "categoryOnly": false
   },
-  "starterQuestions": [ "a short question a student might ask about this tool?" ]
+  "starterQuestions": [ "a short question a student might ask about this tool?" ],
+  "citations": { "useRestrictions": [ { "quote": "a sentence copied exactly from a page", "url": "https://… that page" } ] }
 }`;
 
 /**
@@ -223,7 +236,7 @@ export function researchSystemPrompt(stage: ResearchStagePrompt): string {
     ...task,
     SOURCES_PARAGRAPH,
     LINKS_PARAGRAPH,
-    ...(stage === "read" ? [LABELS_PARAGRAPH] : []),
+    ...(stage === "read" ? [LABELS_PARAGRAPH, QUOTES_PARAGRAPH] : []),
     EVIDENCE_PARAGRAPH,
     INJECTION_PARAGRAPH,
     ANSWER_RULE,

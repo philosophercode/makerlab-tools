@@ -20,6 +20,7 @@ function row(overrides: RowOverrides = {}): InventoryRow {
     noManual: false,
     openTickets: false,
     neverReviewed: false,
+    floorCheck: false,
     ...overrides.attention,
   };
   return {

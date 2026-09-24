@@ -478,3 +478,170 @@ It's recorded in the Gateway/images spec's amendments, not here.
   and Accept all verified.
 - **E2E:** an admin on a tool page asks the stubbed assistant to fix a spec, a card
   appears, Accept, and the public page shows the new value.
+
+
+## Amendments
+
+Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited.
+
+### 2026-09-23 — Phases 1–4 built: refresh, review, inventory hooks, research with the assistant
+
+**Status.** Built on `v5/refresh-research` (off `main` at `bd58f8f`): §9 phases 1–3 and §12
+(phase 4). Mode 1 (guided redo) was already built on `v5/gateway-images` and is unchanged.
+**Not built:** the two E2E scenarios (§10, §12.5) — the unit, integration, workflow and
+component tiers cover the same paths offline; no batch refresh has been run on real data.
+
+**As built, and where it differs from the text above** (choices the spec left open took the
+simplest option consistent with it):
+
+- **§4.1 migration `0012_refresh_research`**, not `0009` (0009–0011 were taken). One
+  migration holds `tool_refreshes`, `chat_proposals` (§12.2), `tools.floor_check` and
+  `research_requests.tool_refresh_id`. `tool_refreshes` also has `workflow_run_id` (for
+  diagnosis, as on `pending_tools`); both tables get the `updated_at` trigger. The one-open
+  rule is the partial unique index `tool_refreshes_one_open_idx`.
+- **§4.1 note length.** The note is the reviewer note of the guided-redo amendment —
+  `parseReviewerNote`, one paragraph, **≤ 1000** characters — not 300: one rule for every
+  note research takes.
+- **§3.1 the engine.** `searchItem` / `readAndVerifyItem`'s bodies moved to
+  `research/engine.ts` (`runSearch`, `runRead`), which take only a `ResearchItemInput`;
+  intake's steps call them unchanged, and `refresh/steps.ts` (`searchRefresh`,
+  `readRefresh`, `findRefreshImages`, `proposeRefresh`, `markRefreshFailed`,
+  `finishRefreshBatch`) calls them for a tool. `src/workflows/refresh-batch.ts` chunks three
+  at a time. The blind input (`refresh/blind-input.ts`) is **name and category name only**:
+  `brand` null (research settles the make from the name — open question 3), `locationHint`
+  null.
+- **§4.2 citations.** The read prompt now asks every run (intake too) for `citations` —
+  1–3 verbatim quotes per field (`canonicalName`, `description`, `materials`, `tags`,
+  `trainingRequired`, `useRestrictions`, `emergencyStop`) with the page's URL — and for
+  **`emergencyStop`**, which research did not produce before (§3.2 needs it). Both are
+  optional on `ResearchResult`. Code checks each quote against the text the model was given
+  for the page it names (`refresh/citations.ts`: whitespace, case, typographic quotes and
+  dashes flattened, a trailing full stop allowed, fence labels stripped from the URL, quotes
+  under 8 characters never verified); a quote on another page, or on none, is
+  `verified: false`.
+- **§3.1 images.** The image step runs only for a tool with no public photo, and **ranks
+  only** (`rankAndClean(…, { clean: false })`): no cleaned copy is stored during a refresh.
+  Accepting a `cover_photo` downloads the ranked-first original then, through the approval
+  image path (`storeResearchImage`: SSRF guard, format check, public Blob,
+  `origin: research_image`) and attaches it as the tool's photo. A failed download is the
+  `image_not_attached` warning on a landed write.
+- **§3.2 the diff** (`refresh/propose.ts`):
+  - *name*: proposed only as *differs* and only with at least one **verified** name quote;
+    otherwise not at all.
+  - *materials, tags*: only additions are proposed; the proposed list is the record's plus
+    research's new labels (`added`); a list research found a subset of is not proposed.
+  - *training_required*: *differs* only (a boolean is never empty); `null` from research is
+    *unverified*.
+  - *unverified* fields are stored like the others and shown folded ("No manufacturer source
+    found"); they never count as changes.
+  - An **unidentified** tool is one research read nothing for, or knew only the type of
+    (`evidence.categoryOnly`): one `floor_check` proposal, whose value is a fixed English
+    instruction stored as data (like a maintenance ticket). No floor check is proposed when
+    the same one is already owed.
+  - Proposals are ordered safety first, then *differs*, *new*, *unverified*.
+- **§3.3 accepting** (`refresh/apply.ts`, `refresh/decisions.ts`). All accepted field
+  proposals are **one** `saveToolFields` patch at `base_revision`; then each resource through
+  the editor's `addResource` and the cover through `attachPhotos`, each at the revision the
+  previous write returned. After a write the refresh's `base_revision` moves to the tool's
+  new revision, so the next card on the same refresh is not a false conflict. On a conflict
+  nothing is written; every undecided card whose field moved takes the record's value now and
+  is marked `conflict`, and `base_revision` moves to the tool's current revision so the admin
+  can decide again. Decisions also compare the **refresh row's** revision the page rendered
+  with, so two admins cannot overwrite each other's cards (`stale_refresh`). New manual
+  links go to `requestManualArchive`; every landed write calls `requestMirrorPush`.
+- **§5.1 queue.** A server action (`queueToolRefresh`, `app/admin/refresh/actions.ts`,
+  `tools.edit`), not a route. Too many (> 25) is `too_many_tools`. When `start()` throws
+  the rows become **`failed`** with the reason (not left `queued`): an open row would block
+  the tool, and **Refresh again** is the retry. A refresh nobody has written for 24 hours is
+  failed at the next queue of that tool (`failAbandonedRefreshes`), so a dead run cannot
+  block it for ever. The dialog is an inline panel (the admin palette's no-modal rule).
+- **§5.2 review.** `/admin/refresh` lists open **and failed** refreshes (the latest per
+  tool), sorted by `refreshRank`, polling every 5 s while any runs. **Refresh again** closes
+  a `proposed` refresh (`decided`; its undecided cards stay undecided in the record) and
+  queues a new one with the note. Research's category suggestion and a likely duplicate
+  (`findDuplicate` on the canonical name, now with `excludeToolIds`) are computed when the
+  page renders, as notes — nothing extra is stored. "Open in editor" goes to the tool's page,
+  where `EditToolControl` opens the editor.
+- **§6 inventory.** Row checkboxes, **Select all shown** (the selection survives filtering),
+  **Refresh research (N)**, a "Refresh open" tag linking to the refresh, a **Needs floor
+  check** flag and filter option. The inventory read is now six statements (open refreshes
+  are read in bulk). The editor shows **Floor check** while one is owed, so staff can clear
+  it. `/admin` lists **Refresh research** with the number of refreshes waiting.
+- **§6 strings.** `admin.refresh.*`, `admin.proposal.*`, `admin.errors.{stale_refresh,
+  unverified_quote, too_many_tools, expired}` and a few chat keys, **English only**; other
+  locales fall back to English, as the manual-text amendments did.
+- **§3.7 of the manual text spec** is built here — see that spec's amendment of today.
+
+**§12 research with the assistant, as built:**
+
+- **Composition.** `curationCapability(kind)` (`capabilities/curation.ts`) is not in the
+  registry: the chat route adds it only when the page shows a record the caller may curate
+  (`lib/chat/curation.ts`: `tools.approve` for a `pendingId` the preliminary page sends,
+  `tools.edit` for the `toolId` a tool page sends, drafts included), and
+  `capabilitiesForIdentity` enforces its `requiredPermission` as for every capability.
+  Visitors and students never get it. Both tools are `chatOnly`.
+- **Tools.** `get_record` and `propose_change` as §12.1 describes. `propose_change` is
+  `kind: "write"` (it stores a `chat_proposals` row) and writes no record. Field list = §4.2
+  **minus `cover_photo`** (images are chosen on the preliminary page or in the editor — a
+  chat card has no candidate list to choose from), and `floor_check` only for tools. PPE —
+  any field name containing "ppe" or "protective" — is refused with an explanation. A value
+  equal to the record is refused (`matches`). List fields take the complete new list.
+- **Quotes against this turn.** `lib/chat/turn-sources.ts` keeps, per turn (a `WeakMap` on
+  the turn's `CapabilityCtx`, the `read_page` cap's idiom), the text of every page
+  `read_page` read, every passage `search_manual` returned with a URL, and every Exa result
+  (title, highlights and text, recorded after each step by `onStepFinish` via
+  `exaResultTexts`). In a curation turn `read_page` may also open the record's own source
+  hosts and the hosts those Exa results came from; the SSRF guard is unchanged. Chat's caps
+  (5 searches, 5 reads) apply.
+- **Accepting is a route, `POST /api/chat-proposals`** (`{ ids, decision }`), not a server
+  action — like the intake table card, because `ChatFab` is a global client island. It
+  rate-limits on the `pendingTools` tier, requires sign-in and re-checks the permission per
+  subject, refuses decided and **expired** (7 days) cards, and applies a tool's cards through
+  `apply.ts` (same conflict rule as above; the card shows the record's value now). A pending
+  item's cards are written into `pending_tools.research`, conditional on the item's revision
+  (`writePendingResearch`); the preliminary page is re-keyed on the draft's fields so the
+  change shows — which drops unsaved typing on that page, the price of showing the accepted
+  change. After an accept, the subject's **other open cards** made at the same starting
+  revision, about other fields, move to the new revision (otherwise accepting one card of a
+  turn made all the others conflicts). Expired rows are kept as history; nothing deletes them.
+- **Where it appears.** `ChatFab` renders `data-proposal` parts as `ChatProposalCards`
+  (shared `ProposalCard`, **Accept all verified** when two or more are acceptable) and offers
+  "Curate this entry" where the page registered a curatable record through the launcher
+  (`CurateChatStarter`, rendered by `EditToolControl` once `/api/identity` says `tools.edit`,
+  and by `/admin/intake/[id]`). The chip sends a fixed curation prompt.
+- **Evals.** `evals/cases/curation.yaml` (proposes a fix without claiming to have made it;
+  never proposes PPE; only reads when told not to change anything), with a new
+  `not_called_tool` assertion and a `curate: true` case context. The paid eval run (`npm run
+  eval`) was **not** run for this change.
+
+**Live check (2026-09-23)**, `.livecheck/refresh/refresh.live.ts` (git-excluded): the real
+refresh steps (not the workflow runtime), Luna on the flex tier through the Gateway, the
+real web, in the worktree's scratch PGlite (`PGLITE_DATA_DIR=.pglite-data`, demo-seeded, plus
+a hand-typed "WEN DC3401" with the reconciliation's 1-micron error and no photo; the real
+Form 4 manual extracted and embedded into it first: $0.0006).
+
+| Tool | Time | Gateway-reported model cost (search + read + rank) | Exa (tool results) | Proposals |
+|---|---|---|---|---|
+| Form 4 (own manual processed) | 195 s | $0.0247 + $0.0026 + $0.0002 = **$0.0275** | $0.021 | use restrictions *differs* (safety, quote ✓), name "Formlabs Form 4" (✓), materials +2, tags +MSLA/LFD (✓), 4 resources, cover; emergency stop *unverified* |
+| Trotec Speedy 400 | 90 s | $0.0172 + $0.0018 = **$0.0190** | $0.014 | materials +6 (two quotes ✓, one ✗ shown), tags +2, product page and operating manual; restrictions and E-stop *unverified* |
+| WEN DC3401 | 84 s | $0.0225 + $0.0009 + $0.0002 = **$0.0236** | $0.014 | name "WEN DC3401 Rolling Dust Collector" (✓), description *differs* (3 quotes ✓), tags, materials, product page, manual, cover |
+
+- The Form 4's own manual reached the read step as **passages** (15,964 characters, within
+  the 16k budget) beside a second manual PDF the search found.
+- The WEN's wrong "1-micron" restriction came back **unverified**, not corrected: research
+  found the page's "5-micron zippered collection bag" (quoted under tags) but did not phrase
+  a use restriction. A refresh surfaces "no source for this field"; it does not invent one.
+- The Form 4's proposed use restriction ("Young or inexperienced users must be supervised",
+  verified in the user guide) would *replace* "Resin handling training required" — exactly
+  the kind of card a person must read before accepting.
+- **Curation turn** (admin on the Trotec's page: "The description is thin. Check Trotec's own
+  Speedy 400 page for the working area and the laser power options, and propose fixes"):
+  `get_record`, 4 × `exa_search`, 4 × `read_page`, 1 × `propose_change`; Exa $0.028. Reply:
+  "I proposed a fuller description with Trotec's listed **1016 × 610 mm (40 × 24 in)**
+  working area and **80 W or 120 W CO₂** power options. I noted that this lab unit's actual
+  power configuration isn't confirmed. The proposal is ready for review; the record hasn't
+  changed." Both quotes ("Speedy 400 Working area (W x D) 1016 x 610 mm (40 x 24 in)",
+  "Speedy 400 Laser power CO2 80W, 120W") verified against a troteclaser.com page read that
+  turn. The chat turn's model cost was not captured (the route does not report it).
+- Total Gateway-reported spend of the check: model calls ≈ $0.07, Exa ≈ $0.077 (if billed on
+  top), embeddings $0.0006, plus the chat turn's model tokens — well under $0.50.

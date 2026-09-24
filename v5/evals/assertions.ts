@@ -28,6 +28,7 @@ export const ASSERTION_KINDS = [
   "mentions_tool",
   "no_unknown_tools",
   "called_tool",
+  "not_called_tool",
   "contains_all",
   "not_contains_any",
   "no_fabricated_specs",
@@ -240,6 +241,13 @@ export function calledTool(toolCalls: RecordedToolCall[], name: string): Check {
   };
 }
 
+/** `not_called_tool` — the named tool never appears in the recorded tool calls. */
+export function notCalledTool(toolCalls: RecordedToolCall[], name: string): Check {
+  const count = toolCalls.filter((call) => call.name === name).length;
+  if (count === 0) return { ok: true };
+  return { ok: false, detail: `"${name}" was called ${count} time(s)` };
+}
+
 /** `contains_all` — every literal is present (case-insensitive). */
 export function containsAll(text: string, values: string[]): Check {
   const low = text.toLowerCase();
@@ -396,6 +404,10 @@ export function runAssertion(spec: AssertionSpec, input: AssertionInput): Assert
     case "called_tool": {
       const name = asString(spec.value);
       return outcome(`the assistant called ${name}`, calledTool(toolCalls, name));
+    }
+    case "not_called_tool": {
+      const name = asString(spec.value);
+      return outcome(`the assistant never called ${name}`, notCalledTool(toolCalls, name));
     }
     case "contains_all": {
       const values = asList(spec.value);

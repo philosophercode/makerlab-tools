@@ -44,6 +44,17 @@ interface ChatLauncher {
   toolStarters: ToolStarters | null;
   /** Register (or, with null, clear) the showing tool's starter questions. */
   setToolStarters: (value: ToolStarters | null) => void;
+  /**
+   * The record the page shows, when the viewer may curate it (refresh research
+   * spec §12.3): its keys (slug or id) — `ChatFab` offers "Curate this entry"
+   * while its path still names one. Null for everyone else.
+   */
+  curate: CurateTarget | null;
+  setCurate: (value: CurateTarget | null) => void;
+}
+
+export interface CurateTarget {
+  keys: string[];
 }
 
 const ChatLauncherContext = createContext<ChatLauncher | null>(null);
@@ -62,6 +73,7 @@ export function ChatLauncherProvider({
   const [isOpen, setIsOpen] = useState(false);
   const [pendingSeed, setPendingSeed] = useState<ChatSeed | null>(null);
   const [toolStarters, setToolStarters] = useState<ToolStarters | null>(null);
+  const [curate, setCurate] = useState<CurateTarget | null>(null);
 
   const open = useCallback((seedText?: string) => {
     setIsOpen(true);
@@ -77,8 +89,8 @@ export function ChatLauncherProvider({
   const consumeSeed = useCallback(() => setPendingSeed(null), []);
 
   const value = useMemo(
-    () => ({ isOpen, pendingSeed, open, close, consumeSeed, toolStarters, setToolStarters }),
-    [isOpen, pendingSeed, open, close, consumeSeed, toolStarters]
+    () => ({ isOpen, pendingSeed, open, close, consumeSeed, toolStarters, setToolStarters, curate, setCurate }),
+    [isOpen, pendingSeed, open, close, consumeSeed, toolStarters, curate]
   );
 
   return (

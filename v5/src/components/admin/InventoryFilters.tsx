@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 import { matchSorter } from "match-sorter";
 import type { InventoryRow } from "../../lib/data/inventory";
+import type { QueueRefreshAction } from "../../app/admin/refresh/action-result";
 import { InventoryTable } from "./InventoryTable";
+import { RefreshDialog } from "./RefreshDialog";
 import { ToolEditorPanel } from "./ToolEditorPanel";
 import type { ToolEditorActions } from "./tool-editor-actions";
 import {
@@ -50,6 +52,12 @@ export interface InventoryFiltersProps {
   actions?: ToolEditorActions;
   /** Whether the viewer holds `tools.publish`. Presentation only; §8. */
   canPublish?: boolean;
+  /**
+   * **Refresh research** (refresh research spec §5.1): when given, rows get
+   * checkboxes and the selection can be sent to research again. The action
+   * checks `tools.edit` itself.
+   */
+  queueRefresh?: QueueRefreshAction;
 }
 
 /**
@@ -71,12 +79,26 @@ export function InventoryFilters({
   initial,
   actions,
   canPublish = true,
+  queueRefresh,
 }: InventoryFiltersProps) {
   const t = useTranslations("admin.inventory");
   const [filters, setFilters] = useState<InventoryFilterState>(initial);
   // Which row has the editor open, or null. The row rather than its id, so the
   // panel can name the tool before its own read has answered.
   const [editing, setEditing] = useState<InventoryRow | null>(null);
+  // The tools ticked for **Refresh research**, by id; survives filtering, so a
+  // reviewer can narrow, tick, narrow again and tick more.
+  const [selected, setSelected] = useState<ReadonlySet<string>>(() => new Set());
+  const [refreshing, setRefreshing] = useState(false);
+
+  function toggle(row: InventoryRow) {
+    setSelected((current) => {
+      const next = new Set(current);
+      if (next.has(row.id)) next.delete(row.id);
+      else next.add(row.id);
+      return next;
+    });
+  }
 
   useEffect(() => {
     const query = toSearchParams(filters).toString();
@@ -198,10 +220,45 @@ export function InventoryFilters({
         </div>
       </div>
 
+      {queueRefresh ? (
+        <div className="admin-refresh-bar">
+          <button
+            type="button"
+            className="admin-button"
+            onClick={() => setSelected((current) => new Set([...current, ...visible.map((row) => row.id)]))}
+            disabled={visible.length === 0}
+          >
+            {t("selectAllShown")}
+          </button>
+          {selected.size > 0 ? (
+            <>
+              <span role="status">{t("selectedCount", { count: selected.size })}</span>
+              <button type="button" className="admin-button" onClick={() => setSelected(new Set())}>
+                {t("clearSelection")}
+              </button>
+              <button type="button" className="admin-button is-primary" onClick={() => setRefreshing(true)}>
+                {t("refreshSelected", { count: selected.size })}
+              </button>
+            </>
+          ) : null}
+        </div>
+      ) : null}
+
+      {queueRefresh && refreshing ? (
+        <RefreshDialog
+          toolIds={[...selected]}
+          action={queueRefresh}
+          onClose={() => setRefreshing(false)}
+          onQueued={() => setSelected(new Set())}
+        />
+      ) : null}
+
       <InventoryTable
         rows={visible}
         emptyMessage={emptyMessage}
         onEdit={actions ? setEditing : undefined}
+        selected={selected}
+        onToggle={queueRefresh ? toggle : undefined}
       />
 
       {actions && editing ? (

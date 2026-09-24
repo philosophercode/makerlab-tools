@@ -52,6 +52,8 @@ export interface EditableTool {
   useRestrictions: string | null;
   emergencyStop: string | null;
   notes: string | null;
+  /** What to note from the nameplate (refresh research spec §4.1); absent on fixtures from before it. */
+  floorCheck?: string | null;
   /** The assistant's starter chips on this tool's page; empty means the generic ones. */
   starterQuestions: string[];
   published: boolean;
@@ -75,6 +77,8 @@ export interface ToolPatch {
   useRestrictions?: string | null;
   emergencyStop?: string | null;
   notes?: string | null;
+  /** What to note from the nameplate (refresh research spec §4.1); empty clears it. */
+  floorCheck?: string | null;
   /** Up to three; validated by `starterQuestionsFromEditor`, refused (`invalid_field`) rather than cut. */
   starterQuestions?: readonly string[];
 }
@@ -138,6 +142,7 @@ export async function findToolForEditor(
       useRestrictions: tools.useRestrictions,
       emergencyStop: tools.emergencyStop,
       notes: tools.notes,
+      floorCheck: tools.floorCheck,
       starterQuestions: tools.starterQuestions,
       published: tools.published,
       archivedAt: tools.archivedAt,
@@ -350,6 +355,7 @@ function toToolValues(patch: ToolPatch): ToolValues | null {
   if (patch.useRestrictions !== undefined) values.useRestrictions = emptyToNull(patch.useRestrictions);
   if (patch.emergencyStop !== undefined) values.emergencyStop = emptyToNull(patch.emergencyStop);
   if (patch.notes !== undefined) values.notes = emptyToNull(patch.notes);
+  if (patch.floorCheck !== undefined) values.floorCheck = emptyToNull(patch.floorCheck);
 
   if (patch.categoryId !== undefined) {
     if (patch.categoryId !== null && !isUuid(patch.categoryId)) return null;

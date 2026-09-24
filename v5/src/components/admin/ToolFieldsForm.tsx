@@ -50,6 +50,8 @@ interface Draft {
   useRestrictions: string;
   emergencyStop: string;
   notes: string;
+  /** Refresh research's floor check; clearing it here is how it is settled (spec §4.1). */
+  floorCheck: string;
   /**
    * The assistant's starter questions, one per line, always
    * {@link STARTER_QUESTIONS_MAX} lines (blank for an empty slot) — a string so
@@ -245,6 +247,19 @@ export function ToolFieldsForm({
         {theirValue("starterQuestions")}
       </fieldset>
 
+      {base.floorCheck || draft.floorCheck ? (
+        <div className="admin-field">
+          <label htmlFor="tool-floor-check">{t("fieldFloorCheck")}</label>
+          <input
+            id="tool-floor-check"
+            value={draft.floorCheck}
+            onChange={(event) => set("floorCheck", event.target.value)}
+          />
+          <p className="admin-field-hint">{t("floorCheckHint")}</p>
+          {theirValue("floorCheck")}
+        </div>
+      ) : null}
+
       <div className="admin-field">
         <label htmlFor="tool-notes">{t("fieldNotes")}</label>
         <textarea
@@ -279,6 +294,7 @@ function toDraft(tool: EditableTool): Draft {
     useRestrictions: tool.useRestrictions ?? "",
     emergencyStop: tool.emergencyStop ?? "",
     notes: tool.notes ?? "",
+    floorCheck: tool.floorCheck ?? "",
     starterQuestions: slots((tool.starterQuestions ?? []).join("\n")).join("\n"),
   };
 }
@@ -321,6 +337,7 @@ function patchOf(base: Draft, draft: Draft): ToolPatch {
   }
   if (draft.emergencyStop !== base.emergencyStop) patch.emergencyStop = draft.emergencyStop;
   if (draft.notes !== base.notes) patch.notes = draft.notes;
+  if (draft.floorCheck !== base.floorCheck) patch.floorCheck = draft.floorCheck;
   if (draft.starterQuestions !== base.starterQuestions) {
     patch.starterQuestions = questionLines(draft.starterQuestions);
   }

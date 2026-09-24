@@ -133,7 +133,10 @@ Append a case:
 
 `context.toolId` is a **catalogue slug** and puts the assistant on that machine's
 detail page, exactly as the chat route does when a student asks a question from
-a tool page. `page: tool` requires a `toolId`.
+a tool page. `page: tool` requires a `toolId`. `curate: true` (with `page:
+tool`) asks as lab staff curating that tool (refresh research spec §12): the
+`curation` capability is composed with the tool's record, and `propose_change`,
+a write, is stubbed like every other write.
 
 Run `npm test` after editing a case file: the loader is unit-tested, so a typo,
 an unknown assertion kind or a missing argument fails there — free and offline —
@@ -148,6 +151,7 @@ Kept small on purpose. Structural assertions do almost all the useful work.
 | `mentions_tool` | `value: "Form 4"` | The named machine appears in the answer (plain, bold or linked) |
 | `no_unknown_tools` | — | Every machine the answer *offers* exists in the fixture |
 | `called_tool` | `value: get_unit_details` | That tool appears in the recorded tool calls |
+| `not_called_tool` | `value: propose_change` | That tool never appears in the recorded tool calls |
 | `contains_all` | `value: ["gloves"]` | Every literal is present (case-insensitive) |
 | `not_contains_any` | `value: ["yes, we have"]` | None of the literals is present |
 | `no_fabricated_specs` | `fields: [build_volume]` | Every number attributed to those fields matches the fixture |

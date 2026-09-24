@@ -61,6 +61,8 @@ export interface AssembleInput {
   searchTextUrls?: readonly string[];
   /** The item's brand and name — what decides whether a search copy is the brand's product page. */
   subject?: PageSubject;
+  /** The draft's quotes, already checked against the pages read (`refresh/citations.ts`). */
+  citations?: ResearchResult["citations"];
 }
 
 export function assembleResearchResult(input: AssembleInput): ResearchResult {
@@ -82,6 +84,7 @@ export function assembleResearchResult(input: AssembleInput): ResearchResult {
     tags: labels(draft.tags),
     trainingRequired: draft.trainingRequired,
     useRestrictions: draft.useRestrictions?.trim() || null,
+    ...(draft.emergencyStop?.trim() ? { emergencyStop: draft.emergencyStop.trim() } : {}),
     category: matchCategory(draft.category, categories),
     resources: verified.map(({ title, url, type }) => ({ title, url, type })),
     droppedLinks: [...dropped],
@@ -89,6 +92,7 @@ export function assembleResearchResult(input: AssembleInput): ResearchResult {
     evidence,
     confidence: scoreConfidence(evidence, { sourceUrls }),
     ...(starterQuestions.length > 0 ? { starterQuestions } : {}),
+    ...(input.citations && Object.keys(input.citations).length > 0 ? { citations: input.citations } : {}),
     ...(fromSearch.size > 0 ? { searchTextSources: [...fromSearch] } : {}),
     ...(reviewerNoteForPrompt(reviewerNote) ? { reviewerNote: reviewerNoteForPrompt(reviewerNote) } : {}),
   };
@@ -128,11 +132,13 @@ export function draftFromFindings(findings: SearchFindings, options: { keepCandi
     tags: [],
     trainingRequired: null,
     useRestrictions: null,
+    emergencyStop: null,
     category: findings.category,
     resources: options.keepCandidateLinks ? [...findings.candidateLinks] : [],
     sourceUrls: [],
     evidence: findings.evidence,
     starterQuestions: [],
+    citations: {},
   };
 }
 

@@ -3,6 +3,7 @@ import { index, jsonb, pgTable, text, timestamp, uuid, type AnyPgColumn } from "
 import type { ResearchResult } from "../../research/result.ts";
 import { user } from "./auth.ts";
 import { inListCheck, timestamps, userReference } from "./helpers.ts";
+import { toolRefreshes } from "./refresh.ts";
 import { tools } from "./tools.ts";
 import { units } from "./units.ts";
 import { DUPLICATE_RESOLUTION, PENDING_STATUS } from "./vocabulary.ts";
@@ -110,6 +111,9 @@ export const researchRequests = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
     pendingToolId: uuid("pending_tool_id").references(() => pendingTools.id, { onDelete: "set null" }),
+    // A refresh of an existing tool spends the same allowance (refresh research
+    // spec §4.1); `set null` for the reason `pending_tool_id` is.
+    toolRefreshId: uuid("tool_refresh_id").references(() => toolRefreshes.id, { onDelete: "set null" }),
     requestedAt: timestamp("requested_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("research_requests_user_idx").on(t.userId, t.requestedAt)]

@@ -20,6 +20,8 @@ import { findToolForEditor } from "../../../../lib/data/tools";
 import { hasStalledStart, INTAKE_REVIEW_PERMISSION } from "../../../../lib/intake/access";
 import { toPendingToolView } from "../../../../lib/intake/view";
 import { siteConfig } from "../../../../lib/site-config";
+import { CurateChatStarter } from "../../../../components/CurateChatStarter";
+import type { ResearchResult } from "../../../../lib/research/result";
 import { ADMIN_INTAKE_PATH, type IntakeActions } from "../action-result";
 import {
   addPendingUnit,
@@ -172,8 +174,13 @@ export default async function AdminIntakeItemPage({ params }: { params: Promise<
         {back}
       </header>
 
+      {/* The assistant may curate this item for a reviewer (refresh research spec §12.3). */}
+      <CurateChatStarter keys={[item.id]} />
+
       <PreliminaryToolPage
-        key={item.id}
+        // Re-keyed when the draft's own fields change, so a change accepted in
+        // the chat (§12.2) shows here after the refresh it triggers.
+        key={`${item.id}:${draftKey(item.research)}`}
         item={view}
         research={item.research}
         categories={categories}
@@ -187,4 +194,22 @@ export default async function AdminIntakeItemPage({ params }: { params: Promise<
       />
     </section>
   );
+}
+
+/** A short fingerprint of the draft fields a chat proposal can change. */
+function draftKey(research: ResearchResult | null): string {
+  if (!research) return "none";
+  const text = JSON.stringify([
+    research.canonicalName,
+    research.description,
+    research.materials,
+    research.tags,
+    research.trainingRequired,
+    research.useRestrictions,
+    research.emergencyStop ?? null,
+    research.resources.map((r) => r.url),
+  ]);
+  let hash = 0;
+  for (let i = 0; i < text.length; i += 1) hash = (hash * 31 + text.charCodeAt(i)) | 0;
+  return (hash >>> 0).toString(36);
 }

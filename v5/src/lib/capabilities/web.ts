@@ -2,6 +2,7 @@ import { z } from "zod";
 import { getCatalogTool } from "../catalog";
 import { EXA_SEARCH_TOOL } from "../ai/exa";
 import { CHAT_MAX_EXA_SEARCHES, CHAT_MAX_PAGE_READS } from "../intake/limits";
+import { recordTurnText, turnHosts } from "../chat/turn-sources";
 import { fenceUntrusted } from "../web/fence";
 import { READ_PAGE_MAX_CHARS, READ_PAGE_TIMEOUT_MS, readPage } from "../web/read-page";
 import type { MakerLabTool } from "../../components/catalog-types";
@@ -83,7 +84,11 @@ const readPageTool: CapabilityTool<ReadPageInput, ReadPageToolResult> = {
       );
     }
     const focused = ctx.focusedToolId ? await getCatalogTool(ctx.focusedToolId) : null;
-    if (!focused) {
+    // A curation turn (refresh research spec §12.1) may also open the record's
+    // own source hosts and the hosts this turn's searches returned. The SSRF
+    // guard is unchanged.
+    const curationHosts = ctx.curation ? curationReadHosts(ctx) : [];
+    if (!focused && curationHosts.length === 0) {
       return refused(
         url,
         "no_focused_tool",
@@ -91,7 +96,7 @@ const readPageTool: CapabilityTool<ReadPageInput, ReadPageToolResult> = {
       );
     }
 
-    const allowedHosts = resourceHosts(focused);
+    const allowedHosts = [...new Set([...(focused ? resourceHosts(focused) : []), ...curationHosts])];
     const host = hostOf(url);
     if (!host) {
       return refused(url, "invalid_url", "That is not a web address read_page can open. Use an exact URL from 'Resources for this tool'.");
@@ -100,7 +105,9 @@ const readPageTool: CapabilityTool<ReadPageInput, ReadPageToolResult> = {
       return refused(
         url,
         "host_not_allowed",
-        `read_page may only open the ${focused.name}'s own resource links. Use an exact URL from 'Resources for this tool', or tell the student you cannot open that page.`
+        ctx.curation
+          ? `read_page may only open the record's own source pages and pages this turn's searches returned. Search first, then read a result.`
+          : `read_page may only open the ${focused?.name ?? "tool"}'s own resource links. Use an exact URL from 'Resources for this tool', or tell the student you cannot open that page.`
       );
     }
 
@@ -119,6 +126,9 @@ const readPageTool: CapabilityTool<ReadPageInput, ReadPageToolResult> = {
     }
     if (page.status === "ok" && page.text !== null) {
       const text = page.text.length > READ_PAGE_MAX_CHARS ? page.text.slice(0, READ_PAGE_MAX_CHARS) : page.text;
+      // What this turn read — a curation quote is checked against it (§12.2).
+      recordTurnText(ctx, page.url, page.title ? `${page.title}\n${text}` : text);
+      if (page.url !== url) recordTurnText(ctx, url, page.title ? `${page.title}\n${text}` : text);
       return { url: page.url, status: "ok", title: page.title, text: fenceUntrusted(page.url, text) };
     }
 
@@ -149,6 +159,16 @@ function takeReadSlot(ctx: CapabilityCtx): boolean {
 
 function refused(url: string, reason: string, message: string): ReadPageToolResult {
   return { url, status: "refused", reason, message };
+}
+
+/** A curation turn's extra hosts: the record's sources, and whatever this turn's searches returned. */
+function curationReadHosts(ctx: CapabilityCtx): string[] {
+  const hosts = new Set(turnHosts(ctx));
+  for (const source of ctx.curation?.sources ?? []) {
+    const host = hostOf(source);
+    if (host) hosts.add(host);
+  }
+  return [...hosts];
 }
 
 /** The hostnames of every link the focused tool names — the archived copy and the original alike. */

@@ -47,6 +47,8 @@ export interface DuplicateSearchOptions {
   excludePendingIds?: string[];
   /** A batch whose items are not candidates — the one being created. */
   excludeBatchId?: string;
+  /** Tools that are not candidates — the tool being refreshed (refresh research spec §2 non-goals). */
+  excludeToolIds?: string[];
 }
 
 export interface DuplicateQuery {
@@ -174,6 +176,15 @@ async function bestMatch(
     );
   }
 
+  const excludeTools = (options.excludeToolIds ?? []).filter(isUuid);
+  const toolFilter =
+    excludeTools.length > 0
+      ? sql` and t.id not in (${sql.join(
+          excludeTools.map((id) => sql`${id}::uuid`),
+          sql`, `
+        )})`
+      : sql``;
+
   const rows = await rawRows<MatchRow & { exact: boolean; score: number }>(
     db,
     sql`
@@ -185,7 +196,7 @@ async function bestMatch(
                         similarity(lower(t.name), ${bare || similarityText}))::float8 as score,
                0 as rank
           from tools t
-         where t.archived_at is null
+         where t.archived_at is null${toolFilter}
         union all
         select 'pending' as kind, p.id::text as id, p.name, null::text as slug,
                null::boolean as published, p.status,

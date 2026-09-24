@@ -160,6 +160,24 @@ export type ManualDocumentStatus = (typeof MANUAL_DOCUMENT_STATUS)[number];
 export const MANUAL_OUTLINE_SOURCE = ["pdf", "inferred", "none"] as const;
 export type ManualOutlineSource = (typeof MANUAL_OUTLINE_SOURCE)[number];
 
+/**
+ * Where a refresh of an existing tool is (refresh research spec §4.1; migration
+ * `0012`): queued by an admin, researched in the background, then waiting with
+ * its proposals — or failed — until a person has decided every one.
+ */
+export const REFRESH_STATUS = ["queued", "researching", "proposed", "failed", "decided"] as const;
+export type RefreshStatus = (typeof REFRESH_STATUS)[number];
+
+/** The refresh statuses that count as "open": at most one per tool (the partial unique index). */
+export const OPEN_REFRESH_STATUS = ["queued", "researching", "proposed"] as const satisfies readonly RefreshStatus[];
+
+/**
+ * What a chat proposal is about (spec §12.2): a catalogue tool, or a pending
+ * item on its preliminary page.
+ */
+export const PROPOSAL_SUBJECT_KIND = ["tool", "pending"] as const;
+export type ProposalSubjectKind = (typeof PROPOSAL_SUBJECT_KIND)[number];
+
 /** True when `value` is one of `list`; narrows the type. */
 export function isOneOf<const T extends readonly string[]>(
   list: T,

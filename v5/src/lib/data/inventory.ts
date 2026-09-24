@@ -11,6 +11,7 @@ import {
 } from "../db/schema/index.ts";
 import { UNIT_STATUS, isOneOf, type UnitStatus } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
+import { openRefreshesByTool } from "./tool-refreshes.ts";
 
 /**
  * The `/admin/inventory` review table (spec §5.3(a)).
@@ -25,7 +26,7 @@ import type { Db } from "../db/types.ts";
  *
  * **Needs attention is the column that earns the page** (§5.3(a)2): a real
  * inventory review is this table filtered to one flag, one row at a time. Every
- * flag is computed in SQL, in five statements whatever the size of the
+ * flag is computed in SQL, in six statements whatever the size of the
  * inventory — the tools, then their units, photos, manuals and open tickets in
  * bulk — never one query per tool. `./catalog.ts` sets that discipline; this
  * follows it.
@@ -47,6 +48,11 @@ export interface InventoryAttention {
   openTickets: boolean;
   /** Nobody has ever pressed "Looks good" on this tool. */
   neverReviewed: boolean;
+  /**
+   * Refresh research could not identify it, and staff accepted a floor check:
+   * somebody has to read the nameplate (refresh research spec §2, §6).
+   */
+  floorCheck: boolean;
 }
 
 /** One row of the review table. */
@@ -70,6 +76,8 @@ export interface InventoryRow {
   attention: InventoryAttention;
   /** True when any flag is set — what the "Needs attention" filter matches. */
   needsAttention: boolean;
+  /** The open refresh of this tool, when there is one — the "Refresh open" tag (refresh research spec §6). */
+  openRefreshId?: string | null;
 }
 
 /** A unit that belongs to no tool (§4.5) — a review item of its own. */
@@ -138,6 +146,7 @@ export async function listInventoryRows(
       archivedAt: tools.archivedAt,
       lastReviewedAt: tools.lastReviewedAt,
       updatedAt: tools.updatedAt,
+      floorCheck: tools.floorCheck,
       categoryName: categories.name,
       categoryGroup: categories.group,
       room: locations.room,
@@ -153,11 +162,12 @@ export async function listInventoryRows(
 
   // Four independent statements, issued together: none of them reads the
   // others' results, and the page waits for the slowest rather than the sum.
-  const [unitCounts, photos, manuals, tickets] = await Promise.all([
+  const [unitCounts, photos, manuals, tickets, refreshes] = await Promise.all([
     selectUnitCounts(db, toolIds),
     selectCoverPhotos(db, toolIds),
     selectManualFlags(db, toolIds),
     selectOpenTicketCounts(db, toolIds),
+    openRefreshesByTool({ db }),
   ]);
 
   return toolRows.map((tool) => {
@@ -175,12 +185,13 @@ export async function listInventoryRows(
     // equipment back in the queue every time somebody filters by one.
     const attention: InventoryAttention =
       state === "archived"
-        ? { noPhoto: false, noManual: false, openTickets: false, neverReviewed: false }
+        ? { noPhoto: false, noManual: false, openTickets: false, neverReviewed: false, floorCheck: false }
         : {
             noPhoto: photoUrl === null,
             noManual: manuals.get(tool.id) !== true,
             openTickets: openTicketCount > 0,
             neverReviewed: tool.lastReviewedAt === null,
+            floorCheck: Boolean(tool.floorCheck?.trim()),
           };
 
     return {
@@ -200,6 +211,7 @@ export async function listInventoryRows(
       updatedAt: tool.updatedAt,
       attention,
       needsAttention: Object.values(attention).some(Boolean),
+      openRefreshId: refreshes.get(tool.id) ?? null,
     };
   });
 }

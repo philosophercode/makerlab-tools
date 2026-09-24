@@ -86,6 +86,7 @@ vi.mock("../lib/chat/downscale-image", () => ({
 // Imported after the mocks above are hoisted.
 import { ChatFab } from "./ChatFab";
 import { ToolChatStarters } from "./ToolChatStarters";
+import { CurateChatStarter } from "./CurateChatStarter";
 import type { IntakeTablePayload } from "../lib/intake/types";
 
 beforeEach(() => {
@@ -973,6 +974,46 @@ describe("ChatFab — rate-limit ceiling", () => {
       rerender(<ChatFab />);
       expect(screen.getByRole("button", { name: "Find a machine for a project" })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: FORM_4[0] })).not.toBeInTheDocument();
+    });
+  });
+
+  describe("curation (refresh research spec §12.3)", () => {
+    async function openChat() {
+      await userEvent.setup().click(screen.getByRole("button", { name: "Open MakerLab assistant" }));
+    }
+
+    it("offers Curate this entry when the page registered a record this viewer may curate, and sends the curation prompt", async () => {
+      pathnameMock.mockReturnValue("/tools/form-4");
+      render(
+        <>
+          <CurateChatStarter keys={["form-4"]} />
+          <ChatFab />
+        </>
+      );
+      await openChat();
+      await userEvent.setup().click(screen.getByRole("button", { name: "Curate this entry" }));
+      expect(sendMessage).toHaveBeenCalledWith({
+        text: "Help me curate this entry: check it against the manufacturer's pages and propose fixes.",
+      });
+    });
+
+    it("offers nothing to a visitor, whose page registered no record", async () => {
+      pathnameMock.mockReturnValue("/tools/form-4");
+      render(<ChatFab />);
+      await openChat();
+      expect(screen.queryByRole("button", { name: "Curate this entry" })).not.toBeInTheDocument();
+    });
+
+    it("tells the route which pending item a preliminary page shows", () => {
+      const id = "11111111-1111-4111-8111-111111111111";
+      pathnameMock.mockReturnValue(`/admin/intake/${id}`);
+      render(<ChatFab />);
+      const { transport } = lastUseChatOptions as {
+        transport: { prepareSendMessagesRequest: (options: { id: string; messages: unknown[]; trigger: string; messageId: undefined }) => { body: Record<string, unknown> } };
+      };
+      const { body } = transport.prepareSendMessagesRequest({ id: "chat-1", messages: [], trigger: "submit-message", messageId: undefined });
+      expect(body.pendingId).toBe(id);
+      expect(body.toolId).toBeUndefined();
     });
   });
 });

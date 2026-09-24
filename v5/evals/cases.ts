@@ -32,6 +32,12 @@ export interface EvalCaseContext {
   page?: "gallery" | "tool";
   /** Catalog slug of the focused machine — required when `page: tool`. */
   toolId?: string;
+  /**
+   * Asked by lab staff curating the focused tool (refresh research spec §12):
+   * the curation capability is composed with the tool's record. Requires
+   * `page: tool`.
+   */
+  curate?: boolean;
 }
 
 /** One eval case: a single-turn request plus the assertions it must satisfy. */
@@ -353,7 +359,7 @@ function validateAssertion(raw: YamlValue, file: string, caseId: string): Assert
   // Per-kind required arguments. An assertion missing its argument would
   // otherwise pass vacuously, which is the failure mode this harness must not
   // have.
-  const needsValue: string[] = ["mentions_tool", "called_tool", "contains_all", "not_contains_any"];
+  const needsValue: string[] = ["mentions_tool", "called_tool", "not_called_tool", "contains_all", "not_contains_any"];
   if (needsValue.includes(kind) && (spec.value === undefined || spec.value.length === 0)) {
     fail(file, 0, `case "${caseId}": ${kind} requires a "value"`);
   }
@@ -374,8 +380,8 @@ function validateCase(raw: YamlValue, file: string): EvalCase {
   if (raw.context !== undefined && raw.context !== null) {
     if (!isRecord(raw.context)) fail(file, 0, `case "${id}": context must be a mapping`);
     for (const key of Object.keys(raw.context)) {
-      if (key !== "page" && key !== "toolId") {
-        fail(file, 0, `case "${id}": unknown context key "${key}" (expected page, toolId)`);
+      if (key !== "page" && key !== "toolId" && key !== "curate") {
+        fail(file, 0, `case "${id}": unknown context key "${key}" (expected page, toolId, curate)`);
       }
     }
     if (raw.context.page !== undefined) {
@@ -390,6 +396,11 @@ function validateCase(raw: YamlValue, file: string): EvalCase {
     }
     if (context.page === "tool" && !context.toolId) {
       fail(file, 0, `case "${id}": context.page "tool" requires a toolId`);
+    }
+    if (raw.context.curate !== undefined) {
+      if (typeof raw.context.curate !== "boolean") fail(file, 0, `case "${id}": context.curate must be true or false`);
+      if (raw.context.curate && context.page !== "tool") fail(file, 0, `case "${id}": context.curate requires page: tool`);
+      context.curate = raw.context.curate;
     }
   }
 
