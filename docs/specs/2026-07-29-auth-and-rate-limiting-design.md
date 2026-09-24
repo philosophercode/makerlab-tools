@@ -468,3 +468,76 @@ this change.
 identity-route and sign-in-client tests. The E2E specs open the menu before choosing an item.
 
 **Status.** Accepted.
+
+### 2026-09-24 — Development-only sign-in (adds a route; amends §3.2, §6 and §8)
+
+**What changed.** A new route, `GET /api/dev/sign-in?as=<email>&next=<path>`
+(`v5/src/app/api/dev/sign-in/route.ts`), lets the person running `npm run dev` sign in
+without the Google round trip. It creates a **real Better Auth database session** for `as`
+(or `DEV_AUTO_SIGN_IN_EMAIL` when `as` is omitted), sets the ordinary session cookie, and
+redirects to `next`. The user row is created if missing, with the role a first Google
+sign-in would give: `super_admin` for an `AUTH_SUPER_ADMIN_EMAILS` address, `user`
+otherwise. The owner can therefore sign in as a test student (`?as=student@cornell.edu`) to
+see the student experience.
+
+**How it signs in.** Through Better Auth, not beside it. A plugin
+(`v5/src/lib/auth/dev-sign-in-plugin.ts`) adds one `SERVER_ONLY` endpoint,
+`auth.api.devSignIn`. Better Auth's router skips `SERVER_ONLY` endpoints, so it has no
+`/api/auth/*` URL in any environment. The endpoint calls
+`internalAdapter.createUser`, `internalAdapter.createSession` and `setSessionCookie`. That
+means the domain and allowlist refusal, the super-admin floor, the admin plugin's
+`BANNED_USER` check and the cookie's signature and attributes are all the library's own.
+None of them is re-implemented here.
+
+**Guards (§8).** All are required. Each one alone refuses, and every refusal is a **404**
+rather than a 403, so the route is invisible where it should not exist:
+
+1. `NODE_ENV === "development"`. `next build`, `next start` and Vitest all fail this.
+2. `VERCEL` is unset.
+3. `DEV_AUTO_SIGN_IN` is exactly `1`, an explicit opt-in.
+4. The request is loopback. `Host` must be `localhost`, `127.0.0.1` or `[::1]` on any port.
+   `X-Forwarded-Host`, `X-Forwarded-For`, `X-Real-IP`, `CF-Connecting-IP` and
+   `True-Client-IP` must be absent or loopback, and `Forwarded` must be absent. An ngrok or
+   Cloudflare tunnel to the dev server carries its own host or the visitor's address, so it
+   cannot use the route.
+5. The address passes the same rules as Google sign-in: `isAllowedEmail`, then the create
+   hook and the ban check inside Better Auth.
+
+The endpoint itself re-checks guards 1–3, so it stays inert in a production build even if
+something other than the route called it. `next` must be a same-origin path.
+Absolute URLs, `//host`, `/\host` and anything containing control characters redirect
+to `/`.
+
+**Production cannot enable it.** Guard 1 already makes the flag inert outside `next dev`.
+In addition, `next.config.ts` fails any Vercel build that has `DEV_AUTO_SIGN_IN` set
+(`dev-sign-in-build-check.ts`), and a local production build prints a warning. The route
+tests assert a 404 with `NODE_ENV=production` and `DEV_AUTO_SIGN_IN=1` set.
+
+**Audit.** Each sign-in through this route is recorded as `auth.dev_sign_in`, a new entry
+in `AUDIT_ACTIONS`. The actor and subject are the user, and the detail holds `{ created, role }`.
+The route can only write this event from `next dev` on localhost, so one found in a shared
+database is itself worth investigating.
+
+**UI (§6).** For an anonymous caller who passes guards 1–4, `/api/identity` adds
+`devSignIn: true`. For everyone else the key is absent. Only then does the header show a
+small **Sign in as (dev)** link beside Sign in. The link goes to
+`/api/dev/sign-in?next=<current path>`. The string is English-only (`nav.devSignIn`) and
+other locales fall back to it.
+
+**Environment.** `DEV_AUTO_SIGN_IN` and `DEV_AUTO_SIGN_IN_EMAIL` are documented, commented
+out, in `v5/.env.example`, and in `docs/deploy.md` Stage 3b. **They must never be set on a
+deployment.**
+
+**Why.** The owner runs the app locally all day, and each Google round trip after a
+restart is friction. Signing in as a student through Google needs a second institutional
+account, which the owner does not have to hand. The seeded-session helper in
+`test/utils/session.ts` already covers tests; this route covers a person at a browser.
+
+**Covered by** `src/app/api/dev/sign-in/route.test.ts` (each guard alone gives a 404, the
+happy path resolves through `resolveIdentity` with the right role, a new user gets the
+floor role, open redirects are refused, the audit event is written, and the identity hint
+appears), `src/lib/auth/dev-sign-in.test.ts` (the guards, `safeNextPath` and the build
+verdict), `src/lib/auth/dev-sign-in-plugin.test.ts` (no HTTP URL, and a refusal in
+production when called directly), `PrimaryNav.test.tsx` and `sign-in-client.test.ts`.
+
+**Status.** Accepted.

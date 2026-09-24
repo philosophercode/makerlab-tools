@@ -251,6 +251,33 @@ leaving a list that grants nothing.
 Tickets and projects now record the **verified session** instead of a typed name. Anonymous
 browsing and chat keep working — sign-in unlocks, it does not gate the front door.
 
+### Stage 3b · Skip Google while developing (optional, local only)
+
+Signing in through Google on every `npm run dev` restart gets old. With
+`AUTH_SECRET` set, add to `.env.local`:
+
+```bash
+DEV_AUTO_SIGN_IN=1
+DEV_AUTO_SIGN_IN_EMAIL=you@cornell.edu   # optional: who "Sign in as (dev)" makes you
+```
+
+Then visit `http://localhost:3000/api/dev/sign-in` (or click **Sign in as (dev)** beside
+the header's Sign in control), or name somebody else to see their experience:
+`/api/dev/sign-in?as=student@cornell.edu&next=/tools/form-4`. It creates a real database
+session — the user row too if it is missing, with the role a first Google sign-in would
+give — and records `auth.dev_sign_in` in the audit trail. `next` must be a path on this
+site; anything else goes to `/`.
+
+It answers **404** unless every guard holds: `next dev` (not `next build` / `next start`),
+no `VERCEL`, `DEV_AUTO_SIGN_IN=1` exactly, a request to `localhost` / `127.0.0.1` carrying
+no forwarded visitor address (so an ngrok or Cloudflare tunnel to your dev server cannot
+use it), and an address that may sign in and is not banned.
+
+> [!CAUTION]
+> **Never set `DEV_AUTO_SIGN_IN` or `DEV_AUTO_SIGN_IN_EMAIL` in production** — not on
+> Vercel, not in any deployment's environment. A Vercel build with `DEV_AUTO_SIGN_IN` set
+> fails on purpose; a local `next build` warns that it is inert.
+
 ## Stage 4 · The nightly job locally (optional)
 
 Cron does not run locally. Trigger it by hand:
@@ -335,6 +362,8 @@ but one of the rest, on both runs.
 
 **Sign-in** — same as Stage 3, but `AUTH_BASE_URL=https://<your-domain>` and the Google
 redirect URI updated to match.
+**Never** set `DEV_AUTO_SIGN_IN` / `DEV_AUTO_SIGN_IN_EMAIL` here (Stage 3b) — they are
+for `npm run dev` on your own machine, and a Vercel build that sets `DEV_AUTO_SIGN_IN` fails.
 
 **Blob store** — link one (it sets `BLOB_READ_WRITE_TOKEN`). It carries **both** jobs now:
 every photo a student uploads through the chat or the project form, and the nightly backup.

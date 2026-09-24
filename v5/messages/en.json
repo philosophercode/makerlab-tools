@@ -20,6 +20,7 @@
     "signInAria": "Sign in with your {institution} account",
     "signInUnconfigured": "Sign-in isn't set up on this deployment yet.",
     "signInFailed": "Couldn't start sign-in. Try again.",
+    "devSignIn": "Sign in as (dev)",
     "signOut": "SIGN OUT",
     "signedInAria": "Signed in as {name}",
     "admin": "ADMIN",

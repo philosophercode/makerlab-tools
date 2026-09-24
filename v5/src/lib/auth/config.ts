@@ -9,6 +9,7 @@ import { mcp } from "better-auth/plugins";
 
 import { dataSubstrate, getDb } from "../db/client";
 import * as schema from "../db/schema/index";
+import { devSignInPlugin } from "./dev-sign-in-plugin";
 import { ac, roles } from "./permissions";
 import { allowedEmailDomain, allowedEmails, isAllowedEmail } from "./roles";
 import { isSuperAdminFloor } from "./super-admins";
@@ -204,6 +205,10 @@ export function createAuth(db: Db) {
           scopes: [READ_ONLY_SCOPE],
         },
       }),
+      // Development-only sign-in (auth spec amendment 2026-09-24): one
+      // server-only endpoint with no URL, inert unless `next dev` with
+      // `DEV_AUTO_SIGN_IN=1` off Vercel. See `dev-sign-in-plugin.ts`.
+      devSignInPlugin(),
       // Must stay last: it wraps the response so Next writes the cookies.
       nextCookies(),
     ],

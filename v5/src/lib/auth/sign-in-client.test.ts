@@ -125,6 +125,18 @@ describe("fetchIdentity", () => {
     expect(identity?.email).toBe("ada@cornell.edu");
   });
 
+  it("carries the development-only sign-in hint only when it is exactly true", async () => {
+    stubFetch(async () => json({ role: "anonymous", name: null, devSignIn: true }));
+    await expect(fetchIdentity()).resolves.toEqual({
+      role: "anonymous",
+      name: null,
+      devSignIn: true,
+    });
+
+    stubFetch(async () => json({ role: "anonymous", name: null, devSignIn: "yes" }));
+    expect(await fetchIdentity()).not.toHaveProperty("devSignIn");
+  });
+
   it("keeps the anonymous answer, which is a normal answer", async () => {
     stubFetch(async () => json({ role: "anonymous", name: null }));
     await expect(fetchIdentity()).resolves.toEqual({

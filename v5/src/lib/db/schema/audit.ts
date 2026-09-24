@@ -24,6 +24,10 @@ export const AUDIT_ACTIONS = [
   // access spec §4.2). `detail.kind` says which: "token" or "oauth".
   "token.created",
   "token.revoked",
+  // Somebody signed in through the development-only route, never Google (auth
+  // spec amendment 2026-09-24). Only `next dev` on localhost can write it, so
+  // one of these in a shared database is itself worth investigating.
+  "auth.dev_sign_in",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
