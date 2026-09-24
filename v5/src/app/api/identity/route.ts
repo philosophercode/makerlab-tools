@@ -1,3 +1,4 @@
+import { devSignInAllowed } from "../../../lib/auth/dev-sign-in";
 import { resolveIdentity } from "../../../lib/auth/identity";
 import { rateLimitAsync } from "../../../lib/rate-limit";
 
@@ -53,9 +54,16 @@ export async function GET(req: Request): Promise<Response> {
     );
   }
 
+  // `devSignIn: true` only for an anonymous caller for whom every guard of the
+  // development-only sign-in passes (auth spec amendment 2026-09-24) — so the
+  // header can offer it. Anywhere else the key is absent, not false.
   const body =
     identity.role === "anonymous"
-      ? { role: identity.role, name: identity.name }
+      ? {
+          role: identity.role,
+          name: identity.name,
+          ...(devSignInAllowed(req.headers) ? { devSignIn: true } : {}),
+        }
       : {
           role: identity.role,
           name: identity.name,

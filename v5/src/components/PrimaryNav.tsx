@@ -8,6 +8,7 @@ import { useChatLauncher } from "./ChatLauncherContext";
 import { ProfileMenu } from "./ProfileMenu";
 import { siteConfig } from "../lib/site-config";
 import {
+  DEV_SIGN_IN_ENDPOINT,
   fetchIdentity,
   isSignedIn,
   startGoogleSignIn,
@@ -115,6 +116,18 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
           >
             {t("signIn")}
           </button>
+          {/* Development-only sign-in (auth spec amendment 2026-09-24). Shown
+              only when `/api/identity` says every server-side guard passed for
+              this request; the route checks them all again. A plain anchor,
+              not a Link: it is a full navigation that sets a cookie. */}
+          {identity?.devSignIn ? (
+            <a
+              className="primary-nav-report primary-nav-dev-sign-in"
+              href={`${DEV_SIGN_IN_ENDPOINT}?next=${encodeURIComponent(pathname)}`}
+            >
+              {t("devSignIn")}
+            </a>
+          ) : null}
           {signInNotice ? (
             <span
               role="status"

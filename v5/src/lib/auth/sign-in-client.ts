@@ -19,6 +19,12 @@ export const SIGN_IN_ENDPOINT = "/api/auth/sign-in/social";
 /** Better Auth's sign-out endpoint. Its after-hook also clears our session cookie. */
 export const SIGN_OUT_ENDPOINT = "/api/auth/sign-out";
 
+/**
+ * Development-only sign-in (auth spec amendment 2026-09-24). A full-page
+ * navigation, not a fetch: it sets the session cookie and redirects.
+ */
+export const DEV_SIGN_IN_ENDPOINT = "/api/dev/sign-in";
+
 /** Read-only projection of `resolveIdentity` for the browser. */
 export const IDENTITY_ENDPOINT = "/api/identity";
 
@@ -40,6 +46,12 @@ export interface ClientIdentity {
   email?: string | null;
   /** Google profile photo URL. Absent when anonymous or when Google had none. */
   image?: string | null;
+  /**
+   * True only for an anonymous caller for whom development-only sign-in is
+   * available — `next dev` on this machine with `DEV_AUTO_SIGN_IN=1` (auth spec
+   * amendment 2026-09-24). Absent everywhere else.
+   */
+  devSignIn?: boolean;
 }
 
 /** True when this identity may show a name and a sign-out control. */
@@ -81,6 +93,7 @@ export async function fetchIdentity(
     // keeps its two-field shape.
     if (typeof body.email === "string" && body.email) identity.email = body.email;
     if (typeof body.image === "string" && body.image) identity.image = body.image;
+    if (body.devSignIn === true) identity.devSignIn = true;
     return identity;
   } catch {
     return null;

@@ -325,4 +325,21 @@ describe("PrimaryNav — what the bar holds", () => {
     const items = screen.getAllByRole("menuitem").map((item) => item.textContent);
     expect(items).toEqual(["ADMIN", "ADD EQUIPMENT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]);
   });
+
+  it("offers development-only sign-in only when the server says every guard passed", async () => {
+    usePathname.mockReturnValue("/tools/form-4");
+    fetchIdentity.mockResolvedValue({ role: "anonymous", name: null, devSignIn: true });
+    render(<PrimaryNav />);
+
+    const link = await screen.findByRole("link", { name: "Sign in as (dev)" });
+    expect(link).toHaveAttribute("href", "/api/dev/sign-in?next=%2Ftools%2Fform-4");
+  });
+
+  it("never shows the development-only link without the server's hint", async () => {
+    fetchIdentity.mockResolvedValue({ role: "anonymous", name: null });
+    render(<PrimaryNav />);
+
+    await screen.findByRole("button", { name: /Sign in with your/ });
+    expect(screen.queryByRole("link", { name: "Sign in as (dev)" })).not.toBeInTheDocument();
+  });
 });

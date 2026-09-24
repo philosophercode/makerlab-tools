@@ -178,6 +178,21 @@ approval. Do not mint one.
 - **Testing a role needs no Google.** `test/utils/session.ts` seeds a `user` and
   a `session` row and mints the cookie Better Auth would have set; the demo seed
   ships one account per role for E2E. See `test/README.md`.
+- **Developing as a role needs no Google either — locally.** With
+  `DEV_AUTO_SIGN_IN=1` (and `AUTH_SECRET`) in `.env.local`, `npm run dev` serves
+  `GET /api/dev/sign-in?as=<email>&next=<path>`: a real Better Auth session via a
+  `SERVER_ONLY` endpoint (`src/lib/auth/dev-sign-in-plugin.ts` — no
+  `/api/auth/*` URL), so the create hook, the floor role and the ban check are
+  Better Auth's own and cannot drift from Google sign-in. Guards in
+  `src/lib/auth/dev-sign-in.ts`; each refuses with **404**: `NODE_ENV` must be
+  `development`, `VERCEL` unset, `DEV_AUTO_SIGN_IN` exactly `1`, the request's
+  Host loopback with no forwarded visitor address (tunnels refused), the address
+  allowed and not banned. `DEV_AUTO_SIGN_IN_EMAIL` is the default `as`, and
+  `/api/identity` adds `devSignIn: true` for an anonymous caller who passes the
+  guards, which is the only time the header shows "Sign in as (dev)". Audited
+  as `auth.dev_sign_in`. **Never set either variable on a deployment** — a
+  Vercel build that has `DEV_AUTO_SIGN_IN` fails (`next.config.ts`,
+  `dev-sign-in-build-check.ts`).
 - **`created_by` / `updated_by` now reference `user.id`** (`on delete set null`),
   the foreign keys Phase 1 deferred. A write whose author is not a row is
   refused — correct, because in production that id comes from a session.

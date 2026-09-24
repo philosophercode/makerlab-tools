@@ -1,6 +1,19 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
 import { withWorkflow } from "workflow/next";
+import {
+  DEV_SIGN_IN_BUILD_MESSAGE,
+  devSignInBuildVerdict,
+} from "./src/lib/auth/dev-sign-in-build-check";
+
+// Development-only sign-in (auth spec amendment 2026-09-24) must never be
+// configured on a deployment. The route refuses outside `next dev` regardless;
+// this stops a Vercel build that sets the variable, and warns a local one.
+const devSignInVerdict = devSignInBuildVerdict(process.env);
+if (devSignInVerdict === "fail") throw new Error(DEV_SIGN_IN_BUILD_MESSAGE);
+if (devSignInVerdict === "warn") {
+  console.warn(`[dev-sign-in] ${DEV_SIGN_IN_BUILD_MESSAGE} (Inert in this production build.)`);
+}
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
