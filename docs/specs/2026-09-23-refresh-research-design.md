@@ -695,4 +695,5 @@ users must be supervised".
 case, training never turned off, an already-stated line and PPE. `decisions.test.ts` covers
 an addition landing, an additive re-base after a conflict, and a stored replacement refused.
 `curation.test.ts` and `mcp/route.test.ts` cover `propose_change` on chat and MCP.
-`ProposalCard.test.tsx` covers the card text.
+`ProposalCard.test.tsx` covers the card text. `refresh-batch.workflow.test.ts` and
+`admin/refresh/actions.test.ts` now expect the additive card.
