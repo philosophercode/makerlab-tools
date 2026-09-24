@@ -573,3 +573,28 @@ search: 6.4k input tokens, $0.0003.
 unchanged. `halfvec`, a reranker and OCR remain phase 3. Cross-tool search from the general
 assistant is on (the model may omit `tool`), per §11's open question — revisit if answers wander
 to the wrong machine.
+
+### 2026-09-23 — §3.7 built with refresh research
+
+**Status.** Refresh research (spec 2026-09-23-refresh-research, built on
+`v5/refresh-research`) now gives the read step **the tool's own processed manual** as the
+fixed-query passages §3.7 describes — `refresh/manual-context.ts`, entry point
+`findStoredManualForTool` (which now also returns the stored file's addresses):
+
+- The hybrid search (`searchManuals`, scoped to the tool, as lab staff so private manuals
+  count) is asked "specifications", "technical data", "dimensions", "materials", "getting
+  started" and "safety warnings", 4 passages each; passages from that document only, each
+  once, spec-like queries first, each headed `[page N — section]`. "Safety warnings"
+  passages are labelled *safety context only — staff set protective equipment; do not
+  propose PPE*. The outline goes first (≤ 25% of the budget, as `manualDigest` does); the
+  whole is within `RESEARCH_MANUAL_TEXT_MAX_CHARS` (16,000).
+- A manual with text but no passages yet (or a search that fails) falls back to
+  `manualDigest`. No processed manual: nothing added.
+- The manual is given as one extra `manual text` page (`manualSource: stored`); it takes one
+  of the two manual places, and the search's links to the same file (its public copy, its
+  source link) are not read again.
+- Intake research is unchanged: a new tool still uses the URL lookup and in-memory
+  extraction.
+
+Live (refresh research spec's amendment): the Form 4's manual reached the read step as
+passages, 15,964 characters.
