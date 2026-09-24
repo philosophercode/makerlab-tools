@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { GatewayInternalServerError, GatewayModelNotFoundError, GatewayRateLimitError } from "@ai-sdk/gateway";
 import { eq } from "drizzle-orm";
+import { MockLanguageModelV3 } from "ai/test";
 import { http, HttpResponse } from "msw";
 import { FatalError, RetryableError } from "workflow";
 import {
@@ -58,6 +59,9 @@ const OG_IMAGE = "https://prusa.example/img/mk4s-og.jpg";
 const EXA_IMAGE = "https://cdn.prusa.example/mk4s-hero.webp";
 const PRODUCT_TEXT = "The Original Prusa MK4S has a 250 × 210 × 220 mm build volume.";
 const PDF_BYTES = new TextEncoder().encode("%PDF-1.4\n% the MK4S manual\n");
+/** The text Exa captured for the manual PDF — what research reads instead of attaching it. */
+const MANUAL_COPY = "MK4S user manual. Chapter 2: load PLA at 215 °C, bed 60 °C. Chapter 3: first layer calibration. ".repeat(6);
+const MANUAL_TEXTS = [{ url: MANUAL_URL, title: "MK4S manual", text: MANUAL_COPY }];
 
 const FINDINGS = {
   canonicalName: "Original Prusa MK4S",
@@ -237,10 +241,12 @@ describe("searchItem + readAndVerifyItem", () => {
     expect(await statusOf(id)).toBe("researching");
     expect(search.findings.canonicalName).toBe("Original Prusa MK4S");
 
-    const read = await readAndVerifyItem(id, REQUEST, search.findings);
+    const read = await readAndVerifyItem(id, REQUEST, search.findings, null, MANUAL_TEXTS);
     if (read.outcome !== "drafted") throw new Error("expected a draft");
     const { result } = read;
     expect(result.resources).toEqual([{ title: "MK4S manual", url: MANUAL_URL, type: "Manual" }]);
+    // The manual was read as its text, and still counts once its link verifies.
+    expect(result.evidence.manualFound).toBe(true);
     expect(result.droppedLinks).toEqual([`Manual "Old manual" (${GONE_URL}) — HTTP 404`]);
     expect(result.confidence.level).toBe("high");
     expect(result.canonicalName).toBe("Original Prusa MK4S");
@@ -271,7 +277,8 @@ describe("searchItem + readAndVerifyItem", () => {
     expect(call.options.abortSignal).toBeInstanceOf(AbortSignal);
     expect(call.options.abortSignal?.aborted).toBe(false);
     expect(promptText(call)).toContain("`exa_search` tool **at most 4 times**");
-    expect(call.providerOptions).toBeUndefined();
+    // Background research asks for the flex tier (amendment "Manuals as text and flex tier for research").
+    expect(call.providerOptions).toEqual({ gateway: { serviceTier: "flex" } });
   });
 
   it("hands on the images Exa reported, attributed to their pages", async () => {
@@ -329,30 +336,76 @@ describe("searchItem + readAndVerifyItem", () => {
     expect(warn).not.toHaveBeenCalled();
   });
 
-  it("reads the pages itself and gives the read model no tools: fenced page text, labelled, and the PDF as a file", async () => {
+  it("reads the pages itself and gives the read model no tools: fenced page text, labelled, and the manual as its text — no file part", async () => {
     const id = await queuedItem();
     const models = answer(FINDINGS);
     const search = await searched(id);
-    await readAndVerifyItem(id, REQUEST, search.findings);
+    await readAndVerifyItem(id, REQUEST, search.findings, null, MANUAL_TEXTS);
 
     expect(pageHits).toEqual(expect.arrayContaining([PRODUCT_URL, MANUAL_URL]));
     const calls = recordedCalls(models.read);
     expect(calls).toHaveLength(1);
     const [call] = calls;
     expect(call.tools ?? []).toEqual([]);
-    expect(call.providerOptions).toBeUndefined();
+    expect(call.providerOptions).toEqual({ gateway: { serviceTier: "flex" } });
     expect(call.options.abortSignal).toBeInstanceOf(AbortSignal);
 
     const text = promptText(call);
     expect(text).toContain("You have no tools and cannot open anything else");
     expect(text).toMatch(new RegExp(`<untrusted-page id="[0-9a-f]+" source="${PRODUCT_URL}">[\\s\\S]*${PRODUCT_TEXT}`));
-    expect(text).toContain(`1. ${MANUAL_URL}`);
+    expect(text).toMatch(new RegExp(`<untrusted-page id="[0-9a-f]+" source="${MANUAL_URL} \\(manual text\\)">[\\s\\S]*first layer calibration`));
+    expect(text).not.toContain("PDFs attached to this message");
     expect(text).toMatch(/- Name: Research test item/);
 
-    const files = fileParts(call);
-    expect(files).toHaveLength(1);
-    expect(files[0]).toMatchObject({ type: "file", mediaType: "application/pdf" });
-    expect(Buffer.from(files[0].data as Uint8Array).toString()).toBe(Buffer.from(PDF_BYTES).toString());
+    // The PDF was read by the server, but is not attached (RESEARCH_ATTACH_PDFS is off).
+    expect(fileParts(call)).toEqual([]);
+  });
+
+  it("skips a manual PDF the search captured no text for, and still finds the manual by its verified link", async () => {
+    const id = await queuedItem();
+    const models = answer(FINDINGS);
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const search = await searched(id);
+    const read = await readAndVerifyItem(id, REQUEST, search.findings);
+    if (read.outcome !== "drafted") throw new Error("expected a draft");
+
+    const [call] = recordedCalls(models.read);
+    expect(fileParts(call)).toEqual([]);
+    expect(promptText(call)).toContain("- prusa.example: skipped (PDF, no text)");
+    expect(read.result.sourceUrls).toEqual([PRODUCT_URL]);
+    expect(read.result.evidence.manualFound).toBe(true);
+    const logged = info.mock.calls.map(([line]) => String(line)).join("\n");
+    expect(logged).toContain("prusa.example: skipped (PDF, no text)");
+  });
+
+  it("asks for no tier when MODEL_RESEARCH_READ_TIER is default, and logs the cost and tier the Gateway reports", async () => {
+    vi.stubEnv("MODEL_RESEARCH_READ_TIER", "default");
+    const id = await queuedItem();
+    answer(FINDINGS);
+    const read = new MockLanguageModelV3({
+      provider: "gateway",
+      modelId: "stub/model",
+      doGenerate: async () => ({
+        content: [{ type: "text", text: JSON.stringify(DRAFT) }],
+        finishReason: { unified: "stop", raw: "stop" },
+        usage: {
+          inputTokens: { total: 100, noCache: 100, cacheRead: 0, cacheWrite: 0 },
+          outputTokens: { total: 20, text: 20, reasoning: 0 },
+        },
+        warnings: [],
+        providerMetadata: { gateway: { cost: "0.0021", serviceTier: "standard" } },
+      }),
+    });
+    setLanguageModel("researchRead", read);
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const search = await searched(id);
+    await readAndVerifyItem(id, REQUEST, search.findings, null, MANUAL_TEXTS);
+
+    expect(read.doGenerateCalls[0].providerOptions).toBeUndefined();
+    const logged = info.mock.calls.map(([line]) => String(line)).join("\n");
+    expect(logged).toContain(`[research] ${REQUEST}: read call cost $0.0021, tier standard`);
+    expect(logged).toContain(`[research] ${REQUEST}: search call cost not reported, tier not reported`);
+    expect(logged).not.toContain("Research test item");
   });
 
   it("returns the product images the pages declared", async () => {
@@ -629,7 +682,8 @@ describe("searchItem + readAndVerifyItem", () => {
     );
     expect(text).not.toContain("prusa.example: failed (http_403)");
     // It counts: the brand's own product page, so manufacturer page and specs hold.
-    expect(step.result.sourceUrls).toEqual([PRODUCT_URL, MANUAL_URL]);
+    // (The manual PDF has no captured text here, so it is not among the reads.)
+    expect(step.result.sourceUrls).toEqual([PRODUCT_URL]);
     expect(step.result.searchTextSources).toEqual([PRODUCT_URL]);
     expect(step.result.evidence).toMatchObject({ manufacturerPageFound: true, specsFromSource: true });
     expect(step.result.confidence.level).toBe("high");

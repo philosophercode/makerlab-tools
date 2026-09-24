@@ -269,7 +269,11 @@ code (gateway spec amendment "No generative redraw"), so **remove `MODEL_IMAGE_C
 from Vercel** if it was set — nothing reads it. Override one with `MODEL_CHAT` / `MODEL_RESEARCH_SEARCH` /
 `MODEL_RESEARCH_READ` / `MODEL_IMAGE_RANK`, a Gateway id
 in the exact shape `provider/model` (lower case) — a malformed value is a loud
-`ModelConfigError` naming the variable, never a silent fallback. **Before
+`ModelConfigError` naming the variable, never a silent fallback. Each job also
+asks the Gateway for a service tier — `flex` for research search, research read
+(and the starter-question backfill) and image ranking, none for chat — which
+`MODEL_<JOB>_TIER` (`default` / `flex` / `priority`) overrides; leave them unset
+unless a job needs moving. **Before
 changing `MODEL_CHAT` in production, run the eval gate**
 (`v5/evals/README.md`, `EVAL_MODEL=<candidate id> npm run eval`, twice) — the
 new model must pass every honest-absence and manual-grounding case, and all

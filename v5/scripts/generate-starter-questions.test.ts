@@ -163,6 +163,11 @@ describe("runBackfill", () => {
     const calls = recordedCalls(model);
     expect(calls).toHaveLength(1);
     expect(calls[0].tools ?? []).toEqual([]);
+    // The researchRead job's tier: flex (amendment "Manuals as text and flex tier for research").
+    expect(calls[0].providerOptions).toEqual({ gateway: { serviceTier: "flex" } });
+    // The stub reports no Gateway cost or tier; the report says so rather than inventing one.
+    expect(report.usage.gatewayUsd).toBeNull();
+    expect(report.usage.serviceTiers).toEqual([]);
   });
 
   it("--dry-run prints what it would write and writes nothing", async () => {

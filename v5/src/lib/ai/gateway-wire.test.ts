@@ -22,7 +22,8 @@ import {
 import { server } from "../../../test/msw/server";
 import { EXA_SEARCH_TOOL, countExaCalls, exaImageHints, exaPageTexts, researchExaSearch } from "./exa";
 import { classifyModelError } from "./gateway-errors";
-import { gatewayProvider, languageModelFor } from "./models";
+import { gatewayCallReport } from "./gateway-usage";
+import { gatewayProvider, languageModelFor, providerOptionsFor } from "./models";
 
 /**
  * The round trip (gateway spec §10): the wire builders in `test/gateway/wire.ts`
@@ -40,6 +41,7 @@ beforeEach(() => {
   vi.stubEnv("AI_GATEWAY_BASE_URL", "");
   for (const name of ["MODEL_CHAT", "MODEL_RESEARCH_SEARCH", "MODEL_RESEARCH_READ", "MODEL_IMAGE_RANK"]) {
     vi.stubEnv(name, "");
+    vi.stubEnv(`${name}_TIER`, "");
   }
 });
 
@@ -67,6 +69,30 @@ describe("the Gateway wire round trip", () => {
     expect(seen).toHaveLength(1);
     expect(seen[0]).toMatchObject({ modelId: "openai/gpt-6-luna", streaming: false, tools: [], providerOptionsSeen: [] });
     expect(promptText(seen[0])).toBe("You are terse.\nWhat is a Form 4?");
+  });
+
+  it('carries a research job\'s flex tier to the Gateway, and reads back the tier it reports (amendment "Manuals as text and flex tier for research")', async () => {
+    const seen: ParsedLanguageRequest[] = [];
+    server.use(
+      ...gatewayHandlers({
+        language: (req) => {
+          seen.push(req);
+          const body = textResponse("ok");
+          return { ...body, providerMetadata: { gateway: { ...body.providerMetadata?.gateway, cost: "0.0004", serviceTier: "flex" } } };
+        },
+      })
+    );
+
+    const result = await generateText({
+      model: languageModelFor("researchRead"),
+      prompt: "What is a Form 4?",
+      providerOptions: providerOptionsFor("researchRead"),
+      maxRetries: 0,
+    });
+
+    expect(seen[0].providerOptionsSeen).toContain("gateway");
+    expect((seen[0].body as { providerOptions?: unknown }).providerOptions).toMatchObject({ gateway: { serviceTier: "flex" } });
+    expect(gatewayCallReport(result.providerMetadata)).toEqual({ cost: 0.0004, serviceTier: "flex" });
   });
 
   it("generateText parses exaSearchResponse; countExaCalls, exaImageHints and exaPageTexts read result.steps", async () => {

@@ -1,6 +1,11 @@
 import type { ModelMessage } from "ai";
 import type { CategoryOption } from "../data/taxonomy.ts";
-import { RESEARCH_MAX_PAGE_READS, RESEARCH_MAX_PDFS_READ } from "../intake/limits.ts";
+import {
+  RESEARCH_ATTACH_PDFS,
+  RESEARCH_MANUAL_TEXT_MAX_CHARS,
+  RESEARCH_MAX_PAGE_READS,
+  RESEARCH_MAX_PDFS_READ,
+} from "../intake/limits.ts";
 import type { ResearchFocus } from "../intake/research-focus.ts";
 import { readPage, type ImageHint, type ReadPageResult } from "../web/read-page.ts";
 import type { SearchFindings } from "./model-output.ts";
@@ -38,6 +43,13 @@ import { orderPagesForReading, type PageSubject } from "./source-pages.ts";
  *   page's text (`search-text.ts`). The page is marked `via: "search"`, and the
  *   prompt labels it "text captured by search". No GET is added: the attempt
  *   already spent its place.
+ * - **A manual is read as its text, not attached** (amendment "Manuals as text
+ *   and flex tier for research"), while {@link RESEARCH_ATTACH_PDFS} is off: a
+ *   PDF the server read is given to the model as the text the search captured
+ *   for that URL, capped at {@link RESEARCH_MANUAL_TEXT_MAX_CHARS} and marked
+ *   `via: "manual"`. There is no PDF text extractor in the tree, so a PDF the
+ *   search captured no text for is skipped and recorded as a failure. At most
+ *   `maxPdfs` manuals are given either way.
  *
  * Plain Node: step code imports this.
  */
@@ -50,8 +62,12 @@ export interface ReadPageText {
   url: string;
   title: string | null;
   text: string;
-  /** `"search"` when the server could not read the page and this is the text the search captured. */
-  via?: "search";
+  /**
+   * `"search"` when the server could not read the page and this is the text the
+   * search captured; `"manual"` when the page is a PDF manual given as its text
+   * (the search's copy of it, capped) instead of as a file.
+   */
+  via?: "search" | "manual";
 }
 
 /** A PDF read whole, for a file part. */
@@ -80,6 +96,11 @@ export interface ReadCandidatePagesOptions {
   read?: typeof readPage;
   /** The page texts the search captured — the fallback for a page the server cannot read. */
   searchTexts?: readonly SearchPageText[];
+  /**
+   * Keep a PDF's bytes for a file part (`true`), or give the model the
+   * search's text of it instead (`false`). Default {@link RESEARCH_ATTACH_PDFS}.
+   */
+  attachPdfs?: boolean;
 }
 
 /** Reads in flight at once: enough to overlap two slow servers, few enough to be polite. */
@@ -113,6 +134,7 @@ export async function readCandidatePages(
 ): Promise<ReadPagesResult> {
   const max = opts.max ?? RESEARCH_MAX_PAGE_READS;
   const maxPdfs = opts.maxPdfs ?? RESEARCH_MAX_PDFS_READ;
+  const attachPdfs = opts.attachPdfs ?? RESEARCH_ATTACH_PDFS;
   const read = opts.read ?? readPage;
   const targets = urls.slice(0, Math.max(0, max));
 
@@ -129,6 +151,7 @@ export async function readCandidatePages(
   const seenImages = new Set<string>();
   const searchTexts = opts.searchTexts ?? [];
   const usedSearchTexts = new Set<string>();
+  let manualTexts = 0;
 
   for (const [n, result] of results.entries()) {
     const host = hostOf(result.url) ?? hostOf(targets[n]) ?? "(unknown host)";
@@ -157,8 +180,30 @@ export async function readCandidatePages(
     }
 
     if (result.pdf) {
-      if (out.pdfs.length < maxPdfs) out.pdfs.push({ url: result.url, data: result.pdf });
-      else out.failures.push(`${host}: skipped (PDF limit)`);
+      if (attachPdfs) {
+        if (out.pdfs.length < maxPdfs) out.pdfs.push({ url: result.url, data: result.pdf });
+        else out.failures.push(`${host}: skipped (PDF limit)`);
+        continue;
+      }
+      // Text, not a file: the search's copy of this PDF, capped. No extractor
+      // runs on the bytes, so without a copy the manual is not read.
+      if (manualTexts >= maxPdfs) {
+        out.failures.push(`${host}: skipped (PDF limit)`);
+        continue;
+      }
+      const copy = findSearchText(targets[n], searchTexts) ?? findSearchText(result.url, searchTexts);
+      if (!copy || usedSearchTexts.has(copy.url)) {
+        out.failures.push(`${host}: skipped (PDF, no text)`);
+        continue;
+      }
+      usedSearchTexts.add(copy.url);
+      manualTexts += 1;
+      out.pages.push({
+        url: result.url,
+        title: copy.title ?? result.title,
+        text: capManualText(copy.text),
+        via: "manual",
+      });
       continue;
     }
 
@@ -167,6 +212,20 @@ export async function readCandidatePages(
     else out.failures.push(`${host}: empty`);
   }
   return out;
+}
+
+/** A manual's text cut to {@link RESEARCH_MANUAL_TEXT_MAX_CHARS}, at a line or word break when one is near. */
+export function capManualText(text: string, max = RESEARCH_MANUAL_TEXT_MAX_CHARS): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= max) return trimmed;
+  const cut = trimmed.slice(0, max);
+  const lastBreak = Math.max(cut.lastIndexOf("\n"), cut.lastIndexOf(" "));
+  return `${(lastBreak > max * 0.9 ? cut.slice(0, lastBreak) : cut).trimEnd()} …[manual text cut]`;
+}
+
+/** The manuals given to the model as their text, not as files. */
+export function manualTextUrls(read: Pick<ReadPagesResult, "pages">): string[] {
+  return read.pages.filter((page) => page.via === "manual").map((page) => page.url);
 }
 
 /** The pages whose text came from the search's copy rather than the server's own read. */
@@ -188,6 +247,8 @@ export function readSourceUrls(read: Pick<ReadPagesResult, "pages" | "pdfs">): s
  * The read model's one message: the prompt, with every page's text fenced as
  * untrusted data and labelled with its URL (`buildReadPrompt`), then each PDF as
  * a plain file part — no provider options, in the order the prompt lists them.
+ * With {@link RESEARCH_ATTACH_PDFS} off, `pdfs` is empty and there is no file
+ * part: a manual is among the pages, as its text.
  */
 export function buildReadMessages(
   item: ResearchItemInput,

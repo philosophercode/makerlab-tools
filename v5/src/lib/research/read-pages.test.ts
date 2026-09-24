@@ -3,11 +3,14 @@ import { http, HttpResponse } from "msw";
 import { server } from "../../../test/msw/server";
 import { setResolvedAddresses } from "../../../test/web/resolver";
 import type { ReadPageResult } from "../web/read-page";
+import { RESEARCH_ATTACH_PDFS, RESEARCH_MANUAL_TEXT_MAX_CHARS, RESEARCH_MAX_PDFS_READ } from "../intake/limits";
 import { parseSearchFindings } from "./model-output";
 import {
   READ_CONCURRENCY,
   buildReadMessages,
   candidatePageUrls,
+  capManualText,
+  manualTextUrls,
   readCandidatePages,
   readSourceUrls,
   searchTextUrls,
@@ -127,7 +130,7 @@ describe("readCandidatePages", () => {
     expect(result.pages.map((p) => p.url)).toEqual(["https://ok.test/"]);
   });
 
-  it("keeps at most two PDFs, as bytes", async () => {
+  it("keeps at most two PDFs, as bytes, when PDFs are attached", async () => {
     const bytes = new TextEncoder().encode("%PDF-1.4");
     const read = async (url: string) => page(url, { contentType: "application/pdf", text: null, title: null, pdf: bytes });
     const result = await readCandidatePages(["https://a.test/1.pdf", "https://a.test/2.pdf", "https://a.test/3.pdf"], {
@@ -135,6 +138,7 @@ describe("readCandidatePages", () => {
       allowedHosts: [],
       maxPdfs: 2,
       read,
+      attachPdfs: true,
     });
     expect(result.pdfs.map((p) => p.url)).toEqual(["https://a.test/1.pdf", "https://a.test/2.pdf"]);
     expect(result.pdfs[0].data).toBe(bytes);
@@ -176,8 +180,97 @@ describe("readCandidatePages", () => {
       signal,
       allowedHosts: [],
       read,
+      attachPdfs: true,
     });
     expect(readSourceUrls(result)).toEqual(["https://a.test/final", "https://a.test/m.pdf"]);
+  });
+});
+
+describe('readCandidatePages — manuals as text (amendment "Manuals as text and flex tier for research")', () => {
+  const MANUAL = "https://maker.test/x2d-manual.pdf";
+  const MANUAL_2 = "https://maker.test/x2d-quick-start.pdf";
+  const MANUAL_3 = "https://maker.test/x2d-safety.pdf";
+  const bytes = new TextEncoder().encode("%PDF-1.4");
+  const pdfPage = (url: string) => page(url, { contentType: "application/pdf", text: null, title: null, pdf: bytes });
+  const manualCopy = (n: number) => `Chapter ${n}. Load filament into the AMS. Nozzle temperature 350 °C. `.repeat(10);
+
+  it("is off: research attaches no PDF unless the constant is turned back on, and gives at most two manuals", () => {
+    expect(RESEARCH_ATTACH_PDFS).toBe(false);
+    expect(RESEARCH_MAX_PDFS_READ).toBe(2);
+    expect(RESEARCH_MANUAL_TEXT_MAX_CHARS).toBeGreaterThanOrEqual(12_000);
+    expect(RESEARCH_MANUAL_TEXT_MAX_CHARS).toBeLessThanOrEqual(20_000);
+  });
+
+  it("gives a PDF the server read as the search's text of it, marked as a manual — no bytes kept", async () => {
+    const searchTexts = [{ url: MANUAL, title: "X2D user manual", text: manualCopy(1) }];
+    const result = await readCandidatePages([MANUAL], { signal, allowedHosts: [], read: async (url) => pdfPage(url), searchTexts });
+    expect(result.pdfs).toEqual([]);
+    expect(result.pages).toEqual([{ url: MANUAL, title: "X2D user manual", text: manualCopy(1).trim(), via: "manual" }]);
+    expect(manualTextUrls(result)).toEqual([MANUAL]);
+    // A source like any page read — and not "via search": the server did read the PDF.
+    expect(readSourceUrls(result)).toEqual([MANUAL]);
+    expect(searchTextUrls(result)).toEqual([]);
+    expect(result.failures).toEqual([]);
+  });
+
+  it("caps each manual's text, and gives at most two manuals", async () => {
+    const long = "word ".repeat(RESEARCH_MANUAL_TEXT_MAX_CHARS);
+    const searchTexts = [
+      { url: MANUAL, title: "Manual", text: long },
+      { url: MANUAL_2, title: "Quick start", text: manualCopy(2) },
+      { url: MANUAL_3, title: "Safety", text: manualCopy(3) },
+    ];
+    const result = await readCandidatePages([MANUAL, MANUAL_2, MANUAL_3], {
+      signal,
+      allowedHosts: [],
+      read: async (url) => pdfPage(url),
+      searchTexts,
+    });
+    expect(manualTextUrls(result)).toEqual([MANUAL, MANUAL_2]);
+    expect(result.pages[0].text.length).toBeLessThanOrEqual(RESEARCH_MANUAL_TEXT_MAX_CHARS + 30);
+    expect(result.pages[0].text).toMatch(/…\[manual text cut\]$/);
+    expect(result.failures).toEqual(["maker.test: skipped (PDF limit)"]);
+  });
+
+  it("skips a PDF the search captured no text for (there is no PDF text extractor), and records why", async () => {
+    const result = await readCandidatePages([MANUAL], { signal, allowedHosts: [], read: async (url) => pdfPage(url), searchTexts: [] });
+    expect(result.pages).toEqual([]);
+    expect(result.pdfs).toEqual([]);
+    expect(result.failures).toEqual(["maker.test: skipped (PDF, no text)"]);
+  });
+
+  it("matches the copy by the URL tried or the PDF's final URL", async () => {
+    const searchTexts = [{ url: "https://maker.test/files/x2d.pdf", title: null, text: manualCopy(4) }];
+    const read = async () => ({ ...pdfPage(MANUAL), url: "https://maker.test/files/x2d.pdf" });
+    const result = await readCandidatePages([MANUAL], { signal, allowedHosts: [], read, searchTexts });
+    expect(result.pages).toEqual([
+      { url: "https://maker.test/files/x2d.pdf", title: null, text: manualCopy(4).trim(), via: "manual" },
+    ]);
+  });
+
+  it("builds no file part: the manual travels in the prompt text, fenced and labelled", async () => {
+    const searchTexts = [{ url: MANUAL, title: "X2D user manual", text: manualCopy(5) }];
+    const read = await readCandidatePages(["https://maker.test/p", MANUAL], {
+      signal,
+      allowedHosts: [],
+      read: async (url) => (url.endsWith(".pdf") ? pdfPage(url) : page(url)),
+      searchTexts,
+    });
+    const [message] = buildReadMessages(ITEM, parseSearchFindings("{}"), read, []);
+    const content = message.content as Array<Record<string, unknown>>;
+    expect(content.filter((part) => part.type === "file")).toEqual([]);
+    expect(content).toHaveLength(1);
+    const text = String(content[0].text);
+    expect(text).toContain(`source="${MANUAL} (manual text)"`);
+    expect(text).toContain("Chapter 5. Load filament into the AMS.");
+    expect(text).not.toContain("PDFs attached to this message");
+  });
+
+  it("capManualText leaves a short text alone and cuts a long one at a word break", () => {
+    expect(capManualText("  short  ", 100)).toBe("short");
+    expect(capManualText("alpha beta gamma delta", 11)).toBe("alpha beta …[manual text cut]");
+    // No break near the end: a plain cut.
+    expect(capManualText("alphabetagammadelta", 5)).toBe("alpha …[manual text cut]");
   });
 });
 
@@ -302,6 +395,7 @@ describe("readCandidatePages through the real reader", () => {
     const result = await readCandidatePages(["https://maker.test/p", "https://intranet.test/admin", "https://maker.test/m.pdf"], {
       signal,
       allowedHosts: ["maker.test", "intranet.test"],
+      attachPdfs: true,
     });
 
     expect(intranetHit).toBe(false);

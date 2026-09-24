@@ -381,6 +381,9 @@ describe("POST /api/chat — tools wired", () => {
     const call = firstCall();
     expect(call.prompt.some((m: any) => Array.isArray(m.content) && m.content.some((p: any) => p.type === "file"))).toBe(true);
     expect([...providerOptionKeys(call.options)]).not.toContain("anthropic");
+    // Chat asks for no service tier: flex is for background research only
+    // (amendment "Manuals as text and flex tier for research").
+    expect(call.providerOptions?.gateway).toBeUndefined();
     expect(JSON.stringify(call.tools)).not.toMatch(/anthropic/i);
   });
 

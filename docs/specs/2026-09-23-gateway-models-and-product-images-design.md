@@ -1807,3 +1807,98 @@ policy). A tool with none, and every page that is not a tool's, keeps the generi
 **Status.** Built on `v5/gateway-images` (uncommitted). No model call was made; the backfill has
 not been run.
 
+
+### 2026-09-23 — Manuals as text and flex tier for research (§3.1, §3.3, §5.1, §10)
+
+**Decided by Isaac, 2026-09-23**, for background research only — chat is unchanged. Two cost
+changes, answering the open question in "Search text fallback and confidence cap" (a manual
+PDF attached as a file part cost about 10¢ a read).
+
+**1. Manuals as text** (§3.3, `intake/limits.ts`, `research/read-pages.ts`, `research/prompt.ts`).
+- `RESEARCH_ATTACH_PDFS = false`. The read step no longer attaches a PDF as a file part.
+  Setting it back to `true` restores the old behaviour exactly (bytes kept, file parts, "PDFs
+  attached" list in the prompt).
+- With it off, a PDF the server read is given to the model as **the text the search's Exa call
+  already captured for that URL** (`findSearchText`, by the URL tried or the PDF's final URL),
+  capped at `RESEARCH_MANUAL_TEXT_MAX_CHARS` = 16,000 characters (cut at a word break, marked
+  "…[manual text cut]"). At most `RESEARCH_MAX_PDFS_READ` (2) manuals, as before. One copy is
+  used once.
+- **No PDF text extraction.** There is none in the tree, and none was added: a PDF the search
+  captured no text for is skipped and recorded as `"<host>: skipped (PDF, no text)"`, which the
+  prompt lists among the pages not read.
+- The page is `via: "manual"`, fenced with `fenceUntrusted` and labelled `<url> (manual text)`
+  (`MANUAL_TEXT_LABEL`), its body opening with a line saying it is the manual's text as the
+  search engine captured it, not the file, and may be cut short. The read system prompt says such
+  a block is the manual — it counts for `manualFound` and its link belongs in `resources` as a
+  Manual — and is as untrusted as any page.
+- **Evidence is unchanged.** The manual's URL is among `sourceUrls` (the model had its text), and
+  it is not a `searchTextSources` page: the server did read the PDF, so it counts as a page read
+  the way the attached PDF did. `manualFound` still needs the model's report and a verified
+  Manual link (`assemble.ts`).
+- The step's log line adds "N manual(s) as text". Chat's manual attachment (§3.4) is untouched.
+
+**2. Flex service tier** (§3.1, `ai/models.ts`).
+- Each `MODEL_JOBS` entry gains `serviceTier` (`"default"` | `"flex"` | `"priority"`) and
+  `tierEnv` (`MODEL_<JOB>_TIER`). `researchSearch`, `researchRead` and `imageRank` are `flex`;
+  `chat` is `default`. The override is read at call time, trimmed and case-insensitive; blank is
+  the job's setting; `default` sends no hint; anything else is a `ModelConfigError` naming the
+  variable, never the value.
+- `providerOptionsFor(job)` returns `{ gateway: { serviceTier } }`, or undefined for `default` —
+  so chat sends no provider options at all. It applies whichever model is set, and is a
+  best-effort hint: a provider without tiers ignores it.
+- Passed on the research search (`searchItem`), the image redo's search (`image-retry-steps.ts`,
+  a `researchSearch` call), the research read (`readAndVerifyItem`), image ranking
+  (`rankCandidates`) and the starter-question backfill (`scripts/generate-starter-questions.ts`,
+  the `researchRead` job's tier).
+- **What the Gateway reports** (`ai/gateway-usage.ts`): `gatewayCallReport` reads
+  `providerMetadata.gateway.cost` and `.serviceTier` (a short word only; anything else is not
+  logged). Each research call logs one line by request id — `[research] <id>: read call cost
+  $0.0014, tier flex` — never the item. The backfill's summary adds the Gateway-reported cost and
+  tiers beside its list-price figure. The live check reports `tiersAsked` and `tiersApplied`.
+- `.env.example` and `docs/deploy.md` document `MODEL_<JOB>_TIER`.
+
+**Live check** (`v5/.livecheck/x2d.ts`, adapted; real Gateway and network; "Bambu Lab X2D";
+search and read only; both on `openai/gpt-6-luna`; output `.livecheck/out/manual-text-flex.json`).
+
+| Run | Pages read | Manuals as text | PDFs attached | Specs | Evidence | Confidence | Tier asked / applied | Cost |
+|---|---|---|---|---|---|---|---|---|
+| fallback-1 (before, PDF attached) | product, specs, YouTube, manual PDF | — | 1 | 27 | ✓ ✓ ✓ | high | none | search $0.029, read $0.106 |
+| manual-text-flex | product (via search text, 403), specs, YouTube | 0 | 0 | 30 | manufacturer ✓, specs ✓, manual ✓ | high | flex / flex (both calls) | search $0.025, read $0.0014 |
+
+- **Read cost $0.0014 against $0.106 with the PDF** (7.3k input tokens, 3.6k output).
+- **The manual-as-text path was not exercised live.** This run's search named the manual as a
+  bambulab.com documentation page (HTML, 403 to our reader, and Exa's copy of it was 114
+  characters — too short to use), not the PDF. Exa did return 12,000 characters for the X2D
+  manual PDF on `csm.bblcdn.cn`, but the search did not list that URL as a candidate, so it was
+  not read. `manualFound` held on the verified documentation link. The path is covered by the
+  unit and step tests below.
+- The Gateway reported `serviceTier: "flex"` on both calls. The search cost ($0.025) is within
+  the earlier $0.024–0.031 range, so this run does not show what flex saves on its own.
+- Exa: 4 searches counted, 3 reported `costDollars.total` = $0.007 each. Total spend for the
+  run: about $0.05.
+
+**§10.** New tests, all with no network:
+- `read-pages.test.ts`: `RESEARCH_ATTACH_PDFS` is off and the cap is 12–20k; a PDF becomes a
+  `via: "manual"` page from the search's copy, with no bytes kept, among the sources and not
+  "via search"; capped, at most two, the third skipped; no copy → skipped with its reason; the
+  copy found by the PDF's final URL; `buildReadMessages` builds no file part and fences the
+  manual as "(manual text)"; `capManualText`. The existing PDF tests pass `attachPdfs: true`.
+- `prompt.test.ts`: the manual's fence and body line, a hostile line kept inside it, no "PDFs
+  attached" section; the system prompt's paragraph (counts for `manualFound`); the search pass
+  gets none of it.
+- `steps.test.ts`: the read call has no file part and the manual's text fenced; a manual read
+  as text still yields `manualFound`; a PDF with no captured text is skipped, logged, and the
+  manual still found by its verified link; both research calls carry `{ gateway: { serviceTier:
+  "flex" } }`; `MODEL_RESEARCH_READ_TIER=default` sends none; the cost-and-tier log lines.
+- `models.test.ts`: flex on the three background jobs, none on chat; one `MODEL_<JOB>_TIER` per
+  job; the tier applies whichever model is set; override parsing (default, flex, priority, case,
+  padding, blank) for one job only; chat can opt in; a bad value names the variable, never the
+  value.
+- `gateway-usage.test.ts`: cost as a string or number, the tier, and what is not reported.
+- `gateway-wire.test.ts`: the flex tier reaches the Gateway's request body, and the reported
+  tier is read back.
+- `route.test.ts` (chat): no `gateway` provider options; the manual still attached as a file.
+- `rank.test.ts`, `image-retry-steps.test.ts`, `scripts/generate-starter-questions.test.ts`:
+  flex on the image ranking, image-redo search and backfill calls.
+
+**Status.** Built on `v5/gateway-images` (uncommitted).

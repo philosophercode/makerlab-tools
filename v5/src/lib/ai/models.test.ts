@@ -7,6 +7,8 @@ import {
   gatewayProvider,
   languageModelFor,
   modelIdFor,
+  providerOptionsFor,
+  serviceTierFor,
   type ModelJob,
 } from "./models";
 
@@ -23,7 +25,10 @@ import {
 const JOBS = Object.keys(MODEL_JOBS) as ModelJob[];
 
 function clearOverrides() {
-  for (const job of JOBS) vi.stubEnv(MODEL_JOBS[job].env, "");
+  for (const job of JOBS) {
+    vi.stubEnv(MODEL_JOBS[job].env, "");
+    vi.stubEnv(MODEL_JOBS[job].tierEnv, "");
+  }
   vi.stubEnv("AI_GATEWAY_BASE_URL", "");
 }
 
@@ -112,6 +117,66 @@ describe("modelIdFor", () => {
   it("does not treat an inherited property as a job", () => {
     expect(() => modelIdFor("toString" as ModelJob)).toThrow(ModelConfigError);
   });
+});
+
+describe('service tiers (amendment "Manuals as text and flex tier for research")', () => {
+  it("asks for flex on every background job and for nothing on chat", () => {
+    expect(serviceTierFor("researchSearch")).toBe("flex");
+    expect(serviceTierFor("researchRead")).toBe("flex");
+    expect(serviceTierFor("imageRank")).toBe("flex");
+    expect(serviceTierFor("chat")).toBeNull();
+    expect(providerOptionsFor("researchSearch")).toEqual({ gateway: { serviceTier: "flex" } });
+    expect(providerOptionsFor("researchRead")).toEqual({ gateway: { serviceTier: "flex" } });
+    expect(providerOptionsFor("imageRank")).toEqual({ gateway: { serviceTier: "flex" } });
+    expect(providerOptionsFor("chat")).toBeUndefined();
+  });
+
+  it("names one MODEL_<JOB>_TIER variable per job", () => {
+    expect(JOBS.map((job) => MODEL_JOBS[job].tierEnv)).toEqual(JOBS.map((job) => `${MODEL_JOBS[job].env}_TIER`));
+  });
+
+  it("applies the tier whichever model is set", () => {
+    vi.stubEnv("MODEL_RESEARCH_READ", "anthropic/claude-sonnet-5");
+    expect(providerOptionsFor("researchRead")).toEqual({ gateway: { serviceTier: "flex" } });
+  });
+
+  it.each([
+    ["default", null],
+    ["flex", "flex"],
+    ["priority", "priority"],
+    ["  Priority \n", "priority"],
+    ["", "flex"],
+    ["   ", "flex"],
+  ] as const)("reads MODEL_RESEARCH_SEARCH_TIER=%j as %j, and only for that job", (value, expected) => {
+    vi.stubEnv("MODEL_RESEARCH_SEARCH_TIER", value);
+    expect(serviceTierFor("researchSearch")).toBe(expected);
+    expect(serviceTierFor("researchRead")).toBe("flex");
+    expect(providerOptionsFor("researchSearch")).toEqual(expected ? { gateway: { serviceTier: expected } } : undefined);
+  });
+
+  it("lets chat opt in by its own variable", () => {
+    vi.stubEnv("MODEL_CHAT_TIER", "priority");
+    expect(providerOptionsFor("chat")).toEqual({ gateway: { serviceTier: "priority" } });
+  });
+
+  it.each(["standard", "fast", "sk-live-abc123secret"])(
+    "refuses the tier %j, naming the variable and never the value",
+    (value) => {
+      vi.stubEnv("MODEL_IMAGE_RANK_TIER", value);
+      let thrown: unknown;
+      try {
+        providerOptionsFor("imageRank");
+      } catch (error) {
+        thrown = error;
+      }
+      expect(ModelConfigError.isInstance(thrown)).toBe(true);
+      const error = thrown as ModelConfigError;
+      expect(error.envVar).toBe("MODEL_IMAGE_RANK_TIER");
+      expect(error.job).toBe("imageRank");
+      expect(error.message).toContain("MODEL_IMAGE_RANK_TIER");
+      expect(error.message).not.toContain(value);
+    }
+  );
 });
 
 describe("the model factories", () => {

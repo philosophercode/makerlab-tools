@@ -26,7 +26,11 @@
  *   gained questions meanwhile is skipped too — nothing staff wrote is
  *   overwritten.
  * - **Cost** is estimated before the first call and totalled from the calls'
- *   reported usage after, at Luna's Gateway list prices.
+ *   reported usage after, at Luna's Gateway list prices — and, beside it, the
+ *   cost and service tier the Gateway itself reported. Each call asks for the
+ *   `researchRead` job's tier (`providerOptionsFor`: `flex` unless
+ *   `MODEL_RESEARCH_READ_TIER` says otherwise), so the list-price figure is an
+ *   upper bound.
  *
  * The published catalogue is cached for minutes (`cacheLife("minutes")`), so
  * the chips appear on tool pages once that expires; the Notion mirror is not
@@ -35,7 +39,8 @@
 import { generateText, type LanguageModel } from "ai";
 import { and, asc, eq, inArray, isNull, or, sql, type SQL } from "drizzle-orm";
 import { fileURLToPath } from "node:url";
-import { languageModelFor, modelIdFor, MODEL_JOBS } from "../src/lib/ai/models.ts";
+import { gatewayCallReport } from "../src/lib/ai/gateway-usage.ts";
+import { languageModelFor, modelIdFor, MODEL_JOBS, providerOptionsFor, serviceTierFor } from "../src/lib/ai/models.ts";
 import { PgliteLockedError } from "../src/lib/db/pglite-lock.ts";
 import { findToolForEditor, updateTool } from "../src/lib/data/tools.ts";
 import { isUuid } from "../src/lib/data/uuid.ts";
@@ -208,7 +213,16 @@ export type ToolOutcome =
 
 export interface BackfillReport {
   tools: { source: StarterSource; outcome: ToolOutcome }[];
-  usage: { inputTokens: number; outputTokens: number; usd: number };
+  usage: {
+    inputTokens: number;
+    outputTokens: number;
+    /** At Luna's list prices. */
+    usd: number;
+    /** The sum of the cost the Gateway reported, or null when no call reported one. */
+    gatewayUsd: number | null;
+    /** The service tiers the Gateway reported applying, each once. */
+    serviceTiers: string[];
+  };
 }
 
 export interface RunBackfillInput {
@@ -218,14 +232,26 @@ export interface RunBackfillInput {
   dryRun: boolean;
   /** One line per event; `console.log` from the command line, a spy in tests. */
   log?: (line: string) => void;
+  /** Each call's `providerOptions`. Default: the `researchRead` job's (its service tier). */
+  providerOptions?: ReturnType<typeof providerOptionsFor>;
 }
 
 /**
  * One model call per tool, then — unless it is a dry run — one
  * revision-checked write. A failed call is reported and the run goes on.
  */
-export async function runBackfill({ db, model, sources, dryRun, log = () => {} }: RunBackfillInput): Promise<BackfillReport> {
-  const report: BackfillReport = { tools: [], usage: { inputTokens: 0, outputTokens: 0, usd: 0 } };
+export async function runBackfill({
+  db,
+  model,
+  sources,
+  dryRun,
+  log = () => {},
+  providerOptions = providerOptionsFor("researchRead"),
+}: RunBackfillInput): Promise<BackfillReport> {
+  const report: BackfillReport = {
+    tools: [],
+    usage: { inputTokens: 0, outputTokens: 0, usd: 0, gatewayUsd: null, serviceTiers: [] },
+  };
 
   for (const [n, source] of sources.entries()) {
     const heading = `[${n + 1}/${sources.length}] ${source.name} (${source.slug})`;
@@ -235,11 +261,17 @@ export async function runBackfill({ db, model, sources, dryRun, log = () => {} }
         model,
         system: BACKFILL_SYSTEM_PROMPT,
         prompt: buildBackfillPrompt(source),
+        providerOptions,
         maxRetries: 2,
         abortSignal: AbortSignal.timeout(90_000),
       });
       report.usage.inputTokens += result.totalUsage.inputTokens ?? 0;
       report.usage.outputTokens += result.totalUsage.outputTokens ?? 0;
+      const gateway = gatewayCallReport(result.providerMetadata);
+      if (gateway.cost !== null) report.usage.gatewayUsd = (report.usage.gatewayUsd ?? 0) + gateway.cost;
+      if (gateway.serviceTier && !report.usage.serviceTiers.includes(gateway.serviceTier)) {
+        report.usage.serviceTiers.push(gateway.serviceTier);
+      }
       const questions = parseBackfillAnswer(result.text);
       outcome = questions.length === 0 ? { status: "no_questions" } : await write(db, source.id, questions, dryRun);
     } catch (error) {
@@ -329,7 +361,9 @@ async function main(): Promise<void> {
     for (const { outcome } of report.tools) counts.set(outcome.status, (counts.get(outcome.status) ?? 0) + 1);
     console.log(
       `Done: ${[...counts].map(([status, n]) => `${n} ${status.replace(/_/g, " ")}`).join(", ")}. ` +
-        `Actual usage: ${report.usage.inputTokens} input + ${report.usage.outputTokens} output tokens, ~$${report.usage.usd.toFixed(4)}.`
+        `Actual usage: ${report.usage.inputTokens} input + ${report.usage.outputTokens} output tokens, ~$${report.usage.usd.toFixed(4)} at list prices; ` +
+        `Gateway-reported cost ${report.usage.gatewayUsd === null ? "not reported" : `$${report.usage.gatewayUsd.toFixed(4)}`}, ` +
+        `tier ${report.usage.serviceTiers.join(", ") || "not reported"} (asked: ${serviceTierFor("researchRead") ?? "default"}).`
     );
     if (report.tools.some(({ outcome }) => outcome.status === "failed")) process.exitCode = 1;
   } finally {

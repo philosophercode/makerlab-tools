@@ -1,6 +1,7 @@
 import { generateText } from "ai";
 import { countExaCalls, EXA_SEARCH_TOOL, exaImageHints, exaPageTexts, researchExaSearch } from "../ai/exa.ts";
-import { languageModelFor } from "../ai/models.ts";
+import { describeGatewayCall, gatewayCallReport } from "../ai/gateway-usage.ts";
+import { languageModelFor, providerOptionsFor } from "../ai/models.ts";
 import type { StepLike } from "../ai/tool-caps.ts";
 import { completeResearch, failResearch, getPendingTool, markResearching, type PendingTool } from "../data/pending-tools.ts";
 import { listCategories } from "../data/taxonomy.ts";
@@ -20,6 +21,7 @@ import { buildSearchPrompt, researchSystemPrompt } from "./prompt.ts";
 import {
   buildReadMessages,
   candidatePageUrls,
+  manualTextUrls,
   readCandidatePages,
   readSourceUrls,
   searchTextUrls,
@@ -50,7 +52,8 @@ export type { BatchSummary, ImageHint, ItemStepResult, ReadStepResult, SearchSte
  *    the server cannot open — a 403 bot challenge, a timeout — is read from the
  *    search's copy of its text instead, labelled as such), then
  *    one `researchRead` call **with no tools at all**, given the page texts
- *    fenced as untrusted data and at most two PDFs as file parts. Then link
+ *    fenced as untrusted data and at most two manuals — as their text while
+ *    `RESEARCH_ATTACH_PDFS` is off, else as PDF file parts. Then link
  *    verification, then the result assembled in code. It is **returned, not
  *    written**, with the images the pages declared.
  * 3. `findImages` (or `completeWithoutImages` when that fails) writes the
@@ -63,6 +66,9 @@ export type { BatchSummary, ImageHint, ItemStepResult, ReadStepResult, SearchSte
  * Workflow SDK reads it; `generateText`'s own retry loop is switched off so
  * the two do not multiply. Model ids come from the job registry, so a
  * `MODEL_RESEARCH_*` override moves a step to another model without a deploy.
+ * Each call asks for its job's service tier (`providerOptionsFor`: `flex` for
+ * research unless `MODEL_<JOB>_TIER` says otherwise), and logs what the Gateway
+ * reports it cost and the tier it applied — by request id, never the item.
  *
  * **Research writes only to the row it was given, and only while that row is
  * waiting for it** (§8 "Write safety"): every write is one of
@@ -123,9 +129,11 @@ export async function searchItem(
       system: researchSystemPrompt("search"),
       prompt: buildSearchPrompt(item, categories, reviewerNote, focus),
       tools: { [EXA_SEARCH_TOOL]: researchExaSearch() },
+      providerOptions: providerOptionsFor("researchSearch"),
       abortSignal: signal,
       maxRetries: 0,
     });
+    console.info(`[research] ${requestId}: search call ${describeGatewayCall(gatewayCallReport(result.providerMetadata))}`);
     reportSearchOvershoot(requestId, result.steps);
     const findings = parseSearchFindings(result.text);
     // Only the texts of pages the read step may try cross the step boundary.
@@ -212,8 +220,10 @@ export async function readAndVerifyItem(
     if (read.failures.length > 0 || fromSearch.length > 0) {
       // Hosts and status codes only — never a path, a query or an item name.
       const viaSearch = fromSearch.length > 0 ? `; ${fromSearch.length} from the search's text` : "";
+      const manuals = manualTextUrls(read).length;
+      const asText = manuals > 0 ? `; ${manuals} manual(s) as text` : "";
       console.info(
-        `[research] read ${urls.length - read.failures.length}/${urls.length} pages${viaSearch}; not read: ${read.failures.join("; ") || "none"}`
+        `[research] read ${urls.length - read.failures.length}/${urls.length} pages${viaSearch}${asText}; not read: ${read.failures.join("; ") || "none"}`
       );
     }
 
@@ -221,13 +231,15 @@ export async function readAndVerifyItem(
       draft = draftFromFindings(findings, { keepCandidateLinks: true });
     } else {
       try {
-        const { text } = await generateText({
+        const { text, providerMetadata } = await generateText({
           model: languageModelFor("researchRead"),
           system: researchSystemPrompt("read"),
           messages: buildReadMessages(item, findings, read, categories, reviewerNote, focus),
+          providerOptions: providerOptionsFor("researchRead"),
           abortSignal: signal,
           maxRetries: 0,
         });
+        console.info(`[research] ${requestId}: read call ${describeGatewayCall(gatewayCallReport(providerMetadata))}`);
         draft = { ...parseFetchDraft(text), sourceUrls: readSourceUrls(read) };
       } catch (error) {
         throw classifyResearchError(error, "read");

@@ -106,6 +106,8 @@ describe("rankCandidates", () => {
 
     const [call] = recordedCalls(model);
     expect(call.tools ?? []).toEqual([]);
+    // A background job: the flex tier (amendment "Manuals as text and flex tier for research").
+    expect(call.providerOptions).toEqual({ gateway: { serviceTier: "flex" } });
     expect(call.prompt[0]).toEqual({ role: "system", content: RANK_SYSTEM_PROMPT });
     const parts = userParts(call);
     expect(parts[0].text).toContain("Machine: Bambu Lab P1S");

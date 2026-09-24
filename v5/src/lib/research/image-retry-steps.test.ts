@@ -203,6 +203,8 @@ describe("retryImages", () => {
     expect(await owner(oldCleaned)).toBeNull();
     expect(await owner(research!.images!.cleaned!.attachmentId)).toBe(id);
 
+    expect(recordedCalls(search)[0].providerOptions).toEqual({ gateway: { serviceTier: "flex" } });
+    expect(recordedCalls(rank)[0].providerOptions).toEqual({ gateway: { serviceTier: "flex" } });
     const searchPrompt = JSON.stringify(recordedCalls(search)[0].prompt);
     expect(searchPrompt).toContain(`<reviewer-instruction>\\n${note}\\n</reviewer-instruction>`);
     expect(JSON.stringify(recordedCalls(rank)[0].prompt)).toContain(`<reviewer-instruction>\\n${note}\\n</reviewer-instruction>`);

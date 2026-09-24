@@ -1,6 +1,7 @@
 import { generateText } from "ai";
 import { countExaCalls, EXA_SEARCH_TOOL, exaImageHints, researchExaSearch } from "../ai/exa.ts";
-import { languageModelFor, MODEL_JOBS } from "../ai/models.ts";
+import { describeGatewayCall, gatewayCallReport } from "../ai/gateway-usage.ts";
+import { languageModelFor, MODEL_JOBS, providerOptionsFor } from "../ai/models.ts";
 import { failImageRetry, finishImageRetry } from "../data/image-retry.ts";
 import { getPendingTool } from "../data/pending-tools.ts";
 import { releaseCleanedImage } from "../data/research-images.ts";
@@ -206,9 +207,11 @@ async function searchForPictures(
       system: IMAGE_SEARCH_SYSTEM,
       prompt,
       tools: { [EXA_SEARCH_TOOL]: researchExaSearch() },
+      providerOptions: providerOptionsFor("researchSearch"),
       abortSignal: signal,
       maxRetries: 0,
     });
+    console.info(`[research] ${requestId}: image search call ${describeGatewayCall(gatewayCallReport(result.providerMetadata))}`);
     const searches = countExaCalls(result.steps);
     if (searches > IMAGE_RETRY_MAX_SEARCHES) {
       console.warn(`[research] ${requestId}: the image search ran ${EXA_SEARCH_TOOL} ${searches} times, over its budget of ${IMAGE_RETRY_MAX_SEARCHES}`);

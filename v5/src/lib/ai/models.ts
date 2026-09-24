@@ -37,11 +37,45 @@ import { createGateway, type GatewayProvider } from "@ai-sdk/gateway";
  * passed the gate on three runs, so chat moved to it. `MODEL_CHAT` switches it
  * back without a deploy.
  */
+/*
+ * **Service tier** (amendment "Manuals as text and flex tier for research"):
+ * each job also names the Gateway service tier its calls ask for, whichever
+ * model is set — `"flex"` for the background jobs, where a slower, cheaper
+ * answer costs nobody a wait, and `"default"` (no hint at all) for chat, which a
+ * person is waiting on. `MODEL_<JOB>_TIER` (`default` | `flex` | `priority`)
+ * overrides it. It is a best-effort hint: a provider without the tier ignores
+ * it. {@link providerOptionsFor} turns it into the call's `providerOptions`.
+ */
 export const MODEL_JOBS = {
-  chat: { kind: "language", env: "MODEL_CHAT", default: "openai/gpt-6-luna" },
-  researchSearch: { kind: "language", env: "MODEL_RESEARCH_SEARCH", default: "openai/gpt-6-luna" },
-  researchRead: { kind: "language", env: "MODEL_RESEARCH_READ", default: "openai/gpt-6-luna" },
-  imageRank: { kind: "language", env: "MODEL_IMAGE_RANK", default: "openai/gpt-6-luna" },
+  chat: {
+    kind: "language",
+    env: "MODEL_CHAT",
+    default: "openai/gpt-6-luna",
+    serviceTier: "default",
+    tierEnv: "MODEL_CHAT_TIER",
+  },
+  researchSearch: {
+    kind: "language",
+    env: "MODEL_RESEARCH_SEARCH",
+    default: "openai/gpt-6-luna",
+    serviceTier: "flex",
+    tierEnv: "MODEL_RESEARCH_SEARCH_TIER",
+  },
+  // Also the starter-question backfill's job (`scripts/generate-starter-questions.ts`).
+  researchRead: {
+    kind: "language",
+    env: "MODEL_RESEARCH_READ",
+    default: "openai/gpt-6-luna",
+    serviceTier: "flex",
+    tierEnv: "MODEL_RESEARCH_READ_TIER",
+  },
+  imageRank: {
+    kind: "language",
+    env: "MODEL_IMAGE_RANK",
+    default: "openai/gpt-6-luna",
+    serviceTier: "flex",
+    tierEnv: "MODEL_IMAGE_RANK_TIER",
+  },
   // No image job: the `imageClean` redraw (gpt-image-1-mini) was retired on
   // 2026-09-23 — it altered product labels. Background removal is now a
   // deterministic cutout (`research/images/clean.ts`) that calls no model.
@@ -123,6 +157,47 @@ export function modelIdFor(job: ModelJob): string {
     );
   }
   return override;
+}
+
+/** A job's service tier setting: `"default"` sends no hint. */
+export type ServiceTierSetting = "default" | "flex" | "priority";
+
+/** The tier the Gateway is asked for — {@link ServiceTierSetting} without `"default"`. */
+export type GatewayServiceTier = Exclude<ServiceTierSetting, "default">;
+
+const SERVICE_TIER_SETTINGS: readonly ServiceTierSetting[] = ["default", "flex", "priority"];
+
+/**
+ * The service tier `job`'s calls ask the Gateway for: its `MODEL_<JOB>_TIER`
+ * override when set and not blank (any case), else the job's own setting. Null
+ * for `"default"` — no hint is sent. Throws {@link ModelConfigError}, naming
+ * the variable and never its value, for anything but `default`, `flex` or
+ * `priority`.
+ */
+export function serviceTierFor(job: ModelJob): GatewayServiceTier | null {
+  const spec = jobSpec(job);
+  const override = process.env[spec.tierEnv]?.trim().toLowerCase();
+  let setting: ServiceTierSetting = spec.serviceTier;
+  if (override) {
+    if (!(SERVICE_TIER_SETTINGS as readonly string[]).includes(override)) {
+      throw new ModelConfigError(`${spec.tierEnv} is not a service tier (expected "default", "flex" or "priority").`, {
+        job,
+        envVar: spec.tierEnv,
+      });
+    }
+    setting = override as ServiceTierSetting;
+  }
+  return setting === "default" ? null : setting;
+}
+
+/**
+ * The `providerOptions` a call for `job` passes: `{ gateway: { serviceTier } }`
+ * when the job asks for a tier, else undefined — so chat, on `"default"`, sends
+ * no provider options at all.
+ */
+export function providerOptionsFor(job: ModelJob): { gateway: { serviceTier: GatewayServiceTier } } | undefined {
+  const tier = serviceTierFor(job);
+  return tier ? { gateway: { serviceTier: tier } } : undefined;
 }
 
 /** The language model for `job`, through the Gateway. */

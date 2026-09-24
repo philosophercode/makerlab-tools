@@ -1,5 +1,6 @@
 import { generateText, type UserContent } from "ai";
-import { languageModelFor } from "../../ai/models.ts";
+import { describeGatewayCall, gatewayCallReport } from "../../ai/gateway-usage.ts";
+import { languageModelFor, providerOptionsFor } from "../../ai/models.ts";
 import { IMAGE_MAX_RANKED, IMAGE_MAX_SHOWN } from "../../intake/limits.ts";
 import { extractJsonObject, ModelOutputError } from "../model-output.ts";
 import { reviewerNoteForPrompt } from "../../intake/reviewer-note.ts";
@@ -132,8 +133,9 @@ export async function rankCandidates(
     assessments: shown.map(() => UNASSESSED),
   };
   if (shown.length > 1) {
-    const { text } = await generateText({
+    const { text, providerMetadata } = await generateText({
       model: languageModelFor("imageRank"),
+      providerOptions: providerOptionsFor("imageRank"),
       system: RANK_SYSTEM_PROMPT,
       messages: [
         {
@@ -149,6 +151,7 @@ export async function rankCandidates(
       // One quick retry of a dropped connection; the step records anything worse.
       maxRetries: 1,
     });
+    console.info(`[research] image rank call ${describeGatewayCall(gatewayCallReport(providerMetadata))}`);
     ranking = parseRanking(text, shown.length);
   }
 

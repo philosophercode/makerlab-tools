@@ -34,8 +34,26 @@ export const RESEARCH_MAX_PAGE_READS = 4;
 /** @deprecated The read step no longer has a `web_fetch` tool; use {@link RESEARCH_MAX_PAGE_READS}. */
 export const RESEARCH_MAX_WEB_FETCHES = RESEARCH_MAX_PAGE_READS;
 
-/** PDFs, of those pages, handed to the read model as file parts (gateway spec §3.3). */
+/**
+ * Manuals (PDFs), of those pages, the read model is given (gateway spec §3.3) —
+ * as file parts when {@link RESEARCH_ATTACH_PDFS} is on, else as their text.
+ */
 export const RESEARCH_MAX_PDFS_READ = 2;
+
+/**
+ * Whether research's read step attaches a manual PDF as a file part (amendment
+ * "Manuals as text and flex tier for research"). **Off**: the X2D manual
+ * attached as a file cost about $0.10 a read, against $0.001 for the same read
+ * without it. With it off, a manual is given to the model as its text — the
+ * copy the search's Exa call already captured for that URL, capped at
+ * {@link RESEARCH_MANUAL_TEXT_MAX_CHARS} — and a PDF with no captured text is
+ * skipped. Background research only: chat's manual attachment is unaffected.
+ * Set it back to `true` to attach PDFs again.
+ */
+export const RESEARCH_ATTACH_PDFS = false;
+
+/** The characters of one manual's text the read model is given when PDFs are not attached. */
+export const RESEARCH_MANUAL_TEXT_MAX_CHARS = 16_000;
 
 /** Exa searches per chat turn — `web_search`'s old `maxUses: 5` (gateway spec §3.2). */
 export const CHAT_MAX_EXA_SEARCHES = 5;
