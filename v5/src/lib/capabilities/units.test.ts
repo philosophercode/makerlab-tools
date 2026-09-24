@@ -206,4 +206,21 @@ describe("promptFragment", () => {
     expect(fragment).toContain("get_unit_details");
     expect(fragment).toContain("get_maintenance_history");
   });
+
+  // Gateway spec amendment "Chat prompt tuning for Luna": Luna answered a
+  // repairs question from `get_unit_details`, whose old example ("show me the
+  // history on the Trotec") pointed there.
+  it("routes status questions to get_unit_details and repair questions to get_maintenance_history", () => {
+    const fragment = units.promptFragment?.({ tools: [] }) ?? "";
+    expect(fragment).toMatch(/\*\*Status or condition\*\*[^\n]*call `get_unit_details`/);
+    expect(fragment).toMatch(
+      /\*\*Repairs, servicing or maintenance history\*\*[^\n]*"show me the history on the Trotec"[^\n]*call `get_maintenance_history`/
+    );
+  });
+
+  it("answers from the tool, and says so when no repairs are logged", () => {
+    const fragment = units.promptFragment?.({ tools: [] }) ?? "";
+    expect(fragment).toContain("never from the catalog listing alone");
+    expect(fragment).toContain("If the logs are empty, say no repairs or servicing are recorded.");
+  });
 });

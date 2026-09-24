@@ -51,16 +51,31 @@ describe("GET /api/identity", () => {
     expect(await res.json()).toEqual({ role: "anonymous", name: null });
   });
 
-  it("returns the role and display name of a signed-in user", async () => {
+  it("returns the role, name, email and photo of a signed-in user", async () => {
     const { cookie } = await signInAsNew({
       email: "ada@cornell.edu",
       name: "Ada Lovelace",
+      image: "https://lh3.googleusercontent.com/a/ada-photo",
     });
 
     const res = await GET(identityRequest({ cookie }));
 
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ role: "user", name: "Ada Lovelace" });
+    expect(await res.json()).toEqual({
+      role: "user",
+      name: "Ada Lovelace",
+      email: "ada@cornell.edu",
+      image: "https://lh3.googleusercontent.com/a/ada-photo",
+    });
+  });
+
+  it("answers image: null for a signed-in user Google gave no photo", async () => {
+    const { cookie } = await signInAsNew({ email: "nophoto@cornell.edu" });
+
+    const body = await (await GET(identityRequest({ cookie }))).json();
+
+    expect(body.image).toBeNull();
+    expect(body.email).toBe("nophoto@cornell.edu");
   });
 
   it("reports the role from the database, for every stored role", async () => {
@@ -73,16 +88,33 @@ describe("GET /api/identity", () => {
     }
   });
 
-  it("never returns the email address — the header only needs a name", async () => {
-    const { cookie } = await signInAsNew({
-      email: "ada@cornell.edu",
-      name: "Ada Lovelace",
-    });
+  it("gives an anonymous caller no email, photo or user id", async () => {
+    const body = await (await GET(identityRequest())).json();
+
+    expect(body).not.toHaveProperty("email");
+    expect(body).not.toHaveProperty("image");
+    expect(body).not.toHaveProperty("userId");
+  });
+
+  it("never returns the user id, even to the signed-in owner", async () => {
+    const { cookie } = await signInAsNew({ email: "ada@cornell.edu" });
 
     const body = await (await GET(identityRequest({ cookie }))).json();
 
-    expect(body).not.toHaveProperty("email");
     expect(body).not.toHaveProperty("userId");
+    expect(body).not.toHaveProperty("rateLimitKey");
+  });
+
+  it("gives a degraded (tampered) session no email or photo", async () => {
+    const { cookie } = await signInAsNew({
+      email: "ada@cornell.edu",
+      image: "https://lh3.googleusercontent.com/a/ada-photo",
+    });
+    const forged = cookie.replace(/.$/, (c) => (c === "A" ? "B" : "A"));
+
+    const body = await (await GET(identityRequest({ cookie: forged }))).json();
+
+    expect(body).toEqual({ role: "anonymous", name: null });
     expect(JSON.stringify(body)).not.toContain("cornell.edu");
   });
 

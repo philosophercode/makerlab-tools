@@ -85,8 +85,12 @@ test.describe("Sign-in", () => {
     await page.reload();
 
     await expect(nav.getByText(USER_FIRST_NAME, { exact: true })).toBeVisible();
-    await expect(nav.getByRole("button", { name: /sign out/i })).toBeVisible();
     await expect(nav.getByRole("button", { name: /sign in/i })).toHaveCount(0);
+
+    // Sign out lives in the profile menu (2026-09-23), not the bar.
+    await expect(nav.getByRole("button", { name: /sign out/i })).toHaveCount(0);
+    await nav.getByRole("button", { name: /signed in as/i }).click();
+    await expect(nav.getByRole("menuitem", { name: /sign out/i })).toBeVisible();
   });
 
   test("an ordinary signed-in user gets no admin controls", async ({
@@ -98,12 +102,14 @@ test.describe("Sign-in", () => {
     await page.goto("/");
 
     const nav = page.getByRole("navigation", { name: "Primary navigation" });
-    await expect(nav.getByRole("button", { name: /sign out/i })).toBeVisible();
+    await nav.getByRole("button", { name: /signed in as/i }).click();
+    await expect(nav.getByRole("menuitem", { name: /sign out/i })).toBeVisible();
 
-    // `tools.add` and `tools.edit` are not granted to `user` (auth/permissions).
-    await expect(
-      nav.getByRole("button", { name: /Add new equipment/i })
-    ).toHaveCount(0);
+    // `tools.add` and any admin-surface permission are not granted to `user`
+    // (auth/permissions), so the profile menu holds Sign out alone.
+    await expect(nav.getByRole("menuitem", { name: /add equipment/i })).toHaveCount(0);
+    await expect(nav.getByRole("menuitem", { name: /^admin$/i })).toHaveCount(0);
+    // Refresh left the header for /admin on 2026-09-23.
     await expect(nav.getByRole("button", { name: /Refresh the/i })).toHaveCount(0);
   });
 
@@ -119,8 +125,15 @@ test.describe("Sign-in", () => {
     await page.goto("/");
 
     const nav = page.getByRole("navigation", { name: "Primary navigation" });
-    await expect(nav.getByRole("button", { name: /Add new equipment/i })).toBeVisible();
-    await expect(nav.getByRole("button", { name: /Refresh the/i })).toBeVisible();
+    // Add and Admin are in the profile menu; Refresh is on /admin (2026-09-23).
+    await nav.getByRole("button", { name: /signed in as/i }).click();
+    await expect(nav.getByRole("menuitem", { name: /add equipment/i })).toBeVisible();
+    await expect(nav.getByRole("menuitem", { name: /^admin$/i })).toBeVisible();
+
+    await page.goto("/admin");
+    const actions = page.getByRole("group", { name: "Admin actions" });
+    await expect(actions.getByRole("button", { name: /add equipment/i })).toBeVisible();
+    await expect(actions.getByRole("button", { name: /Refresh the/i })).toBeVisible();
   });
 
   test("a cookie signed with the wrong secret is nobody", async ({

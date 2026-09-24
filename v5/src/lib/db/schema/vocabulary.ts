@@ -97,6 +97,25 @@ export const ATTACHMENT_ACCESS = ["public", "private"] as const;
 export type AttachmentAccess = (typeof ATTACHMENT_ACCESS)[number];
 
 /**
+ * How a file came to be stored (gateway spec §4.2): a person's upload, the
+ * Notion import, the manual archiver's copy of a manufacturer PDF, a product
+ * image an admin chose at approval, or the background-removed copy research
+ * made of one. Null on rows written before migration `0008`.
+ *
+ * It is what tells a cleaned candidate from a person's own photo when both are
+ * owned by the same pending item — "an uploaded photo" is `origin` null or
+ * `upload`, never a `research_image*` row.
+ */
+export const ATTACHMENT_ORIGIN = [
+  "upload",
+  "import",
+  "manual_archive",
+  "research_image",
+  "research_image_cleaned",
+] as const;
+export type AttachmentOrigin = (typeof ATTACHMENT_ORIGIN)[number];
+
+/**
  * What a Notion mirror pushes, one Notion database each (spec §3.8, §4.12).
  *
  * **Declared in dependency order, and that order is the push order**: a tool
@@ -123,6 +142,23 @@ export type MirrorEntity = (typeof MIRROR_ENTITY)[number];
  */
 export const MIRROR_STATUS = ["ok", "partial", "failed"] as const;
 export type MirrorStatus = (typeof MIRROR_STATUS)[number];
+
+/**
+ * What processing a stored manual PDF came to (manual text spec §3.2, §4;
+ * migration `0010`): its text is stored page by page (`ready`), it has no text
+ * layer worth storing — a scan (`no_text`) — or it could not be read at all
+ * (`failed`: encrypted, corrupt, or over the size, page or time limits).
+ * "Processing" is not a stored state: it is a PDF with no document row yet.
+ */
+export const MANUAL_DOCUMENT_STATUS = ["ready", "no_text", "failed"] as const;
+export type ManualDocumentStatus = (typeof MANUAL_DOCUMENT_STATUS)[number];
+
+/**
+ * Where a manual's outline came from (§3.2): the PDF's own bookmarks,
+ * headings inferred from font size, or neither.
+ */
+export const MANUAL_OUTLINE_SOURCE = ["pdf", "inferred", "none"] as const;
+export type ManualOutlineSource = (typeof MANUAL_OUTLINE_SOURCE)[number];
 
 /** True when `value` is one of `list`; narrows the type. */
 export function isOneOf<const T extends readonly string[]>(

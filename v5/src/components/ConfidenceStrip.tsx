@@ -15,11 +15,10 @@ import type {
  * research is, on what basis, what it still does not know, and the pages it
  * actually read.
  *
- * Extracted from `IdentificationCard` so the preliminary page on
- * `/admin/intake/[id]` can show the same strip over a `ResearchResult` — the
- * grade an admin approves against should read exactly like the one the chat
- * card showed. It keeps the `intake` message keys and the `id-card-*` class
- * names it had there, so the card renders what it always rendered.
+ * Originally part of the chat's identification card (since removed); the
+ * preliminary page on `/admin/intake/[id]` shows it over a `ResearchResult`.
+ * It keeps the `intake` message keys and the `id-card-*` class names it had
+ * there.
  *
  * The lines are rebuilt from the structured `evidence` so they are localized
  * like every other string — `confidence.basis` is the English, model-facing
@@ -36,6 +35,12 @@ export interface ConfidenceStripProps {
   sourceUrls?: string[];
   /** Lead with what is unresolved rather than with what is held (medium). */
   unknownsFirst?: boolean;
+  /**
+   * True when `sourceUrls` are the pages research actually read (background
+   * research's result), so a result that read only a video, or nothing, says
+   * why its grade is capped (`readCap`). The chat card leaves it off.
+   */
+  sourcesAreReads?: boolean;
 }
 
 /**
@@ -80,6 +85,8 @@ const BASIS_KEYS: Record<ConfidenceBasisCode, string> = {
 };
 
 const UNKNOWN_KEYS: Record<ConfidenceUnknownCode, string> = {
+  videoOnly: "unknownVideoOnly",
+  nothingRead: "unknownNothingRead",
   model: "unknownModel",
   category: "unknownCategory",
   source: "unknownSource",
@@ -111,10 +118,11 @@ export function ConfidenceStrip({
   evidence,
   sourceUrls,
   unknownsFirst,
+  sourcesAreReads,
 }: ConfidenceStripProps) {
   const t = useTranslations("intake");
 
-  const lines = confidenceLines(evidence);
+  const lines = confidenceLines(evidence, sourcesAreReads ? { sourceUrls: sourceUrls ?? [] } : null);
   const sources = (sourceUrls || []).filter(isWebLink);
 
   const basisRows = lines.basis.map((line) => (

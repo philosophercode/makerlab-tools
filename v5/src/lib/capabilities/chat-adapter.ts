@@ -14,14 +14,12 @@ import type { MakerLabTool } from "../../components/catalog-types";
  * registry to the Vercel AI SDK:
  *
  * - {@link toAiTools} wraps each {@link CapabilityTool} in the AI SDK `tool()`
- *   shape. The `execute` runs the tool's `run(input, ctx)`. When the tool
- *   declares a `card`, the adapter emits a `data-card` UI part through
- *   `ctx.writer` after `run()` resolves so the client renders an interactive
- *   widget, then hands the model a compact text result instead of the full
- *   payload.
+ *   shape. The `execute` runs the tool's `run(input, ctx)` and hands the model
+ *   its structured result. A tool that renders a widget writes its own UI part
+ *   through `ctx.writer` (intake's `data-intake-table`).
  * - {@link buildSystemPrompt} composes the system prompt by joining the chat
  *   surface's scaffolding (intro, tool-linking, focused-tool context, resource
- *   fetching/citing, catalog listing) with each capability's `promptFragment`.
+ *   reading/citing, catalog listing) with each capability's `promptFragment`.
  * - {@link composeChat} is a convenience that returns both at once.
  *
  * Manual (PDF) attachment sections remain owned by the chat route itself — they
@@ -31,9 +29,8 @@ import type { MakerLabTool } from "../../components/catalog-types";
 
 /**
  * Convert every capability's tools into a `Record<name, Tool>` for the AI SDK.
- * Tools with a `card` emit a `data-card` part via `ctx.writer` and return a
- * compact acknowledgement to the model; tools without a card return their full
- * structured result. Tools marked `mcpOnly` are left out.
+ * Each tool returns its full structured result. Tools marked `mcpOnly` are
+ * left out.
  */
 export function toAiTools(
   capabilities: Capability[],
@@ -61,60 +58,15 @@ function wrapTool(
   return tool({
     description: capTool.description,
     inputSchema: capTool.inputSchema,
-    execute: async (input: unknown) => {
-      const result = await capTool.run(input, ctx);
-      if (capTool.card) {
-        const card = capTool.card(result);
-        if (ctx.writer) {
-          ctx.writer.write({ type: "data-card", data: card });
-        }
-        return compactCardResult(card, result);
-      }
-      return result;
-    },
+    execute: (input: unknown) => capTool.run(input, ctx),
   });
-}
-
-/**
- * Build the compact text/object result returned to the model for a card-bearing
- * tool. The full card payload is rendered client-side via the streamed
- * `data-card` part, so the model only needs a short, structured summary it can
- * reason about (and reference when proposing the next step).
- */
-function compactCardResult(
-  card: ReturnType<NonNullable<CapabilityTool["card"]>>,
-  result: unknown
-): unknown {
-  // Identification cards (the only card kind today) summarize to a compact
-  // object the model can act on without re-deriving from the raw result.
-  if (card.kind === "identification") {
-    return {
-      card_rendered: true,
-      kind: card.kind,
-      candidate_id: card.candidateId,
-      state: card.state,
-      name: card.name,
-      category: card.category,
-      location: card.location,
-      duplicate_of: card.duplicateOf ?? null,
-      draft_url: card.draftUrl,
-      also_creating: card.alsoCreating.map((row) => ({
-        label: row.label,
-        entity: row.entity,
-        is_new: row.isNew,
-      })),
-    };
-  }
-  // Unknown future card kinds: acknowledge and fall back to the raw result so
-  // nothing is silently dropped from the model's view.
-  return { card_rendered: true, result };
 }
 
 /**
  * Compose the chat system prompt: the chat surface scaffolding plus every
  * capability's `promptFragment(env)`, in registry order. Preserves parity with
  * the original chat route prompt (intro, tool-linking, focused-tool context,
- * resource fetching/citing, catalog listing) while letting capabilities inject
+ * resource reading/citing, catalog listing) while letting capabilities inject
  * their own instructions (unit lookups, maintenance flow, intake, …).
  */
 export function buildSystemPrompt(
@@ -141,7 +93,7 @@ export function buildSystemPrompt(
     sections.push(resourcesSection(focusedTool));
   }
 
-  sections.push(fetchingSection());
+  sections.push(readingSection());
   sections.push(citingSection());
   sections.push(catalogSection(tools));
 
@@ -188,17 +140,44 @@ function focusedToolSection(focused: MakerLabTool): string {
 
 function resourcesSection(focused: MakerLabTool): string {
   const list = focused.links
-    .map((link) => `- [${link.kind || "Resource"}] ${link.label} — ${link.href}`)
+    .map((link) => `- [${link.kind || "Resource"}] ${link.label} — ${resourceHref(link.href)}`)
     .join("\n");
-  return `## Resources for this tool\n\nThe following resources are linked from the **${focused.name}** Notion page. Retrieve any of them with the \`web_fetch\` tool when relevant.\n\n${list}`;
+  return `## Resources for this tool\n\nThe following resources are linked from the **${focused.name}** catalog entry. Read any web page among them with the \`read_page\` tool when relevant.\n\n${list}\n\n${pointingRule(focused)}`;
 }
 
-function fetchingSection(): string {
-  return `## Fetching resources\n\nUse the \`web_fetch\` tool to read any URL from the "Resources for this tool" list — HTML SOPs, safety pages, manufacturer guides, manual PDFs, etc. Rules:\n\n- Only call \`web_fetch\` on exact URLs that appear in "Resources for this tool" (or, during intake, on a product page the person supplied, and only to settle a model name). Do not invent URLs or fetch general web pages the student wasn't routed to.`;
+/**
+ * The rule that makes the assistant name the document, not just allude to it
+ * (gateway spec amendment "Chat prompt tuning for Luna"). Without it Luna
+ * answered "how do I set this up safely?" from the catalog fields and wrote
+ * "follow the lab SOP" — true, but it never said which document, and a
+ * resource with no link on file read to it as one it could not mention.
+ */
+function pointingRule(focused: MakerLabTool): string {
+  const sop = focused.links.find((link) => /sop/i.test(link.kind ?? ""));
+  const example = (sop ?? focused.links[0])?.label ?? `${focused.name} SOP`;
+  return `**Point to these by name.** When the student asks how to use, set up, operate, maintain or troubleshoot the ${focused.name}, or how to do it safely, name the matching resource above **by its exact title** in your answer — for example "follow the **${example}**" — not just "the SOP" or "the manual". Link it with its exact URL when it has one; when it says "no link on file", name it by title and tell the student to ask staff for a copy. Never invent a URL for it, and do not claim to know what a resource says unless you have read it.`;
+}
+
+/** A resource's URL as the prompt shows it — or a plain note when there is none. */
+function resourceHref(href: string | undefined): string {
+  return hasUsableUrl(href) ? (href as string) : "no link on file";
+}
+
+/**
+ * Whether a resource link is a real address the student can open. The demo
+ * seed's placeholder `#` (and an empty href) is not: shown raw, it read as a
+ * broken link the assistant avoided naming at all.
+ */
+export function hasUsableUrl(href: string | undefined): boolean {
+  return typeof href === "string" && /^(https?:\/\/|\/)/i.test(href.trim()) && href.trim() !== "/";
+}
+
+function readingSection(): string {
+  return `## Reading resources\n\nUse the \`read_page\` tool to read a URL from the "Resources for this tool" list — HTML SOPs, safety pages, manufacturer guides. Rules:\n\n- Only call \`read_page\` on exact URLs that appear in "Resources for this tool". It refuses every other URL, so do not invent URLs or try general web pages the student wasn't routed to.\n- \`read_page\` returns page text, not PDFs. Manual PDFs reach you as attached documents, when there are any; for a PDF that is not attached, give the student the link rather than guessing what it says.\n- To look something up beyond these resources, use \`exa_search\`.`;
 }
 
 function citingSection(): string {
-  return `## Citing sources\n\nWhen you draw on a \`web_fetch\`ed page, cite the source inline as a **markdown link** using the exact URL from the lists above. Two formats:\n\n1. PDF with a known page: \`[Form 4 Manual, p. 14](https://media.formlabs.com/.../-ENUS-Form-4-Manual.pdf#page=14)\` — append \`#page=N\` so browser PDF viewers jump to the page.\n2. HTML page or PDF with no known page: \`[Trotec Speedy 400 SOP](https://...)\`.\n\nDo not invent page numbers or URLs. Always use exact URLs from the lists above.`;
+  return `## Citing sources\n\nWhen you draw on an attached manual, a page read with \`read_page\`, or an \`exa_search\` result, cite the source inline as a **markdown link** using its exact URL — from the lists above, or the result's own URL for a search. Three formats:\n\n1. PDF with a known page: \`[Form 4 Manual, p. 14](https://media.formlabs.com/.../-ENUS-Form-4-Manual.pdf#page=14)\` — append \`#page=N\` so browser PDF viewers jump to the page.\n2. HTML page or PDF with no known page: \`[Trotec Speedy 400 SOP](https://...)\`.\n3. A resource with "no link on file": its exact title in bold, \`**Trotec Speedy 400 SOP**\`, with no link.\n\nDo not invent page numbers or URLs. Always use exact URLs from the lists above or from a search result.`;
 }
 
 function catalogSection(tools: MakerLabTool[]): string {
@@ -238,7 +217,7 @@ function describeTool(t: MakerLabTool): string {
   if (t.links.length) {
     lines.push("- Resources:");
     for (const link of t.links) {
-      lines.push(`  - ${link.kind || "Resource"}: ${link.label} — ${link.href}`);
+      lines.push(`  - ${link.kind || "Resource"}: ${link.label} — ${resourceHref(link.href)}`);
     }
   }
   return lines.join("\n");

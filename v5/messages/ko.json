@@ -218,13 +218,8 @@
     "unknownSource": "대조할 제조사 페이지나 설명서를 찾지 못했습니다",
     "unknownManual": "설명서를 찾지 못했습니다",
     "unknownSpecs": "사양이 확인한 페이지로 검증되지 않았습니다",
-    "actionConfirm": "맞습니다 — 추가하기",
-    "actionConfirmModel": "{name}이(가) 맞는지 확인",
-    "actionConfirmVariant": "{variant}입니다",
-    "actionEdit": "편집",
-    "actionDiscard": "버리기",
-    "actionCreateAnyway": "아니요, 새 도구 만들기",
-    "actionOpenDraft": "Notion에서 초안 열기"
+    "unknownVideoOnly": "동영상만 확인했습니다 — 제품 페이지, 설명서, 사양서가 없습니다",
+    "unknownNothingRead": "읽을 수 있는 페이지가 없어 출처로 확인된 내용이 없습니다"
   },
   "flag": {
     "eyebrow": "카탈로그 피드백",

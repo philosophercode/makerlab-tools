@@ -1,9 +1,10 @@
 /**
  * Encode a photo small enough to send to the model (intake spec §6.1).
  *
- * A phone photo is several megabytes, and Claude scales anything past about
- * 1568px on the long edge down before reading it, so the extra pixels are only
- * request size and cost. Browser-only: it needs `createImageBitmap` and a canvas.
+ * A phone photo is several megabytes, and the model provider scales anything
+ * past about 1568px on the long edge down before reading it, so the extra
+ * pixels are only request size and cost. Browser-only: it needs
+ * `createImageBitmap` and a canvas.
  */
 
 /** The longest edge, in pixels, of the copy the model receives. */

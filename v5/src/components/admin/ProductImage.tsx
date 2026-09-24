@@ -1,0 +1,405 @@
+"use client";
+
+import { useState, type ReactNode } from "react";
+import { useTranslations } from "next-intl";
+import type { ApprovalImageChoice } from "../../lib/data/pending-tools";
+import type { CleanedKind, ImageCandidate, ImageRetryState, ImageView, ResearchImages } from "../../lib/research/result";
+import { DifferentImageControl } from "./DifferentImageControl";
+
+/**
+ * **Product image** on the preliminary page (gateway spec §5.2 step 1, §6):
+ * research's candidate pictures, and the admin's choice of cover.
+ *
+ * - **A radio group of tiles**, one native radio per tile, so Tab reaches the
+ *   group and the arrow keys move within it. The group is labelled by the
+ *   section heading; the radios are named "Background removed", "Option
+ *   {rank}" and "No image" and nothing else (the E2E finds them by those
+ *   names), which is why a tile's picture sits *outside* its `<label>` — an
+ *   `alt` inside would become part of the radio's name.
+ * - **The cleaned copy is never shown alone.** It is a deterministic cutout of
+ *   rank 1 — the original's own pixels with the plain backdrop made
+ *   transparent, never a redraw (amendment "No generative redraw") — so it
+ *   sits on a checkerboard (transparency visible), says so in one line, and is
+ *   shown beside the original it was made from: the rank-1 tile, marked
+ *   "Original".
+ * - **An original that is already cut out is the clean one.** A rank 1
+ *   classified `transparent` has no cleaned copy (there would be nothing to
+ *   remove); its tile is drawn on the checkerboard and says "Already on a
+ *   clean background". When a cut was expected but not made, one hint line
+ *   says why (`images.cleanNote`).
+ * - **Every candidate displays from its source URL**, loaded by the admin's
+ *   browser with no referrer: nothing is fetched or stored server-side for
+ *   display (§5.2). A plain `<img>`, because the hosts are whatever research
+ *   found and `next/image` would need each one allow-listed. The cleaned copy
+ *   is private, so it comes from `/api/pending-tools/[id]/cleaned-image`, which
+ *   checks `tools.approve`.
+ * - **A crop says it is one.** A cleaned copy cropped to the product (amendment
+ *   "Composites and product crop") is labelled "Cropped and background
+ *   removed" or, when the backdrop could not be cut, "Cropped to the product"
+ *   — drawn without the checkerboard, since nothing in it is transparent.
+ * - **A banner is tagged.** A candidate the ranking judged a composite (a
+ *   store banner, a price overlay, a collage) carries a "Banner" tag.
+ * - **So is a poor view** (amendment "front-facing images"): a candidate the
+ *   ranking judged a back view, a close-up detail or a part says so — "Back
+ *   view", "Detail", "Part" — since that is exactly what made the X2D's cover
+ *   wrong. Front, side and unnamed views carry no tag.
+ * - **Find a different image** (`DifferentImageControl`), under the choices —
+ *   and under "No product image was found" too — when the page passes
+ *   `onFindDifferent`: the image stage again, with an optional note.
+ * - **"From <host>"** on every tile links the page the image was declared on
+ *   (source attribution), or the image itself when Exa gave no page.
+ * - **Nothing to choose, nothing drawn.** An item with an uploaded photo shows
+ *   "Using your photo" — research skipped the stage, and the photo is the
+ *   cover. A stage that failed is one line with its reason; one that found
+ *   nothing is one line. Never an empty frame.
+ *
+ * Controlled: the page owns the choice, because it sends it with Approve.
+ * {@link initialImageChoice} is the preselection rule.
+ */
+
+export interface ProductImageProps {
+  pendingId: string;
+  /** The item's name, for the pictures' alt text. */
+  name: string;
+  /** `research.images` — undefined on research from before the image stage. */
+  images: ResearchImages | null | undefined;
+  /** `research.imageError` — why the stage failed, when it did. */
+  imageError: string | null | undefined;
+  /** The item has a photo somebody attached in the chat: it is the cover. */
+  hasUploadedPhoto: boolean;
+  value: ApprovalImageChoice;
+  onChange: (choice: ApprovalImageChoice) => void;
+  /** `research.imageRetry` — the latest **Find a different image** run. */
+  retry?: ImageRetryState | null;
+  /** That run is going (and fresh). */
+  retryRunning?: boolean;
+  /** Start **Find a different image**; absent, the control is not offered. Answers null or an `admin` message key. */
+  onFindDifferent?: (note: string | null) => Promise<string | null>;
+}
+
+/** The views worth a tag: the ones that make a poor cover. `admin.intake.image.viewTag.*` keys. */
+const TAGGED_VIEWS: ReadonlySet<ImageView> = new Set(["back", "detail", "part"]);
+
+const NONE: ApprovalImageChoice = { choice: "none" };
+
+/** The cleaned tile's wording, by what the copy is — `admin.intake.image.*` keys. */
+const CLEANED_COPY: Record<
+  CleanedKind,
+  { label: "cleanedChoice" | "croppedCutChoice" | "croppedChoice"; note: "cleanedNote" | "croppedCutNote" | "croppedNote"; alt: "cleanedAlt" | "croppedAlt"; checkerboard: boolean }
+> = {
+  cut: { label: "cleanedChoice", note: "cleanedNote", alt: "cleanedAlt", checkerboard: true },
+  cropped_and_cut: { label: "croppedCutChoice", note: "croppedCutNote", alt: "cleanedAlt", checkerboard: true },
+  cropped: { label: "croppedChoice", note: "croppedNote", alt: "croppedAlt", checkerboard: false },
+};
+
+/**
+ * What the page starts with (§5.2 step 1): the cleaned copy when there is one,
+ * otherwise rank 1, otherwise no image — and always no image when the admin's
+ * own photo is the cover.
+ */
+export function initialImageChoice(
+  images: ResearchImages | null | undefined,
+  hasUploadedPhoto: boolean
+): ApprovalImageChoice {
+  if (hasUploadedPhoto || !images) return NONE;
+  if (images.cleaned) return { choice: "cleaned" };
+  const first = images.candidates[0];
+  return first ? { choice: "original", candidateUrl: first.url } : NONE;
+}
+
+/**
+ * Where a cleaned copy is served from — the only URL the page builds itself.
+ * `version` (the copy's attachment id) changes the URL when **Find a different
+ * image** replaces the copy, so the browser cannot show the old one from memory.
+ */
+export function cleanedImagePath(pendingId: string, version?: string): string {
+  const path = `/api/pending-tools/${encodeURIComponent(pendingId)}/cleaned-image`;
+  return version ? `${path}?v=${encodeURIComponent(version)}` : path;
+}
+
+export function ProductImage({
+  pendingId,
+  name,
+  images,
+  imageError,
+  hasUploadedPhoto,
+  value,
+  onChange,
+  retry,
+  retryRunning = false,
+  onFindDifferent,
+}: ProductImageProps) {
+  const t = useTranslations("admin.intake.image");
+  const [cleanedBroken, setCleanedBroken] = useState(false);
+
+  // Research from before the stage existed: there is nothing to say.
+  if (!hasUploadedPhoto && images === undefined && !imageError) return null;
+
+  const titleId = `intake-image-title-${pendingId}`;
+  const heading = (
+    <h3 id={titleId} className="admin-intake-image-title">
+      {t("title")}
+    </h3>
+  );
+
+  if (hasUploadedPhoto) {
+    return (
+      <section className="admin-intake-panel admin-intake-image" aria-labelledby={titleId}>
+        {heading}
+        <p className="admin-intake-image-line">{t("usingYourPhoto")}</p>
+        <p className="admin-intake-hint">{t("usingYourPhotoHint")}</p>
+      </section>
+    );
+  }
+
+  const candidates = images?.candidates ?? [];
+  const cleaned = images?.cleaned ?? null;
+  const cleanedKind: CleanedKind = cleaned?.kind ?? "cut";
+  const cleanedCopy = CLEANED_COPY[cleanedKind];
+  const bannerTag = (candidate: ImageCandidate) => [
+    ...(candidate.composite ? [t("bannerTag")] : []),
+    ...(candidate.view && TAGGED_VIEWS.has(candidate.view) ? [t(`viewTag.${candidate.view as "back" | "detail" | "part"}`)] : []),
+  ];
+  const different = onFindDifferent ? (
+    <DifferentImageControl pendingId={pendingId} retry={retry} running={retryRunning} onRequest={onFindDifferent} />
+  ) : null;
+  const cleanNote = cleaned ? null : (images?.cleanNote ?? null);
+  if (!images || (candidates.length === 0 && !cleaned)) {
+    return (
+      <section className="admin-intake-panel admin-intake-image" aria-labelledby={titleId}>
+        {heading}
+        <p className="admin-intake-image-line">
+          {imageError ? t("failed", { reason: imageError }) : t("notFound")}
+        </p>
+        {different}
+      </section>
+    );
+  }
+
+  const group = `intake-image-${pendingId}`;
+  const [first, ...rest] = candidates;
+  const fallback: ApprovalImageChoice = first ? { choice: "original", candidateUrl: first.url } : NONE;
+
+  function chooseOriginal(candidate: ImageCandidate) {
+    onChange({ choice: "original", candidateUrl: candidate.url });
+  }
+
+  function isOriginal(candidate: ImageCandidate): boolean {
+    return value.choice === "original" && value.candidateUrl === candidate.url;
+  }
+
+  function onCleanedError() {
+    setCleanedBroken(true);
+    // A copy nobody can see must not stay chosen: back to the original.
+    if (value.choice === "cleaned") onChange(fallback);
+  }
+
+  return (
+    <section className="admin-intake-panel admin-intake-image" aria-labelledby={titleId}>
+      {heading}
+      <p className="admin-intake-hint">{t("hint")}</p>
+      {cleanNote ? <p className="admin-intake-hint admin-intake-image-clean-note">{t(`cleanNote.${cleanNote}`)}</p> : null}
+
+      <div className="admin-intake-image-choices" role="radiogroup" aria-labelledby={titleId}>
+        {cleaned ? (
+          <div className="admin-intake-image-pair">
+            <Tile
+              group={group}
+              id={`${group}-cleaned`}
+              label={t(cleanedCopy.label)}
+              checked={value.choice === "cleaned"}
+              disabled={cleanedBroken}
+              onSelect={() => onChange({ choice: "cleaned" })}
+              checkerboard={cleanedCopy.checkerboard}
+              note={t(cleanedCopy.note)}
+              picture={
+                cleanedBroken ? (
+                  <p className="admin-intake-image-broken" role="status">
+                    {t("cleanedUnavailable")}
+                  </p>
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element -- a private file served by our own route, behind tools.approve
+                  <img
+                    src={cleanedImagePath(pendingId, cleaned.attachmentId)}
+                    alt={t(cleanedCopy.alt, { name })}
+                    loading="lazy"
+                    onError={onCleanedError}
+                  />
+                )
+              }
+              source={first ?? null}
+              fromLabel={(host) => t("from", { host })}
+            />
+            {first ? (
+              <Tile
+                group={group}
+                id={`${group}-1`}
+                label={t("candidateChoice", { rank: first.rank })}
+                badges={[t("originalOfCleaned"), ...bannerTag(first)]}
+                checked={isOriginal(first)}
+                onSelect={() => chooseOriginal(first)}
+                picture={<CandidatePicture candidate={first} alt={t("alt", { name, rank: first.rank })} />}
+                source={first}
+                fromLabel={(host) => t("from", { host })}
+              />
+            ) : null}
+          </div>
+        ) : first ? (
+          <Tile
+            group={group}
+            id={`${group}-1`}
+            label={t("candidateChoice", { rank: first.rank })}
+            badges={bannerTag(first)}
+            checked={isOriginal(first)}
+            onSelect={() => chooseOriginal(first)}
+            picture={<CandidatePicture candidate={first} alt={t("alt", { name, rank: first.rank })} />}
+            checkerboard={first.background === "transparent"}
+            note={first.background === "transparent" ? t("alreadyClean") : undefined}
+            source={first}
+            fromLabel={(host) => t("from", { host })}
+          />
+        ) : null}
+
+        {rest.length > 0 ? (
+          <div className="admin-intake-image-more">
+            {rest.map((candidate) => (
+              <Tile
+                key={candidate.url}
+                group={group}
+                id={`${group}-${candidate.rank}`}
+                small
+                label={t("candidateChoice", { rank: candidate.rank })}
+                badges={bannerTag(candidate)}
+                checked={isOriginal(candidate)}
+                onSelect={() => chooseOriginal(candidate)}
+                picture={
+                  <CandidatePicture candidate={candidate} alt={t("alt", { name, rank: candidate.rank })} />
+                }
+                checkerboard={candidate.background === "transparent"}
+                source={candidate}
+                fromLabel={(host) => t("from", { host })}
+              />
+            ))}
+          </div>
+        ) : null}
+
+        <div className={`admin-intake-image-none${value.choice === "none" ? " is-selected" : ""}`}>
+          <input
+            id={`${group}-none`}
+            type="radio"
+            name={group}
+            value="none"
+            checked={value.choice === "none"}
+            onChange={() => onChange(NONE)}
+          />
+          <label htmlFor={`${group}-none`}>{t("noneChoice")}</label>
+        </div>
+      </div>
+      {different}
+    </section>
+  );
+}
+
+/** One choice: its radio first (so it leads on a phone), then the picture, the note and the source. */
+function Tile({
+  group,
+  id,
+  label,
+  badges = [],
+  checked,
+  disabled = false,
+  onSelect,
+  picture,
+  checkerboard = false,
+  small = false,
+  note,
+  source,
+  fromLabel,
+}: {
+  group: string;
+  id: string;
+  label: string;
+  badges?: string[];
+  checked: boolean;
+  disabled?: boolean;
+  onSelect: () => void;
+  picture: ReactNode;
+  checkerboard?: boolean;
+  small?: boolean;
+  note?: string;
+  /** The candidate whose page is credited — for the cleaned copy, the original it was made from. */
+  source: ImageCandidate | null;
+  fromLabel: (host: string) => string;
+}) {
+  const link = source ? attribution(source) : null;
+  const className = [
+    "admin-intake-image-tile",
+    checked ? "is-selected" : "",
+    small ? "is-small" : "",
+    disabled ? "is-disabled" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return (
+    <div className={className}>
+      <div className="admin-intake-image-choice">
+        <input
+          id={id}
+          type="radio"
+          name={group}
+          value={id}
+          checked={checked}
+          disabled={disabled}
+          onChange={onSelect}
+        />
+        <label htmlFor={id}>{label}</label>
+        {badges.map((badge) => (
+          <span key={badge} className="admin-intake-image-badge">
+            {badge}
+          </span>
+        ))}
+      </div>
+      {/* The picture selects too, for a pointer; the radio is the keyboard's way in. */}
+      <div
+        className={`admin-intake-image-frame${checkerboard ? " is-checkerboard" : ""}`}
+        onClick={disabled ? undefined : onSelect}
+      >
+        {picture}
+      </div>
+      {note ? <p className="admin-intake-image-note">{note}</p> : null}
+      {link ? (
+        <a className="admin-intake-image-source" href={link.href} target="_blank" rel="noreferrer noopener">
+          {fromLabel(link.host)}
+        </a>
+      ) : null}
+    </div>
+  );
+}
+
+/** A candidate, straight from its own host, sending no referrer. */
+function CandidatePicture({ candidate, alt }: { candidate: ImageCandidate; alt: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- an arbitrary host research found; loaded by the admin's browser, never proxied (§5.2)
+    <img
+      src={candidate.url}
+      alt={alt}
+      width={candidate.width}
+      height={candidate.height}
+      loading="lazy"
+      referrerPolicy="no-referrer"
+    />
+  );
+}
+
+/** The page to credit, and its bare host. Null for anything that is not http(s). */
+function attribution(candidate: ImageCandidate): { href: string; host: string } | null {
+  const href = candidate.pageUrl ?? candidate.url;
+  try {
+    const url = new URL(href);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return { href, host: url.hostname.replace(/^www\./, "") };
+  } catch {
+    return null;
+  }
+}

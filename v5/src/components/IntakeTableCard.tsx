@@ -241,7 +241,7 @@ export function IntakeTableCard({ payload }: IntakeTableCardProps) {
       ) : null}
 
       <div className="intake-table-wrap">
-        <table className="intake-table">
+        <table className={`intake-table${rows.length <= 1 ? " is-single" : ""}`}>
           <thead>
             <tr>
               <th scope="col" className="intake-col-select">

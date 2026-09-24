@@ -39,11 +39,17 @@ npm run test:all       # lint, typecheck, 771 unit/integration, 33 E2E
 
 ## Stage 1 · The assistant (2 minutes)
 
-Create `v5/.env.local`:
+Every model call goes through the **Vercel AI Gateway** — there is no direct
+provider key any more (gateway spec 2026-09-23; `ANTHROPIC_API_KEY` is read by
+nothing). Create `v5/.env.local`:
 
 ```bash
-ANTHROPIC_API_KEY=sk-ant-...
+AI_GATEWAY_API_KEY=...
 ```
+
+Get a key from the Vercel dashboard, under **AI Gateway** on the project (or
+any project in your team — Gateway keys are account-scoped). No Vercel project
+needed to be linked to *this* one for local dev; the key alone is enough.
 
 Restart. **This is the biggest single unlock** — all ten capability tools go live against
 the demo catalogue, which is enough to exercise most of the product:
@@ -62,7 +68,8 @@ something ambiguous gives **no card at all** and a specific question. That is th
 working, not a failure.
 
 `npm run eval` runs the agent eval harness. It makes **real, paid** model calls and is
-deliberately outside `test:all`.
+deliberately outside `test:all` — see `v5/evals/README.md`, including the §10 eval gate
+to run before pointing production at a different model.
 
 ## Stage 2 · Real data (30–45 minutes — the real work)
 
@@ -90,6 +97,93 @@ NOTION_DB_PROJECTS=...         # optional — enables the projects gallery
 
 The last row is deliberate — those two features ship safely before the schema change lands,
 and start recording verified authorship the moment it does.
+
+### Stage 2b · Import Notion locally, review it, then import into Neon
+
+`PGLITE_DATA_DIR` is a persistent PGlite database on your laptop (dev only — refused on
+Vercel and in production builds). The dev server reads it when `DATABASE_URL` is unset:
+the real inventory, no demo seed, no demo banner, and `/api/health` answers
+`"database": "local"`, `"catalog": "live"`. Precedence everywhere — the app,
+`import:notion`, `verify:import`, `db:migrate` — is `DATABASE_URL` > `PGLITE_DATA_DIR` >
+demo seed (`--dry-run` always imports into memory).
+
+A PGlite directory is **single-process**: stop `npm run dev` before importing, or the script
+stops with "in use by process N … stop that process and try again".
+
+```bash
+cd v5
+# with NOTION_API_KEY and the NOTION_DB_* ids in .env.local, DATABASE_URL unset
+npm run import:notion -- --dry-run                           # rehearse; nothing kept
+PGLITE_DATA_DIR=.pglite-data npm run import:notion           # rows + files into .pglite-data/
+PGLITE_DATA_DIR=.pglite-data npm run verify:import           # counts, relations, files
+PGLITE_DATA_DIR=.pglite-data npm run dev                     # review it in the app
+```
+
+(Or put `PGLITE_DATA_DIR=.pglite-data` in `.env.local` and drop the prefix.) Each script
+prints its target and where files go. Without `BLOB_READ_WRITE_TOKEN`, files are copied into
+`.blob-data/` and their URLs point at `AUTH_BASE_URL/api/dev-blob/…` — so set
+`AUTH_BASE_URL` to the dev server's real origin (e.g. `http://localhost:3001`) before
+importing. Re-running the import is idempotent; to start over, stop the dev server and
+delete `.pglite-data/` (both it and `.blob-data/` are git-ignored).
+
+When the local review looks right, import into Neon from Notion — not from the local
+database, whose file URLs point at your laptop:
+
+```bash
+DATABASE_URL=postgres://… npm run db:migrate
+DATABASE_URL=postgres://… BLOB_READ_WRITE_TOKEN=vercel_blob_rw_… npm run import:notion
+DATABASE_URL=postgres://… BLOB_READ_WRITE_TOKEN=vercel_blob_rw_… npm run verify:import
+```
+
+A `DATABASE_URL` target always copies files to Vercel Blob and refuses to run without the
+token (or pass `--skip-files`). Unset `PGLITE_DATA_DIR` before `next build`.
+
+### Stage 2c · Starter questions for tools that have none (optional, a few cents)
+
+On a tool's page the assistant opens with three questions about *that* tool instead of the
+generic chips (gateway spec amendment "Tool-specific starter questions"). Research writes
+them for new tools; migration `0009` gives every existing tool an empty list, which shows
+the generic chips. `scripts/generate-starter-questions.ts` fills them in, one `researchRead`
+model call per tool, from the tool's own name, description and resource titles — no web
+search. It needs `AI_GATEWAY_API_KEY` (or a pulled `VERCEL_OIDC_TOKEN`) in `.env.local`,
+follows the import scripts' target order (`DATABASE_URL` > `PGLITE_DATA_DIR`; stop the dev
+server for a local database), prints an estimate first and the real usage last, and never
+overwrites questions a tool already has.
+
+```bash
+cd v5
+# rehearse on five tools: calls the model, prints the questions, writes nothing
+PGLITE_DATA_DIR=.pglite-data node --env-file-if-exists=.env.local --experimental-strip-types \
+  scripts/generate-starter-questions.ts --dry-run --limit 5
+# then for real (drop --limit for every tool; --ids form-4,trotec-speedy-400 for some)
+DATABASE_URL=postgres://… node --env-file-if-exists=.env.local --experimental-strip-types \
+  scripts/generate-starter-questions.ts
+```
+
+Run `db:migrate` against Neon first. Staff can edit the questions afterwards in the tool
+editor ("Assistant starter questions"); the tool pages pick them up once the catalogue's
+few-minute cache expires.
+
+### Stage 2d · Manual text for manuals already stored (optional, free)
+
+Each stored manual PDF is also kept as text, page by page, with its outline (manual text
+spec, phase 1; migration `0010`). New manuals are processed right after they are archived;
+manuals archived or uploaded before that need one backfill. It runs pdf.js locally — **no
+Gateway calls, no cost** — reading each PDF back from Blob (`BLOB_READ_WRITE_TOKEN`, or
+`.blob-data/` for a local database) and follows the import scripts' target order
+(`DATABASE_URL` > `PGLITE_DATA_DIR`; stop the dev server for a local database).
+
+```bash
+cd v5
+# rehearse: reads and extracts every stored PDF, reports ready / no_text / failed and pages, writes nothing
+PGLITE_DATA_DIR=.pglite-data npm run manuals:index -- --dry-run
+# then for real (--limit N, --ids <resource ids>; --force re-processes everything)
+DATABASE_URL=postgres://… BLOB_READ_WRITE_TOKEN=… npm run manuals:index
+```
+
+Run `db:migrate` against Neon first. The `no_text` count is how many manuals are scans
+(the spec's OCR question). The tool pages show each manual's **Contents** once the
+catalogue's few-minute cache expires.
 
 ## Stage 3 · Sign-in (15 minutes)
 
@@ -146,8 +240,9 @@ by `GET /api/dev-blob/[...path]` at `AUTH_BASE_URL` (default `http://localhost:3
 private ones are never served. Set `BLOB_LOCAL_DISABLE=1` to get the old "uploads are
 unavailable" behaviour back. The rule lives in `v5/src/lib/blob-mode.ts`: a token means
 Vercel Blob; on Vercel (`VERCEL`) or in a production build without one there is **no**
-store and no disk fallback, and `/api/dev-blob/…` answers 404. The Notion import still
-insists on a real token, because its rows go to a shared database.
+store and no disk fallback, and `/api/dev-blob/…` answers 404. The Notion import into
+`DATABASE_URL` still insists on a real token, because its rows go to a shared database; an
+import into a local `PGLITE_DATA_DIR` database uses this store (see Stage 2b).
 
 Two tables are held out of the file on purpose: `session` and `verification` are sign-in
 credentials, not records, and the Google tokens on `account` are blanked. A backup is
@@ -171,10 +266,39 @@ Not the Hobby plan: it is for non-commercial personal projects, and it caps cron
 
 ```
 NOTION_API_KEY + all 7 NOTION_DB_*     the catalogue
-AI_GATEWAY_API_KEY                     inference — the intended production path
-ANTHROPIC_API_KEY                      the fallback; keep it configured
 ADMIN_REVALIDATE_SECRET                cache invalidation
 ```
+
+**Inference needs no variable at all in production.** The Gateway is
+authenticated by the deployment's own Vercel OIDC token
+(`VERCEL_OIDC_TOKEN`), injected automatically into every Vercel deployment —
+there is nothing to set, rotate, or leak. `AI_GATEWAY_API_KEY` exists only for
+local development (Stage 1) and tests; **do not set it on Vercel**, and if it
+is already set from before this migration, remove it — a long-lived key sitting
+in production env vars is unnecessary risk once OIDC covers the same job for
+free. There is no fallback provider any more: `ANTHROPIC_API_KEY` is read by
+no live code path (`@ai-sdk/anthropic` is unused and awaiting removal from
+`package.json`), so **remove it from
+Vercel too** if it is still set from before this migration.
+
+Per-job model ids default in code (`v5/src/lib/ai/models.ts`'s `MODEL_JOBS`) —
+`openai/gpt-6-luna` for every job — chat included, since it passed the eval gate
+once its prompt was tuned (gateway spec amendments "The chat eval gate" and "Chat
+prompt tuning for Luna"; `MODEL_CHAT=anthropic/claude-sonnet-5` switches chat
+back without a deploy). There is no image model: background removal is a deterministic cutout in
+code (gateway spec amendment "No generative redraw"), so **remove `MODEL_IMAGE_CLEAN`
+from Vercel** if it was set — nothing reads it. Override one with `MODEL_CHAT` / `MODEL_RESEARCH_SEARCH` /
+`MODEL_RESEARCH_READ` / `MODEL_IMAGE_RANK`, a Gateway id
+in the exact shape `provider/model` (lower case) — a malformed value is a loud
+`ModelConfigError` naming the variable, never a silent fallback. Each job also
+asks the Gateway for a service tier — `flex` for research search, research read
+(and the starter-question backfill) and image ranking, none for chat — which
+`MODEL_<JOB>_TIER` (`default` / `flex` / `priority`) overrides; leave them unset
+unless a job needs moving. **Before
+changing `MODEL_CHAT` in production, run the eval gate**
+(`v5/evals/README.md`, `EVAL_MODEL=<candidate id> npm run eval`, twice) — the
+new model must pass every honest-absence and manual-grounding case, and all
+but one of the rest, on both runs.
 
 **Sign-in** — same as Stage 3, but `AUTH_BASE_URL=https://<your-domain>` and the Google
 redirect URI updated to match.
@@ -208,17 +332,21 @@ set.
 6. **Trigger the backup by hand** and confirm a file appears in Blob.
 
 > [!IMPORTANT]
-> **The gateway has never made a live call.** It spells model versions with dots
-> (`anthropic/claude-sonnet-4.6`) where Anthropic's API uses dashes, and the two are not
-> interchangeable. **Test on a preview deployment before production.** A wrong id fails
-> loudly with `GatewayModelNotFoundError` on the first request — it does not silently fall
-> back, which is why step 3 is a real check and not a formality.
+> **OIDC has only ever been verified locally** (Phase 0 of the gateway migration — see the
+> spec's amendment), reading `VERCEL_OIDC_TOKEN` from a token pulled with `vercel env pull`,
+> never from a real preview deployment's own injected token. **Test on a preview deployment
+> before production.** A wrong model id fails loudly with `GatewayModelNotFoundError` on the
+> first request — it does not silently fall back — which is why step 3 is a real check and
+> not a formality; the same step is also the first real check that OIDC itself works in a
+> deployed environment, not just locally.
 
 ## 4 · The safety net — do not skip
 
-**Set an inference spend limit and alert.** Inference is the only cost here that scales with
-use, and the only one that can run away. This is the main practical reason to run the
-gateway: the ceiling is enforced by the platform rather than by remembering to look.
+**Set an inference spend limit and alert, on the Gateway itself.** Inference is the only cost
+here that scales with use, and the only one that can run away. This is the main practical
+reason to route everything through the Gateway rather than a provider directly: the ceiling is
+enforced by the platform (Vercel dashboard → **AI Gateway** → **Budgets**), not by remembering
+to check a bill, and it applies across every model and every job the app calls, not just chat.
 
 **Point an uptime monitor at `/api/health`** and **alert on the HTTP status code, not the
 body.** The 503-when-degraded contract is the entire point; a body-only check would miss it.
@@ -257,6 +385,6 @@ opens. Raise it, or use a shared demo account.
 | A tool is missing from the site | `published` unticked, or the cache has not refreshed — the catalogue caches for 24h; use the Refresh button or `/api/admin/revalidate`. |
 | A field is empty on the site but filled in Notion | Someone renamed the Notion property. The parser tolerates snake_case and Title Case, but not a rename. |
 | Corrections fail silently | The Flags `status` select has no `New` option. |
-| Assistant errors | Check the model key, then the spend limit, then status.anthropic.com. The catalogue keeps working — they fail independently. |
+| Assistant errors | Check the Gateway spend limit first (a capped budget answers like an outage), then `MODEL_*`/`EVAL_MODEL` for a malformed id (`ModelConfigError` names the variable), then the Gateway's own status. The catalogue keeps working — they fail independently. |
 | `test:all` fails to start E2E | `npm run dev` is still running and holding `.next/dev/lock`. |
 | Bad deploy | Vercel → Deployments → last good one → **Promote to Production**. Roll back first, diagnose after. |

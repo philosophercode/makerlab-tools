@@ -5,7 +5,8 @@ import {
   findToolByIdOrSlug,
   listCatalogTools,
 } from "./data/catalog";
-import { dataSubstrate } from "./db/client";
+import { listManualContentsForTool, type ManualContents } from "./data/manual-documents";
+import { dataSubstrate, getDb } from "./db/client";
 import type { CatalogStats, MakerLabTool } from "../components/catalog-types";
 
 /**
@@ -56,4 +57,18 @@ export async function getCatalogTool(idOrSlug: string): Promise<MakerLabTool | n
   cacheLife(CATALOG_CACHE);
 
   return findToolByIdOrSlug(idOrSlug);
+}
+
+/**
+ * The tool page's manual **Contents** lists (manual text spec §6): each ready,
+ * public manual PDF's outline, keyed by the link the page shows for it. Cached
+ * with the catalogue; a manual processed after the page was cached appears
+ * when the catalogue's cache next turns over.
+ */
+export async function getManualContents(toolId: string): Promise<ManualContents[]> {
+  "use cache";
+  cacheTag("catalog");
+  cacheLife(CATALOG_CACHE);
+
+  return listManualContentsForTool(await getDb(), toolId);
 }

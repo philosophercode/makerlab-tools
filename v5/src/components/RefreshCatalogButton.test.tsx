@@ -2,6 +2,9 @@ import { REVALIDATE_ENDPOINT, RefreshCatalogButton } from "./RefreshCatalogButto
 import { render, screen, userEvent, waitFor } from "../../test/utils/render";
 
 /**
+ * Since 2026-09-23 the control lives in `/admin`'s action row
+ * (`admin/AdminActions`), not the header.
+ *
  * The control is gated twice — here for presentation, and in
  * `/api/admin/revalidate` for real. These tests cover the presentation half;
  * `src/app/api/admin/revalidate/route.test.ts` covers the half that matters.
@@ -42,6 +45,14 @@ describe("RefreshCatalogButton — who can see it", () => {
   it("renders for a super admin", () => {
     render(<RefreshCatalogButton role="super_admin" />);
     expect(screen.getByRole("button", { name: /Refresh the/ })).toBeInTheDocument();
+  });
+
+  it("wears the admin action row's chrome, not the header's", () => {
+    render(<RefreshCatalogButton role="admin" />);
+
+    const button = screen.getByRole("button", { name: /Refresh the/ });
+    expect(button).toHaveClass("admin-action");
+    expect(button).not.toHaveClass("primary-nav-report");
   });
 
   it("names the institution from config rather than leaving the placeholder", () => {

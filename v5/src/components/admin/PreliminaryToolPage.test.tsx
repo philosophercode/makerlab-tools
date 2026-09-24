@@ -4,7 +4,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => router,
 }));
 
-import { render, screen, userEvent, within } from "../../../test/utils/render";
+import { act, render, screen, userEvent, within } from "../../../test/utils/render";
 import type { IntakeActions, IntakeApproveResult } from "../../app/admin/intake/action-result";
 import type { CategoryOption, LocationOption } from "../../lib/data/taxonomy";
 import type { PendingToolView } from "../../lib/intake/types";
@@ -294,8 +294,145 @@ describe("PreliminaryToolPage — the proposal", () => {
         useRestrictions: null,
         serialNumber: "SN-42",
         resourceUrls: ["https://example.com/manual.pdf"],
+        // The item has uploaded photos: they are the cover, and nothing replaces them.
+        image: { choice: "none" },
       },
     });
+  });
+});
+
+describe("PreliminaryToolPage — the product image", () => {
+  const IMAGES: NonNullable<ResearchResult["images"]> = {
+    candidates: [
+      {
+        url: "https://cdn.prusa3d.com/mk4s-front.png",
+        pageUrl: "https://www.prusa3d.com/mk4s",
+        source: "og",
+        width: 1200,
+        height: 900,
+        contentType: "image/png",
+        rank: 1,
+        reason: "Front on.",
+      },
+      {
+        url: "https://cdn.prusa3d.com/mk4s-side.png",
+        pageUrl: "https://www.prusa3d.com/mk4s",
+        source: "jsonld",
+        width: 900,
+        height: 900,
+        contentType: "image/png",
+        rank: 2,
+        reason: "Side.",
+      },
+    ],
+    cleaned: { attachmentId: "3c0a8f3e-1111-4c55-9f2a-1b8e7d3c4a01", fromUrl: "https://cdn.prusa3d.com/mk4s-front.png" },
+  };
+
+  const imageFields = (props: PreliminaryToolPageProps, action: "approve" | "approveAsDraft" = "approve") =>
+    vi.mocked(props.actions[action]).mock.calls[0][0].fields.image;
+
+  it("sits above the photos and sends the preselected cleaned copy with Approve", async () => {
+    const props = renderPage({ item: item({ photos: [] }), research: research({ images: IMAGES }) });
+
+    const section = screen.getByRole("radiogroup", { name: "Product image" });
+    const photos = screen.getByRole("heading", { name: "Photos" });
+    expect(section.compareDocumentPosition(photos) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+
+    await userEvent.click(approveButton());
+    expect(imageFields(props)).toEqual({ choice: "cleaned" });
+  });
+
+  it("sends the original the admin picked, by its recorded URL, with Approve as draft", async () => {
+    const props = renderPage({ item: item({ photos: [] }), research: research({ images: IMAGES }) });
+
+    await userEvent.click(screen.getByRole("radio", { name: "Option 2" }));
+    await userEvent.click(draftButton());
+
+    expect(imageFields(props, "approveAsDraft")).toEqual({
+      choice: "original",
+      candidateUrl: "https://cdn.prusa3d.com/mk4s-side.png",
+    });
+  });
+
+  it("sends none when the admin says No image", async () => {
+    const props = renderPage({ item: item({ photos: [] }), research: research({ images: IMAGES }) });
+
+    await userEvent.click(screen.getByRole("radio", { name: "No image" }));
+    await userEvent.click(approveButton());
+
+    expect(imageFields(props)).toEqual({ choice: "none" });
+  });
+
+  it("uses the uploaded photo and offers no candidates, even when research recorded some", async () => {
+    const props = renderPage({ research: research({ images: IMAGES }) });
+
+    expect(screen.getByText("Using your photo")).toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Background removed" })).not.toBeInTheDocument();
+    await userEvent.click(approveButton());
+    expect(imageFields(props)).toEqual({ choice: "none" });
+  });
+
+  it("shows no product image section for an add-unit item", () => {
+    renderPage({
+      item: item({ duplicateResolution: "add_unit", photos: [] }),
+      research: null,
+      targetTool: { name: "Form 4", slug: "form-4", published: true },
+    });
+    expect(screen.queryByRole("heading", { name: "Product image" })).not.toBeInTheDocument();
+  });
+
+  it("says the image did not attach when the approval reports it", async () => {
+    renderPage({
+      item: item({ photos: [] }),
+      research: research({ images: IMAGES }),
+      actions: actions({
+        approve: vi.fn(async () => ({
+          ...APPROVED,
+          warning: "image_not_attached" as const,
+          imageAttached: false,
+        })),
+      }),
+    });
+
+    await userEvent.click(approveButton());
+
+    expect(
+      await screen.findByText("The tool was created, but its image could not be attached. Add a photo in the editor.")
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open Original Prusa MK4S" })).toBeInTheDocument();
+  });
+
+  it("still says so when the warning slot went to a lost audit event", async () => {
+    renderPage({
+      item: item({ photos: [] }),
+      research: research({ images: IMAGES }),
+      actions: actions({
+        approve: vi.fn(async () => ({
+          ...APPROVED,
+          warning: "audit_unavailable" as const,
+          imageAttached: false,
+        })),
+      }),
+    });
+
+    await userEvent.click(approveButton());
+
+    expect(await screen.findByText(/could not be written to the audit log/)).toBeInTheDocument();
+    expect(screen.getByText(/its image could not be attached/)).toBeInTheDocument();
+  });
+
+  it("says nothing about an image when none was chosen", async () => {
+    renderPage({
+      item: item({ photos: [] }),
+      research: research({ images: IMAGES }),
+      actions: actions({ approve: vi.fn(async () => ({ ...APPROVED, imageAttached: false })) }),
+    });
+
+    await userEvent.click(screen.getByRole("radio", { name: "No image" }));
+    await userEvent.click(approveButton());
+
+    expect(await screen.findByText(/Approved and published/)).toBeInTheDocument();
+    expect(screen.queryByText(/its image could not be attached/)).not.toBeInTheDocument();
   });
 });
 
@@ -447,6 +584,7 @@ describe("PreliminaryToolPage — name, brand and Research again", () => {
     await userEvent.clear(name);
     await userEvent.type(name, "Cricut Maker 3");
     await userEvent.click(screen.getByRole("button", { name: "Research again" }));
+    await userEvent.click(screen.getByRole("button", { name: "Research" }));
 
     expect(props.actions.saveIdentity).toHaveBeenCalledTimes(1);
     expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -463,8 +601,11 @@ describe("PreliminaryToolPage — name, brand and Research again", () => {
     renderPage();
 
     await userEvent.click(screen.getByRole("button", { name: "Research again" }));
+    await userEvent.click(screen.getByRole("button", { name: "Research" }));
 
     expect(await screen.findByText(/today's research limit/)).toBeInTheDocument();
+    // The panel stays open, so the choices are still there to try again with.
+    expect(screen.getByRole("dialog", { name: "Anything to focus on?" })).toBeInTheDocument();
     expect(router.refresh).not.toHaveBeenCalled();
   });
 });
@@ -539,5 +680,203 @@ describe("PreliminaryToolPage — an add-unit item", () => {
     renderPage({ item: unitItem, research: null, targetTool: null });
     expect(screen.getByRole("button", { name: "Add unit" })).toBeDisabled();
     expect(screen.getByText(/no longer exists/)).toBeInTheDocument();
+  });
+});
+
+describe('PreliminaryToolPage — correcting the AI (amendment "reviewer notes")', () => {
+  const IMAGES = {
+    candidates: [
+      {
+        url: "https://wiki.example.com/x2d-back.jpg",
+        pageUrl: "https://wiki.example.com/x2d",
+        source: "og" as const,
+        width: 1200,
+        height: 900,
+        contentType: "image/jpeg" as const,
+        rank: 1 as const,
+        reason: "rear",
+        view: "back" as const,
+      },
+    ],
+    cleaned: null,
+  };
+  const noPhotos = item({ photos: [] });
+
+  it("sends the note with Research again, one line, and offers the last one again", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ requestId: "r", runId: "run", queued: [ID], readyAsUnit: [] }), { status: 202 }));
+    renderPage({ research: research({ reviewerNote: "use the prusa3d.com page" }) });
+
+    await userEvent.click(screen.getByRole("button", { name: "Research again" }));
+    const box = screen.getByLabelText("Note for research (optional)");
+    expect(box).toHaveValue("use the prusa3d.com page");
+    expect(box).toHaveAttribute("maxLength", "1000");
+    expect(box).toHaveAttribute("placeholder", "e.g. use the bambulab.com X2D product page");
+    await userEvent.clear(box);
+    await userEvent.type(box, "use the bambulab.com{Enter}X2D product page");
+    await userEvent.click(screen.getByRole("button", { name: "Research" }));
+
+    expect(JSON.parse(String(fetchSpy.mock.calls[0][1]?.body))).toEqual({
+      ids: [ID],
+      note: "use the bambulab.com X2D product page",
+    });
+  });
+
+  it("sends no note when the box is empty", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ requestId: "r", runId: "run", queued: [ID], readyAsUnit: [] }), { status: 202 }));
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "Research again" }));
+    await userEvent.click(screen.getByRole("button", { name: "Research" }));
+    expect(JSON.parse(String(fetchSpy.mock.calls[0][1]?.body))).toEqual({ ids: [ID] });
+  });
+
+  it("asks for a different image with its note, then refreshes", async () => {
+    const differentImage = vi.fn(async () => ({ ok: true as const }));
+    renderPage({ item: noPhotos, research: research({ images: IMAGES }), actions: actions({ differentImage }) });
+
+    await userEvent.type(screen.getByLabelText("What to look for (optional)"), "front-facing photo of the whole printer");
+    await userEvent.click(screen.getByRole("button", { name: "Find a different image" }));
+
+    expect(differentImage).toHaveBeenCalledWith({ id: ID, note: "front-facing photo of the whole printer" });
+    expect(router.refresh).toHaveBeenCalled();
+    expect(await screen.findByText("Looking for another image…")).toBeInTheDocument();
+  });
+
+  it("says why it could not start, and keeps the note", async () => {
+    const differentImage = vi.fn(async () => ({ ok: false as const, error: "daily_limit" as const }));
+    renderPage({ item: noPhotos, research: research({ images: IMAGES }), actions: actions({ differentImage }) });
+
+    await userEvent.type(screen.getByLabelText("What to look for (optional)"), "front view");
+    await userEvent.click(screen.getByRole("button", { name: "Find a different image" }));
+
+    expect(await screen.findByText(/today's research limit/)).toBeInTheDocument();
+    expect(screen.getByLabelText("What to look for (optional)")).toHaveValue("front view");
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+
+  it("shows a run in progress with the button off, and polls", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      renderPage({
+        item: noPhotos,
+        research: research({
+          images: IMAGES,
+          imageRetry: { requestId: "r1", requestedAt: new Date().toISOString(), status: "running", note: "front", error: null },
+        }),
+        actions: actions({ differentImage: vi.fn() }),
+      });
+      expect(screen.getByText("Looking for another image…")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Find a different image" })).toBeDisabled();
+      vi.advanceTimersByTime(5_100);
+      expect(router.refresh).toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows why the last run failed, and tags a back view", () => {
+    renderPage({
+      item: noPhotos,
+      research: research({
+        images: IMAGES,
+        imageRetry: { requestId: "r1", requestedAt: "2026-09-23T10:00:00.000Z", status: "failed", note: null, error: "No other picture of it was found." },
+      }),
+      actions: actions({ differentImage: vi.fn() }),
+    });
+    expect(screen.getByText("The search for another image did not work: No other picture of it was found.")).toBeInTheDocument();
+    expect(screen.getByText("Back view")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Find a different image" })).toBeEnabled();
+  });
+
+  it("re-derives the image choice when new pictures arrive", () => {
+    const props = {
+      item: noPhotos,
+      research: research({ images: IMAGES }),
+      categories: CATEGORIES,
+      locations: LOCATIONS,
+      targetTool: null,
+      createdTool: null,
+      canPublish: true,
+      actions: actions({ differentImage: vi.fn() }),
+    };
+    const { rerender } = render(<PreliminaryToolPage {...props} />);
+    expect(screen.getByRole("radio", { name: "Option 1" })).toBeChecked();
+
+    const next = { ...IMAGES.candidates[0], url: "https://bambulab.example/x2d-front.jpg", view: "front" as const };
+    rerender(<PreliminaryToolPage {...props} research={research({ images: { candidates: [next], cleaned: null } })} />);
+    expect(screen.getByRole("radio", { name: "Option 1" })).toBeChecked();
+    expect(screen.queryByText("Back view")).not.toBeInTheDocument();
+  });
+});
+
+describe('PreliminaryToolPage — a guided redo (amendment "Guided redo (focus + guidance)")', () => {
+  const started = () =>
+    vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(JSON.stringify({ requestId: "r", runId: "run", queued: [ID], readyAsUnit: [] }), { status: 202 }));
+
+  it("opens an inline panel, not a modal, and Cancel closes it without sending anything", async () => {
+    const fetchSpy = started();
+    renderPage();
+    const button = screen.getByRole("button", { name: "Research again" });
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(button);
+    const dialog = screen.getByRole("dialog", { name: "Anything to focus on?" });
+    expect(dialog).not.toHaveAttribute("aria-modal", "true");
+    expect(button).toHaveAttribute("aria-expanded", "true");
+
+    await userEvent.click(within(dialog).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("sends the focus with the note, then says what it is redoing", async () => {
+    const fetchSpy = started();
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "Research again" }));
+    await userEvent.click(screen.getByRole("button", { name: "Specs" }));
+    await userEvent.click(screen.getByRole("button", { name: "Links & manuals" }));
+    await userEvent.click(screen.getByRole("button", { name: "Find the official manual" }));
+    await userEvent.click(screen.getByRole("button", { name: "Research" }));
+
+    expect(JSON.parse(String(fetchSpy.mock.calls[0][1]?.body))).toEqual({
+      ids: [ID],
+      note: "Find the official manual",
+      focus: ["specs", "links"],
+    });
+    expect(await screen.findByText("Re-researching the specs and links & manuals…")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(router.refresh).toHaveBeenCalled();
+  });
+
+  it("does not offer the image when the item has its own photo", async () => {
+    renderPage();
+    await userEvent.click(screen.getByRole("button", { name: "Research again" }));
+    expect(screen.getByRole("button", { name: "Image" })).toBeDisabled();
+  });
+
+  it("marks the sections the last redo changed as updated just now, briefly", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      renderPage({
+        research: research({ updated: { at: new Date().toISOString(), sections: ["specs", "links"] } }),
+      });
+      expect(await screen.findAllByText("Updated just now")).toHaveLength(2);
+      expect(screen.getByLabelText(/Description/).closest(".admin-field")).toHaveClass("is-updated");
+      act(() => {
+        vi.advanceTimersByTime(9_000);
+      });
+      expect(screen.queryByText("Updated just now")).not.toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("marks nothing for a redo that landed long ago", () => {
+    renderPage({ research: research({ updated: { at: "2020-01-01T00:00:00.000Z", sections: ["description"] } }) });
+    expect(screen.queryByText("Updated just now")).not.toBeInTheDocument();
   });
 });

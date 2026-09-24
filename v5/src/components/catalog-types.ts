@@ -43,6 +43,12 @@ export interface MakerLabTool {
     sourceHref?: string;
   }>;
   units: MakerLabUnit[];
+  /**
+   * The assistant's starter chips on this tool's page (spec amendment
+   * "Tool-specific starter questions"), English as researched or as staff
+   * wrote them. Absent or empty means the chat's generic chips.
+   */
+  starterQuestions?: string[];
 }
 
 export interface CatalogStats {

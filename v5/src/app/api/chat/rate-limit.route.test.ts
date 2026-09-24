@@ -7,40 +7,26 @@
  * an anonymous visitor and a signed-in user hitting the same endpoint from the
  * same IP get different allowances, and the refusal offers a way forward.
  *
- * The model is still stubbed at the `streamText` boundary, and the catalogue
- * comes from the demo-seeded PGlite database — no network (Art. 3).
+ * The model is stubbed at the job registry (a MockLanguageModelV3 answering
+ * every call), and the catalogue comes from the demo-seeded PGlite database —
+ * no network (Art. 3).
  */
 import { resetAuthForTests } from "@/lib/auth/config";
 import { resetDbForTests } from "@/lib/db/client";
 import { signInAsNew } from "../../../../test/utils/session";
+import {
+  recordedCalls,
+  resetModelStubs,
+  setLanguageModel,
+  textModel,
+} from "../../../../test/ai/models-stub";
 
 const AUTH_SECRET = "chat-ceiling-test-secret";
 
-// ── Stub the model boundary ──────────────────────────────────────────
-vi.mock("@ai-sdk/anthropic", () => {
-  const anthropic = Object.assign(vi.fn(() => ({ modelId: "mock-model" })), {
-    tools: {
-      webFetch_20250910: vi.fn(() => ({ type: "web_fetch_mock" })),
-      webSearch_20250305: vi.fn(() => ({ type: "web_search_mock" })),
-    },
-  });
-  return { anthropic };
-});
-
-vi.mock("ai", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("ai")>();
-  return {
-    ...actual,
-    streamText: vi.fn(() => ({
-      toUIMessageStream: () =>
-        new ReadableStream({
-          start(c) {
-            c.close();
-          },
-        }),
-    })),
-  };
-});
+// ── Stub the model at the job registry ───────────────────────────────
+vi.mock("@/lib/ai/models", async (importOriginal) =>
+  (await import("../../../../test/ai/models-stub")).stubModelsModule(await importOriginal())
+);
 
 // Notion is not stubbed here: no request path in this suite reaches it. The
 // catalogue reads Postgres, and the one Notion write left in the capability
@@ -53,6 +39,18 @@ vi.mock("next/cache", () => ({
 }));
 
 import { POST } from "@/app/api/chat/route";
+
+let model = textModel("Hello.");
+
+/**
+ * POST and read the whole stream (from a clone, so a test can still read the
+ * body), so an allowed request really reaches the model.
+ */
+async function send(request: Request): Promise<Response> {
+  const res = await POST(request);
+  await res.clone().text();
+  return res;
+}
 
 // The in-memory limiter is a per-process singleton keyed by
 // `chat:<identity.rateLimitKey>`, so every test needs its own IP / user id.
@@ -84,12 +82,15 @@ function chatRequest({ ip, cookie }: { ip: string; cookie?: string }): Request {
 }
 
 beforeEach(() => {
+  model = textModel("Hello.");
+  setLanguageModel("chat", model);
   vi.stubEnv("AUTH_SECRET", AUTH_SECRET);
   vi.stubEnv("DATABASE_URL", "");
   resetAuthForTests();
 });
 
 afterEach(() => {
+  resetModelStubs();
   resetAuthForTests();
 });
 
@@ -102,16 +103,16 @@ describe("POST /api/chat — anonymous ceiling", () => {
     const ip = uniqueIp();
     const statuses: number[] = [];
     for (let i = 0; i < 9; i += 1) {
-      statuses.push((await POST(chatRequest({ ip }))).status);
+      statuses.push((await send(chatRequest({ ip }))).status);
     }
     expect(statuses).toEqual([...Array(8).fill(200), 429]);
   });
 
   it("offers sign-in rather than a bare 429", async () => {
     const ip = uniqueIp();
-    for (let i = 0; i < 8; i += 1) await POST(chatRequest({ ip }));
+    for (let i = 0; i < 8; i += 1) await send(chatRequest({ ip }));
 
-    const res = await POST(chatRequest({ ip }));
+    const res = await send(chatRequest({ ip }));
     expect(res.status).toBe(429);
     expect(res.headers.get("Retry-After")).toBe("3600");
 
@@ -125,21 +126,20 @@ describe("POST /api/chat — anonymous ceiling", () => {
   });
 
   it("does not call the model once the ceiling is reached", async () => {
-    const { streamText } = await import("ai");
     const ip = uniqueIp();
-    for (let i = 0; i < 8; i += 1) await POST(chatRequest({ ip }));
-    vi.mocked(streamText).mockClear();
+    for (let i = 0; i < 8; i += 1) await send(chatRequest({ ip }));
+    expect(recordedCalls(model)).toHaveLength(8);
 
-    expect((await POST(chatRequest({ ip }))).status).toBe(429);
-    expect(vi.mocked(streamText)).not.toHaveBeenCalled();
+    expect((await send(chatRequest({ ip }))).status).toBe(429);
+    expect(recordedCalls(model)).toHaveLength(8);
   });
 
   it("keeps one visitor's ceiling off another visitor's budget", async () => {
     const busy = uniqueIp();
-    for (let i = 0; i < 8; i += 1) await POST(chatRequest({ ip: busy }));
-    expect((await POST(chatRequest({ ip: busy }))).status).toBe(429);
+    for (let i = 0; i < 8; i += 1) await send(chatRequest({ ip: busy }));
+    expect((await send(chatRequest({ ip: busy }))).status).toBe(429);
 
-    expect((await POST(chatRequest({ ip: uniqueIp() }))).status).toBe(200);
+    expect((await send(chatRequest({ ip: uniqueIp() }))).status).toBe(200);
   });
 
   it("honors RATE_LIMIT_ANON_CHAT for a conference behind one NAT", async () => {
@@ -147,7 +147,7 @@ describe("POST /api/chat — anonymous ceiling", () => {
     const ip = uniqueIp();
     const statuses: number[] = [];
     for (let i = 0; i < 4; i += 1) {
-      statuses.push((await POST(chatRequest({ ip }))).status);
+      statuses.push((await send(chatRequest({ ip }))).status);
     }
     expect(statuses).toEqual([200, 200, 200, 429]);
   });
@@ -156,33 +156,33 @@ describe("POST /api/chat — anonymous ceiling", () => {
 describe("POST /api/chat — signed in", () => {
   it("gets the higher signed-in ceiling from the same IP that was exhausted", async () => {
     const ip = uniqueIp();
-    for (let i = 0; i < 8; i += 1) await POST(chatRequest({ ip }));
-    expect((await POST(chatRequest({ ip }))).status).toBe(429);
+    for (let i = 0; i < 8; i += 1) await send(chatRequest({ ip }));
+    expect((await send(chatRequest({ ip }))).status).toBe(429);
 
     const cookie = await userCookie();
     for (let i = 0; i < 20; i += 1) {
-      expect((await POST(chatRequest({ ip, cookie }))).status).toBe(200);
+      expect((await send(chatRequest({ ip, cookie }))).status).toBe(200);
     }
   });
 
   it("keys on the user, so changing IP neither resets nor escapes the ceiling", async () => {
     const cookie = await userCookie();
-    const first = await POST(chatRequest({ ip: uniqueIp(), cookie }));
+    const first = await send(chatRequest({ ip: uniqueIp(), cookie }));
     expect(first.status).toBe(200);
 
     // 59 more from a different IP each time — still one budget, still allowed.
     for (let i = 0; i < 59; i += 1) {
-      expect((await POST(chatRequest({ ip: uniqueIp(), cookie }))).status).toBe(200);
+      expect((await send(chatRequest({ ip: uniqueIp(), cookie }))).status).toBe(200);
     }
     // 61st message overall: the signed-in ceiling, despite the IP churn.
-    expect((await POST(chatRequest({ ip: uniqueIp(), cookie }))).status).toBe(429);
+    expect((await send(chatRequest({ ip: uniqueIp(), cookie }))).status).toBe(429);
   });
 
   it("refuses without offering sign-in to someone already signed in", async () => {
     const cookie = await userCookie();
-    for (let i = 0; i < 60; i += 1) await POST(chatRequest({ ip: uniqueIp(), cookie }));
+    for (let i = 0; i < 60; i += 1) await send(chatRequest({ ip: uniqueIp(), cookie }));
 
-    const res = await POST(chatRequest({ ip: uniqueIp(), cookie }));
+    const res = await send(chatRequest({ ip: uniqueIp(), cookie }));
     expect(res.status).toBe(429);
     const body = await res.json();
     expect(body.code).toBe("rate_limited");
@@ -197,7 +197,7 @@ describe("POST /api/chat — signed in", () => {
     const ip = uniqueIp();
     const statuses: number[] = [];
     for (let i = 0; i < 9; i += 1) {
-      statuses.push((await POST(chatRequest({ ip, cookie: forged }))).status);
+      statuses.push((await send(chatRequest({ ip, cookie: forged }))).status);
     }
     // Anonymous allowance, and never a 500 — a bad cookie is not an error.
     expect(statuses).toEqual([...Array(8).fill(200), 429]);

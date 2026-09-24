@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { UIMessageStreamWriter } from "ai";
 import type { MakerLabTool } from "../../components/catalog-types";
 // Type-only, deliberately: `auth/identity` is `server-only`, and this module is
-// imported by client components (ChatFab, IdentificationCard). A `import type`
+// imported by client components (ConfidenceStrip, IntakeList). A `import type`
 // is erased at emit, so no server module reaches the browser bundle.
 import type { Identity } from "../auth/identity";
 import type { Permission } from "../auth/permissions";
@@ -63,7 +63,7 @@ export const uploadedImageSchema = z.object({
  * treat every field as optional and degrade gracefully when absent.
  */
 export interface CapabilityCtx {
-  /** Chat only — write data parts (e.g. identification cards) to the UI stream. */
+  /** Chat only — write data parts (e.g. the intake table) to the UI stream. */
   writer?: UIMessageStreamWriter;
   /** Chat only — photos uploaded for this turn. */
   attachments?: UploadedImage[];
@@ -120,12 +120,6 @@ export interface CapabilityTool<I = unknown, R = unknown> {
   mcpOnly?: boolean;
   /** Pure-ish: data in, structured data out. */
   run: (input: I, ctx: CapabilityCtx) => Promise<R>;
-  /**
-   * Optional. How the chat surface renders the result as an interactive widget.
-   * When present, the chat adapter emits a `data-card` part with this payload
-   * after `run()` resolves, and returns a compact text result to the model.
-   */
-  card?: (result: R) => CardPayload;
 }
 
 /**
@@ -212,7 +206,7 @@ export type IntakeConfidenceLevel = "high" | "medium" | "low";
  * highest exactly when the model is fluently wrong, and a fetched manufacturer
  * page must not be able to talk its own score up (confidence spec §3.1, §8).
  * `basis` / `unknowns` are the English, model-facing rendering of the same
- * evidence; the card localizes its own copy from {@link IntakeEvidence}.
+ * evidence; `ConfidenceStrip` localizes its own copy from {@link IntakeEvidence}.
  */
 export interface IntakeConfidence {
   level: IntakeConfidenceLevel;
@@ -238,105 +232,6 @@ export const intakeConfidenceSchema: z.ZodType<IntakeConfidence> = z.object({
   basis: z.array(z.string()),
   unknowns: z.array(z.string()),
 });
-
-// ── Card payloads (chat widgets) ───────────────────────────────────
-
-/** Lifecycle state of an identification card (design spec §4.1 / §6.3). */
-export type CardState = "proposed" | "success" | "duplicate" | "error";
-
-/** A single line of spec text rendered on a card (e.g. "Bed: 256mm"). */
-export interface CardSpecLine {
-  label: string;
-  value: string;
-}
-
-/** A found manual / video / other resource surfaced on a card. */
-export interface CardResource {
-  title: string;
-  url: string;
-  type: "Manual" | "Video" | "Other";
-}
-
-/**
- * A taxonomy / unit row the create step will also create, with a flag for
- * whether it is new (gets a "(new)" badge) vs. matched to an existing record.
- */
-export interface CardAlsoCreating {
-  /** Human label, e.g. "Category: 3D Printing / FDM" or "Unit: Prusa #3". */
-  label: string;
-  /** What kind of side-entity this row represents. */
-  entity: "category" | "location" | "unit" | "resource";
-  /** True when this entity will be newly created in Notion. */
-  isNew: boolean;
-}
-
-/** An action button rendered on a card; clicking seeds a follow-up message. */
-export interface CardAction {
-  /** Stable id, e.g. "confirm" | "edit" | "discard" | "create-anyway" | "add-all". */
-  id: string;
-  /** English fallback label, e.g. "Looks right — add it". */
-  label: string;
-  /**
-   * `intake` message key the renderer localizes (Article 6). Cards are built
-   * server-side where no locale is resolved, so the label travels as a key plus
-   * its values and {@link label} is only the fallback when the key is absent.
-   */
-  labelKey?: string;
-  /** ICU values for {@link labelKey}, e.g. `{ variant: "MK4S" }`. */
-  labelValues?: Record<string, string>;
-  /** Text seeded into the chat input / send path when clicked. */
-  seedMessage: string;
-  /** Visual emphasis hint for the renderer. */
-  variant?: "primary" | "secondary" | "danger";
-}
-
-/**
- * The identification card (design spec §4.1, §6.3). One card per candidate;
- * `candidateId` lets confirm/edit/discard target the right item in a batch.
- */
-export interface IdentificationCardPayload {
-  kind: "identification";
-  /** Correlates the card with a ToolCandidate for confirm/edit/discard. */
-  candidateId: string;
-  /** Card lifecycle state. */
-  state: CardState;
-  /** Proposed (or saved) tool name. */
-  name: string;
-  /** One or more photo URLs to show on the card. */
-  photoUrls: string[];
-  /** Resolved category label, e.g. "3D Printing / FDM". */
-  category?: string;
-  /** Resolved location label, e.g. "Main Lab / Print Zone". */
-  location?: string;
-  /** Spec lines (materials, build volume, power, etc.). */
-  specLines: CardSpecLine[];
-  /** Manuals / videos / other resources found during research. */
-  foundResources: CardResource[];
-  /** Side-entities the create step will also create, with `(new)` flags. */
-  alsoCreating: CardAlsoCreating[];
-  /** Action buttons (confirm / edit / discard / add-unit / add-all). */
-  actions: CardAction[];
-  /** Derived grade for this proposal — drives the confidence strip's heading. */
-  confidence?: IntakeConfidence;
-  /**
-   * The evidence the grade was computed from. The card renders its own
-   * localized basis / unknown lines from this rather than from
-   * `confidence.basis`, which is English (confidence spec §6).
-   */
-  evidence?: IntakeEvidence;
-  /** Provenance: the URLs the agent read, rendered as links. */
-  sourceUrls?: string[];
-  /** Populated on `state: "success"` — link to the created draft page. */
-  draftUrl?: string;
-  /** Populated on `state: "duplicate"` — the existing catalog match. */
-  duplicateOf?: { id: string; name: string };
-}
-
-/**
- * Discriminated union of every card payload the chat can render. New card kinds
- * (future capabilities) extend this union; renderers switch on `kind`.
- */
-export type CardPayload = IdentificationCardPayload;
 
 // ── ToolCandidate (design spec §4.2) ───────────────────────────────
 

@@ -218,13 +218,8 @@
     "unknownSource": "لم يتم العثور على صفحة للشركة المصنّعة أو دليل للمقارنة",
     "unknownManual": "لم يتم العثور على أي دليل",
     "unknownSpecs": "لم يتم التحقق من المواصفات عبر صفحة تمت قراءتها",
-    "actionConfirm": "يبدو صحيحًا — أضِفه",
-    "actionConfirmModel": "أكِّد أنه {name}",
-    "actionConfirmVariant": "إنه {variant}",
-    "actionEdit": "تعديل",
-    "actionDiscard": "تجاهل",
-    "actionCreateAnyway": "لا، أنشئ أداة جديدة",
-    "actionOpenDraft": "افتح المسودة في Notion"
+    "unknownVideoOnly": "تمت مشاهدة فيديو فقط — لا صفحة منتج ولا دليل ولا ورقة مواصفات",
+    "unknownNothingRead": "تعذّرت قراءة أي صفحة، لذلك لم يتم التحقق من أي شيء مقابل مصدر"
   },
   "flag": {
     "eyebrow": "ملاحظات على الفهرس",

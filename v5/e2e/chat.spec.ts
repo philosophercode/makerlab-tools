@@ -1,8 +1,11 @@
 import { test, expect } from "@playwright/test";
 
 // ChatFab uses @ai-sdk/react's useChat with a DefaultChatTransport posting to
-// /api/chat. We intercept that request with page.route() so no real Anthropic
-// call is made, and return a valid AI SDK v6 UI message stream.
+// /api/chat. We intercept that request with page.route() so no real model
+// call is made at all — through the Gateway or otherwise — and return a valid
+// AI SDK v6 UI message stream. (This spec never reaches src/lib/ai/models.ts;
+// only e2e/intake.spec.ts needs the Gateway stubbed, since it is the one
+// scenario the browser-side intercept cannot reach — see gateway-stub.ts.)
 //
 // --- Mock stream shape (AI SDK v6 "x-vercel-ai-ui-message-stream: v1") ---
 // The transport reads an SSE body: each event is a `data: <json>\n\n` line and

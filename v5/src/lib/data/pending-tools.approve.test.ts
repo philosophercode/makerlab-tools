@@ -18,7 +18,10 @@ import {
   approvePendingAsUnit,
   approvePendingTool,
   createPendingBatch,
+  discardPendingTool,
+  expireIdentifiedPendingTools,
   getPendingTool,
+  listPendingTools,
   type ApprovalFields,
 } from "./pending-tools";
 
@@ -417,6 +420,40 @@ describe("approvePendingAsUnit", () => {
     });
   });
 
+  it("releases the item's cleaned copy instead of making it a photo of the existing tool", async () => {
+    const { toolId, cover } = await toolWithUnit();
+    const itemPhoto = await photo();
+    const id = await unitItem("SN-2", [itemPhoto]);
+    // Research made a private background-removed copy while the item still
+    // looked new; then it matched an existing tool and became an add-unit item.
+    const [cleaned] = await db
+      .insert(attachments)
+      .values({
+        blobPathname: `research/${crypto.randomUUID()}.png`,
+        access: "private",
+        origin: "research_image_cleaned",
+        sourceUrl: "https://example.com/form-4.png",
+        ownerType: "pending_tool",
+        ownerId: id,
+      })
+      .returning({ id: attachments.id });
+
+    const result = await approvePendingAsUnit({ id, actorUserId: APPROVER }, { db });
+
+    expect(result).toMatchObject({ ok: true, photosMoved: 1 });
+    const onTool = await db
+      .select({ id: attachments.id })
+      .from(attachments)
+      .where(eq(attachments.ownerId, toolId))
+      .orderBy(attachments.position);
+    expect(onTool.map((row) => row.id)).toEqual([cover, itemPhoto]);
+    const [released] = await db
+      .select({ ownerType: attachments.ownerType, ownerId: attachments.ownerId })
+      .from(attachments)
+      .where(eq(attachments.id, cleaned.id));
+    expect(released).toEqual({ ownerType: null, ownerId: null });
+  });
+
   it("lets the reviewer's serial number win over the stored one", async () => {
     await toolWithUnit();
     const id = await unitItem("SN-OLD");
@@ -466,5 +503,206 @@ describe("approvePendingAsUnit", () => {
       ok: false,
       reason: "not_editable",
     });
+  });
+});
+
+describe("approvePendingTool — the product image (gateway spec §5.2)", () => {
+  /** A research image stage file: the cleaned copy (owned by the item) or a chosen original (unowned). */
+  async function researchImage(
+    origin: "research_image" | "research_image_cleaned",
+    owner: string | null = null
+  ): Promise<string> {
+    const [row] = await db
+      .insert(attachments)
+      .values({
+        blobPathname: `research/${crypto.randomUUID()}.png`,
+        access: origin === "research_image" ? "public" : "private",
+        origin,
+        sourceUrl: "https://example.com/mk4s.png",
+        ownerType: owner ? "pending_tool" : null,
+        ownerId: owner,
+      })
+      .returning({ id: attachments.id });
+    return row.id;
+  }
+
+  async function ownerOf(id: string) {
+    const [row] = await db
+      .select({ ownerType: attachments.ownerType, ownerId: attachments.ownerId, position: attachments.position })
+      .from(attachments)
+      .where(eq(attachments.id, id));
+    return row;
+  }
+
+  it("puts a chosen original at the cover position, before the photos the admin uploaded", async () => {
+    const uploads = [await photo(), await photo()];
+    const id = await researchedItem({ photos: uploads });
+    const original = await researchImage("research_image");
+
+    const result = await approvePendingTool(
+      { id, actorUserId: APPROVER, publish: true, fields: fields(), coverAttachmentId: original },
+      { db }
+    );
+
+    expect(result).toMatchObject({ ok: true, coverAttached: true, photosMoved: 2 });
+    if (!result.ok) throw new Error("unreachable");
+    const moved = await db
+      .select({ id: attachments.id, position: attachments.position })
+      .from(attachments)
+      .where(eq(attachments.ownerId, result.toolId))
+      .orderBy(attachments.position);
+    expect(moved).toEqual([
+      { id: original, position: 0 },
+      { id: uploads[0], position: 1 },
+      { id: uploads[1], position: 2 },
+    ]);
+  });
+
+  it("keeps the chosen cleaned copy as the cover and releases every other one", async () => {
+    const id = await researchedItem();
+    const chosen = await researchImage("research_image_cleaned", id);
+    const stale = await researchImage("research_image_cleaned", id);
+
+    const result = await approvePendingTool(
+      { id, actorUserId: APPROVER, publish: true, fields: fields(), coverAttachmentId: chosen },
+      { db }
+    );
+
+    expect(result).toMatchObject({ ok: true, coverAttached: true, photosMoved: 0 });
+    if (!result.ok) throw new Error("unreachable");
+    expect(await ownerOf(chosen)).toEqual({ ownerType: "tool", ownerId: result.toolId, position: 0 });
+    expect(await ownerOf(stale)).toEqual({ ownerType: null, ownerId: null, position: 0 });
+  });
+
+  it("releases an unchosen cleaned copy when no image is chosen, and never makes it a tool photo", async () => {
+    const upload = await photo();
+    const id = await researchedItem({ photos: [upload] });
+    const cleaned = await researchImage("research_image_cleaned", id);
+
+    const result = await approvePendingTool(
+      { id, actorUserId: APPROVER, publish: true, fields: fields() },
+      { db }
+    );
+
+    expect(result).toMatchObject({ ok: true, coverAttached: false, photosMoved: 1 });
+    if (!result.ok) throw new Error("unreachable");
+    expect(await ownerOf(cleaned)).toEqual({ ownerType: null, ownerId: null, position: 0 });
+    expect(await ownerOf(upload)).toEqual({ ownerType: "tool", ownerId: result.toolId, position: 0 });
+  });
+
+  it("will not take a cover that is somebody else's file, and says it did not", async () => {
+    const id = await researchedItem();
+    const other = await researchedItem({ name: "Another printer" });
+    const theirs = await researchImage("research_image_cleaned", other);
+    const upload = await photo(); // unowned, but an upload — not a research image
+
+    for (const coverAttachmentId of [theirs, upload, "not-a-uuid"]) {
+      await db.update(pendingTools).set({ status: "researched" }).where(eq(pendingTools.id, id));
+      const result = await approvePendingTool(
+        { id, actorUserId: APPROVER, publish: false, fields: fields(), coverAttachmentId },
+        { db }
+      );
+      expect(result).toMatchObject({ ok: true, coverAttached: false });
+      await db.delete(tools);
+    }
+    expect(await ownerOf(theirs)).toMatchObject({ ownerType: "pending_tool", ownerId: other });
+    expect(await ownerOf(upload)).toMatchObject({ ownerType: null, ownerId: null });
+  });
+
+  it("moves nothing when the approval is refused: the cleaned copy stays with the item", async () => {
+    const id = await researchedItem({ research: research({ confidence: { level: "low", basis: [], unknowns: [] } }) });
+    const cleaned = await researchImage("research_image_cleaned", id);
+    const original = await researchImage("research_image");
+
+    const result = await approvePendingTool(
+      { id, actorUserId: APPROVER, publish: true, fields: fields(), coverAttachmentId: original },
+      { db }
+    );
+
+    expect(result).toEqual({ ok: false, reason: "low_confidence" });
+    expect(await ownerOf(cleaned)).toMatchObject({ ownerType: "pending_tool", ownerId: id });
+    // Left unowned for the 24-hour orphan sweep, like any upload nobody claimed.
+    expect(await ownerOf(original)).toMatchObject({ ownerType: null, ownerId: null });
+  });
+});
+
+describe("the cleaned copy is not a photo", () => {
+  it("never appears among an item's photos, in either read", async () => {
+    const upload = await photo();
+    const id = await researchedItem({ photos: [upload] });
+    const [cleaned] = await db
+      .insert(attachments)
+      .values({
+        blobPathname: "research/cleaned.png",
+        access: "private",
+        origin: "research_image_cleaned",
+        ownerType: "pending_tool",
+        ownerId: id,
+      })
+      .returning({ id: attachments.id });
+
+    expect((await getPendingTool(id, { db }))?.photos.map((p) => p.attachmentId)).toEqual([upload]);
+    const [listed] = await listPendingTools({ ids: [id] }, { db });
+    expect(listed.photos.map((p) => p.attachmentId)).toEqual([upload]);
+    expect(listed.photos.map((p) => p.attachmentId)).not.toContain(cleaned.id);
+  });
+
+  it("is released with the item's photos when the item is discarded", async () => {
+    const upload = await photo();
+    const id = await researchedItem({ photos: [upload] });
+    const [cleaned] = await db
+      .insert(attachments)
+      .values({
+        blobPathname: "research/cleaned.png",
+        access: "private",
+        origin: "research_image_cleaned",
+        ownerType: "pending_tool",
+        ownerId: id,
+      })
+      .returning({ id: attachments.id });
+
+    const discarded = await discardPendingTool(id, { db });
+
+    expect(discarded).toMatchObject({ ok: true, released: 2 });
+    const rows = await db
+      .select({ id: attachments.id, ownerId: attachments.ownerId })
+      .from(attachments)
+      .where(eq(attachments.id, cleaned.id));
+    expect(rows).toEqual([{ id: cleaned.id, ownerId: null }]);
+  });
+
+  it("is released when an identified item expires", async () => {
+    const batch = await createPendingBatch({ createdBy: OWNER, items: [{ name: "Old laser" }] }, { db });
+    const id = batch.items[0].id;
+    await db.insert(attachments).values({
+      blobPathname: "research/cleaned-old.png",
+      access: "private",
+      origin: "research_image_cleaned",
+      ownerType: "pending_tool",
+      ownerId: id,
+    });
+
+    const expired = await expireIdentifiedPendingTools(new Date(Date.now() + 60_000), { db });
+
+    expect(expired).toEqual({ discarded: [id], releasedAttachments: 1 });
+  });
+});
+
+describe('approvePendingTool — starter questions (amendment "Tool-specific starter questions")', () => {
+  it("copies research's questions onto the tool", async () => {
+    const questions = ["What filaments can I print?", "How big can a part be?", "How do I level the bed?"];
+    const id = await researchedItem({ research: research({ starterQuestions: questions }) });
+    const result = await approvePendingTool({ id, actorUserId: APPROVER, publish: true, fields: fields() }, { db });
+    if (!result.ok) throw new Error(`approval refused: ${result.reason}`);
+    const [tool] = await db.select({ starterQuestions: tools.starterQuestions }).from(tools).where(eq(tools.id, result.toolId));
+    expect(tool.starterQuestions).toEqual(questions);
+  });
+
+  it("gives a tool researched before them none — the generic chips", async () => {
+    const id = await researchedItem();
+    const result = await approvePendingTool({ id, actorUserId: APPROVER, publish: true, fields: fields() }, { db });
+    if (!result.ok) throw new Error(`approval refused: ${result.reason}`);
+    const [tool] = await db.select({ starterQuestions: tools.starterQuestions }).from(tools).where(eq(tools.id, result.toolId));
+    expect(tool.starterQuestions).toEqual([]);
   });
 });

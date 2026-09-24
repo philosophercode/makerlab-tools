@@ -4,6 +4,7 @@ import { getDb } from "../db/client.ts";
 import { tools } from "../db/schema/index.ts";
 import type { Db } from "../db/types.ts";
 import { revisionEquals, revisionOf, type Revision } from "./revision.ts";
+import { starterQuestionsFromEditor } from "../starter-questions.ts";
 import { isUuid } from "./uuid.ts";
 import type { Refused } from "./write-result.ts";
 
@@ -51,6 +52,8 @@ export interface EditableTool {
   useRestrictions: string | null;
   emergencyStop: string | null;
   notes: string | null;
+  /** The assistant's starter chips on this tool's page; empty means the generic ones. */
+  starterQuestions: string[];
   published: boolean;
   archivedAt: Date | null;
   lastReviewedAt: Date | null;
@@ -72,6 +75,8 @@ export interface ToolPatch {
   useRestrictions?: string | null;
   emergencyStop?: string | null;
   notes?: string | null;
+  /** Up to three; validated by `starterQuestionsFromEditor`, refused (`invalid_field`) rather than cut. */
+  starterQuestions?: readonly string[];
 }
 
 /** What every write here answers. A refusal means nothing was written. */
@@ -133,6 +138,7 @@ export async function findToolForEditor(
       useRestrictions: tools.useRestrictions,
       emergencyStop: tools.emergencyStop,
       notes: tools.notes,
+      starterQuestions: tools.starterQuestions,
       published: tools.published,
       archivedAt: tools.archivedAt,
       lastReviewedAt: tools.lastReviewedAt,
@@ -359,6 +365,12 @@ function toToolValues(patch: ToolPatch): ToolValues | null {
   if (patch.tags !== undefined) values.tags = cleanList(patch.tags);
 
   if (patch.trainingRequired !== undefined) values.trainingRequired = patch.trainingRequired;
+
+  if (patch.starterQuestions !== undefined) {
+    const questions = starterQuestionsFromEditor(patch.starterQuestions);
+    if (!questions) return null;
+    values.starterQuestions = questions;
+  }
 
   return values;
 }

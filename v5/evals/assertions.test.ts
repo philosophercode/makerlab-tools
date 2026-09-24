@@ -62,6 +62,17 @@ describe("no_unknown_tools", () => {
     expect(result.detail).toContain("/tools/prusa-mk4");
   });
 
+  it("reads a denial written with a typographic apostrophe as a denial", () => {
+    // What GPT-6 Luna actually answered in the 2026-09-23 eval gate run.
+    expect(noUnknownTools("I don\u2019t see a waterjet cutter in the MakerLab catalog.", evalFixture).ok).toBe(true);
+    expect(
+      noUnknownTools(
+        "I don\u2019t see a Bambu Lab X1-Carbon in the MakerLab catalog, so I can\u2019t confirm its location.",
+        evalFixture
+      ).ok
+    ).toBe(true);
+  });
+
   it("allows naming an absent machine in order to deny having it", () => {
     const text =
       "We don't have a waterjet cutter in the MakerLab. For flat stock, the Trotec Speedy 400 can cut acrylic and plywood.";

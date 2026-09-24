@@ -11,8 +11,12 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  * Two deliberate differences from the main `vitest.config.ts`:
  *
  *  - **No `setupFiles`.** The shared setup starts MSW with
- *    `onUnhandledRequest: "error"`, which would block the real Anthropic call
+ *    `onUnhandledRequest: "error"`, which would block the real Gateway call
  *    this suite exists to make.
+ *  - **`next/cache` is a no-op stub** (`test/mocks/next-cache-noop.ts`). The
+ *    catalogue reads are `"use cache"` functions whose `cacheTag`/`cacheLife`
+ *    throw outside a Next build; with no setup file there is nowhere to
+ *    `vi.mock` them, and without this the suite fails in setup.
  *  - **`include` is the single eval entrypoint**, which the main config never
  *    picks up (it is not a `*.test.ts`), so the eval suite can never sneak into
  *    `npm run test:all`.
@@ -23,6 +27,7 @@ export default defineConfig({
     alias: {
       "@": r("../src"),
       "server-only": r("../test/mocks/server-only.ts"),
+      "next/cache": r("../test/mocks/next-cache-noop.ts"),
     },
   },
   test: {

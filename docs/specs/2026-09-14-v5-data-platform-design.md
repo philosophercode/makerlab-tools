@@ -1727,3 +1727,51 @@ saying that the connected workspace will hold personal data.
 token and page URL into `/admin/mirror`.
 
 **Status.** Accepted.
+
+### 2026-09-23 — superseded in part by the Gateway migration (pointer)
+
+**What changed.** Nothing here — this is a pointer, not a rewrite. Four sections of this
+spec describe surfaces the Gateway and product-images migration
+(`2026-09-23-gateway-models-and-product-images-design.md`) has since moved:
+
+- **§3.6 Capabilities** — the registry now includes a `read_page` capability tool
+  alongside `identify_tools` and the rest; the chat route's provider-native tools are
+  `exa_search` (Gateway, replacing Anthropic's `web_search`) instead of `web_search` /
+  `web_fetch`.
+- **§3.7 Background research** — the Workflow SDK shape (chunked, three-at-a-time,
+  per-step retries and deadlines) is unchanged, but the model calls inside each step now go
+  through the Gateway's job registry (`src/lib/ai/models.ts`), not a direct Anthropic call,
+  and a third step (the image stage) now runs after the read step succeeds.
+- **§4.7 `attachments`** — gained `origin` (`upload | import | manual_archive |
+  research_image | research_image_cleaned`) and `source_url`, migration `0008`.
+- **§4.10 `pending_tools`** — `research` (the stored `ResearchResult` JSON) gained
+  `images` / `imageError`, the product-image stage's output.
+
+**Status.** Accepted; read this spec for the sections above, but treat
+`2026-09-23-gateway-models-and-product-images-design.md` as authoritative wherever the two
+disagree on AI provider or attachment/image behavior.
+
+### 2026-09-23 — A persistent local database (`PGLITE_DATA_DIR`) for reviewing the import
+
+**What changed.** §3.2 gains a third substrate. `DataSubstrate` is now
+`"neon" | "pglite-local" | "pglite-demo"`, chosen `DATABASE_URL` > `PGLITE_DATA_DIR` > demo.
+With `DATABASE_URL` unset and `PGLITE_DATA_DIR` set (e.g. `.pglite-data`, git-ignored,
+relative to `v5/`), `getDb()` opens PGlite on that directory — created if missing, migrated
+on every open, never demo-seeded. It is real data: no `DemoDataBanner`, and `/api/health`
+answers `"database": "local"` (a fourth word beside `ok | unreachable | demo`) with
+`"catalog": "live"`.
+
+- **Local only.** `localDataDir()` (`src/lib/db/local-dir.ts`) throws on Vercel or with
+  `NODE_ENV=production`, so a deploy that sets it fails loudly rather than serving a disk
+  that vanishes with the instance (Article 4). The E2E servers and Vitest blank it.
+- **Single-process.** PGlite has no server to arbitrate; `dir/lock` holds the owner's pid
+  (`src/lib/db/pglite-lock.ts`) and a second process gets `PgliteLockedError`. A dead
+  owner's lock is taken over; a failed open is not memoised.
+- **§5.7 import.** `import:notion`, `verify:import` and `db:migrate` resolve their target the
+  same way (`src/lib/import/target.ts`; `--dry-run` stays in memory). A local target copies
+  files through `createBlobUploader()` — `.blob-data/` with `/api/dev-blob` URLs when there
+  is no token — while a `DATABASE_URL` target still requires Vercel Blob, so a shared
+  database never holds localhost URLs. The path to Neon is a fresh import from Notion, not a
+  copy of the local database. Runbook: `docs/deploy.md`, Stage 2b.
+
+**Status.** Built.

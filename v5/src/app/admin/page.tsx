@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
 import { can, type Permission } from "../../lib/auth/permissions";
+import { AdminActions } from "../../components/admin/AdminActions";
 
 /**
  * `/admin` — the index the header's `AdminLink` points at.
@@ -50,6 +51,10 @@ export default async function AdminHomePage() {
     <section className="admin-index td-panel td-prose">
       <p className="td-eyebrow">{t("eyebrow")}</p>
       <h2>{t("indexTitle")}</h2>
+
+      {/* Add equipment and Refresh catalog, moved here from the header on
+          2026-09-23. Each keeps its own permission rule. */}
+      <AdminActions role={identity.role} />
 
       {open.length > 0 ? (
         <ul className="admin-index-list" aria-label={t("indexListLabel")}>

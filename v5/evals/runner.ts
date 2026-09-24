@@ -8,8 +8,9 @@ import type { EvalFixture } from "./fixtures";
  *
  * The model call itself is injected as a {@link CaseExecutor}. That is what
  * makes this file testable inside `npm test` with no API key: the real executor
- * (`run.eval.ts`) composes the capability registry and calls Anthropic, while
- * the tests pass a stub. The runner never imports the model.
+ * (`run.eval.ts`) composes the capability registry and calls the Gateway
+ * (`@/lib/ai/models`), while the tests pass a stub. The runner never imports
+ * the model.
  *
  * **Flake handling.** A failing case is retried once. A case that passes only on
  * retry is reported `FLAKY`, never as a pass — a case that flakes is usually

@@ -15,9 +15,20 @@
     - kind: called_tool
       value: get_maintenance_history
 
+# Nobody is signed in: the assistant asks for a name once, but an anonymous
+# report beats no report (Isaac, 2026-09-23). A reporter who declines up front
+# gets their ticket filed in the same turn.
 - id: issue-report-calls-tool
-  prompt: "The exhaust fan on the Trotec Speedy 400 is making a loud grinding noise. Please file a maintenance ticket for it."
+  prompt: "The exhaust fan on the Trotec Speedy 400 is making a loud grinding noise. Please file a maintenance ticket for it — I'd rather not give my name."
   context: { page: gallery }
   assert:
     - kind: called_tool
       value: report_issue
+
+# Without a decline, the first reply asks who is reporting before filing.
+- id: issue-report-asks-for-name
+  prompt: "The exhaust fan on the Trotec Speedy 400 is making a loud grinding noise. Please file a maintenance ticket for it."
+  context: { page: gallery }
+  assert:
+    - kind: contains_all
+      value: ["name"]

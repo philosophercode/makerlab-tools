@@ -115,7 +115,9 @@ describe("PrimaryNav", () => {
   });
 });
 
-// en.json: nav.signIn = "SIGN IN", nav.signOut = "SIGN OUT".
+// en.json: nav.signIn = "SIGN IN", nav.signedInAria = "Signed in as {name}".
+// Signed-in controls live in the profile menu; its own behaviour is covered in
+// ProfileMenu.test.tsx. These tests cover which control the bar shows.
 describe("PrimaryNav — sign-in control", () => {
   beforeEach(() => {
     usePathname.mockReturnValue("/");
@@ -134,7 +136,7 @@ describe("PrimaryNav — sign-in control", () => {
       })
     ).toHaveTextContent("SIGN IN");
     expect(
-      screen.queryByRole("button", { name: "SIGN OUT" })
+      screen.queryByRole("button", { name: /Signed in as/ })
     ).not.toBeInTheDocument();
   });
 
@@ -155,44 +157,40 @@ describe("PrimaryNav — sign-in control", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows the first name and a sign-out control once signed in", async () => {
+  it("replaces sign-in with the profile control once signed in", async () => {
     fetchIdentity.mockResolvedValue({ role: "user", name: "Ada Lovelace" });
     render(<PrimaryNav />);
 
-    expect(await screen.findByText("Ada")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "SIGN OUT" })
-    ).toBeInTheDocument();
+    const profile = await screen.findByRole("button", { name: "Signed in as Ada" });
+    expect(profile).toHaveAttribute("aria-haspopup", "menu");
+    expect(profile).toHaveTextContent("Ada");
     expect(
       screen.queryByRole("button", { name: /Sign in/ })
     ).not.toBeInTheDocument();
-    // First name only — the surname is not shown.
+    // First name only in the bar — the full name is in the menu.
     expect(screen.queryByText("Ada Lovelace")).not.toBeInTheDocument();
   });
 
-  it("names the signed-in state for screen readers", async () => {
-    fetchIdentity.mockResolvedValue({ role: "admin", name: "Niti Parikh" });
-    render(<PrimaryNav />);
-
-    expect(await screen.findByLabelText("Signed in as Niti")).toHaveTextContent(
-      "Niti"
-    );
-  });
-
-  it("renders no avatar image in either state (technical-schematic system)", async () => {
-    fetchIdentity.mockResolvedValue({ role: "user", name: "Ada Lovelace" });
+  it("shows the Google photo in the profile control", async () => {
+    fetchIdentity.mockResolvedValue({
+      role: "user",
+      name: "Ada Lovelace",
+      image: "https://lh3.googleusercontent.com/a/ada",
+    });
     const { container } = render(<PrimaryNav />);
 
-    await screen.findByText("Ada");
-    expect(container.querySelector("img")).toBeNull();
+    await screen.findByRole("button", { name: "Signed in as Ada" });
+    const img = container.querySelector("img");
+    expect(img).toHaveAttribute("src", "https://lh3.googleusercontent.com/a/ada");
+    expect(img).toHaveAttribute("referrerpolicy", "no-referrer");
   });
 
-  it("still offers sign-out when Google supplied no display name", async () => {
+  it("still offers the profile control when Google supplied no display name", async () => {
     fetchIdentity.mockResolvedValue({ role: "user", name: null });
     render(<PrimaryNav />);
 
     expect(
-      await screen.findByRole("button", { name: "SIGN OUT" })
+      await screen.findByRole("button", { name: "Account menu" })
     ).toBeInTheDocument();
   });
 
@@ -204,16 +202,6 @@ describe("PrimaryNav — sign-in control", () => {
     await user.click(await screen.findByRole("button", { name: /Sign in/ }));
 
     expect(startGoogleSignIn).toHaveBeenCalledWith("/tools/form-4");
-  });
-
-  it("signs out through the shared helper", async () => {
-    const user = userEvent.setup();
-    fetchIdentity.mockResolvedValue({ role: "user", name: "Ada Lovelace" });
-    render(<PrimaryNav />);
-
-    await user.click(await screen.findByRole("button", { name: "SIGN OUT" }));
-
-    expect(signOutAndReload).toHaveBeenCalledTimes(1);
   });
 
   it("re-enables the control when sign-in could not start", async () => {
@@ -273,60 +261,10 @@ describe("PrimaryNav — sign-in control", () => {
   });
 });
 
-// The header is where the staff refresh control lives (ops hardening spec §3.2),
-// because it reuses the identity this component already resolved. Its own
-// behaviour is covered in RefreshCatalogButton.test.tsx.
-describe("PrimaryNav — staff refresh control", () => {
-  beforeEach(() => {
-    usePathname.mockReturnValue("/");
-    fetchIdentity.mockClear();
-    fetchIdentity.mockResolvedValue(null);
-  });
-
-  it("offers the refresh control to an admin", async () => {
-    fetchIdentity.mockResolvedValue({ role: "admin", name: "Niti Parikh" });
-    render(<PrimaryNav />);
-
-    expect(
-      await screen.findByRole("button", { name: /Refresh the/ })
-    ).toBeInTheDocument();
-  });
-
-  it("offers the refresh control to a super admin", async () => {
-    fetchIdentity.mockResolvedValue({ role: "super_admin", name: "Isaac Steinberg" });
-    render(<PrimaryNav />);
-
-    expect(
-      await screen.findByRole("button", { name: /Refresh the/ })
-    ).toBeInTheDocument();
-  });
-
-  it("does not show it to an ordinary signed-in user", async () => {
-    fetchIdentity.mockResolvedValue({ role: "user", name: "Ada Lovelace" });
-    render(<PrimaryNav />);
-
-    await screen.findByRole("button", { name: "SIGN OUT" });
-    expect(
-      screen.queryByRole("button", { name: /Refresh the/ })
-    ).not.toBeInTheDocument();
-  });
-
-  it("does not show it to an anonymous visitor", async () => {
-    render(<PrimaryNav />);
-
-    await screen.findByRole("button", { name: /Sign in/ });
-    expect(
-      screen.queryByRole("button", { name: /Refresh the/ })
-    ).not.toBeInTheDocument();
-  });
-});
-
-// en.json: nav.add = "ADD", nav.addAria = "Add new equipment to the inventory".
-// Adding equipment needs `tools.add` (spec §3.5); the chat enforces it
-// server-side, so this only asserts the entry point's visibility.
-describe("PrimaryNav — add equipment", () => {
-  const ADD = "Add new equipment to the inventory";
-
+// Isaac, 2026-09-23: the bar holds TOOLS, PROJECTS, ABOUT, REPORT and the
+// profile control (or SIGN IN) — nothing else, whatever the role. Admin, Add
+// equipment and Sign out are in the profile menu; Refresh is on /admin.
+describe("PrimaryNav — what the bar holds", () => {
   beforeEach(() => {
     usePathname.mockReturnValue("/");
     fetchIdentity.mockClear();
@@ -334,29 +272,57 @@ describe("PrimaryNav — add equipment", () => {
   });
 
   it.each([
-    ["admin", "Niti Parikh"],
-    ["super_admin", "Isaac Steinberg"],
-  ] as const)("offers it to %s", async (role, name) => {
+    ["user", "Ada Lovelace", "Ada"],
+    ["admin", "Niti Parikh", "Niti"],
+    ["super_admin", "Isaac Steinberg", "Isaac"],
+  ] as const)("shows only links, Report and the profile control to %s", async (role, name, first) => {
     fetchIdentity.mockResolvedValue({ role, name });
     render(<PrimaryNav />);
 
-    expect(await screen.findByRole("button", { name: ADD })).toHaveTextContent(
-      "ADD"
-    );
+    await screen.findByRole("button", { name: `Signed in as ${first}` });
+
+    expect(screen.getAllByRole("link").map((link) => link.textContent)).toEqual([
+      "TOOLS",
+      "PROJECTS",
+      "ABOUT",
+    ]);
+    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual([
+      "Report a problem",
+      `Signed in as ${first}`,
+    ]);
   });
 
-  it("does not offer it to an ordinary signed-in user", async () => {
-    fetchIdentity.mockResolvedValue({ role: "user", name: "Ada Lovelace" });
-    render(<PrimaryNav />);
-
-    await screen.findByRole("button", { name: "SIGN OUT" });
-    expect(screen.queryByRole("button", { name: ADD })).not.toBeInTheDocument();
-  });
-
-  it("does not offer it to an anonymous visitor", async () => {
+  it("shows only links, Report and Sign in to an anonymous visitor", async () => {
     render(<PrimaryNav />);
 
     await screen.findByRole("button", { name: /Sign in/ });
-    expect(screen.queryByRole("button", { name: ADD })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link")).toHaveLength(3);
+    expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual([
+      "REPORT",
+      "SIGN IN",
+    ]);
+  });
+
+  it("keeps Admin, Add, Refresh and Sign out out of the bar until the menu opens", async () => {
+    fetchIdentity.mockResolvedValue({ role: "super_admin", name: "Isaac Steinberg" });
+    render(<PrimaryNav />);
+
+    await screen.findByRole("button", { name: "Signed in as Isaac" });
+    expect(screen.queryByRole("link", { name: "ADMIN" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Add new equipment/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Refresh the/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "SIGN OUT" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("opens the profile menu from the bar, with the entries the role holds", async () => {
+    const user = userEvent.setup();
+    fetchIdentity.mockResolvedValue({ role: "admin", name: "Niti Parikh" });
+    render(<PrimaryNav />);
+
+    await user.click(await screen.findByRole("button", { name: "Signed in as Niti" }));
+
+    const items = screen.getAllByRole("menuitem").map((item) => item.textContent);
+    expect(items).toEqual(["ADMIN", "ADD EQUIPMENT", "SIGN OUT"]);
   });
 });

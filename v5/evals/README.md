@@ -21,16 +21,24 @@ Design spec: [`docs/specs/2026-07-29-agent-eval-harness-design.md`](../../docs/s
 
 ## Running it
 
+Every model call goes through the Vercel AI Gateway (gateway spec §3.1) — there
+is no direct-provider path any more, and `ANTHROPIC_API_KEY` is read by
+nothing.
+
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...   # or AI_GATEWAY_API_KEY
+export AI_GATEWAY_API_KEY=...   # or run where VERCEL_OIDC_TOKEN is already set
 npm run eval
 
-EVAL_MODEL=claude-haiku-4-5 npm run eval   # try a different model
+EVAL_MODEL=openai/gpt-6-sol npm run eval          # try a different model
+EVAL_MODEL=anthropic/claude-sonnet-5 npm run eval # or a different provider entirely
 ```
 
-The suite runs the deployment's own model (`src/lib/model.ts`), so a run says
-something about production. `EVAL_MODEL` overrides it — which is exactly what
-this harness is for when the question is "does the next model still behave?".
+The suite runs the deployment's own model — job `chat` in `src/lib/ai/models.ts`
+(`openai/gpt-6-luna` by default, `MODEL_CHAT` overrides it) — so a run says
+something about production. `EVAL_MODEL` overrides the eval's model
+independently of `MODEL_CHAT`, with an explicit Gateway id (`provider/model`,
+lower case), which is exactly what this harness is for when the question is
+"does the next model still behave?".
 
 > [!IMPORTANT]
 > **This makes real, paid model calls** — roughly one per case, plus a retry for
@@ -39,7 +47,38 @@ this harness is for when the question is "does the next model still behave?".
 > wired into a pull-request trigger where a fork could spend your money.
 
 **When to run it:** before merging a change to a prompt fragment, a capability,
-or the model id — and before a demo. That is the whole policy.
+or a job's model id — and before a demo. That is the whole policy.
+
+### The §10 eval gate — before switching `MODEL_CHAT`
+
+Before pointing `MODEL_CHAT` (or the deployment's default) at a new model, the
+gateway spec's §10 gate is: **the model must pass every honest-absence and
+manual-grounding case, and all but one of the rest — run twice.**
+
+```bash
+EVAL_MODEL=openai/gpt-6-luna npm run eval
+EVAL_MODEL=openai/gpt-6-luna npm run eval   # again — a FLAKY case on run 1 must not recur on run 2
+```
+
+The 2026-09-23 results are recorded, run by run, in the gateway spec: Luna first
+missed the gate (amendment "The chat eval gate") and chat ran on
+`anthropic/claude-sonnet-5`; after the chat prompt was tuned, Luna passed it on
+three runs and chat moved to `openai/gpt-6-luna` (amendment "Chat prompt tuning
+for Luna"). The anonymous-report behaviour is covered by two cases: with nobody
+signed in the assistant asks for a name first (`issue-report-asks-for-name`), and
+a reporter who declines still gets the ticket filed (`issue-report-calls-tool`):
+an anonymous report beats no report. Luna passed all 14 cases on 2026-09-23.
+
+Read every `cases/honest-absence.yaml` and `cases/manual-grounding.yaml` case as
+a hard requirement (no `FAIL`, no `FLAKY`, on either run) and every other case
+file with one miss tolerated per run. A structural failure — the same case
+failing both runs, or failing for a different reason each time — is worth
+investigating before the model goes live regardless of the count; see
+"FLAKY is not a pass" below. This is a policy for a person driving the gate by
+hand, not a script: nothing in `evals/` enforces the "all but one" count for
+you, because `report.totals.failed` is checked strictly (`toBe(0)`) — a
+run with one tolerated miss still exits non-zero, on purpose, so it is never
+silently green in a script.
 
 Output is a per-case line, a detail block for anything that did not pass, and a
 JSON artifact at `evals/.last-run.json` (gitignored).
@@ -168,9 +207,28 @@ test nothing.
 `identify_tools`, `report_correction`) is replaced with a recorded no-op, so the
 model still sees and can still call the same tool surface, but an eval can never
 write a row. `create_tool` is MCP-only and never reaches the chat.
-The provider-native `web_search` / `web_fetch` tools the chat route adds are
-omitted — live network, unbounded cost, non-deterministic — so a case must not
-depend on the assistant reading a page.
+
+**Nothing is ever fetched from the live web, either.** Two different tools, two
+different reasons, both landing on "record it":
+
+- **`exa_search`** — the Gateway's own search (gateway spec §3.2), which the
+  chat route adds directly, outside `CAPABILITIES`. `composeCase` builds the
+  tool set from the registry alone, so this tool is simply never in it — the
+  same omission that kept the old provider-native `web_search` out.
+- **`read_page`** — a capability tool (gateway spec §3.3), so it *is* in
+  `CAPABILITIES` and would otherwise reach an eval's tool set intact.
+  `harness.ts`'s `stubLiveReads` records it exactly like a write tool: real
+  name, description and schema, a no-op `run`. It is `kind: "read"` — nothing
+  is written — but it makes a real HTTP request to whatever URL the model
+  names, which is a live-network, unbounded-cost, non-deterministic call by the
+  same argument that kept `web_fetch` out before it.
+
+Either tool could instead have been left live — evals already make real,
+live model calls — but recording keeps the suite's cost and behaviour bounded
+by the case set alone, which is the harness's whole design (design spec §8).
+No case in `cases/*.yaml` depends on the assistant reading a page or searching
+the live web; if one ever needs to, that is the point at which this decision
+should be revisited, not worked around.
 
 ## Files
 
@@ -180,10 +238,11 @@ depend on the assistant reading a page.
 | `assertions.ts` | The assertion vocabulary. Pure functions, no I/O |
 | `cases.ts` | YAML subset parser + validation. Fails loudly at load |
 | `fixtures.ts` | Pins the mock catalogue: aliases, spec fields, equipment lexicon |
+| `harness.ts` | `composeCase` (the real prompt + tool set for one case), `stubWrites`, `stubLiveReads` |
 | `runner.ts` | Control flow: execute → assert → retry → classify → report |
 | `run.eval.ts` | `npm run eval` entrypoint: the real model call and safety rails |
 | `vitest.config.ts` | Config for `npm run eval` only — never picked up by `npm test` |
 
-`assertions.ts`, `cases.ts` and `runner.ts` are covered by `*.test.ts` files that
-run inside `npm test` with **no API key and no cost** — the runner's control flow
-is verified against a stubbed model response.
+`assertions.ts`, `cases.ts`, `harness.ts` and `runner.ts` are covered by
+`*.test.ts` files that run inside `npm test` with **no API key and no cost** —
+the runner's control flow is verified against a stubbed model response.

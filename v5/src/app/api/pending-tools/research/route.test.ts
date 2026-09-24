@@ -20,8 +20,13 @@ const wf = vi.hoisted(() => ({
   researchBatch: Object.assign(async () => ({ researched: 0, failed: 0 }), { workflowId: "research-batch" }),
 }));
 
+const imageWf = vi.hoisted(() => ({
+  findDifferentImage: Object.assign(async () => "done", { workflowId: "image-retry" }),
+}));
+
 vi.mock("workflow/api", () => ({ start: wf.start }));
 vi.mock("../../../../workflows/research-batch", () => ({ researchBatch: wf.researchBatch }));
+vi.mock("../../../../workflows/image-retry", () => ({ findDifferentImage: imageWf.findDifferentImage }));
 
 /** Withhold permissions for one test — see `admin/corrections/actions.test.ts`. */
 const override = vi.hoisted(() => ({ permissions: null as Set<string> | null }));
@@ -45,8 +50,10 @@ import {
   updatePendingTool,
 } from "@/lib/data/pending-tools";
 import { getDb, resetDbForTests } from "@/lib/db/client";
-import { pendingTools } from "@/lib/db/schema/index";
+import { pendingTools, researchRequests } from "@/lib/db/schema/index";
+import { REVIEWER_NOTE_MAX_CHARS } from "@/lib/intake/limits";
 import type { PendingApiError, ResearchStartedResponse } from "@/lib/intake/types";
+import type { ResearchResult } from "@/lib/research/result";
 import { POST } from "./route";
 
 const AUTH_SECRET = "research-route-test-secret";
@@ -407,5 +414,151 @@ describe("POST /api/pending-tools/research — what moves", () => {
     const res = await post({ ids });
     expect(res.status).toBe(202);
     for (const row of await rows(ids)) expect(row.researchRequestId).toBe(res.body.requestId);
+  });
+});
+
+describe('POST /api/pending-tools/research — a reviewer\'s note (amendment "reviewer notes")', () => {
+  it("hands the cleaned note to the run with the one item", async () => {
+    const [a] = await items(1);
+    const res = await post({ ids: [a], note: "  use the bambulab.com\nX2D product page " });
+    expect(res.status).toBe(202);
+    expect(wf.start).toHaveBeenCalledWith(wf.researchBatch, [res.body.requestId, [a], "use the bambulab.com X2D product page"]);
+  });
+
+  it("starts with no note when the note is blank", async () => {
+    const [a] = await items(1);
+    const res = await post({ ids: [a], note: "   " });
+    expect(res.status).toBe(202);
+    expect(wf.start).toHaveBeenCalledWith(wf.researchBatch, [res.body.requestId, [a]]);
+  });
+
+  it("refuses a note over the cap, a note on several items, and a note from someone who cannot approve — moving nothing", async () => {
+    const [a, b] = await items(2);
+    expect((await post({ ids: [a], note: "x".repeat(REVIEWER_NOTE_MAX_CHARS + 1) })).status).toBe(400);
+    expect((await post({ ids: [a, b], note: "use the product page" })).status).toBe(400);
+
+    override.permissions = new Set(["tools.add"]);
+    const refused = await post({ ids: [a], note: "use the product page" });
+    expect(refused.status).toBe(403);
+    expect(refused.body.code).toBe("forbidden");
+    override.permissions = null;
+
+    expect(wf.start).not.toHaveBeenCalled();
+    expect(await statuses([a, b])).toEqual(["identified", "identified"]);
+  });
+});
+
+describe('POST /api/pending-tools/research — a guided redo (amendment "Guided redo (focus + guidance)")', () => {
+  const RESULT: ResearchResult = {
+    canonicalName: "Z printer",
+    description: "A printer.",
+    specs: [],
+    materials: [],
+    ppeRequired: [],
+    tags: [],
+    trainingRequired: null,
+    useRestrictions: null,
+    category: { name: "FDM", group: null, existingId: null },
+    resources: [],
+    droppedLinks: [],
+    sourceUrls: [],
+    evidence: {
+      userStatedModel: true,
+      modelPlateRead: null,
+      manufacturerPageFound: false,
+      manualFound: false,
+      specsFromSource: false,
+      categoryOnly: false,
+    },
+    confidence: { level: "medium", basis: [], unknowns: [] },
+    images: { candidates: [], cleaned: null },
+  };
+
+  /** One item as research leaves it: `researched`, with a stored result. */
+  async function researched(extra: Partial<ResearchResult> = {}): Promise<string> {
+    const [id] = await items(1);
+    const db = await getDb();
+    await db
+      .update(pendingTools)
+      .set({ status: "researched", research: { ...RESULT, ...extra } })
+      .where(eq(pendingTools.id, id));
+    return id;
+  }
+
+  it("hands the focus and the note to the run, and marks the stored result with the redo", async () => {
+    const id = await researched();
+    const res = await post({ ids: [id], note: "use the spec\ntable", focus: ["links", "specs"] });
+    expect(res.status).toBe(202);
+    expect(wf.start).toHaveBeenCalledWith(wf.researchBatch, [res.body.requestId, [id], "use the spec table", ["specs", "links"]]);
+    const stored = (await getPendingTool(id))?.research;
+    expect(stored?.redoRequest).toMatchObject({ requestId: res.body.requestId, focus: ["specs", "links"] });
+    // Everything else on the stored result is untouched while it waits.
+    expect(stored?.description).toBe(RESULT.description);
+  });
+
+  it("sends a focus with no note as null, and everything as no focus at all", async () => {
+    const a = await researched();
+    const first = await post({ ids: [a], focus: ["description"] });
+    expect(wf.start).toHaveBeenLastCalledWith(wf.researchBatch, [first.body.requestId, [a], null, ["description"]]);
+
+    const b = await researched();
+    const second = await post({ ids: [b], focus: ["everything"] });
+    expect(second.status).toBe(202);
+    expect(wf.start).toHaveBeenLastCalledWith(wf.researchBatch, [second.body.requestId, [b]]);
+    // A Research again of everything still says what it is doing.
+    expect((await getPendingTool(b))?.research?.redoRequest).toMatchObject({ focus: [] });
+  });
+
+  it("runs the image stage alone for an image-only focus: Find a different image, one against the allowance", async () => {
+    const id = await researched();
+    const res = await post({ ids: [id], note: "a front view", focus: ["image"] });
+    expect(res.status).toBe(202);
+    expect(res.body.imageOnly).toBe(true);
+    expect(res.body.queued).toEqual([]);
+    expect(wf.start).toHaveBeenCalledTimes(1);
+    expect(wf.start).toHaveBeenCalledWith(imageWf.findDifferentImage, [res.body.requestId, id, "a front view"]);
+    const row = (await rows([id]))[0];
+    // Not queued: the item stays researched while its image search runs.
+    expect(row.status).toBe("researched");
+    expect((row.research as ResearchResult).imageRetry).toMatchObject({ status: "running", note: "a front view" });
+    const db = await getDb();
+    const ledger = await db.select().from(researchRequests).where(eq(researchRequests.pendingToolId, id));
+    expect(ledger).toHaveLength(1);
+  });
+
+  it("refuses another press while that image search runs", async () => {
+    const id = await researched();
+    expect((await post({ ids: [id], focus: ["image"] })).status).toBe(202);
+    const again = await post({ ids: [id], focus: ["specs"] });
+    expect(again.status).toBe(409);
+    expect(again.body.code).toBe("image_retry_running");
+    expect(await statuses([id])).toEqual(["researched"]);
+  });
+
+  it("refuses a focus on several items, an unknown focus, a focus without tools.approve, and one with nothing to merge into", async () => {
+    const [a, b] = [await researched(), await researched()];
+    expect((await post({ ids: [a, b], focus: ["specs"] })).status).toBe(400);
+    expect((await post({ ids: [a], focus: ["tags"] })).status).toBe(400);
+    expect((await post({ ids: [a], focus: "specs" })).status).toBe(400);
+
+    override.permissions = new Set(["tools.add"]);
+    expect((await post({ ids: [a], focus: ["specs"] })).status).toBe(403);
+    override.permissions = null;
+
+    const [fresh] = await items(1);
+    const nothing = await post({ ids: [fresh], focus: ["specs"] });
+    expect(nothing.status).toBe(409);
+    expect(nothing.body.code).toBe("not_researchable");
+
+    expect(wf.start).not.toHaveBeenCalled();
+    expect(await statuses([a, b, fresh])).toEqual(["researched", "researched", "identified"]);
+  });
+
+  it("accepts a one-paragraph note up to the new cap", async () => {
+    const id = await researched();
+    const note = "x".repeat(REVIEWER_NOTE_MAX_CHARS);
+    const res = await post({ ids: [id], note, focus: ["specs"] });
+    expect(res.status).toBe(202);
+    expect(wf.start).toHaveBeenCalledWith(wf.researchBatch, [res.body.requestId, [id], note, ["specs"]]);
   });
 });

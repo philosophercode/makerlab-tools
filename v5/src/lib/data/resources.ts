@@ -4,6 +4,7 @@ import { attachments, resources } from "../db/schema/index.ts";
 import type { Db } from "../db/types.ts";
 import { claimAttachments, releaseAttachments } from "./attachments.ts";
 import { isManualArchiveKey, manualSourceKey } from "./manual-archives.ts";
+import { listManualStates, type ManualState } from "./manual-documents.ts";
 import { isUuid } from "./uuid.ts";
 import type { Refused } from "./write-result.ts";
 
@@ -111,6 +112,11 @@ export interface EditorResource {
   fileUrls: string[];
   /** The archived copy of the PDF `url` points at, if the manual archive has made one. */
   archivedUrl?: string | null;
+  /**
+   * Its PDF's processing into text (manual text spec §5): stored, a scan, failed
+   * with a reason, or still processing. Absent when the resource holds no PDF.
+   */
+  manual?: ManualState;
 }
 
 /**
@@ -142,9 +148,18 @@ export async function listResourcesForEditor(
 
   if (rows.length === 0) return [];
 
-  const filesByResource = await loadFileUrls(db, rows);
+  const [filesByResource, manuals] = await Promise.all([
+    loadFileUrls(db, rows),
+    listManualStates(
+      db,
+      rows.map((row) => row.id)
+    ),
+  ]);
 
-  return rows.map((row) => ({ ...row, ...(filesByResource.get(row.id) ?? NO_FILES) }));
+  return rows.map((row) => {
+    const manual = manuals.get(row.id);
+    return { ...row, ...(filesByResource.get(row.id) ?? NO_FILES), ...(manual ? { manual } : {}) };
+  });
 }
 
 // ── Writes (spec §4.6, §5.3(3)) ─────────────────────────────────────

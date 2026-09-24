@@ -1,6 +1,7 @@
 import {
   confidenceLevel,
   confidenceLines,
+  readCap,
   scoreConfidence,
   toEvidence,
 } from "./confidence";
@@ -267,5 +268,54 @@ describe("toEvidence", () => {
     expect(e.manualFound).toBe(true);
     expect(e.manufacturerPageFound).toBe(false);
     expect(scoreConfidence(e).level).toBe("medium");
+  });
+});
+
+describe('the read cap (amendment "Search text fallback and confidence cap")', () => {
+  const VIDEO = "https://www.youtube.com/watch?v=x2d";
+  const PAGE = "https://bambulab.com/en/x2d";
+  const strong = () => evidence({ userStatedModel: true, manualFound: true, manufacturerPageFound: true, specsFromSource: true });
+
+  it("names the cap: only videos read, nothing read, or none", () => {
+    expect(readCap({ sourceUrls: [VIDEO, "https://vimeo.com/1"] })).toBe("videoOnly");
+    expect(readCap({ sourceUrls: [] })).toBe("nothingRead");
+    expect(readCap({ sourceUrls: [VIDEO, PAGE] })).toBeNull();
+    // A caller that cannot say what was read (the chat card) is never capped.
+    expect(readCap()).toBeNull();
+    expect(readCap(null)).toBeNull();
+  });
+
+  it("never grades high when only videos, or nothing, were read — for every evidence combination", () => {
+    for (const e of allCombinations()) {
+      for (const sourceUrls of [[VIDEO], []]) {
+        const level = confidenceLevel(e, { sourceUrls });
+        expect(level).not.toBe("high");
+        // Only ever lowered by one step, and only from high.
+        expect(level).toBe(confidenceLevel(e) === "high" ? "medium" : confidenceLevel(e));
+      }
+    }
+  });
+
+  it("changes nothing when a page that is not a video was read", () => {
+    for (const e of allCombinations()) {
+      expect(confidenceLevel(e, { sourceUrls: [VIDEO, PAGE] })).toBe(confidenceLevel(e));
+      expect(confidenceLines(e, { sourceUrls: [PAGE] })).toEqual(confidenceLines(e));
+    }
+  });
+
+  it("says why first: a video-only result leads its unknowns with that line", () => {
+    const c = scoreConfidence(strong(), { sourceUrls: [VIDEO] });
+    expect(c.level).toBe("medium");
+    expect(c.unknowns[0]).toBe(
+      "Only a video was read — no product page, manual or spec sheet, so this cannot be high confidence"
+    );
+    expect(confidenceLines(strong(), { sourceUrls: [VIDEO] }).unknowns[0]).toEqual({ code: "videoOnly" });
+  });
+
+  it("says nothing was read, in place of the no-source line it makes redundant", () => {
+    const lines = confidenceLines(evidence({ userStatedModel: true }), { sourceUrls: [] });
+    expect(lines.unknowns.map((line) => line.code)).toEqual(["nothingRead"]);
+    expect(confidenceLines(evidence({ userStatedModel: true })).unknowns.map((line) => line.code)).toEqual(["source"]);
+    expect(scoreConfidence(evidence({ userStatedModel: true, manualFound: true }), { sourceUrls: [] }).level).toBe("medium");
   });
 });

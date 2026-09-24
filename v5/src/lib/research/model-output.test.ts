@@ -130,3 +130,33 @@ describe("parseFetchDraft", () => {
     expect(draft.useRestrictions).toBeNull();
   });
 });
+
+describe('parseFetchDraft — starter questions (amendment "Tool-specific starter questions")', () => {
+  it("reads them leniently: trimmed, blanks, repeats and statements dropped, over-long ones dropped, three at most", () => {
+    const draft = parseFetchDraft(
+      JSON.stringify({
+        starterQuestions: [
+          "  What resins can I print with?  ",
+          "",
+          "what resins can I print with?",
+          "Always wear gloves.",
+          `${"Very long ".repeat(10)}?`,
+          "How do I wash and cure a print?",
+          "How big can a part be?",
+          "What does the Form Wash do?",
+        ],
+      })
+    );
+    expect(draft.starterQuestions).toEqual([
+      "What resins can I print with?",
+      "How do I wash and cure a print?",
+      "How big can a part be?",
+    ]);
+  });
+
+  it("is no questions when the key is missing or not a list — never a refusal", () => {
+    expect(parseFetchDraft("{}").starterQuestions).toEqual([]);
+    expect(parseFetchDraft('{"starterQuestions": "What is it?"}').starterQuestions).toEqual([]);
+    expect(parseFetchDraft('{"starterQuestions": [1, null, {"q": "x"}]}').starterQuestions).toEqual([]);
+  });
+});

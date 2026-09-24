@@ -10,28 +10,42 @@ import {
 import { signIn } from "./utils/session";
 
 /**
- * Adding equipment, end to end (data platform design spec §5.4, §10 E2E
- * scenario 5): identify in the chat, research in the background, approve on
- * the preliminary page.
+ * Adding equipment, end to end (data platform design spec §5.4; gateway spec
+ * §3.5, §10 E2E scenario 5 for the image stage): identify in the chat,
+ * research in the background — which now includes finding a product image —
+ * approve on the preliminary page, choosing the image there.
  *
- * **The model is stubbed at the provider boundary, not in the browser.** Every
- * other chat spec fulfils `/api/chat` with a canned stream, which cannot do
- * what this one needs: `identify_tools` writing real pending rows, and the
- * research workflow running server-side after the click. So the server talks to
- * `e2e/stubs/anthropic-stub.ts` on localhost, and everything in between is the
- * real app — the chat route and the capability, `PATCH` and the research
+ * **The model is stubbed at the Gateway's own wire format, not in the
+ * browser.** Every other chat spec fulfils `/api/chat` with a canned stream,
+ * which cannot do what this one needs: `identify_tools` writing real pending
+ * rows, and the research workflow running server-side after the click. So the
+ * server talks to `e2e/stubs/gateway-stub.ts` on localhost (through
+ * `AI_GATEWAY_BASE_URL`, `playwright.config.ts`), and everything in between is
+ * the real app — the chat route and the capability, `PATCH` and the research
  * route, `researchBatch` on the Workflow SDK's local world, link
- * verification, the approval transaction and the cache invalidation behind it.
+ * verification, the image stage, the approval transaction and the cache
+ * invalidation behind it.
  *
- * **This runs in its own Playwright project, after every other spec**
- * (`playwright.config.ts`). Approving publishes a third tool into the demo
- * database all specs share, and `gallery.spec.ts` counts two.
+ * **This runs in its own Playwright project, against its own server**
+ * (`INTAKE_APP_ORIGIN`, `playwright.config.ts`): the same production build,
+ * started a second time with a local Blob folder (`BLOB_LOCAL_DIR`), so the
+ * image stage can store its cleaned copy and approval can publish it — while
+ * the main server keeps the "uploads unavailable" branch `projects.spec.ts`
+ * asserts. Its demo database is its own, so the tool approved here never
+ * reaches `gallery.spec.ts`'s count.
  *
  * **It is one test, and it is not retried.** Each step is the next step's
  * precondition, and a second attempt would find the first attempt's rows —
  * already researched, already approved — under the same names, flagged as
  * duplicates of themselves. A retry could only fail for a reason unrelated to
  * the one that failed the first time.
+ *
+ * **The image (gateway spec §10, scenario 5).** The stub's search results and
+ * product page carry one image, on the stub's own origin — a product on a
+ * plain white backdrop; research probes it, classifies it `plain`, has nothing
+ * to rank it against, and cuts the backdrop out deterministically (no model).
+ * The review page preselects that cleaned copy (served by the cleaned-image
+ * route), the test approves it, and the gallery card shows the published copy.
  */
 
 test.describe.configure({ retries: 0 });
@@ -49,11 +63,12 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   await page.goto("/");
 
   // ── Step 1: identify, in the chat ─────────────────────────────────────────
-  // The header's Add button opens the chat with the intake seed (§5.4 step 1).
-  // It asks `/api/identity` after mount, so it arrives a beat after the page.
-  await page
-    .getByRole("button", { name: "Add new equipment to the inventory" })
-    .click({ timeout: 15_000 });
+  // The profile menu's Add equipment entry opens the chat with the intake seed
+  // (§5.4 step 1). The profile control asks `/api/identity` after mount, so it
+  // arrives a beat after the page.
+  const nav = page.getByRole("navigation", { name: "Primary navigation" });
+  await nav.getByRole("button", { name: /signed in as/i }).click({ timeout: 15_000 });
+  await nav.getByRole("menuitem", { name: /add equipment/i }).click();
   const chat = page.getByRole("dialog");
   await expect(chat.getByText("I'd like to add new equipment to the inventory.")).toBeVisible();
   await expect(chat.getByText(ASK_FOR_ITEMS_REPLY)).toBeVisible({ timeout: 15_000 });
@@ -117,16 +132,48 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   });
   await expect(page.getByText(`${domino.name} user manual`)).toBeVisible();
 
+  // The image stage (gateway spec §3.5): one candidate, and its cleaned copy
+  // beside it — preselected, because a cleaned copy exists (§6). The tile's
+  // picture comes from the cleaned-image route, behind tools.approve, and it
+  // really loaded (a broken one would disable the choice).
+  const imageGroup = page.getByRole("radiogroup", { name: "Product image" });
+  await expect(imageGroup).toBeVisible({ timeout: 15_000 });
+  await expect(imageGroup.getByRole("radio", { name: "Background removed" })).toBeChecked();
+  await expect(imageGroup.getByRole("radio", { name: "Option 1" })).not.toBeChecked();
+  await expect(imageGroup.getByRole("radio", { name: "No image" })).not.toBeChecked();
+  await expect(imageGroup.getByText("From localhost").first()).toBeVisible();
+  const cleaned = imageGroup.getByRole("img", { name: `${domino.name}, background removed` });
+  await expect(cleaned).toHaveAttribute("src", /^\/api\/pending-tools\/[0-9a-f-]{36}\/cleaned-image(\?v=[0-9a-f-]{36})?$/);
+  await expect
+    .poll(() => cleaned.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth), {
+      timeout: 15_000,
+    })
+    .toBeGreaterThan(0);
+
   await page.getByRole("button", { name: "Approve", exact: true }).click();
   await expect(page.getByText("Approved and published. It is in the catalog now.")).toBeVisible({
     timeout: 15_000,
   });
+  // The cleaned copy was attached, so there is no image warning.
+  await expect(
+    page.getByText(
+      "The tool was created, but its image could not be attached. Add a photo in the editor."
+    )
+  ).toHaveCount(0);
 
-  // The tool is in the gallery — approval invalidated the cached catalogue.
+  // The tool is in the gallery — approval invalidated the cached catalogue —
+  // and its card shows the cleaned copy, now public in this server's local
+  // Blob store, not the placeholder.
   await page.goto("/");
-  await expect(page.getByRole("heading", { name: domino.name, level: 2 })).toBeVisible({
-    timeout: 15_000,
-  });
+  const heading = page.getByRole("heading", { name: domino.name, level: 2 });
+  await expect(heading).toBeVisible({ timeout: 15_000 });
+  const cover = page.locator("a.tool-card").filter({ has: heading }).locator(".tool-card-image img");
+  await expect(cover).toHaveAttribute("src", /\/api\/dev-blob\/.+\.png$/);
+  await expect
+    .poll(() => cover.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth), {
+      timeout: 15_000,
+    })
+    .toBeGreaterThan(0);
 
   // The deselected one was never researched: it waits, with its Research button.
   await page.goto("/admin/intake");

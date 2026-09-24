@@ -45,6 +45,7 @@ export interface ToolRow {
   useRestrictions: string | null;
   emergencyStop: string | null;
   notes: string | null;
+  starterQuestions: string[];
   categoryName: string | null;
   categoryGroup: string | null;
   room: string | null;
@@ -199,6 +200,7 @@ async function loadTools(db: Db, where: SQL | undefined): Promise<MakerLabTool[]
       useRestrictions: tools.useRestrictions,
       emergencyStop: tools.emergencyStop,
       notes: tools.notes,
+      starterQuestions: tools.starterQuestions,
       categoryName: categories.name,
       categoryGroup: categories.group,
       room: locations.room,
@@ -374,6 +376,7 @@ export function toMakerLabTool(
     notes: tool.notes,
     links: resourceLinks(resourceRows, files),
     units: mappedUnits,
+    starterQuestions: tool.starterQuestions ?? [],
   };
 }
 

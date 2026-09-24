@@ -267,6 +267,62 @@ describe("approveAndRecord", () => {
   });
 });
 
+describe("approveAndRecord — the product image", () => {
+  // The image paths themselves are `approval-image.test.ts`; this pins how an
+  // approval that chose no image reads, and that the choice is checked only
+  // after the refusals that need nothing but the row.
+  it("records that no image was chosen, and answers imageAttached: false with no warning", async () => {
+    const id = await researchedItem();
+
+    const result = await approveAndRecord({ userId: approver }, { id, publish: true, fields: fields() });
+
+    expect(result).toMatchObject({ ok: true, imageAttached: false });
+    expect(result).not.toHaveProperty("warning");
+    const [event] = await events(id);
+    expect(event.detail).toMatchObject({ image: { choice: "none", attached: false } });
+  });
+
+  it("answers the row's own refusal before it looks at an image choice", async () => {
+    const missing = crypto.randomUUID();
+    expect(
+      await approveAndRecord(
+        { userId: approver },
+        { id: missing, publish: true, fields: fields({ image: { choice: "cleaned" } }) }
+      )
+    ).toEqual({ ok: false, error: "not_found" });
+
+    const low = await researchedItem(research(LOW));
+    expect(
+      await approveAndRecord(
+        { userId: approver },
+        { id: low, publish: true, fields: fields({ image: { choice: "cleaned" } }) }
+      )
+    ).toEqual({ ok: false, error: "low_confidence" });
+
+    const approved = await researchedItem();
+    await approveAndRecord({ userId: approver }, { id: approved, publish: false, fields: fields() });
+    expect(
+      await approveAndRecord(
+        { userId: approver },
+        { id: approved, publish: false, fields: fields({ image: { choice: "cleaned" } }) }
+      )
+    ).toEqual({ ok: false, error: "not_editable" });
+  });
+
+  it("refuses a cleaned choice research never produced as invalid_field, and creates nothing", async () => {
+    const id = await researchedItem();
+
+    expect(
+      await approveAndRecord(
+        { userId: approver },
+        { id, publish: true, fields: fields({ image: { choice: "cleaned" } }) }
+      )
+    ).toEqual({ ok: false, error: "invalid_field" });
+    expect((await getPendingTool(id))?.status).toBe("researched");
+    expect(await events(id)).toEqual([]);
+  });
+});
+
 describe("addUnitAndRecord", () => {
   it("adds the unit, records pending.approved as a unit, and busts the catalogue", async () => {
     const id = await unitItem("F4-NEW-1");

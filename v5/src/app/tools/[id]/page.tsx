@@ -5,7 +5,8 @@ import { EditToolControl } from "./EditToolControl";
 import { QrArrivalNotice } from "./QrArrivalNotice";
 import { DetailShell } from "../../../components/DetailShell";
 import { FlagButton } from "../../../components/FlagButton";
-import { getCatalogTool } from "../../../lib/catalog";
+import { ToolChatStarters } from "../../../components/ToolChatStarters";
+import { getCatalogTool, getManualContents } from "../../../lib/catalog";
 import { findToolByNotionPageId } from "../../../lib/data/catalog";
 import { isLegacyNotionId } from "../../../lib/legacy-id";
 import { getProjectsForTool } from "../../../lib/projects";
@@ -122,6 +123,8 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
   // "Built with this" — published projects referencing this tool (empty if no
   // projects DB is configured).
   const projects = await getProjectsForTool(tool.id);
+  // Each processed manual's chapters, linked to their pages (manual text spec §6).
+  const manualContents = await getManualContents(tool.id);
 
   return (
     <>
@@ -131,7 +134,11 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
       <Suspense fallback={null}>
         <QrArrivalNotice toolName={tool.name} />
       </Suspense>
-      <DetailShell tool={tool} projects={projects} />
+      <DetailShell tool={tool} projects={projects} manualContents={manualContents} />
+      {/* The assistant's starter chips for this tool, handed to the chat in
+          the layout; nothing is rendered (amendment "Tool-specific starter
+          questions"). */}
+      <ToolChatStarters slug={tool.slug} id={tool.id} questions={tool.starterQuestions ?? []} />
       {/* Edit mode, phone-first (§5.3(b)). Another dynamic hole of its own:
           the control asks `/api/identity` after mount, so the shell above it
           stays cached for the visitors who are not staff. */}

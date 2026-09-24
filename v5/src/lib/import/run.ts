@@ -427,6 +427,7 @@ export async function runImport(options: RunImportOptions): Promise<ImportReport
             sizeBytes: copied.sizeBytes,
             originalFilename: file.filename,
             sourceKey: file.id,
+            origin: "import",
           });
           existingKeys.add(file.id);
           fileCounts.copied += 1;

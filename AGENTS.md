@@ -52,9 +52,11 @@ that work until a migration is offered.
 ## Stack (v5)
 
 Next.js 16 (App Router, RSC, `cacheComponents`), React 19, TypeScript, Tailwind
-CSS 4. AI via Vercel AI SDK v6 → Claude. MCP via `@modelcontextprotocol/sdk`.
-`next-intl` across 12 locales, cookie-based. Vitest + React Testing Library +
-MSW + Playwright. Deployed on Vercel.
+CSS 4. AI via Vercel AI SDK v6 through the **Vercel AI Gateway** (Gateway-only
+as of the 2026-09-23 migration — no direct provider key; see `v5/AGENTS.md` and
+`docs/specs/2026-09-23-gateway-models-and-product-images-design.md`). MCP via
+`@modelcontextprotocol/sdk`. `next-intl` across 12 locales, cookie-based.
+Vitest + React Testing Library + MSW + Playwright. Deployed on Vercel.
 
 ## Commands
 

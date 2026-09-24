@@ -2,7 +2,7 @@ import { and, asc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import { getDb } from "../db/client.ts";
 import { rawRows } from "../db/raw.ts";
 import { attachments } from "../db/schema/index.ts";
-import type { AttachmentAccess, AttachmentOwner } from "../db/schema/vocabulary.ts";
+import type { AttachmentAccess, AttachmentOrigin, AttachmentOwner } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
 import { isUuid } from "./uuid.ts";
 
@@ -282,6 +282,13 @@ export interface NewAttachment {
    * own (an archived manual, `manual:<resource id>:<url>`), never by an upload.
    */
   sourceKey?: string | null;
+  /** How the file came to be stored (gateway spec §4.2). Every writer says; null only on old rows. */
+  origin?: AttachmentOrigin | null;
+  /** Where the bytes came from — a manufacturer PDF, a product image's URL. Never shown as the file itself. */
+  sourceUrl?: string | null;
+  /** Pixel dimensions, when the writer knows them (an image it inspected). */
+  width?: number | null;
+  height?: number | null;
 }
 
 export interface AttachmentReadOptions {
@@ -315,6 +322,10 @@ export async function createAttachment(
       originalFilename: row.originalFilename,
       uploadedBy: row.uploadedBy,
       sourceKey: row.sourceKey ?? null,
+      origin: row.origin ?? null,
+      sourceUrl: row.sourceUrl ?? null,
+      width: row.width ?? null,
+      height: row.height ?? null,
     })
     .returning({ id: attachments.id });
 
@@ -332,6 +343,9 @@ export interface StoredAttachment {
   ownerType: string | null;
   ownerId: string | null;
   position: number;
+  /** Null on rows written before migration `0008` (archived manuals excepted — it backfilled those). */
+  origin: string | null;
+  sourceUrl: string | null;
 }
 
 /**
@@ -408,4 +422,6 @@ const ATTACHMENT_COLUMNS = {
   ownerType: attachments.ownerType,
   ownerId: attachments.ownerId,
   position: attachments.position,
+  origin: attachments.origin,
+  sourceUrl: attachments.sourceUrl,
 };

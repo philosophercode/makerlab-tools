@@ -8,12 +8,10 @@ import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
-import { IdentificationCard } from "./IdentificationCard";
 import { IntakeTableCard } from "./IntakeTableCard";
 import { useChatLauncher } from "./ChatLauncherContext";
 import { siteConfig } from "../lib/site-config";
 import { startGoogleSignIn } from "../lib/auth/sign-in-client";
-import type { CardPayload } from "../lib/capabilities/types";
 import type { IntakeTablePayload } from "../lib/intake/types";
 import { downscaleForVision } from "../lib/chat/downscale-image";
 import { toVisionFileParts, withRecentPhotos } from "../lib/chat/photo-parts";
@@ -31,10 +29,22 @@ const SUGGESTIONS: Suggestion[] = [
 
 type ChatT = ReturnType<typeof useTranslations<"chat">>;
 
+/** A path segment as written, decoded when it can be. */
+function safeDecode(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
 function toolStatusLabel(partType: string, t: ChatT): string {
   if (partType === "tool-get_unit_details") return t("lookingUpUnit");
   if (partType === "tool-report_issue") return t("filingTicket");
   if (partType === "tool-identify_tools") return t("identifyingEquipment");
+  // Web search runs inside the Gateway, but its call still streams as a tool part.
+  if (partType === "tool-exa_search") return t("searchingWeb");
+  if (partType === "tool-read_page") return t("readingPage");
   return t("working");
 }
 
@@ -235,13 +245,32 @@ interface PendingPhoto {
 export function ChatFab() {
   const t = useTranslations("chat");
   const locale = useLocale();
-  const { isOpen, open, close, pendingSeed, consumeSeed } = useChatLauncher();
+  const { isOpen, open, close, pendingSeed, consumeSeed, toolStarters } = useChatLauncher();
   const [draft, setDraft] = useState("");
   const pathname = usePathname() || "/";
   const toolId = useMemo(() => {
     const match = pathname.match(/^\/tools\/(.+)$/);
     return match ? match[1] : undefined;
   }, [pathname]);
+
+  // The starter chips: the showing tool's own questions when its page
+  // registered some and the path still names it (spec amendment "Tool-specific
+  // starter questions"), else the generic three. Tool questions are data,
+  // English as researched; the generic ones are translated.
+  const suggestions = useMemo<{ key: string; icon: Suggestion["icon"]; label: string }[]>(() => {
+    const own =
+      toolId && toolStarters && toolStarters.keys.some((key) => key === toolId || key === safeDecode(toolId))
+        ? toolStarters.questions
+        : [];
+    if (own.length > 0) {
+      return own.map((question, n) => ({
+        key: `tool-${n}`,
+        icon: SUGGESTIONS[n % SUGGESTIONS.length].icon,
+        label: question,
+      }));
+    }
+    return SUGGESTIONS.map((suggestion) => ({ key: suggestion.key, icon: suggestion.icon, label: t(suggestion.key) }));
+  }, [toolId, toolStarters, t]);
 
   // `useChat` bakes the transport into a ref on first mount and never refreshes
   // it (see @ai-sdk/react useChat — only `id`/`chat` prop changes recreate the
@@ -536,15 +565,6 @@ export function ChatFab() {
     send(label);
   }
 
-  // An identification-card button was clicked: seed a follow-up user message
-  // through the existing send path (e.g. "confirm add: <id>"), which the intake
-  // agent resolves into the right tool call.
-  function handleCardAction(seedMessage: string) {
-    if (isLoading || !seedMessage.trim()) return;
-    if (isListening) stopDictation();
-    send(seedMessage);
-  }
-
   // Sign-in offered at the ceiling. Comes back to the page the conversation
   // started on, so the visitor lands where they were (spec §10).
   function handleCeilingSignIn() {
@@ -626,8 +646,8 @@ export function ChatFab() {
                     {toolId ? t("greetingTool") : t("greetingGeneral")}
                   </p>
                   <div className="chat-suggestions">
-                    {SUGGESTIONS.map((suggestion) => {
-                      const label = t(suggestion.key);
+                    {suggestions.map((suggestion) => {
+                      const label = suggestion.label;
                       return (
                         <button
                           key={suggestion.key}
@@ -657,15 +677,6 @@ export function ChatFab() {
                         p.type.startsWith("tool-") &&
                         (p as { state?: string }).state !== "output-available"
                     );
-                    // Cards from a capability tool's `card()` arrive as `data-card`
-                    // parts (design spec §6.3). Intake no longer emits one — it
-                    // writes the table below — but the renderer stays for any
-                    // tool that declares a card.
-                    const cardParts = message.parts.filter(
-                      (p): p is typeof p & { data: CardPayload } =>
-                        p.type === "data-card" &&
-                        (p as { data?: unknown }).data != null
-                    );
                     // The intake table arrives as a `data-intake-table` part
                     // written by `identify_tools` (data platform spec §5.4).
                     const intakeParts = message.parts.filter(
@@ -673,7 +684,7 @@ export function ChatFab() {
                         p.type === "data-intake-table" &&
                         (p as { data?: { kind?: unknown } }).data?.kind === "intake-table"
                     );
-                    const hasCard = cardParts.length > 0 || intakeParts.length > 0;
+                    const hasCard = intakeParts.length > 0;
                     if (textParts.length === 0 && !hasCard && !pendingTool) return null;
                     return (
                       <li
@@ -701,14 +712,6 @@ export function ChatFab() {
                             <p key={index}>{part.text}</p>
                           )
                         )}
-                        {cardParts.map((part, index) => (
-                          <IdentificationCard
-                            key={(part as { id?: string }).id ?? `card-${index}`}
-                            card={part.data}
-                            onAction={handleCardAction}
-                            disabled={isLoading}
-                          />
-                        ))}
                         {intakeParts.map((part) => (
                           <IntakeTableCard key={part.data.batchId} payload={part.data} />
                         ))}

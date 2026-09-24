@@ -10,7 +10,7 @@ import { resolveIdentity } from "../../../lib/auth/identity";
 
 const PROBE_TIMEOUT_MS = 5_000;
 
-type DatabaseHealth = "ok" | "unreachable" | "demo";
+type DatabaseHealth = "ok" | "unreachable" | "demo" | "local";
 
 interface HealthReport {
   status: "ok" | "degraded";
@@ -39,17 +39,22 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
  * substrate, not a failure, so it gets its own word instead of collapsing into
  * `"ok"` or `"unreachable"`.
  *
+ * `PGLITE_DATA_DIR` (a persistent PGlite on a developer's laptop) is real
+ * data, so it is probed like Postgres and answers `"local"` when it opens —
+ * the catalogue is live, but nobody should mistake the machine for Neon.
+ *
  * Nothing about a real failure escapes this function beyond one of three
  * words — a health endpoint that echoes a connection string or driver error
  * hands an attacker the configuration, so the detail is logged server-side
  * and nowhere else.
  */
 async function probeDatabase(): Promise<DatabaseHealth> {
-  if (dataSubstrate() === "pglite-demo") return "demo";
+  const substrate = dataSubstrate();
+  if (substrate === "pglite-demo") return "demo";
 
   try {
     await withTimeout(pingDb(), PROBE_TIMEOUT_MS);
-    return "ok";
+    return substrate === "pglite-local" ? "local" : "ok";
   } catch (error) {
     console.warn("Health probe: database unreachable:", error);
     return "unreachable";
@@ -78,7 +83,7 @@ async function checkHealth(): Promise<HealthReport> {
   return {
     status: database === "unreachable" ? "degraded" : "ok",
     database,
-    catalog: database === "ok" ? "live" : "demo",
+    catalog: database === "ok" || database === "local" ? "live" : "demo",
     toolCount,
     checkedAt: new Date().toISOString(),
   };
@@ -91,9 +96,9 @@ async function checkHealth(): Promise<HealthReport> {
  * Monitors alert on codes, so a 200 carrying `"status": "degraded"` would be
  * invisible — which is the exact silent failure this endpoint exists to end.
  *
- * Deliberately does not check Anthropic: a model outage doesn't make the catalog
- * wrong, and folding it in would fire the alert for something students can route
- * around.
+ * Deliberately does not check the model provider: a model outage doesn't make
+ * the catalog wrong, and folding it in would fire the alert for something
+ * students can route around.
  */
 export async function GET(req: Request) {
   // Rate limit before the probe — cheap as it is, it still touches Postgres.

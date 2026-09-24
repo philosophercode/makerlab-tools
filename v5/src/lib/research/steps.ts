@@ -1,53 +1,77 @@
-import { anthropic } from "@ai-sdk/anthropic";
 import { generateText } from "ai";
-import type { IntakeConfidenceLevel } from "../capabilities/types.ts";
-import {
-  completeResearch,
-  failResearch,
-  getPendingTool,
-  markResearching,
-  type PendingTool,
-} from "../data/pending-tools.ts";
+import { countExaCalls, EXA_SEARCH_TOOL, exaImageHints, exaPageTexts, researchExaSearch } from "../ai/exa.ts";
+import { describeGatewayCall, gatewayCallReport } from "../ai/gateway-usage.ts";
+import { languageModelFor, providerOptionsFor } from "../ai/models.ts";
+import type { StepLike } from "../ai/tool-caps.ts";
+import { completeResearch, failResearch, getPendingTool, markResearching, type PendingTool } from "../data/pending-tools.ts";
 import { listCategories } from "../data/taxonomy.ts";
 import {
-  RESEARCH_MAX_WEB_FETCHES,
+  RESEARCH_MAX_PAGE_READS,
+  RESEARCH_MAX_PDFS_READ,
   RESEARCH_MAX_WEB_SEARCHES,
   RESEARCH_STEP_MAX_RETRIES,
   RESEARCH_STEP_TIMEOUT_MS,
 } from "../intake/limits.ts";
-import { resolveChatModel } from "../model.ts";
+import type { ResearchFocusField } from "../intake/research-focus.ts";
+import type { ImageHint } from "../web/read-page.ts";
 import { assembleResearchResult, draftFromFindings, uniqueHosts, uniqueLinks } from "./assemble.ts";
 import { classifyResearchError, scrub } from "./errors.ts";
+import { parseFetchDraft, parseSearchFindings, type FetchDraft, type ModelLink, type SearchFindings } from "./model-output.ts";
+import { buildSearchPrompt, researchSystemPrompt } from "./prompt.ts";
 import {
-  parseFetchDraft,
-  parseSearchFindings,
-  type FetchDraft,
-  type ModelLink,
-  type SearchFindings,
-} from "./model-output.ts";
-import { buildFetchPrompt, buildSearchPrompt, researchSystemPrompt } from "./prompt.ts";
+  buildReadMessages,
+  candidatePageUrls,
+  manualTextUrls,
+  readCandidatePages,
+  readSourceUrls,
+  searchTextUrls,
+  type ReadPagesResult,
+} from "./read-pages.ts";
+import { selectSearchTexts, type SearchPageText } from "./search-text.ts";
+import { pickManualPdfs, withManualPdf } from "./manual-pdfs.ts";
+import { findStoredManualByUrl } from "../data/manual-documents.ts";
+import { getDb } from "../db/client.ts";
+import type { ResearchResult } from "./result.ts";
+import type { BatchSummary, ItemStepResult, ReadStepResult, SearchStepResult } from "./step-types.ts";
 import { DEFAULT_MAX_LINKS, verifyResourceLinks } from "./verify-links.ts";
 
+export type { BatchSummary, ImageHint, ItemStepResult, ReadStepResult, SearchStepResult } from "./step-types.ts";
+
 /**
- * The research workflow's steps (spec §3.7, resized by the 2026-09-22
- * amendment for the Hobby plan's 300-second function ceiling).
+ * The research workflow's search and read steps (spec §3.7, resized by the
+ * 2026-09-22 amendment for the Hobby plan's 300-second function ceiling;
+ * gateway spec §3.2, §3.3, §3.5, §5.1).
  *
- * **Two steps per item**, so neither approaches that ceiling alone:
+ * **Three steps per item**, so none approaches that ceiling alone. The first
+ * two are here; the third is the image stage (`image-steps.ts`):
  *
- * 1. {@link searchItem} — `queued` → `researching`, then one model call with
- *    `web_search` (at most four uses) that settles the model and names the
- *    pages worth reading.
- * 2. {@link fetchAndVerifyItem} — one model call with `web_fetch` (at most four
- *    uses, allowed only onto the hosts step 1 found), then link verification,
- *    then the result assembled in code and written: `researching` →
- *    `researched`.
+ * 1. {@link searchItem} — `queued` → `researching`, then one `researchSearch`
+ *    model call with Exa search through the Gateway. Four searches is the
+ *    budget, and it is **advisory** — see {@link searchItem}. It settles the
+ *    model, names the pages worth reading, and hands on the images Exa
+ *    reported and the text Exa captured for those pages.
+ * 2. {@link readAndVerifyItem} — **the server** reads up to four of those
+ *    pages (`read-pages.ts`: SSRF-guarded, on the search's hosts only; a page
+ *    the server cannot open — a 403 bot challenge, a timeout — is read from the
+ *    search's copy of its text instead, labelled as such), then
+ *    one `researchRead` call **with no tools at all**, given the page texts
+ *    fenced as untrusted data and at most two manuals — as their text while
+ *    `RESEARCH_ATTACH_PDFS` is off, else as PDF file parts. Then link
+ *    verification, then the result assembled in code. It is **returned, not
+ *    written**, with the images the pages declared.
+ * 3. `findImages` (or `completeWithoutImages` when that fails) writes the
+ *    result, `researching` → `researched`, with or without images.
  *
  * Each step runs inside **its own 240-second `AbortSignal`**, so a slow
  * provider fails the attempt cleanly — as a retryable error the SDK can try
  * again — instead of the platform killing the function mid-write. Each has
  * `maxRetries` set **as a property on the function**, which is how the
  * Workflow SDK reads it; `generateText`'s own retry loop is switched off so
- * the two do not multiply.
+ * the two do not multiply. Model ids come from the job registry, so a
+ * `MODEL_RESEARCH_*` override moves a step to another model without a deploy.
+ * Each call asks for its job's service tier (`providerOptionsFor`: `flex` for
+ * research unless `MODEL_<JOB>_TIER` says otherwise), and logs what the Gateway
+ * reports it cost and the tier it applied — by request id, never the item.
  *
  * **Research writes only to the row it was given, and only while that row is
  * waiting for it** (§8 "Write safety"): every write is one of
@@ -59,27 +83,14 @@ import { DEFAULT_MAX_LINKS, verifyResourceLinks } from "./verify-links.ts";
  * two runs never both pay to research one item.
  *
  * **Finding nothing is a result, not a failure** (§5.4 unhappy paths): when the
- * search turns up no page to open, step 2 makes no model call and stores a
- * result with no links and evidence that grades low. It is never `failed`, and
- * nothing is invented to fill it.
+ * search turns up no page to read, or none of its pages could be read, step 2
+ * makes no model call and drafts a result with no sources and evidence that
+ * grades low. It is never `failed`, and nothing is invented to fill it.
  *
  * Steps run from a pre-built bundle under plain Node (`@workflow/vitest`
  * locally, the step route in production), so nothing here or below it may
  * import `"server-only"`, and every import is relative.
  */
-
-export type SearchStepResult = { skip: true } | { skip: false; findings: SearchFindings };
-
-export type FetchStepResult =
-  | { outcome: "researched"; confidence: IntakeConfidenceLevel }
-  | { outcome: "skipped" };
-
-/** What the batch reports once every item has settled. No names, no people. */
-export interface BatchSummary {
-  researched: number;
-  failed: number;
-  skipped: number;
-}
 
 /**
  * Step 1: claim the item and search.
@@ -89,8 +100,25 @@ export interface BatchSummary {
  * request id — its own earlier attempt moved it — and carries on; a row that is
  * neither was discarded, settled or taken over meanwhile, and the step stops
  * without writing.
+ *
+ * **The four-search budget is advisory, not enforced.** `exa_search` is the
+ * only tool here and the Gateway executes it, so `generateText` makes exactly
+ * one request: the SDK only starts another step for client tool calls, and
+ * every search — however many the model runs — happens inside the Gateway
+ * before that one response comes back. There is no later step for a
+ * `prepareStep` to withdraw the tool from, and neither the Gateway nor Exa
+ * takes a per-request limit. What bounds it is the prompt ("at most 4 times"),
+ * `numResults` per search (enforced by the Gateway, Phase 0), this step's
+ * deadline, and the Gateway's spend limit; an overshoot is counted afterwards
+ * and logged ({@link reportSearchOvershoot}) so it shows up rather than
+ * passing silently.
  */
-export async function searchItem(id: string, requestId: string): Promise<SearchStepResult> {
+export async function searchItem(
+  id: string,
+  requestId: string,
+  reviewerNote: string | null = null,
+  focus: ResearchFocusField[] | null = null
+): Promise<SearchStepResult> {
   "use step";
   const item = await claimForResearch(id, requestId);
   if (!item) return { skip: true };
@@ -99,17 +127,29 @@ export async function searchItem(id: string, requestId: string): Promise<SearchS
   const categories = await listCategories();
 
   try {
-    const { text } = await generateText({
-      model: resolveChatModel(),
+    const result = await generateText({
+      model: languageModelFor("researchSearch"),
       system: researchSystemPrompt("search"),
-      prompt: buildSearchPrompt(item, categories),
-      tools: {
-        web_search: anthropic.tools.webSearch_20250305({ maxUses: RESEARCH_MAX_WEB_SEARCHES }),
-      },
+      prompt: buildSearchPrompt(item, categories, reviewerNote, focus),
+      tools: { [EXA_SEARCH_TOOL]: researchExaSearch() },
+      providerOptions: providerOptionsFor("researchSearch"),
       abortSignal: signal,
       maxRetries: 0,
     });
-    return { skip: false, findings: parseSearchFindings(text) };
+    console.info(`[research] ${requestId}: search call ${describeGatewayCall(gatewayCallReport(result.providerMetadata))}`);
+    reportSearchOvershoot(requestId, result.steps);
+    const findings = parseSearchFindings(result.text);
+    const allTexts = exaPageTexts(result.steps);
+    // A manual PDF the search saw but did not list (manual text spec §3.7):
+    // its captured text crosses with the rest, and the read step picks it up.
+    const manualPdfs = pickManualPdfs(allTexts, { brand: item.brand, name: findings.canonicalName.trim() || item.name });
+    // Only the texts of pages the read step may try cross the step boundary.
+    const searchTexts = selectSearchTexts(allTexts, [
+      ...findings.candidateLinks.map((link) => link.url),
+      ...manualPdfs,
+      ...findings.sourceUrls,
+    ]);
+    return { skip: false, findings, exaImages: exaImageHints(result.steps), searchTexts };
   } catch (error) {
     throw classifyResearchError(error, "search");
   }
@@ -117,18 +157,41 @@ export async function searchItem(id: string, requestId: string): Promise<SearchS
 searchItem.maxRetries = RESEARCH_STEP_MAX_RETRIES;
 
 /**
- * Step 2: read the pages step 1 found, check every link, and store the result.
- *
- * `web_fetch` is allowed onto the hosts of step 1's candidates and sources and
- * nowhere else — the chat route's allow-list pattern — and the pages are also
- * listed in the prompt, because the tool opens only URLs that appear in the
- * conversation.
+ * Log, by count and request id only, a search that ran `exa_search` more than
+ * {@link RESEARCH_MAX_WEB_SEARCHES} times. Nothing can stop it mid-call (see
+ * {@link searchItem}); this makes the overshoot visible in the logs, where the
+ * Gateway's cost report can be read against it. Returns the count.
  */
-export async function fetchAndVerifyItem(
+export function reportSearchOvershoot(requestId: string, steps: readonly StepLike[]): number {
+  const searches = countExaCalls(steps);
+  if (searches > RESEARCH_MAX_WEB_SEARCHES) {
+    console.warn(
+      `[research] ${requestId}: the search ran ${EXA_SEARCH_TOOL} ${searches} times, over its budget of ${RESEARCH_MAX_WEB_SEARCHES} (advisory; see steps.ts)`
+    );
+  }
+  return searches;
+}
+
+/**
+ * Step 2: read the pages step 1 found, draft the listing from them, and check
+ * every link. **It writes nothing** — the image stage writes the result it
+ * returns — so it only checks that the row is still this run's to research.
+ *
+ * The server reads at most {@link RESEARCH_MAX_PAGE_READS} pages, only on the
+ * hosts of step 1's candidates and sources (and their subdomains), and the read
+ * model has no tools: it cannot be steered into opening anything. The result's
+ * `sourceUrls` are the pages that were actually read, whatever the model says
+ * it relied on — including a page read through `searchTexts`, the search's copy,
+ * when the server's own read of it failed.
+ */
+export async function readAndVerifyItem(
   id: string,
   requestId: string,
-  findings: SearchFindings
-): Promise<FetchStepResult> {
+  findings: SearchFindings,
+  reviewerNote: string | null = null,
+  searchTexts: readonly SearchPageText[] = [],
+  focus: ResearchFocusField[] | null = null
+): Promise<ReadStepResult> {
   "use step";
   const item = await getPendingTool(id);
   if (!item || item.status !== "researching" || item.researchRequestId !== requestId) {
@@ -137,30 +200,69 @@ export async function fetchAndVerifyItem(
 
   const signal = AbortSignal.timeout(RESEARCH_STEP_TIMEOUT_MS);
   const categories = await listCategories();
-  const hosts = uniqueHosts([...findings.candidateLinks.map((link) => link.url), ...findings.sourceUrls]);
+  // The brand's product page, when the search found one, is always among the
+  // pages read (amendment "Product-page first").
+  const subject = { brand: item.brand, name: findings.canonicalName.trim() || item.name };
+  // A manual PDF among the search's results, when none of the pages chosen is
+  // one: it takes a place in the four reads (manual text spec §3.7).
+  const manualPdfs = pickManualPdfs(searchTexts, subject);
+  const urls = withManualPdf(candidatePageUrls(findings, RESEARCH_MAX_PAGE_READS, subject), manualPdfs, RESEARCH_MAX_PAGE_READS);
 
   let draft: FetchDraft;
-  if (hosts.length === 0) {
+  let imageHints: ImageHint[] = [];
+  let fromSearch: string[] = [];
+  if (urls.length === 0) {
     draft = draftFromFindings(findings);
   } else {
+    let read: ReadPagesResult;
     try {
-      const { text } = await generateText({
-        model: resolveChatModel(),
-        system: researchSystemPrompt("fetch"),
-        prompt: buildFetchPrompt(item, findings, categories),
-        tools: {
-          web_fetch: anthropic.tools.webFetch_20250910({
-            maxUses: RESEARCH_MAX_WEB_FETCHES,
-            maxContentTokens: 20000,
-            allowedDomains: hosts,
-          }),
-        },
-        abortSignal: signal,
-        maxRetries: 0,
+      read = await readCandidatePages(urls, {
+        signal,
+        allowedHosts: uniqueHosts([
+          ...findings.candidateLinks.map((link) => link.url),
+          ...findings.sourceUrls,
+          ...urls.filter((url) => manualPdfs.includes(url)),
+        ]),
+        max: RESEARCH_MAX_PAGE_READS,
+        maxPdfs: RESEARCH_MAX_PDFS_READ,
+        searchTexts,
+        storedManual: storedManualText,
       });
-      draft = parseFetchDraft(text);
     } catch (error) {
-      throw classifyResearchError(error, "fetch");
+      throw classifyResearchError(error, "read");
+    }
+    imageHints = read.imageHints;
+    fromSearch = searchTextUrls(read);
+    if (read.failures.length > 0 || fromSearch.length > 0 || manualTextUrls(read).length > 0) {
+      // Hosts and status codes only — never a path, a query or an item name.
+      const viaSearch = fromSearch.length > 0 ? `; ${fromSearch.length} from the search's text` : "";
+      const manuals = read.pages.filter((page) => page.via === "manual");
+      const asText =
+        manuals.length > 0
+          ? `; ${manuals.length} manual(s) as text (${manuals.map((page) => page.manualSource ?? "search").join(", ")})`
+          : "";
+      console.info(
+        `[research] read ${urls.length - read.failures.length}/${urls.length} pages${viaSearch}${asText}; not read: ${read.failures.join("; ") || "none"}`
+      );
+    }
+
+    if (read.pages.length === 0 && read.pdfs.length === 0) {
+      draft = draftFromFindings(findings, { keepCandidateLinks: true });
+    } else {
+      try {
+        const { text, providerMetadata } = await generateText({
+          model: languageModelFor("researchRead"),
+          system: researchSystemPrompt("read"),
+          messages: buildReadMessages(item, findings, read, categories, reviewerNote, focus),
+          providerOptions: providerOptionsFor("researchRead"),
+          abortSignal: signal,
+          maxRetries: 0,
+        });
+        console.info(`[research] ${requestId}: read call ${describeGatewayCall(gatewayCallReport(providerMetadata))}`);
+        draft = { ...parseFetchDraft(text), sourceUrls: readSourceUrls(read) };
+      } catch (error) {
+        throw classifyResearchError(error, "read");
+      }
     }
   }
 
@@ -177,12 +279,36 @@ export async function fetchAndVerifyItem(
     dropped: links.dropped,
     categories,
     fallbackName: item.name,
+    reviewerNote,
+    searchTextUrls: fromSearch,
+    subject,
   });
 
-  const stored = await completeResearch(id, result, { requestId });
-  return stored ? { outcome: "researched", confidence: result.confidence.level } : { outcome: "skipped" };
+  return { outcome: "drafted", result, imageHints };
 }
-fetchAndVerifyItem.maxRetries = RESEARCH_STEP_MAX_RETRIES;
+readAndVerifyItem.maxRetries = RESEARCH_STEP_MAX_RETRIES;
+
+/**
+ * The last step of a **scoped** Research again that leaves the image alone
+ * (amendment "Guided redo"): write the read step's result as a merge — only
+ * the focused fields replace the stored ones (`completeResearch` with `focus`,
+ * `research/focus-merge.ts`). No image stage runs, so nothing is spent on
+ * pictures and the stored images and their cleaned copy stay exactly as they
+ * were.
+ */
+export async function completeFocusedItem(
+  id: string,
+  requestId: string,
+  result: ResearchResult,
+  focus: ResearchFocusField[]
+): Promise<ItemStepResult> {
+  "use step";
+  const stored = await completeResearch(id, result, { requestId, focus });
+  if (!stored) return { outcome: "skipped" };
+  const item = await getPendingTool(id);
+  return { outcome: "researched", confidence: item?.research?.confidence.level ?? result.confidence.level };
+}
+completeFocusedItem.maxRetries = RESEARCH_STEP_MAX_RETRIES;
 
 /**
  * The workflow gave up on an item: `queued` or `researching` → `failed`, with
@@ -205,6 +331,20 @@ export async function finishBatch(requestId: string, summary: BatchSummary): Pro
   console.info(
     `[research] batch ${requestId} finished: researched=${summary.researched} failed=${summary.failed} skipped=${summary.skipped}`
   );
+}
+
+/**
+ * The lab's own processed text of the manual at `url`, if a tool already holds
+ * it (manual text spec §3.7) — so research reads our extraction instead of
+ * downloading the PDF again. A database error is "none": the download is the
+ * fallback, and a lookup must never fail the read.
+ */
+async function storedManualText(url: string) {
+  try {
+    return await findStoredManualByUrl(await getDb(), url);
+  } catch {
+    return null;
+  }
 }
 
 /**

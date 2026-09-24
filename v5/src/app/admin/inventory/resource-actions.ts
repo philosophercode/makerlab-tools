@@ -47,9 +47,12 @@ export async function addResource(
   const result = await withToolEdit(input, (context) =>
     addResourceWrite(context, input.resource, input.fileAttachmentIds ?? [])
   );
-  // A link may be a manual worth keeping a copy of. Only after the write
+  // A link may be a manual worth keeping a copy of, and an uploaded PDF is one
+  // worth processing into text: the same run archives the link, then reads
+  // every PDF the resource holds (manual text spec §3.1). Only after the write
   // landed, and never able to fail it (`requestManualArchive` never throws).
-  if (result.ok && input.resource.url) await requestManualArchive([result.resourceId]);
+  const uploaded = (input.fileAttachmentIds?.length ?? 0) > 0;
+  if (result.ok && (input.resource.url || uploaded)) await requestManualArchive([result.resourceId]);
   return result;
 }
 

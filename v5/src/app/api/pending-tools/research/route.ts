@@ -7,6 +7,7 @@ import { can } from "../../../../lib/auth/permissions";
 import {
   listPendingTools,
   markReadyAsUnit,
+  markRedoRequest,
   queueForResearchWithinAllowance,
   recordStartFailure,
   setWorkflowRun,
@@ -14,7 +15,15 @@ import {
 } from "../../../../lib/data/pending-tools";
 import { isUuid } from "../../../../lib/data/uuid";
 import { canActOnPendingTool, hasUnresolvedDuplicate, isResearchable } from "../../../../lib/intake/access";
-import { RESEARCH_DAILY_ITEM_LIMIT, RESEARCH_MAX_ITEMS_PER_REQUEST } from "../../../../lib/intake/limits";
+import { requestImageRetry } from "../../../../lib/intake/image-retry";
+import { imageRetryInProgress } from "../../../../lib/intake/image-retry-state";
+import {
+  RESEARCH_DAILY_ITEM_LIMIT,
+  RESEARCH_MAX_ITEMS_PER_REQUEST,
+  REVIEWER_NOTE_MAX_CHARS,
+} from "../../../../lib/intake/limits";
+import { isImageOnlyFocus, parseResearchFocus } from "../../../../lib/intake/research-focus";
+import { parseReviewerNote } from "../../../../lib/intake/reviewer-note";
 import type {
   PendingApiError,
   PendingApiErrorCode,
@@ -60,6 +69,22 @@ import { researchBatch } from "../../../../workflows/research-batch";
  * queued item with a recorded start failure is researchable, and nothing else
  * about it changed.
  *
+ * **A guided redo** (amendment "Guided redo (focus + guidance)"): the
+ * preliminary page's **Research again** may send `focus` — some of
+ * `description`, `specs`, `links`, `image`, or `everything` (the same as
+ * none). A focus other than everything goes with one item only, needs
+ * `tools.approve` like the note, and needs a stored result to merge into
+ * (`not_researchable` otherwise). It costs one press like any other. An
+ * **image-only** focus runs the image stage alone — **Find a different image**
+ * (`requestImageRetry`), with the note — and answers 202 with `imageOnly`;
+ * anything else is queued as usual and handed to the run as its fourth
+ * argument, and the stored result is marked with the redo
+ * (`markRedoRequest`) so the page can say what is being redone.
+ *
+ * **An item whose image search is still running is not researched again**
+ * (`image_retry_running`): the redo would move the row out from under the
+ * search, which could then never land.
+ *
  * Refusals are `PendingApiError` bodies. The English `error` is a fallback;
  * clients render the `code` (Article 6).
  */
@@ -76,6 +101,19 @@ export const maxDuration = 30;
  */
 const bodySchema = z.strictObject({
   ids: z.array(z.string().refine(isUuid)).min(1).max(1000),
+  /**
+   * The reviewer's instruction beside **Research again** (amendment "reviewer
+   * notes"): one item only, `tools.approve` only, one line of at most
+   * `REVIEWER_NOTE_MAX_CHARS` once cleaned (`parseReviewerNote`). The raw bound
+   * here only stops a body no textarea could have produced.
+   */
+  note: z.string().max(4000).nullable().optional(),
+  /**
+   * What to redo (amendment "Guided redo"): choices from
+   * `RESEARCH_FOCUS_CHOICES`, checked by `parseResearchFocus`. The raw bound
+   * only stops a body the dialog could not have produced.
+   */
+  focus: z.array(z.string().max(20)).max(10).nullable().optional(),
 });
 
 const DAY_MS = 24 * 60 * 60_000;
@@ -118,6 +156,26 @@ export async function POST(req: NextRequest) {
     return refuse(400, "invalid_body", "Send { ids: [...] } with at least one item id.");
   }
   const ids = [...new Set(parsed.data.ids)];
+  const note = parseReviewerNote(parsed.data.note);
+  if (note === "too_long" || note === "invalid") {
+    return refuse(400, "invalid_body", `A note for research is one line of at most ${REVIEWER_NOTE_MAX_CHARS} characters.`);
+  }
+  if (note !== null && ids.length !== 1) {
+    return refuse(400, "invalid_body", "A note for research goes with one item at a time.");
+  }
+  if (note !== null && !can(identity, "tools.approve")) {
+    return refuse(403, "forbidden", "Only a reviewer can send research a note.");
+  }
+  const focus = parseResearchFocus(parsed.data.focus);
+  if (focus === "invalid") {
+    return refuse(400, "invalid_body", "Focus on some of description, specs, links and image, or on everything.");
+  }
+  if (focus !== null && ids.length !== 1) {
+    return refuse(400, "invalid_body", "A focused redo goes with one item at a time.");
+  }
+  if (focus !== null && !can(identity, "tools.approve")) {
+    return refuse(403, "forbidden", "Only a reviewer can redo part of the research.");
+  }
   if (ids.length > RESEARCH_MAX_ITEMS_PER_REQUEST) {
     return refuse(
       400,
@@ -130,6 +188,16 @@ export async function POST(req: NextRequest) {
     const items = await listPendingTools({ ids });
     const refusal = checkItems(ids, items, identity);
     if (refusal) return refusal;
+    if (focus !== null && !items[0]?.research) {
+      // Nothing stored to merge the focused fields into.
+      return refuse(409, "not_researchable", "Only researched items can have part of their research redone.", { ids });
+    }
+    const searching = items.filter((item) => imageRetryInProgress(item.research?.imageRetry)).map((item) => item.id);
+    if (searching.length > 0) {
+      return refuse(409, "image_retry_running", "An image search is still running for this item.", { ids: searching });
+    }
+
+    if (isImageOnlyFocus(focus)) return await redoImageOnly(userId, items[0].id, note);
 
     // The allowance counts research, not add-unit items, which cost nothing.
     const toResearch = items.filter((item) => item.duplicateResolution !== "add_unit").map((item) => item.id);
@@ -169,9 +237,25 @@ export async function POST(req: NextRequest) {
       return Response.json(body, { status: 200 });
     }
 
+    // A Research again on one researched item: say on its result what is being redone.
+    const redoOf = items.length === 1 && items[0].research ? items[0].id : null;
+    if (redoOf && queued.includes(redoOf)) {
+      try {
+        await markRedoRequest(redoOf, { requestId, focus });
+      } catch (error) {
+        // Only the page's "Re-researching …" line depends on it; the redo itself does not.
+        console.error(`[research] could not mark the redo for request ${requestId}:`, error);
+      }
+    }
+
     let runId: string;
     try {
-      const run = await start(researchBatch, [requestId, queued]);
+      // The note travels to both model steps and is recorded on the result;
+      // a focus, only when there is one, so an unscoped run starts as it always did.
+      const run = await start(
+        researchBatch,
+        focus ? [requestId, queued, note, focus] : note ? [requestId, queued, note] : [requestId, queued]
+      );
       runId = run.runId;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -194,6 +278,37 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("[research] request failed", error);
     return refuse(500, "failed", "Research could not be started.");
+  }
+}
+
+/**
+ * An image-only redo: **Find a different image**, with the note — the same
+ * allowance, lock and run as the preliminary page's own button
+ * (`requestImageRetry`). Its refusals answer in this route's codes.
+ */
+async function redoImageOnly(userId: string, id: string, note: string | null): Promise<Response> {
+  const result = await requestImageRetry({ userId }, { id, note });
+  if (result.ok) {
+    const body: ResearchStartedResponse = {
+      requestId: result.requestId,
+      runId: null,
+      queued: [],
+      readyAsUnit: [],
+      imageOnly: true,
+    };
+    return Response.json(body, { status: 202 });
+  }
+  switch (result.error) {
+    case "not_found":
+      return refuse(404, "not_found", "This item no longer exists.", { ids: [id] });
+    case "not_editable":
+      return refuse(409, "not_editable", "This item has no image search to redo — it may have its own photo.", { ids: [id] });
+    case "image_retry_running":
+      return refuse(409, "image_retry_running", "An image search is still running for this item.", { ids: [id] });
+    case "daily_limit":
+      return refuse(429, "daily_limit", `That would pass today's limit of ${RESEARCH_DAILY_ITEM_LIMIT} researched items.`);
+    case "start_failed":
+      return refuse(502, "start_failed", "The image search could not be started. Try again.", { ids: [id] });
   }
 }
 

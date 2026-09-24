@@ -1,8 +1,8 @@
 /**
  * What the stubbed model "identifies" and "researches" in the intake E2E
- * (data platform spec §10, E2E scenario 5).
+ * (gateway spec §10, E2E scenario 5 — formerly data platform spec §10).
  *
- * Shared by the spec and by `anthropic-stub.ts`, so the names the test types
+ * Shared by the spec and by `gateway-stub.ts`, so the names the test types
  * and clicks are the names the stub answers with. No imports: the stub runs
  * under plain Node.
  *
@@ -10,10 +10,21 @@
  * duplicate check's measure, so the table starts with nothing to resolve.
  */
 
-/** The port the stub listens on. The app reaches it through `ANTHROPIC_BASE_URL`. */
-export const ANTHROPIC_STUB_PORT = 3101;
+/** The port the stub listens on. The app reaches it through `AI_GATEWAY_BASE_URL`. */
+export const GATEWAY_STUB_PORT = 3101;
 
-export const ANTHROPIC_STUB_ORIGIN = `http://localhost:${ANTHROPIC_STUB_PORT}`;
+export const GATEWAY_STUB_ORIGIN = `http://localhost:${GATEWAY_STUB_PORT}`;
+
+/**
+ * The intake scenario's own app server: the same production build as every
+ * other spec's (port 3100; 3101 is the Gateway stub, 3102 the Notion stub),
+ * started a second time with a local Blob folder so research can store the
+ * cleaned product image and approval can publish it (playwright.config.ts).
+ * Its demo database is its own, too.
+ */
+export const INTAKE_APP_PORT = 3103;
+
+export const INTAKE_APP_ORIGIN = `http://localhost:${INTAKE_APP_PORT}`;
 
 export interface IntakeFixtureItem {
   /** What `identify_tools` records — the first one carries a typo the test corrects. */

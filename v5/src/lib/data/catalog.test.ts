@@ -191,6 +191,14 @@ describe("listCatalogTools", () => {
     ]);
   });
 
+  it('carries the tool\'s starter questions, empty when it has none (amendment "Tool-specific starter questions")', async () => {
+    await insertTool({ slug: "with-q", name: "A laser", starterQuestions: ["What can it cut?", "How thick can it go?"] });
+    await insertTool({ slug: "without-q", name: "B saw" });
+    const [withQuestions, without] = await listCatalogTools({ db });
+    expect(withQuestions.starterQuestions).toEqual(["What can it cut?", "How thick can it go?"]);
+    expect(without.starterQuestions).toEqual([]);
+  });
+
   it("shows published tools only, never drafts or archived ones, ordered by name", async () => {
     await insertTool({ slug: "zeta", name: "Zeta mill" });
     await insertTool({ slug: "alpha", name: "Alpha saw" });
@@ -573,6 +581,7 @@ const toolRow: ToolRow = {
   useRestrictions: null,
   emergencyStop: null,
   notes: null,
+  starterQuestions: [],
   categoryName: null,
   categoryGroup: null,
   room: "MakerLab",

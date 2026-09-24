@@ -1,6 +1,7 @@
 import "@testing-library/jest-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, vi } from "vitest";
 import { server } from "./test/msw/server";
+import { resetResolver } from "./test/web/resolver";
 
 // ── Blob: "none" unless a test opts in ─────────────────────────────
 //
@@ -11,6 +12,13 @@ import { server } from "./test/msw/server";
 // temporary folder. Set directly (not `vi.stubEnv`) so `unstubAllEnvs` after
 // each test restores it rather than removing it.
 process.env.BLOB_LOCAL_DISABLE ??= "1";
+
+// ── Database: the demo seed unless a test opts in ─────────────────
+//
+// `PGLITE_DATA_DIR` in a developer's shell would turn every "DATABASE_URL
+// unset" test into one against their persistent local database. Tests that
+// want it stub a temporary folder.
+process.env.PGLITE_DATA_DIR = "";
 
 // ── Web Storage shim ───────────────────────────────────────────────
 //
@@ -75,6 +83,23 @@ afterEach(() => {
 
 afterAll(() => {
   server.close();
+});
+
+// ── DNS: a stand-in resolver, never the network ────────────────────
+//
+// The server-side page reader (src/lib/web/guarded-fetch.ts) resolves a host
+// before it fetches, to refuse private addresses. Resolving is a network call,
+// so every test gets test/web/resolver.ts's default instead — any name is a
+// public address MSW then answers, `localhost` is loopback. It lives on
+// `globalThis`, which is what lets the workflow project's step bundle see it.
+// A test that needs another answer calls `setResolvedAddresses(...)`; the
+// reset after each test drops it.
+beforeEach(() => {
+  resetResolver();
+});
+
+afterEach(() => {
+  resetResolver();
 });
 
 // ── Per-test cleanup ───────────────────────────────────────────────

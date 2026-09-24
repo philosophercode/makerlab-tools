@@ -1,14 +1,19 @@
+import { Fragment } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { MakerLabProject, MakerLabTool, ToolStatus } from "./catalog-types";
+import { ManualContentsList } from "./ManualContentsList";
+import type { ManualContents } from "../lib/data/manual-documents";
 
 interface DetailShellProps {
   tool: MakerLabTool;
   /** Published projects that reference this tool ("Built with this"). */
   projects?: MakerLabProject[];
+  /** Processed manuals' outlines, keyed by the PDF link the page shows (manual text spec §6). */
+  manualContents?: ManualContents[];
 }
 
 const STATUS_CHIP: Record<ToolStatus, { label: string; tone: "success" | "warning" | "danger" | "neutral" }> = {
@@ -54,7 +59,7 @@ function findResource(
   return tool.links.find((link) => link.kind === kind);
 }
 
-export function DetailShell({ tool, projects = [] }: DetailShellProps) {
+export function DetailShell({ tool, projects = [], manualContents = [] }: DetailShellProps) {
   const t = useTranslations("detail");
   const status = STATUS_CHIP[tool.status];
   const safetyLink = findResource(tool, "Safety");
@@ -179,20 +184,26 @@ export function DetailShell({ tool, projects = [] }: DetailShellProps) {
 
           {tool.links.length > 0 ? (
             <div className="td-doc-list">
-              {tool.links.map((link) => (
-                <a className="td-doc" href={link.href} key={`${link.kind}-${link.href}`}>
-                  <span className={`td-badge td-badge-${resourceTone(link.kind)}`}>
-                    {link.kind || t("resourceFallback")}
-                  </span>
-                  <span className="td-doc-body">
-                    <strong>{resourceLabel(link, t("openResource"))}</strong>
-                    {link.description ? <p>{link.description}</p> : null}
-                  </span>
-                  <span className="td-doc-arrow" aria-hidden="true">
-                    ↗
-                  </span>
-                </a>
-              ))}
+              {tool.links.map((link) => {
+                const contents = manualContents.find((entry) => entry.href === link.href);
+                return (
+                  <Fragment key={`${link.kind}-${link.href}`}>
+                    <a className="td-doc" href={link.href}>
+                      <span className={`td-badge td-badge-${resourceTone(link.kind)}`}>
+                        {link.kind || t("resourceFallback")}
+                      </span>
+                      <span className="td-doc-body">
+                        <strong>{resourceLabel(link, t("openResource"))}</strong>
+                        {link.description ? <p>{link.description}</p> : null}
+                      </span>
+                      <span className="td-doc-arrow" aria-hidden="true">
+                        ↗
+                      </span>
+                    </a>
+                    {contents ? <ManualContentsList href={link.href} outline={contents.outline} /> : null}
+                  </Fragment>
+                );
+              })}
             </div>
           ) : (
             <p className="td-empty">{t("noDocuments")}</p>

@@ -162,4 +162,24 @@ describe("schema migrations on PGlite", () => {
     const orphans = await db.select().from(units).where(eq(units.toolId, tool.id));
     expect(orphans).toHaveLength(0);
   });
+
+  it('adds tools.starter_questions as a non-null text[] defaulting to empty (0009, amendment "Tool-specific starter questions")', async () => {
+    const [column] = await rawRows<{ data_type: string; is_nullable: string; column_default: string | null }>(
+      db,
+      sql`select data_type, is_nullable, column_default from information_schema.columns
+          where table_name = 'tools' and column_name = 'starter_questions'`
+    );
+    expect(column).toMatchObject({ data_type: "ARRAY", is_nullable: "NO" });
+    expect(column.column_default).toContain("'{}'");
+
+    const [tool] = await db
+      .insert(tools)
+      .values({ slug: `starter-${crypto.randomUUID()}`, name: "Starter check" })
+      .returning({ starterQuestions: tools.starterQuestions });
+    expect(tool.starterQuestions).toEqual([]);
+    await expectViolation(
+      db.execute(sql`update tools set starter_questions = null where name = 'Starter check'`),
+      /null value|not-null/i
+    );
+  });
 });

@@ -113,6 +113,11 @@ export interface ResearchStartedResponse {
   runId: string | null;
   queued: string[];
   readyAsUnit: string[];
+  /**
+   * An image-only redo (amendment "Guided redo"): nothing was queued — the
+   * image stage alone is running, as **Find a different image**.
+   */
+  imageOnly?: true;
 }
 
 export type PendingApiErrorCode =
@@ -128,6 +133,7 @@ export type PendingApiErrorCode =
   | "unresolved_duplicate"
   | "not_researchable"
   | "start_failed"
+  | "image_retry_running"
   | "failed";
 
 /** Every refusal body from the pending-tools routes. */

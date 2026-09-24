@@ -32,6 +32,8 @@ export interface SeedUserOptions {
   email?: string;
   role?: Exclude<Role, "anonymous">;
   name?: string;
+  /** Profile photo URL, as Google would have supplied it. */
+  image?: string | null;
   banned?: boolean;
   banReason?: string | null;
 }
@@ -81,6 +83,7 @@ export async function insertUserRow(
       name: row.name,
       email: row.email,
       emailVerified: true,
+      image: options.image ?? null,
       role: row.role,
       banned: row.banned,
       banReason: options.banReason ?? null,

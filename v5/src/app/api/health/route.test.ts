@@ -6,6 +6,9 @@ import { nextCacheMock } from "../../../../test/mocks/next-cache";
 
 vi.mock("next/cache", () => nextCacheMock());
 
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { cacheLife } from "next/cache";
 import { HEALTH_CACHE } from "../../../lib/cache";
 import { resetDbForTests } from "../../../lib/db/client";
@@ -26,6 +29,7 @@ beforeEach(() => {
   // Force the demo substrate regardless of the host shell's own env, matching
   // the rest of the catalogue test suite (see src/lib/catalog.test.ts).
   vi.stubEnv("DATABASE_URL", "");
+  vi.stubEnv("PGLITE_DATA_DIR", "");
   // The degraded path logs the real reason server-side; keep it out of the
   // test output (and prove nothing about it reaches the response body below).
   vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -64,6 +68,36 @@ describe("GET /api/health — healthy (demo substrate)", () => {
     const res = await GET(makeRequest());
 
     expect(res.headers.get("cache-control")).toBe("no-store");
+  });
+});
+
+// ── Local (PGLITE_DATA_DIR) ─────────────────────────────────────────
+//
+// A persistent PGlite on a laptop is real data: probed, reported as "local"
+// rather than "ok" or "demo", and its catalogue is live (so no demo banner).
+
+describe("GET /api/health — local substrate", () => {
+  let dir: string;
+
+  beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), "health-pglite-"));
+    vi.stubEnv("PGLITE_DATA_DIR", dir);
+  });
+
+  afterEach(async () => {
+    resetDbForTests();
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it("returns 200 with database local, a live catalog, and the directory's (unseeded) count", async () => {
+    const res = await GET(makeRequest());
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.status).toBe("ok");
+    expect(body.database).toBe("local");
+    expect(body.catalog).toBe("live");
+    expect(body.toolCount).toBe(0);
   });
 });
 

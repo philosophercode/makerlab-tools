@@ -27,6 +27,9 @@ export type AdminGateError = "not_signed_in" | "not_permitted" | "rate_limited" 
  * A change that landed with less than the full guarantee behind it.
  *
  * - `audit_unavailable` — the row changed and `audit_events` did not record it.
+ * - `image_not_attached` — an intake approval created the tool, but the product
+ *   image the admin chose could not be downloaded, stored or attached, so the
+ *   tool has no cover from it (gateway spec §5.2 step 4).
  *
  * **It rides on `ok: true`, and that is the whole idea.** The audit insert is a
  * second statement, after the change it describes has committed; reporting its
@@ -36,4 +39,4 @@ export type AdminGateError = "not_signed_in" | "not_permitted" | "rate_limited" 
  * trail nobody was told about (§4.11, Article 4). So it is a success that says
  * what is missing, and every code has an `admin.warnings.<code>` message.
  */
-export type AdminActionWarning = "audit_unavailable";
+export type AdminActionWarning = "audit_unavailable" | "image_not_attached";

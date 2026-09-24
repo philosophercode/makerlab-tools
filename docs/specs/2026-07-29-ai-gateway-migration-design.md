@@ -1,7 +1,9 @@
 # AI Gateway Migration — Design Spec
 
 **Date:** 2026-07-29
-**Status:** Draft — awaiting approval
+**Status:** Superseded 2026-09-23 by
+[`2026-09-23-gateway-models-and-product-images-design.md`](2026-09-23-gateway-models-and-product-images-design.md) —
+see this file's final amendment. Kept for history; do not implement against it.
 **Target:** `v5/`
 **Branch:** `v5/ai-gateway`
 
@@ -227,3 +229,32 @@ fallback rather than the default.
 
 **Unchanged and still blocking phase 3:** the gateway branch has never made a live call, and
 whether student prompts may transit Vercel's infrastructure is a question for the university.
+
+### 2026-09-23 — superseded: Gateway-only, direct path retired (decision)
+
+**Decided.** The opposite of 2026-07-30's decision above: run **only** the Gateway. The
+direct Anthropic path this whole spec designed — `src/lib/model.ts`'s dual branch,
+`ANTHROPIC_API_KEY` as a kept fallback, `@ai-sdk/anthropic` as a dependency — is retired.
+`ANTHROPIC_API_KEY` is read by nothing; `src/lib/model.ts` and `@ai-sdk/anthropic` are
+proposed for deletion (not deleted outright, per the deletion policy) in
+`2026-09-23-gateway-models-and-product-images-design.md`'s build.
+
+**Why the reversal.** 2026-07-30 kept the direct path as "a one-env-var lever back to a
+working assistant" and because a Gateway key needs a Vercel account with billing where a
+direct key does not. Both arguments held less weight by 2026-09-23: production
+authenticates the Gateway with the deployment's own Vercel OIDC token, not a key at all, so
+there is no key-management burden in production to trade off against; and a *second*
+provider path is a second thing to keep secure, keep patched and keep passing the eval
+gate, for a fallback that had never actually been exercised in anger. The whole point of
+routing everything through one gateway — one spend ceiling, one place to see what a model
+call cost, one auth story — is undercut by a second path that bypasses all three.
+
+**Scope.** Superseded entirely by `2026-09-23-gateway-models-and-product-images-design.md`,
+which also moves model selection from two constants
+(`CHAT_MODEL_ID`/`GATEWAY_CHAT_MODEL_ID`) to a per-job registry
+(`src/lib/ai/models.ts`'s `MODEL_JOBS`) with one `MODEL_<JOB>` env override apiece, and adds
+`gateway.tools.exaSearch` (replacing Anthropic's native `web_search`) and a `read_page`
+capability tool (replacing `web_fetch`).
+
+**Status.** This file is now historical. Read `2026-09-23-gateway-models-and-product-images-design.md`
+for the current design; nothing here should be implemented against.

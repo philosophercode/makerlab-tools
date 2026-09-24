@@ -9,5 +9,9 @@ import type * as schema from "./schema/index.ts";
  */
 export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
 
-/** Which driver `getDb()` will hand out (spec §3.2). */
-export type DataSubstrate = "neon" | "pglite-demo";
+/**
+ * Which driver `getDb()` will hand out (spec §3.2): Neon, PGlite persisted in
+ * `PGLITE_DATA_DIR` (real data on a laptop), or in-memory PGlite with the demo
+ * seed.
+ */
+export type DataSubstrate = "neon" | "pglite-local" | "pglite-demo";

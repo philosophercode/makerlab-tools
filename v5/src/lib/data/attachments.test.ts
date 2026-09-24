@@ -203,6 +203,69 @@ describe("createAttachment", () => {
   });
 });
 
+describe("createAttachment — origin and source (gateway spec §4.2)", () => {
+  it("records origin, source URL and dimensions when the writer knows them", async () => {
+    const { id } = await createAttachment(
+      {
+        blobPathname: "research/pending/p1s-clean.png",
+        access: "private",
+        publicUrl: null,
+        contentType: "image/png",
+        sizeBytes: 2048,
+        originalFilename: "p1s-clean.png",
+        uploadedBy: null,
+        origin: "research_image_cleaned",
+        sourceUrl: "https://cdn.maker.test/p1s.jpg",
+        width: 1536,
+        height: 1024,
+      },
+      { db }
+    );
+
+    expect(await readAttachment(id)).toMatchObject({
+      origin: "research_image_cleaned",
+      sourceUrl: "https://cdn.maker.test/p1s.jpg",
+      width: 1536,
+      height: 1024,
+    });
+  });
+
+  it("leaves all four null when the writer does not say", async () => {
+    const { id } = await createAttachment(
+      {
+        blobPathname: "uploads/old-writer.png",
+        access: "public",
+        publicUrl: null,
+        contentType: "image/png",
+        sizeBytes: 1,
+        originalFilename: "old-writer.png",
+        uploadedBy: null,
+      },
+      { db }
+    );
+    expect(await readAttachment(id)).toMatchObject({ origin: null, sourceUrl: null, width: null, height: null });
+  });
+
+  it("returns origin and source URL with every read", async () => {
+    const { id } = await createAttachment(
+      {
+        blobPathname: "tools/cover.jpg",
+        access: "public",
+        publicUrl: "https://blob.test/tools/cover.jpg",
+        contentType: "image/jpeg",
+        sizeBytes: 10,
+        originalFilename: "cover.jpg",
+        uploadedBy: null,
+        origin: "research_image",
+        sourceUrl: "https://maker.test/og.jpg",
+      },
+      { db }
+    );
+    const [found] = await findAttachmentsByIds([id], { db });
+    expect(found).toMatchObject({ origin: "research_image", sourceUrl: "https://maker.test/og.jpg" });
+  });
+});
+
 describe("findAttachmentsByIds", () => {
   it("returns the rows asked for and ignores ids that are not uuid-shaped", async () => {
     const first = await upload();

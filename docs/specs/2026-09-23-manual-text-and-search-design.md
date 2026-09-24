@@ -313,3 +313,107 @@ CREATE INDEX manual_chunks_tool_idx ON manual_chunks (tool_id);
 - **Cross-tool search in the general assistant:** on by default, or only when the student
   names a tool?
 - **OCR:** how many archived manuals are scans? The backfill's `no_text` count answers it.
+
+---
+
+## Amendments
+
+Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited.
+
+### 2026-09-23 — Phase 1 built: extract and store (§3.1, §3.2, §3.7, §4, §5, §6, §9, §10)
+
+**Status.** §9 phase 1 is built on `v5/gateway-images` (uncommitted): `unpdf` 1.8.1, migration
+`0010_manual_text`, the index step, the backfill, the editor state, the tool page's Contents and
+research's use of stored/extracted text. **Not built (phase 2):** the `vector` extension,
+`manual_chunks`, the `embed` job, hybrid search, chat's `search_manual`, the outline in the chat
+prompt, demoting chat's PDF attachment. Chat is unchanged.
+
+**As built, and where it differs from the text above:**
+
+- **§4 data model.** `manual_documents` and `manual_pages` exactly as written (including the
+  unused, nullable `embedding_model`), minus `CREATE EXTENSION vector` and `manual_chunks`. Status
+  and outline source are `text` columns with named CHECKs from `MANUAL_DOCUMENT_STATUS` /
+  `MANUAL_OUTLINE_SOURCE` in `vocabulary.ts` (the `inListCheck` convention), plus an index on
+  `tool_id` and the `updated_at` trigger (hand-appended, as in 0007). **"Processing" is not a
+  stored status**: it is a current PDF with no document row yet.
+- **§3.1 per resource, not per attachment.** The step is `indexManualStep(resourceId)`, run by
+  `archiveManuals` after every archive that did not fail (including `already_archived`,
+  `has_file` and `no_url`), and it processes every *current* PDF of the resource: the archive of
+  the link the resource carries now, or any uploaded/imported file. That one rule covers
+  staff-uploaded PDFs: adding a resource with an uploaded file now starts the same workflow
+  (`resource-actions.ts`), where the archive skips (`has_file`/`no_url`) and the index step reads
+  the upload — private files too, through `@vercel/blob` `get` with the token. There is no
+  "replace the file" action in the editor today, so the file-replacement case of §5 only arises
+  through a link change (new attachment → new document; the stale copy is never processed).
+- **§3.1 retries.** Only a transient Blob read or an unreachable database is retried
+  (`RetryableError`); `no_text` and `failed` are stored and never retried; a missing blob is a
+  non-transient failure with nothing stored. The index step's outcome is counted apart
+  (`indexed`, `indexFailed`) and never changes the archive's counts.
+- **Idempotency** is `attachment_id` + `EXTRACTOR_VERSION` (`unpdf-1/extract-2`). A re-process
+  upserts the document in place and replaces its pages in the same transaction.
+- **§3.2 extraction details added while testing on 15 real manuals** (the lab's SOP/manual PDFs,
+  archived into a scratch copy of the local database: 14 ready, 1 no_text, 781 pages, 2.6 s):
+  - pdf.js here runs without a worker and does not yield to timers, so the 60 s cap is enforced
+    by a **deadline checked between pages** (and a yield every 10 pages), not only a timer.
+  - Lines are rebuilt in content order (an EOL mark or a baseline move ends a line); running
+    headers/footers are lines among a page's first or last two that repeat — digits ignored — on
+    at least half the pages (minimum three); **bare page numbers** ("12", "- ii -") at a page's
+    edges are dropped too; runs of dot leaders collapse to "…". These are formatting only.
+  - **Identifier bookmarks** (one word with an underscore — Google Docs anchors like `_tyjcwt`,
+    file names like `P322_681_eng`) are dropped, and when they are most of the outline it is
+    discarded and headings are inferred instead (both Formlabs manuals needed this).
+  - **Inferred headings**: lines ≥ 1.2× the body size, ≥ 3 letters, ≤ 100 chars and 12 words,
+    not ending like a sentence; consecutive same-size lines are one heading; sizes are kept
+    largest-first within 1.5 headings a page; levels come from sizes used more than once, so a
+    cover title does not push the chapters down (level 3 exists but is not shown). Inference is
+    still imperfect on multilingual and scanned-then-OCR'd manuals — noted, not fixed.
+  - `isEvalSupported: false` is passed, but unpdf's serverless pdf.js build contains no eval
+    path at all.
+- **§3.7 research.** Phase 1 has no passage search, so the "fixed set of queries" is replaced by
+  `manualDigest` (`manuals/digest.ts`): the outline (≤ 25% of the budget, levels 1–2), then the
+  pages with the most spec-like lines (a number with a unit, dimensions, "Label: 12…"), with the
+  opening page of a "Specifications / Technical data" chapter favoured, shown in page order,
+  each headed `[page N (printed L)]`, within `RESEARCH_MANUAL_TEXT_MAX_CHARS` (16,000).
+  - **Our extraction first, Exa second**: the read step looks each target URL up in the stored
+    text (`findStoredManualByUrl` — by `attachments.source_url` or `public_url`; a hit is not
+    downloaded), else extracts a downloaded PDF in memory (30 s), else uses Exa's copy as before.
+    The fence says which (`manualSource: stored | pdf | search`).
+  - **Refresh research does not exist yet** (spec #41 is not built). `findStoredManualForTool`
+    is its entry point; today the stored text reaches research through the URL lookup, which
+    also covers a new tool whose manual another tool already holds.
+  - Research now reads a PDF up to the archive's **25 MB** (`readPage`'s new `maxPdfBytes`
+    option; chat's `read_page` keeps 10 MB) with a 30 s budget for a `.pdf` URL.
+  - **A manual PDF Exa returned but the search did not list** is now read
+    (`research/manual-pdfs.ts`): Exa results whose URL is a `.pdf` and whose captured text names
+    the model (a model word like "x2d", else the brand) cross to the read step with their text,
+    and one takes a read slot when none of the chosen pages is a PDF (after the product page; a
+    video first gives way). This is the X2D `csm.bblcdn.cn` case.
+- **§5 / §6 UI.** The editor row says **"Text stored · N pages"**, not "Searchable" — nothing is
+  searchable until phase 2. No **Re-process** action and no `/admin/research` counts yet
+  (`npm run manuals:index -- --force --ids …` re-processes). The tool page's **Contents** is a
+  native `<details>` under a public, published manual's link, levels 1–2, at most 60 entries,
+  each `<pdf>#page=N` in a new tab; it is cached with the catalogue, so a manual processed after
+  a page was cached shows its Contents when that cache turns over (step code cannot call
+  `revalidateTag`). English strings only (`messages/en.json`); other locales fall back.
+- **Backfill** (`scripts/index-manuals.ts`) adds `--force`. It prints no cost line: phase 1 makes
+  no Gateway calls. The nightly cron is unchanged: it archives due manuals (and so indexes them);
+  manuals archived before this change are reached by the backfill, not the cron.
+- **§8 access.** The tool page lists only public files on published resources; the research URL
+  lookup cannot match a private upload (it has neither `public_url` nor `source_url`);
+  `findStoredManualForTool` does include private documents — it is for staff-only background
+  research.
+- **§10 tests.** Fixture PDFs are generated without a dependency (`test/fixtures/manuals/
+  build-pdf.ts`, `fixtures.ts`, `generate.ts`; a test checks the committed files match):
+  outline, no outline (inferred), page labels, scanned (image only), encrypted (a Standard
+  `/Encrypt` dictionary with a non-empty user password) and corrupt. Unit tests cover the
+  extractor, digest, index step, data readers, backfill, research integration and both UI pieces;
+  `archive-manuals.workflow.test.ts` runs archive → index once in the real step bundle.
+
+**Live checks (2026-09-23).** Local database: **0** stored PDFs (the imported data has two
+Manual resources and no archived copies), so `manuals:index --dry-run` and the real run were
+no-ops (0.6–0.7 s). The 15-manual figures above come from a scratch copy. X2D: the live
+`x2d.ts` search did not return a manual PDF this time, and `csm.bblcdn.cn` is unreachable from
+this network (connection timeout), so the X2D manual could not be extracted here; Exa's copy
+remains the fallback there. Form 4 (`.livecheck/x2d-manual.ts form4`): the manual PDF was read,
+extracted (outline of 16 chapters plus spec-rich pages, 15.8k chars) and given as text; read
+cost $0.0011 (flex), `manualFound` true, 28 specs.

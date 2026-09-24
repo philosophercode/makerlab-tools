@@ -13,9 +13,18 @@
  * step with a 240-second budget cannot spend it opening links (the 2026-09-22
  * amendment).
  *
+ * **Every non-YouTube link goes through `guardedFetch`** (gateway spec §8,
+ * SSRF): the links come from a model that read untrusted pages, so a page
+ * that lists `http://169.254.169.254/` as a "manual" must not make this server
+ * request it. A refused address drops the link; redirects are checked hop by
+ * hop, at most 3. Only the status matters, so the body is cut off after its
+ * first byte.
+ *
  * Relative imports only and no `"server-only"`: workflow step bundles load
  * this under plain Node.
  */
+
+import { guardedFetch } from "../web/guarded-fetch.ts";
 
 const VERIFY_UA = "Mozilla/5.0 (compatible; MakerLabBot/1.0)";
 const VERIFY_TIMEOUT_MS = 8000;
@@ -101,22 +110,22 @@ export async function verifyUrl(
     }
   }
 
-  try {
-    const res = await fetch(url, {
-      method: "GET",
-      redirect: "follow",
-      headers: { "User-Agent": VERIFY_UA },
-      signal: requestSignal(opts.signal),
-    });
-    if (res.status === 404 || res.status === 410) {
-      return { ok: false, reason: `HTTP ${res.status}` };
-    }
-    return { ok: true };
-  } catch {
-    // The caller's deadline, not this link's: rethrow instead of blaming the URL.
-    opts.signal?.throwIfAborted();
-    return { ok: false, reason: "unreachable" };
+  const res = await guardedFetch(url, {
+    signal: requestSignal(opts.signal),
+    // Existence is the question, not the content: stop after the first byte.
+    maxBytes: 1,
+    userAgent: VERIFY_UA,
+  });
+  if (res.ok || res.reason === "too_large" || res.reason === "unsupported") return { ok: true };
+  if (res.reason === "http_error") {
+    if (res.status === 404 || res.status === 410) return { ok: false, reason: `HTTP ${res.status}` };
+    return { ok: true }; // gated, rate-limited or erroring — it exists
   }
+  if (res.reason === "blocked") return { ok: false, reason: "refused (not a public web address)" };
+  // "failed" or "timeout". The caller's deadline, not this link's: rethrow
+  // instead of blaming the URL.
+  opts.signal?.throwIfAborted();
+  return { ok: false, reason: "unreachable" };
 }
 
 /**

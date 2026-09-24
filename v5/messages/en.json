@@ -22,7 +22,9 @@
     "signInFailed": "Couldn't start sign-in. Try again.",
     "signOut": "SIGN OUT",
     "signedInAria": "Signed in as {name}",
-    "admin": "ADMIN"
+    "admin": "ADMIN",
+    "addEquipment": "ADD EQUIPMENT",
+    "accountMenuLabel": "Account menu"
   },
   "catalogRefresh": {
     "action": "REFRESH",
@@ -78,6 +80,8 @@
     "openResource": "Open resource",
     "resourceFallback": "Resource",
     "noDocuments": "No documents linked yet.",
+    "manualContents": "Contents",
+    "manualContentsPage": "p. {page}",
     "details": "Details",
     "category": "Category",
     "location": "Location",
@@ -158,13 +162,13 @@
   "about": {
     "eyebrow": "About",
     "title": "A student-led catalog for the Cornell Tech MakerLab.",
-    "intro": "MakerLab Tools is a digital inventory and discovery system for the Cornell Tech MakerLab. It helps students browse equipment, find safety documentation, and identify which physical machines are available in the lab before they walk over.",
-    "origin": "The project began as a weekend prototype and grew into the current Notion-backed catalog. Tools, units, locations, and resources all live in Notion and feed the site through a cached read-only API layer — so staff and student volunteers can curate content without touching code.",
+    "intro": "MakerLab Tools is the inventory and assistant for the Cornell Tech MakerLab. It helps students browse every machine and hand tool, see which units are available, read the manuals and safety requirements, and ask how to use a tool in their own language before they walk over.",
+    "origin": "The project began as a weekend prototype on a Notion catalog and now runs on its own database. Staff and SuperMakers edit tools, work maintenance tickets, and review corrections right in the app, and an optional mirror keeps a read-only copy in Notion for anyone who prefers it there.",
     "builtByHeading": "Built by",
     "builtByBody": "Isaac Steinberg, Johnson Cornell Tech MBA '26. Built as a student-led project to make it easier for the MakerLab community to find and safely use the lab's equipment.",
     "howItWorksHeading": "How it works",
-    "howItWorksBody": "The front end is a Next.js 16 app deployed on Vercel. The Notion API serves as the source of truth for the catalog, with a per-request cache layer so the page stays fast under load. Tool images are mirrored locally so they render reliably even when upstream signed URLs expire.",
-    "feedbackBody": "If you spot a mistake or have a suggestion, talk to the MakerLab staff — flagged corrections are reviewed and updated in Notion.",
+    "howItWorksBody": "The front end is a Next.js 16 app on Vercel, with Postgres for the catalog and Blob storage for photos and archived manuals. New equipment is identified from a photo in the chat, researched in the background against the manufacturer's own pages, and published only after a staff member reviews it. The assistant answers from the catalog and each tool's manuals, and says so when it doesn't know.",
+    "feedbackBody": "If you spot a mistake, use \"Report a correction\" on the tool's page — corrections go to the staff queue and are fixed in the app. For a broken machine, use Report in the header.",
     "browseTools": "Browse tools"
   },
   "chat": {
@@ -201,7 +205,9 @@
     "working": "Working on it…",
     "rateLimitSignIn": "You've reached the message limit for visitors who aren't signed in. Sign in with your {institution} account to keep chatting — browsing the catalog stays open either way.",
     "rateLimitSignInCta": "Sign in",
-    "rateLimited": "You've reached the hourly message limit. Please try again in a little while."
+    "rateLimited": "You've reached the hourly message limit. Please try again in a little while.",
+    "searchingWeb": "🔍 Searching the web…",
+    "readingPage": "📄 Reading the page…"
   },
   "qr": {
     "arrivalLabel": "Scanned from this machine",
@@ -232,13 +238,8 @@
     "unknownSource": "No manufacturer page or manual was found to check against",
     "unknownManual": "No manual was found",
     "unknownSpecs": "The specs aren’t confirmed against a page that was read",
-    "actionConfirm": "Looks right — add it",
-    "actionConfirmModel": "Confirm it’s the {name}",
-    "actionConfirmVariant": "It’s the {variant}",
-    "actionEdit": "Edit",
-    "actionDiscard": "Discard",
-    "actionCreateAnyway": "No, create a new tool",
-    "actionOpenDraft": "Open draft in Notion",
+    "unknownVideoOnly": "Only a video was read — no product page, manual or spec sheet",
+    "unknownNothingRead": "No page could be read, so nothing was checked against a source",
     "status": {
       "identified": "Identified",
       "queued": "Queued",
@@ -322,7 +323,7 @@
     "eyebrow": "CATALOG FEEDBACK",
     "trigger": "Report a correction",
     "title": "Report a correction",
-    "lede": "Tell us which field is wrong and staff will review it in Notion.",
+    "lede": "Tell us which field is wrong and staff will review it.",
     "fieldLabel": "Which field is wrong?",
     "descriptionLabel": "What's wrong?",
     "descriptionPlaceholder": "The build volume says 220 mm, but it's 256 mm.",
@@ -370,6 +371,7 @@
     "indexTitle": "Admin surfaces",
     "indexListLabel": "Admin pages your account can open",
     "indexNothingYet": "Nothing here is open to your account yet.",
+    "actionsLabel": "Admin actions",
     "inventoryTitle": "Inventory",
     "inventoryLede": "Every tool the lab owns — drafts and archived records included. Needs attention is where a review starts.",
     "maintenanceTitle": "Maintenance",
@@ -484,6 +486,9 @@
         "fieldUseRestrictions": "Use restrictions",
         "fieldEmergencyStop": "Emergency stop",
         "fieldNotes": "Notes",
+        "fieldStarterQuestions": "Assistant starter questions",
+        "starterQuestionsHint": "Up to three short questions the assistant offers on this tool's page. Leave them blank for the general ones.",
+        "starterQuestionN": "Starter question {n}",
         "listPlaceholder": "Separate with commas",
         "noneSelected": "Not set",
         "saveFields": "Save details",
@@ -528,6 +533,18 @@
         "resourceFileField": "PDF",
         "resourceFile": "Open the file",
         "resourceHidden": "Hidden",
+        "manualState": {
+          "ready": "Text stored",
+          "readyPages": "Text stored · {pages, plural, one {# page} other {# pages}}",
+          "noText": "No text (scanned)",
+          "failed": "Failed: {reason}",
+          "processing": "Processing",
+          "reasons": {
+            "encrypted": "encrypted",
+            "corrupt": "unreadable file",
+            "too_large": "too large"
+          }
+        },
         "addResource": "Add",
         "hideResource": "Hide",
         "showResource": "Show",
@@ -577,12 +594,16 @@
       "unit_has_history": "This unit has maintenance history, so it cannot be deleted. Retire it instead.",
       "not_editable": "This item has moved on since this page opened — it may be researching, approved or discarded.",
       "low_confidence": "Research could not confirm this item. Tick “I've checked this” and add a note, or change the name and research again.",
+      "image_retry_running": "A search for another image is already running. Wait for it to finish.",
+      "daily_limit": "You have reached today's research limit. It frees up over the next 24 hours.",
+      "start_failed": "The search could not start. Nothing was changed; try again.",
       "failed": "That did not save. Nothing was changed."
     },
     "warnings": {
       "audit_unavailable": "Saved, but this change could not be written to the audit log. Tell whoever runs the deployment.",
       "photos_not_attached": "Saved, but some photos did not attach — they may have expired. Upload them again.",
-      "files_not_attached": "Saved, but the file did not attach — it may have expired. Add the resource's file again."
+      "files_not_attached": "Saved, but the file did not attach — it may have expired. Add the resource's file again.",
+      "image_not_attached": "The tool was created, but its image could not be attached. Add a photo in the editor."
     },
     "maintenance": {
       "queueLabel": "Open maintenance tickets",
@@ -733,6 +754,44 @@
       "identityBrand": "Brand",
       "saveIdentity": "Save name and brand",
       "researchAgain": "Research again",
+      "researchNote": "Note for research (optional)",
+      "researchNotePlaceholder": "e.g. use the bambulab.com X2D product page",
+      "researchNoteHint": "Tells research where to look or what it got wrong. One line, up to {max} characters.",
+      "redo": {
+        "title": "Anything to focus on?",
+        "hint": "Pick what to redo. Everything else stays exactly as it is now.",
+        "focusLegend": "Focus on",
+        "focus": {
+          "everything": "Everything",
+          "description": "Description",
+          "specs": "Specs",
+          "links": "Links & manuals",
+          "image": "Image"
+        },
+        "imageUnavailable": "The photo added in the chat is the cover, so research does not look for an image.",
+        "suggestionsLabel": "Quick suggestions",
+        "suggestion": {
+          "specs": "Beef up the specs from the spec table or manual",
+          "manual": "Find the official manual",
+          "variant": "Wrong model or variant — it's …",
+          "shorter": "Shorter, clearer description"
+        },
+        "noteHint": "Tells research where to look or what it got wrong. One paragraph, up to {max} characters.",
+        "noteCount": "{count}/{max}",
+        "submit": "Research",
+        "cancel": "Cancel",
+        "what": {
+          "description": "the description",
+          "specs": "the specs",
+          "links": "links & manuals",
+          "image": "the image"
+        },
+        "running": "Re-researching {what}…",
+        "runningEverything": "Researching everything again…",
+        "notice": "Re-researching {what}. This page updates when it finishes.",
+        "noticeEverything": "Researching everything again. This page updates when it finishes.",
+        "updated": "Updated just now"
+      },
       "lowTitle": "Research could not confirm this item",
       "lowExplain": "Approving stays off until you either correct the name and research again, or tick the box below and say what you checked.",
       "overrideCheck": "I've checked this",
@@ -790,7 +849,51 @@
         "unresolved_duplicate": "This item matches something already here. Add it as another unit, mark it as a different tool, or discard it, then research it.",
         "not_researchable": "This item cannot be researched in its current state. Reload to see where it is.",
         "start_failed": "Research could not start. The item is still queued — press Retry.",
+        "image_retry_running": "An image search is still running for this item. Wait for it to finish, then try again.",
         "failed": "That did not go through. Nothing was changed; try again."
+      },
+      "image": {
+        "title": "Product image",
+        "hint": "Research found these pictures. Choose the tool's cover, or no image. Nothing is stored until you approve.",
+        "cleanedChoice": "Background removed",
+        "cleanedNote": "Background removed automatically: only the plain backdrop was cut away, the product is the original's own pixels.",
+        "croppedCutChoice": "Cropped and background removed",
+        "croppedCutNote": "Cropped to the product and its plain backdrop cut away automatically — everything left is the original's own pixels.",
+        "croppedChoice": "Cropped to the product",
+        "croppedNote": "Cropped to the product from the original picture. The background around it could not be removed, so it stays.",
+        "croppedAlt": "{name}, cropped to the product",
+        "bannerTag": "Banner",
+        "viewTag": {
+          "back": "Back view",
+          "detail": "Detail",
+          "part": "Part"
+        },
+        "alreadyClean": "Already on a clean background",
+        "cleanNote": {
+          "busy_background": "The background was not removed: the best picture is not on a plain backdrop.",
+          "little_background": "The background was not removed: there was almost no backdrop to cut away.",
+          "product_removed": "The background was not removed: it could not be told apart from the product.",
+          "fragmented": "The background was not removed: cutting it split the product into pieces.",
+          "product_too_small": "The background was not removed: the product came out too small.",
+          "failed": "The background was not removed: the picture could not be processed."
+        },
+        "originalOfCleaned": "Original",
+        "candidateChoice": "Option {rank}",
+        "from": "From {host}",
+        "noneChoice": "No image",
+        "usingYourPhoto": "Using your photo",
+        "usingYourPhotoHint": "The photo added in the chat will be the cover, so research did not look for another.",
+        "notFound": "No product image was found",
+        "failed": "No product image was found: {reason}",
+        "alt": "{name}, option {rank}",
+        "cleanedAlt": "{name}, background removed",
+        "cleanedUnavailable": "The background-removed copy could not be shown.",
+        "findDifferent": "Find a different image",
+        "differentNote": "What to look for (optional)",
+        "differentNotePlaceholder": "e.g. a front-facing photo of the whole printer",
+        "differentStarting": "Starting…",
+        "differentRunning": "Looking for another image…",
+        "differentFailed": "The search for another image did not work: {reason}"
       }
     },
     "mirror": {

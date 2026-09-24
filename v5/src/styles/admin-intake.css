@@ -293,6 +293,141 @@
   color: var(--primary);
 }
 
+/* ── Product image (gateway spec §6) ───────────────────────────────── */
+
+.admin-intake-image-line {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.admin-intake-image-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* The cleaned copy and the original it was cut from, side by side where
+   there is room — a cutout is only ever judged against its source. */
+.admin-intake-image-pair,
+.admin-intake-image-more {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.admin-intake-image-tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container-low);
+}
+
+.admin-intake-image-tile.is-selected,
+.admin-intake-image-none.is-selected {
+  border-color: var(--primary);
+  box-shadow: inset 0 0 0 1px var(--primary);
+}
+
+.admin-intake-image-tile.is-disabled {
+  opacity: 0.6;
+}
+
+.admin-intake-image-choice,
+.admin-intake-image-none {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  font-size: 13px;
+}
+
+.admin-intake-image-none {
+  padding: 8px;
+  border: 1px solid var(--outline);
+}
+
+.admin-intake-image-badge {
+  padding: 1px 6px;
+  border: 1px solid var(--outline);
+  color: var(--on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-intake-image-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background: var(--surface-container);
+  cursor: pointer;
+}
+
+.admin-intake-image-tile.is-disabled .admin-intake-image-frame {
+  cursor: default;
+}
+
+.admin-intake-image-tile.is-small .admin-intake-image-frame {
+  aspect-ratio: 1 / 1;
+}
+
+/* Transparency made visible: a checkerboard of two theme surfaces, so it
+   follows light and dark like everything else here. */
+.admin-intake-image-frame.is-checkerboard {
+  background-color: var(--surface-container);
+  background-image: conic-gradient(
+    var(--surface-container-high) 25%,
+    var(--surface-container) 0 50%,
+    var(--surface-container-high) 0 75%,
+    var(--surface-container) 0
+  );
+  background-size: 16px 16px;
+}
+
+.admin-intake-image-frame img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+}
+
+.admin-intake-image-broken {
+  margin: 0;
+  padding: 8px;
+  color: var(--on-surface-muted);
+  font-size: 12px;
+  text-align: center;
+}
+
+.admin-intake-image-note {
+  margin: 0;
+  color: var(--td-warning);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.admin-intake-image-source {
+  color: var(--primary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+/* A phone: one column, and each tile's radio above its picture (DOM order). */
+@media (max-width: 639px) {
+  .admin-intake-image-pair,
+  .admin-intake-image-more {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 /* On a phone every button takes the full width, so the decision is not a
    row of small targets beside the thumb. */
 @media (max-width: 639px) {
@@ -300,4 +435,131 @@
   .admin-intake-controls .admin-button {
     flex: 1 1 100%;
   }
+}
+
+/* ── Research again, guided (amendment "Guided redo") ─────────────────
+   An inline panel under the identity fields — never a modal. The chips wrap,
+   so the row fits a phone; the two buttons take the full width there. */
+.admin-intake-redo {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--primary);
+  background: var(--surface-container-low);
+}
+
+.admin-intake-redo h4 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 15px;
+}
+
+.admin-intake-redo-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-intake-redo-label {
+  color: var(--on-surface-muted);
+  font-size: 12px;
+}
+
+.admin-intake-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-intake-chip {
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid var(--outline);
+  border-radius: 999px;
+  background: var(--surface-container);
+  color: var(--on-surface);
+  font: inherit;
+  font-size: 13px;
+  line-height: 1.2;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-intake-chip.is-pressed {
+  border-color: var(--primary);
+  background: var(--primary);
+  color: var(--surface-container-low);
+}
+
+.admin-intake-chip.is-suggestion {
+  border-style: dashed;
+}
+
+.admin-intake-chip:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.admin-intake-chip:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.admin-intake-redo-count {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.admin-intake-redo-count span:last-child {
+  flex: none;
+  font-family: var(--font-mono);
+}
+
+@media (max-width: 639px) {
+  .admin-intake-redo-actions .admin-button {
+    flex: 1 1 100%;
+  }
+}
+
+/* A section the last redo changed: a brief wash, and "Updated just now". */
+.admin-intake-updated-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  font-size: 11px;
+  font-weight: normal;
+  vertical-align: middle;
+}
+
+.admin-field.is-updated,
+.admin-intake-resources.is-updated,
+.admin-intake-updated.is-updated {
+  animation: admin-intake-updated 4s ease-out;
+}
+
+@keyframes admin-intake-updated {
+  from {
+    background-color: color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-field.is-updated,
+  .admin-intake-resources.is-updated,
+  .admin-intake-updated.is-updated {
+    animation: none;
+  }
+}
+
+.admin-intake-updated {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
