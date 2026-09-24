@@ -1,6 +1,6 @@
 import { asc, eq, sql, type SQL } from "drizzle-orm";
 import { rawRows } from "../db/raw.ts";
-import { manualDocuments, manualPages, type ManualOutlineEntry } from "../db/schema/index.ts";
+import { manualChunks, manualDocuments, manualPages, type ManualOutlineEntry } from "../db/schema/index.ts";
 import type { ManualDocumentStatus, ManualOutlineSource } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
 import { MANUAL_SOURCE_PREFIX } from "./manual-archives.ts";
@@ -21,8 +21,8 @@ import { isUuid } from "./uuid.ts";
  * `"server-only"`: the index step and the backfill run under plain Node.
  */
 
-/** The SQL test for "attachment `a` is a current PDF of resource `r`". */
-function currentPdf(a: string, r: string): SQL {
+/** The SQL test for "attachment `a` is a current PDF of resource `r`". Aliases are trusted literals, never input. */
+export function currentPdf(a: string, r: string): SQL {
   return sql.raw(
     `${a}.owner_type = 'resource' and ${a}.owner_id = ${r}.id and ${a}.content_type = 'application/pdf'` +
       ` and (${a}.source_key is null or ${a}.source_key not like '${MANUAL_SOURCE_PREFIX}%'` +
@@ -82,7 +82,10 @@ export async function saveManualDocument(db: Db, input: SaveManualDocumentInput)
       outline: input.outline,
       outlineSource: input.outlineSource,
       extractorVersion: input.extractorVersion,
+      // New pages make any passages stale: they are rebuilt from these pages
+      // (`manuals/passages.ts`), so the versions that vouch for them go too.
       embeddingModel: null,
+      chunkerVersion: null,
       processedAt: new Date(),
     };
     const [doc] = await tx
@@ -91,6 +94,7 @@ export async function saveManualDocument(db: Db, input: SaveManualDocumentInput)
       .onConflictDoUpdate({ target: manualDocuments.attachmentId, set: values })
       .returning({ id: manualDocuments.id });
 
+    await tx.delete(manualChunks).where(eq(manualChunks.documentId, doc.id));
     await tx.delete(manualPages).where(eq(manualPages.documentId, doc.id));
     for (let i = 0; i < input.pages.length; i += PAGE_INSERT_BATCH) {
       const batch = input.pages.slice(i, i + PAGE_INSERT_BATCH);
@@ -121,6 +125,8 @@ export interface ResourcePdfForIndex {
   publicUrl: string | null;
   sizeBytes: number | null;
   originalFilename: string | null;
+  /** The stored document's id, or null when there is none. */
+  documentId: string | null;
   /** The stored document's version, or null when there is none. */
   documentVersion: string | null;
   documentStatus: ManualDocumentStatus | null;
@@ -136,6 +142,7 @@ interface PdfRow {
   public_url: string | null;
   size_bytes: number | null;
   original_filename: string | null;
+  document_id: string | null;
   document_version: string | null;
   document_status: ManualDocumentStatus | null;
 }
@@ -143,7 +150,7 @@ interface PdfRow {
 const PDF_COLUMNS = sql.raw(`
   a.id as attachment_id, r.id as resource_id, r.tool_id, r.title as resource_title,
   a.blob_pathname, a.access, a.public_url, a.size_bytes, a.original_filename,
-  d.extractor_version as document_version, d.status as document_status`);
+  d.id as document_id, d.extractor_version as document_version, d.status as document_status`);
 
 function toPdf(row: PdfRow): ResourcePdfForIndex {
   return {
@@ -156,6 +163,7 @@ function toPdf(row: PdfRow): ResourcePdfForIndex {
     publicUrl: row.public_url,
     sizeBytes: row.size_bytes === null ? null : Number(row.size_bytes),
     originalFilename: row.original_filename,
+    documentId: row.document_id,
     documentVersion: row.document_version,
     documentStatus: row.document_status,
   };
@@ -216,7 +224,15 @@ export interface ManualState {
   state: ManualDocumentStatus | "processing";
   pageCount: number | null;
   reason: string | null;
+  /** Ready and holding search passages (phase 2): what the editor calls "Searchable". */
+  searchable?: boolean;
 }
+
+/** SQL: document `d` holds passages built and embedded (both versions recorded, at least one row). */
+const HAS_PASSAGES = sql.raw(
+  `(d.chunker_version is not null and d.embedding_model is not null` +
+    ` and exists (select 1 from manual_chunks c where c.document_id = d.id))`
+);
 
 /** The processing state of each resource's first current PDF, keyed by resource id. Resources with no PDF are absent. */
 export async function listManualStates(db: Db, resourceIds: readonly string[]): Promise<Map<string, ManualState>> {
@@ -228,9 +244,11 @@ export async function listManualStates(db: Db, resourceIds: readonly string[]): 
     status: ManualDocumentStatus | null;
     page_count: number | null;
     status_reason: string | null;
+    searchable: boolean | null;
   }>(
     db,
-    sql`select r.id as resource_id, d.status, d.page_count, d.status_reason
+    sql`select r.id as resource_id, d.status, d.page_count, d.status_reason,
+               case when d.id is null then false else ${HAS_PASSAGES} end as searchable
           from resources r
           join attachments a on ${currentPdf("a", "r")}
           left join manual_documents d on d.attachment_id = a.id
@@ -243,6 +261,7 @@ export async function listManualStates(db: Db, resourceIds: readonly string[]): 
       state: row.status ?? "processing",
       pageCount: row.page_count === null ? null : Number(row.page_count),
       reason: row.status_reason,
+      searchable: row.searchable === true,
     });
   }
   return out;

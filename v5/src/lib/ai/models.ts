@@ -76,17 +76,43 @@ export const MODEL_JOBS = {
     serviceTier: "flex",
     tierEnv: "MODEL_IMAGE_RANK_TIER",
   },
+  // Manual passages and search queries (manual text spec §3.4). An embedding
+  // job, not a language one: `embeddingModelFor`, never `languageModelFor`.
+  // No tier hint — embeddings are cheap and a search is waited on.
+  embed: {
+    kind: "embedding",
+    env: "MODEL_EMBED",
+    default: "openai/text-embedding-3-small",
+    serviceTier: "default",
+    tierEnv: "MODEL_EMBED_TIER",
+  },
   // No image job: the `imageClean` redraw (gpt-image-1-mini) was retired on
   // 2026-09-23 — it altered product labels. Background removal is now a
   // deterministic cutout (`research/images/clean.ts`) that calls no model.
 } as const;
 
 export type ModelJob = keyof typeof MODEL_JOBS;
-/** Every job is a language job (there is no image job since the redraw was retired). */
-export type LanguageJob = ModelJob;
+/** The jobs that resolve to a language model (every one but `embed`). */
+export type LanguageJob = {
+  [K in ModelJob]: (typeof MODEL_JOBS)[K]["kind"] extends "language" ? K : never;
+}[ModelJob];
+/** The jobs that resolve to an embedding model. */
+export type EmbeddingJob = {
+  [K in ModelJob]: (typeof MODEL_JOBS)[K]["kind"] extends "embedding" ? K : never;
+}[ModelJob];
 
 /** What a language job resolves to — the provider-neutral V3 model interface. */
 type LanguageModelV3 = ReturnType<GatewayProvider["languageModel"]>;
+/** What an embedding job resolves to. */
+export type EmbeddingModelV3 = ReturnType<GatewayProvider["embeddingModel"]>;
+
+/**
+ * The dimension every stored manual embedding has (manual text spec §3.4, §4):
+ * `vector(512)` in migration 0011. Asked of the model on every call, so a
+ * `MODEL_EMBED` that can shorten its vectors (OpenAI's `text-embedding-3-*`,
+ * Voyage) fits the column; one that cannot fails the write, loudly.
+ */
+export const EMBEDDING_DIMENSIONS = 512;
 
 /** `provider/model` — the only shape the Gateway accepts. Anything else is a config error. */
 export const GATEWAY_MODEL_ID_PATTERN = /^[a-z0-9-]+\/[a-z0-9.-]+$/;
@@ -207,6 +233,41 @@ export function languageModelFor(job: LanguageJob): LanguageModelV3 {
     throw new ModelConfigError(`Model job "${job}" is not a language job.`, { job, envVar: null });
   }
   return gatewayProvider()(modelIdFor(job));
+}
+
+/** The embedding model for `job` (only `embed` today), through the Gateway. */
+export function embeddingModelFor(job: EmbeddingJob = "embed"): EmbeddingModelV3 {
+  const spec = jobSpec(job);
+  if (spec.kind !== "embedding") {
+    throw new ModelConfigError(`Model job "${job}" is not an embedding job.`, { job, envVar: null });
+  }
+  return gatewayProvider().embeddingModel(modelIdFor(job));
+}
+
+/**
+ * What a stored embedding records as its model (`manual_documents.embedding_model`):
+ * `openai/text-embedding-3-small@512`. A document whose value differs is
+ * re-embedded, so changing `MODEL_EMBED` rolls out through the backfill.
+ */
+export function embeddingModelKey(job: EmbeddingJob = "embed"): string {
+  return `${modelIdFor(job)}@${EMBEDDING_DIMENSIONS}`;
+}
+
+/**
+ * The `providerOptions` that ask the embedding model `modelId` for
+ * {@link EMBEDDING_DIMENSIONS}-dimension vectors. The Gateway passes a
+ * provider's own options through under its name: OpenAI calls it
+ * `dimensions`, Voyage `outputDimension`. Any other provider gets none, and
+ * a vector of the wrong size is refused by the column.
+ */
+export function embeddingProviderOptions(
+  modelId: string,
+  dimensions: number = EMBEDDING_DIMENSIONS
+): Record<string, Record<string, number>> | undefined {
+  const provider = modelId.split("/")[0];
+  if (provider === "openai") return { openai: { dimensions } };
+  if (provider === "voyage") return { voyage: { outputDimension: dimensions } };
+  return undefined;
 }
 
 /**

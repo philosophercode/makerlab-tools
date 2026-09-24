@@ -67,6 +67,23 @@ describe("indexManualStep (manual text spec §3.1)", () => {
     expect(await indexManualStep(ID)).toEqual(outcomes);
   });
 
+  it("retries a transient embedding failure (phase 2), and returns a permanent one as it came", async () => {
+    const passages = (transient: boolean) => ({
+      status: "failed",
+      documentId: "d",
+      reason: "embedding_failed",
+      kind: transient ? "rate_limited" : "auth",
+      transient,
+    });
+    indexer.indexResourceManuals.mockResolvedValue([
+      { status: "skipped", attachmentId: "a", reason: "already_indexed", passages: passages(true) },
+    ]);
+    expect(RetryableError.is(await indexManualStep(ID).catch((e: unknown) => e))).toBe(true);
+    const permanent = [{ status: "skipped", attachmentId: "a", reason: "already_indexed", passages: passages(false) }];
+    indexer.indexResourceManuals.mockResolvedValue(permanent);
+    expect(await indexManualStep(ID)).toEqual(permanent);
+  });
+
   it("retries a Blob read that failed transiently", async () => {
     indexer.indexResourceManuals.mockResolvedValue([{ status: "failed", attachmentId: "a", reason: "read_failed", transient: true }]);
     expect(RetryableError.is(await indexManualStep(ID).catch((e: unknown) => e))).toBe(true);

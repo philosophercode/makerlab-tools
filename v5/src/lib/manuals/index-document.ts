@@ -8,6 +8,7 @@ import {
 } from "../data/manual-documents.ts";
 import { isUuid } from "../data/uuid.ts";
 import { EXTRACTOR_VERSION, extractManual, MANUAL_EXTRACT_MAX_BYTES, type ExtractedManual } from "./extract.ts";
+import { buildDocumentPassages, type PassagesOptions, type PassagesOutcome } from "./passages.ts";
 import { readStoredFile, type StoredFileResult } from "./stored-bytes.ts";
 
 /**
@@ -28,6 +29,12 @@ import { readStoredFile, type StoredFileResult } from "./stored-bytes.ts";
  *   Blob read itself (`transient`); the database throws, and the step
  *   classifies that.
  *
+ * - **Then its passages** (phase 2, `passages.ts`): a `ready` document — just
+ *   extracted, or extracted before and skipped — is chunked and embedded when
+ *   its passages are missing or were built at another chunker or embedding
+ *   version. The outcome rides on `passages`; an embedding failure never
+ *   undoes the stored text, and the step decides whether to retry it.
+ *
  * Logs ids, counts and outcomes only. Plain Node: relative imports, no
  * `"server-only"` — the workflow step and the backfill both run it.
  */
@@ -42,8 +49,10 @@ export type IndexManualOutcome =
       outlineEntries: number;
       chars: number;
       ms: number;
+      /** The passages step, for a ready document (absent in a dry run or when not asked for). */
+      passages?: PassagesOutcome;
     }
-  | { status: "skipped"; attachmentId: string; reason: "already_indexed" }
+  | { status: "skipped"; attachmentId: string; reason: "already_indexed"; passages?: PassagesOutcome }
   | { status: "failed"; attachmentId: string; reason: "read_failed" | "blob_not_configured"; transient: boolean };
 
 export interface IndexManualOptions {
@@ -56,6 +65,11 @@ export interface IndexManualOptions {
   read?: (pathname: string, access: "public" | "private", maxBytes: number) => Promise<StoredFileResult>;
   /** The extractor; tests pass their own. */
   extract?: (bytes: Uint8Array) => Promise<ExtractedManual>;
+  /**
+   * How the passages step runs (its embedding target, `force`), or `false` to
+   * store text only. Default: build passages with the deployment's `embed` job.
+   */
+  passages?: PassagesOptions | false;
 }
 
 /** Process every current PDF of `resourceId`. Empty when it has none (or is not a uuid). */
@@ -77,7 +91,16 @@ export async function indexPdf(
   options: IndexManualOptions & { db: Db }
 ): Promise<IndexManualOutcome> {
   if (!options.force && pdf.documentVersion === EXTRACTOR_VERSION) {
-    return { status: "skipped", attachmentId: pdf.attachmentId, reason: "already_indexed" };
+    const passages =
+      pdf.documentId && pdf.documentStatus === "ready" && !options.dryRun
+        ? await passagesFor(pdf.documentId, options)
+        : undefined;
+    return {
+      status: "skipped",
+      attachmentId: pdf.attachmentId,
+      reason: "already_indexed",
+      ...(passages ? { passages } : {}),
+    };
   }
 
   const started = Date.now();
@@ -112,7 +135,8 @@ export async function indexPdf(
     return outcome;
   }
 
-  if (!options.dryRun) await saveManualDocument(options.db, {
+  let documentId: string | null = null;
+  if (!options.dryRun) documentId = await saveManualDocument(options.db, {
     attachmentId: pdf.attachmentId,
     toolId: pdf.toolId,
     title: documentTitle(pdf, extracted),
@@ -124,6 +148,7 @@ export async function indexPdf(
     extractorVersion: EXTRACTOR_VERSION,
     pages: extracted.pages,
   });
+  const passages = documentId && extracted.status === "ready" ? await passagesFor(documentId, options) : undefined;
 
   const chars = extracted.pages.reduce((sum, page) => sum + page.text.length, 0);
   const ms = Date.now() - started;
@@ -141,7 +166,20 @@ export async function indexPdf(
     outlineEntries: extracted.outline.length,
     chars,
     ms,
+    ...(passages ? { passages } : {}),
   };
+}
+
+/** The passages step for a stored document, unless the caller asked for text only. */
+async function passagesFor(
+  documentId: string,
+  options: IndexManualOptions & { db: Db }
+): Promise<PassagesOutcome | undefined> {
+  if (options.passages === false) return undefined;
+  return buildDocumentPassages(options.db, documentId, {
+    ...options.passages,
+    force: options.passages?.force ?? options.force,
+  });
 }
 
 /** The resource's title (what the lab calls it), else the PDF's own, else the file name. */

@@ -14,7 +14,8 @@ import {
   listManualStates,
 } from "../data/manual-documents";
 import { createPgliteDb } from "../db/pglite";
-import { attachments, manualDocuments, manualPages, resources, tools } from "../db/schema/index";
+import { attachments, manualChunks, manualDocuments, manualPages, resources, tools } from "../db/schema/index";
+import { fakeEmbeddingTarget } from "../../../test/ai/fake-embeddings";
 import type { Db } from "../db/types";
 import { EXTRACTOR_VERSION } from "./extract";
 import { indexResourceManuals } from "./index-document";
@@ -83,13 +84,59 @@ async function pdf(
 /** A Blob read that answers every pathname with `bytes`. */
 const serve = (bytes: Uint8Array) => vi.fn(async (): Promise<StoredFileResult> => ({ ok: true, bytes }));
 
+describe("indexResourceManuals — passages (phase 2)", () => {
+  it("builds passages after storing the text, and a later run finds nothing to do", async () => {
+    const id = await resource();
+    await pdf(id);
+    const target = fakeEmbeddingTarget();
+    const [outcome] = await indexResourceManuals(id, { db, read: serve(fixture("outline.pdf")), passages: { target } });
+    expect(outcome).toMatchObject({ status: "indexed", passages: { status: "built" } });
+    const chunks = await db.select().from(manualChunks);
+    expect(chunks.length).toBeGreaterThan(0);
+    const [again] = await indexResourceManuals(id, { db, read: serve(fixture("outline.pdf")), passages: { target } });
+    expect(again).toMatchObject({ status: "skipped", passages: { status: "skipped", reason: "up_to_date" } });
+    expect(target.calls).toHaveLength(1);
+  });
+
+  it("builds passages for text stored before phase 2, without extracting again", async () => {
+    const id = await resource();
+    await pdf(id);
+    const read = serve(fixture("outline.pdf"));
+    await indexResourceManuals(id, { db, read, passages: false });
+    const [outcome] = await indexResourceManuals(id, { db, read, passages: { target: fakeEmbeddingTarget() } });
+    expect(outcome).toMatchObject({ status: "skipped", reason: "already_indexed", passages: { status: "built" } });
+    expect(read).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the stored text when embedding fails, and reports the failure on the outcome", async () => {
+    const id = await resource();
+    const attachmentId = await pdf(id);
+    const broken = fakeEmbeddingTarget({ fail: () => new TypeError("fetch failed") });
+    const [outcome] = await indexResourceManuals(id, { db, read: serve(fixture("outline.pdf")), passages: { target: broken } });
+    expect(outcome).toMatchObject({ status: "indexed", documentStatus: "ready", passages: { status: "failed", transient: true } });
+    const [doc] = await db.select().from(manualDocuments).where(eq(manualDocuments.attachmentId, attachmentId));
+    expect(doc.status).toBe("ready");
+    expect(await db.select().from(manualChunks)).toEqual([]);
+  });
+
+  it("builds no passages for a scan", async () => {
+    const id = await resource();
+    await pdf(id);
+    const target = fakeEmbeddingTarget();
+    const [outcome] = await indexResourceManuals(id, { db, read: serve(fixture("scanned.pdf")), passages: { target } });
+    expect(outcome).toMatchObject({ documentStatus: "no_text" });
+    expect("passages" in outcome && outcome.passages).toBeFalsy();
+    expect(target.calls).toEqual([]);
+  });
+});
+
 describe("indexResourceManuals", () => {
   it("stores the document and its pages in one go, with the resource's title and tool", async () => {
     const id = await resource();
     const attachmentId = await pdf(id);
     const read = serve(fixture("outline.pdf"));
 
-    const [outcome] = await indexResourceManuals(id, { db, read });
+    const [outcome] = await indexResourceManuals(id, { db, passages: false, read });
     expect(outcome).toMatchObject({ status: "indexed", attachmentId, documentStatus: "ready", pageCount: 4, outlineEntries: 4 });
     expect(read).toHaveBeenCalledWith(expect.stringMatching(/^manuals\//), "public", 25 * 1024 * 1024);
 
@@ -112,13 +159,13 @@ describe("indexResourceManuals", () => {
     const id = await resource();
     await pdf(id);
     const read = serve(fixture("outline.pdf"));
-    await indexResourceManuals(id, { db, read });
-    const [again] = await indexResourceManuals(id, { db, read });
+    await indexResourceManuals(id, { db, passages: false, read });
+    const [again] = await indexResourceManuals(id, { db, passages: false, read });
     expect(again).toMatchObject({ status: "skipped", reason: "already_indexed" });
     expect(read).toHaveBeenCalledTimes(1);
 
     const [before] = await db.select({ id: manualDocuments.id }).from(manualDocuments);
-    const [forced] = await indexResourceManuals(id, { db, read, force: true });
+    const [forced] = await indexResourceManuals(id, { db, passages: false, read, force: true });
     expect(forced.status).toBe("indexed");
     const docs = await db.select({ id: manualDocuments.id }).from(manualDocuments);
     expect(docs).toEqual([before]);
@@ -128,9 +175,9 @@ describe("indexResourceManuals", () => {
   it("re-processes a document stored by an older extractor", async () => {
     const id = await resource();
     await pdf(id);
-    await indexResourceManuals(id, { db, read: serve(fixture("outline.pdf")) });
+    await indexResourceManuals(id, { db, passages: false, read: serve(fixture("outline.pdf")) });
     await db.update(manualDocuments).set({ extractorVersion: "unpdf-0/extract-0" });
-    const [outcome] = await indexResourceManuals(id, { db, read: serve(fixture("outline.pdf")) });
+    const [outcome] = await indexResourceManuals(id, { db, passages: false, read: serve(fixture("outline.pdf")) });
     expect(outcome.status).toBe("indexed");
   });
 
@@ -140,18 +187,18 @@ describe("indexResourceManuals", () => {
     const bad = await resource({ title: "Bad", url: "https://maker.test/bad.pdf" });
     await pdf(bad, { sourceKey: manualSourceKey(bad, "https://maker.test/bad.pdf") });
 
-    expect((await indexResourceManuals(scan, { db, read: serve(fixture("scanned.pdf")) }))[0]).toMatchObject({
+    expect((await indexResourceManuals(scan, { db, passages: false, read: serve(fixture("scanned.pdf")) }))[0]).toMatchObject({
       status: "indexed",
       documentStatus: "no_text",
       reason: "no_text_layer",
     });
-    expect((await indexResourceManuals(bad, { db, read: serve(fixture("corrupt.pdf")) }))[0]).toMatchObject({
+    expect((await indexResourceManuals(bad, { db, passages: false, read: serve(fixture("corrupt.pdf")) }))[0]).toMatchObject({
       status: "indexed",
       documentStatus: "failed",
       reason: "corrupt",
     });
     // Stored, so a second run leaves them alone.
-    expect((await indexResourceManuals(scan, { db, read: serve(fixture("scanned.pdf")) }))[0].status).toBe("skipped");
+    expect((await indexResourceManuals(scan, { db, passages: false, read: serve(fixture("scanned.pdf")) }))[0].status).toBe("skipped");
     expect(await countManualDocuments(db)).toEqual({ ready: 0, no_text: 1, failed: 1, pages: 3 });
   });
 
@@ -159,14 +206,14 @@ describe("indexResourceManuals", () => {
     const id = await resource();
     await pdf(id);
     const tooLarge = vi.fn(async (): Promise<StoredFileResult> => ({ ok: false, reason: "too_large", transient: false }));
-    expect((await indexResourceManuals(id, { db, read: tooLarge }))[0]).toMatchObject({ documentStatus: "failed", reason: "too_large" });
+    expect((await indexResourceManuals(id, { db, passages: false, read: tooLarge }))[0]).toMatchObject({ documentStatus: "failed", reason: "too_large" });
 
     const other = await resource({ title: "Other", url: "https://maker.test/o.pdf" });
     await pdf(other, { sourceKey: manualSourceKey(other, "https://maker.test/o.pdf") });
     const down = vi.fn(async (): Promise<StoredFileResult> => ({ ok: false, reason: "failed", transient: true }));
-    expect((await indexResourceManuals(other, { db, read: down }))[0]).toMatchObject({ status: "failed", reason: "read_failed", transient: true });
+    expect((await indexResourceManuals(other, { db, passages: false, read: down }))[0]).toMatchObject({ status: "failed", reason: "read_failed", transient: true });
     const missing = vi.fn(async (): Promise<StoredFileResult> => ({ ok: false, reason: "missing", transient: false }));
-    expect((await indexResourceManuals(other, { db, read: missing }))[0]).toMatchObject({ status: "failed", transient: false });
+    expect((await indexResourceManuals(other, { db, passages: false, read: missing }))[0]).toMatchObject({ status: "failed", transient: false });
     expect(await db.select().from(manualDocuments).where(eq(manualDocuments.title, "Other"))).toEqual([]);
   });
 
@@ -176,7 +223,7 @@ describe("indexResourceManuals", () => {
     const uploaded = await pdf(id, { sourceKey: null, origin: "upload", access: "private", publicUrl: null });
     const read = serve(fixture("outline.pdf"));
 
-    const outcomes = await indexResourceManuals(id, { db, read });
+    const outcomes = await indexResourceManuals(id, { db, passages: false, read });
     expect(outcomes.map((o) => o.attachmentId)).toEqual([uploaded]);
     expect(read).toHaveBeenCalledWith(expect.any(String), "private", expect.any(Number));
   });
@@ -184,20 +231,20 @@ describe("indexResourceManuals", () => {
   it("writes nothing on a dry run", async () => {
     const id = await resource();
     await pdf(id);
-    const [outcome] = await indexResourceManuals(id, { db, read: serve(fixture("outline.pdf")), dryRun: true });
+    const [outcome] = await indexResourceManuals(id, { db, passages: false, read: serve(fixture("outline.pdf")), dryRun: true });
     expect(outcome).toMatchObject({ status: "indexed", documentStatus: "ready" });
     expect(await db.select().from(manualDocuments)).toEqual([]);
   });
 
   it("answers nothing for a resource with no PDF, or an id that is not one", async () => {
-    expect(await indexResourceManuals(await resource({ url: null }), { db })).toEqual([]);
-    expect(await indexResourceManuals("not-a-uuid", { db })).toEqual([]);
+    expect(await indexResourceManuals(await resource({ url: null }), { db, passages: false })).toEqual([]);
+    expect(await indexResourceManuals("not-a-uuid", { db, passages: false })).toEqual([]);
   });
 
   it("goes when its attachment goes", async () => {
     const id = await resource();
     const attachmentId = await pdf(id);
-    await indexResourceManuals(id, { db, read: serve(fixture("outline.pdf")) });
+    await indexResourceManuals(id, { db, passages: false, read: serve(fixture("outline.pdf")) });
     await db.delete(attachments).where(eq(attachments.id, attachmentId));
     expect(await db.select().from(manualDocuments)).toEqual([]);
     expect(await db.select().from(manualPages)).toEqual([]);
@@ -209,9 +256,9 @@ describe("the readers", () => {
     const id = await resource();
     await pdf(id);
     const none = await resource({ title: "Video", url: "https://video.test/x" });
-    expect(await listManualStates(db, [id, none])).toEqual(new Map([[id, { state: "processing", pageCount: null, reason: null }]]));
-    await indexResourceManuals(id, { db, read: serve(fixture("outline.pdf")) });
-    expect((await listManualStates(db, [id])).get(id)).toEqual({ state: "ready", pageCount: 4, reason: null });
+    expect(await listManualStates(db, [id, none])).toEqual(new Map([[id, { state: "processing", pageCount: null, reason: null, searchable: false }]]));
+    await indexResourceManuals(id, { db, passages: false, read: serve(fixture("outline.pdf")) });
+    expect((await listManualStates(db, [id])).get(id)).toEqual({ state: "ready", pageCount: 4, reason: null, searchable: false });
   });
 
   it("gives the tool page the outline of public, published, ready manuals only", async () => {
@@ -221,7 +268,7 @@ describe("the readers", () => {
     await pdf(hidden, { sourceKey: manualSourceKey(hidden, "https://maker.test/h.pdf"), publicUrl: "https://blob.test/h.pdf" });
     const priv = await resource({ title: "Private SOP", url: null });
     await pdf(priv, { sourceKey: null, access: "private", publicUrl: null });
-    for (const id of [shown, hidden, priv]) await indexResourceManuals(id, { db, read: serve(fixture("outline.pdf")) });
+    for (const id of [shown, hidden, priv]) await indexResourceManuals(id, { db, passages: false, read: serve(fixture("outline.pdf")) });
 
     const contents = await listManualContentsForTool(db, toolId);
     expect(contents).toHaveLength(1);
@@ -232,7 +279,7 @@ describe("the readers", () => {
   it("finds a stored manual for research by its source link, its stored copy, or its tool", async () => {
     const id = await resource();
     await pdf(id);
-    await indexResourceManuals(id, { db, read: serve(fixture("outline.pdf")) });
+    await indexResourceManuals(id, { db, passages: false, read: serve(fixture("outline.pdf")) });
     const byLink = await findStoredManualByUrl(db, LINK);
     expect(byLink?.pages).toHaveLength(4);
     expect(byLink?.outline).toHaveLength(4);
@@ -247,7 +294,7 @@ describe("the readers", () => {
     await pdf(a);
     const b = await resource({ title: "B", url: "https://maker.test/b.pdf" });
     await pdf(b, { sourceKey: manualSourceKey(b, "https://maker.test/b.pdf") });
-    await indexResourceManuals(a, { db, read: serve(fixture("outline.pdf")) });
+    await indexResourceManuals(a, { db, passages: false, read: serve(fixture("outline.pdf")) });
 
     expect((await listIndexablePdfs(db, { missingVersion: EXTRACTOR_VERSION })).map((p) => p.resourceId)).toEqual([b]);
     expect(await listIndexablePdfs(db)).toHaveLength(2);

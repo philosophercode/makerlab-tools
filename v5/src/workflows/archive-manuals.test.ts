@@ -25,7 +25,7 @@ describe("archiveManuals", () => {
       .mockResolvedValueOnce({ status: "skipped", reason: "already_archived" })
       .mockResolvedValueOnce({ status: "failed", reason: "not_pdf", transient: false });
 
-    const counts = { archived: 1, skipped: 1, failed: 2, indexed: 0, indexFailed: 0 };
+    const counts = { archived: 1, skipped: 1, failed: 2, indexed: 0, indexFailed: 0, passagesBuilt: 0, passagesFailed: 0 };
     expect(await archiveManuals(["a", "b", "c", "d"])).toEqual(counts);
     expect(steps.archiveManualStep.mock.calls.map(([id]) => id)).toEqual(["a", "b", "c", "d"]);
     expect(steps.finishManualArchive).toHaveBeenCalledWith(counts);
@@ -46,7 +46,7 @@ describe("archiveManuals", () => {
 
     const result = await archiveManuals(["a", "b", "c", "d", "e", "f"]);
     expect(steps.indexManualStep.mock.calls.map(([id]) => id)).toEqual(["a", "b", "c"]);
-    expect(result).toEqual({ archived: 1, skipped: 3, failed: 2, indexed: 2, indexFailed: 0 });
+    expect(result).toEqual({ archived: 1, skipped: 3, failed: 2, indexed: 2, indexFailed: 0, passagesBuilt: 0, passagesFailed: 0 });
   });
 
   it("never lets processing change what the archive counted", async () => {
@@ -54,6 +54,6 @@ describe("archiveManuals", () => {
     steps.indexManualStep
       .mockRejectedValueOnce(new Error("retries exhausted"))
       .mockResolvedValueOnce([{ status: "failed", reason: "read_failed", transient: true }]);
-    expect(await archiveManuals(["a", "b"])).toEqual({ archived: 2, skipped: 0, failed: 0, indexed: 0, indexFailed: 2 });
+    expect(await archiveManuals(["a", "b"])).toEqual({ archived: 2, skipped: 0, failed: 0, indexed: 0, indexFailed: 2, passagesBuilt: 0, passagesFailed: 0 });
   });
 });

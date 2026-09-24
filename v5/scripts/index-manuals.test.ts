@@ -3,10 +3,19 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { manualSourceKey } from "../src/lib/data/manual-archives.ts";
 import { createPgliteDb } from "../src/lib/db/pglite.ts";
-import { attachments, manualDocuments, resources, tools } from "../src/lib/db/schema/index.ts";
+import { attachments, manualChunks, manualDocuments, resources, tools } from "../src/lib/db/schema/index.ts";
+import { fakeEmbeddingTarget } from "../test/ai/fake-embeddings.ts";
 import type { Db } from "../src/lib/db/types.ts";
 import type { StoredFileResult } from "../src/lib/manuals/stored-bytes.ts";
-import { loadIndexTargets, parseArgs, runIndexBackfill, summarise } from "./index-manuals.ts";
+import {
+  loadIndexTargets,
+  loadPassageTargets,
+  parseArgs,
+  runIndexBackfill,
+  runPassagesBackfill,
+  summarise,
+  summarisePassages,
+} from "./index-manuals.ts";
 
 /**
  * The manual-text backfill (manual text spec §5 "Backfill"): arguments, which
@@ -52,9 +61,9 @@ const read = async (pathname: string): Promise<StoredFileResult> => ({ ok: true,
 
 describe("parseArgs", () => {
   it("reads --dry-run, --force, --limit and --ids", () => {
-    expect(parseArgs([])).toEqual({ dryRun: false, force: false, limit: null, ids: null });
+    expect(parseArgs([])).toEqual({ dryRun: false, force: false, limit: null, ids: null, textOnly: false });
     const id = "675596a3-081a-41a5-88e2-91353a18f759";
-    expect(parseArgs(["--dry-run", "--force", "--limit=3", "--ids", `${id}`])).toEqual({ dryRun: true, force: true, limit: 3, ids: [id] });
+    expect(parseArgs(["--dry-run", "--force", "--limit=3", "--ids", `${id}`])).toEqual({ dryRun: true, force: true, limit: 3, ids: [id], textOnly: false });
   });
 
   it("refuses a bad limit, a non-uuid id and an unknown flag", () => {
@@ -89,6 +98,47 @@ describe("runIndexBackfill", () => {
     expect(await db.select().from(manualDocuments)).toHaveLength(3);
     expect(await loadIndexTargets(db, { ids: null, limit: null, force: false })).toEqual([]);
     expect(await loadIndexTargets(db, { ids: null, limit: null, force: true })).toHaveLength(3);
+  });
+
+  it("stores text only, then chunks and embeds every ready document missing passages, reporting tokens and cost", async () => {
+    const pdfs = await loadIndexTargets(db, { ids: null, limit: null, force: false });
+    await runIndexBackfill({ db, pdfs, dryRun: false, read });
+    expect(await db.select().from(manualChunks)).toEqual([]);
+
+    const key = "fake/fake-embed@512";
+    const options = { ids: null, limit: null, force: false };
+    const documents = await loadPassageTargets(db, options, key);
+    expect(documents).toHaveLength(1); // only the ready one; the scan and the encrypted file have no text
+
+    const dry = await runPassagesBackfill({ db, documents, dryRun: true, target: fakeEmbeddingTarget() });
+    expect(dry).toMatchObject({ chunked: 1, built: 0, tokens: 0, cost: null });
+    expect(summarisePassages(dry, true)).toMatch(/^Passages \(dry run, nothing embedded\): 1 document\(s\), \d+ passages\.$/);
+
+    const lines: string[] = [];
+    const target = fakeEmbeddingTarget({ costPerCall: 0.0002 });
+    const report = await runPassagesBackfill({ db, documents, dryRun: false, target, log: (line) => lines.push(line) });
+    expect(report).toMatchObject({ built: 1, failed: 0 });
+    expect(report.tokens).toBeGreaterThan(0);
+    expect(report.cost).toBeCloseTo(0.0002);
+    expect(lines[0]).toMatch(/passages, \d+ tokens, 1 call\(s\), cost \$0\.00020/);
+    expect(summarisePassages(report, false)).toMatch(/^Passages: 1 document\(s\) built, \d+ passages, \d+ tokens, cost \$0\.00020 in/);
+    expect(await loadPassageTargets(db, options, key)).toEqual([]);
+    // A new embedding model makes every document stale again.
+    expect(await loadPassageTargets(db, options, "fake/next-model@512")).toHaveLength(1);
+  });
+
+  it("counts an embedding failure and goes on", async () => {
+    const pdfs = await loadIndexTargets(db, { ids: null, limit: null, force: false });
+    await runIndexBackfill({ db, pdfs, dryRun: false, read });
+    const documents = await loadPassageTargets(db, { ids: null, limit: null, force: false }, "fake/fake-embed@512");
+    const report = await runPassagesBackfill({
+      db,
+      documents,
+      dryRun: false,
+      target: fakeEmbeddingTarget({ fail: () => new TypeError("fetch failed") }),
+    });
+    expect(report).toMatchObject({ built: 0, failed: 1 });
+    expect(summarisePassages(report, false)).toContain("1 failed");
   });
 
   it("counts a PDF it could not read, and goes on", async () => {

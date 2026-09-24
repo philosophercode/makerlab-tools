@@ -24,7 +24,7 @@ const nextConfig: NextConfig = {
   // or a request without `DATABASE_URL` dies on "Extension bundle not found".
   // Kept external, it loads from node_modules and the demo database works in a
   // built app exactly as it does under `next dev` (spec §3.2).
-  serverExternalPackages: ["@electric-sql/pglite"],
+  serverExternalPackages: ["@electric-sql/pglite", "@electric-sql/pglite-pgvector"],
   images: {
     localPatterns: [
       {

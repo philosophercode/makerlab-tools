@@ -37,6 +37,7 @@ type CallOptions = Parameters<LanguageModel["doGenerate"]>[0];
 type StreamPart = Awaited<ReturnType<LanguageModel["doStream"]>>["stream"] extends ReadableStream<infer P> ? P : never;
 
 const languageModels = new Map<LanguageJob, LanguageModel>();
+let embeddingModel: ReturnType<Models["embeddingModelFor"]> | null = null;
 
 /** The module factory for `vi.mock("@/lib/ai/models", …)`: the real module with the model factory swapped. */
 export function stubModelsModule(actual: Models): Models {
@@ -49,6 +50,12 @@ export function stubModelsModule(actual: Models): Models {
       if (!model) throw new Error(`no model stubbed for ${job} — call setLanguageModel("${job}", …)`);
       return model;
     },
+    // Manual search (job `embed`): a fake with fixed vectors — `test/ai/fake-embeddings.ts`.
+    embeddingModelFor: (job = "embed") => {
+      actual.modelIdFor(job);
+      if (!embeddingModel) throw new Error(`no embedding model stubbed — call setEmbeddingModel(…)`);
+      return embeddingModel;
+    },
   };
 }
 
@@ -56,8 +63,14 @@ export function setLanguageModel(job: LanguageJob, model: LanguageModel): void {
   languageModels.set(job, model);
 }
 
+/** The model job `embed` resolves to, e.g. `fakeEmbeddingTarget().model`. */
+export function setEmbeddingModel(model: ReturnType<Models["embeddingModelFor"]>): void {
+  embeddingModel = model;
+}
+
 export function resetModelStubs(): void {
   languageModels.clear();
+  embeddingModel = null;
 }
 
 // ── Model builders ────────────────────────────────────────────────────
