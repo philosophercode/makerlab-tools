@@ -65,14 +65,37 @@ export function allowedEmailDomain(): string {
 }
 
 /**
- * Server-side domain check. Google's `hd` parameter narrows the account picker
- * and is a **UI hint, not a security control** — this is the enforcement, and it
- * runs again on every request that resolves an identity.
+ * Addresses allowed in by name, whatever domain they are on.
+ *
+ * The domain rule is the right control for a university: it admits every
+ * student without anybody maintaining a list. But it ties the app to one
+ * institution's Google Workspace, and the people who must never be locked out
+ * are exactly the ones whose institutional account is temporary — a director
+ * who graduates, a handover to somebody who does not have a `cornell.edu`
+ * address yet, a maintainer after the project leaves the university.
+ *
+ * So: named exceptions, never a second open domain. Each entry is one full
+ * address, and adding one is a deliberate act by somebody who can already
+ * deploy. An empty list — the default, and the Cornell Tech deployment's
+ * setting — leaves the domain rule exactly as it was.
+ */
+export function allowedEmails(): string[] {
+  return parseEmailList(process.env.AUTH_ALLOWED_EMAILS);
+}
+
+/**
+ * Server-side sign-in check: on the institution's domain, or named in
+ * {@link allowedEmails}.
+ *
+ * Google's `hd` parameter narrows the account picker and is a **UI hint, not a
+ * security control** — this is the enforcement, and it runs again on every
+ * request that resolves an identity.
  */
 export function isAllowedEmail(email: string | null | undefined): boolean {
   const normalized = normalizeEmail(email);
   if (!normalized) return false;
-  return normalized.endsWith(`@${allowedEmailDomain()}`);
+  if (normalized.endsWith(`@${allowedEmailDomain()}`)) return true;
+  return allowedEmails().includes(normalized);
 }
 
 /** Lower-case and trim an address; returns "" for anything unusable. */
