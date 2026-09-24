@@ -49,9 +49,9 @@ import {
   finishBatch,
   markItemFailed,
   readAndVerifyItem,
-  reportSearchOvershoot,
   searchItem,
 } from "./steps";
+import { reportSearchOvershoot } from "./engine";
 import type { ResearchResult } from "./result";
 
 const MANUAL_URL = "https://prusa.example/mk4s-manual.pdf";

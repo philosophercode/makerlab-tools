@@ -51,7 +51,16 @@ export async function rankAndClean(
   id: string,
   itemName: string,
   candidates: readonly ImageHint[],
-  opts: { signal: AbortSignal; reviewerNote?: string | null }
+  opts: {
+    signal: AbortSignal;
+    reviewerNote?: string | null;
+    /**
+     * `false`: probe and rank only, store nothing — refresh research (refresh
+     * research spec §3.1) keeps no cleaned copy; the image an admin accepts is
+     * downloaded then, and only then.
+     */
+    clean?: boolean;
+  }
 ): Promise<StageOutcome> {
   const { signal } = opts;
   if (candidates.length === 0) return { images: NO_CANDIDATES, imageError: null };
@@ -68,7 +77,7 @@ export async function rankAndClean(
     return { images: null, imageError: message };
   }
 
-  const { cleaned, cleanNote } = await cleanTop(db, id, ranked[0]);
+  const { cleaned, cleanNote } = opts.clean === false ? { cleaned: null, cleanNote: null } : await cleanTop(db, id, ranked[0]);
   return {
     images: {
       candidates: ranked.map((entry) => entry.candidate),

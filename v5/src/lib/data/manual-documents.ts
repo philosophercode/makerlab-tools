@@ -306,6 +306,8 @@ export interface StoredManualText {
   title: string;
   outline: ManualOutlineEntry[];
   pages: { pageNumber: number; label: string | null; text: string }[];
+  /** Every address the stored file goes by — its public copy, its source link. Set by {@link findStoredManualForTool}. */
+  urls?: string[];
 }
 
 /**
@@ -336,9 +338,9 @@ export async function findStoredManualByUrl(db: Db, url: string): Promise<Stored
  */
 export async function findStoredManualForTool(db: Db, toolId: string): Promise<StoredManualText | null> {
   if (!isUuid(toolId)) return null;
-  const [row] = await rawRows<{ id: string }>(
+  const [row] = await rawRows<{ id: string; public_url: string | null; source_url: string | null; resource_url: string | null }>(
     db,
-    sql`select d.id
+    sql`select d.id, a.public_url, a.source_url, r.url as resource_url
           from resources r
           join attachments a on ${currentPdf("a", "r")}
           join manual_documents d on d.attachment_id = a.id
@@ -346,7 +348,11 @@ export async function findStoredManualForTool(db: Db, toolId: string): Promise<S
          order by (lower(coalesce(r.type, '')) = 'manual') desc, r.title asc
          limit 1`
   );
-  return row ? loadStoredManual(db, row.id) : null;
+  if (!row) return null;
+  const stored = await loadStoredManual(db, row.id);
+  if (!stored) return null;
+  const urls = [...new Set([row.public_url, row.source_url, row.resource_url].filter((url): url is string => Boolean(url)))];
+  return { ...stored, urls };
 }
 
 async function loadStoredManual(db: Db, documentId: string): Promise<StoredManualText | null> {

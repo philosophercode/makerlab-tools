@@ -31,6 +31,12 @@ export const tools = pgTable(
     emergencyStop: text("emergency_stop"),
     notes: text("notes"),
     /**
+     * What to write down from the machine's nameplate when refresh research
+     * could not identify it (refresh research spec §4.1): set by accepting a
+     * `floor_check` proposal, cleared in the editor. Null means no check owed.
+     */
+    floorCheck: text("floor_check"),
+    /**
      * Up to three questions the assistant offers as starter chips on this
      * tool's page (spec amendment "Tool-specific starter questions"). Written
      * by approval from research, or by staff in the editor; empty means the
