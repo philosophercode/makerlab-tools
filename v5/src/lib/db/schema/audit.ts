@@ -18,6 +18,8 @@ export const AUDIT_ACTIONS = [
   "pending.approved",
   "mirror.connected",
   "mirror.disconnected",
+  // A super admin raised somebody's research allowance (bulk intake spec §4.2).
+  "allowance.granted",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

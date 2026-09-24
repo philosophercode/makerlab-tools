@@ -21,6 +21,7 @@ export * from "./maintenance.ts";
 export * from "./feedback.ts";
 export * from "./projects.ts";
 export * from "./audit.ts";
+export * from "./imports.ts";
 export * from "./pending-tools.ts";
 export * from "./mirror.ts";
 export * from "./manuals.ts";

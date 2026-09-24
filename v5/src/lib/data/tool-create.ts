@@ -1,7 +1,7 @@
 import { eq, like, or } from "drizzle-orm";
 import { resources, tools, units } from "../db/schema/index.ts";
 import { slugify, uniqueSlug } from "../db/slug.ts";
-import type { UnitCondition, UnitStatus } from "../db/schema/vocabulary.ts";
+import type { ResourceOrigin, UnitCondition, UnitStatus } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
 import { cleanStarterQuestions } from "../starter-questions.ts";
 import { isUniqueViolation } from "./pg-errors.ts";
@@ -50,7 +50,11 @@ export interface NewToolRecord {
     status?: UnitStatus;
     condition?: UnitCondition | null;
   }[];
-  resources?: { title: string; url: string; type: string }[];
+  /**
+   * `origin: "lab_document"` marks the lab's own material a bulk import carried
+   * through (bulk intake spec §3.4) — never fetched; absent for ordinary links.
+   */
+  resources?: { title: string; url: string; type: string; origin?: ResourceOrigin | null }[];
 }
 
 export interface CreatedToolRecord {
@@ -120,6 +124,7 @@ export async function createToolRecord(
           title: resource.title.trim(),
           url: resource.url,
           type: resource.type,
+          origin: resource.origin ?? null,
           ...actor,
         }))
       )

@@ -7,6 +7,7 @@ import {
   locations,
   pendingTools,
   researchRequests,
+  resources,
   tools,
   units,
   user,
@@ -21,6 +22,9 @@ import type { Db } from "../db/types.ts";
 import { RESEARCH_START_STALE_MS } from "../intake/limits.ts";
 import type { ResearchFocus, ResearchFocusField } from "../intake/research-focus.ts";
 import type { DuplicateOf } from "../intake/types.ts";
+import type { ImportItem, ImportLink, LabDoc, NameSuggestion } from "../import/types.ts";
+import { IMPORT_MAX_QUANTITY } from "../import/limits.ts";
+import { approvalUnits, importApprovalResources } from "../import/resources.ts";
 import { mergeResearch } from "../research/focus-merge.ts";
 import { parseResearchResult, researchResultSchema, type ResearchResult } from "../research/result.ts";
 import { claimAttachments, releaseAttachments, reownAttachments } from "./attachments.ts";
@@ -87,6 +91,20 @@ export interface PendingToolRecord {
   approvalNote: string | null;
   createdToolId: string | null;
   createdUnitId: string | null;
+  /** The bulk import this item came from, and its row there (bulk intake spec §4.1). */
+  importId: string | null;
+  sourceRow: number | null;
+  /** Units approval creates — never that many tools. 1 for everything the chat identified. */
+  quantity: number;
+  serials: string[];
+  /** The lab's own documents: carried to approval unread, never given to research. */
+  labDocs: LabDoc[];
+  /** Product or manual links the list gave, offered as resources at approval. */
+  links: ImportLink[];
+  /** The list's notes — kept here, never sent to a search. */
+  notes: string | null;
+  /** The Suggest names pass's answer, until it is accepted or ignored. */
+  nameSuggestion: NameSuggestion | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -146,6 +164,21 @@ export interface NewPendingTool {
   serialNumber?: string | null;
   /** `attachments.id`s of the uploads that show this item. */
   attachmentIds?: string[];
+  /** Bulk intake's extra fields (bulk intake spec §4.1); absent for the chat's items. */
+  imported?: Pick<ImportItem, "quantity" | "serials" | "labDocs" | "links" | "notes" | "sourceRow"> & {
+    importId: string;
+  };
+}
+
+export interface CreatePendingBatchOptions extends PendingToolOptions {
+  /** The batch id to use — an import's own. A fresh one when absent. */
+  batchId?: string;
+  /**
+   * Check each item against the items of the same batch created before it
+   * (bulk intake spec §2: "and the other rows of the same import"). Off for the
+   * chat's batches, whose siblings are the table the person is looking at.
+   */
+  checkWithinBatch?: boolean;
 }
 
 export interface CreatedPendingBatch {
@@ -161,6 +194,10 @@ export interface PendingToolPatch {
   locationHint?: string | null;
   serialNumber?: string | null;
   duplicateResolution?: DuplicateResolution | null;
+  /** Units approval creates, 1–50 (bulk intake spec §3.2); never below the serials given. */
+  quantity?: number;
+  /** Clear the Suggest names answer (Ignore) — accepting one is a name edit plus this. */
+  clearNameSuggestion?: true;
 }
 
 export type PendingToolWriteResult =
@@ -198,6 +235,12 @@ export interface ApprovalFields {
   /** A subset of `research.resources[].url`; all of them when omitted. */
   resourceUrls?: string[];
   /**
+   * A subset of the item's own `links` (an import's product or manual links),
+   * added as resources after research's; all of them when omitted. Lab
+   * documents are not chosen here — they always come along (bulk intake spec §3.4).
+   */
+  importLinkUrls?: string[];
+  /**
    * The product image to use as the cover. Read by `intake/approval-image.ts`,
    * which turns it into {@link ApprovePendingInput.coverAttachmentId} before the
    * transaction; the transaction itself never downloads anything.
@@ -228,7 +271,10 @@ export type ApprovePendingResult =
       slug: string;
       unitId: string | null;
       resourcesCreated: number;
-      /** The resources created, for the manual archive to copy after the commit. */
+      /**
+       * The resources created, for the manual archive to copy after the
+       * commit — lab documents left out, because nothing may fetch them.
+       */
       resourceIds: string[];
       photosMoved: number;
       published: boolean;
@@ -289,6 +335,8 @@ export async function listPendingTools(
     statuses?: readonly PendingStatus[];
     createdBy?: string;
     ids?: string[];
+    /** Only the items of this bulk import. */
+    importId?: string;
     /** At most this many rows; 500 when omitted, and no cap at all when null. */
     limit?: number | null;
   } = {},
@@ -300,6 +348,10 @@ export async function listPendingTools(
     filters.push(inArray(pendingTools.status, [...query.statuses]));
   }
   if (query.createdBy !== undefined) filters.push(eq(pendingTools.createdBy, query.createdBy));
+  if (query.importId !== undefined) {
+    if (!isUuid(query.importId)) return [];
+    filters.push(eq(pendingTools.importId, query.importId));
+  }
   let ids: string[] | null = null;
   if (query.ids) {
     ids = [...new Set(query.ids.filter(isUuid))];
@@ -356,25 +408,33 @@ export async function listIntakeQueue(
  */
 export async function createPendingBatch(
   input: { createdBy: string; items: NewPendingTool[] },
-  options: PendingToolOptions = {}
+  options: CreatePendingBatchOptions = {}
 ): Promise<CreatedPendingBatch> {
   const names = input.items.map((item) => item.name.trim());
   if (names.some((name) => !name)) throw new Error("createPendingBatch: every item needs a name");
 
   const db = options.db ?? (await getDb());
-  const batchId = crypto.randomUUID();
+  const batchId = options.batchId ?? crypto.randomUUID();
+  const withinBatch = options.checkWithinBatch === true;
 
   return db.transaction(async (tx) => {
-    const matches = await findDuplicates(
-      input.items.map((item, index) => ({ name: names[index], brand: item.brand })),
-      { db: tx, excludeBatchId: batchId }
-    );
+    // The chat's batch is checked up front against everything but itself; an
+    // import's rows one at a time, each against the rows inserted before it.
+    const matches = withinBatch
+      ? null
+      : await findDuplicates(
+          input.items.map((item, index) => ({ name: names[index], brand: item.brand })),
+          { db: tx, excludeBatchId: batchId }
+        );
 
     const created: CreatedPendingBatch["items"] = [];
     // One insert per item, so `created` is in the caller's order by
     // construction rather than by Postgres' habit.
     for (const [index, item] of input.items.entries()) {
-      const match = matches[index];
+      const match = matches
+        ? matches[index]
+        : await findDuplicate({ name: names[index], brand: item.brand }, { db: tx });
+      const imported = item.imported;
       const [row] = await tx
         .insert(pendingTools)
         .values({
@@ -388,6 +448,17 @@ export async function createPendingBatch(
           duplicateOfToolId: match?.kind === "tool" ? match.id : null,
           duplicateOfPendingId: match?.kind === "pending" ? match.id : null,
           createdBy: input.createdBy,
+          ...(imported
+            ? {
+                importId: imported.importId,
+                sourceRow: imported.sourceRow,
+                quantity: clampQuantity(imported.quantity, imported.serials.length),
+                serials: imported.serials,
+                labDocs: imported.labDocs,
+                links: imported.links,
+                notes: imported.notes,
+              }
+            : {}),
         })
         .returning({ id: pendingTools.id });
 
@@ -440,16 +511,21 @@ export async function updatePendingTool(
       .select({
         status: pendingTools.status,
         batchId: pendingTools.batchId,
+        importId: pendingTools.importId,
         name: pendingTools.name,
         brand: pendingTools.brand,
         duplicateOfToolId: pendingTools.duplicateOfToolId,
         duplicateOfPendingId: pendingTools.duplicateOfPendingId,
         duplicateResolution: pendingTools.duplicateResolution,
+        serials: pendingTools.serials,
       })
       .from(pendingTools)
       .where(eq(pendingTools.id, id))
       .for("update");
     if (!row) return { ok: false, reason: "not_found" };
+    if (values.quantity !== undefined && values.quantity < row.serials.length) {
+      return { ok: false, reason: "invalid_field" };
+    }
     if (!isOneOf(EDITABLE_PENDING_STATUSES, row.status)) return { ok: false, reason: "not_editable" };
 
     let duplicateOfToolId = row.duplicateOfToolId;
@@ -460,9 +536,11 @@ export async function updatePendingTool(
     const nameChanged = values.name !== undefined && values.name !== row.name;
     const brandChanged = values.brand !== undefined && values.brand !== row.brand;
     if (nameChanged || brandChanged) {
+      // An imported item is checked against its own import's other rows too
+      // (bulk intake spec §3.3: accepting a suggested name re-runs the check).
       const match = await findDuplicate(
         { name: values.name ?? row.name, brand: values.brand !== undefined ? values.brand : row.brand },
-        { db: tx, excludePendingIds: [id], excludeBatchId: row.batchId }
+        { db: tx, excludePendingIds: [id], ...(row.importId ? {} : { excludeBatchId: row.batchId }) }
       );
       const nextTool = match?.kind === "tool" ? match.id : null;
       const nextPending = match?.kind === "pending" ? match.id : null;
@@ -475,10 +553,12 @@ export async function updatePendingTool(
 
     if (resolution === "add_unit" && !duplicateOfToolId) return { ok: false, reason: "invalid_field" };
 
+    const { clearNameSuggestion, ...columns } = values;
     await tx
       .update(pendingTools)
       .set({
-        ...values,
+        ...columns,
+        ...(clearNameSuggestion ? { nameSuggestion: null } : {}),
         duplicateOfToolId,
         duplicateOfPendingId,
         duplicateResolution: resolution,
@@ -1094,6 +1174,17 @@ export async function approvePendingTool(
 
       const chosen = chooseResources(research, fields.resourceUrls);
       if (!chosen) throw new Refusal("invalid_field");
+      // An import's own links, as the approver kept them, and its lab documents,
+      // which always come along (bulk intake spec §3.4). A kept URL the item
+      // never had is a shape error, like an unverified research link.
+      const itemLinks = row.links ?? [];
+      if (fields.importLinkUrls?.some((url) => !itemLinks.some((link) => link.url === url))) {
+        throw new Refusal("invalid_field");
+      }
+      const extra = importApprovalResources(
+        { links: itemLinks, labDocs: row.labDocs ?? [], keepLinkUrls: fields.importLinkUrls },
+        chosen.map((resource) => resource.url)
+      );
 
       let categoryId = fields.categoryId;
       if (categoryId) {
@@ -1122,10 +1213,17 @@ export async function approvePendingTool(
           // Research's proposal, as it stands; staff edit it in the tool editor afterwards.
           starterQuestions: research.starterQuestions ?? [],
           published: input.publish,
-          units: [{ unitLabel: `${name} #1`, serialNumber: fields.serialNumber }],
-          resources: chosen,
+          // One unit, or as many as an import's quantity and serials say —
+          // "Quantity 5" is five units of one tool, never five tools (§10).
+          units: approvalUnits(name, row.quantity, row.serials ?? [], fields.serialNumber),
+          resources: [...chosen, ...extra],
         },
         input.actorUserId
+      );
+      // The lab's documents are never fetched: not archived, not read (§3.4).
+      // `resourceIds` is in the order given, research's first.
+      const fetchable = created.resourceIds.filter(
+        (_, index) => index < chosen.length || extra[index - chosen.length]?.origin !== "lab_document"
       );
 
       const coverId = input.coverAttachmentId ?? null;
@@ -1152,7 +1250,7 @@ export async function approvePendingTool(
         slug: created.slug,
         unitId,
         resourcesCreated: created.resourceIds.length,
-        resourceIds: created.resourceIds,
+        resourceIds: fetchable,
         photosMoved,
         published: input.publish,
         overridden,
@@ -1204,17 +1302,43 @@ export async function approvePendingAsUnit(
       const serialNumber =
         input.serialNumber !== undefined ? emptyToNull(input.serialNumber) : row.serialNumber;
 
-      const [unit] = await tx
+      // As many units as the item's quantity says (bulk intake spec §3.2) —
+      // one for anything the chat identified.
+      const inserted = await tx
         .insert(units)
-        .values({
-          toolId: tool.id,
-          unitLabel: `${tool.name} #${Number(n) + 1}`,
-          serialNumber,
-          status: "available",
-          createdBy: input.actorUserId,
-          updatedBy: input.actorUserId,
-        })
+        .values(
+          approvalUnits(tool.name, row.quantity, row.serials ?? [], serialNumber, Number(n) + 1).map((unit) => ({
+            toolId: tool.id,
+            unitLabel: unit.unitLabel,
+            serialNumber: unit.serialNumber,
+            status: "available" as const,
+            createdBy: input.actorUserId,
+            updatedBy: input.actorUserId,
+          }))
+        )
         .returning({ id: units.id });
+      const unit = inserted[0];
+
+      // The lab's documents for this machine join the tool it is a unit of,
+      // unless it already links them (§3.4); never fetched.
+      const docs = row.labDocs ?? [];
+      if (docs.length > 0) {
+        const existing = await tx.select({ url: resources.url }).from(resources).where(eq(resources.toolId, tool.id));
+        const fresh = importApprovalResources({ links: [], labDocs: docs }, existing.flatMap((r) => (r.url ? [r.url] : [])));
+        if (fresh.length > 0) {
+          await tx.insert(resources).values(
+            fresh.map((doc) => ({
+              toolId: tool.id,
+              title: doc.title,
+              url: doc.url,
+              type: doc.type,
+              origin: doc.origin ?? null,
+              createdBy: input.actorUserId,
+              updatedBy: input.actorUserId,
+            }))
+          );
+        }
+      }
 
       // A unit has no cover to choose, so a background-removed copy research
       // made for this item is never kept: it is an AI redraw nobody picked, and
@@ -1267,6 +1391,10 @@ async function lockPending(tx: Db, id: string) {
       duplicateOfToolId: pendingTools.duplicateOfToolId,
       serialNumber: pendingTools.serialNumber,
       research: pendingTools.research,
+      quantity: pendingTools.quantity,
+      serials: pendingTools.serials,
+      labDocs: pendingTools.labDocs,
+      links: pendingTools.links,
     })
     .from(pendingTools)
     .where(eq(pendingTools.id, id))
@@ -1488,6 +1616,14 @@ async function readPendingTools(db: Db, where: SQL | undefined, limit: number | 
       approvalNote: row.approvalNote,
       createdToolId: row.createdToolId,
       createdUnitId: row.createdUnitId,
+      importId: row.importId,
+      sourceRow: row.sourceRow,
+      quantity: row.quantity,
+      serials: row.serials ?? [],
+      labDocs: Array.isArray(row.labDocs) ? row.labDocs : [],
+      links: Array.isArray(row.links) ? row.links : [],
+      notes: row.notes,
+      nameSuggestion: row.nameSuggestion ?? null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       duplicateOf,
@@ -1504,6 +1640,8 @@ type PatchValues = {
   locationHint?: string | null;
   serialNumber?: string | null;
   duplicateResolution?: DuplicateResolution | null;
+  quantity?: number;
+  clearNameSuggestion?: true;
 };
 
 /** The patch as column values, or null when a value is not one a field accepts. */
@@ -1527,7 +1665,18 @@ function toPatchValues(patch: PendingToolPatch): PatchValues | null {
     }
     values.duplicateResolution = patch.duplicateResolution;
   }
+  if (patch.quantity !== undefined) {
+    if (!Number.isInteger(patch.quantity) || patch.quantity < 1 || patch.quantity > IMPORT_MAX_QUANTITY) return null;
+    values.quantity = patch.quantity;
+  }
+  if (patch.clearNameSuggestion === true) values.clearNameSuggestion = true;
   return values;
+}
+
+/** Quantity 1–50 and never fewer than the serials (bulk intake spec §3.2). */
+function clampQuantity(quantity: number, serials: number): number {
+  const wanted = Number.isFinite(quantity) ? Math.floor(quantity) : 1;
+  return Math.min(IMPORT_MAX_QUANTITY, Math.max(1, wanted, serials));
 }
 
 function uuids(ids: readonly string[]): string[] {

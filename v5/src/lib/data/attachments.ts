@@ -346,6 +346,8 @@ export interface StoredAttachment {
   /** Null on rows written before migration `0008` (archived manuals excepted — it backfilled those). */
   origin: string | null;
   sourceUrl: string | null;
+  /** Who uploaded it — what a claim by typed-in id checks (bulk intake's source file). */
+  uploadedBy: string | null;
 }
 
 /**
@@ -424,4 +426,5 @@ const ATTACHMENT_COLUMNS = {
   position: attachments.position,
   origin: attachments.origin,
   sourceUrl: attachments.sourceUrl,
+  uploadedBy: attachments.uploadedBy,
 };

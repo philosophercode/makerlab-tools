@@ -175,6 +175,8 @@ function curationReadHosts(ctx: CapabilityCtx): string[] {
 export function resourceHosts(tool: MakerLabTool): string[] {
   const hosts = new Set<string>();
   for (const link of tool.links) {
+    // The lab's own documents are never fetched (bulk intake spec §3.4).
+    if (link.labDocument) continue;
     for (const href of link.sourceHref ? [link.href, link.sourceHref] : [link.href]) {
       const host = hostOf(href);
       if (host) hosts.add(host);

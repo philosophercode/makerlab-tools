@@ -1,8 +1,10 @@
 import { sql } from "drizzle-orm";
-import { index, jsonb, pgTable, text, timestamp, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
+import { check, index, integer, jsonb, pgTable, text, timestamp, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
+import type { ImportLink, LabDoc, NameSuggestion } from "../../import/types.ts";
 import type { ResearchResult } from "../../research/result.ts";
 import { user } from "./auth.ts";
 import { inListCheck, timestamps, userReference } from "./helpers.ts";
+import { bulkImports } from "./imports.ts";
 import { toolRefreshes } from "./refresh.ts";
 import { tools } from "./tools.ts";
 import { units } from "./units.ts";
@@ -30,6 +32,14 @@ import { DUPLICATE_RESOLUTION, PENDING_STATUS } from "./vocabulary.ts";
  *   exist).
  * - Photos are `attachments` rows owned by `pending_tool`; approval re-owns
  *   them to the new tool without moving the bytes (§4.7).
+ * - **Bulk intake** (bulk intake spec §4.1, migration `0013`): `import_id` and
+ *   `source_row` say which import and which row an item came from; `quantity`
+ *   and `serials` become that many units of one tool at approval, never that
+ *   many tools; `lab_docs` are the lab's own links, kept apart from `research`
+ *   so a research rerun never drops them and never reads them; `links` are
+ *   product or manual links from the list, offered at approval; `notes` stay
+ *   here and never reach a search; `name_suggestion` is the optional Suggest
+ *   names pass's answer, waiting for Accept or Ignore.
  */
 export const pendingTools = pgTable(
   "pending_tools",
@@ -67,6 +77,14 @@ export const pendingTools = pgTable(
     approvalNote: text("approval_note"),
     createdToolId: uuid("created_tool_id").references(() => tools.id, { onDelete: "set null" }),
     createdUnitId: uuid("created_unit_id").references(() => units.id, { onDelete: "set null" }),
+    importId: uuid("import_id").references(() => bulkImports.id, { onDelete: "set null" }),
+    sourceRow: integer("source_row"),
+    quantity: integer("quantity").notNull().default(1),
+    serials: text("serials").array().notNull().default(sql`'{}'::text[]`),
+    labDocs: jsonb("lab_docs").$type<LabDoc[]>().notNull().default(sql`'[]'::jsonb`),
+    links: jsonb("links").$type<ImportLink[]>().notNull().default(sql`'[]'::jsonb`),
+    notes: text("notes"),
+    nameSuggestion: jsonb("name_suggestion").$type<NameSuggestion>(),
     ...timestamps(),
   },
   (t) => [
@@ -77,6 +95,8 @@ export const pendingTools = pgTable(
       DUPLICATE_RESOLUTION
     ),
     index("pending_tools_status_idx").on(t.status),
+    index("pending_tools_import_idx").on(t.importId),
+    check("pending_tools_quantity_check", sql`${t.quantity} between 1 and 50`),
     index("pending_tools_batch_idx").on(t.batchId),
     // The daily cron finds research a run abandoned by when it was requested.
     // (The allowance is counted from `research_requests`, below.)
