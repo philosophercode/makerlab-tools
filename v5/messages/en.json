@@ -98,7 +98,8 @@
     "notesTips": "Notes & Tips",
     "backToTools": "‹ Back to all tools",
     "builtWithThis": "Built with this",
-    "builtWithThisBy": "by {author}"
+    "builtWithThisBy": "by {author}",
+    "labDocument": "Lab document"
   },
   "projects": {
     "title": "STUDENT PROJECTS",
@@ -215,7 +216,21 @@
     "readingRecord": "📋 Reading the record…",
     "proposingChange": "✏️ Proposing a change…",
     "proposalsAcceptAll": "Accept all verified",
-    "proposalFailed": "That did not save: {reason}"
+    "proposalFailed": "That did not save: {reason}",
+    "startingImport": "Importing the list…",
+    "documentsStaffOnly": "Only lab staff can import a list of equipment.",
+    "removeDocumentAria": "Remove {name}",
+    "importListMessage": "Import this list of equipment.",
+    "importCard": {
+      "label": "Imported list",
+      "pasted": "Pasted list",
+      "found": "{count, plural, one {# item found} other {# items found}}",
+      "duplicates": "({count, plural, one {# possible duplicate} other {# possible duplicates}})",
+      "mapping": "Match the columns to create the rows.",
+      "parsing": "Reading the document…",
+      "failed": "The list could not be read.",
+      "review": "Review import"
+    }
   },
   "qr": {
     "arrivalLabel": "Scanned from this machine",
@@ -1171,6 +1186,233 @@
       "rejected": "Rejected",
       "conflict": "Changed since — decide again",
       "reason": "Why: {reason}"
+    },
+    "import": {
+      "eyebrow": "Intake",
+      "title": "Import a list",
+      "lede": "Bring in an inventory list: a CSV or TSV export, pasted spreadsheet cells, a plain list, or a document. Every row becomes an item waiting for review — nothing is researched or published until you say so.",
+      "backToIntake": "Back to intake",
+      "unavailable": "The import could not be loaded right now.",
+      "missing": "That import no longer exists.",
+      "launcher": {
+        "fileLabel": "Choose a file",
+        "fileHint": "CSV, TSV, plain text, Markdown or PDF — at most 5 MB of text or a 20 MB PDF. Export spreadsheets (Excel, Google Sheets, Airtable) as CSV.",
+        "or": "or",
+        "pasteLabel": "Paste a list",
+        "pastePlaceholder": "Paste spreadsheet cells, or one item per line",
+        "pasteHint": "Cells copied from a spreadsheet keep their columns. A plain list is read one item a line; a document is read by the assistant.",
+        "submit": "Import",
+        "importing": "Importing…"
+      },
+      "sectionTitle": "Imports",
+      "sectionEmpty": "No imports yet.",
+      "sectionUnavailable": "The imports could not be loaded right now.",
+      "importButton": "Import a list",
+      "listCounts": "{items, plural, one {# item} other {# items}} · {duplicates, plural, =0 {no possible duplicates} one {# possible duplicate} other {# possible duplicates}}",
+      "summary": "{items, plural, one {# item} other {# items}} · {duplicates, plural, =0 {no possible duplicates} one {# possible duplicate} other {# possible duplicates}}",
+      "source": {
+        "csv": "CSV file",
+        "tsv": "TSV file",
+        "paste": "Pasted list",
+        "document": "Document",
+        "chat": "List from the chat"
+      },
+      "status": {
+        "mapping": "Choose the columns",
+        "parsing": "Reading…",
+        "ready": "Ready to review",
+        "failed": "Could not be read"
+      },
+      "parsing": "Reading your list… This page updates when it's done.",
+      "failed": {
+        "no_items": "No equipment found in this document.",
+        "firstLines": "It begins:",
+        "start_failed": "Reading the document could not start. Import it again.",
+        "other": "This list could not be read: {reason}"
+      },
+      "mapping": {
+        "title": "Match the columns",
+        "lede": "{count, plural, one {# row} other {# rows}}. Check which column holds what — the rows are created when you continue.",
+        "noHeader": "This table has no header row, so its columns are numbered.",
+        "needName": "Choose the column that holds each item's name.",
+        "columnFor": "What the column “{header}” holds",
+        "ignore": "Don't import",
+        "continue": "Continue with {count, plural, one {# row} other {# rows}}",
+        "creating": "Creating the rows…",
+        "field": {
+          "name": "Name",
+          "brand": "Brand",
+          "model": "Model",
+          "serial": "Serial numbers",
+          "category": "Category",
+          "location": "Location",
+          "quantity": "Quantity",
+          "notes": "Notes",
+          "links": "Product or manual links",
+          "labDocs": "Lab documents"
+        }
+      },
+      "col": {
+        "select": "Select",
+        "row": "Row",
+        "name": "Name",
+        "brand": "Brand",
+        "category": "Category",
+        "location": "Location",
+        "quantity": "Qty",
+        "labDocs": "Lab documents",
+        "duplicate": "Duplicate?",
+        "suggestion": "Suggested name",
+        "status": "Status"
+      },
+      "rowNumber": "row {row}",
+      "filter": {
+        "all": "All",
+        "duplicates": "Duplicates",
+        "unnamed": "Needs a name",
+        "consumables": "Consumables?",
+        "suggested": "Suggested names",
+        "selected": "Selected"
+      },
+      "review": {
+        "search": "Search rows",
+        "filterLabel": "Show",
+        "actionsLabel": "Selected rows",
+        "selectedCount": "{count, plural, =0 {None selected} one {# selected} other {# selected}}",
+        "selectAllShown": "Select all shown",
+        "clearSelection": "Clear selection",
+        "selectRow": "Select {name}",
+        "nameFor": "Name, {row}",
+        "brandFor": "Brand of {name}",
+        "categoryFor": "Category of {name}",
+        "locationFor": "Location of {name}",
+        "quantityFor": "Quantity of {name}",
+        "serials": "{count, plural, one {# serial} other {# serials}}",
+        "setCategory": "Set category",
+        "setLocation": "Set location",
+        "apply": "Apply",
+        "removeSelected": "Remove",
+        "suggestNames": "Suggest names",
+        "acceptAllExact": "Accept all exact ({count})",
+        "researchSelected": "Research selected ({count})",
+        "researchHint": "Research runs in groups of {size} and counts against your daily research allowance.",
+        "showMore": "Show {count, plural, one {# more row} other {# more rows}}",
+        "emptyFilter": "No rows match this filter.",
+        "bulkSet": "Updated {count, plural, one {# row} other {# rows}}.",
+        "removed": "Removed {count, plural, one {# row} other {# rows}}.",
+        "merged": "Merged into the earlier row as more units."
+      },
+      "dup": {
+        "tool": "Matches {name}",
+        "pending": "Matches waiting item {name}",
+        "sameImport": "Same as row {row}",
+        "decide": "Decide…",
+        "decideFor": "What to do with {name}",
+        "addUnit": "Another unit of it",
+        "newTool": "A different tool",
+        "merge": "Merge into row {row}",
+        "remove": "Remove"
+      },
+      "confidence": {
+        "exact": "exact",
+        "likely": "likely",
+        "unsure": "unsure"
+      },
+      "suggestion": {
+        "accept": "Accept",
+        "ignore": "Ignore",
+        "source": "Source",
+        "started": "Suggesting names for {count, plural, one {# row} other {# rows}} — they appear here as they arrive.",
+        "accepted": "Accepted {count, plural, one {# suggestion} other {# suggestions}}."
+      },
+      "rowStatus": {
+        "identified": "Not researched",
+        "queued": "Queued",
+        "researching": "Researching",
+        "researched": "Ready to approve",
+        "failed": "Research failed",
+        "approved": "Approved",
+        "discarded": "Removed"
+      },
+      "outcome": {
+        "sending": "Sending to research…",
+        "progress": "Sending group {chunk} of {chunks} — {queued} queued so far…",
+        "queued": "{count, plural, =0 {Nothing was queued.} one {# item queued for research.} other {# items queued for research.}}",
+        "waiting": "{count, plural, one {# waits} other {# wait}} for tomorrow's allowance or a setup allowance — still selected.",
+        "refused": "{count, plural, one {# item} other {# items}} could not be sent: {reason}",
+        "undecided": "{count, plural, one {# has} other {# have}} a possible duplicate to decide first.",
+        "notResearchable": "{count, plural, one {# is} other {# are}} already researching or settled."
+      },
+      "researchErrors": {
+        "invalid_body": "the request was not understood",
+        "sign_in_required": "you are signed out",
+        "forbidden": "you cannot research these items",
+        "not_found": "some items no longer exist",
+        "not_editable": "some items can no longer be changed",
+        "invalid_field": "a value was not accepted",
+        "rate_limited": "too many requests",
+        "too_many_items": "too many at once",
+        "daily_limit": "today's allowance is spent",
+        "unresolved_duplicate": "a possible duplicate needs a decision",
+        "not_researchable": "some are already researching or settled",
+        "start_failed": "research could not start — try again",
+        "image_retry_running": "an image search is running",
+        "failed": "something went wrong"
+      },
+      "errors": {
+        "empty": "The list is empty.",
+        "too_large": "That is too large — at most 5 MB of text or a 20 MB PDF.",
+        "too_many_items": "That list has more than {limit} items. Split it and import each part.",
+        "file_not_found": "The uploaded file could not be found. Choose it again.",
+        "unsupported_file": "Import a CSV, TSV, text, Markdown or PDF file.",
+        "unreadable_file": "That file could not be read.",
+        "no_text_in_pdf": "That PDF has no text layer — it may be a scan. Export it as text or CSV.",
+        "blob_unavailable": "File uploads are unavailable here, so a PDF cannot be read. Paste the list instead.",
+        "invalid_body": "The import was not understood. Try again.",
+        "rate_limited": "Too many imports at once. Wait a minute and try again.",
+        "sign_in_required": "Sign in to import a list.",
+        "forbidden": "Your account cannot add equipment.",
+        "unavailable": "The inventory database is unreachable. Try again in a few minutes.",
+        "failed": "Something went wrong. Try again.",
+        "no_name": "Choose a column for the name.",
+        "duplicate_field": "Each kind of column can be chosen once (except notes, links and lab documents).",
+        "wrong_width": "The column matches do not fit this table. Reload the page.",
+        "not_found": "Not found — it may have been removed.",
+        "not_editable": "That can no longer be changed.",
+        "invalid_field": "That value was not accepted.",
+        "daily_limit": "That would pass today's research allowance ({remaining} left).",
+        "start_failed": "It could not start. Try again.",
+        "not_signed_in": "Sign in to continue.",
+        "not_permitted": "Your account cannot do that."
+      },
+      "fromList": "From the imported list",
+      "unitsOnApproval": "Approving creates {count} units of this tool.",
+      "serialsList": "Serial numbers: {serials}",
+      "notesLabel": "Notes: {notes}",
+      "importLinkLabel": "{title} ({type})",
+      "openLink": "Open",
+      "labDocsOnApproval": "These lab documents are added as Lab document links. They are never opened by research or the assistant.",
+      "labDocument": "Lab document",
+      "allowance": {
+        "title": "Setup allowances",
+        "lede": "Research is limited to {base} items a day per person. While someone loads an inventory, give them extra items for a few days. Every grant is recorded.",
+        "person": "Person",
+        "items": "Extra items",
+        "days": "Days",
+        "grant": "Grant +{items} for {days, plural, one {# day} other {# days}}",
+        "active": "+{items} until {date}",
+        "granted": "Granted, until {date}.",
+        "grantedUnaudited": "Granted, until {date} — but the audit record could not be written.",
+        "errors": {
+          "invalid_field": "Choose a number of items and days within the limits.",
+          "unknown_user": "That person no longer exists.",
+          "cannot_research": "That person cannot add equipment, so an allowance would do nothing.",
+          "not_signed_in": "Sign in to continue.",
+          "not_permitted": "Only a super admin can grant an allowance.",
+          "rate_limited": "Too many changes at once. Wait a moment.",
+          "failed": "The allowance could not be granted. Try again."
+        }
+      }
     }
   }
 }

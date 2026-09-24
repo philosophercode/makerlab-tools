@@ -191,6 +191,9 @@ export const ROUTE_TIERS = {
   auth: { limit: 20, windowMs: 60_000 },
   pendingTools: { limit: 60, windowMs: 60_000 },
   research: { limit: 10, windowMs: 60_000 },
+  // Starting a bulk import (bulk intake spec §8): a parse, and for a document a
+  // model run — a handful a minute is more than anybody imports.
+  imports: { limit: 6, windowMs: 60_000 },
 } as const;
 
 export type RouteScope = keyof typeof ROUTE_TIERS;

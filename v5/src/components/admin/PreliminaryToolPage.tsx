@@ -15,6 +15,8 @@ import type {
 import type { AdminActionWarning } from "../../lib/admin/action-result";
 import type { ApprovalFields, ApprovalImageChoice } from "../../lib/data/pending-tools";
 import type { CategoryOption, LocationOption } from "../../lib/data/taxonomy";
+import { importLinkResource } from "../../lib/import/resources";
+import type { ImportLink, LabDoc } from "../../lib/import/types";
 import { imageRetryInProgress } from "../../lib/intake/image-retry-state";
 import { INTAKE_POLL_INTERVAL_MS, REDO_HIGHLIGHT_SHOW_MS } from "../../lib/intake/limits";
 import { isImageOnlyFocus, type ResearchFocusField } from "../../lib/intake/research-focus";
@@ -101,6 +103,20 @@ export interface PreliminaryToolPageProps {
   /** Hides **Approve** (published). The action checks `tools.publish` itself. */
   canPublish: boolean;
   actions: IntakeActions;
+  /**
+   * What a bulk import carried for the item (bulk intake spec §3.4, §4.1): its
+   * quantity and serials, which approval turns into units; its own product
+   * links, offered here; its lab documents, which always come along.
+   */
+  imported?: ImportedExtras | null;
+}
+
+export interface ImportedExtras {
+  quantity: number;
+  serials: string[];
+  links: ImportLink[];
+  labDocs: LabDoc[];
+  notes: string | null;
 }
 
 /** The option that creates research's proposed category at approval. */
@@ -119,6 +135,8 @@ interface Draft {
   useRestrictions: string;
   serialNumber: string;
   resourceUrls: string[];
+  /** The import's own links still ticked (bulk intake spec §3.4). */
+  importLinkUrls: string[];
 }
 
 /** Which write is in flight. One at a time, and every control knows it. */
@@ -147,6 +165,7 @@ export function PreliminaryToolPage({
   createdTool,
   canPublish,
   actions,
+  imported = null,
 }: PreliminaryToolPageProps) {
   const t = useTranslations("admin.intake");
   const tAdmin = useTranslations("admin");
@@ -157,7 +176,7 @@ export function PreliminaryToolPage({
   // Initialised once, never synchronised — see "a refusal never costs
   // anybody their typing" above.
   const [draft, setDraft] = useState<Draft>(() =>
-    initialDraft(item, research, categories, locations)
+    initialDraft(item, research, categories, locations, imported)
   );
   const [identity, setIdentity] = useState({ name: item.name, brand: item.brand ?? "" });
   const [unitSerial, setUnitSerial] = useState(item.serialNumber ?? "");
@@ -246,6 +265,15 @@ export function PreliminaryToolPage({
     }));
   }
 
+  function toggleImportLink(url: string, on: boolean) {
+    setDraft((current) => ({
+      ...current,
+      importLinkUrls: on
+        ? [...current.importLinkUrls, url]
+        : current.importLinkUrls.filter((candidate) => candidate !== url),
+    }));
+  }
+
   /** Run one write with the page locked, and clear the last outcome first. */
   async function write<T>(which: Busy, call: () => Promise<T>): Promise<T | null> {
     setBusy(which);
@@ -286,7 +314,7 @@ export function PreliminaryToolPage({
     if (!research) return;
     // The admin's own photo is the cover; nothing else is sent in its place.
     const image = hasUploadedPhoto ? ({ choice: "none" } as const) : imageChoice;
-    const fields = toFields(draft, research, image);
+    const fields = toFields(draft, research, image, imported !== null);
     const result = await write(which, () =>
       action({ id: item.id, fields, overrideNote: low ? note.trim() : null })
     );
@@ -438,12 +466,15 @@ export function PreliminaryToolPage({
             )}
 
             {isUnit ? (
-              <UnitProposal
-                target={targetTool}
-                serial={unitSerial}
-                onSerial={setUnitSerial}
-                onAdd={() => void addUnit()}
-              />
+              <>
+                <UnitProposal
+                  target={targetTool}
+                  serial={unitSerial}
+                  onSerial={setUnitSerial}
+                  onAdd={() => void addUnit()}
+                />
+                {imported ? <ImportedPanel imported={imported} draft={draft} onToggle={toggleImportLink} unitsOnly /> : null}
+              </>
             ) : research ? (
               <>
                 <ConfidenceStrip
@@ -493,6 +524,7 @@ export function PreliminaryToolPage({
                   toggleResource={toggleResource}
                   updated={updatedSections}
                 />
+                {imported ? <ImportedPanel imported={imported} draft={draft} onToggle={toggleImportLink} /> : null}
               </>
             ) : (
               <p className="admin-empty td-empty">{t("noResearch")}</p>
@@ -776,6 +808,79 @@ function ProposedRecord({
   );
 }
 
+/**
+ * What an import carried (bulk intake spec §3.4): how many units approval
+ * makes, the list's own links — ticked, like research's — and the lab
+ * documents, which come along as *Lab document* resources and are never opened.
+ */
+function ImportedPanel({
+  imported,
+  draft,
+  onToggle,
+  unitsOnly = false,
+}: {
+  imported: ImportedExtras;
+  draft: Draft;
+  onToggle: (url: string, on: boolean) => void;
+  /** An add-unit item: its links are not offered (the tool has its own); lab documents still join it. */
+  unitsOnly?: boolean;
+}) {
+  const t = useTranslations("admin.import");
+  const units = Math.max(imported.quantity, imported.serials.length, 1);
+  const links = unitsOnly ? [] : imported.links;
+  if (units <= 1 && imported.serials.length === 0 && !imported.notes && links.length === 0 && imported.labDocs.length === 0) {
+    return null;
+  }
+  return (
+    <fieldset className="admin-intake-resources">
+      <legend>{t("fromList")}</legend>
+      {units > 1 ? <p className="admin-intake-hint">{t("unitsOnApproval", { count: units })}</p> : null}
+      {imported.serials.length > 0 ? (
+        <p className="admin-intake-hint">{t("serialsList", { serials: imported.serials.join(", ") })}</p>
+      ) : null}
+      {imported.notes ? <p className="admin-intake-hint">{t("notesLabel", { notes: imported.notes })}</p> : null}
+      {links.length > 0 ? (
+        <ul>
+          {links.map((link, index) => {
+            const resource = importLinkResource(link);
+            return (
+              <li key={link.url} className="admin-field is-check">
+                <input
+                  id={`intake-import-link-${index}`}
+                  type="checkbox"
+                  checked={draft.importLinkUrls.includes(link.url)}
+                  onChange={(event) => onToggle(link.url, event.target.checked)}
+                />
+                <label htmlFor={`intake-import-link-${index}`}>
+                  {t("importLinkLabel", { title: resource.title, type: resource.type })}
+                </label>
+                <a href={link.url} target="_blank" rel="noopener noreferrer">
+                  {t("openLink")}
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      {imported.labDocs.length > 0 ? (
+        <>
+          <p className="admin-intake-hint">{t("labDocsOnApproval")}</p>
+          <ul>
+            {imported.labDocs.map((doc) => (
+              <li key={doc.url}>
+                <span className="admin-state">{t("labDocument")}</span>{" "}
+                <a href={doc.url} target="_blank" rel="noopener noreferrer">
+                  {doc.title}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </>
+      ) : null}
+    </fieldset>
+  );
+}
+
 /** An add-unit item: the tool it joins, and the one field that matters. */
 function UnitProposal({
   target,
@@ -942,9 +1047,12 @@ function initialDraft(
   item: PendingToolView,
   research: ResearchResult | null,
   categories: CategoryOption[],
-  locations: LocationOption[]
+  locations: LocationOption[],
+  imported: ImportedExtras | null = null
 ): Draft {
   return {
+    // Every link the list gave starts ticked, like research's.
+    importLinkUrls: (imported?.links ?? []).map((link) => link.url),
     name: research?.canonicalName.trim() || item.name,
     description: research ? proposedDescription(research) : "",
     category: research ? proposedCategory(research, categories) : "",
@@ -1007,7 +1115,7 @@ function splitList(value: string): string[] {
 }
 
 /** The draft as `approvePendingTool` takes it, with the chosen image. */
-function toFields(draft: Draft, research: ResearchResult, image: ApprovalImageChoice): ApprovalFields {
+function toFields(draft: Draft, research: ResearchResult, image: ApprovalImageChoice, imported = false): ApprovalFields {
   const isNew = draft.category === NEW_CATEGORY;
   return {
     name: draft.name.trim(),
@@ -1022,6 +1130,7 @@ function toFields(draft: Draft, research: ResearchResult, image: ApprovalImageCh
     useRestrictions: draft.useRestrictions.trim() || null,
     serialNumber: draft.serialNumber.trim() || null,
     resourceUrls: draft.resourceUrls,
+    ...(imported ? { importLinkUrls: draft.importLinkUrls } : {}),
     image,
   };
 }

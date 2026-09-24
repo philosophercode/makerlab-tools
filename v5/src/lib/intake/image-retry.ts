@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { start } from "workflow/api";
 import { failImageRetry, startImageRetry } from "../data/image-retry";
 import { findDifferentImage } from "../../workflows/image-retry";
-import { RESEARCH_DAILY_ITEM_LIMIT } from "./limits";
+import { researchLimitFor } from "../data/research-allowances";
 
 /**
  * **Find a different image**, after the server action's gate (amendment
@@ -35,7 +35,7 @@ export async function requestImageRetry(
     requestedBy: by.userId,
     requestId,
     note: input.note,
-    limit: RESEARCH_DAILY_ITEM_LIMIT,
+    limit: await researchLimitFor(by.userId),
     since: new Date(Date.now() - DAY_MS),
   });
   if (!started.ok) return { ok: false, error: started.reason };

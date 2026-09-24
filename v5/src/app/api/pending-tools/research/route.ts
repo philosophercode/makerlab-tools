@@ -17,11 +17,8 @@ import { isUuid } from "../../../../lib/data/uuid";
 import { canActOnPendingTool, hasUnresolvedDuplicate, isResearchable } from "../../../../lib/intake/access";
 import { requestImageRetry } from "../../../../lib/intake/image-retry";
 import { imageRetryInProgress } from "../../../../lib/intake/image-retry-state";
-import {
-  RESEARCH_DAILY_ITEM_LIMIT,
-  RESEARCH_MAX_ITEMS_PER_REQUEST,
-  REVIEWER_NOTE_MAX_CHARS,
-} from "../../../../lib/intake/limits";
+import { researchLimitFor } from "../../../../lib/data/research-allowances";
+import { RESEARCH_MAX_ITEMS_PER_REQUEST, REVIEWER_NOTE_MAX_CHARS } from "../../../../lib/intake/limits";
 import { isImageOnlyFocus, parseResearchFocus } from "../../../../lib/intake/research-focus";
 import { parseReviewerNote } from "../../../../lib/intake/reviewer-note";
 import type {
@@ -205,19 +202,22 @@ export async function POST(req: NextRequest) {
 
     // The id the run is started with, stamped on the rows it may write to.
     const requestId = randomUUID();
+    // The daily allowance plus any setup allowance a super admin granted
+    // (bulk intake spec §4.2), counted against the one ledger.
+    const limit = await researchLimitFor(userId);
     // May come back shorter than asked: a concurrent press already queued
     // some of these, and taking them again would start a second run.
     const allowed = await queueForResearchWithinAllowance(toResearch, {
       requestedBy: userId,
       requestId,
-      limit: RESEARCH_DAILY_ITEM_LIMIT,
+      limit,
       since: new Date(Date.now() - DAY_MS),
     });
     if (!allowed.ok) {
       return refuse(
         429,
         "daily_limit",
-        `That would pass today's limit of ${RESEARCH_DAILY_ITEM_LIMIT} researched items.`,
+        `That would pass today's limit of ${limit} researched items.`,
         { remaining: allowed.remaining }
       );
     }
@@ -306,7 +306,7 @@ async function redoImageOnly(userId: string, id: string, note: string | null): P
     case "image_retry_running":
       return refuse(409, "image_retry_running", "An image search is still running for this item.", { ids: [id] });
     case "daily_limit":
-      return refuse(429, "daily_limit", `That would pass today's limit of ${RESEARCH_DAILY_ITEM_LIMIT} researched items.`);
+      return refuse(429, "daily_limit", "That would pass today's research allowance.");
     case "start_failed":
       return refuse(502, "start_failed", "The image search could not be started. Try again.", { ids: [id] });
   }

@@ -49,6 +49,7 @@ import {
   setWorkflowRun,
   updatePendingTool,
 } from "@/lib/data/pending-tools";
+import { grantResearchAllowance } from "@/lib/data/research-allowances";
 import { getDb, resetDbForTests } from "@/lib/db/client";
 import { pendingTools, researchRequests } from "@/lib/db/schema/index";
 import { REVIEWER_NOTE_MAX_CHARS } from "@/lib/intake/limits";
@@ -260,6 +261,18 @@ describe("POST /api/pending-tools/research — the body and the items", () => {
 
     // Five still fit.
     expect((await post({ ids: more.slice(0, 5) })).status).toBe(202);
+  });
+
+  it("adds a running setup allowance to the daily hundred (bulk intake spec §4.2)", async () => {
+    const earlier = await items(100);
+    expect(await queueForResearch(earlier, { requestedBy: admin.user.id })).toHaveLength(100);
+    const more = await items(10);
+    expect((await post({ ids: more })).body).toMatchObject({ code: "daily_limit", remaining: 0 });
+
+    await grantResearchAllowance({ userId: admin.user.id, extraItems: 400, days: 7, grantedBy: admin.user.id });
+    const res = await post({ ids: more });
+    expect(res.status).toBe(202);
+    expect(res.body.queued).toHaveLength(10);
   });
 
   it("counts every press: researching the same items again spends the allowance again", async () => {
