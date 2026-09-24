@@ -477,3 +477,45 @@ F2-00391; F2-00417, SOP / Doc = a Google Doc", researched it (high; the lab docu
 on the row afterwards) and approved it as a draft: **2 units** (#1 = F2-00391, #2 =
 F2-00417), research's 4 links plus **"SOP" [Other, lab_document]**, 4 of 5 resources handed
 to the manual archive — **$0.0248**. **Total spend $0.16.**
+
+### 2026-09-24 — A document over the cap is refused, not cut
+
+**Why.** A document longer than `IMPORT_DOCUMENT_MAX_CHARS` (200,000 characters) used to be
+cut to that length and read anyway, with a `truncated` flag nobody showed. The person was
+never told that the end of their list had not been read. That is the silent cut Article 4
+forbids, and the 1,000-item cap already refused rather than cut.
+
+**What changes.**
+
+- **A document over the cap is refused before any model call** (`startImport`:
+  `document_too_long`, HTTP 413). No import row is made and no workflow starts. The refusal
+  gives the size in pages: `pages`, `limitPages` and `limitChars`, from
+  `import/limits.ts`'s `documentTooLong`. A page is about `IMPORT_CHARS_PER_PAGE` = 3,300
+  characters, so the limit is about 60 pages. `pages` is always at least the limit plus one,
+  so a document just past the cap never reads "about 60 pages; the limit is about 60". The
+  page reads: "This document is about 85 pages of text; the limit is about 60 pages (200,000
+  characters). Split it into parts and import each." The cap stays 200,000. A document at
+  the cap is read whole. `chunkDocument`'s own cap is now only a guard.
+- **The 1,000-item refusal carries the count.** `too_many_items` answers `count` and `limit`
+  (table, list, route and chat). The message reads: "This list has 1,240 items; the limit is
+  1,000 items per import. Split it into parts and import each." The mapping step words it
+  with the table's row count.
+- **A document that names more than 1,000 items now fails with the count.** Before, the
+  import was cut to 1,000. Now it fails as `parse_error = "too_many_items:<n>"`
+  (`tooManyItemsReason`), is rendered from the new key `admin.import.failed.too_many_items`,
+  and writes no rows. The extraction has already run by then, because the count is only known
+  once the document has been read. With 200 items a chunk at most and 25 chunks, this can
+  happen in principle but is rare.
+- **The chat's `start_import`** relays the same numbers (`importErrorText`): "That document
+  is about 85 pages of text; the limit is about 60 pages (200,000 characters) … Ask the person
+  to split it into parts and import each."
+- **Strings.** `admin.import.errors.document_too_long` is new.
+  `admin.import.errors.too_many_items` is reworded to take `{count}`.
+  `admin.import.failed.too_many_items` is new. All are English only, and other locales fall
+  back to English.
+
+**Tests.** `limits.test.ts` covers pages, the cap and the reason. `service.test.ts` covers
+refusal before a run starts, a document at the cap read whole, and the count on a table and a
+list. `imports/route.test.ts` covers the 413 bodies. `import-document.workflow.test.ts`
+covers a document naming 1,200 items failing with nothing written. `intake.test.ts` covers
+the chat wording. `ImportLauncher.test.tsx` and `ImportReview.test.tsx` cover the messages.

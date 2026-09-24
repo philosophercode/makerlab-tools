@@ -6,7 +6,13 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { IMPORT_FILE_EXTENSIONS, extensionOf } from "../../lib/import/detect";
-import { IMPORT_MAX_PDF_BYTES, IMPORT_MAX_TEXT_BYTES } from "../../lib/import/limits";
+import {
+  IMPORT_DOCUMENT_MAX_CHARS,
+  IMPORT_DOCUMENT_MAX_PAGES,
+  IMPORT_MAX_ITEMS,
+  IMPORT_MAX_PDF_BYTES,
+  IMPORT_MAX_TEXT_BYTES,
+} from "../../lib/import/limits";
 
 /**
  * **Import a list** (bulk intake spec §5 step 1): choose a file or paste.
@@ -22,10 +28,18 @@ import { IMPORT_MAX_PDF_BYTES, IMPORT_MAX_TEXT_BYTES } from "../../lib/import/li
 
 const ACCEPT = IMPORT_FILE_EXTENSIONS.map((extension) => `.${extension}`).join(",");
 
-interface ImportResponse {
+/** The numbers a refusal's message needs (`too_many_items`, `document_too_long`). */
+interface RefusalNumbers {
+  limit?: number;
+  count?: number;
+  pages?: number;
+  limitPages?: number;
+  limitChars?: number;
+}
+
+interface ImportResponse extends RefusalNumbers {
   href?: string;
   code?: string;
-  limit?: number;
 }
 
 export function ImportLauncher({ fetcher = fetch }: { fetcher?: typeof fetch }) {
@@ -34,7 +48,7 @@ export function ImportLauncher({ fetcher = fetch }: { fetcher?: typeof fetch }) 
   const [file, setFile] = useState<File | null>(null);
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<{ code: string; limit?: number } | null>(null);
+  const [error, setError] = useState<({ code: string } & RefusalNumbers) | null>(null);
 
   async function send(body: Record<string, unknown>): Promise<void> {
     const res = await fetcher("/api/imports", {
@@ -47,7 +61,14 @@ export function ImportLauncher({ fetcher = fetch }: { fetcher?: typeof fetch }) 
       router.push(answer.href);
       return;
     }
-    setError({ code: answer.code ?? "failed", limit: answer.limit });
+    setError({
+      code: answer.code ?? "failed",
+      limit: answer.limit,
+      count: answer.count,
+      pages: answer.pages,
+      limitPages: answer.limitPages,
+      limitChars: answer.limitChars,
+    });
   }
 
   async function importFile(chosen: File) {
@@ -120,7 +141,14 @@ export function ImportLauncher({ fetcher = fetch }: { fetcher?: typeof fetch }) 
       </div>
       {error ? (
         <p className="admin-row-status is-error" role="alert">
-          {t(`errors.${error.code}`, { limit: error.limit ?? 0, remaining: 0 })}
+          {t(`errors.${error.code}`, {
+            limit: error.limit ?? IMPORT_MAX_ITEMS,
+            count: error.count ?? 0,
+            pages: error.pages ?? 0,
+            limitPages: error.limitPages ?? IMPORT_DOCUMENT_MAX_PAGES,
+            limitChars: error.limitChars ?? IMPORT_DOCUMENT_MAX_CHARS,
+            remaining: 0,
+          })}
         </p>
       ) : null}
       <div className="admin-editor-actions">

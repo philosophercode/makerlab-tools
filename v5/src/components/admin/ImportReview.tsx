@@ -8,9 +8,11 @@ import { useTranslations } from "next-intl";
 import type { ImportActions, RowPatch } from "../../app/admin/intake/imports/action-result";
 import type { ColumnMap } from "../../lib/import/columns";
 import {
+  IMPORT_MAX_ITEMS,
   IMPORT_POLL_INTERVAL_MS,
   IMPORT_RESEARCH_CHUNK,
   IMPORT_VIRTUALIZE_ABOVE,
+  parseTooManyItemsReason,
   SUGGEST_MAX_ITEMS,
 } from "../../lib/import/limits";
 import type { TablePreview } from "../../lib/import/preview";
@@ -327,11 +329,16 @@ export function ImportReview({
 
   if (view.status === "failed") {
     const reason = view.parseError ?? "failed";
+    const tooMany = parseTooManyItemsReason(reason);
     return (
       <section className="admin-section admin-import-page">
         {header}
         <p className="admin-row-status is-error" role="alert">
-          {reason === "no_items" || reason === "start_failed" ? t(`failed.${reason}`) : t("failed.other", { reason })}
+          {tooMany !== null
+            ? t("failed.too_many_items", { count: tooMany, limit: IMPORT_MAX_ITEMS })
+            : reason === "no_items" || reason === "start_failed"
+              ? t(`failed.${reason}`)
+              : t("failed.other", { reason })}
         </p>
         {reason === "no_items" && sourceHead && sourceHead.length > 0 ? (
           <>

@@ -614,6 +614,19 @@ describe("start_import", () => {
     expect(missing.error).toMatch(/could not be found/);
   });
 
+  it("says how long a refused document is in pages, and how many items a refused list has (amendment 2026-09-24)", async () => {
+    const sentence = "The lab keeps a laser cutter in the back room and services it every spring for the students. ";
+    const prose = sentence.repeat(Math.ceil(280_000 / sentence.length)).slice(0, 280_000);
+    const long = (await startImportTool.run({ text: prose }, ctx())) as { card_rendered: boolean; error: string };
+    expect(long.card_rendered).toBe(false);
+    expect(long.error).toContain("about 85 pages of text; the limit is about 60 pages (200,000 characters)");
+    expect(long.error).toMatch(/split it into parts/);
+
+    const lines = Array.from({ length: 1001 }, (_, i) => `- Clamp ${i}`).join("\n");
+    const many = (await startImportTool.run({ text: lines }, ctx())) as { error: string };
+    expect(many.error).toContain("That list has 1,001 items; one import takes at most 1,000.");
+  });
+
   it("accepts either a file or text, not both", () => {
     expect(startImportTool.inputSchema.safeParse({ text: "x", attachmentId: "y" }).success).toBe(false);
     expect(startImportTool.inputSchema.safeParse({}).success).toBe(false);

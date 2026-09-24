@@ -101,8 +101,10 @@ export function parseExtractOutput(answer: string): RawImportItem[] {
 /**
  * The document in chunks of about {@link IMPORT_CHUNK_CHARS}, cut at a line
  * break where there is one in the second half of the window (so an entry is
- * rarely split), never longer than the window. The text is first capped at
- * {@link IMPORT_DOCUMENT_MAX_CHARS}; whether it was is `truncated`.
+ * rarely split), never longer than the window. `startImport` refuses a
+ * document over {@link IMPORT_DOCUMENT_MAX_CHARS} before it gets here
+ * (amendment 2026-09-24); the cap below is only a guard, and `truncated` says
+ * whether it bit.
  */
 export function chunkDocument(
   source: string,

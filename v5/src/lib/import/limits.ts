@@ -13,12 +13,62 @@ export const IMPORT_MAX_PDF_BYTES = 20 * 1024 * 1024;
 
 /**
  * The most items one import creates. The review table is built for 500 (§2);
- * a sheet past this is refused with the count, never silently cut.
+ * a sheet, list or document past this is refused with the count, never
+ * silently cut.
  */
 export const IMPORT_MAX_ITEMS = 1000;
 
-/** The most characters of a document the extractor reads — about 25 model calls. */
+/**
+ * The `parse_error` a document import that named more than {@link IMPORT_MAX_ITEMS}
+ * items fails with — a code with the count, which the page words (never English
+ * stored as data).
+ */
+export function tooManyItemsReason(count: number): string {
+  return `too_many_items:${count}`;
+}
+
+/** The count in a {@link tooManyItemsReason}, or null for any other reason. */
+export function parseTooManyItemsReason(reason: string): number | null {
+  const match = /^too_many_items:(\d+)$/.exec(reason);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * The most characters of a document one import reads — about 25 model calls.
+ * A longer document is **refused before any model call**, with its size in
+ * pages, and the person is asked to split it (amendment 2026-09-24) — never
+ * cut to fit.
+ */
 export const IMPORT_DOCUMENT_MAX_CHARS = 200_000;
+
+/**
+ * Characters on a page of dense text, for saying a size in pages ("about 85
+ * pages") rather than characters. An estimate, and the messages say "about".
+ */
+export const IMPORT_CHARS_PER_PAGE = 3_300;
+
+/** {@link IMPORT_DOCUMENT_MAX_CHARS} in pages: about 60. */
+export const IMPORT_DOCUMENT_MAX_PAGES = Math.floor(IMPORT_DOCUMENT_MAX_CHARS / IMPORT_CHARS_PER_PAGE);
+
+/** A length of text as about how many pages, at least one. */
+export function approxPages(chars: number): number {
+  return Math.max(1, Math.round(chars / IMPORT_CHARS_PER_PAGE));
+}
+
+/**
+ * Why a document is too long to import, with the numbers the message needs —
+ * or null when it fits. A document over the limit by less than half a page
+ * still says one page more than the limit, never "about 60 pages; the limit
+ * is about 60".
+ */
+export function documentTooLong(chars: number): { pages: number; limitPages: number; limitChars: number } | null {
+  if (chars <= IMPORT_DOCUMENT_MAX_CHARS) return null;
+  return {
+    pages: Math.max(approxPages(chars), IMPORT_DOCUMENT_MAX_PAGES + 1),
+    limitPages: IMPORT_DOCUMENT_MAX_PAGES,
+    limitChars: IMPORT_DOCUMENT_MAX_CHARS,
+  };
+}
 
 /** One extractor call's share of a document (§3.2: "chunked at about 8k characters"). */
 export const IMPORT_CHUNK_CHARS = 8_000;

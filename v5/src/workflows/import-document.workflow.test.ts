@@ -104,6 +104,37 @@ describe("importDocument (in process)", () => {
     expect(await run.returnValue).toEqual({ items: 0, failedChunks: 0 });
     expect(await getBulkImport(created.id)).toMatchObject({ status: "failed", parseError: "no_items" });
   });
+
+  it("fails with the count, writing nothing, when the document names more than 1,000 items", { timeout: 60_000 }, async () => {
+    vi.stubEnv("DATABASE_URL", "");
+    vi.stubEnv("AI_GATEWAY_API_KEY", "test-gateway-key");
+    let part = 0;
+    server.use(
+      ...gatewayHandlers({
+        language: () => {
+          part += 1;
+          const items = Array.from({ length: 200 }, (_, i) => ({ name: `Clamp ${RUN} ${part}-${i}` }));
+          return textResponse(JSON.stringify({ items }));
+        },
+      })
+    );
+    const text = Array.from({ length: 780 }, (_, i) => `Shelf ${i} ${RUN}: bar clamps, F clamps and spring clamps.`).join("\n");
+    const { chunks } = chunkDocument(text);
+    expect(chunks.length).toBe(6);
+    const created = await createBulkImport({
+      createdBy: DEMO_ACCOUNTS.admin.id,
+      sourceKind: "document",
+      format: "document",
+      sourceName: null,
+      sourceText: text,
+      status: "parsing",
+    });
+    // Six parts of 200 items each: 1,200, past the limit.
+    const run = await start(importDocument, [created.id, chunks.length]);
+    await run.returnValue;
+    expect(await getBulkImport(created.id)).toMatchObject({ status: "failed", parseError: "too_many_items:1200" });
+    expect(await listPendingTools({ importId: created.id })).toHaveLength(0);
+  });
 });
 
 describe("suggestNames (in process)", () => {

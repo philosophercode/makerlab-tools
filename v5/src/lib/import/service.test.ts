@@ -100,8 +100,38 @@ describe("startImport", () => {
     expect(await startImport({ userId: ADMIN, text: `Item\tQty\n${rows}`, origin: "page", startRun: noRun })).toEqual({
       ok: false,
       error: "too_many_items",
+      count: 1001,
       limit: 1000,
     });
+    const lines = Array.from({ length: 1002 }, (_, i) => `- Clamp ${RUN} ${i}`).join("\n");
+    expect(await startImport({ userId: ADMIN, text: lines, origin: "page", startRun: noRun })).toEqual({
+      ok: false,
+      error: "too_many_items",
+      count: 1002,
+      limit: 1000,
+    });
+  });
+
+  it("refuses a document over the character limit before any model call, with its size in pages (amendment 2026-09-24)", async () => {
+    const startRun = vi.fn(async () => ({ runId: "run-too-long" }));
+    // About 85 pages of prose: 85 × 3,300 characters.
+    const sentence = `The lab keeps a Trotec Speedy 400 ${RUN} in the laser room and services it every March for the students. `;
+    const prose = sentence.repeat(Math.ceil((85 * 3_300) / sentence.length)).slice(0, 85 * 3_300);
+    expect(await startImport({ userId: ADMIN, text: prose, origin: "page", startRun })).toEqual({
+      ok: false,
+      error: "document_too_long",
+      pages: 85,
+      limitPages: 60,
+      limitChars: 200_000,
+    });
+    expect(startRun).not.toHaveBeenCalled();
+
+    // Exactly at the limit is read whole — nothing is cut.
+    const atLimit = prose.slice(0, 200_000);
+    const started = await startImport({ userId: ADMIN, text: atLimit, origin: "page", startRun });
+    expect(started.ok && started.import).toMatchObject({ status: "parsing", format: "document" });
+    if (!started.ok) return;
+    expect((await getBulkImport(started.import.id))?.sourceText).toHaveLength(200_000);
   });
 
   it("reads an uploaded list only when it is the caller's own unclaimed upload, and claims it", async () => {

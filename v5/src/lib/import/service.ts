@@ -19,7 +19,7 @@ import { columnMapProblem, hasNameColumn, type ColumnMap, type ColumnMapProblem 
 import { classifySource, extensionOf, isImportFileName } from "./detect";
 import { chunkDocument } from "./extract-output";
 import { normalizeImportItems, tableToRawItems } from "./items";
-import { IMPORT_DOCUMENT_MAX_CHARS, IMPORT_MAX_ITEMS, IMPORT_MAX_PDF_BYTES, IMPORT_MAX_TEXT_BYTES } from "./limits";
+import { documentTooLong, IMPORT_MAX_ITEMS, IMPORT_MAX_PDF_BYTES, IMPORT_MAX_TEXT_BYTES } from "./limits";
 import { parseLineList } from "./line-list";
 import { buildTablePreview, readImportTable } from "./preview";
 import { stripBom } from "./table";
@@ -32,7 +32,11 @@ import { stripBom } from "./table";
  * 1. **The text.** From an uploaded file the caller made and nothing has
  *    claimed yet (`POST /api/uploads`, kind `import`: private Blob, the upload
  *    route's type and size checks) — a PDF's text extracted in memory — or from
- *    text sent directly. At most 5 MB of text, a 20 MB PDF.
+ *    text sent directly. At most 5 MB of text, a 20 MB PDF. A document (prose
+ *    or a PDF's text) longer than `IMPORT_DOCUMENT_MAX_CHARS` is refused as
+ *    `document_too_long`, with its size in pages, before any model call —
+ *    never cut to fit (amendment 2026-09-24). Over `IMPORT_MAX_ITEMS` rows is
+ *    `too_many_items`, with the count.
  * 2. **The shape** (`detect.ts`): a table waits in `mapping` for its column
  *    matches — or, from the chat, takes the suggested ones when they name the
  *    name column; a plain list becomes rows at once; a document is `parsing`
@@ -48,6 +52,7 @@ export type StartImportError =
   | "empty"
   | "too_large"
   | "too_many_items"
+  | "document_too_long"
   | "file_not_found"
   | "unsupported_file"
   | "unreadable_file"
@@ -70,7 +75,22 @@ export interface StartImportInput {
   startRun?: (importId: string, chunkCount: number) => Promise<{ runId: string }>;
 }
 
-export type StartImportOutcome = { ok: true; import: BulkImportRecord } | { ok: false; error: StartImportError; limit?: number };
+/**
+ * A refusal carries the numbers its message needs: `too_many_items` the count
+ * and the limit; `document_too_long` the size and the limit in pages (and the
+ * limit in characters).
+ */
+export interface StartImportRefusal {
+  ok: false;
+  error: StartImportError;
+  limit?: number;
+  count?: number;
+  pages?: number;
+  limitPages?: number;
+  limitChars?: number;
+}
+
+export type StartImportOutcome = { ok: true; import: BulkImportRecord } | StartImportRefusal;
 
 export async function startImport(input: StartImportInput): Promise<StartImportOutcome> {
   const source = await resolveSource(input);
@@ -84,7 +104,7 @@ export async function startImport(input: StartImportInput): Promise<StartImportO
   if (shape.format === "table") {
     const table = readImportTable(text, sourceName);
     if (!table || table.rows.length === 0) return { ok: false, error: "empty" };
-    if (table.rows.length > IMPORT_MAX_ITEMS) return { ok: false, error: "too_many_items", limit: IMPORT_MAX_ITEMS };
+    if (table.rows.length > IMPORT_MAX_ITEMS) return tooManyItems(table.rows.length);
     const created = await createBulkImport(
       { createdBy: input.userId, sourceKind, format: "table", sourceName, sourceText: text, sourceAttachmentId: attachmentId, status: "mapping" },
       { db }
@@ -98,7 +118,7 @@ export async function startImport(input: StartImportInput): Promise<StartImportO
 
   if (shape.format === "list") {
     const { items } = normalizeImportItems(parseLineList(text));
-    if (items.length > IMPORT_MAX_ITEMS) return { ok: false, error: "too_many_items", limit: IMPORT_MAX_ITEMS };
+    if (items.length > IMPORT_MAX_ITEMS) return tooManyItems(items.length);
     const created = await createBulkImport(
       { createdBy: input.userId, sourceKind, format: "list", sourceName, sourceText: text, sourceAttachmentId: attachmentId, status: "parsing" },
       { db }
@@ -107,12 +127,15 @@ export async function startImport(input: StartImportInput): Promise<StartImportO
     return { ok: true, import: (await getBulkImport(created.id, { db })) ?? created };
   }
 
-  const kept = text.slice(0, IMPORT_DOCUMENT_MAX_CHARS);
+  // Too long to read in one import: refused before any model call, never cut to fit.
+  const tooLong = documentTooLong(text.length);
+  if (tooLong) return { ok: false, error: "document_too_long", ...tooLong };
+
   const created = await createBulkImport(
-    { createdBy: input.userId, sourceKind, format: "document", sourceName, sourceText: kept, sourceAttachmentId: attachmentId, status: "parsing" },
+    { createdBy: input.userId, sourceKind, format: "document", sourceName, sourceText: text, sourceAttachmentId: attachmentId, status: "parsing" },
     { db }
   );
-  const { chunks } = chunkDocument(kept);
+  const { chunks } = chunkDocument(text);
   try {
     const run = input.startRun
       ? await input.startRun(created.id, chunks.length)
@@ -156,6 +179,10 @@ export async function confirmImportMapping(
   const written = await addImportItems(importId, { items, rowCount: table.rows.length, columnMap: map }, options);
   if (!written.ok) return { ok: false, error: written.reason };
   return { ok: true, itemCount: written.itemCount, duplicateCount: written.duplicateCount };
+}
+
+function tooManyItems(count: number): StartImportRefusal {
+  return { ok: false, error: "too_many_items", count, limit: IMPORT_MAX_ITEMS };
 }
 
 // ── The source ──────────────────────────────────────────────────────

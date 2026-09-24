@@ -86,4 +86,19 @@ describe("POST /api/imports", () => {
     expect((await post({ text: "   " }, admin)).body).toMatchObject({ code: "empty" });
     expect((await post({ attachmentId: crypto.randomUUID() }, admin)).body).toMatchObject({ code: "file_not_found" });
   });
+
+  it("refuses a document over the limit with its size in pages, and a list over 1,000 items with the count — nothing started", async () => {
+    const admin = await person("admin");
+    const sentence = "The lab keeps a laser cutter in the back room and services it every spring for the students. ";
+    const prose = sentence.repeat(Math.ceil(280_000 / sentence.length)).slice(0, 280_000);
+    const long = await post({ text: prose }, admin);
+    expect(long.status).toBe(413);
+    expect(long.body).toMatchObject({ code: "document_too_long", pages: 85, limitPages: 60, limitChars: 200_000 });
+    expect(wf.start).not.toHaveBeenCalled();
+
+    const rows = Array.from({ length: 1001 }, (_, i) => `Clamp ${i}\t1`).join("\n");
+    const many = await post({ text: `Item\tQty\n${rows}` }, admin);
+    expect(many.status).toBe(413);
+    expect(many.body).toMatchObject({ code: "too_many_items", count: 1001, limit: 1000 });
+  });
 });

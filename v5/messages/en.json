@@ -1236,6 +1236,7 @@
       "parsing": "Reading your list… This page updates when it's done.",
       "failed": {
         "no_items": "No equipment found in this document.",
+        "too_many_items": "This document names {count, number} items; the limit is {limit, number} items per import. Split it into parts and import each.",
         "firstLines": "It begins:",
         "start_failed": "Reading the document could not start. Import it again.",
         "other": "This list could not be read: {reason}"
@@ -1372,7 +1373,8 @@
       "errors": {
         "empty": "The list is empty.",
         "too_large": "That is too large — at most 5 MB of text or a 20 MB PDF.",
-        "too_many_items": "That list has more than {limit} items. Split it and import each part.",
+        "too_many_items": "This list has {count, number} items; the limit is {limit, number} items per import. Split it into parts and import each.",
+        "document_too_long": "This document is about {pages, number} pages of text; the limit is about {limitPages, number} pages ({limitChars, number} characters). Split it into parts and import each.",
         "file_not_found": "The uploaded file could not be found. Choose it again.",
         "unsupported_file": "Import a CSV, TSV, text, Markdown or PDF file.",
         "unreadable_file": "That file could not be read.",
