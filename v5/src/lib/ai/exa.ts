@@ -41,6 +41,15 @@ export function chatExaSearch(): Tool {
 }
 
 /**
+ * Bulk intake's Suggest names (bulk intake spec §3.3): five results with
+ * highlights and **no page text** — enough to settle a make and model, and
+ * cheap. One search per item, asked for in the prompt.
+ */
+export function nameSuggestExaSearch(): Tool {
+  return asAiTool(gatewayProvider().tools.exaSearch({ numResults: 5, contents: { highlights: true } }));
+}
+
+/**
  * The most page text Exa returns per research result. Enough for a product
  * page's specs table (bambulab.com's X2D specs page is about 9k characters of
  * text), small enough that six results a search stay a modest prompt.

@@ -76,6 +76,25 @@ export const MODEL_JOBS = {
     serviceTier: "flex",
     tierEnv: "MODEL_IMAGE_RANK_TIER",
   },
+  // Bulk intake (bulk intake spec §3.2): reading an imported document into
+  // items — no tools, no web search, the text fenced as untrusted data.
+  // Background work in a workflow, so flex.
+  importParse: {
+    kind: "language",
+    env: "MODEL_IMPORT_PARSE",
+    default: "openai/gpt-6-luna",
+    serviceTier: "flex",
+    tierEnv: "MODEL_IMPORT_PARSE_TIER",
+  },
+  // Bulk intake's optional Suggest names pass (§3.3): one Exa search and one
+  // small answer per item, in a workflow — flex.
+  nameSuggest: {
+    kind: "language",
+    env: "MODEL_NAME_SUGGEST",
+    default: "openai/gpt-6-luna",
+    serviceTier: "flex",
+    tierEnv: "MODEL_NAME_SUGGEST_TIER",
+  },
   // Manual passages and search queries (manual text spec §3.4). An embedding
   // job, not a language one: `embeddingModelFor`, never `languageModelFor`.
   // No tier hint — embeddings are cheap and a search is waited on.
