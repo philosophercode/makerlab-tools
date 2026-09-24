@@ -126,9 +126,9 @@ describe("ProfileMenu — the menu", () => {
   });
 
   it.each([
-    ["user", "Student", ["SIGN OUT"]],
-    ["admin", "SuperMaker", ["ADMIN", "ADD EQUIPMENT", "SIGN OUT"]],
-    ["super_admin", "Director", ["ADMIN", "ADD EQUIPMENT", "SIGN OUT"]],
+    ["user", "Student", ["CONNECT AN AI ASSISTANT", "SIGN OUT"]],
+    ["admin", "SuperMaker", ["ADMIN", "ADD EQUIPMENT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]],
+    ["super_admin", "Director", ["ADMIN", "ADD EQUIPMENT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]],
   ] as const)("offers %s exactly the entries the role holds", async (role, label, expected) => {
     const user = userEvent.setup();
     renderMenu({ ...NITI, role });
@@ -221,11 +221,13 @@ describe("ProfileMenu — dismissal and keyboard", () => {
     renderMenu();
 
     await user.click(trigger());
-    const [admin, add, signOut] = screen.getAllByRole("menuitem");
+    const [admin, add, connect, signOut] = screen.getAllByRole("menuitem");
     expect(admin).toHaveFocus();
 
     await user.keyboard("{ArrowDown}");
     expect(add).toHaveFocus();
+    await user.keyboard("{ArrowDown}");
+    expect(connect).toHaveFocus();
     await user.keyboard("{ArrowDown}");
     expect(signOut).toHaveFocus();
     await user.keyboard("{ArrowDown}");
@@ -260,8 +262,10 @@ describe("ProfileMenu — dismissal and keyboard", () => {
 
     trigger().focus();
     await user.keyboard("{Enter}");
-    expect(screen.getByRole("menuitem", { name: "SIGN OUT" })).toHaveFocus();
+    expect(screen.getByRole("menuitem", { name: "CONNECT AN AI ASSISTANT" })).toHaveFocus();
 
+    await user.keyboard("{ArrowDown}");
+    expect(screen.getByRole("menuitem", { name: "SIGN OUT" })).toHaveFocus();
     await user.keyboard("{Enter}");
     expect(signOutAndReload).toHaveBeenCalledTimes(1);
   });

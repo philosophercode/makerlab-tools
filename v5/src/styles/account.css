@@ -1,0 +1,158 @@
+/* /account/tokens and the OAuth sign-in and consent pages (MCP access spec
+   §6). Theme tokens only, never hard-coded colours. */
+
+.account-section {
+  display: grid;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.account-section > h2 {
+  margin: 0;
+}
+
+.account-form {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container);
+}
+
+.account-field {
+  display: grid;
+  gap: 4px;
+}
+
+.account-field input[type="text"],
+.account-field select {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container-low);
+  color: var(--on-surface);
+  font: inherit;
+}
+
+.account-field-hint {
+  color: var(--on-surface-muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.account-check {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.account-button {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1.5px solid var(--primary);
+  background: transparent;
+  color: var(--primary);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.account-button.is-primary {
+  background: var(--primary);
+  color: var(--surface-container-low);
+}
+
+.account-button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.account-reveal {
+  display: grid;
+  gap: 10px;
+  padding: 16px;
+  border: 2px solid var(--primary);
+  background: var(--surface-container);
+}
+
+.account-code {
+  display: block;
+  overflow-x: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container-low);
+  color: var(--on-surface);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  white-space: pre;
+  word-break: normal;
+}
+
+.account-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.account-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 6px 16px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container);
+}
+
+.account-row.is-inactive {
+  opacity: 0.7;
+}
+
+.account-row-meta {
+  color: var(--on-surface-muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+.account-prefix {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.account-tag {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 6px;
+  border: 1px solid var(--outline);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
+.account-status {
+  margin: 0;
+  font-size: 14px;
+}
+
+.account-status.is-error {
+  color: var(--primary);
+}
+
+.account-status.is-warning {
+  color: var(--secondary);
+}
+
+@media (max-width: 640px) {
+  .account-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

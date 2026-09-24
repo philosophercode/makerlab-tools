@@ -4,6 +4,7 @@ import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
 import { can, type Permission } from "../../lib/auth/permissions";
 import { AdminActions } from "../../components/admin/AdminActions";
 import { countRefreshesWaiting } from "../../lib/data/tool-refreshes";
+import { isLegacyMcpTokenSet } from "../../lib/auth/mcp-caller";
 
 /**
  * `/admin` — the index the header's `AdminLink` points at.
@@ -57,6 +58,14 @@ export default async function AdminHomePage() {
     <section className="admin-index td-panel td-prose">
       <p className="td-eyebrow">{t("eyebrow")}</p>
       <h2>{t("indexTitle")}</h2>
+
+      {/* MCP access spec §5.3: the retired shared secret still works for one
+          release, as the public read-only tools only — and says so here. */}
+      {isLegacyMcpTokenSet() ? (
+        <p className="admin-row-status is-warning" role="status">
+          {t("mcpTokenDeprecated")}
+        </p>
+      ) : null}
 
       {/* Add equipment and Refresh catalog, moved here from the header on
           2026-09-23. Each keeps its own permission rule. */}
