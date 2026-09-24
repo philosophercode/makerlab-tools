@@ -40,6 +40,19 @@ it("shows the field, now → proposed, the kind and safety chips, and the quote 
   expect(onReject).toHaveBeenCalledTimes(1);
 });
 
+it("says the lab's rules are kept on a restrictions card that adds a line (amendment 2026-09-24)", () => {
+  render(
+    <ProposalCard
+      proposal={proposal({
+        current: "Resin handling training required before first print.",
+        proposed: "Resin handling training required before first print.\nYoung or inexperienced users must be supervised.",
+        added: ["Young or inexperienced users must be supervised."],
+      })}
+    />
+  );
+  expect(screen.getByText("The lab's rules are kept. Adds: Young or inexperienced users must be supervised.")).toBeInTheDocument();
+});
+
 it("greys a proposal whose quote was not found, and offers no one-click accept", () => {
   render(
     <ProposalCard

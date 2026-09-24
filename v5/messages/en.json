@@ -654,6 +654,7 @@
       "failed": "That did not save. Nothing was changed.",
       "stale_refresh": "Somebody else decided proposals on this refresh while it was open. Reload to see what is left.",
       "unverified_quote": "None of this proposal's quotes were found on the page it names, so it cannot be accepted here. Open the editor and check the manufacturer's page yourself.",
+      "replaces_lab_rule": "This would remove or replace one of the lab's own rules (a use restriction or a training requirement). Research can only add to them. Change the lab's rules in the editor if you mean to.",
       "too_many_tools": "Refresh at most 25 tools at a time.",
       "expired": "This proposal is more than a week old. Ask the assistant again."
     },
@@ -1182,6 +1183,7 @@
       "yes": "Yes",
       "no": "No",
       "added": "Adds: {labels}",
+      "addedRule": "The lab's rules are kept. Adds: {lines}",
       "quotes": "Sources",
       "quoteNotFound": "Quote not found on the page",
       "noQuote": "No quote — no page stated it",

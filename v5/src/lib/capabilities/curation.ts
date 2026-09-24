@@ -6,6 +6,7 @@ import { CHAT_MAX_EXA_SEARCHES, CHAT_MAX_PAGE_READS } from "../intake/limits";
 import { verifyQuotes } from "../refresh/citations";
 import { loadCurationSubject, recordFields, type CurationSubject } from "../refresh/curation";
 import { currentValue } from "../refresh/decide";
+import { addRestrictions, trainingChangeAllowed } from "../refresh/lab-rules";
 import { normalizeLabel, normalizeText, resourceKey } from "../refresh/propose";
 import { CITATION_QUOTE_MAX_CHARS, SAFETY_FIELDS, type FieldProposal, type ProposalField, type ProposedResource } from "../refresh/types";
 import { fenceUntrusted } from "../web/fence";
@@ -32,7 +33,9 @@ import type { Capability, CapabilityCtx, CapabilityTool, CurationContext, Prompt
  *
  * Quotes are checked in code against the text of pages read **in this turn**
  * (`chat/turn-sources.ts`); one that is not there is kept and shown unverified.
- * PPE is refused: lab staff set it. The cover photo is not proposed here — it
+ * PPE is refused: lab staff set it. On a catalogue tool the lab's restrictions and
+ * "training required" are kept: restrictions are proposed only as added lines,
+ * and training is never proposed off (`refresh/lab-rules.ts`). The cover photo is not proposed here — it
  * is chosen on the preliminary page or in the editor.
  *
  * Composed by the chat route only when the page shows a record the caller may
@@ -170,6 +173,8 @@ export async function proposeChange(
 
   const subject = await loadCurationSubject(own.kind, own.id);
   if (!subject) return refuse("not_found", "This record is no longer there to curate.");
+  const labRule = labRuleRefusal(field, value, subject);
+  if (labRule) return labRule;
   const proposal = buildProposal(field, value, subject, input, ctx);
   if (!proposal) return refuse("matches", "The record already says that. Nothing to propose.");
 
@@ -181,10 +186,16 @@ export async function proposeChange(
     chatId: surface === "mcp" ? MCP_PROPOSAL_CHAT_ID : ctx.chatId ?? null,
     createdBy: ctx.identity?.userId ?? null,
   });
+  // Restrictions on a tool are an addition: say so, so the reply does not claim a replacement.
+  const labRuleNote =
+    subject.kind === "tool" && field === "use_restrictions" && proposal.kind === "differs"
+      ? { lab_rules_kept: true, added: proposal.added ?? [] }
+      : {};
   if (surface === "mcp") {
     return {
       status: "proposed",
       proposalId,
+      ...labRuleNote,
       verified: proposal.citations.map((c) => c.verified),
       message:
         "Proposed, not applied. It waits under 'Proposals from assistants' on /admin/refresh for a person to accept or reject. Nothing has changed yet — do not say it has.",
@@ -199,6 +210,7 @@ export async function proposeChange(
     proposalId,
     card_rendered: Boolean(ctx.writer),
     verified: proposal.citations.map((c) => c.verified),
+    ...labRuleNote,
     message: "A card is in front of the admin to accept or reject. Nothing has changed yet — do not say it has.",
   };
 }
@@ -247,6 +259,33 @@ function valueHint(field: ChatProposalField): string {
   }
 }
 
+/**
+ * Research never replaces a lab rule (refresh research spec, amendment
+ * 2026-09-24; `refresh/lab-rules.ts`). On a catalogue tool, a value that would
+ * turn "training required" off, or restrictions that add nothing beside the
+ * lab's (a removal or a rewording), is refused with why. A pending item's
+ * values are research's own drafts, so nothing is refused there.
+ */
+function labRuleRefusal(field: ChatProposalField, value: unknown, subject: CurationSubject): ToolResult | null {
+  if (subject.kind !== "tool") return null;
+  if (field === "training_required" && typeof value === "boolean" && !trainingChangeAllowed(subject.record.trainingRequired, value)) {
+    return refuse(
+      "lab_rule_kept",
+      "The lab requires training for this tool. That is the lab's own rule: never propose turning it off. You may mention a manufacturer's view in your reply."
+    );
+  }
+  if (field === "use_restrictions" && typeof value === "string") {
+    const now = subject.record.useRestrictions ?? "";
+    if (now.trim() && !addRestrictions(now, value)) {
+      return refuse(
+        "lab_rule_kept",
+        "The lab's use restrictions are its own rules: you may only add a manufacturer warning or restriction beside them, never remove or reword one. Everything in your value is already there, so nothing was proposed. To add a line, give only the new line."
+      );
+    }
+  }
+  return null;
+}
+
 /** The proposal code makes of the model's value: kind, current, quotes checked — or null when it changes nothing. */
 function buildProposal(
   field: ChatProposalField,
@@ -283,6 +322,12 @@ function buildProposal(
     return { ...base, kind: "differs", current, proposed: value, citations, ...(reason ? { reason } : {}) };
   }
   const now = typeof current === "string" ? current : "";
+  if (field === "use_restrictions" && subject.kind === "tool" && now.trim()) {
+    // The lab's restrictions are kept; the model's lines are added beside them (lab-rules.ts).
+    const addition = addRestrictions(now, value as string);
+    if (!addition) return null;
+    return { ...base, kind: "differs", current, proposed: addition.proposed, added: addition.added, citations, ...(reason ? { reason } : {}) };
+  }
   if (normalizeText(now) === normalizeText(value as string)) return null;
   return { ...base, kind: now.trim() ? "differs" : "new", current: current ?? null, proposed: value, citations, ...(reason ? { reason } : {}) };
 }
@@ -303,9 +348,12 @@ function promptFragment(env: PromptEnv): string {
     `- **Check the manufacturer first.** Use \`${EXA_SEARCH_TOOL}\` (at most ${CHAT_MAX_EXA_SEARCHES} searches) to find the official product page or manual, then \`read_page\` (at most ${CHAT_MAX_PAGE_READS} reads) to read it — in this turn \`read_page\` may open the record's own sources and pages your searches returned. Use \`search_manual\` for a manual the lab already has.`,
     `- **Quote your source.** Give each proposal 1–3 quotes copied **verbatim** from a page you read in this turn, with that page's exact URL. A quote that is not on a page read this turn is shown to staff as unverified.`,
     `- **Never propose protective equipment (PPE).** Staff set it. If asked, say so and suggest the editor.`,
+    curation.kind === "tool"
+      ? `- **The lab's rules stay.** Use restrictions and "training required" are the lab's own rules. You may only **add** a manufacturer warning or restriction: give just the new line as \`use_restrictions\` and it is added beside the lab's. Never propose removing or rewording one of the lab's restrictions, and never propose \`training_required: false\` when the lab requires training.`
+      : "",
     `- Field values: \`name\`, \`description\`, \`use_restrictions\`, \`emergency_stop\` are strings; \`materials\` and \`tags\` are the complete new list of short labels; \`training_required\` is true or false; \`resource\` is { title, url, type }. Use subject { kind: "${curation.kind}", id: "${curation.id}" }.`,
     `- Keep your reply short: say what you proposed and why, and what you could not confirm.`,
-  ].join("\n\n");
+  ].filter(Boolean).join("\n\n");
 }
 
 // ── Capability ─────────────────────────────────────────────────────

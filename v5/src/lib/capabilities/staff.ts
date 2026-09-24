@@ -221,7 +221,7 @@ const mcpProposeSchema: z.ZodType<McpProposeInput> = z.object({
 const mcpProposeTool: CapabilityTool<McpProposeInput, Record<string, unknown>> = {
   name: "propose_change",
   description:
-    "Propose one change to a catalogue tool's field for lab staff to accept or reject on /admin/refresh. It changes nothing by itself — never say the tool was updated. Never proposes PPE.",
+    "Propose one change to a catalogue tool's field for lab staff to accept or reject on /admin/refresh. It changes nothing by itself — never say the tool was updated. Never proposes PPE. Use restrictions and training are the lab's own rules: use_restrictions may only add a new line beside the lab's (give just the new line), and training_required is never turned off.",
   inputSchema: mcpProposeSchema,
   kind: "write",
   mcpOnly: true,

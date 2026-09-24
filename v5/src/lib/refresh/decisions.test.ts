@@ -53,7 +53,7 @@ const verified = [{ quote: "a quote on the page", url: "https://wenproducts.com/
 const notFound = [{ quote: "not on the page", url: "https://wenproducts.com/dc3401", verified: false }];
 
 const PROPOSALS: FieldProposal[] = [
-  { id: "use_restrictions", field: "use_restrictions", kind: "differs", safety: true, current: "Rated for 1-micron filtration.", proposed: "Rated for 5-micron filtration.", citations: verified, decision: "pending" },
+  { id: "use_restrictions", field: "use_restrictions", kind: "differs", safety: true, current: "Rated for 1-micron filtration.", proposed: "Rated for 1-micron filtration.\nRated for 5-micron filtration.", added: ["Rated for 5-micron filtration."], citations: verified, decision: "pending" },
   { id: "name", field: "name", kind: "differs", safety: false, current: "WEN air filter", proposed: "WEN DC3401", citations: verified, decision: "pending" },
   { id: "description", field: "description", kind: "differs", safety: false, current: "Short.", proposed: "A three-speed air filtration system.", citations: notFound, decision: "pending" },
   { id: "resource:https://wenproducts.com/dc3401.pdf", field: "resource", kind: "new", safety: false, current: null, proposed: { title: "DC3401 manual", url: "https://wenproducts.com/dc3401.pdf", type: "Manual" }, citations: [], decision: "pending" },
@@ -111,7 +111,8 @@ function decisionOf(id: string) {
 
 it("writes an accepted field through the editor path, records it, and asks the mirror to catch up", async () => {
   expect(await decide({ decision: "accept", ids: ["use_restrictions"] })).toEqual({ ok: true, applied: 1 });
-  expect((await tool()).useRestrictions).toBe("Rated for 5-micron filtration.");
+  // The lab's line is kept; research's is added beside it.
+  expect((await tool()).useRestrictions).toBe("Rated for 1-micron filtration.\nRated for 5-micron filtration.");
   expect((await tool()).updatedBy).toBe(ADMIN);
   expect(await decisionOf("use_restrictions")).toBe("accepted");
   expect(requestMirrorPush).toHaveBeenCalledTimes(1);
@@ -128,13 +129,19 @@ it("refuses a stale revision as a conflict, writes nothing, and re-bases the car
   expect(await decide({ decision: "accept", ids: ["use_restrictions"] })).toEqual({ ok: false, error: "conflict" });
   expect((await tool()).useRestrictions).toBe("Edited this afternoon.");
   const card = (await getRefresh(refreshId, { db }))?.proposals?.find((p) => p.id === "use_restrictions");
-  expect(card).toMatchObject({ decision: "conflict", current: "Edited this afternoon." });
+  // Re-based additively: the lab's new text, with research's line on top — never in its place.
+  expect(card).toMatchObject({
+    decision: "conflict",
+    current: "Edited this afternoon.",
+    proposed: "Edited this afternoon.\nRated for 5-micron filtration.",
+    added: ["Rated for 5-micron filtration."],
+  });
   expect(await decisionOf("name")).toBe("pending");
   expect(requestMirrorPush).not.toHaveBeenCalled();
 
   // Decided again, against the re-based revision, it lands.
   expect(await decide({ decision: "accept", ids: ["use_restrictions"] })).toMatchObject({ ok: true });
-  expect((await tool()).useRestrictions).toBe("Rated for 5-micron filtration.");
+  expect((await tool()).useRestrictions).toBe("Edited this afternoon.\nRated for 5-micron filtration.");
 });
 
 it("refuses to rename a published tool for someone without tools.publish", async () => {
@@ -188,4 +195,19 @@ it("refuses a decision made against an out-of-date page", async () => {
     ok: false,
     error: "stale_refresh",
   });
+});
+
+it("refuses a stored proposal that would replace a lab rule, and accept-all skips it (amendment 2026-09-24)", async () => {
+  // Cards stored before the rule: one replaces the lab's restriction, one turns training off.
+  const legacy: FieldProposal[] = [
+    { id: "use_restrictions", field: "use_restrictions", kind: "differs", safety: true, current: "Rated for 1-micron filtration.", proposed: "Young or inexperienced users must be supervised.", citations: verified, decision: "pending" },
+    { id: "training_required", field: "training_required", kind: "differs", safety: true, current: true, proposed: false, citations: verified, decision: "pending" },
+  ];
+  await db.update(toolRefreshes).set({ proposals: legacy }).where(eq(toolRefreshes.id, refreshId));
+
+  expect(await decide({ decision: "accept", ids: ["use_restrictions"] })).toEqual({ ok: false, error: "replaces_lab_rule" });
+  expect(await decide({ decision: "accept", ids: ["training_required"] })).toEqual({ ok: false, error: "replaces_lab_rule" });
+  expect(await decide({ decision: "accept_all_verified" })).toEqual({ ok: false, error: "invalid_field" });
+  expect((await tool()).useRestrictions).toBe("Rated for 1-micron filtration.");
+  expect(requestMirrorPush).not.toHaveBeenCalled();
 });

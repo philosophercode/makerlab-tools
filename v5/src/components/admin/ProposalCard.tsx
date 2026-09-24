@@ -63,7 +63,11 @@ export function ProposalCard({ proposal, onAccept, onReject, busy = false, block
             <span className="admin-proposal-label">{t("proposed")}</span>
             <ValueText field={proposal.field} value={proposal.proposed} />
             {proposal.added && proposal.added.length > 0 ? (
-              <p className="admin-proposal-added">{t("added", { labels: proposal.added.join(", ") })}</p>
+              <p className="admin-proposal-added">
+                {proposal.field === "use_restrictions"
+                  ? t("addedRule", { lines: proposal.added.join(" / ") })
+                  : t("added", { labels: proposal.added.join(", ") })}
+              </p>
             ) : null}
           </div>
         </div>

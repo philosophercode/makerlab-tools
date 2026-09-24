@@ -12,14 +12,15 @@ function byField(proposals: FieldProposal[], field: FieldProposal["field"]): Fie
 }
 
 describe("proposeChanges", () => {
-  it("WEN DC3401: 1 micron on the record, 5 on the page → a safety differs, listed first", () => {
+  it("WEN DC3401: 1 micron on the record, 5 on the page → a safety card that adds the line beside the lab's, listed first", () => {
     const proposals = proposeChanges({ tool: toolFixture(), research: researchFixture(), includeDescription: false });
     const restriction = byField(proposals, "use_restrictions");
     expect(restriction).toMatchObject({
       kind: "differs",
       safety: true,
       current: "Rated for 1-micron filtration.",
-      proposed: "Rated for 5-micron filtration; not a substitute for a respirator.",
+      proposed: "Rated for 1-micron filtration.\nRated for 5-micron filtration; not a substitute for a respirator.",
+      added: ["Rated for 5-micron filtration; not a substitute for a respirator."],
       decision: "pending",
     });
     expect(restriction?.citations[0]).toMatchObject({ verified: true });
@@ -148,6 +149,58 @@ describe("proposeChanges", () => {
       includeDescription: false,
     });
     expect(byField(proposals, "training_required")).toMatchObject({ kind: "differs", safety: true, current: false, proposed: true });
+  });
+
+  describe("research never replaces lab rules (amendment 2026-09-24)", () => {
+    it("Form 4: the lab's resin-training rule is kept and research's supervision line is added beside it", () => {
+      const proposals = proposeChanges({
+        tool: toolFixture({ name: "Form 4", trainingRequired: true, useRestrictions: "Resin handling training required before first print." }),
+        research: researchFixture({ trainingRequired: true, useRestrictions: "Young or inexperienced users must be supervised." }),
+        includeDescription: false,
+      });
+      expect(byField(proposals, "use_restrictions")).toMatchObject({
+        kind: "differs",
+        safety: true,
+        current: "Resin handling training required before first print.",
+        proposed: "Resin handling training required before first print.\nYoung or inexperienced users must be supervised.",
+        added: ["Young or inexperienced users must be supervised."],
+      });
+    });
+
+    it("never proposes turning a lab's training requirement off", () => {
+      const proposals = proposeChanges({
+        tool: toolFixture({ trainingRequired: true }),
+        research: researchFixture({ trainingRequired: false }),
+        includeDescription: false,
+      });
+      expect(byField(proposals, "training_required")).toBeUndefined();
+    });
+
+    it("proposes nothing when research's restriction is already among the lab's", () => {
+      const proposals = proposeChanges({
+        tool: toolFixture({ useRestrictions: "Authorized users only.\nRated for 5-micron filtration; not a substitute for a respirator." }),
+        research: researchFixture(),
+        includeDescription: false,
+      });
+      expect(byField(proposals, "use_restrictions")).toBeUndefined();
+    });
+
+    it("still fills empty restrictions as new", () => {
+      const proposals = proposeChanges({ tool: toolFixture({ useRestrictions: null }), research: researchFixture(), includeDescription: false });
+      expect(byField(proposals, "use_restrictions")).toMatchObject({
+        kind: "new",
+        proposed: "Rated for 5-micron filtration; not a substitute for a respirator.",
+      });
+    });
+
+    it("never proposes PPE", () => {
+      const proposals = proposeChanges({
+        tool: toolFixture(),
+        research: researchFixture({ ppeRequired: ["Safety glasses"] }),
+        includeDescription: true,
+      });
+      expect(proposals.map((p) => p.field)).not.toContain("ppe_required");
+    });
   });
 
   it("proposes only resources the tool lacks, after size-variant and locale normalization", () => {

@@ -20,6 +20,8 @@ export function refreshItemPath(id: string): string {
  * - `stale_refresh` — somebody else decided cards on this refresh meanwhile;
  *   reload.
  * - `unverified_quote` — no quote was found on the page: open the editor.
+ * - `replaces_lab_rule` — accepting would remove or replace a lab rule
+ *   (restrictions, training); research may only add to them.
  * - `daily_limit`, `start_failed`, `too_many_tools` — queueing.
  */
 export type RefreshWriteError =
@@ -29,6 +31,7 @@ export type RefreshWriteError =
   | "not_editable"
   | "stale_refresh"
   | "unverified_quote"
+  | "replaces_lab_rule"
   | "daily_limit"
   | "start_failed"
   | "too_many_tools";

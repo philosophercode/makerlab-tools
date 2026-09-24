@@ -18,6 +18,7 @@ import { requestMirrorPush } from "../mirror/trigger";
 import { applyProposals, refusalFor } from "./apply";
 import { applyToResearch, loadCurationSubject, pendingRecord } from "./curation";
 import { currentValue } from "./decide";
+import { rebaseRestrictions } from "./lab-rules";
 import type { FieldProposal } from "./types";
 
 /**
@@ -129,7 +130,13 @@ async function acceptForTool(group: ChatProposalRow[], ctx: ChatDecisionContext,
     const now = await loadCurationSubject("tool", subjectId, { db });
     const results: ChatDecisionOutcome[] = [];
     for (const row of acceptable) {
-      const proposal: FieldProposal = { ...row.proposal, decision: "conflict", current: now ? currentValue(now.record, row.proposal) : row.proposal.current };
+      const current = now ? currentValue(now.record, row.proposal) : row.proposal.current;
+      // Restrictions are the lab's: the card's added lines go on top of the text now (lab-rules.ts).
+      const rebased =
+        row.proposal.field === "use_restrictions" && now
+          ? rebaseRestrictions(row.proposal, typeof current === "string" ? current : null)
+          : { ...row.proposal, current };
+      const proposal: FieldProposal = { ...rebased, decision: "conflict" };
       await saveChatProposal(row.id, { proposal, baseRevision: now?.revision, decidedBy: ctx.userId }, { db });
       results.push({ id: row.id, status: "conflict", proposal });
     }
@@ -175,7 +182,7 @@ async function acceptForPending(group: ChatProposalRow[], ctx: ChatDecisionConte
   let research = draft.research;
   const accepted: ChatProposalRow[] = [];
   for (const row of group) {
-    const refusal = refusalFor(row.proposal, { canPublish: true, toolPublished: false });
+    const refusal = refusalFor(row.proposal, { canPublish: true, toolPublished: false, subjectKind: "pending" });
     const next = refusal ? null : applyToResearch(research, row.proposal);
     if (!next) {
       refused.push({ id: row.id, status: "refused", error: refusal ?? "invalid_field" });

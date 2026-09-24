@@ -525,7 +525,11 @@ Existing tools researched again, **blind**, with every change a proposal a perso
 - **The diff is code** (`refresh/propose.ts`): kinds *differs* / *new* / *unverified*,
   safety fields first, list additions only, links the tool lacks, a cover only when it has
   none (ranked, never stored until accepted), a `floor_check` for a tool research could not
-  identify. **Never PPE.**
+  identify. **Never PPE.** **Research never replaces a lab rule** (`refresh/lab-rules.ts`,
+  amendment 2026-09-24): on a catalogue tool, restrictions only gain lines beside the lab's,
+  training is never proposed off — in the diff, in `propose_change` (chat and MCP), in the
+  conflict re-base and as `refusalFor`'s `replaces_lab_rule`. A pending item's values are
+  drafts and may be replaced.
 - **Queue**: `/admin/inventory` checkboxes → **Refresh research (N)** → `queueToolRefresh`
   (`tools.edit`, ≤ 25, the same daily ledger and lock as intake). **Review**:
   `/admin/refresh` and `/admin/refresh/[id]`. **Accept** writes through the editor's save
