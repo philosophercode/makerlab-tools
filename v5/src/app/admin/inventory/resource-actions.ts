@@ -8,6 +8,12 @@ import {
   type ResourceCreatePayload,
   type ResourceWritePayload,
 } from "../../../lib/inventory/resource-edits";
+import { and, eq } from "drizzle-orm";
+import { authorizeAdminAction } from "../../../lib/admin/action-gate";
+import { markResourceManualsStale } from "../../../lib/data/manual-chunks";
+import { isUuid } from "../../../lib/data/uuid";
+import { getDb } from "../../../lib/db/client";
+import { resources } from "../../../lib/db/schema";
 import { requestManualArchive } from "../../../lib/manuals/trigger";
 import type { InventoryActionResult } from "./action-result";
 import { withToolEdit, type ToolWriteInput } from "./tool-write-context";
@@ -69,6 +75,35 @@ export async function editResource(
     await requestManualArchive([result.resourceId]);
   }
   return result;
+}
+
+/**
+ * Re-process a resource's manual (manual text spec §5 "Admin"): extract its
+ * PDF again and rebuild its search passages, in the archive workflow.
+ *
+ * Nothing about the tool changes, so the revision is not touched and the panel
+ * keeps the token it holds (`{ ok: true, revision: expectedRevision }`). The
+ * documents are *marked* stale, not deleted: the stored text and passages keep
+ * serving until the run replaces them. Gated on `tools.edit` like every other
+ * resource action; a resource of another tool is `not_found`.
+ */
+export async function reprocessManual(
+  input: ToolWriteInput & { resourceId: string }
+): Promise<InventoryActionResult> {
+  const gate = await authorizeAdminAction("tools.edit");
+  if (!gate.ok) return gate;
+  if (!isUuid(input.resourceId) || !isUuid(input.toolId)) return { ok: false, error: "not_found" };
+  const db = await getDb();
+  const [row] = await db
+    .select({ id: resources.id })
+    .from(resources)
+    .where(and(eq(resources.id, input.resourceId), eq(resources.toolId, input.toolId)));
+  if (!row) return { ok: false, error: "not_found" };
+  await markResourceManualsStale(db, input.resourceId);
+  // Never throws: a start that fails leaves the documents marked, and the next
+  // cron run or the backfill picks them up.
+  await requestManualArchive([input.resourceId]);
+  return { ok: true, revision: input.expectedRevision };
 }
 
 /**

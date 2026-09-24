@@ -73,6 +73,8 @@ export interface ToolEditorActions {
   removeResource: (
     input: ToolWriteArgs & { resourceId: string }
   ) => Promise<InventoryActionResult<ResourceWritePayload>>;
+  /** Re-process a resource's manual PDF (manual text spec §5); the revision is unchanged. */
+  reprocessManual: (input: ToolWriteArgs & { resourceId: string }) => Promise<InventoryActionResult>;
 
   attachPhotos: (
     input: ToolWriteArgs & { attachmentIds: readonly string[] }

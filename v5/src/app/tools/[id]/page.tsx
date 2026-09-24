@@ -25,6 +25,7 @@ import {
   addResource,
   editResource,
   removeResource,
+  reprocessManual,
 } from "../../admin/inventory/resource-actions";
 import { addUnit, deleteUnit, editUnit, retireUnit } from "../../admin/inventory/unit-actions";
 
@@ -52,6 +53,7 @@ const EDITOR_ACTIONS: ToolEditorActions = {
   addResource,
   editResource,
   removeResource,
+  reprocessManual,
   attachPhotos,
   reorderPhotos,
   removePhoto,

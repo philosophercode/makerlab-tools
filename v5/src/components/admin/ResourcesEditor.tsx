@@ -31,6 +31,8 @@ export interface ResourcesEditorProps {
   onAdd: (resource: NewResource, fileAttachmentIds: string[]) => void;
   onTogglePublished: (resourceId: string, published: boolean) => void;
   onRemove: (resourceId: string) => void;
+  /** Re-process the resource's manual PDF (manual text spec §5). Offered only on a row with a PDF. */
+  onReprocess?: (resourceId: string) => void;
 }
 
 export function ResourcesEditor({
@@ -39,6 +41,7 @@ export function ResourcesEditor({
   onAdd,
   onTogglePublished,
   onRemove,
+  onReprocess,
 }: ResourcesEditorProps) {
   const t = useTranslations("admin.inventory.editor");
 
@@ -124,6 +127,17 @@ export function ResourcesEditor({
                 >
                   {resource.published ? t("hideResource") : t("showResource")}
                 </button>
+                {resource.manual && onReprocess ? (
+                  <button
+                    type="button"
+                    className="admin-button"
+                    disabled={pending}
+                    title={t("reprocessManualTitle")}
+                    onClick={() => onReprocess(resource.id)}
+                  >
+                    {t("reprocessManual")}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   className="admin-button is-danger"
