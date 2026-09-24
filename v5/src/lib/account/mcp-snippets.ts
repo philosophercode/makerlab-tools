@@ -1,6 +1,11 @@
 /**
  * Ready-to-paste MCP client configuration (MCP access spec §5.1 step 3, §7).
  *
+ * **Sign in with Google is the default** (amendment 2026-09-24): every client
+ * that supports OAuth for a remote HTTP server gets the sign-in address and no
+ * token. The token snippets are the fallback, for clients or scripts that
+ * cannot sign in.
+ *
  * Pure and client-safe: `/account/tokens` renders these with the token it just
  * revealed, or with a placeholder, and `docs/mcp.md` carries the same shapes.
  * Every snippet that can reads the token from the `MAKERLAB_MCP_TOKEN`
@@ -17,8 +22,14 @@ export const TOKEN_PLACEHOLDER = "mlt_…";
 export interface McpSnippets {
   /** The open endpoint: public reads, or a person's tools with a bearer token. */
   url: string;
-  /** The OAuth endpoint for claude.ai / ChatGPT connectors. */
+  /** The OAuth endpoint: every client that can sign in with Google — the default way to connect. */
   signedInUrl: string;
+  /** Claude Code, signing in (then `/mcp` → Authenticate). No token. */
+  claudeCodeSignIn: string;
+  /** Codex, signing in: adding the server starts the sign-in. No token. */
+  codexSignIn: string;
+  /** Codex: sign in again later. */
+  codexLogin: string;
   /** `export MAKERLAB_MCP_TOKEN=…` for a shell profile. */
   envExport: string;
   /** Claude Code, token from the environment at add time. */
@@ -36,9 +47,13 @@ export interface McpSnippets {
 export function mcpSnippets(baseUrl: string, token: string = TOKEN_PLACEHOLDER): McpSnippets {
   const origin = baseUrl.replace(/\/+$/, "");
   const url = `${origin}/api/mcp`;
+  const signedInUrl = `${origin}/api/mcp/signed-in`;
   return {
     url,
-    signedInUrl: `${origin}/api/mcp/signed-in`,
+    signedInUrl,
+    claudeCodeSignIn: `claude mcp add --transport http makerlab ${signedInUrl}`,
+    codexSignIn: `codex mcp add makerlab --url ${signedInUrl}`,
+    codexLogin: "codex mcp login makerlab",
     envExport: `export ${MCP_TOKEN_ENV_VAR}=${token}`,
     claudeCode: `claude mcp add --transport http makerlab ${url} --header "Authorization: Bearer $${MCP_TOKEN_ENV_VAR}"`,
     claudeCodeJson: JSON.stringify(

@@ -603,6 +603,10 @@ MCP callers act as a person, with that person's role and never more
   publishes or edits the catalogue (Article 5).
 - **Rate limits**: `mcp` 30/min per IP, `mcpSignedIn` 60/min per token or person, `mcpWrite`
   10/min per identity before each write call.
+- **Sign in with Google is the default way to connect** (amendment 2026-09-24): the page and
+  `docs/mcp.md` give every OAuth-capable client (Claude Code, Codex, Claude Desktop, claude.ai,
+  ChatGPT) `/api/mcp/signed-in` first (`SignInSetup`, `mcpSnippets().claudeCodeSignIn` /
+  `codexSignIn` / `codexLogin`); tokens are the fallback for clients or scripts that can't.
 - **Tokens** (`/account/tokens`, profile menu → Connect an AI assistant): shown once, stored as a
   hash, prefix for display, 30/90/never (90 default), read-only option, ≤ 20 live, audited
   `token.created` / `token.revoked`. **Never log a token** — only `displayPrefix`.

@@ -492,3 +492,52 @@ with `WWW-Authenticate`; anonymous `/api/mcp/signed-in` → 401 pointing at the 
 discovery documents served. MCP Inspector CLI (`--cli --transport http`): `tools/list` and
 `tools/call search_tools` anonymous. `/account/tokens`, `/admin/refresh`, `/about`,
 `/oauth/consent`, `/oauth/sign-in` rendered. No token appeared in the dev server log.
+
+### 2026-09-24 — Sign in with Google is the default way to connect
+
+**Why.** The text above (§5.1, §7) treats a personal access token as the usual path and OAuth
+as a claude.ai and ChatGPT special case. But every client the guide names supports OAuth for
+a remote HTTP MCP server. That includes Claude Code (`claude mcp add --transport http <name>
+<url>`, then **Authenticate** from `/mcp`), Claude Desktop and claude.ai (custom connector),
+ChatGPT (connector with OAuth) and Codex (`codex mcp add <name> --url <url>`, `codex mcp login
+<name>`). Signing in leaves no secret to paste, store or leak, and it shows up under Connected
+apps, where it can be revoked. `/api/mcp/signed-in` already signs people in with Google, so
+this is a documentation and UI change. The server is unchanged.
+
+**What changes.**
+
+- **`/account/tokens` leads with "Sign in with Google (recommended)"** (`SignInSetup`, shown
+  signed in or not). It has the sign-in address, then the steps for each client: Claude Code's
+  command and the `/mcp` → Authenticate step, Codex's `mcp add` and `mcp login` commands,
+  Claude Desktop and claude.ai's custom connector, and ChatGPT's OAuth connector. Next comes
+  **Browse without an account** with the open address. **Personal access tokens** follow as
+  the fallback, with a line saying when to use one: a client or script that can't sign in,
+  such as Claude Desktop's config file through `mcp-remote`, a CI job or a script.
+- **`mcpSnippets`** gains `claudeCodeSignIn`, `codexSignIn` and `codexLogin`. None of them
+  carries a token. The token snippets are unchanged.
+- **Token expiry** keeps its 90-day default, now labelled "In 90 days (one semester)". The
+  options are unchanged.
+- **`docs/mcp.md`** puts sign-in first for every client, with the token as the fallback under
+  each. The self-setup prompt now adds the sign-in address and tells the person how to finish
+  signing in, so no secret passes through a chat. The token variant is a note. "Keeping it
+  safe" says to prefer signing in. Troubleshooting explains the expected 401 on
+  `/api/mcp/signed-in`.
+- **Strings.** `account.signIn.*` and `account.tokens.lede` are new. `account.lede`,
+  `account.signedOut`, `account.endpointHeading` / `endpointBody`,
+  `account.tokens.expiry90` and `about.mcpBody` are reworded. The unused
+  `account.signedInEndpointLabel` / `signedInEndpointBody` are gone from English. All are
+  English only, and other locales fall back.
+
+**Verified.** The command shapes were checked against the installed CLIs' help output only.
+`claude mcp add --help` shows `--transport http <name> <url>`, with OAuth options
+`--client-id`, `--client-secret` and `--callback-port`. `codex mcp add --help` (codex-cli
+0.156.1) shows `--url`, `--oauth-client-id`, `--oauth-client-registration auto|cimd|dcr` "for
+the immediate login", and `--oauth-resource`. `codex mcp login --help` shows `<NAME>`,
+`--scopes` and `--no-browser`. **Not verified:** no OAuth sign-in from Claude Code or Codex
+has been run against a deployment. The server's side (DCR, PKCE S256, discovery, forced
+consent) is as the amendment above describes. The claude.ai, Claude Desktop and ChatGPT menu
+paths are still unverified against the live clients (§7's caveat).
+
+**Tests.** `mcp-snippets.test.ts` covers the sign-in commands, which carry no token, and the
+token fallback, which reads the environment. `SignInSetup.test.tsx` covers the section and
+each client's steps. `TokenManager.test.tsx` covers the 90-day default labelled one semester.
