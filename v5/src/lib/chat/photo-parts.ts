@@ -3,7 +3,7 @@ import type { FileUIPart, UIMessage } from "ai";
 /**
  * Photos as the model sees them (intake spec §6.1).
  *
- * The chat uploads each photo to Notion, which is the record, and separately
+ * The chat uploads each photo to Blob, which is the record, and separately
  * sends a downscaled copy of its bytes on the user message so the model can
  * actually look at it. These helpers shape that copy and keep it from riding
  * along on every later turn.
@@ -40,8 +40,8 @@ export function toVisionFileParts(photos: VisionPhoto[]): FileUIPart[] {
  * photo ever attached would go to the model again on each message. The latest
  * user message keeps all of its photos — that is the turn asking about them —
  * and earlier turns keep at most `limit` more, newest first, so a follow-up
- * question about a recent photo still works. Text parts, including the Notion
- * upload hint, are never touched.
+ * question about a recent photo still works. Text parts, including the upload
+ * hint, are never touched.
  */
 export function withRecentPhotos<M extends UIMessage>(
   messages: M[],

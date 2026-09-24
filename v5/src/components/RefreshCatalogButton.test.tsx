@@ -27,25 +27,25 @@ describe("RefreshCatalogButton — who can see it", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders nothing for a signed-in student", () => {
-    const { container } = render(<RefreshCatalogButton role="student" />);
+  it("renders nothing for an ordinary signed-in user", () => {
+    const { container } = render(<RefreshCatalogButton role="user" />);
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders for staff", () => {
-    render(<RefreshCatalogButton role="staff" />);
+  it("renders for an admin", () => {
+    render(<RefreshCatalogButton role="admin" />);
     expect(screen.getByRole("button", { name: /Refresh the/ })).toHaveTextContent(
       "REFRESH"
     );
   });
 
-  it("renders for admin", () => {
-    render(<RefreshCatalogButton role="admin" />);
+  it("renders for a super admin", () => {
+    render(<RefreshCatalogButton role="super_admin" />);
     expect(screen.getByRole("button", { name: /Refresh the/ })).toBeInTheDocument();
   });
 
   it("names the institution from config rather than leaving the placeholder", () => {
-    render(<RefreshCatalogButton role="staff" />);
+    render(<RefreshCatalogButton role="admin" />);
 
     const button = screen.getByRole("button", { name: /Refresh the/ });
     // A next-intl placeholder with no argument renders literally — this has
@@ -61,7 +61,7 @@ describe("RefreshCatalogButton — refreshing", () => {
   it("posts to the existing revalidate endpoint, with no secret header", async () => {
     const user = userEvent.setup();
     const fetchSpy = stubFetch({ ok: true });
-    render(<RefreshCatalogButton role="staff" />);
+    render(<RefreshCatalogButton role="admin" />);
 
     await user.click(screen.getByRole("button", { name: /Refresh the/ }));
 
@@ -75,7 +75,7 @@ describe("RefreshCatalogButton — refreshing", () => {
   });
 
   it("says nothing until the staff member asks", () => {
-    const { container } = render(<RefreshCatalogButton role="staff" />);
+    const { container } = render(<RefreshCatalogButton role="admin" />);
 
     // The live region is in the DOM from the start so an announcement lands
     // when it arrives, but `:empty` keeps it out of the layout (and out of the
@@ -88,7 +88,7 @@ describe("RefreshCatalogButton — refreshing", () => {
     const user = userEvent.setup();
     let settle: (value: { ok: boolean }) => void = () => {};
     stubFetch(new Promise<{ ok: boolean }>((resolve) => (settle = resolve)));
-    render(<RefreshCatalogButton role="staff" />);
+    render(<RefreshCatalogButton role="admin" />);
 
     const button = screen.getByRole("button", { name: /Refresh the/ });
     await user.click(button);
@@ -105,7 +105,7 @@ describe("RefreshCatalogButton — refreshing", () => {
   it("confirms in place, not in a toast — the message stays on screen", async () => {
     const user = userEvent.setup();
     stubFetch({ ok: true });
-    render(<RefreshCatalogButton role="staff" />);
+    render(<RefreshCatalogButton role="admin" />);
 
     await user.click(screen.getByRole("button", { name: /Refresh the/ }));
 
@@ -120,7 +120,7 @@ describe("RefreshCatalogButton — refreshing", () => {
   it("reports failure when the endpoint refuses", async () => {
     const user = userEvent.setup();
     stubFetch({ ok: false });
-    render(<RefreshCatalogButton role="staff" />);
+    render(<RefreshCatalogButton role="admin" />);
 
     await user.click(screen.getByRole("button", { name: /Refresh the/ }));
 
@@ -130,7 +130,7 @@ describe("RefreshCatalogButton — refreshing", () => {
   it("reports failure when the request never lands", async () => {
     const user = userEvent.setup();
     vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"));
-    render(<RefreshCatalogButton role="staff" />);
+    render(<RefreshCatalogButton role="admin" />);
 
     await user.click(screen.getByRole("button", { name: /Refresh the/ }));
 
@@ -143,7 +143,7 @@ describe("RefreshCatalogButton — refreshing", () => {
       .spyOn(globalThis, "fetch")
       .mockRejectedValueOnce(new Error("offline"))
       .mockResolvedValueOnce({ ok: true } as unknown as Response);
-    render(<RefreshCatalogButton role="staff" />);
+    render(<RefreshCatalogButton role="admin" />);
 
     const button = screen.getByRole("button", { name: /Refresh the/ });
     await user.click(button);

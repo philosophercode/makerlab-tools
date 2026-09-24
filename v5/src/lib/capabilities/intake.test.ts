@@ -11,6 +11,23 @@ import type { MakerLabTool } from "../../components/catalog-types";
 
 vi.mock("next/cache", () => nextCacheMock());
 
+// `create_tool` still writes to Notion until Phase 6, so the one write it makes
+// is captured at the module boundary rather than stubbed with MSW — what these
+// tests care about is the *arguments*, specifically that no upload id travels.
+const notionHook = vi.hoisted(() => ({
+  createTool: vi
+    .fn<(fields: Record<string, unknown>) => Promise<{ id: string }>>()
+    .mockResolvedValue({ id: "notion-tool-1" }),
+}));
+
+vi.mock("../notion", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../notion")>();
+  return {
+    ...actual,
+    createTool: (fields: unknown) => notionHook.createTool(fields as never),
+  };
+});
+
 /**
  * Intake ↔ confidence wiring (confidence spec phases 2, 4 and 5). The catalog
  * read runs against the PGlite demo seed (no `DATABASE_URL`, so
@@ -261,8 +278,8 @@ describe("research_tool fan-out", () => {
   it("applies the turn's photos to a lone candidate but not across a batch", async () => {
     const ctx = {
       attachments: [
-        { file_upload_id: "up_1", name: "a.jpg", contentType: "image/jpeg" },
-        { file_upload_id: "up_2", name: "b.jpg", contentType: "image/jpeg" },
+        { attachmentId: "up_1", name: "a.jpg", contentType: "image/jpeg" },
+        { attachmentId: "up_2", name: "b.jpg", contentType: "image/jpeg" },
       ],
     } as CapabilityCtx;
     const run = toolByName("research_tool").run;
@@ -495,15 +512,65 @@ describe("duplicate card", () => {
   });
 });
 
-// ── Who may add equipment (auth spec amendment 2026-09-14) ───────────
+// ── Who may add equipment (data platform design spec §3.5) ──────────
 describe("intake access", () => {
-  it("requires staff", () => {
-    expect(intake.minimumRole).toBe("staff");
+  it("requires the tools.add permission", () => {
+    expect(intake.requiredPermission).toBe("tools.add");
   });
 
   it("explains the limit instead of the flow when locked", () => {
     const locked = intake.lockedPromptFragment?.({ tools: [] }) ?? "";
     expect(locked).toContain("limited to lab staff");
     expect(locked).not.toContain("research_tool");
+  });
+});
+
+describe("create_tool — photos do not travel to Notion", () => {
+  beforeEach(() => {
+    notionHook.createTool.mockClear();
+  });
+
+  it("sends no image uploads, because a Postgres uuid is not a Notion file_upload id", async () => {
+    const run = toolByName("create_tool").run;
+
+    await run(
+      {
+        candidate: candidate({
+          image_upload_ids: ["8f14e45f-ceea-467a-9f36-3a1c6e3c1a11"],
+        }),
+      },
+      {} as CapabilityCtx
+    );
+
+    const [fields] = notionHook.createTool.mock.calls[0];
+    // Notion rejects the whole page when it does not recognise a file_upload
+    // id, so sending one would lose the listing, not just the picture.
+    expect(fields.image_uploads).toBeUndefined();
+  });
+
+  it("warns that the photos stayed in the app rather than implying they attached", async () => {
+    const run = toolByName("create_tool").run;
+
+    const result = (await run(
+      {
+        candidate: candidate({
+          image_upload_ids: ["8f14e45f-ceea-467a-9f36-3a1c6e3c1a11"],
+        }),
+      },
+      {} as CapabilityCtx
+    )) as { success: boolean; warnings: string[] };
+
+    expect(result.warnings.some((w) => /stayed in the app/i.test(w))).toBe(true);
+  });
+
+  it("says nothing about photos when none were offered", async () => {
+    const run = toolByName("create_tool").run;
+
+    const result = (await run(
+      { candidate: candidate() },
+      {} as CapabilityCtx
+    )) as { warnings: string[] };
+
+    expect(result.warnings.some((w) => /photo/i.test(w))).toBe(false);
   });
 });

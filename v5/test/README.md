@@ -17,6 +17,8 @@ your `*.test.ts(x)` files and import from here.
 | `test/mocks/next-cache.ts` | `nextCacheMock()` factory for `vi.mock("next/cache", …)` |
 | `test/mocks/server-only.ts` | empty stub aliased for `import "server-only"` |
 | `test/utils/render.tsx` | RTL `render` wrapped in `NextIntlClientProvider` + `userEvent` |
+| `test/utils/session.ts` | `seedUser` / `signInAs` — be somebody, with no Google (see below) |
+| `test/utils/better-auth-cookie.ts` | Just the cookie format, import-free, so Playwright can use it too |
 | `playwright.config.ts` | E2E config; dev server boots with `DATABASE_URL` unset (PGlite demo seed) |
 
 ## Scripts
@@ -109,27 +111,125 @@ it("reads the seeded demo tools", async () => {
 
 `vi.unstubAllEnvs()` runs automatically after every test (setup file).
 
-**Write paths are still on Notion in this phase** (maintenance tickets,
-corrections, project submission, uploads, intake) — see
-`docs/specs/2026-09-14-v5-data-platform-design.md` §9. Testing those still
-uses the real-Notion MSW path: `vi.stubEnv` all 8 Notion vars (set the
-`NOTION_DB_*` ones to the `DB_IDS` sentinels so the default handlers route
-correctly), then let MSW serve `api.notion.com`.
+**Writes are on Postgres as of Phase 3** — maintenance tickets, corrections and
+project submissions all write to the same PGlite database the reads come from,
+so their tests stub **no Notion environment at all**. Assert by reading the row
+back (`db.select().from(maintenanceLogs)`), not by inspecting a request body.
+
+The only write still on Notion is intake's `create_tool` (Phase 6), which is
+captured at the module boundary rather than over MSW — see the `vi.mock("../notion", …)`
+block at the top of `src/lib/capabilities/intake.test.ts`.
+
+**Vercel Blob is never called for real.** Its SDK talks to a signed API and
+would need a token, so it is mocked at the seam `src/lib/blob.ts` exists to
+provide. Copy this from `src/app/api/uploads/route.test.ts`:
 
 ```ts
-import { DB_IDS } from "../../test/msw/handlers";
+const blob = vi.hoisted(() => ({
+  configured: { value: true },
+  put: vi.fn(),
+  putUpload: vi.fn(),
+  list: vi.fn(),
+  del: vi.fn(),
+}));
 
-function stubNotionEnv() {
-  vi.stubEnv("NOTION_API_KEY", "secret_test");
-  vi.stubEnv("NOTION_DB_TOOLS", DB_IDS.tools);
-  vi.stubEnv("NOTION_DB_CATEGORIES", DB_IDS.categories);
-  vi.stubEnv("NOTION_DB_LOCATIONS", DB_IDS.locations);
-  vi.stubEnv("NOTION_DB_UNITS", DB_IDS.units);
-  vi.stubEnv("NOTION_DB_RESOURCES", DB_IDS.resources);
-  vi.stubEnv("NOTION_DB_MAINTENANCE_LOGS", DB_IDS.maintenance_logs);
-  vi.stubEnv("NOTION_DB_FLAGS", DB_IDS.flags);
-}
+vi.mock("../../../lib/blob", () => ({
+  isBlobConfigured: () => blob.configured.value,
+  getBlobStore: () => ({ ...blob }),
+}));
 ```
+
+Set `blob.configured.value = false` to test the unconfigured path — the one that
+has to refuse rather than invent an attachment id.
+
+---
+
+## Being signed in, without Google
+
+Sessions are **database rows** as of Phase 4: the cookie carries only a token,
+and every request looks the session and its user up. So a test does not need an
+OAuth handshake to be somebody — it needs a `user` row, a `session` row, and a
+cookie signed the way Better Auth signs one. That is `test/utils/session.ts`.
+
+```ts
+// @vitest-environment node          // it touches PGlite
+import { resetAuthForTests } from "@/lib/auth/config";
+import { seedUser, signInAs, signInAsNew } from "../../test/utils/session";
+
+beforeEach(() => {
+  vi.stubEnv("DATABASE_URL", "");
+  vi.stubEnv("AUTH_SECRET", "whatever-this-file-wants");  // signs the cookie
+  resetAuthForTests();                                     // drop the memoised instance
+});
+
+it("lets an admin refresh the catalogue", async () => {
+  const { cookie } = await signInAsNew({ role: "admin" });
+  const res = await POST(requestWith(cookie));
+  expect(res.status).toBe(200);
+});
+```
+
+- `seedUser({ id?, email?, name?, role?, banned? })` inserts the `user` row and
+  returns it. `role` is one of `user | admin | super_admin`.
+- `signInAs(person, { expiresInSeconds?, secret? })` inserts the `session` row
+  and returns `{ user, token, cookie }`. `expiresInSeconds: -60` gives an
+  expired session; `secret: "wrong"` gives a forged cookie. Both resolve to
+  anonymous, which is the point.
+- `signInAsNew(seedOptions, signInOptions)` does both in one call.
+- `insertUserRow(db, options)` is the same seed against a handle you already
+  hold — for the `src/lib/data/*` tests, which each run their own isolated
+  `createPgliteDb()`.
+
+**`AUTH_SECRET` must be stubbed before `signInAs`**, and `resetAuthForTests()`
+belongs in `beforeEach`/`afterEach` of any file that stubs it: `getAuth()`
+memoises the instance per env fingerprint plus substrate, and a stale one points
+at the previous database.
+
+**`created_by` references `user.id` since Phase 4.** A write whose author is not
+a row is refused by the foreign key — which is correct, because in production
+that id comes from a session. If a data test asserts on a specific author id,
+seed it: `await insertUserRow(db, { id: "google-sub-1", email: "ada@cornell.edu" })`.
+
+The old `makerlab.identity` cookie and `src/lib/auth/session-cookie.ts` are
+retired. Do not mint one; nothing reads it.
+
+**E2E** is the same idea one level out. `playwright.config.ts` boots the server
+with a test-only `AUTH_SECRET` and blank `GOOGLE_*`, the demo seed ships one
+account per role with a constant session token (`DEMO_ACCOUNTS` in
+`src/lib/db/demo-seed.ts`), and `e2e/utils/session.ts`'s `signIn(context,
+account, baseURL)` puts a properly signed cookie in the browser. Nothing is
+intercepted — the real `/api/identity` reads the real row. See
+`e2e/auth.spec.ts` and `e2e/admin-users.spec.ts`.
+
+`DEMO_ACCOUNTS.promotable` exists for the one E2E that *changes* a role. The
+suite runs its files in parallel against a single server, so a test that mutates
+a shared row must mutate one nobody else asserts on — promoting
+`DEMO_ACCOUNTS.user` would race `auth.spec.ts`.
+
+## Server components and server actions
+
+`resolveIdentityFromHeaders()` and the `/admin` server actions read the request
+through `next/headers`, which only exists inside a Next request scope. Stub it
+with `test/mocks/next-headers.ts`, and point it at a cookie `session.ts` minted:
+
+```ts
+// @vitest-environment node
+import { nextCacheMock } from "../../test/mocks/next-cache";
+import { nextHeadersMock, setMockHeaders } from "../../test/mocks/next-headers";
+
+vi.mock("next/cache", () => nextCacheMock());      // revalidatePath/Tag
+vi.mock("next/headers", () => nextHeadersMock());
+
+const { cookie } = await signInAsNew({ role: "super_admin" });
+setMockHeaders({ cookie });                         // …or setMockHeaders() for anonymous
+expect(await setUserRole({ userId, role: "admin" })).toEqual({ ok: true, role: "admin" });
+```
+
+The mutable state lives in the mock module rather than the test, because
+`vi.mock`'s factory is hoisted above your imports and may not close over
+anything. `setMockHeaders({ "x-forwarded-for": "198.51.100.7" })` gives an
+anonymous caller their own rate-limit bucket — the limiter is a per-process
+singleton, so a test that exhausts a window needs a key no other test shares.
 
 ---
 
@@ -290,8 +390,9 @@ Notes:
 - The route rate-limits **before** parsing. To assert the 429 path, drive the
   in-memory limiter over its limit (21 calls in a window) or stub Upstash +
   override the `*/pipeline` handler to return a count over the limit.
-- To test `report_issue.execute` filing a ticket, stub the Notion env and let
-  MSW's `POST /pages` handler respond (returns `id: "created-page-1"`), then
-  assert `result.success === true` and `result.ticket_id`.
+- To test `report_issue.execute` filing a ticket, set nothing: the write lands
+  in the same PGlite database (`DATABASE_URL` unset). Assert
+  `result.success === true`, then read the `maintenance_logs` row back by
+  `result.ticket_id`.
 - For `get_unit_details` against the **PGlite demo seed** (`DATABASE_URL`
   unset), the catalog units are `Form 4 // A` and `Trotec Speedy 400`.

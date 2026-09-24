@@ -487,9 +487,9 @@ describe("ChatFab — pending tool-call status", () => {
 
 // ── Photo upload + attachment hint ─────────────────────────────────
 //
-// Selecting an image uploads it to /api/upload-notion, shows a removable
-// preview, and on submit appends a parseable [Attached photos: …] hint that
-// the chat route turns into report_issue photo_uploads.
+// Selecting an image uploads it to /api/uploads, shows a removable preview,
+// and on submit appends a parseable [Attached photos: …] hint that the chat
+// route turns into report_issue photo_attachment_ids.
 describe("ChatFab — photo uploads", () => {
   let origCreate: typeof URL.createObjectURL;
   let origRevoke: typeof URL.revokeObjectURL;
@@ -507,12 +507,16 @@ describe("ChatFab — photo uploads", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uploads an image and includes its file_upload hint in the sent message", async () => {
+  it("uploads an image and includes its attachment hint in the sent message", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn(
       async () =>
         new Response(
-          JSON.stringify({ file_upload_id: "fu_123", name: "broken.png" }),
+          JSON.stringify({
+            attachmentId: "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+            previewUrl: null,
+            name: "broken.png",
+          }),
           { status: 200, headers: { "content-type": "application/json" } }
         )
     );
@@ -536,7 +540,7 @@ describe("ChatFab — photo uploads", () => {
       await screen.findByRole("button", { name: "Remove broken.png" })
     ).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith(
-      "/api/upload-notion",
+      "/api/uploads",
       expect.objectContaining({ method: "POST" })
     );
 
@@ -548,7 +552,7 @@ describe("ChatFab — photo uploads", () => {
     const arg = sendMessage.mock.calls[0][0] as { text: string };
     expect(arg.text).toContain("the printer is broken");
     expect(arg.text).toContain(
-      "[Attached photos: file_upload_id=fu_123 name=broken.png]"
+      "[Attached photos: attachment_id=3f2504e0-4f89-41d3-9a0c-0305e82c3301 name=broken.png]"
     );
   });
 
@@ -583,6 +587,41 @@ describe("ChatFab — photo uploads", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("says photo uploads are unavailable when no blob store is configured", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(
+        async () =>
+          new Response(JSON.stringify({ code: "blob_not_configured" }), {
+            status: 503,
+            headers: { "content-type": "application/json" },
+          })
+      )
+    );
+    render(<ChatFab />);
+
+    await user.click(
+      screen.getByRole("button", { name: "Open MakerLab assistant" })
+    );
+    await user.upload(
+      document.querySelector('input[type="file"]') as HTMLInputElement,
+      new File([new Uint8Array([1])], "bed.png", { type: "image/png" })
+    );
+
+    // Translated, not the route's English prose — a student never sees an
+    // English-only string (Article 6).
+    expect(
+      await screen.findByText(
+        "Photo uploads are unavailable right now. You can still send your message without a photo."
+      )
+    ).toBeInTheDocument();
+    // And the conversation is still usable without one.
+    expect(
+      screen.getByRole("textbox", { name: "Ask the lab console" })
+    ).toBeEnabled();
+  });
+
   async function attachPhotoAndSend(
     user: ReturnType<typeof userEvent.setup>,
     message: string
@@ -592,7 +631,11 @@ describe("ChatFab — photo uploads", () => {
       vi.fn(
         async () =>
           new Response(
-            JSON.stringify({ file_upload_id: "fu_123", name: "plate.jpg" }),
+            JSON.stringify({
+              attachmentId: "3f2504e0-4f89-41d3-9a0c-0305e82c3302",
+              previewUrl: null,
+              name: "plate.jpg",
+            }),
             { status: 200, headers: { "content-type": "application/json" } }
           )
       )
@@ -617,7 +660,7 @@ describe("ChatFab — photo uploads", () => {
   }
 
   it("sends the photo itself with the message, so the model can see it", async () => {
-    // Intake spec §6.1: the Notion upload is the record and the downscaled copy
+    // Intake spec §6.1: the stored upload is the record and the downscaled copy
     // is what the model looks at. Both go out on the same message.
     downscaleForVision.mockClear();
     downscaleForVision.mockResolvedValue("data:image/jpeg;base64,SMALL");
@@ -632,7 +675,7 @@ describe("ChatFab — photo uploads", () => {
       files?: unknown[];
     };
     expect(arg.text).toContain(
-      "[Attached photos: file_upload_id=fu_123 name=plate.jpg]"
+      "[Attached photos: attachment_id=3f2504e0-4f89-41d3-9a0c-0305e82c3302 name=plate.jpg]"
     );
     expect(arg.files).toEqual([
       {
@@ -652,7 +695,7 @@ describe("ChatFab — photo uploads", () => {
 
     expect(sendMessage).toHaveBeenCalledWith({
       text: expect.stringContaining(
-        "[Attached photos: file_upload_id=fu_123 name=plate.jpg]"
+        "[Attached photos: attachment_id=3f2504e0-4f89-41d3-9a0c-0305e82c3302 name=plate.jpg]"
       ),
     });
   });

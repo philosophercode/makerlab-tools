@@ -5,8 +5,10 @@ import {
   projectTools,
   projects,
   resources,
+  session,
   tools,
   units,
+  user,
 } from "./schema/index.ts";
 import type { Db } from "./types.ts";
 
@@ -24,19 +26,79 @@ import type { Db } from "./types.ts";
  *
  * Form 4 carries a `notionPageId`, exercising the legacy `/tools/<notion-id>`
  * redirect (spec Goal 2) end to end without a real database. Its unit carries
- * one too: the writes still on Notion until Phase 3 relate rows by page id, so
- * an imported row and a purely local one (the Trotec, which has neither) are
- * both worth having in the seed.
+ * one too. No write reads those ids any more — Phase 3 moved the last three
+ * onto Postgres — but an imported row and a purely local one (the Trotec, which
+ * has neither) are both worth having in the seed, because the redirect has to
+ * keep working for every QR label already stuck to a machine.
  */
 export const DEMO_FORM_4_NOTION_PAGE_ID = "1f2e3d4c-5b6a-4789-8abc-def012345678";
 
-/** The Notion page behind the Form 4's one unit — the `unit` relation target. */
+/** The Notion page the Form 4's one unit was imported from. */
 export const DEMO_FORM_4_UNIT_NOTION_PAGE_ID = "2a3b4c5d-6e7f-4890-9abc-def012345678";
 
 /** The sample project's slug, for tests and E2E. */
 export const DEMO_PROJECT_SLUG = "laser-cut-plywood-lamp";
 
+/**
+ * One demo account per role, each with a session row whose token is a constant
+ * (spec §10). Sessions are rows since Phase 4, so this is what lets the E2E
+ * suite be somebody without Google: the browser presents a cookie carrying one
+ * of these tokens, signed with the test-only `AUTH_SECRET` the Playwright
+ * server boots with, and the server resolves the role from the `user` row.
+ *
+ * **Demo data only.** These rows exist exclusively in the PGlite substrate —
+ * `seedDemo` runs from `createPgliteDb` and nowhere else, so a deployment with
+ * `DATABASE_URL` set never sees them. The tokens are public constants in a
+ * public repository, and they are worthless without the secret that signs
+ * them; a deployment that set a real `AUTH_SECRET` also set `DATABASE_URL`,
+ * and these rows are not in that database.
+ */
+export const DEMO_ACCOUNTS = {
+  user: {
+    id: "demo-user-casey",
+    name: "Casey Rivera",
+    email: "casey@cornell.edu",
+    role: "user",
+    sessionToken: "demo-session-user",
+  },
+  admin: {
+    id: "demo-user-niti",
+    name: "Niti Parikh",
+    email: "niti@cornell.edu",
+    role: "admin",
+    sessionToken: "demo-session-admin",
+  },
+  superAdmin: {
+    id: "demo-user-isaac",
+    name: "Isaac Steinberg",
+    email: "isaac@cornell.edu",
+    role: "super_admin",
+    sessionToken: "demo-session-super-admin",
+  },
+  /**
+   * A second ordinary account, for the one E2E that *changes* a role
+   * (spec §10 scenario 6).
+   *
+   * Its own row on purpose: the E2E suite runs its files in parallel against
+   * one server, so promoting `user` would race `auth.spec.ts`'s assertion that
+   * an ordinary account has no admin controls. Nothing but
+   * `e2e/admin-users.spec.ts` touches this one.
+   */
+  promotable: {
+    id: "demo-user-pat",
+    name: "Pat Promotable",
+    email: "pat@cornell.edu",
+    role: "user",
+    sessionToken: "demo-session-promotable",
+  },
+} as const;
+
+/** Far enough out that no demo session expires mid-suite. */
+const DEMO_SESSION_EXPIRES_AT = new Date("2099-01-01T00:00:00.000Z");
+
 export async function seedDemo(db: Db): Promise<void> {
+  await seedDemoAccounts(db);
+
   const existing = await db.select({ id: tools.id }).from(tools).limit(1);
   if (existing.length > 0) return;
 
@@ -190,4 +252,35 @@ export async function seedDemo(db: Db): Promise<void> {
       },
     ]);
   });
+}
+
+/**
+ * The three demo accounts and their sessions. Separately guarded from the
+ * catalogue above so a database seeded before Phase 4 picks them up, and
+ * idempotent for the same reason the rest of the seed is.
+ */
+async function seedDemoAccounts(db: Db): Promise<void> {
+  const existing = await db.select({ id: user.id }).from(user).limit(1);
+  if (existing.length > 0) return;
+
+  const accounts = Object.values(DEMO_ACCOUNTS);
+
+  await db.insert(user).values(
+    accounts.map((account) => ({
+      id: account.id,
+      name: account.name,
+      email: account.email,
+      emailVerified: true,
+      role: account.role,
+    }))
+  );
+
+  await db.insert(session).values(
+    accounts.map((account) => ({
+      id: `${account.id}-session`,
+      token: account.sessionToken,
+      userId: account.id,
+      expiresAt: DEMO_SESSION_EXPIRES_AT,
+    }))
+  );
 }

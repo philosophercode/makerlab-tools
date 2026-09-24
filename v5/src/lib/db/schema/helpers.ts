@@ -1,5 +1,5 @@
-import { sql, type SQL } from "drizzle-orm";
-import { check, text, timestamp } from "drizzle-orm/pg-core";
+import { text, timestamp } from "drizzle-orm/pg-core";
+import { user } from "./auth.ts";
 
 /**
  * Column and constraint helpers shared by every table in `schema/`.
@@ -24,14 +24,19 @@ export function timestamps() {
 }
 
 /**
- * Who created or last changed a row. Plain `text` for now: it will reference
- * Better Auth's `user.id` once Phase 4 creates that table, and the foreign key
- * is added in that phase's migration. Null on imported rows.
+ * Who created or last changed a row. `text` referencing Better Auth's
+ * `user.id`, which Phase 4 created; Phase 1 deferred the foreign key to that
+ * migration because the table it points at did not exist yet.
+ *
+ * Null on imported rows and on anything the demo seed writes — nobody signed
+ * in to create them — so the columns stay nullable and `on delete set null`
+ * keeps a row alive when the person who made it is removed. Deleting a user
+ * must never delete the catalogue.
  */
 export function actorColumns() {
   return {
-    createdBy: text("created_by"),
-    updatedBy: text("updated_by"),
+    createdBy: text("created_by").references(() => user.id, { onDelete: "set null" }),
+    updatedBy: text("updated_by").references(() => user.id, { onDelete: "set null" }),
   };
 }
 
@@ -41,20 +46,9 @@ export function notionPageId() {
 }
 
 /**
- * A named CHECK that restricts `column` to `values`. Written with `sql.raw` so
- * drizzle-kit renders the literals into the migration instead of `$1`
- * placeholders.
+ * `inListCheck` / `inList` live in `./checks.ts` and are re-exported here so
+ * every existing import keeps working. They had to move: this module now
+ * imports `auth.ts` for the `user.id` reference above, and `auth.ts` needs a
+ * CHECK for `user.role` — leaving them here would have made the pair circular.
  */
-export function inListCheck(
-  name: string,
-  column: string,
-  values: readonly string[]
-): ReturnType<typeof check> {
-  return check(name, inList(column, values));
-}
-
-/** `"column" in ('a', 'b', …)` as raw SQL; a null column value passes the CHECK. */
-export function inList(column: string, values: readonly string[]): SQL {
-  const literals = values.map((value) => `'${value.replace(/'/g, "''")}'`).join(", ");
-  return sql.raw(`"${column}" in (${literals})`);
-}
+export { inList, inListCheck } from "./checks.ts";

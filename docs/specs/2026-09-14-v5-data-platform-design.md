@@ -1029,3 +1029,335 @@ Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited — the
 - **The demo seed has one published sample project** (a laser-cut lamp built with both demo tools, with two bundled photos under `public/sample-projects/`, materials and an outside link) and gives the Trotec a photo attachment, since its bundled image file is not named after the tool. The gallery, the project page and "built with this" are therefore exercised end to end without a database.
 
 **Status.** Accepted. The bridge and the prerender change are the two a reader should know about before Phase 3.
+
+### 2026-09-21 — Phase 3 built, with as-built details
+
+**What changed.** Phase 3 (§9) is implemented: the last three student-facing writes are on Postgres (`report_issue` → `maintenance_logs`, `report_correction` → `feedback`, `POST /api/projects` → `projects` + `project_tools`), `POST /api/uploads` replaces `POST /api/upload-notion` (Vercel Blob plus an `attachments` row), and `GET /api/cron/daily` replaces `GET /api/admin/backup` (a JSON export of every Postgres table, a 30-day prune, and an orphaned-upload sweep). The whole phase runs with every environment variable unset. Details the spec did not name:
+
+- **The upload id is a cross-phase contract.** `UploadedImage.file_upload_id` became `attachmentId`, and the chat hint became `[Attached photos: attachment_id=<uuid> name=<name>; …]`. `report_issue`'s input is `photo_attachment_ids: string[]`. The ripple the spec does not mention is intake: §9 leaves `create_tool` on Notion until Phase 6, and a Postgres uuid is not a Notion `file_upload_id` — Notion rejects the *whole page* when it does not recognise one. So `create_tool` now sends **no** images and pushes a warning saying the photos stayed in the app, and the intake prompt tells the model to relay that rather than claim the photo is on the listing. Losing the picture beats losing the listing (Article 4).
+- **`previewUrl` is `string | null`, not the unconditional string §3.3 implies.** A private blob has no URL an unauthenticated viewer can follow, so a maintenance photo comes back with `previewUrl: null`; both clients already hold a local `URL.createObjectURL` preview, so nothing is lost.
+- **Chat uploads are private, which §3.3's table does not cover.** The table lists maintenance photos as private and tool/resource/project photos as public, but a photo attached in chat is not yet either — it may become a ticket photo (which may show a person) or a pending-tool photo. It is stored `private`, the conservative half, since nothing renders a chat photo on a public page. Phase 6 decides what happens when such a photo is approved onto a tool.
+- **`src/lib/blob.ts` gained a second write verb rather than a parameter.** Its doc comment said `access: "private"` and `addRandomSuffix: false` were "not a caller's decision"; both are wrong for uploads. `put` still writes backups privately at the exact pathname it is given, because that pathname *is* the retention key. `putUpload` writes at a random pathname (so an unpublished tool image is unguessable, and two `IMG_0001.jpg`s do not collide) with the caller's access. The filename is sanitised before it becomes part of a pathname.
+- **`/api/cron/daily` kept both of `/api/admin/backup`'s accepted callers.** §3.10 folds the backup into the cron without saying whether the documented hand-trigger survives. It does: the cron bearer *and* `ADMIN_REVALIDATE_SECRET`, because `docs/deploy.md` tells an operator to run the job by hand after the first deploy. "Unconfigured" therefore means neither secret is set, which is the credential-free default.
+- **The backup discovers its tables rather than listing them.** `backupTables()` filters the schema module for Drizzle tables, the same reasoning the old route used when it derived its targets from the env contract: Phase 4's four Better Auth tables and Phase 6's `pending_tools` are backed up because they exist, not because somebody remembered. The file is `version: 2, source: "postgres"`; version 1 held raw Notion pages, and a restore has to be able to tell them apart. Its date is UTC, not `LAB_TIMEZONE` — the retention window reads that date back, and it names a file rather than a ticket.
+- **Cleanup deletes the blob before the row.** A row without a blob is a broken image on a page; a blob without a row is invisible and gets swept next run. Of the two half-failures the second is preferable, so the order is deliberate and tested. Pending-tool expiry (§4.10) is deliberately out of scope: that table has no writer until Phase 6.
+- **Uploads clean up after themselves.** A blob write that succeeds and whose `attachments` insert then fails deletes the blob before answering 502 — the cron only sweeps files that *have* a row, so those bytes would otherwise be unreachable forever.
+- **Phase 3 adds no `revalidateTag`.** §3.9 says writes invalidate their tags, but none of these writes touches a cached read: tickets and corrections are not cached, and a submitted project is unpublished so it cannot appear in `getPublishedProjects()`. The Phase 2 amendment deferred the `tool:<id>` tag to "the write paths that would invalidate it" — that turns out to be Phase 5's publish.
+- **No migration was needed.** Phase 1 created every column and CHECK these writes use, including `attachments.owner_type`'s list.
+- **Retired but not deleted** (constitution working agreements — each deletion is proposed separately): `src/lib/data/notion-ids.ts` and its test, now importer-less; `src/app/api/upload-notion/` and `src/app/api/admin/backup/`, both superseded and no longer scheduled or linked. Each file carries a header saying so. `src/lib/notion.ts` itself cannot be retired — intake still uses `createTool`/`createUnit`/`createResource`/`findOrCreateCategory`/`findOrCreateLocation`, and `src/lib/import/source.ts` still uses `hasProjectsEnv`/`fetchAllProjects` — but `createMaintenanceLog`, `createProject` and `ProjectWriteFields` are now dead exports.
+- **E2E got more real.** `corrections.spec.ts` and `projects.spec.ts` each gained one uncaptured, end-to-end submission against the E2E server's own PGlite, which was impossible while the write needed a Notion credential. The project one asserts that the submitted project does **not** appear in the gallery — Article 5's draft-by-default, made visible. `playwright.config.ts` now blanks `BLOB_READ_WRITE_TOKEN` and `CRON_SECRET` too, so a developer with a real store linked gets the same run as CI and no test can put bytes in it.
+
+**Status.** Accepted. The upload-id rename and intake's photo warning are the two a reader should know about before Phase 4.
+
+### 2026-09-21 — Phase 4 part 1 built (accounts and permissions), with as-built details
+
+**What changed.** The first half of Phase 4 (§9) is implemented: Better Auth on the Drizzle adapter with **database sessions** and the admin plugin (§3.4), the access-control declaration and `can()` (§3.5), `requiredPermission` on capabilities, `role` in `/api/identity` from the database, and `AUTH_STAFF_EMAILS` / `AUTH_ADMIN_EMAILS` retired in favour of `user.role` with `AUTH_SUPER_ADMIN_EMAILS` kept as the floor. Migration `0003_better_auth.sql` adds `user` / `session` / `account` / `verification`, the `user_role_check` CHECK, and the `created_by` / `updated_by` / `audit_events.actor_user_id` foreign keys Phase 1 deferred. The whole suite — 1208 unit/integration tests and 39 E2E — runs with every environment variable unset. Still to come in part 2: `/admin/users` and its server actions, `src/lib/data/audit.ts` and `users.ts`, and the sign-in requirement on project submission.
+
+Details the spec did not name, or named differently:
+
+- **`hasAuthEnv()` had to split.** It required `AUTH_SECRET` *and* both `GOOGLE_*`, which after Phase 4 would mean no database sessions without a Google client — and §10's E2E needs exactly that. It is now `hasSessionEnv()` (the secret alone) and `hasGoogleEnv()`. The Google gate moved to the route: `POST /api/auth/sign-in/social` answers 503 when the client is unconfigured, which is the `"unconfigured"` notice `sign-in-client.ts` already renders.
+- **`getAuth()` is async.** `drizzleAdapter` needs the handle synchronously and `getDb()` is a promise (PGlite migrates and seeds on first use), so `getAuth(): Promise<AuthInstance | null>` and its memo key is the env fingerprint **plus `dataSubstrate()`** — a memo keyed only on env hands back an instance pointed at the previous database.
+- **`resolveIdentity` is memoized with a `WeakMap<Request, Promise<Identity>>`, not React `cache()`.** `cache()` only memoizes inside a React render scope; in a Route Handler and under Vitest it silently does nothing, turning one session lookup per request into one per caller. A `resolveIdentityFromHeaders()` variant over `next/headers` exists for the server components part 2 needs; it is deliberately not memoized, because `next/headers` returns a fresh object per call.
+- **`resolveIdentity` gained a `DbUnavailableError` branch.** Neon configured but unreachable logs and resolves anonymous rather than 500-ing a public page (Article 4).
+- **The four tables are hand-written from the library, not from `npx @better-auth/cli generate`.** That CLI is not a dependency and wants the network. The authoritative offline source is `@better-auth/core/dist/db/get-tables.mjs` plus `better-auth/dist/plugins/admin/schema.d.mts`, and the constraint that actually matters is that each Drizzle table's *property keys* are Better Auth's camelCase field names (`@better-auth/drizzle-adapter` resolves a field by property name); the SQL column names stay snake_case like the rest of the schema. No `updated_at` trigger is attached — the library writes `updatedAt` itself, and a table it owns should not have a second writer.
+- **`statement` includes the admin plugin's own `user` and `session` resources.** §3.5's sketch lists only the app's resources, but the plugin authorizes `set-role` against `{ user: ["set-role"] }`, so a declaration that omitted them would make every admin endpoint refuse everybody, super admins included. `super_admin` holds `user: [list, get, set-role, ban, update]` and `session: [list, revoke]`; impersonation, create, delete, set-password and set-email are granted to **nobody**, because v5 never signs in as somebody else and accounts come from Google and nowhere else.
+- **The schema has a new leaf module, `src/lib/db/schema/checks.ts`.** `helpers.ts` now imports `auth.ts` (for the `user.id` reference on `actorColumns()`), and `auth.ts` needs a CHECK for `user.role`. Moving `inList` / `inListCheck` into a leaf keeps the pair acyclic rather than relying on ESM's tolerance for a cycle; `helpers.ts` re-exports both names, so every existing import still resolves.
+- **`created_by` / `updated_by` are `on delete set null`, not `cascade`.** Deleting a person must never delete the catalogue they built. The same applies to `audit_events.actor_user_id` — deleting somebody must not delete the record that their role was changed.
+- **`roles.ts` kept the domain rule and lost everything else.** `roleRank`, `isAtLeast`, `staffEmails`, `adminEmails` and `roleForEmail` are gone; `IDENTITY_ROLES` is `["anonymous", ...ROLES]` built from `db/schema/vocabulary.ts`, so the type and the CHECK cannot drift. Because `admin` means different things in the two vocabularies, every fixture was rewritten rather than renamed: `student` → `user`, `staff` → `admin`, old `admin` → `super_admin`.
+- **`isSuperAdminFloor` applies the domain rule too.** An address outside `AUTH_ALLOWED_EMAIL_DOMAIN` can never be a row, so honouring a floor entry for one would grant the highest role to an account that cannot otherwise exist. A typo in the env list fails closed.
+- **A Better Auth session cookie can be minted by hand, and that is what makes roles testable without Google.** `better-call/dist/crypto.mjs` signs a cookie as `encodeURIComponent(value + "." + btoa(HMAC-SHA256(secret, value)))` under `better-auth.session_token` (unprefixed on http). `test/utils/session.ts` does that against seeded rows, and `test/utils/session.test.ts` proves the format against a real `auth.api.getSession()` — the one assertion that licenses every other test to trust the helper. No backdoor route exists in the app.
+- **The demo seed ships one account per role** (`DEMO_ACCOUNTS`) with constant session tokens, and `playwright.config.ts` boots with a test-only `AUTH_SECRET` and blank `GOOGLE_*`. `e2e/auth.spec.ts` no longer stubs `/api/identity`: it sets a genuinely signed cookie and the real route reads the real row. The E2E therefore proves the property the phase exists for — same cookie kind, different row, different controls. Those rows exist only in the PGlite substrate; a deployment with `DATABASE_URL` set never sees them, and the tokens are worthless without the secret that signs them.
+- **`AUTH_STAFF_EMAILS` / `AUTH_ADMIN_EMAILS` cannot "seed the first admin rows" as §3.11 says**, because no `user` row exists until somebody signs in. In practice the floor is the only bootstrap: the first super admin signs in, then promotes people on `/admin/users`. Open question 3 has no automatic implementation — it is a manual step at the SuperMaker session.
+- **Retired but not deleted** (constitution working agreements — each deletion is proposed separately): `src/lib/auth/session-cookie.ts` and its test. Nothing in the application imports them; the file carries a header saying so.
+- **Unchanged on purpose:** `/api/mcp` still has no role gate — `MCP_TOKEN` is MCP's whole trust model and an MCP caller has no role — and `/api/admin/backup` (already superseded by `/api/cron/daily`) remains secret-gated rather than role-gated.
+
+**Status.** Accepted. The `getAuth()` async signature, the `WeakMap` memoization, and the fact that `created_by` now has a foreign key are the three a reader should know before touching part 2.
+
+### 2026-09-21 — Phase 4 part 2 built (the admin surface and the audit trail), with as-built details
+
+**What changed.** Phase 4 is complete. `/admin/users` (§5.2, §6) lists everyone who has signed in and changes their role or bans them, through two server actions — the first in the app. `src/lib/data/audit.ts` writes `role.changed` and `user.banned` into `audit_events` (§4.11). `POST /api/projects` now requires sign-in (§5.5) and takes the byline from the session; `/projects/new` shows "Sign in to share your project" to an anonymous visitor. `AdminLink` in the header opens `/admin` for anyone holding an admin-surface permission. The whole suite — 1290 unit/integration tests and 49 E2E — still runs with every environment variable unset.
+
+Details the spec did not name, or named differently:
+
+- **`/admin` has an index page the spec put in Phase 5.** §6 gives the header's `AdminLink` to anyone with *any* admin permission and points it at `/admin`, but `/admin` was to be `AdminHome` with counts and queues that do not exist yet. Linking a SuperMaker to a 404 is worse than a short page, so `/admin/page.tsx` lists the surfaces the viewer can actually open — one, so far — and says the rest arrive later. Phase 5 replaces its body, not its route.
+- **The gate is in two places on purpose.** The layout answers the coarse question (signed in? any admin-surface permission?) so every page under it can check only what it needs. A SuperMaker therefore gets *through* the layout and is refused on `/admin/users`, which is the honest answer — `users.manage` is a director's, and saying so beats a 404. `canReachAdmin` / `ADMIN_SURFACE_PERMISSIONS` were added to `auth/permissions.ts` so the header and the layout cannot disagree about what "an admin surface" means.
+- **Refusals are return values, not exceptions.** A thrown error in a server action reaches the browser as a digest and an error boundary, which is the wrong shape for "you cannot demote the floor address, and here is why". Each action answers `{ ok: false, error: <code> }` and the island renders the matching `admin.errors.<code>` string. The codes and `ADMIN_USERS_PATH` live in `action-result.ts`, because a `"use server"` module may export **only async functions** — every export becomes a callable endpoint.
+- **Server actions travel to the islands as props.** `RoleSelect` and `BanToggle` take the action rather than importing it. A client component importing `actions.ts` would pull `next/headers`, the rate limiter and `server-only` into its graph and make it untestable without a Next runtime; the page that renders them is a server component that already holds the action. `UsersTable` is a server component with no `async` for the same reason — everything it needs is a prop, so RTL can mount it.
+- **There are two lock-out guards, not one.** §8 names the floor; §10 separately names "the last super admin demotes themselves", and a deployment with `AUTH_SUPER_ADMIN_EMAILS` unset — a preview, a fork, the E2E server — can genuinely do it. So a demotion is refused when the target is on the floor (`protected_floor`) *or* when no unbanned `super_admin` would remain (`last_super_admin`). Banned super admins are not counted: they resolve to anonymous and can undo nothing.
+- **Banning has no "last super admin" guard, deliberately.** Reaching that code means the *caller* holds `users.manage`, so banning somebody else cannot leave the lab without a director; the only self-directed case is refused earlier as `self_ban`. Better Auth refuses a self-ban too, but with an error code the page would have to translate.
+- **The islands do not use `useTransition`, and that was a bug fix rather than a style choice.** A transition's pending state covers the action *and* the `revalidatePath` re-render it triggers, so the select sat on "Saving…" until a whole page had been rendered again — seconds under load, and the E2E caught it as a save that looked stuck for twenty seconds. The confirmation now comes from the awaited result; the revalidation still happens, it just no longer holds the confirmation hostage. Anything Phase 5 builds on this pattern should do the same.
+- **`AUDIT_ACTIONS` has no `user.unbanned`**, so lifting a ban is recorded as `user.banned` with `detail.banned: false`. Adding a vocabulary term the spec does not list would be the worse drift.
+- **`audit.ts` exports no mutator, and a test asserts it.** Append-only is only as good as the guarantee that nobody rewrote a row; with the app and the migrations sharing one connection string, a Postgres privilege is not available, so the enforcement is that the update does not exist in the codebase — checked by asserting the module's export shape.
+- **A new `test/mocks/next-headers.ts`**, matching `next-cache.ts`: `nextHeadersMock()` plus a `setMockHeaders()` whose state lives in the mock module, because `vi.mock`'s factory is hoisted above the test's imports and may not close over anything. `next-cache.ts` gained `revalidatePath`.
+- **The demo seed gained a fourth account, `DEMO_ACCOUNTS.promotable`.** E2E files run in parallel against one server, so the test that *changes* a role must change a row nobody else asserts on — promoting `DEMO_ACCOUNTS.user` would race `auth.spec.ts`'s "an ordinary signed-in user gets no admin controls". `e2e/utils/session.ts` now holds the `signIn` helper all three specs share.
+- **`POST /api/projects` stopped reading `payload.author` entirely.** With the field gone from the form, leaving the fallback in would mean a request that simply omitted its cookie could choose its own byline. A signed-in account with no display name writes a null byline, which the gallery already renders as "Anonymous" — an account we know but cannot name.
+- **A database outage now answers 401 on that route, not 502.** `resolveIdentity` treats an unreachable database as "nobody is signed in" so public pages keep serving (Article 4), and the sign-in check runs before the write — so a signed-in student sees "sign in to share a project" during an outage. It leaks nothing and writes nothing, but it is a worse sentence than it could be. Both branches are asserted in `route.test.ts`; a Phase 5 improvement would be to distinguish them with a `pingDb()`.
+- **The roster shows email addresses.** The one surface in the app that does, because telling two accounts apart is its whole job. It goes no further — not into a prompt, not into the mirror, not into a log line (§8).
+- **Dates in the roster are ISO, not localized.** `createdAt.toISOString().slice(0, 10)` in the mono treatment the design system gives every timestamp: locale-neutral, and it cannot render differently on the server and the client.
+- **English-only strings, as Article 6 (amended) allows.** About 40 keys under `admin.*` plus the project sign-in prompt went into `messages/en.json`; the other 11 locales fall back to English until Phase 9.
+- **Still pre-existing and unrelated:** `e2e/theme-i18n.spec.ts`'s two language-switch tests are flaky under a loaded machine (the server action plus `router.refresh()` occasionally exceeds the 5s expect timeout). They pass on retry and pass outright when run alone.
+
+**Status.** Accepted. What a reader should know before Phase 5: the two-gate pattern in `/admin/layout.tsx`, that server actions arrive at client islands as props, and that `"use server"` modules may export only async functions.
+
+### 2026-09-21 — Phases 3 and 4 integrated, with one seam closed
+
+**What changed.** The four implementation passes were run together as one branch and the
+whole gate observed green with every environment variable unset: `npm run lint` (0 errors,
+3 pre-existing warnings), `npm run typecheck` (clean), `npx vitest run` (**95 files, 1303
+tests**), `npx playwright test` (**49 passed**, no retries), `npm run spec:coverage`
+(73 surface items · 0 undocumented) and `npm run build` (succeeds with no database). One
+defect was found between the phases and fixed.
+
+- **The nightly export was about to archive live credentials, and now does not.** Phase 3
+  built `backupTables()` to discover tables from the schema module rather than list them,
+  so that a table added later is backed up because it exists — and wrote a note asking
+  whoever landed Better Auth to decide about its tables. Phase 4 landed them. Nothing
+  connected the two, so `select *` over `session` would have written bearer tokens, and
+  over `account` Google's refresh tokens, into a private file kept for **thirty days**.
+  Anyone holding one backup could have signed in as anybody.
+
+  The fix is `src/lib/cron/backup-policy.ts`, and it keeps discovery's virtue intact: the
+  default is still "back it up", and the exceptions are named and argued. `session` and
+  `verification` are skipped whole — a session row *is* a bearer token and a verification
+  row is a half-finished handshake; neither is worth restoring, and restoring them would
+  revive sign-ins that should have ended with the outage. `account` is kept with its four
+  secret columns blanked, because the row that matters is the link (this person is this
+  Google `sub`), which is what a restore needs, while the tokens are reissued on the next
+  sign-in. `user` is kept whole and deliberately so: `role` and `banned` are the state a
+  restore would most need to get right, and the row carries no secret. Everything is named
+  through the table objects, so renaming a column fails the typecheck rather than quietly
+  un-redacting it. `backup.test.ts` asserts the strong form — the demo seed's session token
+  does not appear in the written bytes at all.
+
+- **Nothing else needed fixing.** The seams that were looked for and were not there: no two
+  modules invalidate the same cache tag (`createProjectSubmission` deliberately invalidates
+  nothing and says why; the only `revalidateTag` is still `/api/admin/revalidate`), no
+  capability is registered twice, `claimAttachments` and the four functions added around it
+  live in one `attachments.ts` with no duplicate, the upload-id contract reads
+  `attachmentId` / `attachment_id` everywhere the four files that must move together, and
+  the E2E signing secret has one definition (`e2e/utils/session.ts`) that
+  `playwright.config.ts` documents itself as having to match.
+
+- **Two live routes still write `backups/YYYY-MM-DD.json`.** `/api/admin/backup` is
+  superseded and unscheduled but still reachable with a secret, and it writes a version-1
+  Notion dump to the *same pathname* the nightly Postgres export uses — so a hand-trigger
+  of the retired route would overwrite that day's real backup. Deleting the route removes
+  the hazard and is already on the deletion-approval list; it was left in place under the
+  working agreement rather than half-fixed.
+
+**Status.** Accepted. Phases 3 and 4 are integrated and green; what remains before
+production is credentials, which no test can stand in for.
+
+### 2026-09-22 — Nine review findings, and one sentence in §3.4 that needs choosing
+
+**What changed.** The Phase 3/4 branch was reviewed three times over and nine findings
+came back. Four described code that was already on the branch — the review had read an
+earlier working state, and the fixes had been amended into `1c967c4` itself, whose message
+still says they are "outstanding and fixed in the next commit". They are not outstanding;
+that line is stale. For the record, the three the message meant are the admin plugin's HTTP
+endpoints (`/api/auth/admin/*` refused with 403 `admin_api_not_exposed` before the auth
+instance is constructed), the super-admin floor the plugin could not see
+(`src/lib/auth/floor-role.ts`), and `POST /api/uploads` granting a public Blob URL on the
+caller's say-so (`KIND_POLICY` plus `uploadRefusal`, which pairs each `kind` with both its
+access and the permission the consuming surface enforces). **Anyone reading a review of
+this branch should check the current file before trusting a cited line number** — every one
+of them is off by the size of those fixes.
+
+Four findings held up and were fixed. Details the spec did not name:
+
+- **A banned floor address is no longer anonymous, and this contradicts §3.4.** The section
+  says both "resolves as `super_admin` whatever its row says" and "A banned user resolves
+  to anonymous" (also §4.11's table and §6's signed-out note), which cannot both be true of
+  the same row. `identityFromSession` now reads the floor *first*: a listed address survives
+  a ban on a session it already holds. The domain rule still runs before both, and
+  `isSuperAdminFloor` applies it itself, so an out-of-domain floor entry still fails closed.
+  Half a recovery was the alternative, and the floor exists precisely so that "a mistaken
+  demotion **or ban** cannot lock the lab out".
+
+  It does not rescue a sign-in, and the reason is worth not rediscovering: the admin plugin
+  registers `databaseHooks.session.create.before` and throws `BANNED_USER` there, and
+  `runPluginInit` (`better-auth/dist/context/helpers.mjs`) pushes plugin hooks *ahead* of
+  the app's own, so no hook this app can register runs in front of it. The row itself has to
+  change. `reconcileSuperAdminFloor` therefore reconciles `banned` as well as `role`
+  (clearing `banReason` and `banExpires` with it, so the plugin's auto-unban branch cannot
+  fire later against a row nobody banned), which means the first admin write a recovered
+  director performs restores ordinary sign-in. It still only ever promotes and unbans, only
+  for an address the environment already names, and the lift is recorded as `user.banned`
+  with `detail.banned: false` because `AUDIT_ACTIONS` has no `user.unbanned` (§4.11) — the
+  same shape `setUserBanned` writes.
+
+  **This is the one item in this entry that is a decision and not a detail.** The code, both
+  module docstrings and §8's "so the lab can always recover" agree; §3.4's sentence does
+  not. It is written up here rather than edited into §3.4 because the original text is never
+  edited, and flagged rather than settled because it is the lab's call: if the ban should
+  win instead, it is a two-line revert in `identity.ts` plus the `lift` branch in
+  `floor-role.ts`, and the docstrings are what need correcting.
+
+- **An audit write that fails after the change committed is a warning on a success.**
+  `recordAuditEvent` was awaited unguarded after `auth.api.setRole` had already returned, so
+  a transient failure threw out of the server action and the island restored the *old* role
+  over a database holding the new one — asserting a state that does not exist, which is the
+  quiet lie Article 4 forbids, with the sign flipped. `AdminActionResult`'s ok variant gains
+  `warning?: AdminActionWarning`, a `record()` helper reports rather than throws, and both
+  islands keep the new value and render `admin.warnings.audit_unavailable` in
+  `.admin-row-status.is-warning`. The rule this sets, which Phase 5's admin writes inherit:
+  **a change that landed minus a guarantee is `{ ok: true, …, warning }`, never
+  `{ ok: false }`**, because a refusal is what the islands answer by rolling back.
+
+  One deliberate asymmetry: `reconcileSuperAdminFloor`'s own audit writes are *not* on this
+  channel. If one fails, `authorize()` answers `failed` and the requested action never runs
+  — which is honest, because nothing the director asked for was saved — and the row it
+  already wrote makes the next attempt a no-op that succeeds. It self-heals in one click,
+  and plumbing a warning out through the gate would cost more than it buys.
+
+- **`POST /api/projects` answers `photosSubmitted` and `photosAttached`.** It discarded
+  `createProjectSubmission`'s count and returned a bare 201, so a student whose photos had
+  been swept by the nightly cron — a form left open overnight submits ids that are already
+  gone — was thanked for a write-up with no pictures. The form now says so on the
+  confirmation. **Partial loss counts too** (`photosAttached < photosSubmitted`), which is a
+  deliberate departure from the sibling write path in `capabilities/maintenance.ts`, whose
+  check is `photosAttached === 0`: two of three lost is exactly as silent as three of three.
+  Making maintenance symmetric is a reasonable follow-up; its tests pin the current
+  behaviour.
+
+- **`/projects/new` tells three states apart, not two.** A failed `/api/identity` fetch was
+  read as "not signed in", so a 429 or a dropped connection replaced the whole form with a
+  sign-in wall. The distinction was already in the data and was being thrown away:
+  `/api/identity` answers **200 `{role:"anonymous"}`** for a signed-out visitor, so
+  `fetchIdentity`'s `null` means only "could not ask". `IdentityStatus` is now
+  `pending | answered | unavailable`; `unavailable` keeps the form up with a notice and a
+  "Check again" control, and the server stays the authority, so a signed-in student can
+  still submit. A 401 from the submit now renders a translated sentence rather than the
+  route's English prose. **That invariant is now load-bearing** (`src/lib/auth/
+  sign-in-client.ts`, both halves pinned by its test): if `/api/identity` is ever changed to
+  answer 401 for anonymous, this branch starts catching genuinely signed-out visitors.
+  `PrimaryNav`'s opposite choice was checked and left alone — it maps `null` to "signed
+  out" deliberately and documents why, and it withholds nothing, so there is no false
+  assertion with a cost.
+
+**Refusal strings on the two write routes are hardcoded English**, not `next-intl` keys —
+`POST /api/uploads` matches `POST /api/projects`' existing idiom and `ProjectSubmitForm`
+renders `data.error` verbatim, so a refusal reads English in all twelve locales. Translating
+them is one job across both routes, not one route. Everything else new is seven keys in
+`messages/en.json`, inherited by the other eleven through `withEnglishFallback` (Article 6
+as amended), which `src/i18n/messages.test.ts` enforces.
+
+**Gate.** Observed green with every environment variable unset: `npm run lint` (0 errors, the
+same 3 pre-existing warnings), `npm run typecheck` (clean), `npx vitest run` (**97 files,
+1356 tests**), `npx playwright test` (**49 passed**; an earlier run of the same commit was
+48 passed and one flaky — `tool-detail.spec.ts`'s gallery-card click, green on retry, the
+client-router race under load the Phase 2 amendment describes and not a new defect),
+`npm run spec:coverage` (73 surface items · 0 undocumented) and `npm run build`
+(succeeds with no database). Each of the three code fixes was confirmed red with the fix
+reverted. Not covered: nothing in `e2e/` exercises a banned floor address or a failed audit
+write — both are proved at unit and component level only.
+
+**Status.** Accepted, except the §3.4 sentence, which is open. Everything else is a detail
+the spec left to implementation.
+
+### 2026-09-22 — §3.4 settled, the floor's own audit gap closed, and Phase 6's engine confirmed
+
+**§3.4 is settled: the environment variable wins.** The sentence left open by the previous
+amendment — §3.4 says both "resolves as `super_admin` whatever its row says" and "a banned user
+resolves to anonymous", which conflict when a floor address is banned — is decided in favour of
+the floor. A banned address named in `AUTH_SUPER_ADMIN_EMAILS` resolves `super_admin`, and
+`reconcileSuperAdminFloor` lifts the ban off the row on that person's first admin write.
+
+The reason is that the alternative is a dead end. The floor exists so the lab can always recover;
+if a ban outranked it, the documented recovery — add the address, redeploy — would leave the
+person still locked out, with no UI able to lift the ban and a manual `UPDATE` the only way
+back. The cost is that anyone who can edit the production environment can un-ban themselves,
+which is already true of anyone who can deploy, and who could reach the database directly
+regardless. Decided by Isaac, 2026-09-22.
+
+**One hole remains, and it is narrow.** `auth.api.banUser` deletes the target's sessions, so if a
+ban was applied through the app *before* the address was added to the floor, there is no session
+left to carry the override and `session.create.before` refuses a fresh sign-in with
+`BANNED_USER`. The app refuses to ban an address already on the floor, so reaching this state
+takes a manual `UPDATE`, a restored backup, or a late addition to the list. Recovery there is
+`UPDATE "user" SET banned = false` by hand. Documented rather than fixed: closing it means
+running ahead of a plugin hook that better-auth pushes in front of the app's own.
+
+**The floor's own audit writes are guarded now.** Adversarial verification of `3c76839` found the
+guard it added to `app/admin/users/actions.ts` missing one function away.
+`reconcileSuperAdminFloor` committed its row `UPDATE` and then wrote two audit events unguarded,
+so an unreachable `audit_events` threw past a committed change; `authorize()` caught it and
+returned `failed`, which the page renders as "That did not save. Nothing was changed" — over a
+row that had just been promoted and un-banned. A ban lifted with no trail, reported as nothing
+having happened, which is the Article 4 lie in its purest form.
+
+The function now returns `{ changed, audited }` rather than a bare boolean and guards its audit
+writes the way `actions.ts` guards its own. The gap travels back through `authorize()` as the
+existing `audit_unavailable` warning, so both halves of a two-write action answer the admin's one
+question — *did the trail record this* — with one warning. Only the row `UPDATE` itself still
+throws. `actions.audit.test.ts` covers both shapes and both were confirmed red against the
+unguarded version.
+
+**Phase 6's engine is confirmed: the Workflow SDK, as §3.7 specifies.** Re-decided rather than
+assumed, because the question was reopened. Every API name in §3.7 is still current against
+`workflow@4.8.9`, and the composition was verified by building a scratch app on this project's
+exact stack — Next 16.1.6, Turbopack, `cacheComponents: true`, `next-intl` — where
+`withWorkflow(withNextIntl(nextConfig))` compiles clean. Three corrections to §3.7:
+`@workflow/world-vercel` is never installed (it is selected automatically); `@workflow/world-postgres`
+needs a long-lived polling worker and is a real escape hatch rather than a config flip; and
+`maxRetries` is a property on the step function (`researchItem.maxRetries = 2`), not an option.
+
+**eve was considered and rejected.** eve is a consumer of the Workflow SDK — "every session runs
+as one durable workflow" — not an alternative to it, so adopting it would mean taking this same
+layer plus an agent runtime, a session model and a second deploy surface (it runs as a peer Nitro
+service, not a library). Three hard blockers independent of that: it requires `ai@^7` as a
+non-optional peer dependency against this app's `ai@^6`, forcing an AI SDK major upgrade across
+the live chat surface for a background job; it requires Node 24; and its eval runner always
+targets an HTTP URL in a separate process, which Article 3's "every test passes with no
+environment variables and no network" cannot accommodate. It is also in preview. Worth
+revisiting only if the assistant itself ever becomes a durable multi-channel agent.
+
+**Phase 6 is sized for the Hobby plan.** The binding constraint is not Workflow but the Function
+duration behind each step: Hobby caps it at 300s with no extension, and a model call with eight
+web searches and eight fetches can exceed that. Decided by Isaac, 2026-09-22: stay on Hobby and
+engineer around it.
+
+- **Four searches and four fetches per item**, not eight and eight. Halves the cost, halves what a
+  retry re-buys, and fits inside 300s with room. Thin results surface as low confidence, which is
+  the behaviour gate §5.4 already describes — never as an invented answer.
+- **Two steps per item** — search, then fetch and verify — so neither alone approaches the ceiling.
+- **A 240s `AbortSignal` inside each step**, so a slow item fails cleanly into `research_error`
+  rather than being killed mid-flight by the platform.
+- **25 items per batch**, matching the per-request limit §5.4 already sets, rather than 100.
+
+**Two things Phase 6 must not do.** `mapWithConcurrency` (`src/lib/capabilities/intake.ts`) must
+not move into the workflow function: it is a shared-cursor worker pool whose index claims depend
+on completion order, so a replay can issue a different sequence of step calls and diverge. The
+chunked `Promise.allSettled` in §3.7's sketch is correct and is deterministic. And `vi.mock()`
+does not reach step code — `@workflow/vitest` loads steps from a pre-built esbuild bundle through
+native `import()`, outside Vite's module graph — so this project's `vi.mock("ai")` pattern must
+become an MSW handler on `api.anthropic.com` at that tier. MSW *does* reach step code, verified,
+so the no-network guarantee holds. Testing steps and the workflow function as plain functions in
+the existing config needs no new infrastructure and covers everything except retry semantics.
+
+**A scope correction to §3.7's "reused code".** Today's `research_tool` makes no model call at
+all — the chat model does the searching with its native tools, and `research_tool` only dedupes,
+verifies links and scores confidence. So `verifyResourceLinks` and `confidence.ts` genuinely
+move, but the server-side research prompt and its `generateText` call are **new code**. Phase 6 is
+larger than "lift and shift".
+
+**`research_error` is the diagnosis record, not the dashboard.** vercel/workflow#3373 (run history
+on Next 16 with Turbopack) is still open, and Hobby retains run history for one day. §3.7 already
+says the column is the record; build as though the dashboard does not exist.
+
+**Phase plan changes.** Decided by Isaac, 2026-09-22: **Phase 7 leaves the build plan** — Isaac and
+Luis will review the imported inventory on their own time, and it was never code. **Phase 9 is
+deferred** until the app is otherwise in good shape, then layered on; English-only keys with the
+`withEnglishFallback` behaviour remain correct in the meantime. Phase 8, the Notion mirror, stays.
+Open questions 4 and 5 — reporter names in the mirror, and whether the mirror key is derived from
+`AUTH_SECRET` — are still unanswered and are due before Phase 8.
+
+**Residual risks accepted, not fixed.** A lost audit event survives only as a `console.error`: no
+retry, no outbox, so the gap in `audit_events` is invisible to anyone reading the table later.
+`report_issue` still reports photo loss only when *every* photo is lost, where `POST /api/projects`
+now reports partial loss — the same Article 4 hole, on the other side, and worth closing when the
+maintenance path is next touched. `POST /api/uploads` parses the multipart body before checking the
+permission, so an anonymous caller can make the server read up to 18 MB before its 401; nothing is
+stored and no URL is returned, and the 15/min-per-IP limiter is what bounds it.
+
+**Status.** Accepted. §3.4 is no longer open.

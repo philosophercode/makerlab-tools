@@ -1,15 +1,24 @@
 import { desc, eq, sql } from "drizzle-orm";
 import { getDb } from "../db/client.ts";
-import { maintenanceLogs } from "../db/schema/index.ts";
+import { maintenanceLogs, tools, units } from "../db/schema/index.ts";
+import {
+  MAINTENANCE_PRIORITY,
+  MAINTENANCE_STATUS,
+  MAINTENANCE_TYPE,
+  isOneOf,
+} from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
+import { labToday } from "../lab-time.ts";
+import { claimAttachments } from "./attachments.ts";
 import { isUuid } from "./uuid.ts";
 
 /**
- * Maintenance history reads on Postgres (spec §3.10, §4.8).
+ * Maintenance logs on Postgres — the reads (spec §3.10) and, since Phase 3,
+ * the write (§4.8).
  *
- * This replaces `fetchMaintenanceLogsByUnit` from `src/lib/notion.ts` behind
- * the `units` capability. Tickets are still *written* to Notion until Phase 3;
- * only the read moved.
+ * The write lives beside the read on purpose: this module is already this
+ * table's data access, and the two share the vocabulary translation that is
+ * the easiest thing in the whole path to get wrong in one direction only.
  *
  * Two rules shape what comes back:
  *
@@ -146,4 +155,152 @@ export function toDisplayLabel(value: string | null | undefined): string {
     .filter(Boolean)
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ");
+}
+
+/**
+ * `"In Progress"` → `in_progress`, but only when the result is in `allowed`.
+ *
+ * The exact inverse of {@link toDisplayLabel}, and the seam Phase 3 needed:
+ * `report_issue`'s input schema is display-cased because it was written against
+ * Notion's select options, while the CHECK constraints store snake_case. A
+ * value that does not map to a known one comes back null rather than being
+ * written, because a `text` column with a CHECK rejects the *whole insert* — and
+ * losing a student's report of an unsafe machine to a priority spelled oddly is
+ * exactly the wrong failure (Article 4).
+ */
+export function toStoredValue<const T extends readonly string[]>(
+  label: string | null | undefined,
+  allowed: T
+): T[number] | null {
+  if (!label) return null;
+  const candidate = label.trim().toLowerCase().replace(/\s+/g, "_");
+  return isOneOf(allowed, candidate) ? candidate : null;
+}
+
+// ── Filing a ticket (spec §4.8) ─────────────────────────────────────
+
+/** A validated ticket, as the `maintenance` capability hands one over. */
+export interface NewMaintenanceLog {
+  title: string;
+  description?: string | null;
+  /** Display-cased or stored; anything unrecognised is stored as null. */
+  type?: string | null;
+  priority?: string | null;
+  status?: string | null;
+  /** The catalogue unit the report is about, when one resolved. */
+  unitId?: string | null;
+  reportedByName?: string | null;
+  /** **Session only.** There is deliberately no request field that reaches this. */
+  reportedByEmail?: string | null;
+  reportedByUserId?: string | null;
+  /** `attachments.id`s uploaded for this report, in display order. */
+  photoAttachmentIds?: readonly string[];
+}
+
+export interface CreatedMaintenanceLog {
+  id: string;
+  /** The tool copied from the unit, when the unit resolved. */
+  toolId: string | null;
+  toolName: string | null;
+  unitLabel: string | null;
+  /** The date stored, in `LAB_TIMEZONE`. */
+  dateReported: string;
+  /** How many of {@link NewMaintenanceLog.photoAttachmentIds} actually attached. */
+  photosAttached: number;
+}
+
+export interface MaintenanceWriteOptions {
+  /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
+  db?: Db;
+}
+
+/**
+ * File one maintenance ticket.
+ *
+ * Everything the ticket needs to stay readable after the unit is retired is
+ * copied in at write time (§4.8): the unit's `tool_id`, and `tool_name` /
+ * `unit_label` as snapshots. A unit that does not resolve is not an error —
+ * most live logs have no unit at all, and a ticket with no target is still a
+ * ticket.
+ *
+ * The insert and the photo claim share one transaction, so a ticket that fails
+ * to write cannot leave its photos pointing at a row nobody has.
+ *
+ * Throws on a database failure. The caller reports that to the student as a
+ * failure to file — never as a filed ticket (Article 4).
+ */
+export async function createMaintenanceLog(
+  input: NewMaintenanceLog,
+  options: MaintenanceWriteOptions = {}
+): Promise<CreatedMaintenanceLog> {
+  const db = options.db ?? (await getDb());
+  const target = await findUnitTarget(db, input.unitId);
+  const dateReported = labToday();
+
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .insert(maintenanceLogs)
+      .values({
+        title: input.title,
+        description: input.description || null,
+        type: toStoredValue(input.type, MAINTENANCE_TYPE),
+        priority: toStoredValue(input.priority, MAINTENANCE_PRIORITY),
+        // `status` is not null in the schema; an unrecognised one opens the
+        // ticket rather than refusing it.
+        status: toStoredValue(input.status, MAINTENANCE_STATUS) ?? "open",
+        unitId: target?.unitId ?? null,
+        toolId: target?.toolId ?? null,
+        toolName: target?.toolName ?? null,
+        unitLabel: target?.unitLabel ?? null,
+        reportedByName: input.reportedByName || null,
+        reportedByEmail: input.reportedByEmail || null,
+        reportedByUserId: input.reportedByUserId || null,
+        dateReported,
+        // Who filed it, for the audit columns every table carries. Null for an
+        // anonymous report, which stays a first-class path.
+        createdBy: input.reportedByUserId || null,
+        updatedBy: input.reportedByUserId || null,
+      })
+      .returning({ id: maintenanceLogs.id });
+
+    const photosAttached = await claimAttachments(tx, input.photoAttachmentIds ?? [], {
+      ownerType: "maintenance_log",
+      ownerId: row.id,
+    });
+
+    return {
+      id: row.id,
+      toolId: target?.toolId ?? null,
+      toolName: target?.toolName ?? null,
+      unitLabel: target?.unitLabel ?? null,
+      dateReported,
+      photosAttached,
+    };
+  });
+}
+
+interface UnitTarget {
+  unitId: string;
+  toolId: string | null;
+  toolName: string | null;
+  unitLabel: string | null;
+}
+
+/** The unit, its tool and both display names — or null for anything unresolvable. */
+async function findUnitTarget(db: Db, unitId: string | null | undefined): Promise<UnitTarget | null> {
+  if (!unitId || !isUuid(unitId)) return null;
+
+  const [row] = await db
+    .select({
+      unitId: units.id,
+      unitLabel: units.unitLabel,
+      toolId: units.toolId,
+      toolName: tools.name,
+    })
+    .from(units)
+    .leftJoin(tools, eq(units.toolId, tools.id))
+    .where(eq(units.id, unitId))
+    .limit(1);
+
+  return row ?? null;
 }

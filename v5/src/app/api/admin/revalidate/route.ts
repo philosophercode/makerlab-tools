@@ -1,6 +1,6 @@
 import { revalidateTag } from "next/cache";
 import { resolveIdentity } from "../../../../lib/auth/identity";
-import { isAtLeast } from "../../../../lib/auth/roles";
+import { can } from "../../../../lib/auth/permissions";
 import { rateLimitAsync } from "../../../../lib/rate-limit";
 
 /**
@@ -10,9 +10,9 @@ import { rateLimitAsync } from "../../../../lib/rate-limit";
  * The catalog caches for a day now, so freshness comes from invalidation rather
  * than polling and *something has to invalidate*. Two callers do:
  *
- * - **A signed-in `staff` or `admin` session**, which is what the Refresh
- *   control in the header uses. A browser cannot hold the shared secret, so
- *   without this branch the button could not exist.
+ * - **A signed-in session holding `tools.edit`** — an admin or a super admin —
+ *   which is what the Refresh control in the header uses. A browser cannot hold
+ *   the shared secret, so without this branch the button could not exist.
  * - **The `x-admin-secret` header**, unchanged, for the callers that have no
  *   session: a Notion automation webhook, a cron job, `curl` during an incident.
  *
@@ -22,10 +22,10 @@ import { rateLimitAsync } from "../../../../lib/rate-limit";
 
 /**
  * Invalidation is cheap here but expensive on the next request: it forces a
- * full Notion re-read. Bounded before that happens (Article 4), keyed per
+ * full catalogue re-read. Bounded before that happens (Article 4), keyed per
  * identity so one caller cannot spend another's allowance. Generous enough that
- * a staff member correcting a run of rows never notices, and a webhook firing
- * per row edit only sheds refreshes it would have made redundant anyway.
+ * an admin correcting a run of rows never notices, and a webhook firing per row
+ * edit only sheds refreshes it would have made redundant anyway.
  */
 const REVALIDATE_TIER = { limit: 30, windowMs: 60_000 };
 
@@ -49,7 +49,7 @@ export async function POST(req: Request) {
     );
   }
 
-  if (!isAtLeast(identity.role, "staff")) {
+  if (!can(identity, "tools.edit")) {
     const presented = req.headers.get("x-admin-secret");
     // No session and no secret offered: nothing to check, and nothing about the
     // deployment's configuration is worth telling this caller.

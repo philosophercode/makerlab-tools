@@ -1,13 +1,12 @@
+// @vitest-environment node
 import { nextCacheMock } from "../../../../../test/mocks/next-cache";
 
 vi.mock("next/cache", () => nextCacheMock());
 
 import { revalidateTag } from "next/cache";
-import {
-  SESSION_COOKIE_NAME,
-  createSessionPayload,
-  signSession,
-} from "../../../../lib/auth/session-cookie";
+import { resetAuthForTests } from "../../../../lib/auth/config";
+import { resetDbForTests } from "../../../../lib/db/client";
+import { signInAsNew } from "../../../../../test/utils/session";
 import { POST } from "./route";
 
 function makeRequest(headers: Record<string, string> = {}) {
@@ -85,34 +84,32 @@ function uniqueIp() {
   return `198.51.100.${counter}`;
 }
 
-async function cookieFor(sub: string, email: string) {
-  const token = await signSession(
-    createSessionPayload({ sub, email, name: "Test Person" }),
-    AUTH_SECRET
-  );
-  return `${SESSION_COOKIE_NAME}=${token}`;
-}
-
 function sessionRequest(cookie?: string, ip = uniqueIp()) {
   const headers: Record<string, string> = { "x-forwarded-for": ip };
   if (cookie) headers.cookie = cookie;
   return makeRequest(headers);
 }
 
-describe("POST /api/admin/revalidate — staff session", () => {
+describe("POST /api/admin/revalidate — a signed-in session", () => {
   beforeEach(() => {
     // The `next/cache` mock is a module-factory mock, so `restoreAllMocks`
     // leaves its call log alone; each test needs a clean one.
     vi.mocked(revalidateTag).mockClear();
+    vi.stubEnv("DATABASE_URL", "");
     vi.stubEnv("AUTH_SECRET", AUTH_SECRET);
-    // Unset on purpose: a staff session must not depend on the shared secret
-    // being configured, because the browser can never send it.
+    // Unset on purpose: a signed-in session must not depend on the shared
+    // secret being configured, because the browser can never send it.
     vi.stubEnv("ADMIN_REVALIDATE_SECRET", "");
+    resetAuthForTests();
   });
 
-  it("accepts a staff session with no secret header at all", async () => {
-    vi.stubEnv("AUTH_STAFF_EMAILS", "niti@cornell.edu");
-    const cookie = await cookieFor("sub-staff", "niti@cornell.edu");
+  afterEach(() => {
+    resetAuthForTests();
+    resetDbForTests();
+  });
+
+  it("accepts an admin session with no secret header at all", async () => {
+    const { cookie } = await signInAsNew({ role: "admin" });
 
     const res = await POST(sessionRequest(cookie));
 
@@ -122,16 +119,15 @@ describe("POST /api/admin/revalidate — staff session", () => {
     expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("projects", "minutes");
   });
 
-  it("accepts an admin session", async () => {
-    vi.stubEnv("AUTH_ADMIN_EMAILS", "isaac@cornell.edu");
-    const cookie = await cookieFor("sub-admin", "isaac@cornell.edu");
+  it("accepts a super admin session", async () => {
+    const { cookie } = await signInAsNew({ role: "super_admin" });
 
     expect((await POST(sessionRequest(cookie))).status).toBe(200);
     expect(vi.mocked(revalidateTag)).toHaveBeenCalledTimes(2);
   });
 
-  it("refuses a signed-in student — signing in is not staff", async () => {
-    const cookie = await cookieFor("sub-student", "ada@cornell.edu");
+  it("refuses an ordinary signed-in user — signing in grants no tools.edit", async () => {
+    const { cookie } = await signInAsNew({ role: "user" });
 
     const res = await POST(sessionRequest(cookie));
 
@@ -148,12 +144,9 @@ describe("POST /api/admin/revalidate — staff session", () => {
     expect(vi.mocked(revalidateTag)).not.toHaveBeenCalled();
   });
 
-  it("refuses a tampered session cookie rather than trusting its claims", async () => {
-    vi.stubEnv("AUTH_STAFF_EMAILS", "niti@cornell.edu");
-    const cookie = await cookieFor("sub-forge", "niti@cornell.edu");
-    const [name, token] = cookie.split("=");
-    const [payload, signature] = token.split(".");
-    const forged = `${name}=${payload}.${signature.startsWith("A") ? "B" : "A"}${signature.slice(1)}`;
+  it("refuses a tampered session cookie rather than trusting it", async () => {
+    const { cookie } = await signInAsNew({ role: "admin" });
+    const forged = cookie.replace(/.$/, (c) => (c === "A" ? "B" : "A"));
 
     const res = await POST(sessionRequest(forged));
 
@@ -176,8 +169,7 @@ describe("POST /api/admin/revalidate — staff session", () => {
   });
 
   it("is bounded: the ceiling refuses with Retry-After", async () => {
-    vi.stubEnv("AUTH_STAFF_EMAILS", "niti@cornell.edu");
-    const cookie = await cookieFor("sub-flood", "niti@cornell.edu");
+    const { cookie } = await signInAsNew({ role: "admin" });
     const ip = uniqueIp();
 
     for (let i = 0; i < 30; i += 1) {

@@ -21,7 +21,8 @@
     "signInUnconfigured": "Sign-in isn't set up on this deployment yet.",
     "signInFailed": "Couldn't start sign-in. Try again.",
     "signOut": "SIGN OUT",
-    "signedInAria": "Signed in as {name}"
+    "signedInAria": "Signed in as {name}",
+    "admin": "ADMIN"
   },
   "catalogRefresh": {
     "action": "REFRESH",
@@ -137,11 +138,22 @@
     "cancel": "Cancel",
     "onlyImages": "Only image files are supported.",
     "uploadFailed": "Photo upload failed.",
-    "requiredError": "Title, your name, and a write-up are required.",
+    "uploadsUnavailable": "Photo uploads are unavailable right now. You can still submit your project without photos.",
+    "requiredError": "A title and a write-up are required.",
     "submitError": "Something went wrong. Please try again.",
+    "signInRequiredError": "You need to be signed in to submit a project. Use the Sign in control in the header, then submit again — nothing you have typed is lost.",
     "thanksTitle": "Thanks — your project is pending review",
     "thanksBody": "A staff member will review your submission and publish it to the gallery soon.",
-    "backToGallery": "Back to gallery"
+    "thanksPhotosNone": "Your photos were not attached, so the write-up was saved without them. An uploaded photo is discarded after a day, so pictures added to a form left open overnight are already gone.",
+    "thanksPhotosSome": "Some of your photos were not attached, so the write-up was saved without them. An uploaded photo is discarded after a day, so pictures added to a form left open overnight are already gone.",
+    "backToGallery": "Back to gallery",
+    "signInTitle": "Sign in to share your project",
+    "signInBody": "Project write-ups are credited to your {institution} account, so you need to be signed in to submit one. Use the Sign in control in the header.",
+    "signInBrowse": "Browse projects",
+    "identityUnknown": "We could not check whether you are signed in just now, so this page cannot tell you either way. You can keep writing — if you are signed in, submitting will work.",
+    "identityRetry": "Check again",
+    "identityChecking": "Checking…",
+    "authorNote": "Your project will be credited to {name}."
   },
   "about": {
     "eyebrow": "About",
@@ -177,6 +189,7 @@
     "uploadingAria": "Uploading photo",
     "onlyImages": "Only image files are supported.",
     "uploadFailed": "Photo upload failed",
+    "uploadsUnavailable": "Photo uploads are unavailable right now. You can still send your message without a photo.",
     "toolRunningAria": "Tool running",
     "typingAria": "Assistant is typing",
     "readingManualsAria": "Reading manuals",
@@ -265,5 +278,55 @@
   "demoBanner": {
     "label": "Demo data",
     "body": "This catalogue is built-in sample data, not {institution}'s real inventory. Notion is not configured."
+  },
+  "admin": {
+    "eyebrow": "Admin",
+    "title": "Admin",
+    "loading": "Checking who you are…",
+    "backToCatalog": "Back to the catalog",
+    "signedOutTitle": "You are not signed in",
+    "signedOutBody": "Admin pages need an account. Use the Sign in control in the header, then come back.",
+    "forbiddenTitle": "You do not have access to this page",
+    "forbiddenBody": "Your account is signed in, but it does not hold the permission this page needs. Ask a super admin if you think it should.",
+    "indexTitle": "Admin surfaces",
+    "indexNothingYet": "Nothing here is open to your account yet.",
+    "indexMoreComing": "Inventory, intake, maintenance and corrections arrive in later phases.",
+    "usersTitle": "People",
+    "usersLede": "Everyone who has signed in. A role change takes effect on that person's next request.",
+    "tableLabel": "People and their roles",
+    "columnPerson": "Person",
+    "columnRole": "Role",
+    "columnAccess": "Access",
+    "columnJoined": "First signed in",
+    "noUsers": "Nobody has signed in yet. The first person to sign in appears here.",
+    "you": "you",
+    "roleForPerson": "Role for {name}",
+    "saving": "Saving…",
+    "saved": "Saved",
+    "banned": "Banned",
+    "bannedWithReason": "Banned — {reason}",
+    "banFor": "Ban",
+    "liftBanFor": "Lift ban",
+    "banReasonPlaceholder": "Reason (optional)",
+    "banReasonFor": "Reason for banning {name}",
+    "roles": {
+      "user": "Student",
+      "admin": "SuperMaker",
+      "super_admin": "Director"
+    },
+    "errors": {
+      "not_signed_in": "You are not signed in any more. Sign in and try again.",
+      "not_permitted": "Your account does not hold the permission this needs.",
+      "rate_limited": "Too many changes at once. Wait a moment and try again.",
+      "unknown_user": "That account no longer exists.",
+      "invalid_role": "That is not a role this app knows.",
+      "protected_floor": "This address is protected in the deployment's settings and cannot be demoted or banned.",
+      "last_super_admin": "This is the last director. Promote somebody else first, or nobody could undo it.",
+      "self_ban": "You cannot ban yourself.",
+      "failed": "That did not save. Nothing was changed."
+    },
+    "warnings": {
+      "audit_unavailable": "Saved, but this change could not be written to the audit log. Tell whoever runs the deployment."
+    }
   }
 }

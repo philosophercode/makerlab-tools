@@ -59,6 +59,80 @@ describe("put", () => {
   });
 });
 
+describe("putUpload", () => {
+  beforeEach(() => {
+    sdk.put.mockResolvedValue({
+      pathname: "uploads/broken-bed-Xa9k2.png",
+      url: "https://store.public.blob.vercel-storage.com/uploads/broken-bed-Xa9k2.png",
+    });
+  });
+
+  function photo(name = "broken bed.png", type = "image/png") {
+    return new File([new Uint8Array([1, 2, 3])], name, { type });
+  }
+
+  it("stores an upload at a RANDOM pathname, so an unpublished image is unguessable", async () => {
+    await getBlobStore().putUpload("uploads/project/", photo(), "public");
+
+    const [pathname, , options] = sdk.put.mock.calls[0];
+    // The stem is readable, the entropy is the SDK's; the caller records the
+    // pathname that comes back, never the one it asked for.
+    expect(pathname).toBe("uploads/project/broken-bed.png");
+    expect(options.addRandomSuffix).toBe(true);
+  });
+
+  it("returns the pathname the store chose, not the one requested", async () => {
+    const stored = await getBlobStore().putUpload(
+      "uploads/project/",
+      photo(),
+      "public"
+    );
+
+    expect(stored.pathname).toBe("uploads/broken-bed-Xa9k2.png");
+    expect(stored.url).toContain("broken-bed-Xa9k2.png");
+  });
+
+  it("honours the caller's access, because a maintenance photo may show a person", async () => {
+    const store = getBlobStore();
+    await store.putUpload("uploads/maintenance/", photo(), "private");
+    await store.putUpload("uploads/project/", photo(), "public");
+
+    expect(sdk.put.mock.calls[0][2].access).toBe("private");
+    expect(sdk.put.mock.calls[1][2].access).toBe("public");
+  });
+
+  it("keeps the file's own content type so a browser renders it", async () => {
+    await getBlobStore().putUpload(
+      "uploads/resource/",
+      photo("manual.pdf", "application/pdf"),
+      "public"
+    );
+
+    expect(sdk.put.mock.calls[0][2].contentType).toBe("application/pdf");
+  });
+
+  it("strips path separators out of an untrusted filename", async () => {
+    await getBlobStore().putUpload(
+      "uploads/project/",
+      photo("../../etc/passwd.png"),
+      "public"
+    );
+
+    // The name is whatever the browser sent; it must not be able to move the
+    // file out of its prefix.
+    expect(sdk.put.mock.calls[0][0]).toBe("uploads/project/etc-passwd.png");
+  });
+
+  it("falls back to a name rather than writing a bare prefix", async () => {
+    await getBlobStore().putUpload("uploads/chat/", photo("", ""), "private");
+
+    expect(sdk.put.mock.calls[0][0]).toBe("uploads/chat/upload");
+    expect(sdk.put.mock.calls[0][2].contentType).toBe(
+      "application/octet-stream"
+    );
+  });
+});
+
 describe("list", () => {
   it("follows the cursor to the end and normalizes uploadedAt to ISO", async () => {
     sdk.list

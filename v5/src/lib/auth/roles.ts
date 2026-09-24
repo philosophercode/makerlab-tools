@@ -1,39 +1,59 @@
+import { ROLES as STORED_ROLES, type Role as StoredRole } from "../db/schema/vocabulary";
+
 /**
- * Roles and the domain rule (auth design spec 2026-07-29 §3.3).
+ * The role vocabulary and the domain rule (data platform design spec §3.4).
  *
- * There is no user database in v5, so role assignment is configuration: two
- * comma-separated env lists name the staff and the admins, and everyone else who
- * signs in with an allowed address is a student. The lab has a handful of staff
- * and the roster changes a few times a year — an env list needs no UI, no table,
- * and no migration, and it is auditable by whoever operates the deployment.
+ * **Roles are rows now.** Until Phase 4 there was no user table, so two
+ * comma-separated env lists (`AUTH_STAFF_EMAILS`, `AUTH_ADMIN_EMAILS`) *were*
+ * the role system and this module resolved a role from an address. Both lists
+ * are retired: `user.role` is a column, changed on `/admin/users` and visible on
+ * the person's next request. The one env list that survives is
+ * `AUTH_SUPER_ADMIN_EMAILS`, the lock-out floor — see `super-admins.ts`.
+ *
+ * What is left here is what has no home in the database: the shape of the role
+ * union, and the domain rule that decides whose address may become a row at all.
  *
  * Every lookup reads `process.env` at **call time** rather than at module load,
- * so a redeploy with a new roster takes effect without a cold-start dance and
+ * so a redeploy with a new value takes effect without a cold-start dance and
  * tests can `vi.stubEnv` without `resetModules()`.
  *
- * This module is deliberately not `server-only`: `Role` and `isAtLeast` are
- * universal, and the env-reading helpers are only ever called from the server
- * (they resolve to "no one is staff" in a client bundle, which is safe).
+ * Deliberately not `server-only`: `Role` is universal and client components
+ * compare against it. The env-reading helpers resolve to their empty answer in a
+ * browser bundle, which is safe — the server check is the control.
  */
 
-/** Ordered least- to most-privileged. The order *is* the privilege ordering. */
-export const ROLES = ["anonymous", "student", "staff", "admin"] as const;
+/**
+ * The roles an identity can hold. The three stored ones come from
+ * `db/schema/vocabulary.ts`, which is also what the `user.role` CHECK is built
+ * from, so the type and the constraint cannot drift. `anonymous` is never a row:
+ * it is the absence of a session, which is a first-class state, not a failure.
+ *
+ * There is deliberately **no ordering** here. `student < staff < admin` was a
+ * rank comparison (`isAtLeast`); what a role may do is now declared in
+ * `permissions.ts` and asked with `can()`, so that "SuperMakers may add tools
+ * but not publish them" is one line of declaration rather than a reshuffle.
+ */
+export const IDENTITY_ROLES = ["anonymous", ...STORED_ROLES] as const;
 
-export type Role = (typeof ROLES)[number];
+export type Role = "anonymous" | StoredRole;
+
+/** True when `value` is one of {@link IDENTITY_ROLES}; narrows the type. */
+export function isRole(value: string | null | undefined): value is Role {
+  return typeof value === "string" && (IDENTITY_ROLES as readonly string[]).includes(value);
+}
+
+/**
+ * A stored role read back from the database, or `anonymous` for anything else.
+ * A row carrying a word outside the vocabulary should be impossible (the CHECK
+ * refuses it), so if one ever appears it is a bug or a restored backup from a
+ * different schema, and it must resolve to the role that holds nothing.
+ */
+export function storedRoleOr(value: string | null | undefined): Role {
+  return isRole(value) ? value : "anonymous";
+}
 
 /** The institution's Google Workspace domain, when nothing overrides it. */
 const DEFAULT_EMAIL_DOMAIN = "cornell.edu";
-
-/** Position of `role` in {@link ROLES}; higher means more privileged. */
-export function roleRank(role: Role): number {
-  const index = ROLES.indexOf(role);
-  return index === -1 ? 0 : index;
-}
-
-/** True when `role` is at least as privileged as `minimum`. */
-export function isAtLeast(role: Role, minimum: Role): boolean {
-  return roleRank(role) >= roleRank(minimum);
-}
 
 /**
  * The email domain sign-in is restricted to. Configurable so the app stays
@@ -68,29 +88,4 @@ export function parseEmailList(raw: string | null | undefined): string[] {
     .split(",")
     .map((entry) => normalizeEmail(entry))
     .filter(Boolean);
-}
-
-/** Addresses listed in `AUTH_STAFF_EMAILS`. */
-export function staffEmails(): string[] {
-  return parseEmailList(process.env.AUTH_STAFF_EMAILS);
-}
-
-/** Addresses listed in `AUTH_ADMIN_EMAILS`. */
-export function adminEmails(): string[] {
-  return parseEmailList(process.env.AUTH_ADMIN_EMAILS);
-}
-
-/**
- * Resolve a verified address to a role.
- *
- * An address outside the allowed domain resolves to `anonymous` rather than
- * `student`: a cookie carrying one should be impossible (the callback refuses
- * it), so if one ever appears it is a bug or a forgery and must not be trusted.
- */
-export function roleForEmail(email: string | null | undefined): Role {
-  const normalized = normalizeEmail(email);
-  if (!normalized || !isAllowedEmail(normalized)) return "anonymous";
-  if (adminEmails().includes(normalized)) return "admin";
-  if (staffEmails().includes(normalized)) return "staff";
-  return "student";
 }

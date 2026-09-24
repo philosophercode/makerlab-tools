@@ -8,7 +8,7 @@ import {
   findOrCreateLocation,
 } from "../notion";
 import type { MakerLabTool } from "../../components/catalog-types";
-import { INTAKE_MINIMUM_ROLE } from "./access";
+import { INTAKE_PERMISSION } from "./access";
 import { scoreConfidence, toEvidence } from "./confidence";
 import { findTool } from "./helpers";
 import {
@@ -383,14 +383,13 @@ const researchTool: CapabilityTool<ResearchInput, ResearchResult> = {
     { candidates },
     ctx: CapabilityCtx
   ): Promise<ResearchResult> => {
-    // Carry through the turn's image uploads so the eventual create_tool can
-    // re-attach the same photos without re-uploading — but only for a single
-    // item. In a batch the turn's photos belong to different machines, and the
+    // Carry through the turn's image uploads so the photos stay with the item
+    // they show — but only for a single item. In a batch the turn's photos belong to different machines, and the
     // model already assigned them per candidate; merging them all into every
     // candidate would put all eight photos on all eight tools.
     const extraImageIds =
       candidates.length === 1
-        ? (ctx.attachments || []).map((a) => a.file_upload_id)
+        ? (ctx.attachments || []).map((a) => a.attachmentId)
         : [];
 
     // Bounded, all-settled fan-out (spec §3.3): eight photos resolve in roughly
@@ -746,7 +745,9 @@ const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
     "Create a draft catalog listing in Notion for a confirmed candidate: find-or-create its Category and Location, create the Tool (published=false), create each Unit linked to the tool, and create each manual/video Resource (published=false). NEVER call this without a prior propose_listing and an explicit user confirmation. Everything is created as a draft — staff publish it later in Notion. Returns the created ids and a draft link; on partial failure it reports exactly what landed so nothing is lost silently.",
   inputSchema: createInputSchema,
   kind: "write",
-  run: async ({ candidate }, ctx: CapabilityCtx): Promise<CreateResult> => {
+  // No `ctx`: the turn's photos used to be read here to name the Notion file
+  // uploads. Nothing in this write reaches outside the candidate any more.
+  run: async ({ candidate }): Promise<CreateResult> => {
     const warnings: string[] = [];
     const created: CreateResult["created"] = {
       tool: false,
@@ -792,13 +793,21 @@ const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
 
     // 2. Create the tool (published=false). If this fails there is nothing to
     //    link units/resources to, so we bail with a clean failure.
-    const attachmentNames = new Map(
-      (ctx.attachments || []).map((a) => [a.file_upload_id, a.name])
-    );
-    const imageUploads = candidate.image_upload_ids.map((id) => ({
-      id,
-      name: attachmentNames.get(id) || "photo",
-    }));
+    //
+    // **Photos do not travel with it.** They used to: `/api/upload-notion`
+    // handed back a Notion `file_upload_id` and this call passed it straight
+    // into the new page's `image_attachments`. Uploads are Vercel Blob now
+    // (data platform spec §3.3), so `image_upload_ids` holds Postgres uuids —
+    // and Notion rejects an entire page whose file_upload id it does not
+    // recognise. Tool creation itself does not move off Notion until Phase 6,
+    // so the honest answer in between is to create the tool without the
+    // pictures and say so, rather than lose the listing to a rejected page or
+    // claim an attachment that is not there (Article 4).
+    if (candidate.image_upload_ids.length > 0) {
+      warnings.push(
+        `The ${candidate.image_upload_ids.length === 1 ? "photo" : "photos"} stayed in the app and were not attached to the new listing — add them by hand in Notion.`
+      );
+    }
 
     let toolId: string;
     try {
@@ -812,7 +821,6 @@ const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
         tags: candidate.tags,
         training_required: candidate.training_required,
         use_restrictions: candidate.use_restrictions,
-        image_uploads: imageUploads.length ? imageUploads : undefined,
       });
       toolId = toolRecord.id;
       created.tool = true;
@@ -937,7 +945,7 @@ function promptFragment(_env: PromptEnv): string {
     `   - **Medium** — the card leads with what is unresolved and its primary button resolves it. Do not talk the user past it; the ambiguity is the point.`,
     `   - **Low** — **no card was rendered, and you must not describe the item as though one was.** Do not restate a listing in prose, and do not offer to add it. Ask for the single thing named in that item's \`ask\` array, in one short sentence, phrased as something the person can do in five seconds — e.g. "I can see it's a filament 3D printer but I can't read the model — could you photograph the label on the front or side?" When they answer, re-run \`research_tool\` with the new information.`,
     `4. **Handle duplicates.** If \`research_tool\` reported a \`duplicate_of\`, the card surfaces "Already in catalog". Tell the user it is already listed and link the existing tool using its catalog slug. Adding another unit to an existing tool is not available here yet — staff add units for now. Only create a separate listing if the user explicitly asks for one.`,
-    `5. **Create on confirmation.** Once the user confirms, call \`create_tool\` with that single candidate. Everything is saved as a **draft** (\`published = false\`) — tell the user it's saved as a draft and that staff will publish it. If \`create_tool\` reports \`warnings\` (a partial write), relay exactly what landed and what to finish in Notion; never claim full success when steps failed.`,
+    `5. **Create on confirmation.** Once the user confirms, call \`create_tool\` with that single candidate. Everything is saved as a **draft** (\`published = false\`) — tell the user it's saved as a draft and that staff will publish it. If \`create_tool\` reports \`warnings\` (a partial write), relay exactly what landed and what to finish in Notion; never claim full success when steps failed. **Photos are not attached to the listing yet** — when a warning says so, tell the user the picture stayed in the app and has to be added by hand; never say the photo is on the new listing.`,
     `**Batches:** when the user describes several items at once (a long list, or multiple photos), assemble one candidate per item, pass them all to a single \`research_tool\` call, then all of them to a single \`propose_listing\` call so each gets its own card. Confirm and \`create_tool\` each item independently; if the user says "add all", create each confirmed candidate in turn — but never create one that came back under \`needs_more_info\`, since the user never saw a card for it. In a batch, assign each photo to the candidate it actually shows via that candidate's \`image_upload_ids\`; the turn's photos are not applied to every item.`,
     `Confirmation messages from card buttons arrive as short follow-ups like \`confirm add: <candidate-id>\`, \`confirm model: <candidate-id> = <name>\`, \`confirm variant: <candidate-id> = <variant>\`, \`create new tool anyway: <candidate-id>\`, \`edit: <candidate-id>\`, or \`discard: <candidate-id>\`. Resolve \`confirm add\` to a \`create_tool\` call for the matching candidate. \`create new tool anyway\` is the user explicitly asking for a separate listing despite a catalog match — treat it the same way. \`confirm model\` and \`confirm variant\` are the user resolving an ambiguity: adopt the named model as the candidate's \`name\`, correct any spec that differs between the variants (re-fetch the right page if they do), and then call \`create_tool\` — that click is the human confirmation, so no second one is needed. On \`edit\`, ask what to change and re-run \`propose_listing\`; on \`discard\`, drop that candidate.`,
   ].join("\n\n");
@@ -959,8 +967,9 @@ function lockedPromptFragment(): string {
 
 export const intake: Capability = {
   id: "intake",
-  // Staff and admins only on the chat surface — enforced in `access.ts`.
-  minimumRole: INTAKE_MINIMUM_ROLE,
+  // Admins and super admins only on the chat surface — `tools.add`,
+  // enforced once in `access.ts` against the declaration in `auth/permissions.ts`.
+  requiredPermission: INTAKE_PERMISSION,
   promptFragment,
   lockedPromptFragment,
   // Heterogeneous tool input/output types are erased to the registry's loose

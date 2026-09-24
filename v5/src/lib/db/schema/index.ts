@@ -3,11 +3,14 @@
  * group; this module is what `drizzle.config.ts` points at and what
  * `drizzle()` receives as its `schema`, so relational queries see every table.
  *
- * Later phases add `pending_tools` (Phase 6), the Notion mirror tables
- * (Phase 8) and Better Auth's `user` / `session` / `account` / `verification`
- * tables (Phase 4), each with its own migration.
+ * Later phases add `pending_tools` (Phase 6) and the Notion mirror tables
+ * (Phase 8), each with its own migration.
+ *
+ * `auth.ts` is exported first because `helpers.ts` — which every other table
+ * uses for `created_by` / `updated_by` — references `user.id`.
  */
 export * from "./vocabulary.ts";
+export * from "./auth.ts";
 export * from "./taxonomy.ts";
 export * from "./tools.ts";
 export * from "./units.ts";

@@ -1,15 +1,18 @@
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray, like, or } from "drizzle-orm";
 import { getDb } from "../db/client.ts";
 import { attachments, projectTools, projects, tools } from "../db/schema/index.ts";
+import { slugify, uniqueSlug } from "../db/slug.ts";
 import type { Db } from "../db/types.ts";
+import { claimAttachments } from "./attachments.ts";
 import { isUuid } from "./uuid.ts";
 import type { MakerLabProject, ProjectToolRef } from "../../components/catalog-types.ts";
 
 /**
  * Postgres reads for published projects (data platform design spec 2026-09-14
- * §3.10, §4.10, §4.13). This is the query module `src/lib/projects.ts` wraps
- * in `"use cache"`; nothing here is cached itself, so every export is a plain
- * round trip and safe to call as often as the caller needs a fresh answer.
+ * §3.10, §4.10, §4.13), and since Phase 3 the submission write. This is the
+ * query module `src/lib/projects.ts` wraps in `"use cache"`; nothing here is
+ * cached itself, so every export is a plain round trip and safe to call as
+ * often as the caller needs a fresh answer.
  *
  * Imports are relative with `.ts` extensions and skip the `@/` alias, like
  * everything under `src/lib/db/` and `src/lib/import/`: scripts load these
@@ -66,6 +69,161 @@ export async function listPublishedProjectsForTool(toolId: string): Promise<Make
     db,
     rows.map((row) => row.project)
   );
+}
+
+// ── Submitting a project (spec §4.10, Article 5) ────────────────────
+
+/** A validated submission, as `POST /api/projects` hands one over. */
+export interface NewProjectSubmission {
+  title: string;
+  body: string;
+  /**
+   * The byline — the session's display name. Null when the account has none,
+   * which the gallery renders as "Anonymous". Since Phase 4 no typed value
+   * reaches this: `POST /api/projects` requires sign-in (spec §5.5).
+   */
+  authorName: string | null;
+  /**
+   * `user.id`, from a resolved session and nowhere else. Still optional at this
+   * layer because the column is: the import back-fills rows that predate
+   * accounts, and `created_by` is nullable for exactly that reason.
+   */
+  authorUserId?: string | null;
+  link?: string | null;
+  materials?: readonly string[];
+  /** Catalogue ids of the tools it was built with. Unknown ids are dropped. */
+  toolIds?: readonly string[];
+  /** `attachments.id`s uploaded for this project, cover first. */
+  photoAttachmentIds?: readonly string[];
+}
+
+export interface CreatedProject {
+  id: string;
+  slug: string;
+  /** How many of the submitted tool ids matched a real tool. */
+  toolsLinked: number;
+  /** How many of {@link NewProjectSubmission.photoAttachmentIds} actually attached. */
+  photosAttached: number;
+}
+
+export interface ProjectWriteOptions {
+  /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
+  db?: Db;
+}
+
+/**
+ * Record one project submission, **unpublished**.
+ *
+ * `published: false` is not a default this function is willing to be talked out
+ * of: it takes no `published` parameter at all, so there is no argument a route
+ * could forward that would put a submission straight in the gallery (Article 5).
+ * Publishing is a person on `/admin/projects`.
+ *
+ * One transaction covers the slug, the row, the tool links and the photo
+ * claim, so a failure anywhere leaves nothing behind. Two ideas are worth
+ * knowing:
+ *
+ * - **The slug is allocated, not assumed.** `projects.slug` is unique, and two
+ *   students submitting "Lamp" a second apart would otherwise collide. The
+ *   allocation reads the slugs already taken in the same family and picks the
+ *   next free suffix; the unique constraint is still the real arbiter, so a
+ *   violation retries once against the now-current set rather than failing.
+ * - **An unknown tool id is dropped, not fatal.** A stale catalogue id in a
+ *   form that has been open a while must not cost a student their write-up
+ *   (Article 4).
+ *
+ * No `revalidateTag("projects")` here, deliberately. §3.9 says writes
+ * invalidate their tags, but every cached project read is published-only and
+ * this row is not published, so there is nothing stale to bust — and busting
+ * the whole gallery cache on every submission would be an invalidation that
+ * costs reads and buys nothing. The tag belongs to Phase 5's publish.
+ */
+export async function createProjectSubmission(
+  input: NewProjectSubmission,
+  options: ProjectWriteOptions = {}
+): Promise<CreatedProject> {
+  const db = options.db ?? (await getDb());
+  try {
+    return await insertSubmission(db, input);
+  } catch (err) {
+    if (!isUniqueViolation(err)) throw err;
+    // Somebody else took the slug between the read and the insert. The second
+    // attempt reads a set that now includes theirs.
+    return insertSubmission(db, input);
+  }
+}
+
+async function insertSubmission(db: Db, input: NewProjectSubmission): Promise<CreatedProject> {
+  return db.transaction(async (tx) => {
+    const slug = await allocateSlug(tx, slugify(input.title));
+    const authorUserId = input.authorUserId || null;
+
+    const [row] = await tx
+      .insert(projects)
+      .values({
+        slug,
+        title: input.title,
+        body: input.body,
+        link: input.link || null,
+        materials: [...(input.materials ?? [])],
+        authorName: input.authorName || null,
+        authorUserId,
+        // Article 5. Not a parameter, deliberately.
+        published: false,
+        createdBy: authorUserId,
+        updatedBy: authorUserId,
+      })
+      .returning({ id: projects.id });
+
+    const toolsLinked = await linkTools(tx, row.id, input.toolIds ?? []);
+    const photosAttached = await claimAttachments(tx, input.photoAttachmentIds ?? [], {
+      ownerType: "project",
+      ownerId: row.id,
+    });
+
+    return { id: row.id, slug, toolsLinked, photosAttached };
+  });
+}
+
+/** The first free slug in the `base`, `base-2`, `base-3`, … family. */
+async function allocateSlug(db: Db, base: string): Promise<string> {
+  const rows = await db
+    .select({ slug: projects.slug })
+    .from(projects)
+    // Only the family, not the whole table: a lab with a thousand projects
+    // should not read a thousand slugs to name one (Article 4).
+    .where(or(eq(projects.slug, base), like(projects.slug, `${base}-%`)));
+
+  return uniqueSlug(base, new Set(rows.map((row) => row.slug)));
+}
+
+/** Insert `project_tools` rows for the ids that name a real tool; returns how many. */
+async function linkTools(db: Db, projectId: string, toolIds: readonly string[]): Promise<number> {
+  const candidates = [...new Set(toolIds.filter(isUuid))];
+  if (candidates.length === 0) return 0;
+
+  const existing = await db
+    .select({ id: tools.id })
+    .from(tools)
+    .where(inArray(tools.id, candidates));
+  if (existing.length === 0) return 0;
+
+  await db.insert(projectTools).values(existing.map((tool) => ({ projectId, toolId: tool.id })));
+  return existing.length;
+}
+
+/**
+ * A Postgres unique-constraint violation (SQLSTATE 23505). Both drivers surface
+ * the code somewhere on the error or its cause, so this reads the chain rather
+ * than assuming either one's shape.
+ */
+function isUniqueViolation(err: unknown): boolean {
+  for (let current: unknown = err, depth = 0; current && depth < 5; depth += 1) {
+    const candidate = current as { code?: unknown; cause?: unknown };
+    if (candidate.code === "23505") return true;
+    current = candidate.cause;
+  }
+  return false;
 }
 
 /** Attaches each row's photos and tool refs, then maps onto the view model. */

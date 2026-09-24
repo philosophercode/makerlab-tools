@@ -1,59 +1,39 @@
 import { test, expect } from "@playwright/test";
 
-// Sign-in (auth design spec 2026-07-29 §5, §6, §10). Two properties are worth an
+import { DEMO_ACCOUNTS } from "../src/lib/db/demo-seed";
+import {
+  BETTER_AUTH_SESSION_COOKIE,
+  E2E_AUTH_SECRET,
+  signCookieValue,
+  signIn,
+} from "./utils/session";
+
+// Sign-in (data platform design spec §3.4, §10). Two properties are worth an
 // E2E each: signing in never gates the front door, and the header reflects who
 // the server says you are.
 //
-// **No real Google OAuth.** Driving it in CI is neither possible nor desirable
-// (spec §10), and the E2E server boots with no credentials at all.
+// **No real Google OAuth.** Driving it in CI is neither possible nor desirable,
+// and the E2E server boots with GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET blank
+// — so `/api/auth/sign-in/social` answers 503 and the header says sign-in is
+// not set up here.
 //
-// Which means a *genuinely* signed cookie cannot be minted here either: the
-// session cookie is an HMAC over `AUTH_SECRET`, and the E2E server has none, so
-// anything the browser sends resolves to anonymous by design. The header's whole
-// view of the session is `GET /api/identity` (see the spec's `/api/identity`
-// amendment), so the stub below sits at that boundary and answers *from the
-// cookie the browser actually sent*. The cookie is still what flips the header;
-// the stub stands in only for the signature check the server cannot perform.
+// It is nonetheless a *genuine* session that is asserted below, not a stub.
+// Sessions are database rows since Phase 4, so the demo seed ships one account
+// per role with a known session token (`DEMO_ACCOUNTS`), the Playwright server
+// boots with a test-only `AUTH_SECRET`, and the cookie below is signed with it
+// exactly the way Better Auth signs one. Nothing is intercepted: the real
+// `/api/identity` reads the real session row and reports the real role.
 
-/** Mirrors SESSION_COOKIE_NAME in src/lib/auth/session-cookie.ts. */
-const SESSION_COOKIE = "makerlab.identity";
-
-/** Opaque: nothing verifies it. Shaped like a real token so it is not mistaken for one. */
-const STUB_TOKEN = "e2e-stub-session.not-a-real-signature";
-
-const USER_NAME = "Casey Rivera";
+const SIGNED_IN = DEMO_ACCOUNTS.user;
 /** PrimaryNav shows the first name only (spec §6). */
-const USER_FIRST_NAME = "Casey";
-
-/**
- * Answer `/api/identity` as a server holding `AUTH_SECRET` would: signed in when
- * the request carries the session cookie, anonymous when it does not.
- */
-async function stubIdentityFromCookie(page: import("@playwright/test").Page) {
-  await page.route("**/api/identity", async (route) => {
-    const headers = await route.request().allHeaders();
-    const signedIn = (headers["cookie"] || "").includes(`${SESSION_COOKIE}=`);
-    await route.fulfill({
-      status: 200,
-      headers: {
-        "content-type": "application/json",
-        "cache-control": "no-store, private",
-      },
-      body: JSON.stringify(
-        signedIn
-          ? { role: "student", name: USER_NAME }
-          : { role: "anonymous", name: null }
-      ),
-    });
-  });
-}
+const USER_FIRST_NAME = SIGNED_IN.name.split(" ")[0];
 
 test.describe("Sign-in", () => {
   test("anonymous visitors browse the catalog and open a tool page", async ({
     page,
   }) => {
-    // No stub and no cookie: this is the real /api/identity answering anonymous,
-    // which is what an ISAM attendee who never creates an account will get.
+    // No cookie: this is the real /api/identity answering anonymous, which is
+    // what an ISAM attendee who never creates an account will get.
     await page.goto("/");
 
     await expect(
@@ -89,32 +69,79 @@ test.describe("Sign-in", () => {
     await expect(nav.getByRole("button", { name: /sign out/i })).toHaveCount(0);
   });
 
-  test("with a stubbed session cookie the header shows the user's name", async ({
+  test("a real signed session cookie shows the user's name in the header", async ({
     page,
     context,
     baseURL,
   }) => {
-    await stubIdentityFromCookie(page);
-
     const nav = page.getByRole("navigation", { name: "Primary navigation" });
 
-    // Same stub, no cookie: the header must still offer sign-in. Asserting both
-    // halves is what makes the cookie — rather than the stub — the thing under
-    // test.
+    // No cookie first: the header must offer sign-in. Asserting both halves is
+    // what makes the session — rather than the page — the thing under test.
     await page.goto("/");
     await expect(nav.getByRole("button", { name: /sign in/i })).toBeVisible();
 
-    await context.addCookies([
-      {
-        name: SESSION_COOKIE,
-        value: STUB_TOKEN,
-        url: baseURL ?? "http://localhost:3100",
-      },
-    ]);
+    await signIn(context, SIGNED_IN, baseURL);
     await page.reload();
 
     await expect(nav.getByText(USER_FIRST_NAME, { exact: true })).toBeVisible();
     await expect(nav.getByRole("button", { name: /sign out/i })).toBeVisible();
     await expect(nav.getByRole("button", { name: /sign in/i })).toHaveCount(0);
+  });
+
+  test("an ordinary signed-in user gets no admin controls", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signIn(context, DEMO_ACCOUNTS.user, baseURL);
+    await page.goto("/");
+
+    const nav = page.getByRole("navigation", { name: "Primary navigation" });
+    await expect(nav.getByRole("button", { name: /sign out/i })).toBeVisible();
+
+    // `tools.add` and `tools.edit` are not granted to `user` (auth/permissions).
+    await expect(
+      nav.getByRole("button", { name: /Add new equipment/i })
+    ).toHaveCount(0);
+    await expect(nav.getByRole("button", { name: /Refresh the/i })).toHaveCount(0);
+  });
+
+  test("an admin's role comes from their row, and unlocks the admin controls", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    // The end-to-end proof that the role is read per request from the database
+    // rather than carried in the cookie: the same kind of cookie, a different
+    // row, a different set of controls.
+    await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
+    await page.goto("/");
+
+    const nav = page.getByRole("navigation", { name: "Primary navigation" });
+    await expect(nav.getByRole("button", { name: /Add new equipment/i })).toBeVisible();
+    await expect(nav.getByRole("button", { name: /Refresh the/i })).toBeVisible();
+  });
+
+  test("a cookie signed with the wrong secret is nobody", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await context.addCookies([
+      {
+        name: BETTER_AUTH_SESSION_COOKIE,
+        // Same real session token, signed with anything but the server's key.
+        value: await signCookieValue(
+          SIGNED_IN.sessionToken,
+          `${E2E_AUTH_SECRET}-but-wrong`
+        ),
+        url: baseURL ?? "http://localhost:3100",
+      },
+    ]);
+    await page.goto("/");
+
+    const nav = page.getByRole("navigation", { name: "Primary navigation" });
+    await expect(nav.getByRole("button", { name: /sign in/i })).toBeVisible();
   });
 });

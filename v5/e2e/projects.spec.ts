@@ -1,14 +1,19 @@
 import { test, expect } from "@playwright/test";
 
+import { DEMO_ACCOUNTS } from "../src/lib/db/demo-seed";
+import { signIn } from "./utils/session";
+
 // The app boots with no DATABASE_URL and NOTION_* unset (see
 // playwright.config.ts webServer.env), so the gallery reads the PGlite demo
 // seed — one published sample project, "Laser-cut plywood lamp"
-// (src/lib/db/demo-seed.ts) — and `POST /api/projects`, still a Notion write
-// until Phase 3, would answer 503 "not configured".
+// (src/lib/db/demo-seed.ts). As of Phase 3 `POST /api/projects` writes into
+// that same database and needs no credential, so one test below submits for
+// real, end to end.
 //
-// The submit path is therefore exercised with `page.route("**/api/projects")`
-// standing in for the route handler, exactly as chat.spec.ts stands in for
-// /api/chat. Nothing in this file reaches a real service.
+// The other submit tests keep `page.route("**/api/projects")` standing in for
+// the route handler — not because the route would refuse, but because the
+// exact request body and the failure branch are cheaper to assert that way.
+// Nothing in this file reaches a real service either way.
 //
 // Strings come from messages/en.json (`projects.*`, `projectForm.*`). Branding
 // is deliberately NOT asserted literally — `siteConfig.institution` is
@@ -18,15 +23,15 @@ import { test, expect } from "@playwright/test";
 
 const PLACEHOLDER_LEAK = "{institution}";
 
-/** Fills the three fields the form requires before it will POST. */
+/** Fills the two fields the form requires before it will POST. */
 async function fillRequiredFields(page: import("@playwright/test").Page) {
   await page
     .getByRole("textbox", { name: "Project title" })
     .fill("Parametric stool");
-  await page.getByRole("textbox", { name: "Your name" }).fill("Ada Lovelace");
   await page
     .getByRole("textbox", { name: /Write-up/ })
     .fill("Cut on the Trotec, assembled with wedged tenons.");
+  // No name field since Phase 4: the byline is the session's (spec §5.5).
 }
 
 test.describe("Projects gallery", () => {
@@ -82,6 +87,13 @@ test.describe("Projects gallery", () => {
 });
 
 test.describe("Project submission form", () => {
+  // Submitting requires an account since Phase 4 (spec §5.5). Every test in
+  // this block is a signed-in student; the anonymous path is its own block
+  // below, and browsing the gallery above never needed a cookie.
+  test.beforeEach(async ({ context, baseURL }) => {
+    await signIn(context, DEMO_ACCOUNTS.user, baseURL);
+  });
+
   test("/projects/new renders every field a submission needs", async ({
     page,
   }) => {
@@ -100,11 +112,12 @@ test.describe("Project submission form", () => {
     await expect(
       page.getByRole("textbox", { name: "Project title" })
     ).toBeVisible();
-    // Anonymous in E2E (no auth env, /api/identity answers role "anonymous"),
-    // so the byline is typed rather than pre-filled and read-only.
-    const author = page.getByRole("textbox", { name: "Your name" });
-    await expect(author).toBeVisible();
-    await expect(author).toBeEditable();
+    // The byline is stated, not asked for: it is the session's display name
+    // and the server writes it whatever the request says.
+    await expect(
+      page.getByText(`Your project will be credited to ${DEMO_ACCOUNTS.user.name}`)
+    ).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Your name" })).toHaveCount(0);
     await expect(page.getByRole("textbox", { name: /Write-up/ })).toBeVisible();
     await expect(
       page.getByRole("textbox", { name: "Link (optional)" })
@@ -175,11 +188,10 @@ test.describe("Project submission form", () => {
       .fill("Half-filled submission");
     await page.getByRole("button", { name: "Submit project" }).click();
 
-    // Validation moves to the next missing field rather than letting a
-    // half-filled submission through.
-    await expect(
-      page.getByRole("textbox", { name: "Your name" })
-    ).toBeFocused();
+    // Validation moves to the next missing field — the write-up, now that the
+    // byline is not a field — rather than letting a half-filled submission
+    // through.
+    await expect(page.getByRole("textbox", { name: /Write-up/ })).toBeFocused();
     expect(posts).toBe(0);
   });
 
@@ -227,7 +239,9 @@ test.describe("Project submission form", () => {
     expect(bodies).toHaveLength(1);
     const payload = bodies[0] as Record<string, unknown>;
     expect(payload.title).toBe("Parametric stool");
-    expect(payload.author).toBe("Ada Lovelace");
+    // No author in the body since Phase 4: the byline is the session's, and
+    // the form sends nothing the server would ignore (spec §5.5).
+    expect(payload).not.toHaveProperty("author");
     // The chosen tool travels as its database id (a uuid), not its slug.
     expect(payload.tools).toEqual([
       expect.stringMatching(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/),
@@ -266,5 +280,111 @@ test.describe("Project submission form", () => {
     await expect(
       page.getByRole("button", { name: "Submit project" })
     ).toBeEnabled();
+  });
+});
+
+// A genuinely end-to-end submission, possible for the first time in Phase 3.
+// What it proves is Article 5 made visible: a submitted project is a draft, so
+// the gallery does not show it until staff publish it.
+test.describe("Project submission — the real write path", () => {
+  test.beforeEach(async ({ context, baseURL }) => {
+    await signIn(context, DEMO_ACCOUNTS.user, baseURL);
+  });
+
+  test("a submission with no interception is accepted and does NOT appear in the gallery", async ({
+    page,
+  }) => {
+    const statuses: number[] = [];
+    page.on("response", (res) => {
+      if (res.url().includes("/api/projects")) statuses.push(res.status());
+    });
+
+    await page.goto("/projects/new");
+    await page
+      .getByRole("textbox", { name: "Project title" })
+      .fill("Unpublished by design");
+    await page
+      .getByRole("textbox", { name: /Write-up/ })
+      .fill("Submitted end to end against the real route.");
+    await page.getByRole("button", { name: "Submit project" }).click();
+
+    await expect(
+      page.getByRole("heading", { name: /pending review/i, level: 1 })
+    ).toBeVisible();
+    // A 503 here would mean the route still thinks it needs a credential.
+    expect(statuses).toEqual([201]);
+
+    // The whole point of `published: false`: it is stored, and invisible.
+    await page.goto("/projects");
+    await expect(page.getByText("Unpublished by design")).toHaveCount(0);
+    // The published sample is still there, so the assertion above is about
+    // publication rather than an empty gallery.
+    await expect(
+      page.getByRole("link").filter({ hasText: "Laser-cut plywood lamp" }).first()
+    ).toBeVisible();
+  });
+
+  test("the photo control says uploads are unavailable with no blob store", async ({
+    page,
+  }) => {
+    // The E2E server runs with BLOB_READ_WRITE_TOKEN unset, which is the whole
+    // credential-free premise. The honest degradation is worth asserting: the
+    // route refuses, the message is translated, and the form still submits.
+    await page.goto("/projects/new");
+
+    await page
+      .locator('input[type="file"]')
+      .setInputFiles({
+        name: "lamp.png",
+        mimeType: "image/png",
+        buffer: Buffer.from(
+          "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489",
+          "hex"
+        ),
+      });
+
+    // `.project-form-error` rather than role=alert: Next's route announcer is
+    // also a live region, and two matches is a strict-mode violation.
+    await expect(page.locator("p.project-form-error")).toContainText(
+      "Photo uploads are unavailable"
+    );
+    await expect(
+      page.getByRole("button", { name: "Submit project" })
+    ).toBeEnabled();
+  });
+});
+
+// Spec §10 scenario 1's last clause: an anonymous visitor browses, opens a
+// tool, and *cannot submit a project*.
+test.describe("Project submission — anonymous visitors", () => {
+  test("/projects/new offers the sign-in prompt instead of the form", async ({
+    page,
+  }) => {
+    // No cookie. The real /api/identity answers anonymous, which is what an
+    // ISAM attendee who never creates an account gets.
+    await page.goto("/projects/new");
+
+    await expect(
+      page.getByRole("heading", { name: "Sign in to share your project", level: 1 })
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Submit project" })).toHaveCount(0);
+    await expect(page.getByRole("textbox", { name: "Project title" })).toHaveCount(0);
+
+    // Not a dead end and not a redirect: browsing stays open to them.
+    await expect(page.getByRole("link", { name: "Browse projects" })).toBeVisible();
+    await expect(page).toHaveURL(/\/projects\/new$/);
+    await expect(page.locator("body")).not.toContainText(PLACEHOLDER_LEAK);
+  });
+
+  test("the route itself refuses an anonymous POST, not only the form", async ({
+    request,
+  }) => {
+    // The form's prompt is presentation; this is the control (§8).
+    const res = await request.post("/api/projects", {
+      data: { title: "Sneaked in", body: "Posted without a session." },
+    });
+
+    expect(res.status()).toBe(401);
+    expect(await res.json()).toMatchObject({ code: "sign_in_required" });
   });
 });

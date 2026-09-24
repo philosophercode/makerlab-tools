@@ -81,8 +81,9 @@ describe("withRecentPhotos", () => {
     expect(photosIn(out[0])).toEqual(["p3.jpg"]);
   });
 
-  it("never removes text, including the Notion upload hint", () => {
-    const hint = "[Attached photos: file_upload_id=fu_1 name=p1.jpg]";
+  it("never removes text, including the upload hint", () => {
+    const hint =
+      "[Attached photos: attachment_id=3f2504e0-4f89-41d3-9a0c-0305e82c3301 name=p1.jpg]";
     const messages = [user("u1", text(hint), photo(1)), user("u2", text("next"))];
 
     const out = withRecentPhotos(messages, 0);

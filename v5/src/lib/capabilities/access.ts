@@ -1,52 +1,62 @@
-import { isAtLeast, type Role } from "../auth/roles";
+import { can, type Permission } from "../auth/permissions";
+import type { Role } from "../auth/roles";
 import type { Capability } from "./types";
 
 /**
- * Who may use which capability on a session surface (auth spec amendment
- * 2026-09-14). A capability declares the least-privileged role that may use it;
- * this module is the one place that rule is enforced, so the chat composes the
- * assistant from {@link capabilitiesForRole} instead of checking inside tools.
+ * Who may use which capability on a session surface (data platform design spec
+ * §3.5). A capability declares the *permission* it needs; this module is the one
+ * place that declaration is enforced, so the chat composes the assistant from
+ * {@link capabilitiesForIdentity} instead of checking inside tools.
+ *
+ * Phase 4 replaced the rank comparison this used to do. `minimumRole` plus
+ * `isAtLeast` ordered four role names; `requiredPermission` plus `can()` asks
+ * the declaration in `auth/permissions.ts`, which is the same declaration the
+ * route handlers and the admin plugin use. One check, everywhere.
  *
  * MCP is deliberately not a session surface. Its trust boundary is `MCP_TOKEN`,
  * which already gates every write tool there, and an MCP caller has no role.
  *
- * Client-safe: `roles.ts` is universal and the `Capability` import is type-only,
- * so the header can ask {@link canAddEquipment} without pulling the registry
- * (and the Notion client behind it) into the browser bundle.
+ * Client-safe: `permissions.ts` is pure data and the `Capability` import is
+ * type-only, so the header can ask {@link canAddEquipment} without pulling the
+ * registry (and the Notion client behind it) into the browser bundle.
  */
 
-/** The least-privileged role that may add equipment through intake. */
-export const INTAKE_MINIMUM_ROLE: Role = "staff";
+/** The permission intake requires. Named so call sites read as intent. */
+export const INTAKE_PERMISSION: Permission = "tools.add";
+
+/** Anything that carries a role: an `Identity`, or a client identity. */
+export type AccessSubject = { role: Role | null | undefined } | null | undefined;
+
+/** True when `subject` may add equipment to the catalogue. */
+export function canAddEquipment(subject: AccessSubject): boolean {
+  return can(subject, INTAKE_PERMISSION);
+}
 
 /**
- * True when `role` meets `minimumRole`. No minimum means everyone, and a missing
- * role is treated as anonymous — never as a pass.
+ * True when `subject` holds `permission`. A capability with no
+ * `requiredPermission` is open to everyone, anonymous visitors included —
+ * browsing and asking questions never required an account.
  */
-export function meetsMinimumRole(
-  role: Role | null | undefined,
-  minimumRole: Role | undefined
+export function meetsRequiredPermission(
+  subject: AccessSubject,
+  permission: Permission | undefined
 ): boolean {
-  if (!minimumRole) return true;
-  return isAtLeast(role ?? "anonymous", minimumRole);
-}
-
-/** True when `role` may add equipment to the catalog. */
-export function canAddEquipment(role: Role | null | undefined): boolean {
-  return meetsMinimumRole(role, INTAKE_MINIMUM_ROLE);
+  if (!permission) return true;
+  return can(subject, permission);
 }
 
 /**
- * The registry as `role` may use it. A capability the role does not meet keeps
- * its place in the order but contributes no tools, and its prompt fragment is
- * swapped for `lockedPromptFragment`, so the assistant can say why rather than
- * improvise around tools it cannot see.
+ * The registry as `subject` may use it. A capability the subject does not hold
+ * keeps its place in the order but contributes no tools, and its prompt fragment
+ * is swapped for `lockedPromptFragment`, so the assistant can say why rather
+ * than improvise around tools it cannot see.
  */
-export function capabilitiesForRole(
+export function capabilitiesForIdentity(
   capabilities: Capability[],
-  role: Role | null | undefined
+  subject: AccessSubject
 ): Capability[] {
   return capabilities.map((capability) =>
-    meetsMinimumRole(role, capability.minimumRole)
+    meetsRequiredPermission(subject, capability.requiredPermission)
       ? capability
       : {
           id: capability.id,

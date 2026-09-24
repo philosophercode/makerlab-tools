@@ -64,6 +64,26 @@ export default defineConfig({
       NOTION_DB_RESOURCES: "",
       NOTION_DB_MAINTENANCE_LOGS: "",
       NOTION_DB_FLAGS: "",
+      // Blanked so the run is the same on a machine that happens to have a
+      // Blob store linked: uploads must take the "unavailable" branch, which
+      // is itself asserted in projects.spec.ts, and no test may put bytes in
+      // somebody's real store.
+      BLOB_READ_WRITE_TOKEN: "",
+      // Same reasoning for the nightly job: no E2E test should be able to
+      // trigger a real backup.
+      CRON_SECRET: "",
+      // A test-only signing key, so sessions are real rows and a spec can be
+      // somebody by presenting a properly signed cookie for one of the demo
+      // accounts (src/lib/db/demo-seed.ts). GOOGLE_* stay blank below, so
+      // *starting* a session is still impossible here: /api/auth/sign-in/social
+      // answers 503 and the header says sign-in is not set up. That is the
+      // state a deployment is in before its OAuth client exists, and it is the
+      // state the anonymous specs assert against.
+      AUTH_SECRET: "e2e-only-secret-not-used-anywhere-else",
+      AUTH_BASE_URL: "http://localhost:3100",
+      GOOGLE_CLIENT_ID: "",
+      GOOGLE_CLIENT_SECRET: "",
+      AUTH_SUPER_ADMIN_EMAILS: "",
     },
   },
 });

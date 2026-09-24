@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { isAtLeast, type Role } from "../lib/auth/roles";
+import { can } from "../lib/auth/permissions";
+import type { Role } from "../lib/auth/roles";
 import { siteConfig } from "../lib/site-config";
 
 /**
@@ -16,8 +17,8 @@ import { siteConfig } from "../lib/site-config";
  * button in front of it.
  *
  * **The hiding is presentation, not access control.** The route re-resolves the
- * identity and refuses anyone below `staff`; rendering `null` here only spares
- * everyone else a control they cannot use.
+ * identity and refuses anyone without `tools.edit`; rendering `null` here only
+ * spares everyone else a control they cannot use.
  *
  * Feedback stays on screen until the next attempt rather than firing a toast —
  * a refresh is something staff want confirmed, and a toast is gone before it is
@@ -40,7 +41,7 @@ export function RefreshCatalogButton({ role }: RefreshCatalogButtonProps) {
   // Until identity resolves, `role` is undefined and nothing renders — the same
   // treatment the header gives the signed-in name, and the reason a student
   // never sees the control flicker into existence.
-  if (!role || !isAtLeast(role, "staff")) return null;
+  if (!can({ role }, "tools.edit")) return null;
 
   async function handleRefresh() {
     if (state === "refreshing") return;

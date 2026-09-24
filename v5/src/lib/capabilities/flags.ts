@@ -1,23 +1,25 @@
 import { z } from "zod";
 import { getCatalogTools } from "../catalog";
-import { notionPageIdForTool } from "../data/notion-ids";
-import type { FlagFields, FlaggedField } from "../types";
+import { createFeedback, type NewFeedback } from "../data/feedback";
+import type { FlaggedField } from "../types";
 import type { Capability, CapabilityCtx, CapabilityTool } from "./types";
 
 /**
  * The `flags` capability: filing catalog corrections ("report a correction",
- * design spec 2026-07-29). The `Flags` Notion database already existed and was
- * unused — this connects it.
+ * design spec 2026-07-29). Since Phase 3 a correction is a row in the
+ * `feedback` table (data platform spec §3.10, §4.9) rather than a page in the
+ * Notion `Flags` database — the raw `fetch` §3.10 names for removal is gone,
+ * and `src/lib/data/feedback.ts` is the only thing that touches the table.
  *
  * Two surfaces share this module so there is exactly one validation and one
  * write path (constitution Art. 2, spec §3): the assistant calls
  * `report_correction`, and `POST /api/flags` calls {@link parseCorrectionReport}
  * + {@link submitCorrection} directly.
  *
- * A flag is inert by construction (spec §8): it only ever creates a row in the
- * Flags database. Nothing here writes to Tools, Units, or anything else — the
- * only path from a student's report to the catalog runs through a human in
- * Notion.
+ * A flag is inert by construction (spec §8): it only ever inserts into
+ * `feedback`. Nothing here writes to `tools`, `units`, or anything else — the
+ * only path from a student's report to the catalog runs through a person on
+ * `/admin/corrections`.
  */
 
 // ── Contract ───────────────────────────────────────────────────────
@@ -43,7 +45,14 @@ export const MAX_FLAG_TEXT = 2_000;
 /** Length cap on the free-text reporter name. */
 export const MAX_REPORTER_CHARS = 200;
 
-/** Every way a submission can fail. Surfaces map these to their own messages. */
+/**
+ * Every way a submission can fail. Surfaces map these to their own messages.
+ *
+ * `not_configured` is no longer *returned* — the write is local now, and there
+ * is no credential that could be missing. It stays in the union and in
+ * `FlagButton`'s message map because removing it would be a client change, a
+ * translated string retired and a route status table edited, for nothing.
+ */
 export type FlagErrorCode =
   | "invalid_input"
   | "unknown_tool"
@@ -52,7 +61,7 @@ export type FlagErrorCode =
 
 /** A validated, normalized correction report — the input to the write. */
 export interface CorrectionReport {
-  /** Notion page id (or slug) of the tool the report is about. */
+  /** Catalogue id (a Postgres uuid) or slug of the tool the report is about. */
   tool_id: string;
   field_flagged: FlaggedField;
   issue_description: string;
@@ -64,20 +73,21 @@ export interface CorrectionReport {
 /**
  * The signed-in reporter, when there is one. Deliberately **not** part of
  * {@link CorrectionReport}: a client may not assert its own identity, so
- * `reporter_email` is only ever written from a server-resolved session. No
- * surface passes one yet — that lands with the auth spec (spec §4, §9.4).
+ * `reporter_email` is only ever written from a server-resolved session. Both
+ * surfaces resolve one now; an anonymous caller simply has none.
  */
 export interface ReporterIdentity {
   name?: string;
   email?: string;
+  /** The signed-in user's id, recorded on the row so staff can follow up. */
+  userId?: string;
 }
 
 /**
- * What gets written to the Flags database. `reporter_email` is not on
- * `FlagFields` yet because the Notion property is new (spec §4); it rides
- * alongside until `types.ts` catches up.
+ * What gets written. The column shape of one `feedback` row, built by
+ * {@link buildFeedbackRow} and inserted by `src/lib/data/feedback.ts`.
  */
-export type FlagWriteFields = Partial<FlagFields> & { reporter_email?: string };
+export type FeedbackRow = NewFeedback;
 
 export type SubmitCorrectionResult =
   | { ok: true; id: string }
@@ -96,7 +106,7 @@ interface ReportCorrectionInput {
 const reportCorrectionInputSchema: z.ZodType<ReportCorrectionInput> = z.object({
   tool_id: z
     .string()
-    .describe("Notion page id (or slug) of the tool the report is about"),
+    .describe("Catalogue id or slug of the tool the report is about"),
   field_flagged: z
     .enum(FLAG_FIELDS)
     .describe("Which field of the catalog entry is wrong"),
@@ -148,151 +158,71 @@ export function parseCorrectionReport(
 }
 
 /**
- * Build the Flags row. Pure — the Notion call is separate so title generation,
- * the `New` status, and the `reporter_email`-only-when-signed-in rule are all
- * unit-testable without touching the network.
+ * Build the `feedback` row. Pure — the insert is separate so the `new` status
+ * and the `reporter_email`-only-when-signed-in rule stay unit-testable without
+ * a database.
+ *
+ * There is no title to generate any more: `feedback` has no title column, and
+ * the `<tool> — <field>` string only ever existed because a Notion page needs
+ * one. `/admin/corrections` renders the tool and the field from their own
+ * columns.
  */
-export function buildFlagFields(
+export function buildFeedbackRow(
   report: CorrectionReport,
   tool: FlaggedTool,
   identity?: ReporterIdentity
-): FlagWriteFields {
-  const fields: FlagWriteFields = {
-    title: `${tool.name} — ${report.field_flagged}`,
-    field_flagged: report.field_flagged,
-    issue_description: report.issue_description,
-    status: "New",
+): FeedbackRow {
+  const row: FeedbackRow = {
+    // Always the catalogue uuid, never the slug the caller may have passed:
+    // `findTool` resolves either and reports the id.
+    toolId: tool.id,
+    fieldFlagged: report.field_flagged,
+    issueDescription: report.issue_description,
+    suggestedFix: report.suggested_fix ?? null,
+    reporterName: report.reporter || identity?.name || null,
+    reporterEmail: null,
+    reporterUserId: identity?.userId ?? null,
   };
 
-  // The `tool` relation addresses a Notion page, and `tool.id` is a Postgres
-  // uuid since the read path moved (spec §3.10). A tool with no imported page
-  // is filed without the relation rather than with an id Notion would reject:
-  // a correction staff have to match up by title beats one that never arrived.
-  if (tool.notionPageId) fields.tool = [tool.notionPageId];
-
-  if (report.suggested_fix) fields.suggested_fix = report.suggested_fix;
-
-  const reporter = report.reporter || identity?.name;
-  if (reporter) fields.reporter = reporter;
   // Only ever from a server-resolved session — never from the request body.
-  if (identity?.email) fields.reporter_email = identity.email;
+  if (identity?.email) row.reporterEmail = identity.email;
 
-  return fields;
-}
-
-// ── Notion write ───────────────────────────────────────────────────
-
-const NOTION_API_URL = "https://api.notion.com/v1";
-const NOTION_VERSION = "2022-06-28";
-
-/** True when the Flags database is configured. Reads are unaffected. */
-export function hasFlagsEnv(): boolean {
-  return Boolean(process.env.NOTION_API_KEY && process.env.NOTION_DB_FLAGS);
-}
-
-type NotionWriteProperty = Record<string, unknown>;
-
-function richText(value: string): NotionWriteProperty {
-  return { rich_text: [{ text: { content: value } }] };
-}
-
-/**
- * Create one page in the Flags database. Deliberately scoped to that single
- * database id — there is no code path here that can address another one.
- */
-async function createFlagPage(fields: FlagWriteFields): Promise<string> {
-  const apiKey = process.env.NOTION_API_KEY as string;
-  const databaseId = process.env.NOTION_DB_FLAGS as string;
-
-  const properties: Record<string, NotionWriteProperty> = {
-    title: { title: [{ text: { content: fields.title || "Correction report" } }] },
-    status: { select: { name: fields.status || "New" } },
-  };
-  if (fields.field_flagged) {
-    properties.field_flagged = { select: { name: fields.field_flagged } };
-  }
-  if (fields.tool?.length) {
-    properties.tool = { relation: fields.tool.map((id) => ({ id })) };
-  }
-  if (fields.issue_description) {
-    properties.issue_description = richText(fields.issue_description);
-  }
-  if (fields.suggested_fix) {
-    properties.suggested_fix = richText(fields.suggested_fix);
-  }
-  if (fields.reporter) {
-    properties.reporter = richText(fields.reporter);
-  }
-  if (fields.reporter_email) {
-    properties.reporter_email = { email: fields.reporter_email };
-  }
-
-  const res = await fetch(`${NOTION_API_URL}/pages`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-      "Notion-Version": NOTION_VERSION,
-    },
-    body: JSON.stringify({
-      parent: { database_id: databaseId },
-      properties,
-    }),
-  });
-
-  if (!res.ok) {
-    // Body is read for the server log only; it never reaches the caller.
-    const body = await res.text().catch(() => "");
-    throw new Error(`Notion API ${res.status}: ${body}`);
-  }
-
-  const page = (await res.json()) as { id?: string };
-  if (!page.id) throw new Error("Notion API returned no page id");
-  return page.id;
+  return row;
 }
 
 // ── Submission (shared by both surfaces) ───────────────────────────
 
-/**
- * The tool a report is about, with the Notion page behind it.
- *
- * `id` is the catalogue id (a Postgres uuid); `notionPageId` is what the Flags
- * relation needs, and is null for a tool that never came from Notion.
- */
+/** The tool a report is about. `id` is the catalogue id, a Postgres uuid. */
 export interface FlaggedTool {
   id: string;
   name: string;
-  notionPageId?: string | null;
 }
 
 /** Resolve by catalogue id or slug — surfaces disagree about which they hold. */
 async function findTool(toolId: string): Promise<FlaggedTool | null> {
   const tools = await getCatalogTools();
   const match = tools.find((tool) => tool.id === toolId || tool.slug === toolId);
-  if (!match) return null;
-  return {
-    id: match.id,
-    name: match.name,
-    notionPageId: await notionPageIdForTool(match.id),
-  };
+  return match ? { id: match.id, name: match.name } : null;
 }
 
 /**
- * File a validated report. Never throws and never returns the underlying Notion
- * error — a failed write is logged server-side and reported to the caller as an
- * opaque `write_failed` (spec §10, "without leaking the Notion error").
+ * File a validated report. Never throws and never returns the underlying
+ * database error — a failed write is logged server-side and reported to the
+ * caller as an opaque `write_failed` (spec §10, "without leaking the error").
  */
 export async function submitCorrection(
   report: CorrectionReport,
   identity?: ReporterIdentity
 ): Promise<SubmitCorrectionResult> {
-  if (!hasFlagsEnv()) return { ok: false, code: "not_configured" };
-
-  const tool = await findTool(report.tool_id);
-  if (!tool) return { ok: false, code: "unknown_tool" };
-
   try {
-    const id = await createFlagPage(buildFlagFields(report, tool, identity));
+    // The catalogue read is inside the try with the write: both are Postgres
+    // now, so an unreachable database fails the tool lookup first, and that has
+    // to come back as a failed write rather than a thrown promise the caller
+    // was not expecting.
+    const tool = await findTool(report.tool_id);
+    if (!tool) return { ok: false, code: "unknown_tool" };
+
+    const { id } = await createFeedback(buildFeedbackRow(report, tool, identity));
     return { ok: true, id };
   } catch (err) {
     console.error("Flag submission failed", err);
@@ -309,7 +239,22 @@ interface ReportCorrectionResult {
   error?: string;
 }
 
-/** Model-facing failure text. Opaque by design — no Notion detail escapes. */
+/**
+ * The capability context's identity as a {@link ReporterIdentity}, or undefined
+ * when nobody is signed in. An anonymous identity is present on the context but
+ * carries no one, and must not be mistaken for a session.
+ */
+function identityOf(ctx: CapabilityCtx): ReporterIdentity | undefined {
+  const identity = ctx.identity;
+  if (!identity || (!identity.email && !identity.userId)) return undefined;
+  return {
+    name: identity.name ?? undefined,
+    email: identity.email ?? undefined,
+    userId: identity.userId ?? undefined,
+  };
+}
+
+/** Model-facing failure text. Opaque by design — no database detail escapes. */
 const FAILURE_MESSAGES: Record<FlagErrorCode, string> = {
   invalid_input: "A tool and a description of the problem are required.",
   unknown_tool: "That tool is not in the catalog.",
@@ -336,9 +281,11 @@ const reportCorrection: CapabilityTool<ReportCorrectionInput, ReportCorrectionRe
       return { success: false, error: "A tool and a description of the problem are required." };
     }
 
-    // No `identity` yet: nothing resolves a session server-side until the auth
-    // spec lands, so reports filed through chat stay anonymous (spec §9.4).
-    const result = await submitCorrection(parsed.report);
+    // The session, when the surface resolved one — the same rule `report_issue`
+    // follows: a client may never assert its own identity, so `reporter_email`
+    // and `reporter_user_id` come from `ctx.identity` and nowhere else. MCP and
+    // scheduled callers have no identity, and anonymous stays the default (§8).
+    const result = await submitCorrection(parsed.report, identityOf(ctx));
     if (!result.ok) {
       return { success: false, error: FAILURE_MESSAGES[result.code] };
     }
@@ -362,7 +309,7 @@ Wait to be asked, or offer once and drop it. Do not file one on your own initiat
 
 Before calling it, confirm two things back to the student in their own words: **which field** is wrong (\`description\`, \`image\`, \`name\`, \`category\`, \`location\`, \`materials\`, or \`safety_info\`) and **what it should say instead**, if they know. Pass the tool's id as \`tool_id\`. Ask for their name only if they volunteer one — reports may be anonymous.
 
-A correction never changes the catalog. It creates a note staff read in Notion, so tell the student it was passed on for review — and do not promise them a reply.`;
+A correction never changes the catalog. It creates a note staff read in the app, so tell the student it was passed on for review — and do not promise them a reply.`;
 }
 
 // ── Capability ─────────────────────────────────────────────────────

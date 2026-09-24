@@ -136,18 +136,31 @@ function anonChatLimit(): number {
 /**
  * Chat messages per hour, by role. Signed-in callers are keyed by user id, so
  * these are per-person; anonymous callers are keyed by hashed IP.
+ *
+ * The numbers are unchanged from the env-list era; only the role names moved
+ * (`student` → `user`, `staff` → `admin`, and `super_admin` on top).
  */
 export function chatTierFor(role: Role): RateLimitTier {
   switch (role) {
+    case "super_admin":
     case "admin":
-    case "staff":
       return { limit: 200, windowMs: HOUR_MS };
-    case "student":
+    case "user":
       return { limit: 60, windowMs: HOUR_MS };
     default:
       return { limit: anonChatLimit(), windowMs: HOUR_MS };
   }
 }
+
+/**
+ * Administrative actions per minute, per signed-in admin (spec §8).
+ *
+ * A server action is a POST like any other, so `/admin/*` needs a ceiling too.
+ * Generous on purpose — promoting a room full of SuperMakers at the induction
+ * session must never trip it — while still bounding a script that got hold of
+ * a session cookie.
+ */
+export const ADMIN_ACTION_TIER: RateLimitTier = { limit: 120, windowMs: 60_000 };
 
 /**
  * Limits for the non-chat routes — unchanged from before sign-in existed. Only

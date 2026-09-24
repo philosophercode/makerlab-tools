@@ -75,20 +75,20 @@ describe("isSignedIn", () => {
   });
 
   it("is true for every signed-in role", () => {
-    expect(isSignedIn({ role: "student", name: "Ada" })).toBe(true);
-    expect(isSignedIn({ role: "staff", name: "Ada" })).toBe(true);
+    expect(isSignedIn({ role: "user", name: "Ada" })).toBe(true);
     expect(isSignedIn({ role: "admin", name: "Ada" })).toBe(true);
+    expect(isSignedIn({ role: "super_admin", name: "Ada" })).toBe(true);
   });
 });
 
 describe("fetchIdentity", () => {
   it("reads role and name from the identity endpoint", async () => {
     const fetchMock = stubFetch(async () =>
-      json({ role: "student", name: "Ada Lovelace" })
+      json({ role: "user", name: "Ada Lovelace" })
     );
 
     await expect(fetchIdentity()).resolves.toEqual({
-      role: "student",
+      role: "user",
       name: "Ada Lovelace",
     });
     expect(fetchMock).toHaveBeenCalledWith(

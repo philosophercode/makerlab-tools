@@ -3744,6 +3744,16 @@ p {
   margin: 0;
 }
 
+/* "We could not check whether you are signed in" — the note plus its retry
+   control, kept on one line where there is room. The form stays usable behind
+   it, so this is a notice and not a banner. */
+.project-form-unknown {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Demo-data banner — the catalogue is built-in sample data, not the lab's
    inventory (operational-hardening spec §6). Deliberately loud: the failure it
    describes used to be invisible. Uses the secondary (crimson) token rather
@@ -3766,4 +3776,213 @@ p {
   color: var(--secondary);
   font-weight: 500;
   text-transform: uppercase;
+}
+
+/* ── /admin (data platform spec §6) ─────────────────────────────────
+   The technical-schematic system, applied to a working surface rather than a
+   display one: 0px radii, mono metadata, tonal separation instead of borders
+   between sections. The table is the only place in the app that shows an email
+   address, and it is set in mono because it is an identifier, not prose. */
+.admin-shell {
+  padding-bottom: 64px;
+}
+
+.admin-section {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.admin-section-head h2,
+.admin-index h2 {
+  margin: 4px 0 0;
+  font-family: var(--font-display);
+  font-size: clamp(22px, 3vw, 30px);
+  font-weight: 500;
+}
+
+.admin-lede,
+.admin-index-note {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--on-surface-muted);
+  line-height: 1.6;
+}
+
+.admin-index-list {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.admin-index-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 16px;
+  background: var(--surface-container-low);
+}
+
+.admin-index-list span {
+  color: var(--on-surface-muted);
+  font-size: 13px;
+}
+
+.admin-empty {
+  margin: 0;
+  padding: 24px 0;
+}
+
+/* Horizontal scroll rather than a squeeze: four columns at a phone width is a
+   scroll or a lie about how much room there is. */
+.admin-table-scroll {
+  overflow-x: auto;
+}
+
+.admin-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  border: 1px solid var(--outline);
+  background: var(--surface-container);
+  font-size: 14px;
+}
+
+.admin-table th,
+.admin-table td {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--outline);
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-table thead th {
+  background: var(--surface-container-high);
+  color: var(--on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-table tbody tr:last-child th,
+.admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* A banned row is dimmed, not hidden: the point of the roster is that every
+   account is on it, including the ones that cannot get in. */
+.admin-table tbody tr.is-banned th,
+.admin-table tbody tr.is-banned td {
+  color: var(--on-surface-muted);
+}
+
+.admin-person-name {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  font-weight: 500;
+}
+
+.admin-person-email,
+.admin-date {
+  display: block;
+  color: var(--on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.admin-tag {
+  padding: 1px 6px;
+  border: 1px solid var(--outline);
+  color: var(--on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-role-select,
+.admin-ban-toggle {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-role-select select,
+.admin-ban-reason {
+  padding: 8px 10px;
+  border: 1px solid var(--outline);
+  border-radius: 0;
+  background: var(--background);
+  color: var(--on-surface);
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+
+.admin-ban-reason {
+  min-width: 14ch;
+  max-width: 22ch;
+}
+
+.admin-role-select select:focus,
+.admin-ban-reason:focus {
+  border-color: var(--primary);
+  outline: none;
+}
+
+.admin-role-select select:disabled,
+.admin-ban-reason:disabled,
+.admin-ban-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.admin-banned-note {
+  margin: 0 0 8px;
+  color: var(--secondary);
+  font-size: 12px;
+}
+
+/* The one line every outcome of a row control speaks through — pending, saved,
+   and the reason a row cannot change. `:empty` keeps it out of the layout
+   until it has something to say, as the header's refresh status does. */
+.admin-row-status {
+  flex-basis: 100%;
+  color: var(--on-surface-muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.admin-row-status:empty {
+  display: none;
+}
+
+.admin-row-status.is-error {
+  color: var(--secondary);
+}
+
+/* A change that landed, minus a guarantee — the row moved and the audit trail
+   did not record it. Not the error colour, because nothing failed to save, and
+   not the muted default, because somebody has to notice. */
+.admin-row-status.is-warning {
+  color: var(--td-warning);
+}
+
+/* Visually hidden, still announced: the role select's label is the person's
+   name, which the row already shows to anyone who can see it. */
+.admin-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
