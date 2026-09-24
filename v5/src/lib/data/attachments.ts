@@ -1,5 +1,6 @@
-import { and, asc, eq, inArray, isNull, lt } from "drizzle-orm";
+import { and, asc, eq, inArray, isNull, lt, sql } from "drizzle-orm";
 import { getDb } from "../db/client.ts";
+import { rawRows } from "../db/raw.ts";
 import { attachments } from "../db/schema/index.ts";
 import type { AttachmentAccess, AttachmentOwner } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
@@ -41,6 +42,12 @@ export interface ClaimOwner {
  * - **Non-uuid ids are dropped here**, not handed to Postgres, which would
  *   answer a uuid cast error rather than an empty result.
  *
+ * `uploadedBy`, when given, adds a third: only rows that person uploaded. A
+ * caller whose ids come from text the person typed — the chat's
+ * `[Attached photos: ...]` hint — passes it, because an unowned upload id is
+ * not a secret once it has been pasted anywhere, and an unclaimed upload can
+ * be a private photo of a person (§3.3).
+ *
  * The count comes back so the caller can tell the difference between "no photos
  * were sent" and "photos were sent and none of them stuck", which is the
  * difference between saying nothing and saying so (Article 4).
@@ -48,7 +55,8 @@ export interface ClaimOwner {
 export async function claimAttachments(
   db: Db,
   ids: readonly string[],
-  owner: ClaimOwner
+  owner: ClaimOwner,
+  options: { uploadedBy?: string } = {}
 ): Promise<number> {
   // Deduplicated so a repeated id cannot consume two positions.
   const candidates = [...new Set(ids.filter(isUuid))];
@@ -61,7 +69,13 @@ export async function claimAttachments(
     const rows = await db
       .update(attachments)
       .set({ ownerType: owner.ownerType, ownerId: owner.ownerId, position })
-      .where(and(eq(attachments.id, id), isNull(attachments.ownerId)))
+      .where(
+        and(
+          eq(attachments.id, id),
+          isNull(attachments.ownerId),
+          options.uploadedBy === undefined ? undefined : eq(attachments.uploadedBy, options.uploadedBy)
+        )
+      )
       .returning({ id: attachments.id });
     claimed += rows.length;
   }
@@ -178,6 +192,76 @@ export async function releaseAttachments(
     .returning({ id: attachments.id });
 
   return rows.length;
+}
+
+/**
+ * Move every file from one owner to another, keeping their order, and report
+ * how many moved — what approving a pending tool does with its photos (§4.7:
+ * "the bytes do not move").
+ *
+ * The files land **after** whatever `to` already holds: approving a second
+ * unit of an existing tool appends its photos rather than replacing that
+ * tool's cover. One statement, so the new positions are computed against the
+ * same snapshot the move happens in.
+ *
+ * Takes its handle explicitly: approval re-owns inside the transaction that
+ * creates the tool, so a rollback leaves the photos on the pending item.
+ */
+export async function reownAttachments(
+  db: Db,
+  from: ClaimOwner,
+  to: ClaimOwner
+): Promise<number> {
+  if (!isUuid(from.ownerId) || !isUuid(to.ownerId)) return 0;
+
+  const rows = await rawRows<{ id: string }>(
+    db,
+    sql`
+      update attachments a
+         set owner_type = ${to.ownerType},
+             owner_id = ${to.ownerId}::uuid,
+             position = base.next + moving.rn - 1
+        from (
+               select id, row_number() over (order by position, id) as rn
+                 from attachments
+                where owner_type = ${from.ownerType} and owner_id = ${from.ownerId}::uuid
+             ) moving,
+             (
+               select coalesce(max(position) + 1, 0) as next
+                 from attachments
+                where owner_type = ${to.ownerType} and owner_id = ${to.ownerId}::uuid
+             ) base
+       where a.id = moving.id
+      returning a.id
+    `
+  );
+  return rows.length;
+}
+
+/**
+ * Record that a file is now public: its new pathname and the URL anybody can
+ * follow. For a photo uploaded privately (the chat's uploads are) that is
+ * about to appear on a public tool page — the caller copies the bytes to a
+ * public blob first, then says so here.
+ *
+ * The old private pathname is no longer referenced by any row once this
+ * commits, so no sweep will ever find it: deleting that blob is the caller's
+ * job, after this returns true.
+ *
+ * True when the row existed and was updated.
+ */
+export async function markAttachmentPublic(
+  db: Db,
+  id: string,
+  blob: { blobPathname: string; publicUrl: string }
+): Promise<boolean> {
+  if (!isUuid(id)) return false;
+  const rows = await db
+    .update(attachments)
+    .set({ access: "public", blobPathname: blob.blobPathname, publicUrl: blob.publicUrl })
+    .where(eq(attachments.id, id))
+    .returning({ id: attachments.id });
+  return rows.length > 0;
 }
 
 /** One uploaded file, before anything owns it. */

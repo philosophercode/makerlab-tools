@@ -33,7 +33,7 @@ import type { MakerLabTool } from "../../components/catalog-types";
  * Convert every capability's tools into a `Record<name, Tool>` for the AI SDK.
  * Tools with a `card` emit a `data-card` part via `ctx.writer` and return a
  * compact acknowledgement to the model; tools without a card return their full
- * structured result.
+ * structured result. Tools marked `mcpOnly` are left out.
  */
 export function toAiTools(
   capabilities: Capability[],
@@ -42,6 +42,11 @@ export function toAiTools(
   const aiTools: Record<string, Tool> = {};
   for (const capability of capabilities) {
     for (const capTool of capability.tools) {
+      // MCP-only tools are writes the chat reaches another way. Intake's
+      // `create_tool` is the one today: in the chat a new tool goes through
+      // pending rows, background research and a human approval (spec §5.4),
+      // and handing the model a direct write would be a way round all three.
+      if (capTool.mcpOnly) continue;
       aiTools[capTool.name] = wrapTool(capTool, ctx);
     }
   }
@@ -189,7 +194,7 @@ function resourcesSection(focused: MakerLabTool): string {
 }
 
 function fetchingSection(): string {
-  return `## Fetching resources\n\nUse the \`web_fetch\` tool to read any URL from the "Resources for this tool" list — HTML SOPs, safety pages, manufacturer guides, manual PDFs, etc. Rules:\n\n- Only call \`web_fetch\` on exact URLs that appear in "Resources for this tool" (or, during intake, on product/manual URLs the student supplied). Do not invent URLs or fetch general web pages the student wasn't routed to.`;
+  return `## Fetching resources\n\nUse the \`web_fetch\` tool to read any URL from the "Resources for this tool" list — HTML SOPs, safety pages, manufacturer guides, manual PDFs, etc. Rules:\n\n- Only call \`web_fetch\` on exact URLs that appear in "Resources for this tool" (or, during intake, on a product page the person supplied, and only to settle a model name). Do not invent URLs or fetch general web pages the student wasn't routed to.`;
 }
 
 function citingSection(): string {

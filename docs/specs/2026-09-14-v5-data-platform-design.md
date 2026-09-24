@@ -1553,3 +1553,87 @@ floor for launch — it works today with no code change. `steinbergisaac@gmail.c
 **Status.** Accepted. Tested in `roles.test.ts`: an off-domain named address is admitted, its
 domain is **not** opened to anybody else, the institutional domain keeps working alongside it, and
 an empty list behaves exactly as the domain rule did.
+
+### 2026-09-23 — Phase 6 built (two-step add-tool), with as-built details; open questions 4 and 5 answered
+
+**What changed.** §5.4 is implemented end to end. The chat has one intake tool, `identify_tools`,
+which writes `pending_tools` rows owned by the caller and emits a `data-intake-table` card
+(`IntakeTableCard`). `research_tool` and `propose_listing` are gone. `create_tool` is MCP-only
+(`mcpOnly: true`) and now writes a Postgres draft through `createToolRecord`
+(`src/lib/data/tool-create.ts`), which removes the last request-path Notion write (Goal 1).
+Research runs in `src/workflows/research-batch.ts` on the Workflow SDK (`withWorkflow` in
+`next.config.ts`), with the engine in `src/lib/research/*`. `/admin/intake` lists pending items
+and polls while any are in flight, and `/admin/intake/[id]` is the preliminary page an admin
+approves from. Migrations `0005_pending_tools.sql` and `0006_research_ledger.sql` were both read
+before they were accepted. `0005` has a hand-appended `updated_at` trigger and a `pg_trgm` GIN index
+on `name`.
+
+**Decisions the spec left open.**
+
+- **The workflow takes a per-request `requestId`, not the identify `batchId`.** One Research press
+  can mix rows from several batches. The id is stamped on each row as `research_request_id`, and
+  every step write is conditional on it. So when two runs meet the same item, the one that no
+  longer owns it writes nothing and makes no model call.
+- **The daily limit is counted from a ledger, not from rows.** `research_requests` is append-only,
+  one row per item per press. `queueForResearchWithinAllowance()` counts the ledger and queues under
+  `pg_advisory_xact_lock` on the user, in one transaction. This means Research again costs again,
+  and four simultaneous presses at 75/100 produce exactly one 202 and three 429s. An approver who
+  presses Research on someone else's item spends their own allowance.
+- **The research model call is two steps per item**, search then fetch-and-verify, with 4 searches,
+  4 fetches and a 240s abort each, and `maxRetries = 2` on the step function. `classifyResearchError`
+  treats 429, 5xx and timeouts as `RetryableError`, and everything else as `FatalError`, including
+  unknown errors, so a bug does not burn three attempts.
+- **Reported evidence is only ever lowered to match what happened.** With no source URLs,
+  `manufacturerPageFound` and `specsFromSource` are false. `manualFound` requires a verified manual
+  link. `modelPlateRead` is null, because research sees no photos. That is what makes "research
+  found nothing" grade low rather than invented.
+- **Research specs are folded into the editable description at approval**, because `tools` has no
+  specs column.
+- **Chat photos are promoted to public blobs** once `identify_tools` claims them, since §3.3 lists
+  pending-tool photos as public. `claimAttachments` claims only the caller's own unowned uploads. A
+  photo the model assigned to no item raises `photos_unassigned` rather than landing on the wrong
+  machine.
+- **Stuck items are freed by the cron.** `failAbandonedResearch` fails `researching` rows, and
+  `queued` rows with a run, after 24 h. A `queued` row with no run is shown as stalled after 5
+  minutes, with Retry and Discard. Discarded rows are deleted after 30 days, and their photos are
+  released to the orphan sweep. `/admin/intake` reads every open item uncapped, plus the newest 100
+  settled ones.
+- **`pending_tools.created_by` stays `ON DELETE CASCADE`.** §4.10 types it as never null, and a
+  pending row is scratch work. The `pending.approved` audit event keeps the history. The daily
+  expiry stage releases photos stranded by a cascade.
+- **`/admin/intake` also settles leftovers.** It offers *Add as another unit*, *It's a different
+  tool* and Discard for items left unselected on the chat card, so no item is stuck waiting out
+  its 14 days.
+
+**E2E scenario 5** (`e2e/intake.spec.ts`) stubs the model at the provider boundary. A small
+Anthropic-shaped server on port 3101 is reached through `ANTHROPIC_BASE_URL`. Everything else is
+real:
+
+- the chat route and `identify_tools`;
+- both pending-tools routes;
+- `researchBatch` on the SDK's local world under `next start`;
+- link verification, the approval transaction, and cache invalidation.
+
+It runs as its own Playwright project after the rest, because approving publishes a third tool
+that `gallery.spec.ts`'s count would see.
+
+**Known gaps, not fixed.**
+
+- **Photos from earlier chat turns cannot be claimed.** `collectAttachments` reads only the last
+  user message, so photos sent before a clarifying question are swept after 24 h. `report_issue`
+  has the same gap.
+- **Promoting a photo to public (`copyToPublic`) is untested against a live Blob store.** One
+  manual check on a preview deploy is owed.
+- **A SuperMaker holding `tools.add` without `tools.approve`** would be refused on the intake page
+  the chat card links to. No role is shaped that way today.
+
+**Open questions 4 and 5 are answered**, decided by Isaac on 2026-09-23:
+
+- **(4)** The mirror carries reporter **names and emails**. This reverses §8's rule and the §10 test
+  "asserting emails are never present". Phase 8 changes both, and the mirror's Notion workspace
+  becomes a place that holds personal data.
+- **(5)** The mirror token key is **derived from `AUTH_SECRET`**. Rotating the secret means
+  reconnecting the mirror.
+
+**Status.** Accepted.
+||||||| 927bbec

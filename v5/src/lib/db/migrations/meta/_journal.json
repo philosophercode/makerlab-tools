@@ -36,6 +36,20 @@
       "when": 1790120080796,
       "tag": "0004_user_foreign_keys",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790138551992,
+      "tag": "0005_pending_tools",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790142683628,
+      "tag": "0006_research_ledger",
+      "breakpoints": true
     }
   ]
 }

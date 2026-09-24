@@ -1,12 +1,13 @@
 import { getBlobStore, isBlobConfigured } from "../../../../lib/blob";
 import { runBackup } from "../../../../lib/cron/backup";
 import { runCleanup } from "../../../../lib/cron/cleanup";
+import { runPendingExpiry } from "../../../../lib/cron/pending-expiry";
 import { rateLimitAsync } from "../../../../lib/rate-limit";
 import { resolveIdentity } from "../../../../lib/auth/identity";
 
 /**
  * `GET /api/cron/daily` — the one scheduled job (data platform design spec
- * §3.9).
+ * §3.9, §4.10).
  *
  * It replaces `GET /api/admin/backup`, which dumped Notion. Hobby allows a
  * cron at most once a day, so everything nightly shares this one entry in
@@ -14,13 +15,20 @@ import { resolveIdentity } from "../../../../lib/auth/identity";
  *
  * 1. **Backup** — a JSON export of every Postgres table to a private blob,
  *    kept 30 days.
- * 2. **Cleanup** — uploads nobody claimed within 24 hours, removed from Blob
- *    and from `attachments`.
+ * 2. **Pending-tool expiry** (Phase 6) — items left `identified` more than 14
+ *    days discarded, their photos released; items an abandoned research run
+ *    has held for more than a day marked `failed`, so a person can act on
+ *    them.
+ * 3. **Cleanup** — uploads nobody claimed within 24 hours, removed from Blob
+ *    and from `attachments`. This is also where stage 2's released photos
+ *    actually leave Blob: they are unowned and, by the time an item has sat
+ *    `identified` for two weeks, always well past the 24-hour orphan window —
+ *    so a photo an expired item held is deleted from Blob and from the table
+ *    in this same run (§4.10 "its attachments deleted").
  *
- * Mirror pushes (§3.8) and pending-tool expiry (§4.10) join this list in later
- * phases; neither has a writer yet.
+ * Mirror pushes (§3.8) join this list in a later phase; it has no writer yet.
  *
- * **Nothing here fails quietly.** Both stages report, and either one failing
+ * **Nothing here fails quietly.** Every stage reports, and any one failing
  * makes the whole invocation non-200 so it shows in Vercel's cron log as
  * failed. A backup that silently stopped running is the thing this route was
  * built to prevent.
@@ -108,16 +116,28 @@ export async function GET(req: Request) {
     );
   }
 
-  // Cleanup runs second and reports separately: today's data is already safe,
-  // so a sweep that fails is worth a failed invocation but not a lost backup —
-  // whoever reads the log needs to be able to tell those apart.
+  // Expiry runs second, before the sweep that deletes what it releases (see
+  // the docstring above), and reports separately for the same reason cleanup
+  // always has: today's backup already landed, so this stage failing is worth
+  // a failed invocation but not a lost backup.
+  let pendingExpiry: Awaited<ReturnType<typeof runPendingExpiry>>;
+  try {
+    pendingExpiry = await runPendingExpiry();
+  } catch (error) {
+    console.error("[cron] pending-tool expiry failed:", error);
+    return Response.json(
+      { ok: false, stage: "pendingExpiry", backup, error: message(error) },
+      { status: 500 }
+    );
+  }
+
   try {
     const cleanup = await runCleanup(store);
-    return Response.json({ ok: true, backup, cleanup });
+    return Response.json({ ok: true, backup, pendingExpiry, cleanup });
   } catch (error) {
     console.error("[cron] cleanup failed:", error);
     return Response.json(
-      { ok: false, stage: "cleanup", backup, error: message(error) },
+      { ok: false, stage: "cleanup", backup, pendingExpiry, error: message(error) },
       { status: 500 }
     );
   }

@@ -7,6 +7,7 @@ import {
   meetsRequiredPermission,
 } from "./access";
 import { CAPABILITIES } from "./index";
+import { toAiTools } from "./chat-adapter";
 import type { Capability, CapabilityTool } from "./types";
 import { IDENTITY_ROLES, type Role } from "../auth/roles";
 
@@ -137,12 +138,13 @@ describe("capabilitiesForIdentity", () => {
 });
 
 describe("the registry as each role sees it", () => {
-  const INTAKE_TOOLS = ["research_tool", "propose_listing", "create_tool"];
+  const INTAKE_TOOLS = ["identify_tools"];
+  /** Gone from the chat: two retired in Phase 6, one moved to MCP only. */
+  const NEVER_IN_CHAT = ["create_tool", "research_tool", "propose_listing"];
 
+  /** The tools the chat would hand the model for `role` — what the route composes. */
   function toolNames(role: Role): string[] {
-    return capabilitiesForIdentity(CAPABILITIES, as(role)).flatMap((c) =>
-      c.tools.map((t) => t.name)
-    );
+    return Object.keys(toAiTools(capabilitiesForIdentity(CAPABILITIES, as(role)), {}));
   }
 
   it.each(["anonymous", "user"] as const)(
@@ -157,6 +159,14 @@ describe("the registry as each role sees it", () => {
     "gives %s the intake tools",
     (role) => {
       expect(toolNames(role)).toEqual(expect.arrayContaining(INTAKE_TOOLS));
+    }
+  );
+
+  it.each(["anonymous", "user", "admin", "super_admin"] as const)(
+    "never gives %s create_tool, research_tool or propose_listing in the chat",
+    (role) => {
+      const names = toolNames(role);
+      for (const name of NEVER_IN_CHAT) expect(names).not.toContain(name);
     }
   );
 

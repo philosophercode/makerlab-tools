@@ -1,727 +1,252 @@
 import { z } from "zod";
-import { getCatalogTools } from "../catalog";
-import {
-  createResource,
-  createTool,
-  createUnit,
-  findOrCreateCategory,
-  findOrCreateLocation,
-} from "../notion";
-import type { MakerLabTool } from "../../components/catalog-types";
+import { getDb, DbUnavailableError } from "../db/client";
+import { UNIT_CONDITION, UNIT_STATUS, type UnitCondition, type UnitStatus } from "../db/schema/vocabulary";
+import { createPendingBatch, listPendingTools, type NewPendingTool, type PendingTool } from "../data/pending-tools";
+import { findOrCreateCategory, findOrCreateLocation } from "../data/taxonomy";
+import { createToolRecord, type NewToolRecord } from "../data/tool-create";
+import { promoteAttachmentsToPublic } from "../files/promote";
+import { IDENTIFY_MAX_ITEMS, IDENTIFY_MAX_MODEL_NAME_SEARCHES, RESEARCH_MAX_ITEMS_PER_REQUEST } from "../intake/limits";
+import type { DuplicateOf, IntakeTablePayload, IntakeTableWarning } from "../intake/types";
+import { toPendingToolView } from "../intake/view";
+import { verifyResourceLinks } from "../research/verify-links";
+import { invalidateCatalog } from "../revalidate";
 import { INTAKE_PERMISSION } from "./access";
-import { scoreConfidence, toEvidence } from "./confidence";
-import { findTool } from "./helpers";
 import {
   toolCandidateSchema,
   type Capability,
   type CapabilityCtx,
   type CapabilityTool,
-  type CardAction,
-  type CardAlsoCreating,
-  type CardResource,
-  type CardSpecLine,
-  type CardState,
-  type IdentificationCardPayload,
-  type IntakeConfidence,
-  type IntakeConfidenceLevel,
-  type IntakeEvidence,
-  type PromptEnv,
-  type ToolCandidate,
 } from "./types";
 
 /**
- * The `intake` capability (design spec §4): a low-barrier path for cataloging
- * equipment from messy multimodal input. Three tools cooperate —
+ * The `intake` capability (data platform spec §3.6, §5.4): adding equipment in
+ * two steps, where the chat does only the first.
  *
- *  1. `research_tool` (read)    — normalize a free-text hint / product URLs into a
- *                                 structured {@link ToolCandidate} and run a catalog
- *                                 search for duplicate detection.
- *  2. `propose_listing` (read)  — emit an identification card per candidate so the
- *                                 user can confirm before anything is written.
- *  3. `create_tool` (write)     — perform the draft-by-default Notion writes in the
- *                                 spec §5 order with partial-failure reporting.
+ *  1. `identify_tools` (chat only, write) — the model works out *what* each item
+ *     is from the photos and words, and this tool records each one as an
+ *     `identified` row in `pending_tools`, owned by the caller, with its photos
+ *     claimed and its duplicate check run. The person sees an editable
+ *     `data-intake-table` card and presses **Research selected**.
+ *  2. Research is a route and a background workflow (§3.7), not a tool call, so
+ *     the model never spends research budget on its own initiative; approval is
+ *     `/admin/intake`, a person, as Article 5 requires.
  *
- * Web research itself is done by the provider-native `web_search` / `web_fetch`
- * tools (added by the chat adapter, not here); the prompt fragment instructs the
- * model to use them before calling `research_tool`.
+ * `create_tool` stays, **MCP only**: an MCP client with the write token may add
+ * a tool directly, and it lands as an unpublished Postgres draft. The chat never
+ * sees it — see `mcpOnly` in `chat-adapter.ts`.
+ *
+ * `research_tool` and `propose_listing` are gone. Link verification lives in
+ * `src/lib/research/verify-links.ts`; confidence scoring stays in
+ * `./confidence.ts`, which the preliminary page still renders from.
  */
 
-// ── Candidate ids ──────────────────────────────────────────────────
+// ── identify_tools ─────────────────────────────────────────────────
 
-/**
- * Derive a stable-ish candidate id from a name. Used to correlate a card with a
- * ToolCandidate across the propose → confirm → create handshake, and to seed the
- * `confirm add: <id>` follow-up message the card's button sends.
- */
-function candidateId(name: string): string {
-  const slug = name
-    .toLowerCase()
+/** A hint the model read or was told. Trimmed; an empty one is dropped downstream. */
+const hintSchema = z.string().trim().max(200).optional();
+
+const identifyItemSchema = z.object({
+  name: z
+    .string()
     .trim()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-  return slug || "candidate";
-}
-
-// ── Confidence ─────────────────────────────────────────────────────
-
-/**
- * Normalize the reported evidence and (re)compute the grade from it in code
- * (confidence spec §3.1). Applied on **every** tool entry point, not only in
- * `research_tool`: a candidate makes a round trip through the model between
- * research and propose, so any `confidence` it hands back is overwritten rather
- * than trusted. Nothing a page said can raise a grade it never touches.
- */
-function withConfidence(
-  candidate: ToolCandidate
-): ToolCandidate & { evidence: IntakeEvidence; confidence: IntakeConfidence } {
-  const evidence = toEvidence(candidate.evidence);
-  return { ...candidate, evidence, confidence: scoreConfidence(evidence) };
-}
-
-// ── Bounded fan-out ────────────────────────────────────────────────
-
-/**
- * How many research passes may be in flight at once (confidence spec §3.3).
- * A cost control before it is a performance one, and the reason Article 4 asks
- * for bounded fan-out: each item is a catalog read plus a link-verification
- * fetch per resource, so a student dropping thirty photos into one turn must not
- * become thirty concurrent research passes.
- */
-export const RESEARCH_CONCURRENCY = 4;
-
-/**
- * Map `items` through `fn` with at most `limit` calls in flight, settling every
- * one — **`allSettled` semantics, never `all`**. One unidentifiable item in a
- * batch of eight must not take the other seven down with it, so a rejection is
- * recorded in place and the remaining work continues. Results keep input order.
- */
-export async function mapWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  fn: (item: T, index: number) => Promise<R>
-): Promise<PromiseSettledResult<R>[]> {
-  const results = new Array<PromiseSettledResult<R>>(items.length);
-  let next = 0;
-
-  async function worker(): Promise<void> {
-    for (;;) {
-      const index = next++;
-      if (index >= items.length) return;
-      try {
-        results[index] = {
-          status: "fulfilled",
-          value: await fn(items[index], index),
-        };
-      } catch (reason) {
-        results[index] = { status: "rejected", reason };
-      }
-    }
-  }
-
-  const workers = Math.max(1, Math.min(limit, items.length));
-  await Promise.all(Array.from({ length: workers }, () => worker()));
-  return results;
-}
-
-// ── Duplicate detection ────────────────────────────────────────────
-
-/**
- * Keyword-match a candidate against the published catalog (mirrors the MCP
- * `search_tools` heuristic) and return the strongest match, if any. Returns null
- * on any failure so research never hard-fails on a catalog read.
- */
-async function detectDuplicate(
-  name: string
-): Promise<{ id: string; name: string } | null> {
-  let tools: MakerLabTool[];
-  try {
-    tools = await getCatalogTools();
-  } catch {
-    return null;
-  }
-  // Exact / partial name resolution first.
-  const byName = findTool(tools, name);
-  if (byName) return { id: byName.id, name: byName.name };
-
-  // Fall back to a keyword search across searchable fields.
-  const q = name.toLowerCase().trim();
-  if (!q) return null;
-  const match = tools.find((t) =>
-    [t.name, t.description, t.shortDescription, ...t.materials, ...t.tags]
-      .join(" ")
-      .toLowerCase()
-      .includes(q)
-  );
-  return match ? { id: match.id, name: match.name } : null;
-}
-
-// ── Link verification ──────────────────────────────────────────────
-
-const VERIFY_UA = "Mozilla/5.0 (compatible; MakerLabBot/1.0)";
-const VERIFY_TIMEOUT_MS = 8000;
-
-function isYouTubeHost(host: string): boolean {
-  const h = host.replace(/^www\./, "");
-  return (
-    h === "youtube.com" ||
-    h === "m.youtube.com" ||
-    h === "youtu.be" ||
-    h.endsWith(".youtube.com")
-  );
-}
-
-/**
- * Verify a single resource URL actually resolves to a real page/video, to catch
- * the model fabricating plausible-looking URLs (e.g. invented YouTube video ids).
- *
- * - YouTube: the oEmbed endpoint is authoritative — it returns 404 for a video
- *   id that does not exist (a normal `watch?v=` page returns HTTP 200 even for
- *   dead videos, so a status check alone is not enough).
- * - Everything else: a GET that only treats definitive "not found" signals
- *   (404/410, DNS/network failure, malformed URL) as invalid. 401/403/429/5xx
- *   are kept — they mean the resource exists but is gated or transiently
- *   erroring, and we'd rather not drop a real manual on a bot block.
- */
-async function verifyUrl(url: string): Promise<{ ok: boolean; reason?: string }> {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return { ok: false, reason: "malformed URL" };
-  }
-  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-    return { ok: false, reason: "not an http(s) URL" };
-  }
-
-  if (isYouTubeHost(parsed.hostname)) {
-    try {
-      const res = await fetch(
-        `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
-        { signal: AbortSignal.timeout(VERIFY_TIMEOUT_MS) }
-      );
-      if (res.status === 200) return { ok: true };
-      if (res.status === 404 || res.status === 401)
-        return { ok: false, reason: "video does not exist" };
-      return { ok: true }; // transient/unknown — don't false-drop
-    } catch {
-      return { ok: false, reason: "video lookup failed" };
-    }
-  }
-
-  try {
-    const res = await fetch(url, {
-      method: "GET",
-      redirect: "follow",
-      headers: { "User-Agent": VERIFY_UA },
-      signal: AbortSignal.timeout(VERIFY_TIMEOUT_MS),
-    });
-    if (res.status === 404 || res.status === 410) {
-      return { ok: false, reason: `HTTP ${res.status}` };
-    }
-    return { ok: true };
-  } catch {
-    return { ok: false, reason: "unreachable" };
-  }
-}
-
-/**
- * Verify every resource link, preserving order. Returns the verified resources
- * (safe to surface/write) and a human-readable note for each dropped link so the
- * agent can tell the user instead of silently omitting it.
- */
-async function verifyResourceLinks(
-  resources: ToolCandidate["resources"]
-): Promise<{ verified: ToolCandidate["resources"]; dropped: string[] }> {
-  const checked = await Promise.all(
-    resources.map(async (r) => ({ resource: r, result: await verifyUrl(r.url) }))
-  );
-  const verified: ToolCandidate["resources"] = [];
-  const dropped: string[] = [];
-  for (const { resource, result } of checked) {
-    if (result.ok) {
-      verified.push(resource);
-    } else {
-      dropped.push(
-        `${resource.type} "${resource.title}" (${resource.url}) — ${result.reason}`
-      );
-    }
-  }
-  return { verified, dropped };
-}
-
-// ── research_tool ──────────────────────────────────────────────────
-
-const researchInputSchema = z.object({
-  candidates: z
-    .array(toolCandidateSchema)
     .min(1)
+    .max(200)
     .describe(
-      "Every item you are identifying in this turn, as an array — pass all of them in ONE call so they are researched in parallel rather than one after another. Each entry is your best-effort structured candidate assembled from the user's description, attached photos, and any web_search/web_fetch you already ran. Leave duplicate_of unset — research_tool fills it in. Fill in `evidence` truthfully: report only what you actually found. Do NOT set `confidence` — it is computed from the evidence, and anything you pass is discarded."
+      'The full make and model you settled on, e.g. "Bambu Lab X1-Carbon Combo". Never a guess dressed up as a model.'
+    ),
+  brand: hintSchema.describe('The manufacturer, e.g. "Bambu Lab".'),
+  categoryHint: hintSchema.describe('The general kind of equipment, e.g. "3D Printing".'),
+  locationHint: hintSchema.describe("Where the person said it lives, if they said."),
+  serialNumber: hintSchema.describe(
+    "Only a serial read off a plate in a photo, or one the person typed. Never invent one."
+  ),
+  attachmentIds: z
+    .array(z.string())
+    .max(25)
+    .default([])
+    .describe(
+      "The attachment_id values, from the [Attached photos: ...] hint, of the photos that show THIS item."
     ),
 });
-type ResearchInput = z.infer<typeof researchInputSchema>;
 
-interface ResearchItem {
-  candidate: ToolCandidate;
-  duplicate: { id: string; name: string } | null;
-  /**
-   * Resource links that failed verification and were removed from the candidate
-   * (e.g. a fabricated YouTube URL). Tell the user these could not be verified
-   * and were left out — do NOT invent replacements.
-   */
-  dropped_links: string[];
-  /**
-   * The grade computed from the reported evidence, with the basis and the named
-   * unknowns. Computed here in code — it is not yours to set or to argue with.
-   */
-  confidence: IntakeConfidence;
-  /**
-   * Set when this one item's research pass threw. The other items in the batch
-   * are unaffected; this one comes back low-confidence so it turns into a
-   * question instead of a listing.
-   */
-  error?: string;
+const identifyInputSchema = z.object({
+  items: z
+    .array(identifyItemSchema)
+    .min(1)
+    .max(IDENTIFY_MAX_ITEMS)
+    .describe(
+      `Every item you identified in this turn, in ONE call (at most ${IDENTIFY_MAX_ITEMS}). Leave out anything you could not identify — ask about it instead.`
+    ),
+});
+type IdentifyInput = z.infer<typeof identifyInputSchema>;
+
+/** What the model is told. No research and no confidence: there is none yet. */
+interface IdentifyResult {
+  card_rendered: boolean;
+  batchId: string;
+  items: { id: string; name: string; duplicateOf: DuplicateOf | null }[];
+  warnings: IntakeTableWarning[];
 }
 
-interface ResearchResult {
-  /** One entry per input candidate, in the order they were given. */
-  items: ResearchItem[];
+/** A refusal or a failure, phrased for the model to relay in one sentence. */
+interface IdentifyError {
+  card_rendered: false;
+  error: string;
+  /** Set only when the rows *were* saved and something after that failed. */
+  batchId?: string;
+  items?: { id: string; name: string }[];
 }
 
-/** Read a failed candidate's identifying fields without trusting the object. */
-function safeName(candidate: ToolCandidate): string {
-  try {
-    return typeof candidate.name === "string" ? candidate.name : "";
-  } catch {
-    return "";
-  }
-}
+const SIGN_IN_REQUIRED =
+  "No signed-in account is attached to this chat, so nothing was saved. Ask the person to sign in with their staff account and send the photos again.";
+
+const DB_UNAVAILABLE =
+  "The inventory database is unreachable right now, so nothing was saved. Tell the person in one sentence and suggest trying again in a few minutes.";
 
 /**
- * The result for an item whose research pass threw. It is a low-confidence
- * candidate carrying an explanatory unknown, not an omission: the batch keeps
- * its shape, and the agent is told what to ask rather than what to invent.
+ * Which photos each item may claim, and which of this turn's photos no item
+ * named.
+ *
+ * Only ids in this turn's `[Attached photos: ...]` hint: an id the model
+ * carried over from an earlier turn is dropped here. That hint is text in the
+ * caller's own message, so it is **not** proof the caller uploaded the photo —
+ * anybody can type an id. The ownership check is in the claim itself:
+ * `createPendingBatch` claims only uploads the caller made (§8).
+ *
+ * A lone item that names no photos gets all of them, because there is nothing
+ * else they could show. Otherwise a photo the model gave to no item is
+ * reported back as `unassigned`, so the card can say it was not used rather
+ * than leave it for the orphan sweep in silence (Article 4).
  */
-function failedItem(candidate: ToolCandidate, reason: unknown): ResearchItem {
-  const evidence = toEvidence(null);
-  const graded = scoreConfidence(evidence);
-  const message = errMsg(reason);
-  const confidence: IntakeConfidence = {
-    ...graded,
-    unknowns: [
-      ...graded.unknowns,
-      `Research failed for this item (${message}) — nothing about it is confirmed`,
-    ],
-  };
-  return {
-    candidate: {
-      name: safeName(candidate) || "Unidentified item",
-      description: "",
-      materials: [],
-      ppe_required: [],
-      tags: [],
-      units: [],
-      resources: [],
-      image_upload_ids: [],
-      source_urls: [],
-      duplicate_of: null,
-      evidence,
-      confidence,
-    },
-    duplicate: null,
-    dropped_links: [],
-    confidence,
-    error: message,
-  };
-}
-
-/** One item's independent research pass — the unit of the fan-out. */
-async function researchOne(
-  candidate: ToolCandidate,
-  extraImageIds: string[]
-): Promise<ResearchItem> {
-  const duplicate = await detectDuplicate(candidate.name);
-
-  // Verify every resource link actually resolves, dropping fabricated or dead
-  // URLs (e.g. an invented YouTube video id) so they never reach the card.
-  const { verified, dropped } = await verifyResourceLinks(
-    candidate.resources || []
+function photosPerItem(
+  items: IdentifyInput["items"],
+  ctx: CapabilityCtx
+): { perItem: string[][]; unassigned: string[] } {
+  const turn = new Set(
+    (ctx.attachments ?? []).map((a) => a.attachmentId).filter((id) => id.length > 0)
   );
-
-  const normalized = withConfidence({
-    ...candidate,
-    materials: candidate.materials || [],
-    ppe_required: candidate.ppe_required || [],
-    tags: candidate.tags || [],
-    units: candidate.units || [],
-    resources: verified,
-    image_upload_ids: Array.from(
-      new Set([...(candidate.image_upload_ids || []), ...extraImageIds])
-    ),
-    source_urls: candidate.source_urls || [],
-    duplicate_of: duplicate,
-  });
-
-  return {
-    candidate: normalized,
-    duplicate,
-    dropped_links: dropped,
-    confidence: normalized.confidence,
-  };
+  const perItem = items.map((item) => item.attachmentIds.filter((id) => turn.has(id)));
+  if (items.length === 1 && items[0].attachmentIds.length === 0) perItem[0] = [...turn];
+  const named = new Set(perItem.flat());
+  return { perItem, unassigned: [...turn].filter((id) => !named.has(id)) };
 }
 
-const researchTool: CapabilityTool<ResearchInput, ResearchResult> = {
-  name: "research_tool",
-  description:
-    "Normalize one or more researched equipment candidates and check the catalog for duplicates. BEFORE calling this, use the native web_search / web_fetch tools (and any attached photos) to gather each item's canonical name, manufacturer, specs, materials, PPE, a manual PDF URL, and a setup video URL. Pass ALL of the turn's candidates in a single call — they are researched concurrently (at most 4 at a time), and one item that cannot be identified never fails the rest. Each item comes back annotated with duplicate_of when a strong existing match is found, plus a confidence grade computed from the evidence you reported. Read-only — it writes nothing.",
-  inputSchema: researchInputSchema,
-  kind: "read",
-  // Relies on the chat model's native web_search/web_fetch + attached photos;
-  // has no meaning as a standalone headless MCP tool.
-  chatOnly: true,
-  run: async (
-    { candidates },
-    ctx: CapabilityCtx
-  ): Promise<ResearchResult> => {
-    // Carry through the turn's image uploads so the photos stay with the item
-    // they show — but only for a single item. In a batch the turn's photos belong to different machines, and the
-    // model already assigned them per candidate; merging them all into every
-    // candidate would put all eight photos on all eight tools.
-    const extraImageIds =
-      candidates.length === 1
-        ? (ctx.attachments || []).map((a) => a.attachmentId)
-        : [];
+/** Every photo now on these rows that a browser still cannot load. */
+function privatePhotoIds(rows: PendingTool[]): string[] {
+  return rows.flatMap((row) => row.photos.filter((p) => p.url === null).map((p) => p.attachmentId));
+}
 
-    // Bounded, all-settled fan-out (spec §3.3): eight photos resolve in roughly
-    // the time of the slowest, not the sum, and a single bad item degrades to a
-    // question rather than failing the batch.
-    const settled = await mapWithConcurrency(
-      candidates,
-      RESEARCH_CONCURRENCY,
-      (candidate) => researchOne(candidate, extraImageIds)
-    );
+const identifyTools: CapabilityTool<IdentifyInput, IdentifyResult | IdentifyError> = {
+  name: "identify_tools",
+  description:
+    "Record the equipment you identified as pending items the person reviews in an editable table. Call it ONCE per turn with every item you could identify, each with the photos that show it. It saves nothing to the catalogue and looks nothing up: the person picks rows and presses Research, which runs in the background. Duplicates of existing tools are flagged on the table and resolved there.",
+  inputSchema: identifyInputSchema,
+  kind: "write",
+  // It needs the turn's uploads and the stream writer, and it creates rows
+  // owned by a session's person — none of which an MCP caller has.
+  chatOnly: true,
+  run: async (input, ctx): Promise<IdentifyResult | IdentifyError> => {
+    const userId = ctx.identity?.userId;
+    if (!userId) return { card_rendered: false, error: SIGN_IN_REQUIRED };
+
+    const { perItem: photos, unassigned } = photosPerItem(input.items, ctx);
+    const items: NewPendingTool[] = input.items.map((item, index) => ({
+      name: item.name,
+      brand: item.brand ?? null,
+      categoryHint: item.categoryHint ?? null,
+      locationHint: item.locationHint ?? null,
+      serialNumber: item.serialNumber ?? null,
+      attachmentIds: photos[index],
+    }));
+
+    // One transaction: every row or none, so a failure here saved nothing.
+    let batch: Awaited<ReturnType<typeof createPendingBatch>>;
+    try {
+      batch = await createPendingBatch({ createdBy: userId, items });
+    } catch (err) {
+      console.error("[intake] identify_tools could not save the batch", err);
+      if (err instanceof DbUnavailableError) return { card_rendered: false, error: DB_UNAVAILABLE };
+      return {
+        card_rendered: false,
+        error: `Could not save the items (${errMsg(err)}), so nothing was saved. Tell the person in one sentence and offer to try again.`,
+      };
+    }
+
+    const warnings: IntakeTableWarning[] = [];
+    if (batch.items.some((item) => item.photosAttached < item.photosSubmitted)) {
+      warnings.push("photos_not_attached");
+    }
+    if (unassigned.length > 0) warnings.push("photos_unassigned");
+
+    const ids = batch.items.map((item) => item.id);
+    let rows: PendingTool[];
+    try {
+      rows = await listPendingTools({ ids });
+
+      // Chat photos are uploaded private; on a pending tool they are equipment
+      // photos, public at a random pathname (§3.3). Best-effort: the rows are
+      // already committed, so a photo that stays private is a warning.
+      const toPromote = privatePhotoIds(rows);
+      if (toPromote.length > 0) {
+        let promoted = 0;
+        try {
+          promoted = (await promoteAttachmentsToPublic(toPromote)).promoted;
+        } catch (err) {
+          console.error("[intake] identify_tools could not make the photos public", err);
+        }
+        if (promoted > 0) rows = await listPendingTools({ ids });
+      }
+    } catch (err) {
+      // The rows exist; only the read back failed. Say what landed.
+      console.error("[intake] identify_tools saved the batch but could not read it back", err);
+      return {
+        card_rendered: false,
+        batchId: batch.batchId,
+        items: batch.items.map((item, index) => ({ id: item.id, name: items[index].name })),
+        error:
+          "The items were saved, but the table could not be shown. Tell the person they are waiting on the Intake page (/admin/intake), where they can research them.",
+      };
+    }
+
+    // Judged from what the rows hold, not from what promotion said: a photo
+    // is public when its row has a URL, and not otherwise.
+    if (privatePhotoIds(rows).length > 0) warnings.push("photos_not_public");
+
+    const payload: IntakeTablePayload = {
+      kind: "intake-table",
+      batchId: batch.batchId,
+      items: rows.map(toPendingToolView),
+      warnings,
+    };
+    ctx.writer?.write({ type: "data-intake-table", data: payload });
 
     return {
-      items: settled.map((result, i) =>
-        result.status === "fulfilled"
-          ? result.value
-          : failedItem(candidates[i], result.reason)
-      ),
+      card_rendered: Boolean(ctx.writer),
+      batchId: batch.batchId,
+      items: rows.map((row) => ({ id: row.id, name: row.name, duplicateOf: row.duplicateOf })),
+      warnings,
     };
   },
 };
 
-// ── propose_listing ────────────────────────────────────────────────
-
-const proposeInputSchema = z.object({
-  candidates: z
-    .array(toolCandidateSchema)
-    .min(1)
-    .describe(
-      "One or more researched candidates to confirm with the user. Pass several at once when the user described a batch — each gets its own independently-confirmable card. Include `variants` on a candidate whose exact model you could not pin down (e.g. [\"Prusa MK4\", \"Prusa MK4S\"]) so the card can ask which one."
-    ),
-});
-type ProposeInput = z.infer<typeof proposeInputSchema>;
-
-/** A candidate that got a card, summarized for the model. */
-interface ProposedSummary {
-  candidate_id: string;
-  name: string;
-  state: CardState;
-  confidence: IntakeConfidenceLevel;
-}
-
-/** A candidate deliberately not proposed, with what to ask instead. */
-interface NeedsMoreInfo {
-  name: string;
-  /** The specific unknowns — ask for the first one, in one short question. */
-  ask: string[];
-}
-
-interface ProposeResult {
-  /** Cards rendered, one per candidate, in the order they were emitted. */
-  proposed: ProposedSummary[];
-  /**
-   * Candidates that were **not** proposed because the evidence is too thin
-   * (confidence spec §3.2). No card exists for these, so there is nothing for
-   * the user to accept: ask for the one thing named in `ask` instead, and do
-   * not call `create_tool` for them.
-   */
-  needs_more_info: NeedsMoreInfo[];
-}
-
-/** Build the "also creating" rows (taxonomy + units + resources) for a card. */
-function buildAlsoCreating(c: ToolCandidate): CardAlsoCreating[] {
-  const rows: CardAlsoCreating[] = [];
-  if (c.category) {
-    rows.push({
-      label: `Category: ${c.category.group} / ${c.category.name}`,
-      entity: "category",
-      isNew: c.category.isNew,
-    });
-  }
-  if (c.location) {
-    rows.push({
-      label: `Location: ${c.location.room} / ${c.location.zone}`,
-      entity: "location",
-      isNew: c.location.isNew,
-    });
-  }
-  for (const unit of c.units) {
-    rows.push({
-      label: `Unit: ${unit.label}`,
-      entity: "unit",
-      isNew: true,
-    });
-  }
-  for (const resource of c.resources) {
-    rows.push({
-      label: `${resource.type}: ${resource.title}`,
-      entity: "resource",
-      isNew: true,
-    });
-  }
-  return rows;
-}
-
-/** Build the spec lines (materials, PPE, training, restrictions) for a card. */
-function buildSpecLines(c: ToolCandidate): CardSpecLine[] {
-  const lines: CardSpecLine[] = [];
-  if (c.materials.length) {
-    lines.push({ label: "Materials", value: c.materials.join(", ") });
-  }
-  if (c.ppe_required.length) {
-    lines.push({ label: "PPE", value: c.ppe_required.join(", ") });
-  }
-  if (c.tags.length) {
-    lines.push({ label: "Tags", value: c.tags.join(", ") });
-  }
-  if (typeof c.training_required === "boolean") {
-    lines.push({
-      label: "Training",
-      value: c.training_required ? "Required" : "Not required",
-    });
-  }
-  if (c.use_restrictions) {
-    lines.push({ label: "Restrictions", value: c.use_restrictions });
-  }
-  return lines;
-}
-
-function toFoundResources(c: ToolCandidate): CardResource[] {
-  return c.resources.map((r) => ({
-    title: r.title,
-    url: r.url,
-    type: r.type,
-  }));
-}
-
-/** How many disambiguation buttons a medium card will show at most. */
-const MAX_VARIANT_ACTIONS = 4;
-
-/**
- * Action buttons for a proposed (or duplicate) candidate card.
- *
- * The grade chooses the primary action, which is the whole point of gating
- * (confidence spec §3.2):
- *
- * - **high** — `Looks right — add it`, unchanged.
- * - **medium** — the primary action *resolves the ambiguity* rather than
- *   accepting it. With reported `variants` that is one button per variant
- *   ("It's the MK4" / "It's the MK4S"); without them it is an explicit
- *   "Confirm it's the <name>". Either way the person, not the model, picks.
- *
- * There is no low branch here because a low-confidence candidate never reaches
- * a card at all.
- */
-function buildActions(
-  c: ToolCandidate,
-  level: IntakeConfidenceLevel
-): CardAction[] {
-  const id = candidateId(c.name);
-  const edit: CardAction = {
-    id: "edit",
-    label: "Edit",
-    labelKey: "actionEdit",
-    seedMessage: `edit: ${id}`,
-    variant: "secondary",
-  };
-  const discard: CardAction = {
-    id: "discard",
-    label: "Discard",
-    labelKey: "actionDiscard",
-    seedMessage: `discard: ${id}`,
-    variant: "danger",
-  };
-
-  if (c.duplicate_of) {
-    // No "add a unit to the existing tool": nothing can act on it yet, and a
-    // button that visibly does nothing is worse than none (intake spec amendment
-    // 2026-09-14). The person either lists it separately on purpose or drops it.
-    return [
-      {
-        id: "create-anyway",
-        label: "No, create a new tool",
-        labelKey: "actionCreateAnyway",
-        seedMessage: `create new tool anyway: ${id}`,
-        variant: "secondary",
-      },
-      discard,
-    ];
-  }
-
-  if (level === "medium") {
-    const variants = (c.variants || [])
-      .map((v) => v.trim())
-      .filter(Boolean)
-      .slice(0, MAX_VARIANT_ACTIONS);
-    if (variants.length > 1) {
-      return [
-        ...variants.map((variant, i) => ({
-          id: `variant-${i}`,
-          label: `It's the ${variant}`,
-          labelKey: "actionConfirmVariant",
-          labelValues: { variant },
-          seedMessage: `confirm variant: ${id} = ${variant}`,
-          variant: "primary" as const,
-        })),
-        edit,
-        discard,
-      ];
-    }
-    return [
-      {
-        id: "confirm-model",
-        label: `Confirm it's the ${c.name}`,
-        labelKey: "actionConfirmModel",
-        labelValues: { name: c.name },
-        seedMessage: `confirm model: ${id} = ${c.name}`,
-        variant: "primary",
-      },
-      edit,
-      discard,
-    ];
-  }
-
-  return [
-    {
-      id: "confirm",
-      label: "Looks right — add it",
-      labelKey: "actionConfirm",
-      seedMessage: `confirm add: ${id}`,
-      variant: "primary",
-    },
-    edit,
-    discard,
-  ];
-}
-
-/** Only http(s) links reach the card (confidence spec §8). */
-function safeSourceUrls(urls: string[]): string[] {
-  return urls.filter((url) => {
-    try {
-      const { protocol } = new URL(url);
-      return protocol === "http:" || protocol === "https:";
-    } catch {
-      return false;
-    }
-  });
-}
-
-/** Map a single candidate to its identification card payload. */
-function candidateToCard(c: ToolCandidate): IdentificationCardPayload {
-  const isDuplicate = Boolean(c.duplicate_of);
-  const evidence = toEvidence(c.evidence);
-  const confidence = scoreConfidence(evidence);
-  return {
-    kind: "identification",
-    candidateId: candidateId(c.name),
-    state: isDuplicate ? "duplicate" : "proposed",
-    name: c.name,
-    photoUrls: [],
-    category: c.category
-      ? `${c.category.group} / ${c.category.name}`
-      : undefined,
-    location: c.location
-      ? `${c.location.room} / ${c.location.zone}`
-      : undefined,
-    specLines: buildSpecLines(c),
-    foundResources: toFoundResources(c),
-    alsoCreating: buildAlsoCreating(c),
-    actions: buildActions(c, confidence.level),
-    // Grade and evidence travel together: the strip's heading comes from the
-    // level, its lines from the evidence (localized client-side).
-    confidence,
-    evidence,
-    sourceUrls: safeSourceUrls(c.source_urls || []),
-    duplicateOf: c.duplicate_of ?? undefined,
-  };
-}
-
-const proposeListing: CapabilityTool<ProposeInput, ProposeResult> = {
-  name: "propose_listing",
-  description:
-    "Show the user an identification card for each researched candidate so they can confirm before anything is written. This is the mandatory confirmation gate: ALWAYS call propose_listing and wait for an explicit user confirmation before create_tool. Pass multiple candidates to confirm a batch — each renders its own card, emitted as it is prepared. A candidate whose evidence only supports a low grade is NOT proposed: no card is rendered and it comes back under `needs_more_info` with the specific thing to ask for. A candidate with a duplicate_of match renders as 'Already in catalog' and is only listed separately if the user explicitly asks for that. Read-only.",
-  inputSchema: proposeInputSchema,
-  kind: "read",
-  // Drives interactive identification cards in the chat UI; not an MCP tool.
-  chatOnly: true,
-  // No `card` renderer: this tool emits its own cards, one per candidate,
-  // rather than letting the adapter emit a single one for the whole batch. That
-  // is what lets a card appear as each item is ready, and what lets a
-  // low-confidence candidate produce no card at all.
-  run: async ({ candidates }, ctx: CapabilityCtx): Promise<ProposeResult> => {
-    const proposed: ProposedSummary[] = [];
-    const needsMoreInfo: NeedsMoreInfo[] = [];
-
-    for (const raw of candidates) {
-      // Re-derive the grade rather than trusting whatever came back through the
-      // model — see withConfidence.
-      const candidate = withConfidence(raw);
-
-      // The behaviour gate (spec §3.2). Weak evidence used to produce a
-      // plausible-looking card that someone accepted; it now produces a
-      // question instead, and there is nothing on screen to click "add" on.
-      if (candidate.confidence.level === "low") {
-        needsMoreInfo.push({
-          name: candidate.name,
-          ask: candidate.confidence.unknowns,
-        });
-        continue;
-      }
-
-      const card = candidateToCard(candidate);
-      ctx.writer?.write({ type: "data-card", data: card });
-      proposed.push({
-        candidate_id: card.candidateId,
-        name: card.name,
-        state: card.state,
-        confidence: candidate.confidence.level,
-      });
-    }
-
-    return { proposed, needs_more_info: needsMoreInfo };
-  },
-};
-
-// ── create_tool ────────────────────────────────────────────────────
+// ── create_tool (MCP only) ─────────────────────────────────────────
 
 const createInputSchema = z.object({
   candidate: toolCandidateSchema.describe(
-    "The single, user-confirmed candidate to write to Notion. Only call this AFTER propose_listing and an explicit user confirmation. For a batch, call create_tool once per confirmed candidate."
+    "The tool to add. It is created as an unpublished draft; staff publish it from the catalogue."
   ),
 });
 type CreateInput = z.infer<typeof createInputSchema>;
 
 interface CreateResult {
   success: boolean;
-  /** Notion page id of the created tool, when it landed. */
+  /** `tools.id` of the draft, when it landed. */
   tool_id: string | null;
-  /** Notion page ids of the created units. */
+  /** `units.id`s, in the order the units were given. */
   unit_ids: string[];
-  /** Notion page url of the created tool draft, when it landed. */
+  slug: string | null;
+  /** `/tools/<slug>` — a draft is visible there to anyone with `catalog.view_drafts`. */
   draft_url: string | null;
-  /** The candidate name (for card rendering on partial failure). */
   name: string;
   created: {
     tool: boolean;
@@ -730,197 +255,180 @@ interface CreateResult {
     units: number;
     resources: number;
   };
-  /** Human-readable notes about steps that did not land (no silent failures). */
+  /** Human-readable notes about anything that did not land (no silent failures). */
   warnings: string[];
 }
 
-/** Build a Notion page URL from a page id (dashes stripped, as Notion expects). */
-function notionPageUrl(pageId: string): string {
-  return `https://www.notion.so/${pageId.replace(/-/g, "")}`;
+/**
+ * A model's "Available" or "In use" as the vocabulary spells it, or null.
+ * Anything unrecognised is left to the column default and reported.
+ */
+function toVocab<T extends string>(value: string | undefined, vocab: readonly T[]): T | null {
+  if (!value) return null;
+  const key = value.trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return (vocab as readonly string[]).includes(key) ? (key as T) : null;
 }
 
 const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
   name: "create_tool",
   description:
-    "Create a draft catalog listing in Notion for a confirmed candidate: find-or-create its Category and Location, create the Tool (published=false), create each Unit linked to the tool, and create each manual/video Resource (published=false). NEVER call this without a prior propose_listing and an explicit user confirmation. Everything is created as a draft — staff publish it later in Notion. Returns the created ids and a draft link; on partial failure it reports exactly what landed so nothing is lost silently.",
+    "Create a draft catalogue listing for one tool: find or create its category and location, create the tool (unpublished), its units, and each manual or video resource whose link verifies. Everything is a draft until staff publish it. Photos cannot be attached over MCP. Returns the created ids and a draft link; when something did not land it says exactly what.",
   inputSchema: createInputSchema,
   kind: "write",
-  // No `ctx`: the turn's photos used to be read here to name the Notion file
-  // uploads. Nothing in this write reaches outside the candidate any more.
+  // In the chat a tool is added through identify_tools, background research
+  // and a person's approval (§5.4). This direct write is for MCP clients only.
+  mcpOnly: true,
   run: async ({ candidate }): Promise<CreateResult> => {
     const warnings: string[] = [];
-    const created: CreateResult["created"] = {
+    const empty: CreateResult["created"] = {
       tool: false,
       category: null,
       location: null,
       units: 0,
       resources: 0,
     };
+    const failed = (reason: string): CreateResult => ({
+      success: false,
+      tool_id: null,
+      unit_ids: [],
+      slug: null,
+      draft_url: null,
+      name: candidate.name,
+      created: empty,
+      warnings: [...warnings, reason],
+    });
 
-    // 1. Resolve / create category + location (best-effort — the tool can still
-    //    be created without them; we just note it).
-    let categoryId: string | null = null;
-    if (candidate.category) {
-      try {
-        const cat = await findOrCreateCategory(
-          candidate.category.name,
-          candidate.category.group
-        );
-        categoryId = cat.id;
-        created.category = cat;
-      } catch (err) {
-        warnings.push(
-          `Could not resolve category "${candidate.category.name}": ${errMsg(err)}`
-        );
-      }
-    }
-
-    let locationId: string | null = null;
-    if (candidate.location) {
-      try {
-        const loc = await findOrCreateLocation(
-          candidate.location.room,
-          candidate.location.zone
-        );
-        locationId = loc.id;
-        created.location = loc;
-      } catch (err) {
-        warnings.push(
-          `Could not resolve location "${candidate.location.room} / ${candidate.location.zone}": ${errMsg(err)}`
-        );
-      }
-    }
-
-    // 2. Create the tool (published=false). If this fails there is nothing to
-    //    link units/resources to, so we bail with a clean failure.
-    //
-    // **Photos do not travel with it.** They used to: `/api/upload-notion`
-    // handed back a Notion `file_upload_id` and this call passed it straight
-    // into the new page's `image_attachments`. Uploads are Vercel Blob now
-    // (data platform spec §3.3), so `image_upload_ids` holds Postgres uuids —
-    // and Notion rejects an entire page whose file_upload id it does not
-    // recognise. Tool creation itself does not move off Notion until Phase 6,
-    // so the honest answer in between is to create the tool without the
-    // pictures and say so, rather than lose the listing to a rejected page or
-    // claim an attachment that is not there (Article 4).
+    // MCP carries no uploads, and no session that could have made them. An id
+    // here names somebody's chat photo at best, so it is never claimed.
     if (candidate.image_upload_ids.length > 0) {
       warnings.push(
-        `The ${candidate.image_upload_ids.length === 1 ? "photo" : "photos"} stayed in the app and were not attached to the new listing — add them by hand in Notion.`
+        `${candidate.image_upload_ids.length === 1 ? "The photo was" : "The photos were"} not attached — photos cannot be added over MCP. Add them in the tool editor.`
       );
     }
 
-    let toolId: string;
-    try {
-      const toolRecord = await createTool({
-        name: candidate.name,
-        description: candidate.description,
-        category: categoryId ? [categoryId] : undefined,
-        location: locationId ? [locationId] : undefined,
-        materials: candidate.materials,
-        ppe_required: candidate.ppe_required,
-        tags: candidate.tags,
-        training_required: candidate.training_required,
-        use_restrictions: candidate.use_restrictions,
+    // Verified before the transaction opens, not inside it: each link is a
+    // network round trip of up to eight seconds, and a transaction held open
+    // across them is a connection held for nothing. Dropped links are
+    // reported, never written.
+    const { verified, dropped } = await verifyResourceLinks(candidate.resources ?? []);
+    for (const link of dropped) warnings.push(`Skipped unverifiable link — ${link}`);
+
+    const units: NonNullable<NewToolRecord["units"]> = [];
+    for (const unit of candidate.units ?? []) {
+      const status = toVocab<UnitStatus>(unit.status, UNIT_STATUS);
+      const condition = toVocab<UnitCondition>(unit.condition, UNIT_CONDITION);
+      if (unit.status && !status) {
+        warnings.push(`Unit "${unit.label}": status "${unit.status}" is not one the catalogue knows, so it was left as available.`);
+      }
+      if (unit.condition && !condition) {
+        warnings.push(`Unit "${unit.label}": condition "${unit.condition}" is not one the catalogue knows, so it was left blank.`);
+      }
+      units.push({
+        unitLabel: unit.label,
+        serialNumber: unit.serial ?? null,
+        ...(status ? { status } : {}),
+        condition,
       });
-      toolId = toolRecord.id;
-      created.tool = true;
-    } catch (err) {
-      return {
-        success: false,
-        tool_id: null,
-        unit_ids: [],
-        draft_url: null,
-        name: candidate.name,
-        created,
-        warnings: [...warnings, `Failed to create the tool: ${errMsg(err)}`],
-      };
     }
 
-    // 3. Create units linked to the tool (best-effort per unit).
-    const unitIds: string[] = [];
-    for (const unit of candidate.units) {
-      try {
-        const unitRecord = await createUnit({
-          unit_label: unit.label,
-          tool: [toolId],
-          serial_number: unit.serial,
-          status: unit.status as UnitStatusInput,
-          condition: unit.condition as UnitConditionInput,
-        });
-        unitIds.push(unitRecord.id);
-        created.units += 1;
-      } catch (err) {
-        warnings.push(`Could not create unit "${unit.label}": ${errMsg(err)}`);
-      }
-    }
+    let outcome: {
+      toolId: string;
+      slug: string;
+      unitIds: string[];
+      resourceIds: string[];
+      category: CreateResult["created"]["category"];
+      location: CreateResult["created"]["location"];
+    };
+    try {
+      const db = await getDb();
+      outcome = await db.transaction(async (tx) => {
+        // Category and location are best-effort: the tool is still worth
+        // having without them. Each runs in its own savepoint so a failed
+        // statement cannot abort the transaction the tool is written in.
+        let category: CreateResult["created"]["category"] = null;
+        if (candidate.category) {
+          const { name, group } = candidate.category;
+          try {
+            const found = await tx.transaction((sp) =>
+              findOrCreateCategory(sp, { name, group: group || null })
+            );
+            category = { id: found.id, isNew: found.created };
+          } catch (err) {
+            warnings.push(`Could not resolve category "${name}": ${errMsg(err)}`);
+          }
+        }
 
-    // 4. Create resources linked to the tool (best-effort per resource).
-    //    Re-verify links here as a hard gate: even if research_tool already
-    //    pruned fabricated URLs, the model could pass a fresh unverified link
-    //    straight to create_tool. Dropped links are reported, never written.
-    const { verified: verifiedResources, dropped: droppedResources } =
-      await verifyResourceLinks(candidate.resources);
-    for (const link of droppedResources) {
-      warnings.push(`Skipped unverifiable link — ${link}`);
-    }
-    for (const resource of verifiedResources) {
-      try {
-        await createResource({
-          title: resource.title,
-          tool: [toolId],
-          type: resource.type,
-          url: resource.url,
-        });
-        created.resources += 1;
-      } catch (err) {
-        warnings.push(
-          `Could not create resource "${resource.title}": ${errMsg(err)}`
+        let location: CreateResult["created"]["location"] = null;
+        if (candidate.location) {
+          const { room, zone } = candidate.location;
+          try {
+            const found = await tx.transaction((sp) => findOrCreateLocation(sp, { room, zone }));
+            location = { id: found.id, isNew: found.created };
+          } catch (err) {
+            warnings.push(`Could not resolve location "${room} / ${zone}": ${errMsg(err)}`);
+          }
+        }
+
+        const record = await createToolRecord(
+          tx,
+          {
+            name: candidate.name,
+            description: candidate.description,
+            categoryId: category?.id ?? null,
+            locationId: location?.id ?? null,
+            materials: candidate.materials,
+            ppeRequired: candidate.ppe_required,
+            tags: candidate.tags,
+            trainingRequired: candidate.training_required,
+            useRestrictions: candidate.use_restrictions ?? null,
+            // Article 5: a person publishes. Never this call.
+            published: false,
+            units,
+            resources: verified,
+          },
+          // An MCP caller is a bearer token, not a person with a `user` row.
+          null
         );
-      }
+        return { ...record, category, location };
+      });
+    } catch (err) {
+      console.error("[intake] create_tool failed", err);
+      // The transaction rolled back, so nothing at all landed — including a
+      // category or location that was found or made on the way.
+      const reason =
+        err instanceof DbUnavailableError
+          ? "The inventory database is unreachable, so nothing was saved."
+          : `Failed to create the tool, so nothing was saved: ${errMsg(err)}`;
+      return failed(reason);
+    }
+
+    // The draft landed. A cache that cannot be dropped is a stale page, not a
+    // lost tool, so it is a warning on a success (Article 4).
+    try {
+      invalidateCatalog();
+    } catch (err) {
+      console.error("[intake] create_tool could not invalidate the catalogue cache", err);
+      warnings.push("The draft was saved, but the catalogue cache could not be refreshed — it may take a while to appear.");
     }
 
     return {
       success: true,
-      tool_id: toolId,
-      unit_ids: unitIds,
-      draft_url: notionPageUrl(toolId),
+      tool_id: outcome.toolId,
+      unit_ids: outcome.unitIds,
+      slug: outcome.slug,
+      draft_url: `/tools/${outcome.slug}`,
       name: candidate.name,
-      created,
+      created: {
+        tool: true,
+        category: outcome.category,
+        location: outcome.location,
+        units: outcome.unitIds.length,
+        resources: outcome.resourceIds.length,
+      },
       warnings,
     };
   },
-  card: (result: CreateResult): IdentificationCardPayload => ({
-    kind: "identification",
-    candidateId: candidateId(result.name),
-    // Honest state: only "success" when the tool actually landed. A failed or
-    // partial write (e.g. a Notion validation error) shows the "error" banner
-    // with the warnings as detail lines, never a misleading "saved" badge.
-    state: result.success && result.tool_id ? "success" : "error",
-    name: result.name,
-    photoUrls: [],
-    specLines: result.warnings.map((w) => ({ label: "Note", value: w })),
-    foundResources: [],
-    alsoCreating: [],
-    actions: result.draft_url
-      ? [
-          {
-            id: "open-draft",
-            label: "Open draft in Notion",
-            labelKey: "actionOpenDraft",
-            seedMessage: result.draft_url,
-            variant: "secondary",
-          },
-        ]
-      : [],
-    draftUrl: result.draft_url ?? undefined,
-  }),
 };
-
-// The Notion write layer narrows status/condition to its own enums; the
-// candidate carries free-form strings, so we alias the accepted inputs to keep
-// the call sites readable without re-importing the full union here.
-type UnitStatusInput = Parameters<typeof createUnit>[0]["status"];
-type UnitConditionInput = Parameters<typeof createUnit>[0]["condition"];
 
 function errMsg(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -928,26 +436,17 @@ function errMsg(err: unknown): string {
 
 // ── Prompt fragment ────────────────────────────────────────────────
 
-function promptFragment(_env: PromptEnv): string {
+function promptFragment(): string {
   return [
     `## Adding equipment to the inventory (intake)`,
-    `When someone wants to add a tool to the catalog — from a free-text description, dictated notes, attached photos, or pasted product/store/manual URLs — act as an intake agent and follow this flow.`,
-    `**Keep your messages tight.** Do not narrate every \`web_fetch\`/\`web_search\` step in long paragraphs — a single short line like "Researching the Creality Ender-3 V3…" is enough while you work. Let the identification card carry the structured result; don't restate the whole card as prose. Use clean markdown (bold labels, tight bullet lists), never a wall of text.`,
-    `1. **Research first.** Use the native \`web_search\` and \`web_fetch\` tools (and any attached photos) to identify the equipment: canonical name and manufacturer, a one-paragraph description, key specs, typical materials and required PPE, sensible tags, a manual PDF URL, and a setup/overview video URL. Read product pages and manuals before guessing. Track every URL you actually read so you can pass it as \`source_urls\` for provenance.`,
-    `   **Never fabricate or guess a URL.** Only include a manual or video link that you actually opened with \`web_fetch\` and confirmed is the correct item — especially video URLs (never assemble a \`youtube.com/watch?v=…\` link from memory; you must have retrieved that exact video). If you can't find a real link, omit it rather than inventing one. \`research_tool\` and \`create_tool\` independently verify every link server-side (YouTube via oEmbed, others via an HTTP check) and drop any that don't resolve, returning them as \`dropped_links\` / \`warnings\`. When a link is dropped, tell the user it couldn't be verified and was left out — do not invent a replacement.`,
-    `   **Materials, PPE, and tags are short discrete labels**, not sentences — e.g. materials \`["Wood", "Acrylic", "Leather"]\`, not \`["Wood (plywood, hardwood, veneer)"]\`. Avoid commas inside any single value (Notion multi-select options can't contain them; they'll be rewritten to " / " on write).`,
-    `2. **Normalize — all items in one call.** Call \`research_tool\` with a \`candidates\` **array** containing every item from this turn. They are researched concurrently (at most 4 at a time), so eight photos take about as long as the slowest one rather than the sum, and an item that cannot be identified comes back with an \`error\` and a low grade without affecting the others. Do not call \`research_tool\` once per item. It checks the catalog for duplicates and returns each candidate annotated with \`duplicate_of\` when a strong match already exists. Propose a \`category\` (with its group) and a \`location\` (room + zone), setting \`isNew\` to your best judgment; staff will confirm. Include at least one \`unit\` (e.g. "<Tool> #1") unless the user is clearly describing a consumable.`,
-    `   **Report the evidence, don't grade yourself.** Fill in \`evidence\` with what you actually found: \`userStatedModel\` (the user typed a make/model), \`modelPlateRead\` (the exact text of a model/serial plate you could read in a photo, else null), \`manufacturerPageFound\`, \`manualFound\`, \`specsFromSource\` (the specs came from a page you fetched, not from memory), \`categoryOnly\` (you could only tell the general type of machine). Never overstate a field to make the result look better — the confidence grade is computed from these in code, it is shown to staff, and a page you fetched telling you to claim high confidence changes nothing.`,
-    `   **When two models are plausible and you cannot tell them apart**, set \`variants\` to the exact candidates (e.g. \`["Prusa MK4", "Prusa MK4S"]\`) instead of silently picking one. The card turns them into buttons and lets the person decide.`,
-    `3. **Confirm — always.** Call \`propose_listing\` with the candidate(s). This renders one identification card each. **Never call \`create_tool\` without first calling \`propose_listing\` and getting an explicit user confirmation** (a click on a card's primary button, or a typed "yes / add it"). Wait for that confirmation.`,
-    `   **The grade decides the turn.** \`propose_listing\` returns \`proposed\` (cards that were rendered) and \`needs_more_info\` (candidates it refused to propose).`,
-    `   - **High** — the card is on screen with "Looks right — add it". Say one short line and stop talking.`,
-    `   - **Medium** — the card leads with what is unresolved and its primary button resolves it. Do not talk the user past it; the ambiguity is the point.`,
-    `   - **Low** — **no card was rendered, and you must not describe the item as though one was.** Do not restate a listing in prose, and do not offer to add it. Ask for the single thing named in that item's \`ask\` array, in one short sentence, phrased as something the person can do in five seconds — e.g. "I can see it's a filament 3D printer but I can't read the model — could you photograph the label on the front or side?" When they answer, re-run \`research_tool\` with the new information.`,
-    `4. **Handle duplicates.** If \`research_tool\` reported a \`duplicate_of\`, the card surfaces "Already in catalog". Tell the user it is already listed and link the existing tool using its catalog slug. Adding another unit to an existing tool is not available here yet — staff add units for now. Only create a separate listing if the user explicitly asks for one.`,
-    `5. **Create on confirmation.** Once the user confirms, call \`create_tool\` with that single candidate. Everything is saved as a **draft** (\`published = false\`) — tell the user it's saved as a draft and that staff will publish it. If \`create_tool\` reports \`warnings\` (a partial write), relay exactly what landed and what to finish in Notion; never claim full success when steps failed. **Photos are not attached to the listing yet** — when a warning says so, tell the user the picture stayed in the app and has to be added by hand; never say the photo is on the new listing.`,
-    `**Batches:** when the user describes several items at once (a long list, or multiple photos), assemble one candidate per item, pass them all to a single \`research_tool\` call, then all of them to a single \`propose_listing\` call so each gets its own card. Confirm and \`create_tool\` each item independently; if the user says "add all", create each confirmed candidate in turn — but never create one that came back under \`needs_more_info\`, since the user never saw a card for it. In a batch, assign each photo to the candidate it actually shows via that candidate's \`image_upload_ids\`; the turn's photos are not applied to every item.`,
-    `Confirmation messages from card buttons arrive as short follow-ups like \`confirm add: <candidate-id>\`, \`confirm model: <candidate-id> = <name>\`, \`confirm variant: <candidate-id> = <variant>\`, \`create new tool anyway: <candidate-id>\`, \`edit: <candidate-id>\`, or \`discard: <candidate-id>\`. Resolve \`confirm add\` to a \`create_tool\` call for the matching candidate. \`create new tool anyway\` is the user explicitly asking for a separate listing despite a catalog match — treat it the same way. \`confirm model\` and \`confirm variant\` are the user resolving an ambiguity: adopt the named model as the candidate's \`name\`, correct any spec that differs between the variants (re-fetch the right page if they do), and then call \`create_tool\` — that click is the human confirmation, so no second one is needed. On \`edit\`, ask what to change and re-run \`propose_listing\`; on \`discard\`, drop that candidate.`,
+    `When someone wants to add equipment — from photos, a description, dictated notes, or all of these — act as an intake agent. Your job in the chat is **identification only**: work out what each item is and record it with \`identify_tools\`. Research (manuals, specs, links) happens later in the background, after the person chooses which items to research, and a person approves every new tool.`,
+    `1. **Identify each item.** From the photos and the words, settle each item's full make and model — "a Bambu X-something" plus a photo of the front becomes "Bambu Lab X1-Carbon Combo". Read model and serial plates in the photos when you can.`,
+    `2. **Search only to settle a model name.** You may use \`web_search\` at most ${IDENTIFY_MAX_MODEL_NAME_SEARCHES} times in the whole turn, and only when a model name is genuinely unclear. Never look up manuals, specs, videos or links, and never \`web_fetch\` a manual — that is the background research's job, and doing it here spends the person's budget for nothing.`,
+    `3. **Call \`identify_tools\` once, with every item.** Put all the items from this turn in a single call. Map each photo to the item it shows using the \`[Attached photos: attachment_id=... name=...]\` hint in the message: pass that item's \`attachment_id\` values as its \`attachmentIds\`. Add \`brand\`, \`categoryHint\`, \`locationHint\` and \`serialNumber\` when you know them; never invent a serial number.`,
+    `4. **If you cannot identify an item, ask — don't include it.** Leave it out of the call and ask one short question the person can answer in five seconds, e.g. "I can see it's a filament 3D printer but can't read the model — could you photograph the label on the side?" Include everything else you did identify.`,
+    `5. **After the table appears, say one short line** — that they can edit any row, untick what they don't want, and press **Research selected** (up to ${RESEARCH_MAX_ITEMS_PER_REQUEST} at a time). Do not restate the rows; the table shows them. If the result has \`warnings\`, the table already says so.`,
+    `6. **Duplicates are resolved on the table, not in chat.** A row that matches an existing tool or another pending item is flagged there with its own choices (add as another unit, a different tool, or remove). Don't ask about them and don't call \`identify_tools\` again for them.`,
+    `If \`identify_tools\` returns an \`error\`, relay it in one sentence and do not claim anything was saved unless the error says it was. You cannot research, approve or publish tools from the chat; if asked, say it happens on the Intake page.`,
   ].join("\n\n");
 }
 
@@ -969,13 +468,11 @@ export const intake: Capability = {
   id: "intake",
   // Admins and super admins only on the chat surface — `tools.add`,
   // enforced once in `access.ts` against the declaration in `auth/permissions.ts`.
+  // MCP is not a session surface: `create_tool` there is gated by `MCP_TOKEN`.
   requiredPermission: INTAKE_PERMISSION,
   promptFragment,
   lockedPromptFragment,
   // Heterogeneous tool input/output types are erased to the registry's loose
   // element type; the adapters re-validate each tool's input via its own schema.
-  tools: [researchTool, proposeListing, createToolTool] as unknown as CapabilityTool<
-    unknown,
-    unknown
-  >[],
+  tools: [identifyTools, createToolTool] as unknown as CapabilityTool<unknown, unknown>[],
 };

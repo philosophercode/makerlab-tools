@@ -592,7 +592,9 @@ describe("PDF manual collection (focused tool)", () => {
 
 // ── Adding equipment needs `tools.add` (spec §3.5) ───────────────────
 describe("POST /api/chat — who may add equipment", () => {
-  const INTAKE_TOOLS = ["research_tool", "propose_listing", "create_tool"];
+  const INTAKE_TOOLS = ["identify_tools"];
+  /** Gone from the chat: two retired in Phase 6, one moved to MCP only. */
+  const NEVER_IN_CHAT = ["create_tool", "research_tool", "propose_listing"];
   const SECRET = "chat-route-test-secret";
   const ASK = "I'd like to add new equipment to the inventory.";
 
@@ -632,6 +634,16 @@ describe("POST /api/chat — who may add equipment", () => {
     }
     expect(captured.args.system).toContain("act as an intake agent");
     expect(captured.args.system).not.toContain("limited to lab staff");
+  });
+
+  it("never gives even an admin create_tool, research_tool or propose_listing", async () => {
+    // Research is a button and approval is a page (spec §3.6, §5.4); the model
+    // can identify equipment and nothing else.
+    await postAs("admin", "Niti Parikh");
+
+    for (const name of NEVER_IN_CHAT) {
+      expect(captured.args.tools).not.toHaveProperty(name);
+    }
   });
 
   it("keeps reporting a problem open to anonymous visitors", async () => {

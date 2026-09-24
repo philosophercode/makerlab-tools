@@ -116,9 +116,11 @@ project submissions all write to the same PGlite database the reads come from,
 so their tests stub **no Notion environment at all**. Assert by reading the row
 back (`db.select().from(maintenanceLogs)`), not by inspecting a request body.
 
-The only write still on Notion is intake's `create_tool` (Phase 6), which is
-captured at the module boundary rather than over MSW — see the `vi.mock("../notion", …)`
-block at the top of `src/lib/capabilities/intake.test.ts`.
+As of Phase 6 no write is on Notion. Intake's `identify_tools` writes
+`pending_tools` rows and its MCP-only `create_tool` writes a draft tool, both to
+the same PGlite database, so `src/lib/capabilities/intake.test.ts` reads the
+rows back too. The only network either makes is link verification, which is
+stubbed with MSW (`server.use(http.get(…))`) like any other outbound fetch.
 
 **Vercel Blob is never called for real.** Its SDK talks to a signed API and
 would need a token, so it is mocked at the seam `src/lib/blob.ts` exists to

@@ -58,6 +58,32 @@ export const FLAG_FIELDS = [
 ] as const;
 export type FlagField = (typeof FLAG_FIELDS)[number];
 
+/**
+ * Where a pending tool is in the two-step add-tool flow (spec §4.10, §5.4).
+ * Declared in the order an item moves through it: identified in the chat,
+ * queued and researched in the background, then approved or discarded by a
+ * person. `failed` sits beside `researched` because both are the end of one
+ * research run and both can be researched again.
+ */
+export const PENDING_STATUS = [
+  "identified",
+  "queued",
+  "researching",
+  "researched",
+  "failed",
+  "approved",
+  "discarded",
+] as const;
+export type PendingStatus = (typeof PENDING_STATUS)[number];
+
+/**
+ * What the person decided about a pending item the duplicate check matched
+ * (spec §5.4 step 5): a second unit of the matched tool, a different tool after
+ * all, or not worth keeping.
+ */
+export const DUPLICATE_RESOLUTION = ["new_tool", "add_unit", "discard"] as const;
+export type DuplicateResolution = (typeof DUPLICATE_RESOLUTION)[number];
+
 export const ATTACHMENT_OWNER = [
   "tool",
   "resource",

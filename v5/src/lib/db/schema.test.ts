@@ -36,6 +36,7 @@ describe("schema migrations on PGlite", () => {
         "projects",
         "project_tools",
         "audit_events",
+        "pending_tools",
       ])
     );
   });

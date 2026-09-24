@@ -4,6 +4,7 @@ import {
   feedback,
   locations,
   maintenanceLogs,
+  pendingTools,
   projectTools,
   projects,
   resources,
@@ -12,6 +13,7 @@ import {
   units,
   user,
 } from "./schema/index.ts";
+import type { ResearchResult } from "../research/result.ts";
 import type { Db } from "./types.ts";
 
 /**
@@ -105,6 +107,111 @@ export const DEMO_ACCOUNTS = {
     sessionToken: "demo-session-promotable",
   },
 } as const;
+
+/**
+ * Three items waiting in `/admin/intake` (spec §5.4), all owned by the demo
+ * admin, so the review page has something real to show and E2E something to
+ * approve without a model or a workflow in the loop.
+ *
+ * - **Prusa MK4S** — researched, high confidence, one verified manual: the
+ *   happy path, Approve enabled.
+ * - **Unknown Vinyl Cutter** — researched, low confidence and nothing found:
+ *   the §5.4 step 12 gate, Approve disabled until "I've checked this".
+ * - **Glowforge Pro** — identified and never researched: the row a
+ *   deselected item leaves behind.
+ *
+ * None shares a name with a demo tool, so none is born a duplicate. The ids
+ * are constants because tests and E2E address these rows directly; they exist
+ * only in the PGlite substrate, like everything else here.
+ */
+export const DEMO_PENDING = {
+  researched: { id: "6a1f0c3e-0d7b-4c55-9f2a-1b8e7d3c4a01", name: "Prusa MK4S" },
+  lowConfidence: { id: "6a1f0c3e-0d7b-4c55-9f2a-1b8e7d3c4a02", name: "Unknown Vinyl Cutter" },
+  identified: { id: "6a1f0c3e-0d7b-4c55-9f2a-1b8e7d3c4a03", name: "Glowforge Pro" },
+} as const;
+
+/** The batch the two researched items were identified in, and the later one. */
+const DEMO_PENDING_BATCHES = {
+  researched: "7b2e1d4f-1e8c-4d66-8a3b-2c9f8e4d5b01",
+  identified: "7b2e1d4f-1e8c-4d66-8a3b-2c9f8e4d5b02",
+} as const;
+
+/**
+ * The Prusa's research, as the workflow would have written it. `confidence`
+ * is what `scoreConfidence(evidence)` computes — `demo-seed.test.ts` holds
+ * the two to each other, since the seed cannot import the capability layer.
+ */
+export const DEMO_PRUSA_RESEARCH: ResearchResult = {
+  canonicalName: "Original Prusa MK4S",
+  description:
+    "An open-frame FDM 3D printer with a 250 × 210 × 220 mm build volume, automatic bed levelling and an input-shaped motion system.",
+  specs: [
+    { label: "Build volume", value: "250 × 210 × 220 mm" },
+    { label: "Nozzle", value: "0.4 mm (swappable)" },
+  ],
+  materials: ["PLA", "PETG", "ASA", "TPU"],
+  ppeRequired: [],
+  tags: ["3d-printing", "fdm"],
+  trainingRequired: true,
+  useRestrictions: null,
+  category: { name: "FDM", group: "3D Printing", existingId: null },
+  resources: [
+    { title: "Original Prusa MK4S handbook", url: "https://help.prusa3d.com/product/mk4s", type: "Manual" },
+  ],
+  droppedLinks: [],
+  sourceUrls: ["https://www.prusa3d.com/product/original-prusa-mk4s-3d-printer-5/"],
+  evidence: {
+    userStatedModel: true,
+    modelPlateRead: null,
+    manufacturerPageFound: true,
+    manualFound: true,
+    specsFromSource: true,
+    categoryOnly: false,
+  },
+  confidence: {
+    level: "high",
+    basis: [
+      "The user gave the make and model",
+      "Manufacturer or retailer page read",
+      "Manual found",
+      "Specs taken from a page that was read",
+    ],
+    unknowns: [],
+  },
+};
+
+/** The vinyl cutter's research: nothing found, graded low, links invented by nobody. */
+export const DEMO_VINYL_RESEARCH: ResearchResult = {
+  canonicalName: "Vinyl cutter",
+  description: "A desktop vinyl cutter. The make and model could not be identified from the photo.",
+  specs: [],
+  materials: ["Vinyl"],
+  ppeRequired: [],
+  tags: ["cutting"],
+  trainingRequired: null,
+  useRestrictions: null,
+  category: { name: "Vinyl Cutting", group: null, existingId: null },
+  resources: [],
+  droppedLinks: [],
+  sourceUrls: [],
+  evidence: {
+    userStatedModel: false,
+    modelPlateRead: null,
+    manufacturerPageFound: false,
+    manualFound: false,
+    specsFromSource: false,
+    categoryOnly: true,
+  },
+  confidence: {
+    level: "low",
+    basis: [],
+    unknowns: [
+      "The model number could not be read — ask for a photo of the label",
+      "Only the general type of equipment could be identified",
+      "No manufacturer page or manual was found to check against",
+    ],
+  },
+};
 
 /** Far enough out that no demo session expires mid-suite. */
 const DEMO_SESSION_EXPIRES_AT = new Date("2099-01-01T00:00:00.000Z");
@@ -340,6 +447,51 @@ export async function seedDemo(db: Db): Promise<void> {
       .returning({ id: projects.id });
 
     await tx.insert(projectTools).values({ projectId: diceTower.id, toolId: form4.id });
+
+    // Intake (§5.4): two researched items waiting for a decision, one never
+    // sent to research. Owned by the demo admin — `created_by` is required and
+    // references `user.id`, which `seedDemoAccounts` has already inserted.
+    const admin = DEMO_ACCOUNTS.admin;
+    const researchedAt = new Date("2026-03-06T15:00:00.000Z");
+    await tx.insert(pendingTools).values([
+      {
+        id: DEMO_PENDING.researched.id,
+        batchId: DEMO_PENDING_BATCHES.researched,
+        status: "researched",
+        name: DEMO_PENDING.researched.name,
+        brand: "Prusa Research",
+        categoryHint: "3D Printing",
+        research: DEMO_PRUSA_RESEARCH,
+        researchRequestedBy: admin.id,
+        researchRequestedAt: researchedAt,
+        createdBy: admin.id,
+        createdAt: new Date("2026-03-06T14:55:00.000Z"),
+      },
+      {
+        id: DEMO_PENDING.lowConfidence.id,
+        batchId: DEMO_PENDING_BATCHES.researched,
+        status: "researched",
+        name: DEMO_PENDING.lowConfidence.name,
+        categoryHint: "Cutting",
+        research: DEMO_VINYL_RESEARCH,
+        researchRequestedBy: admin.id,
+        researchRequestedAt: researchedAt,
+        createdBy: admin.id,
+        createdAt: new Date("2026-03-06T14:55:00.000Z"),
+      },
+      {
+        id: DEMO_PENDING.identified.id,
+        batchId: DEMO_PENDING_BATCHES.identified,
+        status: "identified",
+        name: DEMO_PENDING.identified.name,
+        brand: "Glowforge",
+        categoryHint: "Laser",
+        createdBy: admin.id,
+        // Left at now(), unlike the others: the daily cron discards anything
+        // identified for 14 days, and a demo row that expired would take the
+        // "waiting on the intake page" case with it.
+      },
+    ]);
   });
 }
 

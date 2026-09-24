@@ -21,8 +21,33 @@ vi.mock("../../../../lib/blob", () => ({
   }),
 }));
 
+/**
+ * A single-shot failure for the pending-expiry stage, so one test can prove
+ * the route's own error handling without touching the database seam every
+ * other test here relies on. Null means "run the real thing".
+ */
+const pendingExpiryOverride = vi.hoisted(() => ({ throwOnce: null as Error | null }));
+
+vi.mock("../../../../lib/cron/pending-expiry", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../../../lib/cron/pending-expiry")>();
+  return {
+    ...actual,
+    runPendingExpiry: (...args: Parameters<typeof actual.runPendingExpiry>) => {
+      if (pendingExpiryOverride.throwOnce) {
+        const error = pendingExpiryOverride.throwOnce;
+        pendingExpiryOverride.throwOnce = null;
+        return Promise.reject(error);
+      }
+      return actual.runPendingExpiry(...args);
+    },
+  };
+});
+
+import { sql } from "drizzle-orm";
 import { getDb, resetDbForTests } from "@/lib/db/client";
-import { attachments, tools } from "@/lib/db/schema/index";
+import { DEMO_ACCOUNTS } from "@/lib/db/demo-seed";
+import { attachments, pendingTools, tools } from "@/lib/db/schema/index";
 import { GET } from "./route";
 
 /**
@@ -40,12 +65,14 @@ beforeEach(async () => {
   vi.stubEnv("ADMIN_REVALIDATE_SECRET", "");
   vi.stubEnv("BLOB_READ_WRITE_TOKEN", "vercel_blob_rw_test");
 
+  pendingExpiryOverride.throwOnce = null;
   blob.configured.value = true;
   blob.put.mockReset().mockResolvedValue({ pathname: "written" });
   blob.list.mockReset().mockResolvedValue([]);
   blob.del.mockReset().mockResolvedValue(undefined);
 
   const db = await getDb();
+  await db.delete(pendingTools);
   await db.delete(attachments);
 });
 
@@ -154,6 +181,79 @@ describe("GET /api/cron/daily — the backup stage", () => {
     expect(res.status).toBe(500);
     expect(body.stage).toBe("backup");
     expect(body.error).toContain("blob down");
+  });
+});
+
+describe("GET /api/cron/daily — the pending-expiry stage", () => {
+  const DAY_MS = 24 * HOUR;
+
+  /** An `identified` pending-tool row with a photo, backdated `ageDays` old. */
+  async function identifiedPending(ageDays: number) {
+    const db = await getDb();
+    const [row] = await db
+      .insert(pendingTools)
+      .values({
+        batchId: crypto.randomUUID(),
+        status: "identified",
+        name: "Glowforge Pro",
+        createdBy: DEMO_ACCOUNTS.admin.id,
+      })
+      .returning({ id: pendingTools.id });
+    await db.execute(
+      sql`update pending_tools set created_at = ${new Date(Date.now() - ageDays * DAY_MS)} where id = ${row.id}`
+    );
+    const [photo] = await db
+      .insert(attachments)
+      .values({
+        blobPathname: `uploads/tool/${crypto.randomUUID()}.png`,
+        access: "public",
+        publicUrl: `https://blob.test/${crypto.randomUUID()}.png`,
+        ownerType: "pending_tool",
+        ownerId: row.id,
+        // Backdated with its item: a photo an abandoned batch has carried for
+        // two weeks is always well past the 24-hour orphan window once
+        // released, which is what lets the sweep below catch it in this same
+        // run rather than a day later.
+        createdAt: new Date(Date.now() - ageDays * DAY_MS),
+      })
+      .returning({ id: attachments.id, blobPathname: attachments.blobPathname });
+    return { pendingId: row.id, photoId: photo.id, blobPathname: photo.blobPathname };
+  }
+
+  it("reports pendingExpiry in the response", async () => {
+    await identifiedPending(15);
+
+    const body = await (await GET(authorized())).json();
+
+    expect(body.ok).toBe(true);
+    expect(body.pendingExpiry).toMatchObject({ discarded: 1, releasedAttachments: 1, abandoned: 0 });
+  });
+
+  it("deletes an expired item's photo blob in the same run", async () => {
+    const { pendingId, photoId, blobPathname } = await identifiedPending(15);
+
+    const body = await (await GET(authorized())).json();
+
+    expect(body.ok).toBe(true);
+    expect(blob.del).toHaveBeenCalledWith([blobPathname]);
+    const db = await getDb();
+    expect(await db.select().from(attachments).where(sql`id = ${photoId}`)).toEqual([]);
+    const [pending] = await db.select().from(pendingTools).where(sql`id = ${pendingId}`);
+    expect(pending.status).toBe("discarded");
+  });
+
+  it("returns 500 with stage 'pendingExpiry' when the stage throws, and still reports the backup", async () => {
+    pendingExpiryOverride.throwOnce = new Error("pending expiry blew up");
+
+    const res = await GET(authorized());
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.stage).toBe("pendingExpiry");
+    // Today's backup already landed — losing the next stage must not erase it
+    // from the report, the same guarantee the cleanup-stage failure gives.
+    expect(body.backup.pathname).toMatch(/^backups\//);
+    expect(body.error).toContain("pending expiry blew up");
   });
 });
 

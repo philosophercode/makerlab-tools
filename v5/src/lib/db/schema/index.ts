@@ -3,8 +3,8 @@
  * group; this module is what `drizzle.config.ts` points at and what
  * `drizzle()` receives as its `schema`, so relational queries see every table.
  *
- * Later phases add `pending_tools` (Phase 6) and the Notion mirror tables
- * (Phase 8), each with its own migration.
+ * `pending_tools` arrived with Phase 6 (migration `0005`); the Notion mirror
+ * tables (Phase 8) are still to come, with their own migration.
  *
  * `auth.ts` is exported first because `helpers.ts` — which every other table
  * uses for `created_by` / `updated_by` — references `user.id`.
@@ -20,3 +20,4 @@ export * from "./maintenance.ts";
 export * from "./feedback.ts";
 export * from "./projects.ts";
 export * from "./audit.ts";
+export * from "./pending-tools.ts";

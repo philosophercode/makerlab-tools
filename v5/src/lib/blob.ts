@@ -1,6 +1,6 @@
 import "server-only";
 
-import { del, list, put } from "@vercel/blob";
+import { copy, del, list, put } from "@vercel/blob";
 
 /**
  * Blob storage — one narrow seam over Vercel Blob (ops hardening design spec
@@ -28,6 +28,10 @@ import { del, list, put } from "@vercel/blob";
  *   `IMG_0001.jpg` must not overwrite each other. Its access is the caller's
  *   decision — a maintenance photo may show a person and stays private, while a
  *   project photo is about to be shown on a public page.
+ *
+ * {@link BlobStore.copyToPublic} is the third, and the only way a private file
+ * becomes public: a copy at a new random pathname (spec §3.3, Phase 6). Access
+ * cannot be changed in place, so the pathname changes with it.
  */
 
 /** A blob as reported by {@link BlobStore.list}. */
@@ -64,6 +68,16 @@ export interface BlobStore {
     file: File,
     access: BlobAccess
   ): Promise<StoredUpload>;
+  /**
+   * Copy an existing blob to a **public**, random pathname under `prefix`,
+   * keeping its file name as the stem. The source is left where it is; the
+   * caller deletes it once the row points at the copy.
+   *
+   * The one way a private upload becomes public: a photo attached in chat is
+   * stored private because it might become a maintenance photo, and one that
+   * lands on a pending tool is about to be shown on a tool page (spec §3.3).
+   */
+  copyToPublic(pathname: string, prefix: string): Promise<StoredUpload>;
   /** Every blob under `prefix`, following pagination to the end. */
   list(prefix: string): Promise<ListedBlob[]>;
   /** Delete by pathname. A no-op when the list is empty. */
@@ -120,6 +134,21 @@ export function getBlobStore(): BlobStore {
       const result = await put(`${prefix}${safeFilename(file.name)}`, file, {
         access,
         contentType: file.type || "application/octet-stream",
+        addRandomSuffix: true,
+      });
+      return { pathname: result.pathname, url: result.url };
+    },
+
+    async copyToPublic(pathname, prefix) {
+      // `copy()` takes the new access among its options, so this is one call
+      // rather than a download and a re-upload. Whether the live store accepts
+      // a *private* source with a *public* destination is not verified — the
+      // SDK's types allow it and its docs neither promise nor forbid it. If it
+      // refuses, the caller counts the photo as failed and it stays private,
+      // which the chat card reports; nothing is marked public on a failure.
+      const basename = pathname.slice(pathname.lastIndexOf("/") + 1);
+      const result = await copy(pathname, `${prefix}${safeFilename(basename)}`, {
+        access: "public",
         addRandomSuffix: true,
       });
       return { pathname: result.pathname, url: result.url };

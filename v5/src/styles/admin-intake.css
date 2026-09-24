@@ -1,0 +1,303 @@
+/*
+ * `/admin/intake` and its preliminary pages (spec §5.4, §6).
+ *
+ * Imported by `IntakeList` and `PreliminaryToolPage`, and nothing else. Every
+ * page here renders inside `.admin-shell`, which supplies the `--td-*` tokens
+ * the borrowed `.td-*` utilities read; the rules below use those and the global
+ * theme tokens only, so light and dark follow without a palette of their own.
+ * The card list, fields and buttons are the shared `.admin-*` rules in
+ * globals.css — this file adds only what intake has and the other queues do
+ * not: batches, a diagnosis, the override box, and a two-column page that
+ * stacks on a phone.
+ */
+
+/* ── The queue ─────────────────────────────────────────────────────── */
+
+.admin-intake-batches {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.admin-intake-batch {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-intake-batch-head {
+  margin: 0;
+  color: var(--on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-intake-row .admin-queue-card-head {
+  align-items: center;
+}
+
+.admin-intake-row .admin-queue-card-head h4 {
+  margin: 0;
+  flex: 1 1 18ch;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.admin-intake-row .admin-queue-card-head h4 a {
+  color: var(--primary);
+}
+
+.admin-intake-status.is-researched {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+.admin-intake-status.is-failed {
+  border-color: var(--secondary);
+  color: var(--secondary);
+}
+
+.admin-intake-status.is-queued,
+.admin-intake-status.is-researching {
+  border-style: dashed;
+}
+
+.admin-intake-duplicate {
+  margin: 0;
+  color: var(--td-warning);
+  font-size: 13px;
+}
+
+/* A diagnosis is read by whoever fixes it, so it keeps its own line breaks
+   and wraps a long URL rather than widening the card. */
+.admin-intake-diagnosis {
+  padding: 10px 12px;
+  border-left: 2px solid var(--secondary);
+  background: var(--surface-container-low);
+}
+
+.admin-intake-diagnosis-label {
+  margin: 0 0 4px;
+  color: var(--secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-intake-diagnosis-text {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.admin-intake-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-intake-controls .admin-row-status {
+  flex-basis: auto;
+}
+
+/* ── The preliminary page ──────────────────────────────────────────── */
+
+.admin-intake-fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.admin-intake-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 20px;
+}
+
+@media (min-width: 900px) {
+  .admin-intake-columns {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.admin-intake-main,
+.admin-intake-side {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.admin-intake-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container);
+}
+
+.admin-intake-panel h3,
+.admin-intake-override h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.admin-intake-hint {
+  margin: 0;
+  color: var(--on-surface-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-intake-identity {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .admin-intake-identity {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  }
+}
+
+/* Low confidence is a request for a person's judgement, not an error —
+   the warning colour, never the danger one (confidence spec §6). */
+.admin-intake-override {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--td-warning);
+  background: var(--surface-container);
+}
+
+.admin-intake-override p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.admin-intake-page .admin-field textarea {
+  width: 100%;
+  resize: vertical;
+}
+
+.admin-intake-resources {
+  margin: 0;
+  padding: 12px;
+  border: 1px solid var(--outline);
+}
+
+.admin-intake-resources legend {
+  padding: 0 4px;
+  color: var(--on-surface-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-intake-resources ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-intake-resources li {
+  flex-wrap: wrap;
+  font-family: var(--font-body);
+  font-size: 14px;
+  letter-spacing: normal;
+  text-transform: none;
+  color: var(--on-surface);
+}
+
+.admin-intake-resources a {
+  color: var(--primary);
+  font-size: 12px;
+}
+
+.admin-intake-photos {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-intake-photos .admin-thumb.is-empty span {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-intake-dropped {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--on-surface-muted);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.admin-intake-decision {
+  align-items: center;
+}
+
+.admin-intake-confirm {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  color: var(--on-surface);
+  font-size: 13px;
+}
+
+.admin-intake-status-line {
+  min-height: 1.4em;
+}
+
+.admin-intake-done {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+}
+
+.admin-intake-done p {
+  margin: 0;
+}
+
+.admin-intake-done a {
+  color: var(--primary);
+}
+
+/* On a phone every button takes the full width, so the decision is not a
+   row of small targets beside the thumb. */
+@media (max-width: 639px) {
+  .admin-intake-decision .admin-button,
+  .admin-intake-controls .admin-button {
+    flex: 1 1 100%;
+  }
+}

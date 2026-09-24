@@ -165,8 +165,9 @@ tool set through the same `CAPABILITIES` registry and `composeChat` that
 test nothing.
 
 **Nothing is ever written.** Every `write` capability tool (`report_issue`,
-`create_tool`) is replaced with a recorded no-op, so the model still sees and can
-still call the same tool surface, but an eval can never create a Notion record.
+`identify_tools`, `report_correction`) is replaced with a recorded no-op, so the
+model still sees and can still call the same tool surface, but an eval can never
+write a row. `create_tool` is MCP-only and never reaches the chat.
 The provider-native `web_search` / `web_fetch` tools the chat route adds are
 omitted — live network, unbounded cost, non-deterministic — so a case must not
 depend on the assistant reading a page.

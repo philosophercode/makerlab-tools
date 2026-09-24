@@ -43,6 +43,7 @@
     "react-dom": "19.2.3",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "workflow": "^4.8.9",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -58,6 +59,7 @@
     "@types/react-dom": "^19",
     "@vitejs/plugin-react": "^6.0.2",
     "@vitest/coverage-v8": "^4.1.8",
+    "@workflow/vitest": "^4.0.25",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",

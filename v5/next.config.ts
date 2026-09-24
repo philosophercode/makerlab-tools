@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { withWorkflow } from "workflow/next";
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
 
@@ -57,4 +58,12 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withNextIntl(nextConfig);
+// The Workflow SDK (spec §3.7) wraps the next-intl-wrapped config: it compiles
+// files marked "use workflow" / "use step" and generates the routes the runtime
+// calls under `src/app/.well-known/workflow/` at build time (ignored by git,
+// ESLint and tsc). The composition — `withWorkflow(withNextIntl(...))` with
+// `cacheComponents` on, under Turbopack — was verified on this exact stack by
+// the 2026-09-22 amendment, which also records why Phase 6 uses the Workflow
+// SDK at all and that `@workflow/world-vercel` is never installed: on Vercel it
+// is selected automatically, and locally runs are kept in a folder on disk.
+export default withWorkflow(withNextIntl(nextConfig));

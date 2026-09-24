@@ -1,10 +1,16 @@
 // @vitest-environment node
 import { and, eq } from "drizzle-orm";
+import { scoreConfidence } from "../capabilities/confidence";
+import { findDuplicate } from "../data/duplicates";
+import { parseResearchResult } from "../research/result";
 import {
   DEMO_ACCOUNTS,
   DEMO_FORM_4_NOTION_PAGE_ID,
   DEMO_FORM_4_UNIT_NOTION_PAGE_ID,
+  DEMO_PENDING,
+  DEMO_PRUSA_RESEARCH,
   DEMO_PROJECT_SLUG,
+  DEMO_VINYL_RESEARCH,
   DEMO_WAITING_PROJECT_SLUG,
   seedDemo,
 } from "./demo-seed";
@@ -13,6 +19,7 @@ import {
   attachments,
   feedback,
   maintenanceLogs,
+  pendingTools,
   projectTools,
   projects,
   resources,
@@ -136,6 +143,37 @@ describe("seedDemo", () => {
     // Article 5: it waits for a person, so the gallery cannot see it.
     expect(waiting.published).toBe(false);
     expect(waiting.publishedAt).toBeNull();
+  });
+
+  it("leaves three items on the intake page, owned by the admin (spec §5.4)", async () => {
+    const db = await createPgliteDb({ seed: seedDemo });
+
+    const rows = await db.select().from(pendingTools);
+    expect(Object.fromEntries(rows.map((row) => [row.id, [row.name, row.status]]))).toEqual({
+      [DEMO_PENDING.researched.id]: ["Prusa MK4S", "researched"],
+      [DEMO_PENDING.lowConfidence.id]: ["Unknown Vinyl Cutter", "researched"],
+      [DEMO_PENDING.identified.id]: ["Glowforge Pro", "identified"],
+    });
+    expect(rows.every((row) => row.createdBy === DEMO_ACCOUNTS.admin.id)).toBe(true);
+
+    const byId = new Map(rows.map((row) => [row.id, row]));
+    const prusa = parseResearchResult(byId.get(DEMO_PENDING.researched.id)?.research);
+    const vinyl = parseResearchResult(byId.get(DEMO_PENDING.lowConfidence.id)?.research);
+    expect(prusa?.confidence.level).toBe("high");
+    expect(prusa?.resources.map((resource) => resource.url.startsWith("https://"))).toEqual([true]);
+    expect(vinyl?.confidence.level).toBe("low");
+    expect(vinyl?.resources).toEqual([]);
+    expect(byId.get(DEMO_PENDING.identified.id)?.research).toBeNull();
+
+    // None of them is born a duplicate of a demo tool.
+    for (const row of rows) {
+      expect(await findDuplicate({ name: row.name, brand: row.brand }, { db, excludePendingIds: rows.map((r) => r.id) })).toBeNull();
+    }
+  });
+
+  it("grades the seeded research exactly as research would (confidence is computed, never written)", () => {
+    expect(DEMO_PRUSA_RESEARCH.confidence).toEqual(scoreConfidence(DEMO_PRUSA_RESEARCH.evidence));
+    expect(DEMO_VINYL_RESEARCH.confidence).toEqual(scoreConfidence(DEMO_VINYL_RESEARCH.evidence));
   });
 
   it("is idempotent", async () => {

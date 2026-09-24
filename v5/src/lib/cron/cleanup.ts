@@ -24,8 +24,12 @@ import type { Db } from "../db/types";
  * on a page; a blob without a row is invisible and gets swept on the next run.
  * Of the two half-failures, the second is the one to prefer.
  *
- * Pending-tool cleanup (§4.10) is deliberately not here: that table has no
- * writer until Phase 6, so a sweep of it would be code guarding nothing.
+ * **Pending-tool cleanup (§4.10) is not here, but its bytes end up here.**
+ * `runPendingExpiry` (`pending-expiry.ts`), run just before this stage in
+ * `/api/cron/daily`, discards items abandoned in `identified` and releases
+ * their photos — which is exactly the unowned shape this sweep already
+ * collects. A pending item's picture is deleted by this function, on the same
+ * run that released it, without this module knowing `pending_tools` exists.
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
