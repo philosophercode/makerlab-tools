@@ -1,6 +1,7 @@
 import { catalog } from "./catalog";
 import { units } from "./units";
 import { web } from "./web";
+import { manuals } from "./manuals";
 import { maintenance } from "./maintenance";
 import { intake } from "./intake";
 import { flags } from "./flags";
@@ -21,6 +22,9 @@ import type { Capability } from "./types";
  *                    only), and the prompt for web search (`exa_search`,
  *                    which the chat route adds beside the registry). Placed
  *                    before intake, whose prompt limits that search.
+ *  - `manuals`     — `search_manual`: hybrid search over processed manual
+ *                    passages, with page citations (manual text spec §3.6);
+ *                    on MCP too, public manuals only.
  *  - `maintenance` — file maintenance tickets (write).
  *  - `intake`      — `identify_tools` records equipment as pending rows (chat
  *                    only; research and approval happen off the chat), and
@@ -33,10 +37,10 @@ import type { Capability } from "./types";
  * This module is the canonical import for everything in the capabilities layer:
  * the registry itself, the two adapters, and the shared contract types.
  */
-export const CAPABILITIES: Capability[] = [catalog, units, web, maintenance, intake, flags];
+export const CAPABILITIES: Capability[] = [catalog, units, web, manuals, maintenance, intake, flags];
 
 // Re-export the individual capabilities for direct/selective use and testing.
-export { catalog, units, web, maintenance, intake, flags };
+export { catalog, units, web, manuals, maintenance, intake, flags };
 
 // Re-export the surface adapters so consumers import from one place.
 export {

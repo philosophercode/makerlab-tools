@@ -9,10 +9,10 @@ import { eq } from "drizzle-orm";
 import { resetAuthForTests } from "../../../lib/auth/config";
 import { readToolRevision } from "../../../lib/data/tools";
 import { getDb, resetDbForTests } from "../../../lib/db/client";
-import { attachments, resources, session, tools, user } from "../../../lib/db/schema/index";
+import { attachments, manualDocuments, resources, session, tools, user } from "../../../lib/db/schema/index";
 import type { Db } from "../../../lib/db/types";
 import { signInAsNew } from "../../../../test/utils/session";
-import { addResource, editResource, removeResource } from "./resource-actions";
+import { addResource, editResource, removeResource, reprocessManual } from "./resource-actions";
 
 /**
  * The Resources section's endpoints (spec §5.3(3), §4.6).
@@ -232,4 +232,69 @@ it("will not touch a resource belonging to another tool", async () => {
     })
   ).toEqual({ ok: false, error: "not_found" });
   expect(await db.select().from(resources)).toHaveLength(1);
+});
+
+describe("reprocessManual (manual text spec §5)", () => {
+  async function storedManual(onTool = toolId) {
+    const [resource] = await db
+      .insert(resources)
+      .values({ toolId: onTool, title: "Form 4 manual", type: "Manual" })
+      .returning({ id: resources.id });
+    const [attachment] = await db
+      .insert(attachments)
+      .values({
+        ownerType: "resource",
+        ownerId: resource.id,
+        blobPathname: "resources/manual.pdf",
+        access: "public",
+        publicUrl: "https://blob.test/manual.pdf",
+        contentType: "application/pdf",
+      })
+      .returning({ id: attachments.id });
+    const [doc] = await db
+      .insert(manualDocuments)
+      .values({
+        attachmentId: attachment.id,
+        toolId: onTool,
+        title: "Form 4 manual",
+        status: "ready",
+        extractorVersion: "unpdf-1/extract-2",
+        chunkerVersion: "chunk-2",
+        embeddingModel: "openai/text-embedding-3-small@512",
+        processedAt: new Date(),
+      })
+      .returning({ id: manualDocuments.id });
+    return { resourceId: resource.id, documentId: doc.id };
+  }
+
+  it("refuses an anonymous caller and changes nothing", async () => {
+    const { resourceId, documentId } = await storedManual();
+    expect(await reprocessManual({ toolId, expectedRevision: await revision(), resourceId })).toEqual({
+      ok: false,
+      error: "not_signed_in",
+    });
+    const [doc] = await db.select().from(manualDocuments).where(eq(manualDocuments.id, documentId));
+    expect(doc.extractorVersion).toBe("unpdf-1/extract-2");
+  });
+
+  it("marks the manual for re-processing, keeps the panel's revision, and leaves the tool untouched", async () => {
+    await asSuperMaker();
+    const { resourceId, documentId } = await storedManual();
+    const before = await revision();
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(await reprocessManual({ toolId, expectedRevision: before, resourceId })).toEqual({ ok: true, revision: before });
+    expect(await revision()).toBe(before);
+    const [doc] = await db.select().from(manualDocuments).where(eq(manualDocuments.id, documentId));
+    expect(doc).toMatchObject({ extractorVersion: "reprocess", chunkerVersion: null, embeddingModel: null });
+  });
+
+  it("will not re-process a resource of another tool", async () => {
+    await asSuperMaker();
+    const [other] = await db.insert(tools).values({ slug: "trotec", name: "Trotec" }).returning({ id: tools.id });
+    const { resourceId } = await storedManual(other.id);
+    expect(await reprocessManual({ toolId, expectedRevision: await revision(), resourceId })).toEqual({
+      ok: false,
+      error: "not_found",
+    });
+  });
 });

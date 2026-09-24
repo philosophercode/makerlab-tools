@@ -491,6 +491,22 @@ describe("ChatFab — pending tool-call status", () => {
     expect(screen.getByText("🔍 Searching the web…")).toBeInTheDocument();
   });
 
+  it("names the machine while search_manual runs, and stays generic when the tool is preset", async () => {
+    await openWith([
+      {
+        id: "a1",
+        role: "assistant" as const,
+        parts: [{ type: "tool-search_manual", state: "input-available", input: { query: "resin tank", tool: "Form 4" } }],
+      } as unknown as UseChatReturn["messages"][number],
+    ]);
+    expect(screen.getByText("📖 Searching the Form 4 manual…")).toBeInTheDocument();
+  });
+
+  it("shows the generic manual label when search_manual names no machine", async () => {
+    await openWith([toolMsg("a1", "tool-search_manual")]);
+    expect(screen.getByText("📖 Searching the manual…")).toBeInTheDocument();
+  });
+
   it("shows the reading label for a pending read_page call", async () => {
     await openWith([toolMsg("a1", "tool-read_page")]);
     expect(screen.getByText("📄 Reading the page…")).toBeInTheDocument();

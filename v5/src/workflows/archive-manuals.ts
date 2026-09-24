@@ -25,7 +25,15 @@ import {
  */
 export async function archiveManuals(resourceIds: string[]): Promise<ManualArchiveCounts> {
   "use workflow";
-  const counts: ManualArchiveCounts = { archived: 0, skipped: 0, failed: 0, indexed: 0, indexFailed: 0 };
+  const counts: ManualArchiveCounts = {
+    archived: 0,
+    skipped: 0,
+    failed: 0,
+    indexed: 0,
+    indexFailed: 0,
+    passagesBuilt: 0,
+    passagesFailed: 0,
+  };
   for (const id of resourceIds) {
     let archived: Awaited<ReturnType<typeof archiveManualStep>> | null = null;
     try {
@@ -40,6 +48,8 @@ export async function archiveManuals(resourceIds: string[]): Promise<ManualArchi
       for (const outcome of await indexManualStep(id)) {
         if (outcome.status === "indexed") counts.indexed += 1;
         else if (outcome.status === "failed") counts.indexFailed += 1;
+        if (outcome.status !== "failed" && outcome.passages?.status === "built") counts.passagesBuilt += 1;
+        if (outcome.status !== "failed" && outcome.passages?.status === "failed") counts.passagesFailed += 1;
       }
     } catch {
       counts.indexFailed += 1;

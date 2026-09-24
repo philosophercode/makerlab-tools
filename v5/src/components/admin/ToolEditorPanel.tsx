@@ -406,6 +406,11 @@ export function ToolEditorPanel({
               refresh: true,
             })
           }
+          onReprocess={(resourceId) =>
+            void run((token) => actions.reprocessManual({ ...args(tool.id, token), resourceId }), {
+              refresh: true,
+            })
+          }
         />
       </section>
 

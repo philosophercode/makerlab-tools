@@ -50,6 +50,7 @@ describe("MODEL_JOBS", () => {
       "MODEL_RESEARCH_SEARCH",
       "MODEL_RESEARCH_READ",
       "MODEL_IMAGE_RANK",
+      "MODEL_EMBED",
     ]);
     for (const job of JOBS) expect(MODEL_JOBS[job].default).toMatch(GATEWAY_MODEL_ID_PATTERN);
   });

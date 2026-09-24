@@ -38,7 +38,15 @@ function safeDecode(segment: string): string {
   }
 }
 
-function toolStatusLabel(partType: string, t: ChatT): string {
+function toolStatusLabel(partType: string, t: ChatT, input?: unknown): string {
+  if (partType === "tool-search_manual") {
+    // The machine the model named, when it named one; on a tool's page it
+    // usually does not (that tool is preset), and the line stays generic.
+    const tool = (input as { tool?: unknown } | undefined)?.tool;
+    return typeof tool === "string" && tool.trim()
+      ? t("searchingManual", { tool: tool.trim().slice(0, 60) })
+      : t("searchingManuals");
+  }
   if (partType === "tool-get_unit_details") return t("lookingUpUnit");
   if (partType === "tool-report_issue") return t("filingTicket");
   if (partType === "tool-identify_tools") return t("identifyingEquipment");
@@ -695,7 +703,7 @@ export function ChatFab() {
                       >
                         {textParts.length === 0 && !hasCard && pendingTool ? (
                           <p className="chat-reading" aria-label={t("toolRunningAria")}>
-                            {toolStatusLabel(pendingTool.type, t)}
+                            {toolStatusLabel(pendingTool.type, t, (pendingTool as { input?: unknown }).input)}
                           </p>
                         ) : null}
                         {textParts.map((part, index) =>

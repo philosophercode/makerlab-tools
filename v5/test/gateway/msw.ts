@@ -1,7 +1,11 @@
 import { http, HttpResponse } from "msw";
 import {
+  EMBEDDING_MODEL_PATH,
   GATEWAY_DEFAULT_BASE_URL,
   IMAGE_MODEL_PATH,
+  parseEmbeddingRequest,
+  type ParsedEmbeddingRequest,
+  type WireEmbeddingBody,
   LANGUAGE_MODEL_PATH,
   fromStreamParts,
   isWireError,
@@ -45,9 +49,13 @@ import {
 export type LanguageReply = WireLanguageBody | WireStreamPart[] | WireError;
 export type ImageReply = WireImageBody | WireError;
 
+export type EmbeddingReply = WireEmbeddingBody | WireError;
+
 export interface GatewayStubs {
   language?: (req: ParsedLanguageRequest, callIndex: number) => LanguageReply | Promise<LanguageReply>;
   image?: (req: ParsedImageRequest, callIndex: number) => ImageReply | Promise<ImageReply>;
+  /** Job `embed` (manual passages and queries). */
+  embedding?: (req: ParsedEmbeddingRequest, callIndex: number) => EmbeddingReply | Promise<EmbeddingReply>;
 }
 
 export function gatewayHandlers(stubs: GatewayStubs, baseUrl: string = GATEWAY_DEFAULT_BASE_URL) {
@@ -79,6 +87,19 @@ export function gatewayHandlers(stubs: GatewayStubs, baseUrl: string = GATEWAY_D
     handlers.push(
       http.post(`${base}${IMAGE_MODEL_PATH}`, async ({ request }) => {
         const req = parseImageRequest(request.headers, await request.json());
+        const reply = await answer(req, calls++);
+        if (isWireError(reply)) return HttpResponse.json(reply.body, { status: reply.status, headers: reply.headers });
+        return HttpResponse.json(reply);
+      })
+    );
+  }
+
+  if (stubs.embedding) {
+    const answer = stubs.embedding;
+    let calls = 0;
+    handlers.push(
+      http.post(`${base}${EMBEDDING_MODEL_PATH}`, async ({ request }) => {
+        const req = parseEmbeddingRequest(request.headers, await request.json());
         const reply = await answer(req, calls++);
         if (isWireError(reply)) return HttpResponse.json(reply.body, { status: reply.status, headers: reply.headers });
         return HttpResponse.json(reply);

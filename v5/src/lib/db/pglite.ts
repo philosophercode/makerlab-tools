@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { PGlite } from "@electric-sql/pglite";
 import { pg_trgm } from "@electric-sql/pglite/contrib/pg_trgm";
+import { vector } from "@electric-sql/pglite-pgvector";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import * as schema from "./schema/index.ts";
@@ -17,13 +18,21 @@ import { acquirePgliteLock, releasePgliteLock } from "./pglite-lock.ts";
  * An in-memory instance starts empty and runs the same committed migrations Neon
  * runs, so a schema mistake shows up in a unit test before it reaches a deploy.
  */
+/**
+ * The extensions every PGlite instance loads: `pg_trgm` (the duplicate check,
+ * migration 0000) and pgvector (`vector`, manual passages' embeddings,
+ * migration 0011 — manual text spec §4). Neon ships both; PGlite has to be
+ * handed them at construction, before the migrations' `CREATE EXTENSION`.
+ */
+export const PGLITE_EXTENSIONS = { pg_trgm, vector };
+
 export interface PgliteOptions {
   /** Runs once, after migrations, on a fresh database. */
   seed?: (db: Db) => Promise<void>;
 }
 
 export async function createPgliteDb(options: PgliteOptions = {}): Promise<Db> {
-  const client = new PGlite({ extensions: { pg_trgm } });
+  const client = new PGlite({ extensions: PGLITE_EXTENSIONS });
   const db = drizzle(client, { schema });
   await migrate(db, { migrationsFolder: migrationsFolder() });
   if (options.seed) await options.seed(db);
@@ -48,7 +57,7 @@ export interface PersistentPglite {
 export async function openPersistentPglite(dir: string): Promise<PersistentPglite> {
   acquirePgliteLock(dir);
   try {
-    const client = new PGlite({ dataDir: join(dir, "pgdata"), extensions: { pg_trgm } });
+    const client = new PGlite({ dataDir: join(dir, "pgdata"), extensions: PGLITE_EXTENSIONS });
     const db = drizzle(client, { schema });
     await migrate(db, { migrationsFolder: migrationsFolder() });
     return {

@@ -15,6 +15,8 @@ import type { EvalFixture, EvalFixtureTool } from "./fixtures";
  * | `contains_all` / `not_contains_any` | Literal substrings |
  * | `no_fabricated_specs` | Numbers attributed to named fields match the fixture |
  * | `cites_resource` | The answer references one of the machine's documents |
+ * | `cites_page` | The answer cites a manual page: a `#page=N` link or "p. N" (N = `value` when given) |
+ * | `says_not_covered` | The answer says the manual does not cover the question |
  *
  * `no_unknown_tools` and `no_fabricated_specs` are the two that matter — they
  * are the direct test of "grounded, never fabricated," which is the whole
@@ -30,6 +32,8 @@ export const ASSERTION_KINDS = [
   "not_contains_any",
   "no_fabricated_specs",
   "cites_resource",
+  "cites_page",
+  "says_not_covered",
 ] as const;
 
 export type AssertionKind = (typeof ASSERTION_KINDS)[number];
@@ -421,5 +425,60 @@ export function runAssertion(spec: AssertionSpec, input: AssertionInput): Assert
         citesResource(text, fixture, toolId, value)
       );
     }
+    case "cites_page": {
+      const value = spec.value === undefined ? undefined : asString(spec.value);
+      return outcome(value ? `the answer cites page ${value}` : "the answer cites a manual page", citesPage(text, value));
+    }
+    case "says_not_covered":
+      return outcome("the answer says the manual does not cover it", saysNotCovered(text));
   }
+}
+
+/**
+ * A page citation (manual text spec §3.6): a link whose URL ends `#page=N`,
+ * or "p. N" / "page N" in the text. With `page`, N must be that page.
+ */
+export function citesPage(text: string, page?: string): Check {
+  const pages = [
+    ...[...text.matchAll(/#page=(\d+)/g)].map((m) => m[1]),
+    ...[...text.matchAll(/\b(?:p|pp|page)\.?\s*(\d+)/gi)].map((m) => m[1]),
+  ];
+  if (pages.length === 0) return { ok: false, detail: "no page citation (#page=N or p. N) in the answer" };
+  if (page && !pages.includes(page)) {
+    return { ok: false, detail: `cites page(s) ${[...new Set(pages)].join(", ")}, not ${page}` };
+  }
+  return { ok: true };
+}
+
+/** Phrases that say the manual has no answer — the honest-absence rule for manuals. */
+const NOT_COVERED_CUES = [
+  "doesn't cover",
+  "does not cover",
+  "don't cover",
+  "not covered",
+  "doesn't mention",
+  "does not mention",
+  "doesn't say",
+  "does not say",
+  "doesn't include",
+  "does not include",
+  "doesn't specify",
+  "does not specify",
+  "doesn't address",
+  "does not address",
+  "not in the manual",
+  "no information",
+  "couldn't find",
+  "could not find",
+  "didn't find",
+  "did not find",
+  "isn't in",
+  "is not in",
+];
+
+export function saysNotCovered(text: string): Check {
+  const normal = normalize(text);
+  return NOT_COVERED_CUES.some((cue) => normal.includes(cue))
+    ? { ok: true }
+    : { ok: false, detail: "the answer never says the manual does not cover it", excerpt: text.slice(0, 200) };
 }

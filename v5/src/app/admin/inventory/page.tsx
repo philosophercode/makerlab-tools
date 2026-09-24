@@ -21,7 +21,7 @@ import {
   unpublish,
 } from "./actions";
 import { attachPhotos, removePhoto, reorderPhotos } from "./photo-actions";
-import { addResource, editResource, removeResource } from "./resource-actions";
+import { addResource, editResource, removeResource, reprocessManual } from "./resource-actions";
 import { addUnit, deleteUnit, editUnit, retireUnit } from "./unit-actions";
 
 /**
@@ -67,6 +67,7 @@ const EDITOR_ACTIONS: ToolEditorActions = {
   addResource,
   editResource,
   removeResource,
+  reprocessManual,
   attachPhotos,
   reorderPhotos,
   removePhoto,

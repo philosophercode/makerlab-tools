@@ -35,6 +35,7 @@ import { AdminActions } from "../../components/admin/AdminActions";
 const SURFACES: ReadonlyArray<{ href: string; permission: Permission; key: string }> = [
   { href: "/admin/inventory", permission: "tools.edit", key: "inventory" },
   { href: "/admin/intake", permission: "tools.approve", key: "intake" },
+  { href: "/admin/research", permission: "tools.edit", key: "research" },
   { href: "/admin/maintenance", permission: "maintenance.manage", key: "maintenance" },
   { href: "/admin/corrections", permission: "feedback.manage", key: "corrections" },
   { href: "/admin/projects", permission: "projects.moderate", key: "projects" },

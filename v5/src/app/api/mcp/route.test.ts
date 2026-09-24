@@ -212,7 +212,7 @@ describe("JSON-RPC protocol", () => {
     expect(json.result.serverInfo.version).toBe("1.0.0");
   });
 
-  it("tools/list lists exactly the 5 registered tools", async () => {
+  it("tools/list lists exactly the 6 registered tools", async () => {
     const { json } = await callRpc("tools/list");
     const names = (json.result.tools as Array<{ name: string }>)
       .map((t) => t.name)
@@ -224,6 +224,7 @@ describe("JSON-RPC protocol", () => {
         "get_unit_details",
         "list_tools",
         "search_tools",
+        "search_manual",
       ].sort()
     );
   });

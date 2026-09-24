@@ -33,6 +33,31 @@
 export const GATEWAY_DEFAULT_BASE_URL = "https://ai-gateway.vercel.sh/v3/ai";
 export const LANGUAGE_MODEL_PATH = "/language-model";
 export const IMAGE_MODEL_PATH = "/image-model";
+/** The embedding endpoint (`GatewayEmbeddingModel`): `{ values, providerOptions? }` in, `{ embeddings, usage, providerMetadata }` out. */
+export const EMBEDDING_MODEL_PATH = "/embedding-model";
+
+/** An embedding request as the Gateway receives it. */
+export interface ParsedEmbeddingRequest {
+  modelId: string | null;
+  values: string[];
+  providerOptions: Record<string, unknown> | undefined;
+}
+
+export function parseEmbeddingRequest(headers: HeadersLike, body: unknown): ParsedEmbeddingRequest {
+  const record = (typeof body === "object" && body !== null ? body : {}) as Record<string, unknown>;
+  return {
+    modelId: header(headers, "ai-model-id") ?? null,
+    values: Array.isArray(record.values) ? record.values.map(String) : [],
+    providerOptions: record.providerOptions as Record<string, unknown> | undefined,
+  };
+}
+
+/** The Gateway's embedding response body. */
+export interface WireEmbeddingBody {
+  embeddings: number[][];
+  usage?: { tokens: number };
+  providerMetadata?: { gateway?: { cost?: string } };
+}
 
 // ── Requests ──────────────────────────────────────────────────────────
 

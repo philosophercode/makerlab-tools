@@ -4,9 +4,11 @@ import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { http, HttpResponse } from "msw";
 import { start } from "workflow/api";
+import { gatewayHandlers } from "../../test/gateway/msw";
 import { server } from "../../test/msw/server";
 import { getDb, resetDbForTests } from "../lib/db/client";
-import { manualDocuments, manualPages, resources, tools } from "../lib/db/schema/index";
+import { manualChunks, manualDocuments, manualPages, resources, tools } from "../lib/db/schema/index";
+import { CHUNKER_VERSION } from "../lib/manuals/chunk";
 import { archiveManuals } from "./archive-manuals";
 
 /**
@@ -35,8 +37,28 @@ describe("archiveManuals (in process)", () => {
     vi.stubEnv("BLOB_LOCAL_DIR", mkdtempSync(join(tmpdir(), "archive-manuals-wf-")));
     for (const method of ["info", "warn"] as const) vi.spyOn(console, method).mockImplementation(() => {});
 
+    vi.stubEnv("AI_GATEWAY_API_KEY", "test-gateway-key");
+    vi.stubEnv("MODEL_EMBED", "");
+
     const pdf = new Uint8Array(readFileSync(join(process.cwd(), "test/fixtures/manuals/outline.pdf")));
-    server.use(http.get(LINK, () => HttpResponse.arrayBuffer(pdf.slice().buffer, { headers: { "content-type": "application/pdf" } })));
+    // Phase 2: the index step embeds the passages through the Gateway (job
+    // `embed`), stubbed at its wire format — `vi.mock` does not reach step code.
+    const embedded: string[][] = [];
+    server.use(
+      http.get(LINK, () => HttpResponse.arrayBuffer(pdf.slice().buffer, { headers: { "content-type": "application/pdf" } })),
+      ...gatewayHandlers({
+        embedding: (req) => {
+          embedded.push(req.values);
+          expect(req.modelId).toBe("openai/text-embedding-3-small");
+          expect(req.providerOptions).toEqual({ openai: { dimensions: 512 } });
+          return {
+            embeddings: req.values.map((_, i) => Array.from({ length: 512 }, (_, d) => (d === i % 512 ? 1 : 0))),
+            usage: { tokens: 10 * req.values.length },
+            providerMetadata: { gateway: { cost: "0.00001" } },
+          };
+        },
+      })
+    );
 
     const db = await getDb();
     const [tool] = await db.select({ id: tools.id }).from(tools).limit(1);
@@ -46,15 +68,27 @@ describe("archiveManuals (in process)", () => {
       .returning({ id: resources.id });
 
     const first = await (await start(archiveManuals, [[resource.id]])).returnValue;
-    expect(first).toEqual({ archived: 1, skipped: 0, failed: 0, indexed: 1, indexFailed: 0 });
+    expect(first).toEqual({ archived: 1, skipped: 0, failed: 0, indexed: 1, indexFailed: 0, passagesBuilt: 1, passagesFailed: 0 });
 
     const docs = await db.select().from(manualDocuments).where(eq(manualDocuments.toolId, tool.id));
     expect(docs).toHaveLength(1);
-    expect(docs[0]).toMatchObject({ title: "Acme Laser 40 manual", status: "ready", pageCount: 4, outlineSource: "pdf" });
+    expect(docs[0]).toMatchObject({
+      title: "Acme Laser 40 manual",
+      status: "ready",
+      pageCount: 4,
+      outlineSource: "pdf",
+      chunkerVersion: CHUNKER_VERSION,
+      embeddingModel: "openai/text-embedding-3-small@512",
+    });
     expect(await db.select().from(manualPages).where(eq(manualPages.documentId, docs[0].id))).toHaveLength(4);
+    const chunks = await db.select().from(manualChunks).where(eq(manualChunks.documentId, docs[0].id));
+    expect(chunks.length).toBeGreaterThan(0);
+    expect(embedded.flat()).toHaveLength(chunks.length);
 
     const second = await (await start(archiveManuals, [[resource.id]])).returnValue;
-    expect(second).toEqual({ archived: 0, skipped: 1, failed: 0, indexed: 0, indexFailed: 0 });
+    expect(second).toEqual({ archived: 0, skipped: 1, failed: 0, indexed: 0, indexFailed: 0, passagesBuilt: 0, passagesFailed: 0 });
     expect(await db.select().from(manualDocuments).where(eq(manualDocuments.toolId, tool.id))).toHaveLength(1);
+    // Idempotent: nothing embedded twice.
+    expect(embedded.flat()).toHaveLength(chunks.length);
   });
 });

@@ -78,6 +78,13 @@
       "when": 1790210242460,
       "tag": "0010_manual_text",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1790213240286,
+      "tag": "0011_manual_chunks",
+      "breakpoints": true
     }
   ]
 }

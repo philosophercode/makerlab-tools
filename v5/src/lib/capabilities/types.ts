@@ -142,6 +142,21 @@ export interface PromptEnv {
    * (auth spec §8).
    */
   identity?: Identity;
+  /**
+   * The focused tool's **searchable** manuals with their outlines (manual text
+   * spec §3.6) — loaded by the surface (the chat route reads the database), so
+   * the `manuals` fragment can list their contents without a query of its own.
+   */
+  manualOutlines?: ManualOutlineForPrompt[];
+}
+
+/** One searchable manual of the focused tool, as the prompt lists it. */
+export interface ManualOutlineForPrompt {
+  title: string;
+  pageCount: number | null;
+  /** The stored PDF's public URL; null for a staff-only file. */
+  pdfUrl: string | null;
+  outline: { title: string; page: number; level: number }[];
 }
 
 /**

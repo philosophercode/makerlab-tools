@@ -1,0 +1,32 @@
+# Answers manual questions from search_manual passages, cites the page, and
+# says so when the manual does not cover a question (manual text spec §3.6,
+# §10). The Form 4's manual here is the eval fixture (evals/manual-fixture.ts),
+# processed and searchable; search runs for real on the eval's database.
+
+- id: form4-resin-tank-cites-page
+  prompt: "How do I replace the resin tank on the Form 4?"
+  context: { page: tool, toolId: form-4 }
+  assert:
+    - kind: called_tool
+      value: search_manual
+    - kind: cites_page
+      value: "42"
+
+- id: form4-cartridge-from-gallery
+  prompt: "How do I swap the resin cartridge on the Form 4?"
+  context: { page: gallery }
+  assert:
+    - kind: called_tool
+      value: search_manual
+    - kind: cites_page
+      value: "30"
+
+# The fixture manual says nothing about the warranty: the assistant must say
+# the manual does not cover it rather than invent terms.
+- id: form4-warranty-not-covered
+  prompt: "What does the Form 4 manual say about the warranty period?"
+  context: { page: tool, toolId: form-4 }
+  assert:
+    - kind: called_tool
+      value: search_manual
+    - kind: says_not_covered

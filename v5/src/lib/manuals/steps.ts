@@ -47,7 +47,7 @@ archiveManualStep.maxRetries = MANUAL_STEP_MAX_RETRIES;
 
 /**
  * Process the resource's stored PDFs into text (manual text spec §3.1, phase
- * 1) — `index-document.ts`. Runs after {@link archiveManualStep} in the same
+ * 1) and search passages (phase 2) — `index-document.ts`, `passages.ts`. Runs after {@link archiveManualStep} in the same
  * workflow, whatever the archive came to short of a failure, so it also picks
  * up a PDF staff uploaded (`has_file`) or one archived on an earlier run.
  *
@@ -73,17 +73,32 @@ export async function indexManualStep(resourceId: string): Promise<IndexManualOu
       retryAfter: RETRY_AFTER,
     });
   }
+  // Phase 2: a passage embedding the Gateway could not do this minute (rate
+  // limit, a provider's bad minute, a timeout). The text is already stored, so
+  // the retry skips extraction and embeds again; after the last retry the
+  // document stays text-only until the next run or the backfill.
+  if (outcomes.some((outcome) => outcome.status !== "failed" && outcome.passages?.status === "failed" && outcome.passages.transient)) {
+    throw new RetryableError(`Manual index: passages could not be embedded for resource ${resourceId}.`, {
+      retryAfter: RETRY_AFTER,
+    });
+  }
   return outcomes;
 }
 indexManualStep.maxRetries = MANUAL_STEP_MAX_RETRIES;
 
-/** What one archive run came to. `indexed` counts PDFs processed into text; `indexFailed` those that could not be. */
+/**
+ * What one archive run came to. `indexed` counts PDFs processed into text;
+ * `indexFailed` those that could not be; `passagesBuilt` / `passagesFailed`
+ * the documents whose search passages were (not) built on this run.
+ */
 export interface ManualArchiveCounts {
   archived: number;
   skipped: number;
   failed: number;
   indexed: number;
   indexFailed: number;
+  passagesBuilt: number;
+  passagesFailed: number;
 }
 
 /** The run is done: one line of counts. */
@@ -91,6 +106,7 @@ export async function finishManualArchive(counts: ManualArchiveCounts): Promise<
   "use step";
   console.info(
     `[manuals] archive run finished: archived=${counts.archived} skipped=${counts.skipped} failed=${counts.failed}` +
-      ` indexed=${counts.indexed} index_failed=${counts.indexFailed}`
+      ` indexed=${counts.indexed} index_failed=${counts.indexFailed}` +
+      ` passages_built=${counts.passagesBuilt} passages_failed=${counts.passagesFailed}`
   );
 }

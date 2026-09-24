@@ -417,3 +417,159 @@ this network (connection timeout), so the X2D manual could not be extracted here
 remains the fallback there. Form 4 (`.livecheck/x2d-manual.ts form4`): the manual PDF was read,
 extracted (outline of 16 chapters plus spec-rich pages, 15.8k chars) and given as text; read
 cost $0.0011 (flex), `manualFound` true, 28 specs.
+
+### 2026-09-23 — Phase 2 built: search (§3.3–3.6, §4, §5, §6, §9, §10, §11)
+
+**Status.** §9 phase 2 is built on `v5/manual-search`: pgvector, `manual_chunks`, the `embed`
+job, hybrid search, `search_manual` in chat with page citations, the outline in the tool-page
+prompt, whole-PDF attachment demoted to fallback, Re-process and `/admin/research` counts.
+The retrieval gate (§10, hybrid recall@8 ≥ 0.85) **passes**: 0.97 with the default model.
+
+**As built, and where it differs from the text above:**
+
+- **§4 data model.** Migration **`0011_manual_chunks`** (0010 was phase 1): `CREATE EXTENSION
+  IF NOT EXISTS vector` (hand-prepended — drizzle-kit does not generate it) and `manual_chunks`
+  exactly as written, plus an index on `(document_id, ordinal)` for the rebuild and merge
+  reads, plus **`manual_documents.chunker_version`** beside the existing `embedding_model`.
+  Drizzle has no `tsvector` type; the column is a `customType` with `generatedAlwaysAs`.
+  PGlite loads `@electric-sql/pglite-pgvector` 0.0.9 (the one package added) in every
+  instance — `PGLITE_EXTENSIONS` in `db/pglite.ts`, which the tests' `createPgliteDb` and the
+  scripts use too — and it is in `serverExternalPackages` for the same reason as PGlite.
+- **§3.1 idempotency.** Passages are keyed on `CHUNKER_VERSION` (`chunk-2`) and the embedding
+  model key (`openai/text-embedding-3-small@512`), both written in the same transaction as
+  the passages; either differing makes the document stale. Re-extracting a document (a new
+  `EXTRACTOR_VERSION`, `--force`) deletes its passages and clears both versions in the text
+  transaction, so passages are never older than their pages. **Text first, passages second,
+  as two transactions**: embedding happens outside any transaction (a Gateway call must not
+  hold one open), and an embedding failure leaves the stored text intact. Transient embedding
+  failures (429, 5xx, timeout, no answer) make `indexManualStep` throw a `RetryableError`; on
+  the retry the text is skipped (already at this version) and only the embedding is redone.
+  Auth, an unknown model and a wrong vector length are not retried. The archive's counts are
+  untouched; the run adds `passagesBuilt` / `passagesFailed`.
+- **§3.3 chunking.** As written (~2,400 characters, ~320 characters of overlap, paragraph →
+  sentence → word splits, never across a section, pages recorded, contextual header on
+  `search_text` only). Additions found necessary on real manuals:
+  - Extracted text has no blank lines, so a "paragraph" is a run of lines ending at a sentence
+    end, a blank line or a page break.
+  - **Numbered headings the outline lacks become subsections** ("2.2 Technical
+    specifications", "3.1.4 Radio interference" — two or more number parts, a capitalised
+    title of ≥ 2 words, no trailing page number). The Form 4 PDF has no usable bookmarks and
+    its inferred outline is 16 chapters; without this every passage of "2. Introduction"
+    shared one header and the spec table was hard to retrieve. This alone took Form 4's vector
+    recall from 0.77 to 0.87 (`chunk-1` → `chunk-2`).
+  - The overlap is an exact suffix of the previous passage, so search can merge adjacent
+    passages without repeating the seam.
+- **§3.4 embeddings.** Job `embed` is an **embedding** job in `MODEL_JOBS` (`kind:
+  "embedding"`, `embeddingModelFor`, never `languageModelFor`; `LanguageJob` now excludes it).
+  The dimension is asked for through the Gateway's provider options (`openai.dimensions`,
+  `voyage.outputDimension`) and **checked**: a vector that is not 512 long is an error before
+  the insert. `MODEL_EMBED_TIER` exists (the registry's shape) but embedding calls send no
+  tier. ≤ 96 inputs per call, one call at a time; cost is `providerMetadata.gateway.cost`.
+- **§3.5 retrieval — the lexical list is idf-weighted, not `ts_rank_cd` of the whole query.**
+  `websearch_to_tsquery('english', q)` is still the parser, but its AND semantics matched
+  almost nothing for a natural question, and OR-ing its terms (the first version) let common
+  words ("printer", "print", the tool name every contextual header carries) decide the order:
+  hybrid recall fell *below* vector-only (Form 4 0.77 vs 0.87, X2D 0.93 vs 0.97). The list is
+  now Σ over the query's lexemes of `idf(lexeme) × ts_rank(tsv, lexeme)`, with idf computed
+  over the passages being searched (BM25's formula) — a lexeme in every passage weighs
+  nothing. Full-text-only recall rose from 0.73–0.90 to 0.83–1.00, and hybrid now matches or
+  beats both lists on three of four manuals. The exact part-number match is its own ranked
+  list in the fusion. RRF k = 60, top 8, as written. A query that cannot be embedded degrades
+  to the lexical lists (`vectorFailed`).
+- **§8 access, in SQL.** "Signed-in lab staff" is `can(viewer, "tools.edit")` (admin and
+  super_admin): they search private files, hidden (unpublished) resources and draft tools'
+  manuals too. Everyone else — anonymous visitors, students, MCP (no identity) — sees only
+  public files on published resources of published tools. Archived tools and stale archive
+  copies are never searched. A private passage has no `pdfUrl`; the prompt says to cite it in
+  bold, unlinked.
+- **§3.6 chat.** `search_manual({ query, tool? })` in a new `manuals` capability (after `web`),
+  open to everyone, registered on MCP too (§7). `tool` is a catalog name or slug; an unknown
+  one is refused, never widened to all manuals. Each passage returns `citation` ("Form 4
+  Manual, p. 42", "pp. 42–43", "(printed 3-12)" when the label differs), `url`
+  (`…#page=N`), `section`, and its text fenced with `fenceUntrusted` (the existing
+  `<untrusted-page>` convention; its preamble says "web page", which is inexact for a manual
+  but kept rather than forking the fence). On a tool page the route loads that tool's
+  searchable manuals (`chat/tool-manuals.ts`): their outlines go in the prompt (levels 1–2,
+  ≤ 8,000 characters, level 2 dropped first) and **their resources are skipped by the PDF
+  attachment**, so `MAX_PDFS_PER_CHAT` counts only `no_text`, `failed`, unprocessed or
+  embedding-pending manuals. **"The manual does not cover it" is the model's judgement**:
+  vector search always returns nearest passages, so the tool answers `no_results` only when no
+  searchable manual is in scope; the prompt requires the model to say so when the passages do
+  not answer. The status line is "📖 Searching the {tool} manual…" when the model names a
+  machine, "📖 Searching the manual…" otherwise (the client does not know the focused tool's
+  name). Chat stays `openai/gpt-6-luna`.
+- **§5/§6 admin.** The editor tag reads **Searchable · N pages** once passages exist, else
+  "Text stored · N pages". **Re-process** (resource rows with a PDF, `tools.edit`) marks the
+  documents stale (`extractor_version = 'reprocess'`, versions cleared — nothing deleted; the
+  old text and passages keep serving) and starts the archive workflow; it returns the panel's
+  own revision (the tool row is not touched). **`/admin/research` did not exist**; it is new,
+  gated on `tools.edit`, listed on `/admin`, and holds only the manual counts (searchable,
+  text only, scanned, failed, processing, pages, passages).
+- **Backfill.** `npm run manuals:index` gained a second pass: after the text, every ready
+  document whose passages are missing or stale is chunked and embedded, with tokens and the
+  Gateway-reported cost per document and in total. `--text-only` skips it; `--dry-run` chunks
+  and counts, embeds nothing.
+- **§10 tests.** Offline, on PGlite with pgvector and a fake embedding model
+  (`test/ai/fake-embeddings.ts`: hashed bag of words, or pinned one-hot vectors): chunker
+  sections/pages/overlap/headers, fusion order, part-number matches, tool scoping, access (a
+  private SOP, a hidden resource and a draft tool never reach an anonymous or student search),
+  archived tools and stale copies, the full-text fallback, merging, idempotency and version
+  changes, ≤ 96 per call, failure classification, the index step and its retry, the backfill,
+  the chat route (tool offered, outline in prompt, citations and `#page=N`, scoping, access,
+  fallback attachment only for unprocessed manuals, the cap), the workflow tier through the
+  Gateway's stubbed `/embedding-model`, the admin action and components. Chat evals: new
+  `evals/cases/manual-search.yaml` on a fixture Form 4 manual (`evals/manual-fixture.ts`, no
+  specs, no warranty) with two new assertion kinds, `cites_page` and `says_not_covered`.
+
+**Retrieval eval (live, 2026-09-23).** `.livecheck/retrieval-eval.mts`: each manual extracted
+by the app's extractor, stored on its own tool, chunked and embedded by the app's passages
+step through the Gateway, then 30 hand-written questions per manual (paraphrased, spread over
+the chapters, ~10 hinging on a number, part number or error code; expected pages verified
+against the extracted text) searched with `searchManuals`, scoped to the tool, top 8. A hit is
+any returned passage whose page range covers an expected page.
+
+| Manual (pages → passages) | FTS | Vector | **Hybrid** | Voyage FTS | Voyage vector | **Voyage hybrid** |
+|---|---|---|---|---|---|---|
+| Form 4 manual (58 → 127) | 0.90 | 0.87 | **0.90** | 0.90 | 0.93 | **0.93** |
+| Bambu Lab X2D user manual (149 → 192) | 0.83 | 0.97 | **1.00** | 0.83 | 0.97 | **1.00** |
+| Makera Carvera Air quick start guide (26 → 28) | 1.00 | 1.00 | **1.00** | 1.00 | 0.97 | **1.00** |
+| Trotec Speedy 400 operating manual (89 → 108) | 0.83 | 1.00 | **0.97** | 0.83 | 0.97 | **1.00** |
+| **All 120 questions** | 0.89 | 0.96 | **0.97** | 0.89 | 0.96 | **0.98** |
+
+- **Manuals.** Form 4: Formlabs' "Form 4 Installation and Usage Instructions" (a reseller's
+  copy of the official PDF, `cdn.goengineer.com`). X2D: Bambu Lab's official user manual
+  (`csm.bblcdn.com` — reachable this time). Carvera Air: Makera's official "Carvera Air
+  Instruction Manual" download is a **26-page multilingual quick start guide** with 5 English
+  pages, so its 30 questions concentrate there and it is an easy set; Makera's full Carvera
+  manual and the Carvera Air examples guide are **image-only** (both extract as `no_text` —
+  the classifier working as designed). The **Trotec Speedy 400 operating manual** (official,
+  `troteclaser.com`) was added as a fourth, substantive manual.
+- **Remaining misses** (OpenAI, hybrid): Form 4 "what wavelength cures the resin" (a spec-table
+  row), "what does the mixer do", "can I lift the printer by its cover"; Trotec "how big and
+  heavy is it". All are short facts inside long passages whose embedding is dominated by other
+  content — a reranker (§9 phase 3) or smaller passages for tables would address them.
+- **Embedding choice (§11).** Both models fit 512 dimensions through the Gateway at the same
+  reported price ($0.02 / M tokens; embedding all four manuals cost $0.0025 with either).
+  Voyage is marginally better on hybrid (118 vs 116 of 120 — two questions) and on Form 4's
+  vector list, worse on Carvera's and Trotec's vector lists; the difference is within one
+  manual's noise, not "clearly better". **Default stays `openai/text-embedding-3-small`**
+  (same provider as the chat model, as §3.4 argued); `MODEL_EMBED=voyage/voyage-4-lite`
+  works unchanged and the backfill re-embeds on the switch.
+- **Cost.** Embedding the 58-page Form 4 manual: 30k tokens, $0.0006; all four manuals
+  (455 passages): $0.0025. Query embeddings are ~10 tokens each.
+
+**Live chat check** (`.livecheck/chat-check.live.ts`: the real `/api/chat` route handler,
+Luna, real embeddings, the real Form 4 manual processed into the demo database, asked from the
+Form 4's page). All three answers called `search_manual` and cited pages with `#page=N` links:
+"…lift it out. Keep it level to avoid spills … [Form 4 Manual, p. 43](…#page=43); insertion
+details are in the [Form 4 Manual, p. 25](…#page=25)", "Error 6.3 means 'Cartridge missing.'
+… [Form 4 Manual, p. 46](…#page=46)", "Allow at least 30 minutes for IPA to evaporate …
+[Form 4 Manual, pp. 32–33](…#page=32)". The chat eval suite (`npm run eval`, Luna) passed
+**17/17**, including the three new manual-search cases. One measured chat turn with a manual
+search: 6.4k input tokens, $0.0003.
+
+**Not done / open.** §3.7's "fixed set of queries" for refresh research still uses phase 1's
+`manualDigest` (refresh research does not exist yet); the tool page's Contents and research are
+unchanged. `halfvec`, a reranker and OCR remain phase 3. Cross-tool search from the general
+assistant is on (the model may omit `tool`), per §11's open question — revisit if answers wander
+to the wrong machine.
