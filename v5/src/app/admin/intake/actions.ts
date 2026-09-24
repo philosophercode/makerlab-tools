@@ -104,6 +104,8 @@ const approvalFields = z.strictObject({
   useRestrictions: optionalText(2000),
   serialNumber: optionalText(MAX_LINE),
   resourceUrls: z.array(z.string().max(2048)).max(50).optional(),
+  // An imported item's own links the reviewer kept (bulk intake spec §3.4).
+  importLinkUrls: z.array(z.string().max(2048)).max(50).optional(),
   image: imageChoice.optional(),
 });
 

@@ -191,6 +191,12 @@ export default async function AdminIntakeItemPage({ params }: { params: Promise<
         // `approvePending` checks `tools.publish` itself.
         canPublish={can(identity, "tools.publish")}
         actions={ACTIONS}
+        // What a bulk import carried: units, its links, its lab documents (bulk intake spec §3.4).
+        imported={
+          item.importId
+            ? { quantity: item.quantity, serials: item.serials, links: item.links, labDocs: item.labDocs, notes: item.notes }
+            : null
+        }
       />
     </section>
   );

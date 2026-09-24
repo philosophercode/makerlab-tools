@@ -188,9 +188,14 @@ export function DetailShell({ tool, projects = [], manualContents = [] }: Detail
                 const contents = manualContents.find((entry) => entry.href === link.href);
                 return (
                   <Fragment key={`${link.kind}-${link.href}`}>
-                    <a className="td-doc" href={link.href}>
-                      <span className={`td-badge td-badge-${resourceTone(link.kind)}`}>
-                        {link.kind || t("resourceFallback")}
+                    <a
+                      className="td-doc"
+                      href={link.href}
+                      // The lab's own document may be private (a Google Doc): open it apart, share nothing.
+                      {...(link.labDocument ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                    >
+                      <span className={`td-badge td-badge-${link.labDocument ? "sop" : resourceTone(link.kind)}`}>
+                        {link.labDocument ? t("labDocument") : link.kind || t("resourceFallback")}
                       </span>
                       <span className="td-doc-body">
                         <strong>{resourceLabel(link, t("openResource"))}</strong>

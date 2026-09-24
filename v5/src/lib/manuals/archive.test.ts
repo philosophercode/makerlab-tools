@@ -137,6 +137,13 @@ describe("archiveManual", () => {
     expect(puts).toEqual([]);
   });
 
+  it("never fetches a lab document, even one whose link is a PDF (bulk intake spec §3.4)", async () => {
+    const id = await resource({ type: "Other", url: "https://drive.google.com/private/sop.pdf", origin: "lab_document" });
+    // No handler: MSW refuses any request, so a fetch would fail the test.
+    expect(await archiveManual(id, { db, uploader })).toEqual({ status: "skipped", reason: "lab_document" });
+    expect(puts).toEqual([]);
+  });
+
   it("skips a non-Manual link that turns out not to be a PDF", async () => {
     const id = await resource({ type: "SOP", url: "https://maker.test/sop" });
     server.use(http.get("https://maker.test/sop", () => HttpResponse.html("<p>SOP</p>")));

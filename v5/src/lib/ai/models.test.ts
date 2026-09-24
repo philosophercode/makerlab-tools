@@ -40,6 +40,9 @@ describe("MODEL_JOBS", () => {
     expect(modelIdFor("researchSearch")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("researchRead")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("imageRank")).toBe("openai/gpt-6-luna");
+    // Bulk intake's two jobs (bulk intake spec §3.2, §3.3).
+    expect(modelIdFor("importParse")).toBe("openai/gpt-6-luna");
+    expect(modelIdFor("nameSuggest")).toBe("openai/gpt-6-luna");
     // The generative background redraw was retired (amendment "No generative redraw").
     expect(Object.keys(MODEL_JOBS)).not.toContain("imageClean");
   });
@@ -50,6 +53,8 @@ describe("MODEL_JOBS", () => {
       "MODEL_RESEARCH_SEARCH",
       "MODEL_RESEARCH_READ",
       "MODEL_IMAGE_RANK",
+      "MODEL_IMPORT_PARSE",
+      "MODEL_NAME_SUGGEST",
       "MODEL_EMBED",
     ]);
     for (const job of JOBS) expect(MODEL_JOBS[job].default).toMatch(GATEWAY_MODEL_ID_PATTERN);
@@ -125,6 +130,8 @@ describe('service tiers (amendment "Manuals as text and flex tier for research")
     expect(serviceTierFor("researchSearch")).toBe("flex");
     expect(serviceTierFor("researchRead")).toBe("flex");
     expect(serviceTierFor("imageRank")).toBe("flex");
+    expect(serviceTierFor("importParse")).toBe("flex");
+    expect(serviceTierFor("nameSuggest")).toBe("flex");
     expect(serviceTierFor("chat")).toBeNull();
     expect(providerOptionsFor("researchSearch")).toEqual({ gateway: { serviceTier: "flex" } });
     expect(providerOptionsFor("researchRead")).toEqual({ gateway: { serviceTier: "flex" } });

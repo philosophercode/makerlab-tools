@@ -8,7 +8,8 @@ import {
   setRefreshWorkflowRun,
 } from "../data/tool-refreshes";
 import type { Db } from "../db/types";
-import { RESEARCH_DAILY_ITEM_LIMIT, RESEARCH_MAX_ITEMS_PER_REQUEST } from "../intake/limits";
+import { researchLimitFor } from "../data/research-allowances";
+import { RESEARCH_MAX_ITEMS_PER_REQUEST } from "../intake/limits";
 import { refreshBatch } from "../../workflows/refresh-batch";
 
 /**
@@ -51,7 +52,8 @@ export async function queueRefresh(command: QueueRefreshCommand): Promise<QueueR
     {
       requestedBy: command.userId,
       requestId,
-      limit: RESEARCH_DAILY_ITEM_LIMIT,
+      // The daily allowance plus any setup allowance (bulk intake spec §4.2).
+      limit: await researchLimitFor(command.userId, { db: command.db }),
       since: new Date(Date.now() - DAY_MS),
       note: command.note,
       includeDescription: command.includeDescription,

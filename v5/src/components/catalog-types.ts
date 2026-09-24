@@ -41,6 +41,12 @@ export interface MakerLabTool {
      * (the manual archive). Kept so a caller can still name the original.
      */
     sourceHref?: string;
+    /**
+     * The lab's own document an import carried through (bulk intake spec
+     * §3.4): shown as *Lab document*, above the manufacturer's links, and
+     * never fetched — not by the assistant's `read_page`, not by anything.
+     */
+    labDocument?: true;
   }>;
   units: MakerLabUnit[];
   /**

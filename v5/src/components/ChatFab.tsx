@@ -8,7 +8,11 @@ import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import "../styles/admin-import.css";
 import { IntakeTableCard } from "./IntakeTableCard";
+import { ImportCard } from "./ImportCard";
+import { IMPORT_FILE_EXTENSIONS, isImportFileName } from "../lib/import/detect";
+import type { ImportCardPayload } from "../lib/import/view";
 import { ChatProposalCards, type ChatProposalItem } from "./ChatProposalCards";
 import { useChatLauncher } from "./ChatLauncherContext";
 import { siteConfig } from "../lib/site-config";
@@ -51,6 +55,7 @@ function toolStatusLabel(partType: string, t: ChatT, input?: unknown): string {
   if (partType === "tool-get_unit_details") return t("lookingUpUnit");
   if (partType === "tool-report_issue") return t("filingTicket");
   if (partType === "tool-identify_tools") return t("identifyingEquipment");
+  if (partType === "tool-start_import") return t("startingImport");
   // Web search runs inside the Gateway, but its call still streams as a tool part.
   if (partType === "tool-exa_search") return t("searchingWeb");
   if (partType === "tool-read_page") return t("readingPage");
@@ -253,6 +258,20 @@ interface PendingPhoto {
   dataUrl?: string;
 }
 
+/**
+ * A list to import (bulk intake spec §3.5): a CSV, TSV, text or PDF file,
+ * uploaded private (`kind: "import"`, staff only) and named to the model by
+ * its id, so `start_import` can read it — the model never sees its contents.
+ */
+interface PendingDocument {
+  key: string;
+  attachmentId: string;
+  name: string;
+}
+
+/** What the file picker offers: photos, and lists to import. */
+const CHAT_FILE_ACCEPT = ["image/*", ...IMPORT_FILE_EXTENSIONS.map((extension) => `.${extension}`)].join(",");
+
 export function ChatFab() {
   const t = useTranslations("chat");
   const locale = useLocale();
@@ -361,6 +380,7 @@ export function ChatFab() {
   const ceiling = parseCeiling(error);
 
   const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
+  const [pendingDocuments, setPendingDocuments] = useState<PendingDocument[]>([]);
   const [uploadingCount, setUploadingCount] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -394,6 +414,7 @@ export function ChatFab() {
     setDraft("");
     setReadingManuals(null);
     clearPendingPhotos();
+    setPendingDocuments([]);
     setUploadError(null);
   }
 
@@ -405,14 +426,50 @@ export function ChatFab() {
     });
   }
 
+  /** Upload one list to import; staff only, so a student is told so rather than shown an error. */
+  async function uploadDocument(file: File) {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("kind", "import");
+    const res = await fetch("/api/uploads", { method: "POST", body: form });
+    if (res.status === 503) throw new Error(t("uploadsUnavailable"));
+    if (res.status === 401 || res.status === 403) throw new Error(t("documentsStaffOnly"));
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(body?.error || t("uploadFailed"));
+    }
+    const data = (await res.json()) as { attachmentId: string; name: string };
+    setPendingDocuments((prev) => [
+      ...prev,
+      { key: `${data.attachmentId}-${Date.now()}`, attachmentId: data.attachmentId, name: data.name || file.name },
+    ]);
+  }
+
   async function handleFiles(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
     setUploadError(null);
-    const files = Array.from(fileList).filter((f) => f.type.startsWith("image/"));
-    if (files.length === 0) {
+    const all = Array.from(fileList);
+    const documents = all.filter((f) => !f.type.startsWith("image/") && isImportFileName(f.name));
+    const files = all.filter((f) => f.type.startsWith("image/"));
+    if (files.length === 0 && documents.length === 0) {
       setUploadError(t("onlyImages"));
       return;
     }
+    if (documents.length > 0) {
+      setUploadingCount((n) => n + documents.length);
+      await Promise.all(
+        documents.map(async (file) => {
+          try {
+            await uploadDocument(file);
+          } catch (err) {
+            setUploadError(err instanceof Error ? err.message : t("uploadFailed"));
+          } finally {
+            setUploadingCount((n) => Math.max(0, n - 1));
+          }
+        })
+      );
+    }
+    if (files.length === 0) return;
 
     setUploadingCount((n) => n + files.length);
     await Promise.all(
@@ -612,7 +669,8 @@ export function ChatFab() {
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     if (isListening) stopDictation();
-    const text = draft.trim();
+    // A list attached with no words is still a request: to import it.
+    const text = draft.trim() || (pendingDocuments.length > 0 ? t("importListMessage") : "");
     if (!text || isLoading || uploadingCount > 0) return;
     let outgoing = text;
     if (pendingPhotos.length > 0) {
@@ -621,11 +679,18 @@ export function ChatFab() {
           (p) => `attachment_id=${p.attachmentId} name=${p.name}`
         )
         .join("; ");
-      outgoing = `${text}\n\n[Attached photos: ${hint}]`;
+      outgoing = `${outgoing}\n\n[Attached photos: ${hint}]`;
+    }
+    if (pendingDocuments.length > 0) {
+      // Only the id and the name: the model hands the file to `start_import`
+      // and never reads it (bulk intake spec §3.5).
+      const hint = pendingDocuments.map((d) => `attachment_id=${d.attachmentId} name=${d.name}`).join("; ");
+      outgoing = `${outgoing}\n\n[Attached documents: ${hint}]`;
     }
     send(outgoing, toVisionFileParts(pendingPhotos));
     setDraft("");
     clearPendingPhotos();
+    setPendingDocuments([]);
     setUploadError(null);
   }
 
@@ -731,7 +796,14 @@ export function ChatFab() {
                           p.type === "data-proposal" && (p as { data?: { kind?: unknown } }).data?.kind === "proposal"
                       )
                       .map((p) => p.data);
-                    const hasCard = intakeParts.length > 0 || proposalItems.length > 0;
+                    // A long list handed to an import arrives as a `data-import-card`
+                    // part written by `start_import` (bulk intake spec §3.5).
+                    const importParts = message.parts.filter(
+                      (p): p is typeof p & { data: ImportCardPayload } =>
+                        p.type === "data-import-card" &&
+                        (p as { data?: { kind?: unknown } }).data?.kind === "import-card"
+                    );
+                    const hasCard = intakeParts.length > 0 || proposalItems.length > 0 || importParts.length > 0;
                     if (textParts.length === 0 && !hasCard && !pendingTool) return null;
                     return (
                       <li
@@ -763,6 +835,9 @@ export function ChatFab() {
                           <IntakeTableCard key={part.data.batchId} payload={part.data} />
                         ))}
                         {proposalItems.length > 0 ? <ChatProposalCards items={proposalItems} /> : null}
+                        {importParts.map((part) => (
+                          <ImportCard key={part.data.import.id} payload={part.data} />
+                        ))}
                       </li>
                     );
                   })}
@@ -812,8 +887,21 @@ export function ChatFab() {
               )}
             </div>
 
-            {pendingPhotos.length > 0 || uploadingCount > 0 || uploadError ? (
+            {pendingPhotos.length > 0 || pendingDocuments.length > 0 || uploadingCount > 0 || uploadError ? (
               <div className="chat-attachments" aria-live="polite">
+                {pendingDocuments.map((doc) => (
+                  <div key={doc.key} className="chat-attachment chat-attachment-document">
+                    <span>{doc.name}</span>
+                    <button
+                      type="button"
+                      className="chat-attachment-remove"
+                      aria-label={t("removeDocumentAria", { name: doc.name })}
+                      onClick={() => setPendingDocuments((prev) => prev.filter((d) => d.key !== doc.key))}
+                    >
+                      <Icon name="remove" />
+                    </button>
+                  </div>
+                ))}
                 {pendingPhotos.map((photo) => (
                   <div key={photo.key} className="chat-attachment">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -848,7 +936,7 @@ export function ChatFab() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept={CHAT_FILE_ACCEPT}
                 multiple
                 className="chat-file-input"
                 onChange={(event) => {
@@ -892,7 +980,7 @@ export function ChatFab() {
                 type="submit"
                 className="chat-send"
                 aria-label={t("sendAria")}
-                disabled={!draft.trim() || isLoading || uploadingCount > 0}
+                disabled={(!draft.trim() && pendingDocuments.length === 0) || isLoading || uploadingCount > 0}
               >
                 <Icon name="send" />
               </button>

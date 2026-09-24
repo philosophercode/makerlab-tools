@@ -78,7 +78,9 @@ export type ArchiveSkipReason =
   /** Not a Manual, and the link did not answer a PDF. */
   | "not_pdf"
   /** No Blob store: no `BLOB_READ_WRITE_TOKEN`, and not local development (`blob-mode.ts`). */
-  | "blob_not_configured";
+  | "blob_not_configured"
+  /** The lab's own document (bulk intake spec §3.4): never fetched, whatever its link. */
+  | "lab_document";
 
 export type ArchiveFailReason =
   /** The request never got an answer: DNS, connection, timeout. */
@@ -133,10 +135,18 @@ async function archive(resourceId: string, options: ArchiveManualOptions): Promi
   const db = options.db ?? (await getDb());
 
   const [resource] = await db
-    .select({ id: resources.id, toolId: resources.toolId, title: resources.title, type: resources.type, url: resources.url })
+    .select({
+      id: resources.id,
+      toolId: resources.toolId,
+      title: resources.title,
+      type: resources.type,
+      url: resources.url,
+      origin: resources.origin,
+    })
     .from(resources)
     .where(eq(resources.id, resourceId));
   if (!resource) return skip("not_found");
+  if (resource.origin === "lab_document") return skip("lab_document");
 
   const url = resource.url?.trim() ?? "";
   if (!/^https?:\/\//i.test(url)) return skip("no_url");

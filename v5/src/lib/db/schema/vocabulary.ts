@@ -90,6 +90,8 @@ export const ATTACHMENT_OWNER = [
   "maintenance_log",
   "project",
   "pending_tool",
+  // The file a bulk import was read from (bulk intake spec §4.1): private, kept as the source.
+  "bulk_import",
 ] as const;
 export type AttachmentOwner = (typeof ATTACHMENT_OWNER)[number];
 
@@ -177,6 +179,40 @@ export const OPEN_REFRESH_STATUS = ["queued", "researching", "proposed"] as cons
  */
 export const PROPOSAL_SUBJECT_KIND = ["tool", "pending"] as const;
 export type ProposalSubjectKind = (typeof PROPOSAL_SUBJECT_KIND)[number];
+
+/**
+ * Where a bulk import's list came from (bulk intake spec §4.1; migration
+ * `0013`): a CSV or TSV file, text pasted on `/admin/intake`, a document
+ * (plain text, Markdown or a PDF's text) read by a model, or the chat's
+ * `start_import` hand-off.
+ */
+export const IMPORT_SOURCE_KIND = ["csv", "tsv", "paste", "document", "chat"] as const;
+export type ImportSourceKind = (typeof IMPORT_SOURCE_KIND)[number];
+
+/**
+ * How an import's text is read (§3.2): a table with a header row (CSV, TSV or
+ * pasted spreadsheet cells), a plain list one item a line, or a free-form
+ * document a model extracts items from.
+ */
+export const IMPORT_FORMAT = ["table", "list", "document"] as const;
+export type ImportFormat = (typeof IMPORT_FORMAT)[number];
+
+/**
+ * Where an import is (§4.1, amended): a table waiting for its column matches to
+ * be confirmed (`mapping`), a document a model is reading (`parsing`), its rows
+ * created as pending items (`ready`), or nothing usable found (`failed`).
+ */
+export const IMPORT_STATUS = ["mapping", "parsing", "ready", "failed"] as const;
+export type ImportStatus = (typeof IMPORT_STATUS)[number];
+
+/**
+ * How a resource came to be (bulk intake spec §3.4): null for every ordinary
+ * link, `lab_document` for the lab's own material an import carried through —
+ * a Google Doc, an SOP. A lab document is **never fetched**: no link check, no
+ * archive, nothing passed to research or the chat's `read_page`.
+ */
+export const RESOURCE_ORIGIN = ["lab_document"] as const;
+export type ResourceOrigin = (typeof RESOURCE_ORIGIN)[number];
 
 /** True when `value` is one of `list`; narrows the type. */
 export function isOneOf<const T extends readonly string[]>(

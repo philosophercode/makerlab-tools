@@ -733,6 +733,17 @@ describe("resourceLinks", () => {
     expect(resourceLinks([resourceRow])).toEqual([]);
   });
 
+  it("marks a lab document and lists it above the manufacturer's links (bulk intake spec §3.4)", () => {
+    const links = resourceLinks([
+      { ...resourceRow, id: "m", title: "Manual", type: "Manual", url: "https://formlabs.test/manual.pdf" },
+      { ...resourceRow, id: "d", title: "SOP", type: "Other", url: "https://docs.google.com/d/1", origin: "lab_document" },
+    ]);
+    expect(links.map((link) => [link.label, link.labDocument ?? false])).toEqual([
+      ["SOP", true],
+      ["Manual", false],
+    ]);
+  });
+
   it("labels a file link with the resource title, then the filename, then the type", () => {
     const files = indexAttachments([
       file({ ownerType: "resource", ownerId: "res-id", originalFilename: "sop.pdf" }),

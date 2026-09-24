@@ -410,3 +410,41 @@ describe("POST /api/uploads — rate limiting", () => {
     expect(blob.putUpload).not.toHaveBeenCalled();
   });
 });
+
+describe("POST /api/uploads — a list to import (bulk intake spec §8)", () => {
+  it("stores a list privately for somebody who may add equipment, whatever the browser called it", async () => {
+    const maker = await asSuperMaker();
+    for (const [name, type] of [
+      ["inventory.csv", "text/csv"],
+      ["inventory.csv", "application/vnd.ms-excel"],
+      ["inventory.tsv", ""],
+      ["notes.md", "text/markdown"],
+      ["scan.pdf", "application/pdf"],
+    ] as const) {
+      blob.putUpload.mockClear();
+      const res = await POST(uploadRequest(imageFile(10, name, type), { kind: "import", cookie: maker.cookie }));
+      expect(res.status, name).toBe(200);
+      const body = await res.json();
+      expect(body.previewUrl, name).toBeNull();
+      expect(blob.putUpload).toHaveBeenCalledWith("uploads/import/", expect.any(File), "private");
+    }
+  });
+
+  it("refuses a student and an anonymous visitor before storing anything", async () => {
+    const asStudent = await POST(uploadRequest(imageFile(10, "inventory.csv", "text/csv"), { kind: "import" }));
+    expect(asStudent.status).toBe(403);
+    const anonymous = await POST(uploadRequest(imageFile(10, "inventory.csv", "text/csv"), { kind: "import", cookie: null }));
+    expect(anonymous.status).toBe(401);
+    expect(blob.putUpload).not.toHaveBeenCalled();
+  });
+
+  it("refuses a file that is not a list, and text over 5 MB", async () => {
+    const maker = await asSuperMaker();
+    const exe = await POST(uploadRequest(imageFile(10, "setup.exe", "application/octet-stream"), { kind: "import", cookie: maker.cookie }));
+    expect(exe.status).toBe(400);
+    expect((await exe.json()).code).toBe("unsupported_file");
+    const huge = await POST(uploadRequest(imageFile(5 * 1024 * 1024 + 1, "big.csv", "text/csv"), { kind: "import", cookie: maker.cookie }));
+    expect(huge.status).toBe(400);
+    expect(blob.putUpload).not.toHaveBeenCalled();
+  });
+});

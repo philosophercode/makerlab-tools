@@ -73,6 +73,8 @@ export interface ResourceRow {
   type: string | null;
   url: string | null;
   notes: string | null;
+  /** `lab_document` for the lab's own material an import carried (bulk intake spec §3.4). */
+  origin?: string | null;
 }
 
 /** An `attachments` row: a file in Blob and the row it hangs off. */
@@ -255,6 +257,7 @@ async function loadTools(db: Db, where: SQL | undefined): Promise<MakerLabTool[]
       type: resources.type,
       url: resources.url,
       notes: resources.notes,
+      origin: resources.origin,
     })
     .from(resources)
     .where(and(inArray(resources.toolId, toolIds), eq(resources.published, true)))
@@ -400,10 +403,13 @@ export function resourceLinks(
   resourceRows: ResourceRow[],
   files: AttachmentIndex = new Map()
 ): MakerLabTool["links"] {
-  return resourceRows.flatMap((resource) => {
+  const links = resourceRows.flatMap((resource) => {
     const base = {
       kind: resource.type || "Resource",
       description: resource.notes || undefined,
+      // The lab's own document (bulk intake spec §3.4): labelled so, listed
+      // first, and never opened by the assistant.
+      ...(resource.origin === "lab_document" ? { labDocument: true as const } : {}),
     };
     const owned = attachmentsFor(files, "resource", resource.id);
     const archive = resource.url ? archivedCopy(owned, resource.id, resource.url) : undefined;
@@ -433,6 +439,8 @@ export function resourceLinks(
 
     return [...urlLinks, ...fileLinks];
   });
+  // Lab documents sit above the manufacturer's links (§3.4); order otherwise kept.
+  return [...links.filter((link) => link.labDocument), ...links.filter((link) => !link.labDocument)];
 }
 
 /** The resource's public archive of exactly this link, if it has one. */

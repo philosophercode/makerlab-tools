@@ -576,12 +576,62 @@ describe("create_tool — an MCP draft on Postgres", () => {
   });
 });
 
+// ── start_import (bulk intake spec §3.5) ────────────────────────────
+
+describe("start_import", () => {
+  const startImportTool = toolByName("start_import");
+
+  it("makes an import from a pasted list and shows the card — no identify_tools, no rows in the chat", async () => {
+    const writer = fakeWriter();
+    const tag = crypto.randomUUID().slice(0, 6);
+    const list = Array.from({ length: 18 }, (_, i) => `- Chat import item ${tag} ${i}`).join("\n");
+    const result = (await startImportTool.run({ text: list }, ctx({ writer }))) as {
+      card_rendered: boolean;
+      importId: string;
+      itemCount: number;
+      needsColumns: boolean;
+    };
+    expect(result).toMatchObject({ card_rendered: true, itemCount: 18, needsColumns: false });
+
+    const parts = writer.write.mock.calls.map(([part]) => part);
+    expect(parts).toHaveLength(1);
+    expect(parts[0]).toMatchObject({
+      type: "data-import-card",
+      data: { kind: "import-card", href: `/admin/intake/imports/${result.importId}`, import: { itemCount: 18, sourceKind: "chat" } },
+    });
+    // Rows exist for review; none became a chat intake table.
+    expect(parts.some((part: { type: string }) => part.type === "data-intake-table")).toBe(false);
+    const db = await getDb();
+    const rows = await db.select().from(pendingTools).where(eq(pendingTools.importId, result.importId));
+    expect(rows).toHaveLength(18);
+    expect(rows.every((row) => row.status === "identified")).toBe(true);
+  });
+
+  it("refuses without a signed-in account, and says why a file was refused", async () => {
+    expect(await startImportTool.run({ text: "a\nb" }, ctx({ identity: undefined }))).toMatchObject({ card_rendered: false });
+    const missing = (await startImportTool.run({ attachmentId: crypto.randomUUID() }, ctx())) as { error: string };
+    expect(missing.error).toMatch(/could not be found/);
+  });
+
+  it("accepts either a file or text, not both", () => {
+    expect(startImportTool.inputSchema.safeParse({ text: "x", attachmentId: "y" }).success).toBe(false);
+    expect(startImportTool.inputSchema.safeParse({}).success).toBe(false);
+  });
+
+  it("is in the prompt: long lists and attached documents go to start_import", () => {
+    const prompt = intake.promptFragment({ tools: [] });
+    expect(prompt).toContain("start_import");
+    expect(prompt).toContain("[Attached documents: attachment_id=");
+    expect(prompt).toMatch(/do not\*\* call `identify_tools` for that list/);
+  });
+});
+
 // ── Surfaces ───────────────────────────────────────────────────────
 
 describe("which surface sees which intake tool", () => {
-  it("gives the chat identify_tools and never create_tool", () => {
+  it("gives the chat identify_tools and start_import, and never create_tool", () => {
     const names = Object.keys(toAiTools([intake], ctx()));
-    expect(names).toEqual(["identify_tools"]);
+    expect(names).toEqual(["identify_tools", "start_import"]);
   });
 
   it("registers create_tool over MCP with writes allowed, and never identify_tools", () => {

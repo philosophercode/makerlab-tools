@@ -1,0 +1,29 @@
+# The chat hands a long list to a bulk import (bulk intake spec §3.5): an
+# attached list file or a pasted list of more than about 15 items goes to
+# start_import (stubbed here, like every write), never through identify_tools
+# in the conversation. A short list still uses identify_tools.
+
+- id: bulk-import-pasted-list
+  prompt: "Please add all of this to the inventory:\n- Form 2\n- Form 3\n- Drill master Heat Gun\n- Prusa MK4 x3\n- Bambu Lab X1-Carbon\n- Glowforge Pro\n- Trotec Speedy 400\n- SawStop PCS 3HP\n- DeWalt DW745 table saw\n- Makita cordless drill x4\n- Weller WE1010 soldering station x6\n- Rigol DS1054Z oscilloscope\n- Fluke 117 multimeter x5\n- Shapeoko 4 XXL\n- Epilog Fusion Pro 32\n- Dremel 4300 x2\n- Jet JWBS-14 bandsaw\n- Delta drill press\n- Hakko FX-888D x3\n- Ryobi heat gun"
+  context: { page: gallery }
+  assert:
+    - kind: called_tool
+      value: start_import
+    - kind: not_called_tool
+      value: identify_tools
+
+- id: bulk-import-attached-file
+  prompt: "Here's our equipment spreadsheet, can you add it?\n\n[Attached documents: attachment_id=6f1c2b1e-8f7a-4c1e-9a55-2d4b3c9e0a11 name=makerspace-inventory.csv]"
+  context: { page: gallery }
+  assert:
+    - kind: called_tool
+      value: start_import
+    - kind: not_called_tool
+      value: identify_tools
+
+- id: bulk-import-short-list-identifies
+  prompt: "Please add these two to the inventory: a Formlabs Form 3 resin printer and a Prusa MK4 3D printer."
+  context: { page: gallery }
+  assert:
+    - kind: not_called_tool
+      value: start_import

@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, isNotNull, type SQL } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
 import { getDb } from "../db/client.ts";
 import { attachments, resources } from "../db/schema/index.ts";
 import type { Db } from "../db/types.ts";
@@ -69,9 +69,15 @@ export async function listResourcesForTool(
   if (!isUuid(toolId)) return [];
 
   const db = options.db ?? (await getDb());
+  // The lab's own documents are left out: this list is what the chat fetches
+  // manuals from, and a lab document is never fetched (bulk intake spec §3.4).
   return loadResources(
     db,
-    and(eq(resources.toolId, toolId), eq(resources.published, true))
+    and(
+      eq(resources.toolId, toolId),
+      eq(resources.published, true),
+      sql`${resources.origin} is distinct from 'lab_document'`
+    )
   );
 }
 

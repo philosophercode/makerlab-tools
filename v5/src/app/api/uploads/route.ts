@@ -4,6 +4,8 @@ import { createAttachment } from "../../../lib/data/attachments";
 import { rateLimitAsync } from "../../../lib/rate-limit";
 import { resolveIdentity, type Identity } from "../../../lib/auth/identity";
 import { can, type Permission } from "../../../lib/auth/permissions";
+import { extensionOf, isImportFileName } from "../../../lib/import/detect";
+import { IMPORT_MAX_PDF_BYTES, IMPORT_MAX_TEXT_BYTES } from "../../../lib/import/limits";
 
 /**
  * `POST /api/uploads` — the one upload route (data platform design spec §3.3,
@@ -45,12 +47,41 @@ export const maxDuration = 30;
 const RATE_LIMIT = { limit: 15, windowMs: 60_000 };
 
 /** What the upload is for. Decides both the access and where it is filed. */
-const KINDS = ["chat", "maintenance", "project", "tool", "resource"] as const;
+const KINDS = ["chat", "maintenance", "project", "tool", "resource", "import"] as const;
 type UploadKind = (typeof KINDS)[number];
 const DEFAULT_KIND: UploadKind = "chat";
 
 const MAX_IMAGE_BYTES = 18 * 1024 * 1024;
 const MAX_PDF_BYTES = 20 * 1024 * 1024;
+
+/**
+ * A list to import (bulk intake spec §8): CSV, TSV, plain text or Markdown up
+ * to 5 MB, or a PDF up to 20 MB. Browsers label a CSV many ways (`text/csv`,
+ * Excel's `application/vnd.ms-excel`, or nothing at all), so the file's
+ * extension decides when its type is not a text type.
+ */
+const IMPORT_TEXT_TYPES = new Set([
+  "text/csv",
+  "text/tab-separated-values",
+  "text/plain",
+  "text/markdown",
+  "text/x-markdown",
+  "application/csv",
+  "application/vnd.ms-excel",
+  // What a browser or a multipart round trip calls a file it has no type for
+  // (a `.tsv`, often); the extension has already said it is a list.
+  "application/octet-stream",
+]);
+
+/** What an import upload is — text or a PDF — or null when it is neither. */
+function importFileKind(type: string, name: string): "text" | "pdf" | null {
+  const extension = extensionOf(name);
+  if (type === "application/pdf") return "pdf";
+  if (extension === "pdf") return type ? null : "pdf";
+  if (!isImportFileName(name)) return null;
+  if (!type || IMPORT_TEXT_TYPES.has(type) || type.startsWith("text/")) return "text";
+  return null;
+}
 
 /**
  * What each kind costs the caller: the blob's access, and the permission the
@@ -91,6 +122,9 @@ const KIND_POLICY: Record<
   project: { access: "public", permission: "projects.submit" },
   tool: { access: "public", permission: "tools.add" },
   resource: { access: "public", permission: "tools.edit" },
+  // A list somebody is importing (bulk intake spec §8): private — its notes may
+  // name people — and only for people who may add equipment.
+  import: { access: "private", permission: "tools.add" },
 };
 
 function isKind(value: string): value is UploadKind {
@@ -184,15 +218,30 @@ export async function POST(req: NextRequest) {
   // maintenance upload would put an arbitrary document behind a public URL for
   // no feature that asks for it (§3.3).
   const isResourcePdf = type === "application/pdf" && kind === "resource";
+  const importFile = kind === "import" ? importFileKind(type, file.name) : null;
 
-  if (!isImage && !isResourcePdf) {
+  if (kind === "import") {
+    if (!importFile) {
+      return Response.json(
+        { code: "unsupported_file", error: "Import a CSV, TSV, text, Markdown or PDF file" },
+        { status: 400 }
+      );
+    }
+  } else if (!isImage && !isResourcePdf) {
     return Response.json(
       { error: "Only image uploads are supported" },
       { status: 400 }
     );
   }
 
-  const maxBytes = isImage ? MAX_IMAGE_BYTES : MAX_PDF_BYTES;
+  const maxBytes =
+    importFile === "text"
+      ? IMPORT_MAX_TEXT_BYTES
+      : importFile === "pdf"
+        ? IMPORT_MAX_PDF_BYTES
+        : isImage
+          ? MAX_IMAGE_BYTES
+          : MAX_PDF_BYTES;
   if (file.size > maxBytes) {
     return Response.json(
       { error: `File too large (max ${Math.round(maxBytes / (1024 * 1024))}MB)` },
@@ -219,7 +268,9 @@ export async function POST(req: NextRequest) {
       // A private blob has no URL an unauthenticated viewer can follow, so
       // recording one would be a lie the catalogue would later render.
       publicUrl: access === "public" ? stored.url : null,
-      contentType: type,
+      // An import file's type is what it was read as, so the reader later
+      // needs no second guess (a CSV labelled as Excel, or unlabelled).
+      contentType: importFile === "pdf" ? "application/pdf" : importFile === "text" ? "text/plain" : type,
       sizeBytes: file.size,
       originalFilename: file.name || "upload",
       uploadedBy: identity.userId,

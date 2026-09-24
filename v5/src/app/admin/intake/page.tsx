@@ -1,6 +1,10 @@
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
+import { ImportsList } from "../../../components/admin/ImportsList";
 import { IntakeList } from "../../../components/admin/IntakeList";
+import { listBulkImports } from "../../../lib/data/bulk-imports";
+import { IMPORT_PERMISSION } from "../../../lib/import/access";
+import { toImportView, type ImportView } from "../../../lib/import/view";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { listIntakeQueue } from "../../../lib/data/pending-tools";
@@ -44,10 +48,23 @@ export default async function AdminIntakePage() {
 
   let items: PendingToolView[] | null;
   try {
-    items = (await listIntakeQueue()).map(toPendingToolView);
+    // An imported row not yet sent to research is reviewed on its import's page
+    // (bulk intake spec §5): four hundred of them here would bury the queue.
+    // Once researched it appears here like any other item.
+    items = (await listIntakeQueue())
+      .filter((item) => !(item.importId && item.status === "identified"))
+      .map(toPendingToolView);
   } catch (err) {
     console.error("[admin/intake] could not read the queue", err);
     items = null;
+  }
+  // The recent imports (bulk intake spec §6), each resumable from here.
+  let imports: ImportView[] | null;
+  try {
+    imports = (await listBulkImports()).map((record) => toImportView(record));
+  } catch (err) {
+    console.error("[admin/intake] could not read the imports", err);
+    imports = null;
   }
 
   return (
@@ -59,6 +76,8 @@ export default async function AdminIntakePage() {
             key without arguments (Article 6). */}
         <p className="admin-lede">{t("intakeLede")}</p>
       </header>
+
+      <ImportsList imports={imports} canImport={can(identity, IMPORT_PERMISSION)} />
 
       {items ? (
         <IntakeList items={items} />

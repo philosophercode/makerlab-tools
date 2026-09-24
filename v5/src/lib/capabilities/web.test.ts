@@ -235,6 +235,14 @@ describe("resourceHosts", () => {
       "formlabs.test",
     ]);
   });
+
+  it("never opens a lab document's host (bulk intake spec §3.4)", () => {
+    const tool = {
+      ...toolWithLinks,
+      links: [{ label: "SOP", href: "https://docs.google.com/document/d/1", kind: "Other", labDocument: true as const }],
+    };
+    expect(resourceHosts(tool)).toEqual([]);
+  });
 });
 
 describe("the web capability on each surface", () => {
