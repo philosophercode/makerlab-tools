@@ -20,6 +20,10 @@ export const AUDIT_ACTIONS = [
   "mirror.disconnected",
   // A super admin raised somebody's research allowance (bulk intake spec §4.2).
   "allowance.granted",
+  // A personal access token or an OAuth grant was created or revoked (MCP
+  // access spec §4.2). `detail.kind` says which: "token" or "oauth".
+  "token.created",
+  "token.revoked",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

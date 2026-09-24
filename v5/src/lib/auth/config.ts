@@ -5,6 +5,7 @@ import { createAuthMiddleware } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { nextCookies } from "better-auth/next-js";
 import { admin } from "better-auth/plugins/admin";
+import { mcp } from "better-auth/plugins";
 
 import { dataSubstrate, getDb } from "../db/client";
 import * as schema from "../db/schema/index";
@@ -50,6 +51,15 @@ export const DOMAIN_REJECTED_PATH = "/auth/rejected";
 
 /** Mount point of the Better Auth handler. */
 export const AUTH_BASE_PATH = "/api/auth";
+
+/** Where an MCP client's OAuth sign-in sends somebody who is not signed in yet. */
+export const OAUTH_LOGIN_PATH = "/oauth/sign-in";
+
+/** Where they approve (or refuse) the client, and choose read-only. */
+export const OAUTH_CONSENT_PATH = "/oauth/consent";
+
+/** The scope a read-only OAuth grant carries (MCP access spec §3.4). */
+export const READ_ONLY_SCOPE = "read_only";
 
 /** 30 days. A session row lives this long unless it is refreshed or revoked. */
 export const SESSION_MAX_AGE_SECONDS = 30 * 24 * 60 * 60;
@@ -177,6 +187,23 @@ export function createAuth(db: Db) {
         // impersonating an administrator, which v5 never does anyway.
         adminRoles: ["super_admin"],
       }),
+      // "Sign in with MakerLab" for MCP clients (MCP access spec §3.4): the
+      // OAuth authorization server, dynamic client registration and the
+      // discovery documents, served under /api/auth and re-served at the
+      // origin's /.well-known paths by `app/.well-known/*`. PKCE is required;
+      // every authorization goes through the consent page, which the auth
+      // route enforces (`forceConsent` in `app/api/auth/[...all]/route.ts`).
+      mcp({
+        loginPage: OAUTH_LOGIN_PATH,
+        resource: `${authBaseUrl()}/api/mcp/signed-in`,
+        oidcConfig: {
+          loginPage: OAUTH_LOGIN_PATH,
+          consentPage: OAUTH_CONSENT_PATH,
+          requirePKCE: true,
+          // Chosen on the consent page, never granted more than the role.
+          scopes: [READ_ONLY_SCOPE],
+        },
+      }),
       // Must stay last: it wraps the response so Next writes the cookies.
       nextCookies(),
     ],
@@ -194,7 +221,7 @@ export function resetAuthForTests(): void {
  * `VERCEL_PROJECT_PRODUCTION_URL` / `VERCEL_URL`; `AUTH_BASE_URL` overrides both
  * (needed for a custom domain, and for local development).
  */
-function authBaseUrl(): string {
+export function authBaseUrl(): string {
   const explicit = (process.env.AUTH_BASE_URL || "").trim();
   if (explicit) return explicit.replace(/\/$/, "");
   const vercel =
