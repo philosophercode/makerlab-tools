@@ -1,3 +1,4 @@
+import type { AdminActionWarning, AdminGateError } from "../../../lib/admin/action-result";
 import type { Role } from "../../../lib/db/schema/vocabulary";
 
 /**
@@ -8,6 +9,9 @@ import type { Role } from "../../../lib/db/schema/vocabulary";
  * callable endpoint. A shared constant and a result type therefore cannot live
  * there, and a client island that only needs the shape should not have to
  * import the endpoints to get it.
+ *
+ * The codes every admin surface shares live in `src/lib/admin/action-result.ts`;
+ * this module adds the ones only this page can answer.
  */
 
 /** The page these actions belong to, and the path they invalidate. */
@@ -17,39 +21,31 @@ export const ADMIN_USERS_PATH = "/admin/users";
  * Why an action did nothing. Every code has an `admin.errors.<code>` message in
  * `messages/en.json`; the union is what keeps the two in step.
  *
- * - `not_signed_in` / `not_permitted` — told apart on purpose: one is
- *   actionable and the other is not.
+ * The first four are {@link AdminGateError} — signed in, permitted, within the
+ * rate ceiling, and "the write did not land" — shared with every other admin
+ * surface so a refusal reads the same wherever it happens. The rest are this
+ * page's own:
+ *
+ * - `unknown_user` / `invalid_role` — the target or the value.
  * - `protected_floor` — the address is in `AUTH_SUPER_ADMIN_EMAILS`.
  * - `last_super_admin` — the change would leave nobody holding `users.manage`.
  * - `self_ban` — banning yourself; the plugin refuses it too.
- * - `failed` — the write did not land. Deliberately opaque to the browser.
  */
 export type AdminActionError =
-  | "not_signed_in"
-  | "not_permitted"
-  | "rate_limited"
+  | AdminGateError
   | "unknown_user"
   | "invalid_role"
   | "protected_floor"
   | "last_super_admin"
-  | "self_ban"
-  | "failed";
+  | "self_ban";
 
 /**
- * A change that landed with less than the full guarantee behind it.
- *
- * - `audit_unavailable` — the row changed and `audit_events` did not record it.
- *
- * It rides on `ok: true` deliberately. The plugin's write commits in its own
- * statement, and with the Neon HTTP driver the audit insert is a second request
- * that can fail on its own; reporting that as a failure would make the island
- * snap back to the previous value and leave the page asserting a role the
- * database no longer holds — the one thing `RoleSelect` promises never to do.
- * Reporting it as a plain success would leave a hole in the trail nobody was
- * told about (spec §4.11, Article 4). So it is a success that says what is
- * missing, and every code has an `admin.warnings.<code>` message.
+ * Re-exported, not redefined: the islands on this page import their result
+ * shape from here and would otherwise need a second import to render a warning
+ * they already received. See `src/lib/admin/action-result.ts` for why a missing
+ * audit event rides on a success.
  */
-export type AdminActionWarning = "audit_unavailable";
+export type { AdminActionWarning };
 
 export type AdminActionResult =
   | { ok: true; role?: Role; banned?: boolean; warning?: AdminActionWarning }

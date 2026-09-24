@@ -2,15 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
+import { authorizeAdminAction } from "../../../lib/admin/action-gate";
+import { AUDIT_WARNING, record, warn } from "../../../lib/admin/audit-warning";
 import { getAuth } from "../../../lib/auth/config";
 import { reconcileSuperAdminFloor } from "../../../lib/auth/floor-role";
-import { resolveIdentityFromHeaders, type Identity } from "../../../lib/auth/identity";
-import { can } from "../../../lib/auth/permissions";
+import { type Identity } from "../../../lib/auth/identity";
 import { isSuperAdminFloor } from "../../../lib/auth/super-admins";
-import { recordAuditEvent, type NewAuditEvent } from "../../../lib/data/audit";
 import { countUsersWithRole, findUserById, type UserRecord } from "../../../lib/data/users";
 import { isOneOf, ROLES, type Role } from "../../../lib/db/schema/vocabulary";
-import { ADMIN_ACTION_TIER, rateLimitAsync } from "../../../lib/rate-limit";
 import {
   ADMIN_USERS_PATH,
   type AdminActionError,
@@ -41,8 +40,12 @@ import {
  *
  * **And a change that lands without its audit event is a success with a
  * warning, not a failure.** The two writes are two statements and only the
- * first one is the change; see {@link record}.
+ * first one is the change; `record` and `warn` come from
+ * `src/lib/admin/audit-warning.ts`, which every admin surface shares.
  */
+
+/** Names this surface in the console line a missing audit event leaves behind. */
+const AUDIT_SURFACE = "admin/users";
 
 /**
  * Change one person's role.
@@ -92,15 +95,18 @@ export async function setUserRole(input: {
     return { ok: false, error: "failed" };
   }
 
-  const recorded = await record({
-    actorUserId: identity.userId,
-    action: "role.changed",
-    subjectType: "user",
-    subjectId: target.id,
-    // Both halves: "became an admin" is not answerable later without the
-    // "from", and that is the question an audit trail exists to answer.
-    detail: { from: target.role, to: role },
-  });
+  const recorded = await record(
+    {
+      actorUserId: identity.userId,
+      action: "role.changed",
+      subjectType: "user",
+      subjectId: target.id,
+      // Both halves: "became an admin" is not answerable later without the
+      // "from", and that is the question an audit trail exists to answer.
+      detail: { from: target.role, to: role },
+    },
+    AUDIT_SURFACE
+  );
 
   revalidatePath(ADMIN_USERS_PATH);
   return { ok: true, role, ...warn(gateWarning, recorded) };
@@ -164,16 +170,19 @@ export async function setUserBanned(input: {
     return { ok: false, error: "failed" };
   }
 
-  const recorded = await record({
-    actorUserId: identity.userId,
-    action: "user.banned",
-    subjectType: "user",
-    subjectId: target.id,
-    // `AUDIT_ACTIONS` has no `user.unbanned` (spec §4.11), so lifting a ban is
-    // the same action with `banned: false`. The alternative is a vocabulary
-    // that drifts from the spec, which is worse than a flag in the detail.
-    detail: { banned: input.banned, ...(reason ? { reason } : {}) },
-  });
+  const recorded = await record(
+    {
+      actorUserId: identity.userId,
+      action: "user.banned",
+      subjectType: "user",
+      subjectId: target.id,
+      // `AUDIT_ACTIONS` has no `user.unbanned` (spec §4.11), so lifting a ban is
+      // the same action with `banned: false`. The alternative is a vocabulary
+      // that drifts from the spec, which is worse than a flag in the detail.
+      detail: { banned: input.banned, ...(reason ? { reason } : {}) },
+    },
+    AUDIT_SURFACE
+  );
 
   revalidatePath(ADMIN_USERS_PATH);
   return {
@@ -190,14 +199,11 @@ type Gate =
   | { ok: false; error: AdminActionError };
 
 /**
- * Resolve the caller, bound their attempts, and check `users.manage`.
+ * Resolve the caller, bound their attempts, check `users.manage` — and then
+ * do the one thing that is this page's alone.
  *
- * Bounded *before* the permission check and the queries behind it (Article 4,
- * §8: 120/min per user), and keyed on `rateLimitKey` — the user id when signed
- * in, a hashed IP when not — so an anonymous prodder cannot spend an admin's
- * allowance.
- *
- * The last step is the one that is not a refusal: the floor is written onto the
+ * The first three are {@link authorizeAdminAction}, shared with every other
+ * admin surface. The last step is the one that is not a refusal: the floor is written onto the
  * caller's own row before either action calls the plugin. `can()` honours the
  * floor and the plugin does not — see `lib/auth/floor-role.ts` — so without
  * this a floor address whose row says `user` reaches the page with every
@@ -206,18 +212,12 @@ type Gate =
  * a no-op for everyone whose row already agrees.
  */
 async function authorize(): Promise<Gate> {
-  const identity = await resolveIdentityFromHeaders();
-
-  const { allowed } = await rateLimitAsync(
-    `admin-action:${identity.rateLimitKey}`,
-    ADMIN_ACTION_TIER
-  );
-  if (!allowed) return { ok: false, error: "rate_limited" };
-
-  // Told apart on purpose: "sign in" is actionable and "you are not permitted"
-  // is not, and showing the wrong one of those is how a page feels broken.
-  if (identity.role === "anonymous") return { ok: false, error: "not_signed_in" };
-  if (!can(identity, "users.manage")) return { ok: false, error: "not_permitted" };
+  // Identity, limiter, then the permission — the sequence every admin action
+  // shares, which is why it lives in `src/lib/admin/action-gate.ts` now rather
+  // than here. Only the step below it is this page's own.
+  const gate = await authorizeAdminAction("users.manage");
+  if (!gate.ok) return gate;
+  const { identity } = gate;
 
   let reconciliation;
   try {
@@ -287,56 +287,4 @@ async function requestHeaders(): Promise<Headers> {
   const cookie = incoming.get("cookie");
   if (cookie) copy.set("cookie", cookie);
   return copy;
-}
-
-// ── Recording it ────────────────────────────────────────────────────
-
-/** The one warning either action can carry. Named so the two cannot drift. */
-const AUDIT_WARNING: AdminActionWarning = "audit_unavailable";
-
-/**
- * Write the audit event, and say whether it landed.
- *
- * **The order is not negotiable and neither is the shape.** The event describes
- * a change that has already committed — `auth.api.setRole` / `banUser` have
- * returned — and `recordAuditEvent` throws on any database failure. With the
- * Neon HTTP driver each statement is its own request, so a transient 5xx
- * between the two is an ordinary outcome rather than an exotic one, and there
- * is no transaction spanning them to roll back.
- *
- * Letting the throw propagate would reach the island as a rejected action, and
- * both islands answer a rejection by restoring the previous value: the page
- * would show the old role over a database holding the new one, which is exactly
- * what `RoleSelect`'s comment says it never does. Swallowing it silently would
- * leave a gap in the trail nobody was told about (spec §4.11).
- *
- * So the failure becomes a `warning` on a successful result: the row changed,
- * the page says so, and it also says the change was not recorded. The console
- * line is the operator's copy — it is the only place the event now exists.
- */
-/**
- * The warning half of a successful result, or nothing.
- *
- * Two audit writes can go missing on one action — the floor reconciliation's,
- * before the action ran, and the action's own — and there is one warning for
- * both, because the admin's question is the same either way: *did the trail
- * record this?* Spread into the result so a success without a gap carries no
- * `warning` key at all.
- */
-function warn(
-  gateWarning: AdminActionWarning | undefined,
-  recorded = true
-): { warning?: AdminActionWarning } {
-  const warning = gateWarning ?? (recorded ? undefined : AUDIT_WARNING);
-  return warning ? { warning } : {};
-}
-
-async function record(event: NewAuditEvent): Promise<boolean> {
-  try {
-    await recordAuditEvent(event);
-    return true;
-  } catch (err) {
-    console.error("[admin/users] audit write failed after the change landed", err);
-    return false;
-  }
 }

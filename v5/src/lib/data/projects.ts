@@ -1,18 +1,21 @@
-import { and, desc, eq, inArray, like, or } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, like, or, sql } from "drizzle-orm";
 import { getDb } from "../db/client.ts";
 import { attachments, projectTools, projects, tools } from "../db/schema/index.ts";
 import { slugify, uniqueSlug } from "../db/slug.ts";
 import type { Db } from "../db/types.ts";
 import { claimAttachments } from "./attachments.ts";
+import { isUniqueViolation } from "./pg-errors.ts";
 import { isUuid } from "./uuid.ts";
 import type { MakerLabProject, ProjectToolRef } from "../../components/catalog-types.ts";
 
 /**
  * Postgres reads for published projects (data platform design spec 2026-09-14
- * §3.10, §4.10, §4.13), and since Phase 3 the submission write. This is the
- * query module `src/lib/projects.ts` wraps in `"use cache"`; nothing here is
- * cached itself, so every export is a plain round trip and safe to call as
- * often as the caller needs a fresh answer.
+ * §3.10, §4.10, §4.13), since Phase 3 the submission write, and since Phase 5
+ * the moderation pair at the bottom of the file — the one read here that sees
+ * unpublished rows, and the write that publishes one (§5.6). This is the query
+ * module `src/lib/projects.ts` wraps in `"use cache"`; nothing here is cached
+ * itself, so every export is a plain round trip and safe to call as often as
+ * the caller needs a fresh answer.
  *
  * Imports are relative with `.ts` extensions and skip the `@/` alias, like
  * everything under `src/lib/db/` and `src/lib/import/`: scripts load these
@@ -212,20 +215,6 @@ async function linkTools(db: Db, projectId: string, toolIds: readonly string[]):
   return existing.length;
 }
 
-/**
- * A Postgres unique-constraint violation (SQLSTATE 23505). Both drivers surface
- * the code somewhere on the error or its cause, so this reads the chain rather
- * than assuming either one's shape.
- */
-function isUniqueViolation(err: unknown): boolean {
-  for (let current: unknown = err, depth = 0; current && depth < 5; depth += 1) {
-    const candidate = current as { code?: unknown; cause?: unknown };
-    if (candidate.code === "23505") return true;
-    current = candidate.cause;
-  }
-  return false;
-}
-
 /** Attaches each row's photos and tool refs, then maps onto the view model. */
 async function hydrateProjects(db: Db, rows: ProjectRow[]): Promise<MakerLabProject[]> {
   if (rows.length === 0) return [];
@@ -288,4 +277,146 @@ function toMakerLabProject(row: ProjectRow, photos: string[], toolRefs: ProjectT
     materials: row.materials,
     date: row.createdAt.toISOString(),
   };
+}
+
+// ── Moderation (spec §5.6, §4.10, Article 5) ────────────────────────
+
+/**
+ * One submission as `/admin/projects` decides about it.
+ *
+ * Its own shape rather than `MakerLabProject`, because the question is a
+ * different one. The gallery view answers "what is this project"; this answers
+ * "should this be in the gallery" — so it carries `published`, who is asking
+ * to be published, and the photos and body a moderator reads before saying
+ * yes. `toolRefs` are deliberately not here: what a project was built with does
+ * not bear on whether it may be shown, and the moderator can open the project
+ * to see them.
+ */
+export interface ProjectModerationEntry {
+  id: string;
+  slug: string;
+  title: string;
+  /** The byline. `"Anonymous"` is the gallery's word, not this page's. */
+  authorName: string;
+  authorUserId: string | null;
+  body: string;
+  link: string | null;
+  materials: string[];
+  /** Public photo URLs, cover first. */
+  photos: string[];
+  published: boolean;
+  publishedAt: Date | null;
+  createdAt: Date;
+}
+
+export interface ProjectModerationOptions {
+  /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
+  db?: Db;
+  /** How many submissions to read. */
+  limit?: number;
+}
+
+/**
+ * Bounded like every read here (Article 4). A moderation queue is a backlog to
+ * clear, and a page of two hundred is already a bad sign.
+ */
+const MODERATION_LIMIT = 200;
+
+/**
+ * Every project, **unpublished first** (spec §5.6).
+ *
+ * The one read in this module that does not filter `published = true`, which
+ * is the point: everything else here serves the gallery, and a submission
+ * nobody has approved is invisible to all of it (Article 5). Published rows
+ * stay in the list because unpublishing is the other half of the gate — taking
+ * something down is the same page's job as putting it up.
+ *
+ * Two statements: the rows, then their photos grouped by project, the same
+ * helper the gallery uses.
+ */
+export async function listProjectsForModeration(
+  options: ProjectModerationOptions = {}
+): Promise<ProjectModerationEntry[]> {
+  const db = options.db ?? (await getDb());
+
+  const rows = await db
+    .select()
+    .from(projects)
+    // `published` is a boolean and `false` sorts first ascending, which is the
+    // order the queue is worked in. Newest first within each half: a submission
+    // from this morning is the one somebody is waiting on.
+    .orderBy(asc(projects.published), desc(projects.createdAt))
+    .limit(options.limit ?? MODERATION_LIMIT);
+
+  if (rows.length === 0) return [];
+
+  const photosByProject = await loadPhotos(
+    db,
+    rows.map((row) => row.id)
+  );
+
+  return rows.map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    title: row.title,
+    authorName: row.authorName ?? "",
+    authorUserId: row.authorUserId,
+    body: row.body,
+    link: row.link,
+    materials: row.materials,
+    photos: photosByProject.get(row.id) ?? [],
+    published: row.published,
+    publishedAt: row.publishedAt,
+    createdAt: row.createdAt,
+  }));
+}
+
+export type ProjectModerationResult =
+  | { ok: true; publishedAt: Date | null }
+  | { ok: false; reason: "not_found" };
+
+/**
+ * Publish or unpublish one project — the approval Article 5 requires.
+ *
+ * **`published_at` and `published_by` describe the current publication, not the
+ * history**, so unpublishing clears both. The history is `audit_events`, which
+ * records every publish and unpublish with its actor and is append-only by
+ * construction (§4.11); leaving a stamp behind on a row that is not published
+ * would give the columns two meanings, and the one a reader would guess is the
+ * wrong one.
+ *
+ * `published_at` is the database's `now()` rather than the caller's clock, for
+ * the reason `recordAuditEvent` gives: a serverless instance with a skewed
+ * clock must not be able to order the gallery wrongly.
+ *
+ * No cache invalidation here. This module is loaded by `scripts/` under plain
+ * Node, where `next/cache` does not exist — the server action calls
+ * `invalidateProjects()` after this returns, and it must, because unlike
+ * {@link createProjectSubmission} this write *does* change what the cached
+ * gallery should show.
+ *
+ * Throws on a database failure; the caller reports that as `failed`.
+ */
+export async function setProjectPublished(
+  projectId: string,
+  published: boolean,
+  options: ProjectWriteOptions & { actorUserId?: string | null } = {}
+): Promise<ProjectModerationResult> {
+  if (!isUuid(projectId)) return { ok: false, reason: "not_found" };
+
+  const db = options.db ?? (await getDb());
+  const actorUserId = options.actorUserId || null;
+
+  const [row] = await db
+    .update(projects)
+    .set({
+      published,
+      publishedAt: published ? sql`now()` : null,
+      publishedBy: published ? actorUserId : null,
+      updatedBy: actorUserId,
+    })
+    .where(eq(projects.id, projectId))
+    .returning({ publishedAt: projects.publishedAt });
+
+  return row ? { ok: true, publishedAt: row.publishedAt } : { ok: false, reason: "not_found" };
 }

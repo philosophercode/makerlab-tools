@@ -4,7 +4,12 @@ import { createPgliteDb } from "../db/pglite";
 import { user } from "../db/schema/index";
 import { insertUserRow } from "../../../test/utils/session";
 import type { Db } from "../db/types";
-import { countUsersWithRole, findUserById, listUsers } from "./users";
+import {
+  countUsersWithRole,
+  findUserById,
+  listAssignableStaff,
+  listUsers,
+} from "./users";
 
 /**
  * The admin roster against a real (in-process) Postgres. No env, no network.
@@ -123,5 +128,30 @@ describe("countUsersWithRole", () => {
     await db.update(user).set({ banned: null }).where(eq(user.email, "nullban@cornell.edu"));
 
     expect(await countUsersWithRole("super_admin", { db })).toBe(1);
+  });
+});
+
+describe("listAssignableStaff", () => {
+  it("returns the admin roles a ticket can be handed to, by name", async () => {
+    await seed("casey@cornell.edu", "user", { name: "Casey" });
+    await seed("niti@cornell.edu", "admin", { name: "Niti" });
+    await seed("isaac@cornell.edu", "super_admin", { name: "Isaac" });
+
+    const staff = await listAssignableStaff({ db });
+
+    expect(staff.map((person) => person.name)).toEqual(["Isaac", "Niti"]);
+  });
+
+  it("leaves out a banned account, which cannot sign in to see the ticket", async () => {
+    await seed("niti@cornell.edu", "admin", { name: "Niti" });
+    await seed("gone@cornell.edu", "admin", { name: "Gone", banned: true });
+
+    expect((await listAssignableStaff({ db })).map((person) => person.name)).toEqual(["Niti"]);
+  });
+
+  it("is empty when nobody holds an admin role yet", async () => {
+    await seed("casey@cornell.edu", "user");
+
+    expect(await listAssignableStaff({ db })).toEqual([]);
   });
 });

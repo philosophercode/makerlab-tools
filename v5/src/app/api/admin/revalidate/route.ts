@@ -1,7 +1,7 @@
-import { revalidateTag } from "next/cache";
 import { resolveIdentity } from "../../../../lib/auth/identity";
 import { can } from "../../../../lib/auth/permissions";
 import { rateLimitAsync } from "../../../../lib/rate-limit";
+import { ALL_TAGS, invalidateCatalog, invalidateProjects } from "../../../../lib/revalidate";
 
 /**
  * `POST /api/admin/revalidate` — drop the cached catalog and projects so the
@@ -28,9 +28,6 @@ import { rateLimitAsync } from "../../../../lib/rate-limit";
  * edit only sheds refreshes it would have made redundant anyway.
  */
 const REVALIDATE_TIER = { limit: 30, windowMs: 60_000 };
-
-/** Tags every cached read is stored under; one refresh has to clear them all. */
-const TAGS = ["catalog", "projects"] as const;
 
 export async function POST(req: Request) {
   const identity = await resolveIdentity(req);
@@ -70,6 +67,9 @@ export async function POST(req: Request) {
     }
   }
 
-  for (const tag of TAGS) revalidateTag(tag, "minutes");
-  return Response.json({ ok: true, tags: [...TAGS] });
+  // Both, through the same helpers every inventory write uses, so a tag can
+  // never be spelled one way here and another way there.
+  invalidateCatalog();
+  invalidateProjects();
+  return Response.json({ ok: true, tags: [...ALL_TAGS] });
 }

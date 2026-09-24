@@ -8,7 +8,10 @@ import {
   createAttachment,
   deleteAttachments,
   findAttachmentsByIds,
+  listAttachmentsForOwner,
   listOrphanedAttachments,
+  releaseAttachments,
+  reorderAttachments,
 } from "./attachments";
 
 /**
@@ -259,5 +262,95 @@ describe("deleteAttachments", () => {
     const kept = await upload();
     expect(await deleteAttachments([], { db })).toBe(0);
     expect(await readAttachment(kept)).toBeDefined();
+  });
+});
+
+describe("listAttachmentsForOwner", () => {
+  it("returns one owner's files, cover first", async () => {
+    const projectId = await ownerRow();
+    const second = await upload();
+    const cover = await upload();
+    await claimAttachments(db, [cover, second], { ownerType: "project", ownerId: projectId });
+    await upload();
+
+    const rows = await listAttachmentsForOwner(db, { ownerType: "project", ownerId: projectId });
+
+    expect(rows.map((row) => row.id)).toEqual([cover, second]);
+  });
+
+  it("is empty for an owner with nothing, and for a non-uuid id", async () => {
+    expect(await listAttachmentsForOwner(db, { ownerType: "project", ownerId: "nope" })).toEqual([]);
+  });
+});
+
+describe("reorderAttachments", () => {
+  it("rewrites positions so the first id becomes the cover", async () => {
+    const projectId = await ownerRow();
+    const owner = { ownerType: "project" as const, ownerId: projectId };
+    const first = await upload();
+    const second = await upload();
+    await claimAttachments(db, [first, second], owner);
+
+    expect(await reorderAttachments(db, owner, [second, first])).toBe(2);
+
+    const rows = await listAttachmentsForOwner(db, owner);
+    expect(rows.map((row) => [row.id, row.position])).toEqual([
+      [second, 0],
+      [first, 1],
+    ]);
+  });
+
+  it("cannot reach across owners", async () => {
+    const mine = await ownerRow();
+    const theirs = await ownerRow();
+    const theirPhoto = await upload();
+    await claimAttachments(db, [theirPhoto], { ownerType: "project", ownerId: theirs });
+
+    const moved = await reorderAttachments(db, { ownerType: "project", ownerId: mine }, [theirPhoto]);
+
+    expect(moved).toBe(0);
+    expect((await readAttachment(theirPhoto)).ownerId).toBe(theirs);
+  });
+});
+
+describe("releaseAttachments", () => {
+  it("unowns the named files so the daily sweep can collect them", async () => {
+    const projectId = await ownerRow();
+    const owner = { ownerType: "project" as const, ownerId: projectId };
+    const removed = await upload();
+    const kept = await upload();
+    await claimAttachments(db, [removed, kept], owner);
+
+    expect(await releaseAttachments(db, owner, [removed])).toBe(1);
+
+    // The row survives — it is the only handle anything has on the blob, and
+    // the cron deletes the bytes first and the row second.
+    expect(await readAttachment(removed)).toMatchObject({
+      ownerType: null,
+      ownerId: null,
+      position: 0,
+    });
+    expect((await readAttachment(kept)).ownerId).toBe(projectId);
+  });
+
+  it("releases everything an owner holds when no ids are named", async () => {
+    const projectId = await ownerRow();
+    const owner = { ownerType: "project" as const, ownerId: projectId };
+    await claimAttachments(db, [await upload(), await upload()], owner);
+
+    expect(await releaseAttachments(db, owner)).toBe(2);
+    expect(await listAttachmentsForOwner(db, owner)).toEqual([]);
+  });
+
+  it("cannot release another owner's file", async () => {
+    const mine = await ownerRow();
+    const theirs = await ownerRow();
+    const theirPhoto = await upload();
+    await claimAttachments(db, [theirPhoto], { ownerType: "project", ownerId: theirs });
+
+    expect(
+      await releaseAttachments(db, { ownerType: "project", ownerId: mine }, [theirPhoto])
+    ).toBe(0);
+    expect((await readAttachment(theirPhoto)).ownerId).toBe(theirs);
   });
 });

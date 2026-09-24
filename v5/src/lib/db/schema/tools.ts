@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import { boolean, index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
-import { actorColumns, notionPageId, timestamps } from "./helpers.ts";
+import { actorColumns, notionPageId, timestamps, userReference } from "./helpers.ts";
 import { categories, locations } from "./taxonomy.ts";
 
 /**
@@ -33,7 +33,7 @@ export const tools = pgTable(
     published: boolean("published").notNull().default(false),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }),
-    lastReviewedBy: text("last_reviewed_by"),
+    lastReviewedBy: userReference("last_reviewed_by"),
     notionPageId: notionPageId(),
     ...actorColumns(),
     ...timestamps(),

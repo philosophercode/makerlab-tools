@@ -23,8 +23,10 @@ vi.mock("../db/client.ts", () => ({
 import {
   createProjectSubmission,
   findPublishedProject,
+  listProjectsForModeration,
   listPublishedProjects,
   listPublishedProjectsForTool,
+  setProjectPublished,
 } from "./projects";
 
 async function insertProject(
@@ -393,6 +395,119 @@ describe("src/lib/data/projects.ts", () => {
 
     it("returns an empty array instead of throwing when the id is not uuid-shaped", async () => {
       await expect(listPublishedProjectsForTool("not-a-uuid")).resolves.toEqual([]);
+    });
+  });
+  describe("listProjectsForModeration", () => {
+    it("puts the unpublished ones first, newest first within each half", async () => {
+      await insertProject(db, {
+        title: "Published, old",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      });
+      await insertProject(db, {
+        title: "Waiting, old",
+        published: false,
+        createdAt: new Date("2026-02-01T00:00:00.000Z"),
+      });
+      await insertProject(db, {
+        title: "Waiting, new",
+        published: false,
+        createdAt: new Date("2026-03-01T00:00:00.000Z"),
+      });
+
+      const queue = await listProjectsForModeration({ db });
+
+      expect(queue.map((entry) => entry.title)).toEqual([
+        "Waiting, new",
+        "Waiting, old",
+        "Published, old",
+      ]);
+    });
+
+    it("is the one read here that sees an unpublished row at all", async () => {
+      await insertProject(db, { title: "Waiting", published: false });
+
+      expect(await listPublishedProjects()).toEqual([]);
+      expect((await listProjectsForModeration({ db })).map((entry) => entry.title)).toEqual([
+        "Waiting",
+      ]);
+    });
+
+    it("carries the photos and the body a moderator decides on, cover first", async () => {
+      const id = await insertProject(db, {
+        title: "Laser box",
+        body: "A box.",
+        published: false,
+        link: "https://example.test/box",
+        materials: ["Plywood"],
+        authorName: "Ada",
+      });
+      await addPhoto(db, id, { position: 1, publicUrl: "https://blob.test/second.png" });
+      await addPhoto(db, id, { position: 0, publicUrl: "https://blob.test/cover.png" });
+
+      const [entry] = await listProjectsForModeration({ db });
+
+      expect(entry.photos).toEqual(["https://blob.test/cover.png", "https://blob.test/second.png"]);
+      expect(entry.body).toBe("A box.");
+      expect(entry.link).toBe("https://example.test/box");
+      expect(entry.materials).toEqual(["Plywood"]);
+      expect(entry.authorName).toBe("Ada");
+      expect(entry.published).toBe(false);
+    });
+
+    it("is bounded", async () => {
+      await insertProject(db, { published: false });
+      await insertProject(db, { published: false });
+
+      expect(await listProjectsForModeration({ db, limit: 1 })).toHaveLength(1);
+    });
+  });
+
+  describe("setProjectPublished", () => {
+    async function storedProject(id: string) {
+      const [row] = await db.select().from(projects).where(eq(projects.id, id));
+      return row;
+    }
+
+    it("publishes a submission and stamps when and by whom", async () => {
+      const moderator = await insertUserRow(db, { email: "niti@cornell.edu", role: "admin" });
+      const id = await insertProject(db, { title: "Waiting", published: false });
+
+      const result = await setProjectPublished(id, true, { db, actorUserId: moderator.id });
+
+      expect(result.ok).toBe(true);
+      const row = await storedProject(id);
+      expect(row.published).toBe(true);
+      expect(row.publishedBy).toBe(moderator.id);
+      expect(row.publishedAt).toBeInstanceOf(Date);
+      // And it is now in the gallery, which is the whole point of the gate.
+      expect((await listPublishedProjects()).map((project) => project.title)).toEqual(["Waiting"]);
+    });
+
+    it("clears both stamps on an unpublish, because they describe the current publication", async () => {
+      const moderator = await insertUserRow(db, { email: "niti@cornell.edu", role: "admin" });
+      const id = await insertProject(db, { title: "Up", published: false });
+      await setProjectPublished(id, true, { db, actorUserId: moderator.id });
+
+      await setProjectPublished(id, false, { db, actorUserId: moderator.id });
+
+      const row = await storedProject(id);
+      expect(row.published).toBe(false);
+      expect(row.publishedAt).toBeNull();
+      expect(row.publishedBy).toBeNull();
+      // Nothing else about the submission is lost by taking it down.
+      expect(row.title).toBe("Up");
+      expect(await listPublishedProjects()).toEqual([]);
+    });
+
+    it("answers not_found for an unknown id and for anything that is not a uuid", async () => {
+      expect(await setProjectPublished(crypto.randomUUID(), true, { db })).toEqual({
+        ok: false,
+        reason: "not_found",
+      });
+      expect(await setProjectPublished("laser-box", true, { db })).toEqual({
+        ok: false,
+        reason: "not_found",
+      });
     });
   });
 });

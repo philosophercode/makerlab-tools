@@ -2,7 +2,13 @@
 import { createPgliteDb } from "../db/pglite";
 import { attachments, resources, tools } from "../db/schema/index";
 import type { Db } from "../db/types";
-import { listResources, listResourcesForTool } from "./resources";
+import {
+  createResource,
+  deleteResource,
+  listResources,
+  listResourcesForTool,
+  updateResource,
+} from "./resources";
 
 /**
  * Resource reads against a real (in-process) Postgres — what the chat route
@@ -137,5 +143,116 @@ describe("listResources", () => {
 
   it("is empty when the lab has no resources", async () => {
     expect(await listResources({ db })).toEqual([]);
+  });
+});
+
+// ── Writes ──────────────────────────────────────────────────────────
+
+describe("createResource", () => {
+  it("adds a manual to a tool and claims its uploaded file", async () => {
+    const [upload] = await db
+      .insert(attachments)
+      .values({ blobPathname: "uploads/manual.pdf", access: "public", contentType: "application/pdf" })
+      .returning({ id: attachments.id });
+
+    const created = await createResource(
+      db,
+      form4,
+      { title: "  Form 4 manual  ", type: "Manual", url: "https://example.com/form-4.pdf" },
+      { fileAttachmentIds: [upload.id] }
+    );
+
+    expect(created).toEqual({ ok: true, resourceId: expect.any(String), filesAttached: 1 });
+    const [row] = await db.select().from(resources);
+    expect(row).toMatchObject({
+      toolId: form4,
+      title: "Form 4 manual",
+      type: "Manual",
+      url: "https://example.com/form-4.pdf",
+      published: true,
+    });
+    const [file] = await db.select().from(attachments);
+    expect(file).toMatchObject({ ownerType: "resource", ownerId: row.id, position: 0 });
+  });
+
+  it("reports a file it could not claim rather than implying it attached", async () => {
+    // What a panel left open overnight sends: an id the daily cron has swept.
+    const created = await createResource(db, form4, { title: "Manual" }, {
+      fileAttachmentIds: [crypto.randomUUID()],
+    });
+
+    expect(created).toEqual({ ok: true, resourceId: expect.any(String), filesAttached: 0 });
+  });
+
+  it("refuses a link that is not one, and an empty title", async () => {
+    // A bare `example.com` renders as a relative link and sends the reader to a
+    // page on this site that does not exist.
+    expect(await createResource(db, form4, { title: "Manual", url: "example.com" })).toEqual({
+      ok: false,
+      reason: "invalid_field",
+    });
+    expect(await createResource(db, form4, { title: "   " })).toEqual({
+      ok: false,
+      reason: "invalid_field",
+    });
+    expect(await db.select().from(resources)).toHaveLength(0);
+  });
+});
+
+describe("updateResource", () => {
+  it("edits one of the tool's resources and leaves the rest of it alone", async () => {
+    const resourceId = await insertResource({ title: "Manual", notes: "kept" });
+
+    const written = await updateResource(
+      db,
+      { toolId: form4, resourceId },
+      { title: "Manual (2026)", published: false }
+    );
+
+    expect(written).toEqual({ ok: true, resourceId });
+    const [row] = await db.select().from(resources);
+    expect(row).toMatchObject({ title: "Manual (2026)", published: false, notes: "kept" });
+  });
+
+  it("does not reach a resource belonging to another tool", async () => {
+    const resourceId = await insertResource({ title: "Manual" });
+
+    expect(await updateResource(db, { toolId: trotec, resourceId }, { title: "Stolen" })).toEqual({
+      ok: false,
+      reason: "not_found",
+    });
+  });
+});
+
+describe("deleteResource", () => {
+  it("removes the resource and releases its files to the orphan sweep", async () => {
+    const resourceId = await insertResource({ title: "Manual" });
+    await db.insert(attachments).values({
+      ownerType: "resource",
+      ownerId: resourceId,
+      blobPathname: "uploads/manual.pdf",
+      access: "public",
+      contentType: "application/pdf",
+    });
+
+    expect(await deleteResource(db, { toolId: form4, resourceId })).toEqual({
+      ok: true,
+      resourceId,
+    });
+
+    expect(await db.select().from(resources)).toHaveLength(0);
+    // Unowned, not deleted: an attachment still pointing at a row that no longer
+    // exists is invisible to every read *and* to the sweep.
+    const [file] = await db.select().from(attachments);
+    expect(file).toMatchObject({ ownerType: null, ownerId: null });
+  });
+
+  it("does not delete a resource belonging to another tool", async () => {
+    const resourceId = await insertResource({ title: "Manual" });
+    expect(await deleteResource(db, { toolId: trotec, resourceId })).toEqual({
+      ok: false,
+      reason: "not_found",
+    });
+    expect(await db.select().from(resources)).toHaveLength(1);
   });
 });

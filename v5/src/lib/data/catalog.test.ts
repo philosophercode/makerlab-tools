@@ -314,17 +314,46 @@ describe("attachments", () => {
     ]);
   });
 
-  it("shows an unpublished resource, because its tool's visibility already gates it", async () => {
+  /**
+   * The regression: the editor's **Hide** control has to hide. It flips
+   * `resources.published`, the panel tags the row "Hidden" and the assistant
+   * stops reading it — so a tool page that still listed the internal SOP would
+   * leave a document staff deliberately restricted world-readable, with every
+   * surface but this one saying otherwise.
+   */
+  it("hides an unpublished resource from the tool page, because Hide has to hide", async () => {
     const toolId = await insertTool({ slug: "laser", name: "Laser" });
     await insertResource({
       toolId,
-      title: "Draft SOP",
-      url: "https://example.com/draft",
+      title: "Internal SOP",
+      url: "https://example.com/internal",
       published: false,
+    });
+    await insertResource({
+      toolId,
+      title: "Manual",
+      url: "https://example.com/manual",
     });
 
     const [tool] = await listCatalogTools({ db });
-    expect(tool.links.map((link) => link.href)).toEqual(["https://example.com/draft"]);
+    expect(tool.links.map((link) => link.href)).toEqual(["https://example.com/manual"]);
+  });
+
+  it("hides the files hanging off a hidden resource too", async () => {
+    const toolId = await insertTool({ slug: "laser", name: "Laser" });
+    const resourceId = await insertResource({
+      toolId,
+      title: "Internal SOP",
+      published: false,
+    });
+    await insertAttachment({
+      ownerType: "resource",
+      ownerId: resourceId,
+      publicUrl: "https://blob.example.com/internal-sop.pdf",
+    });
+
+    const [tool] = await listCatalogTools({ db });
+    expect(tool.links).toEqual([]);
   });
 
   it("ignores attachments owned by another row entirely", async () => {
