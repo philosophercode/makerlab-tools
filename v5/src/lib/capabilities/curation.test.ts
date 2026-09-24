@@ -120,6 +120,60 @@ describe("propose_change", () => {
     });
   });
 
+  describe("research never replaces lab rules (amendment 2026-09-24)", () => {
+    it("Form 4: a replacement restriction becomes an added line; the lab's resin rule is kept", async () => {
+      const result = await proposeChange.run(
+        { subject: { kind: "tool", id: toolId }, field: "use_restrictions", value: "Young or inexperienced users must be supervised." },
+        ctx()
+      );
+      expect(result).toMatchObject({ status: "proposed", lab_rules_kept: true, added: ["Young or inexperienced users must be supervised."] });
+      const db = await getDb();
+      const [row] = await db.select().from(chatProposals);
+      expect(row.proposal).toMatchObject({
+        field: "use_restrictions",
+        kind: "differs",
+        current: "Resin handling training required before first print.",
+        proposed: "Resin handling training required before first print.\nYoung or inexperienced users must be supervised.",
+        added: ["Young or inexperienced users must be supervised."],
+      });
+    });
+
+    it("refuses restrictions that only remove or reword the lab's", async () => {
+      expect(
+        await proposeChange.run({ subject: { kind: "tool", id: toolId }, field: "use_restrictions", value: "resin handling training required before first print" }, ctx())
+      ).toMatchObject({ status: "refused", code: "lab_rule_kept" });
+      const db = await getDb();
+      expect(await db.select().from(chatProposals)).toHaveLength(0);
+    });
+
+    it("refuses turning the lab's training requirement off, but not on", async () => {
+      expect(await proposeChange.run({ subject: { kind: "tool", id: toolId }, field: "training_required", value: false }, ctx())).toMatchObject({
+        status: "refused",
+        code: "lab_rule_kept",
+      });
+      const db = await getDb();
+      await db.update(tools).set({ trainingRequired: false }).where(eq(tools.id, toolId));
+      expect(await proposeChange.run({ subject: { kind: "tool", id: toolId }, field: "training_required", value: true }, ctx())).toMatchObject({
+        status: "proposed",
+      });
+    });
+
+    it("a pending item's values are research's drafts: training may be proposed off there", async () => {
+      const pendingId = "6a1f0c3e-0d7b-4c55-9f2a-1b8e7d3c4a01";
+      const pending: CurationContext = { ...curation, kind: "pending", id: pendingId };
+      expect(
+        await proposeChange.run({ subject: { kind: "pending", id: pendingId }, field: "training_required", value: false }, ctx({ curation: pending }))
+      ).toMatchObject({ status: "proposed" });
+    });
+
+    it("tells the model the lab's rules stay, on a tool only", () => {
+      const tool = curationCapability("tool").promptFragment({ tools: [], curation });
+      expect(tool).toMatch(/The lab's rules stay/);
+      const pending = curationCapability("pending").promptFragment({ tools: [], curation: { ...curation, kind: "pending" } });
+      expect(pending).not.toMatch(/The lab's rules stay/);
+    });
+  });
+
   it("refuses a floor check on a pending item", async () => {
     const pending: CurationContext = { ...curation, kind: "pending", id: "11111111-1111-4111-8111-111111111111" };
     expect(

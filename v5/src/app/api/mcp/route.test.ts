@@ -651,6 +651,25 @@ describe("staff tools", () => {
     expect(await db.select().from(chatProposals)).toHaveLength(0);
   });
 
+  it("propose_change keeps the lab's rules: restrictions only gain a line, training is never turned off", async () => {
+    const admin = await bearerFor("admin");
+    const added = JSON.parse(
+      resultText(
+        (await callTool("propose_change", { tool: "form-4", field: "use_restrictions", value: "Young or inexperienced users must be supervised." }, admin.headers))
+          .json
+      )
+    );
+    expect(added).toMatchObject({ status: "proposed", lab_rules_kept: true });
+    const db = await getDb();
+    const [row] = await db.select().from(chatProposals).where(eq(chatProposals.id, added.proposalId));
+    expect(row.proposal).toMatchObject({
+      proposed: "Resin handling training required before first print.\nYoung or inexperienced users must be supervised.",
+    });
+
+    const off = JSON.parse(resultText((await callTool("propose_change", { tool: "form-4", field: "training_required", value: false }, admin.headers)).json));
+    expect(off).toMatchObject({ status: "refused", code: "lab_rule_kept" });
+  });
+
   it("create_tool makes an unpublished draft credited to the token's owner", async () => {
     const admin = await bearerFor("admin");
     const { json } = await callTool(

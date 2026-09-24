@@ -2,7 +2,7 @@ import { addImportItems, failBulkImport, getBulkImport } from "../data/bulk-impo
 import { chunkDocument } from "./extract-output.ts";
 import { extractInventoryItems } from "./extract.ts";
 import { normalizeImportItems } from "./items.ts";
-import { IMPORT_MAX_ITEMS } from "./limits.ts";
+import { IMPORT_MAX_ITEMS, tooManyItemsReason } from "./limits.ts";
 import { classifyImportError } from "./step-errors.ts";
 import type { RawImportItem } from "./types.ts";
 
@@ -51,7 +51,9 @@ extractImportChunk.maxRetries = 2;
 
 /**
  * Every chunk's items become the import's pending rows (`addImportItems`),
- * validated, in document order, at most {@link IMPORT_MAX_ITEMS}. When no
+ * validated, in document order. A document that names more than
+ * {@link IMPORT_MAX_ITEMS} fails as `too_many_items:<count>`, which the page
+ * words with the count and asks for the document in parts — never cut. When no
  * chunk could be read at all the import fails with the first chunk's reason;
  * when the chunks were read and named nothing, it fails as `no_items`, which
  * the page words as "No equipment found in this document".
@@ -68,8 +70,12 @@ export async function writeImportItems(
   }
   const numbered = raws.map((raw, index) => ({ ...raw, sourceRow: index + 1 }));
   const { items } = normalizeImportItems(numbered);
-  const kept = items.slice(0, IMPORT_MAX_ITEMS);
-  const written = await addImportItems(importId, { items: kept, rowCount: raws.length });
+  // More than one import takes: refused with the count, never cut (amendment 2026-09-24).
+  if (items.length > IMPORT_MAX_ITEMS) {
+    await failBulkImport(importId, tooManyItemsReason(items.length));
+    return { status: "failed", itemCount: 0 };
+  }
+  const written = await addImportItems(importId, { items, rowCount: raws.length });
   if (!written.ok) return { status: "failed", itemCount: 0 };
   return { status: written.itemCount > 0 ? "ready" : "failed", itemCount: written.itemCount };
 }

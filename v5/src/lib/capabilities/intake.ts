@@ -9,7 +9,7 @@ import { IDENTIFY_MAX_ITEMS, IDENTIFY_MAX_MODEL_NAME_SEARCHES, RESEARCH_MAX_ITEM
 import type { DuplicateOf, IntakeTablePayload, IntakeTableWarning } from "../intake/types";
 import { toPendingToolView } from "../intake/view";
 import { IMPORT_CHAT_LINE_THRESHOLD } from "../import/limits";
-import { startImport, type StartImportError } from "../import/service";
+import { startImport, type StartImportError, type StartImportRefusal } from "../import/service";
 import { importPath, toImportView, type ImportCardPayload } from "../import/view";
 import { requestManualArchive } from "../manuals/trigger";
 import { verifyResourceLinks } from "../research/verify-links";
@@ -274,13 +274,29 @@ interface StartImportToolError {
 const IMPORT_ERROR_TEXT: Record<StartImportError, string> = {
   empty: "The list is empty, so nothing was imported.",
   too_large: "That file is too large to import (at most 5 MB of text or a 20 MB PDF).",
-  too_many_items: "That list has more rows than one import takes; ask the person to split it.",
+  too_many_items: "That list has more items than one import takes; ask the person to split it into parts and import each.",
+  document_too_long: "That document is too long for one import; ask the person to split it into parts and import each.",
   file_not_found: "That file could not be found among this person's uploads, so nothing was imported. Ask them to attach it again.",
   unsupported_file: "That kind of file cannot be imported; ask for a CSV, TSV, text or PDF file.",
   unreadable_file: "That file could not be read, so nothing was imported.",
   no_text_in_pdf: "That PDF has no text layer (it may be a scan), so nothing was imported.",
   blob_unavailable: "File storage is not available here, so the file could not be read. Suggest pasting the list instead.",
 };
+
+/**
+ * A refusal in words the model relays — with the numbers when there are some,
+ * so "split it" comes with how big it is and how big a part may be
+ * (bulk intake spec, amendment 2026-09-24).
+ */
+export function importErrorText(refusal: StartImportRefusal): string {
+  if (refusal.error === "too_many_items" && refusal.count !== undefined && refusal.limit !== undefined) {
+    return `That list has ${refusal.count.toLocaleString("en-US")} items; one import takes at most ${refusal.limit.toLocaleString("en-US")}. Nothing was imported. Ask the person to split it into parts and import each.`;
+  }
+  if (refusal.error === "document_too_long" && refusal.pages !== undefined && refusal.limitPages !== undefined && refusal.limitChars !== undefined) {
+    return `That document is about ${refusal.pages} pages of text; the limit is about ${refusal.limitPages} pages (${refusal.limitChars.toLocaleString("en-US")} characters). Nothing was imported or read by a model. Ask the person to split it into parts and import each.`;
+  }
+  return IMPORT_ERROR_TEXT[refusal.error];
+}
 
 const startImportTool: CapabilityTool<StartImportInput, StartImportToolResult | StartImportToolError> = {
   name: "start_import",
@@ -314,7 +330,7 @@ const startImportTool: CapabilityTool<StartImportInput, StartImportToolResult | 
         error: `Could not import the list (${errMsg(err)}), so nothing was saved. Tell the person in one sentence.`,
       };
     }
-    if (!outcome.ok) return { card_rendered: false, error: IMPORT_ERROR_TEXT[outcome.error] };
+    if (!outcome.ok) return { card_rendered: false, error: importErrorText(outcome) };
 
     const payload: ImportCardPayload = {
       kind: "import-card",

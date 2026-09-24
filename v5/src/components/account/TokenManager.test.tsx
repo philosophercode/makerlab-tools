@@ -54,6 +54,13 @@ describe("TokenManager", () => {
     expect(within(row).getByText("Never used", { exact: false })).toBeInTheDocument();
   });
 
+  it("defaults to 90 days, labelled one semester", () => {
+    setup();
+    const expiry = screen.getByLabelText("Expires") as HTMLSelectElement;
+    expect(expiry.value).toBe("90");
+    expect(within(expiry).getByRole("option", { name: "In 90 days (one semester)" })).toBeInTheDocument();
+  });
+
   it("creates a token with the chosen expiry and read-only, and reveals it once with setup snippets", async () => {
     const user = userEvent.setup();
     const { createAction } = setup();

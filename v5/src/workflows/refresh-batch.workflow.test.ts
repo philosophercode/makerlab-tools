@@ -131,7 +131,9 @@ describe("refreshBatch (in process)", () => {
       kind: "differs",
       safety: true,
       current: "Rated for 1-micron filtration.",
-      proposed: "Not for use with flammable dust.",
+      // The lab's restriction is kept; research's is added beside it (amendment 2026-09-24).
+      proposed: "Rated for 1-micron filtration.\nNot for use with flammable dust.",
+      added: ["Not for use with flammable dust."],
       citations: [{ quote: "Not for use with flammable dust.", url: PAGE, verified: true }],
     });
     // The invented quote is kept, and marked as not found.

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { columnMapProblem, IMPORT_FIELDS, type ColumnMap, type ImportField } from "../../lib/import/columns";
+import { IMPORT_MAX_ITEMS } from "../../lib/import/limits";
 import type { TablePreview } from "../../lib/import/preview";
 
 /**
@@ -82,7 +83,7 @@ export function ImportMapping({
       ) : null}
       {error ? (
         <p className="admin-row-status is-error" role="alert">
-          {t(`errors.${error}`)}
+          {t(`errors.${error}`, { count: preview.rowCount, limit: IMPORT_MAX_ITEMS })}
         </p>
       ) : null}
       <div className="admin-editor-actions">

@@ -47,6 +47,7 @@ const STATUS: Record<StartImportError, number> = {
   empty: 400,
   too_large: 413,
   too_many_items: 413,
+  document_too_long: 413,
   file_not_found: 404,
   unsupported_file: 415,
   unreadable_file: 422,
@@ -91,7 +92,10 @@ export async function POST(req: NextRequest) {
       origin: "page",
     });
     if (!outcome.ok) {
-      return refuse(STATUS[outcome.error], outcome.error, "The list could not be imported.", outcome.limit ? { limit: outcome.limit } : {});
+      // The numbers the message needs: the count and limit, or the size and limit in pages.
+      const { error, limit, count, pages, limitPages, limitChars } = outcome;
+      const numbers = Object.fromEntries(Object.entries({ limit, count, pages, limitPages, limitChars }).filter(([, value]) => value !== undefined));
+      return refuse(STATUS[error], error, "The list could not be imported.", numbers);
     }
     const body: CreateImportResponse = {
       import: toImportView(outcome.import, identity.name ?? null),

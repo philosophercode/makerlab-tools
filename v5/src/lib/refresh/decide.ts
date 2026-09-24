@@ -1,5 +1,6 @@
 import type { ToolPatch } from "../data/tools.ts";
-import { normalizeLabel, normalizeText } from "./propose.ts";
+import { rebaseRestrictions } from "./lab-rules.ts";
+import { normalizeLabel, normalizeText } from "./normalize.ts";
 import { isAcceptable, isUndecided, type FieldProposal, type ProposalDecision, type ProposedResource } from "./types.ts";
 
 /**
@@ -95,7 +96,9 @@ export function patchFor(proposals: readonly FieldProposal[]): ToolPatch {
  * its `current`. A card whose field changed under it is marked `conflict` — the
  * admin decides it again, seeing the other person's value — and a list card's
  * proposal is re-based onto the new list, keeping only the labels still
- * missing. A card whose field did not move stays `pending`.
+ * missing. A restrictions card is re-based the same way: research's lines on
+ * top of the lab's text now, never in place of it (`lab-rules.ts`). A card
+ * whose field did not move stays `pending`.
  */
 export function rebaseAfterConflict(proposals: readonly FieldProposal[], record: CurrentRecord): FieldProposal[] {
   return proposals.map((p) => {
@@ -107,6 +110,10 @@ export function rebaseAfterConflict(proposals: readonly FieldProposal[], record:
       const have = new Set(now.map(normalizeLabel));
       const added = (p.added ?? []).filter((label) => !have.has(normalizeLabel(label)));
       return { ...p, current: now, proposed: [...now, ...added], added, decision: "conflict" as ProposalDecision };
+    }
+    if (p.field === "use_restrictions") {
+      // The lab's rules are kept: research's lines go on top of what the lab has now (lab-rules.ts).
+      return { ...rebaseRestrictions(p, typeof now === "string" ? now : null), decision: "conflict" as ProposalDecision };
     }
     return { ...p, current: now, decision: "conflict" as ProposalDecision };
   });

@@ -645,3 +645,55 @@ Form 4 manual extracted and embedded into it first: $0.0006).
   turn. The chat turn's model cost was not captured (the route does not report it).
 - Total Gateway-reported spend of the check: model calls ≈ $0.07, Exa ≈ $0.077 (if billed on
   top), embeddings $0.0006, plus the chat turn's model tokens — well under $0.50.
+
+### 2026-09-24 — Research never replaces lab rules
+
+**Decision (Isaac, 2026-09-24).** Use restrictions, training requirements and similar
+lab-owned safety and access rules belong to the lab, like PPE. A manufacturer's page is not
+an authority over them. The live check above showed why: the Form 4's "Resin handling
+training required" came back as a card that would *replace* it with "Young or inexperienced
+users must be supervised".
+
+**What changes (§3.2, §3.3, §12.1), for a tool in the catalogue:**
+
+- **Restrictions only gain lines.** When the tool has restrictions, a restrictions proposal
+  keeps the lab's text verbatim and appends research's new lines, listed in `added`, as a
+  *differs* card (like a list card). A line the lab's text already says (normalized) adds
+  nothing, and then no card is made. Empty restrictions are still filled as *new*. The Form 4
+  card now proposes "Resin handling training required before first print." plus "Young or
+  inexperienced users must be supervised." on the next line. The card says "The lab's rules
+  are kept. Adds: …" (`admin.proposal.addedRule`).
+- **Training only tightens.** Research may propose `training_required: true`. It never
+  proposes turning a lab's `true` off. That case gets no card, where before it got a *differs*
+  card.
+- **The assistant's `propose_change`** (chat curation and MCP share `proposeChange`) follows
+  the same rule. A restrictions value becomes an addition beside the lab's; the reply carries
+  `lab_rules_kept: true` and `added`. A value that only removes or rewords the lab's lines, or
+  `training_required: false` when the lab requires training, is refused as `lab_rule_kept`
+  with a reason. The curation prompt and the MCP tool description say this.
+- **Conflicts re-base additively.** After a conflict a restrictions card puts its added lines
+  on top of the lab's text as it is *now*. It never proposes the text the card was made
+  against (`rebaseAfterConflict`, and the chat conflict path).
+- **Accepting has a last guard.** `refusalFor` refuses a tool proposal that would drop a lab
+  restriction line or turn training off: `replaces_lab_rule`, with the message
+  `admin.errors.replaces_lab_rule`. Accept all skips it. Only a card stored before this
+  amendment, or one edited by hand, can hit the guard.
+- **Where it lives.** All of these use one module, `src/lib/refresh/lab-rules.ts`.
+  `normalizeText` and `normalizeLabel` moved to `refresh/normalize.ts`; `propose.ts` still
+  re-exports them.
+
+**Not changed.**
+
+- **A pending item (intake).** Its restrictions and training flag are research's drafts, so
+  they are proposed and replaced as before (`refusalFor(…, { subjectKind: "pending" })`).
+  PPE stays empty there as everywhere: `assemble` clears it and no proposal field names it.
+- **Emergency stop.** It stays a replaceable *differs*. It describes the machine (where the
+  stop is and how it works), not a rule the lab set, and a wrong location should be
+  correctable.
+
+**Tests.** `lab-rules.test.ts` covers the pure rule. `propose.test.ts` covers the Form 4
+case, training never turned off, an already-stated line and PPE. `decisions.test.ts` covers
+an addition landing, an additive re-base after a conflict, and a stored replacement refused.
+`curation.test.ts` and `mcp/route.test.ts` cover `propose_change` on chat and MCP.
+`ProposalCard.test.tsx` covers the card text. `refresh-batch.workflow.test.ts` and
+`admin/refresh/actions.test.ts` now expect the additive card.

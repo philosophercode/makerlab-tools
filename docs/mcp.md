@@ -22,35 +22,52 @@ tank?"* Without signing in you get the public, read-only tools: tools, units,
 availability, maintenance history (dates, status and summaries — never who
 reported what) and the public manuals.
 
-## Acting as yourself
+## Acting as yourself: sign in with Google
 
-To file reports, list your own reports, or — if you are lab staff — use the
-staff tools, the assistant has to act as you. There are two ways:
+To file reports, list your own reports, or (if you are lab staff) use the staff
+tools, the assistant has to act as you. **The default way is to sign in with
+Google.** Every client below supports it, and there's no token to copy or keep
+safe. Give the client the **sign-in address**:
 
-- **A personal access token** (Claude Code, Claude Desktop, Codex, most
-  clients): profile menu → **Connect an AI assistant** → **New token**. Name it
-  after the device, choose when it expires (30 days, 90 days or never), and tick
-  **Read-only** if the assistant only needs to look things up. Copy the token
-  (`mlt_…`) — it is shown once.
-- **Sign in with MakerLab** (claude.ai and ChatGPT connectors, which sign in with
-  OAuth instead of a pasted header): use the sign-in address
+```text
+https://<your-deployment>/api/mcp/signed-in
+```
 
-  ```text
-  https://<your-deployment>/api/mcp/signed-in
-  ```
-
-  The client sends you to MakerLab to sign in with Google, then to a consent page
-  ("*Claude* wants to access MakerLab Tools as you") where you can also choose
-  read-only.
+The client sends you to MakerLab to sign in with Google, then to a consent page
+("*Claude* wants to access MakerLab Tools as you") where you can also choose
+**read-only**. The connection then appears under **Connected apps** on
+**profile menu → Connect an AI assistant** (`/account/tokens`), where you can
+disconnect it.
 
 Either way the assistant gets exactly your role's permissions and never more.
-Put the token in an environment variable rather than in a file or a chat:
+
+### When to use a personal access token instead
+
+A **personal access token** is the fallback for a client or script that can't
+sign in with OAuth: Claude Desktop's `claude_desktop_config.json` through the
+`mcp-remote` bridge, a CI job, your own script, or an older client. Get one from
+**profile menu → Connect an AI assistant → New token**. Name it after the device,
+choose when it expires (30 days, **90 days (one semester)**, the default, or
+never), and tick **Read-only** if the assistant only needs to look things up.
+Copy the token (`mlt_…`). It is shown once. Put it in an environment variable
+rather than in a file or a chat:
 
 ```bash
 export MAKERLAB_MCP_TOKEN=mlt_…   # in your shell profile
 ```
 
 ## Claude Code
+
+**Sign in (recommended):**
+
+```bash
+claude mcp add --transport http makerlab https://<your-deployment>/api/mcp/signed-in
+```
+
+Then run `/mcp` inside Claude Code, choose **makerlab** and pick
+**Authenticate**. Your browser opens to sign in with Google and approve.
+
+**With a token (fallback):**
 
 ```bash
 claude mcp add --transport http makerlab https://<your-deployment>/api/mcp \
@@ -59,7 +76,7 @@ claude mcp add --transport http makerlab https://<your-deployment>/api/mcp \
 
 Your shell expands the variable when you run the command, so Claude Code's own
 config stores the token. To keep it out of every file, use a project
-`.mcp.json` instead — Claude Code expands `${VAR}` when it starts the server:
+`.mcp.json` instead. Claude Code expands `${VAR}` when it starts the server:
 
 ```json
 {
@@ -73,18 +90,17 @@ config stores the token. To keep it out of every file, use a project
 }
 ```
 
-Run `/mcp` inside Claude Code to check it's connected. For browsing only, drop
-the `--header` (or the `headers` entry).
+For browsing only, add `https://<your-deployment>/api/mcp` with no header.
 
 ## Claude Desktop
 
-Claude Desktop's **Settings → Connectors → Add custom connector** takes a URL
-and signs in with OAuth: give it the sign-in address
-(`https://<your-deployment>/api/mcp/signed-in`), or the open address for
-browsing only.
+**Sign in (recommended):** **Settings → Connectors → Add custom connector**, and
+paste the sign-in address `https://<your-deployment>/api/mcp/signed-in`. Claude
+Desktop sends you to MakerLab to sign in and approve. For browsing only, paste
+`https://<your-deployment>/api/mcp` instead.
 
-To use a personal access token instead, add the server to
-`claude_desktop_config.json` through the `mcp-remote` bridge (Node required):
+**With a token (fallback):** add the server to `claude_desktop_config.json`
+through the `mcp-remote` bridge (Node required):
 
 ```json
 {
@@ -105,24 +121,43 @@ releases.)*
 
 **Settings → Connectors → Add custom connector**, and paste the sign-in address
 `https://<your-deployment>/api/mcp/signed-in`. You'll be sent to MakerLab to
-sign in with Google and approve the connection; no token needed. For browsing
-only, paste `https://<your-deployment>/api/mcp` instead.
+sign in with Google and approve the connection. No token needed, and claude.ai
+has no way to use one. For browsing only, paste `https://<your-deployment>/api/mcp`
+instead.
 
 ## ChatGPT
 
-**Settings → Connectors** → create a custom connector with the MCP address
-(custom MCP connectors sit behind ChatGPT's developer-mode / connector settings,
-depending on plan). ChatGPT connectors authenticate with OAuth or not at all —
-not with a pasted header — so:
+**Settings → Connectors**, then create a custom connector with the MCP address.
+Custom MCP connectors are under ChatGPT's developer-mode or connector settings,
+depending on your plan. ChatGPT connectors authenticate with OAuth or not at
+all. They can't take a pasted header. So:
 
+- **OAuth (recommended)**, address `https://<your-deployment>/api/mcp/signed-in`:
+  sign in with MakerLab and approve. The connector then has your role's tools.
 - **No authentication**, address `https://<your-deployment>/api/mcp`: the
   public, read-only tools.
-- **OAuth**, address `https://<your-deployment>/api/mcp/signed-in`: sign in with
-  MakerLab and approve; the connector then has your role's tools.
 
 ## Codex (CLI / IDE)
 
-Add a streamable-HTTP server that reads the token from the environment:
+**Sign in (recommended):**
+
+```bash
+codex mcp add makerlab --url https://<your-deployment>/api/mcp/signed-in
+```
+
+Codex signs in with OAuth when you add a server that asks for it. If your
+browser doesn't open, or to sign in again later, run:
+
+```bash
+codex mcp login makerlab
+```
+
+Check with `/mcp` inside Codex. *(These commands are checked against
+`codex mcp add --help` and `codex mcp login --help` from codex-cli 0.156. The
+sign-in itself has not been run against a live deployment.)*
+
+**With a token (fallback):** add a streamable-HTTP server that reads the token
+from the environment:
 
 ```bash
 codex mcp add makerlab --url https://<your-deployment>/api/mcp \
@@ -137,41 +172,41 @@ url = "https://<your-deployment>/api/mcp"
 bearer_token_env_var = "MAKERLAB_MCP_TOKEN"
 ```
 
-Then `export MAKERLAB_MCP_TOKEN=mlt_…` in your shell profile, and check with
-`/mcp` inside Codex.
+Then `export MAKERLAB_MCP_TOKEN=mlt_…` in your shell profile.
 
 ## Other MCP clients
 
-Any client that speaks Streamable HTTP with JSON responses: the address above,
-and optionally the header `Authorization: Bearer mlt_…`. OAuth-capable clients
-can use the sign-in address; its discovery documents are at
+Any client that speaks Streamable HTTP with JSON responses. If it supports
+OAuth, give it the sign-in address. Its discovery documents are at
 `/.well-known/oauth-protected-resource/api/mcp/signed-in` and
 `/.well-known/oauth-authorization-server` (dynamic client registration, PKCE
-with S256).
+with S256). Otherwise use the open address, optionally with the header
+`Authorization: Bearer mlt_…`.
 
 ## Let the assistant set itself up
 
-Put the token in an environment variable yourself (so it never appears in the
-chat), then paste this into Claude Code, Codex, or any coding agent that can edit
-its own MCP config:
+Paste this into Claude Code, Codex, or any coding agent that can edit its own
+MCP config. It uses sign-in, so no secret passes through the chat:
 
 ```text
 Set up the MakerLab Tools MCP server for yourself.
-- Server URL: https://<your-deployment>/api/mcp  (Streamable HTTP, JSON responses)
-- Auth: bearer token, read from the environment variable MAKERLAB_MCP_TOKEN.
-  Never print, echo, or write the token's value into any file or message — reference the
-  variable by name only. If the variable is unset, stop and tell me to set it.
-- Use your own supported way to add a remote MCP server (for example a project
-  .mcp.json entry whose Authorization header is "Bearer ${MAKERLAB_MCP_TOKEN}" for
-  Claude Code, or `codex mcp add makerlab --url … --bearer-token-env-var MAKERLAB_MCP_TOKEN`
-  for Codex). Name it "makerlab".
-- Then verify: list the server's tools and call `search_tools` with the query "laser".
-  Report which tools you can see (they depend on my role) and the first result.
+- Server URL: https://<your-deployment>/api/mcp/signed-in  (Streamable HTTP, JSON responses,
+  OAuth sign-in with Google)
+- Use your own supported way to add a remote HTTP MCP server with OAuth, named "makerlab"
+  (for example `claude mcp add --transport http makerlab <url>` for Claude Code, or
+  `codex mcp add makerlab --url <url>` for Codex). Don't add any token or header.
+- Then tell me how to finish signing in (for Claude Code: run /mcp and choose Authenticate;
+  for Codex: `codex mcp login makerlab` if the browser didn't open).
+- Once I've signed in, verify: list the server's tools and call `search_tools` with the query
+  "laser". Report which tools you can see (they depend on my role) and the first result.
 - Don't change any other MCP server or setting.
 ```
 
-For read-only browsing with no account, drop the auth lines — the public tools
-need none.
+For a client that can't sign in, use a token instead. Put it in
+`MAKERLAB_MCP_TOKEN` yourself, so it never appears in the chat. Then tell the agent
+to use the open address with the header `Authorization: Bearer ${MAKERLAB_MCP_TOKEN}`,
+to reference the variable by name only, and never to print its value. For
+read-only browsing with no account, use the open address and no auth at all.
 
 ## What you can do
 
@@ -198,9 +233,10 @@ tools that file or change anything.
 
 ## Keeping it safe
 
+- Prefer signing in. There is no secret to paste, store or leak, and every
+  signed-in client is listed under **Connected apps**, where you can disconnect it.
 - A token acts as you. Make one per device, prefer read-only, and revoke it from
-  the same page if a laptop is lost; connected apps (claude.ai, ChatGPT) are
-  listed there too and disconnect the same way.
+  the same page if a laptop is lost.
 - Tokens are stored only as a hash and never appear in logs; the page shows the
   first eight characters (`mlt_ab12cd34…`) so you can tell them apart.
 - Nothing an assistant does publishes, archives or edits the catalogue. New
@@ -214,8 +250,12 @@ tools that file or change anything.
   token (or, for a connector, sign in again). A bad token is refused, never
   treated as anonymous.
 - **401 "account suspended"** — the account behind the token is banned.
-- **401 from `/api/mcp/signed-in` with no token** — expected: that address is for
-  clients that sign in. Use `/api/mcp` to browse without an account.
+- **401 from `/api/mcp/signed-in` with no token**: this is expected. The 401 is
+  what tells an OAuth client to start sign-in. If your client shows the error
+  instead of opening a sign-in (in Claude Code, run `/mcp` and choose
+  **Authenticate**; in Codex, run `codex mcp login makerlab`), it doesn't support
+  OAuth. Use a personal access token with `/api/mcp` instead, or `/api/mcp` with
+  no token to browse.
 - **429 "Too many requests"** — slow down: 30 requests a minute without an
   account, 60 a minute per token or connection, and 10 reports or changes a
   minute per person.

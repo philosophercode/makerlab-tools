@@ -46,7 +46,7 @@ that work until a migration is offered.
 | `docs/specs/` | Per-feature design specs |
 | `v5/AGENTS.md` | App-level detail for `v5/`: stack, key files, gotchas |
 | `v5/TESTING.md` | Test suite runbook |
-| `docs/mcp.md` | User guide: connecting Claude, ChatGPT, Codex and other MCP clients (tokens, OAuth) |
+| `docs/mcp.md` | User guide: connecting Claude, ChatGPT, Codex and other MCP clients (sign in with Google by default; tokens as the fallback) |
 | `docs/MakerLab_design/DESIGN.md` | The "Architectural Brutalism + Blueprint Archive" design system |
 | `docs/isam-2026-demo/` | ISAM 2026 demo abstract and figures. `abstract-v1.*` is the frozen submitted record; edit `abstract-v1.1.html`. Dates and open items in `DECISIONS.md` |
 

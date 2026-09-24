@@ -1,6 +1,8 @@
 import type { CitedField } from "../research/model-output.ts";
 import type { ResearchResult } from "../research/result.ts";
 import { imageIdentity } from "../web/image-url.ts";
+import { addRestrictions, trainingChangeAllowed } from "./lab-rules.ts";
+import { normalizeLabel, normalizeText } from "./normalize.ts";
 import { SAFETY_FIELDS, type Citation, type FieldProposal, type ProposalField, type ProposalKind } from "./types.ts";
 
 /**
@@ -22,6 +24,10 @@ import { SAFETY_FIELDS, type Citation, type FieldProposal, type ProposalField, t
  *   additions are proposed — the proposed list is the record's plus research's
  *   new labels, each listed in `added`; research never removes a label.
  * - **Training, restrictions, emergency stop** are the safety fields.
+ * - **Research never replaces a lab rule** (`lab-rules.ts`, amendment
+ *   2026-09-24): a restrictions proposal on a filled field keeps the lab's
+ *   text and appends research's new lines (`added`); a tool that requires
+ *   training is never proposed to stop requiring it.
  * - **Resources** are compared by URL, after the image finder's size-variant
  *   normalization and a leading locale segment dropped; only links the tool
  *   lacks are proposed, never a removal.
@@ -114,21 +120,32 @@ export function proposeChanges(input: ProposeInput): FieldProposal[] {
   // Training required — a boolean research may not know.
   if (research.trainingRequired === null) {
     out.push(unverified("training_required", tool.trainingRequired));
-  } else if (research.trainingRequired !== tool.trainingRequired) {
+  } else if (research.trainingRequired !== tool.trainingRequired && trainingChangeAllowed(tool.trainingRequired, research.trainingRequired)) {
     out.push(proposal("training_required", "differs", tool.trainingRequired, research.trainingRequired, cited("training_required")));
   }
 
-  // Restrictions and emergency stop — text.
-  const textFields = [
-    ["use_restrictions", tool.useRestrictions, research.useRestrictions],
-    ["emergency_stop", tool.emergencyStop, research.emergencyStop ?? null],
-  ] as const;
-  for (const [field, current, found] of textFields) {
-    const value = (found ?? "").trim();
-    const now = (current ?? "").trim();
-    if (!value) out.push(unverified(field, current));
-    else if (!now) out.push(proposal(field, "new", current, value, cited(field)));
-    else if (normalizeText(value) !== normalizeText(now)) out.push(proposal(field, "differs", current, value, cited(field)));
+  // Restrictions — the lab's rule: research only adds lines beside it.
+  const restrictionsFound = (research.useRestrictions ?? "").trim();
+  if (!restrictionsFound) out.push(unverified("use_restrictions", tool.useRestrictions));
+  else if (!(tool.useRestrictions ?? "").trim()) {
+    out.push(proposal("use_restrictions", "new", tool.useRestrictions, restrictionsFound, cited("use_restrictions")));
+  } else {
+    const addition = addRestrictions(tool.useRestrictions, restrictionsFound);
+    if (addition) {
+      out.push({
+        ...proposal("use_restrictions", "differs", tool.useRestrictions, addition.proposed, cited("use_restrictions")),
+        added: addition.added,
+      });
+    }
+  }
+
+  // Emergency stop — a fact about the machine, which research may correct.
+  const stopFound = (research.emergencyStop ?? "").trim();
+  const stopNow = (tool.emergencyStop ?? "").trim();
+  if (!stopFound) out.push(unverified("emergency_stop", tool.emergencyStop));
+  else if (!stopNow) out.push(proposal("emergency_stop", "new", tool.emergencyStop, stopFound, cited("emergency_stop")));
+  else if (normalizeText(stopFound) !== normalizeText(stopNow)) {
+    out.push(proposal("emergency_stop", "differs", tool.emergencyStop, stopFound, cited("emergency_stop")));
   }
 
   // Resources — only links the tool lacks.
@@ -228,19 +245,7 @@ export function sortProposals(proposals: readonly FieldProposal[]): FieldProposa
   );
 }
 
-/** Case, punctuation and whitespace flattened — for names and sentences. */
-export function normalizeText(value: string): string {
-  return value
-    .normalize("NFKC")
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
-}
-
-/** A label as a set member: "PLA+" and "pla" are two labels, "Wood." and "wood" one. */
-export function normalizeLabel(value: string): string {
-  return value.normalize("NFKC").toLowerCase().replace(/[\s._\-/]+/g, " ").trim();
-}
+export { normalizeLabel, normalizeText };
 
 /** A leading locale path segment: /en/, /en-us/, /de_DE/. */
 const LOCALE_SEGMENT = /^\/[a-z]{2}(?:[-_][a-z]{2})?(?=\/|$)/i;

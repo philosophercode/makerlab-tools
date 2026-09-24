@@ -120,7 +120,9 @@ it("decides proposals, and Refresh again closes the refresh and queues a new one
       kind: "differs",
       safety: true,
       current: "1 micron.",
-      proposed: "5 microns.",
+      // Research only adds beside the lab's restriction (refresh spec amendment 2026-09-24).
+      proposed: "1 micron.\n5 microns.",
+      added: ["5 microns."],
       citations: [{ quote: "Filters to 5 microns", url: "https://a.example/", verified: true }],
       decision: "pending",
     },
@@ -134,7 +136,7 @@ it("decides proposals, and Refresh again closes the refresh and queues a new one
     applied: 1,
   });
   const [row] = await db.select().from(tools).where(eq(tools.id, toolId));
-  expect(row.useRestrictions).toBe("5 microns.");
+  expect(row.useRestrictions).toBe("1 micron.\n5 microns.");
   // The page's revision is spent: an action against it is told to reload.
   expect(await decideRefreshProposals({ refreshId: queued.id, rowRevision, decision: "reject_all" })).toEqual({
     ok: false,

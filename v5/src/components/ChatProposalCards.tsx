@@ -108,6 +108,7 @@ const KNOWN_ERRORS = new Set([
   "conflict",
   "invalid_field",
   "unverified_quote",
+  "replaces_lab_rule",
   "failed",
 ]);
 

@@ -9,6 +9,7 @@ import { addResource } from "../inventory/resource-edits";
 import type { InventoryWriteError, InventoryWriteWarning } from "../inventory/result";
 import { saveToolFields } from "../inventory/tool-edits";
 import { patchFor, proposedResource } from "./decide";
+import { replacesLabRule } from "./lab-rules";
 import { hasVerifiedEvidence, isActionable, type FieldProposal, type ProposedCover } from "./types";
 
 /**
@@ -33,7 +34,10 @@ import { hasVerifiedEvidence, isActionable, type FieldProposal, type ProposedCov
  * (`unverified`), a quoted field whose quotes were all not found
  * (`unverified_quote` — §4.2: the admin opens the editor instead), and a name
  * change on a published tool by someone without `tools.publish`
- * (`not_permitted`). Accept-all drops those itself; a single Accept is told.
+ * (`not_permitted`), and a proposal that would remove or replace one of the
+ * lab's rules — a restriction line or a "training required" (`replaces_lab_rule`,
+ * `lab-rules.ts`; only a proposal stored before that rule, or hand-edited, can
+ * be one). Accept-all drops those itself; a single Accept is told.
  *
  * No audit event: accepting a proposal is an ordinary edit (§3.3, data
  * platform spec §4.11). The caller records who decided what on the refresh or
@@ -52,7 +56,14 @@ export interface ApplyContext {
   store?: BlobStore | null;
 }
 
-export type ApplyRefusal = "conflict" | "not_found" | "invalid_field" | "not_permitted" | "unverified_quote" | "failed";
+export type ApplyRefusal =
+  | "conflict"
+  | "not_found"
+  | "invalid_field"
+  | "not_permitted"
+  | "unverified_quote"
+  | "replaces_lab_rule"
+  | "failed";
 
 export type ApplyResult =
   | {
@@ -68,9 +79,16 @@ export type ApplyResult =
   | { ok: false; error: ApplyRefusal };
 
 /** Why one proposal cannot be accepted, or null when it can. */
-export function refusalFor(p: FieldProposal, ctx: Pick<ApplyContext, "canPublish" | "toolPublished">): ApplyRefusal | null {
+export function refusalFor(
+  p: FieldProposal,
+  ctx: Pick<ApplyContext, "canPublish" | "toolPublished"> & {
+    /** A pending item's restrictions and training flag are research's drafts, not lab rules. Default `"tool"`. */
+    subjectKind?: "tool" | "pending";
+  }
+): ApplyRefusal | null {
   if (!isActionable(p)) return "invalid_field";
   if (!hasVerifiedEvidence(p)) return "unverified_quote";
+  if ((ctx.subjectKind ?? "tool") === "tool" && replacesLabRule(p)) return "replaces_lab_rule";
   if (p.field === "name" && ctx.toolPublished && !ctx.canPublish) return "not_permitted";
   return null;
 }

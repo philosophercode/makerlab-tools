@@ -193,6 +193,23 @@ describe("ImportReview", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("No equipment found in this document.");
     expect(screen.getByText(/Tidy the shelves/)).toBeInTheDocument();
   });
+
+  it("says how many items a document named when it was past the limit, and asks for parts", () => {
+    render(
+      <ImportReview
+        initialImport={{ ...IMPORT, status: "failed", format: "document", parseError: "too_many_items:1200" }}
+        initialItems={[]}
+        preview={null}
+        sourceHead={null}
+        categories={[]}
+        locations={[]}
+        actions={actions()}
+      />
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "This document names 1,200 items; the limit is 1,000 items per import. Split it into parts and import each."
+    );
+  });
 });
 
 describe("ImportCard (the chat hand-off)", () => {
