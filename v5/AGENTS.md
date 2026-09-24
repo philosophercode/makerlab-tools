@@ -21,7 +21,7 @@ the catalog to external agents. White-labelled via env vars.
 - **Next.js 16** (App Router, React Server Components, `cacheComponents` enabled), **React 19**, **TypeScript**, **Tailwind CSS 4**.
 - **i18n:** `next-intl`, **12 locales**, cookie-based (`NEXT_LOCALE`) — no URL-prefix routing. Config in `src/i18n/config.ts`; messages in `messages/*.json`.
 - **AI:** Vercel **AI SDK v6** (`ai`, `@ai-sdk/react`) through the **Vercel AI Gateway** (`@ai-sdk/gateway`) — the *only* model path (gateway spec 2026-09-23: `ANTHROPIC_API_KEY`, `@ai-sdk/anthropic` and the direct-provider `src/lib/model.ts` are retired and removed). Every model call names a **job**, not a model — `chat`, `researchSearch`, `researchRead`, `imageRank`, bulk intake's `importParse` and `nameSuggest` (`MODEL_IMPORT_PARSE`, `MODEL_NAME_SUGGEST`, both flex), and the embedding job `embed` (`openai/text-embedding-3-small` at 512 dimensions, manual search — manual text spec phase 2) — resolved by `src/lib/ai/models.ts`'s `MODEL_JOBS`, each with a code default (`openai/gpt-6-luna` for every language job — chat passed the §10 eval gate once its prompt was tuned, gateway spec amendment "Chat prompt tuning for Luna") and one `MODEL_<JOB>` env override. Each job also names a Gateway **service tier** — `flex` for the background jobs (research search/read, image ranking, the starter-question backfill), none for chat — sent by `providerOptionsFor(job)` and overridden by `MODEL_<JOB>_TIER` (`default`/`flex`/`priority`; amendment "Manuals as text and flex tier for research"). Research's read step gives a manual PDF as **text**, not a file part (`RESEARCH_ATTACH_PDFS = false` in `intake/limits.ts`) — the lab's own extraction first (a stored manual, or the downloaded PDF extracted in memory: outline plus the pages richest in specs), the search's captured copy only as the fallback (manual text spec, phase 1); chat answers from a processed manual with `search_manual` and attaches only the manuals not yet processed (phase 2). There is **no image model**: the `imageClean` redraw was retired on 2026-09-23 because it altered product labels (spec amendment "No generative redraw"); background removal is a deterministic cutout in code. Web search is `gateway.tools.exaSearch` (Exa, provider-executed — one request leaves our process regardless of how many search legs the Gateway runs); reading a specific page is `read_page`, our own capability tool over `src/lib/web/*`'s SSRF-guarded fetch, not a provider tool. Auth is `AI_GATEWAY_API_KEY` when set, else the deployment's own Vercel OIDC token — production sets neither key nor a fallback, only the Gateway. Markdown via `react-markdown` + `remark-gfm`.
-- **MCP:** `@modelcontextprotocol/sdk` (HTTP JSON-RPC server at `/api/mcp`).
+- **MCP:** `@modelcontextprotocol/sdk` (stateless HTTP JSON-RPC server at `/api/mcp`, and `/api/mcp/signed-in` for OAuth clients) — see "MCP access" below.
 - **Validation:** `zod`. **Search:** `match-sorter` (fuzzy, ranked).
 
 ## Data layer — Postgres (not Notion, not AirTable)
@@ -572,6 +572,38 @@ researched or published on its own (Article 5). See the spec's 2026-09-24 amendm
 - **Uploads**: kind `import` on `POST /api/uploads` (private, `tools.add`). The chat's
   paperclip takes list files and names them to the model as `[Attached documents: …]`.
 
+## MCP access (`api_tokens`, `oauth_*`; MCP access spec, migration `0014`)
+
+MCP callers act as a person, with that person's role and never more
+(`docs/specs/2026-09-23-mcp-access-design.md`, amendment 2026-09-24; user guide `docs/mcp.md`).
+
+- **Who is calling** is `resolveMcpCaller` (`src/lib/auth/mcp-caller.ts`), used by the MCP route
+  only: `Bearer mlt_…` (a personal access token, looked up by SHA-256 hash), the deprecated
+  `MCP_TOKEN` (anonymous, read-only, warns once), any other bearer as a Better Auth `mcp`-plugin
+  OAuth access token, or no header → anonymous. A bearer that does not resolve is a 401 naming the
+  reason — never anonymous. Ban, floor and domain rules are `evaluateUser`, shared with sessions.
+  **`resolveIdentity` (every other route) still reads only the cookie** — a token never works on
+  `/api/chat`, uploads or research.
+- **What is listed** is `mcpToolAllowed`: capability and tool `requiredPermission` via `can()`;
+  every write (and `requiresSignIn`) needs a signed-in caller; a read-only token or grant gets no
+  writes. The server is built per request. Anonymous gets the six public reads; maintenance
+  history carries reporter names only for `maintenance.manage`.
+- **MCP-only tools**: `list_my_reports` (`capabilities/reports.ts`), and `list_intake_queue`,
+  `list_open_tickets`, `update_ticket` (through `lib/admin/ticket-write.ts`, the admin page's own
+  path), `propose_change` (a `chat_proposals` row with `chat_id = "mcp"`, shown on
+  `/admin/refresh` under "Proposals from assistants") in `capabilities/staff.ts`. Nothing over MCP
+  publishes or edits the catalogue (Article 5).
+- **Rate limits**: `mcp` 30/min per IP, `mcpSignedIn` 60/min per token or person, `mcpWrite`
+  10/min per identity before each write call.
+- **Tokens** (`/account/tokens`, profile menu → Connect an AI assistant): shown once, stored as a
+  hash, prefix for display, 30/90/never (90 default), read-only option, ≤ 20 live, audited
+  `token.created` / `token.revoked`. **Never log a token** — only `displayPrefix`.
+- **OAuth** (the `mcp` plugin in `auth/config.ts`): clients use `/api/mcp/signed-in`, whose
+  anonymous 401 points at `/.well-known/oauth-protected-resource/…`; the auth route forces
+  `prompt=consent` on `/api/auth/mcp/authorize`; `/oauth/sign-in` and `/oauth/consent` (read-only
+  there adds the `read_only` scope). Grants are listed and revoked as Connected apps. Backups skip
+  `oauth_access_token`.
+
 ## The Notion mirror (`notion_mirrors`, Phase 8)
 
 A one-way copy of the inventory into an admin's own Notion workspace (spec
@@ -845,7 +877,11 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/db/schema/auth.ts` | Better Auth's four tables; property keys are its field names |
 | `src/lib/types.ts` / `src/components/catalog-types.ts` | Notion record types / resolved view types |
 | `src/app/api/chat/route.ts` | The chat: streaming, through the Gateway (job `chat`); capability tools (`get_unit_details`, `report_issue`, `identify_tools`, `read_page`, …) plus `exa_search` (added directly, like the retired `web_search` before it — not a capability), PDF manual attach |
-| `src/app/api/mcp/route.ts` | MCP JSON-RPC server (6 tools without `MCP_TOKEN`, `search_manual` among them), bearer-token auth |
+| `src/app/api/mcp/route.ts`, `signed-in/route.ts`, `src/lib/mcp/handler.ts` | The MCP endpoint: caller → rate limit → a server holding only that caller's tools (6 public reads anonymously) |
+| `src/lib/auth/mcp-caller.ts` | `resolveMcpCaller` — personal token, legacy `MCP_TOKEN`, OAuth token, or anonymous; a bad bearer is refused, never anonymous |
+| `src/lib/capabilities/mcp-access.ts` | `mcpToolAllowed` / `mcpToolsFor` — which tools an MCP caller is offered |
+| `src/lib/data/api-tokens.ts`, `src/lib/auth/api-token-format.ts` | Personal access tokens (hash, prefix, revoke, last use) and the OAuth grant reads ("Connected apps") |
+| `src/app/account/tokens/`, `src/app/oauth/`, `src/app/.well-known/` | The token page, the OAuth sign-in and consent pages, the discovery documents |
 | `src/app/api/uploads/route.ts` | The one upload route → Vercel Blob + an `attachments` row |
 | `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup, then the mirror backstop, then the manual archive backfill |
 | `src/lib/manuals/*` | The manual archive: `archive` (`archiveManual`), `steps` (`archiveManualStep`, `indexManualStep`), `start` (the one `workflow/api` import), `trigger` (`requestManualArchive`, never throws); manual text: `extract` (unpdf), `index-document`, `stored-bytes`, `digest`; manual search: `chunk` (`CHUNKER_VERSION`), `embed` (job `embed`), `passages` (the index step's second half), `search` (`searchManuals`, hybrid + RRF) |
