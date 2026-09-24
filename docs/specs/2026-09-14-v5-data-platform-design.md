@@ -1516,6 +1516,43 @@ seed still has no draft or archived tool, so no E2E exercises publish, archive o
 browser; each is covered against PGlite in `src/app/admin/inventory/actions.test.ts`.
 
 **Status.** Accepted.
+||||||| 57d7ea3
+
+
+### 2026-09-22 — `AUTH_ALLOWED_EMAILS`, so the domain rule cannot become a lock-out
+
+**A new environment variable: `AUTH_ALLOWED_EMAILS`**, a comma-separated list of full addresses
+allowed to sign in whatever domain they are on. Empty by default, and empty in the Cornell Tech
+deployment, where it changes nothing.
+
+**Why.** §3.4's domain rule is right for a university — it admits every student without anybody
+maintaining a roster — but it ties every account to one institution's Google Workspace, including
+the accounts that must never be locked out. The people who hold `super_admin` are exactly the ones
+whose institutional address is temporary: a director who graduates, a maintainer after the project
+leaves Cornell, a handover to somebody who does not have a `cornell.edu` address yet. The
+super-admin floor was built to make lock-out unrecoverable-proof, but `isSuperAdminFloor` calls
+`isAllowedEmail` first, so a floor entry on any other domain was **silently ignored** — the
+env var would look set and do nothing, which is the worst shape a safety net can have.
+
+**Named exceptions, never a second open domain.** `isAllowedEmail` now passes an address on the
+configured domain **or** one named in the list. Adding an entry is a deliberate act by somebody who
+can already deploy, and it admits exactly one person, not a provider. `AUTH_ALLOWED_EMAIL_DOMAIN`
+keeps doing all the work for everybody else.
+
+**One consequence worth stating plainly: setting this drops the Google `hd` hint.** `hd` is not only
+a hint to the account picker — Better Auth verifies the claim on the returned id token, and a
+personal Google account carries no `hd` at all. Left on, it would refuse every named exception
+before this app's own check ran. So `socialProviders.google.hd` is omitted whenever the list is
+non-empty. The picker gets wider; the two server-side enforcement points in §3.4 do not move, and
+they are the control. A deployment that leaves the list empty is byte-identical to before.
+
+**The bootstrap, decided 2026-09-22.** `AUTH_SUPER_ADMIN_EMAILS=ies22@cornell.edu` remains the
+floor for launch — it works today with no code change. `steinbergisaac@gmail.com` goes in
+`AUTH_ALLOWED_EMAILS`, and may be added to the floor, so access survives the Cornell account.
+
+**Status.** Accepted. Tested in `roles.test.ts`: an off-domain named address is admitted, its
+domain is **not** opened to anybody else, the institutional domain keeps working alongside it, and
+an empty list behaves exactly as the domain rule did.
 
 ### 2026-09-23 — Phase 6 built (two-step add-tool), with as-built details; open questions 4 and 5 answered
 
@@ -1599,3 +1636,4 @@ that `gallery.spec.ts`'s count would see.
   reconnecting the mirror.
 
 **Status.** Accepted.
+||||||| 927bbec
