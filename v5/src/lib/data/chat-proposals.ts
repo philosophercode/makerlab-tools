@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { getDb } from "../db/client.ts";
-import { chatProposals, pendingTools } from "../db/schema/index.ts";
+import { chatProposals, pendingTools, tools, user } from "../db/schema/index.ts";
 import { isOneOf, PROPOSAL_SUBJECT_KIND, type ProposalSubjectKind } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
 import { fieldProposalSchema, type FieldProposal } from "../refresh/types.ts";
@@ -68,6 +68,53 @@ export async function createChatProposal(input: NewChatProposal, options: ChatPr
     })
     .returning({ id: chatProposals.id });
   return row.id;
+}
+
+/** `chat_proposals.chat_id` for a proposal made over MCP, which has no chat (MCP access spec §3.3). */
+export const MCP_PROPOSAL_CHAT_ID = "mcp";
+
+/** An open proposal an assistant made over MCP, as `/admin/refresh` lists it. */
+export interface AssistantProposalRow {
+  id: string;
+  toolId: string;
+  toolName: string;
+  proposal: FieldProposal;
+  proposedBy: string | null;
+  createdAt: Date;
+}
+
+/**
+ * Open (undecided, unexpired) proposals made over MCP — `chat_id` is the
+ * marker the MCP `propose_change` writes (MCP access spec §3.3) — about tools
+ * that still exist, oldest first. `/admin/refresh` lists them under "Proposals
+ * from assistants", where they are accepted or rejected with the same cards
+ * and the same `POST /api/chat-proposals` as the chat's own.
+ */
+export async function listOpenAssistantProposals(
+  chatId: string,
+  options: ChatProposalOptions & { limit?: number } = {}
+): Promise<AssistantProposalRow[]> {
+  const db = options.db ?? (await getDb());
+  const rows = await db
+    .select({ row: chatProposals, toolName: tools.name, proposedBy: user.name })
+    .from(chatProposals)
+    .innerJoin(tools, eq(chatProposals.subjectId, tools.id))
+    .leftJoin(user, eq(chatProposals.createdBy, user.id))
+    .where(
+      and(
+        eq(chatProposals.chatId, chatId),
+        eq(chatProposals.subjectKind, "tool"),
+        isNull(chatProposals.decidedAt),
+        sql`${chatProposals.expiresAt} > now()`
+      )
+    )
+    .orderBy(chatProposals.createdAt)
+    .limit(options.limit ?? 100);
+  return rows.flatMap(({ row, toolName, proposedBy }) => {
+    const proposal = fieldProposalSchema.safeParse(row.proposal);
+    if (!proposal.success) return [];
+    return [{ id: row.id, toolId: row.subjectId, toolName, proposal: proposal.data, proposedBy, createdAt: row.createdAt }];
+  });
 }
 
 export async function getChatProposals(ids: readonly string[], options: ChatProposalOptions = {}): Promise<ChatProposalRow[]> {

@@ -2,6 +2,7 @@ import { getTableName } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import { account, session, verification } from "../db/schema/auth";
 import { notionMirrors } from "../db/schema/mirror";
+import { oauthAccessToken, oauthApplication } from "../db/schema/access";
 
 /**
  * What the nightly export deliberately leaves out (data platform design spec
@@ -36,6 +37,16 @@ import { notionMirrors } from "../db/schema/mirror";
  *    keeps its mapping and pages and asks its owner for the token again — the
  *    same thing rotating `AUTH_SECRET` does (spec §8).
  *
+ *  - **`oauth_access_token` is skipped whole** (MCP access spec, Phase 3). Its
+ *    rows are the `mcp` plugin's bearer and refresh tokens, stored as issued —
+ *    the same reason `session` is skipped. A restore signs every connected app
+ *    out; each signs in again.
+ *  - **`oauth_application` is kept, with `client_secret` blanked.** The client
+ *    registration is worth restoring; its secret is a credential.
+ *  - **`api_tokens` is kept whole.** It holds SHA-256 hashes of personal access
+ *    tokens, never a token: a hash cannot be replayed, and keeping it means a
+ *    restore does not silently break every assistant somebody connected.
+ *
  * Everything is named through the table objects rather than string literals, so
  * renaming a table or a column fails the typecheck here instead of quietly
  * un-redacting it.
@@ -60,16 +71,23 @@ const MIRROR_SECRETS = [
   "tokenCiphertext",
 ] as const satisfies readonly (keyof typeof notionMirrors.$inferSelect)[];
 
+/** `oauth_application` columns blanked in the export: a confidential client's secret. */
+const OAUTH_CLIENT_SECRETS = [
+  "clientSecret",
+] as const satisfies readonly (keyof typeof oauthApplication.$inferSelect)[];
+
 /** Tables the nightly file does not contain at all. */
 export const EXCLUDED_TABLES: ReadonlySet<string> = new Set([
   getTableName(session),
   getTableName(verification),
+  getTableName(oauthAccessToken),
 ]);
 
 /** Per-table column blanklists, by SQL table name. */
 const REDACTED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   [getTableName(account)]: ACCOUNT_SECRETS,
   [getTableName(notionMirrors)]: MIRROR_SECRETS,
+  [getTableName(oauthApplication)]: OAUTH_CLIENT_SECRETS,
 };
 
 /** True when this table's rows must not be written to a backup file at all. */

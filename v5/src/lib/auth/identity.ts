@@ -114,7 +114,7 @@ export async function resolveIdentityFromHeaders(): Promise<Identity> {
 }
 
 /** What Better Auth hands back. Typed structurally so no library type leaks out. */
-interface SessionResult {
+export interface SessionResult {
   user: {
     id: string;
     email: string;
@@ -140,7 +140,31 @@ interface SessionResult {
 function identityFromSession(result: SessionResult | null | undefined): Identity | null {
   const user = result?.user;
   if (!user) return null;
-  if (!isAllowedEmail(user.email)) return null;
+  const verdict = evaluateUser(user);
+  if (!verdict.ok) return null;
+  return {
+    role: verdict.role,
+    userId: user.id,
+    email: user.email,
+    name: user.name ?? null,
+    image: user.image || null,
+    rateLimitKey: `user:${user.id}`,
+  };
+}
+
+/** Why a user row may not act, when it may not. */
+export type UserRefusal = "out_of_domain" | "banned" | "no_role";
+
+/**
+ * The rules every credential shares — a session cookie, a personal access
+ * token, an OAuth access token (MCP access spec §3.1: "apply the same ban and
+ * floor rules as a session"). One function so they cannot drift: the role a
+ * token acts with is exactly the role the same person's browser would get.
+ */
+export function evaluateUser(
+  user: SessionResult["user"]
+): { ok: true; role: Exclude<Role, "anonymous"> } | { ok: false; reason: UserRefusal } {
+  if (!isAllowedEmail(user.email)) return { ok: false, reason: "out_of_domain" };
 
   // The floor (§3.4): a listed address resolves `super_admin` whatever its row
   // says, so a mistaken demotion or ban cannot lock the lab out of its own
@@ -163,19 +187,12 @@ function identityFromSession(result: SessionResult | null | undefined): Identity
   // first write the recovered director performs — after which the row and the
   // running app agree again and an ordinary sign-in works.
   const onFloor = isSuperAdminFloor(user.email);
-  if (user.banned && !onFloor) return null;
+  if (user.banned && !onFloor) return { ok: false, reason: "banned" };
 
   const role = onFloor ? "super_admin" : storedRoleOr(user.role);
-  if (role === "anonymous") return null;
+  if (role === "anonymous") return { ok: false, reason: "no_role" };
 
-  return {
-    role,
-    userId: user.id,
-    email: user.email,
-    name: user.name ?? null,
-    image: user.image || null,
-    rateLimitKey: `user:${user.id}`,
-  };
+  return { ok: true, role };
 }
 
 /** The anonymous identity for a request, keyed by a hash of its client IP. */

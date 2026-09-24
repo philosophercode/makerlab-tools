@@ -13,8 +13,10 @@ import type { Capability } from "./types";
  * the declaration in `auth/permissions.ts`, which is the same declaration the
  * route handlers and the admin plugin use. One check, everywhere.
  *
- * MCP is deliberately not a session surface. Its trust boundary is `MCP_TOKEN`,
- * which already gates every write tool there, and an MCP caller has no role.
+ * MCP resolves an identity too since the MCP access spec (a personal access
+ * token or an OAuth grant), and applies the same declarations through
+ * `mcpToolAllowed` in `mcp-access.ts`, which adds MCP's own two rules: a write
+ * needs a signed-in caller, and a read-only token gets no writes.
  *
  * Client-safe: `permissions.ts` is pure data and the `Capability` import is
  * type-only, so the header can ask {@link canAddEquipment} without pulling the
@@ -55,13 +57,16 @@ export function capabilitiesForIdentity(
   capabilities: Capability[],
   subject: AccessSubject
 ): Capability[] {
-  return capabilities.map((capability) =>
-    meetsRequiredPermission(subject, capability.requiredPermission)
-      ? capability
-      : {
-          id: capability.id,
-          promptFragment: capability.lockedPromptFragment ?? (() => ""),
-          tools: [],
-        }
-  );
+  return capabilities.map((capability) => {
+    if (!meetsRequiredPermission(subject, capability.requiredPermission)) {
+      return {
+        id: capability.id,
+        promptFragment: capability.lockedPromptFragment ?? (() => ""),
+        tools: [],
+      };
+    }
+    // A tool may name a permission of its own on top of its capability's.
+    const tools = capability.tools.filter((tool) => meetsRequiredPermission(subject, tool.requiredPermission));
+    return tools.length === capability.tools.length ? capability : { ...capability, tools };
+  });
 }

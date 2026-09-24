@@ -7,7 +7,8 @@ import {
   type MaintenanceEntry,
   type UnitLookupEntry,
 } from "./helpers";
-import type { Capability, CapabilityTool, PromptEnv } from "./types";
+import { can } from "../auth/permissions";
+import type { Capability, CapabilityCtx, CapabilityTool, PromptEnv } from "./types";
 import type { MakerLabUnit } from "../../components/catalog-types";
 
 /**
@@ -62,7 +63,7 @@ const getUnitDetails: CapabilityTool<
     "Fetch details for a specific physical unit, including its status, condition, location, and recent maintenance history. Use when the student names or asks about a specific unit (e.g. 'Prusa #1', 'Form 2 #2') or reports an issue tied to one.",
   inputSchema: getUnitDetailsInputSchema,
   kind: "read",
-  run: async ({ unit_label }: GetUnitDetailsInput): Promise<GetUnitDetailsResult> => {
+  run: async ({ unit_label }: GetUnitDetailsInput, ctx: CapabilityCtx): Promise<GetUnitDetailsResult> => {
     const tools = await getCatalogTools();
     const lookup = buildUnitLookup(tools);
     const match = findUnit(lookup, unit_label);
@@ -89,10 +90,20 @@ const getUnitDetails: CapabilityTool<
       serial: match.serial,
       date_acquired: match.dateAcquired,
       detail_page: `/tools/${match.toolSlug}`,
-      maintenance_logs: await recentMaintenance(match.id),
+      maintenance_logs: await recentMaintenance(match.id, reporterOption(ctx)),
     };
   },
 };
+
+/**
+ * Reporter names are for the people who work the tickets (MCP access spec
+ * §3.2): `maintenance.manage` sees them, everybody else — anonymous visitors,
+ * students, any MCP client without a staff identity — gets dates, status and
+ * summaries only.
+ */
+function reporterOption(ctx: CapabilityCtx): { includeReporter: boolean } {
+  return { includeReporter: can(ctx.identity, "maintenance.manage") };
+}
 
 // ── get_maintenance_history ────────────────────────────────────────
 
@@ -125,9 +136,10 @@ const getMaintenanceHistory: CapabilityTool<
     "Get recent maintenance logs for a unit by its label (e.g. 'Prusa #1'). Returns the most recent entries with type, priority, status, date, and description.",
   inputSchema: getMaintenanceHistoryInputSchema,
   kind: "read",
-  run: async ({
-    unit_label,
-  }: GetMaintenanceHistoryInput): Promise<GetMaintenanceHistoryResult> => {
+  run: async (
+    { unit_label }: GetMaintenanceHistoryInput,
+    ctx: CapabilityCtx
+  ): Promise<GetMaintenanceHistoryResult> => {
     const tools = await getCatalogTools();
     const lookup = buildUnitLookup(tools);
     const match = findUnit(lookup, unit_label);
@@ -141,7 +153,7 @@ const getMaintenanceHistory: CapabilityTool<
       found: true,
       unit_label: match.label,
       unit_id: match.id,
-      maintenance_logs: await recentMaintenance(match.id),
+      maintenance_logs: await recentMaintenance(match.id, reporterOption(ctx)),
     };
   },
 };

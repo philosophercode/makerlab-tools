@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { KeyboardEvent } from "react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useChatLauncher } from "./ChatLauncherContext";
 import { AdminLink } from "./AdminLink";
@@ -227,6 +228,19 @@ export function ProfileMenu({ identity }: { identity: ClientIdentity }) {
                 </button>
               </li>
             ) : null}
+            {/* Everyone signed in may create a personal access token (MCP
+                access spec §5.1). */}
+            <li role="none">
+              <Link
+                href="/account/tokens"
+                role="menuitem"
+                tabIndex={-1}
+                className="profile-menu-item"
+                onClick={() => close(false)}
+              >
+                {t("connectAssistant")}
+              </Link>
+            </li>
             <li role="none">
               <button
                 type="button"

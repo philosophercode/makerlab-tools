@@ -26,6 +26,13 @@ export default function AboutPage() {
 
         <p>{t("feedbackBody")}</p>
 
+        {/* MCP access spec §7, open question 4: list the MCP endpoint here. */}
+        <h2>{t("mcpHeading")}</h2>
+        <p>{t("mcpBody")}</p>
+        <p>
+          <Link href="/account/tokens">{t("mcpLink")}</Link>
+        </p>
+
         <div className="td-prose-actions">
           <Link className="td-button" href="/">
             {t("browseTools")}

@@ -1,7 +1,7 @@
 # MCP Access: Public Reads, Personal Tokens, Sign-in — Design Spec
 
 **Date:** 2026-09-23
-**Status:** Draft
+**Status:** Implemented (branch `v5/mcp-access`, 2026-09-24) — see the amendment at the end
 **Target:** `v5/`
 **Branch:** `v5/mcp-access-spec`
 **Spec PR:** #TBD · **Implementation PR:** #TBD
@@ -372,3 +372,123 @@ Phases 1–2 are the useful core; 3 and 4 can wait.
 | 2 | Default token expiry | 90 days, with "never" available but not preselected | Isaac |
 | 3 | Should anonymous MCP be on in production at all? | Yes: it's the same data as the public site, rate-limited | Isaac |
 | 4 | List the MCP endpoint on the About page? | Yes, with a link to `docs/mcp.md` | Isaac |
+
+## Amendments
+
+Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited.
+
+### 2026-09-24 — Phases 0–4 built: public reads, personal tokens, OAuth sign-in, proposals over MCP
+
+**Status.** Built on `v5/mcp-access` (off `main` at `2fcc42f`): all five phases of §9. No new
+package: `@modelcontextprotocol/sdk` 1.29 and `better-auth` 1.6.25 (whose `mcp` plugin is used)
+were already installed. **Not built:** the §10 E2E scenario — the route, OAuth and component
+tests cover the same path offline (token created, `tools/list`, `report_issue` under the
+verified name, revoked token → 401), and the live check below ran it against `next dev`.
+The guide's claude.ai, Claude Desktop and ChatGPT menu paths are not verified against the
+live clients (§7's own caveat); the Claude Code and Codex commands were checked against the
+installed CLIs' `--help` (`claude mcp add --transport http … --header`, `codex mcp add … --url
+… --bearer-token-env-var`).
+
+**Phase 0 findings.** Better Auth 1.6.25's `mcp` plugin exposes dynamic client registration
+(`/api/auth/mcp/register`), `/mcp/authorize` (PKCE S256, `requirePKCE` honoured), `/mcp/token`,
+`getMcpSession`, and the two discovery documents under `/api/auth/.well-known/…`. It stores
+access and refresh tokens as issued (not hashed). It shows a consent page **only when the
+client sends `prompt=consent`**. `oidc-provider` was not needed.
+
+**As built, and where it differs from the text above** (open choices took the simplest option
+consistent with the spec):
+
+- **Bearer tokens are honoured on the MCP route only** (§3.1 said `resolveIdentity` gains a
+  bearer branch). `resolveMcpCaller` (`src/lib/auth/mcp-caller.ts`) is the MCP route's resolver;
+  `resolveIdentity`, which every other route uses, still reads only the session cookie. A token
+  is made for an MCP client, and honouring it on `/api/chat`, uploads or the research route would
+  let a leaked read-only token spend money and carry permissions onto surfaces its owner never
+  connected. On `/api/mcp` a cookie is never consulted at all. The ban/floor/domain rules are one
+  function, `evaluateUser`, shared with the session path.
+- **OAuth tokens are looked up in the plugin's table directly** (`findOAuthAccessToken`) rather
+  than through `getMcpSession`, which answers null for expired and unknown alike; the route has
+  to say which (§3.1). Refusal reasons: `unknown token`, `token revoked`, `token expired`,
+  `account suspended` (401, JSON-RPC `-32001`, `WWW-Authenticate: Bearer error="invalid_token",
+  …, resource_metadata=…`); a database that cannot be reached is 503.
+- **A second URL for sign-in: `/api/mcp/signed-in`.** An OAuth client starts sign-in when the
+  server answers 401 with `WWW-Authenticate`; on `/api/mcp` anonymous access succeeds, so it would
+  never be asked. `/api/mcp/signed-in` is the same server but answers an anonymous caller 401 +
+  `WWW-Authenticate: Bearer resource_metadata=".../.well-known/oauth-protected-resource/api/mcp/signed-in"`.
+  The guide gives claude.ai and ChatGPT that URL.
+- **Discovery at the origin.** `/.well-known/oauth-authorization-server` re-serves the plugin's
+  metadata; `/.well-known/oauth-protected-resource[/api/mcp[/signed-in]]` is ours
+  (`src/lib/mcp/discovery.ts`), naming the origin as the authorization server and adding the
+  `read_only` scope.
+- **Consent is forced.** Registration is open (DCR), so without consent any page could walk a
+  signed-in browser through `/mcp/authorize` to its own redirect URI. The auth route
+  (`forceConsent` in `app/api/auth/[...all]/route.ts`) redirects any `/mcp/authorize` without
+  `consent` in `prompt` back to itself with it added. The login page is `/oauth/sign-in` (Google
+  sign-in, then back to the same authorization); the consent page is `/oauth/consent`.
+- **Read-only on the consent page is a scope.** Choosing it adds `read_only` to the pending
+  authorization before it is accepted (`lib/account/oauth-consent.ts`), so every access token the
+  grant issues carries it; `resolveMcpCaller` reads it as a read-only caller. A consent code can
+  only be answered by the person it was issued to. An accepted grant is audited
+  `token.created` with `detail.kind: "oauth"`; disconnecting is `token.revoked`, `kind: "oauth"`
+  (subject type `oauth_client`, subject id the client id). Tokens: subject type `api_token`,
+  detail `{ kind: "token", name, prefix, readOnly, expiresAt }` — never the token.
+- **§4.1 migration `0014_mcp_access`** holds `api_tokens` as specified and the plugin's
+  `oauth_application`, `oauth_access_token`, `oauth_consent` (property keys are Better Auth's
+  field names; descriptive columns nullable because DCR may omit them). No CHECK is added for
+  `audit_events.action` (there never was one); `AUDIT_ACTIONS` gains the two actions.
+- **Token details.** Default expiry 90 days (30 / 90 / never, never not preselected — open
+  question 2); names ≤ 80 characters; at most 20 live tokens per person (`too_many_tokens`);
+  `last_used_at` moves at most once a minute, by a conditional `UPDATE`. Revoking stamps
+  `revoked_at` (the row stays, so the list and the audit subject keep meaning something).
+- **Tool gating** is `mcpToolAllowed` (`capabilities/mcp-access.ts`): the capability's and the
+  tool's own `requiredPermission` through `can()`, plus two MCP rules — every `kind: "write"` tool
+  (and `requiresSignIn`, new, for `list_my_reports`) needs a signed-in caller, and a read-only
+  credential gets no writes. `CapabilityTool` gains `requiredPermission?` and `requiresSignIn?`;
+  `capabilitiesForIdentity` honours the tool-level permission for the chat too. The server is
+  built per request, and the handler asks again before running.
+- **The new tools** are two MCP-only capabilities: `reports` (`list_my_reports`) and `staff`
+  (`list_intake_queue` · `tools.approve`, `list_open_tickets` / `update_ticket` ·
+  `maintenance.manage`, `propose_change` · `tools.edit`). `list_open_tickets` carries reporter
+  **names, not emails** — emails never enter a model's context. `update_ticket` takes
+  `assign_to: "me" | "nobody"` rather than an arbitrary user id, and goes through
+  `writeTicket` (`lib/admin/ticket-write.ts`), now the admin page's own path too, via
+  `runQueueWrite` with the resolved identity (`authorizeAdminAction` accepts one).
+- **`propose_change` over MCP (Phase 4)** proposes changes to **tools only** (not pending items,
+  which need `tools.approve` per subject), stores a `chat_proposals` row with `chat_id = "mcp"`,
+  and shares validation with the chat's tool (`proposeChange` in `capabilities/curation.ts`;
+  PPE refused). Its quotes are stored **unverified** — the server cannot see what the client
+  read. Open ones appear on `/admin/refresh` under **Proposals from assistants**, as the chat's
+  proposal cards, decided through `POST /api/chat-proposals`.
+- **Admin draft visibility.** For `tools.edit`, `list_tools` / `search_tools` /
+  `get_tool_details` read every tool uncached (drafts and archived; `includeArchived` is new on
+  the catalogue query) and mark each `state`. This applies in the chat too, since the tools are
+  shared.
+- **Maintenance names.** `recentMaintenance` adds `reported_by` only for `maintenance.manage`;
+  today's MCP output never actually carried `reportedByName` (the helper already dropped it), so
+  the "fix" is the test that pins it, plus names for staff.
+- **`create_tool`** now records the caller as `created_by`.
+- **Rate limits** (`ROUTE_TIERS`): `mcp` 30/min per hashed IP (anonymous and the legacy token),
+  `mcpSignedIn` 60/min keyed `token:<id>` for a personal token or `user:<id>` for OAuth,
+  `mcpWrite` 10/min per identity checked before each write call, and `account` 30/min for the
+  token page's actions and the consent decision.
+- **`MCP_TOKEN`** no longer gates the endpoint; a request bearing it resolves to the anonymous,
+  read-only identity, with one deprecation warning per process and a notice on `/admin`
+  (`.env.example` says so). Remove it next release.
+- **UI.** `/account/tokens` is open to anyone (the address and public access need no account)
+  and reached from the profile menu's **Connect an AI assistant**; signed in, it has the create
+  form, the one-time reveal with Claude Code / Claude Desktop (`mcp-remote`) / Codex snippets
+  reading `MAKERLAB_MCP_TOKEN`, the list with inline-confirmed Revoke, and **Connected apps**.
+  Strings are `account.*` (English; other locales fall back). The About page lists the endpoint
+  and links to `/account/tokens` (open question 4) — the app cannot link `docs/mcp.md` itself,
+  which lives in the repository.
+- **Backups** skip `oauth_access_token` whole and blank `oauth_application.client_secret`;
+  `api_tokens` is kept (hashes only).
+
+**Live check (2026-09-24, `next dev` on :3011, a scratch PGlite dir seeded with the demo data,
+no Gateway).** SDK client: anonymous `initialize` → 6 tools, `search_tools("laser")` → Trotec
+Speedy 400, maintenance history without the reporter; student token → 9 tools,
+`list_my_reports`, `list_open_tickets` → "Tool not found"; admin token → 14 tools, reporter
+name shown, open tickets, intake queue, `propose_change` stored, PPE refused; bad token → 401
+with `WWW-Authenticate`; anonymous `/api/mcp/signed-in` → 401 pointing at the metadata; both
+discovery documents served. MCP Inspector CLI (`--cli --transport http`): `tools/list` and
+`tools/call search_tools` anonymous. `/account/tokens`, `/admin/refresh`, `/about`,
+`/oauth/consent`, `/oauth/sign-in` rendered. No token appeared in the dev server log.

@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { mcpToolAllowed, type McpAccess } from "./mcp-access";
 import type { Capability, CapabilityCtx, CapabilityTool } from "./types";
 
 /**
@@ -10,23 +11,27 @@ import type { Capability, CapabilityCtx, CapabilityTool } from "./types";
  * Each tool's `run()` is wrapped in an MCP handler that returns the structured
  * result as pretty-printed JSON text, surfacing thrown errors via `isError`.
  *
- * Write gating (design spec §3.3 / §8): `kind: "write"` tools are registered
- * **only** when `opts.allowWrites` is true. The MCP route passes `true` only
- * when `MCP_TOKEN` is configured (which token-gates the whole endpoint). With no
- * token set, the MCP surface stays read-only and write tools are omitted.
+ * **What is registered is what the caller may use** (MCP access spec §3.2):
+ * `mcpToolsFor` / `mcpToolAllowed` in `mcp-access.ts` decide from the caller's
+ * identity and whether their token is read-only. The route builds one server
+ * per request, so the list always reflects the identity resolved for *this*
+ * request; the handler asks `mcpToolAllowed` again before running anyway,
+ * because "can() decides every call, even when the tool is listed" (§8).
  */
 
 export interface RegisterAllOptions {
-  /** Register `kind: "write"` tools. True only when MCP_TOKEN is configured. */
-  allowWrites: boolean;
+  /** Who is calling, and whether their credential is read-only. */
+  access: McpAccess;
   /**
    * The context every tool's `run()` receives. MCP has no stream writer and no
-   * attachments, so in practice this carries only the resolved `identity` — and
-   * an MCP caller is a machine with a bearer token rather than a session cookie,
-   * so that identity is normally anonymous. Omitted entirely, tools get `{}`,
-   * which is the shape they have always been called with here.
+   * attachments; `identity` is set from {@link access} when omitted.
    */
   ctx?: CapabilityCtx;
+  /**
+   * Checked before every `kind: "write"` call — the per-identity write ceiling
+   * (§5.2). Answers a refusal message, or null to go ahead.
+   */
+  beforeWrite?: (tool: CapabilityTool<unknown, unknown>) => Promise<string | null>;
 }
 
 /**
@@ -43,10 +48,16 @@ function toRawShape(schema: CapabilityTool["inputSchema"]): z.ZodRawShape {
   return {};
 }
 
+function errorResult(text: string) {
+  return { content: [{ type: "text" as const, text }], isError: true };
+}
+
 /** Register a single capability tool on the MCP server. */
 function registerTool(
   server: McpServer,
+  capability: Capability,
   tool: CapabilityTool<unknown, unknown>,
+  opts: RegisterAllOptions,
   ctx: CapabilityCtx
 ): void {
   server.registerTool(
@@ -56,6 +67,13 @@ function registerTool(
       inputSchema: toRawShape(tool.inputSchema),
     },
     async (input: unknown) => {
+      if (!mcpToolAllowed(capability, tool, opts.access)) {
+        return errorResult("Error: your account or token is not permitted to use this tool.");
+      }
+      if (tool.kind === "write" && opts.beforeWrite) {
+        const refusal = await opts.beforeWrite(tool);
+        if (refusal) return errorResult(`Error: ${refusal}`);
+      }
       try {
         const result = await tool.run(input, ctx);
         return {
@@ -63,32 +81,26 @@ function registerTool(
         };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
-        return {
-          content: [{ type: "text" as const, text: `Error: ${message}` }],
-          isError: true,
-        };
+        return errorResult(`Error: ${message}`);
       }
     }
   );
 }
 
 /**
- * Register every tool from every capability on the MCP server, honoring the
- * write gate. `read` tools are always registered; `write` tools are registered
- * only when `opts.allowWrites` is true.
+ * Register every tool the caller may use, in registry order. A tool the caller
+ * may not use is not registered, so `tools/list` never offers it.
  */
 export function registerAll(
   server: McpServer,
   capabilities: Capability[],
   opts: RegisterAllOptions
 ): void {
+  const ctx: CapabilityCtx = { identity: opts.access.identity, ...opts.ctx };
   for (const capability of capabilities) {
     for (const tool of capability.tools) {
-      // Chat-only tools (interactive cards / chat-native web research) have no
-      // meaning headlessly and are never exposed over MCP.
-      if (tool.chatOnly) continue;
-      if (tool.kind === "write" && !opts.allowWrites) continue;
-      registerTool(server, tool, opts.ctx ?? {});
+      if (!mcpToolAllowed(capability, tool, opts.access)) continue;
+      registerTool(server, capability, tool, opts, ctx);
     }
   }
 }

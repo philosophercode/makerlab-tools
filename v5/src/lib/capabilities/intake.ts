@@ -382,7 +382,7 @@ const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
   // In the chat a tool is added through identify_tools, background research
   // and a person's approval (§5.4). This direct write is for MCP clients only.
   mcpOnly: true,
-  run: async ({ candidate }): Promise<CreateResult> => {
+  run: async ({ candidate }, ctx): Promise<CreateResult> => {
     const warnings: string[] = [];
     const empty: CreateResult["created"] = {
       tool: false,
@@ -490,8 +490,9 @@ const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
             units,
             resources: verified,
           },
-          // An MCP caller is a bearer token, not a person with a `user` row.
-          null
+          // The person behind the MCP token or grant (MCP access spec §3.2) —
+          // `tools.add` is required to be offered this tool at all.
+          ctx.identity?.userId ?? null
         );
         return { ...record, category, location };
       });
@@ -578,7 +579,8 @@ export const intake: Capability = {
   id: "intake",
   // Admins and super admins only on the chat surface — `tools.add`,
   // enforced once in `access.ts` against the declaration in `auth/permissions.ts`.
-  // MCP is not a session surface: `create_tool` there is gated by `MCP_TOKEN`.
+  // Over MCP the same permission gates `create_tool`, against the identity
+  // the caller's token or OAuth grant resolves to (MCP access spec §3.2).
   requiredPermission: INTAKE_PERMISSION,
   promptFragment,
   lockedPromptFragment,

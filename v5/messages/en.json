@@ -24,7 +24,8 @@
     "signedInAria": "Signed in as {name}",
     "admin": "ADMIN",
     "addEquipment": "ADD EQUIPMENT",
-    "accountMenuLabel": "Account menu"
+    "accountMenuLabel": "Account menu",
+    "connectAssistant": "CONNECT AN AI ASSISTANT"
   },
   "catalogRefresh": {
     "action": "REFRESH",
@@ -170,7 +171,10 @@
     "howItWorksHeading": "How it works",
     "howItWorksBody": "The front end is a Next.js 16 app on Vercel, with Postgres for the catalog and Blob storage for photos and archived manuals. New equipment is identified from a photo in the chat, researched in the background against the manufacturer's own pages, and published only after a staff member reviews it. The assistant answers from the catalog and each tool's manuals, and says so when it doesn't know.",
     "feedbackBody": "If you spot a mistake, use \"Report a correction\" on the tool's page — corrections go to the staff queue and are fixed in the app. For a broken machine, use Report in the header.",
-    "browseTools": "Browse tools"
+    "browseTools": "Browse tools",
+    "mcpHeading": "Connect an AI assistant",
+    "mcpBody": "The catalog is also available to AI assistants such as Claude, ChatGPT and Codex over MCP, at this site's /api/mcp address. Browsing needs no account. Signed in, you can create a personal access token so an assistant can file reports as you, with your role's permissions and nothing more.",
+    "mcpLink": "Set up an assistant"
   },
   "chat": {
     "openAria": "Open MakerLab assistant",
@@ -1147,7 +1151,11 @@
       "dialogStarted": "{count, plural, one {Refreshing # tool} other {Refreshing # tools}} — results appear on the Refresh page.",
       "dialogSkipped": "{count, plural, one {# already had a refresh open and was skipped.} other {# already had a refresh open and were skipped.}}",
       "dialogLimit": "That would pass today's research limit. {remaining} left today.",
-      "goToRefresh": "Open the Refresh page"
+      "goToRefresh": "Open the Refresh page",
+      "assistantHeading": "Proposals from assistants",
+      "assistantLede": "Changes staff members' AI assistants proposed over MCP. Nothing changes until you accept one; accepting saves it through the editor's revision check.",
+      "assistantBy": "Proposed through: {names}",
+      "assistantUnavailable": "Proposals from assistants could not be loaded right now."
     },
     "proposal": {
       "field": {
@@ -1413,6 +1421,110 @@
           "failed": "The allowance could not be granted. Try again."
         }
       }
+    },
+    "mcpTokenDeprecated": "MCP_TOKEN is still set. It is deprecated: MCP callers using it now get the public, read-only tools only. Create personal access tokens on /account/tokens, then unset MCP_TOKEN."
+  },
+  "account": {
+    "eyebrow": "Account",
+    "title": "Connect an AI assistant",
+    "lede": "Connect Claude, ChatGPT, Codex or another MCP client to MakerLab Tools. Browsing needs no account. A personal access token lets an assistant act as you, with your role's permissions and nothing more.",
+    "loading": "Loading…",
+    "unavailable": "Your tokens could not be loaded right now. Try again shortly.",
+    "signedOut": "Sign in to create a personal access token. Without one, an assistant gets the public, read-only tools.",
+    "endpointHeading": "MCP address",
+    "endpointBody": "Add this address to your client as a remote MCP server (Streamable HTTP). Without a token it offers the public, read-only tools.",
+    "signedInEndpointLabel": "MCP address for sign-in",
+    "signedInEndpointBody": "claude.ai and ChatGPT connectors sign in with OAuth instead of a pasted token. Give them this address: you'll be sent here to sign in and approve the connection.",
+    "safetyHeading": "Keeping it safe",
+    "safetyBody": "A token acts as you. Make one per device, prefer read-only, and revoke it here if a laptop is lost. Anything an assistant changes in the catalog arrives as a proposal that staff accept in the app.",
+    "copy": "Copy",
+    "copied": "Copied",
+    "copyAria": "Copy {label}",
+    "tokens": {
+      "heading": "Personal access tokens",
+      "newHeading": "New token",
+      "name": "Name",
+      "namePlaceholder": "Claude Code on my laptop",
+      "nameHint": "Name it after the device or app, so you know which one to revoke.",
+      "expiry": "Expires",
+      "expiry30": "In 30 days",
+      "expiry90": "In 90 days",
+      "expiryNever": "Never",
+      "readOnly": "Read-only",
+      "readOnlyHint": "The assistant can look things up, but can't file reports or change anything.",
+      "create": "Create token",
+      "creating": "Creating…",
+      "revealHeading": "Your new token: {name}",
+      "revealWarning": "Copy it now. It won't be shown again, and anyone who has it can act as you.",
+      "tokenLabel": "Personal access token",
+      "setupHeading": "Set up your client",
+      "setupEnv": "Put the token in an environment variable, for example in your shell profile, so it stays out of config files and chats:",
+      "setupEnvLabel": "Environment variable",
+      "setupClaudeCode": "Claude Code",
+      "setupClaudeDesktop": "Claude Desktop (claude_desktop_config.json)",
+      "setupCodex": "Codex (~/.codex/config.toml)",
+      "done": "I've copied it",
+      "listHeading": "Your tokens",
+      "empty": "No tokens yet.",
+      "readOnlyTag": "Read-only",
+      "fullAccessTag": "Your role's access",
+      "status": {
+        "active": "Active",
+        "expired": "Expired",
+        "revoked": "Revoked"
+      },
+      "lastUsed": "Last used {date}",
+      "neverUsed": "Never used",
+      "expires": "Expires {date}",
+      "neverExpires": "Never expires",
+      "revoke": "Revoke",
+      "revokeAria": "Revoke {name}",
+      "revokeConfirm": "Revoke {name}? Anything using it stops working at once.",
+      "revokeYes": "Yes, revoke",
+      "cancel": "Cancel",
+      "errors": {
+        "not_signed_in": "Sign in to manage tokens.",
+        "rate_limited": "Too many changes at once. Wait a minute and try again.",
+        "invalid_field": "Give the token a name (up to 80 characters) and choose when it expires.",
+        "too_many_tokens": "You have too many active tokens. Revoke one you no longer use first.",
+        "not_found": "That token isn't yours or no longer exists.",
+        "already_revoked": "That token was already revoked.",
+        "failed": "That didn't work. Try again shortly."
+      },
+      "warnings": {
+        "audit_unavailable": "Done, but the change couldn't be recorded in the audit trail."
+      }
+    },
+    "apps": {
+      "heading": "Connected apps",
+      "lede": "Apps you connected by signing in to MakerLab with OAuth, such as claude.ai or ChatGPT.",
+      "empty": "No connected apps.",
+      "unnamed": "Unnamed app",
+      "lastSignIn": "Last signed in {date}",
+      "revokeConfirm": "Disconnect {name}? It stops working at once and has to sign in again."
+    },
+    "oauth": {
+      "eyebrow": "Connect an app",
+      "loading": "Loading…",
+      "unknownClient": "An app",
+      "signInTitle": "Sign in to connect {client}",
+      "signInBody": "{client} wants to connect to MakerLab Tools as you. Sign in with your {institution} account to continue.",
+      "signInButton": "Sign in with Google",
+      "signInUnconfigured": "Sign-in isn't set up on this deployment yet.",
+      "signInFailed": "Couldn't start sign-in. Try again.",
+      "alreadySignedIn": "You're already signed in.",
+      "continue": "Continue",
+      "consentTitleGeneric": "Connect an app",
+      "consentTitle": "{client} wants to access MakerLab Tools as you",
+      "consentBody": "It will act as {name}, with the tools your role ({role}) allows.",
+      "consentSafety": "Nothing it does publishes or edits the catalog without a person accepting it in the app. You can disconnect it at any time from Connect an AI assistant in your profile menu.",
+      "consentSignedOut": "Sign in first, then start the connection again from the app.",
+      "readOnly": "Read-only",
+      "readOnlyHint": "Let it look things up, but not file reports or change anything.",
+      "allow": "Allow",
+      "deny": "Deny",
+      "expired": "This request has expired or isn't yours. Start the connection again from the app.",
+      "failed": "That didn't work. Start the connection again from the app."
     }
   }
 }

@@ -56,6 +56,9 @@ async function handle(req: Request): Promise<Response> {
     return Response.json(ADMIN_NOT_EXPOSED, { status: 403 });
   }
 
+  const consentRedirect = forceConsent(req);
+  if (consentRedirect) return consentRedirect;
+
   const auth = await getAuth();
   if (!auth) return Response.json(NOT_CONFIGURED, { status: 503 });
   if (isSocialSignIn(req) && !hasGoogleEnv()) {
@@ -63,6 +66,28 @@ async function handle(req: Request): Promise<Response> {
   }
 
   return auth.handler(req);
+}
+
+/**
+ * Every MCP OAuth authorization asks the person first (MCP access spec §3.4).
+ *
+ * The `mcp` plugin only shows its consent page when the client sends
+ * `prompt=consent`; otherwise it issues a code to any registered client for
+ * whoever holds a session. Registration is open (dynamic client registration
+ * is how claude.ai and ChatGPT connect), so without this a page could send a
+ * signed-in person's browser through `/mcp/authorize` to a redirect URI of its
+ * own choosing and walk away with a grant. So an authorization request without
+ * `consent` in its `prompt` is sent back to itself with it added — one
+ * redirect, before the plugin ever sees it.
+ */
+function forceConsent(req: Request): Response | null {
+  if (req.method !== "GET") return null;
+  if (normalizedPath(req) !== `${AUTH_BASE_PATH}/mcp/authorize`) return null;
+  const url = new URL(req.url);
+  const prompt = (url.searchParams.get("prompt") || "").split(/\s+/).filter(Boolean);
+  if (prompt.includes("consent")) return null;
+  url.searchParams.set("prompt", [...prompt, "consent"].join(" "));
+  return Response.redirect(url.toString(), 302);
 }
 
 /** True for `POST /api/auth/sign-in/social`, the one endpoint Google gates. */

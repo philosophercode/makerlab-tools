@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { getTableName } from "drizzle-orm";
-import { account, notionMirrors, session, tools, user, verification } from "../db/schema/index";
+import { account, apiTokens, notionMirrors, oauthAccessToken, oauthApplication, session, tools, user, verification } from "../db/schema/index";
 import { EXCLUDED_TABLES, isExcludedFromBackup, redactRows } from "./backup-policy";
 
 /**
@@ -11,10 +11,19 @@ import { EXCLUDED_TABLES, isExcludedFromBackup, redactRows } from "./backup-poli
  */
 
 describe("EXCLUDED_TABLES", () => {
-  it("skips the two tables whose rows are live credentials", () => {
+  it("skips the three tables whose rows are live credentials", () => {
     expect(isExcludedFromBackup(session)).toBe(true);
     expect(isExcludedFromBackup(verification)).toBe(true);
-    expect(EXCLUDED_TABLES.size).toBe(2);
+    // The `mcp` plugin's OAuth access and refresh tokens (MCP access spec).
+    expect(isExcludedFromBackup(oauthAccessToken)).toBe(true);
+    expect(EXCLUDED_TABLES.size).toBe(3);
+  });
+
+  it("keeps personal access tokens — hashes, never a token — and OAuth clients without their secret", () => {
+    expect(isExcludedFromBackup(apiTokens)).toBe(false);
+    expect(isExcludedFromBackup(oauthApplication)).toBe(false);
+    const [row] = redactRows(getTableName(oauthApplication), [{ clientId: "c", clientSecret: "s", name: "Claude" }]) as Record<string, unknown>[];
+    expect(row).toEqual({ clientId: "c", clientSecret: null, name: "Claude" });
   });
 
   it("keeps `user`, because role and ban state are what a restore needs", () => {

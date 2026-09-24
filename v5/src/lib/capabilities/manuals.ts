@@ -18,7 +18,7 @@ import type { Capability, CapabilityTool, ManualOutlineForPrompt, PromptEnv } fr
  *   silently widened.
  * - **Access is the search's**, decided in SQL from `ctx.identity`
  *   (`manuals/search.ts`): lab staff also search private SOPs and hidden
- *   resources; everybody else — MCP included, which carries no identity —
+ *   resources; everybody else — anonymous MCP callers included —
  *   only public manuals of published tools. Never a check inside `run()`.
  * - **Passages are untrusted data.** Each one's text is fenced
  *   (`<untrusted-page>`, `web/fence.ts`) with its document and page as the

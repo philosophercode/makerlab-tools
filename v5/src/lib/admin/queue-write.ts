@@ -54,6 +54,11 @@ export interface QueueWrite<E extends string> {
    * database no longer holds (§4.11, Article 4).
    */
   afterCommit?: (identity: Identity) => Promise<AdminActionWarning | undefined>;
+  /**
+   * The caller, when it is already known — MCP's `update_ticket` resolves it
+   * from a bearer token, not a cookie. The same gate runs either way.
+   */
+  identity?: Identity;
 }
 
 /**
@@ -72,7 +77,7 @@ export interface QueueWrite<E extends string> {
 export async function runQueueWrite<E extends string>(
   options: QueueWrite<E>
 ): Promise<QueueActionResult<E>> {
-  const gate = await authorizeAdminAction(options.permission);
+  const gate = await authorizeAdminAction(options.permission, options.identity);
   if (!gate.ok) return gate;
 
   let outcome: QueueWriteOutcome<E>;

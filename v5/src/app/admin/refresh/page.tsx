@@ -4,6 +4,8 @@ import { RefreshList, type RefreshListRow } from "../../../components/admin/Refr
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { listRefreshQueue } from "../../../lib/data/tool-refreshes";
+import { listOpenAssistantProposals, MCP_PROPOSAL_CHAT_ID } from "../../../lib/data/chat-proposals";
+import { ChatProposalCards, type ChatProposalItem } from "../../../components/ChatProposalCards";
 import { countByKind, refreshRank } from "../../../lib/refresh/types";
 import { siteConfig } from "../../../lib/site-config";
 
@@ -64,6 +66,59 @@ export default async function AdminRefreshPage() {
           {t("refresh.unavailable")}
         </p>
       )}
+      <AssistantProposals />
+    </section>
+  );
+}
+
+/**
+ * "Proposals from assistants" — changes an admin's AI assistant proposed over
+ * MCP (`propose_change`, MCP access spec §3.3), waiting for a person. Each is
+ * a card with Accept / Reject through `POST /api/chat-proposals`, the path the
+ * chat's own cards take: accepting writes through the editor's revision check
+ * (Article 5). Nothing is shown when there are none.
+ */
+async function AssistantProposals() {
+  const t = await getTranslations("admin.refresh");
+  let rows;
+  try {
+    rows = await listOpenAssistantProposals(MCP_PROPOSAL_CHAT_ID);
+  } catch (err) {
+    console.error("[admin/refresh] could not read assistant proposals", err);
+    return (
+      <p className="admin-empty td-empty" role="alert">
+        {t("assistantUnavailable")}
+      </p>
+    );
+  }
+  if (rows.length === 0) return null;
+
+  const byTool = new Map<string, { name: string; items: ChatProposalItem[]; proposedBy: Set<string> }>();
+  for (const row of rows) {
+    const group = byTool.get(row.toolId) ?? { name: row.toolName, items: [], proposedBy: new Set<string>() };
+    group.items.push({
+      kind: "proposal",
+      proposalId: row.id,
+      subject: { kind: "tool", id: row.toolId, name: row.toolName },
+      proposal: row.proposal,
+    });
+    if (row.proposedBy) group.proposedBy.add(row.proposedBy);
+    byTool.set(row.toolId, group);
+  }
+
+  return (
+    <section className="admin-section" aria-labelledby="assistant-proposals-heading">
+      <h3 id="assistant-proposals-heading">{t("assistantHeading")}</h3>
+      <p className="admin-lede">{t("assistantLede")}</p>
+      {[...byTool.entries()].map(([toolId, group]) => (
+        <div key={toolId} className="admin-refresh-assistant">
+          <h4>{group.name}</h4>
+          {group.proposedBy.size > 0 ? (
+            <p className="admin-lede">{t("assistantBy", { names: [...group.proposedBy].join(", ") })}</p>
+          ) : null}
+          <ChatProposalCards items={group.items} />
+        </div>
+      ))}
     </section>
   );
 }
