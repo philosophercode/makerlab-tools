@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { getTableName } from "drizzle-orm";
-import { account, session, tools, user, verification } from "../db/schema/index";
+import { account, notionMirrors, session, tools, user, verification } from "../db/schema/index";
 import { EXCLUDED_TABLES, isExcludedFromBackup, redactRows } from "./backup-policy";
 
 /**
@@ -70,6 +70,26 @@ describe("redactRows", () => {
     redactRows(getTableName(account), [accountRow]);
 
     expect(accountRow.accessToken).toBe("ya29.live-access-token");
+  });
+
+  it("blanks a mirror's Notion token and keeps what a restore needs", () => {
+    const mirrorRow = {
+      id: "m-1",
+      ownerUserId: "user-1",
+      tokenCiphertext: Buffer.from([1, 2, 3, 4]),
+      parentPageId: "page-1",
+      mapping: { tools: "db-1" },
+      lastStatus: "ok",
+    };
+
+    const [row] = redactRows(getTableName(notionMirrors), [mirrorRow]) as Record<string, unknown>[];
+
+    // Decryptable by anyone who also holds AUTH_SECRET, and a Buffer besides.
+    expect(row.tokenCiphertext).toBeNull();
+    expect("tokenCiphertext" in row).toBe(true);
+    expect(row.ownerUserId).toBe("user-1");
+    expect(row.mapping).toEqual({ tools: "db-1" });
+    expect(isExcludedFromBackup(notionMirrors)).toBe(false);
   });
 
   it("passes a table with no redactions straight through", () => {

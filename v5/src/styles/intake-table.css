@@ -76,6 +76,11 @@
   width: 32px;
 }
 
+/* Visible checkbox text exists only for the stacked layout below. */
+.intake-select-text {
+  display: none;
+}
+
 .intake-table input[type="checkbox"] {
   width: 16px;
   height: 16px;
@@ -334,6 +339,29 @@
 
   .intake-table td.intake-cell-select::before {
     display: none;
+  }
+
+  /* Stacked, a checkbox loses its column header, so it says what it does. */
+  .intake-table td.intake-cell-select,
+  .intake-table thead th.intake-col-select {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .intake-select-text {
+    display: inline;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--on-surface);
+  }
+
+  .intake-row.is-unresolved .intake-select-text {
+    color: var(--on-surface-muted);
+    text-transform: none;
+    letter-spacing: 0;
   }
 
   .intake-row.is-unresolved td {

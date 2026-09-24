@@ -7,12 +7,14 @@ import { can, type Permission } from "../../lib/auth/permissions";
  * `/admin` — the index the header's `AdminLink` points at.
  *
  * This is still a short list rather than the `AdminHome` of spec §6 (counts,
- * open tickets, mirror status). The intake queue now exists — `/admin/intake`,
- * Phase 6 — and is listed here like every other surface; the counts and the
- * mirror's status still wait for the phases that add them. What the page must
- * do is be honest: it lists exactly the surfaces the viewer's own permissions
- * open, so nobody follows a link into a refusal, and a SuperMaker who holds
- * `tools.edit` but not `users.manage` sees the inventory and not the roster.
+ * open tickets, mirror status). Every surface the spec names now exists — the
+ * Notion mirror, `/admin/mirror`, arrived last, in Phase 8 — and each is listed
+ * here from one table; the counts and the mirror's status on this page are
+ * still `AdminHome`'s, not built. What the page must do is be honest: it lists
+ * exactly the surfaces the viewer's own permissions open, so nobody follows a
+ * link into a refusal, and a SuperMaker who holds `tools.edit` but not
+ * `users.manage` sees the inventory and not the roster. The mirror entry opens
+ * the viewer's *own* mirror — there is no page listing anybody else's (§8).
  *
  * The layout above has already established that this person may see an admin
  * surface at all.
@@ -36,6 +38,7 @@ const SURFACES: ReadonlyArray<{ href: string; permission: Permission; key: strin
   { href: "/admin/corrections", permission: "feedback.manage", key: "corrections" },
   { href: "/admin/projects", permission: "projects.moderate", key: "projects" },
   { href: "/admin/users", permission: "users.manage", key: "users" },
+  { href: "/admin/mirror", permission: "mirror.manage", key: "mirror" },
 ];
 
 export default async function AdminHomePage() {
@@ -60,8 +63,6 @@ export default async function AdminHomePage() {
       ) : (
         <p>{t("indexNothingYet")}</p>
       )}
-
-      <p className="admin-index-note">{t("indexMoreComing")}</p>
     </section>
   );
 }

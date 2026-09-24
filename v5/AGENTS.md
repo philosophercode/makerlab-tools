@@ -47,15 +47,17 @@ variable list.
   `notion-ids.ts`. Relative imports with `.ts` extensions, no `@/` alias, no
   `"server-only"` — `scripts/` loads them under plain Node.
 - **Notion is read only by the one-time import** (`npm run import:notion`).
-  No request path reads Notion. A one-way mirror (app → an admin's own Notion
-  workspace) is a later phase, not built yet.
+  No request path reads Notion *as data*. The one-way mirror (app → an admin's
+  own Notion workspace, Phase 8) writes to Notion through its own client in
+  `src/lib/mirror/` — see "The Notion mirror" below.
 - **Every student-facing write is on Postgres** as of Phase 3. A correction
   goes to `feedback`, a maintenance ticket to `maintenance_logs`, a project
   submission to `projects` + `project_tools` — see `src/lib/data/*.ts`.
   `src/lib/data/notion-ids.ts` (the Phase-2 page-id bridge) has no importers
   left and is awaiting deletion approval, as are `/api/upload-notion` and
   `/api/admin/backup`.
-- **No request path writes Notion** as of Phase 6. Intake's chat tool,
+- **No request path writes Notion** as of Phase 6, except the mirror, which
+  pushes from a workflow and from its own settings page. Intake's chat tool,
   `identify_tools`, writes `pending_tools` rows and makes the photos it claims
   public; `create_tool` is **MCP-only** now and writes an unpublished Postgres
   draft (`createToolRecord`). See "Adding equipment" below.
@@ -70,9 +72,21 @@ variable list.
   `POST /api/projects` answers `photosSubmitted` / `photosAttached` so the form
   can say it on the confirmation. A form left open overnight submits ids the
   cron has already swept, and thanking a student for pictures nobody has is the
-  quiet lie Article 4 forbids. With no `BLOB_READ_WRITE_TOKEN` the route answers
+  quiet lie Article 4 forbids. With no Blob store the route answers
   503 `{ code: "blob_not_configured" }` and both clients show a translated
   "photo uploads are unavailable" — never a fabricated id (Article 4).
+- **Blob locally.** `blobMode()` (`src/lib/blob-mode.ts`) is the one rule:
+  a `BLOB_READ_WRITE_TOKEN` → Vercel Blob; no token on Vercel (`VERCEL`) or in
+  a production build → **none** (503 as above, never a disk fallback); no token
+  in local dev → **local**: `.blob-data/<pathname>` (git-ignored), metadata in
+  `.blob-data/.meta/`, via `src/lib/blob-local.ts`. Both write paths use it —
+  `lib/blob.ts`'s `getBlobStore()` and step code's `createBlobUploader()`
+  (`import/blob-uploader.ts`, used by the manual archiver). Public files get
+  `<AUTH_BASE_URL>/api/dev-blob/<pathname>`, served by that route (404 for
+  private files and outside local mode); `next.config.ts` allows those URLs for
+  `next/image` in dev only. `BLOB_LOCAL_DISABLE=1` forces "none" — the Vitest
+  setup sets it, so tests opt in to local mode with a temp `cwd`. The Notion
+  import still requires a real token (`createVercelBlobUploader`).
 - **Failing toward stale, not wrong (Article 4).** `DATABASE_URL` unset serves
   the PGlite demo seed with `DemoDataBanner` shown. `DATABASE_URL` set but
   unreachable never falls back to demo or invented data — cached pages keep
@@ -256,7 +270,7 @@ Phase 5 extends both. The shape it sets:
   boundary is what leaves every *published* tool page prerenderable under
   `cacheComponents` (`npm run build` is the check); a different-looking refusal
   would confirm the draft exists.
-- **With no `BLOB_READ_WRITE_TOKEN` the panel says photos cannot be added and
+- **With no Blob store (see "Blob locally") the panel says photos cannot be added and
   stays usable for everything else.** `POST /api/uploads` answers 503, the
   Photos and Resources sections show that sentence, and reordering, removal and
   every text field keep working — a deployment with no Blob store is still one
@@ -361,13 +375,113 @@ creates a tool (Article 5).
   than 14 days are discarded and their photos released (`runPendingExpiry`),
   just before the orphan sweep deletes them from Blob.
 
+## The Notion mirror (`notion_mirrors`, Phase 8)
+
+A one-way copy of the inventory into an admin's own Notion workspace (spec
+§3.8, §5.8). Postgres stays the source of truth; nothing is ever read back.
+
+- **One mirror per admin, found from the session.** `/admin/mirror`
+  (`mirror.manage`) shows only the caller's own row; no server action in
+  `src/app/admin/mirror/actions.ts` takes a mirror id. The four setup actions
+  (test, connect, create databases, save mapping) also pass
+  `MIRROR_SETUP_TIER` (10/min). Connect and disconnect audit
+  `mirror.connected` / `mirror.disconnected`.
+- **The token is validated by one read, then stored encrypted.** AES-256-GCM
+  under a key HKDF-derived from `AUTH_SECRET` with a fixed info string
+  (`src/lib/mirror/token-crypto.ts`). Rotating `AUTH_SECRET` makes every stored
+  token unreadable; the page then asks for it again. The nightly backup blanks
+  the ciphertext. **Never log a token, `AUTH_SECRET` or an email** — error
+  text goes through `scrubSecrets`, and `last_error.detail` is generic English
+  built in code, never Notion's message.
+- **Seven databases, fixed schemas** (`database-schemas.ts`), in dependency
+  order: categories, locations, tools, units, resources, maintenance,
+  projects. **Create databases** makes the missing ones under the shared page;
+  pasted ids are validated against the schema before anything is saved.
+- **The push** (`push.ts`, run by `mirrorPush` in
+  `src/workflows/mirror-push.ts`): an overlap guard (`running_since`, 15 min),
+  rows newer than `last_synced_at` or than their `mirror_pages.source_updated_at`,
+  upsert by `mirror_pages`, archive pages of archived tools, unpublished
+  projects and deleted rows. 3 requests/s, 429 honoured via `Retry-After`,
+  45-second budget per push (then up to six rounds, 5 s apart). The budget
+  stops new requests only; one already started runs to Notion's answer or a
+  30 s ceiling, never cut short (an aborted create would duplicate a page).
+  Only a clean, complete push advances `last_synced_at`; a 401 pauses the
+  mirror. A round skipped because another push holds the mirror waits 30 s
+  and tries again (up to ten times).
+- **Mapping changes and running pushes.** `setMirrorMapping` (when the
+  mapping changes) and `resetMirrorEntities` bump `mapping_generation`; a push
+  records pages and advances `last_synced_at` only while the mirror is still
+  at the generation it claimed, and otherwise stops as `incomplete` for
+  another round. `resetMirrorEntities` also marks the pages of every entity
+  with a relation into the reset ones (`relationDependents`) as not mirrored,
+  so their links are rewritten to the new pages.
+- **Only a current admin's mirror pushes.** Every claim except Sync now (whose
+  server action already checked `mirror.manage`) requires the owner's `user`
+  row to hold a role in `MIRROR_OWNER_ROLES` and not be banned; demoting or
+  banning an admin stops their mirror. Sync now is refused (`sync_running`)
+  while another push holds the mirror, without spending the 15 minutes.
+- **What it carries.** Every tool (with a Published checkbox), units,
+  resources, categories, locations, maintenance logs and published projects;
+  public attachments as external files, never private ones. **Reporter,
+  assignee and author names and emails are carried** (open question 4,
+  answered 2026-09-23) — the mirror's workspace holds personal data. Emails
+  still never enter a model prompt or a log line.
+- **Three triggers.** (1) `requestMirrorPush()` (`src/lib/mirror/trigger.ts`)
+  after a committed write — approving a tool, every tool-editor write
+  (`tool-write-context.ts`), publishing a project, working a maintenance
+  ticket. It never throws, costs one query when nobody has a mirror, and
+  starts `mirrorPushAfterChange`, which sleeps two minutes so a burst
+  coalesces. (2) **Sync now**, once per mirror per 15 minutes. (3) The daily
+  cron's `mirror` stage (`src/lib/cron/mirror-backstop.ts`), for any mirror
+  whose data is newer than its last sync.
+- **Notion is called with raw `fetch`** (`notion-client.ts`, API version
+  `2022-06-28`) — no SDK. `NOTION_API_BASE_URL` overrides the base URL for the
+  E2E stub only; production never sets it.
+
+## Archived manuals (link rot)
+
+A manufacturer moves a PDF and the tool loses its manual. So each manual link
+is copied into Blob once, and the tool page and the chat prefer the copy.
+
+- **No table of its own.** The copy is an `attachments` row owned by the
+  resource — public, `application/pdf`, `source_key =
+  manual:<resource id>:<source url>` (`src/lib/data/manual-archives.ts`). The
+  resource keeps its own `url`, the manufacturer's link. A copy whose key does
+  not match the resource's current `url` is stale: hidden everywhere, and
+  released to the orphan sweep when the new link is archived.
+- **`archiveManual(resourceId)`** (`src/lib/manuals/archive.ts`) archives a
+  Manual, or any resource whose link answers a PDF. The body must *be* a PDF
+  (`%PDF-`, or `application/pdf` that is not markup) — an HTML product page is
+  refused. 30 s, 25 MB. Skips a resource that already holds a PDF (uploaded,
+  imported, or this link's copy), and skips as `blob_not_configured` without a
+  token. It returns `archived | skipped | failed` with a reason and never
+  throws for an expected failure; it logs the link's host only, never the path
+  or query. Step code: it writes Blob through `import/blob-uploader.ts`, not
+  the `server-only` `lib/blob.ts`.
+- **Runs in a workflow**, `archiveManuals(resourceIds)`
+  (`src/workflows/archive-manuals.ts`), one step per resource, `maxRetries = 2`,
+  retrying only a transient failure (network, 5xx/429, a Blob write, the
+  database). Started by `requestManualArchive()` (`src/lib/manuals/trigger.ts`)
+  after approving a tool, after MCP `create_tool`, and after the editor adds a
+  resource or changes its link or type. It never throws and never fails the
+  write that called it.
+- **The daily cron's `manuals` stage** (`src/lib/cron/manual-archive.ts`) hands
+  up to ten due Manuals to one run each night — the backfill for imported
+  manuals and the backstop for a start that never happened. The window moves
+  each night and wraps, so a manual that always fails cannot stall it.
+- **Readers.** `resourceLinks` gives an archived manual **one** link, to the
+  copy, with the manufacturer's URL as `sourceHref` (the tool page shows only
+  `href`). `listResourcesForTool` sets it apart as `archivedUrl` and leaves it
+  out of `fileUrls`; the chat attaches `archivedUrl` first, so one manual is
+  attached once, and "(attached)" matches the copy or the source.
+
 ## Key files
 
 | Path | Purpose |
 |---|---|
 | `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults) |
 | `src/lib/db/client.ts` | `getDb()`, `dataSubstrate()`, `pingDb()` — the one entry point to Postgres/PGlite |
-| `src/lib/notion.ts` | Notion API client — used by the one-time import and its scripts (and the retired `/api/admin/backup`, awaiting deletion); no request path reads or writes Notion |
+| `src/lib/notion.ts` | Notion API client — used by the one-time import and its scripts (and the retired `/api/admin/backup`, awaiting deletion); no request path reads or writes Notion through it (the mirror has its own client) |
 | `src/lib/data/attachments.ts` | `attachments` rows: create, claim onto an owner, reorder, release, list orphans, delete |
 | `src/lib/data/revision.ts` | The editor's concurrency token — `extract(epoch from updated_at)::text`, **never a `Date`** (read the docstring before touching a conflict check) |
 | `src/lib/data/tools.ts` / `units.ts` | Row-level inventory writes, every one revision-checked. Tools are archived, never deleted |
@@ -414,7 +528,15 @@ creates a tool (Article 5).
 | `src/app/api/chat/route.ts` | Claude chat: streaming, capability tools (`get_unit_details`, `report_issue`, `identify_tools`, …) plus `web_search` / `web_fetch`, PDF manual attach |
 | `src/app/api/mcp/route.ts` | MCP JSON-RPC server (5 tools), bearer-token auth |
 | `src/app/api/uploads/route.ts` | The one upload route → Vercel Blob + an `attachments` row |
-| `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup |
+| `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup, then the mirror backstop, then the manual archive backfill |
+| `src/lib/manuals/*` | The manual archive: `archive` (`archiveManual`), `steps`, `start` (the one `workflow/api` import), `trigger` (`requestManualArchive`, never throws) |
+| `src/workflows/archive-manuals.ts` | `archiveManuals(resourceIds)` — one step per resource |
+| `src/lib/data/manual-archives.ts` / `src/lib/cron/manual-archive.ts` | The archive's key, stale-copy release and the nightly due list; the cron stage |
+| `src/lib/db/schema/mirror.ts`, `src/lib/data/mirrors.ts` / `mirror-pages.ts` | `notion_mirrors` and `mirror_pages`; every claim (run, Sync now, coalesced push) is one conditional `UPDATE` |
+| `src/lib/mirror/*` | The mirror: `notion-client` (raw fetch, throttle, 429), `token-crypto`, `credentials`, `notion-id`, `database-schemas`, `databases` (create / validate pasted ids), `source` (what changed), `properties` (pure row → Notion builders), `push`, `steps`, `start`, `trigger`, `connect` |
+| `src/workflows/mirror-push.ts` | `mirrorPush(mirrorId)` and `mirrorPushAfterChange()` — the `"use workflow"` functions |
+| `src/app/admin/mirror/` + `src/components/admin/Mirror*.tsx` | The settings page, its seven server actions, and the four islands (`MirrorConnect`, `MirrorMapping`, `MirrorStatus`, `MirrorControls`) |
+| `test/fakes/notion-fake.ts` | The in-memory Notion every mirror test (and the E2E stub) talks to |
 | `src/app/api/admin/revalidate/route.ts` | Cache invalidation (`tools.edit`, or `x-admin-secret` for session-less callers) |
 | `src/components/ChatFab.tsx` | Chat UI (`useChat`, citations stripped, photo upload) |
 | `src/app/page.tsx`, `tools/[id]/page.tsx` | Gallery + tool detail |
@@ -452,13 +574,17 @@ first), `npm run test:coverage`.
 - **The whole suite runs with every environment variable unset.** Reads *and*
   writes go to an in-process PGlite database seeded with demo data; Vercel Blob
   is stubbed at the `src/lib/blob.ts` seam (`vi.mock`), never called for real.
-  No write reaches Notion, so no test stubs it for one.
+  `vitest.setup.ts` sets `BLOB_LOCAL_DISABLE=1`, so "no token" still means "no
+  store"; the local-store tests opt in and write to a temp folder.
+  Only the mirror writes Notion; its tests talk to an in-memory Notion
+  (`test/fakes/notion-fake.ts`) through MSW, never to `api.notion.com`.
 - **Two Vitest projects.** `unit` is the existing config; `workflow`
   (`vitest.workflow.config.ts`) runs `*.workflow.test.ts` under
   `@workflow/vitest`, where the model is stubbed with MSW on
   `api.anthropic.com` because `vi.mock` does not reach step code.
 - E2E boots its own server on **port 3100** with `DATABASE_URL` unset (PGlite demo catalog) and intercepts `/api/chat` — it never touches your `:3000` dev server or real services.
 - **The intake E2E is the exception** (`e2e/intake.spec.ts`): it needs `identify_tools` and the research workflow to run server-side, so the model is stubbed at the provider boundary by a second local server (`e2e/stubs/anthropic-stub.ts`, reached through `ANTHROPIC_BASE_URL`), and the workflow runs on the SDK's local world. It is its own Playwright project that runs after every other spec, because approving publishes a third tool into the shared demo database.
+- **The mirror E2E** (`e2e/mirror.spec.ts`) is the same shape: Notion is a local stub (`e2e/stubs/notion-stub.ts`, port 3102, reached through `NOTION_API_BASE_URL`) serving the same fake, and the project runs after `intake`, last of all.
 - Tests are colocated (`*.test.ts(x)` next to source); shared harness in `test/`.
 - **Read these before writing tests:** `TESTING.md` (runbook), `test/README.md` (harness internals + the `streamText`-capture and env-stubbing patterns), and `docs/specs/2026-05-29-v5-test-suite-design.md` (design + coverage matrix). The harness deps/scripts are already wired — don't hand-edit `package.json` for them.
 
@@ -475,5 +601,13 @@ npm run test:all     # full test suite
 ## Gotchas
 
 - Because `cacheComponents` is enabled, API routes **cannot set `runtime`** — they use the default Node runtime.
+- **A server action's re-render can sit uncommitted.** In the production build
+  (Next 16.1, React 19.2, `cacheComponents`), the page a server action
+  refreshed with `revalidatePath` finished rendering and was not shown until
+  something else updated the page — and a later `router.refresh()` queued
+  behind it. Islands that depend on the re-rendered page (the mirror page's
+  four) call `useRefreshNudge()` (`src/components/admin/use-refresh-nudge.ts`)
+  after a successful action; islands that keep their own confirmed state (the
+  queues, `RoleSelect`) are unaffected. E2E scenario 8 is the canary.
 - The in-memory rate limiter is a per-process singleton; it resets on cold start (fine for abuse prevention). Upstash backs it only when **both** `UPSTASH_REDIS_REST_*` vars are set.
 - Python scripts under `scripts/` use Node with `--experimental-strip-types`; they are migration/maintenance tools, not part of the app build.

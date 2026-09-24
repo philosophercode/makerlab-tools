@@ -1,0 +1,365 @@
+/*
+ * `/admin/mirror` (spec §3.8, §6).
+ *
+ * Imported by `MirrorConnect`, `MirrorMapping`, `MirrorStatus` and
+ * `MirrorControls`, and nothing else. Every rule reads the `--td-*` tokens
+ * `.admin-shell` supplies or the global theme tokens, so light and dark follow
+ * without a palette of its own. Fields, buttons and the status line are the
+ * shared `.admin-*` rules in globals.css; this file adds the panels, the facts
+ * list, the mapping table and the problem lines — and makes all of it work at a
+ * 390px viewport, where the mapping table becomes a stacked list.
+ */
+
+.admin-mirror {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.admin-mirror-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  padding: 20px;
+  border: 1px solid var(--td-line);
+  background: var(--td-surface);
+}
+
+.admin-mirror-panel h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 500;
+}
+
+.admin-mirror-hint {
+  margin: 0;
+  max-width: 68ch;
+  color: var(--td-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* ── The notices: no key, and a token that needs replacing ───────── */
+
+.admin-mirror-notice {
+  padding: 14px 16px;
+  border-left: 2px solid var(--td-warning);
+  background: var(--surface-container-low);
+}
+
+.admin-mirror-notice h3 {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 500;
+}
+
+.admin-mirror-notice p {
+  margin: 0;
+  max-width: 68ch;
+  line-height: 1.5;
+}
+
+.admin-mirror-steps {
+  margin: 0;
+  padding-left: 20px;
+  max-width: 68ch;
+  line-height: 1.6;
+}
+
+/* ── Connect ─────────────────────────────────────────────────────── */
+
+.admin-mirror-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 560px;
+}
+
+.admin-mirror-form input {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.admin-mirror-field-hint {
+  color: var(--td-muted);
+  font-family: var(--font-body);
+  font-size: 12px;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.admin-mirror-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-mirror-line {
+  margin: 0;
+  color: var(--td-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.admin-mirror-line:empty {
+  display: none;
+}
+
+.admin-mirror-line.is-ok {
+  color: var(--td-accent);
+}
+
+.admin-mirror-line.is-error {
+  color: var(--secondary);
+}
+
+.admin-mirror-line.is-warning {
+  color: var(--td-warning);
+}
+
+/* ── Status ──────────────────────────────────────────────────────── */
+
+.admin-mirror-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-mirror-flags:empty {
+  display: none;
+}
+
+.admin-mirror-flag {
+  padding: 4px 8px;
+  border: 1px dashed var(--td-line);
+  color: var(--td-ink-2);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.admin-mirror-flag.is-paused {
+  border-style: solid;
+  border-color: var(--td-warning);
+  color: var(--td-warning);
+}
+
+.admin-mirror-facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin: 0;
+}
+
+.admin-mirror-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.admin-mirror-facts dt {
+  color: var(--td-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-mirror-facts dd {
+  margin: 0;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
+.admin-mirror-result.is-ok {
+  color: var(--td-accent);
+}
+
+.admin-mirror-result.is-partial {
+  color: var(--td-warning);
+}
+
+.admin-mirror-result.is-failed {
+  color: var(--secondary);
+}
+
+.admin-mirror-error {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-left: 2px solid var(--secondary);
+  background: var(--surface-container-low);
+}
+
+.admin-mirror-error.is-partial {
+  border-left-color: var(--td-warning);
+}
+
+.admin-mirror-error p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.admin-mirror-error-label {
+  color: var(--secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-mirror-error.is-partial .admin-mirror-error-label {
+  color: var(--td-warning);
+}
+
+/* Notion's own words are read by whoever fixes it: keep them, and wrap a long
+   id rather than widening the panel. */
+.admin-mirror-detail {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ── Mapping ─────────────────────────────────────────────────────── */
+
+.admin-mirror-mapping {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+
+.admin-mirror-mapping th,
+.admin-mirror-mapping td {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--td-line);
+  text-align: left;
+  vertical-align: top;
+}
+
+.admin-mirror-mapping thead th {
+  color: var(--td-muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-mirror-mapping tbody th {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.admin-mirror-mapping code {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.admin-mirror-unset {
+  color: var(--td-muted);
+  font-style: italic;
+}
+
+.admin-mirror-paste > summary {
+  padding: 6px 0;
+  cursor: pointer;
+  color: var(--td-accent);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.admin-mirror-paste[open] > summary {
+  margin-bottom: 10px;
+}
+
+.admin-mirror-paste-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.admin-mirror-problems {
+  margin: 2px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--secondary);
+  font-family: var(--font-body);
+  font-size: 12px;
+  letter-spacing: normal;
+  line-height: 1.4;
+  text-transform: none;
+}
+
+/* ── Controls ────────────────────────────────────────────────────── */
+
+.admin-mirror-confirm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 12px;
+  border-left: 2px solid var(--secondary);
+  background: var(--surface-container-low);
+}
+
+.admin-mirror-confirm p {
+  flex-basis: 100%;
+  margin: 0;
+  max-width: 68ch;
+  line-height: 1.5;
+}
+
+/* ── A phone ─────────────────────────────────────────────────────── */
+
+@media (max-width: 560px) {
+  .admin-mirror-panel {
+    padding: 14px;
+  }
+
+  /* The mapping table becomes a stacked list: the table name over its id. */
+  .admin-mirror-mapping thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .admin-mirror-mapping tr {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--td-line);
+  }
+
+  .admin-mirror-mapping th,
+  .admin-mirror-mapping td {
+    padding: 0;
+    border-bottom: 0;
+  }
+
+  .admin-mirror-actions .admin-button {
+    flex: 1 1 auto;
+  }
+}
+
+/* The watermark note under "Last synced" sits on its own line beside the time. */
+.admin-mirror-facts dd .admin-mirror-hint {
+  display: block;
+}

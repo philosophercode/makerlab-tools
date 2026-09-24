@@ -2,6 +2,16 @@ import "@testing-library/jest-dom";
 import { afterAll, afterEach, beforeAll, beforeEach, vi } from "vitest";
 import { server } from "./test/msw/server";
 
+// ── Blob: "none" unless a test opts in ─────────────────────────────
+//
+// Outside Vercel, no `BLOB_READ_WRITE_TOKEN` means the `.blob-data/` folder
+// (src/lib/blob-mode.ts). Tests keep the old meaning — no token, no store — so
+// the `blob_not_configured` branches stay covered and no test writes to the
+// working tree. A local-mode test stubs this to "" and points the store at a
+// temporary folder. Set directly (not `vi.stubEnv`) so `unstubAllEnvs` after
+// each test restores it rather than removing it.
+process.env.BLOB_LOCAL_DISABLE ??= "1";
+
 // ── Web Storage shim ───────────────────────────────────────────────
 //
 // Under this Node/jsdom combo `window.localStorage` is a bare object missing

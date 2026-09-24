@@ -3,6 +3,7 @@
 import { record } from "../../../lib/admin/audit-warning";
 import { runQueueWrite } from "../../../lib/admin/queue-write";
 import { setProjectPublished } from "../../../lib/data/projects";
+import { requestMirrorPush } from "../../../lib/mirror/trigger";
 import { invalidateProjects } from "../../../lib/revalidate";
 import { ADMIN_PROJECTS_PATH, type ProjectActionResult } from "./action-result";
 
@@ -27,6 +28,10 @@ import { ADMIN_PROJECTS_PATH, type ProjectActionResult } from "./action-result";
  * - **It checks `projects.moderate`**, which is its own permission and not
  *   `tools.publish`. Publishing a machine and publishing somebody's write-up
  *   are different jobs, and the declaration already says so.
+ * - **It tells the Notion mirror.** The mirror carries published projects only
+ *   (§3.8), so both directions change what it should hold, and
+ *   `requestMirrorPush()` runs after the invalidation (§3.8 trigger 1). It
+ *   never throws; a refused write never reaches it.
  */
 
 /** Names this surface in the console line a missing audit event leaves behind. */
@@ -66,6 +71,7 @@ export async function setPublished(input: {
       // write has nothing to show, and busting the gallery for it would cost a
       // full re-read for free.
       invalidateProjects();
+      await requestMirrorPush();
 
       return recorded ? undefined : "audit_unavailable";
     },

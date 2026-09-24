@@ -3,6 +3,7 @@ import { getDb } from "../db/client.ts";
 import { attachments, resources } from "../db/schema/index.ts";
 import type { Db } from "../db/types.ts";
 import { claimAttachments, releaseAttachments } from "./attachments.ts";
+import { isManualArchiveKey, manualSourceKey } from "./manual-archives.ts";
 import { isUuid } from "./uuid.ts";
 import type { Refused } from "./write-result.ts";
 
@@ -33,8 +34,14 @@ export interface ToolResource {
   type: string | null;
   url: string | null;
   notes: string | null;
-  /** Public URLs of the resource's attachments, cover first. */
+  /** Public URLs of the resource's attachments, cover first — archived manuals excluded. */
   fileUrls: string[];
+  /**
+   * The public archived copy of the PDF `url` points at, when the manual
+   * archive has made one (`./manual-archives.ts`). Prefer it: it outlives
+   * the manufacturer's link.
+   */
+  archivedUrl: string | null;
 }
 
 export interface ResourceQueryOptions {
@@ -87,12 +94,9 @@ async function loadResources(db: Db, where: SQL | undefined): Promise<ToolResour
 
   if (rows.length === 0) return [];
 
-  const filesByResource = await loadFileUrls(
-    db,
-    rows.map((row) => row.id)
-  );
+  const filesByResource = await loadFileUrls(db, rows);
 
-  return rows.map((row) => ({ ...row, fileUrls: filesByResource.get(row.id) ?? [] }));
+  return rows.map((row) => ({ ...row, ...(filesByResource.get(row.id) ?? NO_FILES) }));
 }
 
 /** One resource as the editor lists it — unpublished ones included. */
@@ -103,8 +107,10 @@ export interface EditorResource {
   url: string | null;
   notes: string | null;
   published: boolean;
-  /** Public URLs of the files hanging off it — a manual is usually one PDF. */
+  /** Public URLs of the files hanging off it — a manual is usually one PDF. Archived manuals excluded. */
   fileUrls: string[];
+  /** The archived copy of the PDF `url` points at, if the manual archive has made one. */
+  archivedUrl?: string | null;
 }
 
 /**
@@ -136,12 +142,9 @@ export async function listResourcesForEditor(
 
   if (rows.length === 0) return [];
 
-  const filesByResource = await loadFileUrls(
-    db,
-    rows.map((row) => row.id)
-  );
+  const filesByResource = await loadFileUrls(db, rows);
 
-  return rows.map((row) => ({ ...row, fileUrls: filesByResource.get(row.id) ?? [] }));
+  return rows.map((row) => ({ ...row, ...(filesByResource.get(row.id) ?? NO_FILES) }));
 }
 
 // ── Writes (spec §4.6, §5.3(3)) ─────────────────────────────────────
@@ -314,31 +317,59 @@ function emptyToNull(value: string | null): string | null {
   return trimmed || null;
 }
 
+/** A resource's public files, as the two reads above carry them. */
+interface ResourceFiles {
+  fileUrls: string[];
+  archivedUrl: string | null;
+}
+
+const NO_FILES: ResourceFiles = { fileUrls: [], archivedUrl: null };
+
 /**
  * Public attachment URLs owned by these resources, grouped by resource id and
  * ordered by `position`. A private file has no URL a visitor could open, and
  * the model is given nothing a visitor could not read.
+ *
+ * An archived manual is set apart as `archivedUrl` — only the copy of the link
+ * the resource carries now; a stale copy of an edited link is dropped — so a
+ * caller never counts one manual twice.
  */
-async function loadFileUrls(db: Db, resourceIds: string[]): Promise<Map<string, string[]>> {
+async function loadFileUrls(
+  db: Db,
+  owners: ReadonlyArray<{ id: string; url: string | null }>
+): Promise<Map<string, ResourceFiles>> {
   const rows = await db
-    .select({ ownerId: attachments.ownerId, publicUrl: attachments.publicUrl })
+    .select({ ownerId: attachments.ownerId, publicUrl: attachments.publicUrl, sourceKey: attachments.sourceKey })
     .from(attachments)
     .where(
       and(
         eq(attachments.ownerType, "resource"),
-        inArray(attachments.ownerId, resourceIds),
+        inArray(
+          attachments.ownerId,
+          owners.map((owner) => owner.id)
+        ),
         eq(attachments.access, "public"),
         isNotNull(attachments.publicUrl)
       )
     )
     .orderBy(asc(attachments.position), asc(attachments.id));
 
-  const map = new Map<string, string[]>();
+  const currentKey = new Map(
+    owners.map((owner) => [owner.id, owner.url ? manualSourceKey(owner.id, owner.url) : null])
+  );
+  const map = new Map<string, ResourceFiles>();
   for (const row of rows) {
     if (!row.ownerId || !row.publicUrl) continue;
-    const list = map.get(row.ownerId);
-    if (list) list.push(row.publicUrl);
-    else map.set(row.ownerId, [row.publicUrl]);
+    let entry = map.get(row.ownerId);
+    if (!entry) {
+      entry = { fileUrls: [], archivedUrl: null };
+      map.set(row.ownerId, entry);
+    }
+    if (isManualArchiveKey(row.sourceKey)) {
+      if (row.sourceKey === currentKey.get(row.ownerId)) entry.archivedUrl ??= row.publicUrl;
+      continue;
+    }
+    entry.fileUrls.push(row.publicUrl);
   }
   return map;
 }

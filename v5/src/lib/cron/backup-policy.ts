@@ -1,6 +1,7 @@
 import { getTableName } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
 import { account, session, verification } from "../db/schema/auth";
+import { notionMirrors } from "../db/schema/mirror";
 
 /**
  * What the nightly export deliberately leaves out (data platform design spec
@@ -29,6 +30,11 @@ import { account, session, verification } from "../db/schema/auth";
  *    nothing and keeping them costs a credential in a file.
  *  - **`user` is kept whole, deliberately.** `role` and `banned` are the state
  *    a restore would most need to get right, and the row carries no secret.
+ *  - **`notion_mirrors` is kept, with its token blanked** (Phase 8). The
+ *    ciphertext is decryptable by anyone who also holds `AUTH_SECRET`, and as a
+ *    `bytea` it would serialise as a `Buffer` object besides. A restored mirror
+ *    keeps its mapping and pages and asks its owner for the token again — the
+ *    same thing rotating `AUTH_SECRET` does (spec §8).
  *
  * Everything is named through the table objects rather than string literals, so
  * renaming a table or a column fails the typecheck here instead of quietly
@@ -46,6 +52,14 @@ const ACCOUNT_SECRETS = [
   "password",
 ] as const satisfies readonly (keyof typeof account.$inferSelect)[];
 
+/**
+ * `notion_mirrors` columns blanked in the export: the owner's Notion token,
+ * encrypted under a key derived from `AUTH_SECRET`.
+ */
+const MIRROR_SECRETS = [
+  "tokenCiphertext",
+] as const satisfies readonly (keyof typeof notionMirrors.$inferSelect)[];
+
 /** Tables the nightly file does not contain at all. */
 export const EXCLUDED_TABLES: ReadonlySet<string> = new Set([
   getTableName(session),
@@ -55,6 +69,7 @@ export const EXCLUDED_TABLES: ReadonlySet<string> = new Set([
 /** Per-table column blanklists, by SQL table name. */
 const REDACTED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   [getTableName(account)]: ACCOUNT_SECRETS,
+  [getTableName(notionMirrors)]: MIRROR_SECRETS,
 };
 
 /** True when this table's rows must not be written to a backup file at all. */

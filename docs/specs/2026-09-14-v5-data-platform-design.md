@@ -1516,7 +1516,6 @@ seed still has no draft or archived tool, so no E2E exercises publish, archive o
 browser; each is covered against PGlite in `src/app/admin/inventory/actions.test.ts`.
 
 **Status.** Accepted.
-||||||| 57d7ea3
 
 
 ### 2026-09-22 — `AUTH_ALLOWED_EMAILS`, so the domain rule cannot become a lock-out
@@ -1636,4 +1635,95 @@ that `gallery.spec.ts`'s count would see.
   reconnecting the mirror.
 
 **Status.** Accepted.
-||||||| 927bbec
+
+### 2026-09-23 — Phase 8 built (the Notion mirror), with as-built details
+
+**What changed.** §3.8 is implemented. `/admin/mirror` belongs to the signed-in admin and has
+four parts: `MirrorConnect`, `MirrorMapping`, `MirrorStatus` and `MirrorControls`. **Create
+databases** builds all seven databases with fixed schemas; pasted database ids are validated
+against those schemas before they are saved. The push lives in `src/lib/mirror/*` and runs as
+the `mirrorPush` workflow, in up to six 45 s rounds, so a first sync of the whole inventory makes
+progress round by round. `requestMirrorPush()` coalesces bursts of changes and never throws. The
+triggers are approval, every tool-editor write, project publish and unpublish, and ticket changes
+on `/admin/maintenance`. Anything no trigger reaches — `report_issue`, project submission, and
+category or location edits outside the editor — is left to the daily cron's backstop. The Notion
+client is raw `fetch`, throttled to 3 requests a second and honouring `Retry-After`; three 5xx
+answers in a row stop the push as `notion_unavailable`. Migration `0007_notion_mirror.sql` was
+read before it was accepted, and its `updated_at` trigger is hand-appended.
+
+**Per open question 4 (previous amendment), the mirror carries reporter and author names and
+emails.** §8's "Emails never enter ... the Notion mirror" and §10's "asserting emails are never
+present" no longer hold for the mirror: the property-builder tests now assert that emails *are*
+carried. Emails still never enter a model prompt or a log line, and `scrubSecrets` removes them,
+along with tokens, from anything recorded as an error. `/admin/mirror` carries a privacy note
+saying that the connected workspace will hold personal data.
+
+**How §4.12 differs as built.**
+
+- `token_ciphertext` is **nullable**, and null means disconnected. Disconnect forgets the token
+  but keeps the mapping and `mirror_pages`, so reconnecting creates no duplicate pages.
+- `last_error` is **jsonb** `{code, entities, failed, detail}`, so the page can translate it.
+  `detail` is generic English and never Notion's own message.
+- `notion_mirrors` adds six columns:
+  - `parent_page_title`;
+  - `push_requested_at`, the coalescing claim;
+  - `sync_requested_at`, which holds Sync now's 15-minute limit in the database;
+  - `last_run_at`, the last finish, whatever its result;
+  - `mapping_generation`;
+  - `created_at`.
+- `mirror_pages` adds `source_updated_at`, a per-page revision, so a push cut short by its budget
+  resumes where it stopped instead of pushing everything again.
+- The nightly backup blanks `token_ciphertext`.
+
+**Decisions.**
+
+- **`last_synced_at` is the claim time minus five minutes, computed in SQL**, so a transaction
+  that commits late is not missed. The status panel says "Every change made before this time is
+  in Notion."
+- **A mapping change fences off a running push.** `mapping_generation` is bumped whenever the
+  mapping changes or an entity is reset. A push advances `last_synced_at`, and records pages, only
+  while the generation it claimed is still current. Otherwise it stops as superseded, and the
+  workflow runs another round from the new mapping.
+- **Resetting an entity also marks the pages that link to it as not mirrored.** When a Tools
+  database is recreated (§5.8), every unit, resource, ticket and project page is pushed again, so
+  their Tool relations point at the new pages.
+- **The 45 s budget limits when requests start, not how long they run.** A request that has
+  started runs until Notion answers or a fixed 30 s timeout, which is reported as `unavailable`.
+  Cutting a POST short after Notion has received it would create a duplicate page.
+- **A mirror pushes only while its owner holds `mirror.manage` and is not banned.** This extends
+  §8's owner-only rule, so a demoted admin's workspace stops receiving personal data. The role
+  list is a constant, because step code cannot load Better Auth, and a test pins it to `can()`.
+- **Sync now is refused while a push is running** (`sync_running`), without spending the owner's
+  15-minute window. A workflow round that finds the mirror busy waits 30 s and tries again, up to
+  10 times.
+- **Unpublished projects, and hard-deleted units, resources and similar rows, have their pages
+  archived.** Select values are the stored machine ids. Database and property names are fixed
+  English in code, not next-intl strings.
+- **`NOTION_API_BASE_URL` is a test-only override.** E2E 8 points it at a stub on port 3102, which
+  serves the same stateful fake of Notion the unit tests use. It runs as its own Playwright
+  project, after `intake`.
+- **`useRefreshNudge` works around a stall; the stall itself is not fixed.** In the production
+  build (Next 16.1, React 19.2, `cacheComponents`), the page a server action refreshed was
+  rendered but not shown until something else updated the page. The mirror islands therefore
+  re-render every 200 ms for 4 s after an action. E2E 8 is the check that the workaround can be
+  removed after an upgrade.
+
+**Known gaps, not fixed.**
+
+- **Nothing here has run against the real Notion API.** Two behaviours in particular are
+  unconfirmed: a PATCH that sends `archived: false` together with properties, and select options
+  being created on the fly. Isaac's first connection is the check.
+- **A 30 s timeout on a POST that Notion did process can still create a duplicate page.** There is
+  no lookup by app id to reconcile it.
+- **Some changes bump no `updated_at`.** A project's tool list and attachment rows are examples.
+  They reach the mirror only when their owner row next changes.
+- **The owner check reads the user row, not `AUTH_SUPER_ADMIN_EMAILS`.** A floor address whose row
+  was demoted stops pushing until `reconcileSuperAdminFloor` repairs the row.
+- **A super admin cannot disconnect another admin's mirror.** A demoted owner's token stays in the
+  database until the account is deleted, although it no longer pushes.
+
+**Still to do by hand (§4.14).** Isaac creates an internal integration and a page named
+"MakerLab Tools — mirror" in his Notion, shares the page with the integration, and pastes the
+token and page URL into `/admin/mirror`.
+
+**Status.** Accepted.

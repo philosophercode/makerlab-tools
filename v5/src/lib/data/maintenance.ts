@@ -32,8 +32,10 @@ import { isUuid } from "./uuid.ts";
  *   trips back to the words Notion showed.
  * - **The reporter's email is selected by exactly one read.**
  *   `reported_by_email` is set only from a resolved session and must not enter
- *   a model prompt or the mirror (spec §8, PII), so the history read — whose
- *   rows a model sees — does not select the column at all. Phase 5's
+ *   a model prompt (spec §8, PII), so the history read — whose rows a model
+ *   sees — does not select the column at all. (The Notion mirror does carry it,
+ *   per the 2026-09-23 amendment, but through its own select in
+ *   `mirror/source.ts`, not through this module.) Phase 5's
  *   {@link listMaintenanceQueue} does, because `/admin/maintenance` is gated on
  *   `maintenance.manage` and answering a confusing ticket means writing back to
  *   the person who filed it. Which read a caller picks is therefore the whole
@@ -349,7 +351,9 @@ export interface MaintenanceQueueEntry {
    * The reporter's address, **only on this projection**.
    *
    * {@link listMaintenanceHistoryForUnit} deliberately does not select this
-   * column, because its rows reach a model prompt and the Notion mirror (§8).
+   * column, because its rows reach a model prompt (§8). (The Notion mirror
+   * carries reporter emails since the 2026-09-23 amendment, but it selects
+   * them in `mirror/source.ts`; neither read here feeds it.)
    * This read has one caller — a page gated on `maintenance.manage` — and the
    * first thing an admin does with a confusing ticket is ask the person who
    * filed it. Showing a name they cannot reach is a queue that sends them back

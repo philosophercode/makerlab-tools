@@ -50,6 +50,13 @@
       "when": 1790142683628,
       "tag": "0006_research_ledger",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790163107556,
+      "tag": "0007_notion_mirror",
+      "breakpoints": true
     }
   ]
 }

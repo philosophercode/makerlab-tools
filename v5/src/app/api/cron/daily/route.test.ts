@@ -44,10 +44,42 @@ vi.mock("../../../../lib/cron/pending-expiry", async (importOriginal) => {
   };
 });
 
-import { sql } from "drizzle-orm";
+/**
+ * The mirror stage (Phase 8). Starting a workflow is mocked at `start.ts` —
+ * the workflow tier has its own test — so the stage runs its real query
+ * against the seeded database and hands `startMirrorPush` whatever is due.
+ * `throwOnce` fails the whole stage, as `pendingExpiryOverride` does above.
+ */
+const mirrorStage = vi.hoisted(() => ({ throwOnce: null as Error | null, startMirrorPush: vi.fn() }));
+
+vi.mock("../../../../lib/mirror/start", () => ({ startMirrorPush: mirrorStage.startMirrorPush }));
+
+vi.mock("../../../../lib/cron/mirror-backstop", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../../../../lib/cron/mirror-backstop")>();
+  return {
+    ...actual,
+    runMirrorBackstop: (...args: Parameters<typeof actual.runMirrorBackstop>) => {
+      if (mirrorStage.throwOnce) {
+        const error = mirrorStage.throwOnce;
+        mirrorStage.throwOnce = null;
+        return Promise.reject(error);
+      }
+      return actual.runMirrorBackstop(...args);
+    },
+  };
+});
+
+/** The manual archive backfill: starting its workflow is mocked at `start.ts`. */
+const manualStage = vi.hoisted(() => ({ startManualArchive: vi.fn() }));
+
+vi.mock("../../../../lib/manuals/start", () => ({ startManualArchive: manualStage.startManualArchive }));
+
+import { eq, sql } from "drizzle-orm";
+import { saveMirrorConnection } from "@/lib/data/mirrors";
 import { getDb, resetDbForTests } from "@/lib/db/client";
 import { DEMO_ACCOUNTS } from "@/lib/db/demo-seed";
-import { attachments, pendingTools, tools } from "@/lib/db/schema/index";
+import { attachments, notionMirrors, pendingTools, resources, tools } from "@/lib/db/schema/index";
 import { GET } from "./route";
 
 /**
@@ -66,6 +98,9 @@ beforeEach(async () => {
   vi.stubEnv("BLOB_READ_WRITE_TOKEN", "vercel_blob_rw_test");
 
   pendingExpiryOverride.throwOnce = null;
+  mirrorStage.throwOnce = null;
+  mirrorStage.startMirrorPush.mockReset().mockResolvedValue({ ok: true, runId: "run-1" });
+  manualStage.startManualArchive.mockReset().mockResolvedValue(true);
   blob.configured.value = true;
   blob.put.mockReset().mockResolvedValue({ pathname: "written" });
   blob.list.mockReset().mockResolvedValue([]);
@@ -74,6 +109,7 @@ beforeEach(async () => {
   const db = await getDb();
   await db.delete(pendingTools);
   await db.delete(attachments);
+  await db.delete(notionMirrors);
 });
 
 afterAll(() => {
@@ -315,6 +351,119 @@ describe("GET /api/cron/daily — the cleanup stage", () => {
     // Today's data is safe; only the sweep needs attention. Whoever reads the
     // log has to be able to tell those apart.
     expect(body.backup.pathname).toMatch(/^backups\//);
+  });
+});
+
+describe("GET /api/cron/daily — the mirror stage", () => {
+  /** An active, never-synced mirror owned by the demo admin: due tonight. */
+  async function activeMirror(): Promise<string> {
+    const { mirror } = await saveMirrorConnection({
+      ownerUserId: DEMO_ACCOUNTS.admin.id,
+      tokenCiphertext: new Uint8Array([1, 2, 3]),
+      parentPageId: "0f5e4a3c-1111-2222-3333-444455556666",
+      parentPageTitle: null,
+    });
+    return mirror.id;
+  }
+
+  it("reports the mirror stage, and starts nothing when there is no mirror", async () => {
+    const res = await GET(authorized());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.mirror).toEqual({ due: 0, started: 0, failed: 0 });
+    expect(mirrorStage.startMirrorPush).not.toHaveBeenCalled();
+  });
+
+  it("starts a push for a mirror that has never synced", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const id = await activeMirror();
+
+    const body = await (await GET(authorized())).json();
+
+    expect(body.ok).toBe(true);
+    expect(body.mirror).toEqual({ due: 1, started: 1, failed: 0 });
+    expect(mirrorStage.startMirrorPush).toHaveBeenCalledWith(id);
+  });
+
+  it("returns 500 with stage 'mirror' when the stage throws, and still reports every earlier stage", async () => {
+    mirrorStage.throwOnce = new Error("mirror backstop blew up");
+
+    const res = await GET(authorized());
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.stage).toBe("mirror");
+    expect(body.error).toContain("mirror backstop blew up");
+    expect(body.backup.pathname).toMatch(/^backups\//);
+    expect(body.pendingExpiry).toBeDefined();
+    expect(body.cleanup).toBeDefined();
+  });
+
+  it("returns 500 with stage 'mirror' when a push could not be started — never a quiet 200", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    await activeMirror();
+    mirrorStage.startMirrorPush.mockResolvedValue({ ok: false });
+
+    const res = await GET(authorized());
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.stage).toBe("mirror");
+    expect(body.mirror).toEqual({ due: 1, started: 0, failed: 1 });
+    expect(body.cleanup).toBeDefined();
+  });
+});
+
+describe("GET /api/cron/daily — the manual archive stage", () => {
+  const TITLE = "Cron test manual";
+
+  async function manual(): Promise<string> {
+    const db = await getDb();
+    const [tool] = await db.select({ id: tools.id }).from(tools).limit(1);
+    const [row] = await db
+      .insert(resources)
+      .values({ toolId: tool.id, title: TITLE, type: "Manual", url: "https://maker.test/cron-manual.pdf" })
+      .returning({ id: resources.id });
+    return row.id;
+  }
+
+  afterEach(async () => {
+    const db = await getDb();
+    await db.delete(resources).where(eq(resources.title, TITLE));
+  });
+
+  it("reports zeros and starts nothing when no manual is due", async () => {
+    const body = await (await GET(authorized())).json();
+
+    expect(body.ok).toBe(true);
+    expect(body.manuals).toEqual({ due: 0, queued: 0, failed: 0 });
+    expect(manualStage.startManualArchive).not.toHaveBeenCalled();
+  });
+
+  it("hands a due manual to an archive run and reports the counts", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const id = await manual();
+
+    const body = await (await GET(authorized())).json();
+
+    expect(body.ok).toBe(true);
+    expect(body.manuals).toEqual({ due: 1, queued: 1, failed: 0 });
+    expect(manualStage.startManualArchive).toHaveBeenCalledWith([id]);
+  });
+
+  it("returns 500 with stage 'manuals' when the run could not be started", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    await manual();
+    manualStage.startManualArchive.mockResolvedValue(false);
+
+    const res = await GET(authorized());
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.stage).toBe("manuals");
+    expect(body.manuals).toEqual({ due: 1, queued: 0, failed: 1 });
+    expect(body.mirror).toBeDefined();
   });
 });
 

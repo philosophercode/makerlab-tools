@@ -122,6 +122,8 @@ const ACCEPTED: Record<string, string> = {
   "env-var:VERCEL_URL": "platform built-in",
   "env-var:VERCEL_ENV": "platform built-in",
   "env-var:VERCEL_PROJECT_PRODUCTION_URL": "platform built-in",
+  "env-var:NOTION_API_BASE_URL":
+    "test-only: points the mirror's Notion client at the E2E stub (e2e/stubs/notion-stub.ts); production never sets it (v5/AGENTS.md)",
   "npm-script:spec:coverage": "this script",
   "npm-script:migrate:resources": "one-off migration tool, not app surface",
   "npm-script:drop:deprecated-columns": "one-off migration tool, not app surface",

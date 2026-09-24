@@ -8,6 +8,7 @@ import { promoteAttachmentsToPublic } from "../files/promote";
 import { IDENTIFY_MAX_ITEMS, IDENTIFY_MAX_MODEL_NAME_SEARCHES, RESEARCH_MAX_ITEMS_PER_REQUEST } from "../intake/limits";
 import type { DuplicateOf, IntakeTablePayload, IntakeTableWarning } from "../intake/types";
 import { toPendingToolView } from "../intake/view";
+import { requestManualArchive } from "../manuals/trigger";
 import { verifyResourceLinks } from "../research/verify-links";
 import { invalidateCatalog } from "../revalidate";
 import { INTAKE_PERMISSION } from "./access";
@@ -410,6 +411,10 @@ const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
       console.error("[intake] create_tool could not invalidate the catalogue cache", err);
       warnings.push("The draft was saved, but the catalogue cache could not be refreshed — it may take a while to appear.");
     }
+
+    // Copy each manual PDF into Blob before the manufacturer moves it. Never
+    // throws; a run that could not start is the nightly backfill's.
+    await requestManualArchive(outcome.resourceIds);
 
     return {
       success: true,

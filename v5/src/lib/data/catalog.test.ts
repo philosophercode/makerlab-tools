@@ -11,6 +11,7 @@ import {
   UNIT_STATUS,
 } from "../db/schema/index";
 import type { Db } from "../db/types";
+import { manualSourceKey } from "./manual-archives";
 import {
   countPublishedTools,
   deriveTrainingLabel,
@@ -750,6 +751,53 @@ describe("resourceLinks", () => {
       { ...resourceRow, title: "", type: null, url: "https://example.com/x" },
     ]);
     expect(links[0]).toMatchObject({ label: "Resource", kind: "Resource" });
+  });
+
+  describe("an archived manual", () => {
+    const SOURCE = "https://maker.test/form-4-manual.pdf";
+    const manual: ResourceRow = { ...resourceRow, title: "Form 4 manual", type: "Manual", url: SOURCE };
+    const archive = (url: string, publicUrl = "https://blob.test/manuals/form-4.pdf") =>
+      file({
+        ownerType: "resource",
+        ownerId: "res-id",
+        publicUrl,
+        originalFilename: "form-4-manual.pdf",
+        sourceKey: manualSourceKey("res-id", url),
+      });
+
+    it("links the copy once, with the manufacturer's link kept as the source", () => {
+      expect(resourceLinks([manual], indexAttachments([archive(SOURCE)]))).toEqual([
+        {
+          label: "Form 4 manual",
+          href: "https://blob.test/manuals/form-4.pdf",
+          sourceHref: SOURCE,
+          kind: "Manual",
+          description: undefined,
+        },
+      ]);
+    });
+
+    it("falls back to the source link when there is no copy", () => {
+      expect(resourceLinks([manual])).toEqual([
+        { label: "Form 4 manual", href: SOURCE, kind: "Manual", description: undefined },
+      ]);
+    });
+
+    it("drops a stale copy of a link the resource no longer carries, rather than listing it", () => {
+      const links = resourceLinks([manual], indexAttachments([archive("https://maker.test/old.pdf", "https://blob.test/old.pdf")]));
+      expect(links.map((link) => link.href)).toEqual([SOURCE]);
+    });
+
+    it("still lists an uploaded file beside the archived link", () => {
+      const files = indexAttachments([
+        archive(SOURCE),
+        file({ ownerType: "resource", ownerId: "res-id", publicUrl: "https://blob.test/quick-start.pdf", position: 1 }),
+      ]);
+      expect(resourceLinks([manual], files).map((link) => link.href)).toEqual([
+        "https://blob.test/manuals/form-4.pdf",
+        "https://blob.test/quick-start.pdf",
+      ]);
+    });
   });
 });
 

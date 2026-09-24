@@ -19,6 +19,19 @@ vi.mock("../data/audit", async (importOriginal) => {
   };
 });
 
+// The mirror trigger has its own tests; here it is only asked whether it was
+// called — after a committed approval, never after a refused one.
+const mirror = vi.hoisted(() => ({ requestMirrorPush: vi.fn() }));
+
+vi.mock("../mirror/trigger", () => ({ requestMirrorPush: mirror.requestMirrorPush }));
+
+// The manual archive is mocked one layer down, at the module that calls the
+// Workflow SDK's `start()`, so the real trigger's never-throw rule is what the
+// start-failure case exercises.
+const manuals = vi.hoisted(() => ({ startManualArchive: vi.fn() }));
+
+vi.mock("../manuals/start", () => ({ startManualArchive: manuals.startManualArchive }));
+
 import { revalidateTag } from "next/cache";
 import { eq } from "drizzle-orm";
 import { seedUser } from "../../../test/utils/session";
@@ -33,7 +46,7 @@ import {
   type ApprovalFields,
 } from "../data/pending-tools";
 import { getDb, resetDbForTests } from "../db/client";
-import { auditEvents, tools, units } from "../db/schema/index";
+import { auditEvents, resources, tools, units } from "../db/schema/index";
 import type { Db } from "../db/types";
 import type { ResearchResult } from "../research/result";
 import { CATALOG_TAG } from "../revalidate";
@@ -55,6 +68,8 @@ let approver: string;
 beforeEach(async () => {
   vi.stubEnv("DATABASE_URL", "");
   vi.mocked(revalidateTag).mockClear();
+  mirror.requestMirrorPush.mockReset().mockResolvedValue(undefined);
+  manuals.startManualArchive.mockReset().mockResolvedValue(true);
   audit.failing = false;
   db = await getDb();
   approver = (await seedUser({ email: "luis@cornell.edu", role: "admin" })).id;
@@ -299,5 +314,81 @@ describe("addUnitAndRecord", () => {
     });
     expect(await events(second)).toEqual([]);
     expect(vi.mocked(revalidateTag)).not.toHaveBeenCalled();
+  });
+});
+
+describe("the Notion mirror (§3.8 trigger 1)", () => {
+  it("asks for a push once an approval has committed, published or draft", async () => {
+    const published = await researchedItem();
+    expect((await approveAndRecord({ userId: approver }, { id: published, publish: true, fields: fields() })).ok).toBe(true);
+    expect(mirror.requestMirrorPush).toHaveBeenCalledTimes(1);
+
+    const draft = await researchedItem();
+    expect(
+      (await approveAndRecord({ userId: approver }, { id: draft, publish: false, fields: fields({ serialNumber: "P1S-002" }) })).ok
+    ).toBe(true);
+    expect(mirror.requestMirrorPush).toHaveBeenCalledTimes(2);
+  });
+
+  it("asks for a push when a unit is added", async () => {
+    const id = await unitItem("F4-MIRROR-1");
+    expect((await addUnitAndRecord({ userId: approver }, { id })).ok).toBe(true);
+    expect(mirror.requestMirrorPush).toHaveBeenCalledTimes(1);
+  });
+
+  it("passes the caller's database handle through", async () => {
+    const id = await unitItem("F4-MIRROR-2");
+    await addUnitAndRecord({ userId: approver }, { id }, { db });
+    expect(mirror.requestMirrorPush).toHaveBeenCalledWith({ db });
+  });
+
+  it("asks for nothing when the approval is refused", async () => {
+    const low = await researchedItem(research(LOW));
+    expect((await approveAndRecord({ userId: approver }, { id: low, publish: true, fields: fields() })).ok).toBe(false);
+
+    const first = await unitItem("F4-MIRROR-SAME");
+    const second = await unitItem("F4-MIRROR-SAME");
+    expect((await addUnitAndRecord({ userId: approver }, { id: first })).ok).toBe(true);
+    mirror.requestMirrorPush.mockClear();
+    expect((await addUnitAndRecord({ userId: approver }, { id: second })).ok).toBe(false);
+
+    expect(mirror.requestMirrorPush).not.toHaveBeenCalled();
+  });
+});
+
+describe("the manual archive", () => {
+  it("starts an archive run for the resources the approval created, after the commit", async () => {
+    const id = await researchedItem();
+    const result = await approveAndRecord({ userId: approver }, { id, publish: true, fields: fields() });
+    if (!result.ok) throw new Error("approval refused");
+
+    const created = await db.select({ id: resources.id }).from(resources).where(eq(resources.toolId, result.toolId));
+    expect(created).toHaveLength(1);
+    expect(manuals.startManualArchive).toHaveBeenCalledTimes(1);
+    expect(manuals.startManualArchive).toHaveBeenCalledWith([created[0].id]);
+  });
+
+  it("still approves when the run cannot be started, with no warning and nothing rolled back", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    manuals.startManualArchive.mockRejectedValue(new Error("workflow runtime unavailable"));
+    const id = await researchedItem();
+
+    const result = await approveAndRecord({ userId: approver }, { id, publish: true, fields: fields() });
+
+    expect(result).toMatchObject({ ok: true, published: true });
+    expect(result).not.toHaveProperty("warning");
+    if (!result.ok) throw new Error("unreachable");
+    expect(await db.select().from(tools).where(eq(tools.id, result.toolId))).toHaveLength(1);
+    expect(error).toHaveBeenCalledWith(expect.stringContaining("[manuals]"));
+  });
+
+  it("starts nothing when the approval is refused, or when it created no resources", async () => {
+    const low = await researchedItem(research(LOW));
+    expect((await approveAndRecord({ userId: approver }, { id: low, publish: true, fields: fields() })).ok).toBe(false);
+
+    const bare = await researchedItem(research({ resources: [] }));
+    expect((await approveAndRecord({ userId: approver }, { id: bare, publish: true, fields: fields() })).ok).toBe(true);
+
+    expect(manuals.startManualArchive).not.toHaveBeenCalled();
   });
 });

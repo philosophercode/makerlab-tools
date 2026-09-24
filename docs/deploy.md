@@ -134,8 +134,20 @@ curl -H "x-admin-secret: $ADMIN_REVALIDATE_SECRET" \
 ```
 
 It exports every Postgres table to a private blob and sweeps photos that were uploaded but
-never attached to anything. It needs `BLOB_READ_WRITE_TOKEN` and refuses without it — the
-old `/api/admin/backup` route it replaces dumped Notion and is no longer scheduled.
+never attached to anything. It needs a Blob store and refuses without one — the old
+`/api/admin/backup` route it replaces dumped Notion and is no longer scheduled.
+
+**Blob on a laptop.** With no `BLOB_READ_WRITE_TOKEN`, `npm run dev` does not refuse
+uploads: every Blob read and write goes to `v5/.blob-data/` (git-ignored), a folder that
+behaves like the real store — private and public files, random upload pathnames, copies to
+public, list and delete. Photo uploads, chat photos, pending-tool photo promotion,
+archived manual PDFs, this backup and the orphan sweep all work. Public files are served
+by `GET /api/dev-blob/[...path]` at `AUTH_BASE_URL` (default `http://localhost:3000`);
+private ones are never served. Set `BLOB_LOCAL_DISABLE=1` to get the old "uploads are
+unavailable" behaviour back. The rule lives in `v5/src/lib/blob-mode.ts`: a token means
+Vercel Blob; on Vercel (`VERCEL`) or in a production build without one there is **no**
+store and no disk fallback, and `/api/dev-blob/…` answers 404. The Notion import still
+insists on a real token, because its rows go to a shared database.
 
 Two tables are held out of the file on purpose: `session` and `verification` are sign-in
 credentials, not records, and the Google tokens on `account` are blanked. A backup is

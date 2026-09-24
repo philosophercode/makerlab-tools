@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import type { MakerLabProject, MakerLabTool, ToolStatus } from "./catalog-types";
 
 interface DetailShellProps {
@@ -85,7 +87,10 @@ export function DetailShell({ tool, projects = [] }: DetailShellProps) {
 
         <div className="td-hero-copy">
           <h1>{tool.name}</h1>
-          <p>{tool.description}</p>
+          {/* Descriptions are Markdown (research folds specs in as a list); no raw HTML, as for projects. */}
+          <div className="td-hero-description">
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{tool.description}</ReactMarkdown>
+          </div>
 
           <div className="td-chip-row" aria-label={t("toolStatusLabel")}>
             <span className={`td-chip td-chip-${status.tone}`}>

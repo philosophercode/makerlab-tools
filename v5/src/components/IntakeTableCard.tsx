@@ -253,6 +253,9 @@ export function IntakeTableCard({ payload }: IntakeTableCardProps) {
                   disabled={locked || eligibleIds.length === 0}
                   onChange={toggleAll}
                 />
+                <span className="intake-select-text" aria-hidden="true">
+                  {t("table.selectAllVisible")}
+                </span>
               </th>
               <th scope="col">{t("table.columnPhoto")}</th>
               <th scope="col">{t("table.columnName")}</th>
@@ -437,6 +440,9 @@ function IntakeRow({ row, t, selected, locked, saving, onToggle, onEditingChange
           disabled={disabled || unresolved}
           onChange={onToggle}
         />
+        <span className="intake-select-text" aria-hidden="true">
+          {unresolved ? t("table.selectRowBlocked") : t("table.selectRowVisible")}
+        </span>
       </td>
 
       <td className="intake-cell-photo" data-label={t("table.columnPhoto")}>

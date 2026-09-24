@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { createPgliteDb } from "../db/pglite";
+import { manualSourceKey } from "./manual-archives";
 import { attachments, resources, tools } from "../db/schema/index";
 import type { Db } from "../db/types";
 import {
@@ -81,6 +82,7 @@ describe("listResourcesForTool", () => {
         url: "https://x.test/sop.pdf",
         notes: "Read before the first print.",
         fileUrls: [],
+        archivedUrl: null,
       },
     ]);
   });
@@ -95,6 +97,18 @@ describe("listResourcesForTool", () => {
       "https://blob.test/first.pdf",
       "https://blob.test/second.pdf",
     ]);
+  });
+
+  it("sets the archived copy of the current link apart, and drops a stale one", async () => {
+    const url = "https://maker.test/manual.pdf";
+    const id = await insertResource({ title: "Manual", type: "Manual", url });
+    await attachFile(id, { publicUrl: "https://blob.test/archive.pdf", sourceKey: manualSourceKey(id, url) });
+    await attachFile(id, { publicUrl: "https://blob.test/stale.pdf", sourceKey: manualSourceKey(id, "https://maker.test/old.pdf") });
+    await attachFile(id, { publicUrl: "https://blob.test/upload.pdf", position: 1 });
+
+    const [resource] = await listResourcesForTool(form4, { db });
+    expect(resource.archivedUrl).toBe("https://blob.test/archive.pdf");
+    expect(resource.fileUrls).toEqual(["https://blob.test/upload.pdf"]);
   });
 
   it("leaves out private files, which no visitor could open either", async () => {

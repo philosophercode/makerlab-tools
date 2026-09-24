@@ -277,6 +277,11 @@ export interface NewAttachment {
   originalFilename: string;
   /** The signed-in uploader, or null. Anonymous uploads stay allowed (§3.3). */
   uploadedBy: string | null;
+  /**
+   * An idempotency key, globally unique — set by a copy the app makes on its
+   * own (an archived manual, `manual:<resource id>:<url>`), never by an upload.
+   */
+  sourceKey?: string | null;
 }
 
 export interface AttachmentReadOptions {
@@ -309,6 +314,7 @@ export async function createAttachment(
       sizeBytes: row.sizeBytes,
       originalFilename: row.originalFilename,
       uploadedBy: row.uploadedBy,
+      sourceKey: row.sourceKey ?? null,
     })
     .returning({ id: attachments.id });
 
