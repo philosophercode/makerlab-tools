@@ -9,7 +9,7 @@ import { admin } from "better-auth/plugins/admin";
 import { dataSubstrate, getDb } from "../db/client";
 import * as schema from "../db/schema/index";
 import { ac, roles } from "./permissions";
-import { allowedEmailDomain, isAllowedEmail } from "./roles";
+import { allowedEmailDomain, allowedEmails, isAllowedEmail } from "./roles";
 import { isSuperAdminFloor } from "./super-admins";
 import type { Db } from "../db/types";
 
@@ -104,6 +104,7 @@ export async function getAuth(): Promise<AuthInstance | null> {
 export function createAuth(db: Db) {
   const secret = process.env.AUTH_SECRET || "";
   const domain = allowedEmailDomain();
+  const namedExceptions = allowedEmails().length > 0;
 
   return betterAuth({
     secret,
@@ -119,7 +120,15 @@ export function createAuth(db: Db) {
             clientId: process.env.GOOGLE_CLIENT_ID || "",
             clientSecret: process.env.GOOGLE_CLIENT_SECRET || "",
             // UI hint + Better Auth's `hd` claim check. Not the control.
-            hd: domain,
+            //
+            // Dropped entirely once AUTH_ALLOWED_EMAILS names anybody, because
+            // `hd` is not only a hint to Google: Better Auth verifies the claim
+            // on the returned id token, and a personal account carries no `hd`
+            // at all. Left on, it would refuse every named exception before
+            // this app's own check ran — the allowlist would look configured
+            // and do nothing. The picker gets wider; the two enforcement
+            // points below do not move.
+            ...(namedExceptions ? {} : { hd: domain }),
           },
         }
       : {},

@@ -72,6 +72,29 @@ describe("isAllowedEmail", () => {
     expect(isAllowedEmail("someone@mail.cornell.edu")).toBe(false);
   });
 
+  it("accepts an address named in AUTH_ALLOWED_EMAILS, off-domain", () => {
+    vi.stubEnv("AUTH_ALLOWED_EMAILS", "steinbergisaac@gmail.com");
+    expect(isAllowedEmail("steinbergisaac@gmail.com")).toBe(true);
+    // Normalized on both sides, like every other address in this module.
+    expect(isAllowedEmail("  SteinbergIsaac@Gmail.com ")).toBe(true);
+  });
+
+  it("does not open the named address's domain to anybody else", () => {
+    // The whole point: exceptions are addresses, never domains.
+    vi.stubEnv("AUTH_ALLOWED_EMAILS", "steinbergisaac@gmail.com");
+    expect(isAllowedEmail("someone.else@gmail.com")).toBe(false);
+  });
+
+  it("keeps accepting the institutional domain alongside the exceptions", () => {
+    vi.stubEnv("AUTH_ALLOWED_EMAILS", "steinbergisaac@gmail.com");
+    expect(isAllowedEmail("abc123@cornell.edu")).toBe(true);
+  });
+
+  it("changes nothing when the list is empty or unset", () => {
+    vi.stubEnv("AUTH_ALLOWED_EMAILS", "");
+    expect(isAllowedEmail("someone@gmail.com")).toBe(false);
+  });
+
   it("rejects null, undefined, and empty input", () => {
     expect(isAllowedEmail(null)).toBe(false);
     expect(isAllowedEmail(undefined)).toBe(false);
