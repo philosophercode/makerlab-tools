@@ -185,6 +185,39 @@ Run `db:migrate` against Neon first. The `no_text` count is how many manuals are
 (the spec's OCR question). The tool pages show each manual's **Contents** once the
 catalogue's few-minute cache expires.
 
+### Stage 2e · Manual search: passages and embeddings (a few cents)
+
+Phase 2 of the manual text spec makes each ready manual **searchable**: its stored pages
+are split into passages and each is embedded through the Gateway (job `embed`,
+`openai/text-embedding-3-small` at 512 dimensions, `MODEL_EMBED` overrides it). The chat's
+`search_manual` answers from them with page citations; a manual without passages is still
+attached whole, as before.
+
+- **pgvector.** Migration `0011` runs `CREATE EXTENSION IF NOT EXISTS vector` and creates
+  `manual_chunks`. **Neon ships pgvector** — the migration is all it needs, no dashboard
+  step. Locally PGlite loads it from `@electric-sql/pglite-pgvector`.
+- **New manuals** get passages in the same archive workflow run that stores their text.
+  **Manuals already stored** need the backfill, which is the same command as Stage 2d: after
+  the text pass it chunks and embeds every ready document whose passages are missing or
+  were built by another chunker version or embedding model, and prints tokens and the
+  Gateway-reported cost (about $0.0006 for a 60-page manual, $0.002 for 150 pages).
+
+```bash
+cd v5
+DATABASE_URL=postgres://… npm run db:migrate            # 0011: pgvector + manual_chunks
+# rehearse: chunks and counts passages, embeds nothing, costs nothing
+DATABASE_URL=postgres://… BLOB_READ_WRITE_TOKEN=… npm run manuals:index -- --dry-run
+# for real — needs Gateway auth: AI_GATEWAY_API_KEY, or VERCEL_OIDC_TOKEN from `vercel env pull`
+DATABASE_URL=postgres://… BLOB_READ_WRITE_TOKEN=… VERCEL_OIDC_TOKEN=… npm run manuals:index
+```
+
+`--text-only` skips the embedding pass. Changing `MODEL_EMBED` (or a new `CHUNKER_VERSION`)
+makes every document stale; the same command re-embeds them. `/admin/research` shows how
+many manuals are searchable, text only, scanned, failed or still processing, and a
+resource row's **Re-process** in the tool editor rebuilds one manual. Storage: roughly
+2 KB of vector plus ~1.5 KB of text a passage — a 150-page manual is ~200 passages; watch
+Neon's allowance before backfilling hundreds of manuals.
+
 ## Stage 3 · Sign-in (15 minutes)
 
 Google Cloud Console → **OAuth 2.0 Client ID (Web)** → authorized redirect URI exactly:
@@ -330,6 +363,9 @@ set.
    rejected with an explanation rather than an error.
 5. **File a test ticket** and confirm it lands in Notion with your verified name.
 6. **Trigger the backup by hand** and confirm a file appears in Blob.
+7. **Ask a manual question** on the page of a tool whose manual `/admin/research` counts as
+   searchable (after Stage 2e): the status line reads "Searching the manual…" and the answer
+   links a page of the PDF (`…#page=N`).
 
 > [!IMPORTANT]
 > **OIDC has only ever been verified locally** (Phase 0 of the gateway migration — see the

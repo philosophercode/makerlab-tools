@@ -20,7 +20,7 @@ the catalog to external agents. White-labelled via env vars.
 
 - **Next.js 16** (App Router, React Server Components, `cacheComponents` enabled), **React 19**, **TypeScript**, **Tailwind CSS 4**.
 - **i18n:** `next-intl`, **12 locales**, cookie-based (`NEXT_LOCALE`) — no URL-prefix routing. Config in `src/i18n/config.ts`; messages in `messages/*.json`.
-- **AI:** Vercel **AI SDK v6** (`ai`, `@ai-sdk/react`) through the **Vercel AI Gateway** (`@ai-sdk/gateway`) — the *only* model path (gateway spec 2026-09-23: `ANTHROPIC_API_KEY`, `@ai-sdk/anthropic` and the direct-provider `src/lib/model.ts` are retired and removed). Every model call names a **job**, not a model — `chat`, `researchSearch`, `researchRead`, `imageRank` — resolved by `src/lib/ai/models.ts`'s `MODEL_JOBS`, each with a code default (`openai/gpt-6-luna` for every job — chat passed the §10 eval gate once its prompt was tuned, gateway spec amendment "Chat prompt tuning for Luna") and one `MODEL_<JOB>` env override. Each job also names a Gateway **service tier** — `flex` for the background jobs (research search/read, image ranking, the starter-question backfill), none for chat — sent by `providerOptionsFor(job)` and overridden by `MODEL_<JOB>_TIER` (`default`/`flex`/`priority`; amendment "Manuals as text and flex tier for research"). Research's read step gives a manual PDF as **text**, not a file part (`RESEARCH_ATTACH_PDFS = false` in `intake/limits.ts`) — the lab's own extraction first (a stored manual, or the downloaded PDF extracted in memory: outline plus the pages richest in specs), the search's captured copy only as the fallback (manual text spec, phase 1); chat still attaches manuals. There is **no image model**: the `imageClean` redraw was retired on 2026-09-23 because it altered product labels (spec amendment "No generative redraw"); background removal is a deterministic cutout in code. Web search is `gateway.tools.exaSearch` (Exa, provider-executed — one request leaves our process regardless of how many search legs the Gateway runs); reading a specific page is `read_page`, our own capability tool over `src/lib/web/*`'s SSRF-guarded fetch, not a provider tool. Auth is `AI_GATEWAY_API_KEY` when set, else the deployment's own Vercel OIDC token — production sets neither key nor a fallback, only the Gateway. Markdown via `react-markdown` + `remark-gfm`.
+- **AI:** Vercel **AI SDK v6** (`ai`, `@ai-sdk/react`) through the **Vercel AI Gateway** (`@ai-sdk/gateway`) — the *only* model path (gateway spec 2026-09-23: `ANTHROPIC_API_KEY`, `@ai-sdk/anthropic` and the direct-provider `src/lib/model.ts` are retired and removed). Every model call names a **job**, not a model — `chat`, `researchSearch`, `researchRead`, `imageRank`, and the embedding job `embed` (`openai/text-embedding-3-small` at 512 dimensions, manual search — manual text spec phase 2) — resolved by `src/lib/ai/models.ts`'s `MODEL_JOBS`, each with a code default (`openai/gpt-6-luna` for every language job — chat passed the §10 eval gate once its prompt was tuned, gateway spec amendment "Chat prompt tuning for Luna") and one `MODEL_<JOB>` env override. Each job also names a Gateway **service tier** — `flex` for the background jobs (research search/read, image ranking, the starter-question backfill), none for chat — sent by `providerOptionsFor(job)` and overridden by `MODEL_<JOB>_TIER` (`default`/`flex`/`priority`; amendment "Manuals as text and flex tier for research"). Research's read step gives a manual PDF as **text**, not a file part (`RESEARCH_ATTACH_PDFS = false` in `intake/limits.ts`) — the lab's own extraction first (a stored manual, or the downloaded PDF extracted in memory: outline plus the pages richest in specs), the search's captured copy only as the fallback (manual text spec, phase 1); chat answers from a processed manual with `search_manual` and attaches only the manuals not yet processed (phase 2). There is **no image model**: the `imageClean` redraw was retired on 2026-09-23 because it altered product labels (spec amendment "No generative redraw"); background removal is a deterministic cutout in code. Web search is `gateway.tools.exaSearch` (Exa, provider-executed — one request leaves our process regardless of how many search legs the Gateway runs); reading a specific page is `read_page`, our own capability tool over `src/lib/web/*`'s SSRF-guarded fetch, not a provider tool. Auth is `AI_GATEWAY_API_KEY` when set, else the deployment's own Vercel OIDC token — production sets neither key nor a fallback, only the Gateway. Markdown via `react-markdown` + `remark-gfm`.
 - **MCP:** `@modelcontextprotocol/sdk` (HTTP JSON-RPC server at `/api/mcp`).
 - **Validation:** `zod`. **Search:** `match-sorter` (fuzzy, ranked).
 
@@ -610,12 +610,13 @@ is copied into Blob once, and the tool page and the chat prefer the copy.
   out of `fileUrls`; the chat attaches `archivedUrl` first, so one manual is
   attached once, and "(attached)" matches the copy or the source.
 
-## Manual text (`manual_documents`, `manual_pages`; manual text spec phase 1)
+## Manual text and search (`manual_documents`, `manual_pages`, `manual_chunks`; manual text spec phases 1–2)
 
 Every stored manual PDF is also kept as **text, page by page, with its
 outline** (`docs/specs/2026-09-23-manual-text-and-search-design.md`, migration
-`0010`). Phase 1 only: no pgvector, no passages, no embeddings, no chat
-`search_manual` — chat still attaches whole PDFs.
+`0010`), and — phase 2, migration `0011` — as **search passages** the chat's
+`search_manual` answers from with page citations. Whole-PDF attachment is only
+the fallback for a manual that is `no_text`, `failed` or not processed yet.
 
 - **Extraction** is `src/lib/manuals/extract.ts` (`extractManual`, **unpdf** —
   pdf.js without a worker, `isEvalSupported: false`): lines rebuilt, end-of-line
@@ -653,6 +654,69 @@ outline** (`docs/specs/2026-09-23-manual-text-and-search-design.md`, migration
   numbers, within `RESEARCH_MANUAL_TEXT_MAX_CHARS`; Exa's copy is the fallback.
   A manual PDF Exa returned but the search did not list is added to the reads
   (`research/manual-pdfs.ts`).
+- **pgvector.** Migration `0011` creates the `vector` extension and
+  `manual_chunks` (a generated English `tsvector` + GIN, `vector(512)` + HNSW
+  cosine, `tool_id`). PGlite loads the extension from
+  `@electric-sql/pglite-pgvector` (`PGLITE_EXTENSIONS` in `db/pglite.ts`, kept
+  in `serverExternalPackages` like PGlite itself); Neon ships it.
+- **Passages** (`manuals/chunk.ts`, `CHUNKER_VERSION`): cut along the outline,
+  never across a section; a numbered heading the outline lacks ("2.2 Technical
+  specifications") becomes a subsection; ~2,400 characters with ~320 of
+  overlap, split at paragraphs, then sentences, then words; each records its
+  pages and section path. The indexed `search_text` is the contextual header
+  `"<tool> — <document> › <section path>"` plus the passage; `content` is the
+  passage alone.
+- **Embeddings** are job **`embed`** (`openai/text-embedding-3-small`,
+  `MODEL_EMBED`), an *embedding* job — `embeddingModelFor`, not
+  `languageModelFor` — asked for `EMBEDDING_DIMENSIONS` (512) through the
+  Gateway's provider options (`embeddingProviderOptions`: OpenAI `dimensions`,
+  Voyage `outputDimension`); a vector of another length is refused before it
+  reaches the column. ≤ 96 inputs a call (`manuals/embed.ts`), cost from
+  `providerMetadata.gateway`. The document records `embedding_model`
+  (`openai/text-embedding-3-small@512`) and `chunker_version`; either one
+  differing makes it stale.
+- **The passages step** (`manuals/passages.ts`) runs inside `indexPdf` after
+  the text is stored — and for text stored earlier, on the next run — embeds
+  outside any transaction, then replaces the passages and records both
+  versions in one. Failures are values: rate limits, 5xx, timeouts and no
+  answer are `transient` and `indexManualStep` retries them; auth, an unknown
+  model or a wrong dimension are not. The stored text survives any of them.
+- **Search** (`manuals/search.ts`, `searchManuals`): the lexemes of
+  `websearch_to_tsquery('english', q)`, each weighted by its idf among the
+  passages searched (so the tool name every header carries weighs nothing),
+  plus an exact match on part-number-like tokens, plus vector top 30; fused by
+  RRF (k = 60), top 8, adjacent passages of a section merged. **Access is in
+  the SQL**: `can(viewer, "tools.edit")` searches private files, hidden
+  resources and draft tools too; everyone else only public files on published
+  resources of published tools; archived tools and stale archive copies never.
+  A query that cannot be embedded degrades to full text (`vectorFailed`).
+- **Chat** (`capabilities/manuals.ts`): `search_manual({ query, tool? })`,
+  preset to the focused tool, open to everyone, on MCP too (public manuals
+  only, since MCP carries no identity). Each passage comes back fenced
+  (`<untrusted-page>`) with its `citation` ("Form 4 Manual, p. 42") and a
+  `url` ending `#page=N`. On a tool page the route loads the searchable
+  manuals (`chat/tool-manuals.ts`) — their outlines go into the prompt (levels
+  1–2, ≤ 8,000 characters), and their resources are **never attached**;
+  `MAX_PDFS_PER_CHAT` counts only the fallbacks. Vector search always has a
+  nearest passage, so "the manual doesn't cover it" is the model's judgement
+  from the passages (the prompt requires it; `says_not_covered` evals it) —
+  `no_results` only means no searchable manual in scope.
+- **Backfill** adds a second pass: after the text, every ready document whose
+  passages are missing or stale is chunked and embedded, with tokens and the
+  Gateway-reported cost printed (`--text-only` skips it; `--dry-run` chunks and
+  counts without embedding).
+- **Admin.** The editor's tag says **Searchable · N pages** once passages
+  exist; **Re-process** on a resource row with a PDF marks its documents stale
+  (`markResourceManualsStale` — nothing deleted) and starts the archive
+  workflow (`reprocessManual`, `tools.edit`, revision untouched).
+  `/admin/research` (`tools.edit`) counts current PDFs by state
+  (`countManualsByState`).
+- **Tests** seed documents straight into PGlite (`test/manuals/seed.ts`) and
+  embed with `test/ai/fake-embeddings.ts` (hashed bag of words, or pinned
+  one-hot vectors); `models-stub.ts` has `setEmbeddingModel`, and the workflow
+  tier stubs the Gateway's `/embedding-model` endpoint (`gatewayHandlers({
+  embedding })`). The live retrieval eval is a `.livecheck` script (results in
+  the spec's phase-2 amendment).
 
 ## Key files
 
@@ -719,12 +783,15 @@ outline** (`docs/specs/2026-09-23-manual-text-and-search-design.md`, migration
 | `src/lib/db/schema/auth.ts` | Better Auth's four tables; property keys are its field names |
 | `src/lib/types.ts` / `src/components/catalog-types.ts` | Notion record types / resolved view types |
 | `src/app/api/chat/route.ts` | The chat: streaming, through the Gateway (job `chat`); capability tools (`get_unit_details`, `report_issue`, `identify_tools`, `read_page`, …) plus `exa_search` (added directly, like the retired `web_search` before it — not a capability), PDF manual attach |
-| `src/app/api/mcp/route.ts` | MCP JSON-RPC server (5 tools), bearer-token auth |
+| `src/app/api/mcp/route.ts` | MCP JSON-RPC server (6 tools without `MCP_TOKEN`, `search_manual` among them), bearer-token auth |
 | `src/app/api/uploads/route.ts` | The one upload route → Vercel Blob + an `attachments` row |
 | `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup, then the mirror backstop, then the manual archive backfill |
-| `src/lib/manuals/*` | The manual archive: `archive` (`archiveManual`), `steps` (`archiveManualStep`, `indexManualStep`), `start` (the one `workflow/api` import), `trigger` (`requestManualArchive`, never throws); manual text: `extract` (unpdf), `index-document`, `stored-bytes`, `digest` |
+| `src/lib/manuals/*` | The manual archive: `archive` (`archiveManual`), `steps` (`archiveManualStep`, `indexManualStep`), `start` (the one `workflow/api` import), `trigger` (`requestManualArchive`, never throws); manual text: `extract` (unpdf), `index-document`, `stored-bytes`, `digest`; manual search: `chunk` (`CHUNKER_VERSION`), `embed` (job `embed`), `passages` (the index step's second half), `search` (`searchManuals`, hybrid + RRF) |
 | `src/lib/data/manual-documents.ts` | `manual_documents` / `manual_pages`: the one-transaction write, current-PDF lists for the step and backfill, editor states, tool-page contents, research's stored-text lookups |
-| `scripts/index-manuals.ts` | `npm run manuals:index` — the manual-text backfill |
+| `src/lib/data/manual-chunks.ts` | `manual_chunks`: the one-transaction passage write, which documents need passages, the chat's view of a tool's manuals, Re-process, the `/admin/research` counts |
+| `src/lib/capabilities/manuals.ts` / `src/lib/chat/tool-manuals.ts` | `search_manual` and its prompt (outline of the focused tool's searchable manuals); what the chat route loads to decide what is searched and what is attached |
+| `src/app/admin/research/page.tsx` | Manual counts by state (`tools.edit`) |
+| `scripts/index-manuals.ts` | `npm run manuals:index` — the manual-text and passages backfill (tokens and cost printed) |
 | `src/workflows/archive-manuals.ts` | `archiveManuals(resourceIds)` — one step per resource |
 | `src/lib/data/manual-archives.ts` / `src/lib/cron/manual-archive.ts` | The archive's key, stale-copy release and the nightly due list; the cron stage |
 | `src/lib/db/schema/mirror.ts`, `src/lib/data/mirrors.ts` / `mirror-pages.ts` | `notion_mirrors` and `mirror_pages`; every claim (run, Sync now, coalesced push) is one conditional `UPDATE` |
