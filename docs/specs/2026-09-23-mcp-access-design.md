@@ -541,3 +541,77 @@ paths are still unverified against the live clients (§7's caveat).
 **Tests.** `mcp-snippets.test.ts` covers the sign-in commands, which carry no token, and the
 token fallback, which reads the environment. `SignInSetup.test.tsx` covers the section and
 each client's steps. `TokenManager.test.tsx` covers the 90-day default labelled one semester.
+
+### 2026-09-25 — A public `/mcp` page: the server, its tools, and a way to try them
+
+**Why.** The owner asked (2026-09-25) for a page to look at the MCP server. Today the
+addresses and setup steps live on `/account/tokens`, a page named after tokens, and the only
+list of tools is the hand-written table in `docs/mcp.md`, which lives in the repository and
+can drift from the registry. Nobody can see what the server offers, or try it, without
+installing a client.
+
+**What is built.** A public page at **`/mcp`**, no sign-in needed, in four sections:
+
+1. **Header.** One or two plain sentences (connect Claude, ChatGPT, Codex or another MCP
+   client to the lab's catalogue) and the two addresses, each with a Copy button and one line
+   saying what it is for: `/api/mcp` (public, read-only, no sign-in) and `/api/mcp/signed-in`
+   (sign in with Google, act as yourself). Both are **absolute URLs for the origin the page was
+   requested on** (`x-forwarded-host` or `host`, and `x-forwarded-proto`), falling back to
+   `authBaseUrl()` when the request names no host.
+2. **Tools — generated, never hand-written.** `describeMcpTools(capabilities)`
+   (`src/lib/capabilities/mcp-catalog.ts`, pure) walks the **same `CAPABILITIES` array the
+   route registers** and returns, per tool: name, description, a summary of its input schema
+   (field name, type, required, description, enum values — from Zod's own `toJSONSchema`),
+   `read` or `write`, and its **audience**: the least-privileged of anonymous → `user` →
+   `admin` → `super_admin` that `mcpToolAllowed` admits, asked with a full-access (not
+   read-only) credential. A `chatOnly` tool, or one no role reaches, is not listed. The page
+   groups the tools **Anyone** / **Signed-in lab members** / **Staff**, and marks each tool the
+   viewer's own session role would be offered — through the same `mcpToolAllowed` — **"You can
+   use this"**. The marker describes the role; a read-only connection still gets no writes.
+   A capability added to the registry appears on the page with no page change.
+3. **Try it.** A small form for each tool that is `read` **and** admitted for an anonymous
+   caller (today `list_tools`, `search_tools`, `get_tool_details`, `get_unit_details`,
+   `get_maintenance_history`, `search_manual` — the list is derived, not written down), built
+   from its input summary: text and number inputs, enums as selects. Submitting calls a server
+   action, `runMcpTryIt` (`src/app/mcp/actions.ts`), which:
+   - accepts only a tool name in that derived list — anything else, every write included, is
+     refused `not_runnable` before any call (the page's own list is never trusted);
+   - accepts only a flat object of strings, numbers and booleans, at most 2,000 characters as
+     JSON (`invalid_input` otherwise);
+   - builds a JSON-RPC `tools/call` **`Request` to `/api/mcp` carrying only `content-type`,
+     `accept` and the visitor's forwarded-IP headers — never a cookie, never `Authorization`** —
+     and hands it to `handleMcpRequest`, the route's own function. The caller is therefore
+     anonymous by construction, whoever is signed in to the page: public manuals only, no
+     reporter names, no drafts, no staff tools;
+   - is rate-limited by that handler's anonymous `mcp` tier (30 a minute per IP), the same
+     bucket as calling `/api/mcp` directly, so the page is no way around the limit.
+   The page shows the HTTP status, the time the call took on the server, the tool's result
+   (its JSON text parsed and pretty-printed when it is JSON) and the raw JSON-RPC response,
+   each in a collapsible block. A 429 says to wait. Write tools are never runnable from the
+   page; they are listed with their inputs only.
+4. **Connect.** `SignInSetup` (sign in with Google first) moves here from `/account/tokens`,
+   with a closing paragraph for clients that cannot sign in: personal access tokens, linking
+   to `/account/tokens`. **`/account/tokens` keeps token management** — the create form, the
+   one-time reveal with its token snippets, the list, Connected apps and "Keeping it safe" —
+   and links to `/mcp` for the addresses, the setup steps and the tool list. The profile menu's
+   **Connect an AI assistant** still opens `/account/tokens`, because the OAuth consent page
+   sends people there to disconnect an app.
+
+**Links.** The About page's assistant section links to `/mcp` (was `/account/tokens`);
+`/account/tokens` links to it. Not in the primary nav (it is a reference page, not a daily
+destination), and the app has no footer and no sitemap to add it to. Page metadata: title
+"MCP server — <site name>".
+
+**Strings.** `mcpPage.*`, English only; other locales fall back (Article 6).
+`account.endpointHeading` / `endpointBody` move out with the section they labelled.
+
+**Tests.** `mcp-catalog.test.ts`: the listing is the registry (a capability added to the array
+appears, a `chatOnly` tool does not), audiences per role (the six public reads are Anyone,
+`report_issue` / `report_correction` / `list_my_reports` are Signed-in, the staff tools and
+`create_tool` are Staff), the viewer marker per role, input summaries (required, enums), and
+the Try-it list is exactly the anonymous reads. `actions.test.ts` (PGlite, the real handler):
+a run with an admin's session cookie in the request headers still answers as anonymous (no
+draft, no private manual passage, no reporter name), a staff or write tool is `not_runnable`,
+malformed arguments are `invalid_input`, and the 31st call in a minute from one IP is a 429.
+Component tests for the header, the grouped tool list with markers, the Try-it form (fields
+from the schema, enum select, result and timing shown) and the Connect section.
