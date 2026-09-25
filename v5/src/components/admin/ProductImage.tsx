@@ -169,7 +169,7 @@ export function ProductImage({
       <section className="admin-intake-panel admin-intake-image" aria-labelledby={titleId}>
         {heading}
         <p className="admin-intake-image-line">
-          {imageError ? t("failed", { reason: imageError }) : t("notFound")}
+          {imageError ? t("failed", { reason: imageError }) : images?.allRejected ? t("noneShowedProduct") : t("notFound")}
         </p>
         {different}
       </section>

@@ -54,6 +54,8 @@ export async function rankAndClean(
   opts: {
     signal: AbortSignal;
     reviewerNote?: string | null;
+    /** The item's brand — what makes a picture the manufacturer's own (`images/rank.ts`); none for no preference. */
+    brand?: string | null;
     /**
      * `false`: probe and rank only, store nothing — refresh research (refresh
      * research spec §3.1) keeps no cleaned copy; the image an admin accepts is
@@ -70,12 +72,14 @@ export async function rankAndClean(
 
   let ranked: RankedImage[];
   try {
-    ranked = await rankCandidates(itemName, usable, { signal, reviewerNote: opts.reviewerNote });
+    ranked = await rankCandidates(itemName, usable, { signal, reviewerNote: opts.reviewerNote, brand: opts.brand ?? null });
   } catch (error) {
     const message = expectedFailure(error, "Image ranking", MODEL_JOBS.imageRank.env);
     if (message === null) throw error;
     return { images: null, imageError: message };
   }
+  // Pictures were found, and none showed the product itself: no image rather than a wrong one.
+  if (ranked.length === 0) return { images: { ...NO_CANDIDATES, allRejected: true }, imageError: null };
 
   const { cleaned, cleanNote } = opts.clean === false ? { cleaned: null, cleanNote: null } : await cleanTop(db, id, ranked[0]);
   return {

@@ -28,7 +28,7 @@ import { approvalUnits, importApprovalResources } from "../import/resources.ts";
 import { mergeResearch } from "../research/focus-merge.ts";
 import { parseResearchResult, researchResultSchema, type ResearchResult } from "../research/result.ts";
 import { claimAttachments, releaseAttachments, reownAttachments } from "./attachments.ts";
-import { findDuplicate, findDuplicates } from "./duplicates.ts";
+import { findDuplicate, findDuplicates, initialResolution } from "./duplicates.ts";
 import { isUniqueViolation } from "./pg-errors.ts";
 import { DISPLAY_NAME_MAX } from "../tool-names.ts";
 import { findOrCreateCategory } from "./taxonomy.ts";
@@ -451,6 +451,8 @@ export async function createPendingBatch(
           serialNumber: emptyToNull(item.serialNumber),
           duplicateOfToolId: match?.kind === "tool" ? match.id : null,
           duplicateOfPendingId: match?.kind === "pending" ? match.id : null,
+          // A similar name is a hint, stored as "It's a different tool" (research fixes amendment 2026-09-24).
+          duplicateResolution: initialResolution(match),
           createdBy: input.createdBy,
           ...(imported
             ? {
@@ -551,7 +553,7 @@ export async function updatePendingTool(
       if (nextTool !== duplicateOfToolId || nextPending !== duplicateOfPendingId) {
         duplicateOfToolId = nextTool;
         duplicateOfPendingId = nextPending;
-        resolution = null;
+        resolution = initialResolution(match);
       }
     }
 

@@ -126,6 +126,14 @@ describe("createToolRecord", () => {
     expect(rows.find((row) => row.id === live.toolId)).toMatchObject({ published: true, createdBy: null });
   });
 
+  it("marks training required when the caller does not say, and none only when told (research amendment 2026-09-24)", async () => {
+    const unsaid = await createToolRecord(db, { name: "Unsaid", published: false }, ACTOR);
+    const none = await createToolRecord(db, { name: "No training", trainingRequired: false, published: false }, ACTOR);
+    const rows = await db.select({ id: tools.id, trainingRequired: tools.trainingRequired }).from(tools);
+    expect(rows.find((row) => row.id === unsaid.toolId)?.trainingRequired).toBe(true);
+    expect(rows.find((row) => row.id === none.toolId)?.trainingRequired).toBe(false);
+  });
+
   it("refuses a blank name before touching the database", async () => {
     await expect(createToolRecord(db, { name: "   ", published: false }, ACTOR)).rejects.toThrow(/name/);
     expect(await db.select().from(tools)).toHaveLength(0);

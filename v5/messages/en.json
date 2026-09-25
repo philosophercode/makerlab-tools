@@ -864,6 +864,14 @@
       "noResearch": "This item's research could not be read. Research it again.",
       "recordTitle": "The proposed record",
       "recordHint": "What research found, in the tool editor's fields. The specs are in the description, because a tool has no separate specs field. Change anything before approving.",
+      "training": {
+        "confirm": "Staff to confirm (saved as required)",
+        "required": "Training required",
+        "none": "No training needed",
+        "unconfirmedHint": "Training is the lab's decision, not research's. Until you choose, this tool is saved as requiring training.",
+        "decidedHint": "Your choice is what the tool page shows.",
+        "evidenceLabel": "What the pages research read say about training:"
+      },
       "newCategory": "Create “{name}”",
       "resourcesTitle": "Verified manuals and links to add",
       "noResources": "Research found no manual or link it could verify.",
@@ -948,6 +956,7 @@
         "usingYourPhoto": "Using your photo",
         "usingYourPhotoHint": "The photo added in the chat will be the cover, so research did not look for another.",
         "notFound": "No product image was found",
+        "noneShowedProduct": "Pictures were found, but none could be confirmed as the product itself — they showed an accessory, a part, packaging or a different model — so none is offered. Try Find a different image, or add a photo after approval.",
         "failed": "No product image was found: {reason}",
         "alt": "{name}, option {rank}",
         "cleanedAlt": "{name}, background removed",

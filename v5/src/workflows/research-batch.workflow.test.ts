@@ -108,7 +108,9 @@ function draft(name: string) {
 function reverseRanking(req: ParsedLanguageRequest) {
   const count = promptFiles(req, "image/").length;
   const order = Array.from({ length: count }, (_, i) => count - 1 - i);
-  return textResponse(JSON.stringify({ order, reasons: order.map((i) => `image ${i}`) }));
+  return textResponse(
+    JSON.stringify({ order, reasons: order.map((i) => `image ${i}`), images: order.map(() => ({ subject: "product" })) })
+  );
 }
 
 beforeAll(async () => {

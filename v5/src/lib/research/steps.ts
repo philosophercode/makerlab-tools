@@ -1,5 +1,6 @@
 import { completeResearch, failResearch, getPendingTool, markResearching, type PendingTool } from "../data/pending-tools.ts";
 import { RESEARCH_STEP_MAX_RETRIES, RESEARCH_STEP_TIMEOUT_MS } from "../intake/limits.ts";
+import { withTrainingForStaff } from "../intake/training.ts";
 import type { ResearchFocusField } from "../intake/research-focus.ts";
 import { runRead, runSearch } from "./engine.ts";
 import { scrub } from "./errors.ts";
@@ -130,7 +131,8 @@ export async function readAndVerifyItem(
 
   const signal = AbortSignal.timeout(RESEARCH_STEP_TIMEOUT_MS);
   const { result, imageHints } = await runRead(item, findings, { requestId, reviewerNote, focus, signal, searchTexts });
-  return { outcome: "drafted", result, imageHints };
+  // Training is the lab's call: a pending item's draft leaves it for staff to confirm (`intake/training.ts`).
+  return { outcome: "drafted", result: withTrainingForStaff(result), imageHints };
 }
 readAndVerifyItem.maxRetries = RESEARCH_STEP_MAX_RETRIES;
 

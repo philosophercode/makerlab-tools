@@ -4,6 +4,7 @@ import { rawRows } from "../db/raw.ts";
 import type { PendingStatus } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
 import type { DuplicateOf } from "../intake/types.ts";
+import { looksLikePartNumber, modelTokens, modelTokensConflict } from "../tool-names.ts";
 import { isUuid } from "./uuid.ts";
 
 /**
@@ -34,11 +35,42 @@ import { isUuid } from "./uuid.ts";
  * else collapsed to one space — the same rule in {@link normalizeToolName} and
  * in the SQL below, so the two cannot disagree about equality.
  *
+ * **Model numbers decide** (research fixes amendment 2026-09-24, in the
+ * data-platform spec). The SQL finds the candidates; code then classifies each
+ * one, best first:
+ *
+ * - **Different model tokens, different machines.** When both names carry a
+ *   model token (`modelTokens` in `tool-names.ts`: "Form 4" → `4`, "Ultimaker
+ *   S5" → `s5`, "P103") and none of them match, the candidate is not a match at
+ *   all — "Form 4" is not the lab's "Form 2", however alike they read.
+ * - **`duplicate`** — the question the table must answer before research:
+ *   normalized equality, similarity at or above the threshold, the same part
+ *   number ("RYOBI 18V ONE+ P103" and "RYOBI P103 battery"), the same name with
+ *   the spaces taken out ("Form4"), or one name's words all inside the other's
+ *   when that name carries a model token ("Form 2 printer" and "Form 2", 0.47
+ *   by trigrams alone).
+ * - **`similar`** — a hint, never a block: word similarity at or above
+ *   {@link SIMILAR_NAME_THRESHOLD} in either direction ("Laser cutter
+ *   (Trotec)" and "Trotec Speedy 400"). The callers store it pre-resolved as
+ *   "It's a different tool", which the reviewer can change.
+ *
  * Relative imports with `.ts` extensions, no `@/` alias and no
  * `"server-only"`, like every other module under `src/lib/data/`.
  */
 
 export const DUPLICATE_SIMILARITY_THRESHOLD = 0.5;
+
+/** `word_similarity`, either direction, at which a name is worth a "similar" hint. */
+export const SIMILAR_NAME_THRESHOLD = 0.35;
+
+/** How many candidates the SQL hands to the classification — best first. */
+const CANDIDATE_LIMIT = 50;
+
+/** How strong a match is: a duplicate asks before research; a similar name only hints. */
+export type DuplicateStrength = "duplicate" | "similar";
+
+/** A match and its strength. */
+export type DuplicateMatch = DuplicateOf & { strength: DuplicateStrength };
 
 export interface DuplicateSearchOptions {
   /** A handle to use instead of {@link getDb} — a caller's transaction, or a test's database. */
@@ -82,7 +114,7 @@ export function normalizeToolName(name: string, brand?: string | null): string {
 export async function findDuplicate(
   query: DuplicateQuery,
   options: DuplicateSearchOptions = {}
-): Promise<DuplicateOf | null> {
+): Promise<DuplicateMatch | null> {
   const [match] = await findDuplicates([query], options);
   return match ?? null;
 }
@@ -95,11 +127,11 @@ export async function findDuplicate(
 export async function findDuplicates(
   queries: DuplicateQuery[],
   options: DuplicateSearchOptions = {}
-): Promise<(DuplicateOf | null)[]> {
+): Promise<(DuplicateMatch | null)[]> {
   if (queries.length === 0) return [];
   const db = options.db ?? (await getDb());
 
-  const results: (DuplicateOf | null)[] = [];
+  const results: (DuplicateMatch | null)[] = [];
   for (const query of queries) {
     results.push(await bestMatch(db, query, options));
   }
@@ -113,6 +145,11 @@ interface MatchRow {
   slug: string | null;
   published: boolean | null;
   status: string | null;
+  /** The other spellings the candidate goes by: a tool's official name, a pending item's brand and name. */
+  alias: string | null;
+  exact: boolean;
+  score: number;
+  wscore: number;
 }
 
 /**
@@ -128,7 +165,7 @@ async function bestMatch(
   db: Db,
   query: DuplicateQuery,
   options: DuplicateSearchOptions
-): Promise<DuplicateOf | null> {
+): Promise<DuplicateMatch | null> {
   const bare = normalizeToolName(query.name);
   const full = normalizeToolName(query.name, query.brand);
   const branded = normalizePart(query.brand ?? "") !== "";
@@ -188,37 +225,95 @@ async function bestMatch(
         )})`
       : sql``;
 
-  const rows = await rawRows<MatchRow & { exact: boolean; score: number }>(
+  // `word_similarity` both ways: a short name inside a longer one ("Form 2" in
+  // "Form 2 printer") scores 1 in one direction however long the other is.
+  const words = (column: SQL) =>
+    sql`greatest(word_similarity(${similarityText}, lower(${column})), word_similarity(lower(${column}), ${similarityText}))`;
+
+  const rows = await rawRows<MatchRow>(
     db,
     sql`
       select * from (
         select 'tool' as kind, t.id::text as id, t.name, t.slug, t.published,
-               null::text as status,
+               null::text as status, t.official_name as alias,
                ${toolExact} as exact,
                greatest(similarity(lower(t.name), ${similarityText}),
                         similarity(lower(t.name), ${bare || similarityText}),
                         coalesce(similarity(lower(t.official_name), ${similarityText}), 0),
                         coalesce(similarity(lower(t.official_name), ${bare || similarityText}), 0))::float8 as score,
+               greatest(${words(sql`t.name`)}, coalesce(${words(sql`t.official_name`)}, 0))::float8 as wscore,
                0 as rank
           from tools t
          where t.archived_at is null${toolFilter}
         union all
         select 'pending' as kind, p.id::text as id, p.name, null::text as slug,
-               null::boolean as published, p.status,
+               null::boolean as published, p.status, concat_ws(' ', p.brand, p.name) as alias,
                ${pendingExact} as exact,
                similarity(lower(concat_ws(' ', p.brand, p.name)), ${similarityText})::float8 as score,
+               ${words(sql`concat_ws(' ', p.brand, p.name)`)}::float8 as wscore,
                1 as rank
           from pending_tools p
          where ${sql.join(pendingFilters, sql` and `)}
       ) candidates
-      where exact or score >= ${DUPLICATE_SIMILARITY_THRESHOLD}
-      order by exact desc, score desc, rank asc, name asc
-      limit 1
+      where exact or score >= ${DUPLICATE_SIMILARITY_THRESHOLD} or wscore >= ${SIMILAR_NAME_THRESHOLD}
+      order by exact desc, greatest(score, wscore) desc, rank asc, name asc
+      limit ${CANDIDATE_LIMIT}
     `
   );
 
-  const row = rows[0];
-  if (!row) return null;
+  const queryText = [query.brand ?? "", query.name].join(" ");
+  const classified = rows.flatMap((row) => {
+    const strength = classify(queryText, row);
+    return strength ? [{ row, strength }] : [];
+  });
+  // A duplicate in the SQL's order (exact, then closest); failing that, the most similar name.
+  const best =
+    classified.find((entry) => entry.strength === "duplicate") ??
+    classified
+      .filter((entry) => entry.strength === "similar")
+      .sort((a, b) => b.row.wscore - a.row.wscore)[0];
+  return best ? toMatch(best.row, best.strength) : null;
+}
+
+/**
+ * What one candidate is to the query — `duplicate`, `similar`, or nothing
+ * (null) — by the rules in the module comment. Exported for the tests.
+ */
+export function classify(
+  queryText: string,
+  row: Pick<MatchRow, "name" | "alias" | "exact" | "score" | "wscore">
+): DuplicateStrength | null {
+  const queryTokens = modelTokens(queryText);
+  const candidateNames = [row.name, row.alias ?? ""].filter((name) => name.trim() !== "");
+  const candidateTokens = [...new Set(candidateNames.flatMap((name) => modelTokens(name)))];
+  if (modelTokensConflict(queryTokens, candidateTokens)) return null;
+
+  if (row.exact || row.score >= DUPLICATE_SIMILARITY_THRESHOLD) return "duplicate";
+  // The same part number is the same product ("P103"), whatever else the names say.
+  if (queryTokens.some((token) => looksLikePartNumber(token) && candidateTokens.includes(token))) return "duplicate";
+  const squashedQuery = normalizePart(queryText).replace(/ /g, "");
+  if (
+    candidateNames.some(
+      (name) =>
+        normalizePart(name).replace(/ /g, "") === squashedQuery ||
+        containsModelName(queryText, name) ||
+        containsModelName(name, queryText)
+    )
+  ) {
+    return "duplicate";
+  }
+  return row.wscore >= SIMILAR_NAME_THRESHOLD ? "similar" : null;
+}
+
+/** Every word of `inner` is a word of `outer`, and `inner` names a model — "Form 2" inside "Form 2 printer". */
+function containsModelName(inner: string, outer: string): boolean {
+  if (modelTokens(inner).length === 0) return false;
+  const outerWords = new Set(normalizePart(outer).split(" ").filter(Boolean));
+  const innerWords = normalizePart(inner).split(" ").filter(Boolean);
+  return innerWords.length > 0 && innerWords.every((word) => outerWords.has(word));
+}
+
+function toMatch(row: MatchRow, strength: DuplicateStrength): DuplicateMatch {
   if (row.kind === "tool") {
     return {
       kind: "tool",
@@ -226,7 +321,17 @@ async function bestMatch(
       name: row.name,
       slug: row.slug ?? "",
       published: Boolean(row.published),
+      strength,
     };
   }
-  return { kind: "pending", id: row.id, name: row.name, status: row.status as PendingStatus };
+  return { kind: "pending", id: row.id, name: row.name, status: row.status as PendingStatus, strength };
+}
+
+/**
+ * The resolution a new match is stored with: a similar name is pre-resolved as
+ * "It's a different tool" — a hint the reviewer can change, never a block on
+ * research — and a duplicate waits for a person.
+ */
+export function initialResolution(match: DuplicateMatch | null): "new_tool" | null {
+  return match?.strength === "similar" ? "new_tool" : null;
 }

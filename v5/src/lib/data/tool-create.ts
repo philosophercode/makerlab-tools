@@ -93,7 +93,9 @@ export async function createToolRecord(
     materials: cleanList(input.materials),
     ppeRequired: cleanList(input.ppeRequired),
     tags: cleanList(input.tags),
-    trainingRequired: input.trainingRequired ?? false,
+    // Unsaid is required: training is the lab's call, and "no" must be said
+    // (research amendment 2026-09-24). Approval always says; MCP's create_tool may not.
+    trainingRequired: input.trainingRequired ?? true,
     useRestrictions: emptyToNull(input.useRestrictions),
     starterQuestions: cleanStarterQuestions(input.starterQuestions ?? []),
     published: input.published,

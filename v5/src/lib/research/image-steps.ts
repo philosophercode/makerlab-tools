@@ -154,7 +154,7 @@ async function runStage(
     hints.filter((hint) => hint.source === "exa"),
     subject
   );
-  return rankAndClean(db, id, subject.name, candidates, { signal });
+  return rankAndClean(db, id, subject.name, candidates, { signal, brand: subject.brand });
 }
 
 /** Store the result, or — the row was taken away meanwhile — let go of what this attempt made. */
