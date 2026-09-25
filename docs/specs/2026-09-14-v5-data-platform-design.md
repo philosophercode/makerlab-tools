@@ -1820,3 +1820,21 @@ similar match is stored pre-resolved and `hasUnresolvedDuplicate` is false for i
 model number stores no match.
 
 **Status.** Built on `v5/research-fixes`.
+
+### 2026-09-25 — Archived tools send staff to Inventory
+
+**Reported by Isaac:** on a tool's page, Edit → Archive left the page showing a 404 in the content
+area. Archiving revalidates the catalogue, the tool drops out of the published read, and
+`DraftToolView` 404'd it even for staff ("archived is gone, not hidden").
+
+**Changed:** archived is still gone from the tool page, but staff are sent where they can act on it.
+- After Archive lands in the editor opened from a tool page, the page navigates to the tool's row in
+  `/admin/inventory` (`?state=archived&q=<name>`), where Restore is. The editor in Inventory itself is
+  unchanged (the row stays).
+- A staff member (`catalog.view_drafts`) who opens an archived tool's URL is redirected to that same
+  Inventory view instead of a 404. Students and visitors still get the 404, so nothing is revealed.
+- Draft pages now carry the Edit control too, so Publish, Restore and edits are reachable from a
+  draft's own page as from a published one.
+
+Tested in `DraftToolView.test.tsx` (staff redirect, student/visitor 404) and
+`ToolEditorPanel.test.tsx` (`onArchived` only after a successful Archive).
