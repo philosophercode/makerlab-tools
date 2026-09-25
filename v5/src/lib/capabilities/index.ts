@@ -56,6 +56,14 @@ export {
 } from "./chat-adapter";
 export { registerAll, type RegisterAllOptions } from "./mcp-adapter";
 export { mcpToolAllowed, mcpToolsFor, type McpAccess } from "./mcp-access";
+export {
+  describeMcpTools,
+  mcpToolNamesForRole,
+  tryItToolNames,
+  type McpAudience,
+  type McpToolField,
+  type McpToolSummary,
+} from "./mcp-catalog";
 
 // Who may use which capability on a session surface (spec §3.5). Client
 // components import `./access` directly instead, so the header never pulls the

@@ -1,10 +1,8 @@
+import Link from "next/link";
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { ConnectedApps } from "../../../components/account/ConnectedApps";
-import { CopyableCode } from "../../../components/account/CopyableCode";
-import { SignInSetup } from "../../../components/account/SignInSetup";
 import { TokenManager } from "../../../components/account/TokenManager";
-import { mcpSnippets } from "../../../lib/account/mcp-snippets";
 import { toConnectedAppRow, toTokenRow } from "../../../lib/account/token-rows";
 import { authBaseUrl } from "../../../lib/auth/config";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
@@ -16,14 +14,12 @@ import "../../../styles/account.css";
 /**
  * `/account/tokens` — "Connect an AI assistant" (MCP access spec §5.1, §6).
  *
- * Open to anybody: the MCP address and the public, read-only access need no
- * account, so a visitor who is not signed in still gets the addresses and is
- * told a token needs sign-in. **Sign in with Google comes first** — the
- * default for every client that supports OAuth (amendment 2026-09-24) — and
- * personal access tokens are the fallback for clients or scripts that cannot.
- * A signed-in person gets the token list, the create form, the one-time reveal
- * with ready-to-paste setup, and their connected apps (OAuth grants). Reached
- * from the profile menu.
+ * Token management. The addresses, the sign-in setup for each client and the
+ * tool list moved to the public `/mcp` page (amendment 2026-09-25), which this
+ * page links to first. Open to anybody; a visitor who is not signed in is told
+ * a token needs sign-in. A signed-in person gets the token list, the create
+ * form, the one-time reveal with ready-to-paste setup, and their connected apps
+ * (OAuth grants). Reached from the profile menu.
  *
  * Reads the session, so everything that depends on it sits inside a Suspense
  * boundary; the shell above it stays static under `cacheComponents`.
@@ -41,6 +37,9 @@ export default async function AccountTokensPage() {
         <p className="td-eyebrow">{t("eyebrow")}</p>
         <h1>{t("title")}</h1>
         <p>{t("lede")}</p>
+        <p>
+          {t("mcpPageBody")} <Link href="/mcp">{t("mcpPageLink")}</Link>
+        </p>
         <Suspense fallback={<p>{t("loading")}</p>}>
           <AccountTokens />
         </Suspense>
@@ -53,28 +52,9 @@ async function AccountTokens() {
   const t = await getTranslations("account");
   const identity = await resolveIdentityFromHeaders();
   const baseUrl = authBaseUrl();
-  const snippets = mcpSnippets(baseUrl);
-
-  // Sign in with Google first — the default for every client that can (amendment 2026-09-24);
-  // browsing without an account next; personal tokens last, as the fallback.
-  const endpoints = (
-    <>
-      <SignInSetup snippets={snippets} />
-      <section className="account-section" aria-labelledby="endpoint-heading">
-        <h2 id="endpoint-heading">{t("endpointHeading")}</h2>
-        <p>{t("endpointBody")}</p>
-        <CopyableCode label={t("endpointHeading")} value={snippets.url} />
-      </section>
-    </>
-  );
 
   if (identity.role === "anonymous" || !identity.userId) {
-    return (
-      <>
-        {endpoints}
-        <p className="account-status">{t("signedOut")}</p>
-      </>
-    );
+    return <p className="account-status">{t("signedOut")}</p>;
   }
 
   const [tokens, apps] = await Promise.all([
@@ -84,7 +64,6 @@ async function AccountTokens() {
 
   return (
     <>
-      {endpoints}
       <section className="account-section">
         <h2>{t("tokens.heading")}</h2>
         <p>{t("tokens.lede")}</p>
