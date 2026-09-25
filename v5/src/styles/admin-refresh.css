@@ -31,7 +31,7 @@
 
 .admin-refresh-rank-0,
 .admin-refresh-rank-1 {
-  border-left: 4px solid var(--secondary);
+  border-left: 4px solid var(--status-bad);
 }
 
 .admin-refresh-page {
@@ -71,7 +71,7 @@
 }
 
 .admin-proposal.is-safety {
-  border-left: 4px solid var(--secondary);
+  border-left: 4px solid var(--status-bad);
 }
 
 .admin-proposal.is-unverified.is-new,
@@ -118,13 +118,13 @@
 
 .admin-proposal-chip.is-differs,
 .admin-proposal-chip.is-conflict {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--primary-ink);
+  color: var(--primary-ink);
 }
 
 .admin-proposal-chip.is-safety {
-  border-color: var(--secondary);
-  color: var(--secondary);
+  border-color: var(--status-bad);
+  color: var(--status-bad);
 }
 
 .admin-proposal-values {
@@ -208,7 +208,7 @@
 
 .admin-proposal-warning {
   margin: 0;
-  color: var(--secondary);
+  color: var(--status-bad);
   font-size: 12px;
 }
 
@@ -247,8 +247,8 @@
   display: inline-block;
   margin-left: 6px;
   padding: 1px 6px;
-  border: 1px solid var(--primary);
-  color: var(--primary);
+  border: 1px solid var(--primary-ink);
+  color: var(--primary-ink);
   font-family: var(--font-mono);
   font-size: 10px;
 }

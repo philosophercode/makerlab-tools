@@ -331,13 +331,12 @@ const FLAG_STYLES = `
 .flag-field input:focus,
 .flag-field select:focus,
 .flag-field textarea:focus {
-  outline: none;
   border-color: var(--primary);
 }
 .flag-error {
   margin: 0;
   font-size: 14px;
-  color: var(--secondary);
+  color: var(--status-bad);
 }
 .flag-actions {
   display: flex;

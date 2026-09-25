@@ -105,7 +105,7 @@ const SIGN_IN_LINK_STYLE: React.CSSProperties = {
   border: "none",
   borderRadius: 0,
   padding: 0,
-  color: "var(--primary)",
+  color: "var(--primary-ink)",
   textDecoration: "underline",
 };
 

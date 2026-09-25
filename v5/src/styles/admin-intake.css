@@ -48,17 +48,17 @@
 }
 
 .admin-intake-row .admin-queue-card-head h4 a {
-  color: var(--primary);
+  color: var(--primary-ink);
 }
 
 .admin-intake-status.is-researched {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--primary-ink);
+  color: var(--primary-ink);
 }
 
 .admin-intake-status.is-failed {
-  border-color: var(--secondary);
-  color: var(--secondary);
+  border-color: var(--status-bad);
+  color: var(--status-bad);
 }
 
 .admin-intake-status.is-queued,
@@ -76,13 +76,13 @@
    and wraps a long URL rather than widening the card. */
 .admin-intake-diagnosis {
   padding: 10px 12px;
-  border-left: 2px solid var(--secondary);
+  border-left: 2px solid var(--status-bad);
   background: var(--surface-container-low);
 }
 
 .admin-intake-diagnosis-label {
   margin: 0 0 4px;
-  color: var(--secondary);
+  color: var(--status-bad);
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.08em;
@@ -230,7 +230,7 @@
 }
 
 .admin-intake-resources a {
-  color: var(--primary);
+  color: var(--primary-ink);
   font-size: 12px;
 }
 
@@ -290,7 +290,7 @@
 }
 
 .admin-intake-done a {
-  color: var(--primary);
+  color: var(--primary-ink);
 }
 
 /* ── Product image (gateway spec §6) ───────────────────────────────── */
@@ -415,7 +415,7 @@
 }
 
 .admin-intake-image-source {
-  color: var(--primary);
+  color: var(--primary-ink);
   font-size: 12px;
   overflow-wrap: anywhere;
 }
@@ -501,11 +501,6 @@
   cursor: not-allowed;
 }
 
-.admin-intake-chip:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
-}
-
 .admin-intake-redo-count {
   display: flex;
   justify-content: space-between;
@@ -528,8 +523,8 @@
   display: inline-block;
   margin-left: 8px;
   padding: 1px 6px;
-  border: 1px solid var(--primary);
-  color: var(--primary);
+  border: 1px solid var(--primary-ink);
+  color: var(--primary-ink);
   font-size: 11px;
   font-weight: normal;
   vertical-align: middle;

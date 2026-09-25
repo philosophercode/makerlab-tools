@@ -1,0 +1,185 @@
+/*
+ * UI system — Tailwind 4 + shadcn/ui, themed onto the Blueprint Archive tokens.
+ * (docs/specs/2026-09-25-ui-system-design.md §5–§6; docs/MakerLab_design/DESIGN.md)
+ *
+ * Imported by the root layout BEFORE globals.css, so the layer order below is
+ * declared first. Three decisions:
+ *
+ * 1. **No preflight (yet).** Tailwind's reset would restyle every existing page
+ *    at once. We take the theme and the utilities only; the element defaults
+ *    live in globals.css's `@layer base`, where utilities can override them,
+ *    and a scoped preflight (bottom of this file) resets only what the new
+ *    system owns. Phase 6 swaps it for Tailwind's preflight.
+ * 2. **No second palette.** shadcn's semantic colours (`bg-primary`,
+ *    `text-muted-foreground`, `border-input`, …) are mapped in `@theme inline`
+ *    straight onto the tokens globals.css defines and swaps for dark mode, so
+ *    light/dark and the NEXT_PUBLIC_COLOR_* brand override follow unchanged.
+ * 3. **Identity wins over library defaults.** 0px radius and no shadows (the
+ *    global `*` rule in globals.css enforces both), and focus is a 2px outline
+ *    in the accent ink — shadcn's box-shadow rings would be erased by that
+ *    rule, so our copies of its components use `outline` instead.
+ *
+ * Unlayered CSS beats every layer. The legacy class rules in globals.css and
+ * the page stylesheets are unlayered, so they still win wherever they apply:
+ * new components must never carry legacy classes (spec §15).
+ */
+
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+/* Utilities are generated for class names found under src/ only (not the
+   scratch folders, tests or E2E beside it). No legacy className is also a
+   utility name today except `sr-only`, whose utility matches the legacy rule. */
+@import "tailwindcss/utilities.css" layer(utilities) source("..");
+@import "tw-animate-css";
+
+/* Dark mode is `[data-theme="dark"]` on <html>, or the system preference when
+   the person has not chosen (ThemeScript; the same rule globals.css uses). */
+@custom-variant dark {
+  &:where([data-theme="dark"], [data-theme="dark"] *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(:root:not([data-theme="light"]), :root:not([data-theme="light"]) *) {
+      @slot;
+    }
+  }
+}
+
+/* ── Tokens the UI system adds (spec §6.1; DESIGN.md §3) ────────────────────
+   The palette itself stays in globals.css; these are the contrast fixes. The
+   values are asserted against WCAG 2.2 AA in src/styles/tokens.test.ts. */
+:root {
+  /* The accent as INK — text, marks and focus drawn in orange. Safety Orange
+     is 2.6:1 on the paper background, below every WCAG threshold, so on light
+     surfaces orange text uses this darker step (5.0:1); fills stay --primary.
+     In dark mode the two are the same colour (6.8:1). Owner-approved
+     2026-09-25. Not derived from the NEXT_PUBLIC_COLOR_PRIMARY override: a
+     re-brand has to choose its own ink step. */
+  --primary-ink: #b8431a;
+  /* Text on an orange fill: near-black (6.8:1). White on orange is 2.8:1. */
+  --ink-on-primary: #0f0f0f;
+  /* Control boundaries (inputs, checkboxes) need 3:1 against their
+     surroundings (WCAG 1.4.11); --outline is ~1.5:1 and stays for hairlines. */
+  --outline-strong: #8a8171;
+  /* Row rule for dense tables: quieter than --outline. */
+  --rule: color-mix(in srgb, var(--on-surface) 10%, transparent);
+  /* Status — the only colours besides the accent, always paired with a glyph
+     and a word (StatusGlyph). Crimson (--secondary) is the heritage stamp,
+     never an error: it is 2.8:1 on the dark background. */
+  --status-ok: #2b7549;
+  --status-warn: #8a5300;
+  --status-bad: #b31b1b;
+  --status-idle: var(--on-surface-muted);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --primary-ink: var(--primary);
+    --outline-strong: #6e6a64;
+    --status-ok: #5cc98a;
+    --status-warn: #e0a23a;
+    --status-bad: #f0645a;
+  }
+}
+
+:root[data-theme="dark"] {
+  --primary-ink: var(--primary);
+  --outline-strong: #6e6a64;
+  --status-ok: #5cc98a;
+  --status-warn: #e0a23a;
+  --status-bad: #f0645a;
+}
+
+@theme inline {
+  /* shadcn semantic colours → Blueprint Archive tokens */
+  --color-background: var(--background);
+  --color-foreground: var(--on-surface);
+  --color-card: var(--surface-container);
+  --color-card-foreground: var(--on-surface);
+  --color-popover: var(--surface-container);
+  --color-popover-foreground: var(--on-surface);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--ink-on-primary);
+  --color-primary-ink: var(--primary-ink);
+  --color-secondary: var(--surface-container-high);
+  --color-secondary-foreground: var(--on-surface);
+  --color-muted: var(--surface-container-low);
+  --color-muted-foreground: var(--on-surface-muted);
+  --color-accent: var(--surface-container-high);
+  --color-accent-foreground: var(--on-surface);
+  --color-destructive: var(--status-bad);
+  --color-border: var(--outline);
+  --color-input: var(--outline-strong);
+  --color-ring: var(--primary-ink);
+  --color-rule: var(--rule);
+  --color-brand: var(--secondary);
+  --color-ok: var(--status-ok);
+  --color-warn: var(--status-warn);
+  --color-bad: var(--status-bad);
+  --color-idle: var(--status-idle);
+  --color-chart-1: var(--primary);
+  --color-chart-2: var(--on-surface-muted);
+  --color-chart-3: var(--secondary);
+  --color-chart-4: var(--status-warn);
+  --color-chart-5: var(--status-ok);
+
+  /* `font-sans` / `font-heading`. `font-mono` needs no mapping: globals.css
+     sets --font-mono unlayered, which already beats Tailwind's theme value. */
+  --font-sans: var(--font-body);
+  --font-heading: var(--font-display);
+
+  /* The identity is square. */
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+
+  /* The dense type steps (spec §6.2) beside Tailwind's own. */
+  --text-micro: 10px;
+  --text-micro--line-height: 1.3;
+  --text-label: 11px;
+  --text-label--line-height: 1.3;
+  --text-label--letter-spacing: 0.08em;
+  --text-table: 13px;
+  --text-table--line-height: 1.35;
+}
+
+@layer base {
+  /* Focus, everywhere (spec §12; DESIGN.md §5): a 2px accent-ink outline on
+     keyboard focus. In `base` so a component's own focus utility can refine
+     it; the legacy rules that used to remove it (`outline: none`) are gone. */
+  :focus-visible {
+    outline: 2px solid var(--primary-ink);
+    outline-offset: 2px;
+  }
+
+  /* A scoped preflight (spec §5.1). Tailwind's reset would restyle every
+     legacy page, so the same rules apply only to what the UI system owns:
+     shadcn primitives (they carry `data-slot`) and system components (they
+     carry `.ui`). `:where()` keeps the specificity at zero, and the `base`
+     layer keeps every utility — and every unlayered legacy rule — above it. */
+  :where(.ui, [data-slot]) :where(button, input, select, textarea),
+  :where(button, input, select, textarea):where(.ui, [data-slot]) {
+    margin: 0;
+    padding: 0;
+    border: 0 solid;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    letter-spacing: inherit;
+  }
+  :where(.ui, .ui *, [data-slot], [data-slot] *) {
+    border-color: var(--outline);
+  }
+  :where(.ui) :where(ul, ol) {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  :where(.ui) :where(h1, h2, h3, h4, p, dl, dd, figure, blockquote) {
+    margin: 0;
+  }
+}

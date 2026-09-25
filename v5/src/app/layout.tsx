@@ -1,7 +1,11 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { NextIntlClientProvider } from "next-intl";
+// The UI system (Tailwind theme + utilities, shadcn tokens) first, so its
+// cascade-layer order is declared before globals.css adds to `base`.
+import "../styles/ui.css";
 import "../styles/globals.css";
+import { fontVariables } from "./fonts";
 import { ChatFab } from "../components/ChatFab";
 import { ChatLauncherProvider } from "../components/ChatLauncherContext";
 import { GlobalChrome } from "../components/GlobalChrome";
@@ -32,7 +36,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   // `LocaleHtmlScript` corrects `lang`/`dir` before paint, and the localized
   // chrome/content streams in via Suspense boundaries below.
   return (
-    <html lang="en" dir="ltr" suppressHydrationWarning style={brandColorVars}>
+    <html lang="en" dir="ltr" suppressHydrationWarning style={brandColorVars} className={fontVariables}>
       <head>
         <ThemeScript />
         <LocaleHtmlScript />

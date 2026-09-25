@@ -33,9 +33,9 @@
 .intake-card-warnings {
   margin: 0;
   padding: 8px 10px 8px 26px;
-  border: 1px solid var(--secondary);
+  border: 1px solid var(--status-bad);
   background: var(--surface-container-low);
-  color: var(--secondary);
+  color: var(--status-bad);
   font-size: 12px;
   border-radius: 10px !important;
 }
@@ -134,14 +134,14 @@
 
 .intake-status {
   margin-inline-start: 6px;
-  color: var(--primary);
-  border-color: var(--primary);
+  color: var(--primary-ink);
+  border-color: var(--primary-ink);
 }
 
 .intake-badge {
   margin-top: 0;
-  color: var(--secondary);
-  border-color: var(--secondary);
+  color: var(--status-bad);
+  border-color: var(--status-bad);
 }
 
 .intake-reason,
@@ -153,7 +153,7 @@
 }
 
 .intake-reason {
-  color: var(--secondary);
+  color: var(--status-bad);
 }
 
 .intake-resolved {
@@ -192,11 +192,6 @@
   border-radius: 8px !important;
 }
 
-.intake-input:focus {
-  outline: 2px solid var(--primary);
-  outline-offset: 1px;
-}
-
 .intake-button {
   padding: 6px 10px;
   font-family: var(--font-body);
@@ -231,11 +226,11 @@
 }
 
 .intake-button-danger {
-  color: var(--secondary);
+  color: var(--status-bad);
 }
 
 .intake-button-danger:hover:not(:disabled) {
-  border-color: var(--secondary);
+  border-color: var(--status-bad);
 }
 
 .intake-row-error,
@@ -243,7 +238,7 @@
   margin: 6px 0 0;
   font-size: 12px;
   white-space: normal;
-  color: var(--secondary);
+  color: var(--status-bad);
 }
 
 /* Stays in view while the rows scroll past, so Research is never hidden under the composer. */
@@ -279,7 +274,7 @@
 
 .intake-card-link {
   font-weight: 600;
-  color: var(--primary);
+  color: var(--primary-ink);
   text-decoration: underline;
 }
 
