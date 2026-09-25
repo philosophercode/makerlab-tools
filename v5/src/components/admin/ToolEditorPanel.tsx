@@ -62,6 +62,11 @@ export interface ToolEditorPanelProps {
   /** `sheet` is the phone-first full-screen form over a tool page (§6). */
   variant?: "panel" | "sheet";
   onClose: () => void;
+  /**
+   * Called after Archive lands. The tool page passes one, because an archived
+   * tool no longer has a public page; Inventory does not, since the row stays.
+   */
+  onArchived?: () => void;
 }
 
 /** What the panel is doing, as far as the person watching is concerned. */
@@ -74,6 +79,7 @@ export function ToolEditorPanel({
   canPublish = true,
   variant = "panel",
   onClose,
+  onArchived,
 }: ToolEditorPanelProps) {
   const t = useTranslations("admin.inventory.editor");
   // Refusals and warnings are shared across every admin surface, so they live
@@ -137,7 +143,7 @@ export function ToolEditorPanel({
    */
   async function run<T>(
     call: (token: string) => Promise<InventoryActionResult<T>>,
-    options: { refresh?: boolean } = {}
+    options: { refresh?: boolean; onSuccess?: () => void } = {}
   ) {
     if (!revision || pending) return;
 
@@ -162,6 +168,7 @@ export function ToolEditorPanel({
       setTheirs(null);
 
       if (options.refresh) await refreshChildren();
+      options.onSuccess?.();
     } catch {
       // A server action that never answered — a dropped connection, a redeploy
       // mid-click. Nothing is assumed to have landed.
@@ -312,7 +319,9 @@ export function ToolEditorPanel({
         onUnpublish={() =>
           void run((token) => actions.unpublish(args(tool.id, token)), { refresh: true })
         }
-        onArchive={() => void run((token) => actions.archive(args(tool.id, token)), { refresh: true })}
+        onArchive={() =>
+          void run((token) => actions.archive(args(tool.id, token)), { refresh: true, onSuccess: onArchived })
+        }
         onRestore={() => void run((token) => actions.restore(args(tool.id, token)), { refresh: true })}
       />
 

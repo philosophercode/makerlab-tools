@@ -356,6 +356,28 @@ describe("the state controls", () => {
     expect(screen.getByText("Archived")).toBeInTheDocument();
   });
 
+  it("calls onArchived once Archive lands, so the tool page can leave for Inventory", async () => {
+    const onArchived = vi.fn();
+    await openPanel(stubActions(), { onArchived });
+
+    await userEvent.click(screen.getByRole("button", { name: "Archive" }));
+
+    await waitFor(() => expect(onArchived).toHaveBeenCalledTimes(1));
+  });
+
+  it("does not call onArchived when Archive is refused", async () => {
+    const onArchived = vi.fn();
+    const archive = vi.fn(async () => ({ ok: false as const, error: "not_permitted" as const }));
+    await openPanel(stubActions({ archive }), { onArchived });
+
+    await userEvent.click(screen.getByRole("button", { name: "Archive" }));
+
+    await waitFor(() => expect(archive).toHaveBeenCalledTimes(1));
+    // The refusal is shown in the panel, and the page stays where it is.
+    await waitFor(() => expect(screen.getByRole("button", { name: "Archive" })).toBeEnabled());
+    expect(onArchived).not.toHaveBeenCalled();
+  });
+
   it("stops saying 'Never reviewed' once Looks good has landed", async () => {
     const actions = stubActions();
     vi.mocked(actions.load)

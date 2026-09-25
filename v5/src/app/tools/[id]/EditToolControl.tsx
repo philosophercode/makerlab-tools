@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { ToolEditorPanel } from "../../../components/admin/ToolEditorPanel";
+import { archivedToolHref } from "../../../components/admin/inventory-filters";
 import type { ToolEditorActions } from "../../../components/admin/tool-editor-actions";
 import { fetchIdentity, type ClientIdentity } from "../../../lib/auth/sign-in-client";
 import { can } from "../../../lib/auth/permissions";
@@ -40,6 +42,7 @@ export function EditToolControl({ slug, toolName, actions }: EditToolControlProp
   const t = useTranslations("admin.inventory.editor");
   const [identity, setIdentity] = useState<ClientIdentity | null>(null);
   const [open, setOpen] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     const controller = new AbortController();
@@ -70,6 +73,8 @@ export function EditToolControl({ slug, toolName, actions }: EditToolControlProp
           canPublish={can(identity, "tools.publish")}
           variant="sheet"
           onClose={() => setOpen(false)}
+          // The tool leaves this page once archived; follow it to Inventory, where Restore is.
+          onArchived={() => router.push(archivedToolHref(toolName))}
         />
       ) : null}
     </div>
