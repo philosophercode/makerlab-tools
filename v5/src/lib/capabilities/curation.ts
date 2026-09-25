@@ -9,7 +9,9 @@ import { currentValue } from "../refresh/decide";
 import { addRestrictions, trainingChangeAllowed } from "../refresh/lab-rules";
 import { normalizeLabel, normalizeText, resourceKey } from "../refresh/propose";
 import { CITATION_QUOTE_MAX_CHARS, SAFETY_FIELDS, type FieldProposal, type ProposalField, type ProposedResource } from "../refresh/types";
-import { DISPLAY_NAME_MAX, isValidDisplayName, OFFICIAL_NAME_MAX } from "../tool-names";
+import { otherToolNames } from "../data/tool-name-clash";
+import { getDb } from "../db/client";
+import { DISPLAY_NAME_MAX, isNameTaken, isValidDisplayName, OFFICIAL_NAME_MAX, type DisplayNameContext } from "../tool-names";
 import { fenceUntrusted } from "../web/fence";
 import type { Capability, CapabilityCtx, CapabilityTool, CurationContext, PromptEnv } from "./types";
 
@@ -172,8 +174,16 @@ export async function proposeChange(
   if (field === "floor_check" && own.kind === "pending") {
     return refuse("unknown_field", "A floor check is for tools in the catalogue, not a pending item.");
   }
-  const value = cleanValue(field, input.value);
+  // A display name is checked against every other tool's (amendment 2026-09-25).
+  const takenNames = field === "name" ? await otherToolNames(await getDb(), own.kind === "tool" ? own.id : null) : [];
+  const value = cleanValue(field, input.value, { takenNames });
   if (value === undefined) return refuse("invalid_value", valueHint(field));
+  if (field === "name" && typeof value === "string" && isNameTaken(value, takenNames)) {
+    return refuse(
+      "duplicate_name",
+      "Another tool already has that display name. Keep what tells this one apart — its capacity, size, power or generation (\"Ryobi ONE+ 4Ah Battery\") — or leave the name as it is."
+    );
+  }
 
   const subject = await loadCurationSubject(own.kind, own.id);
   if (!subject) return refuse("not_found", "This record is no longer there to curate.");
@@ -220,12 +230,14 @@ export async function proposeChange(
 }
 
 /** The value, shaped and bounded for its field, or undefined when it does not fit. */
-export function cleanValue(field: ChatProposalField, value: unknown): unknown {
+export function cleanValue(field: ChatProposalField, value: unknown, context: DisplayNameContext = {}): unknown {
   switch (field) {
     case "name":
       // The display rules, enforced (tool display names spec §5.1): a part
       // number or an over-long name is refused, never cut into something else.
-      return typeof value === "string" && isValidDisplayName(value) ? value.replace(/\s+/g, " ").trim() : undefined;
+      // A capacity or size passes only when it tells the name from another
+      // tool's (`context.takenNames`, amendment 2026-09-25).
+      return typeof value === "string" && isValidDisplayName(value, context) ? value.replace(/\s+/g, " ").trim() : undefined;
     case "official_name":
       return typeof value === "string" && value.trim() && value.length <= OFFICIAL_NAME_MAX
         ? value.replace(/\s+/g, " ").trim()

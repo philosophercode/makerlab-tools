@@ -5,7 +5,8 @@ import { tools } from "../db/schema/index.ts";
 import type { Db } from "../db/types.ts";
 import { revisionEquals, revisionOf, type Revision } from "./revision.ts";
 import { starterQuestionsFromEditor } from "../starter-questions.ts";
-import { DISPLAY_NAME_MAX, OFFICIAL_NAME_MAX } from "../tool-names.ts";
+import { DISPLAY_NAME_MAX, isNameTaken, normalizeName, OFFICIAL_NAME_MAX } from "../tool-names.ts";
+import { listToolNames } from "./tool-name-clash.ts";
 import { isUuid } from "./uuid.ts";
 import type { Refused } from "./write-result.ts";
 
@@ -70,7 +71,11 @@ export interface EditableTool {
 
 /** The fields the editor may change. Deliberately not `slug`, and not state. */
 export interface ToolPatch {
-  /** The display name: refused (`invalid_field`) when blank or over `DISPLAY_NAME_MAX`. */
+  /**
+   * The display name: refused (`invalid_field`) when blank or over
+   * `DISPLAY_NAME_MAX`, and (`duplicate_name`) when it is another tool's
+   * (display names amendment 2026-09-25).
+   */
   name?: string;
   /** The official name; empty clears it. Refused over `OFFICIAL_NAME_MAX`. */
   officialName?: string | null;
@@ -93,7 +98,7 @@ export interface ToolPatch {
 /** What every write here answers. A refusal means nothing was written. */
 export type ToolWriteResult =
   | { ok: true; revision: Revision }
-  | Refused<"conflict" | "not_found" | "invalid_field">;
+  | Refused<"conflict" | "not_found" | "invalid_field" | "duplicate_name">;
 
 export interface ToolReadOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
@@ -209,7 +214,23 @@ export async function updateTool(
   if (!values) return { ok: false, reason: "invalid_field" };
 
   const db = options.db ?? (await getDb());
+  if (patch.name !== undefined && (await renamesOntoAnother(db, id, patch.name))) {
+    return { ok: false, reason: "duplicate_name" };
+  }
   return writeTool(db, id, values, expectedRevision, options.actorUserId);
+}
+
+/**
+ * True when `name` would give tool `id` another tool's display name. Saving a
+ * tool's own name again (in any spelling) is never a clash, so a pair of
+ * duplicates imported before the rule can still have their other fields
+ * edited. A read before the write, not an index: see `./tool-name-clash.ts`.
+ */
+async function renamesOntoAnother(db: Db, id: string, name: string): Promise<boolean> {
+  const rows = await listToolNames(db);
+  const own = rows.find((row) => row.id === id);
+  if (own && normalizeName(own.name) === normalizeName(name)) return false;
+  return isNameTaken(name, rows.filter((row) => row.id !== id).map((row) => row.name));
 }
 
 /**

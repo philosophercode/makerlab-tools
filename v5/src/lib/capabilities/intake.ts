@@ -4,6 +4,7 @@ import { UNIT_CONDITION, UNIT_STATUS, type UnitCondition, type UnitStatus } from
 import { createPendingBatch, listPendingTools, type NewPendingTool, type PendingTool } from "../data/pending-tools";
 import { findOrCreateCategory, findOrCreateLocation } from "../data/taxonomy";
 import { createToolRecord, type NewToolRecord } from "../data/tool-create";
+import { displayNameClashes } from "../data/tool-name-clash";
 import { promoteAttachmentsToPublic } from "../files/promote";
 import { IDENTIFY_MAX_ITEMS, IDENTIFY_MAX_MODEL_NAME_SEARCHES, RESEARCH_MAX_ITEMS_PER_REQUEST } from "../intake/limits";
 import type { DuplicateOf, IntakeTablePayload, IntakeTableWarning } from "../intake/types";
@@ -471,6 +472,8 @@ const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
     try {
       const db = await getDb();
       outcome = await db.transaction(async (tx) => {
+        // Display names are unique across tools (amendment 2026-09-25).
+        if (await displayNameClashes(tx, names.name)) throw new NameTakenError();
         // Category and location are best-effort: the tool is still worth
         // having without them. Each runs in its own savepoint so a failed
         // statement cannot abort the transaction the tool is written in.
@@ -523,6 +526,11 @@ const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
         return { ...record, category, location };
       });
     } catch (err) {
+      if (err instanceof NameTakenError) {
+        return failed(
+          `Another tool is already called "${names.name}", so nothing was saved. Give a display name that tells it apart — its capacity, size, power or generation — and try again.`
+        );
+      }
       console.error("[intake] create_tool failed", err);
       // The transaction rolled back, so nothing at all landed — including a
       // category or location that was found or made on the way.
@@ -614,6 +622,14 @@ export const intake: Capability = {
   // element type; the adapters re-validate each tool's input via its own schema.
   tools: [identifyTools, startImportTool, createToolTool] as unknown as CapabilityTool<unknown, unknown>[],
 };
+
+/** `create_tool`'s display name is another tool's: the transaction rolls back and the reply says why. */
+class NameTakenError extends Error {
+  constructor() {
+    super("display name taken");
+    this.name = "NameTakenError";
+  }
+}
 
 /**
  * The display and official names a `create_tool` candidate becomes. A name

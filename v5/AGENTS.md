@@ -632,6 +632,20 @@ name with model or part number, shown under the tool page's title when it differ
 - **Backfill**: `npm run names:backfill -- [--dry-run] [--ids] [--limit]`
   (`scripts/backfill-display-names.ts`, job `displayName`, flex): shortens names that
   break the rules and moves the long form to `official_name` only when that is empty.
+  The model sees name, category, description and same-brand names; all answers are
+  resolved together (`resolveDisplayNames`) before any write.
+- **Says what it is, and unique** (amendment 2026-09-25). A display name that is only a
+  brand ("Hakko", "Aoyue Int") is refused wherever a model answer is guarded
+  (`isBareBrand`, `src/lib/tool-name-brand.ts`); the fallback is brand + category noun
+  ("Hakko Soldering Station"), else the old name. Four bare digits are a model line
+  ("Dremel 3000"). **Display names are unique across tools** (`normalizeName`, archived and
+  drafts included; no index): `updateTool`, `approvePendingTool` and MCP `create_tool`
+  refuse `duplicate_name` (`src/lib/data/tool-name-clash.ts`); the editor and intake page
+  warn first. A collision keeps the distinguishing spec ("Ryobi ONE+ 4Ah Battery") —
+  a spec is allowed only when needed (`specNeeded`; `src/lib/tool-name-choice.ts`).
+  The display-name instructions are **one text**, `DISPLAY_NAME_RULES`
+  (`src/lib/display-name-rules.ts`), shared by the backfill, research's read prompt and
+  Suggest names.
 
 ## MCP access (`api_tokens`, `oauth_*`; MCP access spec, migration `0014`)
 
@@ -970,6 +984,7 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/components/ChatFab.tsx` | Chat UI (`useChat`, citations stripped, photo upload); starter chips are the tool's own on its page (`ToolChatStarters` → `ChatLauncherContext`), else the generic three |
 | `src/lib/starter-questions.ts` / `scripts/generate-starter-questions.ts` | A tool's assistant starter questions — the cleaning rules, and the backfill for tools that have none |
 | `src/lib/tool-names.ts` / `scripts/backfill-display-names.ts` | A tool's display and official names — the display rules and guard, and the backfill that shortens imported names |
+| `src/lib/tool-name-brand.ts` / `tool-name-choice.ts` / `display-name-rules.ts` / `data/tool-name-clash.ts` | Bare-brand refusal and category nouns; unique names with the distinguishing spec; the one rules text the prompts share; the `duplicate_name` read |
 | `src/app/page.tsx`, `tools/[id]/page.tsx` | Gallery + tool detail |
 
 ## Conventions

@@ -1,3 +1,4 @@
+import { otherToolNames } from "../data/tool-name-clash.ts";
 import { claimRefresh, completeRefresh, failRefresh, loadRefreshSubject, refreshStillResearching } from "../data/tool-refreshes.ts";
 import { getDb } from "../db/client.ts";
 import { IMAGE_STEP_MAX_RETRIES, IMAGE_STEP_TIMEOUT_MS, RESEARCH_STEP_MAX_RETRIES, RESEARCH_STEP_TIMEOUT_MS } from "../intake/limits.ts";
@@ -136,7 +137,9 @@ export async function proposeRefresh(
   if (!tool) return { outcome: "skipped" };
 
   const research: ResearchResult = imageFailure ? { ...result, images: null, imageError: imageErrorText(imageFailure) } : result;
-  const proposals = proposeChanges({ tool, research, includeDescription: refresh.includeDescription });
+  // The other tools' names: a proposed display name is never one of them.
+  const takenNames = await otherToolNames(await getDb(), refresh.toolId);
+  const proposals = proposeChanges({ tool, research, includeDescription: refresh.includeDescription, takenNames });
   const stored = await completeRefresh(id, requestId, research, proposals);
   return stored ? { outcome: "proposed", proposals: proposals.length } : { outcome: "skipped" };
 }

@@ -59,6 +59,11 @@ export interface ToolEditorPayload extends ToolEditorData {
   /** The two option lists the fields form selects from (§4.3). */
   categories: CategoryOption[];
   locations: LocationOption[];
+  /**
+   * Every other tool's display name, so the form can say a name is taken
+   * before saving (display names amendment 2026-09-25). The save checks again.
+   */
+  otherToolNames?: string[];
 }
 
 /** What opening (or reloading) the panel answers. */

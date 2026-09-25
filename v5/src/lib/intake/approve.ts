@@ -75,10 +75,11 @@ const AUDIT_SURFACE = "admin/intake";
  * The data layer's own refusals, passed straight through: `low_confidence` is
  * the "I've checked this" gate (§5.4 step 12), `not_editable` the item having
  * moved on (researching again, approved by somebody else, discarded), and
- * `duplicate_serial` the unit index refusing a serial the tool already has.
+ * `duplicate_serial` the unit index refusing a serial the tool already has,
+ * and `duplicate_name` another tool already having the display name.
  */
 export type IntakeApprovalError =
-  "not_found" | "not_editable" | "low_confidence" | "invalid_field" | "duplicate_serial";
+  "not_found" | "not_editable" | "low_confidence" | "invalid_field" | "duplicate_serial" | "duplicate_name";
 
 /** What an approval answers. `slug` is where the tool now lives. */
 export type IntakeApprovalResult =

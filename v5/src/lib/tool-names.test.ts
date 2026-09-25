@@ -1,16 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
+  brandWithNoun,
   cleanDisplayName,
   cleanOfficialName,
   DISPLAY_NAME_MAX,
   displayNameFrom,
   displayNameProblems,
+  isNameTaken,
   isValidDisplayName,
   lookupName,
   looksLikePartNumber,
   modelTokens,
   modelTokensConflict,
   officialNameShown,
+  specNeeded,
+  specTokens,
+  withoutSpecs,
 } from "./tool-names";
 
 /** Tool display names spec 2026-09-24, §5.1 — the rules, in code. */
@@ -139,6 +144,51 @@ describe("displayNameFrom", () => {
 
   it("always gives a name for a name", () => {
     expect(displayNameFrom({ fallback: "196094-2" })).toBe("196094-2");
+  });
+});
+
+describe("display names amendment 2026-09-25", () => {
+  it("four digits on their own are a model line people say; five, or hyphenated, are a code", () => {
+    expect(looksLikePartNumber("3000")).toBe(false);
+    expect(isValidDisplayName("Dremel 3000")).toBe(true);
+    expect(cleanDisplayName("Dremel 3000")).toBe("Dremel 3000");
+    expect(looksLikePartNumber("96289")).toBe(true);
+    expect(looksLikePartNumber("15-206")).toBe(true);
+  });
+
+  it("a cut never leaves a bracket open", () => {
+    expect(cleanDisplayName("Epilog Helix 24 laser (8000 Laser System)")).toBe("Epilog Helix 24 laser");
+  });
+
+  it("reads capacities, spaced or not, as specs and writes them as a card would", () => {
+    expect(specTokens("RYOBI ONE+ 18V Lithium-Ion 3.0 Ah Battery P103")).toEqual(["18V", "3Ah"]);
+    expect(specTokens("RYOBI ONE+ 18V Lithium-Ion 1.5 Ah Battery PBP002")).toEqual(["18V", "1.5Ah"]);
+    expect(withoutSpecs("Ryobi ONE+ 4Ah Battery")).toBe("Ryobi ONE+ Battery");
+  });
+
+  it("a spec is allowed only when it is what tells the name from another tool's", () => {
+    expect(displayNameProblems("Ryobi ONE+ 4Ah Battery")).toEqual(["spec"]);
+    expect(displayNameProblems("Ryobi ONE+ 4Ah Battery", { takenNames: ["Ryobi ONE+ 1.5Ah Battery"] })).toEqual([]);
+    expect(displayNameProblems("Ryobi ONE+ 4Ah Battery", { takenNames: ["Ryobi ONE+ Battery"] })).toEqual([]);
+    expect(isValidDisplayName("Ryobi ONE+ 4Ah Battery", { takenNames: ["Form 4"] })).toBe(false);
+    expect(specNeeded("Ryobi ONE+ 4Ah Battery", ["ryobi one+ 4ah battery"])).toBe(false);
+  });
+
+  it("isNameTaken ignores case, spacing and punctuation", () => {
+    expect(isNameTaken("ryobi one  battery", ["Ryobi ONE+ Battery"])).toBe(true);
+    expect(isNameTaken("Ryobi ONE+ 4Ah Battery", ["Ryobi ONE+ 1.5Ah Battery"])).toBe(false);
+    expect(isNameTaken("", [""])).toBe(false);
+  });
+
+  it("displayNameFrom never settles on a bare brand when the category names the thing", () => {
+    expect(displayNameFrom({ displayName: "Hakko", officialName: "HAKKO FX-888D", fallback: "HAKKO FX-888D", category: "Soldering" })).toBe(
+      "Hakko Soldering Station"
+    );
+    expect(displayNameFrom({ displayName: "Aoyue Int", fallback: "AOYUE Int 2703A+", category: "Rework Station" })).toBe(
+      "Aoyue Rework Station"
+    );
+    expect(brandWithNoun("MAKITA RT0701C", "Router")).toBe("Makita Router");
+    expect(brandWithNoun("MAKITA RT0701C", "Accessory")).toBe("");
   });
 });
 

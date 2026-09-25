@@ -381,7 +381,9 @@ describe("the Notion mirror (§3.8 trigger 1)", () => {
 
     const draft = await researchedItem();
     expect(
-      (await approveAndRecord({ userId: approver }, { id: draft, publish: false, fields: fields({ serialNumber: "P1S-002" }) })).ok
+      // A second tool needs a name of its own: display names are unique (amendment 2026-09-25).
+      (await approveAndRecord({ userId: approver }, { id: draft, publish: false, fields: fields({ name: "Bambu Lab P1S Combo", serialNumber: "P1S-002" }) }))
+        .ok
     ).toBe(true);
     expect(mirror.requestMirrorPush).toHaveBeenCalledTimes(2);
   });

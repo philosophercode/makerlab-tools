@@ -14,9 +14,14 @@
  * passes before it is stored or proposed — it only ever removes text, and
  * leaves a name that follows the rules exactly as it was.
  *
+ * Whether a name says what the item is (not just a brand) is
+ * `./tool-name-brand.ts`; choosing a name no other tool has is
+ * `./tool-name-choice.ts` (display names amendment 2026-09-25).
+ *
  * Pure, client-safe and plain Node (the research workflow's steps and
- * `scripts/` import it): no imports at all.
+ * `scripts/` import it): its one import is its pure sibling.
  */
+import { brandLabel, categoryNoun, isBareBrand } from "./tool-name-brand.ts";
 
 /** The hard cap: a display name longer than this is refused or cut. */
 export const DISPLAY_NAME_MAX = 40;
@@ -32,12 +37,12 @@ export type DisplayNameProblem = "empty" | "too_long" | "part_number" | "bracket
 
 /**
  * Units a number next to them makes a spec, not a name: "10-Inch", "18-Volt",
- * "1500 Watt", "16 Piece", "12 Points Per Inch". The long forms may be spaced
+ * "1500 Watt", "16 Piece", "12 Points Per Inch", "3.0 Ah". The long forms may be spaced
  * or hyphenated from the number; the short ones must be attached ("12V",
  * "20V", "3/8\"") so "Form 4 V2" or "Series 3 A" is never read as a spec.
  */
 const LONG_UNITS =
-  "inch(?:es)?|volts?|watts?|amps?|pieces?|pcs?|pc|gallons?|gal|points?\\s+per\\s+inch|tpi|rpm|ounces?|pounds?|millimet(?:er|re)s?|feet|foot|ft";
+  "inch(?:es)?|volts?|watts?|amps?|m?ah|amp\\s+hours?|pieces?|pcs?|pc|gallons?|gal|points?\\s+per\\s+inch|tpi|rpm|ounces?|pounds?|millimet(?:er|re)s?|feet|foot|ft";
 const SHORT_UNITS = "v|w|mm|cm|in|ah|oz|lbs?|hp|kw|\"|”|''";
 const NUMBER = "\\d+(?:[.,]\\d+)?(?:\\s*\\/\\s*\\d+(?:[.,]\\d+)?)?";
 const SPEC_RUN = new RegExp(
@@ -61,9 +66,11 @@ const DANGLING = /^(?:and|&|or|for|with|of|the|a|an|to|in|by|\+|-|–|—|\/|,|\
  * A token that is a part or catalogue number rather than a model name.
  *
  * - `#123` — a code.
- * - Digits only (hyphens allowed) with four or more digits: `575267`,
- *   `196094-2`, `20-221`, `96289`. Three or fewer is a model name: `Speedy
- *   400`, `Form 4`.
+ * - Digits only with five or more digits (`575267`, `96289`), or hyphenated
+ *   digits with four or more (`196094-2`, `20-221`). Four digits on their own
+ *   are a model line people say — `Dremel 3000`, `Singer 7258` (display names
+ *   amendment 2026-09-25) — and three or fewer always are: `Speedy 400`,
+ *   `Form 4`.
  * - Letters and digits mixed, in a hyphen- or slash-separated segment, with
  *   three or more digits or six or more characters: `DCB107`, `P593`,
  *   `MR7F2LL`. Short model names stay: `X2D`, `MK4`, `MK4S`, `BT48`, `S5`,
@@ -73,7 +80,7 @@ export function looksLikePartNumber(token: string): boolean {
   const bare = token.replace(/^[^\w#]+|[^\w+]+$/g, "");
   if (!bare) return false;
   if (/^#\d+/.test(bare)) return true;
-  if (/^\d[\d-]*$/.test(bare)) return countDigits(bare) >= 4;
+  if (/^\d[\d-]*$/.test(bare)) return countDigits(bare) >= (bare.includes("-") ? 4 : 5);
   return bare.split(/[-/.]/).some((segment) => {
     // "DC-3401": a run of four or more digits is a code wherever it sits.
     if (/^\d{4,}$/.test(segment)) return true;
@@ -133,7 +140,7 @@ function squash(text: string): string {
  * Shared by the guard and by {@link displayNameProblems}, so "has a problem"
  * and "the guard would change it" can never disagree.
  */
-function stripNoise(raw: string): { text: string; problems: Set<DisplayNameProblem> } {
+function stripNoise(raw: string, keepSpecs = false): { text: string; problems: Set<DisplayNameProblem> } {
   const problems = new Set<DisplayNameProblem>();
   let text = squash(raw);
 
@@ -151,7 +158,7 @@ function stripNoise(raw: string): { text: string; problems: Set<DisplayNameProbl
 
   const withoutSpecs = text.replace(SPEC_RUN, " ");
   if (squash(withoutSpecs) !== squash(text)) problems.add("spec");
-  text = withoutSpecs;
+  if (!keepSpecs) text = withoutSpecs;
 
   const tokens = squash(text).split(" ").filter(Boolean);
   const kept: string[] = [];
@@ -192,25 +199,43 @@ function cutToWords(text: string, max: number): string {
     kept.push(word);
   }
   while (kept.length > 0 && DANGLING.test(kept[kept.length - 1])) kept.pop();
-  return tidy(kept.join(" "));
+  let out = kept.join(" ");
+  // "Epilog Helix 24 laser (8000 Laser": a bracket the cut left open goes whole.
+  const open = out.lastIndexOf("(");
+  if (open >= 0 && out.indexOf(")", open) < 0) out = out.slice(0, open);
+  return tidy(out);
+}
+
+/** What the display rules are checked against besides the name itself. */
+export interface DisplayNameContext {
+  /**
+   * The other tools' display names. A size, capacity or power is allowed in a
+   * name when it is what tells it from one of these — "Ryobi ONE+ 1.5Ah
+   * Battery" beside "Ryobi ONE+ 4Ah Battery" (display names amendment
+   * 2026-09-25).
+   */
+  takenNames?: readonly string[];
 }
 
 /**
  * Why `name` is not a display name as it stands; empty when it is one.
- * Style is not a problem: "MAKITA Plunge Base" follows the rules.
+ * Style is not a problem: "MAKITA Plunge Base" follows the rules. A spec is
+ * not one either when, without it, the name would be another tool's
+ * ({@link specNeeded}).
  */
-export function displayNameProblems(name: string): DisplayNameProblem[] {
+export function displayNameProblems(name: string, context: DisplayNameContext = {}): DisplayNameProblem[] {
   const text = squash(name);
   if (!text) return ["empty"];
   const { problems } = stripNoise(text);
+  if (problems.has("spec") && context.takenNames && specNeeded(text, context.takenNames)) problems.delete("spec");
   const out: DisplayNameProblem[] = [...problems];
   if (text.length > DISPLAY_NAME_MAX) out.push("too_long");
   return out;
 }
 
 /** True when `name` follows the display rules — the lab's names that must be kept. */
-export function isValidDisplayName(name: string): boolean {
-  return displayNameProblems(name).length === 0;
+export function isValidDisplayName(name: string, context: DisplayNameContext = {}): boolean {
+  return displayNameProblems(name, context).length === 0;
 }
 
 /**
@@ -218,35 +243,114 @@ export function isValidDisplayName(name: string): boolean {
  * cut at a word boundary to {@link DISPLAY_NAME_MAX}. Only ever removes text;
  * a name that follows the rules comes back unchanged. Empty when nothing is
  * left — the caller decides the fallback.
+ *
+ * `keepSpecs` leaves sizes, capacities and powers in: the form a caller tries
+ * when the plain one is already another tool's name.
  */
-export function cleanDisplayName(raw: string | null | undefined): string {
+export function cleanDisplayName(raw: string | null | undefined, options: { keepSpecs?: boolean } = {}): string {
   if (!raw) return "";
-  const { text } = stripNoise(raw);
+  const { text } = stripNoise(raw, options.keepSpecs);
   return text.length > DISPLAY_NAME_MAX ? cutToWords(text, DISPLAY_NAME_MAX) : text;
+}
+
+/** `name` with its spec runs removed and nothing else changed: "Ryobi ONE+ 4Ah Battery" → "Ryobi ONE+ Battery". */
+export function withoutSpecs(name: string): string {
+  return tidy(name.replace(SPEC_RUN, " "));
+}
+
+/**
+ * True when some other name is this one once both lose their specs — so the
+ * spec is what tells them apart and may stay.
+ */
+export function specNeeded(name: string, takenNames: readonly string[]): boolean {
+  const key = normalizeName(withoutSpecs(name));
+  if (!key) return false;
+  const own = normalizeName(name);
+  return takenNames.some((other) => normalizeName(other) !== own && normalizeName(withoutSpecs(other)) === key);
+}
+
+/**
+ * The spec runs in a name, each written the way a card would say it:
+ * "1.5 Ah" → `1.5Ah`, "3.0 Ah" → `3Ah`, "18-Volt" → `18-Volt`, "12V/20V" as one.
+ */
+export function specTokens(name: string): string[] {
+  const out: string[] = [];
+  for (const match of squash(name).matchAll(SPEC_RUN)) {
+    const token = match[0]
+      .replace(/(\d)[.,]0+(?!\d)/g, "$1")
+      .replace(/(\d)\s*-?\s*(m?ah|v|w|mm|cm|in|oz|lbs?|hp|kw)(?![\w])/gi, (_, digit: string, unit: string) => digit + SHORT_UNIT_CASE[unit.toLowerCase()]);
+    if (!out.includes(token)) out.push(token);
+  }
+  return out;
+}
+
+const SHORT_UNIT_CASE: Record<string, string> = {
+  ah: "Ah",
+  mah: "mAh",
+  v: "V",
+  w: "W",
+  mm: "mm",
+  cm: "cm",
+  in: "in",
+  oz: "oz",
+  lb: "lb",
+  lbs: "lbs",
+  hp: "HP",
+  kw: "kW",
+};
+
+/** Two display names that would read as one: case, spacing and punctuation ignored. */
+export function isNameTaken(name: string, takenNames: readonly string[]): boolean {
+  const key = normalizeName(name);
+  return key !== "" && takenNames.some((other) => normalizeName(other) === key);
 }
 
 /**
  * The display name research proposes: the model's own answer through the
  * guard; else the official name, else the fallback (the item's name), through
- * the guard — preferring one the guard left at least two words of, since
- * "WEN DC3401" guarded is the bare brand "WEN". A bare word is still better
- * than a part number on a card, so it comes next; the fallback cut to the cap
- * is last, so a name always results.
+ * the guard. A candidate that is only a brand ("Hakko", "Aoyue Int" —
+ * `isBareBrand`) is passed over: the brand plus a noun from `category` comes
+ * next ("Hakko Soldering Station"). A bare word is still better than a part
+ * number on a card, so it follows; the fallback cut to the cap is last, so a
+ * name always results.
  */
 export function displayNameFrom(candidates: {
   displayName?: string | null;
   officialName?: string | null;
   fallback: string;
+  /** The tool's category name ("Soldering", "Router") — the noun for a bare brand. */
+  category?: string | null;
 }): string {
+  const source = cleanOfficialName(candidates.officialName) ?? candidates.fallback;
+  const context = { sourceName: source, category: candidates.category };
   const own = cleanDisplayName(candidates.displayName);
-  if (own) return own;
+  if (own && !isBareBrand(own, context)) return own;
   const derived = [candidates.officialName, candidates.fallback].map((name) => cleanDisplayName(name)).filter(Boolean);
+  const described = derived.find((name) => !isBareBrand(name, { ...context, sourceName: source }));
+  if (described) return described;
+  const noun = brandWithNoun(source, candidates.category);
+  if (noun) return noun;
   return (
+    own ||
     derived.find((name) => name.includes(" ")) ||
     derived[0] ||
     cutToWords(candidates.fallback, DISPLAY_NAME_MAX) ||
     squash(candidates.fallback).slice(0, DISPLAY_NAME_MAX).trim()
   );
+}
+
+/**
+ * The brand plus what a tool in `category` is — "Hakko Soldering Station",
+ * "Makita Router" — or empty when the category names no thing or the result
+ * would break the rules. The fallback for a name the guard left as a bare
+ * brand.
+ */
+export function brandWithNoun(sourceName: string, category: string | null | undefined, brand?: string | null): string {
+  const noun = categoryNoun(category);
+  const label = brandLabel(sourceName, brand);
+  if (!noun || !label) return "";
+  const name = squash(`${label} ${noun}`);
+  return isValidDisplayName(name) && !isBareBrand(name, { sourceName, brand }) ? name : "";
 }
 
 /** A name compared loosely: case, spacing and punctuation ignored. */

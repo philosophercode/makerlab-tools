@@ -296,6 +296,41 @@ describe("helpers", () => {
       });
     });
 
+    it("never proposes another tool's display name: keeps the capacity that tells them apart (amendment 2026-09-25)", () => {
+      const quote = { quote: "ONE+ 18V 4.0 Ah Battery", url: "https://ryobitools.com/pbp004", verified: true };
+      const proposals = proposeChanges({
+        tool: toolFixture({ name: "RYOBI ONE+ 18V Lithium-Ion 4 Ah Battery PBP004" }),
+        research: researchFixture({
+          canonicalName: "RYOBI ONE+ 18V Lithium-Ion 4 Ah Battery PBP004",
+          displayName: "Ryobi ONE+ Battery",
+          citations: { name: [quote] },
+        }),
+        includeDescription: false,
+        takenNames: ["Ryobi ONE+ Battery", "Ryobi ONE+ 1.5Ah Battery"],
+      });
+      expect(byField(proposals, "name")).toMatchObject({ proposed: "Ryobi ONE+ 4Ah Battery" });
+    });
+
+    it("proposes no name when every form of research's is another tool's", () => {
+      const proposals = proposeChanges({
+        tool: toolFixture({ name: "Makita 196094-2 Plunge Base" }),
+        research: researchFixture({ canonicalName: "Makita 196094-2 Plunge Base", displayName: "Makita Plunge Base", citations: { name: [verified] } }),
+        includeDescription: false,
+        takenNames: ["MAKITA plunge base"],
+      });
+      expect(byField(proposals, "name")).toBeUndefined();
+    });
+
+    it("keeps a lab name whose capacity is what tells it from another tool's", () => {
+      const proposals = proposeChanges({
+        tool: toolFixture({ name: "Ryobi ONE+ 4Ah Battery" }),
+        research: researchFixture({ canonicalName: "RYOBI ONE+ 18V 4 Ah Battery PBP004", displayName: "Ryobi ONE+ Battery", citations: { name: [verified] } }),
+        includeDescription: false,
+        takenNames: ["Ryobi ONE+ 1.5Ah Battery"],
+      });
+      expect(byField(proposals, "name")).toBeUndefined();
+    });
+
     it("keeps the lab's display name even when it is in capitals — style is not a problem", () => {
       const proposals = proposeChanges({
         tool: toolFixture({ name: "MAKITA Plunge Base" }),

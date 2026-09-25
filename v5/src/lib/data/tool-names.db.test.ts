@@ -159,6 +159,54 @@ describe("the editor's save (§6)", () => {
   });
 });
 
+describe("display names are unique across tools (amendment 2026-09-25)", () => {
+  async function insert(slug: string, name: string): Promise<string> {
+    const [row] = await db.insert(tools).values({ slug, name, published: true }).returning({ id: tools.id });
+    return row.id;
+  }
+
+  it("approval refuses another tool's display name, in any case or spacing, and writes nothing", async () => {
+    await insert("makita-plunge-base", "Makita Plunge Base");
+    const result = await approvePendingTool(
+      { id: await researchedItem(), actorUserId: OWNER, publish: true, fields: fields({ name: "MAKITA  plunge base" }) },
+      { db }
+    );
+    expect(result).toEqual({ ok: false, reason: "duplicate_name" });
+    expect(await db.select().from(tools)).toHaveLength(1);
+    expect((await db.select().from(pendingTools))[0].status).toBe("researched");
+  });
+
+  it("approval takes a name that keeps the attribute telling two tools apart", async () => {
+    await insert("ryobi-battery-15", "Ryobi ONE+ 1.5Ah Battery");
+    const result = await approvePendingTool(
+      { id: await researchedItem(), actorUserId: OWNER, publish: true, fields: fields({ name: "Ryobi ONE+ 4Ah Battery" }) },
+      { db }
+    );
+    expect(result.ok).toBe(true);
+  });
+
+  it("the editor refuses renaming onto another tool's name as duplicate_name, and writes nothing", async () => {
+    await insert("ryobi-battery-15", "Ryobi ONE+ 1.5Ah Battery");
+    const id = await insert("ryobi-battery-4", "RYOBI ONE+ 18V Lithium-Ion 4 Ah Battery PBP004");
+    const before = await findToolForEditor(id, { db });
+    expect(await updateTool(id, { name: "ryobi one+ 1.5ah battery" }, before!.revision, { db })).toEqual({
+      ok: false,
+      reason: "duplicate_name",
+    });
+    expect((await findToolForEditor(id, { db }))?.name).toBe("RYOBI ONE+ 18V Lithium-Ion 4 Ah Battery PBP004");
+    const saved = await updateTool(id, { name: "Ryobi ONE+ 4Ah Battery" }, before!.revision, { db });
+    expect(saved.ok).toBe(true);
+  });
+
+  it("saving a tool's own name again is never a clash, even beside a duplicate imported before the rule", async () => {
+    await insert("heat-gun-a", "Heat Gun");
+    const id = await insert("heat-gun-b", "Heat Gun");
+    const before = await findToolForEditor(id, { db });
+    const saved = await updateTool(id, { name: "Heat Gun", description: "Edited." }, before!.revision, { db });
+    expect(saved.ok).toBe(true);
+  });
+});
+
 describe("reading and matching (§5.6)", () => {
   it("carries the official name into the catalogue", async () => {
     await db.insert(tools).values({ slug: "makita-plunge-base", name: "Makita Plunge Base", officialName: "Makita 196094-2 Compact Router Plunge Base", published: true });

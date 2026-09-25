@@ -127,6 +127,14 @@ describe("propose_change", () => {
     });
   });
 
+  it("refuses another tool's display name, whatever its case (display names amendment 2026-09-25)", async () => {
+    expect(
+      await proposeChange.run({ subject: { kind: "tool", id: toolId }, field: "name", value: "trotec speedy 400" }, ctx())
+    ).toMatchObject({ status: "refused", code: "duplicate_name" });
+    const db = await getDb();
+    expect(await db.select().from(chatProposals)).toEqual([]);
+  });
+
   describe("research never replaces lab rules (amendment 2026-09-24)", () => {
     it("Form 4: a replacement restriction becomes an added line; the lab's resin rule is kept", async () => {
       const result = await proposeChange.run(

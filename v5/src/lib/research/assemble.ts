@@ -77,7 +77,13 @@ export function assembleResearchResult(input: AssembleInput): ResearchResult {
   const official = draft.canonicalName.trim() || fallbackName.trim();
   // The model's short name through the guard, else the official name's
   // (tool display names spec §5.2) — never a part number on a card.
-  const displayName = displayNameFrom({ displayName: draft.displayName, officialName: official, fallback: fallbackName });
+  // A bare brand ("Hakko") becomes the brand plus the category's noun (amendment 2026-09-25).
+  const displayName = displayNameFrom({
+    displayName: draft.displayName,
+    officialName: official,
+    fallback: fallbackName,
+    category: draft.category?.name,
+  });
 
   const result: ResearchResult = {
     canonicalName: official,
