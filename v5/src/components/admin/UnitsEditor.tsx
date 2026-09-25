@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { UnitPatch, UnitRecord } from "../../lib/data/units";
 import { UNIT_CONDITION, UNIT_STATUS } from "../../lib/db/schema/vocabulary";
+import { EmptyState } from "../system/EmptyState";
 
 /**
  * The Units section of the tool editor (spec §5.3(3), §4.5).
@@ -55,7 +56,7 @@ export function UnitsEditor({
     <div className="admin-editor-units">
       {units.length === 0 ? (
         // Names what is missing and what would change it (§6, States).
-        <p className="admin-empty td-empty">{t("noUnits")}</p>
+        <EmptyState>{t("noUnits")}</EmptyState>
       ) : (
         <ul className="admin-unit-list">
           {units.map((unit) => (

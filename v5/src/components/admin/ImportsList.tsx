@@ -13,12 +13,13 @@ import { EmptyState } from "../system/EmptyState";
 import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
 
 /**
- * The "Imports" section of `/admin/intake` (bulk intake spec §6): an **Import
- * a list** button beside the queue, and the recent imports as a `DataTable` —
- * where each came from, where it is, how many items and possible duplicates it
- * made — so a half-reviewed import waits here to be picked up again (§2
- * "Imports are resumable"). A list that could not be read says so; it is
- * never shown as "no imports" (Article 4).
+ * Add equipment's **Imports** tab, `/admin/intake/imports` (bulk intake spec
+ * §6; UI system phase 4 gave it a tab of its own): the recent imports as a
+ * `DataTable` — where each came from, where it is, how many items and
+ * possible duplicates it made — so a half-reviewed import waits here to be
+ * picked up again (§2 "Imports are resumable"). **Import a list** is the
+ * next tab, and the empty state's action. A list that could not be read says
+ * so; it is never shown as "no imports" (Article 4).
  */
 
 /** Ready and mapping wait on a person; reading is the machine's turn. */
@@ -29,7 +30,7 @@ const STATUS_TONE: Record<ImportStatus, StatusTone> = {
   failed: "bad",
 };
 
-export function ImportsList({ imports, canImport }: { imports: ImportView[] | null; canImport: boolean }) {
+export function ImportsList({ imports }: { imports: ImportView[] | null }) {
   const t = useTranslations("admin.import");
   const router = useRouter();
 
@@ -86,21 +87,9 @@ export function ImportsList({ imports, canImport }: { imports: ImportView[] | nu
   );
 
   return (
-    <section className="ui my-8 flex flex-col gap-3" aria-labelledby="imports-title">
-      <header className="flex flex-wrap items-center justify-between gap-3">
-        <h3 id="imports-title" className="font-heading text-lg font-medium uppercase">
-          {t("sectionTitle")}
-        </h3>
-        {canImport ? (
-          <Button asChild variant="default">
-            <Link href="/admin/intake/imports/new">{t("importButton")}</Link>
-          </Button>
-        ) : null}
-      </header>
+    <div className="ui flex flex-col gap-3">
       {imports === null ? (
-        <p className="text-sm text-bad" role="alert">
-          {t("sectionUnavailable")}
-        </p>
+        <EmptyState tone="bad">{t("sectionUnavailable")}</EmptyState>
       ) : (
         <DataTable
           data={imports}
@@ -108,7 +97,17 @@ export function ImportsList({ imports, canImport }: { imports: ImportView[] | nu
           getRowId={getRowId}
           getRowName={(row) => row.sourceName ?? t(`source.${row.sourceKind}`)}
           labels={{ table: t("listLabel") }}
-          empty={<EmptyState>{t("sectionEmpty")}</EmptyState>}
+          empty={
+            <EmptyState
+              action={
+                <Button asChild size="sm">
+                  <Link href="/admin/intake/imports/new">{t("importButton")}</Link>
+                </Button>
+              }
+            >
+              {t("sectionEmpty")}
+            </EmptyState>
+          }
           onActivate={(row) => router.push(importPath(row.id))}
           mobileRow={(row) => (
             <div className="flex flex-col gap-0.5 px-1 py-2.5">
@@ -131,7 +130,7 @@ export function ImportsList({ imports, canImport }: { imports: ImportView[] | nu
           )}
         />
       )}
-    </section>
+    </div>
   );
 }
 

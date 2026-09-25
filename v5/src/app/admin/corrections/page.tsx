@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { CorrectionsQueue } from "../../../components/admin/CorrectionsQueue";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
@@ -35,16 +36,19 @@ export default async function AdminCorrectionsPage() {
 
   const corrections = await listFeedbackQueue();
 
+  const waiting = corrections.filter((correction) => correction.status === "new").length;
+
   return (
-    <section className="admin-section">
-      <header className="admin-section-head">
-        <p className="td-eyebrow">{t("eyebrow")}</p>
-        <h2>{t("correctionsTitle")}</h2>
-        {/* No placeholder in this string: `/admin/page.tsx` renders the same
-            key without arguments, and a next-intl placeholder with no argument
-            renders literally (Article 6 — this has been a real bug here). */}
-        <p className="admin-lede">{t("correctionsLede")}</p>
-      </header>
+    <section className="flex flex-col gap-4">
+      <AdminPageHeader
+        surface="corrections"
+        title={t("correctionsTitle")}
+        lede={t("correctionsLede")}
+        facts={[
+          t("facts.waiting", { count: waiting }),
+          t("facts.handled", { count: corrections.length - waiting }),
+        ]}
+      />
 
       <CorrectionsQueue corrections={corrections} action={setCorrectionStatus} />
     </section>

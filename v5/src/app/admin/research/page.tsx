@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { ManualStateCounts } from "../../../components/admin/ManualStateCounts";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
@@ -29,13 +30,20 @@ export default async function AdminResearchPage() {
 
   const counts = await countManualsByState(await getDb());
 
+  const total = counts.searchable + counts.textOnly + counts.noText + counts.failed + counts.processing;
+
   return (
-    <section className="admin-section">
-      <header className="admin-section-head">
-        <p className="td-eyebrow">{t("eyebrow")}</p>
-        <h2>{t("researchTitle")}</h2>
-        <p className="admin-lede">{t("researchLede")}</p>
-      </header>
+    <section className="flex flex-col gap-4">
+      <AdminPageHeader
+        surface="research"
+        title={t("researchTitle")}
+        lede={t("researchLede")}
+        facts={[
+          t("facts.manuals", { count: total }),
+          t("facts.searchable", { count: counts.searchable }),
+          t("facts.failed", { count: counts.failed }),
+        ]}
+      />
       <ManualStateCounts counts={counts} />
     </section>
   );

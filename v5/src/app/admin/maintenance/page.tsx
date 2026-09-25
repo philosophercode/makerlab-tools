@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { MaintenanceQueue } from "../../../components/admin/MaintenanceQueue";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
@@ -43,16 +44,25 @@ export default async function AdminMaintenancePage() {
   // a ticket grants nobody anything (see `listAssignableStaff`).
   const [tickets, staff] = await Promise.all([listMaintenanceQueue(), listAssignableStaff()]);
 
+  const open = tickets.filter((ticket) => ticket.status === "open").length;
+  const inProgress = tickets.filter((ticket) => ticket.status === "in_progress").length;
+  const urgent = tickets.filter(
+    (ticket) => (ticket.status === "open" || ticket.status === "in_progress") && (ticket.priority === "high" || ticket.priority === "critical")
+  ).length;
+
   return (
-    <section className="admin-section">
-      <header className="admin-section-head">
-        <p className="td-eyebrow">{t("eyebrow")}</p>
-        <h2>{t("maintenanceTitle")}</h2>
-        {/* No placeholder in this string: `/admin/page.tsx` renders the same
-            key without arguments, and a next-intl placeholder with no argument
-            renders literally (Article 6 — this has been a real bug here). */}
-        <p className="admin-lede">{t("maintenanceLede")}</p>
-      </header>
+    <section className="flex flex-col gap-4">
+      <AdminPageHeader
+        surface="maintenance"
+        title={t("maintenanceTitle")}
+        lede={t("maintenanceLede")}
+        facts={[
+          t("facts.open", { count: open }),
+          t("facts.inProgress", { count: inProgress }),
+          t("facts.urgent", { count: urgent }),
+          t("facts.tickets", { count: tickets.length }),
+        ]}
+      />
 
       <MaintenanceQueue
         tickets={tickets}

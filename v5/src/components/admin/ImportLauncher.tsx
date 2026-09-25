@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { IMPORT_FILE_EXTENSIONS, extensionOf } from "../../lib/import/detect";
+import { RowStatus } from "./RowStatus";
 import {
   IMPORT_DOCUMENT_MAX_CHARS,
   IMPORT_DOCUMENT_MAX_PAGES,
@@ -140,7 +141,7 @@ export function ImportLauncher({ fetcher = fetch }: { fetcher?: typeof fetch }) 
         <p className="admin-field-hint">{t("launcher.pasteHint")}</p>
       </div>
       {error ? (
-        <p className="admin-row-status is-error" role="alert">
+        <RowStatus tone="bad" role="alert">
           {t(`errors.${error.code}`, {
             limit: error.limit ?? IMPORT_MAX_ITEMS,
             count: error.count ?? 0,
@@ -149,7 +150,7 @@ export function ImportLauncher({ fetcher = fetch }: { fetcher?: typeof fetch }) 
             limitChars: error.limitChars ?? IMPORT_DOCUMENT_MAX_CHARS,
             remaining: 0,
           })}
-        </p>
+        </RowStatus>
       ) : null}
       <div className="admin-editor-actions">
         <button type="submit" className="admin-button is-primary" disabled={busy || (!file && !text.trim())}>

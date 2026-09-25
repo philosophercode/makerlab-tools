@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import type { EditorResource, NewResource } from "../../lib/data/resources";
 import { ManualStateTag } from "./ManualStateTag";
 import { uploadFile, type UploadFailure } from "./upload-file";
+import { RowStatus } from "./RowStatus";
+import { EmptyState } from "../system/EmptyState";
 
 /**
  * The Resources section of the tool editor — manuals, SOPs and links
@@ -85,7 +87,7 @@ export function ResourcesEditor({
   return (
     <div className="admin-editor-resources">
       {resources.length === 0 ? (
-        <p className="admin-empty td-empty">{t("noResources")}</p>
+        <EmptyState>{t("noResources")}</EmptyState>
       ) : (
         <ul className="admin-resource-list">
           {resources.map((resource) => (
@@ -194,9 +196,7 @@ export function ResourcesEditor({
         </button>
 
         {uploadError ? (
-          <p className="admin-row-status is-error" role="status">
-            {t(`uploadErrors.${uploadError}`)}
-          </p>
+          <RowStatus tone="bad">{t(`uploadErrors.${uploadError}`)}</RowStatus>
         ) : null}
       </form>
     </div>

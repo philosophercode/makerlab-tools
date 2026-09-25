@@ -13,15 +13,24 @@ export interface EmptyStateProps {
   children: React.ReactNode;
   /** The next action — usually one `Button` or link. */
   action?: React.ReactNode;
+  /**
+   * `bad` for an error branch — something could not be read — in the bad ink,
+   * announced (`role="alert"`). Failing is said, never shown as an empty list
+   * (Article 4).
+   */
+  tone?: "muted" | "bad";
   className?: string;
 }
 
-export function EmptyState({ children, action, className }: EmptyStateProps) {
+export function EmptyState({ children, action, tone = "muted", className }: EmptyStateProps) {
   return (
     <div
       data-slot="empty-state"
+      data-tone={tone}
+      role={tone === "bad" ? "alert" : undefined}
       className={cn(
-        "ui flex flex-wrap items-center justify-between gap-3 border-y border-dashed border-border px-1 py-5 text-sm text-muted-foreground",
+        "ui flex flex-wrap items-center justify-between gap-3 border-y border-dashed border-border px-1 py-5 text-sm",
+        tone === "bad" ? "text-bad" : "text-muted-foreground",
         className
       )}
     >

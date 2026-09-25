@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { InventoryBoard } from "../../../components/admin/InventoryBoard";
 import { UnlinkedUnits } from "../../../components/admin/UnlinkedUnits";
 import {
@@ -94,16 +95,21 @@ export default async function AdminInventoryPage({
     listUnlinkedUnits(),
   ]);
 
+  const count = (state: string) => rows.filter((row) => row.state === state).length;
+
   return (
-    <section className="admin-section">
-      <header className="admin-section-head">
-        <p className="td-eyebrow">{t("eyebrow")}</p>
-        <h2>{t("inventoryTitle")}</h2>
-        {/* No placeholder in this string: `/admin/page.tsx` renders the same
-            key without arguments, and a next-intl placeholder with no argument
-            renders literally (Article 6 — this has been a real bug here). */}
-        <p className="admin-lede">{t("inventoryLede")}</p>
-      </header>
+    <section className="flex flex-col gap-4">
+      <AdminPageHeader
+        surface="inventory"
+        title={t("inventoryTitle")}
+        lede={t("inventoryLede")}
+        facts={[
+          t("facts.tools", { count: rows.length }),
+          t("facts.published", { count: count("published") }),
+          t("facts.drafts", { count: count("draft") }),
+          t("facts.needAttention", { count: rows.filter((row) => row.needsAttention).length }),
+        ]}
+      />
 
       <UnlinkedUnits units={unlinked} />
 

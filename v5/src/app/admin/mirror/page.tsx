@@ -1,5 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
+import { EmptyState } from "../../../components/system/EmptyState";
 import { MirrorConnect } from "../../../components/admin/MirrorConnect";
 import { MirrorControls } from "../../../components/admin/MirrorControls";
 import { MirrorMapping } from "../../../components/admin/MirrorMapping";
@@ -73,10 +75,8 @@ export default async function AdminMirrorPage() {
   } catch (err) {
     console.error("[admin/mirror] could not read the mirror", err);
     return (
-      <MirrorSection>
-        <p className="admin-empty td-empty" role="alert">
-          {t("mirror.unavailable")}
-        </p>
+      <MirrorSection view={undefined}>
+        <EmptyState tone="bad">{t("mirror.unavailable")}</EmptyState>
       </MirrorSection>
     );
   }
@@ -94,7 +94,7 @@ export default async function AdminMirrorPage() {
 
   if (!mirrorKeyAvailable()) {
     return (
-      <MirrorSection>
+      <MirrorSection view={view}>
         <div className="admin-mirror-notice" role="status">
           <h3>{t("mirror.keyUnavailableTitle")}</h3>
           <p>{t("mirror.keyUnavailableBody")}</p>
@@ -106,7 +106,7 @@ export default async function AdminMirrorPage() {
 
   if (!view) {
     return (
-      <MirrorSection>
+      <MirrorSection view={view}>
         <section className="admin-mirror-panel" aria-labelledby="mirror-howto-title">
           <h3 id="mirror-howto-title">{t("mirror.howToTitle")}</h3>
           <ol className="admin-mirror-steps">
@@ -126,7 +126,7 @@ export default async function AdminMirrorPage() {
 
   if (needsToken) {
     return (
-      <MirrorSection>
+      <MirrorSection view={view}>
         <div className="admin-mirror-notice" role="status">
           <h3>{t("mirror.needsTokenTitle")}</h3>
           <p>{t(view.connected ? "mirror.needsTokenRejected" : "mirror.needsTokenDisconnected")}</p>
@@ -140,7 +140,7 @@ export default async function AdminMirrorPage() {
   }
 
   return (
-    <MirrorSection>
+    <MirrorSection view={view}>
       <MirrorStatus view={view} timeZone={timeZone} />
       <MirrorControls view={view} actions={actions} />
       <MirrorMapping mapping={view.mapping} editable actions={actions} />
@@ -149,18 +149,26 @@ export default async function AdminMirrorPage() {
   );
 }
 
-/** The page's header, shared by every state. */
-async function MirrorSection({ children }: { children: React.ReactNode }) {
+/**
+ * The page's header, shared by every state. Its facts line is the mirror's
+ * state in words — the home tile's words — and the last push, when there was
+ * one. `view` is `undefined` when the row could not be read, `null` when there
+ * is no mirror yet.
+ */
+async function MirrorSection({ view, children }: { view: MirrorView | null | undefined; children: React.ReactNode }) {
   const t = await getTranslations("admin");
+  const facts =
+    view === undefined
+      ? [t("facts.unreadable")]
+      : [
+          t(
+            `home.mirror.${!view?.connected ? "notConnected" : view.paused ? "paused" : view.lastStatus === "failed" ? "failed" : "connected"}`
+          ),
+          view?.lastSyncedAt ? t("facts.lastPush", { date: view.lastSyncedAt.slice(0, 10) }) : null,
+        ];
   return (
-    <section className="admin-section admin-mirror">
-      <header className="admin-section-head">
-        <p className="td-eyebrow">{t("eyebrow")}</p>
-        <h2>{t("mirrorTitle")}</h2>
-        {/* No placeholder in this string: `/admin/page.tsx` renders the same
-            key without arguments (Article 6). */}
-        <p className="admin-lede">{t("mirrorLede")}</p>
-      </header>
+    <section className="flex flex-col gap-5">
+      <AdminPageHeader surface="mirror" title={t("mirrorTitle")} lede={t("mirrorLede")} facts={facts} />
       {children}
     </section>
   );

@@ -1,10 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { MaintenanceQueueEntry } from "../../lib/data/maintenance";
 import { MAINTENANCE_PRIORITY, MAINTENANCE_STATUS } from "../../lib/db/schema/vocabulary";
 import type { UpdateTicketAction } from "../../app/admin/maintenance/action-result";
+import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
+import { Field } from "../system/Field";
 import { RowStatus } from "./RowStatus";
 import { useRowAction } from "./use-row-action";
 
@@ -84,29 +88,31 @@ export function TicketControls({ ticket, staff, action }: TicketControlsProps) {
     );
   }
 
+  const id = useId();
+
   return (
-    <div className="admin-ticket-controls">
-      <label className="admin-field">
-        <span>{t("fieldStatus")}</span>
-        <select
+    <div className="flex flex-wrap items-end gap-3 border-t border-rule pt-2">
+      <Field id={`${id}-status`} label={t("fieldStatus")}>
+        <NativeSelect
+          id={`${id}-status`}
+          size="sm"
           value={value.status}
           disabled={pending}
           aria-label={t("statusFor", { title: ticket.title })}
-          onChange={(event) =>
-            save({ ...value, status: event.target.value }, { status: event.target.value })
-          }
+          onChange={(event) => save({ ...value, status: event.target.value }, { status: event.target.value })}
         >
           {MAINTENANCE_STATUS.map((option) => (
             <option key={option} value={option}>
               {t(`status.${option}`)}
             </option>
           ))}
-        </select>
-      </label>
+        </NativeSelect>
+      </Field>
 
-      <label className="admin-field">
-        <span>{t("fieldPriority")}</span>
-        <select
+      <Field id={`${id}-priority`} label={t("fieldPriority")}>
+        <NativeSelect
+          id={`${id}-priority`}
+          size="sm"
           value={value.priority ?? ""}
           disabled={pending}
           aria-label={t("priorityFor", { title: ticket.title })}
@@ -121,12 +127,13 @@ export function TicketControls({ ticket, staff, action }: TicketControlsProps) {
               {t(`priority.${option}`)}
             </option>
           ))}
-        </select>
-      </label>
+        </NativeSelect>
+      </Field>
 
-      <label className="admin-field">
-        <span>{t("fieldAssignee")}</span>
-        <select
+      <Field id={`${id}-assignee`} label={t("fieldAssignee")}>
+        <NativeSelect
+          id={`${id}-assignee`}
+          size="sm"
           value={value.assignedToUserId ?? ""}
           disabled={pending || staff.length === 0}
           aria-label={t("assigneeFor", { title: ticket.title })}
@@ -138,35 +145,28 @@ export function TicketControls({ ticket, staff, action }: TicketControlsProps) {
               {member.name}
             </option>
           ))}
-        </select>
-      </label>
+        </NativeSelect>
+      </Field>
 
-      <label className="admin-field admin-field-wide">
-        <span>{t("fieldResolution")}</span>
-        <textarea
+      {/* The resolution takes the rest of the row, then the whole of it on a
+          phone: it is the only field here somebody writes a sentence into. */}
+      <Field id={`${id}-resolution`} label={t("fieldResolution")} className="min-w-[16rem] flex-1">
+        <Textarea
+          id={`${id}-resolution`}
           value={resolution}
           rows={2}
+          className="min-h-8 resize-y text-table"
           placeholder={t("resolutionPlaceholder")}
           aria-label={t("resolutionFor", { title: ticket.title })}
           onChange={(event) => setResolution(event.target.value)}
         />
-      </label>
+      </Field>
 
-      <button
-        type="button"
-        className="admin-button"
-        disabled={pending || resolution === committed}
-        onClick={() => void saveResolution()}
-      >
+      <Button size="sm" disabled={pending || resolution === committed} onClick={() => void saveResolution()}>
         {t("saveResolution")}
-      </button>
+      </Button>
 
-      <RowStatus
-        pending={draft.pending}
-        saved={draft.saved}
-        error={draft.error}
-        warning={draft.warning}
-      />
+      <RowStatus pending={draft.pending} saved={draft.saved} error={draft.error} warning={draft.warning} />
     </div>
   );
 }

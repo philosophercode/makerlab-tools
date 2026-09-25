@@ -25,14 +25,16 @@ export function UnlinkedUnits({ units }: UnlinkedUnitsProps) {
   if (units.length === 0) return null;
 
   return (
-    <section className="admin-unlinked" aria-labelledby="unlinked-units-title">
-      <h3 id="unlinked-units-title">{t("unlinkedTitle")}</h3>
-      <p className="admin-lede">{t("unlinkedLede")}</p>
-      <ul className="admin-unlinked-list">
+    <section className="ui flex flex-col gap-2 border-s-2 border-s-warn bg-muted px-4 py-3" aria-labelledby="unlinked-units-title">
+      <h3 id="unlinked-units-title" className="font-mono text-label font-medium tracking-[0.08em] uppercase">
+        {t("unlinkedTitle")}
+      </h3>
+      <p className="max-w-[72ch] text-sm text-muted-foreground">{t("unlinkedLede")}</p>
+      <ul className="flex flex-wrap gap-2">
         {units.map((unit) => (
-          <li key={unit.id}>
-            <span className="admin-unlinked-label">{unit.unitLabel}</span>
-            <span className="admin-cell-note">{identifier(unit, t)}</span>
+          <li key={unit.id} className="flex flex-col border border-border bg-card px-3 py-1.5 text-table">
+            <span className="font-medium">{unit.unitLabel}</span>
+            <span className="font-mono text-micro text-muted-foreground uppercase">{identifier(unit, t)}</span>
           </li>
         ))}
       </ul>
