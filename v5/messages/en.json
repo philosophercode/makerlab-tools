@@ -175,7 +175,7 @@
     "browseTools": "Browse tools",
     "mcpHeading": "Connect an AI assistant",
     "mcpBody": "The catalog is also available to AI assistants such as Claude, ChatGPT and Codex over MCP, at this site's /api/mcp address. Browsing needs no account. To let an assistant file reports as you, with your role's permissions and nothing more, sign in with Google from the assistant; a personal access token is there for clients that can't.",
-    "mcpLink": "Set up an assistant"
+    "mcpLink": "See the MCP server and its tools"
   },
   "chat": {
     "openAria": "Open MakerLab assistant",
@@ -1450,6 +1450,8 @@
     "eyebrow": "Account",
     "title": "Connect an AI assistant",
     "lede": "Connect Claude, ChatGPT, Codex or another MCP client to MakerLab Tools. The easiest way is to sign in with Google: the assistant acts as you, with your role's permissions and nothing more. Browsing needs no account.",
+    "mcpPageBody": "The server addresses, the setup steps for each assistant and the list of tools are on the MCP server page. This page is for personal access tokens and the apps you've connected.",
+    "mcpPageLink": "Open the MCP server page",
     "loading": "Loading…",
     "unavailable": "Your tokens could not be loaded right now. Try again shortly.",
     "signedOut": "Sign in here to create a personal access token. You only need one for a client or script that can't sign in with Google.",
@@ -1470,8 +1472,6 @@
       "chatgptBody": "Create a custom connector (under Settings → Connectors, or developer mode, depending on your plan) with the address above and OAuth authentication.",
       "readOnlyNote": "On the approval page you can choose read-only if the assistant only needs to look things up."
     },
-    "endpointHeading": "Browse without an account",
-    "endpointBody": "To look things up without signing in, add this address instead. It offers the public, read-only tools.",
     "safetyHeading": "Keeping it safe",
     "safetyBody": "A token acts as you. Make one per device, prefer read-only, and revoke it here if a laptop is lost. Anything an assistant changes in the catalog arrives as a proposal that staff accept in the app.",
     "copy": "Copy",
@@ -1564,5 +1564,59 @@
       "expired": "This request has expired or isn't yours. Start the connection again from the app.",
       "failed": "That didn't work. Start the connection again from the app."
     }
+  },
+  "mcpPage": {
+    "metaTitle": "MCP server",
+    "eyebrow": "MCP server",
+    "title": "Connect an AI assistant to the lab's catalog",
+    "lede": "MakerLab Tools runs an MCP server, so Claude, ChatGPT, Codex and other AI assistants can search the lab's equipment, check which units are available and read the manuals. Give your assistant one of the addresses below.",
+    "loading": "Loading…",
+    "addressesHeading": "Server addresses",
+    "publicLabel": "Public address (no sign-in)",
+    "publicBody": "Read-only and open to anyone: tools, units, availability, maintenance history without names, and the public manuals.",
+    "signedInLabel": "Sign-in address (sign in with Google)",
+    "signedInBody": "Your assistant sends you to sign in with Google, then acts as you, with the tools your role allows.",
+    "toolsHeading": "Tools",
+    "toolsLede": "Every tool the server offers, listed from the same definitions the server uses. Which ones an assistant sees depends on who it connects as.",
+    "viewerNote": "{role, select, anonymous {You're not signed in, so the tools marked “You can use this” are the ones you get without an account.} user {You're signed in as a lab member. The tools marked “You can use this” are the ones you get when your assistant signs in as you.} other {You're signed in as staff. The tools marked “You can use this” are the ones you get when your assistant signs in as you.}}",
+    "audience": {
+      "anyone": "Anyone",
+      "anyoneBody": "No account needed. Offered on both addresses.",
+      "signed_in": "Signed-in lab members",
+      "signed_inBody": "Students and everyone else who signs in with an allowed account.",
+      "staff": "Staff",
+      "staffBody": "SuperMakers and directors (admin roles)."
+    },
+    "kind": {
+      "read": "Read",
+      "write": "Write"
+    },
+    "youCanUse": "You can use this",
+    "inputs": "Inputs ({count})",
+    "noInputs": "No inputs.",
+    "required": "required",
+    "optional": "optional",
+    "tryIt": {
+      "heading": "Try it",
+      "lede": "Run a public, read-only tool the way an MCP client would and see what it returns. It always runs as an anonymous caller, even when you're signed in, and counts toward the public limit of 30 requests a minute.",
+      "writesNote": "Tools that change anything can't be run from here.",
+      "toolLabel": "Tool",
+      "any": "Any",
+      "run": "Run {tool}",
+      "running": "Running…",
+      "summary": "HTTP {status} · {ms} ms on the server",
+      "resultHeading": "Result",
+      "rawHeading": "Raw JSON-RPC response",
+      "toolError": "The tool answered with an error.",
+      "rateLimited": "Too many requests from your network. Wait a minute and try again.",
+      "errors": {
+        "not_runnable": "This tool can't be run from this page.",
+        "invalid_input": "Check the inputs and try again.",
+        "failed": "That didn't work. Try again shortly."
+      }
+    },
+    "tokensHeading": "Clients that can't sign in",
+    "tokensBody": "For Claude Desktop's config file, a CI job or your own script, create a personal access token instead. It acts as you until it expires or you revoke it.",
+    "tokensLink": "Manage personal access tokens"
   }
 }

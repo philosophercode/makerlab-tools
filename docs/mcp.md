@@ -11,8 +11,13 @@ It is a remote MCP server speaking **Streamable HTTP with JSON responses**
 (stateless — no SSE stream, no session). Everything below works with any client
 that speaks that.
 
-In the app, the same instructions — with your own address filled in — are on
-**profile menu → Connect an AI assistant** (`/account/tokens`).
+In the app, the **MCP server page, `/mcp`** (linked from the About page), has
+the same instructions with your own addresses filled in, every tool the server
+offers — generated from the server's own tool definitions and grouped by who may
+use them — and a **Try it** form that runs the public, read-only tools right
+there, as an anonymous caller, so you can see what an assistant would get back.
+Personal access tokens and connected apps are managed on **profile menu →
+Connect an AI assistant** (`/account/tokens`).
 
 ## Just browsing? No account needed
 
@@ -211,7 +216,9 @@ read-only browsing with no account, use the open address and no auth at all.
 ## What you can do
 
 The tools an assistant is offered are exactly the ones your identity may use; a
-tool your role doesn't allow is not listed at all.
+tool your role doesn't allow is not listed at all. The table below is a summary;
+the `/mcp` page lists the tools as the server defines them, with their inputs,
+and marks the ones your account can use.
 
 | Tool | No account | Student | Staff (SuperMaker, Director) | Try asking |
 |---|---|---|---|---|

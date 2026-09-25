@@ -615,3 +615,11 @@ draft, no private manual passage, no reporter name), a staff or write tool is `n
 malformed arguments are `invalid_input`, and the 31st call in a minute from one IP is a 429.
 Component tests for the header, the grouped tool list with markers, the Try-it form (fields
 from the schema, enum select, result and timing shown) and the Connect section.
+
+**Live check (2026-09-25, `next dev` on :3031, a scratch `PGLITE_DATA_DIR` seeded with the demo
+data, not signed in).** `/mcp` rendered the two addresses as `http://localhost:3031/api/mcp[/signed-in]`,
+14 tools (Anyone 6, Signed-in 3, Staff 5) with the six public reads marked. Try it:
+`search_tools("laser")` → Trotec Speedy 400, HTTP 200 in 15 ms; `get_tool_details("form-4")` →
+Form 4 with its official name, 7 ms — the same results `curl` got from `/api/mcp`. A long JSON
+line first widened the page; the result blocks now scroll inside themselves. `/about` and
+`/account/tokens` link to `/mcp`.

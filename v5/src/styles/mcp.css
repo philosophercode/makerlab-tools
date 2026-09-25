@@ -1,0 +1,150 @@
+/* /mcp — the public MCP server page (MCP access spec, amendment 2026-09-25).
+   Builds on account.css (sections, code blocks, buttons, tags). Theme tokens
+   only, never hard-coded colours. */
+
+/* Long JSON lines and commands scroll inside their block; they never widen the page. */
+.mcp-page .account-section,
+.mcp-page .account-form,
+.mcp-try-result,
+.mcp-audience {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.mcp-page h3 {
+  margin: 8px 0 0;
+  font-size: 16px;
+}
+
+.mcp-address {
+  display: grid;
+  gap: 6px;
+}
+
+.mcp-viewer-note {
+  padding: 10px 12px;
+  border-left: 3px solid var(--primary);
+  background: var(--surface-container);
+}
+
+.mcp-audience {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.mcp-tool-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mcp-tool {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container);
+  min-width: 0;
+}
+
+.mcp-tool-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+  align-items: center;
+}
+
+.mcp-tool-name {
+  font-family: var(--font-mono);
+  font-size: 14px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.mcp-tool-head .account-tag {
+  margin-left: 0;
+}
+
+.mcp-kind.is-write {
+  border-color: var(--secondary);
+  color: var(--secondary);
+}
+
+.mcp-usable {
+  display: inline-block;
+  padding: 1px 6px;
+  background: var(--primary);
+  color: var(--surface-container-low);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.td-prose .mcp-tool-description {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+}
+
+.mcp-inputs summary,
+.mcp-json summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.mcp-inputs summary:focus-visible,
+.mcp-json summary:focus-visible,
+.mcp-page .account-button:focus-visible,
+.mcp-page select:focus-visible,
+.mcp-page input:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.mcp-inputs ul {
+  display: grid;
+  gap: 4px;
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 13px;
+}
+
+.mcp-field-meta,
+.mcp-field-description {
+  color: var(--on-surface-muted);
+}
+
+.mcp-try-form input[type="text"],
+.mcp-try-form input[type="number"] {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container-low);
+  color: var(--on-surface);
+  font: inherit;
+}
+
+.mcp-try-form select {
+  min-height: 40px;
+  padding: 0 10px;
+  border: 1px solid var(--outline);
+  background: var(--surface-container-low);
+  color: var(--on-surface);
+  font: inherit;
+}
+
+.mcp-try-result {
+  display: grid;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.mcp-json pre {
+  max-height: 420px;
+  margin: 8px 0 0;
+  overflow: auto;
+}
