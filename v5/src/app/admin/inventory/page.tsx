@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
-import { InventoryFilters } from "../../../components/admin/InventoryFilters";
+import { InventoryBoard } from "../../../components/admin/InventoryBoard";
 import { UnlinkedUnits } from "../../../components/admin/UnlinkedUnits";
 import {
   parseInventoryFilters,
@@ -38,7 +38,7 @@ import { queueToolRefresh } from "../refresh/actions";
  * identity read makes this subtree dynamic anyway, and the filters are read
  * from the URL, which is dynamic for the same reason.
  *
- * The rows are read whole and filtered in the browser (see `InventoryFilters`),
+ * The rows are read whole and filtered in the browser (see `InventoryBoard`),
  * so changing a facet costs nothing and the URL stays linkable.
  *
  * **The editor's actions travel down as props.** A client island that imported
@@ -107,7 +107,7 @@ export default async function AdminInventoryPage({
 
       <UnlinkedUnits units={unlinked} />
 
-      <InventoryFilters
+      <InventoryBoard
         rows={rows}
         initial={parseInventoryFilters(params)}
         actions={EDITOR_ACTIONS}
