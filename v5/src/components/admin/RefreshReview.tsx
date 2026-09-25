@@ -2,14 +2,19 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useId, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import type { RefreshActionError, RefreshReviewActions, RefreshWarning } from "../../app/admin/refresh/action-result";
 import type { RefreshStatus } from "../../lib/db/schema/vocabulary";
 import { INTAKE_POLL_INTERVAL_MS, REVIEWER_NOTE_MAX_CHARS } from "../../lib/intake/limits";
 import { isAcceptable, isActionable, isUndecided, type FieldProposal } from "../../lib/refresh/types";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { Field } from "../system/Field";
+import { Glyph } from "../system/StatusGlyph";
+import { ReviewDiagnosis, ReviewNote } from "../system/review/ReviewCard";
 import { ProposalCard } from "./ProposalCard";
-import "../../styles/admin-refresh.css";
 
 /**
  * One refresh's review (refresh research spec §5.2, §6): the proposal cards,
@@ -21,6 +26,11 @@ import "../../styles/admin-refresh.css";
  * A conflict (the tool was edited since the refresh was queued) is said once
  * above the cards; the affected cards come back marked "Changed since" with the
  * record's value now, to be decided again.
+ *
+ * Since UI system phase 3 the page is the shared review layout: a toolbar
+ * (Accept all verified is the one filled button), notes as glyph lines, the
+ * cards as `ReviewCard`s (via `ProposalCard`) and the outcome line beside the
+ * toolbar.
  */
 
 export interface RefreshReviewView {
@@ -50,6 +60,8 @@ export function RefreshReview({ view, actions }: { view: RefreshReviewView; acti
   const [againOpen, setAgainOpen] = useState(false);
   const [note, setNote] = useState("");
   const [descriptions, setDescriptions] = useState(view.includeDescription);
+  const noteId = useId();
+  const descriptionsId = useId();
 
   const running = view.status === "queued" || view.status === "researching";
   useEffect(() => {
@@ -107,84 +119,125 @@ export function RefreshReview({ view, actions }: { view: RefreshReviewView; acti
     });
   }
 
-  return (
-    <div className="admin-refresh-page">
-      <ul className="admin-refresh-notes">
-        {view.tool.archived ? <li>{t("archivedNote")}</li> : null}
-        {running ? <li role="status">{t("queuedNote")}</li> : null}
-        {view.note ? <li>{t("requestedNote", { note: view.note })}</li> : null}
-        {view.categorySuggestion ? <li>{t("categorySuggestion", { category: view.categorySuggestion })}</li> : null}
-        {view.duplicateOf ? (
-          <li>
-            <Link href={`/tools/${view.duplicateOf.slug}`}>{t("duplicateOf", { name: view.duplicateOf.name })}</Link>
-          </li>
-        ) : null}
-        {view.status === "failed" && view.researchError ? (
-          <li className="admin-intake-diagnosis" role="alert">
-            <span className="admin-intake-diagnosis-label">{t("failedLabel")}: </span>
-            <span className="admin-intake-diagnosis-text">{view.researchError}</span>
-          </li>
-        ) : null}
-        {hasConflict ? <li role="alert">{t("conflictNote")}</li> : null}
-      </ul>
+  const notes =
+    view.tool.archived ||
+    running ||
+    view.note ||
+    view.categorySuggestion ||
+    view.duplicateOf ||
+    hasConflict;
 
-      <div className="admin-refresh-toolbar">
+  return (
+    <div className="ui flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-2 border-y border-border py-2">
         {view.status === "proposed" && hasAcceptable ? (
-          <button type="button" className="admin-button is-primary" disabled={pending} onClick={() => decide("accept_all_verified")}>
+          <Button variant="default" size="sm" disabled={pending} onClick={() => decide("accept_all_verified")}>
             {t("acceptAll")}
-          </button>
+          </Button>
         ) : null}
         {view.status === "proposed" && hasUndecided ? (
-          <button type="button" className="admin-button" disabled={pending} onClick={() => decide("reject_all")}>
+          <Button size="sm" disabled={pending} onClick={() => decide("reject_all")}>
             {t("rejectAll")}
-          </button>
+          </Button>
         ) : null}
         {!running ? (
-          <button type="button" className="admin-button" disabled={pending} aria-expanded={againOpen} onClick={() => setAgainOpen((open) => !open)}>
+          <Button size="sm" disabled={pending} aria-expanded={againOpen} onClick={() => setAgainOpen((open) => !open)}>
             {t("again")}
-          </button>
+          </Button>
         ) : null}
-        <Link className="admin-button" href={`/tools/${view.tool.slug}`}>
-          {t("openEditor")}
-        </Link>
-        <p className={`admin-row-status${message && message.kind !== "ok" ? ` is-${message.kind}` : ""}`} role="status">
+        <Button asChild variant="ghost" size="sm">
+          <Link href={`/tools/${view.tool.slug}`}>{t("openEditor")}</Link>
+        </Button>
+        <ReviewNote
+          role="status"
+          tone={message?.kind === "error" ? "bad" : message?.kind === "warning" ? "warn" : "muted"}
+          className="ms-auto"
+        >
           {pending ? t("saving") : (message?.text ?? "")}
-        </p>
+        </ReviewNote>
       </div>
 
+      {notes ? (
+        <ul className="flex flex-col gap-1 text-table">
+          {view.tool.archived ? (
+            <li>
+              <Glyph tone="muted" className="me-1.5" />
+              {t("archivedNote")}
+            </li>
+          ) : null}
+          {running ? (
+            <li role="status">
+              <Glyph tone="idle" className="me-1.5" />
+              {t("queuedNote")}
+            </li>
+          ) : null}
+          {view.note ? <li className="text-muted-foreground">{t("requestedNote", { note: view.note })}</li> : null}
+          {view.categorySuggestion ? (
+            <li className="text-muted-foreground">
+              <Glyph tone="idle" className="me-1.5" />
+              {t("categorySuggestion", { category: view.categorySuggestion })}
+            </li>
+          ) : null}
+          {view.duplicateOf ? (
+            <li>
+              <Glyph tone="warn" className="me-1.5" />
+              <Link className="underline underline-offset-2" href={`/tools/${view.duplicateOf.slug}`}>
+                {t("duplicateOf", { name: view.duplicateOf.name })}
+              </Link>
+            </li>
+          ) : null}
+          {hasConflict ? (
+            <li role="alert" className="text-warn">
+              <Glyph tone="warn" className="me-1.5" />
+              {t("conflictNote")}
+            </li>
+          ) : null}
+        </ul>
+      ) : null}
+
+      {view.status === "failed" && view.researchError ? (
+        <div role="alert">
+          <ReviewDiagnosis label={t("failedLabel")}>{view.researchError}</ReviewDiagnosis>
+        </div>
+      ) : null}
+
       {againOpen ? (
-        <div className="admin-refresh-dialog">
-          <label className="admin-field">
-            <span>{t("againNote")}</span>
-            <textarea
+        // An inline disclosure: a form that belongs to the page (DESIGN.md §8.7).
+        <div className="flex flex-col gap-3 border-s-2 border-s-primary-ink bg-card p-4">
+          <Field id={noteId} label={t("againNote")}>
+            <Textarea
+              id={noteId}
               value={note}
               maxLength={REVIEWER_NOTE_MAX_CHARS}
               placeholder={t("againNotePlaceholder")}
               onChange={(event) => setNote(event.target.value)}
               rows={3}
             />
-          </label>
-          <label className="admin-field is-check">
-            <input type="checkbox" checked={descriptions} onChange={(event) => setDescriptions(event.target.checked)} />
-            <span>{t("againDescriptions")}</span>
-          </label>
-          <div className="admin-editor-actions">
-            <button type="button" className="admin-button is-primary" disabled={pending} onClick={again}>
+          </Field>
+          <div className="flex items-center gap-2 text-table">
+            <Checkbox id={descriptionsId} checked={descriptions} onCheckedChange={(value) => setDescriptions(value === true)} />
+            <label htmlFor={descriptionsId}>{t("againDescriptions")}</label>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="default" size="sm" disabled={pending} onClick={again}>
               {t("againSend")}
-            </button>
-            <button type="button" className="admin-button" onClick={() => setAgainOpen(false)}>
+            </Button>
+            <Button size="sm" onClick={() => setAgainOpen(false)}>
               {t("cancel")}
-            </button>
+            </Button>
           </div>
         </div>
       ) : null}
 
       {view.status !== "queued" && view.status !== "researching" && view.status !== "failed" && actionable.length === 0 ? (
-        <p className="admin-intake-done td-panel">{t("matches")}</p>
+        <p className="flex items-baseline gap-1.5 text-table">
+          <Glyph tone="ok" />
+          {t("matches")}
+        </p>
       ) : null}
 
       {actionable.length > 0 ? (
-        <section className="admin-proposals" aria-label={t("proposalsLabel")}>
+        <section aria-label={t("proposalsLabel")} className="border-t border-rule">
           {actionable.map((proposal) => (
             <ProposalCard
               key={proposal.id}
@@ -199,16 +252,21 @@ export function RefreshReview({ view, actions }: { view: RefreshReviewView; acti
       ) : null}
 
       {notFound.length > 0 ? (
-        <details className="admin-proposals">
-          <summary>
+        <details className="group text-table">
+          <summary className="cursor-pointer font-mono text-label text-muted-foreground uppercase">
             {t("notFoundLabel")} ({notFound.length})
           </summary>
-          <p className="admin-intake-hint">{t("notFoundHint")}</p>
-          <ul>
-            {notFound.map((p) => (
-              <li key={p.id}>{tp(`field.${p.field}`)}</li>
-            ))}
-          </ul>
+          <div className="mt-2 flex flex-col gap-1 ps-4">
+            <ReviewNote>{t("notFoundHint")}</ReviewNote>
+            <ul className="flex flex-col gap-0.5">
+              {notFound.map((p) => (
+                <li key={p.id}>
+                  <Glyph tone="idle" className="me-1.5" />
+                  {tp(`field.${p.field}`)}
+                </li>
+              ))}
+            </ul>
+          </div>
         </details>
       ) : null}
     </div>

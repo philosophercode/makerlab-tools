@@ -17,8 +17,9 @@ import type {
  *
  * Originally part of the chat's identification card (since removed); the
  * preliminary page on `/admin/intake/[id]` shows it over a `ResearchResult`.
- * It keeps the `intake` message keys and the `id-card-*` class names it had
- * there.
+ * It keeps the `intake` message keys it had there; since UI system phase 3 it
+ * is drawn with utilities (the `id-card-*` rules it borrowed were deleted in
+ * phase 1).
  *
  * The lines are rebuilt from the structured `evidence` so they are localized
  * like every other string — `confidence.basis` is the English, model-facing
@@ -47,26 +48,14 @@ export interface ConfidenceStripProps {
  * Evidence marker. **No traffic lights** — a red/amber/green badge would import
  * a colour language the app does not otherwise use and would read as an error
  * state rather than a request for help (confidence spec §6). The established
- * convention instead: a solid marker for evidence held, hollow for unknown.
+ * convention instead, and the status glyphs' shapes (DESIGN.md §8.5) in ink
+ * only: ● solid for evidence held, ○ hollow for unknown.
  */
 function EvidenceMarker({ held }: { held: boolean }) {
   return (
-    <svg
-      viewBox="0 0 12 12"
-      width="10"
-      height="10"
-      className="id-card-confidence-marker"
-      aria-hidden="true"
-    >
-      <circle
-        cx="6"
-        cy="6"
-        r="4"
-        fill={held ? "currentColor" : "none"}
-        stroke="currentColor"
-        strokeWidth="1.5"
-      />
-    </svg>
+    <span aria-hidden="true" className={held ? "text-micro text-foreground" : "text-micro text-muted-foreground"}>
+      {held ? "●" : "○"}
+    </span>
   );
 }
 
@@ -125,33 +114,26 @@ export function ConfidenceStrip({
   const lines = confidenceLines(evidence, sourcesAreReads ? { sourceUrls: sourceUrls ?? [] } : null);
   const sources = (sourceUrls || []).filter(isWebLink);
 
+  const row = "flex items-baseline gap-2";
   const basisRows = lines.basis.map((line) => (
-    <li key={`basis-${line.code}`} className="id-card-also-row id-card-confidence-line">
+    <li key={`basis-${line.code}`} className={row}>
       <EvidenceMarker held />
       <span className="sr-only">{t("confidenceHeldAria")}</span>
       <span>{t(BASIS_KEYS[line.code], line.values)}</span>
     </li>
   ));
   const unknownRows = lines.unknowns.map((line) => (
-    <li
-      key={`unknown-${line.code}`}
-      className="id-card-also-row id-card-confidence-line id-card-confidence-line-unknown"
-    >
+    <li key={`unknown-${line.code}`} className={`${row} text-muted-foreground`}>
       <EvidenceMarker held={false} />
       <span className="sr-only">{t("confidenceUnknownAria")}</span>
       <span>{t(UNKNOWN_KEYS[line.code])}</span>
     </li>
   ));
 
-  // The strip reuses the "also creating" list styles so it is presentable
-  // before any `.id-card-confidence*` rules exist in globals.css (a file this
-  // change does not own); the semantic classes ride alongside for that pass.
   return (
-    <section className={`id-card-also id-card-confidence id-card-confidence-${confidence.level}`}>
-      <p className="id-card-also-label id-card-confidence-level">
-        {t(LEVEL_KEYS[confidence.level])}
-      </p>
-      <ul className="id-card-also-list id-card-confidence-lines">
+    <section data-slot="confidence-strip" data-level={confidence.level} className="ui flex flex-col gap-1.5 text-table">
+      <p className="font-mono text-label font-medium text-foreground uppercase">{t(LEVEL_KEYS[confidence.level])}</p>
+      <ul className="flex flex-col gap-0.5">
         {unknownsFirst ? (
           <>
             {unknownRows}
@@ -165,8 +147,8 @@ export function ConfidenceStrip({
         )}
       </ul>
       {sources.length > 0 ? (
-        <p className="id-card-confidence-sources">
-          <span className="id-card-confidence-sources-label">{t("confidenceSources")}: </span>
+        <p className="text-xs text-muted-foreground">
+          <span className="font-mono text-micro tracking-[0.08em] uppercase">{t("confidenceSources")}: </span>
           {sources.map((url, i) => (
             <span key={url}>
               {i > 0 ? <span aria-hidden="true"> · </span> : null}
@@ -174,7 +156,7 @@ export function ConfidenceStrip({
                 href={url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="id-card-draft-link id-card-confidence-source"
+                className="text-primary-ink underline underline-offset-2"
               >
                 {sourceLabel(url)}
               </a>

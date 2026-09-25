@@ -147,6 +147,33 @@
   --text-table--line-height: 1.35;
 }
 
+/* A field or card the last research redo changed (`Field updated`): a brief
+   accent wash. Used through `motion-safe:`, so reduced motion never sees it. */
+@keyframes review-updated {
+  from {
+    background-color: color-mix(in srgb, var(--primary) 18%, transparent);
+  }
+  to {
+    background-color: transparent;
+  }
+}
+
+/* Transparency made visible (the intake page's cleaned product image): a
+   checkerboard of two theme surfaces, so it follows light and dark. An
+   attribute, not a class — new components carry no legacy class names. */
+@layer components {
+  [data-checkerboard] {
+    background-color: var(--surface-container);
+    background-image: conic-gradient(
+      var(--surface-container-high) 25%,
+      var(--surface-container) 0 50%,
+      var(--surface-container-high) 0 75%,
+      var(--surface-container) 0
+    );
+    background-size: 16px 16px;
+  }
+}
+
 @layer base {
   /* Focus, everywhere (spec §12; DESIGN.md §5): a 2px accent-ink outline on
      keyboard focus. In `base` so a component's own focus utility can refine

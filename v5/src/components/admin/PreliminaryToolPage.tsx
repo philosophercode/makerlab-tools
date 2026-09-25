@@ -1,7 +1,5 @@
 "use client";
 
-import "../../styles/admin-intake.css";
-
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -30,6 +28,17 @@ import { requestResearch } from "./IntakeList";
 import { initialImageChoice, ProductImage } from "./ProductImage";
 import { recentlyUpdatedSections, redoWhat } from "./redo-status";
 import { ResearchAgainDialog } from "./ResearchAgainDialog";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
+import { EmptyState } from "../system/EmptyState";
+import { Field, hintId } from "../system/Field";
+import { Glyph, StatusGlyph } from "../system/StatusGlyph";
+import { ReviewCard, ReviewNote, ReviewSources } from "../system/review/ReviewCard";
 
 /**
  * `/admin/intake/[id]` — the page an admin approves from (spec §5.4 steps
@@ -168,7 +177,6 @@ type Settled =
   | { kind: "unit"; tool: IntakeToolLink; warning: AdminActionWarning | null; imageMissing: boolean }
   | { kind: "discarded" };
 
-const LIST_FIELDS = ["materials", "ppeRequired", "tags"] as const;
 
 export function PreliminaryToolPage({
   item,
@@ -408,67 +416,71 @@ export function PreliminaryToolPage({
     return null;
   }
 
+
   const locked = busy !== null;
+  const statusTone = error ? "bad" : notice?.startsWith("warnings.") ? "warn" : "muted";
 
   return (
-    <div className="admin-intake-page">
-      <fieldset className="admin-intake-fieldset" disabled={locked}>
-        <legend className="admin-visually-hidden">{t("pageLabel", { name: item.name })}</legend>
+    <div className="ui">
+      <fieldset className="m-0 min-w-0 border-0 p-0" disabled={locked}>
+        <legend className="sr-only">{t("pageLabel", { name: item.name })}</legend>
 
-        <div className="admin-intake-columns">
-          <div className="admin-intake-main">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,340px)]">
+          <div className="flex min-w-0 flex-col gap-6">
             {/* Not for an add-unit item: it skipped research, and renaming it
                 would only move the duplicate match it was resolved against. */}
             {isUnit ? null : (
-              <section className="admin-intake-panel" aria-labelledby="intake-identity-title">
-                <h3 id="intake-identity-title">{t("identityTitle")}</h3>
-                <p className="admin-intake-hint">{t("identityHint")}</p>
-                <div className="admin-intake-identity">
-                  <div className="admin-field">
-                    <label htmlFor="intake-identity-name">{t("identityName")}</label>
-                    <input
+              <ReviewCard
+                label={t("identityTitle")}
+                headingLevel={3}
+                className="border-t"
+                actions={
+                  <>
+                    <Button
+                      size="xs"
+                      disabled={!identityDirty || identity.name.trim() === ""}
+                      onClick={() => void saveIdentity()}
+                    >
+                      {t("saveIdentity")}
+                    </Button>
+                    <Button
+                      size="xs"
+                      aria-expanded={redoOpen}
+                      disabled={identity.name.trim() === ""}
+                      onClick={() => setRedoOpen((open) => !open)}
+                    >
+                      {t("researchAgain")}
+                    </Button>
+                  </>
+                }
+              >
+                <ReviewNote>{t("identityHint")}</ReviewNote>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
+                  <Field id="intake-identity-name" label={t("identityName")}>
+                    <Input
                       id="intake-identity-name"
                       value={identity.name}
                       maxLength={200}
                       onChange={(event) => setIdentity({ ...identity, name: event.target.value })}
                     />
-                  </div>
-                  <div className="admin-field">
-                    <label htmlFor="intake-identity-brand">{t("identityBrand")}</label>
-                    <input
+                  </Field>
+                  <Field id="intake-identity-brand" label={t("identityBrand")}>
+                    <Input
                       id="intake-identity-brand"
                       value={identity.brand}
                       maxLength={200}
                       onChange={(event) => setIdentity({ ...identity, brand: event.target.value })}
                     />
-                  </div>
+                  </Field>
                 </div>
                 {item.duplicateOf ? (
-                  <p className="admin-intake-duplicate">
+                  <ReviewNote tone="warn">
+                    <Glyph tone="warn" className="me-1.5" />
                     {item.duplicateOf.kind === "tool"
                       ? t("duplicateOfTool", { name: item.duplicateOf.name })
                       : t("duplicateOfPending", { name: item.duplicateOf.name })}
-                  </p>
+                  </ReviewNote>
                 ) : null}
-                <div className="admin-editor-actions">
-                  <button
-                    type="button"
-                    className="admin-button"
-                    disabled={!identityDirty || identity.name.trim() === ""}
-                    onClick={() => void saveIdentity()}
-                  >
-                    {t("saveIdentity")}
-                  </button>
-                  <button
-                    type="button"
-                    className="admin-button"
-                    aria-expanded={redoOpen}
-                    disabled={identity.name.trim() === ""}
-                    onClick={() => setRedoOpen((open) => !open)}
-                  >
-                    {t("researchAgain")}
-                  </button>
-                </div>
                 {redoOpen ? (
                   <ResearchAgainDialog
                     initialNote={research?.reviewerNote ?? ""}
@@ -477,17 +489,12 @@ export function PreliminaryToolPage({
                     onCancel={() => setRedoOpen(false)}
                   />
                 ) : null}
-              </section>
+              </ReviewCard>
             )}
 
             {isUnit ? (
               <>
-                <UnitProposal
-                  target={targetTool}
-                  serial={unitSerial}
-                  onSerial={setUnitSerial}
-                  onAdd={() => void addUnit()}
-                />
+                <UnitProposal target={targetTool} serial={unitSerial} onSerial={setUnitSerial} onAdd={() => void addUnit()} />
                 {imported ? <ImportedPanel imported={imported} draft={draft} onToggle={toggleImportLink} unitsOnly /> : null}
               </>
             ) : research ? (
@@ -501,24 +508,18 @@ export function PreliminaryToolPage({
                 />
 
                 {low ? (
-                  <section
-                    className="admin-intake-override"
-                    aria-labelledby="intake-override-title"
-                  >
-                    <h3 id="intake-override-title">{t("lowTitle")}</h3>
-                    <p>{t("lowExplain")}</p>
-                    <div className="admin-field is-check">
-                      <input
+                  <ReviewCard label={t("lowTitle")} headingLevel={3} tone="warn" className="border-t">
+                    <p className="text-table">{t("lowExplain")}</p>
+                    <div className="flex items-center gap-2 text-table">
+                      <Checkbox
                         id="intake-override-check"
-                        type="checkbox"
                         checked={checked}
-                        onChange={(event) => setChecked(event.target.checked)}
+                        onCheckedChange={(value) => setChecked(value === true)}
                       />
                       <label htmlFor="intake-override-check">{t("overrideCheck")}</label>
                     </div>
-                    <div className="admin-field">
-                      <label htmlFor="intake-override-note">{t("overrideNote")}</label>
-                      <textarea
+                    <Field id="intake-override-note" label={t("overrideNote")}>
+                      <Textarea
                         id="intake-override-note"
                         rows={3}
                         maxLength={1000}
@@ -526,8 +527,8 @@ export function PreliminaryToolPage({
                         value={note}
                         onChange={(event) => setNote(event.target.value)}
                       />
-                    </div>
-                  </section>
+                    </Field>
+                  </ReviewCard>
                 ) : null}
 
                 <ProposedRecord
@@ -543,93 +544,81 @@ export function PreliminaryToolPage({
                 {imported ? <ImportedPanel imported={imported} draft={draft} onToggle={toggleImportLink} /> : null}
               </>
             ) : (
-              <p className="admin-empty td-empty">{t("noResearch")}</p>
+              <EmptyState>{t("noResearch")}</EmptyState>
             )}
 
-            <div className="admin-editor-actions admin-intake-decision">
-              {isUnit ? null : (
-                <>
-                  {canPublish ? (
-                    <button
-                      type="button"
-                      className="admin-button is-primary"
+            {/* The decision: one filled button, Discard confirmed inline. */}
+            <div className="flex flex-col gap-2 border-y border-border py-3">
+              <div className="flex flex-wrap items-center gap-2">
+                {isUnit ? null : (
+                  <>
+                    {canPublish ? (
+                      <Button
+                        variant="default"
+                        className="max-sm:flex-1"
+                        disabled={!approvable}
+                        onClick={() => void approve(actions.approve, "approve")}
+                      >
+                        {t("approve")}
+                      </Button>
+                    ) : null}
+                    <Button
+                      className="max-sm:flex-1"
                       disabled={!approvable}
-                      onClick={() => void approve(actions.approve, "approve")}
+                      onClick={() => void approve(actions.approveAsDraft, "draft")}
                     >
-                      {t("approve")}
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="admin-button"
-                    disabled={!approvable}
-                    onClick={() => void approve(actions.approveAsDraft, "draft")}
-                  >
-                    {t("approveAsDraft")}
-                  </button>
-                </>
-              )}
-              {confirmDiscard ? (
-                <span className="admin-intake-confirm">
-                  <span>{t("discardConfirm", { name: item.name })}</span>
-                  <button
-                    type="button"
-                    className="admin-button is-danger"
-                    onClick={() => void discard()}
-                  >
-                    {t("discardYes")}
-                  </button>
-                  <button
-                    type="button"
-                    className="admin-button"
-                    onClick={() => setConfirmDiscard(false)}
-                  >
-                    {t("discardKeep")}
-                  </button>
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  className="admin-button is-danger"
-                  onClick={() => setConfirmDiscard(true)}
-                >
-                  {t("discard")}
-                </button>
-              )}
+                      {t("approveAsDraft")}
+                    </Button>
+                  </>
+                )}
+                {confirmDiscard ? (
+                  <span className="flex flex-wrap items-center gap-2 text-table">
+                    <span>{t("discardConfirm", { name: item.name })}</span>
+                    <Button variant="destructive" onClick={() => void discard()}>
+                      {t("discardYes")}
+                    </Button>
+                    <Button onClick={() => setConfirmDiscard(false)}>{t("discardKeep")}</Button>
+                  </span>
+                ) : (
+                  <Button variant="destructive" className="max-sm:flex-1" onClick={() => setConfirmDiscard(true)}>
+                    {t("discard")}
+                  </Button>
+                )}
+              </div>
+              <ReviewNote role="status" tone={statusTone}>
+                {busy ? t(`busy.${busy}`) : null}
+                {!busy && error ? tAdmin(error) : null}
+                {!busy && !error && notice ? tAdmin(notice) : null}
+                {!busy && !error && !notice && redoStarted && (!isImageOnlyFocus(redoStarted.focus) || retryRunning)
+                  ? redoWhat(t, locale, redoStarted.focus)
+                  : null}
+              </ReviewNote>
             </div>
-
-            <p
-              className={`admin-row-status admin-intake-status-line${error ? " is-error" : ""}${
-                !error && notice?.startsWith("warnings.") ? " is-warning" : ""
-              }`}
-              role="status"
-            >
-              {busy ? t(`busy.${busy}`) : null}
-              {!busy && error ? tAdmin(error) : null}
-              {!busy && !error && notice ? tAdmin(notice) : null}
-              {!busy && !error && !notice && redoStarted && (!isImageOnlyFocus(redoStarted.focus) || retryRunning)
-                ? redoWhat(t, locale, redoStarted.focus)
-                : null}
-            </p>
           </div>
 
-          <aside className="admin-intake-side">
+          <aside className="flex min-w-0 flex-col gap-6">
             {research && !isUnit ? (
-              <div className={updatedSections.includes("image") ? "admin-intake-updated is-updated" : "admin-intake-updated"}>
+              <div
+                data-updated={updatedSections.includes("image") || undefined}
+                className={cn(
+                  "flex flex-col gap-1.5",
+                  updatedSections.includes("image") && "motion-safe:animate-[review-updated_4s_ease-out]"
+                )}
+              >
                 {updatedSections.includes("image") ? <UpdatedTag /> : null}
-              <ProductImage
-                key={imagesKey}
-                pendingId={item.id}
-                name={item.name}
-                images={research.images}
-                imageError={research.imageError}
-                hasUploadedPhoto={hasUploadedPhoto}
-                value={imageChoice}
-                onChange={setImageChoice}
-                retry={retry}
-                retryRunning={retryRunning}
-                onFindDifferent={actions.differentImage ? findDifferentImage : undefined}
-              />
+                <ProductImage
+                  key={imagesKey}
+                  pendingId={item.id}
+                  name={item.name}
+                  images={research.images}
+                  imageError={research.imageError}
+                  hasUploadedPhoto={hasUploadedPhoto}
+                  value={imageChoice}
+                  onChange={setImageChoice}
+                  retry={retry}
+                  retryRunning={retryRunning}
+                  onFindDifferent={actions.differentImage ? findDifferentImage : undefined}
+                />
               </div>
             ) : null}
             <Photos item={item} />
@@ -643,9 +632,9 @@ export function PreliminaryToolPage({
 
 /**
  * Training, as a decision for staff (research amendment 2026-09-24): "staff to
- * confirm" until the reviewer picks, and saved as required if they never do.
- * What the pages said about training is shown beneath as quotes — evidence,
- * never a preset value.
+ * confirm" until the reviewer picks, and saved as required if they never do —
+ * a warn rule marks the field until then. What the pages said about training
+ * is shown beneath as verified quotes — evidence, never a preset value.
  */
 function TrainingChoice({
   value,
@@ -658,15 +647,32 @@ function TrainingChoice({
 }) {
   const t = useTranslations("admin.intake.training");
   const tEditor = useTranslations("admin.inventory.editor");
+  const tp = useTranslations("admin.proposal");
   const evidence = trainingEvidence(research);
   const selected = value === null ? "confirm" : value ? "required" : "none";
   return (
-    <div className={`admin-field${value === null ? " is-unconfirmed" : ""}`}>
-      <label htmlFor="intake-training-required">{tEditor("fieldTrainingRequired")}</label>
-      <select
+    <Field
+      id="intake-training-required"
+      label={tEditor("fieldTrainingRequired")}
+      tone={value === null ? "warn" : "default"}
+      hint={
+        <div className="flex flex-col gap-2">
+          <p>{value === null ? t("unconfirmedHint") : t("decidedHint")}</p>
+          {evidence.length > 0 ? (
+            <ReviewSources
+              label={t("evidenceLabel")}
+              notFoundLabel={tp("quoteNotFound")}
+              items={evidence.map((citation) => ({ ...citation, host: hostLabel(citation.url) }))}
+            />
+          ) : null}
+        </div>
+      }
+    >
+      <NativeSelect
         id="intake-training-required"
+        className="w-full"
         value={selected}
-        aria-describedby="intake-training-hint"
+        aria-describedby={hintId("intake-training-required")}
         onChange={(event) => {
           const next = event.target.value;
           onChange(next === "confirm" ? null : next === "required");
@@ -675,23 +681,8 @@ function TrainingChoice({
         <option value="confirm">{t("confirm")}</option>
         <option value="required">{t("required")}</option>
         <option value="none">{t("none")}</option>
-      </select>
-      <p className="admin-field-hint" id="intake-training-hint">
-        {value === null ? t("unconfirmedHint") : t("decidedHint")}
-      </p>
-      {evidence.length > 0 ? (
-        <div className="admin-field-hint">
-          <p>{t("evidenceLabel")}</p>
-          <ul>
-            {evidence.map((citation) => (
-              <li key={`${citation.url}|${citation.quote}`}>
-                <q>{citation.quote}</q> — {hostLabel(citation.url)}
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-    </div>
+      </NativeSelect>
+    </Field>
   );
 }
 
@@ -707,7 +698,7 @@ function hostLabel(url: string): string {
 /** "Updated just now", beside a section the last redo changed. */
 function UpdatedTag() {
   const t = useTranslations("admin.intake");
-  return <span className="admin-intake-updated-tag">{t("redo.updated")}</span>;
+  return <StatusGlyph tone="active" label={t("redo.updated")} />;
 }
 
 /** What identifies a set of pictures: its candidates' URLs and its cleaned copy. */
@@ -716,7 +707,12 @@ function imageSetKey(images: ResearchImages | null | undefined): string {
   return [images.cleaned?.attachmentId ?? "", ...images.candidates.map((candidate) => candidate.url)].join("|");
 }
 
-/** The proposed record, in the tool editor's fields. */
+/**
+ * The proposed record, in the tool editor's fields, as one `ReviewCard` per
+ * group (UI system spec §7.4) — names, safety first, then the description,
+ * where it goes, and the links to add. There is no "now" side: a new tool has
+ * no record yet, so each card is all proposal, editable in place.
+ */
 function ProposedRecord({
   draft,
   research,
@@ -741,167 +737,181 @@ function ProposedRecord({
   const t = useTranslations("admin.intake");
   const tEditor = useTranslations("admin.inventory.editor");
   const proposed = research.category;
-  const offersNew =
-    proposed.name.trim() !== "" && !categories.some((c) => c.id === proposed.existingId);
+  const offersNew = proposed.name.trim() !== "" && !categories.some((c) => c.id === proposed.existingId);
   // The specs ride in the description box, so either marks it.
   const textUpdated = updated.includes("description") || updated.includes("specs");
   const linksUpdated = updated.includes("links");
 
   return (
-    <section className="admin-intake-panel" aria-labelledby="intake-record-title">
-      <h3 id="intake-record-title">{t("recordTitle")}</h3>
-      <p className="admin-intake-hint">{t("recordHint")}</p>
+    <section aria-labelledby="intake-record-title" className="flex flex-col">
+      <h3 id="intake-record-title" className="m-0 font-heading text-lg font-medium uppercase">
+        {t("recordTitle")}
+      </h3>
+      <ReviewNote className="mb-2">{t("recordHint")}</ReviewNote>
 
-      <div className="admin-editor-form">
-        <div className="admin-field">
-          <label htmlFor="intake-name">{tEditor("fieldName")}</label>
-          <input
-            id="intake-name"
-            value={draft.name}
-            required
-            maxLength={DISPLAY_NAME_MAX}
-            aria-describedby="intake-name-hint"
-            aria-invalid={nameTaken || undefined}
-            onChange={(event) => set("name", event.target.value)}
-          />
-          <p className="admin-field-hint" id="intake-name-hint">
-            {tEditor("displayNameHint")}
-            {nameTaken ? (
-              <>
-                {" "}
-                <strong>{tEditor("displayNameTaken")}</strong>
-              </>
-            ) : null}
-          </p>
-        </div>
-
-        <div className="admin-field">
-          <label htmlFor="intake-official-name">{tEditor("fieldOfficialName")}</label>
-          <input
-            id="intake-official-name"
-            value={draft.officialName}
-            maxLength={OFFICIAL_NAME_MAX}
-            aria-describedby="intake-official-name-hint"
-            onChange={(event) => set("officialName", event.target.value)}
-          />
-          <p className="admin-field-hint" id="intake-official-name-hint">
-            {tEditor("officialNameHint")}
-          </p>
-        </div>
-
-        <div className={`admin-field${textUpdated ? " is-updated" : ""}`}>
-          <label htmlFor="intake-description">
-            {tEditor("fieldDescription")}
-            {textUpdated ? <UpdatedTag /> : null}
-          </label>
-          <textarea
-            id="intake-description"
-            rows={8}
-            value={draft.description}
-            onChange={(event) => set("description", event.target.value)}
-          />
-        </div>
-
-        <div className="admin-field">
-          <label htmlFor="intake-category">{tEditor("fieldCategory")}</label>
-          <select
-            id="intake-category"
-            value={draft.category}
-            onChange={(event) => set("category", event.target.value)}
-          >
-            <option value="">{tEditor("noneSelected")}</option>
-            {offersNew ? (
-              <option value={NEW_CATEGORY}>
-                {t("newCategory", { name: categoryLabel(proposed.name, proposed.group) })}
-              </option>
-            ) : null}
-            {categories.map((category) => (
-              <option key={category.id} value={category.id}>
-                {categoryLabel(category.name, category.group)}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="admin-field">
-          <label htmlFor="intake-location">{tEditor("fieldLocation")}</label>
-          <select
-            id="intake-location"
-            value={draft.locationId}
-            onChange={(event) => set("locationId", event.target.value)}
-          >
-            <option value="">{tEditor("noneSelected")}</option>
-            {locations.map((location) => (
-              <option key={location.id} value={location.id}>
-                {`${location.room} — ${location.zone}`}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {LIST_FIELDS.map((field) => (
-          <div className="admin-field" key={field}>
-            <label htmlFor={`intake-${field}`}>{tEditor(`field_${field}`)}</label>
-            <input
-              id={`intake-${field}`}
-              value={draft[field]}
-              placeholder={tEditor("listPlaceholder")}
-              onChange={(event) => set(field, event.target.value)}
-            />
-          </div>
-        ))}
-
-        <TrainingChoice value={draft.trainingRequired} research={research} onChange={(value) => set("trainingRequired", value)} />
-
-        <div className="admin-field">
-          <label htmlFor="intake-use-restrictions">{tEditor("fieldUseRestrictions")}</label>
-          <input
-            id="intake-use-restrictions"
-            value={draft.useRestrictions}
-            onChange={(event) => set("useRestrictions", event.target.value)}
-          />
-        </div>
-
-        <div className="admin-field">
-          <label htmlFor="intake-serial">{tEditor("unitSerial")}</label>
-          <input
-            id="intake-serial"
-            value={draft.serialNumber}
-            maxLength={200}
-            onChange={(event) => set("serialNumber", event.target.value)}
-          />
-        </div>
-
-        <fieldset className={`admin-intake-resources${linksUpdated ? " is-updated" : ""}`}>
-          <legend>
-            {t("resourcesTitle")}
-            {linksUpdated ? <UpdatedTag /> : null}
-          </legend>
-          {research.resources.length === 0 ? (
-            <p className="admin-intake-hint">{t("noResources")}</p>
-          ) : (
-            <ul>
-              {research.resources.map((resource, index) => (
-                <li key={resource.url} className="admin-field is-check">
-                  <input
-                    id={`intake-resource-${index}`}
-                    type="checkbox"
-                    checked={draft.resourceUrls.includes(resource.url)}
-                    onChange={(event) => toggleResource(resource.url, event.target.checked)}
-                  />
-                  <label htmlFor={`intake-resource-${index}`}>
-                    {t("resourceLabel", { title: resource.title, type: resource.type })}
-                  </label>
-                  {isWebLink(resource.url) ? (
-                    <a href={resource.url} target="_blank" rel="noopener noreferrer">
-                      {t("openResource")}
-                    </a>
+      <div className="border-t border-rule">
+        <ReviewCard label={t("group.names")}>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <Field
+              id="intake-name"
+              label={tEditor("fieldName")}
+              hint={
+                <>
+                  {tEditor("displayNameHint")}
+                  {nameTaken ? (
+                    <>
+                      {" "}
+                      <strong className="font-medium text-bad">{tEditor("displayNameTaken")}</strong>
+                    </>
                   ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
-        </fieldset>
+                </>
+              }
+            >
+              <Input
+                id="intake-name"
+                value={draft.name}
+                required
+                maxLength={DISPLAY_NAME_MAX}
+                aria-describedby={hintId("intake-name")}
+                aria-invalid={nameTaken || undefined}
+                onChange={(event) => set("name", event.target.value)}
+              />
+            </Field>
+            <Field id="intake-official-name" label={tEditor("fieldOfficialName")} hint={tEditor("officialNameHint")}>
+              <Input
+                id="intake-official-name"
+                value={draft.officialName}
+                maxLength={OFFICIAL_NAME_MAX}
+                aria-describedby={hintId("intake-official-name")}
+                onChange={(event) => set("officialName", event.target.value)}
+              />
+            </Field>
+          </div>
+        </ReviewCard>
+
+        <ReviewCard label={t("group.safety")} tone="safety">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <Field id="intake-ppeRequired" label={tEditor("field_ppeRequired")}>
+              <Input
+                id="intake-ppeRequired"
+                value={draft.ppeRequired}
+                placeholder={tEditor("listPlaceholder")}
+                onChange={(event) => set("ppeRequired", event.target.value)}
+              />
+            </Field>
+            <Field id="intake-use-restrictions" label={tEditor("fieldUseRestrictions")}>
+              <Input
+                id="intake-use-restrictions"
+                value={draft.useRestrictions}
+                onChange={(event) => set("useRestrictions", event.target.value)}
+              />
+            </Field>
+          </div>
+          <TrainingChoice value={draft.trainingRequired} research={research} onChange={(value) => set("trainingRequired", value)} />
+        </ReviewCard>
+
+        <ReviewCard label={t("group.description")}>
+          <Field id="intake-description" label={tEditor("fieldDescription")} updated={textUpdated} marks={textUpdated ? <UpdatedTag /> : null}>
+            <Textarea
+              id="intake-description"
+              rows={8}
+              value={draft.description}
+              onChange={(event) => set("description", event.target.value)}
+            />
+          </Field>
+        </ReviewCard>
+
+        <ReviewCard label={t("group.classification")}>
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+            <Field id="intake-category" label={tEditor("fieldCategory")}>
+              <NativeSelect
+                id="intake-category"
+                className="w-full"
+                value={draft.category}
+                onChange={(event) => set("category", event.target.value)}
+              >
+                <option value="">{tEditor("noneSelected")}</option>
+                {offersNew ? (
+                  <option value={NEW_CATEGORY}>{t("newCategory", { name: categoryLabel(proposed.name, proposed.group) })}</option>
+                ) : null}
+                {categories.map((category) => (
+                  <option key={category.id} value={category.id}>
+                    {categoryLabel(category.name, category.group)}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+            <Field id="intake-location" label={tEditor("fieldLocation")}>
+              <NativeSelect
+                id="intake-location"
+                className="w-full"
+                value={draft.locationId}
+                onChange={(event) => set("locationId", event.target.value)}
+              >
+                <option value="">{tEditor("noneSelected")}</option>
+                {locations.map((location) => (
+                  <option key={location.id} value={location.id}>
+                    {`${location.room} — ${location.zone}`}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+            {(["materials", "tags"] as const).map((field) => (
+              <Field key={field} id={`intake-${field}`} label={tEditor(`field_${field}`)}>
+                <Input
+                  id={`intake-${field}`}
+                  value={draft[field]}
+                  placeholder={tEditor("listPlaceholder")}
+                  onChange={(event) => set(field, event.target.value)}
+                />
+              </Field>
+            ))}
+            <Field id="intake-serial" label={tEditor("unitSerial")}>
+              <Input
+                id="intake-serial"
+                value={draft.serialNumber}
+                maxLength={200}
+                onChange={(event) => set("serialNumber", event.target.value)}
+              />
+            </Field>
+          </div>
+        </ReviewCard>
+
+        <ReviewCard label={t("resourcesTitle")} marks={linksUpdated ? <UpdatedTag /> : null}>
+          <div
+            data-updated={linksUpdated || undefined}
+            className={cn(linksUpdated && "motion-safe:animate-[review-updated_4s_ease-out]")}
+          >
+            {research.resources.length === 0 ? (
+              <ReviewNote>{t("noResources")}</ReviewNote>
+            ) : (
+              <ul className="flex flex-col gap-1.5">
+                {research.resources.map((resource, index) => (
+                  <li key={resource.url} className="flex flex-wrap items-center gap-2 text-table">
+                    <Checkbox
+                      id={`intake-resource-${index}`}
+                      checked={draft.resourceUrls.includes(resource.url)}
+                      onCheckedChange={(value) => toggleResource(resource.url, value === true)}
+                    />
+                    <label htmlFor={`intake-resource-${index}`}>
+                      {t("resourceLabel", { title: resource.title, type: resource.type })}
+                    </label>
+                    {isWebLink(resource.url) ? (
+                      <a
+                        href={resource.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-xs text-primary-ink underline-offset-2 hover:underline"
+                      >
+                        {t("openResource")}
+                      </a>
+                    ) : null}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </ReviewCard>
       </div>
     </section>
   );
@@ -931,29 +941,30 @@ function ImportedPanel({
     return null;
   }
   return (
-    <fieldset className="admin-intake-resources">
-      <legend>{t("fromList")}</legend>
-      {units > 1 ? <p className="admin-intake-hint">{t("unitsOnApproval", { count: units })}</p> : null}
-      {imported.serials.length > 0 ? (
-        <p className="admin-intake-hint">{t("serialsList", { serials: imported.serials.join(", ") })}</p>
-      ) : null}
-      {imported.notes ? <p className="admin-intake-hint">{t("notesLabel", { notes: imported.notes })}</p> : null}
+    <ReviewCard label={t("fromList")} headingLevel={3} className="border-t">
+      {units > 1 ? <ReviewNote tone="ink">{t("unitsOnApproval", { count: units })}</ReviewNote> : null}
+      {imported.serials.length > 0 ? <ReviewNote>{t("serialsList", { serials: imported.serials.join(", ") })}</ReviewNote> : null}
+      {imported.notes ? <ReviewNote>{t("notesLabel", { notes: imported.notes })}</ReviewNote> : null}
       {links.length > 0 ? (
-        <ul>
+        <ul className="flex flex-col gap-1.5">
           {links.map((link, index) => {
             const resource = importLinkResource(link);
             return (
-              <li key={link.url} className="admin-field is-check">
-                <input
+              <li key={link.url} className="flex flex-wrap items-center gap-2 text-table">
+                <Checkbox
                   id={`intake-import-link-${index}`}
-                  type="checkbox"
                   checked={draft.importLinkUrls.includes(link.url)}
-                  onChange={(event) => onToggle(link.url, event.target.checked)}
+                  onCheckedChange={(value) => onToggle(link.url, value === true)}
                 />
                 <label htmlFor={`intake-import-link-${index}`}>
                   {t("importLinkLabel", { title: resource.title, type: resource.type })}
                 </label>
-                <a href={link.url} target="_blank" rel="noopener noreferrer">
+                <a
+                  href={link.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-primary-ink underline-offset-2 hover:underline"
+                >
                   {t("openLink")}
                 </a>
               </li>
@@ -963,12 +974,12 @@ function ImportedPanel({
       ) : null}
       {imported.labDocs.length > 0 ? (
         <>
-          <p className="admin-intake-hint">{t("labDocsOnApproval")}</p>
-          <ul>
+          <ReviewNote>{t("labDocsOnApproval")}</ReviewNote>
+          <ul className="flex flex-col gap-1">
             {imported.labDocs.map((doc) => (
-              <li key={doc.url}>
-                <span className="admin-state">{t("labDocument")}</span>{" "}
-                <a href={doc.url} target="_blank" rel="noopener noreferrer">
+              <li key={doc.url} className="flex flex-wrap items-center gap-2 text-table">
+                <Badge>{t("labDocument")}</Badge>
+                <a href={doc.url} target="_blank" rel="noopener noreferrer" className="underline-offset-2 hover:underline">
                   {doc.title}
                 </a>
               </li>
@@ -976,7 +987,7 @@ function ImportedPanel({
           </ul>
         </>
       ) : null}
-    </fieldset>
+    </ReviewCard>
   );
 }
 
@@ -995,36 +1006,32 @@ function UnitProposal({
   const t = useTranslations("admin.intake");
 
   return (
-    <section className="admin-intake-panel" aria-labelledby="intake-unit-title">
-      <h3 id="intake-unit-title">{t("unitTitle")}</h3>
+    <ReviewCard
+      as="section"
+      label={t("unitTitle")}
+      headingLevel={3}
+      className="border-t"
+      actions={
+        <Button variant="default" size="xs" disabled={!target} onClick={onAdd}>
+          {t("addUnit")}
+        </Button>
+      }
+    >
       {target ? (
-        <p>
-          {t("unitTarget")} <Link href={`/tools/${target.slug}`}>{target.name}</Link>
-          {target.published ? null : <span className="admin-state is-draft">{t("draft")}</span>}
+        <p className="flex flex-wrap items-center gap-2 text-table">
+          {t("unitTarget")}{" "}
+          <Link className="text-primary-ink underline-offset-2 hover:underline" href={`/tools/${target.slug}`}>
+            {target.name}
+          </Link>
+          {target.published ? null : <StatusGlyph tone="idle" label={t("draft")} />}
         </p>
       ) : (
-        <p className="admin-empty td-empty">{t("unitTargetMissing")}</p>
+        <ReviewNote tone="warn">{t("unitTargetMissing")}</ReviewNote>
       )}
-      <div className="admin-field">
-        <label htmlFor="intake-unit-serial">{t("unitSerial")}</label>
-        <input
-          id="intake-unit-serial"
-          value={serial}
-          maxLength={200}
-          onChange={(event) => onSerial(event.target.value)}
-        />
-      </div>
-      <div className="admin-editor-actions">
-        <button
-          type="button"
-          className="admin-button is-primary"
-          disabled={!target}
-          onClick={onAdd}
-        >
-          {t("addUnit")}
-        </button>
-      </div>
-    </section>
+      <Field id="intake-unit-serial" label={t("unitSerial")} className="max-w-xs">
+        <Input id="intake-unit-serial" value={serial} maxLength={200} onChange={(event) => onSerial(event.target.value)} />
+      </Field>
+    </ReviewCard>
   );
 }
 
@@ -1033,15 +1040,17 @@ function Photos({ item }: { item: PendingToolView }) {
   const t = useTranslations("admin.intake");
 
   return (
-    <section className="admin-intake-panel" aria-labelledby="intake-photos-title">
-      <h3 id="intake-photos-title">{t("photosTitle")}</h3>
+    <section aria-labelledby="intake-photos-title" className="flex flex-col gap-2">
+      <h3 id="intake-photos-title" className="m-0 font-mono text-label font-medium text-foreground uppercase">
+        {t("photosTitle")}
+      </h3>
       {item.photos.length === 0 ? (
-        <p className="admin-intake-hint">{t("noPhotos")}</p>
+        <ReviewNote>{t("noPhotos")}</ReviewNote>
       ) : (
-        <ul className="admin-intake-photos">
+        <ul className="flex flex-wrap gap-2">
           {item.photos.map((photo, index) =>
             photo.url ? (
-              <li key={photo.attachmentId} className="admin-thumb is-project">
+              <li key={photo.attachmentId} className="relative size-24 overflow-hidden border border-border bg-muted">
                 <Image
                   src={photo.url}
                   alt={t("photoAlt", { name: item.name, index: index + 1 })}
@@ -1052,7 +1061,10 @@ function Photos({ item }: { item: PendingToolView }) {
                 />
               </li>
             ) : (
-              <li key={photo.attachmentId} className="admin-thumb is-project is-empty">
+              <li
+                key={photo.attachmentId}
+                className="flex size-24 items-center justify-center border border-dashed border-border bg-muted font-mono text-micro text-muted-foreground uppercase"
+              >
                 <span>{t("photoPrivate")}</span>
               </li>
             )
@@ -1069,14 +1081,17 @@ function DroppedLinks({ research }: { research: ResearchResult }) {
   if (research.droppedLinks.length === 0) return null;
 
   return (
-    <section className="admin-intake-panel" aria-labelledby="intake-dropped-title">
-      <h3 id="intake-dropped-title">{t("droppedTitle")}</h3>
-      <p className="admin-intake-hint">{t("droppedHint")}</p>
-      <ul className="admin-intake-dropped">
+    <section aria-labelledby="intake-dropped-title" className="flex flex-col gap-2">
+      <h3 id="intake-dropped-title" className="m-0 font-mono text-label font-medium text-foreground uppercase">
+        {t("droppedTitle")}
+      </h3>
+      <ReviewNote>{t("droppedHint")}</ReviewNote>
+      <ul className="flex flex-col gap-1 text-xs break-words">
         {research.droppedLinks.map((line) => (
           // Written in English by link verification: a record, not UI copy.
-          <li key={line} lang="en">
-            {line}
+          <li key={line} lang="en" className="flex items-baseline gap-1.5">
+            <Glyph tone="bad" />
+            <span>{line}</span>
           </li>
         ))}
       </ul>
@@ -1088,12 +1103,19 @@ function DroppedLinks({ research }: { research: ResearchResult }) {
 function SettledPanel({ outcome }: { outcome: Settled }) {
   const t = useTranslations("admin.intake");
   const tAdmin = useTranslations("admin");
+  const link = "text-primary-ink underline-offset-2 hover:underline";
+  const frame = "ui flex flex-col gap-2 border-s-2 bg-card p-4 text-table";
 
   if (outcome.kind === "discarded") {
     return (
-      <section className="admin-intake-done td-panel" role="status">
-        <p>{t("discarded")}</p>
-        <Link href={ADMIN_INTAKE_PATH}>{t("backToQueue")}</Link>
+      <section className={cn(frame, "border-s-muted-foreground")} role="status">
+        <p>
+          <Glyph tone="muted" className="me-1.5" />
+          {t("discarded")}
+        </p>
+        <Link className={link} href={ADMIN_INTAKE_PATH}>
+          {t("backToQueue")}
+        </Link>
       </section>
     );
   }
@@ -1106,25 +1128,29 @@ function SettledPanel({ outcome }: { outcome: Settled }) {
         : t("approvedDraft");
 
   return (
-    <section className="admin-intake-done td-panel" role="status">
-      <p>{message}</p>
+    <section className={cn(frame, "border-s-ok")} role="status">
+      <p>
+        <Glyph tone="ok" className="me-1.5" />
+        {message}
+      </p>
       <p>
         {/* Drafts render at their slug for anyone holding catalog.view_drafts,
             which every approver does — so the link works either way. */}
-        <Link href={`/tools/${outcome.tool.slug}`}>
+        <Link className={link} href={`/tools/${outcome.tool.slug}`}>
           {t("openTool", { name: outcome.tool.name })}
         </Link>
       </p>
-      {outcome.warning ? (
-        <p className="admin-row-status is-warning">{tAdmin(`warnings.${outcome.warning}`)}</p>
-      ) : null}
+      {outcome.warning ? <ReviewNote tone="warn">{tAdmin(`warnings.${outcome.warning}`)}</ReviewNote> : null}
       {outcome.imageMissing && outcome.warning !== "image_not_attached" ? (
-        <p className="admin-row-status is-warning">{tAdmin("warnings.image_not_attached")}</p>
+        <ReviewNote tone="warn">{tAdmin("warnings.image_not_attached")}</ReviewNote>
       ) : null}
-      <Link href={ADMIN_INTAKE_PATH}>{t("backToQueue")}</Link>
+      <Link className={link} href={ADMIN_INTAKE_PATH}>
+        {t("backToQueue")}
+      </Link>
     </section>
   );
 }
+
 
 // ── Pure helpers ────────────────────────────────────────────────────
 

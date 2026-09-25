@@ -15,6 +15,7 @@ import {
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useContainerNarrow } from "./use-container-narrow";
 import { usePhoneLayout } from "./use-phone-layout";
 
 /**
@@ -67,10 +68,14 @@ export interface DataTableLabels {
   table: string;
   /** "3 tools selected" — defaults to the generic "3 selected". */
   selected?: (count: number) => string;
+  /** The header box's name — defaults to "Select all shown". */
+  selectAll?: string;
 }
 
 export interface MobileRowState {
   selected: boolean;
+  /** False when `canSelectRow` refuses the row: its box is disabled. */
+  canSelect: boolean;
   toggle: () => void;
 }
 
@@ -84,6 +89,10 @@ export interface DataTableProps<T> {
   /** Shown instead of the table when `data` is empty — an `EmptyState` naming why. */
   empty: ReactNode;
   selectable?: boolean;
+  /** Rows that cannot be selected now (an undecided duplicate, a saving row): their box is disabled and select-all skips them. */
+  canSelectRow?: (row: T) => boolean;
+  /** The id of the text that says why a row's box is disabled (its `aria-describedby`). */
+  selectDescribedBy?: (row: T) => string | undefined;
   selection?: RowSelectionState;
   onSelectionChange?: (next: RowSelectionState) => void;
   /** Rendered in the sticky bar while rows are selected. */
@@ -97,6 +106,18 @@ export interface DataTableProps<T> {
   rowClassName?: (row: T) => string | undefined;
   /** Show the keyboard hint under the table (default: when rows can be activated or selected). */
   keyboardHint?: boolean;
+  /**
+   * What decides the phone list: the viewport (`"viewport"`, below `sm`) or
+   * the table's own width (`"container"`, below 640px of container) — for a
+   * table in a panel narrower than the page, such as the chat. A container
+   * that cannot be measured (jsdom) keeps the table. Container mode is for
+   * client-rendered panels: it has no server-side first paint to get right.
+   */
+  layout?: "viewport" | "container";
+  /** The phone list's own select-all box, with this visible text ("Research all"). Omit for none. */
+  listSelectAll?: string;
+  /** Top-align every cell, the select box included — for rows of boxes and multi-line cells (a review table). */
+  alignTop?: boolean;
   /** Pin the header under the site chrome (default: when the table has a phone list, i.e. may be long). Its fill is the page background, so pass false for a table on a card. */
   stickyHeader?: boolean;
   className?: string;
@@ -110,6 +131,8 @@ export function DataTable<T>({
   labels,
   empty,
   selectable = false,
+  canSelectRow,
+  selectDescribedBy,
   selection,
   onSelectionChange,
   bulkActions,
@@ -120,11 +143,18 @@ export function DataTable<T>({
   initialSorting = [],
   rowClassName,
   keyboardHint,
+  layout = "viewport",
+  listSelectAll,
+  alignTop = false,
   stickyHeader,
   className,
 }: DataTableProps<T>) {
   const t = useTranslations("ui.dataTable");
-  const phone = usePhoneLayout();
+  const viewportPhone = usePhoneLayout();
+  const frame = useRef<HTMLDivElement>(null);
+  const containerNarrow = useContainerNarrow(frame, 640, layout === "container");
+  // Container mode: an unmeasured container keeps the table (false), never both.
+  const phone = layout === "container" ? (containerNarrow ?? false) : viewportPhone;
   const [sorting, setSorting] = useState<SortingState>(initialSorting);
   const [ownSelection, setOwnSelection] = useState<RowSelectionState>({});
   const rowSelection = selection ?? ownSelection;
@@ -142,15 +172,18 @@ export function DataTable<T>({
       meta: { className: "w-8" },
       header: ({ table }) => (
         <Checkbox
-          aria-label={t("selectAllShown")}
+          aria-label={labels.selectAll ?? t("selectAllShown")}
           checked={table.getIsAllRowsSelected() ? true : table.getIsSomeRowsSelected() ? "indeterminate" : false}
+          disabled={!table.getRowModel().rows.some((row) => row.getCanSelect())}
           onCheckedChange={(value) => table.toggleAllRowsSelected(value === true)}
         />
       ),
       cell: ({ row }) => (
         <Checkbox
           aria-label={t("selectRow", { name: getRowName(row.original) })}
+          aria-describedby={selectDescribedBy?.(row.original)}
           checked={row.getIsSelected()}
+          disabled={!row.getCanSelect()}
           onCheckedChange={(value) => row.toggleSelected(value === true)}
           // The row is the tab stop; Space on the row selects (roving tabindex).
           tabIndex={-1}
@@ -158,7 +191,7 @@ export function DataTable<T>({
       ),
     };
     return [select, ...columns];
-  }, [columns, selectable, getRowName, t]);
+  }, [columns, selectable, getRowName, selectDescribedBy, labels.selectAll, t]);
 
   // TanStack's hook returns functions the React Compiler cannot memoise; at a
   // few hundred rows that costs nothing (spec §11, "React Compiler").
@@ -173,7 +206,7 @@ export function DataTable<T>({
       setRowSelection(typeof updater === "function" ? updater(rowSelection) : updater),
     onColumnVisibilityChange: (updater) =>
       setVisibility(typeof updater === "function" ? updater(visibility) : updater),
-    enableRowSelection: selectable,
+    enableRowSelection: selectable ? (canSelectRow ? (row) => canSelectRow(row.original) : true) : false,
     enableSortingRemoval: true,
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
@@ -223,7 +256,7 @@ export function DataTable<T>({
         break;
       case " ":
       case "x":
-        if (!selectable) return;
+        if (!selectable || !row.getCanSelect()) return;
         event.preventDefault();
         row.toggleSelected();
         break;
@@ -256,23 +289,26 @@ export function DataTable<T>({
 
   if (data.length === 0) {
     return (
-      <>
+      <div ref={frame} data-slot="data-table" className={cn("ui relative", className)}>
         {empty}
         {bar}
-      </>
+      </div>
     );
   }
 
   // null → both, CSS decides (server render, hydration, jsdom); then only one.
   const showTable = !mobileRow || phone !== true;
   const showList = Boolean(mobileRow) && phone !== false;
+  // Viewport mode lets CSS choose while both render; container mode never renders both.
+  const tableFrame = layout === "container" || !mobileRow ? "overflow-x-auto" : "hidden sm:block";
+  const listFrame = layout === "container" ? undefined : "sm:hidden";
   const hint = keyboardHint ?? Boolean(onActivate || selectable);
   const sticky = stickyHeader ?? Boolean(mobileRow);
 
   return (
-    <div data-slot="data-table" className={cn("ui relative", className)}>
+    <div ref={frame} data-slot="data-table" className={cn("ui relative", className)}>
       {showTable ? (
-        <div className={cn(mobileRow ? "hidden sm:block" : "overflow-x-auto")}>
+        <div className={tableFrame}>
           <table
             data-slot="table"
             aria-label={labels.table}
@@ -349,7 +385,8 @@ export function DataTable<T>({
                         key={cell.id}
                         {...(meta?.rowHeader ? { scope: "row" } : {})}
                         className={cn(
-                          "h-[34px] px-2 py-1.5 align-middle whitespace-nowrap",
+                          "h-[34px] px-2 py-1.5 whitespace-nowrap",
+                          alignTop ? "align-top" : "align-middle",
                           meta?.rowHeader && "text-start font-normal",
                           meta?.align === "right" && "text-end font-mono tabular-nums",
                           meta?.className,
@@ -372,15 +409,30 @@ export function DataTable<T>({
         </div>
       ) : null}
 
+      {showList && mobileRow && selectable && listSelectAll ? (
+        <label className={cn("flex min-h-10 items-center gap-2 font-mono text-label uppercase", listFrame)}>
+          <Checkbox
+            aria-label={labels.selectAll ?? t("selectAllShown")}
+            checked={table.getIsAllRowsSelected() ? true : table.getIsSomeRowsSelected() ? "indeterminate" : false}
+            disabled={!rows.some((row) => row.getCanSelect())}
+            onCheckedChange={(value) => table.toggleAllRowsSelected(value === true)}
+          />
+          <span aria-hidden="true">{listSelectAll}</span>
+        </label>
+      ) : null}
       {showList && mobileRow ? (
-        <ul aria-label={labels.table} className="border-t border-rule sm:hidden">
+        <ul aria-label={labels.table} className={cn("border-t border-rule", listFrame)}>
           {rows.map((row) => (
             <li
               key={row.id}
               data-state={row.getIsSelected() ? "selected" : undefined}
               className="min-h-10 border-b border-rule data-[state=selected]:bg-primary/[0.07]"
             >
-              {mobileRow(row.original, { selected: row.getIsSelected(), toggle: () => row.toggleSelected() })}
+              {mobileRow(row.original, {
+                selected: row.getIsSelected(),
+                canSelect: row.getCanSelect(),
+                toggle: () => row.toggleSelected(),
+              })}
             </li>
           ))}
         </ul>

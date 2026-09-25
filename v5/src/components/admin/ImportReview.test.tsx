@@ -83,6 +83,9 @@ function actions(over: Partial<ImportActions> = {}): ImportActions {
   };
 }
 
+/** The review table's accessible name. */
+const TABLE = "Imported rows, what each one is and what it still needs";
+
 describe("the table's rules", () => {
   it("filters duplicates, names that need help, consumables and suggestions", () => {
     const none = new Set<string>();
@@ -126,18 +129,21 @@ describe("ImportReview", () => {
   it("shows the rows, a same-import duplicate with its merge, lab documents and the suggestion", () => {
     render(<ImportReview initialImport={IMPORT} initialItems={ROWS} preview={null} sourceHead={null} categories={[]} locations={["Wood shop"]} actions={actions()} />);
     expect(screen.getByRole("heading", { name: "inventory.csv" })).toBeInTheDocument();
-    expect(screen.getByText("Same as row 2")).toBeInTheDocument();
-    expect(screen.getByRole("option", { name: "Merge into row 2" })).toBeInTheDocument();
-    const sop = screen.getByRole("link", { name: "SOP" });
+    // The table and the phone list both render in jsdom (no layout): scope to the table.
+    const table = screen.getByRole("table", { name: TABLE });
+    expect(within(table).getByText("Same as row 2")).toBeInTheDocument();
+    expect(within(table).getByRole("radio", { name: "Merge into row 2" })).toBeInTheDocument();
+    const sop = within(table).getByRole("link", { name: "SOP" });
     expect(sop).toHaveAttribute("rel", "noopener noreferrer");
-    expect(screen.getByText("Drill Master Heat Gun 1500W")).toBeInTheDocument();
+    expect(within(table).getByText("Drill Master Heat Gun 1500W")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Accept all exact (1)" })).toBeInTheDocument();
   });
 
   it("filters to duplicates", async () => {
     render(<ImportReview initialImport={IMPORT} initialItems={ROWS} preview={null} sourceHead={null} categories={[]} locations={[]} actions={actions()} />);
-    await userEvent.click(screen.getByRole("button", { name: "Duplicates" }));
-    const table = screen.getByRole("table");
+    await userEvent.click(screen.getByRole("button", { name: "Show" }));
+    await userEvent.click(await screen.findByRole("menuitemradio", { name: /Duplicates/ }));
+    const table = screen.getByRole("table", { name: TABLE });
     expect(within(table).getAllByRole("row")).toHaveLength(2);
     expect(within(table).getByDisplayValue("Form-2")).toBeInTheDocument();
   });
@@ -145,8 +151,9 @@ describe("ImportReview", () => {
   it("sets a location on the selected rows", async () => {
     const acts = actions();
     render(<ImportReview initialImport={IMPORT} initialItems={ROWS} preview={null} sourceHead={null} categories={[]} locations={[]} actions={acts} />);
-    await userEvent.click(screen.getByRole("checkbox", { name: "Select Formlabs Form 2" }));
-    await userEvent.click(screen.getByRole("checkbox", { name: "Select Heat gun" }));
+    const table = screen.getByRole("table", { name: TABLE });
+    await userEvent.click(within(table).getByRole("checkbox", { name: "Select Formlabs Form 2" }));
+    await userEvent.click(within(table).getByRole("checkbox", { name: "Select Heat gun" }));
     await userEvent.type(screen.getByRole("combobox", { name: "Set location" }), "Wood shop");
     const applies = screen.getAllByRole("button", { name: "Apply" });
     await userEvent.click(applies[1]);
@@ -161,7 +168,7 @@ describe("ImportReview", () => {
       body: { code: "daily_limit" as const, error: "", remaining: 0 },
     }));
     render(<ImportReview initialImport={IMPORT} initialItems={ROWS} preview={null} sourceHead={null} categories={[]} locations={[]} actions={actions()} post={post} />);
-    await userEvent.click(screen.getByRole("button", { name: "Select all shown" }));
+    await userEvent.click(within(screen.getByRole("table", { name: TABLE })).getByRole("checkbox", { name: "Select all shown" }));
     const research = screen.getByRole("button", { name: "Research selected (3)" });
     await userEvent.click(research);
     await waitFor(() => expect(post).toHaveBeenCalledWith(["r1", "r2", "r4"]));

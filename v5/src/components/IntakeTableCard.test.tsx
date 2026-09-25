@@ -103,27 +103,27 @@ describe("IntakeTableCard — selection", () => {
     for (const item of THREE) {
       expect(screen.getByRole("checkbox", { name: `Select ${item.name}` })).toBeChecked();
     }
-    const all = screen.getByRole("checkbox", { name: "Select all rows" }) as HTMLInputElement;
+    const all = screen.getByRole("checkbox", { name: "Select all rows" });
     expect(all).toBeChecked();
-    expect(all.indeterminate).toBe(false);
+    expect(all).not.toBePartiallyChecked();
     expect(researchButton()).toHaveTextContent("Research selected (3)");
   });
 
   it("selects some, none and all again from the header", async () => {
     const user = userEvent.setup();
     render(<IntakeTableCard payload={payload(THREE)} />);
-    const all = screen.getByRole("checkbox", { name: "Select all rows" }) as HTMLInputElement;
+    const all = screen.getByRole("checkbox", { name: "Select all rows" });
 
     // Some.
     await user.click(screen.getByRole("checkbox", { name: "Select Glowforge Pro" }));
     expect(all).not.toBeChecked();
-    expect(all.indeterminate).toBe(true);
+    expect(all).toBePartiallyChecked();
     expect(researchButton()).toHaveTextContent("Research selected (2)");
 
     // All.
     await user.click(all);
     expect(all).toBeChecked();
-    expect(all.indeterminate).toBe(false);
+    expect(all).not.toBePartiallyChecked();
     expect(researchButton()).toHaveTextContent("Research selected (3)");
 
     // None.
@@ -252,7 +252,7 @@ describe("IntakeTableCard — duplicates", () => {
     fetchMock.mockResolvedValueOnce(json(200, { item: { ...dup, duplicateResolution: "new_tool" } }));
     render(<IntakeTableCard payload={payload([THREE[0], dup])} />);
 
-    await user.click(screen.getByRole("button", { name: "It’s a different tool" }));
+    await user.click(screen.getByRole("radio", { name: "It’s a different tool" }));
 
     expect(call()).toEqual({
       url: `/api/pending-tools/${B}`,
@@ -273,7 +273,7 @@ describe("IntakeTableCard — duplicates", () => {
     );
     render(<IntakeTableCard payload={payload([THREE[0], dup])} />);
 
-    await user.click(screen.getByRole("button", { name: "Add as another unit" }));
+    await user.click(screen.getByRole("radio", { name: "Add as another unit" }));
     // Choosing a unit is an edit in progress.
     expect(researchButton()).toBeDisabled();
     await user.type(screen.getByRole("textbox", { name: "Serial number" }), "F4-0099");
@@ -302,8 +302,8 @@ describe("IntakeTableCard — duplicates", () => {
     });
     render(<IntakeTableCard payload={payload([pendingDup])} />);
 
-    expect(screen.queryByRole("button", { name: "Add as another unit" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "It’s a different tool" })).toBeInTheDocument();
+    expect(screen.queryByRole("radio", { name: "Add as another unit" })).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "It’s a different tool" })).toBeInTheDocument();
     expect(screen.getByText("Already waiting for review: Glowforge Pro")).toBeInTheDocument();
   });
 });

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import type { ColumnDef, RowSelectionState } from "@tanstack/react-table";
 import { RESEARCH_MAX_ITEMS_PER_REQUEST } from "../lib/intake/limits";
 import {
   ADMIN_INTAKE_PATH,
@@ -13,7 +14,14 @@ import {
   type PendingToolView,
   type ResearchStartedResponse,
 } from "../lib/intake/types";
-import "../styles/intake-table.css";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { DataTable } from "./system/data-table/DataTable";
+import { StatusGlyph } from "./system/StatusGlyph";
+import { DuplicateChoice } from "./system/review/DuplicateChoice";
+import { ReviewNote } from "./system/review/ReviewCard";
+import { PENDING_STATUS_TONE } from "./admin/pending-status-tone";
 
 /**
  * The intake table card (data platform spec §5.4 step 5, §6): what the chat
@@ -34,6 +42,14 @@ import "../styles/intake-table.css";
  *   in progress stays open so nobody loses their typing.
  * - **No `useTransition`** around the fetches — the awaited answer is the
  *   confirmation (see `use-row-action.ts`).
+ *
+ * Since UI system phase 3 the table is the shared `DataTable` (selection with
+ * rows that cannot be selected, a header box over the rows shown) in
+ * **container** layout: the chat panel is 360–440px wide on any screen, so the
+ * card's own width — not the viewport's — decides between the table and the
+ * two-line list. A duplicate is decided with the shared `DuplicateChoice`.
+ * Each row's edit state lives here, keyed by id, because a row's cells are
+ * separate render functions (DataTable's rule: hooks live in components).
  *
  * Refusals render `intake.table.errors.<code>`; the route's English `error` is
  * never shown (Article 6).
@@ -113,27 +129,43 @@ type Research =
   | { phase: "started"; ids: string[]; response: ResearchStartedResponse }
   | { phase: "refused"; ids: string[]; refusal: Refusal };
 
+interface Draft {
+  name: string;
+  brand: string;
+  category: string;
+}
+
+function draftOf(row: PendingToolView): Draft {
+  return { name: row.name, brand: row.brand ?? "", category: row.categoryHint ?? "" };
+}
+
+/** Why a row's box is disabled: the id of its duplicate's reason line. */
+function reasonId(row: PendingToolView): string {
+  return `intake-row-${row.id}-duplicate`;
+}
+
 export interface IntakeTableCardProps {
   payload: IntakeTablePayload;
 }
 
 export function IntakeTableCard({ payload }: IntakeTableCardProps) {
   const t = useTranslations("intake");
-  const [rows, setRows] = useState<PendingToolView[]>(() =>
-    payload.items.filter((row) => !isGone(row))
-  );
+  const [rows, setRows] = useState<PendingToolView[]>(() => payload.items.filter((row) => !isGone(row)));
   // Every row that can be researched starts ticked (§5.4 step 5).
   const [selected, setSelected] = useState<Set<string>>(
     () => new Set(payload.items.filter((row) => !isGone(row) && !isUnresolved(row)).map((row) => row.id))
   );
-  const [editing, setEditing] = useState<Set<string>>(() => new Set());
+  /** Rows being edited: the typing so far. */
+  const [drafts, setDrafts] = useState<Record<string, Draft>>({});
+  /** Rows choosing "Add as another unit": the serial being typed. */
+  const [serials, setSerials] = useState<Record<string, string>>({});
+  /** Each row's last refusal, shown beside it. */
+  const [refusals, setRefusals] = useState<Record<string, Refusal>>({});
   const [saving, setSaving] = useState<Set<string>>(() => new Set());
   const [research, setResearch] = useState<Research>({ phase: "idle" });
 
   const eligibleIds = rows.filter((row) => !isUnresolved(row)).map((row) => row.id);
   const selectedIds = eligibleIds.filter((id) => selected.has(id));
-  const allSelected = eligibleIds.length > 0 && selectedIds.length === eligibleIds.length;
-  const someSelected = selectedIds.length > 0 && !allSelected;
 
   // Once research has been asked for, the rows belong to it: a queued item
   // refuses edits anyway, and a start that failed is retried with the same ids.
@@ -141,28 +173,17 @@ export function IntakeTableCard({ payload }: IntakeTableCardProps) {
     research.phase === "starting" ||
     research.phase === "started" ||
     (research.phase === "refused" && research.refusal.code === "start_failed");
-  const busy = editing.size > 0 || saving.size > 0;
+  const editing = Object.keys(drafts).length + Object.keys(serials).length;
+  const busy = editing > 0 || saving.size > 0;
 
-  const headerBox = useRef<HTMLInputElement>(null);
-  useEffect(() => {
-    if (headerBox.current) headerBox.current.indeterminate = someSelected;
-  }, [someSelected]);
-
-  function toggleAll() {
-    setSelected(allSelected ? new Set() : new Set(eligibleIds));
+  function without<V>(record: Record<string, V>, id: string): Record<string, V> {
+    const next = { ...record };
+    delete next[id];
+    return next;
   }
 
-  function toggle(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  }
-
-  function setIn(setter: typeof setEditing, id: string, on: boolean) {
-    setter((prev) => {
+  function setSavingFor(id: string, on: boolean) {
+    setSaving((prev) => {
       const next = new Set(prev);
       if (on) next.add(id);
       else next.delete(id);
@@ -172,13 +193,9 @@ export function IntakeTableCard({ payload }: IntakeTableCardProps) {
 
   /** PATCH one row; on success take the route's answer as the row. */
   async function patch(row: PendingToolView, body: PatchPendingToolBody): Promise<Refusal | null> {
-    setIn(setSaving, row.id, true);
-    const outcome = await send<PendingToolResponse>(
-      `/api/pending-tools/${encodeURIComponent(row.id)}`,
-      "PATCH",
-      body
-    );
-    setIn(setSaving, row.id, false);
+    setSavingFor(row.id, true);
+    const outcome = await send<PendingToolResponse>(`/api/pending-tools/${encodeURIComponent(row.id)}`, "PATCH", body);
+    setSavingFor(row.id, false);
     if (!outcome.ok) return outcome.refusal;
 
     const item = outcome.value.item;
@@ -203,6 +220,51 @@ export function IntakeTableCard({ payload }: IntakeTableCardProps) {
     return null;
   }
 
+  function open(id: string, start: () => void) {
+    setRefusals((prev) => without(prev, id));
+    start();
+  }
+
+  function close(id: string) {
+    setDrafts((prev) => without(prev, id));
+    setSerials((prev) => without(prev, id));
+  }
+
+  /** Send, and close the editor only on a success; a refusal keeps the typing. */
+  async function commit(row: PendingToolView, body: PatchPendingToolBody, closeOnSuccess: boolean) {
+    setRefusals((prev) => without(prev, row.id));
+    const refusal = await patch(row, body);
+    if (refusal) {
+      setRefusals((prev) => ({ ...prev, [row.id]: refusal }));
+      return;
+    }
+    if (closeOnSuccess) close(row.id);
+  }
+
+  async function save(row: PendingToolView) {
+    const draft = drafts[row.id];
+    if (!draft) return;
+    // Only what changed: a patch carrying every field would overwrite an
+    // edit made elsewhere since this card rendered.
+    const body: PatchPendingToolBody = {};
+    const name = draft.name.trim();
+    const brand = draft.brand.trim() || null;
+    const category = draft.category.trim() || null;
+    if (name !== row.name) body.name = name;
+    if (brand !== row.brand) body.brand = brand;
+    if (category !== row.categoryHint) body.categoryHint = category;
+    if (Object.keys(body).length === 0) {
+      close(row.id);
+      return;
+    }
+    await commit(row, body, true);
+  }
+
+  async function addAsUnit(row: PendingToolView) {
+    const value = serials[row.id]?.trim() ?? "";
+    await commit(row, { duplicateResolution: "add_unit", ...(value ? { serialNumber: value } : {}) }, true);
+  }
+
   async function startResearch(ids: string[]) {
     setResearch({ phase: "starting", ids });
     const outcome = await send<ResearchStartedResponse>("/api/pending-tools/research", "POST", { ids });
@@ -215,11 +277,7 @@ export function IntakeTableCard({ payload }: IntakeTableCardProps) {
     const ready = new Set(response.readyAsUnit);
     setRows((prev) =>
       prev.map((row) =>
-        queued.has(row.id)
-          ? { ...row, status: "queued" }
-          : ready.has(row.id)
-            ? { ...row, status: "researched" }
-            : row
+        queued.has(row.id) ? { ...row, status: "queued" } : ready.has(row.id) ? { ...row, status: "researched" } : row
       )
     );
     setResearch({ phase: "started", ids, response });
@@ -228,92 +286,137 @@ export function IntakeTableCard({ payload }: IntakeTableCardProps) {
   const sentIds = research.phase === "idle" ? [] : research.ids;
   const waiting = rows.filter((row) => !sentIds.includes(row.id)).length;
 
+  /** Everything one row's parts need. */
+  function partsOf(row: PendingToolView): RowParts {
+    const serial = serials[row.id];
+    return {
+      row,
+      t,
+      draft: drafts[row.id] ?? null,
+      serial: serial ?? null,
+      refusal: refusals[row.id] ?? null,
+      saving: saving.has(row.id),
+      disabled: locked || saving.has(row.id),
+      onDraft: (draft) => setDrafts((prev) => ({ ...prev, [row.id]: draft })),
+      onEdit: () => open(row.id, () => setDrafts((prev) => ({ ...prev, [row.id]: draftOf(row) }))),
+      onCancel: () => close(row.id),
+      onSave: () => void save(row),
+      onRemove: () => void commit(row, { discard: true }, false),
+      onSerial: (value) => setSerials((prev) => ({ ...prev, [row.id]: value })),
+      onChooseUnit: () => open(row.id, () => setSerials((prev) => ({ ...prev, [row.id]: "" }))),
+      onAddUnit: () => void addAsUnit(row),
+      onDifferentTool: () => void commit(row, { duplicateResolution: "new_tool" }, false),
+    };
+  }
+
+  const columns: ColumnDef<PendingToolView, unknown>[] = [
+    {
+      id: "photo",
+      header: t("table.columnPhoto"),
+      enableSorting: false,
+      meta: { cellClassName: "align-top", className: "w-14" },
+      cell: ({ row }) => <RowPhoto row={row.original} t={t} />,
+    },
+    {
+      id: "name",
+      accessorFn: (row) => row.name,
+      header: t("table.columnName"),
+      enableSorting: false,
+      meta: { rowHeader: true, cellClassName: "align-top whitespace-normal" },
+      cell: ({ row }) => <RowName parts={partsOf(row.original)} />,
+    },
+    {
+      id: "brand",
+      header: t("table.columnBrand"),
+      enableSorting: false,
+      meta: { cellClassName: "align-top whitespace-normal" },
+      cell: ({ row }) => <RowText parts={partsOf(row.original)} field="brand" />,
+    },
+    {
+      id: "category",
+      header: t("table.columnCategory"),
+      enableSorting: false,
+      meta: { cellClassName: "align-top whitespace-normal" },
+      cell: ({ row }) => <RowText parts={partsOf(row.original)} field="category" />,
+    },
+    {
+      id: "duplicate",
+      header: t("table.columnDuplicate"),
+      enableSorting: false,
+      meta: { cellClassName: "align-top whitespace-normal min-w-48" },
+      cell: ({ row }) => <RowDuplicate parts={partsOf(row.original)} />,
+    },
+    {
+      id: "actions",
+      header: () => <span className="sr-only">{t("table.edit")}</span>,
+      enableSorting: false,
+      meta: { cellClassName: "align-top whitespace-normal" },
+      cell: ({ row }) => <RowActions parts={partsOf(row.original)} />,
+    },
+  ];
+
+  const selection: RowSelectionState = Object.fromEntries(selectedIds.map((id) => [id, true]));
+
   return (
-    <section className="intake-card" aria-label={t("table.label")}>
-      <p className="intake-card-lede">{t("table.lede")}</p>
+    <section
+      aria-label={t("table.label")}
+      className="ui mt-2 flex flex-col gap-3 border-t border-rule pt-2 text-table first:mt-0"
+    >
+      <ReviewNote>{t("table.lede")}</ReviewNote>
 
       {payload.warnings.length > 0 ? (
-        <ul className="intake-card-warnings">
+        <ul className="flex flex-col gap-1">
           {payload.warnings.map((warning) => (
-            <li key={warning}>{t(`table.warnings.${warning}`)}</li>
+            <li key={warning}>
+              <ReviewNote tone="bad">{t(`table.warnings.${warning}`)}</ReviewNote>
+            </li>
           ))}
         </ul>
       ) : null}
 
-      <div className="intake-table-wrap">
-        <table className={`intake-table${rows.length <= 1 ? " is-single" : ""}`}>
-          <thead>
-            <tr>
-              <th scope="col" className="intake-col-select">
-                <input
-                  ref={headerBox}
-                  type="checkbox"
-                  aria-label={t("table.selectAllAria")}
-                  checked={allSelected}
-                  disabled={locked || eligibleIds.length === 0}
-                  onChange={toggleAll}
-                />
-                <span className="intake-select-text" aria-hidden="true">
-                  {t("table.selectAllVisible")}
-                </span>
-              </th>
-              <th scope="col">{t("table.columnPhoto")}</th>
-              <th scope="col">{t("table.columnName")}</th>
-              <th scope="col">{t("table.columnBrand")}</th>
-              <th scope="col">{t("table.columnCategory")}</th>
-              <th scope="col">{t("table.columnDuplicate")}</th>
-              <th scope="col">
-                <span className="intake-visually-hidden">{t("table.edit")}</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <IntakeRow
-                key={row.id}
-                row={row}
-                t={t}
-                selected={selected.has(row.id)}
-                locked={locked}
-                saving={saving.has(row.id)}
-                onToggle={() => toggle(row.id)}
-                onEditingChange={(on) => setIn(setEditing, row.id, on)}
-                onPatch={(body) => patch(row, body)}
-              />
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        data={rows}
+        columns={columns}
+        getRowId={(row) => row.id}
+        getRowName={(row) => row.name}
+        labels={{ table: t("table.label"), selectAll: t("table.selectAllAria") }}
+        empty={null}
+        selectable
+        alignTop
+        canSelectRow={(row) => !locked && !isUnresolved(row) && !saving.has(row.id)}
+        selectDescribedBy={(row) => (isUnresolved(row) ? reasonId(row) : undefined)}
+        selection={selection}
+        onSelectionChange={(next) => setSelected(new Set(Object.keys(next).filter((id) => next[id])))}
+        mobileRow={(row, state) => <MobileRow parts={partsOf(row)} selected={state.selected} canSelect={state.canSelect} onToggle={state.toggle} />}
+        layout="container"
+        listSelectAll={t("table.selectAllVisible")}
+        keyboardHint={false}
+        stickyHeader={false}
+      />
 
-      <div className="intake-card-footer" aria-live="polite">
+      <div className="flex flex-col gap-2" aria-live="polite">
         {research.phase === "started" ? (
           <StartedNote t={t} response={research.response} waiting={waiting} />
         ) : (
           <>
             {research.phase === "refused" ? (
-              <p className="intake-card-error" role="alert">
+              <ReviewNote tone="bad" role="alert">
                 {errorText(t, research.refusal)}
-              </p>
+              </ReviewNote>
             ) : null}
             {research.phase === "refused" && research.refusal.code === "start_failed" ? (
-              <button
-                type="button"
-                className="intake-button intake-button-primary"
-                onClick={() => startResearch(research.ids)}
-              >
+              <Button variant="default" className="self-start" onClick={() => startResearch(research.ids)}>
                 {t("table.retry")}
-              </button>
+              </Button>
             ) : (
-              <button
-                type="button"
-                className="intake-button intake-button-primary"
+              <Button
+                variant="default"
+                className="self-start"
                 disabled={selectedIds.length === 0 || busy || locked}
                 onClick={() => startResearch(selectedIds)}
               >
-                {research.phase === "starting"
-                  ? t("table.starting")
-                  : t("table.researchSelected", { count: selectedIds.length })}
-              </button>
+                {research.phase === "starting" ? t("table.starting") : t("table.researchSelected", { count: selectedIds.length })}
+              </Button>
             )}
           </>
         )}
@@ -322,375 +425,272 @@ export function IntakeTableCard({ payload }: IntakeTableCardProps) {
   );
 }
 
-function StartedNote({
-  t,
-  response,
-  waiting,
-}: {
-  t: T;
-  response: ResearchStartedResponse;
-  waiting: number;
-}) {
+function StartedNote({ t, response, waiting }: { t: T; response: ResearchStartedResponse; waiting: number }) {
   const queued = response.queued.length;
   const ready = response.readyAsUnit.length;
   return (
-    <div className="intake-card-started">
-      {queued > 0 ? <p>{t("table.started", { count: queued })}</p> : null}
-      {ready > 0 ? <p>{t("table.readyAsUnit", { count: ready })}</p> : null}
-      {queued === 0 && ready === 0 ? <p>{t("table.startedNothingQueued")}</p> : null}
-      {waiting > 0 ? <p>{t("table.unselectedWait", { count: waiting })}</p> : null}
-      <Link href={ADMIN_INTAKE_PATH} className="intake-card-link">
-        {t("table.openIntake")}
-      </Link>
+    <div className="flex flex-col gap-1">
+      {queued > 0 ? <ReviewNote tone="ink">{t("table.started", { count: queued })}</ReviewNote> : null}
+      {ready > 0 ? <ReviewNote tone="ink">{t("table.readyAsUnit", { count: ready })}</ReviewNote> : null}
+      {queued === 0 && ready === 0 ? <ReviewNote tone="ink">{t("table.startedNothingQueued")}</ReviewNote> : null}
+      {waiting > 0 ? <ReviewNote>{t("table.unselectedWait", { count: waiting })}</ReviewNote> : null}
+      <Button asChild variant="link" size="sm" className="self-start">
+        <Link href={ADMIN_INTAKE_PATH}>{t("table.openIntake")}</Link>
+      </Button>
     </div>
   );
 }
 
-// ── One row ────────────────────────────────────────────────────────
+// ── One row's parts ─────────────────────────────────────────────────
+// Rendered as the table's cells and, in a narrow card, stacked in the list.
 
-interface IntakeRowProps {
+interface RowParts {
   row: PendingToolView;
   t: T;
-  selected: boolean;
-  locked: boolean;
-  saving: boolean;
-  onToggle: () => void;
-  onEditingChange: (editing: boolean) => void;
-  onPatch: (body: PatchPendingToolBody) => Promise<Refusal | null>;
-}
-
-interface Draft {
-  name: string;
-  brand: string;
-  category: string;
-}
-
-function draftOf(row: PendingToolView): Draft {
-  return { name: row.name, brand: row.brand ?? "", category: row.categoryHint ?? "" };
-}
-
-function IntakeRow({ row, t, selected, locked, saving, onToggle, onEditingChange, onPatch }: IntakeRowProps) {
-  const [draft, setDraft] = useState<Draft | null>(null);
-  const [serial, setSerial] = useState<string | null>(null);
-  const [refusal, setRefusal] = useState<Refusal | null>(null);
-
-  const unresolved = isUnresolved(row);
-  const reasonId = `intake-row-${row.id}-duplicate`;
-  const disabled = locked || saving;
-
-  function open(next: () => void) {
-    setRefusal(null);
-    next();
-    onEditingChange(true);
-  }
-
-  function close() {
-    setDraft(null);
-    setSerial(null);
-    onEditingChange(false);
-  }
-
-  /** Send, and close the editor only on a success; a refusal keeps the typing. */
-  async function commit(body: PatchPendingToolBody, closeOnSuccess: boolean) {
-    setRefusal(null);
-    const result = await onPatch(body);
-    if (result) {
-      setRefusal(result);
-      return;
-    }
-    if (closeOnSuccess) close();
-  }
-
-  async function save() {
-    if (!draft) return;
-    // Only what changed: a patch carrying every field would overwrite an
-    // edit made elsewhere since this card rendered.
-    const body: PatchPendingToolBody = {};
-    const name = draft.name.trim();
-    const brand = draft.brand.trim() || null;
-    const category = draft.category.trim() || null;
-    if (name !== row.name) body.name = name;
-    if (brand !== row.brand) body.brand = brand;
-    if (category !== row.categoryHint) body.categoryHint = category;
-    if (Object.keys(body).length === 0) {
-      close();
-      return;
-    }
-    await commit(body, true);
-  }
-
-  async function addAsUnit() {
-    const value = serial?.trim() ?? "";
-    await commit(
-      { duplicateResolution: "add_unit", ...(value ? { serialNumber: value } : {}) },
-      true
-    );
-  }
-
-  const [cover, ...more] = row.photos;
-
-  return (
-    <tr className={`intake-row${unresolved ? " is-unresolved" : ""}`}>
-      <td className="intake-cell-select" data-label={t("table.columnSelect")}>
-        <input
-          type="checkbox"
-          aria-label={t("table.selectRowAria", { name: row.name })}
-          aria-describedby={unresolved ? reasonId : undefined}
-          checked={selected && !unresolved}
-          disabled={disabled || unresolved}
-          onChange={onToggle}
-        />
-        <span className="intake-select-text" aria-hidden="true">
-          {unresolved ? t("table.selectRowBlocked") : t("table.selectRowVisible")}
-        </span>
-      </td>
-
-      <td className="intake-cell-photo" data-label={t("table.columnPhoto")}>
-        {cover ? (
-          cover.url ? (
-            // eslint-disable-next-line @next/next/no-img-element -- a Blob URL at a random pathname; nothing for the optimizer to gain in a chat card
-            <img src={cover.url} alt={t("table.photoAlt", { name: row.name })} />
-          ) : (
-            <span className="intake-photo-placeholder">
-              {cover.filename
-                ? t("table.photoNotShown", { filename: cover.filename })
-                : t("table.photoNotShownUnnamed")}
-            </span>
-          )
-        ) : (
-          <span className="intake-photo-placeholder">{t("table.noPhoto")}</span>
-        )}
-        {more.length > 0 ? (
-          <span className="intake-photo-more">{t("table.morePhotos", { count: more.length })}</span>
-        ) : null}
-      </td>
-
-      <td className="intake-cell-name" data-label={t("table.columnName")}>
-        {draft ? (
-          <input
-            className="intake-input"
-            aria-label={t("table.fieldName")}
-            value={draft.name}
-            maxLength={200}
-            disabled={saving}
-            onChange={(e) => setDraft({ ...draft, name: e.target.value })}
-          />
-        ) : (
-          <>
-            <span className="intake-name">{row.name}</span>
-            {row.status !== "identified" ? (
-              <span className="intake-status">{t(`status.${row.status}`)}</span>
-            ) : null}
-          </>
-        )}
-      </td>
-
-      <td data-label={t("table.columnBrand")}>
-        {draft ? (
-          <input
-            className="intake-input"
-            aria-label={t("table.fieldBrand")}
-            value={draft.brand}
-            maxLength={200}
-            disabled={saving}
-            onChange={(e) => setDraft({ ...draft, brand: e.target.value })}
-          />
-        ) : (
-          row.brand ?? <span className="intake-muted">{t("table.notSet")}</span>
-        )}
-      </td>
-
-      <td data-label={t("table.columnCategory")}>
-        {draft ? (
-          <input
-            className="intake-input"
-            aria-label={t("table.fieldCategory")}
-            value={draft.category}
-            maxLength={200}
-            disabled={saving}
-            onChange={(e) => setDraft({ ...draft, category: e.target.value })}
-          />
-        ) : (
-          row.categoryHint ?? <span className="intake-muted">{t("table.notSet")}</span>
-        )}
-      </td>
-
-      <td className="intake-cell-duplicate" data-label={t("table.columnDuplicate")}>
-        {row.duplicateOf ? (
-          <DuplicateCell
-            row={row}
-            t={t}
-            reasonId={reasonId}
-            disabled={disabled || draft !== null}
-            serial={serial}
-            onSerialChange={setSerial}
-            onChooseUnit={() => open(() => setSerial(""))}
-            onCancelUnit={close}
-            onAddUnit={addAsUnit}
-            onDifferentTool={() => commit({ duplicateResolution: "new_tool" }, false)}
-          />
-        ) : (
-          <span className="intake-muted">{t("table.notSet")}</span>
-        )}
-      </td>
-
-      <td className="intake-cell-actions">
-        {draft ? (
-          <>
-            <button
-              type="button"
-              className="intake-button intake-button-primary"
-              disabled={saving || draft.name.trim() === ""}
-              onClick={save}
-            >
-              {saving ? t("table.saving") : t("table.save")}
-            </button>
-            <button type="button" className="intake-button" disabled={saving} onClick={close}>
-              {t("table.cancel")}
-            </button>
-          </>
-        ) : (
-          <>
-            <button
-              type="button"
-              className="intake-button"
-              aria-label={t("table.editAria", { name: row.name })}
-              disabled={disabled || serial !== null}
-              onClick={() => open(() => setDraft(draftOf(row)))}
-            >
-              {t("table.edit")}
-            </button>
-            <button
-              type="button"
-              className="intake-button intake-button-danger"
-              aria-label={t("table.removeAria", { name: row.name })}
-              disabled={disabled || serial !== null}
-              onClick={() => commit({ discard: true }, false)}
-            >
-              {t("table.remove")}
-            </button>
-          </>
-        )}
-        {refusal ? (
-          <p className="intake-row-error" role="alert">
-            {errorText(t, refusal)}
-          </p>
-        ) : null}
-      </td>
-    </tr>
-  );
-}
-
-interface DuplicateCellProps {
-  row: PendingToolView;
-  t: T;
-  reasonId: string;
-  disabled: boolean;
-  /** Null until "Add as another unit" is chosen; then the serial being typed. */
+  draft: Draft | null;
   serial: string | null;
-  onSerialChange: (value: string) => void;
+  refusal: Refusal | null;
+  saving: boolean;
+  /** Locked by research, or this row is saving. */
+  disabled: boolean;
+  onDraft: (draft: Draft) => void;
+  onEdit: () => void;
+  onCancel: () => void;
+  onSave: () => void;
+  onRemove: () => void;
+  onSerial: (value: string) => void;
   onChooseUnit: () => void;
-  onCancelUnit: () => void;
   onAddUnit: () => void;
   onDifferentTool: () => void;
 }
 
-function DuplicateCell({
-  row,
-  t,
-  reasonId,
-  disabled,
-  serial,
-  onSerialChange,
-  onChooseUnit,
-  onCancelUnit,
-  onAddUnit,
-  onDifferentTool,
-}: DuplicateCellProps) {
-  const match = row.duplicateOf;
-  if (!match) return null;
+function RowPhoto({ row, t }: { row: PendingToolView; t: T }) {
+  const [cover, ...more] = row.photos;
+  const frame = "flex size-12 items-center justify-center overflow-hidden border border-border bg-muted p-0.5 text-center text-[9px] leading-tight break-all text-muted-foreground";
+  return (
+    <div className="flex flex-col gap-0.5">
+      {cover ? (
+        cover.url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- a Blob URL at a random pathname; nothing for the optimizer to gain in a chat card
+          <img src={cover.url} alt={t("table.photoAlt", { name: row.name })} className="size-12 border border-border object-cover" />
+        ) : (
+          <span className={frame}>
+            {cover.filename ? t("table.photoNotShown", { filename: cover.filename }) : t("table.photoNotShownUnnamed")}
+          </span>
+        )
+      ) : (
+        <span className={frame}>{t("table.noPhoto")}</span>
+      )}
+      {more.length > 0 ? (
+        <span className="font-mono text-micro text-muted-foreground">{t("table.morePhotos", { count: more.length })}</span>
+      ) : null}
+    </div>
+  );
+}
 
-  const badge =
-    match.kind === "tool" ? (
-      <span className="intake-badge">
-        {t.rich("table.duplicateOfTool", {
+function RowName({ parts }: { parts: RowParts }) {
+  const { row, t, draft, saving } = parts;
+  if (draft) {
+    return (
+      <Input
+        aria-label={t("table.fieldName")}
+        value={draft.name}
+        maxLength={200}
+        disabled={saving}
+        className="h-7 text-table"
+        onChange={(e) => parts.onDraft({ ...draft, name: e.target.value })}
+      />
+    );
+  }
+  return (
+    <span className="flex flex-col gap-1">
+      <span className="font-medium">{row.name}</span>
+      {row.status !== "identified" ? (
+        <StatusGlyph tone={PENDING_STATUS_TONE[row.status]} label={parts.t(`status.${row.status}`)} />
+      ) : null}
+    </span>
+  );
+}
+
+function RowText({ parts, field }: { parts: RowParts; field: "brand" | "category" }) {
+  const { row, t, draft, saving } = parts;
+  const value = field === "brand" ? row.brand : row.categoryHint;
+  if (draft) {
+    return (
+      <Input
+        aria-label={t(field === "brand" ? "table.fieldBrand" : "table.fieldCategory")}
+        value={draft[field]}
+        maxLength={200}
+        disabled={saving}
+        className="h-7 text-table"
+        onChange={(e) => parts.onDraft({ ...draft, [field]: e.target.value })}
+      />
+    );
+  }
+  return value ? <>{value}</> : <span className="text-muted-foreground">{t("table.notSet")}</span>;
+}
+
+function RowDuplicate({ parts }: { parts: RowParts }) {
+  const { row, t, draft, serial, disabled } = parts;
+  const match = row.duplicateOf;
+  if (!match) return <span className="text-muted-foreground">{t("table.notSet")}</span>;
+
+  const sentence: ReactNode =
+    match.kind === "tool"
+      ? t.rich("table.duplicateOfTool", {
           name: match.name,
           link: (chunks) => (
-            <Link href={`/tools/${match.slug}`} className="intake-card-link">
+            <Link href={`/tools/${match.slug}`} className="text-primary-ink underline underline-offset-2">
               {chunks}
             </Link>
           ),
-        })}
-      </span>
-    ) : (
-      <span className="intake-badge">{t("table.duplicateOfPending", { name: match.name })}</span>
-    );
+        })
+      : t("table.duplicateOfPending", { name: match.name });
 
-  if (row.duplicateResolution === "add_unit") {
-    return (
-      <>
-        {badge}
-        <span className="intake-resolved">{t("table.resolvedAddUnit", { name: match.name })}</span>
-      </>
-    );
-  }
-  if (row.duplicateResolution === "new_tool") {
-    return (
-      <>
-        {badge}
-        <span className="intake-resolved">{t("table.resolvedNewTool")}</span>
-      </>
-    );
-  }
+  const resolved =
+    row.duplicateResolution === "add_unit"
+      ? t("table.resolvedAddUnit", { name: match.name })
+      : row.duplicateResolution === "new_tool"
+        ? t("table.resolvedNewTool")
+        : null;
 
-  if (serial !== null) {
-    const serialId = `intake-row-${row.id}-serial`;
-    return (
-      <>
-        {badge}
-        <label className="intake-serial" htmlFor={serialId}>
-          {t("table.serialLabel")}
-        </label>
-        <input
-          id={serialId}
-          className="intake-input"
-          value={serial}
-          maxLength={200}
-          aria-describedby={`${serialId}-hint`}
-          onChange={(e) => onSerialChange(e.target.value)}
-        />
-        <span id={`${serialId}-hint`} className="intake-muted">
-          {t("table.serialHint")}
-        </span>
-        <span className="intake-choices">
-          <button type="button" className="intake-button intake-button-primary" disabled={disabled} onClick={onAddUnit}>
-            {t("table.confirmAddUnit")}
-          </button>
-          <button type="button" className="intake-button" disabled={disabled} onClick={onCancelUnit}>
-            {t("table.cancel")}
-          </button>
-        </span>
-      </>
-    );
-  }
-
+  const serialId = `intake-row-${row.id}-serial`;
   return (
-    <>
-      {badge}
-      <span id={reasonId} className="intake-reason">
-        {t("table.duplicateChoose")}
-      </span>
-      <span className="intake-choices">
-        {/* Only a tool can take another unit; a pending item has none yet. */}
-        {match.kind === "tool" ? (
-          <button type="button" className="intake-button" disabled={disabled} onClick={onChooseUnit}>
-            {t("table.addAsUnit")}
-          </button>
-        ) : null}
-        <button type="button" className="intake-button" disabled={disabled} onClick={onDifferentTool}>
-          {t("table.differentTool")}
-        </button>
-      </span>
-    </>
+    <DuplicateChoice
+      label={t("table.columnDuplicate")}
+      match={sentence}
+      // Only a tool can take another unit; a pending item has none yet.
+      options={[
+        ...(match.kind === "tool" ? [{ value: "add_unit" as const, label: t("table.addAsUnit") }] : []),
+        { value: "new_tool" as const, label: t("table.differentTool") },
+      ]}
+      value={serial !== null ? "add_unit" : null}
+      disabled={disabled || draft !== null || serial !== null}
+      resolved={resolved}
+      onChoose={(value) => (value === "add_unit" ? parts.onChooseUnit() : parts.onDifferentTool())}
+    >
+      {resolved ? null : serial !== null ? (
+        <div className="flex flex-col gap-1">
+          <label htmlFor={serialId} className="font-mono text-micro tracking-[0.08em] text-muted-foreground uppercase">
+            {t("table.serialLabel")}
+          </label>
+          <Input
+            id={serialId}
+            value={serial}
+            maxLength={200}
+            aria-describedby={`${serialId}-hint`}
+            className="h-7 text-table"
+            onChange={(e) => parts.onSerial(e.target.value)}
+          />
+          <span id={`${serialId}-hint`} className="text-xs text-muted-foreground">
+            {t("table.serialHint")}
+          </span>
+          <span className="flex flex-wrap gap-1">
+            <Button variant="default" size="xs" disabled={disabled} onClick={parts.onAddUnit}>
+              {t("table.confirmAddUnit")}
+            </Button>
+            <Button size="xs" disabled={disabled} onClick={parts.onCancel}>
+              {t("table.cancel")}
+            </Button>
+          </span>
+        </div>
+      ) : (
+        <p id={reasonId(row)} className="text-xs text-muted-foreground">
+          {t("table.duplicateChoose")}
+        </p>
+      )}
+    </DuplicateChoice>
+  );
+}
+
+function RowActions({ parts }: { parts: RowParts }) {
+  const { row, t, draft, serial, saving, disabled, refusal } = parts;
+  return (
+    <div className="flex flex-col items-start gap-1">
+      <div className="flex flex-wrap gap-1">
+        {draft ? (
+          <>
+            <Button variant="default" size="xs" disabled={saving || draft.name.trim() === ""} onClick={parts.onSave}>
+              {saving ? t("table.saving") : t("table.save")}
+            </Button>
+            <Button size="xs" disabled={saving} onClick={parts.onCancel}>
+              {t("table.cancel")}
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button
+              variant="ghost"
+              size="xs"
+              aria-label={t("table.editAria", { name: row.name })}
+              disabled={disabled || serial !== null}
+              onClick={parts.onEdit}
+            >
+              {t("table.edit")}
+            </Button>
+            <Button
+              variant="destructive"
+              size="xs"
+              aria-label={t("table.removeAria", { name: row.name })}
+              disabled={disabled || serial !== null}
+              onClick={parts.onRemove}
+            >
+              {t("table.remove")}
+            </Button>
+          </>
+        )}
+      </div>
+      {refusal ? (
+        <ReviewNote tone="bad" role="alert">
+          {errorText(t, refusal)}
+        </ReviewNote>
+      ) : null}
+    </div>
+  );
+}
+
+/** The narrow card's list item: the same parts, stacked, the box first. */
+function MobileRow({
+  parts,
+  selected,
+  canSelect,
+  onToggle,
+}: {
+  parts: RowParts;
+  selected: boolean;
+  canSelect: boolean;
+  onToggle: () => void;
+}) {
+  const { row, t, draft } = parts;
+  const unresolved = isUnresolved(row);
+  return (
+    <div className="flex flex-col gap-2 py-2">
+      <div className="flex items-start gap-2">
+        <Checkbox
+          className="mt-1"
+          aria-label={t("table.selectRowAria", { name: row.name })}
+          aria-describedby={unresolved ? reasonId(row) : undefined}
+          checked={selected}
+          disabled={!canSelect}
+          onCheckedChange={onToggle}
+        />
+        <RowPhoto row={row} t={t} />
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <RowName parts={parts} />
+          {draft ? (
+            <>
+              <RowText parts={parts} field="brand" />
+              <RowText parts={parts} field="category" />
+            </>
+          ) : (
+            <span className="text-muted-foreground">
+              {[row.brand, row.categoryHint].filter(Boolean).join(" · ") || t("table.notSet")}
+            </span>
+          )}
+        </div>
+      </div>
+      {row.duplicateOf ? <RowDuplicate parts={parts} /> : null}
+      <RowActions parts={parts} />
+    </div>
   );
 }

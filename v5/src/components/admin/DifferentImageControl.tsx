@@ -5,6 +5,10 @@ import { useTranslations } from "next-intl";
 import { REVIEWER_NOTE_MAX_CHARS } from "../../lib/intake/limits";
 import { cleanReviewerNote } from "../../lib/intake/reviewer-note";
 import type { ImageRetryState } from "../../lib/research/result";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Field } from "../system/Field";
+import { ReviewNote } from "../system/review/ReviewCard";
 
 /**
  * **Find a different image** under the Product image section (amendment
@@ -65,10 +69,9 @@ export function DifferentImageControl({ pendingId, retry, running, onRequest }: 
   const failed = !looking && !error && retry?.status === "failed" ? retry.error : null;
 
   return (
-    <div className="admin-intake-image-retry">
-      <div className="admin-field">
-        <label htmlFor={noteId}>{t("differentNote")}</label>
-        <textarea
+    <div className="ui flex flex-col gap-2 border-t border-rule pt-2">
+      <Field id={noteId} label={t("differentNote")}>
+        <Textarea
           id={noteId}
           rows={2}
           maxLength={REVIEWER_NOTE_MAX_CHARS}
@@ -77,18 +80,16 @@ export function DifferentImageControl({ pendingId, retry, running, onRequest }: 
           disabled={looking || starting}
           onChange={(event) => setNote(event.target.value)}
         />
-      </div>
-      <div className="admin-editor-actions">
-        <button type="button" className="admin-button" disabled={looking || starting} onClick={() => void request()}>
-          {t("findDifferent")}
-        </button>
-      </div>
-      <p className={`admin-row-status${error || failed ? " is-error" : ""}`} role="status">
+      </Field>
+      <Button size="sm" className="self-start" disabled={looking || starting} onClick={() => void request()}>
+        {t("findDifferent")}
+      </Button>
+      <ReviewNote role="status" tone={error || failed ? "bad" : "muted"}>
         {starting ? t("differentStarting") : null}
         {!starting && looking ? t("differentRunning") : null}
         {!starting && !looking && error ? tAdmin(error) : null}
         {failed ? t("differentFailed", { reason: failed }) : null}
-      </p>
+      </ReviewNote>
     </div>
   );
 }

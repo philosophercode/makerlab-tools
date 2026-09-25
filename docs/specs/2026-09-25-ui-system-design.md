@@ -795,3 +795,101 @@ phase 3, so `.admin-table` stays until then. Where phase 2 differs, and why:
   2,214 px desktop, 4,327 → 2,946 px phone. The roster is longer on a phone
   (1,605 → 2,026 px) because it no longer scrolls sideways.
 - **Package added:** `@tanstack/react-table` ^8.21.3 (v8, as §11 pinned).
+
+### 2026-09-25 — Phase 3 as built (review surfaces)
+
+Branch `v5/ui-phase-3`. §13's row is built — `ReviewCard` + `DuplicateChoice`;
+refresh and chat proposals (the spike's code); the intake approve page; the
+intake queue; import review with its mapping preview; `IntakeTableCard` — plus
+phase 2's handoff (`ImportTable`, the `ImportMapping` preview and the chat's
+intake table on `DataTable`). Behaviour is unchanged: every existing
+review/intake/import/refresh/curation test passes with selectors updated only
+where the markup changed. Where phase 3 differs, and why:
+
+- **Files.** `src/components/system/review/ReviewCard.tsx` holds `ReviewCard`,
+  `ReviewValues`, `ReviewSources`, `ReviewNote` and `ReviewDiagnosis` (a
+  failed run's recorded reason); `review/DuplicateChoice.tsx`;
+  `system/Field.tsx` (label above, control, hint, error — DESIGN.md §8.7, used
+  by every review form); `ui/textarea.tsx` (shadcn's, themed like `Input`);
+  `admin/pending-status-tone.ts` (a pending item's status as a glyph tone,
+  shared by the queue, the chat table and the import rows).
+- **`ReviewCard` grew what the other surfaces needed**: `headingLevel` (the
+  queue's names are h4 under batch h3s; the approve page's cards are h3/h4),
+  `title` (the name as the link to the item), `media` (a thumbnail or a row's
+  checkbox), `meta` (the mono who/when line), `as="section"` (the add-unit
+  card is a region), and a `warn` tone (a decision still owed: low confidence,
+  an undecided duplicate). A caller passes `border-t`, never a border colour:
+  tailwind-merge lets a later colour override the tone's start rule.
+- **`ReviewValues.before` is optional.** The intake approve page (the spike's
+  known risk) has no "now": a new tool has no record. Its proposed record is
+  one `ReviewCard` per field group — Names, **Safety and training** (safety
+  first, bad-tone rule), Description and specs, Where it goes, the verified
+  links — each all proposal, editable in place through `Field`. The training
+  three-way select keeps its "staff to confirm" default with a warn rule until
+  chosen, and research's verified training quotes are now `ReviewSources`.
+  Display/official names with the uniqueness warning, the image choice, lab
+  documents, duplicates and **Research again** all behave as before.
+  `ConfidenceStrip` sits above the cards (not in a card header, as §7.4
+  sketched: it is several lines, not a mark); its `id-card-*` rules were
+  deleted in phase 1, so it is now drawn with utilities, ● held / ○ unknown in
+  ink only (confidence spec §6: no traffic lights).
+- **`DuplicateChoice` is a `radiogroup` of `radio` buttons that do not move on
+  the arrow keys.** In APG's radio group an arrow checks the next radio; here
+  choosing *saves* (the import's "Remove" is one arrow from "A different
+  tool"), so each radio is its own tab stop and chooses on Space, Enter or a
+  click. The match sentence describes the group; a decision that cannot be
+  changed here (the chat table) is shown as words (`resolved`), not controls.
+  It replaces the chat table's buttons, the queue's buttons and the import's
+  `<select>`; the approve page keeps a one-line note (its duplicate was decided
+  before research). "Add as another unit" still asks for the serial inline.
+- **`DataTable` gained four options** for the review tables: `canSelectRow`
+  (an undecided duplicate, a saving row) with `selectDescribedBy` (why its box
+  is disabled) — select-all skips such rows; `labels.selectAll`;
+  `alignTop` (rows of boxes); and **`layout="container"`** with
+  `listSelectAll`. The chat panel is 360–440px wide on any screen, so the
+  intake table's *own* width decides between the table and the list
+  (`useContainerNarrow`, a `ResizeObserver` measured before paint), and never
+  renders both; an unmeasurable container (jsdom) keeps the table. Container
+  mode is for client-rendered panels only — there is no server first paint.
+  The list has its own select-all ("Research all"), which the phone list never
+  had. Each row's edit state (draft, serial, refusal) moved up into the card,
+  keyed by id, because cells are render functions (phase 2's rule).
+- **Import review** filters with `FilterBar`: search plus one "Show" facet
+  whose menu counts each value, given the search (the six filter chips were a
+  single-choice set). Selection is `DataTable`'s: the header box is "Select all
+  shown", and the selection actions (set category/location, Remove, Suggest
+  names, Clear, **Research selected (N)**) live in the sticky bulk bar, which
+  says how many selected rows the filter hides. "Accept all exact" sits at the
+  end of the filter bar because it does not depend on the selection. A phone
+  gets one compact `ReviewCard` per row with the same boxes, labelled — 5,839 →
+  2,636 px for the seeded 8-row import. The mapping preview is a `DataTable`
+  whose headers hold the `NativeSelect`s; it stays a table on a phone.
+- **Inline, not `Dialog`.** §7.1 lists `ResearchAgainDialog` and the refresh
+  page's "Refresh again" panel under `Dialog`; both stay inline disclosures
+  (a form that belongs to the page, DESIGN.md §8.7) so their behaviour and
+  tests are unchanged; `Dialog` is not added. Their chips are `Button`s with
+  `aria-pressed`.
+- **Left for phase 4, as §13 says:** `PageHeader` on these pages (the admin
+  layout's heading still stands above them), `RowStatus` and the legacy
+  `admin-row-status` line on non-review surfaces, and the shared queue layout
+  (`admin-queue`, `admin-queue-settled` stay around the intake queue's
+  `ReviewCard`s). `RefreshDialog` (the inventory's bulk refresh panel) keeps
+  its `admin-refresh-dialog` rules.
+- **Removed:** `admin-intake.css` (567 lines) and `intake-table.css` (382),
+  now imported by nothing; from `admin-refresh.css` everything but the
+  inventory panel (210 → 20 lines); from `admin-import.css` the review page,
+  mapping, table and phone stacking (270 → 54, the launcher and chat pieces stay for
+  phase 5); from `globals.css` `.admin-table*`, `.admin-visually-hidden`,
+  `.admin-muted`, `.admin-thumb.is-empty` and the last `id-card-*` rules
+  (−101). **1,463 lines of legacy CSS deleted** (7 lines of new header
+  comments), 27 added to `ui.css`
+  (the `review-updated` wash and the `[data-checkerboard]` transparency
+  pattern). Legacy CSS: 6,120 → 4,664 lines. Component TSX grew (+2,487 /
+  −1,712, including ~440 lines of new system components): utilities are
+  written where the legacy class names were, and the per-row state of two
+  tables moved up.
+- **Measured** (seeded scratch database, 1440 / 390): intake queue 1,733 →
+  1,363 px desktop, 1,988 → 1,496 phone; approve page 1,894 → 1,688 /
+  2,259 → 2,180; refresh review 2,001 → 1,438 / 2,602 → 1,970; import review
+  1,289 → 1,165 / 5,839 → 2,636.
+- **Packages added:** none.

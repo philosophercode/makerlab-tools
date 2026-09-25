@@ -193,6 +193,11 @@ RESEARCH (2)] · CLEAR`). On a phone: a two-line list item per row.
 - **Phone: one of the two, not both.** The list and the table are never both
   in the document once the browser can say which shows, so a row's controls
   (a role select, a ban button) exist once.
+- **A table in a panel follows the panel.** In the chat (360–440px on any
+  screen) the table's own width decides (`layout="container"`), so the intake
+  table is a list there on a 1440px desktop too, with its own select-all.
+- **A row that cannot be selected says why**: its box is disabled and
+  described by the reason (an undecided duplicate); select-all skips it.
 - **Don't** render a table as cards on a phone; don't box cells; don't put more
   than one line of secondary text in a cell; don't hide the count.
 
@@ -238,8 +243,22 @@ decided here. Safety cards carry a bad-tone left rule. Decided cards fade.
 
 - **Use** for refresh proposals, chat proposals, intake records, import rows —
   anything a person accepts or rejects.
+- **A new record has no NOW.** The intake approve page is one card per field
+  group (names, safety and training first, description, where it goes, links),
+  all proposal, editable in place through `Field`. A field waiting on a
+  person's decision (training "staff to confirm") carries a warn rule and says
+  why in its hint.
+- **Tones:** safety = bad rule; `warn` = a decision still owed (low confidence,
+  an undecided duplicate); settled = faded. The mono meta line under the label
+  says who and when; a failed run's reason is a `ReviewDiagnosis` (mono,
+  bad rule), shown as recorded.
+- **Duplicates are a `DuplicateChoice`**: ▲ the match in words, then the
+  choices as a radio group of small buttons. Choosing saves, so the arrow keys
+  never choose — each option is its own tab stop. A decision that cannot be
+  changed here is shown as ● words, not controls.
 - **Don't** render values as HTML/Markdown (they come from web pages); don't
-  offer Accept on unverified evidence; don't box each card (a rule is enough).
+  offer Accept on unverified evidence; don't box each card (a rule is enough);
+  don't pass a border colour to a card (it overrides the tone's rule).
 
 ![Refresh review](screens/after-refresh-review-desktop.webp)
 

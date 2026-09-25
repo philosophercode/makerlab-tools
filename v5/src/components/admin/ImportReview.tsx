@@ -1,7 +1,5 @@
 "use client";
 
-import "../../styles/admin-import.css";
-
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -22,6 +20,12 @@ import { ADMIN_INTAKE_PATH } from "../../lib/intake/types";
 import { ImportMapping } from "./ImportMapping";
 import { ImportTable } from "./ImportTable";
 import { IMPORT_FILTERS, isLive, researchPlan, visibleRows, type ImportFilter } from "./import-table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { EmptyState } from "../system/EmptyState";
+import { FacetFilter } from "../system/data-table/FacetFilter";
+import { FilterBar } from "../system/data-table/FilterBar";
+import { ReviewNote } from "../system/review/ReviewCard";
 
 /**
  * `/admin/intake/imports/[id]` — one import, as it stands (bulk intake spec
@@ -78,6 +82,7 @@ export function ImportReview({
   post = postResearch,
 }: ImportReviewProps) {
   const t = useTranslations("admin.import");
+  const tf = useTranslations("ui.filters");
   const [view, setView] = useState(initialImport);
   const [items, setItems] = useState(initialItems);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
@@ -272,26 +277,6 @@ export function ImportReview({
     }
   }
 
-  function toggle(id: string, on: boolean) {
-    setSelected((current) => {
-      const next = new Set(current);
-      if (on) next.add(id);
-      else next.delete(id);
-      return next;
-    });
-  }
-
-  function toggleAll(on: boolean) {
-    setSelected((current) => {
-      const next = new Set(current);
-      for (const row of rows) {
-        if (on) next.add(row.id);
-        else next.delete(row.id);
-      }
-      return next;
-    });
-  }
-
   const header = (
     <header className="admin-section-head">
       <p className="td-eyebrow">{t("eyebrow")}</p>
@@ -309,7 +294,7 @@ export function ImportReview({
 
   if (view.status === "mapping" && preview) {
     return (
-      <section className="admin-section admin-import-page">
+      <section className="admin-section">
         {header}
         <ImportMapping preview={preview} busy={busy === "mapping"} error={mappingError} onConfirm={(map) => void confirmColumns(map)} />
       </section>
@@ -318,11 +303,11 @@ export function ImportReview({
 
   if (view.status === "parsing") {
     return (
-      <section className="admin-section admin-import-page">
+      <section className="admin-section">
         {header}
-        <p className="admin-row-status" role="status">
+        <ReviewNote role="status" tone="ink">
           {t("parsing")}
-        </p>
+        </ReviewNote>
       </section>
     );
   }
@@ -331,118 +316,87 @@ export function ImportReview({
     const reason = view.parseError ?? "failed";
     const tooMany = parseTooManyItemsReason(reason);
     return (
-      <section className="admin-section admin-import-page">
+      <section className="admin-section">
         {header}
-        <p className="admin-row-status is-error" role="alert">
-          {tooMany !== null
-            ? t("failed.too_many_items", { count: tooMany, limit: IMPORT_MAX_ITEMS })
-            : reason === "no_items" || reason === "start_failed"
-              ? t(`failed.${reason}`)
-              : t("failed.other", { reason })}
-        </p>
-        {reason === "no_items" && sourceHead && sourceHead.length > 0 ? (
-          <>
-            <p className="admin-intake-hint">{t("failed.firstLines")}</p>
-            <pre className="admin-import-head">{sourceHead.join("\n")}</pre>
-          </>
-        ) : null}
+        <div className="ui flex flex-col gap-2">
+          <ReviewNote tone="bad" role="alert" className="text-table">
+            {tooMany !== null
+              ? t("failed.too_many_items", { count: tooMany, limit: IMPORT_MAX_ITEMS })
+              : reason === "no_items" || reason === "start_failed"
+                ? t(`failed.${reason}`)
+                : t("failed.other", { reason })}
+          </ReviewNote>
+          {reason === "no_items" && sourceHead && sourceHead.length > 0 ? (
+            <>
+              <ReviewNote>{t("failed.firstLines")}</ReviewNote>
+              <pre className="overflow-x-auto border-s-2 border-s-border bg-muted p-3 font-mono text-xs whitespace-pre-wrap">
+                {sourceHead.join("\n")}
+              </pre>
+            </>
+          ) : null}
+        </div>
       </section>
     );
   }
 
   const exact = live.filter((item) => item.nameSuggestion?.confidence === "exact" && item.status === "identified").map((item) => item.id);
   const shownRows = rows.slice(0, Math.max(shown, IMPORT_VIRTUALIZE_ABOVE));
+  const narrowed = filter !== "all" || query.trim() !== "";
+  // Each "Show" value with how many rows it would leave, given the search.
+  const facetValues = IMPORT_FILTERS.filter((name) => name !== "all").map((name) => ({
+    value: name,
+    label: t(`filter.${name}`),
+    count: visibleRows(items, name, query, selected).length,
+  }));
+  const clearFilters = () => {
+    setFilter("all");
+    setQuery("");
+  };
 
   return (
-    <section className="admin-section admin-import-page">
+    <section className="admin-section">
       {header}
 
-      <div className="admin-import-toolbar">
-        <input
-          type="search"
-          className="admin-import-search"
-          placeholder={t("review.search")}
-          aria-label={t("review.search")}
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
+      <div className="ui flex flex-col gap-2">
+        <FilterBar
+          label={t("review.filterBar")}
+          search={{ value: query, onChange: setQuery, label: t("review.search"), placeholder: t("review.search") }}
+          facets={
+            <FacetFilter
+              label={t("review.filterLabel")}
+              value={filter === "all" ? null : filter}
+              options={facetValues}
+              anyLabel={t("filter.all")}
+              onChange={(value) => setFilter((value as ImportFilter | null) ?? "all")}
+            />
+          }
+          shown={rows.length}
+          total={live.length}
+          onClear={narrowed ? clearFilters : null}
+          end={
+            exact.length > 0 ? (
+              <Button size="sm" disabled={locked} onClick={() => void accept(exact)}>
+                {t("review.acceptAllExact", { count: exact.length })}
+              </Button>
+            ) : null
+          }
         />
-        <div className="admin-import-filters" role="group" aria-label={t("review.filterLabel")}>
-          {IMPORT_FILTERS.map((name) => (
-            <button
-              key={name}
-              type="button"
-              className={`admin-button${filter === name ? " is-primary" : ""}`}
-              aria-pressed={filter === name}
-              onClick={() => setFilter(name)}
-            >
-              {t(`filter.${name}`)}
-            </button>
+        <ReviewNote>{t("review.researchHint", { size: IMPORT_RESEARCH_CHUNK })}</ReviewNote>
+
+        <div className="flex flex-col gap-1" role="status">
+          {busy === "research" && progress ? (
+            <ReviewNote tone="ink">
+              {t("outcome.progress", { chunk: progress.chunk, chunks: progress.chunks, queued: progress.queued })}
+            </ReviewNote>
+          ) : null}
+          {busy === "research" && !progress ? <ReviewNote tone="ink">{t("outcome.sending")}</ReviewNote> : null}
+          {messages.map((message, index) => (
+            <ReviewNote key={index} tone={message.tone === "error" ? "bad" : message.tone === "warning" ? "warn" : "ink"}>
+              {message.text}
+            </ReviewNote>
           ))}
         </div>
-      </div>
 
-      <div className="admin-import-actionbar" role="region" aria-label={t("review.actionsLabel")}>
-        <span className="admin-import-count">{t("review.selectedCount", { count: selectedIds.length })}</span>
-        <button type="button" className="admin-button" disabled={locked || rows.length === 0} onClick={() => toggleAll(true)}>
-          {t("review.selectAllShown")}
-        </button>
-        <button type="button" className="admin-button" disabled={locked || selectedIds.length === 0} onClick={() => setSelected(new Set())}>
-          {t("review.clearSelection")}
-        </button>
-        <span className="admin-import-bulk">
-          <input
-            list="import-categories"
-            aria-label={t("review.setCategory")}
-            placeholder={t("review.setCategory")}
-            value={bulkCategory}
-            onChange={(event) => setBulkCategory(event.target.value)}
-          />
-          <button type="button" className="admin-button" disabled={locked || selectedIds.length === 0} onClick={() => void setHints("categoryHint", bulkCategory)}>
-            {t("review.apply")}
-          </button>
-        </span>
-        <span className="admin-import-bulk">
-          <input
-            list="import-locations"
-            aria-label={t("review.setLocation")}
-            placeholder={t("review.setLocation")}
-            value={bulkLocation}
-            onChange={(event) => setBulkLocation(event.target.value)}
-          />
-          <button type="button" className="admin-button" disabled={locked || selectedIds.length === 0} onClick={() => void setHints("locationHint", bulkLocation)}>
-            {t("review.apply")}
-          </button>
-        </span>
-        <button type="button" className="admin-button is-danger" disabled={locked || selectedIds.length === 0} onClick={() => void removeSelected()}>
-          {t("review.removeSelected")}
-        </button>
-        <button type="button" className="admin-button" disabled={locked || selectedIds.length === 0} onClick={() => void suggestNames()}>
-          {t("review.suggestNames")}
-        </button>
-        {exact.length > 0 ? (
-          <button type="button" className="admin-button" disabled={locked} onClick={() => void accept(exact)}>
-            {t("review.acceptAllExact", { count: exact.length })}
-          </button>
-        ) : null}
-        <button type="button" className="admin-button is-primary" disabled={locked || plan.send.length === 0} onClick={() => void research()}>
-          {t("review.researchSelected", { count: plan.send.length })}
-        </button>
-      </div>
-      <p className="admin-intake-hint">{t("review.researchHint", { size: IMPORT_RESEARCH_CHUNK })}</p>
-
-      <div className="admin-import-messages" role="status">
-        {busy === "research" && progress ? <p className="admin-row-status">{t("outcome.progress", { chunk: progress.chunk, chunks: progress.chunks, queued: progress.queued })}</p> : null}
-        {busy === "research" && !progress ? <p className="admin-row-status">{t("outcome.sending")}</p> : null}
-        {messages.map((message, index) => (
-          <p key={index} className={`admin-row-status${message.tone === "error" ? " is-error" : message.tone === "warning" ? " is-warning" : ""}`}>
-            {message.text}
-          </p>
-        ))}
-      </div>
-
-      {rows.length === 0 ? (
-        <p className="admin-empty td-empty">{t("review.emptyFilter")}</p>
-      ) : (
         <ImportTable
           rows={shownRows}
           byId={byId}
@@ -450,21 +404,75 @@ export function ImportReview({
           locked={locked}
           categories={categories}
           locations={locations}
-          onToggle={toggle}
-          onToggleAll={toggleAll}
+          onSelectionChange={setSelected}
           onPatch={(id, rowPatch) => void patch(id, rowPatch)}
           onMerge={(source, target) => void mergeRow(source, target)}
           onAccept={(ids) => void accept(ids)}
           onIgnore={(ids) => void ignore(ids)}
+          empty={
+            <EmptyState
+              action={
+                narrowed ? (
+                  <Button variant="ghost" size="sm" onClick={clearFilters}>
+                    {tf("clear")}
+                  </Button>
+                ) : null
+              }
+            >
+              {t("review.emptyFilter")}
+            </EmptyState>
+          }
+          bulkActions={(_ids, clear) => (
+            <>
+              <span className="flex items-center gap-1">
+                <Input
+                  list="import-categories"
+                  aria-label={t("review.setCategory")}
+                  placeholder={t("review.setCategory")}
+                  value={bulkCategory}
+                  className="h-7 w-36 text-table"
+                  onChange={(event) => setBulkCategory(event.target.value)}
+                />
+                <Button size="sm" disabled={locked || selectedIds.length === 0} onClick={() => void setHints("categoryHint", bulkCategory)}>
+                  {t("review.apply")}
+                </Button>
+              </span>
+              <span className="flex items-center gap-1">
+                <Input
+                  list="import-locations"
+                  aria-label={t("review.setLocation")}
+                  placeholder={t("review.setLocation")}
+                  value={bulkLocation}
+                  className="h-7 w-36 text-table"
+                  onChange={(event) => setBulkLocation(event.target.value)}
+                />
+                <Button size="sm" disabled={locked || selectedIds.length === 0} onClick={() => void setHints("locationHint", bulkLocation)}>
+                  {t("review.apply")}
+                </Button>
+              </span>
+              <Button variant="destructive" size="sm" disabled={locked || selectedIds.length === 0} onClick={() => void removeSelected()}>
+                {t("review.removeSelected")}
+              </Button>
+              <Button size="sm" disabled={locked || selectedIds.length === 0} onClick={() => void suggestNames()}>
+                {t("review.suggestNames")}
+              </Button>
+              <Button variant="ghost" size="sm" disabled={locked} onClick={clear}>
+                {t("review.clearSelection")}
+              </Button>
+              <Button variant="default" size="sm" disabled={locked || plan.send.length === 0} onClick={() => void research()}>
+                {t("review.researchSelected", { count: plan.send.length })}
+              </Button>
+            </>
+          )}
         />
-      )}
-      {shownRows.length < rows.length ? (
-        <div ref={sentinel} className="admin-import-more">
-          <button type="button" className="admin-button" onClick={() => setShown((current) => current + IMPORT_VIRTUALIZE_ABOVE)}>
-            {t("review.showMore", { count: rows.length - shownRows.length })}
-          </button>
-        </div>
-      ) : null}
+        {shownRows.length < rows.length ? (
+          <div ref={sentinel} className="flex justify-center py-2">
+            <Button size="sm" onClick={() => setShown((current) => current + IMPORT_VIRTUALIZE_ABOVE)}>
+              {t("review.showMore", { count: rows.length - shownRows.length })}
+            </Button>
+          </div>
+        ) : null}
+      </div>
     </section>
   );
 }
