@@ -5,6 +5,8 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { isAcceptable, type FieldProposal } from "../lib/refresh/types";
 import { ProposalCard } from "./admin/ProposalCard";
+// `.chat-proposals` lives here; ProposalCard no longer pulls this file in.
+import "../styles/admin-refresh.css";
 
 /**
  * The assistant's proposals in the chat (refresh research spec §12.2): one

@@ -121,6 +121,48 @@ function matchesAttention(row: InventoryRow, attention: AttentionFilter): boolea
   }
 }
 
+/**
+ * Ranked, typo-tolerant search keys, weighted by key order the way the
+ * gallery's are: the name first, then where the tool sits, then its slug —
+ * which is here because a reviewer arriving from a link has a slug in hand.
+ */
+export const INVENTORY_SEARCH_KEYS: ReadonlyArray<(row: InventoryRow) => string> = [
+  (row) => row.name,
+  // The official name, with its model or part number (tool display names spec §5.6).
+  (row) => row.officialName ?? "",
+  (row) => row.categoryName ?? "",
+  (row) => row.categoryGroup ?? "",
+  (row) => row.room ?? "",
+  (row) => row.zone ?? "",
+  (row) => row.slug,
+];
+
+/**
+ * The active filters as one readable phrase, each part translated — what an
+ * empty table names (spec §6: an empty state says what is missing).
+ */
+export function describeFilters(
+  filters: InventoryFilterState,
+  t: (key: string, values?: Record<string, string>) => string
+): string {
+  const parts: string[] = [];
+  const part = (label: string, value: string) => parts.push(t("filterSummaryPart", { label, value }));
+
+  if (filters.query.trim()) part(t("filterSearch"), filters.query.trim());
+  if (filters.state) part(t("filterState"), t(`state.${filters.state}`));
+  if (filters.category) part(t("filterCategory"), filters.category);
+  if (filters.location) part(t("filterLocation"), filters.location);
+  if (filters.attention) {
+    part(t("filterAttention"), filters.attention === "any" ? t("attentionAny") : t(`flags.${filters.attention}`));
+  }
+  return parts.join(", ");
+}
+
+/** The non-null values, deduplicated and sorted — a facet's option list. */
+export function uniqueValues(values: Array<string | null>): string[] {
+  return Array.from(new Set(values.filter((value): value is string => Boolean(value)))).sort();
+}
+
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }

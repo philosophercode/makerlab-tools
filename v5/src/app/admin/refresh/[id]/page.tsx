@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../../components/admin/AdminNotice";
 import { RefreshReview, type RefreshReviewView } from "../../../../components/admin/RefreshReview";
+import { PageHeader } from "../../../../components/system/PageHeader";
 import { resolveIdentityFromHeaders } from "../../../../lib/auth/identity";
 import { can } from "../../../../lib/auth/permissions";
 import { findDuplicate } from "../../../../lib/data/duplicates";
@@ -85,15 +86,25 @@ export default async function AdminRefreshItemPage({ params }: { params: Promise
     canPublish: can(identity, "tools.publish"),
   };
 
+  const kinds = (kind: string) => proposals.filter((p) => p.kind === kind).length;
+  const safety = proposals.filter((p) => p.safety && isActionable(p)).length;
+
   return (
     <section className="admin-section">
-      <header className="admin-section-head">
-        <p className="td-eyebrow">
-          <Link href={ADMIN_REFRESH_PATH}>{t("refresh.back")}</Link>
-        </p>
-        <h2>{subject.name}</h2>
-        <p className="admin-lede">{t("refreshLede")}</p>
-      </header>
+      <PageHeader
+        crumbs={[
+          { label: t("eyebrow"), href: "/admin" },
+          { label: t("nav.surface.refresh"), href: ADMIN_REFRESH_PATH },
+        ]}
+        title={subject.name}
+        lede={t("refreshLede")}
+        facts={
+          <>
+            {t("refresh.counts", { differs: kinds("differs"), new: kinds("new"), unverified: kinds("unverified") })}
+            {safety > 0 ? <span className="text-bad"> · {t("refresh.safetyCount", { count: safety })}</span> : null}
+          </>
+        }
+      />
       <RefreshReview view={view} actions={ACTIONS} />
     </section>
   );

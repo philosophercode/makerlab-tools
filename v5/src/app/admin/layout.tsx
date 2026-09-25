@@ -1,8 +1,10 @@
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
+import { AdminNav } from "../../components/admin/AdminNav";
 import { AdminNotice } from "../../components/admin/AdminNotice";
+import { ADMIN_SURFACES } from "../../lib/admin/surfaces";
 import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
-import { canReachAdmin } from "../../lib/auth/permissions";
+import { can, canReachAdmin } from "../../lib/auth/permissions";
 import { siteConfig } from "../../lib/site-config";
 
 /**
@@ -35,14 +37,12 @@ export default async function AdminLayout({
 
   return (
     <main className="page-shell admin-shell">
-      <section className="gallery-header" aria-labelledby="admin-title">
-        <div className="title-row">
-          <span className="target-glyph" aria-hidden="true">
-            +
-          </span>
-          <h1 id="admin-title">{t("title")}</h1>
-        </div>
-      </section>
+      {/* UI system spec §6.3: one compact header per surface, not an 88px
+          display "ADMIN" stacked above every page's own title. The h1 stays
+          for the document outline; the section bar carries the context. */}
+      <h1 id="admin-title" className="sr-only">
+        {t("title")}
+      </h1>
 
       <Suspense fallback={<p className="admin-empty td-empty">{t("loading")}</p>}>
         <AdminGate>{children}</AdminGate>
@@ -58,5 +58,14 @@ async function AdminGate({ children }: { children: React.ReactNode }) {
   if (identity.role === "anonymous") return <AdminNotice kind="signedOut" />;
   if (!canReachAdmin(identity)) return <AdminNotice kind="forbidden" />;
 
-  return <>{children}</>;
+  const items = ADMIN_SURFACES.filter((surface) => can(identity, surface.permission)).map(
+    ({ key, href, group }) => ({ key, href, group })
+  );
+
+  return (
+    <>
+      <AdminNav items={items} />
+      {children}
+    </>
+  );
 }

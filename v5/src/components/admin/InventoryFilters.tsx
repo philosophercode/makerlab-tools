@@ -11,11 +11,14 @@ import { ToolEditorPanel } from "./ToolEditorPanel";
 import type { ToolEditorActions } from "./tool-editor-actions";
 import {
   ATTENTION_FILTERS,
+  INVENTORY_SEARCH_KEYS as SEARCH_KEYS,
   INVENTORY_STATES,
   NO_FILTERS,
+  describeFilters,
   hasActiveFilters,
   matchesFilters,
   toSearchParams,
+  uniqueValues as unique,
   type AttentionFilter,
   type InventoryFilterState,
 } from "./inventory-filters";
@@ -59,22 +62,6 @@ export interface InventoryFiltersProps {
    */
   queueRefresh?: QueueRefreshAction;
 }
-
-/**
- * Ranked, typo-tolerant search keys, weighted by key order the way the
- * gallery's are: the name first, then where the tool sits, then its slug —
- * which is here because a reviewer arriving from a link has a slug in hand.
- */
-const SEARCH_KEYS: ReadonlyArray<(row: InventoryRow) => string> = [
-  (row) => row.name,
-  // The official name, with its model or part number (tool display names spec §5.6).
-  (row) => row.officialName ?? "",
-  (row) => row.categoryName ?? "",
-  (row) => row.categoryGroup ?? "",
-  (row) => row.room ?? "",
-  (row) => row.zone ?? "",
-  (row) => row.slug,
-];
 
 export function InventoryFilters({
   rows,
@@ -277,31 +264,4 @@ export function InventoryFilters({
       ) : null}
     </>
   );
-}
-
-/** The active filters as one readable phrase, each part translated. */
-function describeFilters(
-  filters: InventoryFilterState,
-  t: (key: string, values?: Record<string, string>) => string
-): string {
-  const parts: string[] = [];
-  const part = (label: string, value: string) =>
-    parts.push(t("filterSummaryPart", { label, value }));
-
-  if (filters.query.trim()) part(t("filterSearch"), filters.query.trim());
-  if (filters.state) part(t("filterState"), t(`state.${filters.state}`));
-  if (filters.category) part(t("filterCategory"), filters.category);
-  if (filters.location) part(t("filterLocation"), filters.location);
-  if (filters.attention) {
-    part(
-      t("filterAttention"),
-      filters.attention === "any" ? t("attentionAny") : t(`flags.${filters.attention}`)
-    );
-  }
-  return parts.join(", ");
-}
-
-/** The non-null values, deduplicated and sorted — a facet's option list. */
-function unique(values: Array<string | null>): string[] {
-  return Array.from(new Set(values.filter((value): value is string => Boolean(value)))).sort();
 }

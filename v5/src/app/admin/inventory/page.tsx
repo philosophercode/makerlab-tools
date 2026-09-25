@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
-import { InventoryFilters } from "../../../components/admin/InventoryFilters";
+import { InventoryBoard } from "../../../components/admin/InventoryBoard";
+import { PageHeader } from "../../../components/system/PageHeader";
 import { UnlinkedUnits } from "../../../components/admin/UnlinkedUnits";
 import {
   parseInventoryFilters,
@@ -94,20 +95,28 @@ export default async function AdminInventoryPage({
     listUnlinkedUnits(),
   ]);
 
+  const count = (state: string) => rows.filter((row) => row.state === state).length;
+
   return (
     <section className="admin-section">
-      <header className="admin-section-head">
-        <p className="td-eyebrow">{t("eyebrow")}</p>
-        <h2>{t("inventoryTitle")}</h2>
-        {/* No placeholder in this string: `/admin/page.tsx` renders the same
-            key without arguments, and a next-intl placeholder with no argument
-            renders literally (Article 6 — this has been a real bug here). */}
-        <p className="admin-lede">{t("inventoryLede")}</p>
-      </header>
+      <PageHeader
+        crumbs={[{ label: t("eyebrow"), href: "/admin" }, { label: t("nav.group.dataQuality") }]}
+        title={t("inventoryTitle")}
+        // No placeholder in this string: other pages render the same key
+        // without arguments (Article 6 — this has been a real bug here).
+        lede={t("inventoryLede")}
+        facts={t("inventory.facts", {
+          total: rows.length,
+          published: count("published"),
+          draft: count("draft"),
+          archived: count("archived"),
+          attention: rows.filter((row) => row.needsAttention).length,
+        })}
+      />
 
       <UnlinkedUnits units={unlinked} />
 
-      <InventoryFilters
+      <InventoryBoard
         rows={rows}
         initial={parseInventoryFilters(params)}
         actions={EDITOR_ACTIONS}
