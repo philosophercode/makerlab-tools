@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ROLES, type Role } from "../../lib/db/schema/vocabulary";
+import { cn } from "@/lib/utils";
+import { NativeSelect } from "@/components/ui/native-select";
 import type {
   AdminActionError,
   AdminActionResult,
@@ -45,6 +47,7 @@ export function RoleSelect({
   action,
 }: RoleSelectProps) {
   const t = useTranslations("admin");
+  const selectId = useId();
   const [pending, setPending] = useState(false);
   // The select is controlled from here rather than from the row's props, so it
   // shows what was chosen while the action is in flight. On a refusal it snaps
@@ -100,12 +103,13 @@ export function RoleSelect({
   const note = error ?? disabledReason;
 
   return (
-    <div className="admin-role-select">
-      <label className="admin-visually-hidden" htmlFor={`role-${userId}`}>
+    <div className="flex flex-wrap items-center gap-2">
+      <label className="sr-only" htmlFor={selectId}>
         {t("roleForPerson", { name: personName })}
       </label>
-      <select
-        id={`role-${userId}`}
+      <NativeSelect
+        id={selectId}
+        size="sm"
         value={current}
         disabled={locked || pending}
         onChange={(event) => void handleChange(event.target.value)}
@@ -115,13 +119,14 @@ export function RoleSelect({
             {t(`roles.${option}`)}
           </option>
         ))}
-      </select>
+      </NativeSelect>
       {/* One live region for every outcome this control can have, so a screen
           reader hears the refusal in the same place it heard the confirmation. */}
       <span
-        className={`admin-row-status${error ? " is-error" : ""}${
-          !error && warning ? " is-warning" : ""
-        }`}
+        className={cn(
+          "basis-full text-xs leading-snug text-muted-foreground empty:hidden",
+          error ? "text-bad" : warning ? "text-warn" : null
+        )}
         role="status"
       >
         {pending ? t("saving") : null}

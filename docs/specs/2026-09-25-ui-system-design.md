@@ -704,3 +704,94 @@ Branch `v5/ui-phase-1`. Where phase 1 differs from §13's row, and why:
   `clsx` ^2.1.1, `tailwind-merge` ^3.7.0, `lucide-react` ^1.48.0,
   `tw-animate-css` ^1.4.0. Not added: `@tanstack/react-table`,
   `use-stick-to-bottom` (phases 2 and 5).
+
+### 2026-09-25 — Phase 2 as built (shared tables)
+
+Branch `v5/ui-phase-2`. §13's row is built as listed — inventory, users,
+imports list, refresh list, mirror mapping, tokens and connected apps, the
+gallery table view — on `DataTable` + `FilterBar`. §7.2 also names
+`ImportTable`, the `ImportMapping` preview and `IntakeTableCard`'s table as
+DataTable users; those are review surfaces and move with `ReviewCard` in
+phase 3, so `.admin-table` stays until then. Where phase 2 differs, and why:
+
+- **Files.** `src/components/system/data-table/`: `DataTable`, `FilterBar`,
+  `FacetFilter`, `ColumnsMenu`, `facet-options.ts` (`facetOptions`,
+  `uniqueValues`) and `use-phone-layout.ts`. The spike's single `FilterBar.tsx`
+  is split one component per file. Generic strings live in next-intl
+  `ui.dataTable` / `ui.filters` (select all shown, "Showing n of N", Clear
+  filters, Columns, the keyboard hint), so a page passes only its table's name.
+- **One DOM on a phone, not two.** The spike rendered the table and the phone
+  list together and let CSS hide one; with a role select or a ban button in a
+  row that is two controls, two states and duplicate ids.
+  `usePhoneLayout` (`useSyncExternalStore` over `matchMedia`) answers `null`
+  on the server, during hydration and in jsdom — then both render and CSS
+  decides, so the first paint is right at every width — and after hydration
+  only the visible one renders. Component tests scope queries to
+  `getByRole("table", { name })`.
+- **`mobileRow` is optional.** A short, narrow table (the mirror's seven
+  databases) stays a table on a phone and scrolls sideways inside itself.
+- **Sticky header only where the page scrolls the table** (`stickyHeader`,
+  default: when there is a phone list); its fill is the page background, so the
+  two tables on the tokens card pass `false`. Column `meta` gained `rowHeader`
+  (the row's name as `<th scope="row">`, which also names the row for
+  assistive tech and tests) and `cellClassName` (body-only classes such as
+  `align-top`).
+- **Selection says what the filter hides.** Select-all takes the rows shown and
+  keeps rows selected under another filter; the bulk bar reads "2 tools
+  selected · 1 not shown by the filters", which is §14's "embarrass us" case
+  (a bulk refresh sending rows the reviewer filtered away) made visible.
+- **`NativeSelect`** (`ui/native-select.tsx`, shadcn's) is added beside §7.1's
+  list for a short fixed choice inside a row or form — a person's role, a
+  token's expiry, the allowance's person. It keeps the `combobox` role, the
+  phone's own picker and every existing test and E2E selector. Facets over a
+  table are `FacetFilter` menus, never a select (DESIGN.md §8.4).
+- **Users** gained search and Role / Access facets, in the URL like the
+  inventory's (`users-filters.ts`: `?q=`, `?role=`, `?access=`). `UsersTable`
+  stays a server-safe component that works out each row's locks (the floor list
+  is server configuration) and hands plain rows to the client `UsersRoster`.
+  Its controls moved to `Input`, `NativeSelect` and `Button` (destructive
+  "Ban" at rest, DESIGN.md §8.10), bounded by `--outline-strong`.
+- **Refresh list** shows its proposal counts as right-aligned numeric columns
+  (Safety, Differs, New, Not found) with a Note column for "Matches the
+  manufacturer's pages" and the failure reason; the page's safety-first order
+  is the unsorted order. **Imports** show Items and Possible duplicates as
+  numbers, a dash while an import has not been read into rows.
+- **Zeros are zeros.** Where the old inventory said "None" for no units, the
+  table shows a muted `0` (rule 9); a dash means "not applicable yet", never
+  zero.
+- **Tokens and connected apps** are tables with ISO dates; revoke is one
+  shared inline-confirm control (`account/RevokeControl.tsx`). The phone list
+  keeps the human-readable dates. The create form moved to `Input`,
+  `NativeSelect`, `Checkbox` and `Button`.
+- **Gallery table view** is `GalleryTable` (its own file): `aria-sort` on the
+  `th`, not on buttons in a div grid; the filtered, ranked order is the
+  unsorted order; Enter on a row opens the tool. The filter console is phase 5.
+- **Scoped preflight fix.** `ui.css`'s scoped reset now sets `border: 0 solid`
+  (as Tailwind's preflight does), not only the colour: without it a
+  `border-dashed` utility woke the UA's `medium` width on the other sides, and
+  phase 1's `EmptyState` drew four dashed sides instead of two.
+- **Not done here:** `PageHeader` and the facts line on these pages wait for
+  phase 4, which replaces the admin layout's heading they would stack under;
+  `RowStatus` and the queues are phase 4.
+- **Removed:** `InventoryFilters.tsx`, `InventoryTable.tsx` and their tests
+  (899 lines), the gallery's div-grid table and sort state, and the CSS they
+  and the migrated lists owned — `admin-filters*`, `admin-inventory*`,
+  `admin-attention*`, `admin-role-select`, `admin-ban-*`, `admin-person-*`,
+  `admin-refresh-list/row/bar/open-tag`, `admin-select-cell`,
+  `admin-import-list/section`, `account-list/row/prefix`,
+  `admin-mirror-mapping`, `tool-table*` — 565 lines of legacy CSS net.
+  `admin-state`, `admin-thumb`, `admin-date`, `admin-cell-note`,
+  `admin-row-status` and `admin-table` are still used by phase 3/4 surfaces and
+  stay.
+- **Cells are render functions, not components.** `DataTable` calls a column's
+  `header`/`cell` instead of mounting it (TanStack's `flexRender` mounts a
+  function as a component). A page rebuilds its columns when a prop they close
+  over changes — a server action's reference is new after every server
+  re-render — and with `flexRender` every cell then remounted: the roster's
+  `RoleSelect` lost the "Saved" it had just shown (caught by E2E
+  `admin-users`). Hooks therefore live in the component a cell returns.
+- **Measured** (1440 / 390, seeded 62-tool scratch database): inventory
+  5,819 → 2,846 px desktop, 20,166 → 5,245 px phone; gallery table 4,280 →
+  2,214 px desktop, 4,327 → 2,946 px phone. The roster is longer on a phone
+  (1,605 → 2,026 px) because it no longer scrolls sideways.
+- **Package added:** `@tanstack/react-table` ^8.21.3 (v8, as §11 pinned).

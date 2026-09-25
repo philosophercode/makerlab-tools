@@ -46,12 +46,21 @@ function setup(initialTokens: TokenRow[] = [EXISTING]) {
   return { createAction, revokeAction };
 }
 
+/** A token's row in the table (the phone list repeats it in jsdom, where no CSS picks one). */
+function tokenRow(name: string) {
+  return within(screen.getByRole("table", { name: "Your tokens" })).getByRole("row", { name: new RegExp(name) });
+}
+
 describe("TokenManager", () => {
   it("lists tokens by name and prefix — never a whole token", () => {
     setup();
-    const row = screen.getByText("Old laptop").closest("li")!;
+    const row = tokenRow("Old laptop");
     expect(within(row).getByText("mlt_oldoldol…")).toBeInTheDocument();
-    expect(within(row).getByText("Never used", { exact: false })).toBeInTheDocument();
+    // Never used, expiring on an ISO day: the table's dates are comparable.
+    expect(within(row).getAllByRole("cell").map((cell) => cell.textContent)).toEqual(
+      expect.arrayContaining(["Never", "2026-12-01"])
+    );
+    expect(document.body.textContent).not.toContain(TOKEN);
   });
 
   it("defaults to 90 days, labelled one semester", () => {
@@ -80,8 +89,7 @@ describe("TokenManager", () => {
     expect(panel).toHaveTextContent(`export MAKERLAB_MCP_TOKEN=${TOKEN}`);
 
     // The new row is listed as read-only.
-    const row = screen.getByText("Claude Code on my laptop").closest("li")!;
-    expect(within(row).getByText("Read-only")).toBeInTheDocument();
+    expect(within(tokenRow("Claude Code on my laptop")).getByText("Read-only")).toBeInTheDocument();
 
     // Dismissed, it is gone for good: nothing on the page holds it any more.
     await user.click(screen.getByRole("button", { name: "I've copied it" }));
@@ -92,20 +100,21 @@ describe("TokenManager", () => {
     const user = userEvent.setup();
     const { revokeAction } = setup();
 
-    await user.click(screen.getByRole("button", { name: "Revoke Old laptop" }));
+    await user.click(within(tokenRow("Old laptop")).getByRole("button", { name: "Revoke Old laptop" }));
     expect(revokeAction).not.toHaveBeenCalled();
-    expect(screen.getByText(/Anything using it stops working at once/)).toBeInTheDocument();
+    expect(within(tokenRow("Old laptop")).getByText(/Anything using it stops working at once/)).toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Yes, revoke" }));
+    await user.click(within(tokenRow("Old laptop")).getByRole("button", { name: "Yes, revoke" }));
     expect(revokeAction).toHaveBeenCalledWith(EXISTING.id);
-    await waitFor(() => expect(within(screen.getByText("Old laptop").closest("li")!).getByText("Revoked")).toBeInTheDocument());
+    await waitFor(() => expect(within(tokenRow("Old laptop")).getByText("Revoked")).toBeInTheDocument());
+    expect(within(tokenRow("Old laptop")).queryByRole("button", { name: /Revoke/ })).not.toBeInTheDocument();
   });
 
   it("can back out of a revoke", async () => {
     const user = userEvent.setup();
     const { revokeAction } = setup();
-    await user.click(screen.getByRole("button", { name: "Revoke Old laptop" }));
-    await user.click(screen.getByRole("button", { name: "Cancel" }));
+    await user.click(within(tokenRow("Old laptop")).getByRole("button", { name: "Revoke Old laptop" }));
+    await user.click(within(tokenRow("Old laptop")).getByRole("button", { name: "Cancel" }));
     expect(revokeAction).not.toHaveBeenCalled();
   });
 

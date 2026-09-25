@@ -67,8 +67,10 @@ test.describe("/admin/inventory — filtering", () => {
     await page.goto("/admin/inventory?state=draft");
 
     // The demo seed's two tools are both published, so this filter empties the
-    // table — and the page says which filter did it (§6, States).
-    await expect(page.getByRole("combobox", { name: "State" })).toHaveValue("draft");
+    // table — and the page says which filter did it (§6, States). The facet
+    // button names its value (UI system spec §7.2, FacetFilter).
+    const filters = page.getByRole("search", { name: "Filter the inventory" });
+    await expect(filters.getByRole("button", { name: "State: Draft" })).toBeVisible();
     await expect(page.getByRole("table")).toHaveCount(0);
     await expect(page.getByText(/State: Draft/)).toBeVisible();
   });
@@ -79,7 +81,14 @@ test.describe("/admin/inventory — filtering", () => {
     await page.goto("/admin/inventory");
     await expect(page.getByText("Showing 2 of 2")).toBeVisible();
 
-    await page.getByRole("combobox", { name: "Needs attention" }).selectOption("never_reviewed");
+    // A facet is a menu that says how many rows each value would leave.
+    await page
+      .getByRole("search", { name: "Filter the inventory" })
+      .getByRole("button", { name: "Needs attention" })
+      .click();
+    const neverReviewed = page.getByRole("menuitemradio", { name: /Never reviewed/ });
+    await expect(neverReviewed).toContainText("2");
+    await neverReviewed.click();
 
     await expect(page).toHaveURL(/\?attention=never_reviewed$/);
     // Nothing in the demo seed has ever been reviewed, so both rows stay.
@@ -90,9 +99,15 @@ test.describe("/admin/inventory — filtering", () => {
   test("clearing the filters empties the query string too", async ({ page }) => {
     await page.goto("/admin/inventory?attention=no_photo");
 
-    await page.getByRole("button", { name: "Clear filters" }).click();
+    // Clear can also appear in an empty table's own message; take the bar's.
+    await page
+      .getByRole("search", { name: "Filter the inventory" })
+      .getByRole("button", { name: "Clear filters" })
+      .click();
 
     await expect(page).toHaveURL(/\/admin\/inventory$/);
-    await expect(page.getByRole("combobox", { name: "Needs attention" })).toHaveValue("");
+    await expect(
+      page.getByRole("search", { name: "Filter the inventory" }).getByRole("button", { name: "Needs attention" })
+    ).toBeVisible();
   });
 });

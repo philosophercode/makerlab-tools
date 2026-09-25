@@ -3,7 +3,7 @@ import type { InventoryRow, ToolState } from "../../lib/data/inventory";
 /**
  * What `/admin/inventory` is filtered to, and how that survives a link.
  *
- * A directive-free sibling of `InventoryFilters.tsx`, for the reason
+ * A directive-free sibling of `InventoryBoard.tsx`, for the reason
  * `app/admin/users/action-result.ts` is one: the page is a server component and
  * the filter console is a client island, and both need this. Anything exported
  * from a `"use client"` module reaches a server component as a client
@@ -119,6 +119,44 @@ function matchesAttention(row: InventoryRow, attention: AttentionFilter): boolea
     case "floor_check":
       return row.attention.floorCheck;
   }
+}
+
+/**
+ * Ranked, typo-tolerant search keys, weighted by key order the way the
+ * gallery's are: the name first, then where the tool sits, then its slug —
+ * which is here because a reviewer arriving from a link has a slug in hand.
+ */
+export const INVENTORY_SEARCH_KEYS: ReadonlyArray<(row: InventoryRow) => string> = [
+  (row) => row.name,
+  // The official name, with its model or part number (tool display names spec §5.6).
+  (row) => row.officialName ?? "",
+  (row) => row.categoryName ?? "",
+  (row) => row.categoryGroup ?? "",
+  (row) => row.room ?? "",
+  (row) => row.zone ?? "",
+  (row) => row.slug,
+];
+
+/**
+ * The active filters as one readable phrase, each part translated — what an
+ * empty table names (spec §6: an empty state says which filter emptied it,
+ * because the reviewer's next move is to drop one of them).
+ */
+export function describeFilters(
+  filters: InventoryFilterState,
+  t: (key: string, values?: Record<string, string>) => string
+): string {
+  const parts: string[] = [];
+  const part = (label: string, value: string) => parts.push(t("filterSummaryPart", { label, value }));
+
+  if (filters.query.trim()) part(t("filterSearch"), filters.query.trim());
+  if (filters.state) part(t("filterState"), t(`state.${filters.state}`));
+  if (filters.category) part(t("filterCategory"), filters.category);
+  if (filters.location) part(t("filterLocation"), filters.location);
+  if (filters.attention) {
+    part(t("filterAttention"), filters.attention === "any" ? t("attentionAny") : t(`flags.${filters.attention}`));
+  }
+  return parts.join(", ");
 }
 
 function first(value: string | string[] | undefined): string | undefined {

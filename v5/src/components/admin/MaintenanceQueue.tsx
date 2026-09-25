@@ -8,7 +8,7 @@ import { TicketControls } from "./TicketControls";
  * The ticket queue on `/admin/maintenance` (spec §5.6).
  *
  * A server component with no `async` and no data access of its own, for the
- * reason `UsersTable` and `InventoryTable` are: everything is a prop, so a
+ * reason `UsersTable` is: everything is a prop, so a
  * component test mounts it with the ordinary i18n wrapper.
  *
  * **Cards, not a table.** A ticket carries a description somebody typed and a

@@ -1,4 +1,4 @@
-import { render, screen, within } from "../../../test/utils/render";
+import { render, screen, userEvent, within } from "../../../test/utils/render";
 import { UsersTable } from "./UsersTable";
 import type { UserRecord } from "../../lib/data/users";
 
@@ -147,5 +147,33 @@ describe("UsersTable — rows it will not let you change", () => {
     expect(within(row).getByRole("button", { name: "Ban" })).toBeDisabled();
     expect(within(row).getByText("You cannot ban yourself.")).toBeInTheDocument();
     expect(within(row).getByRole("combobox", { name: /Ada Lovelace/ })).toBeEnabled();
+  });
+});
+
+describe("UsersTable — finding somebody", () => {
+  beforeEach(() => window.history.replaceState(null, "", "/admin/users"));
+
+  it("searches name and address, and narrows by access with counts, into the URL", async () => {
+    renderTable([
+      person(),
+      person({ id: "u-grace", email: "grace@cornell.edu", name: "Grace Hopper", role: "admin" }),
+      person({ id: "u-ken", email: "ken@cornell.edu", name: "Ken Thompson", role: "admin", banned: true }),
+    ]);
+    const user = userEvent.setup();
+    const table = () => screen.getByRole("table", { name: "People and their roles" });
+
+    await user.type(screen.getByRole("searchbox", { name: "Search" }), "grace@");
+    expect(within(table()).getAllByRole("rowheader")).toHaveLength(1);
+    expect(screen.getByText("Showing 1 of 3")).toBeInTheDocument();
+    await user.clear(screen.getByRole("searchbox", { name: "Search" }));
+
+    await user.click(within(screen.getByRole("search")).getByRole("button", { name: "Access" }));
+    const banned = await screen.findByRole("menuitemradio", { name: /Banned/ });
+    expect(banned).toHaveTextContent("1");
+    await user.click(banned);
+
+    expect(window.location.search).toBe("?access=banned");
+    const names = within(table()).getAllByRole("rowheader").map((cell) => cell.textContent);
+    expect(names).toEqual([expect.stringContaining("Ken Thompson")]);
   });
 });

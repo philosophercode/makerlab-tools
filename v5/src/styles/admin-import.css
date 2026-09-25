@@ -2,52 +2,6 @@
    launcher, the mapping step and the full-width review table, which stacks as
    one card per row on a phone. Theme tokens only, never hard-coded colours. */
 
-.admin-import-section {
-  display: grid;
-  gap: 10px;
-  margin-bottom: 24px;
-}
-
-.admin-import-section-head {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.admin-import-section-head h3 {
-  margin: 0;
-}
-
-.admin-import-list {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.admin-import-list-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 4px 16px;
-  align-items: center;
-  padding: 10px 14px;
-  border: 1px solid var(--outline);
-  background: var(--surface-container);
-}
-
-.admin-import-list-row h4 {
-  margin: 0;
-  font-size: 15px;
-}
-
-.admin-import-list-row .admin-queue-meta {
-  grid-column: 1 / -1;
-  margin: 0;
-}
-
 .admin-import-launcher {
   display: grid;
   gap: 12px;

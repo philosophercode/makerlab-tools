@@ -11,6 +11,16 @@ import type {
   RevokeResult,
 } from "../../lib/account/token-actions";
 import { CopyableCode } from "./CopyableCode";
+import { RevokeControl } from "./RevokeControl";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { DataTable } from "../system/data-table/DataTable";
+import { EmptyState } from "../system/EmptyState";
+import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
 import "../../styles/account.css";
 
 /**
@@ -107,44 +117,124 @@ export function TokenManager({ initialTokens, baseUrl, createAction, revokeActio
     return "active";
   }
 
+  const columns: ColumnDef<TokenRow, unknown>[] = [
+    {
+      id: "name",
+      accessorFn: (row) => row.name,
+      header: t("name"),
+      meta: { rowHeader: true, className: "min-w-40 font-medium whitespace-normal" },
+    },
+    {
+      id: "access",
+      accessorFn: (row) => (row.readOnly ? 0 : 1),
+      header: t("columnAccess"),
+      cell: ({ row }) => <Badge>{row.original.readOnly ? t("readOnlyTag") : t("fullAccessTag")}</Badge>,
+    },
+    {
+      id: "status",
+      accessorFn: (row) => stateOf(row),
+      header: t("columnStatus"),
+      cell: ({ row }) => {
+        const state = stateOf(row.original);
+        return <StatusGlyph tone={STATE_TONE[state]} label={t(`status.${state}`)} />;
+      },
+    },
+    {
+      id: "prefix",
+      header: t("columnPrefix"),
+      enableSorting: false,
+      cell: ({ row }) => <span className="font-mono text-xs">mlt_{row.original.prefix}…</span>,
+    },
+    {
+      id: "lastUsed",
+      accessorFn: (row) => row.lastUsedAt ?? "",
+      header: t("columnLastUsed"),
+      meta: { align: "right" },
+      cell: ({ row }) => isoOr(row.original.lastUsedAt, t("never")),
+    },
+    {
+      id: "expires",
+      accessorFn: (row) => row.expiresAt ?? "9999",
+      header: t("expiry"),
+      meta: { align: "right" },
+      cell: ({ row }) => isoOr(row.original.expiresAt, t("never")),
+    },
+    {
+      id: "actions",
+      header: () => <span className="sr-only">{t("revoke")}</span>,
+      enableSorting: false,
+      meta: { className: "text-end" },
+      cell: ({ row }) => revokeFor(row.original),
+    },
+  ];
+
+  function revokeFor(row: TokenRow) {
+    if (stateOf(row) === "revoked") return null;
+    return (
+      <RevokeControl
+        name={row.name}
+        confirmText={t("revokeConfirm", { name: row.name })}
+        confirming={confirming === row.id}
+        busy={busy}
+        onAsk={() => setConfirming(row.id)}
+        onConfirm={() => void handleRevoke(row.id)}
+        onCancel={() => setConfirming(null)}
+      />
+    );
+  }
+
   return (
     <div className="account-tokens">
       <section className="account-section" aria-labelledby="new-token-heading">
         <h2 id="new-token-heading">{t("newHeading")}</h2>
-        <form className="account-form" onSubmit={handleCreate}>
-          <div className="account-field">
-            <label htmlFor="token-name">{t("name")}</label>
-            <input
+        <form className="ui flex max-w-[560px] flex-col gap-4" onSubmit={handleCreate}>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="token-name" className={LABEL}>
+              {t("name")}
+            </label>
+            <Input
               id="token-name"
               type="text"
               value={name}
               maxLength={80}
               required
               placeholder={t("namePlaceholder")}
+              aria-describedby="token-name-hint"
               onChange={(event) => setName(event.target.value)}
             />
-            <p className="account-field-hint">{t("nameHint")}</p>
+            <span id="token-name-hint" className="text-xs text-muted-foreground">
+              {t("nameHint")}
+            </span>
           </div>
-          <div className="account-field">
-            <label htmlFor="token-expiry">{t("expiry")}</label>
-            <select id="token-expiry" value={expiry} onChange={(event) => setExpiry(event.target.value)}>
+          <div className="flex flex-col gap-1">
+            <label htmlFor="token-expiry" className={LABEL}>
+              {t("expiry")}
+            </label>
+            <NativeSelect id="token-expiry" value={expiry} onChange={(event) => setExpiry(event.target.value)}>
               <option value="30">{t("expiry30")}</option>
               <option value="90">{t("expiry90")}</option>
               <option value="never">{t("expiryNever")}</option>
-            </select>
+            </NativeSelect>
           </div>
-          <label className="account-check">
-            <input type="checkbox" checked={readOnly} onChange={(event) => setReadOnly(event.target.checked)} />
-            <span>
+          <div className="flex items-start gap-2">
+            <Checkbox
+              id="token-read-only"
+              className="mt-0.5"
+              checked={readOnly}
+              aria-describedby="token-read-only-hint"
+              onCheckedChange={(value) => setReadOnly(value === true)}
+            />
+            <label htmlFor="token-read-only" className="flex flex-col text-sm">
               <strong>{t("readOnly")}</strong>
-              <br />
-              <span className="account-field-hint">{t("readOnlyHint")}</span>
-            </span>
-          </label>
-          <div className="account-actions">
-            <button type="submit" className="account-button is-primary" disabled={busy || !name.trim()}>
+              <span id="token-read-only-hint" className="text-xs text-muted-foreground">
+                {t("readOnlyHint")}
+              </span>
+            </label>
+          </div>
+          <div>
+            <Button type="submit" variant="default" disabled={busy || !name.trim()}>
               {busy ? t("creating") : t("create")}
-            </button>
+            </Button>
           </div>
         </form>
       </section>
@@ -170,64 +260,54 @@ export function TokenManager({ initialTokens, baseUrl, createAction, revokeActio
           <p>{t("setupCodex")}</p>
           <CopyableCode label={t("setupCodex")} value={snippets.codexToml} />
           <div className="account-actions">
-            <button type="button" className="account-button" onClick={() => setRevealed(null)}>
-              {t("done")}
-            </button>
+            <Button onClick={() => setRevealed(null)}>{t("done")}</Button>
           </div>
         </section>
       ) : null}
 
       <section className="account-section" aria-labelledby="token-list-heading">
         <h2 id="token-list-heading">{t("listHeading")}</h2>
-        {tokens.length === 0 ? (
-          <p>{t("empty")}</p>
-        ) : (
-          <ul className="account-list">
-            {tokens.map((row) => {
-              const state = stateOf(row);
-              return (
-                <li key={row.id} className={`account-row${state === "active" ? "" : " is-inactive"}`}>
-                  <div>
-                    <p>
-                      <strong>{row.name}</strong>
-                      <span className="account-tag">{row.readOnly ? t("readOnlyTag") : t("fullAccessTag")}</span>
-                      <span className="account-tag">{t(`status.${state}`)}</span>
-                    </p>
-                    <p className="account-row-meta">
-                      <span className="account-prefix">mlt_{row.prefix}…</span>
-                      {" · "}
-                      {row.lastUsedAt ? t("lastUsed", { date: date(row.lastUsedAt) }) : t("neverUsed")}
-                      {" · "}
-                      {row.expiresAt ? t("expires", { date: date(row.expiresAt) }) : t("neverExpires")}
-                    </p>
-                  </div>
-                  {state === "revoked" ? null : confirming === row.id ? (
-                    <div className="account-actions" role="group" aria-label={t("revokeConfirm", { name: row.name })}>
-                      <span>{t("revokeConfirm", { name: row.name })}</span>
-                      <button type="button" className="account-button is-primary" disabled={busy} onClick={() => handleRevoke(row.id)}>
-                        {t("revokeYes")}
-                      </button>
-                      <button type="button" className="account-button" disabled={busy} onClick={() => setConfirming(null)}>
-                        {t("cancel")}
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      type="button"
-                      className="account-button"
-                      disabled={busy}
-                      aria-label={t("revokeAria", { name: row.name })}
-                      onClick={() => setConfirming(row.id)}
-                    >
-                      {t("revoke")}
-                    </button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
+        <DataTable
+          data={tokens}
+          columns={columns}
+          getRowId={(row) => row.id}
+          getRowName={(row) => row.name}
+          labels={{ table: t("listHeading") }}
+          empty={<EmptyState>{t("empty")}</EmptyState>}
+          keyboardHint={false}
+          stickyHeader={false}
+          rowClassName={(row) => (stateOf(row) === "active" ? undefined : "text-muted-foreground")}
+          mobileRow={(row) => {
+            const state = stateOf(row);
+            return (
+              <div className="flex flex-col gap-1 px-1 py-2.5">
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <strong className="text-sm">{row.name}</strong>
+                  <Badge>{row.readOnly ? t("readOnlyTag") : t("fullAccessTag")}</Badge>
+                  <StatusGlyph tone={STATE_TONE[state]} label={t(`status.${state}`)} />
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  <span className="font-mono">mlt_{row.prefix}…</span>
+                  {" · "}
+                  {row.lastUsedAt ? t("lastUsed", { date: date(row.lastUsedAt) }) : t("neverUsed")}
+                  {" · "}
+                  {row.expiresAt ? t("expires", { date: date(row.expiresAt) }) : t("neverExpires")}
+                </div>
+                <div className="flex justify-end">{revokeFor(row)}</div>
+              </div>
+            );
+          }}
+        />
       </section>
     </div>
   );
+}
+
+const LABEL = "font-mono text-micro tracking-[0.08em] text-muted-foreground uppercase";
+
+const STATE_TONE: Record<"active" | "expired" | "revoked", StatusTone> = { active: "ok", expired: "warn", revoked: "muted" };
+
+/** An ISO day for a table cell, or the word for "none". */
+function isoOr(iso: string | null, none: string) {
+  return iso ? iso.slice(0, 10) : <span className="text-muted-foreground">{none}</span>;
 }

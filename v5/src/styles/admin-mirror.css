@@ -233,40 +233,6 @@
 
 /* ── Mapping ─────────────────────────────────────────────────────── */
 
-.admin-mirror-mapping {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
-}
-
-.admin-mirror-mapping th,
-.admin-mirror-mapping td {
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--td-line);
-  text-align: left;
-  vertical-align: top;
-}
-
-.admin-mirror-mapping thead th {
-  color: var(--td-muted);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 400;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.admin-mirror-mapping tbody th {
-  font-weight: 500;
-  white-space: nowrap;
-}
-
-.admin-mirror-mapping code {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  overflow-wrap: anywhere;
-}
-
 .admin-mirror-unset {
   color: var(--td-muted);
   font-style: italic;
@@ -284,12 +250,6 @@
 
 .admin-mirror-paste[open] > summary {
   margin-bottom: 10px;
-}
-
-.admin-mirror-paste-fields {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  gap: 12px;
 }
 
 .admin-mirror-problems {
@@ -328,30 +288,6 @@
 @media (max-width: 560px) {
   .admin-mirror-panel {
     padding: 14px;
-  }
-
-  /* The mapping table becomes a stacked list: the table name over its id. */
-  .admin-mirror-mapping thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip: rect(0 0 0 0);
-    white-space: nowrap;
-  }
-
-  .admin-mirror-mapping tr {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--td-line);
-  }
-
-  .admin-mirror-mapping th,
-  .admin-mirror-mapping td {
-    padding: 0;
-    border-bottom: 0;
   }
 
   .admin-mirror-actions .admin-button {

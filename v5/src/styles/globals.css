@@ -968,115 +968,6 @@ body::selection {
   gap: 14px;
 }
 
-.tool-table {
-  display: grid;
-  gap: 8px;
-}
-
-.tool-table-row {
-  display: grid;
-  grid-template-columns: minmax(180px, 1.4fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr) minmax(120px, 0.7fr);
-  gap: 16px;
-  align-items: center;
-  padding: 16px;
-  border: 1px solid var(--outline);
-  background: var(--surface-container);
-  color: var(--on-surface-muted);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  text-transform: uppercase;
-  transition: border-color 160ms ease-in, background 160ms ease-in, color 160ms ease-in;
-}
-
-.tool-table-row:hover {
-  border-color: var(--primary);
-  background: var(--surface-container-high);
-  color: var(--on-surface);
-}
-
-.tool-table-name {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-width: 0;
-}
-
-.tool-table-name > span:last-child {
-  color: var(--on-surface);
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 700;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.tool-table-thumb {
-  position: relative;
-  flex: 0 0 40px;
-  width: 40px;
-  height: 40px;
-  background: var(--surface-container-low);
-  border: 1px solid var(--outline);
-  overflow: hidden;
-}
-
-.tool-table-head {
-  position: sticky;
-  top: var(--sticky-chrome-height);
-  z-index: 5;
-  padding: 6px 16px;
-  background: var(--surface-container-high);
-  color: var(--on-surface);
-  font-size: 12px;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  margin-bottom: 2px;
-  box-shadow: 0 6px 12px -8px rgba(0, 0, 0, 0.18);
-}
-
-.tool-table-head:hover {
-  border-color: var(--outline);
-  background: var(--surface-container-high);
-  color: var(--on-surface);
-}
-
-/* Sortable column headers. */
-.tool-table-sort {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  padding: 8px 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  letter-spacing: inherit;
-  text-transform: uppercase;
-  text-align: left;
-  cursor: pointer;
-  transition: color 160ms ease-in;
-}
-
-.tool-table-sort:first-child {
-  padding-left: 54px;
-}
-
-.tool-table-sort:hover,
-.tool-table-sort.is-active {
-  color: var(--primary-ink);
-}
-
-.sort-indicator {
-  font-size: 9px;
-  opacity: 0.55;
-}
-
-.tool-table-sort.is-active .sort-indicator {
-  opacity: 1;
-}
-
 .empty-state {
   padding: 64px 32px;
   background: var(--surface-container-low);
@@ -1924,17 +1815,6 @@ body::selection {
     min-width: 0;
     max-width: none;
     margin-top: 8px;
-  }
-
-  /* Keep the desktop columnar table on mobile — just let it scroll sideways
-     instead of collapsing the columns. */
-  .tool-table {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .tool-table-row {
-    min-width: 600px;
   }
 
   .chat-fab {
@@ -3606,21 +3486,6 @@ body::selection {
   border-bottom: none;
 }
 
-/* A banned row is dimmed, not hidden: the point of the roster is that every
-   account is on it, including the ones that cannot get in. */
-.admin-table tbody tr.is-banned th,
-.admin-table tbody tr.is-banned td {
-  color: var(--on-surface-muted);
-}
-
-.admin-person-name {
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-  font-weight: 500;
-}
-
-.admin-person-email,
 .admin-date {
   display: block;
   color: var(--on-surface-muted);
@@ -3642,48 +3507,6 @@ td.admin-date {
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-.admin-role-select,
-.admin-ban-toggle {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-}
-
-.admin-role-select select,
-.admin-ban-reason {
-  padding: 8px 10px;
-  border: 1px solid var(--outline);
-  border-radius: 0;
-  background: var(--background);
-  color: var(--on-surface);
-  font-family: var(--font-body);
-  font-size: 13px;
-}
-
-.admin-ban-reason {
-  min-width: 14ch;
-  max-width: 22ch;
-}
-
-.admin-role-select select:focus,
-.admin-ban-reason:focus {
-  border-color: var(--primary);
-}
-
-.admin-role-select select:disabled,
-.admin-ban-reason:disabled,
-.admin-ban-button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.admin-banned-note {
-  margin: 0 0 8px;
-  color: var(--status-bad);
-  font-size: 12px;
 }
 
 /* The one line every outcome of a row control speaks through — pending, saved,
@@ -3724,96 +3547,6 @@ td.admin-date {
   white-space: nowrap;
 }
 
-/* ── /admin/inventory (spec §5.3a, §6) ──────────────────────────────
-   The review table and its filter console. Same schematic system as the
-   roster: 0px radii, mono metadata, tonal separation. Every colour is a
-   theme token, so the page follows the light/dark switch like everything
-   else — there is no hardcoded colour here on purpose. */
-.admin-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: flex-end;
-  padding: 16px;
-  border: 1px solid var(--outline);
-  background: var(--surface-container-low);
-}
-
-.admin-filter {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  color: var(--on-surface-muted);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.admin-filter input,
-.admin-filter select {
-  min-width: 15ch;
-  padding: 8px 10px;
-  border: 1px solid var(--outline);
-  background: var(--background);
-  color: var(--on-surface);
-  font-family: var(--font-body);
-  font-size: 13px;
-  letter-spacing: normal;
-  text-transform: none;
-}
-
-.admin-filter input:focus,
-.admin-filter select:focus {
-  border-color: var(--primary);
-}
-
-/* Pushed to the end of the row: the count and the escape hatch belong
-   together, and the clear button only exists while there is something to
-   clear. */
-.admin-filter-actions {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  margin-left: auto;
-}
-
-.admin-filter-count {
-  margin: 0;
-  color: var(--on-surface-muted);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-}
-
-.admin-filter-clear {
-  padding: 8px 12px;
-  border: 1px solid var(--outline);
-  background: transparent;
-  color: var(--on-surface);
-  cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.admin-filter-clear:hover {
-  border-color: var(--primary-ink);
-  color: var(--primary-ink);
-}
-
-.admin-inventory-table {
-  min-width: 900px;
-}
-
-/* Archived rows are dimmed, not dropped: an archived tool is still inventory,
-   and finding one is how it gets restored. */
-.admin-inventory-table tbody tr.is-archived th,
-.admin-inventory-table tbody tr.is-archived td {
-  color: var(--on-surface-muted);
-}
-
 .admin-thumb {
   position: relative;
   display: block;
@@ -3835,16 +3568,6 @@ td.admin-date {
   font-size: 16px;
 }
 
-.admin-inventory-name {
-  color: var(--on-surface);
-  font-weight: 500;
-  text-decoration: none;
-}
-
-.admin-inventory-name:hover {
-  color: var(--primary-ink);
-}
-
 .admin-cell-note {
   display: block;
   margin-top: 2px;
@@ -3855,11 +3578,6 @@ td.admin-date {
 
 .admin-muted {
   color: var(--on-surface-muted);
-}
-
-.admin-unit-count {
-  font-family: var(--font-mono);
-  font-size: 14px;
 }
 
 .admin-state {
@@ -3878,32 +3596,6 @@ td.admin-date {
 .admin-state.is-draft {
   border-color: var(--primary-ink);
   color: var(--primary-ink);
-}
-
-.admin-attention {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 6px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.admin-attention-flag {
-  padding: 1px 6px;
-  border: 1px solid var(--outline);
-  color: var(--on-surface-muted);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-/* An open ticket is the one flag that means a machine may be unusable right
-   now, so it gets the alert colour and the others stay quiet. */
-.admin-attention-flag.is-tickets {
-  border-color: var(--status-bad);
-  color: var(--status-bad);
 }
 
 .admin-unlinked {
@@ -3938,62 +3630,12 @@ td.admin-date {
   font-weight: 500;
 }
 
-/* Spec §6, Mobile: the inventory table becomes a card list. Eight columns is
-   too many to scroll sideways through on a phone, and a review often happens
-   standing next to the machine. Each cell carries its own label instead of
-   relying on a header row that has scrolled away. */
+/* On a phone a note sits beside its value rather than under it. (The
+   inventory's phone layout is DataTable's own list since UI phase 2.) */
 @media (max-width: 760px) {
-  .admin-inventory-table {
-    min-width: 0;
-    border: none;
-    background: none;
-  }
-
-  .admin-inventory-table thead {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
-
-  .admin-inventory-table tbody tr {
-    display: block;
-    margin-bottom: 12px;
-    padding: 12px;
-    border: 1px solid var(--outline);
-    background: var(--surface-container);
-  }
-
-  .admin-inventory-table tbody th,
-  .admin-inventory-table tbody td {
-    display: block;
-    padding: 2px 0;
-    border-bottom: none;
-  }
-
-  .admin-inventory-table tbody td[data-label]::before {
-    content: attr(data-label) ": ";
-    color: var(--on-surface-muted);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-  }
-
-  /* The photo needs no label: it is a picture of the thing the card names. */
-  .admin-inventory-table tbody td:first-child::before {
-    content: none;
-  }
-
   .admin-cell-note {
     display: inline;
     margin-left: 6px;
-  }
-
-  .admin-filter-actions {
-    margin-left: 0;
   }
 }
 
@@ -4299,11 +3941,6 @@ fieldset.admin-field legend {
 
 .admin-photo .admin-unit-actions {
   flex-direction: column;
-}
-
-/* The row's way into the editor, beside the link to the public page. */
-.admin-inventory-edit {
-  margin-left: 8px;
 }
 
 /* Edit mode on a tool page (§5.3(b)). Sits under the detail shell, beside the

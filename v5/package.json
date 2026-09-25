@@ -34,6 +34,7 @@
     "@electric-sql/pglite-pgvector": "^0.0.9",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@neondatabase/serverless": "^1.1.0",
+    "@tanstack/react-table": "^8.21.3",
     "@vercel/blob": "^2.6.1",
     "ai": "^6.0.95",
     "better-auth": "^1.6.25",

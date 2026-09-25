@@ -171,8 +171,11 @@
     font: inherit;
     letter-spacing: inherit;
   }
+  /* `border: 0 solid`, as Tailwind's preflight has it: a `border-dashed` or
+     `border-y` utility must not wake the UA's `medium` width on the other
+     sides (phase 2 found EmptyState drawing four dashed sides, not two). */
   :where(.ui, .ui *, [data-slot], [data-slot] *) {
-    border-color: var(--outline);
+    border: 0 solid var(--outline);
   }
   :where(.ui) :where(ul, ol) {
     margin: 0;
