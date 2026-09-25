@@ -573,7 +573,7 @@ describe("ChatFab — intake table", () => {
     expect(screen.getByText("Bambu Lab X1-Carbon Combo")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Research selected (1)" })).toBeEnabled();
     // The bubble gives the card the full column, as it does for an identification card.
-    expect(card.closest("li")).toHaveClass("chat-msg-has-card");
+    expect(card.closest("[data-role]")).toHaveAttribute("data-has-card");
   });
 
   it("renders a message that carries only the table", async () => {
@@ -849,9 +849,9 @@ describe("ChatFab — rate-limit ceiling", () => {
     await openWith(new Error(anonymousCeiling));
 
     const message = screen.getByText(/message limit for visitors who aren't signed in/i);
-    const bubble = message.closest("li");
-    expect(bubble).toHaveClass("chat-msg-assistant");
-    expect(bubble).not.toHaveClass("chat-msg-error");
+    const bubble = message.closest("[data-role]");
+    expect(bubble).toHaveAttribute("data-role", "assistant");
+    expect(bubble).not.toHaveAttribute("data-kind", "error");
   });
 
   it("offers sign-in inside that message and starts from the current page", async () => {
@@ -859,7 +859,7 @@ describe("ChatFab — rate-limit ceiling", () => {
     const user = await openWith(new Error(anonymousCeiling));
 
     const signIn = screen.getByRole("button", { name: "Sign in" });
-    expect(signIn.closest("li")).toHaveClass("chat-msg-assistant");
+    expect(signIn.closest("[data-role]")).toHaveAttribute("data-role", "assistant");
 
     await user.click(signIn);
     expect(startGoogleSignIn).toHaveBeenCalledWith("/tools/form-4");
@@ -876,7 +876,7 @@ describe("ChatFab — rate-limit ceiling", () => {
     await openWith(new Error(signedInCeiling));
 
     const message = screen.getByText(/hourly message limit/i);
-    expect(message.closest("li")).toHaveClass("chat-msg-assistant");
+    expect(message.closest("[data-role]")).toHaveAttribute("data-role", "assistant");
     expect(
       screen.queryByRole("button", { name: "Sign in" })
     ).not.toBeInTheDocument();
@@ -886,14 +886,14 @@ describe("ChatFab — rate-limit ceiling", () => {
     await openWith(new Error("The AI service is temporarily overloaded."));
 
     const message = screen.getByText("The AI service is temporarily overloaded.");
-    expect(message.closest("li")).toHaveClass("chat-msg-error");
+    expect(message.closest("[data-role]")).toHaveAttribute("data-kind", "error");
   });
 
   it("does not mistake unrelated JSON for a ceiling", async () => {
     await openWith(new Error(JSON.stringify({ error: "Something else broke" })));
 
     const message = screen.getByText(/Something else broke/);
-    expect(message.closest("li")).toHaveClass("chat-msg-error");
+    expect(message.closest("[data-role]")).toHaveAttribute("data-kind", "error");
   });
 
   describe('tool-specific starter chips (amendment "Tool-specific starter questions")', () => {

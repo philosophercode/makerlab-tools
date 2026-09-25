@@ -6,9 +6,13 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "reac
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import ReactMarkdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
+import type { Components } from "react-markdown";
 import "../styles/admin-import.css";
+import { Conversation, ConversationContent, ConversationScrollButton } from "./ai-elements/conversation";
+import { Loader } from "./ai-elements/loader";
+import { Message, MessageContent, MessageResponse } from "./ai-elements/message";
+import { Suggestion as SuggestionChip, Suggestions } from "./ai-elements/suggestion";
+import { ToolStatus } from "./ai-elements/tool-status";
 import { IntakeTableCard } from "./IntakeTableCard";
 import { ImportCard } from "./ImportCard";
 import { IMPORT_FILE_EXTENSIONS, isImportFileName } from "../lib/import/detect";
@@ -602,13 +606,6 @@ export function ChatFab() {
     }
   }
 
-  const scrollRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
-
   const markdownComponents = useMemo<Components>(
     () => ({
       a({ href, children }) {
@@ -715,7 +712,13 @@ export function ChatFab() {
             aria-label={t("closeScrimAria")}
             onClick={close}
           />
-          <section className="chat-sheet" id="makerlab-chat-sheet">
+          {/* UI system spec §8.2: a docked side panel (full height, 420px; the
+              whole screen on a phone) instead of a 360×560 floating card, so a
+              table or a proposal card inside a reply has room to be read. */}
+          <section
+            className="ui absolute inset-y-0 right-0 grid w-full grid-rows-[auto_1fr_auto] border-l border-border bg-card sm:w-[440px] rtl:right-auto rtl:left-0 rtl:border-r rtl:border-l-0"
+            id="makerlab-chat-sheet"
+          >
             <header className="chat-header">
               <h2 id="chat-title">{t("title")}</h2>
               <div className="chat-header-actions">
@@ -742,35 +745,35 @@ export function ChatFab() {
               </div>
             </header>
 
-            <div className="chat-body" ref={scrollRef}>
+            <Conversation className="min-h-0">
+              <ConversationContent className="gap-3 px-4 py-4">
               {messages.length === 0 ? (
                 <>
-                  <p className="chat-greeting">
+                  <p className="m-0 text-[14px] leading-relaxed text-muted-foreground">
                     {toolId ? t("greetingTool") : t("greetingGeneral")}
                   </p>
-                  <div className="chat-suggestions">
+                  <Suggestions>
                     {chips.map((suggestion) => {
                       const label = suggestion.label;
                       const text = "send" in suggestion && typeof suggestion.send === "string" ? suggestion.send : label;
                       return (
-                        <button
+                        <SuggestionChip
                           key={suggestion.key}
-                          type="button"
-                          className="chat-suggestion"
-                          onClick={() => handleSuggestion(text)}
+                          suggestion={text}
+                          onClick={handleSuggestion}
                           disabled={isLoading}
                         >
-                          <span className="chat-suggestion-icon" aria-hidden="true">
+                          <span className="text-primary-ink" aria-hidden="true">
                             <Icon name={suggestion.icon} />
                           </span>
                           <span>{label}</span>
-                        </button>
+                        </SuggestionChip>
                       );
                     })}
-                  </div>
+                  </Suggestions>
                 </>
               ) : (
-                <ul className="chat-messages">
+                <div className="flex flex-col gap-4">
                   {messages.map((message) => {
                     const textParts = message.parts.filter(
                       (p): p is Extract<typeof p, { type: "text" }> =>
@@ -806,86 +809,93 @@ export function ChatFab() {
                     const hasCard = intakeParts.length > 0 || proposalItems.length > 0 || importParts.length > 0;
                     if (textParts.length === 0 && !hasCard && !pendingTool) return null;
                     return (
-                      <li
-                        key={message.id}
-                        className={`chat-msg chat-msg-${message.role}${
-                          hasCard ? " chat-msg-has-card" : ""
-                        }`}
-                      >
-                        {textParts.length === 0 && !hasCard && pendingTool ? (
-                          <p className="chat-reading" aria-label={t("toolRunningAria")}>
-                            {toolStatusLabel(pendingTool.type, t, (pendingTool as { input?: unknown }).input)}
-                          </p>
-                        ) : null}
-                        {textParts.map((part, index) =>
-                          message.role === "assistant" ? (
-                            <div key={index} className="chat-markdown">
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={markdownComponents}
-                              >
+                      // UI system spec §8.1: AI Elements' Message. Assistant
+                      // text is unboxed prose; the user's turn is a quiet
+                      // square block; cards keep the full width.
+                      <Message key={message.id} from={message.role} data-has-card={hasCard || undefined} className={hasCard ? "max-w-full" : undefined}>
+                        <MessageContent className={hasCard ? "w-full" : undefined}>
+                          {textParts.length === 0 && !hasCard && pendingTool ? (
+                            <ToolStatus label={t("toolRunningAria")}>
+                              {toolStatusLabel(pendingTool.type, t, (pendingTool as { input?: unknown }).input)}
+                            </ToolStatus>
+                          ) : null}
+                          {textParts.map((part, index) =>
+                            message.role === "assistant" ? (
+                              <MessageResponse key={index} components={markdownComponents}>
                                 {stripCitations(part.text)}
-                              </ReactMarkdown>
-                            </div>
-                          ) : (
-                            <p key={index}>{part.text}</p>
-                          )
-                        )}
-                        {intakeParts.map((part) => (
-                          <IntakeTableCard key={part.data.batchId} payload={part.data} />
-                        ))}
-                        {proposalItems.length > 0 ? <ChatProposalCards items={proposalItems} /> : null}
-                        {importParts.map((part) => (
-                          <ImportCard key={part.data.import.id} payload={part.data} />
-                        ))}
-                      </li>
+                              </MessageResponse>
+                            ) : (
+                              <p key={index} className="m-0 whitespace-pre-wrap">
+                                {part.text}
+                              </p>
+                            )
+                          )}
+                          {intakeParts.map((part) => (
+                            <IntakeTableCard key={part.data.batchId} payload={part.data} />
+                          ))}
+                          {proposalItems.length > 0 ? <ChatProposalCards items={proposalItems} /> : null}
+                          {importParts.map((part) => (
+                            <ImportCard key={part.data.import.id} payload={part.data} />
+                          ))}
+                        </MessageContent>
+                      </Message>
                     );
                   })}
                   {isLoading && messages[messages.length - 1]?.role !== "assistant" ? (
-                    <li className="chat-msg chat-msg-assistant">
+                    <Message from="assistant">
                       {readingManuals && readingManuals.length > 0 ? (
-                        <p className="chat-reading" aria-label={t("readingManualsAria")}>
+                        <ToolStatus label={t("readingManualsAria")}>
                           {t("reading", { titles: readingManuals.join(", ") })}
-                        </p>
+                        </ToolStatus>
                       ) : (
-                        <p className="chat-typing" aria-label={t("typingAria")}>
-                          <span />
-                          <span />
-                          <span />
-                        </p>
+                        <div
+                          className="inline-flex items-center gap-2 text-muted-foreground"
+                          role="status"
+                          aria-label={t("typingAria")}
+                        >
+                          <Loader size={14} />
+                        </div>
                       )}
-                    </li>
+                    </Message>
                   ) : null}
                   {ceiling ? (
-                    <li className="chat-msg chat-msg-assistant">
-                      <p>
-                        {ceiling === "sign-in"
-                          ? t("rateLimitSignIn", {
-                              institution: siteConfig.institution,
-                            })
-                          : t("rateLimited")}
-                      </p>
-                      {ceiling === "sign-in" ? (
-                        <p>
-                          <button
-                            type="button"
-                            className="chat-tool-link"
-                            style={SIGN_IN_LINK_STYLE}
-                            onClick={handleCeilingSignIn}
-                          >
-                            {t("rateLimitSignInCta")}
-                          </button>
+                    <Message from="assistant" data-kind="notice">
+                      <MessageContent>
+                        <p className="m-0">
+                          {ceiling === "sign-in"
+                            ? t("rateLimitSignIn", {
+                                institution: siteConfig.institution,
+                              })
+                            : t("rateLimited")}
                         </p>
-                      ) : null}
-                    </li>
+                        {ceiling === "sign-in" ? (
+                          <p className="m-0">
+                            <button
+                              type="button"
+                              className="chat-tool-link"
+                              style={SIGN_IN_LINK_STYLE}
+                              onClick={handleCeilingSignIn}
+                            >
+                              {t("rateLimitSignInCta")}
+                            </button>
+                          </p>
+                        ) : null}
+                      </MessageContent>
+                    </Message>
                   ) : error ? (
-                    <li className="chat-msg chat-msg-error">
-                      <p>{error.message?.trim() ? error.message : t("error")}</p>
-                    </li>
+                    <Message from="assistant" data-kind="error">
+                      <MessageContent className="border-l-2 border-bad pl-3 text-bad">
+                        <p className="m-0" role="alert">
+                          {error.message?.trim() ? error.message : t("error")}
+                        </p>
+                      </MessageContent>
+                    </Message>
                   ) : null}
-                </ul>
+                </div>
               )}
-            </div>
+              </ConversationContent>
+              <ConversationScrollButton aria-label={t("scrollToLatestAria")} />
+            </Conversation>
 
             {pendingPhotos.length > 0 || pendingDocuments.length > 0 || uploadingCount > 0 || uploadError ? (
               <div className="chat-attachments" aria-live="polite">
