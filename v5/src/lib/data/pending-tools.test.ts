@@ -4,6 +4,7 @@ import { createPgliteDb } from "../db/pglite";
 import { attachments, pendingTools, researchRequests, tools, user } from "../db/schema/index";
 import type { Db } from "../db/types";
 import type { ResearchResult } from "../research/result";
+import { hasUnresolvedDuplicate } from "../intake/access";
 import {
   completeResearch,
   countResearchRequestedSince,
@@ -204,6 +205,28 @@ describe("createPendingBatch", () => {
     });
     expect(items[2].duplicateOf).toBeNull();
     expect(items[3].duplicateOf).toBeNull();
+    // A duplicate waits for a person.
+    expect(items[0].duplicateResolution).toBeNull();
+  });
+
+  it("stores a merely similar name pre-resolved as a different tool, so research is not blocked (research fixes amendment 2026-09-24)", async () => {
+    const [speedy] = await db
+      .insert(tools)
+      .values({ slug: "trotec-speedy-400-sim", name: "Trotec Speedy 400", published: true })
+      .returning({ id: tools.id });
+    await db.insert(tools).values({ slug: "form-2-sim", name: "Form 2", published: true });
+
+    const batch = await createPendingBatch(
+      { createdBy: OTHER, items: [{ name: "Laser cutter (Trotec)" }, { name: "Form 4" }] },
+      { db }
+    );
+    const [laser, form4] = await listPendingTools({ ids: batch.items.map((item) => item.id) }, { db });
+
+    expect(laser.duplicateOfToolId).toBe(speedy.id);
+    expect(laser.duplicateResolution).toBe("new_tool");
+    expect(hasUnresolvedDuplicate(laser)).toBe(false);
+    // A different model number is no match at all.
+    expect(form4.duplicateOf).toBeNull();
   });
 });
 

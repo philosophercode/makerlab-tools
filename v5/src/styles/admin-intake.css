@@ -563,3 +563,10 @@
   flex-direction: column;
   gap: 6px;
 }
+
+/* Training left for staff to confirm (research amendment 2026-09-24): marked
+   in the warning colour until the reviewer chooses. */
+.admin-intake-panel .admin-field.is-unconfirmed {
+  border-left: 2px solid var(--td-warning);
+  padding-left: 8px;
+}

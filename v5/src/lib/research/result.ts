@@ -283,6 +283,13 @@ export interface ResearchImages {
    * otherwise.
    */
   cleanNote?: CleanNote | null;
+  /**
+   * True when pictures were found and ranked but the ranking judged none of
+   * them to show the product itself — an accessory, a part, packaging or
+   * another model (research fixes amendment 2026-09-24) — so `candidates` is
+   * empty on purpose. Absent otherwise, and on older rows.
+   */
+  allRejected?: boolean;
 }
 
 export const RESEARCH_RESOURCE_TYPES = ["Manual", "Video", "Other"] as const;
@@ -333,6 +340,7 @@ export const researchImagesSchema: z.ZodType<ResearchImages> = z
       .strictObject({ attachmentId: z.string().min(1), fromUrl: httpUrl, kind: z.enum(CLEANED_KINDS).optional() })
       .nullable(),
     cleanNote: z.enum(CLEAN_NOTES).nullable().optional(),
+    allRejected: z.boolean().optional(),
   })
   .refine(
     (images) => images.candidates.every((candidate, index) => candidate.rank === index + 1),

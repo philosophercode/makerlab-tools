@@ -373,7 +373,10 @@ export const toolCandidateSchema: z.ZodType<ToolCandidate> = z.object({
   materials: z.array(z.string()),
   ppe_required: z.array(z.string()),
   tags: z.array(z.string()),
-  training_required: z.boolean().optional(),
+  training_required: z
+    .boolean()
+    .optional()
+    .describe("Whether the lab requires training before use. Leave it out unless lab staff said so: the draft is then marked as requiring training until staff decide."),
   use_restrictions: z.string().optional(),
   units: z.array(
     z.object({

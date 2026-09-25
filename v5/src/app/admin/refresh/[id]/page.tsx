@@ -77,7 +77,11 @@ export default async function AdminRefreshItemPage({ params }: { params: Promise
     includeDescription: refresh.includeDescription,
     researchError: refresh.researchError,
     categorySuggestion: suggested && suggested !== subject.categoryName ? suggested : null,
-    duplicateOf: duplicate && duplicate.kind === "tool" ? { name: duplicate.name, slug: duplicate.slug } : null,
+    // A likely duplicate only — a merely similar name is no reason to raise it here.
+    duplicateOf:
+      duplicate && duplicate.kind === "tool" && duplicate.strength === "duplicate"
+        ? { name: duplicate.name, slug: duplicate.slug }
+        : null,
     canPublish: can(identity, "tools.publish"),
   };
 

@@ -126,7 +126,9 @@ async function ownedBy(id: string) {
 
 /** A ranking model answering `order` for however many images it is shown. */
 function ranking(order: number[]) {
-  const model = textModel(JSON.stringify({ order, reasons: order.map((n) => `reason ${n}`) }));
+  const model = textModel(
+    JSON.stringify({ order, reasons: order.map((n) => `reason ${n}`), images: order.map(() => ({ subject: "product" })) })
+  );
   setLanguageModel("imageRank", model);
   return model;
 }
@@ -213,6 +215,28 @@ describe("findImages", () => {
     const id = await researchingItem();
     await findImages(id, REQUEST, RESULT, [hint("tiny-1"), hint("tiny-2", "exa")]);
     expect((await getPendingTool(id))?.research?.images).toEqual({ candidates: [], cleaned: null });
+  });
+
+  it("records no candidates, and says why, when the ranking judged none to be the product itself — and cuts nothing", async () => {
+    await useLocalBlob();
+    const id = await researchingItem();
+    setLanguageModel(
+      "imageRank",
+      textModel(
+        JSON.stringify({
+          order: [0, 1, 2],
+          reasons: ["a nozzle", "a spool", "the box"],
+          images: [{ subject: "part" }, { subject: "consumable" }, { subject: "packaging" }],
+        })
+      )
+    );
+
+    expect(await findImages(id, REQUEST, RESULT, PAGE_HINTS)).toEqual({ outcome: "researched", confidence: "medium" });
+
+    const research = (await getPendingTool(id))?.research;
+    expect(research?.images).toEqual({ candidates: [], cleaned: null, allRejected: true });
+    expect(research?.imageError).toBeNull();
+    expect(await ownedBy(id)).toEqual([]);
   });
 
   it("ranks three candidates and records them in rank order, with their backgrounds — with no Blob store, nothing is cut", async () => {
@@ -350,8 +374,8 @@ describe("findImages", () => {
           order: [0, 1],
           reasons: ["banner, product centred", "banner"],
           images: [
-            { composite: true, productBox: box },
-            { composite: true, productBox: box },
+            { subject: "product", composite: true, productBox: box },
+            { subject: "product", composite: true, productBox: box },
           ],
         })
       )
@@ -382,6 +406,7 @@ describe("findImages", () => {
       http.get("https://intranet.maker.example/*", () => (inward(), HttpResponse.text("secret")))
     );
     setResolvedAddresses({ "intranet.maker.example": ["10.1.2.3"] });
+    const rank = ranking([0]);
 
     await findImages(id, REQUEST, RESULT, [
       { url: "http://169.254.169.254/latest/meta-data/iam", source: "og", pageUrl: PAGE },
@@ -390,7 +415,8 @@ describe("findImages", () => {
     ]);
 
     expect(inward).not.toHaveBeenCalled();
-    // One candidate left needs no ranking call (none is stubbed).
+    // One candidate left, and it is still judged (research fixes amendment 2026-09-24): one image shown.
+    expect(recordedCalls(rank)).toHaveLength(1);
     expect((await getPendingTool(id))?.research?.images?.candidates.map((c) => c.url)).toEqual([hint("front").url]);
   });
 

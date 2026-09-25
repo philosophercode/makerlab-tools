@@ -65,8 +65,8 @@ import {
  *   page and manual, plus the same findings JSON the old Anthropic stub returned,
  *   as the trailing text.
  * - **non-streaming, an image part in the prompt** → **image ranking**. A
- *   strict `{"order": number[], "reasons": string[]}`, sized to how many
- *   images the prompt actually carried.
+ *   strict `{"order": number[], "reasons": string[], "images": [{"subject":
+ *   "product"}, …]}`, sized to how many images the prompt actually carried.
  * - **non-streaming, anything else** (no tools, `"Name: <item>"` in the
  *   prompt) → **research, read step**. The same draft JSON as before.
  * - There is no `/image-model` route: background removal is a deterministic
@@ -250,7 +250,9 @@ function answerImageRank(req: ParsedLanguageRequest): WireLanguageBody {
   const shown = Math.max(1, promptFiles(req, "image/").length);
   const order = Array.from({ length: shown }, (_, index) => index);
   const reasons = Array.from({ length: shown }, () => "The product on a plain background.");
-  return textResponse(JSON.stringify({ order, reasons }));
+  // Every image is the product itself — the verdict ranking requires (research fixes amendment 2026-09-24).
+  const images = Array.from({ length: shown }, () => ({ subject: "product" }));
+  return textResponse(JSON.stringify({ order, reasons, images }));
 }
 
 // ── /v3/ai/language-model ───────────────────────────────────────────────

@@ -1775,3 +1775,48 @@ answers `"database": "local"` (a fourth word beside `ok | unreachable | demo`) w
   copy of the local database. Runbook: `docs/deploy.md`, Stage 2b.
 
 **Status.** Built.
+
+### 2026-09-24 — Research fixes: model numbers decide the duplicate check (§5.4)
+
+**Why.** An evaluation rebuilt the lab's 101-tool inventory from names alone. The duplicate
+check flagged different models of one product line as duplicates — "Form 4" against the lab's
+"Form 2" (trigram similarity 0.56), "Ultimaker S5" against "Ultimaker 3" (0.67), RYOBI
+batteries "P103" against "PBP004" and the other P-numbers — and every flag blocks research
+until somebody resolves it. It also missed true duplicates: "Form 2 printer" against "Form 2"
+scores 0.47, under the 0.5 line.
+
+**What changed** (`src/lib/data/duplicates.ts`, `modelTokens` / `modelTokensConflict` in
+`src/lib/tool-names.ts`). The SQL now returns up to 50 candidates — exact, trigram similarity
+≥ 0.5, or `word_similarity` ≥ 0.35 in either direction — and code classifies each:
+
+- **Different model tokens: no match at all.** A model token is a word with a digit in it
+  ("4", "s5", "p103", "x1"), after spec runs ("18V", "10-Inch") and "3D" are removed. When
+  both names carry model tokens and none match — equal, or a bare number run into a word
+  ("Form4" against "4") — the two are different machines, whatever their similarity. A tool
+  is compared on its name and its official name together.
+- **`duplicate`** (the §5.4 question, still blocking): normalized equality, similarity ≥ 0.5,
+  the same part number (`looksLikePartNumber`: "RYOBI 18V ONE+ P103" and "RYOBI P103
+  battery"), the same name without spaces ("Form4"), or every word of one name inside the
+  other when that name carries a model token ("Form 2 printer" and "Form 2").
+- **`similar`** (new, a hint): word similarity ≥ 0.35 with no conflicting tokens — "Laser
+  cutter (Trotec)" against "Trotec Speedy 400", which the evaluation missed entirely.
+
+**Blocking stays as specced, for duplicates only.** §5.4 says a duplicate row must be resolved
+before it can be researched, and that is unchanged. A `similar` match is stored on the row
+like any match but **pre-resolved as "It's a different tool"** (`initialResolution`), so it
+never blocks research; the table and the import review still show the match, and the reviewer
+can change the choice to **Add as another unit** or **Remove** as before. No migration: a
+similar match is the existing `new_tool` resolution chosen in advance, which is why the row
+cannot later tell it apart from one a person chose. A rename that finds a new match stores it
+the same way. The refresh review page's "likely duplicate" note shows `duplicate` matches only.
+
+**Tests.** `duplicates.test.ts` — the evaluation's exact pairs (Form 4/Form 2, Ultimaker
+S5/Ultimaker 3, RYOBI P103/PBP004 and P108/P102) find nothing; the true duplicates ("Form 2" /
+"Formlabs Form 2" both ways, "Form 2 printer" / "Form 2" both ways, "Form4", the shared P103)
+are `duplicate`; "Laser cutter (Trotec)" is `similar` to "Trotec Speedy 400"; a duplicate beats
+a closer-reading similar name; `classify` and `initialResolution` directly.
+`tool-names.test.ts` — `modelTokens` and `modelTokensConflict`. `pending-tools.test.ts` — a
+similar match is stored pre-resolved and `hasUnresolvedDuplicate` is false for it; a different
+model number stores no match.
+
+**Status.** Built on `v5/research-fixes`.

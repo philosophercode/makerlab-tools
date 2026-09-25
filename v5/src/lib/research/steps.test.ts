@@ -262,6 +262,27 @@ describe("searchItem + readAndVerifyItem", () => {
     expect(item?.researchError).toBeNull();
   });
 
+  it.each([true, false])(
+    "leaves training for staff to confirm whatever the model said (%s), keeping a verified quote as evidence",
+    async (said) => {
+      const id = await queuedItem();
+      answer(FINDINGS, {
+        ...DRAFT,
+        trainingRequired: said,
+        citations: { trainingRequired: [{ quote: PRODUCT_TEXT, url: PRODUCT_URL }] },
+      });
+
+      const search = await searched(id);
+      const read = await readAndVerifyItem(id, REQUEST, search.findings, null, MANUAL_TEXTS);
+      if (read.outcome !== "drafted") throw new Error("expected a draft");
+      // Research amendment 2026-09-24 "Training is the lab's call": never a value, never `false`.
+      expect(read.result.trainingRequired).toBeNull();
+      expect(read.result.citations?.training_required).toEqual([
+        expect.objectContaining({ url: PRODUCT_URL, verified: true }),
+      ]);
+    }
+  );
+
   it("gives the search exa_search and nothing else, its own deadline and no retry loop of its own", async () => {
     const id = await queuedItem();
     const models = answer(FINDINGS);

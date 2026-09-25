@@ -29,7 +29,7 @@ import {
  * ```ts
  * server.use(
  *   ...gatewayHandlers({
- *     language: (req) => (promptHasImage(req) ? textResponse('{"order":[0],"reasons":["front"]}') : textResponse("hi")),
+ *     language: (req) => (promptHasImage(req) ? textResponse('{"order":[0],"reasons":["front"],"images":[{"subject":"product"}]}') : textResponse("hi")),
  *     image: () => imageResponse([makePngBase64({ width: 1024, height: 1024, alpha: true })]),
  *   })
  * );

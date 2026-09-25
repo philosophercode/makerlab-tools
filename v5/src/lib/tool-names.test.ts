@@ -8,10 +8,36 @@ import {
   isValidDisplayName,
   lookupName,
   looksLikePartNumber,
+  modelTokens,
+  modelTokensConflict,
   officialNameShown,
 } from "./tool-names";
 
 /** Tool display names spec 2026-09-24, §5.1 — the rules, in code. */
+
+describe("modelTokens / modelTokensConflict (research fixes amendment 2026-09-24)", () => {
+  it("keeps the words with digits that name a model, not specs or '3D'", () => {
+    expect(modelTokens("Formlabs Form 4")).toEqual(["4"]);
+    expect(modelTokens("Ultimaker S5")).toEqual(["s5"]);
+    expect(modelTokens("RYOBI 18V ONE+ P103 Battery")).toEqual(["p103"]);
+    expect(modelTokens("Bambu Lab X1-Carbon")).toEqual(["x1"]);
+    expect(modelTokens("Prusa MK4S 3D Printer")).toEqual(["mk4s"]);
+    expect(modelTokens("DEWALT 20V MAX 10-Inch Table Saw")).toEqual([]);
+    expect(modelTokens("Laser cutter (Trotec)")).toEqual([]);
+    expect(modelTokens(null)).toEqual([]);
+  });
+
+  it("conflicts only when both name a model and none match", () => {
+    expect(modelTokensConflict(["4"], ["2"])).toBe(true);
+    expect(modelTokensConflict(["s5"], ["3"])).toBe(true);
+    expect(modelTokensConflict(["p103"], ["pbp004"])).toBe(true);
+    expect(modelTokensConflict(["2"], ["2"])).toBe(false);
+    expect(modelTokensConflict(["form4"], ["4"])).toBe(false);
+    expect(modelTokensConflict(["pbp004"], ["4"])).toBe(true);
+    expect(modelTokensConflict([], ["400"])).toBe(false);
+    expect(modelTokensConflict(["400"], [])).toBe(false);
+  });
+});
 
 describe("looksLikePartNumber", () => {
   it.each(["196094-2", "575267", "20-221", "96289)", "DCB107", "P593", "MR7F2LL", "#1234", "DC-3401", "PCL235"])(

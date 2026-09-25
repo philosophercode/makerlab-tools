@@ -82,6 +82,43 @@ export function looksLikePartNumber(token: string): boolean {
   });
 }
 
+/** Digit-bearing words that name a kind of machine, not a model: "3D printer", "2D cutter". */
+const KIND_WORDS_WITH_DIGITS = new Set(["2d", "3d", "4d"]);
+
+/**
+ * The model tokens in a name — the words that tell one model from another:
+ * every word with a digit in it, lower-cased ("Form 4" → `4`, "Ultimaker S5"
+ * → `s5`, "RYOBI 18V ONE+ P103" → `p103`), once each. A spec run ("18V",
+ * "10-Inch", "1500 Watt") is not a model, and neither is "3D". Used by the
+ * duplicate check (research fixes amendment 2026-09-24): two names whose
+ * model tokens are all different are two machines, however alike they read.
+ */
+export function modelTokens(name: string | null | undefined): string[] {
+  const text = (name ?? "").replace(SPEC_RUN, " ").toLowerCase();
+  const out = new Set<string>();
+  for (const word of text.split(/[^a-z0-9]+/)) {
+    if (word && /\d/.test(word) && !KIND_WORDS_WITH_DIGITS.has(word)) out.add(word);
+  }
+  return [...out];
+}
+
+/**
+ * True when both lists name a model and no token of one matches a token of the
+ * other — "Form 4" and "Form 2", "P103" and "PBP004". A token matches its
+ * equal, and a bare number matches the same number run into a word ("Form4"
+ * against "Form 4"). Either list empty is no conflict: nothing to compare.
+ */
+export function modelTokensConflict(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length === 0 || b.length === 0) return false;
+  return !a.some((x) => b.some((y) => tokensMatch(x, y)));
+}
+
+function tokensMatch(a: string, b: string): boolean {
+  if (a === b) return true;
+  const [long, short] = a.length > b.length ? [a, b] : [b, a];
+  return /^\d+$/.test(short) && long.endsWith(short) && /^[a-z]+$/.test(long.slice(0, -short.length));
+}
+
 function countDigits(text: string): number {
   return (text.match(/\d/g) ?? []).length;
 }

@@ -3,9 +3,11 @@ import { createPgliteDb } from "../db/pglite";
 import { pendingTools, tools, user } from "../db/schema/index";
 import type { Db } from "../db/types";
 import {
+  classify,
   DUPLICATE_SIMILARITY_THRESHOLD,
   findDuplicate,
   findDuplicates,
+  initialResolution,
   normalizeToolName,
 } from "./duplicates";
 
@@ -73,6 +75,7 @@ describe("findDuplicate", () => {
       name: "Bambu Lab X1-Carbon",
       slug: existing.slug,
       published: true,
+      strength: "duplicate",
     });
   });
 
@@ -114,6 +117,7 @@ describe("findDuplicate", () => {
       id: waiting.id,
       name: "Roland VersaStudio BN-20",
       status: "researched",
+      strength: "duplicate",
     });
 
     await db.delete(pendingTools);
@@ -167,5 +171,80 @@ describe("findDuplicate", () => {
   it("does not throw on a name with nothing to normalize", async () => {
     await tool("Form 4");
     expect(await findDuplicate({ name: "—" }, { db })).toBeNull();
+  });
+});
+
+/**
+ * Model numbers decide (research fixes amendment 2026-09-24): the false
+ * positives and the misses of the 101-tool evaluation, as pairs.
+ */
+describe("findDuplicate — model numbers", () => {
+  it.each([
+    ["Form 4", "Form 2"],
+    ["Ultimaker S5", "Ultimaker 3"],
+    ["RYOBI P103", "RYOBI PBP004"],
+    ["RYOBI 18V ONE+ P108 Battery", "RYOBI 18V ONE+ P102 Battery"],
+  ] as const)("does not match %s against the lab's %s: different model numbers", async (query, existing) => {
+    await tool(existing);
+    expect(await findDuplicate({ name: query }, { db })).toBeNull();
+  });
+
+  it("does not match a different model number on a pending item, or through a tool's official name", async () => {
+    await pending("PBP004", { brand: "RYOBI" });
+    await tool("Formlabs printer", { officialName: "Formlabs Form 2" });
+    expect(await findDuplicate({ name: "P103", brand: "RYOBI" }, { db })).toBeNull();
+    expect(await findDuplicate({ name: "Formlabs Form 4" }, { db })).toBeNull();
+  });
+
+  it.each([
+    ["Form 2", "Formlabs Form 2"],
+    ["Formlabs Form 2", "Form 2"],
+    ["Form 2 printer", "Form 2"],
+    ["Form 2", "Form 2 printer"],
+    ["Form4", "Form 4"],
+    ["RYOBI 18V ONE+ P103", "RYOBI P103 battery"],
+  ] as const)("still matches %s against %s as a duplicate: the same model", async (query, existing) => {
+    const row = await tool(existing);
+    expect(await findDuplicate({ name: query }, { db })).toMatchObject({ id: row.id, strength: "duplicate" });
+  });
+
+  it("hints that a generic name is similar to a model it may be — without calling it a duplicate", async () => {
+    const speedy = await tool("Trotec Speedy 400");
+    expect(await findDuplicate({ name: "Laser cutter (Trotec)" }, { db })).toMatchObject({
+      id: speedy.id,
+      strength: "similar",
+    });
+  });
+
+  it("prefers a duplicate over a closer-reading similar name", async () => {
+    await tool("Trotec Speedy 300 laser cutter");
+    const same = await tool("Trotec Speedy 400");
+    expect(await findDuplicate({ name: "Speedy 400", brand: "Trotec" }, { db })).toMatchObject({
+      id: same.id,
+      strength: "duplicate",
+    });
+  });
+});
+
+describe("initialResolution", () => {
+  it("stores a similar name as a different tool and leaves a duplicate for a person", () => {
+    const base = { kind: "tool" as const, id: "t", name: "x", slug: "x", published: true };
+    expect(initialResolution({ ...base, strength: "similar" })).toBe("new_tool");
+    expect(initialResolution({ ...base, strength: "duplicate" })).toBeNull();
+    expect(initialResolution(null)).toBeNull();
+  });
+});
+
+describe("classify", () => {
+  const row = { name: "Form 2", alias: null, exact: false, score: 0, wscore: 0 };
+
+  it("ignores similarity entirely when the model tokens differ", () => {
+    expect(classify("Form 4", { ...row, exact: false, score: 0.9, wscore: 1 })).toBeNull();
+  });
+
+  it("uses the existing thresholds when neither side, or only one, names a model", () => {
+    expect(classify("Bosch jigsaw", { ...row, name: "DeWalt jigsaw", score: 0.35, wscore: 0.54 })).toBe("similar");
+    expect(classify("Prusa MK4S", { ...row, name: "Prusa MK4S 3D Printer", score: 0.55, wscore: 1 })).toBe("duplicate");
+    expect(classify("Something else", { ...row, name: "Glowforge Pro", score: 0.1, wscore: 0.2 })).toBeNull();
   });
 });

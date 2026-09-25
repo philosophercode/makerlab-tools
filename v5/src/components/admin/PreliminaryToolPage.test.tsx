@@ -240,7 +240,8 @@ describe("PreliminaryToolPage — the proposal", () => {
       "An open-frame FDM printer.\n\n- **Build volume:** 250 × 210 × 220 mm"
     );
     expect(screen.getByLabelText("Materials")).toHaveValue("PLA, PETG");
-    expect(screen.getByLabelText("Training required before use")).toBeChecked();
+    // Training is the lab's call: never pre-filled from research, even its "true".
+    expect(screen.getByLabelText("Training required before use")).toHaveDisplayValue("Staff to confirm (saved as required)");
     expect(screen.getByLabelText("Serial number")).toHaveValue("SN-42");
     // Research proposed a category the lab does not have: it is offered new.
     expect(screen.getByLabelText("Category")).toHaveDisplayValue("Create “3D Printing — FDM”");
@@ -300,6 +301,53 @@ describe("PreliminaryToolPage — the proposal", () => {
         image: { choice: "none" },
       },
     });
+  });
+});
+
+describe("PreliminaryToolPage — training is the lab's call (research amendment 2026-09-24)", () => {
+  const training = () => screen.getByLabelText("Training required before use");
+
+  it("starts an item research said needs no training at 'staff to confirm', and approving it unchanged saves required", async () => {
+    // An older row, researched before the rule, still carries the model's `false`.
+    const props = renderPage({ research: research({ trainingRequired: false }) });
+
+    expect(training()).toHaveValue("confirm");
+    expect(screen.getByText(/Until you choose, this tool is saved as requiring training/)).toBeInTheDocument();
+
+    await userEvent.click(approveButton());
+    expect(props.actions.approve).toHaveBeenCalledWith(
+      expect.objectContaining({ fields: expect.objectContaining({ trainingRequired: true }) })
+    );
+  });
+
+  it("saves no training only when the reviewer chooses it", async () => {
+    const props = renderPage();
+
+    await userEvent.selectOptions(training(), "No training needed");
+    expect(screen.getByText("Your choice is what the tool page shows.")).toBeInTheDocument();
+    await userEvent.click(draftButton());
+
+    expect(props.actions.approveAsDraft).toHaveBeenCalledWith(
+      expect.objectContaining({ fields: expect.objectContaining({ trainingRequired: false }) })
+    );
+  });
+
+  it("shows a verified quote about training as evidence, and leaves an unverified one out", () => {
+    renderPage({
+      research: research({
+        trainingRequired: null,
+        citations: {
+          training_required: [
+            { quote: "Operators must complete Trotec training before use.", url: "https://www.troteclaser.com/speedy-400", verified: true },
+            { quote: "Anyone can use it.", url: "https://forum.example/thread", verified: false },
+          ],
+        },
+      }),
+    });
+
+    expect(screen.getByText("Operators must complete Trotec training before use.")).toBeInTheDocument();
+    expect(screen.getByText(/troteclaser\.com/)).toBeInTheDocument();
+    expect(screen.queryByText("Anyone can use it.")).not.toBeInTheDocument();
   });
 });
 

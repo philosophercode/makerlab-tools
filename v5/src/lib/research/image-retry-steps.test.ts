@@ -186,7 +186,9 @@ describe("retryImages", () => {
     const search = searchModel();
     setLanguageModel("researchSearch", search);
     // Search first (a note aimed it): [exa, new]. The model prefers index 1.
-    const rank = textModel(JSON.stringify({ order: [1, 0], reasons: ["front of the X2D", "angled"] }));
+    const rank = textModel(
+      JSON.stringify({ order: [1, 0], reasons: ["front of the X2D", "angled"], images: [{ subject: "product" }, { subject: "product" }] })
+    );
     setLanguageModel("imageRank", rank);
 
     expect(await retryImages(id, requestId, note)).toBe("done");

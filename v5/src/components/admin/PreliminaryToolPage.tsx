@@ -19,6 +19,7 @@ import { importLinkResource } from "../../lib/import/resources";
 import type { ImportLink, LabDoc } from "../../lib/import/types";
 import { imageRetryInProgress } from "../../lib/intake/image-retry-state";
 import { INTAKE_POLL_INTERVAL_MS, REDO_HIGHLIGHT_SHOW_MS } from "../../lib/intake/limits";
+import { trainingAtApproval, trainingEvidence } from "../../lib/intake/training";
 import { isImageOnlyFocus, type ResearchFocusField } from "../../lib/intake/research-focus";
 import { ADMIN_INTAKE_PATH, type PendingToolView } from "../../lib/intake/types";
 import type { ResearchImages, ResearchResult } from "../../lib/research/result";
@@ -135,7 +136,8 @@ interface Draft {
   materials: string;
   ppeRequired: string;
   tags: string;
-  trainingRequired: boolean;
+  /** Null is "staff to confirm" — saved as required unless the reviewer says otherwise (`intake/training.ts`). */
+  trainingRequired: boolean | null;
   useRestrictions: string;
   serialNumber: string;
   resourceUrls: string[];
@@ -629,6 +631,69 @@ export function PreliminaryToolPage({
   );
 }
 
+/**
+ * Training, as a decision for staff (research amendment 2026-09-24): "staff to
+ * confirm" until the reviewer picks, and saved as required if they never do.
+ * What the pages said about training is shown beneath as quotes — evidence,
+ * never a preset value.
+ */
+function TrainingChoice({
+  value,
+  research,
+  onChange,
+}: {
+  value: boolean | null;
+  research: ResearchResult;
+  onChange: (value: boolean | null) => void;
+}) {
+  const t = useTranslations("admin.intake.training");
+  const tEditor = useTranslations("admin.inventory.editor");
+  const evidence = trainingEvidence(research);
+  const selected = value === null ? "confirm" : value ? "required" : "none";
+  return (
+    <div className={`admin-field${value === null ? " is-unconfirmed" : ""}`}>
+      <label htmlFor="intake-training-required">{tEditor("fieldTrainingRequired")}</label>
+      <select
+        id="intake-training-required"
+        value={selected}
+        aria-describedby="intake-training-hint"
+        onChange={(event) => {
+          const next = event.target.value;
+          onChange(next === "confirm" ? null : next === "required");
+        }}
+      >
+        <option value="confirm">{t("confirm")}</option>
+        <option value="required">{t("required")}</option>
+        <option value="none">{t("none")}</option>
+      </select>
+      <p className="admin-field-hint" id="intake-training-hint">
+        {value === null ? t("unconfirmedHint") : t("decidedHint")}
+      </p>
+      {evidence.length > 0 ? (
+        <div className="admin-field-hint">
+          <p>{t("evidenceLabel")}</p>
+          <ul>
+            {evidence.map((citation) => (
+              <li key={`${citation.url}|${citation.quote}`}>
+                <q>{citation.quote}</q> — {hostLabel(citation.url)}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** A page's host, for a quote's attribution; the text itself when it is no URL. */
+function hostLabel(url: string): string {
+  try {
+    return new URL(url).hostname.replace(/^www\./, "");
+  } catch {
+    return url;
+  }
+}
+
 /** "Updated just now", beside a section the last redo changed. */
 function UpdatedTag() {
   const t = useTranslations("admin.intake");
@@ -766,15 +831,7 @@ function ProposedRecord({
           </div>
         ))}
 
-        <div className="admin-field is-check">
-          <input
-            id="intake-training-required"
-            type="checkbox"
-            checked={draft.trainingRequired}
-            onChange={(event) => set("trainingRequired", event.target.checked)}
-          />
-          <label htmlFor="intake-training-required">{tEditor("fieldTrainingRequired")}</label>
-        </div>
+        <TrainingChoice value={draft.trainingRequired} research={research} onChange={(value) => set("trainingRequired", value)} />
 
         <div className="admin-field">
           <label htmlFor="intake-use-restrictions">{tEditor("fieldUseRestrictions")}</label>
@@ -1087,9 +1144,9 @@ function initialDraft(
     materials: (research?.materials ?? []).join(", "),
     ppeRequired: (research?.ppeRequired ?? []).join(", "),
     tags: (research?.tags ?? []).join(", "),
-    // Unknown is not "no" — but it is not "yes" either, and the box is in
-    // front of the reviewer, who is the one deciding.
-    trainingRequired: research?.trainingRequired ?? false,
+    // Training is the lab's call (research amendment 2026-09-24): every item
+    // starts at "staff to confirm", whatever research or an older row says.
+    trainingRequired: null,
     useRestrictions: research?.useRestrictions ?? "",
     serialNumber: item.serialNumber ?? "",
     // Every verified link starts ticked; unticking one is the edit.
@@ -1154,7 +1211,7 @@ function toFields(draft: Draft, research: ResearchResult, image: ApprovalImageCh
     materials: splitList(draft.materials),
     ppeRequired: splitList(draft.ppeRequired),
     tags: splitList(draft.tags),
-    trainingRequired: draft.trainingRequired,
+    trainingRequired: trainingAtApproval(draft.trainingRequired),
     useRestrictions: draft.useRestrictions.trim() || null,
     serialNumber: draft.serialNumber.trim() || null,
     resourceUrls: draft.resourceUrls,

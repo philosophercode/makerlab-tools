@@ -388,7 +388,9 @@ creates a tool (Article 5).
   (`capabilities/intake.ts`, `tools.add`, chat-only) records each item as a
   `pending_tools` row in one batch, runs the duplicate check
   (`src/lib/data/duplicates.ts` — normalised name-plus-brand, then `pg_trgm`
-  at 0.5) and emits one `data-intake-table` part. `research_tool` and
+  at 0.5; different model tokens are never a match, and a merely *similar* name
+  is stored pre-resolved as "It's a different tool" so it never blocks research
+  — data-platform spec amendment 2026-09-24) and emits one `data-intake-table` part. `research_tool` and
   `propose_listing` are gone; the intake prompt allows two web searches, only
   to settle a model name.
 - **The table card talks to routes, never to the model.** `IntakeTableCard`
@@ -418,7 +420,11 @@ creates a tool (Article 5).
   succeeds: candidates from the read pages' `og:image`/`twitter:image`/JSON-LD
   and from Exa's own image links, probed for real dimensions and format
   (`src/lib/images/inspect.ts`, no deps), ranked by a model shown up to
-  `IMAGE_MAX_RANKED` of them, and — for the top candidate only — cleaned
+  `IMAGE_MAX_RANKED` of them — which must give each a `subject` verdict; only
+  the product itself is kept (never an accessory, consumable, part, packaging
+  or another model), the manufacturer's pictures lead their view tier, and
+  when none passes there is no image (`images.allRejected`; amendment "The
+  product itself, or no image") — and — for the top candidate only — cleaned
   (background removed). **Never a generative redraw** (spec amendment "No
   generative redraw: deterministic cutout"): each probed candidate's
   background is classified from its border pixels (`images/background.ts`:
@@ -497,7 +503,11 @@ creates a tool (Article 5).
   fail the rest of the approval — it is the `image_not_attached` warning
   (`admin.warnings.image_not_attached`), the same "warning on a landed write"
   shape every admin surface uses. Low confidence keeps both Approve buttons off
-  until "I've checked this" is ticked and a note written.
+  until "I've checked this" is ticked and a note written. **Training is the
+  lab's call** (amendment 2026-09-24, `src/lib/intake/training.ts`): research
+  leaves a pending item's `trainingRequired` null, the page starts at "Staff to
+  confirm (saved as required)" beside any verified training quote, and approval
+  stores `true` unless the reviewer chose "No training needed".
 - **Starter questions** (gateway spec amendment "Tool-specific starter
   questions"). The read step's JSON also carries `starterQuestions`: three
   short questions (≤80 chars) a student might ask the assistant about the

@@ -101,9 +101,17 @@ export async function retryImages(id: string, requestId: string, note: string | 
   if (candidates.length === 0) return fail(id, requestId, "No other picture of it was found.");
 
   const db = await getDb();
-  const outcome = await rankAndClean(db, id, subject.name, candidates, { signal, reviewerNote: note });
+  const outcome = await rankAndClean(db, id, subject.name, candidates, { signal, reviewerNote: note, brand: subject.brand });
   if (!outcome.images) return fail(id, requestId, outcome.imageError ?? "The image search failed.");
-  if (outcome.images.candidates.length === 0) return fail(id, requestId, "No other usable picture of it was found.");
+  if (outcome.images.candidates.length === 0) {
+    return fail(
+      id,
+      requestId,
+      outcome.images.allRejected
+        ? "Other pictures were found, but none could be confirmed as the product itself."
+        : "No other usable picture of it was found."
+    );
+  }
 
   const newCleaned = outcome.images.cleaned?.attachmentId ?? null;
   const finished = await finishImageRetry(id, requestId, outcome.images);

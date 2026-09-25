@@ -1946,3 +1946,113 @@ rule, the PPE rule and the direct-statement rule.
 **Related.** The "Manuals as text" amendment's "no PDF text extraction" is superseded by the
 manual text spec's phase 1 (`2026-09-23-manual-text-and-search-design.md`, Amendments): the
 read step now extracts a manual PDF itself, and Exa's copy is the fallback.
+
+### 2026-09-24 — Research fixes: training is the lab's call, not research's (§3.3, §4.1, §6, §10)
+
+**Why.** An evaluation rebuilt the lab's 101-tool inventory from names. Of the 19 tools the lab
+gates behind training, research drafted `trainingRequired: false` for 12 — every FDM printer,
+the Bosch jigsaw, the Roland GS-24 — and the preliminary page pre-ticked (or left unticked)
+the box from that draft, so one Approve would have shipped them as "no training". Decided with
+the owner: like PPE (amendment "PPE is the lab's call, not research's"), whether a tool needs
+training is the lab's decision.
+
+**What changed.**
+- **Research never decides training for a pending item.** The intake read step
+  (`research/steps.ts`, `readAndVerifyItem`) passes its result through `withTrainingForStaff`
+  (`src/lib/intake/training.ts`): `trainingRequired` is `null` — "staff to confirm" —
+  whatever the model said. The read prompt is unchanged, because refresh shares it. What a page
+  said about training stays as **evidence**: the verified quotes under
+  `citations.training_required`, which the preliminary page now shows beneath the choice
+  ("What the pages research read say about training", with each quote's host). Unverified
+  quotes are not shown.
+- **The preliminary page asks.** The training checkbox is a three-way choice: **Staff to
+  confirm (saved as required)** — where every item starts, whatever research or an older row
+  says — **Training required**, and **No training needed**. While unconfirmed, the field is
+  marked in the warning colour with "Training is the lab's decision, not research's. Until you
+  choose, this tool is saved as requiring training."
+- **Unconfirmed ships as required.** Approving (published or as a draft) without a choice
+  stores `true` (`trainingAtApproval`); only an explicit "No training needed" stores `false`.
+  Approval does not refuse an unconfirmed item: the safe default makes a refusal unnecessary,
+  and a required step before every approval would slow the lab's bulk approvals for no gain.
+- **MCP `create_tool` and `createToolRecord`.** `training_required` left out now means
+  required (`createToolRecord`'s default moved from `false` to `true`), and the schema says so.
+  An explicit `false` from the signed-in caller is kept — it is a person's input, and the tool
+  is an unpublished draft either way.
+- **Unchanged:** refresh never turns training off on a catalogue tool (`refresh/lab-rules.ts`);
+  the tool editor keeps its checkbox (a catalogue tool's value is already the lab's); the Notion
+  import keeps what Notion held; the chat's `propose_change` on a pending item may still set a
+  draft value, but the page starts at "staff to confirm" regardless.
+
+**Representation (why `null`).** `ResearchResult.trainingRequired` was already
+`boolean | null` ("unknown is not no"), so `null` = "staff to confirm" needs no schema change,
+no migration and parses every stored row. `tools.training_required` stays `boolean not null`:
+the unconfirmed state lives only on the pending item and the page's draft, and resolves to
+`true` at approval.
+
+**Tests.** `steps.test.ts` — a model draft of `true` or `false` comes back `null`, with the
+verified training quote kept. `PreliminaryToolPage.test.tsx` — the choice starts at "Staff to
+confirm" even for research's `true` and an older row's `false`; approving unchanged sends
+`true`; choosing "No training needed" sends `false`; a verified quote is shown and an
+unverified one is not. `tool-create.test.ts` — unsaid is required, `false` only when told.
+
+**Status.** Built on `v5/research-fixes`.
+
+### 2026-09-24 — Research fixes: the product itself, or no image (§3.5, §4.1, §6, §10)
+
+**Why.** Spot checks of the 101-tool evaluation found the ranking choosing a milling bit as the
+Bantam Othermill's picture, a driver bit for a DEWALT charger, and a different DeWalt sander
+model. The ranking prompt said the machine beats "an accessory, a part", but nothing required a
+verdict and nothing acted on one: a lone candidate was never even shown to the model.
+
+**What changed** (`research/images/rank.ts`; models and tiers unchanged — Luna, flex):
+- **A required verdict per image.** The prompt asks, for every image, `subject`: does it show
+  the whole product named, itself? `product`, or what it shows instead — `accessory`,
+  `consumable`, `part`, `packaging`, `other_model` (another model, size, generation or variant;
+  "check model numbers printed on it") or `not_product`. When the item named is itself an
+  accessory (a charger, a battery, a bit), a photo of that exact item is `product`; when unsure,
+  not `product`. `parseRanking` now requires `images` — one entry per image, each with a known
+  `subject` (case, spaces and hyphens forgiven) — and an answer without it is a
+  `ModelOutputError`, which the stage records as `imageError` as before.
+- **Code rejects.** `acceptedImages` keeps only `subject: "product"` with a view other than
+  `part`; everything else is dropped before ordering, and the step logs how many and why.
+- **No image rather than a wrong one.** When nothing passes, the stage stores no candidates and
+  `images.allRejected: true` (optional on `ResearchImages`; older rows parse). The review page
+  says "Pictures were found, but none could be confirmed as the product itself …" and offers
+  **Find a different image**; that rerun fails with the same reason when it too finds none.
+- **One image is judged too.** The "one image needs no ranking" shortcut is gone: a single
+  candidate costs one flex call, because a lone accessory is exactly the wrong cover the
+  evaluation found. An image that could not be shown to the model (too large with no `sharp`)
+  is no longer appended unranked — it is never offered.
+- **The manufacturer's pictures first.** Within each view tier (after the busy-background nudge
+  and composites-last), an image whose host is the brand's domain, or declared on one of the
+  brand's pages (`isManufacturerImage`, `source-pages.ts`'s `isBrandHost` / `classifyPage`),
+  comes before a retailer's. The view still decides first: a brand's back view does not beat a
+  retailer's front. `rankAndClean` takes the item's `brand` for this; refresh passes none.
+- **Unchanged:** the deterministic cutout and crop, "only the chosen image is stored", no
+  generative editing, the E2E and workflow stubs (which now answer `subject: "product"`).
+
+**Tests.** `rank.test.ts` — the prompt's subject contract; `parseRanking` refuses a missing
+`images` list, a wrong length, a missing or unknown subject; a single image is judged, and
+offered only as the product; accessories, packaging and other models are dropped whatever
+their rank; all rejected answers nothing; the manufacturer preference within a view, and none
+without a brand; `isManufacturerImage` by host and by declaring page. `image-steps.test.ts` —
+all rejected stores `{ candidates: [], cleaned: null, allRejected: true }` and cuts nothing;
+a lone probed candidate is still ranked.
+
+**Live check** (`.livecheck/image-rank-live.ts`, git-excluded; one real search + read per tool,
+then the same probed candidates ranked by origin/main's `rank.ts` and by this one; $0.130 in
+all):
+
+| Tool | Before (rank 1) | After (rank 1) |
+|---|---|---|
+| Bantam Tools Othermill Pro | bantamtools.com hero of the *Desktop CNC Milling Machine* (the successor model) | no image — 5 of 5 rejected (2 `other_model`, 3 `not_product`) |
+| DEWALT DCB107 charger | the charger (manualslib) | the same; a busy DEWALT category banner rejected |
+| DEWALT DWE6421 sander | `DCW210B` — a different sander | `DWE6421_3` (dewalt.com); 5 of 8 rejected (2 `consumable`, 3 `other_model`) |
+| Formlabs Form 4 (control) | a build platform with a print, not the printer | the whole Form 4 (formlabs-media); 2 `not_product` rejected |
+| WEN DC3401 (control) | the dust collector (wenproducts.com) | the same |
+
+This run's candidates did not include the milling bit or the driver bit the evaluation saw
+(research found different pages), but the verdicts rejected the same kinds of image, and the
+Othermill case shows "no image rather than a wrong one" working.
+
+**Status.** Built on `v5/research-fixes`.
