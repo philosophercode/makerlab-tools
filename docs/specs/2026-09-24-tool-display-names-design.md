@@ -290,3 +290,88 @@ research's styling; an official name overwritten by a backfill; a changed slug.
 
 None blocking. Whether the mirror should carry the official name as a property is left for
 when a mirror schema migration exists.
+
+## Amendments
+
+Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited.
+
+### 2026-09-25 — A display name says what the item is, and no two tools share one
+
+**Why.** A backfill dry run on the real inventory (43 names) produced two kinds of bad
+name. **Bare brands:** "HAKKO FX-888D" → "Hakko", "MAKITA RT0701C" → "Makita", "Weller
+WESD51" → "Weller", "AOYUE Int 2703A+" → "Aoyue Int", "Bofa AD500 Fume Extractor" →
+"Bofa" — the guard removed the code and left nothing that says what the thing is.
+**Collisions:** three Ryobi batteries (1.5, 3.0 and 4 Ah) all became "Ryobi ONE+ Battery".
+And the §5.1 rule that four digits are a part number cut "Dremel 3000" — a name people say —
+down to "Dremel".
+
+**What changed.**
+
+1. **A display name must say what the item is** (amends §5.1). `isBareBrand`
+   (`src/lib/tool-name-brand.ts`) refuses a name whose every word is the brand's (read off
+   the long name: the leading all-capitals run, else the first word), a company or trim word
+   ("Int", "Lab", "Pro", "Tools"), or a short fragment. A word with a digit ("3000", "X2D",
+   "4") or any other word of four or more letters says what it is. Wherever a model's
+   answer is guarded — the backfill, research's `displayName`, Suggest names — a bare brand
+   falls back to the guarded long name, then to the **brand plus a noun from the tool's
+   category** (`categoryNoun`: "Soldering" → "Soldering Station", "Router" → "Router",
+   "Dust Extraction" → "Dust Extractor"; none for "Accessory"), and otherwise the backfill
+   **keeps the old name** (`no_name`) rather than write a bare brand. `cleanDisplayName`
+   still only removes; the model may now add the item type from the category or
+   description it is shown, and the code's own fallback adds only brand + category noun.
+2. **Four bare digits are a model line** (amends §5.1): a digits-only token is a part number
+   at five or more digits (`575267`, `96289`), or four or more when hyphenated (`20-221`,
+   `196094-2`). "Dremel 3000", "Singer Stylist 7258" and "DREMEL Workstation 220" now follow
+   the rules and the backfill leaves them. "Ah" / "mAh" read as a spec when spaced ("3.0 Ah").
+3. **Display names are unique across tools**, compared case-, spacing- and
+   punctuation-insensitively (`normalizeName`), archived tools and drafts included. There is
+   no index (the rule is a normalization in code, and imported data may already hold pairs);
+   every write path checks first and refuses with a new code, **`duplicate_name`**
+   (`admin.errors.duplicate_name`): `updateTool` (the editor, refresh and chat-proposal
+   accepts — saving a tool's own name again is never a clash), `approvePendingTool`, and MCP
+   `create_tool`. The editor and the intake page also say so beside the Name box before
+   saving (`otherToolNames` on the editor payload; `takenNames` on the preliminary page).
+4. **A collision keeps the attribute that tells the tools apart** (amends §5.1 and §5.8).
+   A spec — capacity, size, power — is allowed in a display name **only when**, without it,
+   the name would read as another tool's (`specNeeded`; `displayNameProblems(name,
+   { takenNames })` drops the `spec` problem then). `src/lib/tool-name-choice.ts`:
+   `distinctDisplayName` puts one spec from the long name before the noun — skipping specs
+   every colliding tool shares ("18V"), preferring one in a unit they also carry ("Ah"), last
+   first — else the model's own answer with its specs kept; `resolveDisplayNames` does this
+   for a whole batch, **every** member of a colliding group, so the batteries become "Ryobi
+   ONE+ 1.5Ah Battery", "Ryobi ONE+ 3Ah Battery", "Ryobi ONE+ 4Ah Battery" rather than one
+   plain and two specific. A member whose name an earlier one took (in batch order) falls
+   back to its own long name through the guard, brand re-cased (`ownLongName`: the second
+   Stanley saw → "Stanley SharpTooth Heavy Duty Saw"); twins that nothing tells apart keep
+   their old names (`duplicate_name`).
+5. **One rules text** (amends §5.2, §5.4, §5.8): `DISPLAY_NAME_RULES`
+   (`src/lib/display-name-rules.ts`) is the display-name instruction in the backfill's
+   system prompt, research's read prompt (`NAMES_PARAGRAPH`) and Suggest names — with the
+   owner's examples: keep the model line people say ("Dremel 3000", "Form 4", "X2D",
+   "Speedy 400", "Othermill Pro", "BladeRunner X2", "Sparrow X2"), use the item type instead
+   of a catalogue code (RT0701C → "Makita Compact Router"; WESD51, FX-888D → "… Soldering
+   Station"), never the brand alone, keep the distinguishing attribute when two would
+   collide. The model judges which model names are "the name"; code checks only bare brands,
+   part numbers and uniqueness.
+6. **The backfill sees more and decides together** (amends §5.8 step 2). The model is shown
+   the tool's name, official name, **category** (group > name), the first 400 characters of
+   its **description**, and up to eight **same-brand tools' names** it must differ from —
+   still fenced, no tools. All answers are then resolved together (item 4) against the batch
+   and every other tool, before any write; `updateTool` re-checks at write time. Outcomes
+   add `skipped (duplicate_name)`. A tool whose capacity is what tells it apart is not
+   reprocessed on the next run.
+7. **Refresh and curation.** `proposeChanges` takes `takenNames` (loaded by the propose
+   step): a lab name whose spec is needed is not "breaking the rules", and a `name` proposal
+   is research's display name made distinct, or no proposal when every form is taken. Chat /
+   MCP `propose_change` refuses another tool's name (`duplicate_name`) and accepts a needed
+   spec. The intake page's Name box starts from research's name made distinct.
+
+**Tests.** `tool-name-choice.test.ts` (bare-brand refusal on the dry run's five, model lines
+kept, the nine good results as regressions, the three batteries, outside collisions,
+twins); `tool-names.test.ts` (four digits, capacities, `specNeeded`, bare-brand fallback);
+`backfill-display-names.test.ts` (batteries end to end and not reprocessed, a name taken
+outside the batch, Hakko → "Hakko Soldering Station" with the category in the prompt, Weller
+with no category keeps its name, Dremel 3000 untouched, one shared rules text);
+`tool-names.db.test.ts` (approval and editor refuse `duplicate_name`, a needed capacity is
+accepted, a tool's own name re-saved beside an old duplicate); `propose.test.ts`,
+`curation.test.ts`, `ToolFieldsForm.test.tsx`.
