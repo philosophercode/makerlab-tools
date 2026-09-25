@@ -13,9 +13,12 @@
   --outline: #cfc6b8;
   --ambient-glow: rgba(255, 107, 53, 0.3);
   --grid-dot: rgba(23, 23, 23, 0.08);
-  --font-display: "Space Grotesk", "Arial Narrow", Arial, sans-serif;
-  --font-body: Inter, Arial, sans-serif;
-  --font-mono: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  /* The families are self-hosted by next/font (src/app/fonts.ts), which
+     defines the --font-space-grotesk / --font-inter / --font-jetbrains-mono
+     variables on <html>: the family name plus a metric-matched fallback. */
+  --font-display: var(--font-space-grotesk, "Space Grotesk"), "Arial Narrow", Arial, sans-serif;
+  --font-body: var(--font-inter, Inter), Arial, sans-serif;
+  --font-mono: var(--font-jetbrains-mono, "JetBrains Mono"), "SFMono-Regular", Consolas, monospace;
   --nav-height: 64px;
   --status-strip-height: 33px;
   --sticky-chrome-height: calc(var(--nav-height) + var(--status-strip-height));
@@ -74,28 +77,34 @@ body::selection {
   color: #0f0f0f;
 }
 
-button,
-input,
-a {
-  font: inherit;
-}
+/* Element defaults sit in the `base` cascade layer (UI system spec §5.1) so
+   the Tailwind utilities shadcn components carry — `text-sm` on a <button> —
+   can override them. Every class rule in this file stays unlayered and still
+   beats them, so the move changes nothing on the existing pages. */
+@layer base {
+  button,
+  input,
+  a {
+    font: inherit;
+  }
 
-button,
-a {
-  color: inherit;
-}
+  button,
+  a {
+    color: inherit;
+  }
 
-a {
-  text-decoration: none;
-}
+  a {
+    text-decoration: none;
+  }
 
-button {
-  cursor: pointer;
-}
+  button {
+    cursor: pointer;
+  }
 
-img {
-  display: block;
-  max-width: 100%;
+  img {
+    display: block;
+    max-width: 100%;
+  }
 }
 
 ::-webkit-scrollbar {
@@ -135,13 +144,8 @@ img {
 .eyebrow,
 .chip,
 .view-toggle,
-.metadata-strip,
-.spec-table dt,
-.unit-row dt,
-.doc-chip,
 .chat-fab,
-.chat-composer,
-.chat-message {
+.chat-composer {
   font-family: var(--font-mono);
   text-transform: uppercase;
 }
@@ -182,8 +186,8 @@ img {
 
 .primary-nav a:hover,
 .primary-nav .is-active {
-  color: var(--primary);
-  border-color: var(--primary);
+  color: var(--primary-ink);
+  border-color: var(--primary-ink);
 }
 
 /* "Report" is an action, not a page — accent-colored to stand out, but it
@@ -193,7 +197,7 @@ img {
   border: none;
   border-bottom: 2px solid transparent;
   background: transparent;
-  color: var(--primary);
+  color: var(--primary-ink);
   font: inherit;
   cursor: pointer;
   transition: color 160ms ease-in, border-color 160ms ease-in;
@@ -201,8 +205,7 @@ img {
 
 .primary-nav-report:hover,
 .primary-nav-report:focus-visible {
-  border-color: var(--primary);
-  outline: none;
+  border-color: var(--primary-ink);
 }
 
 /* Why the last "Sign in" click went nowhere. Anchored under the nav's right
@@ -266,13 +269,8 @@ img {
 
 .primary-nav-profile:hover,
 .primary-nav-profile[aria-expanded="true"] {
-  color: var(--primary);
-  border-color: var(--primary);
-}
-
-.primary-nav-profile:focus-visible {
-  outline: 1px solid var(--primary);
-  outline-offset: 2px;
+  color: var(--primary-ink);
+  border-color: var(--primary-ink);
 }
 
 .primary-nav-profile-caret {
@@ -366,7 +364,7 @@ img {
   margin-top: 4px;
   padding: 2px 6px;
   border: 1px solid var(--outline);
-  color: var(--primary);
+  color: var(--primary-ink);
   font-family: var(--font-mono);
   font-size: 10px;
   text-transform: uppercase;
@@ -396,8 +394,7 @@ img {
 .primary-nav .profile-menu-item:hover,
 .primary-nav .profile-menu-item:focus-visible {
   background: var(--surface-container-high);
-  color: var(--primary);
-  outline: none;
+  color: var(--primary-ink);
 }
 
 .primary-nav .profile-menu-item:disabled {
@@ -464,9 +461,8 @@ img {
 
 .lang-select select:hover,
 .lang-select select:focus-visible {
-  border-color: var(--primary);
-  color: var(--primary);
-  outline: none;
+  border-color: var(--primary-ink);
+  color: var(--primary-ink);
 }
 
 .lang-select select:disabled {
@@ -488,8 +484,8 @@ img {
 }
 
 .nav-actions button:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--primary-ink);
+  color: var(--primary-ink);
 }
 
 .theme-toggle {
@@ -539,7 +535,6 @@ img {
 }
 
 .live-dot,
-.status-square,
 .card-status-dot {
   display: inline-block;
   width: 8px;
@@ -550,10 +545,6 @@ img {
 
 .live-dot {
   animation: pulse 1.5s linear infinite;
-}
-
-.live-dot-secondary {
-  background: var(--secondary);
 }
 
 @keyframes pulse {
@@ -590,37 +581,40 @@ img {
   place-items: center;
   width: 48px;
   height: 48px;
-  color: var(--primary);
+  color: var(--primary-ink);
   font-family: var(--font-mono);
   font-size: 40px;
   line-height: 1;
 }
 
-h1,
-h2,
-h3 {
-  margin: 0;
-  font-family: var(--font-display);
-  letter-spacing: 0;
-  text-transform: uppercase;
-}
+/* Heading and paragraph defaults: `base` layer, like the ones at the top. */
+@layer base {
+  h1,
+  h2,
+  h3 {
+    margin: 0;
+    font-family: var(--font-display);
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
 
-h1 {
-  font-size: clamp(42px, 7vw, 88px);
-  line-height: 0.92;
-}
+  h1 {
+    font-size: clamp(42px, 7vw, 88px);
+    line-height: 0.92;
+  }
 
-h2 {
-  font-size: 24px;
-  line-height: 1.1;
-}
+  h2 {
+    font-size: 24px;
+    line-height: 1.1;
+  }
 
-h3 {
-  font-size: 18px;
-}
+  h3 {
+    font-size: 18px;
+  }
 
-p {
-  margin: 0;
+  p {
+    margin: 0;
+  }
 }
 
 .technical-frame {
@@ -684,7 +678,7 @@ p {
   border: 1px solid var(--outline);
   border-right: 0;
   background: var(--surface-container);
-  color: var(--primary);
+  color: var(--primary-ink);
   font-family: var(--font-mono);
 }
 
@@ -695,7 +689,6 @@ p {
   background: var(--surface-container);
   color: var(--on-surface);
   font-family: var(--font-mono);
-  outline: none;
 }
 
 .search-row input {
@@ -768,7 +761,6 @@ p {
   font-family: var(--font-mono);
   font-size: 11px;
   text-transform: uppercase;
-  outline: none;
   padding: 0 32px 0 10px;
   appearance: none;
   background-image:
@@ -784,7 +776,6 @@ p {
 .filter-select-group select:focus {
   border-color: var(--primary);
 }
-
 
 /* Materials is a collapsible dropdown whose panel groups the chips by type. */
 .filter-dropdown-toggle {
@@ -854,7 +845,7 @@ p {
 }
 
 .filter-option[aria-selected="true"] {
-  color: var(--primary);
+  color: var(--primary-ink);
 }
 
 .filter-option-check {
@@ -912,13 +903,10 @@ p {
 
 .filter-menu-section-head:hover,
 .filter-menu-section-head[aria-pressed="true"] {
-  color: var(--primary);
+  color: var(--primary-ink);
 }
 
-
-.chip-row,
-.detail-actions,
-.ppe-list {
+.chip-row {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
@@ -927,8 +915,7 @@ p {
 .chip,
 .view-toggle button,
 .filter-toggle,
-.filter-clear,
-.doc-chip {
+.filter-clear {
   border: 1px solid var(--outline);
   background: transparent;
   color: var(--on-surface-muted);
@@ -937,25 +924,10 @@ p {
   transition: border-color 160ms ease-in, color 160ms ease-in, background 160ms ease-in;
 }
 
-.doc-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.doc-chip span {
-  color: var(--primary);
-}
-
-.doc-chip:hover span {
-  color: #0f0f0f;
-}
-
 .chip:hover,
 .view-toggle button:hover,
 .filter-toggle:hover,
 .filter-clear:hover,
-.doc-chip:hover,
 .chip-active,
 .filter-toggle.is-active,
 .view-toggle .is-active {
@@ -1093,7 +1065,7 @@ p {
 
 .tool-table-sort:hover,
 .tool-table-sort.is-active {
-  color: var(--primary);
+  color: var(--primary-ink);
 }
 
 .sort-indicator {
@@ -1155,13 +1127,6 @@ p {
   opacity: 1;
 }
 
-.detail-image img {
-  width: 100%;
-  height: 100%;
-  object-fit: contain;
-  opacity: 1;
-}
-
 .tool-card-body {
   display: flex;
   flex: 1;
@@ -1193,229 +1158,20 @@ p {
 }
 
 .tool-card:hover .tool-card-tag {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--primary-ink);
+  color: var(--primary-ink);
 }
 
 .eyebrow {
-  color: var(--primary);
+  color: var(--primary-ink);
   font-size: 10px;
   line-height: 1.4;
 }
 
-.tool-card-body > p,
-.detail-hero-copy > p,
-.unit-row p {
+.tool-card-body > p {
   color: var(--on-surface-muted);
   font-size: 14px;
   line-height: 1.55;
-}
-
-.metadata-strip {
-  display: grid;
-  gap: 6px;
-  align-self: end;
-  margin: 8px 0 0;
-  padding: 16px 0 0;
-  color: var(--on-surface-muted);
-  font-size: 10px;
-}
-
-.metadata-strip div,
-.spec-table div,
-.unit-row dl div {
-  display: flex;
-  gap: 6px;
-}
-
-.metadata-strip dt,
-.metadata-strip dd,
-.spec-table dt,
-.spec-table dd,
-.unit-row dt,
-.unit-row dd {
-  margin: 0;
-}
-
-.metadata-strip dt {
-  color: var(--primary);
-}
-
-.detail-shell {
-  display: grid;
-  gap: 32px;
-}
-
-.detail-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(320px, 1fr);
-  min-height: 360px;
-  overflow: hidden;
-}
-
-.detail-image {
-  position: relative;
-  min-height: 280px;
-  background: var(--surface-container-low);
-  padding: 24px;
-}
-
-.detail-hero-copy {
-  display: grid;
-  align-content: center;
-  gap: 16px;
-  padding: 32px;
-}
-
-.detail-hero-copy h1 {
-  font-size: 28px;
-  line-height: 1.15;
-  letter-spacing: 0.005em;
-  margin: 0;
-  color: var(--on-surface);
-}
-
-.meta-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 4px;
-}
-
-.meta-chip {
-  display: inline-block;
-  padding: 4px 10px;
-  border: 1px solid var(--outline);
-  border-radius: 999px;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--on-surface-muted);
-}
-
-.detail-panel,
-.units-panel {
-  display: grid;
-  gap: 20px;
-  padding: 28px;
-  background: var(--surface-container-low);
-}
-
-.spec-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.spec-chip {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 8px 12px;
-  border: 1px solid var(--outline);
-  background: var(--surface-container);
-  font-size: 12px;
-  line-height: 1.4;
-  max-width: 100%;
-}
-
-.spec-chip-label {
-  color: var(--primary);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  white-space: nowrap;
-}
-
-.spec-chip-value {
-  color: var(--on-surface);
-  word-break: break-word;
-}
-
-.section-heading {
-  display: grid;
-  gap: 6px;
-}
-
-.spec-table {
-  display: grid;
-  gap: 12px;
-  margin: 0;
-}
-
-.spec-table div {
-  justify-content: space-between;
-  gap: 24px;
-  padding: 12px 0;
-  background: var(--surface-container);
-}
-
-.spec-table dt {
-  flex: 0 0 152px;
-  padding-left: 12px;
-  color: var(--primary);
-  font-size: 11px;
-}
-
-.spec-table dd {
-  flex: 1;
-  padding-right: 12px;
-  color: var(--on-surface-muted);
-  font-size: 14px;
-  line-height: 1.5;
-  text-align: right;
-}
-
-.safety-panel {
-  background: color-mix(in srgb, var(--secondary) 12%, var(--surface-container-low));
-}
-
-.ppe-list span {
-  border: 1px solid var(--secondary);
-  color: var(--on-surface);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  padding: 8px;
-  text-transform: uppercase;
-}
-
-.unit-list {
-  display: grid;
-  gap: 16px;
-}
-
-.unit-row {
-  display: grid;
-  grid-template-columns: minmax(180px, 0.8fr) minmax(0, 1.2fr);
-  gap: 24px;
-  padding: 20px;
-  background: var(--surface-container);
-}
-
-.unit-row dl {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  margin: 0;
-}
-
-.unit-row dl div {
-  display: grid;
-  gap: 6px;
-}
-
-.unit-row dt {
-  color: var(--primary);
-  font-size: 10px;
-}
-
-.unit-row dd {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--on-surface-muted);
-  font-size: 12px;
 }
 
 .chat-fab {
@@ -1592,71 +1348,15 @@ p {
   color: var(--on-surface);
   font-family: var(--font-body);
   font-size: 13px;
-  outline: none;
 }
 
 .chat-input::placeholder {
   color: var(--on-surface-muted);
 }
 
-.chat-send {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--outline);
-  background: var(--surface-container-low);
-  color: var(--on-surface-muted);
-  cursor: pointer;
-  border-radius: 10px !important;
-  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
-}
-
-.chat-send:hover:not(:disabled) {
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-.chat-send:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.chat-send svg {
-  width: 16px;
-  height: 16px;
-}
-
-.chat-attach {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--outline);
-  background: var(--surface-container-low);
-  color: var(--on-surface-muted);
-  cursor: pointer;
-  border-radius: 10px !important;
-  transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
-}
-
-.chat-attach:hover:not(:disabled) {
-  border-color: var(--primary);
-  color: var(--primary);
-}
-
-.chat-attach:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.chat-attach svg {
-  width: 16px;
-  height: 16px;
-}
-
+/* The composer's three square icon buttons: attach, dictate, send. */
+.chat-send,
+.chat-attach,
 .chat-mic {
   display: inline-flex;
   align-items: center;
@@ -1671,24 +1371,30 @@ p {
   transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
 }
 
+.chat-send:hover:not(:disabled),
+.chat-attach:hover:not(:disabled),
 .chat-mic:hover:not(:disabled) {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--primary-ink);
+  color: var(--primary-ink);
 }
 
+.chat-send:disabled,
+.chat-attach:disabled,
 .chat-mic:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
+.chat-send svg,
+.chat-attach svg,
 .chat-mic svg {
   width: 16px;
   height: 16px;
 }
 
 .chat-mic-active {
-  border-color: var(--secondary);
-  color: var(--secondary);
+  border-color: var(--status-bad);
+  color: var(--status-bad);
   animation: chat-mic-pulse 1.4s ease-in-out infinite;
 }
 
@@ -1829,8 +1535,8 @@ p {
 .chat-msg-error {
   align-self: stretch;
   background: var(--surface-container-low);
-  color: var(--secondary);
-  border: 1px solid var(--secondary);
+  color: var(--status-bad);
+  border: 1px solid var(--status-bad);
   font-size: 12px;
 }
 
@@ -1845,201 +1551,7 @@ p {
   border-radius: 0 !important;
 }
 
-/* ── Identification card (intake) ────────────────────────────────── */
-.id-card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-top: 8px;
-  padding: 14px;
-  border: 1px solid var(--outline);
-  background: var(--surface-container);
-  border-radius: 14px !important;
-  font-size: 13px;
-  color: var(--on-surface);
-}
-
-.id-card:first-child {
-  margin-top: 0;
-}
-
-.id-card-success {
-  border-color: var(--primary);
-}
-
-.id-card-duplicate {
-  border-color: var(--secondary);
-}
-
-.id-card-banner {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  padding: 8px 10px;
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 10px !important;
-}
-
-.id-card-banner-success {
-  background: var(--surface-container-low);
-  color: var(--primary);
-  border: 1px solid var(--primary);
-}
-
-.id-card-banner-duplicate {
-  background: var(--surface-container-low);
-  color: var(--secondary);
-  border: 1px solid var(--secondary);
-}
-
-.id-card-banner-error {
-  background: var(--surface-container-low);
-  color: #d9534f;
-  border: 1px solid #d9534f;
-}
-
-.id-card-banner-icon {
-  display: inline-flex;
-}
-
-.id-card-banner-icon svg {
-  width: 16px;
-  height: 16px;
-}
-
-.id-card-head {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-.id-card-photo {
-  position: relative;
-  flex: 0 0 auto;
-  width: 64px;
-  height: 64px;
-  border-radius: 10px;
-  overflow: hidden;
-  border: 1px solid var(--outline);
-  background: var(--surface-container-low);
-}
-
-.id-card-photo img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-.id-card-photo-count {
-  position: absolute;
-  right: 3px;
-  bottom: 3px;
-  padding: 1px 5px;
-  font-size: 10px;
-  font-weight: 700;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.7);
-  border-radius: 6px !important;
-}
-
-.id-card-headings {
-  min-width: 0;
-}
-
-.id-card-name {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 800;
-  line-height: 1.3;
-  color: var(--on-surface);
-}
-
-.id-card-meta {
-  margin: 3px 0 0;
-  font-size: 12px;
-  color: var(--on-surface-muted);
-}
-
-.id-card-specs {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 4px 12px;
-  margin: 0;
-  padding: 10px 0;
-  border-top: 1px solid var(--outline);
-  border-bottom: 1px solid var(--outline);
-}
-
-.id-card-spec {
-  display: contents;
-}
-
-.id-card-spec dt {
-  font-weight: 600;
-  color: var(--on-surface-muted);
-}
-
-.id-card-spec dd {
-  margin: 0;
-  color: var(--on-surface);
-}
-
-.id-card-resources {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.id-card-resource {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  border: 1px solid var(--outline);
-  background: var(--surface-container-low);
-  border-radius: 10px !important;
-  color: var(--on-surface);
-  text-decoration: none;
-  transition: border-color 120ms ease;
-}
-
-.id-card-resource:hover {
-  border-color: var(--primary);
-}
-
-.id-card-resource-icon {
-  display: inline-flex;
-  color: var(--on-surface-muted);
-}
-
-.id-card-resource-icon svg {
-  width: 16px;
-  height: 16px;
-}
-
-.id-card-resource-title {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 12px;
-}
-
-.id-card-resource-type {
-  flex: 0 0 auto;
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--on-surface-muted);
-}
+/* ── Confidence strip (intake) — the surviving id-card-* names ───── */
 
 .id-card-also-label {
   margin: 0 0 6px;
@@ -2067,72 +1579,11 @@ p {
   color: var(--on-surface);
 }
 
-.id-card-badge-new {
-  font-size: 10px;
-  font-weight: 700;
-  color: var(--primary);
-}
-
 .id-card-draft-link {
   font-size: 12px;
   font-weight: 600;
-  color: var(--primary);
+  color: var(--primary-ink);
   text-decoration: underline;
-}
-
-.id-card-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.id-card-action {
-  flex: 1 1 auto;
-  min-width: 96px;
-  padding: 9px 12px;
-  font-family: var(--font-body);
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  border-radius: 10px !important;
-  border: 1px solid var(--outline);
-  background: var(--surface-container-low);
-  color: var(--on-surface);
-  transition: border-color 120ms ease, background 120ms ease, transform 80ms ease,
-    opacity 120ms ease;
-}
-
-.id-card-action:hover:not(:disabled) {
-  border-color: var(--primary);
-}
-
-.id-card-action:active:not(:disabled) {
-  transform: translateY(1px);
-}
-
-.id-card-action:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.id-card-action-primary {
-  background: var(--primary);
-  border-color: var(--primary);
-  color: #0f0f0f;
-}
-
-.id-card-action-primary:hover:not(:disabled) {
-  background: var(--primary-dark);
-  border-color: var(--primary-dark);
-}
-
-.id-card-action-danger {
-  color: var(--secondary);
-  border-color: var(--outline);
-}
-
-.id-card-action-danger:hover:not(:disabled) {
-  border-color: var(--secondary);
 }
 
 .chat-typing {
@@ -2232,7 +1683,7 @@ p {
 }
 
 .chat-markdown a {
-  color: var(--primary);
+  color: var(--primary-ink);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
@@ -2475,19 +1926,6 @@ p {
     margin-top: 8px;
   }
 
-  .detail-hero,
-  .unit-row {
-    grid-template-columns: 1fr;
-  }
-
-  .detail-hero-copy h1 {
-    font-size: 24px;
-  }
-
-  .unit-row dl {
-    grid-template-columns: 1fr;
-  }
-
   /* Keep the desktop columnar table on mobile — just let it scroll sideways
      instead of collapsing the columns. */
   .tool-table {
@@ -2617,15 +2055,6 @@ p {
     white-space: nowrap;
   }
 
-  .spec-table div {
-    display: grid;
-  }
-
-  .spec-table dd {
-    padding: 0 12px 12px;
-    text-align: left;
-  }
-
   .chat-msg {
     max-width: 94%;
   }
@@ -2699,7 +2128,6 @@ p {
    --------------------------------------------------------------------------- */
 
 .tool-detail {
-  --td-bg: #f7f4ec;
   --td-surface: #fffdf8;
   --td-surface-2: #f3efe6;
   --td-ink: #171717;
@@ -2711,7 +2139,8 @@ p {
   --td-danger-soft: #fff4f2;
   --td-success: #1f7a37;
   --td-success-soft: #eef8ef;
-  --td-warning: #b56b00;
+  /* #b56b00 was 3.8:1 on paper; the warn status is 5.8:1. */
+  --td-warning: var(--status-warn);
   --td-warning-soft: #fff7e8;
   --td-warning-ink: #5a3900;
   --td-warning-line: #f1c66d;
@@ -2747,7 +2176,6 @@ p {
    applies on explicit data-theme="dark" and on system dark unless the user
    forced light. Only the palette is overridden — every .td-* rule reads it. */
 :root[data-theme="dark"] .tool-detail {
-  --td-bg: #0f0f0f;
   --td-surface: #1a1a1a;
   --td-surface-2: #202020;
   --td-surface-3: #242424;
@@ -2782,7 +2210,6 @@ p {
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) .tool-detail {
-    --td-bg: #0f0f0f;
     --td-surface: #1a1a1a;
     --td-surface-2: #202020;
     --td-surface-3: #242424;
@@ -3002,9 +2429,9 @@ p {
   height: 44px;
   padding: 0 18px;
   border-radius: 8px;
-  border: 1.5px solid var(--td-accent);
+  border: 1.5px solid var(--primary-ink);
   background: var(--td-surface);
-  color: var(--td-accent);
+  color: var(--primary-ink);
   font-weight: 700;
   font-size: 14px;
   text-decoration: none;
@@ -3029,7 +2456,7 @@ p {
 .td-button-primary {
   background: var(--td-accent);
   border-color: var(--td-accent);
-  color: white;
+  color: var(--ink-on-primary);
 }
 
 .td-button-primary:hover {
@@ -3421,29 +2848,6 @@ p {
   font-weight: 700;
 }
 
-.td-coming-soon {
-  text-align: center;
-  display: grid;
-  justify-items: center;
-  gap: 16px;
-  padding: 80px 32px;
-}
-
-.td-coming-soon h1 {
-  margin: 0;
-  font-size: clamp(36px, 5vw, 56px);
-  letter-spacing: -0.03em;
-  text-transform: uppercase;
-}
-
-.td-coming-soon > p {
-  margin: 0;
-  max-width: 540px;
-  color: var(--td-muted);
-  font-size: 16px;
-  line-height: 1.6;
-}
-
 .td-prose {
   padding: 48px 56px;
   max-width: 760px;
@@ -3805,8 +3209,8 @@ p {
 }
 
 .td-chip-link:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--primary-ink);
+  color: var(--primary-ink);
 }
 
 /* The markdown body reuses .chat-markdown, whose code/pre/table/quote styling
@@ -3928,7 +3332,6 @@ p {
 
 .project-field input:focus,
 .project-field textarea:focus {
-  outline: none;
   border-color: var(--td-accent);
 }
 
@@ -3959,7 +3362,7 @@ p {
 .project-tool-options.chip-row .chip.chip-active {
   border-color: var(--td-accent);
   background: var(--td-accent);
-  color: #fff;
+  color: var(--ink-on-primary);
 }
 
 .project-tool-options {
@@ -4024,7 +3427,7 @@ p {
   gap: 0 12px;
   align-items: baseline;
   padding: 10px 24px;
-  border-bottom: 1px solid var(--secondary);
+  border-bottom: 1px solid var(--status-bad);
   background: var(--surface-container-low);
   color: var(--on-surface);
   font-family: var(--font-mono);
@@ -4033,7 +3436,7 @@ p {
   line-height: 1.6;
 }
 .demo-banner strong {
-  color: var(--secondary);
+  color: var(--status-bad);
   font-weight: 500;
   text-transform: uppercase;
 }
@@ -4063,19 +3466,9 @@ p {
   --td-ink-2: var(--on-surface);
   --td-accent: var(--primary);
   --td-accent-soft: color-mix(in srgb, var(--primary) 14%, transparent);
-  /* The one colour with no global counterpart: not an error (nothing failed to
-     save) and not muted (somebody has to notice). Same pair `.tool-detail` uses. */
-  --td-warning: #b56b00;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .admin-shell {
-    --td-warning: #e0a23a;
-  }
-}
-
-:root[data-theme="dark"] .admin-shell {
-  --td-warning: #e0a23a;
+  /* Not an error (nothing failed to save) and not muted (somebody has to
+     notice): the global warn status, which swaps itself for dark mode. */
+  --td-warning: var(--status-warn);
 }
 
 .admin-section {
@@ -4114,10 +3507,10 @@ p {
 .admin-action {
   height: 36px;
   padding: 0 16px;
-  border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary-ink) 40%, transparent);
   border-radius: 0;
   background: transparent;
-  color: var(--primary);
+  color: var(--primary-ink);
   font: inherit;
   transition: background-color 160ms ease-in, color 160ms ease-in;
 }
@@ -4125,7 +3518,6 @@ p {
 .admin-action:hover,
 .admin-action:focus-visible {
   background: color-mix(in srgb, var(--primary) 12%, transparent);
-  outline: none;
 }
 
 .admin-action:disabled {
@@ -4146,7 +3538,7 @@ p {
 
 .admin-action-primary:active {
   background: transparent;
-  color: var(--primary);
+  color: var(--primary-ink);
 }
 
 .admin-index-list {
@@ -4279,7 +3671,6 @@ td.admin-date {
 .admin-role-select select:focus,
 .admin-ban-reason:focus {
   border-color: var(--primary);
-  outline: none;
 }
 
 .admin-role-select select:disabled,
@@ -4291,7 +3682,7 @@ td.admin-date {
 
 .admin-banned-note {
   margin: 0 0 8px;
-  color: var(--secondary);
+  color: var(--status-bad);
   font-size: 12px;
 }
 
@@ -4310,7 +3701,7 @@ td.admin-date {
 }
 
 .admin-row-status.is-error {
-  color: var(--secondary);
+  color: var(--status-bad);
 }
 
 /* A change that landed, minus a guarantee — the row moved and the audit trail
@@ -4375,7 +3766,6 @@ td.admin-date {
 .admin-filter input:focus,
 .admin-filter select:focus {
   border-color: var(--primary);
-  outline: none;
 }
 
 /* Pushed to the end of the row: the count and the escape hatch belong
@@ -4409,8 +3799,8 @@ td.admin-date {
 }
 
 .admin-filter-clear:hover {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--primary-ink);
+  color: var(--primary-ink);
 }
 
 .admin-inventory-table {
@@ -4452,7 +3842,7 @@ td.admin-date {
 }
 
 .admin-inventory-name:hover {
-  color: var(--primary);
+  color: var(--primary-ink);
 }
 
 .admin-cell-note {
@@ -4486,8 +3876,8 @@ td.admin-date {
 /* A draft is unfinished work, not a fault — the accent marks it as the state
    somebody is expected to move out of. */
 .admin-state.is-draft {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--primary-ink);
+  color: var(--primary-ink);
 }
 
 .admin-attention {
@@ -4512,8 +3902,8 @@ td.admin-date {
 /* An open ticket is the one flag that means a machine may be unusable right
    now, so it gets the alert colour and the others stay quiet. */
 .admin-attention-flag.is-tickets {
-  border-color: var(--secondary);
-  color: var(--secondary);
+  border-color: var(--status-bad);
+  color: var(--status-bad);
 }
 
 .admin-unlinked {
@@ -4762,7 +4152,6 @@ fieldset.admin-field legend {
 .admin-field select:focus,
 .admin-field textarea:focus {
   border-color: var(--primary);
-  outline: none;
 }
 
 /* The other person's value, after a conflict reload — shown beside the box
@@ -4803,8 +4192,8 @@ fieldset.admin-field legend {
 }
 
 .admin-button:hover:not(:disabled) {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--primary-ink);
+  color: var(--primary-ink);
 }
 
 .admin-button:disabled {
@@ -4813,13 +4202,13 @@ fieldset.admin-field legend {
 }
 
 .admin-button.is-primary {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--primary-ink);
+  color: var(--primary-ink);
 }
 
 .admin-button.is-danger:hover:not(:disabled) {
-  border-color: var(--secondary);
-  color: var(--secondary);
+  border-color: var(--status-bad);
+  color: var(--status-bad);
 }
 
 .admin-editor-actions,
@@ -4885,7 +4274,7 @@ fieldset.admin-field legend {
 }
 
 .admin-resource-link {
-  color: var(--primary);
+  color: var(--primary-ink);
   font-family: var(--font-mono);
   font-size: 12px;
   overflow-wrap: anywhere;
@@ -4983,7 +4372,7 @@ fieldset.admin-field legend {
 }
 
 .admin-queue-meta a {
-  color: var(--primary);
+  color: var(--primary-ink);
 }
 
 .admin-queue-body {
@@ -5067,15 +4456,15 @@ fieldset.admin-field legend {
 
 .admin-priority.is-high,
 .admin-priority.is-critical {
-  border-color: var(--secondary);
-  color: var(--secondary);
+  border-color: var(--status-bad);
+  color: var(--status-bad);
 }
 
 /* A published row's badge. The draft accent already marks work somebody is
    expected to move out of; this marks the one that is done. */
 .admin-state.is-published {
-  border-color: var(--primary);
-  color: var(--primary);
+  border-color: var(--primary-ink);
+  color: var(--primary-ink);
 }
 
 .admin-project-photos {

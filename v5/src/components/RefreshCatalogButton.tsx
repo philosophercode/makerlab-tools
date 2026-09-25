@@ -110,6 +110,6 @@ const REFRESH_STYLES = `
   display: none;
 }
 .catalog-refresh-status.is-failed {
-  color: var(--secondary);
+  color: var(--status-bad);
 }
 `;

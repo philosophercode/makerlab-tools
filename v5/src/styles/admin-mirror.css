@@ -111,11 +111,11 @@
 }
 
 .admin-mirror-line.is-ok {
-  color: var(--td-accent);
+  color: var(--primary-ink);
 }
 
 .admin-mirror-line.is-error {
-  color: var(--secondary);
+  color: var(--status-bad);
 }
 
 .admin-mirror-line.is-warning {
@@ -181,7 +181,7 @@
 }
 
 .admin-mirror-result.is-ok {
-  color: var(--td-accent);
+  color: var(--primary-ink);
 }
 
 .admin-mirror-result.is-partial {
@@ -189,7 +189,7 @@
 }
 
 .admin-mirror-result.is-failed {
-  color: var(--secondary);
+  color: var(--status-bad);
 }
 
 .admin-mirror-error {
@@ -197,7 +197,7 @@
   flex-direction: column;
   gap: 6px;
   padding: 10px 12px;
-  border-left: 2px solid var(--secondary);
+  border-left: 2px solid var(--status-bad);
   background: var(--surface-container-low);
 }
 
@@ -211,7 +211,7 @@
 }
 
 .admin-mirror-error-label {
-  color: var(--secondary);
+  color: var(--status-bad);
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.08em;
@@ -275,7 +275,7 @@
 .admin-mirror-paste > summary {
   padding: 6px 0;
   cursor: pointer;
-  color: var(--td-accent);
+  color: var(--primary-ink);
   font-family: var(--font-mono);
   font-size: 12px;
   letter-spacing: 0.06em;
@@ -296,7 +296,7 @@
   margin: 2px 0 0;
   padding: 0;
   list-style: none;
-  color: var(--secondary);
+  color: var(--status-bad);
   font-family: var(--font-body);
   font-size: 12px;
   letter-spacing: normal;
@@ -312,7 +312,7 @@
   gap: 8px;
   align-items: center;
   padding: 10px 12px;
-  border-left: 2px solid var(--secondary);
+  border-left: 2px solid var(--status-bad);
   background: var(--surface-container-low);
 }
 

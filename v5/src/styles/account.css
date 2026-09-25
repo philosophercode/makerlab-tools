@@ -56,9 +56,9 @@
 .account-button {
   min-height: 40px;
   padding: 0 14px;
-  border: 1.5px solid var(--primary);
+  border: 1.5px solid var(--primary-ink);
   background: transparent;
-  color: var(--primary);
+  color: var(--primary-ink);
   font: inherit;
   font-weight: 700;
   cursor: pointer;
@@ -144,11 +144,11 @@
 }
 
 .account-status.is-error {
-  color: var(--primary);
+  color: var(--primary-ink);
 }
 
 .account-status.is-warning {
-  color: var(--secondary);
+  color: var(--status-bad);
 }
 
 @media (max-width: 640px) {

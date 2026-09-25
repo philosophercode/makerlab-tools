@@ -608,3 +608,99 @@ queues; 5 depends on 1; 6 is last.
 8. **Toasts** (sonner) for page-level outcomes, or keep inline-only?
 9. **Screenshot of record**: keep the Stitch concept `screen.png` as the identity
    reference, or replace it with a real screen once fonts load? (Kept for now.)
+
+## Amendments
+
+Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited — the reason a
+design changed usually outlives the change.
+
+### 2026-09-25 — Owner decisions on the open questions (§16)
+
+The owner answered all nine questions before phase 1 began:
+
+1. **Scope:** all six phases in v5, phase by phase, each phase shippable on its
+   own (§13 unchanged). Nothing moves to Blueprint.
+2. **Fonts:** self-host Space Grotesk, Inter and JetBrains Mono (all OFL). No
+   runtime request to Google Fonts; `next/font/local` over vendored WOFF2 (or
+   `next/font/google`'s build-time self-hosting) are both acceptable. Phase 1
+   uses `next/font/local` so the build stays offline-safe (§15).
+3. **Accent ink:** `--primary-ink` #B8431A is approved for orange *text and
+   marks* on light surfaces; orange *fills* stay #FF6B35 (§6.1 unchanged).
+4. **Crimson:** heritage accent only. Errors and destructive actions use
+   `--status-bad`, never `--secondary`.
+5. **Nav counts:** waiting counts appear on the admin home **tiles only**, never
+   in the section bar (§8.1's last bullet is decided: no).
+6. **Chat:** adopt `streamdown` (AI Elements' default renderer) for Markdown,
+   replacing `react-markdown` in the chat. Hide the floating chat button on
+   admin pages; admins open the assistant from the section bar / ⌘K. Both land
+   in phase 5 (chat), not earlier.
+7. **Density toggle:** no. One density (§5.3 / §6); the open question is closed.
+8. **Toasts:** no. `sonner` is **not adopted**; page-level outcomes stay inline
+   (`RowStatus` and the page's own status line, `role="status"`/`alert`). The
+   `Sonner` row of §7.1 and the §4.3 "Outcome line" pick are superseded.
+9. **Screenshot of record:** keep the Stitch concept `screen.png` as the
+   identity reference (DESIGN.md unchanged).
+
+### 2026-09-25 — Phase 1 as built (tokens + primitives)
+
+Branch `v5/ui-phase-1`. Where phase 1 differs from §13's row, and why:
+
+- **Scope grew by owner direction:** the token-level contrast and focus fixes
+  are applied to the *legacy* CSS now, not only to new components, and the
+  audit's dead code is deleted now (§13 said "no page changes except fonts").
+  Legacy pages therefore change in three ways only: the fonts load, orange text
+  and error/warning text move to AA tokens, and keyboard focus is visible.
+  - Orange **text** (`color: var(--primary)` / `var(--td-accent)`, and the
+    same rule's orange border) → `--primary-ink`; white on an orange fill →
+    `--ink-on-primary`; every `var(--secondary)` (all 40 were errors or
+    warnings, none heritage) → `--status-bad`; `--td-warning` → `--status-warn`.
+    Orange **fills** and standalone orange rules are untouched (identity).
+  - Focus: one `:focus-visible` rule in `@layer base` (2px `--primary-ink`,
+    offset 2px); all 12 `outline: none` and the 4 per-component focus outlines
+    removed. `src/styles/focus.test.ts` bans `outline: none|0` until phase 6's
+    lint rule.
+  - **Not done here:** control boundaries on legacy inputs stay `--outline`
+    (the owner's decision named ink and status colours); they move to
+    `--outline-strong` as each control is replaced by `Input`/`Select`.
+- **Dead code actually removed:** the 46 unused classes (all of `id-card*`,
+  `detail-*`, `spec-chip*`, `meta-chip*`, `doc-chip`, `td-coming-soon`, …),
+  `UnitsList.tsx` and its test, the 5 classes only it used, `--td-bg`, the
+  composer's three identical icon-button blocks (merged), and the redundant
+  focus rules — about 750 lines. The "~620 lines of exact duplicates" of §4.2
+  were **not** merged: they are identical declaration blocks under unrelated
+  selectors, mostly in different files loaded on different routes; merging
+  them would couple unrelated components and reorder the cascade, and they go
+  with their components in phases 2–6. Legacy CSS: 7,315 → 6,870 lines, plus
+  `ui.css` (≈180).
+- **Two token values changed** so every text/boundary pair passes on all three
+  light surfaces, including the `muted` plate (#EEE8DE) that §6.1 did not
+  check: `--status-ok` #2F7D4F → **#2B7549** (4.6:1 on muted), `--outline-strong`
+  #8F8676 → **#8A8171** (3.2:1 on muted). `src/styles/tokens.test.ts` reads the
+  values from the stylesheets and asserts every pair in both themes.
+- **Open for the owner:** the approved `--primary-ink` #B8431A is **4.47:1 on
+  the `muted` plate** (5.0 on paper, 5.5 on white). Kept as approved; the test
+  pins it as the one known exception and DESIGN.md says orange text does not
+  sit on `muted`. #B3401A would pass there (4.7:1) if the owner prefers.
+- **Fonts:** `next/font/local` over vendored variable WOFF2 in `src/fonts/`
+  (OFL licences beside them), weights 400–700, Inter pinned to its default
+  optical size, subset to Latin + Latin Extended + Cyrillic (Space Grotesk has
+  no Cyrillic) + punctuation, arrows and geometric shapes: 36 + 72 + 40 KB.
+  CJK, Arabic, Hebrew and Devanagari fall through to system fonts, as before.
+  `--font-display/body/mono` in globals.css are built from the next/font
+  variables, so no legacy rule changed.
+- **Tailwind sources** are limited to `src/` (`source("..")` on the utilities
+  import). No legacy className is also a utility name except `sr-only`, whose
+  utility matches the legacy rule.
+- **`cn`** uses `extendTailwindMerge` so the `text-micro/label/table` steps are
+  read as sizes; stock tailwind-merge read them as colours and dropped them.
+- **Primitives shipped** (themed, logical properties for RTL, fade-only
+  motion, outline focus): `button`, `badge`, `input`, `checkbox`, `separator`,
+  `table`, `dropdown-menu`, `popover`, `tooltip`. `Badge` has no status or
+  destructive variant (status is `StatusGlyph`). `sheet` and `accordion` wait
+  for their phases. **System components:** `StatusGlyph`/`Glyph`, `Sparkline`
+  (empty series safe), `PageHeader` (breadcrumb landmark named via next-intl
+  `ui.breadcrumb`; `as="h1"|"h2"`), `EmptyState`. `Tile` is phase 4.
+- **Packages added:** `radix-ui` ^1.6.7, `class-variance-authority` ^0.7.1,
+  `clsx` ^2.1.1, `tailwind-merge` ^3.7.0, `lucide-react` ^1.48.0,
+  `tw-animate-css` ^1.4.0. Not added: `@tanstack/react-table`,
+  `use-stick-to-bottom` (phases 2 and 5).

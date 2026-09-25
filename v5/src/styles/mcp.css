@@ -68,8 +68,8 @@
 }
 
 .mcp-kind.is-write {
-  border-color: var(--secondary);
-  color: var(--secondary);
+  border-color: var(--status-bad);
+  color: var(--status-bad);
 }
 
 .mcp-usable {
@@ -94,15 +94,6 @@
   cursor: pointer;
   font-size: 13px;
   font-weight: 700;
-}
-
-.mcp-inputs summary:focus-visible,
-.mcp-json summary:focus-visible,
-.mcp-page .account-button:focus-visible,
-.mcp-page select:focus-visible,
-.mcp-page input:focus-visible {
-  outline: 2px solid var(--primary);
-  outline-offset: 2px;
 }
 
 .mcp-inputs ul {
