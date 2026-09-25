@@ -91,7 +91,8 @@ describe("ProductImage — candidates with a cleaned copy", () => {
 
     const cleaned = screen.getByRole("img", { name: "Prusa MK4S, background removed" });
     expect(cleaned).toHaveAttribute("src", `/api/pending-tools/${ID}/cleaned-image?v=${THREE.cleaned!.attachmentId}`);
-    expect(cleaned.parentElement).toHaveClass("admin-intake-image-frame", "is-checkerboard");
+    expect(cleaned.parentElement).toHaveAttribute("data-slot", "image-frame");
+    expect(cleaned.parentElement).toHaveAttribute("data-checkerboard");
     expect(
       screen.getByText(
         "Background removed automatically: only the plain backdrop was cut away, the product is the original's own pixels."
@@ -103,7 +104,7 @@ describe("ProductImage — candidates with a cleaned copy", () => {
     render(<Harness />);
 
     const pair = screen.getByRole("img", { name: "Prusa MK4S, background removed" }).closest(
-      ".admin-intake-image-pair"
+      '[data-slot="image-pair"]'
     ) as HTMLElement;
     const original = within(pair).getByRole("img", { name: "Prusa MK4S, option 1" });
     expect(original).toHaveAttribute("src", "https://cdn.prusa3d.com/img/mk4s-1.png");
@@ -111,7 +112,7 @@ describe("ProductImage — candidates with a cleaned copy", () => {
     expect(original).toHaveAttribute("loading", "lazy");
     expect(within(pair).getByText("Original")).toBeInTheDocument();
     // Only the original is marked so; not the checkerboard, not the cleaned tile.
-    expect(original.parentElement).not.toHaveClass("is-checkerboard");
+    expect(original.parentElement).not.toHaveAttribute("data-checkerboard");
   });
 
   it("credits every tile's page, or the image itself when there is no page", () => {
@@ -180,7 +181,7 @@ describe("ProductImage — crops and banners (amendment \"Composites and product
     expect(radio).toBeChecked();
     expect(choice()).toEqual({ choice: "cleaned" });
     const picture = screen.getByRole("img", { name: "Prusa MK4S, background removed" });
-    expect(picture.parentElement).toHaveClass("is-checkerboard");
+    expect(picture.parentElement).toHaveAttribute("data-checkerboard");
     expect(screen.getByText(/Cropped to the product and its plain backdrop cut away automatically/)).toBeInTheDocument();
     expect(screen.getByText("Original")).toBeInTheDocument();
   });
@@ -194,7 +195,7 @@ describe("ProductImage — crops and banners (amendment \"Composites and product
     expect(screen.queryByRole("radio", { name: /Background removed/i })).not.toBeInTheDocument();
     const picture = screen.getByRole("img", { name: "Prusa MK4S, cropped to the product" });
     expect(picture).toHaveAttribute("src", `/api/pending-tools/${ID}/cleaned-image?v=${cleanedFrom.attachmentId}`);
-    expect(picture.parentElement).not.toHaveClass("is-checkerboard");
+    expect(picture.parentElement).not.toHaveAttribute("data-checkerboard");
     expect(screen.getByText(/The background around it could not be removed, so it stays/)).toBeInTheDocument();
     expect(screen.queryByText(/The background was not removed/)).not.toBeInTheDocument();
   });
@@ -208,10 +209,10 @@ describe("ProductImage — crops and banners (amendment \"Composites and product
 
     const tags = screen.getAllByText("Banner");
     expect(tags).toHaveLength(2);
-    const firstTile = screen.getByRole("radio", { name: "Option 1" }).closest(".admin-intake-image-tile") as HTMLElement;
+    const firstTile = screen.getByRole("radio", { name: "Option 1" }).closest('[data-slot="image-tile"]') as HTMLElement;
     expect(within(firstTile).getByText("Original")).toBeInTheDocument();
     expect(within(firstTile).getByText("Banner")).toBeInTheDocument();
-    const secondTile = screen.getByRole("radio", { name: "Option 2" }).closest(".admin-intake-image-tile") as HTMLElement;
+    const secondTile = screen.getByRole("radio", { name: "Option 2" }).closest('[data-slot="image-tile"]') as HTMLElement;
     expect(within(secondTile).queryByText("Banner")).not.toBeInTheDocument();
     // The radio's name stays "Option N": the tag sits beside the label, not in it.
     expect(screen.getByRole("radio", { name: "Option 3" })).toBeInTheDocument();
@@ -231,7 +232,7 @@ describe("ProductImage — candidates without a cleaned copy", () => {
     expect(screen.getByRole("radio", { name: "Option 1" })).toBeChecked();
     expect(screen.queryByRole("radio", { name: "Background removed" })).not.toBeInTheDocument();
     expect(screen.queryByText("Original")).not.toBeInTheDocument();
-    expect(document.querySelector(".is-checkerboard")).toBeNull();
+    expect(document.querySelector("[data-checkerboard]")).toBeNull();
     expect(screen.getByRole("radio", { name: "No image" })).not.toBeChecked();
   });
 
@@ -244,8 +245,8 @@ describe("ProductImage — candidates without a cleaned copy", () => {
     expect(screen.queryByRole("radio", { name: "Background removed" })).not.toBeInTheDocument();
     expect(screen.getByText("Already on a clean background")).toBeInTheDocument();
     const picture = screen.getByRole("img", { name: "Prusa MK4S, option 1" });
-    expect(picture.parentElement).toHaveClass("is-checkerboard");
-    expect(screen.getByRole("img", { name: "Prusa MK4S, option 2" }).parentElement).not.toHaveClass("is-checkerboard");
+    expect(picture.parentElement).toHaveAttribute("data-checkerboard");
+    expect(screen.getByRole("img", { name: "Prusa MK4S, option 2" }).parentElement).not.toHaveAttribute("data-checkerboard");
   });
 
   it("says in one line why the background was not removed", () => {
@@ -283,7 +284,7 @@ describe("ProductImage — nothing to choose", () => {
 
     expect(screen.getByText("No product image was found")).toBeInTheDocument();
     expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
-    expect(document.querySelector(".admin-intake-image-frame")).toBeNull();
+    expect(document.querySelector('[data-slot="image-frame"]')).toBeNull();
     expect(choice()).toEqual({ choice: "none" });
   });
 
@@ -298,7 +299,7 @@ describe("ProductImage — nothing to choose", () => {
 
   it("renders nothing for research from before the image stage", () => {
     const { container } = render(<Harness images={undefined} />);
-    expect(container.querySelector(".admin-intake-image")).toBeNull();
+    expect(container.querySelector('[data-slot="product-image"]')).toBeNull();
   });
 });
 

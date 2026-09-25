@@ -9,6 +9,11 @@ import {
   type ResearchFocusField,
 } from "../../lib/intake/research-focus";
 import { cleanReviewerNote } from "../../lib/intake/reviewer-note";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Field, hintId } from "../system/Field";
+import { ReviewNote } from "../system/review/ReviewCard";
 
 /**
  * **Research again**, guided (amendment "Guided redo (focus + guidance)"): the
@@ -46,7 +51,6 @@ export function ResearchAgainDialog({ initialNote, imageAvailable, onSubmit, onC
   const t = useTranslations("admin.intake");
   const titleId = useId();
   const noteId = useId();
-  const hintId = useId();
   const noteRef = useRef<HTMLTextAreaElement>(null);
 
   const [focus, setFocus] = useState<ResearchFocusField[]>([]);
@@ -92,7 +96,7 @@ export function ResearchAgainDialog({ initialNote, imageAvailable, onSubmit, onC
 
   return (
     <section
-      className="admin-intake-redo"
+      className="ui flex flex-col gap-3 border-s-2 border-s-primary-ink bg-muted p-3"
       role="dialog"
       aria-modal="false"
       aria-labelledby={titleId}
@@ -100,77 +104,88 @@ export function ResearchAgainDialog({ initialNote, imageAvailable, onSubmit, onC
         if (event.key === "Escape") onCancel();
       }}
     >
-      <h4 id={titleId}>{t("redo.title")}</h4>
-      <p className="admin-intake-hint">{t("redo.hint")}</p>
+      <h4 id={titleId} className="m-0 font-mono text-label font-medium text-foreground uppercase">
+        {t("redo.title")}
+      </h4>
+      <ReviewNote>{t("redo.hint")}</ReviewNote>
 
-      <div className="admin-intake-redo-group" role="group" aria-label={t("redo.focusLegend")}>
-        <span className="admin-intake-redo-label" aria-hidden="true">
+      <div className="flex flex-col gap-1.5" role="group" aria-label={t("redo.focusLegend")}>
+        <span className="font-mono text-micro tracking-[0.08em] text-muted-foreground uppercase" aria-hidden="true">
           {t("redo.focusLegend")}
         </span>
-        <div className="admin-intake-chips">
+        <div className="flex flex-wrap gap-1.5">
           {choices.map((choice) => {
             const pressed = choice === "everything" ? everything : focus.includes(choice);
             const disabled = choice === "image" && !imageAvailable;
             return (
-              <button
+              <Button
                 key={choice}
-                type="button"
-                className={`admin-intake-chip${pressed ? " is-pressed" : ""}`}
+                size="sm"
+                variant={pressed ? "outline" : "quiet"}
+                className={cn(pressed && "border-primary-ink bg-primary/10")}
                 aria-pressed={pressed}
                 disabled={disabled}
                 title={disabled ? t("redo.imageUnavailable") : undefined}
                 onClick={() => toggle(choice)}
               >
                 {t(`redo.focus.${choice}`)}
-              </button>
+              </Button>
             );
           })}
         </div>
       </div>
 
-      <div className="admin-intake-redo-group" role="group" aria-label={t("redo.suggestionsLabel")}>
-        <span className="admin-intake-redo-label" aria-hidden="true">
+      <div className="flex flex-col gap-1.5" role="group" aria-label={t("redo.suggestionsLabel")}>
+        <span className="font-mono text-micro tracking-[0.08em] text-muted-foreground uppercase" aria-hidden="true">
           {t("redo.suggestionsLabel")}
         </span>
-        <div className="admin-intake-chips">
+        <div className="flex flex-wrap gap-1.5">
           {SUGGESTIONS.map((key) => (
-            <button
+            // A suggestion is words for the note, not a setting: sentence case, dashed.
+            <Button
               key={key}
-              type="button"
-              className="admin-intake-chip is-suggestion"
+              size="sm"
+              variant="quiet"
+              className="border-dashed font-sans text-table normal-case"
               onClick={() => insert(t(`redo.suggestion.${key}`))}
             >
               {t(`redo.suggestion.${key}`)}
-            </button>
+            </Button>
           ))}
         </div>
       </div>
 
-      <div className="admin-field">
-        <label htmlFor={noteId}>{t("researchNote")}</label>
-        <textarea
+      <Field
+        id={noteId}
+        label={t("researchNote")}
+        hint={
+          <span className="flex justify-between gap-3">
+            <span>{t("redo.noteHint", { max: REVIEWER_NOTE_MAX_CHARS })}</span>
+            <span aria-hidden="true" className="shrink-0 font-mono tabular-nums">
+              {t("redo.noteCount", { count: note.length, max: REVIEWER_NOTE_MAX_CHARS })}
+            </span>
+          </span>
+        }
+      >
+        <Textarea
           id={noteId}
           ref={noteRef}
           rows={3}
           maxLength={REVIEWER_NOTE_MAX_CHARS}
           placeholder={t("researchNotePlaceholder")}
-          aria-describedby={hintId}
+          aria-describedby={hintId(noteId)}
           value={note}
           onChange={(event) => setNote(event.target.value)}
         />
-        <p id={hintId} className="admin-intake-hint admin-intake-redo-count">
-          <span>{t("redo.noteHint", { max: REVIEWER_NOTE_MAX_CHARS })}</span>
-          <span aria-hidden="true">{t("redo.noteCount", { count: note.length, max: REVIEWER_NOTE_MAX_CHARS })}</span>
-        </p>
-      </div>
+      </Field>
 
-      <div className="admin-editor-actions admin-intake-redo-actions">
-        <button type="button" className="admin-button is-primary" onClick={submit}>
+      <div className="flex flex-wrap gap-2">
+        <Button variant="default" size="sm" onClick={submit}>
           {t("redo.submit")}
-        </button>
-        <button type="button" className="admin-button" onClick={onCancel}>
+        </Button>
+        <Button size="sm" onClick={onCancel}>
           {t("redo.cancel")}
-        </button>
+        </Button>
       </div>
     </section>
   );

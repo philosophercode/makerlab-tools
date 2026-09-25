@@ -111,7 +111,7 @@ async function AssistantProposals() {
       <h3 id="assistant-proposals-heading">{t("assistantHeading")}</h3>
       <p className="admin-lede">{t("assistantLede")}</p>
       {[...byTool.entries()].map(([toolId, group]) => (
-        <div key={toolId} className="admin-refresh-assistant">
+        <div key={toolId} className="ui flex flex-col gap-1 py-2">
           <h4>{group.name}</h4>
           {group.proposedBy.size > 0 ? (
             <p className="admin-lede">{t("assistantBy", { names: [...group.proposedBy].join(", ") })}</p>

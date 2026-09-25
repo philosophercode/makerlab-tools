@@ -915,7 +915,7 @@ describe('PreliminaryToolPage — a guided redo (amendment "Guided redo (focus +
         research: research({ updated: { at: new Date().toISOString(), sections: ["specs", "links"] } }),
       });
       expect(await screen.findAllByText("Updated just now")).toHaveLength(2);
-      expect(screen.getByLabelText(/Description/).closest(".admin-field")).toHaveClass("is-updated");
+      expect(screen.getByRole("textbox", { name: /Description/ }).closest('[data-slot="field"]')).toHaveAttribute("data-updated");
       act(() => {
         vi.advanceTimersByTime(9_000);
       });

@@ -4,6 +4,9 @@ import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import type { ApprovalImageChoice } from "../../lib/data/pending-tools";
 import type { CleanedKind, ImageCandidate, ImageRetryState, ImageView, ResearchImages } from "../../lib/research/result";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { ReviewNote } from "../system/review/ReviewCard";
 import { DifferentImageControl } from "./DifferentImageControl";
 
 /**
@@ -137,18 +140,18 @@ export function ProductImage({
 
   const titleId = `intake-image-title-${pendingId}`;
   const heading = (
-    <h3 id={titleId} className="admin-intake-image-title">
+    <h3 id={titleId} className="m-0 font-mono text-label font-medium text-foreground uppercase">
       {t("title")}
     </h3>
   );
 
   if (hasUploadedPhoto) {
     return (
-      <section className="admin-intake-panel admin-intake-image" aria-labelledby={titleId}>
+      <Section titleId={titleId}>
         {heading}
-        <p className="admin-intake-image-line">{t("usingYourPhoto")}</p>
-        <p className="admin-intake-hint">{t("usingYourPhotoHint")}</p>
-      </section>
+        <p className="text-table">{t("usingYourPhoto")}</p>
+        <ReviewNote>{t("usingYourPhotoHint")}</ReviewNote>
+      </Section>
     );
   }
 
@@ -166,13 +169,13 @@ export function ProductImage({
   const cleanNote = cleaned ? null : (images?.cleanNote ?? null);
   if (!images || (candidates.length === 0 && !cleaned)) {
     return (
-      <section className="admin-intake-panel admin-intake-image" aria-labelledby={titleId}>
+      <Section titleId={titleId}>
         {heading}
-        <p className="admin-intake-image-line">
+        <p className="text-table">
           {imageError ? t("failed", { reason: imageError }) : images?.allRejected ? t("noneShowedProduct") : t("notFound")}
         </p>
         {different}
-      </section>
+      </Section>
     );
   }
 
@@ -195,14 +198,16 @@ export function ProductImage({
   }
 
   return (
-    <section className="admin-intake-panel admin-intake-image" aria-labelledby={titleId}>
+    <Section titleId={titleId}>
       {heading}
-      <p className="admin-intake-hint">{t("hint")}</p>
-      {cleanNote ? <p className="admin-intake-hint admin-intake-image-clean-note">{t(`cleanNote.${cleanNote}`)}</p> : null}
+      <ReviewNote>{t("hint")}</ReviewNote>
+      {cleanNote ? <ReviewNote tone="warn">{t(`cleanNote.${cleanNote}`)}</ReviewNote> : null}
 
-      <div className="admin-intake-image-choices" role="radiogroup" aria-labelledby={titleId}>
+      <div className="flex flex-col gap-3" role="radiogroup" aria-labelledby={titleId}>
         {cleaned ? (
-          <div className="admin-intake-image-pair">
+          // The cleaned copy and the original it was cut from, side by side —
+          // a cutout is only ever judged against its source.
+          <div data-slot="image-pair" className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             <Tile
               group={group}
               id={`${group}-cleaned`}
@@ -214,7 +219,7 @@ export function ProductImage({
               note={t(cleanedCopy.note)}
               picture={
                 cleanedBroken ? (
-                  <p className="admin-intake-image-broken" role="status">
+                  <p className="p-2 text-center text-xs text-muted-foreground" role="status">
                     {t("cleanedUnavailable")}
                   </p>
                 ) : (
@@ -261,7 +266,7 @@ export function ProductImage({
         ) : null}
 
         {rest.length > 0 ? (
-          <div className="admin-intake-image-more">
+          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
             {rest.map((candidate) => (
               <Tile
                 key={candidate.url}
@@ -272,9 +277,7 @@ export function ProductImage({
                 badges={bannerTag(candidate)}
                 checked={isOriginal(candidate)}
                 onSelect={() => chooseOriginal(candidate)}
-                picture={
-                  <CandidatePicture candidate={candidate} alt={t("alt", { name, rank: candidate.rank })} />
-                }
+                picture={<CandidatePicture candidate={candidate} alt={t("alt", { name, rank: candidate.rank })} />}
                 checkerboard={candidate.background === "transparent"}
                 source={candidate}
                 fromLabel={(host) => t("from", { host })}
@@ -283,12 +286,16 @@ export function ProductImage({
           </div>
         ) : null}
 
-        <div className={`admin-intake-image-none${value.choice === "none" ? " is-selected" : ""}`}>
+        <div
+          data-selected={value.choice === "none" || undefined}
+          className="flex items-center gap-2 border border-border p-2 text-table data-[selected]:border-primary-ink"
+        >
           <input
             id={`${group}-none`}
             type="radio"
             name={group}
             value="none"
+            className="size-4 accent-primary"
             checked={value.choice === "none"}
             onChange={() => onChange(NONE)}
           />
@@ -296,6 +303,15 @@ export function ProductImage({
         </div>
       </div>
       {different}
+    </Section>
+  );
+}
+
+/** The section every state of the image choice sits in: a heading, then the choice. */
+function Section({ titleId, children }: { titleId: string; children: ReactNode }) {
+  return (
+    <section data-slot="product-image" aria-labelledby={titleId} className="ui flex flex-col gap-2">
+      {children}
     </section>
   );
 }
@@ -332,44 +348,57 @@ function Tile({
   fromLabel: (host: string) => string;
 }) {
   const link = source ? attribution(source) : null;
-  const className = [
-    "admin-intake-image-tile",
-    checked ? "is-selected" : "",
-    small ? "is-small" : "",
-    disabled ? "is-disabled" : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
 
   return (
-    <div className={className}>
-      <div className="admin-intake-image-choice">
+    <div
+      data-slot="image-tile"
+      data-selected={checked || undefined}
+      className={cn(
+        "flex min-w-0 flex-col gap-1.5 border border-border bg-muted p-2",
+        // A selected tile: the accent rule, twice as heavy — never a shadow.
+        checked && "border-primary-ink outline-1 -outline-offset-2 outline-primary-ink outline-solid",
+        disabled && "opacity-60"
+      )}
+    >
+      <div className="flex flex-wrap items-center gap-1.5 text-table">
         <input
           id={id}
           type="radio"
           name={group}
           value={id}
+          className="size-4 accent-primary"
           checked={checked}
           disabled={disabled}
           onChange={onSelect}
         />
         <label htmlFor={id}>{label}</label>
         {badges.map((badge) => (
-          <span key={badge} className="admin-intake-image-badge">
+          <Badge key={badge} variant="outline">
             {badge}
-          </span>
+          </Badge>
         ))}
       </div>
       {/* The picture selects too, for a pointer; the radio is the keyboard's way in. */}
       <div
-        className={`admin-intake-image-frame${checkerboard ? " is-checkerboard" : ""}`}
+        data-slot="image-frame"
+        data-checkerboard={checkerboard || undefined}
+        className={cn(
+          "flex items-center justify-center overflow-hidden bg-card [&_img]:block [&_img]:h-auto [&_img]:max-h-full [&_img]:w-auto [&_img]:max-w-full [&_img]:object-contain",
+          small ? "aspect-square" : "aspect-[4/3]",
+          disabled ? "cursor-default" : "cursor-pointer"
+        )}
         onClick={disabled ? undefined : onSelect}
       >
         {picture}
       </div>
-      {note ? <p className="admin-intake-image-note">{note}</p> : null}
+      {note ? <ReviewNote tone="warn">{note}</ReviewNote> : null}
       {link ? (
-        <a className="admin-intake-image-source" href={link.href} target="_blank" rel="noreferrer noopener">
+        <a
+          className="text-xs break-all text-primary-ink underline-offset-2 hover:underline"
+          href={link.href}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
           {fromLabel(link.host)}
         </a>
       ) : null}

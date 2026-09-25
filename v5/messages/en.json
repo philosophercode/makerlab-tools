@@ -797,6 +797,7 @@
       "retryFor": "Retry research for {name}",
       "differentTool": "It's a different tool",
       "differentToolFor": "Mark {name} as a different tool",
+      "duplicateChoiceFor": "What to do about {name}'s match",
       "addAsUnit": "Add as another unit",
       "addAsUnitFor": "Add {name} as another unit of the tool it matches",
       "addAsUnitHint": "Optional. It is asked for again when you add the unit.",
@@ -867,6 +868,12 @@
       "overrideNotePlaceholder": "For example: read the model plate myself — it is a Cricut Maker 3.",
       "noResearch": "This item's research could not be read. Research it again.",
       "recordTitle": "The proposed record",
+      "group": {
+        "names": "Names",
+        "safety": "Safety and training",
+        "description": "Description and specs",
+        "classification": "Where it goes"
+      },
       "recordHint": "What research found, in the tool editor's fields. The specs are in the description, because a tool has no separate specs field. Change anything before approving.",
       "training": {
         "confirm": "Staff to confirm (saved as required)",
@@ -1312,6 +1319,8 @@
       "review": {
         "search": "Search rows",
         "filterLabel": "Show",
+      "filterBar": "Filter this import's rows",
+      "tableLabel": "Imported rows, what each one is and what it still needs",
         "actionsLabel": "Selected rows",
         "selectedCount": "{count, plural, =0 {None selected} one {# selected} other {# selected}}",
         "selectAllShown": "Select all shown",

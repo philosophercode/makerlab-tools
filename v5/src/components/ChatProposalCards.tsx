@@ -5,6 +5,8 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { isAcceptable, type FieldProposal } from "../lib/refresh/types";
 import { ProposalCard } from "./admin/ProposalCard";
+import { Button } from "@/components/ui/button";
+import { ReviewNote } from "./system/review/ReviewCard";
 
 /**
  * The assistant's proposals in the chat (refresh research spec §12.2): one
@@ -71,7 +73,9 @@ export function ChatProposalCards({ items }: { items: ChatProposalItem[] }) {
   }
 
   return (
-    <div className="chat-proposals">
+    // The cards are ReviewCards (via ProposalCard), full width in the message
+    // (DESIGN.md §8.11); Accept all verified is the one filled button.
+    <div className="ui flex flex-col gap-2 border-t border-rule">
       {items.map((item) => (
         <ProposalCard
           key={item.proposalId}
@@ -82,19 +86,20 @@ export function ChatProposalCards({ items }: { items: ChatProposalItem[] }) {
         />
       ))}
       {acceptable.length > 1 ? (
-        <button
-          type="button"
-          className="admin-button is-primary"
+        <Button
+          variant="default"
+          size="sm"
+          className="self-start"
           disabled={busy}
           onClick={() => void decide(acceptable.map((item) => item.proposalId), "accept")}
         >
           {t("proposalsAcceptAll")}
-        </button>
+        </Button>
       ) : null}
       {error ? (
-        <p className="admin-row-status is-error" role="alert">
+        <ReviewNote tone="bad" role="alert">
           {error}
-        </p>
+        </ReviewNote>
       ) : null}
     </div>
   );

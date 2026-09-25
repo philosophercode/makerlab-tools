@@ -5,6 +5,11 @@ import { useTranslations } from "next-intl";
 import { columnMapProblem, IMPORT_FIELDS, type ColumnMap, type ImportField } from "../../lib/import/columns";
 import { IMPORT_MAX_ITEMS } from "../../lib/import/limits";
 import type { TablePreview } from "../../lib/import/preview";
+import type { ColumnDef } from "@tanstack/react-table";
+import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
+import { DataTable } from "../system/data-table/DataTable";
+import { ReviewNote } from "../system/review/ReviewCard";
 
 /**
  * The mapping step (bulk intake spec §5 step 1): the first rows of the table,
@@ -32,65 +37,74 @@ export function ImportMapping({
     setMap((current) => current.map((field, index) => (index === column ? (value ? (value as ImportField) : null) : field)));
   }
 
+  // The preview is the table as it will be read: one column per source column,
+  // each headed by what it holds. Short and read-only, so it stays a table on a
+  // phone and scrolls sideways inside itself (DESIGN.md §8.3).
+  const columns: ColumnDef<PreviewRow, unknown>[] = preview.headers.map((header, column) => ({
+    id: `c${column}`,
+    enableSorting: false,
+    meta: { label: header, cellClassName: "whitespace-normal" },
+    header: () => (
+      <span className="flex min-w-36 flex-col gap-1 normal-case">
+        <span className="font-mono text-micro tracking-[0.08em] uppercase">{header}</span>
+        <NativeSelect
+          size="sm"
+          className="w-full"
+          aria-label={t("mapping.columnFor", { header })}
+          value={map[column] ?? ""}
+          onChange={(event) => choose(column, event.target.value)}
+          disabled={busy}
+        >
+          <option value="">{t("mapping.ignore")}</option>
+          {IMPORT_FIELDS.map((field) => (
+            <option key={field} value={field}>
+              {t(`mapping.field.${field}`)}
+            </option>
+          ))}
+        </NativeSelect>
+      </span>
+    ),
+    cell: ({ row }) => row.original.cells[column],
+  }));
+
   return (
-    <section className="admin-import-mapping" aria-labelledby="import-mapping-title">
-      <h3 id="import-mapping-title">{t("mapping.title")}</h3>
-      <p className="admin-intake-hint">{t("mapping.lede", { count: preview.rowCount })}</p>
-      {preview.hasHeader ? null : <p className="admin-intake-hint">{t("mapping.noHeader")}</p>}
-      <div className="admin-table-scroll">
-        <table className="admin-table admin-import-preview">
-          <thead>
-            <tr>
-              {preview.headers.map((header, column) => (
-                <th key={column} scope="col">
-                  <span className="admin-import-header">{header}</span>
-                  <select
-                    aria-label={t("mapping.columnFor", { header })}
-                    value={map[column] ?? ""}
-                    onChange={(event) => choose(column, event.target.value)}
-                    disabled={busy}
-                  >
-                    <option value="">{t("mapping.ignore")}</option>
-                    {IMPORT_FIELDS.map((field) => (
-                      <option key={field} value={field}>
-                        {t(`mapping.field.${field}`)}
-                      </option>
-                    ))}
-                  </select>
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {preview.rows.map((row, index) => (
-              <tr key={index}>
-                {preview.headers.map((_, column) => (
-                  <td key={column}>{row[column]}</td>
-                ))}
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+    <section aria-labelledby="import-mapping-title" className="ui flex flex-col gap-3">
+      <h3 id="import-mapping-title" className="m-0 font-heading text-lg font-medium uppercase">
+        {t("mapping.title")}
+      </h3>
+      <ReviewNote>{t("mapping.lede", { count: preview.rowCount })}</ReviewNote>
+      {preview.hasHeader ? null : <ReviewNote tone="warn">{t("mapping.noHeader")}</ReviewNote>}
+      <DataTable
+        data={preview.rows.map((cells, index) => ({ id: String(index), cells }))}
+        columns={columns}
+        getRowId={(row) => row.id}
+        getRowName={(row) => row.cells[0] ?? row.id}
+        labels={{ table: t("mapping.title") }}
+        empty={null}
+        stickyHeader={false}
+      />
       {problem === "no_name" ? (
-        <p className="admin-row-status is-error" role="alert">
+        <ReviewNote tone="bad" role="alert">
           {t("mapping.needName")}
-        </p>
+        </ReviewNote>
       ) : problem === "duplicate_field" ? (
-        <p className="admin-row-status is-error" role="alert">
+        <ReviewNote tone="bad" role="alert">
           {t("errors.duplicate_field")}
-        </p>
+        </ReviewNote>
       ) : null}
       {error ? (
-        <p className="admin-row-status is-error" role="alert">
+        <ReviewNote tone="bad" role="alert">
           {t(`errors.${error}`, { count: preview.rowCount, limit: IMPORT_MAX_ITEMS })}
-        </p>
+        </ReviewNote>
       ) : null}
-      <div className="admin-editor-actions">
-        <button type="button" className="admin-button is-primary" disabled={busy || problem !== null} onClick={() => onConfirm(map)}>
-          {busy ? t("mapping.creating") : t("mapping.continue", { count: preview.rowCount })}
-        </button>
-      </div>
+      <Button variant="default" className="self-start" disabled={busy || problem !== null} onClick={() => onConfirm(map)}>
+        {busy ? t("mapping.creating") : t("mapping.continue", { count: preview.rowCount })}
+      </Button>
     </section>
   );
+}
+
+interface PreviewRow {
+  id: string;
+  cells: string[];
 }

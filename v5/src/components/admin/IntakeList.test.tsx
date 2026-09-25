@@ -345,7 +345,7 @@ describe("IntakeList", () => {
       );
 
       await userEvent.click(
-        screen.getByRole("button", { name: "Mark Glowforge Pro as a different tool" })
+        screen.getByRole("radio", { name: "Mark Glowforge Pro as a different tool" })
       );
 
       const [, init] = fetchSpy.mock.calls[0];
@@ -369,7 +369,7 @@ describe("IntakeList", () => {
       );
 
       expect(
-        screen.queryByRole("button", { name: "Mark Glowforge Pro as a different tool" })
+        screen.queryByRole("radio", { name: "Mark Glowforge Pro as a different tool" })
       ).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: "Discard Queued saw" })).not.toBeInTheDocument();
     });
@@ -389,7 +389,7 @@ describe("IntakeList", () => {
       );
 
       await userEvent.click(
-        screen.getByRole("button", { name: "Add Prusa MK4 as another unit of the tool it matches" })
+        screen.getByRole("radio", { name: "Add Prusa MK4 as another unit of the tool it matches" })
       );
       const serial = screen.getByLabelText("Serial number");
       expect(serial).toHaveValue("SN-9");
@@ -414,8 +414,8 @@ describe("IntakeList", () => {
           ]}
         />
       );
-      expect(screen.queryByRole("button", { name: /as another unit/ })).not.toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Mark Glowforge Pro as a different tool" })).toBeInTheDocument();
+      expect(screen.queryByRole("radio", { name: /as another unit/ })).not.toBeInTheDocument();
+      expect(screen.getByRole("radio", { name: "Mark Glowforge Pro as a different tool" })).toBeInTheDocument();
     });
 
     it("offers Retry and Discard for a start that stalled with nothing recorded, and says why", () => {

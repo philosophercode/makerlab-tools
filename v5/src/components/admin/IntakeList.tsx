@@ -1,7 +1,5 @@
 "use client";
 
-import "../../styles/admin-intake.css";
-
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -17,6 +15,14 @@ import {
   type PendingStatus,
   type PendingToolView,
 } from "../../lib/intake/types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { EmptyState } from "../system/EmptyState";
+import { Field, hintId } from "../system/Field";
+import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
+import { DuplicateChoice } from "../system/review/DuplicateChoice";
+import { ReviewCard, ReviewDiagnosis, ReviewNote } from "../system/review/ReviewCard";
+import { PENDING_STATUS_TONE } from "./pending-status-tone";
 
 /**
  * The review queue on `/admin/intake` (spec §5.4 step 10, §6).
@@ -191,19 +197,15 @@ export function IntakeList({ items }: IntakeListProps) {
   }, [polling, router]);
 
   if (items.length === 0) {
-    return <p className="admin-empty td-empty">{t("empty")}</p>;
+    return <EmptyState>{t("empty")}</EmptyState>;
   }
 
   const open = items.filter((item) => !SETTLED.has(item.status));
   const settled = items.filter((item) => SETTLED.has(item.status));
 
   return (
-    <div className="admin-queue admin-intake-list">
-      {open.length === 0 ? (
-        <p className="admin-empty td-empty">{t("emptyOpen")}</p>
-      ) : (
-        <Batches items={open} />
-      )}
+    <div className="admin-queue">
+      {open.length === 0 ? <EmptyState>{t("emptyOpen")}</EmptyState> : <Batches items={open} />}
 
       {settled.length > 0 ? (
         <details className="admin-queue-settled">
@@ -231,15 +233,17 @@ function Batches({ items }: { items: PendingToolView[] }) {
   const ordered = [...batches.values()].sort((a, b) => newest(b).localeCompare(newest(a)));
 
   return (
-    <div className="admin-intake-batches">
+    <div className="ui flex flex-col gap-6">
       {ordered.map((batch) => (
-        <section key={batch[0].batchId} className="admin-intake-batch">
-          <h3 className="admin-intake-batch-head">
+        <section key={batch[0].batchId} className="flex flex-col">
+          <h3 className="m-0 border-b border-border pb-1 font-mono text-label font-medium text-muted-foreground uppercase">
             {t("batchHeading", { count: batch.length, date: day(newest(batch)) })}
           </h3>
-          <ul className="admin-queue-list">
+          <ul className="flex flex-col">
             {batch.map((item) => (
-              <IntakeRow key={item.id} item={item} />
+              <li key={item.id}>
+                <IntakeRow item={item} />
+              </li>
             ))}
           </ul>
         </section>
@@ -248,6 +252,14 @@ function Batches({ items }: { items: PendingToolView[] }) {
   );
 }
 
+const CONFIDENCE_TONE: Record<IntakeConfidenceLevel, StatusTone> = { high: "ok", medium: "warn", low: "bad" };
+
+/**
+ * One waiting item as a `ReviewCard` (UI system phase 3): name (the link to
+ * its page once research has proposed something), status and confidence as
+ * glyphs, who identified it and when, a duplicate as a `DuplicateChoice`, a
+ * failure as a diagnosis, and its one next step.
+ */
 function IntakeRow({ item }: { item: PendingToolView }) {
   const t = useTranslations("admin.intake");
   const tStatus = useTranslations("intake.status");
@@ -266,87 +278,154 @@ function IntakeRow({ item }: { item: PendingToolView }) {
         : null;
 
   return (
-    <li className="admin-queue-card admin-intake-row">
-      <header className="admin-queue-card-head">
-        {photo ? (
-          <span className="admin-thumb">
+    <ReviewCard
+      label={item.name}
+      title={
+        linked ? (
+          <Link className="text-primary-ink underline-offset-2 hover:underline" href={`${ADMIN_INTAKE_PATH}/${item.id}`}>
+            {item.name}
+          </Link>
+        ) : undefined
+      }
+      tone={settled ? "settled" : item.status === "failed" ? "safety" : "default"}
+      media={
+        photo ? (
+          <span className="relative size-10 shrink-0 overflow-hidden border border-border bg-muted">
             {/* `unoptimized`, like every admin thumbnail: a Blob URL on a page
                 nobody browses for pleasure. */}
-            <Image
-              src={photo}
-              alt=""
-              fill
-              sizes="48px"
-              style={{ objectFit: "cover" }}
-              unoptimized
-            />
+            <Image src={photo} alt="" fill sizes="40px" style={{ objectFit: "cover" }} unoptimized />
           </span>
-        ) : null}
-        <h4>
-          {linked ? <Link href={`${ADMIN_INTAKE_PATH}/${item.id}`}>{item.name}</Link> : item.name}
-        </h4>
-        <span className={`admin-state admin-intake-status is-${item.status}`}>
-          {tStatus(item.status)}
-        </span>
-      </header>
-
-      <p className="admin-queue-meta">
-        {item.brand ? <span>{item.brand}</span> : null}
-        {item.confidenceLevel ? (
-          <span className="admin-intake-confidence">
-            {tIntake(LEVEL_KEYS[item.confidenceLevel])}
-          </span>
-        ) : null}
-        <span>
-          {item.createdByName
-            ? t("identifiedBy", { name: item.createdByName })
-            : t("identifiedByUnknown")}
-        </span>
-        <span className="admin-date">{t("identifiedOn", { date: day(item.createdAt) })}</span>
-      </p>
-
-      {item.duplicateOf ? <DuplicateNote item={item} /> : null}
+        ) : null
+      }
+      marks={
+        <>
+          <StatusGlyph tone={PENDING_STATUS_TONE[item.status]} label={tStatus(item.status)} />
+          {item.confidenceLevel ? (
+            <StatusGlyph tone={CONFIDENCE_TONE[item.confidenceLevel]} label={tIntake(LEVEL_KEYS[item.confidenceLevel])} />
+          ) : null}
+        </>
+      }
+      meta={
+        <>
+          {item.brand ? <span>{item.brand}</span> : null}
+          <span>{item.createdByName ? t("identifiedBy", { name: item.createdByName }) : t("identifiedByUnknown")}</span>
+          <span className="tabular-nums">{t("identifiedOn", { date: day(item.createdAt) })}</span>
+        </>
+      }
+    >
+      {item.duplicateOf ? <Duplicate item={item} /> : null}
 
       {startFailed(item) && !item.researchError ? (
-        <div className="admin-intake-diagnosis">
-          <p className="admin-intake-diagnosis-label">{t("startFailedLabel")}</p>
-          <p className="admin-intake-diagnosis-text">{t("startStalled")}</p>
-        </div>
+        <ReviewDiagnosis label={t("startFailedLabel")}>{t("startStalled")}</ReviewDiagnosis>
       ) : null}
 
       {item.researchError && !settled ? (
-        <div className="admin-intake-diagnosis">
-          <p className="admin-intake-diagnosis-label">
-            {startFailed(item) ? t("startFailedLabel") : t("researchErrorLabel")}
-          </p>
-          {/* The diagnosis is recorded in English by the workflow or the
-              route — it is a record for whoever debugs this, not UI copy. */}
-          <p className="admin-intake-diagnosis-text" lang="en">
-            {item.researchError}
-          </p>
-        </div>
+        // The diagnosis is recorded in English by the workflow or the route —
+        // it is a record for whoever debugs this, not UI copy.
+        <ReviewDiagnosis label={startFailed(item) ? t("startFailedLabel") : t("researchErrorLabel")} lang="en">
+          {item.researchError}
+        </ReviewDiagnosis>
       ) : null}
 
-      {control ? <ResearchButton id={item.id} name={item.name} kind={control} /> : null}
-      {discardable(item) ? <SettleControls item={item} /> : null}
-    </li>
+      {control || discardable(item) ? (
+        <div className="flex flex-wrap items-center gap-2">
+          {control ? <ResearchButton id={item.id} name={item.name} kind={control} /> : null}
+          {discardable(item) ? <DiscardControl item={item} /> : null}
+        </div>
+      ) : null}
+    </ReviewCard>
   );
 }
 
-function DuplicateNote({ item }: { item: PendingToolView }) {
+/** Identified, matched, and nobody has said what to do about the match. */
+function undecided(item: PendingToolView): boolean {
+  return item.status === "identified" && item.duplicateOf !== null && item.duplicateResolution === null;
+}
+
+/**
+ * The duplicate, with its choices while it is undecided — **Add as another
+ * unit** (a catalogue match only, asking for a serial number) and **It's a
+ * different tool** — or the decision in words once made; Discard is the
+ * row's own control, under it. All of them are the table card's own `PATCH /api/pending-tools/[id]`,
+ * so the route's ownership and state checks are the ones that apply. Success
+ * asks for a fresh render: the row moves on because the database says so.
+ */
+function Duplicate({ item }: { item: PendingToolView }) {
   const t = useTranslations("admin.intake");
+  const router = useRouter();
+  // Null until "Add as another unit" is chosen; then the serial being typed.
+  const [serial, setSerial] = useState<string | null>(null);
+  const [pending, setPending] = useState<"resolve" | "unit" | null>(null);
+  const [error, setError] = useState<PendingApiErrorCode | null>(null);
   const match = item.duplicateOf;
   if (!match) return null;
+  const open = undecided(item);
+  const serialId = `intake-${item.id}-serial`;
+
+  async function run(kind: "resolve" | "unit") {
+    setPending(kind);
+    setError(null);
+    const value = serial?.trim() ?? "";
+    const code = await patchPendingTool(
+      item.id,
+      kind === "unit"
+        ? { duplicateResolution: "add_unit", ...(value ? { serialNumber: value } : {}) }
+        : { duplicateResolution: "new_tool" }
+    );
+    setPending(null);
+    if (code) {
+      setError(code);
+      return;
+    }
+    setSerial(null);
+    router.refresh();
+  }
 
   return (
-    <p className="admin-intake-duplicate">
-      <span>
-        {match.kind === "tool"
-          ? t("duplicateOfTool", { name: match.name })
-          : t("duplicateOfPending", { name: match.name })}
-      </span>{" "}
-      <span>{t(`resolution.${item.duplicateResolution ?? "unresolved"}`)}</span>
-    </p>
+    <DuplicateChoice
+      label={t("duplicateChoiceFor", { name: item.name })}
+      match={match.kind === "tool" ? t("duplicateOfTool", { name: match.name }) : t("duplicateOfPending", { name: match.name })}
+      options={[
+        ...(match.kind === "tool"
+          ? [{ value: "add_unit" as const, label: t("addAsUnit"), ariaLabel: t("addAsUnitFor", { name: item.name }) }]
+          : []),
+        { value: "new_tool" as const, label: t("differentTool"), ariaLabel: t("differentToolFor", { name: item.name }) },
+      ]}
+      value={serial !== null ? "add_unit" : null}
+      disabled={pending !== null || serial !== null}
+      resolved={open ? null : t(`resolution.${item.duplicateResolution ?? "unresolved"}`)}
+      resolvedTone={item.duplicateResolution ? "ok" : "warn"}
+      onChoose={(value) => {
+        setError(null);
+        if (value === "add_unit") setSerial(item.serialNumber ?? "");
+        else void run("resolve");
+      }}
+    >
+      {open && serial !== null ? (
+        <div role="group" aria-label={t("addAsUnitFor", { name: item.name })} className="flex flex-wrap items-end gap-2">
+          <Field id={serialId} label={t("unitSerial")} hint={t("addAsUnitHint")} className="w-56">
+            <Input
+              id={serialId}
+              value={serial}
+              maxLength={200}
+              aria-describedby={hintId(serialId)}
+              className="h-7 text-table"
+              onChange={(event) => setSerial(event.target.value)}
+            />
+          </Field>
+          <Button variant="default" size="xs" disabled={pending !== null} onClick={() => void run("unit")}>
+            {t("addAsUnitConfirm")}
+          </Button>
+          <Button size="xs" disabled={pending !== null} onClick={() => setSerial(null)}>
+            {t("addAsUnitCancel")}
+          </Button>
+        </div>
+      ) : null}
+      <ReviewNote role="status" tone={error ? "bad" : "muted"}>
+        {pending ? t("busy.save") : null}
+        {!pending && error ? t(`errors.${error}`) : null}
+      </ReviewNote>
+    </DuplicateChoice>
   );
 }
 
@@ -355,15 +434,7 @@ function DuplicateNote({ item }: { item: PendingToolView }) {
  * appear on another's. On success the page is asked for a fresh render, which
  * shows the item queued and starts the polling above.
  */
-function ResearchButton({
-  id,
-  name,
-  kind,
-}: {
-  id: string;
-  name: string;
-  kind: "research" | "retry";
-}) {
+function ResearchButton({ id, name, kind }: { id: string; name: string; kind: "research" | "retry" }) {
   const t = useTranslations("admin.intake");
   const router = useRouter();
   const [pending, setPending] = useState(false);
@@ -385,174 +456,73 @@ function ResearchButton({
   }
 
   return (
-    <div className="admin-intake-controls">
-      <button
-        type="button"
-        className="admin-button is-primary"
+    <>
+      <Button
+        variant="outline"
+        size="xs"
         disabled={pending}
         aria-label={t(kind === "research" ? "researchFor" : "retryFor", { name })}
         onClick={handleClick}
       >
         {t(kind === "research" ? "research" : "retry")}
-      </button>
-      <span className={`admin-row-status${error ? " is-error" : ""}`} role="status">
+      </Button>
+      <ReviewNote role="status" tone={error ? "bad" : "muted"}>
         {pending ? t("starting") : null}
         {!pending && started ? t("researchStarted") : null}
         {!pending && error ? t(`errors.${error}`) : null}
-      </span>
-    </div>
+      </ReviewNote>
+    </>
   );
 }
 
-/**
- * The duplicate's choices for an undecided one — **Add as another unit** (a
- * catalogue match only, asking for a serial number) and **It's a different
- * tool** — and Discard behind an inline confirmation (never a modal — §6). One
- * state for all of them, so a refusal shows beside the controls that caused
- * it. Success asks for a fresh render: the row moves on (researchable, or
- * folded away as discarded) because the database says so, not because this
- * island assumed it.
- */
-function SettleControls({ item }: { item: PendingToolView }) {
+/** Discard, behind an inline confirmation (never a modal — §6). */
+function DiscardControl({ item }: { item: PendingToolView }) {
   const t = useTranslations("admin.intake");
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
-  // Null until "Add as another unit" is chosen; then the serial being typed.
-  const [serial, setSerial] = useState<string | null>(null);
-  const [pending, setPending] = useState<"discard" | "resolve" | "unit" | null>(null);
+  const [pending, setPending] = useState(false);
   const [error, setError] = useState<PendingApiErrorCode | null>(null);
-  const undecided =
-    item.status === "identified" && item.duplicateOf !== null && item.duplicateResolution === null;
-  const canAddUnit = undecided && item.duplicateOf?.kind === "tool";
-  const serialId = `intake-${item.id}-serial`;
 
-  async function run(kind: "discard" | "resolve" | "unit") {
-    setPending(kind);
+  async function discard() {
+    setPending(true);
     setError(null);
-    const value = serial?.trim() ?? "";
-    const code = await patchPendingTool(
-      item.id,
-      kind === "discard"
-        ? { discard: true }
-        : kind === "unit"
-          ? { duplicateResolution: "add_unit", ...(value ? { serialNumber: value } : {}) }
-          : { duplicateResolution: "new_tool" }
-    );
-    setPending(null);
+    const code = await patchPendingTool(item.id, { discard: true });
+    setPending(false);
     setConfirming(false);
     if (code) {
       setError(code);
       return;
     }
-    setSerial(null);
     router.refresh();
   }
 
-  if (serial !== null) {
-    return (
-      <div className="admin-intake-controls">
-        <span className="admin-intake-confirm" role="group" aria-label={t("addAsUnitFor", { name: item.name })}>
-          <label className="admin-field" htmlFor={serialId}>
-            {t("unitSerial")}
-            <input
-              id={serialId}
-              value={serial}
-              maxLength={200}
-              aria-describedby={`${serialId}-hint`}
-              onChange={(event) => setSerial(event.target.value)}
-            />
-          </label>
-          <span id={`${serialId}-hint`} className="admin-queue-meta">
-            {t("addAsUnitHint")}
-          </span>
-          <button
-            type="button"
-            className="admin-button is-primary"
-            disabled={pending !== null}
-            onClick={() => run("unit")}
-          >
-            {t("addAsUnitConfirm")}
-          </button>
-          <button
-            type="button"
-            className="admin-button"
-            disabled={pending !== null}
-            onClick={() => setSerial(null)}
-          >
-            {t("addAsUnitCancel")}
-          </button>
-        </span>
-        <span className={`admin-row-status${error ? " is-error" : ""}`} role="status">
-          {pending === "unit" ? t("busy.save") : null}
-          {!pending && error ? t(`errors.${error}`) : null}
-        </span>
-      </div>
-    );
-  }
-
   return (
-    <div className="admin-intake-controls">
-      {canAddUnit ? (
-        <button
-          type="button"
-          className="admin-button"
-          disabled={pending !== null}
-          aria-label={t("addAsUnitFor", { name: item.name })}
-          onClick={() => {
-            setError(null);
-            setSerial(item.serialNumber ?? "");
-          }}
-        >
-          {t("addAsUnit")}
-        </button>
-      ) : null}
-      {undecided ? (
-        <button
-          type="button"
-          className="admin-button"
-          disabled={pending !== null}
-          aria-label={t("differentToolFor", { name: item.name })}
-          onClick={() => run("resolve")}
-        >
-          {t("differentTool")}
-        </button>
-      ) : null}
+    <div className="flex flex-wrap items-center gap-2">
       {confirming ? (
-        <span className="admin-intake-confirm" role="group" aria-label={t("discardFor", { name: item.name })}>
+        <span role="group" aria-label={t("discardFor", { name: item.name })} className="flex flex-wrap items-center gap-2 text-table">
           <span>{t("discardConfirm", { name: item.name })}</span>
-          <button
-            type="button"
-            className="admin-button is-danger"
-            disabled={pending !== null}
-            onClick={() => run("discard")}
-          >
+          <Button variant="destructive" size="xs" disabled={pending} onClick={() => void discard()}>
             {t("discardYes")}
-          </button>
-          <button
-            type="button"
-            className="admin-button"
-            disabled={pending !== null}
-            onClick={() => setConfirming(false)}
-          >
+          </Button>
+          <Button size="xs" disabled={pending} onClick={() => setConfirming(false)}>
             {t("discardKeep")}
-          </button>
+          </Button>
         </span>
       ) : (
-        <button
-          type="button"
-          className="admin-button"
-          disabled={pending !== null}
+        <Button
+          variant="ghost"
+          size="xs"
+          disabled={pending}
           aria-label={t("discardFor", { name: item.name })}
           onClick={() => setConfirming(true)}
         >
           {t("discard")}
-        </button>
+        </Button>
       )}
-      <span className={`admin-row-status${error ? " is-error" : ""}`} role="status">
-        {pending === "discard" ? t("busy.discard") : null}
-        {pending === "resolve" ? t("busy.save") : null}
+      <ReviewNote role="status" tone={error ? "bad" : "muted"}>
+        {pending ? t("busy.discard") : null}
         {!pending && error ? t(`errors.${error}`) : null}
-      </span>
+      </ReviewNote>
     </div>
   );
 }
