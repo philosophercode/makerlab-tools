@@ -1,12 +1,12 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { matchSorter } from "match-sorter";
 import type { MakerLabTool } from "./catalog-types";
 import { TechnicalFrame } from "./TechnicalFrame";
 import { ToolCard } from "./ToolCard";
+import { GalleryTable } from "./GalleryTable";
 
 interface GalleryShellProps {
   tools: MakerLabTool[];
@@ -29,18 +29,6 @@ const SEARCH_KEYS: ReadonlyArray<keyof MakerLabTool> = [
   "ppe",
   "trainingLevel",
   "description",
-];
-
-type SortKey = "name" | "category" | "zone" | "trainingLevel";
-type SortState = { key: SortKey; dir: "asc" | "desc" };
-
-// Table columns, in render order. `key` drives sorting; `labelKey` is the i18n
-// header string.
-const TABLE_COLUMNS: ReadonlyArray<{ key: SortKey; labelKey: string }> = [
-  { key: "name", labelKey: "columnTool" },
-  { key: "category", labelKey: "columnCategory" },
-  { key: "zone", labelKey: "columnZone" },
-  { key: "trainingLevel", labelKey: "columnTraining" },
 ];
 
 // The catalog stores materials as a flat list with no type, so the grouping
@@ -70,7 +58,6 @@ export function GalleryShell({ tools }: GalleryShellProps) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [materialsOpen, setMaterialsOpen] = useState(false);
-  const [sort, setSort] = useState<SortState | null>(null);
   // Close the open dropdown menus on an outside click or Escape, like a
   // native <select>.
   const categoryRef = useRef<HTMLDivElement>(null);
@@ -159,22 +146,8 @@ export function GalleryShell({ tools }: GalleryShellProps) {
 
     // Empty query preserves the catalog's existing order; a query applies a
     // fuzzy, ranked match across the weighted keys (typo tolerant).
-    const searched = normalizedQuery
-      ? matchSorter(faceted, normalizedQuery, { keys: SEARCH_KEYS.slice() })
-      : faceted;
-
-    // An explicit column sort overrides both catalog order and search ranking.
-    if (!sort) {
-      return searched;
-    }
-
-    return [...searched].sort((a, b) => {
-      const left = String(a[sort.key] ?? "").toLowerCase();
-      const right = String(b[sort.key] ?? "").toLowerCase();
-      const comparison = left.localeCompare(right);
-      return sort.dir === "asc" ? comparison : -comparison;
-    });
-  }, [location, query, selectedCategories, selectedMaterials, sort, tools]);
+    return normalizedQuery ? matchSorter(faceted, normalizedQuery, { keys: SEARCH_KEYS.slice() }) : faceted;
+  }, [location, query, selectedCategories, selectedMaterials, tools]);
 
   const activeFilterCount =
     selectedCategories.length + selectedMaterials.length + (location ? 1 : 0);
@@ -207,14 +180,6 @@ export function GalleryShell({ tools }: GalleryShellProps) {
     setSelectedCategories([]);
     setSelectedMaterials([]);
     setLocation(null);
-  }
-
-  function toggleSort(key: SortKey) {
-    setSort((prev) =>
-      prev && prev.key === key
-        ? { key, dir: prev.dir === "asc" ? "desc" : "asc" }
-        : { key, dir: "asc" }
-    );
   }
 
   return (
@@ -390,48 +355,14 @@ export function GalleryShell({ tools }: GalleryShellProps) {
         </TechnicalFrame>
       </section>
 
-      <section className={viewMode === "grid" ? "tool-grid" : "tool-table"} aria-label={t("toolGalleryLabel")}>
-        {filteredTools.length > 0 ? (
-          viewMode === "grid" ? (
-            filteredTools.map((tool) => <ToolCard key={tool.id} tool={tool} />)
-          ) : (
-            <>
-              <div className="tool-table-row tool-table-head" role="row">
-                {TABLE_COLUMNS.map((column) => {
-                  const active = sort?.key === column.key;
-                  return (
-                    <button
-                      key={column.key}
-                      type="button"
-                      className={active ? "tool-table-sort is-active" : "tool-table-sort"}
-                      aria-sort={active ? (sort!.dir === "asc" ? "ascending" : "descending") : "none"}
-                      onClick={() => toggleSort(column.key)}
-                    >
-                      <span>{t(column.labelKey)}</span>
-                      <span className="sort-indicator" aria-hidden="true">
-                        {active ? (sort!.dir === "asc" ? "▲" : "▼") : "↕"}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              {filteredTools.map((tool) => (
-                <a className="tool-table-row" href={`/tools/${tool.slug}`} key={tool.id}>
-                  <span className="tool-table-name">
-                    <span className="tool-table-thumb" aria-hidden="true">
-                      <Image src={tool.imageSrc} alt="" fill sizes="40px" style={{ objectFit: "contain" }} unoptimized />
-                    </span>
-                    <span>{tool.name}</span>
-                  </span>
-                  <span data-label={t("columnCategory")}>{tool.category}</span>
-                  <span data-label={t("columnZone")}>{tool.zone}</span>
-                  <span data-label={t("columnTraining")}>{tool.trainingLevel}</span>
-                </a>
-              ))}
-            </>
-          )
-        ) : (
+      {/* The table sorts on top of the filtered, ranked order (UI system spec §8.2). */}
+      <section className={viewMode === "grid" ? "tool-grid" : undefined} aria-label={t("toolGalleryLabel")}>
+        {filteredTools.length === 0 ? (
           <p className="empty-state">{t("empty")}</p>
+        ) : viewMode === "grid" ? (
+          filteredTools.map((tool) => <ToolCard key={tool.id} tool={tool} />)
+        ) : (
+          <GalleryTable tools={filteredTools} />
         )}
       </section>
     </main>

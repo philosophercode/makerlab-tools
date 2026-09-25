@@ -122,10 +122,17 @@ describe("RefreshList", () => {
 
   it("links each refresh with its counts, and says an empty queue", () => {
     const { rerender } = render(<RefreshList rows={[row({}), row({ id: "r2", toolName: "Form 2", rank: 4, counts: { differs: 0, new: 0, unverified: 0, safety: 0 } })]} />);
-    expect(screen.getByRole("link", { name: "WEN DC3401" })).toHaveAttribute("href", "/admin/refresh/r1");
-    expect(screen.getByText(/Differs 1 · New 0 · Not found 2/)).toBeInTheDocument();
-    expect(screen.getByText("1 safety")).toBeInTheDocument();
-    expect(screen.getByText("Matches the manufacturer's pages")).toBeInTheDocument();
+    const table = screen.getByRole("table", { name: "Refreshes waiting for a decision" });
+    expect(within(table).getByRole("link", { name: "WEN DC3401" })).toHaveAttribute("href", "/admin/refresh/r1");
+    // The counts are numbers in their own columns: safety, differs, new, not found.
+    const wen = within(table).getByRole("row", { name: /WEN DC3401/ });
+    expect(within(wen).getAllByRole("cell").map((cell) => cell.textContent).slice(1, 5)).toEqual(["1", "1", "0", "2"]);
+    expect(wen).toHaveTextContent("Waiting for you");
+    expect(within(table).getByRole("row", { name: /Form 2/ })).toHaveTextContent("Matches the manufacturer's pages");
+    // The phone list says the same in a sentence.
+    const list = screen.getByRole("list", { name: "Refreshes waiting for a decision" });
+    expect(within(list).getByText(/Differs 1 · New 0 · Not found 2/)).toBeInTheDocument();
+    expect(within(list).getByText(/1 safety/)).toBeInTheDocument();
     rerender(<RefreshList rows={[]} />);
     expect(screen.getByText(/No refreshes waiting/)).toBeInTheDocument();
   });

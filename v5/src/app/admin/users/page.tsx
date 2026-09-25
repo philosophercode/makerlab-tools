@@ -1,6 +1,8 @@
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
 import { UsersTable } from "../../../components/admin/UsersTable";
+import { parseUserFilters } from "../../../components/admin/users-filters";
+import type { SearchParams } from "../../../components/admin/inventory-filters";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { listUsers } from "../../../lib/data/users";
@@ -32,7 +34,11 @@ export const metadata = {
   title: `People — ${siteConfig.name}`,
 };
 
-export default async function AdminUsersPage() {
+export default async function AdminUsersPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
 
@@ -67,6 +73,7 @@ export default async function AdminUsersPage() {
       <UsersTable
         users={users}
         currentUserId={identity.userId}
+        initial={parseUserFilters(await searchParams)}
         setRole={setUserRole}
         setBanned={setUserBanned}
       />

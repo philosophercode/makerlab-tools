@@ -2,8 +2,11 @@ import { render, screen, within, userEvent } from "../../test/utils/render";
 import { GalleryShell } from "./GalleryShell";
 import { mockCatalog } from "../../test/fixtures/catalog";
 
+const router = vi.hoisted(() => ({ push: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => router }));
+
 // Render Next's image/link as plain elements for deterministic, router-free
-// component tests. GalleryShell renders ToolCard (grid) and <a> rows (table).
+// component tests. GalleryShell renders ToolCard (grid) and a DataTable (table).
 vi.mock("next/image", () => ({
   __esModule: true,
   default: ({ src, alt }: { src: string; alt: string }) => (
@@ -244,5 +247,36 @@ describe("GalleryShell", () => {
     await user.click(screen.getByRole("button", { name: "Clear 1" }));
 
     expect(cardNames()).toHaveLength(mockCatalog.length);
+  });
+});
+
+describe("GalleryShell — table view", () => {
+  async function openTable() {
+    const user = userEvent.setup();
+    render(<GalleryShell tools={mockCatalog} />);
+    await user.click(screen.getByRole("button", { name: "[ TABLE ]" }));
+    return { user, table: screen.getByRole("table", { name: "Tool gallery" }) };
+  }
+
+  it("is a real table whose sort state is on the header cell", async () => {
+    const { user, table } = await openTable();
+    expect(within(table).getAllByRole("rowheader")).toHaveLength(mockCatalog.length);
+
+    await user.click(within(table).getByRole("button", { name: /Tool/ }));
+    const header = within(table).getByRole("columnheader", { name: /Tool/ });
+    expect(header).toHaveAttribute("aria-sort", "ascending");
+    // Nothing but a header cell carries aria-sort (the old sort buttons did).
+    expect(table.querySelectorAll("[aria-sort]:not(th)")).toHaveLength(0);
+    const names = within(table).getAllByRole("rowheader").map((cell) => cell.textContent ?? "");
+    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+  });
+
+  it("links each tool, and opens it with Enter on its row", async () => {
+    const { table } = await openTable();
+    expect(within(table).getByRole("link", { name: "Bandsaw" })).toHaveAttribute("href", "/tools/bandsaw");
+    const row = within(table).getByRole("row", { name: /Bandsaw/ });
+    row.focus();
+    await userEvent.keyboard("{Enter}");
+    expect(router.push).toHaveBeenCalledWith("/tools/bandsaw");
   });
 });

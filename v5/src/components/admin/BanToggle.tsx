@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import type {
   AdminActionError,
   AdminActionResult,
@@ -91,11 +94,11 @@ export function BanToggle({
   const note = error ?? (locked ? disabledReason : null);
 
   return (
-    <div className="admin-ban-toggle">
+    <div className="flex flex-wrap items-center gap-2">
       {!current ? (
-        <input
+        <Input
           type="text"
-          className="admin-ban-reason"
+          className="h-7 w-auto max-w-[22ch] min-w-[14ch] text-table"
           value={reason}
           maxLength={200}
           disabled={locked || pending}
@@ -104,20 +107,20 @@ export function BanToggle({
           onChange={(event) => setReason(event.target.value)}
         />
       ) : null}
-      <button
+      <Button
         type="button"
-        className="chip admin-ban-button"
+        variant={current ? "quiet" : "destructive"}
+        size="sm"
         disabled={locked || pending}
         onClick={() => void handleToggle()}
       >
-        {current
-          ? t("liftBanFor", { name: personName })
-          : t("banFor", { name: personName })}
-      </button>
+        {current ? t("liftBanFor", { name: personName }) : t("banFor", { name: personName })}
+      </Button>
       <span
-        className={`admin-row-status${error ? " is-error" : ""}${
-          !error && warning ? " is-warning" : ""
-        }`}
+        className={cn(
+          "basis-full text-xs leading-snug text-muted-foreground empty:hidden",
+          error ? "text-bad" : warning ? "text-warn" : null
+        )}
         role="status"
       >
         {pending ? t("saving") : null}
