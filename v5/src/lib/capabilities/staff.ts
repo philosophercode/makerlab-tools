@@ -1,32 +1,39 @@
 import { z } from "zod";
 import { writeTicket } from "../admin/ticket-write";
+import { can } from "../auth/permissions";
 import { listCatalogTools } from "../data/catalog";
 import { listMaintenanceQueue } from "../data/maintenance";
 import { listIntakeQueue, OPEN_PENDING_STATUSES } from "../data/pending-tools";
 import { MAINTENANCE_PRIORITY, MAINTENANCE_STATUS } from "../db/schema/vocabulary";
 import { CHAT_PROPOSAL_FIELDS, PROPOSAL_VALUE_DESCRIPTION, proposeChange } from "./curation";
 import { findTool } from "./helpers";
-import type { Capability, CapabilityCtx, CapabilityTool } from "./types";
+import type { Capability, CapabilityCtx, CapabilityTool, PromptEnv } from "./types";
 
 /**
- * The `staff` capability — the lab staff's tools over MCP (MCP access spec
- * §3.2, §3.3). Every tool is MCP-only and names its own permission, checked by
- * the adapter before the tool is listed and again before it runs:
+ * The `staff` capability — the lab staff's queue tools, in the site chat and
+ * over MCP (MCP access spec §3.2, §3.3; amendment 2026-09-25 "Staff queue
+ * tools in the site chat"). Every tool names its own permission, enforced once
+ * per surface — `capabilitiesForIdentity` for the chat, `mcpToolAllowed` for
+ * MCP — so an anonymous visitor or a student is offered none of them:
  *
  * - `list_intake_queue` (`tools.approve`) — what is waiting on `/admin/intake`,
- *   read-only. Research is never *started* over MCP: it spends money and stays
- *   a button press in the app (§2 non-goals, open question 1).
+ *   read-only. Research is never *started* from here: it spends money and
+ *   stays a button press in the app (§2 non-goals, open question 1).
  * - `list_open_tickets` (`maintenance.manage`) — the open maintenance queue as
- *   on `/admin/maintenance`: reporter names, never their email addresses
- *   (emails never enter a model's context).
+ *   on `/admin/maintenance`: reporter names (the caller holds
+ *   `maintenance.manage`, the redaction rule's bar), never their email
+ *   addresses (emails never enter a model's context).
  * - `update_ticket` (`maintenance.manage`) — status, priority, assignee,
  *   resolution, through `writeTicket`, the path the admin page's own action
- *   takes. The one direct write over MCP: working a queue is operational, not
- *   catalogue publishing (§3.3).
- * - `propose_change` (`tools.edit`) — a proposed change to a catalogue tool,
- *   stored as a `chat_proposals` row for a person to accept on
+ *   takes. The one direct write: working a queue is operational, not catalogue
+ *   publishing (§3.3). In the chat the prompt makes the assistant state the
+ *   exact change and wait for the person's yes before calling it.
+ * - `propose_change` (`tools.edit`) — **MCP only.** A proposed change to a
+ *   catalogue tool, stored as a `chat_proposals` row for a person to accept on
  *   `/admin/refresh`. **It writes nothing to the tool** (Article 5): a leaked
- *   token cannot rewrite the catalogue (§3.3, §8). PPE is refused.
+ *   token cannot rewrite the catalogue (§3.3, §8). PPE is refused. The chat has
+ *   its own `propose_change` (the `curation` capability, composed per page),
+ *   so this one never reaches the chat model and the two names never collide.
  */
 
 // ── list_intake_queue ─────────────────────────────────────────────
@@ -50,10 +57,9 @@ interface IntakeQueueEntry {
 const listIntakeQueueTool: CapabilityTool<Record<string, never>, { open: IntakeQueueEntry[]; recently_settled: IntakeQueueEntry[] }> = {
   name: "list_intake_queue",
   description:
-    "List the equipment waiting in the intake queue (identified, queued, researching, researched or failed) and the most recently approved or discarded items, with research confidence and a link to each item's review page. Read-only: research is started and items are approved in the app.",
+    "List the equipment waiting in the intake queue (identified, queued, researching, researched or failed) and the most recently approved or discarded items, with research confidence and a link to each item's review page. Staff only. Read-only: research is started and items are approved in the app.",
   inputSchema: z.object({}) as unknown as z.ZodType<Record<string, never>>,
   kind: "read",
-  mcpOnly: true,
   requiredPermission: "tools.approve",
   run: async () => {
     const items = await listIntakeQueue({ settledLimit: INTAKE_SETTLED_SHOWN });
@@ -97,10 +103,9 @@ interface OpenTicket {
 const listOpenTicketsTool: CapabilityTool<Record<string, never>, { count: number; tickets: OpenTicket[] }> = {
   name: "list_open_tickets",
   description:
-    "List the maintenance tickets still open or in progress, most urgent first — the queue on /admin/maintenance. Use update_ticket with a ticket's id to work it.",
+    "List the maintenance tickets still open or in progress, most urgent first — the queue on /admin/maintenance — with each ticket's id, tool, unit, status, priority, reporter's name and assignee. Staff only. To answer about one machine, filter the list by its tool. Use update_ticket with a ticket's id to work it.",
   inputSchema: z.object({}) as unknown as z.ZodType<Record<string, never>>,
   kind: "read",
-  mcpOnly: true,
   requiredPermission: "maintenance.manage",
   run: async () => {
     const queue = await listMaintenanceQueue();
@@ -160,10 +165,9 @@ const REFUSALS: Record<string, string> = {
 const updateTicketTool: CapabilityTool<UpdateTicketInput, UpdateTicketResult> = {
   name: "update_ticket",
   description:
-    "Work one maintenance ticket: change its status, priority, assignee (yourself or nobody) or resolution. Only the fields you pass change. The same change the /admin/maintenance page makes.",
+    "Work one maintenance ticket: change its status, priority, assignee (yourself or nobody) or resolution note. Only the fields you pass change — the same change the /admin/maintenance page makes. Staff only. Before calling it, tell the person exactly what will change on which ticket and wait for them to confirm; never call it on an unconfirmed request.",
   inputSchema: updateTicketSchema,
   kind: "write",
-  mcpOnly: true,
   requiredPermission: "maintenance.manage",
   run: async (input, ctx: CapabilityCtx): Promise<UpdateTicketResult> => {
     const identity = ctx.identity;
@@ -245,10 +249,52 @@ const mcpProposeTool: CapabilityTool<McpProposeInput, Record<string, unknown>> =
   },
 };
 
+// ── The chat's instructions ───────────────────────────────────────
+
+/**
+ * What the chat assistant is told about the staff tools — only the sections
+ * for the tools this caller holds, and nothing at all for anybody else.
+ *
+ * The `can()` checks here are presentation: `capabilitiesForIdentity` has
+ * already dropped every tool the caller does not hold, and this keeps the
+ * prompt from describing tools that are not there. MCP clients never see this
+ * text; `update_ticket`'s description carries the confirmation rule for them.
+ */
+export function staffPromptFragment(env: PromptEnv): string {
+  const tickets = can(env.identity, "maintenance.manage");
+  const intake = can(env.identity, "tools.approve");
+  if (!tickets && !intake) return "";
+
+  const sections: string[] = [
+    `## Lab staff tools
+
+The person you are talking to is lab staff, signed in. Besides helping like you would any student, you can read the lab's work queues for them.`,
+  ];
+
+  if (tickets) {
+    sections.push(`### Maintenance queue
+
+- **Reading.** When staff ask what maintenance is open, pending or broken — across the lab or on one machine ("what's open on the Form 4?") — call \`list_open_tickets\` and answer from its result, filtered to the machine they named. Give each ticket's title, status, priority, unit and who has it. Reporter names may be shown to staff; email addresses are never shown or asked for. If nothing matches, say so plainly — never invent a ticket.
+- **Changing a ticket is a two-step conversation.** \`update_ticket\` writes to the live queue, so before you call it you must **state the exact change and ask for confirmation**, then stop and wait for their reply. Name the ticket by its title and machine, and list every field that will change: the new status (Open, In progress, Resolved, Closed), the priority, the assignee (\`me\` — the signed-in person — or \`nobody\`), and the resolution note word for word. For example: "I'll mark **Resin tank film clouded** (Form 4) as **Resolved** with the note "Replaced the tank." — shall I go ahead?"
+- Call \`update_ticket\` **only after an explicit yes in a later message** ("yes", "go ahead", "do it"). A request that already sounds decided ("mark it resolved") still gets the confirmation step first. If they change the details, restate the new change and ask again. If more than one ticket could be meant, list them and ask which.
+- Use the ticket id from \`list_open_tickets\` (call it first if you do not have the id) — never guess an id. Assign only to \`me\` or \`nobody\`; to hand a ticket to someone else, point them to /admin/maintenance.
+- **Report only what the tool answered.** Say a ticket was updated only when \`update_ticket\` returned \`status: "updated"\`. If it refused, say what the refusal says and that nothing changed.
+- Resolution notes are always written in **English**, whatever language the conversation is in.`);
+  }
+
+  if (intake) {
+    sections.push(`### Intake queue
+
+- When staff ask what equipment is waiting to be reviewed or researched, call \`list_intake_queue\` and summarise it, with each item's review page link. It is read-only: research is started and items are approved on /admin/intake, never from the chat.`);
+  }
+
+  return sections.join("\n\n");
+}
+
 export const staff: Capability = {
   id: "staff",
-  // MCP-only: nothing for the chat prompt to say.
-  promptFragment: () => "",
+  // Chat instructions for staff only; MCP clients read the tool descriptions.
+  promptFragment: staffPromptFragment,
   tools: [
     listIntakeQueueTool as unknown as CapabilityTool<unknown, unknown>,
     listOpenTicketsTool as unknown as CapabilityTool<unknown, unknown>,

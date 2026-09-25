@@ -238,6 +238,11 @@ and marks the ones your account can use.
 A read-only token or connection gets the reads in its column and none of the
 tools that file or change anything.
 
+Staff can also work the maintenance and intake queues from the assistant in the
+site itself (`list_open_tickets`, `update_ticket`, `list_intake_queue`, since
+2026-09-25). Before changing a ticket it says exactly what it will change and
+waits for your yes; an MCP client is asked to do the same.
+
 ## Keeping it safe
 
 - Prefer signing in. There is no secret to paste, store or leak, and every
