@@ -36,7 +36,7 @@ test.describe("the editor on /admin/inventory", () => {
     // so the fields appearing at all is the load action having answered.
     const panel = page.getByRole("complementary", { name: "Editing Form 4" });
     await expect(panel).toBeVisible({ timeout: 15_000 });
-    await expect(panel.getByLabel("Name")).toHaveValue("Form 4");
+    await expect(panel.getByLabel("Display name")).toHaveValue("Form 4");
     await expect(panel.getByRole("button", { name: "Looks good" })).toBeVisible();
 
     await panel.getByRole("button", { name: "Close" }).click();

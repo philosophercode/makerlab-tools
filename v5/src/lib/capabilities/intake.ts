@@ -14,6 +14,7 @@ import { importPath, toImportView, type ImportCardPayload } from "../import/view
 import { requestManualArchive } from "../manuals/trigger";
 import { verifyResourceLinks } from "../research/verify-links";
 import { invalidateCatalog } from "../revalidate";
+import { cleanOfficialName, displayNameFrom, isValidDisplayName } from "../tool-names";
 import { INTAKE_PERMISSION } from "./access";
 import {
   toolCandidateSchema,
@@ -433,6 +434,14 @@ const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
     const { verified, dropped } = await verifyResourceLinks(candidate.resources ?? []);
     for (const link of dropped) warnings.push(`Skipped unverifiable link — ${link}`);
 
+    // The two names (tool display names spec §5.6): a name that breaks the
+    // display rules becomes the official name (unless one was given), and the
+    // display name is its guarded form — said in the warnings, never silent.
+    const names = splitCandidateNames(candidate.name, candidate.official_name ?? null);
+    if (names.shortened) {
+      warnings.push(`The name was shortened to "${names.name}" for display; the full name is kept as the official name.`);
+    }
+
     const units: NonNullable<NewToolRecord["units"]> = [];
     for (const unit of candidate.units ?? []) {
       const status = toVocab<UnitStatus>(unit.status, UNIT_STATUS);
@@ -492,7 +501,8 @@ const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
         const record = await createToolRecord(
           tx,
           {
-            name: candidate.name,
+            name: names.name,
+            officialName: names.officialName,
             description: candidate.description,
             categoryId: category?.id ?? null,
             locationId: location?.id ?? null,
@@ -604,3 +614,19 @@ export const intake: Capability = {
   // element type; the adapters re-validate each tool's input via its own schema.
   tools: [identifyTools, startImportTool, createToolTool] as unknown as CapabilityTool<unknown, unknown>[],
 };
+
+/**
+ * The display and official names a `create_tool` candidate becomes. A name
+ * that follows the display rules is kept as it is; one that does not becomes
+ * the official name (when none was given) and is shortened by the guard.
+ */
+export function splitCandidateNames(
+  name: string,
+  officialName: string | null
+): { name: string; officialName: string | null; shortened: boolean } {
+  const given = name.replace(/\s+/g, " ").trim();
+  const official = cleanOfficialName(officialName);
+  if (isValidDisplayName(given)) return { name: given, officialName: official, shortened: false };
+  const display = displayNameFrom({ displayName: given, officialName: official, fallback: given });
+  return { name: display || given, officialName: official ?? cleanOfficialName(given), shortened: display !== given };
+}

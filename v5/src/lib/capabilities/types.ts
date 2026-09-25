@@ -301,7 +301,10 @@ export const intakeConfidenceSchema: z.ZodType<IntakeConfidence> = z.object({
  * background (§5.4), so this shape is what an MCP client sends.
  */
 export interface ToolCandidate {
+  /** The display name: short, no part numbers, ≤ 40 (tool display names spec §5.6). */
   name: string;
+  /** The full product name with model or part number. Optional. */
+  official_name?: string;
   description: string;
   category?: { name: string; group: string; isNew: boolean };
   location?: { room: string; zone: string; isNew: boolean };
@@ -350,7 +353,16 @@ export interface ToolCandidate {
 
 /** Zod schema for {@link ToolCandidate}, for tool input validation. */
 export const toolCandidateSchema: z.ZodType<ToolCandidate> = z.object({
-  name: z.string(),
+  name: z
+    .string()
+    .describe(
+      "The short display name people say — brand and what it is, or the model people know (\"Makita Plunge Base\", \"Formlabs Form 4\"): at most 40 characters, no part numbers."
+    ),
+  official_name: z
+    .string()
+    .max(200)
+    .optional()
+    .describe("The full product name with its model or part number, as the manufacturer writes it."),
   description: z.string(),
   category: z
     .object({ name: z.string(), group: z.string(), isNew: z.boolean() })

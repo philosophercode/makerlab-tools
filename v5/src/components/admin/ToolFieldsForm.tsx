@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import type { CategoryOption, LocationOption } from "../../lib/data/taxonomy";
 import type { EditableTool, ToolPatch } from "../../lib/data/tools";
 import { STARTER_QUESTION_MAX_CHARS, STARTER_QUESTIONS_MAX } from "../../lib/starter-questions";
+import { DISPLAY_NAME_MAX, OFFICIAL_NAME_MAX } from "../../lib/tool-names";
 
 /**
  * The tool's own fields, in the editor panel (spec §5.3(3)).
@@ -39,7 +40,10 @@ export interface ToolFieldsFormProps {
 
 /** The editable text of one tool, flattened so the form can diff it. */
 interface Draft {
+  /** The display name (tool display names spec §6). */
   name: string;
+  /** The official name; blank is none. */
+  officialName: string;
   description: string;
   categoryId: string;
   locationId: string;
@@ -77,6 +81,8 @@ export function ToolFieldsForm({
 
   const base = toDraft(values);
   const theirDraft = theirs ? toDraft(theirs) : null;
+  // Only an edited name is held to the cap: an untouched long one is not sent.
+  const nameTooLong = draft.name !== base.name && draft.name.trim().length > DISPLAY_NAME_MAX;
 
   function set<K extends keyof Draft>(field: K, value: Draft[K]) {
     setDraft((current) => ({ ...current, [field]: value }));
@@ -84,6 +90,7 @@ export function ToolFieldsForm({
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (nameTooLong) return;
     onSave(patchOf(base, draft));
   }
 
@@ -129,13 +136,38 @@ export function ToolFieldsForm({
           accessible name — the label would read "Description Their version: …". */}
       <div className="admin-field">
         <label htmlFor="tool-name">{t("fieldName")}</label>
+        {/* No maxLength: an imported name over the cap must stay visible to be
+            shortened. The count says when it is over; the save refuses it. */}
         <input
           id="tool-name"
           value={draft.name}
           required
+          aria-describedby="tool-name-hint"
+          aria-invalid={nameTooLong || undefined}
           onChange={(event) => set("name", event.target.value)}
         />
+        <p className="admin-field-hint" id="tool-name-hint">
+          {t("displayNameHint")}{" "}
+          {nameTooLong ? (
+            <strong>{t("displayNameTooLong", { count: draft.name.trim().length, max: DISPLAY_NAME_MAX })}</strong>
+          ) : null}
+        </p>
         {theirValue("name")}
+      </div>
+
+      <div className="admin-field">
+        <label htmlFor="tool-official-name">{t("fieldOfficialName")}</label>
+        <input
+          id="tool-official-name"
+          value={draft.officialName}
+          maxLength={OFFICIAL_NAME_MAX}
+          aria-describedby="tool-official-name-hint"
+          onChange={(event) => set("officialName", event.target.value)}
+        />
+        <p className="admin-field-hint" id="tool-official-name-hint">
+          {t("officialNameHint")}
+        </p>
+        {theirValue("officialName")}
       </div>
 
       <div className="admin-field">
@@ -284,6 +316,7 @@ export function ToolFieldsForm({
 function toDraft(tool: EditableTool): Draft {
   return {
     name: tool.name,
+    officialName: tool.officialName ?? "",
     description: tool.description ?? "",
     categoryId: tool.categoryId ?? "",
     locationId: tool.locationId ?? "",
@@ -326,6 +359,7 @@ function patchOf(base: Draft, draft: Draft): ToolPatch {
   const patch: ToolPatch = {};
 
   if (draft.name !== base.name) patch.name = draft.name;
+  if (draft.officialName !== base.officialName) patch.officialName = draft.officialName;
   if (draft.description !== base.description) patch.description = draft.description;
   if (draft.categoryId !== base.categoryId) patch.categoryId = draft.categoryId || null;
   if (draft.locationId !== base.locationId) patch.locationId = draft.locationId || null;

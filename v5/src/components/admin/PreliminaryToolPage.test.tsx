@@ -235,7 +235,7 @@ describe("PreliminaryToolPage — the proposal", () => {
   it("pre-fills the editor's fields from research, specs in the description", () => {
     renderPage();
 
-    expect(screen.getByLabelText("Name")).toHaveValue("Original Prusa MK4S");
+    expect(screen.getByLabelText("Display name")).toHaveValue("Original Prusa MK4S");
     expect(screen.getByLabelText("Description")).toHaveValue(
       "An open-frame FDM printer.\n\n- **Build volume:** 250 × 210 × 220 mm"
     );
@@ -283,6 +283,8 @@ describe("PreliminaryToolPage — the proposal", () => {
       overrideNote: null,
       fields: {
         name: "Original Prusa MK4S",
+        // Research's official name, carried beside the display name (tool display names spec §5.3).
+        officialName: "Original Prusa MK4S",
         description: "An open-frame FDM printer.\n\n- **Build volume:** 250 × 210 × 220 mm",
         categoryId: null,
         newCategory: { name: "FDM", group: "3D Printing" },
@@ -483,15 +485,15 @@ describe("PreliminaryToolPage — outcomes", () => {
       }),
     });
 
-    await userEvent.clear(screen.getByLabelText("Name"));
-    await userEvent.type(screen.getByLabelText("Name"), "Prusa MK4S+");
+    await userEvent.clear(screen.getByLabelText("Display name"));
+    await userEvent.type(screen.getByLabelText("Display name"), "Prusa MK4S+");
     await userEvent.type(screen.getByLabelText("Use restrictions"), "Staff only");
     await userEvent.click(approveButton());
 
     expect(
       await screen.findByText(/This item has moved on since this page opened/)
     ).toBeInTheDocument();
-    expect(screen.getByLabelText("Name")).toHaveValue("Prusa MK4S+");
+    expect(screen.getByLabelText("Display name")).toHaveValue("Prusa MK4S+");
     expect(screen.getByLabelText("Use restrictions")).toHaveValue("Staff only");
     expect(props.actions.approve).toHaveBeenCalledTimes(1);
     expect(approveButton()).toBeEnabled();
@@ -522,7 +524,7 @@ describe("PreliminaryToolPage — outcomes", () => {
     expect(await screen.findByText("Approving…")).toBeInTheDocument();
     expect(draftButton()).toBeDisabled();
     expect(screen.getByRole("button", { name: "Discard" })).toBeDisabled();
-    expect(screen.getByLabelText("Name")).toBeDisabled();
+    expect(screen.getByLabelText("Display name")).toBeDisabled();
 
     resolve(APPROVED);
     expect(await screen.findByText(/Approved and published/)).toBeInTheDocument();

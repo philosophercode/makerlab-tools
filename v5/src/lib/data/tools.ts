@@ -5,6 +5,7 @@ import { tools } from "../db/schema/index.ts";
 import type { Db } from "../db/types.ts";
 import { revisionEquals, revisionOf, type Revision } from "./revision.ts";
 import { starterQuestionsFromEditor } from "../starter-questions.ts";
+import { DISPLAY_NAME_MAX, OFFICIAL_NAME_MAX } from "../tool-names.ts";
 import { isUuid } from "./uuid.ts";
 import type { Refused } from "./write-result.ts";
 
@@ -41,7 +42,10 @@ import type { Refused } from "./write-result.ts";
 export interface EditableTool {
   id: string;
   slug: string;
+  /** The display name (tool display names spec): short, ≤ 40, no part numbers. */
   name: string;
+  /** The official name, or null when none is recorded; absent on fixtures from before it. */
+  officialName?: string | null;
   description: string | null;
   categoryId: string | null;
   locationId: string | null;
@@ -66,7 +70,10 @@ export interface EditableTool {
 
 /** The fields the editor may change. Deliberately not `slug`, and not state. */
 export interface ToolPatch {
+  /** The display name: refused (`invalid_field`) when blank or over `DISPLAY_NAME_MAX`. */
   name?: string;
+  /** The official name; empty clears it. Refused over `OFFICIAL_NAME_MAX`. */
+  officialName?: string | null;
   description?: string | null;
   categoryId?: string | null;
   locationId?: string | null;
@@ -132,6 +139,7 @@ export async function findToolForEditor(
       id: tools.id,
       slug: tools.slug,
       name: tools.name,
+      officialName: tools.officialName,
       description: tools.description,
       categoryId: tools.categoryId,
       locationId: tools.locationId,
@@ -348,7 +356,17 @@ function toToolValues(patch: ToolPatch): ToolValues | null {
     // The catalogue, the QR label and the chat all name a tool by this. An
     // empty one is not an edit anybody meant to make.
     if (!name) return null;
+    // The display name's hard cap (tool display names spec §5.1). Refused, not
+    // cut: the editor and approval hold the box to it, so a longer one is a
+    // caller that skipped the rule.
+    if (name.length > DISPLAY_NAME_MAX) return null;
     values.name = name;
+  }
+
+  if (patch.officialName !== undefined) {
+    const official = (patch.officialName ?? "").replace(/\s+/g, " ").trim();
+    if (official.length > OFFICIAL_NAME_MAX) return null;
+    values.officialName = official || null;
   }
 
   if (patch.description !== undefined) values.description = emptyToNull(patch.description);

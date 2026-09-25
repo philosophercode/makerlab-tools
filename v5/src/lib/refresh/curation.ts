@@ -3,7 +3,7 @@ import { loadRefreshSubject } from "../data/tool-refreshes.ts";
 import { findToolForEditor } from "../data/tools.ts";
 import type { ProposalSubjectKind } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
-import type { ResearchResult } from "../research/result.ts";
+import { researchDisplayName, type ResearchResult } from "../research/result.ts";
 import type { CurrentRecord } from "./decide.ts";
 import { proposedResource } from "./decide.ts";
 import type { FieldProposal } from "./types.ts";
@@ -56,6 +56,7 @@ export async function loadCurationSubject(
   return {
     kind,
     id: draft.id,
+    // The heading names what was researched: the official name, else the item's.
     name: draft.research.canonicalName || draft.name,
     revision: draft.revision,
     record: pendingRecord(draft.research),
@@ -67,7 +68,8 @@ export async function loadCurationSubject(
 /** A pending item's research, as the fields a proposal compares with. */
 export function pendingRecord(research: ResearchResult): CurrentRecord {
   return {
-    name: research.canonicalName,
+    name: researchDisplayName(research, research.canonicalName),
+    officialName: research.canonicalName || null,
     description: research.description || null,
     materials: research.materials,
     tags: research.tags,
@@ -83,6 +85,7 @@ export function pendingRecord(research: ResearchResult): CurrentRecord {
 export function recordFields(record: CurrentRecord): Record<string, unknown> {
   return {
     name: record.name,
+    official_name: record.officialName ?? null,
     description: record.description,
     materials: [...record.materials],
     tags: [...record.tags],
@@ -102,6 +105,8 @@ export function applyToResearch(research: ResearchResult, proposal: FieldProposa
   const value = proposal.proposed;
   switch (proposal.field) {
     case "name":
+      return typeof value === "string" ? { ...research, displayName: value } : null;
+    case "official_name":
       return typeof value === "string" ? { ...research, canonicalName: value } : null;
     case "description":
       return typeof value === "string" ? { ...research, description: value } : null;

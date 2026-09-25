@@ -4,6 +4,7 @@ import { RESEARCH_MAX_WEB_SEARCHES } from "../intake/limits.ts";
 import type { ResearchFocus, ResearchFocusField } from "../intake/research-focus.ts";
 import { reviewerNoteForPrompt } from "../intake/reviewer-note.ts";
 import { STARTER_QUESTION_GUIDANCE, STARTER_QUESTIONS_MAX } from "../starter-questions.ts";
+import { DISPLAY_NAME_MAX, DISPLAY_NAME_TARGET } from "../tool-names.ts";
 import { fenceUntrusted } from "../web/fence.ts";
 import type { SearchFindings } from "./model-output.ts";
 
@@ -141,13 +142,24 @@ const LINKS_PARAGRAPH = [
  */
 const STARTER_QUESTIONS_RULE = `- \`starterQuestions\`: exactly ${STARTER_QUESTIONS_MAX} questions a student might ask the lab's assistant about this tool, shown as clickable chips on its page. ${STARTER_QUESTION_GUIDANCE}`;
 
+/**
+ * The tool's two names (tool display names spec 2026-09-24, §5.1–§5.2). The
+ * examples are the owner's. Code enforces the display rules afterwards
+ * (`cleanDisplayName`); this says them so the model's answer rarely needs it.
+ */
+export const NAMES_PARAGRAPH = [
+  `## The two names`,
+  `- \`officialName\`: the full product name **as the manufacturer writes it** — brand, product line, model, and the model or part number when the pages give one. E.g. "Makita 196094-2 Compact Router Plunge Base", "DRILL MASTER 1500 Watt Dual-Temperature Heat Gun (Model 96289)", "Formlabs Form 4". Precise, from the pages, never invented.`,
+  `- \`displayName\`: the **short name people in the lab would say**: the brand plus what it is, or the well-known model name when that is how people refer to it. E.g. "Makita Plunge Base", "Drill Master Heat Gun", "Formlabs Form 4", "Bambu Lab X2D", "Trotec Speedy 400", "Othermill Pro". **No part or catalogue numbers, no sizes, voltages, piece counts or anything in brackets**; about ${DISPLAY_NAME_TARGET} characters and never more than ${DISPLAY_NAME_MAX}. A short model name people use ("Form 4", "X2D", "MK4S", "Speedy 400") belongs in it; a part number ("196094-2", "DCB107") does not. Brand in its ordinary capitalisation ("Makita", not "MAKITA").`,
+].join("\n");
+
 const LABELS_PARAGRAPH = [
   `## Writing the listing`,
   `- **Materials and tags are short labels, not sentences** — one to three words each, e.g. materials \`["PLA", "PETG", "TPU"]\`, tags \`["FDM", "Enclosed"]\`. Never \`"Wood (plywood, hardwood, veneer)"\`.`,
   `- **The description is a real paragraph of 4–6 sentences, 550–800 characters**, that a student can read, in this order: (1) **open with what the tool is** — its type as the product page states it, make and model; (2) **one concrete sentence on what students could make or do with it in a makerspace** — the kinds of projects that follow directly from what the pages say it does and the materials they say it works, e.g. "In a makerspace, students can use it to cut and engrave plywood and acrylic for enclosures, signs and prototypes."; (3–5) its **key capabilities and specs as the pages state them**, with the pages' own numbers — size or working area, power or speed, and the features that set it apart (for example number of nozzles or toolheads, enclosure, laser power, tool changer, filtration); (6, optional) anything a student must know before using it that a page states, such as a required accessory or a limit. Plain text, no marketing language.`,
   `- **The description is strictly factual.** Every number, material, feature and use in it comes from the pages: never add a voltage, battery, wattage, size or capacity the pages do not state, and never a capability a page does not describe. Reach 550 characters whenever the pages give enough facts to; **when the pages say little, write less** — two accurate sentences are better than five padded ones; never fill a gap from memory.`,
   `- **Never mention protective equipment in the description** — no safety glasses, gloves, masks, hearing protection or any other PPE. The lab's staff set PPE; a description that names it would contradict them.`,
-  `- **The description is for students, not about the research.** Never mention the request, the name you were given, which pages you read or what they did not say, or a size or variant you could not confirm, and state each fact directly — never \"the product page says\" or \"according to the manufacturer\" — doubt about the exact model belongs in the evidence fields. When the pages describe one size or variant of a product line and the name you were given does not say which, still give that variant's specs and name it in \`canonicalName\`: the staff member who reviews the listing checks it against the machine.`,
+  `- **The description is for students, not about the research.** Never mention the request, the name you were given, which pages you read or what they did not say, or a size or variant you could not confirm, and state each fact directly — never \"the product page says\" or \"according to the manufacturer\" — doubt about the exact model belongs in the evidence fields. When the pages describe one size or variant of a product line and the name you were given does not say which, still give that variant's specs and name it in \`officialName\`: the staff member who reviews the listing checks it against the machine.`,
   `- **Specs: every row of a specs table or key-value list** on the pages that a student would care about — size and working area, capacities, speeds, power, temperatures, accuracy, filtration, materials it takes, connectivity, dimensions and weight — as label/value pairs, usually 10–30. Keep the page's numbers and units exactly (do not convert or round), one short value per spec on one line, without footnote marks, test conditions or marketing claims. E.g. \`{"label": "Build volume", "value": "250 × 210 × 220 mm"}\`.`,
   `- Leave \`ppeRequired\` as an empty list. Protective equipment is set by the lab's staff, not by research.`,
   `- \`trainingRequired\` is true when the machine is one a makerspace would normally require training for (a laser cutter, a CNC, a resin printer), false when it clearly is not, and null when you cannot tell.`,
@@ -164,14 +176,14 @@ const LABELS_PARAGRAPH = [
  */
 const QUOTES_PARAGRAPH = [
   `## Quote your sources`,
-  `In \`citations\`, for each of \`canonicalName\`, \`description\`, \`materials\`, \`tags\`, \`trainingRequired\`, \`useRestrictions\` and \`emergencyStop\` that you filled in from a page, give one to three **verbatim** quotes — each a sentence or table row copied exactly from one of the pages above (at most 300 characters, no ellipsis in the middle), with the \`url\` of the page it is on, exactly as that page is labelled. The lab's server checks every quote against that page's text and shows a quote it cannot find as unverified, so never paraphrase, translate or join sentences from different places. Leave a field out of \`citations\` when no page states it.`,
+  `In \`citations\`, for each of \`officialName\`, \`description\`, \`materials\`, \`tags\`, \`trainingRequired\`, \`useRestrictions\` and \`emergencyStop\` that you filled in from a page, give one to three **verbatim** quotes — each a sentence or table row copied exactly from one of the pages above (at most 300 characters, no ellipsis in the middle), with the \`url\` of the page it is on, exactly as that page is labelled. The lab's server checks every quote against that page's text and shows a quote it cannot find as unverified, so never paraphrase, translate or join sentences from different places. Leave a field out of \`citations\` when no page states it.`,
 ].join("\n");
 
 const ANSWER_RULE = `## Your answer
 Answer with exactly one JSON object and nothing else — no preamble, no code fence, no commentary after it. Use the shape below. When you found nothing, still answer with the object: empty lists, the name you were given, and evidence fields set to false.`;
 
 const SEARCH_SHAPE = `{
-  "canonicalName": "the full make and model you settled on, e.g. \\"Original Prusa MK4S\\"",
+  "officialName": "the full make and model you settled on, as the manufacturer writes it, e.g. \\"Original Prusa MK4S\\"",
   "description": "a one-paragraph description draft",
   "category": { "name": "category name", "group": "category group, or null" },
   "candidateLinks": [ { "title": "…", "url": "https://…", "type": "Manual" | "Video" | "Other" } ],
@@ -187,7 +199,8 @@ const SEARCH_SHAPE = `{
 }`;
 
 const FETCH_SHAPE = `{
-  "canonicalName": "the full make and model, as the pages you read name it",
+  "officialName": "the full product name as the manufacturer writes it, with the model or part number when the pages give one",
+  "displayName": "the short name people say — brand and what it is, or the model people know; no part numbers; at most ${DISPLAY_NAME_MAX} characters",
   "description": "4–6 sentences, 550–800 characters: what it is; one sentence on what students could make or do with it in a makerspace; its key capabilities and specs — only what the pages say, no PPE",
   "specs": [ { "label": "…", "value": "…" } ],
   "materials": [ "short label" ],
@@ -236,7 +249,7 @@ export function researchSystemPrompt(stage: ResearchStagePrompt): string {
     ...task,
     SOURCES_PARAGRAPH,
     LINKS_PARAGRAPH,
-    ...(stage === "read" ? [LABELS_PARAGRAPH, QUOTES_PARAGRAPH] : []),
+    ...(stage === "read" ? [NAMES_PARAGRAPH, LABELS_PARAGRAPH, QUOTES_PARAGRAPH] : []),
     EVIDENCE_PARAGRAPH,
     INJECTION_PARAGRAPH,
     ANSWER_RULE,

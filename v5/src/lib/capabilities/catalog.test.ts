@@ -74,6 +74,17 @@ describe("search_tools", () => {
     expect(result.tools[0].short_description).toMatch(/laser/i);
   });
 
+  it("matches the official name too, and returns it beside the display name (tool display names spec §5.6)", async () => {
+    const result = (await tool("search_tools").run({ query: "formlabs" }, ctx)) as {
+      tools: { name: string; official_name?: string }[];
+    };
+    expect(result.tools).toEqual([expect.objectContaining({ name: "Form 4", official_name: "Formlabs Form 4 Resin 3D Printer" })]);
+
+    const list = (await tool("list_tools").run({}, ctx)) as { tools: { name: string; official_name?: string }[] };
+    // A tool with no official name carries no key at all.
+    expect(list.tools.find((t) => t.name === "Trotec Speedy 400")).not.toHaveProperty("official_name");
+  });
+
   it("returns an empty result set rather than a guess on a miss", async () => {
     const result = (await tool("search_tools").run(
       { query: "nonexistent-widget-xyz" },
@@ -130,6 +141,13 @@ describe("get_tool_details", () => {
     expect(result).toMatchObject({ found: true, slug: "trotec-speedy-400" });
   });
 
+  it("finds a tool by its official name, and returns both names", async () => {
+    const result = (await tool("get_tool_details").run({ id_or_name: "Formlabs Form 4 Resin 3D Printer" }, ctx)) as Record<string, unknown>;
+    expect(result).toMatchObject({ found: true, name: "Form 4", official_name: "Formlabs Form 4 Resin 3D Printer" });
+    const trotec = (await tool("get_tool_details").run({ id_or_name: "trotec-speedy-400" }, ctx)) as Record<string, unknown>;
+    expect(trotec.official_name).toBeNull();
+  });
+
   it("says so plainly when there is no such tool", async () => {
     const result = (await tool("get_tool_details").run(
       { id_or_name: "no-such-tool-id" },
@@ -149,7 +167,9 @@ describe("promptFragment", () => {
     const fragment = catalog.promptFragment?.({ tools }) ?? "";
 
     expect(fragment).toContain("## MakerLab catalog (2 tools)");
-    expect(fragment).toContain("**Form 4** — slug: `form-4`");
+    // The official name beside the display name, only where it says more (tool display names spec §5.6).
+    expect(fragment).toContain("**Form 4** (official: Formlabs Form 4 Resin 3D Printer) — slug: `form-4`");
+    expect(fragment).toContain("**Trotec Speedy 400** — slug: `trotec-speedy-400`");
     expect(fragment).toContain("units: Form 4 // A [In Use]");
   });
 

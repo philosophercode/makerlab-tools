@@ -42,6 +42,13 @@ describe("blindInput", () => {
     expect(blindInput(TOOL)).toEqual({ name: "WEN DC3401", brand: null, categoryHint: "Dust Collection", locationHint: null });
   });
 
+  it("names the tool by its official name when it has one (tool display names spec §5.5)", () => {
+    expect(blindInput({ ...TOOL, name: "WEN Air Filter", officialName: "WEN DC3401 3-Speed Air Filtration System" }).name).toBe(
+      "WEN DC3401 3-Speed Air Filtration System"
+    );
+    expect(blindInput({ ...TOOL, name: "WEN Air Filter", officialName: "  " }).name).toBe("WEN Air Filter");
+  });
+
   it("the search and read prompts built from it contain no current value", () => {
     const input = blindInput(TOOL);
     const search = buildSearchPrompt(input, [], null, null);

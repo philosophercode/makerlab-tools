@@ -7,6 +7,7 @@ import remarkGfm from "remark-gfm";
 import type { MakerLabProject, MakerLabTool, ToolStatus } from "./catalog-types";
 import { ManualContentsList } from "./ManualContentsList";
 import type { ManualContents } from "../lib/data/manual-documents";
+import { officialNameShown } from "../lib/tool-names";
 
 interface DetailShellProps {
   tool: MakerLabTool;
@@ -64,6 +65,7 @@ export function DetailShell({ tool, projects = [], manualContents = [] }: Detail
   const status = STATUS_CHIP[tool.status];
   const safetyLink = findResource(tool, "Safety");
   const sopLink = findResource(tool, "SOP");
+  const officialName = officialNameShown(tool);
 
   return (
     <main className="tool-detail">
@@ -92,6 +94,9 @@ export function DetailShell({ tool, projects = [], manualContents = [] }: Detail
 
         <div className="td-hero-copy">
           <h1>{tool.name}</h1>
+          {/* The official name, under the display name, when it says more
+              (tool display names spec §6). Data, not a translated string. */}
+          {officialName ? <p className="td-official-name">{officialName}</p> : null}
           {/* Descriptions are Markdown (research folds specs in as a list); no raw HTML, as for projects. */}
           <div className="td-hero-description">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{tool.description}</ReactMarkdown>

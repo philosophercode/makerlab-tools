@@ -517,7 +517,11 @@
         "sectionUnits": "Units",
         "sectionResources": "Manuals and links",
         "sectionPhotos": "Photos",
-        "fieldName": "Name",
+        "fieldName": "Display name",
+        "displayNameHint": "Short, what people call it: the brand and what it is, or the model people know (\"Makita Plunge Base\", \"Formlabs Form 4\"). No part numbers; about 30 characters, at most 40.",
+        "displayNameTooLong": "{count} characters — shorten it to {max} or fewer before saving.",
+        "fieldOfficialName": "Official name",
+        "officialNameHint": "The full product name with its model or part number, as the manufacturer writes it. Optional; used for search, manuals and research, and shown under the title.",
         "fieldDescription": "Description",
         "fieldCategory": "Category",
         "fieldLocation": "Location",
@@ -1161,7 +1165,8 @@
     },
     "proposal": {
       "field": {
-        "name": "Name",
+        "name": "Display name",
+        "official_name": "Official name",
         "description": "Description",
         "materials": "Materials",
         "tags": "Tags",
@@ -1334,6 +1339,7 @@
         "accept": "Accept",
         "ignore": "Ignore",
         "source": "Source",
+        "showsAs": "· shows as {name}",
         "started": "Suggesting names for {count, plural, one {# row} other {# rows}} — they appear here as they arrive.",
         "accepted": "Accepted {count, plural, one {# suggestion} other {# suggestions}}."
       },

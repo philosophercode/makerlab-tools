@@ -21,7 +21,13 @@ export type SuggestionConfidence = "exact" | "likely" | "unsure";
 
 /** The Suggest names pass's answer for one item, waiting for Accept or Ignore. */
 export interface NameSuggestion {
+  /** The official name — brand and model as the manufacturer writes them. */
   canonicalName: string;
+  /**
+   * The short display name (tool display names spec §5.4), already through
+   * the display guard. Absent on suggestions made before the two names.
+   */
+  displayName?: string;
   brand: string | null;
   confidence: SuggestionConfidence;
   sourceUrl: string | null;

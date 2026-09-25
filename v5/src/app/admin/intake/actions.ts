@@ -86,7 +86,10 @@ const imageChoice = z.discriminatedUnion("choice", [
 ]);
 
 const approvalFields = z.strictObject({
+  // The display name; over its 40-character cap the approval itself refuses (`invalid_field`).
   name: z.string().trim().min(1).max(MAX_LINE),
+  // The official name (tool display names spec §5.3); blank is none.
+  officialName: optionalText(MAX_LINE).optional(),
   description: optionalText(MAX_DESCRIPTION),
   categoryId: id.nullable(),
   newCategory: z

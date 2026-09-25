@@ -8,6 +8,7 @@ import { RESEARCH_FOCUS_FIELDS, type ResearchFocusField } from "../intake/resear
 import { STARTER_QUESTION_MAX_CHARS, STARTER_QUESTIONS_MAX } from "../starter-questions.ts";
 import { CITATION_QUOTE_MAX_CHARS, CITATIONS_PER_FIELD_MAX, type Citation } from "../refresh/types.ts";
 import type { CitedField } from "./model-output.ts";
+import { DISPLAY_NAME_MAX, displayNameFrom } from "../tool-names.ts";
 
 /** The fields research quotes for (proposal field names). */
 export const CITED_FIELDS = [
@@ -45,8 +46,19 @@ export const CITED_FIELDS = [
  */
 
 export interface ResearchResult {
-  /** The model's settled full name, e.g. "Bambu Lab X1-Carbon Combo". */
+  /**
+   * The **official name** the research settled on — the full make and model,
+   * with the part or model number when the pages give one, e.g. "Makita
+   * 196094-2 Compact Router Plunge Base" (tool display names spec §4). The key
+   * predates the two names and is kept so every stored row still parses.
+   */
   canonicalName: string;
+  /**
+   * The **display name** research proposes — short, no part numbers, ≤ 40
+   * characters, already through `cleanDisplayName`. Absent on rows researched
+   * before the two names; readers then derive it with {@link researchDisplayName}.
+   */
+  displayName?: string;
   description: string;
   specs: { label: string; value: string }[];
   materials: string[];
@@ -329,6 +341,8 @@ export const researchImagesSchema: z.ZodType<ResearchImages> = z
 
 export const researchResultSchema: z.ZodType<ResearchResult> = z.strictObject({
   canonicalName: z.string(),
+  // Optional, no default: a row researched before the two names parses to itself.
+  displayName: z.string().min(1).max(DISPLAY_NAME_MAX).optional(),
   description: z.string(),
   specs: z.array(z.strictObject({ label: z.string(), value: z.string() })),
   materials: z.array(z.string()),
@@ -409,4 +423,14 @@ export const researchResultSchema: z.ZodType<ResearchResult> = z.strictObject({
 export function parseResearchResult(value: unknown): ResearchResult | null {
   const parsed = researchResultSchema.safeParse(value);
   return parsed.success ? parsed.data : null;
+}
+
+/**
+ * The display name a research result proposes: its own, or — for a row
+ * researched before the two names — its official name through the guard,
+ * else `fallback` (the item's name) through the guard (tool display names
+ * spec §5.2).
+ */
+export function researchDisplayName(research: Pick<ResearchResult, "canonicalName" | "displayName">, fallback: string): string {
+  return displayNameFrom({ displayName: research.displayName, officialName: research.canonicalName, fallback });
 }

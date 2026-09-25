@@ -120,9 +120,24 @@ const categorySchema = z.object({
   group: text(120).nullable().default(null),
 });
 
+/**
+ * The official name arrives as `officialName` (tool display names spec §5.2)
+ * or, from a model or a stub written before the two names, `canonicalName`;
+ * both land in `canonicalName`, which is what every reader uses.
+ */
+function withOfficialName(value: unknown): unknown {
+  if (!isPlainObject(value)) return value;
+  const { officialName, ...rest } = value;
+  const hasCanonical = typeof rest.canonicalName === "string" && rest.canonicalName.trim() !== "";
+  if (typeof officialName === "string" && officialName.trim() && !hasCanonical) {
+    return { ...rest, canonicalName: officialName };
+  }
+  return rest;
+}
+
 /** The search step's answer. */
-export const searchFindingsSchema = z.object({
-  /** The full name the search settled on; empty when it settled on nothing. */
+export const searchFindingsSchema = z.preprocess(withOfficialName, z.object({
+  /** The official name the search settled on; empty when it settled on nothing. */
   canonicalName: text(200).default(""),
   description: text(4000).default(""),
   category: categorySchema.nullable().default(null),
@@ -131,13 +146,22 @@ export const searchFindingsSchema = z.object({
   /** Pages the search itself surfaced as evidence. */
   sourceUrls: urlList,
   evidence: evidencePartialSchema.default({}),
-});
+}));
 
 export type SearchFindings = z.infer<typeof searchFindingsSchema>;
 
+/** A model's display name: one line, loosely capped — **unguarded**; assembly runs `cleanDisplayName`. */
+const looseDisplayName = z
+  .unknown()
+  .optional()
+  .transform((value) => (typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, 200) : ""));
+
 /** The fetch step's answer: a result minus confidence, droppedLinks and category.existingId. */
-export const fetchDraftSchema = z.object({
+export const fetchDraftSchema = z.preprocess(withOfficialName, z.object({
+  /** The official name (`officialName` in the prompt's shape). */
   canonicalName: text(200).default(""),
+  /** The short display name the model proposes (tool display names spec §5.2). */
+  displayName: looseDisplayName,
   description: text(4000).default(""),
   specs: specsSchema,
   materials: labelList,
@@ -164,12 +188,14 @@ export const fetchDraftSchema = z.object({
    * question is dropped, and a missing or malformed list is no questions.
    */
   starterQuestions: z.unknown().optional().transform(cleanStarterQuestions),
-});
+}));
 
 export type FetchDraft = z.infer<typeof fetchDraftSchema>;
 
 /** The fields a draft may quote for, as the read prompt names them (camelCase), mapped to proposal fields. */
 export const DRAFT_CITATION_FIELDS = {
+  // The official name's quote, under the `name` key stored results already use.
+  officialName: "name",
   canonicalName: "name",
   description: "description",
   materials: "materials",

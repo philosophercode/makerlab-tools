@@ -95,6 +95,16 @@ export const MODEL_JOBS = {
     serviceTier: "flex",
     tierEnv: "MODEL_NAME_SUGGEST_TIER",
   },
+  // The display-name backfill (tool display names spec §5.8): one small call
+  // per tool whose name breaks the display rules — no tools, the name fenced.
+  // A maintenance script nobody waits on, so flex.
+  displayName: {
+    kind: "language",
+    env: "MODEL_DISPLAY_NAME",
+    default: "openai/gpt-6-luna",
+    serviceTier: "flex",
+    tierEnv: "MODEL_DISPLAY_NAME_TIER",
+  },
   // Manual passages and search queries (manual text spec §3.4). An embedding
   // job, not a language one: `embeddingModelFor`, never `languageModelFor`.
   // No tier hint — embeddings are cheap and a search is waited on.

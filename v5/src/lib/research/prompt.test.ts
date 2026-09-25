@@ -323,7 +323,7 @@ describe('Luna research tuning (amendment "Luna research tuning")', () => {
   it("keeps the research out of the description, and still gives a variant's specs", () => {
     expect(read).toContain("**The description is for students, not about the research.**");
     expect(read).toContain("doubt about the exact model belongs in the evidence fields");
-    expect(read).toContain("still give that variant's specs and name it in `canonicalName`");
+    expect(read).toContain("still give that variant's specs and name it in `officialName`");
   });
 
   it("asks for every spec row a student would care about, numbers kept exactly, one clean value each", () => {

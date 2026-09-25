@@ -154,7 +154,10 @@ export async function countRefreshesWaiting(options: RefreshOptions = {}): Promi
 export interface RefreshSubject {
   id: string;
   slug: string;
+  /** The display name. */
   name: string;
+  /** The official name (tool display names spec); research is told this one when set. */
+  officialName: string | null;
   description: string | null;
   materials: string[];
   tags: string[];
@@ -178,6 +181,7 @@ export async function loadRefreshSubject(toolId: string, options: RefreshOptions
       id: tools.id,
       slug: tools.slug,
       name: tools.name,
+      officialName: tools.officialName,
       description: tools.description,
       materials: tools.materials,
       tags: tools.tags,
@@ -205,6 +209,7 @@ export async function loadRefreshSubject(toolId: string, options: RefreshOptions
     id: row.id,
     slug: row.slug,
     name: row.name,
+    officialName: row.officialName,
     description: row.description,
     materials: row.materials ?? [],
     tags: row.tags ?? [],

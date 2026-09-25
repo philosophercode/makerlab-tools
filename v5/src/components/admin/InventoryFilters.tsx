@@ -67,6 +67,8 @@ export interface InventoryFiltersProps {
  */
 const SEARCH_KEYS: ReadonlyArray<(row: InventoryRow) => string> = [
   (row) => row.name,
+  // The official name, with its model or part number (tool display names spec §5.6).
+  (row) => row.officialName ?? "",
   (row) => row.categoryName ?? "",
   (row) => row.categoryGroup ?? "",
   (row) => row.room ?? "",

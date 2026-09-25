@@ -55,6 +55,13 @@ describe("propose_change", () => {
   it("validates the value per field", () => {
     expect(cleanValue("name", "  Formlabs Form 4 ")).toBe("Formlabs Form 4");
     expect(cleanValue("name", "")).toBeUndefined();
+    // The display rules (tool display names spec §5.5): no part number, not over the cap.
+    expect(cleanValue("name", "Makita 196094-2 Plunge Base")).toBeUndefined();
+    expect(cleanValue("name", "x".repeat(41))).toBeUndefined();
+    expect(cleanValue("name", "Bambu Lab X2D")).toBe("Bambu Lab X2D");
+    expect(cleanValue("official_name", "  Makita 196094-2 Compact Router Plunge Base ")).toBe("Makita 196094-2 Compact Router Plunge Base");
+    expect(cleanValue("official_name", "x".repeat(201))).toBeUndefined();
+    expect(CHAT_PROPOSAL_FIELDS).toContain("official_name");
     expect(cleanValue("materials", ["Resin", " Tough "])).toEqual(["Resin", "Tough"]);
     expect(cleanValue("materials", ["Resin", 4])).toBeUndefined();
     expect(cleanValue("tags", "Resin")).toBeUndefined();

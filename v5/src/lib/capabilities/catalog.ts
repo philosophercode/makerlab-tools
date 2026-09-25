@@ -3,6 +3,7 @@ import { getCatalogTool, getCatalogTools } from "../catalog";
 import { can } from "../auth/permissions";
 import { listCatalogTools, listToolStates, type CatalogToolState } from "../data/catalog";
 import { findTool, summarizeTool } from "./helpers";
+import { officialNameShown } from "../tool-names";
 import type {
   Capability,
   CapabilityCtx,
@@ -30,7 +31,10 @@ import type { MakerLabTool } from "../../components/catalog-types";
 interface ToolListEntry {
   id: string;
   slug: string;
+  /** The display name. */
   name: string;
+  /** The full product name with model or part number, when recorded and different (tool display names spec §5.6). */
+  official_name?: string;
   summary: string;
   /** Only for a caller holding `tools.edit`, who also sees drafts and archived tools. */
   state?: CatalogToolState;
@@ -54,6 +58,8 @@ interface ToolDetailsResult {
   id?: string;
   slug?: string;
   name?: string;
+  /** The official name, or null when none is recorded. */
+  official_name?: string | null;
   category?: string;
   category_sub?: string;
   location?: string;
@@ -98,6 +104,12 @@ async function catalogFor(ctx: CapabilityCtx): Promise<CatalogView> {
     listToolStates(),
   ]);
   return { tools, states };
+}
+
+/** `official_name` for a list entry, only when it says more than the display name. */
+function officialOf(tool: MakerLabTool): { official_name?: string } {
+  const official = officialNameShown(tool);
+  return official ? { official_name: official } : {};
 }
 
 function stateOf(view: CatalogView, id: string): { state?: CatalogToolState } {
@@ -162,6 +174,7 @@ const listTools: CapabilityTool<ListToolsInput, ListToolsResult> = {
         id: t.id,
         slug: t.slug,
         name: t.name,
+        ...officialOf(t),
         summary: summarizeTool(t),
         ...stateOf(view, t.id),
       })),
@@ -172,7 +185,7 @@ const listTools: CapabilityTool<ListToolsInput, ListToolsResult> = {
 const searchTools: CapabilityTool<SearchToolsInput, SearchToolsResult> = {
   name: "search_tools",
   description:
-    "Keyword search across tool names, descriptions, materials, and tags. Returns matching tools with a short summary.",
+    "Keyword search across tool names (the display name and the official product name with its model or part number), descriptions, materials, and tags. Returns matching tools with a short summary.",
   inputSchema: searchToolsInput,
   kind: "read",
   async run({ query }, ctx) {
@@ -180,7 +193,7 @@ const searchTools: CapabilityTool<SearchToolsInput, SearchToolsResult> = {
     const view = await catalogFor(ctx);
     const tools = view.tools;
     const results = tools.filter((t) =>
-      [t.name, t.description, t.shortDescription, ...t.materials, ...t.tags]
+      [t.name, t.officialName ?? "", t.description, t.shortDescription, ...t.materials, ...t.tags]
         .join(" ")
         .toLowerCase()
         .includes(q)
@@ -192,6 +205,7 @@ const searchTools: CapabilityTool<SearchToolsInput, SearchToolsResult> = {
         id: t.id,
         slug: t.slug,
         name: t.name,
+        ...officialOf(t),
         summary: summarizeTool(t),
         short_description: t.shortDescription,
         ...stateOf(view, t.id),
@@ -226,6 +240,7 @@ const getToolDetails: CapabilityTool<GetToolDetailsInput, ToolDetailsResult> = {
       id: tool.id,
       slug: tool.slug,
       name: tool.name,
+      official_name: tool.officialName ?? null,
       category: tool.category,
       category_sub: tool.categorySub,
       location: tool.location,
@@ -256,7 +271,8 @@ const getToolDetails: CapabilityTool<GetToolDetailsInput, ToolDetailsResult> = {
  * prompt uses (name + slug + category/location/training, then a units line).
  */
 function describeCatalogEntry(tool: MakerLabTool): string {
-  const head = `- **${tool.name}** — slug: \`${tool.slug}\` — ${tool.category}${
+  const official = officialNameShown(tool);
+  const head = `- **${tool.name}**${official ? ` (official: ${official})` : ""} — slug: \`${tool.slug}\` — ${tool.category}${
     tool.categorySub ? ` / ${tool.categorySub}` : ""
   } · ${tool.location}${tool.zone ? ` / ${tool.zone}` : ""} · ${tool.trainingLevel}`;
   if (!tool.units.length) return head;

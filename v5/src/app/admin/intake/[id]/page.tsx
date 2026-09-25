@@ -207,6 +207,7 @@ function draftKey(research: ResearchResult | null): string {
   if (!research) return "none";
   const text = JSON.stringify([
     research.canonicalName,
+    research.displayName ?? null,
     research.description,
     research.materials,
     research.tags,

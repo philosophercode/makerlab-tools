@@ -22,6 +22,7 @@ import { INTAKE_POLL_INTERVAL_MS, REDO_HIGHLIGHT_SHOW_MS } from "../../lib/intak
 import { isImageOnlyFocus, type ResearchFocusField } from "../../lib/intake/research-focus";
 import { ADMIN_INTAKE_PATH, type PendingToolView } from "../../lib/intake/types";
 import type { ResearchImages, ResearchResult } from "../../lib/research/result";
+import { DISPLAY_NAME_MAX, displayNameFrom, OFFICIAL_NAME_MAX } from "../../lib/tool-names";
 import { ConfidenceStrip, isWebLink } from "../ConfidenceStrip";
 import { requestResearch } from "./IntakeList";
 import { initialImageChoice, ProductImage } from "./ProductImage";
@@ -124,7 +125,10 @@ const NEW_CATEGORY = "__new__";
 
 /** What the reviewer is editing: the proposal as text, the way inputs hold it. */
 interface Draft {
+  /** The display name (tool display names spec §5.3). */
   name: string;
+  /** The official name; blank is none. */
+  officialName: string;
   description: string;
   category: string;
   locationId: string;
@@ -677,9 +681,27 @@ function ProposedRecord({
             id="intake-name"
             value={draft.name}
             required
-            maxLength={200}
+            maxLength={DISPLAY_NAME_MAX}
+            aria-describedby="intake-name-hint"
             onChange={(event) => set("name", event.target.value)}
           />
+          <p className="admin-field-hint" id="intake-name-hint">
+            {tEditor("displayNameHint")}
+          </p>
+        </div>
+
+        <div className="admin-field">
+          <label htmlFor="intake-official-name">{tEditor("fieldOfficialName")}</label>
+          <input
+            id="intake-official-name"
+            value={draft.officialName}
+            maxLength={OFFICIAL_NAME_MAX}
+            aria-describedby="intake-official-name-hint"
+            onChange={(event) => set("officialName", event.target.value)}
+          />
+          <p className="admin-field-hint" id="intake-official-name-hint">
+            {tEditor("officialNameHint")}
+          </p>
         </div>
 
         <div className={`admin-field${textUpdated ? " is-updated" : ""}`}>
@@ -1053,7 +1075,12 @@ function initialDraft(
   return {
     // Every link the list gave starts ticked, like research's.
     importLinkUrls: (imported?.links ?? []).map((link) => link.url),
-    name: research?.canonicalName.trim() || item.name,
+    // Research's short name (or, on an older row, its official name through the
+    // display guard); the official name beside it (tool display names spec §5.3).
+    name: research
+      ? displayNameFrom({ displayName: research.displayName, officialName: research.canonicalName, fallback: item.name })
+      : item.name,
+    officialName: research?.canonicalName.trim() ?? "",
     description: research ? proposedDescription(research) : "",
     category: research ? proposedCategory(research, categories) : "",
     locationId: matchLocation(item.locationHint, locations),
@@ -1119,6 +1146,7 @@ function toFields(draft: Draft, research: ResearchResult, image: ApprovalImageCh
   const isNew = draft.category === NEW_CATEGORY;
   return {
     name: draft.name.trim(),
+    officialName: draft.officialName.trim() || null,
     description: draft.description.trim() || null,
     categoryId: draft.category && !isNew ? draft.category : null,
     newCategory: isNew ? { name: research.category.name, group: research.category.group } : null,

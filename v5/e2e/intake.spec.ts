@@ -127,7 +127,7 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   await expect(page).toHaveURL(/\/admin\/intake\/[0-9a-f-]{36}$/, { timeout: 15_000 });
   // The proposal is research's, in the tool editor's fields, and the manual
   // the stub served was opened and kept.
-  await expect(page.getByLabel("Name", { exact: true })).toHaveValue(domino.name, {
+  await expect(page.getByLabel("Display name", { exact: true })).toHaveValue(domino.name, {
     timeout: 15_000,
   });
   await expect(page.getByText(`${domino.name} user manual`)).toBeVisible();

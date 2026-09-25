@@ -59,7 +59,10 @@ export interface InventoryAttention {
 export interface InventoryRow {
   id: string;
   slug: string;
+  /** The display name. */
   name: string;
+  /** The official name (tool display names spec), searched beside the name; absent on fixtures from before it. */
+  officialName?: string | null;
   /** The cover photo's public URL, or null — null *is* the "no photo" state. */
   photoUrl: string | null;
   categoryName: string | null;
@@ -142,6 +145,7 @@ export async function listInventoryRows(
       id: tools.id,
       slug: tools.slug,
       name: tools.name,
+      officialName: tools.officialName,
       published: tools.published,
       archivedAt: tools.archivedAt,
       lastReviewedAt: tools.lastReviewedAt,
@@ -198,6 +202,7 @@ export async function listInventoryRows(
       id: tool.id,
       slug: tool.slug,
       name: tool.name,
+      officialName: tool.officialName,
       photoUrl,
       categoryName: tool.categoryName,
       categoryGroup: tool.categoryGroup,

@@ -5,7 +5,7 @@ vi.mock("@/lib/ai/models", async (importOriginal) =>
 import { recordedCalls, resetModelStubs, setLanguageModel, textModel } from "../../../test/ai/models-stub";
 import { buildExtractPrompt, extractInventoryItems } from "./extract";
 import { ExtractOutputError } from "./extract-output";
-import { buildSuggestPrompt, parseSuggestion, suggestName } from "./suggest-names";
+import { buildSuggestPrompt, parseSuggestion, suggestName, SUGGEST_SYSTEM_PROMPT } from "./suggest-names";
 
 afterEach(resetModelStubs);
 
@@ -55,6 +55,8 @@ describe("suggestName (§3.3)", () => {
 
     expect(run.suggestion).toEqual({
       canonicalName: "Formlabs Form 2",
+      // No displayName in the answer: the official name through the display guard.
+      displayName: "Formlabs Form 2",
       brand: "Formlabs",
       confidence: "exact",
       sourceUrl: "https://formlabs.com/form-2",
@@ -81,5 +83,26 @@ describe("suggestName (§3.3)", () => {
     expect(
       parseSuggestion('{"canonicalName":"Epilog Fusion Pro 32","confidence":"certain","sourceUrl":"javascript:x"}', { name: "Big Epilog", brand: null, categoryHint: null }, now)
     ).toMatchObject({ canonicalName: "Epilog Fusion Pro 32", confidence: "unsure", sourceUrl: null });
+  });
+
+  it("proposes both names, the display name through the guard (tool display names spec §5.4)", () => {
+    const now = new Date("2026-09-24T00:00:00Z");
+    const item = { name: "plunge base", brand: "Makita", categoryHint: null };
+    expect(
+      parseSuggestion('{"canonicalName":"Makita 196094-2 Compact Router Plunge Base","displayName":"Makita Plunge Base","confidence":"exact"}', item, now)
+    ).toMatchObject({ canonicalName: "Makita 196094-2 Compact Router Plunge Base", displayName: "Makita Plunge Base" });
+    // A display name with a part number is cleaned; a missing one is derived from the official name.
+    expect(
+      parseSuggestion('{"canonicalName":"Makita 196094-2 Compact Router Plunge Base","displayName":"Makita 196094-2 Base","confidence":"exact"}', item, now)
+        .displayName
+    ).toBe("Makita Base");
+    expect(
+      parseSuggestion('{"canonicalName":"Festool 575267 Dust Extractor CT Midi","confidence":"likely"}', item, now).displayName
+    ).toBe("Festool Dust Extractor CT Midi");
+  });
+
+  it("asks for both names in the prompt", () => {
+    expect(SUGGEST_SYSTEM_PROMPT).toContain('"displayName"');
+    expect(SUGGEST_SYSTEM_PROMPT).toContain("no part numbers");
   });
 });

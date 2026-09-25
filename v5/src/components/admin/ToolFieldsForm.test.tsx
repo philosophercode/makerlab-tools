@@ -57,7 +57,7 @@ async function save() {
 
 it("shows the values the tool currently holds", () => {
   renderForm();
-  expect(screen.getByLabelText("Name")).toHaveValue("Form 4");
+  expect(screen.getByLabelText("Display name")).toHaveValue("Form 4");
   expect(screen.getByLabelText("Materials")).toHaveValue("Standard resin");
 });
 

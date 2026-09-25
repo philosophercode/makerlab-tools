@@ -27,21 +27,29 @@ describe("proposeChanges", () => {
     expect(proposals[0].field).toBe("use_restrictions");
   });
 
-  it("RYOBI PCL235: a drill that is an impact driver → a name differs, with its quote", () => {
+  it("RYOBI PCL235: a drill that is an impact driver → an official name, and a display name without the part number, with its quote", () => {
+    const quote = { quote: "18V ONE+ Impact Driver (PCL235)", url: "https://ryobitools.com/pcl235", verified: true };
     const proposals = proposeChanges({
       tool: toolFixture({ name: "RYOBI PCL235 drill" }),
       research: researchFixture({
         canonicalName: "RYOBI ONE+ 18V Impact Driver PCL235",
-        citations: {
-          name: [{ quote: "18V ONE+ Impact Driver (PCL235)", url: "https://ryobitools.com/pcl235", verified: true }],
-        },
+        displayName: "Ryobi Impact Driver",
+        citations: { name: [quote] },
       }),
       includeDescription: false,
     });
+    expect(byField(proposals, "official_name")).toMatchObject({
+      kind: "new",
+      current: null,
+      proposed: "RYOBI ONE+ 18V Impact Driver PCL235",
+      citations: [quote],
+    });
+    // "RYOBI PCL235 drill" carries a part number, so the display name is proposed too.
     expect(byField(proposals, "name")).toMatchObject({
       kind: "differs",
       current: "RYOBI PCL235 drill",
-      proposed: "RYOBI ONE+ 18V Impact Driver PCL235",
+      proposed: "Ryobi Impact Driver",
+      citations: [quote],
     });
   });
 
@@ -57,12 +65,16 @@ describe("proposeChanges", () => {
     expect(byField(proposals, "name")).toBeUndefined();
   });
 
-  it("ignores case, punctuation and spacing in a name", () => {
+  it("ignores case, punctuation and spacing in an official name", () => {
     const proposals = proposeChanges({
-      tool: toolFixture({ name: "wen   dc-3401" }),
-      research: researchFixture({ canonicalName: "WEN DC 3401" }),
+      tool: toolFixture({ name: "WEN Air Filter", officialName: "wen   dc-3401" }),
+      research: researchFixture({
+        canonicalName: "WEN DC 3401",
+        citations: { name: [{ quote: "WEN DC 3401", url: "https://wenproducts.com/products/dc3401", verified: true }] },
+      }),
       includeDescription: false,
     });
+    expect(byField(proposals, "official_name")).toBeUndefined();
     expect(byField(proposals, "name")).toBeUndefined();
   });
 
@@ -261,6 +273,77 @@ describe("helpers", () => {
   it("normalizeLabel folds case and separators", () => {
     expect(normalizeLabel("Wood.")).toBe("wood");
     expect(normalizeLabel("Dust-collection")).toBe(normalizeLabel("dust collection"));
+  });
+
+  describe("the two names (tool display names spec §5.5)", () => {
+    const verified = { quote: "WEN 3-Speed Remote-Controlled Air Filtration System (DC3401)", url: "https://wenproducts.com/products/dc3401", verified: true };
+
+    it("keeps a lab's display name that follows the rules, however research would style it", () => {
+      const proposals = proposeChanges({
+        tool: toolFixture({ name: "WEN Air Filter", officialName: null }),
+        research: researchFixture({
+          canonicalName: "WEN 3-Speed Remote-Controlled Air Filtration System DC3401",
+          displayName: "WEN Air Filtration System",
+          citations: { name: [verified] },
+        }),
+        includeDescription: false,
+      });
+      expect(byField(proposals, "name")).toBeUndefined();
+      expect(byField(proposals, "official_name")).toMatchObject({
+        kind: "new",
+        current: null,
+        proposed: "WEN 3-Speed Remote-Controlled Air Filtration System DC3401",
+      });
+    });
+
+    it("keeps the lab's display name even when it is in capitals — style is not a problem", () => {
+      const proposals = proposeChanges({
+        tool: toolFixture({ name: "MAKITA Plunge Base" }),
+        research: researchFixture({ canonicalName: "Makita 196094-2 Compact Router Plunge Base", displayName: "Makita Plunge Base", citations: { name: [verified] } }),
+        includeDescription: false,
+      });
+      expect(byField(proposals, "name")).toBeUndefined();
+    });
+
+    it("proposes a display name for one that carries a part number, from research's guarded name", () => {
+      const proposals = proposeChanges({
+        tool: toolFixture({ name: "Festool 575267 Dust Extractor CT Midi Hepa" }),
+        research: researchFixture({
+          canonicalName: "Festool CT MIDI I HEPA Dust Extractor 575267",
+          // A model that ignored the rules: the guard still keeps the part number off the card.
+          displayName: "Festool 575267 Dust Extractor",
+          citations: { name: [verified] },
+        }),
+        includeDescription: false,
+      });
+      expect(byField(proposals, "name")).toMatchObject({
+        kind: "differs",
+        current: "Festool 575267 Dust Extractor CT Midi Hepa",
+        proposed: "Festool Dust Extractor",
+      });
+    });
+
+    it("proposes neither name without a verified quote", () => {
+      const proposals = proposeChanges({
+        tool: toolFixture({ name: "Festool 575267 Dust Extractor CT Midi Hepa" }),
+        research: researchFixture({
+          canonicalName: "Festool CT MIDI I HEPA Dust Extractor 575267",
+          citations: { name: [{ ...verified, verified: false }] },
+        }),
+        includeDescription: false,
+      });
+      expect(byField(proposals, "name")).toBeUndefined();
+      expect(byField(proposals, "official_name")).toBeUndefined();
+    });
+
+    it("proposes a different official name as differs, and not an equal one", () => {
+      const differs = proposeChanges({
+        tool: toolFixture({ name: "WEN Air Filter", officialName: "WEN DC3400" }),
+        research: researchFixture({ canonicalName: "WEN DC3401", citations: { name: [verified] } }),
+        includeDescription: false,
+      });
+      expect(byField(differs, "official_name")).toMatchObject({ kind: "differs", current: "WEN DC3400", proposed: "WEN DC3401" });
+    });
   });
 
   it("resourceKey drops www, trailing slash, size parameters and a locale segment", () => {
