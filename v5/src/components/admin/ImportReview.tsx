@@ -17,6 +17,7 @@ import type { TablePreview } from "../../lib/import/preview";
 import { postResearch, queueResearchInChunks, type ChunkProgress, type ResearchPost } from "../../lib/import/research-queue";
 import type { ImportItemView, ImportView } from "../../lib/import/view";
 import { ADMIN_INTAKE_PATH } from "../../lib/intake/types";
+import { AdminPageHeader } from "./AdminPageHeader";
 import { ImportMapping } from "./ImportMapping";
 import { ImportTable } from "./ImportTable";
 import { IMPORT_FILTERS, isLive, researchPlan, visibleRows, type ImportFilter } from "./import-table";
@@ -278,23 +279,26 @@ export function ImportReview({
   }
 
   const header = (
-    <header className="admin-section-head">
-      <p className="td-eyebrow">{t("eyebrow")}</p>
-      <h2>{view.sourceName ?? t(`source.${view.sourceKind}`)}</h2>
-      <p className="admin-lede">
-        {view.status === "ready"
-          ? t("summary", { items: live.length, duplicates: live.filter((item) => item.duplicateOf !== null).length })
-          : t(`status.${view.status}`)}
-      </p>
-      <p>
-        <Link href={ADMIN_INTAKE_PATH}>{t("backToIntake")}</Link>
-      </p>
-    </header>
+    <AdminPageHeader
+      surface="intake"
+      item
+      title={view.sourceName ?? t(`source.${view.sourceKind}`)}
+      facts={
+        view.status === "ready"
+          ? [t("summary", { items: live.length, duplicates: live.filter((item) => item.duplicateOf !== null).length })]
+          : [t(`status.${view.status}`)]
+      }
+      actions={
+        <Button asChild size="sm">
+          <Link href={`${ADMIN_INTAKE_PATH}/imports`}>{t("backToImports")}</Link>
+        </Button>
+      }
+    />
   );
 
   if (view.status === "mapping" && preview) {
     return (
-      <section className="admin-section">
+      <section className="flex flex-col gap-4">
         {header}
         <ImportMapping preview={preview} busy={busy === "mapping"} error={mappingError} onConfirm={(map) => void confirmColumns(map)} />
       </section>
@@ -303,7 +307,7 @@ export function ImportReview({
 
   if (view.status === "parsing") {
     return (
-      <section className="admin-section">
+      <section className="flex flex-col gap-4">
         {header}
         <ReviewNote role="status" tone="ink">
           {t("parsing")}
@@ -316,7 +320,7 @@ export function ImportReview({
     const reason = view.parseError ?? "failed";
     const tooMany = parseTooManyItemsReason(reason);
     return (
-      <section className="admin-section">
+      <section className="flex flex-col gap-4">
         {header}
         <div className="ui flex flex-col gap-2">
           <ReviewNote tone="bad" role="alert" className="text-table">
@@ -354,7 +358,7 @@ export function ImportReview({
   };
 
   return (
-    <section className="admin-section">
+    <section className="flex flex-col gap-4">
       {header}
 
       <div className="ui flex flex-col gap-2">

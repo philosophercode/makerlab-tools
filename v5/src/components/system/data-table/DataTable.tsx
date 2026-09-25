@@ -274,7 +274,7 @@ export function DataTable<T>({
       <div
         role="region"
         aria-label={selectedWord(selectedIds.length)}
-        // pe-20 keeps the actions clear of the chat launcher in the corner (DESIGN.md §8.13).
+        // pe-20 keeps the actions clear of the chat launcher in the corner (DESIGN.md §8.15).
         className="sticky bottom-0 z-20 mt-2 flex flex-wrap items-center gap-2 border border-border bg-card py-2 ps-3 pe-20"
       >
         <span role="status" className="me-auto font-mono text-label uppercase">

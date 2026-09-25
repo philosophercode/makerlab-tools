@@ -32,7 +32,7 @@ function view(overrides: Partial<ImportView> = {}): ImportView {
 }
 
 it("lists each import with its status, counts and a link to its review", () => {
-  render(<ImportsList imports={[view(), view({ id: "i2", status: "mapping", sourceName: null, sourceKind: "paste" })]} canImport />);
+  render(<ImportsList imports={[view(), view({ id: "i2", status: "mapping", sourceName: null, sourceKind: "paste" })]} />);
   const table = screen.getByRole("table", { name: "Recent imports" });
   const csv = within(table).getByRole("row", { name: /inventory-2026\.csv/ });
   expect(within(csv).getByRole("link", { name: "inventory-2026.csv" })).toHaveAttribute("href", "/admin/intake/imports/i1");
@@ -43,21 +43,22 @@ it("lists each import with its status, counts and a link to its review", () => {
   // Not yet read into rows: counts are a dash, not a zero.
   const pasted = within(table).getByRole("row", { name: /Pasted list/ });
   expect(pasted).toHaveTextContent("Choose the columns");
-  expect(screen.getByRole("link", { name: "Import a list" })).toHaveAttribute("href", "/admin/intake/imports/new");
+  // Import a list is Add equipment's next tab now, not a button over the list.
+  expect(screen.queryByRole("link", { name: "Import a list" })).not.toBeInTheDocument();
 });
 
 it("opens an import with Enter on its row", async () => {
-  render(<ImportsList imports={[view()]} canImport={false} />);
+  render(<ImportsList imports={[view()]} />);
   const row = within(screen.getByRole("table", { name: "Recent imports" })).getAllByRole("row")[1];
   row.focus();
   await userEvent.keyboard("{Enter}");
   expect(router.push).toHaveBeenCalledWith("/admin/intake/imports/i1");
-  expect(screen.queryByRole("link", { name: "Import a list" })).not.toBeInTheDocument();
 });
 
-it("says there are none, and says when the list could not be read", () => {
-  const { rerender } = render(<ImportsList imports={[]} canImport />);
+it("says there are none, with the way to start one, and says when the list could not be read", () => {
+  const { rerender } = render(<ImportsList imports={[]} />);
   expect(screen.getByText("No imports yet.")).toBeInTheDocument();
-  rerender(<ImportsList imports={null} canImport />);
+  expect(screen.getByRole("link", { name: "Import a list" })).toHaveAttribute("href", "/admin/intake/imports/new");
+  rerender(<ImportsList imports={null} />);
   expect(screen.getByRole("alert")).toHaveTextContent("The imports could not be loaded right now.");
 });

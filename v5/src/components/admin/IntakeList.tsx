@@ -17,7 +17,7 @@ import {
 } from "../../lib/intake/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { EmptyState } from "../system/EmptyState";
+import { QueueList } from "../system/queue/QueueList";
 import { Field, hintId } from "../system/Field";
 import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
 import { DuplicateChoice } from "../system/review/DuplicateChoice";
@@ -183,10 +183,16 @@ const LEVEL_KEYS: Record<IntakeConfidenceLevel, string> = {
 
 export interface IntakeListProps {
   items: PendingToolView[];
+  /** The search and facets over the queue; off for the one item an item page shows. */
+  filters?: boolean;
 }
 
-export function IntakeList({ items }: IntakeListProps) {
+/** Every status a queue item can be in, in the order work moves. */
+const STATUSES: readonly PendingStatus[] = ["identified", "queued", "researching", "researched", "failed", "approved", "discarded"];
+
+export function IntakeList({ items, filters = true }: IntakeListProps) {
   const t = useTranslations("admin.intake");
+  const tStatus = useTranslations("intake.status");
   const router = useRouter();
   const polling = items.some((item) => isInFlight(item));
 
@@ -196,24 +202,39 @@ export function IntakeList({ items }: IntakeListProps) {
     return () => clearInterval(timer);
   }, [polling, router]);
 
-  if (items.length === 0) {
-    return <EmptyState>{t("empty")}</EmptyState>;
-  }
-
-  const open = items.filter((item) => !SETTLED.has(item.status));
-  const settled = items.filter((item) => SETTLED.has(item.status));
-
+  // The shared queue layout (UI system phase 4): the open work by batch, the
+  // decided work folded away, search and a Status facet over both.
   return (
-    <div className="admin-queue">
-      {open.length === 0 ? <EmptyState>{t("emptyOpen")}</EmptyState> : <Batches items={open} />}
-
-      {settled.length > 0 ? (
-        <details className="admin-queue-settled">
-          <summary>{t("settledToggle", { count: settled.length })}</summary>
-          <Batches items={settled} />
-        </details>
-      ) : null}
-    </div>
+    <QueueList
+      items={items}
+      getId={(item) => item.id}
+      isOpen={(item) => !SETTLED.has(item.status)}
+      searchText={filters ? (item) => [item.name, item.brand, item.categoryHint, item.createdByName].join(" ") : undefined}
+      facets={
+        filters
+          ? [
+              {
+                id: "status",
+                label: t("statusFacet"),
+                values: STATUSES,
+                valueLabel: (value) => tStatus(value),
+                matches: (item, value) => item.status === value,
+              },
+            ]
+          : []
+      }
+      labels={{
+        list: t("queueLabel"),
+        filters: t("filtersLabel"),
+        search: t("search"),
+        searchPlaceholder: t("searchPlaceholder"),
+        settled: (count) => t("settledToggle", { count }),
+        empty: t("empty"),
+        emptyOpen: t("emptyOpen"),
+      }}
+      renderItem={(item) => <IntakeRow item={item} />}
+      renderList={(run) => <Batches items={run} />}
+    />
   );
 }
 

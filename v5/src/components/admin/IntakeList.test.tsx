@@ -285,7 +285,7 @@ describe("IntakeList", () => {
 
     it("offers no research control on an item already researching", () => {
       render(<IntakeList items={[item({ status: "researching" })]} />);
-      expect(screen.queryByRole("button")).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /research|retry|discard/i })).not.toBeInTheDocument();
     });
   });
 

@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { can } from "../lib/auth/permissions";
 import type { Role } from "../lib/auth/roles";
 import { siteConfig } from "../lib/site-config";
+import { Button } from "@/components/ui/button";
+import { RowStatus } from "./admin/RowStatus";
 
 /**
  * "Refresh catalogue" — the staff control that invalidates the cached catalog
@@ -20,7 +22,8 @@ import { siteConfig } from "../lib/site-config";
  * identity and refuses anyone without `tools.edit`; rendering `null` here only
  * spares everyone else a control they cannot use.
  *
- * It lives on `/admin`, in the action row above the surfaces list. It sat in the
+ * It lives on `/admin`, in the home's header actions (and the ⌘K palette runs
+ * the same request). It sat in the
  * header until 2026-09-23, when Isaac cleared the bar down to the page links,
  * Report and the profile menu.
  *
@@ -67,49 +70,18 @@ export function RefreshCatalogButton({ role }: RefreshCatalogButtonProps) {
 
   return (
     <>
-      <style href="makerlab-refresh-catalog" precedence="medium">
-        {REFRESH_STYLES}
-      </style>
-
-      <button
-        type="button"
-        // The admin action row's chrome (globals.css, `.admin-action`).
-        className="admin-action catalog-refresh"
+      <Button
         onClick={handleRefresh}
         disabled={state === "refreshing"}
         aria-label={t("actionAria", { institution: siteConfig.institution })}
       >
         {t("action")}
-      </button>
+      </Button>
       {/* Always in the DOM so the live region is there before it has anything
-          to say; `:empty` keeps it out of the layout until it does. */}
-      <span
-        className={`catalog-refresh-status${state === "failed" ? " is-failed" : ""}`}
-        role="status"
-      >
-        {statusKey ? t(statusKey) : ""}
-      </span>
+          to say; empty, it takes no space. */}
+      <RowStatus tone={state === "failed" ? "bad" : "muted"} className="basis-auto">
+        {statusKey ? t(statusKey) : null}
+      </RowStatus>
     </>
   );
 }
-
-/**
- * Scoped styles, hoisted and deduped by React 19 (`precedence`). They live here
- * rather than in `globals.css` for the same reason `FlagButton`'s do — the
- * component arrived under separate file ownership, and folding them into the
- * stylesheet later is a no-op. Everything reads global theme tokens; the
- * action row supplies the mono/uppercase treatment.
- */
-const REFRESH_STYLES = `
-.catalog-refresh-status {
-  align-self: center;
-  color: var(--on-surface-muted);
-  font: inherit;
-}
-.catalog-refresh-status:empty {
-  display: none;
-}
-.catalog-refresh-status.is-failed {
-  color: var(--status-bad);
-}
-`;

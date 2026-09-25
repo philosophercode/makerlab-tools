@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { UsersTable } from "../../../components/admin/UsersTable";
 import { parseUserFilters } from "../../../components/admin/users-filters";
 import type { SearchParams } from "../../../components/admin/inventory-filters";
@@ -59,16 +60,21 @@ export default async function AdminUsersPage({
     };
   });
 
+  const admins = users.filter((person) => person.role === "admin" || person.role === "super_admin").length;
+  const banned = users.filter((person) => person.banned).length;
+
   return (
-    <section className="admin-section">
-      <header className="admin-section-head">
-        <p className="td-eyebrow">{t("eyebrow")}</p>
-        <h2>{t("usersTitle")}</h2>
-        {/* No placeholder in this string: `/admin/page.tsx` renders the same
-            key without arguments, and a next-intl placeholder with no argument
-            renders literally (Article 6 — this has been a real bug here). */}
-        <p className="admin-lede">{t("usersLede")}</p>
-      </header>
+    <section className="flex flex-col gap-4">
+      <AdminPageHeader
+        surface="users"
+        title={t("usersTitle")}
+        lede={t("usersLede")}
+        facts={[
+          t("facts.people", { count: users.length }),
+          t("facts.admins", { count: admins }),
+          t("facts.banned", { count: banned }),
+        ]}
+      />
 
       <UsersTable
         users={users}

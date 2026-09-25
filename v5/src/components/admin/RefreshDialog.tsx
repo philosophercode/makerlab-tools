@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import type { QueueRefreshAction, QueueRefreshResult } from "../../app/admin/refresh/action-result";
 import { RESEARCH_MAX_ITEMS_PER_REQUEST, REVIEWER_NOTE_MAX_CHARS } from "../../lib/intake/limits";
 import "../../styles/admin-refresh.css";
+import { RowStatus } from "./RowStatus";
 
 /**
  * **Refresh research (N)** (refresh research spec §5.1, §6): an inline panel
@@ -62,9 +63,9 @@ export function RefreshDialog({ toolIds, action, onClose, onQueued }: RefreshDia
               </p>
             </>
           ) : (
-            <p className="admin-row-status is-error">
+            <RowStatus tone="bad" as="p">
               {result.error === "daily_limit" ? t("dialogLimit", { remaining: result.remaining ?? 0 }) : te(result.error)}
-            </p>
+            </RowStatus>
           )}
           <div className="admin-editor-actions">
             <button type="button" className="admin-button" onClick={onClose}>
@@ -90,7 +91,7 @@ export function RefreshDialog({ toolIds, action, onClose, onQueued }: RefreshDia
               />
             </label>
           ) : null}
-          {tooMany ? <p className="admin-row-status is-error">{te("too_many_tools")}</p> : null}
+          {tooMany ? <RowStatus tone="bad">{te("too_many_tools")}</RowStatus> : null}
           <div className="admin-editor-actions">
             <button type="button" className="admin-button is-primary" disabled={pending || tooMany || count === 0} onClick={start}>
               {pending ? t("saving") : t("dialogStart", { count })}

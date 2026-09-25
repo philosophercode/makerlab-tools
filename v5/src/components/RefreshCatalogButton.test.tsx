@@ -47,11 +47,12 @@ describe("RefreshCatalogButton — who can see it", () => {
     expect(screen.getByRole("button", { name: /Refresh the/ })).toBeInTheDocument();
   });
 
-  it("wears the admin action row's chrome, not the header's", () => {
+  it("is the shared quiet Button, not the header's chrome", () => {
     render(<RefreshCatalogButton role="admin" />);
 
     const button = screen.getByRole("button", { name: /Refresh the/ });
-    expect(button).toHaveClass("admin-action");
+    expect(button).toHaveAttribute("data-slot", "button");
+    expect(button).toHaveAttribute("data-variant", "quiet");
     expect(button).not.toHaveClass("primary-nav-report");
   });
 

@@ -3294,17 +3294,13 @@ body::selection {
 .admin-shell {
   padding-bottom: 64px;
 
-  /* Every `/admin` page borrows the tool-detail utilities — `.td-panel` for a
-     card, `.td-eyebrow` above a title, `.td-empty` for an empty state, and
-     `.admin-row-status.is-warning` for a change that landed minus its audit
-     event. Those RULES are global; their TOKENS are scoped to `.tool-detail`,
-     which is a room no admin page is in. An unresolvable `var()` does not fall
-     back — the declaration computes to `unset`, so the panel's border came out
-     as `currentColor` and the amber warning line came out the colour of body
-     text: the one line on the page whose whole job is to be noticed. Supplying
-     them here is the fix `.projects-header-actions` already models. They are
-     mapped onto the global theme tokens, so light and dark follow without a
-     second palette to keep in step. */
+  /* What is left of admin's legacy CSS — `.td-panel` on the manual counts, the
+     mirror page's panels (`admin-mirror.css`) — reads the tool-detail tokens,
+     which are scoped to `.tool-detail`, a room no admin page is in. An
+     unresolvable `var()` does not fall back — it computes to `unset` — so they
+     are supplied here, mapped onto the global theme tokens, until phase 5
+     retires `--td-*` (UI system spec §6.1). Headers, empty states and status
+     lines are system components since phase 4 and read no `--td-*`. */
   --td-surface: var(--surface-container);
   --td-line: var(--outline);
   --td-muted: var(--on-surface-muted);
@@ -3316,116 +3312,6 @@ body::selection {
   --td-warning: var(--status-warn);
 }
 
-.admin-section {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.admin-section-head h2,
-.admin-index h2 {
-  margin: 4px 0 0;
-  font-family: var(--font-display);
-  font-size: clamp(22px, 3vw, 30px);
-  font-weight: 500;
-}
-
-.admin-lede {
-  margin: 0;
-  max-width: 68ch;
-  color: var(--on-surface-muted);
-  line-height: 1.6;
-}
-
-/* Add equipment + Refresh catalog, above the surfaces list (2026-09-23). */
-.admin-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 12px 16px;
-  margin: 16px 0 0;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  text-transform: uppercase;
-}
-
-.admin-action {
-  height: 36px;
-  padding: 0 16px;
-  border: 1px solid color-mix(in srgb, var(--primary-ink) 40%, transparent);
-  border-radius: 0;
-  background: transparent;
-  color: var(--primary-ink);
-  font: inherit;
-  transition: background-color 160ms ease-in, color 160ms ease-in;
-}
-
-.admin-action:hover,
-.admin-action:focus-visible {
-  background: color-mix(in srgb, var(--primary) 12%, transparent);
-}
-
-.admin-action:disabled {
-  opacity: 0.6;
-  cursor: progress;
-}
-
-.admin-action-primary {
-  border-color: var(--primary);
-  background: var(--primary);
-  color: #0f0f0f;
-}
-
-.admin-action-primary:hover,
-.admin-action-primary:focus-visible {
-  background: color-mix(in srgb, var(--primary) 85%, #ffffff);
-}
-
-.admin-action-primary:active {
-  background: transparent;
-  color: var(--primary-ink);
-}
-
-.admin-index-list {
-  margin: 16px 0 0;
-  padding: 0;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.admin-index-list li {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 16px;
-  background: var(--surface-container-low);
-}
-
-.admin-index-list span {
-  color: var(--on-surface-muted);
-  font-size: 13px;
-}
-
-.admin-empty {
-  margin: 0;
-  padding: 24px 0;
-}
-
-.admin-date {
-  display: block;
-  color: var(--on-surface-muted);
-  font-family: var(--font-mono);
-  font-size: 12px;
-}
-
-/* In a table the date is a cell: `display: block` pushed it out of its column. */
-td.admin-date {
-  display: table-cell;
-  white-space: nowrap;
-}
-
 .admin-tag {
   padding: 1px 6px;
   border: 1px solid var(--outline);
@@ -3434,31 +3320,6 @@ td.admin-date {
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-}
-
-/* The one line every outcome of a row control speaks through — pending, saved,
-   and the reason a row cannot change. `:empty` keeps it out of the layout
-   until it has something to say, as the header's refresh status does. */
-.admin-row-status {
-  flex-basis: 100%;
-  color: var(--on-surface-muted);
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.admin-row-status:empty {
-  display: none;
-}
-
-.admin-row-status.is-error {
-  color: var(--status-bad);
-}
-
-/* A change that landed, minus a guarantee — the row moved and the audit trail
-   did not record it. Not the error colour, because nothing failed to save, and
-   not the muted default, because somebody has to notice. */
-.admin-row-status.is-warning {
-  color: var(--td-warning);
 }
 
 .admin-thumb {
@@ -3495,38 +3356,6 @@ td.admin-date {
 .admin-state.is-draft {
   border-color: var(--primary-ink);
   color: var(--primary-ink);
-}
-
-.admin-unlinked {
-  padding: 16px;
-  border: 1px solid var(--outline);
-  background: var(--surface-container-low);
-}
-
-.admin-unlinked h3 {
-  margin: 0 0 4px;
-  font-family: var(--font-display);
-  font-size: 16px;
-  font-weight: 500;
-}
-
-.admin-unlinked-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  margin: 12px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.admin-unlinked-list li {
-  padding: 8px 12px;
-  border: 1px solid var(--outline);
-  background: var(--surface-container);
-}
-
-.admin-unlinked-label {
-  font-weight: 500;
 }
 
 /* On a phone a note sits beside its value rather than under it. (The
@@ -3850,152 +3679,6 @@ fieldset.admin-field legend {
   padding: 0 24px 24px;
 }
 
-/* ── The three queues (spec §5.6, §6) ───────────────────────────────
-   `/admin/maintenance`, `/admin/corrections` and `/admin/projects` are one
-   layout with three payloads: a card per row, the words at the top and the
-   controls under them, because every one of these rows carries prose that a
-   table cell cannot hold. Cards also make the phone case work without a second
-   layout — which matters for maintenance, where the person reading a ticket is
-   often standing in front of the machine it is about. */
-.admin-queue {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.admin-queue-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.admin-queue-card {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 16px;
-  border: 1px solid var(--outline);
-  background: var(--surface-container);
-}
-
-.admin-queue-card-head {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: baseline;
-}
-
-.admin-queue-card-head h3 {
-  margin: 0;
-  flex: 1 1 18ch;
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 500;
-}
-
-/* Every fact about a row that is not its body: who filed it, when, what it is
-   about. Mono and muted, like every other identifier in /admin. */
-.admin-queue-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  margin: 0;
-  color: var(--on-surface-muted);
-  font-size: 12px;
-}
-
-.admin-queue-meta a {
-  color: var(--primary-ink);
-}
-
-.admin-queue-body {
-  margin: 0;
-  max-width: 78ch;
-  /* Somebody typed this into a textarea; their line breaks are part of what
-     they said. */
-  white-space: pre-wrap;
-  line-height: 1.6;
-}
-
-/* The work that is finished. Present, and out of the way of the work that is
-   not — a queue somebody has ten minutes for shows them the open tickets, and
-   "what did we do last time" is one click, not a search. */
-.admin-queue-settled > summary {
-  padding: 8px 0;
-  color: var(--on-surface-muted);
-  cursor: pointer;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.admin-queue-settled[open] > summary {
-  margin-bottom: 12px;
-}
-
-/* A settled card is dimmed rather than restyled: it is the same row, and the
-   controls on it still work — reopening a ticket is a legitimate act. */
-.admin-queue-settled .admin-queue-card {
-  background: var(--surface-container-low);
-}
-
-.admin-ticket-controls,
-.admin-correction-controls,
-.admin-publish-toggle {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: flex-end;
-  padding-top: 4px;
-  border-top: 1px solid var(--outline);
-}
-
-.admin-correction-controls,
-.admin-publish-toggle {
-  align-items: center;
-}
-
-/* The resolution takes the rest of the row and then the whole of it, because
-   it is the only field here somebody writes a sentence into. */
-.admin-field-wide {
-  flex: 1 1 28ch;
-}
-
-.admin-field-wide textarea {
-  width: 100%;
-  resize: vertical;
-}
-
-/* The unit a ticket names, beside the tool it belongs to — an identifier, so
-   it is set like one. */
-.admin-unit-label {
-  font-family: var(--font-mono);
-  font-size: 11px;
-}
-
-/* A ticket's priority, next to its status. Only the top two are coloured: if
-   everything is marked, nothing is. */
-.admin-priority {
-  display: inline-block;
-  padding: 1px 6px;
-  border: 1px solid var(--outline);
-  color: var(--on-surface-muted);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.admin-priority.is-high,
-.admin-priority.is-critical {
-  border-color: var(--status-bad);
-  color: var(--status-bad);
-}
-
 /* A published row's badge. The draft accent already marks work somebody is
    expected to move out of; this marks the one that is done. */
 .admin-state.is-published {
@@ -4003,26 +3686,3 @@ fieldset.admin-field legend {
   color: var(--primary-ink);
 }
 
-.admin-project-photos {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-/* Bigger than the review table's 48px thumbnail, because this is the picture
-   the decision is made on rather than a way of recognising a row. */
-.admin-thumb.is-project {
-  width: 96px;
-  height: 96px;
-}
-
-@media (max-width: 640px) {
-  /* Every control its own line: three selects side by side at phone width are
-     three selects nobody can hit. */
-  .admin-ticket-controls > .admin-field {
-    flex: 1 1 100%;
-  }
-}

@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../../../components/admin/AdminNotice";
+import { AdminPageHeader } from "../../../../../components/admin/AdminPageHeader";
+import { EmptyState } from "../../../../../components/system/EmptyState";
+import { Button } from "@/components/ui/button";
 import { ImportReview } from "../../../../../components/admin/ImportReview";
 import { resolveIdentityFromHeaders } from "../../../../../lib/auth/identity";
 import { can } from "../../../../../lib/auth/permissions";
@@ -76,21 +79,26 @@ export default async function ImportPage({ params }: { params: Promise<{ id: str
   } catch (err) {
     console.error("[admin/intake/imports] could not read the import", err);
     return (
-      <section className="admin-section">
-        <p className="admin-empty td-empty" role="alert">
-          {t("unavailable")}
-        </p>
+      <section className="flex flex-col gap-4">
+        <AdminPageHeader surface="intake" item title={t("sectionTitle")} />
+        <EmptyState tone="bad">{t("unavailable")}</EmptyState>
       </section>
     );
   }
 
   if (!found) {
     return (
-      <section className="admin-section">
-        <p className="admin-empty td-empty">{t("missing")}</p>
-        <p>
-          <Link href={ADMIN_INTAKE_PATH}>{t("backToIntake")}</Link>
-        </p>
+      <section className="flex flex-col gap-4">
+        <AdminPageHeader surface="intake" item title={t("sectionTitle")} />
+        <EmptyState
+          action={
+            <Button asChild size="sm">
+              <Link href={`${ADMIN_INTAKE_PATH}/imports`}>{t("backToImports")}</Link>
+            </Button>
+          }
+        >
+          {t("missing")}
+        </EmptyState>
       </section>
     );
   }

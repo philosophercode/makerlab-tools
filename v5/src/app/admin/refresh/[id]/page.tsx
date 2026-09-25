@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../../components/admin/AdminNotice";
+import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
+import { EmptyState } from "../../../../components/system/EmptyState";
+import { Button } from "@/components/ui/button";
 import { RefreshReview, type RefreshReviewView } from "../../../../components/admin/RefreshReview";
 import { resolveIdentityFromHeaders } from "../../../../lib/auth/identity";
 import { can } from "../../../../lib/auth/permissions";
@@ -11,7 +14,7 @@ import {
   getRefreshRowRevision,
   loadRefreshSubject,
 } from "../../../../lib/data/tool-refreshes";
-import { isActionable } from "../../../../lib/refresh/types";
+import { countByKind, isActionable } from "../../../../lib/refresh/types";
 import { siteConfig } from "../../../../lib/site-config";
 import { ADMIN_REFRESH_PATH, type RefreshReviewActions } from "../action-result";
 import { decideRefreshProposals, refreshAgain } from "../actions";
@@ -46,9 +49,17 @@ export default async function AdminRefreshItemPage({ params }: { params: Promise
   const subject = refresh ? await loadRefreshSubject(refresh.toolId) : null;
   if (!refresh || !subject) {
     return (
-      <section className="admin-section">
-        <p className="admin-empty td-empty">{t("errors.not_found")}</p>
-        <Link href={ADMIN_REFRESH_PATH}>{t("refresh.back")}</Link>
+      <section className="flex flex-col gap-4">
+        <AdminPageHeader surface="refresh" item title={t("refreshTitle")} />
+        <EmptyState
+          action={
+            <Button asChild size="sm">
+              <Link href={ADMIN_REFRESH_PATH}>{t("refresh.back")}</Link>
+            </Button>
+          }
+        >
+          {t("errors.not_found")}
+        </EmptyState>
       </section>
     );
   }
@@ -85,15 +96,23 @@ export default async function AdminRefreshItemPage({ params }: { params: Promise
     canPublish: can(identity, "tools.publish"),
   };
 
+  const counts = countByKind(proposals);
+
   return (
-    <section className="admin-section">
-      <header className="admin-section-head">
-        <p className="td-eyebrow">
-          <Link href={ADMIN_REFRESH_PATH}>{t("refresh.back")}</Link>
-        </p>
-        <h2>{subject.name}</h2>
-        <p className="admin-lede">{t("refreshLede")}</p>
-      </header>
+    <section className="flex flex-col gap-4">
+      <AdminPageHeader
+        surface="refresh"
+        item
+        title={subject.name}
+        lede={t("refreshLede")}
+        facts={[
+          t(`refresh.status.${status}`),
+          t("facts.safety", { count: counts.safety }),
+          t("facts.differs", { count: counts.differs }),
+          t("facts.new", { count: counts.new }),
+          t("facts.notFound", { count: counts.unverified }),
+        ]}
+      />
       <RefreshReview view={view} actions={ACTIONS} />
     </section>
   );

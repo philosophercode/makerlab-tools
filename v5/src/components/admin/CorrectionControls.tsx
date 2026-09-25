@@ -3,6 +3,8 @@
 import { useTranslations } from "next-intl";
 import { FEEDBACK_STATUS } from "../../lib/db/schema/vocabulary";
 import type { SetCorrectionStatusAction } from "../../app/admin/corrections/action-result";
+import { Button } from "@/components/ui/button";
+import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
 import { RowStatus } from "./RowStatus";
 import { useRowAction } from "./use-row-action";
 
@@ -45,30 +47,33 @@ export function CorrectionControls({
 
   return (
     <div
-      className="admin-correction-controls"
+      className="flex flex-wrap items-center gap-2 border-t border-rule pt-2"
       role="group"
       aria-label={t("statusFor", { tool: toolName })}
     >
-      <span className={`admin-state is-${row.value}`}>{t(`status.${row.value}`)}</span>
+      <StatusGlyph tone={CORRECTION_STATUS_TONE[row.value] ?? "idle"} label={t(`status.${row.value}`)} className="me-2" />
 
       {FEEDBACK_STATUS.filter((option) => option !== row.value).map((option) => (
-        <button
+        <Button
           key={option}
-          type="button"
-          className="admin-button"
+          size="xs"
+          variant={option === "dismissed" ? "ghost" : "quiet"}
           disabled={row.pending}
           onClick={() => void row.run(option, () => action({ feedbackId, status: option }))}
         >
           {t(`setStatus.${option}`)}
-        </button>
+        </Button>
       ))}
 
-      <RowStatus
-        pending={row.pending}
-        saved={row.saved}
-        error={row.error}
-        warning={row.warning}
-      />
+      <RowStatus pending={row.pending} saved={row.saved} error={row.error} warning={row.warning} />
     </div>
   );
 }
+
+/** A correction's status as a glyph: waiting on you, looked at, done, set aside. */
+export const CORRECTION_STATUS_TONE: Record<string, StatusTone> = {
+  new: "active",
+  reviewed: "warn",
+  fixed: "ok",
+  dismissed: "muted",
+};

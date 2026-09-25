@@ -5,6 +5,8 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { EditorPhoto } from "../../lib/data/tool-editor";
 import { uploadFile, type UploadFailure } from "./upload-file";
+import { RowStatus } from "./RowStatus";
+import { EmptyState } from "../system/EmptyState";
 
 /**
  * The Photos section of the tool editor (spec §5.3(3), §4.7).
@@ -78,7 +80,7 @@ export function PhotoEditor({
   return (
     <div className="admin-editor-photos">
       {photos.length === 0 ? (
-        <p className="admin-empty td-empty">{t("noPhotos")}</p>
+        <EmptyState>{t("noPhotos")}</EmptyState>
       ) : (
         <ul className="admin-photo-list">
           {photos.map((photo, index) => (
@@ -140,12 +142,8 @@ export function PhotoEditor({
         />
       </label>
 
-      <p className="admin-row-status" role="status">
-        {uploading > 0 ? t("uploading") : null}
-      </p>
-      {uploadError ? (
-        <p className="admin-row-status is-error">{t(`uploadErrors.${uploadError}`)}</p>
-      ) : null}
+      <RowStatus tone="muted">{uploading > 0 ? t("uploading") : null}</RowStatus>
+      {uploadError ? <RowStatus tone="bad">{t(`uploadErrors.${uploadError}`)}</RowStatus> : null}
     </div>
   );
 }

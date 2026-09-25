@@ -2,6 +2,8 @@
 
 import { useTranslations } from "next-intl";
 import type { SetProjectPublishedAction } from "../../app/admin/projects/action-result";
+import { Button } from "@/components/ui/button";
+import { StatusGlyph } from "../system/StatusGlyph";
 import { RowStatus } from "./RowStatus";
 import { useRowAction } from "./use-row-action";
 
@@ -38,27 +40,26 @@ export function PublishToggle({ projectId, title, published, action }: PublishTo
   const next = !row.value;
 
   return (
-    <div className="admin-publish-toggle">
-      <span className={`admin-state ${row.value ? "is-published" : "is-draft"}`}>
-        {t(row.value ? "statePublished" : "stateWaiting")}
-      </span>
+    <div className="flex flex-wrap items-center gap-2 border-t border-rule pt-2">
+      <StatusGlyph
+        tone={row.value ? "ok" : "active"}
+        label={t(row.value ? "statePublished" : "stateWaiting")}
+        className="me-2"
+      />
 
-      <button
-        type="button"
-        className={`admin-button${next ? " is-primary" : ""}`}
+      <Button
+        size="xs"
+        // Publishing is the one decision this card exists for; taking a
+        // project down again is the quiet direction.
+        variant={next ? "default" : "quiet"}
         disabled={row.pending}
         aria-label={t(next ? "publishFor" : "unpublishFor", { title })}
         onClick={() => void row.run(next, () => action({ projectId, published: next }))}
       >
         {t(next ? "publish" : "unpublish")}
-      </button>
+      </Button>
 
-      <RowStatus
-        pending={row.pending}
-        saved={row.saved}
-        error={row.error}
-        warning={row.warning}
-      />
+      <RowStatus pending={row.pending} saved={row.saved} error={row.error} warning={row.warning} />
     </div>
   );
 }

@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../../components/admin/AdminNotice";
+import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
+import { EmptyState } from "../../../../components/system/EmptyState";
+import { Button } from "@/components/ui/button";
 import { IntakeList } from "../../../../components/admin/IntakeList";
 import {
   PreliminaryToolPage,
@@ -111,18 +114,16 @@ export default async function AdminIntakeItemPage({ params }: { params: Promise<
   }
 
   const back = (
-    <p>
+    <Button asChild size="sm">
       <Link href={ADMIN_INTAKE_PATH}>{t("intake.backToQueue")}</Link>
-    </p>
+    </Button>
   );
 
   if (!loaded) {
     return (
-      <section className="admin-section">
-        <p className="admin-empty td-empty" role="alert">
-          {t("intake.unavailable")}
-        </p>
-        {back}
+      <section className="flex flex-col gap-4">
+        <AdminPageHeader surface="intake" item title={t("intakeTitle")} actions={back} />
+        <EmptyState tone="bad">{t("intake.unavailable")}</EmptyState>
       </section>
     );
   }
@@ -130,14 +131,21 @@ export default async function AdminIntakeItemPage({ params }: { params: Promise<
   const { item, categories, locations, takenNames } = loaded;
   if (!item) {
     return (
-      <section className="admin-section">
-        <p className="admin-empty td-empty">{t("intake.missing")}</p>
-        {back}
+      <section className="flex flex-col gap-4">
+        <AdminPageHeader surface="intake" item title={t("intakeTitle")} />
+        <EmptyState action={back}>{t("intake.missing")}</EmptyState>
       </section>
     );
   }
 
   const view = toPendingToolView(item);
+  const tStatus = await getTranslations("intake.status");
+  const facts = [
+    tStatus(item.status),
+    item.brand,
+    view.createdByName ? t("intake.identifiedBy", { name: view.createdByName }) : null,
+    t("intake.identifiedOn", { date: view.createdAt.slice(0, 10) }),
+  ];
 
   if (!ON_THE_PAGE.has(item.status)) {
     // A queued item nothing is starting is not "queued" in any sense a person
@@ -153,14 +161,9 @@ export default async function AdminIntakeItemPage({ params }: { params: Promise<
       ? redoWhat((await getTranslations("admin.intake")) as unknown as IntakeTranslate, await getLocale(), redo.focus, "notice")
       : t(`intake.statusNotice.${notice}`);
     return (
-      <section className="admin-section">
-        <header className="admin-section-head">
-          <p className="td-eyebrow">{t("intakeTitle")}</p>
-          <h2>{item.name}</h2>
-          <p className="admin-lede">{lede}</p>
-        </header>
-        <IntakeList items={[view]} />
-        {back}
+      <section className="flex flex-col gap-4">
+        <AdminPageHeader surface="intake" item title={item.name} lede={lede} facts={facts} actions={back} />
+        <IntakeList items={[view]} filters={false} />
       </section>
     );
   }
@@ -172,12 +175,8 @@ export default async function AdminIntakeItemPage({ params }: { params: Promise<
       : null;
 
   return (
-    <section className="admin-section">
-      <header className="admin-section-head">
-        <p className="td-eyebrow">{t("intakeTitle")}</p>
-        <h2>{item.name}</h2>
-        {back}
-      </header>
+    <section className="flex flex-col gap-4">
+      <AdminPageHeader surface="intake" item title={item.name} facts={facts} actions={back} />
 
       {/* The assistant may curate this item for a reviewer (refresh research spec §12.3). */}
       <CurateChatStarter keys={[item.id]} />

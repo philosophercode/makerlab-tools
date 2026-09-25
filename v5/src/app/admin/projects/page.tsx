@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { ProjectQueue } from "../../../components/admin/ProjectQueue";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
@@ -36,16 +37,19 @@ export default async function AdminProjectsPage() {
 
   const projects = await listProjectsForModeration();
 
+  const waiting = projects.filter((project) => !project.published).length;
+
   return (
-    <section className="admin-section">
-      <header className="admin-section-head">
-        <p className="td-eyebrow">{t("eyebrow")}</p>
-        <h2>{t("projectsTitle")}</h2>
-        {/* No placeholder in this string: `/admin/page.tsx` renders the same
-            key without arguments, and a next-intl placeholder with no argument
-            renders literally (Article 6 — this has been a real bug here). */}
-        <p className="admin-lede">{t("projectsLede")}</p>
-      </header>
+    <section className="flex flex-col gap-4">
+      <AdminPageHeader
+        surface="projects"
+        title={t("projectsTitle")}
+        lede={t("projectsLede")}
+        facts={[
+          t("facts.waiting", { count: waiting }),
+          t("facts.published", { count: projects.length - waiting }),
+        ]}
+      />
 
       <ProjectQueue projects={projects} action={setPublished} />
     </section>

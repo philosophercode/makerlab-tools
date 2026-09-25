@@ -36,7 +36,7 @@ test.describe("who may open each queue", () => {
     }
   });
 
-  test("the admin index lists exactly what this account's permissions open", async ({
+  test("the admin home shows exactly what this account's permissions open", async ({
     page,
     context,
     baseURL,
@@ -44,16 +44,21 @@ test.describe("who may open each queue", () => {
     await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
     await page.goto("/admin");
 
-    // Scoped to the index's own list: the header's navigation has a Projects
-    // link of its own, and it means the public gallery.
-    const surfaces = page.getByRole("list", { name: "Admin pages your account can open" });
-    await expect(surfaces.getByRole("link", { name: "Maintenance" })).toBeVisible({
+    // Scoped to the home's Queues tiles and the section bar: the header's
+    // navigation has a Projects link of its own, and it means the public gallery.
+    const queues = page.getByRole("region", { name: "Queues" });
+    await expect(queues.getByRole("link", { name: "Maintenance", exact: true })).toBeVisible({
       timeout: 15_000,
     });
-    await expect(surfaces.getByRole("link", { name: "Corrections" })).toBeVisible();
-    await expect(surfaces.getByRole("link", { name: "Projects" })).toBeVisible();
-    // A SuperMaker does not hold `users.manage`, so the roster is not offered.
-    await expect(surfaces.getByRole("link", { name: "People" })).toHaveCount(0);
+    await expect(queues.getByRole("link", { name: "Corrections", exact: true })).toBeVisible();
+    await expect(queues.getByRole("link", { name: "Projects", exact: true })).toBeVisible();
+    // Each tile says what is waiting behind it: the demo seed's open ticket.
+    await expect(queues.getByRole("link", { name: "Maintenance", exact: true })).toContainText("open tickets");
+    // A SuperMaker does not hold `users.manage`, so the roster is not offered —
+    // not as a tile, and not in the section bar.
+    const bar = page.getByRole("navigation", { name: "Admin sections" });
+    await expect(page.getByRole("link", { name: "People", exact: true })).toHaveCount(0);
+    await expect(bar.getByRole("link", { name: "Maintenance", exact: true })).toBeVisible();
     // Every lede on this page is shared with the page it names, so none of them
     // takes an argument — a next-intl placeholder rendered without one renders
     // literally (Article 6).

@@ -13,6 +13,7 @@ import { ResourcesEditor } from "./ResourcesEditor";
 import { ToolFieldsForm } from "./ToolFieldsForm";
 import { ToolStateControls } from "./ToolStateControls";
 import { UnitsEditor } from "./UnitsEditor";
+import { RowStatus } from "./RowStatus";
 import type { ToolEditorActions } from "./tool-editor-actions";
 
 /**
@@ -268,13 +269,10 @@ export function ToolEditorPanel({
             {t("close")}
           </button>
         </header>
-        <p
-          className={`admin-row-status${phase === "unavailable" ? " is-error" : ""}`}
-          role="status"
-        >
+        <RowStatus tone={phase === "unavailable" ? "bad" : "muted"}>
           {phase === "loading" ? t("loading") : null}
           {phase === "unavailable" && error ? tAdmin(`errors.${error}`) : null}
-        </p>
+        </RowStatus>
       </aside>
     );
   }
@@ -303,17 +301,12 @@ export function ToolEditorPanel({
 
       {/* One live region for every outcome, so a screen reader hears a refusal
           in the same place it heard the confirmation (the `RoleSelect` rule). */}
-      <p
-        className={`admin-row-status${error ? " is-error" : ""}${
-          !error && warning ? " is-warning" : ""
-        }`}
-        role="status"
-      >
+      <RowStatus tone={error && error !== "conflict" ? "bad" : warning ? "warn" : "muted"}>
         {pending ? t("saving") : null}
         {!pending && saved && !error && !warning ? t("saved") : null}
         {!pending && warning ? tAdmin(`warnings.${warning}`) : null}
         {!pending && error && error !== "conflict" ? tAdmin(`errors.${error}`) : null}
-      </p>
+      </RowStatus>
 
       <ToolStateControls
         tool={tool}

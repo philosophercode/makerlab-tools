@@ -396,8 +396,6 @@
     "signedOutBody": "Admin pages need an account. Use the Sign in control in the header, then come back.",
     "forbiddenTitle": "You do not have access to this page",
     "forbiddenBody": "Your account is signed in, but it does not hold the permission this page needs. Ask a super admin if you think it should.",
-    "indexTitle": "Admin surfaces",
-    "indexListLabel": "Admin pages your account can open",
     "indexNothingYet": "Nothing here is open to your account yet.",
     "actionsLabel": "Admin actions",
     "inventoryTitle": "Inventory",
@@ -713,7 +711,10 @@
         "repair": "Repair",
         "inspection": "Inspection",
         "calibration": "Calibration"
-      }
+      },
+      "filtersLabel": "Filter the tickets",
+      "search": "Search tickets",
+      "searchPlaceholder": "Title, machine or words in the ticket"
     },
     "corrections": {
       "queueLabel": "Corrections waiting to be handled",
@@ -747,7 +748,12 @@
         "location": "Location",
         "materials": "Materials",
         "safety_info": "Safety info"
-      }
+      },
+      "fieldStatus": "Status",
+      "fieldField": "Field",
+      "filtersLabel": "Filter the corrections",
+      "search": "Search corrections",
+      "searchPlaceholder": "Tool or words in the report"
     },
     "projects": {
       "queueLabel": "Projects waiting for a decision",
@@ -767,7 +773,10 @@
       "publish": "Publish",
       "unpublish": "Unpublish",
       "publishFor": "Publish {title}",
-      "unpublishFor": "Unpublish {title}"
+      "unpublishFor": "Unpublish {title}",
+      "filtersLabel": "Filter the submissions",
+      "search": "Search submissions",
+      "searchPlaceholder": "Title, author or materials"
     },
     "intake": {
       "empty": "Nothing is waiting for review. Equipment added from the chat appears here.",
@@ -978,7 +987,12 @@
         "differentStarting": "Starting…",
         "differentRunning": "Looking for another image…",
         "differentFailed": "The search for another image did not work: {reason}"
-      }
+      },
+      "queueLabel": "Equipment waiting for review",
+      "filtersLabel": "Filter the intake queue",
+      "search": "Search the queue",
+      "searchPlaceholder": "Name, brand or who identified it",
+      "statusFacet": "Status"
     },
     "mirror": {
       "unavailable": "The mirror's settings could not be read. The database may be unreachable — try again in a moment.",
@@ -1124,7 +1138,6 @@
     },
     "refreshTitle": "Refresh research",
     "refreshLede": "Proposed changes from re-researching existing tools, safety first. Nothing changes until you accept it.",
-    "refreshWaitingCount": "{count, plural, one {# refresh waiting} other {# refreshes waiting}}",
     "refresh": {
       "listLabel": "Refreshes waiting for a decision",
       "empty": "No refreshes waiting. Select tools in the inventory and press Refresh research.",
@@ -1229,10 +1242,8 @@
       "reason": "Why: {reason}"
     },
     "import": {
-      "eyebrow": "Intake",
       "title": "Import a list",
       "lede": "Bring in an inventory list: a CSV or TSV export, pasted spreadsheet cells, a plain list, or a document. Every row becomes an item waiting for review — nothing is researched or published until you say so.",
-      "backToIntake": "Back to intake",
       "unavailable": "The import could not be loaded right now.",
       "missing": "That import no longer exists.",
       "launcher": {
@@ -1319,8 +1330,8 @@
       "review": {
         "search": "Search rows",
         "filterLabel": "Show",
-      "filterBar": "Filter this import's rows",
-      "tableLabel": "Imported rows, what each one is and what it still needs",
+        "filterBar": "Filter this import's rows",
+        "tableLabel": "Imported rows, what each one is and what it still needs",
         "actionsLabel": "Selected rows",
         "selectedCount": "{count, plural, =0 {None selected} one {# selected} other {# selected}}",
         "selectAllShown": "Select all shown",
@@ -1465,7 +1476,8 @@
       "columnItems": "Items",
       "columnDuplicates": "Possible duplicates",
       "columnBy": "By",
-      "columnCreated": "Started"
+      "columnCreated": "Started",
+      "backToImports": "Back to imports"
     },
     "mcpTokenDeprecated": "MCP_TOKEN is still set. It is deprecated: MCP callers using it now get the public, read-only tools only. Create personal access tokens on /account/tokens, then unset MCP_TOKEN.",
     "users": {
@@ -1477,6 +1489,129 @@
         "banned": "Banned"
       },
       "emptyFiltered": "Nobody matches these filters. Clear them to see everyone who has signed in."
+    },
+    "nav": {
+      "label": "Admin sections",
+      "overview": "Overview",
+      "group": {
+        "addEquipment": "Add equipment",
+        "keepFresh": "Keep data fresh",
+        "queues": "Queues",
+        "settings": "People & settings"
+      },
+      "surface": {
+        "intake": "Intake",
+        "import": "Import a list",
+        "inventory": "Inventory",
+        "refresh": "Refresh",
+        "research": "Manuals",
+        "maintenance": "Maintenance",
+        "corrections": "Corrections",
+        "projects": "Projects",
+        "users": "People",
+        "mirror": "Notion mirror"
+      }
+    },
+    "home": {
+      "title": "Overview",
+      "lede": "What is waiting, and where. Each tile opens the page it counts.",
+      "factsWaiting": "{count, plural, one {# item waiting on you} other {# items waiting on you}}",
+      "factsSurfaces": "{count, plural, one {# page open to you} other {# pages open to you}}",
+      "factsUnreadable": "{count, plural, one {# count could not be read} other {# counts could not be read}}",
+      "unavailable": "Could not be read",
+      "seriesCaption": "30 days",
+      "intakeUnit": "researched, waiting for you",
+      "intakeIdentified": "Identified, not researched",
+      "intakeResearching": "Researching",
+      "intakeFailed": "Research failed",
+      "intakeSeries": "{total, plural, one {# item} other {# items}} identified in the last 30 days",
+      "importUnit": "lists ready to review",
+      "importMapping": "Waiting for column matches",
+      "importLast30": "Imports in the last 30 days",
+      "inventoryUnit": "need attention",
+      "inventoryTotal": "Tools",
+      "inventoryNoPhoto": "No photo",
+      "inventoryNoManual": "No manual",
+      "inventoryNeverReviewed": "Never reviewed",
+      "refreshUnit": "waiting for a decision",
+      "refreshRunning": "Running",
+      "refreshFailed": "Failed",
+      "manualsUnit": "manuals the assistant can search",
+      "manualsTotal": "Manuals on file",
+      "manualsFailed": "Could not be read",
+      "maintenanceUnit": "open tickets",
+      "maintenanceInProgress": "In progress",
+      "maintenanceUrgent": "High or critical",
+      "maintenanceSeries": "{total, plural, one {# ticket} other {# tickets}} reported in the last 30 days, {today} today",
+      "correctionsUnit": "new reports",
+      "correctionsHandled": "Handled",
+      "correctionsSeries": "{total, plural, one {# correction} other {# corrections}} filed in the last 30 days",
+      "projectsUnit": "waiting to be published",
+      "projectsPublished": "Published",
+      "usersUnit": "people have signed in",
+      "usersAdmins": "Admins",
+      "usersBanned": "Banned",
+      "mirror": {
+        "notConnected": "Not connected",
+        "connected": "Connected",
+        "paused": "Paused",
+        "failed": "Last push failed"
+      }
+    },
+    "facts": {
+      "tools": "{count, plural, one {# tool} other {# tools}}",
+      "published": "{count, plural, one {# published} other {# published}}",
+      "drafts": "{count, plural, one {# draft} other {# drafts}}",
+      "needAttention": "{count, plural, one {# needs attention} other {# need attention}}",
+      "open": "{count, plural, one {# open} other {# open}}",
+      "inProgress": "{count, plural, one {# in progress} other {# in progress}}",
+      "urgent": "{count, plural, one {# high or critical} other {# high or critical}}",
+      "tickets": "{count, plural, one {# ticket in all} other {# tickets in all}}",
+      "waiting": "{count, plural, one {# waiting} other {# waiting}}",
+      "handled": "{count, plural, one {# handled} other {# handled}}",
+      "running": "{count, plural, one {# running} other {# running}}",
+      "failed": "{count, plural, one {# failed} other {# failed}}",
+      "manuals": "{count, plural, one {# manual} other {# manuals}}",
+      "searchable": "{count, plural, one {# searchable} other {# searchable}}",
+      "people": "{count, plural, one {# person} other {# people}}",
+      "admins": "{count, plural, one {# admin} other {# admins}}",
+      "banned": "{count, plural, one {# banned} other {# banned}}",
+      "safety": "{count, plural, one {# safety change} other {# safety changes}}",
+      "differs": "{count, plural, one {# differs} other {# differ}}",
+      "new": "{count, plural, one {# new} other {# new}}",
+      "notFound": "{count, plural, one {# not found} other {# not found}}",
+      "researched": "{count, plural, one {# ready for review} other {# ready for review}}",
+      "identified": "{count, plural, one {# identified} other {# identified}}",
+      "researching": "{count, plural, one {# researching} other {# researching}}",
+      "importsReady": "{count, plural, one {# import ready} other {# imports ready}}",
+      "lastPush": "Last push {date}",
+      "unreadable": "Counts could not be read"
+    },
+    "palette": {
+      "open": "Open the command palette",
+      "trigger": "Search",
+      "title": "Command palette",
+      "description": "Jump to an admin page or a tool, or run an admin action.",
+      "placeholder": "Search pages, tools and actions…",
+      "empty": "Nothing matches “{query}”.",
+      "surfaces": "Admin pages",
+      "home": "Home",
+      "actions": "Actions",
+      "addEquipment": "Add equipment",
+      "refreshCatalog": "Refresh the catalog",
+      "tools": "Tools",
+      "draft": "Draft",
+      "hint": "↑ ↓ to move · Enter to open · Esc to close",
+      "toolsUnavailable": "The tool list could not be read.",
+      "assistant": "Assistant",
+      "ask": "Ask the assistant: “{query}”"
+    },
+    "addEquipment": {
+      "title": "Add equipment",
+      "tabsLabel": "Add equipment",
+      "tabQueue": "Queue",
+      "tabImports": "Imports",
+      "tabImport": "Import a list"
     }
   },
   "account": {
@@ -1676,6 +1811,12 @@
       "showing": "Showing {shown} of {total}",
       "columns": "Columns",
       "facetValue": "{label}: {value}"
+    },
+    "queue": {
+      "search": "Search",
+      "clear": "Clear filters",
+      "noMatch": "Nothing here matches {filters}.",
+      "searchFor": "“{query}”"
     }
   }
 }

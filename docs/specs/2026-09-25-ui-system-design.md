@@ -893,3 +893,106 @@ where the markup changed. Where phase 3 differs, and why:
   2,259 → 2,180; refresh review 2,001 → 1,438 / 2,602 → 1,970; import review
   1,289 → 1,165 / 5,839 → 2,636.
 - **Packages added:** none.
+
+### 2026-09-25 — Phase 4 as built (admin information architecture)
+
+Branch `v5/ui-phase-4`. §13's row is built — `surfaces.ts`, the section bar,
+the tile home on `loadAdminOverview`, Add equipment as tabs, the queues on one
+layout with `FilterBar`, the ⌘K palette — plus phase 3's handoff (`PageHeader`
+on every admin page, `RowStatus` where `admin-row-status` was still hand-drawn,
+`EmptyState` on page-level empty and error branches). No data model,
+capability or permission changes. Where phase 4 differs, and why:
+
+- **One list, three views.** `src/lib/admin/surfaces.ts` (client-safe) holds
+  every surface's key, href, group (`addEquipment`, `keepFresh`, `queues`,
+  `settings`), permission, lucide icon and **count loader** (a name, so the
+  module never pulls the database into the browser). `surfacesFor(identity)`
+  feeds the home tiles, the section bar and the palette; `currentHref` marks
+  the most specific surface a path is on. Tests pin each role: anonymous and a
+  student see none; an admin (SuperMaker) sees all but People; a super admin
+  sees all ten. Import a list gates on `tools.add`, which is not itself one of
+  `ADMIN_SURFACE_PERMISSIONS`; every role holding it holds one that is, and a
+  test asserts no role is shown a surface the layout would refuse.
+- **Counts are per loader, and only the viewer's.** The spike's
+  `loadAdminOverview()` read everything and failed as a whole.
+  `loadAdminOverview(loaders, { userId })` runs one aggregate statement per
+  requested loader (`COUNT_LOADER_READS`), each settled on its own: a failure
+  is `null` for that tile only ("Could not be read", no facts or sparkline
+  that would imply a number), and a SuperMaker's home never counts the people
+  table. Intake's "identified" leaves out imported rows not yet sent to
+  research — the queue does too, so the tile agrees with the page it opens.
+  Sparklines (30 days, bars) on intake, maintenance and corrections only.
+  `admin-tiles.ts` turns counts into tile content (pure, tested with the real
+  English messages). The mirror tile says its state in words.
+- **`Tile`** is one link whose accessible name is the title and whose
+  description is the counts (`aria-labelledby` / `aria-describedby`, with
+  `sr-only` separators so a screen reader hears "In progress: 1,"), so the
+  links list is ten names, not ten paragraphs. The accent start rule and
+  number mark waiting work only when it is above zero.
+- **Section bar (`AdminNav`)** on every admin page: Overview, then each
+  job's surfaces behind a divider, each group a named list, the palette's
+  button at the end. **No counts** (owner decision 5). The 88px "ADMIN" is
+  gone; an `sr-only` h1 keeps the outline, and `AdminNotice` (a refusal is the
+  page) keeps its own h1, now a `PageHeader`.
+- **`AdminPageHeader`** composes `PageHeader` with the `// ADMIN / GROUP`
+  crumb from the surface's group, a crumb link back to the surface on an
+  item's page (a refresh, an intake item, an import), and a facts line every
+  page computes from the rows it already read (`2 TOOLS · 2 PUBLISHED ·
+  0 DRAFTS · 2 NEED ATTENTION`). The facts use `admin.facts.*` ICU plurals.
+  `admin-section-head`, `td-eyebrow` and `admin-lede` are gone from admin.
+- **Add equipment is a route group, and its tabs are links.**
+  `src/app/admin/intake/(tabs)/` holds Queue (`/admin/intake`), **Imports**
+  (`/admin/intake/imports`, a new page — the list that sat under the queue)
+  and Import a list (`/admin/intake/imports/new`) under one layout: the header,
+  a facts line from the intake and imports loaders, and `LinkTabs`. Tabs
+  that load a URL are a `nav` of links with `aria-current`, not `role="tab"`
+  (which promises an in-page panel and arrow keys). Each tab keeps its own
+  permission and is offered only to holders. An item's page (`[id]`,
+  `imports/[id]`) stays outside the group. `ImportsList` lost its own header
+  and button; its empty state carries "Import a list".
+- **`QueueList`** (`system/queue/`) is the one queue layout: search and facets
+  over every item (counts per value given the other filters), open work on the
+  page, settled work behind a `<details>`, and an emptied list that names the
+  filter (`Nothing here matches "belt" · Priority: High`) with Clear. The
+  maintenance, corrections and projects queues and the intake queue (by batch,
+  through `renderList`) use it; they became client components (their props
+  were already serializable), and each card is a `ReviewCard` with status as
+  `StatusGlyph`s. `TicketControls` moved to `Field` + `NativeSelect` +
+  `Textarea` + `Button`; `CorrectionControls` and `PublishToggle` to `Button`.
+  Filters are not written to the URL (a queue is worked, not linked).
+- **⌘K palette** (`CommandPalette`, shadcn `Command` over `cmdk` in a themed
+  `Dialog`): surfaces from `surfacesFor(role)`; tools by display name,
+  official name or slug from `listToolIndex` (one narrow select in the admin
+  layout; drafts only with `catalog.view_drafts`, archived never; a failed
+  read is said in the palette); Add equipment and Refresh the catalog. Matching
+  is `paletteScore` — every word must appear, prefix ranks above contains,
+  never fuzzy. ⌘K / Ctrl-K toggles it, `/` focuses the page's filter search.
+  **Phase 5's hook:** an `onAsk(query)` prop adds "Ask the assistant: …";
+  nothing passes it yet.
+- **`RowStatus`** gained a message form (`tone` + children) beside the codes
+  form, one look, always a live region; it replaced every `admin-row-status`
+  (import launcher, photo and resource editors, the tool editor's two lines,
+  `RefreshDialog`) and the home's MCP token warning. `EmptyState` gained
+  `tone="bad"` (an alert) for "could not be read" branches, and replaced
+  `admin-empty` on every admin page and in the editor's empty sections.
+- **Kept inline:** Research again and Refresh again stay inline panels (owner
+  default), and `RefreshDialog` keeps its panel rules.
+- **Removed:** the index list and its CSS, `countRefreshesWaiting`, the
+  `admin-section*`, `admin-lede`, `admin-action*`, `admin-index*`,
+  `admin-empty`, `admin-date`, `admin-row-status*`, `admin-unlinked*` and
+  every `admin-queue*`/ticket/correction/publish/priority rule, `.admin-mirror`
+  and `RefreshCatalogButton`'s inline stylesheet — **359 lines of legacy CSS**
+  (legacy 4,664 → 4,318; `ui.css` unchanged), five dead message keys.
+- **E2E:** selectors moved from the index list to the section bar and tiles;
+  `admin-navigation.spec.ts` covers the bar on every page, the student's
+  refusal without it, the tabs and ⌘K. `admin-users`' role change now waits
+  for hydration before choosing: the heavier admin bundle made a select
+  changed before React owned it a winnable race (the change looked saved and
+  did not persist — worth a look in `RoleSelect`).
+- **Measured** (seeded scratch database, 1440 / 390): maintenance 1,695 →
+  1,532 / 3,115 → 2,448; corrections 1,188 → 1,067 / 1,496 → 1,227; intake
+  queue 1,363 → 1,209 (imports moved to their tab); refresh review 1,438 →
+  1,421. The home grew on a phone (1,419 → 2,302 px: ten tiles with counts
+  and trends replace ten one-line links) and fits one desktop screen (937 px).
+- **Package added:** `cmdk` ^1.1.1 (shadcn `Command`). `Dialog` is the
+  existing `radix-ui` package.

@@ -70,8 +70,8 @@ test.describe("/admin/users — who may open it", () => {
 
     // `tools.edit` gets them through the layout…
     await page.goto("/admin");
-    await expect(page.getByRole("heading", { name: "Admin surfaces" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "People" })).toHaveCount(0);
+    await expect(page.getByRole("heading", { name: "Overview", level: 2 })).toBeVisible();
+    await expect(page.getByRole("link", { name: "People", exact: true })).toHaveCount(0);
 
     // …and `users.manage`, which only a director holds, stops them here.
     await page.goto("/admin/users");
@@ -128,7 +128,10 @@ test.describe("/admin/users — changing a role", () => {
     baseURL,
   }) => {
     await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
-    await page.goto("/admin/users");
+    // Wait for the islands to hydrate: a select changed before React owns it
+    // has no handler behind it, and the admin layout ships more script since
+    // UI phase 4 (the ⌘K palette), which made that race winnable.
+    await page.goto("/admin/users", { waitUntil: "networkidle" });
 
     const row = page.getByRole("row", { name: new RegExp(DEMO_ACCOUNTS.promotable.name) });
     const select = row.getByRole("combobox", {

@@ -10,12 +10,6 @@
  * 390px viewport, where the mapping table becomes a stacked list.
  */
 
-.admin-mirror {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
 .admin-mirror-panel {
   display: flex;
   flex-direction: column;

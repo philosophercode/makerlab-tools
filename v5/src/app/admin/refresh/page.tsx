@@ -1,5 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
+import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
+import { EmptyState } from "../../../components/system/EmptyState";
 import { RefreshList, type RefreshListRow } from "../../../components/admin/RefreshList";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
@@ -52,19 +54,28 @@ export default async function AdminRefreshPage() {
     rows = null;
   }
 
+  const byStatus = (...statuses: string[]) => (rows ?? []).filter((row) => statuses.includes(row.status)).length;
+
   return (
-    <section className="admin-section">
-      <header className="admin-section-head">
-        <p className="td-eyebrow">{t("eyebrow")}</p>
-        <h2>{t("refreshTitle")}</h2>
-        <p className="admin-lede">{t("refreshLede")}</p>
-      </header>
+    <section className="flex flex-col gap-4">
+      <AdminPageHeader
+        surface="refresh"
+        title={t("refreshTitle")}
+        lede={t("refreshLede")}
+        facts={
+          rows
+            ? [
+                t("facts.waiting", { count: byStatus("proposed") }),
+                t("facts.running", { count: byStatus("queued", "researching") }),
+                t("facts.failed", { count: byStatus("failed") }),
+              ]
+            : [t("facts.unreadable")]
+        }
+      />
       {rows ? (
         <RefreshList rows={rows} />
       ) : (
-        <p className="admin-empty td-empty" role="alert">
-          {t("refresh.unavailable")}
-        </p>
+        <EmptyState tone="bad">{t("refresh.unavailable")}</EmptyState>
       )}
       <AssistantProposals />
     </section>
@@ -86,9 +97,7 @@ async function AssistantProposals() {
   } catch (err) {
     console.error("[admin/refresh] could not read assistant proposals", err);
     return (
-      <p className="admin-empty td-empty" role="alert">
-        {t("assistantUnavailable")}
-      </p>
+      <EmptyState tone="bad">{t("assistantUnavailable")}</EmptyState>
     );
   }
   if (rows.length === 0) return null;
@@ -107,14 +116,16 @@ async function AssistantProposals() {
   }
 
   return (
-    <section className="admin-section" aria-labelledby="assistant-proposals-heading">
-      <h3 id="assistant-proposals-heading">{t("assistantHeading")}</h3>
-      <p className="admin-lede">{t("assistantLede")}</p>
+    <section className="ui mt-6 flex flex-col gap-2" aria-labelledby="assistant-proposals-heading">
+      <h3 id="assistant-proposals-heading" className="font-heading text-lg font-medium uppercase">
+        {t("assistantHeading")}
+      </h3>
+      <p className="max-w-[72ch] text-sm text-muted-foreground">{t("assistantLede")}</p>
       {[...byTool.entries()].map(([toolId, group]) => (
-        <div key={toolId} className="ui flex flex-col gap-1 py-2">
-          <h4>{group.name}</h4>
+        <div key={toolId} className="flex flex-col gap-1 py-2">
+          <h4 className="font-mono text-label font-medium uppercase">{group.name}</h4>
           {group.proposedBy.size > 0 ? (
-            <p className="admin-lede">{t("assistantBy", { names: [...group.proposedBy].join(", ") })}</p>
+            <p className="text-xs text-muted-foreground">{t("assistantBy", { names: [...group.proposedBy].join(", ") })}</p>
           ) : null}
           <ChatProposalCards items={group.items} />
         </div>

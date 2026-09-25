@@ -139,13 +139,6 @@ export async function openRefreshesByTool(options: RefreshOptions = {}): Promise
   return new Map(rows.map((row) => [row.toolId, row.id]));
 }
 
-/** How many refreshes have proposals waiting — the `/admin` index's count. */
-export async function countRefreshesWaiting(options: RefreshOptions = {}): Promise<number> {
-  const db = options.db ?? (await getDb());
-  const [row] = await db.select({ n: count() }).from(toolRefreshes).where(eq(toolRefreshes.status, "proposed"));
-  return Number(row?.n ?? 0);
-}
-
 /**
  * What refresh compares research with, and what the accept path writes over:
  * the tool's own fields, its category's name (a research *hint*), its

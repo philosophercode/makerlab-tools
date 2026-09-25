@@ -1,91 +1,86 @@
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
-import { can, type Permission } from "../../lib/auth/permissions";
 import { AdminActions } from "../../components/admin/AdminActions";
-import { countRefreshesWaiting } from "../../lib/data/tool-refreshes";
+import { AdminPageHeader } from "../../components/admin/AdminPageHeader";
+import { tileContent } from "../../components/admin/admin-tiles";
+import { RowStatus } from "../../components/admin/RowStatus";
+import { EmptyState } from "../../components/system/EmptyState";
+import { Tile, TileGroup } from "../../components/system/Tile";
+import { ADMIN_GROUPS, surfacesFor } from "../../lib/admin/surfaces";
+import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
 import { isLegacyMcpTokenSet } from "../../lib/auth/mcp-caller";
+import { loadAdminOverview } from "../../lib/data/admin-overview";
 
 /**
- * `/admin` — the index the header's `AdminLink` points at.
+ * `/admin` — the home: one tile per surface the viewer may open, grouped by
+ * the job it serves, each with its live count (UI system spec §8.1; data
+ * platform spec §6 `AdminHome`, which this finally builds). It answers "where
+ * is the work" before anything is opened.
  *
- * This is still a short list rather than the `AdminHome` of spec §6 (counts,
- * open tickets, mirror status). Every surface the spec names now exists — the
- * Notion mirror, `/admin/mirror`, arrived last, in Phase 8 — and each is listed
- * here from one table; the counts and the mirror's status on this page are
- * still `AdminHome`'s, not built. What the page must do is be honest: it lists
- * exactly the surfaces the viewer's own permissions open, so nobody follows a
- * link into a refusal, and a SuperMaker who holds `tools.edit` but not
- * `users.manage` sees the inventory and not the roster. The mirror entry opens
- * the viewer's *own* mirror — there is no page listing anybody else's (§8).
+ * **Honest, as before.** The tiles are `surfacesFor(identity)` — the list the
+ * section bar and the palette use, each surface checked with the `can()` its
+ * page calls — so nobody follows a tile into a refusal, and only those tiles'
+ * counts are read. A count that cannot be read says so; it is never a zero,
+ * which would claim there is no work (Article 4). Waiting counts live here
+ * and only here (owner decision 2026-09-25: not in the section bar).
  *
- * The layout above has already established that this person may see an admin
- * surface at all.
+ * Four columns, one per job, left to right in the order equipment moves
+ * through the lab: small multiples of the same question.
  */
-
-/**
- * Every admin page, with the permission that opens it and the two message keys
- * that name it.
- *
- * A list rather than a stack of conditionals, because it is now long enough
- * that a page added without an entry here would simply be unreachable — and
- * because each permission is checked exactly once, against the same `can()`
- * the page itself calls. The ledes are shared with each page's own header, so
- * none of them takes an argument: a next-intl placeholder rendered without one
- * renders literally, which has been a real bug here (Article 6).
- */
-const SURFACES: ReadonlyArray<{ href: string; permission: Permission; key: string }> = [
-  { href: "/admin/inventory", permission: "tools.edit", key: "inventory" },
-  { href: "/admin/intake", permission: "tools.approve", key: "intake" },
-  { href: "/admin/refresh", permission: "tools.edit", key: "refresh" },
-  { href: "/admin/research", permission: "tools.edit", key: "research" },
-  { href: "/admin/maintenance", permission: "maintenance.manage", key: "maintenance" },
-  { href: "/admin/corrections", permission: "feedback.manage", key: "corrections" },
-  { href: "/admin/projects", permission: "projects.moderate", key: "projects" },
-  { href: "/admin/users", permission: "users.manage", key: "users" },
-  { href: "/admin/mirror", permission: "mirror.manage", key: "mirror" },
-];
 
 export default async function AdminHomePage() {
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
-  const open = SURFACES.filter((surface) => can(identity, surface.permission));
-  // The Refresh entry says how many refreshes wait for a decision (refresh
-  // research spec §6). A count that cannot be read is left out, not zero.
-  const refreshWaiting = can(identity, "tools.edit") ? await countRefreshesWaiting().catch(() => null) : null;
+  const open = surfacesFor(identity);
+  const overview = await loadAdminOverview(
+    open.map((entry) => entry.count),
+    { userId: identity.userId }
+  );
+  const tiles = open.map((entry) => ({ entry, ...tileContent(entry.key, overview[entry.count] as never, t) }));
+  const waiting = tiles.reduce((sum, { content }) => sum + (content.waiting && content.value ? content.value : 0), 0);
+  const unreadable = tiles.filter((tile) => tile.unreadable).length;
 
   return (
-    <section className="admin-index td-panel td-prose">
-      <p className="td-eyebrow">{t("eyebrow")}</p>
-      <h2>{t("indexTitle")}</h2>
+    <div className="ui flex flex-col gap-6">
+      <AdminPageHeader
+        title={t("home.title")}
+        lede={t("home.lede")}
+        facts={[
+          t("home.factsWaiting", { count: waiting }),
+          t("home.factsSurfaces", { count: open.length }),
+          unreadable > 0 && t("home.factsUnreadable", { count: unreadable }),
+        ]}
+        actions={<AdminActions role={identity.role} />}
+      />
 
       {/* MCP access spec §5.3: the retired shared secret still works for one
           release, as the public read-only tools only — and says so here. */}
-      {isLegacyMcpTokenSet() ? (
-        <p className="admin-row-status is-warning" role="status">
-          {t("mcpTokenDeprecated")}
-        </p>
-      ) : null}
+      {isLegacyMcpTokenSet() ? <RowStatus tone="warn">{t("mcpTokenDeprecated")}</RowStatus> : null}
 
-      {/* Add equipment and Refresh catalog, moved here from the header on
-          2026-09-23. Each keeps its own permission rule. */}
-      <AdminActions role={identity.role} />
+      {open.length === 0 ? <EmptyState>{t("indexNothingYet")}</EmptyState> : null}
 
-      {open.length > 0 ? (
-        <ul className="admin-index-list" aria-label={t("indexListLabel")}>
-          {open.map((surface) => (
-            <li key={surface.href}>
-              <Link href={surface.href}>{t(`${surface.key}Title`)}</Link>
-              <span>
-                {t(`${surface.key}Lede`)}
-                {surface.key === "refresh" && refreshWaiting ? ` ${t("refreshWaitingCount", { count: refreshWaiting })}.` : null}
-              </span>
-            </li>
-          ))}
-        </ul>
-      ) : (
-        <p>{t("indexNothingYet")}</p>
-      )}
-    </section>
+      <div className="grid grid-cols-1 gap-x-4 gap-y-8 sm:grid-cols-2 xl:grid-cols-4">
+        {ADMIN_GROUPS.map((group) => {
+          const members = tiles.filter(({ entry }) => entry.group === group);
+          if (members.length === 0) return null;
+          return (
+            <TileGroup key={group} id={`admin-group-${group}`} title={t(`nav.group.${group}`)}>
+              {members.map(({ entry, content }) => {
+                const Icon = entry.icon;
+                return (
+                  <Tile
+                    key={entry.key}
+                    id={`tile-${entry.key}`}
+                    href={entry.href}
+                    title={t(`nav.surface.${entry.key}`)}
+                    icon={<Icon />}
+                    {...content}
+                  />
+                );
+              })}
+            </TileGroup>
+          );
+        })}
+      </div>
+    </div>
   );
 }

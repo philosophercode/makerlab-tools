@@ -1,26 +1,27 @@
+"use client";
+
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { FeedbackQueueEntry } from "../../lib/data/feedback";
+import { FEEDBACK_STATUS, FLAG_FIELDS } from "../../lib/db/schema/vocabulary";
 import type { SetCorrectionStatusAction } from "../../app/admin/corrections/action-result";
+import { Badge } from "@/components/ui/badge";
+import { QueueList } from "../system/queue/QueueList";
+import { ReviewCard } from "../system/review/ReviewCard";
 import { CorrectionControls } from "./CorrectionControls";
 
 /**
- * The corrections queue on `/admin/corrections` (spec §5.6).
- *
- * A server component with no `async`, everything in props — the shape
- * `UsersTable` set, and what makes it mountable in a component test.
+ * The corrections queue on `/admin/corrections` (spec §5.6), on the shared
+ * `QueueList` (UI system phase 4): search and Status / Field facets, waiting
+ * corrections on the page, handled ones behind the disclosure — dismissing a
+ * correction is a judgement somebody may want to revisit, and "has this been
+ * reported before" is the question a second report raises.
  *
  * **Every card is one click from the field it corrects.** The tool's own page
- * is where that field is shown, and where `EditToolControl` offers the editor
- * to anybody holding `tools.edit` (§5.3(b)) — so the link goes there rather
- * than to `/admin/inventory`, which would land the reviewer in a table they
- * then have to search. A correction whose tool never resolved says so instead
+ * shows that field and offers the editor to anybody holding `tools.edit`
+ * (§5.3(b)), so the card's title links there rather than to
+ * `/admin/inventory`. A correction whose tool never resolved says so instead
  * of linking somewhere plausible.
- *
- * **Waiting work is the page; handled work is behind a disclosure.** Dismissing
- * a correction is a judgement somebody may want to revisit, and "has this been
- * reported before" is the question a second report raises — so nothing is
- * hidden, it is only folded away.
  */
 
 export interface CorrectionsQueueProps {
@@ -34,95 +35,86 @@ const WAITING = "new";
 export function CorrectionsQueue({ corrections, action }: CorrectionsQueueProps) {
   const t = useTranslations("admin.corrections");
 
-  if (corrections.length === 0) {
-    return <p className="admin-empty td-empty">{t("empty")}</p>;
-  }
-
-  const waiting = corrections.filter((correction) => correction.status === WAITING);
-  const handled = corrections.filter((correction) => correction.status !== WAITING);
-
   return (
-    <div className="admin-queue">
-      {waiting.length === 0 ? (
-        <p className="admin-empty td-empty">{t("emptyWaiting")}</p>
-      ) : (
-        <ul className="admin-queue-list" aria-label={t("queueLabel")}>
-          {waiting.map((correction) => (
-            <CorrectionCard key={correction.id} correction={correction} action={action} />
-          ))}
-        </ul>
-      )}
-
-      {handled.length > 0 ? (
-        <details className="admin-queue-settled">
-          <summary>{t("handledToggle", { count: handled.length })}</summary>
-          <ul className="admin-queue-list">
-            {handled.map((correction) => (
-              <CorrectionCard key={correction.id} correction={correction} action={action} />
-            ))}
-          </ul>
-        </details>
-      ) : null}
-    </div>
+    <QueueList
+      items={corrections}
+      getId={(correction) => correction.id}
+      isOpen={(correction) => correction.status === WAITING}
+      searchText={(correction) =>
+        [correction.toolName, correction.issueDescription, correction.suggestedFix, correction.reporterName].join(" ")
+      }
+      facets={[
+        {
+          id: "status",
+          label: t("fieldStatus"),
+          values: FEEDBACK_STATUS,
+          valueLabel: (value) => t(`status.${value}`),
+          matches: (correction, value) => correction.status === value,
+        },
+        {
+          id: "field",
+          label: t("fieldField"),
+          values: FLAG_FIELDS,
+          valueLabel: (value) => t(`fields.${value}`),
+          matches: (correction, value) => correction.fieldFlagged === value,
+        },
+      ]}
+      labels={{
+        list: t("queueLabel"),
+        filters: t("filtersLabel"),
+        search: t("search"),
+        searchPlaceholder: t("searchPlaceholder"),
+        settled: (count) => t("handledToggle", { count }),
+        empty: t("empty"),
+        emptyOpen: t("emptyWaiting"),
+      }}
+      renderItem={(correction) => <CorrectionCard correction={correction} action={action} />}
+    />
   );
 }
 
-function CorrectionCard({
-  correction,
-  action,
-}: {
-  correction: FeedbackQueueEntry;
-  action: SetCorrectionStatusAction;
-}) {
+function CorrectionCard({ correction, action }: { correction: FeedbackQueueEntry; action: SetCorrectionStatusAction }) {
   const t = useTranslations("admin.corrections");
+  const name = correction.toolName || t("noTool");
 
   return (
-    <li className="admin-queue-card">
-      <header className="admin-queue-card-head">
-        <h3>
-          {correction.toolSlug ? (
-            <Link href={`/tools/${correction.toolSlug}`}>{correction.toolName}</Link>
-          ) : (
-            t("noTool")
-          )}
-        </h3>
-        {correction.fieldFlagged ? (
-          <span className="admin-tag">{t(`fields.${correction.fieldFlagged}`)}</span>
+    <ReviewCard
+      label={name}
+      headingLevel={3}
+      title={
+        correction.toolSlug ? (
+          <Link className="text-primary-ink underline-offset-2 hover:underline" href={`/tools/${correction.toolSlug}`}>
+            {correction.toolName}
+          </Link>
         ) : (
-          <span className="admin-tag">{t("noField")}</span>
-        )}
-      </header>
-
-      <p className="admin-queue-body">{correction.issueDescription}</p>
+          t("noTool")
+        )
+      }
+      tone={correction.status === WAITING ? "default" : "settled"}
+      marks={<Badge>{correction.fieldFlagged ? t(`fields.${correction.fieldFlagged}`) : t("noField")}</Badge>}
+      meta={
+        <>
+          <span>{correction.reporterName ? t("reportedBy", { name: correction.reporterName }) : t("reportedAnonymously")}</span>
+          {/* The one page that may show it (§8), for the one thing it is for:
+              asking the question the correction leaves open. */}
+          {correction.reporterEmail ? (
+            <a className="text-primary-ink normal-case hover:underline" href={`mailto:${correction.reporterEmail}`}>
+              {correction.reporterEmail}
+            </a>
+          ) : null}
+          <span className="tabular-nums">{t("reportedOn", { date: new Date(correction.createdAt).toISOString().slice(0, 10) })}</span>
+        </>
+      }
+    >
+      <p className="m-0 max-w-[78ch] text-sm leading-relaxed whitespace-pre-wrap">{correction.issueDescription}</p>
 
       {correction.suggestedFix ? (
-        <p className="admin-queue-body">
-          <strong>{t("suggestedFix")}</strong> {correction.suggestedFix}
+        <p className="m-0 max-w-[78ch] text-sm leading-relaxed whitespace-pre-wrap">
+          <strong className="font-medium">{t("suggestedFix")}</strong> {correction.suggestedFix}
         </p>
       ) : null}
 
-      <p className="admin-queue-meta">
-        {correction.reporterName ? (
-          <span>{t("reportedBy", { name: correction.reporterName })}</span>
-        ) : (
-          <span>{t("reportedAnonymously")}</span>
-        )}
-        {/* The one page that may show it (§8), for the one thing it is for:
-            asking the question the correction leaves open. */}
-        {correction.reporterEmail ? (
-          <a href={`mailto:${correction.reporterEmail}`}>{correction.reporterEmail}</a>
-        ) : null}
-        <span className="admin-date">
-          {t("reportedOn", { date: correction.createdAt.toISOString().slice(0, 10) })}
-        </span>
-      </p>
-
-      <CorrectionControls
-        feedbackId={correction.id}
-        status={correction.status}
-        toolName={correction.toolName || t("noTool")}
-        action={action}
-      />
-    </li>
+      <CorrectionControls feedbackId={correction.id} status={correction.status} toolName={name} action={action} />
+    </ReviewCard>
   );
 }
