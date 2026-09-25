@@ -1442,41 +1442,6 @@ body::selection {
   border-radius: 0 !important;
 }
 
-/* ── Confidence strip (intake) — the surviving id-card-* names ───── */
-
-.id-card-also-label {
-  margin: 0 0 6px;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--on-surface-muted);
-}
-
-.id-card-also-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.id-card-also-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  color: var(--on-surface);
-}
-
-.id-card-draft-link {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--primary-ink);
-  text-decoration: underline;
-}
-
 .chat-typing {
   display: inline-flex;
   align-items: center;
@@ -3448,44 +3413,6 @@ body::selection {
   padding: 24px 0;
 }
 
-/* Horizontal scroll rather than a squeeze: four columns at a phone width is a
-   scroll or a lie about how much room there is. */
-.admin-table-scroll {
-  overflow-x: auto;
-}
-
-.admin-table {
-  width: 100%;
-  min-width: 720px;
-  border-collapse: collapse;
-  border: 1px solid var(--outline);
-  background: var(--surface-container);
-  font-size: 14px;
-}
-
-.admin-table th,
-.admin-table td {
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--outline);
-  text-align: left;
-  vertical-align: top;
-}
-
-.admin-table thead th {
-  background: var(--surface-container-high);
-  color: var(--on-surface-muted);
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.admin-table tbody tr:last-child th,
-.admin-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
 .admin-date {
   display: block;
   color: var(--on-surface-muted);
@@ -3534,19 +3461,6 @@ td.admin-date {
   color: var(--td-warning);
 }
 
-/* Visually hidden, still announced: the role select's label is the person's
-   name, which the row already shows to anyone who can see it. */
-.admin-visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  margin: -1px;
-  padding: 0;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-
 .admin-thumb {
   position: relative;
   display: block;
@@ -3557,27 +3471,12 @@ td.admin-date {
   background: var(--surface-container-low);
 }
 
-/* A missing photo is drawn as an empty frame rather than filled with a stand-in
-   the catalogue would never show — the "no photo" flag means somebody has to go
-   and take one. */
-.admin-thumb.is-empty {
-  display: grid;
-  place-items: center;
-  color: var(--on-surface-muted);
-  font-family: var(--font-mono);
-  font-size: 16px;
-}
-
 .admin-cell-note {
   display: block;
   margin-top: 2px;
   color: var(--on-surface-muted);
   font-family: var(--font-mono);
   font-size: 11px;
-}
-
-.admin-muted {
-  color: var(--on-surface-muted);
 }
 
 .admin-state {
