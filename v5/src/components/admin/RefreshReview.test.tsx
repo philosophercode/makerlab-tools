@@ -56,7 +56,7 @@ describe("RefreshReview", () => {
   it("shows one card per change, safety first, and the fields research found nothing for apart", async () => {
     render(<RefreshReview view={view()} actions={actions()} />);
     const cards = within(screen.getByRole("region", { name: "Proposed changes" })).getAllByRole("article");
-    expect(cards.map((card) => card.getAttribute("aria-label"))).toEqual(["Use restrictions", "Name"]);
+    expect(cards.map((card) => card.getAttribute("aria-label"))).toEqual(["Use restrictions", "Display name"]);
     expect(screen.getByText(/No manufacturer source found \(1\)/)).toBeInTheDocument();
     expect(screen.getByText(/Research would file this under Dust Collection/)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Open in editor" })).toHaveAttribute("href", "/tools/wen-dc3401");
@@ -83,7 +83,7 @@ describe("RefreshReview", () => {
     const a = actions();
     a.decide.mockResolvedValueOnce({ ok: false, error: "conflict" } as never);
     render(<RefreshReview view={view()} actions={a} />);
-    await userEvent.click(within(screen.getByRole("article", { name: "Name" })).getByRole("button", { name: "Accept" }));
+    await userEvent.click(within(screen.getByRole("article", { name: "Display name" })).getByRole("button", { name: "Accept" }));
     expect(await screen.findByText(/The tool was edited since this refresh was queued/)).toBeInTheDocument();
   });
 
@@ -104,7 +104,7 @@ describe("RefreshReview", () => {
 
   it("disables a rename the person may not publish", () => {
     render(<RefreshReview view={view({ canPublish: false })} actions={actions()} />);
-    expect(within(screen.getByRole("article", { name: "Name" })).getByRole("button", { name: "Accept" })).toBeDisabled();
+    expect(within(screen.getByRole("article", { name: "Display name" })).getByRole("button", { name: "Accept" })).toBeDisabled();
   });
 });
 

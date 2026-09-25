@@ -10,6 +10,7 @@ import {
 } from "../db/schema/index.ts";
 import type { Db } from "../db/types.ts";
 import { compactNotionId } from "../legacy-id.ts";
+import { BUNDLED_TOOL_IMAGES } from "./bundled-tool-images.ts";
 import { isManualArchiveKey, manualSourceKey } from "./manual-archives.ts";
 import { isUuid } from "./uuid.ts";
 import type { MakerLabTool, MakerLabUnit, ToolStatus } from "../../components/catalog-types.ts";
@@ -36,7 +37,10 @@ import type { MakerLabTool, MakerLabUnit, ToolStatus } from "../../components/ca
 export interface ToolRow {
   id: string;
   slug: string;
+  /** The display name. */
   name: string;
+  /** The official name (tool display names spec); absent on fixtures from before it. */
+  officialName?: string | null;
   description: string | null;
   materials: string[];
   ppeRequired: string[];
@@ -216,6 +220,7 @@ async function loadTools(db: Db, where: SQL | undefined): Promise<MakerLabTool[]
       id: tools.id,
       slug: tools.slug,
       name: tools.name,
+      officialName: tools.officialName,
       description: tools.description,
       materials: tools.materials,
       ppeRequired: tools.ppeRequired,
@@ -382,6 +387,7 @@ export function toMakerLabTool(
     id: tool.id,
     slug: tool.slug,
     name: tool.name,
+    officialName: tool.officialName ?? null,
     category: tool.categoryGroup || "Uncategorized",
     categorySub: tool.categoryName || "Other",
     location: tool.room || "Unknown",
@@ -405,10 +411,21 @@ export function toMakerLabTool(
   };
 }
 
-/** The tool's first public photo in Blob, or the bundled photo named after it. */
-export function toolImageSrc(tool: Pick<ToolRow, "name">, files: AttachmentRow[]): string {
+/**
+ * The tool's first public photo in Blob, or the bundled photo named after it.
+ * The bundled photos carry the imported (long) names, which the display-name
+ * backfill moves to `official_name` — so whichever of the two names has a
+ * bundled photo wins, the display name first (tool display names spec §5.8).
+ */
+export function toolImageSrc(tool: Pick<ToolRow, "name" | "officialName">, files: AttachmentRow[]): string {
   const image = files.find((file) => file.access === "public" && file.publicUrl);
-  return image?.publicUrl || localToolImage(tool.name);
+  if (image?.publicUrl) return image.publicUrl;
+  const bundled = [tool.name, tool.officialName ?? ""].find((name) => name.trim() && BUNDLED_TOOL_IMAGES.has(bundledFileName(name)));
+  return localToolImage(bundled ?? tool.name);
+}
+
+function bundledFileName(name: string): string {
+  return name.replace(/\//g, "_");
 }
 
 /**
@@ -539,5 +556,5 @@ export function deriveTrainingLabel(
 }
 
 export function localToolImage(name: string): string {
-  return `/tool-images/${encodeURIComponent(name.replace(/\//g, "_"))}.png`;
+  return `/tool-images/${encodeURIComponent(bundledFileName(name))}.png`;
 }

@@ -154,7 +154,10 @@ async function bestMatch(
 
   // A tool has no brand column, so its name may or may not carry the brand:
   // it matches either spelling of the query.
-  const toolExact = full ? sql`${toolName} in (${full}, ${bare})` : sql`false`;
+  // Either of its two names (tool display names spec §5.6): the official name
+  // is the one an identified item usually spells out.
+  const toolOfficial = sqlNormalized(sql`t.official_name`);
+  const toolExact = full ? sql`(${toolName} in (${full}, ${bare}) or ${toolOfficial} in (${full}, ${bare}))` : sql`false`;
 
   // Both sides branded: compare the full forms. Either side unbranded: its bare
   // name may be either form of the other side.
@@ -193,7 +196,9 @@ async function bestMatch(
                null::text as status,
                ${toolExact} as exact,
                greatest(similarity(lower(t.name), ${similarityText}),
-                        similarity(lower(t.name), ${bare || similarityText}))::float8 as score,
+                        similarity(lower(t.name), ${bare || similarityText}),
+                        coalesce(similarity(lower(t.official_name), ${similarityText}), 0),
+                        coalesce(similarity(lower(t.official_name), ${bare || similarityText}), 0))::float8 as score,
                0 as rank
           from tools t
          where t.archived_at is null${toolFilter}

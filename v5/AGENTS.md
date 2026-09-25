@@ -20,7 +20,7 @@ the catalog to external agents. White-labelled via env vars.
 
 - **Next.js 16** (App Router, React Server Components, `cacheComponents` enabled), **React 19**, **TypeScript**, **Tailwind CSS 4**.
 - **i18n:** `next-intl`, **12 locales**, cookie-based (`NEXT_LOCALE`) — no URL-prefix routing. Config in `src/i18n/config.ts`; messages in `messages/*.json`.
-- **AI:** Vercel **AI SDK v6** (`ai`, `@ai-sdk/react`) through the **Vercel AI Gateway** (`@ai-sdk/gateway`) — the *only* model path (gateway spec 2026-09-23: `ANTHROPIC_API_KEY`, `@ai-sdk/anthropic` and the direct-provider `src/lib/model.ts` are retired and removed). Every model call names a **job**, not a model — `chat`, `researchSearch`, `researchRead`, `imageRank`, bulk intake's `importParse` and `nameSuggest` (`MODEL_IMPORT_PARSE`, `MODEL_NAME_SUGGEST`, both flex), and the embedding job `embed` (`openai/text-embedding-3-small` at 512 dimensions, manual search — manual text spec phase 2) — resolved by `src/lib/ai/models.ts`'s `MODEL_JOBS`, each with a code default (`openai/gpt-6-luna` for every language job — chat passed the §10 eval gate once its prompt was tuned, gateway spec amendment "Chat prompt tuning for Luna") and one `MODEL_<JOB>` env override. Each job also names a Gateway **service tier** — `flex` for the background jobs (research search/read, image ranking, the starter-question backfill), none for chat — sent by `providerOptionsFor(job)` and overridden by `MODEL_<JOB>_TIER` (`default`/`flex`/`priority`; amendment "Manuals as text and flex tier for research"). Research's read step gives a manual PDF as **text**, not a file part (`RESEARCH_ATTACH_PDFS = false` in `intake/limits.ts`) — the lab's own extraction first (a stored manual, or the downloaded PDF extracted in memory: outline plus the pages richest in specs), the search's captured copy only as the fallback (manual text spec, phase 1); chat answers from a processed manual with `search_manual` and attaches only the manuals not yet processed (phase 2). There is **no image model**: the `imageClean` redraw was retired on 2026-09-23 because it altered product labels (spec amendment "No generative redraw"); background removal is a deterministic cutout in code. Web search is `gateway.tools.exaSearch` (Exa, provider-executed — one request leaves our process regardless of how many search legs the Gateway runs); reading a specific page is `read_page`, our own capability tool over `src/lib/web/*`'s SSRF-guarded fetch, not a provider tool. Auth is `AI_GATEWAY_API_KEY` when set, else the deployment's own Vercel OIDC token — production sets neither key nor a fallback, only the Gateway. Markdown via `react-markdown` + `remark-gfm`.
+- **AI:** Vercel **AI SDK v6** (`ai`, `@ai-sdk/react`) through the **Vercel AI Gateway** (`@ai-sdk/gateway`) — the *only* model path (gateway spec 2026-09-23: `ANTHROPIC_API_KEY`, `@ai-sdk/anthropic` and the direct-provider `src/lib/model.ts` are retired and removed). Every model call names a **job**, not a model — `chat`, `researchSearch`, `researchRead`, `imageRank`, bulk intake's `importParse` and `nameSuggest` (`MODEL_IMPORT_PARSE`, `MODEL_NAME_SUGGEST`, both flex), the display-name backfill's `displayName` (`MODEL_DISPLAY_NAME`, flex), and the embedding job `embed` (`openai/text-embedding-3-small` at 512 dimensions, manual search — manual text spec phase 2) — resolved by `src/lib/ai/models.ts`'s `MODEL_JOBS`, each with a code default (`openai/gpt-6-luna` for every language job — chat passed the §10 eval gate once its prompt was tuned, gateway spec amendment "Chat prompt tuning for Luna") and one `MODEL_<JOB>` env override. Each job also names a Gateway **service tier** — `flex` for the background jobs (research search/read, image ranking, the starter-question backfill), none for chat — sent by `providerOptionsFor(job)` and overridden by `MODEL_<JOB>_TIER` (`default`/`flex`/`priority`; amendment "Manuals as text and flex tier for research"). Research's read step gives a manual PDF as **text**, not a file part (`RESEARCH_ATTACH_PDFS = false` in `intake/limits.ts`) — the lab's own extraction first (a stored manual, or the downloaded PDF extracted in memory: outline plus the pages richest in specs), the search's captured copy only as the fallback (manual text spec, phase 1); chat answers from a processed manual with `search_manual` and attaches only the manuals not yet processed (phase 2). There is **no image model**: the `imageClean` redraw was retired on 2026-09-23 because it altered product labels (spec amendment "No generative redraw"); background removal is a deterministic cutout in code. Web search is `gateway.tools.exaSearch` (Exa, provider-executed — one request leaves our process regardless of how many search legs the Gateway runs); reading a specific page is `read_page`, our own capability tool over `src/lib/web/*`'s SSRF-guarded fetch, not a provider tool. Auth is `AI_GATEWAY_API_KEY` when set, else the deployment's own Vercel OIDC token — production sets neither key nor a fallback, only the Gateway. Markdown via `react-markdown` + `remark-gfm`.
 - **MCP:** `@modelcontextprotocol/sdk` (stateless HTTP JSON-RPC server at `/api/mcp`, and `/api/mcp/signed-in` for OAuth clients) — see "MCP access" below.
 - **Validation:** `zod`. **Search:** `match-sorter` (fuzzy, ranked).
 
@@ -595,6 +595,34 @@ researched or published on its own (Article 5). See the spec's 2026-09-24 amendm
 - **Uploads**: kind `import` on `POST /api/uploads` (private, `tools.add`). The chat's
   paperclip takes list files and names them to the model as `[Attached documents: …]`.
 
+## Tool names: display and official (`tools.official_name`; tool display names spec, migration `0015`)
+
+A tool has two names (`docs/specs/2026-09-24-tool-display-names-design.md`).
+**`tools.name` is the display name** — short, what people say ("Makita Plunge Base",
+"Formlabs Form 4"), no part numbers, ≤ 40 — and every surface that already read `name`
+(gallery, tool page title, breadcrumbs, admin tables, chat, QR and unit labels, the mirror's
+title, the slug) keeps reading it. **`tools.official_name`** (nullable) is the full product
+name with model or part number, shown under the tool page's title when it differs
+(`officialNameShown`), searched beside the name, given to research (`blindInput` →
+`lookupName`) and returned over MCP as `official_name`.
+
+- **One rule module**, `src/lib/tool-names.ts` (pure, no imports): `displayNameProblems`,
+  `isValidDisplayName`, `cleanDisplayName` (the guard — removes part numbers, bracketed
+  noise and spec runs, cuts at a word boundary to 40, never adds a word; keeps `Form 4`,
+  `X2D`, `MK4S`, `Speedy 400`), `displayNameFrom`, `officialNameShown`, `lookupName`.
+- **Research** asks for `officialName` and `displayName`; the official name is still stored
+  as `ResearchResult.canonicalName` (key kept so old rows parse), the display name as
+  optional `displayName`, always through the guard (`assemble.ts`). Old rows derive it
+  (`researchDisplayName`).
+- **Writes refuse, never cut**: `updateTool` and `approvePendingTool` answer
+  `invalid_field` for a display name over 40; the editor says so before saving.
+- **Refresh** proposes `official_name` (a proposal field) with a verified quote, and `name`
+  only when the current display name breaks the rules — a lab's rule-following name is
+  kept, like a lab rule. Chat/MCP `propose_change` refuse a `name` that breaks the rules.
+- **Backfill**: `npm run names:backfill -- [--dry-run] [--ids] [--limit]`
+  (`scripts/backfill-display-names.ts`, job `displayName`, flex): shortens names that
+  break the rules and moves the long form to `official_name` only when that is empty.
+
 ## MCP access (`api_tokens`, `oauth_*`; MCP access spec, migration `0014`)
 
 MCP callers act as a person, with that person's role and never more
@@ -931,6 +959,7 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/app/api/admin/revalidate/route.ts` | Cache invalidation (`tools.edit`, or `x-admin-secret` for session-less callers) |
 | `src/components/ChatFab.tsx` | Chat UI (`useChat`, citations stripped, photo upload); starter chips are the tool's own on its page (`ToolChatStarters` → `ChatLauncherContext`), else the generic three |
 | `src/lib/starter-questions.ts` / `scripts/generate-starter-questions.ts` | A tool's assistant starter questions — the cleaning rules, and the backfill for tools that have none |
+| `src/lib/tool-names.ts` / `scripts/backfill-display-names.ts` | A tool's display and official names — the display rules and guard, and the backfill that shortens imported names |
 | `src/app/page.tsx`, `tools/[id]/page.tsx` | Gallery + tool detail |
 
 ## Conventions

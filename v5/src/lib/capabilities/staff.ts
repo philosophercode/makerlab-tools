@@ -4,7 +4,7 @@ import { listCatalogTools } from "../data/catalog";
 import { listMaintenanceQueue } from "../data/maintenance";
 import { listIntakeQueue, OPEN_PENDING_STATUSES } from "../data/pending-tools";
 import { MAINTENANCE_PRIORITY, MAINTENANCE_STATUS } from "../db/schema/vocabulary";
-import { CHAT_PROPOSAL_FIELDS, proposeChange } from "./curation";
+import { CHAT_PROPOSAL_FIELDS, PROPOSAL_VALUE_DESCRIPTION, proposeChange } from "./curation";
 import { findTool } from "./helpers";
 import type { Capability, CapabilityCtx, CapabilityTool } from "./types";
 
@@ -207,9 +207,7 @@ const mcpProposeSchema: z.ZodType<McpProposeInput> = z.object({
     .describe(`One of: ${CHAT_PROPOSAL_FIELDS.join(", ")}. Never PPE — staff set it.`),
   value: z
     .unknown()
-    .describe(
-      "The proposed value: a string (name, description, use_restrictions, emergency_stop, floor_check), the complete list of strings (materials, tags), true/false (training_required), or { title, url, type: Manual|Video|Other } (resource)."
-    ),
+    .describe(PROPOSAL_VALUE_DESCRIPTION),
   citations: z
     .array(z.object({ quote: z.string().max(1000), url: z.string().max(2000) }))
     .max(3)

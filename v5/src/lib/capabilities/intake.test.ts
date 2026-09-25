@@ -49,7 +49,7 @@ import {
 import { IDENTIFY_MAX_ITEMS, IDENTIFY_MAX_MODEL_NAME_SEARCHES } from "../intake/limits";
 import type { IntakeTablePayload } from "../intake/types";
 import { toAiTools } from "./chat-adapter";
-import { intake } from "./intake";
+import { intake, splitCandidateNames } from "./intake";
 import { registerAll } from "./mcp-adapter";
 import type { CapabilityCtx, CapabilityTool, ToolCandidate } from "./types";
 
@@ -429,7 +429,8 @@ describe("identify_tools — photos", () => {
 /** A candidate that matches nothing in the demo catalogue. */
 function candidate(over: Partial<ToolCandidate> = {}): ToolCandidate {
   return {
-    name: `Zorbex Laminator ${crypto.randomUUID().slice(0, 8)}`,
+    // Letters only: a hex suffix with digits reads as a part number to the display rules.
+    name: `Zorbex Laminator ${crypto.randomUUID().slice(0, 8).replace(/[0-9]/g, (d) => "ghijklmnop"[Number(d)])}`,
     description: "A desktop laminator.",
     materials: ["Paper"],
     ppe_required: [],
@@ -462,12 +463,48 @@ async function runCreate(c: ToolCandidate): Promise<CreateResult> {
   return (await createTool.run(createTool.inputSchema.parse({ candidate: c }), {})) as CreateResult;
 }
 
+describe("splitCandidateNames — create_tool's two names (tool display names spec §5.6)", () => {
+  it("keeps a display name that follows the rules, with the official name given", () => {
+    expect(splitCandidateNames("Makita Plunge Base", "Makita 196094-2 Compact Router Plunge Base")).toEqual({
+      name: "Makita Plunge Base",
+      officialName: "Makita 196094-2 Compact Router Plunge Base",
+      shortened: false,
+    });
+    expect(splitCandidateNames("Formlabs Form 4", null)).toEqual({ name: "Formlabs Form 4", officialName: null, shortened: false });
+  });
+
+  it("moves a listing-style name to the official name and shortens the display name", () => {
+    expect(splitCandidateNames("Festool 575267 Dust Extractor CT Midi Hepa", null)).toEqual({
+      name: "Festool Dust Extractor CT Midi Hepa",
+      officialName: "Festool 575267 Dust Extractor CT Midi Hepa",
+      shortened: true,
+    });
+  });
+
+  it("never replaces an official name the caller gave", () => {
+    expect(splitCandidateNames("Festool 575267 Dust Extractor", "Festool CT MIDI I HEPA 575267")).toMatchObject({
+      name: "Festool Dust Extractor",
+      officialName: "Festool CT MIDI I HEPA 575267",
+    });
+  });
+});
+
 describe("create_tool — an MCP draft on Postgres", () => {
   beforeEach(() => {
     server.use(
       http.get("https://manuals.example.test/laminator.pdf", () => new HttpResponse(null, { status: 200 })),
       http.get("https://manuals.example.test/missing.pdf", () => new HttpResponse(null, { status: 404 }))
     );
+  });
+
+  it("stores a listing-style name as the official name, a short display name, and says so", async () => {
+    const suffix = crypto.randomUUID().slice(0, 6).replace(/[0-9]/g, (d) => "ghijklmnop"[Number(d)]);
+    const result = await runCreate(candidate({ name: `Zorbex ${suffix} 575267 Thermal Laminator 12-Inch` }));
+    expect(result.success).toBe(true);
+    expect(result.warnings).toEqual([expect.stringContaining("shortened")]);
+    const [tool] = await (await getDb()).select().from(tools).where(eq(tools.id, result.tool_id!));
+    expect(tool.name).toBe(`Zorbex ${suffix} Thermal Laminator`);
+    expect(tool.officialName).toBe(`Zorbex ${suffix} 575267 Thermal Laminator 12-Inch`);
   });
 
   it("writes an unpublished tool with its units, taxonomy and verified resources", async () => {

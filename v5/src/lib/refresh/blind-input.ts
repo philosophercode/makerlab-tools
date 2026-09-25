@@ -1,4 +1,5 @@
 import type { ResearchItemInput } from "../research/prompt.ts";
+import { lookupName } from "../tool-names.ts";
 
 /**
  * The only thing refresh research is told about a tool (refresh research spec
@@ -16,9 +17,11 @@ import type { ResearchItemInput } from "../research/prompt.ts";
  *
  * Pure. Plain Node.
  */
-export function blindInput(tool: { name: string; categoryName: string | null }): ResearchItemInput {
+export function blindInput(tool: { name: string; officialName?: string | null; categoryName: string | null }): ResearchItemInput {
   return {
-    name: tool.name,
+    // The official name when there is one — it is the precise one, and what a
+    // search finds the manual by (tool display names spec §5.5).
+    name: lookupName(tool),
     brand: null,
     categoryHint: tool.categoryName,
     locationHint: null,

@@ -4,6 +4,7 @@ import { slugify, uniqueSlug } from "../db/slug.ts";
 import type { ResourceOrigin, UnitCondition, UnitStatus } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
 import { cleanStarterQuestions } from "../starter-questions.ts";
+import { cleanOfficialName, normalizeName } from "../tool-names.ts";
 import { isUniqueViolation } from "./pg-errors.ts";
 
 /**
@@ -32,7 +33,10 @@ import { isUniqueViolation } from "./pg-errors.ts";
  */
 
 export interface NewToolRecord {
+  /** The display name (tool display names spec) — also what the slug is derived from. */
   name: string;
+  /** The official name; blank, or the same name spelled differently, is stored as null. */
+  officialName?: string | null;
   description?: string | null;
   categoryId?: string | null;
   locationId?: string | null;
@@ -79,8 +83,10 @@ export async function createToolRecord(
   if (!name) throw new Error("createToolRecord: a tool needs a name");
 
   const actor = { createdBy: actorUserId, updatedBy: actorUserId };
+  const official = cleanOfficialName(input.officialName);
   const values = {
     name,
+    officialName: official && normalizeName(official) !== normalizeName(name) ? official : null,
     description: emptyToNull(input.description),
     categoryId: input.categoryId ?? null,
     locationId: input.locationId ?? null,

@@ -18,6 +18,8 @@ interface GalleryShellProps {
 // materials), then the free-text description last.
 const SEARCH_KEYS: ReadonlyArray<keyof MakerLabTool> = [
   "name",
+  // The official name, with its model or part number (tool display names spec §5.6).
+  "officialName",
   "category",
   "categorySub",
   "tags",

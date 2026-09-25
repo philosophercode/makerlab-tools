@@ -9,6 +9,7 @@ import { currentValue } from "../refresh/decide";
 import { addRestrictions, trainingChangeAllowed } from "../refresh/lab-rules";
 import { normalizeLabel, normalizeText, resourceKey } from "../refresh/propose";
 import { CITATION_QUOTE_MAX_CHARS, SAFETY_FIELDS, type FieldProposal, type ProposalField, type ProposedResource } from "../refresh/types";
+import { DISPLAY_NAME_MAX, isValidDisplayName, OFFICIAL_NAME_MAX } from "../tool-names";
 import { fenceUntrusted } from "../web/fence";
 import type { Capability, CapabilityCtx, CapabilityTool, CurationContext, PromptEnv } from "./types";
 
@@ -46,7 +47,9 @@ import type { Capability, CapabilityCtx, CapabilityTool, CurationContext, Prompt
 
 /** The fields a chat proposal may name: every proposal field but the cover photo (§12.1 amendment). */
 export const CHAT_PROPOSAL_FIELDS = [
+  // The display name; the official name beside it (tool display names spec §5.5).
   "name",
+  "official_name",
   "description",
   "materials",
   "tags",
@@ -57,6 +60,9 @@ export const CHAT_PROPOSAL_FIELDS = [
   "floor_check",
 ] as const satisfies readonly ProposalField[];
 type ChatProposalField = (typeof CHAT_PROPOSAL_FIELDS)[number];
+
+/** What `propose_change`'s `value` is, per field — shared by the chat's tool and MCP's. */
+export const PROPOSAL_VALUE_DESCRIPTION = `The proposed value: a string (name — the short display name people say, at most ${DISPLAY_NAME_MAX} characters, no part number; official_name — the full product name with model or part number; description, use_restrictions, emergency_stop, floor_check), the complete list of strings (materials, tags), true/false (training_required), or { title, url, type: Manual|Video|Other } (resource).`;
 
 /** The longest `reason` kept (§12.1: ≤ 200 characters, shown on the card). */
 export const REASON_MAX_CHARS = 200;
@@ -88,9 +94,7 @@ export const proposeChangeSchema: z.ZodType<ProposeChangeInput> = z.object({
     .describe(`One of: ${CHAT_PROPOSAL_FIELDS.join(", ")}. Never PPE — staff set it.`),
   value: z
     .unknown()
-    .describe(
-      "The proposed value: a string (name, description, use_restrictions, emergency_stop, floor_check), the complete list of strings (materials, tags), true/false (training_required), or { title, url, type: Manual|Video|Other } (resource)."
-    ),
+    .describe(PROPOSAL_VALUE_DESCRIPTION),
   citations: z
     .array(z.object({ quote: z.string().max(1000), url: z.string().max(2000) }))
     .max(3)
@@ -219,7 +223,13 @@ export async function proposeChange(
 export function cleanValue(field: ChatProposalField, value: unknown): unknown {
   switch (field) {
     case "name":
-      return typeof value === "string" && value.trim() && value.length <= 200 ? value.trim() : undefined;
+      // The display rules, enforced (tool display names spec §5.1): a part
+      // number or an over-long name is refused, never cut into something else.
+      return typeof value === "string" && isValidDisplayName(value) ? value.replace(/\s+/g, " ").trim() : undefined;
+    case "official_name":
+      return typeof value === "string" && value.trim() && value.length <= OFFICIAL_NAME_MAX
+        ? value.replace(/\s+/g, " ").trim()
+        : undefined;
     case "description":
       return typeof value === "string" && value.trim() && value.length <= 4000 ? value.trim() : undefined;
     case "use_restrictions":
@@ -254,6 +264,10 @@ function valueHint(field: ChatProposalField): string {
       return "Give true or false.";
     case "resource":
       return 'Give { "title": "…", "url": "https://…", "type": "Manual" | "Video" | "Other" }.';
+    case "name":
+      return `The display name is short, what people call it — brand and what it is, or the model people know (e.g. "Makita Plunge Base", "Formlabs Form 4") — at most ${DISPLAY_NAME_MAX} characters, with no part or catalogue number, size or anything in brackets. Put the full product name in official_name instead.`;
+    case "official_name":
+      return `Give the full product name as one string, at most ${OFFICIAL_NAME_MAX} characters.`;
     default:
       return "Give the new text as one string.";
   }
@@ -351,7 +365,8 @@ function promptFragment(env: PromptEnv): string {
     curation.kind === "tool"
       ? `- **The lab's rules stay.** Use restrictions and "training required" are the lab's own rules. You may only **add** a manufacturer warning or restriction: give just the new line as \`use_restrictions\` and it is added beside the lab's. Never propose removing or rewording one of the lab's restrictions, and never propose \`training_required: false\` when the lab requires training.`
       : "",
-    `- Field values: \`name\`, \`description\`, \`use_restrictions\`, \`emergency_stop\` are strings; \`materials\` and \`tags\` are the complete new list of short labels; \`training_required\` is true or false; \`resource\` is { title, url, type }. Use subject { kind: "${curation.kind}", id: "${curation.id}" }.`,
+    `- **Two names.** \`name\` is the short display name people say (brand and what it is, or the model people know — "Makita Plunge Base", "Formlabs Form 4"): at most ${DISPLAY_NAME_MAX} characters, no part number. \`official_name\` is the full product name with its model or part number, as the manufacturer writes it. A correct model or part number belongs in \`official_name\`; propose \`name\` only when the display name is wrong or breaks those rules, never for style.`,
+    `- Field values: \`name\`, \`official_name\`, \`description\`, \`use_restrictions\`, \`emergency_stop\` are strings; \`materials\` and \`tags\` are the complete new list of short labels; \`training_required\` is true or false; \`resource\` is { title, url, type }. Use subject { kind: "${curation.kind}", id: "${curation.id}" }.`,
     `- Keep your reply short: say what you proposed and why, and what you could not confirm.`,
   ].filter(Boolean).join("\n\n");
 }

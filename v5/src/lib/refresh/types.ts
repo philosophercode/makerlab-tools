@@ -20,7 +20,9 @@ import { z } from "zod";
 
 /** Every field a proposal can name. PPE is not one of them: lab staff set it (Isaac, 2026-09-23). */
 export const PROPOSAL_FIELDS = [
+  // The display name (tool display names spec 2026-09-24).
   "name",
+  "official_name",
   "description",
   "materials",
   "tags",

@@ -214,6 +214,12 @@ function ImportRow({
           <div className="admin-import-suggestion">
             <span>
               {row.nameSuggestion.canonicalName}{" "}
+              {row.nameSuggestion.displayName &&
+              row.nameSuggestion.displayName !== row.nameSuggestion.canonicalName ? (
+                <span className="admin-import-suggestion-display">
+                  {t("suggestion.showsAs", { name: row.nameSuggestion.displayName })}{" "}
+                </span>
+              ) : null}
               <span className={`admin-state is-${row.nameSuggestion.confidence}`}>
                 {t(`confidence.${row.nameSuggestion.confidence}`)}
               </span>

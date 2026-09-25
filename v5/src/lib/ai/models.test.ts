@@ -55,6 +55,7 @@ describe("MODEL_JOBS", () => {
       "MODEL_IMAGE_RANK",
       "MODEL_IMPORT_PARSE",
       "MODEL_NAME_SUGGEST",
+      "MODEL_DISPLAY_NAME",
       "MODEL_EMBED",
     ]);
     for (const job of JOBS) expect(MODEL_JOBS[job].default).toMatch(GATEWAY_MODEL_ID_PATTERN);

@@ -113,7 +113,15 @@ export function mergeResearch({ previous, next, focus, saved, at }: MergeInput):
     merged.confidence = scoreConfidence(evidence, { sourceUrls });
   }
 
-  merged.canonicalName = nameChangedSince(previous, saved) ? saved.name : previous.canonicalName;
+  // The two names travel together (tool display names spec §5.2): kept while
+  // the saved name is the one researched; after a rename, the redo's own.
+  if (nameChangedSince(previous, saved)) {
+    merged.canonicalName = saved.name;
+    if (next.displayName) merged.displayName = next.displayName;
+    else delete merged.displayName;
+  } else {
+    merged.canonicalName = previous.canonicalName;
+  }
   merged.researchedAs = researchedAs;
   merged.researchFocus = [...focus];
   if (next.reviewerNote) merged.reviewerNote = next.reviewerNote;

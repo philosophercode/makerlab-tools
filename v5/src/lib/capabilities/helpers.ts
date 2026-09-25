@@ -81,7 +81,9 @@ export function findTool(
       (t) => t.id.toLowerCase() === needle || t.slug.toLowerCase() === needle
     ) ||
     tools.find((t) => t.name.toLowerCase() === needle) ||
+    tools.find((t) => (t.officialName ?? "").toLowerCase() === needle) ||
     tools.find((t) => t.name.toLowerCase().includes(needle)) ||
+    tools.find((t) => (t.officialName ?? "").toLowerCase().includes(needle)) ||
     null
   );
 }

@@ -2900,6 +2900,15 @@ p {
   text-transform: uppercase;
 }
 
+/* The official name under the display name (tool display names spec §6). */
+.td-official-name {
+  margin: -8px 0 16px;
+  color: var(--td-muted);
+  font-size: 14px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
 .td-hero-description {
   max-width: 620px;
   color: var(--td-ink-2);

@@ -13,7 +13,10 @@ import { isAcceptable, isUndecided, type FieldProposal, type ProposalDecision, t
 
 /** The record's fields a proposal can be compared with. */
 export interface CurrentRecord {
+  /** The display name. */
   name: string;
+  /** The official name (tool display names spec); absent on fixtures from before it. */
+  officialName?: string | null;
   description: string | null;
   materials: readonly string[];
   tags: readonly string[];
@@ -30,6 +33,8 @@ export function currentValue(record: CurrentRecord, proposal: FieldProposal): un
   switch (proposal.field) {
     case "name":
       return record.name;
+    case "official_name":
+      return record.officialName ?? null;
     case "description":
       return record.description;
     case "materials":
@@ -61,6 +66,9 @@ export function patchFor(proposals: readonly FieldProposal[]): ToolPatch {
     switch (p.field) {
       case "name":
         if (typeof p.proposed === "string") patch.name = p.proposed;
+        break;
+      case "official_name":
+        if (typeof p.proposed === "string") patch.officialName = p.proposed;
         break;
       case "description":
         if (typeof p.proposed === "string") patch.description = p.proposed;
@@ -154,7 +162,7 @@ function sameValue(field: FieldProposal["field"], a: unknown, b: unknown): boole
     return left === right;
   }
   if (typeof a === "boolean" || typeof b === "boolean") return a === b;
-  if (field === "name" || field === "description" || field === "use_restrictions" || field === "emergency_stop" || field === "floor_check") {
+  if (field === "name" || field === "official_name" || field === "description" || field === "use_restrictions" || field === "emergency_stop" || field === "floor_check") {
     return normalizeText(typeof a === "string" ? a : "") === normalizeText(typeof b === "string" ? b : "");
   }
   return a === b;

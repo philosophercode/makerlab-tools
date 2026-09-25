@@ -1,5 +1,6 @@
 import type { CitedField } from "../research/model-output.ts";
-import type { ResearchResult } from "../research/result.ts";
+import { researchDisplayName, type ResearchResult } from "../research/result.ts";
+import { isValidDisplayName } from "../tool-names.ts";
 import { imageIdentity } from "../web/image-url.ts";
 import { addRestrictions, trainingChangeAllowed } from "./lab-rules.ts";
 import { normalizeLabel, normalizeText } from "./normalize.ts";
@@ -15,8 +16,13 @@ import { SAFETY_FIELDS, type Citation, type FieldProposal, type ProposalField, t
  * - **Kinds.** *new* fills an empty field; *differs* disagrees with a filled
  *   one; *unverified* is a field research left empty ("no manufacturer source
  *   found" — which is not "matches"). A value equal to the record is dropped.
- * - **Name** differs only when the normalized names differ **and** research's
- *   name has a verified quote.
+ * - **Names** (tool display names spec §5.5). The **official name** is
+ *   proposed (*new* or *differs*) only when research's name has a verified
+ *   quote. The **display name** is proposed only when the lab's current one
+ *   breaks the display rules (a part number, over the cap, bracketed noise —
+ *   `displayNameProblems`) **and** research's name has a verified quote: a
+ *   lab-set name that follows the rules is kept, like a lab rule, however
+ *   research would have styled it.
  * - **Description** is prose, so comparing it word by word is noise: it is
  *   proposed when the record's is empty (*new*) or under 120 characters
  *   (*differs*), and otherwise only when the admin asked for descriptions.
@@ -41,7 +47,10 @@ import { SAFETY_FIELDS, type Citation, type FieldProposal, type ProposalField, t
 
 /** What refresh compares against: the record's own fields. */
 export interface ProposeTool {
+  /** The display name. */
   name: string;
+  /** The official name; absent on fixtures from before it. */
+  officialName?: string | null;
   description: string | null;
   materials: readonly string[];
   tags: readonly string[];
@@ -71,6 +80,7 @@ const FIELD_ORDER: readonly ProposalField[] = [
   "emergency_stop",
   "training_required",
   "name",
+  "official_name",
   "description",
   "materials",
   "tags",
@@ -88,10 +98,18 @@ export function proposeChanges(input: ProposeInput): FieldProposal[] {
   const out: FieldProposal[] = [];
   const cited = (field: CitedField): Citation[] => research.citations?.[field] ?? [];
 
-  // Name — differs only with a verified source (§3.2).
-  const canonical = research.canonicalName.trim();
-  if (canonical && normalizeText(canonical) !== normalizeText(tool.name) && cited("name").some((c) => c.verified)) {
-    out.push(proposal("name", "differs", tool.name, canonical, cited("name")));
+  // Names — only with a verified source (§3.2; tool display names spec §5.5).
+  const official = research.canonicalName.trim();
+  const nameVerified = cited("name").some((c) => c.verified);
+  const currentOfficial = (tool.officialName ?? "").trim();
+  if (official && nameVerified && normalizeText(official) !== normalizeText(currentOfficial)) {
+    out.push(proposal("official_name", currentOfficial ? "differs" : "new", tool.officialName ?? null, official, cited("name")));
+  }
+  if (nameVerified && !isValidDisplayName(tool.name)) {
+    const display = researchDisplayName(research, tool.name);
+    if (display && normalizeText(display) !== normalizeText(tool.name)) {
+      out.push(proposal("name", tool.name.trim() ? "differs" : "new", tool.name, display, cited("name")));
+    }
   }
 
   // Description — opt-in unless the record's is missing or thin.

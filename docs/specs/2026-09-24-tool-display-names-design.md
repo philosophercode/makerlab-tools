@@ -187,6 +187,12 @@ Router Plunge Base · shows as Makita Plunge Base").
   (the create result says so in `warnings`).
 - Gallery (`GalleryShell`) and admin inventory search keys add the official name directly
   after the name.
+- Intake's duplicate check (`data/duplicates.ts`) matches a tool's official name as well as
+  its display name — an identified "Makita 196094-2 …" finds "Makita Plunge Base".
+- The bundled fallback photos in `public/tool-images/` are named after the imported long
+  names, which the backfill moves to `official_name`; `toolImageSrc` picks whichever of
+  the two names has a bundled photo (`data/bundled-tool-images.ts`, kept equal to the
+  folder by a test).
 
 ### 5.7 Import from Notion
 

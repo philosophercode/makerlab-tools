@@ -13,7 +13,14 @@ export interface MakerLabUnit {
 export interface MakerLabTool {
   id: string;
   slug: string;
+  /** The display name (tool display names spec 2026-09-24): short, what people say. */
   name: string;
+  /**
+   * The official name — full product name with model or part number — or
+   * null/absent when none is recorded. Shown under the tool page's title when
+   * it differs; searched beside the name.
+   */
+  officialName?: string | null;
   category: string;
   categorySub: string;
   location: string;

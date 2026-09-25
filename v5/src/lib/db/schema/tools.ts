@@ -19,7 +19,17 @@ export const tools = pgTable(
   {
     id: uuid("id").primaryKey().defaultRandom(),
     slug: text("slug").notNull().unique(),
+    /**
+     * The **display name** (tool display names spec 2026-09-24): short, what
+     * people say, ≤ 40 characters, no part numbers — what every surface shows.
+     */
     name: text("name").notNull(),
+    /**
+     * The **official name**: the full product name with brand and model or part
+     * number, for search, manuals, research and MCP. Null means not recorded;
+     * readers fall back to `name`.
+     */
+    officialName: text("official_name"),
     description: text("description"),
     categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
     locationId: uuid("location_id").references(() => locations.id, { onDelete: "set null" }),

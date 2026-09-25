@@ -8,6 +8,7 @@ import { reviewerNoteForPrompt } from "../intake/reviewer-note.ts";
 import { classifyPage, isVideoUrl, type PageSubject } from "./source-pages.ts";
 import { matchCategory } from "./taxonomy-match.ts";
 import { cleanStarterQuestions } from "../starter-questions.ts";
+import { displayNameFrom } from "../tool-names.ts";
 
 /**
  * Turn the model's draft into the {@link ResearchResult} that is stored (spec
@@ -73,9 +74,14 @@ export function assembleResearchResult(input: AssembleInput): ResearchResult {
   const evidence = groundedEvidence(draft.evidence, { sourceUrls, verified, fromSearch, subject });
   // Cleaned once more: the parser already did, but a draft built in code (tests, `draftFromFindings`) did not.
   const starterQuestions = cleanStarterQuestions(draft.starterQuestions);
+  const official = draft.canonicalName.trim() || fallbackName.trim();
+  // The model's short name through the guard, else the official name's
+  // (tool display names spec §5.2) — never a part number on a card.
+  const displayName = displayNameFrom({ displayName: draft.displayName, officialName: official, fallback: fallbackName });
 
   const result: ResearchResult = {
-    canonicalName: draft.canonicalName.trim() || fallbackName.trim(),
+    canonicalName: official,
+    ...(displayName ? { displayName } : {}),
     description: draft.description.trim(),
     specs: draft.specs.slice(0, MAX_SPECS),
     materials: labels(draft.materials),
@@ -125,6 +131,7 @@ export function assembleResearchResult(input: AssembleInput): ResearchResult {
 export function draftFromFindings(findings: SearchFindings, options: { keepCandidateLinks?: boolean } = {}): FetchDraft {
   return {
     canonicalName: findings.canonicalName,
+    displayName: "",
     description: findings.description,
     specs: [],
     materials: [],

@@ -245,6 +245,9 @@ export async function seedDemo(db: Db): Promise<void> {
         {
           slug: "form-4",
           name: "Form 4",
+          // The official name beside the display name (tool display names spec);
+          // the Trotec has none, so the demo shows both cases.
+          officialName: "Formlabs Form 4 Resin 3D Printer",
           description:
             "A production-grade resin printer used for detailed parts that need smooth surfaces, tight tolerances, or engineering material properties. Requires resin handling discipline, post-processing, and ventilation awareness.",
           categoryId: resin.id,

@@ -30,6 +30,7 @@ import { parseResearchResult, researchResultSchema, type ResearchResult } from "
 import { claimAttachments, releaseAttachments, reownAttachments } from "./attachments.ts";
 import { findDuplicate, findDuplicates } from "./duplicates.ts";
 import { isUniqueViolation } from "./pg-errors.ts";
+import { DISPLAY_NAME_MAX } from "../tool-names.ts";
 import { findOrCreateCategory } from "./taxonomy.ts";
 import { createToolRecord } from "./tool-create.ts";
 import { isUuid } from "./uuid.ts";
@@ -220,7 +221,10 @@ export type ApprovalImageChoice =
 
 /** What approval turns into the tool's fields — the preliminary page's form. */
 export interface ApprovalFields {
+  /** The display name (tool display names spec §5.3): refused over `DISPLAY_NAME_MAX`. */
   name: string;
+  /** The official name; blank or absent is none. */
+  officialName?: string | null;
   description: string | null;
   categoryId: string | null;
   /** Used only when `categoryId` is null: found case-insensitively, or created. */
@@ -1151,6 +1155,8 @@ export async function approvePendingTool(
   const fields = input.fields;
   const name = fields.name.trim();
   if (!name) return { ok: false, reason: "invalid_field" };
+  // The display name's hard cap (tool display names spec §5.1); the page's box holds to it.
+  if (name.length > DISPLAY_NAME_MAX) return { ok: false, reason: "invalid_field" };
   if (fields.categoryId !== null && !isUuid(fields.categoryId)) return { ok: false, reason: "invalid_field" };
   if (fields.locationId !== null && !isUuid(fields.locationId)) return { ok: false, reason: "invalid_field" };
   if (fields.categoryId === null && fields.newCategory && !fields.newCategory.name.trim()) {
@@ -1202,6 +1208,8 @@ export async function approvePendingTool(
         tx,
         {
           name,
+          // Blank, or the display name spelled again, is stored as none (`createToolRecord`).
+          officialName: fields.officialName ?? null,
           description: fields.description,
           categoryId,
           locationId: fields.locationId,
