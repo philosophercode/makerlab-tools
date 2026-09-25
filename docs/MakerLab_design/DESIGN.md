@@ -9,7 +9,9 @@
 > `screen.png` is the original concept render and remains the identity reference.
 >
 > *Revised 2026-09-25: identity kept; reconciled with Tufte's density rules and
-> the shadcn/AI Elements token mapping; patterns section added (§8).*
+> the shadcn/AI Elements token mapping; patterns section added (§8). Phase 4:
+> tiles, navigation, tabs and the ⌘K palette refined (§8.2, §8.12); queues and
+> status lines added (§8.13, §8.14).*
 
 ## 1. Creative North Star: "The Blueprint Archive"
 
@@ -163,9 +165,17 @@ the words for what it counts → ≤ 4 facts (`glyph label ……… value`) →
 30-day sparkline with a `30 DAYS` caption. Accent left border and accent number
 when the headline is **work waiting for a person**; muted number when it is 0.
 
-- **Use** for the admin home: one tile per surface, one column per job.
-- **Don't** show a count that failed as 0 (say "Could not be read"); don't add
-  a sparkline to a stock that doesn't change daily; don't use tiles as a gallery.
+- **Use** for the admin home: one tile per surface, one column per job, only
+  the surfaces the viewer may open (`surfacesFor`), each counted by its own
+  loader so one unreadable table costs one tile.
+- **The link's name is the title**; the number and facts are its description,
+  so a links list reads "Inventory", not a paragraph.
+- **Accent means waiting work above zero** — open tickets, researched items,
+  new reports. A stock (tools needing attention, people) is ink, however big.
+- **Don't** show a count that failed as 0 (say "Could not be read", and drop
+  the facts and trend with it); don't add a sparkline to a stock that doesn't
+  change daily; don't use tiles as a gallery; don't put the tile's counts in
+  the section bar.
 
 ![Admin home](screens/after-admin-home-desktop.webp)
 
@@ -319,13 +329,51 @@ answer shows its evidence. `PromptInput`: attach, dictate, text, send.
   below (`86 TOOLS IN INVENTORY · LAB OPEN 9AM–9PM`).
 - **Admin**: a section bar under the top bar on every admin page:
   `OVERVIEW ┃ INTAKE · IMPORT A LIST ┃ INVENTORY · REFRESH · MANUALS ┃
-  MAINTENANCE · CORRECTIONS · PROJECTS ┃ PEOPLE · NOTION MIRROR`, dividers
-  between jobs, the current page underlined in the accent, only surfaces the
-  viewer's permissions open. ⌘K opens a palette of surfaces, tools and actions.
+  MAINTENANCE · CORRECTIONS · PROJECTS ┃ PEOPLE · NOTION MIRROR ┃ ⌕ SEARCH ⌘K`,
+  dividers between jobs, the most specific current page underlined in the
+  accent (an item's page marks its surface), only surfaces the viewer's
+  permissions open, **no counts**. On a phone it scrolls inside itself. The
+  one list behind the bar, the home and the palette is
+  `src/lib/admin/surfaces.ts` — a page added there appears in all three.
+- **Page header**: `// ADMIN / GROUP` (plus `/ SURFACE` as a link on an item's
+  page) → title → lede → facts line → actions (`AdminPageHeader`).
+- **Tabs that are pages** (`LinkTabs`): Add equipment's `QUEUE · IMPORTS ·
+  IMPORT A LIST` under one header. Links with `aria-current`, not
+  `role="tab"` — each tab is a URL; a tab the viewer cannot open is not shown.
+- **⌘K palette** (`CommandPalette`): `ADMIN PAGES` (with their group),
+  `ACTIONS` (Add equipment, Refresh the catalog), `TOOLS` (display name, the
+  official name muted, `DRAFT` marked). Every word typed must match; nothing
+  fuzzy. `/` jumps to the page's filter search. The assistant joins it in
+  phase 5 ("Ask the assistant: …").
 - **Don't** make a page reachable only through a hub; don't list a surface that
-  will refuse the viewer.
+  will refuse the viewer; don't put waiting counts in the bar; don't use
+  `role="tab"` for navigation.
 
-### 8.13 Mobile behaviour
+### 8.13 Queues — `QueueList`
+
+Maintenance, corrections, projects and intake are one layout: `FilterBar`
+(search + facets counted over every item) → the open work, one `ReviewCard`
+each (status and priority as glyphs, who and when on the meta line, the
+controls under the words) → `▸ SHOW 5 RESOLVED AND CLOSED`, a disclosure
+holding the settled work, filtered too.
+
+- **Open work is the page**; settled is one click away, never gone.
+- A filter that empties the open list **names itself** (`Nothing here matches
+  "belt" · Priority: High`) with Clear. An empty queue says what fills it and
+  shows no filter bar.
+- Cards may be grouped (intake by batch); the layout stays the same.
+- **Don't** split a queue into Open / Settled tabs; don't box the cards; don't
+  hide the controls behind a row click on a phone.
+
+### 8.14 Status lines — `RowStatus`
+
+One inline line for an action's outcome, in the muted, warn or bad ink:
+`Saving… → Saved`, a warning when a change landed minus a guarantee, the
+refusal's reason. Always in the DOM as a live region, empty until it speaks.
+No toasts (owner decision). A page that could not read its data says so with
+`EmptyState tone="bad"`, never an empty list.
+
+### 8.15 Mobile behaviour
 
 - 390px is a first-class width: tables become two-line lists, before/after
   stacks, bars scroll inside themselves, sheets go full screen.

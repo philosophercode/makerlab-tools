@@ -217,6 +217,20 @@ Phase 5 extends both. The shape it sets:
   only `super_admin` holds. A SuperMaker gets past the layout and is refused on
   the page, **and is told so**: `AdminNotice` renders "not signed in" or "not
   permitted", never a 404 and never an error boundary (Article 4).
+- **One list of surfaces, three views** (UI system phase 4).
+  `src/lib/admin/surfaces.ts` holds every admin page's key, href, group,
+  permission, icon and count loader; `surfacesFor(identity)` — the same `can()`
+  each page checks — feeds the `/admin` tiles, the section bar the layout puts
+  on every admin page (`AdminNav`) and the ⌘K palette (`CommandPalette`). A
+  page added there appears in all three; one left out is reachable from none,
+  and `surfaces.test.ts` pins what each role is shown. The home's numbers are
+  `loadAdminOverview(loaders)` (`src/lib/data/admin-overview.ts`): one
+  aggregate per loader, only the viewer's, each failing to `null` on its own —
+  a tile says "Could not be read", never 0. Waiting counts live on the tiles,
+  never in the bar. Every admin page's header is `AdminPageHeader` (crumb from
+  the group, a facts line from the page's own rows). Add equipment is the
+  `src/app/admin/intake/(tabs)/` route group — Queue, Imports, Import a list,
+  as `LinkTabs` links — and the four queues share `QueueList`.
 - **Server actions check themselves.** A server action is a POST endpoint with
   a generated name, reachable without the page that offers it, so
   `src/app/admin/users/actions.ts` resolves the identity, rate-limits
@@ -235,7 +249,7 @@ Phase 5 extends both. The shape it sets:
   throwing there would make the page show the old value over a database holding
   the new one. `record()` reports instead, and the action answers
   `{ ok: true, …, warning: "audit_unavailable" }`. Both islands keep the new
-  value and show `admin.warnings.<code>` in `.admin-row-status.is-warning`.
+  value and show `admin.warnings.<code>` in `RowStatus`'s warn tone.
   **Never answer `{ ok: false }` for a write that landed** — both islands
   respond to a refusal by restoring the previous value, which would then assert
   a state the database does not hold. Phase 5 reuses this rather than repeating
@@ -932,7 +946,7 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/app/api/pending-tools/[id]/cleaned-image/route.ts` | Streams the private cleaned PNG to a reviewer holding `tools.approve`; 404 otherwise |
 | `src/workflows/research-batch.ts` | `researchBatch` — the `"use workflow"` function, started only by the research route |
 | `src/app/api/pending-tools/research/route.ts`, `[id]/route.ts` | **Research selected** and the table card's edits |
-| `src/app/admin/intake/` | The queue (`IntakeList`, polls while research runs) and each item's preliminary page (`PreliminaryToolPage`, `ConfidenceStrip`) with their server actions |
+| `src/app/admin/intake/` | Add equipment: the `(tabs)` route group (Queue — `IntakeList`, polls while research runs; Imports; Import a list) and each item's preliminary page (`PreliminaryToolPage`, `ConfidenceStrip`) with their server actions |
 | `src/components/IntakeTableCard.tsx` | The chat's intake table (`data-intake-table`) |
 | `src/lib/files/promote.ts` | Copies a claimed chat photo to a public pathname before it is shown as equipment |
 | `src/lib/inventory/*` | Those writes composed with cache invalidation and the audit trail — the layer `/admin/inventory`'s server actions call |
@@ -953,7 +967,8 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/auth/permissions.ts` | `statement` / `ac` / `roles` / `can()` — what each role may do |
 | `src/lib/auth/super-admins.ts` | `AUTH_SUPER_ADMIN_EMAILS`, the lock-out floor |
 | `src/lib/auth/floor-role.ts` | `reconcileSuperAdminFloor` — writes the floor's role and lifts its ban onto the row, because the admin plugin reads the row and not `can()` |
-| `src/app/admin/layout.tsx` | The `/admin` front door — signed in? holds an admin permission? |
+| `src/app/admin/layout.tsx` | The `/admin` front door — signed in? holds an admin permission? — then the section bar and ⌘K palette on every admin page |
+| `src/lib/admin/surfaces.ts` / `src/lib/data/admin-overview.ts` | Every admin surface once (tiles, bar, palette, each with its permission) / the home's count loaders |
 | `src/app/admin/inventory/page.tsx` | The review table (`tools.edit`), uncached, filtered from the URL |
 | `src/app/admin/users/actions.ts` | `setUserRole` / `setUserBanned` — the app's first server actions |
 | `src/lib/data/users.ts` | The `/admin/users` roster, read straight from Postgres |
@@ -1035,6 +1050,14 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   `aria-describedby`). Refresh and chat proposals, the intake queue and approve
   page, import review and the chat's intake table are all on them (UI system
   phase 3); `admin-intake.css` and `intake-table.css` are gone.
+  **Admin navigation** (phase 4): `Tile`/`TileGroup`, `LinkTabs` (tabs that
+  are URLs: links with `aria-current`, never `role="tab"`) and `queue/QueueList`
+  (search + facets over a queue, open work on the page, settled behind a
+  disclosure) in `system/`; `AdminNav`, `AdminPageHeader` and `CommandPalette`
+  (shadcn `Command` over `cmdk` in `ui/dialog`) in `admin/`. An inline outcome
+  is `RowStatus` (codes, or `tone` + words); a page that could not read its
+  data is `EmptyState tone="bad"`. `admin-row-status`, `admin-empty`,
+  `admin-section*` and the `admin-queue*` rules are gone.
 - All branding strings come from `siteConfig` (`@/lib/site-config`).
 - Every API route is **rate-limited by identity** before expensive work — user id when signed in, hashed IP when not.
 - Authorization is **always** `can(subject, permission)` from `src/lib/auth/permissions.ts`. Never compare role names, and never gate inside a capability tool's `run()`.
