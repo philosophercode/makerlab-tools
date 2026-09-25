@@ -1,115 +1,312 @@
-# Design System Strategy: The Technical Schematic
+# Design System: The Technical Schematic
 
-## 1. Overview & Creative North Star
-**Creative North Star: "The Blueprint Archive"**
+> **Living document.** This file says how MakerLab Tools should look and behave.
+> The change that moves the code onto it — shadcn/ui on Tailwind 4, AI Elements
+> for the chat, the admin IA — is specified in
+> [`docs/specs/2026-09-25-ui-system-design.md`](../specs/2026-09-25-ui-system-design.md).
+> The spec says *what changes and in what order*; this file says *what good
+> looks like* and outlives the spec. Screenshots live in [`screens/`](screens/);
+> `screen.png` is the original concept render and remains the identity reference.
+>
+> *Revised 2026-09-25: identity kept; reconciled with Tufte's density rules and
+> the shadcn/AI Elements token mapping; patterns section added (§8).*
 
-This design system is a digital extension of the workshop floor. It rejects the soft, consumer-grade aesthetics of modern web templates in favor of a high-end, industrial-editorial experience. It is a "Technical Schematic"—precise, utilitarian, and uncompromising.
+## 1. Creative North Star: "The Blueprint Archive"
 
-We achieve a signature look by leaning into **Architectural Brutalism**. By combining the raw precision of 0px corner radii with the sophisticated rhythm of monospace metadata and high-contrast typography, we create an interface that feels less like a website and more like a high-performance engineering tool. The layout should feel intentionally "constructed," utilizing the blueprint grid not just as a background, but as a rigid structural guide for every element.
+A digital extension of the workshop floor: precise, utilitarian, industrial-
+editorial. Square corners, monospace metadata, high-contrast type, a blueprint
+grid as the structural guide. It should feel less like a website and more like a
+well-made instrument panel — and, like an instrument panel, **it earns its
+density**: every mark on the screen is a reading somebody needs.
 
----
+Two influences, one result:
 
-## 2. Colors & Surface Architecture
+- **Architectural Brutalism** gives the identity: 0px radii, mono labels, Safety
+  Orange, tonal plates instead of boxes.
+- **Edward Tufte** gives the discipline: maximise data-ink, words and numbers and
+  graphics together, small multiples, sparklines, no chartjunk. Where the two
+  disagree (glass, gradients, glows), Tufte wins; those flourishes are retired (§5).
 
-The palette supports both light and dark modes. Light mode is the default because the app is a daily lab reference surface; dark mode is a first-class alternate that leans harder into the blueprint archive mood.
+![The concept render](screen.png)
 
-### Light Mode Tokens (Default)
-- **Background (`surface_container_lowest`):** `#F7F4EE`. Warm technical-paper base. May feature the blueprint-dot pattern (1px dots, 32px spacing, very low opacity) to provide a sense of scale without darkening the page.
-- **Primary (`primary`):** `#FF6B35` (Safety Orange). This is our "Active State." Use it for high-priority CTAs and interactive focus.
-- **Secondary (`secondary`):** `#B31B1B` (Cornell Crimson). Reserved for heritage accents and subtle brand anchors.
-- **Text (`on_surface`):** `#171717`.
-- **Surface Tiers:**
-    - `surface_container_low`: `#EEE8DE` (General content areas)
-    - `surface_container`: `#FFFFFF` (Cards and distinct modules)
-    - `surface_container_high`: `#E2D8CA` (Hover states or nested components)
-    - `outline`: `#CFC6B8` (Technical borders)
+## 2. Principles
 
-### Dark Mode Tokens (Alternate)
-- **Background (`surface_container_lowest`):** `#0F0F0F`. The blueprint archive foundation. Should feature the blueprint-dot pattern (1px dots, 32px spacing, 3% opacity) to provide a sense of scale.
-- **Primary (`primary`):** `#FF6B35` (Safety Orange).
-- **Secondary (`secondary`):** `#B31B1B` (Cornell Crimson).
-- **Text (`on_surface`):** `#F5F5F0`.
-- **Surface Tiers:**
-    - `surface_container_low`: `#131313` (General content areas)
-    - `surface_container`: `#1A1A1A` (Cards and distinct modules)
-    - `surface_container_high`: `#201F1F` (Hover states or nested components)
-    - `outline`: `#2A2A2A` (Technical borders)
+1. **Data-ink first.** No boxed cells, zebra stripes, vertical rules, shadows or
+   decorative icons in data. Hairline rows at 10% ink; sections by whitespace and
+   tonal shift.
+2. **Numbers right-aligned, tabular, mono.** Dates ISO (`2026-09-24`).
+3. **One accent for action.** Safety Orange = the primary action, where you are,
+   and "waiting on you". Never decoration, never a status.
+4. **Status = glyph + word.** `● ok ▲ warn ■ bad ○ idle ◆ waiting on you – settled`.
+   Colour is never the only signal.
+5. **Say the numbers.** Headers carry a facts line; menus show counts; a tile says
+   what its number counts.
+6. **Sparklines where a trend matters.** Word-sized, bars for daily counts, last
+   value in the accent, described in words for screen readers.
+7. **Small multiples.** Parallel things share one layout.
+8. **Dense but calm.** 13px tables, ~34px rows, 11px mono labels, 4px grid.
+   Density comes from removing chrome, not shrinking type.
+9. **Honest states.** Zero is shown as zero; unknown says "could not be read";
+   empty names its cause.
+10. **Square, flat, snappy.** 0px radius, no shadows, 150–200ms linear motion.
 
-### The "No-Line" Rule for Sectioning
-While the industrial aesthetic allows for 1px technical accents, **do not use solid 1px borders to separate major sections of the page.** Structure must be defined through tonal shifts. A `surface_container_low` section should sit directly against the `surface` background to create a boundary through value, not lines.
+## 3. Colour and surfaces
 
-### Surface Hierarchy & Nesting
-Treat the UI as a series of physical plates. Use the "Nested Depth" principle: an inner card (`#1A1A1A`) should feel like it has been machined out of the larger background (`#0F0F0F`).
+Light is the default (a daily lab reference); dark is a first-class alternate.
+The tokens below are CSS variables on `:root`, swapped under
+`[data-theme="dark"]` and under `prefers-color-scheme: dark` when no choice is
+stored. shadcn's semantic names map onto them (spec §6.1); components never use
+hex values.
 
-### The "Glass & Gradient" Rule
-To prevent the dark mode from feeling "flat" or "dead," use subtle gradients on primary CTAs (transitioning from `#FF6B35` to `primary_container`). For floating overlays (like tooltips or dropdowns), apply **Glassmorphism**: use a semi-transparent `#1A1A1A` with a 12px backdrop-blur. This simulates a "frosted polycarbonate" material common in lab environments.
+| Token | Role | Light | Dark | shadcn name |
+|---|---|---|---|---|
+| `--background` | page | #F7F4EE warm paper | #0F0F0F | `background` |
+| `--surface-container-low` | general content areas | #EEE8DE | #131313 | `muted` |
+| `--surface-container` | cards, sheets, menus | #FFFFFF | #1A1A1A | `card`, `popover` |
+| `--surface-container-high` | hover, nested, neutral fill | #E2D8CA | #2A2A2A | `secondary`, `accent` |
+| `--on-surface` | text | #171717 | #F5F5F0 | `foreground` |
+| `--on-surface-muted` | secondary text | #59524A | #A1A1AA | `muted-foreground` |
+| `--primary` | Safety Orange **fills** | #FF6B35 | #FF6B35 | `primary` |
+| `--ink-on-primary` | text on orange | #0F0F0F | #0F0F0F | `primary-foreground` |
+| `--primary-ink` | orange **text, marks, focus** | #B8431A | #FF6B35 | `primary-ink`, `ring` |
+| `--secondary` | Cornell Crimson, heritage stamp | #B31B1B | #B31B1B | `brand` |
+| `--outline` | hairlines | #CFC6B8 | #2A2A2A | `border` |
+| `--outline-strong` | control boundaries (3:1) | #8F8676 | #6E6A64 | `input` |
+| `--rule` | table row rules | ink 10% | ink 10% | `rule` |
+| `--status-ok` | ● | #2F7D4F | #5CC98A | `ok` |
+| `--status-warn` | ▲ | #8A5300 | #E0A23A | `warn` |
+| `--status-bad` | ■, errors, destructive | #B31B1B | #F0645A | `bad`, `destructive` |
 
----
+**Why two oranges.** Safety Orange on paper is 2.6:1 — fine as a fill behind
+black text (6.8:1), illegible as text. So orange *fills* stay #FF6B35 everywhere,
+and orange *ink* on light surfaces is #B8431A (5.0:1). In dark mode they are the
+same colour.
 
-## 3. Typography: The Editorial Engine
+**Crimson is a stamp, not a signal.** It marks heritage (the brand lockup), never
+errors in dark mode (2.8:1 there). Errors use `--status-bad`.
 
-Typography is our primary tool for hierarchy. We use a three-font system to delineate between "Display," "Utility," and "Data."
+**The No-Line rule.** Do not separate major page sections with 1px lines; use a
+tonal shift (`surface-container-low` against `background`). Hairlines are for
+rows, controls and the one bar under the admin section nav.
 
-| Role | Typeface | Weights | Style |
-| :--- | :--- | :--- | :--- |
-| **Headlines** | Space Grotesk | 500, 700 | Brutalist, uppercase where useful, no negative letter spacing |
-| **Body** | Inter | 400, 500 | High legibility, standard tracking |
-| **Metadata/Labels** | JetBrains Mono | 500 | ALL CAPS, Monospace technicality |
+**Nested depth.** Cards are plates machined out of the background: a
+`surface-container` card on `background`, a `surface-container-high` hover. The
+blueprint-dot pattern (1px, 32px, 3–8% ink) stays on the page background only.
 
-**The Identity Logic:**
-- **Space Grotesk** (Headline) provides a human-yet-mechanical feel, reminiscent of mid-century Swiss design.
-- **Inter** (Body) acts as the neutral workhorse, ensuring technical descriptions are readable at any scale.
-- **JetBrains Mono** (Labels) is used exclusively for "UI Plumbing"—tags, timestamps, and technical specs—giving the user the sense they are looking at a live machine readout.
+## 4. Typography
 
----
+| Role | Face | Size / line | Use |
+|---|---|---|---|
+| Display | Space Grotesk 500, uppercase | clamp(42–88px) / 0.92 | Gallery and tool hero **only** |
+| Page title | Space Grotesk 500, uppercase | 26–30px / 1.05 | `PageHeader` |
+| Number | Space Grotesk 500, tabular | 40px / 1 | Tile headline |
+| Body | Inter 400 | 14–15px / 1.5 | Prose, ledes |
+| Table | Inter 400 | 13px / 1.35 | Cells, review values |
+| Label | JetBrains Mono 500, uppercase, 0.08em | 11px | Eyebrows, buttons, glyph words, nav |
+| Micro | JetBrains Mono, uppercase | 10px | Column heads, captions |
 
-## 4. Elevation & Depth: Tonal Layering
+Seven steps. **Metadata is always mono** ("UI plumbing": tags, timestamps,
+column heads, the `// CORNELL TECH` lockup, `// ADMIN / INVENTORY` crumbs). The
+fonts are self-hosted with `next/font/local`; a design that only works where the
+fonts happen to be installed is not a design.
 
-Traditional shadows are prohibited. In a workshop, objects have weight and physical presence.
+## 5. Elevation, shape, motion
 
-- **The Layering Principle:** Depth is achieved by stacking. A `surface_container_lowest` card on a `surface` background creates a "carved out" effect.
-- **Ambient Shadows:** When a floating effect is mandatory (e.g., a modal), use a massive, 64px blur at 8% opacity using the `on_surface` color. This creates an "atmospheric glow" rather than a drop shadow.
-- **The "Ghost Border" Fallback:** For secondary buttons or subtle containment, use the `outline_variant` at 20% opacity. It should be barely visible—a "ghost" of a line that suggests a boundary without cluttering the technical space.
-- **The Crosshair Motif:** Instead of rounded corners, use "Technical Crosshairs" (12px 1px lines) at the four corners of major hero sections or featured cards to reinforce the "targeting/precision" theme.
+- **Radius: 0.** Every corner is 90°. (Enforced globally.)
+- **Shadows: none.** Depth is tonal stacking. The old "ambient 64px glow" for
+  modals is retired; a sheet or dialog sits on a 28% scrim instead.
+- **Retired flourishes:** glassmorphism on overlays, gradients on CTAs, pulsing
+  status dots. They cost ink and say nothing. The crosshair corners
+  (`TechnicalFrame`) stay on the gallery hero only.
+- **Focus: a 2px `--primary-ink` outline**, offset 2px, on `:focus-visible`,
+  on everything interactive. Never `outline: none` without it.
+- **Motion:** 150–200ms, linear or ease-in, colour and opacity only; nothing
+  bounces; `prefers-reduced-motion` turns animation off.
 
----
+## 6. Spacing and layout
 
-## 5. Components
+- 4px grid: 4 · 8 · 12 · 16 · 24 · 32 · 48. Snap to it.
+- Page gutter 16px on a phone, 32px from `sm`. No horizontal page scroll, ever;
+  a wide thing (the section bar, a code block) scrolls inside itself.
+- Breakpoints: `sm 640 · md 768 · lg 1024 · xl 1280`. Nothing else.
+- Controls: 32px default, 28px in toolbars, 24px for row actions; touch rows ≥ 40px.
 
-### Buttons
-- **Primary:** Background `primary` (#FF6B35), text `#0F0F0F`. Rectangular (0px).
-- **Secondary:** Transparent background, 1px border `primary` at 40% opacity. Text `primary`.
-- **States:** On hover, the primary button should "flash" to a slightly lighter tint. On click, it should invert (Primary color text on transparent).
+## 7. Iconography
 
-### Input Fields
-- **Style:** Background `surface_container_highest`, bottom-border only (1px, `#2A2A2A`).
-- **Active State:** The bottom border transforms to `primary` (#FF6B35). Use JetBrains Mono for the label.
+`lucide-react`, 1.5–2px stroke, 14–16px, `currentColor`. Icons label *surfaces
+and controls*; they are not decoration and never appear inside data cells, where
+a status glyph (● ▲ ■ ○ ◆ –) does the job in a tenth of the ink.
 
-### Chips & Tags
-- **Technical Tags:** Use JetBrains Mono, Uppercase, 10px size. Encased in a 1px border of `outline_variant` at 30% opacity. No fill.
+## 8. Patterns
 
-### Cards & Lists
-- **Rule:** Forbid the use of horizontal divider lines in lists. Instead, increase vertical padding (using a 16px/32px/48px scale) or use a subtle background hover state (`surface_container_high`) to separate items.
+Each pattern names its component (`src/components/system/*`, `ui/*`,
+`ai-elements/*`), when to use it, and what not to do.
 
-### Custom Component: The "Live Status" Indicator
-A small, Cornell Crimson (#B31B1B) or Safety Orange (#FF6B35) "pulsing" dot next to monospace text to indicate machine availability or "Live" lab status.
+### 8.1 Page header — `PageHeader`
 
----
+`// ADMIN / KEEP DATA FRESH` crumb (mono, the `//` in accent) → title → one-line
+lede → **facts line** (`101 TOOLS · 86 PUBLISHED · 11 DRAFTS · 97 NEED ATTENTION`)
+→ actions on the right.
 
-## 6. Do's and Don'ts
+- **Use** on every working page (admin, account, projects, mcp).
+- **Don't** stack a display heading above it (the old 88px "ADMIN"); don't put
+  more than one filled button in the actions.
+- Gallery and tool page keep their display heroes.
 
-### Do
-- **DO** use asymmetry. Place a label in the top-left and the data in the bottom-right of a card to create a "technical document" flow.
-- **DO** use 0px rounding on everything. Every corner must be a sharp 90-degree angle.
-- **DO** snap every element to the 32px blueprint grid.
+![Header, section bar and facts line](screens/after-inventory-desktop.webp)
 
-### Don't
-- **DON'T** use soft shadows or rounded corners (this breaks the industrial aesthetic).
-- **DON'T** use 100% opaque, high-contrast white dividers. They create "visual noise." Use background color shifts instead.
-- **DON'T** use Cornell Crimson for large surfaces. It is an accent—a "stamp" of authority—not a primary paint color.
-- **DON'T** mix icon languages. Use one familiar thin-stroke icon set consistently, and prefer icons that read as technical controls rather than decorative illustrations.
+### 8.2 Tiles — `Tile`, `TileGroup`
 
----
+Whole tile is the link. Mono title + icon → headline number (40px, tabular) with
+the words for what it counts → ≤ 4 facts (`glyph label ……… value`) → optional
+30-day sparkline with a `30 DAYS` caption. Accent left border and accent number
+when the headline is **work waiting for a person**; muted number when it is 0.
 
-## 7. Interaction Pattern: The "Haptic" Digital
-Interactions in this system should feel "mechanical." Use quick, snappy transitions (150ms-200ms) with a "Linear" or "Ease-In" curve. Avoid "bouncy" or "elastic" animations; the lab is a place of precision, not playfulness. Every hover state should feel like a light turning on in a machine.
+- **Use** for the admin home: one tile per surface, one column per job.
+- **Don't** show a count that failed as 0 (say "Could not be read"); don't add
+  a sparkline to a stock that doesn't change daily; don't use tiles as a gallery.
+
+![Admin home](screens/after-admin-home-desktop.webp)
+
+### 8.3 Data table — `DataTable`
+
+13px, ~34px rows, hairline row rules, no vertical rules, no zebra. Sticky header
+(mono 10px). Numeric columns right-aligned tabular mono. Status column is
+`StatusGlyph`. A 24px thumbnail at most. The row's reasons-for-attention as
+**words** in warn ink (`▲ No photo · No manual · 1 open`). Row actions are
+`ghost xs` and brighten on hover/focus. Keyboard: ↑↓/j k move, Space/x select,
+Enter opens. Selection shows a sticky bulk bar (`2 TOOLS SELECTED · [REFRESH
+RESEARCH (2)] · CLEAR`). On a phone: a two-line list item per row.
+
+- **Use** for any list of records a person scans, sorts or selects.
+- **Don't** render a table as cards on a phone; don't box cells; don't put more
+  than one line of secondary text in a cell; don't hide the count.
+
+![Inventory, phone](screens/after-inventory-phone.webp)
+
+### 8.4 Filter bar — `FilterBar`, `FacetFilter`, `ColumnsMenu`
+
+Search (left) → one facet button per dimension (`STATE ▾`, `NEEDS ATTENTION
+Never reviewed ▾` when set) → Clear → `Showing 21 of 101` → Columns. A facet menu
+lists values **with the count each would leave**, disables values that leave
+nothing, and filters are written to the URL so a view is a link.
+
+- **Don't** use native selects for facets; don't filter server-side on each
+  keystroke; don't show an empty table without naming the filter.
+
+![Facet counts](screens/after-inventory-facet.webp)
+
+### 8.5 Status glyphs — `StatusGlyph`, `Glyph`
+
+| Glyph | Tone | Means |
+|---|---|---|
+| ● | ok | settled and good: published, available, searchable, verified |
+| ▲ | warn | needs a person soon: never reviewed, no manual, medium |
+| ■ | bad | broken or urgent: failed, out of service, critical, quote not found |
+| ○ | idle | nothing to do / not started: draft, queued, none |
+| ◆ | active (accent) | waiting on *you*: proposed, researched, new |
+| – | muted | archived, retired, decided |
+
+Always with the word (visible, or `sr-only` in `compact` cells). **Don't** use a
+coloured dot alone, a pill background, or Badge for status.
+
+### 8.6 Review / proposal card — `ReviewCard`
+
+One decision per card: `LABEL  marks  [ACCEPT] [REJECT]` on one line; NOW (muted)
+│ PROPOSED (ink, orange rule) side by side, stacked on a phone; SOURCES as
+verbatim quotes with host and ● verified / ■ not found; a note when it cannot be
+decided here. Safety cards carry a bad-tone left rule. Decided cards fade.
+
+- **Use** for refresh proposals, chat proposals, intake records, import rows —
+  anything a person accepts or rejects.
+- **Don't** render values as HTML/Markdown (they come from web pages); don't
+  offer Accept on unverified evidence; don't box each card (a rule is enough).
+
+![Refresh review](screens/after-refresh-review-desktop.webp)
+
+### 8.7 Forms
+
+Label above (mono 10px uppercase), control (hairline box, `--outline-strong`,
+square), hint below (12px muted), error below in `bad`. One filled primary button
+at the end; Cancel is `quiet`. A form that belongs to the page is inline; a
+decision gets a `Dialog`.
+
+- **Don't** rely on placeholder as label; don't disable Submit without saying why.
+
+### 8.8 Dialogs and sheets — `Dialog`, `Sheet`
+
+`Dialog` for a decision (confirm, report a correction, research again); `Sheet`
+(side panel, full screen on a phone) for a workspace (tool editor, chat). Both
+trap focus, close on Escape and return focus. Scrim 28% ink, no shadow.
+
+- **Don't** mark something `aria-modal` that isn't; don't nest dialogs.
+
+### 8.9 Empty, loading, error — `EmptyState`, `Skeleton`, `RowStatus`
+
+- **Empty**: one sentence naming what is missing and why, plus the next action
+  ("No tools match State: Archived. [Clear filters]").
+- **Loading**: skeleton rows in the table's shape; a spinner only inline.
+- **Error**: say what failed and that nothing was lost; failing toward stale is
+  shown, not hidden (Article 4). Row actions report inline (`RowStatus`).
+
+### 8.10 Buttons — `Button`
+
+| Variant | Look | Use |
+|---|---|---|
+| `default` | orange fill, #0F0F0F mono label | the one primary action on a surface |
+| `quiet` | hairline box, ink label | everything else (default) |
+| `outline` | orange-ink hairline + label | a secondary call to action on public pages |
+| `ghost` | label only, muted | row actions, toolbars, Clear |
+| `destructive` | bad-tone hairline + label, at rest | discard, delete, ban — confirm inline |
+| `link` | orange-ink underlined | inline navigation |
+
+### 8.11 Chat — AI Elements
+
+Docked side sheet (440px; full screen on a phone). `Conversation` (live log,
+sticks to bottom, "scroll to latest" button) → `Message`: assistant text is
+unboxed prose; the user's turn is a square `secondary` block; cards (`ReviewCard`,
+intake table, import card) span the full width. `Suggestions` stack as sentences
+on the empty state. A running tool is a one-line status with a spinner (`Tool`
+header). Manual citations render as `InlineCitation` + a `Sources` list — the
+answer shows its evidence. `PromptInput`: attach, dictate, text, send.
+
+- **Don't** use rounded bubbles or avatars; don't strip citations; don't open a
+  floating card that can't fit the cards it contains.
+
+![Chat](screens/after-chat-desktop.webp)
+
+### 8.12 Navigation and IA
+
+- **Public**: `TOOLS · PROJECTS · ABOUT · REPORT` in the top bar; status strip
+  below (`86 TOOLS IN INVENTORY · LAB OPEN 9AM–9PM`).
+- **Admin**: a section bar under the top bar on every admin page:
+  `OVERVIEW ┃ INTAKE · IMPORT A LIST ┃ INVENTORY · REFRESH · MANUALS ┃
+  MAINTENANCE · CORRECTIONS · PROJECTS ┃ PEOPLE · NOTION MIRROR`, dividers
+  between jobs, the current page underlined in the accent, only surfaces the
+  viewer's permissions open. ⌘K opens a palette of surfaces, tools and actions.
+- **Don't** make a page reachable only through a hub; don't list a surface that
+  will refuse the viewer.
+
+### 8.13 Mobile behaviour
+
+- 390px is a first-class width: tables become two-line lists, before/after
+  stacks, bars scroll inside themselves, sheets go full screen.
+- 16px gutters; no horizontal page scroll; touch rows ≥ 40px.
+- The chat launcher must never cover the one action on screen (bulk bars reserve
+  its corner; admin opens chat from the nav).
+
+## 9. Do's and Don'ts
+
+**Do**
+- Snap to the 4px grid and the seven type steps.
+- Put the label top-left and the value bottom-right: a technical-document flow.
+- Say the numbers in words beside the graphics.
+- Use one accent, once per surface, for the action.
+
+**Don't**
+- Round a corner, cast a shadow, add a gradient, blur glass.
+- Use Crimson for large surfaces or for errors in dark mode.
+- Use orange text on paper (use `--primary-ink`).
+- Encode status in colour alone.
+- Invent a new table, badge, button or dialog: use the system component, or add
+  one to `src/components/system` when a pattern appears on a second surface.

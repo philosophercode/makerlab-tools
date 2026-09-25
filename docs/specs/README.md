@@ -58,6 +58,7 @@ configuration a person does. Six of the eight specs are complete. Everything rem
 | Spec | State |
 |---|---|
 | [v5 Data Platform](2026-09-14-v5-data-platform-design.md) — Postgres, Blob, three roles, admin inventory, two-step intake with background research, a per-admin Notion mirror | Draft · awaiting approval · amends constitution Articles 3, 4, 5, 6 and 7 in the same PR |
+| [UI System](2026-09-25-ui-system-design.md) — shadcn/ui on Tailwind 4 themed to the Blueprint identity, Tufte density rules, DataTable/ReviewCard/Tile, admin IA (tile home, section bar), AI Elements chat; pairs with [`DESIGN.md`](../MakerLab_design/DESIGN.md) | Draft · spike on `v5/ui-spike` · 6 phases, open questions for the owner |
 
 *(Ops was recorded as 6 built on 2026-07-29 and corrected to 5 in the same day's audit: its
 phases 1, 3, 4, 5, and 7 have artifacts in code, and 7 − 2 open is 5. The row and its "phases
