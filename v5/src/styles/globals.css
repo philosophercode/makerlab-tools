@@ -74,28 +74,34 @@ body::selection {
   color: #0f0f0f;
 }
 
-button,
-input,
-a {
-  font: inherit;
-}
+/* Element defaults sit in the `base` cascade layer (UI system spec §5.1) so
+   the Tailwind utilities shadcn components carry — `text-sm` on a <button> —
+   can override them. Every class rule below stays unlayered and still wins,
+   so the change is behaviour-preserving for the existing pages. */
+@layer base {
+  button,
+  input,
+  a {
+    font: inherit;
+  }
 
-button,
-a {
-  color: inherit;
-}
+  button,
+  a {
+    color: inherit;
+  }
 
-a {
-  text-decoration: none;
-}
+  a {
+    text-decoration: none;
+  }
 
-button {
-  cursor: pointer;
-}
+  button {
+    cursor: pointer;
+  }
 
-img {
-  display: block;
-  max-width: 100%;
+  img {
+    display: block;
+    max-width: 100%;
+  }
 }
 
 ::-webkit-scrollbar {
@@ -596,31 +602,33 @@ img {
   line-height: 1;
 }
 
-h1,
-h2,
-h3 {
-  margin: 0;
-  font-family: var(--font-display);
-  letter-spacing: 0;
-  text-transform: uppercase;
-}
+@layer base {
+  h1,
+  h2,
+  h3 {
+    margin: 0;
+    font-family: var(--font-display);
+    letter-spacing: 0;
+    text-transform: uppercase;
+  }
 
-h1 {
-  font-size: clamp(42px, 7vw, 88px);
-  line-height: 0.92;
-}
+  h1 {
+    font-size: clamp(42px, 7vw, 88px);
+    line-height: 0.92;
+  }
 
-h2 {
-  font-size: 24px;
-  line-height: 1.1;
-}
+  h2 {
+    font-size: 24px;
+    line-height: 1.1;
+  }
 
-h3 {
-  font-size: 18px;
-}
+  h3 {
+    font-size: 18px;
+  }
 
-p {
-  margin: 0;
+  p {
+    margin: 0;
+  }
 }
 
 .technical-frame {

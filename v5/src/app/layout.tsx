@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { NextIntlClientProvider } from "next-intl";
+// The UI system (Tailwind theme + utilities, shadcn tokens) first, so its
+// cascade-layer order is declared before globals.css adds to `base`.
+import "../styles/ui.css";
 import "../styles/globals.css";
 import { ChatFab } from "../components/ChatFab";
 import { ChatLauncherProvider } from "../components/ChatLauncherContext";
