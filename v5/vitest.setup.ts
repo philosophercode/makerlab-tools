@@ -102,6 +102,28 @@ afterEach(() => {
   resetResolver();
 });
 
+// ── Browser APIs Radix primitives expect (UI system spec §14) ──────
+//
+// jsdom has no layout, so the shadcn/Radix components under
+// src/components/ui reach for three APIs it lacks: ResizeObserver (checkbox
+// and popper sizing), pointer capture (menu triggers) and scrollIntoView
+// (roving focus). Inert stand-ins, only in the jsdom environment and only
+// where the API is missing.
+if (typeof window !== "undefined") {
+  if (!("ResizeObserver" in window)) {
+    (window as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
+      observe() {}
+      unobserve() {}
+      disconnect() {}
+    };
+  }
+  const proto = window.HTMLElement.prototype as unknown as Record<string, unknown>;
+  proto.hasPointerCapture ??= () => false;
+  proto.setPointerCapture ??= () => {};
+  proto.releasePointerCapture ??= () => {};
+  proto.scrollIntoView ??= () => {};
+}
+
 // ── Per-test cleanup ───────────────────────────────────────────────
 //
 // Undo `vi.stubEnv(...)` and restore any spies/mocks created with

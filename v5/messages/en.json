@@ -1618,5 +1618,8 @@
     "tokensHeading": "Clients that can't sign in",
     "tokensBody": "For Claude Desktop's config file, a CI job or your own script, create a personal access token instead. It acts as you until it expires or you revoke it.",
     "tokensLink": "Manage personal access tokens"
+  },
+  "ui": {
+    "breadcrumb": "Breadcrumb"
   }
 }
