@@ -5,6 +5,11 @@ import type { ClientIdentity } from "../../../lib/auth/sign-in-client";
 
 // `fetchIdentity`'s own behaviour is covered in `lib/auth/sign-in-client.test.ts`;
 // here it is the seam that decides whether the control exists at all.
+const push = vi.fn();
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ push, replace: vi.fn(), refresh: vi.fn(), back: vi.fn(), prefetch: vi.fn() }),
+}));
+
 const fetchIdentity = vi.fn<() => Promise<ClientIdentity | null>>(async () => null);
 vi.mock("../../../lib/auth/sign-in-client", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../../lib/auth/sign-in-client")>();

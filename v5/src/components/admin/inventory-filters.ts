@@ -85,6 +85,18 @@ export function toSearchParams(filters: InventoryFilterState): URLSearchParams {
   return params;
 }
 
+/**
+ * Where an archived tool lives now: its row in `/admin/inventory`, narrowed to
+ * archived tools and searched by name, where Restore is. The tool page sends
+ * staff here after Archive, and when they follow a link to a tool that has
+ * since been archived, rather than to a 404 (data platform spec amendment
+ * 2026-09-25 "Archived tools send staff to Inventory").
+ */
+export function archivedToolHref(toolName: string): string {
+  const params = toSearchParams({ query: toolName, state: "archived", category: null, location: null, attention: null });
+  return `/admin/inventory?${params.toString()}`;
+}
+
 /** True when anything is narrowing the table. */
 export function hasActiveFilters(filters: InventoryFilterState): boolean {
   return toSearchParams(filters).toString().length > 0;

@@ -6,9 +6,17 @@ vi.mock("next/headers", () => nextHeadersMock());
 // `notFound()` throws in Next; here it throws something this test can name, so
 // "the visitor gets the 404 page" is an assertion rather than an absence.
 class NotFound extends Error {}
+class Redirect extends Error {
+  constructor(readonly to: string) {
+    super(`redirect ${to}`);
+  }
+}
 vi.mock("next/navigation", () => ({
   notFound: () => {
     throw new NotFound("not found");
+  },
+  redirect: (to: string) => {
+    throw new Redirect(to);
   },
 }));
 
@@ -57,12 +65,13 @@ afterEach(() => {
 });
 
 /** What the page renders, or the refusal it threw. */
-async function view(idOrSlug: string): Promise<"not-found" | "rendered"> {
+async function view(idOrSlug: string): Promise<"not-found" | "rendered" | `redirect:${string}`> {
   try {
     await DraftToolView({ idOrSlug });
     return "rendered";
   } catch (err) {
     if (err instanceof NotFound) return "not-found";
+    if (err instanceof Redirect) return `redirect:${err.to}`;
     throw err;
   }
 }
@@ -95,7 +104,7 @@ it("gives the same 404 for a slug nobody owns, whoever is asking", async () => {
   expect(await view("no-such-tool")).toBe("not-found");
 });
 
-it("404s an archived tool even for staff — archived is gone, not hidden", async () => {
+it("sends staff to the archived tool's row in Inventory instead of a 404", async () => {
   await db.insert(tools).values({
     slug: "old-laser",
     name: "Old laser",
@@ -105,6 +114,21 @@ it("404s an archived tool even for staff — archived is gone, not hidden", asyn
   const maker = await signInAsNew({ email: "maker3@cornell.edu", role: "admin" });
   setMockHeaders({ cookie: maker.cookie });
 
-  // It is still in `/admin/inventory`, which is where it can be restored.
-  expect(await view("old-laser")).toBe("not-found");
+  // Archived is still gone from the tool page; Inventory is where it can be restored.
+  expect(await view("old-laser")).toBe("redirect:/admin/inventory?q=Old+laser&state=archived");
+});
+
+it("still 404s an archived tool for students and visitors", async () => {
+  await db.insert(tools).values({
+    slug: "old-laser-2",
+    name: "Old laser 2",
+    published: true,
+    archivedAt: new Date("2026-01-01T00:00:00.000Z"),
+  });
+  const student = await signInAsNew({ email: "student2@cornell.edu", role: "user" });
+  setMockHeaders({ cookie: student.cookie });
+  expect(await view("old-laser-2")).toBe("not-found");
+
+  setMockHeaders();
+  expect(await view("old-laser-2")).toBe("not-found");
 });

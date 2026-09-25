@@ -117,7 +117,7 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
     // reveals that a draft exists.
     return (
       <Suspense fallback={null}>
-        <DraftToolView idOrSlug={id} />
+        <DraftToolView idOrSlug={id} actions={EDITOR_ACTIONS} />
       </Suspense>
     );
   }
