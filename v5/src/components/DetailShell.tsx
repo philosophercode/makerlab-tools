@@ -8,6 +8,7 @@ import type { MakerLabProject, MakerLabTool, ToolStatus } from "./catalog-types"
 import { ManualContentsList } from "./ManualContentsList";
 import type { ManualContents } from "../lib/data/manual-documents";
 import { officialNameShown } from "../lib/tool-names";
+import { ToolLocationMap } from "./map/ToolLocationMap";
 
 interface DetailShellProps {
   tool: MakerLabTool;
@@ -142,6 +143,9 @@ export function DetailShell({ tool, projects = [], manualContents = [] }: Detail
           <strong>{tool.materials.length > 0 ? tool.materials.join(", ") : t("contactStaff")}</strong>
         </article>
       </section>
+
+      {/* Where it is on the floor map (floor map spec §6.2). */}
+      <ToolLocationMap tool={tool} />
 
       <section className="td-panel td-safety">
         <header className="td-section-title td-section-title-danger">

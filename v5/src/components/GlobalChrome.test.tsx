@@ -115,7 +115,8 @@ describe("GlobalChrome", () => {
 
     const nav = screen.getByRole("navigation", { name: "Primary navigation" });
     expect(await screen.findByRole("button", { name: /Sign in/ })).toBeInTheDocument();
-    expect(nav.querySelectorAll("a")).toHaveLength(3);
+    // TOOLS, MAP (floor map spike), PROJECTS, ABOUT.
+    expect(nav.querySelectorAll("a")).toHaveLength(4);
     expect(screen.getByRole("button", { name: "Report a problem" })).toBeInTheDocument();
   });
 

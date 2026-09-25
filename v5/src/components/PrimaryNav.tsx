@@ -18,6 +18,7 @@ import {
 
 const LINKS = [
   { href: "/", key: "tools", match: (path: string) => path === "/" || path.startsWith("/tools") },
+  { href: "/map", key: "map", match: (path: string) => path.startsWith("/map") },
   { href: "/projects", key: "projects", match: (path: string) => path.startsWith("/projects") },
   { href: "/about", key: "about", match: (path: string) => path.startsWith("/about") },
 ] as const;
