@@ -636,7 +636,9 @@
       "clearSelection": "Clear selection",
       "selectedCount": "{count, plural, one {# tool selected} other {# tools selected}}",
       "refreshSelected": "Refresh research ({count})",
-      "columnSelect": "Select"
+      "columnSelect": "Select",
+      "columnTickets": "Tickets",
+      "columnAttention": "Needs"
     },
     "errors": {
       "not_signed_in": "You are not signed in any more. Sign in and try again.",
@@ -1172,7 +1174,12 @@
       "assistantHeading": "Proposals from assistants",
       "assistantLede": "Changes staff members' AI assistants proposed over MCP. Nothing changes until you accept one; accepting saves it through the editor's revision check.",
       "assistantBy": "Proposed through: {names}",
-      "assistantUnavailable": "Proposals from assistants could not be loaded right now."
+      "assistantUnavailable": "Proposals from assistants could not be loaded right now.",
+      "columnSafety": "Safety",
+      "columnDiffers": "Differs",
+      "columnNew": "New",
+      "columnUnverified": "Not found",
+      "columnNote": "Note"
     },
     "proposal": {
       "field": {
@@ -1442,9 +1449,26 @@
           "rate_limited": "Too many changes at once. Wait a moment.",
           "failed": "The allowance could not be granted. Try again."
         }
-      }
+      },
+      "listLabel": "Recent imports",
+      "columnSource": "Source",
+      "columnStatus": "Status",
+      "columnItems": "Items",
+      "columnDuplicates": "Possible duplicates",
+      "columnBy": "By",
+      "columnCreated": "Started"
     },
-    "mcpTokenDeprecated": "MCP_TOKEN is still set. It is deprecated: MCP callers using it now get the public, read-only tools only. Create personal access tokens on /account/tokens, then unset MCP_TOKEN."
+    "mcpTokenDeprecated": "MCP_TOKEN is still set. It is deprecated: MCP callers using it now get the public, read-only tools only. Create personal access tokens on /account/tokens, then unset MCP_TOKEN.",
+    "users": {
+      "filtersLabel": "Filter people",
+      "search": "Search",
+      "searchPlaceholder": "Name or address",
+      "access": {
+        "active": "Can sign in",
+        "banned": "Banned"
+      },
+      "emptyFiltered": "Nobody matches these filters. Clear them to see everyone who has signed in."
+    }
   },
   "account": {
     "eyebrow": "Account",
@@ -1531,7 +1555,12 @@
       },
       "warnings": {
         "audit_unavailable": "Done, but the change couldn't be recorded in the audit trail."
-      }
+      },
+      "columnAccess": "Access",
+      "columnStatus": "Status",
+      "columnPrefix": "Prefix",
+      "columnLastUsed": "Last used",
+      "never": "Never"
     },
     "apps": {
       "heading": "Connected apps",
@@ -1539,7 +1568,9 @@
       "empty": "No connected apps.",
       "unnamed": "Unnamed app",
       "lastSignIn": "Last signed in {date}",
-      "revokeConfirm": "Disconnect {name}? It stops working at once and has to sign in again."
+      "revokeConfirm": "Disconnect {name}? It stops working at once and has to sign in again.",
+      "columnName": "App",
+      "columnLastSignIn": "Last signed in"
     },
     "oauth": {
       "eyebrow": "Connect an app",
@@ -1620,6 +1651,22 @@
     "tokensLink": "Manage personal access tokens"
   },
   "ui": {
-    "breadcrumb": "Breadcrumb"
+    "breadcrumb": "Breadcrumb",
+    "dataTable": {
+      "selectAllShown": "Select all shown",
+      "selectRow": "Select {name}",
+      "selected": "{count, plural, one {# selected} other {# selected}}",
+      "selectedHidden": "{count, plural, one {# not shown by the filters} other {# not shown by the filters}}",
+      "keyboardHint": "↑ ↓ or J K to move · Space or X to select · Enter to open",
+      "keyboardHintOpen": "↑ ↓ or J K to move · Enter to open",
+      "keyboardHintSelect": "↑ ↓ or J K to move · Space or X to select"
+    },
+    "filters": {
+      "any": "Any",
+      "clear": "Clear filters",
+      "showing": "Showing {shown} of {total}",
+      "columns": "Columns",
+      "facetValue": "{label}: {value}"
+    }
   }
 }
