@@ -608,3 +608,35 @@ queues; 5 depends on 1; 6 is last.
 8. **Toasts** (sonner) for page-level outcomes, or keep inline-only?
 9. **Screenshot of record**: keep the Stitch concept `screen.png` as the identity
    reference, or replace it with a real screen once fonts load? (Kept for now.)
+
+## Amendments
+
+Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited — the reason a
+design changed usually outlives the change.
+
+### 2026-09-25 — Owner decisions on the open questions (§16)
+
+The owner answered all nine questions before phase 1 began:
+
+1. **Scope:** all six phases in v5, phase by phase, each phase shippable on its
+   own (§13 unchanged). Nothing moves to Blueprint.
+2. **Fonts:** self-host Space Grotesk, Inter and JetBrains Mono (all OFL). No
+   runtime request to Google Fonts; `next/font/local` over vendored WOFF2 (or
+   `next/font/google`'s build-time self-hosting) are both acceptable. Phase 1
+   uses `next/font/local` so the build stays offline-safe (§15).
+3. **Accent ink:** `--primary-ink` #B8431A is approved for orange *text and
+   marks* on light surfaces; orange *fills* stay #FF6B35 (§6.1 unchanged).
+4. **Crimson:** heritage accent only. Errors and destructive actions use
+   `--status-bad`, never `--secondary`.
+5. **Nav counts:** waiting counts appear on the admin home **tiles only**, never
+   in the section bar (§8.1's last bullet is decided: no).
+6. **Chat:** adopt `streamdown` (AI Elements' default renderer) for Markdown,
+   replacing `react-markdown` in the chat. Hide the floating chat button on
+   admin pages; admins open the assistant from the section bar / ⌘K. Both land
+   in phase 5 (chat), not earlier.
+7. **Density toggle:** no. One density (§5.3 / §6); the open question is closed.
+8. **Toasts:** no. `sonner` is **not adopted**; page-level outcomes stay inline
+   (`RowStatus` and the page's own status line, `role="status"`/`alert`). The
+   `Sonner` row of §7.1 and the §4.3 "Outcome line" pick are superseded.
+9. **Screenshot of record:** keep the Stitch concept `screen.png` as the
+   identity reference (DESIGN.md unchanged).
