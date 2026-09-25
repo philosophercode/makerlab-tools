@@ -1024,7 +1024,17 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   (`inventory-filters.ts`, `users-filters.ts`). Below `sm` a `mobileRow` list
   replaces the table; `usePhoneLayout` renders only one of the two once the
   browser can say which, so a row's controls exist once. In jsdom both render:
-  scope queries to `getByRole("table", { name })`.
+  scope queries to `getByRole("table", { name })`. A table inside a panel
+  (the chat's intake table) uses `layout="container"`: its own width decides,
+  and an unmeasurable one (jsdom) keeps the table only.
+  **Every review is `ReviewCard`** (`src/components/system/review/`:
+  `ReviewCard`, `ReviewValues`, `ReviewSources`, `ReviewNote`,
+  `ReviewDiagnosis`; `DuplicateChoice` for "this matched X" — a radio group
+  whose arrows never choose, because choosing saves). Form fields are
+  `system/Field` (label above, hint below, `hintId(id)` for
+  `aria-describedby`). Refresh and chat proposals, the intake queue and approve
+  page, import review and the chat's intake table are all on them (UI system
+  phase 3); `admin-intake.css` and `intake-table.css` are gone.
 - All branding strings come from `siteConfig` (`@/lib/site-config`).
 - Every API route is **rate-limited by identity** before expensive work — user id when signed in, hashed IP when not.
 - Authorization is **always** `can(subject, permission)` from `src/lib/auth/permissions.ts`. Never compare role names, and never gate inside a capability tool's `run()`.
