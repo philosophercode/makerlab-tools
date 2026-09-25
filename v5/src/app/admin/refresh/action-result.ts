@@ -22,6 +22,7 @@ export function refreshItemPath(id: string): string {
  * - `unverified_quote` — no quote was found on the page: open the editor.
  * - `replaces_lab_rule` — accepting would remove or replace a lab rule
  *   (restrictions, training); research may only add to them.
+ * - `duplicate_name` — the display name is another tool's (amendment 2026-09-25).
  * - `daily_limit`, `start_failed`, `too_many_tools` — queueing.
  */
 export type RefreshWriteError =
@@ -32,6 +33,7 @@ export type RefreshWriteError =
   | "stale_refresh"
   | "unverified_quote"
   | "replaces_lab_rule"
+  | "duplicate_name"
   | "daily_limit"
   | "start_failed"
   | "too_many_tools";

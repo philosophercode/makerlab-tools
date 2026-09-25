@@ -60,6 +60,7 @@ export type ApplyRefusal =
   | "conflict"
   | "not_found"
   | "invalid_field"
+  | "duplicate_name"
   | "not_permitted"
   | "unverified_quote"
   | "replaces_lab_rule"
@@ -170,5 +171,7 @@ function partialOrRefusal(applied: string[], revision: Revision, resourceIds: st
 
 /** The editor's refusal in this path's words: its three meaningful codes, else `failed`. */
 function toRefusal(error: InventoryWriteError): ApplyRefusal {
-  return error === "conflict" || error === "not_found" || error === "invalid_field" ? error : "failed";
+  return error === "conflict" || error === "not_found" || error === "invalid_field" || error === "duplicate_name"
+    ? error
+    : "failed";
 }

@@ -331,6 +331,7 @@ export function ToolEditorPanel({
           theirs={theirs?.tool ?? null}
           categories={editor.categories}
           locations={editor.locations}
+          takenNames={editor.otherToolNames}
           pending={pending}
           onSave={(patch) =>
             void run(

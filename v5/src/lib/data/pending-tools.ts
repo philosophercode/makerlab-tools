@@ -31,6 +31,7 @@ import { claimAttachments, releaseAttachments, reownAttachments } from "./attach
 import { findDuplicate, findDuplicates, initialResolution } from "./duplicates.ts";
 import { isUniqueViolation } from "./pg-errors.ts";
 import { DISPLAY_NAME_MAX } from "../tool-names.ts";
+import { displayNameClashes } from "./tool-name-clash.ts";
 import { findOrCreateCategory } from "./taxonomy.ts";
 import { createToolRecord } from "./tool-create.ts";
 import { isUuid } from "./uuid.ts";
@@ -291,7 +292,7 @@ export type ApprovePendingResult =
        */
       coverAttached: boolean;
     }
-  | Refused<"not_found" | "not_editable" | "low_confidence" | "invalid_field">;
+  | Refused<"not_found" | "not_editable" | "low_confidence" | "invalid_field" | "duplicate_name">;
 
 export type ApproveAsUnitResult =
   | {
@@ -1205,6 +1206,9 @@ export async function approvePendingTool(
         const [found] = await tx.select({ id: locations.id }).from(locations).where(eq(locations.id, fields.locationId));
         if (!found) throw new Refusal("invalid_field");
       }
+      // Display names are unique across tools (display names amendment
+      // 2026-09-25): the approver adds what tells the two apart.
+      if (await displayNameClashes(tx, name)) throw new Refusal("duplicate_name");
 
       const created = await createToolRecord(
         tx,
@@ -1269,7 +1273,10 @@ export async function approvePendingTool(
     });
   } catch (err) {
     if (err instanceof Refusal) {
-      return { ok: false, reason: err.reason as "not_found" | "not_editable" | "low_confidence" | "invalid_field" };
+      return {
+        ok: false,
+        reason: err.reason as "not_found" | "not_editable" | "low_confidence" | "invalid_field" | "duplicate_name",
+      };
     }
     throw err;
   }

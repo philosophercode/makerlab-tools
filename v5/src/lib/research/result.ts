@@ -439,6 +439,11 @@ export function parseResearchResult(value: unknown): ResearchResult | null {
  * else `fallback` (the item's name) through the guard (tool display names
  * spec §5.2).
  */
-export function researchDisplayName(research: Pick<ResearchResult, "canonicalName" | "displayName">, fallback: string): string {
-  return displayNameFrom({ displayName: research.displayName, officialName: research.canonicalName, fallback });
+export function researchDisplayName(
+  research: Pick<ResearchResult, "canonicalName" | "displayName">,
+  fallback: string,
+  /** The category name — the noun when the name left is only a brand ("Hakko Soldering Station"). */
+  category?: string | null
+): string {
+  return displayNameFrom({ displayName: research.displayName, officialName: research.canonicalName, fallback, category });
 }

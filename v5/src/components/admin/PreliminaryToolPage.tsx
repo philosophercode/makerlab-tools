@@ -23,7 +23,8 @@ import { trainingAtApproval, trainingEvidence } from "../../lib/intake/training"
 import { isImageOnlyFocus, type ResearchFocusField } from "../../lib/intake/research-focus";
 import { ADMIN_INTAKE_PATH, type PendingToolView } from "../../lib/intake/types";
 import type { ResearchImages, ResearchResult } from "../../lib/research/result";
-import { DISPLAY_NAME_MAX, displayNameFrom, OFFICIAL_NAME_MAX } from "../../lib/tool-names";
+import { distinctDisplayName } from "../../lib/tool-name-choice";
+import { DISPLAY_NAME_MAX, displayNameFrom, isNameTaken, OFFICIAL_NAME_MAX } from "../../lib/tool-names";
 import { ConfidenceStrip, isWebLink } from "../ConfidenceStrip";
 import { requestResearch } from "./IntakeList";
 import { initialImageChoice, ProductImage } from "./ProductImage";
@@ -111,6 +112,13 @@ export interface PreliminaryToolPageProps {
    * links, offered here; its lab documents, which always come along.
    */
   imported?: ImportedExtras | null;
+  /**
+   * Every tool's display name. The Name box starts from one no tool has —
+   * research's, with the attribute that tells it apart when needed — and says
+   * so when it is edited onto one; approval refuses it too (display names
+   * amendment 2026-09-25).
+   */
+  takenNames?: readonly string[];
 }
 
 export interface ImportedExtras {
@@ -172,6 +180,7 @@ export function PreliminaryToolPage({
   canPublish,
   actions,
   imported = null,
+  takenNames = [],
 }: PreliminaryToolPageProps) {
   const t = useTranslations("admin.intake");
   const tAdmin = useTranslations("admin");
@@ -182,7 +191,7 @@ export function PreliminaryToolPage({
   // Initialised once, never synchronised — see "a refusal never costs
   // anybody their typing" above.
   const [draft, setDraft] = useState<Draft>(() =>
-    initialDraft(item, research, categories, locations, imported)
+    initialDraft(item, research, categories, locations, imported, takenNames)
   );
   const [identity, setIdentity] = useState({ name: item.name, brand: item.brand ?? "" });
   const [unitSerial, setUnitSerial] = useState(item.serialNumber ?? "");
@@ -529,6 +538,7 @@ export function PreliminaryToolPage({
                   set={set}
                   toggleResource={toggleResource}
                   updated={updatedSections}
+                  nameTaken={isNameTaken(draft.name, takenNames)}
                 />
                 {imported ? <ImportedPanel imported={imported} draft={draft} onToggle={toggleImportLink} /> : null}
               </>
@@ -715,7 +725,10 @@ function ProposedRecord({
   set,
   toggleResource,
   updated,
+  nameTaken = false,
 }: {
+  /** The Name box holds another tool's display name. */
+  nameTaken?: boolean;
   draft: Draft;
   research: ResearchResult;
   categories: CategoryOption[];
@@ -748,10 +761,17 @@ function ProposedRecord({
             required
             maxLength={DISPLAY_NAME_MAX}
             aria-describedby="intake-name-hint"
+            aria-invalid={nameTaken || undefined}
             onChange={(event) => set("name", event.target.value)}
           />
           <p className="admin-field-hint" id="intake-name-hint">
             {tEditor("displayNameHint")}
+            {nameTaken ? (
+              <>
+                {" "}
+                <strong>{tEditor("displayNameTaken")}</strong>
+              </>
+            ) : null}
           </p>
         </div>
 
@@ -1122,21 +1142,39 @@ function settledFromProps(
 }
 
 /** The proposal as the form's starting point. */
+/** Research's display name, made distinct from every tool's when it would repeat one. */
+function initialName(item: PendingToolView, research: ResearchResult, takenNames: readonly string[]): string {
+  const category = research.category.name || null;
+  const base = displayNameFrom({
+    displayName: research.displayName,
+    officialName: research.canonicalName,
+    fallback: item.name,
+    category,
+  });
+  return (
+    distinctDisplayName(
+      { base, answer: research.displayName, sourceName: research.canonicalName.trim() || item.name, category },
+      takenNames
+    ) || base
+  );
+}
+
 function initialDraft(
   item: PendingToolView,
   research: ResearchResult | null,
   categories: CategoryOption[],
   locations: LocationOption[],
-  imported: ImportedExtras | null = null
+  imported: ImportedExtras | null = null,
+  takenNames: readonly string[] = []
 ): Draft {
   return {
     // Every link the list gave starts ticked, like research's.
     importLinkUrls: (imported?.links ?? []).map((link) => link.url),
     // Research's short name (or, on an older row, its official name through the
     // display guard); the official name beside it (tool display names spec §5.3).
-    name: research
-      ? displayNameFrom({ displayName: research.displayName, officialName: research.canonicalName, fallback: item.name })
-      : item.name,
+    // One no other tool has, keeping the attribute that tells it apart
+    // (amendment 2026-09-25); when there is none the box says so.
+    name: research ? initialName(item, research, takenNames) : item.name,
     officialName: research?.canonicalName.trim() ?? "",
     description: research ? proposedDescription(research) : "",
     category: research ? proposedCategory(research, categories) : "",

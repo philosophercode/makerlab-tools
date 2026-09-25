@@ -158,3 +158,24 @@ describe('assistant starter questions (amendment "Tool-specific starter question
     expect(onSave).toHaveBeenCalledWith({ starterQuestions: ["Theirs one?", "Theirs two?"] });
   });
 });
+
+describe("display names are unique across tools (amendment 2026-09-25)", () => {
+  it("says an edited name is another tool's and does not send it", async () => {
+    const { onSave } = renderForm({ takenNames: ["Trotec Speedy 400"] });
+    await userEvent.clear(screen.getByLabelText("Display name"));
+    await userEvent.type(screen.getByLabelText("Display name"), "trotec  speedy-400");
+    expect(screen.getByText(/Another tool already has this name/)).toBeInTheDocument();
+    expect(screen.getByLabelText("Display name")).toHaveAttribute("aria-invalid", "true");
+    await save();
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("sends a name that keeps what tells it apart", async () => {
+    const { onSave } = renderForm({ values: tool({ name: "RYOBI Battery PBP004" }), takenNames: ["Ryobi ONE+ 1.5Ah Battery"] });
+    await userEvent.clear(screen.getByLabelText("Display name"));
+    await userEvent.type(screen.getByLabelText("Display name"), "Ryobi ONE+ 4Ah Battery");
+    expect(screen.queryByText(/Another tool already has this name/)).not.toBeInTheDocument();
+    await save();
+    expect(onSave).toHaveBeenCalledWith({ name: "Ryobi ONE+ 4Ah Battery" });
+  });
+});

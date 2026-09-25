@@ -3,6 +3,8 @@
 import { authorizeAdminAction } from "../../../lib/admin/action-gate";
 import { listCategories, listLocations } from "../../../lib/data/taxonomy";
 import { loadToolEditor } from "../../../lib/data/tool-editor";
+import { otherToolNames } from "../../../lib/data/tool-name-clash";
+import { getDb } from "../../../lib/db/client";
 import type { ToolPatch } from "../../../lib/data/tools";
 import { saveToolFields } from "../../../lib/inventory/tool-edits";
 import {
@@ -66,9 +68,13 @@ export async function loadToolForEditor(idOrSlug: string): Promise<LoadToolEdito
 
   // The two option lists the fields form needs. Read here rather than in
   // `loadToolEditor`, which is about one tool: these belong to the whole lab.
-  const [categories, locations] = await Promise.all([listCategories(), listLocations()]);
+  const [categories, locations, taken] = await Promise.all([
+    listCategories(),
+    listLocations(),
+    getDb().then((db) => otherToolNames(db, editor.tool.id)),
+  ]);
 
-  return { ok: true, editor: { ...editor, categories, locations } };
+  return { ok: true, editor: { ...editor, categories, locations, otherToolNames: taken } };
 }
 
 /** Save the editor's fields. `tools.edit`. */

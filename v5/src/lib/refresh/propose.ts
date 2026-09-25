@@ -1,5 +1,6 @@
 import type { CitedField } from "../research/model-output.ts";
 import { researchDisplayName, type ResearchResult } from "../research/result.ts";
+import { distinctDisplayName } from "../tool-name-choice.ts";
 import { isValidDisplayName } from "../tool-names.ts";
 import { imageIdentity } from "../web/image-url.ts";
 import { addRestrictions, trainingChangeAllowed } from "./lab-rules.ts";
@@ -22,7 +23,9 @@ import { SAFETY_FIELDS, type Citation, type FieldProposal, type ProposalField, t
  *   breaks the display rules (a part number, over the cap, bracketed noise —
  *   `displayNameProblems`) **and** research's name has a verified quote: a
  *   lab-set name that follows the rules is kept, like a lab rule, however
- *   research would have styled it.
+ *   research would have styled it. A proposed display name is never another
+ *   tool's (`takenNames`): it keeps the attribute that tells the two apart,
+ *   or it is not proposed (amendment 2026-09-25).
  * - **Description** is prose, so comparing it word by word is noise: it is
  *   proposed when the record's is empty (*new*) or under 120 characters
  *   (*differs*), and otherwise only when the admin asked for descriptions.
@@ -67,6 +70,12 @@ export interface ProposeInput {
   research: ResearchResult;
   /** Whether the admin asked for description rewrites on this run (§5.1). */
   includeDescription: boolean;
+  /**
+   * The other tools' display names. A `name` proposal is never one of them,
+   * and a size or capacity in the current name that tells it from one of them
+   * is not a rule broken (display names amendment 2026-09-25).
+   */
+  takenNames?: readonly string[];
 }
 
 /** A description shorter than this is proposed for replacement whatever the admin chose. */
@@ -105,8 +114,19 @@ export function proposeChanges(input: ProposeInput): FieldProposal[] {
   if (official && nameVerified && normalizeText(official) !== normalizeText(currentOfficial)) {
     out.push(proposal("official_name", currentOfficial ? "differs" : "new", tool.officialName ?? null, official, cited("name")));
   }
-  if (nameVerified && !isValidDisplayName(tool.name)) {
-    const display = researchDisplayName(research, tool.name);
+  const takenNames = input.takenNames ?? [];
+  if (nameVerified && !isValidDisplayName(tool.name, { takenNames })) {
+    // Never another tool's name: the distinguishing attribute is kept, or no
+    // proposal (display names amendment 2026-09-25).
+    const display = distinctDisplayName(
+      {
+        base: researchDisplayName(research, tool.name, research.category?.name),
+        answer: research.displayName,
+        sourceName: official || tool.name,
+        category: research.category?.name,
+      },
+      takenNames
+    );
     if (display && normalizeText(display) !== normalizeText(tool.name)) {
       out.push(proposal("name", tool.name.trim() ? "differs" : "new", tool.name, display, cited("name")));
     }

@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import type { CategoryOption, LocationOption } from "../../lib/data/taxonomy";
 import type { EditableTool, ToolPatch } from "../../lib/data/tools";
 import { STARTER_QUESTION_MAX_CHARS, STARTER_QUESTIONS_MAX } from "../../lib/starter-questions";
-import { DISPLAY_NAME_MAX, OFFICIAL_NAME_MAX } from "../../lib/tool-names";
+import { DISPLAY_NAME_MAX, isNameTaken, OFFICIAL_NAME_MAX } from "../../lib/tool-names";
 
 /**
  * The tool's own fields, in the editor panel (spec §5.3(3)).
@@ -36,6 +36,12 @@ export interface ToolFieldsFormProps {
   /** True while any write on the panel is in flight. */
   pending: boolean;
   onSave: (patch: ToolPatch) => void;
+  /**
+   * Every other tool's display name. An edited name that is one of them is
+   * said before saving and not sent; the save refuses it too (display names
+   * amendment 2026-09-25).
+   */
+  takenNames?: readonly string[];
 }
 
 /** The editable text of one tool, flattened so the form can diff it. */
@@ -74,6 +80,7 @@ export function ToolFieldsForm({
   theirs = null,
   pending,
   onSave,
+  takenNames = [],
 }: ToolFieldsFormProps) {
   const t = useTranslations("admin.inventory.editor");
   // Initialised once. See the note above about rebasing rather than syncing.
@@ -83,6 +90,8 @@ export function ToolFieldsForm({
   const theirDraft = theirs ? toDraft(theirs) : null;
   // Only an edited name is held to the cap: an untouched long one is not sent.
   const nameTooLong = draft.name !== base.name && draft.name.trim().length > DISPLAY_NAME_MAX;
+  // Display names are unique across tools; another tool's is refused before it is sent.
+  const nameTaken = draft.name !== base.name && isNameTaken(draft.name, takenNames);
 
   function set<K extends keyof Draft>(field: K, value: Draft[K]) {
     setDraft((current) => ({ ...current, [field]: value }));
@@ -90,7 +99,7 @@ export function ToolFieldsForm({
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (nameTooLong) return;
+    if (nameTooLong || nameTaken) return;
     onSave(patchOf(base, draft));
   }
 
@@ -143,7 +152,7 @@ export function ToolFieldsForm({
           value={draft.name}
           required
           aria-describedby="tool-name-hint"
-          aria-invalid={nameTooLong || undefined}
+          aria-invalid={nameTooLong || nameTaken || undefined}
           onChange={(event) => set("name", event.target.value)}
         />
         <p className="admin-field-hint" id="tool-name-hint">
@@ -151,6 +160,7 @@ export function ToolFieldsForm({
           {nameTooLong ? (
             <strong>{t("displayNameTooLong", { count: draft.name.trim().length, max: DISPLAY_NAME_MAX })}</strong>
           ) : null}
+          {nameTaken ? <strong>{t("displayNameTaken")}</strong> : null}
         </p>
         {theirValue("name")}
       </div>

@@ -16,7 +16,9 @@ import {
   type CategoryOption,
   type LocationOption,
 } from "../../../../lib/data/taxonomy";
+import { listToolNames } from "../../../../lib/data/tool-name-clash";
 import { findToolForEditor } from "../../../../lib/data/tools";
+import { getDb } from "../../../../lib/db/client";
 import { hasStalledStart, INTAKE_REVIEW_PERMISSION } from "../../../../lib/intake/access";
 import { toPendingToolView } from "../../../../lib/intake/view";
 import { siteConfig } from "../../../../lib/site-config";
@@ -77,6 +79,8 @@ interface Loaded {
   item: PendingTool | null;
   categories: CategoryOption[];
   locations: LocationOption[];
+  /** Every tool's display name — the Name box starts from one none has (amendment 2026-09-25). */
+  takenNames: string[];
 }
 
 export default async function AdminIntakeItemPage({ params }: { params: Promise<{ id: string }> }) {
@@ -90,12 +94,13 @@ export default async function AdminIntakeItemPage({ params }: { params: Promise<
   let loaded: Loaded | null;
   let createdTool: IntakeToolLink | null = null;
   try {
-    const [item, categories, locations] = await Promise.all([
+    const [item, categories, locations, names] = await Promise.all([
       getPendingTool(id),
       listCategories(),
       listLocations(),
+      getDb().then(listToolNames),
     ]);
-    loaded = { item, categories, locations };
+    loaded = { item, categories, locations, takenNames: names.map((row) => row.name) };
     if (item?.createdToolId) {
       const tool = await findToolForEditor(item.createdToolId);
       createdTool = tool ? { name: tool.name, slug: tool.slug, published: tool.published } : null;
@@ -122,7 +127,7 @@ export default async function AdminIntakeItemPage({ params }: { params: Promise<
     );
   }
 
-  const { item, categories, locations } = loaded;
+  const { item, categories, locations, takenNames } = loaded;
   if (!item) {
     return (
       <section className="admin-section">
@@ -184,6 +189,7 @@ export default async function AdminIntakeItemPage({ params }: { params: Promise<
         item={view}
         research={item.research}
         categories={categories}
+        takenNames={takenNames}
         locations={locations}
         targetTool={targetTool}
         createdTool={createdTool}

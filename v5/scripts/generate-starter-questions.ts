@@ -208,7 +208,7 @@ export async function loadStarterSources(
 export type ToolOutcome =
   | { status: "written" | "would_write"; questions: string[] }
   | { status: "no_questions" }
-  | { status: "skipped"; reason: "conflict" | "not_found" | "already_has_questions" | "invalid_field" }
+  | { status: "skipped"; reason: "conflict" | "not_found" | "already_has_questions" | "invalid_field" | "duplicate_name" }
   | { status: "failed"; error: string };
 
 export interface BackfillReport {

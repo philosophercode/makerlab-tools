@@ -4,7 +4,8 @@ import { RESEARCH_MAX_WEB_SEARCHES } from "../intake/limits.ts";
 import type { ResearchFocus, ResearchFocusField } from "../intake/research-focus.ts";
 import { reviewerNoteForPrompt } from "../intake/reviewer-note.ts";
 import { STARTER_QUESTION_GUIDANCE, STARTER_QUESTIONS_MAX } from "../starter-questions.ts";
-import { DISPLAY_NAME_MAX, DISPLAY_NAME_TARGET } from "../tool-names.ts";
+import { DISPLAY_NAME_RULES } from "../display-name-rules.ts";
+import { DISPLAY_NAME_MAX } from "../tool-names.ts";
 import { fenceUntrusted } from "../web/fence.ts";
 import type { SearchFindings } from "./model-output.ts";
 
@@ -150,7 +151,8 @@ const STARTER_QUESTIONS_RULE = `- \`starterQuestions\`: exactly ${STARTER_QUESTI
 export const NAMES_PARAGRAPH = [
   `## The two names`,
   `- \`officialName\`: the full product name **as the manufacturer writes it** — brand, product line, model, and the model or part number when the pages give one. E.g. "Makita 196094-2 Compact Router Plunge Base", "DRILL MASTER 1500 Watt Dual-Temperature Heat Gun (Model 96289)", "Formlabs Form 4". Precise, from the pages, never invented.`,
-  `- \`displayName\`: the **short name people in the lab would say**: the brand plus what it is, or the well-known model name when that is how people refer to it. E.g. "Makita Plunge Base", "Drill Master Heat Gun", "Formlabs Form 4", "Bambu Lab X2D", "Trotec Speedy 400", "Othermill Pro". **No part or catalogue numbers, no sizes, voltages, piece counts or anything in brackets**; about ${DISPLAY_NAME_TARGET} characters and never more than ${DISPLAY_NAME_MAX}. A short model name people use ("Form 4", "X2D", "MK4S", "Speedy 400") belongs in it; a part number ("196094-2", "DCB107") does not. Brand in its ordinary capitalisation ("Makita", not "MAKITA").`,
+  `- \`displayName\`: the short name, by these rules (the same ones the lab's own names follow):`,
+  DISPLAY_NAME_RULES,
 ].join("\n");
 
 const LABELS_PARAGRAPH = [

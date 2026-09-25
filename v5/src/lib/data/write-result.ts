@@ -25,6 +25,8 @@
  *   is no newer version of the same edit to reload, the item is simply past it.
  * - `low_confidence` — research could not confirm the item, and approval needs
  *   the person's "I've checked this" and a note first (§5.4 step 12).
+ * - `duplicate_name` — another tool already has that display name, compared
+ *   case- and punctuation-insensitively (display names amendment 2026-09-25).
  *
  * Relative imports with `.ts` extensions, no `@/` alias and no `"server-only"`,
  * like every other module under `src/lib/data/`.
@@ -37,6 +39,7 @@ export const WRITE_REFUSALS = [
   "unit_has_history",
   "not_editable",
   "low_confidence",
+  "duplicate_name",
 ] as const;
 
 export type WriteRefusal = (typeof WRITE_REFUSALS)[number];
