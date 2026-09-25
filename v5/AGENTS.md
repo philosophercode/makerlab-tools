@@ -1007,6 +1007,15 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   the global theme tokens. Using a `.td-*` class anywhere else means supplying
   the tokens there too: an unresolvable `var()` does not fall back, it computes
   to `unset`, so the rule fails *silently and wrongly* rather than visibly.
+- **UI system** (spec `docs/specs/2026-09-25-ui-system-design.md`, being
+  adopted phase by phase): Tailwind 4 theme + utilities with no preflight,
+  from `src/styles/ui.css` (imported before `globals.css`); shadcn primitives
+  in `src/components/ui`, app-level ones (`StatusGlyph`, `Sparkline`,
+  `PageHeader`, `EmptyState`) in `src/components/system`, classes joined with
+  `cn` (`@/lib/utils`). Orange *text* is `--primary-ink`, errors are
+  `--status-bad` (never crimson), focus is the global `:focus-visible` outline —
+  never `outline: none`. Fonts are self-hosted (`src/app/fonts.ts`). New
+  components never carry legacy classes: unlayered legacy CSS beats utilities.
 - All branding strings come from `siteConfig` (`@/lib/site-config`).
 - Every API route is **rate-limited by identity** before expensive work — user id when signed in, hashed IP when not.
 - Authorization is **always** `can(subject, permission)` from `src/lib/auth/permissions.ts`. Never compare role names, and never gate inside a capability tool's `run()`.

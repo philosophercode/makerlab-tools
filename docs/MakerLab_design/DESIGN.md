@@ -71,16 +71,17 @@ hex values.
 | `--primary-ink` | orange **text, marks, focus** | #B8431A | #FF6B35 | `primary-ink`, `ring` |
 | `--secondary` | Cornell Crimson, heritage stamp | #B31B1B | #B31B1B | `brand` |
 | `--outline` | hairlines | #CFC6B8 | #2A2A2A | `border` |
-| `--outline-strong` | control boundaries (3:1) | #8F8676 | #6E6A64 | `input` |
+| `--outline-strong` | control boundaries (3:1) | #8A8171 | #6E6A64 | `input` |
 | `--rule` | table row rules | ink 10% | ink 10% | `rule` |
-| `--status-ok` | ● | #2F7D4F | #5CC98A | `ok` |
+| `--status-ok` | ● | #2B7549 | #5CC98A | `ok` |
 | `--status-warn` | ▲ | #8A5300 | #E0A23A | `warn` |
 | `--status-bad` | ■, errors, destructive | #B31B1B | #F0645A | `bad`, `destructive` |
 
 **Why two oranges.** Safety Orange on paper is 2.6:1 — fine as a fill behind
 black text (6.8:1), illegible as text. So orange *fills* stay #FF6B35 everywhere,
 and orange *ink* on light surfaces is #B8431A (5.0:1). In dark mode they are the
-same colour.
+same colour. On the light `muted` plate (#EEE8DE) the ink is 4.47:1, a hair
+under AA: orange text belongs on the page or a card, not on `muted`.
 
 **Crimson is a stamp, not a signal.** It marks heritage (the brand lockup), never
 errors in dark mode (2.8:1 there). Errors use `--status-bad`.
