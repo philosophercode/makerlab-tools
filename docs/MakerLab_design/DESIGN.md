@@ -180,6 +180,19 @@ Enter opens. Selection shows a sticky bulk bar (`2 TOOLS SELECTED · [REFRESH
 RESEARCH (2)] · CLEAR`). On a phone: a two-line list item per row.
 
 - **Use** for any list of records a person scans, sorts or selects.
+- **Sort state is on the `th`** (`aria-sort`), never on the button inside it.
+  The row's name is its `th scope="row"`.
+- **Zero is a muted `0`; a dash is "not applicable yet"** (an import not read
+  into rows). Neither is ever "None".
+- **Selection survives filtering, and says so**: `3 TOOLS SELECTED · 1 NOT
+  SHOWN BY THE FILTERS`. Select-all takes the rows shown.
+- **Sticky header only when the page scrolls the table**, on the page
+  background; a short table on a card is not sticky. A short, narrow table
+  (seven rows, two columns) may stay a table on a phone and scroll inside
+  itself; anything longer or wider gets the two-line list.
+- **Phone: one of the two, not both.** The list and the table are never both
+  in the document once the browser can say which shows, so a row's controls
+  (a role select, a ban button) exist once.
 - **Don't** render a table as cards on a phone; don't box cells; don't put more
   than one line of secondary text in a cell; don't hide the count.
 
@@ -192,6 +205,11 @@ Never reviewed ▾` when set) → Clear → `Showing 21 of 101` → Columns. A f
 lists values **with the count each would leave**, disables values that leave
 nothing, and filters are written to the URL so a view is a link.
 
+- A chosen facet names its value on the button (`STATE Draft ▾`, read as
+  "State: Draft"); its border moves to the accent ink.
+- A short fixed choice **inside a row or a form** (a role, a token's expiry)
+  is a `NativeSelect` — a real `<select>`, the phone's own picker — bounded by
+  `--outline-strong` like `Input`.
 - **Don't** use native selects for facets; don't filter server-side on each
   keystroke; don't show an empty table without naming the filter.
 
