@@ -2,38 +2,6 @@
    cards shared with the assistant's data-proposal part, and the inventory's
    selection bar and dialog. Theme tokens only, never hard-coded colours. */
 
-.admin-refresh-list {
-  display: grid;
-  gap: 8px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.admin-refresh-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px 16px;
-  align-items: center;
-  padding: 12px 14px;
-  border: 1px solid var(--outline);
-  background: var(--surface-container);
-}
-
-.admin-refresh-row h3 {
-  margin: 0;
-  font-size: 16px;
-}
-
-.admin-refresh-row .admin-queue-meta {
-  grid-column: 1 / -1;
-}
-
-.admin-refresh-rank-0,
-.admin-refresh-rank-1 {
-  border-left: 4px solid var(--status-bad);
-}
-
 .admin-refresh-page {
   display: grid;
   gap: 16px;
@@ -218,14 +186,6 @@
   gap: 8px;
 }
 
-.admin-refresh-bar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  align-items: center;
-  margin: 8px 0;
-}
-
 .admin-refresh-dialog {
   display: grid;
   gap: 10px;
@@ -241,20 +201,6 @@
 
 .admin-refresh-dialog p {
   margin: 0;
-}
-
-.admin-refresh-open-tag {
-  display: inline-block;
-  margin-left: 6px;
-  padding: 1px 6px;
-  border: 1px solid var(--primary-ink);
-  color: var(--primary-ink);
-  font-family: var(--font-mono);
-  font-size: 10px;
-}
-
-.admin-select-cell {
-  width: 32px;
 }
 
 .chat-proposals {

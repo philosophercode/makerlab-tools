@@ -250,7 +250,8 @@ Phase 5 extends both. The shape it sets:
   belong to no tool come back as their own list rather than being attached to a
   guessed tool.
 - **The filters are client-side and in the URL, both on purpose.** The server
-  renders every row and `InventoryFilters` narrows them in the browser (the
+  renders every row and `InventoryBoard` (on the shared `DataTable` +
+  `FilterBar`, UI system phase 2) narrows them in the browser (the
   `GalleryShell` idiom), so a facet costs no round trip; it then writes the
   filters back with `history.replaceState`, so "every tool with no manual" is a
   link somebody can send and the Back button still points where the reviewer
@@ -1016,6 +1017,14 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   `--status-bad` (never crimson), focus is the global `:focus-visible` outline —
   never `outline: none`. Fonts are self-hosted (`src/app/fonts.ts`). New
   components never carry legacy classes: unlayered legacy CSS beats utilities.
+  **Every list of records is `DataTable`** (`src/components/system/data-table/`:
+  TanStack Table v8 state, our markup; `FilterBar` + `FacetFilter` with per-value
+  counts + `ColumnsMenu`; `facetOptions`). The caller filters and, where the view
+  is worth linking, writes the filters to the URL with `replaceState`
+  (`inventory-filters.ts`, `users-filters.ts`). Below `sm` a `mobileRow` list
+  replaces the table; `usePhoneLayout` renders only one of the two once the
+  browser can say which, so a row's controls exist once. In jsdom both render:
+  scope queries to `getByRole("table", { name })`.
 - All branding strings come from `siteConfig` (`@/lib/site-config`).
 - Every API route is **rate-limited by identity** before expensive work — user id when signed in, hashed IP when not.
 - Authorization is **always** `can(subject, permission)` from `src/lib/auth/permissions.ts`. Never compare role names, and never gate inside a capability tool's `run()`.
