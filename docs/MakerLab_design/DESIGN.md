@@ -513,6 +513,19 @@ TO REPLACE THE RESIN TANK ON THE FORM 4:
   permissions open, **no counts**. On a phone it scrolls inside itself. The
   one list behind the bar, the home and the palette is
   `src/lib/admin/surfaces.ts` — a page added there appears in all three.
+- **Admin navigation never waits on a hole.** A click in the section bar, a
+  tab or a row link commits at once: the section bar stays, the page area
+  shows the one `EmptyState` loading line (`AdminPageLoading`), and the page
+  streams into it. Every admin page reads the request at its root, so its
+  prefetched segment is a shell with a dynamic hole; without a Suspense
+  boundary inside the new segment that hole held the previous page on screen
+  and, in production (Next 16.1, React 19.2, `cacheComponents`), the
+  transition was sometimes never retried — the click did nothing until
+  something else re-rendered the page. So **every folder under `app/admin`
+  with a page below it has a `loading.tsx`** (enforced by
+  `app/admin/loading-boundaries.test.ts`), and
+  `e2e/admin-client-navigation.spec.ts` clicks through every section against
+  the production build.
 - **Page header**: `// ADMIN / GROUP` (plus `/ SURFACE` as a link on an item's
   page) → title → lede → facts line → actions (`AdminPageHeader`).
 - **Tabs that are pages** (`LinkTabs`): Intake's `QUEUE · IMPORTS` under one
