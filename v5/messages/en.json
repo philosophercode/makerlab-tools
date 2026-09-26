@@ -1040,6 +1040,11 @@
           "part": "Part"
         },
         "alreadyClean": "Already on a clean background",
+        "pickClean": {
+          "cut": "Background removed when approved",
+          "crop": "Cropped to the product when approved",
+          "busy": "Busy background — used as it is"
+        },
         "cleanNote": {
           "busy_background": "The background was not removed: the best picture is not on a plain backdrop.",
           "little_background": "The background was not removed: there was almost no backdrop to cut away.",

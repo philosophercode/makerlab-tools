@@ -5,7 +5,7 @@ import { isValidDisplayName } from "../tool-names.ts";
 import { imageIdentity } from "../web/image-url.ts";
 import { addRestrictions, trainingChangeAllowed } from "./lab-rules.ts";
 import { normalizeLabel, normalizeText } from "./normalize.ts";
-import { SAFETY_FIELDS, type Citation, type FieldProposal, type ProposalField, type ProposalKind } from "./types.ts";
+import { SAFETY_FIELDS, type Citation, type FieldProposal, type ProposalField, type ProposalKind, type ProposedCover } from "./types.ts";
 
 /**
  * The diff, in code (refresh research spec §3.2).
@@ -214,7 +214,16 @@ export function proposeChanges(input: ProposeInput): FieldProposal[] {
       kind: "new",
       safety: false,
       current: null,
-      proposed: { url: top.url, pageUrl: top.pageUrl, width: top.width, height: top.height },
+      proposed: {
+        url: top.url,
+        pageUrl: top.pageUrl,
+        width: top.width,
+        height: top.height,
+        // What accepting it needs to clean it the way rank 1 is cleaned in intake.
+        ...(top.background ? { background: top.background } : {}),
+        ...(top.composite ? { composite: true } : {}),
+        ...(top.productBox ? { productBox: top.productBox } : {}),
+      } satisfies ProposedCover,
       citations: [],
       decision: "pending",
     });

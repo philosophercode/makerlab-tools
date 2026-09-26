@@ -7,6 +7,8 @@ import { getDb } from "../db/client";
 import type { Db } from "../db/types";
 import { promoteAttachmentsToPublic } from "../files/promote";
 import { inspectImage, type ImageFormat } from "../images/inspect";
+import { cleanPickedImage, type PickHints } from "../research/images/pick-clean";
+import type { CleanedKind, ImageCandidate } from "../research/result";
 import { guardedFetch } from "../web/guarded-fetch";
 import { IMAGE_MAX_BYTES } from "./limits";
 
@@ -26,7 +28,13 @@ import { IMAGE_MAX_BYTES } from "./limits";
  *   addresses checked, redirects re-checked, 8 MB, 15 s), must decode as JPEG,
  *   PNG or WebP, and is stored **public** at a random pathname with its source
  *   URL (`origin` `research_image`), owned by nobody until the transaction
- *   claims it as the cover.
+ *   claims it as the cover. **It is cleaned first** (amendment "The picked
+ *   image is cleaned too"): the same deterministic crop and cutout rank 1's
+ *   copy gets (`research/images/pick-clean.ts`), from what research recorded
+ *   about the candidate; the cleaned PNG is stored when one was made, the
+ *   downloaded bytes when not. The one exception is rank 1's original chosen
+ *   beside its recorded cleaned copy — the admin saw both and rejected the
+ *   cut — which is stored as downloaded.
  * - **`cleaned`** — the recorded copy must still be this item's own
  *   `research_image_cleaned` attachment. It is made public with
  *   `promoteAttachmentsToPublic` (`copyToPublic`, then the row repointed).
@@ -67,6 +75,8 @@ export type PreparedApprovalImage =
       kind: ApprovalImageKind;
       /** The attachment the transaction makes the cover, or null for none. */
       coverId: string | null;
+      /** For `original`: the kind of copy made at approval, or null when the download was stored as it is. */
+      cleaned?: CleanedKind | null;
       warning?: typeof IMAGE_NOT_ATTACHED;
     }
   | { ok: false; reason: "invalid_field" };
@@ -103,7 +113,9 @@ export async function prepareApprovalImage(
     if (!candidate) return { ok: false, reason: "invalid_field" };
     const store = resolveStore(options.store);
     if (!store) return notAttached("original");
-    return storeOriginal(candidate.url, store, options);
+    // Rank 1's original beside its cleaned copy: the admin chose it over the cut.
+    const rejectedCut = images?.cleaned?.fromUrl === candidate.url;
+    return storeOriginal(candidate.url, store, options, rejectedCut ? null : pickHints(candidate));
   }
 
   const cleaned = images?.cleaned ?? null;
@@ -114,18 +126,34 @@ export async function prepareApprovalImage(
 }
 
 /**
- * Download a research image an admin accepted and store it **public**, owned by
- * nobody until the caller claims it — the same guarded download, format check
- * and `research_image` origin as an approval's "original" (refresh research
- * spec §3.3: "the approval image path"). The caller has already checked that
- * `url` is one research recorded. Null, with the reason logged by host only,
- * for anything that fails: the caller answers `image_not_attached`.
+ * Download a research image an admin accepted, clean it, and store it
+ * **public**, owned by nobody until the caller claims it — the same guarded
+ * download, format check, cleaning and `research_image` origin as an
+ * approval's "original" (refresh research spec §3.3: "the approval image
+ * path"; amendment "The picked image is cleaned too"). `hints` are what
+ * research recorded about the image; absent, its background is classified
+ * here. The caller has already checked that `url` is one research recorded.
+ * Null, with the reason logged by host only, for anything that fails: the
+ * caller answers `image_not_attached`.
  */
-export async function storeResearchImage(url: string, options: ApprovalImageOptions): Promise<string | null> {
+export async function storeResearchImage(
+  url: string,
+  options: ApprovalImageOptions,
+  hints: PickHints = {}
+): Promise<string | null> {
   const store = resolveStore(options.store);
   if (!store) return null;
-  const stored = await storeOriginal(url, store, options);
+  const stored = await storeOriginal(url, store, options, hints);
   return stored.ok ? stored.coverId : null;
+}
+
+/** What research recorded about a candidate that the cleaning can use. */
+export function pickHints(candidate: Pick<ImageCandidate, "background" | "composite" | "productBox">): PickHints {
+  return {
+    background: candidate.background ?? null,
+    composite: candidate.composite ?? null,
+    productBox: candidate.productBox ?? null,
+  };
 }
 
 function resolveStore(store: BlobStore | null | undefined): BlobStore | null {
@@ -137,11 +165,16 @@ function notAttached(kind: ApprovalImageKind): PreparedApprovalImage {
   return { ok: true, kind, coverId: null, warning: IMAGE_NOT_ATTACHED };
 }
 
-/** Download, check, store public, record. Any failure is `image_not_attached`. */
+/**
+ * Download, check, clean (unless `hints` is null), store public, record. Any
+ * failure is `image_not_attached`; a clean that cannot be made is not a
+ * failure — the downloaded bytes are stored instead.
+ */
 async function storeOriginal(
   url: string,
   store: BlobStore,
-  options: ApprovalImageOptions
+  options: ApprovalImageOptions,
+  hints: PickHints | null
 ): Promise<PreparedApprovalImage> {
   const host = hostOf(url);
   const fetched = await guardedFetch(url, {
@@ -155,18 +188,26 @@ async function storeOriginal(
     return notAttached("original");
   }
 
-  const info = inspectImage(fetched.bytes);
-  if (!info) {
+  const downloaded = inspectImage(fetched.bytes);
+  if (!downloaded) {
     console.warn(`[approval-image] the chosen image from ${host} is not a JPEG, PNG or WebP`);
     return notAttached("original");
   }
+
+  const picked = hints
+    ? await cleanPickedImage({ bytes: fetched.bytes, info: downloaded }, hints)
+    : { bytes: fetched.bytes, info: downloaded, cleaned: null, note: null };
+  if (hints && !picked.cleaned && picked.note && picked.note !== "busy_background") {
+    console.info(`[approval-image] the image from ${host} is stored as it is: ${picked.note}`);
+  }
+  const { bytes, info } = picked;
 
   const filename = fileNameFor(url, info.format);
   let stored: { pathname: string; url: string };
   try {
     stored = await store.putUpload(
       TOOL_PHOTO_PREFIX,
-      new File([fetched.bytes as Uint8Array<ArrayBuffer>], filename, { type: info.format }),
+      new File([bytes as Uint8Array<ArrayBuffer>], filename, { type: info.format }),
       "public"
     );
   } catch (err) {
@@ -182,7 +223,7 @@ async function storeOriginal(
         access: "public",
         publicUrl: stored.url,
         contentType: info.format,
-        sizeBytes: fetched.bytes.byteLength,
+        sizeBytes: bytes.byteLength,
         originalFilename: filename,
         uploadedBy: options.uploadedBy,
         origin: "research_image",
@@ -192,7 +233,7 @@ async function storeOriginal(
       },
       { db }
     );
-    return { ok: true, kind: "original", coverId: id };
+    return { ok: true, kind: "original", coverId: id, cleaned: picked.cleaned };
   } catch (err) {
     console.error(`[approval-image] could not record the chosen image from ${host}`, err);
     // No row points at the blob, so no sweep ever would: take it back out.
