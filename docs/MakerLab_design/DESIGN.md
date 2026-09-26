@@ -509,11 +509,14 @@ TO REPLACE THE RESIN TANK ON THE FORM 4:
   ink; the local-only **Sign in as (dev)** is muted and dashed and shortens to
   `DEV` below `xl`. The profile menu is a frosted plate (§3).
 - **The bar fits every width, on the design's breakpoints.** From `xl` it is
-  one row with the `// CORNELL TECH` tagline and the language control's name.
-  From `lg` to `xl` it is still one row, tighter (24px gaps), without the
-  tagline, and the language control is its `文A` glyph alone (the list still
-  names every language). Below `lg` it is the compact bar: brand and controls,
-  then the links across the full width. No label in the one-row bar wraps.
+  one row with the `// CORNELL TECH` tagline. From `lg` to `xl` it is still
+  one row, tighter (24px between groups, 20px between links), without the
+  tagline, with a narrower search field. Below `lg` it is the compact bar:
+  brand and controls, then the links across the full width. No label in the
+  one-row bar wraps, in any of the twelve languages. The language control is
+  a 32px square showing its `文A` glyph at every width, like the theme toggle
+  (the open list names every language): a select is as wide as its longest
+  option, and the name pushed the bar past 1280px in Spanish and Russian.
   (The compact switch used to sit at 860px, off the breakpoint scale, and from
   there to ~1180px the brand ran into the links and Sign in wrapped.)
 - **The bar never moves.** Every control has the same box on every page: the
