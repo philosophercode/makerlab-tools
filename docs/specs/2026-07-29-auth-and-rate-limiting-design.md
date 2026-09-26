@@ -541,3 +541,121 @@ verdict), `src/lib/auth/dev-sign-in-plugin.test.ts` (no HTTP URL, and a refusal 
 production when called directly), `PrimaryNav.test.tsx` and `sign-in-client.test.ts`.
 
 **Status.** Accepted.
+
+### 2026-09-25 — Remove a person, and block an address (retires Ban; amends §3.4, §4, §6 and §8)
+
+**Decided by the owner on 2026-09-25**, in his words: "For remove, yeah we should just like
+remove them but you can keep their log and then delete their account. Yeah, we don't need a
+ban then … I guess you could keep a ban list so remove … would stop them from even signing
+up again." This is a security change and it was approved as quoted.
+
+**What changed.** The People page (`/admin/users`) gets **Remove** in place of **Ban**, and a
+small **Blocked emails** list.
+
+**Remove.** A row action, gated on `users.manage` exactly as Ban was (super admin only),
+through a server action that resolves the caller, rate-limits, re-checks the permission and
+reconciles the floor — the same `authorize()` preamble the page's other actions use. It asks
+first, inline and never in a modal: "Remove <name>? They lose access and their account is
+deleted. Their reports and history stay." Confirming runs **one transaction**
+(`removeUserAccount`, `src/lib/data/user-removal.ts`):
+
+1. Lock the person's `user` row.
+2. Write the name snapshots the foreign keys are about to lose (below).
+3. Revoke everything that lets them act: every `session` row, every personal access token
+   (`api_tokens`), every OAuth access token and consent (`oauth_access_token`,
+   `oauth_consent`). The counts go into the audit detail.
+4. Delete the account: `account`, then `user`. What still references the row follows its
+   foreign key: tokens, grants and dynamic OAuth clients they registered, their research
+   ledger and setup allowances, and **their own Notion mirror** (its stored token is theirs,
+   so it goes with them — the pages already in their Notion workspace are not touched) all
+   cascade; every column that names them as an actor is `on delete set null`.
+5. Optionally block the address (below).
+6. Record `user.removed` — actor, subject id, and `detail { name, email, blocked, revoked:
+   { sessions, tokens, grants } }` — and, when blocking, `email.blocked`. **Both are written
+   inside the transaction**, unlike the role change's after-the-fact audit: here the app owns
+   the whole write, so the removal and its record commit together or not at all, and there
+   is no "landed without its audit event" warning to give.
+
+**History stays, and says who.** Nothing a person filed or did is deleted:
+
+- Tickets, corrections and projects already carry the reporter's or author's name (and
+  email) as written; `reported_by_user_id`, `reporter_user_id` and `author_user_id` are not
+  foreign keys and keep the old id. The admin queues show such a person as
+  "<name> (removed)" — an id that names no account is what "removed" means there.
+- `pending_tools.created_by` and `bulk_imports.created_by` were the two actor columns that
+  **cascaded** (a pending item "always has an owner"). Removing a person would have deleted
+  their identified equipment and their imports, approved ones included. Migration `0016`
+  makes both nullable and `on delete set null`. An owner-less item is still worked by
+  anyone holding `tools.approve`, as any other person's item already was.
+- Three reads showed a person's name only through a join to `user` — the intake queue and
+  review page ("Identified by"), the imports list, and assistant proposals on
+  `/admin/refresh`. Each table gets a `created_by_name` column, **written by the removal
+  transaction only**: while the account exists the live name comes from the join, and
+  afterwards the snapshot reads as "<name> (removed)".
+- `audit_events` gets `actor_name`, a snapshot taken **at insert** (a subselect on the
+  actor's row, so no caller changes) and backfilled by the migration. The actor foreign key
+  still clears on delete, as §4.11 always said; the name no longer goes with it. The audit
+  module stays insert-and-select only.
+- Every other column naming a person (`created_by`/`updated_by`, `assigned_to_user_id`,
+  `published_by`, `last_reviewed_by`, refresh and proposal deciders, `approved_by`, …)
+  was already `on delete set null`, and where a name is shown it is already a snapshot
+  (`assigned_to_name`, `author_name`).
+
+**Guards**, each derived again by the action before it writes and shown on the row before
+anyone clicks: you cannot remove yourself (`self_remove`); you cannot remove an address in
+`AUTH_SUPER_ADMIN_EMAILS` (`protected_floor`); you cannot remove the last super admin
+(`last_super_admin`). A removed person who signs in again, and is not blocked, is a
+**new account** with the default role and a new id — none of their old history attaches to
+it, and none of it needs to.
+
+**Block.** A checkbox in the same confirm, "Also block this email from signing up again",
+with an optional reason. Stored in `blocked_emails` (`email` primary key, normalised
+lower-case; `reason`; `blocked_by`, `set null`; `created_at`). Sign-in refuses a blocked
+address in `databaseHooks.user.create.before`, **before any row exists** — the same place
+and the same "no account created" guarantee as the domain rule. The Google callback then
+lands on `/auth/rejected?reason=blocked`, which explains it in the domain page's words and
+style ("This account can't sign in to {site}" … the catalog and the assistant are still
+open). Development sign-in refuses it the same way, because it runs the same hook.
+
+- **The floor can never be blocked.** The block write refuses an `AUTH_SUPER_ADMIN_EMAILS`
+  address, and the sign-in check ignores a block on one — a block that predates the address
+  being added to the floor must not outrank the floor (the 2026-09-22 decision about bans
+  in the data-platform spec, applied to the list that replaces them).
+- **Unblock** is on the People page: the "Blocked emails" list shows each address, its
+  reason, who blocked it and when, with an **Unblock** button. Unblocking deletes the row —
+  the list is state, not history; the history is the audit trail — and records
+  `email.unblocked`.
+- Only removal blocks. There is no "block an address nobody has used" form yet; nothing
+  asked for one.
+
+**What happened to Ban.** Ban was relied on outside the People page: `evaluateUser` refuses
+a banned row for sessions and MCP credentials, the mirror stops pushing for a banned owner,
+the admin plugin refuses a new session for one, and the admin home counted them. So:
+
+- **Migration `0016` converts every banned account** into what the owner described: its
+  address goes on `blocked_emails` (the ban reason as the reason), the account is removed
+  with the same snapshots, and `user.removed` / `email.blocked` are recorded with a null
+  actor and `detail.reason = "ban_migrated"`. A banned floor address, which the app never
+  produced, is converted like any other — and the floor then ignores the block, so that
+  person simply signs in fresh as a super admin.
+- **Ban is no longer exposed.** `BanToggle`, `setUserBanned`, the Access facet, the banned
+  counts on the page and the admin home, and the `ban` grant in the admin plugin's
+  declaration are gone; `/api/auth/admin/*` was already refused.
+- **The columns stay**, because the admin plugin selects `banned`, `ban_reason` and
+  `ban_expires` on every session. Nothing in the app writes them now. The reads that refuse
+  a banned row (`evaluateUser`, the mirror's owner check, the floor reconciliation) stay as
+  defence against a hand-written `UPDATE`; they cost nothing and removing them would widen
+  the change for no gain.
+
+**The mirror.** Mirrored people data from the account itself — a ticket assignee's and a
+project author's email, read through a join — disappears on the next push: the foreign key
+clears `assigned_to_user_id` (the `updated_at` trigger marks the ticket changed) and the
+transaction touches the person's projects so the push picks them up. Reporter, assignee and
+author **name** snapshots, and reporter emails, stay, per the 2026-09-23 decision that the
+mirror carries them.
+
+**§8.** The People page is still the only surface that shows an email address; the blocked
+list is part of it. Emails in the audit detail are the removed person's own, recorded for
+the one question an audit trail exists to answer.
+
+**Status.** Accepted.
