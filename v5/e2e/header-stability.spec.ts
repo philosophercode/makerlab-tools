@@ -68,3 +68,19 @@ test("clicking between Tools, Projects and About does not move the bar", async (
     expect(await headerBoxes(page), `after clicking ${name}`).toBe(before);
   }
 });
+
+test("opening ⌘K does not push the page sideways", async ({ page, context, baseURL }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+  await page.goto("/");
+  await expect(page.getByRole("button", { name: /signed in as/i })).toBeVisible({ timeout: 15_000 });
+  await page.waitForLoadState("networkidle");
+  const before = await headerBoxes(page);
+
+  // The dialog's scroll lock must not add scrollbar compensation: the root
+  // always keeps its scrollbar, so any padding would shift every control left.
+  await page.keyboard.press(process.platform === "darwin" ? "Meta+k" : "Control+k");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  expect(await page.evaluate(() => getComputedStyle(document.body).paddingRight)).toBe("0px");
+  expect(await headerBoxes(page)).toBe(before);
+});

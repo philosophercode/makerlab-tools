@@ -69,6 +69,20 @@ html {
   background: var(--background);
 }
 
+/* A dialog or sheet (⌘K, the Filters sheet) locks scrolling with
+   react-remove-scroll, which pads `body` by the scrollbar's width so the page
+   does not jump when the scrollbar disappears. Here it never disappears — the
+   root always keeps it (above) — so that padding would push every header
+   control left while the dialog is open. The root's gutter already holds the
+   space; nothing needs compensating. */
+/* `html body` outranks the lock's own injected `body[data-scroll-locked]`
+   rules, which load later and would otherwise win at equal specificity. */
+html body[data-scroll-locked] {
+  padding-right: 0 !important;
+  margin-right: 0 !important;
+  --removed-body-scroll-bar-size: 0px;
+}
+
 body {
   min-height: 100vh;
   margin: 0;
