@@ -130,8 +130,9 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
               href={`${DEV_SIGN_IN_ENDPOINT}?next=${encodeURIComponent(pathname)}`}
               aria-label={t("devSignIn")}
             >
-              <span className="sm:hidden">{t("devSignInShort")}</span>
-              <span className="hidden sm:inline">{t("devSignIn")}</span>
+              {/* Short below xl, where the one-row bar is tight (DESIGN.md §8.12). */}
+              <span className="xl:hidden">{t("devSignInShort")}</span>
+              <span className="hidden xl:inline">{t("devSignIn")}</span>
             </a>
           ) : null}
           {signInNotice ? (
