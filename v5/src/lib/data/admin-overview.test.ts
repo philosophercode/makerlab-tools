@@ -56,15 +56,59 @@ it("says a loader failed with null, and still answers the others", async () => {
 });
 
 it("puts a ticket and a correction reported today in the last slot of their series", async () => {
-  const before = await loadAdminOverview(["maintenance", "corrections"], { db });
-  await db.insert(maintenanceLogs).values({ title: "Belt slipping", status: "open", priority: "critical", dateReported: today() });
-  await db.insert(feedback).values({ issueDescription: "Wrong photo", status: "new" });
+  // A fixed clock: noon in New York, so the test means the same thing at any hour.
+  const now = new Date("2026-09-24T16:00:00.000Z");
+  const before = await loadAdminOverview(["maintenance", "corrections"], { db, now });
+  await db.insert(maintenanceLogs).values({ title: "Belt slipping", status: "open", priority: "critical", dateReported: "2026-09-24" });
+  await db.insert(feedback).values({ issueDescription: "Wrong photo", status: "new", createdAt: now });
 
-  const after = await loadAdminOverview(["maintenance", "corrections"], { db });
+  const after = await loadAdminOverview(["maintenance", "corrections"], { db, now });
   expect(after.maintenance?.series.at(-1)).toBe((before.maintenance?.series.at(-1) ?? 0) + 1);
   expect(after.maintenance?.urgent).toBe((before.maintenance?.urgent ?? 0) + 1);
   expect(after.corrections?.series.at(-1)).toBe((before.corrections?.series.at(-1) ?? 0) + 1);
   expect(after.corrections?.open).toBe((before.corrections?.open ?? 0) + 1);
+});
+
+describe("the series' days are the lab's days (LAB_TIMEZONE, default America/New_York)", () => {
+  // 23:30 on 2026-09-24 in New York is 03:30 on the 25th in UTC — the hour the
+  // old `current_date` bucketing got wrong.
+  const lateEvening = new Date("2026-09-25T03:30:00.000Z");
+
+  beforeEach(() => {
+    vi.stubEnv("LAB_TIMEZONE", "");
+  });
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("counts a ticket and a correction filed at 23:30 Eastern as today's, in the last slot", async () => {
+    const before = await loadAdminOverview(["maintenance", "corrections", "intake"], { db, now: lateEvening });
+    await db.insert(maintenanceLogs).values({ title: "Fan rattles", status: "open", dateReported: "2026-09-24", createdAt: lateEvening });
+    await db.insert(feedback).values({ issueDescription: "Late note", status: "new", createdAt: lateEvening });
+
+    const after = await loadAdminOverview(["maintenance", "corrections", "intake"], { db, now: lateEvening });
+    expect(after.maintenance?.series.at(-1)).toBe((before.maintenance?.series.at(-1) ?? 0) + 1);
+    expect(after.corrections?.series.at(-1)).toBe((before.corrections?.series.at(-1) ?? 0) + 1);
+    expect(after.maintenance?.series).toHaveLength(SERIES_DAYS);
+  });
+
+  it("buckets a timestamp by its lab date: 00:30 Eastern is the next day, not today", async () => {
+    const before = await loadAdminOverview(["corrections"], { db, now: lateEvening });
+    // 04:30 UTC on the 25th is 00:30 on the 25th in New York: tomorrow, from the
+    // clock above — outside the window, never in today's slot.
+    await db.insert(feedback).values({ issueDescription: "Tomorrow", status: "new", createdAt: new Date("2026-09-25T04:30:00.000Z") });
+    const after = await loadAdminOverview(["corrections"], { db, now: lateEvening });
+    expect(after.corrections?.series).toEqual(before.corrections?.series);
+  });
+
+  it("uses LAB_TIMEZONE when it is set", async () => {
+    vi.stubEnv("LAB_TIMEZONE", "UTC");
+    const before = await loadAdminOverview(["corrections"], { db, now: lateEvening });
+    // In UTC the clock reads the 25th, so a correction at 03:00 UTC on the 25th is today's.
+    await db.insert(feedback).values({ issueDescription: "UTC today", status: "new", createdAt: new Date("2026-09-25T03:00:00.000Z") });
+    const after = await loadAdminOverview(["corrections"], { db, now: lateEvening });
+    expect(after.corrections?.series.at(-1)).toBe((before.corrections?.series.at(-1) ?? 0) + 1);
+  });
 });
 
 describe("fill", () => {
@@ -76,7 +120,3 @@ describe("fill", () => {
     expect(fill([], 4)).toEqual([0, 0, 0, 0]);
   });
 });
-
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
-}

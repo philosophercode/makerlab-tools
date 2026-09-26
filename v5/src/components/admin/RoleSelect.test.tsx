@@ -1,4 +1,7 @@
-import { render, screen, userEvent, waitFor } from "../../../test/utils/render";
+import { renderToString } from "react-dom/server";
+import { NextIntlClientProvider } from "next-intl";
+import enMessages from "../../../messages/en.json";
+import { fireEvent, render, screen, userEvent, waitFor } from "../../../test/utils/render";
 import { RoleSelect } from "./RoleSelect";
 import type { AdminActionResult } from "../../app/admin/users/action-result";
 
@@ -133,5 +136,49 @@ describe("RoleSelect — rows that cannot change", () => {
     });
 
     expect(action).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The UI phase-4 race: a role chosen before the page hydrated looked saved and
+ * did not persist. Hydration put the select back to the rendered role and React
+ * replayed the queued change event with that value; the action, asked to set
+ * the role the person already held, answered `ok`, and the row said "Saved".
+ */
+describe("RoleSelect — it cannot say Saved for a write that did not land", () => {
+  it("is disabled in the server's HTML, so nothing can be chosen before React owns it", () => {
+    const html = renderToString(
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        <RoleSelect userId="u1" personName="Ada Lovelace" role="user" action={vi.fn()} />
+      </NextIntlClientProvider>
+    );
+    expect(html).toMatch(/<select[^>]*disabled/);
+  });
+
+  it("is enabled once hydrated", () => {
+    renderSelect();
+    expect(theSelect()).toBeEnabled();
+  });
+
+  it("does not call the action, or say Saved, for a change to the role already held", () => {
+    const { action } = renderSelect({ role: "user" });
+
+    // What the replayed event looked like: a change whose value is the old one.
+    fireEvent.change(theSelect(), { target: { value: "user" } });
+
+    expect(action).not.toHaveBeenCalled();
+    expect(screen.queryByText("Saved")).not.toBeInTheDocument();
+  });
+
+  it("does not say Saved when the server answers with a role other than the one chosen", async () => {
+    const user = userEvent.setup();
+    const { action } = renderSelect({ role: "user" });
+    action.mockResolvedValue({ ok: true, role: "user" });
+
+    await user.selectOptions(theSelect(), "admin");
+
+    expect(await screen.findByText(enMessages.admin.errors.failed)).toBeInTheDocument();
+    expect(screen.queryByText("Saved")).not.toBeInTheDocument();
+    expect(theSelect()).toHaveValue("user");
   });
 });

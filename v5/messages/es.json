@@ -22,11 +22,11 @@
     "signedInAria": "Sesión iniciada como {name}"
   },
   "catalogRefresh": {
-    "action": "ACTUALIZAR",
-    "actionAria": "Actualizar el catálogo de {institution} desde Notion",
+    "action": "Actualizar catálogo",
     "refreshing": "Actualizando…",
     "refreshed": "Catálogo actualizado",
-    "failed": "La actualización falló: inténtalo de nuevo"
+    "failed": "La actualización falló: inténtalo de nuevo",
+    "done": "Hecho"
   },
   "status": {
     "labStatusLabel": "Estado del laboratorio",

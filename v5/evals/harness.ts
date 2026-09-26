@@ -1,16 +1,19 @@
 import {
   CAPABILITIES,
+  capabilitiesForIdentity,
   composeChat,
   type Capability,
   type CapabilityCtx,
 } from "@/lib/capabilities";
 import { getCatalogTool, getCatalogTools } from "@/lib/catalog";
 import { loadToolManualsForChat } from "@/lib/chat/tool-manuals";
-import type { Tool } from "ai";
+import type { ModelMessage, Tool } from "ai";
+import type { Identity } from "@/lib/auth/identity";
 import { curationCapability } from "@/lib/capabilities/curation";
 import type { CurationContext } from "@/lib/capabilities/types";
+import { DEMO_ACCOUNTS } from "@/lib/db/demo-seed";
 import { loadCurationSubject, recordFields } from "@/lib/refresh/curation";
-import type { EvalCase } from "./cases";
+import type { EvalCaller, EvalCase, EvalTurn } from "./cases";
 
 /**
  * The bridge between a case and the assistant (design spec §3).
@@ -116,14 +119,24 @@ export async function composeCase(evalCase: EvalCase): Promise<ComposedCase> {
   // A curation case (refresh research spec §12): the tool's record, as the
   // chat route loads it for staff; `propose_change` is a write and is stubbed.
   const curation = evalCase.context.curate && focused ? await curationFor(focused.id) : null;
-  const ctx: CapabilityCtx = { locale: "en", focusedToolId: focused?.id, ...(curation ? { curation } : {}) };
+  const identity = evalCase.context.as ? evalIdentity(evalCase.context.as) : undefined;
+  const ctx: CapabilityCtx = {
+    locale: "en",
+    focusedToolId: focused?.id,
+    ...(curation ? { curation } : {}),
+    ...(identity ? { identity } : {}),
+  };
   // The focused tool's searchable manuals, as the chat route loads them — the
   // eval's fixture manual (`manual-fixture.ts`) once `npm run eval` seeded it,
   // nothing offline. `search_manual` itself stays live: it reads the eval's
   // own PGlite database and nothing else.
   const manualOutlines = focused ? (await loadToolManualsForChat(focused.id, null)).outlines : [];
   const capabilities = curation ? [...CAPABILITIES, curationCapability("tool")] : CAPABILITIES;
-  const composed = composeChat(stubLiveReads(stubWrites(capabilities)), ctx, {
+  // A case that names its caller gets that caller's registry, through the same
+  // `capabilitiesForIdentity` the route uses; one that does not keeps the
+  // historical, unfiltered composition.
+  const permitted = identity ? capabilitiesForIdentity(capabilities, identity) : capabilities;
+  const composed = composeChat(stubLiveReads(stubWrites(permitted)), ctx, {
     tools,
     focusedTool: focused,
     locale: "en",
@@ -132,6 +145,30 @@ export async function composeCase(evalCase: EvalCase): Promise<ComposedCase> {
   });
 
   return { system: composed.system, tools: composed.tools };
+}
+
+/**
+ * The signed-in person a case asks as: the demo seed's student or SuperMaker,
+ * as `resolveIdentity` would return them. Writes are stubbed, so the ids are
+ * only ever read.
+ */
+export function evalIdentity(caller: EvalCaller): Identity {
+  const account = caller === "staff" ? DEMO_ACCOUNTS.admin : DEMO_ACCOUNTS.user;
+  return {
+    role: account.role,
+    userId: account.id,
+    email: account.email,
+    name: account.name,
+    rateLimitKey: account.id,
+  };
+}
+
+/** The conversation a case sends: its history, oldest first, then its prompt. */
+export function caseMessages(evalCase: EvalCase): ModelMessage[] {
+  const turns: EvalTurn[] = [...(evalCase.history ?? []), { role: "user", text: evalCase.prompt }];
+  return turns.map((turn): ModelMessage =>
+    turn.role === "user" ? { role: "user", content: turn.text } : { role: "assistant", content: turn.text }
+  );
 }
 
 /** The focused tool's record for a curation case, shaped as the chat route shapes it. */

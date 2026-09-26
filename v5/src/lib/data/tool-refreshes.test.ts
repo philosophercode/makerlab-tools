@@ -16,6 +16,7 @@ import {
   failRefreshStart,
   getRefresh,
   getRefreshRowRevision,
+  lastRefreshedByTool,
   listRefreshQueue,
   loadRefreshSubject,
   openRefreshesByTool,
@@ -209,5 +210,22 @@ describe("the run's transitions", () => {
     expect(rows[0]).toMatchObject({ id, status: "proposed", toolPublished: true, toolArchived: false });
     expect(await closeEmptyRefresh(id, ADMIN, { db })).toBe(true);
     expect(await listRefreshQueue({ db })).toHaveLength(0);
+  });
+});
+
+describe("lastRefreshedByTool (the picker's 90-day preset, amendment 2026-09-25)", () => {
+  it("answers each refreshed tool's latest request, whatever its status, and leaves a never-refreshed tool out", async () => {
+    const [a, b, never] = [await addTool("Alpha"), await addTool("Beta"), await addTool("Gamma")];
+    const first = await queue([a, b]);
+    if (!first.ok) throw new Error("not queued");
+    // Age every refresh so far, then refresh Alpha again: its latest is today.
+    const old = new Date(Date.now() - 120 * DAY_MS);
+    await db.update(toolRefreshes).set({ createdAt: old, status: "decided" });
+    await queue([a]);
+
+    const map = await lastRefreshedByTool({ db });
+    expect(map.has(never)).toBe(false);
+    expect(Math.abs(map.get(b)!.getTime() - old.getTime())).toBeLessThan(1000);
+    expect(Date.now() - map.get(a)!.getTime()).toBeLessThan(60_000);
   });
 });

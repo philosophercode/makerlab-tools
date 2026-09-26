@@ -22,11 +22,11 @@
     "signedInAria": "מחובר בתור {name}"
   },
   "catalogRefresh": {
-    "action": "רענון",
-    "actionAria": "רענון הקטלוג של {institution} מ‑Notion",
+    "action": "רענון הקטלוג",
     "refreshing": "מרענן…",
     "refreshed": "הקטלוג רוענן",
-    "failed": "הרענון נכשל — נסו שוב"
+    "failed": "הרענון נכשל — נסו שוב",
+    "done": "בוצע"
   },
   "status": {
     "labStatusLabel": "מצב המעבדה",

@@ -144,8 +144,10 @@ export function ToolEditorPanel({
   async function run<T>(
     call: (token: string) => Promise<InventoryActionResult<T>>,
     options: { refresh?: boolean; onSuccess?: () => void } = {}
-  ) {
-    if (!revision || pending) return;
+  ): Promise<boolean> {
+    // Answers whether the write landed, for a control that shows its own
+    // outcome (`AsyncButton`); the reason for a refusal is this panel's line.
+    if (!revision || pending) return false;
 
     setPending(true);
     setError(null);
@@ -157,7 +159,7 @@ export function ToolEditorPanel({
 
       if (!result.ok) {
         setError(result.error);
-        return;
+        return false;
       }
 
       setRevision(result.revision);
@@ -169,10 +171,12 @@ export function ToolEditorPanel({
 
       if (options.refresh) await refreshChildren();
       options.onSuccess?.();
+      return true;
     } catch {
       // A server action that never answered — a dropped connection, a redeploy
       // mid-click. Nothing is assumed to have landed.
       setError("failed");
+      return false;
     } finally {
       setPending(false);
     }
@@ -312,9 +316,7 @@ export function ToolEditorPanel({
         tool={tool}
         canPublish={canPublish}
         pending={pending}
-        onMarkReviewed={() =>
-          void run((token) => actions.markReviewed(args(tool.id, token)), { refresh: true })
-        }
+        onMarkReviewed={() => run((token) => actions.markReviewed(args(tool.id, token)), { refresh: true })}
         onPublish={() => void run((token) => actions.publish(args(tool.id, token)), { refresh: true })}
         onUnpublish={() =>
           void run((token) => actions.unpublish(args(tool.id, token)), { refresh: true })
@@ -410,7 +412,7 @@ export function ToolEditorPanel({
             })
           }
           onReprocess={(resourceId) =>
-            void run((token) => actions.reprocessManual({ ...args(tool.id, token), resourceId }), {
+            run((token) => actions.reprocessManual({ ...args(tool.id, token), resourceId }), {
               refresh: true,
             })
           }

@@ -4,7 +4,7 @@ import type { Capability } from "@/lib/capabilities";
 import { getNotionEnvContract } from "@/lib/notion";
 import { z } from "zod";
 import type { EvalCase } from "./cases";
-import { composeCase, stubLiveReads, stubWrites } from "./harness";
+import { caseMessages, composeCase, evalIdentity, stubLiveReads, stubWrites } from "./harness";
 
 vi.mock("next/cache", () => nextCacheMock());
 
@@ -153,6 +153,48 @@ describe("composeCase", () => {
         .filter((t) => !t.mcpOnly)
         .map((t) => t.name)
     );
+  });
+
+  it("composes a staff case's tools and prompt for the demo SuperMaker", async () => {
+    const { system, tools } = await composeCase(testCase({ context: { page: "gallery", as: "staff" } }));
+    expect(Object.keys(tools)).toEqual(expect.arrayContaining(["list_open_tickets", "update_ticket", "list_intake_queue"]));
+    expect(system).toMatch(/state the exact change and ask for confirmation/);
+    // update_ticket is a write: recorded, never run.
+    const execute = tools.update_ticket.execute as (input: unknown, options: unknown) => Promise<unknown>;
+    const result = await execute({ ticket_id: "x", status: "resolved" }, {});
+    expect(result).toMatchObject({ stubbed: true, tool: "update_ticket" });
+  });
+
+  it("gives a student case none of the staff tools, through the route's own filter", async () => {
+    const { system, tools } = await composeCase(testCase({ context: { page: "gallery", as: "student" } }));
+    for (const name of ["list_open_tickets", "update_ticket", "list_intake_queue", "identify_tools"]) {
+      expect(Object.keys(tools)).not.toContain(name);
+    }
+    expect(system).not.toContain("Lab staff tools");
+  });
+
+  it("sends a case's history before its prompt", () => {
+    expect(
+      caseMessages(
+        testCase({
+          prompt: "Yes",
+          history: [
+            { role: "user", text: "Mark it resolved" },
+            { role: "assistant", text: "Shall I?" },
+          ],
+        })
+      )
+    ).toEqual([
+      { role: "user", content: "Mark it resolved" },
+      { role: "assistant", content: "Shall I?" },
+      { role: "user", content: "Yes" },
+    ]);
+    expect(caseMessages(testCase())).toEqual([{ role: "user", content: "What should I use to cut acrylic?" }]);
+  });
+
+  it("asks as the demo seed's accounts", () => {
+    expect(evalIdentity("staff")).toMatchObject({ role: "admin", userId: "demo-user-niti" });
+    expect(evalIdentity("student")).toMatchObject({ role: "user", userId: "demo-user-casey" });
   });
 
   it("focuses the machine a case is asked from", async () => {

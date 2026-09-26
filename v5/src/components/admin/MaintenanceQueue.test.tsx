@@ -142,23 +142,79 @@ describe("MaintenanceQueue", () => {
     expect(status).toHaveValue("resolved");
   });
 
-  it("only offers to save a resolution once one has been typed", async () => {
+  it("keeps the resolution behind a button until it is wanted", () => {
+    renderQueue([ticket()]);
+    // No box on the card — that was the space the owner wanted back.
+    expect(screen.queryByRole("textbox", { name: "Resolution for Laser bed out of focus" })).not.toBeInTheDocument();
+    const add = screen.getByRole("button", { name: "Add resolution for Laser bed out of focus" });
+    expect(add).toHaveTextContent("Add resolution");
+    expect(add).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("opens the box focused, and only offers Save once something has been typed", async () => {
     const { action } = renderQueue([ticket()]);
+    await userEvent.click(screen.getByRole("button", { name: "Add resolution for Laser bed out of focus" }));
+
+    const box = screen.getByRole("textbox", { name: "Resolution for Laser bed out of focus" });
+    expect(box).toHaveFocus();
     const save = screen.getByRole("button", { name: "Save resolution" });
     expect(save).toBeDisabled();
 
-    await userEvent.type(
-      screen.getByRole("textbox", { name: "Resolution for Laser bed out of focus" }),
-      "Refocused."
-    );
+    await userEvent.type(box, "Refocused.");
     expect(save).toBeEnabled();
     await userEvent.click(save);
 
     expect(action).toHaveBeenCalledWith({ logId: "log-1", patch: { resolution: "Refocused." } });
+    // Landed: the box closes, the words show, focus goes back to the button,
+    // which now edits, and the card says so in its one status line.
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Resolution for Laser bed out of focus" })).not.toBeInTheDocument();
+    expect(screen.getByText("Refocused.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Edit resolution for Laser bed out of focus" })).toHaveFocus();
   });
 
-  it("leaves a refused resolution in the box, because it is somebody's typing", async () => {
+  it("shows a saved resolution compactly and edits it in place", async () => {
+    const { action } = renderQueue([ticket({ resolution: "Swapped the belt." })]);
+    expect(screen.getByText("Swapped the belt.")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: "Edit resolution for Laser bed out of focus" }));
+    const box = screen.getByRole("textbox", { name: "Resolution for Laser bed out of focus" });
+    expect(box).toHaveValue("Swapped the belt.");
+    await userEvent.clear(box);
+    await userEvent.type(box, "Swapped the belt and re-tensioned it.");
+    await userEvent.click(screen.getByRole("button", { name: "Save resolution" }));
+
+    expect(action).toHaveBeenCalledWith({ logId: "log-1", patch: { resolution: "Swapped the belt and re-tensioned it." } });
+  });
+
+  it("cancels on Escape without saving, and puts focus back on the button", async () => {
+    const { action } = renderQueue([ticket()]);
+    await userEvent.click(screen.getByRole("button", { name: "Add resolution for Laser bed out of focus" }));
+    await userEvent.type(screen.getByRole("textbox", { name: "Resolution for Laser bed out of focus" }), "Half a thought");
+    await userEvent.keyboard("{Escape}");
+
+    expect(action).not.toHaveBeenCalled();
+    expect(screen.queryByRole("textbox", { name: "Resolution for Laser bed out of focus" })).not.toBeInTheDocument();
+    const add = screen.getByRole("button", { name: "Add resolution for Laser bed out of focus" });
+    expect(add).toHaveFocus();
+
+    // Reopening starts from what was saved, not from the abandoned draft.
+    await userEvent.click(add);
+    expect(screen.getByRole("textbox", { name: "Resolution for Laser bed out of focus" })).toHaveValue("");
+  });
+
+  it("cancels with the Cancel button too", async () => {
+    const { action } = renderQueue([ticket()]);
+    await userEvent.click(screen.getByRole("button", { name: "Add resolution for Laser bed out of focus" }));
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+
+    expect(action).not.toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "Add resolution for Laser bed out of focus" })).toHaveFocus();
+  });
+
+  it("leaves a refused resolution in the open box, because it is somebody's typing", async () => {
     renderQueue([ticket()], { ok: false, error: "failed" });
+    await userEvent.click(screen.getByRole("button", { name: "Add resolution for Laser bed out of focus" }));
     const box = screen.getByRole("textbox", { name: "Resolution for Laser bed out of focus" });
 
     await userEvent.type(box, "Refocused.");
@@ -166,6 +222,7 @@ describe("MaintenanceQueue", () => {
 
     expect(await screen.findByText(/did not save/)).toBeInTheDocument();
     expect(box).toHaveValue("Refocused.");
+    expect(box).toBeInTheDocument();
   });
 
   it("disables the assignee control when nobody holds an admin role yet", () => {

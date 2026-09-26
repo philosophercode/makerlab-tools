@@ -1,6 +1,6 @@
 import { render, screen, within } from "../../../test/utils/render";
 import { LinkTabs } from "./LinkTabs";
-import { Tile, TileGroup } from "./Tile";
+import { Tile, TileCell, TileGrid, TileGroup, tileRows } from "./Tile";
 
 /**
  * Phase 4's navigation primitives: `LinkTabs` (tabs that are pages) and
@@ -90,5 +90,48 @@ describe("Tile", () => {
     expect(link.querySelector("[data-slot=tile-value]")).toBeNull();
     expect(link).not.toHaveTextContent("Running");
     expect(within(link).queryByRole("img")).not.toBeInTheDocument();
+  });
+});
+
+describe("Tile sizes and the row grid (owner, 2026-09-25)", () => {
+  it("takes two row tracks, or one for a half tile, and never draws a trend on a half tile", () => {
+    expect(tileRows("full")).toBe(2);
+    expect(tileRows(undefined)).toBe(2);
+    expect(tileRows("half")).toBe(1);
+    render(
+      <Tile
+        id="t"
+        href="/admin/users"
+        title="People"
+        value={4}
+        unit="people have signed in"
+        size="half"
+        series={{ values: [1, 2], label: "trend", caption: "30 days" }}
+      />
+    );
+    const link = screen.getByRole("link", { name: "People" });
+    expect(link).toHaveAttribute("data-size", "half");
+    expect(within(link).queryByRole("img")).not.toBeInTheDocument();
+  });
+
+  it("lays each group over the same number of rows, and each tile over its own span", () => {
+    render(
+      <TileGrid>
+        <TileGroup id="a" title="Settings" rows={5}>
+          <TileCell size="half">
+            <Tile id="p" href="/admin/users" title="People" value={4} size="half" />
+          </TileCell>
+          <TileCell size="full">
+            <Tile id="m" href="/admin/maintenance" title="Maintenance" value={1} />
+          </TileCell>
+        </TileGroup>
+      </TileGrid>
+    );
+    const group = screen.getByRole("region", { name: "Settings" });
+    expect(group.style.gridRow).toBe("span 5 / span 5");
+    const cells = group.querySelectorAll<HTMLElement>("[data-slot=tile-cell]");
+    expect([...cells].map((cell) => cell.style.gridRow)).toEqual(["span 1 / span 1", "span 2 / span 2"]);
+    // The tile fills its cell, so tiles in one row share their top and bottom edges.
+    expect(within(group).getByRole("link", { name: "People" }).className).toMatch(/\bh-full\b/);
   });
 });

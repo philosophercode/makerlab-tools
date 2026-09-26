@@ -1,8 +1,10 @@
 /*
  * `/admin/mirror` (spec §3.8, §6).
  *
- * Imported by `MirrorConnect`, `MirrorMapping`, `MirrorStatus` and
- * `MirrorControls`, and nothing else. Every rule reads the `--td-*` tokens
+ * Imported by `MirrorMapping`, `MirrorStatus` and `MirrorControls`, and
+ * nothing else. The not-yet-connected state — the steps, the notices and
+ * `MirrorConnect` — is on the UI system since 2026-09-25 (spec amendment
+ * "Admin polish"), and its rules are gone from here. Every rule reads the `--td-*` tokens
  * `.admin-shell` supplies or the global theme tokens, so light and dark follow
  * without a palette of its own. Fields, buttons and the status line are the
  * shared `.admin-*` rules in globals.css; this file adds the panels, the facts
@@ -35,56 +37,7 @@
   line-height: 1.5;
 }
 
-/* ── The notices: no key, and a token that needs replacing ───────── */
-
-.admin-mirror-notice {
-  padding: 14px 16px;
-  border-left: 2px solid var(--td-warning);
-  background: var(--surface-container-low);
-}
-
-.admin-mirror-notice h3 {
-  margin: 0 0 6px;
-  font-family: var(--font-display);
-  font-size: 17px;
-  font-weight: 500;
-}
-
-.admin-mirror-notice p {
-  margin: 0;
-  max-width: 68ch;
-  line-height: 1.5;
-}
-
-.admin-mirror-steps {
-  margin: 0;
-  padding-left: 20px;
-  max-width: 68ch;
-  line-height: 1.6;
-}
-
-/* ── Connect ─────────────────────────────────────────────────────── */
-
-.admin-mirror-form {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  max-width: 560px;
-}
-
-.admin-mirror-form input {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-}
-
-.admin-mirror-field-hint {
-  color: var(--td-muted);
-  font-family: var(--font-body);
-  font-size: 12px;
-  letter-spacing: normal;
-  text-transform: none;
-}
+/* ── Actions and outcome lines (controls, mapping, status) ───────── */
 
 .admin-mirror-actions {
   display: flex;

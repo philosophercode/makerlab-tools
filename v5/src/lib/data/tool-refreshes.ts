@@ -140,6 +140,21 @@ export async function openRefreshesByTool(options: RefreshOptions = {}): Promise
 }
 
 /**
+ * Tool id → when a refresh of it was last requested, any status — the
+ * `/admin/refresh` picker's "Not refreshed in 90 days" preset (amendment
+ * 2026-09-25 "Admin polish"). A tool never refreshed is absent. One grouped
+ * statement whatever the size of the inventory.
+ */
+export async function lastRefreshedByTool(options: RefreshOptions = {}): Promise<Map<string, Date>> {
+  const db = options.db ?? (await getDb());
+  const rows = await db
+    .select({ toolId: toolRefreshes.toolId, at: sql<string>`max(${toolRefreshes.createdAt})` })
+    .from(toolRefreshes)
+    .groupBy(toolRefreshes.toolId);
+  return new Map(rows.map((row) => [row.toolId, new Date(row.at)]));
+}
+
+/**
  * What refresh compares research with, and what the accept path writes over:
  * the tool's own fields, its category's name (a research *hint*), its
  * resources' URLs, whether it has a cover photo, and its revision.

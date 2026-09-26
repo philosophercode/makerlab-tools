@@ -7,6 +7,7 @@ import { ManualStateTag } from "./ManualStateTag";
 import { uploadFile, type UploadFailure } from "./upload-file";
 import { RowStatus } from "./RowStatus";
 import { EmptyState } from "../system/EmptyState";
+import { AsyncButton } from "../system/AsyncButton";
 
 /**
  * The Resources section of the tool editor — manuals, SOPs and links
@@ -34,7 +35,7 @@ export interface ResourcesEditorProps {
   onTogglePublished: (resourceId: string, published: boolean) => void;
   onRemove: (resourceId: string) => void;
   /** Re-process the resource's manual PDF (manual text spec §5). Offered only on a row with a PDF. */
-  onReprocess?: (resourceId: string) => void;
+  onReprocess?: (resourceId: string) => Promise<boolean>;
 }
 
 export function ResourcesEditor({
@@ -130,15 +131,15 @@ export function ResourcesEditor({
                   {resource.published ? t("hideResource") : t("showResource")}
                 </button>
                 {resource.manual && onReprocess ? (
-                  <button
-                    type="button"
-                    className="admin-button"
+                  <AsyncButton
+                    size="sm"
                     disabled={pending}
                     title={t("reprocessManualTitle")}
-                    onClick={() => onReprocess(resource.id)}
+                    onRun={() => onReprocess(resource.id)}
+                    doneLabel={t("reprocessStarted")}
                   >
                     {t("reprocessManual")}
-                  </button>
+                  </AsyncButton>
                 ) : null}
                 <button
                   type="button"

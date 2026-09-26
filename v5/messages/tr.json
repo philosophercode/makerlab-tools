@@ -22,11 +22,11 @@
     "signedInAria": "{name} olarak oturum açıldı"
   },
   "catalogRefresh": {
-    "action": "YENİLE",
-    "actionAria": "{institution} kataloğunu Notion’dan yenile",
+    "action": "Kataloğu yenile",
     "refreshing": "Yenileniyor…",
     "refreshed": "Katalog yenilendi",
-    "failed": "Yenileme başarısız — tekrar deneyin"
+    "failed": "Yenileme başarısız — tekrar deneyin",
+    "done": "Tamam"
   },
   "status": {
     "labStatusLabel": "Laboratuvar durumu",
