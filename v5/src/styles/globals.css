@@ -58,6 +58,14 @@
 
 html {
   min-height: 100%;
+  /* The scrollbar is always there, so a page that does not scroll lays the
+     header out at the same width as one that does (public polish, header
+     stability). The themed ::-webkit-scrollbar below is a classic,
+     space-taking scrollbar even where the OS overlays, and Chromium does not
+     honour `scrollbar-gutter` for a styled one — so `overflow-y: scroll`,
+     with the gutter kept for the browsers that do. */
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
   background: var(--background);
 }
 
@@ -321,8 +329,8 @@ body::selection {
   line-height: 1;
 }
 
-/* A card plate on the page, hairline border — no glass, no glow (DESIGN.md §5:
-   retired flourishes; UI system phase 5a). */
+/* A frosted plate (DESIGN.md §3; public polish): colour, blur and border come
+   from `[data-frosted]` in ui.css, with a solid fallback. */
 .profile-menu-panel {
   position: absolute;
   top: calc(100% + 10px);
@@ -330,8 +338,6 @@ body::selection {
   z-index: 40;
   width: 280px;
   max-width: calc(100vw - 32px);
-  border: 1px solid var(--outline-strong);
-  background: var(--surface-container);
   color: var(--on-surface);
   text-align: start;
 }
@@ -341,7 +347,7 @@ body::selection {
   align-items: flex-start;
   gap: 12px;
   padding: 16px;
-  background: var(--surface-container-low);
+  border-bottom: 1px solid var(--outline);
   text-transform: none;
 }
 

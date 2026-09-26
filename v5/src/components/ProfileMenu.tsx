@@ -185,7 +185,7 @@ export function ProfileMenu({ identity }: { identity: ClientIdentity }) {
       </button>
 
       {isOpen ? (
-        <div className="profile-menu-panel">
+        <div className="profile-menu-panel" data-frosted="">
           <div className="profile-menu-header">
             <ProfileAvatar image={identity.image} initial={initial} size={40} />
             <div className="profile-menu-who">
