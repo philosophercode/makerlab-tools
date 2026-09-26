@@ -1,7 +1,6 @@
 import {
   BookOpenText,
   Boxes,
-  FileSpreadsheet,
   Flag,
   GalleryVerticalEnd,
   PackagePlus,
@@ -13,7 +12,6 @@ import {
 } from "lucide-react";
 import { can, type Permission } from "../auth/permissions";
 import type { Role } from "../auth/roles";
-import { IMPORT_PERMISSION } from "../import/access";
 import { INTAKE_REVIEW_PERMISSION } from "../intake/access";
 
 /**
@@ -42,7 +40,6 @@ export type AdminGroup = (typeof ADMIN_GROUPS)[number];
 
 export const SURFACE_KEYS = [
   "intake",
-  "import",
   "inventory",
   "refresh",
   "research",
@@ -78,11 +75,27 @@ export interface AdminSurface {
   icon: LucideIcon;
   /** The overview loader behind the surface's tile. */
   count: CountLoader;
+  /**
+   * Loaders whose numbers the tile also carries, each read only for a viewer
+   * holding its permission — Intake's tile says how many imported lists wait
+   * for review (`tools.add`), since importing a list is part of Intake
+   * (amendment 2026-09-25 "Admin polish").
+   */
+  alsoCounts?: readonly { loader: CountLoader; permission: Permission }[];
 }
 
 export const ADMIN_SURFACES: readonly AdminSurface[] = [
-  { key: "intake", href: "/admin/intake", group: "addEquipment", permission: INTAKE_REVIEW_PERMISSION, icon: PackagePlus, count: "intake" },
-  { key: "import", href: "/admin/intake/imports/new", group: "addEquipment", permission: IMPORT_PERMISSION, icon: FileSpreadsheet, count: "imports" },
+  // One surface for adding equipment: the queue, the imports and "Import a
+  // list" are Intake's tabs and its header action, not surfaces of their own.
+  {
+    key: "intake",
+    href: "/admin/intake",
+    group: "addEquipment",
+    permission: INTAKE_REVIEW_PERMISSION,
+    icon: PackagePlus,
+    count: "intake",
+    alsoCounts: [{ loader: "imports", permission: "tools.add" }],
+  },
   { key: "inventory", href: "/admin/inventory", group: "keepFresh", permission: "tools.edit", icon: Boxes, count: "inventory" },
   { key: "refresh", href: "/admin/refresh", group: "keepFresh", permission: "tools.edit", icon: RefreshCw, count: "refresh" },
   { key: "research", href: "/admin/research", group: "keepFresh", permission: "tools.edit", icon: BookOpenText, count: "manuals" },
@@ -109,9 +122,20 @@ export function surface(key: SurfaceKey): AdminSurface {
 }
 
 /**
+ * The count loaders `subject`'s tiles read: each surface's own, and the extra
+ * ones it carries that `subject` holds the permission for.
+ */
+export function countLoadersFor(subject: { role: Role | null | undefined } | null | undefined): CountLoader[] {
+  return surfacesFor(subject).flatMap((entry) => [
+    entry.count,
+    ...(entry.alsoCounts ?? []).filter((extra) => can(subject, extra.permission)).map((extra) => extra.loader),
+  ]);
+}
+
+/**
  * The href in `hrefs` that `pathname` is on: the longest one that is the path
- * or a prefix of it, so `/admin/intake/imports/new` is "Import a list" and not
- * also "Intake", whose path is its prefix. `/admin` itself only on the home.
+ * or a prefix of it, so an item's page marks its surface. `/admin` itself only
+ * on the home.
  */
 export function currentHref(pathname: string, hrefs: readonly string[]): string | null {
   const path = pathname.replace(/\/+$/, "") || "/";

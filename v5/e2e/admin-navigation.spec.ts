@@ -4,7 +4,7 @@ import { signIn } from "./utils/session";
 
 /**
  * Admin navigation, end to end (UI system spec §8.1, phase 4): the section bar
- * on every admin page, Add equipment's tabs, and the ⌘K palette — each
+ * on every admin page, Intake's tabs, and the ⌘K palette — each
  * offering only what the viewer's permissions open.
  */
 
@@ -38,25 +38,28 @@ test.describe("the section bar", () => {
   });
 });
 
-test("Add equipment is one header over Queue, Imports and Import a list", async ({ page, context, baseURL }) => {
+test("Intake is one surface: Queue and Imports tabs, and Import a list as its action", async ({ page, context, baseURL }) => {
   await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
   await page.goto("/admin/intake");
 
-  await expect(page.getByRole("heading", { name: "Add equipment", level: 2 })).toBeVisible({ timeout: 15_000 });
-  const tabs = page.getByRole("navigation", { name: "Add equipment" });
+  await expect(page.getByRole("heading", { name: "Intake", level: 2 })).toBeVisible({ timeout: 15_000 });
+  const tabs = page.getByRole("navigation", { name: "Intake" });
   await expect(tabs.getByRole("link", { name: "Queue" })).toHaveAttribute("aria-current", "page");
+  // Importing a list is part of Intake (2026-09-25): not a tab, not a surface.
+  await expect(tabs.getByRole("link", { name: "Import a list" })).toHaveCount(0);
+  const bar = page.getByRole("navigation", { name: "Admin sections" });
+  await expect(bar.getByRole("link", { name: "Import a list" })).toHaveCount(0);
 
   await tabs.getByRole("link", { name: "Imports" }).click();
   await expect(page).toHaveURL(/\/admin\/intake\/imports$/);
   await expect(tabs.getByRole("link", { name: "Imports" })).toHaveAttribute("aria-current", "page", { timeout: 15_000 });
   await expect(page.getByRole("table", { name: "Recent imports" }).or(page.getByText("No imports yet."))).toBeVisible();
 
-  await tabs.getByRole("link", { name: "Import a list" }).click();
+  await page.getByRole("link", { name: "Import a list", exact: true }).first().click();
   await expect(page).toHaveURL(/\/admin\/intake\/imports\/new$/);
-  // The section bar marks the most specific surface: Import a list, not Intake.
-  const bar = page.getByRole("navigation", { name: "Admin sections" });
-  await expect(bar.getByRole("link", { name: "Import a list" })).toHaveAttribute("aria-current", "page", { timeout: 15_000 });
-  await expect(bar.getByRole("link", { name: "Intake", exact: true })).not.toHaveAttribute("aria-current");
+  // The import page is Intake's: the bar marks Intake, the tabs mark Imports.
+  await expect(bar.getByRole("link", { name: "Intake", exact: true })).toHaveAttribute("aria-current", "page", { timeout: 15_000 });
+  await expect(tabs.getByRole("link", { name: "Imports" })).toHaveAttribute("aria-current", "page");
 });
 
 test("⌘K jumps to a tool by name, and offers a SuperMaker no People", async ({ page, context, baseURL }) => {

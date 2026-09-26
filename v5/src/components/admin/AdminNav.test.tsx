@@ -43,11 +43,11 @@ it("leaves out a group the viewer has nothing in", () => {
   expect(screen.queryByRole("list", { name: "Queues" })).not.toBeInTheDocument();
 });
 
-it("marks the most specific surface as the current page", () => {
+it("marks Intake on the import page: importing a list is part of Intake, not a surface (2026-09-25)", () => {
   pathname.value = "/admin/intake/imports/new";
   render(<AdminNav items={itemsFor("super_admin")} />);
-  expect(screen.getByRole("link", { name: "Import a list" })).toHaveAttribute("aria-current", "page");
-  expect(screen.getByRole("link", { name: "Intake" })).not.toHaveAttribute("aria-current");
+  expect(screen.queryByRole("link", { name: "Import a list" })).not.toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Intake" })).toHaveAttribute("aria-current", "page");
   expect(screen.getByRole("link", { name: "Overview" })).not.toHaveAttribute("aria-current");
 });
 

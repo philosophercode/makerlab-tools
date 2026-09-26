@@ -636,7 +636,8 @@
       "refreshSelected": "Refresh research ({count})",
       "columnSelect": "Select",
       "columnTickets": "Tickets",
-      "columnAttention": "Needs"
+      "columnAttention": "Needs",
+      "addInventory": "Add inventory"
     },
     "errors": {
       "not_signed_in": "You are not signed in any more. Sign in and try again.",
@@ -714,7 +715,13 @@
       },
       "filtersLabel": "Filter the tickets",
       "search": "Search tickets",
-      "searchPlaceholder": "Title, machine or words in the ticket"
+      "searchPlaceholder": "Title, machine or words in the ticket",
+      "addResolution": "Add resolution",
+      "editResolution": "Edit resolution",
+      "addResolutionFor": "Add resolution for {title}",
+      "editResolutionFor": "Edit resolution for {title}",
+      "cancelResolution": "Cancel",
+      "resolutionKeys": "Esc cancels."
     },
     "corrections": {
       "queueLabel": "Corrections waiting to be handled",
@@ -1140,7 +1147,7 @@
     "refreshLede": "Proposed changes from re-researching existing tools, safety first. Nothing changes until you accept it.",
     "refresh": {
       "listLabel": "Refreshes waiting for a decision",
-      "empty": "No refreshes waiting. Select tools in the inventory and press Refresh research.",
+      "empty": "No refreshes waiting. Press Refresh research… above to choose tools, or select them in the inventory.",
       "unavailable": "The refresh queue could not be read — the database is not answering. Nothing was lost; try again in a moment.",
       "columnTool": "Tool",
       "columnProposals": "Proposals",
@@ -1199,7 +1206,35 @@
       "columnDiffers": "Differs",
       "columnNew": "New",
       "columnUnverified": "Not found",
-      "columnNote": "Note"
+      "columnNote": "Note",
+      "picker": {
+        "open": "Refresh research…",
+        "close": "Close",
+        "lede": "Choose the tools to research again from the manufacturer's pages — up to {max} a press, from the same daily allowance as intake. Nothing changes until you accept a proposal.",
+        "presetsLabel": "Choose by reason",
+        "preset": {
+          "neverReviewed": "Never reviewed",
+          "noManual": "No manual",
+          "stale": "Not refreshed in {days} days"
+        },
+        "search": "Name",
+        "category": "Category",
+        "anyCategory": "Any category",
+        "selectFirst": "Select the first {max}",
+        "tableLabel": "Tools that can be researched again",
+        "columnTool": "Tool",
+        "columnCategory": "Category",
+        "columnLastRefreshed": "Last refreshed",
+        "never": "Never",
+        "refreshOpen": "Refresh open",
+        "selected": "{count, plural, one {# tool selected} other {# tools selected}}",
+        "counts": "{shown} shown · {selected} selected",
+        "start": "{count, plural, =0 {Refresh research} other {Refresh research ({count})}}",
+        "nothingStarted": "Nothing new was started.",
+        "noTools": "There are no tools to research: every tool is archived, or none has been added yet.",
+        "noMatch": "No tools match {filters}.",
+        "clear": "Clear filters"
+      }
     },
     "proposal": {
       "field": {
@@ -1501,7 +1536,6 @@
       },
       "surface": {
         "intake": "Intake",
-        "import": "Import a list",
         "inventory": "Inventory",
         "refresh": "Refresh",
         "research": "Manuals",
@@ -1524,12 +1558,11 @@
       "intakeIdentified": "Identified, not researched",
       "intakeResearching": "Researching",
       "intakeFailed": "Research failed",
+      "intakeImports": "Imported lists waiting for review",
       "intakeSeries": "{total, plural, one {# item} other {# items}} identified in the last 30 days",
-      "importUnit": "lists ready to review",
-      "importMapping": "Waiting for column matches",
-      "importLast30": "Imports in the last 30 days",
-      "inventoryUnit": "need attention",
-      "inventoryTotal": "Tools",
+      "inventoryUnit": "of {total, plural, one {# tool} other {# tools}} need attention",
+      "inventoryPublished": "Published — in the catalog",
+      "inventoryUnpublished": "Drafts and archived",
       "inventoryNoPhoto": "No photo",
       "inventoryNoManual": "No manual",
       "inventoryNeverReviewed": "Never reviewed",
@@ -1608,10 +1641,10 @@
     },
     "addEquipment": {
       "title": "Add equipment",
-      "tabsLabel": "Add equipment",
+      "tabsLabel": "Intake",
       "tabQueue": "Queue",
       "tabImports": "Imports",
-      "tabImport": "Import a list"
+      "importList": "Import a list"
     }
   },
   "account": {

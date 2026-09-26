@@ -3,6 +3,11 @@ import { AdminNotice } from "../../../components/admin/AdminNotice";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { EmptyState } from "../../../components/system/EmptyState";
 import { RefreshList, type RefreshListRow } from "../../../components/admin/RefreshList";
+import { RefreshPicker } from "../../../components/admin/RefreshPicker";
+import type { PickerTool } from "../../../components/admin/refresh-picker-filters";
+import { listInventoryRows } from "../../../lib/data/inventory";
+import { lastRefreshedByTool } from "../../../lib/data/tool-refreshes";
+import { queueToolRefresh } from "./actions";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { listRefreshQueue } from "../../../lib/data/tool-refreshes";
@@ -19,6 +24,11 @@ import { siteConfig } from "../../../lib/site-config";
  * other *new*, nothing to change — failed refreshes (waiting for **Refresh
  * again**) and running ones after. Uncached: `RefreshList` polls while a run is
  * going. A database that cannot be reached is said, never an empty list.
+ *
+ * **Refresh research…** (amendment 2026-09-25 "Admin polish") starts research
+ * from here too: the header's primary action opens `RefreshPicker` over every
+ * tool that is not archived, and queues through the inventory's own
+ * `queueToolRefresh` — its permission, its 25 a press, its daily allowance.
  */
 
 export const metadata = {
@@ -55,6 +65,7 @@ export default async function AdminRefreshPage() {
   }
 
   const byStatus = (...statuses: string[]) => (rows ?? []).filter((row) => statuses.includes(row.status)).length;
+  const pickerTools = await loadPickerTools();
 
   return (
     <section className="flex flex-col gap-4">
@@ -71,6 +82,11 @@ export default async function AdminRefreshPage() {
               ]
             : [t("facts.unreadable")]
         }
+        actions={
+          pickerTools ? (
+            <RefreshPicker tools={pickerTools} action={queueToolRefresh} now={new Date().toISOString()} />
+          ) : undefined
+        }
       />
       {rows ? (
         <RefreshList rows={rows} />
@@ -80,6 +96,34 @@ export default async function AdminRefreshPage() {
       <AssistantProposals />
     </section>
   );
+}
+
+/**
+ * The tools the picker offers: every tool but archived ones (an archived tool
+ * is settled — archiving is one outcome of a review), with the flags its
+ * presets read and when each was last refreshed. Null when either read failed:
+ * the button is then not offered, rather than offering a list that is wrong.
+ */
+async function loadPickerTools(): Promise<PickerTool[] | null> {
+  try {
+    const [inventory, refreshed] = await Promise.all([listInventoryRows(), lastRefreshedByTool()]);
+    return inventory
+      .filter((row) => row.state !== "archived")
+      .map((row) => ({
+        id: row.id,
+        name: row.name,
+        officialName: row.officialName ?? null,
+        categoryName: row.categoryName,
+        noManual: row.attention.noManual,
+        neverReviewed: row.attention.neverReviewed,
+        lastRefreshedAt: refreshed.get(row.id)?.toISOString() ?? null,
+        refreshOpen: Boolean(row.openRefreshId),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (err) {
+    console.error("[admin/refresh] could not read the tools for the picker", err);
+    return null;
+  }
 }
 
 /**
