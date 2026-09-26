@@ -996,3 +996,151 @@ capability or permission changes. Where phase 4 differs, and why:
   and trends replace ten one-line links) and fits one desktop screen (937 px).
 - **Package added:** `cmdk` ^1.1.1 (shadcn `Command`). `Dialog` is the
   existing `radix-ui` package.
+
+### 2026-09-25 — Phase 5a as built (public pages)
+
+Branch `v5/ui-phase-5a`. §13's phase 5 is split: **5a is the public pages** —
+the gallery, the tool page, projects, about, `/mcp`, `/account/tokens`, the
+OAuth pages, error / empty / loading states, the header and phones — and **5b is
+the chat** (AI Elements, `Sheet`, streamdown, the FAB rules), untouched here.
+Two owner requests of 2026-09-25 are built in this phase. Where 5a differs from
+§8.2 / §13, and why:
+
+- **One frame for working pages.** `system/PublicPage.tsx` holds `PublicPage`
+  (a `main` reading column, 880px, `narrow` 560px for a single decision, `wide`
+  for a grid, `PageHeader` as the h1), `PageSection` (h2 + lede, separated by
+  whitespace only), `SectionLabel` and `Prose`. Projects (list, detail, new),
+  about, `/mcp`, `/account/tokens`, `/oauth/sign-in`, `/oauth/consent` and
+  `/auth/rejected` are on it; the rounded `td-panel td-prose` card is gone from
+  all of them. `system/Markdown.tsx` renders a tool description, a project
+  write-up and its preview with the page's tokens (GFM, no raw HTML), so pages
+  no longer borrow the chat's `.chat-markdown` and its `--td-*` overrides.
+- **Gallery on `FilterBar` (§8.2).** Search, then **Category / Material /
+  Location** as `FacetFilter` menus with per-value counts (given the other
+  facets). They are **single-valued**, like every facet in the app (a link
+  names one value per dimension): the old console's multi-select categories
+  and its "select a whole material group" heading are gone. The hero keeps the
+  display title and gains a facts line (`18 TOOLS · 14 AVAILABLE NOW ·
+  5 CATEGORIES`). Cards are one plate with the status as `StatusGlyph` + word
+  and the category (the pulsing orange "in use" dot, colour alone, is gone). A
+  tool with no photo shows its initials on an empty plate
+  (`ToolImage`), not the browser's broken-image icon. The grid/table switch is
+  a two-button group with `aria-pressed`, not `Tabs`: both views are the same
+  list, and the choice is a URL parameter, not an in-page panel.
+- **Sort and Group by (owner request (a)).** `ChoiceMenu`
+  (`system/data-table/ChoiceMenu.tsx`) is a `FacetFilter`-looking radio menu
+  with no counts and no "Any". **Sort:** Name A–Z (the default — "Best match"
+  while searching, when the default is the search rank), Name Z–A, Category,
+  Location, **Recently added** (`tools.created_at`, now carried as
+  `MakerLabTool.addedAt`), **Most available** (units available now). **Group
+  by:** None, **Category** (`3D PRINTING › FDM`), **Category group** (`3D
+  PRINTING` — the cards' tag), **Location** (room). Grouped, the gallery is
+  labelled `section`s in order (alphabetical, "Uncategorized"/"Unknown" last),
+  each with an h2 heading **sticky under the top bar** (its height measured,
+  since the bar wraps on a phone) carrying the count (`4 TOOLS`) — small
+  multiples; the sort applies inside every section; in the table view each
+  section is its own `DataTable` named by the section (`Tools: Laser`), same
+  column widths, no sticky header of its own, the keyboard hint once. Cards
+  under a group are h3. `gallery-filters.ts` (pure) owns the URL vocabulary —
+  `?q=&category=&material=&location=&view=table&sort=&group=`, defaults left
+  out, unknown values dropped — and `sortTools` / `groupTools`.
+- **The gallery's URL is read on the client.** The gallery is one cached
+  prerender for everybody (`cacheComponents`), so the server cannot hand the
+  island its `searchParams` as `/admin/inventory` does. `useUrlSearch`
+  (`components/use-url-state.ts`) makes the query string the state:
+  `useSyncExternalStore` renders the defaults on the server and while
+  hydrating, then the URL; writes are `replaceState` (no server round trip, no
+  Back-button history per keystroke). A linked grouped view therefore paints
+  ungrouped for one frame. The search box writes `q` untrimmed — trimming a
+  controlled value would eat the space being typed.
+- **The gallery table** gained Status (glyph + word), Room and Available
+  (`available/units`, right-aligned) columns, and fixed column proportions so
+  grouped tables line up.
+- **Tool page (§8.2).** One column of facts: a mono `// TOOLS / INVENTORY /
+  NAME` crumb; the hero (image plate, display title, **official name** in mono
+  under it, a status line of glyphs and words — status, training, PPE, `1 OF 1
+  UNIT AVAILABLE` — the description, the Safety doc / SOP buttons); **Safety**
+  as the one tinted section (bad start rule, 5% bad wash; PPE as labels,
+  e-stop, restrictions as a `<dl>`); **Details** as a dense `<dl>` (category,
+  location, materials, training, map id, tags, notes); **Documents &
+  resources** as a ruled list with the kind as a mono word (Safety in the bad
+  ink, a lab document in the accent ink) and the manual **Contents** under its
+  manual; **Physical machines** as a `DataTable` (`tool/UnitsTable.tsx`,
+  status glyphs, ISO dates, a two-line item on a phone); **Maintenance
+  history** (new, below); **Built with this**. The "at a glance" card (which
+  repeated the materials) and the separate "Notes & tips" panel (which
+  repeated the notes) are gone.
+- **Maintenance history on the tool page** is one new read,
+  `listMaintenanceHistoryForTool` (data/maintenance.ts): the ten newest logs
+  across the tool's units with date, status, title, type and unit label —
+  **no reporter name, email or description**, the line MCP already draws for an
+  anonymous caller. It is cached with the catalogue
+  (`getToolMaintenanceHistory`, tag `catalog`); maintenance writes do not
+  invalidate that tag, so a new ticket appears when the catalogue's cache next
+  turns over. The page says "No maintenance has been logged" when empty. This
+  is the phase's one data addition (§5 said none beyond counts); it is a read
+  of public fields only.
+- **Tokens and `/mcp` (owner request (b))** — see the MCP access spec's
+  amendment "One lifetime, a louder reveal, a setup prompt": 90 days for every
+  token with no choice, the form and reveal in one 640px column, the
+  "Save this token now…" warning above the token and beside **I've copied it**,
+  and **Copy setup prompt for your AI** on `/mcp`'s Connect section and on the
+  reveal. `/mcp` now puts Connect straight after the addresses; its tool list is
+  a hairline-ruled list instead of a boxed card per tool (5,975 → 4,339 px), and
+  Try it is on `Field` / `Input` / `NativeSelect` / `Checkbox` / `Button` /
+  `RowStatus`. `CopyableCode` is a card-toned `pre` with a `Button` and a
+  `role="status"` "copied" announcement. The account pages' error line used
+  `--primary-ink` for errors and `--status-bad` for warnings (swapped); every
+  outcome there is now `RowStatus` with the right tone.
+- **Header.** "Sign in" is a hairline box in ink, so the bar keeps one accent
+  (Report); **"Sign in as (dev)"** is muted and dashed, never wraps, and says
+  "Dev" on a phone (its accessible name stays "Sign in as (dev)"). The profile
+  menu keeps its own menu-button code — it already follows the APG pattern
+  (arrows, Home/End, Escape returns focus, **Tab closes**); Radix's
+  `DropdownMenu` traps Tab and would change behaviour its tests pin — but its
+  panel loses the retired glass blur and glow for a card plate with a
+  `--outline-strong` border.
+- **Error, empty, loading.** `app/not-found.tsx` and `app/error.tsx` are pages
+  in the system's frame (`PublicPage` + `EmptyState`, the error one
+  `tone="bad"` with Try again), replacing Next's bare defaults. The gallery's
+  loading fallback is skeleton plates in the grid's shape (reduced-motion
+  safe). An emptied gallery names its filters (`No tools match "laser" ·
+  Category: Laser.`) with Clear.
+- **Shared fix.** `FilterBar`'s end group (count, Columns — and now Sort, Group
+  by, View) wraps; unwrapped, it pushed the gallery 111px past a 390px phone.
+- **Not done here (5b or later):** the chat (`ChatFab`, `.chat-*` CSS,
+  `admin-import.css`'s chat pieces), `FlagButton`'s dialog, the QR arrival
+  notice's chat hand-off (restyled only), and the `--td-*` mapping that
+  `.admin-shell` still supplies for `ManualStateCounts`' `td-panel`.
+- **Removed.** `account.css` (120 lines) and `mcp.css` (141) whole; from
+  `globals.css` the gallery console, `technical-frame`, `tool-card*`,
+  `tool-grid`, skeleton and loading-dots rules, the whole `.tool-detail` palette
+  and every `td-*` page rule but `td-panel`, the projects gallery / detail /
+  form rules, `chip`, `eyebrow`, `empty-state`, `project-empty`, two unused
+  keyframes and the comments they left behind — **2,155 lines of legacy CSS
+  net** (4,318 → 2,163; 21 added for the header). `TechnicalFrame.tsx` (no
+  importers). `ui.css` unchanged.
+- **Tests.** New: `gallery-filters.test.ts`; `GalleryShell.test.tsx`
+  rewritten (facet counts, URL write-back and read, sort keys, group sections
+  with counts, sticky headings, h3 cards, grouped tables); `ToolCard`
+  (glyph + word, heading level, missing photo); `DetailShell` (status line,
+  `<dl>` specs, units table, maintenance history); `maintenance.test.ts`
+  (`listMaintenanceHistoryForTool`: no names, bounded); the token and prompt
+  tests listed in the MCP amendment. E2E: `search.spec` moved to the
+  `searchbox` and facet menus and gained a Group-by test; `tool-editor.spec`'s
+  public unit row is the phone list; `intake.spec`'s cover selector;
+  `projects.spec`'s error locator; new `account-tokens.spec`.
+  `admin-overview.test.ts`'s "reported today" case compared a JavaScript UTC
+  date with the database's `current_date` and failed every evening after 8pm
+  in New York; it now asks the database for today.
+- **Measured** (scratch database: the demo seed plus 16 tools across seven
+  categories, three rooms; 1440 / 390, light, anonymous): gallery 1,635 →
+  1,531 / 2,801 → 2,602 px; tool page (Form 4) 2,209 → 1,694 / 3,185 → 2,327;
+  project 2,219 → 1,687 / 1,767 → 1,429; about 1,319 → 1,060 / 1,879 → 1,592;
+  `/mcp` 5,975 → 4,339 / 7,667 → 5,799; `/account/tokens` (student) 1,609 →
+  1,360 desktop, 1,858 → 2,031 phone (the new-token form is now full-width
+  controls stacked, not a 560px box beside nothing). No page scrolls sideways at
+  390px.
+- **Packages added:** none. No shadcn primitive was added: `Dialog`/`Sheet`
+  are for the chat and the flag dialog (5b); every public control here is an
+  existing primitive.
