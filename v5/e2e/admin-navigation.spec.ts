@@ -34,7 +34,13 @@ test.describe("the section bar", () => {
     await page.goto("/admin");
     await expect(page.getByRole("heading", { name: /do not have access/i, level: 1 })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole("navigation", { name: "Admin sections" })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Open the command palette" })).toHaveCount(0);
+    // The header's ⌘K is everybody's, but it offers a student no admin page.
+    await page.getByRole("button", { name: /Search tools…/ }).click();
+    const palette = page.getByRole("dialog", { name: "Command palette" });
+    await expect(palette).toBeVisible();
+    await expect(palette.getByRole("option", { name: "Tools", exact: true })).toBeVisible();
+    await expect(palette.getByText("Admin pages")).toHaveCount(0);
+    await expect(palette.getByRole("option", { name: /^Maintenance/ })).toHaveCount(0);
   });
 });
 

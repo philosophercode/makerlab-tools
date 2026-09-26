@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { AdminNav } from "../../components/admin/AdminNav";
 import { AdminNotice } from "../../components/admin/AdminNotice";
-import { CommandPalette } from "../../components/admin/CommandPalette";
+import { PaletteScope } from "../../components/palette/palette-scope";
 import { EmptyState } from "../../components/system/EmptyState";
 import { surfacesFor } from "../../lib/admin/surfaces";
 import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
@@ -25,7 +25,7 @@ import { siteConfig } from "../../lib/site-config";
  * were going. `AdminNotice` says which of the two situations this is.
  *
  * **Past the gate, every page gets the section bar** (`AdminNav`) and the ⌘K
- * palette, both over `surfacesFor(identity)` — the one list in
+ * palette (the header's, told who this is by `PaletteScope`), both over `surfacesFor(identity)` — the one list in
  * `lib/admin/surfaces.ts`, filtered by the same `can()` each page calls — so
  * no admin page is reachable only through `/admin` and none of them links to
  * a refusal. The 88px display "ADMIN" that stacked above every page's own
@@ -79,7 +79,9 @@ async function AdminGate({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <AdminNav items={items} end={<CommandPalette role={identity.role} tools={tools} />} />
+      {/* The header's ⌘K palette learns this viewer and the index with drafts. */}
+      <PaletteScope role={identity.role} tools={tools} />
+      <AdminNav items={items} />
       {children}
     </>
   );

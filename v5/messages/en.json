@@ -1663,25 +1663,6 @@
       "lastPush": "Last push {date}",
       "unreadable": "Counts could not be read"
     },
-    "palette": {
-      "open": "Open the command palette",
-      "trigger": "Search",
-      "title": "Command palette",
-      "description": "Jump to an admin page or a tool, or run an admin action.",
-      "placeholder": "Search pages, tools and actions…",
-      "empty": "Nothing matches “{query}”.",
-      "surfaces": "Admin pages",
-      "home": "Home",
-      "actions": "Actions",
-      "addEquipment": "Add equipment",
-      "refreshCatalog": "Refresh the catalog",
-      "tools": "Tools",
-      "draft": "Draft",
-      "hint": "↑ ↓ to move · Enter to open · Esc to close",
-      "toolsUnavailable": "The tool list could not be read.",
-      "assistant": "Assistant",
-      "ask": "Ask the assistant: “{query}”"
-    },
     "addEquipment": {
       "title": "Add equipment",
       "tabsLabel": "Intake",
@@ -1918,5 +1899,34 @@
       "noMatch": "Nothing here matches {filters}.",
       "searchFor": "“{query}”"
     }
+  },
+  "palette": {
+    "open": "Search tools and pages",
+    "trigger": "Search tools…",
+    "title": "Command palette",
+    "description": "Jump to a tool, a category or a page.",
+    "descriptionStaff": "Jump to a tool, a category, a page or an admin page, or run an admin action.",
+    "placeholder": "Search tools, categories and pages…",
+    "empty": "Nothing matches “{query}”.",
+    "pages": "Pages",
+    "page": {
+      "tools": "Tools",
+      "projects": "Projects",
+      "about": "About",
+      "mcp": "Connect an AI assistant (MCP)"
+    },
+    "categories": "Categories",
+    "categoryCount": "{count, plural, one {# tool} other {# tools}}",
+    "surfaces": "Admin pages",
+    "home": "Home",
+    "actions": "Actions",
+    "addEquipment": "Add equipment",
+    "refreshCatalog": "Refresh the catalog",
+    "tools": "Tools",
+    "draft": "Draft",
+    "hint": "↑ ↓ to move · Enter to open · Esc to close",
+    "toolsUnavailable": "The tool list could not be read.",
+    "assistant": "Assistant",
+    "ask": "Ask the assistant: “{query}”"
   }
 }

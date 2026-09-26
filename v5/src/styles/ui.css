@@ -163,23 +163,6 @@
   }
 }
 
-/* The frosted plate (DESIGN.md §3): a solid card where the browser cannot
-   blur, the translucent token plus blur and a little saturation where it can.
-   Border and no shadow, like every plate. An attribute, not a class. */
-@layer components {
-  [data-frosted] {
-    background-color: var(--surface-container);
-    border: 1px solid var(--outline-strong);
-  }
-  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-    [data-frosted] {
-      background-color: var(--surface-frosted);
-      -webkit-backdrop-filter: blur(16px) saturate(140%);
-      backdrop-filter: blur(16px) saturate(140%);
-    }
-  }
-}
-
 /* Transparency made visible (the intake page's cleaned product image): a
    checkerboard of two theme surfaces, so it follows light and dark. An
    attribute, not a class — new components carry no legacy class names. */

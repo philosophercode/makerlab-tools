@@ -329,8 +329,8 @@ body::selection {
   line-height: 1;
 }
 
-/* A frosted plate (DESIGN.md §3; public polish): colour, blur and border come
-   from `[data-frosted]` in ui.css, with a solid fallback. */
+/* A frosted plate (DESIGN.md §3; public polish): colour, blur and border are
+   the `FROSTED` utilities (system/frosted.ts), with a solid fallback. */
 .profile-menu-panel {
   position: absolute;
   top: calc(100% + 10px);
@@ -498,7 +498,8 @@ body::selection {
   color: var(--on-surface);
 }
 
-.nav-actions button {
+/* The theme toggle only: the ⌘K field beside it is a system component. */
+.nav-actions .theme-toggle {
   width: 32px;
   height: 32px;
   border: 1px solid var(--outline);
@@ -506,7 +507,7 @@ body::selection {
   color: var(--on-surface-muted);
 }
 
-.nav-actions button:hover {
+.nav-actions .theme-toggle:hover {
   border-color: var(--primary-ink);
   color: var(--primary-ink);
 }

@@ -3,15 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
-import { LayoutGrid, MessageSquare, PackagePlus, RefreshCw, Search } from "lucide-react";
+import { Folder, Info, LayoutGrid, MessageSquare, PackagePlus, Plug, RefreshCw, Search, Wrench } from "lucide-react";
 import { useChatLauncher } from "../ChatLauncherContext";
 import { REVALIDATE_ENDPOINT } from "../RefreshCatalogButton";
 import { can } from "../../lib/auth/permissions";
 import type { Role } from "../../lib/auth/roles";
 import { canAddEquipment } from "../../lib/capabilities/access";
 import { ADMIN_HOME, surfacesFor } from "../../lib/admin/surfaces";
-import type { ToolIndexEntry } from "../../lib/data/tool-index";
-import { Button } from "@/components/ui/button";
+import type { PaletteTool } from "./palette-types";
 import {
   CommandDialog,
   CommandEmpty,
@@ -22,45 +21,52 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { paletteScore } from "./palette-match";
-import { RowStatus } from "./RowStatus";
+import { RowStatus } from "../admin/RowStatus";
+import { FROSTED } from "../system/frosted";
+import { cn } from "@/lib/utils";
 
 /**
- * The admin ⌘K palette (UI system spec §7.5; DESIGN.md §8.12): jump to any
- * surface the viewer may open, to any tool by its display name, official name
- * or slug, or run one of the few admin actions — without going back to
- * `/admin` first.
+ * The ⌘K palette, on every page (UI system spec §7.5; DESIGN.md §8.12; public
+ * polish — it began as the admin's). Jump to a tool by its display name,
+ * official name or slug, to a category (the gallery filtered to it), to a
+ * page (Tools, Projects, About, MCP) — and, for a viewer whose role opens
+ * them, to an admin page or one of the admin actions.
  *
- * - **Surfaces** are `surfacesFor(role)`: the section bar's list, filtered by
- *   the same `can()` the pages check, so the palette never offers a refusal.
- * - **Tools** arrive from the layout (`listToolIndex`, drafts only for a
- *   viewer who may see them) and open the tool's own page, where the editor
- *   is. `null` means the list could not be read, and the palette says so.
- * - **Actions**: Add equipment (`tools.add`, opens the assistant with the
- *   same seed the profile menu uses) and Refresh catalog (`tools.edit`, the
- *   revalidate route, confirmed in place).
- * - **`onAsk`** is the assistant's hook (phase 5): given one, the palette
- *   offers "Ask the assistant" with whatever was typed. Nothing passes it yet;
- *   the floating button is still how admins open the chat until phase 5 hides
- *   it on admin pages.
+ * - **Tools** arrive from the root layout (the published catalogue, cached)
+ *   or, on an admin page, from the admin layout's index with drafts for a
+ *   viewer who may see them (`PaletteScope`). `null` means the list could not
+ *   be read, and the palette says so.
+ * - **Admin pages** are `surfacesFor(role)` — the same `can()` each page
+ *   checks — so the palette never offers a refusal; an anonymous visitor or a
+ *   student sees none, and no admin action.
+ * - **Actions**: Add equipment (`tools.add`) and Refresh catalog (`tools.edit`).
+ * - **`onAsk`** is the assistant's hook (phase 5b): given one, the palette
+ *   offers "Ask the assistant" with whatever was typed.
  *
- * ⌘K / Ctrl-K opens and closes it from anywhere on an admin page; `/` focuses
- * the page's own filter search (the first `FilterBar`), unless focus is
- * already in a field. Radix's Dialog gives the focus trap, Escape and focus
- * return. Never mounted for anonymous visitors: the layout renders it only
- * behind the admin gate.
+ * The header shows it as a compact field, "Search tools… ⌘K" (an icon button
+ * on a phone). ⌘K / Ctrl-K opens and closes it from anywhere; `/` focuses the
+ * page's own filter search (the first `FilterBar`) unless focus is already in
+ * a field. Radix's Dialog gives the focus trap, Escape and focus return.
  */
 export interface CommandPaletteProps {
   role: Role;
   /** Tools to jump to, or null when the list could not be read. */
-  tools: readonly ToolIndexEntry[] | null;
-  /** Phase 5: ask the assistant about what was typed. */
+  tools: readonly PaletteTool[] | null;
+  /** Phase 5b: ask the assistant about what was typed. */
   onAsk?: (query: string) => void;
 }
+
+const PAGES = [
+  { key: "tools", href: "/", icon: Wrench },
+  { key: "projects", href: "/projects", icon: Folder },
+  { key: "about", href: "/about", icon: Info },
+  { key: "mcp", href: "/mcp", icon: Plug },
+] as const;
 
 type RefreshState = "idle" | "refreshing" | "refreshed" | "failed";
 
 export function CommandPalette({ role, tools, onAsk }: CommandPaletteProps) {
-  const t = useTranslations("admin.palette");
+  const t = useTranslations("palette");
   const tNav = useTranslations("admin.nav");
   const tRoot = useTranslations();
   const router = useRouter();
@@ -70,6 +76,13 @@ export function CommandPalette({ role, tools, onAsk }: CommandPaletteProps) {
   const [refresh, setRefresh] = useState<RefreshState>("idle");
 
   const surfaces = useMemo(() => surfacesFor({ role }), [role]);
+  const staff = surfaces.length > 0;
+  // The category groups the tools fall in, each with its count — a link to the gallery filtered to it.
+  const categories = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const tool of tools ?? []) if (tool.category) counts.set(tool.category, (counts.get(tool.category) ?? 0) + 1);
+    return Array.from(counts.entries()).sort(([a], [b]) => a.localeCompare(b));
+  }, [tools]);
   const canAdd = canAddEquipment({ role });
   const canRefresh = can({ role }, "tools.edit");
 
@@ -117,25 +130,37 @@ export function CommandPalette({ role, tools, onAsk }: CommandPaletteProps) {
 
   return (
     <>
-      <Button
-        variant="ghost"
-        size="sm"
+      <button
+        type="button"
+        aria-keyshortcuts="Meta+K Control+K"
+        onClick={() => setOpenAndReset(true)}
+        data-slot="palette-trigger"
+        className="ui hidden h-8 w-52 cursor-pointer items-center gap-2 border border-input bg-background px-2 text-start text-table text-muted-foreground normal-case transition-colors duration-150 hover:border-foreground/40 hover:text-foreground md:inline-flex xl:w-60"
+      >
+        <Search aria-hidden="true" className="size-3.5 shrink-0" />
+        <span className="flex-1 truncate font-sans tracking-normal">{t("trigger")}</span>
+        <kbd aria-hidden="true" className="border border-border px-1 font-mono text-micro text-muted-foreground">
+          ⌘K
+        </kbd>
+      </button>
+      <button
+        type="button"
         aria-keyshortcuts="Meta+K Control+K"
         aria-label={t("open")}
+        title={t("open")}
         onClick={() => setOpenAndReset(true)}
-        className="gap-2"
+        className="ui inline-flex size-8 cursor-pointer items-center justify-center border border-input text-muted-foreground transition-colors duration-150 hover:text-foreground md:hidden"
       >
-        <Search aria-hidden="true" />
-        <span className="hidden sm:inline">{t("trigger")}</span>
-        <kbd className="hidden border border-border px-1 font-mono text-micro text-muted-foreground sm:inline">⌘K</kbd>
-      </Button>
+        <Search aria-hidden="true" className="size-4" />
+      </button>
 
       <CommandDialog
         open={open}
         onOpenChange={setOpenAndReset}
         title={t("title")}
-        description={t("description")}
-        commandProps={{ filter: (_value, search, keywords) => paletteScore(search, keywords ?? []), loop: true }}
+        description={t(staff ? "descriptionStaff" : "description")}
+        className={cn(FROSTED, "bg-card")}
+        commandProps={{ className: "bg-transparent", filter: (_value, search, keywords) => paletteScore(search, keywords ?? []), loop: true }}
       >
         <CommandInput value={query} onValueChange={setQuery} placeholder={t("placeholder")} aria-label={t("placeholder")} />
         <CommandList>
@@ -157,6 +182,37 @@ export function CommandPalette({ role, tools, onAsk }: CommandPaletteProps) {
             </CommandGroup>
           ) : null}
 
+          <CommandGroup heading={t("pages")}>
+            {PAGES.map((page) => {
+              const Icon = page.icon;
+              const title = t(`page.${page.key}`);
+              return (
+                <CommandItem key={page.key} value={`page:${page.key}`} keywords={[title]} onSelect={() => go(page.href)}>
+                  <Icon aria-hidden="true" />
+                  {title}
+                </CommandItem>
+              );
+            })}
+          </CommandGroup>
+
+          {categories.length > 0 ? (
+            <CommandGroup heading={t("categories")}>
+              {categories.map(([category, count]) => (
+                <CommandItem
+                  key={category}
+                  value={`category:${category}`}
+                  keywords={[category]}
+                  onSelect={() => go(`/?${new URLSearchParams({ category }).toString()}`)}
+                >
+                  <LayoutGrid aria-hidden="true" />
+                  <span>{category}</span>
+                  <CommandShortcut>{t("categoryCount", { count })}</CommandShortcut>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          ) : null}
+
+          {staff ? (
           <CommandGroup heading={t("surfaces")}>
             <CommandItem value="surface:overview" keywords={[tNav("overview"), t("home")]} onSelect={() => go(ADMIN_HOME)}>
               <LayoutGrid aria-hidden="true" />
@@ -179,6 +235,7 @@ export function CommandPalette({ role, tools, onAsk }: CommandPaletteProps) {
               );
             })}
           </CommandGroup>
+          ) : null}
 
           {canAdd || canRefresh ? (
             <CommandGroup heading={t("actions")}>
@@ -217,7 +274,11 @@ export function CommandPalette({ role, tools, onAsk }: CommandPaletteProps) {
                   {tool.officialName && tool.officialName !== tool.name ? (
                     <span className="truncate text-xs text-muted-foreground">{tool.officialName}</span>
                   ) : null}
-                  {tool.published ? null : <CommandShortcut>{t("draft")}</CommandShortcut>}
+                  {tool.published ? (
+                    tool.category ? <CommandShortcut>{tool.category}</CommandShortcut> : null
+                  ) : (
+                    <CommandShortcut>{t("draft")}</CommandShortcut>
+                  )}
                 </CommandItem>
               ))}
             </CommandGroup>
