@@ -1,4 +1,4 @@
-import { render, screen } from "../../test/utils/render";
+import { fireEvent, render, screen } from "../../test/utils/render";
 import { ToolCard } from "./ToolCard";
 import {
   availableTool,
@@ -13,9 +13,9 @@ vi.mock("next/image", () => ({
   __esModule: true,
   // Strip Next-only props (fill, sizes) so React doesn't warn about unknown
   // attributes on a plain <img>.
-  default: ({ src, alt }: { src: string; alt: string }) => (
+  default: ({ src, alt, onError }: { src: string; alt: string; onError?: () => void }) => (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt={alt} />
+    <img src={src} alt={alt} onError={onError} />
   ),
 }));
 
@@ -63,29 +63,29 @@ describe("ToolCard", () => {
     expect(img).toHaveAttribute("alt", "");
   });
 
-  it("shows the 'In use' status dot for an In Use tool", () => {
+  it("says the status as a glyph and a word — never a dot alone", () => {
     render(<ToolCard tool={inUseTool} />);
-
-    expect(screen.getByLabelText("In use")).toBeInTheDocument();
+    expect(screen.getByText("In use")).toBeInTheDocument();
+    expect(document.querySelector('[data-glyph="idle"]')).not.toBeNull();
   });
 
-  it("does not show the 'In use' dot for an Available tool", () => {
-    render(<ToolCard tool={availableTool} />);
-
-    expect(screen.queryByLabelText("In use")).not.toBeInTheDocument();
-  });
-
-  it("does not show the 'In use' dot for an Offline tool", () => {
+  it("marks an offline tool bad, and still links it", () => {
     render(<ToolCard tool={offlineTool} />);
+    expect(screen.getByText("Offline")).toBeInTheDocument();
+    expect(document.querySelector('[data-glyph="bad"]')).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "Trotec Speedy 400" })).toBeInTheDocument();
+    expect(screen.getByRole("link")).toHaveAttribute("href", "/tools/trotec-speedy-400");
+  });
 
-    expect(screen.queryByLabelText("In use")).not.toBeInTheDocument();
-    // Offline tools still render name + category + link like any other card.
-    expect(
-      screen.getByRole("heading", { name: "Trotec Speedy 400" })
-    ).toBeInTheDocument();
-    expect(screen.getByRole("link")).toHaveAttribute(
-      "href",
-      "/tools/trotec-speedy-400"
-    );
+  it("takes the heading level it is given (h3 under a group)", () => {
+    render(<ToolCard tool={availableTool} headingLevel={3} />);
+    expect(screen.getByRole("heading", { level: 3, name: "Bandsaw" })).toBeInTheDocument();
+  });
+
+  it("shows an empty plate with initials, not a broken image, when the photo is missing", () => {
+    render(<ToolCard tool={availableTool} />);
+    fireEvent.error(document.querySelector("img")!);
+    expect(document.querySelector("img")).toBeNull();
+    expect(document.querySelector('[data-slot="tool-image-empty"]')).toHaveTextContent("B");
   });
 });

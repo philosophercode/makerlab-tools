@@ -1,6 +1,7 @@
 import { render, screen, within, userEvent } from "../../test/utils/render";
 import { GalleryShell } from "./GalleryShell";
 import { mockCatalog } from "../../test/fixtures/catalog";
+import type { MakerLabTool } from "./catalog-types";
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -17,236 +18,187 @@ vi.mock("next/image", () => ({
 
 vi.mock("next/link", () => ({
   __esModule: true,
-  default: ({
-    href,
-    children,
-    ...rest
-  }: {
-    href: string;
-    children: React.ReactNode;
-  }) => (
+  default: ({ href, children, ...rest }: { href: string; children: React.ReactNode }) => (
     <a href={href} {...rest}>
       {children}
     </a>
   ),
 }));
 
-/** The card grid is the section labeled "Tool gallery"; cards are links. */
-function getGridCards() {
-  const grid = screen.getByRole("region", { name: "Tool gallery" });
-  return within(grid).getAllByRole("link");
-}
+/**
+ * The gallery (UI system phase 5a): the FilterBar console, Sort and Group by
+ * (owner request 2026-09-25), grid and table, every choice in the URL.
+ */
 
-function cardNames() {
-  return getGridCards().map((link) =>
-    within(link).getByRole("heading").textContent
+beforeEach(() => {
+  window.history.replaceState(null, "", "/");
+});
+
+/** Dates for "Recently added": the Form 4 newest, the Bandsaw oldest. */
+const DATED: MakerLabTool[] = mockCatalog.map((tool) => ({
+  ...tool,
+  addedAt: {
+    bandsaw: "2024-01-01T00:00:00.000Z",
+    "prusa-mk4": "2025-01-01T00:00:00.000Z",
+    "trotec-speedy-400": "2025-06-01T00:00:00.000Z",
+    "form-4": "2026-09-01T00:00:00.000Z",
+  }[tool.slug] ?? null,
+}));
+
+/** The card names on the page, in order (every section's). */
+function cardNames(): string[] {
+  return Array.from(document.querySelectorAll('[data-slot="tool-card"]')).map(
+    (card) => within(card as HTMLElement).getByRole("heading").textContent ?? ""
   );
 }
 
-/**
- * Category and Materials are collapsible multi-select dropdowns: a labelled
- * group holds an `aria-expanded` toggle that reveals a listbox of options.
- * Open the named facet and hand back its group for option queries.
- */
-async function openFacet(
-  user: ReturnType<typeof userEvent.setup>,
-  groupLabel: string
-) {
-  const group = screen.getByRole("group", { name: groupLabel });
-  await user.click(within(group).getByRole("button", { expanded: false }));
-  return group;
+function searchBox() {
+  return screen.getByRole("searchbox", { name: "Search inventory" });
 }
 
-/** Click one option inside an already-open facet dropdown. */
-async function clickOption(
-  user: ReturnType<typeof userEvent.setup>,
-  group: HTMLElement,
-  name: string
-) {
-  await user.click(within(group).getByRole("option", { name }));
+async function pick(user: ReturnType<typeof userEvent.setup>, control: string, value: RegExp) {
+  await user.click(within(screen.getByRole("search")).getByRole("button", { name: new RegExp(`^${control}`) }));
+  await user.click(await screen.findByRole("menuitemradio", { name: value }));
 }
 
-describe("GalleryShell", () => {
-  it("renders one card per tool in the catalog", () => {
+describe("GalleryShell — search and facets", () => {
+  it("renders one card per tool, the title and a facts line", () => {
     render(<GalleryShell tools={mockCatalog} />);
-
-    const names = cardNames();
-    expect(names).toHaveLength(mockCatalog.length);
-    expect(names).toEqual(
-      expect.arrayContaining([
-        "Bandsaw",
-        "Prusa MK4",
-        "Trotec Speedy 400",
-        "Form 4",
-      ])
-    );
+    expect(cardNames()).toHaveLength(mockCatalog.length);
+    expect(screen.getByRole("heading", { level: 1, name: "TOOLS // MACHINES" })).toBeInTheDocument();
+    expect(screen.getByText(/4 tools · \d+ available now · 3 categories/)).toBeInTheDocument();
+    expect(searchBox()).toBeInTheDocument();
   });
 
-  it("renders the gallery title and search input", () => {
-    render(<GalleryShell tools={mockCatalog} />);
-
-    expect(
-      screen.getByRole("heading", { name: "TOOLS // MACHINES" })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole("textbox", { name: "Search inventory" })
-    ).toBeInTheDocument();
-  });
-
-  it("filters cards by name as the user types", async () => {
+  it("filters cards by name as the user types, best match first, and writes ?q=", async () => {
     const user = userEvent.setup();
     render(<GalleryShell tools={mockCatalog} />);
-
-    const search = screen.getByRole("textbox", { name: "Search inventory" });
-    await user.type(search, "Prusa");
-
-    // match-sorter is fuzzy and ranked: the exact name match (Prusa MK4) ranks
-    // first, and clearly-unrelated tools (Bandsaw) drop out. Some weak fuzzy
-    // matches against the longer free-text keys may survive, so assert the top
-    // result and the exclusion rather than an exact-length equality.
+    await user.type(searchBox(), "Prusa");
     const names = cardNames();
     expect(names[0]).toBe("Prusa MK4");
     expect(names).not.toContain("Bandsaw");
+    expect(window.location.search).toBe("?q=Prusa");
   });
 
-  it("filters by tag/material text via fuzzy search", async () => {
+  it("keeps a space typed into the search (the URL is not trimmed under the cursor)", async () => {
     const user = userEvent.setup();
     render(<GalleryShell tools={mockCatalog} />);
-
-    const search = screen.getByRole("textbox", { name: "Search inventory" });
-    // "Acrylic" is a material only on the Trotec Speedy 400.
-    await user.type(search, "Acrylic");
-
-    const names = cardNames();
-    expect(names).toContain("Trotec Speedy 400");
-    expect(names).not.toContain("Bandsaw");
+    await user.type(searchBox(), "Form ");
+    expect(searchBox()).toHaveValue("Form ");
   });
 
-  it("shows the empty state when nothing matches the query", async () => {
+  it("filters by a category facet whose menu counts each value", async () => {
     const user = userEvent.setup();
     render(<GalleryShell tools={mockCatalog} />);
-
-    const search = screen.getByRole("textbox", { name: "Search inventory" });
-    await user.type(search, "zzz-no-such-tool-zzz");
-
-    expect(screen.getByText("No matching tools found.")).toBeInTheDocument();
-    const grid = screen.getByRole("region", { name: "Tool gallery" });
-    expect(within(grid).queryAllByRole("link")).toHaveLength(0);
+    await user.click(within(screen.getByRole("search")).getByRole("button", { name: /^Category/ }));
+    expect(await screen.findByRole("menuitemradio", { name: /3D Printing/ })).toHaveTextContent("2");
+    await user.click(screen.getByRole("menuitemradio", { name: /3D Printing/ }));
+    expect(cardNames().sort()).toEqual(["Form 4", "Prusa MK4"]);
+    expect(within(screen.getByRole("search")).getByRole("button", { name: "Category: 3D Printing" })).toBeInTheDocument();
+    expect(window.location.search).toBe("?category=3D+Printing");
   });
 
-  it("filters by category facet", async () => {
+  it("filters by material and by location", async () => {
     const user = userEvent.setup();
     render(<GalleryShell tools={mockCatalog} />);
-
-    // Two tools are in "3D Printing": Prusa MK4 and Form 4.
-    const category = await openFacet(user, "CATEGORY:");
-    await clickOption(user, category, "3D Printing");
-
-    const names = cardNames();
-    expect(names).toEqual(
-      expect.arrayContaining(["Prusa MK4", "Form 4"])
-    );
-    expect(names).not.toContain("Bandsaw");
-    expect(names).not.toContain("Trotec Speedy 400");
-    // Selection state is exposed to assistive tech, not just to CSS.
-    expect(
-      within(category).getByRole("option", { name: "3D Printing" })
-    ).toHaveAttribute("aria-selected", "true");
-  });
-
-  it("selects multiple categories, OR-ing within the facet", async () => {
-    const user = userEvent.setup();
-    render(<GalleryShell tools={mockCatalog} />);
-
-    const category = await openFacet(user, "CATEGORY:");
-    await clickOption(user, category, "3D Printing");
-    await clickOption(user, category, "Woodworking");
-
-    const names = cardNames();
-    expect(names).toEqual(
-      expect.arrayContaining(["Prusa MK4", "Form 4", "Bandsaw"])
-    );
-    expect(names).not.toContain("Trotec Speedy 400");
-  });
-
-  it("filters by material facet", async () => {
-    const user = userEvent.setup();
-    render(<GalleryShell tools={mockCatalog} />);
-
-    // "PLA" is a material only on the Prusa MK4.
-    const materials = await openFacet(user, "MATERIALS:");
-    await clickOption(user, materials, "PLA");
-
+    await pick(user, "Material", /^PLA/);
     expect(cardNames()).toEqual(["Prusa MK4"]);
-  });
-
-  it("selects a whole material group from its heading", async () => {
-    const user = userEvent.setup();
-    render(<GalleryShell tools={mockCatalog} />);
-
-    // "Wood" groups Plywood + Hardwood: the Bandsaw and the Trotec both cut
-    // plywood, the printers do not.
-    const materials = await openFacet(user, "MATERIALS:");
-    await user.click(within(materials).getByRole("button", { name: "Wood" }));
-
-    const names = cardNames();
-    expect(names).toEqual(
-      expect.arrayContaining(["Bandsaw", "Trotec Speedy 400"])
-    );
-    expect(names).not.toContain("Prusa MK4");
-  });
-
-  it("filters by the location select", async () => {
-    const user = userEvent.setup();
-    render(<GalleryShell tools={mockCatalog} />);
-
-    // "Laser Room" is the location of the Trotec Speedy 400 only.
-    await user.selectOptions(
-      screen.getByRole("combobox", { name: "LOCATION:" }),
-      "Laser Room"
-    );
-
+    await user.click(within(screen.getByRole("search")).getByRole("button", { name: "Clear filters" }));
+    await pick(user, "Location", /Laser Room/);
     expect(cardNames()).toEqual(["Trotec Speedy 400"]);
   });
 
-  it("combines facets with AND and falls to empty state when none match", async () => {
+  it("names the filters that emptied the gallery, with Clear", async () => {
     const user = userEvent.setup();
     render(<GalleryShell tools={mockCatalog} />);
-
-    // Category "Woodworking" (Bandsaw) AND material "PLA" (Prusa) — no tool
-    // satisfies both, so the facets AND down to the empty state.
-    const category = await openFacet(user, "CATEGORY:");
-    await clickOption(user, category, "Woodworking");
-
-    const materials = await openFacet(user, "MATERIALS:");
-    await clickOption(user, materials, "PLA");
-
-    expect(screen.getByText("No matching tools found.")).toBeInTheDocument();
+    await user.type(searchBox(), "zzz-no-such-tool");
+    expect(screen.getByText('No tools match "zzz-no-such-tool".')).toBeInTheDocument();
+    await user.click(within(screen.getByRole("region", { name: "Tool gallery" })).getByRole("button", { name: "Clear filters" }));
+    expect(cardNames()).toHaveLength(mockCatalog.length);
+    expect(window.location.search).toBe("");
   });
 
-  it("toggles a category option off to restore the full grid", async () => {
-    const user = userEvent.setup();
+  it("reads its filters from the URL (a view is a link)", () => {
+    window.history.replaceState(null, "", "/?location=MakerLab&view=grid&sort=bogus");
     render(<GalleryShell tools={mockCatalog} />);
+    expect(cardNames().sort()).toEqual(["Form 4", "Prusa MK4"]);
+    // An unknown sort is dropped, not an error.
+    expect(within(screen.getByRole("search")).getByRole("button", { name: "Sort: Name A–Z" })).toBeInTheDocument();
+  });
+});
 
-    const category = await openFacet(user, "CATEGORY:");
-    await clickOption(user, category, "Woodworking");
-    expect(cardNames()).toEqual(["Bandsaw"]);
+describe("GalleryShell — sort", () => {
+  it("sorts Z–A, by recently added and by availability, and writes ?sort=", async () => {
+    const user = userEvent.setup();
+    render(<GalleryShell tools={DATED} />);
+    // The default is the catalogue's own order (the database's name order).
+    expect(cardNames()).toEqual(DATED.map((tool) => tool.name));
 
-    await clickOption(user, category, "Woodworking");
-    expect(cardNames()).toHaveLength(mockCatalog.length);
+    await pick(user, "Sort", /Name Z–A/);
+    expect(cardNames()).toEqual(["Trotec Speedy 400", "Prusa MK4", "Form 4", "Bandsaw"]);
+    expect(window.location.search).toBe("?sort=name-desc");
+
+    await pick(user, "Sort", /Recently added/);
+    expect(cardNames()).toEqual(["Form 4", "Trotec Speedy 400", "Prusa MK4", "Bandsaw"]);
+
+    await pick(user, "Sort", /Most available/);
+    // The Trotec's only unit is offline: nothing to walk up to, so it sorts last.
+    expect(cardNames().at(-1)).toBe("Trotec Speedy 400");
+
+    await pick(user, "Sort", /Name A–Z/);
+    expect(window.location.search).toBe("");
   });
 
-  it("clears every facet from the Clear button", async () => {
+  it("calls the default 'Best match' while searching", async () => {
     const user = userEvent.setup();
     render(<GalleryShell tools={mockCatalog} />);
+    await user.type(searchBox(), "resin");
+    expect(within(screen.getByRole("search")).getByRole("button", { name: "Sort: Best match" })).toBeInTheDocument();
+  });
+});
 
-    const category = await openFacet(user, "CATEGORY:");
-    await clickOption(user, category, "Woodworking");
-    expect(cardNames()).toEqual(["Bandsaw"]);
+describe("GalleryShell — group by", () => {
+  it("shows labelled sections in order, each with its count, and writes ?group=", async () => {
+    const user = userEvent.setup();
+    render(<GalleryShell tools={mockCatalog} />);
+    await pick(user, "Group by", /^Category group/);
 
-    await user.click(screen.getByRole("button", { name: "Clear 1" }));
+    const sections = document.querySelectorAll('[data-slot="gallery-section"]');
+    const headings = Array.from(sections).map((section) => within(section as HTMLElement).getByRole("heading", { level: 2 }));
+    expect(headings.map((heading) => heading.textContent)).toEqual(["3D Printing2 tools", "Laser1 tool", "Woodworking1 tool"]);
+    // Each section is a region named by its heading; cards drop to h3 beneath it.
+    const printing = screen.getByRole("region", { name: /3D Printing/ });
+    expect(within(printing).getAllByRole("heading", { level: 3 }).map((h) => h.textContent).sort()).toEqual(["Form 4", "Prusa MK4"]);
+    expect(window.location.search).toBe("?group=categoryGroup");
+    // The heading sticks under the top bar while its section scrolls.
+    expect(headings[0].className).toMatch(/sticky/);
+  });
 
-    expect(cardNames()).toHaveLength(mockCatalog.length);
+  it("groups by category within its group, and by location", async () => {
+    window.history.replaceState(null, "", "/?group=category");
+    const { unmount } = render(<GalleryShell tools={mockCatalog} />);
+    const labels = () =>
+      Array.from(document.querySelectorAll('[data-slot="gallery-section"] h2 > span:first-child')).map((el) => el.textContent);
+    expect(labels()).toEqual(["3D Printing › FDM", "3D Printing › Resin", "Laser › CO2", "Woodworking › Cutting"]);
+    unmount();
+
+    window.history.replaceState(null, "", "/?group=location");
+    render(<GalleryShell tools={mockCatalog} />);
+    expect(labels()).toEqual(["Laser Room", "MakerLab", "Wood Shop"]);
+  });
+
+  it("applies the sort inside every section", () => {
+    window.history.replaceState(null, "", "/?group=categoryGroup&sort=name-desc");
+    render(<GalleryShell tools={mockCatalog} />);
+    expect(cardNames()).toEqual(["Prusa MK4", "Form 4", "Trotec Speedy 400", "Bandsaw"]);
+  });
+
+  it("groups the table view too: one table per section, named by it", () => {
+    window.history.replaceState(null, "", "/?group=categoryGroup&view=table");
+    render(<GalleryShell tools={mockCatalog} />);
+    const table = screen.getByRole("table", { name: "Tools: 3D Printing" });
+    expect(within(table).getAllByRole("rowheader")).toHaveLength(2);
+    expect(screen.getByRole("table", { name: "Tools: Laser" })).toBeInTheDocument();
   });
 });
 
@@ -254,21 +206,27 @@ describe("GalleryShell — table view", () => {
   async function openTable() {
     const user = userEvent.setup();
     render(<GalleryShell tools={mockCatalog} />);
-    await user.click(screen.getByRole("button", { name: "[ TABLE ]" }));
+    await user.click(screen.getByRole("button", { name: "Table" }));
     return { user, table: screen.getByRole("table", { name: "Tool gallery" }) };
   }
 
-  it("is a real table whose sort state is on the header cell", async () => {
+  it("is a real table whose sort state is on the header cell, and the view is in the URL", async () => {
     const { user, table } = await openTable();
+    expect(window.location.search).toBe("?view=table");
+    expect(screen.getByRole("button", { name: "Table" })).toHaveAttribute("aria-pressed", "true");
     expect(within(table).getAllByRole("rowheader")).toHaveLength(mockCatalog.length);
 
     await user.click(within(table).getByRole("button", { name: /Tool/ }));
     const header = within(table).getByRole("columnheader", { name: /Tool/ });
     expect(header).toHaveAttribute("aria-sort", "ascending");
-    // Nothing but a header cell carries aria-sort (the old sort buttons did).
     expect(table.querySelectorAll("[aria-sort]:not(th)")).toHaveLength(0);
-    const names = within(table).getAllByRole("rowheader").map((cell) => cell.textContent ?? "");
-    expect(names).toEqual([...names].sort((a, b) => a.localeCompare(b)));
+  });
+
+  it("shows status as glyph and word, and available units as a right-aligned number", async () => {
+    const { table } = await openTable();
+    const row = within(table).getByRole("row", { name: /Prusa MK4/ });
+    expect(within(row).getByText("In use")).toBeInTheDocument();
+    expect(within(row).getByText("/2")).toBeInTheDocument();
   });
 
   it("links each tool, and opens it with Enter on its row", async () => {

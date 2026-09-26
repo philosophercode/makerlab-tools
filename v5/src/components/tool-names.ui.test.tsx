@@ -30,14 +30,14 @@ describe("the tool page", () => {
   it("titles the page with the display name and shows the official name under it", () => {
     render(<DetailShell tool={{ ...toolWithLinks, officialName: "Formlabs Form 4 Resin 3D Printer" }} />);
     expect(screen.getByRole("heading", { level: 1, name: "Form 4" })).toBeInTheDocument();
-    expect(screen.getByText("Formlabs Form 4 Resin 3D Printer")).toHaveClass("td-official-name");
+    expect(screen.getByText("Formlabs Form 4 Resin 3D Printer")).toHaveAttribute("data-slot", "official-name");
   });
 
   it("shows no subtitle when there is no official name, or it is the same name", () => {
     const { container, rerender } = render(<DetailShell tool={{ ...toolWithLinks, officialName: null }} />);
-    expect(container.querySelector(".td-official-name")).toBeNull();
+    expect(container.querySelector('[data-slot="official-name"]')).toBeNull();
     rerender(<DetailShell tool={{ ...toolWithLinks, officialName: "FORM-4" }} />);
-    expect(container.querySelector(".td-official-name")).toBeNull();
+    expect(container.querySelector('[data-slot="official-name"]')).toBeNull();
   });
 });
 
@@ -47,7 +47,7 @@ describe("the gallery", () => {
     const user = userEvent.setup();
     render(<GalleryShell tools={tools} />);
 
-    await user.type(screen.getByRole("textbox", { name: "Search inventory" }), "Zorbex");
+    await user.type(screen.getByRole("searchbox", { name: "Search inventory" }), "Zorbex");
     const grid = screen.getByRole("region", { name: "Tool gallery" });
     const names = within(grid)
       .getAllByRole("link")

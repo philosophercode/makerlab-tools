@@ -624,6 +624,62 @@ Form 4 with its official name, 7 ms — the same results `curl` got from `/api/m
 line first widened the page; the result blocks now scroll inside themselves. `/about` and
 `/account/tokens` link to `/mcp`.
 
+### 2026-09-25 — One lifetime, a louder reveal, a setup prompt
+
+**Why.** The owner asked (2026-09-25), on the token flow: "the expires, I would just do 90 days,
+no options"; the Create-token form "juts out of the column"; on the reveal "it should say …
+make sure to save it, you won't be able to copy these after"; and "a piece of text and then a
+button to copy this prompt to give to an AI". Built in UI system phase 5a (branch
+`v5/ui-phase-5a`).
+
+**What changes.**
+
+1. **Every token lives 90 days — one semester. No choice.** §4.1's `expires_at` row ("Choices:
+   30 days, 90 days, or never") and §5.1 step 2's "name, expiry, read-only toggle" are
+   superseded: the form asks for a name and read-only only, and says the date as text
+   (`Dec 24, 2026 — 90 days, one semester`). `TOKEN_EXPIRY_CHOICES`, `DEFAULT_TOKEN_EXPIRY` and
+   `expiryFor` are gone; `TOKEN_LIFETIME_DAYS = 90` and `tokenExpiryFrom` live in
+   `src/lib/account/token-lifetime.ts` (client-safe, so the page and `createApiToken` share
+   the number). `createToken`'s input is `{ name, readOnly }`; an `expiry` a stale page still
+   posts is **ignored**, never honoured, so no new token can be made that never expires.
+   Tokens created before this change keep the expiry they were given (including "never"),
+   and the list still shows them as they are.
+2. **One column.** The create form and the one-time reveal share one width-capped column
+   (640px), so the form no longer juts past the reveal or the reveal past the form. The
+   reveal appears directly under the form.
+3. **The reveal says "save it now", twice.** Above the token, as a warning (▲ and the words,
+   bold, on a warn-ruled plate): **"Save this token now. You won't be able to see or copy it
+   again after you leave this page."** — and the same sentence again beside **I've copied
+   it**, the button that dismisses the reveal. A line under the first gives the expiry date.
+4. **"Copy setup prompt for your AI".** A short prompt with one Copy button (`AiSetupPrompt`,
+   messages `account.aiPrompt.*`) that a student pastes into Claude, ChatGPT or Codex, telling
+   the assistant how to connect itself to the MakerLab MCP server:
+   - on **`/mcp`'s Connect section** (`SignInSetup`): the **sign-in address first**
+     (`/api/mcp/signed-in`, OAuth, no token); only if it cannot sign in, the open address with
+     `Authorization: Bearer $MAKERLAB_MCP_TOKEN`, **read from the environment variable at run
+     time**;
+   - on the **token reveal**: the student has just put the token in `MAKERLAB_MCP_TOKEN`, so
+     the prompt names the open address and that variable.
+
+   **Neither prompt contains a token.** Both tell the assistant never to ask for the token in
+   the chat, never to print it and never to write it into a file, and to give the student the
+   steps if it cannot add servers itself. The addresses are the request's origin on `/mcp` and
+   `authBaseUrl()` on the reveal, as the other snippets are. `/mcp` now puts Connect right
+   after the addresses, before the tool list and Try it.
+
+`docs/mcp.md` says the same ("When to use a personal access token instead", "Let the
+assistant set itself up").
+
+**Tests.** `api-tokens.test.ts` (every token 90 days; `tokenExpiryFrom`),
+`token-actions.test.ts` (a posted `expiry: "never"` still yields 90 days),
+`TokenManager.test.tsx` (no select, the date as text, one column, the warning above the token
+and beside Done, the prompt names the variable and never the token, Copy writes the prompt
+without the token), `SignInSetup.test.tsx` (sign-in address before the variable, no `mlt_`,
+Copy and its announcement), `McpAddresses.test.tsx`; E2E `account-tokens.spec.ts` (a student
+creates a token end to end; the form and the reveal share their left edge and width; `/mcp`
+offers the prompt with the sign-in address first).
+
+
 ### 2026-09-25 — Staff queue tools in the site chat
 
 **Why.** The owner asked (2026-09-25) to manage maintenance through the assistant in the site

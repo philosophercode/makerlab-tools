@@ -707,8 +707,12 @@ MCP callers act as a person, with that person's role and never more
   and no `Authorization` and hands it to `handleMcpRequest`: always anonymous, under the `mcp`
   per-IP limit, and a write or staff tool is `not_runnable` before any call.
 - **Tokens** (`/account/tokens`, profile menu → Connect an AI assistant): shown once, stored as a
-  hash, prefix for display, 30/90/never (90 default), read-only option, ≤ 20 live, audited
-  `token.created` / `token.revoked`. **Never log a token** — only `displayPrefix`.
+  hash, prefix for display, **90 days for every token, no choice** (`TOKEN_LIFETIME_DAYS`,
+  `lib/account/token-lifetime.ts`; a posted `expiry` is ignored — amendment 2026-09-25 "One
+  lifetime"), read-only option, ≤ 20 live, audited `token.created` / `token.revoked`. The
+  reveal says "Save this token now…" above the token and beside **I've copied it**, and both it
+  and `/mcp` offer **Copy setup prompt for your AI** (`AiSetupPrompt`), which names
+  `MAKERLAB_MCP_TOKEN` and never contains a token. **Never log a token** — only `displayPrefix`.
 - **OAuth** (the `mcp` plugin in `auth/config.ts`): clients use `/api/mcp/signed-in`, whose
   anonymous 401 points at `/.well-known/oauth-protected-resource/…`; the auth route forces
   `prompt=consent` on `/api/auth/mcp/authorize`; `/oauth/sign-in` and `/oauth/consent` (read-only
@@ -1067,6 +1071,18 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   is `RowStatus` (codes, or `tone` + words); a page that could not read its
   data is `EmptyState tone="bad"`. `admin-row-status`, `admin-empty`,
   `admin-section*` and the `admin-queue*` rules are gone.
+  **Public pages** (phase 5a): working pages are `PublicPage` + `PageSection`
+  (`system/PublicPage.tsx`); Markdown on a page is `system/Markdown`, never the
+  chat's `.chat-markdown`. The gallery is `FilterBar` + `FacetFilter` +
+  `ChoiceMenu` (Sort, Group by), its state in the URL through
+  `gallery-filters.ts` and `useUrlSearch` (the page is one cached prerender, so
+  the island reads the query string itself); grouped, it is sticky-headed
+  sections with counts. The tool page is one column (`DetailShell`, units as
+  `tool/UnitsTable`, the maintenance history from `getToolMaintenanceHistory` —
+  no names). `app/not-found.tsx` / `app/error.tsx` exist. `account.css`,
+  `mcp.css`, the `.tool-detail` palette and the gallery/projects legacy rules
+  are gone; `.admin-shell` still maps `--td-*` for `td-panel`. The chat is
+  phase 5b.
 - All branding strings come from `siteConfig` (`@/lib/site-config`).
 - Every API route is **rate-limited by identity** before expensive work — user id when signed in, hashed IP when not.
 - Authorization is **always** `can(subject, permission)` from `src/lib/auth/permissions.ts`. Never compare role names, and never gate inside a capability tool's `run()`.

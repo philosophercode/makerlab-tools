@@ -3,9 +3,13 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import { siteConfig } from "../lib/site-config";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Field } from "./system/Field";
+import { Markdown } from "./system/Markdown";
+import { Prose, PublicPage } from "./system/PublicPage";
 import {
   fetchIdentity,
   isSignedIn,
@@ -248,27 +252,25 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
     }
   }
 
+  const crumbs = [{ label: t("breadcrumbProjects"), href: "/projects" }, { label: t("breadcrumbNew") }];
+
   if (submitted) {
     return (
-      <main className="tool-detail">
-        <section className="td-panel td-prose">
-          <p className="td-eyebrow">{t("eyebrow")}</p>
-          <h1>{t("thanksTitle")}</h1>
+      <PublicPage width="narrow" crumbs={crumbs} title={t("thanksTitle")}>
+        <Prose className="pt-2">
           <p>{t("thanksBody")}</p>
-          {photoOutcome && photoOutcome.attached < photoOutcome.submitted ? (
-            <p className="project-form-error" role="alert">
-              {photoOutcome.attached === 0
-                ? t("thanksPhotosNone")
-                : t("thanksPhotosSome")}
-            </p>
-          ) : null}
-          <div className="td-prose-actions">
-            <Link className="td-button td-button-primary" href="/projects">
-              {t("backToGallery")}
-            </Link>
-          </div>
-        </section>
-      </main>
+        </Prose>
+        {photoOutcome && photoOutcome.attached < photoOutcome.submitted ? (
+          <p data-slot="form-error" className="pt-3 text-sm text-bad" role="alert">
+            {photoOutcome.attached === 0 ? t("thanksPhotosNone") : t("thanksPhotosSome")}
+          </p>
+        ) : null}
+        <div className="pt-6">
+          <Button asChild variant="default">
+            <Link href="/projects">{t("backToGallery")}</Link>
+          </Button>
+        </div>
+      </PublicPage>
     );
   }
 
@@ -279,38 +281,22 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
   // better answer than a bounce. Browsing the gallery stays open to them.
   if (status === "answered" && !signedIn) {
     return (
-      <main className="tool-detail">
-        <section className="td-panel td-prose project-sign-in">
-          <p className="td-eyebrow">{t("eyebrow")}</p>
-          <h1>{t("signInTitle")}</h1>
+      <PublicPage width="narrow" crumbs={crumbs} title={t("signInTitle")}>
+        <Prose className="pt-2">
           <p>{t("signInBody", { institution: siteConfig.institution })}</p>
-          <div className="td-prose-actions">
-            <Link className="td-button td-button-primary" href="/projects">
-              {t("signInBrowse")}
-            </Link>
-          </div>
-        </section>
-      </main>
+        </Prose>
+        <div className="pt-6">
+          <Button asChild variant="outline">
+            <Link href="/projects">{t("signInBrowse")}</Link>
+          </Button>
+        </div>
+      </PublicPage>
     );
   }
 
   return (
-    <main className="tool-detail">
-      <div className="td-breadcrumbs">
-        <div>
-          <Link href="/projects">{t("breadcrumbProjects")}</Link>
-          <span aria-hidden="true">›</span>
-          <span>{t("breadcrumbNew")}</span>
-        </div>
-      </div>
-
-      <form className="td-panel project-form" onSubmit={handleSubmit}>
-        <p className="td-eyebrow">{t("eyebrow")}</p>
-        <h1>{t("title")}</h1>
-        <p className="project-form-lede">
-          {t("lede", { institution: siteConfig.institution })}
-        </p>
-
+    <PublicPage crumbs={crumbs} title={t("title")} lede={t("lede", { institution: siteConfig.institution })}>
+      <form className="flex w-full max-w-[640px] min-w-0 flex-col gap-5 pt-4" onSubmit={handleSubmit}>
         {/* The identity endpoint could not answer — a 429 from its 120/min tier,
             or a connection that dropped. The form stays open rather than
             claiming the visitor is signed out: the server is the authority on
@@ -318,11 +304,11 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
             them is the truth about what it does not know, and a way to ask
             again (Article 4). */}
         {status === "unavailable" ? (
-          <div className="project-form-unknown" role="status">
-            <p className="project-form-note">{t("identityUnknown")}</p>
-            <button
+          <div className="flex flex-wrap items-center gap-3 border-s-2 border-s-warn ps-3" role="status">
+            <p className="text-sm">{t("identityUnknown")}</p>
+            <Button
               type="button"
-              className="chip"
+              size="sm"
               onClick={() => {
                 setRetrying(true);
                 setAttempt((n) => n + 1);
@@ -330,145 +316,139 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
               disabled={retrying}
             >
               {retrying ? t("identityChecking") : t("identityRetry")}
-            </button>
+            </Button>
           </div>
         ) : null}
 
-        <label className="project-field">
-          <span>{t("titleLabel")}</span>
-          <input
+        <Field id="project-title" label={t("titleLabel")}>
+          <Input
+            id="project-title"
             type="text"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
             maxLength={200}
             required
           />
-        </label>
+        </Field>
 
         {/* The byline, not a field. It is the session's display name and the
             server writes it whatever the request says, so offering an input
             would be offering a choice that is not there. */}
         {verifiedName ? (
-          <p className="project-form-note" id={AUTHOR_NOTE_ID}>
-            {t("authorNote", { name: verifiedName })}{" "}
-            {t("authorFromAccount", { institution: siteConfig.institution })}
+          <p className="text-sm text-muted-foreground" id={AUTHOR_NOTE_ID}>
+            {t("authorNote", { name: verifiedName })} {t("authorFromAccount", { institution: siteConfig.institution })}
           </p>
         ) : null}
 
-        <label className="project-field">
-          <span>{t("bodyLabel")}</span>
-          <textarea
+        <Field id="project-body" label={t("bodyLabel")}>
+          <Textarea
+            id="project-body"
             value={body}
             onChange={(event) => setBody(event.target.value)}
             rows={10}
             placeholder={t("bodyPlaceholder")}
             required
           />
-        </label>
+        </Field>
 
         {body.trim() ? (
-          <div className="project-preview">
-            <span className="td-eyebrow">{t("previewLabel")}</span>
-            <div className="chat-markdown">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{body}</ReactMarkdown>
-            </div>
+          <div className="flex flex-col gap-1 border-s-2 border-s-border ps-3">
+            <span className="font-mono text-micro tracking-[0.08em] text-muted-foreground uppercase">{t("previewLabel")}</span>
+            <Markdown className="text-sm">{body}</Markdown>
           </div>
         ) : null}
 
-        <fieldset className="project-field">
-          <legend>{t("photosLabel")}</legend>
+        <Field id="project-photos" label={t("photosLabel")}>
           <input
+            id="project-photos"
             type="file"
             accept="image/*"
             multiple
+            className="text-sm file:me-3 file:h-8 file:cursor-pointer file:border file:border-border file:bg-transparent file:px-3 file:font-mono file:text-label file:uppercase"
             onChange={(event) => {
               void handleFiles(event.target.files);
               event.target.value = "";
             }}
           />
-          {uploading > 0 ? (
-            <p className="project-form-note">{t("uploading")}</p>
-          ) : null}
+          {uploading > 0 ? <p className="text-xs text-muted-foreground">{t("uploading")}</p> : null}
           {photos.length > 0 ? (
-            <ul className="project-photo-list">
+            <ul className="m-0 flex list-none flex-col gap-1 p-0">
               {photos.map((photo) => (
-                <li key={photo.id}>
-                  <span>{photo.name}</span>
-                  <button
-                    type="button"
-                    className="chip"
-                    onClick={() => removePhoto(photo.id)}
-                  >
+                <li key={photo.id} className="flex items-center justify-between gap-2 border-b border-rule py-1 text-sm">
+                  <span className="min-w-0 truncate">{photo.name}</span>
+                  <Button type="button" size="xs" variant="ghost" onClick={() => removePhoto(photo.id)}>
                     {t("removePhoto")}
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>
           ) : null}
-        </fieldset>
+        </Field>
 
-        <fieldset className="project-field">
-          <legend>{t("toolsLabel")}</legend>
-          <input
-            type="text"
+        <fieldset className="m-0 flex min-w-0 flex-col gap-2 border-0 p-0">
+          <legend className="mb-1 font-mono text-micro tracking-[0.08em] text-muted-foreground uppercase">{t("toolsLabel")}</legend>
+          <Input
+            type="search"
             value={toolQuery}
+            aria-label={t("toolsSearch")}
             onChange={(event) => setToolQuery(event.target.value)}
             placeholder={t("toolsSearch")}
           />
-          <div className="chip-row project-tool-options">
-            {filteredTools.slice(0, 60).map((tool) => (
-              <button
-                key={tool.id}
-                type="button"
-                className={selectedTools.includes(tool.id) ? "chip chip-active" : "chip"}
-                aria-pressed={selectedTools.includes(tool.id)}
-                onClick={() => toggleTool(tool.id)}
-              >
-                {tool.name}
-              </button>
-            ))}
+          <div className="flex max-h-56 flex-wrap gap-1.5 overflow-y-auto">
+            {filteredTools.slice(0, 60).map((tool) => {
+              const on = selectedTools.includes(tool.id);
+              return (
+                <Button
+                  key={tool.id}
+                  type="button"
+                  size="xs"
+                  variant={on ? "outline" : "quiet"}
+                  className={on ? "border-primary-ink" : undefined}
+                  aria-pressed={on}
+                  onClick={() => toggleTool(tool.id)}
+                >
+                  {tool.name}
+                </Button>
+              );
+            })}
           </div>
         </fieldset>
 
-        <label className="project-field">
-          <span>{t("materialsLabel")}</span>
-          <input
+        <Field id="project-materials" label={t("materialsLabel")}>
+          <Input
+            id="project-materials"
             type="text"
             value={materials}
             onChange={(event) => setMaterials(event.target.value)}
             placeholder={t("materialsPlaceholder")}
           />
-        </label>
+        </Field>
 
-        <label className="project-field">
-          <span>{t("linkLabel")}</span>
-          <input
+        <Field id="project-link" label={t("linkLabel")}>
+          <Input
+            id="project-link"
             type="url"
             value={link}
             onChange={(event) => setLink(event.target.value)}
             placeholder="https://"
           />
-        </label>
+        </Field>
 
         {error ? (
-          <p className="project-form-error" role="alert">
+          <p data-slot="form-error" className="text-sm text-bad" role="alert">
             {error}
           </p>
         ) : null}
 
-        <div className="td-prose-actions">
-          <button
-            type="submit"
-            className="td-button td-button-primary"
-            disabled={submitting || uploading > 0}
-          >
+        <div className="flex flex-wrap gap-2">
+          <Button type="submit" variant="default" disabled={submitting || uploading > 0}>
             {submitting ? t("submitting") : t("submit")}
-          </button>
-          <Link className="td-button" href="/projects">
-            {t("cancel")}
-          </Link>
+          </Button>
+          <Button asChild>
+            <Link href="/projects">{t("cancel")}</Link>
+          </Button>
         </div>
       </form>
-    </main>
+    </PublicPage>
   );
 }

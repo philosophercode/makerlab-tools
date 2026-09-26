@@ -55,6 +55,8 @@ export interface ToolRow {
   room: string | null;
   zone: string | null;
   mapTag: string | null;
+  /** When the tool row was created — the gallery's "Recently added" sort. Absent on older fixtures. */
+  createdAt?: Date | string | null;
 }
 
 /** A `units` row belonging to one tool. */
@@ -235,6 +237,7 @@ async function loadTools(db: Db, where: SQL | undefined): Promise<MakerLabTool[]
       room: locations.room,
       zone: locations.zone,
       mapTag: locations.mapTag,
+      createdAt: tools.createdAt,
     })
     .from(tools)
     .leftJoin(categories, eq(tools.categoryId, categories.id))
@@ -408,6 +411,7 @@ export function toMakerLabTool(
     links: resourceLinks(resourceRows, files),
     units: mappedUnits,
     starterQuestions: tool.starterQuestions ?? [],
+    addedAt: tool.createdAt ? new Date(tool.createdAt).toISOString() : null,
   };
 }
 

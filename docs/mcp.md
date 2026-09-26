@@ -51,11 +51,16 @@ Either way the assistant gets exactly your role's permissions and never more.
 A **personal access token** is the fallback for a client or script that can't
 sign in with OAuth: Claude Desktop's `claude_desktop_config.json` through the
 `mcp-remote` bridge, a CI job, your own script, or an older client. Get one from
-**profile menu → Connect an AI assistant → New token**. Name it after the device,
-choose when it expires (30 days, **90 days (one semester)**, the default, or
-never), and tick **Read-only** if the assistant only needs to look things up.
-Copy the token (`mlt_…`). It is shown once. Put it in an environment variable
-rather than in a file or a chat:
+**profile menu → Connect an AI assistant → New token**. Name it after the device
+and tick **Read-only** if the assistant only needs to look things up. **Every
+token expires 90 days after you make it (one semester)** — there is no choice
+of expiry, and no token that never expires; the page shows the date before you
+create it. Make a new one next term.
+
+Copy the token (`mlt_…`) straight away. **Save it now: you won't be able to see
+or copy it again after you leave the page** — the page says so above the token
+and again beside **I've copied it**. Put it in an environment variable rather
+than in a file or a chat:
 
 ```bash
 export MAKERLAB_MCP_TOKEN=mlt_…   # in your shell profile
@@ -190,8 +195,25 @@ with S256). Otherwise use the open address, optionally with the header
 
 ## Let the assistant set itself up
 
-Paste this into Claude Code, Codex, or any coding agent that can edit its own
-MCP config. It uses sign-in, so no secret passes through the chat:
+The quickest way: open **`/mcp`** (or, right after creating a token, the
+token's reveal on `/account/tokens`) and press **Copy setup prompt** under
+**Copy setup prompt for your AI**. Paste it into Claude, ChatGPT or Codex. The
+prompt carries the addresses for the deployment you are on and asks the
+assistant to connect itself — or to tell you the exact steps if it can't:
+
+- **On `/mcp`** it gives the **sign-in address first** (`/api/mcp/signed-in`,
+  OAuth with Google, no token); only if the assistant cannot sign in does it
+  fall back to the open address with `Authorization: Bearer
+  $MAKERLAB_MCP_TOKEN`, **read from the `MAKERLAB_MCP_TOKEN` environment
+  variable at run time**.
+- **On the token reveal** it assumes you have just put the new token in
+  `MAKERLAB_MCP_TOKEN` and gives the open address with that header.
+
+Neither prompt ever contains a token, and both tell the assistant never to ask
+you to paste one into the chat, and never to print it or write it into a file.
+
+A longer version for a coding agent that edits its own MCP config — Claude Code,
+Codex — uses sign-in too, so no secret passes through the chat:
 
 ```text
 Set up the MakerLab Tools MCP server for yourself.

@@ -1,4 +1,4 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, or, sql } from "drizzle-orm";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { getDb } from "../db/client.ts";
 import { maintenanceLogs, tools, units } from "../db/schema/index.ts";
@@ -117,6 +117,61 @@ export async function listMaintenanceHistoryForUnit(
     .limit(options.limit ?? DEFAULT_LIMIT);
 
   return rows.map(toMaintenanceHistoryEntry);
+}
+
+/** One line of a tool's public maintenance history (UI system phase 5a). */
+export interface ToolMaintenanceEntry {
+  id: string;
+  /** The unit's label, or "" for a log filed against the tool as a whole. */
+  unitLabel: string;
+  title: string;
+  /** Display text, as {@link toDisplayLabel} gives it; "" when not recorded. */
+  type: string;
+  status: string;
+  /** ISO day; "" when not recorded. */
+  dateReported: string;
+  dateResolved: string;
+}
+
+/**
+ * The most recent maintenance logs for a tool, newest first — the tool page's
+ * "Maintenance history": logs filed against any of its units, and logs whose
+ * `tool_id` names it directly (a ticket with no unit, or one whose unit was
+ * retired — `tool_id` and `unit_label` are write-time snapshots that outlive
+ * the unit, §4.8). A **public** read: it selects no reporter
+ * name, no email and no description, the same line MCP draws for an anonymous
+ * caller (maintenance history carries names only for `maintenance.manage`).
+ */
+export async function listMaintenanceHistoryForTool(
+  toolId: string,
+  options: MaintenanceQueryOptions = {}
+): Promise<ToolMaintenanceEntry[]> {
+  if (!isUuid(toolId)) return [];
+  const db = options.db ?? (await getDb());
+  const rows = await db
+    .select({
+      id: maintenanceLogs.id,
+      unitLabel: sql<string | null>`coalesce(${units.unitLabel}, ${maintenanceLogs.unitLabel})`,
+      title: maintenanceLogs.title,
+      type: maintenanceLogs.type,
+      status: maintenanceLogs.status,
+      dateReported: maintenanceLogs.dateReported,
+      dateResolved: maintenanceLogs.dateResolved,
+    })
+    .from(maintenanceLogs)
+    .leftJoin(units, eq(maintenanceLogs.unitId, units.id))
+    .where(or(eq(maintenanceLogs.toolId, toolId), eq(units.toolId, toolId)))
+    .orderBy(sql`${maintenanceLogs.dateReported} desc nulls last`, desc(maintenanceLogs.createdAt))
+    .limit(options.limit ?? 10);
+  return rows.map((row) => ({
+    id: row.id,
+    unitLabel: row.unitLabel ?? "",
+    title: row.title,
+    type: toDisplayLabel(row.type),
+    status: toDisplayLabel(row.status),
+    dateReported: row.dateReported ?? "",
+    dateResolved: row.dateResolved ?? "",
+  }));
 }
 
 /** The columns {@link listMaintenanceHistoryForUnit} selects, before translation. */

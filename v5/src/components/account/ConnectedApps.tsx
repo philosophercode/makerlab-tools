@@ -4,12 +4,13 @@ import { useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import type { ConnectedAppRow } from "../../lib/account/token-rows";
 import type { AccountActionError, RevokeResult } from "../../lib/account/token-actions";
-import "../../styles/account.css";
 import type { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "../system/data-table/DataTable";
 import { EmptyState } from "../system/EmptyState";
 import { RevokeControl } from "./RevokeControl";
+import { RowStatus } from "../admin/RowStatus";
+import { PageSection } from "../system/PublicPage";
 
 /**
  * "Connected apps" on `/account/tokens` (MCP access spec §3.4, §6): the OAuth
@@ -100,12 +101,10 @@ export function ConnectedApps({
   ];
 
   return (
-    <section className="account-section" aria-labelledby="connected-apps-heading">
-      <h2 id="connected-apps-heading">{t("heading")}</h2>
-      <p>{t("lede")}</p>
-      <p className={`account-status${error ? " is-error" : warning ? " is-warning" : ""}`} role="status">
-        {error ? tTokens(`errors.${error}`) : warning ? tTokens("warnings.audit_unavailable") : ""}
-      </p>
+    <PageSection id="connected-apps-heading" title={t("heading")} lede={t("lede")}>
+      <RowStatus tone={error ? "bad" : warning ? "warn" : "muted"} className="text-sm">
+        {error ? tTokens(`errors.${error}`) : warning ? tTokens("warnings.audit_unavailable") : null}
+      </RowStatus>
       <DataTable
         data={apps}
         columns={columns}
@@ -114,7 +113,7 @@ export function ConnectedApps({
         labels={{ table: t("heading") }}
         empty={<EmptyState>{t("empty")}</EmptyState>}
         keyboardHint={false}
-          stickyHeader={false}
+        stickyHeader={false}
         mobileRow={(app) => (
           <div className="flex flex-col gap-1 px-1 py-2.5">
             <div className="flex flex-wrap items-baseline gap-2">
@@ -128,6 +127,6 @@ export function ConnectedApps({
           </div>
         )}
       />
-    </section>
+    </PageSection>
   );
 }

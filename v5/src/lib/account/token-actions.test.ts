@@ -53,12 +53,12 @@ async function signIn(email: string) {
 
 describe("createToken", () => {
   it("refuses an anonymous caller", async () => {
-    expect(await createToken({ name: "x", expiry: "90", readOnly: false })).toEqual({ ok: false, error: "not_signed_in" });
+    expect(await createToken({ name: "x", readOnly: false })).toEqual({ ok: false, error: "not_signed_in" });
   });
 
   it("creates the token, answers it once, and audits token.created without it", async () => {
     const me = await signIn("actions-create@cornell.edu");
-    const result = await createToken({ name: "Laptop", expiry: "30", readOnly: true });
+    const result = await createToken({ name: "Laptop", readOnly: true });
     if (!result.ok) throw new Error(result.error);
     expect(result.token).toMatch(/^mlt_/);
     expect(result.summary).toMatchObject({ name: "Laptop", readOnly: true });
@@ -79,23 +79,28 @@ describe("createToken", () => {
     expect(JSON.stringify(event)).not.toContain(result.token.slice(12));
   });
 
-  it("refuses an expiry outside the choices", async () => {
-    await signIn("actions-invalid@cornell.edu");
-    expect(await createToken({ name: "x", expiry: "forever", readOnly: false })).toEqual({ ok: false, error: "invalid_field" });
+  it("gives every token 90 days and ignores an expiry a stale page still sends", async () => {
+    await signIn("actions-expiry@cornell.edu");
+    const before = Date.now();
+    const result = await createToken({ name: "x", expiry: "never", readOnly: false } as { name: string; readOnly: boolean });
+    if (!result.ok) throw new Error(result.error);
+    const days = (result.summary.expiresAt!.getTime() - before) / 86_400_000;
+    expect(days).toBeGreaterThan(89.99);
+    expect(days).toBeLessThan(90.01);
   });
 
   it("reports a lost audit event as a warning on a success — the token exists", async () => {
     await signIn("actions-audit-down@cornell.edu");
     auditFailure.on = true;
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const result = await createToken({ name: "Laptop", expiry: "90", readOnly: false });
+    const result = await createToken({ name: "Laptop", readOnly: false });
     expect(result).toMatchObject({ ok: true, warning: "audit_unavailable" });
   });
 
   it("never logs the token", async () => {
     await signIn("actions-quiet@cornell.edu");
     const spies = (["log", "info", "warn", "error"] as const).map((level) => vi.spyOn(console, level));
-    const result = await createToken({ name: "Laptop", expiry: "90", readOnly: false });
+    const result = await createToken({ name: "Laptop", readOnly: false });
     if (!result.ok) throw new Error(result.error);
     for (const spy of spies) for (const call of spy.mock.calls) expect(JSON.stringify(call)).not.toContain(result.token.slice(12));
   });
@@ -104,7 +109,7 @@ describe("createToken", () => {
 describe("revokeToken", () => {
   it("revokes the caller's own token and audits token.revoked", async () => {
     const me = await signIn("actions-revoke@cornell.edu");
-    const created = await createToken({ name: "Laptop", expiry: "90", readOnly: false });
+    const created = await createToken({ name: "Laptop", readOnly: false });
     if (!created.ok) throw new Error(created.error);
 
     expect(await revokeToken(created.summary.id)).toEqual({ ok: true });
@@ -118,7 +123,7 @@ describe("revokeToken", () => {
 
   it("cannot revoke somebody else's token", async () => {
     await signIn("actions-owner@cornell.edu");
-    const created = await createToken({ name: "Laptop", expiry: "90", readOnly: false });
+    const created = await createToken({ name: "Laptop", readOnly: false });
     if (!created.ok) throw new Error(created.error);
     await signIn("actions-intruder@cornell.edu");
     expect(await revokeToken(created.summary.id)).toEqual({ ok: false, error: "not_found" });

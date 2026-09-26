@@ -11,7 +11,9 @@
 > *Revised 2026-09-25: identity kept; reconciled with Tufte's density rules and
 > the shadcn/AI Elements token mapping; patterns section added (§8). Phase 4:
 > tiles, navigation, tabs and the ⌘K palette refined (§8.2, §8.12); queues and
-> status lines added (§8.13, §8.14).*
+> status lines added (§8.13, §8.14). Phase 5a: sort and group-by (§8.4), empty
+> and error pages (§8.9), public pages, the tool page and one-time secrets
+> (§8.16–§8.18), header controls (§8.12).*
 
 ## 1. Creative North Star: "The Blueprint Archive"
 
@@ -263,11 +265,24 @@ nothing, and filters are written to the URL so a view is a link.
 
 - A chosen facet names its value on the button (`STATE Draft ▾`, read as
   "State: Draft"); its border moves to the accent ink.
-- A short fixed choice **inside a row or a form** (a role, a token's expiry)
-  is a `NativeSelect` — a real `<select>`, the phone's own picker — bounded by
-  `--outline-strong` like `Input`.
+- A short fixed choice **inside a row or a form** (a role) is a
+  `NativeSelect` — a real `<select>`, the phone's own picker — bounded by
+  `--outline-strong` like `Input`. A choice that has only one sensible answer
+  is not a choice: say it as text (a token's expiry, "90 days, one semester").
+- **Sort and Group by** (`ChoiceMenu`) sit at the end of the bar and look like
+  facets, but narrow nothing: no counts, no "Any", always a value; the value is
+  in the accent ink only when it is not the default. The default sort is the
+  list's own order ("Best match" while searching).
+- **Grouped, a list is labelled sections** in order — "not recorded" last —
+  each heading sticky under the top bar (mono label, the count at the end:
+  `3D PRINTING › FDM ······ 4 TOOLS`). Every section has the same layout and,
+  as tables, the same column widths (small multiples); the sort applies inside
+  each section. Items under a group heading drop a heading level.
+- **Everything is in the URL** — search, facets, view, sort, group — even on a
+  cached page (`useUrlSearch`: defaults on the server, the URL after hydration).
 - **Don't** use native selects for facets; don't filter server-side on each
-  keystroke; don't show an empty table without naming the filter.
+  keystroke; don't show an empty table without naming the filter; don't let
+  the bar's end group push the page sideways on a phone (it wraps).
 
 ![Facet counts](screens/after-inventory-facet.webp)
 
@@ -355,6 +370,11 @@ trap focus, close on Escape and return focus. Scrim 28% ink, no shadow.
 - **Loading**: skeleton rows in the table's shape; a spinner only inline.
 - **Error**: say what failed and that nothing was lost; failing toward stale is
   shown, not hidden (Article 4). Row actions report inline (`RowStatus`).
+- **Pages**: a 404 and an error boundary are pages in the system's frame
+  (`PublicPage` + `EmptyState`; the error one `tone="bad"` with Try again),
+  never the framework's bare default.
+- **A missing image** is an empty plate with the thing's initials in mono,
+  never the browser's broken-image icon.
 
 ### 8.10 Buttons — `Button`
 
@@ -396,7 +416,10 @@ answer shows its evidence. `PromptInput`: attach, dictate, text, send.
 ### 8.12 Navigation and IA
 
 - **Public**: `TOOLS · PROJECTS · ABOUT · REPORT` in the top bar; status strip
-  below (`86 TOOLS IN INVENTORY · LAB OPEN 9AM–9PM`).
+  below (`86 TOOLS IN INVENTORY · LAB OPEN 9AM–9PM`). Report is the bar's one
+  accent; **Sign in** is a hairline box in ink; the local-only **Sign in as
+  (dev)** is muted and dashed and shortens to `DEV` on a phone. The profile
+  menu is a plate with a hairline border — no glass, no glow.
 - **Admin**: a section bar under the top bar on every admin page:
   `OVERVIEW ┃ INTAKE ┃ INVENTORY · REFRESH · MANUALS ┃
   MAINTENANCE · CORRECTIONS · PROJECTS ┃ PEOPLE · NOTION MIRROR ┃ ⌕ SEARCH ⌘K`,
@@ -465,6 +488,48 @@ No toasts (owner decision). A page that could not read its data says so with
 - 16px gutters; no horizontal page scroll; touch rows ≥ 40px.
 - The chat launcher must never cover the one action on screen (bulk bars reserve
   its corner; admin opens chat from the nav).
+
+### 8.16 Public pages — `PublicPage`, `PageSection`, `Markdown`
+
+Projects, about, `/mcp`, account and OAuth pages share one frame: a reading
+column on the page background (880px; 560px for a single decision; the page
+width for a grid of cards), `PageHeader` as the h1 (`// MCP SERVER` crumb,
+title, lede, facts, the one filled action), then sections separated by
+whitespace — an h2 in Space Grotesk and an optional muted lede.
+
+- Prose is 15px at a readable measure, links in the accent ink.
+- Markdown written by people or research renders through `Markdown` (GFM, no
+  raw HTML), in the page's tokens — never the chat's styles.
+- **Don't** put a page in a rounded card, stack a display heading on a working
+  page, or box each section.
+
+### 8.17 Tool page
+
+One column of facts, not panels: crumb → hero (image plate | display title,
+the official name in mono, a status line of glyphs and words, the
+description, Safety doc / SOP) → **Safety**, the one tinted section (bad start
+rule) → **Details** as a dense `<dl>` beside **Documents & resources** as a
+ruled list (the kind as a mono word, the manual's Contents under it) →
+**Physical machines** (`DataTable`) → **Maintenance history** (date, status
+glyph, title, unit — never who reported it) → **Built with this**.
+
+- Say a fact once: no "at a glance" card repeating the specs.
+- **Don't** colour a chip for status (use the glyph line) or tint any section
+  but Safety.
+
+### 8.18 One-time secrets — the token reveal
+
+A secret shown once (a personal access token) appears in the same column as
+the form that made it, on a warn-ruled plate: ▲ **"Save this token now. You
+won't be able to see or copy it again after you leave this page."** above the
+secret, the secret in a copyable block, what to do next (an environment
+variable, then the client), and the same sentence again **beside the button
+that dismisses it**. Nothing else on the page holds the secret, and nothing the
+page offers to copy — a setup prompt for an assistant included — contains it:
+prompts name the environment variable instead.
+
+- **Copy setup prompt for your AI**: a short prompt, one Copy button, sign-in
+  first; a token only from `MAKERLAB_MCP_TOKEN`, never pasted into a chat.
 
 ## 9. Do's and Don'ts
 
