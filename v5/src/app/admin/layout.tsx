@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { AdminNav } from "../../components/admin/AdminNav";
 import { AdminNotice } from "../../components/admin/AdminNotice";
+import { AskAssistantButton } from "../../components/chat/AskAssistantButton";
 import { PaletteScope } from "../../components/palette/palette-scope";
 import { EmptyState } from "../../components/system/EmptyState";
 import { surfacesFor } from "../../lib/admin/surfaces";
@@ -24,7 +25,9 @@ import { siteConfig } from "../../lib/site-config";
  * lie about the page existing and a redirect to sign-in would lose where they
  * were going. `AdminNotice` says which of the two situations this is.
  *
- * **Past the gate, every page gets the section bar** (`AdminNav`) and the ⌘K
+ * **Past the gate, every page gets the section bar** (`AdminNav`, ending in
+ * **Ask the assistant** — the floating chat button is not drawn here, UI
+ * system phase 5b) and the ⌘K
  * palette (the header's, told who this is by `PaletteScope`), both over `surfacesFor(identity)` — the one list in
  * `lib/admin/surfaces.ts`, filtered by the same `can()` each page calls — so
  * no admin page is reachable only through `/admin` and none of them links to
@@ -81,7 +84,8 @@ async function AdminGate({ children }: { children: React.ReactNode }) {
     <>
       {/* The header's ⌘K palette learns this viewer and the index with drafts. */}
       <PaletteScope role={identity.role} tools={tools} />
-      <AdminNav items={items} />
+      {/* The floating chat button is not drawn on admin pages; the bar opens the assistant. */}
+      <AdminNav items={items} end={<AskAssistantButton />} />
       {children}
     </>
   );

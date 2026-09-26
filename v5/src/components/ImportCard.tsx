@@ -1,10 +1,9 @@
 "use client";
 
-import "../styles/admin-import.css";
-
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { ImportCardPayload } from "../lib/import/view";
+import { Button } from "@/components/ui/button";
 
 /**
  * The chat's hand-off card (bulk intake spec §3.5): what `start_import` made
@@ -30,16 +29,12 @@ export function ImportCard({ payload }: { payload: ImportCardPayload }) {
   }
 
   return (
-    <div className="import-card" role="group" aria-label={t("label")}>
-      <p>
-        <strong>{found.sourceName ?? t("pasted")}</strong>
-      </p>
-      <p>{line}</p>
-      <p>
-        <Link className="admin-button is-primary" href={href}>
-          {t("review")}
-        </Link>
-      </p>
+    <div role="group" aria-label={t("label")} className="ui flex flex-col items-start gap-2 border border-border bg-card p-3 text-sm">
+      <p className="font-medium">{found.sourceName ?? t("pasted")}</p>
+      <p className="text-muted-foreground">{line}</p>
+      <Button asChild variant="default" size="sm">
+        <Link href={href}>{t("review")}</Link>
+      </Button>
     </div>
   );
 }

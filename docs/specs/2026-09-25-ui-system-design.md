@@ -1390,3 +1390,147 @@ untouched. Where the home now differs from the admin-polish amendment, and why:
   and a scratch seed with every tile non-zero): `v5/.livecheck/admin-tiles-cleanup/shots/`,
   not committed.
 - **Packages added:** none.
+
+### 2026-09-26 — Phase 5b chat as built (AI Elements, the sheet, the flag dialog)
+
+Branch `v5/ui-phase-5b`. §9's mapping and the owner's decision 6 are built:
+the chat is AI Elements in a docked `Sheet`, Markdown is `streamdown`, the
+floating button is hidden on admin pages, and admins open the assistant from
+the section bar and ⌘K. `useChat`, `/api/chat`, the tools and every custom
+part — the intake table, the import card, proposal cards, report and
+maintenance turns — are unchanged and render inside messages. Where 5b
+differs from §8.3 / §9, and why:
+
+- **Components copied, trimmed, themed.** `src/components/ai-elements/`
+  holds `conversation`, `message`, `prompt-input`, `tool`, `sources`,
+  `inline-citation`, `suggestion` and `loader`, copied from
+  `registry.ai-sdk.dev` (the CLI prompts and over-installs, §11) and cut to
+  what the chat uses. Cut, with the dependency it would have added:
+  `MessageBranch*` / `MessageActions` / `MessageAttachment` (`button-group`),
+  `PromptInput`'s own attachment store, action menu, model select, tabs and
+  command (`nanoid`, `input-group`, `select`, `hover-card` for previews) —
+  our uploads go to `/api/uploads` as they are picked, so the composer keeps
+  its own attachment row — `ToolInput` / `ToolOutput` (`code-block`, Shiki)
+  and `InlineCitationCarousel*` (`embla-carousel`). Every copy is square,
+  outline-focused and on the shared tokens; the global rule removes the rest.
+- **The sheet.** `ui/sheet` (Radix Dialog): 440px from the inline end at
+  `sm` and up, the whole screen on a phone, frosted (`FROSTED`, a hairline on
+  the open side only), the 28% scrim. Radix gives the focus trap, Escape and
+  focus return; focus goes to the composer on a fine pointer and to the
+  sheet itself on touch (so a phone does not raise its keyboard over the
+  starters). Opening it adds no scrollbar compensation — the root always has
+  its scrollbar (`html body[data-scroll-locked]`), so the header does not move
+  (`e2e/header-stability.spec.ts` covers the chat too). §8.3's push-aside
+  panel on the tool page is **not** built: reflowing the page under an open
+  chat is a layout shift, and a push-aside panel cannot also trap focus.
+- **Messages.** `Conversation` (use-stick-to-bottom, `role="log"`: replies are
+  announced) with the square "scroll to latest" button; `Message` carries
+  `data-role` (`user` / `assistant`) and, for a notice or a failure,
+  `data-kind` (`notice` / `error`) — the tests read those, not CSS classes.
+  Assistant text is unboxed prose through `MessageResponse` (streamdown,
+  **raw HTML off**: its `raw` rehype plugin is dropped, keeping `sanitize` and
+  `harden`; its link-safety modal and copy/download controls are off). The
+  user's turn is a square `secondary` block. Cards span the column.
+- **Tool status lines.** Each running tool call is a `Tool` header — a spinner
+  and the same words as before ("📖 Searching the Form 4 manual…") — in the
+  order the parts arrive, including after text in a multi-step turn (the
+  hand-rolled line showed only before any text). A finished call draws
+  nothing; a finished `search_manual`'s passages feed the citations.
+- **Citations (§9.1).** `search_manual` already gives each passage a
+  `citation` and a `url` that opens the PDF at the page, and the prompt has
+  the model link them. A link in the answer whose address is one of this
+  message's passage URLs renders as an `InlineCitation`: the link text, then a
+  mono `P. 42` mark that opens the page, with a hover/focus card naming the
+  manual, section and page. Under the answer, `Sources` lists the passages the
+  answer cited — "2 manual pages" — each a link to its page. Passages
+  retrieved but not cited are not listed (the list is the evidence the answer
+  used, not everything it read). `<cite>` markup is still stripped.
+- **Composer.** `PromptInput`: the text is a growing textarea (Enter sends,
+  Shift+Enter is a new line, IME-safe), attach and dictate on the left, Send
+  (the surface's one filled button) on the right. The attachment row, the
+  upload spinner and the upload error sit above it. "Dictate" moved to
+  next-intl (§12).
+- **Starters.** `Suggestions` stacked as sentences: the tool's own questions
+  on its page, "Curate this entry" first for a curator, else the generic
+  three.
+- **Launchers.** The floating button is a square Safety Orange block (the
+  round, glowing one broke §5) on public pages only; on `/admin/*` it is not
+  rendered. The admin section bar ends with **Ask the assistant**, and the
+  ⌘K palette (every page) passes `onAsk`: "Ask the assistant" with an empty
+  query, "Ask the assistant: “…”" with the query as the first message. The
+  assistant group is the palette's **last** group, so Enter still opens the
+  first tool that matches.
+- **Report a correction** (`FlagButton`) is a `Dialog` (decision, DESIGN.md
+  §8.8) with `Field`, `NativeSelect`, `Textarea`, `Input` and `Button`; its
+  inline stylesheet is gone. Same fields, same inline confirmation, same kept
+  text on failure.
+- **Removed.** Every `.chat-*` rule and the RTL/phone overrides for them in
+  `globals.css`, `admin-import.css` (its launcher rules are utilities in
+  `ImportLauncher`; `.import-card` is utilities in `ImportCard`), `--ambient-glow`,
+  `FlagButton`'s stylesheet, ChatFab's nine inline SVGs, and `react-markdown`
+  from the chat (pages keep it through `system/Markdown`).
+- **Packages added:** `streamdown` ^2.6.0 (`MessageResponse`) and
+  `use-stick-to-bottom` ^1.1.6 (`Conversation`). The collapsible and hover
+  card primitives come from the existing `radix-ui` package.
+
+As built (same branch), where the build refined the plan above:
+
+- **streamdown's elements are ours.** streamdown draws each element with its
+  own Tailwind classes (a toolbar frame around tables, a three-box code
+  block, `**bold**` as a `<span>`), written for a build that scans its
+  package; ours scans `src/` only, so a few of those classes existed here and
+  most did not. `ai-elements/message-markdown.tsx` hands it plain elements
+  (headings, `strong`, lists, blockquote, rule, table, `pre`/`code`), which
+  the pages' Markdown rules draw — now `system/markdown-prose.ts`, shared
+  with `system/Markdown`. With `raw` dropped, a tag in the model's text is
+  shown as text (react-markdown dropped it silently).
+- **Focus return is the chat's own.** Radix Dialog returns focus to its
+  `Trigger`; the chat has five openers and no Radix trigger, so it remembers
+  the focused element when it opens and restores it on close. The flag
+  dialog uses a real `DialogTrigger`. Both have a test.
+- **The citation's words drop the citation.** The prompt has the model link
+  "Replacing the resin tank (Form 4 Manual, p. 42)"; the words keep
+  "Replacing the resin tank" and the `P. 42` mark says the page, so the page
+  is not said twice. A mark's accessible name is "Open Form 4 Manual, p. 42".
+- **Loader is a `span`** (the upstream `div` sat inside the tool line's `p`).
+- **The composer's text stays enabled while a turn runs** (review): disabling
+  the focused textarea dropped focus to the sheet on every send, so a keyboard
+  user had to find the field again. Send, attach and dictate wait; Enter does
+  not send until Send is enabled, and the next question can be drafted.
+- **streamdown loads with the chat, not the page** (review): imported
+  statically from the root layout's chat it added about 365 KB of script to
+  every page. `MessageResponse` is its own module
+  (`ai-elements/message-response.tsx`), `ChatMessage` imports `ChatResponse`
+  lazily and the sheet preloads it on open; until it lands an answer shows as
+  plain text. Script on `/`: main 1.49 MB, 5b as first built 1.86 MB, now
+  1.37 MB (react-markdown also left the chat).
+- **The flag dialog is frosted too** (owner: menus and dialogs are frosted).
+- **CSS removed:** 707 lines of stylesheet (`globals.css` −653/+2: every
+  `.chat-*` rule, their phone and RTL overrides, three keyframes,
+  `--ambient-glow`, two orphaned comments; `admin-import.css` −54, deleted)
+  and `FlagButton`'s 127-line inline stylesheet — 834 lines in all. Legacy
+  CSS: 2,093 → 1,388 lines (`globals.css` 1,771 → 1,120; `ui.css`
+  unchanged at 220).
+- **Measured** (1440 × 900 / 390 × 844): the panel was a 360px card at most
+  560px tall with about 430px for messages; it is 440 × 900 with 736px for
+  messages, and 390 × 844 with 680px on a phone. The intake table and
+  proposal cards get a 408px column instead of about 325.
+- **Tests.** Seven `ChatFab` assertions moved from CSS classes to
+  `data-role` / `data-kind` / `data-has-card` (same claims); new: Escape and
+  focus return, the draft surviving a close, Enter / Shift+Enter, no floating
+  button on admin pages and the section bar opening the chat, the `log`
+  role, Markdown and no HTML, site links closing the sheet, tool lines after
+  text and none for a finished call, inline citations and Sources (cited
+  only, never an address the search did not return), `manual-citations`
+  unit tests, the palette's assistant group (empty query, last, Enter still
+  opens the tool, offered when nothing matches) and the flag dialog's focus
+  return. E2E: `chat.spec` (Escape and focus, composer focus, a citation and
+  its source, the admin launchers and ⌘K's first message) and
+  `header-stability.spec` (the assistant open on a public and an admin page
+  moves nothing).
+- **Screens:** before/after at 1440 and 390, light and dark, anonymous and
+  admin, in `v5/.livecheck/ui-phase-5b/` (not committed); a curated set is
+  `docs/MakerLab_design/screens/phase5b-*.webp`.
+- **Not done:** the push-aside panel (above); `ToolInput` / `ToolOutput`
+  for curation turns (would add Shiki); the user's attached photos are still
+  not drawn in their message (they never were).

@@ -17,7 +17,10 @@
 > (§3, §5), one toolbar for every list with a phone Filters sheet (§8.4), the
 > segmented control (§8.10), ⌘K and a search field on every page and a header
 > that never moves (§8.12), queue controls that never shift (§8.13, §8.14),
-> the dense tool page (§8.17).*
+> the dense tool page (§8.17). Phase 5b: the chat as built on AI Elements —
+> the sheet, tool lines, manual citations, the composer (§8.11); focus
+> return for things opened from many places and the frosted sheet and dialog
+> (§3, §8.8); the assistant's launchers (§8.12, §8.15).*
 
 ## 1. Creative North Star: "The Blueprint Archive"
 
@@ -99,8 +102,8 @@ errors in dark mode (2.8:1 there). Errors use `--status-bad`.
 tonal shift (`surface-container-low` against `background`). Hairlines are for
 rows, controls and the one bar under the admin section nav.
 
-**Frosted surface.** A panel that floats over the page while the page can
-move beneath it — the profile menu, the ⌘K palette — is a *frosted plate*
+**Frosted surface.** A panel that floats over the page — the profile menu,
+the ⌘K palette, the chat sheet, the Report a correction dialog — is a *frosted plate*
 (`FROSTED`, `src/components/system/frosted.ts`): `--surface-frosted` (the card
 colour at 88%) with `backdrop-filter: blur(16px) saturate(140%)`, a hairline
 `--outline-strong` border, no shadow. Where `backdrop-filter` is unsupported it
@@ -388,8 +391,18 @@ decision gets a `Dialog`.
 
 `Dialog` for a decision (confirm, report a correction, research again); `Sheet`
 (side panel, full screen on a phone) for a workspace (tool editor, chat). Both
-trap focus, close on Escape and return focus. Scrim 28% ink, no shadow.
+trap focus, close on Escape and return focus. Scrim 28% ink, no shadow; the
+plate is frosted (§3). Opening one adds **no scrollbar compensation** — the
+root always keeps its scrollbar, so nothing behind it moves.
 
+- **Focus goes back to what opened it.** One opener is a Radix trigger
+  (`DialogTrigger asChild`), and Radix returns focus there. A panel opened
+  from many places (the chat: its button, the section bar, ⌘K, Report, the QR
+  notice) remembers the focused element when it opens and gives focus back
+  when it closes — Radix alone would return it to a trigger it never had.
+- **Initial focus is where the work starts**: the chat's composer where there
+  is a keyboard; the sheet itself on touch, so a phone does not raise its
+  keyboard over what the panel says first.
 - **Don't** mark something `aria-modal` that isn't; don't nest dialogs.
 
 ### 8.9 Empty, loading, error — `EmptyState`, `Skeleton`, `RowStatus`
@@ -438,18 +451,45 @@ catalog** (the cache) is not **Refresh research** (the surface).
 
 ### 8.11 Chat — AI Elements
 
-Docked side sheet (440px; full screen on a phone). `Conversation` (live log,
-sticks to bottom, "scroll to latest" button) → `Message`: assistant text is
-unboxed prose; the user's turn is a square `secondary` block; cards (`ReviewCard`,
-intake table, import card) span the full width. `Suggestions` stack as sentences
-on the empty state. A running tool is a one-line status with a spinner (`Tool`
-header). Manual citations render as `InlineCitation` + a `Sources` list — the
-answer shows its evidence. `PromptInput`: attach, dictate, text, send.
+Docked side sheet from the inline end (440px; full screen on a phone),
+frosted, `MAKERLAB ASSISTANT` as a mono label with New chat and Close at the
+end of its header row. `Conversation` (a `role="log"`, so replies are read
+out; sticks to the bottom while a reply streams; a square "scroll to latest"
+button at the inline end) → `Message`: assistant text is unboxed prose; the
+user's turn is a square `secondary` block; cards (`ReviewCard`, intake
+table, import card) span the full width. `Suggestions` stack as sentences on
+the empty state, each with a small icon. `PromptInput` at the foot:
+attachments above the text, attach and dictate on the left, **Send** — the
+sheet's one filled button — on the right; Enter sends, Shift+Enter is a new
+line.
 
-- **Don't** use rounded bubbles or avatars; don't strip citations; don't open a
-  floating card that can't fit the cards it contains.
+```
+TO REPLACE THE RESIN TANK ON THE FORM 4:
+1. Lift the front edge and slide it out (Replacing the resin tank [P. 42]).
+◌ 📖 Searching the Prusa MK4S manual…
+2 MANUAL PAGES ▾
+```
 
-![Chat](screens/after-chat-desktop.webp)
+- **Markdown is the page's.** The answer's lists, tables, code and headings are
+  drawn by the same rules as a tool description (`MARKDOWN_PROSE`); raw HTML
+  from the model is never rendered — a tag shows as the text it is.
+- **A running tool is one line** (`Tool` header): a small spinner in the
+  accent ink and the words for what it is doing, in the order the turn does
+  it. A finished call leaves no line; its result is the answer.
+- **Evidence, inline and listed.** A link to a page the manual search returned
+  is an `InlineCitation`: the linked words, then a mono `P. 42` mark that
+  opens the manual at that page, with a card (hover or focus) naming the
+  manual, section and passage. Under the answer, `SOURCES` lists the pages it
+  cited, one ruled row each. A page that was read but not cited is not listed.
+- **Where it opens.** Public pages: a square Safety Orange `>_` block at the
+  inline-end corner. Admin pages: no floating block (it collided with bulk
+  bars) — the section bar's `ASK THE ASSISTANT` and ⌘K.
+- **Don't** use rounded bubbles or avatars; don't strip citations; don't show
+  a tool's JSON to a student; don't open a floating card that can't fit the
+  cards it contains; don't push the page aside under the sheet (the page
+  would reflow — a layout shift).
+
+![Chat, as built in phase 5b](screens/phase5b-chat-desktop-light.webp)
 
 ### 8.12 Navigation and IA
 
@@ -466,7 +506,8 @@ answer shows its evidence. `PromptInput`: attach, dictate, text, send.
   size. `e2e/header-stability.spec.ts` measures it with scrollbars shown.
 - **Admin**: a section bar under the top bar on every admin page:
   `OVERVIEW ┃ INTAKE ┃ INVENTORY · REFRESH · MANUALS ┃
-  MAINTENANCE · CORRECTIONS · PROJECTS ┃ PEOPLE · NOTION MIRROR ┃ ⌕ SEARCH ⌘K`,
+  MAINTENANCE · CORRECTIONS · PROJECTS ┃ PEOPLE · NOTION MIRROR ┃ ▭ ASK THE ASSISTANT`
+  (the icon alone on a phone, the words still its name),
   dividers between jobs, the most specific current page underlined in the
   accent (an item's page marks its surface), only surfaces the viewer's
   permissions open, **no counts**. On a phone it scrolls inside itself. The
@@ -487,8 +528,10 @@ answer shows its evidence. `PromptInput`: attach, dictate, text, send.
   one, with its count), `ADMIN PAGES` and `ACTIONS` only for a role that opens
   them, `TOOLS` (display name, the official name muted, the category or `DRAFT`
   at the end). Every word typed must match; nothing fuzzy. A frosted plate.
-  `/` jumps to the page's own filter search. The assistant joins it in phase
-  5b ("Ask the assistant: …").
+  `/` jumps to the page's own filter search. `ASSISTANT` is the **last**
+  group, for everybody: "Ask the assistant" with nothing typed, "Ask the
+  assistant: “…”" with the query as the first message — last, so Enter still
+  opens the first tool or page that matches, and there even when nothing does.
 - **Don't** make a page reachable only through a hub; don't list a surface that
   will refuse the viewer; don't put waiting counts in the bar; don't use
   `role="tab"` for navigation.
@@ -541,8 +584,9 @@ No toasts (owner decision). A page that could not read its data says so with
 - 390px is a first-class width: tables become two-line lists, before/after
   stacks, bars scroll inside themselves, sheets go full screen.
 - 16px gutters; no horizontal page scroll; touch rows ≥ 40px.
-- The chat launcher must never cover the one action on screen (bulk bars reserve
-  its corner; admin opens chat from the nav).
+- The chat launcher must never cover the one action on screen: it is not drawn
+  on admin pages (where bulk bars live; the section bar and ⌘K open the chat),
+  and on a phone the chat is the whole screen, safe areas respected.
 
 ### 8.16 Public pages — `PublicPage`, `PageSection`, `Markdown`
 

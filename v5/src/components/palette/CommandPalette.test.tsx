@@ -171,6 +171,35 @@ it("offers the assistant only when it is given onAsk (phase 5's hook)", async ()
   expect(onAsk).toHaveBeenCalledWith("how do I");
 });
 
+it("opens the assistant with nothing typed, and keeps it last so Enter opens the tool (phase 5b)", async () => {
+  const user = userEvent.setup();
+  const onAsk = vi.fn();
+  render(<CommandPalette role="admin" tools={TOOLS} onAsk={onAsk} />);
+  let dialog = await openPalette(user);
+  await user.click(within(dialog).getByRole("option", { name: "Ask the assistant" }));
+  expect(onAsk).toHaveBeenCalledWith("");
+
+  dialog = await openPalette(user);
+  await user.type(within(dialog).getByRole("combobox"), "form 4");
+  const options = within(dialog).getAllByRole("option");
+  expect(options[0]).toHaveAccessibleName(/Form 4/);
+  expect(options[options.length - 1]).toHaveAccessibleName("Ask the assistant: “form 4”");
+  await user.keyboard("{Enter}");
+  expect(router.push).toHaveBeenCalledWith("/tools/form-4");
+  expect(onAsk).toHaveBeenCalledTimes(1);
+});
+
+it("still offers the assistant when nothing else matches", async () => {
+  const user = userEvent.setup();
+  const onAsk = vi.fn();
+  render(<CommandPalette role="anonymous" tools={TOOLS} onAsk={onAsk} />);
+  const dialog = await openPalette(user);
+  await user.type(within(dialog).getByRole("combobox"), "zzzz");
+  expect(within(dialog).getByText("Nothing matches “zzzz”.")).toBeInTheDocument();
+  await user.keyboard("{Enter}");
+  expect(onAsk).toHaveBeenCalledWith("zzzz");
+});
+
 it("focuses the page's filter search on /, but not while typing", async () => {
   const user = userEvent.setup();
   render(

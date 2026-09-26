@@ -10,7 +10,7 @@ import { cn } from "@/lib/utils";
 /**
  * The admin section bar (UI system spec §8.1; DESIGN.md §8.12), on every admin
  * page: Overview, then each job's surfaces behind a divider, then whatever the
- * layout puts at the end (the ⌘K palette's button). It replaces "back to
+ * layout puts at the end (**Ask the assistant**, phase 5b). It replaces "back to
  * /admin, then pick" as the only way between admin pages.
  *
  * **It links only what it is handed**, and the layout hands it
