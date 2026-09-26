@@ -13,7 +13,11 @@
 > tiles, navigation, tabs and the ⌘K palette refined (§8.2, §8.12); queues and
 > status lines added (§8.13, §8.14). Phase 5a: sort and group-by (§8.4), empty
 > and error pages (§8.9), public pages, the tool page and one-time secrets
-> (§8.16–§8.18), header controls (§8.12).*
+> (§8.16–§8.18), header controls (§8.12). Public polish: the frosted surface
+> (§3, §5), one toolbar for every list with a phone Filters sheet (§8.4), the
+> segmented control (§8.10), ⌘K and a search field on every page and a header
+> that never moves (§8.12), queue controls that never shift (§8.13, §8.14),
+> the dense tool page (§8.17).*
 
 ## 1. Creative North Star: "The Blueprint Archive"
 
@@ -77,6 +81,7 @@ hex values.
 | `--outline` | hairlines | #CFC6B8 | #2A2A2A | `border` |
 | `--outline-strong` | control boundaries (3:1) | #8A8171 | #6E6A64 | `input` |
 | `--rule` | table row rules | ink 10% | ink 10% | `rule` |
+| `--surface-frosted` | floating menus over a moving page | card 88% + blur | card 88% + blur | — (`FROSTED`) |
 | `--status-ok` | ● | #2B7549 | #5CC98A | `ok` |
 | `--status-warn` | ▲ | #8A5300 | #E0A23A | `warn` |
 | `--status-bad` | ■, errors, destructive | #B31B1B | #F0645A | `bad`, `destructive` |
@@ -93,6 +98,15 @@ errors in dark mode (2.8:1 there). Errors use `--status-bad`.
 **The No-Line rule.** Do not separate major page sections with 1px lines; use a
 tonal shift (`surface-container-low` against `background`). Hairlines are for
 rows, controls and the one bar under the admin section nav.
+
+**Frosted surface.** A panel that floats over the page while the page can
+move beneath it — the profile menu, the ⌘K palette — is a *frosted plate*
+(`FROSTED`, `src/components/system/frosted.ts`): `--surface-frosted` (the card
+colour at 88%) with `backdrop-filter: blur(16px) saturate(140%)`, a hairline
+`--outline-strong` border, no shadow. Where `backdrop-filter` is unsupported it
+is the solid card. At 88% the page behind reads as texture, never as text, so
+every text pair on it keeps AA. Use it for nothing else: a card on the page is
+a plain plate.
 
 **Nested depth.** Cards are plates machined out of the background: a
 `surface-container` card on `background`, a `surface-container-high` hover. The
@@ -120,8 +134,10 @@ fonts happen to be installed is not a design.
 - **Radius: 0.** Every corner is 90°. (Enforced globally.)
 - **Shadows: none.** Depth is tonal stacking. The old "ambient 64px glow" for
   modals is retired; a sheet or dialog sits on a 28% scrim instead.
-- **Retired flourishes:** glassmorphism on overlays, gradients on CTAs, pulsing
-  status dots. They cost ink and say nothing. The crosshair corners
+- **Retired flourishes:** decorative glass, gradients on CTAs, pulsing status
+  dots. They cost ink and say nothing. The one exception is functional: a
+  floating menu over a moving page is frosted (§3), so the text under it
+  cannot be read through it. The crosshair corners
   (`TechnicalFrame`) stay on the gallery hero only.
 - **Focus: a 2px `--primary-ink` outline**, offset 2px, on `:focus-visible`,
   on everything interactive. Never `outline: none` without it.
@@ -237,10 +253,23 @@ RESEARCH (2)] · CLEAR`). On a phone: a two-line list item per row.
 
 ### 8.4 Filter bar — `FilterBar`, `FacetFilter`, `ColumnsMenu`
 
-Search (left) → one facet button per dimension (`STATE ▾`, `NEEDS ATTENTION
-Never reviewed ▾` when set) → Clear → `Showing 21 of 101` → Columns. A facet menu
-lists values **with the count each would leave**, disables values that leave
-nothing, and filters are written to the URL so a view is a link.
+One toolbar for every list (the gallery, the inventory, people, import review,
+the queues, manuals), two rows:
+
+```
+[ ⌕ Search …………………………………………………………………… ]            SHOWING 21 OF 101
+[STATUS ▾] [CATEGORY ▾] [LOCATION ▾] [× CLEAR]   [GROUP BY ▾] [▥ COLUMNS] [SORT ▾] [▦|☰]
+```
+
+Row 1 is the search across the page with the count as quiet mono text at its
+end. Row 2 is the facets and Clear on the left; `secondary` (Group by, Columns)
+and `end` (Sort, the view switch) on the right. With the default state nothing
+wraps from 1024 to 1440; set values may push the right group under, right-aligned.
+**On a phone**: the search, then one row — **Filters** (with how many facets are
+set) and `end` — and the count on a small line under it; Filters opens a
+`Sheet` holding the facets, Group by, Columns, Clear and "Show 12 results". A
+facet menu lists values **with the count each would leave**, disables values
+that leave nothing, and filters are written to the URL so a view is a link.
 
 - A chosen facet names its value on the button (`STATE Draft ▾`, read as
   "State: Draft"); its border moves to the accent ink.
@@ -348,6 +377,15 @@ trap focus, close on Escape and return focus. Scrim 28% ink, no shadow.
 | `destructive` | bad-tone hairline + label, at rest | discard, delete, ban — confirm inline |
 | `link` | orange-ink underlined | inline navigation |
 
+**Segmented control — `SegmentedControl`** (`system/SegmentedControl.tsx`).
+Two to four mutually exclusive views of the same thing (the gallery's Grid |
+Table): **every segment always outlined** in the control-boundary ink, equal
+size, shared borders, the chosen one **filled in ink** (`foreground` on
+`background`), not orange — it is a state, not the action. A named `group` of
+buttons with `aria-pressed`, each its own tab stop, the focus outline above its
+neighbours. **Don't** draw only the chosen half (the other looks missing), and
+don't use it for navigation between pages (`LinkTabs`).
+
 **One-shot actions keep their state in the button — `AsyncButton`**
 (`src/components/system/AsyncButton.tsx`). For an action that runs once and is
 over — Refresh catalog, Looks good, Re-process — the button is the status:
@@ -376,11 +414,17 @@ answer shows its evidence. `PromptInput`: attach, dictate, text, send.
 
 ### 8.12 Navigation and IA
 
-- **Public**: `TOOLS · PROJECTS · ABOUT · REPORT` in the top bar; status strip
-  below (`86 TOOLS IN INVENTORY · LAB OPEN 9AM–9PM`). Report is the bar's one
-  accent; **Sign in** is a hairline box in ink; the local-only **Sign in as
-  (dev)** is muted and dashed and shortens to `DEV` on a phone. The profile
-  menu is a plate with a hairline border — no glass, no glow.
+- **Public**: `TOOLS · PROJECTS · ABOUT · REPORT` in the top bar, then
+  `[⌕ Search tools… ⌘K]` beside the language and theme controls (an icon
+  button on a phone); status strip below (`86 TOOLS IN INVENTORY · LAB OPEN
+  9AM–9PM`). Report is the bar's one accent; **Sign in** is a hairline box in
+  ink; the local-only **Sign in as (dev)** is muted and dashed and shortens to
+  `DEV` on a phone. The profile menu is a frosted plate (§3).
+- **The bar never moves.** Every control has the same box on every page: the
+  page always carries its scrollbar (`overflow-y: scroll` on the root — a
+  styled scrollbar takes space, and Chromium ignores `scrollbar-gutter` for
+  one), the active link changes colour and underline only, never weight or
+  size. `e2e/header-stability.spec.ts` measures it with scrollbars shown.
 - **Admin**: a section bar under the top bar on every admin page:
   `OVERVIEW ┃ INTAKE ┃ INVENTORY · REFRESH · MANUALS ┃
   MAINTENANCE · CORRECTIONS · PROJECTS ┃ PEOPLE · NOTION MIRROR ┃ ⌕ SEARCH ⌘K`,
@@ -399,11 +443,13 @@ answer shows its evidence. `PromptInput`: attach, dictate, text, send.
   LIST`), not a surface, tile or palette entry of its own. A page's primary
   action sits in its header's actions — Inventory's `ADD INVENTORY`, Refresh's
   `REFRESH RESEARCH…` (a dialog that picks the tools), Intake's `IMPORT A LIST`.
-- **⌘K palette** (`CommandPalette`): `ADMIN PAGES` (with their group),
-  `ACTIONS` (Add equipment, Refresh the catalog), `TOOLS` (display name, the
-  official name muted, `DRAFT` marked). Every word typed must match; nothing
-  fuzzy. `/` jumps to the page's filter search. The assistant joins it in
-  phase 5 ("Ask the assistant: …").
+- **⌘K palette** (`palette/CommandPalette`, on every page from the header):
+  `PAGES` (Tools, Projects, About, MCP), `CATEGORIES` (the gallery filtered to
+  one, with its count), `ADMIN PAGES` and `ACTIONS` only for a role that opens
+  them, `TOOLS` (display name, the official name muted, the category or `DRAFT`
+  at the end). Every word typed must match; nothing fuzzy. A frosted plate.
+  `/` jumps to the page's own filter search. The assistant joins it in phase
+  5b ("Ask the assistant: …").
 - **Don't** make a page reachable only through a hub; don't list a surface that
   will refuse the viewer; don't put waiting counts in the bar; don't use
   `role="tab"` for navigation.
@@ -424,8 +470,15 @@ holding the settled work, filtered too.
   (status, priority, assignee) are always there; a field somebody writes a
   sentence into (a ticket's resolution) is `ADD RESOLUTION`, or the saved words
   on two clamped lines with `EDIT RESOLUTION`, until pressed — then the box
-  opens inline, focused, with Save and Cancel; Escape cancels; focus returns to
-  the button; the outcome is the card's `RowStatus`.
+  opens, focused, with Save and Cancel; Escape cancels; focus returns to the
+  button.
+- **The control row never shifts.** `STATUS [Open ▾]  PRIORITY [High ▾]
+  ASSIGNED TO [Nobody ▾]  SAVED ··········· [ADD RESOLUTION]` — inline mono
+  labels, `NativeSelect` and `Button` at the same 28px, "Saving… / Saved" in a
+  reserved `SaveSlot`, the resolution button at the row's end. The editor opens
+  in its own full-width slot **below** the row (Save and Cancel left, in a row
+  of their own); a refusal's sentence is the last line. A control whose label
+  changes (Publish / Unpublish) keeps the wider label's width.
 - Cards may be grouped (intake by batch); the layout stays the same.
 - **Don't** split a queue into Open / Settled tabs; don't box the cards; don't
   hide the controls behind a row click on a phone.
@@ -434,7 +487,9 @@ holding the settled work, filtered too.
 
 One inline line for an action's outcome, in the muted, warn or bad ink:
 `Saving… → Saved`, a warning when a change landed minus a guarantee, the
-refusal's reason. Always in the DOM as a live region, empty until it speaks.
+refusal's reason. Beside a save-on-click control the short words go in a
+reserved **`SaveSlot`** (so nothing moves when "Saved" appears) and the
+sentences on their own `RowStatus` line. Always in the DOM as a live region, empty until it speaks.
 **"Saved" only for a write that landed**: a control that saves on change is
 disabled until the page has hydrated (`useHydrated`), a change to the value it
 already holds sends nothing, and an answer that does not match the choice is a
@@ -466,15 +521,21 @@ whitespace — an h2 in Space Grotesk and an optional muted lede.
 
 ### 8.17 Tool page
 
-One column of facts, not panels: crumb → hero (image plate | display title,
-the official name in mono, a status line of glyphs and words, the
-description, Safety doc / SOP) → **Safety**, the one tinted section (bad start
-rule) → **Details** as a dense `<dl>` beside **Documents & resources** as a
-ruled list (the kind as a mono word, the manual's Contents under it) →
-**Physical machines** (`DataTable`) → **Maintenance history** (date, status
-glyph, title, unit — never who reported it) → **Built with this**.
+Facts, not panels, and only the facts the tool has: crumb `// TOOLS › FORM 4`
+→ hero (a **small** image plate, ~16rem, beside the display title, the
+official name in mono, **one** status line of glyphs and words, the
+description, Safety doc / SOP) → **two columns on desktop**: **Safety**, the
+one tinted section (bad start rule, compact label/value rows), then **Details**
+as a dense `<dl>` on the left; **Documents & resources** as a ruled list (the
+kind as a mono word, the manual's Contents under it) and **Physical machines**
+(`DataTable`) on the right → **Maintenance history** (date, status glyph,
+title, unit — never who reported it) and **Built with this** across the page.
+One column on a phone.
 
 - Say a fact once: no "at a glance" card repeating the specs.
+- **Empty is absent**: a row or section with nothing to say is not drawn — no
+  "Contact MakerLab staff", no "No documents linked yet" box, no empty history.
+  Safety always says what to do, falling back to the lab's standing guidance.
 - **Don't** colour a chip for status (use the glyph line) or tint any section
   but Safety.
 
