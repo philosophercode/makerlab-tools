@@ -38,7 +38,7 @@ export function ToolCard({ tool, headingLevel = 2 }: ToolCardProps) {
     <Link
       href={`/tools/${tool.slug}`}
       data-slot="tool-card"
-      className="group flex h-full flex-col border border-border bg-card transition-colors duration-150 hover:border-primary-ink/60 hover:bg-accent"
+      className="group flex h-full flex-col border border-border bg-card transition-colors duration-150 hover:border-primary-ink/60"
     >
       <ToolImage
         src={tool.imageSrc}

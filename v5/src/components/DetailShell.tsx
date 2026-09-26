@@ -108,6 +108,8 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
           ) : null}
           <p
             data-slot="tool-status-line"
+            // A name needs a role: aria-label on a bare <p> is prohibited and ignored.
+            role="group"
             aria-label={t("toolStatusLabel")}
             className="flex flex-wrap items-baseline gap-x-3 gap-y-1.5 font-mono text-label uppercase"
           >

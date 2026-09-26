@@ -43,7 +43,7 @@ export default async function ProjectsPage() {
               <li key={project.id} className="min-w-0">
                 <Link
                   href={`/projects/${project.slug}`}
-                  className="group flex h-full flex-col border border-border bg-card transition-colors duration-150 hover:bg-accent"
+                  className="group flex h-full flex-col border border-border bg-card transition-colors duration-150 hover:border-primary-ink/60"
                 >
                   <span aria-hidden="true" className="relative block aspect-[4/3] bg-muted">
                     {project.photos[0] ? (

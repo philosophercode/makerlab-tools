@@ -88,6 +88,19 @@ describe("listMaintenanceHistoryForTool", () => {
     expect(text).not.toContain("Private detail");
   });
 
+  it("keeps a log filed against the tool itself, or whose unit was retired, and no other tool's", async () => {
+    await insertLog({ title: "Whole machine", unitId: null, toolId, dateReported: "2024-03-01" });
+    await insertLog({ title: "Retired unit", unitId: null, toolId, unitLabel: "Form 4 // Old", dateReported: "2024-02-01" });
+    const [other] = await db.insert(tools).values({ slug: "fuse-1", name: "Fuse 1", published: true }).returning({ id: tools.id });
+    await insertLog({ title: "Someone else's", unitId: null, toolId: other.id, dateReported: "2024-04-01" });
+
+    const entries = await listMaintenanceHistoryForTool(toolId, { db });
+    expect(entries.map((entry) => [entry.title, entry.unitLabel])).toEqual([
+      ["Whole machine", ""],
+      ["Retired unit", "Form 4 // Old"],
+    ]);
+  });
+
   it("is bounded, and empty for a non-uuid", async () => {
     for (let i = 0; i < 12; i += 1) await insertLog({ title: `Log ${i}` });
     expect(await listMaintenanceHistoryForTool(toolId, { db })).toHaveLength(10);
