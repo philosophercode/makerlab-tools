@@ -1,3 +1,4 @@
+import { urlLanguage } from "../research/language.ts";
 import type { CitedField } from "../research/model-output.ts";
 import { researchDisplayName, type ResearchResult } from "../research/result.ts";
 import { distinctDisplayName } from "../tool-name-choice.ts";
@@ -39,7 +40,8 @@ import { SAFETY_FIELDS, type Citation, type FieldProposal, type ProposalField, t
  *   training is never proposed to stop requiring it.
  * - **Resources** are compared by URL, after the image finder's size-variant
  *   normalization and a leading locale segment dropped; only links the tool
- *   lacks are proposed, never a removal.
+ *   lacks are proposed, never a removal. A tool link in another language (by
+ *   its URL) does not count as having the English one.
  * - **Cover photo** only when the tool has none: research's first-ranked image.
  * - **No PPE, ever**: staff set it (Isaac, 2026-09-23). There is no PPE field.
  * - **A tool research could not identify** — nothing read, or only its type
@@ -186,8 +188,15 @@ export function proposeChanges(input: ProposeInput): FieldProposal[] {
     out.push(proposal("emergency_stop", "differs", tool.emergencyStop, stopFound, cited("emergency_stop")));
   }
 
-  // Resources — only links the tool lacks.
-  const have = new Set(tool.resourceUrls.map(resourceKey).filter((key): key is string => key !== null));
+  // Resources — only links the tool lacks. A tool link whose address names only
+  // another language does not hide the English one at the same address minus its
+  // locale (amendment "English resources only"): `/en-us/x` is proposed beside `/de-de/x`.
+  const have = new Set(
+    tool.resourceUrls
+      .filter((url) => urlLanguage(url).verdict !== "not_english")
+      .map(resourceKey)
+      .filter((key): key is string => key !== null)
+  );
   const proposedKeys = new Set<string>();
   for (const resource of research.resources) {
     const key = resourceKey(resource.url);

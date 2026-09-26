@@ -25,6 +25,7 @@
  */
 
 import { guardedFetch } from "../web/guarded-fetch.ts";
+import { titleLanguage } from "./language.ts";
 
 const VERIFY_UA = "Mozilla/5.0 (compatible; MakerLabBot/1.0)";
 const VERIFY_TIMEOUT_MS = 8000;
@@ -43,6 +44,13 @@ export interface VerifyOptions {
    * a manual that was never opened.
    */
   signal?: AbortSignal;
+  /**
+   * Research's links only (amendment "English resources only"): a YouTube
+   * video whose title, from the oEmbed answer already fetched, is not English
+   * (mostly a non-Latin script, or a foreign word for "manual") is dropped.
+   * Off by default, so MCP `create_tool` is unchanged.
+   */
+  englishOnly?: boolean;
 }
 
 export interface VerifyLinksOptions extends VerifyOptions {
@@ -100,7 +108,15 @@ export async function verifyUrl(
         `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`,
         { signal: requestSignal(opts.signal) }
       );
-      if (res.status === 200) return { ok: true };
+      if (res.status === 200) {
+        if (!opts.englishOnly) return { ok: true };
+        const title = await res
+          .json()
+          .then((body: unknown) => (body && typeof body === "object" && typeof (body as { title?: unknown }).title === "string" ? (body as { title: string }).title : null))
+          .catch(() => null);
+        const judgement = titleLanguage(title);
+        return judgement.verdict === "not_english" ? { ok: false, reason: `not English (${judgement.lang}, from its title)` } : { ok: true };
+      }
       if (res.status === 404 || res.status === 401)
         return { ok: false, reason: "video does not exist" };
       return { ok: true }; // transient/unknown — don't false-drop
@@ -148,7 +164,7 @@ export async function verifyResourceLinks<T extends { title: string; url: string
   const checked = await Promise.all(
     toCheck.map(async (r) => ({
       resource: r,
-      result: await verifyUrl(r.url, { signal: opts.signal }),
+      result: await verifyUrl(r.url, { signal: opts.signal, englishOnly: opts.englishOnly }),
     }))
   );
 
@@ -167,6 +183,7 @@ export async function verifyResourceLinks<T extends { title: string; url: string
   return { verified, dropped };
 }
 
-function describeDropped(resource: { title: string; url: string; type: string }, reason: string): string {
+/** A dropped link as the reviewer reads it: `Manual "title" (url) — reason`. */
+export function describeDropped(resource: { title: string; url: string; type: string }, reason: string): string {
   return `${resource.type} "${resource.title}" (${resource.url}) — ${reason}`;
 }

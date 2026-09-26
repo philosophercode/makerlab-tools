@@ -1,7 +1,7 @@
 import { DESCRIPTION_RULES } from "../description-rules";
 import { RESEARCH_MAX_WEB_SEARCHES, REVIEWER_NOTE_MAX_CHARS } from "../intake/limits";
 import { parseSearchFindings } from "./model-output";
-import { MANUAL_TEXT_LABEL, SEARCH_TEXT_LABEL, buildReadPrompt, buildSearchPrompt, researchSystemPrompt, type ReadPromptInput } from "./prompt";
+import { ENGLISH_PARAGRAPH, MANUAL_TEXT_LABEL, SEARCH_TEXT_LABEL, buildReadPrompt, buildSearchPrompt, researchSystemPrompt, type ReadPromptInput } from "./prompt";
 import { STARTER_QUESTION_GUIDANCE } from "../starter-questions";
 
 /**
@@ -413,5 +413,24 @@ describe('starter questions (amendment "Tool-specific starter questions")', () =
 
   it("asks the search pass for none", () => {
     expect(search).not.toContain("starterQuestions");
+  });
+});
+
+describe('English only (amendment "English resources only")', () => {
+  it("tells both passes that every link and source is English, the en-us / en-gb page first, a multilingual manual allowed", () => {
+    for (const stage of ["search", "read"] as const) {
+      const prompt = researchSystemPrompt(stage);
+      expect(prompt).toContain(ENGLISH_PARAGRAPH);
+      expect(prompt).toContain("## English only");
+      expect(prompt).toMatch(/en-us/);
+      expect(prompt).toMatch(/en-gb/);
+      expect(prompt).toMatch(/multilingual manual that includes an English section is fine/);
+      expect(prompt).toMatch(/Never give a page in another language as a link, even the manufacturer's own/);
+    }
+  });
+
+  it("tells the read pass a non-English page was left out and must not be listed", () => {
+    expect(researchSystemPrompt("read")).toMatch(/skipped \(not English\)/);
+    expect(researchSystemPrompt("search")).not.toMatch(/skipped \(not English\)/);
   });
 });

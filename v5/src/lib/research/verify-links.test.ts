@@ -195,3 +195,35 @@ describe("verifyResourceLinks", () => {
     expect(verified[0].note).toBe("keep");
   });
 });
+
+describe('verifyUrl — englishOnly (amendment "English resources only")', () => {
+  it("drops a YouTube video whose title is not English, for research only", async () => {
+    server.use(
+      http.get(OEMBED, ({ request }) => {
+        const target = new URL(request.url).searchParams.get("url") ?? "";
+        if (target.includes("ja")) return HttpResponse.json({ title: "Bambu Lab X2D 開封と初期設定ガイド" });
+        if (target.includes("broken")) return new HttpResponse("not json", { status: 200 });
+        return HttpResponse.json({ title: "Bambu Lab X2D unboxing and setup" });
+      })
+    );
+    expect(await verifyUrl("https://www.youtube.com/watch?v=ja", { englishOnly: true })).toEqual({
+      ok: false,
+      reason: "not English (ja, from its title)",
+    });
+    expect(await verifyUrl("https://www.youtube.com/watch?v=en", { englishOnly: true })).toEqual({ ok: true });
+    // An answer with no readable title says nothing: kept.
+    expect(await verifyUrl("https://www.youtube.com/watch?v=broken", { englishOnly: true })).toEqual({ ok: true });
+    // Without the option (MCP create_tool), the title is not read.
+    expect(await verifyUrl("https://www.youtube.com/watch?v=ja")).toEqual({ ok: true });
+  });
+
+  it("verifyResourceLinks passes englishOnly through and says why a video was dropped", async () => {
+    server.use(http.get(OEMBED, () => HttpResponse.json({ title: "X2D 使用教程与设置" })));
+    const { verified, dropped } = await verifyResourceLinks(
+      [{ title: "Setup video", url: "https://youtu.be/zh", type: "Video" }],
+      { englishOnly: true }
+    );
+    expect(verified).toEqual([]);
+    expect(dropped).toEqual(['Video "Setup video" (https://youtu.be/zh) — not English (zh, from its title)']);
+  });
+});

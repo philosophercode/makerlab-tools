@@ -1,4 +1,5 @@
 import type { SearchPageText } from "../ai/exa.ts";
+import { pageLanguage } from "./language.ts";
 import { isBrandHost, type PageSubject } from "./source-pages.ts";
 
 /**
@@ -17,6 +18,10 @@ import { isBrandHost, type PageSubject } from "./source-pages.ts";
  * - {@link withManualPdf} — the read list with one of them in it when the list
  *   holds no PDF already: appended when there is room, else in place of the
  *   last page that is not the product page (a video first).
+ *
+ * **English only** (amendment "English resources only"): a PDF whose captured
+ * text, or failing that its URL, is not English is never picked; a
+ * multilingual manual with an English section is.
  *
  * The URL's host is not required to be the brand's — a manufacturer's CDN
  * rarely is — which is why the model must be named in what Exa captured. The
@@ -76,6 +81,7 @@ function escape(word: string): string {
 export function pickManualPdfs(results: readonly SearchPageText[], subject: PageSubject): string[] {
   return results
     .filter((result) => isPdfUrl(result.url))
+    .filter((result) => pageLanguage({ url: result.url, text: result.text, manual: true }).verdict !== "not_english")
     .map((result, index) => ({ url: result.url, index, score: relevance(result, subject) }))
     .filter((entry) => entry.score > 0)
     .sort((a, b) => b.score - a.score || a.index - b.index)

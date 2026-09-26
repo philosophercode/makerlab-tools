@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { ENGLISH, FRENCH, GERMAN, repeat } from "./language-samples.test-helpers";
 import { isPdfUrl, modelWords, pickManualPdfs, withManualPdf } from "./manual-pdfs";
 
 /**
@@ -67,5 +68,14 @@ describe("withManualPdf", () => {
     const withPdf = [product, "https://bambulab.com/x2d.pdf"];
     expect(withManualPdf(withPdf, [CDN_MANUAL], 4)).toEqual(withPdf);
     expect(withManualPdf([product], [], 4)).toEqual([product]);
+  });
+});
+
+describe('pickManualPdfs — English only (amendment "English resources only")', () => {
+  it("never picks a PDF whose captured text or file name is not English; a multilingual one with English is picked", () => {
+    const german = result("https://cdn.test/a.pdf", `X2D ${repeat(GERMAN, 3)}`);
+    const byName = result("https://cdn.test/X2D_FR.pdf", "X2D");
+    const multilingual = result("https://cdn.test/b.pdf", `X2D ${repeat(GERMAN, 3)}${repeat(ENGLISH, 3)}${repeat(FRENCH, 3)}`);
+    expect(pickManualPdfs([german, byName, multilingual], X2D)).toEqual(["https://cdn.test/b.pdf"]);
   });
 });
