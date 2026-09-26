@@ -1,6 +1,7 @@
 import { createTranslator } from "next-intl";
 import messages from "../../../messages/en.json";
 import { SERIES_DAYS } from "../../lib/data/admin-overview";
+import { factGlyph } from "../system/Tile";
 import { tileContent } from "./admin-tiles";
 
 /**
@@ -39,7 +40,8 @@ it("does not call the inventory's attention flags waiting work", () => {
     t
   );
   expect(content.waiting).toBeFalsy();
-  expect(content.facts).toContainEqual({ label: "No photo", value: 0, tone: "ok" });
+  // The tone is what the row means when non-zero; the tile draws no glyph on a 0.
+  expect(content.facts).toContainEqual({ label: "No photo", value: 0, tone: "warn" });
   expect(content.facts).toContainEqual({ label: "No manual", value: 2, tone: "warn" });
 });
 
@@ -97,5 +99,55 @@ describe("tile sizes (DESIGN.md §8.2)", () => {
 
   it("still shows a ban on the People tile", () => {
     expect(tileContent("users", { total: 4, admins: 2, banned: 1 }, t).content.facts).toContainEqual({ label: "Banned", value: 1, tone: "warn" });
+  });
+});
+
+describe("glyphs only where they carry meaning (DESIGN.md §8.5, 2026-09-25)", () => {
+  const zeros = {
+    intake: { identified: 0, researching: 0, researched: 0, failed: 0, series: series(0) },
+    inventory: { total: 2, published: 2, draft: 0, archived: 0, needsAttention: 0, noPhoto: 0, noManual: 0, neverReviewed: 0 },
+    refresh: { proposed: 0, running: 0, failed: 0 },
+    research: { searchable: 0, total: 0, failed: 0 },
+    maintenance: { open: 0, inProgress: 0, urgent: 0, series: series(0) },
+    corrections: { open: 0, handled: 0, series: series(0) },
+    projects: { waiting: 0, published: 0 },
+    users: { total: 1, admins: 1, banned: 0 },
+  };
+  const busy = {
+    intake: { identified: 2, researching: 3, researched: 8, failed: 1, series: series(2) },
+    inventory: { total: 9, published: 6, draft: 2, archived: 1, needsAttention: 5, noPhoto: 3, noManual: 2, neverReviewed: 4 },
+    refresh: { proposed: 1, running: 2, failed: 1 },
+    research: { searchable: 4, total: 6, failed: 2 },
+    maintenance: { open: 5, inProgress: 3, urgent: 2, series: series(1) },
+    corrections: { open: 5, handled: 8, series: series(1) },
+    projects: { waiting: 1, published: 1 },
+    users: { total: 4, admins: 2, banned: 1 },
+  };
+  const glyphs = (counts: Record<string, unknown>, extra = {}) =>
+    Object.entries(counts).flatMap(([key, c]) =>
+      (tileContent(key as never, c as never, t, extra).content.facts ?? []).map((fact) => ({ label: fact.label, glyph: factGlyph(fact) }))
+    );
+
+  it("draws no glyph on any row when every count is zero", () => {
+    expect(glyphs(zeros, { imports: { ready: 0, mapping: 0, last30: 0 } }).filter(({ glyph }) => glyph !== null)).toEqual([]);
+  });
+
+  it("marks only warn, bad and waiting-on-you rows — never in-progress or neutral ones", () => {
+    const marked = glyphs(busy, { imports: { ready: 2, mapping: 0, last30: 2 } });
+    for (const { glyph } of marked) expect([null, "warn", "bad", "active"]).toContain(glyph);
+    expect(Object.fromEntries(marked.map(({ label, glyph }) => [label, glyph]))).toMatchObject({
+      Researching: null,
+      Running: null,
+      "In progress": null,
+      Handled: null,
+      "Manuals on file": null,
+      "Published — in the catalog": null,
+      "Drafts and archived": null,
+      "No photo": "warn",
+      "High or critical": "bad",
+      "Research failed": "bad",
+      "Identified, not researched": "active",
+      "Imported lists waiting for review": "active",
+    });
   });
 });

@@ -157,32 +157,53 @@ lede → **facts line** (`101 TOOLS · 86 PUBLISHED · 11 DRAFTS · 97 NEED ATTE
 - **Don't** stack a display heading above it (the old 88px "ADMIN"); don't put
   more than one filled button in the actions.
 - Gallery and tool page keep their display heroes.
+- **Sticky chrome never hides what it scrolls to.** The nav and status strip
+  stick (`--sticky-chrome-height`); inside the admin, every heading, link,
+  button and anchor target has `scroll-margin-top` of that height plus 16px, so
+  focusing the header's actions with Tab, or following a `#` link, lands them
+  below the strip instead of under it. Content scrolled past by hand goes
+  under the opaque strip, which sits above it (`z-index: 20`); nothing in the
+  admin sets a z-index that competes with it.
 
 ![Header, section bar and facts line](screens/after-inventory-desktop.webp)
 
 ### 8.2 Tiles — `Tile`, `TileGroup`, `TileGrid`
 
-Whole tile is the link. Mono title + icon → headline number (40px, tabular) with
-the words for what it counts → facts (`glyph label ……… value`) → optional
-30-day sparkline with a `30 DAYS` caption, **pinned to the tile's foot**. Accent
-left border and accent number when the headline is **work waiting for a
-person**; muted number when it is 0. The parts are always in that order and in
-those places, so tiles side by side read as small multiples.
+Whole tile is the link. Every tile has the same anatomy, in the same places:
+**label row** (mono title left, icon right) → **headline** (40px tabular
+number and the words for what it counts, on one baseline) → **facts table** →
+optional 30-day **sparkline** with a `30 DAYS` caption, **pinned to the tile's
+foot**. Accent left border and accent number when the headline is **work
+waiting for a person**; muted number when it is 0. Tiles side by side read as
+small multiples.
 
-- **Use** for the admin home: one tile per surface, one column per job, only
-  the surfaces the viewer may open (`surfacesFor`), each counted by its own
-  loader so one unreadable table costs one tile.
-- **Rows line up.** The columns share one row grid (`TileGrid`; each
-  `TileGroup` is a CSS subgrid): a tile spans two row tracks and fills them, so
-  tiles in the same row share their top and bottom edges across groups, however
-  much each one says. Every group spans the same number of tracks, so a short
-  group ends early rather than stretching its tiles. One column on a phone, in
-  the same order.
-- **Half tiles.** A surface with only a number or a state — People, the Notion
-  mirror, Projects with nothing waiting, a count that could not be read — is a
-  **half tile** (`size="half"`: one track, 28px number, no trend). Pair half
-  tiles in a group so two stand where one full tile would and the grid stays
-  rectangular; a lone half tile goes last in its group.
+- **Use** for the admin home: one tile per surface, grouped by job, only the
+  surfaces the viewer may open (`surfacesFor`), each counted by its own loader
+  so one unreadable table costs one tile.
+- **Facts are a three-column table** (`glyph | label | value`), the same on
+  every row: a fixed glyph column (empty when the row has no glyph), the label,
+  and the number right-aligned in one tabular mono column. So every label
+  starts at the same x and every number ends at the same x, glyph or not. Never
+  indent a row with padding or an invisible glyph — the column is reserved on
+  every row. A zero is a muted `0`, so the non-zero counts stand out. The
+  table is at most 24rem wide, so on a wide tile the numbers stay near their
+  labels.
+- **Groups are bands** (owner, 2026-09-25). Each group is a heading over a row
+  of cells, spanning as many grid columns as it has cells; groups flow into the
+  home's grid (`TileGrid`: one column on a phone, two from `sm`, four from
+  `xl`) and each is a CSS subgrid, so the groups in one band share their
+  heading row and their tile row. At 1440 that is two rectangular bands —
+  `ADD EQUIPMENT | KEEP DATA FRESH` (1 + 3) over `QUEUES | PEOPLE & SETTINGS`
+  (3 + 1) — every tile in a band the same height, every heading on one line,
+  no column left empty under a short group. At two columns a group takes the
+  full width and a group's last odd cell spans both columns. One column on a
+  phone, in the same order.
+- **Half tiles pair.** A surface with only a number or a state — People, the
+  Notion mirror, Projects with nothing waiting, a count that could not be read
+  — is a **half tile** (`size="half"`: 28px number, no trend). Consecutive half
+  tiles in a group share one cell, stacked (side by side when the cell spans
+  two columns), so two stand where one full tile would. A lone half tile takes
+  a cell of its own and stretches to the row's edges.
 - **Say what the number counts**, in the unit and the facts, whenever another
   number on screen could seem to contradict it: the Inventory tile's "of 104
   tools need attention" sits beside "Published — in the catalog 100" and
@@ -278,6 +299,24 @@ nothing, and filters are written to the URL so a view is a link.
 
 Always with the word (visible, or `sr-only` in `compact` cells). **Don't** use a
 coloured dot alone, a pill background, or Badge for status.
+
+**Glyphs only where they carry meaning** (owner, 2026-09-25). A glyph is a
+flag for the eye; one on every row is noise, and a hollow ○ beside "Running"
+reads as a spinner. In a tile's facts, and anywhere a count is listed:
+
+- **▲ warn** and **■ bad** mark a row **only when its count is non-zero**
+  (No photo 3, High or critical 5, Failed 1); **◆ active** marks work waiting
+  on you when non-zero (Identified, not researched 2). A row that says it
+  could not be read is ■ bad.
+- **A zero or neutral row has no glyph** — the reserved glyph column stays
+  empty, and a zero is a muted `0`. Neutral means a stock or a state that asks
+  nothing of anyone: Published, Handled, Manuals on file.
+- **In progress has no glyph.** Running, Researching and a ticket in progress
+  are being handled; the label says so, and a mark would claim they need
+  someone. There is no in-progress tone, and ○ idle / ● ok are not used in
+  facts (they remain for status *cells*, where every row has a status).
+- The rule is enforced in one place (`factGlyph` in `system/Tile.tsx`), so a
+  caller cannot put a glyph on a zero.
 
 ### 8.6 Review / proposal card — `ReviewCard`
 

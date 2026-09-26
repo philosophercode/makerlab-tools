@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Sparkline } from "./Sparkline";
@@ -11,10 +11,9 @@ import { Glyph, type StatusTone } from "./StatusGlyph";
  *
  * Reading order: what it is (mono title + icon) → the one number that
  * matters, large and tabular, with the words that say what it counts → up to
- * four facts (`glyph label ……… value`) → a 30-day sparkline when a trend
- * matters. The accent (start rule and number) marks **work waiting for a
- * person** and nothing else; a zero is a muted zero, because "nothing
- * waiting" is information.
+ * four facts → a 30-day sparkline when a trend matters. The accent (start
+ * rule and number) marks **work waiting for a person** and nothing else; a
+ * zero is a muted zero, because "nothing waiting" is information.
  *
  * **Unreadable is not zero.** `value: null` says `note` ("Could not be read",
  * or a state such as "Not connected") where the number would be, and shows no
@@ -24,13 +23,18 @@ import { Glyph, type StatusTone } from "./StatusGlyph";
  * description, so "Inventory" is one stop in a screen reader's links list and
  * the counts are read after it.
  *
- * **Two sizes, one grid** (owner, 2026-09-25). A tile fills the height its
- * grid row gives it, so tiles side by side share their top and bottom edges;
- * inside, the parts always sit in the same places — title row, number and
- * what it counts, facts, and the trend pinned to the bottom. A **half** tile
- * (`size="half"`) is for a surface with only a number or a state (People, the
- * mirror, Projects with nothing waiting): it takes half a row, and the home
- * pairs two of them so the grid stays rectangular. It never draws a trend.
+ * **One anatomy** (owner, 2026-09-25). A tile fills the height its grid row
+ * gives it, so tiles side by side share their top and bottom edges; inside,
+ * the parts always sit in the same places — label row, number and what it
+ * counts on one baseline, the facts table, and the trend pinned to the foot.
+ * A **half** tile (`size="half"`) is for a surface with only a number or a
+ * state (People, the mirror, Projects with nothing waiting): the home pairs
+ * two of them in one cell (`pairHalves`). It never draws a trend.
+ *
+ * **Facts are a table** (DESIGN.md §8.2): `glyph | label | value` on every
+ * row, the glyph column reserved even when it is empty, so labels start at one
+ * x and numbers end at one x. The glyph follows `factGlyph` (DESIGN.md §8.5):
+ * warn, bad and active only, and only on a non-zero row. A zero is muted.
  */
 export interface TileFact {
   label: string;
@@ -64,6 +68,7 @@ export function Tile({ id, href, icon, title, value, unit, waiting = false, fact
   return (
     <Link
       href={href}
+      id={id}
       aria-labelledby={`${id}-title`}
       aria-describedby={`${id}-body`}
       data-slot="tile"
@@ -76,7 +81,7 @@ export function Tile({ id, href, icon, title, value, unit, waiting = false, fact
         accent ? "border-s-primary-ink" : "border-s-border"
       )}
     >
-      <span className="flex items-center justify-between gap-2">
+      <span data-slot="tile-label" className="flex items-center justify-between gap-2">
         <span
           id={`${id}-title`}
           className="font-mono text-label tracking-[0.08em] text-muted-foreground uppercase group-hover:text-foreground"
@@ -91,7 +96,7 @@ export function Tile({ id, href, icon, title, value, unit, waiting = false, fact
       </span>
 
       <span id={`${id}-body`} className={cn("flex flex-1 flex-col", half ? "gap-2" : "gap-3")}>
-        <span className="flex items-baseline gap-2">
+        <span data-slot="tile-headline" className="flex items-baseline gap-2">
           {value === null ? (
             <span className="text-table text-muted-foreground">{note}</span>
           ) : (
@@ -106,33 +111,45 @@ export function Tile({ id, href, icon, title, value, unit, waiting = false, fact
               >
                 {value}
               </span>{" "}
-              {unit ?<span className="text-table leading-tight text-muted-foreground">{unit}</span> : null}
+              {unit ? <span className="text-table leading-tight text-muted-foreground">{unit}</span> : null}
             </>
           )}
         </span>
 
         {value !== null && facts.length > 0 ? (
-          <span className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-0.5 text-xs leading-snug">
-            {facts.map((fact) => (
-              <span key={fact.label} className="contents">
-                <span className="text-muted-foreground">
-                  <Glyph tone={fact.tone ?? "muted"} className={cn("me-1.5", fact.tone ? undefined : "invisible")} />
-                  {fact.label}
-                  {/* Heard as "In progress: 1," — the grid lays the two out as columns. */}
-                  <span className="sr-only">: </span>
-                </span>{" "}
-                <span className="text-end font-mono tabular-nums">
-                  {fact.value}
-                  <span className="sr-only">, </span>
+          <span
+            data-slot="tile-facts"
+            className="grid max-w-sm grid-cols-[0.75rem_minmax(0,1fr)_auto] items-baseline gap-x-2 gap-y-0.5 text-xs leading-snug"
+          >
+            {facts.map((fact) => {
+              const glyph = factGlyph(fact);
+              return (
+                <span key={fact.label} data-slot="tile-fact" data-glyph={glyph ?? undefined} className="contents">
+                  {/* Reserved on every row, glyph or not, so every label starts at the same x. */}
+                  <span data-slot="tile-fact-glyph" className="text-center">
+                    {glyph ? <Glyph tone={glyph} /> : null}
+                  </span>
+                  <span data-slot="tile-fact-label" className="min-w-0 text-muted-foreground">
+                    {fact.label}
+                    {/* Heard as "In progress: 1," — the grid lays the two out as columns. */}
+                    <span className="sr-only">: </span>
+                  </span>{" "}
+                  <span
+                    data-slot="tile-fact-value"
+                    className={cn("text-end font-mono tabular-nums", fact.value === 0 && "text-muted-foreground/70")}
+                  >
+                    {fact.value}
+                    <span className="sr-only">, </span>
+                  </span>
                 </span>
-              </span>
-            ))}
+              );
+            })}
           </span>
         ) : null}
 
         {value !== null && series && !half ? (
           // Pinned to the tile's foot, so trends side by side share a baseline.
-          <span className="mt-auto flex items-end justify-between gap-2 pt-1">
+          <span data-slot="tile-trend" className="mt-auto flex items-end justify-between gap-2 pt-1">
             <Sparkline values={series.values} label={series.label} width={120} height={22} />
             <span className="font-mono text-micro tracking-[0.06em] text-muted-foreground uppercase">{series.caption}</span>
           </span>
@@ -142,24 +159,93 @@ export function Tile({ id, href, icon, title, value, unit, waiting = false, fact
   );
 }
 
+/** The tones a fact may mark; the rest (ok, idle, muted) say nothing the row's words don't. */
+const FACT_TONES: ReadonlySet<StatusTone> = new Set<StatusTone>(["warn", "bad", "active"]);
+
+/**
+ * The glyph a fact row shows, or null for none (DESIGN.md §8.5): ▲ warn, ■ bad
+ * and ◆ active, and only when the row is non-zero — a count above 0, or a
+ * sentence such as "Could not be read". A zero or neutral row has no glyph,
+ * and in-progress has no tone to give it one.
+ */
+export function factGlyph(fact: Pick<TileFact, "value" | "tone">): StatusTone | null {
+  if (!fact.tone || !FACT_TONES.has(fact.tone)) return null;
+  if (typeof fact.value === "number" && fact.value <= 0) return null;
+  return fact.tone;
+}
+
+/**
+ * One cell of a group: a tile, or two half tiles sharing one (DESIGN.md §8.2).
+ * Consecutive halves pair in order; a lone half keeps a cell of its own.
+ */
+export type TileCellOf<T> = { kind: "one"; item: T } | { kind: "pair"; items: [T, T] };
+
+export function pairHalves<T>(items: readonly T[], isHalf: (item: T) => boolean): TileCellOf<T>[] {
+  const cells: TileCellOf<T>[] = [];
+  for (let i = 0; i < items.length; i += 1) {
+    const item = items[i];
+    const next = items[i + 1];
+    if (next !== undefined && isHalf(item) && isHalf(next)) {
+      cells.push({ kind: "pair", items: [item, next] });
+      i += 1;
+    } else {
+      cells.push({ kind: "one", item });
+    }
+  }
+  return cells;
+}
+
+/** The home's column counts by breakpoint: one on a phone, two from `sm`, four from `xl`. */
+const COLUMNS = { sm: 2, xl: 4 } as const;
+
+/**
+ * How a group of `cells` cells lies in the home's grid at `columns` columns:
+ * the columns it spans (its cells, at most the grid's width) and its row
+ * tracks — the heading's, and one per row of cells.
+ */
+export function groupSpan(cells: number, columns: number): { columns: number; rows: number } {
+  const count = Math.max(1, cells);
+  const across = Math.min(count, columns);
+  return { columns: across, rows: 1 + Math.ceil(count / across) };
+}
+
 /**
  * One job's tiles ("Add equipment", "Queues"), under a mono `// ` heading.
  *
- * On a phone it is a plain column. From `sm` it is a **subgrid** of the home's
- * row grid (`TileGrid`): its heading takes the first row and each tile spans
- * two rows (a half tile one), so the rows' heights are shared by every group
- * and tiles in the same row line up across groups. `rows` is how many row
- * tracks the group spans — the heading plus the tallest group's tiles.
+ * On a phone it is a plain column. From `sm` it is a **band**: a subgrid of
+ * the home's grid (`TileGrid`) spanning as many columns as it has `cells` —
+ * the whole width at two columns — with its heading across them on the first
+ * row and its cells on the rows below. Groups side by side share their
+ * heading row and their tile row, so the headings line up, every tile in a
+ * row is the same height, and no column is left empty under a short group.
  */
-export function TileGroup({ id, title, rows, children }: { id: string; title: string; rows?: number; children: ReactNode }) {
+export function TileGroup({ id, title, cells, children }: { id: string; title: string; cells: number; children: ReactNode }) {
+  // At two columns every group is a full-width band (a lone cell spans both).
+  const sm = { columns: COLUMNS.sm, rows: groupSpan(cells, COLUMNS.sm).rows };
+  const xl = groupSpan(cells, COLUMNS.xl);
+  const style = {
+    "--tile-cols-sm": sm.columns,
+    "--tile-rows-sm": sm.rows,
+    "--tile-cols-xl": xl.columns,
+    "--tile-rows-xl": xl.rows,
+  } as CSSProperties;
   return (
     <section
       aria-labelledby={id}
       data-slot="tile-group"
-      className="ui flex flex-col gap-2 sm:grid sm:grid-rows-subgrid sm:gap-y-2"
-      style={rows ? { gridRow: `span ${rows} / span ${rows}` } : undefined}
+      data-cells={cells}
+      className={cn(
+        "ui flex flex-col gap-2",
+        "sm:grid sm:grid-cols-subgrid sm:grid-rows-subgrid sm:gap-x-4 sm:gap-y-2",
+        "sm:[grid-column:span_var(--tile-cols-sm)] sm:[grid-row:span_var(--tile-rows-sm)]",
+        "xl:[grid-column:span_var(--tile-cols-xl)] xl:[grid-row:span_var(--tile-rows-xl)]"
+      )}
+      style={style}
     >
-      <h3 id={id} className="m-0 font-mono text-label font-medium sm:self-end sm:pt-4 tracking-[0.1em] text-muted-foreground uppercase">
+      <h3
+        id={id}
+        className="m-0 font-mono text-label font-medium tracking-[0.1em] text-muted-foreground uppercase sm:col-span-full sm:self-end sm:pt-4"
+      >
         <span aria-hidden="true" className="text-primary-ink">
           {"// "}
         </span>
@@ -170,24 +256,38 @@ export function TileGroup({ id, title, rows, children }: { id: string; title: st
   );
 }
 
-/** How many row tracks a tile takes in `TileGroup`'s subgrid: two, or one for a half tile. */
-export function tileRows(size: TileProps["size"]): number {
-  return size === "half" ? 1 : 2;
+/**
+ * The home's tile grid: one column on a phone, two from `sm`, four from `xl`,
+ * with the groups laid in as bands (see `TileGroup`).
+ */
+export function TileGrid({ children }: { children: ReactNode }) {
+  return (
+    <div data-slot="tile-grid" className="ui flex flex-col gap-8 sm:grid sm:grid-cols-2 sm:gap-x-4 sm:gap-y-2 xl:grid-cols-4">
+      {children}
+    </div>
+  );
 }
 
 /**
- * The home's tile grid: one column on a phone, two from `sm`, four from `xl`,
- * with the groups laid in as subgrids (see `TileGroup`).
+ * A cell in a group's band — one tile, or a `pair` of half tiles — stretched
+ * to its row, so tiles side by side share their edges. `wide` marks the last
+ * cell of a group with an odd number of them: at two columns it spans both,
+ * so the band stays rectangular (at four columns it is one column, as ever).
+ * A pair stacks its halves, or sets them side by side when the cell is wide.
  */
-export function TileGrid({ children }: { children: ReactNode }) {
-  return <div className="ui flex flex-col gap-8 sm:grid sm:grid-cols-2 sm:gap-x-4 sm:gap-y-2 xl:grid-cols-4">{children}</div>;
-}
-
-/** A tile's cell in the group's subgrid: it spans its rows and stretches to fill them. */
-export function TileCell({ size, children }: { size: TileProps["size"]; children: ReactNode }) {
-  const rows = tileRows(size);
+export function TileCell({ pair = false, wide = false, children }: { pair?: boolean; wide?: boolean; children: ReactNode }) {
   return (
-    <div data-slot="tile-cell" className="min-h-0" style={{ gridRow: `span ${rows} / span ${rows}` }}>
+    <div
+      data-slot="tile-cell"
+      data-pair={pair || undefined}
+      data-wide={wide || undefined}
+      className={cn(
+        "min-h-0",
+        wide && "sm:col-span-2 xl:col-span-1",
+        pair && "flex flex-col gap-2 *:h-auto *:flex-[1_0_auto]",
+        pair && wide && "sm:flex-row sm:gap-x-4 xl:flex-col"
+      )}
+    >
       {children}
     </div>
   );

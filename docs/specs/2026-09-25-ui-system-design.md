@@ -1248,3 +1248,53 @@ Same branch, three more owner requests after the amendment above:
   `(created_at at time zone LAB_TIMEZONE)::date`; `date_reported` was already a
   lab date. `now` is injectable, and the tests run on a fixed clock with a
   23:30 Eastern case, a 00:30-next-day case and a `LAB_TIMEZONE=UTC` case.
+
+### 2026-09-25 — Admin tiles cleanup (owner feedback on the overview)
+
+Branch `v5/admin-tiles-cleanup`. Owner feedback with a screenshot of `/admin`
+(dark, 1440). No data, permission or count changes; `loadAdminOverview` is
+untouched. Where the home now differs from the admin-polish amendment, and why:
+
+- **Fact rows align** (DESIGN.md §8.2). A fact's glyph sat inline before its
+  label, and a row without a tone drew an invisible `–` — a different advance
+  width from ○ ▲ ■ — so "Handled", "Manuals on file" and "Published — in the
+  catalog" started a few pixels off the rows with a glyph. The facts are now a
+  three-column grid on every tile, `glyph | label | value`: the glyph column
+  is a fixed width and present on every row (empty when there is no glyph),
+  the label starts at one x, the value is right-aligned tabular mono in one
+  column. Each row carries `data-slot="tile-fact-glyph|label|value"`.
+- **Glyphs only where they carry meaning** (DESIGN.md §8.5). The hollow ○ on
+  "Running", "Researching", "In progress" and on zero rows read as "in
+  progress" and was noise. Rule, enforced by `factGlyph` in `Tile.tsx` so no
+  caller can break it: ▲ warn, ■ bad and ◆ active only on a non-zero row (or a
+  row that says it could not be read); zero and neutral rows have no glyph;
+  in-progress has none (the label says it, and no mark claims someone is
+  needed); ● ok / ○ idle are not used in facts. A zero is a muted `0`.
+  `admin-tiles.ts` no longer passes `idle`/`ok`, and a ticket in progress is
+  no longer `warn`.
+- **Groups are bands, not columns.** The four job columns were subgrids of one
+  row grid, so a short group left its column empty under it (Intake under one
+  tile; People & settings under two halves) and the Manuals and Projects tiles
+  ended a row below everything else. Each group now spans as many columns as
+  it has cells and is a subgrid of the home's grid, so at 1440 the home is two
+  rectangular bands, `ADD EQUIPMENT | KEEP DATA FRESH` (1 + 3) over `QUEUES |
+  PEOPLE & SETTINGS` (3 + 1): headings on one line, every tile in a band the
+  same height. At two columns (sm–xl) each group is a full-width band and a
+  last odd cell spans both columns; a phone is one column, same order.
+  Consecutive half tiles share one cell (`pairHalves`), stacked, or side by
+  side when the cell is two columns wide. `tileRows` and `TileGroup rows` are
+  gone; `TileGroup` takes `cells`.
+- **Tile anatomy** is fixed: label row (title, icon) → number and caption on
+  one baseline → facts table (≤ 24rem, so a wide tile's numbers stay near
+  their labels) → sparkline and `30 DAYS` pinned to the foot.
+- **Sticky chrome.** Scrolled, the page header's Add equipment / Refresh
+  catalog buttons went under the sticky status strip. Scrolling content under
+  an opaque sticky strip is correct; what was wrong is that nothing kept a
+  *focused* or *anchored* target clear of it. `.admin-shell` gives its
+  headings, links, buttons and `[id]` targets `scroll-margin-top:
+  calc(var(--sticky-chrome-height) + 16px)`. The global header and strip are
+  not touched (a concurrent workflow owns them).
+- **Screens** (before/after, light and dark, 1440 / 1024 / 800 / 390, demo seed
+  and a scratch seed with every tile non-zero): `v5/.livecheck/admin-tiles-cleanup/shots/`,
+  not committed.
+- **Packages added:** none.
