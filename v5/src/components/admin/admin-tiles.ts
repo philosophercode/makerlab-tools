@@ -64,6 +64,10 @@ const sum = (values: readonly number[]) => values.reduce((a, b) => a + b, 0);
  * show, **half** when all it has is a number or a state — People, the Notion
  * mirror, Projects with nothing waiting, and any tile whose count could not be
  * read. The home pairs half tiles so its rows stay rectangular.
+ *
+ * A fact's tone is what the row means **when it is non-zero** — warn, bad, or
+ * active for work waiting on you — and a neutral or in-progress row has none
+ * (DESIGN.md §8.5). `Tile` draws no glyph on a zero (`factGlyph`).
  */
 const BUILDERS: { [K in SurfaceKey]: (counts: CountsFor[K], t: Translate, extra: ExtraCounts) => TileContent } = {
   intake: (c, t, extra) => ({
@@ -71,9 +75,9 @@ const BUILDERS: { [K in SurfaceKey]: (counts: CountsFor[K], t: Translate, extra:
     unit: t("home.intakeUnit"),
     waiting: true,
     facts: [
-      fact(t("home.intakeIdentified"), c.identified, c.identified ? "active" : "idle"),
-      fact(t("home.intakeResearching"), c.researching, "idle"),
-      fact(t("home.intakeFailed"), c.failed, c.failed ? "bad" : "idle"),
+      fact(t("home.intakeIdentified"), c.identified, "active"),
+      fact(t("home.intakeResearching"), c.researching),
+      fact(t("home.intakeFailed"), c.failed, "bad"),
       // Importing a list is part of Intake (amendment 2026-09-25): its lists
       // waiting for review are a line here, not a tile of their own. Said as
       // unreadable when its loader failed, never as 0.
@@ -81,7 +85,7 @@ const BUILDERS: { [K in SurfaceKey]: (counts: CountsFor[K], t: Translate, extra:
         ? []
         : extra.imports === null
           ? [{ label: t("home.intakeImports"), value: t("home.unavailable"), tone: "bad" as const }]
-          : [fact(t("home.intakeImports"), extra.imports.ready, extra.imports.ready ? "active" : "idle")]),
+          : [fact(t("home.intakeImports"), extra.imports.ready, "active")]),
     ],
     series: { values: c.series, caption: t("home.seriesCaption"), label: t("home.intakeSeries", { total: sum(c.series) }) },
   }),
@@ -94,9 +98,9 @@ const BUILDERS: { [K in SurfaceKey]: (counts: CountsFor[K], t: Translate, extra:
     facts: [
       fact(t("home.inventoryPublished"), c.published),
       fact(t("home.inventoryUnpublished"), c.draft + c.archived),
-      fact(t("home.inventoryNoPhoto"), c.noPhoto, c.noPhoto ? "warn" : "ok"),
-      fact(t("home.inventoryNoManual"), c.noManual, c.noManual ? "warn" : "ok"),
-      fact(t("home.inventoryNeverReviewed"), c.neverReviewed, c.neverReviewed ? "warn" : "ok"),
+      fact(t("home.inventoryNoPhoto"), c.noPhoto, "warn"),
+      fact(t("home.inventoryNoManual"), c.noManual, "warn"),
+      fact(t("home.inventoryNeverReviewed"), c.neverReviewed, "warn"),
     ],
   }),
   refresh: (c, t) => ({
@@ -104,22 +108,22 @@ const BUILDERS: { [K in SurfaceKey]: (counts: CountsFor[K], t: Translate, extra:
     unit: t("home.refreshUnit"),
     waiting: true,
     facts: [
-      fact(t("home.refreshRunning"), c.running, "idle"),
-      fact(t("home.refreshFailed"), c.failed, c.failed ? "bad" : "idle"),
+      fact(t("home.refreshRunning"), c.running),
+      fact(t("home.refreshFailed"), c.failed, "bad"),
     ],
   }),
   research: (c, t) => ({
     value: c.searchable,
     unit: t("home.manualsUnit"),
-    facts: [fact(t("home.manualsTotal"), c.total), fact(t("home.manualsFailed"), c.failed, c.failed ? "bad" : "idle")],
+    facts: [fact(t("home.manualsTotal"), c.total), fact(t("home.manualsFailed"), c.failed, "bad")],
   }),
   maintenance: (c, t) => ({
     value: c.open,
     unit: t("home.maintenanceUnit"),
     waiting: true,
     facts: [
-      fact(t("home.maintenanceInProgress"), c.inProgress, c.inProgress ? "warn" : "idle"),
-      fact(t("home.maintenanceUrgent"), c.urgent, c.urgent ? "bad" : "idle"),
+      fact(t("home.maintenanceInProgress"), c.inProgress),
+      fact(t("home.maintenanceUrgent"), c.urgent, "bad"),
     ],
     series: {
       values: c.series,

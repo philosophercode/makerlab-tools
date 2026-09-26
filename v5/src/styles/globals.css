@@ -1374,6 +1374,13 @@ body::selection {
   text-transform: uppercase;
 }
 
+/* The nav and status strip stick (DESIGN.md §8.1): a heading, link, button or
+   anchor target the browser scrolls to — by Tab focus or a `#` link — lands
+   below them instead of under the strip. */
+.admin-shell :where(h2, h3, a, button, [id]) {
+  scroll-margin-top: calc(var(--sticky-chrome-height) + 16px);
+}
+
 .admin-tag {
   padding: 1px 6px;
   border: 1px solid var(--outline);

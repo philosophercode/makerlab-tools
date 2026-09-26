@@ -4,7 +4,7 @@ import { AdminPageHeader } from "../../components/admin/AdminPageHeader";
 import { tileContent } from "../../components/admin/admin-tiles";
 import { RowStatus } from "../../components/admin/RowStatus";
 import { EmptyState } from "../../components/system/EmptyState";
-import { Tile, TileCell, TileGrid, TileGroup, tileRows } from "../../components/system/Tile";
+import { Tile, TileCell, TileGrid, TileGroup, pairHalves } from "../../components/system/Tile";
 import { ADMIN_GROUPS, countLoadersFor, surfacesFor } from "../../lib/admin/surfaces";
 import { can } from "../../lib/auth/permissions";
 import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
@@ -24,12 +24,13 @@ import { loadAdminOverview } from "../../lib/data/admin-overview";
  * which would claim there is no work (Article 4). Waiting counts live here
  * and only here (owner decision 2026-09-25: not in the section bar).
  *
- * Four columns, one per job, left to right in the order equipment moves
- * through the lab: small multiples of the same question. **The columns share
- * one row grid** (owner, 2026-09-25): each group is a subgrid, a tile spans
- * two rows and a half tile one, so tiles side by side share their edges and
- * two half tiles stand where one full tile would. A phone gets one column in
- * the same order.
+ * The groups, in the order equipment moves through the lab, are **bands**
+ * (owner, 2026-09-25; DESIGN.md §8.2): each spans as many of the grid's four
+ * columns as it has cells, so at 1440 the home is Add equipment + Keep data
+ * fresh over Queues + People & settings — two rectangular rows of small
+ * multiples, every tile in a row the same height. Consecutive half tiles share
+ * a cell. Two columns from `sm` (a group is a full-width band), one on a phone,
+ * in the same order.
  */
 
 export default async function AdminHomePage() {
@@ -51,13 +52,21 @@ export default async function AdminHomePage() {
   );
   const unreadable = tiles.filter((tile) => tile.unreadable).length;
 
-  // Every group spans the same number of row tracks — its heading, then the
-  // tallest group's tiles — so the groups of a second band (two columns) start
-  // on one row, and a short group simply ends early.
-  const groups = ADMIN_GROUPS.map((group) => ({ group, members: tiles.filter(({ entry }) => entry.group === group) })).filter(
-    ({ members }) => members.length > 0
-  );
-  const rows = 1 + Math.max(0, ...groups.map(({ members }) => members.reduce((n, { content }) => n + tileRows(content.size), 0)));
+  // Each group's cells: a tile, or two consecutive half tiles sharing one.
+  const groups = ADMIN_GROUPS.map((group) => ({
+    group,
+    cells: pairHalves(
+      tiles.filter(({ entry }) => entry.group === group),
+      ({ content }) => content.size === "half"
+    ),
+  })).filter(({ cells }) => cells.length > 0);
+
+  const renderTile = ({ entry, content }: (typeof tiles)[number]) => {
+    const Icon = entry.icon;
+    return (
+      <Tile key={entry.key} id={`tile-${entry.key}`} href={entry.href} title={t(`nav.surface.${entry.key}`)} icon={<Icon />} {...content} />
+    );
+  };
 
   return (
     <div className="ui flex flex-col gap-6">
@@ -79,19 +88,18 @@ export default async function AdminHomePage() {
       {open.length === 0 ? <EmptyState>{t("indexNothingYet")}</EmptyState> : null}
 
       <TileGrid>
-        {groups.map(({ group, members }) => (
-          <TileGroup key={group} id={`admin-group-${group}`} title={t(`nav.group.${group}`)} rows={rows}>
-            {members.map(({ entry, content }) => {
-              const Icon = entry.icon;
-              return (
-                <TileCell key={entry.key} size={content.size}>
-                  <Tile
-                    id={`tile-${entry.key}`}
-                    href={entry.href}
-                    title={t(`nav.surface.${entry.key}`)}
-                    icon={<Icon />}
-                    {...content}
-                  />
+        {groups.map(({ group, cells }) => (
+          <TileGroup key={group} id={`admin-group-${group}`} title={t(`nav.group.${group}`)} cells={cells.length}>
+            {cells.map((cell, i) => {
+              // The last of an odd number of cells spans both columns at two.
+              const wide = i === cells.length - 1 && cells.length % 2 === 1;
+              return cell.kind === "pair" ? (
+                <TileCell key={cell.items[0].entry.key} pair wide={wide}>
+                  {cell.items.map(renderTile)}
+                </TileCell>
+              ) : (
+                <TileCell key={cell.item.entry.key} wide={wide}>
+                  {renderTile(cell.item)}
                 </TileCell>
               );
             })}
