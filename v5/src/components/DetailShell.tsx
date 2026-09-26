@@ -135,7 +135,9 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
             // A name needs a role: aria-label on a bare <p> is prohibited and ignored.
             role="group"
             aria-label={t("toolStatusLabel")}
-            className="flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-label whitespace-nowrap uppercase md:flex-nowrap"
+            // Wraps between labels at every width: the hero's text column can be
+            // narrower than the four labels just past the md breakpoint.
+            className="flex flex-wrap items-baseline gap-x-3 gap-y-1 font-mono text-label whitespace-nowrap uppercase"
           >
             <StatusGlyph tone={TOOL_STATUS_TONE[tool.status]} label={tStatus(TOOL_STATUS_KEY[tool.status])} />
             <StatusGlyph tone="warn" label={t("trainingChip", { level: tool.trainingLevel })} />
