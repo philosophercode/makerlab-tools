@@ -170,6 +170,47 @@ it("renders a phone list from mobileRow, and none without it", () => {
   expect(table()).toBeInTheDocument();
 });
 
+describe("a table wider than its column (DESIGN.md §8.3)", () => {
+  function frame() {
+    return table().closest<HTMLElement>("[data-slot=data-table-frame]")!;
+  }
+
+  function stubWidths(scrollWidth: number, clientWidth: number) {
+    vi.spyOn(HTMLElement.prototype, "scrollWidth", "get").mockReturnValue(scrollWidth);
+    vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(clientWidth);
+  }
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it("scrolls inside its own frame, with a header that does not stick, until it is measured to fit", () => {
+    // jsdom has no layout: nothing is measured, so the frame stays a scroll box.
+    renderTable();
+    expect(frame().className).toMatch(/overflow-x-auto/);
+    expect(frame().className).toMatch(/relative/);
+    expect(screen.getByRole("columnheader", { name: /Count/ }).className).not.toMatch(/sticky/);
+  });
+
+  it("stays a scroll box when the table is wider than the frame", () => {
+    stubWidths(1170, 952);
+    renderTable();
+    expect(frame().className).toMatch(/overflow-x-auto/);
+    expect(screen.getByRole("columnheader", { name: /Count/ }).className).not.toMatch(/sticky/);
+  });
+
+  it("opens up and sticks its header to the page once it fits", () => {
+    stubWidths(1368, 1368);
+    renderTable();
+    expect(frame().className).not.toMatch(/overflow-x-auto/);
+    expect(screen.getByRole("columnheader", { name: /Count/ }).className).toMatch(/sticky/);
+  });
+
+  it("always scrolls inside itself in a panel, where the page does not scroll it", () => {
+    stubWidths(1368, 1368);
+    renderTable({ layout: "container" });
+    expect(frame().className).toMatch(/overflow-x-auto/);
+  });
+});
+
 it("renders the caller's empty state instead of an empty table", () => {
   renderTable({ data: [] });
   expect(screen.queryByRole("table")).not.toBeInTheDocument();
