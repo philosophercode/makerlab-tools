@@ -1435,7 +1435,7 @@ differs from §8.3 / §9, and why:
   and the same words as before ("📖 Searching the Form 4 manual…") — in the
   order the parts arrive, including after text in a multi-step turn (the
   hand-rolled line showed only before any text). A finished call draws
-  nothing, except `search_manual`, whose passages feed the citations.
+  nothing; a finished `search_manual`'s passages feed the citations.
 - **Citations (§9.1).** `search_manual` already gives each passage a
   `citation` and a `url` that opens the PDF at the page, and the prompt has
   the model link them. A link in the answer whose address is one of this
@@ -1472,3 +1472,54 @@ differs from §8.3 / §9, and why:
 - **Packages added:** `streamdown` ^2.6.0 (`MessageResponse`) and
   `use-stick-to-bottom` ^1.1.6 (`Conversation`). The collapsible and hover
   card primitives come from the existing `radix-ui` package.
+
+As built (same branch), where the build refined the plan above:
+
+- **streamdown's elements are ours.** streamdown draws each element with its
+  own Tailwind classes (a toolbar frame around tables, a three-box code
+  block, `**bold**` as a `<span>`), written for a build that scans its
+  package; ours scans `src/` only, so a few of those classes existed here and
+  most did not. `ai-elements/message-markdown.tsx` hands it plain elements
+  (headings, `strong`, lists, blockquote, rule, table, `pre`/`code`), which
+  the pages' Markdown rules draw — now `system/markdown-prose.ts`, shared
+  with `system/Markdown`. With `raw` dropped, a tag in the model's text is
+  shown as text (react-markdown dropped it silently).
+- **Focus return is the chat's own.** Radix Dialog returns focus to its
+  `Trigger`; the chat has five openers and no Radix trigger, so it remembers
+  the focused element when it opens and restores it on close. The flag
+  dialog uses a real `DialogTrigger`. Both have a test.
+- **The citation's words drop the citation.** The prompt has the model link
+  "Replacing the resin tank (Form 4 Manual, p. 42)"; the words keep
+  "Replacing the resin tank" and the `P. 42` mark says the page, so the page
+  is not said twice. A mark's accessible name is "Open Form 4 Manual, p. 42".
+- **Loader is a `span`** (the upstream `div` sat inside the tool line's `p`).
+- **The flag dialog is frosted too** (owner: menus and dialogs are frosted).
+- **CSS removed:** 707 lines of stylesheet (`globals.css` −653/+2: every
+  `.chat-*` rule, their phone and RTL overrides, three keyframes,
+  `--ambient-glow`, two orphaned comments; `admin-import.css` −54, deleted)
+  and `FlagButton`'s 127-line inline stylesheet — 834 lines in all. Legacy
+  CSS: 2,093 → 1,388 lines (`globals.css` 1,771 → 1,120; `ui.css`
+  unchanged at 220).
+- **Measured** (1440 × 900 / 390 × 844): the panel was a 360px card at most
+  560px tall with about 430px for messages; it is 440 × 900 with 736px for
+  messages, and 390 × 844 with 680px on a phone. The intake table and
+  proposal cards get a 408px column instead of about 325.
+- **Tests.** Seven `ChatFab` assertions moved from CSS classes to
+  `data-role` / `data-kind` / `data-has-card` (same claims); new: Escape and
+  focus return, the draft surviving a close, Enter / Shift+Enter, no floating
+  button on admin pages and the section bar opening the chat, the `log`
+  role, Markdown and no HTML, site links closing the sheet, tool lines after
+  text and none for a finished call, inline citations and Sources (cited
+  only, never an address the search did not return), `manual-citations`
+  unit tests, the palette's assistant group (empty query, last, Enter still
+  opens the tool, offered when nothing matches) and the flag dialog's focus
+  return. E2E: `chat.spec` (Escape and focus, composer focus, a citation and
+  its source, the admin launchers and ⌘K's first message) and
+  `header-stability.spec` (the assistant open on a public and an admin page
+  moves nothing).
+- **Screens:** before/after at 1440 and 390, light and dark, anonymous and
+  admin, in `v5/.livecheck/ui-phase-5b/` (not committed); a curated set is
+  `docs/MakerLab_design/screens/phase5b-*.webp`.
+- **Not done:** the push-aside panel (above); `ToolInput` / `ToolOutput`
+  for curation turns (would add Shiki); the user's attached photos are still
+  not drawn in their message (they never were).
