@@ -1497,6 +1497,13 @@ As built (same branch), where the build refined the plan above:
   the focused textarea dropped focus to the sheet on every send, so a keyboard
   user had to find the field again. Send, attach and dictate wait; Enter does
   not send until Send is enabled, and the next question can be drafted.
+- **streamdown loads with the chat, not the page** (review): imported
+  statically from the root layout's chat it added about 365 KB of script to
+  every page. `MessageResponse` is its own module
+  (`ai-elements/message-response.tsx`), `ChatMessage` imports `ChatResponse`
+  lazily and the sheet preloads it on open; until it lands an answer shows as
+  plain text. Script on `/`: main 1.49 MB, 5b as first built 1.86 MB, now
+  1.37 MB (react-markdown also left the chat).
 - **The flag dialog is frosted too** (owner: menus and dialogs are frosted).
 - **CSS removed:** 707 lines of stylesheet (`globals.css` −653/+2: every
   `.chat-*` rule, their phone and RTL overrides, three keyframes,

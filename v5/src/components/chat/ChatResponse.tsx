@@ -3,7 +3,7 @@
 import { useMemo, type ReactNode } from "react";
 import Link from "next/link";
 import type { Components } from "streamdown";
-import { MessageResponse } from "../ai-elements/message";
+import { MessageResponse } from "../ai-elements/message-response";
 import {
   InlineCitation,
   InlineCitationCard,

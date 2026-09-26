@@ -16,7 +16,7 @@ import { Conversation, ConversationContent, ConversationScrollButton } from "./a
 import { Message, MessageContent } from "./ai-elements/message";
 import { Suggestion, Suggestions } from "./ai-elements/suggestion";
 import { Loader } from "./ai-elements/loader";
-import { ChatMessage } from "./chat/ChatMessage";
+import { ChatMessage, preloadChatResponse } from "./chat/ChatMessage";
 import { ChatComposer } from "./chat/ChatComposer";
 import { parseCeiling } from "./chat/chat-text";
 import { useChatAttachments } from "./chat/use-chat-attachments";
@@ -147,6 +147,11 @@ export function ChatFab() {
       }),
     []
   );
+
+  // The Markdown renderer loads when the chat is first opened, not with every page.
+  useEffect(() => {
+    if (isOpen) preloadChatResponse();
+  }, [isOpen]);
 
   const [readingManuals, setReadingManuals] = useState<string[] | null>(null);
   const { messages, sendMessage, setMessages, status, error } = useChat({

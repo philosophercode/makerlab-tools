@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, type ReactNode } from "react";
+import { Suspense, lazy, useMemo, type ReactNode } from "react";
 import type { UIMessage } from "ai";
 import { Message, MessageContent } from "../ai-elements/message";
 import { Tool, ToolHeader } from "../ai-elements/tool";
@@ -10,11 +10,23 @@ import { ImportCard } from "../ImportCard";
 import { ChatProposalCards, type ChatProposalItem } from "../ChatProposalCards";
 import type { IntakeTablePayload } from "../../lib/intake/types";
 import type { ImportCardPayload } from "../../lib/import/view";
-import { ChatResponse } from "./ChatResponse";
 import { citedPassages, manualPassages } from "./manual-citations";
-import { toolStatusLabel, type ChatT } from "./chat-text";
+import { stripCitations, toolStatusLabel, type ChatT } from "./chat-text";
 
 type Part = UIMessage["parts"][number];
+
+/**
+ * The assistant's prose is drawn by streamdown (`ChatResponse`), about 300 KB
+ * of script. The chat is mounted in the root layout, so it is imported only
+ * when needed: `preloadChatResponse()` starts the download when the sheet
+ * opens, and until it lands an answer shows as plain text.
+ */
+const loadChatResponse = () => import("./ChatResponse");
+const ChatResponse = lazy(() => loadChatResponse().then((module) => ({ default: module.ChatResponse })));
+
+export function preloadChatResponse(): void {
+  void loadChatResponse();
+}
 
 const RUNNING = new Set(["input-streaming", "input-available"]);
 
@@ -61,13 +73,14 @@ export function ChatMessage({
       if (!part.text.trim()) return;
       blocks.push(
         message.role === "assistant" ? (
-          <ChatResponse
-            key={index}
-            text={part.text}
-            passages={passages}
-            onInternalNavigate={onInternalNavigate}
-            citationLabel={citationLabel}
-          />
+          <Suspense key={index} fallback={<p className="text-sm whitespace-pre-wrap">{stripCitations(part.text)}</p>}>
+            <ChatResponse
+              text={part.text}
+              passages={passages}
+              onInternalNavigate={onInternalNavigate}
+              citationLabel={citationLabel}
+            />
+          </Suspense>
         ) : (
           <p key={index}>{part.text}</p>
         )
