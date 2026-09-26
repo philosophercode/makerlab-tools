@@ -237,4 +237,67 @@ describe("GalleryShell — table view", () => {
     await userEvent.keyboard("{Enter}");
     expect(router.push).toHaveBeenCalledWith("/tools/bandsaw");
   });
+
+  it("sorts every column, the status by how it reads", async () => {
+    const { user, table } = await openTable();
+    for (const name of [/Status/, /Category/, /Room/, /Training/, /Available/]) {
+      await user.click(within(table).getByRole("button", { name }));
+      expect(within(table).getByRole("columnheader", { name })).toHaveAttribute("aria-sort");
+    }
+  });
+
+  it("offers the Columns menu, which hides and shows a column in every table", async () => {
+    const { user, table } = await openTable();
+    expect(within(table).queryByRole("columnheader", { name: /Official name/ })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Columns" }));
+    await user.click(await screen.findByRole("menuitemcheckbox", { name: "Official name" }));
+    await user.click(await screen.findByRole("menuitemcheckbox", { name: "Training" }));
+    await user.keyboard("{Escape}");
+    expect(within(table).getByRole("columnheader", { name: /Official name/ })).toBeInTheDocument();
+    expect(within(table).queryByRole("columnheader", { name: /Training/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("GalleryShell — status facet and view switch", () => {
+  it("filters by status with counts, writes ?status=, and the same filter drives the grid and the table", async () => {
+    const user = userEvent.setup();
+    render(<GalleryShell tools={mockCatalog} />);
+    await user.click(within(screen.getByRole("search")).getByRole("button", { name: /^Status/ }));
+    const item = await screen.findByRole("menuitemradio", { name: /In use/ });
+    expect(item).toHaveTextContent(/\d/);
+    await user.click(item);
+    expect(window.location.search).toBe("?status=In+Use");
+    expect(cardNames()).toEqual(expect.arrayContaining(["Prusa MK4"]));
+    expect(cardNames()).not.toContain("Bandsaw");
+
+    await user.click(screen.getByRole("button", { name: "Table" }));
+    const table = screen.getByRole("table", { name: "Tool gallery" });
+    expect(within(table).queryByRole("row", { name: /Bandsaw/ })).not.toBeInTheDocument();
+    expect(within(table).getByRole("row", { name: /Prusa MK4/ })).toBeInTheDocument();
+  });
+
+  it("is a segmented control: both segments are buttons in one named group, exactly one pressed", async () => {
+    const user = userEvent.setup();
+    render(<GalleryShell tools={mockCatalog} />);
+    const group = screen.getByRole("group", { name: "View" });
+    const [grid, tableButton] = within(group).getAllByRole("button");
+    expect(grid).toHaveAttribute("aria-pressed", "true");
+    expect(tableButton).toHaveAttribute("aria-pressed", "false");
+    await user.click(tableButton);
+    expect(grid).toHaveAttribute("aria-pressed", "false");
+    expect(tableButton).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("puts the facets behind a Filters button that says how many are set", async () => {
+    window.history.replaceState(null, "", "/?status=Available&location=MakerLab");
+    const user = userEvent.setup();
+    render(<GalleryShell tools={mockCatalog} />);
+    const filters = await screen.findByRole("button", { name: "Filters, 2 set" });
+    await user.click(filters);
+    const sheet = await screen.findByRole("dialog", { name: "Filters" });
+    expect(within(sheet).getByRole("button", { name: /^Status/ })).toBeInTheDocument();
+    expect(within(sheet).getByRole("button", { name: /^Group by/ })).toBeInTheDocument();
+    await user.click(within(sheet).getByRole("button", { name: /^Show \d+ results?/ }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
 });

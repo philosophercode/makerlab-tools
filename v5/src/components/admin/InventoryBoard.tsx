@@ -300,7 +300,8 @@ export function InventoryBoard({ rows, initial, actions, canPublish = true, queu
         shown={visible.length}
         total={rows.length}
         onClear={active ? clearFilters : null}
-        end={<ColumnsMenu columns={columns} visibility={visibility} onChange={setVisibility} />}
+        activeCount={[filters.state, filters.attention, filters.category, filters.location].filter(Boolean).length}
+        secondary={<ColumnsMenu columns={columns} visibility={visibility} onChange={setVisibility} />}
       />
 
       <DataTable

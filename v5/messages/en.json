@@ -95,7 +95,10 @@
     "columnTraining": "Training",
     "trainingBeginner": "Beginner",
     "trainingIntermediate": "Intermediate",
-    "trainingAdvanced": "Advanced"
+    "trainingAdvanced": "Advanced",
+    "statusFacet": "Status",
+    "columnOfficialName": "Official name",
+    "columnMaterials": "Materials"
   },
   "detail": {
     "breadcrumbTools": "Tools",
@@ -1903,7 +1906,11 @@
       "clear": "Clear filters",
       "showing": "Showing {shown} of {total}",
       "columns": "Columns",
-      "facetValue": "{label}: {value}"
+      "facetValue": "{label}: {value}",
+      "filters": "Filters",
+      "filtersButton": "{count, plural, =0 {Filters} one {Filters, # set} other {Filters, # set}}",
+      "closeFilters": "Close filters",
+      "showResults": "{count, plural, one {Show # result} other {Show # results}}"
     },
     "queue": {
       "search": "Search",

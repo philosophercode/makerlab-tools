@@ -16,6 +16,7 @@ describe("parseGalleryState / toGallerySearchParams", () => {
   it("round-trips every choice and leaves defaults out of the URL", () => {
     const state = {
       query: "laser ",
+      status: "Available" as const,
       category: "Laser",
       material: "Acrylic",
       location: "Laser Room",
@@ -35,6 +36,8 @@ describe("parseGalleryState / toGallerySearchParams", () => {
       view: "grid",
     });
     expect(parseGalleryState({ sort: ["name-desc", "recent"] }).sort).toBe("name-desc");
+    expect(parseGalleryState({ status: "Broken" }).status).toBeNull();
+    expect(parseGalleryState({ status: "In Use" }).status).toBe("In Use");
   });
 });
 

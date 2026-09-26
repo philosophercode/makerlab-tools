@@ -1,14 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { matchSorter } from "match-sorter";
 import { LayoutGrid, Rows3 } from "lucide-react";
+import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
 import type { MakerLabTool } from "./catalog-types";
-import { ToolCard } from "./ToolCard";
-import { GalleryTable } from "./GalleryTable";
+import { TOOL_STATUS_KEY, ToolCard } from "./ToolCard";
+import { GALLERY_DEFAULT_HIDDEN, GalleryTable, useGalleryColumns } from "./GalleryTable";
 import { GalleryHero } from "./GalleryHero";
 import {
+  GALLERY_STATUSES,
   availableUnits,
   groupTools,
   hasFacetFilters,
@@ -25,8 +27,9 @@ import { EmptyState } from "./system/EmptyState";
 import { FilterBar } from "./system/data-table/FilterBar";
 import { FacetFilter } from "./system/data-table/FacetFilter";
 import { ChoiceMenu, type ChoiceOption } from "./system/data-table/ChoiceMenu";
+import { ColumnsMenu } from "./system/data-table/ColumnsMenu";
+import { SegmentedControl } from "./system/SegmentedControl";
 import { facetOptions, uniqueValues } from "./system/data-table/facet-options";
-import { cn } from "@/lib/utils";
 
 interface GalleryShellProps {
   tools: MakerLabTool[];
@@ -51,9 +54,11 @@ const SEARCH_KEYS: ReadonlyArray<keyof MakerLabTool> = [
   "description",
 ];
 
-type Facet = "category" | "material" | "location";
+type Facet = "status" | "category" | "material" | "location";
+const FACETS: readonly Facet[] = ["status", "category", "material", "location"];
 
 function matchesFacet(tool: MakerLabTool, facet: Facet, value: string): boolean {
+  if (facet === "status") return tool.status === value;
   if (facet === "category") return tool.category === value;
   if (facet === "material") return tool.materials.includes(value);
   return tool.location === value;
@@ -62,17 +67,19 @@ function matchesFacet(tool: MakerLabTool, facet: Facet, value: string): boolean 
 /** The rows every facet but `except` leaves — what a facet's counts are taken over. */
 function narrowed(tools: readonly MakerLabTool[], state: GalleryState, except?: Facet): MakerLabTool[] {
   return tools.filter((tool) =>
-    (["category", "material", "location"] as const).every(
+    FACETS.every(
       (facet) => facet === except || !state[facet] || matchesFacet(tool, facet, state[facet]!)
     )
   );
 }
 
 /**
- * The gallery (UI system phase 5a): the display hero with a facts line, then a
- * `FilterBar` — search, Category / Material / Location facets with counts,
- * **Sort** and **Group by** (owner request 2026-09-25), and the grid/table
- * view — over the card grid or the `DataTable`.
+ * The gallery (UI system phase 5a; public polish): the display hero with a
+ * facts line, then the shared `FilterBar` — search, Status / Category /
+ * Material / Location facets with counts, **Group by** and (in the table)
+ * **Columns**, **Sort** and the Grid / Table `SegmentedControl` — over the
+ * card grid or the `DataTable`. One filter state, in the URL, drives both
+ * views; the table view is the inventory's controls for the public list.
  *
  * Grouped, the gallery is labelled sections in order, each heading sticky
  * under the top bar with its count (small multiples), in both views. Every
@@ -84,6 +91,9 @@ export function GalleryShell({ tools }: GalleryShellProps) {
   const [search, writeSearch] = useUrlSearch();
   const state = useMemo(() => parseGalleryState(new URLSearchParams(search)), [search]);
   const set = (patch: Partial<GalleryState>) => writeSearch(toGallerySearchParams({ ...state, ...patch }));
+
+  const columns = useGalleryColumns();
+  const [visibility, setVisibility] = useState<VisibilityState>(GALLERY_DEFAULT_HIDDEN);
 
   const mainRef = useRef<HTMLElement>(null);
   useStickyOffset(mainRef);
@@ -110,14 +120,15 @@ export function GalleryShell({ tools }: GalleryShellProps) {
     ].join(" · ");
   }, [tools, categories.length, t]);
 
-  const facet = (key: Facet, label: string, values: string[]) => (
+  const facet = (key: Facet, label: string, values: readonly string[], valueLabel?: (value: string) => string) => (
     <FacetFilter
       label={label}
       value={state[key]}
-      options={facetOptions(narrowed(tools, state, key), values, (tool, value) => matchesFacet(tool, key, value))}
+      options={facetOptions(narrowed(tools, state, key), values, (tool, value) => matchesFacet(tool, key, value), valueLabel)}
       onChange={(value) => set({ [key]: value })}
     />
   );
+  const statusLabel = (value: string) => t(`status.${TOOL_STATUS_KEY[value as MakerLabTool["status"]]}`);
 
   const sortOptions: ChoiceOption<"default" | GallerySort>[] = [
     { value: "default", label: query ? t("sort.relevance") : t("sort.name") },
@@ -137,12 +148,14 @@ export function GalleryShell({ tools }: GalleryShellProps) {
 
   const activeWords = [
     query ? `"${query}"` : null,
+    state.status ? `${t("statusFacet")}: ${statusLabel(state.status)}` : null,
     state.category ? `${t("category")}: ${state.category}` : null,
     state.material ? `${t("materials")}: ${state.material}` : null,
     state.location ? `${t("location")}: ${state.location}` : null,
   ].filter(Boolean);
   const narrowing = Boolean(query) || hasFacetFilters(state);
-  const clear = () => set({ query: "", category: null, material: null, location: null });
+  const clear = () => set({ query: "", status: null, category: null, material: null, location: null });
+  const activeCount = FACETS.filter((key) => state[key]).length;
 
   return (
     <main ref={mainRef} className="ui mx-auto w-full max-w-[1440px] px-4 pb-16 sm:px-8">
@@ -158,14 +171,27 @@ export function GalleryShell({ tools }: GalleryShellProps) {
         }}
         facets={
           <>
+            {facet("status", t("statusFacet"), GALLERY_STATUSES, statusLabel)}
             {facet("category", t("category"), categories)}
             {facet("material", t("materials"), materials)}
             {facet("location", t("location"), locations)}
           </>
         }
+        activeCount={activeCount}
         shown={shownTools.length}
         total={tools.length}
         onClear={narrowing ? clear : null}
+        secondary={
+          <>
+            <ChoiceMenu
+              label={t("group.label")}
+              value={state.group ?? "none"}
+              options={groupOptions}
+              onChange={(value) => set({ group: value === "none" ? null : value })}
+            />
+            {state.view === "table" ? <ColumnsMenu columns={columns} visibility={visibility} onChange={setVisibility} /> : null}
+          </>
+        }
         end={
           <>
             <ChoiceMenu
@@ -174,28 +200,15 @@ export function GalleryShell({ tools }: GalleryShellProps) {
               options={sortOptions}
               onChange={(value) => set({ sort: value === "default" ? null : value })}
             />
-            <ChoiceMenu
-              label={t("group.label")}
-              value={state.group ?? "none"}
-              options={groupOptions}
-              onChange={(value) => set({ group: value === "none" ? null : value })}
+            <SegmentedControl
+              label={t("viewModeLabel")}
+              value={state.view}
+              onChange={(view) => set({ view })}
+              options={[
+                { value: "grid", label: t("grid"), content: <LayoutGrid aria-hidden="true" /> },
+                { value: "table", label: t("table"), content: <Rows3 aria-hidden="true" /> },
+              ]}
             />
-            <div role="group" aria-label={t("viewModeLabel")} className="flex">
-              {(["grid", "table"] as const).map((view) => (
-                <Button
-                  key={view}
-                  size="icon-sm"
-                  variant={state.view === view ? "outline" : "quiet"}
-                  aria-pressed={state.view === view}
-                  aria-label={t(view === "grid" ? "grid" : "table")}
-                  title={t(view === "grid" ? "grid" : "table")}
-                  className={cn(view === "table" && "-ms-px", state.view === view && "border-primary-ink")}
-                  onClick={() => set({ view })}
-                >
-                  {view === "grid" ? <LayoutGrid aria-hidden="true" /> : <Rows3 aria-hidden="true" />}
-                </Button>
-              ))}
-            </div>
           </>
         }
       />
@@ -216,7 +229,14 @@ export function GalleryShell({ tools }: GalleryShellProps) {
         </section>
       ) : state.group === null ? (
         <section aria-label={t("toolGalleryLabel")}>
-          <Tools tools={sections[0].tools} view={state.view} headingLevel={2} tableLabel={t("toolGalleryLabel")} />
+          <Tools
+            tools={sections[0].tools}
+            view={state.view}
+            headingLevel={2}
+            tableLabel={t("toolGalleryLabel")}
+            columns={columns}
+            visibility={visibility}
+          />
         </section>
       ) : (
         <div className="flex flex-col gap-6" data-slot="gallery-sections">
@@ -236,6 +256,8 @@ export function GalleryShell({ tools }: GalleryShellProps) {
                   view={state.view}
                   headingLevel={3}
                   tableLabel={t("sectionTable", { section: section.label })}
+                  columns={columns}
+                  visibility={visibility}
                   stickyHeader={false}
                   keyboardHint={index === sections.length - 1}
                 />
@@ -253,6 +275,8 @@ function Tools({
   view,
   headingLevel,
   tableLabel,
+  columns,
+  visibility,
   stickyHeader,
   keyboardHint,
 }: {
@@ -260,11 +284,22 @@ function Tools({
   view: GalleryState["view"];
   headingLevel: 2 | 3;
   tableLabel: string;
+  columns: ColumnDef<MakerLabTool, unknown>[];
+  visibility: VisibilityState;
   stickyHeader?: boolean;
   keyboardHint?: boolean;
 }) {
   if (view === "table") {
-    return <GalleryTable tools={tools} label={tableLabel} stickyHeader={stickyHeader} keyboardHint={keyboardHint} />;
+    return (
+      <GalleryTable
+        tools={tools}
+        columns={columns}
+        visibility={visibility}
+        label={tableLabel}
+        stickyHeader={stickyHeader}
+        keyboardHint={keyboardHint}
+      />
+    );
   }
   return (
     <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:gap-4 md:grid-cols-3 xl:grid-cols-5">
