@@ -217,6 +217,16 @@ Phase 5 extends both. The shape it sets:
   only `super_admin` holds. A SuperMaker gets past the layout and is refused on
   the page, **and is told so**: `AdminNotice` renders "not signed in" or "not
   permitted", never a 404 and never an error boundary (Article 4).
+- **Every admin folder with a page below it has a `loading.tsx`**
+  (`AdminPageLoading`; DESIGN.md §8.12, `app/admin/loading-boundaries.test.ts`).
+  Admin pages read the request at their root, so a page's prefetched segment is
+  a shell with an unfilled hole (`$L…`, `isPartial`). Without a Suspense
+  boundary inside the new segment a client navigation suspended on that hole
+  behind the layout's visible boundary and, in the production build, was
+  sometimes never retried — URL unchanged, RSC 200, page never mounted until
+  an unrelated re-render. `e2e/admin-client-navigation.spec.ts` walks every
+  section by clicking. Not a CSS problem: the admin stylesheet chunks were
+  ruled out (one global stylesheet still hung).
 - **One list of surfaces, three views** (UI system phase 4).
   `src/lib/admin/surfaces.ts` holds every admin page's key, href, group,
   permission, icon and count loader; `surfacesFor(identity)` — the same `can()`
