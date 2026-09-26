@@ -6,6 +6,7 @@ import {
   listCatalogTools,
 } from "./data/catalog";
 import { listManualContentsForTool, type ManualContents } from "./data/manual-documents";
+import { listMaintenanceHistoryForTool, type ToolMaintenanceEntry } from "./data/maintenance";
 import { dataSubstrate, getDb } from "./db/client";
 import type { CatalogStats, MakerLabTool } from "../components/catalog-types";
 
@@ -71,4 +72,18 @@ export async function getManualContents(toolId: string): Promise<ManualContents[
   cacheLife(CATALOG_CACHE);
 
   return listManualContentsForTool(await getDb(), toolId);
+}
+
+/**
+ * The tool page's "Maintenance history" (UI system phase 5a): the ten most
+ * recent logs across the tool's units, without names. Cached with the
+ * catalogue — a maintenance write does not invalidate it, so a new ticket
+ * appears when the catalogue's cache next turns over; the page says "recent".
+ */
+export async function getToolMaintenanceHistory(toolId: string): Promise<ToolMaintenanceEntry[]> {
+  "use cache";
+  cacheTag("catalog");
+  cacheLife(CATALOG_CACHE);
+
+  return listMaintenanceHistoryForTool(toolId, { db: await getDb(), limit: 10 });
 }

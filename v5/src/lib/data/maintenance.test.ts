@@ -7,6 +7,7 @@ import { insertUserRow } from "../../../test/utils/session";
 import type { Db } from "../db/types";
 import {
   createMaintenanceLog,
+  listMaintenanceHistoryForTool,
   listMaintenanceHistoryForUnit,
   listMaintenanceQueue,
   toDisplayLabel,
@@ -61,6 +62,51 @@ async function insertLog(values: Partial<LogValues> = {}): Promise<void> {
     ...values,
   });
 }
+
+// ── listMaintenanceHistoryForTool (the tool page, phase 5a) ─────────
+
+describe("listMaintenanceHistoryForTool", () => {
+  it("lists every unit's logs newest first, with the unit's label and no names, emails or descriptions", async () => {
+    await insertLog({
+      title: "Old one",
+      dateReported: "2024-01-01",
+      reportedByName: "Ada Lovelace",
+      reportedByEmail: "ada@cornell.edu",
+      description: "Private detail",
+    });
+    await insertLog({ title: "New one", unitId: otherUnitId, status: "open", type: "repair", dateReported: "2024-09-01" });
+
+    const entries = await listMaintenanceHistoryForTool(toolId, { db });
+    expect(entries.map((entry) => [entry.title, entry.unitLabel])).toEqual([
+      ["New one", "Form 4 // B"],
+      ["Old one", "Form 4 // A"],
+    ]);
+    expect(entries[0]).toMatchObject({ status: "Open", type: "Repair", dateReported: "2024-09-01" });
+    const text = JSON.stringify(entries);
+    expect(text).not.toContain("Ada");
+    expect(text).not.toContain("cornell.edu");
+    expect(text).not.toContain("Private detail");
+  });
+
+  it("keeps a log filed against the tool itself, or whose unit was retired, and no other tool's", async () => {
+    await insertLog({ title: "Whole machine", unitId: null, toolId, dateReported: "2024-03-01" });
+    await insertLog({ title: "Retired unit", unitId: null, toolId, unitLabel: "Form 4 // Old", dateReported: "2024-02-01" });
+    const [other] = await db.insert(tools).values({ slug: "fuse-1", name: "Fuse 1", published: true }).returning({ id: tools.id });
+    await insertLog({ title: "Someone else's", unitId: null, toolId: other.id, dateReported: "2024-04-01" });
+
+    const entries = await listMaintenanceHistoryForTool(toolId, { db });
+    expect(entries.map((entry) => [entry.title, entry.unitLabel])).toEqual([
+      ["Whole machine", ""],
+      ["Retired unit", "Form 4 // Old"],
+    ]);
+  });
+
+  it("is bounded, and empty for a non-uuid", async () => {
+    for (let i = 0; i < 12; i += 1) await insertLog({ title: `Log ${i}` });
+    expect(await listMaintenanceHistoryForTool(toolId, { db })).toHaveLength(10);
+    expect(await listMaintenanceHistoryForTool("form-4", { db })).toEqual([]);
+  });
+});
 
 // ── listMaintenanceHistoryForUnit ───────────────────────────────────
 

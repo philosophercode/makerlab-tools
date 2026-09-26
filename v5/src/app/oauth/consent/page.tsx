@@ -1,11 +1,12 @@
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { OAuthConsent } from "../../../components/account/OAuthConsent";
+import { EmptyState } from "../../../components/system/EmptyState";
+import { Prose, PublicPage } from "../../../components/system/PublicPage";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { oauthClientName } from "../../../lib/data/api-tokens";
 import { siteConfig } from "../../../lib/site-config";
 import { decideConsentAction } from "./actions";
-import "../../../styles/account.css";
 
 /**
  * `/oauth/consent` — "*Claude* wants to access MakerLab as *you*" (MCP access
@@ -25,14 +26,9 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 export default async function OAuthConsentPage({ searchParams }: { searchParams: SearchParams }) {
   const t = await getTranslations("account.oauth");
   return (
-    <main className="tool-detail">
-      <section className="td-panel td-prose">
-        <p className="td-eyebrow">{t("eyebrow")}</p>
-        <Suspense fallback={<p>{t("loading")}</p>}>
-          <Consent searchParams={searchParams} />
-        </Suspense>
-      </section>
-    </main>
+    <Suspense fallback={<p className="px-4 pt-8 text-sm text-muted-foreground sm:px-8">{t("loading")}</p>}>
+      <Consent searchParams={searchParams} />
+    </Suspense>
   );
 }
 
@@ -44,40 +40,27 @@ async function Consent({ searchParams }: { searchParams: SearchParams }) {
   const clientId = typeof params.client_id === "string" ? params.client_id : "";
   const identity = await resolveIdentityFromHeaders();
 
-  if (identity.role === "anonymous") {
-    return (
-      <>
-        <h1>{t("consentTitleGeneric")}</h1>
-        <p>{t("consentSignedOut")}</p>
-      </>
-    );
-  }
-  if (!consentCode || !clientId) {
-    return (
-      <>
-        <h1>{t("consentTitleGeneric")}</h1>
-        <p>{t("expired")}</p>
-      </>
-    );
-  }
+  const crumbs = [{ label: t("eyebrow") }];
+  const refusal = (sentence: string) => (
+    <PublicPage width="narrow" crumbs={crumbs} title={t("consentTitleGeneric")}>
+      <EmptyState className="mt-4">{sentence}</EmptyState>
+    </PublicPage>
+  );
+
+  if (identity.role === "anonymous") return refusal(t("consentSignedOut"));
+  if (!consentCode || !clientId) return refusal(t("expired"));
 
   const registered = await oauthClientName(clientId).catch(() => undefined);
-  if (registered === undefined) {
-    return (
-      <>
-        <h1>{t("consentTitleGeneric")}</h1>
-        <p>{t("expired")}</p>
-      </>
-    );
-  }
+  if (registered === undefined) return refusal(t("expired"));
   const client = (registered || t("unknownClient")).slice(0, 80);
 
   return (
-    <>
-      <h1>{t("consentTitle", { client })}</h1>
-      <p>{t("consentBody", { role: tRoles(identity.role), name: identity.name || identity.email || "" })}</p>
-      <p>{t("consentSafety")}</p>
+    <PublicPage width="narrow" crumbs={crumbs} title={t("consentTitle", { client })}>
+      <Prose className="pt-2">
+        <p>{t("consentBody", { role: tRoles(identity.role), name: identity.name || identity.email || "" })}</p>
+        <p>{t("consentSafety")}</p>
+      </Prose>
       <OAuthConsent consentCode={consentCode} action={decideConsentAction} />
-    </>
+    </PublicPage>
   );
 }

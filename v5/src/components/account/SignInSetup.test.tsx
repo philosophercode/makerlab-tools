@@ -1,4 +1,4 @@
-import { render, screen } from "../../../test/utils/render";
+import { render, screen, userEvent } from "../../../test/utils/render";
 import { mcpSnippets } from "../../lib/account/mcp-snippets";
 import { SignInSetup } from "./SignInSetup";
 
@@ -18,5 +18,25 @@ it("leads with the sign-in address and gives Claude Code and Codex their command
   expect(screen.getByLabelText("Codex sign-in")).toHaveTextContent("codex mcp login makerlab");
   expect(screen.getByRole("heading", { name: "Claude Desktop and claude.ai" })).toBeInTheDocument();
   expect(screen.getByRole("heading", { name: "ChatGPT" })).toBeInTheDocument();
-  expect(document.body.textContent).not.toMatch(/mlt_|Bearer/);
+  // No token anywhere: the only "Bearer" is the prompt's reference to the variable.
+  expect(document.body.textContent).not.toMatch(/mlt_|Bearer (?!\$MAKERLAB_MCP_TOKEN)/);
+});
+
+it("offers a setup prompt for the student's AI: sign-in address first, a token only from the environment", async () => {
+  const writeText = vi.fn<(text: string) => Promise<void>>(async () => {});
+  Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+  render(<SignInSetup snippets={mcpSnippets("https://tools.example.edu")} />);
+
+  expect(screen.getByRole("heading", { name: "Copy setup prompt for your AI" })).toBeInTheDocument();
+  const prompt = screen.getByLabelText("setup prompt").textContent ?? "";
+  const signIn = prompt.indexOf("https://tools.example.edu/api/mcp/signed-in");
+  const fallback = prompt.indexOf("MAKERLAB_MCP_TOKEN");
+  expect(signIn).toBeGreaterThan(-1);
+  expect(fallback).toBeGreaterThan(signIn);
+  expect(prompt).toContain("Never ask me to paste the token into this chat");
+  expect(prompt).not.toMatch(/mlt_/);
+
+  await userEvent.click(screen.getByRole("button", { name: "Copy setup prompt" }));
+  expect(writeText).toHaveBeenCalledWith(prompt);
+  expect(await screen.findByText("setup prompt copied to the clipboard.")).toBeInTheDocument();
 });

@@ -58,7 +58,7 @@ export function FilterBar({ label, search, facets, shown, total, onClear, end }:
           {t("clear")}
         </Button>
       ) : null}
-      <span className="ms-auto flex items-center gap-2">
+      <span className="ms-auto flex max-w-full flex-wrap items-center justify-end gap-2">
         <span role="status" className="font-mono text-label whitespace-nowrap text-muted-foreground tabular-nums">
           {t("showing", { shown, total })}
         </span>

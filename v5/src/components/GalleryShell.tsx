@@ -1,12 +1,32 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useTranslations } from "next-intl";
 import { matchSorter } from "match-sorter";
+import { LayoutGrid, Rows3 } from "lucide-react";
 import type { MakerLabTool } from "./catalog-types";
-import { TechnicalFrame } from "./TechnicalFrame";
 import { ToolCard } from "./ToolCard";
 import { GalleryTable } from "./GalleryTable";
+import { GalleryHero } from "./GalleryHero";
+import {
+  availableUnits,
+  groupTools,
+  hasFacetFilters,
+  parseGalleryState,
+  sortTools,
+  toGallerySearchParams,
+  type GalleryGroup,
+  type GallerySort,
+  type GalleryState,
+} from "./gallery-filters";
+import { useUrlSearch } from "./use-url-state";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "./system/EmptyState";
+import { FilterBar } from "./system/data-table/FilterBar";
+import { FacetFilter } from "./system/data-table/FacetFilter";
+import { ChoiceMenu, type ChoiceOption } from "./system/data-table/ChoiceMenu";
+import { facetOptions, uniqueValues } from "./system/data-table/facet-options";
+import { cn } from "@/lib/utils";
 
 interface GalleryShellProps {
   tools: MakerLabTool[];
@@ -31,340 +51,245 @@ const SEARCH_KEYS: ReadonlyArray<keyof MakerLabTool> = [
   "description",
 ];
 
-// The catalog stores materials as a flat list with no type, so the grouping
-// for the Materials dropdown is defined here. Matching is case-insensitive;
-// anything not listed falls into "Other". Order here is the display order.
-const MATERIAL_GROUPS: ReadonlyArray<{ label: string; values: string[] }> = [
-  {
-    label: "Plastics & Polymers",
-    values: ["ABS", "Acrylic", "Composite", "Nylon", "PETG", "PLA", "Plastic", "Polycarbonate", "PVC", "Resin", "TPU", "Vinyl"],
-  },
-  { label: "Wood", values: ["Hardwood", "Softwood", "Plywood", "MDF", "Veneer", "Laminate", "Wood"] },
-  { label: "Metal", values: ["Aluminum", "Brass", "Copper", "Steel"] },
-  { label: "Other", values: ["Cardboard", "Ceramic", "Fabric", "Foam", "Glass", "Leather", "Paper", "Rubber"] },
-];
+type Facet = "category" | "material" | "location";
 
-const OTHER_GROUP_LABEL = "Other";
+function matchesFacet(tool: MakerLabTool, facet: Facet, value: string): boolean {
+  if (facet === "category") return tool.category === value;
+  if (facet === "material") return tool.materials.includes(value);
+  return tool.location === value;
+}
 
+/** The rows every facet but `except` leaves — what a facet's counts are taken over. */
+function narrowed(tools: readonly MakerLabTool[], state: GalleryState, except?: Facet): MakerLabTool[] {
+  return tools.filter((tool) =>
+    (["category", "material", "location"] as const).every(
+      (facet) => facet === except || !state[facet] || matchesFacet(tool, facet, state[facet]!)
+    )
+  );
+}
+
+/**
+ * The gallery (UI system phase 5a): the display hero with a facts line, then a
+ * `FilterBar` — search, Category / Material / Location facets with counts,
+ * **Sort** and **Group by** (owner request 2026-09-25), and the grid/table
+ * view — over the card grid or the `DataTable`.
+ *
+ * Grouped, the gallery is labelled sections in order, each heading sticky
+ * under the top bar with its count (small multiples), in both views. Every
+ * choice is in the URL (`gallery-filters.ts`, `useUrlSearch`), so a view is a
+ * link; the page stays one cached prerender for everybody.
+ */
 export function GalleryShell({ tools }: GalleryShellProps) {
   const t = useTranslations("gallery");
-  const [query, setQuery] = useState("");
-  // Category and materials are multi-select facets (OR within each facet);
-  // location stays single-select.
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedMaterials, setSelectedMaterials] = useState<string[]>([]);
-  const [location, setLocation] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<"grid" | "table">("grid");
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const [categoryOpen, setCategoryOpen] = useState(false);
-  const [materialsOpen, setMaterialsOpen] = useState(false);
-  // Close the open dropdown menus on an outside click or Escape, like a
-  // native <select>.
-  const categoryRef = useRef<HTMLDivElement>(null);
-  const materialsRef = useRef<HTMLDivElement>(null);
+  const [search, writeSearch] = useUrlSearch();
+  const state = useMemo(() => parseGalleryState(new URLSearchParams(search)), [search]);
+  const set = (patch: Partial<GalleryState>) => writeSearch(toGallerySearchParams({ ...state, ...patch }));
 
-  useEffect(() => {
-    if (!categoryOpen && !materialsOpen) {
-      return;
-    }
-    function handlePointerDown(event: MouseEvent) {
-      const target = event.target as Node;
-      if (categoryOpen && categoryRef.current && !categoryRef.current.contains(target)) {
-        setCategoryOpen(false);
-      }
-      if (materialsOpen && materialsRef.current && !materialsRef.current.contains(target)) {
-        setMaterialsOpen(false);
-      }
-    }
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setCategoryOpen(false);
-        setMaterialsOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handlePointerDown);
-    document.addEventListener("keydown", handleKeyDown);
-    return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
-      document.removeEventListener("keydown", handleKeyDown);
-    };
-  }, [categoryOpen, materialsOpen]);
+  const mainRef = useRef<HTMLElement>(null);
+  useStickyOffset(mainRef);
 
-  const categories = useMemo(
-    () => Array.from(new Set(tools.map((tool) => tool.category))).sort(),
-    [tools]
+  const categories = useMemo(() => uniqueValues(tools.map((tool) => tool.category)), [tools]);
+  const materials = useMemo(() => uniqueValues(tools.flatMap((tool) => tool.materials)), [tools]);
+  const locations = useMemo(() => uniqueValues(tools.map((tool) => tool.location)), [tools]);
+
+  const query = state.query.trim();
+  const shownTools = useMemo(() => {
+    const faceted = narrowed(tools, state);
+    // Empty query keeps the catalogue's order; a query ranks by fuzzy match.
+    const ranked = query ? matchSorter(faceted, query, { keys: SEARCH_KEYS.slice() }) : faceted;
+    return sortTools(ranked, state.sort);
+  }, [tools, state, query]);
+  const sections = useMemo(() => groupTools(shownTools, state.group), [shownTools, state.group]);
+
+  const facts = useMemo(() => {
+    const available = tools.filter((tool) => availableUnits(tool) > 0).length;
+    return [
+      t("facts.tools", { count: tools.length }),
+      t("facts.available", { count: available }),
+      t("facts.categories", { count: categories.length }),
+    ].join(" · ");
+  }, [tools, categories.length, t]);
+
+  const facet = (key: Facet, label: string, values: string[]) => (
+    <FacetFilter
+      label={label}
+      value={state[key]}
+      options={facetOptions(narrowed(tools, state, key), values, (tool, value) => matchesFacet(tool, key, value))}
+      onChange={(value) => set({ [key]: value })}
+    />
   );
 
-  // Facet options are derived from the loaded catalog, mirroring `categories`.
-  const materials = useMemo(
-    () => Array.from(new Set(tools.flatMap((tool) => tool.materials))).sort(),
-    [tools]
-  );
+  const sortOptions: ChoiceOption<"default" | GallerySort>[] = [
+    { value: "default", label: query ? t("sort.relevance") : t("sort.name") },
+    ...(query ? [{ value: "name" as const, label: t("sort.name") }] : []),
+    { value: "name-desc", label: t("sort.nameDesc") },
+    { value: "category", label: t("sort.category") },
+    { value: "location", label: t("sort.location") },
+    { value: "recent", label: t("sort.recent") },
+    { value: "available", label: t("sort.available") },
+  ];
+  const groupOptions: ChoiceOption<"none" | GalleryGroup>[] = [
+    { value: "none", label: t("group.none") },
+    { value: "category", label: t("group.category") },
+    { value: "categoryGroup", label: t("group.categoryGroup") },
+    { value: "location", label: t("group.location") },
+  ];
 
-  const locations = useMemo(
-    () => Array.from(new Set(tools.map((tool) => tool.location).filter(Boolean))).sort(),
-    [tools]
-  );
-
-  // Bucket the catalog's materials into the MATERIAL_GROUPS taxonomy for the
-  // grouped dropdown. Unknown values land in "Other"; empty groups are dropped.
-  const materialGroups = useMemo(() => {
-    const labelByValue = new Map<string, string>();
-    MATERIAL_GROUPS.forEach((group) =>
-      group.values.forEach((value) => labelByValue.set(value.toLowerCase(), group.label))
-    );
-
-    const itemsByLabel = new Map<string, string[]>();
-    materials.forEach((material) => {
-      const label = labelByValue.get(material.toLowerCase()) ?? OTHER_GROUP_LABEL;
-      const bucket = itemsByLabel.get(label) ?? [];
-      bucket.push(material);
-      itemsByLabel.set(label, bucket);
-    });
-
-    return MATERIAL_GROUPS.map((group) => ({
-      label: group.label,
-      items: itemsByLabel.get(group.label) ?? [],
-    })).filter((group) => group.items.length > 0);
-  }, [materials]);
-
-  const filteredTools = useMemo(() => {
-    // Apply facet filters first. Within a multi-select facet the values OR
-    // together; the facets then AND across dimensions.
-    const faceted = tools.filter((tool) => {
-      const matchesCategory =
-        selectedCategories.length === 0 || selectedCategories.includes(tool.category);
-      const matchesMaterial =
-        selectedMaterials.length === 0 ||
-        selectedMaterials.some((value) => tool.materials.includes(value));
-      const matchesLocation = !location || tool.location === location;
-
-      return matchesCategory && matchesMaterial && matchesLocation;
-    });
-
-    const normalizedQuery = query.trim();
-
-    // Empty query preserves the catalog's existing order; a query applies a
-    // fuzzy, ranked match across the weighted keys (typo tolerant).
-    return normalizedQuery ? matchSorter(faceted, normalizedQuery, { keys: SEARCH_KEYS.slice() }) : faceted;
-  }, [location, query, selectedCategories, selectedMaterials, tools]);
-
-  const activeFilterCount =
-    selectedCategories.length + selectedMaterials.length + (location ? 1 : 0);
-
-  function toggleCategory(value: string) {
-    setSelectedCategories((prev) =>
-      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]
-    );
-  }
-
-  function toggleMaterial(value: string) {
-    setSelectedMaterials((prev) =>
-      prev.includes(value) ? prev.filter((item) => item !== value) : [...prev, value]
-    );
-  }
-
-  // Clicking a type heading selects every material in that group, or clears
-  // them all if they're already selected.
-  function toggleMaterialGroup(items: string[], allSelected: boolean) {
-    setSelectedMaterials((prev) => {
-      if (allSelected) {
-        const toRemove = new Set(items);
-        return prev.filter((item) => !toRemove.has(item));
-      }
-      return Array.from(new Set([...prev, ...items]));
-    });
-  }
-
-  function clearFilters() {
-    setSelectedCategories([]);
-    setSelectedMaterials([]);
-    setLocation(null);
-  }
+  const activeWords = [
+    query ? `"${query}"` : null,
+    state.category ? `${t("category")}: ${state.category}` : null,
+    state.material ? `${t("materials")}: ${state.material}` : null,
+    state.location ? `${t("location")}: ${state.location}` : null,
+  ].filter(Boolean);
+  const narrowing = Boolean(query) || hasFacetFilters(state);
+  const clear = () => set({ query: "", category: null, material: null, location: null });
 
   return (
-    <main className="page-shell">
-      <section className="gallery-header" aria-labelledby="gallery-title">
-        <div className="title-row">
-          <span className="target-glyph" aria-hidden="true">
-            +
-          </span>
-          <h1 id="gallery-title">{t("title")}</h1>
-        </div>
+    <main ref={mainRef} className="ui mx-auto w-full max-w-[1440px] px-4 pb-16 sm:px-8">
+      <GalleryHero title={t("title")} facts={facts} />
 
-        <TechnicalFrame className="filter-console">
-          <label className="search-row">
-            <span>&gt;</span>
-            <input
-              placeholder={t("searchPlaceholder")}
-              aria-label={t("searchAria")}
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
+      <FilterBar
+        label={t("filterLabel")}
+        search={{
+          value: state.query,
+          onChange: (value) => set({ query: value }),
+          label: t("searchAria"),
+          placeholder: t("searchPlaceholder"),
+        }}
+        facets={
+          <>
+            {facet("category", t("category"), categories)}
+            {facet("material", t("materials"), materials)}
+            {facet("location", t("location"), locations)}
+          </>
+        }
+        shown={shownTools.length}
+        total={tools.length}
+        onClear={narrowing ? clear : null}
+        end={
+          <>
+            <ChoiceMenu
+              label={t("sort.label")}
+              value={state.sort ?? "default"}
+              options={sortOptions}
+              onChange={(value) => set({ sort: value === "default" ? null : value })}
             />
-          </label>
-
-          <div className="filter-toolbar">
-            <button
-              className={filtersOpen || activeFilterCount > 0 ? "filter-toggle is-active" : "filter-toggle"}
-              type="button"
-              aria-expanded={filtersOpen}
-              aria-controls="gallery-filter-controls"
-              onClick={() => setFiltersOpen((open) => !open)}
-            >
-              Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
-            </button>
-
-            {activeFilterCount > 0 ? (
-              <button className="filter-clear" type="button" onClick={clearFilters}>
-                Clear {activeFilterCount}
-              </button>
-            ) : null}
-
-            <div className="view-toggle" aria-label={t("viewModeLabel")}>
-              <button
-                className={viewMode === "grid" ? "is-active" : ""}
-                type="button"
-                onClick={() => setViewMode("grid")}
-              >
-                {t("grid")}
-              </button>
-              <button
-                className={viewMode === "table" ? "is-active" : ""}
-                type="button"
-                onClick={() => setViewMode("table")}
-              >
-                {t("table")}
-              </button>
-            </div>
-          </div>
-
-          <div className={filtersOpen ? "filter-row is-open" : "filter-row"} id="gallery-filter-controls">
-            <div className="filter-controls">
-              <div className="filter-group filter-dropdown-group" role="group" aria-label={t("category")} ref={categoryRef}>
-                <span>{t("category")}</span>
-                <button
-                  type="button"
-                  className={
-                    categoryOpen || selectedCategories.length > 0
-                      ? "filter-dropdown-toggle is-active"
-                      : "filter-dropdown-toggle"
-                  }
-                  aria-expanded={categoryOpen}
-                  onClick={() => setCategoryOpen((open) => !open)}
+            <ChoiceMenu
+              label={t("group.label")}
+              value={state.group ?? "none"}
+              options={groupOptions}
+              onChange={(value) => set({ group: value === "none" ? null : value })}
+            />
+            <div role="group" aria-label={t("viewModeLabel")} className="flex">
+              {(["grid", "table"] as const).map((view) => (
+                <Button
+                  key={view}
+                  size="icon-sm"
+                  variant={state.view === view ? "outline" : "quiet"}
+                  aria-pressed={state.view === view}
+                  aria-label={t(view === "grid" ? "grid" : "table")}
+                  title={t(view === "grid" ? "grid" : "table")}
+                  className={cn(view === "table" && "-ms-px", state.view === view && "border-primary-ink")}
+                  onClick={() => set({ view })}
                 >
-                  <span>
-                    {selectedCategories.length > 0 ? `${selectedCategories.length} selected` : "All categories"}
-                  </span>
-                  <span className="filter-dropdown-caret" aria-hidden="true">
-                    {categoryOpen ? "▲" : "▼"}
-                  </span>
-                </button>
-
-                {categoryOpen ? (
-                  <div className="filter-dropdown-panel" role="listbox" aria-multiselectable="true">
-                    {categories.map((categoryName) => {
-                      const active = selectedCategories.includes(categoryName);
-                      return (
-                        <button
-                          key={categoryName}
-                          type="button"
-                          role="option"
-                          aria-selected={active}
-                          className="filter-option"
-                          onClick={() => toggleCategory(categoryName)}
-                        >
-                          <span className="filter-option-check" aria-hidden="true">{active ? "✓" : ""}</span>
-                          <span>{categoryName}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="filter-group filter-dropdown-group" role="group" aria-label={t("materials")} ref={materialsRef}>
-                <span>{t("materials")}</span>
-                <button
-                  type="button"
-                  className={
-                    materialsOpen || selectedMaterials.length > 0
-                      ? "filter-dropdown-toggle is-active"
-                      : "filter-dropdown-toggle"
-                  }
-                  aria-expanded={materialsOpen}
-                  onClick={() => setMaterialsOpen((open) => !open)}
-                >
-                  <span>
-                    {selectedMaterials.length > 0 ? `${selectedMaterials.length} selected` : "All materials"}
-                  </span>
-                  <span className="filter-dropdown-caret" aria-hidden="true">
-                    {materialsOpen ? "▲" : "▼"}
-                  </span>
-                </button>
-
-                {materialsOpen ? (
-                  <div className="filter-dropdown-panel" role="listbox" aria-multiselectable="true">
-                    {materialGroups.map((group) => {
-                      const allSelected = group.items.every((value) => selectedMaterials.includes(value));
-                      return (
-                        <div className="filter-menu-section" key={group.label}>
-                          <button
-                            type="button"
-                            className="filter-menu-section-head"
-                            aria-pressed={allSelected}
-                            onClick={() => toggleMaterialGroup(group.items, allSelected)}
-                          >
-                            {group.label}
-                          </button>
-                          {group.items.map((materialName) => {
-                            const active = selectedMaterials.includes(materialName);
-                            return (
-                              <button
-                                key={materialName}
-                                type="button"
-                                role="option"
-                                aria-selected={active}
-                                className="filter-option"
-                                onClick={() => toggleMaterial(materialName)}
-                              >
-                                <span className="filter-option-check" aria-hidden="true">{active ? "✓" : ""}</span>
-                                <span>{materialName}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : null}
-              </div>
-
-              <label className="filter-group filter-select-group">
-                <span>{t("location")}</span>
-                <select value={location ?? ""} onChange={(event) => setLocation(event.target.value || null)}>
-                  <option value="">All</option>
-                  {locations.map((locationName) => (
-                    <option key={locationName} value={locationName}>
-                      {locationName}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                  {view === "grid" ? <LayoutGrid aria-hidden="true" /> : <Rows3 aria-hidden="true" />}
+                </Button>
+              ))}
             </div>
-          </div>
-        </TechnicalFrame>
-      </section>
+          </>
+        }
+      />
 
-      {/* The table sorts on top of the filtered, ranked order (UI system spec §8.2). */}
-      <section className={viewMode === "grid" ? "tool-grid" : undefined} aria-label={t("toolGalleryLabel")}>
-        {filteredTools.length === 0 ? (
-          <p className="empty-state">{t("empty")}</p>
-        ) : viewMode === "grid" ? (
-          filteredTools.map((tool) => <ToolCard key={tool.id} tool={tool} />)
-        ) : (
-          <GalleryTable tools={filteredTools} />
-        )}
-      </section>
+      {shownTools.length === 0 ? (
+        <section aria-label={t("toolGalleryLabel")}>
+          <EmptyState
+            action={
+              narrowing ? (
+                <Button size="sm" onClick={clear}>
+                  {t("clearFilters")}
+                </Button>
+              ) : null
+            }
+          >
+            {narrowing ? t("emptyFiltered", { filters: activeWords.join(" · ") }) : t("empty")}
+          </EmptyState>
+        </section>
+      ) : state.group === null ? (
+        <section aria-label={t("toolGalleryLabel")}>
+          <Tools tools={sections[0].tools} view={state.view} headingLevel={2} tableLabel={t("toolGalleryLabel")} />
+        </section>
+      ) : (
+        <div className="flex flex-col gap-6" data-slot="gallery-sections">
+          {sections.map((section, index) => {
+            const id = `gallery-section-${index}`;
+            return (
+              <section key={section.key} aria-labelledby={id} data-slot="gallery-section">
+                <h2
+                  id={id}
+                  className="sticky top-[var(--gallery-sticky-top,64px)] z-10 mb-3 flex items-baseline justify-between gap-3 border-b border-rule bg-background py-2 font-mono text-label tracking-[0.08em] uppercase"
+                >
+                  <span>{section.label}</span>
+                  <span className="text-muted-foreground tabular-nums">{t("sectionCount", { count: section.tools.length })}</span>
+                </h2>
+                <Tools
+                  tools={section.tools}
+                  view={state.view}
+                  headingLevel={3}
+                  tableLabel={t("sectionTable", { section: section.label })}
+                  stickyHeader={false}
+                  keyboardHint={index === sections.length - 1}
+                />
+              </section>
+            );
+          })}
+        </div>
+      )}
     </main>
   );
+}
+
+function Tools({
+  tools,
+  view,
+  headingLevel,
+  tableLabel,
+  stickyHeader,
+  keyboardHint,
+}: {
+  tools: MakerLabTool[];
+  view: GalleryState["view"];
+  headingLevel: 2 | 3;
+  tableLabel: string;
+  stickyHeader?: boolean;
+  keyboardHint?: boolean;
+}) {
+  if (view === "table") {
+    return <GalleryTable tools={tools} label={tableLabel} stickyHeader={stickyHeader} keyboardHint={keyboardHint} />;
+  }
+  return (
+    <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:gap-4 md:grid-cols-3 xl:grid-cols-5">
+      {tools.map((tool) => (
+        <li key={tool.id} className="min-w-0">
+          <ToolCard tool={tool} headingLevel={headingLevel} />
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Keep the section headings just under the sticky top bar, whose height
+ * changes with the viewport (it wraps on a phone): measured, not guessed.
+ */
+function useStickyOffset(ref: React.RefObject<HTMLElement | null>) {
+  useEffect(() => {
+    const main = ref.current;
+    const bar = document.querySelector<HTMLElement>(".top-nav");
+    if (!main || !bar || typeof ResizeObserver === "undefined") return;
+    const update = () => main.style.setProperty("--gallery-sticky-top", `${bar.offsetHeight}px`);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(bar);
+    return () => observer.disconnect();
+  }, [ref]);
 }

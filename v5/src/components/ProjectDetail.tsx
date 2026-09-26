@@ -1,81 +1,64 @@
 import Image from "next/image";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { MakerLabProject } from "./catalog-types";
+import { PageSection, PublicPage } from "./system/PublicPage";
+import { Markdown } from "./system/Markdown";
 
 interface ProjectDetailProps {
   project: MakerLabProject;
 }
 
-function formatDate(date: string | null): string {
+/** An ISO day (DESIGN.md §2: dates are ISO, comparable, locale-neutral), or nothing. */
+function isoDay(date: string | null): string {
   if (!date) return "";
   const parsed = new Date(date);
   if (Number.isNaN(parsed.getTime())) return "";
-  return parsed.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  return parsed.toISOString().slice(0, 10);
 }
 
+/**
+ * One published project (UI system phase 5a): `PublicPage` with the
+ * `// PROJECTS / TITLE` crumb, the byline and date as the facts line, the
+ * photos, the write-up, and the tools and materials as labels.
+ */
 export async function ProjectDetail({ project }: ProjectDetailProps) {
   const t = await getTranslations("projectDetail");
-  const formattedDate = formatDate(project.date);
+  const date = isoDay(project.date);
   const [cover, ...rest] = project.photos;
 
   return (
-    <main className="tool-detail">
-      <div className="td-breadcrumbs">
-        <div>
-          <Link href="/projects">{t("breadcrumbProjects")}</Link>
-          <span aria-hidden="true">›</span>
-          <span>{project.title}</span>
-        </div>
-      </div>
-
-      <section className="td-panel project-detail-head">
-        <h1>{project.title}</h1>
-        <p className="project-detail-meta">
+    <PublicPage
+      crumbs={[{ label: t("breadcrumbProjects"), href: "/projects" }, { label: project.title }]}
+      title={project.title}
+      facts={
+        <span>
           {t("by", { author: project.author })}
-          {formattedDate ? ` · ${formattedDate}` : ""}
-        </p>
-        {project.link ? (
-          <a
-            className="td-button"
-            href={project.link}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {t("viewLink")}
-          </a>
-        ) : null}
-      </section>
-
+          {date ? ` · ${date}` : ""}
+        </span>
+      }
+      actions={
+        project.link ? (
+          <Button asChild variant="outline">
+            <a href={project.link} target="_blank" rel="noopener noreferrer">
+              {t("viewLink")}
+            </a>
+          </Button>
+        ) : null
+      }
+    >
       {cover ? (
-        <section className="project-detail-gallery" aria-label={t("photosLabel")}>
-          <div className="project-detail-cover">
-            <Image
-              src={cover}
-              alt=""
-              fill
-              sizes="(min-width: 980px) 60vw, 100vw"
-              style={{ objectFit: "contain" }}
-              priority
-            />
+        <section data-slot="project-photos" aria-label={t("photosLabel")} className="flex flex-col gap-2 pt-4">
+          <div className="relative aspect-[4/3] w-full bg-muted">
+            <Image src={cover} alt="" fill sizes="(min-width: 980px) 880px, 100vw" style={{ objectFit: "contain" }} priority />
           </div>
           {rest.length > 0 ? (
-            <div className="project-detail-thumbs">
+            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
               {rest.map((photo, index) => (
-                <div className="project-detail-thumb" key={`${photo}-${index}`}>
-                  <Image
-                    src={photo}
-                    alt=""
-                    fill
-                    sizes="(min-width: 980px) 20vw, 50vw"
-                    style={{ objectFit: "cover" }}
-                  />
+                <div data-slot="project-thumb" className="relative aspect-square bg-muted" key={`${photo}-${index}`}>
+                  <Image src={photo} alt="" fill sizes="(min-width: 980px) 220px, 33vw" style={{ objectFit: "cover" }} />
                 </div>
               ))}
             </div>
@@ -83,45 +66,39 @@ export async function ProjectDetail({ project }: ProjectDetailProps) {
         </section>
       ) : null}
 
-      <section className="td-panel td-prose project-detail-body">
-        <div className="chat-markdown">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{project.body}</ReactMarkdown>
-        </div>
-      </section>
+      <div data-slot="project-body" className="max-w-[72ch] pt-6 text-[15px]">
+        <Markdown>{project.body}</Markdown>
+      </div>
 
       {project.tools.length > 0 ? (
-        <section className="td-panel">
-          <header className="td-section-title td-section-title-bordered">
-            <h2>{t("toolsUsed")}</h2>
-          </header>
-          <div className="td-chip-row">
+        <PageSection id="project-tools" title={t("toolsUsed")}>
+          <div className="flex flex-wrap gap-2">
             {project.tools.map((tool) => (
-              <Link className="td-chip td-chip-link" href={`/tools/${tool.slug}`} key={tool.id}>
-                {tool.name}
-              </Link>
+              <Badge asChild key={tool.id} className="text-label">
+                <Link href={`/tools/${tool.slug}`}>{tool.name}</Link>
+              </Badge>
             ))}
           </div>
-        </section>
+        </PageSection>
       ) : null}
 
       {project.materials.length > 0 ? (
-        <section className="td-panel">
-          <header className="td-section-title td-section-title-bordered">
-            <h2>{t("materials")}</h2>
-          </header>
-          <div className="td-chip-row">
+        <PageSection id="project-materials" title={t("materials")}>
+          <div className="flex flex-wrap gap-2">
             {project.materials.map((material) => (
-              <span className="td-chip" key={material}>
+              <Badge key={material} className="text-label">
                 {material}
-              </span>
+              </Badge>
             ))}
           </div>
-        </section>
+        </PageSection>
       ) : null}
 
-      <Link className="td-back" href="/projects">
-        {t("back")}
-      </Link>
-    </main>
+      <div className="pt-8">
+        <Button asChild variant="ghost">
+          <Link href="/projects">{t("back")}</Link>
+        </Button>
+      </div>
+    </PublicPage>
   );
 }

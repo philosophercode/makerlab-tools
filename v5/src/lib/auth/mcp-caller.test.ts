@@ -25,7 +25,7 @@ function request(headers: Record<string, string> = {}): Request {
 
 async function tokenFor(email: string, options: { role?: "user" | "admin" | "super_admin"; readOnly?: boolean; banned?: boolean } = {}) {
   const person = await seedUser({ email, role: options.role ?? "user", banned: options.banned, name: "Pat Person" });
-  const created = await createApiToken({ userId: person.id, name: "test", readOnly: Boolean(options.readOnly), expiry: "90" });
+  const created = await createApiToken({ userId: person.id, name: "test", readOnly: Boolean(options.readOnly) });
   if (!created.ok) throw new Error("expected a token");
   return { person, token: created.token, tokenId: created.summary.id };
 }
