@@ -59,6 +59,25 @@ describe("urlLanguages — the URL's own locale", () => {
     expect(urlLanguages("https://www.example.com/uk-ua/products/x")?.langs).toEqual(["uk"]);
     expect(urlLanguages("https://www.example.com/it/prodotti/x")?.langs).toEqual(["it"]);
   });
+
+  it("a country segment before an English one is English (/de/en/)", () => {
+    expect(urlLanguage("https://www.bosch-professional.com/de/en/products/gsr-18v-55").verdict).toBe("english");
+    expect(urlLanguage("https://www.hilti.de/de/en/tools").verdict).toBe("english");
+    expect(urlLanguages("https://www.bosch-diy.com/de/de/produkte/x")?.langs).toEqual(["de"]);
+  });
+
+  it("a university's or government's department subdomain is not a locale", () => {
+    expect(urlLanguages("https://cs.cornell.edu/labs/x")).toBeNull();
+    expect(urlLanguages("https://it.cornell.edu/3d-printing")).toBeNull();
+    expect(urlLanguages("https://hr.ox.ac.uk/policies")).toBeNull();
+    expect(urlLanguages("https://de.example.com/x")?.langs).toEqual(["de"]);
+  });
+
+  it("English words in a PDF's name are not languages (Wi-Fi, Pt-2)", () => {
+    expect(urlLanguages("https://cdn.example.com/Router_Wi-Fi_Setup.pdf")).toBeNull();
+    expect(urlLanguages("https://cdn.example.com/X1C-Pt-2-Assembly.pdf")).toBeNull();
+    expect(urlLanguage("https://cdn.example.com/Wi-Fi_Setup_DE.pdf")).toMatchObject({ verdict: "not_english", lang: "de" });
+  });
 });
 
 describe("declaredLanguage — <html lang>", () => {
@@ -114,6 +133,12 @@ describe("titleLanguage", () => {
     expect(titleLanguage("X2D user manual (PDF)").verdict).toBe("unknown");
     expect(titleLanguage("Bambu Lab X2D product page").verdict).toBe("unknown");
   });
+
+  it("Greek letters used as units in an English title say nothing", () => {
+    expect(titleLanguage("Measuring 10 μF, 22 μF and 47 μF capacitors").verdict).toBe("unknown");
+    expect(titleLanguage("Choosing 1kΩ, 10kΩ and 100kΩ resistors").verdict).toBe("unknown");
+    expect(titleLanguage("Οδηγός χρήσης εκτυπωτή").verdict).toBe("not_english");
+  });
 });
 
 describe("pageLanguage — strongest signal first", () => {
@@ -132,6 +157,15 @@ describe("pageLanguage — strongest signal first", () => {
     expect(pageLanguage({ url: "https://example.com/x2d", lang: "de", text: "X2D" })).toMatchObject({ verdict: "not_english", basis: "declared" });
     expect(pageLanguage({ url: "https://example.com/fr-fr/x2d", text: "X2D" })).toMatchObject({ verdict: "not_english", basis: "url" });
     expect(pageLanguage({ url: "https://example.com/x2d", text: "X2D" }).verdict).toBe("unknown");
+  });
+
+  it("an English address outweighs a German template's lang='de' when the text is not decisive", () => {
+    expect(pageLanguage({ url: "https://www.festool.de/en-us/x", lang: "de", text: "KS 120 REB 1600 W 60 mm" })).toMatchObject({
+      verdict: "english",
+      basis: "url",
+    });
+    // …but German text under /en/ is still German.
+    expect(pageLanguage({ url: "https://www.festool.de/en-us/x", lang: "de", text: repeat(GERMAN, 3) }).verdict).toBe("not_english");
   });
 
   it("describes a verdict in a few words", () => {

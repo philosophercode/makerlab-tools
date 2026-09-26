@@ -48,8 +48,17 @@ const LANGUAGE_CODES = new Set([
  */
 const AMBIGUOUS_BARE = new Set(["uk", "ca", "id", "no", "ms", "hi", "et", "eu"]);
 
-/** In a file name, English words and short tokens that are also language codes. */
-const AMBIGUOUS_IN_FILE = new Set([...AMBIGUOUS_BARE, "it", "is", "da", "el", "he", "sl", "th", "fa", "vi", "ko", "ar", "cs"]);
+/**
+ * In a file name, English words and short tokens that are also language codes
+ * (`Wi-Fi` → `fi`, `Pt-2` → `pt`).
+ */
+const AMBIGUOUS_IN_FILE = new Set([...AMBIGUOUS_BARE, "it", "is", "da", "el", "he", "sl", "th", "fa", "vi", "ko", "ar", "cs", "fi", "pt"]);
+
+/**
+ * Hosts whose subdomains are departments, not locales: `cs.cornell.edu` is
+ * computer science, `it.` and `hr.` are offices.
+ */
+const DEPARTMENT_HOST = /\.(?:edu|gov|mil)$|\.(?:ac|edu|gov)\.[a-z]{2}$/i;
 
 /** Query parameters that carry a locale. */
 const LOCALE_PARAMS = ["lang", "language", "locale", "hl", "lng", "lc"];
@@ -82,16 +91,20 @@ export function urlLanguages(raw: string): UrlLanguages | null {
     if (lang) return { langs: [lang], where: "query" };
   }
 
-  // A locale segment among the first two path segments (`/de-de/…`, `/intl/ja/…`).
+  // Locale segments among the first two path segments (`/de-de/…`, `/intl/ja/…`).
+  // Both are read: `/de/en/` is a country then a language, and English there is English.
   const segments = decodeSafe(url.pathname).split("/").filter(Boolean);
+  const pathLangs: string[] = [];
   for (const segment of segments.slice(0, 2)) {
     const lang = localeLanguage(segment, false);
-    if (lang) return { langs: [lang], where: "path" };
+    if (lang && !pathLangs.includes(lang)) pathLangs.push(lang);
   }
+  if (pathLangs.length > 0) return { langs: pathLangs, where: "path" };
 
-  // A language subdomain (`de.example.com`), never the registrable name itself.
+  // A language subdomain (`de.example.com`), never the registrable name itself,
+  // and never a university's or government's department (`cs.cornell.edu`).
   const labels = url.hostname.toLowerCase().split(".");
-  if (labels.length > 2) {
+  if (labels.length > 2 && !DEPARTMENT_HOST.test(url.hostname)) {
     const lang = localeLanguage(labels[0], false);
     if (lang) return { langs: [lang], where: "subdomain" };
   }
@@ -111,7 +124,8 @@ export function urlLanguages(raw: string): UrlLanguages | null {
       if (!langs.includes(token)) langs.push(token);
     }
     const sure = langs.filter((lang) => !AMBIGUOUS_IN_FILE.has(lang));
-    if (sure.length > 0) return { langs, where: "file" };
+    // The sure ones first, so the language named is `de` in `Wi-Fi_Setup_DE.pdf`, not `fi`.
+    if (sure.length > 0) return { langs: [...sure, ...langs.filter((lang) => !sure.includes(lang))], where: "file" };
   }
   return null;
 }
@@ -304,8 +318,9 @@ export function titleLanguage(title: string | null | undefined): LanguageJudgeme
     for (const [pattern, lang] of SCRIPTS) {
       const count = (value.match(pattern) ?? []).length;
       // A title keeps its brand and model in Latin letters ("Bambu Lab X2D 開箱與設定"),
-      // so three letters of another script are enough; an English title has none.
-      if (count >= 3 || count / letters > 0.5) {
+      // so three letters of another script are enough; an English title has none —
+      // except Greek, whose letters are units and symbols in English ("10 μF", "1 kΩ").
+      if ((lang !== "el" && count >= 3) || count / letters > 0.5) {
         return { verdict: "not_english", lang, basis: "title" };
       }
     }
@@ -330,14 +345,19 @@ export interface PageLanguageInput {
 /**
  * A page's verdict: decisive text first (a template's `lang="en"` on German
  * text does not pass it; English text under `/de/` is kept), then the declared
- * language, then the URL.
+ * language, then the URL — except that a URL naming English outweighs a
+ * declared other language.
  */
 export function pageLanguage(input: PageLanguageInput): LanguageJudgement {
   const byText = textLanguage(input.text, { manual: input.manual });
   if (byText.verdict !== "unknown") return byText;
   const declared = declaredLanguage(input.lang);
+  const byUrl = input.url ? urlLanguage(input.url) : UNKNOWN;
+  // An address that names English (`/en-us/`) beats a site-wide template's `lang="de"`:
+  // German brands serve English pages under a German template. Dropping needs agreement.
+  if (declared.verdict === "not_english" && byUrl.verdict === "english") return byUrl;
   if (declared.verdict !== "unknown") return declared;
-  return input.url ? urlLanguage(input.url) : UNKNOWN;
+  return byUrl;
 }
 
 const LANGUAGE_NAMES: Record<string, string> = {
