@@ -118,7 +118,6 @@ describe("can(role, permission)", () => {
       "user.list",
       "user.get",
       "user.set-role",
-      "user.ban",
       "user.update",
       "session.list",
       "session.revoke",
@@ -138,6 +137,9 @@ describe("can(role, permission)", () => {
     for (const permission of [
       "user.impersonate",
       "user.impersonate-admins",
+      // Ban was retired for Remove (auth spec amendment 2026-09-25), which is
+      // the app's own transaction, not the plugin's `ban-user` or `remove-user`.
+      "user.ban",
       "user.create",
       "user.delete",
       "user.set-password",

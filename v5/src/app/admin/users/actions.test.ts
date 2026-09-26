@@ -9,11 +9,11 @@ import { eq } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { resetAuthForTests } from "../../../lib/auth/config";
 import { getDb, resetDbForTests } from "../../../lib/db/client";
-import { auditEvents, session, user } from "../../../lib/db/schema/index";
+import { auditEvents, blockedEmails, session, user } from "../../../lib/db/schema/index";
 import { listAuditEvents } from "../../../lib/data/audit";
 import { findUserById } from "../../../lib/data/users";
 import { seedUser, signInAs, signInAsNew } from "../../../../test/utils/session";
-import { setUserBanned, setUserRole } from "./actions";
+import { removeUser, setUserRole, unblockBlockedEmail } from "./actions";
 
 /**
  * The two `/admin/users` writes, end to end over PGlite: a real Better Auth
@@ -41,6 +41,7 @@ beforeEach(async () => {
   // says. Sessions and audit rows go with them (cascade / explicit).
   const db = await getDb();
   await db.delete(auditEvents);
+  await db.delete(blockedEmails);
   await db.delete(session);
   await db.delete(user);
 });
@@ -262,99 +263,120 @@ describe("setUserRole", () => {
   });
 });
 
-// ── Banning (§5.2) ──────────────────────────────────────────────────
+// ── Removing a person (auth spec amendment 2026-09-25) ─────────────
 
-describe("setUserBanned", () => {
-  it("bans with a reason, records it, and deletes the person's sessions", async () => {
+describe("removeUser", () => {
+  it("removes the account, revokes its sessions and records user.removed", async () => {
     const director = await asDirector();
-    const target = await seedUser({ email: "student@cornell.edu", role: "user" });
+    const target = await seedUser({ email: "student@cornell.edu", role: "user", name: "Stu Dent" });
     await signInAs(target);
 
-    expect(
-      await setUserBanned({ userId: target.id, banned: true, reason: "Ignored the rules" })
-    ).toEqual({ ok: true, banned: true });
+    expect(await removeUser({ userId: target.id, block: false })).toEqual({
+      ok: true,
+      removed: { id: target.id, name: "Stu Dent", email: "student@cornell.edu" },
+      blocked: false,
+    });
+    expect(await findUserById(target.id)).toBeNull();
 
-    const stored = await findUserById(target.id);
-    expect(stored).toMatchObject({ banned: true, banReason: "Ignored the rules" });
-
-    // The plugin deletes their sessions, so the ban bites mid-visit rather
-    // than at expiry — and `resolveIdentity` would refuse them regardless.
     const db = await getDb();
-    const rows = await db.select().from(session).where(eq(session.userId, target.id));
-    expect(rows).toEqual([]);
+    expect(await db.select().from(session).where(eq(session.userId, target.id))).toEqual([]);
+    expect(await db.select().from(blockedEmails)).toEqual([]);
 
     const events = await listAuditEvents();
+    expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
       actorUserId: director.user.id,
-      action: "user.banned",
+      actorName: "Dee Rector",
+      action: "user.removed",
+      subjectType: "user",
       subjectId: target.id,
-      detail: { banned: true, reason: "Ignored the rules" },
+      detail: { name: "Stu Dent", email: "student@cornell.edu", blocked: false, revoked: { sessions: 1 } },
     });
+    expect(vi.mocked(revalidatePath)).toHaveBeenCalledWith("/admin/users");
   });
 
-  it("lifts a ban, recorded as the same action with `banned: false`", async () => {
-    await asDirector();
-    const target = await seedUser({
-      email: "student@cornell.edu",
-      role: "user",
-      banned: true,
-    });
+  it("blocks the address when asked, with the reason, and records email.blocked", async () => {
+    const director = await asDirector();
+    const target = await seedUser({ email: "Student@Cornell.edu", role: "user" });
 
-    expect(await setUserBanned({ userId: target.id, banned: false })).toEqual({
-      ok: true,
-      banned: false,
-    });
-    expect((await findUserById(target.id))?.banned).toBe(false);
+    const result = await removeUser({ userId: target.id, block: true, reason: "  Repeated misuse  " });
+    expect(result).toMatchObject({ ok: true, blocked: true });
 
-    const events = await listAuditEvents();
-    expect(events[0]).toMatchObject({ action: "user.banned", detail: { banned: false } });
+    const db = await getDb();
+    expect(await db.select().from(blockedEmails)).toEqual([
+      expect.objectContaining({ email: "student@cornell.edu", reason: "Repeated misuse", blockedBy: director.user.id }),
+    ]);
+    const actions = (await listAuditEvents()).map((event) => event.action).sort();
+    expect(actions).toEqual(["email.blocked", "user.removed"]);
   });
 
-  it("refuses to ban a floor address", async () => {
+  it("refuses to remove yourself, and removes nothing", async () => {
+    const director = await asDirector();
+    await seedUser({ email: "successor@cornell.edu", role: "super_admin" });
+
+    expect(await removeUser({ userId: director.user.id, block: true })).toEqual({ ok: false, error: "self_remove" });
+    expect(await findUserById(director.user.id)).not.toBeNull();
+    expect(await listAuditEvents()).toEqual([]);
+  });
+
+  it("refuses to remove, or block, a floor address", async () => {
     await asDirector();
     const floor = await seedUser({ email: "founder@cornell.edu", role: "super_admin" });
     vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "founder@cornell.edu");
 
-    expect(await setUserBanned({ userId: floor.id, banned: true })).toEqual({
-      ok: false,
-      error: "protected_floor",
-    });
-    expect((await findUserById(floor.id))?.banned).toBe(false);
+    expect(await removeUser({ userId: floor.id, block: true })).toEqual({ ok: false, error: "protected_floor" });
+    expect(await findUserById(floor.id)).not.toBeNull();
+    const db = await getDb();
+    expect(await db.select().from(blockedEmails)).toEqual([]);
   });
 
-  it("refuses to ban yourself", async () => {
-    const director = await asDirector();
-    await seedUser({ email: "successor@cornell.edu", role: "super_admin" });
-
-    expect(await setUserBanned({ userId: director.user.id, banned: true })).toEqual({
-      ok: false,
-      error: "self_ban",
-    });
-    expect((await findUserById(director.user.id))?.banned).toBe(false);
-  });
-
-  it("allows banning another director — the caller is still one", async () => {
-    // There is deliberately no "last director" guard on the ban path: reaching
-    // it means the *caller* holds `users.manage`, so the lab keeps one.
+  it("allows removing another director — the caller is still one", async () => {
     await asDirector();
     const other = await seedUser({ email: "other@cornell.edu", role: "super_admin" });
 
-    expect(await setUserBanned({ userId: other.id, banned: true })).toEqual({
-      ok: true,
-      banned: true,
-    });
-    expect((await findUserById(other.id))?.banned).toBe(true);
+    expect(await removeUser({ userId: other.id, block: false })).toMatchObject({ ok: true });
+    expect(await findUserById(other.id)).toBeNull();
   });
 
-  it("is a no-op when the account is already in that state", async () => {
+  it("refuses an id that names nobody", async () => {
     await asDirector();
-    const target = await seedUser({ email: "student@cornell.edu", role: "user" });
+    expect(await removeUser({ userId: "nobody-here", block: false })).toEqual({ ok: false, error: "unknown_user" });
+  });
 
-    expect(await setUserBanned({ userId: target.id, banned: false })).toEqual({
-      ok: true,
-      banned: false,
-    });
+  it("is refused to a SuperMaker, who does not hold users.manage", async () => {
+    const target = await seedUser({ email: "student@cornell.edu", role: "user" });
+    const caller = await signInAsNew({ email: "maker@cornell.edu", role: "admin" });
+    setMockHeaders({ cookie: caller.cookie });
+
+    expect(await removeUser({ userId: target.id, block: true })).toEqual({ ok: false, error: "not_permitted" });
+    expect(await findUserById(target.id)).not.toBeNull();
+  });
+});
+
+describe("unblockBlockedEmail", () => {
+  it("takes the address off the list and records email.unblocked", async () => {
+    const director = await asDirector();
+    const target = await seedUser({ email: "student@cornell.edu", role: "user" });
+    await removeUser({ userId: target.id, block: true });
+
+    expect(await unblockBlockedEmail({ email: "Student@cornell.edu " })).toEqual({ ok: true, email: "student@cornell.edu" });
+
+    const db = await getDb();
+    expect(await db.select().from(blockedEmails)).toEqual([]);
+    const unblocked = (await listAuditEvents()).find((event) => event.action === "email.unblocked");
+    expect(unblocked).toMatchObject({ actorUserId: director.user.id, subjectType: "email", subjectId: "student@cornell.edu" });
+  });
+
+  it("is a no-op success, with no event, for an address not on the list", async () => {
+    await asDirector();
+    expect(await unblockBlockedEmail({ email: "nobody@cornell.edu" })).toEqual({ ok: true, email: "nobody@cornell.edu" });
     expect(await listAuditEvents()).toEqual([]);
+  });
+
+  it("is refused to anybody without users.manage", async () => {
+    const caller = await signInAsNew({ email: "maker@cornell.edu", role: "admin" });
+    setMockHeaders({ cookie: caller.cookie });
+    expect(await unblockBlockedEmail({ email: "x@cornell.edu" })).toEqual({ ok: false, error: "not_permitted" });
   });
 });
 
@@ -397,15 +419,12 @@ describe("a floor address whose row has not caught up", () => {
     expect(await roleOf(caller.user.id)).toBe("super_admin");
   });
 
-  it("can still ban somebody", async () => {
+  it("can still remove somebody", async () => {
     await asFloorAddressStoredAs("admin");
     const target = await seedUser({ email: "student@cornell.edu", role: "user" });
 
-    expect(await setUserBanned({ userId: target.id, banned: true })).toEqual({
-      ok: true,
-      banned: true,
-    });
-    expect((await findUserById(target.id))?.banned).toBe(true);
+    expect(await removeUser({ userId: target.id, block: false })).toMatchObject({ ok: true });
+    expect(await findUserById(target.id)).toBeNull();
   });
 
   it("records the reconciliation as the role change it is", async () => {

@@ -47,9 +47,11 @@ export const bulkImports = pgTable(
     itemCount: integer("item_count").notNull().default(0),
     duplicateCount: integer("duplicate_count").notNull().default(0),
     workflowRunId: text("workflow_run_id"),
-    createdBy: text("created_by")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    // Nullable and `set null` since migration `0016` (auth spec amendment
+    // 2026-09-25): an import stays as history when its author is removed.
+    createdBy: userReference("created_by"),
+    // Written only when the author's account is removed (`data/user-removal.ts`).
+    createdByName: text("created_by_name"),
     ...timestamps(),
   },
   (t) => [

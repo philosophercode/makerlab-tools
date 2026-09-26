@@ -34,6 +34,7 @@ export function toPendingToolView(item: PendingTool): PendingToolView {
     researchRequestedAt: item.researchRequestedAt?.toISOString() ?? null,
     hasWorkflowRun: item.workflowRunId !== null,
     createdByName: item.createdByName,
+    createdByRemoved: item.createdByRemoved,
     createdAt: item.createdAt.toISOString(),
     updatedAt: item.updatedAt.toISOString(),
   };

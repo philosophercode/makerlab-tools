@@ -146,11 +146,11 @@ const BUILDERS: { [K in SurfaceKey]: (counts: CountsFor[K], t: Translate, extra:
     facts: c.waiting > 0 ? [fact(t("home.projectsPublished"), c.published)] : [],
     size: c.waiting > 0 ? "full" : "half",
   }),
-  // People: the number, and a ban only when there is one to see.
+  // People: the number, and blocked addresses only when there are some to see.
   users: (c, t) => ({
     value: c.total,
     unit: t("home.usersUnit"),
-    facts: c.banned > 0 ? [fact(t("home.usersBanned"), c.banned, "warn")] : [],
+    facts: c.blocked > 0 ? [fact(t("home.usersBlocked"), c.blocked)] : [],
     size: "half",
   }),
   // The mirror has no number, only a state — said where the number would be.

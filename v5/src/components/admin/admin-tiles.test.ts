@@ -86,7 +86,7 @@ describe("Intake carries the imports (amendment 2026-09-25)", () => {
 
 describe("tile sizes (DESIGN.md §8.2)", () => {
   it("makes People, the mirror and an idle Projects half tiles", () => {
-    expect(tileContent("users", { total: 4, admins: 2, banned: 0 }, t).content.size).toBe("half");
+    expect(tileContent("users", { total: 4, admins: 2, blocked: 0 }, t).content.size).toBe("half");
     expect(tileContent("mirror", { state: "connected" }, t).content.size).toBe("half");
     expect(tileContent("projects", { waiting: 0, published: 2 }, t).content.size).toBe("half");
   });
@@ -97,8 +97,13 @@ describe("tile sizes (DESIGN.md §8.2)", () => {
     expect(content.facts).toContainEqual({ label: "Published", value: 5, tone: undefined });
   });
 
-  it("still shows a ban on the People tile", () => {
-    expect(tileContent("users", { total: 4, admins: 2, banned: 1 }, t).content.facts).toContainEqual({ label: "Banned", value: 1, tone: "warn" });
+  it("shows blocked addresses on the People tile, and nothing when there are none", () => {
+    expect(tileContent("users", { total: 4, admins: 2, blocked: 1 }, t).content.facts).toContainEqual({
+      label: "Blocked addresses",
+      value: 1,
+      tone: undefined,
+    });
+    expect(tileContent("users", { total: 4, admins: 2, blocked: 0 }, t).content.facts).toEqual([]);
   });
 });
 
@@ -111,7 +116,7 @@ describe("glyphs only where they carry meaning (DESIGN.md §8.5, 2026-09-25)", (
     maintenance: { open: 0, inProgress: 0, urgent: 0, series: series(0) },
     corrections: { open: 0, handled: 0, series: series(0) },
     projects: { waiting: 0, published: 0 },
-    users: { total: 1, admins: 1, banned: 0 },
+    users: { total: 1, admins: 1, blocked: 0 },
   };
   const busy = {
     intake: { identified: 2, researching: 3, researched: 8, failed: 1, series: series(2) },
@@ -121,7 +126,7 @@ describe("glyphs only where they carry meaning (DESIGN.md §8.5, 2026-09-25)", (
     maintenance: { open: 5, inProgress: 3, urgent: 2, series: series(1) },
     corrections: { open: 5, handled: 8, series: series(1) },
     projects: { waiting: 1, published: 1 },
-    users: { total: 4, admins: 2, banned: 1 },
+    users: { total: 4, admins: 2, blocked: 1 },
   };
   const glyphs = (counts: Record<string, unknown>, extra = {}) =>
     Object.entries(counts).flatMap(([key, c]) =>

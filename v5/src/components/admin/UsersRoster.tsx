@@ -5,7 +5,12 @@ import { useTranslations } from "next-intl";
 import { matchSorter } from "match-sorter";
 import type { ColumnDef } from "@tanstack/react-table";
 import { ROLES, type Role } from "../../lib/db/schema/vocabulary";
-import type { AdminActionError, AdminActionResult } from "../../app/admin/users/action-result";
+import type {
+  AdminActionError,
+  AdminActionResult,
+  RemoveUserAction,
+  RemoveUserResult,
+} from "../../app/admin/users/action-result";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "../system/data-table/DataTable";
@@ -13,26 +18,28 @@ import { FilterBar } from "../system/data-table/FilterBar";
 import { FacetFilter } from "../system/data-table/FacetFilter";
 import { facetOptions } from "../system/data-table/facet-options";
 import { EmptyState } from "../system/EmptyState";
-import { BanToggle } from "./BanToggle";
+import { RemoveUserControl } from "./RemoveUserControl";
 import { RoleSelect } from "./RoleSelect";
 import {
   NO_USER_FILTERS,
-  USER_ACCESS,
   matchesUserFilters,
   userFiltersToSearchParams,
-  type UserAccess,
   type UserFilterState,
 } from "./users-filters";
 
 /**
  * The roster on `/admin/users` as a `DataTable` (UI system spec §7.2): one row
- * per account, the role select and the ban control in their own columns, the
- * first sign-in as an ISO date. `UsersTable` has already worked out which rows
+ * per account, the role select and **Remove** in their own columns, the first
+ * sign-in as an ISO date. `UsersTable` has already worked out which rows
  * cannot change and why; this renders it. On a phone each person is a
  * two-line item with both controls.
  *
- * Search and the Role / Access facets narrow the list in the browser and are
- * written to the URL, as on the inventory, so "every banned account" is a link.
+ * Search and the Role facet narrow the list in the browser and are written to
+ * the URL, as on the inventory, so "every director" is a link.
+ *
+ * A removal takes the row off at once and says so in a status line above the
+ * table (auth spec amendment 2026-09-25); the server re-renders the page too,
+ * but the roster does not wait for that to stop showing somebody who is gone.
  */
 
 export interface RosterRow {
@@ -40,24 +47,26 @@ export interface RosterRow {
   name: string;
   email: string;
   role: Role;
-  banned: boolean;
-  banReason: string | null;
   joined: string;
   isSelf: boolean;
   roleLockedReason: AdminActionError | null;
-  banLockedReason: AdminActionError | null;
+  removeLockedReason: AdminActionError | null;
 }
 
 export interface UsersRosterProps {
   rows: RosterRow[];
   initial?: UserFilterState;
   setRole: (input: { userId: string; role: string }) => Promise<AdminActionResult>;
-  setBanned: (input: { userId: string; banned: boolean; reason?: string }) => Promise<AdminActionResult>;
+  removeUser: RemoveUserAction;
 }
 
-export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, setBanned }: UsersRosterProps) {
+type Removed = Extract<RemoveUserResult, { ok: true }>;
+
+export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, removeUser }: UsersRosterProps) {
   const t = useTranslations("admin");
   const [filters, setFilters] = useState<UserFilterState>(initial);
+  const [removedIds, setRemovedIds] = useState<ReadonlySet<string>>(() => new Set());
+  const [lastRemoved, setLastRemoved] = useState<Removed | null>(null);
 
   useEffect(() => {
     const query = userFiltersToSearchParams(filters).toString();
@@ -67,32 +76,31 @@ export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, setBanne
     }
   }, [filters]);
 
+  const present = useMemo(() => rows.filter((row) => !removedIds.has(row.id)), [rows, removedIds]);
+
   const visible = useMemo(() => {
-    const faceted = rows.filter((row) => matchesUserFilters(row, filters));
+    const faceted = present.filter((row) => matchesUserFilters(row, filters));
     const query = filters.query.trim();
     return query ? matchSorter(faceted, query, { keys: ["name", "email"] }) : faceted;
-  }, [rows, filters]);
+  }, [present, filters]);
 
-  const facets = useMemo(
-    () => ({
-      role: facetOptions(
-        rows.filter((row) => matchesUserFilters(row, { ...filters, role: null })),
+  const roleFacet = useMemo(
+    () =>
+      facetOptions(
+        present.filter((row) => matchesUserFilters(row, { ...filters, role: null })),
         ROLES,
         (row, v) => row.role === v,
         (v) => t(`roles.${v}`)
       ),
-      access: facetOptions(
-        rows.filter((row) => matchesUserFilters(row, { ...filters, access: null })),
-        USER_ACCESS,
-        (row, v) => (v === "banned") === row.banned,
-        (v) => t(`users.access.${v}`)
-      ),
-    }),
-    [rows, filters, t]
+    [present, filters, t]
   );
 
-  const columns = useMemo<ColumnDef<RosterRow, unknown>[]>(
-    () => [
+  const columns = useMemo<ColumnDef<RosterRow, unknown>[]>(() => {
+    const onRemoved = (result: Removed) => {
+      setRemovedIds((current) => new Set(current).add(result.removed.id));
+      setLastRemoved(result);
+    };
+    return [
       {
         id: "person",
         accessorFn: (row) => row.name,
@@ -117,28 +125,43 @@ export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, setBanne
         ),
       },
       {
-        id: "access",
-        accessorFn: (row) => (row.banned ? 1 : 0),
-        header: t("columnAccess"),
-        meta: { className: "whitespace-normal", cellClassName: "align-top" },
-        cell: ({ row }) => <Access row={row.original} setBanned={setBanned} />,
-      },
-      {
         id: "joined",
         accessorFn: (row) => row.joined,
         header: t("columnJoined"),
         meta: { align: "right", cellClassName: "align-top" },
       },
-    ],
-    [t, setRole, setBanned]
-  );
+      {
+        id: "account",
+        header: t("columnAccount"),
+        enableSorting: false,
+        meta: { className: "whitespace-normal", cellClassName: "align-top" },
+        cell: ({ row }) => (
+          <RemoveUserControl
+            userId={row.original.id}
+            personName={row.original.name}
+            email={row.original.email}
+            disabledReason={row.original.removeLockedReason}
+            action={removeUser}
+            onRemoved={onRemoved}
+          />
+        ),
+      },
+    ];
+  }, [t, setRole, removeUser]);
 
   const active = Boolean(userFiltersToSearchParams(filters).toString());
   const clear = () => setFilters(NO_USER_FILTERS);
 
   return (
     <>
-      {rows.length > 0 ? (
+      <p role="status" className="m-0 text-sm empty:hidden">
+        {lastRemoved
+          ? lastRemoved.blocked
+            ? t("removedBlockedNotice", { name: lastRemoved.removed.name, email: lastRemoved.removed.email })
+            : t("removedNotice", { name: lastRemoved.removed.name })
+          : null}
+      </p>
+      {present.length > 0 ? (
         <FilterBar
           label={t("users.filtersLabel")}
           search={{
@@ -148,23 +171,15 @@ export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, setBanne
             placeholder: t("users.searchPlaceholder"),
           }}
           facets={
-            <>
-              <FacetFilter
-                label={t("columnRole")}
-                value={filters.role}
-                options={facets.role}
-                onChange={(role) => setFilters((current) => ({ ...current, role: role as Role | null }))}
-              />
-              <FacetFilter
-                label={t("columnAccess")}
-                value={filters.access}
-                options={facets.access}
-                onChange={(access) => setFilters((current) => ({ ...current, access: access as UserAccess | null }))}
-              />
-            </>
+            <FacetFilter
+              label={t("columnRole")}
+              value={filters.role}
+              options={roleFacet}
+              onChange={(role) => setFilters((current) => ({ ...current, role: role as Role | null }))}
+            />
           }
           shown={visible.length}
-          total={rows.length}
+          total={present.length}
           onClear={active ? clear : null}
         />
       ) : null}
@@ -174,13 +189,12 @@ export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, setBanne
         getRowId={getRowId}
         getRowName={getRowName}
         labels={{ table: t("tableLabel") }}
-        rowClassName={(row) => (row.banned ? "text-muted-foreground" : undefined)}
         keyboardHint={false}
         empty={
           // Spec §6: an empty state names what is missing and what would change
           // it. With no rows at all, nobody has ever signed in — on a fresh
           // deployment the normal first state rather than a fault.
-          rows.length === 0 ? (
+          present.length === 0 ? (
             <EmptyState>{t("noUsers")}</EmptyState>
           ) : (
             <EmptyState action={<Button onClick={clear}>{t("inventory.clearFilters")}</Button>}>
@@ -199,7 +213,17 @@ export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, setBanne
                 disabledReason={row.roleLockedReason}
                 action={setRole}
               />
-              <Access row={row} setBanned={setBanned} />
+              <RemoveUserControl
+                userId={row.id}
+                personName={row.name}
+                email={row.email}
+                disabledReason={row.removeLockedReason}
+                action={removeUser}
+                onRemoved={(result) => {
+                  setRemovedIds((current) => new Set(current).add(result.removed.id));
+                  setLastRemoved(result);
+                }}
+              />
             </div>
           </div>
         )}
@@ -223,23 +247,5 @@ function Person({ row }: { row: RosterRow }) {
           accounts apart is the whole job here (spec §8). Mono: an identifier. */}
       <span className="font-mono text-xs text-muted-foreground">{row.email}</span>
     </span>
-  );
-}
-
-function Access({ row, setBanned }: { row: RosterRow; setBanned: UsersRosterProps["setBanned"] }) {
-  const t = useTranslations("admin");
-  return (
-    <div className="flex flex-col gap-1">
-      {row.banned ? (
-        <p className="text-xs text-bad">{row.banReason ? t("bannedWithReason", { reason: row.banReason }) : t("banned")}</p>
-      ) : null}
-      <BanToggle
-        userId={row.id}
-        personName={row.name}
-        banned={row.banned}
-        disabledReason={row.banLockedReason}
-        action={setBanned}
-      />
-    </div>
   );
 }

@@ -1,6 +1,6 @@
 import { isSuperAdminFloor } from "../../lib/auth/super-admins";
 import type { UserRecord } from "../../lib/data/users";
-import type { AdminActionError, AdminActionResult } from "../../app/admin/users/action-result";
+import type { AdminActionError, AdminActionResult, RemoveUserAction } from "../../app/admin/users/action-result";
 import { UsersRoster, type RosterRow } from "./UsersRoster";
 import type { UserFilterState } from "./users-filters";
 
@@ -14,30 +14,29 @@ import type { UserFilterState } from "./users-filters";
  * browser — and hands plain rows to `UsersRoster`, the client `DataTable`. The
  * server actions travel down as props — see `RoleSelect` for why.
  *
- * **It works out which rows cannot change, and says so.** The same two
- * guarantees the server enforces (`actions.ts`): an address on the super-admin
- * floor, and the last super admin standing. The count comes from the list this
- * component was already handed rather than a second query, and the answer is
- * only presentation — the action re-derives both before it writes.
+ * **It works out which rows cannot change, and says so.** The same guarantees
+ * the server enforces (`actions.ts`): an address on the super-admin floor
+ * cannot be demoted or removed, the last super admin standing cannot be either,
+ * and nobody removes themselves (auth spec amendment 2026-09-25). The count
+ * comes from the list this component was already handed rather than a second
+ * query, and the answer is only presentation — the action re-derives all of
+ * them before it writes.
  */
 
 export interface UsersTableProps {
   users: UserRecord[];
-  /** The viewer, so their own row can be marked and their ban refused. */
+  /** The viewer, so their own row can be marked and its removal refused. */
   currentUserId: string | null;
   /** The filters the URL arrived with (`parseUserFilters`). */
   initial?: UserFilterState;
   setRole: (input: { userId: string; role: string }) => Promise<AdminActionResult>;
-  setBanned: (input: {
-    userId: string;
-    banned: boolean;
-    reason?: string;
-  }) => Promise<AdminActionResult>;
+  removeUser: RemoveUserAction;
 }
 
-export function UsersTable({ users, currentUserId, initial, setRole, setBanned }: UsersTableProps) {
+export function UsersTable({ users, currentUserId, initial, setRole, removeUser }: UsersTableProps) {
   // Who would still hold `super_admin` if a given row lost it. Banned super
-  // admins are not counted: they resolve to anonymous and can undo nothing.
+  // admins — a state only a hand-written UPDATE can make now — are not
+  // counted: they resolve to anonymous and can undo nothing.
   const activeSuperAdmins = users.filter(
     (person) => person.role === "super_admin" && !person.banned
   ).length;
@@ -53,30 +52,29 @@ export function UsersTable({ users, currentUserId, initial, setRole, setBanned }
       : lastSuperAdmin
         ? "last_super_admin"
         : null;
-    // No "last super admin" here: whoever is reading this page holds
-    // `users.manage`, so banning somebody else cannot leave the lab without a
-    // director. `actions.ts` says the same in one comment.
-    const banReason: AdminActionError | null = floor
-      ? "protected_floor"
-      : isSelf
-        ? "self_ban"
-        : null;
+    // Yourself first: it is the reason that applies to the viewer's own row
+    // whatever else is true of it.
+    const removeReason: AdminActionError | null = isSelf
+      ? "self_remove"
+      : floor
+        ? "protected_floor"
+        : lastSuperAdmin
+          ? "last_super_admin"
+          : null;
 
     return {
       id: person.id,
       name: person.name,
       email: person.email,
       role: person.role,
-      banned: person.banned,
-      banReason: person.banReason,
       // ISO, locale-neutral: a formatted date would render differently on the
       // server and the client, and a roster read by one admin does not need it.
       joined: person.createdAt.toISOString().slice(0, 10),
       isSelf,
       roleLockedReason: roleReason,
-      banLockedReason: banReason,
+      removeLockedReason: removeReason,
     };
   });
 
-  return <UsersRoster rows={rows} initial={initial} setRole={setRole} setBanned={setBanned} />;
+  return <UsersRoster rows={rows} initial={initial} setRole={setRole} removeUser={removeUser} />;
 }

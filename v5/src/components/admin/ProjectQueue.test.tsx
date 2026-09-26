@@ -18,6 +18,7 @@ function submission(overrides: Partial<ProjectModerationEntry> = {}): ProjectMod
     title: "Resin dice tower",
     authorName: "Casey Rivera",
     authorUserId: "u-casey",
+    authorRemoved: false,
     body: "A dice tower printed in three parts.",
     link: "https://example.test/tower",
     materials: ["Standard resin", "Felt"],

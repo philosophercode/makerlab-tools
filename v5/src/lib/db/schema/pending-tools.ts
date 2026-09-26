@@ -16,11 +16,12 @@ import { DUPLICATE_RESOLUTION, PENDING_STATUS } from "./vocabulary.ts";
  *
  * A row here is scratch work, never catalogue: identification creates one,
  * the research workflow fills `research`, and only a person pressing Approve
- * turns it into a `tools` row (Article 5). That is why `created_by` is the one
- * actor column in the schema that is **not null and cascades**: the spec says
- * a pending item always has an owner, and an unapproved draft belonging to an
- * account that no longer exists is nothing anybody can act on. Everything else
- * that names a person is `on delete set null`, as elsewhere.
+ * turns it into a `tools` row (Article 5). `created_by` used to be the one
+ * actor column that was **not null and cascaded** ("a pending item always has
+ * an owner"); since the auth spec amendment of 2026-09-25 (Remove) it is
+ * `on delete set null` like every other, because removing a person must not
+ * delete what they identified — approved items included. An owner-less item is
+ * worked by anyone holding `tools.approve`, as somebody else's item already was.
  *
  * - `batch_id` groups the items identified together in one chat turn. It is not
  *   a foreign key — there is no batch table; selection is sent as ids (§4.10).
@@ -69,9 +70,12 @@ export const pendingTools = pgTable(
     researchRequestId: uuid("research_request_id"),
     researchRequestedBy: userReference("research_requested_by"),
     researchRequestedAt: timestamp("research_requested_at", { withTimezone: true }),
-    createdBy: text("created_by")
-      .notNull()
-      .references(() => user.id, { onDelete: "cascade" }),
+    // Nullable and `set null` since migration `0016` (auth spec amendment
+    // 2026-09-25): removing a person keeps what they identified.
+    createdBy: userReference("created_by"),
+    // The creator's name, written only when their account is removed — while it
+    // exists the live name comes from a join to `user` (`data/user-removal.ts`).
+    createdByName: text("created_by_name"),
     approvedBy: userReference("approved_by"),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
     approvalNote: text("approval_note"),

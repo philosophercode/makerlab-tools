@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { QueueList } from "../system/queue/QueueList";
 import { ReviewCard } from "../system/review/ReviewCard";
 import { CorrectionControls } from "./CorrectionControls";
+import { personLabel } from "./person-label";
 
 /**
  * The corrections queue on `/admin/corrections` (spec §5.6), on the shared
@@ -75,6 +76,8 @@ export function CorrectionsQueue({ corrections, action }: CorrectionsQueueProps)
 
 function CorrectionCard({ correction, action }: { correction: FeedbackQueueEntry; action: SetCorrectionStatusAction }) {
   const t = useTranslations("admin.corrections");
+  const tPeople = useTranslations("admin.people");
+  const reporter = personLabel(tPeople, correction.reporterName, correction.reporterRemoved);
   const name = correction.toolName || t("noTool");
 
   return (
@@ -94,7 +97,7 @@ function CorrectionCard({ correction, action }: { correction: FeedbackQueueEntry
       marks={<Badge>{correction.fieldFlagged ? t(`fields.${correction.fieldFlagged}`) : t("noField")}</Badge>}
       meta={
         <>
-          <span>{correction.reporterName ? t("reportedBy", { name: correction.reporterName }) : t("reportedAnonymously")}</span>
+          <span>{reporter ? t("reportedBy", { name: reporter }) : t("reportedAnonymously")}</span>
           {/* The one page that may show it (§8), for the one thing it is for:
               asking the question the correction leaves open. */}
           {correction.reporterEmail ? (

@@ -25,9 +25,10 @@ type Subject = { role: Role | null | undefined; userId?: string | null } | null 
  * `tools.approve` (§5.4 step 6: "every item belongs to a batch the caller
  * created or the caller holds `tools.approve`"). A missing user id never
  * matches an owner, so an identity with no id can only get through as an
- * approver.
+ * approver. An item whose owner has been removed (`createdBy` null) is an
+ * approver's alone.
  */
-export function canActOnPendingTool(subject: Subject, item: { createdBy: string }): boolean {
+export function canActOnPendingTool(subject: Subject, item: { createdBy: string | null }): boolean {
   if (!can(subject, "tools.add")) return false;
   const userId = subject?.userId;
   if (typeof userId === "string" && userId !== "" && item.createdBy === userId) return true;

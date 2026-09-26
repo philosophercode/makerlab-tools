@@ -1,3 +1,4 @@
+import { redirectBlockedSignIn } from "../../../../lib/auth/blocked-sign-in";
 import { AUTH_BASE_PATH, getAuth, hasGoogleEnv } from "../../../../lib/auth/config";
 import { anonymousIdentity } from "../../../../lib/auth/identity";
 import { checkRateLimit } from "../../../../lib/rate-limit";
@@ -65,7 +66,10 @@ async function handle(req: Request): Promise<Response> {
     return Response.json(NOT_CONFIGURED, { status: 503 });
   }
 
-  return auth.handler(req);
+  // A blocked address (auth spec amendment 2026-09-25) comes back from the
+  // OAuth callback as Better Auth's generic error redirect; it is sent to the
+  // page that says why instead.
+  return redirectBlockedSignIn(await auth.handler(req));
 }
 
 /**

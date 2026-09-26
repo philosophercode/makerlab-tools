@@ -10,6 +10,7 @@ import {
 } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
 import { labToday } from "../lab-time.ts";
+import { accountRemoved } from "./account-removed.ts";
 import { claimAttachments } from "./attachments.ts";
 import { rankByVocabulary } from "./rank.ts";
 import { isUuid } from "./uuid.ts";
@@ -416,6 +417,8 @@ export interface MaintenanceQueueEntry {
    * `listUsers`' emails do.
    */
   reportedByEmail: string;
+  /** The reporter's account has been removed; the name above is the snapshot. */
+  reporterRemoved: boolean;
   assignedToUserId: string | null;
   assignedToName: string;
   dateReported: string;
@@ -485,6 +488,7 @@ export async function listMaintenanceQueue(
       unitLabel: maintenanceLogs.unitLabel,
       reportedByName: maintenanceLogs.reportedByName,
       reportedByEmail: maintenanceLogs.reportedByEmail,
+      reporterRemoved: accountRemoved(maintenanceLogs.reportedByUserId),
       assignedToUserId: maintenanceLogs.assignedToUserId,
       assignedToName: maintenanceLogs.assignedToName,
       dateReported: maintenanceLogs.dateReported,
@@ -519,6 +523,7 @@ export async function listMaintenanceQueue(
     unitLabel: row.unitLabel || "",
     reportedByName: row.reportedByName || "",
     reportedByEmail: row.reportedByEmail || "",
+    reporterRemoved: Boolean(row.reporterRemoved),
     assignedToUserId: row.assignedToUserId,
     assignedToName: row.assignedToName || "",
     dateReported: row.dateReported || "",

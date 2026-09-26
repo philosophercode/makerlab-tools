@@ -176,3 +176,81 @@ test.describe("/admin/users — changing a role", () => {
     await expect(nav.getByRole("menuitem", { name: "ADMIN" })).toBeVisible();
   });
 });
+
+test.describe("/admin/users — removing a person (auth spec amendment 2026-09-25)", () => {
+  const robin = DEMO_ACCOUNTS.removable;
+
+  test("a director removes somebody and blocks their address; they are signed out at once", async ({
+    page,
+    context,
+    baseURL,
+    browser,
+  }) => {
+    // Robin is signed in somewhere else before the removal.
+    const robinContext = await browser.newContext({ baseURL });
+    await signIn(robinContext, robin, baseURL);
+
+    await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+    await page.goto("/admin/users");
+    const table = page.getByRole("table", { name: "People and their roles" });
+    const blocked = page.getByRole("table", { name: "Blocked email addresses" });
+    const robinRow = table.getByRole("row", { name: new RegExp(robin.name) });
+
+    // A retry after the removal landed finds Robin already gone and blocked:
+    // it checks that state rather than failing on a row that cannot come back.
+    if ((await robinRow.count()) > 0) {
+      await robinRow.getByRole("button", { name: `Remove ${robin.name}` }).click();
+
+      // It asks first, inline, and says what happens.
+      await expect(
+        robinRow.getByText(
+          `Remove ${robin.name}? They lose access and their account is deleted. Their reports and history stay.`
+        )
+      ).toBeVisible();
+      await robinRow.getByRole("checkbox", { name: "Also block this email from signing up again" }).click();
+      await robinRow.getByRole("textbox", { name: `Reason for blocking ${robin.email}` }).fill("E2E removal");
+      await robinRow.getByRole("button", { name: `Remove ${robin.name}` }).click();
+
+      await expect(
+        page.getByText(`${robin.name} was removed, and ${robin.email} is blocked from signing up again.`)
+      ).toBeVisible({ timeout: SAVE_TIMEOUT });
+      await expect(robinRow).toHaveCount(0);
+    }
+
+    // A reload: the server agrees.
+    await page.reload();
+    await expect(robinRow).toHaveCount(0);
+    await expect(blocked.getByRole("row", { name: new RegExp(robin.email) })).toContainText("E2E removal");
+
+    // Robin's session went with the account: the same cookie is anonymous now.
+    const identity = await robinContext.request.get("/api/identity");
+    expect((await identity.json()).role).toBe("anonymous");
+    await robinContext.close();
+  });
+
+  test("the director cannot remove themselves, and is told why", async ({ page, context, baseURL }) => {
+    await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+    await page.goto("/admin/users");
+
+    const ownRow = page
+      .getByRole("table", { name: "People and their roles" })
+      .getByRole("row", { name: new RegExp(DEMO_ACCOUNTS.superAdmin.name) });
+    await expect(ownRow.getByRole("button", { name: `Remove ${DEMO_ACCOUNTS.superAdmin.name}` })).toBeDisabled();
+    await expect(ownRow.getByText("You cannot remove yourself.")).toBeVisible();
+  });
+
+  test("and unblocks the address from the Blocked emails list", async ({ page, context, baseURL }) => {
+    await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+    await page.goto("/admin/users");
+    const blocked = page.getByRole("table", { name: "Blocked email addresses" });
+
+    if ((await blocked.getByRole("row", { name: new RegExp(robin.email) }).count()) > 0) {
+      await blocked.getByRole("button", { name: `Unblock ${robin.email}` }).click();
+      await expect(page.getByText(`${robin.email} can sign up again.`)).toBeVisible({ timeout: SAVE_TIMEOUT });
+    }
+
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Blocked emails" })).toBeVisible();
+    await expect(page.getByText("No addresses are blocked.")).toBeVisible();
+  });
+});
