@@ -16,9 +16,9 @@ import { signIn } from "./utils/session";
  * a `loading.tsx` (DESIGN.md §8.12 "Admin navigation never waits on a hole";
  * `src/app/admin/loading-boundaries.test.ts`), so a hop commits at once.
  *
- * It failed on the hop, not on data: about one walk in two before the fix,
- * none of 120 after. The walk crosses every section a director can open, the
- * Intake tabs and Import a list, and comes back the other way round.
+ * Before the fix every one of 15 walks stuck on some hop (the URL never
+ * changed); after it, none of 15. The walk crosses every section a director
+ * can open, the Intake tabs and Import a list, and comes back the other way.
  */
 
 /** A few seconds, far less than the "never" this guards against. */
