@@ -1,12 +1,14 @@
 "use client";
 
-import "../../styles/admin-import.css";
-
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { IMPORT_FILE_EXTENSIONS, extensionOf } from "../../lib/import/detect";
 import { RowStatus } from "./RowStatus";
+import { Field, hintId } from "../system/Field";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
 import {
   IMPORT_DOCUMENT_MAX_CHARS,
   IMPORT_DOCUMENT_MAX_PAGES,
@@ -115,31 +117,31 @@ export function ImportLauncher({ fetcher = fetch }: { fetcher?: typeof fetch }) 
   }
 
   return (
-    <form className="admin-import-launcher" onSubmit={(event) => void submit(event)}>
-      <div className="admin-field">
-        <label htmlFor="import-file">{t("launcher.fileLabel")}</label>
-        <input
+    <form className="ui grid max-w-[760px] gap-4" onSubmit={(event) => void submit(event)}>
+      <Field id="import-file" label={t("launcher.fileLabel")} hint={t("launcher.fileHint")}>
+        <Input
           id="import-file"
           type="file"
           accept={ACCEPT}
           disabled={busy}
+          aria-describedby={hintId("import-file")}
+          className="h-auto py-1"
           onChange={(event) => setFile(event.target.files?.[0] ?? null)}
         />
-        <p className="admin-field-hint">{t("launcher.fileHint")}</p>
-      </div>
-      <p className="admin-import-or">{t("launcher.or")}</p>
-      <div className="admin-field">
-        <label htmlFor="import-paste">{t("launcher.pasteLabel")}</label>
-        <textarea
+      </Field>
+      <p className="font-mono text-label tracking-[0.08em] text-muted-foreground uppercase">{t("launcher.or")}</p>
+      <Field id="import-paste" label={t("launcher.pasteLabel")} hint={t("launcher.pasteHint")}>
+        <Textarea
           id="import-paste"
           rows={10}
           value={text}
           disabled={busy || file !== null}
           placeholder={t("launcher.pastePlaceholder")}
+          aria-describedby={hintId("import-paste")}
+          className="font-mono text-table"
           onChange={(event) => setText(event.target.value)}
         />
-        <p className="admin-field-hint">{t("launcher.pasteHint")}</p>
-      </div>
+      </Field>
       {error ? (
         <RowStatus tone="bad" role="alert">
           {t(`errors.${error.code}`, {
@@ -152,10 +154,10 @@ export function ImportLauncher({ fetcher = fetch }: { fetcher?: typeof fetch }) 
           })}
         </RowStatus>
       ) : null}
-      <div className="admin-editor-actions">
-        <button type="submit" className="admin-button is-primary" disabled={busy || (!file && !text.trim())}>
+      <div>
+        <Button type="submit" variant="default" disabled={busy || (!file && !text.trim())}>
           {busy ? t("launcher.importing") : t("launcher.submit")}
-        </button>
+        </Button>
       </div>
     </form>
   );
