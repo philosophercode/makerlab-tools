@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { DEMO_ACCOUNTS } from "../src/lib/db/demo-seed";
+import { LOCALE_CODES } from "../src/i18n/config";
 import { signIn } from "./utils/session";
 
 /**
@@ -33,8 +34,12 @@ async function headerBoxes(page: Page): Promise<string> {
   });
 }
 
+// 1024 and 1280 are the two ends of the tighter one-row bar (lg to xl,
+// DESIGN.md §8.12); 390 is the compact bar, 1440 the full one.
 for (const [width, height] of [
   [1440, 900],
+  [1280, 800],
+  [1024, 768],
   [390, 844],
 ] as const) {
   test(`the header's boxes are identical on every page at ${width}px`, async ({ page, context, baseURL }) => {
@@ -55,6 +60,125 @@ for (const [width, height] of [
     }
   });
 }
+
+/**
+ * The one-row bar fits (DESIGN.md §8.12). Between the old 860px phone switch
+ * and ~1180px the brand ran into the Tools link and "Sign in" wrapped. At
+ * each one-row width, signed in and not: every control on one line, the
+ * brand, the links and the controls apart, and nothing wider than its box.
+ */
+async function headerFits(page: Page): Promise<string[]> {
+  return page.evaluate(() => {
+    const problems: string[] = [];
+    const header = document.querySelector("header.top-nav")!;
+    const rect = (selector: string) => header.querySelector(selector)!.getBoundingClientRect();
+    const [brand, nav, actions] = [rect(".brand-lockup"), rect(".primary-nav"), rect(".nav-actions")];
+    // Either side of each other: in Arabic and Hebrew the row runs right to left.
+    const apart = (a: DOMRect, b: DOMRect) => Math.round(Math.max(b.left - a.right, a.left - b.right));
+    if (apart(brand, nav) < 8) problems.push(`brand meets the links (${apart(brand, nav)}px apart)`);
+    if (apart(nav, actions) < 8) problems.push(`links meet the controls (${apart(nav, actions)}px apart)`);
+    if (header.scrollWidth > header.clientWidth) problems.push(`header is ${header.scrollWidth}px in ${header.clientWidth}px`);
+    for (const el of Array.from(header.querySelectorAll<HTMLElement>(".brand-lockup, .primary-nav > a, .primary-nav > button, .primary-nav-profile"))) {
+      const label = el.getAttribute("aria-label") ?? el.textContent?.trim();
+      // One line: a wrapped label is taller than its own line height allows.
+      if (el.getClientRects().length > 1 || el.offsetHeight > 44) problems.push(`"${label}" wraps (${el.offsetHeight}px tall)`);
+      if (el.scrollWidth > el.clientWidth + 1) problems.push(`"${label}" is clipped`);
+    }
+    return problems;
+  });
+}
+
+for (const width of [1024, 1280]) {
+  test(`the one-row bar fits at ${width}px, signed in and not`, async ({ page, context, baseURL }) => {
+    await page.setViewportSize({ width, height: 800 });
+    await page.goto("/");
+    await expect(page.getByRole("button", { name: /sign in with/i })).toBeVisible({ timeout: 15_000 });
+    expect(await headerFits(page), "anonymous").toEqual([]);
+
+    await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+    await page.goto("/admin");
+    await expect(page.getByRole("button", { name: /signed in as/i })).toBeVisible({ timeout: 15_000 });
+    expect(await headerFits(page), "signed in").toEqual([]);
+  });
+}
+
+// Every language, because the long ones are what broke it: at 1280 the
+// language select, as wide as "Português (Brasil)", pushed the bar past the
+// window in Spanish and Russian (DESIGN.md §8.12).
+for (const width of [1024, 1280]) {
+  test(`the one-row bar fits at ${width}px in every language`, async ({ page, context, baseURL }) => {
+    await page.setViewportSize({ width, height: 800 });
+    const failures: string[] = [];
+    for (const locale of LOCALE_CODES) {
+      await context.addCookies([{ name: "NEXT_LOCALE", value: locale, url: baseURL! }]);
+      await page.goto("/");
+      await expect(page.locator("html")).toHaveAttribute("lang", locale);
+      await expect(page.locator(".primary-nav-auth")).toBeVisible({ timeout: 15_000 });
+      const problems = await headerFits(page);
+      if (problems.length) failures.push(`${locale}: ${problems.join("; ")}`);
+    }
+    expect(failures).toEqual([]);
+  });
+}
+
+/**
+ * No horizontal page scroll, at any width (DESIGN.md §6, §8.15): a wide thing
+ * scrolls inside itself. The inventory's table is wider than 1024px's column
+ * even with the two demo tools, so it is the case that used to fail.
+ */
+const OVERFLOW_ROUTES = [
+  "/",
+  "/?view=table",
+  "/tools/form-4",
+  "/projects",
+  "/admin",
+  "/admin/inventory",
+  "/admin/refresh",
+  "/admin/maintenance",
+  "/admin/corrections",
+  "/admin/users",
+  "/admin/mirror",
+];
+
+for (const [width, height] of [
+  [390, 844],
+  [1024, 768],
+  [1440, 900],
+] as const) {
+  for (const route of OVERFLOW_ROUTES) {
+    test(`${route} does not scroll sideways at ${width}px`, async ({ page, context, baseURL }) => {
+      await page.setViewportSize({ width, height });
+      await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+      await page.goto(route);
+      // The profile control resolves after hydration, when every measured
+      // layout (a table's frame) has had its first pass.
+      await expect(page.getByRole("button", { name: /signed in as/i })).toBeVisible({ timeout: 15_000 });
+      const excess = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      await expect.poll(excess, { message: `${route} is wider than the page` }).toBeLessThanOrEqual(0);
+    });
+  }
+}
+
+test("a table wider than its column scrolls inside itself; one that fits keeps its sticky header", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+  const frame = page.locator("[data-slot=data-table-frame]");
+  const toolHeader = page.getByRole("columnheader", { name: /^Tool/ });
+
+  await page.setViewportSize({ width: 1024, height: 768 });
+  await page.goto("/admin/inventory");
+  await expect(toolHeader).toBeVisible();
+  const narrow = await frame.evaluate((el) => ({ overflow: getComputedStyle(el).overflowX, wider: el.scrollWidth > el.clientWidth }));
+  expect(narrow).toEqual({ overflow: "auto", wider: true });
+  await expect(toolHeader).toHaveCSS("position", "static");
+
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await expect(toolHeader).toHaveCSS("position", "sticky");
+  expect(await frame.evaluate((el) => getComputedStyle(el).overflowX)).toBe("visible");
+});
 
 test("clicking between Tools, Projects and About does not move the bar", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });

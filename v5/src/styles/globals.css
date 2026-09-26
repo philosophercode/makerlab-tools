@@ -172,7 +172,10 @@ body::selection {
   gap: 8px;
   font-family: var(--font-display);
   font-weight: 700;
-  min-width: 0;
+  /* In the one-row bar the brand keeps its width; the compact bar lets it
+     ellipsize (below). */
+  flex: none;
+  white-space: nowrap;
 }
 
 .brand-lockup span:last-child {
@@ -192,6 +195,14 @@ body::selection {
   gap: 32px;
   color: var(--on-surface-muted);
   font-size: 12px;
+}
+
+/* The one-row bar never wraps a label (the compact bar below lg may). The
+   profile menu's own items are not in the bar and keep wrapping. */
+.primary-nav > a,
+.primary-nav > button,
+.primary-nav-profile {
+  white-space: nowrap;
 }
 
 .primary-nav a {
@@ -445,6 +456,7 @@ body::selection {
 
 .nav-actions {
   display: flex;
+  flex: none;
   align-items: center;
   gap: 8px;
 }
@@ -462,40 +474,54 @@ body::selection {
   border: 0;
 }
 
-/* Language selector — matches the mono/uppercase nav aesthetic. */
+/* Language selector — a 32px square showing its 文A glyph at every width,
+   like the theme toggle beside it; the open list names every language. (A
+   select is as wide as its longest option, and "Português (Brasil)" pushed
+   the one-row bar past 1280px in Spanish and Russian; DESIGN.md §8.12.) */
 .lang-select {
   position: relative;
   display: inline-flex;
   align-items: center;
+  width: 32px;
   height: 32px;
 }
 
 .lang-select-glyph {
   position: absolute;
-  inset-inline-start: 8px;
+  inset-inline: 0;
   pointer-events: none;
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 10px;
   color: var(--on-surface-muted);
+  text-align: center;
+  white-space: nowrap;
+  transition: color 160ms ease-in;
 }
 
 .lang-select select {
   appearance: none;
+  width: 32px;
   height: 32px;
-  padding-block: 0;
-  padding-inline: 30px 12px;
+  padding: 0;
   border: 1px solid var(--outline);
   background: transparent;
-  color: var(--on-surface-muted);
+  /* The chosen language's name stays in the element for assistive tech,
+     but the square shows only the glyph. */
+  color: transparent;
+  text-indent: -999px;
   font-family: var(--font-mono);
   font-size: 12px;
   cursor: pointer;
-  transition: border-color 160ms ease-in, color 160ms ease-in;
+  transition: border-color 160ms ease-in;
 }
 
 .lang-select select:hover,
 .lang-select select:focus-visible {
   border-color: var(--primary-ink);
+}
+
+.lang-select:hover .lang-select-glyph,
+.lang-select:focus-within .lang-select-glyph {
   color: var(--primary-ink);
 }
 
@@ -622,7 +648,27 @@ body::selection {
   }
 }
 
-@media (max-width: 860px) {
+/* The bar on the design's breakpoints (DESIGN.md §6, §8.12). From xl: one
+   row with the tagline. From lg to xl: one row, tighter, no tagline, a
+   narrower search field. Below lg: the compact bar — brand and controls,
+   then the links across the width. (The compact switch used to be 860px,
+   and from there to ~1180px the brand ran into the links and "Sign in"
+   wrapped.) */
+@media (max-width: 1279.98px) {
+  .top-nav {
+    gap: 24px;
+  }
+
+  .primary-nav {
+    gap: 20px;
+  }
+
+  .brand-lockup span:last-child {
+    display: none;
+  }
+}
+
+@media (max-width: 1023.98px) {
   :root {
     --nav-height: 105px;
   }
@@ -642,11 +688,6 @@ body::selection {
   .brand-lockup span:first-child {
     overflow: hidden;
     text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .brand-lockup span:last-child {
-    display: none;
   }
 
   .primary-nav {
@@ -654,8 +695,14 @@ body::selection {
     grid-row: 2;
     width: 100%;
     justify-content: space-between;
-    gap: 8px;
+    gap: 4px;
     font-size: 11px;
+  }
+
+  /* Across the full width a long translation may take two lines. */
+  .primary-nav > a,
+  .primary-nav > button {
+    white-space: normal;
   }
 
   .primary-nav a {
@@ -672,30 +719,6 @@ body::selection {
 
   .status-strip {
     position: static;
-  }
-
-  .lang-select {
-    width: 32px;
-    height: 32px;
-  }
-
-  .lang-select-glyph {
-    inset-inline-start: 50%;
-    transform: translateX(-50%);
-    font-size: 10px;
-    white-space: nowrap;
-  }
-
-  .lang-select select {
-    width: 32px;
-    padding: 0;
-    color: transparent;
-    text-indent: -999px;
-  }
-
-  .lang-select select:hover,
-  .lang-select select:focus-visible {
-    color: transparent;
   }
 }
 
