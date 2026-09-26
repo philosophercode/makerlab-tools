@@ -925,6 +925,11 @@ describe('PreliminaryToolPage — a guided redo (amendment "Guided redo (focus +
     }
   });
 
+  it('does not mark the description for a specs-only redo (amendment "Short descriptions")', () => {
+    renderPage({ research: research({ updated: { at: new Date().toISOString(), sections: ["specs"] } }) });
+    expect(screen.getByRole("textbox", { name: /Description/ }).closest('[data-slot="field"]')).not.toHaveAttribute("data-updated");
+  });
+
   it("marks nothing for a redo that landed long ago", () => {
     renderPage({ research: research({ updated: { at: "2020-01-01T00:00:00.000Z", sections: ["description"] } }) });
     expect(screen.queryByText("Updated just now")).not.toBeInTheDocument();
