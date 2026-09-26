@@ -12,7 +12,7 @@ import { signIn } from "./utils/session";
  * with a dynamic hole where the page should be; the router rendered that
  * shell first, and with no Suspense boundary inside the new segment the hole
  * suspended the navigation behind a boundary already on screen — a transition
- * React 19.2 in this build sometimes never retried. Each admin segment now has
+ * the React canary Next 16.1 bundles sometimes never retried. Each admin segment now has
  * a `loading.tsx` (DESIGN.md §8.12 "Admin navigation never waits on a hole";
  * `src/app/admin/loading-boundaries.test.ts`), so a hop commits at once.
  *

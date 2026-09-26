@@ -519,7 +519,7 @@ TO REPLACE THE RESIN TANK ON THE FORM 4:
   streams into it. Every admin page reads the request at its root, so its
   prefetched segment is a shell with a dynamic hole; without a Suspense
   boundary inside the new segment that hole held the previous page on screen
-  and, in production (Next 16.1, React 19.2, `cacheComponents`), the
+  and, in production (Next 16.1 with its bundled React 19.3 canary, `cacheComponents`), the
   transition was sometimes never retried — the click did nothing until
   something else re-rendered the page. So **every folder under `app/admin`
   with a page below it has a `loading.tsx`** (enforced by
