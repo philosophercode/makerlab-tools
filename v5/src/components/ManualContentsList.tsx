@@ -17,7 +17,7 @@ export function ManualContentsList({ href, outline }: { href: string; outline: r
   if (entries.length === 0) return null;
   const base = href.split("#")[0];
   return (
-    <details data-slot="manual-contents" className="mt-1.5 ms-[calc(6.5rem+0.75rem)] text-xs">
+    <details data-slot="manual-contents" className="mt-1.5 ms-[calc(5.5rem+0.75rem)] text-xs">
       <summary className="cursor-pointer font-mono text-label tracking-[0.08em] text-muted-foreground uppercase hover:text-foreground">
         {t("manualContents")}
       </summary>
