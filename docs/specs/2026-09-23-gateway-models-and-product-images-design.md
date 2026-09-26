@@ -2188,3 +2188,115 @@ meanwhile is skipped. The model is a mock; nothing reaches the Gateway. Evals: n
 description length, so none changed.
 
 **Status.** Built on `v5/short-descriptions`. Not run against any database.
+
+### 2026-09-26 — English resources only (§3.2, §3.3, §5.1, §8, §10; refresh research spec §4, §12.2)
+
+**Why (the owner).** "When finding a document or resource, the requirement is to be in
+English. It needs to be an English website or manual." Research had no such rule: a German
+manufacturer's `/de-de/` product page or a French-only manual could be read, quoted and saved
+as a tool's link as readily as the English one, and nothing told the reviewer.
+
+**The rule.** Every link research or refresh keeps — a manual, the product page, a video,
+anything under "Other" — is an **English page or an English manual**. A **multilingual manual
+that includes English counts as English**. A page in another language is **never kept**, even
+the manufacturer's own; when an English equivalent exists (the brand's `en-us` / `en-gb` /
+`/en/` page, the English edition of a manual) research prefers it. When only a non-English
+version exists, there is no link — an empty list is a better answer than a page the lab's
+students cannot read.
+
+**Deterministic, no model call.** Language is judged in code, from signals research already
+has — nothing new is fetched during research and no job is added. One pure module,
+`src/lib/research/language.ts`:
+
+- **`urlLanguages(url)`** — the URL's own locale: a language path segment among the first two
+  (`/de/`, `/de-de/`, `/fr_FR/`, `/zh-hans/`, `/intl/ja/`), a language subdomain (`de.`, `fr.`),
+  a `lang` / `language` / `locale` / `hl` / `lng` query value, and the language tokens of a PDF's
+  file name (`…_DE.pdf`, `manual_en_de_fr.pdf`). Tokens that are also English words or countries
+  (`uk`, `ca`, `id`, `it` in a file name, `no`, …) are not read as a language where they are
+  ambiguous. A URL whose languages include English is English; one that names only other
+  languages is not; one that names none says nothing. A country top-level domain is **not** a
+  signal (German brands serve English under `.de/en/`).
+- **`declaredLanguage(tag)`** — the page's `<html lang>` (or `xml:lang`, else a
+  `Content-Language` meta), read by `web/html-text.ts` and returned by `readPage` as `lang`.
+- **`textLanguage(text, { manual })`** — the text in 1,000-character windows. A window whose
+  letters are mostly a non-Latin script (Han, kana, Hangul, Cyrillic, Arabic, Hebrew, Thai,
+  Greek) is that language; otherwise English and a dozen other languages' **stop words** are
+  counted and a window is English, or another language, only when that side has at least three
+  hits and half again as many as the other. The text is English when at least a fifth of the
+  decided windows, or three of them, are English — so an English page with a German
+  paragraph stays English — and **for a manual, one English window is enough** (a
+  multilingual manual has a section per language). Not English when the decided windows are
+  otherwise another language's. Too little text to decide is "unknown".
+- **`pageLanguage({ url, lang, text, manual })`** — the verdict, strongest signal first:
+  decisive **text** (so `lang="en"` on a German page, a common template default, does not pass
+  it, and English text under a `/de/` path is kept), then the declared **`lang`**, then the
+  **URL**. `unknown` is kept — the rule drops a page only on evidence.
+- **`titleLanguage(title)`** — a link title in a non-Latin script, or naming a non-English
+  manual word ("Bedienungsanleitung", "mode d'emploi", "manuale d'uso", "handleiding",
+  "instrukcja", "bruksanvisning"…). Used only where there is no text.
+
+**Where it is enforced.**
+
+1. **The prompt** (`research/prompt.ts`, both passes): a new `## English only` paragraph —
+   search in English; on a brand with regional sites, choose the English (`en-us`, `en-gb`,
+   `/en/`) page; the English edition of a manual, or a multilingual one with English; never a
+   page in another language as a link, even the manufacturer's; none rather than a
+   non-English one. The read pass is told a page in another language was left out.
+2. **The read list** (`read-pages.ts`, `candidatePageUrls`): a candidate whose URL names only
+   a non-English locale is not read at all — it would spend one of the four reads — and the
+   **manual finder** (`manual-pdfs.ts`, `pickManualPdfs`) skips a PDF whose URL or captured
+   text is not English.
+3. **The read itself** (`readCandidatePages`): each page's verdict is taken from what was read
+   — the HTML's text and `lang`, the search's copy, a manual's **whole** extracted or stored
+   text (not the digest, so a multilingual manual's English section is seen). A page judged not
+   English is **not given to the model** (its description and quotes must be English and
+   verbatim) and is listed among the pages not read as `"<host>: skipped (not English: de)"`;
+   the result records it (`nonEnglish`).
+4. **The links** (`research/english-links.ts`, `keepEnglishLinks`, in `engine.ts` before link
+   verification, so a dropped link neither costs a request nor takes one of the eight places):
+   a link is dropped when the page read for it, or the search's captured copy of it, is not
+   English; otherwise when its URL names only other languages; otherwise when its title does.
+   A dropped link is a `droppedLinks` note like any other (`Manual "…" (url) — not English
+   (de, from the page's text)`), so the reviewer is told. For a **YouTube** link, the oEmbed
+   answer link verification already fetches gives the title; a title mostly in a non-Latin
+   script drops it (`verifyUrl`'s `englishOnly`, research only — the MCP `create_tool` path is
+   unchanged).
+5. **Refresh** inherits all of the above (it runs the same engine). In the diff
+   (`refresh/propose.ts`), a tool link whose URL names only another language no longer hides
+   the English link research found at the same address minus its locale (`resourceKey` drops a
+   locale segment), so `/en-us/x2d` is proposed beside the tool's `/de-de/x2d`. Refresh still
+   never proposes a removal.
+6. **Research with the assistant** (`capabilities/curation.ts`, `propose_change`): a `resource`
+   whose URL, or the text this turn read from it, is not English is refused `not_english`.
+
+**Focus-merge and assembly** need nothing new: a **Links** redo takes the new run's links, which
+passed the gate; a redo that does not touch links keeps the stored ones as they were (the
+reviewer decides at approval).
+
+**What is already stored.** `npm run resources:language -- [--json] [--ids a,b] [--no-fetch]`
+(`scripts/resource-language.ts`) lists every tool resource (archived tools included) whose URL,
+title or page looks non-English, with the tool's slug, the resource's title and URL, and the
+reason. **Read-only**: it writes nothing and calls no model. Same target and PGlite lock
+handling as `names:backfill` (`src/lib/import/target.ts`). Unless `--no-fetch`, a link with no
+URL or title signal is opened through `readPage` (the SSRF-guarded fetch) with a 6-second
+budget, four at a time, PDFs and videos not downloaded, and judged by `pageLanguage`. `--json`
+prints one JSON array. Staff decide what to replace.
+
+**Unchanged.** Staff may add any link they choose in the editor, the review page or an import;
+lab documents are never checked. The chat answers in the reader's locale as before.
+
+**§10.** `language.test.ts` — URL locales (path, subdomain, query, file name, English and
+multilingual file names, ambiguous tokens, no signal), `<html lang>`, text windows (German,
+French, Japanese, English, English with a German paragraph), a multilingual manual with an
+English section kept, `lang="en"` on German text dropped, English text on a `/de/` path kept.
+`english-links.test.ts` — a German manufacturer page is dropped with its reason; an `en-us`
+page kept; a multilingual PDF with an English section kept; a URL-only `/fr-fr/` link dropped;
+unknown kept. `read-pages.test.ts` — a German page is not given to the model and is listed as
+skipped; a `/de-de/` candidate is not read. `manual-pdfs.test.ts` — a German-only PDF is not
+picked. `verify-links.test.ts` — a YouTube title in Japanese is dropped with `englishOnly`.
+`propose.test.ts` — an `en-us` link is proposed beside a `de-de` one. `prompt.test.ts` — the
+English-only paragraph in both passes. `curation.test.ts` — `not_english`.
+`scripts/resource-language.test.ts` — which resources are listed and why, `--json`, nothing
+written.
+
+**Status.** Built on `v5/english-resources`. The script was not run against any database.
