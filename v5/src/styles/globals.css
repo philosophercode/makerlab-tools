@@ -75,7 +75,9 @@ html {
    root always keeps it (above) — so that padding would push every header
    control left while the dialog is open. The root's gutter already holds the
    space; nothing needs compensating. */
-body[data-scroll-locked] {
+/* `html body` outranks the lock's own injected `body[data-scroll-locked]`
+   rules, which load later and would otherwise win at equal specificity. */
+html body[data-scroll-locked] {
   padding-right: 0 !important;
   margin-right: 0 !important;
   --removed-body-scroll-bar-size: 0px;
