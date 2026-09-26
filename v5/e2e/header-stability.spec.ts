@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test";
 import { DEMO_ACCOUNTS } from "../src/lib/db/demo-seed";
+import { LOCALE_CODES } from "../src/i18n/config";
 import { signIn } from "./utils/session";
 
 /**
@@ -72,8 +73,10 @@ async function headerFits(page: Page): Promise<string[]> {
     const header = document.querySelector("header.top-nav")!;
     const rect = (selector: string) => header.querySelector(selector)!.getBoundingClientRect();
     const [brand, nav, actions] = [rect(".brand-lockup"), rect(".primary-nav"), rect(".nav-actions")];
-    if (nav.left - brand.right < 8) problems.push(`brand meets the links (${Math.round(nav.left - brand.right)}px apart)`);
-    if (actions.left - nav.right < 8) problems.push(`links meet the controls (${Math.round(actions.left - nav.right)}px apart)`);
+    // Either side of each other: in Arabic and Hebrew the row runs right to left.
+    const apart = (a: DOMRect, b: DOMRect) => Math.round(Math.max(b.left - a.right, a.left - b.right));
+    if (apart(brand, nav) < 8) problems.push(`brand meets the links (${apart(brand, nav)}px apart)`);
+    if (apart(nav, actions) < 8) problems.push(`links meet the controls (${apart(nav, actions)}px apart)`);
     if (header.scrollWidth > header.clientWidth) problems.push(`header is ${header.scrollWidth}px in ${header.clientWidth}px`);
     for (const el of Array.from(header.querySelectorAll<HTMLElement>(".brand-lockup, .primary-nav > a, .primary-nav > button, .primary-nav-profile"))) {
       const label = el.getAttribute("aria-label") ?? el.textContent?.trim();
@@ -96,6 +99,25 @@ for (const width of [1024, 1280]) {
     await page.goto("/admin");
     await expect(page.getByRole("button", { name: /signed in as/i })).toBeVisible({ timeout: 15_000 });
     expect(await headerFits(page), "signed in").toEqual([]);
+  });
+}
+
+// Every language, because the long ones are what broke it: at 1280 the
+// language select, as wide as "Português (Brasil)", pushed the bar past the
+// window in Spanish and Russian (DESIGN.md §8.12).
+for (const width of [1024, 1280]) {
+  test(`the one-row bar fits at ${width}px in every language`, async ({ page, context, baseURL }) => {
+    await page.setViewportSize({ width, height: 800 });
+    const failures: string[] = [];
+    for (const locale of LOCALE_CODES) {
+      await context.addCookies([{ name: "NEXT_LOCALE", value: locale, url: baseURL! }]);
+      await page.goto("/");
+      await expect(page.locator("html")).toHaveAttribute("lang", locale);
+      await expect(page.locator(".primary-nav-auth")).toBeVisible({ timeout: 15_000 });
+      const problems = await headerFits(page);
+      if (problems.length) failures.push(`${locale}: ${problems.join("; ")}`);
+    }
+    expect(failures).toEqual([]);
   });
 }
 
