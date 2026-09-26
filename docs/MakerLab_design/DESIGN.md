@@ -20,7 +20,9 @@
 > the dense tool page (§8.17). Phase 5b: the chat as built on AI Elements —
 > the sheet, tool lines, manual citations, the composer (§8.11); focus
 > return for things opened from many places and the frosted sheet and dialog
-> (§3, §8.8); the assistant's launchers (§8.12, §8.15).*
+> (§3, §8.8); the assistant's launchers (§8.12, §8.15). 2026-09-26: the
+> header fits every width from 390 to 1920 on the design's own breakpoints,
+> and a table wider than its column scrolls inside itself (§6, §8.3, §8.12).*
 
 ## 1. Creative North Star: "The Blueprint Archive"
 
@@ -151,7 +153,9 @@ fonts happen to be installed is not a design.
 
 - 4px grid: 4 · 8 · 12 · 16 · 24 · 32 · 48. Snap to it.
 - Page gutter 16px on a phone, 32px from `sm`. No horizontal page scroll, ever;
-  a wide thing (the section bar, a code block) scrolls inside itself.
+  a wide thing (the section bar, a code block, a table wider than its
+  column) scrolls inside itself. `e2e/header-stability.spec.ts` checks the
+  main routes at 390, 1024 and 1440.
 - Breakpoints: `sm 640 · md 768 · lg 1024 · xl 1280`. Nothing else.
 - Controls: 32px default, 28px in toolbars, 24px for row actions; touch rows ≥ 40px.
 
@@ -259,7 +263,12 @@ RESEARCH (2)] · CLEAR`). On a phone: a two-line list item per row.
 - **Selection survives filtering, and says so**: `3 TOOLS SELECTED · 1 NOT
   SHOWN BY THE FILTERS`. Select-all takes the rows shown.
 - **Sticky header only when the page scrolls the table**, on the page
-  background; a short table on a card is not sticky. A short, narrow table
+  background; a short table on a card is not sticky. **A table wider than
+  its column scrolls sideways inside its own frame**, never the page (the
+  inventory at 1024px); its header is sticky only while the table fits, which
+  `DataTable` measures — a header in a scroll box cannot stick to the page.
+  The frame starts as a scroll box, so the first paint never widens the page,
+  and nothing moves when it opens up. A short, narrow table
   (seven rows, two columns) may stay a table on a phone and scroll inside
   itself; anything longer or wider gets the two-line list.
 - **Phone: one of the two, not both.** The list and the table are never both
@@ -498,12 +507,21 @@ TO REPLACE THE RESIN TANK ON THE FORM 4:
   button on a phone); status strip below (`86 TOOLS IN INVENTORY · LAB OPEN
   9AM–9PM`). Report is the bar's one accent; **Sign in** is a hairline box in
   ink; the local-only **Sign in as (dev)** is muted and dashed and shortens to
-  `DEV` on a phone. The profile menu is a frosted plate (§3).
+  `DEV` below `xl`. The profile menu is a frosted plate (§3).
+- **The bar fits every width, on the design's breakpoints.** From `xl` it is
+  one row with the `// CORNELL TECH` tagline and the language control's name.
+  From `lg` to `xl` it is still one row, tighter (24px gaps), without the
+  tagline, and the language control is its `文A` glyph alone (the list still
+  names every language). Below `lg` it is the compact bar: brand and controls,
+  then the links across the full width. No label in the one-row bar wraps.
+  (The compact switch used to sit at 860px, off the breakpoint scale, and from
+  there to ~1180px the brand ran into the links and Sign in wrapped.)
 - **The bar never moves.** Every control has the same box on every page: the
   page always carries its scrollbar (`overflow-y: scroll` on the root — a
   styled scrollbar takes space, and Chromium ignores `scrollbar-gutter` for
   one), the active link changes colour and underline only, never weight or
-  size. `e2e/header-stability.spec.ts` measures it with scrollbars shown.
+  size. `e2e/header-stability.spec.ts` measures it with scrollbars shown, at
+  390, 1024, 1280 and 1440.
 - **Admin**: a section bar under the top bar on every admin page:
   `OVERVIEW ┃ INTAKE ┃ INVENTORY · REFRESH · MANUALS ┃
   MAINTENANCE · CORRECTIONS · PROJECTS ┃ PEOPLE · NOTION MIRROR ┃ ▭ ASK THE ASSISTANT`
