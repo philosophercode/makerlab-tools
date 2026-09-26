@@ -6,9 +6,7 @@ import {
   createApiToken,
   revokeApiToken,
   revokeConnectedApp,
-  TOKEN_EXPIRY_CHOICES,
   type ApiTokenSummary,
-  type TokenExpiryChoice,
 } from "../data/api-tokens";
 import { recordAuditEvent } from "../data/audit";
 import { checkRateLimit } from "../rate-limit";
@@ -63,16 +61,15 @@ export async function authorizeAccountAction(resolved?: Identity): Promise<Gate>
   return { ok: true, identity: identity as Identity & { userId: string } };
 }
 
-export async function createToken(input: {
-  name: string;
-  expiry: string;
-  readOnly: boolean;
-}): Promise<CreateTokenResult> {
+/**
+ * Create a token. Every token lives `TOKEN_LIFETIME_DAYS` (90) days (one
+ * semester); the caller chooses only its name and whether it is read-only. An
+ * `expiry` a stale page still sends is ignored, never honoured.
+ */
+export async function createToken(input: { name: string; readOnly: boolean }): Promise<CreateTokenResult> {
   const gate = await authorizeAccountAction();
   if (!gate.ok) return gate;
-  if (typeof input?.name !== "string" || !(TOKEN_EXPIRY_CHOICES as readonly string[]).includes(input.expiry)) {
-    return { ok: false, error: "invalid_field" };
-  }
+  if (typeof input?.name !== "string") return { ok: false, error: "invalid_field" };
 
   let created;
   try {
@@ -80,7 +77,6 @@ export async function createToken(input: {
       userId: gate.identity.userId,
       name: input.name,
       readOnly: Boolean(input.readOnly),
-      expiry: input.expiry as TokenExpiryChoice,
     });
   } catch (err) {
     console.error("[account] creating a token failed", err instanceof Error ? err.message : "unknown error");

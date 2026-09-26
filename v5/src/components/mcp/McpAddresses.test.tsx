@@ -32,6 +32,8 @@ describe("McpConnect", () => {
     expect(screen.getByRole("heading", { name: "Clients that can't sign in" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Manage personal access tokens" })).toHaveAttribute("href", "/account/tokens");
     // No token anywhere on the public page.
-    expect(document.body.textContent).not.toMatch(/mlt_|Bearer/);
+    expect(document.body.textContent).not.toMatch(/mlt_|Bearer (?!\$MAKERLAB_MCP_TOKEN)/);
+    // The Connect section carries the setup prompt for the student's own AI.
+    expect(screen.getByRole("button", { name: "Copy setup prompt" })).toBeInTheDocument();
   });
 });

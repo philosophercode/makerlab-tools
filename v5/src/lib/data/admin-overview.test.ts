@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { sql } from "drizzle-orm";
 import { createPgliteDb } from "../db/pglite";
 import { DEMO_ACCOUNTS, seedDemo } from "../db/demo-seed";
 import { feedback, maintenanceLogs } from "../db/schema/index";
@@ -57,7 +58,7 @@ it("says a loader failed with null, and still answers the others", async () => {
 
 it("puts a ticket and a correction reported today in the last slot of their series", async () => {
   const before = await loadAdminOverview(["maintenance", "corrections"], { db });
-  await db.insert(maintenanceLogs).values({ title: "Belt slipping", status: "open", priority: "critical", dateReported: today() });
+  await db.insert(maintenanceLogs).values({ title: "Belt slipping", status: "open", priority: "critical", dateReported: await dbToday() });
   await db.insert(feedback).values({ issueDescription: "Wrong photo", status: "new" });
 
   const after = await loadAdminOverview(["maintenance", "corrections"], { db });
@@ -77,6 +78,12 @@ describe("fill", () => {
   });
 });
 
-function today(): string {
-  return new Date().toISOString().slice(0, 10);
+/**
+ * "Today" as the database's `current_date` sees it — the day the series
+ * buckets by. A JavaScript UTC date disagrees with it for the hours around
+ * midnight UTC (after 8pm in New York), which made this test fail every evening.
+ */
+async function dbToday(): Promise<string> {
+  const result = (await db.execute(sql`select current_date::text as today`)) as { rows: Array<{ today: string }> };
+  return result.rows[0].today;
 }

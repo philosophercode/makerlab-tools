@@ -124,8 +124,10 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
             <a
               className="primary-nav-report primary-nav-dev-sign-in"
               href={`${DEV_SIGN_IN_ENDPOINT}?next=${encodeURIComponent(pathname)}`}
+              aria-label={t("devSignIn")}
             >
-              {t("devSignIn")}
+              <span className="sm:hidden">{t("devSignInShort")}</span>
+              <span className="hidden sm:inline">{t("devSignIn")}</span>
             </a>
           ) : null}
           {signInNotice ? (

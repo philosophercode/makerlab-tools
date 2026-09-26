@@ -4,6 +4,13 @@ import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { McpToolField, McpToolSummary } from "../../lib/capabilities/mcp-catalog";
 import type { TryItArguments, TryItResult } from "../../lib/mcp/try-it";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { RowStatus } from "../admin/RowStatus";
+import { Field } from "../system/Field";
+import { PageSection } from "../system/PublicPage";
 
 /**
  * "Try it" on `/mcp` (MCP access spec, amendment 2026-09-25): a form built from
@@ -64,23 +71,35 @@ export function McpTryIt({ tools, runAction }: McpTryItProps) {
   }
 
   return (
-    <section className="account-section" aria-labelledby="mcp-try-heading">
-      <h2 id="mcp-try-heading">{t("heading")}</h2>
-      <p>{t("lede")}</p>
-      <p className="account-field-hint">{t("writesNote")}</p>
-
-      <form className="account-form mcp-try-form" onSubmit={handleRun} aria-labelledby="mcp-try-heading">
-        <div className="account-field">
-          <label htmlFor={`${formId}-tool`}>{t("toolLabel")}</label>
-          <select id={`${formId}-tool`} value={tool.name} onChange={(event) => chooseTool(event.target.value)}>
+    <PageSection
+      id="mcp-try-heading"
+      title={t("heading")}
+      lede={
+        <>
+          <p>{t("lede")}</p>
+          <p className="mt-1">{t("writesNote")}</p>
+        </>
+      }
+    >
+      <form
+        className="flex w-full max-w-[640px] min-w-0 flex-col gap-4 border border-border bg-card p-4"
+        onSubmit={handleRun}
+        aria-labelledby="mcp-try-heading"
+      >
+        <Field id={`${formId}-tool`} label={t("toolLabel")} hint={tool.description}>
+          <NativeSelect
+            id={`${formId}-tool`}
+            className="w-full"
+            value={tool.name}
+            onChange={(event) => chooseTool(event.target.value)}
+          >
             {tools.map((candidate) => (
               <option key={candidate.name} value={candidate.name}>
                 {candidate.name}
               </option>
             ))}
-          </select>
-          <p className="account-field-hint">{tool.description}</p>
-        </div>
+          </NativeSelect>
+        </Field>
 
         {tool.fields.map((field) => (
           <FieldInput
@@ -93,15 +112,15 @@ export function McpTryIt({ tools, runAction }: McpTryItProps) {
           />
         ))}
 
-        <div className="account-actions">
-          <button type="submit" className="account-button is-primary" disabled={busy}>
+        <div>
+          <Button type="submit" variant="default" disabled={busy}>
             {busy ? t("running") : t("run", { tool: tool.name })}
-          </button>
+          </Button>
         </div>
       </form>
 
       <div aria-live="polite">{outcome ? <OutcomeView outcome={outcome} /> : null}</div>
-    </section>
+    </PageSection>
   );
 }
 
@@ -118,38 +137,37 @@ function FieldInput({
   anyLabel: string;
   onChange: (value: string | boolean) => void;
 }) {
-  const hintId = `${id}-hint`;
-  const hint = field.description ? (
-    <p id={hintId} className="account-field-hint">
-      {field.description}
-    </p>
-  ) : null;
-  const describedBy = field.description ? hintId : undefined;
+  const describedBy = field.description ? `${id}-hint` : undefined;
 
   if (field.type === "boolean") {
     return (
-      <div className="account-field">
-        <label className="account-check" htmlFor={id}>
-          <input
+      <div className="flex flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <Checkbox
             id={id}
-            type="checkbox"
             checked={value === true}
             aria-describedby={describedBy}
-            onChange={(event) => onChange(event.target.checked)}
+            onCheckedChange={(checked) => onChange(checked === true)}
           />
-          <span>{field.name}</span>
-        </label>
-        {hint}
+          <label htmlFor={id} className="font-mono text-sm">
+            {field.name}
+          </label>
+        </div>
+        {field.description ? (
+          <div id={describedBy} className="text-xs text-muted-foreground">
+            {field.description}
+          </div>
+        ) : null}
       </div>
     );
   }
 
   if (field.enumValues) {
     return (
-      <div className="account-field">
-        <label htmlFor={id}>{field.name}</label>
-        <select
+      <Field id={id} label={field.name} hint={field.description}>
+        <NativeSelect
           id={id}
+          className="w-full"
           value={typeof value === "string" ? value : field.required ? field.enumValues[0] : ""}
           required={field.required}
           aria-describedby={describedBy}
@@ -161,17 +179,15 @@ function FieldInput({
               {option}
             </option>
           ))}
-        </select>
-        {hint}
-      </div>
+        </NativeSelect>
+      </Field>
     );
   }
 
   const numeric = field.type === "number" || field.type === "integer";
   return (
-    <div className="account-field">
-      <label htmlFor={id}>{field.name}</label>
-      <input
+    <Field id={id} label={field.name} hint={field.description}>
+      <Input
         id={id}
         type={numeric ? "number" : "text"}
         step={field.type === "integer" ? 1 : undefined}
@@ -180,8 +196,7 @@ function FieldInput({
         aria-describedby={describedBy}
         onChange={(event) => onChange(event.target.value)}
       />
-      {hint}
-    </div>
+    </Field>
   );
 }
 
@@ -206,27 +221,41 @@ export function toArguments(fields: McpToolField[], values: Values): TryItArgume
 function OutcomeView({ outcome }: { outcome: Outcome }) {
   const t = useTranslations("mcpPage.tryIt");
   if (outcome.kind === "refused") {
-    return <p className="account-status is-error">{t(`errors.${outcome.code}`)}</p>;
+    return (
+      <RowStatus tone="bad" as="p" className="text-sm">
+        {t(`errors.${outcome.code}`)}
+      </RowStatus>
+    );
   }
   const { result, isError } = toolResult(outcome.response);
   return (
-    <div className="mcp-try-result">
-      <p className="account-status">{t("summary", { status: outcome.status, ms: outcome.durationMs })}</p>
-      {outcome.status === 429 ? <p className="account-status is-error">{t("rateLimited")}</p> : null}
-      {isError ? <p className="account-status is-warning">{t("toolError")}</p> : null}
+    <div className="flex min-w-0 flex-col gap-2">
+      <p className="font-mono text-label uppercase tabular-nums">{t("summary", { status: outcome.status, ms: outcome.durationMs })}</p>
+      {outcome.status === 429 ? (
+        <RowStatus tone="bad" as="p" className="text-sm">
+          {t("rateLimited")}
+        </RowStatus>
+      ) : null}
+      {isError ? (
+        <RowStatus tone="warn" as="p" className="text-sm">
+          {t("toolError")}
+        </RowStatus>
+      ) : null}
       {result === undefined ? null : (
-        <details className="mcp-json" open>
-          <summary>{t("resultHeading")}</summary>
-          <pre className="account-code">{pretty(result)}</pre>
+        <details open>
+          <summary className="cursor-pointer font-mono text-label uppercase">{t("resultHeading")}</summary>
+          <pre className={JSON_BLOCK}>{pretty(result)}</pre>
         </details>
       )}
-      <details className="mcp-json">
-        <summary>{t("rawHeading")}</summary>
-        <pre className="account-code">{pretty(outcome.response)}</pre>
+      <details>
+        <summary className="cursor-pointer font-mono text-label uppercase">{t("rawHeading")}</summary>
+        <pre className={JSON_BLOCK}>{pretty(outcome.response)}</pre>
       </details>
     </div>
   );
 }
+
+const JSON_BLOCK = "mt-2 max-h-[420px] overflow-auto border border-border bg-card px-3 py-2.5 font-mono text-table whitespace-pre";
 
 /** The tool's own answer from a `tools/call` response: its text parts, parsed when they are JSON. */
 function toolResult(response: unknown): { result: unknown; isError: boolean } {

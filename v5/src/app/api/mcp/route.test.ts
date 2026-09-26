@@ -119,7 +119,7 @@ async function bearerFor(
 ): Promise<{ headers: Record<string, string>; userId: string; email: string; token: string; tokenId: string }> {
   const email = `mcp-${role}-${Math.random().toString(36).slice(2)}@cornell.edu`;
   const person = await seedUser({ email, role, name: options.name ?? `Test ${role}` });
-  const created = await createApiToken({ userId: person.id, name: "test", readOnly: Boolean(options.readOnly), expiry: "90" });
+  const created = await createApiToken({ userId: person.id, name: "test", readOnly: Boolean(options.readOnly) });
   if (!created.ok) throw new Error("expected a token");
   return {
     headers: { authorization: `Bearer ${created.token}` },

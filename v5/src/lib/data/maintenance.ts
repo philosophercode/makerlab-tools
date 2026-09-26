@@ -119,6 +119,58 @@ export async function listMaintenanceHistoryForUnit(
   return rows.map(toMaintenanceHistoryEntry);
 }
 
+/** One line of a tool's public maintenance history (UI system phase 5a). */
+export interface ToolMaintenanceEntry {
+  id: string;
+  /** The unit's label, or "" for a log filed against the tool as a whole. */
+  unitLabel: string;
+  title: string;
+  /** Display text, as {@link toDisplayLabel} gives it; "" when not recorded. */
+  type: string;
+  status: string;
+  /** ISO day; "" when not recorded. */
+  dateReported: string;
+  dateResolved: string;
+}
+
+/**
+ * The most recent maintenance logs across a tool's units, newest first — the
+ * tool page's "Maintenance history". A **public** read: it selects no reporter
+ * name, no email and no description, the same line MCP draws for an anonymous
+ * caller (maintenance history carries names only for `maintenance.manage`).
+ */
+export async function listMaintenanceHistoryForTool(
+  toolId: string,
+  options: MaintenanceQueryOptions = {}
+): Promise<ToolMaintenanceEntry[]> {
+  if (!isUuid(toolId)) return [];
+  const db = options.db ?? (await getDb());
+  const rows = await db
+    .select({
+      id: maintenanceLogs.id,
+      unitLabel: units.unitLabel,
+      title: maintenanceLogs.title,
+      type: maintenanceLogs.type,
+      status: maintenanceLogs.status,
+      dateReported: maintenanceLogs.dateReported,
+      dateResolved: maintenanceLogs.dateResolved,
+    })
+    .from(maintenanceLogs)
+    .innerJoin(units, eq(maintenanceLogs.unitId, units.id))
+    .where(eq(units.toolId, toolId))
+    .orderBy(sql`${maintenanceLogs.dateReported} desc nulls last`, desc(maintenanceLogs.createdAt))
+    .limit(options.limit ?? 10);
+  return rows.map((row) => ({
+    id: row.id,
+    unitLabel: row.unitLabel ?? "",
+    title: row.title,
+    type: toDisplayLabel(row.type),
+    status: toDisplayLabel(row.status),
+    dateReported: row.dateReported ?? "",
+    dateResolved: row.dateResolved ?? "",
+  }));
+}
+
 /** The columns {@link listMaintenanceHistoryForUnit} selects, before translation. */
 export interface MaintenanceLogRow {
   id: string;

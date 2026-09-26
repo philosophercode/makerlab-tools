@@ -17,14 +17,21 @@ export function ManualContentsList({ href, outline }: { href: string; outline: r
   if (entries.length === 0) return null;
   const base = href.split("#")[0];
   return (
-    <details className="td-doc-contents">
-      <summary>{t("manualContents")}</summary>
-      <ol>
+    <details data-slot="manual-contents" className="mt-1.5 ms-[calc(6.5rem+0.75rem)] text-xs">
+      <summary className="cursor-pointer font-mono text-label tracking-[0.08em] text-muted-foreground uppercase hover:text-foreground">
+        {t("manualContents")}
+      </summary>
+      <ol className="m-0 mt-1 flex list-none flex-col p-0">
         {entries.map((entry, index) => (
-          <li key={`${entry.page}-${index}`} className={entry.level > 1 ? "is-nested" : undefined}>
-            <a href={`${base}#page=${entry.page}`} target="_blank" rel="noreferrer noopener">
-              <span>{entry.title}</span>
-              <span className="td-doc-contents-page">{t("manualContentsPage", { page: entry.page })}</span>
+          <li key={`${entry.page}-${index}`} className={entry.level > 1 ? "ps-4" : undefined}>
+            <a
+              href={`${base}#page=${entry.page}`}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="flex items-baseline justify-between gap-3 py-0.5 hover:text-primary-ink"
+            >
+              <span className="min-w-0">{entry.title}</span>
+              <span className="font-mono text-muted-foreground tabular-nums">{t("manualContentsPage", { page: entry.page })}</span>
             </a>
           </li>
         ))}
