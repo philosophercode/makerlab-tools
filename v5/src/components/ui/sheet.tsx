@@ -11,8 +11,9 @@ import { cn } from "@/lib/utils";
  * §8.8): a panel from an edge of the screen — full height, square, a hairline
  * on its open side, the 28% ink scrim, fade only (no slide: motion is colour
  * and opacity). A workspace, not a decision; Radix supplies the focus trap,
- * Escape and focus return. The first user is the phone's Filters panel
- * (`FilterBar`); the chat moves onto it in phase 5b.
+ * Escape and focus return. Users: the phone's Filters panel (`FilterBar`) and
+ * the chat (phase 5b), which draws its own close button in its header
+ * (`showCloseButton={false}` with a `SheetClose`).
  */
 
 function Sheet(props: React.ComponentProps<typeof SheetPrimitive.Root>) {
@@ -38,11 +39,14 @@ function SheetContent({
   children,
   side = "right",
   closeLabel,
+  showCloseButton = true,
   ...props
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: keyof typeof SIDES;
-  /** The close button's accessible name, translated. */
-  closeLabel: string;
+  /** The close button's accessible name, translated. Required when it shows. */
+  closeLabel?: string;
+  /** False when the sheet draws its own `SheetClose` (the chat's header). */
+  showCloseButton?: boolean;
 }) {
   return (
     <SheetPrimitive.Portal data-slot="sheet-portal">
@@ -61,13 +65,15 @@ function SheetContent({
         {...props}
       >
         {children}
-        <SheetPrimitive.Close
-          data-slot="sheet-close"
-          aria-label={closeLabel}
-          className="absolute end-3 top-3 inline-flex size-7 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring focus-visible:outline-solid [&_svg]:size-4"
-        >
-          <XIcon aria-hidden="true" />
-        </SheetPrimitive.Close>
+        {showCloseButton ? (
+          <SheetPrimitive.Close
+            data-slot="sheet-close"
+            aria-label={closeLabel}
+            className="absolute end-3 top-3 inline-flex size-7 items-center justify-center text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring focus-visible:outline-solid [&_svg]:size-4"
+          >
+            <XIcon aria-hidden="true" />
+          </SheetPrimitive.Close>
+        ) : null}
       </SheetPrimitive.Content>
     </SheetPrimitive.Portal>
   );
