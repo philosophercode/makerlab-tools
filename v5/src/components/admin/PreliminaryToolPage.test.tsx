@@ -232,12 +232,12 @@ describe("PreliminaryToolPage — the low-confidence gate", () => {
 });
 
 describe("PreliminaryToolPage — the proposal", () => {
-  it("pre-fills the editor's fields from research, specs in the description", () => {
+  it("pre-fills the editor's fields from research, the description without a spec list", () => {
     renderPage();
 
     expect(screen.getByLabelText("Display name")).toHaveValue("Original Prusa MK4S");
     expect(screen.getByLabelText("Description")).toHaveValue(
-      "An open-frame FDM printer.\n\n- **Build volume:** 250 × 210 × 220 mm"
+      "An open-frame FDM printer."
     );
     expect(screen.getByLabelText("Materials")).toHaveValue("PLA, PETG");
     // Training is the lab's call: never pre-filled from research, even its "true".
@@ -286,7 +286,7 @@ describe("PreliminaryToolPage — the proposal", () => {
         name: "Original Prusa MK4S",
         // Research's official name, carried beside the display name (tool display names spec §5.3).
         officialName: "Original Prusa MK4S",
-        description: "An open-frame FDM printer.\n\n- **Build volume:** 250 × 210 × 220 mm",
+        description: "An open-frame FDM printer.",
         categoryId: null,
         newCategory: { name: "FDM", group: "3D Printing" },
         locationId: "l-1",
@@ -912,7 +912,7 @@ describe('PreliminaryToolPage — a guided redo (amendment "Guided redo (focus +
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       renderPage({
-        research: research({ updated: { at: new Date().toISOString(), sections: ["specs", "links"] } }),
+        research: research({ updated: { at: new Date().toISOString(), sections: ["description", "links"] } }),
       });
       expect(await screen.findAllByText("Updated just now")).toHaveLength(2);
       expect(screen.getByRole("textbox", { name: /Description/ }).closest('[data-slot="field"]')).toHaveAttribute("data-updated");
@@ -923,6 +923,11 @@ describe('PreliminaryToolPage — a guided redo (amendment "Guided redo (focus +
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('does not mark the description for a specs-only redo (amendment "Short descriptions")', () => {
+    renderPage({ research: research({ updated: { at: new Date().toISOString(), sections: ["specs"] } }) });
+    expect(screen.getByRole("textbox", { name: /Description/ }).closest('[data-slot="field"]')).not.toHaveAttribute("data-updated");
   });
 
   it("marks nothing for a redo that landed long ago", () => {

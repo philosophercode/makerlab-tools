@@ -146,7 +146,7 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
               <span className="text-muted-foreground tabular-nums">{t("unitsAvailable", { available, count: tool.units.length })}</span>
             ) : null}
           </p>
-          {/* Descriptions are Markdown (research folds specs in as a list); no raw HTML, as for projects. */}
+          {/* Descriptions are Markdown (older ones may carry a spec list); no raw HTML, as for projects. */}
           <Markdown className="max-w-[72ch] text-[15px]">{tool.description}</Markdown>
           {safetyLink || sopLink ? (
             <div className="flex flex-wrap gap-2 pt-0.5">

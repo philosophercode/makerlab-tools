@@ -105,6 +105,16 @@ export const MODEL_JOBS = {
     serviceTier: "flex",
     tierEnv: "MODEL_DISPLAY_NAME_TIER",
   },
+  // The description shortening script (gateway spec amendment 2026-09-26
+  // "Short descriptions"): one small call per tool whose description breaks
+  // the short rule — no tools, the description fenced. Nobody waits: flex.
+  descriptionShorten: {
+    kind: "language",
+    env: "MODEL_DESCRIPTION_SHORTEN",
+    default: "openai/gpt-6-luna",
+    serviceTier: "flex",
+    tierEnv: "MODEL_DESCRIPTION_SHORTEN_TIER",
+  },
   // Manual passages and search queries (manual text spec §3.4). An embedding
   // job, not a language one: `embeddingModelFor`, never `languageModelFor`.
   // No tier hint — embeddings are cheap and a search is waited on.
