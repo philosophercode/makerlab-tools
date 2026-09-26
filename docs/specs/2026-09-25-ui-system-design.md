@@ -1294,3 +1294,48 @@ permission changes. Where the app now differs from the amendments above:
 - **Queues.** Controls in one aligned row, `RowStatus` inline beside them in a
   reserved slot, the resolution editor in its own full-width slot, so nothing
   moves when "Saved" appears or the editor opens.
+
+As built (same branch):
+
+- **Header.** `scrollbar-gutter: stable` alone did not fix it — Chromium
+  ignores the gutter for a styled `::-webkit-scrollbar` — so the root has
+  `overflow-y: scroll` as well. The active nav link already changed colour and
+  underline only, so no width reservation was needed. The frosted plate is
+  the `FROSTED` utility string (`system/frosted.ts`, `supports-[backdrop-filter]`
+  variants), shared by the profile menu and the palette.
+- **Toolbar.** `FilterBar` itself is the shared layout (every list already
+  used it); new props `secondary` and `activeCount`. The count sits at the end
+  of the search row rather than at the start of row 2, which is what lets row 2
+  fit at 1024. With two facets and a grouping set, the right group wraps under,
+  right-aligned. `ui/sheet.tsx` is added (Radix Dialog, fade only).
+- **Gallery.** `?status=` joins the URL vocabulary; room and zone are one
+  column; official name and materials are optional columns. Column visibility
+  is page state, shared by every grouped section's table.
+- **Tool page.** The crumb is `// TOOLS › NAME`; "Back to all tools" is gone
+  (the crumb is the way back).
+- **⌘K.** Messages moved from `admin.palette` to `palette`. The admin section
+  bar no longer carries its own palette button — the header's field is on
+  every page. Pages, categories and tools for everybody; admin pages and
+  actions only through `surfacesFor(role)`.
+- **Manuals.** New read `listManualLibrary` (same current-PDF rule and buckets
+  as `countManualsByState`, asserted against it) and action
+  `reprocessLibraryManual` (`tools.edit`, tested for the adjacent-permission
+  refusal). "Run npm run manuals:index" is replaced by a sentence for staff;
+  the CLI stays in `v5/AGENTS.md`.
+- **Removed.** `ManualStateCounts`, `.td-panel`, the `.admin-shell` `--td-*`
+  mapping (the mirror and editor rules read the theme tokens), `.page-shell`,
+  the profile panel's own plate rules and the header's catch-all button rule:
+  legacy CSS 1,801 → 1,750 lines (85 deleted); 74 dead message lines across
+  the 12 locales; the tool page's placeholder branches.
+- **Measured** (scratch database: demo seed + 16 tools, 6 manuals, tickets,
+  corrections, projects; light): tool page (Form 4) 1,694 → 1,095 px desktop,
+  2,327 → 1,698 phone; a sparse tool 1,644 → 900 / 2,164 → 1,342; gallery
+  phone 2,602 → 2,391 (no tags on cards); gallery table 1,084 → 1,124 desktop
+  (the two-row toolbar). Manuals grew (900 → 944 / 889 → 1,454): it now lists
+  the manuals. Maintenance 1,426 → 1,381 desktop. Screens at 1440 / 1024 / 390
+  (toolbar also 800), both themes: `v5/.livecheck/public-polish/`, not
+  committed.
+- **Not done:** the owner's "Remove instead of Ban" on the People page was
+  not built on this branch (it needs the owner's direct go-ahead as an
+  auth/security change); Ban is unchanged.
+- **Packages added:** none.

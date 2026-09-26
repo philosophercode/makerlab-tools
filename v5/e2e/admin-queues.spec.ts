@@ -120,7 +120,9 @@ async function controlBoxes(card: Locator): Promise<string> {
     Array.from(row.querySelectorAll("select, button"))
       .map((el) => {
         const r = el.getBoundingClientRect();
-        return `${el.getAttribute("aria-label")}@${[r.x, r.y, r.width, r.height].map(Math.round).join(",")}`;
+        // Page coordinates: focusing the editor may scroll the page on a phone.
+        const box = [r.x + window.scrollX, r.y + window.scrollY, r.width, r.height];
+        return `${el.getAttribute("aria-label")}@${box.map(Math.round).join(",")}`;
       })
       .join(" | ")
   );
