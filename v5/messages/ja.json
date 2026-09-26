@@ -155,7 +155,6 @@
     "newChatTitle": "新しいチャットを開始",
     "closeAria": "アシスタントを閉じる",
     "closeTitle": "閉じる（会話は保持されます）",
-    "closeScrimAria": "MakerLab アシスタントを閉じる",
     "greetingTool": "このツールについて質問してください。仕様、素材、リソースリンクを把握しています。",
     "greetingGeneral": "本日はどのようなご用件でしょうか？",
     "suggestionFindMachine": "プロジェクトに合う機材を探す",

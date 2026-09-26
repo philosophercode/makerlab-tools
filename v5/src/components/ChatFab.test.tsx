@@ -1,4 +1,4 @@
-import { render, screen, userEvent } from "../../test/utils/render";
+import { render, screen, userEvent, waitFor, within } from "../../test/utils/render";
 
 // ── Mocks ──────────────────────────────────────────────────────────
 //
@@ -87,6 +87,7 @@ vi.mock("../lib/chat/downscale-image", () => ({
 import { ChatFab } from "./ChatFab";
 import { ToolChatStarters } from "./ToolChatStarters";
 import { CurateChatStarter } from "./CurateChatStarter";
+import { AskAssistantButton } from "./chat/AskAssistantButton";
 import type { IntakeTablePayload } from "../lib/intake/types";
 
 beforeEach(() => {
@@ -160,7 +161,7 @@ describe("ChatFab", () => {
     expect(
       screen.getByText("How do I use the laser cutter?")
     ).toBeInTheDocument();
-    // Assistant text is rendered through ReactMarkdown but the text content
+    // Assistant text is rendered through streamdown but the text content
     // is still present in the DOM.
     expect(
       screen.getByText("First, complete the safety training.")
@@ -378,8 +379,9 @@ describe("ChatFab", () => {
 // ── Citation stripping (#22) ───────────────────────────────────────
 //
 // The assistant grounds answers with inline <cite index="…">…</cite> markup.
-// react-markdown has no raw-HTML plugin, so without stripping these would
-// render as literal text. Assert the tags are removed but the prose survives.
+// The chat renders Markdown with raw HTML off (streamdown without its `raw`
+// plugin, phase 5b), so without stripping these would not render as intended.
+// Assert the tags are removed but the prose survives.
 describe("ChatFab — <cite> tag stripping", () => {
   async function open(user: ReturnType<typeof userEvent.setup>) {
     await user.click(
@@ -572,8 +574,8 @@ describe("ChatFab — intake table", () => {
     expect(card).toBeInTheDocument();
     expect(screen.getByText("Bambu Lab X1-Carbon Combo")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Research selected (1)" })).toBeEnabled();
-    // The bubble gives the card the full column, as it does for an identification card.
-    expect(card.closest("li")).toHaveClass("chat-msg-has-card");
+    // The message gives the card the full column, as it does for an identification card.
+    expect(card.closest("[data-role]")).toHaveAttribute("data-has-card");
   });
 
   it("renders a message that carries only the table", async () => {
@@ -849,9 +851,9 @@ describe("ChatFab — rate-limit ceiling", () => {
     await openWith(new Error(anonymousCeiling));
 
     const message = screen.getByText(/message limit for visitors who aren't signed in/i);
-    const bubble = message.closest("li");
-    expect(bubble).toHaveClass("chat-msg-assistant");
-    expect(bubble).not.toHaveClass("chat-msg-error");
+    const bubble = message.closest("[data-role]");
+    expect(bubble).toHaveAttribute("data-role", "assistant");
+    expect(bubble).not.toHaveAttribute("data-kind", "error");
   });
 
   it("offers sign-in inside that message and starts from the current page", async () => {
@@ -859,7 +861,7 @@ describe("ChatFab — rate-limit ceiling", () => {
     const user = await openWith(new Error(anonymousCeiling));
 
     const signIn = screen.getByRole("button", { name: "Sign in" });
-    expect(signIn.closest("li")).toHaveClass("chat-msg-assistant");
+    expect(signIn.closest("[data-role]")).toHaveAttribute("data-role", "assistant");
 
     await user.click(signIn);
     expect(startGoogleSignIn).toHaveBeenCalledWith("/tools/form-4");
@@ -876,7 +878,7 @@ describe("ChatFab — rate-limit ceiling", () => {
     await openWith(new Error(signedInCeiling));
 
     const message = screen.getByText(/hourly message limit/i);
-    expect(message.closest("li")).toHaveClass("chat-msg-assistant");
+    expect(message.closest("[data-role]")).toHaveAttribute("data-role", "assistant");
     expect(
       screen.queryByRole("button", { name: "Sign in" })
     ).not.toBeInTheDocument();
@@ -886,14 +888,14 @@ describe("ChatFab — rate-limit ceiling", () => {
     await openWith(new Error("The AI service is temporarily overloaded."));
 
     const message = screen.getByText("The AI service is temporarily overloaded.");
-    expect(message.closest("li")).toHaveClass("chat-msg-error");
+    expect(message.closest("[data-role]")).toHaveAttribute("data-kind", "error");
   });
 
   it("does not mistake unrelated JSON for a ceiling", async () => {
     await openWith(new Error(JSON.stringify({ error: "Something else broke" })));
 
     const message = screen.getByText(/Something else broke/);
-    expect(message.closest("li")).toHaveClass("chat-msg-error");
+    expect(message.closest("[data-role]")).toHaveAttribute("data-kind", "error");
   });
 
   describe('tool-specific starter chips (amendment "Tool-specific starter questions")', () => {
@@ -1015,5 +1017,213 @@ describe("ChatFab — rate-limit ceiling", () => {
       expect(body.pendingId).toBe(id);
       expect(body.toolId).toBeUndefined();
     });
+  });
+});
+
+// ── Phase 5b: AI Elements, the sheet, citations, launchers ──────────
+describe("ChatFab — the sheet (UI system phase 5b)", () => {
+  const FAB = { name: "Open MakerLab assistant" };
+
+  it("closes on Escape and returns focus to the button that opened it", async () => {
+    const user = userEvent.setup();
+    render(<ChatFab />);
+    const fab = screen.getByRole("button", FAB);
+    await user.click(fab);
+    expect(screen.getByRole("dialog", { name: "MAKERLAB ASSISTANT" })).toBeInTheDocument();
+
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(fab).toHaveFocus());
+  });
+
+  it("keeps the draft when it is closed and opened again", async () => {
+    const user = userEvent.setup();
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", FAB));
+    await user.type(screen.getByRole("textbox", { name: "Ask the lab console" }), "half a question");
+    await user.click(screen.getByRole("button", { name: "Close assistant" }));
+    await user.click(screen.getByRole("button", FAB));
+    expect(screen.getByRole("textbox", { name: "Ask the lab console" })).toHaveValue("half a question");
+  });
+
+  it("sends on Enter and keeps Shift+Enter for a new line", async () => {
+    const user = userEvent.setup();
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", FAB));
+    const input = screen.getByRole("textbox", { name: "Ask the lab console" });
+    await user.type(input, "line one{Shift>}{Enter}{/Shift}line two");
+    expect(sendMessage).not.toHaveBeenCalled();
+    await user.type(input, "{Enter}");
+    expect(sendMessage).toHaveBeenCalledWith({ text: "line one\nline two" });
+  });
+
+  it("draws no floating button on an admin page, and opens from the launcher there", async () => {
+    const user = userEvent.setup();
+    pathnameMock.mockReturnValue("/admin/inventory");
+    render(
+      <>
+        <AskAssistantButton />
+        <ChatFab />
+      </>
+    );
+    expect(screen.queryByRole("button", FAB)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Ask the assistant" }));
+    expect(screen.getByRole("dialog", { name: "MAKERLAB ASSISTANT" })).toBeInTheDocument();
+  });
+
+  it("keeps the floating button on a public page", () => {
+    pathnameMock.mockReturnValue("/tools/form-4");
+    render(<ChatFab />);
+    expect(screen.getByRole("button", FAB)).toBeInTheDocument();
+  });
+
+  it("marks the conversation as a live log", async () => {
+    const user = userEvent.setup();
+    useChatReturn = baseReturn({ messages: [userMsg("u1", "hi"), assistantMsg("a1", "hello")] });
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", FAB));
+    expect(screen.getByRole("log")).toHaveTextContent("hello");
+  });
+});
+
+describe("ChatFab — assistant prose (streamdown)", () => {
+  async function openWith(messages: UseChatReturn["messages"]) {
+    const user = userEvent.setup();
+    useChatReturn = baseReturn({ messages });
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", { name: "Open MakerLab assistant" }));
+    return { user, dialog: screen.getByRole("dialog") };
+  }
+
+  it("renders Markdown — a list and bold words", async () => {
+    const { dialog } = await openWith([assistantMsg("a1", "Before you print:\n\n- wear **gloves**\n- check the tank")]);
+    expect(within(dialog).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(dialog).getByText("gloves").tagName).toBe("STRONG");
+  });
+
+  it("never renders the model's HTML", async () => {
+    const { dialog } = await openWith([
+      assistantMsg("a1", 'Here: <img src="x" onerror="alert(1)"> and <script>alert(2)</script><b>bold</b> done.'),
+    ]);
+    expect(dialog.querySelector("img")).toBeNull();
+    expect(dialog.querySelector("script")).toBeNull();
+    expect(dialog.querySelector("b")).toBeNull();
+  });
+
+  it("opens a site link in place and closes the sheet; any other link in a new tab", async () => {
+    const { user, dialog } = await openWith([
+      assistantMsg("a1", "See the [Form 4 page](/tools/form-4) or [Formlabs](https://formlabs.com/)."),
+    ]);
+    expect(within(dialog).getByRole("link", { name: "Formlabs" })).toHaveAttribute("target", "_blank");
+    const internal = within(dialog).getByRole("link", { name: "Form 4 page" });
+    expect(internal).toHaveAttribute("href", "/tools/form-4");
+    expect(internal).not.toHaveAttribute("target");
+    await user.click(internal);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+  });
+
+  it("shows a tool still running after text the same turn already wrote", async () => {
+    await openWith([
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          { type: "text", text: "Let me check the manual." },
+          { type: "tool-search_manual", state: "input-available" },
+        ],
+      },
+    ]);
+    expect(screen.getByText("Let me check the manual.")).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Tool running" })).toHaveTextContent("📖 Searching the manual…");
+  });
+
+  it("draws nothing for a tool call that finished", async () => {
+    await openWith([
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          { type: "tool-get_unit_details", state: "output-available" },
+          { type: "text", text: "Unit A is available." },
+        ],
+      },
+    ]);
+    expect(screen.queryByRole("group", { name: "Tool running" })).not.toBeInTheDocument();
+  });
+});
+
+describe("ChatFab — manual citations (spec §9.1)", () => {
+  const URL_42 = "https://blob.example/manuals/form-4.pdf#page=42";
+  const URL_44 = "https://blob.example/manuals/form-4.pdf#page=44";
+  const URL_50 = "https://blob.example/manuals/form-4.pdf#page=50";
+
+  function answer(text: string) {
+    return {
+      id: "a1",
+      role: "assistant" as const,
+      parts: [
+        {
+          type: "tool-search_manual",
+          state: "output-available",
+          input: { query: "replace resin tank" },
+          output: {
+            status: "ok",
+            scope: "Form 4 manuals",
+            passages: [
+              { citation: "Form 4 Manual, p. 42", url: URL_42, tool: "Form 4", section: "Maintenance › Resin tank", text: "Lift the front edge." },
+              { citation: "Form 4 Manual, pp. 44–45", url: URL_44, tool: "Form 4", section: "Maintenance", text: "Slide it in." },
+              { citation: "Form 4 Manual, p. 50", url: URL_50, tool: "Form 4", section: "Cleaning", text: "Wipe it." },
+            ],
+          },
+        },
+        { type: "text", text },
+      ],
+    } as unknown as UseChatReturn["messages"][number];
+  }
+
+  async function openWith(text: string) {
+    const user = userEvent.setup();
+    useChatReturn = baseReturn({ messages: [userMsg("u1", "How do I replace the resin tank?"), answer(text)] });
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", { name: "Open MakerLab assistant" }));
+    return { user, dialog: screen.getByRole("dialog") };
+  }
+
+  it("draws a cited passage as an inline citation whose mark opens the page", async () => {
+    const { dialog } = await openWith(
+      `Lift the front edge ([Replacing the resin tank (Form 4 Manual, p. 42)](${URL_42})).`
+    );
+    const mark = within(dialog).getByRole("link", { name: "Open Form 4 Manual, p. 42" });
+    expect(mark).toHaveAttribute("href", URL_42);
+    expect(mark).toHaveAttribute("target", "_blank");
+    expect(mark).toHaveTextContent("p. 42");
+    // The linked words keep what they say, less the citation the mark now shows.
+    expect(within(dialog).getByText("Replacing the resin tank")).toBeInTheDocument();
+    expect(dialog.textContent).not.toContain("(Form 4 Manual, p. 42)");
+  });
+
+  it("lists the pages the answer cited as its sources, and only those", async () => {
+    const { user, dialog } = await openWith(
+      `First ([a](${URL_44})), then ([b](${URL_42})), and again ([c](${URL_44})).`
+    );
+    const trigger = within(dialog).getByRole("button", { name: "2 manual pages" });
+    await user.click(trigger);
+    const sources = within(dialog)
+      .getAllByRole("link")
+      .filter((link) => !link.hasAttribute("data-slot"));
+    expect(sources.map((link) => [link.textContent, link.getAttribute("href")])).toEqual([
+      ["Form 4 Manual, pp. 44–45", URL_44],
+      ["Form 4 Manual, p. 42", URL_42],
+    ]);
+    // Read, not cited: not evidence.
+    expect(within(dialog).queryByText("Form 4 Manual, p. 50")).not.toBeInTheDocument();
+  });
+
+  it("treats a link the manual search did not return as an ordinary link", async () => {
+    const { dialog } = await openWith("See [the maker's page](https://example.com/manual.pdf#page=42).");
+    expect(within(dialog).queryByRole("link", { name: /^Open / })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: /manual page/ })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("link", { name: "the maker's page" })).toHaveAttribute("target", "_blank");
   });
 });

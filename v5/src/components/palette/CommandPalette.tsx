@@ -40,8 +40,10 @@ import { cn } from "@/lib/utils";
  *   checks — so the palette never offers a refusal; an anonymous visitor or a
  *   student sees none, and no admin action.
  * - **Actions**: Add equipment (`tools.add`) and Refresh catalog (`tools.edit`).
- * - **`onAsk`** is the assistant's hook (phase 5b): given one, the palette
- *   offers "Ask the assistant" with whatever was typed.
+ * - **`onAsk`** opens the assistant (phase 5b; the header passes it on every
+ *   page): "Ask the assistant" with nothing typed (`onAsk("")`), "Ask the
+ *   assistant: “…”" with the query as the first message. It is the last
+ *   group, so Enter still opens the first tool or page that matches.
  *
  * The header shows it as a compact field, "Search tools… ⌘K" (an icon button
  * on a phone). ⌘K / Ctrl-K opens and closes it from anywhere; `/` focuses the
@@ -52,7 +54,7 @@ export interface CommandPaletteProps {
   role: Role;
   /** Tools to jump to, or null when the list could not be read. */
   tools: readonly PaletteTool[] | null;
-  /** Phase 5b: ask the assistant about what was typed. */
+  /** Open the assistant; `query` (possibly empty) is what was typed, sent as the first message. */
   onAsk?: (query: string) => void;
 }
 
@@ -166,22 +168,6 @@ export function CommandPalette({ role, tools, onAsk }: CommandPaletteProps) {
         <CommandList>
           <CommandEmpty>{t("empty", { query })}</CommandEmpty>
 
-          {asking ? (
-            <CommandGroup heading={t("assistant")} forceMount>
-              <CommandItem
-                value="ask"
-                forceMount
-                onSelect={() => {
-                  setOpenAndReset(false);
-                  onAsk?.(asking);
-                }}
-              >
-                <MessageSquare aria-hidden="true" />
-                {t("ask", { query: asking })}
-              </CommandItem>
-            </CommandGroup>
-          ) : null}
-
           <CommandGroup heading={t("pages")}>
             {PAGES.map((page) => {
               const Icon = page.icon;
@@ -281,6 +267,38 @@ export function CommandPalette({ role, tools, onAsk }: CommandPaletteProps) {
                   )}
                 </CommandItem>
               ))}
+            </CommandGroup>
+          ) : null}
+
+          {/* Last, so Enter still opens the first tool or page that matches;
+              with a query it is always there, even when nothing else matches. */}
+          {onAsk ? (
+            <CommandGroup heading={t("assistant")} forceMount={asking !== null}>
+              {asking ? (
+                <CommandItem
+                  value="ask"
+                  forceMount
+                  onSelect={() => {
+                    setOpenAndReset(false);
+                    onAsk(asking);
+                  }}
+                >
+                  <MessageSquare aria-hidden="true" />
+                  {t("ask", { query: asking })}
+                </CommandItem>
+              ) : (
+                <CommandItem
+                  value="ask:open"
+                  keywords={[t("askEmpty")]}
+                  onSelect={() => {
+                    setOpenAndReset(false);
+                    onAsk("");
+                  }}
+                >
+                  <MessageSquare aria-hidden="true" />
+                  {t("askEmpty")}
+                </CommandItem>
+              )}
             </CommandGroup>
           ) : null}
         </CommandList>

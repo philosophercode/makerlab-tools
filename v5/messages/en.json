@@ -218,7 +218,6 @@
     "newChatTitle": "Start new chat",
     "closeAria": "Close assistant",
     "closeTitle": "Close (keeps conversation)",
-    "closeScrimAria": "Close MakerLab assistant",
     "greetingTool": "Ask about this tool — I have its specs, materials, and resource links.",
     "greetingGeneral": "How can I help you today?",
     "suggestionFindMachine": "Find a machine for a project",
@@ -269,7 +268,12 @@
       "parsing": "Reading the document…",
       "failed": "The list could not be read.",
       "review": "Review import"
-    }
+    },
+    "askAssistant": "Ask the assistant",
+    "scrollToLatest": "Scroll to the latest message",
+    "dictate": "Dictate",
+    "sourcesCount": "{count, plural, one {# manual page} other {# manual pages}}",
+    "citationAria": "Open {citation}"
   },
   "qr": {
     "arrivalLabel": "Scanned from this machine",
@@ -1962,6 +1966,7 @@
     "hint": "↑ ↓ to move · Enter to open · Esc to close",
     "toolsUnavailable": "The tool list could not be read.",
     "assistant": "Assistant",
-    "ask": "Ask the assistant: “{query}”"
+    "ask": "Ask the assistant: “{query}”",
+    "askEmpty": "Ask the assistant"
   }
 }

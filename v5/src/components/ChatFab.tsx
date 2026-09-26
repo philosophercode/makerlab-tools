@@ -2,37 +2,34 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type FileUIPart } from "ai";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import Link from "next/link";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import ReactMarkdown, { type Components } from "react-markdown";
-import remarkGfm from "remark-gfm";
-import "../styles/admin-import.css";
-import { IntakeTableCard } from "./IntakeTableCard";
-import { ImportCard } from "./ImportCard";
-import { IMPORT_FILE_EXTENSIONS, isImportFileName } from "../lib/import/detect";
-import type { ImportCardPayload } from "../lib/import/view";
-import { ChatProposalCards, type ChatProposalItem } from "./ChatProposalCards";
+import { ClipboardCheckIcon, MapPinIcon, SearchIcon, SquarePenIcon, XIcon } from "lucide-react";
 import { useChatLauncher } from "./ChatLauncherContext";
 import { siteConfig } from "../lib/site-config";
 import { startGoogleSignIn } from "../lib/auth/sign-in-client";
-import type { IntakeTablePayload } from "../lib/intake/types";
-import { downscaleForVision } from "../lib/chat/downscale-image";
 import { toVisionFileParts, withRecentPhotos } from "../lib/chat/photo-parts";
+import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Button } from "@/components/ui/button";
+import { Conversation, ConversationContent, ConversationScrollButton } from "./ai-elements/conversation";
+import { Message, MessageContent } from "./ai-elements/message";
+import { Suggestion, Suggestions } from "./ai-elements/suggestion";
+import { Loader } from "./ai-elements/loader";
+import { ChatMessage } from "./chat/ChatMessage";
+import { ChatComposer } from "./chat/ChatComposer";
+import { parseCeiling } from "./chat/chat-text";
+import { useChatAttachments } from "./chat/use-chat-attachments";
+import { useDictation } from "./chat/use-dictation";
+import { FROSTED } from "./system/frosted";
+import { cn } from "@/lib/utils";
 
-interface Suggestion {
-  icon: "search" | "clipboard" | "pin";
-  key: "suggestionFindMachine" | "suggestionTraining" | "suggestionSafety";
-}
-
-const SUGGESTIONS: Suggestion[] = [
-  { icon: "search", key: "suggestionFindMachine" },
-  { icon: "clipboard", key: "suggestionTraining" },
-  { icon: "pin", key: "suggestionSafety" },
-];
-
-type ChatT = ReturnType<typeof useTranslations<"chat">>;
+/** The generic starters, with the icon each chip carries. */
+const SUGGESTIONS = [
+  { icon: SearchIcon, key: "suggestionFindMachine" },
+  { icon: ClipboardCheckIcon, key: "suggestionTraining" },
+  { icon: MapPinIcon, key: "suggestionSafety" },
+] as const;
 
 /** A path segment as written, decoded when it can be. */
 function safeDecode(segment: string): string {
@@ -43,241 +40,35 @@ function safeDecode(segment: string): string {
   }
 }
 
-function toolStatusLabel(partType: string, t: ChatT, input?: unknown): string {
-  if (partType === "tool-search_manual") {
-    // The machine the model named, when it named one; on a tool's page it
-    // usually does not (that tool is preset), and the line stays generic.
-    const tool = (input as { tool?: unknown } | undefined)?.tool;
-    return typeof tool === "string" && tool.trim()
-      ? t("searchingManual", { tool: tool.trim().slice(0, 60) })
-      : t("searchingManuals");
-  }
-  if (partType === "tool-get_unit_details") return t("lookingUpUnit");
-  if (partType === "tool-report_issue") return t("filingTicket");
-  if (partType === "tool-identify_tools") return t("identifyingEquipment");
-  if (partType === "tool-start_import") return t("startingImport");
-  // Web search runs inside the Gateway, but its call still streams as a tool part.
-  if (partType === "tool-exa_search") return t("searchingWeb");
-  if (partType === "tool-read_page") return t("readingPage");
-  if (partType === "tool-get_record") return t("readingRecord");
-  if (partType === "tool-propose_change") return t("proposingChange");
-  return t("working");
+/** The admin opens the assistant from its section bar and ⌘K; the floating button is not drawn there. */
+function isAdminPath(pathname: string): boolean {
+  return pathname === "/admin" || pathname.startsWith("/admin/");
 }
 
 /**
- * The two ways `/api/chat` refuses at the allowance ceiling: an anonymous
- * visitor who can sign in to continue, and a signed-in caller who can only wait.
- */
-type Ceiling = "sign-in" | "wait";
-
-/**
- * Recognize the rate-limit ceiling in a chat error.
+ * The MakerLab assistant (UI system spec §9; phase 5b): a docked side sheet on
+ * AI Elements, mounted once in the root layout so a conversation survives
+ * navigation.
  *
- * `useChat` surfaces a non-OK response as an `Error` whose message is the raw
- * response body, so the refusal arrives here as JSON text. It matters that we
- * unpack it: hitting the ceiling is a normal thing that happens to a visitor
- * mid-conversation, and it renders as an assistant message offering a way
- * forward — never as an error row and never as a toast (design spec §6).
- *
- * Matching is on `code`, not on the English `error` text, because the copy the
- * user reads comes from `messages/*.json` (Article 6).
+ * - **Where it opens.** On public pages, the square button at the inline-end
+ *   corner; on `/admin/*` that button is not drawn (it collided with bulk
+ *   bars) and the section bar's **Ask the assistant** and ⌘K open it instead.
+ *   Anything else — Report, Add equipment, the QR notice — opens it through
+ *   `ChatLauncherContext`, optionally with a first message.
+ * - **The sheet** (`ui/sheet`): 440px from `sm`, the whole screen on a phone,
+ *   frosted, the focus trapped inside, Escape closes, focus returns to what
+ *   opened it; closing keeps the conversation, the draft and the attachments.
+ * - **The conversation** is `useChat` over `/api/chat` with a transport that
+ *   reads the page's tool, pending item and locale at send time;
+ *   `ChatMessage` draws each turn and `ChatComposer` the composer.
  */
-function parseCeiling(error: Error | undefined): Ceiling | null {
-  const raw = error?.message?.trim();
-  if (!raw || !raw.startsWith("{")) return null;
-  try {
-    const body = JSON.parse(raw) as { code?: string };
-    if (body.code === "rate_limited_sign_in") return "sign-in";
-    if (body.code === "rate_limited") return "wait";
-  } catch {
-    // Not JSON — an ordinary streaming error. Falls through to the error row.
-  }
-  return null;
-}
-
-/**
- * Chrome reset for the inline sign-in affordance. It belongs in `globals.css`
- * next to `.chat-tool-link`; it lives here because this change does not own that
- * file. Colors come from CSS variables, never literals (Article 6).
- */
-const SIGN_IN_LINK_STYLE: React.CSSProperties = {
-  background: "none",
-  border: "none",
-  borderRadius: 0,
-  padding: 0,
-  color: "var(--primary-ink)",
-  textDecoration: "underline",
-};
-
-// The assistant can wrap grounded text in inline source markup such as
-// <cite index="1-9">…</cite>. react-markdown has no raw-HTML plugin, so those
-// tags would render as literal text. Strip the tags while keeping the cited
-// prose intact.
-function stripCitations(text: string): string {
-  return text.replace(/<cite\b[^>]*>/gi, "").replace(/<\/cite>/gi, "");
-}
-
-function Icon({
-  name,
-}: {
-  name:
-    | Suggestion["icon"]
-    | "send"
-    | "close"
-    | "newchat"
-    | "paperclip"
-    | "remove"
-    | "mic";
-}) {
-  switch (name) {
-    case "search":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="11" cy="11" r="7" />
-          <path d="m20 20-3.5-3.5" />
-        </svg>
-      );
-    case "clipboard":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="6" y="5" width="12" height="16" rx="1.5" />
-          <path d="M9 5V4a2 2 0 1 1 6 0v1" />
-          <path d="M9 11h6M9 15h4" />
-        </svg>
-      );
-    case "pin":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 21s-7-5.2-7-11a7 7 0 1 1 14 0c0 5.8-7 11-7 11z" />
-          <circle cx="12" cy="10" r="2.5" />
-        </svg>
-      );
-    case "send":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M22 2 11 13" />
-          <path d="m22 2-7 20-4-9-9-4 20-7z" />
-        </svg>
-      );
-    case "close":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
-      );
-    case "newchat":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M12 20h9" />
-          <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z" />
-        </svg>
-      );
-    case "paperclip":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66L9.41 17.41a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-        </svg>
-      );
-    case "remove":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18 6 6 18M6 6l12 12" />
-        </svg>
-      );
-    case "mic":
-      return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="9" y="3" width="6" height="11" rx="3" />
-          <path d="M5 11a7 7 0 0 0 14 0" />
-          <path d="M12 18v3" />
-        </svg>
-      );
-  }
-}
-
-// ── Browser dictation (Web Speech API) ──────────────────────────────
-// Minimal structural types for the SpeechRecognition API. It is not in the
-// standard DOM lib typings and is vendor-prefixed in Chromium (`webkit`). We
-// feature-detect at runtime and hide the mic where it is unavailable, so these
-// types only describe the shape we actually touch.
-interface SpeechRecognitionAlternativeLike {
-  transcript: string;
-}
-interface SpeechRecognitionResultLike {
-  readonly length: number;
-  isFinal: boolean;
-  [index: number]: SpeechRecognitionAlternativeLike;
-}
-interface SpeechRecognitionResultListLike {
-  readonly length: number;
-  [index: number]: SpeechRecognitionResultLike;
-}
-interface SpeechRecognitionEventLike {
-  resultIndex: number;
-  results: SpeechRecognitionResultListLike;
-}
-interface SpeechRecognitionLike {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  start(): void;
-  stop(): void;
-  abort(): void;
-  onresult: ((event: SpeechRecognitionEventLike) => void) | null;
-  onerror: (() => void) | null;
-  onend: (() => void) | null;
-}
-type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
-
-function getSpeechRecognitionCtor(): SpeechRecognitionCtor | null {
-  if (typeof window === "undefined") return null;
-  const w = window as unknown as {
-    SpeechRecognition?: SpeechRecognitionCtor;
-    webkitSpeechRecognition?: SpeechRecognitionCtor;
-  };
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
-}
-
-// Whether browser dictation is available. Read via `useSyncExternalStore` so
-// the server snapshot is always `false` (no mic on the server-rendered HTML),
-// the client snapshot reflects the real API, and React reconciles the
-// difference on hydration without a synchronous setState-in-effect.
-const SPEECH_STORE = {
-  subscribe: () => () => {},
-  getSnapshot: () => getSpeechRecognitionCtor() !== null,
-  getServerSnapshot: () => false,
-};
-
-interface PendingPhoto {
-  key: string;
-  /** `attachments.id` from `POST /api/uploads` — a Postgres uuid. */
-  attachmentId: string;
-  name: string;
-  previewUrl: string;
-  /** Downscaled copy the model sees; absent when the browser could not encode it. */
-  dataUrl?: string;
-}
-
-/**
- * A list to import (bulk intake spec §3.5): a CSV, TSV, text or PDF file,
- * uploaded private (`kind: "import"`, staff only) and named to the model by
- * its id, so `start_import` can read it — the model never sees its contents.
- */
-interface PendingDocument {
-  key: string;
-  attachmentId: string;
-  name: string;
-}
-
-/** What the file picker offers: photos, and lists to import. */
-const CHAT_FILE_ACCEPT = ["image/*", ...IMPORT_FILE_EXTENSIONS.map((extension) => `.${extension}`)].join(",");
-
 export function ChatFab() {
   const t = useTranslations("chat");
   const locale = useLocale();
   const { isOpen, open, close, pendingSeed, consumeSeed, toolStarters, curate } = useChatLauncher();
   const [draft, setDraft] = useState("");
   const pathname = usePathname() || "/";
+  const onAdmin = isAdminPath(pathname);
   const toolId = useMemo(() => {
     const match = pathname.match(/^\/tools\/(.+)$/);
     return match ? match[1] : undefined;
@@ -301,27 +92,19 @@ export function ChatFab() {
   // registered some and the path still names it (spec amendment "Tool-specific
   // starter questions"), else the generic three. Tool questions are data,
   // English as researched; the generic ones are translated.
-  const suggestions = useMemo<{ key: string; icon: Suggestion["icon"]; label: string }[]>(() => {
+  const chips = useMemo(() => {
     const own =
       toolId && toolStarters && toolStarters.keys.some((key) => key === toolId || key === safeDecode(toolId))
         ? toolStarters.questions
         : [];
-    if (own.length > 0) {
-      return own.map((question, n) => ({
-        key: `tool-${n}`,
-        icon: SUGGESTIONS[n % SUGGESTIONS.length].icon,
-        label: question,
-      }));
-    }
-    return SUGGESTIONS.map((suggestion) => ({ key: suggestion.key, icon: suggestion.icon, label: t(suggestion.key) }));
-  }, [toolId, toolStarters, t]);
-  const chips = useMemo(
-    () =>
-      curateHere
-        ? [{ key: "curate", icon: "clipboard" as Suggestion["icon"], label: t("curateStarter"), send: t("curatePrompt") }, ...suggestions]
-        : suggestions,
-    [curateHere, suggestions, t]
-  );
+    const starters =
+      own.length > 0
+        ? own.map((question, n) => ({ key: `tool-${n}`, Icon: SUGGESTIONS[n % SUGGESTIONS.length].icon, label: question, send: question }))
+        : SUGGESTIONS.map(({ key, icon }) => ({ key, Icon: icon, label: t(key), send: t(key) }));
+    return curateHere
+      ? [{ key: "curate", Icon: ClipboardCheckIcon, label: t("curateStarter"), send: t("curatePrompt") }, ...starters]
+      : starters;
+  }, [toolId, toolStarters, curateHere, t]);
 
   // `useChat` bakes the transport into a ref on first mount and never refreshes
   // it (see @ai-sdk/react useChat — only `id`/`chat` prop changes recreate the
@@ -379,257 +162,17 @@ export function ChatFab() {
   // A refusal at the allowance ceiling is not an error state — see parseCeiling.
   const ceiling = parseCeiling(error);
 
-  const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
-  const [pendingDocuments, setPendingDocuments] = useState<PendingDocument[]>([]);
-  const [uploadingCount, setUploadingCount] = useState(0);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  // Track preview URLs so we can revoke them on unmount.
-  const previewUrlsRef = useRef<Set<string>>(new Set());
-
-  useEffect(() => {
-    const urls = previewUrlsRef.current;
-    return () => {
-      urls.forEach((url) => URL.revokeObjectURL(url));
-      urls.clear();
-    };
-  }, []);
-
-  function revokePreview(url: string) {
-    if (previewUrlsRef.current.has(url)) {
-      URL.revokeObjectURL(url);
-      previewUrlsRef.current.delete(url);
-    }
-  }
-
-  function clearPendingPhotos() {
-    setPendingPhotos((prev) => {
-      prev.forEach((photo) => revokePreview(photo.previewUrl));
-      return [];
-    });
-  }
+  const attachments = useChatAttachments(t);
+  const dictation = useDictation({ lang: locale, draft, setDraft });
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const sheetRef = useRef<HTMLDivElement>(null);
 
   function clearChat() {
     setMessages([]);
     setDraft("");
     setReadingManuals(null);
-    clearPendingPhotos();
-    setPendingDocuments([]);
-    setUploadError(null);
+    attachments.clear();
   }
-
-  function removePhoto(key: string) {
-    setPendingPhotos((prev) => {
-      const target = prev.find((p) => p.key === key);
-      if (target) revokePreview(target.previewUrl);
-      return prev.filter((p) => p.key !== key);
-    });
-  }
-
-  /** Upload one list to import; staff only, so a student is told so rather than shown an error. */
-  async function uploadDocument(file: File) {
-    const form = new FormData();
-    form.append("file", file);
-    form.append("kind", "import");
-    const res = await fetch("/api/uploads", { method: "POST", body: form });
-    if (res.status === 503) throw new Error(t("uploadsUnavailable"));
-    if (res.status === 401 || res.status === 403) throw new Error(t("documentsStaffOnly"));
-    if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as { error?: string } | null;
-      throw new Error(body?.error || t("uploadFailed"));
-    }
-    const data = (await res.json()) as { attachmentId: string; name: string };
-    setPendingDocuments((prev) => [
-      ...prev,
-      { key: `${data.attachmentId}-${Date.now()}`, attachmentId: data.attachmentId, name: data.name || file.name },
-    ]);
-  }
-
-  async function handleFiles(fileList: FileList | null) {
-    if (!fileList || fileList.length === 0) return;
-    setUploadError(null);
-    const all = Array.from(fileList);
-    const documents = all.filter((f) => !f.type.startsWith("image/") && isImportFileName(f.name));
-    const files = all.filter((f) => f.type.startsWith("image/"));
-    if (files.length === 0 && documents.length === 0) {
-      setUploadError(t("onlyImages"));
-      return;
-    }
-    if (documents.length > 0) {
-      setUploadingCount((n) => n + documents.length);
-      await Promise.all(
-        documents.map(async (file) => {
-          try {
-            await uploadDocument(file);
-          } catch (err) {
-            setUploadError(err instanceof Error ? err.message : t("uploadFailed"));
-          } finally {
-            setUploadingCount((n) => Math.max(0, n - 1));
-          }
-        })
-      );
-    }
-    if (files.length === 0) return;
-
-    setUploadingCount((n) => n + files.length);
-    await Promise.all(
-      files.map(async (file) => {
-        const previewUrl = URL.createObjectURL(file);
-        previewUrlsRef.current.add(previewUrl);
-        try {
-          const form = new FormData();
-          form.append("file", file);
-          form.append("kind", "chat");
-          // The stored upload is the record; the downscaled copy is what the
-          // model looks at (intake spec §6.1). They run side by side, and a
-          // photo the browser cannot encode still uploads.
-          const [res, dataUrl] = await Promise.all([
-            fetch("/api/uploads", {
-              method: "POST",
-              body: form,
-            }),
-            downscaleForVision(file),
-          ]);
-          if (res.status === 503) {
-            // No Blob store is configured, so there is nowhere to keep the
-            // photo. Say so in the visitor's language and let them send the
-            // message anyway — a report without a picture still beats no
-            // report (Article 4).
-            throw new Error(t("uploadsUnavailable"));
-          }
-          if (!res.ok) {
-            const body = (await res.json().catch(() => null)) as
-              | { error?: string }
-              | null;
-            throw new Error(body?.error || "Upload failed");
-          }
-          const data = (await res.json()) as {
-            attachmentId: string;
-            name: string;
-          };
-          setPendingPhotos((prev) => [
-            ...prev,
-            {
-              key: `${data.attachmentId}-${Date.now()}-${Math.random()}`,
-              attachmentId: data.attachmentId,
-              name: data.name,
-              // A chat photo is stored privately (it may show a person), so
-              // the response carries no URL — the local object URL made above
-              // is the preview, and always was.
-              previewUrl,
-              dataUrl: dataUrl ?? undefined,
-            },
-          ]);
-        } catch (err) {
-          revokePreview(previewUrl);
-          const message =
-            err instanceof Error ? err.message : t("uploadFailed");
-          setUploadError(message);
-        } finally {
-          setUploadingCount((n) => Math.max(0, n - 1));
-        }
-      })
-    );
-  }
-
-  // ── Dictation (Web Speech API) ──────────────────────────────────
-  // Feature-detect once on mount so the mic button only renders where the API
-  // exists (Chrome/Safari). The active recognition instance is kept in a ref so
-  // the toggle handler can stop it without re-rendering on every interim result.
-  const speechSupported = useSyncExternalStore(
-    SPEECH_STORE.subscribe,
-    SPEECH_STORE.getSnapshot,
-    SPEECH_STORE.getServerSnapshot
-  );
-  const [isListening, setIsListening] = useState(false);
-  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
-  // Text captured before dictation started, so interim results append rather
-  // than overwrite what the user already typed.
-  const dictationBaseRef = useRef("");
-
-  useEffect(() => {
-    return () => {
-      recognitionRef.current?.abort();
-      recognitionRef.current = null;
-    };
-  }, []);
-
-  function stopDictation() {
-    recognitionRef.current?.stop();
-  }
-
-  function startDictation() {
-    const Ctor = getSpeechRecognitionCtor();
-    if (!Ctor) return;
-    const recognition = new Ctor();
-    recognition.lang = localeRef.current || locale || "en";
-    recognition.continuous = true;
-    recognition.interimResults = true;
-    dictationBaseRef.current = draft;
-
-    recognition.onresult = (event) => {
-      let transcript = "";
-      for (let i = event.resultIndex; i < event.results.length; i += 1) {
-        transcript += event.results[i][0]?.transcript ?? "";
-      }
-      const base = dictationBaseRef.current;
-      const next = base ? `${base.replace(/\s+$/, "")} ${transcript}` : transcript;
-      setDraft(next);
-    };
-    recognition.onerror = () => {
-      setIsListening(false);
-    };
-    recognition.onend = () => {
-      recognitionRef.current = null;
-      setIsListening(false);
-    };
-
-    recognitionRef.current = recognition;
-    try {
-      recognition.start();
-      setIsListening(true);
-    } catch {
-      recognitionRef.current = null;
-      setIsListening(false);
-    }
-  }
-
-  function toggleDictation() {
-    if (isListening) {
-      stopDictation();
-    } else {
-      startDictation();
-    }
-  }
-
-  const scrollRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
-
-  const markdownComponents = useMemo<Components>(
-    () => ({
-      a({ href, children }) {
-        const target = typeof href === "string" ? href : "";
-        const isInternal = target.startsWith("/");
-        if (isInternal) {
-          return (
-            <Link href={target} onClick={close} className="chat-tool-link">
-              {children}
-            </Link>
-          );
-        }
-        return (
-          <a href={target} target="_blank" rel="noopener noreferrer">
-            {children}
-          </a>
-        );
-      },
-    }),
-    [close]
-  );
 
   // Send a message and clear the stale "Reading: …manuals…" indicator from any
   // previous turn. Clearing on send (rather than in an effect reacting to
@@ -641,9 +184,9 @@ export function ChatFab() {
   }
 
   // Auto-send a seeded message when something outside ChatFab (e.g. the nav
-  // "Report" / "Add equipment" buttons) opens the chat with an intent. The
-  // nonce guard makes this idempotent so a re-render never resends, and we wait
-  // until any in-flight turn finishes before sending.
+  // "Report" / "Add equipment" buttons, ⌘K's "Ask the assistant: …") opens the
+  // chat with an intent. The nonce guard makes this idempotent so a re-render
+  // never resends, and we wait until any in-flight turn finishes before sending.
   const lastSeedNonce = useRef<number | null>(null);
   useEffect(() => {
     if (!pendingSeed || isLoading) return;
@@ -655,9 +198,9 @@ export function ChatFab() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `send`/`consumeSeed` are stable for this purpose; the nonce ref guards against resends.
   }, [pendingSeed, isLoading]);
 
-  function handleSuggestion(label: string) {
+  function handleSuggestion(text: string) {
     if (isLoading) return;
-    send(label);
+    send(text);
   }
 
   // Sign-in offered at the ceiling. Comes back to the page the conversation
@@ -666,328 +209,181 @@ export function ChatFab() {
     void startGoogleSignIn(pathname);
   }
 
-  function handleSubmit(event: React.FormEvent) {
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (isListening) stopDictation();
+    if (dictation.listening) dictation.stop();
     // A list attached with no words is still a request: to import it.
-    const text = draft.trim() || (pendingDocuments.length > 0 ? t("importListMessage") : "");
-    if (!text || isLoading || uploadingCount > 0) return;
+    const text = draft.trim() || (attachments.documents.length > 0 ? t("importListMessage") : "");
+    if (!text || isLoading || attachments.uploadingCount > 0) return;
     let outgoing = text;
-    if (pendingPhotos.length > 0) {
-      const hint = pendingPhotos
-        .map(
-          (p) => `attachment_id=${p.attachmentId} name=${p.name}`
-        )
-        .join("; ");
+    if (attachments.photos.length > 0) {
+      const hint = attachments.photos.map((p) => `attachment_id=${p.attachmentId} name=${p.name}`).join("; ");
       outgoing = `${outgoing}\n\n[Attached photos: ${hint}]`;
     }
-    if (pendingDocuments.length > 0) {
+    if (attachments.documents.length > 0) {
       // Only the id and the name: the model hands the file to `start_import`
       // and never reads it (bulk intake spec §3.5).
-      const hint = pendingDocuments.map((d) => `attachment_id=${d.attachmentId} name=${d.name}`).join("; ");
+      const hint = attachments.documents.map((d) => `attachment_id=${d.attachmentId} name=${d.name}`).join("; ");
       outgoing = `${outgoing}\n\n[Attached documents: ${hint}]`;
     }
-    send(outgoing, toVisionFileParts(pendingPhotos));
+    send(outgoing, toVisionFileParts(attachments.photos));
     setDraft("");
-    clearPendingPhotos();
-    setPendingDocuments([]);
-    setUploadError(null);
+    attachments.clear();
   }
+
+  // Where focus lands when the sheet opens: the composer where there is a
+  // keyboard to type with; on touch, the sheet itself, so a phone does not
+  // raise its keyboard over the starters. The sheet is opened from many
+  // places (the button, the section bar, ⌘K, Report, the QR notice) rather
+  // than one Radix trigger, so what had focus is remembered here and given it
+  // back on close — Radix alone would return focus to a trigger it never had.
+  const returnFocusRef = useRef<HTMLElement | null>(null);
+  function focusOnOpen(event: Event) {
+    event.preventDefault();
+    const before = document.activeElement;
+    returnFocusRef.current = before instanceof HTMLElement && before !== document.body ? before : null;
+    const finePointer = typeof window.matchMedia === "function" && window.matchMedia("(pointer: fine)").matches;
+    const composer = textareaRef.current;
+    if (finePointer && composer && !composer.disabled) composer.focus();
+    else sheetRef.current?.focus();
+  }
+  function returnFocusOnClose(event: Event) {
+    event.preventDefault();
+    const target = returnFocusRef.current;
+    returnFocusRef.current = null;
+    if (target?.isConnected) target.focus();
+  }
+
+  const showLoader = isLoading && messages[messages.length - 1]?.role !== "assistant";
 
   return (
     <>
-      <button
-        className="chat-fab"
-        type="button"
-        aria-expanded={isOpen}
-        aria-controls="makerlab-chat-sheet"
-        aria-label={t("openAria")}
-        onClick={() => open()}
-      >
-        &gt;_
-      </button>
+      {onAdmin ? null : (
+        <button
+          type="button"
+          data-slot="chat-launcher"
+          aria-expanded={isOpen}
+          aria-controls="makerlab-chat-sheet"
+          aria-label={t("openAria")}
+          title={t("openAria")}
+          onClick={() => open()}
+          className="ui fixed end-4 bottom-4 z-40 inline-flex size-12 cursor-pointer items-center justify-center border border-primary bg-primary font-mono text-sm font-bold text-primary-foreground transition-colors duration-150 hover:bg-primary/85 sm:end-6 sm:bottom-6"
+        >
+          <span aria-hidden="true">&gt;_</span>
+        </button>
+      )}
 
-      {isOpen ? (
-        <div className="chat-overlay" role="dialog" aria-modal="true" aria-labelledby="chat-title">
-          <button
-            className="chat-scrim"
-            type="button"
-            aria-label={t("closeScrimAria")}
-            onClick={close}
-          />
-          <section className="chat-sheet" id="makerlab-chat-sheet">
-            <header className="chat-header">
-              <h2 id="chat-title">{t("title")}</h2>
-              <div className="chat-header-actions">
-                {messages.length > 0 ? (
-                  <button
-                    type="button"
-                    className="chat-close"
-                    onClick={clearChat}
-                    aria-label={t("newChatAria")}
-                    title={t("newChatTitle")}
-                  >
-                    <Icon name="newchat" />
-                  </button>
-                ) : null}
-                <button
-                  type="button"
-                  className="chat-close"
-                  onClick={close}
-                  aria-label={t("closeAria")}
-                  title={t("closeTitle")}
-                >
-                  <Icon name="close" />
-                </button>
-              </div>
-            </header>
+      <Sheet open={isOpen} onOpenChange={(next) => (next ? open() : close())}>
+        <SheetContent
+          ref={sheetRef}
+          id="makerlab-chat-sheet"
+          side="right"
+          showCloseButton={false}
+          aria-describedby={undefined}
+          onOpenAutoFocus={focusOnOpen}
+          onCloseAutoFocus={returnFocusOnClose}
+          className={cn(FROSTED, "w-full gap-0 overflow-hidden border-0 p-0 sm:w-[440px] sm:border-s")}
+        >
+          <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3">
+            <SheetTitle className="font-mono text-label tracking-[0.08em]">{t("title")}</SheetTitle>
+            <div className="flex items-center gap-1">
+              {messages.length > 0 ? (
+                <Button variant="ghost" size="icon-sm" onClick={clearChat} aria-label={t("newChatAria")} title={t("newChatTitle")}>
+                  <SquarePenIcon aria-hidden="true" className="size-4" />
+                </Button>
+              ) : null}
+              <SheetClose asChild>
+                <Button variant="ghost" size="icon-sm" aria-label={t("closeAria")} title={t("closeTitle")}>
+                  <XIcon aria-hidden="true" className="size-4" />
+                </Button>
+              </SheetClose>
+            </div>
+          </header>
 
-            <div className="chat-body" ref={scrollRef}>
+          <Conversation>
+            <ConversationContent>
               {messages.length === 0 ? (
-                <>
-                  <p className="chat-greeting">
-                    {toolId ? t("greetingTool") : t("greetingGeneral")}
-                  </p>
-                  <div className="chat-suggestions">
-                    {chips.map((suggestion) => {
-                      const label = suggestion.label;
-                      const text = "send" in suggestion && typeof suggestion.send === "string" ? suggestion.send : label;
-                      return (
-                        <button
-                          key={suggestion.key}
-                          type="button"
-                          className="chat-suggestion"
-                          onClick={() => handleSuggestion(text)}
-                          disabled={isLoading}
-                        >
-                          <span className="chat-suggestion-icon" aria-hidden="true">
-                            <Icon name={suggestion.icon} />
-                          </span>
-                          <span>{label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
+                <div className="flex flex-col gap-4">
+                  <p className="text-sm text-muted-foreground">{toolId ? t("greetingTool") : t("greetingGeneral")}</p>
+                  <Suggestions>
+                    {chips.map(({ key, Icon, label, send: text }) => (
+                      <Suggestion key={key} suggestion={text} onClick={handleSuggestion} disabled={isLoading}>
+                        <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+                        <span>{label}</span>
+                      </Suggestion>
+                    ))}
+                  </Suggestions>
+                </div>
               ) : (
-                <ul className="chat-messages">
-                  {messages.map((message) => {
-                    const textParts = message.parts.filter(
-                      (p): p is Extract<typeof p, { type: "text" }> =>
-                        p.type === "text" && p.text.trim().length > 0
-                    );
-                    const pendingTool = message.parts.find(
-                      (p) =>
-                        p.type.startsWith("tool-") &&
-                        (p as { state?: string }).state !== "output-available"
-                    );
-                    // The intake table arrives as a `data-intake-table` part
-                    // written by `identify_tools` (data platform spec §5.4).
-                    const intakeParts = message.parts.filter(
-                      (p): p is typeof p & { data: IntakeTablePayload } =>
-                        p.type === "data-intake-table" &&
-                        (p as { data?: { kind?: unknown } }).data?.kind === "intake-table"
-                    );
-                    // The assistant's proposals arrive as `data-proposal` parts
-                    // written by `propose_change` (refresh research spec §12.2).
-                    const proposalItems = message.parts
-                      .filter(
-                        (p): p is typeof p & { data: ChatProposalItem } =>
-                          p.type === "data-proposal" && (p as { data?: { kind?: unknown } }).data?.kind === "proposal"
-                      )
-                      .map((p) => p.data);
-                    // A long list handed to an import arrives as a `data-import-card`
-                    // part written by `start_import` (bulk intake spec §3.5).
-                    const importParts = message.parts.filter(
-                      (p): p is typeof p & { data: ImportCardPayload } =>
-                        p.type === "data-import-card" &&
-                        (p as { data?: { kind?: unknown } }).data?.kind === "import-card"
-                    );
-                    const hasCard = intakeParts.length > 0 || proposalItems.length > 0 || importParts.length > 0;
-                    if (textParts.length === 0 && !hasCard && !pendingTool) return null;
-                    return (
-                      <li
-                        key={message.id}
-                        className={`chat-msg chat-msg-${message.role}${
-                          hasCard ? " chat-msg-has-card" : ""
-                        }`}
-                      >
-                        {textParts.length === 0 && !hasCard && pendingTool ? (
-                          <p className="chat-reading" aria-label={t("toolRunningAria")}>
-                            {toolStatusLabel(pendingTool.type, t, (pendingTool as { input?: unknown }).input)}
+                <>
+                  {messages.map((message) => (
+                    <ChatMessage key={message.id} message={message} t={t} onInternalNavigate={close} />
+                  ))}
+                  {showLoader ? (
+                    <Message from="assistant">
+                      <MessageContent>
+                        {readingManuals && readingManuals.length > 0 ? (
+                          <p aria-label={t("readingManualsAria")} className="flex items-center gap-2 font-mono text-label text-muted-foreground">
+                            <Loader size={12} className="text-primary-ink" />
+                            {t("reading", { titles: readingManuals.join(", ") })}
                           </p>
-                        ) : null}
-                        {textParts.map((part, index) =>
-                          message.role === "assistant" ? (
-                            <div key={index} className="chat-markdown">
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={markdownComponents}
-                              >
-                                {stripCitations(part.text)}
-                              </ReactMarkdown>
-                            </div>
-                          ) : (
-                            <p key={index}>{part.text}</p>
-                          )
+                        ) : (
+                          <Loader role="img" aria-label={t("typingAria")} className="text-muted-foreground" />
                         )}
-                        {intakeParts.map((part) => (
-                          <IntakeTableCard key={part.data.batchId} payload={part.data} />
-                        ))}
-                        {proposalItems.length > 0 ? <ChatProposalCards items={proposalItems} /> : null}
-                        {importParts.map((part) => (
-                          <ImportCard key={part.data.import.id} payload={part.data} />
-                        ))}
-                      </li>
-                    );
-                  })}
-                  {isLoading && messages[messages.length - 1]?.role !== "assistant" ? (
-                    <li className="chat-msg chat-msg-assistant">
-                      {readingManuals && readingManuals.length > 0 ? (
-                        <p className="chat-reading" aria-label={t("readingManualsAria")}>
-                          {t("reading", { titles: readingManuals.join(", ") })}
-                        </p>
-                      ) : (
-                        <p className="chat-typing" aria-label={t("typingAria")}>
-                          <span />
-                          <span />
-                          <span />
-                        </p>
-                      )}
-                    </li>
+                      </MessageContent>
+                    </Message>
                   ) : null}
                   {ceiling ? (
-                    <li className="chat-msg chat-msg-assistant">
-                      <p>
-                        {ceiling === "sign-in"
-                          ? t("rateLimitSignIn", {
-                              institution: siteConfig.institution,
-                            })
-                          : t("rateLimited")}
-                      </p>
-                      {ceiling === "sign-in" ? (
+                    <Message from="assistant" kind="notice">
+                      <MessageContent>
                         <p>
-                          <button
-                            type="button"
-                            className="chat-tool-link"
-                            style={SIGN_IN_LINK_STYLE}
-                            onClick={handleCeilingSignIn}
-                          >
-                            {t("rateLimitSignInCta")}
-                          </button>
+                          {ceiling === "sign-in"
+                            ? t("rateLimitSignIn", { institution: siteConfig.institution })
+                            : t("rateLimited")}
                         </p>
-                      ) : null}
-                    </li>
+                        {ceiling === "sign-in" ? (
+                          <p>
+                            <Button variant="link" onClick={handleCeilingSignIn}>
+                              {t("rateLimitSignInCta")}
+                            </Button>
+                          </p>
+                        ) : null}
+                      </MessageContent>
+                    </Message>
                   ) : error ? (
-                    <li className="chat-msg chat-msg-error">
-                      <p>{error.message?.trim() ? error.message : t("error")}</p>
-                    </li>
+                    <Message from="assistant" kind="error" role="alert">
+                      <MessageContent>
+                        <p>{error.message?.trim() ? error.message : t("error")}</p>
+                      </MessageContent>
+                    </Message>
                   ) : null}
-                </ul>
+                </>
               )}
-            </div>
+            </ConversationContent>
+            <ConversationScrollButton label={t("scrollToLatest")} />
+          </Conversation>
 
-            {pendingPhotos.length > 0 || pendingDocuments.length > 0 || uploadingCount > 0 || uploadError ? (
-              <div className="chat-attachments" aria-live="polite">
-                {pendingDocuments.map((doc) => (
-                  <div key={doc.key} className="chat-attachment chat-attachment-document">
-                    <span>{doc.name}</span>
-                    <button
-                      type="button"
-                      className="chat-attachment-remove"
-                      aria-label={t("removeDocumentAria", { name: doc.name })}
-                      onClick={() => setPendingDocuments((prev) => prev.filter((d) => d.key !== doc.key))}
-                    >
-                      <Icon name="remove" />
-                    </button>
-                  </div>
-                ))}
-                {pendingPhotos.map((photo) => (
-                  <div key={photo.key} className="chat-attachment">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={photo.previewUrl} alt={photo.name} />
-                    <button
-                      type="button"
-                      className="chat-attachment-remove"
-                      aria-label={t("removePhotoAria", { name: photo.name })}
-                      onClick={() => removePhoto(photo.key)}
-                    >
-                      <Icon name="remove" />
-                    </button>
-                  </div>
-                ))}
-                {uploadingCount > 0 ? (
-                  <div
-                    className="chat-attachment chat-attachment-loading"
-                    aria-label={t("uploadingAria")}
-                  >
-                    <span className="chat-attachment-spinner" />
-                  </div>
-                ) : null}
-                {uploadError ? (
-                  <p className="chat-attachment-error" role="alert">
-                    {uploadError}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-
-            <form className="chat-composer" onSubmit={handleSubmit}>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept={CHAT_FILE_ACCEPT}
-                multiple
-                className="chat-file-input"
-                onChange={(event) => {
-                  handleFiles(event.target.files);
-                  // Allow re-selecting the same file.
-                  event.target.value = "";
-                }}
-              />
-              <button
-                type="button"
-                className="chat-attach"
-                aria-label={t("attachAria")}
-                title={t("attachTitle")}
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLoading}
-              >
-                <Icon name="paperclip" />
-              </button>
-              {speechSupported ? (
-                <button
-                  type="button"
-                  className={`chat-mic${isListening ? " chat-mic-active" : ""}`}
-                  aria-label="Dictate"
-                  aria-pressed={isListening}
-                  title="Dictate"
-                  onClick={toggleDictation}
-                  disabled={isLoading}
-                >
-                  <Icon name="mic" />
-                </button>
-              ) : null}
-              <input
-                className="chat-input"
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                placeholder={t("composerPlaceholder")}
-                aria-label={t("composerAria")}
-                disabled={isLoading}
-              />
-              <button
-                type="submit"
-                className="chat-send"
-                aria-label={t("sendAria")}
-                disabled={(!draft.trim() && pendingDocuments.length === 0) || isLoading || uploadingCount > 0}
-              >
-                <Icon name="send" />
-              </button>
-            </form>
-          </section>
-        </div>
-      ) : null}
+          <div className="shrink-0 border-t border-border p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+            <ChatComposer
+              t={t}
+              draft={draft}
+              onDraftChange={setDraft}
+              onSubmit={handleSubmit}
+              status={status}
+              busy={isLoading}
+              photos={attachments.photos}
+              documents={attachments.documents}
+              uploadingCount={attachments.uploadingCount}
+              uploadError={attachments.uploadError}
+              onFiles={(files) => void attachments.handleFiles(files)}
+              onRemovePhoto={attachments.removePhoto}
+              onRemoveDocument={attachments.removeDocument}
+              dictation={dictation}
+              textareaRef={textareaRef}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
