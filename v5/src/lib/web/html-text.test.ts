@@ -290,3 +290,18 @@ describe("extractPage — gallery images (amendment \"Composites and product cro
     expect(gallery(page("", `<main>${imgs}</main>`))).toHaveLength(12);
   });
 });
+
+describe('extractPage — the declared language (amendment "English resources only")', () => {
+  it("reads <html lang>, else xml:lang, else a Content-Language meta", () => {
+    expect(extractPage('<!doctype html><html lang="de-DE"><body><p>Hallo</p></body></html>', "https://x.test/").lang).toBe("de-DE");
+    expect(extractPage('<html xml:lang="fr"><body>Bonjour</body></html>', "https://x.test/").lang).toBe("fr");
+    expect(
+      extractPage('<html><head><meta http-equiv="Content-Language" content="ja"></head><body>x</body></html>', "https://x.test/").lang
+    ).toBe("ja");
+  });
+
+  it("declares nothing when the page does not, or the value is not a language tag", () => {
+    expect(extractPage("<html><body>Hello</body></html>", "https://x.test/").lang).toBeUndefined();
+    expect(extractPage('<html lang="{{locale}}"><body>Hello</body></html>', "https://x.test/").lang).toBeUndefined();
+  });
+});

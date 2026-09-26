@@ -2217,14 +2217,15 @@ has — nothing new is fetched during research and no job is added. One pure mod
   languages is not; one that names none says nothing. A country top-level domain is **not** a
   signal (German brands serve English under `.de/en/`).
 - **`declaredLanguage(tag)`** — the page's `<html lang>` (or `xml:lang`, else a
-  `Content-Language` meta), read by `web/html-text.ts` and returned by `readPage` as `lang`.
+  `Content-Language` meta, else the response's `Content-Language` header), read by
+  `web/html-text.ts` and returned by `readPage` as `lang`.
 - **`textLanguage(text, { manual })`** — the text in 1,000-character windows. A window whose
   letters are mostly a non-Latin script (Han, kana, Hangul, Cyrillic, Arabic, Hebrew, Thai,
   Greek) is that language; otherwise English and a dozen other languages' **stop words** are
   counted and a window is English, or another language, only when that side has at least three
   hits and half again as many as the other. The text is English when at least a fifth of the
-  decided windows, or three of them, are English — so an English page with a German
-  paragraph stays English — and **for a manual, one English window is enough** (a
+  decided windows are English — so an English page with a German paragraph stays English —
+  and **for a manual, one English window is enough** (a
   multilingual manual has a section per language). Not English when the decided windows are
   otherwise another language's. Too little text to decide is "unknown".
 - **`pageLanguage({ url, lang, text, manual })`** — the verdict, strongest signal first:

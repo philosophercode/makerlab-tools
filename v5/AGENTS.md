@@ -707,6 +707,28 @@ name with model or part number, shown under the tool page's title when it differ
   the rule, is not shorter or adds a number is rejected; writes carry the revision read at
   selection (an edit meanwhile is skipped). Same target/lock handling as `names:backfill`.
 
+## English resources only (gateway spec amendment 2026-09-26 "English resources only")
+
+- **The rule** (the owner's): every link research or refresh keeps — manual, product page,
+  video, other — is an English page or an English manual; a multilingual manual with an
+  English section counts. Judged **in code, no model call**: `src/lib/research/language.ts`
+  (pure) — `urlLanguages` (path/subdomain/query locale, PDF file-name tokens; a ccTLD is not a
+  signal), `declaredLanguage` (`<html lang>`, now returned by `readPage` as `lang`),
+  `textLanguage` (1,000-char windows, script then stop words; a manual needs one English
+  window), `titleLanguage`, and `pageLanguage` (text → declared → URL; unknown is kept).
+- **Where**: the prompt's `ENGLISH_PARAGRAPH` (both passes); `candidatePageUrls` skips
+  candidates whose URL names only another language; `readCandidatePages` judges every page
+  read (a manual on its whole text) and leaves non-English ones out as `skipped (not English:
+  de)`, returning `languages`; `pickManualPdfs` skips non-English PDFs; `keepEnglishLinks`
+  (`research/english-links.ts`) runs in `engine.ts` before verification, dropping into
+  `droppedLinks`; `verifyUrl({ englishOnly })` drops a YouTube video with a non-English oEmbed
+  title (research only). Refresh's diff lets `/en-us/x` be proposed beside a tool's `/de-de/x`;
+  `propose_change` refuses a non-English resource (`not_english`).
+- **Existing links**: `npm run resources:language -- [--json] [--ids] [--no-fetch]`
+  (`scripts/resource-language.ts`) — read-only report (slug, title, URL, reason); opens links
+  with no URL/title signal through `readPage` (6 s, four at a time, no PDFs or videos). Same
+  target/lock handling as `names:backfill`.
+
 ## MCP access (`api_tokens`, `oauth_*`; MCP access spec, migration `0014`)
 
 MCP callers act as a person, with that person's role and never more

@@ -412,3 +412,28 @@ describe("helpers", () => {
     expect(resourceKey("not a url")).toBeNull();
   });
 });
+
+describe('proposeChanges — English resources (amendment "English resources only")', () => {
+  it("proposes the en-us link beside the tool's de-de one, which does not count as having it", () => {
+    const proposals = proposeChanges({
+      tool: toolFixture({ resourceUrls: ["https://www.wenproducts.com/de-de/products/DC3401"] }),
+      research: researchFixture({
+        resources: [{ title: "Product page", url: "https://www.wenproducts.com/en-us/products/DC3401", type: "Other" }],
+      }),
+      includeDescription: false,
+    });
+    const resources = proposals.filter((p) => p.field === "resource");
+    expect(resources.map((p) => p.id)).toEqual(["resource:https://www.wenproducts.com/en-us/products/DC3401"]);
+  });
+
+  it("still treats an English link at the same address as already there", () => {
+    const proposals = proposeChanges({
+      tool: toolFixture({ resourceUrls: ["https://www.wenproducts.com/en-gb/products/DC3401"] }),
+      research: researchFixture({
+        resources: [{ title: "Product page", url: "https://www.wenproducts.com/en-us/products/DC3401", type: "Other" }],
+      }),
+      includeDescription: false,
+    });
+    expect(proposals.filter((p) => p.field === "resource")).toEqual([]);
+  });
+});
