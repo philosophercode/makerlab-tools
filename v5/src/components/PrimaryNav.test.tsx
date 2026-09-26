@@ -310,7 +310,7 @@ describe("PrimaryNav — what the bar holds", () => {
     await screen.findByRole("button", { name: "Signed in as Isaac" });
     expect(screen.queryByRole("link", { name: "ADMIN" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Add new equipment/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Refresh the/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Refresh catalog" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "SIGN OUT" })).not.toBeInTheDocument();
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });

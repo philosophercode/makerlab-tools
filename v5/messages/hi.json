@@ -22,11 +22,11 @@
     "signedInAria": "{name} के रूप में साइन इन"
   },
   "catalogRefresh": {
-    "action": "रीफ़्रेश",
-    "actionAria": "{institution} की सूची Notion से रीफ़्रेश करें",
+    "action": "कैटलॉग रीफ़्रेश करें",
     "refreshing": "रीफ़्रेश हो रहा है…",
     "refreshed": "सूची रीफ़्रेश हो गई",
-    "failed": "रीफ़्रेश विफल — फिर से कोशिश करें"
+    "failed": "रीफ़्रेश विफल — फिर से कोशिश करें",
+    "done": "हो गया"
   },
   "status": {
     "labStatusLabel": "लैब की स्थिति",

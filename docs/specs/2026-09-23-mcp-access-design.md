@@ -678,3 +678,59 @@ without the token), `SignInSetup.test.tsx` (sign-in address before the variable,
 Copy and its announcement), `McpAddresses.test.tsx`; E2E `account-tokens.spec.ts` (a student
 creates a token end to end; the form and the reveal share their left edge and width; `/mcp`
 offers the prompt with the sign-in address first).
+
+
+### 2026-09-25 — Staff queue tools in the site chat
+
+**Why.** The owner asked (2026-09-25) to manage maintenance through the assistant in the site
+chat, not only through an MCP client: "what maintenance is open on the Form 4?", "mark the
+resin tank ticket resolved: replaced the tank". The tools already existed; §3.2 made them
+MCP-only.
+
+**What changes.** `list_open_tickets`, `update_ticket` and `list_intake_queue` (the `staff`
+capability) are now on **both surfaces**: `mcpOnly` is dropped from the three. `propose_change`
+in `staff` stays MCP-only — the chat has its own `propose_change` (the `curation` capability,
+composed per page, refresh research spec §12), and the two never meet in one tool set.
+
+- **Gating is unchanged and declared once.** Each tool keeps its own `requiredPermission`
+  (`maintenance.manage` for the two ticket tools, `tools.approve` for the intake queue). The
+  chat composes the registry through `capabilitiesForIdentity`, as it does for intake and
+  curation, so an anonymous visitor or a student is offered none of them; MCP still asks
+  `mcpToolAllowed`. `/api/chat` resolves its caller from the session cookie only (a token never
+  works there), and `update_ticket` writes through `writeTicket` → `runQueueWrite`, the admin
+  page's own path: the permission gate, `ADMIN_ACTION_TIER` and the mirror push, as the
+  signed-in person (`assign_to: "me"` is that person).
+- **The chat prompt.** `staff.promptFragment` (`staffPromptFragment`) was empty; it now renders,
+  **only for a caller holding the permission**, a "Lab staff tools" section per queue the caller
+  holds (the `can()` there is presentation; `capabilitiesForIdentity` is the gate). Rules:
+  answer "what's open on X" from `list_open_tickets`, filtered to that machine; **before
+  `update_ticket`, state the exact change — the ticket's title and machine, the new status,
+  priority, assignee (`me` or `nobody`) and the resolution note word for word — ask for
+  confirmation, and call it only after an explicit yes in a later message**, even when the
+  request sounded decided; use ids from `list_open_tickets`, never guessed; say a ticket changed
+  only on an `updated` result; resolution notes in English. `update_ticket`'s description
+  carries the confirm-first rule for MCP clients too.
+- **Redaction.** Unchanged: `list_open_tickets` carries reporter **names** — its caller holds
+  `maintenance.manage`, the bar `get_unit_details` / `get_maintenance_history` already use —
+  and never an email address; the prompt says emails are never shown or asked for.
+- **Descriptions** now say "Staff only" and read right on both surfaces; the `/mcp` page lists
+  them from the registry unchanged (audience Staff), so nothing there says MCP-only.
+- **A landed write stays a success.** `runQueueWrite`'s `revalidatePath` is now guarded: a
+  refresh that cannot be scheduled from a streaming chat response logs a warning instead of
+  turning a committed ticket change into a "nothing changed".
+
+**Tests.** `access.test.ts`: anonymous and `user` get none of the three in the chat, `admin`
+and `super_admin` get all three, each gated on its own permission, and the registry alone
+never offers `propose_change`. `staff.test.ts`: the fragment is empty for anonymous, `user` and
+no identity; for staff it has both queues, the state-and-confirm rule, the `updated`-only rule,
+no email. `src/app/api/chat/staff-tools.route.test.ts` (PGlite, the real route): a staff
+session's tool set and prompt include them and a student's and a visitor's do not;
+`list_open_tickets` returns reporter names and no email; a confirmed `update_ticket` changes the
+seeded ticket as the signed-in person.
+
+**Evals.** `evals/cases/staff-maintenance.yaml`: staff asking what is open on the Form 4 calls
+`list_open_tickets`; "mark the resin tank ticket resolved: replaced the tank" does not call
+`update_ticket` and asks; after a "yes" it does; a student asking both calls neither. The
+harness gained `context.as` (`student` / `staff`, the demo accounts, composed through
+`capabilitiesForIdentity`), `history` (earlier turns), an eval-only open Form 4 ticket
+(`evals/ticket-fixture.ts`) and `EVAL_CASES` to run one file.

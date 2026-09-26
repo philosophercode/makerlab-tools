@@ -125,6 +125,35 @@ describe("parseCaseFile validation", () => {
   });
 });
 
+describe("callers and history", () => {
+  it("reads who is asking and the earlier turns", () => {
+    const source = [
+      "- id: a",
+      "  history:",
+      '    - user: "Mark it resolved"',
+      '    - assistant: "I will mark \\"Tank\\" resolved: shall I?"',
+      '  prompt: "Yes"',
+      "  context: { page: gallery, as: staff }",
+      "  assert:",
+      "    - kind: called_tool",
+      "      value: update_ticket",
+      "",
+    ].join("\n");
+    const [testCase] = parseCaseFile(source, "t.yaml");
+    expect(testCase.context.as).toBe("staff");
+    expect(testCase.history).toEqual([
+      { role: "user", text: "Mark it resolved" },
+      { role: "assistant", text: 'I will mark "Tank" resolved: shall I?' },
+    ]);
+  });
+
+  it("rejects an unknown caller and a malformed history entry", () => {
+    const base = '- id: a\n  prompt: "hi"\n  assert:\n    - kind: no_unknown_tools\n';
+    expect(() => parseCaseFile(base + "  context: { as: director }\n", "t.yaml")).toThrow(/context.as must be one of student, staff/);
+    expect(() => parseCaseFile(base + '  history:\n    - system: "x"\n', "t.yaml")).toThrow(/"user" or "assistant"/);
+  });
+});
+
 describe("the shipped case set", () => {
   it("loads, validates and has unique ids", () => {
     const cases = loadCases();
@@ -132,7 +161,7 @@ describe("the shipped case set", () => {
     expect(new Set(cases.map((c) => c.id)).size).toBe(cases.length);
   });
 
-  it("covers bulk import, catalog lookup, curation, manual grounding, manual search, tool calling and honest absence", () => {
+  it("covers bulk import, catalog lookup, curation, manual grounding, manual search, staff maintenance, tool calling and honest absence", () => {
     const files = new Set(loadCases().map((c) => c.file));
     expect(files).toEqual(
       new Set([
@@ -142,6 +171,7 @@ describe("the shipped case set", () => {
         "honest-absence.yaml",
         "manual-grounding.yaml",
         "manual-search.yaml",
+        "staff-maintenance.yaml",
         "tool-calling.yaml",
       ])
     );

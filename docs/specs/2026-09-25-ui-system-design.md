@@ -1144,3 +1144,107 @@ Two owner requests of 2026-09-25 are built in this phase. Where 5a differs from
 - **Packages added:** none. No shadcn primitive was added: `Dialog`/`Sheet`
   are for the chat and the flag dialog (5b); every public control here is an
   existing primitive.
+
+
+### 2026-09-25 — Admin polish (owner requests after phase 4)
+
+Branch `v5/admin-polish`. Six owner requests on the admin pages, built on the
+phase 1–4 system. No data model or permission changes; one new read
+(`lastRefreshedByTool`). Where the admin now differs from the phase-4
+amendment, and why:
+
+- **The Notion mirror's not-yet-connected state is on the system.** Its text
+  was the legacy mirror CSS (19px display panel headings, a 1.6 line-height
+  numbered list, `--td-*` hints) and read unlike every other admin page. The
+  steps are an unboxed section with an `h3` in the same style as People's
+  "Setup allowances", numbered in mono; `MirrorConnect` is `Field` + `Input` +
+  `Button` (Test connection, then the one filled Connect) with its outcome in
+  `RowStatus`; the "no key" and "needs a new token" notices are a warn-rule
+  block. `admin-mirror-notice`, `-steps`, `-form`, `-field-hint` and the
+  connect form's input rule are deleted; the connected state (`MirrorStatus`,
+  `MirrorControls`, `MirrorMapping`) keeps `admin-mirror.css` for now.
+- **A ticket's resolution is a button until it is wanted** (DESIGN.md §8.13).
+  The always-open textarea made every open card two rows taller. Now: **Add
+  resolution**, or the saved words on two clamped lines with **Edit
+  resolution**; pressing it opens the box inline, focused, with Save and
+  Cancel; Escape cancels; focus returns to the button; a landed save closes it,
+  a refused one keeps the words in the box. Same action, same `maintenance.manage`
+  write, one `RowStatus` per card. Maintenance at 1440 / 390 on the seeded
+  scratch database: 1,532 → 1,426 / 2,448 → 1,857 px.
+- **`RoleSelect` cannot say "Saved" for a write that did not land.** The
+  phase-4 race, reproduced by holding the page's scripts back: a role chosen
+  before its Suspense boundary hydrated was reset to the rendered value by
+  hydration; when React replayed the queued `change` event it carried that
+  reset value, `setUserRole` answered `ok` for a role the person already held,
+  and the row said "Saved". Three guards: every click-to-save select
+  (`RoleSelect`, the ticket controls) is **disabled until hydrated**
+  (`admin/use-hydrated.ts`, `useSyncExternalStore` — disabled in the server's
+  HTML); a change to the value already held sends nothing; and an `ok` whose
+  `role` is not the one chosen is shown as `failed` with the held role
+  restored. `admin-users.spec.ts` no longer waits for `networkidle`.
+- **The home's tiles line up** (DESIGN.md §8.2). The four job columns stacked
+  tiles of different heights, so rows were ragged. The columns now share one
+  row grid (`TileGrid`; each `TileGroup` a CSS subgrid spanning the same number
+  of tracks): a tile spans two tracks and fills them, a **half tile** one —
+  People, the mirror, Projects with nothing waiting, and a tile whose count
+  could not be read. Inside, the parts keep their places and the sparkline is
+  pinned to the foot. Sparklines were too faint: bars 45 → 75% ink, a zero day
+  a 2px stub at 40% (was 1px at 15%), 22px tall. The Inventory tile says what
+  it counts — "of 104 tools need attention", beside "Published — in the
+  catalog" and "Drafts and archived" — so it no longer looks like it
+  contradicts the status strip's published count. Phone: one column, same
+  order. Home at 1440 / 390, seeded: 937 → 1,028 / 2,302 → 2,192 px (the rows
+  are taller where the tallest tile sets them; the phone is shorter).
+- **Intake is one surface.** "Import a list" is no longer a surface: gone from
+  `surfaces.ts` (and so from the section bar, the tiles and ⌘K), and from
+  Intake's tabs, which are now **Queue · Imports**. Importing a list is
+  Intake's header action (`ImportListAction`, shown to `tools.add` holders, not
+  shown on the import page itself); `/admin/intake/imports/new` keeps its URL,
+  its own `tools.add` check and sits under the Imports tab, and the section bar
+  marks Intake there. The Intake tile carries the imports as a line, "Imported
+  lists waiting for review", read only for a viewer holding `tools.add`
+  (`AdminSurface.alsoCounts`, `countLoadersFor`) and counted in the home's
+  "items waiting on you". The header's title is "Intake" under the `// ADD
+  EQUIPMENT` crumb.
+- **Page actions.** `/admin/inventory` has **Add inventory** in its header —
+  the same chat intake seed as the home's Add equipment (there is no second way
+  to add a tool). `/admin/refresh` has **Refresh research…**, a `Dialog`
+  (`RefreshPicker`) that picks tools with presets (Never reviewed, No manual,
+  Not refreshed in 90 days), a category, a name search and a `DataTable` with
+  boxes, then queues through the inventory's `queueToolRefresh` — `tools.edit`,
+  25 a press, the shared daily allowance, open refreshes not selectable. A
+  dialog rather than an inline panel because it is a decision with its own
+  list, not a form that belongs to the page. The empty queue's sentence points
+  to the button.
+- **Screens** (before/after, 1440 and 390, both themes for the home, demo seed
+  and a seed with every tile non-zero): `v5/.livecheck/admin-polish/shots/`,
+  not committed.
+- **Packages added:** none.
+
+### 2026-09-25 — Admin polish, continued (one-shot buttons, names, lab-day sparklines)
+
+Same branch, three more owner requests after the amendment above:
+
+- **One-shot actions keep their state in the button** (DESIGN.md §8.10).
+  `AsyncButton` (`system/AsyncButton.tsx`): idle → pending (spinner over the
+  label, which stays in place invisible, so the width never shifts; disabled,
+  `aria-busy`) → done (check + "Done" for 1.5 s, announced in a live region,
+  then the label) → error (label, reason on a `RowStatus` line). `onRun`
+  answers `true`, a translated sentence, or `false` for a failure the caller
+  reports elsewhere. Used by the header's catalog refresh, the tool editor's
+  **Looks good** and a resource's **Re-process** (the editor's `run` now
+  answers whether the write landed; its own status line still carries a
+  refusal's reason). The catalog button no longer leaves "Catalog refreshed"
+  standing beside it.
+- **Names.** The catalog cache button is **Refresh catalog** in every locale
+  (its `aria-label`, which said "from Notion" and did not contain the visible
+  words, is gone); the refresh surface is **Refresh research** on its tile, in
+  the section bar and in ⌘K, matching its page header.
+- **Sparklines count the lab's days.** `loadAdminOverview` bucketed by the
+  database's `current_date` and `created_at::date` — UTC on Vercel — so from
+  8pm in New York a ticket filed that evening fell off "today" (and the test
+  "reported today… last slot" failed after 8pm Eastern). The loader now takes
+  the lab's today from `labToday(now)` and buckets timestamps by
+  `(created_at at time zone LAB_TIMEZONE)::date`; `date_reported` was already a
+  lab date. `now` is injectable, and the tests run on a fixed clock with a
+  23:30 Eastern case, a 00:30-next-day case and a `LAB_TIMEZONE=UTC` case.

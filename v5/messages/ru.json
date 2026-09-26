@@ -22,11 +22,11 @@
     "signedInAria": "Вы вошли как {name}"
   },
   "catalogRefresh": {
-    "action": "ОБНОВИТЬ",
-    "actionAria": "Обновить каталог {institution} из Notion",
+    "action": "Обновить каталог",
     "refreshing": "Обновление…",
     "refreshed": "Каталог обновлён",
-    "failed": "Не удалось обновить — попробуйте ещё раз"
+    "failed": "Не удалось обновить — попробуйте ещё раз",
+    "done": "Готово"
   },
   "status": {
     "labStatusLabel": "Статус лаборатории",

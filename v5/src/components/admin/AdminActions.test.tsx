@@ -17,7 +17,7 @@ function ChatProbe() {
   );
 }
 
-// en.json: nav.addEquipment = "ADD EQUIPMENT", catalogRefresh.action = "REFRESH",
+// en.json: nav.addEquipment = "ADD EQUIPMENT", catalogRefresh.action = "Refresh catalog",
 // admin.actionsLabel = "Admin actions".
 describe("AdminActions", () => {
   it.each(["admin", "super_admin"] as const)("offers %s both actions", (role) => {
@@ -25,7 +25,7 @@ describe("AdminActions", () => {
 
     const row = screen.getByRole("group", { name: "Admin actions" });
     expect(row).toContainElement(screen.getByRole("button", { name: "ADD EQUIPMENT" }));
-    expect(row).toContainElement(screen.getByRole("button", { name: /Refresh the/ }));
+    expect(row).toContainElement(screen.getByRole("button", { name: "Refresh catalog" }));
   });
 
   it.each(["user", "anonymous"] as const)("renders nothing for %s", (role) => {
@@ -54,7 +54,7 @@ describe("AdminActions", () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue({ ok: true } as unknown as Response);
     render(<AdminActions role="admin" />);
 
-    await user.click(screen.getByRole("button", { name: /Refresh the/ }));
+    await user.click(screen.getByRole("button", { name: "Refresh catalog" }));
 
     expect(
       screen.getByRole("group", { name: "Admin actions" })

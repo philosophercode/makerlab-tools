@@ -697,3 +697,20 @@ an addition landing, an additive re-base after a conflict, and a stored replacem
 `curation.test.ts` and `mcp/route.test.ts` cover `propose_change` on chat and MCP.
 `ProposalCard.test.tsx` covers the card text. `refresh-batch.workflow.test.ts` and
 `admin/refresh/actions.test.ts` now expect the additive card.
+
+### 2026-09-25 — Starting a refresh from `/admin/refresh`
+
+§5.1 started refresh research only from the inventory's selection. The owner
+asked for a way to start it from the page that shows its results. `/admin/refresh`
+now has **Refresh research…** in its header: a dialog (`RefreshPicker`) over
+every tool that is not archived, narrowed by presets — **Never reviewed**,
+**No manual**, **Not refreshed in 90 days** (never refreshed counts) — a
+category and a name, with **Select the first 25**. It queues through the same
+server action as the inventory (`queueToolRefresh`), so nothing about queueing
+changed: `tools.edit`, at most 25 a press, the daily allowance shared with
+intake (`daily_limit` said with what is left), a tool with a refresh already
+open skipped — and here also not selectable. One new read,
+`lastRefreshedByTool` in `data/tool-refreshes.ts` (one grouped statement: each
+tool's latest request, any status), feeds the 90-day preset. The empty queue's
+sentence now points to the button. See the UI system spec's amendment "Admin
+polish".

@@ -22,11 +22,11 @@
     "signedInAria": "مسجّل الدخول باسم {name}"
   },
   "catalogRefresh": {
-    "action": "تحديث",
-    "actionAria": "تحديث كتالوج {institution} من Notion",
+    "action": "تحديث الفهرس",
     "refreshing": "جارٍ التحديث…",
     "refreshed": "تم تحديث الكتالوج",
-    "failed": "تعذّر التحديث — حاول مرة أخرى"
+    "failed": "تعذّر التحديث — حاول مرة أخرى",
+    "done": "تم"
   },
   "status": {
     "labStatusLabel": "حالة المختبر",
