@@ -84,3 +84,27 @@ test("opening ⌘K does not push the page sideways", async ({ page, context, bas
   expect(await page.evaluate(() => getComputedStyle(document.body).paddingRight)).toBe("0px");
   expect(await headerBoxes(page)).toBe(before);
 });
+
+test("opening the assistant does not push the page sideways (UI system phase 5b)", async ({ page, context, baseURL }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+  for (const route of ["/", "/admin"]) {
+    await page.goto(route);
+    await expect(page.getByRole("button", { name: /signed in as/i })).toBeVisible({ timeout: 15_000 });
+    await page.waitForLoadState("networkidle");
+    const before = await headerBoxes(page);
+
+    // Public pages open it from the floating button; admin pages from the section bar.
+    const opener =
+      route === "/"
+        ? page.getByRole("button", { name: "Open MakerLab assistant" })
+        : page.getByRole("navigation", { name: "Admin sections" }).getByRole("button", { name: "Ask the assistant" });
+    await opener.click();
+    const sheet = page.getByRole("dialog", { name: "MAKERLAB ASSISTANT" });
+    await expect(sheet).toBeVisible();
+    expect(await page.evaluate(() => getComputedStyle(document.body).paddingRight)).toBe("0px");
+    expect(await headerBoxes(page), `header with the assistant open on ${route}`).toBe(before);
+    await page.keyboard.press("Escape");
+    await expect(sheet).toHaveCount(0);
+  }
+});
