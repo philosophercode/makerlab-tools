@@ -2056,3 +2056,68 @@ This run's candidates did not include the milling bit or the driver bit the eval
 Othermill case shows "no image rather than a wrong one" working.
 
 **Status.** Built on `v5/research-fixes`.
+
+### 2026-09-26 — The picked image is cleaned too (§3.5, §4.1, §5.2, §6, §10; refresh research spec §3.3)
+
+**Why.** Only rank 1 got a cleaned copy. An admin who picked Option 2 or 3 on the preliminary
+page got that picture exactly as its host served it — backdrop, banner and all — while rank 1
+would have been cut out. Refresh research's accepted cover (`cover_photo`) was never cleaned at
+all: refresh keeps no cleaned copy (`rankAndClean(…, { clean: false })`). The owner's ask:
+whichever image becomes the tool's photo has its background removed, the same way rank 1's is.
+
+**The design: clean at pick time, not during research.** Cleaning every ranked candidate during
+research would store up to three private copies per item, change `ResearchImages.cleaned` to a
+list, and still leave refresh uncovered (it stores nothing). Cleaning the one image that is
+chosen, when it is downloaded, covers both paths with one function and costs only CPU — the
+same deterministic cutout and crop, **no model call, never a generative redraw** (amendment
+"No generative redraw").
+
+- **`images/pick-clean.ts` (`cleanPickedImage`)** takes the downloaded bytes and whatever
+  research recorded about the candidate — `background`, `composite`, `productBox` — and runs
+  `makeCleanCopy` on them. A candidate recorded without a background class (older rows, a
+  refresh proposal made before this amendment) is **classified on the fly** from its border
+  pixels. It answers the cleaned PNG (`kind` `cut` / `cropped` / `cropped_and_cut`) or, when
+  no copy can be made — a busy backdrop with no box, already transparent, a cut that fails its
+  checks, no `sharp` — **the original bytes, unchanged**, with the note saying why. Never throws.
+- **Approval (`intake/approval-image.ts`).** A choice of `original` downloads the candidate as
+  before (the exact-URL rule and the guarded fetch are unchanged — §8's SSRF rule still holds:
+  only a URL research recorded is ever fetched) and then cleans it. The stored file is the
+  cleaned PNG when one was made, else the original; it is still `origin: "research_image"`,
+  public, unowned until the transaction claims it, with `sourceUrl` the candidate's URL — the
+  claim rule (`takeCover`) is unchanged. **One exception:** rank 1's original chosen *beside* its
+  recorded cleaned copy (`images.cleaned.fromUrl` is that URL) is stored raw. The page shows the
+  two side by side, so picking "Original" there is a deliberate rejection of the cut.
+- **Refresh (`refresh/apply.ts`).** `storeResearchImage` takes the same hints and cleans the
+  same way. `ProposedCover` gains the optional `background`, `composite` and `productBox` of the
+  candidate it was made from; older stored proposals have none and are classified on the fly.
+- **§4.1.** `ImageCandidate` gains an optional `productBox` — the ranking's validated box
+  (`parseProductBox`), recorded for every ranked candidate, so a picked banner can be cropped
+  the way rank 1 is. Absent on older rows and when the ranking gave none; old rows parse.
+
+  ```ts
+  // ImageCandidate
+  productBox?: readonly [number, number, number, number]; // normalised 0–1, x0 < x1, y0 < y1
+  ```
+- **Audit.** `pending.approved`'s `image` detail gains `cleaned`: the kind of copy made at
+  approval, or `null` when the original was stored. Still never a URL.
+- **§6, honest previews.** Every candidate tile that will be cleaned on approval says so in one
+  line, from what research recorded: "Background removed when approved" (a plain or
+  unclassified backdrop), "Cropped to the product when approved" (a box and a banner or busy
+  backdrop), or "Busy background — used as it is" (busy, no box). A transparent candidate keeps
+  "Already on a clean background"; rank 1's "Original" beside a cleaned copy says nothing new
+  (it is stored raw). The tile still shows the source picture — the cleaned result is made at
+  approval, not before, so the page promises the operation, not a preview it does not have.
+  New strings are English only, under `admin.intake.image.*`, as before.
+
+**Unchanged.** Rank 1's cleaned copy during research, its tile and route; "nothing is stored
+until approval"; the `image_not_attached` warning for a download or store that fails; the
+cutout's thresholds.
+
+**§10.** `pick-clean.test.ts`: a plain candidate is cut; an unclassified one is classified and
+cut; a busy one with no box comes back as the original bytes with `busy_background`; a banner
+with a box is cropped. `approval-image.test.ts`: choosing Option 2 on a plain backdrop stores a
+cut-out PNG (transparent corner) and records `cleaned: "cut"`; a busy Option 2 stores the
+original bytes; rank 1's original beside its cleaned copy is stored raw. `apply.test.ts`: an
+accepted cover on a plain backdrop is stored cleaned. `ProductImage.test.tsx`: the tile notes.
+
+**Status.** Built on `v5/clean-picked-image`.
