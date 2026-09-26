@@ -22,11 +22,11 @@
     "signedInAria": "已以 {name} 身份登录"
   },
   "catalogRefresh": {
-    "action": "刷新",
-    "actionAria": "从 Notion 刷新 {institution} 目录",
+    "action": "刷新目录",
     "refreshing": "正在刷新…",
     "refreshed": "目录已刷新",
-    "failed": "刷新失败——请重试"
+    "failed": "刷新失败——请重试",
+    "done": "完成"
   },
   "status": {
     "labStatusLabel": "实验室状态",

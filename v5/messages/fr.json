@@ -22,11 +22,11 @@
     "signedInAria": "Connecté en tant que {name}"
   },
   "catalogRefresh": {
-    "action": "ACTUALISER",
-    "actionAria": "Actualiser le catalogue de {institution} depuis Notion",
+    "action": "Actualiser le catalogue",
     "refreshing": "Actualisation…",
     "refreshed": "Catalogue actualisé",
-    "failed": "Échec de l’actualisation — réessayez"
+    "failed": "Échec de l’actualisation — réessayez",
+    "done": "Terminé"
   },
   "status": {
     "labStatusLabel": "État du labo",

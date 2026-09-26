@@ -29,11 +29,11 @@
     "connectAssistant": "CONNECT AN AI ASSISTANT"
   },
   "catalogRefresh": {
-    "action": "REFRESH",
-    "actionAria": "Refresh the {institution} catalog from Notion",
+    "action": "Refresh catalog",
     "refreshing": "Refreshing…",
     "refreshed": "Catalog refreshed",
-    "failed": "Refresh failed — try again"
+    "failed": "Refresh failed — try again",
+    "done": "Done"
   },
   "status": {
     "labStatusLabel": "Lab status",
@@ -625,7 +625,9 @@
           "archived": "Archived"
         },
         "fieldFloorCheck": "Floor check",
-        "floorCheckHint": "Refresh research could not identify this machine. Write down what the nameplate says, then clear this box."
+        "floorCheckHint": "Refresh research could not identify this machine. Write down what the nameplate says, then clear this box.",
+        "done": "Done",
+        "reprocessStarted": "Started"
       },
       "edit": "Edit",
       "refreshOpen": "Refresh open",
@@ -1537,7 +1539,7 @@
       "surface": {
         "intake": "Intake",
         "inventory": "Inventory",
-        "refresh": "Refresh",
+        "refresh": "Refresh research",
         "research": "Manuals",
         "maintenance": "Maintenance",
         "corrections": "Corrections",

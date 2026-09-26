@@ -22,11 +22,11 @@
     "signedInAria": "{name}(으)로 로그인됨"
   },
   "catalogRefresh": {
-    "action": "새로고침",
-    "actionAria": "{institution} 카탈로그를 Notion에서 새로고침",
+    "action": "카탈로그 새로 고침",
     "refreshing": "새로고침 중…",
     "refreshed": "카탈로그를 새로고침했습니다",
-    "failed": "새로고침 실패 — 다시 시도하세요"
+    "failed": "새로고침 실패 — 다시 시도하세요",
+    "done": "완료"
   },
   "status": {
     "labStatusLabel": "랩 상태",

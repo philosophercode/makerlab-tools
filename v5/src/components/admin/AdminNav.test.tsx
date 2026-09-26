@@ -54,7 +54,7 @@ it("marks Intake on the import page: importing a list is part of Intake, not a s
 it("marks the surface on one of its items' pages", () => {
   pathname.value = "/admin/refresh/abc";
   render(<AdminNav items={itemsFor("super_admin")} />);
-  expect(screen.getByRole("link", { name: "Refresh" })).toHaveAttribute("aria-current", "page");
+  expect(screen.getByRole("link", { name: "Refresh research" })).toHaveAttribute("aria-current", "page");
 });
 
 it("marks Overview on the admin home", () => {

@@ -22,11 +22,11 @@
     "signedInAria": "{name} としてサインイン中"
   },
   "catalogRefresh": {
-    "action": "更新",
-    "actionAria": "{institution} のカタログを Notion から更新",
+    "action": "カタログを更新",
     "refreshing": "更新中…",
     "refreshed": "カタログを更新しました",
-    "failed": "更新に失敗しました — もう一度お試しください"
+    "failed": "更新に失敗しました — もう一度お試しください",
+    "done": "完了"
   },
   "status": {
     "labStatusLabel": "ラボの状況",
