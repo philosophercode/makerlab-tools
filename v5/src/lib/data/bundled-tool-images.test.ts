@@ -29,6 +29,11 @@ describe("toolImageSrc's bundled fallback (tool display names spec §5.8)", () =
     expect(src).toBe(`/tool-images/${encodeURIComponent("DEWALT DCB107 12V_20V MAX Lithium Ion Charger")}.png`);
   });
 
+  it("finds the photo by slug when both names changed since the import", () => {
+    const src = toolImageSrc({ name: "RYOBI Impact Driver", officialName: "RYOBI 18V ONE+ 1/4\" Impact Driver (PCL235B)", slug: "ryobi-pcl235-one-18v-drill-driver" }, []);
+    expect(src).toBe(`/tool-images/${encodeURIComponent("RYOBI PCL235 ONE+ 18V Drill_ Driver")}.png`);
+  });
+
   it("falls back to the display name when neither has a photo", () => {
     expect(toolImageSrc({ name: "New Thing", officialName: null }, [])).toBe("/tool-images/New%20Thing.png");
   });
