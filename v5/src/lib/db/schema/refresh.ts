@@ -65,6 +65,9 @@ export const chatProposals = pgTable(
     baseRevision: text("base_revision").notNull(),
     chatId: text("chat_id"),
     createdBy: userReference("created_by"),
+    // The proposer's name, written only when their account is removed
+    // (auth spec amendment 2026-09-25; `data/user-removal.ts`).
+    createdByName: text("created_by_name"),
     decidedBy: userReference("decided_by"),
     decidedAt: timestamp("decided_at", { withTimezone: true }),
     expiresAt: timestamp("expires_at", { withTimezone: true })

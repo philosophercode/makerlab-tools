@@ -249,7 +249,7 @@ Phase 5 extends both. The shape it sets:
   the auth instance is even constructed — percent-decoding and lower-casing the
   path first, so `%61dmin` and `/ADMIN/` are the same refusal.
 - **A change that landed minus a guarantee is a warning, not an error.** The
-  audit write happens *after* `auth.api.setRole` / `banUser` has committed, so
+  audit write happens *after* `auth.api.setRole` has committed, so
   throwing there would make the page show the old value over a database holding
   the new one. `record()` reports instead, and the action answers
   `{ ok: true, …, warning: "audit_unavailable" }`. Both islands keep the new
@@ -339,22 +339,41 @@ Phase 5 extends both. The shape it sets:
   every text field keep working — a deployment with no Blob store is still one
   where a wrong description is worth fixing (Article 4).
 - **Two things cannot be undone, so they cannot be done.** An address in
-  `AUTH_SUPER_ADMIN_EMAILS` cannot be demoted or banned, and the last
-  unbanned `super_admin` cannot be demoted. The table disables those rows with
-  the reason showing; the action derives both again before it writes.
-- **Reads go straight to Postgres, writes go through the plugin.**
-  `src/lib/data/users.ts` selects the roster; `auth.api.setRole` / `banUser` /
-  `unbanUser` perform the change, because a ban there also deletes the person's
-  sessions.
+  `AUTH_SUPER_ADMIN_EMAILS` cannot be demoted or removed (nor blocked), and the
+  last `super_admin` cannot be demoted or removed; nobody removes themselves.
+  The table disables those rows with the reason showing; the action derives
+  them again before it writes.
+- **Reads go straight to Postgres; a role change goes through the plugin,
+  removal does not.** `src/lib/data/users.ts` selects the roster;
+  `auth.api.setRole` changes a role. **Remove** (auth spec amendment
+  2026-09-25, which retired Ban) is `removeUser` → `removeUserAccount`
+  (`src/lib/data/user-removal.ts`): **one transaction** — name snapshots
+  (`created_by_name` on `pending_tools`, `bulk_imports`, `chat_proposals`),
+  sessions, personal tokens and OAuth grants deleted, `account` and `user`
+  deleted, the optional block, and `user.removed` / `email.blocked` written
+  *inside* it (so a lost event rolls the removal back — the opposite of a role
+  change). History stays: `pending_tools.created_by` and `bulk_imports.created_by`
+  stopped cascading in migration `0016`; tickets, corrections and projects keep
+  their name/email snapshots and old id, and the queues say "<name> (removed)"
+  (`accountRemoved()` in `data/account-removed.ts`, `components/admin/person-label.ts`).
+  A removed owner's own Notion mirror cascades.
+- **Blocked emails** (`blocked_emails`, `data/blocked-emails.ts`): written only
+  by a removal with "Also block this email…", listed and **Unblock**ed on the
+  People page (`email.unblocked`). `databaseHooks.user.create.before` refuses a
+  blocked address before any row exists (`lib/auth/blocked-sign-in.ts`); the
+  auth route rewrites Better Auth's `?error=email_blocked` redirect to
+  `/auth/blocked`. The floor is never refused. The `banned` columns stay
+  (the admin plugin selects them) and nothing writes them; migration `0016`
+  turned every banned account into a block plus a removal.
 - **Every security-relevant change is recorded.** `src/lib/data/audit.ts` is
   insert-and-select only — there is deliberately no update or delete export,
-  and a test asserts the module's shape. `AUDIT_ACTIONS` has no
-  `user.unbanned`, so lifting a ban is `user.banned` with `detail.banned:
-  false`.
-- **Server actions pass down as props.** `RoleSelect` and `BanToggle` take the
-  action rather than importing it, which keeps `next/headers`, the limiter and
-  `server-only` out of a client component's graph and makes both testable with
-  a `vi.fn`.
+  and a test asserts the module's shape. Each event snapshots `actor_name` at
+  insert (a subselect), so an actor removed later is still named. `AUDIT_ACTIONS`
+  has no `user.unbanned`; old lifts are `user.banned` with `detail.banned: false`.
+- **Server actions pass down as props.** `RoleSelect`, `RemoveUserControl` and
+  `BlockedEmailsList` take the action rather than importing it, which keeps
+  `next/headers`, the limiter and `server-only` out of a client component's
+  graph and makes them testable with a `vi.fn`.
 - **Submitting a project needs an account** (spec §5.5) — the one place in the
   app where sign-in is required. `POST /api/projects` answers 401
   `sign_in_required` to an anonymous caller, the byline comes from the session
@@ -984,7 +1003,9 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/admin/surfaces.ts` / `src/lib/data/admin-overview.ts` | Every admin surface once (tiles, bar, palette, each with its permission) / the home's count loaders |
 | `src/components/palette/*` | The ⌘K palette on every page: `CommandPalette`, `HeaderSearch`, `PaletteScope`, `palette-match` |
 | `src/app/admin/inventory/page.tsx` | The review table (`tools.edit`), uncached, filtered from the URL |
-| `src/app/admin/users/actions.ts` | `setUserRole` / `setUserBanned` — the app's first server actions |
+| `src/app/admin/users/actions.ts` | `setUserRole` / `removeUser` / `unblockBlockedEmail` — the People page's server actions (Ban retired 2026-09-25) |
+| `src/lib/data/user-removal.ts` / `blocked-emails.ts` / `account-removed.ts` | Removing a person in one transaction; the blocked-address list; "an id that names no account" in SQL |
+| `src/lib/auth/blocked-sign-in.ts` | Refusing a blocked address in the create hook, and the redirect to `/auth/blocked` |
 | `src/lib/data/users.ts` | The `/admin/users` roster, read straight from Postgres |
 | `src/lib/admin/queue-write.ts` | `runQueueWrite` — the gate/write/record/refresh preamble the three §5.6 queues share |
 | `src/app/admin/maintenance/`, `corrections/`, `projects/` | The three queues: one page, one result module and one action apiece |

@@ -15,6 +15,7 @@ import { listOpenAssistantProposals, MCP_PROPOSAL_CHAT_ID } from "../../../lib/d
 import { ChatProposalCards, type ChatProposalItem } from "../../../components/ChatProposalCards";
 import { countByKind, refreshRank } from "../../../lib/refresh/types";
 import { siteConfig } from "../../../lib/site-config";
+import { personLabel } from "../../../components/admin/person-label";
 
 /**
  * `/admin/refresh` — refreshes waiting for a decision (refresh research spec
@@ -146,6 +147,7 @@ async function AssistantProposals() {
   }
   if (rows.length === 0) return null;
 
+  const tPeople = await getTranslations("admin.people");
   const byTool = new Map<string, { name: string; items: ChatProposalItem[]; proposedBy: Set<string> }>();
   for (const row of rows) {
     const group = byTool.get(row.toolId) ?? { name: row.toolName, items: [], proposedBy: new Set<string>() };
@@ -155,7 +157,8 @@ async function AssistantProposals() {
       subject: { kind: "tool", id: row.toolId, name: row.toolName },
       proposal: row.proposal,
     });
-    if (row.proposedBy) group.proposedBy.add(row.proposedBy);
+    const proposer = personLabel(tPeople, row.proposedBy, row.proposedByRemoved);
+    if (proposer) group.proposedBy.add(proposer);
     byTool.set(row.toolId, group);
   }
 

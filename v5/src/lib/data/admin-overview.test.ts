@@ -32,7 +32,7 @@ it("counts the demo seed's waiting work per loader", async () => {
   expect(o.intake?.series).toHaveLength(SERIES_DAYS);
   // One submission waiting on /admin/projects, one published.
   expect(o.projects).toEqual({ waiting: 1, published: 1 });
-  expect(o.users).toMatchObject({ total: 4, admins: 2, banned: 0 });
+  expect(o.users).toMatchObject({ total: 5, admins: 2, blocked: 0 });
   expect(o.refresh).toEqual({ proposed: 0, running: 0, failed: 0 });
   expect(o.maintenance).toMatchObject({ open: 1, urgent: 1 });
   expect(o.corrections?.open).toBeGreaterThanOrEqual(1);

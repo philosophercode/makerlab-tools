@@ -51,7 +51,8 @@ export interface OverviewCounts {
   maintenance: { open: number; inProgress: number; urgent: number; series: number[] };
   corrections: { open: number; handled: number; series: number[] };
   projects: { waiting: number; published: number };
-  users: { total: number; admins: number; banned: number };
+  /** `blocked` is the blocked-address list, which replaced bans (auth spec amendment 2026-09-25). */
+  users: { total: number; admins: number; blocked: number };
   mirror: { state: "notConnected" | "connected" | "paused" | "failed" };
 }
 
@@ -195,10 +196,10 @@ export const COUNT_LOADER_READS: { [K in CountLoader]: (ctx: OverviewContext) =>
       db,
       sql`select count(*) as total,
                  count(*) filter (where role in ('admin', 'super_admin')) as admins,
-                 count(*) filter (where banned) as banned
+                 (select count(*) from blocked_emails) as blocked
             from "user"`
     );
-    return { total: n(row?.total), admins: n(row?.admins), banned: n(row?.banned) };
+    return { total: n(row?.total), admins: n(row?.admins), blocked: n(row?.blocked) };
   },
 
   async mirror({ db, userId }) {

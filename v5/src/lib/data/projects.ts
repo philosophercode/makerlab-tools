@@ -3,6 +3,7 @@ import { getDb } from "../db/client.ts";
 import { attachments, projectTools, projects, tools } from "../db/schema/index.ts";
 import { slugify, uniqueSlug } from "../db/slug.ts";
 import type { Db } from "../db/types.ts";
+import { accountRemoved } from "./account-removed.ts";
 import { claimAttachments } from "./attachments.ts";
 import { isUniqueViolation } from "./pg-errors.ts";
 import { isUuid } from "./uuid.ts";
@@ -299,6 +300,8 @@ export interface ProjectModerationEntry {
   /** The byline. `"Anonymous"` is the gallery's word, not this page's. */
   authorName: string;
   authorUserId: string | null;
+  /** The author's account has been removed; the name above is the snapshot. */
+  authorRemoved: boolean;
   body: string;
   link: string | null;
   materials: string[];
@@ -340,7 +343,7 @@ export async function listProjectsForModeration(
   const db = options.db ?? (await getDb());
 
   const rows = await db
-    .select()
+    .select({ row: projects, authorRemoved: accountRemoved(projects.authorUserId) })
     .from(projects)
     // `published` is a boolean and `false` sorts first ascending, which is the
     // order the queue is worked in. Newest first within each half: a submission
@@ -352,15 +355,16 @@ export async function listProjectsForModeration(
 
   const photosByProject = await loadPhotos(
     db,
-    rows.map((row) => row.id)
+    rows.map(({ row }) => row.id)
   );
 
-  return rows.map((row) => ({
+  return rows.map(({ row, authorRemoved }) => ({
     id: row.id,
     slug: row.slug,
     title: row.title,
     authorName: row.authorName ?? "",
     authorUserId: row.authorUserId,
+    authorRemoved: Boolean(authorRemoved),
     body: row.body,
     link: row.link,
     materials: row.materials,

@@ -8,17 +8,23 @@ import { getAuth } from "../../../lib/auth/config";
 import { reconcileSuperAdminFloor } from "../../../lib/auth/floor-role";
 import { type Identity } from "../../../lib/auth/identity";
 import { isSuperAdminFloor } from "../../../lib/auth/super-admins";
+import { unblockEmail } from "../../../lib/data/blocked-emails";
+import { removeUserAccount } from "../../../lib/data/user-removal";
 import { countUsersWithRole, findUserById, type UserRecord } from "../../../lib/data/users";
 import { isOneOf, ROLES, type Role } from "../../../lib/db/schema/vocabulary";
+import { requestMirrorPush } from "../../../lib/mirror/trigger";
 import {
   ADMIN_USERS_PATH,
   type AdminActionError,
   type AdminActionResult,
   type AdminActionWarning,
+  type RemoveUserResult,
+  type UnblockEmailResult,
 } from "./action-result";
 
 /**
- * The two writes `/admin/users` performs (data platform design spec §5.2, §8).
+ * The writes `/admin/users` performs (data platform design spec §5.2, §8; auth
+ * spec amendment 2026-09-25 for Remove and Unblock, which replaced Ban).
  *
  * **Each one checks its own permission.** A server action is a POST endpoint
  * with a generated name: it is reachable without ever rendering the page that
@@ -26,11 +32,12 @@ import {
  * the control — is evidence of anything (§8). The identity is resolved here,
  * `users.manage` is checked here, and the limiter runs here.
  *
- * **The write goes through the admin plugin, the reads do not.** `set-role`
- * and `ban-user` carry behaviour worth having (a ban deletes the person's
- * sessions, so they are signed out mid-visit rather than on expiry), and they
- * authorize against the same declaration `can()` does. The roster itself is
- * read straight from Postgres — see `src/lib/data/users.ts`.
+ * **A role change goes through the admin plugin; removal does not.** `set-role`
+ * authorizes against the same declaration `can()` does. Removal is one
+ * transaction the app owns (`lib/data/user-removal.ts`) — snapshots,
+ * revocations, the delete, the optional block and the audit events together —
+ * which the plugin's `remove-user` could not give. The roster itself is read
+ * straight from Postgres — see `src/lib/data/users.ts`.
  *
  * **Refusals are values, not exceptions.** Each action answers
  * `{ ok: false, error: <code> }` and the client island renders the matching
@@ -112,84 +119,83 @@ export async function setUserRole(input: {
   return { ok: true, role, ...warn(gateWarning, recorded) };
 }
 
+/** The longest block reason kept; the field is a note, not a document. */
+const BLOCK_REASON_MAX = 200;
+
 /**
- * Ban or unban one person.
+ * Remove one person, and optionally block their address (auth spec amendment
+ * 2026-09-25, "Remove a person, and block an address").
  *
- * A ban deletes their sessions, so it bites immediately rather than on the next
- * page load — and `resolveIdentity` refuses a banned user anyway, so even a
- * cookie that outlived the sweep resolves to anonymous.
+ * Refuses, in this order: the gate (signed in, rate, `users.manage`), an
+ * unknown target, removing yourself, and a floor address — then the data layer
+ * refuses the last super admin under a lock. The removal itself is one
+ * transaction with its audit events inside it, so a success here has no audit
+ * gap of its own; `gateWarning` is only the floor reconciliation's.
  *
- * The floor address cannot be banned, and neither can the last super admin;
- * banning yourself is refused here so the message is ours (the plugin refuses
- * it too, with an error code the page would have to translate).
+ * A removal changes what the Notion mirror carries (an assignee's or author's
+ * email goes), so a push is requested after it commits — which never throws.
  */
-export async function setUserBanned(input: {
+export async function removeUser(input: {
   userId: string;
-  banned: boolean;
+  block: boolean;
   reason?: string;
-}): Promise<AdminActionResult> {
+}): Promise<RemoveUserResult> {
   const gate = await authorize();
   if (!gate.ok) return gate;
   const { identity, warning: gateWarning } = gate;
 
   const target = await findUserById(input.userId);
   if (!target) return { ok: false, error: "unknown_user" };
-  if (target.banned === input.banned) {
-    return { ok: true, banned: input.banned, ...warn(gateWarning) };
-  }
+  if (target.id === identity.userId) return { ok: false, error: "self_remove" };
+  // The floor can be neither removed nor blocked: it is the lock-out guarantee.
+  if (isSuperAdminFloor(target.email)) return { ok: false, error: "protected_floor" };
 
-  if (input.banned) {
-    // Self-ban first: the plugin refuses it too, but with an error code the
-    // page would have to translate, and this way the message is ours.
-    if (target.id === identity.userId) return { ok: false, error: "self_ban" };
-    // No "last super admin" check here, deliberately. Reaching this line means
-    // somebody *else* holds `users.manage` — the caller — so banning this
-    // account cannot leave the lab without one.
-    if (isSuperAdminFloor(target.email)) return { ok: false, error: "protected_floor" };
-  }
+  const reason = (input.reason ?? "").trim().slice(0, BLOCK_REASON_MAX) || null;
 
-  const reason = (input.reason ?? "").trim() || undefined;
-
+  let result;
   try {
-    const auth = await getAuth();
-    if (!auth) return { ok: false, error: "failed" };
-    const requestedHeaders = await requestHeaders();
-    if (input.banned) {
-      await auth.api.banUser({
-        body: { userId: target.id, ...(reason ? { banReason: reason } : {}) },
-        headers: requestedHeaders,
-      });
-    } else {
-      await auth.api.unbanUser({
-        body: { userId: target.id },
-        headers: requestedHeaders,
-      });
-    }
+    result = await removeUserAccount({
+      userId: target.id,
+      actorUserId: identity.userId,
+      block: input.block ? { reason } : null,
+    });
   } catch (err) {
-    console.error("[admin/users] ban-user failed", err);
+    // The transaction rolled back: nothing was removed, blocked or recorded.
+    console.error("[admin/users] remove-user failed", err);
     return { ok: false, error: "failed" };
   }
+  if (!result.ok) return result;
 
-  const recorded = await record(
-    {
-      actorUserId: identity.userId,
-      action: "user.banned",
-      subjectType: "user",
-      subjectId: target.id,
-      // `AUDIT_ACTIONS` has no `user.unbanned` (spec §4.11), so lifting a ban is
-      // the same action with `banned: false`. The alternative is a vocabulary
-      // that drifts from the spec, which is worse than a flag in the detail.
-      detail: { banned: input.banned, ...(reason ? { reason } : {}) },
-    },
-    AUDIT_SURFACE
-  );
-
+  await requestMirrorPush();
   revalidatePath(ADMIN_USERS_PATH);
   return {
     ok: true,
-    banned: input.banned,
-    ...warn(gateWarning, recorded),
+    removed: { id: result.removed.id, name: result.removed.name, email: result.removed.email },
+    blocked: result.blocked,
+    ...warn(gateWarning),
   };
+}
+
+/**
+ * Take an address off the blocked list, so it may sign up again — as a new
+ * account with the default role. One transaction with its `email.unblocked`
+ * event; an address that is not on the list is a no-op success.
+ */
+export async function unblockBlockedEmail(input: { email: string }): Promise<UnblockEmailResult> {
+  const gate = await authorize();
+  if (!gate.ok) return gate;
+  const { identity, warning: gateWarning } = gate;
+
+  const email = (input.email ?? "").trim().toLowerCase();
+  try {
+    await unblockEmail({ email, actorUserId: identity.userId });
+  } catch (err) {
+    console.error("[admin/users] unblock failed", err);
+    return { ok: false, error: "failed" };
+  }
+
+  revalidatePath(ADMIN_USERS_PATH);
+  return { ok: true, email, ...warn(gateWarning) };
 }
 
 // ── The shared preamble ─────────────────────────────────────────────

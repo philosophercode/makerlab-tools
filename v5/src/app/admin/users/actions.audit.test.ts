@@ -14,9 +14,12 @@ vi.mock("../../../lib/data/audit", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../../lib/data/audit")>();
   return {
     ...actual,
-    recordAuditEvent: async (event: Parameters<typeof actual.recordAuditEvent>[0]) => {
+    recordAuditEvent: async (
+      event: Parameters<typeof actual.recordAuditEvent>[0],
+      options?: Parameters<typeof actual.recordAuditEvent>[1]
+    ) => {
       if (audit.failing) throw new Error("connection terminated unexpectedly");
-      return actual.recordAuditEvent(event);
+      return actual.recordAuditEvent(event, options);
     },
   };
 });
@@ -25,10 +28,10 @@ import { eq } from "drizzle-orm";
 
 import { resetAuthForTests } from "../../../lib/auth/config";
 import { getDb, resetDbForTests } from "../../../lib/db/client";
-import { auditEvents, session, user } from "../../../lib/db/schema/index";
+import { auditEvents, blockedEmails, session, user } from "../../../lib/db/schema/index";
 import { findUserById } from "../../../lib/data/users";
 import { seedUser, signInAsNew } from "../../../../test/utils/session";
-import { setUserBanned, setUserRole } from "./actions";
+import { removeUser, setUserRole } from "./actions";
 
 /**
  * What happens when the change lands and the audit event does not (§4.11).
@@ -41,9 +44,11 @@ import { setUserBanned, setUserRole } from "./actions";
  * request that can fail on its own.
  *
  * **The property under test is that the browser is never told the change failed
- * when it did not.** `RoleSelect` and `BanToggle` answer a refusal by restoring
- * the previous value, so an exception here would leave the page asserting a
- * role the database no longer holds.
+ * when it did not.** `RoleSelect` answers a refusal by restoring the previous
+ * value, so an exception here would leave the page asserting a role the
+ * database no longer holds. (Removal is the exception that proves it: its event
+ * is written inside its own transaction, so there a failure really is "nothing
+ * happened".)
  */
 
 const AUTH_SECRET = "admin-users-audit-test-secret";
@@ -105,19 +110,18 @@ describe("an audit write that fails after the change landed", () => {
     );
   });
 
-  it("reports a ban the same way, and the ban still stands", async () => {
+  it("rolls a removal back instead — its audit event is inside the transaction", async () => {
+    // The opposite answer from a role change, and deliberately (auth spec
+    // amendment 2026-09-25): removal is one transaction the app owns, so a
+    // lost event means nothing happened, and the page is told exactly that.
     await asDirector();
     const target = await seedUser({ email: "student@cornell.edu", role: "user" });
     audit.failing = true;
 
-    expect(
-      await setUserBanned({ userId: target.id, banned: true, reason: "spam" })
-    ).toEqual({
-      ok: true,
-      banned: true,
-      warning: "audit_unavailable",
-    });
-    expect((await findUserById(target.id))?.banned).toBe(true);
+    expect(await removeUser({ userId: target.id, block: true })).toEqual({ ok: false, error: "failed" });
+    expect(await findUserById(target.id)).not.toBeNull();
+    const db = await getDb();
+    expect(await db.select().from(blockedEmails)).toEqual([]);
   });
 
   it("carries no warning when the trail was written", async () => {

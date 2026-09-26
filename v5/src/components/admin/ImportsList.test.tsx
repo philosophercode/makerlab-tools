@@ -26,6 +26,7 @@ function view(overrides: Partial<ImportView> = {}): ImportView {
     itemCount: 40,
     duplicateCount: 3,
     createdByName: "Niti",
+    createdByRemoved: false,
     createdAt: "2026-09-24T12:00:00.000Z",
     ...overrides,
   };

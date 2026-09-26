@@ -28,6 +28,14 @@ export const AUDIT_ACTIONS = [
   // spec amendment 2026-09-24). Only `next dev` on localhost can write it, so
   // one of these in a shared database is itself worth investigating.
   "auth.dev_sign_in",
+  // A super admin removed somebody's account (auth spec amendment 2026-09-25).
+  // `detail` holds the removed person's name and email — after this event the
+  // `user` row is gone and this is where "who was that?" is answered.
+  "user.removed",
+  // An address was put on, or taken off, `blocked_emails`. `subject_type` is
+  // "email" and `subject_id` the normalised address.
+  "email.blocked",
+  "email.unblocked",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
@@ -40,6 +48,10 @@ export const auditEvents = pgTable(
     // `set null` rather than `cascade`: deleting the person must not delete the
     // record that they changed someone's role.
     actorUserId: text("actor_user_id").references(() => user.id, { onDelete: "set null" }),
+    // The actor's name as it was when the event was written (migration `0016`,
+    // auth spec amendment 2026-09-25). The foreign key above clears when the
+    // person is removed; this is what still says who it was.
+    actorName: text("actor_name"),
     action: text("action").notNull(),
     subjectType: text("subject_type").notNull(),
     subjectId: text("subject_id").notNull(),

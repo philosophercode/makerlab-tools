@@ -27,6 +27,7 @@ function ticket(overrides: Partial<MaintenanceQueueEntry> = {}): MaintenanceQueu
     unitLabel: "Trotec // A",
     reportedByName: "Casey Rivera",
     reportedByEmail: "casey@cornell.edu",
+    reporterRemoved: false,
     assignedToUserId: null,
     assignedToName: "",
     dateReported: "2026-03-04",
@@ -73,6 +74,13 @@ describe("MaintenanceQueue", () => {
       "href",
       "mailto:casey@cornell.edu"
     );
+  });
+
+  it("keeps a removed reporter's name, marked removed (auth spec amendment 2026-09-25)", () => {
+    renderQueue([ticket({ reporterRemoved: true })]);
+    expect(screen.getByText("Reported by Casey Rivera (removed)")).toBeInTheDocument();
+    // The address they filed with is still the way to reach them.
+    expect(screen.getByRole("link", { name: "casey@cornell.edu" })).toBeInTheDocument();
   });
 
   it("falls back to the snapshot name, and links nowhere, for a ticket with no tool", () => {

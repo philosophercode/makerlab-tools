@@ -23,6 +23,7 @@ import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
 import { DuplicateChoice } from "../system/review/DuplicateChoice";
 import { ReviewCard, ReviewDiagnosis, ReviewNote } from "../system/review/ReviewCard";
 import { PENDING_STATUS_TONE } from "./pending-status-tone";
+import { personLabel } from "./person-label";
 
 /**
  * The review queue on `/admin/intake` (spec §5.4 step 10, §6).
@@ -285,6 +286,8 @@ function IntakeRow({ item }: { item: PendingToolView }) {
   const t = useTranslations("admin.intake");
   const tStatus = useTranslations("intake.status");
   const tIntake = useTranslations("intake");
+  const tPeople = useTranslations("admin.people");
+  const identifiedBy = personLabel(tPeople, item.createdByName, item.createdByRemoved);
   const photo = item.photos.find((candidate) => candidate.url)?.url ?? null;
   const settled = SETTLED.has(item.status);
   const linked = item.status === "researched" || item.status === "approved";
@@ -329,7 +332,7 @@ function IntakeRow({ item }: { item: PendingToolView }) {
       meta={
         <>
           {item.brand ? <span>{item.brand}</span> : null}
-          <span>{item.createdByName ? t("identifiedBy", { name: item.createdByName }) : t("identifiedByUnknown")}</span>
+          <span>{identifiedBy ? t("identifiedBy", { name: identifiedBy }) : t("identifiedByUnknown")}</span>
           <span className="tabular-nums">{t("identifiedOn", { date: day(item.createdAt) })}</span>
         </>
       }

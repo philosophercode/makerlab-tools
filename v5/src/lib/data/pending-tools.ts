@@ -87,7 +87,8 @@ export interface PendingToolRecord {
   researchRequestId: string | null;
   researchRequestedBy: string | null;
   researchRequestedAt: Date | null;
-  createdBy: string;
+  /** Null once the person who identified it has been removed. */
+  createdBy: string | null;
   approvedBy: string | null;
   approvedAt: Date | null;
   approvalNote: string | null;
@@ -130,7 +131,10 @@ export interface PendingPhoto {
 export interface PendingTool extends PendingToolRecord {
   duplicateOf: DuplicateOf | null;
   photos: PendingPhoto[];
+  /** The live name, or the snapshot written when the account was removed. */
   createdByName: string | null;
+  /** The person who identified it has been removed (auth spec amendment 2026-09-25). */
+  createdByRemoved: boolean;
 }
 
 /** Where a person may still change the name, the hints or the duplicate decision. */
@@ -412,7 +416,8 @@ export async function listIntakeQueue(
  * so (Article 4).
  */
 export async function createPendingBatch(
-  input: { createdBy: string; items: NewPendingTool[] },
+  // Null only for rows added to an import whose author has since been removed.
+  input: { createdBy: string | null; items: NewPendingTool[] },
   options: CreatePendingBatchOptions = {}
 ): Promise<CreatedPendingBatch> {
   const names = input.items.map((item) => item.name.trim());
@@ -469,12 +474,13 @@ export async function createPendingBatch(
         })
         .returning({ id: pendingTools.id });
 
-      const submitted = [...new Set(item.attachmentIds ?? [])];
+      // No owner, no photos: a claim is limited to what the owner uploaded.
+      const submitted = input.createdBy ? [...new Set(item.attachmentIds ?? [])] : [];
       const attached = await claimAttachments(
         tx,
         submitted,
         { ownerType: "pending_tool", ownerId: row.id },
-        { uploadedBy: input.createdBy }
+        { uploadedBy: input.createdBy ?? undefined }
       );
       created.push({ id: row.id, photosSubmitted: submitted.length, photosAttached: attached });
     }
@@ -1086,11 +1092,12 @@ export async function deleteDiscardedPendingTools(
 
 /**
  * Photos still owned by a pending item that no longer exists, released for the
- * orphan sweep. `pending_tools.created_by` cascades (§4.10: a pending item
- * always has an owner), so removing a person removes their pending items — and
- * `attachments.owner_id` is polymorphic, with no foreign key to cascade or
- * null. Without this, those photos (public, once identified) would be owned by
- * nothing and swept by nothing, for ever.
+ * orphan sweep. `attachments.owner_id` is polymorphic, with no foreign key to
+ * cascade or null, so a pending row deleted by any path that did not release
+ * its photos — before migration `0016`, removing a person cascaded to their
+ * items; now it keeps them (auth spec amendment 2026-09-25) — leaves photos
+ * (public, once identified) owned by nothing and swept by nothing, for ever.
+ * This is the backstop for all of them.
  */
 export async function releasePhotosOfMissingPendingTools(options: PendingToolOptions = {}): Promise<number> {
   const db = options.db ?? (await getDb());
@@ -1530,7 +1537,7 @@ async function exists(db: Db, id: string): Promise<boolean> {
 
 async function readPendingTools(db: Db, where: SQL | undefined, limit: number | null): Promise<PendingTool[]> {
   const query = db
-    .select({ row: pendingTools, createdByName: user.name })
+    .select({ row: pendingTools, liveCreatorName: user.name })
     .from(pendingTools)
     .leftJoin(user, eq(user.id, pendingTools.createdBy))
     .where(where)
@@ -1590,7 +1597,7 @@ async function readPendingTools(db: Db, where: SQL | undefined, limit: number | 
     photosByOwner.set(photo.ownerId, list);
   }
 
-  return rows.map(({ row, createdByName }) => {
+  return rows.map(({ row, liveCreatorName }) => {
     let duplicateOf: DuplicateOf | null = null;
     const tool = row.duplicateOfToolId ? toolById.get(row.duplicateOfToolId) : undefined;
     const pending = row.duplicateOfPendingId ? pendingById.get(row.duplicateOfPendingId) : undefined;
@@ -1645,7 +1652,8 @@ async function readPendingTools(db: Db, where: SQL | undefined, limit: number | 
       updatedAt: row.updatedAt,
       duplicateOf,
       photos: photosByOwner.get(row.id) ?? [],
-      createdByName: createdByName ?? null,
+      createdByName: liveCreatorName ?? row.createdByName ?? null,
+      createdByRemoved: row.createdBy === null && row.createdByName !== null,
     };
   });
 }
