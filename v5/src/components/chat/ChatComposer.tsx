@@ -55,7 +55,11 @@ export function ChatComposer({
   onDraftChange: (next: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   status: ChatStatus;
-  /** A turn is on its way: the text and the tools wait. */
+  /**
+   * A turn is on its way: Send and the tools wait. The text stays enabled, so
+   * focus stays in it (disabling the focused field would drop focus to the
+   * sheet on every send) and the next question can be drafted meanwhile.
+   */
   busy: boolean;
   photos: readonly PendingPhoto[];
   documents: readonly PendingDocument[];
@@ -120,7 +124,6 @@ export function ChatComposer({
           onChange={(event) => onDraftChange(event.target.value)}
           placeholder={t("composerPlaceholder")}
           aria-label={t("composerAria")}
-          disabled={busy}
         />
       </PromptInputBody>
 

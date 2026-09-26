@@ -246,11 +246,15 @@ describe("ChatFab", () => {
     expect(
       screen.getByLabelText("Assistant is typing")
     ).toBeInTheDocument();
-    // Composer is disabled while loading.
-    expect(
-      screen.getByRole("textbox", { name: "Ask the lab console" })
-    ).toBeDisabled();
+    // Send waits while loading. The text stays enabled so a keyboard's focus
+    // is not dropped on every send; Enter does not send meanwhile.
+    const composer = screen.getByRole("textbox", { name: "Ask the lab console" });
+    expect(composer).toBeEnabled();
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
+    await user.type(composer, "next question{Enter}");
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(composer).toHaveValue("next question");
+    expect(composer).toHaveFocus();
   });
 
   it("surfaces the actual error message when useChat returns an error", async () => {

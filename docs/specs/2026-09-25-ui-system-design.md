@@ -1493,6 +1493,10 @@ As built (same branch), where the build refined the plan above:
   "Replacing the resin tank" and the `P. 42` mark says the page, so the page
   is not said twice. A mark's accessible name is "Open Form 4 Manual, p. 42".
 - **Loader is a `span`** (the upstream `div` sat inside the tool line's `p`).
+- **The composer's text stays enabled while a turn runs** (review): disabling
+  the focused textarea dropped focus to the sheet on every send, so a keyboard
+  user had to find the field again. Send, attach and dictate wait; Enter does
+  not send until Send is enabled, and the next question can be drafted.
 - **The flag dialog is frosted too** (owner: menus and dialogs are frosted).
 - **CSS removed:** 707 lines of stylesheet (`globals.css` −653/+2: every
   `.chat-*` rule, their phone and RTL overrides, three keyframes,
