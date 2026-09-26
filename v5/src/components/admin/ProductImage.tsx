@@ -30,6 +30,14 @@ import { DifferentImageControl } from "./DifferentImageControl";
  *   remove); its tile is drawn on the checkerboard and says "Already on a
  *   clean background". When a cut was expected but not made, one hint line
  *   says why (`images.cleanNote`).
+ * - **A picked candidate is cleaned at approval** (amendment "The picked
+ *   image is cleaned too"), so its tile says what will happen, from what
+ *   research recorded ({@link plannedClean}): "Background removed when
+ *   approved", "Cropped to the product when approved", or "Busy background —
+ *   used as it is". Rank 1's "Original" beside its cleaned copy says nothing:
+ *   choosing it is choosing the uncut picture, and it is stored as it is; a
+ *   rank 1 whose cut already failed says why instead (`cleanNote`). The tile
+ *   shows the source picture — the cleaned result is made at approval.
  * - **Every candidate displays from its source URL**, loaded by the admin's
  *   browser with no referrer: nothing is fetched or stored server-side for
  *   display (§5.2). A plain `<img>`, because the hosts are whatever research
@@ -94,6 +102,23 @@ const CLEANED_COPY: Record<
   cropped_and_cut: { label: "croppedCutChoice", note: "croppedCutNote", alt: "cleanedAlt", checkerboard: true },
   cropped: { label: "croppedChoice", note: "croppedNote", alt: "croppedAlt", checkerboard: false },
 };
+
+/** What approval will do to a picked candidate's background — `admin.intake.image.pickClean.*`, or already clean. */
+export type PlannedClean = "cut" | "crop" | "busy" | "already";
+
+/**
+ * What approval's clean (`research/images/pick-clean.ts`) will make of a
+ * candidate, told from what research recorded: already transparent; a box and
+ * a banner or busy backdrop to crop to; busy with nothing to crop to; or
+ * otherwise a backdrop to cut, when it can be (unclassified ones are
+ * classified at approval).
+ */
+export function plannedClean(candidate: ImageCandidate): PlannedClean {
+  if (candidate.background === "transparent") return "already";
+  if (candidate.productBox && (candidate.composite || candidate.background === "busy")) return "crop";
+  if (candidate.background === "busy") return "busy";
+  return "cut";
+}
 
 /**
  * What the page starts with (§5.2 step 1): the cleaned copy when there is one,
@@ -191,6 +216,12 @@ export function ProductImage({
     return value.choice === "original" && value.candidateUrl === candidate.url;
   }
 
+  /** The one-line note on a candidate's tile: what approval does to it. */
+  function pickNote(candidate: ImageCandidate): string | undefined {
+    const planned = plannedClean(candidate);
+    return planned === "already" ? t("alreadyClean") : t(`pickClean.${planned}`);
+  }
+
   function onCleanedError() {
     setCleanedBroken(true);
     // A copy nobody can see must not stay chosen: back to the original.
@@ -259,7 +290,9 @@ export function ProductImage({
             onSelect={() => chooseOriginal(first)}
             picture={<CandidatePicture candidate={first} alt={t("alt", { name, rank: first.rank })} />}
             checkerboard={first.background === "transparent"}
-            note={first.background === "transparent" ? t("alreadyClean") : undefined}
+            // A cut research already tried and could not make says why above; nothing more here.
+            note={cleanNote && first.background !== "transparent" ? undefined : pickNote(first)}
+            noteTone={first.background === "transparent" ? "warn" : "muted"}
             source={first}
             fromLabel={(host) => t("from", { host })}
           />
@@ -279,6 +312,8 @@ export function ProductImage({
                 onSelect={() => chooseOriginal(candidate)}
                 picture={<CandidatePicture candidate={candidate} alt={t("alt", { name, rank: candidate.rank })} />}
                 checkerboard={candidate.background === "transparent"}
+                note={pickNote(candidate)}
+                noteTone={candidate.background === "transparent" ? "warn" : "muted"}
                 source={candidate}
                 fromLabel={(host) => t("from", { host })}
               />
@@ -329,6 +364,7 @@ function Tile({
   checkerboard = false,
   small = false,
   note,
+  noteTone = "warn",
   source,
   fromLabel,
 }: {
@@ -343,6 +379,7 @@ function Tile({
   checkerboard?: boolean;
   small?: boolean;
   note?: string;
+  noteTone?: "muted" | "warn";
   /** The candidate whose page is credited — for the cleaned copy, the original it was made from. */
   source: ImageCandidate | null;
   fromLabel: (host: string) => string;
@@ -391,7 +428,7 @@ function Tile({
       >
         {picture}
       </div>
-      {note ? <ReviewNote tone="warn">{note}</ReviewNote> : null}
+      {note ? <ReviewNote tone={noteTone}>{note}</ReviewNote> : null}
       {link ? (
         <a
           className="text-xs break-all text-primary-ink underline-offset-2 hover:underline"

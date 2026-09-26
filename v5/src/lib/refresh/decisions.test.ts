@@ -8,7 +8,8 @@ vi.mock("../manuals/trigger", () => ({ requestManualArchive: vi.fn(async () => u
 
 import { eq, sql } from "drizzle-orm";
 import { http, HttpResponse } from "msw";
-import { makePng } from "../../../test/gateway/png";
+import { makePng, makeProductPng } from "../../../test/gateway/png";
+import { decode } from "../../../test/images/synthetic";
 import { server } from "../../../test/msw/server";
 import type { BlobStore } from "../blob";
 import { claimRefresh, completeRefresh, getRefresh, getRefreshRowRevision, queueRefreshesWithinAllowance } from "../data/tool-refreshes";
@@ -176,6 +177,35 @@ it("accept all verified skips unverified quotes and not-found fields, and the na
   const photos = await db.select().from(attachments).where(eq(attachments.ownerId, toolId));
   expect(photos).toMatchObject([{ ownerType: "tool", access: "public", origin: "research_image", sourceUrl: IMAGE_URL }]);
   expect(store.putUpload).toHaveBeenCalledTimes(1);
+});
+
+it("cleans an accepted cover on a plain backdrop before storing it (amendment \"The picked image is cleaned too\")", async () => {
+  server.use(
+    http.get("https://images.example.com/*", () =>
+      HttpResponse.arrayBuffer(makeProductPng({ width: 800, height: 600 }).slice().buffer, { headers: { "content-type": "image/png" } })
+    )
+  );
+  const store = fakeStore();
+  // The stored proposal predates the hints: its background is classified on the spot.
+  expect(await decide({ decision: "accept", ids: ["cover_photo"] }, true, store)).toEqual({ ok: true, applied: 1 });
+
+  const [, file] = store.putUpload.mock.calls[0];
+  expect(file.type).toBe("image/png");
+  const pixels = await decode(new Uint8Array(await file.arrayBuffer()));
+  expect(pixels.data[3]).toBe(0); // the backdrop is cut away
+  const photos = await db.select().from(attachments).where(eq(attachments.ownerId, toolId));
+  expect(photos).toMatchObject([{ origin: "research_image", sourceUrl: IMAGE_URL, width: pixels.width, height: pixels.height }]);
+});
+
+it("stores an accepted cover on a busy backdrop as downloaded", async () => {
+  const busy = makePng({ width: 800, height: 600, alpha: false });
+  server.use(
+    http.get("https://images.example.com/*", () => HttpResponse.arrayBuffer(busy.slice().buffer, { headers: { "content-type": "image/png" } }))
+  );
+  const store = fakeStore();
+  expect(await decide({ decision: "accept", ids: ["cover_photo"] }, true, store)).toEqual({ ok: true, applied: 1 });
+  const [, file] = store.putUpload.mock.calls[0];
+  expect(new Uint8Array(await file.arrayBuffer())).toEqual(busy);
 });
 
 it("a cover that cannot be stored is a warning on a landed write, never a refusal", async () => {

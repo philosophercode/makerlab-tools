@@ -3,7 +3,7 @@ import { useState } from "react";
 import { render, screen, userEvent, within } from "../../../test/utils/render";
 import type { ApprovalImageChoice } from "../../lib/data/pending-tools";
 import type { ImageCandidate, ResearchImages } from "../../lib/research/result";
-import { initialImageChoice, ProductImage, type ProductImageProps } from "./ProductImage";
+import { initialImageChoice, plannedClean, ProductImage, type ProductImageProps } from "./ProductImage";
 
 /**
  * The preliminary page's **Product image** section (gateway spec §6, §10
@@ -222,6 +222,48 @@ describe("ProductImage — crops and banners (amendment \"Composites and product
     render(<Harness />);
     expect(screen.getByRole("radio", { name: "Background removed" })).toBeInTheDocument();
     expect(screen.queryByText("Banner")).not.toBeInTheDocument();
+  });
+});
+
+describe("ProductImage — what approval does to a picked candidate (amendment \"The picked image is cleaned too\")", () => {
+  const tileOf = (name: string) => screen.getByRole("radio", { name }).closest<HTMLElement>('[data-slot="image-tile"]')!;
+
+  it("says on each other option what approval will do to its background", () => {
+    const images: ResearchImages = {
+      ...THREE,
+      candidates: [
+        candidate(1, { background: "plain" }),
+        candidate(2, { url: "https://images.example.org/banner.jpg", background: "busy", composite: true, productBox: [0.3, 0.2, 0.7, 0.8] }),
+        candidate(3, { background: "busy" }),
+      ],
+    };
+    render(<Harness images={images} />);
+
+    expect(within(tileOf("Option 2")).getByText("Cropped to the product when approved")).toBeInTheDocument();
+    expect(within(tileOf("Option 3")).getByText("Busy background — used as it is")).toBeInTheDocument();
+    // Rank 1 beside its cleaned copy is the uncut picture: stored as it is, so it promises nothing.
+    expect(within(tileOf("Option 1")).queryByText(/when approved/)).not.toBeInTheDocument();
+  });
+
+  it("says a plain or unclassified candidate's background is removed when approved", () => {
+    render(<Harness images={{ candidates: [candidate(1), candidate(2, { background: "plain" })], cleaned: null }} />);
+
+    expect(within(tileOf("Option 1")).getByText("Background removed when approved")).toBeInTheDocument();
+    expect(within(tileOf("Option 2")).getByText("Background removed when approved")).toBeInTheDocument();
+  });
+
+  it("promises nothing on a rank 1 whose cut already failed — the reason is said once, above", () => {
+    render(<Harness images={{ ...THREE, cleaned: null, cleanNote: "fragmented" }} />);
+    expect(within(tileOf("Option 1")).queryByText(/when approved/)).not.toBeInTheDocument();
+    expect(within(tileOf("Option 2")).getByText("Background removed when approved")).toBeInTheDocument();
+  });
+
+  it("plans from what research recorded", () => {
+    expect(plannedClean(candidate(1, { background: "transparent", composite: true }))).toBe("already");
+    expect(plannedClean(candidate(1, { composite: true, productBox: [0.1, 0.1, 0.5, 0.5] }))).toBe("crop");
+    expect(plannedClean(candidate(1, { composite: true }))).toBe("cut");
+    expect(plannedClean(candidate(1, { background: "busy" }))).toBe("busy");
+    expect(plannedClean(candidate(1))).toBe("cut");
   });
 });
 

@@ -166,7 +166,8 @@ export async function approveAndRecord(
         overridden: approved.overridden,
         note: input.overrideNote?.trim() || null,
         // What was chosen and whether it stuck — never the URL.
-        image: { choice: imageKind, attached: imageAttached },
+        // `cleaned`: the copy made at approval (amendment "The picked image is cleaned too").
+        image: { choice: imageKind, attached: imageAttached, cleaned: image.ok ? (image.cleaned ?? null) : null },
       },
     },
     AUDIT_SURFACE

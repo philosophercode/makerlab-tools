@@ -535,9 +535,16 @@ creates a tool (Article 5).
   records `pending.approved` **and** `tool.published`; a lost audit event is a
   warning on a success, as everywhere else. **The image choice is resolved
   here too:** "cleaned" promotes the already-stored private attachment to
-  public; "original" downloads the candidate's own URL and stores it (both as
-  `attachments.origin`, `research_image` / `research_image_cleaned` — see
-  C11 in the gateway spec); a download or store failure is never a reason to
+  public; "original" downloads the candidate's own URL, **cleans it** with
+  the same deterministic crop and cutout rank 1 gets
+  (`research/images/pick-clean.ts`, from the candidate's recorded
+  `background` / `composite` / `productBox`, classified on the spot when
+  absent; the downloaded bytes when no cut is possible), and stores it —
+  except rank 1's original chosen beside its cleaned copy, stored uncut
+  (amendment "The picked image is cleaned too"; refresh's accepted cover
+  goes through the same `storeResearchImage`). Both are
+  `attachments.origin` `research_image` / `research_image_cleaned` — see
+  C11 in the gateway spec; a download or store failure is never a reason to
   fail the rest of the approval — it is the `image_not_attached` warning
   (`admin.warnings.image_not_attached`), the same "warning on a landed write"
   shape every admin surface uses. Low confidence keeps both Approve buttons off
