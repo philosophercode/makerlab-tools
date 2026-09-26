@@ -1071,3 +1071,31 @@ amendment, and why:
   and a seed with every tile non-zero): `v5/.livecheck/admin-polish/shots/`,
   not committed.
 - **Packages added:** none.
+
+### 2026-09-25 — Admin polish, continued (one-shot buttons, names, lab-day sparklines)
+
+Same branch, three more owner requests after the amendment above:
+
+- **One-shot actions keep their state in the button** (DESIGN.md §8.10).
+  `AsyncButton` (`system/AsyncButton.tsx`): idle → pending (spinner over the
+  label, which stays in place invisible, so the width never shifts; disabled,
+  `aria-busy`) → done (check + "Done" for 1.5 s, announced in a live region,
+  then the label) → error (label, reason on a `RowStatus` line). `onRun`
+  answers `true`, a translated sentence, or `false` for a failure the caller
+  reports elsewhere. Used by the header's catalog refresh, the tool editor's
+  **Looks good** and a resource's **Re-process** (the editor's `run` now
+  answers whether the write landed; its own status line still carries a
+  refusal's reason). The catalog button no longer leaves "Catalog refreshed"
+  standing beside it.
+- **Names.** The catalog cache button is **Refresh catalog** in every locale
+  (its `aria-label`, which said "from Notion" and did not contain the visible
+  words, is gone); the refresh surface is **Refresh research** on its tile, in
+  the section bar and in ⌘K, matching its page header.
+- **Sparklines count the lab's days.** `loadAdminOverview` bucketed by the
+  database's `current_date` and `created_at::date` — UTC on Vercel — so from
+  8pm in New York a ticket filed that evening fell off "today" (and the test
+  "reported today… last slot" failed after 8pm Eastern). The loader now takes
+  the lab's today from `labToday(now)` and buckets timestamps by
+  `(created_at at time zone LAB_TIMEZONE)::date`; `date_reported` was already a
+  lab date. `now` is injectable, and the tests run on a fixed clock with a
+  23:30 Eastern case, a 00:30-next-day case and a `LAB_TIMEZONE=UTC` case.

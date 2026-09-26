@@ -328,6 +328,17 @@ trap focus, close on Escape and return focus. Scrim 28% ink, no shadow.
 | `destructive` | bad-tone hairline + label, at rest | discard, delete, ban — confirm inline |
 | `link` | orange-ink underlined | inline navigation |
 
+**One-shot actions keep their state in the button — `AsyncButton`**
+(`src/components/system/AsyncButton.tsx`). For an action that runs once and is
+over — Refresh catalog, Looks good, Re-process — the button is the status:
+idle (the label) → pending (a small spinner over the label, which stays in
+place invisible so the **width never changes**; disabled, `aria-busy`) → done
+(a check and `DONE` for 1.5 s, announced through a live region, then the label
+again) → error (the label again, with the reason on a `RowStatus` line beside
+it). No sentence left standing next to the button, no toast. A button's label
+names its object when a neighbour could be confused with it: **Refresh
+catalog** (the cache) is not **Refresh research** (the surface).
+
 ### 8.11 Chat — AI Elements
 
 Docked side sheet (440px; full screen on a phone). `Conversation` (live log,
