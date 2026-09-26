@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Locator } from "@playwright/test";
 
 import { DEMO_ACCOUNTS } from "../src/lib/db/demo-seed";
 import { signIn } from "./utils/session";
@@ -114,6 +114,18 @@ test.describe("the queues have the lab's work in them", () => {
   });
 });
 
+/** Every control's box in a ticket's control row, to prove nothing moves (public polish). */
+async function controlBoxes(card: Locator): Promise<string> {
+  return card.locator('[data-slot="ticket-controls"] > div').first().evaluate((row) =>
+    Array.from(row.querySelectorAll("select, button"))
+      .map((el) => {
+        const r = el.getBoundingClientRect();
+        return `${el.getAttribute("aria-label")}@${[r.x, r.y, r.width, r.height].map(Math.round).join(",")}`;
+      })
+      .join(" | ")
+  );
+}
+
 test.describe("working a ticket", () => {
   // One database, parallel workers: the two halves of this have to happen in
   // order, and they are the only tests in the suite that touch this field.
@@ -125,6 +137,9 @@ test.describe("working a ticket", () => {
 
     const priority = page.getByRole("combobox", { name: /^Priority for/ });
     await expect(priority).toHaveValue("high", { timeout: 15_000 });
+    await expect(priority).toBeEnabled();
+    const card = page.locator('[data-slot="ticket-controls"]').first().locator("..");
+    const before = await controlBoxes(card);
 
     await priority.selectOption("critical");
     // The control confirms from the action's own answer rather than waiting for
@@ -132,6 +147,8 @@ test.describe("working a ticket", () => {
     await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible({
       timeout: 15_000,
     });
+    // "Saved" sits in a reserved slot: no control in the row moved.
+    expect(await controlBoxes(card)).toBe(before);
 
     await page.reload();
     await expect(page.getByRole("combobox", { name: /^Priority for/ })).toHaveValue("critical", {
@@ -151,6 +168,36 @@ test.describe("working a ticket", () => {
     await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible({
       timeout: 15_000,
     });
+  });
+
+  test("opening the resolution editor moves no control in the row", async ({ page, context, baseURL }) => {
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({ width, height: 900 });
+      await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
+      await page.goto("/admin/maintenance");
+      const toggle = page.getByRole("button", { name: /^(Add|Edit) resolution for/ }).first();
+      await expect(toggle).toBeEnabled({ timeout: 15_000 });
+      const card = page.locator('[data-slot="ticket-controls"]').first().locator("..");
+      const before = await controlBoxes(card);
+
+      await toggle.click();
+      await expect(page.getByRole("textbox", { name: /^Resolution for/ })).toBeFocused();
+      // The editor opens in its own slot below; Save and Cancel sit left in a row of their own.
+      const save = page.getByRole("button", { name: "Save resolution" });
+      const cancel = page.getByRole("button", { name: "Cancel" });
+      const [saveBox, cancelBox, boxBox] = await Promise.all([
+        save.boundingBox(),
+        cancel.boundingBox(),
+        page.getByRole("textbox", { name: /^Resolution for/ }).boundingBox(),
+      ]);
+      expect(saveBox!.y).toBeGreaterThan(boxBox!.y);
+      expect(Math.round(saveBox!.y)).toBe(Math.round(cancelBox!.y));
+      expect(saveBox!.x).toBeLessThan(cancelBox!.x);
+      expect(await controlBoxes(card)).toBe(before);
+
+      await cancel.click();
+      expect(await controlBoxes(card)).toBe(before);
+    }
   });
 
   test("a resolution is a button until it is wanted, and survives a reload", async ({ page, context, baseURL }) => {

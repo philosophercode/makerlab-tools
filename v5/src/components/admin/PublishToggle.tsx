@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import type { SetProjectPublishedAction } from "../../app/admin/projects/action-result";
 import { Button } from "@/components/ui/button";
 import { StatusGlyph } from "../system/StatusGlyph";
-import { RowStatus } from "./RowStatus";
+import { RowStatus, SaveSlot } from "./RowStatus";
 import { useRowAction } from "./use-row-action";
 
 /**
@@ -44,7 +44,7 @@ export function PublishToggle({ projectId, title, published, action }: PublishTo
       <StatusGlyph
         tone={row.value ? "ok" : "active"}
         label={t(row.value ? "statePublished" : "stateWaiting")}
-        className="me-2"
+        className="min-w-24"
       />
 
       <Button
@@ -56,10 +56,20 @@ export function PublishToggle({ projectId, title, published, action }: PublishTo
         aria-label={t(next ? "publishFor" : "unpublishFor", { title })}
         onClick={() => void row.run(next, () => action({ projectId, published: next }))}
       >
-        {t(next ? "publish" : "unpublish")}
+        {/* Both labels in one cell: the wider sets the width, so the slot after it never moves. */}
+        <span className="inline-grid *:[grid-area:1/1]">
+          <span aria-hidden={!next || undefined} className={next ? undefined : "invisible"}>
+            {t("publish")}
+          </span>
+          <span aria-hidden={next || undefined} className={next ? "invisible" : undefined}>
+            {t("unpublish")}
+          </span>
+        </span>
       </Button>
 
-      <RowStatus pending={row.pending} saved={row.saved} error={row.error} warning={row.warning} />
+      {/* "Saved" in a reserved slot, so the button never shifts; a refusal or a warning on its own line. */}
+      <SaveSlot pending={row.pending} saved={row.saved} error={row.error} warning={row.warning} />
+      <RowStatus pending={false} saved={false} error={row.error} warning={row.warning} />
     </div>
   );
 }

@@ -104,3 +104,26 @@ function StatusLine({
     </Element>
   );
 }
+
+/**
+ * The short half of a save-on-click control's outcome — "Saving…", then
+ * "Saved" — in a **reserved inline slot** beside the controls (public
+ * polish): the slot has its width from the first paint, so nothing in the row
+ * moves when the word appears. A refusal or a warning is a sentence, not a
+ * word; the caller shows it on its own line with `RowStatus` (codes, with
+ * `pending` and `saved` false), where it has room to be read.
+ */
+export function SaveSlot({ pending, saved, error, warning, className }: RowStatusCodeProps) {
+  const t = useTranslations("admin");
+  const word = pending ? t("saving") : saved && !error && !warning ? t("saved") : null;
+  return (
+    <span
+      role="status"
+      data-slot="save-slot"
+      className={cn("ui inline-block w-16 shrink-0 font-mono text-micro tracking-[0.06em] whitespace-nowrap text-muted-foreground uppercase", className)}
+    >
+      {word}
+    </span>
+  );
+}
+
