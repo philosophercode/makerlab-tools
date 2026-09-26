@@ -202,6 +202,7 @@ export async function rankCandidates(
       ...(image.background ? { background: image.background } : {}),
       ...(composite ? { composite: true } : {}),
       ...(view !== "unknown" ? { view } : {}),
+      ...(productBox ? { productBox } : {}),
     },
   }));
 }
