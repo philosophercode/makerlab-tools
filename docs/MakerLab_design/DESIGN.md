@@ -158,16 +158,36 @@ lede → **facts line** (`101 TOOLS · 86 PUBLISHED · 11 DRAFTS · 97 NEED ATTE
 
 ![Header, section bar and facts line](screens/after-inventory-desktop.webp)
 
-### 8.2 Tiles — `Tile`, `TileGroup`
+### 8.2 Tiles — `Tile`, `TileGroup`, `TileGrid`
 
 Whole tile is the link. Mono title + icon → headline number (40px, tabular) with
-the words for what it counts → ≤ 4 facts (`glyph label ……… value`) → optional
-30-day sparkline with a `30 DAYS` caption. Accent left border and accent number
-when the headline is **work waiting for a person**; muted number when it is 0.
+the words for what it counts → facts (`glyph label ……… value`) → optional
+30-day sparkline with a `30 DAYS` caption, **pinned to the tile's foot**. Accent
+left border and accent number when the headline is **work waiting for a
+person**; muted number when it is 0. The parts are always in that order and in
+those places, so tiles side by side read as small multiples.
 
 - **Use** for the admin home: one tile per surface, one column per job, only
   the surfaces the viewer may open (`surfacesFor`), each counted by its own
   loader so one unreadable table costs one tile.
+- **Rows line up.** The columns share one row grid (`TileGrid`; each
+  `TileGroup` is a CSS subgrid): a tile spans two row tracks and fills them, so
+  tiles in the same row share their top and bottom edges across groups, however
+  much each one says. Every group spans the same number of tracks, so a short
+  group ends early rather than stretching its tiles. One column on a phone, in
+  the same order.
+- **Half tiles.** A surface with only a number or a state — People, the Notion
+  mirror, Projects with nothing waiting, a count that could not be read — is a
+  **half tile** (`size="half"`: one track, 28px number, no trend). Pair half
+  tiles in a group so two stand where one full tile would and the grid stays
+  rectangular; a lone half tile goes last in its group.
+- **Say what the number counts**, in the unit and the facts, whenever another
+  number on screen could seem to contradict it: the Inventory tile's "of 104
+  tools need attention" sits beside "Published — in the catalog 100" and
+  "Drafts and archived 4", because the status strip's "100 tools in inventory"
+  counts published tools only.
+- **Sparklines are readable at a glance**: bars at 75% ink, a zero day a 2px
+  stub at 40%, today in the accent ink.
 - **The link's name is the title**; the number and facts are its description,
   so a links list reads "Inventory", not a paragraph.
 - **Accent means waiting work above zero** — open tickets, researched items,
@@ -328,7 +348,7 @@ answer shows its evidence. `PromptInput`: attach, dictate, text, send.
 - **Public**: `TOOLS · PROJECTS · ABOUT · REPORT` in the top bar; status strip
   below (`86 TOOLS IN INVENTORY · LAB OPEN 9AM–9PM`).
 - **Admin**: a section bar under the top bar on every admin page:
-  `OVERVIEW ┃ INTAKE · IMPORT A LIST ┃ INVENTORY · REFRESH · MANUALS ┃
+  `OVERVIEW ┃ INTAKE ┃ INVENTORY · REFRESH · MANUALS ┃
   MAINTENANCE · CORRECTIONS · PROJECTS ┃ PEOPLE · NOTION MIRROR ┃ ⌕ SEARCH ⌘K`,
   dividers between jobs, the most specific current page underlined in the
   accent (an item's page marks its surface), only surfaces the viewer's
@@ -337,9 +357,14 @@ answer shows its evidence. `PromptInput`: attach, dictate, text, send.
   `src/lib/admin/surfaces.ts` — a page added there appears in all three.
 - **Page header**: `// ADMIN / GROUP` (plus `/ SURFACE` as a link on an item's
   page) → title → lede → facts line → actions (`AdminPageHeader`).
-- **Tabs that are pages** (`LinkTabs`): Add equipment's `QUEUE · IMPORTS ·
-  IMPORT A LIST` under one header. Links with `aria-current`, not
-  `role="tab"` — each tab is a URL; a tab the viewer cannot open is not shown.
+- **Tabs that are pages** (`LinkTabs`): Intake's `QUEUE · IMPORTS` under one
+  header. Links with `aria-current`, not `role="tab"` — each tab is a URL; a
+  tab the viewer cannot open is not shown.
+- **One surface per job's page, actions in the header.** Adding equipment is
+  one surface, **Intake**: importing a list is its header action (`IMPORT A
+  LIST`), not a surface, tile or palette entry of its own. A page's primary
+  action sits in its header's actions — Inventory's `ADD INVENTORY`, Refresh's
+  `REFRESH RESEARCH…` (a dialog that picks the tools), Intake's `IMPORT A LIST`.
 - **⌘K palette** (`CommandPalette`): `ADMIN PAGES` (with their group),
   `ACTIONS` (Add equipment, Refresh the catalog), `TOOLS` (display name, the
   official name muted, `DRAFT` marked). Every word typed must match; nothing
@@ -361,6 +386,12 @@ holding the settled work, filtered too.
 - A filter that empties the open list **names itself** (`Nothing here matches
   "belt" · Priority: High`) with Clear. An empty queue says what fills it and
   shows no filter bar.
+- **Typed fields are a button until wanted.** A card's click-to-save controls
+  (status, priority, assignee) are always there; a field somebody writes a
+  sentence into (a ticket's resolution) is `ADD RESOLUTION`, or the saved words
+  on two clamped lines with `EDIT RESOLUTION`, until pressed — then the box
+  opens inline, focused, with Save and Cancel; Escape cancels; focus returns to
+  the button; the outcome is the card's `RowStatus`.
 - Cards may be grouped (intake by batch); the layout stays the same.
 - **Don't** split a queue into Open / Settled tabs; don't box the cards; don't
   hide the controls behind a row click on a phone.
@@ -370,6 +401,10 @@ holding the settled work, filtered too.
 One inline line for an action's outcome, in the muted, warn or bad ink:
 `Saving… → Saved`, a warning when a change landed minus a guarantee, the
 refusal's reason. Always in the DOM as a live region, empty until it speaks.
+**"Saved" only for a write that landed**: a control that saves on change is
+disabled until the page has hydrated (`useHydrated`), a change to the value it
+already holds sends nothing, and an answer that does not match the choice is a
+failure, not a success.
 No toasts (owner decision). A page that could not read its data says so with
 `EmptyState tone="bad"`, never an empty list.
 

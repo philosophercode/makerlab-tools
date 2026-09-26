@@ -228,9 +228,13 @@ Phase 5 extends both. The shape it sets:
   aggregate per loader, only the viewer's, each failing to `null` on its own —
   a tile says "Could not be read", never 0. Waiting counts live on the tiles,
   never in the bar. Every admin page's header is `AdminPageHeader` (crumb from
-  the group, a facts line from the page's own rows). Add equipment is the
-  `src/app/admin/intake/(tabs)/` route group — Queue, Imports, Import a list,
-  as `LinkTabs` links — and the four queues share `QueueList`.
+  the group, a facts line from the page's own rows). Intake is the
+  `src/app/admin/intake/(tabs)/` route group — Queue and Imports as `LinkTabs`
+  links, **Import a list** as its header action, not a surface of its own
+  (amendment 2026-09-25 "Admin polish"; its count rides on the Intake tile via
+  `alsoCounts`) — and the four queues share `QueueList`. The home's tiles sit
+  on one row grid (`TileGrid`/`TileGroup` subgrids, half tiles for a bare
+  number or state).
 - **Server actions check themselves.** A server action is a POST endpoint with
   a generated name, reachable without the page that offers it, so
   `src/app/admin/users/actions.ts` resolves the identity, rate-limits
@@ -1128,5 +1132,12 @@ npm run test:all     # full test suite
   four) call `useRefreshNudge()` (`src/components/admin/use-refresh-nudge.ts`)
   after a successful action; islands that keep their own confirmed state (the
   queues, `RoleSelect`) are unaffected. E2E scenario 8 is the canary.
+- **A save-on-change control is disabled until hydrated** (`useHydrated`,
+  `src/components/admin/use-hydrated.ts`). A select changed before its
+  Suspense boundary hydrated is reset by hydration, and React replays the
+  queued change event with the *reset* value — which once earned an `ok` and a
+  "Saved" on `/admin/users` for a role that never changed. `RoleSelect` also
+  sends nothing for a change to the value it holds, and treats an answer whose
+  `role` differs from the choice as `failed`.
 - The in-memory rate limiter is a per-process singleton; it resets on cold start (fine for abuse prevention). Upstash backs it only when **both** `UPSTASH_REDIS_REST_*` vars are set.
 - Python scripts under `scripts/` use Node with `--experimental-strip-types`; they are migration/maintenance tools, not part of the app build.
