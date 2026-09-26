@@ -253,6 +253,32 @@ describe("proposeChanges", () => {
     ).toMatchObject({ kind: "new", proposed: { url: "https://wenproducts.com/img/dc3401.jpg", width: 1200 } });
   });
 
+  it("carries what accepting the cover needs to clean it: background, composite, product box", () => {
+    const candidate = {
+      url: "https://wenproducts.com/img/dc3401.jpg",
+      pageUrl: null,
+      source: "og" as const,
+      width: 1200,
+      height: 900,
+      contentType: "image/jpeg" as const,
+      rank: 1 as const,
+      reason: "Front view",
+      background: "busy" as const,
+      composite: true,
+      productBox: [0.2, 0.2, 0.8, 0.9] as const,
+    };
+    const research = researchFixture({ images: { candidates: [candidate], cleaned: null } });
+    expect(byField(proposeChanges({ tool: toolFixture({ hasCover: false }), research, includeDescription: false }), "cover_photo")?.proposed).toEqual({
+      url: candidate.url,
+      pageUrl: null,
+      width: 1200,
+      height: 900,
+      background: "busy",
+      composite: true,
+      productBox: [0.2, 0.2, 0.8, 0.9],
+    });
+  });
+
   it("an unidentifiable tool gets a floor check and nothing else", () => {
     const research = researchFixture({ sourceUrls: [], description: "", resources: [] });
     expect(isIdentified(research)).toBe(false);
