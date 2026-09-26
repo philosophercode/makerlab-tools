@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { ROLES, type Role } from "../../lib/db/schema/vocabulary";
 import { cn } from "@/lib/utils";
 import { NativeSelect } from "@/components/ui/native-select";
+import { useHydrated } from "./use-hydrated";
 import type {
   AdminActionError,
   AdminActionResult,
@@ -48,6 +49,9 @@ export function RoleSelect({
 }: RoleSelectProps) {
   const t = useTranslations("admin");
   const selectId = useId();
+  // Disabled until React owns the select: a choice made before hydration is
+  // reset by it and replayed with the old value (see `use-hydrated.ts`).
+  const hydrated = useHydrated();
   const [pending, setPending] = useState(false);
   // The select is controlled from here rather than from the row's props, so it
   // shows what was chosen while the action is in flight. On a refusal it snaps
@@ -74,6 +78,10 @@ export function RoleSelect({
    */
   async function handleChange(next: string) {
     const previous = current;
+    // Choosing what the row already holds is not a change. Asking the server
+    // anyway would earn an `ok` and a "Saved" for a write that never happened —
+    // the phase-4 race, where a replayed change event carried the old value.
+    if (next === previous) return;
     setCurrent(next as Role);
     setError(null);
     setWarning(null);
@@ -82,9 +90,17 @@ export function RoleSelect({
 
     try {
       const result = await action({ userId, role: next });
-      if (result.ok) {
+      if (result.ok && (result.role === undefined || result.role === next)) {
         setSaved(true);
         setWarning(result.warning ?? null);
+        return;
+      }
+      if (result.ok) {
+        // The server answered with a role other than the one chosen: whatever
+        // happened, it is not the change the person asked for. Show what it
+        // holds, and say the change did not land (Article 4).
+        setCurrent(result.role as Role);
+        setError("failed");
         return;
       }
       setCurrent(previous);
@@ -111,7 +127,7 @@ export function RoleSelect({
         id={selectId}
         size="sm"
         value={current}
-        disabled={locked || pending}
+        disabled={locked || pending || !hydrated}
         onChange={(event) => void handleChange(event.target.value)}
       >
         {ROLES.map((option) => (

@@ -152,4 +152,28 @@ test.describe("working a ticket", () => {
       timeout: 15_000,
     });
   });
+
+  test("a resolution is a button until it is wanted, and survives a reload", async ({ page, context, baseURL }) => {
+    await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
+    await page.goto("/admin/maintenance");
+
+    // No box on the card (owner, 2026-09-25): Add resolution opens it, focused.
+    await expect(page.getByRole("textbox", { name: /^Resolution for/ })).toHaveCount(0, { timeout: 15_000 });
+    await page.getByRole("button", { name: /^Add resolution for/ }).click();
+    const box = page.getByRole("textbox", { name: /^Resolution for/ });
+    await expect(box).toBeFocused();
+    await box.fill("Refocused the lens and re-ran the test cut.");
+    await page.getByRole("button", { name: "Save resolution" }).click();
+    await expect(page.getByRole("status").filter({ hasText: "Saved" })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("button", { name: /^Edit resolution for/ })).toBeFocused();
+
+    await page.reload();
+    await expect(page.getByText("Refocused the lens and re-ran the test cut.")).toBeVisible({ timeout: 15_000 });
+
+    // Put the seed back: edit, clear, save.
+    await page.getByRole("button", { name: /^Edit resolution for/ }).click();
+    await page.getByRole("textbox", { name: /^Resolution for/ }).fill("");
+    await page.getByRole("button", { name: "Save resolution" }).click();
+    await expect(page.getByRole("button", { name: /^Add resolution for/ })).toBeVisible({ timeout: 15_000 });
+  });
 });

@@ -128,10 +128,10 @@ test.describe("/admin/users — changing a role", () => {
     baseURL,
   }) => {
     await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
-    // Wait for the islands to hydrate: a select changed before React owns it
-    // has no handler behind it, and the admin layout ships more script since
-    // UI phase 4 (the ⌘K palette), which made that race winnable.
-    await page.goto("/admin/users", { waitUntil: "networkidle" });
+    // No wait for hydration on purpose: `RoleSelect` is disabled until React
+    // owns it (`use-hydrated.ts`), and `selectOption` waits for it to be
+    // enabled. Before that fix a role chosen early looked saved and was not.
+    await page.goto("/admin/users");
 
     const row = page.getByRole("row", { name: new RegExp(DEMO_ACCOUNTS.promotable.name) });
     const select = row.getByRole("combobox", {
