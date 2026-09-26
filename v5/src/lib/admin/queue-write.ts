@@ -92,7 +92,14 @@ export async function runQueueWrite<E extends string>(
 
   const warning = await options.afterCommit?.(gate.identity);
 
-  revalidatePath(options.path);
+  // The change has landed; a refresh that cannot be scheduled from this caller
+  // (the chat's `update_ticket` runs inside a streaming response) must not turn
+  // it into a failure the caller would report as "nothing changed".
+  try {
+    revalidatePath(options.path);
+  } catch (err) {
+    console.warn(`[${options.surface}] could not refresh ${options.path}`, err);
+  }
   // Spread, so a clean success carries no `warning` key at all.
   return { ok: true, ...(warning ? { warning } : {}) };
 }

@@ -170,6 +170,34 @@ describe("the registry as each role sees it", () => {
     }
   );
 
+  /** The staff queue tools, in the chat since 2026-09-25 (MCP access spec amendment). */
+  const STAFF_QUEUE_TOOLS = ["list_open_tickets", "update_ticket", "list_intake_queue"];
+
+  it.each(["anonymous", "user"] as const)("gives %s none of the staff queue tools", (role) => {
+    const names = toolNames(role);
+    for (const name of STAFF_QUEUE_TOOLS) expect(names).not.toContain(name);
+  });
+
+  it.each(["admin", "super_admin"] as const)("gives %s the staff queue tools", (role) => {
+    expect(toolNames(role)).toEqual(expect.arrayContaining(STAFF_QUEUE_TOOLS));
+  });
+
+  it("gates each staff queue tool on its own permission", () => {
+    const tools = Object.fromEntries(CAPABILITIES.flatMap((c) => c.tools).map((t) => [t.name, t]));
+    expect(tools.list_open_tickets.requiredPermission).toBe("maintenance.manage");
+    expect(tools.update_ticket.requiredPermission).toBe("maintenance.manage");
+    expect(tools.list_intake_queue.requiredPermission).toBe("tools.approve");
+  });
+
+  it.each(["anonymous", "user", "admin", "super_admin"] as const)(
+    "never hands %s the staff capability's MCP-only propose_change",
+    (role) => {
+      // Curation's own propose_change is composed per page by the route, not
+      // by the registry, so the registry alone must never offer one.
+      expect(toolNames(role)).not.toContain("propose_change");
+    }
+  );
+
   it("leaves reporting problems and corrections open to everyone", () => {
     expect(toolNames("anonymous")).toEqual(
       expect.arrayContaining(["report_issue", "report_correction"])

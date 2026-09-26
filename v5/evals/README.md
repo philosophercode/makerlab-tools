@@ -117,6 +117,7 @@ file in `cases/` is loaded automatically):
 | `cases/catalog-lookup.yaml` | Finding the right machine from a natural request |
 | `cases/manual-grounding.yaml` | Answering from the record, citing the document, inventing nothing |
 | `cases/tool-calling.yaml` | Calling a capability instead of guessing |
+| `cases/staff-maintenance.yaml` | Staff reading the maintenance queue, and confirming before changing a ticket; students getting no staff tools |
 | `cases/honest-absence.yaml` | Saying "we don't have that" |
 
 Append a case:
@@ -137,6 +138,34 @@ a tool page. `page: tool` requires a `toolId`. `curate: true` (with `page:
 tool`) asks as lab staff curating that tool (refresh research spec §12): the
 `curation` capability is composed with the tool's record, and `propose_change`,
 a write, is stubbed like every other write.
+
+`as: staff` or `as: student` asks as a signed-in person — the demo seed's
+SuperMaker or student — and composes the tool set and prompt for them through
+`capabilitiesForIdentity`, exactly as `/api/chat` does, so a student case sees
+no staff tool at all. Without `as` the harness keeps its historical caller:
+every chat tool, no identity. A behaviour that spans turns (confirm a ticket
+change, then "yes") gives the earlier turns as `history`, oldest first; the
+assertions judge the final turn only:
+
+```yaml
+- id: staff-update-after-yes
+  history:
+    - user: "Mark the resin tank ticket resolved: replaced the tank"
+    - assistant: "I'll mark **Resin tank film clouded** (Form 4) as **Resolved** … Shall I go ahead?"
+  prompt: "Yes, go ahead."
+  context: { page: gallery, as: staff }
+  assert:
+    - kind: called_tool
+      value: update_ticket
+```
+
+The staff cases read a real queue: `list_open_tickets` runs against the eval's
+PGlite database, where `evals/ticket-fixture.ts` adds an open Form 4 ticket
+("Resin tank film clouded") beside the demo seed's Trotec one; `update_ticket`
+is a write and is stubbed.
+
+To run one file or case, name it: `EVAL_CASES=staff-maintenance npm run eval`
+(a comma list of file names without `.yaml`, or case ids).
 
 Run `npm test` after editing a case file: the loader is unit-tested, so a typo,
 an unknown assertion kind or a missing argument fails there — free and offline —
@@ -242,7 +271,8 @@ should be revisited, not worked around.
 | `assertions.ts` | The assertion vocabulary. Pure functions, no I/O |
 | `cases.ts` | YAML subset parser + validation. Fails loudly at load |
 | `fixtures.ts` | Pins the mock catalogue: aliases, spec fields, equipment lexicon |
-| `harness.ts` | `composeCase` (the real prompt + tool set for one case), `stubWrites`, `stubLiveReads` |
+| `harness.ts` | `composeCase` (the real prompt + tool set for one case), `stubWrites`, `stubLiveReads`, `caseMessages` (history + prompt), `evalIdentity` (`as:`) |
+| `ticket-fixture.ts` | `seedEvalTickets` — the open Form 4 ticket the staff cases read |
 | `runner.ts` | Control flow: execute → assert → retry → classify → report |
 | `run.eval.ts` | `npm run eval` entrypoint: the real model call and safety rails |
 | `vitest.config.ts` | Config for `npm run eval` only — never picked up by `npm test` |

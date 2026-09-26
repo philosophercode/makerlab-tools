@@ -682,11 +682,16 @@ MCP callers act as a person, with that person's role and never more
   every write (and `requiresSignIn`) needs a signed-in caller; a read-only token or grant gets no
   writes. The server is built per request. Anonymous gets the six public reads; maintenance
   history carries reporter names only for `maintenance.manage`.
-- **MCP-only tools**: `list_my_reports` (`capabilities/reports.ts`), and `list_intake_queue`,
-  `list_open_tickets`, `update_ticket` (through `lib/admin/ticket-write.ts`, the admin page's own
-  path), `propose_change` (a `chat_proposals` row with `chat_id = "mcp"`, shown on
-  `/admin/refresh` under "Proposals from assistants") in `capabilities/staff.ts`. Nothing over MCP
-  publishes or edits the catalogue (Article 5).
+- **MCP-only tools**: `list_my_reports` (`capabilities/reports.ts`), and `propose_change` in
+  `capabilities/staff.ts` (a `chat_proposals` row with `chat_id = "mcp"`, shown on
+  `/admin/refresh` under "Proposals from assistants"). Nothing over MCP publishes or edits the
+  catalogue (Article 5).
+- **Staff queue tools, chat and MCP** (amendment 2026-09-25): `list_intake_queue`
+  (`tools.approve`), `list_open_tickets` and `update_ticket` (`maintenance.manage`, through
+  `lib/admin/ticket-write.ts`, the admin page's own path) in `capabilities/staff.ts`. The chat
+  offers them only through `capabilitiesForIdentity` (never to anonymous or students), and
+  `staffPromptFragment` tells staff the rule: state the exact change and wait for a yes before
+  `update_ticket`. Reporter names, never emails.
 - **Rate limits**: `mcp` 30/min per IP, `mcpSignedIn` 60/min per token or person, `mcpWrite`
   10/min per identity before each write call.
 - **Sign in with Google is the default way to connect** (amendment 2026-09-24): the page and
