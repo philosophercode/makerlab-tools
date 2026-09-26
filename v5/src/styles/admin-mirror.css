@@ -4,8 +4,8 @@
  * Imported by `MirrorMapping`, `MirrorStatus` and `MirrorControls`, and
  * nothing else. The not-yet-connected state — the steps, the notices and
  * `MirrorConnect` — is on the UI system since 2026-09-25 (spec amendment
- * "Admin polish"), and its rules are gone from here. Every rule reads the `--td-*` tokens
- * `.admin-shell` supplies or the global theme tokens, so light and dark follow
+ * "Admin polish"), and its rules are gone from here. Every rule reads the global
+ * theme tokens (the `--td-*` mapping is retired, public polish), so light and dark follow
  * without a palette of its own. Fields, buttons and the status line are the
  * shared `.admin-*` rules in globals.css; this file adds the panels, the facts
  * list, the mapping table and the problem lines — and makes all of it work at a
@@ -18,8 +18,8 @@
   gap: 14px;
   min-width: 0;
   padding: 20px;
-  border: 1px solid var(--td-line);
-  background: var(--td-surface);
+  border: 1px solid var(--outline);
+  background: var(--surface-container);
 }
 
 .admin-mirror-panel h3 {
@@ -32,7 +32,7 @@
 .admin-mirror-hint {
   margin: 0;
   max-width: 68ch;
-  color: var(--td-muted);
+  color: var(--on-surface-muted);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -48,7 +48,7 @@
 
 .admin-mirror-line {
   margin: 0;
-  color: var(--td-muted);
+  color: var(--on-surface-muted);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -66,7 +66,7 @@
 }
 
 .admin-mirror-line.is-warning {
-  color: var(--td-warning);
+  color: var(--status-warn);
 }
 
 /* ── Status ──────────────────────────────────────────────────────── */
@@ -86,8 +86,8 @@
 
 .admin-mirror-flag {
   padding: 4px 8px;
-  border: 1px dashed var(--td-line);
-  color: var(--td-ink-2);
+  border: 1px dashed var(--outline);
+  color: var(--on-surface);
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.06em;
@@ -95,8 +95,8 @@
 
 .admin-mirror-flag.is-paused {
   border-style: solid;
-  border-color: var(--td-warning);
-  color: var(--td-warning);
+  border-color: var(--status-warn);
+  color: var(--status-warn);
 }
 
 .admin-mirror-facts {
@@ -114,7 +114,7 @@
 }
 
 .admin-mirror-facts dt {
-  color: var(--td-muted);
+  color: var(--on-surface-muted);
   font-family: var(--font-mono);
   font-size: 11px;
   letter-spacing: 0.08em;
@@ -132,7 +132,7 @@
 }
 
 .admin-mirror-result.is-partial {
-  color: var(--td-warning);
+  color: var(--status-warn);
 }
 
 .admin-mirror-result.is-failed {
@@ -149,7 +149,7 @@
 }
 
 .admin-mirror-error.is-partial {
-  border-left-color: var(--td-warning);
+  border-left-color: var(--status-warn);
 }
 
 .admin-mirror-error p {
@@ -166,7 +166,7 @@
 }
 
 .admin-mirror-error.is-partial .admin-mirror-error-label {
-  color: var(--td-warning);
+  color: var(--status-warn);
 }
 
 /* Notion's own words are read by whoever fixes it: keep them, and wrap a long
@@ -181,7 +181,7 @@
 /* ── Mapping ─────────────────────────────────────────────────────── */
 
 .admin-mirror-unset {
-  color: var(--td-muted);
+  color: var(--on-surface-muted);
   font-style: italic;
 }
 

@@ -47,7 +47,7 @@ export default async function AdminLayout({
   const t = await getTranslations("admin");
 
   return (
-    <main className="page-shell admin-shell">
+    <main className="mx-auto w-full max-w-[1600px] px-4 pt-6 pb-24 sm:px-8 sm:pt-8 sm:pb-16">
       <h1 id="admin-title" className="sr-only">
         {t("title")}
       </h1>
