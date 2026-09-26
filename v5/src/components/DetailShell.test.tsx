@@ -105,23 +105,18 @@ describe("DetailShell", () => {
       expect(table.getByText(unit.condition)).toBeInTheDocument();
     });
 
-    it("renders the back-to-tools link", () => {
-      render(<DetailShell tool={toolWithLinks} />);
-      const back = screen.getByRole("link", { name: /Back to all tools/i });
-      expect(back).toHaveAttribute("href", "/");
-    });
-
-    it("renders breadcrumbs ending in the tool name", () => {
+    it("renders breadcrumbs Tools › tool name, with no Inventory step", () => {
       const { container } = render(<DetailShell tool={toolWithLinks} />);
       const crumbs = container.querySelector('[data-slot="tool-breadcrumbs"]') as HTMLElement;
       expect(crumbs).not.toBeNull();
       const scoped = within(crumbs);
       expect(scoped.getByRole("link", { name: "Tools" })).toBeInTheDocument();
-      expect(scoped.getByText("Inventory")).toBeInTheDocument();
+      expect(scoped.getByRole("link", { name: "Tools" })).toHaveAttribute("href", "/");
+      expect(scoped.queryByText("Inventory")).not.toBeInTheDocument();
       expect(scoped.getByText(toolWithLinks.name)).toHaveAttribute("aria-current", "page");
     });
 
-    it("shows recent maintenance without names, and says when there is none", () => {
+    it("shows recent maintenance without names, and leaves the section out when there is none", () => {
       const { rerender } = render(
         <DetailShell
           tool={toolWithLinks}
@@ -135,7 +130,7 @@ describe("DetailShell", () => {
       expect(within(history).getByText("2026-09-20")).toBeInTheDocument();
       expect(within(history).getByText("Open")).toBeInTheDocument();
       rerender(<DetailShell tool={toolWithLinks} />);
-      expect(screen.getByText("No maintenance has been logged for this tool.")).toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Maintenance history" })).not.toBeInTheDocument();
     });
 
     it("mounts without error (smoke for the whole shell)", () => {
@@ -160,30 +155,37 @@ describe("DetailShell", () => {
   });
 
   describe("conditional rendering", () => {
-    it("falls back to 'Contact MakerLab staff' when there are no materials", () => {
+    it("leaves out the materials row when there are no materials (no placeholder)", () => {
       const noMaterials = { ...toolWithLinks, materials: [] };
       render(<DetailShell tool={noMaterials} />);
-      expect(
-        screen.getAllByText("Contact MakerLab staff").length
-      ).toBeGreaterThanOrEqual(1);
+      const specs = document.querySelector('[data-slot="tool-specs"]') as HTMLElement;
+      expect(within(specs).queryByText("Materials")).not.toBeInTheDocument();
+      expect(screen.queryByText("Contact MakerLab staff")).not.toBeInTheDocument();
     });
 
-    it("shows the no-documents empty state when there are no links", () => {
+    it("leaves out Documents & Resources when there are no links (no empty box)", () => {
       const noLinks = { ...toolWithLinks, links: [] };
       render(<DetailShell tool={noLinks} />);
-      expect(screen.getByText("No documents linked yet.")).toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Documents & Resources" })).not.toBeInTheDocument();
+      expect(screen.queryByText("No documents linked yet.")).not.toBeInTheDocument();
     });
 
-    it("omits the PPE-required chip when ppe is empty", () => {
+    it("lays Details beside Documents and the machines in two columns", () => {
+      render(<DetailShell tool={toolWithLinks} />);
+      const columns = document.querySelector('[data-slot="tool-columns"]') as HTMLElement;
+      expect(columns.className).toMatch(/lg:grid-cols-2/);
+      expect(within(columns).getByRole("region", { name: "Details" })).toBeInTheDocument();
+      expect(within(columns).getByRole("region", { name: "Documents & Resources" })).toBeInTheDocument();
+    });
+
+    it("omits the PPE-required chip and the PPE row when ppe is empty", () => {
       const noPpe = { ...toolWithLinks, ppe: [] };
       render(<DetailShell tool={noPpe} />);
-      // The "PPE Required" safety-section term still renders, but the glyph
-      // on the status line is gone: one match instead of two.
-      expect(screen.getAllByText("PPE Required")).toHaveLength(1);
+      expect(screen.queryByText("PPE Required")).not.toBeInTheDocument();
     });
 
-    it("renders the emergency-stop fallback when emergencyStop is null", () => {
-      render(<DetailShell tool={inUseTool} />); // inUseTool.emergencyStop === null
+    it("falls back to the lab's standing guidance when a tool records no safety facts", () => {
+      render(<DetailShell tool={{ ...inUseTool, ppe: [], emergencyStop: null, useRestrictions: null }} />);
       expect(
         screen.getByText(
           "Follow posted lab guidance and notify staff in an emergency."

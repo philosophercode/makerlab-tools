@@ -1,4 +1,4 @@
-import type { MakerLabTool } from "./catalog-types";
+import type { MakerLabTool, ToolStatus } from "./catalog-types";
 
 /**
  * What the gallery is showing, and how that survives a link (UI system phase
@@ -6,7 +6,7 @@ import type { MakerLabTool } from "./catalog-types";
  *
  * Directive-free on purpose, like `admin/inventory-filters.ts`: the island
  * imports it and so do the tests. **Every choice lives in the URL** — search,
- * the three facets, the view, the sort and the grouping — so "the woodshop,
+ * the four facets (status, category, material, location), the view, the sort and the grouping — so "the woodshop,
  * grouped by category, as a table" is a link somebody can send.
  *
  * Parsing drops anything the gallery does not offer (a hand-edited
@@ -34,8 +34,13 @@ export type GallerySort = (typeof GALLERY_SORTS)[number];
 export const GALLERY_GROUPS = ["category", "categoryGroup", "location"] as const;
 export type GalleryGroup = (typeof GALLERY_GROUPS)[number];
 
+/** The tool statuses a Status facet offers, in the order they read. */
+export const GALLERY_STATUSES: readonly ToolStatus[] = ["Available", "In Use", "Training Required", "Offline"];
+
 export interface GalleryState {
   query: string;
+  /** `MakerLabTool.status` — availability (public polish). */
+  status: ToolStatus | null;
   /** `MakerLabTool.category` — the category group the cards are tagged with. */
   category: string | null;
   material: string | null;
@@ -48,6 +53,7 @@ export interface GalleryState {
 
 export const DEFAULT_GALLERY_STATE: GalleryState = {
   query: "",
+  status: null,
   category: null,
   material: null,
   location: null,
@@ -71,6 +77,7 @@ function oneOf<T extends string>(allowed: readonly T[], value: string | undefine
 export function parseGalleryState(params: Params): GalleryState {
   return {
     query: read(params, "q")?.slice(0, 120) ?? "",
+    status: oneOf(GALLERY_STATUSES, read(params, "status")),
     category: read(params, "category") || null,
     material: read(params, "material") || null,
     location: read(params, "location") || null,
@@ -85,6 +92,7 @@ export function toGallerySearchParams(state: GalleryState): URLSearchParams {
   const params = new URLSearchParams();
   // Not trimmed: the search box is controlled by the URL, and trimming would eat the space being typed.
   if (state.query) params.set("q", state.query);
+  if (state.status) params.set("status", state.status);
   if (state.category) params.set("category", state.category);
   if (state.material) params.set("material", state.material);
   if (state.location) params.set("location", state.location);
@@ -96,7 +104,7 @@ export function toGallerySearchParams(state: GalleryState): URLSearchParams {
 
 /** True while a facet narrows the gallery (search is said separately). */
 export function hasFacetFilters(state: GalleryState): boolean {
-  return Boolean(state.category || state.material || state.location);
+  return Boolean(state.status || state.category || state.material || state.location);
 }
 
 // ── Sorting ─────────────────────────────────────────────────────────

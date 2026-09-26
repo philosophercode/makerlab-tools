@@ -12,7 +12,7 @@ import { GlobalChrome } from "../components/GlobalChrome";
 import { DemoDataBanner } from "../components/DemoDataBanner";
 import { ThemeScript } from "../components/ThemeScript";
 import { LocaleHtmlScript } from "../components/LocaleHtmlScript";
-import { getCatalogStats } from "../lib/catalog";
+import { getCatalogStats, getPaletteTools } from "../lib/catalog";
 import { siteConfig } from "../lib/site-config";
 
 export const metadata: Metadata = {
@@ -30,6 +30,7 @@ const brandColorVars = {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const catalogStats = await getCatalogStats();
+  const paletteTools = await getPaletteTools();
 
   // The <html> shell is rendered statically (Cache Components). Locale is
   // request data (a cookie), so it can't be read at the static root — instead,
@@ -43,7 +44,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       </head>
       <body>
         <Suspense fallback={null}>
-          <LocalizedTree catalogStats={catalogStats}>{children}</LocalizedTree>
+          <LocalizedTree catalogStats={catalogStats} paletteTools={paletteTools}>
+            {children}
+          </LocalizedTree>
         </Suspense>
       </body>
     </html>
@@ -52,15 +55,17 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 
 async function LocalizedTree({
   catalogStats,
+  paletteTools,
   children,
 }: {
   catalogStats: Awaited<ReturnType<typeof getCatalogStats>>;
+  paletteTools: Awaited<ReturnType<typeof getPaletteTools>>;
   children: React.ReactNode;
 }) {
   return (
     <NextIntlClientProvider>
       <ChatLauncherProvider>
-        <GlobalChrome stats={catalogStats} />
+        <GlobalChrome stats={catalogStats} paletteTools={paletteTools} />
         <DemoDataBanner />
         {children}
         <Suspense fallback={null}>

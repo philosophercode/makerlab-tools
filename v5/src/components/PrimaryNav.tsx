@@ -15,6 +15,7 @@ import {
   type ClientIdentity,
   type SignInStart,
 } from "../lib/auth/sign-in-client";
+import { publishIdentity } from "../lib/auth/identity-store";
 
 const LINKS = [
   { href: "/", key: "tools", match: (path: string) => path === "/" || path.startsWith("/tools") },
@@ -54,7 +55,10 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
     const controller = new AbortController();
     let active = true;
     fetchIdentity(controller.signal).then((resolved) => {
-      if (active) setIdentity(resolved);
+      if (!active) return;
+      setIdentity(resolved);
+      // The ⌘K palette beside the nav offers what this role opens (public polish).
+      publishIdentity(resolved);
     });
     return () => {
       active = false;

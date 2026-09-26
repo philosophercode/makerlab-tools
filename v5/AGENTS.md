@@ -980,8 +980,9 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/auth/permissions.ts` | `statement` / `ac` / `roles` / `can()` — what each role may do |
 | `src/lib/auth/super-admins.ts` | `AUTH_SUPER_ADMIN_EMAILS`, the lock-out floor |
 | `src/lib/auth/floor-role.ts` | `reconcileSuperAdminFloor` — writes the floor's role and lifts its ban onto the row, because the admin plugin reads the row and not `can()` |
-| `src/app/admin/layout.tsx` | The `/admin` front door — signed in? holds an admin permission? — then the section bar and ⌘K palette on every admin page |
+| `src/app/admin/layout.tsx` | The `/admin` front door — signed in? holds an admin permission? — then the section bar on every admin page, and `PaletteScope` telling the header's ⌘K who this is |
 | `src/lib/admin/surfaces.ts` / `src/lib/data/admin-overview.ts` | Every admin surface once (tiles, bar, palette, each with its permission) / the home's count loaders |
+| `src/components/palette/*` | The ⌘K palette on every page: `CommandPalette`, `HeaderSearch`, `PaletteScope`, `palette-match` |
 | `src/app/admin/inventory/page.tsx` | The review table (`tools.edit`), uncached, filtered from the URL |
 | `src/app/admin/users/actions.ts` | `setUserRole` / `setUserBanned` — the app's first server actions |
 | `src/lib/data/users.ts` | The `/admin/users` roster, read straight from Postgres |
@@ -1005,7 +1006,7 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/data/manual-documents.ts` | `manual_documents` / `manual_pages`: the one-transaction write, current-PDF lists for the step and backfill, editor states, tool-page contents, research's stored-text lookups |
 | `src/lib/data/manual-chunks.ts` | `manual_chunks`: the one-transaction passage write, which documents need passages, the chat's view of a tool's manuals, Re-process, the `/admin/research` counts |
 | `src/lib/capabilities/manuals.ts` / `src/lib/chat/tool-manuals.ts` | `search_manual` and its prompt (outline of the focused tool's searchable manuals); what the chat route loads to decide what is searched and what is attached |
-| `src/app/admin/research/page.tsx` | Manual counts by state (`tools.edit`) |
+| `src/app/admin/research/page.tsx` + `actions.ts` | **Manuals** (`tools.edit`): the state strip, the library table (`listManualLibrary`) and Re-process (`reprocessLibraryManual`) |
 | `scripts/index-manuals.ts` | `npm run manuals:index` — the manual-text and passages backfill (tokens and cost printed) |
 | `src/workflows/archive-manuals.ts` | `archiveManuals(resourceIds)` — one step per resource |
 | `src/lib/data/manual-archives.ts` / `src/lib/cron/manual-archive.ts` | The archive's key, stale-copy release and the nightly due list; the cron stage |
@@ -1031,11 +1032,10 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 - Server components by default; add `"use client"` only when needed.
 - Server-only modules import `"server-only"` (e.g. `rate-limit.ts`).
 - Theme/brand via **CSS variables** (`--primary`, `--background`, …) — `[data-theme="light|dark"]` on `<html>`, never hardcoded colors.
-- **The `.td-*` utilities are global; their `--td-*` tokens are not.** They are
-  declared on `.tool-detail`, and `.admin-shell` supplies its own mapped onto
-  the global theme tokens. Using a `.td-*` class anywhere else means supplying
-  the tokens there too: an unresolvable `var()` does not fall back, it computes
-  to `unset`, so the rule fails *silently and wrongly* rather than visibly.
+- **The `--td-*` tokens and `.td-*` classes are gone** (public polish). Legacy
+  CSS reads the global theme tokens directly. An unresolvable `var()` does not
+  fall back — it computes to `unset` — so a rule copied from old history that
+  names one fails *silently and wrongly*; use the theme tokens.
 - **UI system** (spec `docs/specs/2026-09-25-ui-system-design.md`, being
   adopted phase by phase): Tailwind 4 theme + utilities with no preflight,
   from `src/styles/ui.css` (imported before `globals.css`); shadcn primitives
@@ -1067,7 +1067,8 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   are URLs: links with `aria-current`, never `role="tab"`) and `queue/QueueList`
   (search + facets over a queue, open work on the page, settled behind a
   disclosure) in `system/`; `AdminNav`, `AdminPageHeader` and `CommandPalette`
-  (shadcn `Command` over `cmdk` in `ui/dialog`) in `admin/`. An inline outcome
+  (shadcn `Command` over `cmdk` in `ui/dialog`; since public polish in
+  `palette/`, mounted in the site header for everybody — see below) in `admin/`. An inline outcome
   is `RowStatus` (codes, or `tone` + words); a page that could not read its
   data is `EmptyState tone="bad"`. `admin-row-status`, `admin-empty`,
   `admin-section*` and the `admin-queue*` rules are gone.
@@ -1081,8 +1082,20 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   `tool/UnitsTable`, the maintenance history from `getToolMaintenanceHistory` —
   no names). `app/not-found.tsx` / `app/error.tsx` exist. `account.css`,
   `mcp.css`, the `.tool-detail` palette and the gallery/projects legacy rules
-  are gone; `.admin-shell` still maps `--td-*` for `td-panel`. The chat is
-  phase 5b.
+  are gone. The chat is phase 5b.
+  **Public polish**: every list's toolbar is the one `FilterBar` (search with
+  the count, then facets left and `secondary`/`end` right; a phone **Filters**
+  `Sheet`, `ui/sheet.tsx`); view switches are `system/SegmentedControl`; the
+  gallery table has a Status facet, Columns and sorting on every column
+  (`useGalleryColumns`). The ⌘K palette (`palette/CommandPalette`) is in the
+  header on every page (`HeaderSearch`): published tools from the root layout
+  (`getPaletteTools`), the role from `PrimaryNav`'s identity
+  (`lib/auth/identity-store.ts`), and on admin pages the server-resolved role
+  and draft index via `PaletteScope`. Floating menus use `FROSTED`
+  (`system/frosted.ts`). The root always shows its scrollbar so the header
+  never moves (`e2e/header-stability.spec.ts`). Save-on-click controls report
+  "Saved" in a reserved `SaveSlot` (`admin/RowStatus.tsx`). The tool page is
+  two columns on desktop and draws no empty section.
 - All branding strings come from `siteConfig` (`@/lib/site-config`).
 - Every API route is **rate-limited by identity** before expensive work — user id when signed in, hashed IP when not.
 - Authorization is **always** `can(subject, permission)` from `src/lib/auth/permissions.ts`. Never compare role names, and never gate inside a capability tool's `run()`.

@@ -6,6 +6,7 @@ import { seedManual, seedTool } from "../../../test/manuals/seed";
 import {
   countManualsByState,
   listDocumentsNeedingPassages,
+  listManualLibrary,
   listToolManualsForChat,
   markResourceManualsStale,
 } from "../data/manual-chunks";
@@ -162,6 +163,24 @@ describe("the readers", () => {
       pages: 2 + 1 + 1 + 0,
       passages: 2,
     });
+
+    // The Manuals page's table: the same five buckets, one row per current PDF, with its tool.
+    const library = await listManualLibrary(db);
+    expect(library.map((row) => [row.title, row.state]).sort()).toEqual(
+      [
+        ["Bare", "processing"],
+        ["Broken", "failed"],
+        ["Pending", "textOnly"],
+        ["Ready", "searchable"],
+        ["Scan", "noText"],
+      ].sort()
+    );
+    const readyRow = library.find((row) => row.title === "Ready")!;
+    expect(readyRow).toMatchObject({ toolName: "Form 4", pageCount: 2, passages: 2, resourceId: ready.resourceId });
+    const counts = await countManualsByState(db);
+    for (const state of ["searchable", "textOnly", "noText", "failed", "processing"] as const) {
+      expect(library.filter((row) => row.state === state)).toHaveLength(counts[state]);
+    }
   });
 
   it("list a tool's manuals for the chat with access applied", async () => {

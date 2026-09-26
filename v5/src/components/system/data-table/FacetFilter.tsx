@@ -53,7 +53,7 @@ export function FacetFilter({ label, value, options, onChange, anyLabel }: Facet
           className={cn("border-input", current && "border-primary-ink text-foreground")}
         >
           <span className="text-muted-foreground">{label}</span>
-          {current ? <span className="font-sans text-xs normal-case">{current.label}</span> : null}
+          {current ? <span className="max-w-[10rem] truncate font-sans text-xs normal-case">{current.label}</span> : null}
           <ChevronDown aria-hidden="true" className="text-muted-foreground" />
         </Button>
       </DropdownMenuTrigger>

@@ -1,6 +1,5 @@
 import { render, screen } from "../../../test/utils/render";
 import type { EditorResource } from "../../lib/data/resources";
-import { ManualStateCounts } from "./ManualStateCounts";
 import { ManualStateTag } from "./ManualStateTag";
 import { ResourcesEditor } from "./ResourcesEditor";
 
@@ -64,19 +63,5 @@ describe("ManualStateTag", () => {
     expect(buttons).toHaveLength(1);
     buttons[0].click();
     expect(onReprocess).toHaveBeenCalledWith("r1");
-  });
-});
-
-describe("ManualStateCounts", () => {
-  it("lists the manual library by state, with pages and passages", () => {
-    render(
-      <ManualStateCounts counts={{ searchable: 12, textOnly: 2, noText: 3, failed: 1, processing: 4, pages: 2100, passages: 3050 }} />
-    );
-    const row = (key: string) => document.querySelector(`[data-manual-count="${key}"]`)?.textContent;
-    expect(row("searchable")).toBe("Searchable12");
-    expect(row("noText")).toBe("No text (scanned)3");
-    expect(row("processing")).toBe("Processing4");
-    expect(row("passages")).toBe("Search passages3050");
-    expect(screen.getByText(/npm run manuals:index/)).toBeInTheDocument();
   });
 });

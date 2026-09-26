@@ -58,6 +58,14 @@
 
 html {
   min-height: 100%;
+  /* The scrollbar is always there, so a page that does not scroll lays the
+     header out at the same width as one that does (public polish, header
+     stability). The themed ::-webkit-scrollbar below is a classic,
+     space-taking scrollbar even where the OS overlays, and Chromium does not
+     honour `scrollbar-gutter` for a styled one — so `overflow-y: scroll`,
+     with the gutter kept for the browsers that do. */
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
   background: var(--background);
 }
 
@@ -321,8 +329,8 @@ body::selection {
   line-height: 1;
 }
 
-/* A card plate on the page, hairline border — no glass, no glow (DESIGN.md §5:
-   retired flourishes; UI system phase 5a). */
+/* A frosted plate (DESIGN.md §3; public polish): colour, blur and border are
+   the `FROSTED` utilities (system/frosted.ts), with a solid fallback. */
 .profile-menu-panel {
   position: absolute;
   top: calc(100% + 10px);
@@ -330,8 +338,6 @@ body::selection {
   z-index: 40;
   width: 280px;
   max-width: calc(100vw - 32px);
-  border: 1px solid var(--outline-strong);
-  background: var(--surface-container);
   color: var(--on-surface);
   text-align: start;
 }
@@ -341,7 +347,7 @@ body::selection {
   align-items: flex-start;
   gap: 12px;
   padding: 16px;
-  background: var(--surface-container-low);
+  border-bottom: 1px solid var(--outline);
   text-transform: none;
 }
 
@@ -492,7 +498,8 @@ body::selection {
   color: var(--on-surface);
 }
 
-.nav-actions button {
+/* The theme toggle only: the ⌘K field beside it is a system component. */
+.nav-actions .theme-toggle {
   width: 32px;
   height: 32px;
   border: 1px solid var(--outline);
@@ -500,7 +507,7 @@ body::selection {
   color: var(--on-surface-muted);
 }
 
-.nav-actions button:hover {
+.nav-actions .theme-toggle:hover {
   border-color: var(--primary-ink);
   color: var(--primary-ink);
 }
@@ -572,12 +579,6 @@ body::selection {
   50% {
     opacity: 0.35;
   }
-}
-
-.page-shell {
-  width: min(1600px, 100%);
-  margin: 0 auto;
-  padding: 32px;
 }
 
 /* Heading and paragraph defaults: `base` layer, like the ones at the top. */
@@ -1253,10 +1254,6 @@ body::selection {
     color: transparent;
   }
 
-  .page-shell {
-    padding: 24px 16px 96px;
-  }
-
   
 
   /* Stack the filters and put the dropdown panels back in normal flow so they
@@ -1324,21 +1321,6 @@ body::selection {
 }
 
 
-.td-panel {
-  background: var(--td-surface);
-  border: 1px solid var(--td-line);
-  border-radius: var(--td-radius-md);
-  padding: 24px 28px;
-}
-
-@media (max-width: 560px) {
-
-  .td-panel {
-    min-width: 0;
-    padding: 18px;
-  }
-}
-
 /* ---------------------------------------------------------------------------
    RTL support (Arabic, Hebrew)
    The chat FAB + sheet are pinned to the right with physical `right` offsets;
@@ -1390,32 +1372,6 @@ body::selection {
   color: var(--status-bad);
   font-weight: 500;
   text-transform: uppercase;
-}
-
-/* ── /admin (data platform spec §6) ─────────────────────────────────
-   The technical-schematic system, applied to a working surface rather than a
-   display one: 0px radii, mono metadata, tonal separation instead of borders
-   between sections. The table is the only place in the app that shows an email
-   address, and it is set in mono because it is an identifier, not prose. */
-.admin-shell {
-  padding-bottom: 64px;
-
-  /* What is left of admin's legacy CSS — `.td-panel` on the manual counts, the
-     mirror page's panels (`admin-mirror.css`) — reads the tool-detail tokens,
-     which are scoped to `.tool-detail`, a room no admin page is in. An
-     unresolvable `var()` does not fall back — it computes to `unset` — so they
-     are supplied here, mapped onto the global theme tokens, until phase 5
-     retires `--td-*` (UI system spec §6.1). Headers, empty states and status
-     lines are system components since phase 4 and read no `--td-*`. */
-  --td-surface: var(--surface-container);
-  --td-line: var(--outline);
-  --td-muted: var(--on-surface-muted);
-  --td-ink-2: var(--on-surface);
-  --td-accent: var(--primary);
-  --td-accent-soft: color-mix(in srgb, var(--primary) 14%, transparent);
-  /* Not an error (nothing failed to save) and not muted (somebody has to
-     notice): the global warn status, which swaps itself for dark mode. */
-  --td-warning: var(--status-warn);
 }
 
 /* The nav and status strip stick (DESIGN.md §8.1): a heading, link, button or
@@ -1543,7 +1499,7 @@ body::selection {
   flex-direction: column;
   gap: 8px;
   padding: 12px 16px;
-  border: 1px solid var(--td-warning);
+  border: 1px solid var(--status-warn);
   background: var(--surface-container-low);
   color: var(--on-surface);
   font-size: 13px;
@@ -1644,7 +1600,7 @@ fieldset.admin-field legend {
   flex-wrap: wrap;
   gap: 8px;
   align-items: baseline;
-  color: var(--td-warning);
+  color: var(--status-warn);
   font-family: var(--font-body);
   font-size: 12px;
   letter-spacing: normal;
@@ -1653,9 +1609,9 @@ fieldset.admin-field legend {
 
 .admin-field-theirs button {
   padding: 2px 8px;
-  border: 1px solid var(--td-warning);
+  border: 1px solid var(--status-warn);
   background: transparent;
-  color: var(--td-warning);
+  color: var(--status-warn);
   cursor: pointer;
   font-family: var(--font-mono);
   font-size: 11px;

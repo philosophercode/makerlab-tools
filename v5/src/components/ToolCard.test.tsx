@@ -63,18 +63,18 @@ describe("ToolCard", () => {
     expect(img).toHaveAttribute("alt", "");
   });
 
-  it("says the status as a glyph and a word — never a dot alone", () => {
-    render(<ToolCard tool={inUseTool} />);
-    expect(screen.getByText("In use")).toBeInTheDocument();
-    expect(document.querySelector('[data-glyph="idle"]')).not.toBeNull();
-  });
-
-  it("marks an offline tool bad, and still links it", () => {
+  it("shows the image, name and category only — no availability or training tags", () => {
     render(<ToolCard tool={offlineTool} />);
-    expect(screen.getByText("Offline")).toBeInTheDocument();
-    expect(document.querySelector('[data-glyph="bad"]')).not.toBeNull();
     expect(screen.getByRole("heading", { name: "Trotec Speedy 400" })).toBeInTheDocument();
     expect(screen.getByRole("link")).toHaveAttribute("href", "/tools/trotec-speedy-400");
+    expect(screen.queryByText("Offline")).not.toBeInTheDocument();
+    expect(document.querySelector("[data-glyph]")).toBeNull();
+  });
+
+  it("does not tag an in-use tool either", () => {
+    render(<ToolCard tool={inUseTool} />);
+    expect(screen.queryByText("In use")).not.toBeInTheDocument();
+    expect(screen.queryByText(/training/i)).not.toBeInTheDocument();
   });
 
   it("takes the heading level it is given (h3 under a group)", () => {

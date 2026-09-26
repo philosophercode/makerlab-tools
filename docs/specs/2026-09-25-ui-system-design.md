@@ -1249,6 +1249,98 @@ Same branch, three more owner requests after the amendment above:
   lab date. `now` is injectable, and the tests run on a fixed clock with a
   23:30 Eastern case, a 00:30-next-day case and a `LAB_TIMEZONE=UTC` case.
 
+### 2026-09-25 — Public polish (owner requests after phase 5a)
+
+Branch `v5/public-polish`. Owner requests after phase 5a and admin polish:
+bring the admin's quality to the public Tools pages, steady the header, make
+⌘K work everywhere, and finish the Manuals and queue pages. No data model or
+permission changes. Where the app now differs from the amendments above:
+
+- **Header does not move.** Measured with visible scrollbars, the whole bar
+  shifted 8px (1440 → 1432px client width) between a page that scrolls and one
+  that does not (`/projects`, `/admin/research` against `/`): the themed
+  `::-webkit-scrollbar` is a classic scrollbar even where the OS overlays.
+  The root now reserves the gutter (`scrollbar-gutter: stable`), and
+  `e2e/header-stability.spec.ts` asserts every header control's box is
+  identical across `/`, `/projects`, `/about`, a tool page and admin pages at
+  1440 and 390, with scrollbars shown.
+- **Frosted menus.** The profile menu (and the ⌘K dialog) sit on a
+  `--surface-frosted` plate: the card colour at 88% with
+  `backdrop-filter: blur(16px) saturate(140%)`, a hairline `--outline-strong`
+  border, no shadow; solid `--surface-container` where `backdrop-filter` is
+  unsupported. This reverses DESIGN.md §5's "no glass" for overlays only, by
+  owner request: text over a moving page must stay readable (AA at 88%).
+- **⌘K everywhere.** The palette moved out of the admin layout into the site
+  header (`SitePalette`): pages (Tools, Projects, About, MCP), categories (a
+  filtered gallery link), tools by display name, official name or slug, and —
+  for a viewer whose role opens them — admin pages and actions. A header
+  field, "Search tools… ⌘K", opens it (an icon button on a phone). `/` still
+  focuses the page's own filter search.
+- **Gallery toolbar.** One `FilterToolbar` layout shared with the inventory:
+  full-width search, then facets left and Sort / Group by / view right, the
+  count as a quiet line; on a phone a **Filters** button opening a sheet with
+  the facets (active count on the button). The view switch is a
+  `SegmentedControl`: both halves outlined, the chosen one filled.
+- **Cards** show the image, the display name and the category only;
+  availability and training live on the tool page and in the table.
+- **Gallery table** gained a Status facet, the Columns menu, and sorting on
+  every column, over the same filter state as the grid.
+- **Tool page, denser.** A smaller image beside the title; the status line on
+  one line; Details, Documents, machines and specs in two columns on desktop;
+  Safety as a compact block; empty sections are left out rather than drawn
+  as placeholder boxes. The crumb is `Tools › <tool>`.
+- **Manuals** (`/admin/research`): a state strip, the manuals as a
+  `DataTable` with state facets and **Re-process**, plain-English help.
+- **Queues.** Controls in one aligned row, `RowStatus` inline beside them in a
+  reserved slot, the resolution editor in its own full-width slot, so nothing
+  moves when "Saved" appears or the editor opens.
+
+As built (same branch):
+
+- **Header.** `scrollbar-gutter: stable` alone did not fix it — Chromium
+  ignores the gutter for a styled `::-webkit-scrollbar` — so the root has
+  `overflow-y: scroll` as well. The active nav link already changed colour and
+  underline only, so no width reservation was needed. The frosted plate is
+  the `FROSTED` utility string (`system/frosted.ts`, `supports-[backdrop-filter]`
+  variants), shared by the profile menu and the palette.
+- **Toolbar.** `FilterBar` itself is the shared layout (every list already
+  used it); new props `secondary` and `activeCount`. The count sits at the end
+  of the search row rather than at the start of row 2, which is what lets row 2
+  fit at 1024. With two facets and a grouping set, the right group wraps under,
+  right-aligned. `ui/sheet.tsx` is added (Radix Dialog, fade only).
+- **Gallery.** `?status=` joins the URL vocabulary; room and zone are one
+  column; official name and materials are optional columns. Column visibility
+  is page state, shared by every grouped section's table.
+- **Tool page.** The crumb is `// TOOLS › NAME`; "Back to all tools" is gone
+  (the crumb is the way back).
+- **⌘K.** Messages moved from `admin.palette` to `palette`. The admin section
+  bar no longer carries its own palette button — the header's field is on
+  every page. Pages, categories and tools for everybody; admin pages and
+  actions only through `surfacesFor(role)`.
+- **Manuals.** New read `listManualLibrary` (same current-PDF rule and buckets
+  as `countManualsByState`, asserted against it) and action
+  `reprocessLibraryManual` (`tools.edit`, tested for the adjacent-permission
+  refusal). "Run npm run manuals:index" is replaced by a sentence for staff;
+  the CLI stays in `v5/AGENTS.md`.
+- **Removed.** `ManualStateCounts`, `.td-panel`, the `.admin-shell` `--td-*`
+  mapping (the mirror and editor rules read the theme tokens), `.page-shell`,
+  the profile panel's own plate rules and the header's catch-all button rule:
+  legacy CSS 1,801 → 1,750 lines (85 deleted); 74 dead message lines across
+  the 12 locales; the tool page's placeholder branches.
+- **Measured** (scratch database: demo seed + 16 tools, 6 manuals, tickets,
+  corrections, projects; light): tool page (Form 4) 1,694 → 1,095 px desktop,
+  2,327 → 1,698 phone; a sparse tool 1,644 → 900 / 2,164 → 1,342; gallery
+  phone 2,602 → 2,391 (no tags on cards); gallery table 1,084 → 1,124 desktop
+  (the two-row toolbar). Manuals grew (900 → 944 / 889 → 1,454): it now lists
+  the manuals. Maintenance 1,426 → 1,381 desktop. Screens at 1440 / 1024 / 390
+  (toolbar also 800), both themes: `v5/.livecheck/public-polish/`, not
+  committed.
+- **Not done:** the owner's "Remove instead of Ban" on the People page was
+  not built on this branch (it needs the owner's direct go-ahead as an
+  auth/security change); Ban is unchanged.
+- **Packages added:** none.
+
+
 ### 2026-09-25 — Admin tiles cleanup (owner feedback on the overview)
 
 Branch `v5/admin-tiles-cleanup`. Owner feedback with a screenshot of `/admin`

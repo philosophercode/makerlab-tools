@@ -9,6 +9,7 @@ import { listManualContentsForTool, type ManualContents } from "./data/manual-do
 import { listMaintenanceHistoryForTool, type ToolMaintenanceEntry } from "./data/maintenance";
 import { dataSubstrate, getDb } from "./db/client";
 import type { CatalogStats, MakerLabTool } from "../components/catalog-types";
+import type { PaletteTool } from "../components/palette/palette-types";
 
 /**
  * The catalogue the app reads (spec §3.9, §3.10).
@@ -86,4 +87,25 @@ export async function getToolMaintenanceHistory(toolId: string): Promise<ToolMai
   cacheLife(CATALOG_CACHE);
 
   return listMaintenanceHistoryForTool(toolId, { db: await getDb(), limit: 10 });
+}
+
+/**
+ * The ⌘K palette's tools for everybody (public polish): the published
+ * catalogue, narrowed to what the palette matches on and groups by. Cached
+ * with the catalogue, so it costs the root layout nothing after the first read.
+ */
+export async function getPaletteTools(): Promise<PaletteTool[]> {
+  "use cache";
+  cacheTag("catalog");
+  cacheLife(CATALOG_CACHE);
+
+  const tools = await getCatalogTools();
+  return tools.map((tool) => ({
+    id: tool.id,
+    slug: tool.slug,
+    name: tool.name,
+    officialName: tool.officialName ?? null,
+    category: tool.category || null,
+    published: true,
+  }));
 }

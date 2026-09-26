@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { useChatLauncher } from "./ChatLauncherContext";
 import { AdminLink } from "./AdminLink";
 import { ProfileAvatar } from "./ProfileAvatar";
+import { FROSTED } from "./system/frosted";
 import { canAddEquipment } from "../lib/capabilities/access";
 import { canReachAdmin } from "../lib/auth/permissions";
 import {
@@ -185,7 +186,7 @@ export function ProfileMenu({ identity }: { identity: ClientIdentity }) {
       </button>
 
       {isOpen ? (
-        <div className="profile-menu-panel">
+        <div className={`profile-menu-panel ${FROSTED}`}>
           <div className="profile-menu-header">
             <ProfileAvatar image={identity.image} initial={initial} size={40} />
             <div className="profile-menu-who">
