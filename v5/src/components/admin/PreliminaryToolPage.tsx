@@ -738,8 +738,9 @@ function ProposedRecord({
   const tEditor = useTranslations("admin.inventory.editor");
   const proposed = research.category;
   const offersNew = proposed.name.trim() !== "" && !categories.some((c) => c.id === proposed.existingId);
-  // The specs ride in the description box, so either marks it.
-  const textUpdated = updated.includes("description") || updated.includes("specs");
+  // Only the description rides in this box now: the specs are not folded into it
+  // (amendment "Short descriptions"), so a specs-only redo does not mark it.
+  const textUpdated = updated.includes("description");
   const linksUpdated = updated.includes("links");
 
   return (
@@ -1219,15 +1220,13 @@ function initialDraft(
 }
 
 /**
- * The description, with research's specs appended as a Markdown list.
- *
- * `tools` has no specs column (§4.4), and a spec sheet research read is worth
- * keeping, so it rides in the description where the tool page renders Markdown
- * — as text the reviewer can edit or delete before it is saved.
+ * The description research drafted, alone. The specs are no longer appended
+ * as a Markdown list (gateway spec amendment 2026-09-26 "Short descriptions"):
+ * a description says what the tool is and what it is for, touching on a spec
+ * or two in prose. Research's specs still back its evidence and confidence.
  */
 export function proposedDescription(research: ResearchResult): string {
-  const specs = research.specs.map((spec) => `- **${spec.label}:** ${spec.value}`).join("\n");
-  return [research.description.trim(), specs].filter(Boolean).join("\n\n");
+  return research.description.trim();
 }
 
 /**

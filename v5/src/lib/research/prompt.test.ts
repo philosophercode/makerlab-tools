@@ -1,3 +1,4 @@
+import { DESCRIPTION_RULES } from "../description-rules";
 import { RESEARCH_MAX_WEB_SEARCHES, REVIEWER_NOTE_MAX_CHARS } from "../intake/limits";
 import { parseSearchFindings } from "./model-output";
 import { MANUAL_TEXT_LABEL, SEARCH_TEXT_LABEL, buildReadPrompt, buildSearchPrompt, researchSystemPrompt, type ReadPromptInput } from "./prompt";
@@ -280,28 +281,29 @@ describe('search text fallback and description depth (amendment "Search text fal
     expect(researchSystemPrompt("search")).not.toContain(MANUAL_TEXT_LABEL);
   });
 
-  it("asks for a real paragraph, sourced, and less when the pages say little", () => {
+  it('asks for a short description, sourced, and less when the pages say little (amendment "Short descriptions")', () => {
     const read = researchSystemPrompt("read");
-    expect(read).toContain("**The description is a real paragraph of 4–6 sentences, 550–800 characters**");
-    expect(read).toContain("what students could make or do with it in a makerspace");
-    expect(read).toContain("**key capabilities and specs as the pages state them**");
-    expect(read).toContain("**when the pages say little, write less**");
+    expect(read).toContain(DESCRIPTION_RULES);
+    expect(read).toContain("**one to three sentences**, at most 5 for a complicated machine, about 450 characters or fewer");
+    expect(read).toContain("what students use it for in a makerspace");
+    expect(read).toContain("at most one or two headline specs");
+    expect(read).toContain("**Never a list of specs**");
+    expect(read).toContain("The full spec sheet goes in `specs`, not in the description.");
+    expect(read).toContain("**When the pages say little, write less**");
     expect(read).toContain("never fill a gap from memory");
-    expect(read).toContain('"description": "4–6 sentences, 550–800 characters');
-    expect(read).not.toContain("The description is one short paragraph");
+    expect(read).toContain('"description": "1–3 sentences (max 5 for a complicated machine), about 450 characters or fewer');
+    expect(read).toContain("no spec list");
+    for (const gone of ["4–6 sentences", "550–800 characters", "Reach 550 characters", "real paragraph", "key capabilities and specs"]) {
+      expect(read).not.toContain(gone);
+    }
   });
 });
 
 describe('Luna research tuning (amendment "Luna research tuning")', () => {
   const read = researchSystemPrompt("read");
 
-  it("orders the description and gives it a length to aim for", () => {
-    expect(read).toContain("in this order: (1) **open with what the tool is** — its type as the product page states it");
-    expect(read).toContain("(2) **one concrete sentence on what students could make or do with it in a makerspace**");
-    expect(read).toContain("with the pages' own numbers");
-    expect(read).toContain("550–800 characters");
-    expect(read).toContain("Reach 550 characters whenever the pages give enough facts to");
-    expect(read).not.toContain("Aim for 450–800 characters");
+  it("orders the description: what it is, then what students use it for", () => {
+    expect(read).toContain("**Open with what the tool is** — its type, make and model — then say **what students use it for in a makerspace**");
   });
 
   it("keeps the description strictly factual: nothing the pages do not state", () => {
@@ -347,7 +349,7 @@ describe('Luna research tuning (amendment "Luna research tuning")', () => {
   it("changes nothing in the search pass's own instructions", () => {
     const search = researchSystemPrompt("search");
     expect(search).not.toContain("ppeRequired");
-    expect(search).not.toContain("Aim for 450–800 characters");
+    expect(search).not.toContain(DESCRIPTION_RULES);
   });
 });
 
