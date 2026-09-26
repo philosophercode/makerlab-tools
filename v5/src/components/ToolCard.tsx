@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { useTranslations } from "next-intl";
 import type { MakerLabTool, ToolStatus } from "./catalog-types";
-import { StatusGlyph, type StatusTone } from "./system/StatusGlyph";
+import type { StatusTone } from "./system/StatusGlyph";
 import { ToolImage } from "./ToolImage";
 
 interface ToolCardProps {
@@ -26,13 +25,13 @@ export const TOOL_STATUS_KEY: Record<ToolStatus, "available" | "inUse" | "traini
 };
 
 /**
- * One tool in the gallery grid (UI system phase 5a): the product image on its
- * plate, the name, and one mono line — status as glyph + word, then the
- * category. The whole card is the link. Replaces the legacy `tool-card` rules
- * and the pulsing orange `card-status-dot`, which said "in use" by colour alone.
+ * One tool in the gallery grid: the product image on its plate, the display
+ * name and the category — nothing else (owner, public polish). Availability
+ * and training are the tool page's and the table view's (a column and a
+ * facet); on a card they were tags that made every card read the same. The
+ * whole card is the link.
  */
 export function ToolCard({ tool, headingLevel = 2 }: ToolCardProps) {
-  const t = useTranslations("gallery");
   const Heading = headingLevel === 2 ? "h2" : "h3";
   return (
     <Link
@@ -50,11 +49,7 @@ export function ToolCard({ tool, headingLevel = 2 }: ToolCardProps) {
         <Heading className="font-heading text-[15px] leading-tight font-medium uppercase group-hover:text-primary-ink">
           {tool.name}
         </Heading>
-        <span className="mt-auto flex flex-wrap items-baseline gap-x-2 gap-y-1 font-mono text-label text-muted-foreground uppercase">
-          <StatusGlyph tone={TOOL_STATUS_TONE[tool.status]} label={t(`status.${TOOL_STATUS_KEY[tool.status]}`)} />
-          <span aria-hidden="true">·</span>
-          <span>{tool.category}</span>
-        </span>
+        <span className="mt-auto font-mono text-label text-muted-foreground uppercase">{tool.category}</span>
       </span>
     </Link>
   );
