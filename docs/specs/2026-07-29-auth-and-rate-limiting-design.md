@@ -612,15 +612,20 @@ it, and none of it needs to.
 with an optional reason. Stored in `blocked_emails` (`email` primary key, normalised
 lower-case; `reason`; `blocked_by`, `set null`; `created_at`). Sign-in refuses a blocked
 address in `databaseHooks.user.create.before`, **before any row exists** — the same place
-and the same "no account created" guarantee as the domain rule. The Google callback then
-lands on `/auth/rejected?reason=blocked`, which explains it in the domain page's words and
-style ("This account can't sign in to {site}" … the catalog and the assistant are still
-open). Development sign-in refuses it the same way, because it runs the same hook.
+and the same "no account created" guarantee as the domain rule. The hook throws an error
+whose message is `email_blocked`; Better Auth's OAuth callback turns that into its generic
+error redirect (`?error=email_blocked`), and the auth route rewrites that one redirect to
+**`/auth/blocked`** — the twin of `/auth/rejected`, in its words and style ("This account
+can't sign in to {site}" … the catalog and the assistant are still open). A separate page
+rather than a query parameter on `/auth/rejected`, so both stay static prerenders under
+`cacheComponents`. Development sign-in refuses it the same way (a 404, like its other
+refusals), because it runs the same hook.
 
-- **The floor can never be blocked.** The block write refuses an `AUTH_SUPER_ADMIN_EMAILS`
-  address, and the sign-in check ignores a block on one — a block that predates the address
-  being added to the floor must not outrank the floor (the 2026-09-22 decision about bans
-  in the data-platform spec, applied to the list that replaces them).
+- **The floor can never be blocked.** Removal refuses an `AUTH_SUPER_ADMIN_EMAILS` address,
+  so the app never writes one to the list, and the sign-in check ignores a block on one — a
+  block that predates the address being added to the floor must not outrank the floor (the
+  2026-09-22 decision about bans in the data-platform spec, applied to the list that
+  replaces them).
 - **Unblock** is on the People page: the "Blocked emails" list shows each address, its
   reason, who blocked it and when, with an **Unblock** button. Unblocking deletes the row —
   the list is state, not history; the history is the audit trail — and records
@@ -638,9 +643,10 @@ the admin plugin refuses a new session for one, and the admin home counted them.
   actor and `detail.reason = "ban_migrated"`. A banned floor address, which the app never
   produced, is converted like any other — and the floor then ignores the block, so that
   person simply signs in fresh as a super admin.
-- **Ban is no longer exposed.** `BanToggle`, `setUserBanned`, the Access facet, the banned
-  counts on the page and the admin home, and the `ban` grant in the admin plugin's
-  declaration are gone; `/api/auth/admin/*` was already refused.
+- **Ban is no longer exposed.** `BanToggle`, `setUserBanned`, the Access facet (an old
+  `?access=banned` link is dropped like any unknown filter), the banned counts on the page
+  and the admin home (both now count blocked addresses), and the `ban` grant in the admin
+  plugin's declaration are gone; `/api/auth/admin/*` was already refused.
 - **The columns stay**, because the admin plugin selects `banned`, `ban_reason` and
   `ban_expires` on every session. Nothing in the app writes them now. The reads that refuse
   a banned row (`evaluateUser`, the mirror's owner check, the floor reconciliation) stay as
@@ -650,12 +656,26 @@ the admin plugin refuses a new session for one, and the admin home counted them.
 **The mirror.** Mirrored people data from the account itself — a ticket assignee's and a
 project author's email, read through a join — disappears on the next push: the foreign key
 clears `assigned_to_user_id` (the `updated_at` trigger marks the ticket changed) and the
-transaction touches the person's projects so the push picks them up. Reporter, assignee and
-author **name** snapshots, and reporter emails, stay, per the 2026-09-23 decision that the
-mirror carries them.
+transaction touches the person's projects so the push picks them up; the action then calls
+`requestMirrorPush()`. Reporter, assignee and author **name** snapshots, and reporter
+emails, stay, per the 2026-09-23 decision that the mirror carries them.
 
 **§8.** The People page is still the only surface that shows an email address; the blocked
 list is part of it. Emails in the audit detail are the removed person's own, recorded for
 the one question an audit trail exists to answer.
+
+**Covered by** `src/lib/data/user-removal.test.ts` (credentials gone, account gone, every
+history row intact with its snapshot and "removed" derivable, audit events, the mirror's
+source rows, the last-director lock), `src/lib/data/blocked-emails.test.ts`,
+`src/lib/auth/blocked-sign-in.test.ts` (a blocked address is refused through Better Auth's
+own create hook with no row made — dev sign-in and Google's `createOAuthUser` alike;
+unblocking works; the floor is never refused; a removed, unblocked person returns as a new
+`user`; the callback redirect is rewritten), `src/app/admin/users/actions.test.ts` and
+`actions.audit.test.ts` (gate, guards, audit, a failed audit rolls the removal back),
+`src/lib/db/schema/people-remove-migration.test.ts` (shape, backfill, ban conversion, read
+from the migration file), the `RemoveUserControl`, `BlockedEmailsList`, `UsersTable` and
+queue component tests, `src/app/auth/blocked/page.test.tsx`, and the People scenarios in
+`e2e/admin-users.spec.ts` (remove and block, the removed session is anonymous at once, the
+self-removal lock, unblock).
 
 **Status.** Accepted.
