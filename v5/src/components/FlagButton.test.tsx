@@ -210,4 +210,15 @@ describe("FlagButton", () => {
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   });
+
+  it("is a named dialog that returns focus to its trigger when it closes (UI system phase 5b)", async () => {
+    const user = userEvent.setup();
+    render(<FlagButton toolId={TOOL_ID} />);
+    const trigger = screen.getByRole("button", { name: "Report a correction" });
+
+    await user.click(trigger);
+    expect(screen.getByRole("dialog", { name: "Report a correction" })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    await waitFor(() => expect(trigger).toHaveFocus());
+  });
 });
