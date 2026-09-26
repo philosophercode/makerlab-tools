@@ -1248,3 +1248,49 @@ Same branch, three more owner requests after the amendment above:
   `(created_at at time zone LAB_TIMEZONE)::date`; `date_reported` was already a
   lab date. `now` is injectable, and the tests run on a fixed clock with a
   23:30 Eastern case, a 00:30-next-day case and a `LAB_TIMEZONE=UTC` case.
+
+### 2026-09-25 — Public polish (owner requests after phase 5a)
+
+Branch `v5/public-polish`. Owner requests after phase 5a and admin polish:
+bring the admin's quality to the public Tools pages, steady the header, make
+⌘K work everywhere, and finish the Manuals and queue pages. No data model or
+permission changes. Where the app now differs from the amendments above:
+
+- **Header does not move.** Measured with visible scrollbars, the whole bar
+  shifted 8px (1440 → 1432px client width) between a page that scrolls and one
+  that does not (`/projects`, `/admin/research` against `/`): the themed
+  `::-webkit-scrollbar` is a classic scrollbar even where the OS overlays.
+  The root now reserves the gutter (`scrollbar-gutter: stable`), and
+  `e2e/header-stability.spec.ts` asserts every header control's box is
+  identical across `/`, `/projects`, `/about`, a tool page and admin pages at
+  1440 and 390, with scrollbars shown.
+- **Frosted menus.** The profile menu (and the ⌘K dialog) sit on a
+  `--surface-frosted` plate: the card colour at 88% with
+  `backdrop-filter: blur(16px) saturate(140%)`, a hairline `--outline-strong`
+  border, no shadow; solid `--surface-container` where `backdrop-filter` is
+  unsupported. This reverses DESIGN.md §5's "no glass" for overlays only, by
+  owner request: text over a moving page must stay readable (AA at 88%).
+- **⌘K everywhere.** The palette moved out of the admin layout into the site
+  header (`SitePalette`): pages (Tools, Projects, About, MCP), categories (a
+  filtered gallery link), tools by display name, official name or slug, and —
+  for a viewer whose role opens them — admin pages and actions. A header
+  field, "Search tools… ⌘K", opens it (an icon button on a phone). `/` still
+  focuses the page's own filter search.
+- **Gallery toolbar.** One `FilterToolbar` layout shared with the inventory:
+  full-width search, then facets left and Sort / Group by / view right, the
+  count as a quiet line; on a phone a **Filters** button opening a sheet with
+  the facets (active count on the button). The view switch is a
+  `SegmentedControl`: both halves outlined, the chosen one filled.
+- **Cards** show the image, the display name and the category only;
+  availability and training live on the tool page and in the table.
+- **Gallery table** gained a Status facet, the Columns menu, and sorting on
+  every column, over the same filter state as the grid.
+- **Tool page, denser.** A smaller image beside the title; the status line on
+  one line; Details, Documents, machines and specs in two columns on desktop;
+  Safety as a compact block; empty sections are left out rather than drawn
+  as placeholder boxes. The crumb is `Tools › <tool>`.
+- **Manuals** (`/admin/research`): a state strip, the manuals as a
+  `DataTable` with state facets and **Re-process**, plain-English help.
+- **Queues.** Controls in one aligned row, `RowStatus` inline beside them in a
+  reserved slot, the resolution editor in its own full-width slot, so nothing
+  moves when "Saved" appears or the editor opens.
