@@ -18,12 +18,14 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { Textarea } from "@/components/ui/textarea";
 import { Field } from "./system/Field";
 import { RowStatus } from "./admin/RowStatus";
+import { FROSTED } from "./system/frosted";
+import { cn } from "@/lib/utils";
 
 /**
  * "Report a correction" — a quiet text control at the foot of the tool page
  * that opens a short form in a `Dialog` (design spec 2026-07-29 §6; UI system
- * phase 5b, DESIGN.md §8.8: a decision gets a dialog). Radix gives the focus
- * trap, Escape and focus return; the fields are `Field` + `NativeSelect` /
+ * phase 5b, DESIGN.md §8.8: a decision gets a dialog) on the frosted plate.
+ * Radix gives the focus trap, Escape and focus return; the fields are `Field` + `NativeSelect` /
  * `Textarea` / `Input`, the actions `Button`s.
  *
  * The confirmation replaces the form in place rather than firing a toast —
@@ -143,7 +145,7 @@ export function FlagButton({ toolId, field: initialField = "description" }: Flag
             {t("trigger")}
           </Button>
         </DialogTrigger>
-        <DialogContent closeLabel={t("close")} className="max-h-[calc(100dvh-2rem)] overflow-y-auto">
+        <DialogContent closeLabel={t("close")} className={cn(FROSTED, "max-h-[calc(100dvh-2rem)] overflow-y-auto")}>
           <DialogHeader>
             <p className="font-mono text-label tracking-[0.08em] text-muted-foreground uppercase">{t("eyebrow")}</p>
             <DialogTitle>{sent ? t("sentTitle") : t("title")}</DialogTitle>
