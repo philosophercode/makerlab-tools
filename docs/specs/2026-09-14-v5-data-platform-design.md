@@ -1838,3 +1838,9 @@ area. Archiving revalidates the catalogue, the tool drops out of the published r
 
 Tested in `DraftToolView.test.tsx` (staff redirect, student/visitor 404) and
 `ToolEditorPanel.test.tsx` (`onArchived` only after a successful Archive).
+
+### 2026-09-26 — Specs no longer folded into the description (pointer)
+
+The as-built note "Research specs are folded into the editable description at approval" is
+superseded by the gateway spec's amendment "Short descriptions" (2026-09-26): approval proposes
+research's short description alone, and the specs research read are not saved on the tool.
