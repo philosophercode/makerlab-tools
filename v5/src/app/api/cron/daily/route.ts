@@ -109,7 +109,7 @@ export async function GET(req: Request) {
 
   if (!isBlobConfigured()) {
     return Response.json(
-      { ok: false, error: "BLOB_READ_WRITE_TOKEN is not set" },
+      { ok: false, error: "No Blob store is linked (BLOB_READ_WRITE_TOKEN or BLOB_STORE_ID)" },
       { status: 503 }
     );
   }

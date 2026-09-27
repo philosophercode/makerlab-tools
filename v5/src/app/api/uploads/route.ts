@@ -180,7 +180,7 @@ export async function POST(req: NextRequest) {
     return Response.json(
       {
         code: "blob_not_configured",
-        error: "File uploads are unavailable: BLOB_READ_WRITE_TOKEN is not set.",
+        error: "File uploads are unavailable: no Blob store is linked (BLOB_READ_WRITE_TOKEN or BLOB_STORE_ID).",
       },
       { status: 503 }
     );

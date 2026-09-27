@@ -6,12 +6,14 @@ import { blobMode } from "./blob-mode";
  */
 function env(vars: {
   token?: string;
+  storeId?: string;
   vercel?: string;
   nodeEnv?: string;
   disable?: string;
   dir?: string;
 }) {
   vi.stubEnv("BLOB_READ_WRITE_TOKEN", vars.token ?? "");
+  vi.stubEnv("BLOB_STORE_ID", vars.storeId ?? "");
   vi.stubEnv("VERCEL", vars.vercel ?? "");
   vi.stubEnv("NODE_ENV", vars.nodeEnv ?? "development");
   vi.stubEnv("BLOB_LOCAL_DISABLE", vars.disable ?? "");
@@ -23,6 +25,11 @@ describe("blobMode", () => {
     env({ token: "vercel_blob_rw_test" });
     expect(blobMode()).toBe("vercel");
     env({ token: "vercel_blob_rw_test", vercel: "1", nodeEnv: "production" });
+    expect(blobMode()).toBe("vercel");
+  });
+
+  it("is vercel for a store linked by BLOB_STORE_ID (OIDC), with no token", () => {
+    env({ storeId: "store_test", vercel: "1", nodeEnv: "production" });
     expect(blobMode()).toBe("vercel");
   });
 
