@@ -92,7 +92,7 @@ through the Gateway, so this one limit covers all of them.
 Vercel keeps runtime logs only briefly, which is enough to read a failed cron run the same
 day and not enough for "when did this start?". If that question comes up more than once,
 add a log drain (Pro) or a Marketplace logging integration and send it the `[cron]`,
-`[backup]` and `DbUnavailableError` lines. Sentry is the documented next step after that
+`[admin]` and `DbUnavailableError` lines (backup failures log as `[cron] backup failed:`). Sentry is the documented next step after that
 (ops spec §3.5) and is deliberately not the default: one more account to hand over.
 
 ---

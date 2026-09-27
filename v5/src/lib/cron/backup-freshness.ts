@@ -59,3 +59,42 @@ export async function loadBackupFreshness(now = new Date()): Promise<BackupFresh
     return { state: "unreadable" };
   }
 }
+
+/** How long one Blob `list` answers `/admin` renders; the job runs once a day. */
+export const BACKUP_FRESHNESS_CACHE_MS = 5 * 60 * 1000;
+
+let cached: { at: number; value: BackupFreshness } | null = null;
+
+/** {@link loadBackupFreshness}, reused for {@link BACKUP_FRESHNESS_CACHE_MS}. */
+export async function loadBackupFreshnessCached(now = new Date()): Promise<BackupFreshness> {
+  if (cached && now.getTime() - cached.at < BACKUP_FRESHNESS_CACHE_MS) return cached.value;
+  const value = await loadBackupFreshness(now);
+  cached = { at: now.getTime(), value };
+  return value;
+}
+
+/** Test hook: forget the cached answer. */
+export function resetBackupFreshnessCache(): void {
+  cached = null;
+}
+
+export type BackupNotice = { key: `backupNotice.${Exclude<BackupFreshness["state"], "fresh">}`; date: string };
+
+/**
+ * The `/admin` warning, or null. Super admins only (`users.manage`), and only
+ * on a real database: a laptop has no nightly job, and nobody else can act on
+ * a missing backup. `load` is not called when the notice cannot show.
+ */
+export async function adminBackupNotice(opts: {
+  canManageUsers: boolean;
+  substrate: string;
+  load?: () => Promise<BackupFreshness>;
+}): Promise<BackupNotice | null> {
+  if (!opts.canManageUsers || opts.substrate !== "neon") return null;
+  const freshness = await (opts.load ?? loadBackupFreshnessCached)();
+  if (freshness.state === "fresh") return null;
+  return {
+    key: `backupNotice.${freshness.state}`,
+    date: "latestAt" in freshness ? freshness.latestAt.slice(0, 10) : "",
+  };
+}

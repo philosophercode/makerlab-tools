@@ -6,13 +6,23 @@ vi.mock("../blob", () => ({
   getBlobStore: () => ({ list: blob.list }),
 }));
 
-import { backupFreshness, loadBackupFreshness } from "./backup-freshness";
+import en from "../../../messages/en.json";
+import {
+  BACKUP_FRESHNESS_CACHE_MS,
+  adminBackupNotice,
+  backupFreshness,
+  loadBackupFreshness,
+  loadBackupFreshnessCached,
+  resetBackupFreshnessCache,
+  type BackupFreshness,
+} from "./backup-freshness";
 
 const NOW = new Date("2026-09-20T12:00:00.000Z");
 
 beforeEach(() => {
   blob.configured.value = true;
   blob.list.mockReset();
+  resetBackupFreshnessCache();
 });
 
 describe("backupFreshness", () => {
@@ -71,5 +81,61 @@ describe("loadBackupFreshness", () => {
     blob.list.mockRejectedValue(new Error("blob down"));
     expect(await loadBackupFreshness(NOW)).toEqual({ state: "unreadable" });
     warn.mockRestore();
+  });
+});
+
+describe("loadBackupFreshnessCached", () => {
+  it("reuses one Blob list for five minutes, then lists again", async () => {
+    blob.list.mockResolvedValue([{ pathname: "backups/2026-09-20.json", uploadedAt: "2026-09-20T07:17:00.000Z" }]);
+    await loadBackupFreshnessCached(NOW);
+    await loadBackupFreshnessCached(new Date(NOW.getTime() + BACKUP_FRESHNESS_CACHE_MS - 1));
+    expect(blob.list).toHaveBeenCalledTimes(1);
+    await loadBackupFreshnessCached(new Date(NOW.getTime() + BACKUP_FRESHNESS_CACHE_MS));
+    expect(blob.list).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("adminBackupNotice (the /admin warning)", () => {
+  const load = (value: BackupFreshness) => vi.fn(async () => value);
+
+  it("is null, without reading Blob, for anyone who cannot manage users", async () => {
+    const loader = load({ state: "missing" });
+    expect(await adminBackupNotice({ canManageUsers: false, substrate: "neon", load: loader })).toBeNull();
+    expect(loader).not.toHaveBeenCalled();
+  });
+
+  it("is null, without reading Blob, off the live database", async () => {
+    const loader = load({ state: "missing" });
+    expect(await adminBackupNotice({ canManageUsers: true, substrate: "pglite-local", load: loader })).toBeNull();
+    expect(loader).not.toHaveBeenCalled();
+  });
+
+  it("is null when the backup is fresh", async () => {
+    const notice = await adminBackupNotice({
+      canManageUsers: true,
+      substrate: "neon",
+      load: load({ state: "fresh", latestAt: "2026-09-20T07:17:00.000Z" }),
+    });
+    expect(notice).toBeNull();
+  });
+
+  it("names the stale backup's date", async () => {
+    const notice = await adminBackupNotice({
+      canManageUsers: true,
+      substrate: "neon",
+      load: load({ state: "stale", latestAt: "2026-09-17T07:17:00.000Z" }),
+    });
+    expect(notice).toEqual({ key: "backupNotice.stale", date: "2026-09-17" });
+  });
+
+  it.each(["missing", "no_store", "unreadable"] as const)("warns %s with no date", async (state) => {
+    const notice = await adminBackupNotice({ canManageUsers: true, substrate: "neon", load: load({ state }) });
+    expect(notice).toEqual({ key: `backupNotice.${state}`, date: "" });
+  });
+
+  it("has an English message for every notice key", () => {
+    const messages = (en as { admin: { backupNotice: Record<string, string> } }).admin.backupNotice;
+    for (const state of ["stale", "missing", "no_store", "unreadable"]) expect(messages[state]).toBeTruthy();
+    expect(messages.stale).toContain("{date}");
   });
 });

@@ -9,7 +9,7 @@ import { ADMIN_GROUPS, countLoadersFor, surfacesFor } from "../../lib/admin/surf
 import { can } from "../../lib/auth/permissions";
 import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
 import { isLegacyMcpTokenSet } from "../../lib/auth/mcp-caller";
-import { loadBackupFreshness } from "../../lib/cron/backup-freshness";
+import { adminBackupNotice } from "../../lib/cron/backup-freshness";
 import { loadAdminOverview } from "../../lib/data/admin-overview";
 import { dataSubstrate } from "../../lib/db/client";
 
@@ -40,9 +40,10 @@ export default async function AdminHomePage() {
   const identity = await resolveIdentityFromHeaders();
   const open = surfacesFor(identity);
   const overview = await loadAdminOverview(countLoadersFor(identity), { userId: identity.userId });
-  // Super admins only, and only on a real database: a laptop has no nightly
-  // job, and nobody else can act on a missing backup.
-  const backup = can(identity, "users.manage") && dataSubstrate() === "neon" ? await loadBackupFreshness() : null;
+  const backupNotice = await adminBackupNotice({
+    canManageUsers: can(identity, "users.manage"),
+    substrate: dataSubstrate(),
+  });
   const tiles = open.map((entry) => {
     // An extra count the viewer may read is its counts or null (failed); one
     // they may not is absent, and the tile says nothing about it.
@@ -92,11 +93,7 @@ export default async function AdminHomePage() {
 
       {/* Ops spec amendment 2026-09-27: a nightly backup that stopped landing
           shows here, not only in Vercel's cron log. */}
-      {backup && backup.state !== "fresh" ? (
-        <RowStatus tone="warn">
-          {t(`backupNotice.${backup.state}`, { date: "latestAt" in backup ? backup.latestAt.slice(0, 10) : "" })}
-        </RowStatus>
-      ) : null}
+      {backupNotice ? <RowStatus tone="warn">{t(backupNotice.key, { date: backupNotice.date })}</RowStatus> : null}
 
       {open.length === 0 ? <EmptyState>{t("indexNothingYet")}</EmptyState> : null}
 
