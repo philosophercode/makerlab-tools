@@ -54,6 +54,22 @@ describe("Better Auth schema", () => {
     await expectViolation(insertUser({ role: "staff" }), /user_role_check/);
   });
 
+  it("stores a title of up to 60 characters, and none by default", async () => {
+    const plain = await insertUser();
+    const titled = await insertUser({ title: "x".repeat(60) });
+    const [a] = await db.select().from(user).where(eq(user.id, plain));
+    const [b] = await db.select().from(user).where(eq(user.id, titled));
+    expect(a.title).toBeNull();
+    expect(b.title).toHaveLength(60);
+  });
+
+  it("refuses a title that is too long, blank or untrimmed", async () => {
+    // Migration `0017`. The action normalises first; this is the last word.
+    await expectViolation(insertUser({ title: "x".repeat(61) }), /user_title_length_check/);
+    await expectViolation(insertUser({ title: "" }), /user_title_length_check/);
+    await expectViolation(insertUser({ title: " Lab Director" }), /user_title_length_check/);
+  });
+
   it("refuses a duplicate email", async () => {
     await insertUser({ email: "dup@cornell.edu" });
     await expectViolation(insertUser({ email: "dup@cornell.edu" }), /user_email_unique/);

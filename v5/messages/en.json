@@ -517,6 +517,20 @@
       "admin": "SuperMaker",
       "super_admin": "Director"
     },
+    "titles": {
+      "user": "Student",
+      "admin": "Supermaker",
+      "super_admin": "Super Admin"
+    },
+    "title": {
+      "edit": "Edit title",
+      "editFor": "Edit the title for {name}",
+      "label": "Title for {name}",
+      "placeholder": "Leave blank for “{fallback}”",
+      "hint": "Up to {max} characters. Blank uses the role's default.",
+      "save": "Save",
+      "cancel": "Cancel"
+    },
     "inventory": {
       "tableLabel": "Tools, their state and what each one is missing",
       "columnPhoto": "Photo",
@@ -721,6 +735,7 @@
       "protected_floor": "This address is protected in the deployment's settings and cannot be demoted, removed or blocked.",
       "last_super_admin": "This is the last director. Promote somebody else first, or nobody could undo it.",
       "self_remove": "You cannot remove yourself.",
+      "invalid_title": "A title can be at most 60 characters.",
       "conflict": "Somebody else changed this while you had it open, so nothing was saved. Your edits are still here — reload to see their version first.",
       "not_found": "That no longer exists. Somebody may have removed it while this was open.",
       "invalid_field": "One of these values is not one this field accepts. Check it and try again.",

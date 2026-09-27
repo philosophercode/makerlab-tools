@@ -65,7 +65,7 @@ beforeEach(() => {
 
 // en.json: nav.signedInAria = "Signed in as {name}", nav.admin = "ADMIN",
 // nav.addEquipment = "ADD EQUIPMENT", nav.signOut = "SIGN OUT",
-// admin.roles.* = Student / SuperMaker / Director.
+// admin.titles.* = Student / Supermaker / Super Admin.
 describe("ProfileMenu — the control", () => {
   it("shows the Google photo, square and without a referrer, beside the first name", () => {
     const { container } = renderMenu();
@@ -112,7 +112,7 @@ describe("ProfileMenu — the control", () => {
 });
 
 describe("ProfileMenu — the menu", () => {
-  it("opens with the person's full name, email and role", async () => {
+  it("opens with the person's full name, email and title", async () => {
     const user = userEvent.setup();
     renderMenu();
 
@@ -122,13 +122,23 @@ describe("ProfileMenu — the menu", () => {
     expect(screen.getByRole("menu", { name: "Account menu" })).toBeInTheDocument();
     expect(screen.getByText("Niti Parikh")).toBeInTheDocument();
     expect(screen.getByText("niti@cornell.edu")).toBeInTheDocument();
-    expect(screen.getByText("SuperMaker")).toBeInTheDocument();
+    expect(screen.getByText("Supermaker")).toBeInTheDocument();
+  });
+
+  it("shows a custom title from the People page in place of the role's", async () => {
+    const user = userEvent.setup();
+    renderMenu({ ...NITI, title: "Lab Manager" });
+
+    await user.click(trigger());
+
+    expect(screen.getByText("Lab Manager")).toBeInTheDocument();
+    expect(screen.queryByText("Supermaker")).not.toBeInTheDocument();
   });
 
   it.each([
     ["user", "Student", ["CONNECT AN AI ASSISTANT", "SIGN OUT"]],
-    ["admin", "SuperMaker", ["ADMIN", "ADD EQUIPMENT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]],
-    ["super_admin", "Director", ["ADMIN", "ADD EQUIPMENT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]],
+    ["admin", "Supermaker", ["ADMIN", "ADD EQUIPMENT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]],
+    ["super_admin", "Super Admin", ["ADMIN", "ADD EQUIPMENT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]],
   ] as const)("offers %s exactly the entries the role holds", async (role, label, expected) => {
     const user = userEvent.setup();
     renderMenu({ ...NITI, role });

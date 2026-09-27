@@ -1,6 +1,11 @@
 import { isSuperAdminFloor } from "../../lib/auth/super-admins";
 import type { UserRecord } from "../../lib/data/users";
-import type { AdminActionError, AdminActionResult, RemoveUserAction } from "../../app/admin/users/action-result";
+import type {
+  AdminActionError,
+  AdminActionResult,
+  RemoveUserAction,
+  SetTitleAction,
+} from "../../app/admin/users/action-result";
 import { UsersRoster, type RosterRow } from "./UsersRoster";
 import type { UserFilterState } from "./users-filters";
 
@@ -31,9 +36,10 @@ export interface UsersTableProps {
   initial?: UserFilterState;
   setRole: (input: { userId: string; role: string }) => Promise<AdminActionResult>;
   removeUser: RemoveUserAction;
+  setTitle: SetTitleAction;
 }
 
-export function UsersTable({ users, currentUserId, initial, setRole, removeUser }: UsersTableProps) {
+export function UsersTable({ users, currentUserId, initial, setRole, removeUser, setTitle }: UsersTableProps) {
   // Who would still hold `super_admin` if a given row lost it. Banned super
   // admins — a state only a hand-written UPDATE can make now — are not
   // counted: they resolve to anonymous and can undo nothing.
@@ -67,6 +73,7 @@ export function UsersTable({ users, currentUserId, initial, setRole, removeUser 
       name: person.name,
       email: person.email,
       role: person.role,
+      title: person.title,
       // ISO, locale-neutral: a formatted date would render differently on the
       // server and the client, and a roster read by one admin does not need it.
       joined: person.createdAt.toISOString().slice(0, 10),
@@ -76,5 +83,7 @@ export function UsersTable({ users, currentUserId, initial, setRole, removeUser 
     };
   });
 
-  return <UsersRoster rows={rows} initial={initial} setRole={setRole} removeUser={removeUser} />;
+  return (
+    <UsersRoster rows={rows} initial={initial} setRole={setRole} removeUser={removeUser} setTitle={setTitle} />
+  );
 }

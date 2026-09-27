@@ -46,6 +46,8 @@ export interface ClientIdentity {
   email?: string | null;
   /** Google profile photo URL. Absent when anonymous or when Google had none. */
   image?: string | null;
+  /** The custom title from the People page. Absent when there is none. */
+  title?: string | null;
   /**
    * True only for an anonymous caller for whom development-only sign-in is
    * available — `next dev` on this machine with `DEV_AUTO_SIGN_IN=1` (auth spec
@@ -93,6 +95,7 @@ export async function fetchIdentity(
     // keeps its two-field shape.
     if (typeof body.email === "string" && body.email) identity.email = body.email;
     if (typeof body.image === "string" && body.image) identity.image = body.image;
+    if (typeof body.title === "string" && body.title) identity.title = body.title;
     if (body.devSignIn === true) identity.devSignIn = true;
     return identity;
   } catch {

@@ -10,15 +10,17 @@ import { type Identity } from "../../../lib/auth/identity";
 import { isSuperAdminFloor } from "../../../lib/auth/super-admins";
 import { unblockEmail } from "../../../lib/data/blocked-emails";
 import { removeUserAccount } from "../../../lib/data/user-removal";
-import { countUsersWithRole, findUserById, type UserRecord } from "../../../lib/data/users";
+import { countUsersWithRole, findUserById, updateUserTitle, type UserRecord } from "../../../lib/data/users";
 import { isOneOf, ROLES, type Role } from "../../../lib/db/schema/vocabulary";
 import { requestMirrorPush } from "../../../lib/mirror/trigger";
+import { normalizeTitle } from "../../../lib/people/title";
 import {
   ADMIN_USERS_PATH,
   type AdminActionError,
   type AdminActionResult,
   type AdminActionWarning,
   type RemoveUserResult,
+  type SetTitleResult,
   type UnblockEmailResult,
 } from "./action-result";
 
@@ -117,6 +119,58 @@ export async function setUserRole(input: {
 
   revalidatePath(ADMIN_USERS_PATH);
   return { ok: true, role, ...warn(gateWarning, recorded) };
+}
+
+/**
+ * Set or clear one person's title. Blank (or null) clears it, and the People
+ * page and profile menu go back to the role's default label.
+ *
+ * Refuses, in this order: the gate (signed in, rate, `users.manage`), a title
+ * that is not text or is too long once trimmed, and an unknown target. The
+ * floor is not consulted: a title grants nothing, so there is nothing about a
+ * director's own label worth protecting from another director.
+ *
+ * Saving the title the person already has is a no-op success with no audit
+ * event, like a role change to the same role.
+ */
+export async function setUserTitle(input: {
+  userId: string;
+  title: string | null;
+}): Promise<SetTitleResult> {
+  const gate = await authorize();
+  if (!gate.ok) return gate;
+  const { identity, warning: gateWarning } = gate;
+
+  const normalized = normalizeTitle(input.title);
+  if (!normalized.ok) return { ok: false, error: "invalid_title" };
+  const { title } = normalized;
+
+  const target = await findUserById(input.userId);
+  if (!target) return { ok: false, error: "unknown_user" };
+  if (target.title === title) return { ok: true, title, ...warn(gateWarning) };
+
+  try {
+    // Removed between the read above and this write: the same answer as never
+    // having existed.
+    if (!(await updateUserTitle(target.id, title))) return { ok: false, error: "unknown_user" };
+  } catch (err) {
+    console.error("[admin/users] set-title failed", err);
+    return { ok: false, error: "failed" };
+  }
+
+  const recorded = await record(
+    {
+      actorUserId: identity.userId,
+      action: "user.title_changed",
+      subjectType: "user",
+      subjectId: target.id,
+      detail: { from: target.title, to: title },
+    },
+    AUDIT_SURFACE
+  );
+
+  revalidatePath(ADMIN_USERS_PATH);
+  return { ok: true, title, ...warn(gateWarning, recorded) };
 }
 
 /** The longest block reason kept; the field is a note, not a document. */

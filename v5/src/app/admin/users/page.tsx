@@ -10,7 +10,7 @@ import { can } from "../../../lib/auth/permissions";
 import { listBlockedEmails } from "../../../lib/data/blocked-emails";
 import { listUsers } from "../../../lib/data/users";
 import { siteConfig } from "../../../lib/site-config";
-import { removeUser, setUserRole, unblockBlockedEmail } from "./actions";
+import { removeUser, setUserRole, setUserTitle, unblockBlockedEmail } from "./actions";
 import { AllowanceGrant } from "../../../components/admin/AllowanceGrant";
 import { listActiveAllowances } from "../../../lib/data/research-allowances";
 import { grantSetupAllowance } from "./allowance-actions";
@@ -85,6 +85,7 @@ export default async function AdminUsersPage({
         initial={parseUserFilters(await searchParams)}
         setRole={setUserRole}
         removeUser={removeUser}
+        setTitle={setUserTitle}
       />
 
       <BlockedEmailsList

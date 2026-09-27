@@ -31,6 +31,8 @@ export const ADMIN_USERS_PATH = "/admin/users";
  *   be demoted, removed or blocked.
  * - `last_super_admin` — the change would leave nobody holding `users.manage`.
  * - `self_remove` — removing your own account (auth spec amendment 2026-09-25).
+ * - `invalid_title` — a title that is not text, or is longer than
+ *   `USER_TITLE_MAX_LENGTH` once trimmed.
  */
 export type AdminActionError =
   | AdminGateError
@@ -38,7 +40,8 @@ export type AdminActionError =
   | "invalid_role"
   | "protected_floor"
   | "last_super_admin"
-  | "self_remove";
+  | "self_remove"
+  | "invalid_title";
 
 /**
  * Re-exported, not redefined: the islands on this page import their result
@@ -65,5 +68,15 @@ export type UnblockEmailResult =
   | { ok: true; email: string; warning?: AdminActionWarning }
   | { ok: false; error: AdminActionError };
 
+/**
+ * What saving a title answers. `title` is what is now stored — null for the
+ * role's default — so the editor shows the server's normalised value, not
+ * what was typed.
+ */
+export type SetTitleResult =
+  | { ok: true; title: string | null; warning?: AdminActionWarning }
+  | { ok: false; error: AdminActionError };
+
+export type SetTitleAction = (input: { userId: string; title: string | null }) => Promise<SetTitleResult>;
 export type RemoveUserAction = (input: { userId: string; block: boolean; reason?: string }) => Promise<RemoveUserResult>;
 export type UnblockEmailAction = (input: { email: string }) => Promise<UnblockEmailResult>;
