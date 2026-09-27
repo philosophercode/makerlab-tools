@@ -258,8 +258,9 @@ Phase 5 extends both. The shape it sets:
   number or state).
 - **Server actions check themselves.** A server action is a POST endpoint with
   a generated name, reachable without the page that offers it, so
-  `src/app/admin/users/actions.ts` resolves the identity, rate-limits
-  (`ADMIN_ACTION_TIER`, 120/min per person), and re-checks `users.manage` — it
+  `src/app/admin/users/actions.ts` resolves the identity and `performAction`
+  rate-limits (`ADMIN_ACTION_TIER`, 120/min per person) and re-checks
+  `users.manage` — it
   trusts nothing from the page that rendered the control (spec §8). Refusals are
   **values** (`{ ok: false, error }`), not exceptions, so the island can render
   the reason; every code has an `admin.errors.<code>` string.
@@ -490,9 +491,11 @@ Phase 5 extends both. The shape it sets:
   open work on the page and folds the settled work behind a disclosure, because
   the person using these has twenty tickets and ten minutes; and each one's
   control **saves on the click**, with `useRowAction` giving all of them the
-  same contract (optimistic, a refusal restores, a warning keeps). The shared
-  preamble is `src/lib/admin/queue-write.ts` — gate, write, record, refresh,
-  each step only as far as the last one earned.
+  same contract (optimistic, a refusal restores, a warning keeps). Their
+  writes are action definitions run by `performAction` (see "The action
+  layer") — gate, write, record, refresh, each step only as far as the last
+  one earned. (`queue-write.ts`'s `runQueueWrite` has no callers since and
+  awaits deletion approval.)
 - **Each queue checks its own permission, and a test proves it is its own.** No
   role holds `tools.edit` without `feedback.manage`, so each `actions.test.ts`
   mocks `can()` for one case and asserts the endpoint is refused to a caller
@@ -517,6 +520,41 @@ Phase 5 extends both. The shape it sets:
   its rows reach a model prompt and the mirror (§8). Which function a caller
   picks is the whole of that decision, which is why they are two functions and
   not one with a flag.
+
+## The action layer (`src/lib/actions/`; assistant–GUI parity spec, phase 1)
+
+Every GUI write is defined once, as data plus a `run()`, and every surface runs
+it through **`performAction(def, input, identity, { surface })`**
+(`docs/specs/2026-09-27-assistant-gui-parity-design.md`). Phase 1 moved the
+People page and the three queues onto it with no behaviour change; the
+assistant's confirmation card (phase 2) and MCP will call the same function.
+
+- **One path.** `performAction`: `authorizeAdminAction` (limiter → signed in →
+  permission) → `afterGate` → parse (`input`, a parse failure answers the
+  definition's `invalidInput` code) → `check` → `run` (a throw is `failed`) →
+  `afterCommit` + `revalidate` only when `run` answered `committed`. Refusals are
+  values; a lost audit event (or any `afterCommit` throw) is a warning on a
+  success, never a failure.
+- **Server actions are one-line wrappers**: `performAction(PEOPLE_SET_TITLE,
+  input, await resolveIdentityFromHeaders(), { surface: "gui" })`. Their
+  exported names and result types are unchanged, so no island changed. Put a
+  write's rules in its definition (`check`/`run`), never in the wrapper — that
+  is what makes them hold on every surface.
+- **Definitions**: `people.ts` (role, title, name), `people-roster.ts` (add,
+  remove, unblock), `people-allowance.ts`, `people-gate.ts` (the floor
+  reconciliation as `afterGate`), `tickets.ts`, `corrections.ts`,
+  `projects.ts`; `registry.ts`'s `ACTIONS` lists them. `defineAction` refuses
+  at load a destructive batch, a `people`/`spend`/`destructive` action over MCP
+  and `assistant: "never"` without `neverReason`. `writeTicket` (MCP's and the
+  chat's `update_ticket`) is a wrapper over `tickets.update`.
+- **The parity guard** (`parity.test.ts`, scanner `parity.ts`, list
+  `exempt.ts`): every export of a `"use server"` module, every inline
+  `"use server"` function and every `POST`/`PUT`/`PATCH`/`DELETE` of a
+  `src/app/**/route.ts` must be a `performAction(<registered definition>)`
+  wrapper or an `EXEMPT` entry with a reason. **Adding a server action or a
+  mutation route means adding a definition (and registering it, and importing
+  its module in the guard) or an exemption** — and exemptions only shrink: a
+  stale one fails the test too.
 
 ## Adding equipment (`pending_tools`, Phase 6; the image stage is gateway spec §3.5)
 
@@ -1178,12 +1216,13 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/admin/surfaces.ts` / `src/lib/data/admin-overview.ts` | Every admin surface once (tiles, bar, palette, each with its permission) / the home's count loaders |
 | `src/components/palette/*` | The ⌘K palette on every page: `CommandPalette`, `HeaderSearch`, `PaletteScope`, `palette-match` |
 | `src/app/admin/inventory/page.tsx` | The review table (`tools.edit`), uncached, filtered from the URL |
-| `src/app/admin/users/actions.ts` | `setUserRole` / `setUserTitle` / `setUserName` / `addPerson` / `removeUser` / `unblockBlockedEmail` — the People page's server actions (Ban retired 2026-09-25) |
+| `src/app/admin/users/actions.ts` | `setUserRole` / `setUserTitle` / `setUserName` / `addPerson` / `removeUser` / `unblockBlockedEmail` — the People page's server actions (Ban retired 2026-09-25), wrappers over `lib/actions/people*.ts` |
 | `src/lib/data/user-removal.ts` / `blocked-emails.ts` / `account-removed.ts` | Removing a person in one transaction; the blocked-address list; "an id that names no account" in SQL |
 | `src/lib/auth/blocked-sign-in.ts` | Refusing a blocked address in the create hook, and the redirect to `/auth/blocked` |
 | `src/lib/data/users.ts` | The `/admin/users` roster, read straight from Postgres; `markFirstSignIn` |
 | `src/lib/data/user-add.ts` | Add person: the pre-added `user` row and its `user.added` event, one transaction |
-| `src/lib/admin/queue-write.ts` | `runQueueWrite` — the gate/write/record/refresh preamble the three §5.6 queues share |
+| `src/lib/actions/*` | The action layer: `performAction`, `defineAction`, `ACTIONS`, the People and queue definitions, and the parity guard (`parity.ts`, `exempt.ts`) |
+| `src/lib/admin/queue-write.ts` | `QueueActionResult`; `runQueueWrite` has no callers since the action layer (awaiting deletion approval) |
 | `src/app/admin/maintenance/`, `corrections/`, `projects/` | The three queues: one page, one result module and one action apiece |
 | `src/components/admin/use-row-action.ts` | What every queue control does around its action — optimistic, refusal restores, warning keeps |
 | `src/components/admin/MaintenanceQueue.tsx` / `CorrectionsQueue.tsx` / `ProjectQueue.tsx` | The three card lists, each with its own small island |

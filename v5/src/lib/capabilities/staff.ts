@@ -187,7 +187,9 @@ const updateTicketTool: CapabilityTool<UpdateTicketInput, UpdateTicketResult> = 
       return { status: "refused", code: "nothing_to_change", message: "Pass at least one of status, priority, assign_to or resolution." };
     }
 
-    const result = await writeTicket({ logId: input.ticket_id.trim(), patch }, { identity, surface: "mcp/update_ticket" });
+    // The chat sets `chatId`; MCP never does.
+    const surface = ctx.chatId ? "assistant" : "mcp";
+    const result = await writeTicket({ logId: input.ticket_id.trim(), patch }, { identity, surface });
     if (!result.ok) return { status: "refused", code: result.error, message: REFUSALS[result.error] ?? REFUSALS.failed };
     return { status: "updated", ticket_id: input.ticket_id.trim() };
   },

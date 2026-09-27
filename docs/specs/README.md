@@ -49,12 +49,7 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 | [UI System](2026-09-25-ui-system-design.md) — shadcn/ui, Tufte density, admin IA, AI Elements chat | Phases 1–5 | **Phase 6** (delete legacy CSS) waits for the repo flatten, PR #79 |
 | [Sign-in and Tiered Rate Limiting](2026-07-29-auth-and-rate-limiting-design.md) | Google sign-in, tiered rate limits as specced | The env-list role model is **superseded** by Better Auth and the `user` table (data platform phase 4) |
 | [Intake Confidence](2026-07-29-intake-confidence-design.md) | Confidence grading and parallel identification, now inside the research pipeline | The chat-side card behaviour is **obsolete** — `propose_listing` was removed with the two-step intake (data platform phase 6) |
-
-### Draft — not started
-
-| Spec | Notes |
-|---|---|
-| [Assistant–GUI Parity](2026-09-27-assistant-gui-parity-design.md) — one action layer so the assistant (and MCP, narrower) can do anything the GUI can, by proposal and confirmation card | Awaiting review. 51 GUI actions inventoried; 8 phases; open questions §11 gate phases 2 onward |
+| [Assistant–GUI Parity](2026-09-27-assistant-gui-parity-design.md) — one action layer so the assistant (and MCP, narrower) can do anything the GUI can, by proposal and confirmation card | **Phase 1**: `src/lib/actions/` (`performAction`, the registry), People and the three queues moved onto it, the parity guard | **Phases 2–8**: proposals and the card, page context, catalogue, intake/import, destructive + taint, MCP exposure, docs. §11 answered 2026-09-27 |
 
 ### Superseded — kept for history, do not implement against
 

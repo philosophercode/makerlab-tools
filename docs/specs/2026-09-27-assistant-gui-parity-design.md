@@ -1,9 +1,9 @@
 # Assistant–GUI Parity: One Action Layer for People, Assistant and MCP — Design Spec
 
 **Date:** 2026-09-27
-**Status:** Draft
+**Status:** Accepted 2026-09-27 (owner's answers to §11 in the amendment below). Phase 1 built (branch `v5/assistant-gui-parity`); phases 2–8 open
 **Target:** `v5/`
-**Branch:** `docs/spec-assistant-gui-parity`
+**Branch:** `docs/spec-assistant-gui-parity` (spec); `v5/assistant-gui-parity` (implementation)
 **Spec PR:** #91 · **Implementation PR:** — (one per phase, §9)
 
 ## 1. Summary
@@ -902,3 +902,92 @@ The harness gains:
 None of these blocks phase 1, which changes no behaviour. Q1, Q6 and Q7 block phase 2; Q2
 and Q3 block phases 4 and 5; Q4 and Q11 block phase 7; Q5 blocks the `log-maintenance-wen`
 eval.
+
+## Amendments
+
+Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited.
+
+### 2026-09-27 — the owner's answers to §11
+
+| # | Answer |
+|---|---|
+| 1 | **Click only.** A typed "yes" never commits; the chat's `update_ticket` typed-yes path moves to the card (phase 2). |
+| 2 | **Yes.** A card clicked in the app by somebody holding the permission is "a person with the permission, in the app". No constitution amendment. |
+| 3 | **Yes in the chat, by card; never over MCP** — research, a different image, refresh, import suggestions, manual reprocess. |
+| 4 | **MCP gets proposals only**, landing in the `/admin/proposals` inbox. `update_ticket` over MCP keeps working as today. |
+| 5 | **Add "Log completed maintenance"** to `/admin/maintenance` and as an action, together. |
+| 6 | **Masked emails** in `find_people`. |
+| 7 | **60 minutes** in the chat, **7 days** in the MCP inbox. |
+| 8 | **One tool per action.** Measure the tool block per role in phase 2 and record it. |
+| 9 | **`audit_events` keeps its scope** plus the new `surface` column; `action_proposals` is the full trail. |
+| 10 | **Photos later**, out of scope. |
+| 11 | **Only the proposal's creator confirms.** |
+
+**Status.** Accepted.
+
+### 2026-09-27 — phase 1 as built: the action layer, no behaviour change
+
+**What was built.** `v5/src/lib/actions/`:
+
+| File | What it holds |
+|---|---|
+| `define.ts` | `defineAction`, `ActionDefinition`, `ActionMeta`, the risk and MCP vocabulary; refuses at load a destructive batch, a people/spend/destructive action over MCP, `assistant: "never"` without a reason |
+| `perform.ts` | `performAction(def, rawInput, identity, { surface, proposalId? })` |
+| `registry.ts` | `ACTIONS` (10 definitions) and `actionById` |
+| `people.ts` | `people.set_role`, `people.set_title`, `people.set_name` |
+| `people-roster.ts` | `people.add`, `people.remove`, `people.unblock_email` |
+| `people-allowance.ts` | `people.grant_allowance` |
+| `people-gate.ts` | the super-admin floor reconciliation, run as `afterGate` by the People actions (not by the allowance, which never ran it) |
+| `tickets.ts` / `corrections.ts` / `projects.ts` | `tickets.update`, `corrections.set_status`, `projects.set_published` |
+| `parity.ts` / `exempt.ts` / `parity.test.ts` | the parity guard (§10) |
+
+`app/admin/users/actions.ts`, `users/allowance-actions.ts`, `maintenance/actions.ts`,
+`corrections/actions.ts` and `projects/actions.ts` are one-line wrappers:
+`performAction(DEF, input, await resolveIdentityFromHeaders(), { surface: "gui" })`.
+`writeTicket` (`lib/admin/ticket-write.ts`) is a wrapper over `tickets.update` too, taking the
+surface; `update_ticket` passes `"assistant"` when the chat set a `chatId`, else `"mcp"`. Every
+existing test under `app/admin/{users,maintenance,corrections,projects}` and
+`capabilities/staff.test.ts` passes unchanged, as do the `admin-users`, `admin-queues`,
+`corrections` and `projects` E2E specs.
+
+**Where the definition differs from §3.2, and why.**
+
+1. **No `db` parameter.** `check(input, ctx)` and `run(input, ctx)` take the context
+   (`identity`, `surface`, `proposalId`); the data modules resolve `getDb()` themselves, as every
+   caller already relies on.
+2. **`invalidInput` instead of a shared `invalid_input` code.** A parse failure answers the
+   action's own code (`invalid_title`, `invalid_field`…), so no island meets a code it has no
+   `admin.errors.<code>` string for. `ProjectWriteError` gained `invalid_field` (a message
+   already existed) for a request that is not an id and a boolean, which the page never sends.
+3. **`afterGate`**, a step between the gate and the parse, holds the People page's floor
+   reconciliation — the page ran it before reading the input, and still does.
+4. **`run()` answers `committed`.** Absent, the action was a no-op success ("admin → admin"),
+   so `afterCommit` and the refresh are skipped, exactly as the page behaved. A run whose audit
+   event is inside its own statement (a rename) reports its own `warning`.
+5. **Schemas are as lenient as the server actions they replaced.** Ids are strings, not
+   uuids — `"nobody"` still answers `unknown_user` — and objects strip unknown keys rather than
+   refuse them (the allowance's `strictObject` is kept). Tightening is phase 2's, where the
+   model writes the input.
+6. **`preview` and `revision` are not in the type yet.** Previews arrive with the card
+   (phase 2), revision tokens with the catalogue actions (phase 4).
+7. **`afterCommit` that throws is a warning** (`audit_unavailable`), never a failure — the
+   change has landed. The queue writes' afterCommits never threw; the guard is for later ones.
+8. **`people.set_name`** (Edit name, PR #92) postdates §4's walk and is registered as
+   `set_person_name`, risk `people`. `people.grant_allowance` lives in its own file.
+9. **`runQueueWrite` has no callers** — `performAction` took its sequence over step for step.
+   The function awaits deletion approval; `QueueActionResult` stays as the queues' result type.
+10. **Definitions import their path constants and error unions from the page's result module**
+    (`app/admin/<page>/action-result.ts`, directive-free), type-only except the path, so an
+    island and its action still read one declaration of the codes.
+
+**The parity guard.** `parity.ts` reads every `.ts`/`.tsx` under `src/` (not only `src/app/`)
+with the TypeScript parser and reports each GUI write: an export of a `"use server"` module, a
+function whose own body opens with `"use server"`, and a `POST`/`PUT`/`PATCH`/`DELETE` export of
+an `src/app/**/route.ts`. `parity.test.ts` fails when one is neither a
+`performAction(<registered definition from lib/actions/>)` wrapper nor in `EXEMPT` with a
+reason; when an `EXEMPT` entry names an endpoint that is gone or already a wrapper; and when a
+registered action has no GUI endpoint. `EXEMPT` holds 68 entries today, each naming its phase or
+its "never" reason; it only shrinks. The per-role "tool offer equals server-action gate" check
+waits for the generated tools (phase 2).
+
+**Status.** Accepted.
