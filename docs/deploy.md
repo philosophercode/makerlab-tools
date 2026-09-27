@@ -342,7 +342,9 @@ gives you a working address for Google sign-in.
 Project → **Storage**:
 
 - **Neon Postgres** (Marketplace) → connect to the project, all environments. Adds `DATABASE_URL`.
-- **Blob** → create a store, connect it. Adds `BLOB_READ_WRITE_TOKEN`.
+- **Blob** → create a store, connect it. A store connected today adds `BLOB_STORE_ID` (and
+  `BLOB_WEBHOOK_PUBLIC_KEY`) and signs in with the deployment's OIDC token; an older connection
+  adds `BLOB_READ_WRITE_TOKEN` instead. The app accepts either (`src/lib/blob-mode.ts`).
 
 ## 3 · Google sign-in *(to confirm)*
 
