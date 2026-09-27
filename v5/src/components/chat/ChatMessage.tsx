@@ -10,6 +10,8 @@ import { ImportCard } from "../ImportCard";
 import { ChatProposalCards, type ChatProposalItem } from "../ChatProposalCards";
 import type { IntakeTablePayload } from "../../lib/intake/types";
 import type { ImportCardPayload } from "../../lib/import/view";
+import type { ActionProposalCardPayload } from "../../lib/capabilities/actions";
+import { ActionProposalCard } from "./ActionProposalCard";
 import { citedPassages, manualPassages } from "./manual-citations";
 import { stripCitations, toolStatusLabel, type ChatT } from "./chat-text";
 
@@ -40,8 +42,10 @@ const RUNNING = new Set(["input-streaming", "input-available"]);
  *   ("📖 Searching the Form 4 manual…"); a finished call draws nothing;
  * - **cards**, full width — the intake table (`data-intake-table`, written by
  *   `identify_tools`), the assistant's proposals (`data-proposal`, all of a
- *   turn's in one `ChatProposalCards` where the first arrived) and an
- *   import's hand-off (`data-import-card`);
+ *   turn's in one `ChatProposalCards` where the first arrived), an
+ *   import's hand-off (`data-import-card`) and the assistant's proposed
+ *   actions (`data-action-proposal`, one `ActionProposalCard` each —
+ *   assistant–GUI parity spec §6);
  * - then, for an answer that cited the manual, its **Sources**: the pages it
  *   linked, each opening the PDF there.
  *
@@ -110,6 +114,12 @@ export function ChatMessage({
         proposalsPlaced = true;
         blocks.push(<ChatProposalCards key={`proposals-${index}`} items={proposals} />);
       }
+      return;
+    }
+    if (part.type === "data-action-proposal" && isKind(part, "action-proposal")) {
+      hasCard = true;
+      const data = (part as { data: ActionProposalCardPayload }).data;
+      blocks.push(<ActionProposalCard key={`action-${data.groupId}`} payload={data} />);
       return;
     }
     if (part.type === "data-import-card" && isKind(part, "import-card")) {

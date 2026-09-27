@@ -18,6 +18,11 @@ import * as peopleRoster from "./people-roster";
 import * as projects from "./projects";
 import { ACTIONS } from "./registry";
 import * as tickets from "./tickets";
+import * as maintenanceLog from "./maintenance-log";
+import { ACTION_DEFINITIONS } from "./registry";
+import { actionsCapability, DEFERRED_TOOLS, proposableDefinitions } from "../capabilities/actions";
+import { can, type Permission } from "../auth/permissions";
+import { ROLES } from "../db/schema/vocabulary";
 
 /**
  * The parity guard (assistant–GUI parity spec §2, §10).
@@ -33,7 +38,7 @@ import * as tickets from "./tickets";
 const APP = join(import.meta.dirname, "..", "..", "..");
 
 /** Every definition module; adding one to the registry means adding it here. */
-const DEFINITION_MODULES = [people, peopleRoster, peopleAllowance, tickets, corrections, projects];
+const DEFINITION_MODULES = [people, peopleRoster, peopleAllowance, tickets, maintenanceLog, corrections, projects];
 
 /** Export name → definition, for every registered definition. */
 const DEFINITIONS_BY_EXPORT = new Map(
@@ -121,7 +126,8 @@ describe("the registry", () => {
     // §4.9: `update_ticket` becomes the generated tool of that name in phase 2.
     const replaces = new Set(["update_ticket"]);
     const capabilityTools = new Set([
-      ...CAPABILITIES.flatMap((c) => c.tools.map((t) => t.name)),
+      // Every capability but the one generated from this registry.
+      ...CAPABILITIES.filter((c) => c.id !== "actions").flatMap((c) => c.tools.map((t) => t.name)),
       ...CURATION_TOOLS.map((t) => t.name),
     ]);
     const clashes = ACTIONS.map((a) => a.toolName).filter((name) => capabilityTools.has(name) && !replaces.has(name));
@@ -142,6 +148,46 @@ describe("the registry", () => {
     for (const action of ACTIONS.filter((a) => a.assistant === "propose")) {
       expect(action.description.length, action.id).toBeGreaterThan(20);
     }
+  });
+});
+
+describe("the generated tools (phase 2)", () => {
+  const generated = actionsCapability().tools;
+
+  it("gives every proposable action a tool, a preview, or a deferral with its reason (the list only shrinks)", () => {
+    const missing = ACTION_DEFINITIONS.filter(
+      (def) => def.assistant === "propose" && !(def.tool && def.preview) && !(def.id in DEFERRED_TOOLS)
+    ).map((def) => def.id);
+    expect(missing).toEqual([]);
+    const stale = Object.keys(DEFERRED_TOOLS).filter((id) => proposableDefinitions().some((def) => def.id === id));
+    expect(stale, "A deferred action now has a tool: remove it from DEFERRED_TOOLS").toEqual([]);
+  });
+
+  it("names each tool after its action and gates it on the action's own permission", () => {
+    for (const def of proposableDefinitions()) {
+      const tool = generated.find((t) => t.name === def.toolName);
+      expect(tool, def.id).toBeDefined();
+      expect(tool!.requiredPermission, def.id).toBe(def.permission);
+      expect(tool!.kind).toBe("write");
+      expect(tool!.chatOnly, "MCP proposals are phase 7").toBe(true);
+    }
+  });
+
+  it("offers each tool to exactly the roles the GUI's endpoint lets through", () => {
+    for (const def of proposableDefinitions()) {
+      for (const role of ["anonymous", ...ROLES] as const) {
+        const offered = can({ role }, generated.find((t) => t.name === def.toolName)!.requiredPermission as Permission);
+        expect(offered, `${def.id} for ${role}`).toBe(can({ role }, def.permission));
+      }
+    }
+  });
+
+  it("clashes with no other chat tool: one name, one tool, on each surface", () => {
+    const chatNames = [...CAPABILITIES.flatMap((c) => c.tools.filter((t) => !t.mcpOnly).map((t) => t.name)), ...CURATION_TOOLS.map((t) => t.name)];
+    const dupes = chatNames.filter((name, i) => chatNames.indexOf(name) !== i);
+    expect(dupes).toEqual([]);
+    const mcpNames = CAPABILITIES.flatMap((c) => c.tools.filter((t) => !t.chatOnly).map((t) => t.name));
+    expect(mcpNames.filter((name, i) => mcpNames.indexOf(name) !== i)).toEqual([]);
   });
 });
 

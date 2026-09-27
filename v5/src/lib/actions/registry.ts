@@ -1,7 +1,8 @@
 import "server-only";
 
 import { CORRECTIONS_SET_STATUS } from "./corrections";
-import type { ActionMeta } from "./define";
+import type { ActionDefinition, ActionMeta } from "./define";
+import { TICKETS_LOG_COMPLETED } from "./maintenance-log";
 import { PEOPLE_SET_NAME, PEOPLE_SET_ROLE, PEOPLE_SET_TITLE } from "./people";
 import { PEOPLE_GRANT_ALLOWANCE } from "./people-allowance";
 import { PEOPLE_ADD, PEOPLE_REMOVE, PEOPLE_UNBLOCK_EMAIL } from "./people-roster";
@@ -19,7 +20,15 @@ import { TICKETS_UPDATE } from "./tickets";
  * guard read the data; running one goes through the definition itself and
  * `performAction`.
  */
-export const ACTIONS: readonly ActionMeta[] = [
+/**
+ * A definition with its types erased, for the code that handles every action
+ * alike — the generated tools and the confirm route. Each of those parses the
+ * stored or model-written input with the definition's own schema before any
+ * step reads it, so the erasure never reaches a `run()` unchecked.
+ */
+export type AnyActionDefinition = ActionDefinition<unknown, object, string, unknown>;
+
+const DEFINITIONS = [
   PEOPLE_SET_ROLE,
   PEOPLE_SET_TITLE,
   PEOPLE_SET_NAME,
@@ -28,11 +37,17 @@ export const ACTIONS: readonly ActionMeta[] = [
   PEOPLE_UNBLOCK_EMAIL,
   PEOPLE_GRANT_ALLOWANCE,
   TICKETS_UPDATE,
+  TICKETS_LOG_COMPLETED,
   CORRECTIONS_SET_STATUS,
   PROJECTS_SET_PUBLISHED,
 ];
 
+/** Every definition, runnable. */
+export const ACTION_DEFINITIONS: readonly AnyActionDefinition[] = DEFINITIONS as unknown as AnyActionDefinition[];
+
+export const ACTIONS: readonly ActionMeta[] = ACTION_DEFINITIONS;
+
 /** One action by its dotted id, or undefined. */
-export function actionById(id: string): ActionMeta | undefined {
-  return ACTIONS.find((action) => action.id === id);
+export function actionById(id: string): AnyActionDefinition | undefined {
+  return ACTION_DEFINITIONS.find((action) => action.id === id);
 }

@@ -842,7 +842,26 @@
       "addResolutionFor": "Add resolution for {title}",
       "editResolutionFor": "Edit resolution for {title}",
       "cancelResolution": "Cancel",
-      "resolutionKeys": "Esc cancels."
+      "resolutionKeys": "Esc cancels.",
+      "logCompleted": {
+        "open": "Log completed maintenance",
+        "heading": "Log completed maintenance",
+        "lede": "Record work already done — it is saved as a resolved ticket with you as the one who did it.",
+        "tool": "Tool",
+        "toolPlaceholder": "Choose a tool",
+        "unit": "Unit",
+        "wholeTool": "The tool as a whole",
+        "title": "What was done, in a line",
+        "titlePlaceholder": "Replaced the drive belt",
+        "resolution": "Details",
+        "resolutionPlaceholder": "What you did, what you used, anything to watch next time.",
+        "type": "Kind of work",
+        "save": "Log it",
+        "cancel": "Cancel",
+        "saved": "Logged. It is in the resolved list below.",
+        "needTool": "Choose the tool.",
+        "needText": "Say what was done, in a line and in detail."
+      }
     },
     "corrections": {
       "queueLabel": "Corrections waiting to be handled",
@@ -2033,7 +2052,11 @@
       "search": "Search",
       "clear": "Clear filters",
       "noMatch": "Nothing here matches {filters}.",
-      "searchFor": "“{query}”"
+      "searchFor": "“{query}”",
+      "select": "Select “{name}”",
+      "selectedCount": "{count, plural, one {# selected} other {# selected}}",
+      "askAssistant": "Ask the assistant about these",
+      "clearSelection": "Clear selection"
     }
   },
   "palette": {
@@ -2065,5 +2088,104 @@
     "assistant": "Assistant",
     "ask": "Ask the assistant: “{query}”",
     "askEmpty": "Ask the assistant"
+  },
+  "actions": {
+    "summary": {
+      "people_set_role": "Change {name}'s role",
+      "people_set_title": "Set {name}'s title",
+      "people_set_name": "Rename {name}",
+      "people_add": "Add {email} to the roster",
+      "people_unblock_email": "Unblock {email}",
+      "people_grant_allowance": "Give {name} {items} extra research items for {days} days",
+      "tickets_update": "Update the ticket “{title}” ({tool})",
+      "tickets_log_completed": "Log completed maintenance on {tool}",
+      "corrections_set_status": "Set the status of the correction on {name}",
+      "projects_publish": "Publish the project “{title}”",
+      "projects_unpublish": "Unpublish the project “{title}”"
+    },
+    "fields": {
+      "role": "Role",
+      "title": "Title",
+      "name": "Name",
+      "email": "Email",
+      "extraItems": "Extra research items",
+      "days": "Days",
+      "status": "Status",
+      "priority": "Priority",
+      "assignee": "Assigned to",
+      "resolution": "Resolution",
+      "published": "Gallery",
+      "type": "Kind of work"
+    },
+    "values": {
+      "role": {
+        "user": "User",
+        "admin": "Admin",
+        "super_admin": "Super admin"
+      },
+      "ticketStatus": {
+        "open": "Open",
+        "in_progress": "In progress",
+        "resolved": "Resolved",
+        "closed": "Closed"
+      },
+      "priority": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "critical": "Critical"
+      },
+      "correctionStatus": {
+        "new": "New",
+        "reviewed": "Reviewed",
+        "fixed": "Fixed",
+        "dismissed": "Dismissed"
+      },
+      "published": {
+        "published": "Published",
+        "unpublished": "Not published"
+      },
+      "maintenanceType": {
+        "issue_report": "Issue report",
+        "preventive_maintenance": "Preventive maintenance",
+        "repair": "Repair",
+        "inspection": "Inspection",
+        "calibration": "Calibration"
+      }
+    },
+    "card": {
+      "label": "Proposed change",
+      "before": "Now",
+      "after": "After",
+      "empty": "(none)",
+      "confirm": "Confirm",
+      "confirmCount": "Confirm {count}",
+      "dismiss": "Dismiss",
+      "confirming": "Applying…",
+      "include": "Include “{name}”",
+      "pending": "Nothing changes until you press Confirm.",
+      "risk": {
+        "operational": "Queue work",
+        "catalog": "Catalogue",
+        "people": "People",
+        "spend": "Spends research budget",
+        "destructive": "Cannot be undone"
+      },
+      "status": {
+        "open": "Waiting for you",
+        "confirmed": "Done",
+        "failed": "Not done",
+        "conflict": "Changed meanwhile",
+        "expired": "Expired",
+        "cancelled": "Dismissed",
+        "already_decided": "Already decided",
+        "not_found": "Not found"
+      },
+      "failedReason": "Not done: {reason}",
+      "expiredHint": "This card expired before it was confirmed, so nothing changed. Ask the assistant again.",
+      "refused": "{count, plural, one {# more was} other {# more were}} not proposed: {reasons}",
+      "view": "Open the page",
+      "requestFailed": "That did not go through. Nothing was changed; try again."
+    }
   }
 }

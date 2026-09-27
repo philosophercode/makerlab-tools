@@ -29,6 +29,8 @@ import { fetchManualPdf, type ManualPdfSource } from "../../../lib/chat/fetch-ma
 import { loadToolManualsForChat } from "../../../lib/chat/tool-manuals";
 import { curationForChat, recordSearchResults } from "../../../lib/chat/curation";
 import { curationCapability } from "../../../lib/capabilities/curation";
+import { loadPageContext, pageContextSection } from "../../../lib/actions/page-context";
+import { loadProposalOutcomes } from "../../../lib/chat/proposal-outcomes";
 import { chatPrepareStep } from "./prepare-step";
 import {
   CAPABILITIES,
@@ -71,6 +73,12 @@ interface ChatRequest {
   /** The pending item a preliminary page shows (refresh research spec §12.3). */
   pendingId?: string;
   locale?: string;
+  /**
+   * Where the person is (assistant–GUI parity spec §3.6): the path and the
+   * rows they ticked. Re-read and permission-filtered on the server
+   * (`lib/actions/page-context.ts`); never trusted as it arrives.
+   */
+  page?: unknown;
 }
 
 export async function POST(req: Request) {
@@ -84,7 +92,14 @@ export async function POST(req: Request) {
     return rateLimitedResponse(decision);
   }
 
-  const { messages, toolId, locale, pendingId, id: chatId }: ChatRequest = await req.json();
+  const { messages, toolId, locale, pendingId, id: rawChatId, page }: ChatRequest = await req.json();
+  const chatId = typeof rawChatId === "string" && rawChatId.trim() ? rawChatId.slice(0, 200) : undefined;
+  // What the page shows and what is selected, and what became of this chat's
+  // cards — both read from the database as this caller may see them.
+  const [pageContext, outcomes] = await Promise.all([
+    loadPageContext(identity, page),
+    loadProposalOutcomes(chatId, identity),
+  ]);
   const tools = await getCatalogTools();
   const focused = toolId ? await getCatalogTool(toolId) : null;
   // Curation (refresh research spec §12): the record the page shows, only for
@@ -148,7 +163,7 @@ export async function POST(req: Request) {
         focusedToolId: focused?.id,
         identity,
         ...(curation ? { curation } : {}),
-        ...(typeof chatId === "string" ? { chatId: chatId.slice(0, 200) } : {}),
+        ...(chatId ? { chatId } : {}),
       };
 
       // Compose the system prompt + capability tools from the shared registry
@@ -175,7 +190,9 @@ export async function POST(req: Request) {
         // Resolved here, inside the stream, so a misconfigured MODEL_CHAT
         // reaches the student as the error row naming the variable.
         model: languageModelFor("chat"),
-        system: appendManualSections(system, focused, manuals),
+        system: [appendManualSections(system, focused, manuals), pageContextSection(pageContext), outcomes]
+          .filter(Boolean)
+          .join("\n\n"),
         messages: modelMessages,
         tools: chatTools,
         // Exa and read_page carry no per-turn cap of their own; we count.

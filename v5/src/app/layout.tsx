@@ -8,6 +8,7 @@ import "../styles/globals.css";
 import { fontVariables } from "./fonts";
 import { ChatFab } from "../components/ChatFab";
 import { ChatLauncherProvider } from "../components/ChatLauncherContext";
+import { PageSelectionProvider } from "../components/chat/page-selection";
 import { GlobalChrome } from "../components/GlobalChrome";
 import { DemoDataBanner } from "../components/DemoDataBanner";
 import { ThemeScript } from "../components/ThemeScript";
@@ -65,12 +66,14 @@ async function LocalizedTree({
   return (
     <NextIntlClientProvider>
       <ChatLauncherProvider>
-        <GlobalChrome stats={catalogStats} paletteTools={paletteTools} />
-        <DemoDataBanner />
-        {children}
-        <Suspense fallback={null}>
-          <ChatFab />
-        </Suspense>
+        <PageSelectionProvider>
+          <GlobalChrome stats={catalogStats} paletteTools={paletteTools} />
+          <DemoDataBanner />
+          {children}
+          <Suspense fallback={null}>
+            <ChatFab />
+          </Suspense>
+        </PageSelectionProvider>
       </ChatLauncherProvider>
     </NextIntlClientProvider>
   );

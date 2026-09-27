@@ -45,6 +45,13 @@ export const MAINTENANCE_TYPE = [
 ] as const;
 export type MaintenanceType = (typeof MAINTENANCE_TYPE)[number];
 
+/**
+ * The kinds of work **Log completed maintenance** records (assistant–GUI
+ * parity spec §11 answer 5): every type but a problem report.
+ */
+export const COMPLETED_MAINTENANCE_TYPES = ["preventive_maintenance", "repair", "inspection", "calibration"] as const satisfies readonly MaintenanceType[];
+export type CompletedMaintenanceType = (typeof COMPLETED_MAINTENANCE_TYPES)[number];
+
 export const MAINTENANCE_PRIORITY = ["low", "medium", "high", "critical"] as const;
 export type MaintenancePriority = (typeof MAINTENANCE_PRIORITY)[number];
 
@@ -228,6 +235,27 @@ export type ImportStatus = (typeof IMPORT_STATUS)[number];
  */
 export const RESOURCE_ORIGIN = ["lab_document"] as const;
 export type ResourceOrigin = (typeof RESOURCE_ORIGIN)[number];
+
+/**
+ * Which surface a person used for an audited change (assistant–GUI parity
+ * spec §3.7): the GUI, a confirmation card in the app's chat, an MCP
+ * client, or the app itself on nobody's behalf.
+ */
+export const AUDIT_SURFACE = ["gui", "assistant", "mcp", "system"] as const;
+export type AuditSurface = (typeof AUDIT_SURFACE)[number];
+
+/**
+ * Where an assistant's action proposal is (parity spec §3.5): waiting on a
+ * click (`open`), being run (`confirming`, the claim that stops two tabs
+ * committing one card), or decided. Expiry is not a status: it is
+ * `expires_at` passing while the row is still open.
+ */
+export const ACTION_PROPOSAL_STATUS = ["open", "confirming", "confirmed", "failed", "conflict", "cancelled"] as const;
+export type ActionProposalStatus = (typeof ACTION_PROPOSAL_STATUS)[number];
+
+/** The surface a proposal came from: the app's chat, or an MCP client (phase 7). */
+export const ACTION_PROPOSAL_SURFACE = ["assistant", "mcp"] as const;
+export type ActionProposalSurface = (typeof ACTION_PROPOSAL_SURFACE)[number];
 
 /** True when `value` is one of `list`; narrows the type. */
 export function isOneOf<const T extends readonly string[]>(

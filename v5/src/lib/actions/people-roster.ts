@@ -5,14 +5,14 @@ import { ADMIN_USERS_PATH, PERSON_NAME_MAX_LENGTH, type AdminActionError } from 
 import { isSignUpBlocked } from "../auth/blocked-sign-in";
 import { isAllowedEmail, normalizeEmail } from "../auth/roles";
 import { isSuperAdminFloor } from "../auth/super-admins";
-import { unblockEmail } from "../data/blocked-emails";
+import { isEmailBlocked, unblockEmail } from "../data/blocked-emails";
 import { addPersonAccount } from "../data/user-add";
 import { removeUserAccount } from "../data/user-removal";
 import { findUserById } from "../data/users";
 import { isOneOf, ROLES, type Role } from "../db/schema/vocabulary";
 import { requestMirrorPush } from "../mirror/trigger";
-import { normalizeTitle } from "../people/title";
-import { defineAction } from "./define";
+import { normalizeTitle, USER_TITLE_MAX_LENGTH } from "../people/title";
+import { auditTrail, defineAction, toolShape } from "./define";
 import { reconcileFloorAfterGate } from "./people-gate";
 
 /**
@@ -92,11 +92,37 @@ export const PEOPLE_ADD = defineAction<
     if (!normalized.ok) return normalized.error;
     return (await isSignUpBlocked(normalized.value.email)) ? "email_blocked" : null;
   },
+  tool: toolShape(
+    z.strictObject({
+      email: z.string().min(3).max(254).describe("Their address, exactly as the person typed it"),
+      name: z.string().max(PERSON_NAME_MAX_LENGTH).optional().describe("Their name, if the person gave one; their Google name replaces a blank one at first sign-in"),
+      role: z.enum(ROLES).describe("user, admin or super_admin — the authorization level, never a title"),
+      title: z.string().max(USER_TITLE_MAX_LENGTH).nullable().optional().describe("A custom title such as \"Supermaker\", if the person gave one"),
+    }),
+    (args) => ({ ok: true, inputs: [{ email: args.email, name: args.name, role: args.role, title: args.title ?? null }] })
+  ),
+  preview: async (input) => {
+    const normalized = normalizeAdd(input);
+    if (!normalized.ok) return null;
+    const person = normalized.value;
+    return {
+      summary: { key: "people_add", values: { email: person.email } },
+      rows: [
+        { field: "email", before: null, after: person.email },
+        // The placeholder is the address; say nothing rather than repeat it.
+        ...(person.name !== person.email ? [{ field: "name", before: null, after: person.name }] : []),
+        { field: "role", before: null, after: person.role, format: "role" as const },
+        ...(person.title ? [{ field: "title", before: null, after: person.title }] : []),
+      ],
+      subjectName: person.email,
+      link: ADMIN_USERS_PATH,
+    };
+  },
   run: async (input, ctx) => {
     const normalized = normalizeAdd(input);
     if (!normalized.ok) return normalized;
     if (await isSignUpBlocked(normalized.value.email)) return { ok: false, error: "email_blocked" };
-    const result = await addPersonAccount({ ...normalized.value, actorUserId: ctx.identity.userId });
+    const result = await addPersonAccount({ ...normalized.value, actorUserId: ctx.identity.userId, trail: auditTrail(ctx) });
     if (!result.ok) return result;
     const { person } = result;
     return {
@@ -143,6 +169,7 @@ export const PEOPLE_REMOVE = defineAction<
       userId: input.userId,
       actorUserId: ctx.identity.userId,
       block: input.block ? { reason } : null,
+      trail: auditTrail(ctx),
     });
     if (!result.ok) return result;
     const { removed } = result;
@@ -186,9 +213,25 @@ export const PEOPLE_UNBLOCK_EMAIL = defineAction<{ email?: string | null }, { em
   invalidInput: "invalid_email",
   subject: (input) => ({ type: "email", id: (input.email ?? "").trim().toLowerCase() }),
   afterGate: reconcileFloorAfterGate,
+  tool: toolShape(
+    z.strictObject({ email: z.string().min(3).max(254).describe("The blocked address, exactly as the person typed it") }),
+    (args) => ({ ok: true, inputs: [{ email: args.email }] })
+  ),
+  // An address that is not on the list has nothing to confirm: the card would
+  // promise a change the click cannot make.
+  preview: async (input) => {
+    const email = (input.email ?? "").trim().toLowerCase();
+    if (!email || !(await isEmailBlocked(email))) return null;
+    return {
+      summary: { key: "people_unblock_email", values: { email } },
+      rows: [],
+      subjectName: email,
+      link: ADMIN_USERS_PATH,
+    };
+  },
   run: async (input, ctx) => {
     const email = (input.email ?? "").trim().toLowerCase();
-    await unblockEmail({ email, actorUserId: ctx.identity.userId });
+    await unblockEmail({ email, actorUserId: ctx.identity.userId, trail: auditTrail(ctx) });
     return { ok: true, value: { email }, committed: true };
   },
   revalidate: [ADMIN_USERS_PATH],

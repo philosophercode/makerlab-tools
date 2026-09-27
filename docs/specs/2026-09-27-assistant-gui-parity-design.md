@@ -1,7 +1,7 @@
 # Assistant–GUI Parity: One Action Layer for People, Assistant and MCP — Design Spec
 
 **Date:** 2026-09-27
-**Status:** Accepted 2026-09-27 (owner's answers to §11 in the amendment below). Phase 1 built (branch `v5/assistant-gui-parity`); phases 2–8 open
+**Status:** Accepted 2026-09-27 (owner's answers to §11 in the amendment below). Phases 1–3 built, with **Log completed maintenance** (§11 answer 5) (branch `v5/assistant-gui-parity`); phases 4–8 open
 **Target:** `v5/`
 **Branch:** `docs/spec-assistant-gui-parity` (spec); `v5/assistant-gui-parity` (implementation)
 **Spec PR:** #91 · **Implementation PR:** — (one per phase, §9)
@@ -1016,3 +1016,106 @@ waits for the generated tools (phase 2).
   one person and write as another. One extra session read per role change.
 
 **Status.** Accepted.
+
+### 2026-09-27 — phases 2 and 3 as built: proposals, the card, page context
+
+**What was built.**
+
+| Where | What |
+|---|---|
+| Migration `0020_assistant_actions` | `action_proposals` (§3.5: group, action id, stored input, subject, stored preview, surface, chat, status, result, `tainted`, creator + name snapshot, decider, `expires_at`) with its `updated_at` trigger; `audit_events.surface` (`gui` default, CHECK `gui/assistant/mcp/system`) and `audit_events.proposal_id` |
+| `lib/data/action-proposals.ts` | create (TTL from the database clock: 60 minutes chat, 7 days MCP — §11 answer 7), claim (`UPDATE … WHERE status='open' AND expires_at > now() AND created_by = me RETURNING`, so a second click claims nothing), settle, cancel, count open, list one person's proposals in one chat |
+| `lib/data/audit.ts` + the four in-transaction writers | `AuditTrail { surface, proposalId }` on every event; `auditTrail(ctx)` in `define.ts` spreads it from the action context, so the People page and a card write events that differ in those two columns only |
+| `lib/actions/define.ts` | `ActionPreview` / `ActionPreviewRow`, `ActionToolShape` + `toolShape()`, and `preview` / `tool` on `ActionDefinition` |
+| `lib/actions/proposals.ts` | `proposeAction` (limiter → permission → tool args → the definition's own input schema → `check` → `preview` → rows) and `decideActionProposals` (claim → `performAction(def, row.input, identity, { surface, proposalId })` per row, in order → settle); `typedMatches` for destructive cards |
+| `lib/actions/maintenance-log.ts` | `tickets.log_completed` → `log_completed_maintenance` (§11 answer 5) |
+| `lib/actions/page-context.ts` | `PAGE_CONTEXTS`, `loadPageContext`, the fenced "Where the person is" block (§3.6) |
+| `lib/capabilities/actions.ts` | the generated capability: one proposing tool per definition with a `tool` and a `preview`; `DEFERRED_TOOLS`; `actionsPromptFragment` |
+| `lib/capabilities/admin-reads.ts` | `find_people` (masked email, §11 answer 6), `list_corrections`, `list_project_queue` (their free text fenced) |
+| `lib/chat/proposal-outcomes.ts` | "Proposals in this conversation" (§5.3) |
+| `app/api/action-proposals/route.ts` | `POST` confirm / cancel (cookie only, `actionConfirm` tier, `strictObject` body of ids + decision), `GET ?chatId=` |
+| `components/chat/ActionProposalCard.tsx` | the card: single and batch (a checkbox per row, **Confirm N**), states open / confirming / confirmed / failed / conflict / expired / cancelled / already decided / not found, before → after from the stored preview, vocabulary through `actions.values.*`; `type="button"` everywhere |
+| `components/chat/page-selection.tsx` | `PageSelectionProvider`, `usePublishSelection`, `usePageSelectionReader` |
+| `components/system/queue/QueueList.tsx` | optional `selectable`: a checkbox per card, the ids published, and a bar with **Ask the assistant about these** |
+| `components/admin/LogCompletedForm.tsx`, `lib/data/tool-options.ts` | **Log completed maintenance** on `/admin/maintenance` |
+| `app/api/chat/route.ts`, `components/ChatFab.tsx` | the chat body's `page`; both server-read blocks appended to the system prompt |
+
+Rate tiers `assistantPropose` (30/min) and `actionConfirm` (60/min) are in `ROUTE_TIERS`; the commit
+still passes `ADMIN_ACTION_TIER` inside `performAction`, shared with the GUI. At most 50 open
+proposals per person, 20 per card.
+
+**Owner's answers, as applied.** Q1: the chat's `update_ticket` is the generated tool and only
+proposes; the typed-yes prompt rules are gone from `staffPromptFragment`, and the actions fragment
+says typed words never confirm. Q2/Q3: nothing in phase 2 spends; the spend actions arrive with
+phase 5. Q4: MCP's `update_ticket` is still `staff.ts`'s direct write (now `mcpOnly`), and no
+generated tool is registered over MCP yet. Q5: built, both ways. Q6: `find_people` returns
+`l***@cornell.edu`. Q7: the TTLs above. Q9: `audit_events` scope unchanged; the new columns only.
+Q11: every claim and cancel is conditional on `created_by`; somebody else's id answers `not_found`.
+
+**Q8, the measurement** (composed chat tool block per role, `capabilities/actions.test.ts` pins it):
+
+| Role | Chat tools | Of them, action tools | Tool schemas + descriptions (chars) | Prompt without the catalogue (chars) |
+|---|---|---|---|---|
+| anonymous / user | 9 | 0 | 6,465 | 10,421 |
+| admin (SuperMaker) | 19 | 4 | 14,346 | 17,037 |
+| super_admin | 26 | 10 | 18,878 | 17,154 |
+
+Ten action tools for a director, a third of the 30 at which §3.4 would fold areas into
+`more_actions`: **one tool per action, no fold** (§11 answer 8). Phases 4 and 5 add roughly 25; the
+count is re-measured then.
+
+**Where the build differs from §3–§6, and why.**
+
+1. **Generated tools are chat only** (`chatOnly`). MCP proposals and the `/admin/proposals` inbox
+   are phase 7; until then the one MCP write stays `staff.ts`'s `update_ticket`, marked `mcpOnly`, so
+   each surface has exactly one tool of that name (a parity test checks per surface).
+2. **Each definition declares its tool's arguments** (`tool: toolShape(schema, toInputs)`) rather than
+   reusing `input`. The GUI schemas stay as lenient as phase 1 left them (deviation 5); the model's
+   schema is strict, capped and described, and maps to one definition input per subject. A batch is a
+   list of ids and one change (`ticket_ids`, `user_ids`, `correction_ids`); each id is its own row,
+   deduplicated, confirmed or refused on its own. Chat `update_ticket` keeps "assign to `me` or
+   `nobody`"; any `maintenance.manage` holder (§4.9 row 41) waits for a person read tool of its own.
+3. **`people.remove` has no tool yet** (`DEFERRED_TOOLS`, "Phase 6"): the destructive card's typed
+   confirmation is enforced by the route already (`typedMatches`: trimmed, NFKC, case-folded; one id
+   only), but taint tracking (§8.4) comes first. `tainted` is stored and always false until then.
+4. **Propose runs no `afterGate`.** The People page's floor reconciliation writes the caller's row;
+   proposing writes nothing, so it runs at the click, inside `performAction`, as on the page.
+5. **Preview rows carry a `format`** (`role`, `ticketStatus`, `priority`, `correctionStatus`,
+   `published`, `maintenanceType`) so vocabulary renders through `actions.values.*`; summaries are
+   `actions.summary.<area>_<verb>`. A test scans the definitions for every key they use.
+6. **A refused batch item** is one line on the card ("1 more was not proposed: …"), with the subject
+   id and code returned to the model — not a greyed row with the subject's name, which a refusal
+   such as "unknown user" does not have.
+7. **The outcomes block** lists this person's proposals in this chat from the last day (at most 15),
+   each with its state now — simpler than "since the last turn", and a turn that re-asks sees the
+   same truth. It is fenced: a subject name can be a visitor's ticket title.
+8. **Page context is for people who can act.** `loadPageContext` returns nothing unless the caller
+   can reach an admin surface, so visitors' and students' prompts are unchanged (the tool page's own
+   section already names the tool). The queues had no selection (§3.6 assumed they did):
+   `QueueList` gained an opt-in checkbox per card, used by maintenance, corrections and projects, plus
+   a bar that opens the chat. `InventoryBoard` publishes its existing selection. `IntakeList` has none
+   yet and `ImportTable`'s is not published; both arrive with phase 5's intake actions.
+   `toolId` / `pendingId` are still read.
+9. **Not built in this phase:** the card's "Ask again" (an expired card says to ask again), the
+   "via assistant" tag (there is no audit list page to put it on), `get_tool_units` / `list_imports`
+   (phases 4 and 5), and fencing `list_open_tickets`' descriptions (phase 6, with taint).
+10. **Log completed maintenance** is a ticket that starts `resolved`: the signed-in person is reporter
+    and assignee (no reporter email), both dates are today in `LAB_TIMEZONE`, the type is one of
+    `COMPLETED_MAINTENANCE_TYPES` (every type but `issue_report`), a unit must belong to the tool, and
+    archived tools are refused. No audit event (§4.11); the mirror is told.
+
+**Tests.** PGlite integration: `lib/actions/proposals.test.ts` runs the same change from the page's
+server action and from propose + confirm (title, role through the admin plugin, add person, ticket,
+correction) and compares rows and audit events; a demotion between propose and confirm answers
+`not_permitted`; another person's id answers `not_found`; expired, already decided, a partly refused
+batch, cancel. `api/action-proposals/route.test.ts` (cookie only — a bearer token is anonymous;
+no input rides along; rate limit), `api/chat/staff-tools.route.test.ts` (the card replaced the typed
+yes), `api/chat/page-context.route.test.ts` (a forged selection is dropped; the outcomes block reads
+the database), `lib/actions/page-context.test.ts`, the migration, the card, the queue selection and
+the log form. `e2e/assistant-actions.spec.ts`: a card confirms by id, ticked tickets reach the chat as
+ids, and the log form lands a row. Evals: `evals/cases/assistant-actions.yaml` (eight cases, with
+`as: super_admin`, `path`, `selection`, `proposed_action`, `not_claimed_done`); the two
+`staff-maintenance.yaml` cases that encoded the typed yes now expect a proposal. Not run (paid).
+
+**Status.** Built on `v5/assistant-gui-parity`; not merged.
+

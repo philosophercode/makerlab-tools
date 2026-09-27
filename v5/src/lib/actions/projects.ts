@@ -3,10 +3,11 @@ import "server-only";
 import { z } from "zod";
 import { ADMIN_PROJECTS_PATH, type ProjectWriteError } from "../../app/admin/projects/action-result";
 import { record } from "../admin/audit-warning";
+import { projectSubjects } from "../data/action-subjects";
 import { setProjectPublished } from "../data/projects";
 import { requestMirrorPush } from "../mirror/trigger";
 import { invalidateProjects } from "../revalidate";
-import { defineAction } from "./define";
+import { auditTrail, defineAction, toolShape } from "./define";
 
 /**
  * The project moderation gate (spec §4.6 #43, Article 5): publish or unpublish
@@ -32,6 +33,30 @@ export const PROJECTS_SET_PUBLISHED = defineAction<
   input: z.object({ projectId: z.string(), published: z.boolean() }),
   invalidInput: "invalid_field",
   subject: (input) => ({ type: "project", id: input.projectId }),
+  tool: toolShape(
+    z.strictObject({
+      project_id: z.string().min(1).max(64).describe("The project's id, from list_project_queue"),
+      published: z.boolean().describe("true to publish it to the gallery, false to take it down"),
+    }),
+    (args) => ({ ok: true, inputs: [{ projectId: args.project_id, published: args.published }] })
+  ),
+  preview: async (input) => {
+    const [project] = await projectSubjects([input.projectId]);
+    if (!project) return null;
+    return {
+      summary: { key: input.published ? "projects_publish" : "projects_unpublish", values: { title: project.title } },
+      rows: [
+        {
+          field: "published",
+          before: project.published ? "published" : "unpublished",
+          after: input.published ? "published" : "unpublished",
+          format: "published",
+        },
+      ],
+      subjectName: project.title,
+      link: ADMIN_PROJECTS_PATH,
+    };
+  },
   run: async (input, ctx) => {
     const outcome = await setProjectPublished(input.projectId, input.published, { actorUserId: ctx.identity.userId });
     if (!outcome.ok) return { ok: false, error: outcome.reason };
@@ -40,6 +65,7 @@ export const PROJECTS_SET_PUBLISHED = defineAction<
   afterCommit: async (input, _committed, ctx) => {
     const recorded = await record(
       {
+        ...auditTrail(ctx),
         actorUserId: ctx.identity.userId,
         action: input.published ? "project.published" : "project.unpublished",
         subjectType: "project",

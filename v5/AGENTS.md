@@ -521,13 +521,14 @@ Phase 5 extends both. The shape it sets:
   picks is the whole of that decision, which is why they are two functions and
   not one with a flag.
 
-## The action layer (`src/lib/actions/`; assistant–GUI parity spec, phase 1)
+## The action layer (`src/lib/actions/`; assistant–GUI parity spec, phases 1–3)
 
 Every GUI write is defined once, as data plus a `run()`, and every surface runs
 it through **`performAction(def, input, identity, { surface })`**
 (`docs/specs/2026-09-27-assistant-gui-parity-design.md`). Phase 1 moved the
-People page and the three queues onto it with no behaviour change; the
-assistant's confirmation card (phase 2) and MCP will call the same function.
+People page and the three queues onto it with no behaviour change; phase 2 gave
+the assistant a proposing tool per action and the confirmation card that
+commits it; phase 3 told the chat where the person is. MCP proposals are phase 7.
 
 - **One path.** `performAction`: `authorizeAdminAction` (limiter → signed in →
   permission) → `afterGate` → parse (`input`, a parse failure answers the
@@ -559,7 +560,59 @@ assistant's confirmation card (phase 2) and MCP will call the same function.
   entry with a reason. **Adding a server action or a
   mutation route means adding a definition (and registering it, and importing
   its module in the guard) or an exemption** — and exemptions only shrink: a
-  stale one fails the test too.
+  stale one fails the test too. The guard also fails a proposable action with
+  no `tool` + `preview` that is not in `DEFERRED_TOOLS` (`capabilities/actions.ts`,
+  which only shrinks too).
+- **The assistant only proposes** (phase 2). `capabilities/actions.ts` generates
+  one chat tool per definition that has a `tool` (`toolShape(schema,
+  toInputs)`: the model's strict, described arguments → one definition input
+  per subject; a batch is a list of ids with one change) and a `preview` (the
+  card's summary key, before → after rows and subject name, **read from the
+  database**, never model text). Its `run()` is `proposeAction`
+  (`proposals.ts`): the `assistantPropose` limiter, the permission, the
+  arguments, the definition's own `input`, `check`, `preview` → one
+  `action_proposals` row per subject (`data/action-proposals.ts`, migration
+  `0020`; 60 minutes in the chat, 7 days for MCP; ≤ 50 open per person) and a
+  `data-action-proposal` part drawn by `components/chat/ActionProposalCard.tsx`.
+  **Nothing commits until the person clicks Confirm**: `POST
+  /api/action-proposals` (cookie only — `resolveIdentity` never reads a
+  bearer, so a token cannot confirm; `actionConfirm` tier; body = ids +
+  decision, nothing else) claims the creator's open rows once and runs each
+  **stored** input through `performAction` with `{ surface: "assistant",
+  proposalId }`, so every rule and the permission are checked again at the
+  click. A typed "yes" commits nothing (the prompt says so; §11 answer 1).
+  Each card sentence is `actions.summary.<area>_<verb>`; each row's vocabulary
+  goes through `actions.values.<format>.*` (`preview-messages.test.ts` checks
+  every key a definition names exists).
+- **Audit names the surface.** `audit_events.surface` (`gui` default) and
+  `proposal_id`; every event an action writes spreads `auditTrail(ctx)`, the
+  in-transaction writers (`addPersonAccount`, `removeUserAccount`,
+  `unblockEmail`, `renamePerson`) take a `trail`. A change from the People page
+  and the same change from a card differ in those two columns only
+  (`proposals.test.ts` runs both and compares).
+- **What the next turn knows** is read, not told: the chat route appends
+  "Proposals in this conversation" (`lib/chat/proposal-outcomes.ts`, the
+  caller's rows in this chat) — the model says something was done only when
+  that block says confirmed.
+- **Page context** (phase 3): `ChatFab` sends `page: { path, selection? }`
+  (the ticked ids, from `usePublishSelection` in `components/chat/page-selection.tsx`,
+  read at send time). `lib/actions/page-context.ts` matches the path against
+  `PAGE_CONTEXTS`, checks the page's own permission, keeps only uuids of the
+  page's selection kind (≤ 50), reads their names from the database and
+  appends a fenced "Where the person is" block — only for somebody who can
+  reach an admin surface. A forged or foreign id is dropped before any read;
+  an unknown path is never echoed. `QueueList`'s opt-in `selectable` gives the
+  maintenance, corrections and projects queues checkboxes and an **Ask the
+  assistant about these** bar; `InventoryBoard` publishes its selection.
+- **Read tools for the actions** (`capabilities/admin-reads.ts`, chat only):
+  `find_people` (`users.manage`, masked emails `l***@cornell.edu`),
+  `list_corrections`, `list_project_queue` (other people's words fenced with
+  `OTHERS_TEXT_NOTE`).
+- **Log completed maintenance** (`tickets.log_completed`, `maintenance-log.ts`):
+  the form on `/admin/maintenance` (`LogCompletedForm`, tools and units from
+  `data/tool-options.ts`) and `log_completed_maintenance` — a ticket that
+  starts resolved, the person as reporter and assignee, a unit only of that
+  tool, no archived tools.
 
 ## Adding equipment (`pending_tools`, Phase 6; the image stage is gateway spec §3.5)
 
@@ -898,9 +951,10 @@ MCP callers act as a person, with that person's role and never more
 - **Staff queue tools, chat and MCP** (amendment 2026-09-25): `list_intake_queue`
   (`tools.approve`), `list_open_tickets` and `update_ticket` (`maintenance.manage`, through
   `lib/admin/ticket-write.ts`, the admin page's own path) in `capabilities/staff.ts`. The chat
-  offers them only through `capabilitiesForIdentity` (never to anonymous or students), and
-  `staffPromptFragment` tells staff the rule: state the exact change and wait for a yes before
-  `update_ticket`. Reporter names, never emails.
+  offers them only through `capabilitiesForIdentity` (never to anonymous or students). **Since
+  the parity spec's phase 2 `staff.ts`'s `update_ticket` is MCP only** (the one direct MCP write,
+  §11 answer 4); the chat's `update_ticket` is the generated proposing tool, and the typed-yes
+  rule is gone. Reporter names, never emails.
 - **Rate limits**: `mcp` 30/min per IP, `mcpSignedIn` 60/min per token or person, `mcpWrite`
   10/min per identity before each write call.
 - **Sign in with Google is the default way to connect** (amendment 2026-09-24): the page and
@@ -1226,7 +1280,11 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/auth/blocked-sign-in.ts` | Refusing a blocked address in the create hook, and the redirect to `/auth/blocked` |
 | `src/lib/data/users.ts` | The `/admin/users` roster, read straight from Postgres; `markFirstSignIn` |
 | `src/lib/data/user-add.ts` | Add person: the pre-added `user` row and its `user.added` event, one transaction |
-| `src/lib/actions/*` | The action layer: `performAction`, `defineAction`, `ACTIONS`, the People and queue definitions, and the parity guard (`parity.ts`, `exempt.ts`) |
+| `src/lib/actions/*` | The action layer: `performAction`, `defineAction`, `ACTIONS` / `ACTION_DEFINITIONS`, the People, queue and log-completed definitions, `proposals.ts` (propose / confirm), `page-context.ts`, and the parity guard (`parity.ts`, `exempt.ts`) |
+| `src/lib/data/action-proposals.ts` / `action-subjects.ts` | `action_proposals` (claim once, creator only, TTLs); the id → name reads previews and page context use |
+| `src/lib/capabilities/actions.ts` / `admin-reads.ts` | The generated proposing tools and their prompt; `find_people`, `list_corrections`, `list_project_queue` |
+| `src/app/api/action-proposals/route.ts` | Confirm / cancel an assistant proposal (cookie only), and re-read a chat's proposals |
+| `src/components/chat/ActionProposalCard.tsx` / `page-selection.tsx` | The confirmation card; the page selection the chat sends |
 | `src/lib/admin/queue-write.ts` | `QueueActionResult`; `runQueueWrite` has no callers since the action layer (awaiting deletion approval) |
 | `src/app/admin/maintenance/`, `corrections/`, `projects/` | The three queues: one page, one result module and one action apiece |
 | `src/components/admin/use-row-action.ts` | What every queue control does around its action — optimistic, refusal restores, warning keeps |

@@ -1,4 +1,4 @@
-import type { AdminGateError } from "../../../lib/admin/action-result";
+import type { AdminActionWarning, AdminGateError } from "../../../lib/admin/action-result";
 import type { QueueActionResult } from "../../../lib/admin/queue-write";
 
 /**
@@ -63,3 +63,21 @@ export type UpdateTicketAction = (input: {
   logId: string;
   patch: TicketPatch;
 }) => Promise<MaintenanceActionResult>;
+
+/** What **Log completed maintenance** sends (parity spec §11 answer 5). */
+export interface LogCompletedFields {
+  /** The tool's id. */
+  tool: string;
+  unitId: string | null;
+  title: string;
+  resolution: string;
+  /** One of `COMPLETED_MAINTENANCE_TYPES`. */
+  type: string;
+}
+
+export type LogCompletedResult =
+  | { ok: true; logId: string; warning?: AdminActionWarning }
+  | { ok: false; error: AdminGateError | MaintenanceWriteError };
+
+/** The shape the form's island takes, and the page hands it. */
+export type LogCompletedAction = (input: LogCompletedFields) => Promise<LogCompletedResult>;

@@ -58,6 +58,7 @@ export const EXEMPT: Readonly<Record<string, string>> = {
   "src/app/admin/refresh/actions.ts#refreshAgain": "Phase 5 (spend): refresh.queue",
   "src/app/admin/refresh/actions.ts#decideRefreshProposals": "Never: /admin/refresh is the review surface for research proposals (§4.9 #38)",
   "src/app/api/chat-proposals/route.ts#POST": "Never: deciding a field proposal is the person's click, by design (§2, refresh research spec §12)",
+  "src/app/api/action-proposals/route.ts#POST": "The confirm route itself (§3.5): it runs stored proposals through performAction, so its writes are registered actions; not a GUI write of its own",
 
   // ── Phase 7 / mirror (§4.9 #50–51) ───────────────────────────────────
   "src/app/admin/mirror/actions.ts#syncNow": "Mirror phase: mirror.sync_now",

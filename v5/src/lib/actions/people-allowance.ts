@@ -8,7 +8,8 @@ import { grantResearchAllowance } from "../data/research-allowances";
 import { findUserById } from "../data/users";
 import { ALLOWANCE_PERMISSION } from "../import/access";
 import { SETUP_ALLOWANCE_MAX_DAYS, SETUP_ALLOWANCE_MAX_ITEMS } from "../import/limits";
-import { defineAction } from "./define";
+import { auditTrail, defineAction, toolShape } from "./define";
+import { PERSON_ID } from "./tool-args";
 
 /**
  * **Grant a setup allowance** (spec §4.7 #49; bulk intake spec §4.2, §8):
@@ -47,6 +48,27 @@ export const PEOPLE_GRANT_ALLOWANCE = defineAction<
     if (target.banned || !can({ role: target.role }, "tools.add")) return "cannot_research";
     return null;
   },
+  tool: toolShape(
+    z.strictObject({
+      user_id: PERSON_ID,
+      extra_items: z.number().int().min(1).max(SETUP_ALLOWANCE_MAX_ITEMS).describe("Research items on top of the daily allowance"),
+      days: z.number().int().min(1).max(SETUP_ALLOWANCE_MAX_DAYS).describe("For how many days"),
+    }),
+    (args) => ({ ok: true, inputs: [{ userId: args.user_id, extraItems: args.extra_items, days: args.days }] })
+  ),
+  preview: async (input) => {
+    const target = await findUserById(input.userId);
+    if (!target) return null;
+    return {
+      summary: { key: "people_grant_allowance", values: { name: target.name, items: input.extraItems, days: input.days } },
+      rows: [
+        { field: "extraItems", before: null, after: String(input.extraItems) },
+        { field: "days", before: null, after: String(input.days) },
+      ],
+      subjectName: target.name,
+      link: ADMIN_USERS_PATH,
+    };
+  },
   run: async (input, ctx) => {
     const actorId = ctx.identity.userId;
     if (!actorId) return { ok: false, error: "not_signed_in" };
@@ -69,6 +91,7 @@ export const PEOPLE_GRANT_ALLOWANCE = defineAction<
   afterCommit: async (input, grant, ctx) => {
     const recorded = await record(
       {
+        ...auditTrail(ctx),
         actorUserId: ctx.identity.userId,
         action: "allowance.granted",
         subjectType: "user",

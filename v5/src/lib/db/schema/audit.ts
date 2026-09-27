@@ -1,5 +1,7 @@
 import { index, jsonb, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
 import { user } from "./auth.ts";
+import { inListCheck } from "./checks.ts";
+import { AUDIT_SURFACE } from "./vocabulary.ts";
 
 /**
  * Audit events — append-only (spec §4.11). The data layer exposes insert and
@@ -67,6 +69,17 @@ export const auditEvents = pgTable(
     subjectType: text("subject_type").notNull(),
     subjectId: text("subject_id").notNull(),
     detail: jsonb("detail").$type<Record<string, unknown>>(),
+    // Which surface the person used (assistant–GUI parity spec §3.7, migration
+    // `0020`): every row before it was the GUI's. The actor is still the
+    // person who clicked — an assistant holds no permission of its own.
+    surface: text("surface").notNull().default("gui"),
+    // The confirmed `action_proposals` row, for a change made from a card. No
+    // foreign key: proposals are pruned sooner than audit is kept.
+    proposalId: uuid("proposal_id"),
   },
-  (t) => [index("audit_events_subject_idx").on(t.subjectType, t.subjectId), index("audit_events_at_idx").on(t.at)]
+  (t) => [
+    index("audit_events_subject_idx").on(t.subjectType, t.subjectId),
+    index("audit_events_at_idx").on(t.at),
+    inListCheck("audit_events_surface_check", "surface", AUDIT_SURFACE),
+  ]
 );

@@ -1,4 +1,5 @@
 import { record } from "../admin/audit-warning";
+import type { AuditTrail } from "../data/audit";
 import { findUserById, updateUserName } from "../data/users";
 import { normalizeName } from "./name";
 
@@ -39,6 +40,8 @@ export interface RenameInput {
   name: unknown;
   /** Names the surface in the console line a missing audit event leaves. */
   surface: string;
+  /** The surface and proposal for the audit event (parity spec §3.7); the GUI's when absent. */
+  trail?: AuditTrail;
 }
 
 export async function renamePerson(input: RenameInput): Promise<RenameResult> {
@@ -60,6 +63,7 @@ export async function renamePerson(input: RenameInput): Promise<RenameResult> {
 
   const audited = await record(
     {
+      ...input.trail,
       actorUserId: input.actorUserId,
       action: "user.name_changed",
       subjectType: "user",

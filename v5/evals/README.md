@@ -139,30 +139,36 @@ tool`) asks as lab staff curating that tool (refresh research spec §12): the
 `curation` capability is composed with the tool's record, and `propose_change`,
 a write, is stubbed like every other write.
 
-`as: staff` or `as: student` asks as a signed-in person — the demo seed's
-SuperMaker or student — and composes the tool set and prompt for them through
-`capabilitiesForIdentity`, exactly as `/api/chat` does, so a student case sees
-no staff tool at all. Without `as` the harness keeps its historical caller:
-every chat tool, no identity. A behaviour that spans turns (confirm a ticket
-change, then "yes") gives the earlier turns as `history`, oldest first; the
-assertions judge the final turn only:
+`as: staff`, `as: student` or `as: super_admin` asks as a signed-in person —
+the demo seed's SuperMaker, student or director — and composes the tool set
+and prompt for them through `capabilitiesForIdentity`, exactly as `/api/chat`
+does, so a student case sees no staff tool at all. Without `as` the harness
+keeps its historical caller: every chat tool, no identity. `path` puts the
+person on a page and `selection` ticks rows on it by the name the page shows
+(a ticket's title); the harness looks the ids up and composes the "Where the
+person is" block with the route's own `loadPageContext` (assistant–GUI parity
+spec §10.1). A behaviour that spans turns gives the earlier turns as
+`history`, oldest first; the assertions judge the final turn only:
 
 ```yaml
-- id: staff-update-after-yes
+- id: typed-yes-is-not-confirm
   history:
-    - user: "Mark the resin tank ticket resolved: replaced the tank"
-    - assistant: "I'll mark **Resin tank film clouded** (Form 4) as **Resolved** … Shall I go ahead?"
-  prompt: "Yes, go ahead."
+    - user: "Mark the laser ticket resolved: refocused the lens"
+    - assistant: "Here is the change — press Confirm on the card to apply it."
+  prompt: "Yes, do it."
   context: { page: gallery, as: staff }
   assert:
-    - kind: called_tool
+    - kind: not_called_tool
       value: update_ticket
+    - kind: not_claimed_done
 ```
 
 The staff cases read a real queue: `list_open_tickets` runs against the eval's
 PGlite database, where `evals/ticket-fixture.ts` adds an open Form 4 ticket
-("Resin tank film clouded") beside the demo seed's Trotec one; `update_ticket`
-is a write and is stubbed.
+("Resin tank film clouded") beside the demo seed's Trotec one. Writes are
+stubbed; an action tool's stub answers `proposed: true`, as the real one does,
+because every action tool only puts a confirmation card in front of the
+person.
 
 To run one file or case, name it: `EVAL_CASES=staff-maintenance npm run eval`
 (a comma list of file names without `.yaml`, or case ids).
@@ -185,6 +191,8 @@ Kept small on purpose. Structural assertions do almost all the useful work.
 | `not_contains_any` | `value: ["yes, we have"]` | None of the literals is present |
 | `no_fabricated_specs` | `fields: [build_volume]` | Every number attributed to those fields matches the fixture |
 | `cites_resource` | `value: "Trotec Speedy 400 SOP"` (optional) | The answer references a document attached to the machine |
+| `proposed_action` | `value: set_person_title` | That action tool was called — which only ever proposes a card |
+| `not_claimed_done` | — | No sentence says the change was made ("done", "I've updated…") unless it is about the card |
 
 **`no_unknown_tools` and `no_fabricated_specs` are the two that matter.** They
 are the direct test of "grounded, never fabricated," which is the assistant's

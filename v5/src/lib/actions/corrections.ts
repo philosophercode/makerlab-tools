@@ -2,8 +2,11 @@ import "server-only";
 
 import { z } from "zod";
 import { CORRECTIONS_PATH, type CorrectionWriteError } from "../../app/admin/corrections/action-result";
+import { correctionSubjects } from "../data/action-subjects";
 import { updateFeedbackStatus } from "../data/feedback";
-import { defineAction } from "./define";
+import { FEEDBACK_STATUS } from "../db/schema/vocabulary";
+import { defineAction, toolShape } from "./define";
+import { recordIds } from "./tool-args";
 
 /**
  * Triaging a correction (spec §4.6 #42): mark it `reviewed`, `fixed`,
@@ -31,6 +34,24 @@ export const CORRECTIONS_SET_STATUS = defineAction<
   input: z.object({ feedbackId: z.string(), status: z.string() }),
   invalidInput: "invalid_field",
   subject: (input) => ({ type: "feedback", id: input.feedbackId }),
+  tool: toolShape(
+    z.strictObject({
+      correction_ids: recordIds("corrections"),
+      status: z.enum(FEEDBACK_STATUS).describe("new, reviewed, fixed or dismissed"),
+    }),
+    (args) => ({ ok: true, inputs: args.correction_ids.map((feedbackId) => ({ feedbackId, status: args.status })) })
+  ),
+  preview: async (input) => {
+    const [correction] = await correctionSubjects([input.feedbackId]);
+    if (!correction) return null;
+    const name = correction.fieldFlagged ? `${correction.toolName || "—"} · ${correction.fieldFlagged}` : correction.toolName || "—";
+    return {
+      summary: { key: "corrections_set_status", values: { name } },
+      rows: [{ field: "status", before: correction.status, after: input.status, format: "correctionStatus" }],
+      subjectName: name,
+      link: CORRECTIONS_PATH,
+    };
+  },
   run: async (input, ctx) => {
     const outcome = await updateFeedbackStatus(input.feedbackId, input.status, { actorUserId: ctx.identity.userId });
     if (!outcome.ok) return { ok: false, error: outcome.reason };

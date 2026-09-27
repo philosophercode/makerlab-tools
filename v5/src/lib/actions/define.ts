@@ -47,10 +47,71 @@ export type McpExposure = "never" | "propose" | "direct";
 /** The only actions allowed `mcp: "direct"` (§11 answer 4): today's `update_ticket`, kept working. */
 export const DIRECT_OVER_MCP: readonly string[] = ["tickets.update"];
 
+/**
+ * What the confirmation card shows (§3.2), built from the database when the
+ * proposal is made and stored with it. **Never the model's words**: the
+ * summary is a next-intl key under `actions.summary` with values read from
+ * rows, and every before/after is a stored value.
+ */
+export interface ActionPreview {
+  /** `actions.summary.<key>`, and its values: names and counts, from the database. */
+  summary: { key: string; values: Record<string, string | number> };
+  rows: ActionPreviewRow[];
+  /** The subject's name as stored — what a destructive card asks to be typed (phase 6). */
+  subjectName: string;
+  /** The subject's page, for a "view" link once it is done. */
+  link?: string;
+}
+
+/** One changing field: `actions.fields.<field>`, before → after. */
+export interface ActionPreviewRow {
+  field: string;
+  before: string | null;
+  after: string | null;
+  /**
+   * The values are vocabulary, shown through `actions.values.<format>.<value>`
+   * rather than as typed ("in_progress" reads "In progress").
+   */
+  format?: "role" | "ticketStatus" | "priority" | "correctionStatus" | "published" | "maintenanceType";
+}
+
+/**
+ * How the assistant asks for an action (§3.4): its own schema — strict,
+ * described, capped, written for a model — and the step from those arguments
+ * to one definition input per subject. A batch tool ("resolve these two")
+ * maps to several inputs; each becomes its own proposal row, confirmed or
+ * refused on its own. `toInputs` may read (resolving "me" to the caller);
+ * it never writes, and an argument it cannot place answers a refusal code.
+ */
+export interface ActionToolShape<I> {
+  schema: z.ZodType<unknown>;
+  toInputs: (args: unknown, ctx: ActionContext) => Promise<{ ok: true; inputs: I[] } | { ok: false; error: string }>;
+}
+
+/** Declare an {@link ActionToolShape} with its argument type checked against its schema. */
+export function toolShape<T, I>(
+  schema: z.ZodType<T>,
+  toInputs: (args: T, ctx: ActionContext) => Promise<{ ok: true; inputs: I[] } | { ok: false; error: string }> | { ok: true; inputs: I[] } | { ok: false; error: string }
+): ActionToolShape<I> {
+  return {
+    schema: schema as z.ZodType<unknown>,
+    toInputs: async (args, ctx) => toInputs(args as T, ctx),
+  };
+}
+
 /** What an action changes, for the card, the conflict check and audit. */
 export interface ActionSubject {
   type: "user" | "email" | "maintenance_log" | "feedback" | "project" | "tool" | "pending_tool";
   id: string;
+}
+
+/**
+ * The audit columns a change carries (§3.7): the surface, and the proposal a
+ * card confirmed. Spread into every event an action records, so the People
+ * page and a card write rows that differ in these two columns only.
+ */
+export function auditTrail(ctx: Pick<ActionContext, "surface" | "proposalId">): { surface: ActionSurface; proposalId: string | null } {
+  return { surface: ctx.surface, proposalId: ctx.proposalId ?? null };
 }
 
 /** What every step of an action is handed. The identity is the gate's, never the input's. */
@@ -139,6 +200,14 @@ export interface ActionDefinition<I, R extends object, E extends string, C = tru
   afterCommit?: (input: I, committed: C, ctx: ActionContext) => Promise<AdminActionWarning | undefined>;
   /** Pages to refresh once something committed. Guarded: a refresh that cannot be scheduled logs. */
   revalidate?: string[];
+  /**
+   * The card's before → after, read from the database (§3.2). Runs at propose
+   * time after `check`; null means the subject is not there (`not_found`).
+   * Required of every action the assistant proposes (`parity.test.ts`).
+   */
+  preview?: (input: I, ctx: ActionContext) => Promise<ActionPreview | null>;
+  /** The assistant's tool arguments and how they become inputs (§3.4). */
+  tool?: ActionToolShape<I>;
 }
 
 /**

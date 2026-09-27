@@ -21,6 +21,7 @@ import { ChatComposer } from "./chat/ChatComposer";
 import { parseCeiling } from "./chat/chat-text";
 import { useChatAttachments } from "./chat/use-chat-attachments";
 import { useDictation } from "./chat/use-dictation";
+import { usePageSelectionReader, type PageSelection } from "./chat/page-selection";
 import { FROSTED } from "./system/frosted";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +39,11 @@ function safeDecode(segment: string): string {
   } catch {
     return segment;
   }
+}
+
+/** What the chat body says about the page: the path, and a selection when there is one. */
+function pageContext(path: string, selection: PageSelection | null): { path: string; selection?: PageSelection } {
+  return selection && selection.ids.length > 0 ? { path, selection: { kind: selection.kind, ids: selection.ids.slice(0, 50) } } : { path };
 }
 
 /** The admin opens the assistant from its section bar and ⌘K; the floating button is not drawn there. */
@@ -126,6 +132,15 @@ export function ChatFab() {
     localeRef.current = locale;
   }, [locale]);
 
+  // Where the person is (assistant–GUI parity spec §3.6): the path, and the
+  // rows a list page has ticked, read at send time. Ids only — the server
+  // re-reads every one and drops what this person may not act on.
+  const pathRef = useRef(pathname);
+  useEffect(() => {
+    pathRef.current = pathname;
+  }, [pathname]);
+  const readSelection = usePageSelectionReader();
+
   const transport = useMemo(
     () =>
       // eslint-disable-next-line react-hooks/refs -- the closure below runs at send time inside an event handler, not during render. Reading the refs there is safe.
@@ -142,10 +157,11 @@ export function ChatFab() {
             locale: localeRef.current,
             ...(toolIdRef.current ? { toolId: toolIdRef.current } : {}),
             ...(pendingIdRef.current ? { pendingId: pendingIdRef.current } : {}),
+            page: pageContext(pathRef.current, readSelection()),
           },
         }),
       }),
-    []
+    [readSelection]
   );
 
   // The Markdown renderer loads when the chat is first opened, not with every page.

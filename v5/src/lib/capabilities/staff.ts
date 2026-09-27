@@ -23,11 +23,13 @@ import type { Capability, CapabilityCtx, CapabilityTool, PromptEnv } from "./typ
  *   on `/admin/maintenance`: reporter names (the caller holds
  *   `maintenance.manage`, the redaction rule's bar), never their email
  *   addresses (emails never enter a model's context).
- * - `update_ticket` (`maintenance.manage`) — status, priority, assignee,
+ * - `update_ticket` (`maintenance.manage`) — **MCP only** since the
+ *   assistant–GUI parity spec's phase 2: status, priority, assignee,
  *   resolution, through `writeTicket`, the path the admin page's own action
- *   takes. The one direct write: working a queue is operational, not catalogue
- *   publishing (§3.3). In the chat the prompt makes the assistant state the
- *   exact change and wait for the person's yes before calling it.
+ *   takes. The one direct write MCP keeps (§11 answer 4). In the chat the
+ *   tool of that name is the generated one (`capabilities/actions.ts`), which
+ *   proposes a card the person confirms — the typed "yes" is retired
+ *   (§11 answer 1).
  * - `propose_change` (`tools.edit`) — **MCP only.** A proposed change to a
  *   catalogue tool, stored as a `chat_proposals` row for a person to accept on
  *   `/admin/refresh`. **It writes nothing to the tool** (Article 5): a leaked
@@ -168,6 +170,8 @@ const updateTicketTool: CapabilityTool<UpdateTicketInput, UpdateTicketResult> = 
     "Work one maintenance ticket: change its status, priority, assignee (yourself or nobody) or resolution note. Only the fields you pass change — the same change the /admin/maintenance page makes. Staff only. Before calling it, tell the person exactly what will change on which ticket and wait for them to confirm; never call it on an unconfirmed request.",
   inputSchema: updateTicketSchema,
   kind: "write",
+  // The chat's `update_ticket` proposes a card instead (parity spec phase 2).
+  mcpOnly: true,
   requiredPermission: "maintenance.manage",
   run: async (input, ctx: CapabilityCtx): Promise<UpdateTicketResult> => {
     const identity = ctx.identity;
@@ -279,11 +283,10 @@ The person you are talking to is lab staff, signed in. Besides helping like you 
     sections.push(`### Maintenance queue
 
 - **Reading.** When staff ask what maintenance is open, pending or broken — across the lab or on one machine ("what's open on the Form 4?") — call \`list_open_tickets\` and answer from its result, filtered to the machine they named. Give each ticket's title, status, priority, unit and who has it. Reporter names may be shown to staff; email addresses are never shown or asked for. If nothing matches, say so plainly — never invent a ticket.
-- **Changing a ticket is a two-step conversation.** \`update_ticket\` writes to the live queue, so before you call it you must **state the exact change and ask for confirmation**, then stop and wait for their reply. Name the ticket by its title and machine, and list every field that will change: the new status (Open, In progress, Resolved, Closed), the priority, the assignee (\`me\` — the signed-in person — or \`nobody\`), and the resolution note word for word. For example: "I'll mark **Resin tank film clouded** (Form 4) as **Resolved** with the note "Replaced the tank." — shall I go ahead?"
-- Call \`update_ticket\` **only after an explicit yes in a later message** ("yes", "go ahead", "do it"). A request that already sounds decided ("mark it resolved") still gets the confirmation step first. If they change the details, restate the new change and ask again. If more than one ticket could be meant, list them and ask which.
+- **Changing a ticket is a card the person confirms.** When they ask to change one ("mark it resolved: replaced the tank"), call \`update_ticket\` with the ticket id(s) and the change — it proposes a confirmation card and changes nothing by itself. Several tickets with the same change go in one call. If more than one ticket could be meant, list them and ask which.
 - Use the ticket id from \`list_open_tickets\` (call it first if you do not have the id) — never guess an id. Assign only to \`me\` or \`nobody\`; to hand a ticket to someone else, point them to /admin/maintenance.
-- **Report only what the tool answered.** Say a ticket was updated only when \`update_ticket\` returned \`status: "updated"\`. If it refused, say what the refusal says and that nothing changed.
-- Resolution notes are always written in **English**, whatever language the conversation is in.`);
+- **Work already done** ("log maintenance on the WEN: replaced the belt") is \`log_completed_maintenance\` — a resolved log with the person as the one who did it. A problem that still needs fixing is \`report_issue\`.
+- Resolution notes and logs are always written in **English**, whatever language the conversation is in.`);
   }
 
   if (intake) {

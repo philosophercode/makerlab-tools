@@ -8,10 +8,11 @@ import { getAuth } from "../auth/config";
 import { isSuperAdminFloor } from "../auth/super-admins";
 import { countUsersWithRole, findUserById, updateUserTitle, type UserRecord } from "../data/users";
 import { isOneOf, ROLES, type Role } from "../db/schema/vocabulary";
-import { normalizeName } from "../people/name";
+import { normalizeName, PERSON_NAME_MAX_LENGTH } from "../people/name";
 import { renamePerson } from "../people/rename";
-import { normalizeTitle } from "../people/title";
-import { defineAction } from "./define";
+import { normalizeTitle, USER_TITLE_MAX_LENGTH } from "../people/title";
+import { auditTrail, defineAction, toolShape } from "./define";
+import { PERSON_ID, PERSON_IDS } from "./tool-args";
 import { reconcileFloorAfterGate } from "./people-gate";
 
 /**
@@ -60,6 +61,23 @@ export const PEOPLE_SET_ROLE = defineAction<
     if (target.role === input.role) return null;
     return demotionProtection(target, input.role);
   },
+  tool: toolShape(
+    z.strictObject({
+      user_id: PERSON_ID,
+      role: z.enum(ROLES).describe("user, admin or super_admin — the authorization level, never a title"),
+    }),
+    (args) => ({ ok: true, inputs: [{ userId: args.user_id, role: args.role }] })
+  ),
+  preview: async (input) => {
+    const target = await findUserById(input.userId);
+    if (!target) return null;
+    return {
+      summary: { key: "people_set_role", values: { name: target.name } },
+      rows: [{ field: "role", before: target.role, after: input.role, format: "role" }],
+      subjectName: target.name,
+      link: ADMIN_USERS_PATH,
+    };
+  },
   run: async (input, ctx) => {
     const role = input.role as Role;
     const target = await findUserById(input.userId);
@@ -93,6 +111,7 @@ export const PEOPLE_SET_ROLE = defineAction<
   afterCommit: async (input, { from, to }, ctx) => {
     const recorded = await record(
       {
+        ...auditTrail(ctx),
         actorUserId: ctx.identity.userId,
         action: "role.changed",
         subjectType: "user",
@@ -134,6 +153,28 @@ export const PEOPLE_SET_TITLE = defineAction<
     if (!normalizeTitle(input.title).ok) return "invalid_title";
     return (await findUserById(input.userId)) ? null : "unknown_user";
   },
+  tool: toolShape(
+    z.strictObject({
+      user_ids: PERSON_IDS,
+      title: z
+        .string()
+        .max(USER_TITLE_MAX_LENGTH)
+        .nullable()
+        .describe("The title to show, e.g. \"Supermaker\"; null or blank clears it back to the role's default"),
+    }),
+    (args) => ({ ok: true, inputs: args.user_ids.map((userId) => ({ userId, title: args.title })) })
+  ),
+  preview: async (input) => {
+    const target = await findUserById(input.userId);
+    const normalized = normalizeTitle(input.title);
+    if (!target || !normalized.ok) return null;
+    return {
+      summary: { key: "people_set_title", values: { name: target.name } },
+      rows: [{ field: "title", before: target.title, after: normalized.title }],
+      subjectName: target.name,
+      link: ADMIN_USERS_PATH,
+    };
+  },
   run: async (input) => {
     const normalized = normalizeTitle(input.title);
     if (!normalized.ok) return { ok: false, error: "invalid_title" };
@@ -149,6 +190,7 @@ export const PEOPLE_SET_TITLE = defineAction<
   afterCommit: async (input, detail, ctx) => {
     const recorded = await record(
       {
+        ...auditTrail(ctx),
         actorUserId: ctx.identity.userId,
         action: "user.title_changed",
         subjectType: "user",
@@ -188,12 +230,28 @@ export const PEOPLE_SET_NAME = defineAction<{ userId: unknown; name: unknown }, 
     const id = typeof input.userId === "string" ? input.userId : "";
     return (await findUserById(id)) ? null : "unknown_user";
   },
+  tool: toolShape(
+    z.strictObject({ user_id: PERSON_ID, name: z.string().min(1).max(PERSON_NAME_MAX_LENGTH).describe("The new display name") }),
+    (args) => ({ ok: true, inputs: [{ userId: args.user_id, name: args.name }] })
+  ),
+  preview: async (input) => {
+    const target = await findUserById(typeof input.userId === "string" ? input.userId : "");
+    const normalized = normalizeName(input.name);
+    if (!target || !normalized.ok) return null;
+    return {
+      summary: { key: "people_set_name", values: { name: target.name } },
+      rows: [{ field: "name", before: target.name, after: normalized.name }],
+      subjectName: target.name,
+      link: ADMIN_USERS_PATH,
+    };
+  },
   run: async (input, ctx) => {
     const result = await renamePerson({
       actorUserId: ctx.identity.userId,
       targetUserId: typeof input.userId === "string" ? input.userId : "",
       name: input.name,
       surface: AUDIT_SURFACE,
+      trail: auditTrail(ctx),
     });
     if (!result.ok) return result;
     return {
