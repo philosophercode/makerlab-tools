@@ -1,5 +1,6 @@
 # Dependencies
-/node_modules
+# No trailing slash: also matches a node_modules symlink (agent worktrees link one in).
+node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -9,23 +10,46 @@
 !.yarn/versions
 
 # Next.js
-/.next/
-/out/
-/build/
+.next/
+out/
+build/
+next-env.d.ts
 
 # Testing
 /coverage/
 
-# Environment
-.env
-.env*.local
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+
+# Environment: every .env file stays local; .env.example is the committed template.
+.env*
+!.env.example
 
 # Vercel
-.vercel/
+.vercel
 
 # TypeScript
 *.tsbuildinfo
-next-env.d.ts
+
+# Workflow SDK (Phase 6): local run data, the vitest tier's bundles, the SWC
+# plugin cache, and the routes `withWorkflow` generates at build time.
+.workflow-data/
+.workflow-vitest/
+.swc/
+/src/app/.well-known/workflow/
+
+# Local Blob store: without BLOB_READ_WRITE_TOKEN, `next dev` writes uploads,
+# archived manuals and backups here (src/lib/blob-local.ts).
+.blob-data/
+# The intake E2E server's own local store (BLOB_LOCAL_DIR, playwright.config.ts).
+.blob-data-e2e/
+
+# Local persistent database (PGLITE_DATA_DIR, src/lib/db/local-dir.ts): a real
+# import reviewed on a laptop before it goes to Neon.
+.pglite-data/
 
 # OS
 .DS_Store
@@ -42,20 +66,14 @@ yarn-error.log*
 /v3-*.png
 /v5-*.png
 
-# Python
-__pycache__/
-*.pyc
-*.pyo
-scripts/.env
-scripts/qr_codes/
-scripts/export-*/
-scripts/tool_images/
-
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
+
+# Agent worktrees (Claude Code): full checkouts of this repo, never committed.
+.claude/worktrees/
 
 # Private working notes — never committed, never published.
 # This repo is public; keep strategy/commercial notes out of it.
