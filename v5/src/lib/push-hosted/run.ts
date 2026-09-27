@@ -26,8 +26,11 @@ export interface PushOptions {
   localStore: LocalBlobBackend;
   /** The local dev server's origin, besides loopback, that marks a URL as local. */
   localOrigin?: string;
-  /** Null when the env file links no Blob store. */
-  uploader: BlobUploader | null;
+  /**
+   * Null when the env file links no Blob store. With `exists`, an earlier
+   * push's copy is reused only when the target store still has it.
+   */
+  uploader: (BlobUploader & { exists?: (pathname: string, access: "public" | "private") => Promise<boolean> }) | null;
   /** The checkout's latest migration (null skips that part of the check). */
   repoMigration: RepoMigration | null;
   dryRun: boolean;
@@ -88,6 +91,16 @@ export async function runPush(options: PushOptions): Promise<PushReport> {
       }
     } finally {
       await options.target.query("rollback");
+    }
+    const exists = options.uploader?.exists;
+    if (exists && earlier.size > 0) {
+      let gone = 0;
+      for (const [pathname, copy] of [...earlier]) {
+        if (await exists(copy.pathname, copy.access)) continue;
+        earlier.delete(pathname);
+        gone += 1;
+      }
+      if (gone > 0) log(`${gone} file(s) from an earlier push are no longer in the hosted store; they will be uploaded again.`);
     }
     const toUpload = files.files.filter((file) => !earlier.has(file.pathname));
 
