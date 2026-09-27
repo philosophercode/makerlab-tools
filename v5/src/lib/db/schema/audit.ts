@@ -43,6 +43,10 @@ export const AUDIT_ACTIONS = [
   // `detail` is `{ email, name, role, title }` as stored; Google attaches to
   // that row at their first sign-in.
   "user.added",
+  // Somebody's display name changed: a super admin on the People page, or the
+  // person on `/account` (`lib/people/rename.ts`). `detail` is `{ from, to }`;
+  // the actor says which of the two it was.
+  "user.name_changed",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

@@ -31,7 +31,7 @@ import { getDb, resetDbForTests } from "../../../lib/db/client";
 import { auditEvents, blockedEmails, session, user } from "../../../lib/db/schema/index";
 import { findUserById } from "../../../lib/data/users";
 import { seedUser, signInAsNew } from "../../../../test/utils/session";
-import { removeUser, setUserRole } from "./actions";
+import { removeUser, setUserName, setUserRole } from "./actions";
 
 /**
  * What happens when the change lands and the audit event does not (§4.11).
@@ -108,6 +108,19 @@ describe("an audit write that fails after the change landed", () => {
     await expect(setUserRole({ userId: target.id, role: "admin" })).resolves.toMatchObject(
       { ok: true }
     );
+  });
+
+  it("reports a rename as a success, with the gap named", async () => {
+    await asDirector();
+    const target = await seedUser({ email: "student@cornell.edu", role: "user", name: "Casey" });
+    audit.failing = true;
+
+    expect(await setUserName({ userId: target.id, name: "Casey Rivera" })).toEqual({
+      ok: true,
+      name: "Casey Rivera",
+      warning: "audit_unavailable",
+    });
+    expect((await findUserById(target.id))?.name).toBe("Casey Rivera");
   });
 
   it("rolls a removal back instead — its audit event is inside the transaction", async () => {

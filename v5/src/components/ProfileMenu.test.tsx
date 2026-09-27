@@ -136,9 +136,9 @@ describe("ProfileMenu — the menu", () => {
   });
 
   it.each([
-    ["user", "Student", ["CONNECT AN AI ASSISTANT", "SIGN OUT"]],
-    ["admin", "Supermaker", ["ADMIN", "ADD EQUIPMENT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]],
-    ["super_admin", "Super Admin", ["ADMIN", "ADD EQUIPMENT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]],
+    ["user", "Student", ["YOUR ACCOUNT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]],
+    ["admin", "Supermaker", ["ADMIN", "ADD EQUIPMENT", "YOUR ACCOUNT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]],
+    ["super_admin", "Super Admin", ["ADMIN", "ADD EQUIPMENT", "YOUR ACCOUNT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]],
   ] as const)("offers %s exactly the entries the role holds", async (role, label, expected) => {
     const user = userEvent.setup();
     renderMenu({ ...NITI, role });
@@ -156,6 +156,15 @@ describe("ProfileMenu — the menu", () => {
     await user.click(trigger());
 
     expect(screen.getByRole("menuitem", { name: "ADMIN" })).toHaveAttribute("href", "/admin");
+  });
+
+  it("links Your account to /account, where the name is edited", async () => {
+    const user = userEvent.setup();
+    renderMenu();
+
+    await user.click(trigger());
+
+    expect(screen.getByRole("menuitem", { name: "YOUR ACCOUNT" })).toHaveAttribute("href", "/account");
   });
 
   it("signs out through the shared helper", async () => {
@@ -231,11 +240,13 @@ describe("ProfileMenu — dismissal and keyboard", () => {
     renderMenu();
 
     await user.click(trigger());
-    const [admin, add, connect, signOut] = screen.getAllByRole("menuitem");
+    const [admin, add, account, connect, signOut] = screen.getAllByRole("menuitem");
     expect(admin).toHaveFocus();
 
     await user.keyboard("{ArrowDown}");
     expect(add).toHaveFocus();
+    await user.keyboard("{ArrowDown}");
+    expect(account).toHaveFocus();
     await user.keyboard("{ArrowDown}");
     expect(connect).toHaveFocus();
     await user.keyboard("{ArrowDown}");
@@ -272,9 +283,9 @@ describe("ProfileMenu — dismissal and keyboard", () => {
 
     trigger().focus();
     await user.keyboard("{Enter}");
-    expect(screen.getByRole("menuitem", { name: "CONNECT AN AI ASSISTANT" })).toHaveFocus();
+    expect(screen.getByRole("menuitem", { name: "YOUR ACCOUNT" })).toHaveFocus();
 
-    await user.keyboard("{ArrowDown}");
+    await user.keyboard("{ArrowDown}{ArrowDown}");
     expect(screen.getByRole("menuitem", { name: "SIGN OUT" })).toHaveFocus();
     await user.keyboard("{Enter}");
     expect(signOutAndReload).toHaveBeenCalledTimes(1);

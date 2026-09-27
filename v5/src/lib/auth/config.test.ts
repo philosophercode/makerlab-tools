@@ -20,6 +20,7 @@ import {
   resetAuthForTests,
 } from "@/lib/auth/config";
 import { addPersonAccount } from "@/lib/data/user-add";
+import { updateUserName } from "@/lib/data/users";
 import { getDb, resetDbForTests } from "@/lib/db/client";
 import { account, session, user } from "@/lib/db/schema/index";
 
@@ -375,6 +376,28 @@ describe("sign-in callback — somebody a super admin added first", () => {
     expect((await userRow("luis@cornell.edu")).firstSignedInAt).toEqual(first);
   });
 
+  it("keeps a name typed at Add person instead of Google's, and still takes the photo", async () => {
+    stubAuthEnv();
+    const added = await preAdd({ name: "Luis Typed" });
+
+    await signInThroughGoogle("luis@cornell.edu", "Luis Example");
+
+    const row = await userRow("luis@cornell.edu");
+    expect(row.id).toBe(added.id);
+    expect(row.name).toBe("Luis Typed");
+    expect(row.image).toBe("https://example.com/a.png");
+  });
+
+  it("keeps a name a super admin corrected before the first sign-in", async () => {
+    stubAuthEnv();
+    const added = await preAdd();
+    await updateUserName(added.id, "Luis Corrected");
+
+    await signInThroughGoogle("luis@cornell.edu", "Luis Example");
+
+    expect((await userRow("luis@cornell.edu")).name).toBe("Luis Corrected");
+  });
+
   it("keeps a floor address a super admin when it was added as one", async () => {
     stubAuthEnv({ AUTH_SUPER_ADMIN_EMAILS: "luis@cornell.edu" });
     const added = await preAdd({ role: "super_admin", title: "Director" });
@@ -423,6 +446,46 @@ describe("sign-in callback — somebody a super admin added first", () => {
     const row = await userRow("student@cornell.edu");
     // The column default: created at their first sign-in, so that is it.
     expect(row.firstSignedInAt).toBeInstanceOf(Date);
+  });
+});
+
+describe("sign-in callback — a name somebody edited", () => {
+  it("takes Google's name at sign-up", async () => {
+    stubAuthEnv();
+    await signInThroughGoogle("ada@cornell.edu", "Ada Lovelace");
+    expect((await userRow("ada@cornell.edu")).name).toBe("Ada Lovelace");
+  });
+
+  it("is not overwritten by Google at a later sign-in", async () => {
+    stubAuthEnv();
+    await signInThroughGoogle("ada@cornell.edu", "Ada Lovelace");
+    const row = await userRow("ada@cornell.edu");
+    await updateUserName(row.id, "Ada K. Lovelace");
+
+    // Same Google subject: the linked account is found, and Google still says "Ada Lovelace".
+    sub -= 1;
+    await signInThroughGoogle("ada@cornell.edu", "Ada Lovelace");
+
+    const db = await getDb();
+    expect(await db.select().from(account).where(eq(account.userId, row.id))).toHaveLength(1);
+    expect((await userRow("ada@cornell.edu")).name).toBe("Ada K. Lovelace");
+  });
+
+  it("cannot be changed through Better Auth's own update-user endpoint", async () => {
+    stubAuthEnv();
+    const { callback } = await signInThroughGoogle("ada@cornell.edu", "Ada Lovelace");
+    const auth = createAuth(await getDb());
+
+    const res = await auth.handler(
+      new Request(`${ORIGIN}${AUTH_BASE_PATH}/update-user`, {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: ORIGIN, cookie: cookieHeader(callback) },
+        body: JSON.stringify({ name: "Not Audited" }),
+      })
+    );
+
+    expect(res.status).toBe(404);
+    expect((await userRow("ada@cornell.edu")).name).toBe("Ada Lovelace");
   });
 });
 

@@ -233,6 +233,18 @@ export function ProfileMenu({ identity }: { identity: ClientIdentity }) {
                 </button>
               </li>
             ) : null}
+            {/* Everyone signed in may change their own name. */}
+            <li role="none">
+              <Link
+                href="/account"
+                role="menuitem"
+                tabIndex={-1}
+                className="profile-menu-item"
+                onClick={() => close(false)}
+              >
+                {t("yourAccount")}
+              </Link>
+            </li>
             {/* Everyone signed in may create a personal access token (MCP
                 access spec §5.1). */}
             <li role="none">

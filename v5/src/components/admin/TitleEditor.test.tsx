@@ -22,7 +22,7 @@ function renderEditor(overrides: Partial<React.ComponentProps<typeof TitleEditor
 const editButton = () => screen.getByRole("button", { name: "Edit the title for Ada Lovelace" });
 const field = () => screen.getByRole("textbox", { name: "Title for Ada Lovelace" });
 
-// en.json: admin.titles.user = "Student", admin.personTitle.save = "Save".
+// en.json: admin.titles.user = "Student", ui.inlineEdit.save = "Save".
 describe("TitleEditor", () => {
   it("edits from a pencil icon button: named for the person, no visible words", () => {
     renderEditor();

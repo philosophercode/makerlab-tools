@@ -16,6 +16,7 @@ import { removeUserAccount } from "../../../lib/data/user-removal";
 import { countUsersWithRole, findUserById, updateUserTitle, type UserRecord } from "../../../lib/data/users";
 import { isOneOf, ROLES, type Role } from "../../../lib/db/schema/vocabulary";
 import { requestMirrorPush } from "../../../lib/mirror/trigger";
+import { renamePerson } from "../../../lib/people/rename";
 import { normalizeTitle } from "../../../lib/people/title";
 import {
   ADMIN_USERS_PATH,
@@ -26,6 +27,7 @@ import {
   type AdminActionResult,
   type AdminActionWarning,
   type RemoveUserResult,
+  type SetNameResult,
   type SetTitleResult,
   type UnblockEmailResult,
 } from "./action-result";
@@ -179,6 +181,37 @@ export async function setUserTitle(input: {
   return { ok: true, title, ...warn(gateWarning, recorded) };
 }
 
+/**
+ * Change anybody's display name — **Edit name** on the roster.
+ *
+ * Refuses, in this order: the gate (signed in, rate, `users.manage`), a name
+ * that is blank or longer than `PERSON_NAME_MAX_LENGTH` once trimmed, and an
+ * unknown target. The floor is not consulted: a name grants nothing. The
+ * write and its `user.name_changed` event are `renamePerson`, shared with
+ * `/account`, where people rename themselves.
+ *
+ * A name set here sticks: Google never overwrites it at a later sign-in
+ * (`lib/auth/provider-name.ts`).
+ */
+export async function setUserName(input: { userId: string; name: string }): Promise<SetNameResult> {
+  const gate = await authorize();
+  if (!gate.ok) return gate;
+  const { identity, warning: gateWarning } = gate;
+
+  const result = await renamePerson({
+    actorUserId: identity.userId,
+    targetUserId: typeof input.userId === "string" ? input.userId : "",
+    name: input.name,
+    surface: AUDIT_SURFACE,
+  });
+  if (!result.ok) return result;
+
+  // No mirror push: the mirror carries the name snapshots written with each
+  // ticket and project, not the live `user.name`.
+  if (result.changed) revalidatePath(ADMIN_USERS_PATH);
+  return { ok: true, name: result.name, ...warn(gateWarning, result.audited) };
+}
+
 /** Good enough to refuse a typo; Google is what proves the address is real. */
 const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -225,8 +258,9 @@ export async function addPerson(input: AddPersonInput): Promise<AddPersonResult>
     if (await isSignUpBlocked(email)) return { ok: false, error: "email_blocked" };
     result = await addPersonAccount({
       email,
-      // Until Google's replaces it at their first sign-in; the address is
-      // the honest placeholder when nobody typed one.
+      // The address is the honest placeholder when nobody typed a name, and
+      // the only name Google's replaces at their first sign-in; a typed one
+      // is kept (`lib/auth/provider-name.ts`).
       name: typedName || email,
       role,
       title: normalizedTitle.title,

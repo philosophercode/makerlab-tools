@@ -323,7 +323,7 @@ describe("PrimaryNav — what the bar holds", () => {
     await user.click(await screen.findByRole("button", { name: "Signed in as Niti" }));
 
     const items = screen.getAllByRole("menuitem").map((item) => item.textContent);
-    expect(items).toEqual(["ADMIN", "ADD EQUIPMENT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]);
+    expect(items).toEqual(["ADMIN", "ADD EQUIPMENT", "YOUR ACCOUNT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]);
   });
 
   it("offers development-only sign-in only when the server says every guard passed", async () => {
