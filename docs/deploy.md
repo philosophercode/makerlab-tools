@@ -385,12 +385,55 @@ ADMIN_REVALIDATE_SECRET     any long random string (cache refresh, hand-run nigh
 Model calls need no key on Vercel: the AI Gateway authenticates the project itself (OIDC).
 Notion variables are **not** needed — Notion is only a one-way mirror now, off until you turn it on.
 
-## 5 · Copy the local inventory up *(to confirm — script being written)*
+## 5 · Copy the local inventory up *(to confirm)*
 
 Copies the local database (`v5/.pglite-data`) into Neon and the local files (`v5/.blob-data`:
 tool photos, manual PDFs) into Blob, so the hosted site matches `localhost:3001`, manuals
 already searchable. Re-runnable: each run **replaces** the hosted data, so while the site is
 review-only, make changes locally and push again.
+
+Before you start: the project has deployed at least once **with Neon connected** (its build
+runs `db:migrate`, so the hosted schema exists), you have checked out the same commit, and
+the local dev server is **stopped** (the local database is single-process). From `v5/`:
+
+```bash
+vercel link                                                # once, if v5/ is not linked yet
+vercel env pull .env.hosted --environment=production       # DATABASE_URL + Blob credentials
+PGLITE_DATA_DIR=.pglite-data npm run data:push -- --to .env.hosted --dry-run
+PGLITE_DATA_DIR=.pglite-data npm run data:push -- --to .env.hosted --yes
+```
+
+Then **delete `.env.hosted` yourself** — it holds the production database password and a Blob
+credential. (`v5/.gitignore` already ignores `.env*`, but it should not sit on disk.)
+
+What `npm run data:push` (`v5/scripts/push-local-to-hosted.ts`) does:
+
+- **Dry run** (`--dry-run`): connects read-only to both sides and prints each table's row
+  count (local vs. hosted now), the number and size of files to upload, and any problem. It
+  writes nothing. A real run needs `--yes`, because it replaces the hosted rows.
+- **Schema check.** It never migrates. The checkout, the local database and the hosted one must
+  all be at the same latest migration; otherwise it refuses and says which is behind (redeploy
+  the matching commit, or `npm run db:migrate` locally).
+- **Files first.** Every `attachments` row served from the local store (`/api/dev-blob/…`, or a
+  private file in `.blob-data/`) is uploaded to Vercel Blob once — same access, same content
+  type, a random suffix — and its pathname and URL are rewritten in the **hosted copy only**
+  (the same URL anywhere else, such as a resource link, is rewritten too). Bundled
+  `/tool-images/…` need nothing. A re-run reuses the files an earlier push uploaded instead of
+  storing them again. If an upload fails, the database has not been touched; the files already
+  uploaded are listed (delete them in the Blob dashboard if they matter). A local URL whose
+  file is gone from `.blob-data/` stops the run (`--allow-missing-files` copies those rows as
+  they are).
+- **Then one transaction.** Every app table (derived from the schema, parents first) is
+  truncated and refilled with the local rows: ids, timestamps, jsonb, arrays and manual
+  embeddings exactly as they are; the generated search column is recomputed by Postgres. Any
+  failure rolls the whole thing back.
+- **What does not travel**, by the nightly backup's rules: sign-in sessions, OAuth handshakes
+  and MCP access tokens are skipped (hosted sign-ins end — sign in again); `account` rows are
+  copied with Google's OAuth tokens blanked (reissued at the next sign-in); the Notion mirror's
+  token and OAuth client secrets are blanked too. Users, roles and bans are copied.
+- **Credentials.** Blob is reached with `BLOB_READ_WRITE_TOKEN`, or `BLOB_STORE_ID` +
+  `VERCEL_OIDC_TOKEN` for a store connected the current way (the pulled OIDC token lasts about
+  12 hours — pull again if it has expired). Nothing from the env file is printed.
 
 ## 6 · Redeploy and check *(to confirm)*
 

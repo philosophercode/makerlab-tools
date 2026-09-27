@@ -1093,6 +1093,7 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/capabilities/manuals.ts` / `src/lib/chat/tool-manuals.ts` | `search_manual` and its prompt (outline of the focused tool's searchable manuals); what the chat route loads to decide what is searched and what is attached |
 | `src/app/admin/research/page.tsx` + `actions.ts` | **Manuals** (`tools.edit`): the state strip, the library table (`listManualLibrary`) and Re-process (`reprocessLibraryManual`) |
 | `scripts/index-manuals.ts` | `npm run manuals:index` — the manual-text and passages backfill (tokens and cost printed) |
+| `scripts/push-local-to-hosted.ts` / `src/lib/push-hosted/*` | `npm run data:push` — copy the local database and files up to a hosted deployment: `tables` (plan from the schema), `rows` (redact, rewrite URLs), `files` (local files, uploads, reuse), `copy` (one transaction), `migrations` (the schema check), `target-env` (the `--to` file), `run` |
 | `src/workflows/archive-manuals.ts` | `archiveManuals(resourceIds)` — one step per resource |
 | `src/lib/data/manual-archives.ts` / `src/lib/cron/manual-archive.ts` | The archive's key, stale-copy release and the nightly due list; the cron stage |
 | `src/lib/import/*` | Bulk intake: the parsers and validation (pure), `service.ts` (starting an import), `extract.ts` / `suggest-names.ts` (the two model calls), `import-steps.ts` / `suggest-steps.ts` (steps), `research-queue.ts` (chunked Research selected) |
@@ -1252,7 +1253,15 @@ npm run build        # runs db:migrate, then production build
 npm run lint         # eslint
 npm run typecheck    # tsc --noEmit
 npm run test:all     # full test suite
+npm run data:push -- --to .env.hosted [--dry-run] [--yes]   # copy local PGlite + .blob-data up to a hosted deploy
 ```
+
+`data:push` (`scripts/push-local-to-hosted.ts`, logic in `src/lib/push-hosted/`) replaces the
+hosted database's rows with the local ones (`PGLITE_DATA_DIR`) and uploads local files to
+Vercel Blob, rewriting their URLs in the hosted copy only. Target credentials come only from
+the `--to` file (`vercel env pull`), never `process.env`, and are never printed. It refuses
+unless checkout, local and hosted are at the same migration; skips and blanks what the nightly
+backup does (`backup-policy.ts`). Usage and caveats: `docs/deploy.md` Part 2 step 5.
 
 ## Gotchas
 
