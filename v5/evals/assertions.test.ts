@@ -189,6 +189,7 @@ describe("says_not_covered", () => {
   it("accepts an honest 'the manual does not cover it', in either apostrophe", () => {
     expect(saysNotCovered("The Form 4 manual doesn’t cover warranty terms.").ok).toBe(true);
     expect(saysNotCovered("I could not find that in the manual.").ok).toBe(true);
+    expect(saysNotCovered("The searchable Form 4 Manual doesn’t state a warranty period.").ok).toBe(true);
     expect(saysNotCovered("The warranty is two years.").ok).toBe(false);
   });
 });
