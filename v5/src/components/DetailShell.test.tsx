@@ -78,6 +78,25 @@ describe("DetailShell", () => {
       }
     });
 
+    it("marks a link whose manual the assistant can search, and only that one", () => {
+      const [first, second] = toolWithLinks.links;
+      const { container } = render(
+        <DetailShell
+          tool={toolWithLinks}
+          manualContents={[
+            { href: first.href, outline: [], searchable: true },
+            ...(second ? [{ href: second.href, outline: [], searchable: false }] : []),
+          ]}
+        />
+      );
+      const marks = container.querySelectorAll('[data-slot="searchable-manual"]');
+      expect(marks).toHaveLength(1);
+      expect(screen.getByRole("link", { name: new RegExp(first.label, "i") })).toContainElement(marks[0] as HTMLElement);
+      expect(within(marks[0] as HTMLElement).getByText("Searchable by the assistant")).toBeInTheDocument();
+      // An empty outline shows no Contents list.
+      expect(screen.queryByText("Contents")).toBeNull();
+    });
+
     it("surfaces the Safety Doc / SOP action buttons that match a resource kind", () => {
       render(<DetailShell tool={toolWithLinks} />);
       // toolWithLinks has an SOP link (kind === "SOP") -> "View SOP" button.

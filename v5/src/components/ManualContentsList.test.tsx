@@ -46,7 +46,7 @@ describe("ManualContentsList", () => {
 
 describe("DetailShell with manual contents", () => {
   it("puts the contents under the link they belong to, and nowhere else", () => {
-    const { container } = render(<DetailShell tool={toolWithLinks} manualContents={[{ href: PDF, outline: OUTLINE }]} />);
+    const { container } = render(<DetailShell tool={toolWithLinks} manualContents={[{ href: PDF, outline: OUTLINE, searchable: false }]} />);
     const lists = container.querySelectorAll('[data-slot="manual-contents"]');
     expect(lists).toHaveLength(1);
     expect(lists[0].previousElementSibling?.getAttribute("href")).toBe(PDF);

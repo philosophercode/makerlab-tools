@@ -274,6 +274,8 @@ describe("the readers", () => {
     expect(contents).toHaveLength(1);
     expect(contents[0].href).toBe(`https://blob.test/${shown}.pdf`);
     expect(contents[0].outline.map((e) => e.title)).toEqual(["Introduction", "Specifications", "Electrical", "Maintenance"]);
+    // Text stored but no passages built: listed for its Contents, not yet searchable.
+    expect(contents[0].searchable).toBe(false);
   });
 
   it("finds a stored manual for research by its source link, its stored copy, or its tool", async () => {

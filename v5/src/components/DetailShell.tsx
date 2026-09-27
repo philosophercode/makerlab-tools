@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, FileSearch } from "lucide-react";
 import type { MakerLabProject, MakerLabTool } from "./catalog-types";
 import { ManualContentsList } from "./ManualContentsList";
 import type { ManualContents } from "../lib/data/manual-documents";
@@ -215,9 +215,18 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
                           </strong>
                           {link.description ? <span className="text-xs text-muted-foreground">{link.description}</span> : null}
                         </span>
-                        <ArrowUpRight aria-hidden="true" className="size-3.5 text-muted-foreground" />
+                        <span className="flex items-center gap-1.5">
+                          {/* The lab's stored copy is searchable by the assistant (manual text spec §6). */}
+                          {contents?.searchable ? (
+                            <span data-slot="searchable-manual" title={t("searchableManual")} className="inline-flex text-primary-ink">
+                              <FileSearch aria-hidden="true" className="size-3.5" />
+                              <span className="sr-only">{t("searchableManual")}</span>
+                            </span>
+                          ) : null}
+                          <ArrowUpRight aria-hidden="true" className="size-3.5 text-muted-foreground" />
+                        </span>
                       </a>
-                      {contents ? <ManualContentsList href={link.href} outline={contents.outline} /> : null}
+                      {contents && contents.outline.length > 0 ? <ManualContentsList href={link.href} outline={contents.outline} /> : null}
                     </li>
                   );
                 })}

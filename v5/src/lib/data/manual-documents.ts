@@ -267,22 +267,26 @@ export async function listManualStates(db: Db, resourceIds: readonly string[]): 
   return out;
 }
 
-/** A manual's outline, keyed by the public URL of the PDF it belongs to (the link the tool page shows). */
+/** A ready manual, keyed by the public URL of the PDF it belongs to (the link the tool page shows). */
 export interface ManualContents {
   href: string;
+  /** Its outline; empty when the PDF has none (the page then shows no Contents list). */
   outline: ManualOutlineEntry[];
+  /** Holding search passages: the assistant can search it (the tool page marks the link). */
+  searchable: boolean;
 }
 
 /**
- * The tool page's **Contents** lists (spec §6): the outline of each ready,
- * **public** current PDF on the tool's **published** resources. Private files
- * are never listed — a visitor could not open them.
+ * The tool page's ready manuals (spec §6): each ready, **public** current PDF
+ * on the tool's **published** resources, with its outline for the **Contents**
+ * list and whether the assistant can search it. Private files are never
+ * listed — a visitor could not open them.
  */
 export async function listManualContentsForTool(db: Db, toolId: string): Promise<ManualContents[]> {
   if (!isUuid(toolId)) return [];
-  const rows = await rawRows<{ public_url: string; outline: ManualOutlineEntry[] | string }>(
+  const rows = await rawRows<{ public_url: string; outline: ManualOutlineEntry[] | string; searchable: boolean | null }>(
     db,
-    sql`select a.public_url, d.outline
+    sql`select a.public_url, d.outline, ${HAS_PASSAGES} as searchable
           from resources r
           join attachments a on ${currentPdf("a", "r")}
           join manual_documents d on d.attachment_id = a.id
@@ -291,12 +295,12 @@ export async function listManualContentsForTool(db: Db, toolId: string): Promise
            and a.access = 'public'
            and a.public_url is not null
            and d.status = 'ready'
-           and jsonb_array_length(d.outline) > 0
          order by r.title asc, a.created_at asc`
   );
   return rows.map((row) => ({
     href: row.public_url,
     outline: typeof row.outline === "string" ? (JSON.parse(row.outline) as ManualOutlineEntry[]) : row.outline,
+    searchable: row.searchable === true,
   }));
 }
 

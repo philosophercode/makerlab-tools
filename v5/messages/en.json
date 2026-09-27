@@ -117,6 +117,7 @@
     "resourceFallback": "Resource",
     "manualContents": "Contents",
     "manualContentsPage": "p. {page}",
+    "searchableManual": "Searchable by the assistant",
     "details": "Details",
     "category": "Category",
     "location": "Location",
