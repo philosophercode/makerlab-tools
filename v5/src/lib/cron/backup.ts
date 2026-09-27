@@ -4,17 +4,26 @@ import type { BlobStore } from "../blob";
 import { getDb } from "../db/client";
 import * as schema from "../db/schema/index";
 import type { Db } from "../db/types";
-import { isExcludedFromBackup, redactRows } from "./backup-policy";
+import { isExcludedFromBackup, isRebuiltAfterRestore, redactRows } from "./backup-policy";
+import { backupsToPrune, type BackupStamp } from "./backup-retention";
 
 /**
  * The nightly export (data platform design spec §3.9).
  *
- * This replaces the Notion dump that `GET /api/admin/backup` wrote. The reason
- * for it has not changed: before it existed there was **no backup at all**, and
- * one deleted database took ~100 machines of accumulated staff work with it.
- * What changed is where the data lives — the source of truth is Postgres now
- * (Article 7), so the file is a row-level export of every table rather than a
- * pile of raw Notion pages.
+ * It replaced a nightly Notion dump (the retired `/api/admin/backup`). The
+ * reason for it has not changed: before it existed there was **no backup at
+ * all**, and one deleted database took ~100 machines of accumulated staff work
+ * with it. What changed is where the data lives — the source of truth is
+ * Postgres now (Article 7), so the file is a row-level export of every table
+ * rather than a pile of raw Notion pages.
+ *
+ * **Retention is tiered** (`backup-retention.ts`): every night for a week, then
+ * one a week to a month, one a month to a year, one a quarter to three years.
+ *
+ * **Manual search data is not in the file.** `manual_pages` and
+ * `manual_chunks` are rebuilt from the stored PDFs, so after a restore run
+ * `npm run manuals:index -- --force` from `v5/` (`backup-policy.ts` says why
+ * `--force`).
  *
  * **It never swallows a failure.** A backup that fails quietly is worse than no
  * backup, because you find out on the day you need it. Every error here throws
@@ -31,8 +40,6 @@ import { isExcludedFromBackup, redactRows } from "./backup-policy";
 
 export const BACKUP_PREFIX = "backups/";
 const BACKUP_PATHNAME = /^backups\/(\d{4}-\d{2}-\d{2})\.json$/;
-export const RETENTION_DAYS = 30;
-const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Serialized file format. `version` is here so a future reader can tell what it has. */
 export interface BackupFile {
@@ -46,7 +53,6 @@ export interface BackupFile {
 export interface BackupResult {
   pathname: string;
   bytes: number;
-  retentionDays: number;
   tables: Record<string, number>;
   pruned: string[];
 }
@@ -54,13 +60,14 @@ export interface BackupResult {
 export interface BackupOptions {
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
-  /** Clock injection, so a test can stage retention without waiting 30 days. */
+  /** Clock injection, so a test can stage retention without waiting for it. */
   now?: Date;
 }
 
 /**
  * Every table in the schema, discovered rather than listed — minus the few
- * `backup-policy.ts` names as credentials rather than data.
+ * `backup-policy.ts` names as credentials rather than data, and the manual
+ * search tables a restore rebuilds.
  *
  * Discovery is deliberate: the old route derived its targets from `notion.ts`'s
  * env contract for exactly this reason. When Phase 6 adds `pending_tools` it is
@@ -69,7 +76,7 @@ export interface BackupOptions {
  *
  * The exclusions are the other half of that bargain. Phase 4 landed Better
  * Auth's tables, and `session` rows are bearer tokens; discovery would have
- * archived thirty days of live sign-ins without anyone choosing to. The policy
+ * archived live sign-ins for years without anyone choosing to. The policy
  * module says which tables and columns are held back, and why.
  */
 export function backupTables(): PgTable[] {
@@ -78,13 +85,13 @@ export function backupTables(): PgTable[] {
   // trying to union every table's exact shape.
   return (Object.values(schema) as unknown[])
     .filter((value): value is PgTable => is(value, PgTable))
-    .filter((table) => !isExcludedFromBackup(table))
+    .filter((table) => !isExcludedFromBackup(table) && !isRebuiltAfterRestore(table))
     .sort((a, b) => getTableName(a).localeCompare(getTableName(b)));
 }
 
 /**
- * Read every table and write one JSON file to private Blob, then prune anything
- * past the retention window.
+ * Read every table and write one JSON file to private Blob, then prune what
+ * the retention tiers no longer keep.
  *
  * Reads are sequential: this runs once a day over a few thousand rows, and a
  * fan-out would only buy contention on one Neon connection.
@@ -120,16 +127,12 @@ export async function runBackup(
 
   // Retention runs in the same job so nobody has to remember it.
   const existing = await store.list(BACKUP_PREFIX, "private");
-  const pruned = expiredBackups(
-    existing.map((blob) => blob.pathname),
-    now
-  );
+  const pruned = expiredBackups(existing, now);
   await store.del(pruned, "private");
 
   return {
     pathname,
     bytes: byteLength(body),
-    retentionDays: RETENTION_DAYS,
     tables: Object.fromEntries(
       Object.entries(file.tables).map(([name, entry]) => [name, entry.rowCount])
     ),
@@ -138,23 +141,33 @@ export async function runBackup(
 }
 
 /**
- * Backups older than the retention window, by the date in their own filename.
- * Anything that does not match the pattern is left alone — a prune step that
- * deletes files it does not recognise is a hazard, not a housekeeper.
+ * The backups the retention tiers no longer keep (`backup-retention.ts`).
+ *
+ * The day comes from the file's own name; `uploadedAt` only orders two files
+ * of the same day, and is ignored when it names a different one. Anything
+ * whose pathname does not match is left alone — a prune step that deletes
+ * files it does not recognise is a hazard, not a housekeeper.
  */
-export function expiredBackups(pathnames: string[], now: Date): string[] {
-  return pathnames.filter((pathname) => {
-    const match = BACKUP_PATHNAME.exec(pathname);
-    if (!match) return false;
-    const stamped = Date.parse(`${match[1]}T00:00:00.000Z`);
-    if (Number.isNaN(stamped)) return false;
-    return (now.getTime() - stamped) / DAY_MS >= RETENTION_DAYS;
-  });
+export function expiredBackups(
+  blobs: readonly { pathname: string; uploadedAt?: string }[],
+  now: Date
+): string[] {
+  const stamps: BackupStamp[] = [];
+  for (const blob of blobs) {
+    const match = BACKUP_PATHNAME.exec(blob.pathname);
+    if (!match) continue;
+    const day = new Date(`${match[1]}T00:00:00.000Z`);
+    if (Number.isNaN(day.getTime())) continue;
+    const uploaded = new Date(blob.uploadedAt ?? "");
+    const sameDay = !Number.isNaN(uploaded.getTime()) && uploaded.toISOString().slice(0, 10) === match[1];
+    stamps.push({ key: blob.pathname, at: sameDay ? uploaded : day });
+  }
+  return backupsToPrune(stamps, now);
 }
 
 /**
- * UTC, not `LAB_TIMEZONE`: this names a *file*, and the retention window that
- * reads the name back counts UTC days. Ticket dates are the lab's; an ops
+ * UTC, not `LAB_TIMEZONE`: this names a *file*, and the retention tiers that
+ * read the name back count UTC days. Ticket dates are the lab's; an ops
  * artifact's is the machine's.
  */
 function isoDate(now: Date): string {

@@ -53,6 +53,8 @@ owner.
 | `ADMIN_REVALIDATE_SECRET` | Vercel env vars | ⬜ **TBD** | Forces the site to refresh |
 | Vercel Blob stores (two) | Vercel → Storage | ⬜ **TBD** | A **public** store (default prefix: `BLOB_READ_WRITE_TOKEN` / `BLOB_STORE_ID`) for tool images, manuals and project photos, and a **private** store (custom prefix `BLOB_PRIVATE`: `BLOB_PRIVATE_READ_WRITE_TOKEN` / `BLOB_PRIVATE_STORE_ID`) for maintenance photos and the nightly backup — a store is either public or private now (`deploy.md` step 2). **The private files contain student PII — keep those private** |
 | `CRON_SECRET` | Vercel env vars | ⬜ **TBD** | Lets the nightly backup cron prove it is Vercel (§3) |
+| `CRON_HEARTBEAT_URL` + heartbeat monitor | Vercel env vars; Healthchecks.io or Better Stack | ⬜ **TBD** | Emails the shared address when the nightly backup fails or does not run ([`operations.md`](operations.md)) |
+| Uptime monitor on `/api/health` | UptimeRobot or Better Stack | ⬜ **TBD** | Emails the shared address when the site or database is down |
 
 > [!WARNING]
 > **Inference is a live bill and the only cost here that scales with use.** Every question a
@@ -162,16 +164,17 @@ Environment variables in Vercel, no code change: `NEXT_PUBLIC_SITE_NAME`,
 
 **Every night at 07:17 UTC (about 03:17 New York) the site backs itself up.** Vercel Cron
 calls `/api/cron/daily`, which exports **every Postgres table** and writes one file to
-private Vercel Blob storage as `backups/YYYY-MM-DD.json`. Files older than **30 days** are
-deleted by the same job, so the store holds roughly a month at any time. The same run also
-deletes photos that were uploaded but never attached to anything within 24 hours.
+private Vercel Blob storage as `backups/YYYY-MM-DD.json`. The same job prunes on tiers:
+**every night for a week, then one a week to a month, one a month to a year, and one a quarter
+to three years** — about 30–35 files at any time. The same run also deletes photos that were
+uploaded but never attached to anything within 24 hours.
 
 **This is the only copy of the data outside Neon.** Before it existed, one deleted database
 meant ~100 machines of staff work was gone for good.
 
-> The job used to dump Notion at `/api/admin/backup`. Postgres is the source of truth now,
-> so the file holds database rows and its `source` field reads `postgres`. A file written
-> before September 2026 holds raw Notion pages instead.
+> Postgres is the source of truth, so the file holds database rows and its `source` field
+> reads `postgres`. A file written before September 2026 holds raw Notion pages instead (the
+> old Notion dump route has been removed).
 
 Three settings in Vercel make it work, and it does nothing without all three:
 
@@ -181,7 +184,10 @@ Three settings in Vercel make it work, and it does nothing without all three:
 | `CRON_SECRET` | Vercel env vars | Vercel sends it so the route knows the nightly call is genuine |
 | `ADMIN_REVALIDATE_SECRET` | Vercel env vars | Lets a person trigger the job by hand (same secret as §4) |
 
-**How to check it, once a month:** Vercel dashboard → your project → **Cron Jobs**. A green
+**You should not have to check it by hand.** With the heartbeat set up
+([`operations.md`](operations.md#2--nightly-job-heartbeat)) a failed or missing run emails the
+shared address, and a super admin sees a warning on `/admin` when the newest backup is more
+than 36 hours old. **To look anyway:** Vercel dashboard → your project → **Cron Jobs**. A green
 run means a file was written. **A red run means the backup did not happen** — the route
 deliberately fails loudly rather than reporting success, because a backup that fails quietly
 is discovered on the day you need it. The failure reason is in the run's log.
@@ -210,7 +216,9 @@ failure, and the body names which stage broke.
 
 **To restore:** download the file from Vercel → Storage → Blob. The file holds the table
 rows as JSON, so a person can read it and rebuild from it. There is no automated restore, on
-purpose — it is far more work than the failure justifies.
+purpose — it is far more work than the failure justifies. The manual search tables are not in
+the file; after loading the rows, rebuild them from `v5/` with
+`npm run manuals:index -- --force`. Steps: [`operations.md` → Restoring](operations.md#restoring).
 **[dev]** for anything beyond reading the file.
 
 ---
@@ -235,15 +243,17 @@ effect.
 
 | Where | What | How often |
 |---|---|---|
-| Anthropic console | **Spend.** Set a limit and an alert. | Weekly, at minimum |
+| Uptime monitor on `/api/health` | Emails when the site or database is down | Automatic — [`operations.md`](operations.md#monitoring) |
+| Heartbeat monitor | Emails when the nightly backup fails or does not run | Automatic — [`operations.md`](operations.md#monitoring) |
+| Vercel → AI Gateway | **Spend.** A monthly budget and an alert. | Weekly, at minimum |
 | Vercel dashboard | Failed deploys, function errors | When something looks wrong |
 | Vercel logs | `DbUnavailableError` (Postgres unreachable) | Whenever the catalogue looks odd |
 | Vercel → Storage | The Neon database is reachable | Whenever the catalogue looks odd |
-| Vercel → Cron Jobs | The nightly backup ran green | Monthly — see §3 |
+| Vercel → Cron Jobs | The nightly backup ran green | When the heartbeat or `/admin` says otherwise — see §3 |
 | Postgres: `maintenance_logs` | Open tickets | Per §3 |
 
-**The one alert that matters: an Anthropic spend threshold.** Everything else is
-recoverable; an unbounded bill is not.
+**The one alert that matters most: the AI Gateway budget.** Everything else is recoverable;
+an unbounded bill is not. Setup for every monitor: [`operations.md`](operations.md).
 
 ---
 
@@ -346,8 +356,8 @@ Full variable list with explanations: `v5/.env.example`.
   toward stale cached data or an explicit error, never toward invented equipment (§6).
 - **No analytics.** There is no way to see which machines get asked about most. This is the
   main reason a successor project exists.
-- **No backup beyond Notion's own version history.** Notion keeps page history; there is no
-  separate export. Consider a periodic manual export of the databases.
+- **Backups are files, not a standby database.** The nightly export (§3) reaches back three
+  years, but restoring it is manual developer work, and photos and PDFs live only in Blob.
 - **One person built this.** That is the risk this document exists to reduce. If something
   here is unclear, that is a bug in the document — fix it while you still have someone to
   ask.
@@ -357,9 +367,9 @@ Full variable list with explanations: `v5/.env.example`.
 ## 10. Open items at handover
 
 - [ ] Fill in every owner in §2
-- [ ] Set an Anthropic spend limit and alert
+- [ ] Set an AI Gateway budget and alert
 - [ ] Name a maintenance-ticket owner and cadence (§3)
 - [ ] Confirm who can deploy and who administers the Vercel project
 - [ ] Decide whether student email in Notion is acceptable to the university (see the auth
       spec's open questions)
-- [ ] Agree a periodic Notion export for backup
+- [ ] Set up the uptime and heartbeat monitors ([`operations.md`](operations.md)), alerting a shared address

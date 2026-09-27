@@ -43,7 +43,7 @@ satisfied. Where a phase was deliberately skipped, the reason is recorded.
 | 2 | [Student Projects Gallery](2026-07-29-projects-gallery-design.md) | 5 | 5 | Draft · complete |
 | 3 | [Agent Eval Harness](2026-07-29-agent-eval-harness-design.md) | 5 | 5 | Draft · complete |
 | 4 | [AI Gateway Migration](2026-07-29-ai-gateway-migration-design.md) | 5 | 2 | Draft · **blocked on credentials** |
-| 5 | [Operational Hardening](2026-07-29-operational-hardening-design.md) | 7 | 5 | Draft · phases 2, 6 open |
+| 5 | [Operational Hardening](2026-07-29-operational-hardening-design.md) | 7 | 5 | Built · phase 2 is account setup ([`operations.md`](../operations.md)); phase 6 superseded |
 | 6 | [QR Codes on Machines](2026-07-29-qr-codes-design.md) | 4 | 4 | Draft · complete |
 | 7 | [Report a Correction](2026-07-29-report-a-correction-design.md) | 4 | 4 | Draft · complete |
 | 8 | [Intake Confidence](2026-07-29-intake-confidence-design.md) | 5 | 5 | Draft · complete |
@@ -142,8 +142,12 @@ Every failure path returns non-200 so a broken backup shows up in the cron log r
 on the day it is needed. **It is inert until a person links a Blob store and sets
 `CRON_SECRET`** — see `handover.md` §3. See that spec's Amendments.
 
-**Ops phases 2 and 6** — uptime monitor and Notion automation webhook. Both are
-configuration a person does, not code.
+**Ops phases 2 and 6** — uptime monitor and Notion automation webhook. *Updated
+2026-09-27:* the Notion-dump route above has since been deleted — `/api/cron/daily` is the
+backup, with tiered retention to three years. Phase 2 remains a person's account setup, now
+written up in [`operations.md`](../operations.md) with a heartbeat that emails when the
+nightly job fails or does not run. Phase 6 is superseded: v5 is Postgres-first, so there is no
+Notion edit to listen for. See the ops spec's amendment 2026-09-27.
 
 ~~**Ops phase 7 — staff refresh button.**~~ **Built 2026-07-29.** A `staff`/`admin`-only
 Refresh control in the header calls `POST /api/admin/revalidate`, which now authorises a
