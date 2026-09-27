@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { decideActionProposals } from "../../../lib/actions/proposals";
 import { resolveIdentity } from "../../../lib/auth/identity";
-import { listChatActionProposals } from "../../../lib/data/action-proposals";
+import { getActionProposals, listChatActionProposals, type ActionProposalRecord } from "../../../lib/data/action-proposals";
 import { isUuid } from "../../../lib/data/uuid";
 import { checkRateLimit } from "../../../lib/rate-limit";
 
@@ -23,8 +23,11 @@ import { checkRateLimit } from "../../../lib/rate-limit";
  *    each once, and runs it through `performAction` — which checks the
  *    permission, the floor and the shared admin rate tier again, at the click.
  *
- * `GET ?chatId=` re-reads this person's proposals in one chat, so a card can
- * show its state after the stream dropped or the page reloaded (§5.5).
+ * `GET ?ids=a,b` re-reads this person's proposals by id — what a card does
+ * when it mounts, so a reloaded or re-rendered card shows Confirmed,
+ * Dismissed or Expired instead of offering Confirm again (§5.5). `GET
+ * ?chatId=` lists them for a whole chat. Either way only the caller's own
+ * rows are answered; another person's id is simply absent.
  */
 
 export const maxDuration = 30;
@@ -72,22 +75,32 @@ export async function GET(req: NextRequest) {
     return refuse(429, "rate_limited", "Too many requests. Please slow down.", { "Retry-After": String(limit.retryAfterSeconds) });
   }
   if (identity.role === "anonymous" || !identity.userId) return refuse(401, "sign_in_required", "Sign in to see proposals.");
-  const chatId = req.nextUrl.searchParams.get("chatId")?.trim() ?? "";
-  if (!chatId || chatId.length > 200) return refuse(400, "invalid_query", "Send ?chatId=.");
+  const userId = identity.userId;
+  const params = req.nextUrl.searchParams;
 
-  const rows = await listChatActionProposals(chatId, identity.userId);
-  return Response.json(
-    {
-      proposals: rows.map((row) => ({
-        id: row.id,
-        groupId: row.groupId,
-        actionId: row.actionId,
-        status: row.expired ? "expired" : row.status,
-        preview: row.preview,
-        result: row.result,
-        expiresAt: row.expiresAt.toISOString(),
-      })),
-    },
-    { status: 200 }
-  );
+  const idsParam = params.get("ids");
+  if (idsParam !== null) {
+    const ids = idsParam.split(",").map((id) => id.trim());
+    if (ids.length === 0 || ids.length > 20 || !ids.every(isUuid)) return refuse(400, "invalid_query", "Send ?ids= with 1–20 proposal ids.");
+    const rows = (await getActionProposals(ids)).filter((row) => row.createdBy === userId);
+    return Response.json({ proposals: rows.map(describe) }, { status: 200 });
+  }
+
+  const chatId = params.get("chatId")?.trim() ?? "";
+  if (!chatId || chatId.length > 200) return refuse(400, "invalid_query", "Send ?ids= or ?chatId=.");
+  const rows = await listChatActionProposals(chatId, userId);
+  return Response.json({ proposals: rows.map(describe) }, { status: 200 });
+}
+
+/** One row as a card reads it: its state (expired by the database's clock) and what it stored. */
+function describe(row: ActionProposalRecord) {
+  return {
+    id: row.id,
+    groupId: row.groupId,
+    actionId: row.actionId,
+    status: row.expired ? "expired" : row.status,
+    preview: row.preview,
+    result: row.result,
+    expiresAt: row.expiresAt.toISOString(),
+  };
 }

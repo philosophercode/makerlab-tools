@@ -1027,16 +1027,17 @@ waits for the generated tools (phase 2).
 | `lib/data/action-proposals.ts` | create (TTL from the database clock: 60 minutes chat, 7 days MCP — §11 answer 7), claim (`UPDATE … WHERE status='open' AND expires_at > now() AND created_by = me RETURNING`, so a second click claims nothing), settle, cancel, count open, list one person's proposals in one chat |
 | `lib/data/audit.ts` + the four in-transaction writers | `AuditTrail { surface, proposalId }` on every event; `auditTrail(ctx)` in `define.ts` spreads it from the action context, so the People page and a card write events that differ in those two columns only |
 | `lib/actions/define.ts` | `ActionPreview` / `ActionPreviewRow`, `ActionToolShape` + `toolShape()`, and `preview` / `tool` on `ActionDefinition` |
-| `lib/actions/proposals.ts` | `proposeAction` (limiter → permission → tool args → the definition's own input schema → `check` → `preview` → rows) and `decideActionProposals` (claim → `performAction(def, row.input, identity, { surface, proposalId })` per row, in order → settle); `typedMatches` for destructive cards |
+| `lib/actions/proposals.ts` | `proposeAction` (limiter → permission → tool args → the definition's own input schema → `check` → `preview` → rows) and `decideActionProposals` (per row, in order: claim that one row → `performAction(def, row.input, identity, { surface, proposalId, beforeRun: staleness })` → settle; a 20 s budget leaves unreached rows open); `typedMatches` for destructive cards |
+| `lib/actions/staleness.ts` | `driftedFields`: the confirm-time "has the subject moved on?" comparison (§3.3 step 4) |
 | `lib/actions/maintenance-log.ts` | `tickets.log_completed` → `log_completed_maintenance` (§11 answer 5) |
 | `lib/actions/page-context.ts` | `PAGE_CONTEXTS`, `loadPageContext`, the fenced "Where the person is" block (§3.6) |
 | `lib/capabilities/actions.ts` | the generated capability: one proposing tool per definition with a `tool` and a `preview`; `DEFERRED_TOOLS`; `actionsPromptFragment` |
 | `lib/capabilities/admin-reads.ts` | `find_people` (masked email, §11 answer 6), `list_corrections`, `list_project_queue` (their free text fenced) |
 | `lib/chat/proposal-outcomes.ts` | "Proposals in this conversation" (§5.3) |
-| `app/api/action-proposals/route.ts` | `POST` confirm / cancel (cookie only, `actionConfirm` tier, `strictObject` body of ids + decision), `GET ?chatId=` |
+| `app/api/action-proposals/route.ts` | `POST` confirm / cancel (cookie only, `actionConfirm` tier, `strictObject` body of ids + decision), `GET ?ids=` (what a card re-reads on mount) and `GET ?chatId=` — the caller's own rows only |
 | `components/chat/ActionProposalCard.tsx` | the card: single and batch (a checkbox per row, **Confirm N**), states open / confirming / confirmed / failed / conflict / expired / cancelled / already decided / not found, before → after from the stored preview, vocabulary through `actions.values.*`; `type="button"` everywhere |
 | `components/chat/page-selection.tsx` | `PageSelectionProvider`, `usePublishSelection`, `usePageSelectionReader` |
-| `components/system/queue/QueueList.tsx` | optional `selectable`: a checkbox per card, the ids published, and a bar with **Ask the assistant about these** |
+| `components/system/queue/QueueList.tsx` | optional `selectable`: a checkbox per open card, the ticked ids the current filters still show published, and a bar with **Ask the assistant about these** |
 | `components/admin/LogCompletedForm.tsx`, `lib/data/tool-options.ts` | **Log completed maintenance** on `/admin/maintenance` |
 | `app/api/chat/route.ts`, `components/ChatFab.tsx` | the chat body's `page`; both server-read blocks appended to the system prompt |
 
@@ -1113,9 +1114,33 @@ no input rides along; rate limit), `api/chat/staff-tools.route.test.ts` (the car
 yes), `api/chat/page-context.route.test.ts` (a forged selection is dropped; the outcomes block reads
 the database), `lib/actions/page-context.test.ts`, the migration, the card, the queue selection and
 the log form. `e2e/assistant-actions.spec.ts`: a card confirms by id, ticked tickets reach the chat as
-ids, and the log form lands a row. Evals: `evals/cases/assistant-actions.yaml` (eight cases, with
+ids, and the log form lands a row. Evals: `evals/cases/assistant-actions.yaml` (nine cases — the ninth, `clicked-is-not-evidence`, added with the review fixes — with
 `as: super_admin`, `path`, `selection`, `proposed_action`, `not_claimed_done`); the two
 `staff-maintenance.yaml` cases that encoded the typed yes now expect a proposal. Not run (paid).
+
+**Review fixes (same stage).**
+
+- **Conflict at the click (§3.3 step 4, §5.2, §5.5).** `performAction` gained an optional
+  `beforeRun` (after the gate, `afterGate`, parse and `check`; before `run`). The confirm route
+  passes one that re-runs the definition's own `preview` on the stored input and compares each shown
+  field's `before` with the card's (`staleness.ts`). A difference answers `conflict`: nothing runs,
+  the row settles `conflict` with `result.drifted` (field, was, now), the card says "this changed
+  after the card was made" and shows each field's value now, and the outcomes block tells the model
+  the same. Field by field, so a change to a field the card does not touch (a ticket's priority under
+  a card that only closes it) does not stop it. A subject that vanished is left to the action's own
+  not-found code. The GUI keeps last-write-wins: its screen is fresh, a stored card is not.
+- **One row claimed at a time**, just before it runs, within a 20 s budget (`CONFIRM_BUDGET_MS`,
+  inside the route's 30 s `maxDuration`). Rows not reached answer `open` and stay open, so a timeout
+  can strand at most the one row being applied, never the rest of a card.
+- **The destructive typed-name gate reads only the caller's own open rows**, so another person's
+  destructive id answers `not_found` like any other foreign id and never blocks the caller's batch.
+- **Stored text in prompt blocks is flattened and quoted** (`inlineText` in `web/fence.ts`):
+  subject names in the outcomes block and every title, name and label in the page-context lines. A
+  ticket title with a line break can no longer add a fake "confirmed and done" line.
+- **The card reads the server's state on mount** (`GET ?ids=`) and turns a row Expired when its
+  `expiresAt` passes on screen, so a re-rendered card never offers Confirm for a decided row.
+- **Queue selection is what the person sees**: only open cards have checkboxes, and only ticked rows
+  the current search and facets still show are sent to the chat.
 
 **Status.** Built on `v5/assistant-gui-parity`; not merged.
 

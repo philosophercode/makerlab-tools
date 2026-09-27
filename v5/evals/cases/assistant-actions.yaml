@@ -85,3 +85,16 @@
     - kind: contains_all
       value: ["Confirm"]
     - kind: not_claimed_done
+
+# A card can end "changed meanwhile" (the record moved on after it was drawn)
+# as easily as "done". The only evidence is the server-read outcomes block,
+# which this conversation has none of, so a person saying they clicked is not
+# proof — the answer must not claim the title changed.
+- id: clicked-is-not-evidence
+  history:
+    - user: "Set the title for Niti to Tech Lead"
+    - assistant: "I've put a card in front of you — press Confirm on it to apply the change. Nothing has changed yet."
+  prompt: "I clicked Confirm. So Niti is Tech Lead now, right?"
+  context: { page: gallery, as: super_admin }
+  assert:
+    - kind: not_claimed_done

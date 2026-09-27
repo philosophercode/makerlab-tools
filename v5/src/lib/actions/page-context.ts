@@ -12,7 +12,7 @@ import {
   toolSubjects,
 } from "../data/action-subjects";
 import { isUuid } from "../data/uuid";
-import { fenceUntrusted, OTHERS_TEXT_NOTE } from "../web/fence";
+import { fenceUntrusted, inlineText, OTHERS_TEXT_NOTE } from "../web/fence";
 
 /**
  * Where the person is (assistant–GUI parity spec §3.6): the page, the record
@@ -75,28 +75,33 @@ interface PageEntry {
   selection?: { kind: SelectionKind; noun: string; load: (ids: string[]) => Promise<Line[]> };
 }
 
+/*
+ * Every stored text below goes through `inlineText`: flattened to one line,
+ * capped and quoted, so a ticket title with a line break cannot add a fake
+ * row to the block.
+ */
 const ticketLines = async (ids: string[]): Promise<Line[]> =>
   (await ticketSubjects(ids)).map((t) => ({
     id: t.id,
-    text: `ticket id=${t.id}: "${t.title}" — ${t.toolName || "no tool"}${t.unitLabel ? ` / ${t.unitLabel}` : ""} · ${t.status}${t.priority ? ` · ${t.priority}` : ""}`,
+    text: `ticket id=${t.id}: ${inlineText(t.title)} — ${t.toolName ? inlineText(t.toolName, 80) : "no tool"}${t.unitLabel ? ` / ${inlineText(t.unitLabel, 60)}` : ""} · ${t.status}${t.priority ? ` · ${t.priority}` : ""}`,
   }));
 
 const correctionLines = async (ids: string[]): Promise<Line[]> =>
   (await correctionSubjects(ids)).map((c) => ({
     id: c.id,
-    text: `correction id=${c.id}: ${c.toolName || "no tool"}${c.fieldFlagged ? ` · ${c.fieldFlagged}` : ""} · ${c.status}`,
+    text: `correction id=${c.id}: ${c.toolName ? inlineText(c.toolName, 80) : "no tool"}${c.fieldFlagged ? ` · ${inlineText(c.fieldFlagged, 60)}` : ""} · ${c.status}`,
   }));
 
 const projectLines = async (ids: string[]): Promise<Line[]> =>
   (await projectSubjects(ids)).map((p) => ({
     id: p.id,
-    text: `project id=${p.id}: "${p.title}" · ${p.published ? "published" : "not published"}`,
+    text: `project id=${p.id}: ${inlineText(p.title)} · ${p.published ? "published" : "not published"}`,
   }));
 
 const toolLines = async (ids: string[]): Promise<Line[]> =>
   (await toolSubjects(ids)).map((t) => ({
     id: t.id,
-    text: `tool id=${t.id} (slug ${t.slug}): ${t.name} · ${t.archived ? "archived" : t.published ? "published" : "draft"}`,
+    text: `tool id=${t.id} (slug ${t.slug}): ${inlineText(t.name, 120)} · ${t.archived ? "archived" : t.published ? "published" : "draft"}`,
   }));
 
 /**
@@ -137,7 +142,7 @@ export const PAGE_CONTEXTS: readonly PageEntry[] = [
     subject: async (id) => {
       if (!isUuid(id)) return null;
       const [item] = await pendingSubjects([id]);
-      return item ? `pending item id=${item.id}: ${item.name}${item.brand ? ` (${item.brand})` : ""} · ${item.status}` : null;
+      return item ? `pending item id=${item.id}: ${inlineText(item.name, 120)}${item.brand ? ` (${inlineText(item.brand, 60)})` : ""} · ${item.status}` : null;
     },
   },
   { pattern: /^\/admin\/intake\/imports(\/[0-9a-f-]{36})?$/i, name: "bulk imports (/admin/intake/imports)", permission: "tools.add" },
@@ -159,7 +164,7 @@ export const PAGE_CONTEXTS: readonly PageEntry[] = [
       // A draft is named only to somebody who may see drafts — anyone else's
       // page for it was a 404 (AGENTS.md "Drafts are reachable…").
       if (!tool || (!tool.published && !can(identity, "catalog.view_drafts"))) return null;
-      return `tool id=${tool.id} (slug ${tool.slug}): ${tool.name} · ${tool.published ? "published" : "draft"}`;
+      return `tool id=${tool.id} (slug ${tool.slug}): ${inlineText(tool.name, 120)} · ${tool.published ? "published" : "draft"}`;
     },
   },
   { pattern: /^\/$/, name: "the tool gallery (/)" },

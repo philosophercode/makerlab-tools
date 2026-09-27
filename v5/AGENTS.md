@@ -577,10 +577,17 @@ commits it; phase 3 told the chat where the person is. MCP proposals are phase 7
   **Nothing commits until the person clicks Confirm**: `POST
   /api/action-proposals` (cookie only — `resolveIdentity` never reads a
   bearer, so a token cannot confirm; `actionConfirm` tier; body = ids +
-  decision, nothing else) claims the creator's open rows once and runs each
-  **stored** input through `performAction` with `{ surface: "assistant",
-  proposalId }`, so every rule and the permission are checked again at the
-  click. A typed "yes" commits nothing (the prompt says so; §11 answer 1).
+  decision, nothing else) claims the creator's open rows **one at a time**
+  (a 20 s budget; unreached rows stay open) and runs each **stored** input
+  through `performAction` with `{ surface: "assistant", proposalId,
+  beforeRun }`, so every rule and the permission are checked again at the
+  click. `beforeRun` re-runs the definition's `preview` and answers
+  `conflict` if a field the card shows has changed since (`staleness.ts`):
+  a card's "before" can be an hour old, so a stored proposal is never
+  last-write-wins the way a fresh GUI screen is. The card re-reads its rows
+  on mount (`GET ?ids=`). A typed "yes" commits nothing (the prompt says so;
+  §11 answer 1). Text from records that goes into a prompt block as a line
+  goes through `inlineText` (`web/fence.ts`): one line, capped, quoted.
   Each card sentence is `actions.summary.<area>_<verb>`; each row's vocabulary
   goes through `actions.values.<format>.*` (`preview-messages.test.ts` checks
   every key a definition names exists).
@@ -602,7 +609,8 @@ commits it; phase 3 told the chat where the person is. MCP proposals are phase 7
   appends a fenced "Where the person is" block — only for somebody who can
   reach an admin surface. A forged or foreign id is dropped before any read;
   an unknown path is never echoed. `QueueList`'s opt-in `selectable` gives the
-  maintenance, corrections and projects queues checkboxes and an **Ask the
+  maintenance, corrections and projects queues checkboxes on open cards (only
+  ticked rows the current filters show are sent) and an **Ask the
   assistant about these** bar; `InventoryBoard` publishes its selection.
 - **Read tools for the actions** (`capabilities/admin-reads.ts`, chat only):
   `find_people` (`users.manage`, masked emails `l***@cornell.edu`),
@@ -1283,7 +1291,7 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/actions/*` | The action layer: `performAction`, `defineAction`, `ACTIONS` / `ACTION_DEFINITIONS`, the People, queue and log-completed definitions, `proposals.ts` (propose / confirm), `page-context.ts`, and the parity guard (`parity.ts`, `exempt.ts`) |
 | `src/lib/data/action-proposals.ts` / `action-subjects.ts` | `action_proposals` (claim once, creator only, TTLs); the id → name reads previews and page context use |
 | `src/lib/capabilities/actions.ts` / `admin-reads.ts` | The generated proposing tools and their prompt; `find_people`, `list_corrections`, `list_project_queue` |
-| `src/app/api/action-proposals/route.ts` | Confirm / cancel an assistant proposal (cookie only), and re-read a chat's proposals |
+| `src/app/api/action-proposals/route.ts` | Confirm / cancel an assistant proposal (cookie only), and re-read the caller's proposals by id or chat |
 | `src/components/chat/ActionProposalCard.tsx` / `page-selection.tsx` | The confirmation card; the page selection the chat sends |
 | `src/lib/admin/queue-write.ts` | `QueueActionResult`; `runQueueWrite` has no callers since the action layer (awaiting deletion approval) |
 | `src/app/admin/maintenance/`, `corrections/`, `projects/` | The three queues: one page, one result module and one action apiece |

@@ -2182,6 +2182,8 @@
         "not_found": "Not found"
       },
       "failedReason": "Not done: {reason}",
+      "conflict": "Not done: this changed after the card was made, so nothing was saved.",
+      "driftedNow": "{field} is now {value}.",
       "expiredHint": "This card expired before it was confirmed, so nothing changed. Ask the assistant again.",
       "refused": "{count, plural, one {# more was} other {# more were}} not proposed: {reasons}",
       "view": "Open the page",

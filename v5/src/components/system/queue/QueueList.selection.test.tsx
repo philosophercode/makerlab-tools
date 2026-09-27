@@ -120,3 +120,29 @@ it("works without a selection provider (a component test of a queue alone)", asy
   await userEvent.click(screen.getByRole("checkbox", { name: "Select “Fan noisy”" }));
   expect(screen.getByRole("status")).toHaveTextContent("1 selected");
 });
+
+it("tells the chat only about ticked rows the current filter still shows, and never ticks settled work", async () => {
+  const items: (Ticket & { done?: boolean })[] = [...TICKETS, { id: "c", title: "Old jam", done: true }];
+  renderWithChat(
+    <QueueList
+      items={items}
+      getId={(ticket) => ticket.id}
+      isOpen={(ticket) => !ticket.done}
+      searchText={(ticket) => ticket.title}
+      renderItem={(ticket) => <article aria-label={ticket.title}>{ticket.title}</article>}
+      selectable={{ kind: "maintenance_log", name: (ticket) => ticket.title }}
+      labels={{ list: "Tickets", filters: "Filters", settled: (n) => `${n} settled`, empty: "None", emptyOpen: "None open" }}
+    />
+  );
+  expect(screen.queryByRole("checkbox", { name: "Select “Old jam”" })).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("checkbox", { name: "Select “Fan noisy”" }));
+  await userEvent.click(screen.getByRole("checkbox", { name: "Select “Belt slipping”" }));
+  expect(read()).toEqual({ kind: "maintenance_log", ids: ["a", "b"] });
+
+  await userEvent.type(screen.getByRole("searchbox"), "fan");
+  expect(read()).toEqual({ kind: "maintenance_log", ids: ["b"] });
+  expect(screen.getByText("1 selected")).toBeInTheDocument();
+
+  await userEvent.clear(screen.getByRole("searchbox"));
+  expect(read()).toEqual({ kind: "maintenance_log", ids: ["a", "b"] });
+});

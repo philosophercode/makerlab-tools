@@ -35,9 +35,10 @@ import { facetOptions } from "../data-table/facet-options";
  * group the open or settled cards (`renderList`; intake groups by batch).
  *
  * **Selection is for the assistant** (assistant–GUI parity spec §3.6): with
- * `selectable`, each card gets a checkbox, the ticked ids are published to
- * the chat (`usePublishSelection`), and a bar offers **Ask the assistant
- * about these** — "resolve these: replaced the belt" then proposes one card
+ * `selectable`, each open card gets a checkbox, the ticked ids the current
+ * filters still show are published to the chat (`usePublishSelection`) —
+ * never a row the person can no longer see — and a bar offers **Ask the
+ * assistant about these** — "resolve these: replaced the belt" then proposes one card
  * for exactly those rows. The queues' own controls still save one row each.
  */
 export interface QueueFacet<T> {
@@ -94,9 +95,6 @@ export function QueueList<T>({
   const [chosen, setChosen] = useState<Record<string, string | null>>({});
   const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set());
   const launcher = useOptionalChatLauncher();
-  // Only ids still in the queue: a row that left it (resolved elsewhere) drops out.
-  const tickedIds = useMemo(() => items.map(getId).filter((id) => ticked.has(id)), [items, getId, ticked]);
-  usePublishSelection(selectable?.kind ?? "maintenance_log", selectable ? tickedIds : []);
   const toggle = (id: string, on: boolean) =>
     setTicked((current) => {
       const next = new Set(current);
@@ -122,6 +120,13 @@ export function QueueList<T>({
   const open = shown.filter(isOpen);
   const settled = shown.filter((item) => !isOpen(item));
 
+  // What the chat is told about is what the person can see ticked: open rows
+  // that pass the current search and filters. A row ticked and then filtered
+  // out (or resolved elsewhere) drops out, and comes back with its filter.
+  // (`usePublishSelection` keys on the ids' content, so a new array each render is fine.)
+  const tickedIds = open.map(getId).filter((id) => ticked.has(id));
+  usePublishSelection(selectable?.kind ?? "maintenance_log", selectable ? tickedIds : []);
+
   if (items.length === 0) return <EmptyState>{labels.empty}</EmptyState>;
 
   const clear = () => {
@@ -134,7 +139,7 @@ export function QueueList<T>({
     ) : (
       <ul aria-label={part === "open" ? labels.list : undefined} className="m-0 flex list-none flex-col p-0">
         {run.map((item) =>
-          selectable ? (
+          selectable && part === "open" ? (
             <li key={getId(item)} className="flex items-start gap-2">
               <Checkbox
                 className="mt-4"

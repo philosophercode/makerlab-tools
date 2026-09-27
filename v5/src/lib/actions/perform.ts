@@ -16,6 +16,7 @@ import type { ActionContext, ActionDefinition, ActionResult, ActionSurface } fro
  * 2. afterGate?                                  the People page's floor reconciliation
  * 3. input.safeParse                             → the action's own invalid code
  * 4. check?                                      → the action's own refusal codes
+ *    beforeRun?  (the surface's)                 → `conflict` when a stored card is stale
  * 5. run                                         → the outcome; a throw is `failed`
  * 6. afterCommit?  (only when something committed)  audit, mirror push → warning at worst
  * 7. revalidate    (only when something committed)  guarded
@@ -27,17 +28,24 @@ import type { ActionContext, ActionDefinition, ActionResult, ActionSurface } fro
  * (the cookie for the GUI), never the input's.
  */
 
-export interface PerformOptions {
+export interface PerformOptions<I = unknown> {
   surface: ActionSurface;
   /** Set when a stored proposal is being confirmed (phase 2). */
   proposalId?: string;
+  /**
+   * A last refusal the surface owes, after `check` and before `run` — the
+   * confirm route's "has the subject moved on since the card?" (§3.3 step 4).
+   * Runs only once the gate has passed, so nothing is read for a caller who
+   * may not act. Answers `"conflict"` or null.
+   */
+  beforeRun?: (input: I, ctx: ActionContext) => Promise<"conflict" | null>;
 }
 
 export async function performAction<I, R extends object, E extends string, C>(
   def: ActionDefinition<I, R, E, C>,
   rawInput: unknown,
   identity: Identity,
-  options: PerformOptions
+  options: PerformOptions<I>
 ): Promise<ActionResult<R, E>> {
   const gate = await authorizeAdminAction(def.permission, identity);
   if (!gate.ok) return gate;
@@ -64,6 +72,9 @@ export async function performAction<I, R extends object, E extends string, C>(
   try {
     const refusal = def.check ? await def.check(input, ctx) : null;
     if (refusal) return { ok: false, error: refusal };
+    // `conflict` is a gate-level code every island already has a sentence for.
+    const stale = options.beforeRun ? await options.beforeRun(input, ctx) : null;
+    if (stale) return { ok: false, error: stale as E };
     outcome = await def.run(input, ctx);
   } catch (err) {
     // The data layer throws on a database failure because its callers must

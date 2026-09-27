@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { ActionPreview, ActionPreviewRow } from "../../lib/actions/define";
+import type { DriftedField } from "../../lib/actions/staleness";
 import type { ActionProposalCardPayload } from "../../lib/capabilities/actions";
 import { Button } from "@/components/ui/button";
 import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
@@ -25,6 +26,13 @@ import { ReviewCard, ReviewNote } from "../system/review/ReviewCard";
  * card ticks every row and offers **Confirm N**; unticking one confirms the
  * rest. Each row then shows its own outcome. The buttons are `type="button"`
  * and nothing listens for Enter, so a keystroke in the chat never confirms.
+ *
+ * **The server's state wins over the card's memory** (§5.5): on mount the
+ * card re-reads its rows (`GET ?ids=`), so a card re-rendered after it was
+ * confirmed, dismissed or expired never offers Confirm again, and a row
+ * whose `expiresAt` passes while the card is on screen turns Expired. A
+ * confirm that finds the record changed since the card was drawn answers
+ * `conflict` with the value now, and the card shows it.
  */
 
 type RowStatus = "open" | "confirming" | "confirmed" | "failed" | "conflict" | "expired" | "cancelled" | "already_decided" | "not_found";
@@ -33,14 +41,29 @@ interface RowState {
   status: RowStatus;
   error?: string;
   warning?: string;
+  drifted?: DriftedField[];
 }
 
 interface Outcome {
   id: string;
-  status: Exclude<RowStatus, "open" | "confirming">;
+  /** `open`: the request ran out of time before this row; nothing changed. */
+  status: Exclude<RowStatus, "confirming">;
   error?: string;
   warning?: string;
+  drifted?: DriftedField[];
 }
+
+/** A row as `GET /api/action-proposals?ids=` answers it. */
+interface StoredRow {
+  id: string;
+  status: RowStatus;
+  result: { error?: string; warning?: string; drifted?: DriftedField[] } | null;
+}
+
+const isPast = (iso: string) => {
+  const at = Date.parse(iso);
+  return Number.isFinite(at) && at <= Date.now();
+};
 
 const STATUS_TONE: Record<RowStatus, StatusTone> = {
   open: "active",
@@ -90,8 +113,56 @@ export function ActionProposalCard({ payload }: { payload: ActionProposalCardPay
   const tw = useTranslations("admin.warnings");
   const router = useRouter();
   const [rows, setRows] = useState<Record<string, RowState>>(() =>
-    Object.fromEntries(payload.items.map((item) => [item.id, { status: "open" as RowStatus }]))
+    Object.fromEntries(payload.items.map((item) => [item.id, { status: (isPast(item.expiresAt) ? "expired" : "open") as RowStatus }]))
   );
+
+  // What the server holds, once, on mount: only rows still shown as open are
+  // replaced, so a click already under way is never overwritten.
+  const idsKey = payload.items.map((item) => item.id).join(",");
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      try {
+        const res = await fetch(`/api/action-proposals?ids=${idsKey}`);
+        if (!res.ok) return;
+        const body = (await res.json().catch(() => null)) as { proposals?: StoredRow[] } | null;
+        if (!live || !body?.proposals) return;
+        const stored = body.proposals.filter((row) => row.status !== "open");
+        if (stored.length === 0) return;
+        setRows((prev) => {
+          const next = { ...prev };
+          for (const row of stored) {
+            if (next[row.id]?.status !== "open") continue;
+            next[row.id] = { status: row.status, error: row.result?.error, warning: row.result?.warning, drifted: row.result?.drifted };
+          }
+          return next;
+        });
+      } catch {
+        // The card still works from what it was given; a click re-checks everything.
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [idsKey]);
+
+  // An open row turns Expired when its time passes while the card is on screen.
+  useEffect(() => {
+    const pending = payload.items.map((item) => Date.parse(item.expiresAt) - Date.now()).filter((ms) => Number.isFinite(ms) && ms > 0);
+    if (pending.length === 0) return;
+    const timer = setTimeout(
+      () =>
+        setRows((prev) => {
+          const next = { ...prev };
+          for (const item of payload.items) {
+            if (next[item.id]?.status === "open" && isPast(item.expiresAt)) next[item.id] = { status: "expired" };
+          }
+          return next;
+        }),
+      Math.min(Math.min(...pending) + 250, 2 ** 31 - 1)
+    );
+    return () => clearTimeout(timer);
+  }, [payload.items, rows]);
   const [included, setIncluded] = useState<Set<string>>(() => new Set(payload.items.map((item) => item.id)));
   const [requestError, setRequestError] = useState(false);
 
@@ -115,7 +186,9 @@ export function ActionProposalCard({ payload }: { payload: ActionProposalCardPay
       if (!res.ok || !body?.results) throw new Error("request refused");
       setRows((prev) => ({
         ...prev,
-        ...Object.fromEntries(body.results!.map((outcome) => [outcome.id, { status: outcome.status, error: outcome.error, warning: outcome.warning }])),
+        ...Object.fromEntries(
+          body.results!.map((outcome) => [outcome.id, { status: outcome.status, error: outcome.error, warning: outcome.warning, drifted: outcome.drifted }])
+        ),
       }));
       // The page behind the chat shows the change too (a People row, a ticket).
       if (body.results.some((outcome) => outcome.status === "confirmed")) router.refresh();
@@ -167,7 +240,20 @@ export function ActionProposalCard({ payload }: { payload: ActionProposalCardPay
             <PreviewRows preview={item.preview} />
             {state.status === "failed" || state.status === "conflict" || state.status === "not_found" ? (
               <ReviewNote tone="bad" role="alert">
-                {t("card.failedReason", { reason: reason(state.error ?? state.status) })}
+                {state.status === "conflict" ? t("card.conflict") : t("card.failedReason", { reason: reason(state.error ?? state.status) })}
+                {state.status === "conflict" && state.drifted && state.drifted.length > 0 ? (
+                  <>
+                    {" "}
+                    {state.drifted
+                      .map((d) =>
+                        t("card.driftedNow", {
+                          field: t(`fields.${d.field}` as "fields.role"),
+                          value: valueText(t, { field: d.field, before: d.was, after: d.now, format: d.format }, d.now),
+                        })
+                      )
+                      .join(" ")}
+                  </>
+                ) : null}
               </ReviewNote>
             ) : null}
             {state.status === "expired" ? <ReviewNote tone="warn">{t("card.expiredHint")}</ReviewNote> : null}

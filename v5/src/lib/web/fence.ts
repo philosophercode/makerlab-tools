@@ -48,3 +48,16 @@ function randomId(): string {
   globalThis.crypto.getRandomValues(bytes);
   return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
 }
+
+/**
+ * Someone else's short text — a ticket title, a person's name — as one quoted
+ * line inside a fenced list: whitespace (newlines included) collapsed, capped,
+ * and JSON-quoted so a quote or a line break in it cannot end its line and
+ * start a fake one ("…": confirmed and done).
+ */
+export function inlineText(value: unknown, max = 160): string {
+  const flat = String(value ?? "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return JSON.stringify(flat.length > max ? `${flat.slice(0, max - 1)}…` : flat);
+}

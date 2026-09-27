@@ -12,6 +12,7 @@ import { setCorrectionStatus } from "../../app/admin/corrections/actions";
 import { resetAuthForTests } from "../auth/config";
 import { resolveIdentityFromHeaders, type Identity } from "../auth/identity";
 import { CAPABILITIES, capabilitiesForIdentity } from "../capabilities";
+import { createActionProposals } from "../data/action-proposals";
 import { listAuditEvents } from "../data/audit";
 import { findUserById } from "../data/users";
 import { getDb, resetDbForTests } from "../db/client";
@@ -242,6 +243,127 @@ describe("checked again at the click", () => {
       { id: proposed.proposals[0].id, status: "cancelled" },
     ]);
     expect((await findUserById(target.id))?.title).toBeNull();
+  });
+});
+
+describe("a card whose subject moved on (§3.3 step 4)", () => {
+  it("refuses a role change when the role changed since the card, and says what it is now", async () => {
+    const director = await signIn("super_admin", "dee@cornell.edu");
+    const target = await seedUser({ email: "luis@cornell.edu", role: "admin" });
+    const proposed = await proposeAction(def("people.set_role"), { user_id: target.id, role: "user" }, {
+      identity: director,
+      surface: "assistant",
+      chatId: null,
+    });
+    if (!proposed.ok) throw new Error("refused");
+    // Another super admin promotes the person while the card sits in the chat.
+    const db = await getDb();
+    await db.update(user).set({ role: "super_admin" }).where(eq(user.id, target.id));
+
+    const results = await decideActionProposals({ ids: [proposed.proposals[0].id], decision: "confirm" }, director);
+    expect(results).toEqual([
+      {
+        id: proposed.proposals[0].id,
+        status: "conflict",
+        error: "conflict",
+        drifted: [{ field: "role", was: "admin", now: "super_admin", format: "role" }],
+      },
+    ]);
+    expect((await findUserById(target.id))?.role).toBe("super_admin");
+    const [row] = await db.select().from(actionProposals).where(eq(actionProposals.id, proposed.proposals[0].id));
+    expect(row).toMatchObject({ status: "conflict", result: { error: "conflict" } });
+    expect((await listAuditEvents()).filter((e) => e.action === "user.role_changed")).toEqual([]);
+  });
+
+  it("never overwrites a resolution someone else wrote after the card", async () => {
+    const staff = await signIn("admin", "sam@cornell.edu");
+    const db = await getDb();
+    const [ticket] = await db.insert(maintenanceLogs).values({ title: "Belt slipping", status: "open" }).returning();
+    const proposed = await proposeAction(def("tickets.update"), { ticket_ids: [ticket.id], status: "resolved", resolution: "Replaced the belt." }, {
+      identity: staff,
+      surface: "assistant",
+      chatId: null,
+    });
+    if (!proposed.ok) throw new Error("refused");
+    await db.update(maintenanceLogs).set({ status: "resolved", resolution: "Tightened it." }).where(eq(maintenanceLogs.id, ticket.id));
+
+    const [result] = await decideActionProposals({ ids: [proposed.proposals[0].id], decision: "confirm" }, staff);
+    expect(result).toMatchObject({ status: "conflict" });
+    expect(result.drifted?.map((d) => d.field).sort()).toEqual(["resolution", "status"]);
+    const [after] = await db.select().from(maintenanceLogs).where(eq(maintenanceLogs.id, ticket.id));
+    expect(after.resolution).toBe("Tightened it.");
+  });
+
+  it("ignores a change to a field the card does not touch", async () => {
+    const staff = await signIn("admin", "sam@cornell.edu");
+    const db = await getDb();
+    const [ticket] = await db.insert(maintenanceLogs).values({ title: "Fan noisy", status: "open" }).returning();
+    const proposed = await proposeAction(def("tickets.update"), { ticket_ids: [ticket.id], status: "resolved" }, {
+      identity: staff,
+      surface: "assistant",
+      chatId: null,
+    });
+    if (!proposed.ok) throw new Error("refused");
+    await db.update(maintenanceLogs).set({ priority: "high" }).where(eq(maintenanceLogs.id, ticket.id));
+    expect(await decideActionProposals({ ids: [proposed.proposals[0].id], decision: "confirm" }, staff)).toEqual([
+      expect.objectContaining({ status: "confirmed" }),
+    ]);
+  });
+});
+
+describe("a confirm request's shape", () => {
+  it("leaves rows it has no time for open, never claimed", async () => {
+    const director = await signIn("super_admin", "dee@cornell.edu");
+    const a = await seedUser({ email: "a@cornell.edu", role: "admin" });
+    const b = await seedUser({ email: "b@cornell.edu", role: "admin" });
+    const proposed = await proposeAction(def("people.set_title"), { user_ids: [a.id, b.id], title: "Supermaker" }, {
+      identity: director,
+      surface: "assistant",
+      chatId: null,
+    });
+    if (!proposed.ok) throw new Error("refused");
+    // The clock jumps past the budget after the first row.
+    const ticks = [0, 0, 1_000];
+    const now = () => ticks.shift() ?? 1_000;
+    const ids = proposed.proposals.map((p) => p.id);
+    const results = await decideActionProposals({ ids, decision: "confirm" }, director, { budgetMs: 10, now });
+    expect(results.map((r) => r.status)).toEqual(["confirmed", "open"]);
+    const db = await getDb();
+    const [second] = await db.select().from(actionProposals).where(eq(actionProposals.id, ids[1]));
+    expect(second.status).toBe("open");
+    // The person clicks again and the rest goes through.
+    expect(await decideActionProposals({ ids: [ids[1]], decision: "confirm" }, director)).toEqual([
+      expect.objectContaining({ status: "confirmed" }),
+    ]);
+  });
+
+  it("answers somebody else's destructive proposal as not found and still confirms the caller's own", async () => {
+    const director = await signIn("super_admin", "dee@cornell.edu");
+    const victim = await seedUser({ email: "victim@cornell.edu", role: "user", name: "Victim" });
+    const other = await seedUser({ email: "other@cornell.edu", role: "super_admin" });
+    const [foreign] = await createActionProposals([
+      {
+        groupId: crypto.randomUUID(),
+        actionId: "people.remove",
+        input: { userId: victim.id },
+        subjectType: "user",
+        subjectId: victim.id,
+        preview: { summary: { key: "people_remove", values: { name: "Victim" } }, rows: [], subjectName: "Victim" },
+        surface: "assistant",
+        chatId: null,
+        createdBy: other.id,
+      },
+    ]);
+    const target = await seedUser({ email: "luis@cornell.edu", role: "admin" });
+    const mine = await proposeAction(def("people.set_title"), { user_ids: [target.id], title: "Lead" }, {
+      identity: director,
+      surface: "assistant",
+      chatId: null,
+    });
+    if (!mine.ok) throw new Error("refused");
+    const results = await decideActionProposals({ ids: [foreign.id, mine.proposals[0].id], decision: "confirm" }, director);
+    expect(results).toEqual([{ id: foreign.id, status: "not_found" }, expect.objectContaining({ status: "confirmed" })]);
+    expect(await findUserById(victim.id)).not.toBeNull();
   });
 });
 

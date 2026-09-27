@@ -18,6 +18,7 @@ import { checkRateLimit } from "../rate-limit";
 import type { ActionContext, ActionPreview } from "./define";
 import { performAction } from "./perform";
 import { actionById, type AnyActionDefinition } from "./registry";
+import { driftedFields, type DriftedField } from "./staleness";
 
 /**
  * Proposing and confirming (assistant–GUI parity spec §3.4, §3.5): the
@@ -125,7 +126,16 @@ export async function proposeAction(def: AnyActionDefinition, args: unknown, ctx
 
 // ── Confirm / cancel ─────────────────────────────────────────────────
 
-export type ProposalOutcomeStatus = "confirmed" | "failed" | "conflict" | "cancelled" | "expired" | "already_decided" | "not_found";
+export type ProposalOutcomeStatus =
+  | "confirmed"
+  | "failed"
+  | "conflict"
+  | "cancelled"
+  | "expired"
+  | "already_decided"
+  | "not_found"
+  /** Not reached before the request's time budget ran out; still open, nothing changed. */
+  | "open";
 
 export interface ProposalOutcome {
   id: string;
@@ -134,6 +144,8 @@ export interface ProposalOutcome {
   warning?: string;
   /** The subject's page, once something was done there. */
   link?: string;
+  /** For a `conflict`: each field the card showed that has changed since, and its value now. */
+  drifted?: DriftedField[];
 }
 
 export interface DecideRequest {
@@ -144,12 +156,25 @@ export interface DecideRequest {
 }
 
 /**
+ * How long one confirm request may spend running rows before it stops and
+ * leaves the rest open. Well inside the route's `maxDuration` (30 s), so the
+ * function is never killed between claiming a row and settling it.
+ */
+export const CONFIRM_BUDGET_MS = 20_000;
+
+/**
  * Decide `request.ids` as `identity`. The identity is the route's — the
  * session cookie, never a token — and only rows that identity created are
- * touched. Rows are run one at a time in the order they were proposed; each
- * answers for itself, so one refusal in a batch leaves the rest confirmed.
+ * touched. Rows are **claimed and run one at a time**, in the order they were
+ * proposed; each answers for itself, so one refusal in a batch leaves the
+ * rest confirmed, and a request that runs out of time leaves the rows it has
+ * not reached open (answered `open`) rather than claimed and stranded.
  */
-export async function decideActionProposals(request: DecideRequest, identity: Identity): Promise<ProposalOutcome[]> {
+export async function decideActionProposals(
+  request: DecideRequest,
+  identity: Identity,
+  options: { budgetMs?: number; now?: () => number } = {}
+): Promise<ProposalOutcome[]> {
   const userId = identity.userId;
   if (!userId) return request.ids.map((id) => ({ id, status: "not_found" as const }));
   const ids = [...new Set(request.ids)];
@@ -160,24 +185,44 @@ export async function decideActionProposals(request: DecideRequest, identity: Id
     return ids.map((id) => (cancelled.has(id) ? { id, status: "cancelled" as const } : others.get(id)!));
   }
 
+  // Only this person's rows that are still open take part in anything below:
+  // another person's id, destructive or not, answers `not_found` like an id
+  // that names nothing, and never blocks this person's batch (§11 answer 11).
+  const own = (await getActionProposals(ids)).filter((row) => row.createdBy === userId && row.status === "open" && !row.expired);
+
   // A destructive proposal is confirmed alone, with its subject's name typed.
   // Checked before anything is claimed, so a refused click leaves it open.
-  const rows = await getActionProposals(ids);
-  const destructive = rows.filter((row) => actionById(row.actionId)?.risk === "destructive");
+  const destructive = own.filter((row) => actionById(row.actionId)?.risk === "destructive");
   if (destructive.length > 0) {
     const typedOk =
       ids.length === 1 && destructive.length === 1 && typedMatches(request.typed, String(destructive[0].preview.subjectName ?? ""));
-    if (!typedOk) return ids.map((id) => ({ id, status: "failed" as const, error: "confirmation_mismatch" }));
+    if (!typedOk) {
+      const destructiveIds = new Set(destructive.map((row) => row.id));
+      const others = await explainUnclaimed(ids.filter((id) => !destructiveIds.has(id)), userId);
+      return ids.map((id) =>
+        destructiveIds.has(id)
+          ? { id, status: "failed" as const, error: "confirmation_mismatch" }
+          : // The rest of the request is untouched and stays as it was.
+            (others.get(id) ?? { id, status: "open" as const })
+      );
+    }
   }
 
-  const claimed = await claimActionProposals(ids, userId);
-  const claimedIds = new Set(claimed.map((row) => row.id));
-  const unclaimed = await explainUnclaimed(ids.filter((id) => !claimedIds.has(id)), userId);
-
+  const now = options.now ?? Date.now;
+  const deadline = now() + (options.budgetMs ?? CONFIRM_BUDGET_MS);
   const outcomes = new Map<string, ProposalOutcome>();
-  for (const row of [...claimed].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())) {
-    outcomes.set(row.id, await confirmOne(row, identity));
+  for (const row of [...own].sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())) {
+    if (now() > deadline) {
+      outcomes.set(row.id, { id: row.id, status: "open" });
+      continue;
+    }
+    // Claimed alone, just before it runs: a timeout can strand at most the
+    // row being run, never the rest of the card.
+    const [claimed] = await claimActionProposals([row.id], userId);
+    if (!claimed) continue; // decided meanwhile (another tab); explained below
+    outcomes.set(row.id, await confirmOne(claimed, identity));
   }
+  const unclaimed = await explainUnclaimed(ids.filter((id) => !outcomes.has(id)), userId);
   return ids.map((id) => outcomes.get(id) ?? unclaimed.get(id)!);
 }
 
@@ -188,9 +233,19 @@ async function confirmOne(row: ActionProposalRecord, identity: Identity): Promis
     await settleActionProposal(row.id, { status: "failed", result: { error: "failed" }, decidedBy });
     return { id: row.id, status: "failed", error: "failed" };
   }
+  // The card's "before" can be an hour old: re-read it after the gate, and
+  // refuse if a field the card shows has changed since (§3.3 step 4).
+  let drifted: DriftedField[] = [];
+  const stored = row.preview as unknown as ActionPreview;
+  const beforeRun = def.preview
+    ? async (input: unknown, ctx: ActionContext) => {
+        drifted = driftedFields(stored, await def.preview!(input as never, ctx));
+        return drifted.length > 0 ? ("conflict" as const) : null;
+      }
+    : undefined;
   let result;
   try {
-    result = await performAction(def, row.input, identity, { surface: row.surface, proposalId: row.id });
+    result = await performAction(def, row.input, identity, { surface: row.surface, proposalId: row.id, beforeRun });
   } catch (err) {
     // performAction answers refusals as values; a throw is a bug or the
     // database, and the row must not stay `confirming` forever.
@@ -203,9 +258,13 @@ async function confirmOne(row: ActionProposalRecord, identity: Identity): Promis
     await settleActionProposal(row.id, { status: "confirmed", result: warning ? { warning } : {}, decidedBy });
     return { id: row.id, status: "confirmed", ...(warning ? { warning } : {}), ...(link ? { link } : {}) };
   }
-  const status = result.error === "conflict" ? "conflict" : "failed";
-  await settleActionProposal(row.id, { status, result: { error: result.error }, decidedBy });
-  return { id: row.id, status, error: result.error };
+  if (result.error === "conflict") {
+    const detail = drifted.length > 0 ? { drifted } : {};
+    await settleActionProposal(row.id, { status: "conflict", result: { error: "conflict", ...detail }, decidedBy });
+    return { id: row.id, status: "conflict", error: "conflict", ...detail };
+  }
+  await settleActionProposal(row.id, { status: "failed", result: { error: result.error }, decidedBy });
+  return { id: row.id, status: "failed", error: result.error };
 }
 
 /**

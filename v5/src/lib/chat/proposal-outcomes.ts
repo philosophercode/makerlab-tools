@@ -3,7 +3,7 @@ import "server-only";
 import type { Identity } from "../auth/identity";
 import { actionById } from "../actions/registry";
 import { listChatActionProposals, type ActionProposalRecord } from "../data/action-proposals";
-import { fenceUntrusted, OTHERS_TEXT_NOTE } from "../web/fence";
+import { fenceUntrusted, inlineText, OTHERS_TEXT_NOTE } from "../web/fence";
 
 /**
  * "Proposals in this conversation" (assistant–GUI parity spec §5.3): what
@@ -31,18 +31,27 @@ function statusWords(row: ActionProposalRecord): string {
     case "failed":
       return `refused when confirmed (${String(row.result?.error ?? "failed")}) — nothing changed`;
     case "conflict":
-      return "not applied: the record changed in the meantime";
+      return `not applied: the record changed in the meantime${driftWords(row)} — nothing changed`;
     case "cancelled":
       return "dismissed by the person — nothing changed";
   }
+}
+
+/** "(role is now super_admin)" — the stored conflict's current values, flattened. */
+function driftWords(row: ActionProposalRecord): string {
+  const drifted = Array.isArray(row.result?.drifted) ? (row.result.drifted as { field?: unknown; now?: unknown }[]) : [];
+  const parts = drifted.slice(0, 4).map((d) => `${inlineText(d.field, 40)} is now ${d.now === null ? "empty" : inlineText(d.now, 80)}`);
+  return parts.length > 0 ? ` (${parts.join("; ")})` : "";
 }
 
 export function proposalOutcomesSection(rows: readonly ActionProposalRecord[]): string {
   if (rows.length === 0) return "";
   const lines = rows.slice(0, SHOWN).map((row) => {
     const tool = actionById(row.actionId)?.toolName ?? row.actionId;
-    const subject = String(row.preview.subjectName ?? row.subjectId);
-    return `- ${tool} on "${subject}": ${statusWords(row)}`;
+    // Quoted and flattened: a ticket title is a visitor's words, and one with
+    // a line break must not add a fake "confirmed and done" line.
+    const subject = inlineText(row.preview.subjectName ?? row.subjectId, 120);
+    return `- ${tool} on ${subject}: ${statusWords(row)}`;
   });
   return `## Proposals in this conversation
 

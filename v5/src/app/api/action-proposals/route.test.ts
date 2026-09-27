@@ -22,14 +22,14 @@ import { NextRequest } from "next/server";
 import { resetAuthForTests } from "../../../lib/auth/config";
 import { createActionProposals } from "../../../lib/data/action-proposals";
 import { getDb, resetDbForTests } from "../../../lib/db/client";
-import { maintenanceLogs } from "../../../lib/db/schema/index";
+import { actionProposals, maintenanceLogs } from "../../../lib/db/schema/index";
 import { signInAsNew } from "../../../../test/utils/session";
 import { GET, POST } from "./route";
 
 /**
  * `POST /api/action-proposals` (assistant–GUI parity spec §3.5, §8.2): the
  * session cookie only — a bearer token is anonymous here — ids and a decision
- * only, and only the creator's rows. `GET ?chatId=` re-reads the caller's own.
+ * only, and only the creator's rows. `GET ?ids=` / `?chatId=` re-read the caller's own.
  */
 
 async function post(body: unknown, headers: Record<string, string> = {}) {
@@ -138,5 +138,20 @@ describe("GET /api/action-proposals", () => {
     const body = await res.json();
     expect(body.proposals).toEqual([expect.objectContaining({ id: row.id, status: "open", actionId: "tickets.update" })]);
     expect((await GET(new NextRequest("http://localhost/api/action-proposals?chatId=chat-9"))).status).toBe(401);
+  });
+
+  it("re-reads a card's rows by id, with their state, and never another person's", async () => {
+    const me = await staff();
+    const other = await staff();
+    const { row } = await ticketProposal(me.user.id);
+    const { row: theirs } = await ticketProposal(other.user.id);
+    await getDb().then((db) => db.update(actionProposals).set({ status: "cancelled" }).where(eq(actionProposals.id, row.id)));
+    const res = await GET(
+      new NextRequest(`http://localhost/api/action-proposals?ids=${row.id},${theirs.id}`, { headers: { cookie: me.cookie } })
+    );
+    const body = await res.json();
+    expect(body.proposals).toEqual([expect.objectContaining({ id: row.id, status: "cancelled" })]);
+    const bad = await GET(new NextRequest("http://localhost/api/action-proposals?ids=nope", { headers: { cookie: me.cookie } }));
+    expect(bad.status).toBe(400);
   });
 });

@@ -16,6 +16,8 @@ import { ActionProposalCard } from "./ActionProposalCard";
  * ticked, each row shows its own outcome, and Enter never confirms.
  */
 
+const FUTURE = "2099-01-01T00:00:00.000Z";
+
 function payload(overrides: Partial<ActionProposalCardPayload> = {}): ActionProposalCardPayload {
   return {
     kind: "action-proposal",
@@ -32,7 +34,7 @@ function payload(overrides: Partial<ActionProposalCardPayload> = {}): ActionProp
           subjectName: "Luis",
           link: "/admin/users",
         },
-        expiresAt: "2026-09-27T13:00:00.000Z",
+        expiresAt: FUTURE,
       },
     ],
     refused: [],
@@ -50,12 +52,16 @@ function ticketBatch(): ActionProposalCardPayload {
       subjectName: title,
       link: "/admin/maintenance",
     },
-    expiresAt: "2026-09-27T13:00:00.000Z",
+    expiresAt: FUTURE,
   });
   return payload({ actionId: "tickets.update", risk: "operational", items: [item("p1", "Belt slipping"), item("p2", "Fan noisy")] });
 }
 
-beforeEach(() => router.refresh.mockClear());
+beforeEach(() => {
+  router.refresh.mockClear();
+  // The mount-time re-read: by default the server still holds every row open.
+  server.use(http.get("*/api/action-proposals", () => HttpResponse.json({ proposals: [] })));
+});
 
 it("shows the stored summary and before → after, in words, and waits for a click", () => {
   render(<ActionProposalCard payload={payload()} />);
@@ -150,4 +156,50 @@ it("never confirms on Enter: the buttons are not a form's submit", async () => {
 it("lists items that could not be proposed, with the reason", () => {
   render(<ActionProposalCard payload={payload({ refused: [{ subjectId: "ghost", error: "unknown_user" }] })} />);
   expect(screen.getByText(/1 more was not proposed: That account no longer exists/)).toBeInTheDocument();
+});
+
+it("re-reads its rows on mount, so a card already confirmed never offers Confirm again", async () => {
+  const asked: string[] = [];
+  server.use(
+    http.get("*/api/action-proposals", ({ request }) => {
+      asked.push(new URL(request.url).searchParams.get("ids") ?? "");
+      return HttpResponse.json({ proposals: [{ id: "p1", status: "confirmed", result: {} }] });
+    })
+  );
+  render(<ActionProposalCard payload={payload()} />);
+  expect(await screen.findByText("Done")).toBeInTheDocument();
+  expect(asked).toEqual(["p1"]);
+  expect(screen.queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+});
+
+it("shows a card past its expiry as expired without a click", () => {
+  const stale = payload();
+  stale.items[0].expiresAt = "2000-01-01T00:00:00.000Z";
+  render(<ActionProposalCard payload={stale} />);
+  expect(screen.getByText("Expired")).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Confirm" })).not.toBeInTheDocument();
+});
+
+it("says what the record holds now when it changed since the card", async () => {
+  server.use(
+    http.post("*/api/action-proposals", () =>
+      HttpResponse.json({
+        results: [
+          { id: "p1", status: "conflict", error: "conflict", drifted: [{ field: "role", was: "user", now: "super_admin", format: "role" }] },
+        ],
+      })
+    )
+  );
+  render(<ActionProposalCard payload={payload()} />);
+  await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+  const alert = await screen.findByRole("alert");
+  expect(alert).toHaveTextContent("this changed after the card was made");
+  expect(alert).toHaveTextContent("Role is now Super admin.");
+});
+
+it("leaves a row the request had no time for open to confirm again", async () => {
+  server.use(http.post("*/api/action-proposals", () => HttpResponse.json({ results: [{ id: "p1", status: "open" }] })));
+  render(<ActionProposalCard payload={payload()} />);
+  await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+  expect(await screen.findByRole("button", { name: "Confirm" })).toBeEnabled();
 });
