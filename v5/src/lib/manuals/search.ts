@@ -20,7 +20,7 @@ import { defaultRerankTarget, rerankDocuments, type RerankTarget } from "./reran
  *    part-number-like tokens** (`E-302`, `3401-038`, `0300-0100-0001`), its own
  *    ranked list, because stemming and tokenising mangle exactly those.
  * 2. **Vector:** cosine distance on `embedding` (HNSW, `halfvec` since
- *    migration `0018`), top {@link CANDIDATES}.
+ *    migration `0019`), top {@link CANDIDATES}.
  * 3. **Fuse** the lists with reciprocal rank fusion, k = {@link RRF_K}, and
  *    keep the top `limit` (default {@link DEFAULT_LIMIT}).
  *    **Rerank** (phase 3, `rerank: true` — the chat's `search_manual` asks for
@@ -223,7 +223,7 @@ interface PassageRow {
   score: number | string;
 }
 
-/** The column's type (migration `0018`), for the query vector's cast. A trusted literal. */
+/** The column's type (migration `0019`), for the query vector's cast. A trusted literal. */
 const HALFVEC = sql.raw(`halfvec(${EMBEDDING_DIMENSIONS})`);
 
 function fusedQuery(args: {

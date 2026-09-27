@@ -13,7 +13,7 @@ import { resources } from "./resources";
 import { tools } from "./tools";
 
 /**
- * Migration `0018` (manual text spec phase 3) against a real in-process
+ * Migration `0019` (manual text spec phase 3) against a real in-process
  * Postgres with pgvector: `manual_pages.source`, `manual_documents.ocr_version`,
  * and the embedding column turned into `halfvec(512)` **with passages already
  * in it** — as on Neon, which has rows. The embedding statements are read from
@@ -22,7 +22,7 @@ import { tools } from "./tools";
  */
 
 function embeddingStatements(): string[] {
-  const file = readFileSync(join(migrationsFolder(), "0018_manual_phase3.sql"), "utf8");
+  const file = readFileSync(join(migrationsFolder(), "0019_manual_phase3.sql"), "utf8");
   return file
     .split("--> statement-breakpoint")
     .map((part) => part.replace(/^\s*--.*$/gm, "").trim())
@@ -45,7 +45,7 @@ async function seedDocument(db: Db): Promise<string> {
 
 const vector = (axis: number) => `[${Array.from({ length: 512 }, (_, i) => (i === axis ? 1 : i === axis + 1 ? 0.25 : 0)).join(",")}]`;
 
-describe("migration 0018", () => {
+describe("migration 0019", () => {
   let db: Db;
   beforeAll(async () => {
     db = await createPgliteDb();

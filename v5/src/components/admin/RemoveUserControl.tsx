@@ -13,6 +13,7 @@ import type {
   RemoveUserResult,
 } from "../../app/admin/users/action-result";
 import { useHydrated } from "./use-hydrated";
+import { isLockReason, LockNote } from "./LockNote";
 
 /**
  * **Remove** on a row of `/admin/users` (auth spec amendment 2026-09-25,
@@ -25,8 +26,9 @@ import { useHydrated } from "./use-hydrated";
  * Only the confirmation's own button sends anything.
  *
  * A row that cannot be removed — yourself, an address on the super-admin
- * floor, the last director — shows the button disabled with the reason under
- * it, before anybody clicks. That is presentation: `removeUser` derives all
+ * floor, the last super admin — shows the button disabled with a short
+ * `LockNote` badge beside it ("Your account", "Protected"), whose tooltip and
+ * the button's description carry the full reason, before anybody clicks. That is presentation: `removeUser` derives all
  * three again before it writes (§8).
  *
  * **It never claims a removal that did not happen.** A refusal keeps the row
@@ -108,23 +110,31 @@ export function RemoveUserControl({
     }
   }
 
-  const note = error ?? (locked ? disabledReason : null);
+  // A lock with a short label is a badge beside the button; a refusal the
+  // server just gave is said in full below it.
+  const lock = isLockReason(disabledReason) ? disabledReason : null;
+  const note = error ?? (locked && !lock ? disabledReason : null);
+  const lockId = `${blockId}-lock`;
 
   return (
     <div className="flex flex-col gap-1.5">
       {!open ? (
-        <Button
-          ref={openerRef}
-          type="button"
-          variant="destructive"
-          size="sm"
-          className="self-start"
-          disabled={locked || !hydrated}
-          aria-label={t("removeFor", { name: personName })}
-          onClick={() => setOpen(true)}
-        >
-          {t("remove")}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            ref={openerRef}
+            type="button"
+            variant="destructive"
+            size="xs"
+            className="self-start"
+            disabled={locked || !hydrated}
+            aria-label={t("removeFor", { name: personName })}
+            aria-describedby={lock ? lockId : undefined}
+            onClick={() => setOpen(true)}
+          >
+            {t("remove")}
+          </Button>
+          {lock ? <LockNote reason={lock} descriptionId={lockId} /> : null}
+        </div>
       ) : (
         <div
           role="group"

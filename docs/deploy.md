@@ -215,13 +215,13 @@ DATABASE_URL=postgres://… BLOB_READ_WRITE_TOKEN=… VERCEL_OIDC_TOKEN=… npm 
 makes every document stale; the same command re-embeds them. `/admin/research` shows how
 many manuals are searchable, text only, scanned, failed or still processing, and a
 resource row's **Re-process** in the tool editor rebuilds one manual. Storage: roughly
-1 KB of vector (half precision since migration `0018`) plus ~1.5 KB of text a passage — a
+1 KB of vector (half precision since migration `0019`) plus ~1.5 KB of text a passage — a
 150-page manual is ~200 passages; watch Neon's allowance before backfilling hundreds of
 manuals.
 
 ### Stage 2f · Scanned manuals (OCR) and reranking (cents per manual)
 
-Phase 3 of the manual text spec. Migration `0018` turns the embedding column into
+Phase 3 of the manual text spec. Migration `0019` turns the embedding column into
 `halfvec(512)` in place (existing passages are converted, not re-embedded) and adds
 `manual_pages.source` / `manual_documents.ocr_version`. The same backfill then **reads every
 scanned (`no_text`) manual with OCR** — each page drawn and transcribed by job `ocr`
@@ -243,7 +243,7 @@ without dropping the search index — but the deploy fails with it.
 
 ```bash
 cd v5
-DATABASE_URL=postgres://… npm run db:migrate            # 0018: halfvec + OCR columns
+DATABASE_URL=postgres://… npm run db:migrate            # 0019: halfvec + OCR columns
 # rehearse: says how many scans and pages OCR would read; calls nothing
 DATABASE_URL=postgres://… BLOB_READ_WRITE_TOKEN=… npm run manuals:index -- --dry-run
 # for real — needs Gateway auth (AI_GATEWAY_API_KEY, or VERCEL_OIDC_TOKEN from `vercel env pull`)

@@ -604,7 +604,7 @@ passages, 15,964 characters.
 **Status.** All three items of §9 phase 3 are built on `v5/manual-search-phase3`: **OCR for
 `no_text` manuals** (run by `npm run manuals:index`), **reranking** of hybrid search results
 (the chat's and MCP's `search_manual`), and **`halfvec(512)`** storage. Migration
-**`0018_manual_phase3`**. §2's non-goal "OCR of scanned manuals" is lifted. Nothing was
+**`0019_manual_phase3`**. §2's non-goal "OCR of scanned manuals" is lifted. Nothing was
 skipped; the gaps are listed under *Not done / open*.
 
 **OCR, as built:**
@@ -708,7 +708,7 @@ skipped; the gaps are listed under *Not done / open*.
   pgvector **0.8.1**. Neon keeps the version current when the extension was created, so
   the deploy checks `extversion` first and runs `ALTER EXTENSION vector UPDATE` if it is
   below 0.7 (`docs/deploy.md` Stage 2f); the migrator runs in one transaction, so a failed
-  cast keeps the old index. Migration `0018` drops the HNSW index, changes
+  cast keeps the old index. Migration `0019` drops the HNSW index, changes
   `manual_chunks.embedding` to **`halfvec(512)`** `USING embedding::halfvec(512)` —
   existing passages are converted in place, nothing re-embedded — and rebuilds the index
   with **`halfvec_cosine_ops`**. Safe on Neon's existing rows: the cast is pgvector's own,
@@ -730,7 +730,7 @@ without OCR keeps it, failure stored `no_text` for the next run, dry run), the b
 (flags, OCR report and summaries, idempotent second run, scans stored before OCR taken up),
 search (reranked order and what the reranker reads, fallback on failure, `MODEL_RERANK=off`,
 OCR flag and `#page=N`), the capability's `transcribed` note, the registry's two jobs, and
-migration `0018` over a table put back in its `0011` shape with passages in it. The models
+migration `0019` over a table put back in its `0011` shape with passages in it. The models
 stub gained a reranking seam (`rerankingModelFor` keeps the given order unless a test sets
 `rerankingModel(…)`). **Chat eval:** `evals/manual-fixture.ts` also stores a scanned
 "Form Wash Guide" on the Form 4 as an OCR'd document; new case
@@ -747,5 +747,5 @@ stub gained a reranking seam (`rerankingModelFor` keeps the given order unless a
   *blank* in the backfill's line. Fix if a real manual needs it.
 - **OCR in the workflow** (on save, §3.1) is left out on purpose (above); revisit if staff
   upload scans often.
-- **Migration numbering.** `0018` is the next free number on `main` today; a branch merged
-  first with its own `0018` means renumbering this one.
+- **Migration numbering.** Written as `0018`; renumbered `0019` when "Add person"
+  (`0018_people_add`) merged first.

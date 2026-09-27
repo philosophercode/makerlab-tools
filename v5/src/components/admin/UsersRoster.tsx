@@ -30,15 +30,24 @@ import {
 } from "./users-filters";
 
 /**
- * The roster on `/admin/users` as a `DataTable` (UI system spec §7.2): one row
- * per account — name, title (editable inline, `TitleEditor`) and address in
- * the first — the role select and **Remove** in their own columns, the first
- * sign-in as an ISO date. `UsersTable` has already worked out which rows
- * cannot change and why; this renders it. On a phone each person is a
- * two-line item with both controls.
+ * The roster on `/admin/users` as a `DataTable` (UI system spec §7.2): **one
+ * row per person, one thing per column** — Person (name, a YOU badge, the
+ * address under it in small mono), Title (the title and a pencil that edits
+ * it inline, `TitleEditor`), Role (the select), First signed in (an ISO date,
+ * or "Not signed in yet" for somebody added ahead of time) and Account
+ * (**Remove**). `UsersTable` has already worked out which rows cannot change
+ * and why; the controls say so with a short badge whose tooltip has the full
+ * reason (`LockNote`). On a phone each person is a compact list item with the
+ * same controls.
  *
- * Search and the Role facet narrow the list in the browser and are written to
- * the URL, as on the inventory, so "every director" is a link.
+ * **Role and title are different things, and the table keeps them apart.** The
+ * Role column is authorization only ("User", "Admin", "Super admin"); the
+ * Title column is what the person is called ("Director", "Supermaker",
+ * "Student"…), which grants nothing.
+ *
+ * Search (name, address, custom title) and the Role facet narrow the list in
+ * the browser and are written to the URL, as on the inventory, so "every
+ * super admin" is a link.
  *
  * A removal takes the row off at once and says so in a status line above the
  * table (auth spec amendment 2026-09-25); the server re-renders the page too,
@@ -47,12 +56,14 @@ import {
 
 export interface RosterRow {
   id: string;
+  /** What to call them: the stored name, which is the address until they sign in if nobody typed one. */
   name: string;
   email: string;
   role: Role;
   /** The stored custom title, or null for the role's default. */
   title: string | null;
-  joined: string;
+  /** The first sign-in as an ISO date, or null when they have not signed in yet. */
+  joined: string | null;
   isSelf: boolean;
   roleLockedReason: AdminActionError | null;
   removeLockedReason: AdminActionError | null;
@@ -67,6 +78,8 @@ export interface UsersRosterProps {
 }
 
 type Removed = Extract<RemoveUserResult, { ok: true }>;
+
+const SEARCH_KEYS = ["name", "email", (row: RosterRow) => row.title ?? ""];
 
 export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, removeUser, setTitle }: UsersRosterProps) {
   const t = useTranslations("admin");
@@ -87,7 +100,7 @@ export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, removeUs
   const visible = useMemo(() => {
     const faceted = present.filter((row) => matchesUserFilters(row, filters));
     const query = filters.query.trim();
-    return query ? matchSorter(faceted, query, { keys: ["name", "email"] }) : faceted;
+    return query ? matchSorter(faceted, query, { keys: SEARCH_KEYS }) : faceted;
   }, [present, filters]);
 
   const roleFacet = useMemo(
@@ -112,14 +125,28 @@ export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, removeUs
         accessorFn: (row) => row.name,
         header: t("columnPerson"),
         enableHiding: false,
-        meta: { rowHeader: true, className: "whitespace-normal", cellClassName: "align-top" },
-        cell: ({ row }) => <Person row={row.original} setTitle={setTitle} />,
+        meta: { rowHeader: true, className: "min-w-[14rem] whitespace-normal" },
+        cell: ({ row }) => <Person row={row.original} />,
+      },
+      {
+        id: "title",
+        accessorFn: (row) => row.title ?? "",
+        header: t("columnTitle"),
+        meta: { className: "min-w-[10rem] whitespace-normal" },
+        cell: ({ row }) => (
+          <TitleEditor
+            userId={row.original.id}
+            personName={row.original.name}
+            role={row.original.role}
+            title={row.original.title}
+            action={setTitle}
+          />
+        ),
       },
       {
         id: "role",
         accessorFn: (row) => ROLES.indexOf(row.role),
         header: t("columnRole"),
-        meta: { cellClassName: "align-top" },
         cell: ({ row }) => (
           <RoleSelect
             userId={row.original.id}
@@ -132,15 +159,17 @@ export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, removeUs
       },
       {
         id: "joined",
-        accessorFn: (row) => row.joined,
+        // Not signed in yet sorts before the earliest date.
+        accessorFn: (row) => row.joined ?? "",
         header: t("columnJoined"),
-        meta: { align: "right", cellClassName: "align-top" },
+        meta: { align: "right" },
+        cell: ({ row }) => <Joined joined={row.original.joined} />,
       },
       {
         id: "account",
         header: t("columnAccount"),
         enableSorting: false,
-        meta: { className: "whitespace-normal", cellClassName: "align-top" },
+        meta: { className: "whitespace-normal" },
         cell: ({ row }) => (
           <RemoveUserControl
             userId={row.original.id}
@@ -209,8 +238,12 @@ export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, removeUs
           )
         }
         mobileRow={(row) => (
-          <div className="flex flex-col gap-2 px-1 py-2.5">
-            <Person row={row} setTitle={setTitle} />
+          <div className="flex flex-col gap-1.5 px-1 py-2">
+            <div className="flex items-start justify-between gap-3">
+              <Person row={row} />
+              <Joined joined={row.joined} />
+            </div>
+            <TitleEditor userId={row.id} personName={row.name} role={row.role} title={row.title} action={setTitle} />
             <div className="flex flex-wrap items-start gap-2">
               <RoleSelect
                 userId={row.id}
@@ -241,25 +274,30 @@ export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, removeUs
 const getRowId = (row: RosterRow) => row.id;
 const getRowName = (row: RosterRow) => row.name;
 
-function Person({ row, setTitle }: { row: RosterRow; setTitle: SetTitleAction }) {
+/** Name and YOU on one line, the address under it — small, mono, muted. */
+function Person({ row }: { row: RosterRow }) {
   const t = useTranslations("admin");
+  // Added without a name: the address *is* the name until Google supplies one,
+  // so it is said once rather than twice.
+  const nameIsAddress = row.name === row.email;
   return (
-    <span className="flex flex-col">
-      <span className="flex items-baseline gap-2 font-medium">
-        {row.name}
+    <span className="flex min-w-0 flex-col leading-tight">
+      <span className="flex items-center gap-2">
+        <span className={nameIsAddress ? "font-mono text-xs" : "font-medium"}>{row.name}</span>
         {row.isSelf ? <Badge variant="accent">{t("you")}</Badge> : null}
       </span>
-      {/* The title, and the inline control that changes it. */}
-      <TitleEditor
-        userId={row.id}
-        personName={row.name}
-        role={row.role}
-        title={row.title}
-        action={setTitle}
-      />
       {/* The one surface in the app that shows an address: telling two
           accounts apart is the whole job here (spec §8). Mono: an identifier. */}
-      <span className="font-mono text-xs text-muted-foreground">{row.email}</span>
+      {nameIsAddress ? null : (
+        <span className="truncate font-mono text-xs text-muted-foreground">{row.email}</span>
+      )}
     </span>
   );
+}
+
+/** The first sign-in, or — for somebody added ahead of time — that there has not been one. */
+function Joined({ joined }: { joined: string | null }) {
+  const t = useTranslations("admin");
+  if (joined) return <span className="font-mono text-xs tabular-nums">{joined}</span>;
+  return <span className="text-xs whitespace-nowrap text-muted-foreground">{t("notSignedIn")}</span>;
 }

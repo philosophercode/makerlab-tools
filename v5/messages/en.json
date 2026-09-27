@@ -448,7 +448,7 @@
     "projectsTitle": "Projects",
     "projectsLede": "Student submissions waiting for a decision. Nothing reaches the gallery until somebody publishes it.",
     "usersTitle": "People",
-    "usersLede": "Everyone who has signed in. A role change takes effect on that person's next request.",
+    "usersLede": "Everyone who has signed in, and anyone added ahead of time. A role decides what someone may do and takes effect on their next request; a title is only what they are called.",
     "intakeTitle": "Intake",
     "intakeLede": "New equipment, researched in the background and waiting for approval.",
     "researchTitle": "Manuals",
@@ -489,10 +489,12 @@
     "mirrorLede": "Your own copy of the inventory in a Notion workspace, pushed after every change, and when it last was.",
     "tableLabel": "People and their roles",
     "columnPerson": "Person",
+    "columnTitle": "Title",
     "columnRole": "Role",
     "columnAccount": "Account",
     "columnJoined": "First signed in",
-    "noUsers": "Nobody has signed in yet. The first person to sign in appears here.",
+    "notSignedIn": "Not signed in yet",
+    "noUsers": "Nobody has signed in yet. The first person to sign in, or the first person you add, appears here.",
     "you": "you",
     "roleForPerson": "Role for {name}",
     "saving": "Saving…",
@@ -513,16 +515,35 @@
       "removedUser": "Removed user"
     },
     "roles": {
-      "user": "Student",
-      "admin": "SuperMaker",
-      "super_admin": "Director"
+      "user": "User",
+      "admin": "Admin",
+      "super_admin": "Super admin"
+    },
+    "locks": {
+      "protected_floor": "Protected",
+      "last_super_admin": "Last super admin",
+      "self_remove": "Your account"
+    },
+    "addPerson": {
+      "heading": "Add person",
+      "lede": "Add somebody before they sign in, with the role and title they should have. When they first sign in with Google, their account attaches to this entry.",
+      "email": "Email",
+      "name": "Name",
+      "nameHint": "Optional. Replaced by their Google name when they first sign in.",
+      "role": "Role",
+      "title": "Title",
+      "titleHint": "Optional. Blank uses the role's default.",
+      "submit": "Add person",
+      "adding": "Adding…",
+      "added": "{email} was added. They show as “Not signed in yet” until they sign in.",
+      "addedUnaudited": "{email} was added, but the change could not be written to the audit log. Tell whoever runs the deployment."
     },
     "titles": {
       "user": "Student",
       "admin": "Supermaker",
       "super_admin": "Super Admin"
     },
-    "title": {
+    "personTitle": {
       "edit": "Edit title",
       "editFor": "Edit the title for {name}",
       "label": "Title for {name}",
@@ -734,9 +755,14 @@
       "unknown_user": "That account no longer exists.",
       "invalid_role": "That is not a role this app knows.",
       "protected_floor": "This address is protected in the deployment's settings and cannot be demoted, removed or blocked.",
-      "last_super_admin": "This is the last director. Promote somebody else first, or nobody could undo it.",
+      "last_super_admin": "This is the last super admin. Make somebody else a super admin first, or nobody could undo it.",
       "self_remove": "You cannot remove yourself.",
       "invalid_title": "A title can be at most 60 characters.",
+      "invalid_email": "That is not an email address.",
+      "invalid_name": "A name can be at most 120 characters.",
+      "email_not_allowed": "That address could not sign in here: it is outside the allowed domain and not one of the deployment's named addresses.",
+      "email_blocked": "That address is blocked. Unblock it below first.",
+      "duplicate_email": "Somebody with that address is already on the list.",
       "conflict": "Somebody else changed this while you had it open, so nothing was saved. Your edits are still here — reload to see their version first.",
       "not_found": "That no longer exists. Somebody may have removed it while this was open.",
       "invalid_field": "One of these values is not one this field accepts. Check it and try again.",
@@ -1613,7 +1639,7 @@
       "filtersLabel": "Filter people",
       "search": "Search",
       "searchPlaceholder": "Name or address",
-      "emptyFiltered": "Nobody matches these filters. Clear them to see everyone who has signed in.",
+      "emptyFiltered": "Nobody matches these filters. Clear them to see everyone.",
       "blocked": {
         "heading": "Blocked emails",
         "lede": "These addresses can't sign up. Unblocking one lets it sign in again, as a new account.",
@@ -1888,7 +1914,7 @@
       "signed_in": "Signed-in lab members",
       "signed_inBody": "Students and everyone else who signs in with an allowed account.",
       "staff": "Staff",
-      "staffBody": "SuperMakers and directors (admin roles)."
+      "staffBody": "Admins and super admins."
     },
     "kind": {
       "read": "Read",

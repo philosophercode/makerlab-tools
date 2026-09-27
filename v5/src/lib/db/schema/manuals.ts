@@ -23,7 +23,7 @@ import { MANUAL_DOCUMENT_STATUS, MANUAL_OUTLINE_SOURCE, MANUAL_PAGE_SOURCE } fro
  * archived manual or a staff upload on a resource), its text page by page in
  * `manual_pages`, and (phase 2, migration `0011`) its search passages in
  * `manual_chunks`, each indexed twice: a generated `tsvector` (GIN) and a
- * 512-dimension embedding (pgvector, HNSW cosine; half precision since `0018`).
+ * 512-dimension embedding (pgvector, HNSW cosine; half precision since `0019`).
  *
  * - `attachment_id` is **unique and cascades**: a document is the text of one
  *   stored file, and goes when the file's row does. A resource whose link
@@ -35,7 +35,7 @@ import { MANUAL_DOCUMENT_STATUS, MANUAL_OUTLINE_SOURCE, MANUAL_PAGE_SOURCE } fro
  *   passages were built and embedded — `manuals/chunk.ts`'s `CHUNKER_VERSION`
  *   and e.g. `openai/text-embedding-3-small@512`. Both null until passages
  *   exist; a different value re-chunks and re-embeds (`manuals/passages.ts`).
- * - `ocr_version` (phase 3, migration `0018`) is set when a scanned PDF's
+ * - `ocr_version` (phase 3, migration `0019`) is set when a scanned PDF's
  *   pages were read by OCR (`manuals/ocr.ts`): the OCR version and model, e.g.
  *   `ocr-1:openai/gpt-6-luna`. A `no_text` document with another value (or
  *   none) is transcribed by the next `manuals:index`; each page's `source`
@@ -125,7 +125,7 @@ const tsvector = customType<{ data: string }>({
  * - `tool_id` is copied from the document for filtering; scoping and access are
  *   still decided through the document's attachment and resource
  *   (`manuals/search.ts`).
- * - `embedding` is **`halfvec(512)`** since migration `0018` (phase 3): half
+ * - `embedding` is **`halfvec(512)`** since migration `0019` (phase 3): half
  *   precision halves the vector's storage and index size, and retrieval does
  *   not notice. Queries cast to `halfvec(512)`; the index is
  *   `halfvec_cosine_ops`.

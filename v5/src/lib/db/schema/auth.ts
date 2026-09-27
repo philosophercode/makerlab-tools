@@ -55,6 +55,13 @@ export const user = pgTable(
     // Declared to Better Auth as `input: false` in `auth/config.ts`, so only
     // the People page's action writes it.
     title: text("title"),
+    // Ours too (migration `0018`): when this person first had a session. Null
+    // only for somebody a super admin added on the People page who has not
+    // signed in yet. The default is what every other path relies on — Better
+    // Auth does not know this column, so a row it creates at sign-in (Google,
+    // the dev route) takes `now()`, which *is* the first sign-in. The session
+    // create hook in `auth/config.ts` fills a null one in.
+    firstSignedInAt: timestamp("first_signed_in_at", { withTimezone: true }).defaultNow(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },

@@ -113,11 +113,14 @@ test.describe("/admin/users — changing a role", () => {
     await expect(ownRow.getByText("you", { exact: true })).toBeVisible();
     // This server boots with AUTH_SUPER_ADMIN_EMAILS blank, so there is no
     // floor — the only thing standing between the lab and a lock-out is the
-    // "last director" guard, and it is visible rather than a surprise on save.
-    await expect(
-      ownRow.getByRole("combobox", { name: new RegExp(DEMO_ACCOUNTS.superAdmin.name) })
-    ).toBeDisabled();
-    await expect(ownRow.getByText(/last director/i)).toBeVisible();
+    // "last super admin" guard, and it is visible rather than a surprise on
+    // save: a short badge, with the full reason as the select's description.
+    const ownRole = ownRow.getByRole("combobox", { name: new RegExp(DEMO_ACCOUNTS.superAdmin.name) });
+    await expect(ownRole).toBeDisabled();
+    await expect(ownRow.getByText("Last super admin", { exact: true })).toBeVisible();
+    await expect(ownRole).toHaveAccessibleDescription(/last super admin/i);
+    // Roles are named for what they authorize; titles live in their own column.
+    await expect(ownRole.locator("option")).toHaveText(["User", "Admin", "Super admin"]);
 
     await expect(page.locator("body")).not.toContainText(PLACEHOLDER_LEAK);
   });
@@ -236,7 +239,10 @@ test.describe("/admin/users — removing a person (auth spec amendment 2026-09-2
       .getByRole("table", { name: "People and their roles" })
       .getByRole("row", { name: new RegExp(DEMO_ACCOUNTS.superAdmin.name) });
     await expect(ownRow.getByRole("button", { name: `Remove ${DEMO_ACCOUNTS.superAdmin.name}` })).toBeDisabled();
-    await expect(ownRow.getByText("You cannot remove yourself.")).toBeVisible();
+    await expect(ownRow.getByText("Your account", { exact: true })).toBeVisible();
+    await expect(
+      ownRow.getByRole("button", { name: `Remove ${DEMO_ACCOUNTS.superAdmin.name}` })
+    ).toHaveAccessibleDescription("You cannot remove yourself.");
   });
 
   test("and unblocks the address from the Blocked emails list", async ({ page, context, baseURL }) => {
@@ -252,5 +258,52 @@ test.describe("/admin/users — removing a person (auth spec amendment 2026-09-2
     await page.reload();
     await expect(page.getByRole("heading", { name: "Blocked emails" })).toBeVisible();
     await expect(page.getByText("No addresses are blocked.")).toBeVisible();
+  });
+});
+
+test.describe("/admin/users — adding somebody before they sign in", () => {
+  const email = "e2e-added-person@cornell.edu";
+
+  test("a super admin adds a person, who shows as not signed in yet, and can be removed again", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+    await page.goto("/admin/users");
+    const table = page.getByRole("table", { name: "People and their roles" });
+    const row = table.getByRole("row", { name: new RegExp(email) });
+    const addForm = page.locator("form").filter({ has: page.getByRole("textbox", { name: "Email" }) });
+
+    // A retry after the add landed finds the row already there.
+    if ((await row.count()) === 0) {
+      await page.getByRole("button", { name: "Add person" }).click();
+      await page.getByRole("textbox", { name: "Email" }).fill(email.toUpperCase());
+      await page.getByRole("combobox", { name: "Role", exact: true }).selectOption("admin");
+      await page.getByRole("textbox", { name: "Title", exact: true }).fill("Tech Lead");
+      await addForm.getByRole("button", { name: "Add person" }).click();
+      await expect(page.getByText(`${email} was added.`)).toBeVisible({ timeout: SAVE_TIMEOUT });
+    }
+
+    await page.reload();
+    await expect(row).toHaveCount(1, { timeout: SAVE_TIMEOUT });
+    await expect(row.getByText("Not signed in yet")).toBeVisible();
+    await expect(row.getByTestId("person-title")).toHaveText("Tech Lead");
+    await expect(row.getByRole("combobox", { name: new RegExp(email) })).toHaveValue("admin");
+
+    // Adding the same address again is refused, in words.
+    await page.getByRole("button", { name: "Add person" }).click();
+    await page.getByRole("textbox", { name: "Email" }).fill(email);
+    await addForm.getByRole("button", { name: "Add person" }).click();
+    await expect(page.getByText("Somebody with that address is already on the list.")).toBeVisible({
+      timeout: SAVE_TIMEOUT,
+    });
+
+    // And somebody who never signed in can be removed like anyone else.
+    await row.getByRole("button", { name: `Remove ${email}` }).click();
+    await row.getByRole("button", { name: `Remove ${email}` }).click();
+    await expect(page.getByText(`${email} was removed.`)).toBeVisible({ timeout: SAVE_TIMEOUT });
+    await page.reload();
+    await expect(row).toHaveCount(0);
   });
 });

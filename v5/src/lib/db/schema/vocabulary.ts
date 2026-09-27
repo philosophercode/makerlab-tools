@@ -171,7 +171,7 @@ export type ManualOutlineSource = (typeof MANUAL_OUTLINE_SOURCE)[number];
 
 /**
  * Where a stored page's text came from (manual text spec phase 3; migration
- * `0018`): the PDF's own text layer, or OCR — a vision model reading the
+ * `0019`): the PDF's own text layer, or OCR — a vision model reading the
  * page's picture, for a scanned manual. Either way the page number is the PDF's.
  */
 export const MANUAL_PAGE_SOURCE = ["text", "ocr"] as const;
