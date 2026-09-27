@@ -13,6 +13,8 @@ import { auditEvents, blockedEmails, session, user } from "../../../lib/db/schem
 import { listAuditEvents } from "../../../lib/data/audit";
 import { findUserById } from "../../../lib/data/users";
 import { seedUser, signInAs, signInAsNew } from "../../../../test/utils/session";
+import { PEOPLE_SET_ROLE } from "../../../lib/actions/people";
+import { performAction } from "../../../lib/actions/perform";
 import { addPerson, removeUser, setUserName, setUserRole, setUserTitle, unblockBlockedEmail } from "./actions";
 
 /**
@@ -173,6 +175,23 @@ describe("setUserRole", () => {
       // Both halves: "became an admin" is unanswerable later without the from.
       detail: { from: "user", to: "admin" },
     });
+  });
+
+  it("refuses when the request's session is not the identity the gate passed, and changes nothing", async () => {
+    // Stage 1 review: Better Auth's `setRole` authenticates from the cookie, so
+    // a caller that gates one person (a future confirm route) while the
+    // cookie belongs to another must not write as the cookie's owner.
+    await asDirector();
+    const other = await seedUser({ email: "other-director@cornell.edu", role: "super_admin", name: "Oda Ther" });
+    const target = await seedUser({ email: "student@cornell.edu", role: "user" });
+    const gated = { role: "super_admin" as const, userId: other.id, email: other.email, name: other.name, rateLimitKey: other.id };
+
+    expect(await performAction(PEOPLE_SET_ROLE, { userId: target.id, role: "admin" }, gated, { surface: "assistant" })).toEqual({
+      ok: false,
+      error: "not_permitted",
+    });
+    expect(await roleOf(target.id)).toBe("user");
+    expect(await listAuditEvents()).toEqual([]);
   });
 
   it("revalidates the page so the roster shows the change", async () => {

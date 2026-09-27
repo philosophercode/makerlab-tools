@@ -945,7 +945,8 @@ Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited.
 `corrections/actions.ts` and `projects/actions.ts` are one-line wrappers:
 `performAction(DEF, input, await resolveIdentityFromHeaders(), { surface: "gui" })`.
 `writeTicket` (`lib/admin/ticket-write.ts`) is a wrapper over `tickets.update` too, taking the
-surface; `update_ticket` passes `"assistant"` when the chat set a `chatId`, else `"mcp"`. Every
+surface; `update_ticket` passes `"assistant"` when the chat adapter stamped `ctx.surface = "chat"`,
+else `"mcp"` (see "Review fixes" below). Every
 existing test under `app/admin/{users,maintenance,corrections,projects}` and
 `capabilities/staff.test.ts` passes unchanged, as do the `admin-users`, `admin-queues`,
 `corrections` and `projects` E2E specs.
@@ -979,6 +980,11 @@ existing test under `app/admin/{users,maintenance,corrections,projects}` and
 10. **Definitions import their path constants and error unions from the page's result module**
     (`app/admin/<page>/action-result.ts`, directive-free), type-only except the path, so an
     island and its action still read one declaration of the codes.
+11. **No `direct` default over MCP** (§3.8's table, narrowed by §11 answer 4). `operational`
+    and `catalog` both default to `"propose"`; `"direct"` must be written on the definition and
+    `defineAction` refuses it for any id outside `DIRECT_OVER_MCP`, which holds only
+    `tickets.update` (the grandfathered `update_ticket`). `corrections.set_status` therefore
+    proposes over MCP when phase 7 registers it, not `direct` as row 42 of §4.9 says.
 
 **The parity guard.** `parity.ts` reads every `.ts`/`.tsx` under `src/` (not only `src/app/`)
 with the TypeScript parser and reports each GUI write: an export of a `"use server"` module, a
@@ -989,5 +995,24 @@ reason; when an `EXEMPT` entry names an endpoint that is gone or already a wrapp
 registered action has no GUI endpoint. `EXEMPT` holds 68 entries today, each naming its phase or
 its "never" reason; it only shrinks. The per-role "tool offer equals server-action gate" check
 waits for the generated tools (phase 2).
+
+**Review fixes (stage 1 review, same day).**
+
+- **MCP `direct` is explicit and fenced** (deviation 11 above); a registry test asserts
+  `update_ticket` is the only direct action.
+- **The surface is stamped by the adapter, never inferred.** `CapabilityCtx.surface`
+  (`"chat" | "mcp"`) is set by `toAiTools` and `registerAll` after the caller's ctx, so no
+  request field can set it. `update_ticket` reads it instead of `chatId`, which the chat sets
+  only when the client sends an `id` — a chat turn without one would otherwise have been
+  audited as MCP once phase 2 records `surface`.
+- **The guard enforces thin wrappers.** `parity.ts` marks an endpoint `thin` only when its
+  body is one `return performAction(…)` (or an arrow whose expression is that call) with no
+  call in the arguments except `resolveIdentityFromHeaders`; the guard counts only thin,
+  single-`performAction` endpoints as wrappers. An endpoint that writes and also calls the
+  layer fails.
+- **`people.set_role` refuses a cookie that is not the gated identity.** Better Auth's
+  `setRole` authenticates from the request cookie; `run()` now reads that session and answers
+  `not_permitted` unless its user is `ctx.identity.userId`, so a confirm route can never gate
+  one person and write as another. One extra session read per role change.
 
 **Status.** Accepted.

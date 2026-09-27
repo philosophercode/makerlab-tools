@@ -42,6 +42,9 @@ export const TICKETS_UPDATE = defineAction<
     "Work one maintenance ticket: change its status, priority, assignee or resolution note. Only the fields passed change.",
   permission: "maintenance.manage",
   risk: "operational",
+  // Grandfathered (§11 answer 4): MCP clients already commit `update_ticket`
+  // directly, and it keeps working. Every other action proposes over MCP.
+  mcp: "direct",
   maxBatch: 20,
   input: z.object({
     logId: z.string(),

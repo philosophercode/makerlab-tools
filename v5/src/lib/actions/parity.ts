@@ -32,7 +32,17 @@ export interface GuiEndpoint {
   kind: EndpointKind;
   /** `performAction(X, …)` calls in the endpoint's body: X, and where X was imported from. */
   performs: { name: string; from: string | null }[];
+  /**
+   * True when the body is nothing but `return performAction(…)` (or an arrow
+   * whose expression is that call), with no call in its arguments except the
+   * identity resolver. The guard accepts only these as wrappers: an endpoint
+   * that calls the layer *and* writes on its own is not one.
+   */
+  thin: boolean;
 }
+
+/** The calls a thin wrapper may make inside `performAction(…)`'s arguments. */
+const WRAPPER_ARGUMENT_CALLS = new Set(["resolveIdentityFromHeaders"]);
 
 const MUTATION_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
@@ -86,10 +96,8 @@ function performsIn(node: ts.Node, imports: Map<string, string>): GuiEndpoint["p
   const found: GuiEndpoint["performs"] = [];
   const visit = (child: ts.Node) => {
     if (ts.isCallExpression(child)) {
-      const callee = child.expression;
-      const calleeName = ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : null;
       const first = child.arguments[0];
-      if (calleeName === "performAction" && first && ts.isIdentifier(first)) {
+      if (calleeName(child) === "performAction" && first && ts.isIdentifier(first)) {
         found.push({ name: first.text, from: imports.get(first.text) ?? null });
       }
     }
@@ -97,6 +105,37 @@ function performsIn(node: ts.Node, imports: Map<string, string>): GuiEndpoint["p
   };
   visit(node);
   return found;
+}
+
+function calleeName(call: ts.CallExpression): string | null {
+  const callee = call.expression;
+  return ts.isIdentifier(callee) ? callee.text : ts.isPropertyAccessExpression(callee) ? callee.name.text : null;
+}
+
+/** `performAction(…)`, optionally awaited, whose arguments call nothing but the identity resolver. */
+function isBarePerform(expression: ts.Expression): boolean {
+  let inner: ts.Expression = expression;
+  while (ts.isParenthesizedExpression(inner) || ts.isAwaitExpression(inner)) inner = inner.expression;
+  if (!ts.isCallExpression(inner) || calleeName(inner) !== "performAction") return false;
+  let clean = true;
+  const visit = (child: ts.Node) => {
+    if (isFunctionLike(child)) clean = false;
+    else if (ts.isCallExpression(child) && !WRAPPER_ARGUMENT_CALLS.has(calleeName(child) ?? "")) clean = false;
+    if (clean) ts.forEachChild(child, visit);
+  };
+  for (const argument of inner.arguments) visit(argument);
+  return clean;
+}
+
+/** True when `node` is a function whose whole body is one bare `performAction(…)`. */
+function isThinWrapper(node: ts.Node | undefined): boolean {
+  if (!node || !isFunctionLike(node) || !node.body) return false;
+  if (!ts.isBlock(node.body)) return isBarePerform(node.body);
+  const statements = node.body.statements.filter(
+    (statement) => !(ts.isExpressionStatement(statement) && ts.isStringLiteral(statement.expression))
+  );
+  const only = statements[0];
+  return statements.length === 1 && ts.isReturnStatement(only) && only.expression !== undefined && isBarePerform(only.expression);
 }
 
 /** The name a function-like node is known by: its own, its variable's, its property's. */
@@ -119,9 +158,12 @@ export function endpointsInSource(file: string, text: string): GuiEndpoint[] {
   const add = (name: string, kind: EndpointKind, body: ts.Node | undefined) => {
     const key = `${file}#${name}`;
     const performs = body ? performsIn(body, imports) : [];
+    const thin = isThinWrapper(body);
     const existing = endpoints.get(key);
-    if (existing) existing.performs.push(...performs);
-    else endpoints.set(key, { key, file, name, kind, performs });
+    if (existing) {
+      existing.performs.push(...performs);
+      existing.thin &&= thin;
+    } else endpoints.set(key, { key, file, name, kind, performs, thin });
   };
 
   // Local top-level functions and `const x = <function>` by name, for `export { x }`.

@@ -55,8 +55,13 @@ function allEndpoints(): GuiEndpoint[] {
     .flatMap((f) => endpointsInSource(relative(APP, f), readFileSync(f, "utf8")));
 }
 
-/** The registered definition an endpoint wraps, or null. */
+/**
+ * The registered definition an endpoint wraps, or null. Only a thin wrapper
+ * counts: an endpoint that calls the layer and also writes on its own would
+ * otherwise pass as "on the layer" with a second write path beside it.
+ */
 function wrapped(endpoint: GuiEndpoint): string | null {
+  if (!endpoint.thin || endpoint.performs.length !== 1) return null;
   const call = endpoint.performs.find((p) => p.from !== null && /(^|\/)lib\/actions\//.test(p.from) && DEFINITIONS_BY_EXPORT.has(p.name));
   return call ? call.name : null;
 }
@@ -129,6 +134,10 @@ describe("the registry", () => {
     }
   });
 
+  it("commits directly over MCP for update_ticket only; everything else proposes or is absent (§11 answer 4)", () => {
+    expect(ACTIONS.filter((a) => a.mcp === "direct").map((a) => a.toolName)).toEqual(["update_ticket"]);
+  });
+
   it("describes every action the assistant may propose", () => {
     for (const action of ACTIONS.filter((a) => a.assistant === "propose")) {
       expect(action.description.length, action.id).toBeGreaterThan(20);
@@ -152,6 +161,30 @@ describe("the scanner", () => {
     expect(found.map((e) => e.name).sort()).toEqual(["renamed", "smash", "spin", "twirl"]);
     expect(found.find((e) => e.name === "spin")!.performs).toEqual([{ name: "WIDGETS_SPIN", from: "../../../lib/actions/widgets" }]);
     expect(found.find((e) => e.name === "smash")!.performs).toEqual([]);
+  });
+
+  it("counts only a bare `return performAction(…)` as a thin wrapper", () => {
+    const found = endpointsInSource(
+      "src/app/admin/widgets/actions.ts",
+      `"use server";
+       import { performAction } from "../../../lib/actions/perform";
+       import { WIDGETS_SPIN } from "../../../lib/actions/widgets";
+       export async function spin(input: unknown) { return performAction(WIDGETS_SPIN, input, await resolveIdentityFromHeaders(), { surface: "gui" }); }
+       export const twirl = async (input: unknown) => performAction(WIDGETS_SPIN, input, await resolveIdentityFromHeaders(), { surface: "gui" });
+       export async function mixed(input: unknown) { await db.delete(widgets); return performAction(WIDGETS_SPIN, input, id, { surface: "gui" }); }
+       export async function sneaky(input: unknown) { return performAction(WIDGETS_SPIN, await db.delete(widgets), id, { surface: "gui" }); }
+       export async function twice(input: unknown) { await performAction(WIDGETS_SPIN, input, id, {}); return performAction(WIDGETS_SPIN, input, id, {}); }`
+    );
+    const thin = Object.fromEntries(found.map((e) => [e.name, e.thin]));
+    expect(thin).toEqual({ spin: true, twirl: true, mixed: false, sneaky: false, twice: false });
+  });
+
+  it("counts an inline server action's directive as no statement", () => {
+    const [save] = endpointsInSource(
+      "src/app/admin/widgets/page.tsx",
+      `async function save(input: unknown) { "use server"; return performAction(WIDGETS_SPIN, input, await resolveIdentityFromHeaders(), {}); }`
+    );
+    expect(save.thin).toBe(true);
   });
 
   it("finds an inline server action inside a server component", () => {

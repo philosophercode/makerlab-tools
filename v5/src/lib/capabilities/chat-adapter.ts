@@ -37,6 +37,8 @@ export function toAiTools(
   ctx: CapabilityCtx
 ): Record<string, Tool> {
   const aiTools: Record<string, Tool> = {};
+  // Stamped here, after the caller's ctx, so a tool always knows it runs in the chat.
+  const chatCtx: CapabilityCtx = { ...ctx, surface: "chat" };
   for (const capability of capabilities) {
     for (const capTool of capability.tools) {
       // MCP-only tools are writes the chat reaches another way. Intake's
@@ -44,7 +46,7 @@ export function toAiTools(
       // pending rows, background research and a human approval (spec §5.4),
       // and handing the model a direct write would be a way round all three.
       if (capTool.mcpOnly) continue;
-      aiTools[capTool.name] = wrapTool(capTool, ctx);
+      aiTools[capTool.name] = wrapTool(capTool, chatCtx);
     }
   }
   return aiTools;

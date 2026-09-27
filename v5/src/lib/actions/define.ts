@@ -33,8 +33,19 @@ export type ActionRisk =
 /** Which surface a person used. Recorded on audit from phase 2 (`audit_events.surface`). */
 export type ActionSurface = "gui" | "assistant" | "mcp";
 
-/** What MCP clients may do with an action (§3.8). */
+/**
+ * What MCP clients may do with an action (§3.8).
+ *
+ * `direct` (commit without a confirmation card) is never a default: the
+ * owner's §11 answer 4 is "MCP gets proposals only", with `update_ticket`
+ * grandfathered because MCP clients already use it. A definition that wants
+ * `direct` says so explicitly, and the registry test holds the list to
+ * `DIRECT_OVER_MCP`.
+ */
 export type McpExposure = "never" | "propose" | "direct";
+
+/** The only actions allowed `mcp: "direct"` (§11 answer 4): today's `update_ticket`, kept working. */
+export const DIRECT_OVER_MCP: readonly string[] = ["tickets.update"];
 
 /** What an action changes, for the card, the conflict check and audit. */
 export interface ActionSubject {
@@ -130,10 +141,13 @@ export interface ActionDefinition<I, R extends object, E extends string, C = tru
   revalidate?: string[];
 }
 
-/** The MCP exposure a risk gets unless the definition says otherwise (§3.8). */
+/**
+ * The MCP exposure a risk gets unless the definition says otherwise (§3.8, as
+ * narrowed by §11 answer 4): proposals for queue and catalogue work, nothing
+ * for people, spend or destructive actions. Never `direct`.
+ */
 export function defaultMcpExposure(risk: ActionRisk): McpExposure {
-  if (risk === "operational") return "direct";
-  if (risk === "catalog") return "propose";
+  if (risk === "operational" || risk === "catalog") return "propose";
   return "never";
 }
 
@@ -143,7 +157,8 @@ type Defaults = "assistant" | "mcp" | "maxBatch";
  * Declare an action. Fills the defaults the spec gives (assistant "propose",
  * MCP by risk, no batch) and refuses, at module load, a definition that breaks
  * a rule no test should have to find: a destructive batch, a "never" without
- * its reason, a people/spend/destructive action exposed over MCP.
+ * its reason, a people/spend/destructive action exposed over MCP, a `direct`
+ * MCP exposure outside `DIRECT_OVER_MCP`.
  */
 export function defineAction<I, R extends object, E extends string, C = true>(
   def: Omit<ActionDefinition<I, R, E, C>, Defaults> & Partial<Pick<ActionMeta, Defaults>>
@@ -162,6 +177,9 @@ export function defineAction<I, R extends object, E extends string, C = true>(
   }
   if (full.mcp !== "never" && defaultMcpExposure(full.risk) === "never") {
     throw new Error(`[actions] ${full.id}: ${full.risk} actions are never exposed over MCP`);
+  }
+  if (full.mcp === "direct" && !DIRECT_OVER_MCP.includes(full.id)) {
+    throw new Error(`[actions] ${full.id}: MCP gets proposals only; "direct" is kept for ${DIRECT_OVER_MCP.join(", ")}`);
   }
   if (full.maxBatch < 1 || full.maxBatch > 20) {
     throw new Error(`[actions] ${full.id}: maxBatch must be 1–20`);

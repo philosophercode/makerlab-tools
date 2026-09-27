@@ -544,14 +544,19 @@ assistant's confirmation card (phase 2) and MCP will call the same function.
   remove, unblock), `people-allowance.ts`, `people-gate.ts` (the floor
   reconciliation as `afterGate`), `tickets.ts`, `corrections.ts`,
   `projects.ts`; `registry.ts`'s `ACTIONS` lists them. `defineAction` refuses
-  at load a destructive batch, a `people`/`spend`/`destructive` action over MCP
-  and `assistant: "never"` without `neverReason`. `writeTicket` (MCP's and the
+  at load a destructive batch, a `people`/`spend`/`destructive` action over MCP,
+  `mcp: "direct"` on anything but `tickets.update` (`DIRECT_OVER_MCP`; MCP gets
+  proposals only, §11 answer 4) and `assistant: "never"` without `neverReason`.
+  A capability tool that records a surface reads `ctx.surface`, which the chat
+  and MCP adapters stamp — never `chatId`. `writeTicket` (MCP's and the
   chat's `update_ticket`) is a wrapper over `tickets.update`.
 - **The parity guard** (`parity.test.ts`, scanner `parity.ts`, list
   `exempt.ts`): every export of a `"use server"` module, every inline
   `"use server"` function and every `POST`/`PUT`/`PATCH`/`DELETE` of a
-  `src/app/**/route.ts` must be a `performAction(<registered definition>)`
-  wrapper or an `EXEMPT` entry with a reason. **Adding a server action or a
+  `src/app/**/route.ts` must be a thin `return performAction(<registered
+  definition>, …)` wrapper (nothing else in the body; only
+  `resolveIdentityFromHeaders()` may be called in its arguments) or an `EXEMPT`
+  entry with a reason. **Adding a server action or a
   mutation route means adding a definition (and registering it, and importing
   its module in the guard) or an exemption** — and exemptions only shrink: a
   stale one fails the test too.

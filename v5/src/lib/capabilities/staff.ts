@@ -187,8 +187,10 @@ const updateTicketTool: CapabilityTool<UpdateTicketInput, UpdateTicketResult> = 
       return { status: "refused", code: "nothing_to_change", message: "Pass at least one of status, priority, assign_to or resolution." };
     }
 
-    // The chat sets `chatId`; MCP never does.
-    const surface = ctx.chatId ? "assistant" : "mcp";
+    // The adapter stamps the surface; `chatId` is optional client data and is
+    // not evidence of anything. Unstamped (a direct caller) reads as MCP, the
+    // stricter of the two.
+    const surface = ctx.surface === "chat" ? "assistant" : "mcp";
     const result = await writeTicket({ logId: input.ticket_id.trim(), patch }, { identity, surface });
     if (!result.ok) return { status: "refused", code: result.error, message: REFUSALS[result.error] ?? REFUSALS.failed };
     return { status: "updated", ticket_id: input.ticket_id.trim() };

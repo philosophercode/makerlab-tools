@@ -24,8 +24,8 @@ it("defaults to proposing, one subject, and MCP by risk", () => {
   expect(def.mcp).toBe("propose");
 });
 
-it("gives each risk the MCP exposure §3.8 names", () => {
-  expect(defaultMcpExposure("operational")).toBe("direct");
+it("gives each risk the MCP exposure §3.8 names, narrowed by §11 answer 4 (never direct)", () => {
+  expect(defaultMcpExposure("operational")).toBe("propose");
   expect(defaultMcpExposure("catalog")).toBe("propose");
   expect(defaultMcpExposure("people")).toBe("never");
   expect(defaultMcpExposure("spend")).toBe("never");
@@ -49,4 +49,9 @@ it("refuses assistant \"never\" without its reason", () => {
 
 it("caps a batch at 20", () => {
   expect(() => defineAction({ ...base("operational"), maxBatch: 21 })).toThrow(/1–20/);
+});
+
+it("refuses a direct MCP exposure for anything but the grandfathered update_ticket", () => {
+  expect(() => defineAction({ ...base("operational"), mcp: "direct" })).toThrow(/proposals only/);
+  expect(defineAction({ ...base("operational"), id: "tickets.update", mcp: "direct" }).mcp).toBe("direct");
 });

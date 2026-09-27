@@ -90,6 +90,14 @@ export interface CapabilityCtx {
   curation?: CurationContext;
   /** Chat only — the conversation's id, recorded on the proposals it produces. */
   chatId?: string;
+  /**
+   * Which surface is running the tool, stamped by the adapter itself
+   * (`toAiTools` → "chat", `registerAll` → "mcp") after any caller-supplied
+   * ctx, so no request field can set it. Tools that record a surface (the
+   * action layer's audit) read this, never `chatId`, which the chat sets only
+   * when the client sends one.
+   */
+  surface?: "chat" | "mcp";
 }
 
 /** The record a curation turn is about, as the tools and the prompt see it (§12.1). */

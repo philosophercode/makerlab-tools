@@ -60,7 +60,7 @@ export const PEOPLE_SET_ROLE = defineAction<
     if (target.role === input.role) return null;
     return demotionProtection(target, input.role);
   },
-  run: async (input) => {
+  run: async (input, ctx) => {
     const role = input.role as Role;
     const target = await findUserById(input.userId);
     if (!target) return { ok: false, error: "unknown_user" };
@@ -71,7 +71,17 @@ export const PEOPLE_SET_ROLE = defineAction<
     try {
       const auth = await getAuth();
       if (!auth) return { ok: false, error: "failed" };
-      await auth.api.setRole({ body: { userId: target.id, role }, headers: await requestHeaders() });
+      const cookie = await requestHeaders();
+      // The plugin authenticates from the request's cookie, not from the
+      // identity `performAction` gated. They are the same person on every
+      // surface today; this makes that a rule, so a confirm route or any
+      // non-request caller can never gate one person and write as another.
+      const session = await auth.api.getSession({ headers: cookie });
+      if (!session || session.user.id !== ctx.identity.userId) {
+        console.error("[admin/users] set-role refused: request session is not the gated identity");
+        return { ok: false, error: "not_permitted" };
+      }
+      await auth.api.setRole({ body: { userId: target.id, role }, headers: cookie });
     } catch (err) {
       // The plugin refuses with an `APIError`; anything else is a database or
       // configuration problem. Either way the row did not change.
