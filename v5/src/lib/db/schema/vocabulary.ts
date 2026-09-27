@@ -170,6 +170,14 @@ export const MANUAL_OUTLINE_SOURCE = ["pdf", "inferred", "none"] as const;
 export type ManualOutlineSource = (typeof MANUAL_OUTLINE_SOURCE)[number];
 
 /**
+ * Where a stored page's text came from (manual text spec phase 3; migration
+ * `0019`): the PDF's own text layer, or OCR — a vision model reading the
+ * page's picture, for a scanned manual. Either way the page number is the PDF's.
+ */
+export const MANUAL_PAGE_SOURCE = ["text", "ocr"] as const;
+export type ManualPageSource = (typeof MANUAL_PAGE_SOURCE)[number];
+
+/**
  * Where a refresh of an existing tool is (refresh research spec §4.1; migration
  * `0012`): queued by an admin, researched in the background, then waiting with
  * its proposals — or failed — until a person has decided every one.

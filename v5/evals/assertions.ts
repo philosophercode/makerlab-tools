@@ -15,7 +15,7 @@ import type { EvalFixture, EvalFixtureTool } from "./fixtures";
  * | `contains_all` / `not_contains_any` | Literal substrings |
  * | `no_fabricated_specs` | Numbers attributed to named fields match the fixture |
  * | `cites_resource` | The answer references one of the machine's documents |
- * | `cites_page` | The answer cites a manual page: a `#page=N` link or "p. N" (N = `value` when given) |
+ * | `cites_page` | The answer cites a manual page: a `#page=N` link or "p. N" (N = `value` when given; `file.pdf#page=N` pins the document) |
  * | `says_not_covered` | The answer says the manual does not cover the question |
  *
  * `no_unknown_tools` and `no_fabricated_specs` are the two that matter — they
@@ -448,9 +448,23 @@ export function runAssertion(spec: AssertionSpec, input: AssertionInput): Assert
 
 /**
  * A page citation (manual text spec §3.6): a link whose URL ends `#page=N`,
- * or "p. N" / "page N" in the text. With `page`, N must be that page.
+ * or "p. N" / "page N" in the text. With `page`, N must be that page. A
+ * `page` of the form `file.pdf#page=N` pins the document too: the answer must
+ * link that file at that page, so a same-numbered page of another manual on
+ * the machine does not pass.
  */
 export function citesPage(text: string, page?: string): Check {
+  const pinned = page?.match(/^(.+)#page=(\d+)$/);
+  if (pinned) {
+    const [, file, n] = pinned;
+    const escaped = file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (new RegExp(`${escaped}#page=${n}(?!\\d)`).test(text)) return { ok: true };
+    const linked = [...text.matchAll(/([^\s/()]+\.pdf)#page=(\d+)/g)].map((m) => `${m[1]}#page=${m[2]}`);
+    return {
+      ok: false,
+      detail: linked.length ? `links ${[...new Set(linked)].join(", ")}, not ${page}` : `no link to ${page} in the answer`,
+    };
+  }
   const pages = [
     ...[...text.matchAll(/#page=(\d+)/g)].map((m) => m[1]),
     ...[...text.matchAll(/\b(?:p|pp|page)\.?\s*(\d+)/gi)].map((m) => m[1]),

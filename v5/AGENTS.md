@@ -20,7 +20,7 @@ the catalog to external agents. White-labelled via env vars.
 
 - **Next.js 16** (App Router, React Server Components, `cacheComponents` enabled), **React 19**, **TypeScript**, **Tailwind CSS 4**.
 - **i18n:** `next-intl`, **12 locales**, cookie-based (`NEXT_LOCALE`) — no URL-prefix routing. Config in `src/i18n/config.ts`; messages in `messages/*.json`.
-- **AI:** Vercel **AI SDK v6** (`ai`, `@ai-sdk/react`) through the **Vercel AI Gateway** (`@ai-sdk/gateway`) — the *only* model path (gateway spec 2026-09-23: `ANTHROPIC_API_KEY`, `@ai-sdk/anthropic` and the direct-provider `src/lib/model.ts` are retired and removed). Every model call names a **job**, not a model — `chat`, `researchSearch`, `researchRead`, `imageRank`, bulk intake's `importParse` and `nameSuggest` (`MODEL_IMPORT_PARSE`, `MODEL_NAME_SUGGEST`, both flex), the display-name backfill's `displayName` (`MODEL_DISPLAY_NAME`, flex), the description shortener's `descriptionShorten` (`MODEL_DESCRIPTION_SHORTEN`, flex), and the embedding job `embed` (`openai/text-embedding-3-small` at 512 dimensions, manual search — manual text spec phase 2) — resolved by `src/lib/ai/models.ts`'s `MODEL_JOBS`, each with a code default (`openai/gpt-6-luna` for every language job — chat passed the §10 eval gate once its prompt was tuned, gateway spec amendment "Chat prompt tuning for Luna") and one `MODEL_<JOB>` env override. Each job also names a Gateway **service tier** — `flex` for the background jobs (research search/read, image ranking, the starter-question backfill), none for chat — sent by `providerOptionsFor(job)` and overridden by `MODEL_<JOB>_TIER` (`default`/`flex`/`priority`; amendment "Manuals as text and flex tier for research"). Research's read step gives a manual PDF as **text**, not a file part (`RESEARCH_ATTACH_PDFS = false` in `intake/limits.ts`) — the lab's own extraction first (a stored manual, or the downloaded PDF extracted in memory: outline plus the pages richest in specs), the search's captured copy only as the fallback (manual text spec, phase 1); chat answers from a processed manual with `search_manual` and attaches only the manuals not yet processed (phase 2). There is **no image model**: the `imageClean` redraw was retired on 2026-09-23 because it altered product labels (spec amendment "No generative redraw"); background removal is a deterministic cutout in code. Web search is `gateway.tools.exaSearch` (Exa, provider-executed — one request leaves our process regardless of how many search legs the Gateway runs); reading a specific page is `read_page`, our own capability tool over `src/lib/web/*`'s SSRF-guarded fetch, not a provider tool. Auth is `AI_GATEWAY_API_KEY` when set, else the deployment's own Vercel OIDC token — production sets neither key nor a fallback, only the Gateway. Markdown via `react-markdown` + `remark-gfm` on pages (`system/Markdown`) and `streamdown` in the chat (raw HTML off, UI system phase 5b).
+- **AI:** Vercel **AI SDK v6** (`ai`, `@ai-sdk/react`) through the **Vercel AI Gateway** (`@ai-sdk/gateway`) — the *only* model path (gateway spec 2026-09-23: `ANTHROPIC_API_KEY`, `@ai-sdk/anthropic` and the direct-provider `src/lib/model.ts` are retired and removed). Every model call names a **job**, not a model — `chat`, `researchSearch`, `researchRead`, `imageRank`, bulk intake's `importParse` and `nameSuggest` (`MODEL_IMPORT_PARSE`, `MODEL_NAME_SUGGEST`, both flex), the display-name backfill's `displayName` (`MODEL_DISPLAY_NAME`, flex), the description shortener's `descriptionShorten` (`MODEL_DESCRIPTION_SHORTEN`, flex), the embedding job `embed` (`openai/text-embedding-3-small` at 512 dimensions, manual search — manual text spec phase 2), the scanned-manual OCR job `ocr` (`MODEL_OCR`, flex, run only by `manuals:index`) and the reranking job `rerank` (`cohere/rerank-v4-fast`, `MODEL_RERANK`, `off` disables it — phase 3) — resolved by `src/lib/ai/models.ts`'s `MODEL_JOBS`, each with a code default (`openai/gpt-6-luna` for every language job — chat passed the §10 eval gate once its prompt was tuned, gateway spec amendment "Chat prompt tuning for Luna") and one `MODEL_<JOB>` env override. Each job also names a Gateway **service tier** — `flex` for the background jobs (research search/read, image ranking, the starter-question backfill), none for chat — sent by `providerOptionsFor(job)` and overridden by `MODEL_<JOB>_TIER` (`default`/`flex`/`priority`; amendment "Manuals as text and flex tier for research"). Research's read step gives a manual PDF as **text**, not a file part (`RESEARCH_ATTACH_PDFS = false` in `intake/limits.ts`) — the lab's own extraction first (a stored manual, or the downloaded PDF extracted in memory: outline plus the pages richest in specs), the search's captured copy only as the fallback (manual text spec, phase 1); chat answers from a processed manual with `search_manual` and attaches only the manuals not yet processed (phase 2). There is **no image model**: the `imageClean` redraw was retired on 2026-09-23 because it altered product labels (spec amendment "No generative redraw"); background removal is a deterministic cutout in code. Web search is `gateway.tools.exaSearch` (Exa, provider-executed — one request leaves our process regardless of how many search legs the Gateway runs); reading a specific page is `read_page`, our own capability tool over `src/lib/web/*`'s SSRF-guarded fetch, not a provider tool. Auth is `AI_GATEWAY_API_KEY` when set, else the deployment's own Vercel OIDC token — production sets neither key nor a fallback, only the Gateway. Markdown via `react-markdown` + `remark-gfm` on pages (`system/Markdown`) and `streamdown` in the chat (raw HTML off, UI system phase 5b).
 - **MCP:** `@modelcontextprotocol/sdk` (stateless HTTP JSON-RPC server at `/api/mcp`, and `/api/mcp/signed-in` for OAuth clients) — see "MCP access" below.
 - **Validation:** `zod`. **Search:** `match-sorter` (fuzzy, ranked).
 
@@ -950,7 +950,7 @@ is copied into Blob once, and the tool page and the chat prefer the copy.
   out of `fileUrls`; the chat attaches `archivedUrl` first, so one manual is
   attached once, and "(attached)" matches the copy or the source.
 
-## Manual text and search (`manual_documents`, `manual_pages`, `manual_chunks`; manual text spec phases 1–2)
+## Manual text and search (`manual_documents`, `manual_pages`, `manual_chunks`; manual text spec phases 1–3)
 
 Every stored manual PDF is also kept as **text, page by page, with its
 outline** (`docs/specs/2026-09-23-manual-text-and-search-design.md`, migration
@@ -996,7 +996,8 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   (`research/manual-pdfs.ts`).
 - **pgvector.** Migration `0011` creates the `vector` extension and
   `manual_chunks` (a generated English `tsvector` + GIN, `vector(512)` + HNSW
-  cosine, `tool_id`). PGlite loads the extension from
+  cosine, `tool_id`); since `0019` the column is **`halfvec(512)`** with a
+  `halfvec_cosine_ops` index, and queries cast to `halfvec(512)`. PGlite loads the extension from
   `@electric-sql/pglite-pgvector` (`PGLITE_EXTENSIONS` in `db/pglite.ts`, kept
   in `serverExternalPackages` like PGlite itself); Neon ships it.
 - **Passages** (`manuals/chunk.ts`, `CHUNKER_VERSION`): cut along the outline,
@@ -1045,6 +1046,30 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   passages are missing or stale is chunked and embedded, with tokens and the
   Gateway-reported cost printed (`--text-only` skips it; `--dry-run` chunks and
   counts without embedding).
+- **OCR (phase 3, migration `0019`)** — only `manuals:index` runs it, never the
+  workflow. A PDF that extracts as `no_text` is drawn page by page without a
+  canvas (`manuals/page-images.ts`: the images each page paints, from pdf.js's
+  operator list, composited with `sharp`), each page read by job `ocr`
+  (`manuals/transcribe.ts` — a transcription, headings marked `#`/`##` for the
+  outline, the page fenced as data) and stored `ready` (`manuals/ocr.ts`):
+  pages at their own PDF numbers with `manual_pages.source = 'ocr'`,
+  `manual_documents.ocr_version = 'ocr-1:<model>'`. Caps: 150 pages
+  (`--ocr-max-pages`), ~$1 a manual by reported cost (`ocr_partial` when cut
+  short). A transient model failure stores `no_text` without `ocr_version`, so
+  the next run retries; a refused page is stored empty. A scan read at this key
+  is never read again (`--force` keeps OCR text; `--force-ocr` re-reads), and
+  the workflow's Re-process keeps it (`ocr_kept`). The run ends with a Summary
+  (PDFs, manuals OCR'd, pages, passages, cost); a second run finds nothing to do.
+  An OCR'd passage carries `ocr: true` and `search_manual` adds a `transcribed`
+  note; the editor tag adds "· OCR". JPEG 2000 scans draw blank (no OpenJPEG
+  wasm configured).
+- **Reranking (phase 3).** `searchManuals({ rerank: true })` — `search_manual`
+  asks for it, refresh research does not — sends the top 24 fused passages to
+  job `rerank` (`manuals/rerank.ts`, AI SDK `rerank()`), whose order and score
+  replace the fused ones before the top 8 are kept and merged. 2.5 s timeout,
+  no retries; any failure keeps the fused order (`rerankFailed`).
+  `MODEL_RERANK=off` skips it. Tests: `models-stub.ts`'s `rerankingModelFor`
+  keeps the given order unless a test calls `setRerankingModel(rerankingModel(…))`.
 - **Admin.** The editor's tag says **Searchable · N pages** once passages
   exist; **Re-process** on a resource row with a PDF marks its documents stale
   (`markResourceManualsStale` — nothing deleted) and starts the archive
@@ -1053,7 +1078,8 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   (`countManualsByState`).
 - **Tests** seed documents straight into PGlite (`test/manuals/seed.ts`) and
   embed with `test/ai/fake-embeddings.ts` (hashed bag of words, or pinned
-  one-hot vectors); `models-stub.ts` has `setEmbeddingModel`, and the workflow
+  one-hot vectors); `test/fixtures/manuals/scanned-image.pdf` is a real scan
+  (image XObjects) for the OCR tests; `models-stub.ts` has `setEmbeddingModel`, and the workflow
   tier stubs the Gateway's `/embedding-model` endpoint (`gatewayHandlers({
   embedding })`). The live retrieval eval is a `.livecheck` script (results in
   the spec's phase-2 amendment).

@@ -1,4 +1,4 @@
-import { MockLanguageModelV3 } from "ai/test";
+import { MockLanguageModelV3, MockRerankingModelV3 } from "ai/test";
 import type * as ModelsModule from "../../src/lib/ai/models";
 
 /**
@@ -38,6 +38,8 @@ type StreamPart = Awaited<ReturnType<LanguageModel["doStream"]>>["stream"] exten
 
 const languageModels = new Map<LanguageJob, LanguageModel>();
 let embeddingModel: ReturnType<Models["embeddingModelFor"]> | null = null;
+type RerankingModel = ReturnType<Models["rerankingModelFor"]>;
+let stubbedReranker: RerankingModel | null = null;
 
 /** The module factory for `vi.mock("@/lib/ai/models", …)`: the real module with the model factory swapped. */
 export function stubModelsModule(actual: Models): Models {
@@ -56,6 +58,12 @@ export function stubModelsModule(actual: Models): Models {
       if (!embeddingModel) throw new Error(`no embedding model stubbed — call setEmbeddingModel(…)`);
       return embeddingModel;
     },
+    // Manual search reranking (job `rerank`): the order it was given unless a
+    // test sets one — `setRerankingModel(rerankingModel(…))`.
+    rerankingModelFor: (job = "rerank") => {
+      actual.modelIdFor(job);
+      return stubbedReranker ?? keepOrderReranker();
+    },
   };
 }
 
@@ -68,9 +76,49 @@ export function setEmbeddingModel(model: ReturnType<Models["embeddingModelFor"]>
   embeddingModel = model;
 }
 
+/** The model job `rerank` resolves to. */
+export function setRerankingModel(model: RerankingModel): void {
+  stubbedReranker = model;
+}
+
 export function resetModelStubs(): void {
   languageModels.clear();
   embeddingModel = null;
+  stubbedReranker = null;
+}
+
+/**
+ * A reranker that scores each document with `score(document, query)` and
+ * orders them by it (ties keep their order). Calls are on `.doRerankCalls`.
+ */
+export function rerankingModel(
+  score: (document: string, query: string) => number
+): MockRerankingModelV3 & { doRerankCalls: { query: string; documents: string[] }[] } {
+  const calls: { query: string; documents: string[] }[] = [];
+  const model = new MockRerankingModelV3({
+    provider: "gateway",
+    modelId: "stub/reranker",
+    doRerank: async (options) => {
+      const documents = options.documents.type === "text" ? options.documents.values : options.documents.values.map((v) => JSON.stringify(v));
+      calls.push({ query: options.query, documents });
+      const ranking = documents
+        .map((document, index) => ({ index, relevanceScore: score(document, options.query) }))
+        .sort((a, b) => b.relevanceScore - a.relevanceScore || a.index - b.index);
+      return { ranking };
+    },
+  });
+  return Object.assign(model, { doRerankCalls: calls });
+}
+
+/** The default: every document scored by its position, so the order given stands. */
+function keepOrderReranker(): MockRerankingModelV3 {
+  return new MockRerankingModelV3({
+    provider: "gateway",
+    modelId: "stub/reranker",
+    doRerank: async (options) => ({
+      ranking: options.documents.values.map((_, index) => ({ index, relevanceScore: 1 - index / 1000 })),
+    }),
+  });
 }
 
 // ── Model builders ────────────────────────────────────────────────────

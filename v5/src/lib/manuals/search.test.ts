@@ -1,5 +1,7 @@
 // @vitest-environment node
 import { eq } from "drizzle-orm";
+import { MockRerankingModelV3 } from "ai/test";
+import { rerankingModel } from "../../../test/ai/models-stub";
 import { fakeEmbeddingTarget, hashedBagOfWords, oneHot } from "../../../test/ai/fake-embeddings";
 import { seedManual, seedTool } from "../../../test/manuals/seed";
 import { createPgliteDb } from "../db/pglite";
@@ -12,7 +14,8 @@ import { mergeAdjacent, partNumberTokens, searchManuals, type ManualPassage } fr
  * Hybrid manual search (manual text spec §3.5, §8, §10) on PGlite with
  * pgvector and a fake embedding model: fusion order, tool scoping, access in
  * the SQL, archived tools, exact part-number matches, merging, and the
- * full-text fallback when the query cannot be embedded.
+ * full-text fallback when the query cannot be embedded — and, phase 3,
+ * reranking (a stub reranker) with its fallback, and OCR'd pages marked.
  */
 
 const staff = { role: "admin" as const };
@@ -33,7 +36,10 @@ beforeEach(async () => {
   await db.delete(tools);
 });
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllEnvs();
+});
 
 const target = fakeEmbeddingTarget();
 
@@ -189,6 +195,70 @@ describe("searchManuals", () => {
   });
 });
 
+describe("searchManuals — phase 3", () => {
+  const outline = [
+    { title: "Cleaning", page: 1, level: 1 },
+    { title: "Resin tank", page: 2, level: 1 },
+    { title: "Errors", page: 3, level: 1 },
+  ];
+
+  it("reranks the fused candidates: the reranker reads each passage's place and text, and its order wins", async () => {
+    const tool = await seedTool(db, { name: "Form 4" });
+    await manual(tool, "Form 4 Manual", [CLEAN, RESIN, ERROR], { outline });
+    // A reranker that only likes the error-code passage.
+    const reranker = rerankingModel((document) => (document.includes("E-302") ? 0.9 : 0.1));
+
+    const fused = await searchManuals(db, { query: "how do I replace the resin tank", viewer: anonymous, target });
+    expect(fused.passages[0].sectionPath).toEqual(["Resin tank"]);
+    expect(fused).toMatchObject({ reranked: false, rerankFailed: false });
+
+    const reranked = await searchManuals(db, {
+      query: "how do I replace the resin tank",
+      viewer: anonymous,
+      target,
+      rerank: { model: reranker },
+    });
+    expect(reranked).toMatchObject({ reranked: true, rerankFailed: false });
+    expect(reranked.passages[0].sectionPath).toEqual(["Errors"]);
+    expect(reranked.passages[0].score).toBeCloseTo(0.9);
+    const [call] = reranker.doRerankCalls;
+    expect(call.query).toBe("how do I replace the resin tank");
+    expect(call.documents).toContain(`Form 4 Manual › Resin tank\n${RESIN}`);
+  });
+
+  it("keeps the fused order when the reranker fails", async () => {
+    const tool = await seedTool(db, { name: "Form 4" });
+    await manual(tool, "Form 4 Manual", [CLEAN, RESIN, ERROR], { outline });
+    const broken = new MockRerankingModelV3({
+      doRerank: async () => {
+        throw new TypeError("fetch failed");
+      },
+    });
+    const result = await searchManuals(db, { query: "resin tank", viewer: anonymous, target, rerank: { model: broken } });
+    expect(result).toMatchObject({ reranked: false, rerankFailed: true });
+    expect(result.passages[0].sectionPath).toEqual(["Resin tank"]);
+  });
+
+  it("does not rerank when MODEL_RERANK is off", async () => {
+    vi.stubEnv("MODEL_RERANK", "off");
+    const tool = await seedTool(db, { name: "Form 4" });
+    await manual(tool, "Form 4 Manual", [CLEAN, RESIN, ERROR], { outline });
+    const result = await searchManuals(db, { query: "resin tank", viewer: anonymous, target, rerank: true });
+    expect(result).toMatchObject({ reranked: false, rerankFailed: false });
+    expect(result.passages[0].sectionPath).toEqual(["Resin tank"]);
+  });
+
+  it("says which passages were read by OCR, and still links their own page", async () => {
+    const tool = await seedTool(db, { name: "X2D" });
+    const seeded = await manual(tool, "X2D Manual", [CLEAN, RESIN, ERROR], { outline, ocrPages: [2, 3] });
+    const { passages } = await searchManuals(db, { query: "replace the resin tank", viewer: anonymous, target, merge: false });
+    const resin = passages.find((p) => p.sectionPath[0] === "Resin tank");
+    const cleaning = passages.find((p) => p.sectionPath[0] === "Cleaning");
+    expect(resin).toMatchObject({ ocr: true, pageStart: 2, pdfUrl: `${seeded.publicUrl}#page=2` });
+    expect(cleaning?.ocr).toBe(false);
+  });
+});
+
 describe("mergeAdjacent", () => {
   const base: ManualPassage = {
     documentId: "d",
@@ -204,6 +274,7 @@ describe("mergeAdjacent", () => {
     pdfUrl: null,
     score: 0,
     ordinals: [0],
+    ocr: false,
   };
 
   it("joins consecutive passages of one section without repeating the overlap, keeping the best score", () => {

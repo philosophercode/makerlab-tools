@@ -183,6 +183,15 @@ describe("cites_page", () => {
     expect(citesPage("See [the manual](https://b.test/m.pdf#page=41).", "42")).toMatchObject({ ok: false });
     expect(citesPage("Lift the tank straight up.")).toMatchObject({ ok: false });
   });
+
+  it("pins the document with file.pdf#page=N: the same page of another manual does not pass", () => {
+    const scan = "[Washing prints (Form Wash Guide, p. 3)](https://b.test/manuals/form-wash-guide.pdf#page=3)";
+    const other = "[Washing (Form 4 Manual, p. 3)](https://b.test/manuals/form-4-manual.pdf#page=3)";
+    expect(citesPage(scan, "form-wash-guide.pdf#page=3").ok).toBe(true);
+    expect(citesPage(other, "form-wash-guide.pdf#page=3")).toMatchObject({ ok: false, detail: expect.stringContaining("form-4-manual.pdf#page=3") });
+    expect(citesPage(scan.replace("page=3", "page=30"), "form-wash-guide.pdf#page=3")).toMatchObject({ ok: false });
+    expect(citesPage("Form Wash Guide, p. 3", "form-wash-guide.pdf#page=3")).toMatchObject({ ok: false });
+  });
 });
 
 describe("says_not_covered", () => {

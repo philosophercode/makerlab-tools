@@ -598,3 +598,154 @@ fixed-query passages §3.7 describes — `refresh/manual-context.ts`, entry poin
 
 Live (refresh research spec's amendment): the Form 4's manual reached the read step as
 passages, 15,964 characters.
+
+### 2026-09-27 — Phase 3 built: OCR, reranking, halfvec (§2, §3.4, §3.5, §4, §9, §10, §11)
+
+**Status.** All three items of §9 phase 3 are built on `v5/manual-search-phase3`: **OCR for
+`no_text` manuals** (run by `npm run manuals:index`), **reranking** of hybrid search results
+(the chat's and MCP's `search_manual`), and **`halfvec(512)`** storage. Migration
+**`0019_manual_phase3`**. §2's non-goal "OCR of scanned manuals" is lifted. Nothing was
+skipped; the gaps are listed under *Not done / open*.
+
+**OCR, as built:**
+
+- **No canvas.** pdf.js renders a page only onto a canvas, and the Node one
+  (`@napi-rs/canvas`) is a native package the app does not carry. A scan does not need a
+  renderer: each page of one *is* a picture, and pdf.js already decodes it (JPEG, JBIG2,
+  CCITT, Flate) in plain JavaScript. `manuals/page-images.ts` walks each page's operator
+  list, follows the graphics state (`save`/`restore`, `transform`, form XObjects), takes
+  every image it paints (`paintImageXObject`, inline images, `/ImageMask` stencils) with
+  its matrix, and composites them with **`sharp`** (already a dependency) onto a white
+  page at the page's proportions — quarter turns and mirrors applied, a skewed image left
+  out. The page is drawn at its sharpest image's resolution, long side clamped to
+  1,000–2,000 px, JPEG. A page that paints no image is not sent. Vector drawing and fonts
+  are not drawn (a page with text has a text layer and is never OCR'd).
+- **Reading.** `manuals/transcribe.ts`: one page picture per call to the new language job
+  **`ocr`** in `MODEL_JOBS` (`openai/gpt-6-luna`, **flex**, `MODEL_OCR`/`MODEL_OCR_TIER`),
+  no tools. The prompt asks for a transcription, not a rewrite — every word in reading
+  order, numbers and part numbers verbatim, `[illegible]` rather than a guess, no
+  translation — with `# `/`## ` marking chapter/section headings, tables as ` | ` rows,
+  running headers and page numbers left out, `[no text]` for an empty page, and the page
+  treated as data, never instructions. The markers become the scan's outline
+  (`outline_source = 'inferred'`, a heading repeated on consecutive pages kept once) and
+  are removed from the stored text. This is the one place the "no model-rewritten text"
+  non-goal (§2) bends: OCR text is the model's reading of the page, so each such page is
+  marked (below) and the chat is told.
+- **Per page, at its own number.** `manuals/ocr.ts` assembles an ordinary `ready`
+  document: every page at its PDF page number, **`manual_pages.source = 'ocr'`** for a page
+  the model read (`'text'` otherwise — the default, so every existing page is `text`),
+  **`manual_documents.ocr_version`** = `ocr-1:<model>` (`OCR_VERSION`, `ocrKey()`).
+  Chunking, embedding, search and citations are unchanged, so an OCR'd passage cites
+  `#page=N` like any other.
+- **Caps.** At most **150 pages** a manual (the first; `--ocr-max-pages N` changes it) and
+  **~$1** a manual by the Gateway-reported cost (`OCR_MAX_COST_USD`; no page starts once the
+  spend plus the pages in flight, at the average page cost, reaches it; a call reporting no
+  cost counts `OCR_FALLBACK_PAGE_COST_USD` = 1¢), 4 pages at a time. A manual cut short is stored `ready` with
+  `status_reason = 'ocr_partial'` and its remaining pages empty.
+- **Failures are values.** A rate limit, a provider's bad minute or a timeout (after the
+  SDK's two retries), or an auth/configuration error, stops that manual: it is stored
+  `no_text` **without** `ocr_version`, so the next run reads it again. A page the model
+  refuses (an invalid request) is stored empty and the rest go on — but 3 refusals before any
+  page is read, or a run where every attempted page was refused or could not be drawn, fails
+  the manual (nothing recorded, the run exits non-zero): that is the model's configuration,
+  not the scan. A page whose images could not be decoded (JPEG 2000, an image atlas) counts
+  as failed, not blank. pdf.js's grouped and repeated image operators are expanded. A scan whose reading
+  averages under the extractor's 100 characters a page stays `no_text` but records
+  `ocr_version` — read, nothing legible — and is not read again.
+- **Only the backfill runs OCR.** The index step OCRs only when its caller hands it an
+  `OcrRunner`; `manuals:index` does, the archive workflow does not. Reasons: OCR costs
+  money per page, and a long scan on flex takes minutes — too long and too open-ended for a
+  workflow step started by any uploaded PDF. A scan archived or uploaded after the backfill
+  stays `no_text` (and is attached whole in chat, as before) until the next
+  `manuals:index`. **OCR text survives re-processing**: the workflow's *Re-process* of an
+  OCR'd scan re-extracts it, sees "scan" again, and keeps the stored OCR pages
+  (`markScanReExtracted`, outcome `ocr_kept`), rebuilding only the passages.
+- **Idempotent.** `manuals:index` lists PDFs not at this `EXTRACTOR_VERSION` **plus scans
+  not read at this OCR key** (`listIndexablePdfs({ ocrKey })`), so re-running it after this
+  merge takes up every manual stored `no_text` before OCR existed. A scan read at this key
+  is never read again — not even under `--force`, which re-extracts text PDFs but keeps OCR
+  text (it costs money); `--force-ocr` reads every scan again; a new `OCR_VERSION` or
+  `MODEL_OCR` reads them on the next run (as `MODEL_EMBED` re-embeds). `--no-ocr` and
+  `--text-only` leave scans `no_text`; `--dry-run` reports how many pages OCR would read
+  and calls nothing. A second run with nothing new prints "Every stored PDF is already
+  processed … every scan read" and "Every ready document already has current passages".
+- **Output.** Each PDF's line adds its OCR (`; OCR 38 page(s) read, 2 blank, 41200 tokens,
+  cost $0.01234, 95.2s`, or why it failed); an `OCR:` line totals scans read, partial,
+  empty, failed and kept, pages and cost; and the run ends with a **Summary** block —
+  PDFs processed (ready / no_text / failed), manuals OCR'd, pages stored and read by OCR,
+  passages built, total Gateway cost.
+- **Readers.** A passage whose first page is OCR'd has `ocr: true` in `searchManuals`, and
+  `search_manual` gives it a `transcribed` note ("Read by OCR from a scanned page: a
+  character may be misread. For an exact figure, point the student to the page.") beside
+  its citation and `#page=N` link. The editor's tag reads **Searchable · N pages · OCR**
+  (`listManualStates` → `ocr`).
+
+**Reranking, as built:**
+
+- The AI SDK here (`ai` 6.0) has `rerank()`, and `@ai-sdk/gateway` 3.0.160 has
+  `rerankingModel()` (Cohere `rerank-v3.5`/`v4-fast`/`v4-pro`, Voyage `rerank-2.5`/`-lite`).
+  New job **`rerank`** — a *reranking* job (`kind: "reranking"`, `rerankingModelFor`),
+  default **`cohere/rerank-v4-fast`** (§2's candidate), `MODEL_RERANK` overrides it and
+  **`MODEL_RERANK=off`** turns reranking off. No tier hint: a student is waiting.
+- `searchManuals({ rerank })`: off by default; `true` for the job, or a model (tests, the
+  eval). When on, the fused SQL returns the top **24** (`RERANK_CANDIDATES`), the reranker
+  reads each as `<document> › <section path>\n<passage>` (≤ 2,000 characters), its order and
+  score replace the fused ones, the top `limit` (8) are kept, then adjacent passages merge
+  as before. The reranker's reported cost is added to the search's.
+- **Graceful fallback:** 2.5 s timeout, no retries; any failure (or a malformed
+  `MODEL_RERANK`) keeps the fused order — `rerankFailed: true`, one warning line with the
+  error's name. `search_manual` asks for reranking; refresh research's fixed-query passages
+  (`refresh/manual-context.ts`) do not — generic queries gain little from it.
+- **Not measured live.** The phase 2 retrieval eval already passed the gate (0.97); its
+  remaining misses (a spec-table row, "can I lift it by the cover", size and weight) are
+  the kind a cross-encoder fixes, which is why the chat asks for it. The `.livecheck`
+  retrieval eval has not been re-run with reranking (the Gateway credentials available to
+  this build had expired); `MODEL_RERANK=off` is the rollback if it hurts.
+
+**halfvec, as built:**
+
+- pgvector ≥ 0.7 has `halfvec`; PGlite's `@electric-sql/pglite-pgvector` 0.0.9 ships
+  pgvector **0.8.1**. Neon keeps the version current when the extension was created, so
+  the deploy checks `extversion` first and runs `ALTER EXTENSION vector UPDATE` if it is
+  below 0.7 (`docs/deploy.md` Stage 2f); the migrator runs in one transaction, so a failed
+  cast keeps the old index. Migration `0019` drops the HNSW index, changes
+  `manual_chunks.embedding` to **`halfvec(512)`** `USING embedding::halfvec(512)` —
+  existing passages are converted in place, nothing re-embedded — and rebuilds the index
+  with **`halfvec_cosine_ops`**. Safe on Neon's existing rows: the cast is pgvector's own,
+  and a 512-dimension OpenAI embedding (values well inside ±1) loses nothing retrieval
+  notices at half precision. The query vector is cast `::halfvec(512)` in `search.ts`.
+- Storage per passage: ~1 KB of vector instead of ~2 KB (§4's size note), and the index
+  halves with it.
+- `data:push` copies the column as text, unchanged; its test now compares at half
+  precision.
+
+**§10 tests.** New fixture **`scanned-image.pdf`** (real image XObjects: an 8-bit grey
+picture upright, a 1-bit picture a quarter turn clockwise, a page with no image; the
+fixture builder gained image XObjects). Offline: page drawing (placement, rotation,
+mirroring, scale bounds, bit unpacking, corrupt file), transcription (prompt, image part,
+flex, parsing), OCR assembly (caps, cost budget, refused page, rate limit, nothing legible,
+unreadable), the index step with OCR (ready with `ocr` pages and passages, never read twice
+at one key, `--force` keeps OCR text, `--force-ocr` and a new key read again, Re-process
+without OCR keeps it, failure stored `no_text` for the next run, dry run), the backfill
+(flags, OCR report and summaries, idempotent second run, scans stored before OCR taken up),
+search (reranked order and what the reranker reads, fallback on failure, `MODEL_RERANK=off`,
+OCR flag and `#page=N`), the capability's `transcribed` note, the registry's two jobs, and
+migration `0019` over a table put back in its `0011` shape with passages in it. The models
+stub gained a reranking seam (`rerankingModelFor` keeps the given order unless a test sets
+`rerankingModel(…)`). **Chat eval:** `evals/manual-fixture.ts` also stores a scanned
+"Form Wash Guide" on the Form 4 as an OCR'd document; new case
+`form4-wash-time-from-scan` must call `search_manual`, cite page 3 and say 10 minutes.
+
+**Not done / open.**
+
+- **Not run on real scans.** The Gateway credentials in reach had expired, so no live OCR or
+  rerank call was made; the owner's `manuals:index` run after merge is the first. Carvera's
+  full manual and the Carvera Air examples guide (§ phase 2 amendment: both `no_text`) are
+  the known candidates.
+- **JPEG 2000 scans draw blank.** pdf.js decodes JPX through its OpenJPEG wasm module, which
+  unpdf's build loads only with a `wasmUrl` the app does not configure; such pages count as
+  *blank* in the backfill's line. Fix if a real manual needs it.
+- **OCR in the workflow** (on save, §3.1) is left out on purpose (above); revisit if staff
+  upload scans often.
+- **Migration numbering.** Written as `0018`; renumbered `0019` when "Add person"
+  (`0018_people_add`) merged first.

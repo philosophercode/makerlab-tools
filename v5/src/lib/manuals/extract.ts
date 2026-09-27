@@ -1,6 +1,6 @@
 import { getDocumentProxy } from "unpdf";
 import type { ManualOutlineEntry } from "../db/schema/manuals.ts";
-import type { ManualDocumentStatus, ManualOutlineSource } from "../db/schema/vocabulary.ts";
+import type { ManualDocumentStatus, ManualOutlineSource, ManualPageSource } from "../db/schema/vocabulary.ts";
 
 /**
  * `extractManual(bytes)` — a manual PDF's text, page by page, and its outline
@@ -52,8 +52,11 @@ export const NO_TEXT_MIN_AVG_CHARS = 100;
 /** Most outline entries kept, bookmarks or inferred. */
 export const MAX_OUTLINE_ENTRIES = 400;
 
-/** Why a document is `failed` or `no_text`. */
-export type ManualExtractReason = "encrypted" | "corrupt" | "too_large" | "no_text_layer";
+/**
+ * Why a document is `failed` or `no_text` — or, for a `ready` scan OCR read
+ * only part of (page or cost cap, `ocr.ts`), `ocr_partial`.
+ */
+export type ManualExtractReason = "encrypted" | "corrupt" | "too_large" | "no_text_layer" | "ocr_partial";
 
 export interface ExtractedPage {
   /** 1-based PDF page index — what `#page=N` opens. */
@@ -61,6 +64,8 @@ export interface ExtractedPage {
   /** The printed label, when the PDF declares one that differs from `pageNumber`. */
   label: string | null;
   text: string;
+  /** Where the text came from: the text layer (the default) or OCR (`ocr.ts`). */
+  source?: ManualPageSource;
 }
 
 export interface ExtractedManual {

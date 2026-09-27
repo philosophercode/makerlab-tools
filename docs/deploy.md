@@ -206,8 +206,53 @@ DATABASE_URL=postgres://… BLOB_READ_WRITE_TOKEN=… VERCEL_OIDC_TOKEN=… npm 
 makes every document stale; the same command re-embeds them. `/admin/research` shows how
 many manuals are searchable, text only, scanned, failed or still processing, and a
 resource row's **Re-process** in the tool editor rebuilds one manual. Storage: roughly
-2 KB of vector plus ~1.5 KB of text a passage — a 150-page manual is ~200 passages; watch
-Neon's allowance before backfilling hundreds of manuals.
+1 KB of vector (half precision since migration `0019`) plus ~1.5 KB of text a passage — a
+150-page manual is ~200 passages; watch Neon's allowance before backfilling hundreds of
+manuals.
+
+### Stage 2f · Scanned manuals (OCR) and reranking (cents per manual)
+
+Phase 3 of the manual text spec. Migration `0019` turns the embedding column into
+`halfvec(512)` in place (existing passages are converted, not re-embedded) and adds
+`manual_pages.source` / `manual_documents.ocr_version`. The same backfill then **reads every
+scanned (`no_text`) manual with OCR** — each page drawn and transcribed by job `ocr`
+(`openai/gpt-6-luna` on flex, `MODEL_OCR` overrides it), at most 150 pages and about $1 a
+manual — and embeds the result like any other manual.
+
+**First, check pgvector.** `halfvec` needs pgvector 0.7 or newer, and Neon keeps the version
+that was current when the extension was created — it does not upgrade on its own. In the Neon
+SQL editor (or `psql`):
+
+```sql
+select extversion from pg_extension where extname = 'vector';   -- must be 0.7 or newer
+alter extension vector update;                                   -- only if it is older
+```
+
+Do this before the deploy that carries the migration: `npm run build` runs `db:migrate`. The
+migrator applies pending migrations in one transaction, so an old pgvector fails the migration
+without dropping the search index — but the deploy fails with it.
+
+```bash
+cd v5
+DATABASE_URL=postgres://… npm run db:migrate            # 0019: halfvec + OCR columns
+# rehearse: says how many scans and pages OCR would read; calls nothing
+DATABASE_URL=postgres://… BLOB_READ_WRITE_TOKEN=… npm run manuals:index -- --dry-run
+# for real — needs Gateway auth (AI_GATEWAY_API_KEY, or VERCEL_OIDC_TOKEN from `vercel env pull`)
+DATABASE_URL=postgres://… BLOB_READ_WRITE_TOKEN=… VERCEL_OIDC_TOKEN=… npm run manuals:index
+```
+
+It ends with a summary (PDFs processed, manuals OCR'd, pages, passages, total Gateway
+cost) and is idempotent: a second run finds nothing to do. The $1 cap counts the cost the
+Gateway reports; a call that reports none counts a conservative 1¢ a page, and pages already
+in flight count at the average so far, so the cap can be passed by at most a few pages. If
+the model refuses the first pages of a scan (a model without vision, a provider rejecting
+flex for images), the scan is reported **failed**, nothing is recorded and the run exits
+non-zero — fix `MODEL_OCR` and run it again. `--no-ocr` leaves scans alone;
+`--ocr-max-pages N` changes the page cap; `--force-ocr` reads every scan again. OCR runs
+only here — a scan uploaded later stays "No text (scanned)" (and is attached whole in
+chat) until the next run. The chat's `search_manual` now **reranks** its candidates with job
+`rerank` (`cohere/rerank-v4-fast`); setting `MODEL_RERANK=off` in the project's environment
+(then redeploying) turns that off with no code change.
 
 ## Stage 3 · Sign-in (15 minutes)
 

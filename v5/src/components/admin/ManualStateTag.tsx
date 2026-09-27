@@ -5,11 +5,12 @@ import type { ManualState } from "../../lib/data/manual-documents";
  * A resource row's manual processing state in the tool editor (manual text
  * spec §5): "Searchable · 212 pages", "Text stored · 212 pages" (ready, its
  * passages not built yet — or their embedding failed), "No text (scanned)",
- * "Failed: encrypted", or "Processing".
+ * "Failed: encrypted", or "Processing". A scan whose text OCR read (phase 3)
+ * adds "· OCR".
  */
 export function ManualStateTag({ state }: { state: ManualState }) {
   const t = useTranslations("admin.inventory.editor.manualState");
-  const label = (() => {
+  const base = (() => {
     switch (state.state) {
       case "ready":
         if (state.searchable) {
@@ -24,6 +25,7 @@ export function ManualStateTag({ state }: { state: ManualState }) {
         return t("processing");
     }
   })();
+  const label = state.state === "ready" && state.ocr ? t("ocr", { label: base }) : base;
   return (
     <span
       className={`admin-tag admin-manual-state is-${state.state}${state.searchable ? " is-searchable" : ""}`}

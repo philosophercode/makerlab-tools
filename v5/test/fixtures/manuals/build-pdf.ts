@@ -25,6 +25,21 @@ export interface PdfPage {
   lines?: PdfLine[];
   /** Draw a filled grey rectangle instead of (or beside) text — a stand-in for a scanned image. */
   picture?: boolean;
+  /** Real image XObjects painted on the page — what a scanner writes. */
+  images?: PdfImage[];
+}
+
+/** An uncompressed image XObject and where it is painted. */
+export interface PdfImage {
+  width: number;
+  height: number;
+  /** 8 (one byte a sample) or 1 (bits packed, rows padded to a byte). */
+  bitsPerComponent: 8 | 1;
+  colorSpace: "DeviceGray" | "DeviceRGB";
+  /** The samples, rows top first. */
+  data: Uint8Array;
+  /** The `cm` matrix that maps the unit square onto the page: `[a b c d e f]`. */
+  place: [number, number, number, number, number, number];
 }
 
 export interface PdfOutlineItem {
@@ -71,13 +86,25 @@ export function buildPdf(options: BuildPdfOptions): Uint8Array {
 
   const pageIds: number[] = [];
   for (const page of options.pages) {
+    const imageIds = (page.images ?? []).map((image) => {
+      const id = reserve();
+      const samples = Buffer.from(image.data).toString("latin1");
+      objects[id - 1] =
+        `<< /Type /XObject /Subtype /Image /Width ${image.width} /Height ${image.height} ` +
+        `/ColorSpace /${image.colorSpace} /BitsPerComponent ${image.bitsPerComponent} /Length ${image.data.byteLength} >>\n` +
+        `stream\n${samples}\nendstream`;
+      return id;
+    });
     const contentId = reserve();
     const pageId = reserve();
     const stream = contentStream(page);
     objects[contentId - 1] = `<< /Length ${Buffer.byteLength(stream, "latin1")} >>\nstream\n${stream}\nendstream`;
+    const xobjects = imageIds.length
+      ? ` /XObject << ${imageIds.map((id, i) => `/Im${i + 1} ${id} 0 R`).join(" ")} >>`
+      : "";
     objects[pageId - 1] =
       `<< /Type /Page /Parent ${pagesId} 0 R /MediaBox [0 0 ${PAGE_WIDTH} ${PAGE_HEIGHT}] ` +
-      `/Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`;
+      `/Resources << /Font << /F1 ${fontId} 0 R >>${xobjects} >> /Contents ${contentId} 0 R >>`;
     pageIds.push(pageId);
   }
   objects[pagesId - 1] = `<< /Type /Pages /Kids [${pageIds.map((id) => `${id} 0 R`).join(" ")}] /Count ${pageIds.length} >>`;
@@ -133,6 +160,7 @@ export function buildPdf(options: BuildPdfOptions): Uint8Array {
 function contentStream(page: PdfPage): string {
   const parts: string[] = [];
   if (page.picture) parts.push("0.6 g 72 200 468 450 re f 0 g");
+  (page.images ?? []).forEach((image, i) => parts.push(`q ${image.place.join(" ")} cm /Im${i + 1} Do Q`));
   for (const line of page.lines ?? []) {
     const size = line.size ?? 11;
     parts.push(`BT /F1 ${size} Tf 1 0 0 1 ${line.x ?? 72} ${line.y} Tm (${escapeText(line.text)}) Tj ET`);

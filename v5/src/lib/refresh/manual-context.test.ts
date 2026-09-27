@@ -40,6 +40,7 @@ function passage(documentId: string, pageStart: number, content: string, ordinal
     pdfUrl: null,
     score: 1,
     ordinals: [ordinal],
+    ocr: false,
   };
 }
 
@@ -75,7 +76,7 @@ it("gives the outline and the passages for the fixed queries, safety only as con
 it("falls back to the stored digest when the manual has no passages yet", async () => {
   const toolId = await seedTool(db, { name: "Form 4" });
   await seedManual(db, { toolId, title: "Form 4 Manual", pages: ["Cover page text", "Build volume: 200 × 125 × 210 mm\nLaser power: 250 mW"] });
-  const search = (async () => ({ passages: [], vectorFailed: false, queryTokens: 0, cost: null })) as typeof searchManuals;
+  const search = (async () => ({ passages: [], vectorFailed: false, queryTokens: 0, cost: null, reranked: false, rerankFailed: false })) as typeof searchManuals;
   const context = await toolManualContext(db, toolId, { search });
   expect(context?.mode).toBe("digest");
   expect(context?.text).toContain("[page 2]");

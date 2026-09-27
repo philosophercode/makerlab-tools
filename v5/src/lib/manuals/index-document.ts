@@ -3,11 +3,13 @@ import type { ManualDocumentStatus } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
 import {
   listCurrentPdfsForResource,
+  markScanReExtracted,
   saveManualDocument,
   type ResourcePdfForIndex,
 } from "../data/manual-documents.ts";
 import { isUuid } from "../data/uuid.ts";
 import { EXTRACTOR_VERSION, extractManual, MANUAL_EXTRACT_MAX_BYTES, type ExtractedManual } from "./extract.ts";
+import type { OcrManualResult, OcrRunner, OcrStats } from "./ocr.ts";
 import { buildDocumentPassages, type PassagesOptions, type PassagesOutcome } from "./passages.ts";
 import { readStoredFile, type StoredFileResult } from "./stored-bytes.ts";
 
@@ -35,6 +37,16 @@ import { readStoredFile, type StoredFileResult } from "./stored-bytes.ts";
  *   version. The outcome rides on `passages`; an embedding failure never
  *   undoes the stored text, and the step decides whether to retry it.
  *
+ * - **OCR for a scan** (phase 3, `ocr.ts`), only when the caller hands an
+ *   {@link OcrRunner} — the backfill does, the workflow does not. A PDF that
+ *   extracts as `no_text` is read page by page and stored `ready` with its
+ *   pages marked `ocr` and `ocr_version` set; a scan OCR could not read this
+ *   run (the model's bad minute) is stored `no_text` without `ocr_version`, so
+ *   the next run tries again. **OCR text is kept** when the same scan is
+ *   extracted again without OCR (the workflow's Re-process) or by the same OCR
+ *   version (`--force` without `--force-ocr`): extraction would only say
+ *   "scan" again, and reading it costs money.
+ *
  * Logs ids, counts and outcomes only. Plain Node: relative imports, no
  * `"server-only"` — the workflow step and the backfill both run it.
  */
@@ -51,9 +63,25 @@ export type IndexManualOutcome =
       ms: number;
       /** The passages step, for a ready document (absent in a dry run or when not asked for). */
       passages?: PassagesOutcome;
+      /** OCR of a scan, when it ran (or, in a dry run, would have). */
+      ocr?: OcrSummary;
     }
-  | { status: "skipped"; attachmentId: string; reason: "already_indexed"; passages?: PassagesOutcome }
+  | {
+      status: "skipped";
+      attachmentId: string;
+      /** `ocr_kept`: a scan whose OCR text stands (see above). */
+      reason: "already_indexed" | "ocr_kept";
+      passages?: PassagesOutcome;
+      ocr?: OcrSummary;
+    }
   | { status: "failed"; attachmentId: string; reason: "read_failed" | "blob_not_configured"; transient: boolean };
+
+/** What OCR did for one scan. */
+export type OcrSummary =
+  | ({ status: "read"; key: string; documentStatus: ManualDocumentStatus } & OcrStats)
+  | ({ status: "failed"; reason: "unreadable" | "model"; kind: string | null; transient: boolean } & OcrStats)
+  /** A dry run: what OCR would read, and nothing called. */
+  | { status: "planned"; pages: number };
 
 export interface IndexManualOptions {
   db?: Db;
@@ -70,6 +98,10 @@ export interface IndexManualOptions {
    * store text only. Default: build passages with the deployment's `embed` job.
    */
   passages?: PassagesOptions | false;
+  /** OCR for scans (`ocr.ts`); absent, a scan is stored `no_text` (the workflow). */
+  ocr?: OcrRunner;
+  /** Read scans again even when this OCR version already did (the backfill's `--force-ocr`). */
+  forceOcr?: boolean;
 }
 
 /** Process every current PDF of `resourceId`. Empty when it has none (or is not a uuid). */
@@ -90,7 +122,7 @@ export async function indexPdf(
   pdf: ResourcePdfForIndex,
   options: IndexManualOptions & { db: Db }
 ): Promise<IndexManualOutcome> {
-  if (!options.force && pdf.documentVersion === EXTRACTOR_VERSION) {
+  if (!options.force && pdf.documentVersion === EXTRACTOR_VERSION && !wantsOcr(pdf, options)) {
     const passages =
       pdf.documentId && pdf.documentStatus === "ready" && !options.dryRun
         ? await passagesFor(pdf.documentId, options)
@@ -135,6 +167,31 @@ export async function indexPdf(
     return outcome;
   }
 
+  let ocr: OcrSummary | undefined;
+  let ocrVersion: string | null = null;
+  if (stored.ok && extracted.status === "no_text") {
+    // A scan. Its OCR text stands when nobody asked for a new reading.
+    if (keepsOcrText(pdf, options)) {
+      if (!options.dryRun) await markScanReExtracted(options.db, pdf.documentId!, EXTRACTOR_VERSION);
+      const passages = !options.dryRun ? await passagesFor(pdf.documentId!, options) : undefined;
+      return { status: "skipped", attachmentId: pdf.attachmentId, reason: "ocr_kept", ...(passages ? { passages } : {}) };
+    }
+    if (options.ocr && options.dryRun) {
+      ocr = { status: "planned", pages: Math.min(extracted.pageCount ?? 0, options.ocr.maxPages) };
+    } else if (options.ocr) {
+      const result = await options.ocr.run(stored.bytes);
+      ocr = summarise(result, options.ocr.key);
+      if (result.status === "read") {
+        extracted = result.manual;
+        ocrVersion = options.ocr.key;
+      } else if (pdf.documentOcrVersion !== null && pdf.documentStatus === "ready") {
+        // A new reading failed: the one stored before stands.
+        await markScanReExtracted(options.db, pdf.documentId!, EXTRACTOR_VERSION);
+        return { status: "skipped", attachmentId: pdf.attachmentId, reason: "ocr_kept", ocr };
+      }
+    }
+  }
+
   let documentId: string | null = null;
   if (!options.dryRun) documentId = await saveManualDocument(options.db, {
     attachmentId: pdf.attachmentId,
@@ -146,6 +203,7 @@ export async function indexPdf(
     outline: extracted.outline,
     outlineSource: extracted.outlineSource,
     extractorVersion: EXTRACTOR_VERSION,
+    ocrVersion,
     pages: extracted.pages,
   });
   const passages = documentId && extracted.status === "ready" ? await passagesFor(documentId, options) : undefined;
@@ -167,7 +225,30 @@ export async function indexPdf(
     chars,
     ms,
     ...(passages ? { passages } : {}),
+    ...(ocr ? { ocr } : {}),
   };
+}
+
+/** Whether this PDF is a scan the caller's OCR should (re)read. */
+function wantsOcr(pdf: ResourcePdfForIndex, options: IndexManualOptions): boolean {
+  if (!options.ocr) return false;
+  const isScan = pdf.documentStatus === "no_text" || pdf.documentOcrVersion !== null;
+  return isScan && (options.forceOcr === true || pdf.documentOcrVersion !== options.ocr.key);
+}
+
+/** Whether a scan's stored OCR text stands: no OCR asked for, or the same OCR and no `forceOcr`. */
+function keepsOcrText(pdf: ResourcePdfForIndex, options: IndexManualOptions): boolean {
+  if (pdf.documentId === null || pdf.documentStatus !== "ready" || pdf.documentOcrVersion === null) return false;
+  if (!options.ocr) return true;
+  return pdf.documentOcrVersion === options.ocr.key && !options.forceOcr;
+}
+
+function summarise(result: OcrManualResult, key: string): OcrSummary {
+  if (result.status === "read") {
+    const { manual, ...stats } = result;
+    return { ...stats, status: "read", key, documentStatus: manual.status };
+  }
+  return result;
 }
 
 /** The passages step for a stored document, unless the caller asked for text only. */
