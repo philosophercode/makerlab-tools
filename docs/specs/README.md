@@ -55,6 +55,22 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 | Spec | Notes |
 |---|---|
 | [Assistant–GUI Parity](2026-09-27-assistant-gui-parity-design.md) — one action layer so the assistant (and MCP, narrower) can do anything the GUI can, by proposal and confirmation card | Awaiting review. 51 GUI actions inventoried; 8 phases; open questions §11 gate phases 2 onward |
+| [Usage Insight](2026-09-27-usage-insight-design.md) — anonymous usage events in Postgres and an `/admin/insights` page: most- and never-asked-about tools, QR scans, busy times, an Unanswered queue | Awaiting review. 4 phases; phases 1–2 do not need parity. Open questions §13 (question-text retention, who sees it) gate phase 1 |
+| [Kiosk Mode](2026-09-27-kiosk-mode-design.md) — public read-only lab screen at `/kiosk`: down machines, ticket counts, hours, featured tool, QR to chat | Awaiting review. Phase 1 needs no migration and targets ISAM; phase 2 adds editable hours and pins |
+| [Recurring Maintenance](2026-09-27-recurring-maintenance-design.md) — per-tool or per-unit schedules; the nightly cron opens a preventive ticket when one falls due | Awaiting review. 4 phases; phase 4 suggests schedules from manuals. Open questions §13 Q1–Q4 gate phase 1 |
+| [Notifications](2026-09-27-notifications-design.md) — email on ticket, correction and project changes; a daily staff digest; Web Push later | Awaiting review. Sending domain and Cornell approval of the provider block phase 1 |
+
+All six 2026-09-27 specs build on the Assistant–GUI Parity action layer; each writes its
+migration as `00NN` and takes the next free number when it lands.
+
+### Ideas — not decided
+
+The owner has considered these but has not decided to build them. Do not implement against them.
+
+| Spec | Notes |
+|---|---|
+| [Training Sign-offs](2026-09-27-training-signoffs-design.md) — who is trained on which tool, workshops, refreshers; advisory only, no lockout | Undecided. First questions: does the lab want it, and are training records student records? |
+| [Consumables](2026-09-27-consumables-design.md) — stock of filament, resin, sheets and blades by location; student "out / running low" reports; a restock list | Undecided. Recommended start is reports and a restock list only, without counts |
 
 ### Superseded — kept for history, do not implement against
 
