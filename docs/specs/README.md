@@ -50,6 +50,12 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 | [Sign-in and Tiered Rate Limiting](2026-07-29-auth-and-rate-limiting-design.md) | Google sign-in, tiered rate limits as specced | The env-list role model is **superseded** by Better Auth and the `user` table (data platform phase 4) |
 | [Intake Confidence](2026-07-29-intake-confidence-design.md) | Confidence grading and parallel identification, now inside the research pipeline | The chat-side card behaviour is **obsolete** — `propose_listing` was removed with the two-step intake (data platform phase 6) |
 
+### Draft — not started
+
+| Spec | Notes |
+|---|---|
+| [Assistant–GUI Parity](2026-09-27-assistant-gui-parity-design.md) — one action layer so the assistant (and MCP, narrower) can do anything the GUI can, by proposal and confirmation card | Awaiting review. 51 GUI actions inventoried; 8 phases; open questions §11 gate phases 2 onward |
+
 ### Superseded — kept for history, do not implement against
 
 | Spec | Superseded by |
