@@ -75,10 +75,11 @@ export async function seedEvalManual(): Promise<void> {
   const db = await getDb();
   const [form4] = await db.select({ id: tools.id }).from(tools).where(eq(tools.slug, "form-4"));
   if (!form4) throw new Error("the demo seed has no form-4 tool");
-  const existing = await db.select({ id: attachments.id }).from(attachments).where(eq(attachments.publicUrl, EVAL_MANUAL_URL));
-  if (existing.length > 0) return;
+  const stored = async (url: string) =>
+    (await db.select({ id: attachments.id }).from(attachments).where(eq(attachments.publicUrl, url))).length > 0;
 
-  await seedDocument(form4.id, {
+  // Each document on its own: a run that stored the manual and failed on the scan adds the scan next time.
+  if (!(await stored(EVAL_MANUAL_URL))) await seedDocument(form4.id, {
     title: EVAL_MANUAL_TITLE,
     url: EVAL_MANUAL_URL,
     pathname: "manuals/form-4-manual.pdf",
@@ -87,7 +88,7 @@ export async function seedEvalManual(): Promise<void> {
     outline: OUTLINE,
     ocr: false,
   });
-  await seedDocument(form4.id, {
+  if (!(await stored(EVAL_SCAN_URL))) await seedDocument(form4.id, {
     title: EVAL_SCAN_TITLE,
     url: EVAL_SCAN_URL,
     pathname: "manuals/form-wash-guide.pdf",

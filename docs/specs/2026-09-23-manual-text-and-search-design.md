@@ -638,13 +638,18 @@ skipped; the gaps are listed under *Not done / open*.
   Chunking, embedding, search and citations are unchanged, so an OCR'd passage cites
   `#page=N` like any other.
 - **Caps.** At most **150 pages** a manual (the first; `--ocr-max-pages N` changes it) and
-  **~$1** a manual by the Gateway-reported cost (`OCR_MAX_COST_USD`; no page starts once it
-  is spent), 4 pages at a time. A manual cut short is stored `ready` with
+  **~$1** a manual by the Gateway-reported cost (`OCR_MAX_COST_USD`; no page starts once the
+  spend plus the pages in flight, at the average page cost, reaches it; a call reporting no
+  cost counts `OCR_FALLBACK_PAGE_COST_USD` = 1¢), 4 pages at a time. A manual cut short is stored `ready` with
   `status_reason = 'ocr_partial'` and its remaining pages empty.
 - **Failures are values.** A rate limit, a provider's bad minute or a timeout (after the
   SDK's two retries), or an auth/configuration error, stops that manual: it is stored
   `no_text` **without** `ocr_version`, so the next run reads it again. A page the model
-  refuses (an invalid request) is stored empty and the rest go on. A scan whose reading
+  refuses (an invalid request) is stored empty and the rest go on — but 3 refusals before any
+  page is read, or a run where every attempted page was refused or could not be drawn, fails
+  the manual (nothing recorded, the run exits non-zero): that is the model's configuration,
+  not the scan. A page whose images could not be decoded (JPEG 2000, an image atlas) counts
+  as failed, not blank. pdf.js's grouped and repeated image operators are expanded. A scan whose reading
   averages under the extractor's 100 characters a page stays `no_text` but records
   `ocr_version` — read, nothing legible — and is not read again.
 - **Only the backfill runs OCR.** The index step OCRs only when its caller hands it an
@@ -700,7 +705,10 @@ skipped; the gaps are listed under *Not done / open*.
 **halfvec, as built:**
 
 - pgvector ≥ 0.7 has `halfvec`; PGlite's `@electric-sql/pglite-pgvector` 0.0.9 ships
-  pgvector **0.8.1**, and Neon ships 0.8. Migration `0018` drops the HNSW index, changes
+  pgvector **0.8.1**. Neon keeps the version current when the extension was created, so
+  the deploy checks `extversion` first and runs `ALTER EXTENSION vector UPDATE` if it is
+  below 0.7 (`docs/deploy.md` Stage 2f); the migrator runs in one transaction, so a failed
+  cast keeps the old index. Migration `0018` drops the HNSW index, changes
   `manual_chunks.embedding` to **`halfvec(512)`** `USING embedding::halfvec(512)` —
   existing passages are converted in place, nothing re-embedded — and rebuilds the index
   with **`halfvec_cosine_ops`**. Safe on Neon's existing rows: the cast is pgvector's own,

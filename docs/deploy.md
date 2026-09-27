@@ -228,6 +228,19 @@ scanned (`no_text`) manual with OCR** — each page drawn and transcribed by job
 (`openai/gpt-6-luna` on flex, `MODEL_OCR` overrides it), at most 150 pages and about $1 a
 manual — and embeds the result like any other manual.
 
+**First, check pgvector.** `halfvec` needs pgvector 0.7 or newer, and Neon keeps the version
+that was current when the extension was created — it does not upgrade on its own. In the Neon
+SQL editor (or `psql`):
+
+```sql
+select extversion from pg_extension where extname = 'vector';   -- must be 0.7 or newer
+alter extension vector update;                                   -- only if it is older
+```
+
+Do this before the deploy that carries the migration: `npm run build` runs `db:migrate`. The
+migrator applies pending migrations in one transaction, so an old pgvector fails the migration
+without dropping the search index — but the deploy fails with it.
+
 ```bash
 cd v5
 DATABASE_URL=postgres://… npm run db:migrate            # 0018: halfvec + OCR columns
@@ -238,7 +251,12 @@ DATABASE_URL=postgres://… BLOB_READ_WRITE_TOKEN=… VERCEL_OIDC_TOKEN=… npm 
 ```
 
 It ends with a summary (PDFs processed, manuals OCR'd, pages, passages, total Gateway
-cost) and is idempotent: a second run finds nothing to do. `--no-ocr` leaves scans alone;
+cost) and is idempotent: a second run finds nothing to do. The $1 cap counts the cost the
+Gateway reports; a call that reports none counts a conservative 1¢ a page, and pages already
+in flight count at the average so far, so the cap can be passed by at most a few pages. If
+the model refuses the first pages of a scan (a model without vision, a provider rejecting
+flex for images), the scan is reported **failed**, nothing is recorded and the run exits
+non-zero — fix `MODEL_OCR` and run it again. `--no-ocr` leaves scans alone;
 `--ocr-max-pages N` changes the page cap; `--force-ocr` reads every scan again. OCR runs
 only here — a scan uploaded later stays "No text (scanned)" (and is attached whole in
 chat) until the next run. The chat's `search_manual` now **reranks** its candidates with job

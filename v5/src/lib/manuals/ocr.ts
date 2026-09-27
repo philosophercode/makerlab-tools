@@ -14,10 +14,13 @@ import { transcribePage, type PageTranscript } from "./transcribe.ts";
  * with `source = 'ocr'`.
  *
  * - **Bounded.** At most {@link OCR_MAX_PAGES} pages (the first ones) and about
- *   {@link OCR_MAX_COST_USD} dollars, by the Gateway's own reported cost, per
- *   manual — no new page is started once the budget is spent. A manual cut
- *   short is still stored (`status_reason = 'ocr_partial'`), the rest of its
- *   pages empty. Pages are read {@link OCR_CONCURRENCY} at a time.
+ *   {@link OCR_MAX_COST_USD} dollars per manual — no new page is started once
+ *   the spend so far, plus the pages already in flight at the average page
+ *   cost, reaches the budget. The spend is the Gateway's reported cost; a page
+ *   whose call reports none counts {@link OCR_FALLBACK_PAGE_COST_USD}, so the
+ *   cap holds even when the Gateway stays silent about cost. A manual cut short
+ *   is still stored (`status_reason = 'ocr_partial'`), the rest of its pages
+ *   empty. Pages are read {@link OCR_CONCURRENCY} at a time.
  * - **The outline** is the headings the model marked, in page order
  *   (`outline_source = 'inferred'`), a heading repeated on consecutive pages
  *   kept once.
@@ -25,7 +28,13 @@ import { transcribePage, type PageTranscript } from "./transcribe.ts";
  *   SDK's own retries) stops the manual: nothing is stored and the next run
  *   tries again (`transient`). So does a configuration or auth failure, which
  *   no page would survive. A page the model refuses (an invalid request) is
- *   stored empty and the rest go on. A manual whose pages yield less text than
+ *   stored empty and the rest go on — unless nothing has been read yet and
+ *   {@link OCR_MAX_REFUSALS_BEFORE_READ} pages have been refused, or the run
+ *   ends with every attempted page refused or undrawable: that is a
+ *   configuration problem (a model without vision, a provider rejecting flex
+ *   for images), not the scan, so the manual fails and nothing is recorded. A
+ *   page whose images could not be drawn counts as failed, not blank. A
+ *   manual whose pages yield less text than
  *   a text PDF would need to be `ready` stays `no_text` — read, with nothing to
  *   show for it.
  * - **Only `npm run manuals:index` runs OCR** (see {@link OcrRunner}): it costs
@@ -47,6 +56,16 @@ export const OCR_MAX_COST_USD = 1;
 /** Pages read at once. */
 export const OCR_CONCURRENCY = 4;
 
+/**
+ * What a page counts against the budget when the Gateway reports no cost: a
+ * deliberately high guess (a Luna-on-flex page costs well under a cent), so a
+ * silent Gateway stops a manual early rather than never.
+ */
+export const OCR_FALLBACK_PAGE_COST_USD = 0.01;
+
+/** Refused pages, with none read yet, after which the manual stops: the model, not the pages. */
+export const OCR_MAX_REFUSALS_BEFORE_READ = 3;
+
 /** What `manual_documents.ocr_version` records: `ocr-1:openai/gpt-6-luna`. */
 export function ocrKey(modelId: string = modelIdFor("ocr")): string {
   return `${OCR_VERSION}:${modelId}`;
@@ -55,7 +74,7 @@ export function ocrKey(modelId: string = modelIdFor("ocr")): string {
 export interface OcrStats {
   /** Pages sent to the model and answered. */
   pagesRead: number;
-  /** Pages the model refused (stored empty). */
+  /** Pages the model refused or that could not be drawn (stored empty). */
   pagesFailed: number;
   /** Pages with no picture on them (nothing to read). */
   pagesBlank: number;
@@ -142,19 +161,26 @@ export async function ocrManual(bytes: Uint8Array, options: OcrManualOptions = {
   const transcripts = new Map<number, PageTranscript>();
   const run: { stop: { kind: ModelErrorKind | "unknown"; transient: boolean } | null } = { stop: null };
   let next = 0;
+  let inFlight = 0;
+  let refused = 0;
+  // Spend counted against the budget: reported cost, or the fallback per page.
+  let spent = 0;
   const worker = async () => {
     while (!run.stop && next < rendered.pages.length) {
       const page = rendered.pages[next];
       next += 1;
       if (!page.jpeg) {
-        stats.pagesBlank += 1;
+        if ((page.undrawn ?? 0) > 0) stats.pagesFailed += 1;
+        else stats.pagesBlank += 1;
         continue;
       }
-      if ((stats.cost ?? 0) >= maxCost) {
+      const perPage = stats.pagesRead > 0 ? spent / stats.pagesRead : 0;
+      if (spent + inFlight * perPage >= maxCost) {
         stats.capped = "cost";
         stats.pagesSkipped += 1;
         continue;
       }
+      inFlight += 1;
       try {
         const transcript = await transcribe(page.jpeg, page.pageNumber);
         transcripts.set(page.pageNumber, transcript);
@@ -162,10 +188,17 @@ export async function ocrManual(bytes: Uint8Array, options: OcrManualOptions = {
         stats.inputTokens += transcript.inputTokens;
         stats.outputTokens += transcript.outputTokens;
         if (transcript.cost !== null) stats.cost = (stats.cost ?? 0) + transcript.cost;
+        spent += transcript.cost ?? OCR_FALLBACK_PAGE_COST_USD;
       } catch (error) {
         const failure = classify(error);
-        if (failure.pageOnly) stats.pagesFailed += 1;
-        else run.stop ??= failure;
+        if (failure.pageOnly) {
+          stats.pagesFailed += 1;
+          refused += 1;
+          // Every page refused before any is read: the model or its settings, not the scan.
+          if (stats.pagesRead === 0 && refused >= OCR_MAX_REFUSALS_BEFORE_READ) run.stop ??= { kind: failure.kind, transient: false };
+        } else run.stop ??= failure;
+      } finally {
+        inFlight -= 1;
       }
     }
   };
@@ -174,6 +207,12 @@ export async function ocrManual(bytes: Uint8Array, options: OcrManualOptions = {
 
   const stop = run.stop;
   if (stop) return { status: "failed", reason: "model", kind: stop.kind, transient: stop.transient, ...stats };
+  // Pages were there to read and not one was: a failure to report, not a scan with nothing legible.
+  if (stats.pagesRead === 0 && stats.pagesFailed > 0) {
+    return refused > 0
+      ? { status: "failed", reason: "model", kind: "invalid_request", transient: false, ...stats }
+      : { status: "failed", reason: "unreadable", kind: null, transient: false, ...stats };
+  }
   return { status: "read", manual: toManual(rendered, transcripts, stats), ...stats };
 }
 

@@ -40,7 +40,8 @@
   assert:
     - kind: called_tool
       value: search_manual
+    # Pinned to the scan: the Form 4 Manual has a page 3 too.
     - kind: cites_page
-      value: "3"
+      value: "form-wash-guide.pdf#page=3"
     - kind: contains_all
       value: ["10 minutes"]

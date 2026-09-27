@@ -1,7 +1,9 @@
 -- Manual text spec phase 3: OCR for scanned manuals and half-precision vectors.
 --
--- halfvec: pgvector 0.7+ (Neon ships 0.8; PGlite's pglite-pgvector 0.0.9 is
--- 0.8.1). The HNSW index is dropped before the column changes type — a
+-- halfvec: pgvector 0.7+ (PGlite's pglite-pgvector 0.0.9 is 0.8.1). Neon keeps
+-- the version current at CREATE EXTENSION: check `extversion` and run
+-- `ALTER EXTENSION vector UPDATE` first (docs/deploy.md, Stage 2f). The
+-- migrator runs in one transaction, so a failure here keeps the old index. The HNSW index is dropped before the column changes type — a
 -- vector_cosine_ops index cannot hold halfvec — and rebuilt with
 -- halfvec_cosine_ops. Existing embeddings are converted in place by pgvector's
 -- vector -> halfvec cast (USING, hand-added), so no passage is re-embedded.

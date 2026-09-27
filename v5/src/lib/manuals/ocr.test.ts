@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { GatewayInvalidRequestError, GatewayRateLimitError } from "@ai-sdk/gateway";
-import { ocrKey, ocrManual, OCR_VERSION } from "./ocr";
+import { OCR_FALLBACK_PAGE_COST_USD, ocrKey, ocrManual, OCR_VERSION } from "./ocr";
 import type { RenderedPages } from "./page-images";
 import type { PageTranscript } from "./transcribe";
 
@@ -98,6 +98,67 @@ describe("ocrManual", () => {
     });
     expect(result).toMatchObject({ status: "read", pagesRead: 2, pagesFailed: 1 });
     if (result.status === "read") expect(result.manual.pages[1]).toMatchObject({ text: "", source: "text" });
+  });
+
+  it("fails, recording nothing, when the model refuses every page (a configuration problem, not the scan)", async () => {
+    const transcribe = vi.fn(async () => {
+      throw new GatewayInvalidRequestError({ message: "model does not accept images", statusCode: 400 });
+    });
+    const result = await ocrManual(new Uint8Array(), { render: async () => rendered(20), concurrency: 1, transcribe });
+    expect(result).toMatchObject({ status: "failed", reason: "model", kind: "invalid_request", transient: false, pagesRead: 0 });
+    // Stops after a few refusals instead of spending a call on every page.
+    expect(transcribe).toHaveBeenCalledTimes(3);
+  });
+
+  it("fails when a short scan's only pages are all refused", async () => {
+    const result = await ocrManual(new Uint8Array(), {
+      render: async () => rendered(2),
+      transcribe: async () => {
+        throw new GatewayInvalidRequestError({ message: "refused", statusCode: 400 });
+      },
+    });
+    expect(result).toMatchObject({ status: "failed", reason: "model", kind: "invalid_request", transient: false, pagesFailed: 2 });
+  });
+
+  it("counts a page whose images could not be drawn as failed, not blank, and fails a scan of only those", async () => {
+    const transcribe = vi.fn(async () => transcript(LONG));
+    const result = await ocrManual(new Uint8Array(), {
+      render: async () => ({
+        pageCount: 2,
+        pages: [1, 2].map((n) => ({ pageNumber: n, jpeg: null, width: 0, height: 0, undrawn: 1 })),
+        labels: [null, null],
+      }),
+      transcribe,
+    });
+    expect(result).toMatchObject({ status: "failed", reason: "unreadable", pagesFailed: 2, pagesBlank: 0 });
+    expect(transcribe).not.toHaveBeenCalled();
+  });
+
+  it("holds the cost cap when the Gateway reports no cost, counting a fallback per page", async () => {
+    const result = await ocrManual(new Uint8Array(), {
+      render: async () => rendered(10),
+      concurrency: 1,
+      maxCost: OCR_FALLBACK_PAGE_COST_USD * 3,
+      transcribe: async () => transcript(LONG, [], null),
+    });
+    expect(result).toMatchObject({ status: "read", pagesRead: 3, pagesSkipped: 7, capped: "cost", cost: null });
+  });
+
+  it("does not start more pages than the budget covers while others are in flight", async () => {
+    const result = await ocrManual(new Uint8Array(), {
+      render: async () => rendered(12),
+      concurrency: 4,
+      maxCost: 0.05,
+      transcribe: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        return transcript(LONG, [], 0.01);
+      },
+    });
+    expect(result.status).toBe("read");
+    // The first four start before any cost is known; after that, in-flight pages count at the average.
+    expect(result.pagesRead).toBeLessThanOrEqual(8);
+    expect(result.cost ?? 0).toBeLessThanOrEqual(0.08 + 1e-9);
+    expect(result.capped).toBe("cost");
   });
 
   it("stops at a rate limit: nothing to store, and the next run tries again", async () => {

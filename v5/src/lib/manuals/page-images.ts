@@ -22,6 +22,8 @@ import { getDocumentProxy, getResolvedPDFJS } from "unpdf";
  *   capped so its long side is at most {@link MAX_LONG_SIDE_PX} (what a vision
  *   model reads at full detail) and at least {@link MIN_LONG_SIDE_PX}; JPEG.
  * - A page that paints no image is `null`: there is nothing to read on it.
+ *   One whose images could not be decoded (JPEG 2000, an image atlas) is
+ *   `null` too, with `undrawn` counting them, so OCR can tell it from blank.
  * - pdf.js is opened as the extractor opens it (`isEvalSupported: false`, no
  *   font faces, errors-only logging); a page cap and a deadline checked
  *   between pages ({@link RENDER_TIMEOUT_MS}) bound the work.
@@ -39,10 +41,17 @@ export const RENDER_TIMEOUT_MS = 180_000;
 export interface PageImage {
   /** 1-based PDF page index — what `#page=N` opens. */
   pageNumber: number;
-  /** The page as a JPEG, or null when it paints no image. */
+  /** The page as a JPEG, or null when it paints no image this can draw. */
   jpeg: Uint8Array | null;
   width: number;
   height: number;
+  /**
+   * Images the page paints that this could not draw (a JPEG 2000 scan pdf.js
+   * cannot decode here, an image atlas, a kind it does not read). A page with
+   * no JPEG and some of these is not blank — it could not be drawn — and OCR
+   * counts it as failed rather than empty.
+   */
+  undrawn?: number;
 }
 
 export interface RenderedPages {
@@ -106,8 +115,8 @@ export interface PlacedImage {
 
 async function drawPage(page: PdfPage, OPS: OpsTable): Promise<Omit<PageImage, "pageNumber">> {
   const viewport = page.getViewport({ scale: 1 });
-  const placed = await collectImages(page, OPS, viewport.transform as Matrix);
-  if (placed.length === 0) return { jpeg: null, width: 0, height: 0 };
+  const { placed, undrawn } = await collectImages(page, OPS, viewport.transform as Matrix);
+  if (placed.length === 0) return { jpeg: null, width: 0, height: 0, undrawn };
 
   const scale = pageScale(viewport.width, viewport.height, placed);
   const width = Math.max(1, Math.round(viewport.width * scale));
@@ -117,22 +126,28 @@ async function drawPage(page: PdfPage, OPS: OpsTable): Promise<Omit<PageImage, "
     const layer = await placeImage(image, scale, width, height);
     if (layer) layers.push(layer);
   }
-  if (layers.length === 0) return { jpeg: null, width: 0, height: 0 };
+  if (layers.length === 0) return { jpeg: null, width: 0, height: 0, undrawn: undrawn + placed.length };
   const jpeg = await sharp({ create: { width, height, channels: 3, background: "#ffffff" } })
     .composite(layers)
     .jpeg({ quality: JPEG_QUALITY })
     .toBuffer();
-  return { jpeg: new Uint8Array(jpeg), width, height };
+  return { jpeg: new Uint8Array(jpeg), width, height, undrawn: undrawn + placed.length - layers.length };
 }
 
 /**
- * Every image the page paints, with the device matrix it is painted at. The
- * graphics state is followed through `save`/`restore`, `transform` and form
- * XObjects (whose own matrix applies inside them).
+ * Every image the page paints, with the device matrix it is painted at, and
+ * how many it paints that could not be decoded. The graphics state is followed
+ * through `save`/`restore`, `transform` and form XObjects (whose own matrix
+ * applies inside them).
  */
-async function collectImages(page: PdfPage, OPS: OpsTable, viewport: Matrix): Promise<PlacedImage[]> {
+async function collectImages(
+  page: PdfPage,
+  OPS: OpsTable,
+  viewport: Matrix
+): Promise<{ placed: PlacedImage[]; undrawn: number }> {
   const list = await page.getOperatorList();
-  const out: PlacedImage[] = [];
+  const placed: PlacedImage[] = [];
+  let undrawn = 0;
   const stack: Matrix[] = [];
   let ctm: Matrix = [1, 0, 0, 1, 0, 0];
   for (let i = 0; i < list.fnArray.length; i += 1) {
@@ -145,11 +160,69 @@ async function collectImages(page: PdfPage, OPS: OpsTable, viewport: Matrix): Pr
       stack.push(ctm);
       if (isMatrix(args?.[0])) ctm = multiply(ctm, args[0]);
     } else if (fn === OPS.paintFormXObjectEnd) ctm = stack.pop() ?? ctm;
-    else if (fn === OPS.paintImageXObject || fn === OPS.paintImageMaskXObject || fn === OPS.paintInlineImageXObject) {
-      const decoded = await decodeImage(page, fn === OPS.paintImageMaskXObject, args?.[0]);
-      if (decoded) out.push({ ...decoded, matrix: multiply(viewport, ctm) });
+    else {
+      const paints = imagePaints(OPS, fn, args);
+      if (paints === null) continue;
+      if (paints === "unsupported") {
+        undrawn += 1;
+        continue;
+      }
+      for (const paint of paints) {
+        const decoded = await decodeImage(page, paint.isMask, paint.image);
+        if (decoded) placed.push({ ...decoded, matrix: multiply(viewport, multiply(ctm, paint.matrix)) });
+        else undrawn += 1;
+      }
     }
   }
+  return { placed, undrawn };
+}
+
+/** One image painted by an operator: what to decode, and its matrix inside the current one. */
+export interface ImagePaint {
+  image: unknown;
+  isMask: boolean;
+  matrix: Matrix;
+}
+
+const IDENTITY: Matrix = [1, 0, 0, 1, 0, 0];
+
+/**
+ * The images one operator paints, or null when it paints none. pdf.js's
+ * operator-list optimiser folds runs of small or repeated images into group
+ * and repeat operators; those are expanded here, one paint per position, with
+ * the matrix the canvas renderer would apply (`canvas.js`). An image atlas
+ * (`paintInlineImageXObjectGroup`) and a solid-colour mask are not drawn:
+ * `"unsupported"`, so the page is not taken for blank.
+ */
+export function imagePaints(OPS: OpsTable, fn: number, args: unknown[] | null): ImagePaint[] | "unsupported" | null {
+  const a = args ?? [];
+  if (fn === OPS.paintImageXObject || fn === OPS.paintInlineImageXObject) {
+    return [{ image: a[0], isMask: false, matrix: IDENTITY }];
+  }
+  if (fn === OPS.paintImageMaskXObject) return [{ image: a[0], isMask: true, matrix: IDENTITY }];
+  if (fn === OPS.paintImageXObjectRepeat) {
+    // [objId, scaleX, scaleY, positions]
+    const [image, scaleX, scaleY, positions] = a as [unknown, number, number, ArrayLike<number>];
+    return repeat(positions, (x, y) => ({ image, isMask: false, matrix: [scaleX, 0, 0, scaleY, x, y] }));
+  }
+  if (fn === OPS.paintImageMaskXObjectRepeat) {
+    // [mask, scaleX, skewX, skewY, scaleY, positions]
+    const [image, scaleX, skewX, skewY, scaleY, positions] = a as [unknown, number, number, number, number, ArrayLike<number>];
+    return repeat(positions, (x, y) => ({ image, isMask: true, matrix: [scaleX, skewX ?? 0, skewY ?? 0, scaleY, x, y] }));
+  }
+  if (fn === OPS.paintImageMaskXObjectGroup) {
+    // [[{ data, width, height, transform }, …]]
+    const images = Array.isArray(a[0]) ? (a[0] as { transform?: unknown }[]) : [];
+    return images.map((image) => ({ image, isMask: true, matrix: isMatrix(image?.transform) ? image.transform : IDENTITY }));
+  }
+  if (fn === OPS.paintInlineImageXObjectGroup || fn === OPS.paintSolidColorImageMask) return "unsupported";
+  return null;
+}
+
+function repeat(positions: ArrayLike<number> | undefined, paint: (x: number, y: number) => ImagePaint): ImagePaint[] | "unsupported" {
+  if (!positions || typeof positions.length !== "number") return "unsupported";
+  const out: ImagePaint[] = [];
+  for (let i = 0; i + 1 < positions.length; i += 2) out.push(paint(positions[i], positions[i + 1]));
   return out;
 }
 

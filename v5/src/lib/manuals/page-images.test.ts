@@ -3,7 +3,16 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import sharp from "sharp";
 import { extractManual } from "./extract";
-import { imageGeometry, MAX_LONG_SIDE_PX, multiply, pageScale, renderPageImages, unpackBits, type Matrix } from "./page-images";
+import {
+  imageGeometry,
+  imagePaints,
+  MAX_LONG_SIDE_PX,
+  multiply,
+  pageScale,
+  renderPageImages,
+  unpackBits,
+  type Matrix,
+} from "./page-images";
 
 /**
  * Drawing a scanned manual's pages for OCR (manual text spec phase 3) without
@@ -63,6 +72,8 @@ describe("renderPageImages", () => {
 
     // Page 3 paints no image: nothing to read.
     expect(third.jpeg).toBeNull();
+    expect(third.undrawn).toBe(0);
+    expect(first.undrawn).toBe(0);
   });
 
   it("draws only the first maxPages pages", async () => {
@@ -130,5 +141,54 @@ describe("pageScale", () => {
 describe("unpackBits", () => {
   it("unpacks one bit a pixel, rows padded to a byte, set bits white", () => {
     expect([...unpackBits(new Uint8Array([0b10100000, 0b01000000]), 3, 2)]).toEqual([255, 0, 255, 0, 255, 0]);
+  });
+});
+
+describe("imagePaints", () => {
+  // Stand-in opcodes: only the names matter.
+  const OPS = {
+    paintImageXObject: 1,
+    paintInlineImageXObject: 2,
+    paintImageMaskXObject: 3,
+    paintImageXObjectRepeat: 4,
+    paintImageMaskXObjectRepeat: 5,
+    paintImageMaskXObjectGroup: 6,
+    paintInlineImageXObjectGroup: 7,
+    paintSolidColorImageMask: 8,
+    fill: 9,
+  };
+
+  it("paints a plain image or mask once, at the current matrix", () => {
+    expect(imagePaints(OPS, OPS.paintImageXObject, ["img_p0_1"])).toEqual([{ image: "img_p0_1", isMask: false, matrix: [1, 0, 0, 1, 0, 0] }]);
+    expect(imagePaints(OPS, OPS.paintImageMaskXObject, [{ data: "mask_1" }])).toEqual([
+      { image: { data: "mask_1" }, isMask: true, matrix: [1, 0, 0, 1, 0, 0] },
+    ]);
+  });
+
+  it("expands a repeated image into one paint per position, as the canvas renderer does", () => {
+    expect(imagePaints(OPS, OPS.paintImageXObjectRepeat, ["img_p0_2", 10, 20, [0, 0, 5, 7]])).toEqual([
+      { image: "img_p0_2", isMask: false, matrix: [10, 0, 0, 20, 0, 0] },
+      { image: "img_p0_2", isMask: false, matrix: [10, 0, 0, 20, 5, 7] },
+    ]);
+    expect(imagePaints(OPS, OPS.paintImageMaskXObjectRepeat, [{ data: "m" }, 3, 0, 0, 4, new Float32Array([1, 2])])).toEqual([
+      { image: { data: "m" }, isMask: true, matrix: [3, 0, 0, 4, 1, 2] },
+    ]);
+  });
+
+  it("expands a mask group (e.g. a CCITT or JBIG2 scan in strips) with each mask's own transform", () => {
+    const masks = [
+      { data: "a", width: 8, height: 2, transform: [100, 0, 0, 10, 0, 0] },
+      { data: "b", width: 8, height: 2, transform: [100, 0, 0, 10, 0, 10] },
+    ];
+    expect(imagePaints(OPS, OPS.paintImageMaskXObjectGroup, [masks])).toEqual([
+      { image: masks[0], isMask: true, matrix: [100, 0, 0, 10, 0, 0] },
+      { image: masks[1], isMask: true, matrix: [100, 0, 0, 10, 0, 10] },
+    ]);
+  });
+
+  it("reports an image atlas or a solid mask as unsupported, and anything else as no paint", () => {
+    expect(imagePaints(OPS, OPS.paintInlineImageXObjectGroup, [{}, []])).toBe("unsupported");
+    expect(imagePaints(OPS, OPS.paintSolidColorImageMask, [])).toBe("unsupported");
+    expect(imagePaints(OPS, OPS.fill, null)).toBeNull();
   });
 });

@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { GatewayRateLimitError } from "@ai-sdk/gateway";
+import { GatewayInvalidRequestError, GatewayRateLimitError } from "@ai-sdk/gateway";
 import { asc, eq } from "drizzle-orm";
 import { manualSourceKey } from "../data/manual-archives";
 import { listIndexablePdfs, listManualStates } from "../data/manual-documents";
@@ -167,6 +167,20 @@ describe("indexResourceManuals with OCR", () => {
 
     // Without OCR (the workflow), the stored scan is simply at this version.
     expect(await listIndexablePdfs(db, { missingVersion: EXTRACTOR_VERSION })).toEqual([]);
+  });
+
+  it("records no OCR version when the model refuses every page, so a fixed configuration reads it next run", async () => {
+    const refusing = runner(async () => {
+      throw new GatewayInvalidRequestError({ message: "model does not accept images", statusCode: 400 });
+    });
+    const [outcome] = await indexResourceManuals(resourceId, { db, read, ocr: refusing, passages: false });
+    expect(outcome).toMatchObject({
+      status: "indexed",
+      documentStatus: "no_text",
+      ocr: { status: "failed", reason: "model", kind: "invalid_request", transient: false, pagesRead: 0 },
+    });
+    expect((await storedDocument()).doc).toMatchObject({ status: "no_text", ocrVersion: null });
+    expect(await listIndexablePdfs(db, { missingVersion: EXTRACTOR_VERSION, ocrKey: KEY })).toHaveLength(1);
   });
 
   it("records a scan read with nothing legible, and does not read it again", async () => {
