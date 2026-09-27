@@ -37,7 +37,7 @@ begins. Your job in this command is the spec only — do not write implementatio
 - **Non-goals are as valuable as goals.** They prevent the review comment that
   proposes something already ruled out for unrecorded reasons.
 - **Be concrete.** Real type definitions, real file paths, real tool names.
-- **Notion schema changes are manual.** State precisely what a human must create.
+- **Schema changes are migrations.** Name each one and what happens to existing rows.
 - **Drafts by default** for any write path (Article 5).
 - **Phased build order**, each phase leaving `main` deployable.
 - **Name the risks.** A spec that reads as though nothing could go wrong has not

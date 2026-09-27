@@ -42,9 +42,9 @@ How this fits the capability-registry architecture
 - **Which capability** does this belong to — existing or new?
 - **Which surfaces** does it reach (chat, MCP, or both), and is anything
   deliberately `chatOnly`?
-- **Notion implications.** New databases, properties, or relations? Notion schema
-  changes are manual — say exactly what a human must create before the code ships,
-  and remember the parser tolerates snake_case and Title-case property names.
+- **Data implications.** New tables, columns, or relations? Name the Drizzle
+  migration, and whether the Notion mirror (`src/lib/mirror/`) needs to carry the
+  new field.
 - **What moves where**, if this includes a refactor. Call out explicitly whether
   the refactor is behavior-preserving.
 
@@ -56,8 +56,8 @@ New or changed entities, fields, and relations. Include the shared TypeScript
 types other parts of the system will import — getting these right in the spec is
 most of the design work.
 
-Notion has no migrations — schema changes are a human editing a database.
-List them explicitly, and note what happens to records created before the change.
+Schema changes are Drizzle migrations in `v5/src/lib/db/`. List them explicitly,
+and note what happens to rows created before the change (backfill, default, or null).
 
 ## 5. Behavior / flow
 

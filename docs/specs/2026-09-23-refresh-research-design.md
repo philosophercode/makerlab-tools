@@ -1,7 +1,7 @@
 # Refresh Research for Existing Tools — Design Spec
 
 **Date:** 2026-09-23
-**Status:** Draft
+**Status:** Implemented — phases 1–4 built; not yet run over the real inventory (status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/`
 **Branch:** `v5/refresh-research-spec`
 **Spec PR:** #TBD · **Implementation PR:** #TBD

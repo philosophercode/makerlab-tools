@@ -1,7 +1,7 @@
 # Report a Correction — Design Spec
 
 **Date:** 2026-07-29
-**Status:** Draft — awaiting approval
+**Status:** Implemented — corrections land in `feedback`, worked at `/admin/corrections` (status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/`
 **Branch:** `v5/flags`
 

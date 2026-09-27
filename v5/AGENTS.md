@@ -4,10 +4,10 @@ Guidance for AI agents (and humans) working in the **v5** app. This is the
 active application. Everything below is scoped to the `v5/` directory.
 
 > [!IMPORTANT]
-> The **root `CLAUDE.md` describes v4** — an AirTable-backed app with
+> The **root `src/` tree is v4** — an AirTable-backed app with
 > `AIRTABLE_TABLE_*` env vars. **That does not apply to v5.** v5's data layer is
-> **Postgres** (`DATABASE_URL`), not Notion and not AirTable. When working in
-> `v5/`, follow this file, not the root v4 doc.
+> **Postgres** (`DATABASE_URL`), not Notion and not AirTable. The root
+> `AGENTS.md` is the repo map; this file is the app detail.
 
 ## What this is
 
@@ -1267,7 +1267,7 @@ hosted database's rows with the local ones (`PGLITE_DATA_DIR`) and uploads local
 Vercel Blob, rewriting their URLs in the hosted copy only. Target credentials come only from
 the `--to` file (`vercel env pull`), never `process.env`, and are never printed. It refuses
 unless checkout, local and hosted are at the same migration; skips and blanks what the nightly
-backup does (`backup-policy.ts`). Usage and caveats: `docs/deploy.md` Part 2 step 5.
+backup does (`backup-policy.ts`). Usage and caveats: `docs/deploy.md` Part 2 step 6.
 
 ## Gotchas
 

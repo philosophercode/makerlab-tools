@@ -1,7 +1,7 @@
 /**
  * Copy this laptop's MakerLab data up to a hosted deployment, so a fresh
  * Vercel project starts exactly where local review left off
- * (docs/deploy.md, Part 2 step 5).
+ * (docs/deploy.md, Part 2 step 6).
  *
  *   vercel env pull .env.hosted --environment=production
  *   npm run data:push -- --to .env.hosted --dry-run

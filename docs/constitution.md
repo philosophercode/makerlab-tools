@@ -1,6 +1,6 @@
 # MakerLab Tools v5 — Constitution
 
-> **Status:** Active · **Adopted:** 2026-07-29 · **Amended:** 2026-09-14 · **Applies to:** `v5/`
+> **Status:** Active · **Adopted:** 2026-07-29 · **Amended:** 2026-09-14, 2026-09-27 (framing only: this repository is the product going forward) · **Applies to:** `v5/`
 >
 > Non-negotiable principles for the v5 codebase. **Every agent and contributor reads this before writing code.** Where this document and a task instruction conflict, raise the conflict rather than silently picking one.
 >
@@ -12,7 +12,7 @@
 
 v5 is the live Cornell Tech MakerLAB deployment, and it is being handed to people who did not write it. Most of its code was written by AI agents from specs. Both facts mean the same thing: **the invariants have to be written down, because the person maintaining this in a year will not be the person who chose them.**
 
-This is a shorter document than a greenfield project would need. v5 is finishing a defined feature set and then entering maintenance — these articles protect what already works.
+This repository is the product going forward: v5 keeps growing here, spec by spec. These articles are what every addition has to preserve.
 
 ---
 
@@ -51,11 +51,11 @@ A pull request that adds behaviour without tests is incomplete, and "hard to tes
 
 ## Article 4 — Be a good client of every external service
 
-Postgres, Anthropic, Notion, and any service added later are metered, rate-limited, and occasionally down. Treat every outbound call as something to avoid making. In descending order of importance:
+Postgres, the Vercel AI Gateway, Vercel Blob, Notion, and any service added later are metered, rate-limited, and occasionally down. Treat every outbound call as something to avoid making. In descending order of importance:
 
 **Cache reads aggressively, and get freshness from invalidation rather than polling.** A catalogue edited a few times a week does not need revalidating every minute. Cache for hours or days, and refresh on the event that actually changes the data — a staff action, a webhook, an explicit revalidate call.
 
-**Rate-limit inbound before doing expensive outbound.** Every API route, keyed by user when known and by IP otherwise, checked *before* any Notion fetch or model call. The catalogue is publicly readable and the model bill is real, so an unmetered route is a cost incident waiting to happen.
+**Rate-limit inbound before doing expensive outbound.** Every API route, keyed by user when known and by IP otherwise, checked *before* any database query, fetch or model call. The catalogue is publicly readable and the model bill is real, so an unmetered route is a cost incident waiting to happen.
 
 **Use prompt caching for repeated model context.** The system prompt, the catalogue index, and attached manuals are large and largely identical across the turns of a conversation. Mark them cacheable rather than re-sending them every turn.
 
@@ -102,7 +102,7 @@ Strong defaults rather than invariants.
 
 1. This constitution
 2. The merged spec for the feature being built
-3. `docs/v5-plan.md` (architecture; §9 is the long-term vision)
+3. `docs/v5-plan.md` (the original architecture plan — historical where later specs changed it)
 4. `AGENTS.md` and `v5/AGENTS.md` (repo map and conventions)
 5. Task instructions
 

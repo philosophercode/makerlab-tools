@@ -13,11 +13,11 @@ endpoint exposing the catalog to external agents. White-labelled via env vars.
 Deployed at the Cornell Tech MakerLAB over ~100 machines, and the subject of an
 accepted ISAM 2026 demo paper.
 
-> [!IMPORTANT]
-> **This repository is in maintenance mode.** v5 is the live Cornell Tech
-> deployment. Active development continues in a separate repository — see
-> below. Changes here should be fixes and operational improvements, not new
-> architecture.
+Live at <https://makerlab-ai.vercel.app>. **This repository is the product
+going forward** — new features, fixes and operations all happen here, under
+the constitution and a spec per feature. Owned by the Cornell Tech MakerLAB
+(Niti Parikh, Director; Luis Rodrigo Navarro, Assistant Director; Isaac
+Steinberg, Tech Lead).
 
 ## Repository layout — two apps
 
@@ -27,22 +27,20 @@ accepted ISAM 2026 demo paper.
 | `src/` (root) | v4 | Legacy, frozen | AirTable (`AIRTABLE_TABLE_*`) |
 
 **Default to `v5/` unless a task explicitly names v4.** The root app is retained
-for reference and receives nothing. `v5/` has its own `package.json`, test
+for reference and receives nothing; a pending change (PR #79) moves `v5/` to
+the repository root and removes v4. `v5/` has its own `package.json`, test
 suite, and `v5/AGENTS.md` with app-level detail — read that file too when
 working there.
-
-## Successor project
-
-Development of the next generation happens in **`philosophercode/blueprint`**
-(private), which rebuilds this system on Postgres with a built-in admin surface,
-sign-in, and a self-hosted deployment story. This repository is unaffected by
-that work until a migration is offered.
 
 ## Documents
 
 | Document | What it's for |
 |---|---|
-| `docs/v5-plan.md` | v5 architecture; **§9 is the long-term vision** |
+| `docs/specs/README.md` | Status of every spec: what is built, what is open |
+| `docs/architecture-guide.md` | How the app works and why, for whoever inherits it |
+| `docs/deploy.md` | Local setup in stages, then a Vercel deployment step by step |
+| `docs/handover.md` | Operating it: accounts, routine tasks, backups, incidents |
+| `docs/v5-plan.md` | The original v5 plan (historical — Notion era); §9 is the early long-term vision |
 | `docs/specs/` | Per-feature design specs |
 | `v5/AGENTS.md` | App-level detail for `v5/`: stack, key files, gotchas |
 | `v5/TESTING.md` | Test suite runbook |

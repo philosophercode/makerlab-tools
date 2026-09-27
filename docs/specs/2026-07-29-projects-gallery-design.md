@@ -1,10 +1,10 @@
 # Student Projects Gallery — Design Spec
 
 **Date:** 2026-07-29
-**Status:** Draft — awaiting approval
+**Status:** Implemented — storage moved from Notion to Postgres (data platform phase 3); moderation at `/admin/projects` (status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/`
 **Branch:** `philosophercode/projects-gallery` (rebase onto `main`)
-**Supersedes:** `2026-05-29-gallery-projects-design.md` (on that branch)
+**Supersedes:** [`2026-05-29-gallery-projects-design.md`](../superpowers/specs/2026-05-29-gallery-projects-design.md)
 
 ## 1. Summary
 

@@ -10,6 +10,5 @@ Two things to know before anything else:
 1. **The active app is `v5/`** (Postgres-backed, with Notion read only by the
    one-time import), not the root `src/` tree (v4, AirTable, frozen). When
    working in `v5/`, also read [`v5/AGENTS.md`](./v5/AGENTS.md).
-2. **This repository is in maintenance mode.** v5 is the live Cornell Tech
-   deployment. Next-generation development happens in a separate repository —
-   see `AGENTS.md`.
+2. **This repository is the product.** v5 is the live Cornell Tech deployment
+   (<https://makerlab-ai.vercel.app>) and development continues here.

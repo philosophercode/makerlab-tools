@@ -1,7 +1,7 @@
 # UI System (shadcn/ui, Tufte density, admin IA) — Design Spec
 
 **Date:** 2026-09-25
-**Status:** Draft
+**Status:** Mostly implemented — phases 1–5 built; phase 6 (delete legacy CSS) waits for the repo flatten, PR #79 (status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/`
 **Branch:** `v5/ui-spike` (spike; not for merge as-is)
 **Spec PR:** — · **Implementation PR:** — (one per phase, §9)
@@ -70,8 +70,8 @@ route or permission changes (the spike adds one read, `loadAdminOverview`).
   `loadAdminOverview` (spike) and count helpers it may grow.
 - **No density toggle yet.** One dense-but-calm density is chosen (§5.3); a
   compact/comfortable switch is an open question (§13), not a phase.
-- **Not the successor app.** Next-generation work happens in
-  `philosophercode/blueprint`; this keeps v5 maintainable while it is live.
+- **Not a new app.** This restyles v5 in place; it is the product going forward
+  (framing updated 2026-09-27 — this bullet first pointed at a separate successor repo).
 - **v4 (root `src/`)** is frozen and untouched.
 
 ## 3. Principles (Tufte-informed, as rules)
@@ -590,12 +590,12 @@ queues; 5 depends on 1; 6 is last.
 | React Compiler skips DataTable | acceptable at this scale; revisit |
 | AI Elements CLI prompts/over-installs | copy from registry JSON; record deps per component |
 | Fonts: `next/font/google` needs network at build | vendor WOFF2 + `next/font/local` |
-| Maintenance mode (AGENTS.md) — this is a large change | phased, behaviour-preserving PRs; owner decides scope (§16) |
+| A large change to a live app | phased, behaviour-preserving PRs; owner decides scope (§16) |
 
 ## 16. Open questions (owner)
 
-1. **Scope under maintenance mode**: all six phases in v5, or phases 1–4 (admin)
-   here and the public/chat work in Blueprint? *Owner, before phase 1.*
+1. **Scope**: all six phases in v5, or phases 1–4 (admin) only? *Owner, before
+   phase 1.* — **Settled:** all six in v5; phases 1–5 are built, phase 6 follows PR #79.
 2. **Fonts**: vendor Space Grotesk / Inter / JetBrains Mono (recommended), or
    accept system fallbacks? *Owner.*
 3. **Accent ink**: approve `--primary-ink` #B8431A for orange text on light

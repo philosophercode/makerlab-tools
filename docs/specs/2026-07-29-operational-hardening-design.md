@@ -1,7 +1,7 @@
 # Operational Hardening — Design Spec
 
 **Date:** 2026-07-29
-**Status:** Draft — awaiting approval
+**Status:** Mostly implemented — health endpoint, demo banner, nightly backup and staff refresh built; phase 2 (uptime monitor) and phase 6 (Notion automation webhook) not done, being handled on branch `v5/ops-cleanup` (status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/`
 **Branch:** `v5/ops-hardening`
 
