@@ -5,10 +5,13 @@ import { headers } from "next/headers";
 import { authorizeAdminAction } from "../../../lib/admin/action-gate";
 import { AUDIT_WARNING, record, warn } from "../../../lib/admin/audit-warning";
 import { getAuth } from "../../../lib/auth/config";
+import { isSignUpBlocked } from "../../../lib/auth/blocked-sign-in";
 import { reconcileSuperAdminFloor } from "../../../lib/auth/floor-role";
 import { type Identity } from "../../../lib/auth/identity";
+import { isAllowedEmail, normalizeEmail } from "../../../lib/auth/roles";
 import { isSuperAdminFloor } from "../../../lib/auth/super-admins";
 import { unblockEmail } from "../../../lib/data/blocked-emails";
+import { addPersonAccount } from "../../../lib/data/user-add";
 import { removeUserAccount } from "../../../lib/data/user-removal";
 import { countUsersWithRole, findUserById, updateUserTitle, type UserRecord } from "../../../lib/data/users";
 import { isOneOf, ROLES, type Role } from "../../../lib/db/schema/vocabulary";
@@ -16,6 +19,9 @@ import { requestMirrorPush } from "../../../lib/mirror/trigger";
 import { normalizeTitle } from "../../../lib/people/title";
 import {
   ADMIN_USERS_PATH,
+  PERSON_NAME_MAX_LENGTH,
+  type AddPersonInput,
+  type AddPersonResult,
   type AdminActionError,
   type AdminActionResult,
   type AdminActionWarning,
@@ -171,6 +177,74 @@ export async function setUserTitle(input: {
 
   revalidatePath(ADMIN_USERS_PATH);
   return { ok: true, title, ...warn(gateWarning, recorded) };
+}
+
+/** Good enough to refuse a typo; Google is what proves the address is real. */
+const EMAIL_SHAPE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/**
+ * Add somebody before they have signed in: a `user` row with the role and
+ * title given here, shown as "Not signed in yet" until their first Google
+ * sign-in links to it (`account.accountLinking` in `lib/auth/config.ts`).
+ *
+ * Refuses, in this order: the gate (signed in, rate, `users.manage`), an
+ * address that is not one, a name or title that is too long, a role outside
+ * the vocabulary, an address the domain rule would refuse at sign-in
+ * (`isAllowedEmail` — the same check the create hook runs), a blocked address
+ * (the floor is never blocked), and an address that already has a row.
+ *
+ * **The floor wins, as at sign-in.** An address in `AUTH_SUPER_ADMIN_EMAILS`
+ * is stored as `super_admin` whatever role was chosen — the create hook would
+ * have done the same, and a row that disagrees with the floor is what
+ * `reconcileSuperAdminFloor` exists to repair.
+ *
+ * The row and its `user.added` event are one transaction
+ * (`lib/data/user-add.ts`), so a success has no audit gap of its own.
+ */
+export async function addPerson(input: AddPersonInput): Promise<AddPersonResult> {
+  const gate = await authorize();
+  if (!gate.ok) return gate;
+  const { identity, warning: gateWarning } = gate;
+
+  const email = normalizeEmail(input.email);
+  if (!EMAIL_SHAPE.test(email)) return { ok: false, error: "invalid_email" };
+
+  const typedName = typeof input.name === "string" ? input.name.replace(/\s+/g, " ").trim() : "";
+  if (typedName.length > PERSON_NAME_MAX_LENGTH) return { ok: false, error: "invalid_name" };
+
+  const normalizedTitle = normalizeTitle(input.title ?? null);
+  if (!normalizedTitle.ok) return { ok: false, error: "invalid_title" };
+
+  if (!isOneOf(ROLES, input.role)) return { ok: false, error: "invalid_role" };
+  const role: Role = isSuperAdminFloor(email) ? "super_admin" : input.role;
+
+  if (!isAllowedEmail(email)) return { ok: false, error: "email_not_allowed" };
+
+  let result;
+  try {
+    if (await isSignUpBlocked(email)) return { ok: false, error: "email_blocked" };
+    result = await addPersonAccount({
+      email,
+      // Until Google's replaces it at their first sign-in; the address is
+      // the honest placeholder when nobody typed one.
+      name: typedName || email,
+      role,
+      title: normalizedTitle.title,
+      actorUserId: identity.userId,
+    });
+  } catch (err) {
+    console.error("[admin/users] add-person failed", err);
+    return { ok: false, error: "failed" };
+  }
+  if (!result.ok) return result;
+
+  revalidatePath(ADMIN_USERS_PATH);
+  const { person } = result;
+  return {
+    ok: true,
+    person: { id: person.id, name: person.name, email: person.email, role: person.role, title: person.title },
+    ...warn(gateWarning),
+  };
 }
 
 /** The longest block reason kept; the field is a note, not a document. */

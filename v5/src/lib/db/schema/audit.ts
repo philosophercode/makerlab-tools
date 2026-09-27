@@ -39,6 +39,10 @@ export const AUDIT_ACTIONS = [
   // A super admin set or cleared somebody's custom title on the People page.
   // `detail` is `{ from, to }`, null meaning the role's default label.
   "user.title_changed",
+  // A super admin added somebody on the People page before they had signed in.
+  // `detail` is `{ email, name, role, title }` as stored; Google attaches to
+  // that row at their first sign-in.
+  "user.added",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
