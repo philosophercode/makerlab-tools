@@ -22,6 +22,7 @@ import { seedUser } from "../../../test/utils/session";
 import {
   BLOCKED_SIGN_IN_PATH,
   EMAIL_BLOCKED_CODE,
+  EMAIL_NOT_ALLOWED_CODE,
   emailBlockedError,
   isSignUpBlocked,
   redirectBlockedSignIn,
@@ -178,6 +179,24 @@ describe("the OAuth callback's error redirect", () => {
     expect(rewritten.status).toBe(302);
     expect(rewritten.headers.get("location")).toBe(BLOCKED_SIGN_IN_PATH);
     expect(rewritten.headers.getSetCookie()).toEqual(["better-auth.state=; Max-Age=0"]);
+  });
+
+  it("is what Google sign-in's own user creation throws for an address outside the domain", async () => {
+    const email = `someone-${Date.now()}@gmail.example`;
+    const auth = await getAuth();
+    const context = await auth!.$context;
+    const attempt = context.internalAdapter.createOAuthUser(
+      { email, name: "Out Side", emailVerified: true },
+      { accountId: "google-sub-2", providerId: "google" }
+    );
+    await expect(attempt).rejects.toMatchObject({ message: EMAIL_NOT_ALLOWED_CODE });
+    expect(await rowFor(email)).toBeNull();
+  });
+
+  it("sends an address outside the domain to the domain page, not a generic error", () => {
+    const headers = new Headers({ location: "http://localhost:3000/api/auth/error?error=email_not_allowed" });
+    const rewritten = redirectBlockedSignIn(new Response(null, { status: 302, headers }));
+    expect(rewritten.headers.get("location")).toBe("/auth/rejected");
   });
 
   it("leaves every other response alone", () => {

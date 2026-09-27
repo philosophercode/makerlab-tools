@@ -237,7 +237,7 @@ async function storeOriginal(
   } catch (err) {
     console.error(`[approval-image] could not record the chosen image from ${host}`, err);
     // No row points at the blob, so no sweep ever would: take it back out.
-    await store.del([stored.pathname]).catch((cause: unknown) => {
+    await store.del([stored.pathname], "public").catch((cause: unknown) => {
       console.error(`[approval-image] could not delete unrecorded image ${stored.pathname}`, cause);
     });
     return notAttached("original");

@@ -285,7 +285,7 @@ export async function POST(req: NextRequest) {
     // store forever — the cron only sweeps files that *have* a row. Remove
     // them here so a failed upload leaves nothing behind.
     try {
-      await store.del([stored.pathname]);
+      await store.del([stored.pathname], access);
     } catch (cleanupErr) {
       console.error("[uploads] orphaned blob cleanup failed", cleanupErr);
     }

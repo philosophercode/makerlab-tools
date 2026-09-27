@@ -199,7 +199,7 @@ describe("runBackup — 30-day retention", () => {
     const result = await runBackup(store, { db, now });
 
     expect(result.pruned).toEqual(["backups/2026-08-01.json"]);
-    expect(store.del).toHaveBeenCalledWith(["backups/2026-08-01.json"]);
+    expect(store.del).toHaveBeenCalledWith(["backups/2026-08-01.json"], "private");
   });
 });
 

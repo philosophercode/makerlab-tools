@@ -9,7 +9,7 @@ import { mcp } from "better-auth/plugins";
 
 import { dataSubstrate, getDb } from "../db/client";
 import * as schema from "../db/schema/index";
-import { emailBlockedError, isSignUpBlocked } from "./blocked-sign-in";
+import { emailBlockedError, emailNotAllowedError, isSignUpBlocked } from "./blocked-sign-in";
 import { devSignInPlugin } from "./dev-sign-in-plugin";
 import { ac, roles } from "./permissions";
 import { allowedEmailDomain, allowedEmails, isAllowedEmail } from "./roles";
@@ -155,7 +155,9 @@ export function createAuth(db: Db) {
         create: {
           before: async (user) => {
             // Enforcement #1: refuse to even create a user outside the domain.
-            if (!isAllowedEmail(user.email)) return false;
+            // Thrown, not `false`: `false` surfaces as Better Auth's generic
+            // `unable_to_create_user`, while this code lands on /auth/rejected.
+            if (!isAllowedEmail(user.email)) throw emailNotAllowedError();
             // A blocked address (auth spec amendment 2026-09-25): refused
             // before any row exists, like the domain. Thrown rather than
             // `false` so the OAuth callback can say *why* — its error redirect

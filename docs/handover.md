@@ -51,7 +51,7 @@ owner.
 | GitHub repository | github.com | ⬜ **TBD** | The code |
 | Domain / DNS | ⬜ | ⬜ **TBD** | |
 | `ADMIN_REVALIDATE_SECRET` | Vercel env vars | ⬜ **TBD** | Forces the site to refresh |
-| Vercel Blob store | Vercel → Storage | ⬜ **TBD** | Holds tool images, manuals and project photos (public) alongside maintenance photos and the nightly backup (private). Sets `BLOB_READ_WRITE_TOKEN`. **The private files contain student PII — keep those private** |
+| Vercel Blob stores (two) | Vercel → Storage | ⬜ **TBD** | A **public** store (default prefix: `BLOB_READ_WRITE_TOKEN` / `BLOB_STORE_ID`) for tool images, manuals and project photos, and a **private** store (custom prefix `BLOB_PRIVATE`: `BLOB_PRIVATE_READ_WRITE_TOKEN` / `BLOB_PRIVATE_STORE_ID`) for maintenance photos and the nightly backup — a store is either public or private now (`deploy.md` step 2). **The private files contain student PII — keep those private** |
 | `CRON_SECRET` | Vercel env vars | ⬜ **TBD** | Lets the nightly backup cron prove it is Vercel (§3) |
 
 > [!WARNING]

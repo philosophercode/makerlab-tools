@@ -379,7 +379,7 @@ describe("POST /api/uploads — failures leave nothing behind", () => {
       expect(res.status).toBe(502);
       // Otherwise the bytes sit in the store forever: the cron only sweeps
       // files that have a row to find them by.
-      expect(blob.del).toHaveBeenCalledWith(["uploads/project/x.png"]);
+      expect(blob.del).toHaveBeenCalledWith(["uploads/project/x.png"], "public");
     } finally {
       insert.mockRestore();
     }

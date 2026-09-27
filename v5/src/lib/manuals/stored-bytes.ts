@@ -1,6 +1,6 @@
 import { get } from "@vercel/blob";
 import { createLocalBlobBackend } from "../blob-local.ts";
-import { blobMode } from "../blob-mode.ts";
+import { blobCredentials, blobMode } from "../blob-mode.ts";
 
 /**
  * `readStoredFile(pathname, access)` — a stored file's bytes, read back from
@@ -41,7 +41,8 @@ export async function readStoredFile(
   }
 
   try {
-    const result = await get(pathname, { access });
+    // The store that holds this access (`blobCredentials`, blob stores amendment).
+    const result = await get(pathname, { ...blobCredentials(access), access });
     if (!result || result.statusCode !== 200 || !result.stream) return { ok: false, reason: "missing", transient: false };
     return await drain(result.stream, maxBytes);
   } catch {

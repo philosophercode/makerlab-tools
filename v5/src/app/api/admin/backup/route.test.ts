@@ -301,9 +301,9 @@ describe("GET /api/admin/backup — 30-day retention", () => {
     const res = await GET(adminRequest());
 
     const body = await res.json();
-    expect(blob.list).toHaveBeenCalledWith("backups/");
+    expect(blob.list).toHaveBeenCalledWith("backups/", "private");
     expect(body.pruned.sort()).toEqual([old, boundary].sort());
-    expect(blob.del).toHaveBeenCalledWith(body.pruned);
+    expect(blob.del).toHaveBeenCalledWith(body.pruned, "private");
     expect(body.pruned).not.toContain(recent);
   });
 
@@ -316,6 +316,6 @@ describe("GET /api/admin/backup — 30-day retention", () => {
     const res = await GET(adminRequest());
 
     expect((await res.json()).pruned).toEqual([]);
-    expect(blob.del).toHaveBeenCalledWith([]);
+    expect(blob.del).toHaveBeenCalledWith([], "private");
   });
 });
