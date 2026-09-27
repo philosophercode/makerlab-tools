@@ -399,12 +399,12 @@ Four layers, all offline (Article 3).
 
 | # | Question | Recommendation | Who | Blocks |
 |---|---|---|---|---|
-| 1 | Show the **open-ticket count** on a public screen, including at the ISAM booth? | Yes in the lab. At the booth, show it only if it looks healthy; otherwise pass `?tickets=0` | Isaac + Luis | Phase 1 |
+| 1 | Show the **open-ticket count** on a public screen, including at the ISAM booth? | **Answered (Isaac, 2026-09-27): yes**, in the lab and at the booth | Isaac + Luis | Phase 1 |
 | 2 | Will any screen ever show **non-public** data, such as ticket titles, who is on shift, or the intake queue? | No for now. Build phase 3 only when a concrete need appears | Isaac | Phase 3 |
-| 3 | Show **project author names** in the featured panel? The public gallery shows them, but a booth is a wider audience | No by default. Titles, photos and tools only | Isaac + Niti | Phase 1 |
-| 4 | At the booth, run against **production** (live lab status) or a **demo seed** deployment? | Production, so the demo shows the real lab. The phone chat then works against real data | Isaac | Phase 1 |
+| 3 | Show **project author names** in the featured panel? The public gallery shows them, but a booth is a wider audience | **Answered (Isaac, 2026-09-27): yes, first name and last initial** (e.g. "Maya R.") | Isaac + Niti | Phase 1 |
+| 4 | At the booth, run against **production** (live lab status) or a **demo seed** deployment? | **Answered (Isaac, 2026-09-27): production (live data)** — the same kiosk stands at the front of the MakerLab | Isaac | Phase 1 |
 | 5 | Cap the **booth's chat spend**, or rely on the anonymous tier? | Check AI Gateway spend on 9 Oct and decide then. No code | Isaac | — |
 | 6 | Who may **edit hours and pins**: `tools.edit` (SuperMakers) or directors only? | `tools.edit`. Hours are day-to-day | Isaac | Phase 2 |
 | 7 | Does the QR code open the **catalogue with chat**, or a dedicated `/ask` page sized for phones? | Catalogue with chat for phase 1. Revisit after seeing booth behaviour | Isaac | — |
 
-Q1, Q3 and Q4 need answers before phase 1 merges. The rest travel with the spec.
+Q1, Q3 and Q4 are answered; phase 1 is unblocked. The rest travel with the spec.
