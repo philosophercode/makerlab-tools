@@ -478,6 +478,8 @@ const NOT_COVERED_CUES = [
   "does not specify",
   "doesn't address",
   "does not address",
+  "doesn't state",
+  "does not state",
   "not in the manual",
   "no information",
   "couldn't find",
