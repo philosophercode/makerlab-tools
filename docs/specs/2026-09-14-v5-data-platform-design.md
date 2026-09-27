@@ -1,7 +1,7 @@
 # v5 Data Platform — Postgres, Blob, Accounts, Admin Inventory, Two-Step Intake, a Notion Mirror — Design Spec
 
 **Date:** 2026-09-14
-**Status:** Draft
+**Status:** Mostly implemented — phases 1–6 and 8 built; phase 7 (people load and validate the real inventory) pending; phase 9 (translation pass) deferred until after launch (status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/`
 **Branch:** `v5/data-platform-spec`
 **Spec PR:** #32 · **Implementation PRs:** one per phase (§9)

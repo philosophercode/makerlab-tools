@@ -1,7 +1,7 @@
 # Official and Display Names for Tools — Design Spec
 
 **Date:** 2026-09-24
-**Status:** Approved for planning (owner's decision, 2026-09-24)
+**Status:** Implemented (approved by the owner 2026-09-24; status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/`
 **Branch:** `v5/display-names`
 **Spec PR:** #TBD · **Implementation PR:** #TBD

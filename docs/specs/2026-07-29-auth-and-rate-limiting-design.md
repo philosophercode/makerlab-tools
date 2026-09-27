@@ -1,7 +1,7 @@
 # Sign-in and Tiered Rate Limiting — Design Spec
 
 **Date:** 2026-07-29
-**Status:** Approved for planning — 2026-07-29
+**Status:** Mostly implemented — sign-in and tiered rate limiting as specced; the env-list role model (`AUTH_STAFF_EMAILS` / `AUTH_ADMIN_EMAILS`) is superseded by Better Auth and the `user` table in [`2026-09-14-v5-data-platform-design.md`](2026-09-14-v5-data-platform-design.md) phase 4 (status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/`
 **Branch:** `v5/auth`
 **Spec PR:** TBD · **Implementation PR:** TBD

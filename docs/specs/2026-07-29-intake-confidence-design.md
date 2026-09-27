@@ -1,7 +1,7 @@
 # Intake Confidence & Parallel Identification — Design Spec
 
 **Date:** 2026-07-29
-**Status:** Draft — awaiting approval
+**Status:** Mostly implemented — confidence grading moved into the research pipeline; the chat-side card behaviour is obsolete since `propose_listing` was removed (data platform phase 6) (status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/`
 **Branch:** `v5/intake-confidence`
 **Extends:** `2026-06-01-chat-inventory-intake-design.md` (on `chat-inventory-intake`)

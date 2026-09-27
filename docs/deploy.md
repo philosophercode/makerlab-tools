@@ -22,16 +22,16 @@ npm install
 npm run dev            # http://localhost:3000
 ```
 
-A crimson **DEMO DATA** banner appears. That is correct: with no Notion credentials the app
-serves a built-in sample catalogue, and the banner exists so nobody mistakes it for the
-lab's real inventory.
+A crimson **DEMO DATA** banner appears. That is correct: with no `DATABASE_URL` the app
+runs on an in-process Postgres (PGlite) seeded with two sample tools, and the banner exists
+so nobody mistakes it for the lab's real inventory.
 
 Working already: catalogue browse and search, facets, grid ⇄ table, tool detail pages,
-`/projects`, the 12-language switcher, `/api/health` (returns **503** `unconfigured`, which
-is the honest answer), and `npm run qr:labels`.
+`/projects`, the 12-language switcher, photo uploads (into `v5/.blob-data/`),
+`/api/health` (`200` with `"catalog": "demo"`), and `npm run qr:labels`.
 
 ```bash
-npm run test:all       # lint, typecheck, 771 unit/integration, 33 E2E
+npm run test:all       # lint, typecheck, vitest, playwright — no credentials needed
 ```
 
 > **Stop `npm run dev` before running `test:all`.** Both use `.next/dev/lock`, and E2E
@@ -52,8 +52,8 @@ Get a key from the Vercel dashboard, under **AI Gateway** on the project (or
 any project in your team — Gateway keys are account-scoped). No Vercel project
 needed to be linked to *this* one for local dev; the key alone is enough.
 
-Restart. **This is the biggest single unlock** — all ten capability tools go live against
-the demo catalogue, which is enough to exercise most of the product:
+Restart. **This is the biggest single unlock** — the assistant goes live against the demo
+catalogue, which is enough to exercise most of the product:
 
 | Try | What it exercises |
 |---|---|
@@ -61,20 +61,20 @@ the demo catalogue, which is enough to exercise most of the product:
 | From a tool page: *"How do I replace the filament?"* | Manual-grounded answers |
 | Ask in Spanish | Replies in the language asked |
 | **REPORT** in the nav | Troubleshoots first, then offers to file |
-| **ADD** in the nav, paste a product URL | Intake + the confidence strip |
 | *"Do you have a waterjet?"* | Honest absence — it must not invent one |
-
-On **ADD**, watch the confidence strip. A legible model plate gives HIGH and a card;
-something ambiguous gives **no card at all** and a specific question. That is the design
-working, not a failure.
+| **ADD**, signed in as an admin (Stage 3b), paste a product URL | Intake: identify, then background research into a draft |
 
 `npm run eval` runs the agent eval harness. It makes **real, paid** model calls and is
 deliberately outside `test:all` — see `v5/evals/README.md`, including the §10 eval gate
 to run before pointing production at a different model.
 
-## Stage 2 · Real data (30–45 minutes — the real work)
+## Stage 2 · Real data: import the Notion inventory locally (30–45 minutes)
 
-Create a Notion integration, then seven databases shared with it. Set in `.env.local`:
+The lab's inventory was kept in Notion until September 2026. Postgres is the source of truth
+now; Notion is read **once**, by `npm run import:notion`, and never again by the app. A new
+lab with no Notion data skips this stage and adds equipment through intake instead.
+
+Share the Notion databases with an integration and set in `.env.local`:
 
 ```bash
 NOTION_API_KEY=ntn_...
@@ -82,24 +82,10 @@ NOTION_DB_TOOLS=...            NOTION_DB_CATEGORIES=...
 NOTION_DB_LOCATIONS=...        NOTION_DB_UNITS=...
 NOTION_DB_RESOURCES=...        NOTION_DB_MAINTENANCE_LOGS=...
 NOTION_DB_FLAGS=...
-NOTION_DB_PROJECTS=...         # optional — enables the projects gallery
+NOTION_DB_PROJECTS=...         # optional — the projects gallery's old source
 ```
 
-> **All seven of the first group are required together.** Miss one and the app falls back to
-> the demo catalogue. Check `/api/health`: `200` with `"catalog": "live"` means real data.
-
-**Three schema details that will bite you:**
-
-| Database | Requirement | If missing |
-|---|---|---|
-| Flags | `status` select **must have a `New` option** | Corrections fail — Notion rejects unknown select options on write |
-| Projects | a **`published` checkbox** | No moderation gate |
-| Maintenance_Logs, Projects | `reporter_email` / `author_email` (Email) | Writes succeed without them; the code retries and logs |
-
-The last row is deliberate — those two features ship safely before the schema change lands,
-and start recording verified authorship the moment it does.
-
-### Stage 2b · Import Notion locally, review it, then import into Neon
+### Stage 2b · Import into a local database and review it
 
 `PGLITE_DATA_DIR` is a persistent PGlite database on your laptop (dev only — refused on
 Vercel and in production builds). The dev server reads it when `DATABASE_URL` is unset:
@@ -117,7 +103,7 @@ cd v5
 npm run import:notion -- --dry-run                           # rehearse; nothing kept
 PGLITE_DATA_DIR=.pglite-data npm run import:notion           # rows + files into .pglite-data/
 PGLITE_DATA_DIR=.pglite-data npm run verify:import           # counts, relations, files
-PGLITE_DATA_DIR=.pglite-data npm run dev                     # review it in the app
+PGLITE_DATA_DIR=.pglite-data npm run dev -- -p 3001          # review it in the app
 ```
 
 (Or put `PGLITE_DATA_DIR=.pglite-data` in `.env.local` and drop the prefix.) Each script
@@ -125,9 +111,13 @@ prints its target and where files go. Without `BLOB_READ_WRITE_TOKEN`, files are
 `.blob-data/` and their URLs point at `AUTH_BASE_URL/api/dev-blob/…` — so set
 `AUTH_BASE_URL` to the dev server's real origin (e.g. `http://localhost:3001`) before
 importing. Re-running the import is idempotent; to start over, stop the dev server and
-delete `.pglite-data/` (both it and `.blob-data/` are git-ignored).
+delete `.pglite-data/` (both it and `.blob-data/` are ignored by version control).
 
-When the local review looks right, import into Neon from Notion — not from the local
+Review and edit locally — display names, descriptions, research picks, photos, manuals —
+then copy the result to a hosted deployment with `npm run data:push` (Part 2, step 6).
+That is how `makerlab-ai` was filled.
+
+**Alternative: import straight into Neon.** Import from Notion, not from the local
 database, whose file URLs point at your laptop:
 
 ```bash
@@ -233,8 +223,13 @@ GOOGLE_CLIENT_ID=
 GOOGLE_CLIENT_SECRET=
 AUTH_BASE_URL=http://localhost:3000
 AUTH_ALLOWED_EMAIL_DOMAIN=cornell.edu
+AUTH_ALLOWED_EMAILS=                      # optional: named exceptions on other domains
 AUTH_SUPER_ADMIN_EMAILS=you@cornell.edu   # the floor — see below
 ```
+
+Only addresses on `AUTH_ALLOWED_EMAIL_DOMAIN` may sign in, plus any listed by name in
+`AUTH_ALLOWED_EMAILS` (a maintainer whose institutional account is temporary, say). Anyone
+else lands on a page explaining the domain rule.
 
 `AUTH_SECRET` alone is enough for sessions; the two `GOOGLE_*` variables are
 what make *starting* one possible. With them unset, `/api/auth/sign-in/social`
@@ -317,12 +312,14 @@ PDFs: after a restore, run `npm run manuals:index -- --force` from `v5/`
 
 # Part 2 — A new deployment on Vercel
 
-> Written as it was done, 2026-09-26, creating `makerlab-ai` for a first review by lab staff.
-> Steps marked *(to confirm)* are the plan and get rewritten with what actually happened.
+> Written from what worked creating `makerlab-ai` (<https://makerlab-ai.vercel.app>),
+> September 2026. Variable names are the ones `v5/src` reads; `v5/.env.example` explains
+> each one.
 
 The hosted copy starts from **your local inventory**, not from Notion: everything reviewed
-locally (display names, descriptions, research picks, photos, English links, indexed manuals)
-is copied up in step 5. Keep working locally afterwards and push again when ready.
+locally (display names, descriptions, research picks, photos, English links, indexed
+manuals) is copied up with `npm run data:push` in step 6. Keep working locally afterwards
+and push again when ready — while the site is review-only.
 
 ## 1 · Create the project
 
@@ -338,134 +335,194 @@ Vercel → **Add New… → Project** → import `philosophercode/makerlab-tools
 | Environment Variables | **Remove any "detected" ones** — they come from the old v4 example file. Add the real ones in step 4 |
 
 Press **Deploy**. With no database yet the build skips the migration ("DATABASE_URL is not
-set; no migrations to run") and the site runs on its built-in demo data. That is expected: it
-gives you a working address for Google sign-in.
+set; no migrations to run") and the site runs on its built-in demo data. That is expected:
+it gives you a working address for Google sign-in.
 
-## 2 · Storage *(to confirm)*
+## 2 · Storage: Neon and two Blob stores
 
 Project → **Storage**:
 
-- **Neon Postgres** (Marketplace) → connect to the project, all environments. Adds `DATABASE_URL`.
-- **Blob — two stores.** A Blob store is now either all-public or all-private, and the app keeps
-  both kinds of file, so it needs one of each (data platform spec, amendment 2026-09-27):
-  1. **Public store** → create it with access **Public**, connect it to the project with the
-     **default** environment-variable prefix, all environments. Adds `BLOB_STORE_ID`,
-     `BLOB_READ_WRITE_TOKEN` and `BLOB_WEBHOOK_PUBLIC_KEY`. Tool photos, manuals, research
-     images and project photos go here.
-  2. **Private store** → create it with access **Private**, connect it with the **custom prefix
-     `BLOB_PRIVATE`**, all environments, and tick **"Add a read-write token"**. Adds
-     `BLOB_PRIVATE_STORE_ID`, `BLOB_PRIVATE_READ_WRITE_TOKEN` and
-     `BLOB_PRIVATE_WEBHOOK_PUBLIC_KEY`. The nightly backup (it holds user emails), chat,
-     maintenance and import uploads, and research's cleaned copies go here. The token matters:
-     scripts run from a laptop have no OIDC token, and without one the store id alone falls back
-     to the public store, which refuses private files.
+- **Neon Postgres** (Marketplace) → connect to the project, all environments. Adds
+  `DATABASE_URL` (and `DATABASE_URL_UNPOOLED`, which `data:push` prefers).
+- **Blob — two stores.** A Blob store is either all-public or all-private, and the app
+  keeps both kinds of file, so it needs one of each:
+  1. **Public store** → create it with access **Public**, connect it with the **default**
+     prefix, all environments. Adds `BLOB_STORE_ID` and `BLOB_READ_WRITE_TOKEN`. Tool
+     photos, manuals, research images and project photos go here.
+  2. **Private store** → create it with access **Private**, connect it with the **custom
+     prefix `BLOB_PRIVATE`**, all environments, and tick **"Add a read-write token"**. Adds
+     `BLOB_PRIVATE_STORE_ID` and `BLOB_PRIVATE_READ_WRITE_TOKEN`. The nightly backup (it
+     holds user emails), maintenance and chat uploads, and research's private copies go
+     here.
 
-  Redeploy after connecting — environment variables reach a deployment only when it is built.
-  With only one store (no `BLOB_PRIVATE_*`) the app puts both kinds in it, as before — fine for
-  an older store that accepts both, but a store created today refuses one kind. The routing is
-  `blobCredentials()` in `src/lib/blob-mode.ts`.
+The app reads exactly these names: the public store as `BLOB_STORE_ID` or
+`BLOB_READ_WRITE_TOKEN`, the private one as `BLOB_PRIVATE_STORE_ID` or
+`BLOB_PRIVATE_READ_WRITE_TOKEN` (`blobCredentials()` in `v5/src/lib/blob-mode.ts`). On
+Vercel a store id is enough — the deployment's OIDC token authenticates it.
 
-## 3 · Google sign-in *(to confirm)*
+**If a store was connected with a different prefix** (or was already connected to another
+project under another name), the app does not see it. Add the two store ids under the
+names the app reads, with the ids from each store's page (`store_…`):
+
+```bash
+cd v5
+vercel link                                   # once, if v5/ is not linked yet
+vercel env add BLOB_STORE_ID production       # paste the public store's id
+vercel env add BLOB_PRIVATE_STORE_ID production   # paste the private store's id
+```
+
+Repeat with `preview` if previews should upload too. With no `BLOB_PRIVATE_*` at all the
+app puts both kinds of file in the default store — fine for an older store that accepts
+both, but a store created today refuses one kind.
+
+## 3 · Google sign-in
 
 Google Cloud console → APIs & Services → Credentials → your OAuth client (or a new *Web
 application* client) → **Authorized redirect URIs** → add
 `https://makerlab-ai.vercel.app/api/auth/callback/google`.
 
-## 4 · Environment variables *(to confirm)*
+## 4 · Environment variables
 
-Project → Settings → Environment Variables (Production and Preview):
+Project → Settings → Environment Variables (Production, and Preview if you use previews).
+**Every value must be real** — not a placeholder from `.env.example`
+(`YourSecretHere`, `http://localhost:3000`) and not left blank:
 
 ```
 AUTH_SECRET                 openssl rand -base64 32
-AUTH_BASE_URL               https://makerlab-ai.vercel.app
+AUTH_BASE_URL               https://makerlab-ai.vercel.app   (the real origin, no trailing slash)
 GOOGLE_CLIENT_ID            from step 3
 GOOGLE_CLIENT_SECRET        from step 3
-AUTH_SUPER_ADMIN_EMAILS     your Google address — the first super admin; everyone else gets roles on /admin/users
-AUTH_ALLOWED_EMAILS         reviewers' addresses (or AUTH_ALLOWED_EMAIL_DOMAIN for a whole domain)
+AUTH_ALLOWED_EMAIL_DOMAIN   cornell.edu
+AUTH_ALLOWED_EMAILS         optional: named addresses on other domains, comma-separated
+AUTH_SUPER_ADMIN_EMAILS     permanent Cornell addresses of the super admins, comma-separated
 CRON_SECRET                 any long random string (the nightly job)
 ADMIN_REVALIDATE_SECRET     any long random string (cache refresh, hand-run nightly job)
 CRON_HEARTBEAT_URL          optional: a heartbeat monitor's ping URL (operations.md)
 ```
 
-Model calls need no key on Vercel: the AI Gateway authenticates the project itself (OIDC).
-Notion variables are **not** needed — Notion is only a one-way mirror now, off until you turn it on.
+- **Sign-in is Cornell-only.** Only `@cornell.edu` addresses (plus anyone named in
+  `AUTH_ALLOWED_EMAILS`) can sign in; anyone else is shown why.
+- **Super admins** are the addresses in `AUTH_SUPER_ADMIN_EMAILS`: created as
+  `super_admin` on first sign-in and always resolved as one, so the lab cannot lock itself
+  out. Everyone else's role is set on the **People** page (`/admin/users`).
+- Model calls need **no key** on Vercel: the AI Gateway authenticates the project itself
+  (OIDC). Notion variables are **not** needed — Notion is read only by the one-time import
+  and receives a mirror only if an admin connects one on `/admin/mirror`.
+- **Never** set `DEV_AUTO_SIGN_IN` or `DEV_AUTO_SIGN_IN_EMAIL` here (the build fails if
+  you do), nor `PGLITE_DATA_DIR`.
 
-## 5 · Copy the local inventory up *(to confirm)*
+## 5 · Redeploy — after every variable change
 
-Copies the local database (`v5/.pglite-data`) into Neon and the local files (`v5/.blob-data`:
-tool photos, manual PDFs) into Blob, so the hosted site matches `localhost:3001`, manuals
-already searchable. Re-runnable: each run **replaces** the hosted data, so while the site is
-review-only, make changes locally and push again.
+Deployments → latest → **Redeploy**. Environment variables reach a deployment only when it
+is built, so a variable added or changed in steps 2–4 does nothing until you redeploy. The
+build also runs `db:migrate`, which creates the schema in Neon — `data:push` in step 6
+needs that.
 
-Before you start: the project has deployed at least once **with Neon connected** (its build
-runs `db:migrate`, so the hosted schema exists), you have checked out the same commit, and
-the local dev server is **stopped** (the local database is single-process). From `v5/`:
+## 6 · Copy the local inventory up
+
+Copies the local database (`v5/.pglite-data`) into Neon and the local files
+(`v5/.blob-data`: tool photos, manual PDFs, private uploads) into the two Blob stores, so
+the hosted site matches your local review, manuals already searchable.
+
+Before you start: the project has deployed **with Neon connected** since the last
+migration (step 5), you have checked out the same commit, and the local dev server is
+**stopped** (the local database is single-process).
+
+**Get the production credentials into a file.** Start with a pull:
 
 ```bash
-vercel link                                                # once, if v5/ is not linked yet
-vercel env pull .env.hosted --environment=production       # DATABASE_URL + Blob credentials
+cd v5
+vercel env pull .env.hosted --environment=production
+```
+
+Values marked **Sensitive** come back **blank** from `vercel env pull` — on a production
+deployment that is typically `DATABASE_URL` and the Blob tokens. When they do, copy them
+from the dashboard instead: Project → **Storage** → the Neon database → **`.env.local`**
+tab → *Show secret* → *Copy snippet*, and **append** it to the pulled file (use `>>`, not
+`>` — overwriting would drop the `VERCEL_OIDC_TOKEN` the pull wrote; a later line wins over
+the blank one the pull left):
+
+```bash
+pbpaste >> .env.hosted                 # Neon: DATABASE_URL, DATABASE_URL_UNPOOLED, …
+```
+
+and the same for each Blob store (its `.env.local` snippet):
+
+```bash
+pbpaste >> .env.hosted                 # public store: BLOB_READ_WRITE_TOKEN, BLOB_STORE_ID
+pbpaste >> .env.hosted                 # private store: BLOB_PRIVATE_READ_WRITE_TOKEN, BLOB_PRIVATE_STORE_ID
+```
+
+The script needs `DATABASE_URL` (or `DATABASE_URL_UNPOOLED`) and, for Blob,
+`BLOB_READ_WRITE_TOKEN` — or `BLOB_STORE_ID` plus a `VERCEL_OIDC_TOKEN` from a recent pull
+(it lasts about 12 hours). For the private store, use its **read-write token**
+(`BLOB_PRIVATE_READ_WRITE_TOKEN`): a laptop has no OIDC token of its own. Nothing from the
+file is printed.
+
+**Then rehearse, and run:**
+
+```bash
 PGLITE_DATA_DIR=.pglite-data npm run data:push -- --to .env.hosted --dry-run
 PGLITE_DATA_DIR=.pglite-data npm run data:push -- --to .env.hosted --yes
 ```
 
-Then **delete `.env.hosted` yourself** — it holds the production database password and a Blob
-credential. (`v5/.gitignore` already ignores `.env*`, but it should not sit on disk.)
+Then **delete `.env.hosted` yourself** — it holds the production database password and
+Blob tokens. (`v5/.gitignore` ignores `.env*`, but it should not sit on disk.)
 
 What `npm run data:push` (`v5/scripts/push-local-to-hosted.ts`) does:
 
 - **Dry run** (`--dry-run`): connects read-only to both sides and prints each table's row
-  count (local vs. hosted now), the number and size of files to upload, and any problem. It
-  writes nothing. A real run needs `--yes`, because it replaces the hosted rows.
-- **Schema check.** It never migrates. The checkout, the local database and the hosted one must
-  all be at the same latest migration; otherwise it refuses and says which is behind (redeploy
-  the matching commit, or `npm run db:migrate` locally).
-- **Files first.** Every `attachments` row served from the local store (`/api/dev-blob/…`, or a
-  private file in `.blob-data/`) is uploaded to Vercel Blob once — same access, same content
-  type, a random suffix — and its pathname and URL are rewritten in the **hosted copy only**
-  (the same URL anywhere else, such as a resource link, is rewritten too). Bundled
-  `/tool-images/…` need nothing. A re-run reuses the files an earlier push uploaded instead of
-  storing them again. If an upload fails, the database has not been touched; the files already
-  uploaded are listed (delete them in the Blob dashboard if they matter). A local URL whose
-  file is gone from `.blob-data/` stops the run (`--allow-missing-files` copies those rows as
-  they are).
-- **Then one transaction.** Every app table (derived from the schema, parents first) is
-  truncated and refilled with the local rows: ids, timestamps, jsonb, arrays and manual
-  embeddings exactly as they are; the generated search column is recomputed by Postgres. Any
-  failure rolls the whole thing back.
-- **What does not travel**, by the nightly backup's rules: sign-in sessions, OAuth handshakes
-  and MCP access tokens are skipped (hosted sign-ins end — sign in again); `account` rows are
-  copied with Google's OAuth tokens blanked (reissued at the next sign-in); the Notion mirror's
-  token and OAuth client secrets are blanked too. Users, roles and bans are copied.
-- **Credentials.** Blob is reached with `BLOB_READ_WRITE_TOKEN`, or `BLOB_STORE_ID` +
-  `VERCEL_OIDC_TOKEN` for a store connected the current way (the pulled OIDC token lasts about
-  12 hours — pull again if it has expired). Nothing from the env file is printed.
+  count (local vs. hosted now), how many files it will upload and how many an earlier push
+  already stored, and any problem. It writes nothing. A real run needs `--yes`.
+- **It replaces the hosted data.** Every app table on the hosted side is emptied and
+  refilled from the local database. Anything created on the hosted site since the last push
+  is lost — so while the site is review-only, make changes locally and push again.
+- **It ends every hosted sign-in.** Sessions, OAuth handshakes and MCP access tokens are
+  never copied; people sign in again. Users, roles, titles and blocks are copied; Google's
+  OAuth tokens, the Notion mirror's token and OAuth client secrets are blanked.
+- **Schema check.** It never migrates. The checkout, the local database and the hosted one
+  must all be at the same latest migration; otherwise it refuses and says which is behind
+  (redeploy the matching commit, or `npm run db:migrate` locally).
+- **Files first.** Every `attachments` row served from the local store (`/api/dev-blob/…`,
+  or a private file in `.blob-data/`) is uploaded to the store for its access — public
+  files to the public store, private files to the private one — with a random suffix, and
+  its pathname and URL are rewritten in the **hosted copy only**. A file an earlier push
+  already uploaded (same attachment, access and size on the hosted side) is reused rather
+  than stored again; everything else is uploaded. Bundled `/tool-images/…` need nothing.
+  If an upload fails, the database has not been touched; the files already uploaded are
+  listed. A local URL whose file is gone from `.blob-data/` stops the run
+  (`--allow-missing-files` copies those rows as they are).
+- **Then one transaction.** Tables are refilled parents first, ids, timestamps, jsonb and
+  manual embeddings exactly as they are. Any failure rolls the whole thing back.
 
-## 6 · Redeploy and check *(to confirm)*
+## 7 · Check it
 
-Deployments → latest → **Redeploy** (so the build migrates Neon), then in order:
-
-1. **`/api/health`** → `200`.
-2. **Sign in** with the super-admin address; a non-allowed address is refused with an explanation.
+1. **`/api/health`** → `200`, `"catalog": "live"`.
+2. **Sign in** with a super-admin address; a non-Cornell address is refused with an
+   explanation.
 3. **A tool page** shows its photo, short description and links; manuals the assistant can
    search carry the search icon.
-4. **Ask a manual question** on a tool with that icon: the answer cites a page (`p. N`) that
-   opens the lab's stored PDF.
-5. **Trigger the nightly job by hand** (`ADMIN_REVALIDATE_SECRET`) and confirm a backup appears in Blob.
+4. **Ask a manual question** on a tool with that icon: the answer cites a page (`p. N`)
+   that opens the lab's stored PDF.
+5. **Trigger the nightly job by hand** and confirm a backup appears in the **private**
+   store:
+   `curl -H "x-admin-secret: $ADMIN_REVALIDATE_SECRET" https://makerlab-ai.vercel.app/api/cron/daily`
 
-## 7 · Give reviewers access *(to confirm)*
+## 8 · Give people access
 
-They sign in with Google (their address must be allowed in step 4), then you set their role on
-**/admin/users**. If a reviewer is asked to log in to *Vercel* before seeing the site, turn off
-**Vercel Authentication** under Settings → Deployment Protection; the app's own sign-in still
-guards everything that needs it.
+They sign in with their Cornell Google account, then a super admin sets their role on the
+**People** page (`/admin/users`): Student (`user`), Supermaker (`admin`) or Super Admin
+(`super_admin`). The same page sets a person's **title** — shown on the People page and in
+their profile menu; blank falls back to the role's name. If people are asked to log in to
+*Vercel* before seeing the site, turn off **Vercel Authentication** under Settings →
+Deployment Protection; the app's own sign-in guards everything that needs it.
 
-## 8 · The safety net — do not skip
+## 9 · The safety net — do not skip
 
-**Set an inference spend limit and alert, on the Gateway itself.** Inference is the only cost
-here that scales with use, and the only one that can run away. This is the main practical
-reason to route everything through the Gateway rather than a provider directly: the ceiling is
-enforced by the platform (Vercel dashboard → **AI Gateway** → **Budgets**), not by remembering
-to check a bill, and it applies across every model and every job the app calls, not just chat.
+**Set an inference spend limit and alert, on the Gateway itself** (Vercel dashboard → **AI
+Gateway** → **Budgets**). Inference is the only cost here that scales with use, and the
+only one that can run away; the Gateway limit applies across every model and job the app
+calls, not just chat.
 
 **Point an uptime monitor at `/api/health`** and **alert on the HTTP status code, not the
 body.** The 503-when-degraded contract is the entire point; a body-only check would miss it.
@@ -482,16 +539,17 @@ all of this: [`operations.md` → Monitoring](operations.md#monitoring).
 | | Blocks |
 |---|---|
 | Google OAuth client | Sign-in anywhere |
-| `AUTH_SUPER_ADMIN_EMAILS` | The first super admin, and therefore **every role**: nobody can be promoted until somebody can reach `/admin/users`. Roles live in `user.role` now; `AUTH_STAFF_EMAILS` / `AUTH_ADMIN_EMAILS` are retired and should be deleted from the environment |
-| Vercel Blob store | **Photo uploads** (chat, maintenance, projects) and backups. Without it uploads refuse with a translated message rather than failing silently |
-| Vercel Blob + `CRON_SECRET` | The nightly backup — **there is currently no backup at all** |
+| `AUTH_SUPER_ADMIN_EMAILS` | The first super admin, and therefore **every role**: nobody can be promoted until somebody can reach `/admin/users` |
+| Two Vercel Blob stores | **Photo uploads** (chat, maintenance, projects), research photos, archived manuals and backups. Without them uploads refuse with a translated message rather than failing silently |
+| Private Blob store + `CRON_SECRET` | The nightly backup |
 | Inference spend limit | Nothing, until it does |
 | Uptime monitor + nightly heartbeat | Nothing, until something breaks quietly ([`operations.md`](operations.md)) |
 
 **Two decisions, not tasks:**
 
-- **Is student email in Notion acceptable to the university?** It affects tickets, projects,
-  and corrections alike.
+- **Student data.** Tickets, corrections and projects record the signed-in reporter's name
+  and email in Postgres and the nightly backup; confirm that is acceptable to the
+  university, and whether names may go to a Notion mirror.
 - **Photo consent** for student work in a public gallery.
 
 **One with a deadline:** `RATE_LIMIT_ANON_CHAT` for ISAM. Conference wifi puts every visitor
@@ -504,10 +562,13 @@ opens. Raise it, or use a shared demo account.
 
 | Symptom | Cause |
 |---|---|
-| Machines the lab does not own | A `NOTION_DB_*` is missing. Check `/api/health` and the logs for `Falling back to mock catalog`. |
-| A tool is missing from the site | `published` unticked, or the cache has not refreshed — the catalogue caches for 24h; use the Refresh button or `/api/admin/revalidate`. |
-| A field is empty on the site but filled in Notion | Someone renamed the Notion property. The parser tolerates snake_case and Title Case, but not a rename. |
-| Corrections fail silently | The Flags `status` select has no `New` option. |
+| The **DEMO DATA** banner on a deployment | `DATABASE_URL` is not set for that environment, or was added without a redeploy. |
+| A page errors or `/api/health` answers 503 | Postgres is unreachable — check Neon under Storage and the logs for `DbUnavailableError`. The site never falls back to demo data when a database is configured. |
+| A tool is missing from the site | It is unpublished (`/admin/inventory`), or the cache has not refreshed — use the header's Refresh control or `/api/admin/revalidate`. |
+| Photo uploads say they are unavailable | No Blob store is linked under a name the app reads (step 2), or the variables were added without a redeploy. |
+| A private upload or the backup fails, public ones work | The private store is not linked as `BLOB_PRIVATE_*`, so private files went to the public store, which refuses them (step 2). |
+| `data:push` says the env file has no `DATABASE_URL` / no Blob credentials | Sensitive values came back blank from `vercel env pull`; copy them from the dashboard (step 6). |
+| Sign-in fails right after deploying | `AUTH_BASE_URL` is a placeholder or the wrong origin, or the Google redirect URI does not match it exactly. |
 | Assistant errors | Check the Gateway spend limit first (a capped budget answers like an outage), then `MODEL_*`/`EVAL_MODEL` for a malformed id (`ModelConfigError` names the variable), then the Gateway's own status. The catalogue keeps working — they fail independently. |
 | `test:all` fails to start E2E | `npm run dev` is still running and holding `.next/dev/lock`. |
 | Bad deploy | Vercel → Deployments → last good one → **Promote to Production**. Roll back first, diagnose after. |

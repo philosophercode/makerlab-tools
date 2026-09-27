@@ -1,7 +1,7 @@
 # MCP Access: Public Reads, Personal Tokens, Sign-in — Design Spec
 
 **Date:** 2026-09-23
-**Status:** Implemented (branch `v5/mcp-access`, 2026-09-24) — see the amendment at the end
+**Status:** Implemented — phases 0–4 (branch `v5/mcp-access`, 2026-09-24); see the amendment at the end
 **Target:** `v5/`
 **Branch:** `v5/mcp-access-spec`
 **Spec PR:** #TBD · **Implementation PR:** #TBD

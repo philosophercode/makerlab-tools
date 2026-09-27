@@ -1,40 +1,65 @@
 # MakerLab Tools
 
-A digital inventory and discovery system for makerspaces. Students browse the equipment
-catalogue, ask an AI assistant about any machine in any language, and file maintenance
-tickets from the same conversation. Staff keep the data in Notion, which they already use.
+The equipment inventory and AI assistant for the **Cornell Tech MakerLAB**. Students
+find a machine, read how to use it, and ask an assistant that answers from the lab's own
+records and manuals. Staff keep the inventory, work maintenance tickets and add new
+equipment in the same app.
 
-Deployed at the **Cornell Tech MakerLAB** across ~100 machines. Subject of an accepted demo
-paper at ISAM 2026.
+**Live:** <https://makerlab-ai.vercel.app>
 
-> [!IMPORTANT]
-> **The live application is `v5/`.** The root `src/` directory is v4 — an older
-> AirTable-backed version, kept for reference and receiving no changes. Everything below
-> refers to v5 unless it says otherwise.
+Deployed across the lab's ~100 machines, and the subject of an accepted demo paper at
+ISAM 2026.
+
+> [!NOTE]
+> **The app is `v5/`.** Run every command below from there. The root `src/` tree is v4, an
+> older AirTable-backed version kept for reference only; a pending change (PR #79) moves
+> `v5/` to the repository root and retires it. Until then, paths in these docs are written
+> for the current layout.
 
 ---
 
 ## What it does
 
-**Browse and search.** Fuzzy ranked search across the catalogue, with facets for category,
-material, training level, and location.
+**Tool pages.** Fuzzy search and facets (category, material, training, location) across
+the catalogue; each tool has specs, location, required training and PPE, its manuals and
+SOPs, and a live table of individual units with status and condition. QR labels on the
+machines open the right page.
 
-**Tool detail.** Specs, location, required training, PPE, emergency-stop guidance, linked
-manuals and SOPs, and a live table of individual units with status, condition, and serial.
+**An assistant on every page.** It answers from the live catalogue through tool calls,
+not from a prompt baked in at build time. Opened from a tool page it becomes a specialist
+on that machine: it **searches the machine's manuals** and cites the page it read, sees
+photos of error screens, replies in the language it is asked in, troubleshoots first and
+then files a maintenance ticket when something is genuinely broken.
 
-**An assistant on every page.** It answers from the live catalogue rather than a prompt
-baked in at build time, reads the machine's actual manual to walk through a setup or a fix,
-sees photos of error screens, replies in whatever language it is asked, and files a
-maintenance ticket when something is genuinely broken.
+**Research and intake.** Staff add equipment by pasting a list or a product link, or by
+photographing a label. The app identifies each item, researches it in the background
+(official name, description, manuals, a clean product photo) and leaves a draft for a
+person to approve. Existing tools can be re-researched the same way.
 
-**An MCP endpoint.** The catalogue is exposed as a Model Context Protocol server, so anyone
-can query the lab from Claude, ChatGPT, or another client.
+**Admin.** `/admin` holds the inventory editor, the maintenance and corrections queues,
+project moderation, intake and research, user roles and titles, and an optional one-way
+mirror into Notion. Everything created by the assistant or a student starts unpublished.
 
-**Twelve languages.** The UI is translated and the assistant answers in whatever language
-you write in. Maintenance tickets are always written in English so staff can read them.
+**MCP access.** The catalogue is a Model Context Protocol server at `/api/mcp`, so anyone
+can query the lab from Claude, ChatGPT or another client — read-only without an account,
+or as themselves after signing in. See [`docs/mcp.md`](docs/mcp.md).
 
-**White-label.** Branding, colours, institution name, and assistant name all come from
-environment variables. Nothing about Cornell is hardcoded.
+**Twelve languages, white-label.** The interface is translated through `next-intl`;
+branding, colours, institution and assistant name come from environment variables.
+
+---
+
+## Stack
+
+Next.js 16 (App Router, React Server Components, `cacheComponents`), React 19,
+TypeScript, Tailwind CSS 4 with shadcn/ui. **Postgres** (Neon) through Drizzle ORM, with
+pgvector for manual search; **Vercel Blob** for files (one public store, one private).
+Better Auth with Google sign-in, restricted to Cornell addresses. Models through the
+**Vercel AI Gateway** via the AI SDK. MCP via `@modelcontextprotocol/sdk`. Vitest, React
+Testing Library, MSW and Playwright. Hosted on Vercel.
+
+Notion is no longer the data layer: it is read once by the import script, and optionally
+receives a one-way copy of the inventory.
 
 ---
 
@@ -43,19 +68,43 @@ environment variables. Nothing about Cornell is hardcoded.
 ```bash
 cd v5
 npm install
-npm run dev          # http://localhost:3000
+npm run dev                  # http://localhost:3000
 ```
 
-**It runs with no configuration.** Without Notion credentials the app serves a built-in mock
-catalogue — enough to develop against, and what the entire test suite uses. To point it at
-real data, copy `v5/.env.example` to `v5/.env.local` and fill in the Notion and Anthropic
-keys.
+**It runs with no configuration.** With `DATABASE_URL` unset the app uses an in-process
+Postgres (PGlite) seeded with two demo tools, shows a **demo data** banner, and stores
+uploads in `v5/.blob-data/`. Add `AI_GATEWAY_API_KEY` to `v5/.env.local` to turn the
+assistant on. `v5/.env.example` documents every variable.
+
+**Working against the real inventory locally** uses a persistent PGlite database:
 
 ```bash
-npm run test:all     # lint + typecheck + unit/integration/component + E2E
+cd v5
+PGLITE_DATA_DIR=.pglite-data npm run dev -- -p 3001     # set AUTH_BASE_URL=http://localhost:3001
 ```
 
-The full suite needs **no credentials and makes no network calls.**
+`.pglite-data/` is single-process: stop the dev server before running an import,
+`db:migrate`, `manuals:index` or `data:push` against it. How the local database is
+filled from Notion and later copied to the hosted site is in
+[`docs/deploy.md`](docs/deploy.md).
+
+### Commands
+
+Run from `v5/`:
+
+```bash
+npm run dev            # dev server
+npm run build          # db:migrate, then next build
+npm run lint           # eslint
+npm run typecheck      # tsc --noEmit
+npm test               # vitest: unit + integration + component
+npm run test:e2e       # playwright (once: npx playwright install chromium)
+npm run test:all       # all of the above; must pass before a merge
+npm run spec:coverage  # every route, tool, script and env var is documented
+npm run eval           # agent eval harness — real, paid model calls; never in CI
+```
+
+The test suite needs **no credentials and makes no network calls**.
 
 ---
 
@@ -63,45 +112,28 @@ The full suite needs **no credentials and makes no network calls.**
 
 | Document | For |
 |---|---|
-| [`docs/deploy.md`](docs/deploy.md) | **Setting it up.** Run it locally in stages, then host it on Vercel. |
-| [`docs/architecture-guide.md`](docs/architecture-guide.md) | **How it works.** Start here if you're inheriting the code. |
-| [`docs/handover.md`](docs/handover.md) | **Running it.** Accounts, keys, routine operations, what to do when it breaks. |
-| [`docs/constitution.md`](docs/constitution.md) | The rules any change must respect. |
-| [`docs/specs/`](docs/specs/) | Design specs. Every feature has one, written before it was built. |
-| [`docs/v5-plan.md`](docs/v5-plan.md) | The original architecture plan; §9 is the long-term vision. |
+| [`docs/deploy.md`](docs/deploy.md) | **Setting it up.** Local stages, then a Vercel deployment step by step. |
+| [`docs/handover.md`](docs/handover.md) | **Running it.** Accounts, routine tasks, backups, what to do when it breaks. |
+| [`docs/architecture-guide.md`](docs/architecture-guide.md) | **How it works.** Start here if you are inheriting the code. |
+| [`docs/mcp.md`](docs/mcp.md) | Connecting Claude, ChatGPT, Codex and other MCP clients. |
+| [`docs/constitution.md`](docs/constitution.md) | The rules every change must respect. |
+| [`docs/specs/`](docs/specs/README.md) | Design specs and what is built against each. |
+| [`docs/MakerLab_design/DESIGN.md`](docs/MakerLab_design/DESIGN.md) | The design system. |
+| [`AGENTS.md`](AGENTS.md), [`v5/AGENTS.md`](v5/AGENTS.md) | Repo map, conventions and app detail, for people and AI assistants alike. |
 | [`v5/TESTING.md`](v5/TESTING.md) | Test suite runbook. |
-| [`AGENTS.md`](AGENTS.md) | Conventions and repo map, for humans and AI assistants alike. |
-
----
-
-## Tech stack
-
-Next.js 16 (App Router, React Server Components), React 19, TypeScript, Tailwind CSS 4.
-Claude via the Vercel AI SDK. Notion as the data layer, across seven databases. `next-intl`
-for translation. Vitest, React Testing Library, MSW, and Playwright for tests. Deployed on
-Vercel.
-
-## Commands
-
-Run from `v5/`:
-
-```bash
-npm run dev          # dev server
-npm run build        # production build
-npm run lint         # eslint
-npm run typecheck    # tsc --noEmit
-npm test             # vitest: unit + integration + component
-npm run test:e2e     # playwright (once: npx playwright install chromium)
-npm run test:all     # everything
-```
 
 ## Contributing
 
 Every feature starts with a spec that merges **before** the implementation
 ([`docs/constitution.md`](docs/constitution.md), Article 1). Use
-[`docs/specs/TEMPLATE.md`](docs/specs/TEMPLATE.md), or `/spec` if you're working with Claude
-Code. `npm run test:all` must pass before any merge.
+[`docs/specs/TEMPLATE.md`](docs/specs/TEMPLATE.md), or `/spec` in Claude Code.
+`npm run test:all` must pass before any merge.
 
-## License
+## Who owns it
 
-MIT
+The **Cornell Tech MakerLAB**:
+
+- **Niti Parikh** — Director
+- **Luis Rodrigo Navarro** — Assistant Director
+- **Isaac Steinberg** — Tech Lead
+

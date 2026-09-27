@@ -1,6 +1,7 @@
 # v5 Comprehensive Test Suite — Design & Dispatch Plan
 
 **Date:** 2026-05-29
+**Status:** Implemented — runbook in `v5/TESTING.md` (status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/` (Next.js 16, React 19, TypeScript)
 **Goal:** Add a comprehensive, fully-mocked, CI-friendly test suite — unit, integration, component/UI, and end-to-end — plus a runbook. No live external calls.
 

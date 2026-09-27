@@ -1,6 +1,11 @@
 # MakerLab Tools v5 — Architecture Plan
 
-> **Status:** Draft · **Author:** Isaac · **Date:** 2026-04-29
+> **Status:** Historical · **Author:** Isaac · **Date:** 2026-04-29
+>
+> **Read as history.** This is the plan v5 started from, when Notion was the data layer. The
+> data platform spec (`specs/2026-09-14-v5-data-platform-design.md`) moved v5 to Postgres
+> with an in-app admin, and the specs in `specs/` — indexed in `specs/README.md` — are the
+> current design. Where this plan and a spec disagree, the spec wins.
 >
 > v5 narrows the v4 surface area to **two pages plus an everywhere-chat overlay**, backed by Notion instead of AirTable. This document covers the v5 initial release. Four post-v1 phases — MCP, Maintenance/Flag forms, Student Projects, and AI-Assisted Tool Ingestion — are sketched in §4 (Roadmap).
 
@@ -571,18 +576,14 @@ Once the bot lives in the workspace, **proactive push** is free: *"your print fi
 ### 9.10 Updated horizon
 
 > [!NOTE]
-> **Superseded, 2026-07-29.** Everything below labelled **v6 and later became a separate
-> project — `philosophercode/blueprint`** — rather than further versions of this codebase.
-> Blueprint rebuilds the system on Postgres with a built-in admin surface and a
-> self-hosted deployment story, so that it can be adopted by labs beyond Cornell.
+> **Superseded.** On 2026-07-29 the phases below labelled **v6 and later** were moved to a
+> separate project, and this repository was to end at v5 on Notion. That decision was
+> reversed in September 2026: v5 moved to Postgres with a built-in admin surface (the data
+> platform spec), and **this repository is the product going forward**. Several rows below
+> — auth, admin, AI ingestion, the SQL backend — have since been built here.
 >
-> **This repository ends at v5**, which stays the live Cornell Tech deployment on Notion.
-> Its remaining scope is the four specs in `docs/specs/`: sign-in and rate limiting, the
-> projects gallery, an agent eval harness, and the AI Gateway migration.
->
-> The table is kept as written because the reasoning behind each phase still holds and
-> Blueprint's architecture was derived from it. Read it as the origin of that plan, not as
-> a roadmap for this repository.
+> The table is kept as written because the reasoning behind each phase still holds. Read
+> it as the origin of the plan, not as the roadmap; `specs/README.md` is the current one.
 
 Indicative, not committed — re-prioritized in real time as data lands.
 

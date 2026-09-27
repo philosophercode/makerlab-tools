@@ -1,231 +1,95 @@
-# v5 Specification Set — Master Index
+# Specification Set — Master Index
 
-> **Status as of 2026-07-30.** The eight specs below are the source of truth for the
-> remaining v5 scope. This file tracks what each one specifies and **what is actually built
-> against it**, because a spec set with no conformance record is a wish list.
+> **Status as of 2026-09-27.** Every design spec in this folder, and **what is actually
+> built against it**, because a spec set with no conformance record is a wish list.
 >
 > Constitution: [`../constitution.md`](../constitution.md) — seven articles, binding.
-> Format for new specs: [`TEMPLATE.md`](TEMPLATE.md).
+> Format for new specs: [`TEMPLATE.md`](TEMPLATE.md). Keeping specs and code honest with
+> each other: [`DRIFT.md`](DRIFT.md).
 
-## How conformance was checked
+## How conformance is checked
 
-**Phase-level, by artifact presence and inspection** — for each spec's §9 build order, does
-the code it calls for exist and do its tests pass. Verified 2026-07-29 against the
-`v5/specs-and-handover` working tree (the batch on top of commit `c3b15a3`), with every gate
-run and observed green:
+**Phase-level, by artifact presence and inspection** — for each spec's build order, does
+the code it calls for exist and do its tests pass. A phase marked *built* means its
+artifacts exist and are tested, not that every clause of the prose is satisfied; where the
+build diverged, the spec carries a dated as-built amendment saying how and why.
 
-| Gate | Result |
-|---|---|
-| `npm run typecheck` | clean |
-| `npm run lint` | 0 errors, 3 pre-existing warnings |
-| `npm test` | **761 passed** across 51 files |
-| `npm run test:e2e` | **33 passed** (chromium) |
-| `npm run spec:coverage` | 67 surface items · **0 undocumented** |
-
-The suite was also re-run with a stripped environment (`env -i`) and passes identically,
-which is Article 3's own stated check: no credential, no key, no network.
-
-Two mechanisms keep it current: `npm run spec:coverage` (mechanical — every route,
-capability tool, script, and env var must appear somewhere in `docs/`) and `/drift`
+Two mechanisms keep this current: `npm run spec:coverage` (mechanical — every route,
+capability tool, script and env var must appear somewhere in `docs/`) and `/drift`
 (semantic — an agent reads specs against code). See [`DRIFT.md`](DRIFT.md).
 
-**What this is not.** It is not a line-by-line conformance proof. A phase marked *built*
-means its artifacts exist and are tested, not that every clause of the spec's prose is
-satisfied. Where a phase was deliberately skipped, the reason is recorded.
+The audit behind this table was re-verified on 2026-09-27 against `main` at `875c796`.
 
 ---
 
 ## Status
 
-| # | Spec | Phases | Built | State |
-|---|---|---|---|---|
-| 1 | [Sign-in & Tiered Rate Limiting](2026-07-29-auth-and-rate-limiting-design.md) | 5 | 5 | **Approved** · complete |
-| 2 | [Student Projects Gallery](2026-07-29-projects-gallery-design.md) | 5 | 5 | Draft · complete |
-| 3 | [Agent Eval Harness](2026-07-29-agent-eval-harness-design.md) | 5 | 5 | Draft · complete |
-| 4 | [AI Gateway Migration](2026-07-29-ai-gateway-migration-design.md) | 5 | 2 | Draft · **blocked on credentials** |
-| 5 | [Operational Hardening](2026-07-29-operational-hardening-design.md) | 7 | 5 | Built · phase 2 is account setup ([`operations.md`](../operations.md)); phase 6 superseded |
-| 6 | [QR Codes on Machines](2026-07-29-qr-codes-design.md) | 4 | 4 | Draft · complete |
-| 7 | [Report a Correction](2026-07-29-report-a-correction-design.md) | 4 | 4 | Draft · complete |
-| 8 | [Intake Confidence](2026-07-29-intake-confidence-design.md) | 5 | 5 | Draft · complete |
+### Implemented
 
-**35 of 40 phases built.** The 5 open ones sit on two specs, and **not one of them is blocked
-on code**: Gateway 3–5 need a key and a Vercel project; Ops 2 and 6 are dashboard
-configuration a person does. Six of the eight specs are complete. Everything remaining is in
-[Blocking questions](#blocking-questions-for-a-person).
-
-### In design
-
-| Spec | State |
+| Spec | Notes |
 |---|---|
-| [v5 Data Platform](2026-09-14-v5-data-platform-design.md) — Postgres, Blob, three roles, admin inventory, two-step intake with background research, a per-admin Notion mirror | Draft · awaiting approval · amends constitution Articles 3, 4, 5, 6 and 7 in the same PR |
-| [UI System](2026-09-25-ui-system-design.md) — shadcn/ui on Tailwind 4 themed to the Blueprint identity, Tufte density rules, DataTable/ReviewCard/Tile, admin IA (tile home, section bar), AI Elements chat; pairs with [`DESIGN.md`](../MakerLab_design/DESIGN.md) | Draft · spike on `v5/ui-spike` · 6 phases, open questions for the owner |
+| [v5 Test Suite](2026-05-29-v5-test-suite-design.md) | Four offline layers; runbook in `v5/TESTING.md` |
+| [Student Projects Gallery](2026-07-29-projects-gallery-design.md) | Storage moved from Notion to Postgres (data platform phase 3); moderation at `/admin/projects` |
+| [Agent Eval Harness](2026-07-29-agent-eval-harness-design.md) | `npm run eval`; real, paid, never in CI |
+| [QR Codes on Machines](2026-07-29-qr-codes-design.md) | `npm run qr:labels` |
+| [Report a Correction](2026-07-29-report-a-correction-design.md) | Corrections land in `feedback`, worked at `/admin/corrections` |
+| [Bulk Intake](2026-09-23-bulk-intake-design.md) | Import a list on `/admin/intake`; allowances on People |
+| [Gateway-First Models and a Product Image Finder](2026-09-23-gateway-models-and-product-images-design.md) | Gateway is the only model path; deterministic cutout, no generative redraw |
+| [MCP Access](2026-09-23-mcp-access-design.md) | Phases 0–4: public reads, personal tokens, OAuth sign-in; user guide `docs/mcp.md` |
+| [Refresh Research](2026-09-23-refresh-research-design.md) | Phases 1–4 built. Not yet run over the real inventory |
+| [Official and Display Names](2026-09-24-tool-display-names-design.md) | `tools.official_name`; backfill with `npm run names:backfill` |
+| [Manual Text and Search](2026-09-23-manual-text-and-search-design.md) | Phases 1–3: page text, passages, embeddings, `search_manual`; OCR for scanned PDFs, reranking, `halfvec` storage. Re-index with `npm run manuals:index` |
+| [Operational Hardening](2026-07-29-operational-hardening-design.md) | Health endpoint, demo banner, nightly backup with tiered retention, staff refresh, backup heartbeat. Phase 2 (uptime monitor) is account setup in [`operations.md`](../operations.md); phase 6 (Notion webhook) superseded |
 
-*(Ops was recorded as 6 built on 2026-07-29 and corrected to 5 in the same day's audit: its
-phases 1, 3, 4, 5, and 7 have artifacts in code, and 7 − 2 open is 5. The row and its "phases
-2, 6 open" note disagreed with each other.)*
+### Mostly implemented — open work named
 
-### Drift check, 2026-07-30
-
-A semantic pass (`/drift`) after the build, plus actually running the app. `spec:coverage`
-was clean at 67 items / 0 undocumented; the findings below were all invisible to it,
-because none of them add or remove surface.
-
-| Finding | Bucket | Outcome |
+| Spec | Built | Open |
 |---|---|---|
-| Ops phase 1's **degraded banner** was never built, though the phase was recorded as complete | NOT-BUILT | **Closed** — `DemoDataBanner`, 12 locales, 10 tests |
-| Ops §3.4 **lazy manual attachment** — code attaches once to the first message with `cacheControl` instead | SPEC-STALE | Amended; the code's approach is better |
-| Intake §3.3 **progressive cards** — emitted per item, but only after the whole batch researches | DIVERGENT | Amended, **open as a decision** |
+| [v5 Data Platform](2026-09-14-v5-data-platform-design.md) — Postgres, Blob, roles, admin inventory, two-step intake, Notion mirror | Phases 1–6 and 8 | **Phase 7** (people load and validate the real inventory — not code) pending. **Phase 9** (translation pass) deferred until after launch |
+| [UI System](2026-09-25-ui-system-design.md) — shadcn/ui, Tufte density, admin IA, AI Elements chat | Phases 1–5 | **Phase 6** (delete legacy CSS) waits for the repo flatten, PR #79 |
+| [Sign-in and Tiered Rate Limiting](2026-07-29-auth-and-rate-limiting-design.md) | Google sign-in, tiered rate limits as specced | The env-list role model is **superseded** by Better Auth and the `user` table (data platform phase 4) |
+| [Intake Confidence](2026-07-29-intake-confidence-design.md) | Confidence grading and parallel identification, now inside the research pipeline | The chat-side card behaviour is **obsolete** — `propose_listing` was removed with the two-step intake (data platform phase 6) |
 
-The banner is the one worth learning from: **no test and no mechanical check could have
-caught it.** A missing banner adds no surface and breaks nothing. It took opening the page
-and noticing the catalogue claimed two machines with nothing saying they were invented.
+### Superseded — kept for history, do not implement against
 
-### Pre-ISAM fixes, 2026-09-14
-
-Found by reading the code ahead of the ISAM demo. None of them adds or removes surface, so
-`spec:coverage` could not see them.
-
-| Finding | Bucket | Outcome |
-|---|---|---|
-| Intake §6.1 **photos never reached the model** — the client sent only the text hint | NOT-BUILT | **Closed** — a downscaled image part goes out with the message; intake spec amended |
-| Intake §4.4 **"add a unit" button** seeded a message no tool could act on | NOT-BUILT | **Closed** — button withdrawn; intake spec amended |
-| **Anyone could add equipment**, anonymous visitors included | DECISION | **Closed** — intake is staff-only; auth spec amended |
-
-Also here: [`2026-05-29-v5-test-suite-design.md`](2026-05-29-v5-test-suite-design.md)
-(implemented) and [`2026-06-01-chat-inventory-intake-design.md`](2026-06-01-chat-inventory-intake-design.md)
-(implemented; extended by #8).
-
----
-
-## Constitution audit
-
-Checked article by article against the diff on 2026-07-29, not assumed from the specs.
-
-| Article | Finding |
+| Spec | Superseded by |
 |---|---|
-| 2 — capability registry | Held. `report_correction` and the `POST /api/flags` form share one code path in `capabilities/flags.ts`; routes translate, they do not decide. |
-| 3 — tests at every layer, no network | Held, after one gap was closed. 761 unit/integration + 33 E2E, green with `env -i`. No test resolves a real host: the only absolute URLs in tests are `*.test`, `example.*`, and Notion URLs used as *data*, never fetched. **The audit found `src/lib/blob.ts` shipped untested** — the backup route mocks the seam, so nothing asserted the seam's own behaviour. `src/lib/blob.test.ts` (8 tests) now pins the `access: "private"` invariant, the no-random-suffix rule the prune step depends on, and the bounded `list` pagination. |
-| 4 — good client | Held. **All 10 API routes rate-limit before any outbound work**, including the new `/api/admin/backup`; the auth handler limits by IP precisely because the caller has no session yet. Intake fan-out is bounded at `RESEARCH_CONCURRENCY = 4` with `allSettled` semantics, so one unidentifiable item cannot fail the batch. |
-| 5 — writes are drafts | Held, and directly tested. `createTool`, `createResource`, and `createProject` each hard-code `published: false`. `POST /api/projects` ignores `published: true` from the body **and** from a signed-in client — both are named tests. |
-| 6 — no hardcoded branding | Held. All 12 locale files carry **identical key sets (232 keys each)** — verified by path, not by count. 21 keys take placeholders and **every one is passed at its call site**, including the two dynamic sites (`IdentificationCard` forwards `line.values` and `action.labelValues`). This is the bug class that bit this branch before; it is clean now. |
-| 7 — Notion is the source of truth | Held. The backup route reads raw Notion pages and adds no editing surface. |
-
-### The security property of this batch
-
-**A client cannot assert its own identity.** Checked directly rather than inferred:
-
-- `reporter_email` is written from `ctx.identity?.email` / `identity.email` only. It is on no
-  input schema, and `report_issue`'s `reported_by` is overridden by the session when present.
-- `author_email` is written from `identity.email` only. `ProjectPayload` deliberately has no
-  such field, and `ProjectWriteFields` documents it as write-only and server-resolved.
-- Both are covered by tests that pass the field in the request body and assert it is ignored —
-  including the harder case where a *session exists and the body claims something else*.
-
-Anonymous stays a first-class path in all of it: no session simply means no email recorded,
-and the submission still succeeds.
+| [Chat Inventory Intake](2026-06-01-chat-inventory-intake-design.md) | [v5 Data Platform](2026-09-14-v5-data-platform-design.md) phase 6 — the two-step intake (`identify_tools`, background research, approval) |
+| [AI Gateway Migration](2026-07-29-ai-gateway-migration-design.md) | [Gateway-First Models and a Product Image Finder](2026-09-23-gateway-models-and-product-images-design.md) |
+| [Gallery Projects (2026-05-29)](../superpowers/specs/2026-05-29-gallery-projects-design.md) | [Student Projects Gallery](2026-07-29-projects-gallery-design.md) — an older duplicate |
 
 ---
 
-## Open gaps, and why
+## What is left to build
 
-### Genuine gaps — specified, agreed, not yet built
+Everything open, in one place:
 
-~~**Projects phase 3 — `author_email`.**~~ **Built 2026-07-29.** `POST /api/projects`
-resolves the identity it already had and writes `author_email` from the session and nowhere
-else; the submit form pre-fills the byline from `GET /api/identity` and makes it read-only.
-Anonymous submission is untouched, which is the point (spec §5). See that spec's Amendments.
+1. **Monitoring setup** — the uptime and heartbeat monitors and the AI Gateway budget, all
+   account setup a person does ([`operations.md`](../operations.md)).
+2. **Manual search** — first OCR run over the scanned manuals (`npm run manuals:index`).
+3. **UI system phase 6** — legacy CSS removal, after PR #79 moves `v5/` to the repo root.
+4. **Data platform phase 7** — not code: Isaac and Luis load and validate the real inventory
+   in person, and file what breaks.
+5. **Data platform phase 9** — the translation pass, after launch.
+6. **Refresh research** — its first run over the real inventory (built; not yet used).
 
-~~**Ops phase 5 — backup route and cron.**~~ **Built 2026-07-29.** `GET /api/admin/backup`
-dumps every configured Notion database to one private Vercel Blob file per day
-(`backups/YYYY-MM-DD.json`), pruning past 30 days in the same job, on a nightly Vercel Cron.
-Every failure path returns non-200 so a broken backup shows up in the cron log rather than
-on the day it is needed. **It is inert until a person links a Blob store and sets
-`CRON_SECRET`** — see `handover.md` §3. See that spec's Amendments.
-
-**Ops phases 2 and 6** — uptime monitor and Notion automation webhook. *Updated
-2026-09-27:* the Notion-dump route above has since been deleted — `/api/cron/daily` is the
-backup, with tiered retention to three years. Phase 2 remains a person's account setup, now
-written up in [`operations.md`](../operations.md) with a heartbeat that emails when the
-nightly job fails or does not run. Phase 6 is superseded: v5 is Postgres-first, so there is no
-Notion edit to listen for. See the ops spec's amendment 2026-09-27.
-
-~~**Ops phase 7 — staff refresh button.**~~ **Built 2026-07-29.** A `staff`/`admin`-only
-Refresh control in the header calls `POST /api/admin/revalidate`, which now authorises a
-staff session as well as the `x-admin-secret` header. Server-side authorisation is the
-control; hiding the button is presentation. See that spec's Amendments.
-
-### Deliberately deferred
-
-**Gateway phases 3–5** — needs an `AI_GATEWAY_API_KEY` and a Vercel project nobody has
-configured. Phase 1 (the `src/lib/model.ts` seam) is built and is the part worth having
-regardless: it makes the next model upgrade a one-line change. Phase 2 is now built too —
-`@ai-sdk/gateway` is a dependency and the gateway branch calls it — but **the branch has
-never run against a live gateway**, so treat "built" here as "written and unit-tested", not
-"working". Phase 2's own instruction to verify locally with a key is the part that could not
-be done; see the spec's as-built amendment, which also records that the gateway model id in
-§3 was wrong.
-
-~~**Intake confidence phases 4–5**~~ **Built 2026-07-29.** Confidence now changes what the
-agent does. A low grade proposes **no listing at all** — no card is rendered, and the agent
-asks for the one thing that would resolve it; a medium grade leads the card with the
-ambiguity and makes resolving it the primary action; high is unchanged. `research_tool`
-takes an array and fans out all-settled at a concurrency of 4, so one unidentifiable item
-never fails the other seven. **The write model is untouched** — `create_tool` still needs an
-explicit human confirmation and still writes `published: false`; confidence never
-authorises a write. See that spec's Amendments, which also record that `propose_listing`
-now emits its own cards (the adapter only ever rendered the first of a batch) and that
-card action labels moved onto `next-intl` keys.
-
-### Known coverage gap, spanning specs
-
-~~**No E2E specs for the five new user-facing paths.**~~ **Largely closed 2026-07-29.** This
-was the largest outstanding testing gap; four of the five paths now have E2E specs, and the
-suite grew from 17 tests to 33:
-
-| Path | Spec | Tests |
-|---|---|---|
-| Project submission & gallery | `v5/e2e/projects.spec.ts` | 7 |
-| Report a correction | `v5/e2e/corrections.spec.ts` | 3 |
-| QR arrival | `v5/e2e/qr-arrival.spec.ts` | 3 |
-| Sign-in / sign-out | `v5/e2e/auth.spec.ts` | 3 |
-
-**What is still uncovered, and why.** Project *detail* and "Built with this" — and they
-cannot be covered at this layer as things stand. E2E boots with `NOTION_*` unset, so the
-published set is empty by construction and there is no project to open. Sign-in is covered
-only as far as a *stubbed* session cookie reaches: the Google round-trip is never exercised,
-because that would be a network call and Article 3 forbids one. Both limits are deliberate
-and are recorded in the relevant specs' Amendments.
-
----
-
-## Build order
-
-Merge order mattered and is recorded for anyone reconstructing this:
-`chat-inventory-intake` → `projects-gallery` → specs 1, 3, 5–8 in parallel → auth.
-
-Most specs depend on the capability registry, which arrived with `chat-inventory-intake`.
-Auth touches every API route and was run alone for that reason.
-
-## Blocking questions for a person
+## Open questions for a person
 
 These gate work and none of them are code:
 
-1. **Google OAuth client** — ID, secret, redirect URI. Gates auth in any real environment.
-2. **`AUTH_STAFF_EMAILS` / `AUTH_ADMIN_EMAILS`** — the two lists *are* the entire role
-   assignment mechanism. There is no user database.
-3. **Notion: Projects database** with a `published` checkbox — the Article 5 moderation gate —
-   and an `author_email` **Email** property. Without that column the submission still
-   succeeds (the route retries without it and logs loudly), but no verified author is
-   recorded.
-4. **Notion: Flags `status` select needs a `"New"` option.** Notion rejects unknown select
-   options on write, so corrections fail silently without it.
-5. **Is student email in Notion acceptable to the university?** Affects tickets, projects,
-   and corrections alike.
-6. **Photo consent** for student work in a public gallery.
-7. **ISAM rate-limit bypass** — conference wifi NATs every visitor behind one IP, which
-   would exhaust the anonymous per-IP allowance within minutes. `RATE_LIMIT_ANON_CHAT`
-   exists for this. **Hard deadline.**
-8. **Who owns the Vercel project, the API keys, and the bill.**
-9. **Vercel Blob store + `CRON_SECRET`** — the backup route is built and does nothing until
-   both exist. A backup nobody enabled is indistinguishable from the gap it was meant to
-   close, so this is a task, not a nicety. The store holds student PII and must stay private.
+1. **Owners** of the Vercel project, the Gateway budget, the Google OAuth client and the
+   bill — `docs/handover.md` §2.
+2. **Student data** — names and emails in tickets, corrections, projects, the nightly
+   backup and any Notion mirror: acceptable to the university?
+3. **Photo consent** for student work in the public gallery.
+4. **ISAM rate limit** — conference wifi puts every visitor behind one IP;
+   `RATE_LIMIT_ANON_CHAT` exists for this. **Hard deadline.**
+
+---
+
+## History
+
+The earlier revisions of this index (2026-07-30 conformance audit of the first eight specs,
+the 2026-07-30 drift check, the 2026-09-14 pre-ISAM fixes, and the constitution audit of
+that batch) are in git history (`git log -p -- docs/specs/README.md`). Their findings were
+closed or folded into the specs' own amendments.

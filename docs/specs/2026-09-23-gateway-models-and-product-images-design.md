@@ -1,7 +1,7 @@
 # Gateway-First Models and a Product Image Finder — Design Spec
 
 **Date:** 2026-09-23
-**Status:** Draft
+**Status:** Implemented — the Gateway is the only model path (status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/`
 **Branch:** `v5/gateway-images-spec`
 **Spec PR:** #TBD · **Implementation PR:** #TBD
