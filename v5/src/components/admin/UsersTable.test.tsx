@@ -20,6 +20,7 @@ function person(overrides: Partial<UserRecord> = {}): UserRecord {
     role: "user",
     banned: false,
     banReason: null,
+    title: null,
     createdAt: new Date("2026-03-04T10:00:00.000Z"),
     ...overrides,
   };
@@ -36,8 +37,17 @@ function renderTable(
 ) {
   const setRole = vi.fn(async () => ({ ok: true }) as const);
   const removeUser = vi.fn(async () => removeResult);
-  render(<UsersTable users={users} currentUserId={currentUserId} setRole={setRole} removeUser={removeUser} />);
-  return { setRole, removeUser };
+  const setTitle = vi.fn(async () => ({ ok: true, title: null }) as const);
+  render(
+    <UsersTable
+      users={users}
+      currentUserId={currentUserId}
+      setRole={setRole}
+      removeUser={removeUser}
+      setTitle={setTitle}
+    />
+  );
+  return { setRole, removeUser, setTitle };
 }
 
 function rowFor(name: string) {
@@ -52,6 +62,20 @@ describe("UsersTable — the roster", () => {
     expect(within(row).getByText("ada@cornell.edu")).toBeInTheDocument();
     expect(within(row).getByRole("combobox", { name: /Ada Lovelace/ })).toHaveValue("user");
     expect(within(row).getByRole("button", { name: "Remove Ada Lovelace" })).toBeEnabled();
+  });
+
+  it("shows each person's title under their name: custom, else the role's default", () => {
+    renderTable([
+      person(),
+      person({ id: "u-grace", name: "Grace Hopper", email: "grace@cornell.edu", role: "admin" }),
+      person({ id: "u-dee", name: "Dee Rector", email: "dee@cornell.edu", role: "super_admin", title: "Lab Director" }),
+    ]);
+
+    // By test id: "Student" is also an option in the row's role select.
+    expect(within(rowFor("Ada Lovelace")).getByTestId("person-title")).toHaveTextContent("Student");
+    expect(within(rowFor("Grace Hopper")).getByTestId("person-title")).toHaveTextContent("Supermaker");
+    expect(within(rowFor("Dee Rector")).getByTestId("person-title")).toHaveTextContent("Lab Director");
+    expect(within(rowFor("Dee Rector")).getByRole("button", { name: "Edit the title for Dee Rector" })).toBeInTheDocument();
   });
 
   it("offers no Ban any more", () => {

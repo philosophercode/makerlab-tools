@@ -13,7 +13,7 @@ import { auditEvents, blockedEmails, session, user } from "../../../lib/db/schem
 import { listAuditEvents } from "../../../lib/data/audit";
 import { findUserById } from "../../../lib/data/users";
 import { seedUser, signInAs, signInAsNew } from "../../../../test/utils/session";
-import { removeUser, setUserRole, unblockBlockedEmail } from "./actions";
+import { removeUser, setUserRole, setUserTitle, unblockBlockedEmail } from "./actions";
 
 /**
  * The two `/admin/users` writes, end to end over PGlite: a real Better Auth
@@ -260,6 +260,112 @@ describe("setUserRole", () => {
       role: "admin",
     });
     expect(await roleOf(director.user.id)).toBe("admin");
+  });
+});
+
+// ── A person's title ────────────────────────────────────────────────
+
+describe("setUserTitle", () => {
+  async function titleOf(userId: string) {
+    return (await findUserById(userId))?.title;
+  }
+
+  it("is refused to anonymous callers, students and SuperMakers alike", async () => {
+    const target = await seedUser({ email: "student@cornell.edu", role: "user" });
+
+    setMockHeaders();
+    expect(await setUserTitle({ userId: target.id, title: "Shop Assistant" })).toEqual({
+      ok: false,
+      error: "not_signed_in",
+    });
+
+    for (const role of ["user", "admin"] as const) {
+      const caller = await signInAsNew({ email: `${role}-caller@cornell.edu`, role });
+      setMockHeaders({ cookie: caller.cookie });
+      expect(await setUserTitle({ userId: target.id, title: "Shop Assistant" })).toEqual({
+        ok: false,
+        error: "not_permitted",
+      });
+    }
+
+    expect(await titleOf(target.id)).toBeNull();
+    expect(await listAuditEvents()).toEqual([]);
+  });
+
+  it("stores the trimmed title and records user.title_changed with both halves", async () => {
+    const director = await asDirector();
+    const target = await seedUser({ email: "student@cornell.edu", role: "user" });
+
+    expect(await setUserTitle({ userId: target.id, title: "  Shop   Assistant " })).toEqual({
+      ok: true,
+      title: "Shop Assistant",
+    });
+    expect(await titleOf(target.id)).toBe("Shop Assistant");
+
+    const events = await listAuditEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      actorUserId: director.user.id,
+      action: "user.title_changed",
+      subjectType: "user",
+      subjectId: target.id,
+      detail: { from: null, to: "Shop Assistant" },
+    });
+    expect(vi.mocked(revalidatePath)).toHaveBeenCalledWith("/admin/users");
+  });
+
+  it("clears the custom title on a blank save — back to the role's default", async () => {
+    await asDirector();
+    const target = await seedUser({ email: "student@cornell.edu", role: "user" });
+    await setUserTitle({ userId: target.id, title: "Shop Assistant" });
+
+    expect(await setUserTitle({ userId: target.id, title: "   " })).toEqual({ ok: true, title: null });
+    expect(await titleOf(target.id)).toBeNull();
+    expect((await listAuditEvents())[0]).toMatchObject({
+      action: "user.title_changed",
+      detail: { from: "Shop Assistant", to: null },
+    });
+  });
+
+  it("lets a director retitle themselves", async () => {
+    const director = await asDirector();
+
+    expect(await setUserTitle({ userId: director.user.id, title: "Lab Director" })).toEqual({
+      ok: true,
+      title: "Lab Director",
+    });
+  });
+
+  it("refuses a title longer than 60 characters, or one that is not text, and stores nothing", async () => {
+    await asDirector();
+    const target = await seedUser({ email: "student@cornell.edu", role: "user" });
+
+    expect(await setUserTitle({ userId: target.id, title: "x".repeat(61) })).toEqual({
+      ok: false,
+      error: "invalid_title",
+    });
+    // A server action takes whatever the wire carries, whatever its type says.
+    expect(
+      await setUserTitle({ userId: target.id, title: 42 as unknown as string })
+    ).toEqual({ ok: false, error: "invalid_title" });
+    expect(await titleOf(target.id)).toBeNull();
+    expect(await listAuditEvents()).toEqual([]);
+  });
+
+  it("refuses an id that names nobody", async () => {
+    await asDirector();
+    expect(await setUserTitle({ userId: "nobody", title: "Ghost" })).toEqual({
+      ok: false,
+      error: "unknown_user",
+    });
+  });
+
+  it("treats saving the title they already have as a no-op with no event", async () => {
+    await asDirector();
+    const target = await seedUser({ email: "student@cornell.edu", role: "user" });
+
+    expect(await setUserTitle({ userId: target.id, title: "" })).toEqual({ ok: true, title: null });
+    expect(await listAuditEvents()).toEqual([]);
   });
 });
 

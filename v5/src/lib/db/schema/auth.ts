@@ -1,6 +1,7 @@
-import { boolean, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
+import { boolean, check, index, pgTable, text, timestamp } from "drizzle-orm/pg-core";
 import { inListCheck } from "./checks.ts";
-import { ROLES } from "./vocabulary.ts";
+import { ROLES, USER_TITLE_MAX_LENGTH } from "./vocabulary.ts";
 
 /**
  * Better Auth's four tables (data platform design spec 2026-09-14 §4.2).
@@ -48,6 +49,12 @@ export const user = pgTable(
     banned: boolean("banned").default(false),
     banReason: text("ban_reason"),
     banExpires: timestamp("ban_expires", { withTimezone: true }),
+    // Ours, not Better Auth's (migration `0017`): what the People page shows
+    // under a name. Null means "no custom title" — the role's default label is
+    // shown instead (`lib/people/title.ts`), so it is derived, never stored.
+    // Declared to Better Auth as `input: false` in `auth/config.ts`, so only
+    // the People page's action writes it.
+    title: text("title"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -55,6 +62,12 @@ export const user = pgTable(
     // A role outside the vocabulary is a bug or a forgery; the database is the
     // last place to catch it, and `can()` grants an unknown role nothing anyway.
     inListCheck("user_role_check", "role", ROLES),
+    // Trimmed and non-blank by the time it is stored: blank is written as null.
+    // Raw SQL for the same reason as `inListCheck` — literals, not `$1`.
+    check(
+      "user_title_length_check",
+      sql.raw(`"title" is null or (char_length("title") between 1 and ${USER_TITLE_MAX_LENGTH} and "title" = btrim("title"))`)
+    ),
     index("user_email_idx").on(t.email),
   ]
 );

@@ -8,7 +8,9 @@
  */
 import { GET } from "@/app/api/identity/route";
 import { resetAuthForTests } from "@/lib/auth/config";
-import { resetDbForTests } from "@/lib/db/client";
+import { eq } from "drizzle-orm";
+import { getDb, resetDbForTests } from "@/lib/db/client";
+import { user } from "@/lib/db/schema/index";
 import {
   BETTER_AUTH_SESSION_COOKIE,
   seedUser,
@@ -66,7 +68,18 @@ describe("GET /api/identity", () => {
       name: "Ada Lovelace",
       email: "ada@cornell.edu",
       image: "https://lh3.googleusercontent.com/a/ada-photo",
+      title: null,
     });
+  });
+
+  it("carries the custom title a super admin set on the People page", async () => {
+    const { cookie, user: signedIn } = await signInAsNew({ email: "titled@cornell.edu" });
+    const db = await getDb();
+    await db.update(user).set({ title: "Shop Assistant" }).where(eq(user.id, signedIn.id));
+
+    const body = await (await GET(identityRequest({ cookie }))).json();
+
+    expect(body.title).toBe("Shop Assistant");
   });
 
   it("answers image: null for a signed-in user Google gave no photo", async () => {

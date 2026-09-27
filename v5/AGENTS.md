@@ -385,6 +385,12 @@ Phase 5 extends both. The shape it sets:
   `/auth/blocked`. The floor is never refused. The `banned` columns stay
   (the admin plugin selects them) and nothing writes them; migration `0016`
   turned every banned account into a block plus a removal.
+- **Titles** (`user.title`, migration `0017`): null unless a super admin set a
+  custom one on the People page (`TitleEditor` → `setUserTitle`, audited as
+  `user.title_changed`). What is shown is `displayTitle()` in
+  `src/lib/people/title.ts` — the custom title, else the role's
+  `admin.titles.<role>` label — on the roster and in the profile menu. Better
+  Auth knows the field as `input: false`, so none of its endpoints write it.
 - **Every security-relevant change is recorded.** `src/lib/data/audit.ts` is
   insert-and-select only — there is deliberately no update or delete export,
   and a test asserts the module's shape. Each event snapshots `actor_name` at

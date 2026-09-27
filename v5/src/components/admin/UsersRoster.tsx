@@ -10,6 +10,7 @@ import type {
   AdminActionResult,
   RemoveUserAction,
   RemoveUserResult,
+  SetTitleAction,
 } from "../../app/admin/users/action-result";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,6 +21,7 @@ import { facetOptions } from "../system/data-table/facet-options";
 import { EmptyState } from "../system/EmptyState";
 import { RemoveUserControl } from "./RemoveUserControl";
 import { RoleSelect } from "./RoleSelect";
+import { TitleEditor } from "./TitleEditor";
 import {
   NO_USER_FILTERS,
   matchesUserFilters,
@@ -29,7 +31,8 @@ import {
 
 /**
  * The roster on `/admin/users` as a `DataTable` (UI system spec §7.2): one row
- * per account, the role select and **Remove** in their own columns, the first
+ * per account — name, title (editable inline, `TitleEditor`) and address in
+ * the first — the role select and **Remove** in their own columns, the first
  * sign-in as an ISO date. `UsersTable` has already worked out which rows
  * cannot change and why; this renders it. On a phone each person is a
  * two-line item with both controls.
@@ -47,6 +50,8 @@ export interface RosterRow {
   name: string;
   email: string;
   role: Role;
+  /** The stored custom title, or null for the role's default. */
+  title: string | null;
   joined: string;
   isSelf: boolean;
   roleLockedReason: AdminActionError | null;
@@ -58,11 +63,12 @@ export interface UsersRosterProps {
   initial?: UserFilterState;
   setRole: (input: { userId: string; role: string }) => Promise<AdminActionResult>;
   removeUser: RemoveUserAction;
+  setTitle: SetTitleAction;
 }
 
 type Removed = Extract<RemoveUserResult, { ok: true }>;
 
-export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, removeUser }: UsersRosterProps) {
+export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, removeUser, setTitle }: UsersRosterProps) {
   const t = useTranslations("admin");
   const [filters, setFilters] = useState<UserFilterState>(initial);
   const [removedIds, setRemovedIds] = useState<ReadonlySet<string>>(() => new Set());
@@ -107,7 +113,7 @@ export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, removeUs
         header: t("columnPerson"),
         enableHiding: false,
         meta: { rowHeader: true, className: "whitespace-normal", cellClassName: "align-top" },
-        cell: ({ row }) => <Person row={row.original} />,
+        cell: ({ row }) => <Person row={row.original} setTitle={setTitle} />,
       },
       {
         id: "role",
@@ -147,7 +153,7 @@ export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, removeUs
         ),
       },
     ];
-  }, [t, setRole, removeUser]);
+  }, [t, setRole, removeUser, setTitle]);
 
   const active = Boolean(userFiltersToSearchParams(filters).toString());
   const clear = () => setFilters(NO_USER_FILTERS);
@@ -204,7 +210,7 @@ export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, removeUs
         }
         mobileRow={(row) => (
           <div className="flex flex-col gap-2 px-1 py-2.5">
-            <Person row={row} />
+            <Person row={row} setTitle={setTitle} />
             <div className="flex flex-wrap items-start gap-2">
               <RoleSelect
                 userId={row.id}
@@ -235,7 +241,7 @@ export function UsersRoster({ rows, initial = NO_USER_FILTERS, setRole, removeUs
 const getRowId = (row: RosterRow) => row.id;
 const getRowName = (row: RosterRow) => row.name;
 
-function Person({ row }: { row: RosterRow }) {
+function Person({ row, setTitle }: { row: RosterRow; setTitle: SetTitleAction }) {
   const t = useTranslations("admin");
   return (
     <span className="flex flex-col">
@@ -243,6 +249,14 @@ function Person({ row }: { row: RosterRow }) {
         {row.name}
         {row.isSelf ? <Badge variant="accent">{t("you")}</Badge> : null}
       </span>
+      {/* The title, and the inline control that changes it. */}
+      <TitleEditor
+        userId={row.id}
+        personName={row.name}
+        role={row.role}
+        title={row.title}
+        action={setTitle}
+      />
       {/* The one surface in the app that shows an address: telling two
           accounts apart is the whole job here (spec §8). Mono: an identifier. */}
       <span className="font-mono text-xs text-muted-foreground">{row.email}</span>

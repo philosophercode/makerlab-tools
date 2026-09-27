@@ -69,6 +69,9 @@ export async function GET(req: Request): Promise<Response> {
           name: identity.name,
           email: identity.email,
           image: identity.image ?? null,
+          // The People page's custom title, for the profile menu; null means
+          // the menu shows the role's default.
+          title: identity.title ?? null,
         };
 
   return Response.json(

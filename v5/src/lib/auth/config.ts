@@ -144,6 +144,15 @@ export function createAuth(db: Db) {
           },
         }
       : {},
+    user: {
+      // The People page's custom title (`user.title`, migration `0017`).
+      // Declared so a session carries it to the profile menu; `input: false`
+      // so no Better Auth endpoint — `update-user` included — accepts it from
+      // a client. Only `setUserTitle` on `/admin/users` writes it.
+      additionalFields: {
+        title: { type: "string", required: false, input: false },
+      },
+    },
     session: {
       expiresIn: SESSION_MAX_AGE_SECONDS,
       updateAge: SESSION_UPDATE_AGE_SECONDS,

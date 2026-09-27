@@ -17,6 +17,13 @@
 export const ROLES = ["user", "admin", "super_admin"] as const;
 export type Role = (typeof ROLES)[number];
 
+/**
+ * The longest custom title a person may carry (`user.title`). A label under a
+ * name, not a bio: the `user_title_length_check` CHECK and the People page's
+ * action both read this one number.
+ */
+export const USER_TITLE_MAX_LENGTH = 60;
+
 export const UNIT_STATUS = [
   "available",
   "in_use",

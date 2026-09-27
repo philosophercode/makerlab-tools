@@ -115,6 +115,14 @@ describe("fetchIdentity", () => {
     });
   });
 
+  it("carries a custom title, and leaves it off when there is none", async () => {
+    stubFetch(async () => json({ role: "user", name: "Ada", email: "ada@cornell.edu", title: "Shop Assistant" }));
+    expect((await fetchIdentity())?.title).toBe("Shop Assistant");
+
+    stubFetch(async () => json({ role: "user", name: "Ada", email: "ada@cornell.edu", title: null }));
+    expect(await fetchIdentity()).not.toHaveProperty("title");
+  });
+
   it("drops an empty or non-string photo rather than passing it on", async () => {
     stubFetch(async () =>
       json({ role: "user", name: "Ada", email: "ada@cornell.edu", image: null })

@@ -76,6 +76,7 @@ describe("resolveIdentity — a session row", () => {
       email: "student@cornell.edu",
       name: "Ada L",
       image: null,
+      title: null,
       rateLimitKey: `user:${signedIn.user.id}`,
     });
   });

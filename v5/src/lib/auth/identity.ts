@@ -39,6 +39,11 @@ export interface Identity {
    * Optional so identities built by hand elsewhere need not name it.
    */
   image?: string | null;
+  /**
+   * The custom title a super admin set on the People page, or null for the
+   * role's default (`lib/people/title.ts`). Optional like `image`.
+   */
+  title?: string | null;
   /** Stable key for rate limiting: user id when signed in, hashed IP otherwise. */
   rateLimitKey: string;
 }
@@ -122,6 +127,7 @@ export interface SessionResult {
     image?: string | null;
     role?: string | null;
     banned?: boolean | null;
+    title?: string | null;
   };
 }
 
@@ -148,6 +154,7 @@ function identityFromSession(result: SessionResult | null | undefined): Identity
     email: user.email,
     name: user.name ?? null,
     image: user.image || null,
+    title: user.title || null,
     rateLimitKey: `user:${user.id}`,
   };
 }

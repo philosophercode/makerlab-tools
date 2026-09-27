@@ -39,6 +39,8 @@ export interface UserRecord {
   role: Role;
   banned: boolean;
   banReason: string | null;
+  /** The custom title, or null for the role's default (`lib/people/title.ts`). */
+  title: string | null;
   createdAt: Date;
 }
 
@@ -110,6 +112,28 @@ export async function countUsersWithRole(
   return Number(row?.total ?? 0);
 }
 
+/**
+ * Set one person's custom title, or clear it with null. Written here rather
+ * than through Better Auth: the column is ours, the admin plugin has no
+ * endpoint for it, and `auth/config.ts` declares it `input: false` so no
+ * Better Auth endpoint can write it either. The caller has already normalised
+ * the value (`normalizeTitle`) and checked `users.manage`; the CHECK is the
+ * last word on length. Returns false when no such row exists.
+ */
+export async function updateUserTitle(
+  id: string,
+  title: string | null,
+  options: UserQueryOptions = {}
+): Promise<boolean> {
+  const db = options.db ?? (await getDb());
+  const rows = await db
+    .update(user)
+    .set({ title, updatedAt: new Date() })
+    .where(eq(user.id, id))
+    .returning({ id: user.id });
+  return rows.length > 0;
+}
+
 function toUserRecord(row: typeof user.$inferSelect): UserRecord {
   return {
     id: row.id,
@@ -120,6 +144,7 @@ function toUserRecord(row: typeof user.$inferSelect): UserRecord {
     role: (row.role ?? "user") as Role,
     banned: Boolean(row.banned),
     banReason: row.banReason ?? null,
+    title: row.title ?? null,
     createdAt: row.createdAt,
   };
 }

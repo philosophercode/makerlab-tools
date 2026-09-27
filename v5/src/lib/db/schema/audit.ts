@@ -36,6 +36,9 @@ export const AUDIT_ACTIONS = [
   // "email" and `subject_id` the normalised address.
   "email.blocked",
   "email.unblocked",
+  // A super admin set or cleared somebody's custom title on the People page.
+  // `detail` is `{ from, to }`, null meaning the role's default label.
+  "user.title_changed",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 
