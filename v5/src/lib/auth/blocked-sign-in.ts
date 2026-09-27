@@ -32,10 +32,25 @@ export const EMAIL_BLOCKED_CODE = "email_blocked";
 /** Where a blocked address lands: the domain page's twin. */
 export const BLOCKED_SIGN_IN_PATH = "/auth/blocked";
 
+/**
+ * The code a sign-up from outside the allowed domain carries, so the callback's
+ * error redirect lands on the domain page (`DOMAIN_REJECTED_PATH` in
+ * `config.ts`) instead of Better Auth's generic `unable_to_create_user`.
+ */
+export const EMAIL_NOT_ALLOWED_CODE = "email_not_allowed";
+
+/** `DOMAIN_REJECTED_PATH`, repeated here because `config.ts` imports this module. */
+const DOMAIN_REJECTED_SIGN_IN_PATH = "/auth/rejected";
+
 /** True when `email` may not become an account. */
 export async function isSignUpBlocked(email: string | null | undefined, db?: Db): Promise<boolean> {
   if (isSuperAdminFloor(email)) return false;
   return isEmailBlocked(email, db ? { db } : {});
+}
+
+/** The error the create hook throws for an address outside the allowed domain. */
+export function emailNotAllowedError(): APIError {
+  return APIError.from("FORBIDDEN", { message: EMAIL_NOT_ALLOWED_CODE, code: "EMAIL_NOT_ALLOWED" });
 }
 
 /** The error the create hook throws for a blocked address. */
@@ -45,7 +60,8 @@ export function emailBlockedError(): APIError {
 
 /**
  * If `response` is Better Auth sending a refused sign-up to its error page,
- * the same redirect pointed at {@link BLOCKED_SIGN_IN_PATH} instead; otherwise
+ * the same redirect pointed at {@link BLOCKED_SIGN_IN_PATH} (a blocked address)
+ * or the domain page (an address outside the allowed domain) instead; otherwise
  * `response` unchanged. Cookies the callback set (clearing its state) ride along.
  */
 export function redirectBlockedSignIn(response: Response): Response {
@@ -58,8 +74,11 @@ export function redirectBlockedSignIn(response: Response): Response {
   } catch {
     return response;
   }
-  if (url.searchParams.get("error") !== EMAIL_BLOCKED_CODE) return response;
+  const error = url.searchParams.get("error");
+  const target =
+    error === EMAIL_BLOCKED_CODE ? BLOCKED_SIGN_IN_PATH : error === EMAIL_NOT_ALLOWED_CODE ? DOMAIN_REJECTED_SIGN_IN_PATH : null;
+  if (!target) return response;
   const headers = new Headers(response.headers);
-  headers.set("location", BLOCKED_SIGN_IN_PATH);
+  headers.set("location", target);
   return new Response(null, { status: response.status, headers });
 }

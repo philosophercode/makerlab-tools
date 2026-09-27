@@ -418,7 +418,7 @@
   "auth": {
     "eyebrow": "Sign-in",
     "title": "That account isn't a {institution} account",
-    "body": "{site} signs in with {institution} accounts only, so this one can't be used.",
+    "body": "{site} signs in with {institution} accounts only (addresses ending in @{domain}), so this one can't be used. Sign in again and pick your {institution} Google account.",
     "stillWorks": "Nothing is locked. You can browse the whole catalog and ask the assistant questions without signing in — signing in only raises the hourly message limit and puts your verified name on anything you file.",
     "browseTools": "Browse the catalog",
     "blockedTitle": "This account can't sign in to {site}",
