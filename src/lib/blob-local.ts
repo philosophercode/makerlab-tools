@@ -55,7 +55,7 @@ export interface LocalBlobBackend {
 }
 
 /**
- * Where the folder is: `.blob-data/` in the working directory (v5/ under
+ * Where the folder is: `.blob-data/` in the working directory (the repo root under
  * `next dev`), or `BLOB_LOCAL_DIR` when set (test-only — the intake E2E keeps
  * its files apart from a developer's own; relative paths resolve against the
  * working directory).

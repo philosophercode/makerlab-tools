@@ -1,6 +1,6 @@
-# v5 Test Harness
+# Test Harness
 
-Shared tooling every test in `v5/` builds on. **Don't edit `package.json` or run
+Shared tooling every test in this repo builds on. **Don't edit `package.json` or run
 `npm install`** — the foundation already wired the deps and scripts. Just add
 your `*.test.ts(x)` files and import from here.
 

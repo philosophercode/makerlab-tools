@@ -22,7 +22,7 @@ import { backupsToPrune, type BackupStamp } from "./backup-retention";
  *
  * **Manual search data is not in the file.** `manual_pages` and
  * `manual_chunks` are rebuilt from the stored PDFs, so after a restore run
- * `npm run manuals:index -- --force` from `v5/` (`backup-policy.ts` says why
+ * `npm run manuals:index -- --force` from the repo root (`backup-policy.ts` says why
  * `--force`).
  *
  * **It never swallows a failure.** A backup that fails quietly is worse than no

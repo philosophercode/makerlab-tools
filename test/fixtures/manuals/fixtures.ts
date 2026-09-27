@@ -4,7 +4,7 @@ import { buildPdf, type PdfLine, type PdfPage } from "./build-pdf.ts";
  * The manual-text fixture PDFs (manual text spec §10), as data. `generate.ts`
  * writes them to this folder; the tests read the committed files, so a change
  * here means running `node --experimental-strip-types test/fixtures/manuals/generate.ts`
- * from `v5/` and committing the result.
+ * from the repo root and committing the result.
  *
  * Every text page carries a running header and a page-number footer, so the
  * extractor's header/footer removal is exercised by all of them.
