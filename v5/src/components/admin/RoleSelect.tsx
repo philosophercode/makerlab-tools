@@ -6,6 +6,7 @@ import { ROLES, type Role } from "../../lib/db/schema/vocabulary";
 import { cn } from "@/lib/utils";
 import { NativeSelect } from "@/components/ui/native-select";
 import { useHydrated } from "./use-hydrated";
+import { isLockReason, LockNote } from "./LockNote";
 import type {
   AdminActionError,
   AdminActionResult,
@@ -27,6 +28,12 @@ import type {
  * already knows cannot change — the super-admin floor, the last super admin —
  * but the server action checks both again, because a select that is disabled in
  * the DOM is disabled for exactly as long as nobody opens the console (§8).
+ * The reason is a short `LockNote` badge ("Protected", "Last super admin")
+ * with the full sentence in its tooltip and in the select's description.
+ *
+ * **These are roles, not titles.** The options read "User", "Admin", "Super
+ * admin" — what the account may do. What a person is called (Director,
+ * Supermaker, Student…) is their title, a separate column.
  */
 
 export interface RoleSelectProps {
@@ -116,7 +123,11 @@ export function RoleSelect({
   }
 
   const locked = Boolean(disabledReason);
-  const note = error ?? disabledReason;
+  // A lock with a short label is said as a badge beside the select; anything
+  // else (a refusal the server just gave) is said in full below it.
+  const lock = isLockReason(disabledReason) ? disabledReason : null;
+  const note = error ?? (lock ? null : disabledReason);
+  const lockId = `${selectId}-lock`;
 
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -128,6 +139,7 @@ export function RoleSelect({
         size="sm"
         value={current}
         disabled={locked || pending || !hydrated}
+        aria-describedby={lock ? lockId : undefined}
         onChange={(event) => void handleChange(event.target.value)}
       >
         {ROLES.map((option) => (
@@ -136,6 +148,7 @@ export function RoleSelect({
           </option>
         ))}
       </NativeSelect>
+      {lock ? <LockNote reason={lock} descriptionId={lockId} /> : null}
       {/* One live region for every outcome this control can have, so a screen
           reader hears the refusal in the same place it heard the confirmation. */}
       <span

@@ -13,7 +13,7 @@ import { auditEvents, blockedEmails, session, user } from "../../../lib/db/schem
 import { listAuditEvents } from "../../../lib/data/audit";
 import { findUserById } from "../../../lib/data/users";
 import { seedUser, signInAs, signInAsNew } from "../../../../test/utils/session";
-import { removeUser, setUserRole, setUserTitle, unblockBlockedEmail } from "./actions";
+import { addPerson, removeUser, setUserRole, setUserTitle, unblockBlockedEmail } from "./actions";
 
 /**
  * The two `/admin/users` writes, end to end over PGlite: a real Better Auth
@@ -456,6 +456,157 @@ describe("removeUser", () => {
 
     expect(await removeUser({ userId: target.id, block: true })).toEqual({ ok: false, error: "not_permitted" });
     expect(await findUserById(target.id)).not.toBeNull();
+  });
+});
+
+describe("addPerson", () => {
+  async function rowFor(email: string) {
+    const db = await getDb();
+    const [row] = await db.select().from(user).where(eq(user.email, email));
+    return row;
+  }
+
+  it("is refused to anonymous callers, students and admins alike", async () => {
+    setMockHeaders();
+    expect(await addPerson({ email: "luis@cornell.edu", role: "admin" })).toEqual({
+      ok: false,
+      error: "not_signed_in",
+    });
+
+    for (const role of ["user", "admin"] as const) {
+      const caller = await signInAsNew({ email: `${role}-caller@cornell.edu`, role });
+      setMockHeaders({ cookie: caller.cookie });
+      expect(await addPerson({ email: "luis@cornell.edu", role: "admin" })).toEqual({
+        ok: false,
+        error: "not_permitted",
+      });
+    }
+
+    expect(await rowFor("luis@cornell.edu")).toBeUndefined();
+    expect(await listAuditEvents()).toEqual([]);
+  });
+
+  it("creates the row, not signed in yet, with the role and title given, and records user.added", async () => {
+    const director = await asDirector();
+
+    const result = await addPerson({
+      email: "  Luis@Cornell.EDU ",
+      name: " Luis   Example ",
+      role: "admin",
+      title: " Assistant  Director ",
+    });
+    expect(result).toEqual({
+      ok: true,
+      person: {
+        id: expect.any(String),
+        name: "Luis Example",
+        email: "luis@cornell.edu",
+        role: "admin",
+        title: "Assistant Director",
+      },
+    });
+
+    const row = await rowFor("luis@cornell.edu");
+    expect(row.role).toBe("admin");
+    expect(row.title).toBe("Assistant Director");
+    expect(row.emailVerified).toBe(false);
+    expect(row.firstSignedInAt).toBeNull();
+
+    const events = await listAuditEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      actorUserId: director.user.id,
+      action: "user.added",
+      subjectType: "user",
+      subjectId: row.id,
+      detail: { email: "luis@cornell.edu", name: "Luis Example", role: "admin", title: "Assistant Director" },
+    });
+    expect(revalidatePath).toHaveBeenCalledWith("/admin/users");
+  });
+
+  it("uses the address as the name when none is given, and null for a blank title", async () => {
+    await asDirector();
+
+    await addPerson({ email: "sam@cornell.edu", name: "", role: "user", title: "  " });
+
+    const row = await rowFor("sam@cornell.edu");
+    expect(row.name).toBe("sam@cornell.edu");
+    expect(row.title).toBeNull();
+  });
+
+  it("refuses an address that is not one, a bad role, and over-long name or title", async () => {
+    await asDirector();
+
+    expect(await addPerson({ email: "not-an-address", role: "user" })).toEqual({ ok: false, error: "invalid_email" });
+    expect(await addPerson({ email: "a@cornell.edu", role: "director" })).toEqual({ ok: false, error: "invalid_role" });
+    expect(await addPerson({ email: "a@cornell.edu", role: "user", name: "x".repeat(121) })).toEqual({
+      ok: false,
+      error: "invalid_name",
+    });
+    expect(await addPerson({ email: "a@cornell.edu", role: "user", title: "x".repeat(61) })).toEqual({
+      ok: false,
+      error: "invalid_title",
+    });
+    expect(await rowFor("a@cornell.edu")).toBeUndefined();
+  });
+
+  it("refuses an address the domain rule would refuse at sign-in", async () => {
+    await asDirector();
+    expect(await addPerson({ email: "someone@gmail.com", role: "user" })).toEqual({
+      ok: false,
+      error: "email_not_allowed",
+    });
+    expect(await rowFor("someone@gmail.com")).toBeUndefined();
+  });
+
+  it("allows an address named in AUTH_ALLOWED_EMAILS", async () => {
+    vi.stubEnv("AUTH_ALLOWED_EMAILS", "guest@gmail.com");
+    await asDirector();
+    expect((await addPerson({ email: "Guest@gmail.com", role: "user" })).ok).toBe(true);
+    expect(await rowFor("guest@gmail.com")).toBeDefined();
+  });
+
+  it("refuses a blocked address", async () => {
+    const director = await asDirector();
+    const db = await getDb();
+    await db.insert(blockedEmails).values({ email: "robin@cornell.edu", reason: null, blockedBy: director.user.id });
+
+    expect(await addPerson({ email: "robin@cornell.edu", role: "user" })).toEqual({
+      ok: false,
+      error: "email_blocked",
+    });
+    expect(await rowFor("robin@cornell.edu")).toBeUndefined();
+  });
+
+  it("refuses an address somebody already has, and changes nothing", async () => {
+    await asDirector();
+    await seedUser({ email: "ada@cornell.edu", role: "user" });
+
+    expect(await addPerson({ email: "ADA@cornell.edu", role: "super_admin" })).toEqual({
+      ok: false,
+      error: "duplicate_email",
+    });
+    expect((await rowFor("ada@cornell.edu")).role).toBe("user");
+    expect((await listAuditEvents()).filter((event) => event.action === "user.added")).toEqual([]);
+  });
+
+  it("stores a floor address as super_admin whatever role was chosen", async () => {
+    await asDirector();
+    vi.stubEnv("AUTH_SUPER_ADMIN_EMAILS", "founder@cornell.edu");
+
+    const result = await addPerson({ email: "founder@cornell.edu", role: "user" });
+    expect(result.ok && result.person.role).toBe("super_admin");
+    expect((await rowFor("founder@cornell.edu")).role).toBe("super_admin");
+  });
+
+  it("can be removed again before they ever sign in", async () => {
+    await asDirector();
+    const added = await addPerson({ email: "luis@cornell.edu", role: "admin" });
+    if (!added.ok) throw new Error(added.error);
+
+    const removed = await removeUser({ userId: added.person.id, block: false });
+    expect(removed).toMatchObject({ ok: true, removed: { id: added.person.id, email: "luis@cornell.edu" } });
+    expect(await rowFor("luis@cornell.edu")).toBeUndefined();
   });
 });
 

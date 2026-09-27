@@ -9,7 +9,9 @@ import { ADMIN_GROUPS, countLoadersFor, surfacesFor } from "../../lib/admin/surf
 import { can } from "../../lib/auth/permissions";
 import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
 import { isLegacyMcpTokenSet } from "../../lib/auth/mcp-caller";
+import { adminBackupNotice } from "../../lib/cron/backup-freshness";
 import { loadAdminOverview } from "../../lib/data/admin-overview";
+import { dataSubstrate } from "../../lib/db/client";
 
 /**
  * `/admin` — the home: one tile per surface the viewer may open, grouped by
@@ -38,6 +40,10 @@ export default async function AdminHomePage() {
   const identity = await resolveIdentityFromHeaders();
   const open = surfacesFor(identity);
   const overview = await loadAdminOverview(countLoadersFor(identity), { userId: identity.userId });
+  const backupNotice = await adminBackupNotice({
+    canManageUsers: can(identity, "users.manage"),
+    substrate: dataSubstrate(),
+  });
   const tiles = open.map((entry) => {
     // An extra count the viewer may read is its counts or null (failed); one
     // they may not is absent, and the tile says nothing about it.
@@ -84,6 +90,10 @@ export default async function AdminHomePage() {
       {/* MCP access spec §5.3: the retired shared secret still works for one
           release, as the public read-only tools only — and says so here. */}
       {isLegacyMcpTokenSet() ? <RowStatus tone="warn">{t("mcpTokenDeprecated")}</RowStatus> : null}
+
+      {/* Ops spec amendment 2026-09-27: a nightly backup that stopped landing
+          shows here, not only in Vercel's cron log. */}
+      {backupNotice ? <RowStatus tone="warn">{t(backupNotice.key, { date: backupNotice.date })}</RowStatus> : null}
 
       {open.length === 0 ? <EmptyState>{t("indexNothingYet")}</EmptyState> : null}
 

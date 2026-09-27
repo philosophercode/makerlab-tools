@@ -3,7 +3,8 @@
 > How to run MakerLab Tools on your machine, and how to host it on Vercel.
 >
 > How it works: [`architecture-guide.md`](architecture-guide.md).
-> How to operate it once live: [`handover.md`](handover.md).
+> How to operate it once live: [`handover.md`](handover.md). Monitoring, backups and
+> restore: [`operations.md`](operations.md).
 
 **The app degrades on purpose, so you can do this in stages.** Nothing forces you to have
 every credential before you see it working — each part that is not configured switches off
@@ -282,9 +283,9 @@ curl -H "x-admin-secret: $ADMIN_REVALIDATE_SECRET" \
      http://localhost:3000/api/cron/daily
 ```
 
-It exports every Postgres table to a private blob and sweeps photos that were uploaded but
-never attached to anything. It needs a Blob store and refuses without one — the old
-`/api/admin/backup` route it replaces dumped Notion and is no longer scheduled.
+It exports every Postgres table to a private blob, prunes old backups on tiers (daily for a
+week, then weekly, monthly and quarterly to three years), and sweeps photos that were uploaded
+but never attached to anything. It needs a Blob store and refuses without one.
 
 **Blob on a laptop.** With no `BLOB_READ_WRITE_TOKEN`, `npm run dev` does not refuse
 uploads: every Blob read and write goes to `v5/.blob-data/` (git-ignored), a folder that
@@ -299,10 +300,13 @@ store and no disk fallback, and `/api/dev-blob/…` answers 404. The Notion impo
 `DATABASE_URL` still insists on a real token, because its rows go to a shared database; an
 import into a local `PGLITE_DATA_DIR` database uses this store (see Stage 2b).
 
-Two tables are held out of the file on purpose: `session` and `verification` are sign-in
+Some tables are held out of the file on purpose: `session` and `verification` are sign-in
 credentials, not records, and the Google tokens on `account` are blanked. A backup is
 something you might email to yourself at 2am; it must not double as a way to sign in as
-somebody. People, roles and bans are all still in there.
+somebody. People, roles and bans are all still in there. The manual search tables
+(`manual_pages`, `manual_chunks`) are left out too, because they are rebuilt from the stored
+PDFs: after a restore, run `npm run manuals:index -- --force` from `v5/`
+([`operations.md`](operations.md#restoring)).
 
 ---
 
@@ -393,6 +397,7 @@ AUTH_ALLOWED_EMAILS         optional: named addresses on other domains, comma-se
 AUTH_SUPER_ADMIN_EMAILS     permanent Cornell addresses of the super admins, comma-separated
 CRON_SECRET                 any long random string (the nightly job)
 ADMIN_REVALIDATE_SECRET     any long random string (cache refresh, hand-run nightly job)
+CRON_HEARTBEAT_URL          optional: a heartbeat monitor's ping URL (operations.md)
 ```
 
 - **Sign-in is Cornell-only.** Only `@cornell.edu` addresses (plus anyone named in
@@ -523,6 +528,10 @@ calls, not just chat.
 body.** The 503-when-degraded contract is the entire point; a body-only check would miss it.
 Send alerts to a shared address, never one person.
 
+**Give the nightly job a heartbeat** (`CRON_HEARTBEAT_URL`), so a backup that fails — or never
+runs — sends an email instead of waiting in the cron log. Services, intervals and settings for
+all of this: [`operations.md` → Monitoring](operations.md#monitoring).
+
 ---
 
 # What only a person can do
@@ -534,7 +543,7 @@ Send alerts to a shared address, never one person.
 | Two Vercel Blob stores | **Photo uploads** (chat, maintenance, projects), research photos, archived manuals and backups. Without them uploads refuse with a translated message rather than failing silently |
 | Private Blob store + `CRON_SECRET` | The nightly backup |
 | Inference spend limit | Nothing, until it does |
-| Uptime monitor | Nothing, until something breaks quietly |
+| Uptime monitor + nightly heartbeat | Nothing, until something breaks quietly ([`operations.md`](operations.md)) |
 
 **Two decisions, not tasks:**
 

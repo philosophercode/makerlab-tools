@@ -33,6 +33,10 @@ export const ADMIN_USERS_PATH = "/admin/users";
  * - `self_remove` — removing your own account (auth spec amendment 2026-09-25).
  * - `invalid_title` — a title that is not text, or is longer than
  *   `USER_TITLE_MAX_LENGTH` once trimmed.
+ * - **Add person** only: `invalid_email` (not an address), `invalid_name`
+ *   (longer than `PERSON_NAME_MAX_LENGTH`), `email_not_allowed` (outside the
+ *   domain rule and `AUTH_ALLOWED_EMAILS`), `email_blocked` (on the blocked
+ *   list) and `duplicate_email` (somebody already has that address).
  */
 export type AdminActionError =
   | AdminGateError
@@ -41,7 +45,15 @@ export type AdminActionError =
   | "protected_floor"
   | "last_super_admin"
   | "self_remove"
-  | "invalid_title";
+  | "invalid_title"
+  | "invalid_email"
+  | "invalid_name"
+  | "email_not_allowed"
+  | "email_blocked"
+  | "duplicate_email";
+
+/** The longest name "Add person" keeps; Google's replaces it at first sign-in. */
+export const PERSON_NAME_MAX_LENGTH = 120;
 
 /**
  * Re-exported, not redefined: the islands on this page import their result
@@ -77,6 +89,23 @@ export type SetTitleResult =
   | { ok: true; title: string | null; warning?: AdminActionWarning }
   | { ok: false; error: AdminActionError };
 
-export type SetTitleAction = (input: { userId: string; title: string | null }) => Promise<SetTitleResult>;
+/** What **Add person** answers: the new row, as the roster shows it. */
+export type AddPersonResult =
+  | {
+      ok: true;
+      person: { id: string; name: string; email: string; role: Role; title: string | null };
+      warning?: AdminActionWarning;
+    }
+  | { ok: false; error: AdminActionError };
+
+export interface AddPersonInput {
+  email: string;
+  name?: string;
+  role: string;
+  title?: string | null;
+}
+
+export type AddPersonAction = (input: AddPersonInput) => Promise<AddPersonResult>;
+export type SetTitleAction =(input: { userId: string; title: string | null }) => Promise<SetTitleResult>;
 export type RemoveUserAction = (input: { userId: string; block: boolean; reason?: string }) => Promise<RemoveUserResult>;
 export type UnblockEmailAction = (input: { email: string }) => Promise<UnblockEmailResult>;

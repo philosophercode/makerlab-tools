@@ -74,8 +74,9 @@ variable list.
   goes to `feedback`, a maintenance ticket to `maintenance_logs`, a project
   submission to `projects` + `project_tools` — see `src/lib/data/*.ts`.
   `src/lib/data/notion-ids.ts` (the Phase-2 page-id bridge) has no importers
-  left and is awaiting deletion approval, as are `/api/upload-notion` and
-  `/api/admin/backup`.
+  left and is awaiting deletion approval, as is `/api/upload-notion`. The
+  retired Notion-dump `/api/admin/backup` was deleted (ops spec amendment
+  2026-09-27); `/api/cron/daily` is the only backup.
 - **No request path writes Notion** as of Phase 6, except the mirror, which
   pushes from a workflow and from its own settings page. Intake's chat tool,
   `identify_tools`, writes `pending_tools` rows and makes the photos it claims
@@ -391,6 +392,47 @@ Phase 5 extends both. The shape it sets:
   `src/lib/people/title.ts` — the custom title, else the role's
   `admin.titles.<role>` label — on the roster and in the profile menu. Better
   Auth knows the field as `input: false`, so none of its endpoints write it.
+  The message keys are `admin.personTitle.*` (`admin.title` is the admin
+  area's own h1 — two `title` keys in one object silently collide).
+- **Role and title are never the same words.** A role is authorization only
+  and is labelled **User / Admin / Super admin** everywhere (`admin.roles.*`:
+  the select, the Role facet, the Add person form). Titles (Director, Assistant
+  Director, Tech Lead, Supermaker, Student…) are only ever shown as titles, in
+  their own column. Do not put a title word into `admin.roles`.
+- **The roster is one row per person** (`UsersRoster`): Person (name, YOU,
+  address under it in small mono — said once when the name *is* the address),
+  Title (text + pencil icon button, `aria-label` "Edit the title for <name>",
+  opening `TitleEditor` inline), Role, First signed in, Account. A locked
+  control shows a short `LockNote` badge — "Protected", "Last super admin",
+  "Your account" — with the full `admin.errors.<code>` sentence in its tooltip
+  and as the disabled control's `aria-describedby`; a refusal the server just
+  gave is still said in full.
+- **Add person** (`AddPersonForm` → `addPerson`, audited as `user.added`, in
+  one transaction with the row — `lib/data/user-add.ts`): a super admin puts
+  somebody on the roster before their first sign-in, with email (trimmed,
+  lower-cased), optional name (the address stands in), role and optional
+  title. Refused, as values: not an address, too long, a role outside the
+  vocabulary, `isAllowedEmail` false (`email_not_allowed` — the same rule the
+  create hook runs), blocked (`email_blocked`, floor exempt), or already a row
+  (`duplicate_email`). A floor address is stored `super_admin` whatever was
+  chosen. The row has `email_verified` false and **`first_signed_in_at` null**
+  (migration `0018`; the column defaults to `now()`, so every row Better Auth
+  or a seed creates is "signed in" at creation, and the backfill set existing
+  rows to `created_at`). The roster shows null as "Not signed in yet"; the
+  `session.create.after` hook in `auth/config.ts` stamps it. Removing such a
+  person is an ordinary Remove.
+- **Their first Google sign-in links to that row** — `account.accountLinking`
+  in `auth/config.ts`: `requireLocalEmailVerified: false` (a pre-added row
+  cannot be verified; there is no password or email sign-up to make one any
+  other way), `trustedProviders` deliberately **not** set (so Google must say
+  `email_verified`, and an unverified Google account claiming the address
+  cannot take the row), `updateUserInfoOnLink: true` (Google's name and photo
+  replace the placeholder; role and title are not provider fields and stay).
+  Linking skips `user.create.before`, so the role/title/floor chosen at Add
+  person are what they arrive with; the after-hook's domain check still runs.
+  `config.test.ts` drives the real OAuth callback (MSW token endpoint, forged
+  id_token) to prove same id, one account, role and title kept, and no link
+  without `email_verified`.
 - **Every security-relevant change is recorded.** `src/lib/data/audit.ts` is
   insert-and-select only — there is deliberately no update or delete export,
   and a test asserts the module's shape. Each event snapshots `actor_name` at
@@ -1022,7 +1064,7 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 |---|---|
 | `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults) |
 | `src/lib/db/client.ts` | `getDb()`, `dataSubstrate()`, `pingDb()` — the one entry point to Postgres/PGlite |
-| `src/lib/notion.ts` | Notion API client — used by the one-time import and its scripts (and the retired `/api/admin/backup`, awaiting deletion); no request path reads or writes Notion through it (the mirror has its own client) |
+| `src/lib/notion.ts` | Notion API client — used by the one-time import and its scripts; no request path reads or writes Notion through it (the mirror has its own client) |
 | `src/lib/data/attachments.ts` | `attachments` rows: create, claim onto an owner, reorder, release, list orphans, delete |
 | `src/lib/data/revision.ts` | The editor's concurrency token — `extract(epoch from updated_at)::text`, **never a `Date`** (read the docstring before touching a conflict check) |
 | `src/lib/data/tools.ts` / `units.ts` | Row-level inventory writes, every one revision-checked. Tools are archived, never deleted |
@@ -1061,7 +1103,9 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/revalidate.ts` | `invalidateCatalog()` / `invalidateProjects()` — the one home for the cache tag strings, and `{ expire: 0 }`, because `revalidateTag` with a *named* profile is stale-while-revalidate and would serve the pre-publish page to one more reader |
 | `src/lib/blob.ts` | The Blob seam — `put` (private backups, fixed pathname) and `putUpload` (random pathname, caller's access) |
 | `src/lib/cron/backup.ts`, `src/lib/cron/cleanup.ts` | The nightly Postgres export and the orphaned-upload sweep |
-| `src/lib/cron/backup-policy.ts` | What the nightly export holds back — `session` / `verification` skipped, `account` tokens blanked. A backup is data, not credentials |
+| `src/lib/cron/backup-policy.ts` | What the nightly export holds back — `session` / `verification` / `oauth_access_token` skipped, token columns blanked (a backup is data, not credentials), and `manual_pages` / `manual_chunks` left out because `npm run manuals:index -- --force` rebuilds them after a restore |
+| `src/lib/cron/backup-retention.ts` | Pure tiered retention: every day for 7 days, newest per ISO week to 1 month, per month to 1 year, per quarter to 3 years |
+| `src/lib/cron/heartbeat.ts`, `src/lib/cron/backup-freshness.ts` | Failure visibility: the nightly run pings `CRON_HEARTBEAT_URL` (`/fail` on failure); `/admin` warns a super admin when the newest backup is over 36 hours old (`docs/operations.md`) |
 | `src/lib/catalog.ts` | Catalog orchestration + cache, reading Postgres |
 | `src/lib/rate-limit.ts` | In-memory (or Upstash) sliding-window limiter, tiered by role |
 | `src/lib/auth/config.ts` | The Better Auth instance: Drizzle adapter, database sessions, admin plugin, domain enforcement |
@@ -1073,10 +1117,11 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/admin/surfaces.ts` / `src/lib/data/admin-overview.ts` | Every admin surface once (tiles, bar, palette, each with its permission) / the home's count loaders |
 | `src/components/palette/*` | The ⌘K palette on every page: `CommandPalette`, `HeaderSearch`, `PaletteScope`, `palette-match` |
 | `src/app/admin/inventory/page.tsx` | The review table (`tools.edit`), uncached, filtered from the URL |
-| `src/app/admin/users/actions.ts` | `setUserRole` / `removeUser` / `unblockBlockedEmail` — the People page's server actions (Ban retired 2026-09-25) |
+| `src/app/admin/users/actions.ts` | `setUserRole` / `setUserTitle` / `addPerson` / `removeUser` / `unblockBlockedEmail` — the People page's server actions (Ban retired 2026-09-25) |
 | `src/lib/data/user-removal.ts` / `blocked-emails.ts` / `account-removed.ts` | Removing a person in one transaction; the blocked-address list; "an id that names no account" in SQL |
 | `src/lib/auth/blocked-sign-in.ts` | Refusing a blocked address in the create hook, and the redirect to `/auth/blocked` |
-| `src/lib/data/users.ts` | The `/admin/users` roster, read straight from Postgres |
+| `src/lib/data/users.ts` | The `/admin/users` roster, read straight from Postgres; `markFirstSignIn` |
+| `src/lib/data/user-add.ts` | Add person: the pre-added `user` row and its `user.added` event, one transaction |
 | `src/lib/admin/queue-write.ts` | `runQueueWrite` — the gate/write/record/refresh preamble the three §5.6 queues share |
 | `src/app/admin/maintenance/`, `corrections/`, `projects/` | The three queues: one page, one result module and one action apiece |
 | `src/components/admin/use-row-action.ts` | What every queue control does around its action — optimistic, refusal restores, warning keeps |
@@ -1092,7 +1137,7 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/data/api-tokens.ts`, `src/lib/auth/api-token-format.ts` | Personal access tokens (hash, prefix, revoke, last use) and the OAuth grant reads ("Connected apps") |
 | `src/app/account/tokens/`, `src/app/oauth/`, `src/app/.well-known/` | The token page, the OAuth sign-in and consent pages, the discovery documents |
 | `src/app/api/uploads/route.ts` | The one upload route → Vercel Blob + an `attachments` row |
-| `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup, then the mirror backstop, then the manual archive backfill |
+| `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup, then the mirror backstop, then the manual archive backfill; then the heartbeat ping |
 | `src/lib/manuals/*` | The manual archive: `archive` (`archiveManual`), `steps` (`archiveManualStep`, `indexManualStep`), `start` (the one `workflow/api` import), `trigger` (`requestManualArchive`, never throws); manual text: `extract` (unpdf), `index-document`, `stored-bytes`, `digest`; manual search: `chunk` (`CHUNKER_VERSION`), `embed` (job `embed`), `passages` (the index step's second half), `search` (`searchManuals`, hybrid + RRF) |
 | `src/lib/data/manual-documents.ts` | `manual_documents` / `manual_pages`: the one-transaction write, current-PDF lists for the step and backfill, editor states, tool-page contents, research's stored-text lookups |
 | `src/lib/data/manual-chunks.ts` | `manual_chunks`: the one-transaction passage write, which documents need passages, the chat's view of a tool's manuals, Re-process, the `/admin/research` counts |

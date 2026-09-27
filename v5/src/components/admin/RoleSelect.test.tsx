@@ -37,15 +37,16 @@ function theSelect() {
   return screen.getByRole("combobox", { name: /Ada Lovelace/ });
 }
 
-// en.json: admin.roles.user = "Student", admin = "SuperMaker",
-// super_admin = "Director".
+// en.json: admin.roles.user = "User", admin = "Admin", super_admin = "Super
+// admin" -- authorization names. Titles (Director, Supermaker, Student) are
+// a different thing and never appear here.
 describe("RoleSelect — what it offers", () => {
   it("offers every stored role, labelled in words rather than identifiers", () => {
     renderSelect();
 
     expect(
       screen.getAllByRole("option").map((option) => option.textContent)
-    ).toEqual(["Student", "SuperMaker", "Director"]);
+    ).toEqual(["User", "Admin", "Super admin"]);
   });
 
   it("shows the role the person currently holds", () => {
@@ -80,7 +81,7 @@ describe("RoleSelect — changing it", () => {
 
     await user.selectOptions(theSelect(), "user");
 
-    expect(await screen.findByText(/last director/i)).toBeInTheDocument();
+    expect(await screen.findByText(/last super admin/i)).toBeInTheDocument();
     // The page must not be left asserting a change that did not happen.
     await waitFor(() => expect(theSelect()).toHaveValue("super_admin"));
   });
@@ -116,14 +117,25 @@ describe("RoleSelect — rows that cannot change", () => {
     renderSelect({ role: "super_admin", disabledReason: "protected_floor" });
 
     expect(theSelect()).toBeDisabled();
-    expect(screen.getByText(/protected in the deployment's settings/i)).toBeInTheDocument();
+    expect(screen.getByTestId("lock-note")).toHaveTextContent("Protected");
+    expect(theSelect()).toHaveAccessibleDescription(/protected in the deployment's settings/i);
   });
 
-  it("disables the last director's row with its own reason", () => {
+  it("disables the last super admin's row with a short badge, the reason as its description", () => {
     renderSelect({ role: "super_admin", disabledReason: "last_super_admin" });
 
     expect(theSelect()).toBeDisabled();
-    expect(screen.getByText(/last director/i)).toBeInTheDocument();
+    expect(screen.getByTestId("lock-note")).toHaveTextContent("Last super admin");
+    expect(theSelect()).toHaveAccessibleDescription(/This is the last super admin/);
+  });
+
+  it("shows the full reason in a tooltip when the badge is focused", async () => {
+    const user = userEvent.setup();
+    renderSelect({ role: "super_admin", disabledReason: "protected_floor" });
+
+    await user.tab();
+    expect(screen.getByTestId("lock-note")).toHaveFocus();
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(/protected in the deployment's settings/i);
   });
 
   it("never calls the action for a disabled row", async () => {

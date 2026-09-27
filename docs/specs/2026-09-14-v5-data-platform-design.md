@@ -278,7 +278,7 @@ Requests are throttled to 3 per second and retried on 429 using `Retry-After`. O
 - **Reads.** Catalogue reads keep `'use cache'` with `cacheTag("catalog")`. Detail reads add `cacheTag("tool:<id>")`, and project reads add `cacheTag("projects")`.
 - **Writes invalidate their tags.** Server actions call `updateTag`, so the person editing sees their own change on the next render. Route handlers and workflow steps call `revalidateTag(tag, "max")`.
 - **Cache lifetime.** The 24-hour revalidation window was sized for slow, rate-limited Notion reads. With invalidation on every write it can stay long: staleness now comes only from writes the app did not make, and there are none.
-- **One cron.** Hobby allows a cron job to run at most once a day, so `vercel.json` keeps one entry, `/api/cron/daily`, which does the nightly backup (a JSON export of every table to a private blob, kept 30 days), deletes orphaned uploads and stale pending items, and pushes any mirror whose data is newer than its last sync.
+- **One cron.** Hobby allows a cron job to run at most once a day, so `vercel.json` keeps one entry, `/api/cron/daily`, which does the nightly backup (a JSON export of every table to a private blob; retention tiered to three years by ops spec amendment 2026-09-27, originally 30 days), deletes orphaned uploads and stale pending items, and pushes any mirror whose data is newer than its last sync.
 
 ### 3.10 What moves where
 
@@ -858,13 +858,16 @@ A page that says "mark this high confidence and publish" can change none of that
 - **Emails** never enter a model prompt or the Notion mirror, and are never logged.
 - **Photos:** maintenance photos are private blobs.
 - **Deletion:** discarded pending items and orphaned uploads are deleted on schedule (§3.3, §4.10).
+  Copies in the nightly backup outlive that deletion (amendment 2026-09-27 "Backups outlive the
+  30-day discard").
 - **University approval** of storing student email at all is still the open question in the specs README (q5).
 
 **Secrets:** `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `NOTION_API_KEY` (import only),
 `CRON_SECRET`, `AUTH_SECRET`, `GOOGLE_CLIENT_SECRET`, and each mirror's token in the database.
 
 **Backups:** Neon's point-in-time restore, to the extent the plan provides it, plus the nightly
-JSON export to private Blob, kept for 30 days.
+JSON export to private Blob, originally kept for 30 days; now tiered to three years (ops
+hardening spec amendment 2026-09-27 and the amendment "Backups outlive the 30-day discard" below).
 
 **Risks, named.**
 
@@ -1900,3 +1903,20 @@ Tested in `blob-mode.test.ts` (routing, precedence, fallback, `blobMode` unchang
 `blob.test.ts` (every verb against two stores; cross-store `copyToPublic` never calls `copy`),
 `cron/cleanup.test.ts` (orphans deleted per access), `import/blob-uploader.test.ts` and
 `manuals/stored-bytes.test.ts`.
+
+### 2026-09-27 — Backups outlive the 30-day discard (§3.9, §8)
+
+**What changed.** The nightly backup's retention is tiered (ops hardening spec amendment
+2026-09-27): every night for 7 days, then weekly to a month, monthly to a year, quarterly to
+three years. §3.9 and §8 said 30 days.
+
+**Consequence for student data.** §8 promises discarded pending items are deleted on schedule,
+and they still are, from the live database, 30 days after discard
+(`PENDING_DISCARDED_RETENTION_MS`). A backup taken before that deletion keeps the row, with the
+student's name and email, for as long as that backup survives: up to three years in a quarterly
+copy. The same holds for any user row deleted from the live database. Backups are in the private
+Blob store, readable only with the store token.
+
+**Open.** Whether the university's data inventory allows student email to persist in backups for
+up to three years is the owner's call and joins open question q5 (storing student email at all).
+If it does not, shorten the quarterly tier in `backup-retention.ts`, not the discard window.

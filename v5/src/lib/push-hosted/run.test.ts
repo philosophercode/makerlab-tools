@@ -239,6 +239,17 @@ describe("runPush", () => {
     expect(photo.blob_pathname).toBe("tools/form-4/photo-Fake2.jpg");
   });
 
+  it("uploads again when the earlier copies are gone from the store (store replaced)", async () => {
+    const first = fakeUploader();
+    await runPush(options({ uploader: first.uploader }));
+    const second = fakeUploader();
+    const report = await runPush(
+      options({ uploader: { ...second.uploader, exists: async () => false } })
+    );
+    expect(report.reused).toBe(0);
+    expect(second.calls).toHaveLength(2);
+  });
+
   it("dry run: counts both sides, uploads nothing, writes nothing", async () => {
     const { uploader, calls } = fakeUploader();
     const lines: string[] = [];

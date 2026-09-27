@@ -64,6 +64,8 @@ Director) and Isaac Steinberg (Tech Lead).
 | Domain / DNS | ⬜ | ⬜ **TBD** | `makerlab-ai.vercel.app` until a custom domain is chosen |
 | `ADMIN_REVALIDATE_SECRET` | Vercel env vars | ⬜ **TBD** | Forces a refresh; runs the nightly job by hand |
 | `CRON_SECRET` | Vercel env vars | ⬜ **TBD** | Lets the nightly cron prove it is Vercel (§3) |
+| `CRON_HEARTBEAT_URL` + heartbeat monitor | Vercel env vars; Healthchecks.io or Better Stack | ⬜ **TBD** | Emails the shared address when the nightly backup fails or does not run ([`operations.md`](operations.md)) |
+| Uptime monitor on `/api/health` | UptimeRobot or Better Stack | ⬜ **TBD** | Emails the shared address when the site or database is down |
 
 > [!WARNING]
 > **Inference is a live bill and the only cost here that scales with use.** Every question a
@@ -137,14 +139,19 @@ values it was built with.
 
 **Every night at 07:17 UTC (about 03:17 New York) the site backs itself up.** Vercel Cron
 calls `/api/cron/daily`, which exports **every Postgres table** to the **private** Blob
-store as `backups/YYYY-MM-DD.json`. Files older than **30 days** are deleted by the same
-job. The same run deletes photos that were uploaded but never attached to anything within
-24 hours.
+store as `backups/YYYY-MM-DD.json`. The same job prunes on tiers: **every night for a week,
+then one a week to a month, one a month to a year, and one a quarter to three years** — about
+30–35 files at any time. The manual search tables are left out (they are rebuilt from the
+manuals). The same run deletes photos that were uploaded but never attached to anything
+within 24 hours.
 
 **This is the only copy of the data outside Neon.** It needs the private Blob store,
 `CRON_SECRET`, and (to run it by hand) `ADMIN_REVALIDATE_SECRET`.
 
-**How to check it, once a month:** Vercel dashboard → your project → **Cron Jobs**. A green
+**You should not have to check it by hand.** With the heartbeat set up
+([`operations.md`](operations.md#2--nightly-job-heartbeat)) a failed or missing run emails the
+shared address, and a super admin sees a warning on `/admin` when the newest backup is more
+than 36 hours old. **To look anyway:** Vercel dashboard → your project → **Cron Jobs**. A green
 run means a file was written. **A red run means the backup did not happen** — the route
 deliberately fails loudly, because a backup that fails quietly is discovered on the day you
 need it. The failure reason is in the run's log.
@@ -171,8 +178,10 @@ failure, and the body names which stage broke.
 > to sign in as anybody. People, their roles and blocks *are* in it.
 
 **To restore:** download the file from Vercel → Storage → the private Blob store. It holds
-the table rows as JSON. There is no automated restore, on purpose. **[dev]** for anything
-beyond reading the file.
+the table rows as JSON. There is no automated restore, on purpose. The manual search tables
+are not in the file; after loading the rows, rebuild them from `v5/` with
+`npm run manuals:index -- --force`. Steps: [`operations.md` → Restoring](operations.md#restoring).
+**[dev]** for anything beyond reading the file.
 
 ---
 
@@ -193,16 +202,15 @@ Body:   {"tag": "catalog"}
 
 | Where | What | How often |
 |---|---|---|
+| Uptime monitor on `/api/health` | Emails when the site or database is down | Automatic — [`operations.md`](operations.md#monitoring) |
+| Heartbeat monitor | Emails when the nightly backup fails or does not run | Automatic — [`operations.md`](operations.md#monitoring) |
 | Vercel → AI Gateway → Budgets | **Spend**, against a limit with an alert | Weekly, at minimum |
-| An uptime monitor on `/api/health` | **Alert on the status code** (503 = degraded) | Continuously |
-| Vercel → Cron Jobs | The nightly backup ran green | Monthly — see §3 |
 | Admin home | Waiting tickets, corrections, projects, intake | Per §3 |
 | Vercel logs | `DbUnavailableError` (Postgres unreachable), failed functions | When something looks wrong |
+| Vercel → Cron Jobs | The nightly backup ran green | When the heartbeat or `/admin` says otherwise — see §3 |
 
-**The one alert that matters most: a Gateway spend threshold.** Everything else is
-recoverable; an unbounded bill is not. The second is the uptime monitor, which is not set up
-yet — see [`specs/2026-07-29-operational-hardening-design.md`](specs/2026-07-29-operational-hardening-design.md)
-phase 2.
+**The one alert that matters most: the AI Gateway budget.** Everything else is recoverable;
+an unbounded bill is not. Setup for every monitor: [`operations.md`](operations.md).
 
 ---
 
@@ -289,7 +297,8 @@ Full variable list with explanations: `v5/.env.example`.
 
 ## 9. Known limitations — say these out loud at handover
 
-- **No uptime monitor yet.** `/api/health` is built for one; nobody has pointed one at it.
+- **Backups are files, not a standby database.** The nightly export (§3) reaches back three
+  years, but restoring it is manual developer work, and photos and PDFs live only in Blob.
 - **Translations are English-first.** The interface has twelve languages, but strings added
   since the last translation pass fall back to English until the pass after launch. The
   assistant still answers in any language.
@@ -304,7 +313,7 @@ Full variable list with explanations: `v5/.env.example`.
 
 - [ ] Fill in every owner in §2
 - [ ] Set a Gateway budget and alert
-- [ ] Point an uptime monitor at `/api/health`, alerting a shared address
+- [ ] Set up the uptime and heartbeat monitors ([`operations.md`](operations.md)), alerting a shared address
 - [ ] Name a maintenance-ticket owner and cadence (§3)
 - [ ] Confirm who can deploy and who administers the Vercel project
 - [ ] Confirm with the university that student names and emails in tickets, the backup and

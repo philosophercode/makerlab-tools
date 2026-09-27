@@ -38,6 +38,8 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 | [MCP Access](2026-09-23-mcp-access-design.md) | Phases 0–4: public reads, personal tokens, OAuth sign-in; user guide `docs/mcp.md` |
 | [Refresh Research](2026-09-23-refresh-research-design.md) | Phases 1–4 built. Not yet run over the real inventory |
 | [Official and Display Names](2026-09-24-tool-display-names-design.md) | `tools.official_name`; backfill with `npm run names:backfill` |
+| [Manual Text and Search](2026-09-23-manual-text-and-search-design.md) | Phases 1–3: page text, passages, embeddings, `search_manual`; OCR for scanned PDFs, reranking, `halfvec` storage. Re-index with `npm run manuals:index` |
+| [Operational Hardening](2026-07-29-operational-hardening-design.md) | Health endpoint, demo banner, nightly backup with tiered retention, staff refresh, backup heartbeat. Phase 2 (uptime monitor) is account setup in [`operations.md`](../operations.md); phase 6 (Notion webhook) superseded |
 
 ### Mostly implemented — open work named
 
@@ -45,8 +47,6 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 |---|---|---|
 | [v5 Data Platform](2026-09-14-v5-data-platform-design.md) — Postgres, Blob, roles, admin inventory, two-step intake, Notion mirror | Phases 1–6 and 8 | **Phase 7** (people load and validate the real inventory — not code) pending. **Phase 9** (translation pass) deferred until after launch |
 | [UI System](2026-09-25-ui-system-design.md) — shadcn/ui, Tufte density, admin IA, AI Elements chat | Phases 1–5 | **Phase 6** (delete legacy CSS) waits for the repo flatten, PR #79 |
-| [Manual Text and Search](2026-09-23-manual-text-and-search-design.md) | Phases 1–2 (extract and store; passages, embeddings, `search_manual`) | **Phase 3** in progress on branch `v5/manual-search-phase3` |
-| [Operational Hardening](2026-07-29-operational-hardening-design.md) | Health endpoint, demo banner, nightly backup, staff refresh | **Phase 2** (uptime monitor) and **phase 6** (Notion automation webhook — moot now that Notion is not read) not done; being handled on branch `v5/ops-cleanup` |
 | [Sign-in and Tiered Rate Limiting](2026-07-29-auth-and-rate-limiting-design.md) | Google sign-in, tiered rate limits as specced | The env-list role model is **superseded** by Better Auth and the `user` table (data platform phase 4) |
 | [Intake Confidence](2026-07-29-intake-confidence-design.md) | Confidence grading and parallel identification, now inside the research pipeline | The chat-side card behaviour is **obsolete** — `propose_listing` was removed with the two-step intake (data platform phase 6) |
 
@@ -64,9 +64,9 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 
 Everything open, in one place:
 
-1. **Manual search phase 3** — in progress (`v5/manual-search-phase3`).
-2. **Operational hardening** — an uptime monitor on `/api/health` (configuration a person
-   does) and the ops leftovers, on `v5/ops-cleanup`.
+1. **Monitoring setup** — the uptime and heartbeat monitors and the AI Gateway budget, all
+   account setup a person does ([`operations.md`](../operations.md)).
+2. **Manual search** — first OCR run over the scanned manuals (`npm run manuals:index`).
 3. **UI system phase 6** — legacy CSS removal, after PR #79 moves `v5/` to the repo root.
 4. **Data platform phase 7** — not code: Isaac and Luis load and validate the real inventory
    in person, and file what breaks.
