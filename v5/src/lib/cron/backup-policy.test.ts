@@ -1,7 +1,20 @@
 // @vitest-environment node
 import { getTableName } from "drizzle-orm";
-import { account, apiTokens, notionMirrors, oauthAccessToken, oauthApplication, session, tools, user, verification } from "../db/schema/index";
-import { EXCLUDED_TABLES, isExcludedFromBackup, redactRows } from "./backup-policy";
+import {
+  account,
+  apiTokens,
+  manualChunks,
+  manualDocuments,
+  manualPages,
+  notionMirrors,
+  oauthAccessToken,
+  oauthApplication,
+  session,
+  tools,
+  user,
+  verification,
+} from "../db/schema/index";
+import { EXCLUDED_TABLES, isExcludedFromBackup, isRebuiltAfterRestore, REBUILT_AFTER_RESTORE, redactRows } from "./backup-policy";
 
 /**
  * The policy is small enough to read, so these tests assert the *decision*
@@ -36,6 +49,23 @@ describe("EXCLUDED_TABLES", () => {
 
   it("keeps an ordinary catalogue table", () => {
     expect(isExcludedFromBackup(tools)).toBe(false);
+  });
+});
+
+describe("REBUILT_AFTER_RESTORE", () => {
+  it("names the manual search tables, which manuals:index rebuilds from the stored PDFs", () => {
+    expect(isRebuiltAfterRestore(manualPages)).toBe(true);
+    expect(isRebuiltAfterRestore(manualChunks)).toBe(true);
+    expect(REBUILT_AFTER_RESTORE.size).toBe(2);
+  });
+
+  it("keeps the document rows, which hold each manual's outline and status", () => {
+    expect(isRebuiltAfterRestore(manualDocuments)).toBe(false);
+  });
+
+  it("is not a credential exclusion, so data:push still copies them", () => {
+    expect(isExcludedFromBackup(manualPages)).toBe(false);
+    expect(isExcludedFromBackup(manualChunks)).toBe(false);
   });
 });
 

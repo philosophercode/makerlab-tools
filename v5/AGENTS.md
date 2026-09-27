@@ -74,8 +74,9 @@ variable list.
   goes to `feedback`, a maintenance ticket to `maintenance_logs`, a project
   submission to `projects` + `project_tools` — see `src/lib/data/*.ts`.
   `src/lib/data/notion-ids.ts` (the Phase-2 page-id bridge) has no importers
-  left and is awaiting deletion approval, as are `/api/upload-notion` and
-  `/api/admin/backup`.
+  left and is awaiting deletion approval, as is `/api/upload-notion`. The
+  retired Notion-dump `/api/admin/backup` was deleted (ops spec amendment
+  2026-09-27); `/api/cron/daily` is the only backup.
 - **No request path writes Notion** as of Phase 6, except the mirror, which
   pushes from a workflow and from its own settings page. Intake's chat tool,
   `identify_tools`, writes `pending_tools` rows and makes the photos it claims
@@ -1022,7 +1023,7 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 |---|---|
 | `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults) |
 | `src/lib/db/client.ts` | `getDb()`, `dataSubstrate()`, `pingDb()` — the one entry point to Postgres/PGlite |
-| `src/lib/notion.ts` | Notion API client — used by the one-time import and its scripts (and the retired `/api/admin/backup`, awaiting deletion); no request path reads or writes Notion through it (the mirror has its own client) |
+| `src/lib/notion.ts` | Notion API client — used by the one-time import and its scripts; no request path reads or writes Notion through it (the mirror has its own client) |
 | `src/lib/data/attachments.ts` | `attachments` rows: create, claim onto an owner, reorder, release, list orphans, delete |
 | `src/lib/data/revision.ts` | The editor's concurrency token — `extract(epoch from updated_at)::text`, **never a `Date`** (read the docstring before touching a conflict check) |
 | `src/lib/data/tools.ts` / `units.ts` | Row-level inventory writes, every one revision-checked. Tools are archived, never deleted |
@@ -1061,7 +1062,9 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/revalidate.ts` | `invalidateCatalog()` / `invalidateProjects()` — the one home for the cache tag strings, and `{ expire: 0 }`, because `revalidateTag` with a *named* profile is stale-while-revalidate and would serve the pre-publish page to one more reader |
 | `src/lib/blob.ts` | The Blob seam — `put` (private backups, fixed pathname) and `putUpload` (random pathname, caller's access) |
 | `src/lib/cron/backup.ts`, `src/lib/cron/cleanup.ts` | The nightly Postgres export and the orphaned-upload sweep |
-| `src/lib/cron/backup-policy.ts` | What the nightly export holds back — `session` / `verification` skipped, `account` tokens blanked. A backup is data, not credentials |
+| `src/lib/cron/backup-policy.ts` | What the nightly export holds back — `session` / `verification` / `oauth_access_token` skipped, token columns blanked (a backup is data, not credentials), and `manual_pages` / `manual_chunks` left out because `npm run manuals:index -- --force` rebuilds them after a restore |
+| `src/lib/cron/backup-retention.ts` | Pure tiered retention: every day for 7 days, newest per ISO week to 1 month, per month to 1 year, per quarter to 3 years |
+| `src/lib/cron/heartbeat.ts`, `src/lib/cron/backup-freshness.ts` | Failure visibility: the nightly run pings `CRON_HEARTBEAT_URL` (`/fail` on failure); `/admin` warns a super admin when the newest backup is over 36 hours old (`docs/operations.md`) |
 | `src/lib/catalog.ts` | Catalog orchestration + cache, reading Postgres |
 | `src/lib/rate-limit.ts` | In-memory (or Upstash) sliding-window limiter, tiered by role |
 | `src/lib/auth/config.ts` | The Better Auth instance: Drizzle adapter, database sessions, admin plugin, domain enforcement |
@@ -1092,7 +1095,7 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/data/api-tokens.ts`, `src/lib/auth/api-token-format.ts` | Personal access tokens (hash, prefix, revoke, last use) and the OAuth grant reads ("Connected apps") |
 | `src/app/account/tokens/`, `src/app/oauth/`, `src/app/.well-known/` | The token page, the OAuth sign-in and consent pages, the discovery documents |
 | `src/app/api/uploads/route.ts` | The one upload route → Vercel Blob + an `attachments` row |
-| `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup, then the mirror backstop, then the manual archive backfill |
+| `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup, then the mirror backstop, then the manual archive backfill; then the heartbeat ping |
 | `src/lib/manuals/*` | The manual archive: `archive` (`archiveManual`), `steps` (`archiveManualStep`, `indexManualStep`), `start` (the one `workflow/api` import), `trigger` (`requestManualArchive`, never throws); manual text: `extract` (unpdf), `index-document`, `stored-bytes`, `digest`; manual search: `chunk` (`CHUNKER_VERSION`), `embed` (job `embed`), `passages` (the index step's second half), `search` (`searchManuals`, hybrid + RRF) |
 | `src/lib/data/manual-documents.ts` | `manual_documents` / `manual_pages`: the one-transaction write, current-PDF lists for the step and backfill, editor states, tool-page contents, research's stored-text lookups |
 | `src/lib/data/manual-chunks.ts` | `manual_chunks`: the one-transaction passage write, which documents need passages, the chat's view of a tool's manuals, Re-process, the `/admin/research` counts |

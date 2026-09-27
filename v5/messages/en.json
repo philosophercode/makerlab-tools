@@ -1608,6 +1608,12 @@
       "backToImports": "Back to imports"
     },
     "mcpTokenDeprecated": "MCP_TOKEN is still set. It is deprecated: MCP callers using it now get the public, read-only tools only. Create personal access tokens on /account/tokens, then unset MCP_TOKEN.",
+    "backupNotice": {
+      "stale": "The nightly backup has not landed since {date}. Open Vercel → Cron Jobs and read the failed run's log.",
+      "missing": "No nightly backup has been written yet. Run /api/cron/daily by hand once, then check Vercel → Cron Jobs.",
+      "no_store": "No Blob store is linked, so the nightly backup cannot run.",
+      "unreadable": "Could not check the nightly backup: the Blob store did not answer."
+    },
     "users": {
       "filtersLabel": "Filter people",
       "search": "Search",

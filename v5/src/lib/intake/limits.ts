@@ -164,7 +164,8 @@ export const PENDING_IDENTIFIED_TTL_MS = 14 * 24 * 60 * 60_000;
  * A discarded item is deleted by the daily cron this long after it was
  * discarded (§8 PII: "discarded pending items ... are deleted on schedule").
  * Long enough that the queue's folded-away history still shows a recent
- * discard; the same thirty days the nightly backups are kept.
+ * discard. (Nightly backups taken meanwhile still hold the row, on the
+ * tiered retention in `cron/backup-retention.ts` — up to three years.)
  */
 export const PENDING_DISCARDED_RETENTION_MS = 30 * 24 * 60 * 60_000;
 

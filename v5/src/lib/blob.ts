@@ -132,7 +132,7 @@ export function isBlobConfigured(): boolean {
   return blobMode() !== "none";
 }
 
-/** Guards a runaway `list` loop; 30 days of daily backups is ~30 blobs. */
+/** Guards a runaway `list` loop; tiered retention keeps ~30–35 backup blobs. */
 const MAX_LIST_PAGES = 20;
 
 /**
