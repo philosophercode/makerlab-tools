@@ -1,8 +1,8 @@
 import { getTableName } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
-import { account, session, verification } from "../db/schema/auth";
-import { notionMirrors } from "../db/schema/mirror";
-import { oauthAccessToken, oauthApplication } from "../db/schema/access";
+import { account, session, verification } from "../db/schema/auth.ts";
+import { notionMirrors } from "../db/schema/mirror.ts";
+import { oauthAccessToken, oauthApplication } from "../db/schema/access.ts";
 
 /**
  * What the nightly export deliberately leaves out (data platform design spec
@@ -89,6 +89,15 @@ const REDACTED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   [getTableName(notionMirrors)]: MIRROR_SECRETS,
   [getTableName(oauthApplication)]: OAUTH_CLIENT_SECRETS,
 };
+
+/**
+ * The Drizzle property names blanked for this table (empty when none). Also
+ * read by `npm run data:push`, which applies the same policy to what it copies
+ * to a hosted database (`src/lib/push-hosted/rows.ts`).
+ */
+export function redactedColumnKeys(tableName: string): readonly string[] {
+  return REDACTED_COLUMNS[tableName] ?? [];
+}
 
 /** True when this table's rows must not be written to a backup file at all. */
 export function isExcludedFromBackup(table: PgTable): boolean {
