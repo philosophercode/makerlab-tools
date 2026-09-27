@@ -116,6 +116,16 @@ variable list.
   URLs); a `PGLITE_DATA_DIR` target uses `createBlobUploader()`, i.e.
   `.blob-data/` with `<AUTH_BASE_URL>/api/dev-blob/…` URLs when there is no
   token.
+- **Two Blob stores: public and private.** A Vercel Blob store is either
+  all-public or all-private, so a deployment links the default store (public)
+  and a second one connected with the custom prefix `BLOB_PRIVATE`
+  (`BLOB_PRIVATE_READ_WRITE_TOKEN`, or `BLOB_PRIVATE_STORE_ID` + OIDC).
+  **Every `@vercel/blob` call spreads `blobCredentials(access)`**
+  (`src/lib/blob-mode.ts`) — never call the SDK without it. `BlobStore.list`
+  and `del` take an access; `copyToPublic` reads from the private store and
+  writes to the public one when both are linked (`copy()` cannot cross
+  stores). With no `BLOB_PRIVATE_*`, private files use the default store, as
+  before; `blobMode()` is unchanged (data platform spec, amendment 2026-09-27).
 - **Failing toward stale, not wrong (Article 4).** `DATABASE_URL` unset serves
   the PGlite demo seed with `DemoDataBanner` shown. `DATABASE_URL` set but
   unreachable never falls back to demo or invented data — cached pages keep
