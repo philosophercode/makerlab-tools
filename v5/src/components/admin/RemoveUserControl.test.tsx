@@ -91,7 +91,7 @@ describe("RemoveUserControl — refusals", () => {
     await user.click(screen.getByRole("button", { name: "Remove Ada Lovelace" }));
     await user.click(screen.getByRole("button", { name: "Remove Ada Lovelace" }));
 
-    expect(await screen.findByText(/This is the last director/)).toBeInTheDocument();
+    expect(await screen.findByText(/This is the last super admin/)).toBeInTheDocument();
     expect(onRemoved).not.toHaveBeenCalled();
   });
 
@@ -108,10 +108,21 @@ describe("RemoveUserControl — refusals", () => {
     expect(await screen.findByText("That did not save. Nothing was changed.")).toBeInTheDocument();
   });
 
-  it("is disabled with the reason on a row that cannot be removed", () => {
+  it("is disabled with a short badge on a row that cannot be removed, the reason as its description", () => {
     renderControl({ disabledReason: "protected_floor" });
 
-    expect(screen.getByRole("button", { name: "Remove Ada Lovelace" })).toBeDisabled();
-    expect(screen.getByText(/protected in the deployment's settings/)).toBeInTheDocument();
+    const button = screen.getByRole("button", { name: "Remove Ada Lovelace" });
+    expect(button).toBeDisabled();
+    expect(screen.getByTestId("lock-note")).toHaveTextContent("Protected");
+    expect(button).toHaveAccessibleDescription(/protected in the deployment's settings/);
+  });
+
+  it("says 'Your account' on your own row", () => {
+    renderControl({ disabledReason: "self_remove" });
+
+    expect(screen.getByTestId("lock-note")).toHaveTextContent("Your account");
+    expect(screen.getByRole("button", { name: "Remove Ada Lovelace" })).toHaveAccessibleDescription(
+      "You cannot remove yourself."
+    );
   });
 });

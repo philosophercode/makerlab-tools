@@ -10,7 +10,8 @@ import { can } from "../../../lib/auth/permissions";
 import { listBlockedEmails } from "../../../lib/data/blocked-emails";
 import { listUsers } from "../../../lib/data/users";
 import { siteConfig } from "../../../lib/site-config";
-import { removeUser, setUserRole, setUserTitle, unblockBlockedEmail } from "./actions";
+import { addPerson, removeUser, setUserRole, setUserTitle, unblockBlockedEmail } from "./actions";
+import { AddPersonForm } from "../../../components/admin/AddPersonForm";
 import { AllowanceGrant } from "../../../components/admin/AllowanceGrant";
 import { listActiveAllowances } from "../../../lib/data/research-allowances";
 import { grantSetupAllowance } from "./allowance-actions";
@@ -20,6 +21,7 @@ import type { AllowanceCandidate } from "./allowance-result";
  * `/admin/users` — who is who, and how to change it (spec §5.2, §6), and
  * since the auth spec amendment of 2026-09-25 who has been removed for good:
  * **Remove** on each row, and the **Blocked emails** list below the roster.
+ * **Add person** puts somebody on the roster before their first sign-in.
  *
  * Super admin only: `users.manage` belongs to that role alone (§8). The layout
  * above let a SuperMaker in — they hold other admin permissions — so the
@@ -78,6 +80,10 @@ export default async function AdminUsersPage({
           t("facts.blocked", { count: blocked.length }),
         ]}
       />
+
+      {/* Super admins only, like everything on this page (`users.manage`,
+          checked above and again inside the action). */}
+      <AddPersonForm action={addPerson} />
 
       <UsersTable
         users={users}

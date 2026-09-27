@@ -41,6 +41,11 @@ export interface UserRecord {
   banReason: string | null;
   /** The custom title, or null for the role's default (`lib/people/title.ts`). */
   title: string | null;
+  /**
+   * When they first had a session, or null for somebody a super admin added
+   * who has not signed in yet (migration `0018`, `lib/data/user-add.ts`).
+   */
+  firstSignedInAt: Date | null;
   createdAt: Date;
 }
 
@@ -134,7 +139,25 @@ export async function updateUserTitle(
   return rows.length > 0;
 }
 
-function toUserRecord(row: typeof user.$inferSelect): UserRecord {
+/**
+ * Stamp a person's first sign-in, if they have not had one. Called from the
+ * session create hook in `auth/config.ts` on every new session; only a row a
+ * super admin added ahead of time is ever still null, so for everybody else
+ * this matches nothing. Returns true when it stamped one.
+ */
+export async function markFirstSignIn(userId: string, options: UserQueryOptions = {}): Promise<boolean> {
+  if (!userId) return false;
+  const db = options.db ?? (await getDb());
+  const rows = await db
+    .update(user)
+    .set({ firstSignedInAt: new Date() })
+    .where(and(eq(user.id, userId), isNull(user.firstSignedInAt)))
+    .returning({ id: user.id });
+  return rows.length > 0;
+}
+
+/** A `user` row as the roster reads it. Shared with `user-add.ts`. */
+export function toUserRecord(row: typeof user.$inferSelect): UserRecord {
   return {
     id: row.id,
     email: row.email,
@@ -145,6 +168,7 @@ function toUserRecord(row: typeof user.$inferSelect): UserRecord {
     banned: Boolean(row.banned),
     banReason: row.banReason ?? null,
     title: row.title ?? null,
+    firstSignedInAt: row.firstSignedInAt ?? null,
     createdAt: row.createdAt,
   };
 }

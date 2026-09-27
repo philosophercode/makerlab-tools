@@ -76,7 +76,8 @@ export function UsersTable({ users, currentUserId, initial, setRole, removeUser,
       title: person.title,
       // ISO, locale-neutral: a formatted date would render differently on the
       // server and the client, and a roster read by one admin does not need it.
-      joined: person.createdAt.toISOString().slice(0, 10),
+      // Null — "Not signed in yet" — for somebody added ahead of time.
+      joined: person.firstSignedInAt ? person.firstSignedInAt.toISOString().slice(0, 10) : null,
       isSelf,
       roleLockedReason: roleReason,
       removeLockedReason: removeReason,

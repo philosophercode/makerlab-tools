@@ -2,9 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Role } from "../../lib/db/schema/vocabulary";
 import { displayTitle, USER_TITLE_MAX_LENGTH } from "../../lib/people/title";
 import type {
@@ -15,11 +17,13 @@ import type {
 import { useHydrated } from "./use-hydrated";
 
 /**
- * A person's title under their name on `/admin/users`, and the inline control
- * that changes it.
+ * A person's title in the Title column of `/admin/users`, and the inline
+ * control that changes it.
  *
- * Read, it is the title `displayTitle` derives: the custom one, else the role's
- * default (`admin.titles.<role>`). **Edit title** swaps it for a text field and
+ * Read, it is the title `displayTitle` derives: the custom one (in ink), else
+ * the role's default (`admin.titles.<role>`, muted — it is a fallback, not a
+ * choice anybody made). The pencil icon button (its accessible name is "Edit
+ * the title for <name>") swaps it for a text field and
  * Save / Cancel — inline, never a modal (UI system spec §6). A blank save
  * clears the custom title, and the placeholder says which default that brings
  * back.
@@ -112,19 +116,29 @@ export function TitleEditor({ userId, personName, role, title, action }: TitleEd
   return (
     <span className="flex flex-col gap-1">
       {!open ? (
-        <span className="flex flex-wrap items-baseline gap-x-2 text-xs text-muted-foreground">
-          <span data-testid="person-title">{shown}</span>
-          <Button
-            ref={openerRef}
-            type="button"
-            variant="ghost"
-            size="xs"
-            disabled={!hydrated}
-            aria-label={t("title.editFor", { name: personName })}
-            onClick={start}
-          >
-            {t("title.edit")}
-          </Button>
+        <span className="flex items-center gap-1">
+          <span data-testid="person-title" className={cn(stored ? "text-foreground" : "text-muted-foreground")}>
+            {shown}
+          </span>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  ref={openerRef}
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  className="size-6"
+                  disabled={!hydrated}
+                  aria-label={t("personTitle.editFor", { name: personName })}
+                  onClick={start}
+                >
+                  <Pencil aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>{t("personTitle.edit")}</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </span>
       ) : (
         <form
@@ -141,22 +155,22 @@ export function TitleEditor({ userId, personName, role, title, action }: TitleEd
             value={draft}
             maxLength={USER_TITLE_MAX_LENGTH}
             disabled={pending}
-            placeholder={t("title.placeholder", { fallback })}
-            aria-label={t("title.label", { name: personName })}
+            placeholder={t("personTitle.placeholder", { fallback })}
+            aria-label={t("personTitle.label", { name: personName })}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === "Escape") setOpen(false);
             }}
           />
           <span className="text-xs text-muted-foreground">
-            {t("title.hint", { max: USER_TITLE_MAX_LENGTH })}
+            {t("personTitle.hint", { max: USER_TITLE_MAX_LENGTH })}
           </span>
           <span className="flex flex-wrap gap-2">
             <Button type="submit" variant="quiet" size="sm" disabled={pending}>
-              {t("title.save")}
+              {t("personTitle.save")}
             </Button>
             <Button type="button" variant="ghost" size="sm" disabled={pending} onClick={() => setOpen(false)}>
-              {t("title.cancel")}
+              {t("personTitle.cancel")}
             </Button>
           </span>
         </form>

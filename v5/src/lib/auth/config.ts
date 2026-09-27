@@ -7,6 +7,7 @@ import { nextCookies } from "better-auth/next-js";
 import { admin } from "better-auth/plugins/admin";
 import { mcp } from "better-auth/plugins";
 
+import { markFirstSignIn } from "../data/users";
 import { dataSubstrate, getDb } from "../db/client";
 import * as schema from "../db/schema/index";
 import { emailBlockedError, emailNotAllowedError, isSignUpBlocked } from "./blocked-sign-in";
@@ -153,6 +154,33 @@ export function createAuth(db: Db) {
         title: { type: "string", required: false, input: false },
       },
     },
+    account: {
+      // People a super admin added on the People page before they ever signed
+      // in (`lib/data/user-add.ts`): a `user` row with no `account`. At their
+      // first Google sign-in Better Auth finds that row by email and *links*
+      // the Google account to it, so they keep the role and title they were
+      // given instead of failing or getting a duplicate.
+      //
+      // - `trustedProviders` is left empty on purpose: linking still requires
+      //   Google to say the address is verified (`email_verified`), so an
+      //   unverified Google account that merely claims somebody's address
+      //   cannot take over a pre-added row.
+      // - `requireLocalEmailVerified: false` because a pre-added row cannot be
+      //   verified — nobody has proved anything yet; the super admin who typed
+      //   it is the reason it exists. There is no password or email sign-up
+      //   here, so no unverified row can come from anywhere else.
+      // - `updateUserInfoOnLink` replaces the placeholder name with their
+      //   Google name and picture at the link. Role and title are not provider
+      //   fields, so they are untouched.
+      //
+      // The domain rule still applies: the after-hook below refuses a session
+      // for an address outside it, whichever path created the row.
+      accountLinking: {
+        enabled: true,
+        requireLocalEmailVerified: false,
+        updateUserInfoOnLink: true,
+      },
+    },
     session: {
       expiresIn: SESSION_MAX_AGE_SECONDS,
       updateAge: SESSION_UPDATE_AGE_SECONDS,
@@ -179,6 +207,21 @@ export function createAuth(db: Db) {
             // comes to exist.
             if (isSuperAdminFloor(user.email)) {
               return { data: { ...user, role: "super_admin" } };
+            }
+          },
+        },
+      },
+      session: {
+        create: {
+          // "Not signed in yet" ends here: a pre-added person's first session
+          // stamps `first_signed_in_at`. Everybody else already has one (the
+          // column defaults to the row's creation), so this matches nothing
+          // for them. Never allowed to fail a sign-in over a roster date.
+          after: async (session) => {
+            try {
+              await markFirstSignIn(session.userId, { db });
+            } catch (err) {
+              console.error("[auth] could not record a first sign-in", err);
             }
           },
         },

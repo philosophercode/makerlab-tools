@@ -21,6 +21,7 @@ function person(overrides: Partial<UserRecord> = {}): UserRecord {
     banned: false,
     banReason: null,
     title: null,
+    firstSignedInAt: new Date("2026-03-04T10:00:00.000Z"),
     createdAt: new Date("2026-03-04T10:00:00.000Z"),
     ...overrides,
   };
@@ -78,6 +79,60 @@ describe("UsersTable — the roster", () => {
     expect(within(rowFor("Dee Rector")).getByRole("button", { name: "Edit the title for Dee Rector" })).toBeInTheDocument();
   });
 
+  it("keeps role and title apart: one column each, roles named by what they authorize", () => {
+    renderTable([person({ role: "admin", title: "Tech Lead" })]);
+
+    const table = screen.getByRole("table", { name: "People and their roles" });
+    const headers = within(table).getAllByRole("columnheader").map((cell) => cell.textContent);
+    expect(headers).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining("Person"),
+        expect.stringContaining("Title"),
+        expect.stringContaining("Role"),
+        expect.stringContaining("First signed in"),
+        expect.stringContaining("Account"),
+      ])
+    );
+
+    const row = rowFor("Ada Lovelace");
+    const options = within(within(row).getByRole("combobox", { name: /Ada Lovelace/ }))
+      .getAllByRole("option")
+      .map((option) => option.textContent);
+    expect(options).toEqual(["User", "Admin", "Super admin"]);
+    // No title word is ever a role label, and no role label a title.
+    for (const word of ["Director", "SuperMaker", "Supermaker", "Student"]) expect(options).not.toContain(word);
+    expect(within(row).getByTestId("person-title")).toHaveTextContent("Tech Lead");
+  });
+
+  it("puts the address in the person's cell, under the name", () => {
+    renderTable([person()]);
+    const header = within(rowFor("Ada Lovelace")).getByRole("rowheader");
+    expect(header).toHaveTextContent("Ada Lovelace");
+    expect(header).toHaveTextContent("ada@cornell.edu");
+  });
+
+  it("edits a title from a pencil icon button named for the person", async () => {
+    const { setTitle } = renderTable([person()]);
+    const user = userEvent.setup();
+
+    await user.click(within(rowFor("Ada Lovelace")).getByRole("button", { name: "Edit the title for Ada Lovelace" }));
+    await user.type(within(rowFor("Ada Lovelace")).getByRole("textbox", { name: "Title for Ada Lovelace" }), "Tech Lead");
+    await user.click(within(rowFor("Ada Lovelace")).getByRole("button", { name: "Save" }));
+
+    expect(setTitle).toHaveBeenCalledWith({ userId: "u-ada", title: "Tech Lead" });
+  });
+
+  it("says 'Not signed in yet' for somebody added ahead of time", () => {
+    renderTable([person({ firstSignedInAt: null })]);
+    expect(within(rowFor("Ada Lovelace")).getByText("Not signed in yet")).toBeInTheDocument();
+    expect(screen.queryByText("2026-03-04")).not.toBeInTheDocument();
+  });
+
+  it("says an address once when it is also the placeholder name", () => {
+    renderTable([person({ name: "luis@cornell.edu", email: "luis@cornell.edu", firstSignedInAt: null })]);
+    expect(within(rowFor("luis@cornell.edu")).getAllByText("luis@cornell.edu")).toHaveLength(1);
+  });
+
   it("offers no Ban any more", () => {
     renderTable([person()]);
     expect(screen.queryByRole("button", { name: /ban/i })).not.toBeInTheDocument();
@@ -85,7 +140,7 @@ describe("UsersTable — the roster", () => {
 
   it("renders the first sign-in as an ISO date", () => {
     renderTable([person()]);
-    expect(screen.getByText("2026-03-04")).toBeInTheDocument();
+    expect(within(rowFor("Ada Lovelace")).getByText("2026-03-04")).toBeInTheDocument();
   });
 
   it("marks the viewer's own row", () => {
@@ -111,10 +166,18 @@ describe("UsersTable — rows it will not let you change", () => {
     const row = rowFor("Fay Founder");
     expect(within(row).getByRole("combobox", { name: /Fay Founder/ })).toBeDisabled();
     expect(within(row).getByRole("button", { name: "Remove Fay Founder" })).toBeDisabled();
-    expect(within(row).getAllByText(/protected in the deployment's settings/i).length).toBeGreaterThan(0);
+    // A short badge, not a sentence per row…
+    expect(within(row).getAllByText("Protected")).toHaveLength(2);
+    // …with the sentence as each disabled control's description.
+    expect(within(row).getByRole("combobox", { name: /Fay Founder/ })).toHaveAccessibleDescription(
+      /protected in the deployment's settings/i
+    );
+    expect(within(row).getByRole("button", { name: "Remove Fay Founder" })).toHaveAccessibleDescription(
+      /protected in the deployment's settings/i
+    );
   });
 
-  it("locks the last director's role and Remove, worked out from the list it was given", () => {
+  it("locks the last super admin's role and Remove, worked out from the list it was given", () => {
     renderTable(
       [
         person({ id: "u-dee", email: "dee@cornell.edu", name: "Dee Rector", role: "super_admin" }),
@@ -129,7 +192,7 @@ describe("UsersTable — rows it will not let you change", () => {
     expect(within(rowFor("Ada Lovelace")).getByRole("combobox", { name: /Ada Lovelace/ })).toBeEnabled();
   });
 
-  it("unlocks both once a second director exists", () => {
+  it("unlocks both once a second super admin exists", () => {
     renderTable([
       person({ id: "u-dee", email: "dee@cornell.edu", name: "Dee Rector", role: "super_admin" }),
       person({ id: "u-sam", email: "sam@cornell.edu", name: "Sam Second", role: "super_admin" }),
@@ -151,7 +214,10 @@ describe("UsersTable — rows it will not let you change", () => {
 
     const row = rowFor("Ada Lovelace");
     expect(within(row).getByRole("button", { name: "Remove Ada Lovelace" })).toBeDisabled();
-    expect(within(row).getByText("You cannot remove yourself.")).toBeInTheDocument();
+    expect(within(row).getByText("Your account")).toBeInTheDocument();
+    expect(within(row).getByRole("button", { name: "Remove Ada Lovelace" })).toHaveAccessibleDescription(
+      "You cannot remove yourself."
+    );
     expect(within(row).getByRole("combobox", { name: /Ada Lovelace/ })).toBeEnabled();
   });
 });
@@ -193,7 +259,7 @@ describe("UsersTable — finding somebody", () => {
     await user.clear(screen.getByRole("searchbox", { name: "Search" }));
 
     await user.click(within(screen.getByRole("search")).getByRole("button", { name: "Role" }));
-    const admins = await screen.findByRole("menuitemradio", { name: /SuperMaker|Admin/ });
+    const admins = await screen.findByRole("menuitemradio", { name: /^Admin/ });
     expect(admins).toHaveTextContent("2");
     await user.click(admins);
 
