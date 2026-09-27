@@ -4,6 +4,7 @@ import type {
   AdminActionError,
   AdminActionResult,
   RemoveUserAction,
+  SetNameAction,
   SetTitleAction,
 } from "../../app/admin/users/action-result";
 import { UsersRoster, type RosterRow } from "./UsersRoster";
@@ -37,9 +38,10 @@ export interface UsersTableProps {
   setRole: (input: { userId: string; role: string }) => Promise<AdminActionResult>;
   removeUser: RemoveUserAction;
   setTitle: SetTitleAction;
+  setName: SetNameAction;
 }
 
-export function UsersTable({ users, currentUserId, initial, setRole, removeUser, setTitle }: UsersTableProps) {
+export function UsersTable({ users, currentUserId, initial, setRole, removeUser, setTitle, setName }: UsersTableProps) {
   // Who would still hold `super_admin` if a given row lost it. Banned super
   // admins — a state only a hand-written UPDATE can make now — are not
   // counted: they resolve to anonymous and can undo nothing.
@@ -85,6 +87,13 @@ export function UsersTable({ users, currentUserId, initial, setRole, removeUser,
   });
 
   return (
-    <UsersRoster rows={rows} initial={initial} setRole={setRole} removeUser={removeUser} setTitle={setTitle} />
+    <UsersRoster
+      rows={rows}
+      initial={initial}
+      setRole={setRole}
+      removeUser={removeUser}
+      setTitle={setTitle}
+      setName={setName}
+    />
   );
 }

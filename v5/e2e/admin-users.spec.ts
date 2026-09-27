@@ -278,10 +278,12 @@ test.describe("/admin/users — adding somebody before they sign in", () => {
     // A retry after the add landed finds the row already there.
     if ((await row.count()) === 0) {
       await page.getByRole("button", { name: "Add person" }).click();
+      // One "Add person" on screen at a time: the opener is gone while the form is open.
+      await expect(page.getByRole("button", { name: "Add person" })).toHaveCount(0);
       await page.getByRole("textbox", { name: "Email" }).fill(email.toUpperCase());
       await page.getByRole("combobox", { name: "Role", exact: true }).selectOption("admin");
       await page.getByRole("textbox", { name: "Title", exact: true }).fill("Tech Lead");
-      await addForm.getByRole("button", { name: "Add person" }).click();
+      await addForm.getByRole("button", { name: "Add", exact: true }).click();
       await expect(page.getByText(`${email} was added.`)).toBeVisible({ timeout: SAVE_TIMEOUT });
     }
 
@@ -294,16 +296,140 @@ test.describe("/admin/users — adding somebody before they sign in", () => {
     // Adding the same address again is refused, in words.
     await page.getByRole("button", { name: "Add person" }).click();
     await page.getByRole("textbox", { name: "Email" }).fill(email);
-    await addForm.getByRole("button", { name: "Add person" }).click();
+    await addForm.getByRole("button", { name: "Add", exact: true }).click();
     await expect(page.getByText("Somebody with that address is already on the list.")).toBeVisible({
       timeout: SAVE_TIMEOUT,
     });
+    await addForm.getByRole("button", { name: "Cancel" }).click();
+
+    // A super admin names them before they ever sign in; Google will not replace it.
+    if ((await row.getByTestId("person-name").textContent()) === email) {
+      await row.getByRole("button", { name: `Edit the name for ${email}` }).click();
+      const nameField = row.getByRole("textbox", { name: `Name for ${email}` });
+      await nameField.fill("  E2E   Added Person ");
+      await nameField.press("Enter");
+      await expect(row.getByTestId("person-name")).toHaveText("E2E Added Person", { timeout: SAVE_TIMEOUT });
+    }
+    await page.reload();
+    await expect(row.getByTestId("person-name")).toHaveText("E2E Added Person");
+    // Their address is said under the name now that it is no longer the name.
+    await expect(row.getByText(email, { exact: true })).toBeVisible();
 
     // And somebody who never signed in can be removed like anyone else.
-    await row.getByRole("button", { name: `Remove ${email}` }).click();
-    await row.getByRole("button", { name: `Remove ${email}` }).click();
-    await expect(page.getByText(`${email} was removed.`)).toBeVisible({ timeout: SAVE_TIMEOUT });
+    await row.getByRole("button", { name: "Remove E2E Added Person" }).click();
+    await row.getByRole("button", { name: "Remove E2E Added Person" }).click();
+    await expect(page.getByText("E2E Added Person was removed.")).toBeVisible({ timeout: SAVE_TIMEOUT });
     await page.reload();
     await expect(row).toHaveCount(0);
+  });
+
+  test("Cancel and Escape close the form without adding anybody, and hand focus back", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+    await page.goto("/admin/users");
+    const opener = page.getByRole("button", { name: "Add person" });
+    const emailField = page.getByRole("textbox", { name: "Email" });
+
+    await opener.click();
+    await emailField.fill("never-added@cornell.edu");
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(emailField).toHaveCount(0);
+    await expect(opener).toBeFocused();
+
+    await opener.click();
+    await expect(emailField).toHaveValue("");
+    await emailField.fill("never-added@cornell.edu");
+    await emailField.press("Escape");
+    await expect(emailField).toHaveCount(0);
+    await expect(opener).toBeFocused();
+
+    await expect(page.getByRole("row", { name: /never-added@cornell\.edu/ })).toHaveCount(0);
+  });
+});
+
+test.describe("/admin/users — sorting and filtering the roster", () => {
+  test("sorts by Person from the header, with aria-sort", async ({ page, context, baseURL }) => {
+    await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+    await page.goto("/admin/users");
+    const table = page.getByRole("table", { name: "People and their roles" });
+    const personHeader = table.getByRole("columnheader", { name: /Person/ });
+    const names = async () => (await table.getByTestId("person-name").allTextContents()).map((n) => n.trim());
+
+    await personHeader.getByRole("button").click();
+    await expect(personHeader).toHaveAttribute("aria-sort", "ascending");
+    const ascending = await names();
+    expect(ascending).toEqual([...ascending].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())));
+
+    await personHeader.getByRole("button").click();
+    await expect(personHeader).toHaveAttribute("aria-sort", "descending");
+    expect(await names()).toEqual([...ascending].reverse());
+  });
+
+  test("filters by signed in and by title, into a link that reopens the same view", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+    await page.goto("/admin/users");
+    const table = page.getByRole("table", { name: "People and their roles" });
+    const filters = page.getByRole("search");
+
+    await filters.getByRole("button", { name: "Signed in" }).click();
+    await page.getByRole("menuitemradio", { name: /^Signed in/ }).click();
+    await expect(page).toHaveURL(/signed_in=yes/);
+    await expect(table.getByText("Not signed in yet")).toHaveCount(0);
+
+    await filters.getByRole("button", { name: "Title" }).click();
+    await page.getByRole("menuitemradio", { name: /^Super Admin/ }).click();
+    await expect(page).toHaveURL(/title=Super\+Admin/);
+    await expect(filters.getByRole("button", { name: /Title: Super Admin/ })).toBeVisible();
+    await expect(table.getByRole("row", { name: new RegExp(DEMO_ACCOUNTS.superAdmin.name) })).toBeVisible();
+    const titles = await table.getByTestId("person-title").allTextContents();
+    expect(titles.length).toBeGreaterThan(0);
+    for (const title of titles) expect(title).toBe("Super Admin");
+    await expect(table.getByRole("row", { name: new RegExp(DEMO_ACCOUNTS.superAdmin.name) })).toBeVisible();
+
+    // The URL is the view: a reload lands on the same narrowed roster.
+    await page.reload();
+    await expect(filters.getByRole("button", { name: /Title: Super Admin/ })).toBeVisible();
+    await expect(table.getByTestId("person-title")).toHaveText(titles);
+  });
+});
+
+test.describe("/account — your own name", () => {
+  const pat = DEMO_ACCOUNTS.promotable;
+
+  test("anybody signed in renames themselves, and it sticks", async ({ page, context, baseURL }) => {
+    await signIn(context, pat, baseURL);
+    await page.goto("/account");
+    await expect(page.getByRole("heading", { name: "Your account", level: 1 })).toBeVisible();
+    await expect(page.getByText(pat.email, { exact: true })).toBeVisible();
+
+    const name = page.getByTestId("own-name");
+    const rename = async (to: string) => {
+      await page.getByRole("button", { name: "Edit your name" }).click();
+      const field = page.getByRole("textbox", { name: "Your name" });
+      await field.fill(to);
+      await field.press("Enter");
+      await expect(name).toHaveText(to.trim(), { timeout: SAVE_TIMEOUT });
+    };
+
+    await rename("Pat P. Renamed ");
+    await page.reload();
+    await expect(name).toHaveText("Pat P. Renamed");
+
+    // Blank is refused, in words, and nothing changes.
+    await page.getByRole("button", { name: "Edit your name" }).click();
+    await page.getByRole("textbox", { name: "Your name" }).fill("   ");
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("A name needs 1 to 80 characters.")).toBeVisible({ timeout: SAVE_TIMEOUT });
+    await page.getByRole("button", { name: "Cancel" }).click();
+
+    // Put it back: the roster tests above find Pat by name.
+    await rename(pat.name);
   });
 });

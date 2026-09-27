@@ -399,19 +399,53 @@ Phase 5 extends both. The shape it sets:
   the select, the Role facet, the Add person form). Titles (Director, Assistant
   Director, Tech Lead, Supermaker, Student…) are only ever shown as titles, in
   their own column. Do not put a title word into `admin.roles`.
-- **The roster is one row per person** (`UsersRoster`): Person (name, YOU,
-  address under it in small mono — said once when the name *is* the address),
-  Title (text + pencil icon button, `aria-label` "Edit the title for <name>",
-  opening `TitleEditor` inline), Role, First signed in, Account. A locked
+- **The roster is one row per person** (`UsersRoster`): Person (name + pencil
+  "Edit the name for <name>" → `NameEditor`, YOU, address under it in small
+  mono — said once when the name *is* the address), Title (text + pencil
+  "Edit the title for <name>" → `TitleEditor`), Role, First signed in, Account.
+  Both pencils are one component, `components/system/InlineTextEditor.tsx`
+  (read / field + Save + Cancel, Escape cancels, focus back to the pencil, shows
+  what the server stored, one `role="status"`); reuse it for any other short
+  inline text rather than copying `TitleEditor`. A locked
   control shows a short `LockNote` badge — "Protected", "Last super admin",
   "Your account" — with the full `admin.errors.<code>` sentence in its tooltip
   and as the disabled control's `aria-describedby`; a refusal the server just
   gave is still said in full.
+- **Finding people**: search (name, address, title) plus three `FacetFilter`s —
+  Role, Signed in (`yes` / `no`), Title (every title *as shown*: custom, else
+  the role's default label) — all in the URL (`q`, `role`, `signed_in`,
+  `title`; `users-filters.ts`), counted per option like the inventory's.
+  Person, Title (as shown), Role (most privileged first) and First signed in
+  ("Not signed in yet" first) sort from their headers with `aria-sort`; text
+  sorts set `sortingFn: "text"` explicitly (TanStack's `auto` samples rows
+  after the tenth, so a short roster would sort case-sensitively). Sort is not
+  in the URL, as on the inventory.
+- **Names** (`lib/people/name.ts`): trimmed, whitespace collapsed, 1–80
+  characters (`PERSON_NAME_MAX_LENGTH`, Add person included). A super admin
+  renames anybody on the roster (`setUserName`, `users.manage`); anybody signed
+  in renames themselves on **`/account`** ("Your account" in the profile menu;
+  `updateOwnName` in `lib/account/name-actions.ts`, account gate, always the
+  caller's own row). Both go through `renamePerson` (`lib/people/rename.ts`) and
+  record `user.name_changed` `{ from, to }`; a lost event is a warning, not a
+  failure. Better Auth's own `/update-user` is in `disabledPaths` — it took a
+  name from any browser with no rule and no audit.
+- **Google never overwrites a chosen name.** An already-linked account is not
+  updated at sign-in (`overrideUserInfoOnSignIn` stays off). The one late write
+  is the account link for somebody added ahead of time: the Google provider's
+  `mapProfileToUser` → `keepChosenName` (`lib/auth/provider-name.ts`) hands back
+  the row's own name unless it is the address placeholder, so a name typed at
+  Add person (or edited on the roster before they sign in) is kept and a blank
+  one becomes their Google name. No column records "edited": the placeholder
+  *is* the marker. `config.test.ts` covers all three cases.
 - **Add person** (`AddPersonForm` → `addPerson`, audited as `user.added`, in
   one transaction with the row — `lib/data/user-add.ts`): a super admin puts
   somebody on the roster before their first sign-in, with email (trimmed,
-  lower-cased), optional name (the address stands in), role and optional
-  title. Refused, as values: not an address, too long, a role outside the
+  lower-cased), optional name (the address stands in until Google's; a typed
+  one is kept), role and optional title. The **Add person** button opens the
+  form inline and disappears while it is open; the form's buttons are **Add**
+  (the one filled button) and **Cancel** — Cancel or Escape closes and empties
+  it and returns focus to Add person; after a landed add it stays open,
+  emptied, for the next person. Refused, as values: not an address, too long, a role outside the
   vocabulary, `isAllowedEmail` false (`email_not_allowed` — the same rule the
   create hook runs), blocked (`email_blocked`, floor exempt), or already a row
   (`duplicate_email`). A floor address is stored `super_admin` whatever was
@@ -426,8 +460,9 @@ Phase 5 extends both. The shape it sets:
   cannot be verified; there is no password or email sign-up to make one any
   other way), `trustedProviders` deliberately **not** set (so Google must say
   `email_verified`, and an unverified Google account claiming the address
-  cannot take the row), `updateUserInfoOnLink: true` (Google's name and photo
-  replace the placeholder; role and title are not provider fields and stay).
+  cannot take the row), `updateUserInfoOnLink: true` (Google's photo, and
+  Google's name only over the address placeholder — see "Google never
+  overwrites a chosen name"; role and title are not provider fields and stay).
   Linking skips `user.create.before`, so the role/title/floor chosen at Add
   person are what they arrive with; the after-hook's domain check still runs.
   `config.test.ts` drives the real OAuth callback (MSW token endpoint, forged
@@ -1143,7 +1178,7 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/admin/surfaces.ts` / `src/lib/data/admin-overview.ts` | Every admin surface once (tiles, bar, palette, each with its permission) / the home's count loaders |
 | `src/components/palette/*` | The ⌘K palette on every page: `CommandPalette`, `HeaderSearch`, `PaletteScope`, `palette-match` |
 | `src/app/admin/inventory/page.tsx` | The review table (`tools.edit`), uncached, filtered from the URL |
-| `src/app/admin/users/actions.ts` | `setUserRole` / `setUserTitle` / `addPerson` / `removeUser` / `unblockBlockedEmail` — the People page's server actions (Ban retired 2026-09-25) |
+| `src/app/admin/users/actions.ts` | `setUserRole` / `setUserTitle` / `setUserName` / `addPerson` / `removeUser` / `unblockBlockedEmail` — the People page's server actions (Ban retired 2026-09-25) |
 | `src/lib/data/user-removal.ts` / `blocked-emails.ts` / `account-removed.ts` | Removing a person in one transaction; the blocked-address list; "an id that names no account" in SQL |
 | `src/lib/auth/blocked-sign-in.ts` | Refusing a blocked address in the create hook, and the redirect to `/auth/blocked` |
 | `src/lib/data/users.ts` | The `/admin/users` roster, read straight from Postgres; `markFirstSignIn` |
@@ -1162,6 +1197,7 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/capabilities/mcp-catalog.ts`, `src/app/mcp/`, `src/lib/mcp/try-it.ts` | The public `/mcp` page: the registry described by audience, and Try it (anonymous, through the MCP handler) |
 | `src/lib/data/api-tokens.ts`, `src/lib/auth/api-token-format.ts` | Personal access tokens (hash, prefix, revoke, last use) and the OAuth grant reads ("Connected apps") |
 | `src/app/account/tokens/`, `src/app/oauth/`, `src/app/.well-known/` | The token page, the OAuth sign-in and consent pages, the discovery documents |
+| `src/app/account/page.tsx`, `src/lib/account/name-actions.ts` | "Your account": your own name (`updateOwnName`), your address |
 | `src/app/api/uploads/route.ts` | The one upload route → Vercel Blob + an `attachments` row |
 | `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup, then the mirror backstop, then the manual archive backfill; then the heartbeat ping |
 | `src/lib/manuals/*` | The manual archive: `archive` (`archiveManual`), `steps` (`archiveManualStep`, `indexManualStep`), `start` (the one `workflow/api` import), `trigger` (`requestManualArchive`, never throws); manual text: `extract` (unpdf), `index-document`, `stored-bytes`, `digest`; manual search: `chunk` (`CHUNKER_VERSION`), `embed` (job `embed`), `passages` (the index step's second half), `search` (`searchManuals`, hybrid + RRF) |

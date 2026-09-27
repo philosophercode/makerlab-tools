@@ -6,9 +6,11 @@ import { insertUserRow } from "../../../test/utils/session";
 import type { Db } from "../db/types";
 import {
   countUsersWithRole,
+  findUserByEmail,
   findUserById,
   listAssignableStaff,
   listUsers,
+  updateUserName,
 } from "./users";
 
 /**
@@ -153,5 +155,29 @@ describe("listAssignableStaff", () => {
     await seed("casey@cornell.edu", "user");
 
     expect(await listAssignableStaff({ db })).toEqual([]);
+  });
+});
+
+describe("updateUserName", () => {
+  it("writes the name and answers true", async () => {
+    await seed("ada@cornell.edu", "user", { name: "Ada" });
+    expect(await updateUserName("u-ada@cornell.edu", "Ada Lovelace", { db })).toBe(true);
+    expect((await findUserById("u-ada@cornell.edu", { db }))?.name).toBe("Ada Lovelace");
+  });
+
+  it("answers false for somebody who is not there", async () => {
+    expect(await updateUserName("u-nobody", "Nobody", { db })).toBe(false);
+  });
+});
+
+describe("findUserByEmail", () => {
+  it("finds a row whatever the capitalisation of the address asked for", async () => {
+    await seed("ada@cornell.edu", "user", { name: "Ada" });
+    expect((await findUserByEmail("  Ada@Cornell.EDU ", { db }))?.id).toBe("u-ada@cornell.edu");
+  });
+
+  it("is null for an unknown or blank address", async () => {
+    expect(await findUserByEmail("nobody@cornell.edu", { db })).toBeNull();
+    expect(await findUserByEmail("", { db })).toBeNull();
   });
 });

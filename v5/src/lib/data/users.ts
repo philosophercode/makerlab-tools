@@ -140,6 +140,43 @@ export async function updateUserTitle(
 }
 
 /**
+ * Set one person's display name. Written here rather than through Better
+ * Auth's `update-user`, which `auth/config.ts` disables: that endpoint takes a
+ * name from any signed-in browser with no length rule and no audit event. The
+ * caller has already normalised the value (`normalizeName`) and decided who
+ * may change it (`lib/people/rename.ts`). Returns false when no such row exists.
+ */
+export async function updateUserName(
+  id: string,
+  name: string,
+  options: UserQueryOptions = {}
+): Promise<boolean> {
+  const db = options.db ?? (await getDb());
+  const rows = await db
+    .update(user)
+    .set({ name, updatedAt: new Date() })
+    .where(eq(user.id, id))
+    .returning({ id: user.id });
+  return rows.length > 0;
+}
+
+/**
+ * One account by address, or null. The address is compared lower-cased — the
+ * way every row stores it — so a Google profile's capitalisation does not
+ * matter. Used at sign-in to decide whose name wins (`auth/provider-name.ts`).
+ */
+export async function findUserByEmail(
+  email: string,
+  options: UserQueryOptions = {}
+): Promise<UserRecord | null> {
+  const normalized = (email ?? "").trim().toLowerCase();
+  if (!normalized) return null;
+  const db = options.db ?? (await getDb());
+  const [row] = await db.select().from(user).where(eq(user.email, normalized)).limit(1);
+  return row ? toUserRecord(row) : null;
+}
+
+/**
  * Stamp a person's first sign-in, if they have not had one. Called from the
  * session create hook in `auth/config.ts` on every new session; only a row a
  * super admin added ahead of time is ever still null, so for everybody else

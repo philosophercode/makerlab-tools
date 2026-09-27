@@ -24,10 +24,18 @@ import { useHydrated } from "./use-hydrated";
  * a second account.
  *
  * A button that opens the form inline — never a modal (UI system spec §6).
+ * While the form is open the button is gone, so there is one "Add person"
+ * on screen, not two: the form's own buttons are **Add** (the primary) and
+ * **Cancel**. Cancel — or Escape anywhere in the form — closes it, empties it
+ * and puts focus back on the Add person button.
+ *
  * The action arrives as a prop and does every check itself (signed in,
  * `users.manage`, the domain rule, the blocked list, a duplicate address);
- * a refusal keeps what was typed and says why, a success clears the form and
- * names the address. The page re-renders with the new row.
+ * a refusal keeps what was typed and says why, a success empties the form for
+ * the next person and names the address. The page re-renders with the new row.
+ *
+ * A name typed here is kept at their first sign-in; left blank, the address
+ * stands in until Google's name replaces it (`lib/auth/provider-name.ts`).
  */
 
 export interface AddPersonFormProps {
@@ -51,11 +59,43 @@ export function AddPersonForm({ action }: AddPersonFormProps) {
   const [pending, setPending] = useState(false);
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const emailRef = useRef<HTMLInputElement>(null);
+  const openerRef = useRef<HTMLButtonElement>(null);
+  const wasOpen = useRef(false);
   const formId = `${id}-form`;
 
+  // Opening puts the caret in Email; closing (Cancel, Escape) hands focus back
+  // to the Add person button, which is only rendered while the form is shut.
   useEffect(() => {
     if (open) emailRef.current?.focus();
+    else if (wasOpen.current) openerRef.current?.focus();
+    wasOpen.current = open;
   }, [open]);
+
+  // A disabled field cannot take focus, so after a landed add it waits for
+  // `pending` to clear.
+  const refocusEmail = useRef(false);
+  useEffect(() => {
+    if (!pending && refocusEmail.current) {
+      refocusEmail.current = false;
+      emailRef.current?.focus();
+    }
+  }, [pending]);
+
+  function reset() {
+    setEmail("");
+    setName("");
+    setRole("user");
+    setTitle("");
+  }
+
+  /** Close and forget: what was typed, and whatever the last attempt said. */
+  function cancel() {
+    if (pending) return;
+    reset();
+    // A refusal is about what was typed, which is gone; "added" stays said.
+    setOutcome((current) => (current?.kind === "error" ? null : current));
+    setOpen(false);
+  }
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
@@ -65,11 +105,10 @@ export function AddPersonForm({ action }: AddPersonFormProps) {
       const result = await action({ email, name, role, title: title || null });
       if (result.ok) {
         setOutcome({ kind: "added", email: result.person.email, unaudited: Boolean(result.warning) });
-        setEmail("");
-        setName("");
-        setRole("user");
-        setTitle("");
-        emailRef.current?.focus();
+        // Stays open, emptied, for the next person; Cancel closes it. The
+        // caret goes back to Email once the fields are enabled again.
+        reset();
+        refocusEmail.current = true;
         return;
       }
       setOutcome({ kind: "error", error: result.error });
@@ -84,23 +123,34 @@ export function AddPersonForm({ action }: AddPersonFormProps) {
 
   return (
     <section className="ui flex flex-col gap-2" aria-label={t("addPerson.heading")}>
-      <Button
-        type="button"
-        variant={open ? "quiet" : "default"}
-        size="sm"
-        className="self-start"
-        disabled={!hydrated}
-        aria-expanded={open}
-        aria-controls={formId}
-        onClick={() => setOpen((current) => !current)}
-      >
-        {t("addPerson.heading")}
-      </Button>
-      {open ? (
+      {!open ? (
+        <Button
+          ref={openerRef}
+          type="button"
+          variant="default"
+          size="sm"
+          className="self-start"
+          disabled={!hydrated}
+          onClick={() => {
+            setOutcome(null);
+            setOpen(true);
+          }}
+        >
+          {t("addPerson.heading")}
+        </Button>
+      ) : (
         <form
           id={formId}
           className="flex flex-col gap-3 border border-rule p-3"
           onSubmit={(event) => void submit(event)}
+          onKeyDown={(event) => {
+            // Escape anywhere in the form cancels it — but not while a native
+            // select's own list is what Escape is closing.
+            if (event.key === "Escape" && !event.defaultPrevented) {
+              event.preventDefault();
+              cancel();
+            }
+          }}
         >
           <p className="m-0 max-w-[72ch] text-sm text-muted-foreground">{t("addPerson.lede")}</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(14rem,1.4fr)_minmax(10rem,1fr)_auto_minmax(10rem,1fr)]">
@@ -162,9 +212,12 @@ export function AddPersonForm({ action }: AddPersonFormProps) {
             <Button type="submit" variant="default" size="sm" disabled={pending || !email.trim()}>
               {pending ? t("addPerson.adding") : t("addPerson.submit")}
             </Button>
+            <Button type="button" variant="quiet" size="sm" disabled={pending} onClick={cancel}>
+              {t("addPerson.cancel")}
+            </Button>
           </div>
         </form>
-      ) : null}
+      )}
       <p
         role="status"
         className={cn(

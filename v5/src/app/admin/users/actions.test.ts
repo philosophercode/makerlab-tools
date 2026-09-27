@@ -13,7 +13,7 @@ import { auditEvents, blockedEmails, session, user } from "../../../lib/db/schem
 import { listAuditEvents } from "../../../lib/data/audit";
 import { findUserById } from "../../../lib/data/users";
 import { seedUser, signInAs, signInAsNew } from "../../../../test/utils/session";
-import { addPerson, removeUser, setUserRole, setUserTitle, unblockBlockedEmail } from "./actions";
+import { addPerson, removeUser, setUserName, setUserRole, setUserTitle, unblockBlockedEmail } from "./actions";
 
 /**
  * The two `/admin/users` writes, end to end over PGlite: a real Better Auth
@@ -369,6 +369,84 @@ describe("setUserTitle", () => {
   });
 });
 
+describe("setUserName", () => {
+  async function nameOf(userId: string) {
+    return (await findUserById(userId))?.name;
+  }
+
+  it("is refused to anonymous callers, students and SuperMakers alike", async () => {
+    const target = await seedUser({ email: "student@cornell.edu", role: "user", name: "Casey" });
+
+    setMockHeaders();
+    expect(await setUserName({ userId: target.id, name: "Renamed" })).toEqual({ ok: false, error: "not_signed_in" });
+
+    for (const role of ["user", "admin"] as const) {
+      const caller = await signInAsNew({ email: `${role}-caller@cornell.edu`, role });
+      setMockHeaders({ cookie: caller.cookie });
+      expect(await setUserName({ userId: target.id, name: "Renamed" })).toEqual({ ok: false, error: "not_permitted" });
+    }
+
+    expect(await nameOf(target.id)).toBe("Casey");
+    expect(await listAuditEvents()).toEqual([]);
+  });
+
+  it("stores the trimmed name and records user.name_changed with both halves", async () => {
+    const director = await asDirector();
+    const target = await seedUser({ email: "student@cornell.edu", role: "user", name: "Casey" });
+
+    expect(await setUserName({ userId: target.id, name: "  Casey   Rivera " })).toEqual({
+      ok: true,
+      name: "Casey Rivera",
+    });
+    expect(await nameOf(target.id)).toBe("Casey Rivera");
+
+    const events = await listAuditEvents();
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      actorUserId: director.user.id,
+      action: "user.name_changed",
+      subjectType: "user",
+      subjectId: target.id,
+      detail: { from: "Casey", to: "Casey Rivera" },
+    });
+    expect(vi.mocked(revalidatePath)).toHaveBeenCalledWith("/admin/users");
+  });
+
+  it("names somebody added without a name, before they have signed in", async () => {
+    await asDirector();
+    const added = await addPerson({ email: "luis@cornell.edu", role: "user" });
+    if (!added.ok) throw new Error(added.error);
+    expect(added.person.name).toBe("luis@cornell.edu");
+
+    expect(await setUserName({ userId: added.person.id, name: "Luis Example" })).toEqual({ ok: true, name: "Luis Example" });
+    expect(await nameOf(added.person.id)).toBe("Luis Example");
+  });
+
+  it("refuses a blank name, one over 80 characters, or one that is not text, and stores nothing", async () => {
+    await asDirector();
+    const target = await seedUser({ email: "student@cornell.edu", role: "user", name: "Casey" });
+
+    for (const name of ["", "   ", "x".repeat(81), 42 as unknown as string]) {
+      expect(await setUserName({ userId: target.id, name })).toEqual({ ok: false, error: "invalid_name" });
+    }
+    expect(await setUserName({ userId: target.id, name: "x".repeat(80) })).toEqual({ ok: true, name: "x".repeat(80) });
+    expect((await listAuditEvents()).filter((event) => event.action === "user.name_changed")).toHaveLength(1);
+  });
+
+  it("refuses an id that names nobody", async () => {
+    await asDirector();
+    expect(await setUserName({ userId: "nobody", name: "Ghost" })).toEqual({ ok: false, error: "unknown_user" });
+  });
+
+  it("treats saving the name they already have as a no-op with no event", async () => {
+    await asDirector();
+    const target = await seedUser({ email: "student@cornell.edu", role: "user", name: "Casey" });
+
+    expect(await setUserName({ userId: target.id, name: " Casey " })).toEqual({ ok: true, name: "Casey" });
+    expect(await listAuditEvents()).toEqual([]);
+  });
+});
+
 // ── Removing a person (auth spec amendment 2026-09-25) ─────────────
 
 describe("removeUser", () => {
@@ -539,7 +617,7 @@ describe("addPerson", () => {
 
     expect(await addPerson({ email: "not-an-address", role: "user" })).toEqual({ ok: false, error: "invalid_email" });
     expect(await addPerson({ email: "a@cornell.edu", role: "director" })).toEqual({ ok: false, error: "invalid_role" });
-    expect(await addPerson({ email: "a@cornell.edu", role: "user", name: "x".repeat(121) })).toEqual({
+    expect(await addPerson({ email: "a@cornell.edu", role: "user", name: "x".repeat(81) })).toEqual({
       ok: false,
       error: "invalid_name",
     });
