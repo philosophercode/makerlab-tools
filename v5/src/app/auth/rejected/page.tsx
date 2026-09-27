@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Prose, PublicPage } from "../../../components/system/PublicPage";
 import { siteConfig } from "../../../lib/site-config";
+import { allowedEmailDomain } from "../../../lib/auth/roles";
 
 /**
  * `/auth/rejected` — where a non-institutional Google account lands (auth design
@@ -29,6 +30,7 @@ export default function AuthRejectedPage() {
           {t("body", {
             site: siteConfig.name,
             institution: siteConfig.institution,
+            domain: allowedEmailDomain(),
           })}
         </p>
         <p>{t("stillWorks")}</p>
