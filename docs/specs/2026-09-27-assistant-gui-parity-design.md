@@ -4,7 +4,7 @@
 **Status:** Draft
 **Target:** `v5/`
 **Branch:** `docs/spec-assistant-gui-parity`
-**Spec PR:** #TBD · **Implementation PR:** — (one per phase, §9)
+**Spec PR:** #91 · **Implementation PR:** — (one per phase, §9)
 
 ## 1. Summary
 
