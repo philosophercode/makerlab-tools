@@ -125,13 +125,33 @@ export const MODEL_JOBS = {
     serviceTier: "default",
     tierEnv: "MODEL_EMBED_TIER",
   },
+  // OCR of scanned manuals (manual text spec phase 3): one page image in, its
+  // text out, no tools. Only `npm run manuals:index` runs it — a backfill
+  // nobody waits on, so flex.
+  ocr: {
+    kind: "language",
+    env: "MODEL_OCR",
+    default: "openai/gpt-6-luna",
+    serviceTier: "flex",
+    tierEnv: "MODEL_OCR_TIER",
+  },
+  // Reranking manual search results (manual text spec phase 3): a reranking
+  // job — `rerankingModelFor`. A student waits on the search, so no tier hint.
+  // `MODEL_RERANK=off` turns reranking off (`manuals/rerank.ts`).
+  rerank: {
+    kind: "reranking",
+    env: "MODEL_RERANK",
+    default: "cohere/rerank-v4-fast",
+    serviceTier: "default",
+    tierEnv: "MODEL_RERANK_TIER",
+  },
   // No image job: the `imageClean` redraw (gpt-image-1-mini) was retired on
   // 2026-09-23 — it altered product labels. Background removal is now a
   // deterministic cutout (`research/images/clean.ts`) that calls no model.
 } as const;
 
 export type ModelJob = keyof typeof MODEL_JOBS;
-/** The jobs that resolve to a language model (every one but `embed`). */
+/** The jobs that resolve to a language model (every one but `embed` and `rerank`). */
 export type LanguageJob = {
   [K in ModelJob]: (typeof MODEL_JOBS)[K]["kind"] extends "language" ? K : never;
 }[ModelJob];
@@ -140,10 +160,17 @@ export type EmbeddingJob = {
   [K in ModelJob]: (typeof MODEL_JOBS)[K]["kind"] extends "embedding" ? K : never;
 }[ModelJob];
 
+/** The jobs that resolve to a reranking model. */
+export type RerankingJob = {
+  [K in ModelJob]: (typeof MODEL_JOBS)[K]["kind"] extends "reranking" ? K : never;
+}[ModelJob];
+
 /** What a language job resolves to — the provider-neutral V3 model interface. */
 type LanguageModelV3 = ReturnType<GatewayProvider["languageModel"]>;
 /** What an embedding job resolves to. */
 export type EmbeddingModelV3 = ReturnType<GatewayProvider["embeddingModel"]>;
+/** What a reranking job resolves to. */
+export type RerankingModelV3 = ReturnType<GatewayProvider["rerankingModel"]>;
 
 /**
  * The dimension every stored manual embedding has (manual text spec §3.4, §4):
@@ -281,6 +308,15 @@ export function embeddingModelFor(job: EmbeddingJob = "embed"): EmbeddingModelV3
     throw new ModelConfigError(`Model job "${job}" is not an embedding job.`, { job, envVar: null });
   }
   return gatewayProvider().embeddingModel(modelIdFor(job));
+}
+
+/** The reranking model for `job` (only `rerank` today), through the Gateway. */
+export function rerankingModelFor(job: RerankingJob = "rerank"): RerankingModelV3 {
+  const spec = jobSpec(job);
+  if (spec.kind !== "reranking") {
+    throw new ModelConfigError(`Model job "${job}" is not a reranking job.`, { job, envVar: null });
+  }
+  return gatewayProvider().rerankingModel(modelIdFor(job));
 }
 
 /**

@@ -671,6 +671,7 @@
           "noText": "No text (scanned)",
           "failed": "Failed: {reason}",
           "processing": "Processing",
+          "ocr": "{label} · OCR",
           "reasons": {
             "encrypted": "encrypted",
             "corrupt": "unreadable file",

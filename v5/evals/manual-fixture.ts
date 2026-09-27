@@ -2,7 +2,9 @@ import { eq } from "drizzle-orm";
 import { saveManualDocument } from "@/lib/data/manual-documents";
 import { getDb } from "@/lib/db/client";
 import { attachments, resources, tools } from "@/lib/db/schema/index";
+import type { ManualOutlineEntry } from "@/lib/db/schema/index";
 import { EXTRACTOR_VERSION } from "@/lib/manuals/extract";
+import { ocrKey } from "@/lib/manuals/ocr";
 import { buildDocumentPassages } from "@/lib/manuals/passages";
 
 /**
@@ -14,10 +16,16 @@ import { buildDocumentPassages } from "@/lib/manuals/passages";
  * invented. Nor does it say anything about the warranty, which is what the
  * "manual does not cover it" case asks.
  *
- * `seedEvalManual()` stores it on the demo seed's Form 4 as a public,
- * processed manual and builds its passages with the deployment's embedding
+ * Beside it, a **scanned** Form Wash guide whose pages OCR read (manual text
+ * spec phase 3): stored as `manuals:index` stores an OCR'd scan — pages marked
+ * `ocr`, `ocr_version` set — so `form4-wash-time-from-scan` checks that an
+ * answer from a transcribed page still cites its own page. It is written for
+ * the eval too, and says nothing about sizes or resolution.
+ *
+ * `seedEvalManual()` stores both on the demo seed's Form 4 as public,
+ * processed manuals and builds their passages with the deployment's embedding
  * model (job `embed` — a real, sub-cent Gateway call, like the rest of
- * `npm run eval`). Search itself runs for real.
+ * `npm run eval`). Search itself runs for real (reranked, like the chat's).
  */
 
 export const EVAL_MANUAL_TITLE = "Form 4 Manual";
@@ -45,7 +53,24 @@ const OUTLINE = [
 
 const PAGE_COUNT = 50;
 
-/** Store the fixture manual on the demo Form 4 and build its passages. Idempotent per process. */
+export const EVAL_SCAN_TITLE = "Form Wash Guide (scanned)";
+export const EVAL_SCAN_URL = "https://eval.blob.test/manuals/form-wash-guide.pdf";
+
+/** The scan's pages, as OCR read them. */
+const SCAN_PAGES: Record<number, string> = {
+  1: "Form Wash Guide\nWashing and drying resin prints",
+  3: "Washing prints\nWear gloves. Wash printed parts in isopropyl alcohol (IPA) for 10 minutes. Do not leave parts in IPA for more than 20 minutes: they can crack or swell. Replace the IPA when it looks cloudy.",
+  5: "Drying\nLet washed parts air-dry for at least 30 minutes before post-curing. Do not post-cure parts that are still wet with IPA.",
+};
+
+const SCAN_OUTLINE = [
+  { title: "Washing prints", page: 3, level: 1 },
+  { title: "Drying", page: 5, level: 1 },
+];
+
+const SCAN_PAGE_COUNT = 6;
+
+/** Store the fixture manuals on the demo Form 4 and build their passages. Idempotent per process. */
 export async function seedEvalManual(): Promise<void> {
   const db = await getDb();
   const [form4] = await db.select({ id: tools.id }).from(tools).where(eq(tools.slug, "form-4"));
@@ -53,33 +78,73 @@ export async function seedEvalManual(): Promise<void> {
   const existing = await db.select({ id: attachments.id }).from(attachments).where(eq(attachments.publicUrl, EVAL_MANUAL_URL));
   if (existing.length > 0) return;
 
+  await seedDocument(form4.id, {
+    title: EVAL_MANUAL_TITLE,
+    url: EVAL_MANUAL_URL,
+    pathname: "manuals/form-4-manual.pdf",
+    pageCount: PAGE_COUNT,
+    pages: PAGES,
+    outline: OUTLINE,
+    ocr: false,
+  });
+  await seedDocument(form4.id, {
+    title: EVAL_SCAN_TITLE,
+    url: EVAL_SCAN_URL,
+    pathname: "manuals/form-wash-guide.pdf",
+    pageCount: SCAN_PAGE_COUNT,
+    pages: SCAN_PAGES,
+    outline: SCAN_OUTLINE,
+    ocr: true,
+  });
+}
+
+async function seedDocument(
+  toolId: string,
+  doc: {
+    title: string;
+    url: string;
+    pathname: string;
+    pageCount: number;
+    pages: Record<number, string>;
+    outline: ManualOutlineEntry[];
+    /** Stored as an OCR'd scan: pages marked `ocr`, `ocr_version` set. */
+    ocr: boolean;
+  }
+): Promise<void> {
+  const db = await getDb();
   const [resource] = await db
     .insert(resources)
-    .values({ toolId: form4.id, title: EVAL_MANUAL_TITLE, type: "Manual", url: null })
+    .values({ toolId, title: doc.title, type: "Manual", url: null })
     .returning({ id: resources.id });
   const [attachment] = await db
     .insert(attachments)
     .values({
       ownerType: "resource",
       ownerId: resource.id,
-      blobPathname: "manuals/form-4-manual.pdf",
+      blobPathname: doc.pathname,
       access: "public",
-      publicUrl: EVAL_MANUAL_URL,
+      publicUrl: doc.url,
       contentType: "application/pdf",
       origin: "upload",
     })
     .returning({ id: attachments.id });
   const documentId = await saveManualDocument(db, {
     attachmentId: attachment.id,
-    toolId: form4.id,
-    title: EVAL_MANUAL_TITLE,
+    toolId,
+    title: doc.title,
     status: "ready",
     statusReason: null,
-    pageCount: PAGE_COUNT,
-    outline: OUTLINE,
-    outlineSource: "pdf",
+    pageCount: doc.pageCount,
+    outline: doc.outline,
+    outlineSource: doc.ocr ? "inferred" : "pdf",
     extractorVersion: EXTRACTOR_VERSION,
-    pages: Array.from({ length: PAGE_COUNT }, (_, i) => ({ pageNumber: i + 1, label: null, text: PAGES[i + 1] ?? "" })),
+    ocrVersion: doc.ocr ? ocrKey() : null,
+    pages: Array.from({ length: doc.pageCount }, (_, i) => ({
+      pageNumber: i + 1,
+      label: null,
+      text: doc.pages[i + 1] ?? "",
+      source: doc.ocr && doc.pages[i + 1] ? ("ocr" as const) : ("text" as const),
+    })),
   });
   const built = await buildDocumentPassages(db, documentId);
   if (built.status !== "built") throw new Error(`the eval manual's passages were not built: ${JSON.stringify(built)}`);

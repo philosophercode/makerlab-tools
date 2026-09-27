@@ -40,6 +40,8 @@ export interface SeedManualInput {
   published?: boolean;
   status?: "ready" | "no_text" | "failed";
   type?: string;
+  /** 1-based pages whose text was read by OCR (phase 3). */
+  ocrPages?: number[];
 }
 
 export interface SeededManual {
@@ -85,7 +87,13 @@ export async function seedManual(db: Db, input: SeedManualInput): Promise<Seeded
     outline: input.outline ?? [],
     outlineSource: input.outline?.length ? "pdf" : "none",
     extractorVersion: EXTRACTOR_VERSION,
-    pages: input.pages.map((text, i) => ({ pageNumber: i + 1, label: null, text })),
+    pages: input.pages.map((text, i) => ({
+      pageNumber: i + 1,
+      label: null,
+      text,
+      source: input.ocrPages?.includes(i + 1) ? ("ocr" as const) : ("text" as const),
+    })),
+    ocrVersion: input.ocrPages?.length ? "ocr-1:stub/ocr" : null,
   });
   return { resourceId: resource.id, attachmentId: attachment.id, documentId, publicUrl };
 }

@@ -256,9 +256,9 @@ describe("the readers", () => {
     const id = await resource();
     await pdf(id);
     const none = await resource({ title: "Video", url: "https://video.test/x" });
-    expect(await listManualStates(db, [id, none])).toEqual(new Map([[id, { state: "processing", pageCount: null, reason: null, searchable: false }]]));
+    expect(await listManualStates(db, [id, none])).toEqual(new Map([[id, { state: "processing", pageCount: null, reason: null, searchable: false, ocr: false }]]));
     await indexResourceManuals(id, { db, passages: false, read: serve(fixture("outline.pdf")) });
-    expect((await listManualStates(db, [id])).get(id)).toEqual({ state: "ready", pageCount: 4, reason: null, searchable: false });
+    expect((await listManualStates(db, [id])).get(id)).toEqual({ state: "ready", pageCount: 4, reason: null, searchable: false, ocr: false });
   });
 
   it("gives the tool page the outline of public, published, ready manuals only", async () => {

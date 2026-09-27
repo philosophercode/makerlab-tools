@@ -1,7 +1,7 @@
 import { asc, eq, sql, type SQL } from "drizzle-orm";
 import { rawRows } from "../db/raw.ts";
 import { manualChunks, manualDocuments, manualPages, type ManualOutlineEntry } from "../db/schema/index.ts";
-import type { ManualDocumentStatus, ManualOutlineSource } from "../db/schema/vocabulary.ts";
+import type { ManualDocumentStatus, ManualOutlineSource, ManualPageSource } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
 import { MANUAL_SOURCE_PREFIX } from "./manual-archives.ts";
 import { isUuid } from "./uuid.ts";
@@ -58,7 +58,10 @@ export interface SaveManualDocumentInput {
   outline: ManualOutlineEntry[];
   outlineSource: ManualOutlineSource | null;
   extractorVersion: string;
-  pages: { pageNumber: number; label: string | null; text: string }[];
+  /** The OCR that read the pages (`ocr-1:openai/gpt-6-luna`), or null/absent for the PDF's own text. */
+  ocrVersion?: string | null;
+  /** Each page's `source` defaults to `text`. */
+  pages: { pageNumber: number; label: string | null; text: string; source?: ManualPageSource }[];
 }
 
 /** Pages written per statement, so a 1 000-page manual is not one enormous insert. */
@@ -82,6 +85,7 @@ export async function saveManualDocument(db: Db, input: SaveManualDocumentInput)
       outline: input.outline,
       outlineSource: input.outlineSource,
       extractorVersion: input.extractorVersion,
+      ocrVersion: input.ocrVersion ?? null,
       // New pages make any passages stale: they are rebuilt from these pages
       // (`manuals/passages.ts`), so the versions that vouch for them go too.
       embeddingModel: null,
@@ -105,11 +109,25 @@ export async function saveManualDocument(db: Db, input: SaveManualDocumentInput)
           pageLabel: page.label,
           // Postgres text cannot hold NUL; pdf.js occasionally emits one.
           text: page.text.replace(/\u0000/g, ""),
+          source: page.source ?? "text",
         }))
       );
     }
     return doc.id;
   });
+}
+
+/**
+ * Record that `documentId`'s file was extracted again at `extractorVersion`
+ * and is still a scan, **keeping the text OCR read from it** (and its
+ * passages): re-extracting a scanned PDF without OCR — the workflow's
+ * Re-process — must not throw that text away.
+ */
+export async function markScanReExtracted(db: Db, documentId: string, extractorVersion: string): Promise<void> {
+  await db
+    .update(manualDocuments)
+    .set({ extractorVersion, processedAt: new Date() })
+    .where(eq(manualDocuments.id, documentId));
 }
 
 // ── What needs processing ──────────────────────────────────────────
@@ -130,6 +148,8 @@ export interface ResourcePdfForIndex {
   /** The stored document's version, or null when there is none. */
   documentVersion: string | null;
   documentStatus: ManualDocumentStatus | null;
+  /** The OCR that read the stored document's pages, or null (none, or no document). */
+  documentOcrVersion: string | null;
 }
 
 interface PdfRow {
@@ -145,12 +165,14 @@ interface PdfRow {
   document_id: string | null;
   document_version: string | null;
   document_status: ManualDocumentStatus | null;
+  document_ocr_version: string | null;
 }
 
 const PDF_COLUMNS = sql.raw(`
   a.id as attachment_id, r.id as resource_id, r.tool_id, r.title as resource_title,
   a.blob_pathname, a.access, a.public_url, a.size_bytes, a.original_filename,
-  d.id as document_id, d.extractor_version as document_version, d.status as document_status`);
+  d.id as document_id, d.extractor_version as document_version, d.status as document_status,
+  d.ocr_version as document_ocr_version`);
 
 function toPdf(row: PdfRow): ResourcePdfForIndex {
   return {
@@ -166,6 +188,7 @@ function toPdf(row: PdfRow): ResourcePdfForIndex {
     documentId: row.document_id,
     documentVersion: row.document_version,
     documentStatus: row.document_status,
+    documentOcrVersion: row.document_ocr_version,
   };
 }
 
@@ -189,6 +212,13 @@ export interface IndexableQuery {
   resourceIds?: readonly string[];
   /** Only PDFs with no document at `version` (default: every current PDF). */
   missingVersion?: string;
+  /**
+   * With `missingVersion`: also scans OCR has not read at this key — a
+   * `no_text` document not read at it, or one read at another (phase 3).
+   */
+  ocrKey?: string;
+  /** With `ocrKey`: every scan, read before or not (the backfill's `--force-ocr`). */
+  forceOcr?: boolean;
   limit?: number;
 }
 
@@ -197,8 +227,13 @@ export async function listIndexablePdfs(db: Db, query: IndexableQuery = {}): Pro
   const ids = (query.resourceIds ?? []).filter(isUuid);
   if (query.resourceIds && ids.length === 0) return [];
   const byIds = query.resourceIds ? sql` and r.id in (${sql.join(ids.map((id) => sql`${id}::uuid`), sql`, `)})` : sql``;
+  const scans = !query.ocrKey
+    ? sql``
+    : query.forceOcr
+      ? sql` or d.status = 'no_text' or d.ocr_version is not null`
+      : sql` or ((d.status = 'no_text' or d.ocr_version is not null) and d.ocr_version is distinct from ${query.ocrKey})`;
   const missing = query.missingVersion
-    ? sql` and (d.id is null or d.extractor_version <> ${query.missingVersion})`
+    ? sql` and (d.id is null or d.extractor_version <> ${query.missingVersion}${scans})`
     : sql``;
   const limit = query.limit && query.limit > 0 ? sql` limit ${Math.floor(query.limit)}` : sql``;
   const rows = await rawRows<PdfRow>(
@@ -226,6 +261,8 @@ export interface ManualState {
   reason: string | null;
   /** Ready and holding search passages (phase 2): what the editor calls "Searchable". */
   searchable?: boolean;
+  /** Its text was read by OCR from a scan (phase 3). */
+  ocr?: boolean;
 }
 
 /** SQL: document `d` holds passages built and embedded (both versions recorded, at least one row). */
@@ -245,9 +282,10 @@ export async function listManualStates(db: Db, resourceIds: readonly string[]): 
     page_count: number | null;
     status_reason: string | null;
     searchable: boolean | null;
+    ocr_version: string | null;
   }>(
     db,
-    sql`select r.id as resource_id, d.status, d.page_count, d.status_reason,
+    sql`select r.id as resource_id, d.status, d.page_count, d.status_reason, d.ocr_version,
                case when d.id is null then false else ${HAS_PASSAGES} end as searchable
           from resources r
           join attachments a on ${currentPdf("a", "r")}
@@ -262,6 +300,7 @@ export async function listManualStates(db: Db, resourceIds: readonly string[]): 
       pageCount: row.page_count === null ? null : Number(row.page_count),
       reason: row.status_reason,
       searchable: row.searchable === true,
+      ocr: row.status === "ready" && row.ocr_version !== null,
     });
   }
   return out;

@@ -127,6 +127,13 @@
       "when": 1790536369007,
       "tag": "0017_people_titles",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790538078476,
+      "tag": "0018_manual_phase3",
+      "breakpoints": true
     }
   ]
 }

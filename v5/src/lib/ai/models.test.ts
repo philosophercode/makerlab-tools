@@ -8,6 +8,7 @@ import {
   languageModelFor,
   modelIdFor,
   providerOptionsFor,
+  rerankingModelFor,
   serviceTierFor,
   type ModelJob,
 } from "./models";
@@ -59,6 +60,8 @@ describe("MODEL_JOBS", () => {
       "MODEL_DISPLAY_NAME",
       "MODEL_DESCRIPTION_SHORTEN",
       "MODEL_EMBED",
+      "MODEL_OCR",
+      "MODEL_RERANK",
     ]);
     for (const job of JOBS) expect(MODEL_JOBS[job].default).toMatch(GATEWAY_MODEL_ID_PATTERN);
   });
@@ -136,7 +139,10 @@ describe('service tiers (amendment "Manuals as text and flex tier for research")
     expect(serviceTierFor("importParse")).toBe("flex");
     expect(serviceTierFor("nameSuggest")).toBe("flex");
     expect(serviceTierFor("descriptionShorten")).toBe("flex");
+    expect(serviceTierFor("ocr")).toBe("flex");
     expect(serviceTierFor("chat")).toBeNull();
+    // A student waits on a reranked search.
+    expect(serviceTierFor("rerank")).toBeNull();
     expect(providerOptionsFor("researchSearch")).toEqual({ gateway: { serviceTier: "flex" } });
     expect(providerOptionsFor("researchRead")).toEqual({ gateway: { serviceTier: "flex" } });
     expect(providerOptionsFor("imageRank")).toEqual({ gateway: { serviceTier: "flex" } });
@@ -201,6 +207,16 @@ describe("the model factories", () => {
       specificationVersion: "v3",
     });
     expect(languageModelFor("researchSearch")).toMatchObject({ modelId: "openai/gpt-6-luna" });
+  });
+
+  it("reads scanned manuals with Luna, and reranks manual search with Cohere's fast reranker (manual text spec phase 3)", () => {
+    expect(modelIdFor("ocr")).toBe("openai/gpt-6-luna");
+    expect(languageModelFor("ocr")).toMatchObject({ modelId: "openai/gpt-6-luna" });
+    expect(rerankingModelFor("rerank")).toMatchObject({ provider: "gateway", modelId: "cohere/rerank-v4-fast" });
+    vi.stubEnv("MODEL_RERANK", "voyage/rerank-2.5-lite");
+    expect(rerankingModelFor()).toMatchObject({ modelId: "voyage/rerank-2.5-lite" });
+    expect(() => languageModelFor("rerank" as never)).toThrow(/not a language job/);
+    expect(() => rerankingModelFor("ocr" as never)).toThrow(/not a reranking job/);
   });
 
   it("refuses the retired image job", () => {

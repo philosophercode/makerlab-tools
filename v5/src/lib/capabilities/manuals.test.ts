@@ -1,4 +1,4 @@
-import { MANUAL_OUTLINE_MAX_CHARS, manuals, outlineSection, passageCitation, SEARCH_MANUAL_TOOL } from "./manuals";
+import { MANUAL_OUTLINE_MAX_CHARS, manuals, OCR_NOTE, outlineSection, passageCitation, SEARCH_MANUAL_TOOL, toModelPassage } from "./manuals";
 
 /**
  * The `manuals` capability's pure parts (manual text spec §3.6): how a passage
@@ -14,6 +14,38 @@ describe("passageCitation", () => {
     expect(passageCitation({ ...base, pageEnd: 43 })).toBe("Form 4 Manual, pp. 42–43");
     expect(passageCitation({ ...base, pageLabel: "3-12" })).toBe("Form 4 Manual, p. 42 (printed 3-12)");
     expect(passageCitation({ ...base, pageLabel: "42" })).toBe("Form 4 Manual, p. 42");
+  });
+});
+
+describe("toModelPassage", () => {
+  const passage = {
+    documentId: "d",
+    toolId: null,
+    toolName: "X2D",
+    toolSlug: "x2d",
+    documentTitle: "X2D Manual",
+    sectionPath: ["Nozzle", "Replacing it"],
+    pageStart: 12,
+    pageEnd: 12,
+    pageLabel: null,
+    content: "Heat the nozzle to 220 °C.",
+    pdfUrl: "https://b.test/m.pdf#page=12",
+    score: 1,
+    ordinals: [0],
+    ocr: false,
+  };
+
+  it("fences the text and carries the citation and the page link", () => {
+    const out = toModelPassage(passage);
+    expect(out).toMatchObject({ citation: "X2D Manual, p. 12", url: "https://b.test/m.pdf#page=12", section: "Nozzle › Replacing it" });
+    expect(out.text).toContain("<untrusted-page");
+    expect(out.transcribed).toBeUndefined();
+  });
+
+  it("says when the page was read by OCR from a scan (phase 3), keeping its own page", () => {
+    const out = toModelPassage({ ...passage, ocr: true });
+    expect(out.transcribed).toBe(OCR_NOTE);
+    expect(out.url).toBe("https://b.test/m.pdf#page=12");
   });
 });
 

@@ -43,6 +43,11 @@ describe("ManualStateTag", () => {
     expect(screen.getByText("Searchable · 212 pages")).toHaveAttribute("data-manual-state", "searchable");
   });
 
+  it("marks a scan whose text OCR read (phase 3)", () => {
+    render(<ManualStateTag state={{ state: "ready", pageCount: 40, reason: null, searchable: true, ocr: true }} />);
+    expect(screen.getByText("Searchable · 40 pages · OCR")).toHaveAttribute("data-manual-state", "searchable");
+  });
+
   it("offers Re-process on a row with a PDF, and calls back with the resource", async () => {
     const onReprocess = vi.fn(async () => true);
     const base: EditorResource = { id: "r1", title: "Form 4 manual", type: "Manual", url: null, notes: null, published: true, fileUrls: [] };

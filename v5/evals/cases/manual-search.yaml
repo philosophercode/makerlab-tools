@@ -30,3 +30,17 @@
     - kind: called_tool
       value: search_manual
     - kind: says_not_covered
+
+# Phase 3: the Form 4 also holds a scanned Form Wash guide whose pages OCR
+# read (evals/manual-fixture.ts). An answer from a transcribed page must still
+# come from search_manual and cite that page of the scan.
+- id: form4-wash-time-from-scan
+  prompt: "How long should I leave Form 4 prints in the IPA wash?"
+  context: { page: tool, toolId: form-4 }
+  assert:
+    - kind: called_tool
+      value: search_manual
+    - kind: cites_page
+      value: "3"
+    - kind: contains_all
+      value: ["10 minutes"]

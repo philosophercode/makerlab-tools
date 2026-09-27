@@ -112,6 +112,35 @@ export function scannedPdf(): Uint8Array {
   });
 }
 
+/**
+ * What a scanner writes (manual text spec phase 3, OCR): pages that are real
+ * image XObjects, no text layer. Page 1 is an 8-bit grey picture painted
+ * upright over most of the page, black on its left half; page 2 a 1-bit
+ * picture painted a quarter turn clockwise, black on its top half (so black
+ * lands on the right); page 3 paints nothing.
+ */
+export function scannedImagePdf(): Uint8Array {
+  const grey = new Uint8Array(60 * 40).map((_, i) => (i % 60 < 30 ? 0 : 255));
+  const rowBytes = Math.ceil(64 / 8);
+  const bits = new Uint8Array(rowBytes * 32).map((_, i) => (Math.floor(i / rowBytes) < 16 ? 0x00 : 0xff));
+  return buildPdf({
+    pages: [
+      {
+        images: [
+          { width: 60, height: 40, bitsPerComponent: 8, colorSpace: "DeviceGray", data: grey, place: [540, 0, 0, 720, 36, 36] },
+        ],
+      },
+      {
+        // The unit square's y axis runs right, its x axis down: a quarter turn clockwise.
+        images: [
+          { width: 64, height: 32, bitsPerComponent: 1, colorSpace: "DeviceGray", data: bits, place: [0, -720, 540, 0, 36, 756] },
+        ],
+      },
+      { lines: [{ text: "3", y: 40, size: 8 }] },
+    ],
+  });
+}
+
 /** A Standard-security PDF whose user password is not empty. */
 export function encryptedPdf(): Uint8Array {
   return buildPdf({ pages: [framed(1, body(INTRO, 700))], encrypted: true });
@@ -127,6 +156,7 @@ export const FIXTURES = {
   "no-outline.pdf": noOutlinePdf,
   "page-labels.pdf": pageLabelsPdf,
   "scanned.pdf": scannedPdf,
+  "scanned-image.pdf": scannedImagePdf,
   "encrypted.pdf": encryptedPdf,
   "corrupt.pdf": corruptPdf,
 } as const;
