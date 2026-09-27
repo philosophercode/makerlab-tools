@@ -41,6 +41,18 @@ describe("resolveTargetCredentials", () => {
     expect(creds.blob).toEqual({ kind: "token", token: "vercel_blob_rw_fake_x" });
   });
 
+  it("reads a private store linked with the BLOB_PRIVATE prefix, or none", () => {
+    const both = resolveTargetCredentials({
+      DATABASE_URL: "postgres://u:p@h/db",
+      BLOB_READ_WRITE_TOKEN: "vercel_blob_rw_public_x",
+      BLOB_PRIVATE_READ_WRITE_TOKEN: "vercel_blob_rw_private_y",
+    });
+    expect(both.privateBlob).toEqual({ kind: "token", token: "vercel_blob_rw_private_y" });
+    expect(both.privateBlobVar).toBe("BLOB_PRIVATE_READ_WRITE_TOKEN");
+    const one = resolveTargetCredentials({ DATABASE_URL: "postgres://u:p@h/db", BLOB_READ_WRITE_TOKEN: "vercel_blob_rw_public_x" });
+    expect(one.privateBlob).toBeNull();
+  });
+
   it("has no Blob store without either credential, and needs a database", () => {
     expect(resolveTargetCredentials({ DATABASE_URL: "postgres://a:b@h/db" }).blob).toBeNull();
     expect(() => resolveTargetCredentials({})).toThrow(/no DATABASE_URL/);

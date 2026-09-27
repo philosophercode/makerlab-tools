@@ -114,7 +114,10 @@ async function main(): Promise<number> {
 
   console.log(args.dryRun ? "DRY RUN — nothing will be written.\n" : "REAL RUN — the hosted data will be replaced.\n");
   console.log(`From: the local database at ${dir}, files in ${localBlobRoot()}`);
-  console.log(`To:   ${credentials.databaseVar} and ${credentials.blobVar ?? "no Blob store"} from ${args.to}\n`);
+  console.log(
+    `To:   ${credentials.databaseVar} and ${credentials.blobVar ?? "no Blob store"}` +
+      `${credentials.privateBlobVar ? ` (private files: ${credentials.privateBlobVar})` : ""} from ${args.to}\n`
+  );
 
   // Opened without migrating: this run only reads the local database.
   acquirePgliteLock(dir);
@@ -128,7 +131,7 @@ async function main(): Promise<number> {
       target: sqlClient(hosted),
       localStore: createLocalBlobBackend(),
       localOrigin: localBlobOrigin(),
-      uploader: credentials.blob ? createHostedBlobUploader(credentials.blob) : null,
+      uploader: credentials.blob ? createHostedBlobUploader(credentials.blob, credentials.privateBlob) : null,
       repoMigration: latestRepoMigration(migrationsFolder()),
       dryRun: args.dryRun,
       allowMissingFiles: args.allowMissingFiles,

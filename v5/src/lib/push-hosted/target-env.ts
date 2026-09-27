@@ -50,6 +50,13 @@ export interface TargetCredentials {
   /** Null when the file links no Blob store (fine when there are no files to carry). */
   blob: BlobCredentials | null;
   blobVar: string | null;
+  /**
+   * The private store, when the deployment links a second one with the prefix
+   * `BLOB_PRIVATE` (data platform spec amendment "Public and private Blob
+   * stores"): private files go there. Null means one store holds both.
+   */
+  privateBlob: BlobCredentials | null;
+  privateBlobVar: string | null;
 }
 
 const present = (value: string | undefined): value is string => Boolean(value && value.trim());
@@ -59,6 +66,8 @@ const present = (value: string | undefined): value is string => Boolean(value &&
  *
  * - Database: `DATABASE_URL_UNPOOLED` when the Neon integration provided it (a
  *   direct connection suits one long transaction), else `DATABASE_URL`.
+ * - Private Blob (optional): `BLOB_PRIVATE_READ_WRITE_TOKEN`, else
+ *   `BLOB_PRIVATE_STORE_ID` + `VERCEL_OIDC_TOKEN`; private files go there.
  * - Blob: `BLOB_READ_WRITE_TOKEN` when present (it does not expire), else
  *   `BLOB_STORE_ID` + `VERCEL_OIDC_TOKEN` — what a store connected the current
  *   way gives `vercel env pull` (the OIDC token lasts about 12 hours; pull
@@ -83,7 +92,16 @@ export function resolveTargetCredentials(env: EnvMap): TargetCredentials {
     blob = { kind: "oidc", storeId: env.BLOB_STORE_ID.trim(), oidcToken: env.VERCEL_OIDC_TOKEN.trim() };
     blobVar = "BLOB_STORE_ID + VERCEL_OIDC_TOKEN";
   }
-  return { databaseVar, databaseUrl: databaseUrl.trim(), blob, blobVar };
+  let privateBlob: BlobCredentials | null = null;
+  let privateBlobVar: string | null = null;
+  if (present(env.BLOB_PRIVATE_READ_WRITE_TOKEN)) {
+    privateBlob = { kind: "token", token: env.BLOB_PRIVATE_READ_WRITE_TOKEN.trim() };
+    privateBlobVar = "BLOB_PRIVATE_READ_WRITE_TOKEN";
+  } else if (present(env.BLOB_PRIVATE_STORE_ID) && present(env.VERCEL_OIDC_TOKEN)) {
+    privateBlob = { kind: "oidc", storeId: env.BLOB_PRIVATE_STORE_ID.trim(), oidcToken: env.VERCEL_OIDC_TOKEN.trim() };
+    privateBlobVar = "BLOB_PRIVATE_STORE_ID + VERCEL_OIDC_TOKEN";
+  }
+  return { databaseVar, databaseUrl: databaseUrl.trim(), blob, blobVar, privateBlob, privateBlobVar };
 }
 
 /**
