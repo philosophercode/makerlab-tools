@@ -311,101 +311,90 @@ somebody. People, roles and bans are all still in there.
 
 ---
 
-# Part 2 — On Vercel
+# Part 2 — A new deployment on Vercel
+
+> Written as it was done, 2026-09-26, creating `makerlab-ai` for a first review by lab staff.
+> Steps marked *(to confirm)* are the plan and get rewritten with what actually happened.
+
+The hosted copy starts from **your local inventory**, not from Notion: everything reviewed
+locally (display names, descriptions, research picks, photos, English links, indexed manuals)
+is copied up in step 5. Keep working locally afterwards and push again when ready.
 
 ## 1 · Create the project
 
-Import the repo. **Set the root directory to `v5`** — this is the one setting people miss,
-and without it the build picks up the frozen v4 app at the repo root.
+Vercel → **Add New… → Project** → import `philosophercode/makerlab-tools`, branch `main`.
 
-Not the Hobby plan: it is for non-commercial personal projects, and it caps cron jobs.
+| Field | Value |
+|---|---|
+| Vercel Team | Your team. Hobby is fine for a review copy; for the lab's real launch use a Pro or university team (Hobby is for non-commercial personal use) |
+| Project Name | `makerlab-ai` — this becomes `makerlab-ai.vercel.app` |
+| Application Preset | Next.js |
+| **Root Directory** | **`v5`** — the one setting people miss. (Once the repo is flattened to v5 only, this becomes `./`.) |
+| Build and Output Settings | Defaults. The app's `build` script runs `db:migrate`, then `next build` |
+| Environment Variables | **Remove any "detected" ones** — they come from the old v4 example file. Add the real ones in step 4 |
 
-## 2 · Environment variables
+Press **Deploy**. With no database yet the build skips the migration ("DATABASE_URL is not
+set; no migrations to run") and the site runs on its built-in demo data. That is expected: it
+gives you a working address for Google sign-in.
 
-**Required:**
+## 2 · Storage *(to confirm)*
+
+Project → **Storage**:
+
+- **Neon Postgres** (Marketplace) → connect to the project, all environments. Adds `DATABASE_URL`.
+- **Blob** → create a store, connect it. Adds `BLOB_READ_WRITE_TOKEN`.
+
+## 3 · Google sign-in *(to confirm)*
+
+Google Cloud console → APIs & Services → Credentials → your OAuth client (or a new *Web
+application* client) → **Authorized redirect URIs** → add
+`https://makerlab-ai.vercel.app/api/auth/callback/google`.
+
+## 4 · Environment variables *(to confirm)*
+
+Project → Settings → Environment Variables (Production and Preview):
 
 ```
-NOTION_API_KEY + all 7 NOTION_DB_*     the catalogue
-ADMIN_REVALIDATE_SECRET                cache invalidation
+AUTH_SECRET                 openssl rand -base64 32
+AUTH_BASE_URL               https://makerlab-ai.vercel.app
+GOOGLE_CLIENT_ID            from step 3
+GOOGLE_CLIENT_SECRET        from step 3
+AUTH_SUPER_ADMIN_EMAILS     your Google address — the first super admin; everyone else gets roles on /admin/users
+AUTH_ALLOWED_EMAILS         reviewers' addresses (or AUTH_ALLOWED_EMAIL_DOMAIN for a whole domain)
+CRON_SECRET                 any long random string (the nightly job)
+ADMIN_REVALIDATE_SECRET     any long random string (cache refresh, hand-run nightly job)
 ```
 
-**Inference needs no variable at all in production.** The Gateway is
-authenticated by the deployment's own Vercel OIDC token
-(`VERCEL_OIDC_TOKEN`), injected automatically into every Vercel deployment —
-there is nothing to set, rotate, or leak. `AI_GATEWAY_API_KEY` exists only for
-local development (Stage 1) and tests; **do not set it on Vercel**, and if it
-is already set from before this migration, remove it — a long-lived key sitting
-in production env vars is unnecessary risk once OIDC covers the same job for
-free. There is no fallback provider any more: `ANTHROPIC_API_KEY` is read by
-no live code path (`@ai-sdk/anthropic` is unused and awaiting removal from
-`package.json`), so **remove it from
-Vercel too** if it is still set from before this migration.
+Model calls need no key on Vercel: the AI Gateway authenticates the project itself (OIDC).
+Notion variables are **not** needed — Notion is only a one-way mirror now, off until you turn it on.
 
-Per-job model ids default in code (`v5/src/lib/ai/models.ts`'s `MODEL_JOBS`) —
-`openai/gpt-6-luna` for every job — chat included, since it passed the eval gate
-once its prompt was tuned (gateway spec amendments "The chat eval gate" and "Chat
-prompt tuning for Luna"; `MODEL_CHAT=anthropic/claude-sonnet-5` switches chat
-back without a deploy). There is no image model: background removal is a deterministic cutout in
-code (gateway spec amendment "No generative redraw"), so **remove `MODEL_IMAGE_CLEAN`
-from Vercel** if it was set — nothing reads it. Override one with `MODEL_CHAT` / `MODEL_RESEARCH_SEARCH` /
-`MODEL_RESEARCH_READ` / `MODEL_IMAGE_RANK`, a Gateway id
-in the exact shape `provider/model` (lower case) — a malformed value is a loud
-`ModelConfigError` naming the variable, never a silent fallback. Each job also
-asks the Gateway for a service tier — `flex` for research search, research read
-(and the starter-question backfill) and image ranking, none for chat — which
-`MODEL_<JOB>_TIER` (`default` / `flex` / `priority`) overrides; leave them unset
-unless a job needs moving. **Before
-changing `MODEL_CHAT` in production, run the eval gate**
-(`v5/evals/README.md`, `EVAL_MODEL=<candidate id> npm run eval`, twice) — the
-new model must pass every honest-absence and manual-grounding case, and all
-but one of the rest, on both runs.
+## 5 · Copy the local inventory up *(to confirm — script being written)*
 
-**Sign-in** — same as Stage 3, but `AUTH_BASE_URL=https://<your-domain>` and the Google
-redirect URI updated to match.
-**Never** set `DEV_AUTO_SIGN_IN` / `DEV_AUTO_SIGN_IN_EMAIL` here (Stage 3b) — they are
-for `npm run dev` on your own machine, and a Vercel build that sets `DEV_AUTO_SIGN_IN` fails.
+Copies the local database (`v5/.pglite-data`) into Neon and the local files (`v5/.blob-data`:
+tool photos, manual PDFs) into Blob, so the hosted site matches `localhost:3001`, manuals
+already searchable. Re-runnable: each run **replaces** the hosted data, so while the site is
+review-only, make changes locally and push again.
 
-**Blob store** — link one (it sets `BLOB_READ_WRITE_TOKEN`). It carries **both** jobs now:
-every photo a student uploads through the chat or the project form, and the nightly backup.
-Without it the site still runs — uploads say so and the catalogue is unaffected — but
-nothing is backed up and no photo can be attached.
+## 6 · Redeploy and check *(to confirm)*
 
-**Backups** — with the store linked, set `CRON_SECRET`. The cron is already in
-`vercel.json`, nightly at 07:17, pointing at `/api/cron/daily`.
+Deployments → latest → **Redeploy** (so the build migrates Neon), then in order:
 
-**`LAB_TIMEZONE`** — optional, defaults to `America/New_York`. It decides the date on a
-maintenance ticket; a function running in UTC would otherwise date an evening report
-tomorrow. Set it before the first ticket is filed, or leave it to the default.
+1. **`/api/health`** → `200`.
+2. **Sign in** with the super-admin address; a non-allowed address is refused with an explanation.
+3. **A tool page** shows its photo, short description and links; manuals the assistant can
+   search carry the search icon.
+4. **Ask a manual question** on a tool with that icon: the answer cites a page (`p. N`) that
+   opens the lab's stored PDF.
+5. **Trigger the nightly job by hand** (`ADMIN_REVALIDATE_SECRET`) and confirm a backup appears in Blob.
 
-**Optional** — `NOTION_DB_PROJECTS`, `UPSTASH_REDIS_REST_*` (rate limits enforced across
-instances rather than per-process), `MCP_TOKEN` (also the switch that exposes write tools
-over MCP; unset means read-only), `RATE_LIMIT_ANON_CHAT`, and the `NEXT_PUBLIC_*` branding
-set.
+## 7 · Give reviewers access *(to confirm)*
 
-## 3 · Deploy, then verify in this order
+They sign in with Google (their address must be allowed in step 4), then you set their role on
+**/admin/users**. If a reviewer is asked to log in to *Vercel* before seeing the site, turn off
+**Vercel Authentication** under Settings → Deployment Protection; the app's own sign-in still
+guards everything that needs it.
 
-1. **`/api/health`** → `200`, `"catalog": "live"`. If `503`, a `NOTION_DB_*` is missing.
-2. **No DEMO DATA banner.** If it is there, same cause.
-3. **Send one chat message.** This is the first time the gateway path has ever made a live
-   call — see the warning below.
-4. **Sign in** with an institutional account, then confirm a non-institutional one is
-   rejected with an explanation rather than an error.
-5. **File a test ticket** and confirm it lands in Notion with your verified name.
-6. **Trigger the backup by hand** and confirm a file appears in Blob.
-7. **Ask a manual question** on the page of a tool whose manual `/admin/research` counts as
-   searchable (after Stage 2e): the status line reads "Searching the manual…" and the answer
-   links a page of the PDF (`…#page=N`).
-
-> [!IMPORTANT]
-> **OIDC has only ever been verified locally** (Phase 0 of the gateway migration — see the
-> spec's amendment), reading `VERCEL_OIDC_TOKEN` from a token pulled with `vercel env pull`,
-> never from a real preview deployment's own injected token. **Test on a preview deployment
-> before production.** A wrong model id fails loudly with `GatewayModelNotFoundError` on the
-> first request — it does not silently fall back — which is why step 3 is a real check and
-> not a formality; the same step is also the first real check that OIDC itself works in a
-> deployed environment, not just locally.
-
-## 4 · The safety net — do not skip
+## 8 · The safety net — do not skip
 
 **Set an inference spend limit and alert, on the Gateway itself.** Inference is the only cost
 here that scales with use, and the only one that can run away. This is the main practical
