@@ -297,12 +297,12 @@ export async function GET(req: Request) {
   // the cron log knows today's data is safe and only cleanup needs attention.
   let pruned: string[] = [];
   try {
-    const existing = await store.list(BACKUP_PREFIX);
+    const existing = await store.list(BACKUP_PREFIX, "private");
     pruned = expiredBackups(
       existing.map((blob) => blob.pathname),
       now
     );
-    await store.del(pruned);
+    await store.del(pruned, "private");
   } catch (error) {
     console.error("[backup] prune failed:", error);
     return Response.json(

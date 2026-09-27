@@ -74,7 +74,7 @@ describe("promoteAttachmentsToPublic", () => {
     expect(row.publicUrl).toBe(
       "https://store.public.blob.vercel-storage.com/uploads/tool/plate.jpg-pub"
     );
-    expect(store.del).toHaveBeenCalledExactlyOnceWith(["uploads/chat/plate.jpg"]);
+    expect(store.del).toHaveBeenCalledExactlyOnceWith(["uploads/chat/plate.jpg"], "private");
   });
 
   it("skips a row that is already public, and never copies it", async () => {
@@ -130,7 +130,7 @@ describe("promoteAttachmentsToPublic", () => {
     const result = await promoteAttachmentsToPublic([id], { db, store });
 
     expect(result).toEqual({ promoted: 0, failed: 1, skipped: 0 });
-    expect(store.del).toHaveBeenCalledExactlyOnceWith(["uploads/tool/plate-pub.jpg"]);
+    expect(store.del).toHaveBeenCalledExactlyOnceWith(["uploads/tool/plate-pub.jpg"], "public");
   });
 
   it("carries on past one bad photo", async () => {

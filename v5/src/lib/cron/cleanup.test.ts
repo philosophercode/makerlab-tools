@@ -79,6 +79,23 @@ describe("runCleanup", () => {
     expect(await exists(stale)).toBe(false);
   });
 
+  it("deletes each orphan from the store its access names (blob stores amendment)", async () => {
+    const store = fakeStore();
+    const chat = await upload(25);
+    const tool = await upload(25, { blobPathname: "uploads/tool/pub.png", access: "public" });
+
+    const result = await runCleanup(store, { db, now: NOW });
+
+    expect(result).toEqual({ orphans: 2, blobsDeleted: 2, rowsDeleted: 2 });
+    expect(store.del).toHaveBeenCalledTimes(2);
+    const [privateCall] = store.del.mock.calls.filter((call) => call[1] === "private");
+    expect(privateCall[0]).toHaveLength(1);
+    expect(privateCall[0][0]).toMatch(/^uploads\/chat\//);
+    expect(store.del).toHaveBeenCalledWith(["uploads/tool/pub.png"], "public");
+    expect(await exists(chat)).toBe(false);
+    expect(await exists(tool)).toBe(false);
+  });
+
   it("leaves a recent unclaimed upload alone", async () => {
     const store = fakeStore();
     // A half-finished submission left open over lunch must still be able to

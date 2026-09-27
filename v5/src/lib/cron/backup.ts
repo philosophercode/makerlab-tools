@@ -119,12 +119,12 @@ export async function runBackup(
   await store.put(pathname, body, "application/json");
 
   // Retention runs in the same job so nobody has to remember it.
-  const existing = await store.list(BACKUP_PREFIX);
+  const existing = await store.list(BACKUP_PREFIX, "private");
   const pruned = expiredBackups(
     existing.map((blob) => blob.pathname),
     now
   );
-  await store.del(pruned);
+  await store.del(pruned, "private");
 
   return {
     pathname,

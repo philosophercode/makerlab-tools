@@ -19,7 +19,7 @@
  */
 import { head } from "@vercel/blob";
 import { count, isNotNull } from "drizzle-orm";
-import { blobMode } from "../src/lib/blob-mode.ts";
+import { blobCredentials, blobMode } from "../src/lib/blob-mode.ts";
 import { createLocalBlobBackend } from "../src/lib/blob-local.ts";
 import { PgliteLockedError } from "../src/lib/db/pglite-lock.ts";
 import {
@@ -57,14 +57,15 @@ async function rowCount(db: Db, table: typeof tools | typeof units | typeof cate
 }
 
 /** Whether a pathname has bytes in the store the import wrote to. */
-function blobExists(target: ImportTarget): (pathname: string) => Promise<boolean> {
+function blobExists(target: ImportTarget): (pathname: string, access: string) => Promise<boolean> {
   if (target.kind === "pglite-local" && blobMode() === "local") {
     const disk = createLocalBlobBackend();
     return async (pathname) => (await disk.read(pathname)) !== null;
   }
-  return async (pathname) => {
+  return async (pathname, access) => {
     try {
-      await head(pathname);
+      // A private file is in the private store when one is linked.
+      await head(pathname, blobCredentials(access === "public" ? "public" : "private"));
       return true;
     } catch {
       return false;
@@ -107,11 +108,13 @@ async function verify(db: Db, target: ImportTarget): Promise<void> {
   check("resources with a tool", linkedResources, Number(resourcesWithTool.n));
 
   console.log("\nFiles (every attachment row has bytes in Blob)");
-  const rows = await db.select({ pathname: attachments.blobPathname }).from(attachments);
+  const rows = await db
+    .select({ pathname: attachments.blobPathname, access: attachments.access })
+    .from(attachments);
   const exists = blobExists(target);
   let missing = 0;
   for (const row of rows) {
-    if (!(await exists(row.pathname))) {
+    if (!(await exists(row.pathname, row.access))) {
       missing += 1;
       console.log(`  FAIL missing in Blob: ${row.pathname}`);
     }

@@ -1,6 +1,6 @@
 import { put } from "@vercel/blob";
 import { createLocalBlobBackend } from "../blob-local.ts";
-import { blobMode, hasVercelBlobStore } from "../blob-mode.ts";
+import { blobCredentials, blobMode, hasVercelBlobStore } from "../blob-mode.ts";
 import type { BlobUploader } from "./files.ts";
 
 /**
@@ -21,6 +21,9 @@ export function createVercelBlobUploader(): BlobUploader {
   return {
     async put(pathname, body, options) {
       const result = await put(pathname, Buffer.from(body.buffer, body.byteOffset, body.byteLength), {
+        // A private file (research's cleaned copy) goes to the private store
+        // when one is linked; see `blobCredentials`.
+        ...blobCredentials(options.access),
         access: options.access,
         contentType: options.contentType,
         addRandomSuffix: true,

@@ -342,9 +342,24 @@ gives you a working address for Google sign-in.
 Project → **Storage**:
 
 - **Neon Postgres** (Marketplace) → connect to the project, all environments. Adds `DATABASE_URL`.
-- **Blob** → create a store, connect it. A store connected today adds `BLOB_STORE_ID` (and
-  `BLOB_WEBHOOK_PUBLIC_KEY`) and signs in with the deployment's OIDC token; an older connection
-  adds `BLOB_READ_WRITE_TOKEN` instead. The app accepts either (`src/lib/blob-mode.ts`).
+- **Blob — two stores.** A Blob store is now either all-public or all-private, and the app keeps
+  both kinds of file, so it needs one of each (data platform spec, amendment 2026-09-27):
+  1. **Public store** → create it with access **Public**, connect it to the project with the
+     **default** environment-variable prefix, all environments. Adds `BLOB_STORE_ID`,
+     `BLOB_READ_WRITE_TOKEN` and `BLOB_WEBHOOK_PUBLIC_KEY`. Tool photos, manuals, research
+     images and project photos go here.
+  2. **Private store** → create it with access **Private**, connect it with the **custom prefix
+     `BLOB_PRIVATE`**, all environments, and tick **"Add a read-write token"**. Adds
+     `BLOB_PRIVATE_STORE_ID`, `BLOB_PRIVATE_READ_WRITE_TOKEN` and
+     `BLOB_PRIVATE_WEBHOOK_PUBLIC_KEY`. The nightly backup (it holds user emails), chat,
+     maintenance and import uploads, and research's cleaned copies go here. The token matters:
+     scripts run from a laptop have no OIDC token, and without one the store id alone falls back
+     to the public store, which refuses private files.
+
+  Redeploy after connecting — environment variables reach a deployment only when it is built.
+  With only one store (no `BLOB_PRIVATE_*`) the app puts both kinds in it, as before — fine for
+  an older store that accepts both, but a store created today refuses one kind. The routing is
+  `blobCredentials()` in `src/lib/blob-mode.ts`.
 
 ## 3 · Google sign-in *(to confirm)*
 
