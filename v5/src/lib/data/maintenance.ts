@@ -1,6 +1,7 @@
 import { desc, eq, or, sql } from "drizzle-orm";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { getDb } from "../db/client.ts";
+import { rawRows } from "../db/raw.ts";
 import { maintenanceLogs, tools, units } from "../db/schema/index.ts";
 import {
   MAINTENANCE_PRIORITY,
@@ -46,6 +47,36 @@ import { isUuid } from "./uuid.ts";
  * Relative imports with `.ts` extensions and no `@/` alias, and no
  * `"server-only"`: `scripts/` loads these modules under plain Node.
  */
+
+/**
+ * How many tickets are waiting and being worked — the `/admin` maintenance
+ * tile's numbers and the kiosk's open-ticket figure (kiosk spec §4.1), from one
+ * statement so the two can never disagree. Counts only: no title, no
+ * description, no reporter leaves this function, which is what lets a public
+ * screen show it.
+ */
+export interface OpenTicketCounts {
+  open: number;
+  inProgress: number;
+  /** Open or in progress, at `high` or `critical` priority. */
+  urgent: number;
+}
+
+export async function countOpenTickets(db?: Db): Promise<OpenTicketCounts> {
+  const handle = db ?? (await getDb());
+  const [row] = await rawRows<Record<string, number | string | null>>(
+    handle,
+    sql`select count(*) filter (where status = 'open') as open,
+               count(*) filter (where status = 'in_progress') as in_progress,
+               count(*) filter (where status in ('open', 'in_progress') and priority in ('high', 'critical')) as urgent
+          from maintenance_logs`
+  );
+  return {
+    open: Number(row?.open ?? 0),
+    inProgress: Number(row?.in_progress ?? 0),
+    urgent: Number(row?.urgent ?? 0),
+  };
+}
 
 /** One maintenance log, flattened and translated into display text. */
 export interface MaintenanceHistoryEntry {
