@@ -101,18 +101,18 @@ describe("local mode through the BlobStore seam", () => {
     await store.put("backups/b.json", "{}", "application/json");
     await store.putUpload("uploads/chat/", photo(), "private");
 
-    const backups = await store.list("backups/");
+    const backups = await store.list("backups/", "private");
     expect(backups.map((b) => b.pathname)).toEqual(["backups/a.json", "backups/b.json"]);
     expect(backups[0].uploadedAt).toMatch(/^\d{4}-\d{2}-\d{2}T/);
-    expect(await store.list("uploads/")).toHaveLength(1);
+    expect(await store.list("uploads/", "private")).toHaveLength(1);
 
-    await store.del(["backups/a.json"]);
-    expect((await store.list("backups/")).map((b) => b.pathname)).toEqual(["backups/b.json"]);
-    await store.del([]);
+    await store.del(["backups/a.json"], "private");
+    expect((await store.list("backups/", "private")).map((b) => b.pathname)).toEqual(["backups/b.json"]);
+    await store.del([], "private");
   });
 
   it("list is empty before anything has been written", async () => {
-    expect(await getBlobStore().list("backups/")).toEqual([]);
+    expect(await getBlobStore().list("backups/", "private")).toEqual([]);
   });
 });
 

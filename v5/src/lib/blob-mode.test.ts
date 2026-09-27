@@ -1,4 +1,4 @@
-import { blobMode } from "./blob-mode";
+import { blobCredentials, blobMode, hasPrivateBlobStore } from "./blob-mode";
 
 /**
  * The one rule for which Blob store a process uses. vitest.setup.ts sets
@@ -83,6 +83,55 @@ describe("blobMode", () => {
 
   it("is none by default in the test suite", () => {
     vi.stubEnv("BLOB_READ_WRITE_TOKEN", "");
+    expect(blobMode()).toBe("none");
+  });
+});
+
+/**
+ * Two stores (blob stores amendment, 2026-09-27): a Vercel Blob store is
+ * either all-public or all-private, so private files may live in a second
+ * store connected with the prefix `BLOB_PRIVATE`.
+ */
+describe("blobCredentials", () => {
+  function stores(vars: { privateToken?: string; privateStoreId?: string }) {
+    vi.stubEnv("BLOB_READ_WRITE_TOKEN", "vercel_blob_rw_public");
+    vi.stubEnv("BLOB_STORE_ID", "store_public");
+    vi.stubEnv("BLOB_PRIVATE_READ_WRITE_TOKEN", vars.privateToken ?? "");
+    vi.stubEnv("BLOB_PRIVATE_STORE_ID", vars.privateStoreId ?? "");
+  }
+
+  it("with one store, adds nothing for either access — the SDK default, exactly as before", () => {
+    stores({});
+    expect(hasPrivateBlobStore()).toBe(false);
+    expect(blobCredentials("public")).toEqual({});
+    expect(blobCredentials("private")).toEqual({});
+  });
+
+  it("sends private files to the private store's read-write token", () => {
+    stores({ privateToken: "vercel_blob_rw_private" });
+    expect(hasPrivateBlobStore()).toBe(true);
+    expect(blobCredentials("private")).toEqual({ token: "vercel_blob_rw_private" });
+  });
+
+  it("sends private files to the private store id (OIDC) when there is no private token", () => {
+    stores({ privateStoreId: "store_private" });
+    expect(hasPrivateBlobStore()).toBe(true);
+    expect(blobCredentials("private")).toEqual({ storeId: "store_private" });
+  });
+
+  it("prefers the private token over the private store id, since a token cannot be shadowed", () => {
+    stores({ privateToken: " vercel_blob_rw_private ", privateStoreId: "store_private" });
+    expect(blobCredentials("private")).toEqual({ token: "vercel_blob_rw_private" });
+  });
+
+  it("never sends a public file to the private store", () => {
+    stores({ privateToken: "vercel_blob_rw_private", privateStoreId: "store_private" });
+    expect(blobCredentials("public")).toEqual({});
+  });
+
+  it("leaves blobMode alone: a private store by itself is no place for public files", () => {
+    env({ vercel: "1" });
+    vi.stubEnv("BLOB_PRIVATE_READ_WRITE_TOKEN", "vercel_blob_rw_private");
     expect(blobMode()).toBe("none");
   });
 });

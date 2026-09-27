@@ -271,7 +271,7 @@ describe("GET /api/cron/daily — the pending-expiry stage", () => {
     const body = await (await GET(authorized())).json();
 
     expect(body.ok).toBe(true);
-    expect(blob.del).toHaveBeenCalledWith([blobPathname]);
+    expect(blob.del).toHaveBeenCalledWith([blobPathname], "public");
     const db = await getDb();
     expect(await db.select().from(attachments).where(sql`id = ${photoId}`)).toEqual([]);
     const [pending] = await db.select().from(pendingTools).where(sql`id = ${pendingId}`);

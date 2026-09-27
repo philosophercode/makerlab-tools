@@ -94,7 +94,7 @@ export async function promoteAttachmentsToPublic(
       result.failed += 1;
       // The copy is referenced by nothing; take it back out rather than leave
       // a public file no row knows about.
-      await store.del([copied.pathname]).catch((err: unknown) => {
+      await store.del([copied.pathname], "public").catch((err: unknown) => {
         console.error(`[promote] could not delete unused public copy ${copied.pathname}`, err);
       });
       continue;
@@ -102,7 +102,7 @@ export async function promoteAttachmentsToPublic(
 
     result.promoted += 1;
     try {
-      await store.del([row.blobPathname]);
+      await store.del([row.blobPathname], "private");
     } catch (err) {
       console.error(`[promote] could not delete private original ${row.blobPathname}`, err);
     }
