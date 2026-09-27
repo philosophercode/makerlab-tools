@@ -1,7 +1,9 @@
 /**
  * Which Blob store this process writes to — the one rule, in one place.
  *
- * - `"vercel"` — `BLOB_READ_WRITE_TOKEN` is set: the real Vercel Blob store.
+ * - `"vercel"` — a Vercel Blob store is linked: `BLOB_READ_WRITE_TOKEN` (a
+ *   store connected the old way) or `BLOB_STORE_ID` (connected the current way;
+ *   `@vercel/blob` then authenticates with the deployment's OIDC token).
  * - `"local"` — no token, not on Vercel, not a production build, and not
  *   switched off with `BLOB_LOCAL_DISABLE=1`: files go to `.blob-data/` in the
  *   working directory (`blob-local.ts`), so uploads, promotion, archived
@@ -22,8 +24,13 @@
  */
 export type BlobMode = "vercel" | "local" | "none";
 
+/** A Vercel Blob store is linked, by token or by store id + OIDC (see {@link blobMode}). */
+export function hasVercelBlobStore(): boolean {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN?.trim() || process.env.BLOB_STORE_ID?.trim());
+}
+
 export function blobMode(): BlobMode {
-  if (process.env.BLOB_READ_WRITE_TOKEN) return "vercel";
+  if (hasVercelBlobStore()) return "vercel";
   if (process.env.VERCEL) return "none";
   const explicitDir = (process.env.BLOB_LOCAL_DIR ?? "").trim();
   if (process.env.NODE_ENV === "production" && !explicitDir) return "none";
