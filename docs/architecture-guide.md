@@ -6,7 +6,7 @@
 > Operational concerns — keys, accounts, what to do at 2am — are in
 > [`handover.md`](handover.md). The rules any change must respect are in
 > [`constitution.md`](constitution.md). File-level detail (key modules, gotchas, every
-> subsystem's as-built notes) is in [`v5/AGENTS.md`](../v5/AGENTS.md).
+> subsystem's as-built notes) is in [`AGENTS.md`](../AGENTS.md).
 
 ---
 
@@ -25,7 +25,7 @@ A Next.js App Router application on Vercel. Four things matter:
    surfaces — the chat UI and the MCP endpoint. Adding an ability to one gives it to both.
 4. **Slow AI work runs as durable workflows.** Researching a new tool, finding its product
    photo, archiving and indexing its manuals, and pushing the mirror are Workflow SDK runs
-   (`v5/src/workflows/`), so a page request never waits on them.
+   (`src/workflows/`), so a page request never waits on them.
 
 ```
 Browser ──► Next.js ──► catalog.ts ──► lib/data/* ──► Drizzle ──► Postgres (Neon)
@@ -45,10 +45,10 @@ cron:      /api/cron/daily — Postgres backup to private Blob, orphaned-upload 
 
 ## 2. Data layer
 
-**Postgres through Drizzle ORM.** `v5/src/lib/db/client.ts` is the one entry point
-(`getDb()`); the schema is `v5/src/lib/db/schema/`, migrations are SQL files applied by
+**Postgres through Drizzle ORM.** `src/lib/db/client.ts` is the one entry point
+(`getDb()`); the schema is `src/lib/db/schema/`, migrations are SQL files applied by
 `npm run db:migrate` (the production `build` runs it first). The query modules are
-`v5/src/lib/data/*.ts`; `v5/src/lib/catalog.ts` orchestrates them into the `MakerLabTool`
+`src/lib/data/*.ts`; `src/lib/catalog.ts` orchestrates them into the `MakerLabTool`
 view the pages render.
 
 **Which database** is decided by environment, in this order:
@@ -63,9 +63,9 @@ view the pages render.
 all-public or all-private, so a deployment links two: the default store for public files
 (tool photos, manuals, project photos) and a store connected with the prefix
 `BLOB_PRIVATE` for private ones (maintenance photos, the nightly backup, research's
-private copies). `blobCredentials(access)` in `v5/src/lib/blob-mode.ts` picks the store;
+private copies). `blobCredentials(access)` in `src/lib/blob-mode.ts` picks the store;
 every `@vercel/blob` call goes through it. On a laptop with no token, files go to
-`v5/.blob-data/` instead.
+`.blob-data/` instead.
 
 **Manuals are text too.** Each stored manual PDF is extracted page by page
 (`manual_documents`, `manual_pages`), split into passages and embedded (`manual_chunks`,
@@ -101,7 +101,7 @@ interface CapabilityTool<I, R> {
 ```
 
 Related tools are grouped into a **capability** with a fragment of the system prompt.
-`CAPABILITIES` in `v5/src/lib/capabilities/index.ts` is the ordered list. Access is decided
+`CAPABILITIES` in `src/lib/capabilities/index.ts` is the ordered list. Access is decided
 once, by `capabilitiesForIdentity` (`capabilities/access.ts`) from `requiredPermission` —
 never inside a tool's `run()`.
 
@@ -124,7 +124,7 @@ card returns plain data instead.
 
 ## 4. The chat route
 
-`v5/src/app/api/chat/route.ts`. In order:
+`src/app/api/chat/route.ts`. In order:
 
 1. **Rate limit**, by user when signed in and by IP otherwise, before anything expensive.
 2. **Build context from the page the user is on.** On the gallery the assistant gets a
@@ -135,7 +135,7 @@ card returns plain data instead.
    PDF. Only manuals not yet processed are attached whole.
 4. **Stream** the response through the **Vercel AI Gateway**, with tool calls resolved
    through the registry. Every model call names a *job* (`chat`, `researchSearch`,
-   `researchRead`, `imageRank`, `embed`, …) that `v5/src/lib/ai/models.ts` maps to a model
+   `researchRead`, `imageRank`, `embed`, …) that `src/lib/ai/models.ts` maps to a model
    and a service tier; `MODEL_<JOB>` overrides one. There is no direct provider key.
 
 Two behaviours are deliberate and easy to break by accident:
@@ -157,12 +157,12 @@ gates the front door** — the catalogue and chat work anonymously.
 
 Roles are `user` (shown as Student), `admin` (Supermaker) and `super_admin` (Super Admin),
 stored in `user.role`. What each may do is declared once in
-`v5/src/lib/auth/permissions.ts`; every route, server action and capability calls
+`src/lib/auth/permissions.ts`; every route, server action and capability calls
 `can(identity, …)`. `AUTH_SUPER_ADMIN_EMAILS` is a floor, not a roster: those addresses are
 always super admins, which is how the first one exists and why the lab cannot lock itself
 out. A person's title (People page) is display only.
 
-`/admin` is one list of surfaces (`v5/src/lib/admin/surfaces.ts`) rendered three ways —
+`/admin` is one list of surfaces (`src/lib/admin/surfaces.ts`) rendered three ways —
 the tile home, the section bar and the ⌘K palette. Every admin write is a server action
 that checks its own permission and records an `audit_events` row.
 
@@ -188,7 +188,7 @@ spend are bounded by allowances a super admin grants.
 ## 7. Caching and revalidation
 
 Catalogue reads are cached with `"use cache"`, tagged `catalog`, with a long lifetime
-(`CATALOG_CACHE` in `v5/src/lib/cache.ts`: background refresh daily). Freshness comes from
+(`CATALOG_CACHE` in `src/lib/cache.ts`: background refresh daily). Freshness comes from
 **invalidation**, not polling: every admin write revalidates the tags it touched, the
 header's Refresh control and `POST /api/admin/revalidate` (with `x-admin-secret`) bust a
 tag on demand.
@@ -204,7 +204,7 @@ breaks the build in a way whose error message does not obviously point here.
 `next-intl`, twelve locales, cookie-based (`NEXT_LOCALE`) with no URL prefix — so
 `/tools/abc` is the same URL in every language.
 
-Messages live in `v5/messages/*.json`. New strings go into `en.json` in the same PR; the
+Messages live in `messages/*.json`. New strings go into `en.json` in the same PR; the
 other locales fall back to English until the translation pass (data platform spec, phase
 9 — scheduled for after launch). The assistant's language is independent of the UI
 locale — it replies in whatever language the student writes in.
@@ -213,7 +213,7 @@ locale — it replies in whatever language the student writes in.
 
 ## 9. Testing
 
-Four layers, all offline. See [`v5/TESTING.md`](../v5/TESTING.md) for the runbook.
+Four layers, all offline. See [`TESTING.md`](../TESTING.md) for the runbook.
 
 | Layer | Tool | Covers |
 |---|---|---|
@@ -257,8 +257,8 @@ generative model altered the labels on the products it cleaned.
 
 ## 11. Where the bodies are buried
 
-- **Two apps in one repo, until PR #79.** Root `src/` is v4. Almost every "why doesn't my
-  change appear" question traces to editing the wrong tree.
+- **v4 lives only in history.** The repo root is the app. The frozen v4 app (AirTable) is at
+  tag `v4-final`; nothing in the tree depends on it.
 - **`.pglite-data` is single-process.** A second process gets `PgliteLockedError`; stop
   `npm run dev` before an import, a migration, `manuals:index` or `data:push`.
 - **Two Blob stores.** A private file written without `blobCredentials("private")` lands
@@ -269,4 +269,4 @@ generative model altered the labels on the products it cleaned.
   only when **both** `UPSTASH_REDIS_REST_*` variables are set — one alone silently does
   nothing.
 - **Workflow steps are bundled separately.** `vi.mock` does not reach inside a workflow
-  under `@workflow/vitest`; see `v5/AGENTS.md` before testing one.
+  under `@workflow/vitest`; see `AGENTS.md` before testing one.

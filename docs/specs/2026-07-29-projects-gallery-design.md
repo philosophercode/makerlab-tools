@@ -293,7 +293,7 @@ submission still works and still records no email: the ISAM demo depends on it (
 
 ### 2026-07-29 — E2E coverage added, two of §10's four cases not exercisable
 
-**What changed.** `v5/e2e/projects.spec.ts` closes the browser-layer half of §9
+**What changed.** `e2e/projects.spec.ts` closes the browser-layer half of §9
 phase 2 — seven Playwright tests over `/projects` and `/projects/new`.
 
 **What §10 asked for, and what was built.** §10's E2E list has four cases. Two are

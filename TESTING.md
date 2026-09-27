@@ -1,9 +1,9 @@
-# Testing — v5
+# Testing
 
-Practical runbook for the v5 test suite. For the full design rationale and the
+Practical runbook for the test suite. For the full design rationale and the
 per-file coverage matrix, see the design doc:
-[`docs/specs/2026-05-29-v5-test-suite-design.md`](../docs/specs/2026-05-29-v5-test-suite-design.md)
-(repo root). For harness internals (fixtures, mocks, render helper, the exact
+[`docs/specs/2026-05-29-v5-test-suite-design.md`](docs/specs/2026-05-29-v5-test-suite-design.md).
+For harness internals (fixtures, mocks, render helper, the exact
 import paths), see [`test/README.md`](./test/README.md).
 
 ## Overview

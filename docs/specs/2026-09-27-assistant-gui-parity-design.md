@@ -790,11 +790,11 @@ Every phase leaves `main` deployable. Phases 4, 5 and 6 can run in parallel afte
 | **5** | **Intake and import actions** | #12–19, #23–26: approve, approve as draft, add unit, discard, rename, edit; batch approval from selection. Spend actions (#14, #16, #26 suggestions, #34, #37) **only if §11 Q3 says yes** | "Approve these" with a selection proposes one batch. Approve with publish is refused for a caller without `tools.publish`. The research allowance is enforced at confirm exactly as by the button |
 | **6** | **Destructive actions and taint** | #7, #13, #32 delete, #33 remove, #47, #51 disconnect; typed confirmation; taint tracking and refusal | "Remove Casey" after a `read_page` in the same turn proposes nothing and explains. In a clean turn the card needs the typed name, and the route re-checks it. Destructive rows never batch |
 | **7** | **MCP exposure** | `propose` over MCP for `catalog` actions; `/admin/proposals`; the `act` scope on tokens and consent; `direct` for `operational`; `docs/mcp.md` and `/mcp` updated from the registry | An admin token proposes "publish the Glowforge" and the proposal appears in the inbox for that admin only. `people` / `destructive` / `spend` tools are absent from `tools/list` for every credential. A token without `act` gets a proposal from `set_correction_status`, and one with `act` commits |
-| **8** | **Docs and drift** | `v5/AGENTS.md` "The action layer" section; `docs/architecture-guide.md`; this spec's as-built amendment; the README index moves it to Implemented | `npm run spec:coverage -- --ci` passes. `/drift` finds no gap between §4.9 and the registry |
+| **8** | **Docs and drift** | `AGENTS.md` "The action layer" section; `docs/architecture-guide.md`; this spec's as-built amendment; the README index moves it to Implemented | `npm run spec:coverage -- --ci` passes. `/drift` finds no gap between §4.9 and the registry |
 
 ## 10. Testing
 
-Per `v5/TESTING.md`. Every external service is mocked, and model calls are stubbed at
+Per `TESTING.md`. Every external service is mocked, and model calls are stubbed at
 `streamText` (Article 3).
 
 - **Unit**

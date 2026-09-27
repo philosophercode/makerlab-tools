@@ -7,8 +7,9 @@ one place stops the two documents from drifting apart.
 
 Two things to know before anything else:
 
-1. **The active app is `v5/`** (Postgres-backed, with Notion read only by the
-   one-time import), not the root `src/` tree (v4, AirTable, frozen). When
-   working in `v5/`, also read [`v5/AGENTS.md`](./v5/AGENTS.md).
-2. **This repository is the product.** v5 is the live Cornell Tech deployment
+1. **The app is the repo root.** Run every command from here. v5
+   (Postgres-backed; Notion read only by the one-time import) is the current
+   generation; there is no `v5/` folder any more and no second app beside it.
+   The old v4 app (AirTable) is recoverable from the tag `v4-final`.
+2. **This repository is the product.** It is the live Cornell Tech deployment
    (<https://makerlab-ai.vercel.app>) and development continues here.

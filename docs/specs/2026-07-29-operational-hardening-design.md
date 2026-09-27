@@ -415,13 +415,13 @@ half is superseded, not skipped.
 Phase 3 (data platform spec §3.9), and it was kept only pending deletion approval. It was
 still reachable with a secret and wrote a version-1 Notion dump to the *same* pathname the
 nightly Postgres export uses, so a hand-trigger would have overwritten that day's real backup
-(data platform spec, Phase 3–4 review). Removed: `v5/src/app/api/admin/backup/route.ts` and
+(data platform spec, Phase 3–4 review). Removed: `src/app/api/admin/backup/route.ts` and
 its test. Nothing imported it, `vercel.json` already scheduled only `/api/cron/daily`, and no
 admin link or environment variable belonged to it alone. §3.3's *intent* — a daily private
 backup that fails loudly — is met by `/api/cron/daily`.
 
 **2. Retention is tiered, not 30 days.** §3.3 and §8 say "retains 30 days". Now
-(`v5/src/lib/cron/backup-retention.ts`, pure, tested at every boundary): every backup for 7
+(`src/lib/cron/backup-retention.ts`, pure, tested at every boundary): every backup for 7
 days; the newest of each ISO week to one calendar month; of each calendar month to one year;
 of each calendar quarter to three years; nothing older. Same-day duplicates keep the newest;
 a pathname that is not a backup is never deleted, and neither is a stamp whose date cannot be
@@ -441,13 +441,13 @@ cron log").** A non-200 in the cron log was the only signal, and Vercel notifies
 small additions:
 
 - **Heartbeat.** Every nightly run that passes the secret check pings `CRON_HEARTBEAT_URL` —
-  `<url>` on success, `<url>/fail` on any failure (`v5/src/lib/cron/heartbeat.ts`).
+  `<url>` on success, `<url>/fail` on any failure (`src/lib/cron/heartbeat.ts`).
   Healthchecks.io or Better Stack emails when a ping fails *or never arrives*, which also
   catches a cron that stopped being scheduled. Unset, nothing happens; a heartbeat that
   cannot be delivered never fails the job; the URL is never logged.
 - **`/admin` notice.** A super admin on the live database sees a warning when the newest
   backup file is over 36 hours old, when there is none, when no Blob store is linked, or when
-  Blob could not be read (`v5/src/lib/cron/backup-freshness.ts`). It reads the files, not a
+  Blob could not be read (`src/lib/cron/backup-freshness.ts`). It reads the files, not a
   run record, so a run that claimed success without writing still shows. `/api/health` is
   unchanged: its status code is about the database (§3.1), and a Blob `list` on every probe
   would cost more than the signal is worth.

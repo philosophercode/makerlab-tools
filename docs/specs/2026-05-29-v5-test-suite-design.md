@@ -1,7 +1,7 @@
 # v5 Comprehensive Test Suite — Design & Dispatch Plan
 
 **Date:** 2026-05-29
-**Status:** Implemented — runbook in `v5/TESTING.md` (status audit 2026-09-27, [`README.md`](README.md))
+**Status:** Implemented — runbook in `TESTING.md` (status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/` (Next.js 16, React 19, TypeScript)
 **Goal:** Add a comprehensive, fully-mocked, CI-friendly test suite — unit, integration, component/UI, and end-to-end — plus a runbook. No live external calls.
 
@@ -46,19 +46,19 @@ The scout + source read surfaced these gotchas. Every agent must respect them:
 
 ## 3. Tooling & files the foundation agent creates
 
-**Dev deps** (`v5/package.json`):
+**Dev deps** (`package.json`):
 `vitest`, `@vitejs/plugin-react`, `jsdom`, `@testing-library/react`, `@testing-library/user-event`, `@testing-library/jest-dom`, `@testing-library/dom`, `msw`, `@playwright/test`.
 
 **Config / infra:**
-- `v5/vitest.config.ts` — `jsdom` env, `@/` → `src/` alias, alias `server-only` → empty stub, `setupFiles: ["./vitest.setup.ts"]`, coverage (`v8`, reporter only — no thresholds), `exclude` the `e2e/` dir.
-- `v5/vitest.setup.ts` — `import "@testing-library/jest-dom"`; start/stop the MSW server (`beforeAll`/`afterEach reset`/`afterAll`); `afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); })`.
-- `v5/playwright.config.ts` — `webServer` boots `npm run dev` with `NOTION_API_KEY`/`NOTION_DB_*` **unset** and `reuseExistingServer: true`, `baseURL: http://localhost:3000`, `testDir: ./e2e`.
-- `v5/test/msw/handlers.ts` + `server.ts` — MSW handlers for `api.notion.com/v1/databases/:id/query`, `/pages`, `/pages/:id`, `/file_uploads`, the Upstash `/pipeline` endpoint, and the Anthropic web-fetch host (as needed). Handlers return fixture pages and are overridable per-test via `server.use(...)`.
-- `v5/test/fixtures/notion.ts` — raw `NotionPage` fixtures (tool/category/location/unit/resource/maintenance-log shapes matching `pageToX` parsers in `notion.ts`) and a `notionQueryResponse(pages, { hasMore })` helper for pagination tests.
-- `v5/test/fixtures/catalog.ts` — ready-made `MakerLabTool` / `MakerLabUnit` objects for component tests.
-- `v5/test/mocks/next-cache.ts` — factory returning `{ cacheLife: vi.fn(), cacheTag: vi.fn(), revalidateTag: vi.fn() }` for `vi.mock("next/cache", ...)`.
-- `v5/test/utils/render.tsx` — RTL render helper wrapping components in `NextIntlClientProvider` with the `messages/en.json` catalog (needed by i18n-aware components).
-- `v5/test/README.md` — short "how the harness fits together" note for the other agents (env stubbing patterns, MSW override pattern, the streamText-capture pattern).
+- `vitest.config.ts` — `jsdom` env, `@/` → `src/` alias, alias `server-only` → empty stub, `setupFiles: ["./vitest.setup.ts"]`, coverage (`v8`, reporter only — no thresholds), `exclude` the `e2e/` dir.
+- `vitest.setup.ts` — `import "@testing-library/jest-dom"`; start/stop the MSW server (`beforeAll`/`afterEach reset`/`afterAll`); `afterEach(() => { vi.unstubAllEnvs(); vi.restoreAllMocks(); })`.
+- `playwright.config.ts` — `webServer` boots `npm run dev` with `NOTION_API_KEY`/`NOTION_DB_*` **unset** and `reuseExistingServer: true`, `baseURL: http://localhost:3000`, `testDir: ./e2e`.
+- `test/msw/handlers.ts` + `server.ts` — MSW handlers for `api.notion.com/v1/databases/:id/query`, `/pages`, `/pages/:id`, `/file_uploads`, the Upstash `/pipeline` endpoint, and the Anthropic web-fetch host (as needed). Handlers return fixture pages and are overridable per-test via `server.use(...)`.
+- `test/fixtures/notion.ts` — raw `NotionPage` fixtures (tool/category/location/unit/resource/maintenance-log shapes matching `pageToX` parsers in `notion.ts`) and a `notionQueryResponse(pages, { hasMore })` helper for pagination tests.
+- `test/fixtures/catalog.ts` — ready-made `MakerLabTool` / `MakerLabUnit` objects for component tests.
+- `test/mocks/next-cache.ts` — factory returning `{ cacheLife: vi.fn(), cacheTag: vi.fn(), revalidateTag: vi.fn() }` for `vi.mock("next/cache", ...)`.
+- `test/utils/render.tsx` — RTL render helper wrapping components in `NextIntlClientProvider` with the `messages/en.json` catalog (needed by i18n-aware components).
+- `test/README.md` — short "how the harness fits together" note for the other agents (env stubbing patterns, MSW override pattern, the streamText-capture pattern).
 
 **New `package.json` scripts:**
 ```jsonc
@@ -108,7 +108,7 @@ Foundation must end by running `npm install` and `npx vitest run` against **one 
 - All nav links reachable; unknown tool slug → not-found.
 
 ### Layer E — Runbook
-- `v5/TESTING.md`: how to run each layer, the mocking model, how to add a fixture, how to add an MSW override, env conventions, Playwright notes. References this design doc.
+- `TESTING.md`: how to run each layer, the mocking model, how to add a fixture, how to add an MSW override, env conventions, Playwright notes. References this design doc.
 
 ---
 
@@ -134,6 +134,6 @@ Foundation must end by running `npm install` and `npx vitest run` against **one 
 | C4 | ui: locale/theme | `src/components/LanguageSelector.test.tsx`, `ThemeToggle.test.tsx` |
 | C5 | ui: chrome/nav | `src/components/GlobalChrome.test.tsx`, `PrimaryNav.test.tsx` |
 | D | e2e (all specs) | `e2e/*.spec.ts` (single agent — avoids dev-server port contention) |
-| E | runbook | `v5/TESTING.md` |
+| E | runbook | `TESTING.md` |
 
 Each Phase-2 agent verifies its own work with `npx vitest run <its files>` (or `npx playwright test` for D) and reports pass/fail with output. They must not claim success without green output.

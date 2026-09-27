@@ -12,12 +12,30 @@ cleanly and says so, rather than crashing or pretending.
 
 ---
 
+## Moving to the flattened layout (once, when PR #79 merges)
+
+Until PR #79 the app lived in a `v5/` folder beside the old v4 app. It is now the repo root.
+An existing deployment and an existing checkout each need one change:
+
+1. **Vercel first.** Project `makerlab-ai` → **Settings → Build and Deployment → Root
+   Directory**: change **`v5`** to **`./`**, right before the merge. The merge to `main`
+   triggers a production build, and with `v5` still set that build fails because the
+   folder is gone.
+2. **A local checkout.** Stop `npm run dev`, then `git checkout main && git pull`. Git leaves
+   `v5/` behind holding only ignored and untracked files. Move the local state up to the
+   root (set aside anything already there first, e.g. `mv node_modules node_modules.v4-old`):
+   `v5/.env.local`, `v5/.pglite-data`, `v5/.blob-data`, `v5/.vercel`, `v5/.livecheck`, and
+   any untracked work in progress under `v5/src/`. Then run `npm install` (or move
+   `v5/node_modules` up) and `npm run dev` from the root. What remains in `v5/` (`.next`,
+   `.swc`, `.workflow-data`, …) is regenerable cache.
+
+---
+
 # Part 1 — Locally
 
 ## Stage 0 · It runs with nothing (2 minutes)
 
 ```bash
-cd v5
 npm install
 npm run dev            # http://localhost:3000
 ```
@@ -27,7 +45,7 @@ runs on an in-process Postgres (PGlite) seeded with two sample tools, and the ba
 so nobody mistakes it for the lab's real inventory.
 
 Working already: catalogue browse and search, facets, grid ⇄ table, tool detail pages,
-`/projects`, the 12-language switcher, photo uploads (into `v5/.blob-data/`),
+`/projects`, the 12-language switcher, photo uploads (into `.blob-data/`),
 `/api/health` (`200` with `"catalog": "demo"`), and `npm run qr:labels`.
 
 ```bash
@@ -42,7 +60,7 @@ npm run test:all       # lint, typecheck, vitest, playwright — no credentials 
 
 Every model call goes through the **Vercel AI Gateway** — there is no direct
 provider key any more (gateway spec 2026-09-23; `ANTHROPIC_API_KEY` is read by
-nothing). Create `v5/.env.local`:
+nothing). Create `.env.local`:
 
 ```bash
 AI_GATEWAY_API_KEY=...
@@ -65,7 +83,7 @@ catalogue, which is enough to exercise most of the product:
 | **ADD**, signed in as an admin (Stage 3b), paste a product URL | Intake: identify, then background research into a draft |
 
 `npm run eval` runs the agent eval harness. It makes **real, paid** model calls and is
-deliberately outside `test:all` — see `v5/evals/README.md`, including the §10 eval gate
+deliberately outside `test:all` — see `evals/README.md`, including the §10 eval gate
 to run before pointing production at a different model.
 
 ## Stage 2 · Real data: import the Notion inventory locally (30–45 minutes)
@@ -98,7 +116,6 @@ A PGlite directory is **single-process**: stop `npm run dev` before importing, o
 stops with "in use by process N … stop that process and try again".
 
 ```bash
-cd v5
 # with NOTION_API_KEY and the NOTION_DB_* ids in .env.local, DATABASE_URL unset
 npm run import:notion -- --dry-run                           # rehearse; nothing kept
 PGLITE_DATA_DIR=.pglite-data npm run import:notion           # rows + files into .pglite-data/
@@ -142,7 +159,6 @@ server for a local database), prints an estimate first and the real usage last, 
 overwrites questions a tool already has.
 
 ```bash
-cd v5
 # rehearse on five tools: calls the model, prints the questions, writes nothing
 PGLITE_DATA_DIR=.pglite-data node --env-file-if-exists=.env.local --experimental-strip-types \
   scripts/generate-starter-questions.ts --dry-run --limit 5
@@ -165,7 +181,6 @@ Gateway calls, no cost** — reading each PDF back from Blob (`BLOB_READ_WRITE_T
 (`DATABASE_URL` > `PGLITE_DATA_DIR`; stop the dev server for a local database).
 
 ```bash
-cd v5
 # rehearse: reads and extracts every stored PDF, reports ready / no_text / failed and pages, writes nothing
 PGLITE_DATA_DIR=.pglite-data npm run manuals:index -- --dry-run
 # then for real (--limit N, --ids <resource ids>; --force re-processes everything)
@@ -194,7 +209,6 @@ attached whole, as before.
   Gateway-reported cost (about $0.0006 for a 60-page manual, $0.002 for 150 pages).
 
 ```bash
-cd v5
 DATABASE_URL=postgres://… npm run db:migrate            # 0011: pgvector + manual_chunks
 # rehearse: chunks and counts passages, embeds nothing, costs nothing
 DATABASE_URL=postgres://… BLOB_READ_WRITE_TOKEN=… npm run manuals:index -- --dry-run
@@ -233,7 +247,6 @@ migrator applies pending migrations in one transaction, so an old pgvector fails
 without dropping the search index — but the deploy fails with it.
 
 ```bash
-cd v5
 DATABASE_URL=postgres://… npm run db:migrate            # 0019: halfvec + OCR columns
 # rehearse: says how many scans and pages OCR would read; calls nothing
 DATABASE_URL=postgres://… BLOB_READ_WRITE_TOKEN=… npm run manuals:index -- --dry-run
@@ -333,13 +346,13 @@ week, then weekly, monthly and quarterly to three years), and sweeps photos that
 but never attached to anything. It needs a Blob store and refuses without one.
 
 **Blob on a laptop.** With no `BLOB_READ_WRITE_TOKEN`, `npm run dev` does not refuse
-uploads: every Blob read and write goes to `v5/.blob-data/` (git-ignored), a folder that
+uploads: every Blob read and write goes to `.blob-data/` (git-ignored), a folder that
 behaves like the real store — private and public files, random upload pathnames, copies to
 public, list and delete. Photo uploads, chat photos, pending-tool photo promotion,
 archived manual PDFs, this backup and the orphan sweep all work. Public files are served
 by `GET /api/dev-blob/[...path]` at `AUTH_BASE_URL` (default `http://localhost:3000`);
 private ones are never served. Set `BLOB_LOCAL_DISABLE=1` to get the old "uploads are
-unavailable" behaviour back. The rule lives in `v5/src/lib/blob-mode.ts`: a token means
+unavailable" behaviour back. The rule lives in `src/lib/blob-mode.ts`: a token means
 Vercel Blob; on Vercel (`VERCEL`) or in a production build without one there is **no**
 store and no disk fallback, and `/api/dev-blob/…` answers 404. The Notion import into
 `DATABASE_URL` still insists on a real token, because its rows go to a shared database; an
@@ -350,7 +363,7 @@ credentials, not records, and the Google tokens on `account` are blanked. A back
 something you might email to yourself at 2am; it must not double as a way to sign in as
 somebody. People, roles and bans are all still in there. The manual search tables
 (`manual_pages`, `manual_chunks`) are left out too, because they are rebuilt from the stored
-PDFs: after a restore, run `npm run manuals:index -- --force` from `v5/`
+PDFs: after a restore, run `npm run manuals:index -- --force` from the repo root
 ([`operations.md`](operations.md#restoring)).
 
 ---
@@ -358,7 +371,7 @@ PDFs: after a restore, run `npm run manuals:index -- --force` from `v5/`
 # Part 2 — A new deployment on Vercel
 
 > Written from what worked creating `makerlab-ai` (<https://makerlab-ai.vercel.app>),
-> September 2026. Variable names are the ones `v5/src` reads; `v5/.env.example` explains
+> September 2026. Variable names are the ones `src/` reads; `.env.example` explains
 > each one.
 
 The hosted copy starts from **your local inventory**, not from Notion: everything reviewed
@@ -375,7 +388,7 @@ Vercel → **Add New… → Project** → import `philosophercode/makerlab-tools
 | Vercel Team | Your team. Hobby is fine for a review copy; for the lab's real launch use a Pro or university team (Hobby is for non-commercial personal use) |
 | Project Name | `makerlab-ai` — this becomes `makerlab-ai.vercel.app` |
 | Application Preset | Next.js |
-| **Root Directory** | **`v5`** — the one setting people miss. (Once the repo is flattened to v5 only, this becomes `./`.) |
+| **Root Directory** | **`./`** (the repo root). Deployments made before the repo was flattened used `v5`; see "Moving to the flattened layout" at the top |
 | Build and Output Settings | Defaults. The app's `build` script runs `db:migrate`, then `next build` |
 | Environment Variables | **Remove any "detected" ones** — they come from the old v4 example file. Add the real ones in step 4 |
 
@@ -402,7 +415,7 @@ Project → **Storage**:
 
 The app reads exactly these names: the public store as `BLOB_STORE_ID` or
 `BLOB_READ_WRITE_TOKEN`, the private one as `BLOB_PRIVATE_STORE_ID` or
-`BLOB_PRIVATE_READ_WRITE_TOKEN` (`blobCredentials()` in `v5/src/lib/blob-mode.ts`). On
+`BLOB_PRIVATE_READ_WRITE_TOKEN` (`blobCredentials()` in `src/lib/blob-mode.ts`). On
 Vercel a store id is enough — the deployment's OIDC token authenticates it.
 
 **If a store was connected with a different prefix** (or was already connected to another
@@ -410,8 +423,7 @@ project under another name), the app does not see it. Add the two store ids unde
 names the app reads, with the ids from each store's page (`store_…`):
 
 ```bash
-cd v5
-vercel link                                   # once, if v5/ is not linked yet
+vercel link                                   # once, if this checkout is not linked yet
 vercel env add BLOB_STORE_ID production       # paste the public store's id
 vercel env add BLOB_PRIVATE_STORE_ID production   # paste the private store's id
 ```
@@ -465,8 +477,8 @@ needs that.
 
 ## 6 · Copy the local inventory up
 
-Copies the local database (`v5/.pglite-data`) into Neon and the local files
-(`v5/.blob-data`: tool photos, manual PDFs, private uploads) into the two Blob stores, so
+Copies the local database (`.pglite-data`) into Neon and the local files
+(`.blob-data`: tool photos, manual PDFs, private uploads) into the two Blob stores, so
 the hosted site matches your local review, manuals already searchable.
 
 Before you start: the project has deployed **with Neon connected** since the last
@@ -476,7 +488,6 @@ migration (step 5), you have checked out the same commit, and the local dev serv
 **Get the production credentials into a file.** Start with a pull:
 
 ```bash
-cd v5
 vercel env pull .env.hosted --environment=production
 ```
 
@@ -512,9 +523,9 @@ PGLITE_DATA_DIR=.pglite-data npm run data:push -- --to .env.hosted --yes
 ```
 
 Then **delete `.env.hosted` yourself** — it holds the production database password and
-Blob tokens. (`v5/.gitignore` ignores `.env*`, but it should not sit on disk.)
+Blob tokens. (`.gitignore` ignores `.env*`, but it should not sit on disk.)
 
-What `npm run data:push` (`v5/scripts/push-local-to-hosted.ts`) does:
+What `npm run data:push` (`scripts/push-local-to-hosted.ts`) does:
 
 - **Dry run** (`--dry-run`): connects read-only to both sides and prints each table's row
   count (local vs. hosted now), how many files it will upload and how many an earlier push

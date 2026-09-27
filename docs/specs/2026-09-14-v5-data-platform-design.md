@@ -84,7 +84,7 @@ Postgres is authoritative for every record. Today's Notion databases are read on
 ### 3.2 Database
 
 - **Host.** Neon Postgres, installed on the `makerlab-tools-v5` Vercel project through the Marketplace (`vercel integration add neon`). The integration injects `DATABASE_URL` for production and creates a branch database per preview deployment, so a preview can run the import and be clicked through before the read path merges.
-- **ORM and migrations.** Drizzle ORM. `drizzle-kit generate` produces SQL migrations, committed under `v5/src/lib/db/migrations/`. Migrations run in a deploy step (`npm run db:migrate`, called from the Vercel build command), never at request time. The `pg_trgm` extension is enabled in the first migration, for duplicate matching (§5.4).
+- **ORM and migrations.** Drizzle ORM. `drizzle-kit generate` produces SQL migrations, committed under `src/lib/db/migrations/`. Migrations run in a deploy step (`npm run db:migrate`, called from the Vercel build command), never at request time. The `pg_trgm` extension is enabled in the first migration, for duplicate matching (§5.4).
 - **Drivers.**
   - Production and preview: `@neondatabase/serverless` through `drizzle-orm/neon-serverless`. This is the pooled client, which transactions need.
   - Tests, local development and demo mode: `@electric-sql/pglite` through `drizzle-orm/pglite`. It is Postgres compiled to WebAssembly, running in-process with no network, and it is what keeps Article 3 true. It runs the same migrations on first use.
@@ -203,7 +203,7 @@ Three roles make most rows identical, and that is fine: the declaration exists s
 
 ### 3.7 Background research: the Workflow SDK
 
-Research runs as a durable workflow, `v5/src/workflows/research-batch.ts`, using the Workflow SDK: the `workflow` package, `withWorkflow` from `workflow/next` in `next.config.ts`, and `start()` from `workflow/api`. On Vercel this is Vercel Workflows.
+Research runs as a durable workflow, `src/workflows/research-batch.ts`, using the Workflow SDK: the `workflow` package, `withWorkflow` from `workflow/next` in `next.config.ts`, and `start()` from `workflow/api`. On Vercel this is Vercel Workflows.
 
 **Why a workflow**, rather than the chat turn, a plain background function, or a queue library:
 
@@ -213,7 +213,7 @@ Research runs as a durable workflow, `v5/src/workflows/research-batch.ts`, using
 - Workflow steps retry, persist their results, survive deploys, and appear in Vercel Observability, so a stuck research run can be diagnosed.
 
 ```ts
-// v5/src/workflows/research-batch.ts (sketch)
+// src/workflows/research-batch.ts (sketch)
 export async function researchBatch(batchId: string, itemIds: string[]) {
   "use workflow";
   for (const group of chunk(itemIds, RESEARCH_CONCURRENCY)) {   // 3 at a time (Article 4)
@@ -297,7 +297,7 @@ Requests are throttled to 3 per second and retried on 429 using `Retry-After`. O
 | Publishing in Notion | Approve and publish in the app | No — deliberate |
 | `scripts/migrate-tools-to-resources.ts`, `drop-deprecated-notion-columns.ts`, `clear-resource-migration-notes.ts`, `validate-notion-migration.ts` | Retired in Phase 2; deletion proposed separately | — |
 | `scripts/generate-qr-labels.ts` | Reads Postgres and prints `/tools/<slug>` | Old labels still resolve (Goal 2) |
-| "Notion-backed" in `AGENTS.md`, `v5/AGENTS.md`, `CLAUDE.md` | "Postgres-backed, with an optional Notion mirror" | Docs, updated in Phase 2 |
+| "Notion-backed" in `AGENTS.md`, `AGENTS.md`, `CLAUDE.md` | "Postgres-backed, with an optional Notion mirror" | Docs, updated in Phase 2 |
 
 ### 3.11 Environment contract
 
@@ -314,7 +314,7 @@ Requests are throttled to 3 per second and retried on 429 using `Retry-After`. O
 | `NOTION_API_KEY`, `NOTION_DB_*` (8) | Import only, then removed | Source databases. Mirrors carry their own tokens. |
 | `AUTH_STAFF_EMAILS`, `AUTH_ADMIN_EMAILS` | Removed in Phase 4 | Read once, to seed the first admin rows |
 
-Locally these live in `v5/.env.local`; in production they are the Vercel project's environment variables, which `vercel env pull` copies down.
+Locally these live in `.env.local`; in production they are the Vercel project's environment variables, which `vercel env pull` copies down.
 
 ## 4. Data model
 
@@ -1857,7 +1857,7 @@ a private store fails ("Cannot use public access on a private store") and the re
 connected as the default and needs a second, **private** store for the private files.
 
 **The rule.** Every Blob operation is routed by the file's access, in one place —
-`blobCredentials(access)` in `v5/src/lib/blob-mode.ts`:
+`blobCredentials(access)` in `src/lib/blob-mode.ts`:
 
 | Access | Store | Credentials passed to `@vercel/blob` |
 |---|---|---|

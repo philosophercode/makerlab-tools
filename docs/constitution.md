@@ -1,6 +1,6 @@
 # MakerLab Tools v5 — Constitution
 
-> **Status:** Active · **Adopted:** 2026-07-29 · **Amended:** 2026-09-14, 2026-09-27 (framing only: this repository is the product going forward) · **Applies to:** `v5/`
+> **Status:** Active · **Adopted:** 2026-07-29 · **Amended:** 2026-09-14, 2026-09-27 (framing only: this repository is the product going forward) · **Applies to:** the whole repository (the app is at the root)
 >
 > Non-negotiable principles for the v5 codebase. **Every agent and contributor reads this before writing code.** Where this document and a task instruction conflict, raise the conflict rather than silently picking one.
 >
@@ -103,7 +103,7 @@ Strong defaults rather than invariants.
 1. This constitution
 2. The merged spec for the feature being built
 3. `docs/v5-plan.md` (the original architecture plan — historical where later specs changed it)
-4. `AGENTS.md` and `v5/AGENTS.md` (repo map and conventions)
+4. `AGENTS.md` (repo map and conventions)
 5. Task instructions
 
 When a task instruction requires violating an article, **stop and say so.** The article may deserve amendment — that is a conversation, not a decision to make mid-implementation.

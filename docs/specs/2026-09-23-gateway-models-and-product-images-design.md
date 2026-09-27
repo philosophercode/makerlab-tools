@@ -641,7 +641,7 @@ hand** (`vercel env pull`) — **a real Vercel preview deployment's own OIDC inj
 exercised**, and remains the first real check `docs/deploy.md`'s Part 2 step 3 asks for.
 Sanitized wire-format fixtures for every request/response shape used here (streaming +
 tool, non-streaming, `exaSearch`, `generateImage`, plus `getGenerationInfo`) became
-`v5/test/gateway/fixtures/`.
+`test/gateway/fixtures/`.
 
 **Status.** Accepted. No design change; §3.2's 4-searches/item figure and §3.5's transparent-
 background `providerOptions` shape are both now verified rather than assumed, and OIDC in an
@@ -807,7 +807,7 @@ logged when exceeded.
 ### 2026-09-23 — No generative redraw: deterministic cutout (§2, §3.1, §3.5, §4.1, §5.1, §6, §8, §10)
 
 **What changed.** The cleaned copy of rank 1 is no longer made by an image model. It is a
-deterministic, pixel-preserving cutout in code (`v5/src/lib/research/images/clean.ts`), and
+deterministic, pixel-preserving cutout in code (`src/lib/research/images/clean.ts`), and
 only for a candidate on a plain light backdrop. The `imageClean` job is gone from
 `MODEL_JOBS`, along with `imageModelFor` and `MODEL_IMAGE_CLEAN`. No call in the app uses an
 image model now. Isaac's decision, 2026-09-23.
@@ -1170,7 +1170,7 @@ the item.
   … not available in workflow functions"). Helpers are imported from `image-stage.ts`
   directly, and a comment in `image-steps.ts` says why.
 
-**Live check** (throwaway script in `v5/.livecheck/`, git-excluded, real network and
+**Live check** (throwaway script in `.livecheck/`, git-excluded, real network and
 Gateway, "Bambu Lab X2D", search → read → image stages without the database; about $0.29
 in all).
 
@@ -1291,7 +1291,7 @@ checking.
   write less … never fill a gap from memory". `FETCH_SHAPE`'s description placeholder
   says the same. Specs are still the list.
 
-**Live check** (the `v5/.livecheck/x2d.ts` script, adapted; real Gateway and network;
+**Live check** (the `.livecheck/x2d.ts` script, adapted; real Gateway and network;
 "Bambu Lab X2D"; search and read only, no image stage; both runs on
 `openai/gpt-6-luna`; outputs `.livecheck/out/fallback-1.json` and `fallback-2.json`).
 
@@ -1354,7 +1354,7 @@ page texts. Luna got the facts right as often as Sonnet did, but it wrote less. 
 prompt now asks for the missing parts. `researchSearch` and `researchRead` stay on Luna,
 and `reasoningEffort` stays unset.
 
-**Method.** The script is `v5/.livecheck/compare/` (git-excluded). The report is
+**Method.** The script is `.livecheck/compare/` (git-excluded). The report is
 `.livecheck/out/model-compare.html`, and the raw data is in `model-compare.json`.
 - **Six tools**, named as the inventory names them: Bambu Lab X2D, Makera Carvera Air,
   Formlabs Form 4, WEN DC3401, "RYOBI PCL235 ONE+ 18V Drill/ Driver" (it is an impact
@@ -1857,7 +1857,7 @@ PDF attached as a file part cost about 10¢ a read).
   tiers beside its list-price figure. The live check reports `tiersAsked` and `tiersApplied`.
 - `.env.example` and `docs/deploy.md` document `MODEL_<JOB>_TIER`.
 
-**Live check** (`v5/.livecheck/x2d.ts`, adapted; real Gateway and network; "Bambu Lab X2D";
+**Live check** (`.livecheck/x2d.ts`, adapted; real Gateway and network; "Bambu Lab X2D";
 search and read only; both on `openai/gpt-6-luna`; output `.livecheck/out/manual-text-flex.json`).
 
 | Run | Pages read | Manuals as text | PDFs attached | Specs | Evidence | Confidence | Tier asked / applied | Cost |

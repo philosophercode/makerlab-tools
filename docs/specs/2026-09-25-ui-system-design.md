@@ -115,7 +115,7 @@ Each rule is checkable in review. DESIGN.md carries the do/don't examples.
 
 Screenshots of every page, three roles (anonymous, student, super admin), two
 widths (1440, 390), taken against a seeded 101-tool scratch database on :3041,
-are in `v5/.livecheck/ui-spike/before/` (not committed; a curated, compressed set
+are in `.livecheck/ui-spike/before/` (not committed; a curated, compressed set
 is in `docs/MakerLab_design/screens/`). Code counts come from scripts over `src/`
 excluding tests.
 
@@ -512,7 +512,7 @@ uninstalled both times.
 | Chat | [desktop](../MakerLab_design/screens/before-chat-desktop.webp) · [phone](../MakerLab_design/screens/before-chat-phone.webp) | [desktop](../MakerLab_design/screens/after-chat-desktop.webp) · [phone](../MakerLab_design/screens/after-chat-phone.webp) · [light](../MakerLab_design/screens/after-chat-desktop-light.webp) · [starters](../MakerLab_design/screens/after-chat-starters-desktop.webp) |
 
 A side-by-side review page with the IA diagram, token palette and findings is
-`v5/.livecheck/ui-spike/review.html` (local, not committed).
+`.livecheck/ui-spike/review.html` (local, not committed).
 
 ## 12. Accessibility and i18n requirements
 
@@ -1217,7 +1217,7 @@ amendment, and why:
   list, not a form that belongs to the page. The empty queue's sentence points
   to the button.
 - **Screens** (before/after, 1440 and 390, both themes for the home, demo seed
-  and a seed with every tile non-zero): `v5/.livecheck/admin-polish/shots/`,
+  and a seed with every tile non-zero): `.livecheck/admin-polish/shots/`,
   not committed.
 - **Packages added:** none.
 
@@ -1321,7 +1321,7 @@ As built (same branch):
   as `countManualsByState`, asserted against it) and action
   `reprocessLibraryManual` (`tools.edit`, tested for the adjacent-permission
   refusal). "Run npm run manuals:index" is replaced by a sentence for staff;
-  the CLI stays in `v5/AGENTS.md`.
+  the CLI stays in `AGENTS.md`.
 - **Removed.** `ManualStateCounts`, `.td-panel`, the `.admin-shell` `--td-*`
   mapping (the mirror and editor rules read the theme tokens), `.page-shell`,
   the profile panel's own plate rules and the header's catch-all button rule:
@@ -1333,7 +1333,7 @@ As built (same branch):
   phone 2,602 → 2,391 (no tags on cards); gallery table 1,084 → 1,124 desktop
   (the two-row toolbar). Manuals grew (900 → 944 / 889 → 1,454): it now lists
   the manuals. Maintenance 1,426 → 1,381 desktop. Screens at 1440 / 1024 / 390
-  (toolbar also 800), both themes: `v5/.livecheck/public-polish/`, not
+  (toolbar also 800), both themes: `.livecheck/public-polish/`, not
   committed.
 - **Not done:** the owner's "Remove instead of Ban" on the People page was
   not built on this branch (it needs the owner's direct go-ahead as an
@@ -1387,7 +1387,7 @@ untouched. Where the home now differs from the admin-polish amendment, and why:
   calc(var(--sticky-chrome-height) + 16px)`. The global header and strip are
   not touched (a concurrent workflow owns them).
 - **Screens** (before/after, light and dark, 1440 / 1024 / 800 / 390, demo seed
-  and a scratch seed with every tile non-zero): `v5/.livecheck/admin-tiles-cleanup/shots/`,
+  and a scratch seed with every tile non-zero): `.livecheck/admin-tiles-cleanup/shots/`,
   not committed.
 - **Packages added:** none.
 
@@ -1529,7 +1529,7 @@ As built (same branch), where the build refined the plan above:
   `header-stability.spec` (the assistant open on a public and an admin page
   moves nothing).
 - **Screens:** before/after at 1440 and 390, light and dark, anonymous and
-  admin, in `v5/.livecheck/ui-phase-5b/` (not committed); a curated set is
+  admin, in `.livecheck/ui-phase-5b/` (not committed); a curated set is
   `docs/MakerLab_design/screens/phase5b-*.webp`.
 - **Not done:** the push-aside panel (above); `ToolInput` / `ToolOutput`
   for curation turns (would add Shiki); the user's attached photos are still

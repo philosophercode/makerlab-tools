@@ -51,7 +51,7 @@ cheap, deterministic, and catch real regressions. Model-graded scoring is deferr
 ## 3. Architecture
 
 ```
-v5/evals/
+evals/
   cases/
     catalog-lookup.yaml      # finds the right machine
     manual-grounding.yaml    # cites the manual, invents nothing

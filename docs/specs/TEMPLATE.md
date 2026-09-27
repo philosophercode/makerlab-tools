@@ -2,7 +2,7 @@
 
 **Date:** YYYY-MM-DD
 **Status:** Draft | Approved for planning | Implemented | Superseded
-**Target:** `v5/`
+**Target:** the app (repo root)
 **Branch:** `<branch-name>`
 **Spec PR:** #NNN · **Implementation PR:** #NNN
 
@@ -37,7 +37,7 @@ change is often more consequential than the feature that motivated it.
 ## 3. Architecture
 
 How this fits the capability-registry architecture
-(`v5/AGENTS.md`, and the capability registry in `src/lib/capabilities/`). Cover:
+(`AGENTS.md`, and the capability registry in `src/lib/capabilities/`). Cover:
 
 - **Which capability** does this belong to — existing or new?
 - **Which surfaces** does it reach (chat, MCP, or both), and is anything
@@ -56,7 +56,7 @@ New or changed entities, fields, and relations. Include the shared TypeScript
 types other parts of the system will import — getting these right in the spec is
 most of the design work.
 
-Schema changes are Drizzle migrations in `v5/src/lib/db/`. List them explicitly,
+Schema changes are Drizzle migrations in `src/lib/db/`. List them explicitly,
 and note what happens to rows created before the change (backfill, default, or null).
 
 ## 5. Behavior / flow
@@ -96,7 +96,7 @@ deployable. Note which phases can proceed in parallel.
 ## 10. Testing
 
 Which of the four layers (unit / integration / component / E2E — see
-`v5/TESTING.md`) cover what, plus the specific cases that would otherwise be
+`TESTING.md`) cover what, plus the specific cases that would otherwise be
 missed. Every external service is mocked (Article 3).
 
 Name the cases that would embarrass us in production.

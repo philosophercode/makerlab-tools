@@ -56,11 +56,11 @@ that is working).
 
 Each run that passes the secret check pings `<url>` on success and `<url>/fail` on any
 failure, including "no Blob store linked". A heartbeat that cannot be delivered is logged and
-never fails the job. The code is `v5/src/lib/cron/heartbeat.ts`.
+never fails the job. The code is `src/lib/cron/heartbeat.ts`.
 
 **Also on `/admin`:** a super admin on the live database sees a warning on the admin home when
 the newest backup is more than 36 hours old, when there is none, when no Blob store is linked,
-or when the store could not be read (`v5/src/lib/cron/backup-freshness.ts`). It judges by the
+or when the store could not be read (`src/lib/cron/backup-freshness.ts`). It judges by the
 backup files themselves, so a run that reported success without writing still shows.
 
 To run the job by hand:
@@ -104,7 +104,7 @@ add a log drain (Pro) or a Marketplace logging integration and send it the `[cro
 One JSON file a night in the **private** Blob store, `backups/YYYY-MM-DD.json`: every
 Postgres table, discovered from the schema so a new table is included without anyone
 remembering. Three kinds of thing are left out on purpose
-(`v5/src/lib/cron/backup-policy.ts`):
+(`src/lib/cron/backup-policy.ts`):
 
 - **Credentials.** `session`, `verification` and `oauth_access_token` are skipped; the tokens
   on `account`, the client secret on `oauth_application` and the Notion token on
@@ -120,7 +120,7 @@ items. It stays private and belongs in the university's data inventory with that
 
 ### Retention
 
-The same job prunes, by the date in each file's name (`v5/src/lib/cron/backup-retention.ts`):
+The same job prunes, by the date in each file's name (`src/lib/cron/backup-retention.ts`):
 
 | Age | Kept |
 |---|---|
@@ -140,7 +140,7 @@ There is no automated restore. **[dev]**
 1. Download the file from Vercel → Storage → the private Blob store → `backups/`.
 2. Load its `tables` into an empty, migrated database (`npm run db:migrate` first), parents
    before children. `rowCount` beside each table says what to expect.
-3. **Rebuild manual search**, from `v5/`:
+3. **Rebuild manual search**, from the repo root:
 
    ```bash
    npm run manuals:index -- --force

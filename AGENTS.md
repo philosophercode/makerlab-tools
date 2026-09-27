@@ -1,20 +1,58 @@
-# AGENTS.md — MakerLab Tools v5
+# AGENTS.md — MakerLab Tools
 
-Guidance for AI agents (and humans) working in the **v5** app. This is the
-active application. Everything below is scoped to the `v5/` directory.
-
-> [!IMPORTANT]
-> The **root `src/` tree is v4** — an AirTable-backed app with
-> `AIRTABLE_TABLE_*` env vars. **That does not apply to v5.** v5's data layer is
-> **Postgres** (`DATABASE_URL`), not Notion and not AirTable. The root
-> `AGENTS.md` is the repo map; this file is the app detail.
+Guidance for AI agents and humans. This is the canonical entry point for the
+repository; `CLAUDE.md` points here. It applies to the whole repo: the app is
+at the root.
 
 ## What this is
 
-A digital inventory + discovery app for makerspace equipment: browse/search a
-tool gallery, view tool detail pages, chat with an AI assistant (tool-aware,
-can look up units and file maintenance tickets), and an MCP endpoint exposing
-the catalog to external agents. White-labelled via env vars.
+**MakerLab Tools** — a digital inventory + discovery app for makerspace
+equipment: browse/search a tool gallery, view tool detail pages, chat with an
+AI assistant (tool-aware, can look up units and file maintenance tickets), and
+an MCP endpoint exposing the catalog to external agents. White-labelled via env
+vars.
+
+Deployed at the Cornell Tech MakerLAB over ~100 machines, and the subject of an
+accepted ISAM 2026 demo paper. Live at <https://makerlab-ai.vercel.app>.
+**This repository is the product going forward** — new features, fixes and
+operations all happen here, under the constitution and a spec per feature.
+Owned by the Cornell Tech MakerLAB (Niti Parikh, Director; Luis Rodrigo
+Navarro, Assistant Director; Isaac Steinberg, Tech Lead).
+
+**v5 is the current generation.** The data layer is **Postgres**
+(`DATABASE_URL`); Notion is read only by the one-time import (and written only
+by the optional one-way mirror). The name "v5" survives in spec titles, branch
+names and `docs/v5-plan.md`. The earlier v4 app (AirTable, `AIRTABLE_TABLE_*`)
+used to sit at the root beside a `v5/` folder; it was removed when the repo was
+flattened and is recoverable from the tag **`v4-final`**. Nothing here depends
+on it. Dated specs still show `v5/…` paths as they were when written; read them
+as paths from the repo root.
+
+## Documents
+
+| Document | What it's for |
+|---|---|
+| `docs/constitution.md` | The rules any change must respect. Read first |
+| `docs/specs/README.md` | Status of every spec: what is built, what is open |
+| `docs/specs/` | Per-feature design specs (a spec merges before its code — Article 1) |
+| `docs/architecture-guide.md` | How the app works and why, for whoever inherits it |
+| `docs/deploy.md` | Local setup in stages, then a Vercel deployment step by step |
+| `docs/handover.md` | Operating it: accounts, routine tasks, backups, incidents |
+| `docs/operations.md` | Monitoring, backups and restore: what to switch on once the site is live |
+| `docs/v5-plan.md` | The original v5 plan (historical — Notion era); §9 is the early long-term vision |
+| `TESTING.md` | Test suite runbook |
+| `test/README.md` | Test harness internals |
+| `evals/README.md` | The agent eval harness (real, paid model calls) |
+| `.env.example` | Every environment variable, with what it does |
+| `docs/mcp.md` | User guide: connecting Claude, ChatGPT, Codex and other MCP clients (sign in with Google by default; tokens as the fallback) |
+| `docs/MakerLab_design/DESIGN.md` | The "Architectural Brutalism + Blueprint Archive" design system |
+| `docs/isam-2026-demo/` | ISAM 2026 demo abstract and figures. `abstract-v1.*` is the frozen submitted record; edit `abstract-v1.1.html`. Dates and open items in `DECISIONS.md` |
+
+Layout: `src/app` (pages, `/admin`, API routes), `src/lib` (data, capabilities,
+AI jobs, research, auth), `src/components`, `messages/` (12 locales),
+`scripts/` (import, migration and maintenance tools run with
+`node --experimental-strip-types`), `e2e/`, `test/` (shared test harness),
+`evals/`, `docs/`.
 
 ## Stack
 
@@ -39,7 +77,7 @@ variable list.
   (throws `DbUnavailableError`), `resetDbForTests()`.
 - **Local database (`PGLITE_DATA_DIR`).** Precedence is `DATABASE_URL` >
   `PGLITE_DATA_DIR` > demo seed. With `DATABASE_URL` unset and
-  `PGLITE_DATA_DIR` set (e.g. `.pglite-data`, git-ignored; relative to `v5/`),
+  `PGLITE_DATA_DIR` set (e.g. `.pglite-data`, git-ignored; relative to the repo root),
   `getDb()` opens a **persistent** PGlite in that directory — created if
   missing, migrated on every open, **never demo-seeded** — as substrate
   `"pglite-local"`: no `DemoDataBanner`, `/api/health` answers
@@ -1360,12 +1398,18 @@ first), `npm run test:coverage`.
 
 ## Commands
 
+Run from the repo root:
+
 ```bash
 npm run dev          # dev server (:3000)
 npm run build        # runs db:migrate, then production build
 npm run lint         # eslint
 npm run typecheck    # tsc --noEmit
-npm run test:all     # full test suite
+npm test             # vitest (unit + integration + component)
+npm run test:e2e     # playwright (needs: npx playwright install chromium)
+npm run test:all     # lint + typecheck + vitest + playwright
+npm run spec:coverage -- --ci   # every public surface is named in docs/
+npm run eval         # agent eval harness — real, paid model calls; never in CI
 npm run data:push -- --to .env.hosted [--dry-run] [--yes]   # copy local PGlite + .blob-data up to a hosted deploy
 ```
 
@@ -1375,6 +1419,10 @@ Vercel Blob, rewriting their URLs in the hosted copy only. Target credentials co
 the `--to` file (`vercel env pull`), never `process.env`, and are never printed. It refuses
 unless checkout, local and hosted are at the same migration; skips and blanks what the nightly
 backup does (`backup-policy.ts`). Usage and caveats: `docs/deploy.md` Part 2 step 6.
+
+`npm run test:all` must pass before any merge. It needs no credentials — an
+in-process PGlite database (seeded with demo data) covers Postgres and MSW
+covers every other external service.
 
 ## Gotchas
 
@@ -1395,4 +1443,4 @@ backup does (`backup-policy.ts`). Usage and caveats: `docs/deploy.md` Part 2 ste
   sends nothing for a change to the value it holds, and treats an answer whose
   `role` differs from the choice as `failed`.
 - The in-memory rate limiter is a per-process singleton; it resets on cold start (fine for abuse prevention). Upstash backs it only when **both** `UPSTASH_REDIS_REST_*` vars are set.
-- Python scripts under `scripts/` use Node with `--experimental-strip-types`; they are migration/maintenance tools, not part of the app build.
+- Scripts under `scripts/` run via `node --experimental-strip-types`. They are migration and maintenance tools, not part of the app build.

@@ -28,7 +28,7 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 
 | Spec | Notes |
 |---|---|
-| [v5 Test Suite](2026-05-29-v5-test-suite-design.md) | Four offline layers; runbook in `v5/TESTING.md` |
+| [v5 Test Suite](2026-05-29-v5-test-suite-design.md) | Four offline layers; runbook in `TESTING.md` |
 | [Student Projects Gallery](2026-07-29-projects-gallery-design.md) | Storage moved from Notion to Postgres (data platform phase 3); moderation at `/admin/projects` |
 | [Agent Eval Harness](2026-07-29-agent-eval-harness-design.md) | `npm run eval`; real, paid, never in CI |
 | [QR Codes on Machines](2026-07-29-qr-codes-design.md) | `npm run qr:labels` |
@@ -46,7 +46,7 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 | Spec | Built | Open |
 |---|---|---|
 | [v5 Data Platform](2026-09-14-v5-data-platform-design.md) — Postgres, Blob, roles, admin inventory, two-step intake, Notion mirror | Phases 1–6 and 8 | **Phase 7** (people load and validate the real inventory — not code) pending. **Phase 9** (translation pass) deferred until after launch |
-| [UI System](2026-09-25-ui-system-design.md) — shadcn/ui, Tufte density, admin IA, AI Elements chat | Phases 1–5 | **Phase 6** (delete legacy CSS) waits for the repo flatten, PR #79 |
+| [UI System](2026-09-25-ui-system-design.md) — shadcn/ui, Tufte density, admin IA, AI Elements chat | Phases 1–5 | **Phase 6** (delete legacy CSS), unblocked by the repo flatten (PR #79) |
 | [Sign-in and Tiered Rate Limiting](2026-07-29-auth-and-rate-limiting-design.md) | Google sign-in, tiered rate limits as specced | The env-list role model is **superseded** by Better Auth and the `user` table (data platform phase 4) |
 | [Intake Confidence](2026-07-29-intake-confidence-design.md) | Confidence grading and parallel identification, now inside the research pipeline | The chat-side card behaviour is **obsolete** — `propose_listing` was removed with the two-step intake (data platform phase 6) |
 
@@ -73,7 +73,7 @@ Everything open, in one place:
 1. **Monitoring setup** — the uptime and heartbeat monitors and the AI Gateway budget, all
    account setup a person does ([`operations.md`](../operations.md)).
 2. **Manual search** — first OCR run over the scanned manuals (`npm run manuals:index`).
-3. **UI system phase 6** — legacy CSS removal, after PR #79 moves `v5/` to the repo root.
+3. **UI system phase 6** — legacy CSS removal; unblocked now that PR #79 has moved the app to the repo root.
 4. **Data platform phase 7** — not code: Isaac and Luis load and validate the real inventory
    in person, and file what breaks.
 5. **Data platform phase 9** — the translation pass, after launch.
