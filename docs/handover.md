@@ -37,8 +37,8 @@ their own Notion workspace for reading.
 | Role | Shown as | May |
 |---|---|---|
 | `user` | Student | Browse, chat, report problems and corrections, submit projects |
-| `admin` | Supermaker | Also edit the inventory, work the queues, add equipment, run research |
-| `super_admin` | Super Admin | Also manage people, roles, titles, allowances and the mirror |
+| `admin` | Supermaker | Also edit the inventory, work the queues, add equipment, run research, manage the mirror |
+| `super_admin` | Super Admin | Also manage people, roles, titles and allowances |
 
 Anyone not signed in can still browse and chat. A person's **title** (also set on People)
 is only a label — it is what shows on the People page and in their profile menu.

@@ -137,6 +137,3 @@ The **Cornell Tech MakerLAB**:
 - **Luis Rodrigo Navarro** — Assistant Director
 - **Isaac Steinberg** — Tech Lead
 
-## License
-
-MIT

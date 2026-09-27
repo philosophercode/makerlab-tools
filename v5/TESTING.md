@@ -83,11 +83,10 @@ Playwright boots its own dev server (see E2E notes below), so no separate
     `// @vitest-environment node` at the top of any file that touches PGlite.
   - **An isolated database**: `createPgliteDb()` from `src/lib/db/pglite.ts`
     returns a fresh instance for a test that seeds its own rows.
-  - **Write paths still on Notion this phase** (tickets, corrections, project
-    submission, uploads, intake): `vi.stubEnv` all 8 Notion vars (set
-    `NOTION_DB_*` to the `DB_IDS` sentinels from `test/msw/handlers.ts`) → MSW
-    serves `api.notion.com`. See the `stubNotionEnv()` helper in
-    `test/README.md`.
+  - **Writes** (tickets, corrections, project submission, uploads, intake) go
+    to the same PGlite database — no write touches Notion. Only the one-way
+    mirror and the one-time import talk to Notion; their tests use the fake in
+    `test/fakes/notion-fake.ts` or the MSW handlers in `test/msw/`.
 
 ## How to add a test
 

@@ -433,13 +433,15 @@ vercel env pull .env.hosted --environment=production
 Values marked **Sensitive** come back **blank** from `vercel env pull` — on a production
 deployment that is typically `DATABASE_URL` and the Blob tokens. When they do, copy them
 from the dashboard instead: Project → **Storage** → the Neon database → **`.env.local`**
-tab → *Show secret* → *Copy snippet*, then
+tab → *Show secret* → *Copy snippet*, and **append** it to the pulled file (use `>>`, not
+`>` — overwriting would drop the `VERCEL_OIDC_TOKEN` the pull wrote; a later line wins over
+the blank one the pull left):
 
 ```bash
-pbpaste > .env.hosted                  # Neon: DATABASE_URL, DATABASE_URL_UNPOOLED, …
+pbpaste >> .env.hosted                 # Neon: DATABASE_URL, DATABASE_URL_UNPOOLED, …
 ```
 
-and the same for each Blob store (its `.env.local` snippet), appending:
+and the same for each Blob store (its `.env.local` snippet):
 
 ```bash
 pbpaste >> .env.hosted                 # public store: BLOB_READ_WRITE_TOKEN, BLOB_STORE_ID
