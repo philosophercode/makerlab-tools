@@ -14,8 +14,12 @@ import type { ActionPreview } from "./define";
  * Field by field, so only what the card changes counts: someone assigning a
  * ticket does not stop another person's card that only closes it. A field the
  * card creates (`before: null` on a new record) is compared the same way, and
- * stays null.
+ * stays null. A preview's `version` stands for what the rows do not show (an
+ * intake approval's research): a different one drifts as an `opaque` entry.
  */
+
+/** The drift entry's name for a changed `version` — never a row, so no card label. */
+export const VERSION_FIELD = "version";
 
 /** One field whose value changed between the card and the click. */
 export interface DriftedField {
@@ -25,6 +29,8 @@ export interface DriftedField {
   /** What it is now. */
   now: string | null;
   format?: ActionPreview["rows"][number]["format"];
+  /** The preview's `version`, not a field: the card names no value for it. */
+  opaque?: true;
 }
 
 /**
@@ -42,6 +48,9 @@ export function driftedFields(stored: ActionPreview, fresh: ActionPreview | null
     if ((row.before ?? null) !== (nowValue ?? null)) {
       drifted.push({ field: row.field, was: row.before ?? null, now: nowValue ?? null, ...(row.format ? { format: row.format } : {}) });
     }
+  }
+  if (stored.version !== undefined && stored.version !== (fresh.version ?? undefined)) {
+    drifted.push({ field: VERSION_FIELD, was: null, now: null, opaque: true });
   }
   return drifted;
 }

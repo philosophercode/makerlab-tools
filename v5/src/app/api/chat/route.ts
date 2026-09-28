@@ -165,8 +165,9 @@ export async function POST(req: Request) {
         identity,
         ...(curation ? { curation } : {}),
         ...(chatId ? { chatId } : {}),
-        // Whether this turn read outside content (assistant–GUI parity spec §8.4).
-        turn: newTurnState(),
+        // Whether this turn read outside content (assistant–GUI parity spec §8.4):
+        // attached manuals and a curation record are in the prompt from the start.
+        turn: newTurnState({ outsideInPrompt: manuals.length > 0 || Boolean(curation) }),
       };
 
       // Compose the system prompt + capability tools from the shared registry

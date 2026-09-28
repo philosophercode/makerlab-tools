@@ -188,6 +188,8 @@ export interface PendingSubject {
   brand: string | null;
   status: string;
   createdBy: string | null;
+  /** The bulk import it came from, or null for the chat's items. */
+  importId: string | null;
 }
 
 export async function pendingSubjects(ids: readonly string[], options: SubjectReadOptions = {}): Promise<PendingSubject[]> {
@@ -201,6 +203,7 @@ export async function pendingSubjects(ids: readonly string[], options: SubjectRe
       brand: pendingTools.brand,
       status: pendingTools.status,
       createdBy: pendingTools.createdBy,
+      importId: pendingTools.importId,
     })
     .from(pendingTools)
     .where(inArray(pendingTools.id, valid));

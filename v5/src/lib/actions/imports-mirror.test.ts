@@ -72,6 +72,13 @@ const confirm = (ids: string[], typed?: string) =>
   decideActionProposals({ ids, decision: "confirm", ...(typed !== undefined ? { typed } : {}) }, identity);
 
 describe("imports", () => {
+  it("refuses removing rows from a turn that read outside content, and is never offered over MCP", async () => {
+    await as("super_admin");
+    const { importId, items } = await listImport([`Scroll saw ${crypto.randomUUID().slice(0, 6)}`]);
+    expect(await propose("imports.remove_rows", { import_id: importId, row_ids: [items[0].id] }, true)).toMatchObject({ ok: false, error: "tainted_turn" });
+    expect(actionById("imports.remove_rows")!.mcp).toBe("never");
+  });
+
   it("removes rows from the caller's import, and only rows of that import", async () => {
     await as("admin");
     const tag = crypto.randomUUID().slice(0, 6);

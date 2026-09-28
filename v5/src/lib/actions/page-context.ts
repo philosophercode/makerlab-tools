@@ -8,6 +8,7 @@ import {
   findActiveToolByRef,
   pendingSubjects,
   projectSubjects,
+  type PendingSubject,
   ticketSubjects,
   toolSubjects,
 } from "../data/action-subjects";
@@ -75,7 +76,8 @@ interface PageEntry {
   permission?: Permission;
   /** The record the page shows, from the path's captured segment. */
   subject?: (segment: string, identity: Identity) => Promise<string | null>;
-  selection?: { kind: SelectionKind; noun: string; load: (ids: string[], identity: Identity) => Promise<Line[]> };
+  /** `segment` is the path's captured id, for a selection that belongs to it (an import's rows). */
+  selection?: { kind: SelectionKind; noun: string; load: (ids: string[], identity: Identity, segment?: string) => Promise<Line[]> };
 }
 
 /*
@@ -101,12 +103,18 @@ const projectLines = async (ids: string[]): Promise<Line[]> =>
     text: `project id=${p.id}: ${inlineText(p.title)} · ${p.published ? "published" : "not published"}`,
   }));
 
+const pendingLine = (p: PendingSubject): Line => ({
+  id: p.id,
+  text: `pending item id=${p.id}: ${inlineText(p.name, 120)}${p.brand ? ` (${inlineText(p.brand, 60)})` : ""} · ${p.status}`,
+});
+
 /** Only items the caller may act on: their own, or any for a reviewer (`canActOnPendingTool`). */
 const pendingLines = async (ids: string[], identity: Identity): Promise<Line[]> =>
-  (await pendingSubjects(ids)).filter((p) => canActOnPendingTool(identity, p)).map((p) => ({
-    id: p.id,
-    text: `pending item id=${p.id}: ${inlineText(p.name, 120)}${p.brand ? ` (${inlineText(p.brand, 60)})` : ""} · ${p.status}`,
-  }));
+  (await pendingSubjects(ids)).filter((p) => canActOnPendingTool(identity, p)).map(pendingLine);
+
+/** An import's rows: only this import's (`importId` is the path's), and only rows the caller may act on. */
+const importRowLines = async (ids: string[], identity: Identity, importId?: string): Promise<Line[]> =>
+  (await pendingSubjects(ids)).filter((p) => importId !== undefined && p.importId === importId.toLowerCase() && canActOnPendingTool(identity, p)).map(pendingLine);
 
 const toolLines = async (ids: string[]): Promise<Line[]> =>
   (await toolSubjects(ids)).map((t) => ({
@@ -171,7 +179,7 @@ export const PAGE_CONTEXTS: readonly PageEntry[] = [
       if (!found || !canActOnImport(identity, found)) return null;
       return `import id=${found.id}: ${inlineText(found.sourceName ?? "pasted list", 120)} · ${found.status}`;
     },
-    selection: { kind: "pending_tool", noun: "import rows", load: pendingLines },
+    selection: { kind: "pending_tool", noun: "import rows", load: importRowLines },
   },
   { pattern: /^\/admin\/intake\/imports$/i, name: "bulk imports (/admin/intake/imports)", permission: "tools.add" },
   { pattern: /^\/admin\/refresh(\/[0-9a-f-]{36})?$/i, name: "refresh research (/admin/refresh)", permission: "tools.edit" },
@@ -229,7 +237,7 @@ export async function loadPageContext(identity: Identity, raw: unknown): Promise
       if (entry.selection && selection && selection.kind === entry.selection.kind) {
         const ids = [...new Set(selection.ids.filter(isUuid))].slice(0, MAX_SELECTION);
         if (ids.length > 0) {
-          const lines = await entry.selection.load(ids, identity);
+          const lines = await entry.selection.load(ids, identity, match[1]);
           // In the order the person ticked them; unknown ids simply vanish.
           const byId = new Map(lines.map((line) => [line.id, line.text]));
           const ordered = ids.flatMap((id) => (byId.has(id) ? [byId.get(id) as string] : []));

@@ -261,7 +261,11 @@ export const IMPORTS_SET_HINTS = defineAction<
 
 // ── imports.remove_rows ─────────────────────────────────────────────
 
-/** **Remove** — the rows are discarded, like the chat card's Remove. */
+/**
+ * **Remove** — the rows are discarded, like the chat card's Remove. Catalog
+ * risk, not destructive: they were never researched and nothing links to them
+ * yet. Refused in a tainted turn and never offered over MCP.
+ */
 export const IMPORTS_REMOVE_ROWS = defineAction<{ importId: string; ids: string[] }, { items: ImportItemView[] }, ImportRefusal>({
   id: "imports.remove_rows",
   toolName: "remove_import_rows",
@@ -269,6 +273,12 @@ export const IMPORTS_REMOVE_ROWS = defineAction<{ importId: string; ids: string[
     "Remove rows from an imported list before research (they are discarded, never researched). Proposes the removal; nothing changes until the person confirms it on the card.",
   permission: IMPORT_PERMISSION,
   risk: "catalog",
+  // It discards, like `pending.discard`, but a list's rows before research are
+  // the list owner's own tidying, so it batches and asks no typed name. What it
+  // may not do is follow the rows' own text: never from a turn that read
+  // outside content — `list_imports` included — and never over MCP (§8.4).
+  refuseWhenTainted: true,
+  mcp: "never",
   input: z.strictObject({ importId: id, ids }),
   invalidInput: "invalid_field",
   subject: (input) => ({ type: "import", id: input.importId }),

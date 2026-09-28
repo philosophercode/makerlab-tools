@@ -2,7 +2,7 @@
 import { getDb, resetDbForTests } from "../db/client";
 import { maintenanceLogs, tools } from "../db/schema/index";
 import type { Identity } from "../auth/identity";
-import { createPendingBatch } from "../data/pending-tools";
+import { createPendingBatch, listPendingTools } from "../data/pending-tools";
 import { startImport } from "../import/service";
 import { loadPageContext, MAX_SELECTION, PAGE_CONTEXTS, pageContextSection, SELECTION_KINDS } from "./page-context";
 
@@ -103,6 +103,24 @@ describe("loadPageContext", () => {
     // A reviewer (tools.approve) is named every import, as the page shows them.
     expect((await loadPageContext(owner, { path })).subject).toContain(`import id=${started.import.id}`);
     expect((await loadPageContext(student, { path })).page).toBeNull();
+  });
+
+  it("names only this import's rows on its review page, never another import's or the queue's", async () => {
+    const reviewer: Identity = { role: "admin", userId: null, email: null, name: "Rev", rateLimitKey: "r" };
+    const start = async (text: string) => {
+      const started = await startImport({ userId: null as never, text, origin: "page", startRun: async () => ({ runId: "x" }) });
+      if (!started.ok) throw new Error(started.error);
+      return { id: started.import.id, rows: await listPendingTools({ importId: started.import.id, limit: null }) };
+    };
+    const mine = await start("Band saw");
+    const other = await start("Drill press");
+    const queue = await createPendingBatch({ createdBy: null, items: [{ name: "Qopa drill" }] });
+    const ids = [other.rows[0].id, mine.rows[0].id, queue.items[0].id];
+
+    const context = await loadPageContext(reviewer, { path: `/admin/intake/imports/${mine.id}`, selection: { kind: "pending_tool", ids } });
+    expect(context.selection?.noun).toBe("import rows");
+    expect(context.selection?.lines).toHaveLength(1);
+    expect(context.selection?.lines[0]).toContain(`pending item id=${mine.rows[0].id}: "Band saw"`);
   });
 
   it("knows only the selection kinds the client can send", () => {

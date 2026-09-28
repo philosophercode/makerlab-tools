@@ -639,12 +639,22 @@ MCP proposals are phase 7.
   confirms.
 - **Taint** (`lib/chat/taint.ts`, §8.4): a chat turn that called
   `read_page`, `exa_search`, `search_manual`, `list_open_tickets`,
-  `list_corrections`, `list_project_queue` or `list_imports` is tainted —
+  `get_unit_details`, `get_maintenance_history`, `list_corrections`,
+  `list_project_queue`, `list_imports` or `get_record` is tainted —
   `CapabilityCtx.turn`, built by the route, marked by `toAiTools` when such a
-  tool starts and by the route's `onStepFinish` for Exa. Its proposals are
-  stored `tainted` and the card says so; `people` and `destructive` proposals
-  are refused (`tainted_turn`) and the assistant asks for a new message. A new
-  outside-content read tool must be added to `OUTSIDE_CONTENT_TOOLS`.
+  tool starts and by the route's `onStepFinish` for Exa. A turn starts tainted
+  when the route attached manual PDFs or a curation record. Its proposals are
+  stored `tainted` and the card says so; `people` and `destructive` proposals,
+  and definitions marked `refuseWhenTainted` (`imports.remove_rows`), are
+  refused (`tainted_turn`) and the assistant asks for a new message. A new
+  read tool that returns anybody else's text must be added to
+  `OUTSIDE_CONTENT_TOOLS` and fence that text.
+- **A proposal's `version`** (`ActionPreview.version`): an opaque token for
+  what the change was built from but the rows do not show; a different one at
+  the click is `conflict`. `pending.approve` uses it so a rename or new
+  research between card and click approves nothing stale.
+- **`edit_pending_items` never discards**: the `discard` duplicate decision is
+  `discard_pending_item`'s alone (destructive, typed name).
 - **Spend actions** (`pending.research`, `pending.different_image`,
   `imports.request_suggestions`, `manuals.reprocess`, `refresh.queue`): cards
   in the chat only, never over MCP (§11 answer 3); the card's sentence shows the

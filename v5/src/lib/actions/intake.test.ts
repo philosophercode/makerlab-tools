@@ -39,10 +39,12 @@ import {
   getPendingTool,
   markResearching,
   queueForResearch,
+  updatePendingTool,
   type ApprovalFields,
 } from "../data/pending-tools";
 import { getDb, resetDbForTests } from "../db/client";
-import { tools } from "../db/schema/index";
+import { pendingTools, tools } from "../db/schema/index";
+import { eq } from "drizzle-orm";
 import type { ResearchResult } from "../research/result";
 import { signInAsNew } from "../../../test/utils/session";
 import { decideActionProposals, proposeAction } from "./proposals";
@@ -189,6 +191,46 @@ describe("approve these", () => {
       { subjectId: low, error: "low_confidence" },
       { subjectId: notYet, error: "not_editable" },
     ]);
+  });
+});
+
+describe("an approval card goes stale with its item", () => {
+  it("answers conflict, and creates nothing, when the item was renamed after the card was drawn", async () => {
+    const a = await researchedItem("Zyx Printer One");
+    const proposed = await propose("pending.approve", { pending_ids: [a], publish: false });
+    if (!proposed.ok) throw new Error(proposed.error);
+    expect(await updatePendingTool(a, { name: "Zyx Printer Two" })).toMatchObject({ ok: true });
+
+    const [result] = await decideActionProposals({ ids: [proposed.proposals[0].id], decision: "confirm" }, identity);
+    expect(result.status).toBe("conflict");
+    const db = await getDb();
+    expect((await db.select().from(tools)).filter((t) => t.name.startsWith("Zyx Printer"))).toEqual([]);
+    expect((await getPendingTool(a))?.status).toBe("researched");
+  });
+
+  it("answers conflict when the research changed after the card was drawn", async () => {
+    const a = await researchedItem("Qopa Wood Lathe");
+    const proposed = await propose("pending.approve", { pending_ids: [a], publish: false });
+    if (!proposed.ok) throw new Error(proposed.error);
+    const db = await getDb();
+    await db
+      .update(pendingTools)
+      .set({ research: research({ canonicalName: "Qopa Wood Lathe", description: "A newer description." }) })
+      .where(eq(pendingTools.id, a));
+
+    const [result] = await decideActionProposals({ ids: [proposed.proposals[0].id], decision: "confirm" }, identity);
+    expect(result.status).toBe("conflict");
+    expect((await getPendingTool(a))?.status).toBe("researched");
+  });
+});
+
+describe("edit_pending_items never discards", () => {
+  it("refuses the discard decision, which is discard_pending_item's alone", async () => {
+    const a = await identifiedItem("Zyx Printer One");
+    const proposed = await propose("pending.edit", { pending_ids: [a], duplicate_resolution: "discard" });
+    expect(proposed.ok).toBe(false);
+    expect(actionById("pending.edit")!.input.safeParse({ id: a, patch: { duplicateResolution: "discard" } }).success).toBe(false);
+    expect((await getPendingTool(a))?.status).toBe("identified");
   });
 });
 

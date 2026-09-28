@@ -16,7 +16,18 @@ const capability = (name: string): Capability => ({
 });
 
 it("names the spec's outside-content tools", () => {
-  for (const name of ["read_page", "exa_search", "search_manual", "list_open_tickets", "list_corrections", "list_project_queue", "list_imports"]) {
+  for (const name of [
+    "read_page",
+    "exa_search",
+    "search_manual",
+    "list_open_tickets",
+    "get_unit_details",
+    "get_maintenance_history",
+    "list_corrections",
+    "list_project_queue",
+    "list_imports",
+    "get_record",
+  ]) {
     expect(OUTSIDE_CONTENT_TOOLS).toContain(name);
   }
   expect(readsOutsideContent("find_people")).toBe(false);
@@ -39,4 +50,9 @@ it("marks the turn from a finished step that called exa_search", () => {
   markOutsideReads(turn, { toolCalls: [{ toolName: "exa_search" }] });
   expect(turn.readOutside).toBe(true);
   expect(() => markOutsideReads(undefined, { toolCalls: [{ toolName: "exa_search" }] })).not.toThrow();
+});
+
+it("starts tainted when the route put outside text in the prompt (attached manuals, a curation record)", () => {
+  expect(newTurnState().readOutside).toBe(false);
+  expect(newTurnState({ outsideInPrompt: true }).readOutside).toBe(true);
 });

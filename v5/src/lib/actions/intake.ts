@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { ADMIN_INTAKE_PATH, intakeItemPath, type IntakeWriteError } from "../../app/admin/intake/action-result";
 import { can } from "../auth/permissions";
@@ -16,7 +17,7 @@ import {
 import { listCategories, listLocations } from "../data/taxonomy";
 import { listToolNames } from "../data/tool-name-clash";
 import { getDb } from "../db/client";
-import { DUPLICATE_RESOLUTION, isOneOf } from "../db/schema/vocabulary";
+import { isOneOf, type DuplicateResolution } from "../db/schema/vocabulary";
 import { canActOnPendingTool, hasUnresolvedDuplicate } from "../intake/access";
 import { initialDraft, initialImageChoice, toFields } from "../intake/approval-draft";
 import { addUnitAndRecord, approveAndRecord } from "../intake/approve";
@@ -145,6 +146,7 @@ export const PENDING_APPROVE = defineAction<
       rows,
       subjectName: item.name,
       link: intakeItemPath(item.id),
+      version: approvalVersion(item),
     };
   },
   run: async (input, ctx) => {
@@ -164,6 +166,18 @@ export const PENDING_APPROVE = defineAction<
   },
   revalidate: revalidateItem,
 });
+
+/**
+ * What the card's approval was built from: the item's name and brand, its
+ * duplicate decision and its research (which run, and what it found). Every
+ * row but the category is new (`before: null`), so without this a rename or a
+ * fresh research between card and click would approve the stale fields; with
+ * it, the click answers `conflict` (staleness.ts).
+ */
+function approvalVersion(item: PendingTool): string {
+  const basis = JSON.stringify([item.name, item.brand, item.duplicateResolution, item.researchRequestId, item.research]);
+  return createHash("sha256").update(basis).digest("base64url");
+}
 
 /** A shape that parses, for an item whose row will be refused anyway. */
 function placeholderFields(name: string): ApprovalFields {
@@ -429,6 +443,15 @@ export const PENDING_RESEARCH = defineAction<
 type EditPatch = Pick<PendingToolPatch, "name" | "brand" | "categoryHint" | "locationHint" | "serialNumber" | "duplicateResolution">;
 
 /**
+ * The duplicate decisions this action sets. `updatePendingTool` treats
+ * "discard" as a discard, and a discard here would skip everything
+ * `pending.discard` asks (one at a time, the typed name, refused in a tainted
+ * turn). The intake table's PATCH keeps its own discard: that is the person's
+ * own click.
+ */
+const EDIT_RESOLUTIONS = ["new_tool", "add_unit"] as const satisfies readonly DuplicateResolution[];
+
+/**
  * The intake table's edit (`PATCH /api/pending-tools/[id]`, spec §5.4 step 5):
  * name, brand, hints, serial, the duplicate decision — through
  * `updatePendingTool`, which re-runs the duplicate check on a new name. The
@@ -438,7 +461,7 @@ export const PENDING_EDIT = defineAction<{ id: string; patch: EditPatch }, objec
   id: "pending.edit",
   toolName: "edit_pending_items",
   description:
-    "Edit pending items before research or approval: name, brand, category or location hint, serial number, or the duplicate decision (new_tool, add_unit, or discard). Several items take the same hints or decision; a name or serial goes with one item. Proposes the change; nothing changes until the person confirms it on the card.",
+    "Edit pending items before research or approval: name, brand, category or location hint, serial number, or the duplicate decision (new_tool or add_unit; to discard, use discard_pending_item). Several items take the same hints or decision; a name or serial goes with one item. Proposes the change; nothing changes until the person confirms it on the card.",
   permission: "tools.add",
   risk: "catalog",
   maxBatch: MAX_BATCH,
@@ -450,7 +473,8 @@ export const PENDING_EDIT = defineAction<{ id: string; patch: EditPatch }, objec
       categoryHint: z.string().trim().max(200).nullable().optional(),
       locationHint: z.string().trim().max(200).nullable().optional(),
       serialNumber: z.string().trim().max(200).nullable().optional(),
-      duplicateResolution: z.enum(DUPLICATE_RESOLUTION).nullable().optional(),
+      // Never "discard": that is `pending.discard`, destructive, typed name (§8.4).
+      duplicateResolution: z.enum(EDIT_RESOLUTIONS).nullable().optional(),
     }),
   }),
   invalidInput: "invalid_field",
@@ -468,7 +492,10 @@ export const PENDING_EDIT = defineAction<{ id: string; patch: EditPatch }, objec
       category_hint: z.string().max(200).nullable().optional(),
       location_hint: z.string().max(200).nullable().optional(),
       serial_number: z.string().max(200).nullable().optional().describe("One item only"),
-      duplicate_resolution: z.enum(DUPLICATE_RESOLUTION).optional().describe("For an item that matched a tool or another item"),
+      duplicate_resolution: z
+        .enum(EDIT_RESOLUTIONS)
+        .optional()
+        .describe("For an item that matched a tool or another item. To discard an item, use discard_pending_item instead"),
     }),
     (args) => {
       const patch: EditPatch = {};

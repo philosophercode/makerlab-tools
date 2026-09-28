@@ -47,8 +47,9 @@ export interface ProposeContext {
   chatId: string | null;
   /**
    * The turn read text from outside the lab's staff (§8.4). Stored on every
-   * row it proposes, and a `people` or `destructive` action is refused
-   * outright (`tainted_turn`) before anything is read.
+   * row it proposes, and a `people` or `destructive` action (or one marked
+   * `refuseWhenTainted`) is refused outright (`tainted_turn`) before anything
+   * is read.
    */
   tainted?: boolean;
 }
@@ -76,7 +77,7 @@ export async function proposeAction(def: AnyActionDefinition, args: unknown, ctx
   // outlive a role change.
   if (!can(identity, def.permission)) return { ok: false, error: "not_permitted" };
   if (!def.tool || !def.preview) return { ok: false, error: "not_offered" };
-  if (ctx.tainted && TAINT_REFUSED_RISKS.includes(def.risk)) return { ok: false, error: "tainted_turn" };
+  if (ctx.tainted && (TAINT_REFUSED_RISKS.includes(def.risk) || def.refuseWhenTainted)) return { ok: false, error: "tainted_turn" };
 
   const parsedArgs = def.tool.schema.safeParse(args);
   if (!parsedArgs.success) return { ok: false, error: "invalid_input" };

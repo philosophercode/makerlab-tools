@@ -16,7 +16,9 @@ import { countToolCalls, type StepLike } from "../ai/tool-caps";
  *   assistant asks the person to repeat the request in a new message, whose
  *   turn starts clean.
  *
- * A turn is one chat request. The state lives on the capability context the
+ * A turn is one chat request, and it starts tainted when the route itself
+ * put outside text in the prompt (attached manuals, a curation record). The
+ * state lives on the capability context the
  * route builds (`CapabilityCtx.turn`), shared by reference with the copy the
  * chat adapter hands each tool, and is set two ways: when one of these tools
  * starts (`toAiTools`), and after each step for tools the adapter does not
@@ -31,9 +33,14 @@ export const OUTSIDE_CONTENT_TOOLS: readonly string[] = [
   "exa_search",
   "search_manual",
   "list_open_tickets",
+  // A unit's recent tickets: the same visitors' titles and descriptions.
+  "get_unit_details",
+  "get_maintenance_history",
   "list_corrections",
   "list_project_queue",
   "list_imports",
+  // The record a curation turn works on: research read from the web.
+  "get_record",
 ];
 
 /** One turn's taint. Created by the route; mutated only by the helpers here. */
@@ -41,8 +48,13 @@ export interface TurnState {
   readOutside: boolean;
 }
 
-export function newTurnState(): TurnState {
-  return { readOutside: false };
+/**
+ * A new turn. `outsideInPrompt`: the route itself put outside text in front
+ * of the model — manual PDFs attached for the focused tool, or the record a
+ * curation turn works on — so the turn starts tainted.
+ */
+export function newTurnState(options: { outsideInPrompt?: boolean } = {}): TurnState {
+  return { readOutside: options.outsideInPrompt === true };
 }
 
 /** Whether calling `toolName` taints the turn. */

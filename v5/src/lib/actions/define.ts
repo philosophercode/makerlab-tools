@@ -61,6 +61,12 @@ export interface ActionPreview {
   subjectName: string;
   /** The subject's page, for a "view" link once it is done. */
   link?: string;
+  /**
+   * An opaque token for what the change was built from but the rows do not
+   * show — an intake approval's name, brand and research. Compared at the
+   * click like a row's `before`: a different token is `conflict`.
+   */
+  version?: string;
 }
 
 /** One changing field: `actions.fields.<field>`, before → after. */
@@ -189,6 +195,12 @@ export interface ActionMeta {
   mcp: McpExposure;
   /** Up to this many subjects in one proposal; 1 for no batch. Destructive is always 1. */
   maxBatch: number;
+  /**
+   * Refused in a tainted turn although its risk is not `people` or
+   * `destructive` (§8.4): an action that discards, like removing an import's
+   * rows, proposed from the very turn that read those rows.
+   */
+  refuseWhenTainted?: boolean;
 }
 
 export interface ActionDefinition<I, R extends object, E extends string, C = true> extends ActionMeta {

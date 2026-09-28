@@ -233,10 +233,11 @@ export function ActionProposalCard({ payload }: { payload: ActionProposalCardPay
             {state.status === "failed" || state.status === "conflict" || state.status === "not_found" ? (
               <ReviewNote tone="bad" role="alert">
                 {state.status === "conflict" ? t("card.conflict") : t("card.failedReason", { reason: reason(state.error ?? state.status) })}
-                {state.status === "conflict" && state.drifted && state.drifted.length > 0 ? (
+                {state.status === "conflict" && state.drifted && state.drifted.some((d) => !d.opaque) ? (
                   <>
                     {" "}
                     {state.drifted
+                      .filter((d) => !d.opaque)
                       .map((d) =>
                         t("card.driftedNow", {
                           field: t(`fields.${d.field}` as "fields.role"),

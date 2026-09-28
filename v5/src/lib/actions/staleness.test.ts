@@ -30,4 +30,12 @@ describe("driftedFields", () => {
   it("treats a field missing from the fresh preview as now empty", () => {
     expect(driftedFields(preview([{ field: "title", before: "A", after: "B" }]), preview([]))).toEqual([{ field: "title", was: "A", now: null }]);
   });
+
+  it("drifts on a different version, as an opaque entry, and not when it holds", () => {
+    const stored = { ...preview([]), version: "v1" };
+    expect(driftedFields(stored, { ...preview([]), version: "v1" })).toEqual([]);
+    expect(driftedFields(stored, { ...preview([]), version: "v2" })).toEqual([{ field: "version", was: null, now: null, opaque: true }]);
+    // A card drawn without one never drifts on it.
+    expect(driftedFields(preview([]), { ...preview([]), version: "v2" })).toEqual([]);
+  });
 });
