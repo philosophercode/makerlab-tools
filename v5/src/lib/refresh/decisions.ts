@@ -11,6 +11,7 @@ import type { Db } from "../db/types";
 import type { InventoryWriteWarning } from "../inventory/result";
 import { requestManualArchive } from "../manuals/trigger";
 import { requestMirrorPush } from "../mirror/trigger";
+import { scheduleThumbnails } from "../images/schedule-thumbnails";
 import { applyProposals, refusalFor, type ApplyRefusal } from "./apply";
 import { acceptAllVerifiedIds, allDecided, markDecided, rebaseAfterConflict, rejectAllIds } from "./decide";
 import { isUndecided, type FieldProposal } from "./types";
@@ -114,6 +115,8 @@ export async function decideRefresh(command: DecideCommand, ctx: DecideContext):
   const recorded = await save(next, applied.revision);
   if (!recorded) console.warn(`[refresh] ${refresh.id}: accepted proposals landed, but the decision record was taken by another save`);
   if (applied.resourceIds.length > 0) await requestManualArchive(applied.resourceIds);
+  // An accepted cover photo gets its thumbnails once this has answered.
+  scheduleThumbnails({ owner: { ownerType: "tool", ownerId: refresh.toolId } });
   await requestMirrorPush();
   return { ok: true, applied: applied.applied.length, ...(applied.warning ? { warning: applied.warning } : {}) };
 }

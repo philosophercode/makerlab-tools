@@ -119,14 +119,21 @@ function sendBadJson(res: ServerResponse): void {
 
 // ── The chat ─────────────────────────────────────────────────────────────
 
-/** The `identify_tools` input, matching the old Anthropic stub's (intake capability contract, `identify_tools`). */
-function identifyToolInput() {
+/**
+ * The `identify_tools` input, matching the old Anthropic stub's (intake
+ * capability contract, `identify_tools`). A photo sent with the message (its
+ * `[Attached photos: attachment_id=…]` hint) is the first item's — the Domino,
+ * which the scenario approves with that photo as its image (gateway spec
+ * amendment "An uploaded photo is a choice, not the product image").
+ */
+function identifyToolInput(said: string) {
+  const photoIds = [...said.matchAll(/attachment_id=([0-9a-f-]{36})/gi)].map((match) => match[1]);
   return {
-    items: Object.values(INTAKE_ITEMS).map((item) => ({
+    items: Object.values(INTAKE_ITEMS).map((item, index) => ({
       name: item.identifiedAs,
       brand: item.brand,
       categoryHint: item.categoryHint,
-      attachmentIds: [],
+      attachmentIds: index === 0 ? photoIds : [],
     })),
   };
 }
@@ -153,7 +160,7 @@ function answerChat(req: ParsedLanguageRequest): WireStreamPart[] {
   if (lastMessageHasToolResult(req)) return streamedText(AFTER_TABLE_REPLY);
   const said = lastMessageText(req);
   if (/add new equipment/i.test(said)) return streamedText(ASK_FOR_ITEMS_REPLY);
-  return streamedToolCall("call_identify_e2e", "identify_tools", identifyToolInput());
+  return streamedToolCall("call_identify_e2e", "identify_tools", identifyToolInput(said));
 }
 
 // ── Research ─────────────────────────────────────────────────────────────

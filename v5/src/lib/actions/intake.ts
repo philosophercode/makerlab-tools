@@ -83,8 +83,8 @@ async function defaultApproval(item: PendingTool): Promise<ApprovalFields | null
   const [categories, locations, names] = await Promise.all([listCategories(), listLocations(), getDb().then(listToolNames)]);
   const imported = item.importId ? { links: item.links } : null;
   const draft = initialDraft(item, research, categories, locations, imported, names.map((row) => row.name));
-  // The admin's own photo is the cover; nothing else is sent in its place.
-  const image = initialImageChoice(research.images, item.photos.length > 0);
+  // The page's preselection: research's image first, an uploaded photo only when research found none.
+  const image = initialImageChoice(research.images, item.photos);
   return toFields(draft, research, image, imported !== null);
 }
 
@@ -175,7 +175,9 @@ export const PENDING_APPROVE = defineAction<
  * it, the click answers `conflict` (staleness.ts).
  */
 function approvalVersion(item: PendingTool): string {
-  const basis = JSON.stringify([item.name, item.brand, item.duplicateResolution, item.researchRequestId, item.research]);
+  // The photos too: the preselected image can be one of them.
+  const photos = item.photos.map((photo) => photo.attachmentId);
+  const basis = JSON.stringify([item.name, item.brand, item.duplicateResolution, item.researchRequestId, item.research, photos]);
   return createHash("sha256").update(basis).digest("base64url");
 }
 

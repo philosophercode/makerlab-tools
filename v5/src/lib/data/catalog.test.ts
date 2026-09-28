@@ -232,7 +232,9 @@ describe("listCatalogTools", () => {
       trainingLabel: "Beginner orientation",
       shortDescription: "Catalog record pending description.",
       ppe: ["Check posted lab guidance"],
-      imageSrc: "/tool-images/Bare%20tool.png",
+      // No photo: nothing to request (a guessed /tool-images/<name>.png could only 404).
+      imageSrc: "",
+      thumbnails: null,
       units: [],
       links: [],
     });

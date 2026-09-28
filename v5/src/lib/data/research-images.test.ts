@@ -3,11 +3,12 @@ import { eq } from "drizzle-orm";
 import { createPgliteDb } from "../db/pglite";
 import { attachments } from "../db/schema/index";
 import type { Db } from "../db/types";
-import { hasUploadedPhoto, recordCleanedImage, releaseCleanedImages } from "./research-images";
+import { recordCleanedImage, recordUploadCutout, releaseCleanedImages } from "./research-images";
 
 /**
- * The image stage's attachment rows against PGlite (gateway spec §4.2): what
- * counts as an uploaded photo, the cleaned copy's shape, and its release.
+ * The image stage's attachment rows against PGlite (gateway spec §4.2): the
+ * cleaned copy's shape — research's, and an uploaded photo's cutout — and its
+ * release.
  * `owner_id` is polymorphic with no foreign key, so a random uuid stands in for
  * the pending item.
  */
@@ -37,30 +38,6 @@ async function read(id: string) {
 
 const owned = (pendingId: string) => ({ ownerType: "pending_tool", ownerId: pendingId });
 
-describe("hasUploadedPhoto", () => {
-  it("counts a pending item's upload, and an old row with no origin, as an uploaded photo", async () => {
-    const withUpload = crypto.randomUUID();
-    const withOld = crypto.randomUUID();
-    await file({ ...owned(withUpload), origin: "upload" });
-    await file({ ...owned(withOld), origin: null });
-    expect(await hasUploadedPhoto(db, withUpload)).toBe(true);
-    expect(await hasUploadedPhoto(db, withOld)).toBe(true);
-  });
-
-  it("does not count a cleaned copy, another owner's upload, or an unowned upload", async () => {
-    const pendingId = crypto.randomUUID();
-    await file({ ...owned(pendingId), origin: "research_image_cleaned" });
-    await file({ ownerType: "tool", ownerId: pendingId, origin: "upload" });
-    await file({ ...owned(crypto.randomUUID()), origin: "upload" });
-    await file({ origin: "upload" });
-    expect(await hasUploadedPhoto(db, pendingId)).toBe(false);
-  });
-
-  it("answers false for an id that is not a uuid", async () => {
-    expect(await hasUploadedPhoto(db, "not-a-uuid")).toBe(false);
-  });
-});
-
 describe("recordCleanedImage", () => {
   it("records a private PNG owned by the pending item, with where it came from", async () => {
     const pendingId = crypto.randomUUID();
@@ -88,7 +65,6 @@ describe("recordCleanedImage", () => {
       sourceUrl: "https://maker.example/hero.jpg",
       uploadedBy: null,
     });
-    expect(await hasUploadedPhoto(db, pendingId)).toBe(false);
   });
 
   it("writes nothing when the owner cannot be claimed", async () => {
@@ -100,6 +76,55 @@ describe("recordCleanedImage", () => {
         width: 1,
         height: 1,
         fromUrl: "https://maker.example/x.jpg",
+      })
+    ).rejects.toThrow(/could not be attached/);
+    expect(await db.select().from(attachments)).toEqual([]);
+  });
+});
+
+describe("recordUploadCutout", () => {
+  it("records a public PNG owned by the pending item as its cleaned copy, with no source URL", async () => {
+    const pendingId = crypto.randomUUID();
+    const uploader = crypto.randomUUID();
+    const id = await recordUploadCutout(db, {
+      pendingId,
+      blobPathname: "uploads/tool/front-background-removed-abc.png",
+      publicUrl: "https://blob.example/uploads/tool/front-background-removed-abc.png",
+      sizeBytes: 2048,
+      width: 900,
+      height: 700,
+      uploadedBy: uploader,
+      filename: "front-background-removed.png",
+    });
+
+    expect(await read(id)).toMatchObject({
+      ownerType: "pending_tool",
+      ownerId: pendingId,
+      access: "public",
+      publicUrl: "https://blob.example/uploads/tool/front-background-removed-abc.png",
+      contentType: "image/png",
+      origin: "research_image_cleaned",
+      sourceUrl: null,
+      uploadedBy: uploader,
+      originalFilename: "front-background-removed.png",
+      width: 900,
+      height: 700,
+    });
+    // It is the item's cleaned copy: a later research or approval lets it go like any other.
+    expect(await releaseCleanedImages(db, pendingId)).toBe(1);
+  });
+
+  it("writes nothing when the owner cannot be claimed", async () => {
+    await expect(
+      recordUploadCutout(db, {
+        pendingId: "not-a-uuid",
+        blobPathname: "uploads/tool/x.png",
+        publicUrl: "https://blob.example/x.png",
+        sizeBytes: 1,
+        width: 1,
+        height: 1,
+        uploadedBy: null,
+        filename: "x.png",
       })
     ).rejects.toThrow(/could not be attached/);
     expect(await db.select().from(attachments)).toEqual([]);

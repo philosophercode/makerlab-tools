@@ -1,29 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { lazy, Suspense, useCallback, useEffect, useState, type ComponentType } from "react";
 import { useTranslations } from "next-intl";
-import { Folder, Info, LayoutGrid, MessageSquare, PackagePlus, Plug, RefreshCw, Search, Wrench } from "lucide-react";
-import { useChatLauncher } from "../ChatLauncherContext";
-import { REVALIDATE_ENDPOINT } from "../RefreshCatalogButton";
-import { can } from "../../lib/auth/permissions";
+import { Search } from "lucide-react";
 import type { Role } from "../../lib/auth/roles";
-import { canAddEquipment } from "../../lib/capabilities/access";
-import { ADMIN_HOME, surfacesFor } from "../../lib/admin/surfaces";
 import type { PaletteTool } from "./palette-types";
-import {
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandShortcut,
-} from "@/components/ui/command";
-import { paletteScore } from "./palette-match";
-import { RowStatus } from "../admin/RowStatus";
-import { FROSTED } from "../system/frosted";
-import { cn } from "@/lib/utils";
+import type { CommandPaletteDialog as DialogComponent } from "./CommandPaletteDialog";
 
 /**
  * The ⌘K palette, on every page (UI system spec §7.5; DESIGN.md §8.12; public
@@ -49,6 +31,10 @@ import { cn } from "@/lib/utils";
  * on a phone). ⌘K / Ctrl-K opens and closes it from anywhere; `/` focuses the
  * page's own filter search (the first `FilterBar`) unless focus is already in
  * a field. Radix's Dialog gives the focus trap, Escape and focus return.
+ *
+ * **The dialog itself (`CommandPaletteDialog`, with cmdk) loads the first time
+ * the palette opens** — or when the pointer or focus reaches a trigger — not
+ * with every page (performance). From then on it stays mounted.
  */
 export interface CommandPaletteProps {
   role: Role;
@@ -58,40 +44,28 @@ export interface CommandPaletteProps {
   onAsk?: (query: string) => void;
 }
 
-const PAGES = [
-  { key: "tools", href: "/", icon: Wrench },
-  { key: "projects", href: "/projects", icon: Folder },
-  { key: "about", href: "/about", icon: Info },
-  { key: "mcp", href: "/mcp", icon: Plug },
-] as const;
+type Dialog = typeof DialogComponent;
 
-type RefreshState = "idle" | "refreshing" | "refreshed" | "failed";
+let LoadedDialog: Dialog | null = null;
 
-export function CommandPalette({ role, tools, onAsk }: CommandPaletteProps) {
+/** Fetch the dialog's code ahead of the first open (hover, focus), or for a test. */
+export function preloadPaletteDialog(): Promise<Dialog> {
+  return import("./CommandPaletteDialog").then((mod) => {
+    LoadedDialog = mod.CommandPaletteDialog;
+    return mod.CommandPaletteDialog;
+  });
+}
+
+const LazyDialog = lazy(() => preloadPaletteDialog().then((dialog) => ({ default: dialog as ComponentType<Parameters<Dialog>[0]> })));
+
+export function CommandPalette(props: CommandPaletteProps) {
   const t = useTranslations("palette");
-  const tNav = useTranslations("admin.nav");
-  const tRoot = useTranslations();
-  const router = useRouter();
-  const { open: openChat } = useChatLauncher();
   const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [refresh, setRefresh] = useState<RefreshState>("idle");
-
-  const surfaces = useMemo(() => surfacesFor({ role }), [role]);
-  const staff = surfaces.length > 0;
-  // The category groups the tools fall in, each with its count — a link to the gallery filtered to it.
-  const categories = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const tool of tools ?? []) if (tool.category) counts.set(tool.category, (counts.get(tool.category) ?? 0) + 1);
-    return Array.from(counts.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [tools]);
-  const canAdd = canAddEquipment({ role });
-  const canRefresh = can({ role }, "tools.edit");
-
-  const setOpenAndReset = useCallback((next: boolean) => {
-    setOpen(next);
-    if (!next) setQuery("");
-  }, []);
+  // Decided once, at the first open, and never switched (a different element
+  // would remount the dialog): directly when already loaded, else via `lazy`.
+  const [mount, setMount] = useState<{ Dialog: Dialog | null } | null>(null);
+  if (open && mount === null) setMount({ Dialog: LoadedDialog });
+  const preload = useCallback(() => void preloadPaletteDialog(), []);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -112,30 +86,16 @@ export function CommandPalette({ role, tools, onAsk }: CommandPaletteProps) {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  function go(href: string) {
-    setOpenAndReset(false);
-    router.push(href);
-  }
-
-  async function refreshCatalog() {
-    if (refresh === "refreshing") return;
-    setRefresh("refreshing");
-    try {
-      const res = await fetch(REVALIDATE_ENDPOINT, { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
-      setRefresh(res.ok ? "refreshed" : "failed");
-    } catch {
-      setRefresh("failed");
-    }
-  }
-
-  const asking = onAsk && query.trim() ? query.trim() : null;
+  const dialogProps = { ...props, open, onOpenChange: setOpen };
 
   return (
     <>
       <button
         type="button"
         aria-keyshortcuts="Meta+K Control+K"
-        onClick={() => setOpenAndReset(true)}
+        onClick={() => setOpen(true)}
+        onPointerEnter={preload}
+        onFocus={preload}
         data-slot="palette-trigger"
         className="ui hidden h-8 w-52 cursor-pointer items-center gap-2 border border-input bg-background px-2 text-start text-table text-muted-foreground normal-case transition-colors duration-150 hover:border-foreground/40 hover:text-foreground md:inline-flex lg:w-44 xl:w-60"
       >
@@ -150,167 +110,21 @@ export function CommandPalette({ role, tools, onAsk }: CommandPaletteProps) {
         aria-keyshortcuts="Meta+K Control+K"
         aria-label={t("open")}
         title={t("open")}
-        onClick={() => setOpenAndReset(true)}
+        onClick={() => setOpen(true)}
+        onPointerEnter={preload}
+        onFocus={preload}
         className="ui inline-flex size-8 cursor-pointer items-center justify-center border border-input text-muted-foreground transition-colors duration-150 hover:text-foreground md:hidden"
       >
         <Search aria-hidden="true" className="size-4" />
       </button>
 
-      <CommandDialog
-        open={open}
-        onOpenChange={setOpenAndReset}
-        title={t("title")}
-        description={t(staff ? "descriptionStaff" : "description")}
-        className={cn(FROSTED, "bg-card")}
-        commandProps={{ className: "bg-transparent", filter: (_value, search, keywords) => paletteScore(search, keywords ?? []), loop: true }}
-      >
-        <CommandInput value={query} onValueChange={setQuery} placeholder={t("placeholder")} aria-label={t("placeholder")} />
-        <CommandList>
-          <CommandEmpty>{t("empty", { query })}</CommandEmpty>
-
-          <CommandGroup heading={t("pages")}>
-            {PAGES.map((page) => {
-              const Icon = page.icon;
-              const title = t(`page.${page.key}`);
-              return (
-                <CommandItem key={page.key} value={`page:${page.key}`} keywords={[title]} onSelect={() => go(page.href)}>
-                  <Icon aria-hidden="true" />
-                  {title}
-                </CommandItem>
-              );
-            })}
-          </CommandGroup>
-
-          {categories.length > 0 ? (
-            <CommandGroup heading={t("categories")}>
-              {categories.map(([category, count]) => (
-                <CommandItem
-                  key={category}
-                  value={`category:${category}`}
-                  keywords={[category]}
-                  onSelect={() => go(`/?${new URLSearchParams({ category }).toString()}`)}
-                >
-                  <LayoutGrid aria-hidden="true" />
-                  <span>{category}</span>
-                  <CommandShortcut>{t("categoryCount", { count })}</CommandShortcut>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          ) : null}
-
-          {staff ? (
-          <CommandGroup heading={t("surfaces")}>
-            <CommandItem value="surface:overview" keywords={[tNav("overview"), t("home")]} onSelect={() => go(ADMIN_HOME)}>
-              <LayoutGrid aria-hidden="true" />
-              {tNav("overview")}
-            </CommandItem>
-            {surfaces.map((surface) => {
-              const Icon = surface.icon;
-              const title = tNav(`surface.${surface.key}`);
-              return (
-                <CommandItem
-                  key={surface.key}
-                  value={`surface:${surface.key}`}
-                  keywords={[title, tNav(`group.${surface.group}`)]}
-                  onSelect={() => go(surface.href)}
-                >
-                  <Icon aria-hidden="true" />
-                  <span>{title}</span>
-                  <CommandShortcut>{tNav(`group.${surface.group}`)}</CommandShortcut>
-                </CommandItem>
-              );
-            })}
-          </CommandGroup>
-          ) : null}
-
-          {canAdd || canRefresh ? (
-            <CommandGroup heading={t("actions")}>
-              {canAdd ? (
-                <CommandItem
-                  value="action:add"
-                  keywords={[t("addEquipment")]}
-                  onSelect={() => {
-                    setOpenAndReset(false);
-                    openChat(tRoot("nav.addSeed"));
-                  }}
-                >
-                  <PackagePlus aria-hidden="true" />
-                  {t("addEquipment")}
-                </CommandItem>
-              ) : null}
-              {canRefresh ? (
-                <CommandItem value="action:refresh" keywords={[t("refreshCatalog")]} onSelect={() => void refreshCatalog()}>
-                  <RefreshCw aria-hidden="true" />
-                  {t("refreshCatalog")}
-                </CommandItem>
-              ) : null}
-            </CommandGroup>
-          ) : null}
-
-          {tools && tools.length > 0 ? (
-            <CommandGroup heading={t("tools")}>
-              {tools.map((tool) => (
-                <CommandItem
-                  key={tool.id}
-                  value={`tool:${tool.id}`}
-                  keywords={[tool.name, tool.officialName ?? "", tool.slug]}
-                  onSelect={() => go(`/tools/${tool.slug}`)}
-                >
-                  <span className="truncate">{tool.name}</span>
-                  {tool.officialName && tool.officialName !== tool.name ? (
-                    <span className="truncate text-xs text-muted-foreground">{tool.officialName}</span>
-                  ) : null}
-                  {tool.published ? (
-                    tool.category ? <CommandShortcut>{tool.category}</CommandShortcut> : null
-                  ) : (
-                    <CommandShortcut>{t("draft")}</CommandShortcut>
-                  )}
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          ) : null}
-
-          {/* Last, so Enter still opens the first tool or page that matches;
-              with a query it is always there, even when nothing else matches. */}
-          {onAsk ? (
-            <CommandGroup heading={t("assistant")} forceMount={asking !== null}>
-              {asking ? (
-                <CommandItem
-                  value="ask"
-                  forceMount
-                  onSelect={() => {
-                    setOpenAndReset(false);
-                    onAsk(asking);
-                  }}
-                >
-                  <MessageSquare aria-hidden="true" />
-                  {t("ask", { query: asking })}
-                </CommandItem>
-              ) : (
-                <CommandItem
-                  value="ask:open"
-                  keywords={[t("askEmpty")]}
-                  onSelect={() => {
-                    setOpenAndReset(false);
-                    onAsk("");
-                  }}
-                >
-                  <MessageSquare aria-hidden="true" />
-                  {t("askEmpty")}
-                </CommandItem>
-              )}
-            </CommandGroup>
-          ) : null}
-        </CommandList>
-
-        <div className="flex min-h-9 flex-wrap items-center gap-x-4 gap-y-1 border-t border-border px-3 py-2 font-mono text-micro tracking-[0.06em] text-muted-foreground uppercase">
-          <span>{t("hint")}</span>
-          {tools === null ? <RowStatus tone="warn" className="basis-auto normal-case">{t("toolsUnavailable")}</RowStatus> : null}
-          <RowStatus tone={refresh === "failed" ? "bad" : "muted"} className="basis-auto normal-case">
-            {refresh === "idle" ? null : tRoot(`catalogRefresh.${refresh}`)}
-          </RowStatus>
-        </div>
-      </CommandDialog>
+      {mount === null ? null : mount.Dialog ? (
+        <mount.Dialog {...dialogProps} />
+      ) : (
+        <Suspense fallback={null}>
+          <LazyDialog {...dialogProps} />
+        </Suspense>
+      )}
     </>
   );
 }

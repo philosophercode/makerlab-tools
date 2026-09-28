@@ -5,6 +5,7 @@ import {
   listOrphanedAttachments,
 } from "../data/attachments";
 import type { Db } from "../db/types";
+import { thumbnailBlobPathnames } from "../images/thumbnail-urls";
 
 /**
  * Orphaned-upload cleanup (data platform design spec §3.3, §3.9).
@@ -69,7 +70,11 @@ export async function runCleanup(
   // private store when there is one.
   const pathnames = orphans.map((row) => row.blobPathname);
   const privatePaths = orphans.filter((row) => row.access !== "public").map((row) => row.blobPathname);
-  const publicPaths = orphans.filter((row) => row.access === "public").map((row) => row.blobPathname);
+  // A public orphan's thumbnails (an upload rendered before it was abandoned)
+  // go with it.
+  const publicPaths = orphans
+    .filter((row) => row.access === "public")
+    .flatMap((row) => [row.blobPathname, ...thumbnailBlobPathnames(row.thumbnails)]);
   if (privatePaths.length > 0) await store.del(privatePaths, "private");
   if (publicPaths.length > 0) await store.del(publicPaths, "public");
 

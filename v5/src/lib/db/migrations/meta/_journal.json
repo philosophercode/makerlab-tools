@@ -148,6 +148,13 @@
       "when": 1790549088519,
       "tag": "0020_assistant_actions",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790570508381,
+      "tag": "0021_attachment_thumbnails",
+      "breakpoints": true
     }
   ]
 }

@@ -96,6 +96,29 @@ describe("runCleanup", () => {
     expect(await exists(tool)).toBe(false);
   });
 
+  it("deletes a public orphan's thumbnails with it", async () => {
+    const store = fakeStore();
+    await upload(25, {
+      blobPathname: "uploads/tool/pub.png",
+      access: "public",
+      thumbnails: { base: "https://s.public.blob.vercel-storage.com/thumbs/uploads/tool/pub.abc", widths: [160, 320], width: 800, height: 600 },
+    });
+
+    const result = await runCleanup(store, { db, now: NOW });
+
+    expect(result).toEqual({ orphans: 1, blobsDeleted: 1, rowsDeleted: 1 });
+    expect(store.del).toHaveBeenCalledWith(
+      [
+        "uploads/tool/pub.png",
+        "thumbs/uploads/tool/pub.abc.160.avif",
+        "thumbs/uploads/tool/pub.abc.160.webp",
+        "thumbs/uploads/tool/pub.abc.320.avif",
+        "thumbs/uploads/tool/pub.abc.320.webp",
+      ],
+      "public"
+    );
+  });
+
   it("leaves a recent unclaimed upload alone", async () => {
     const store = fakeStore();
     // A half-finished submission left open over lunch must still be able to
