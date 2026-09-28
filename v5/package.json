@@ -28,6 +28,7 @@
     "names:backfill": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/backfill-display-names.ts",
     "descriptions:shorten": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/shorten-descriptions.ts",
     "resources:language": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/resource-language.ts",
+    "projects:seed": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/seed-projects.ts",
     "data:push": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/push-local-to-hosted.ts"
   },
   "dependencies": {
