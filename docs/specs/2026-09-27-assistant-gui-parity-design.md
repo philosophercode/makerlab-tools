@@ -4,7 +4,7 @@
 **Status:** Accepted 2026-09-27 (owner's answers to §11 in the amendment below). **Phases 1–8 built**, with **Log completed maintenance** (§11 answer 5), on branch `v5/assistant-gui-parity`; see the as-built amendments
 **Target:** `v5/`
 **Branch:** `docs/spec-assistant-gui-parity` (spec); `v5/assistant-gui-parity` (implementation)
-**Spec PR:** #91 · **Implementation PR:** — (one per phase, §9)
+**Spec PR:** #91 · **Implementation PR:** #95 (phases 1–8, one PR)
 
 ## 1. Summary
 
