@@ -11,6 +11,7 @@ import type { Identity } from "../auth/identity";
 // `catalog.ts` (pulled in to resolve unit labels) imports cacheTag/cacheLife.
 vi.mock("next/cache", () => nextCacheMock());
 
+import { revalidateTag } from "next/cache";
 import { maintenance } from "./maintenance";
 
 /**
@@ -126,6 +127,12 @@ describe("report_issue — the ticket that lands", () => {
     expect(row.priority).toBe("high");
     expect(row.status).toBe("open");
     expect(row.dateReported).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("drops the kiosk's cached ticket count, so the lab screen shows the ticket on its next poll", async () => {
+    vi.mocked(revalidateTag).mockClear();
+    await file(issue());
+    expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("maintenance", { expire: 0 });
   });
 
   it("files a ticket unlinked when the unit label resolves to nothing", async () => {

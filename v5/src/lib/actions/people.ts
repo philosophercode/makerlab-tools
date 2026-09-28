@@ -11,7 +11,7 @@ import { isOneOf, ROLES, type Role } from "../db/schema/vocabulary";
 import { normalizeName, PERSON_NAME_MAX_LENGTH } from "../people/name";
 import { renamePerson } from "../people/rename";
 import { normalizeTitle, USER_TITLE_MAX_LENGTH } from "../people/title";
-import { auditTrail, defineAction, toolShape } from "./define";
+import { auditTrail, defineAction, toolShape, type ActionContext } from "./define";
 import { PERSON_ID, PERSON_IDS } from "./tool-args";
 import { reconcileFloorAfterGate } from "./people-gate";
 
@@ -22,7 +22,8 @@ import { reconcileFloorAfterGate } from "./people-gate";
  *
  * `users.manage` on every surface, then the floor reconciliation, then the
  * action's own refusals in the order the page always gave them. Never over MCP
- * (§3.8): a leaked token must not be able to change who is who.
+ * (§3.8): a leaked token must not be able to change who is who. In the chat,
+ * a role change never touches `super_admin` ({@link superAdminPageOnly}).
  */
 
 /** Names this surface in the console line a missing audit event leaves behind. */
@@ -54,17 +55,23 @@ export const PEOPLE_SET_ROLE = defineAction<
   invalidInput: "invalid_role",
   subject: (input) => ({ type: "user", id: input.userId }),
   afterGate: reconcileFloorAfterGate,
-  check: async (input) => {
+  check: async (input, ctx) => {
     if (!isOneOf(ROLES, input.role)) return "invalid_role";
     const target = await findUserById(input.userId);
     if (!target) return "unknown_user";
+    const pageOnly = superAdminPageOnly(ctx, target.role, input.role);
+    if (pageOnly) return pageOnly;
     if (target.role === input.role) return null;
     return demotionProtection(target, input.role);
   },
   tool: toolShape(
     z.strictObject({
       user_id: PERSON_ID,
-      role: z.enum(ROLES).describe("user, admin or super_admin — the authorization level, never a title"),
+      role: z
+        .enum(ROLES)
+        .describe(
+          "user or admin — the authorization level, never a title. Making somebody a super admin, or changing a super admin's role, is refused: only the People page can."
+        ),
     }),
     (args) => ({ ok: true, inputs: [{ userId: args.user_id, role: args.role }] })
   ),
@@ -82,6 +89,9 @@ export const PEOPLE_SET_ROLE = defineAction<
     const role = input.role as Role;
     const target = await findUserById(input.userId);
     if (!target) return { ok: false, error: "unknown_user" };
+    // Re-derived: the target may have become a super admin since `check`.
+    const pageOnly = superAdminPageOnly(ctx, target.role, role);
+    if (pageOnly) return { ok: false, error: pageOnly };
     if (target.role === role) return { ok: true, value: { role } };
     const protection = await demotionProtection(target, role);
     if (protection) return { ok: false, error: protection };
@@ -265,6 +275,19 @@ export const PEOPLE_SET_NAME = defineAction<{ userId: unknown; name: unknown }, 
 });
 
 // ── Shared ──────────────────────────────────────────────────────────
+
+/**
+ * The super-admin role is the People page's alone (owner decision
+ * 2026-09-27): on any surface but the GUI — a chat card or an MCP proposal —
+ * nobody is made a super admin and no super admin's role changes. Checked at
+ * propose time (so no card is drawn) and again at the click, whatever the
+ * confirming person's own role. Exported for `people.add`, whose chosen role
+ * is the same decision.
+ */
+export function superAdminPageOnly(ctx: Pick<ActionContext, "surface">, currentRole: string | null, nextRole: string): "only_on_people_page" | null {
+  if (ctx.surface === "gui") return null;
+  return currentRole === "super_admin" || nextRole === "super_admin" ? "only_on_people_page" : null;
+}
 
 /**
  * Why `target` may not be moved to `nextRole`, or null when they may. Only

@@ -48,6 +48,100 @@ export type McpExposure = "never" | "propose" | "direct";
 export const DIRECT_OVER_MCP: readonly string[] = ["tickets.update"];
 
 /**
+ * What the assistant may never do, on any surface — chat or MCP — whatever the
+ * person's role (owner decision 2026-09-27, spec amendment "Assistant limits").
+ * The GUI keeps every one of these for people who hold the permission.
+ *
+ * Two halves, so a future action cannot slip through by being new:
+ *
+ * - {@link ASSISTANT_FORBIDDEN_ACTIONS}: today's registered actions the owner
+ *   took away from the assistant, by id, with the reason.
+ * - {@link ASSISTANT_FORBIDDEN_CATEGORIES}: whole kinds of work no assistant
+ *   tool may do, matched on the words of an action's id or any tool's name.
+ *   Most have no action today; the match is what stops one being exposed by
+ *   accident.
+ *
+ * `defineAction` refuses, at module load, a matching action that is not
+ * `assistant: "never"` or that carries a tool; the capability layer never
+ * offers a tool whose name matches (`assistantToolForbidden`), on either
+ * surface; and `proposeAction` and the confirm route refuse a matching action
+ * even when a stored proposal names it (`not_offered`).
+ */
+export const ASSISTANT_FORBIDDEN_ACTIONS: Readonly<Record<string, string>> = {
+  "people.grant_allowance": "Research allowances are granted on the People page only (owner decision 2026-09-27)",
+  "people.remove": "Removing a person is done on the People page only (owner decision 2026-09-27)",
+  "people.block_email": "Blocking an address is done on the People page only (owner decision 2026-09-27)",
+  "people.unblock_email": "Unblocking an address is done on the People page only (owner decision 2026-09-27)",
+  "mirror.disconnect": "Disconnecting the Notion mirror is done on the mirror page only (owner decision 2026-09-27)",
+};
+
+/**
+ * The kinds of work no assistant tool may do, each as the words that name it.
+ * An action id (`<area>.<verb>`) or a tool name (`snake_case`) is split on
+ * `.`, `_` and `-`; any word in a category's list forbids it. Deliberately
+ * broad: a false match costs a `neverReason`; a missed one is a leak.
+ */
+export const ASSISTANT_FORBIDDEN_CATEGORIES: Readonly<Record<string, readonly string[]>> = {
+  /** Environment variables and secrets: reading or setting them. */
+  secrets: ["env", "envs", "environment", "secret", "secrets", "credential", "credentials", "password", "passwords", "apikey"],
+  /** Creating tokens or handling any other credential. */
+  tokens: ["token", "tokens", "oauth", "consent"],
+  /** Deploying or changing hosting settings. */
+  hosting: ["deploy", "deploys", "deployment", "deployments", "redeploy", "hosting", "vercel", "domain", "domains", "dns", "rollback", "promote"],
+  /** Raw SQL or direct database access. */
+  database: ["sql", "db", "database", "databases", "migrate", "migration", "migrations", "raw"],
+  /** Restoring backups or running `data:push`. */
+  backups: ["backup", "backups", "dump", "push", "data"],
+  /** Editing or deleting audit events. */
+  audit: ["audit", "audits", "trail"],
+  /** Sending email or any other message. */
+  messaging: ["send", "mail", "message", "messages", "notify", "notification", "notifications", "sms", "slack", "invite", "invites"],
+  /** Bulk-exporting people's email addresses (find_people stays masked). */
+  export: ["export", "exports", "download", "csv", "email", "emails", "addresses"],
+  /** Removing people, blocking or unblocking their addresses. */
+  people: ["block", "unblock", "ban", "unban", "allowance", "allowances"],
+};
+
+/** The words of an action id or tool name: `people.unblock_email` → people, unblock, email. */
+function wordsOf(name: string): string[] {
+  return name.toLowerCase().split(/[._-]+/).filter(Boolean);
+}
+
+/** The forbidden category `name` falls in, or null. */
+export function forbiddenCategoryOf(name: string): string | null {
+  const words = new Set(wordsOf(name));
+  for (const [category, list] of Object.entries(ASSISTANT_FORBIDDEN_CATEGORIES)) {
+    if (list.some((word) => words.has(word))) return category;
+  }
+  return null;
+}
+
+/**
+ * Why the assistant may never run this action, or null when it may. Checks the
+ * id list first, then the categories against both the id and the tool name.
+ */
+export function assistantForbiddenReason(meta: Pick<ActionMeta, "id" | "toolName">): string | null {
+  const listed = ASSISTANT_FORBIDDEN_ACTIONS[meta.id];
+  if (listed) return listed;
+  const category = forbiddenCategoryOf(meta.id) ?? forbiddenCategoryOf(meta.toolName);
+  return category ? `The assistant never does ${category} work (owner decision 2026-09-27)` : null;
+}
+
+/** True when a capability tool of this name may never be offered to the assistant. */
+export function assistantToolForbidden(toolName: string): boolean {
+  return forbiddenCategoryOf(toolName) !== null;
+}
+
+/**
+ * True when the assistant (chat or MCP) may propose this action at all:
+ * `assistant: "propose"` and outside the deny list. Asked where tools are
+ * generated, at propose time and again at the click.
+ */
+export function assistantMayPropose(meta: Pick<ActionMeta, "id" | "toolName" | "assistant">): boolean {
+  return meta.assistant === "propose" && assistantForbiddenReason(meta) === null;
+}
+
+/**
  * What the confirmation card shows (§3.2), built from the database when the
  * proposal is made and stored with it. **Never the model's words**: the
  * summary is a next-intl key under `actions.summary` with values read from
@@ -278,7 +372,8 @@ type Defaults = "assistant" | "mcp" | "maxBatch";
  * MCP by risk, no batch) and refuses, at module load, a definition that breaks
  * a rule no test should have to find: a destructive batch, a "never" without
  * its reason, a people/spend/destructive action exposed over MCP, a `direct`
- * MCP exposure outside `DIRECT_OVER_MCP`.
+ * MCP exposure outside `DIRECT_OVER_MCP`, an action on the assistant's deny
+ * list that is not "never", and a "never" that still carries a tool.
  */
 export function defineAction<I, R extends object, E extends string, C = true>(
   def: Omit<ActionDefinition<I, R, E, C>, Defaults> & Partial<Pick<ActionMeta, Defaults>>
@@ -308,6 +403,13 @@ export function defineAction<I, R extends object, E extends string, C = true>(
   }
   if (full.mcp === "direct" && !DIRECT_OVER_MCP.includes(full.id)) {
     throw new Error(`[actions] ${full.id}: MCP gets proposals only; "direct" is kept for ${DIRECT_OVER_MCP.join(", ")}`);
+  }
+  const forbidden = assistantForbiddenReason(full);
+  if (forbidden && full.assistant !== "never") {
+    throw new Error(`[actions] ${full.id}: the assistant may never offer this — mark it assistant "never" (${forbidden})`);
+  }
+  if (full.assistant === "never" && (full.tool || full.preview)) {
+    throw new Error(`[actions] ${full.id}: an action the assistant never proposes carries no tool and no preview`);
   }
   if (full.maxBatch < 1 || full.maxBatch > 20) {
     throw new Error(`[actions] ${full.id}: maxBatch must be 1–20`);

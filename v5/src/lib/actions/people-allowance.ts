@@ -8,8 +8,7 @@ import { grantResearchAllowance } from "../data/research-allowances";
 import { findUserById } from "../data/users";
 import { ALLOWANCE_PERMISSION } from "../import/access";
 import { SETUP_ALLOWANCE_MAX_DAYS, SETUP_ALLOWANCE_MAX_ITEMS } from "../import/limits";
-import { auditTrail, defineAction, toolShape } from "./define";
-import { PERSON_ID } from "./tool-args";
+import { auditTrail, defineAction } from "./define";
 
 /**
  * **Grant a setup allowance** (spec §4.7 #49; bulk intake spec §4.2, §8):
@@ -20,6 +19,9 @@ import { PERSON_ID } from "./tool-args";
  * reconciliation, because this action never ran one. The person must exist and
  * be able to add equipment: an allowance for somebody who cannot research is a
  * number that means nothing. Every grant is audited (`allowance.granted`).
+ *
+ * **Never the assistant's** (owner decision 2026-09-27): the People page's
+ * button only, on every surface's deny list (`define.ts`).
  */
 
 type AllowanceError = "invalid_field" | "unknown_user" | "cannot_research";
@@ -32,9 +34,11 @@ export const PEOPLE_GRANT_ALLOWANCE = defineAction<
 >({
   id: "people.grant_allowance",
   toolName: "grant_research_allowance",
-  description: `Grant one person extra research items (1–${SETUP_ALLOWANCE_MAX_ITEMS}) for a number of days (1–${SETUP_ALLOWANCE_MAX_DAYS}), on top of the daily allowance. Proposes the grant; nothing changes until the person confirms it on the card.`,
+  description: `Grant one person extra research items (1–${SETUP_ALLOWANCE_MAX_ITEMS}) for a number of days (1–${SETUP_ALLOWANCE_MAX_DAYS}), on top of the daily allowance.`,
   permission: ALLOWANCE_PERMISSION,
   risk: "people",
+  assistant: "never",
+  neverReason: "Research allowances spend the lab's money and are granted on the People page only (owner decision 2026-09-27)",
   input: z.strictObject({
     userId: z.string().min(1).max(200),
     extraItems: z.number().int().min(1).max(SETUP_ALLOWANCE_MAX_ITEMS),
@@ -47,27 +51,6 @@ export const PEOPLE_GRANT_ALLOWANCE = defineAction<
     if (!target) return "unknown_user";
     if (target.banned || !can({ role: target.role }, "tools.add")) return "cannot_research";
     return null;
-  },
-  tool: toolShape(
-    z.strictObject({
-      user_id: PERSON_ID,
-      extra_items: z.number().int().min(1).max(SETUP_ALLOWANCE_MAX_ITEMS).describe("Research items on top of the daily allowance"),
-      days: z.number().int().min(1).max(SETUP_ALLOWANCE_MAX_DAYS).describe("For how many days"),
-    }),
-    (args) => ({ ok: true, inputs: [{ userId: args.user_id, extraItems: args.extra_items, days: args.days }] })
-  ),
-  preview: async (input) => {
-    const target = await findUserById(input.userId);
-    if (!target) return null;
-    return {
-      summary: { key: "people_grant_allowance", values: { name: target.name, items: input.extraItems, days: input.days } },
-      rows: [
-        { field: "extraItems", before: null, after: String(input.extraItems) },
-        { field: "days", before: null, after: String(input.days) },
-      ],
-      subjectName: target.name,
-      link: ADMIN_USERS_PATH,
-    };
   },
   run: async (input, ctx) => {
     const actorId = ctx.identity.userId;

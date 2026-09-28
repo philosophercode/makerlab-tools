@@ -13,6 +13,8 @@ import type { QueueActionResult } from "./queue-write";
  * `tickets.update` definition `/admin/maintenance` runs
  * (`src/lib/actions/tickets.ts`, assistant–GUI parity spec phase 1), so the
  * gate, the write and the mirror push cannot drift between them.
+ * The kiosk's ticket-count cache is cleared by the action's afterCommit
+ * (`invalidateMaintenance`, kiosk spec §3.1).
  */
 
 /** The page the change refreshes. */

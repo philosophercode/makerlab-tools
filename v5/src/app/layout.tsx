@@ -11,6 +11,8 @@ import { ChatLauncherProvider } from "../components/ChatLauncherContext";
 import { PageSelectionProvider } from "../components/chat/page-selection";
 import { GlobalChrome } from "../components/GlobalChrome";
 import { DemoDataBanner } from "../components/DemoDataBanner";
+import { SiteChrome } from "../components/SiteChrome";
+import { AskParamOpener } from "../components/AskParamOpener";
 import { ThemeScript } from "../components/ThemeScript";
 import { LocaleHtmlScript } from "../components/LocaleHtmlScript";
 import { getCatalogStats, getPaletteTools } from "../lib/catalog";
@@ -67,11 +69,18 @@ async function LocalizedTree({
     <NextIntlClientProvider>
       <ChatLauncherProvider>
         <PageSelectionProvider>
-          <GlobalChrome stats={catalogStats} paletteTools={paletteTools} />
-          <DemoDataBanner />
+          <SiteChrome>
+            <GlobalChrome stats={catalogStats} paletteTools={paletteTools} />
+            <DemoDataBanner />
+          </SiteChrome>
           {children}
           <Suspense fallback={null}>
             <ChatFab />
+          </Suspense>
+          {/* Its own boundary: it reads the query string, which a prerender
+              cannot, and must not take the chat button out of the HTML with it. */}
+          <Suspense fallback={null}>
+            <AskParamOpener />
           </Suspense>
         </PageSelectionProvider>
       </ChatLauncherProvider>

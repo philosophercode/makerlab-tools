@@ -296,8 +296,18 @@ titles, adding or removing someone, allowances), anything that cannot be undone
 (archiving a tool, deleting a unit, removing a link, discarding an intake item,
 disconnecting the Notion mirror), and anything that spends the research budget
 (research, a different image, name suggestions, re-processing a manual,
-refreshing research). Ask the assistant in the site for those — it puts the
-same kind of card in front of you there.
+refreshing research). Ask the assistant in the site for most of those — it puts
+the same kind of card in front of you there.
+
+**Never through any assistant**, in the site or over MCP, whatever your role
+(owner decision 2026-09-27): making someone a super admin or changing a super
+admin's role, granting research allowances, removing people, blocking or
+unblocking addresses, and disconnecting the Notion mirror — use the People page
+or the mirror page. Nor can an assistant read or set secrets or environment
+variables, create tokens, deploy or change hosting, run SQL, restore backups or
+push data, edit the audit trail, export people's email addresses or send emails
+or messages: no such tool exists, and the server drops any tool named for that
+work from every list.
 
 `update_ticket` is the one tool that still changes something directly, as it
 always has, so clients that already use it keep working.
@@ -320,7 +330,10 @@ in [`assistant.md`](assistant.md).
   (`/admin/proposals`), where only you can confirm it. Working a maintenance
   ticket is the one direct change, and only for staff.
 - A leaked token cannot add an admin, remove anyone or spend the research
-  budget, even as a proposal: those tools are never offered over MCP.
+  budget, even as a proposal: those tools are never offered over MCP. Nor can
+  it reach a secret, a deployment, the database, the audit trail or anyone's
+  email address: no assistant, in the site or over MCP, has a tool for any of
+  those.
 
 ## Troubleshooting
 

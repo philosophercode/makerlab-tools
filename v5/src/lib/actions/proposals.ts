@@ -15,7 +15,7 @@ import {
 } from "../data/action-proposals";
 import type { ActionProposalSurface } from "../db/schema/vocabulary";
 import { checkRateLimit } from "../rate-limit";
-import type { ActionContext, ActionPreview } from "./define";
+import { assistantMayPropose, type ActionContext, type ActionPreview } from "./define";
 import { performAction } from "./perform";
 import { actionById, type AnyActionDefinition } from "./registry";
 import { driftedFields, type DriftedField } from "./staleness";
@@ -37,6 +37,10 @@ import { typedMatches } from "./typed-confirm";
  * the permission, the floor, the limiter and every refusal are checked again
  * at the moment of the click (§3.5 step 5), and the audit row names the
  * person who clicked with `surface: assistant`.
+ *
+ * Both halves refuse an action the assistant may never run (`not_offered`,
+ * `assistantMayPropose` in `define.ts`), so a stored proposal for an action
+ * taken off the assistant later can never be confirmed.
  */
 
 // ── Propose ──────────────────────────────────────────────────────────
@@ -76,7 +80,8 @@ export async function proposeAction(def: AnyActionDefinition, args: unknown, ctx
   // The tool was offered by this permission; asked again, because a turn can
   // outlive a role change.
   if (!can(identity, def.permission)) return { ok: false, error: "not_permitted" };
-  if (!def.tool || !def.preview) return { ok: false, error: "not_offered" };
+  // Never the assistant's (owner decision 2026-09-27) — whatever built this call.
+  if (!assistantMayPropose(def) || !def.tool || !def.preview) return { ok: false, error: "not_offered" };
   if (ctx.tainted && (TAINT_REFUSED_RISKS.includes(def.risk) || def.refuseWhenTainted)) return { ok: false, error: "tainted_turn" };
 
   const parsedArgs = def.tool.schema.safeParse(args);
@@ -245,6 +250,13 @@ async function confirmOne(row: ActionProposalRecord, identity: Identity): Promis
   if (!def) {
     await settleActionProposal(row.id, { status: "failed", result: { error: "failed" }, decidedBy });
     return { id: row.id, status: "failed", error: "failed" };
+  }
+  // A proposal stored before its action left the assistant (owner decision
+  // 2026-09-27), or written by anything but proposeAction, commits nothing:
+  // every row here came from the assistant, chat or MCP.
+  if (!assistantMayPropose(def)) {
+    await settleActionProposal(row.id, { status: "failed", result: { error: "not_offered" }, decidedBy });
+    return { id: row.id, status: "failed", error: "not_offered" };
   }
   // The card's "before" can be an hour old: re-read it after the gate, and
   // refuse if a field the card shows has changed since (§3.3 step 4).

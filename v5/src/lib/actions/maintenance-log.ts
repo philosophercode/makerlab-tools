@@ -6,6 +6,7 @@ import { findActiveToolByRef, findUnitOfTool } from "../data/action-subjects";
 import { COMPLETED_MAINTENANCE_TYPES, logCompletedMaintenance, type CompletedMaintenanceType } from "../data/maintenance";
 import { isOneOf } from "../db/schema/vocabulary";
 import { requestMirrorPush } from "../mirror/trigger";
+import { invalidateMaintenance } from "../revalidate";
 import { defineAction, toolShape } from "./define";
 
 /**
@@ -133,6 +134,8 @@ export const TICKETS_LOG_COMPLETED = defineAction<LogCompletedInput, { logId: st
     return { ok: true, value: { logId: logged.id }, committed: true };
   },
   afterCommit: async () => {
+    // The kiosk's ticket counts (kiosk spec §3.1).
+    invalidateMaintenance();
     await requestMirrorPush();
     return undefined;
   },

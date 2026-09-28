@@ -151,6 +151,16 @@ it("moves a ticket, stamps who moved it and refreshes the queue", async () => {
   expect(vi.mocked(revalidatePath)).toHaveBeenCalledWith("/admin/maintenance");
 });
 
+it("drops the kiosk's cached ticket count, so the lab screen's figure follows the queue", async () => {
+  await asSuperMaker();
+  const { revalidateTag } = await import("next/cache");
+  vi.mocked(revalidateTag).mockClear();
+
+  await updateTicket({ logId: ticketId, patch: { status: "resolved" } });
+
+  expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("maintenance", { expire: 0 });
+});
+
 it("assigns a ticket, keeping the name beside the id", async () => {
   await asSuperMaker();
   const assignee = await signInAsNew({ email: "luis@cornell.edu", role: "admin" });
