@@ -131,4 +131,7 @@ if (typeof window !== "undefined") {
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.restoreAllMocks();
+  // The page-wide "who is this" answer (lib/auth/identity-store.ts): each test
+  // asks as somebody new.
+  delete (globalThis as Record<string, unknown>).__makerlab_shared_identity__;
 });

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { DbUnavailableError } from "../db/client";
 import { getClientIp } from "../rate-limit";
 import { getAuth } from "./config";
@@ -97,11 +98,14 @@ async function resolveUncached(req: Request): Promise<Identity> {
 /**
  * The same, for server components, which have no `Request` to hand.
  *
- * Not memoized: `next/headers` returns a fresh object per call, so there is
- * nothing stable to key on. Server components should resolve once in the page
- * or layout and pass the result down, which is what `/admin/*` does.
+ * Memoized per request with React `cache()` (performance plan, quick win 7):
+ * an admin page used to look the session up in its layout, again in a nested
+ * layout and again in the page — two or three session-plus-user reads in
+ * series before any page data, on every navigation, poll and revalidating
+ * action. `cache()` dedupes within one server render (and one server action);
+ * outside React's server scope — a test, a script — it is a plain call.
  */
-export async function resolveIdentityFromHeaders(): Promise<Identity> {
+export const resolveIdentityFromHeaders = cache(async (): Promise<Identity> => {
   try {
     const auth = await getAuth();
     const { headers } = await import("next/headers");
@@ -116,7 +120,7 @@ export async function resolveIdentityFromHeaders(): Promise<Identity> {
     console.warn("[auth] identity resolution failed, treating as anonymous", err);
     return systemAnonymousIdentity();
   }
-}
+});
 
 /** What Better Auth hands back. Typed structurally so no library type leaks out. */
 export interface SessionResult {

@@ -9,13 +9,12 @@ import { ProfileMenu } from "./ProfileMenu";
 import { siteConfig } from "../lib/site-config";
 import {
   DEV_SIGN_IN_ENDPOINT,
-  fetchIdentity,
   isSignedIn,
   startGoogleSignIn,
   type ClientIdentity,
   type SignInStart,
 } from "../lib/auth/sign-in-client";
-import { publishIdentity } from "../lib/auth/identity-store";
+import { loadSharedIdentity } from "../lib/auth/identity-store";
 
 const LINKS = [
   { href: "/", key: "tools", match: (path: string) => path === "/" || path.startsWith("/tools") },
@@ -52,17 +51,14 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
   }, [signInNotice, noticeDurationMs]);
 
   useEffect(() => {
-    const controller = new AbortController();
     let active = true;
-    fetchIdentity(controller.signal).then((resolved) => {
-      if (!active) return;
-      setIdentity(resolved);
-      // The ⌘K palette beside the nav offers what this role opens (public polish).
-      publishIdentity(resolved);
+    // One request per page load, shared with the ⌘K palette, the tool page's
+    // Edit control and the project form (performance plan, quick win 10).
+    void loadSharedIdentity().then((resolved) => {
+      if (active) setIdentity(resolved);
     });
     return () => {
       active = false;
-      controller.abort();
     };
   }, []);
 

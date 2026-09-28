@@ -11,10 +11,10 @@ import { Field } from "./system/Field";
 import { Markdown } from "./system/Markdown";
 import { Prose, PublicPage } from "./system/PublicPage";
 import {
-  fetchIdentity,
   isSignedIn,
   type ClientIdentity,
 } from "../lib/auth/sign-in-client";
+import { loadSharedIdentity } from "../lib/auth/identity-store";
 
 interface ToolOption {
   id: string;
@@ -97,9 +97,10 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
   const [photoOutcome, setPhotoOutcome] = useState<PhotoOutcome | null>(null);
 
   useEffect(() => {
-    const controller = new AbortController();
     let active = true;
-    fetchIdentity(controller.signal).then((answer) => {
+    // Shared with the header: one /api/identity request per page load; a
+    // failed answer is asked again by "Try again" (performance plan, quick win 10).
+    void loadSharedIdentity().then((answer) => {
       if (!active) return;
       setIdentity(answer);
       // `null` is "no answer", not "anonymous" — see IdentityStatus.
@@ -108,7 +109,6 @@ export function ProjectSubmitForm({ tools }: ProjectSubmitFormProps) {
     });
     return () => {
       active = false;
-      controller.abort();
     };
   }, [attempt]);
 
