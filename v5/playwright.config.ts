@@ -1,6 +1,10 @@
 import { defineConfig, devices } from "@playwright/test";
 
-import { GATEWAY_STUB_ORIGIN, INTAKE_APP_ORIGIN, INTAKE_APP_PORT } from "./e2e/stubs/intake-fixture";
+import { E2E_PORT_BASE, GATEWAY_STUB_ORIGIN, INTAKE_APP_ORIGIN, INTAKE_APP_PORT } from "./e2e/stubs/intake-fixture";
+
+// The main app's port (3100 unless E2E_PORT_BASE moves every port; see intake-fixture.ts).
+const MAIN_APP_PORT = E2E_PORT_BASE;
+const MAIN_APP_ORIGIN = `http://localhost:${MAIN_APP_PORT}`;
 import { NOTION_STUB_ORIGIN } from "./e2e/stubs/notion-fixture";
 
 // E2E runs against a PRODUCTION build (`next build && next start`) booted with
@@ -78,7 +82,7 @@ const MAIN_APP_ENV: Record<string, string> = {
   // state a deployment is in before its OAuth client exists, and it is the
   // state the anonymous specs assert against.
   AUTH_SECRET: "e2e-only-secret-not-used-anywhere-else",
-  AUTH_BASE_URL: "http://localhost:3100",
+  AUTH_BASE_URL: MAIN_APP_ORIGIN,
   GOOGLE_CLIENT_ID: "",
   GOOGLE_CLIENT_SECRET: "",
   AUTH_SUPER_ADMIN_EMAILS: "",
@@ -115,7 +119,7 @@ const MAIN_APP_ENV: Record<string, string> = {
   // a previous run's leftovers are never replayed against a fresh demo
   // database.
   WORKFLOW_TARGET_WORLD: "local",
-  WORKFLOW_LOCAL_BASE_URL: "http://localhost:3100",
+  WORKFLOW_LOCAL_BASE_URL: MAIN_APP_ORIGIN,
   WORKFLOW_LOCAL_DATA_DIR: ".workflow-data/e2e",
   WORKFLOW_LOCAL_RECOVER_ACTIVE_RUNS: "0",
 };
@@ -152,7 +156,7 @@ export default defineConfig({
     // Dedicated test port (not 3000) so the suite never collides with — or
     // accidentally reuses — a `next dev` you have running locally against a
     // real database. The webServer below always boots its own demo instance.
-    baseURL: "http://localhost:3100",
+    baseURL: MAIN_APP_ORIGIN,
     trace: "on-first-retry",
   },
   projects: [
@@ -201,8 +205,8 @@ export default defineConfig({
     {
       // `npm run build` runs `db:migrate` first, which is a no-op with the
       // blanked DATABASE_URL (MAIN_APP_ENV above), then `next build`.
-      command: "npm run build && npx next start -p 3100",
-      url: "http://localhost:3100",
+      command: `npm run build && npx next start -p ${MAIN_APP_PORT}`,
+      url: MAIN_APP_ORIGIN,
       // Always boot a fresh demo-backed server; never reuse whatever is on the
       // port. Keeps E2E deterministic regardless of the local dev environment.
       reuseExistingServer: false,

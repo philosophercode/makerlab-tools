@@ -781,10 +781,16 @@ creates a tool (Article 5).
   the stored `ResearchResult` (`src/lib/research/result.ts`): up to three
   ranked candidates plus the cleaned copy's private attachment id, or
   `imageError` when the stage failed — never a reason to fail research itself.
+  **A photo uploaded in the chat skips nothing** (gateway spec amendment "An
+  uploaded photo is a choice, not the product image"): it identified the item,
+  the stage runs anyway, and the photo is offered beside what it found.
 - **Nothing is stored until approval.** The preliminary page's "Product image"
   control (spec §3.5, the *ProductImage* group) offers the cleaned copy (when
-  there is one), each ranked candidate with a "From `<host>`" attribution, and
-  "No image" — a choice, not a default. `GET
+  there is one), each ranked candidate with a "From `<host>`" attribution, each
+  chat photo as "Your photo" (with a **Remove the background** checkbox, on by
+  default), and "No image" — a choice, not a default. A found image is always
+  preselected over a photo (`initialImageChoice`, shared with the assistant's
+  **approve these**). `GET
   /api/pending-tools/[id]/cleaned-image` streams the private cleaned PNG to a
   reviewer holding `tools.approve`, rate-limited; nothing else can read it.
 - **Product page first, front-facing covers, reviewer corrections** (gateway
@@ -834,7 +840,11 @@ creates a tool (Article 5).
   absent; the downloaded bytes when no cut is possible), and stores it —
   except rank 1's original chosen beside its cleaned copy, stored uncut
   (amendment "The picked image is cleaned too"; refresh's accepted cover
-  goes through the same `storeResearchImage`). Both are
+  goes through the same `storeResearchImage`); "upload" takes one of the item's
+  own photos — as taken (made public if it is still private), or, with
+  `removeBackground`, read back from its store and given the same
+  `cleanPickedImage` cutout, stored public as the item's
+  `research_image_cleaned` copy (used as taken when no cut can be made). Stored copies are
   `attachments.origin` `research_image` / `research_image_cleaned` — see
   C11 in the gateway spec; a download or store failure is never a reason to
   fail the rest of the approval — it is the `image_not_attached` warning

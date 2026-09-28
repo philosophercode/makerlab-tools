@@ -161,16 +161,21 @@ export function toFields(draft: ApprovalDraft, research: ResearchResult, image: 
 const NO_IMAGE: ApprovalImageChoice = { choice: "none" };
 
 /**
- * The image the page preselects (gateway spec §4.3): the cleaned cutout when
- * there is one, otherwise rank 1, otherwise no image — and always no image
- * when the admin's own photo is the cover.
+ * The image the page preselects (gateway spec §4.3), and the one the
+ * assistant's **approve these** sends: the cleaned cutout when there is one,
+ * otherwise rank 1, otherwise the first photo uploaded in the chat with its
+ * background removed, otherwise no image. What research found leads — an
+ * uploaded photo identified the item and is offered beside the found images,
+ * not in their place (amendment "An uploaded photo is a choice, not the
+ * product image").
  */
 export function initialImageChoice(
   images: ResearchImages | null | undefined,
-  hasUploadedPhoto: boolean
+  uploads: readonly { attachmentId: string }[] = []
 ): ApprovalImageChoice {
-  if (hasUploadedPhoto || !images) return NO_IMAGE;
-  if (images.cleaned) return { choice: "cleaned" };
-  const first = images.candidates[0];
-  return first ? { choice: "original", candidateUrl: first.url } : NO_IMAGE;
+  if (images?.cleaned) return { choice: "cleaned" };
+  const first = images?.candidates[0];
+  if (first) return { choice: "original", candidateUrl: first.url };
+  const photo = uploads[0];
+  return photo ? { choice: "upload", attachmentId: photo.attachmentId, removeBackground: true } : NO_IMAGE;
 }

@@ -2,6 +2,7 @@ import { fireEvent } from "@testing-library/react";
 import { useState } from "react";
 import { render, screen, userEvent, within } from "../../../test/utils/render";
 import type { ApprovalImageChoice } from "../../lib/data/pending-tools";
+import type { PendingToolPhotoView } from "../../lib/intake/types";
 import type { ImageCandidate, ResearchImages } from "../../lib/research/result";
 import { initialImageChoice, plannedClean, ProductImage, type ProductImageProps } from "./ProductImage";
 
@@ -11,8 +12,9 @@ import { initialImageChoice, plannedClean, ProductImage, type ProductImageProps 
  * attribution link and the preselection rule.
  *
  * What would embarrass us (§10): a cleaned cutout chosen without its original
- * in view; an admin's own photo replaced by a stock image; an empty frame
- * where a sentence should be.
+ * in view; an admin's own photo silently standing in for the product image
+ * (amendment "An uploaded photo is a choice, not the product image"), or not
+ * offered at all; an empty frame where a sentence should be.
  */
 
 const ID = "6a1f0c3e-0d7b-4c55-9f2a-1b8e7d3c4a01";
@@ -40,11 +42,22 @@ const THREE: ResearchImages = {
   cleaned: { attachmentId: "3c0a8f3e-1111-4c55-9f2a-1b8e7d3c4a01", fromUrl: "https://cdn.prusa3d.com/img/mk4s-1.png" },
 };
 
+const PHOTO: PendingToolPhotoView = {
+  attachmentId: "9d2e4f10-2222-4c55-9f2a-1b8e7d3c4a01",
+  url: "https://blob.example/uploads/tool/mk4s-front.jpg",
+  filename: "mk4s-front.jpg",
+};
+const SECOND_PHOTO: PendingToolPhotoView = {
+  attachmentId: "9d2e4f10-3333-4c55-9f2a-1b8e7d3c4a01",
+  url: null,
+  filename: "mk4s-plate.jpg",
+};
+
 /** The section as the page uses it: controlled, with the page's own state. */
 function Harness(props: Partial<ProductImageProps> & { onChoice?: (choice: ApprovalImageChoice) => void }) {
   const images = "images" in props ? props.images : THREE;
-  const hasUploadedPhoto = props.hasUploadedPhoto ?? false;
-  const [value, setValue] = useState<ApprovalImageChoice>(() => initialImageChoice(images, hasUploadedPhoto));
+  const uploads = props.uploads ?? [];
+  const [value, setValue] = useState<ApprovalImageChoice>(() => initialImageChoice(images, uploads));
   return (
     <>
       <ProductImage
@@ -52,7 +65,7 @@ function Harness(props: Partial<ProductImageProps> & { onChoice?: (choice: Appro
         name="Prusa MK4S"
         images={images}
         imageError={props.imageError ?? null}
-        hasUploadedPhoto={hasUploadedPhoto}
+        uploads={uploads}
         value={value}
         onChange={(choice) => {
           setValue(choice);
@@ -307,20 +320,82 @@ describe("ProductImage — candidates without a cleaned copy", () => {
   });
 });
 
-describe("ProductImage — nothing to choose", () => {
-  it("uses the uploaded photo instead of any candidate, and chooses none", () => {
-    render(<Harness hasUploadedPhoto />);
+describe('ProductImage — your photo (amendment "An uploaded photo is a choice, not the product image")', () => {
+  it("offers the uploaded photo beside what research found, labelled as yours, with research's image preselected", () => {
+    render(<Harness uploads={[PHOTO]} />);
 
-    expect(screen.getByRole("heading", { name: "Product image" })).toBeInTheDocument();
-    expect(screen.getByText("Using your photo")).toBeInTheDocument();
+    const group = screen.getByRole("radiogroup", { name: "Product image" });
+    // Research's cleaned copy is still the preselection; the photo is one more choice.
+    expect(within(group).getByRole("radio", { name: "Background removed" })).toBeChecked();
+    const mine = within(group).getByRole("radio", { name: "Your photo" });
+    expect(mine).not.toBeChecked();
+    expect(within(group).getAllByRole("radio")).toHaveLength(6);
+    expect(within(group).getByRole("img", { name: "Prusa MK4S, your photo 1" })).toHaveAttribute("src", PHOTO.url);
     expect(
-      screen.getByText("The photo added in the chat will be the cover, so research did not look for another.")
+      screen.getByText(/Added in the chat to identify it\. Choose one as the cover if you prefer it/)
     ).toBeInTheDocument();
-    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
-    expect(screen.queryByRole("img")).not.toBeInTheDocument();
-    expect(choice()).toEqual({ choice: "none" });
+    // No checkbox until the photo is the choice.
+    expect(screen.queryByRole("checkbox", { name: "Remove the background" })).not.toBeInTheDocument();
+    expect(choice()).toEqual({ choice: "cleaned" });
   });
 
+  it("chooses the photo with its background removed, and lets the reviewer keep it as taken", async () => {
+    const user = userEvent.setup();
+    render(<Harness uploads={[PHOTO]} />);
+
+    await user.click(screen.getByRole("radio", { name: "Your photo" }));
+    expect(choice()).toEqual({ choice: "upload", attachmentId: PHOTO.attachmentId, removeBackground: true });
+    const remove = screen.getByRole("checkbox", { name: "Remove the background" });
+    expect(remove).toBeChecked();
+    expect(screen.getByText(/Background removed when approved, where the backdrop is plain enough to cut/)).toBeInTheDocument();
+
+    await user.click(remove);
+    expect(choice()).toEqual({ choice: "upload", attachmentId: PHOTO.attachmentId, removeBackground: false });
+    expect(screen.getByText("Used exactly as taken.")).toBeInTheDocument();
+
+    // Clicking the chosen photo again keeps the reviewer's checkbox.
+    fireEvent.click(screen.getByRole("img", { name: "Prusa MK4S, your photo 1" }));
+    expect(choice()).toEqual({ choice: "upload", attachmentId: PHOTO.attachmentId, removeBackground: false });
+
+    // Back to a found image: the checkbox goes with the photo's selection.
+    await user.click(screen.getByRole("radio", { name: "Option 2" }));
+    expect(screen.queryByRole("checkbox", { name: "Remove the background" })).not.toBeInTheDocument();
+  });
+
+  it("numbers several photos, and shows a private one as a placeholder rather than a guessed URL", () => {
+    render(<Harness uploads={[PHOTO, SECOND_PHOTO]} />);
+    expect(screen.getByRole("radio", { name: "Your photo 1" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Your photo 2" })).toBeInTheDocument();
+    expect(screen.getByText("Your photo (not viewable yet)")).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "Prusa MK4S, your photo 2" })).not.toBeInTheDocument();
+  });
+
+  it("when research found nothing, says so and still offers the photo, preselected with its background removed", () => {
+    render(<Harness images={{ candidates: [], cleaned: null }} uploads={[PHOTO]} />);
+
+    expect(screen.getByText("No product image was found")).toBeInTheDocument();
+    const group = screen.getByRole("radiogroup", { name: "Product image" });
+    expect(within(group).getAllByRole("radio")).toHaveLength(2);
+    expect(within(group).getByRole("radio", { name: "Your photo" })).toBeChecked();
+    expect(choice()).toEqual({ choice: "upload", attachmentId: PHOTO.attachmentId, removeBackground: true });
+  });
+
+  it("offers the photo when the stage failed, too", () => {
+    render(<Harness images={null} imageError="Image ranking: timed out." uploads={[PHOTO]} />);
+    expect(screen.getByText("No product image was found: Image ranking: timed out.")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Your photo" })).toBeChecked();
+  });
+
+  it("says what No image means when there are photos", async () => {
+    const user = userEvent.setup();
+    render(<Harness uploads={[PHOTO]} />);
+    expect(screen.queryByText("With no image chosen, your first photo becomes the tool's picture.")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("radio", { name: "No image" }));
+    expect(screen.getByText("With no image chosen, your first photo becomes the tool's picture.")).toBeInTheDocument();
+  });
+});
+
+describe("ProductImage — nothing to choose", () => {
   it("says none was found when research found nothing, with no frame", () => {
     render(<Harness images={{ candidates: [], cleaned: null }} />);
 
@@ -346,16 +421,31 @@ describe("ProductImage — nothing to choose", () => {
 });
 
 describe("initialImageChoice", () => {
-  it("prefers the cleaned copy, then rank 1, then none — and none whenever there is an uploaded photo", () => {
-    expect(initialImageChoice(THREE, false)).toEqual({ choice: "cleaned" });
-    expect(initialImageChoice({ ...THREE, cleaned: null }, false)).toEqual({
+  it("prefers the cleaned copy, then rank 1, then none", () => {
+    expect(initialImageChoice(THREE)).toEqual({ choice: "cleaned" });
+    expect(initialImageChoice({ ...THREE, cleaned: null })).toEqual({
       choice: "original",
       candidateUrl: "https://cdn.prusa3d.com/img/mk4s-1.png",
     });
-    expect(initialImageChoice({ candidates: [], cleaned: null }, false)).toEqual({ choice: "none" });
-    expect(initialImageChoice(null, false)).toEqual({ choice: "none" });
-    expect(initialImageChoice(undefined, false)).toEqual({ choice: "none" });
-    expect(initialImageChoice(THREE, true)).toEqual({ choice: "none" });
+    expect(initialImageChoice({ candidates: [], cleaned: null })).toEqual({ choice: "none" });
+    expect(initialImageChoice(null)).toEqual({ choice: "none" });
+    expect(initialImageChoice(undefined)).toEqual({ choice: "none" });
+  });
+
+  it("never lets an uploaded photo displace what research found", () => {
+    expect(initialImageChoice(THREE, [PHOTO])).toEqual({ choice: "cleaned" });
+    expect(initialImageChoice({ ...THREE, cleaned: null }, [PHOTO, SECOND_PHOTO])).toEqual({
+      choice: "original",
+      candidateUrl: "https://cdn.prusa3d.com/img/mk4s-1.png",
+    });
+  });
+
+  it("falls back to the first uploaded photo, background removed, when research found none", () => {
+    const upload = { choice: "upload", attachmentId: PHOTO.attachmentId, removeBackground: true };
+    expect(initialImageChoice({ candidates: [], cleaned: null }, [PHOTO, SECOND_PHOTO])).toEqual(upload);
+    expect(initialImageChoice({ candidates: [], cleaned: null, allRejected: true }, [PHOTO])).toEqual(upload);
+    expect(initialImageChoice(null, [PHOTO])).toEqual(upload);
+    expect(initialImageChoice(undefined, [PHOTO])).toEqual(upload);
   });
 });
 
