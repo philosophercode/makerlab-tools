@@ -16,6 +16,9 @@ import { useChatLauncher } from "./ChatLauncherContext";
 const loadChatPanel = () => import("./chat/ChatPanel");
 const ChatPanel = dynamic(() => loadChatPanel().then((module) => module.ChatPanel), { ssr: false });
 
+/** How long after mount the chat's code may start loading on its own. */
+const PRELOAD_GRACE_MS = 4000;
+
 /** Start downloading the chat's code without mounting it. */
 export function preloadChatPanel(): void {
   void loadChatPanel();
@@ -65,16 +68,21 @@ export function ChatFab() {
   if (!mounted && (isOpen || pendingSeed)) setMounted(true);
 
   // Warm the chunk once the page has settled, so the first open is instant —
-  // off the critical path, and not at all for a visitor saving data.
+  // off the critical path, and not at all for a visitor saving data. A few
+  // seconds' grace first: parsing the AI SDK while the page is still
+  // hydrating would slow exactly what moving it out of the first load saved.
   useEffect(() => {
     if (savesData()) return;
     const idle = window as unknown as IdleWindow;
-    if (idle.requestIdleCallback) {
-      const handle = idle.requestIdleCallback(preloadChatPanel, { timeout: 8000 });
-      return () => idle.cancelIdleCallback?.(handle);
-    }
-    const timer = window.setTimeout(preloadChatPanel, 4000);
-    return () => window.clearTimeout(timer);
+    let handle: number | undefined;
+    const timer = window.setTimeout(() => {
+      if (idle.requestIdleCallback) handle = idle.requestIdleCallback(preloadChatPanel, { timeout: 10_000 });
+      else preloadChatPanel();
+    }, PRELOAD_GRACE_MS);
+    return () => {
+      window.clearTimeout(timer);
+      if (handle !== undefined) idle.cancelIdleCallback?.(handle);
+    };
   }, []);
 
   return (

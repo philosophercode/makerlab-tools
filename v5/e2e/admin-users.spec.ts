@@ -201,6 +201,9 @@ test.describe("/admin/users — removing a person (auth spec amendment 2026-09-2
 
     // A retry after the removal landed finds Robin already gone and blocked:
     // it checks that state rather than failing on a row that cannot come back.
+    // The roster draws its table once it has hydrated, so wait for it before
+    // counting: `count()` does not wait, and an unhydrated page has no rows.
+    await expect(table.getByRole("row").first()).toBeVisible();
     if ((await robinRow.count()) > 0) {
       await robinRow.getByRole("button", { name: `Remove ${robin.name}` }).click();
 
@@ -250,6 +253,8 @@ test.describe("/admin/users — removing a person (auth spec amendment 2026-09-2
     await page.goto("/admin/users");
     const blocked = page.getByRole("table", { name: "Blocked email addresses" });
 
+    // Wait for the roster before counting (see the removal test above).
+    await expect(page.getByRole("table", { name: "People and their roles" }).getByRole("row").first()).toBeVisible();
     if ((await blocked.getByRole("row", { name: new RegExp(robin.email) }).count()) > 0) {
       await blocked.getByRole("button", { name: `Unblock ${robin.email}` }).click();
       await expect(page.getByText(`${robin.email} can sign up again.`)).toBeVisible({ timeout: SAVE_TIMEOUT });
@@ -275,7 +280,9 @@ test.describe("/admin/users — adding somebody before they sign in", () => {
     const row = table.getByRole("row", { name: new RegExp(email) });
     const addForm = page.locator("form").filter({ has: page.getByRole("textbox", { name: "Email" }) });
 
-    // A retry after the add landed finds the row already there.
+    // A retry after the add landed finds the row already there — once the
+    // roster is on screen (see the removal test above).
+    await expect(table.getByRole("row").first()).toBeVisible();
     if ((await row.count()) === 0) {
       await page.getByRole("button", { name: "Add person" }).click();
       // One "Add person" on screen at a time: the opener is gone while the form is open.
