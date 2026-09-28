@@ -38,7 +38,7 @@ import { ReviewNote } from "../system/review/ReviewCard";
 export interface ResearchAgainDialogProps {
   /** What the box starts with: the note the last research ran with. */
   initialNote: string;
-  /** False when the item has an uploaded photo — then Image cannot be chosen. */
+  /** False when there is no research yet — then Image cannot be chosen. An uploaded photo is no bar. */
   imageAvailable: boolean;
   onSubmit: (request: { focus: ResearchFocusField[] | null; note: string | null }) => void;
   onCancel: () => void;

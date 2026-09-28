@@ -806,10 +806,16 @@ creates a tool (Article 5).
   the stored `ResearchResult` (`src/lib/research/result.ts`): up to three
   ranked candidates plus the cleaned copy's private attachment id, or
   `imageError` when the stage failed — never a reason to fail research itself.
+  **A photo uploaded in the chat skips nothing** (gateway spec amendment "An
+  uploaded photo is a choice, not the product image"): it identified the item,
+  the stage runs anyway, and the photo is offered beside what it found.
 - **Nothing is stored until approval.** The preliminary page's "Product image"
   control (spec §3.5, the *ProductImage* group) offers the cleaned copy (when
-  there is one), each ranked candidate with a "From `<host>`" attribution, and
-  "No image" — a choice, not a default. `GET
+  there is one), each ranked candidate with a "From `<host>`" attribution, each
+  chat photo as "Your photo" (with a **Remove the background** checkbox, on by
+  default), and "No image" — a choice, not a default. A found image is always
+  preselected over a photo (`initialImageChoice`, shared with the assistant's
+  **approve these**). `GET
   /api/pending-tools/[id]/cleaned-image` streams the private cleaned PNG to a
   reviewer holding `tools.approve`, rate-limited; nothing else can read it.
 - **Product page first, front-facing covers, reviewer corrections** (gateway
@@ -859,7 +865,11 @@ creates a tool (Article 5).
   absent; the downloaded bytes when no cut is possible), and stores it —
   except rank 1's original chosen beside its cleaned copy, stored uncut
   (amendment "The picked image is cleaned too"; refresh's accepted cover
-  goes through the same `storeResearchImage`). Both are
+  goes through the same `storeResearchImage`); "upload" takes one of the item's
+  own photos — as taken (made public if it is still private), or, with
+  `removeBackground`, read back from its store and given the same
+  `cleanPickedImage` cutout, stored public as the item's
+  `research_image_cleaned` copy (used as taken when no cut can be made). Stored copies are
   `attachments.origin` `research_image` / `research_image_cleaned` — see
   C11 in the gateway spec; a download or store failure is never a reason to
   fail the rest of the approval — it is the `image_not_attached` warning
@@ -1336,6 +1346,71 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   embedding })`). The live retrieval eval is a `.livecheck` script (results in
   the spec's phase-2 amendment).
 
+## Images, caching and page weight (performance, migration `0021`)
+
+Tool photos were ~99% of every page's bytes (the home page was 27 MB on a
+phone: 1–2.5 MB original PNGs for 180px cards). Every image is now served at
+the size it is shown. The rules:
+
+- **Thumbnails, never originals.** A tool photo has pre-rendered widths
+  (160 / 320 / 640 px, never enlarged) in **AVIF and WebP**, named
+  `${base}.${width}.${format}` (`src/lib/images/thumbnail-urls.ts`), rendered
+  by `sharp` with **resize only** — no crop, pad or redraw, alpha and margins
+  kept (`src/lib/images/thumbnails.ts`), so a product keeps the framing
+  approval gave it. `ToolImage` draws them as a `<picture>` with the caller's
+  `sizes`, `width`/`height` for the aspect ratio, lazy by default; the tool
+  page's hero and the gallery's first row are eager (`priority="high"` for the
+  first two cards and the hero — `fetchpriority="high"` — `cardImagePriority`).
+  `MakerLabTool.thumbnails` carries them; `toolImage()` in
+  `src/lib/data/catalog.ts` picks them. A tool with no photo is `imageSrc: ""`
+  (the empty plate, no request) — never a guessed `/tool-images/<name>.png`.
+- **Bundled photos** (`public/tool-images/*.png`, kept as sources): thumbnails
+  are committed under `public/tool-images/thumbs/` with a **content hash** in
+  the name, listed in the generated `src/lib/data/bundled-tool-thumbnails.ts`,
+  and served `Cache-Control: public, max-age=31536000, immutable`
+  (`next.config.ts` `headers()`). **Re-run `npm run thumbnails:bundled`
+  whenever a PNG there is added, replaced or removed**, and commit both;
+  `bundled-tool-thumbnails.test.ts` fails until you do (`-- --check` is the
+  same check). It never deletes: files no photo names any more are listed as
+  stale for somebody to remove.
+- **Blob photos** (uploads, research and product images): `attachments.thumbnails`
+  (jsonb, migration `0021`) holds `{ base, widths, width, height }`; the files
+  sit beside the original at `thumbs/<original pathname>.<hash>.<w>.<fmt>`,
+  public, cached a year (`src/lib/images/attachment-thumbnails.ts`). They are
+  written **after the response** (`scheduleThumbnails`, `after()`) by
+  `POST /api/uploads` (public images), intake approval and accepted refresh
+  covers, which then drop the catalogue/project caches. Rows from before
+  this, or whose run failed: **`npm run thumbnails:backfill`** (dry run by
+  default; `-- --apply [--limit N]`; target = `DATABASE_URL`, else
+  `PGLITE_DATA_DIR`; store = `blobMode()`), then `POST /api/admin/revalidate`.
+  Until a row has thumbnails, `ToolImage` falls back to `next/image` on the
+  original (optimized, AVIF/WebP, 31-day `minimumCacheTTL`; `/api/dev-blob/`
+  URLs unoptimized). The daily sweep deletes an orphan's thumbnails with it;
+  `data:push` nulls them in the hosted copy (backfill there).
+- **Not in the first load:** the assistant (`ChatPanel` — AI SDK, sheet,
+  composer) mounts the first time the chat opens (`ChatFab`, preloaded on
+  hover/focus of the button); the ⌘K dialog (`CommandPaletteDialog`, cmdk)
+  the first time the palette opens; the gallery's table view (`GalleryTable`,
+  TanStack Table) when somebody switches to it. Each is kept mounted once
+  loaded. The home page sends `toGalleryTool()` per tool, not the whole
+  `MakerLabTool`.
+- **Fonts** are two faces per family split by `unicode-range`
+  (`src/app/fonts.ts`): the preloaded Latin face and an Extended face (Latin
+  Extended, Cyrillic) fetched only when a page shows those characters. Draw a
+  language's native name in the system font (the language picker does), or
+  every page downloads the Extended faces.
+- **Caching:** public pages are partial prerenders; the catalogue is
+  `"use cache"` + `cacheTag("catalog")`, projects `"projects"`, and a tool
+  page's maintenance history also `"maintenance"`, which filing or working a
+  ticket drops (`invalidateMaintenance`, shared with the kiosk count) without re-reading the
+  catalogue. The body still renders per request because the locale is a
+  cookie (`LocalizedTree`); making public pages fully static needs locale
+  routing that does not read the cookie in the page.
+- **Measure** with `npx -y lighthouse@12` against `next build && next start`
+  (mobile and `--preset=desktop`). The demo seed has two tools, so a
+  representative run seeds the bundled photos' names as tools locally
+  (not committed).
+
 ## The lab status screen (`/kiosk`; kiosk spec phase 1)
 
 A full-screen, read-only page for the TV at the front of the lab and the ISAM
@@ -1459,7 +1534,9 @@ data; the QR code opens the catalogue with the chat.
 | `src/app/admin/inventory/actions.ts` + `unit-`/`resource-`/`photo-actions.ts` | The editor's server actions, one module per section, each checking its own permission |
 | `src/components/admin/ToolEditorPanel.tsx` | The editor itself: the revision token, the conflict, and the five sections beside it |
 | `src/app/tools/[id]/EditToolControl.tsx` / `DraftToolView.tsx` | Edit mode on a tool page (phone-first), and drafts at their slug for `catalog.view_drafts` |
-| `src/lib/revalidate.ts` | `invalidateCatalog()` / `invalidateProjects()` / `invalidateMaintenance()` (the kiosk's ticket count) — the one home for the cache tag strings, and `{ expire: 0 }`, because `revalidateTag` with a *named* profile is stale-while-revalidate and would serve the pre-publish page to one more reader |
+| `src/lib/images/*` | Thumbnails: `thumbnail-urls` (names, `srcset`, client-safe), `thumbnails` (the `sharp` render), `bundled-thumbnails` (`npm run thumbnails:bundled`), `attachment-thumbnails` (Blob rows; `npm run thumbnails:backfill`), `schedule-thumbnails` (after the response) |
+| `src/components/ToolImage.tsx` | Every tool photo: the thumbnail `<picture>`, the `next/image` fallback, the empty plate |
+| `src/lib/revalidate.ts` | `invalidateCatalog()` / `invalidateProjects()` / `invalidateMaintenance()` (the kiosk's ticket count, a tool page's maintenance history) — the one home for the cache tag strings, and `{ expire: 0 }`, because `revalidateTag` with a *named* profile is stale-while-revalidate and would serve the pre-publish page to one more reader |
 | `src/lib/blob.ts` | The Blob seam — `put` (private backups, fixed pathname) and `putUpload` (random pathname, caller's access) |
 | `src/lib/cron/backup.ts`, `src/lib/cron/cleanup.ts` | The nightly Postgres export and the orphaned-upload sweep |
 | `src/lib/cron/backup-policy.ts` | What the nightly export holds back — `session` / `verification` / `oauth_access_token` skipped, token columns blanked (a backup is data, not credentials), and `manual_pages` / `manual_chunks` left out because `npm run manuals:index -- --force` rebuilds them after a restore |
@@ -1673,6 +1750,8 @@ npm run lint         # eslint
 npm run typecheck    # tsc --noEmit
 npm run test:all     # full test suite
 npm run data:push -- --to .env.hosted [--dry-run] [--yes]   # copy local PGlite + .blob-data up to a hosted deploy
+npm run thumbnails:bundled [-- --check]   # after changing public/tool-images/*.png
+npm run thumbnails:backfill [-- --apply]  # thumbnails for Blob images that have none (dry run by default)
 ```
 
 `data:push` (`scripts/push-local-to-hosted.ts`, logic in `src/lib/push-hosted/`) replaces the

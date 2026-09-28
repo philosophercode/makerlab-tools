@@ -84,11 +84,19 @@ vi.mock("../lib/chat/downscale-image", () => ({
 }));
 
 // Imported after the mocks above are hoisted.
-import { ChatFab } from "./ChatFab";
+import { ChatFab, preloadChatPanel } from "./ChatFab";
+import { ChatPanel } from "./ChatPanel";
 import { ToolChatStarters } from "./ToolChatStarters";
 import { CurateChatStarter } from "./CurateChatStarter";
 import { AskAssistantButton } from "./chat/AskAssistantButton";
 import type { IntakeTablePayload } from "../lib/intake/types";
+
+// The panel is loaded on first open in the app (`ChatFab`'s lazy path, which
+// e2e/chat.spec.ts exercises); loading it up front here lets every test query
+// it in the same tick it opens.
+beforeAll(async () => {
+  await preloadChatPanel();
+});
 
 beforeEach(() => {
   // These mocks are module-scoped, so their call history survives between
@@ -118,6 +126,17 @@ describe("ChatFab", () => {
       screen.getByRole("button", { name: "Open MakerLab assistant" })
     ).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("does not mount the assistant (or start useChat) until it is first opened", async () => {
+    const { useChat } = await import("@ai-sdk/react");
+    vi.mocked(useChat).mockClear();
+    const user = userEvent.setup();
+    render(<ChatFab />);
+    expect(useChat).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Open MakerLab assistant" }));
+    expect(useChat).toHaveBeenCalled();
   });
 
   it("opens the chat panel when the FAB is clicked", async () => {
@@ -338,7 +357,7 @@ describe("ChatFab", () => {
   // passes a transport (and onData handler) into the hook — the request-body
   // forwarding itself is covered by the chat-route integration tests.
   it("passes a transport and onData handler into useChat", () => {
-    render(<ChatFab />);
+    render(<ChatPanel />); // the panel itself: `ChatFab` mounts it only once opened
 
     expect(lastUseChatOptions).toBeTruthy();
     const opts = lastUseChatOptions as {
@@ -350,7 +369,7 @@ describe("ChatFab", () => {
   });
 
   it("bounds earlier photos in the request it sends", () => {
-    render(<ChatFab />);
+    render(<ChatPanel />);
     const { transport } = lastUseChatOptions as {
       transport: {
         prepareSendMessagesRequest: (options: {
@@ -1021,7 +1040,7 @@ describe("ChatFab — rate-limit ceiling", () => {
     it("tells the route which pending item a preliminary page shows", () => {
       const id = "11111111-1111-4111-8111-111111111111";
       pathnameMock.mockReturnValue(`/admin/intake/${id}`);
-      render(<ChatFab />);
+      render(<ChatPanel />);
       const { transport } = lastUseChatOptions as {
         transport: { prepareSendMessagesRequest: (options: { id: string; messages: unknown[]; trigger: string; messageId: undefined }) => { body: Record<string, unknown> } };
       };

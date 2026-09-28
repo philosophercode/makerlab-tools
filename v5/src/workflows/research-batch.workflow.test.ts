@@ -15,6 +15,7 @@ import { server } from "../../test/msw/server";
 import { createPendingBatch, getPendingTool, queueForResearch } from "../lib/data/pending-tools";
 import { getDb, resetDbForTests } from "../lib/db/client";
 import { DEMO_ACCOUNTS } from "../lib/db/demo-seed";
+import { attachments } from "../lib/db/schema/index";
 import { researchBatch } from "./research-batch";
 
 /**
@@ -181,6 +182,22 @@ describe("researchBatch (in process)", () => {
       items: names.map((name) => ({ name })),
     });
     const ids = items.map((item) => item.id);
+    // The mill came with a photo from the chat. It identified the item; the
+    // image search still runs for it, as for the others (amendment "An
+    // uploaded photo is a choice, not the product image").
+    const millId = ids[3];
+    const db = await getDb();
+    const [photo] = await db
+      .insert(attachments)
+      .values({
+        blobPathname: `uploads/chat/${crypto.randomUUID()}.jpg`,
+        access: "public",
+        contentType: "image/jpeg",
+        origin: "upload",
+        ownerType: "pending_tool",
+        ownerId: millId,
+      })
+      .returning({ id: attachments.id });
     const requestId = crypto.randomUUID();
     expect(await queueForResearch(ids, { requestedBy: DEMO_ACCOUNTS.admin.id, requestId })).toEqual(ids);
 
@@ -211,6 +228,8 @@ describe("researchBatch (in process)", () => {
       });
       expect(row?.research?.imageError).toBeNull();
     }
+    // Three rankings: the mill's photo skipped nothing. The photo is still the mill's, untouched.
     expect(calls.rank).toBe(3);
+    expect(rows[3]?.photos.map((p) => p.attachmentId)).toEqual([photo.id]);
   });
 });

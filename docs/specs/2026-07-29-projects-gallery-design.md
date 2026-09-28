@@ -332,3 +332,34 @@ rediscovers.
 
 **Status.** Accepted — the spec's E2E list was written before it was known that
 the mock backend has no projects.
+
+### 2026-09-28 — the gallery is seeded from "Made in MakerLAB" (`projects:seed`)
+
+**What changed.** The MakerLAB Director keeps a public Notion database of the lab's own
+projects ("Made in MakerLAB"). Its ten public rows and eleven photos are committed as a
+bundle, `v5/data/projects-seed/` (`projects.json` + `images/`, resized to 2000 px and
+stripped of EXIF), and `npm run projects:seed` loads it (`v5/scripts/seed-projects.ts`,
+logic in `v5/src/lib/projects-seed/`).
+
+- **Target and files** follow the import scripts (`src/lib/import/target.ts`):
+  `DATABASE_URL`, else `PGLITE_DATA_DIR`; photos go through the import's uploader — public
+  (project photos are public, §3.3), `.blob-data/` locally, Vercel Blob hosted. The usual
+  hosted path is seed locally, then `data:push`. It refuses while the dev server holds the
+  PGlite lock. `--dry-run` reads the target and writes nothing.
+- **Published directly.** Article 5's gate is a person deciding; here the Director curated
+  the set, and the owner runs the script. `createProjectSubmission` still has no
+  `published` parameter — the seed is a separate write path, not a door in the API.
+- **Idempotent.** Rows are keyed by `projects.notion_page_id` (the Notion page), photos by
+  `attachments.source_key` = `projects-seed:<page id>:<content hash>`; a re-run updates in
+  place, uploads only new or changed photos, and detaches seed photos no longer in the
+  bundle for the daily cron's unowned-file sweep. `project_tools` is replaced from the
+  bundle's links, resolved by **tool slug** in the target database; a missing slug is
+  reported and skipped.
+- **Byline.** No row names an individual maker, so `author_name` is the partner
+  organisation as given ("MakerLAB · ADAPT Community Network"). Where a person is named in
+  future, public display is first name + last initial.
+- **Write-ups** are enriched from the Notion text and photos (inferences phrased as
+  "likely"); the Notion original is kept in the bundle (`notionText`). Tool links carry a
+  confidence and reason in the bundle only.
+
+**Status.** Accepted.

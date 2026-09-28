@@ -50,7 +50,11 @@ export const CATALOG_TAG = "catalog";
 /** Every cached project read — the gallery and each project page. */
 export const PROJECTS_TAG = "projects";
 
-/** Every cached read of maintenance tickets (the kiosk's open-ticket count). */
+/**
+ * Every cached read of maintenance tickets: the kiosk's open-ticket count, and
+ * a tool page's maintenance history (`getToolMaintenanceHistory`, which also
+ * carries the catalogue tag).
+ */
 export const MAINTENANCE_TAG = "maintenance";
 
 /** Tags a full refresh has to clear. */

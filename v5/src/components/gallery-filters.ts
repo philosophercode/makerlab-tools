@@ -1,4 +1,4 @@
-import type { MakerLabTool, ToolStatus } from "./catalog-types";
+import type { GalleryTool, ToolStatus } from "./catalog-types";
 
 /**
  * What the gallery is showing, and how that survives a link (UI system phase
@@ -39,12 +39,12 @@ export const GALLERY_STATUSES: readonly ToolStatus[] = ["Available", "In Use", "
 
 export interface GalleryState {
   query: string;
-  /** `MakerLabTool.status` — availability (public polish). */
+  /** `GalleryTool.status` — availability (public polish). */
   status: ToolStatus | null;
-  /** `MakerLabTool.category` — the category group the cards are tagged with. */
+  /** `GalleryTool.category` — the category group the cards are tagged with. */
   category: string | null;
   material: string | null;
-  /** `MakerLabTool.location` — the room. */
+  /** `GalleryTool.location` — the room. */
   location: string | null;
   view: GalleryView;
   sort: GallerySort | null;
@@ -112,7 +112,7 @@ export function hasFacetFilters(state: GalleryState): boolean {
 const collator = new Intl.Collator("en", { sensitivity: "base", numeric: true });
 
 /** Units a student could walk up to now. */
-export function availableUnits(tool: MakerLabTool): number {
+export function availableUnits(tool: GalleryTool): number {
   return tool.units.filter((unit) => unit.status === "Available").length;
 }
 
@@ -121,7 +121,7 @@ export function availableUnits(tool: MakerLabTool): number {
  * catalogue's name order, or search rank), which every other sort keeps as its
  * tie-break — a stable sort — so equal keys never shuffle between renders.
  */
-export function sortTools(tools: readonly MakerLabTool[], sort: GallerySort | null): MakerLabTool[] {
+export function sortTools<T extends GalleryTool>(tools: readonly T[], sort: GallerySort | null): T[] {
   const out = tools.slice();
   switch (sort) {
     case null:
@@ -151,18 +151,18 @@ export function sortTools(tools: readonly MakerLabTool[], sort: GallerySort | nu
 
 // ── Grouping ────────────────────────────────────────────────────────
 
-export interface ToolSection {
+export interface ToolSection<T extends GalleryTool = GalleryTool> {
   /** Stable, URL-safe-ish id for the section's heading. */
   key: string;
   /** The section's label, as data (category and room names are data, not messages). */
   label: string;
-  tools: MakerLabTool[];
+  tools: T[];
 }
 
 /** Values the catalogue uses for "not recorded", which group last. */
 const UNKNOWN = new Set(["Uncategorized", "Unknown", "Other", ""]);
 
-function groupKeyOf(tool: MakerLabTool, group: GalleryGroup): { key: string; label: string; order: string[] } {
+function groupKeyOf(tool: GalleryTool, group: GalleryGroup): { key: string; label: string; order: string[] } {
   switch (group) {
     case "categoryGroup":
       return { key: tool.category, label: tool.category, order: [tool.category] };
@@ -194,9 +194,9 @@ function compareOrder(a: string[], b: string[]): number {
  * last), each keeping the order the tools arrived in — so the sort applies
  * inside every section. `null` is one unlabelled section.
  */
-export function groupTools(tools: readonly MakerLabTool[], group: GalleryGroup | null): ToolSection[] {
+export function groupTools<T extends GalleryTool>(tools: readonly T[], group: GalleryGroup | null): ToolSection<T>[] {
   if (!group) return [{ key: "all", label: "", tools: tools.slice() }];
-  const sections = new Map<string, ToolSection & { order: string[] }>();
+  const sections = new Map<string, ToolSection<T> & { order: string[] }>();
   for (const tool of tools) {
     const { key, label, order } = groupKeyOf(tool, group);
     const section = sections.get(key);

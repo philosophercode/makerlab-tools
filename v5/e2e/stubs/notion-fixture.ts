@@ -12,7 +12,7 @@
  */
 
 /** The port the stub listens on. The app reaches it through `NOTION_API_BASE_URL`. */
-export const NOTION_STUB_PORT = 3102;
+export const NOTION_STUB_PORT = (Number(process.env.E2E_PORT_BASE) || 3100) + 2;
 
 export const NOTION_STUB_ORIGIN = `http://localhost:${NOTION_STUB_PORT}`;
 

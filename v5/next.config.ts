@@ -83,7 +83,24 @@ const nextConfig: NextConfig = {
     // The local Blob store's files are served by this same dev server, and the
     // optimizer refuses loopback addresses unless told otherwise. Dev only.
     dangerouslyAllowLocalIP: isDev,
-    minimumCacheTTL: 3600,
+    // The fallback path only: tool photos are served from pre-rendered
+    // thumbnails (`src/lib/images/thumbnail-urls.ts`), and next/image resizes
+    // an original only until its thumbnails exist. AVIF first, as they are.
+    formats: ["image/avif", "image/webp"],
+    // Blob pathnames are random and never rewritten, so an optimized copy
+    // cannot go stale: keep it for 31 days rather than re-optimizing (and
+    // re-billing) it every hour.
+    minimumCacheTTL: 2_678_400,
+  },
+  async headers() {
+    return [
+      {
+        // Content-hashed file names (`npm run thumbnails:bundled`): a changed
+        // photo gets new URLs, so these never need revalidating.
+        source: "/tool-images/thumbs/:file*",
+        headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
+      },
+    ];
   },
 };
 
