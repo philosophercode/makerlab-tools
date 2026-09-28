@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getCatalogTools } from "../catalog";
 import { createMaintenanceLog } from "../data/maintenance";
+import { invalidateMaintenanceHistory } from "../revalidate";
 import { buildUnitLookup, findUnit } from "./helpers";
 import type {
   Capability,
@@ -141,6 +142,9 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
       // upload route moves to Blob this is the normal case, because the ids in
       // the hint are still Notion file_upload ids and no `attachments` row
       // answers to them.
+      // The tool page's maintenance history lists tickets; it is cached.
+      invalidateMaintenanceHistory();
+
       const photosLost = photoIds.length > 0 && record.photosAttached === 0;
       if (photosLost) {
         console.warn(

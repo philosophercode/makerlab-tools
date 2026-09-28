@@ -17,6 +17,7 @@ import { IMAGE_NOT_ATTACHED, prepareApprovalImage, type PreparedApprovalImage } 
 import { requestManualArchive } from "../manuals/trigger";
 import { requestMirrorPush } from "../mirror/trigger";
 import { invalidateCatalog } from "../revalidate";
+import { scheduleThumbnails } from "../images/schedule-thumbnails";
 
 /**
  * Approving a researched item, with what approval owes afterwards (spec §5.4
@@ -190,6 +191,9 @@ export async function approveAndRecord(
     : true;
 
   invalidateCatalog();
+  // The new tool's photos — the chosen product image, promoted chat photos —
+  // get their thumbnails once this has answered.
+  scheduleThumbnails({ owner: { ownerType: "tool", ownerId: approved.toolId } });
   await requestMirrorPush({ db: options.db });
   await requestManualArchive(approved.resourceIds);
 

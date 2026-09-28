@@ -168,7 +168,9 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   const heading = page.getByRole("heading", { name: domino.name, level: 2 });
   await expect(heading).toBeVisible({ timeout: 15_000 });
   const cover = page.locator('a[data-slot="tool-card"]').filter({ has: heading }).locator("img");
-  await expect(cover).toHaveAttribute("src", /\/api\/dev-blob\/.+\.png$/);
+  // The PNG itself until approval's thumbnails land (written after it
+  // answers), then their WebP fallback beside it under thumbs/.
+  await expect(cover).toHaveAttribute("src", /\/api\/dev-blob\/.+\.(png|webp)$/);
   await expect
     .poll(() => cover.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth), {
       timeout: 15_000,

@@ -109,6 +109,10 @@ export function transformRow(
     if (uploaded) {
       row.blob_pathname = uploaded.pathname;
       row.public_url = uploaded.access === "public" ? uploaded.url : null;
+      // Local thumbnails are not uploaded: the hosted copy renders its own
+      // (`npm run thumbnails:backfill` against it) and shows the original
+      // until then.
+      if ("thumbnails" in row) row.thumbnails = null;
     }
   }
 

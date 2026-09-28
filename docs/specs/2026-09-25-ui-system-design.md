@@ -1534,3 +1534,64 @@ As built (same branch), where the build refined the plan above:
 - **Not done:** the push-aside panel (above); `ToolInput` / `ToolOutput`
   for curation turns (would add Shiki); the user's attached photos are still
   not drawn in their message (they never were).
+
+### 2026-09-28 — Performance: thumbnails, lazy panels, font faces, caching
+
+Owner goal: the site as fast as it can be. Lighthouse 12 on production that
+day: home 65 mobile / 90 desktop with **27 MB / 55 MB** transferred and a
+63.5 s mobile LCP; a tool page 85 mobile. Images were ~99% of the bytes: the
+gallery rendered `ToolImage` with `unoptimized`, so every card fetched the
+original 1–2.5 MB PNG (up to 2500 px) or a 2.4 MB phone photo from Blob for a
+~180 px slot. What changed (v5/AGENTS.md "Images, caching and page weight"
+is the working reference):
+
+- **Thumbnails** at 160 / 320 / 640 px in AVIF and WebP, resize only (framing,
+  alpha and margins as approved), drawn by `ToolImage` as a `<picture>` with
+  real `sizes`, `width`/`height`, lazy below the fold, the gallery's first row
+  and the tool page's hero eager and `fetchpriority="high"`. Bundled photos'
+  thumbnails are committed, content-hashed and served immutable
+  (`npm run thumbnails:bundled`, re-run when a PNG changes; a test fails until
+  it is). Blob photos get theirs after upload, approval and refresh
+  (`attachments.thumbnails`, migration `0020`), existing ones through
+  `npm run thumbnails:backfill` (dry run by default). Without thumbnails the
+  image falls back to `next/image`, now optimized. 1280 px was left out: no
+  slot is wider than ~264 CSS px, so 640 covers 2.4× screens.
+- **A tool with no photo requests nothing** (`imageSrc: ""` → the empty
+  plate); it used to request a guessed PNG that 404ed.
+- **Less JavaScript before the first paint:** the chat panel (AI SDK, zod,
+  the sheet), the ⌘K dialog (cmdk) and the gallery's table view (TanStack
+  Table) load when first opened (preloaded on hover/focus) and stay mounted;
+  the home page sends only what the gallery reads per tool (`GalleryTool`).
+- **Fonts** split by `unicode-range` into a preloaded Latin face and an
+  Extended face (Latin Extended, Cyrillic) fetched only when needed — 88 KB
+  instead of 146 KB on every page. The language picker draws native names in
+  the system font so English pages never fetch the Extended faces.
+- **Best practices:** an SVG icon (`app/icon.svg`) ends the `/favicon.ico` 404
+  and its console error. Not changed: 11 px labels (`text-label`, the demo
+  banner) fail Lighthouse's "legible font size" on mobile — a type-scale
+  decision, not a quick fix.
+- **Caching:** public pages stay partial prerenders with tag invalidation on
+  every write. One gap fixed: the tool page's maintenance history is cached
+  with the catalogue but a new or worked ticket never invalidated it; it now
+  also carries a `maintenance` tag that `report_issue` and `writeTicket` drop.
+  The page body still renders per request because the locale is a cookie
+  read at the root — fully static public pages need locale routing that
+  does not read it there (not done).
+
+Measured with `next build && next start` on a PGlite demo seeded with the
+101 bundled photos' names (local only), Lighthouse 12 headless, median of
+three:
+
+| | Before | After |
+|---|---|---|
+| Home, mobile | perf 75, LCP 44.0 s, 27.1 MB, 93 requests | perf 91, LCP 3.5 s, 0.85 MB, 91 requests |
+| Home, desktop | perf 75, LCP 8.5 s, 54.3 MB, 164 requests | perf 100, LCP 0.7 s, 0.93 MB, 162 requests |
+| Tool page, mobile | perf 83, LCP 4.7 s, 2.14 MB | perf 91, LCP 3.5 s, 0.45 MB |
+| Tool page, desktop | perf 89, LCP 2.2 s, 2.14 MB | perf 100, LCP 0.7 s, 0.44 MB |
+| Best practices | 96 / 93 (mobile tool) | 100 / 96 (mobile tool: 11 px labels) |
+
+JavaScript on first load: 386 → 223 KB (home). Tests: unit tests for the
+URL scheme, the renderer, both scripts, `toolImage` selection, `ToolImage`,
+the lazy chat panel and table, the sweep deleting thumbnails, `data:push`
+nulling them and the maintenance tag; the intake E2E now sees the approved
+image's thumbnails written after approval.

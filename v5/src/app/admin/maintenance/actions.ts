@@ -17,10 +17,11 @@ import { type MaintenanceActionResult, type TicketPatch } from "./action-result"
  * progress" is the most ordinary edit in the lab. `maintenance_logs` carries
  * `updated_by` and `updated_at`, which is the record this change earns.
  *
- * **And no cache invalidation.** Nothing cached reads a ticket: the catalogue
- * shows unit *status*, which is the tool editor's field and a different write.
- * Busting the catalogue here would cost a full re-read every time somebody
- * ticked a box.
+ * **And no catalogue invalidation.** The catalogue shows unit *status*, which
+ * is the tool editor's field and a different write; busting it here would
+ * cost a full re-read every time somebody ticked a box. The one cached read
+ * of tickets — a tool page's maintenance history — has its own tag, which
+ * `writeTicket` drops (`invalidateMaintenanceHistory`).
  *
  * **But it does tell the Notion mirror.** The mirror carries every maintenance
  * log (§3.8), so a ticket's status, priority, assignee or resolution is a

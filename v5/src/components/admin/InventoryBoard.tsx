@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { matchSorter } from "match-sorter";
 import type { ColumnDef, RowSelectionState, VisibilityState } from "@tanstack/react-table";
 import type { InventoryRow, ToolState } from "../../lib/data/inventory";
+import { thumbnailUrl } from "../../lib/images/thumbnail-urls";
 import type { UnitStatus } from "../../lib/db/schema/vocabulary";
 import type { QueueRefreshAction } from "../../app/admin/refresh/action-result";
 import { Button } from "@/components/ui/button";
@@ -434,7 +435,20 @@ function Thumb({ row, label }: { row: InventoryRow; label: string }) {
   }
   return (
     <span className="relative block size-6 overflow-hidden border border-border bg-muted">
-      <Image src={row.photoUrl} alt="" fill sizes="24px" style={{ objectFit: "cover" }} unoptimized />
+      {row.photoThumbnails ? (
+        // The smallest pre-rendered width (160px WebP, a few KB) rather than
+        // the original, which can be megabytes for a 24px icon.
+        // eslint-disable-next-line @next/next/no-img-element -- a fixed thumbnail file; nothing for next/image to do
+        <img
+          src={thumbnailUrl(row.photoThumbnails, row.photoThumbnails.widths[0], "webp")}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      ) : (
+        <Image src={row.photoUrl} alt="" fill sizes="24px" style={{ objectFit: "cover" }} unoptimized />
+      )}
     </span>
   );
 }

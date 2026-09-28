@@ -50,7 +50,14 @@ export const CATALOG_TAG = "catalog";
 /** Every cached project read — the gallery and each project page. */
 export const PROJECTS_TAG = "projects";
 
-/** Tags a full refresh has to clear. */
+/**
+ * The tool page's maintenance history (`getToolMaintenanceHistory`), which is
+ * tagged with the catalogue *and* this: a ticket filed or worked changes the
+ * history without touching the catalogue, so it drops only this.
+ */
+export const MAINTENANCE_TAG = "maintenance";
+
+/** Tags a full refresh has to clear. `CATALOG_TAG` covers the maintenance history too. */
 export const ALL_TAGS = [CATALOG_TAG, PROJECTS_TAG] as const;
 
 /**
@@ -70,4 +77,17 @@ export function invalidateCatalog(): void {
 /** Drop the cached project gallery. */
 export function invalidateProjects(): void {
   revalidateTag(PROJECTS_TAG, EXPIRE_NOW);
+}
+
+/**
+ * Drop the cached maintenance histories, and nothing else. Never throws: a
+ * ticket that landed is not un-landed by a cache that could not be told (the
+ * history then catches up when its cache expires).
+ */
+export function invalidateMaintenanceHistory(): void {
+  try {
+    revalidateTag(MAINTENANCE_TAG, EXPIRE_NOW);
+  } catch (err) {
+    console.error("[revalidate] could not invalidate the maintenance history", err);
+  }
 }

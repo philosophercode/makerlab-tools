@@ -3,6 +3,7 @@ import "server-only";
 import type { Identity } from "../auth/identity";
 import { updateMaintenanceLog, type MaintenanceLogPatch } from "../data/maintenance";
 import { requestMirrorPush } from "../mirror/trigger";
+import { invalidateMaintenanceHistory } from "../revalidate";
 import { runQueueWrite, type QueueActionResult } from "./queue-write";
 
 /**
@@ -11,8 +12,9 @@ import { runQueueWrite, type QueueActionResult } from "./queue-write";
  * `runQueueWrite` path the admin page uses").
  *
  * Gate (`maintenance.manage`, the admin action ceiling), write, then tell the
- * Notion mirror, which carries every log. No audit event and no cache
- * invalidation, for the reasons `app/admin/maintenance/actions.ts` gives.
+ * Notion mirror, which carries every log, and drop the tool pages' cached
+ * maintenance history (a ticket's status is on it). No audit event, for the
+ * reasons `app/admin/maintenance/actions.ts` gives.
  */
 
 /** The page the change refreshes. */
@@ -31,6 +33,7 @@ export async function writeTicket(
     identity: options.identity,
     write: (identity) => updateMaintenanceLog(input.logId, input.patch, { actorUserId: identity.userId }),
     afterCommit: async () => {
+      invalidateMaintenanceHistory();
       await requestMirrorPush();
       return undefined;
     },

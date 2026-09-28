@@ -128,6 +128,16 @@ describe("report_issue — the ticket that lands", () => {
     expect(row.dateReported).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
+  it("drops the tool pages' cached maintenance history, and only it, once the ticket lands", async () => {
+    const { revalidateTag } = await import("next/cache");
+    vi.mocked(revalidateTag).mockClear();
+
+    await file(issue({ unit_label: "Form 4 // A" }));
+
+    expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("maintenance", { expire: 0 });
+    expect(vi.mocked(revalidateTag)).not.toHaveBeenCalledWith("catalog", expect.anything());
+  });
+
   it("files a ticket unlinked when the unit label resolves to nothing", async () => {
     const { result, row } = await file(issue({ unit_label: "Prusa #99" }));
 
