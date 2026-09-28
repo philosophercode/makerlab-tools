@@ -5,6 +5,7 @@ import { AdminNotice } from "../../components/admin/AdminNotice";
 import { AskAssistantButton } from "../../components/chat/AskAssistantButton";
 import { PaletteScope } from "../../components/palette/palette-scope";
 import { EmptyState } from "../../components/system/EmptyState";
+import { ScopedMessages } from "../../components/ScopedMessages";
 import { surfacesFor } from "../../lib/admin/surfaces";
 import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
 import { can, canReachAdmin } from "../../lib/auth/permissions";
@@ -56,7 +57,10 @@ export default async function AdminLayout({
       </h1>
 
       <Suspense fallback={<EmptyState>{t("loading")}</EmptyState>}>
-        <AdminGate>{children}</AdminGate>
+        {/* The admin client translations, which public pages never receive. */}
+        <ScopedMessages scope="admin">
+          <AdminGate>{children}</AdminGate>
+        </ScopedMessages>
       </Suspense>
     </main>
   );
