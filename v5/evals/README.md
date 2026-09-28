@@ -190,7 +190,7 @@ Kept small on purpose. Structural assertions do almost all the useful work.
 | `no_unknown_tools` | — | Every machine the answer *offers* exists in the fixture |
 | `called_tool` | `value: get_unit_details` | That tool appears in the recorded tool calls |
 | `not_called_tool` | `value: propose_change` | That tool never appears in the recorded tool calls |
-| `contains_all` | `value: ["gloves"]` | Every literal is present (case-insensitive) |
+| `contains_all` | `value: ["gloves"]` | Every literal is present (case-insensitive, ignoring markdown emphasis) |
 | `not_contains_any` | `value: ["yes, we have"]` | None of the literals is present |
 | `no_fabricated_specs` | `fields: [build_volume]` | Every number attributed to those fields matches the fixture |
 | `cites_resource` | `value: "Trotec Speedy 400 SOP"` (optional) | The answer references a document attached to the machine |
