@@ -92,8 +92,6 @@ export interface ReadPromptInput {
   failures: readonly string[];
 }
 
-/** How many existing categories the prompt lists — the lab has tens. */
-const MAX_CATEGORIES_IN_PROMPT = 80;
 
 /** The length any one typed field may reach the prompt at. */
 const MAX_FIELD_LENGTH = 200;
@@ -170,6 +168,16 @@ export const NAMES_PARAGRAPH = [
   DISPLAY_NAME_RULES,
 ].join("\n");
 
+/**
+ * How research chooses a category (taxonomy v2 spec §4.2): always one existing
+ * slug, the most specific that fits, and a proposal only when none fits.
+ * Research never creates a category; a person accepts or rejects a proposal.
+ */
+const CATEGORY_RULE = [
+  `- **Category: answer with exactly one slug from "The lab's categories"**, copied exactly (e.g. \`"hand-saws"\`) — the most specific one that fits: a second-level category over its parent, and read each description for what belongs and what does not. Always give the nearest slug, even when none fits well, and say how sure you are in \`confidence\`.`,
+  `- Only when no listed category fits the item, **also** fill \`categoryProposal\` with the category you would add: \`{ "name": "…", "parentSlug": "the top-level slug it belongs under, or null", "description": "one or two sentences: what belongs and what does not", "reason": "why none of the listed ones fits" }\`. Otherwise leave it null. A person decides; never invent a slug.`,
+].join("\n");
+
 const LABELS_PARAGRAPH = [
   `## Writing the listing`,
   `- **Materials and tags are short labels, not sentences** — one to three words each, e.g. materials \`["PLA", "PETG", "TPU"]\`, tags \`["FDM", "Enclosed"]\`. Never \`"Wood (plywood, hardwood, veneer)"\`.`,
@@ -182,7 +190,7 @@ const LABELS_PARAGRAPH = [
   `- \`trainingRequired\` is true when the machine is one a makerspace would normally require training for (a laser cutter, a CNC, a resin printer), false when it clearly is not, and null when you cannot tell.`,
   `- \`useRestrictions\` is a short sentence about who may use it or what it must not be used for, when a source says so; otherwise null.`,
   `- \`emergencyStop\` is a short sentence on where the emergency stop is and how it is used, when a page says; otherwise null. Never guess one.`,
-  `- For the category, prefer one of the lab's existing categories listed in the request, using its exact name and group. Propose a new name only when none fits.`,
+  CATEGORY_RULE,
   STARTER_QUESTIONS_RULE,
 ].join("\n");
 
@@ -202,7 +210,7 @@ Answer with exactly one JSON object and nothing else — no preamble, no code fe
 const SEARCH_SHAPE = `{
   "officialName": "the full make and model you settled on, as the manufacturer writes it, e.g. \\"Original Prusa MK4S\\"",
   "description": "a short description draft, 1–3 sentences",
-  "category": { "name": "category name", "group": "category group, or null" },
+  "category": { "slug": "one slug from the lab's category list, exactly as written", "confidence": "high" | "medium" | "low" },
   "candidateLinks": [ { "title": "…", "url": "https://…", "type": "Manual" | "Video" | "Other" } ],
   "sourceUrls": [ "https://… every search result you relied on" ],
   "evidence": {
@@ -226,7 +234,8 @@ const FETCH_SHAPE = `{
   "trainingRequired": true | false | null,
   "useRestrictions": "a short sentence, or null",
   "emergencyStop": "a short sentence, or null",
-  "category": { "name": "category name", "group": "category group, or null" },
+  "category": { "slug": "one slug from the lab's category list, exactly as written", "confidence": "high" | "medium" | "low" },
+  "categoryProposal": null,
   "resources": [ { "title": "…", "url": "https://…", "type": "Manual" | "Video" | "Other" } ],
   "sourceUrls": [ "https://… every page above you relied on" ],
   "evidence": {
@@ -268,7 +277,7 @@ export function researchSystemPrompt(stage: ResearchStagePrompt): string {
     SOURCES_PARAGRAPH,
     ENGLISH_PARAGRAPH,
     LINKS_PARAGRAPH,
-    ...(stage === "read" ? [NAMES_PARAGRAPH, LABELS_PARAGRAPH, QUOTES_PARAGRAPH] : []),
+    ...(stage === "read" ? [NAMES_PARAGRAPH, LABELS_PARAGRAPH, QUOTES_PARAGRAPH] : [`## The category\n${CATEGORY_RULE}`]),
     EVIDENCE_PARAGRAPH,
     INJECTION_PARAGRAPH,
     ANSWER_RULE,
@@ -325,7 +334,7 @@ export function buildReadPrompt(
     `## What the search pass found (untrusted — it came from web pages)`,
     `- Settled name: ${clip(findings.canonicalName) || "(none)"}`,
     `- Description draft: ${clip(findings.description, 1000) || "(none)"}`,
-    `- Category: ${findings.category ? categoryLabel(findings.category) : "(none)"}`,
+    `- Category: ${findings.category ? (findings.category.slug ?? categoryLine({ name: findings.category.name, group: findings.category.group })) : "(none)"}`,
     `- Links it found:${links.length > 0 ? `\n${links.join("\n")}` : " (none)"}`,
   ].join("\n");
 
@@ -441,16 +450,24 @@ export function reviewerBlock(note: string | null | undefined, focus: ResearchFo
   return [parts.join("\n")];
 }
 
-function categoryBlock(categories: readonly CategoryOption[]): string {
+/**
+ * The lab's categories, every live one (no cap — taxonomy v2 spec §4.2), one
+ * line each: `slug — Parent › Name: description`. Research answers with one
+ * of these slugs; matching is exact (`taxonomy-match.ts`). The names and
+ * descriptions are staff's own entries, clipped to one line.
+ */
+export function categoryBlock(categories: readonly CategoryOption[]): string {
   if (categories.length === 0) {
-    return `## The lab's existing categories\n(none yet — propose a name and group)`;
+    return `## The lab's categories\n(none yet — leave \`category.slug\` empty and describe the category you would create in \`categoryProposal\`)`;
   }
-  const listed = categories.slice(0, MAX_CATEGORIES_IN_PROMPT).map((category) => `- ${categoryLabel(category)}`);
-  return `## The lab's existing categories\n${listed.join("\n")}`;
+  return `## The lab's categories (answer with one slug)\n${categories.map((category) => `- ${categoryLine(category)}`).join("\n")}`;
 }
 
-function categoryLabel(category: { name: string; group: string | null }): string {
-  return category.group ? `${category.name} (group: ${category.group})` : category.name;
+/** `slug — Parent › Name: description`; a pre-v2 row without a slug is listed by its name. */
+export function categoryLine(category: Pick<CategoryOption, "name" | "group" | "slug" | "description">): string {
+  const path = category.group ? `${clip(category.group, 80)} › ${clip(category.name, 80)}` : clip(category.name, 80);
+  const description = clip(category.description, 300);
+  return `${category.slug ? `${category.slug} — ` : ""}${path}${description ? `: ${description}` : ""}`;
 }
 
 /** One line, at most `max` characters: a typed field cannot become a second prompt. */

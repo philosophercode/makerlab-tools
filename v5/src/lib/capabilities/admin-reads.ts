@@ -4,6 +4,7 @@ import { listProjectsForModeration } from "../data/projects";
 import { listUsers } from "../data/users";
 import { fenceUntrusted, OTHERS_TEXT_NOTE } from "../web/fence";
 import type { Capability, CapabilityTool } from "./types";
+import { getValueReportTool } from "./value-report";
 
 /**
  * The reads the generated action tools need (assistant–GUI parity spec §3.4):
@@ -145,5 +146,7 @@ export const adminReads: Capability = {
     findPeopleTool as unknown as CapabilityTool<unknown, unknown>,
     listCorrectionsTool as unknown as CapabilityTool<unknown, unknown>,
     listProjectQueueTool as unknown as CapabilityTool<unknown, unknown>,
+    // The value report's summary (usage insight spec amendment "Value report"): chat only, insights.view.
+    getValueReportTool as unknown as CapabilityTool<unknown, unknown>,
   ],
 };

@@ -236,7 +236,8 @@
     "browseTools": "Browse tools",
     "mcpHeading": "Connect an AI assistant",
     "mcpBody": "The catalog is also available to AI assistants such as Claude, ChatGPT and Codex over MCP, at this site's /api/mcp address. Browsing needs no account. To let an assistant file reports as you, with your role's permissions and nothing more, sign in with Google from the assistant; a personal access token is there for clients that can't.",
-    "mcpLink": "See the MCP server and its tools"
+    "mcpLink": "See the MCP server and its tools",
+    "usageBody": "To improve the lab, we keep anonymous usage counts — which tools and manuals are asked about and which questions go unanswered — never who asked."
   },
   "chat": {
     "openAria": "Open the MakerLAB Assistant",
@@ -827,7 +828,12 @@
       "invalid_body": "That request did not have the expected shape.",
       "confirmation_mismatch": "The name typed did not match, so nothing was changed.",
       "only_on_people_page": "That change can only be made on the People page.",
-      "not_offered": "The assistant can no longer make this change, so nothing was changed. Make it on its page in the app."
+      "not_offered": "The assistant can no longer make this change, so nothing was changed. Make it on its page in the app.",
+      "already_decided": "Somebody decided this already. The page now shows what they chose.",
+      "has_children": "This category still has categories under it. Move or merge those first.",
+      "not_empty": "Tools are still in this category. Merge it into another so they have somewhere to go.",
+      "retired_target": "That category is retired. Choose a live one, or restore it first.",
+      "invalid_decision": "That decision does not apply here: an audit flag can be merged or dismissed, and a merge needs a category."
     },
     "warnings": {
       "audit_unavailable": "Saved, but this change could not be written to the audit log. Tell whoever runs the deployment.",
@@ -1193,7 +1199,14 @@
       "filtersLabel": "Filter the intake queue",
       "search": "Search the queue",
       "searchPlaceholder": "Name, brand or who identified it",
-      "statusFacet": "Status"
+      "statusFacet": "Status",
+      "categoryConfidence": "Research chose this category with {level} confidence.",
+      "categoryConfidenceLevel": {
+        "high": "high",
+        "medium": "medium",
+        "low": "low"
+      },
+      "proposeNewCategory": "Also propose a new category, “{name}”, for review on the Taxonomy page (the tool moves there if it is accepted)"
     },
     "mirror": {
       "unavailable": "The mirror's settings could not be read. The database may be unreachable — try again in a moment.",
@@ -1762,7 +1775,9 @@
         "projects": "Projects",
         "proposals": "Assistant proposals",
         "users": "People",
-        "mirror": "Notion mirror"
+        "mirror": "Notion mirror",
+        "taxonomy": "Taxonomy",
+        "insights": "Insights"
       }
     },
     "home": {
@@ -1809,7 +1824,9 @@
         "connected": "Connected",
         "paused": "Paused",
         "failed": "Last push failed"
-      }
+      },
+      "taxonomyUnit": "category proposals waiting",
+      "insightsUnit": "unanswered questions"
     },
     "facts": {
       "tools": "{count, plural, one {# tool} other {# tools}}",
@@ -1838,7 +1855,9 @@
       "researching": "{count, plural, one {# researching} other {# researching}}",
       "importsReady": "{count, plural, one {# import ready} other {# imports ready}}",
       "lastPush": "Last push {date}",
-      "unreadable": "Counts could not be read"
+      "unreadable": "Counts could not be read",
+      "categories": "{count, plural, one {# category} other {# categories}}",
+      "topLevel": "{count} top-level"
     },
     "addEquipment": {
       "title": "Add equipment",
@@ -1846,6 +1865,336 @@
       "tabQueue": "Queue",
       "tabImports": "Imports",
       "importList": "Import a list"
+    },
+    "taxonomyTitle": "Taxonomy",
+    "taxonomyLede": "The category tree research chooses from, and the categories research, assistants and the audit have proposed. Accept, merge or reject a proposal; rename, describe, merge or retire a category.",
+    "taxonomy": {
+      "proposalsHeading": "{count, plural, =0 {No proposals waiting} one {# proposal waiting} other {# proposals waiting}}",
+      "proposalsEmpty": "Nothing is waiting. Research, assistants and the consolidation audit add proposals here; nothing becomes a category until somebody accepts it.",
+      "decidedHeading": "{count, plural, one {# recent decision} other {# recent decisions}}",
+      "decidedLine": "{name}: {status} ({into})",
+      "status": {
+        "pending": "waiting",
+        "accepted": "accepted",
+        "rejected": "rejected",
+        "merged": "merged"
+      },
+      "proposalFor": "Proposal: {name}",
+      "kindNew": "New category",
+      "flag": {
+        "sparse": "Audit: 0–1 tools",
+        "crowded": "Audit: over 25 tools",
+        "duplicate_name": "Audit: same name twice",
+        "review": "Audit"
+      },
+      "source": {
+        "research": "From research",
+        "refresh": "From refresh",
+        "chat": "From the assistant",
+        "mcp": "From an MCP client",
+        "audit": "From the audit",
+        "gui": "From a person"
+      },
+      "reason": "Why: {reason}",
+      "subjectTool": "Prompted by {name}, which waits in its nearest category until this is decided.",
+      "subjectCategory": "About the category {name}.",
+      "nearest": "Research’s nearest existing category: {name}",
+      "decideFor": "Decide the proposal {name}",
+      "accept": "Accept",
+      "mergeInto": "Use this category instead",
+      "mergeFlagged": "Merge into this category",
+      "reject": "Reject",
+      "dismiss": "Dismiss",
+      "chooseCategory": "Choose a category…",
+      "mergeTargetFor": "Category for {name}",
+      "decided": {
+        "accept": "Accepted: the category exists now.",
+        "merge": "Merged.",
+        "reject": "Rejected."
+      },
+      "treeHeading": "Categories",
+      "treeEmpty": "There is no category tree yet. Run npm run taxonomy:migrate -- --apply to create it.",
+      "legacyHeading": "{count, plural, one {# old category} other {# old categories}} not yet migrated",
+      "legacyHint": "Rows from before the v2 tree, still holding tools. Move their tools or merge them into a v2 category.",
+      "uncategorized": "{count, plural, one {# tool has} other {# tools have}} no category: {names}",
+      "retiredHeading": "{count, plural, one {# retired category} other {# retired categories}}",
+      "mergedInto": "merged into {name}",
+      "restore": "Restore",
+      "toolCount": "{count, plural, one {# tool} other {# tools}}",
+      "hiddenFromGallery": "Hidden from the gallery",
+      "legacyGroup": "Old group: {group}",
+      "noDescription": "No description yet — research chooses better with one.",
+      "renameLabel": "Rename {name}",
+      "renameTooltip": "Rename",
+      "describeLabel": "Edit the description of {name}",
+      "describeTooltip": "Edit the description",
+      "nameLabel": "Name",
+      "descriptionLabel": "Description",
+      "descriptionHint": "One to three sentences: what belongs here, and what does not. Research reads this.",
+      "toolsIn": "{count, plural, one {# tool} other {# tools}} — move one",
+      "moveLabel": "Category for {name}",
+      "manageFor": "Manage {name}",
+      "mergeIntoPlaceholder": "Merge into…",
+      "merge": "Merge",
+      "mergeConfirm": "Merge {from} into {into} — its tools move and it is retired",
+      "retire": "Retire",
+      "retireNeedsEmpty": "Only an empty category can be retired; merge one that holds tools.",
+      "proposeOpen": "Propose a category",
+      "proposeHeading": "Propose a category",
+      "parentLabel": "Under",
+      "parentHint": "A top-level category, or none for a new top-level one. The tree is two levels deep.",
+      "topLevel": "(top level)",
+      "reasonLabel": "Why none of the existing ones fits",
+      "proposeSubmit": "Propose",
+      "cancel": "Cancel",
+      "proposed": "Proposed “{name}”. It waits above for a decision."
+    },
+    "insights": {
+      "title": "Insights",
+      "lede": "What the lab asks about, which manuals answer it, and what the assistant could not. Anonymous counts: nothing here says who asked.",
+      "facts": {
+        "period": "Last {days} days",
+        "since": "Counting since {date}",
+        "staffIncluded": "Staff included",
+        "staffExcluded": "Staff left out",
+        "approximate": "Counts are approximate"
+      },
+      "controls": {
+        "label": "Period and audience",
+        "period": "Period",
+        "days": "{days} days",
+        "staff": "Include staff",
+        "staffOn": "Staff included — leave them out",
+        "staffOff": "Include staff"
+      },
+      "empty": "Nothing counted yet. Counting started when this version was deployed; views, questions and citations appear here as people use the site.",
+      "unreadable": "The usage counts could not be read just now. Nothing has been lost; try again in a moment.",
+      "summary": {
+        "label": "Totals for the period",
+        "chatTurns": "Assistant questions (app)",
+        "mcpCalls": "MCP tool calls",
+        "toolViews": "Tool page views",
+        "qrScans": "QR scans on machines",
+        "kioskScreens": "Kiosk screen loads",
+        "kioskScans": "Kiosk QR arrivals",
+        "citations": "Manual citations",
+        "gaps": "Unanswered",
+        "answered": "Answered",
+        "answeredValue": "{percent}%"
+      },
+      "tools": {
+        "heading": "Tools",
+        "tabsLabel": "Which tools",
+        "mostAsked": "Most asked about",
+        "neverAsked": "Never asked about",
+        "tableLabel": "Tools by how often they were asked about, with views, QR scans, citations and unanswered questions",
+        "quietLabel": "Published tools nobody asked about or viewed in the period",
+        "columnTool": "Tool",
+        "columnAsked": "Asked",
+        "columnChat": "In the app",
+        "columnMcp": "Over MCP",
+        "columnViews": "Views",
+        "columnQr": "QR",
+        "columnCitations": "Citations",
+        "columnGaps": "Unanswered",
+        "deletedTool": "Deleted tool",
+        "noTool": "No particular tool",
+        "empty": "No tool was asked about or viewed in this period.",
+        "quietEmpty": "Every published tool was asked about or viewed in this period.",
+        "mobileCounts": "Asked {asked} · views {views} · QR {qr}"
+      },
+      "kinds": {
+        "heading": "What kinds of questions",
+        "note": "Sorted by keywords in the question, not by a model — a trend, not a verdict on any one question.",
+        "operate": "How to use",
+        "debug": "Something is wrong",
+        "create": "What to make, which tool",
+        "other": "Other",
+        "series": "{kind}: {total} in the period"
+      },
+      "heatmap": {
+        "heading": "Busiest times",
+        "note": "Assistant questions and tool page views by hour, in lab time ({timeZone}).",
+        "tableLabel": "Assistant questions and tool page views by day of the week and hour",
+        "day": "Day",
+        "cell": "{day} {hour}:00 — {count}",
+        "days": {
+          "0": "Sun",
+          "1": "Mon",
+          "2": "Tue",
+          "3": "Wed",
+          "4": "Thu",
+          "5": "Fri",
+          "6": "Sat"
+        }
+      },
+      "manuals": {
+        "heading": "Manuals cited",
+        "tableLabel": "Manuals the assistant cited, how often, and the pages cited most",
+        "columnManual": "Manual",
+        "columnTool": "Tool",
+        "columnCitations": "Citations",
+        "columnPages": "Top pages",
+        "page": "p. {page} ({count})",
+        "deleted": "Removed manual",
+        "empty": "No manual was cited in this period."
+      },
+      "gaps": {
+        "heading": "Unanswered",
+        "note": "Questions the assistant could not answer, each once with how often it was asked. The wording is scrubbed of emails, phone numbers and IDs, shown only here, and deleted 30 days after it was last asked.",
+        "facts": "{open} open · {filed} filed · {dismissed} dismissed",
+        "empty": "No open unanswered questions.",
+        "listLabel": "Unanswered questions",
+        "asked": "{count, plural, one {asked once} other {asked # times}}",
+        "lastSeen": "last {date}",
+        "kind": {
+          "not_in_catalog": "Not in the catalog",
+          "no_manual_passage": "Manual has no answer",
+          "no_search_results": "Search found nothing",
+          "honest_absence": "Assistant said it does not know"
+        },
+        "addManual": "Add a manual",
+        "addManualFor": "Add a manual to {tool}",
+        "fileCorrection": "File as a correction",
+        "fileCorrectionFor": "File “{question}” as a correction",
+        "filed": "Filed",
+        "filedMessage": "Filed as a correction. It is on the Corrections queue.",
+        "dismiss": "Dismiss",
+        "dismissFor": "Dismiss “{question}”",
+        "dismissed": "Dismissed",
+        "dismissedMessage": "Dismissed. It comes back if it is asked three more times."
+      },
+      "tabs": {
+        "label": "Insights views",
+        "usage": "Usage",
+        "value": "Value report"
+      },
+      "value": {
+        "title": "Value report",
+        "lede": "What the assistant saved the lab, estimated from anonymous usage counts — a page to print for whoever funds it.",
+        "metaTitle": "Value report",
+        "reportTitle": "{assistant} — {period} value report",
+        "customPeriod": "{from} – {to}",
+        "termName": "{term, select, spring {Spring} summer {Summer} fall {Fall} other {Term}} {year}",
+        "termKind": "{term, select, spring {Spring} summer {Summer} fall {Fall} other {Term}}",
+        "dates": "{from} – {to}",
+        "toDate": "to date (through {today})",
+        "estimateBadge": "Estimate",
+        "estimateNote": "Estimates from anonymous usage counts and the lab's own assumptions (below). Staff activity is left out. Nothing here says who asked.",
+        "since": "Counting started {date}; earlier days have no data.",
+        "unreadable": "The value report could not be read just now. Nothing has been lost; try again in a moment.",
+        "facts": {
+          "period": "{period}",
+          "staffExcluded": "Staff left out",
+          "estimate": "Estimates"
+        },
+        "picker": {
+          "label": "Report period",
+          "terms": "Term",
+          "custom": "Custom range",
+          "from": "From",
+          "to": "To",
+          "show": "Show"
+        },
+        "actions": {
+          "label": "Export",
+          "print": "Print or save as PDF",
+          "csv": "Download CSV"
+        },
+        "metrics": {
+          "label": "Headline numbers",
+          "questionsAnswered": "Questions answered",
+          "handledShare": "Handled without staff",
+          "staffHoursSaved": "Staff hours saved",
+          "dollarValue": "Estimated value",
+          "afterHoursShare": "Asked outside staffed hours",
+          "handledDetail": "{handled} of {total} questions",
+          "hoursDetail": "at {minutes} min per question",
+          "valueDetail": "at {cost} per staff hour",
+          "afterDetail": "{count} questions",
+          "questionsDetail": "{app} in the app · {mcp} over MCP",
+          "none": "—"
+        },
+        "compare": {
+          "label": "vs {period}",
+          "up": "▲ {change}",
+          "down": "▼ {change}",
+          "same": "no change",
+          "new": "none in {period}",
+          "points": "{value} pts"
+        },
+        "formulas": {
+          "heading": "How these numbers are calculated",
+          "questions": "Questions answered = {app} assistant questions in the app + {mcp} over MCP ({lookups} catalogue lookups by outside assistants ÷ {perQuestion} lookups per question, rounded down) = {total}.",
+          "questionsNoMcp": "Questions answered = {app} assistant questions in the app. MCP lookups by outside assistants ({lookups}) are not counted, as the lab chose.",
+          "handled": "Handled without staff = {app} app questions − {unanswered} the assistant could not answer ({kinds}) + {mcp} MCP questions = {handled}, or {share} of questions. MCP has no “could not answer” signal, so every MCP question counts as handled.",
+          "handledNoMcp": "Handled without staff = {app} app questions − {unanswered} the assistant could not answer ({kinds}) = {handled}, or {share} of questions.",
+          "noKinds": "none counted",
+          "hours": "Staff hours saved ≈ {handled} handled questions × {minutes} minutes a staff member would otherwise spend ÷ 60 = {hours} hours.",
+          "value": "Estimated value ≈ {hours} hours × {cost} loaded staff cost per hour = {value}.",
+          "afterHours": "Outside staffed hours = {after} of {total} questions were asked when staff are not in ({staffed}, {timeZone}) = {share}. Hours are counted in lab time, so daylight saving moves nothing.",
+          "note": "Every count is anonymous: questions are counted, never stored with who asked. Staff testing is left out. Counts can be low (a blocked request, a failed write), never high."
+        },
+        "breakdown": {
+          "tools": "Most asked-about tools",
+          "toolsEmpty": "No tool was asked about in this period.",
+          "toolAsked": "{count, plural, one {# question} other {# questions}}",
+          "deletedTool": "Deleted tool",
+          "kinds": "What kinds of questions",
+          "followUp": "Follow-up and upkeep",
+          "citations": "Manual pages cited in answers",
+          "manualsCited": "Manuals cited",
+          "unansweredFiled": "Unanswered questions filed as catalogue corrections",
+          "unansweredFixed": "… of those, fixed",
+          "manualsAdded": "Manuals made searchable",
+          "ticketsFiled": "Problem reports filed through the assistant",
+          "ticketsResolved": "… of those, resolved",
+          "medianDays": "Median days to resolve",
+          "medianDaysValue": "{days, plural, =0 {same day} one {# day} other {# days}}"
+        },
+        "assumptionsLine": "Assumptions set by the lab: {minutes} min of staff time per question · {cost} per staff hour · staffed {staffed} ({timeZone}).",
+        "assumptionsChanged": "Last changed {date} by {name}.",
+        "assumptionsChangedNoName": "Last changed {date}.",
+        "assumptionsDefault": "These are the defaults; the lab has not set its own.",
+        "assumptionsInvalid": "The saved assumptions could not be read, so the defaults are shown. Save them again below.",
+        "staffed": {
+          "everyDay": "every day",
+          "weekdays": "Mon–Fri",
+          "none": "never",
+          "range": "{days}, {open}–{close}"
+        },
+        "assumptions": {
+          "heading": "Assumptions",
+          "note": "The report's estimates rest on these numbers. Set them to what your lab can defend; every change shows on the report at once.",
+          "readOnly": "Only admins and super admins can change these.",
+          "minutes": "Minutes of staff time per question",
+          "minutesHint": "What answering one question in person would take. 0.5–60.",
+          "cost": "Loaded staff cost per hour (USD)",
+          "costHint": "Wage plus benefits and overhead, per hour.",
+          "days": "Staffed days",
+          "open": "Staff in from",
+          "close": "Staff leave at",
+          "hoursHint": "In lab time ({timeZone}). Questions outside these hours count as after hours.",
+          "terms": "Terms",
+          "termsHint": "Month and day (MM-DD), the same every year. Terms may not overlap.",
+          "termStart": "{term} starts",
+          "termEnd": "{term} ends",
+          "unanswered": "Not handled without staff",
+          "unansweredHint": "Questions the assistant could not answer, by why. A ticked kind is subtracted from the questions handled.",
+          "mcp": "Count questions from outside assistants (MCP)",
+          "mcpPerQuestion": "MCP lookups per question",
+          "mcpHint": "An outside assistant usually searches and then reads a tool: about two lookups make one question.",
+          "save": "Save assumptions",
+          "defaults": "Reset to defaults",
+          "errors": {
+            "invalid": "Check the values: each must be a number in its range.",
+            "terms_overlap": "Two terms overlap. Each day may belong to one term only.",
+            "term_backwards": "A term ends before it starts.",
+            "not_a_date": "A term date is not a real month and day (MM-DD).",
+            "hours_backwards": "Staff must leave after they arrive."
+          }
+        }
+      }
     }
   },
   "account": {
@@ -2191,7 +2540,16 @@
       "mirror_sync_now": "Sync the Notion mirror ({page}) now",
       "mirror_pause": "Pause the Notion mirror ({page})",
       "mirror_resume": "Resume the Notion mirror ({page})",
-      "mirror_disconnect": "Disconnect the Notion mirror ({page})"
+      "mirror_disconnect": "Disconnect the Notion mirror ({page})",
+      "taxonomy_propose": "Propose the category “{name}”",
+      "taxonomy_decide_accept": "Accept the proposed category “{name}”",
+      "taxonomy_decide_merge": "Merge the proposal “{name}” into an existing category",
+      "taxonomy_decide_reject": "Reject the proposed category “{name}”",
+      "taxonomy_merge": "Merge {from} into {into} ({count, plural, one {# tool moves} other {# tools move}})",
+      "taxonomy_edit_category": "Edit the category “{name}”",
+      "taxonomy_retire": "Retire the category “{name}”",
+      "taxonomy_restore": "Restore the category “{name}”",
+      "taxonomy_recategorize_tool": "Move {name} to another category"
     },
     "fields": {
       "role": "Role",
@@ -2232,7 +2590,10 @@
       "quantity": "Units",
       "mergeInto": "Merge into",
       "tools": "Tools",
-      "mirrorPaused": "Mirror"
+      "mirrorPaused": "Mirror",
+      "description": "Description",
+      "retired": "Retired",
+      "categoryProposal": "Proposed category"
     },
     "values": {
       "role": {

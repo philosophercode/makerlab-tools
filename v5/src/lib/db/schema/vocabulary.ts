@@ -257,6 +257,54 @@ export type ActionProposalStatus = (typeof ACTION_PROPOSAL_STATUS)[number];
 export const ACTION_PROPOSAL_SURFACE = ["assistant", "mcp"] as const;
 export type ActionProposalSurface = (typeof ACTION_PROPOSAL_SURFACE)[number];
 
+/**
+ * Usage insight (usage insight spec §4; migration `0022`). What an anonymous
+ * usage event counts — never who caused it.
+ *
+ * - `tool_view` — a tool page seen (the beacon; `source` is `qr` or `direct`).
+ * - `kiosk_view` — the lab status screen loaded (`screen`), or a visitor
+ *   arriving from its QR code (`qr`).
+ * - `chat_turn` — one assistant turn in the app's chat (`question_kind` set).
+ * - `tool_asked` — a tool a turn or an MCP call was about.
+ * - `manual_cited` — a manual passage the answer linked to (`page` set).
+ * - `gap` — a turn the assistant could not answer (`source` is the gap kind).
+ * - `mcp_call` — one MCP tool call (`source` is the tool name).
+ */
+export const USAGE_KINDS = ["tool_view", "kiosk_view", "chat_turn", "tool_asked", "manual_cited", "gap", "mcp_call"] as const;
+export type UsageKind = (typeof USAGE_KINDS)[number];
+
+/**
+ * The only thing an event records about the person: a coarse bucket from their
+ * role (`user` → member; `admin`, `super_admin` → staff). Staff are excluded
+ * from the Insights page by default, so testing does not inflate the counts.
+ */
+export const USAGE_AUDIENCE = ["anonymous", "member", "staff"] as const;
+export type UsageAudience = (typeof USAGE_AUDIENCE)[number];
+
+/** Where an event happened: a page (the beacon, the kiosk), the app's chat, or MCP. */
+export const USAGE_SURFACE = ["web", "chat", "mcp"] as const;
+export type UsageSurface = (typeof USAGE_SURFACE)[number];
+
+/**
+ * What kind of question a chat turn asked, by a keyword heuristic over the
+ * student's message (`lib/usage/question-kind.ts`) — no model call.
+ */
+export const QUESTION_KINDS = ["operate", "debug", "create", "other"] as const;
+export type QuestionKind = (typeof QUESTION_KINDS)[number];
+
+/**
+ * Why a turn could not answer (§5.2). The first three are deterministic
+ * signals from tool results; `honest_absence` is the answer itself saying the
+ * catalogue or manual does not cover it (a phrase heuristic, English only,
+ * until phase 3's `record_gap`).
+ */
+export const GAP_KINDS = ["not_in_catalog", "no_manual_passage", "no_search_results", "honest_absence"] as const;
+export type GapKind = (typeof GAP_KINDS)[number];
+
+/** An unanswered question's place in the queue: waiting, dismissed, or filed as a correction. */
+export const GAP_STATUS = ["open", "dismissed", "filed"] as const;
+export type GapStatus = (typeof GAP_STATUS)[number];
+
 /** True when `value` is one of `list`; narrows the type. */
 export function isOneOf<const T extends readonly string[]>(
   list: T,
@@ -264,3 +312,27 @@ export function isOneOf<const T extends readonly string[]>(
 ): value is T[number] {
   return typeof value === "string" && (list as readonly string[]).includes(value);
 }
+
+/**
+ * What a tool record is (taxonomy v2 spec §3 facets; migration `0023`). A
+ * facet beside the category, so accessories and consumables stop being
+ * categories of their own.
+ */
+export const TOOL_ITEM_KIND = ["equipment", "accessory", "consumable", "fixture"] as const;
+export type ToolItemKind = (typeof TOOL_ITEM_KIND)[number];
+
+/** A category proposal asks for a new category, or asks a person to reconsider one (the audit). */
+export const CATEGORY_PROPOSAL_KIND = ["new_category", "review_category"] as const;
+export type CategoryProposalKind = (typeof CATEGORY_PROPOSAL_KIND)[number];
+
+/** Where a category proposal came from (taxonomy v2 spec §4). */
+export const CATEGORY_PROPOSAL_SOURCE = ["research", "refresh", "chat", "mcp", "audit", "gui"] as const;
+export type CategoryProposalSource = (typeof CATEGORY_PROPOSAL_SOURCE)[number];
+
+/**
+ * `pending` until a person decides: `accepted` (created), `merged` (the tool
+ * went to an existing category instead, or the flagged category was merged),
+ * `rejected`.
+ */
+export const CATEGORY_PROPOSAL_STATUS = ["pending", "accepted", "rejected", "merged"] as const;
+export type CategoryProposalStatus = (typeof CATEGORY_PROPOSAL_STATUS)[number];

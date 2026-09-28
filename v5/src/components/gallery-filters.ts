@@ -102,6 +102,20 @@ export function toGallerySearchParams(state: GalleryState): URLSearchParams {
   return params;
 }
 
+/**
+ * The tools the gallery shows before any facet (taxonomy v2 spec §4.9): a tool
+ * whose category the lab hides from the public gallery by default (Shop
+ * Infrastructure & Supplies — benches, batteries, sanding sheets) is left out,
+ * **unless** the Category facet names that category — so it is one click
+ * away, never gone. Its own page and the assistant's search still find it.
+ */
+export function visibleInGallery<T extends Pick<GalleryTool, "category" | "galleryHidden">>(
+  tools: readonly T[],
+  state: Pick<GalleryState, "category">
+): T[] {
+  return tools.filter((tool) => !tool.galleryHidden || (state.category !== null && tool.category === state.category));
+}
+
 /** True while a facet narrows the gallery (search is said separately). */
 export function hasFacetFilters(state: GalleryState): boolean {
   return Boolean(state.status || state.category || state.material || state.location);
@@ -169,7 +183,7 @@ function groupKeyOf(tool: GalleryTool, group: GalleryGroup): { key: string; labe
     case "category":
       return {
         key: `${tool.category}\u0000${tool.categorySub}`,
-        label: UNKNOWN.has(tool.category) ? tool.categorySub : `${tool.category} › ${tool.categorySub}`,
+        label: UNKNOWN.has(tool.category) || tool.category === tool.categorySub ? tool.categorySub : `${tool.category} › ${tool.categorySub}`,
         order: [tool.category, tool.categorySub],
       };
     case "location":

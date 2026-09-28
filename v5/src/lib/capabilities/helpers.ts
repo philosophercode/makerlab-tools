@@ -94,7 +94,7 @@ export function summarizeTool(tool: MakerLabTool): string {
   return [
     tool.name,
     `id: ${tool.id}`,
-    `${tool.category}${tool.categorySub ? ` > ${tool.categorySub}` : ""}`,
+    `${tool.category}${tool.categorySub && tool.categorySub !== tool.category ? ` > ${tool.categorySub}` : ""}`,
     `${tool.location}${tool.zone ? ` / ${tool.zone}` : ""}`,
     `training: ${tool.trainingLevel}`,
     `status: ${tool.status}`,

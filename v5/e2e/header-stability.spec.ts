@@ -78,10 +78,15 @@ async function headerFits(page: Page): Promise<string[]> {
     if (apart(brand, nav) < 8) problems.push(`brand meets the links (${apart(brand, nav)}px apart)`);
     if (apart(nav, actions) < 8) problems.push(`links meet the controls (${apart(nav, actions)}px apart)`);
     if (header.scrollWidth > header.clientWidth) problems.push(`header is ${header.scrollWidth}px in ${header.clientWidth}px`);
+    // The lockup is two lines by design (the wordmark, then the name and
+    // tagline); its text line must stay one line.
+    const brandText = header.querySelector<HTMLElement>(".brand-text")!;
+    if (brandText.offsetHeight > 24) problems.push(`the brand's name line wraps (${brandText.offsetHeight}px tall)`);
     for (const el of Array.from(header.querySelectorAll<HTMLElement>(".brand-lockup, .primary-nav > a, .primary-nav > button, .primary-nav-profile"))) {
       const label = el.getAttribute("aria-label") ?? el.textContent?.trim();
       // One line: a wrapped label is taller than its own line height allows.
-      if (el.getClientRects().length > 1 || el.offsetHeight > 44) problems.push(`"${label}" wraps (${el.offsetHeight}px tall)`);
+      const tallest = el.classList.contains("brand-lockup") ? 76 : 44;
+      if (el.getClientRects().length > 1 || el.offsetHeight > tallest) problems.push(`"${label}" wraps (${el.offsetHeight}px tall)`);
       if (el.scrollWidth > el.clientWidth + 1) problems.push(`"${label}" is clipped`);
     }
     return problems;
@@ -99,6 +104,45 @@ for (const width of [1024, 1280, 1440]) {
     await page.goto("/admin");
     await expect(page.getByRole("button", { name: /signed in as/i })).toBeVisible({ timeout: 15_000 });
     expect(await headerFits(page), "signed in").toEqual([]);
+  });
+}
+
+/**
+ * The wordmark is the dominant brand mark, at the Director's mockup's size
+ * (identity spec, amendment "Wordmark at the mockup's size"): about a fifth of
+ * a 1440px page, smaller but still large on a phone. The bar is exactly
+ * --nav-height, so the sticky status strip and table headers sit under it, and
+ * the links stay centred.
+ */
+for (const [width, height, wordmarkHeight] of [
+  [1440, 900, 48],
+  [1280, 800, 40],
+  [1024, 768, 32],
+  [810, 1080, 36],
+  [390, 844, 30],
+] as const) {
+  test(`the wordmark is ${wordmarkHeight}px tall at ${width}px and the bar fits it`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto("/");
+    await expect(page.locator(".primary-nav-auth")).toBeVisible({ timeout: 15_000 });
+    const m = await page.evaluate(() => {
+      const box = (s: string) => document.querySelector(s)!.getBoundingClientRect();
+      const header = document.querySelector<HTMLElement>("header.top-nav")!;
+      const nav = box(".primary-nav");
+      return {
+        wordmark: { width: Math.round(box(".brand-wordmark").width), height: Math.round(box(".brand-wordmark").height) },
+        headerHeight: Math.round(header.getBoundingClientRect().height),
+        navHeight: parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nav-height")),
+        clipped: header.scrollHeight > header.clientHeight,
+        navCentre: Math.round(nav.left + nav.width / 2 - document.documentElement.clientWidth / 2),
+      };
+    });
+    expect(m.wordmark.height).toBe(wordmarkHeight);
+    // The crop's own aspect ratio, 1014 × 171.
+    expect(Math.abs(m.wordmark.width - Math.round((wordmarkHeight * 1014) / 171))).toBeLessThanOrEqual(1);
+    expect(m.headerHeight).toBe(m.navHeight);
+    expect(m.clipped).toBe(false);
+    if (width >= 1024) expect(Math.abs(m.navCentre)).toBeLessThanOrEqual(1);
   });
 }
 

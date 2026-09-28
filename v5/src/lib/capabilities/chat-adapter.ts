@@ -9,6 +9,7 @@ import { languageNameForLocale } from "../../i18n/config";
 import { newTurnState, readsOutsideContent } from "../chat/taint";
 import { siteConfig } from "../site-config";
 import { LAB_CONTEXT } from "../ai/lab-context";
+import { CITE_HREF_PREFIX } from "../manuals/citation-ref";
 import type { MakerLabTool } from "../../components/catalog-types";
 
 /**
@@ -209,7 +210,7 @@ function readingSection(): string {
 }
 
 function citingSection(): string {
-  return `## Citing sources\n\nWhen you draw on a \`search_manual\` passage, an attached manual, a page read with \`read_page\`, or an \`exa_search\` result, cite the source inline as a **markdown link** using its exact URL — the passage's \`url\`, a URL listed in this prompt, or the result's own URL for a search. Three formats:\n\n1. PDF with a known page: \`[Form 4 Manual, p. 14](https://media.formlabs.com/.../-ENUS-Form-4-Manual.pdf#page=14)\` — a \`search_manual\` passage's \`url\` already ends in \`#page=N\`; for an attached manual, append it so browser PDF viewers jump to the page.\n2. HTML page or PDF with no known page: \`[Trotec Speedy 400 SOP](https://...)\`.\n3. A resource with "no link on file": its exact title in bold, \`**Trotec Speedy 400 SOP**\`, with no link.\n\nDo not invent page numbers or URLs. Always use exact URLs listed in this prompt or from a search result.`;
+  return `## Citing sources\n\nCite every source you draw on inline. Three formats:\n\n1. A \`search_manual\` passage: a markdown link to \`${CITE_HREF_PREFIX}<ref>\` with the passage's \`ref\`, as "Searching manuals" says — never its web address and never a \`#page=\` link.\n2. A page read with \`read_page\`, an \`exa_search\` result, or a resource listed in this prompt: a markdown link to its exact URL, e.g. \`[Trotec Speedy 400 SOP](https://...)\`.\n3. A resource with "no link on file": its exact title in bold, \`**Trotec Speedy 400 SOP**\`, with no link.\n\nDo not invent page numbers or URLs. Cite only a \`ref\` a search returned.`;
 }
 
 /** Full multi-line description of the focused tool (parity with the route). */

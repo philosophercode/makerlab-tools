@@ -212,7 +212,11 @@ export interface ActionSubject {
     | "unit"
     | "resource"
     | "import"
-    | "mirror";
+    | "mirror"
+    | "category"
+    | "category_proposal"
+    | "usage_gap"
+    | "lab_setting";
   id: string;
 }
 

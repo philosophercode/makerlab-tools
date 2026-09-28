@@ -977,6 +977,60 @@ researched or published on its own (Article 5). See the spec's 2026-09-24 amendm
 - **Uploads**: kind `import` on `POST /api/uploads` (private, `tools.add`). The chat's
   paperclip takes list files and names them to the model as `[Attached documents: …]`.
 
+## Taxonomy v2 (`categories` tree, `category_proposals`; taxonomy v2 spec, migration `0023`)
+
+Nine top-level categories by process or shop, each with a second level, every category with a
+slug and a description (`docs/specs/2026-09-28-taxonomy-v2-design.md`). **Nothing creates a
+category except a person accepting a proposal on `/admin/taxonomy`** (or the one-off migration).
+
+- **The tree** is `categories.parent_id` (two levels; a parent is top-level), with `slug` (unique,
+  never changes; a row inserted without one gets one from the `categories_default_slug` trigger),
+  `description`, `sort_order`, `gallery_hidden`, `retired_at`, `merged_into_id`. The free-text
+  `group` is only a pre-v2 row's heading now; `listCategories()` answers `group` = the parent's name
+  (or that old group) so every select reads the same, and leaves retired categories out. The seed is
+  `src/lib/taxonomy/tree.ts`; the demo seed writes it.
+- **`npm run taxonomy:migrate`** (dry run; `-- --apply` writes, one transaction) creates the tree and
+  moves every tool by `src/lib/taxonomy/mapping.ts` (slug, then name, then old category), sets
+  `item_kind` / `parent_tool_id` where still the defaults, and retires emptied old categories with
+  `merged_into_id`. Deterministic and idempotent; **refuses while the dev server holds the PGlite
+  lock**; production gets it through `npm run data:push`. **`npm run taxonomy:audit`** (`-- --dry-run`
+  to only print) writes `review_category` proposals for 0–1-tool leaves, >25-tool categories and one
+  name under two parents, and prints proposals pending over 14 days. It never changes the tree.
+- **Research decides** (`research/prompt.ts` `categoryBlock`): every live category, uncapped, as
+  `slug — Parent › Name: description`; the answer is `category: { slug, confidence }` (required, the
+  nearest when none fits) plus an optional `categoryProposal`. `matchCategory` is **exact on the
+  slug**; a pre-v2 `{ name, group }` answer still matches by name. `ResearchResult.category` gains
+  optional `slug`, `confidence`, `proposal` (old rows parse).
+- **Approval never creates a category**: `approvePendingTool` puts the tool in the chosen existing
+  (live) category and records research's proposal — `categoryProposal`, or the pre-v2 `newCategory`
+  — as a `category_proposals` row naming the new tool (`nearest_existing_id` = the chosen category).
+  Accepting it later moves the tool in if it is still there. The preliminary page shows a ticked
+  "Also propose a new category" box. **MCP `create_tool` matches or proposes**: slug, then exact name;
+  anything else leaves the draft uncategorised and proposes (`source: mcp`), said in its warnings.
+- **`/admin/taxonomy`** (`taxonomy.manage` — admin and super admin; surface key `taxonomy`, Keep data
+  fresh, its tile counts pending proposals): the queue (Accept / Use this category instead / Reject;
+  an audit flag: Merge into / Dismiss), the tree with counts, slugs, descriptions and the hidden badge
+  (rename and describe inline, merge on a second click naming both, retire when empty, move a tool
+  through the editor's revision check), old pre-v2 rows and retired ones apart, and **Propose a
+  category**. Writes are `src/lib/data/category-admin.ts`, one transaction each, refusals as values.
+- **Actions** (`lib/actions/taxonomy.ts`): `taxonomy.propose_category` (`propose_category`,
+  `tools.edit`), `taxonomy.decide_proposal` (`decide_category_proposal`), `taxonomy.merge`
+  (`merge_categories`, destructive: typed name, never MCP), `taxonomy.edit_category` (`edit_category`),
+  `taxonomy.set_retired` (`retire_category`) — those four on `taxonomy.manage` — and
+  `taxonomy.recategorize_tool` (`recategorize_tool`, `tools.edit`, revision token). Reads:
+  `list_categories` (`tools.edit`) and `list_category_proposals` (`taxonomy.manage`, fenced, taints).
+  Audited: `category.created`, `category.merged`, `category.retired`.
+- **Hidden from the gallery**: *Shop Infrastructure & Supplies* (`gallery_hidden`, inherited). The
+  catalogue carries `galleryHidden` and `categorySlug`; `visibleInGallery` leaves those tools out until
+  the Category facet names the category; the assistant's `search_tools` / `list_tools` do the same for
+  everybody but staff. `category` is the parent's name (a single-level category is its own heading,
+  said once). The inventory's Category filter also takes a top-level name.
+- **Facets**: `tools.item_kind` (`equipment` | `accessory` | `consumable` | `fixture`) and
+  `tools.parent_tool_id` (accessory → tool). Not yet in the editor or the gallery.
+- **Mirror**: the categories database gains `Slug`, `Description`, `Retired` as **optional**
+  properties (`MirrorPropertySpec.optional`): a mirror made before them is not `schema_mismatch`, and
+  the push leaves absent optional properties out (`absentOptionalProperties`). `Group` is the heading.
+
 ## Tool names: display and official (`tools.official_name`; tool display names spec, migration `0015`)
 
 A tool has two names (`docs/specs/2026-09-24-tool-display-names-design.md`).
@@ -1580,6 +1634,79 @@ and say why in the PR.
   `hnsw.ef_search` raised in its own transaction; a scoped one stays exact.
   Never reference a CTE holding passages from more than one place.
 
+## Usage insight (`usage_*`; usage insight spec, migration `0022`)
+
+Anonymous counts of what the lab asks about, on **`/admin/insights`**
+(`insights.view`: admin and super admin). `docs/specs/2026-09-27-usage-insight-design.md`
+and its 2026-09-28 amendment are the detail.
+
+- **No per-person data, by schema.** `usage_events` / `usage_rollups` have no
+  user, session, chat, token, IP, email or user-agent column; the only thing
+  recorded about who caused an event is `audience` (`anonymous` | `member` |
+  `staff`, from the role — `lib/usage/events.ts`). A test asserts the column
+  names. Do not add one; do not pass an identity or a chat id into `lib/usage/`.
+- **What is counted** (`USAGE_KINDS`): `tool_view` (beacon; `source` `qr` |
+  `direct`), `kiosk_view` (`screen` from `/kiosk`'s render, `qr` from an
+  arrival with `?src=kiosk`), `chat_turn` (with `question_kind` operate /
+  debug / create / other — a keyword heuristic, `question-kind.ts`, no model),
+  `tool_asked` (focused tool, `get_tool_details` found, `search_manual` scope;
+  chat and MCP), `manual_cited` (a passage the answer linked to, with page),
+  `gap`, `mcp_call` (the tool name).
+- **Recording never costs a student anything.** The chat route's `onFinish`
+  calls `recordChatTurnUsage` (`lib/usage/chat-turn.ts`), MCP's
+  `registerAll` has an `afterCall` hook (`handler.ts` → `mcpCallUsage`); both
+  schedule `recordUsage` with `after()` (`schedule.ts`). `recordUsage` never
+  throws — a failed insert is one `[usage]` warning. `USAGE_INSIGHT=off`
+  records nothing. `search_manual` logs the passages it returned on the turn's
+  `TurnState` (`turn-log.ts`) — that is how a citation link becomes a document
+  id and page.
+- **The beacon** (`POST /api/usage`, `components/usage/UsageBeacon.tsx`): tool
+  pages are cached, so the browser says it was seen, once per tool per tab
+  (`sessionStorage`), with `sendBeacon`. Tier `usage` 60/min; `Sec-GPC`, `DNT`,
+  bots → nothing; a published tool only; always 204. `EXEMPT` in the parity
+  guard (not a user action).
+- **Unanswered** (`usage_gaps`): a turn that could not answer — `get_tool_details`
+  found nothing, every `search_tools` empty, `search_manual` `no_results` and
+  nothing cited, or the answer saying so (`absence.ts`, English phrases) — is
+  upserted by `gap-key.ts` (normalised question + tool). The text is scrubbed
+  (`scrub.ts`), the **latest** wording kept, and the row deleted **30 days after
+  it was last asked**. Decisions: `insights.dismiss_gap` (three more askings
+  reopen it) and `insights.file_correction` (a `feedback` row, no reporter,
+  lands on `/admin/corrections`) — GUI only (`assistant: "never"` until the
+  spec's phase 4).
+- **Retention.** The daily cron's `usage` stage (`rollup.ts`, after cleanup)
+  recounts every complete hour still held raw into `usage_rollups` (replacing,
+  so a re-run is idempotent), deletes raw events older than 30 days and gaps
+  past theirs. Rollups are kept and name nobody. `usage_events` and
+  `usage_gaps` are `RETENTION_BOUND` (`cron/backup-policy.ts`): never in the
+  backup file, never copied by `data:push`.
+- **Reads** (`queries.ts`): rollups for rolled hours plus raw events after the
+  watermark (last rolled hour + 1h), so nothing is counted twice before or after
+  the cron; days and the 7 × 24 grid in `LAB_TIMEZONE`; staff left out unless
+  `?staff=1`. The home tile counts open gaps (`countOpenGaps`).
+- **Demo seed** writes a synthetic week (`demo-usage.ts`) so the page has
+  something to show locally and in E2E.
+- **Value report** (`/admin/insights/value`, the Insights page's second tab;
+  spec amendment "Value report", migration `0024_lab_settings`): per term or
+  custom range, questions answered (app + MCP lookups ÷ lookups per question),
+  share handled without staff, **estimated** staff hours and dollars, after-hours
+  share in lab time, top tools, question kinds, follow-up counts, beside the
+  previous period, with the formulas in words. Pure arithmetic in
+  `lib/usage/value/` (`assumptions`, `lab-clock`, `periods`, `report`, `csv`,
+  `format`); reads in `value-queries.ts` (staff always left out) and one
+  loader, `load.ts`, shared by the page and the chat read `get_value_report`
+  (`insights.view`, chat only, never MCP). Words for page, print and CSV come
+  from one model (`components/admin/insights/value/value-report-model.ts`).
+  **Assumptions** (minutes per question 4, $40/h, staffed hours from
+  `siteConfig.labHours`, contiguous term windows, all gap kinds unhandled, MCP
+  at 2 lookups a question) live in `lab_settings` (`data/lab-settings.ts`, key
+  `value_report`, JSON re-validated on read) and change only through
+  `insights.set_value_assumptions` (`insights.configure`, admin and super
+  admin; `assistant: "never"`). Print is the browser's, over
+  `styles/value-report-print.css` (`:has([data-value-report])`, one Letter
+  page); CSV is built on the server and saved by the island — no export route.
+  Staffed hours are whole hours because rollups are hourly.
+
 ## Key files
 
 | Path | Purpose |
@@ -1594,7 +1721,8 @@ and say why in the PR.
 | `src/lib/data/revision.ts` | The editor's concurrency token — `extract(epoch from updated_at)::text`, **never a `Date`** (read the docstring before touching a conflict check) |
 | `src/lib/data/tools.ts` / `units.ts` | Row-level inventory writes, every one revision-checked. Tools are archived, never deleted |
 | `src/lib/data/inventory.ts` | The `/admin/inventory` read — every tool, its state and its needs-attention flags, plus the units that belong to no tool |
-| `src/lib/data/taxonomy.ts` | `listCategories()` / `listLocations()` — the two option lists an editing surface needs, the only place these tables are read whole — plus `findOrCreateCategory` / `findOrCreateLocation` for intake |
+| `src/lib/data/taxonomy.ts` | `listCategories()` / `listLocations()` — the two option lists an editing surface needs (live categories in tree order, `group` = the heading) — plus `findOrCreateLocation` for intake. `findOrCreateCategory` is left for the Notion import only: nothing else creates a category |
+| `src/lib/data/category-admin.ts` / `src/lib/taxonomy/*` | Taxonomy v2: proposals, decisions, merge, rename, retire, `matchExistingCategory`; the seed tree, the migration mapping and plan, the audit (see "Taxonomy v2") |
 | `src/lib/data/pending-tools.ts` | `pending_tools`: the batch, every status transition as a conditional write, and the two approval transactions |
 | `src/lib/data/duplicates.ts` / `tool-create.ts` | The intake duplicate check (same normalisation in TypeScript and SQL), and `createToolRecord` — one tool with its units and resources, slug retried in a savepoint |
 | `src/lib/intake/*` | Client-safe intake types, limits and `canActOnPendingTool` / `isResearchable`; `approve.ts` composes approval with audit and invalidation |
@@ -1673,7 +1801,7 @@ and say why in the PR.
 | `src/app/account/tokens/`, `src/app/oauth/`, `src/app/.well-known/` | The token page, the OAuth sign-in and consent pages, the discovery documents |
 | `src/app/account/page.tsx`, `src/lib/account/name-actions.ts` | "Your account": your own name (`updateOwnName`), your address |
 | `src/app/api/uploads/route.ts` | The one upload route → Vercel Blob + an `attachments` row |
-| `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup, then the mirror backstop, then the manual archive backfill; then the heartbeat ping |
+| `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup, then the usage rollup and 30-day prune, then the mirror backstop, then the manual archive backfill; then the heartbeat ping |
 | `src/lib/manuals/*` | The manual archive: `archive` (`archiveManual`), `steps` (`archiveManualStep`, `indexManualStep`), `start` (the one `workflow/api` import), `trigger` (`requestManualArchive`, never throws); manual text: `extract` (unpdf), `index-document`, `stored-bytes`, `digest`; manual search: `chunk` (`CHUNKER_VERSION`), `embed` (job `embed`), `passages` (the index step's second half), `search` (`searchManuals`, hybrid + RRF) |
 | `src/lib/data/manual-documents.ts` | `manual_documents` / `manual_pages`: the one-transaction write, current-PDF lists for the step and backfill, editor states, tool-page contents, research's stored-text lookups |
 | `src/lib/data/manual-chunks.ts` | `manual_chunks`: the one-transaction passage write, which documents need passages, the chat's view of a tool's manuals, Re-process, the `/admin/research` counts |
@@ -1843,6 +1971,8 @@ npm run test:all     # full test suite
 npm run data:push -- --to .env.hosted [--dry-run] [--yes]   # copy local PGlite + .blob-data up to a hosted deploy
 npm run thumbnails:bundled [-- --check]   # after changing public/tool-images/*.png
 npm run thumbnails:backfill [-- --apply]  # thumbnails for Blob images that have none (dry run by default)
+npm run taxonomy:migrate [-- --apply]     # taxonomy v2: the tree + every tool moved (dry run by default; stop npm run dev first)
+npm run taxonomy:audit [-- --dry-run]     # consolidation audit: writes review proposals only
 ```
 
 `data:push` (`scripts/push-local-to-hosted.ts`, logic in `src/lib/push-hosted/`) replaces the

@@ -100,7 +100,7 @@ describe("schema migrations on PGlite", () => {
     await db.insert(categories).values({ name: "Other", group: "Electronics" });
     await expectViolation(
       db.insert(categories).values({ name: "other", group: "electronics" }),
-      /categories_name_group_key/
+      /categories_name_group_parent_key/
     );
     await expect(
       db.insert(categories).values({ name: "Other", group: "Textiles" })

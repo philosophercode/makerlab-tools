@@ -117,6 +117,8 @@ const BUILDERS: { [K in SurfaceKey]: (counts: CountsFor[K], t: Translate, extra:
     unit: t("home.manualsUnit"),
     facts: [fact(t("home.manualsTotal"), c.total), fact(t("home.manualsFailed"), c.failed, "bad")],
   }),
+  // Unanswered questions to act on: a half tile, a number waiting on staff.
+  insights: (c, t) => ({ value: c.openGaps, unit: t("home.insightsUnit"), waiting: true, size: "half" }),
   maintenance: (c, t) => ({
     value: c.open,
     unit: t("home.maintenanceUnit"),
@@ -146,6 +148,8 @@ const BUILDERS: { [K in SurfaceKey]: (counts: CountsFor[K], t: Translate, extra:
     facts: c.waiting > 0 ? [fact(t("home.projectsPublished"), c.published)] : [],
     size: c.waiting > 0 ? "full" : "half",
   }),
+  // Category proposals waiting for a decision: a half tile.
+  taxonomy: (c, t) => ({ value: c.pending, unit: t("home.taxonomyUnit"), waiting: true, size: "half" }),
   // The viewer's own MCP proposals: a half tile, a number waiting on them.
   proposals: (c, t) => ({ value: c.open, unit: t("home.proposalsUnit"), waiting: true, size: "half" }),
   // People: the number, and blocked addresses only when there are some to see.

@@ -40,6 +40,7 @@ import { DEMO_ACCOUNTS, DEMO_PENDING } from "../db/demo-seed";
 import {
   attachments,
   categories,
+  categoryProposals,
   locations,
   pendingTools,
   resources,
@@ -452,6 +453,7 @@ interface CreateResult {
   created: {
     tool: boolean;
     category: { id: string; isNew: boolean } | null;
+    categoryProposal?: { id: string; name: string } | null;
     location: { id: string; isNew: boolean } | null;
     units: number;
     resources: number;
@@ -509,7 +511,8 @@ describe("create_tool — an MCP draft on Postgres", () => {
 
   it("writes an unpublished tool with its units, taxonomy and verified resources", async () => {
     const c = candidate({
-      category: { name: "Laminating", group: "Paper Craft", isNew: true },
+      // An existing category by its slug (the demo seed's v2 tree): matched, never created.
+      category: { name: "Office", group: "Shop Infrastructure & Supplies", isNew: false, slug: "office" },
       location: { room: "Studio B", zone: "Bench 3", isNew: true },
       units: [
         { label: "Laminator #1", serial: "LAM-001", status: "Available", condition: "New" },
@@ -532,10 +535,10 @@ describe("create_tool — an MCP draft on Postgres", () => {
     expect(tool.materials).toEqual(["Paper"]);
 
     const [category] = await db.select().from(categories).where(eq(categories.id, tool.categoryId!));
-    expect(category.name).toBe("Laminating");
+    expect(category.slug).toBe("office");
     const [location] = await db.select().from(locations).where(eq(locations.id, tool.locationId!));
     expect(location.room).toBe("Studio B");
-    expect(result.created.category?.isNew).toBe(true);
+    expect(result.created.category).toEqual({ id: category.id, isNew: false });
 
     const toolUnits = await db.select().from(units).where(eq(units.toolId, tool.id));
     expect(toolUnits.map((u) => u.unitLabel).sort()).toEqual(["Laminator #1", "Laminator #2"]);
@@ -547,6 +550,31 @@ describe("create_tool — an MCP draft on Postgres", () => {
 
     const toolResources = await db.select().from(resources).where(eq(resources.toolId, tool.id));
     expect(toolResources.map((r) => r.url)).toEqual(["https://manuals.example.test/laminator.pdf"]);
+  });
+
+  it("never creates a category: an unknown one is proposed for review, and the draft has none (taxonomy v2)", async () => {
+    const db = await getDb();
+    const before = (await db.select().from(categories)).length;
+    const result = await runCreate(candidate({ category: { name: "Laminating", group: "Shop Infrastructure & Supplies", isNew: true } }));
+
+    expect(result.success).toBe(true);
+    expect((await db.select().from(categories)).length).toBe(before);
+    const [tool] = await db.select().from(tools).where(eq(tools.id, result.tool_id!));
+    expect(tool.categoryId).toBeNull();
+    const [shop] = await db.select().from(categories).where(eq(categories.slug, "shop-infrastructure-supplies"));
+    const [proposal] = await db.select().from(categoryProposals).where(eq(categoryProposals.subjectId, tool.id));
+    expect(proposal).toMatchObject({ name: "Laminating", parentId: shop.id, source: "mcp", subjectType: "tool", status: "pending" });
+    expect(result.created.categoryProposal).toEqual({ id: proposal.id, name: "Laminating" });
+    expect(result.warnings.join(" ")).toMatch(/proposed for review on \/admin\/taxonomy/);
+  });
+
+  it("matches an existing category by its exact name when no slug is given", async () => {
+    const result = await runCreate(candidate({ category: { name: "hand saws", group: "", isNew: false } }));
+    const db = await getDb();
+    const [tool] = await db.select().from(tools).where(eq(tools.id, result.tool_id!));
+    const [saws] = await db.select().from(categories).where(eq(categories.slug, "hand-saws"));
+    expect(tool.categoryId).toBe(saws.id);
+    expect(result.warnings).toEqual([]);
   });
 
   it("invalidates the catalogue once the draft has landed", async () => {

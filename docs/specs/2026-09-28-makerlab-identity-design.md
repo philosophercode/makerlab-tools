@@ -32,7 +32,8 @@ The site's tagline is "Your digital guide to making at Cornell Tech"
    `public/makerlab-wordmark.png`, `NEXT_PUBLIC_WORDMARK`) and drawn as a CSS
    mask in the text colour, as the kiosk draws the full logo. The nav links
    stay **centred** (the owner kept them there, over the mockup's move right).
-   The lockup is 32px tall, so the bar keeps `--nav-height`.
+   The wordmark is the mockup's size (amendment "Wordmark at the mockup's
+   size" below).
 2. **Home title.** Simply "Tools" (was "+ TOOLS // MACHINES"), in its own case,
    with no `+` glyph. The status strip under the header stays.
 3. **Assistant button.** An assistant icon (lucide `BotMessageSquare`), labelled
@@ -107,3 +108,28 @@ and production's `NEXT_PUBLIC_LAB_HOURS`, if set, is updated to match.
 - Evals (paid, not in CI): `evals/cases/lab-identity.yaml` — where is the
   MakerLAB, who runs it, what can you help with, and not inventing its size.
 - E2E: specs that asserted the old header, title and button text are updated.
+
+## Amendment — Wordmark at the mockup's size (2026-09-28)
+
+The owner: "The MakerLAB logo is off — check the original image." The first
+cut drew the wordmark 95 × 16px; in the Director's mockup it is about a fifth
+of a 1440px page (≈291 × 49px), with "MakerLAB Tools" (bold) and the tagline on
+one line under it. Now (`--wordmark-height`, width from the crop's 1014 × 171):
+
+| Width | Wordmark | Name / tagline | `--nav-height` |
+|---|---|---|---|
+| ≥ 1440 | 285 × 48 | 20px bold / 13px tagline | 96px |
+| 1280–1439 | 237 × 40 | 20px bold | 88px |
+| 1024–1279 | 190 × 32 | 20px bold | 80px |
+| 561–1023 (compact bar) | 213 × 36 | 16px bold | 128px (min) |
+| ≤ 560 | 178 × 30 | 15px bold | 120px (min) |
+
+The bar is a three-column grid with equal outer columns, so the links stay
+centred on the page (owner decision) whatever the brand and the controls
+measure; the links and the controls sit on the wordmark's line, as in the
+mockup. The one-row bar is exactly `--nav-height`, so the sticky status strip
+and `--sticky-chrome-height` offsets follow. The steps down are set by the
+longest translation of the links (Spanish) fitting with the scrollbar shown;
+for the same reason the bar's gaps are tighter (24px, 16px below 1280) and the
+search trigger is 144px from lg to xl (was 176). Tested in
+`e2e/header-stability.spec.ts` (sizes, fit, centring).

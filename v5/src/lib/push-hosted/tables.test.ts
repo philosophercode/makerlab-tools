@@ -13,8 +13,10 @@ describe("planTables", () => {
   const plan = planTables();
   const position = new Map(plan.tables.map((t, i) => [t.name, i]));
 
-  it("copies every schema table except live sign-ins", () => {
-    expect(plan.skipped).toEqual(["oauth_access_token", "session", "verification"]);
+  it("copies every schema table except live sign-ins and the retention-bound usage tables", () => {
+    // usage_events and usage_gaps are promised to be short-lived (usage insight
+    // spec §4): a local database's test events never land in the hosted one.
+    expect(plan.skipped).toEqual(["oauth_access_token", "session", "usage_events", "usage_gaps", "verification"]);
     const all = schemaTables().map(getTableName).sort();
     expect([...plan.tables.map((t) => t.name), ...plan.skipped].sort()).toEqual(all);
     expect(position.has("user")).toBe(true);
@@ -37,8 +39,15 @@ describe("planTables", () => {
     const pending = plan.tables.find((t) => t.name === "pending_tools")!;
     expect(pending.deferred).toEqual(["duplicate_of_pending_id"]);
     expect(pending.primaryKey).toEqual(["id"]);
-    const others = plan.tables.filter((t) => t.name !== "pending_tools");
+    const others = plan.tables.filter((t) => !["pending_tools", "categories", "tools"].includes(t.name));
     expect(others.every((t) => t.deferred.length === 0)).toBe(true);
+  });
+
+  it("defers taxonomy v2's self-references: a category's parent and merge target, a tool's parent tool", () => {
+    const byName = new Map(plan.tables.map((t) => [t.name, t]));
+    expect(byName.get("categories")!.deferred.sort()).toEqual(["merged_into_id", "parent_id"]);
+    expect(byName.get("tools")!.deferred).toEqual(["parent_tool_id"]);
+    expect(byName.has("category_proposals")).toBe(true);
   });
 
   it("never inserts GENERATED ALWAYS columns", () => {

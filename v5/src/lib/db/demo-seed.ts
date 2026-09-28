@@ -14,7 +14,9 @@ import {
   user,
 } from "./schema/index.ts";
 import type { ResearchResult } from "../research/result.ts";
+import { flattenTree } from "../taxonomy/tree.ts";
 import type { Db } from "./types.ts";
+import { seedDemoUsage } from "../usage/demo-usage.ts";
 
 /**
  * Sample data for a database with no `DATABASE_URL` (spec §3.10): the two
@@ -235,13 +237,25 @@ export async function seedDemo(db: Db): Promise<void> {
   if (existing.length > 0) return;
 
   await db.transaction(async (tx) => {
-    const [resin, co2] = await tx
-      .insert(categories)
-      .values([
-        { name: "Resin", group: "3D Printing" },
-        { name: "CO2", group: "Laser" },
-      ])
-      .returning({ id: categories.id });
+    // The taxonomy v2 tree (spec 2026-09-28 §3), parents first, so the demo
+    // gallery, research's category list and /admin/taxonomy show the real shape.
+    const categoryIds = new Map<string, string>();
+    for (const node of flattenTree()) {
+      const [row] = await tx
+        .insert(categories)
+        .values({
+          slug: node.slug,
+          name: node.name,
+          description: node.description,
+          parentId: node.parentSlug ? (categoryIds.get(node.parentSlug) ?? null) : null,
+          sortOrder: node.sortOrder,
+          galleryHidden: node.galleryHidden,
+        })
+        .returning({ id: categories.id });
+      categoryIds.set(node.slug, row.id);
+    }
+    const resin = { id: categoryIds.get("resin-printers-post-processing")! };
+    const co2 = { id: categoryIds.get("laser-cutting-engraving")! };
 
     const [resinBench, laserBay] = await tx
       .insert(locations)
@@ -507,6 +521,9 @@ export async function seedDemo(db: Db): Promise<void> {
         // "waiting on the intake page" case with it.
       },
     ]);
+
+    // A synthetic week of anonymous usage for /admin/insights (usage insight spec §9).
+    await seedDemoUsage(tx, { form4: form4.id, trotec: trotec.id });
   });
 }
 

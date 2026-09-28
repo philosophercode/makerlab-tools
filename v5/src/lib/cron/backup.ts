@@ -4,7 +4,7 @@ import type { BlobStore } from "../blob";
 import { getDb } from "../db/client";
 import * as schema from "../db/schema/index";
 import type { Db } from "../db/types";
-import { isExcludedFromBackup, isRebuiltAfterRestore, redactRows } from "./backup-policy";
+import { isExcludedFromBackup, isRebuiltAfterRestore, isRetentionBound, redactRows } from "./backup-policy";
 import { backupsToPrune, type BackupStamp } from "./backup-retention";
 
 /**
@@ -85,7 +85,7 @@ export function backupTables(): PgTable[] {
   // trying to union every table's exact shape.
   return (Object.values(schema) as unknown[])
     .filter((value): value is PgTable => is(value, PgTable))
-    .filter((table) => !isExcludedFromBackup(table) && !isRebuiltAfterRestore(table))
+    .filter((table) => !isExcludedFromBackup(table) && !isRebuiltAfterRestore(table) && !isRetentionBound(table))
     .sort((a, b) => getTableName(a).localeCompare(getTableName(b)));
 }
 

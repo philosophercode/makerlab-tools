@@ -21,6 +21,7 @@ import {
   PENDING_RESEARCH,
   PENDING_SAVE_IDENTITY,
 } from "./intake";
+import { INSIGHTS_DISMISS_GAP, INSIGHTS_FILE_CORRECTION, INSIGHTS_SET_VALUE_ASSUMPTIONS } from "./insights";
 import { TICKETS_LOG_COMPLETED } from "./maintenance-log";
 import { MANUALS_REPROCESS, MANUALS_REPROCESS_LIBRARY } from "./manuals";
 import { MIRROR_DISCONNECT, MIRROR_SET_PAUSED, MIRROR_SYNC_NOW } from "./mirror";
@@ -30,6 +31,14 @@ import { PEOPLE_ADD, PEOPLE_REMOVE, PEOPLE_UNBLOCK_EMAIL } from "./people-roster
 import { PROJECTS_SET_PUBLISHED } from "./projects";
 import { REFRESH_QUEUE } from "./refresh";
 import { RESOURCES_ADD, RESOURCES_EDIT, RESOURCES_REMOVE } from "./resources";
+import {
+  TAXONOMY_DECIDE_PROPOSAL,
+  TAXONOMY_EDIT_CATEGORY,
+  TAXONOMY_MERGE,
+  TAXONOMY_PROPOSE_CATEGORY,
+  TAXONOMY_RECATEGORIZE_TOOL,
+  TAXONOMY_SET_RETIRED,
+} from "./taxonomy";
 import { TICKETS_UPDATE } from "./tickets";
 import { UNITS_ADD, UNITS_DELETE, UNITS_EDIT, UNITS_RETIRE } from "./units";
 
@@ -98,6 +107,18 @@ const DEFINITIONS = [
   MIRROR_SYNC_NOW,
   MIRROR_SET_PAUSED,
   MIRROR_DISCONNECT,
+  // Taxonomy v2 (spec 2026-09-28 §4.6).
+  TAXONOMY_PROPOSE_CATEGORY,
+  TAXONOMY_DECIDE_PROPOSAL,
+  TAXONOMY_MERGE,
+  TAXONOMY_EDIT_CATEGORY,
+  TAXONOMY_SET_RETIRED,
+  TAXONOMY_RECATEGORIZE_TOOL,
+  // Usage insight: the Unanswered queue's decisions (usage insight spec §7).
+  INSIGHTS_DISMISS_GAP,
+  INSIGHTS_FILE_CORRECTION,
+  // The value report's assumptions (usage insight spec amendment "Value report").
+  INSIGHTS_SET_VALUE_ASSUMPTIONS,
 ];
 
 /** Every definition, runnable. */

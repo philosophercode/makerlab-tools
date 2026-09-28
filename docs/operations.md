@@ -153,3 +153,24 @@ There is no automated restore. **[dev]**
    `deploy.md` Stages 2d–2e.
 4. Everyone signs in again (sessions are not backed up), and each connected MCP app and
    Notion mirror asks for its token again.
+
+## One-off data cleanups
+
+### Inventory cleanup 2026-09-28 (`npm run inventory:cleanup`)
+
+A reviewed data bundle in `v5/data/inventory-cleanup-2026-09-28/` — manual PDF links for tools
+that had none, display-name and unit-label fixes, SEO-spam tags removed, starter questions for
+tools with none, tracking parameters off resource links. `report.md` there lists every change.
+From `v5/`, with the dev server stopped (the local database is single-process):
+
+```bash
+PGLITE_DATA_DIR=.pglite-data npm run inventory:cleanup -- --dry-run   # what would change
+PGLITE_DATA_DIR=.pglite-data npm run inventory:cleanup -- --apply
+npm run manuals:index                                                  # after the archive copies the new PDFs
+```
+
+Hosted: `DATABASE_URL` instead of `PGLITE_DATA_DIR`; `--revalidate <site>` drops the catalogue
+cache (`ADMIN_REVALIDATE_SECRET`). Writes go through the data layer (`updateTool`, and
+tool-touching transactions for units and resources, as the editor does); every change is
+conditional on the value it replaces, so a second run writes nothing. Low-confidence manual
+links are skipped unless `--include-low`.

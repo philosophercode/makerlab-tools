@@ -192,7 +192,7 @@ function searchFindings(item: IntakeFixtureItem) {
   return {
     canonicalName: item.name,
     description: `The ${item.name}, from ${item.brand}.`,
-    category: { name: item.categoryHint, group: null },
+    category: { slug: stubCategorySlug(item.categoryHint), confidence: "medium" },
     candidateLinks: [{ title: `${item.name} user manual`, url: pages.manual, type: "Manual" }],
     sourceUrls: [pages.product],
     evidence: { userStatedModel: true, manufacturerPageFound: true },
@@ -210,7 +210,7 @@ function fetchDraft(item: IntakeFixtureItem) {
     tags: [],
     trainingRequired: true,
     useRestrictions: null,
-    category: { name: item.categoryHint, group: null },
+    category: { slug: stubCategorySlug(item.categoryHint), confidence: "medium" },
     resources: [{ title: `${item.name} user manual`, url: pages.manual, type: "Manual" }],
     sourceUrls: [pages.product],
     evidence: {
@@ -346,3 +346,15 @@ const server = createServer(async (req, res) => {
 server.listen(GATEWAY_STUB_PORT, () => {
   console.info(`[gateway-stub] listening on ${GATEWAY_STUB_ORIGIN}`);
 });
+
+/**
+ * The demo tree's slug for a fixture's category hint (taxonomy v2 spec §4.2):
+ * research answers with one of the lab's slugs, exactly.
+ */
+function stubCategorySlug(hint: string): string {
+  const key = hint.toLowerCase();
+  if (key.includes("cnc")) return "cnc-mills-routers";
+  if (key.includes("laser")) return "laser-cutting-engraving";
+  if (key.includes("print")) return "fdm-printers";
+  return "hand-saws";
+}

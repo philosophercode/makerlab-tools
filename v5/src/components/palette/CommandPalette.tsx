@@ -97,7 +97,7 @@ export function CommandPalette(props: CommandPaletteProps) {
         onPointerEnter={preload}
         onFocus={preload}
         data-slot="palette-trigger"
-        className="ui hidden h-8 w-52 cursor-pointer items-center gap-2 border border-input bg-background px-2 text-start text-table text-muted-foreground normal-case transition-colors duration-150 hover:border-foreground/40 hover:text-foreground md:inline-flex lg:w-44 xl:w-60"
+        className="ui hidden h-8 w-52 cursor-pointer items-center gap-2 border border-input bg-background px-2 text-start text-table text-muted-foreground normal-case transition-colors duration-150 hover:border-foreground/40 hover:text-foreground md:inline-flex lg:w-36 xl:w-60"
       >
         <Search aria-hidden="true" className="size-3.5 shrink-0" />
         <span className="flex-1 truncate font-sans tracking-normal">{t("trigger")}</span>

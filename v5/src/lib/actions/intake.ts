@@ -138,7 +138,9 @@ export const PENDING_APPROVE = defineAction<
     if (!item) return null;
     const rows: ActionPreviewRow[] = [
       { field: "toolName", before: null, after: input.fields.name },
-      ...(input.fields.newCategory ? [{ field: "category", before: null, after: input.fields.newCategory.name }] : []),
+      ...(input.fields.categoryProposal || input.fields.newCategory
+        ? [{ field: "categoryProposal", before: null, after: (input.fields.categoryProposal ?? input.fields.newCategory)!.name }]
+        : []),
       { field: "catalogue", before: null, after: input.publish ? "published" : "unpublished", format: "published" },
     ];
     return {

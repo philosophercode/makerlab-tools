@@ -13,6 +13,7 @@ import * as corrections from "./corrections";
 import * as catalog from "./catalog";
 import { EXEMPT, EXEMPT_KINDS, ROUTE_BACKED } from "./exempt";
 import * as imports from "./imports";
+import * as insights from "./insights";
 import * as intake from "./intake";
 import * as manuals from "./manuals";
 import * as mirror from "./mirror";
@@ -25,6 +26,7 @@ import * as peopleAllowance from "./people-allowance";
 import * as peopleRoster from "./people-roster";
 import * as projects from "./projects";
 import { ACTIONS } from "./registry";
+import * as taxonomy from "./taxonomy";
 import * as tickets from "./tickets";
 import * as maintenanceLog from "./maintenance-log";
 import { ACTION_DEFINITIONS } from "./registry";
@@ -62,6 +64,8 @@ const DEFINITION_MODULES = [
   imports,
   refresh,
   mirror,
+  taxonomy,
+  insights,
 ];
 
 /** Export name → definition, for every registered definition. */

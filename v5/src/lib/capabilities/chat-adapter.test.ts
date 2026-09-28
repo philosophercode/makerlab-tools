@@ -161,6 +161,16 @@ describe("prompt order for the provider's prefix cache (performance plan)", () =
     expect(stable).toContain("#cite-");
     expect(stable).toContain("## Citing sources");
   });
+
+  it("cites manual passages only by #cite-<ref>, never by a #page= URL (#102 over the old rule)", () => {
+    const prompt = buildSystemPrompt(CAPABILITIES, { tools: mockTools, focusedTool: trotec, locale: "en", identity: ada });
+    const citing = prompt.slice(prompt.indexOf("## Citing sources")).split("\n## ")[0];
+
+    expect(citing).toContain("#cite-<ref>");
+    expect(citing).not.toMatch(/ends in `#page=N`|append it so browser PDF viewers/);
+    expect(citing).not.toMatch(/\.pdf#page=\d/);
+    expect(prompt).not.toMatch(/\.pdf#page=\d/);
+  });
 });
 
 describe("where you are (identity spec 2026-09-28 §5)", () => {

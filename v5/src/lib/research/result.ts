@@ -67,8 +67,22 @@ export interface ResearchResult {
   /** Null when research could not tell — unknown is not "no". */
   trainingRequired: boolean | null;
   useRestrictions: string | null;
-  /** The proposed category; `existingId` when it matched one already in the taxonomy. */
-  category: { name: string; group: string | null; existingId: string | null };
+  /**
+   * The category research chose (taxonomy v2 spec §4.2): `slug` is its answer,
+   * `existingId` the lab's category with exactly that slug (null when none),
+   * `name` / `group` that category's stored name and heading (or, with no
+   * match, the model's words). `proposal` is a new category research thinks
+   * the lab should have — never created by research; approval turns it into a
+   * `category_proposals` row. Rows researched before v2 have no slug.
+   */
+  category: {
+    name: string;
+    group: string | null;
+    existingId: string | null;
+    slug?: string;
+    confidence?: "high" | "medium" | "low";
+    proposal?: { name: string; parentSlug: string | null; description: string | null; reason: string | null };
+  };
   /** Verified links only — anything that failed verification is in {@link droppedLinks}. */
   resources: { title: string; url: string; type: "Manual" | "Video" | "Other" }[];
   /** Links that failed verification, each with its reason, for the reviewer. */
@@ -375,6 +389,17 @@ export const researchResultSchema: z.ZodType<ResearchResult> = z.strictObject({
     name: z.string(),
     group: z.string().nullable(),
     existingId: z.string().nullable(),
+    // Taxonomy v2 (spec 2026-09-28 §4.2); optional so every older row still parses.
+    slug: z.string().optional(),
+    confidence: z.enum(["high", "medium", "low"]).optional(),
+    proposal: z
+      .strictObject({
+        name: z.string().min(1),
+        parentSlug: z.string().nullable(),
+        description: z.string().nullable(),
+        reason: z.string().nullable(),
+      })
+      .optional(),
   }),
   resources: z.array(
     z.strictObject({

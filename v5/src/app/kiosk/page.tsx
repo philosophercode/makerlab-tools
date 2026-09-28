@@ -11,6 +11,7 @@ import type { KioskSnapshot } from "../../lib/kiosk/types";
 import { labTimezone } from "../../lib/lab-time";
 import { requestOrigin } from "../../lib/request-origin";
 import { siteConfig } from "../../lib/site-config";
+import { scheduleUsage } from "../../lib/usage/schedule";
 import { kioskLocale, kioskMessages } from "./kiosk-locale";
 
 export const metadata: Metadata = {
@@ -50,6 +51,10 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
   const locale = kioskLocale(params.lang);
   const origin = requestOrigin(await headers()) ?? authBaseUrl();
   const askUrl = kioskAskUrl(origin);
+
+  // Usage insight (§3.3): the screen was loaded. A wall screen reads no
+  // cookie, so there is nobody to count, only that it was switched on.
+  scheduleUsage([{ kind: "kiosk_view", surface: "web", audience: "anonymous", source: "screen" }]);
 
   const [{ snapshot, renderedAt }, qrSvg, messages] = await Promise.all([
     readSnapshot(origin),

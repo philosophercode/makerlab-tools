@@ -14,6 +14,7 @@ import { GlobalChrome } from "../components/GlobalChrome";
 import { DemoDataBanner } from "../components/DemoDataBanner";
 import { SiteChrome } from "../components/SiteChrome";
 import { AskParamOpener } from "../components/AskParamOpener";
+import { UsageBeacon } from "../components/usage/UsageBeacon";
 import { ThemeScript } from "../components/ThemeScript";
 import { LocaleHtmlScript } from "../components/LocaleHtmlScript";
 import { getCatalogStats, getPaletteTools } from "../lib/catalog";
@@ -88,6 +89,8 @@ async function LocalizedTree({
               cannot, and must not take the chat button out of the HTML with it. */}
           <Suspense fallback={null}>
             <AskParamOpener />
+            {/* Counts an arrival from the kiosk's QR code (`?src=kiosk`), nothing else. */}
+            <UsageBeacon kind="kiosk_view" />
           </Suspense>
         </PageSelectionProvider>
       </ChatLauncherProvider>
