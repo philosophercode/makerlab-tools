@@ -3,9 +3,27 @@ import enMessages from "../../../messages/en.json";
 import { AdminPageLoading } from "./AdminPageLoading";
 
 describe("AdminPageLoading", () => {
-  it("is the one loading line, in words", () => {
+  it("says it is loading, in words, once", () => {
     render(<AdminPageLoading />);
-    expect(screen.getByText(enMessages.admin.loading)).toBeInTheDocument();
-    expect(document.querySelector('[data-slot="empty-state"]')).not.toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent(enMessages.admin.loading);
+    expect(screen.getByRole("status")).toHaveAttribute("aria-busy", "true");
+  });
+
+  it.each([
+    ["tiles", 8],
+    ["table", 0],
+  ] as const)("is shaped like the page on its way: %s", (shape, tiles) => {
+    const { container } = render(<AdminPageLoading shape={shape} />);
+    expect(container.querySelector(`[data-shape="${shape}"]`)).not.toBeNull();
+    expect(container.querySelectorAll(".h-36")).toHaveLength(tiles);
+    // Decorative blocks are hidden from assistive technology.
+    for (const block of container.querySelectorAll('[data-slot="skeleton"]')) {
+      expect(block.closest('[aria-hidden="true"]')).not.toBeNull();
+    }
+  });
+
+  it("draws a filter bar and table rows for a list", () => {
+    const { container } = render(<AdminPageLoading shape="table" />);
+    expect(container.querySelectorAll(".h-12")).toHaveLength(8);
   });
 });

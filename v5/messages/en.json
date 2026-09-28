@@ -2039,6 +2039,7 @@
   },
   "ui": {
     "breadcrumb": "Breadcrumb",
+    "loading": "Loading…",
     "inlineEdit": {
       "save": "Save",
       "cancel": "Cancel",
