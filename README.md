@@ -127,7 +127,18 @@ The test suite needs **no credentials and makes no network calls**.
 Every feature starts with a spec that merges **before** the implementation
 ([`docs/constitution.md`](docs/constitution.md), Article 1). Use
 [`docs/specs/TEMPLATE.md`](docs/specs/TEMPLATE.md), or `/spec` in Claude Code.
-`npm run test:all` must pass before any merge.
+`npm run test:all` must pass before any merge. Outside contributions need a
+signed contributor licence agreement — see [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+## License
+
+Source-available under the
+[PolyForm Noncommercial License 1.0.0](LICENSE): free to use, fork and modify
+for noncommercial purposes, including by schools, universities and public
+research organisations. Selling it or offering it as a paid service needs a
+commercial licence — contact Isaac Steinberg at `<CONTACT-EMAIL — TO FILL IN>`.
+Plain-language details: [`LICENSING.md`](LICENSING.md). A lab's own data is
+not covered by the code licence; it belongs to the lab.
 
 ## Who owns it
 
