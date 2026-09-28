@@ -1,3 +1,6 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { eq } from "drizzle-orm";
 import { saveManualDocument } from "@/lib/data/manual-documents";
 import { getDb } from "@/lib/db/client";
@@ -6,6 +9,8 @@ import type { ManualOutlineEntry } from "@/lib/db/schema/index";
 import { EXTRACTOR_VERSION } from "@/lib/manuals/extract";
 import { ocrKey } from "@/lib/manuals/ocr";
 import { buildDocumentPassages } from "@/lib/manuals/passages";
+import { buildPdf, type PdfPage } from "../test/fixtures/manuals/build-pdf";
+import { startLocalBlobServer, type LocalBlobServer } from "./local-blob-server";
 
 /**
  * A small, fixed Form 4 manual for the chat evals (manual text spec §10:
@@ -26,10 +31,17 @@ import { buildDocumentPassages } from "@/lib/manuals/passages";
  * processed manuals and builds their passages with the deployment's embedding
  * model (job `embed` — a real, sub-cent Gateway call, like the rest of
  * `npm run eval`). Search itself runs for real (reranked, like the chat's).
+ *
+ * **The files are real** (manual text spec amendment 2026-09-28): each manual
+ * is a PDF with the fixture's page count and words, stored in a local Blob
+ * store in a temp folder and served over HTTP on 127.0.0.1
+ * (`local-blob-server.ts`), and the attachment's `public_url` is that address
+ * — so `citations_resolve` can GET every cited page and check it the way a
+ * student's click would.
  */
 
 export const EVAL_MANUAL_TITLE = "Form 4 Manual";
-export const EVAL_MANUAL_URL = "https://eval.blob.test/manuals/form-4-manual.pdf";
+export const EVAL_MANUAL_PATHNAME = "manuals/form-4-manual.pdf";
 
 /** Page number → text. Pages not listed are blank. */
 const PAGES: Record<number, string> = {
@@ -54,7 +66,7 @@ const OUTLINE = [
 const PAGE_COUNT = 50;
 
 export const EVAL_SCAN_TITLE = "Form Wash Guide (scanned)";
-export const EVAL_SCAN_URL = "https://eval.blob.test/manuals/form-wash-guide.pdf";
+export const EVAL_SCAN_PATHNAME = "manuals/form-wash-guide.pdf";
 
 /** The scan's pages, as OCR read them. */
 const SCAN_PAGES: Record<number, string> = {
@@ -70,40 +82,64 @@ const SCAN_OUTLINE = [
 
 const SCAN_PAGE_COUNT = 6;
 
-/** Store the fixture manuals on the demo Form 4 and build their passages. Idempotent per process. */
-export async function seedEvalManual(): Promise<void> {
+let server: LocalBlobServer | null = null;
+
+/**
+ * Store the fixture manuals on the demo Form 4 — real PDFs in the eval's local
+ * Blob store, served on 127.0.0.1 — and build their passages. Idempotent per
+ * process; returns the file server (its origin is the eval's "local blob
+ * origin").
+ */
+export async function seedEvalManual(): Promise<LocalBlobServer> {
+  server ??= await startLocalBlobServer(mkdtempSync(join(tmpdir(), "makerlab-eval-blob-")));
   const db = await getDb();
   const [form4] = await db.select({ id: tools.id }).from(tools).where(eq(tools.slug, "form-4"));
   if (!form4) throw new Error("the demo seed has no form-4 tool");
-  const stored = async (url: string) =>
-    (await db.select({ id: attachments.id }).from(attachments).where(eq(attachments.publicUrl, url))).length > 0;
+  const stored = async (pathname: string) =>
+    (await db.select({ id: attachments.id }).from(attachments).where(eq(attachments.blobPathname, pathname))).length > 0;
 
   // Each document on its own: a run that stored the manual and failed on the scan adds the scan next time.
-  if (!(await stored(EVAL_MANUAL_URL))) await seedDocument(form4.id, {
+  if (!(await stored(EVAL_MANUAL_PATHNAME))) await seedDocument(server, form4.id, {
     title: EVAL_MANUAL_TITLE,
-    url: EVAL_MANUAL_URL,
-    pathname: "manuals/form-4-manual.pdf",
+    pathname: EVAL_MANUAL_PATHNAME,
     pageCount: PAGE_COUNT,
     pages: PAGES,
     outline: OUTLINE,
     ocr: false,
   });
-  if (!(await stored(EVAL_SCAN_URL))) await seedDocument(form4.id, {
+  if (!(await stored(EVAL_SCAN_PATHNAME))) await seedDocument(server, form4.id, {
     title: EVAL_SCAN_TITLE,
-    url: EVAL_SCAN_URL,
-    pathname: "manuals/form-wash-guide.pdf",
+    pathname: EVAL_SCAN_PATHNAME,
     pageCount: SCAN_PAGE_COUNT,
     pages: SCAN_PAGES,
     outline: SCAN_OUTLINE,
     ocr: true,
   });
+  return server;
+}
+
+/** Stop the eval's file server. */
+export async function stopEvalManualServer(): Promise<void> {
+  await server?.close();
+  server = null;
+}
+
+/** A PDF with `pageCount` pages carrying the fixture's words, a line per text line. */
+export function fixturePdf(pageCount: number, pages: Record<number, string>): Uint8Array {
+  const pdfPages: PdfPage[] = Array.from({ length: pageCount }, (_, i) => ({
+    lines: (pages[i + 1] ?? "")
+      .split("\n")
+      .filter(Boolean)
+      .map((text, line) => ({ text, size: 10, x: 54, y: 740 - line * 16 })),
+  }));
+  return buildPdf({ pages: pdfPages });
 }
 
 async function seedDocument(
+  files: LocalBlobServer,
   toolId: string,
   doc: {
     title: string;
-    url: string;
     pathname: string;
     pageCount: number;
     pages: Record<number, string>;
@@ -112,6 +148,12 @@ async function seedDocument(
     ocr: boolean;
   }
 ): Promise<void> {
+  await files.store.put(doc.pathname, fixturePdf(doc.pageCount, doc.pages), {
+    access: "public",
+    contentType: "application/pdf",
+    allowOverwrite: true,
+  });
+  const url = files.url(doc.pathname);
   const db = await getDb();
   const [resource] = await db
     .insert(resources)
@@ -124,7 +166,7 @@ async function seedDocument(
       ownerId: resource.id,
       blobPathname: doc.pathname,
       access: "public",
-      publicUrl: doc.url,
+      publicUrl: url,
       contentType: "application/pdf",
       origin: "upload",
     })

@@ -1,4 +1,4 @@
-import { runAssertion, type AssertionOutcome, type RecordedToolCall } from "./assertions";
+import { runAssertion, type AssertionOutcome, type RecordedDocumentEvidence, type RecordedToolCall } from "./assertions";
 import type { EvalCase } from "./cases";
 import type { EvalFixture } from "./fixtures";
 
@@ -36,6 +36,8 @@ export interface CaseExecution {
   text: string;
   toolCalls: RecordedToolCall[];
   usage?: TokenUsage;
+  /** Manual PDF evidence for the answer's citations (`citations_resolve`), gathered by the executor. */
+  citationEvidence?: Record<string, RecordedDocumentEvidence>;
 }
 
 /** Runs one case against the assistant. Injected so tests can stub the model. */
@@ -89,6 +91,7 @@ function assess(
     runAssertion(spec, {
       text: execution.text,
       toolCalls: execution.toolCalls,
+      citationEvidence: execution.citationEvidence,
       fixture,
       toolId: evalCase.context.toolId,
     })
