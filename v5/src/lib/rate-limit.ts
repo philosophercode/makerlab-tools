@@ -215,6 +215,9 @@ export const ROUTE_TIERS = {
   // covers a lab or a booth full of screens behind one address. Keyed by
   // hashed IP only — the route reads no cookie.
   kiosk: { limit: 20, windowMs: 60_000 },
+  // Usage insight's page-view beacon (usage insight spec §5.3, §8): one per
+  // tool per tab, so sixty a minute is a busy browser, not a person.
+  usage: { limit: 60, windowMs: 60_000 },
 } as const;
 
 export type RouteScope = keyof typeof ROUTE_TIERS;

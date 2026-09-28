@@ -9,6 +9,7 @@ import { countOpenInboxProposals } from "./action-proposals.ts";
 import { countOpenTickets } from "./maintenance.ts";
 import { countManualsByState } from "./manual-chunks.ts";
 import { getMirrorViewForOwner } from "./mirrors.ts";
+import { countOpenGaps } from "../usage/queries.ts";
 
 /**
  * The `/admin` home's live counts (UI system spec §8.1; data platform spec §6
@@ -50,6 +51,8 @@ export interface OverviewCounts {
   };
   refresh: { proposed: number; running: number; failed: number };
   manuals: { searchable: number; total: number; failed: number };
+  /** Unanswered questions waiting in `/admin/insights`' queue (usage insight spec §6). */
+  insights: { openGaps: number };
   maintenance: { open: number; inProgress: number; urgent: number; series: number[] };
   corrections: { open: number; handled: number; series: number[] };
   projects: { waiting: number; published: number };
@@ -154,6 +157,10 @@ export const COUNT_LOADER_READS: { [K in CountLoader]: (ctx: OverviewContext) =>
       total: counts.searchable + counts.textOnly + counts.noText + counts.failed + counts.processing,
       failed: counts.failed,
     };
+  },
+
+  async insights({ db }) {
+    return { openGaps: await countOpenGaps(db) };
   },
 
   async maintenance(ctx) {

@@ -6,6 +6,7 @@ import { QrArrivalNotice } from "./QrArrivalNotice";
 import { DetailShell } from "../../../components/DetailShell";
 import { FlagButton } from "../../../components/FlagButton";
 import { ToolChatStarters } from "../../../components/ToolChatStarters";
+import { UsageBeacon } from "../../../components/usage/UsageBeacon";
 import { getCatalogTool, getManualContents, getToolMaintenanceHistory } from "../../../lib/catalog";
 import { findToolByNotionPageId } from "../../../lib/data/catalog";
 import { isLegacyNotionId } from "../../../lib/legacy-id";
@@ -139,6 +140,12 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
         <QrArrivalNotice toolName={tool.name} />
       </Suspense>
       <DetailShell tool={tool} projects={projects} manualContents={manualContents} maintenance={maintenance} />
+      {/* Usage insight's view count (usage insight spec §5.3): the page is
+          cached, so the browser says it was seen. Suspended for the same
+          reason as the QR notice — it reads `?src=qr`. */}
+      <Suspense fallback={null}>
+        <UsageBeacon kind="tool_view" toolId={tool.id} />
+      </Suspense>
       {/* The assistant's starter chips for this tool, handed to the chat in
           the layout; nothing is rendered (amendment "Tool-specific starter
           questions"). */}

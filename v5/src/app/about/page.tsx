@@ -28,6 +28,8 @@ export default function AboutPage() {
       <PageSection id="about-how" title={t("howItWorksHeading")}>
         <Prose>
           <p>{t("howItWorksBody")}</p>
+          {/* Usage insight spec §8, §13 Q6: one sentence on what is counted. */}
+          <p>{t("usageBody")}</p>
           <p>{t("feedbackBody")}</p>
         </Prose>
       </PageSection>

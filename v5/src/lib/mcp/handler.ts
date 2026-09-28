@@ -7,6 +7,8 @@ import { registerAll } from "../capabilities/mcp-adapter";
 import { authBaseUrl } from "../auth/config";
 import { resolveMcpCaller, type McpAuthRefusal, type McpCaller } from "../auth/mcp-caller";
 import { checkRateLimit } from "../rate-limit";
+import { mcpCallUsage } from "../usage/mcp-call";
+import { scheduleUsage } from "../usage/schedule";
 
 /**
  * The MCP endpoint (MCP access spec §3, §5.2), shared by its two URLs:
@@ -112,6 +114,9 @@ function createServer(caller: McpCaller): McpServer {
       const decision = await checkRateLimit("mcpWrite", caller.identity);
       return decision.allowed ? null : "Too many changes in a minute. Wait a moment and try again.";
     },
+    // Usage insight (§3.3): the tool's name and the tool it resolved, never
+    // the token or the person — only the role's audience bucket.
+    afterCall: (tool, result) => scheduleUsage(mcpCallUsage(tool.name, result, caller.identity.role)),
   });
   return server;
 }

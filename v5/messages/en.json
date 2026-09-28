@@ -211,7 +211,8 @@
     "browseTools": "Browse tools",
     "mcpHeading": "Connect an AI assistant",
     "mcpBody": "The catalog is also available to AI assistants such as Claude, ChatGPT and Codex over MCP, at this site's /api/mcp address. Browsing needs no account. To let an assistant file reports as you, with your role's permissions and nothing more, sign in with Google from the assistant; a personal access token is there for clients that can't.",
-    "mcpLink": "See the MCP server and its tools"
+    "mcpLink": "See the MCP server and its tools",
+    "usageBody": "To improve the lab, we keep anonymous usage counts — which tools and manuals are asked about and which questions go unanswered — never who asked."
   },
   "chat": {
     "openAria": "Open MakerLab assistant",
@@ -1726,7 +1727,8 @@
         "projects": "Projects",
         "proposals": "Assistant proposals",
         "users": "People",
-        "mirror": "Notion mirror"
+        "mirror": "Notion mirror",
+        "insights": "Insights"
       }
     },
     "home": {
@@ -1773,7 +1775,8 @@
         "connected": "Connected",
         "paused": "Paused",
         "failed": "Last push failed"
-      }
+      },
+      "insightsUnit": "unanswered questions"
     },
     "facts": {
       "tools": "{count, plural, one {# tool} other {# tools}}",
@@ -1810,6 +1813,122 @@
       "tabQueue": "Queue",
       "tabImports": "Imports",
       "importList": "Import a list"
+    },
+    "insights": {
+      "title": "Insights",
+      "lede": "What the lab asks about, which manuals answer it, and what the assistant could not. Anonymous counts: nothing here says who asked.",
+      "facts": {
+        "period": "Last {days} days",
+        "since": "Counting since {date}",
+        "staffIncluded": "Staff included",
+        "staffExcluded": "Staff left out",
+        "approximate": "Counts are approximate"
+      },
+      "controls": {
+        "label": "Period and audience",
+        "period": "Period",
+        "days": "{days} days",
+        "staff": "Include staff",
+        "staffOn": "Staff included — leave them out",
+        "staffOff": "Include staff"
+      },
+      "empty": "Nothing counted yet. Counting started when this version was deployed; views, questions and citations appear here as people use the site.",
+      "unreadable": "The usage counts could not be read just now. Nothing has been lost; try again in a moment.",
+      "summary": {
+        "label": "Totals for the period",
+        "chatTurns": "Assistant questions (app)",
+        "mcpCalls": "MCP tool calls",
+        "toolViews": "Tool page views",
+        "qrScans": "QR scans on machines",
+        "kioskScreens": "Kiosk screen loads",
+        "kioskScans": "Kiosk QR arrivals",
+        "citations": "Manual citations",
+        "gaps": "Unanswered",
+        "answered": "Answered",
+        "answeredValue": "{percent}%"
+      },
+      "tools": {
+        "heading": "Tools",
+        "tabsLabel": "Which tools",
+        "mostAsked": "Most asked about",
+        "neverAsked": "Never asked about",
+        "tableLabel": "Tools by how often they were asked about, with views, QR scans, citations and unanswered questions",
+        "quietLabel": "Published tools nobody asked about or viewed in the period",
+        "columnTool": "Tool",
+        "columnAsked": "Asked",
+        "columnChat": "In the app",
+        "columnMcp": "Over MCP",
+        "columnViews": "Views",
+        "columnQr": "QR",
+        "columnCitations": "Citations",
+        "columnGaps": "Unanswered",
+        "deletedTool": "Deleted tool",
+        "noTool": "No particular tool",
+        "empty": "No tool was asked about or viewed in this period.",
+        "quietEmpty": "Every published tool was asked about or viewed in this period.",
+        "mobileCounts": "Asked {asked} · views {views} · QR {qr}"
+      },
+      "kinds": {
+        "heading": "What kinds of questions",
+        "note": "Sorted by keywords in the question, not by a model — a trend, not a verdict on any one question.",
+        "operate": "How to use",
+        "debug": "Something is wrong",
+        "create": "What to make, which tool",
+        "other": "Other",
+        "series": "{kind}: {total} in the period"
+      },
+      "heatmap": {
+        "heading": "Busiest times",
+        "note": "Assistant questions and tool page views by hour, in lab time ({timeZone}).",
+        "tableLabel": "Assistant questions and tool page views by day of the week and hour",
+        "day": "Day",
+        "cell": "{day} {hour}:00 — {count}",
+        "days": {
+          "0": "Sun",
+          "1": "Mon",
+          "2": "Tue",
+          "3": "Wed",
+          "4": "Thu",
+          "5": "Fri",
+          "6": "Sat"
+        }
+      },
+      "manuals": {
+        "heading": "Manuals cited",
+        "tableLabel": "Manuals the assistant cited, how often, and the pages cited most",
+        "columnManual": "Manual",
+        "columnTool": "Tool",
+        "columnCitations": "Citations",
+        "columnPages": "Top pages",
+        "page": "p. {page} ({count})",
+        "deleted": "Removed manual",
+        "empty": "No manual was cited in this period."
+      },
+      "gaps": {
+        "heading": "Unanswered",
+        "note": "Questions the assistant could not answer, each once with how often it was asked. The wording is scrubbed of emails, phone numbers and IDs, shown only here, and deleted 30 days after it was last asked.",
+        "facts": "{open} open · {filed} filed · {dismissed} dismissed",
+        "empty": "No open unanswered questions.",
+        "listLabel": "Unanswered questions",
+        "asked": "{count, plural, one {asked once} other {asked # times}}",
+        "lastSeen": "last {date}",
+        "kind": {
+          "not_in_catalog": "Not in the catalog",
+          "no_manual_passage": "Manual has no answer",
+          "no_search_results": "Search found nothing",
+          "honest_absence": "Assistant said it does not know"
+        },
+        "addManual": "Add a manual",
+        "addManualFor": "Add a manual to {tool}",
+        "fileCorrection": "File as a correction",
+        "fileCorrectionFor": "File “{question}” as a correction",
+        "filed": "Filed",
+        "filedMessage": "Filed as a correction. It is on the Corrections queue.",
+        "dismiss": "Dismiss",
+        "dismissFor": "Dismiss “{question}”",
+        "dismissed": "Dismissed",
+        "dismissedMessage": "Dismissed. It comes back if it is asked three more times."
+      }
     }
   },
   "account": {

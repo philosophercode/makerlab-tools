@@ -81,7 +81,7 @@ import { server } from "../../../../../test/msw/server";
 import { saveMirrorConnection } from "@/lib/data/mirrors";
 import { getDb, resetDbForTests } from "@/lib/db/client";
 import { DEMO_ACCOUNTS } from "@/lib/db/demo-seed";
-import { attachments, notionMirrors, pendingTools, resources, tools } from "@/lib/db/schema/index";
+import { attachments, notionMirrors, pendingTools, resources, tools, usageEvents, usageGaps, usageRollups } from "@/lib/db/schema/index";
 import { GET } from "./route";
 
 /**
@@ -353,6 +353,37 @@ describe("GET /api/cron/daily — the cleanup stage", () => {
     // Today's data is safe; only the sweep needs attention. Whoever reads the
     // log has to be able to tell those apart.
     expect(body.backup.pathname).toMatch(/^backups\//);
+  });
+});
+
+describe("GET /api/cron/daily — the usage stage (usage insight spec §5.4)", () => {
+  it("rolls usage into hourly counts, prunes raw events and gap text past 30 days, and reports it", async () => {
+    const db = await getDb();
+    const old = new Date(Date.now() - 31 * 24 * HOUR);
+    await db.insert(usageEvents).values([
+      { occurredAt: old, kind: "chat_turn", surface: "chat", audience: "anonymous" },
+      { occurredAt: old, kind: "chat_turn", surface: "chat", audience: "anonymous" },
+    ]);
+    await db.insert(usageGaps).values({ key: "-|stale question", kind: "honest_absence", question: "stale question", lastSeen: old, firstSeen: old });
+
+    const res = await GET(authorized());
+    const body = await res.json();
+
+    expect(res.status).toBe(200);
+    expect(body.usage.prunedEvents).toBeGreaterThanOrEqual(2);
+    expect(body.usage.prunedGaps).toBeGreaterThanOrEqual(1);
+    expect(body.usage.rollupRows).toBeGreaterThan(0);
+    expect(await db.select().from(usageGaps).where(eq(usageGaps.question, "stale question"))).toHaveLength(0);
+    const rolled = await db.select().from(usageRollups).where(eq(usageRollups.hourStart, new Date(Math.floor(old.getTime() / HOUR) * HOUR)));
+    expect(rolled.reduce((sum, row) => sum + row.count, 0)).toBe(2);
+  });
+
+  it("keeps raw usage events and the Unanswered queue out of the backup file, and the counts in it", async () => {
+    await GET(authorized());
+    const tables = Object.keys(writtenFile().tables);
+    expect(tables).not.toContain("usage_events");
+    expect(tables).not.toContain("usage_gaps");
+    expect(tables).toContain("usage_rollups");
   });
 });
 

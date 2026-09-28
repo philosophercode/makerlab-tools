@@ -117,6 +117,8 @@ const BUILDERS: { [K in SurfaceKey]: (counts: CountsFor[K], t: Translate, extra:
     unit: t("home.manualsUnit"),
     facts: [fact(t("home.manualsTotal"), c.total), fact(t("home.manualsFailed"), c.failed, "bad")],
   }),
+  // Unanswered questions to act on: a half tile, a number waiting on staff.
+  insights: (c, t) => ({ value: c.openGaps, unit: t("home.insightsUnit"), waiting: true, size: "half" }),
   maintenance: (c, t) => ({
     value: c.open,
     unit: t("home.maintenanceUnit"),

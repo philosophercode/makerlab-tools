@@ -15,6 +15,7 @@ import {
 } from "./schema/index.ts";
 import type { ResearchResult } from "../research/result.ts";
 import type { Db } from "./types.ts";
+import { seedDemoUsage } from "../usage/demo-usage.ts";
 
 /**
  * Sample data for a database with no `DATABASE_URL` (spec §3.10): the two
@@ -507,6 +508,9 @@ export async function seedDemo(db: Db): Promise<void> {
         // "waiting on the intake page" case with it.
       },
     ]);
+
+    // A synthetic week of anonymous usage for /admin/insights (usage insight spec §9).
+    await seedDemoUsage(tx, { form4: form4.id, trotec: trotec.id });
   });
 }
 
