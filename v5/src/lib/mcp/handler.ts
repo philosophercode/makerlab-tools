@@ -9,6 +9,7 @@ import { resolveMcpCaller, type McpAuthRefusal, type McpCaller } from "../auth/m
 import { checkRateLimit } from "../rate-limit";
 import { mcpCallUsage } from "../usage/mcp-call";
 import { scheduleUsage } from "../usage/schedule";
+import { siteConfig } from "../site-config";
 
 /**
  * The MCP endpoint (MCP access spec §3, §5.2), shared by its two URLs:
@@ -124,7 +125,7 @@ function createServer(caller: McpCaller): McpServer {
 /** What the server tells a client about who it is talking as. */
 function instructionsFor(caller: McpCaller): string {
   const base =
-    "MakerLab Tools: the lab's equipment catalogue — tools, units, availability, maintenance history and manuals.";
+    `${siteConfig.name}: the lab's equipment catalogue — tools, units, availability, maintenance history and manuals.`;
   if (caller.via === "anonymous" || caller.via === "legacy_token") {
     return `${base} You are connected without signing in, so only the public read-only tools are available. Maintenance history carries no reporter names.`;
   }

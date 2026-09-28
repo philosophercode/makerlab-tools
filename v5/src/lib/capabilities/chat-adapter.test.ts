@@ -107,3 +107,42 @@ describe("citing sources", () => {
     expect(prompt).toContain('3. A resource with "no link on file": its exact title in bold, `**Trotec Speedy 400 SOP**`, with no link.');
   });
 });
+
+describe("where you are (identity spec 2026-09-28 §5)", () => {
+  it("tells the assistant what it is, where the lab is and who runs it", () => {
+    const prompt = promptFor(null);
+
+    expect(prompt).toContain("## Where you are");
+    expect(prompt).toContain("MakerLAB Assistant");
+    expect(prompt).toContain("**MakerLAB Tools**");
+    expect(prompt).toContain("**first floor of the Tata Innovation Center**");
+    expect(prompt).toContain("Roosevelt Island");
+    expect(prompt).toContain("**Niti Parikh**");
+    expect(prompt).toContain("**Luis Rodrigo Navarro**");
+    expect(prompt).toContain("Cornell University's graduate campus in New York City");
+  });
+
+  it("names its purpose — operate, debug, create — without forcing it", () => {
+    const prompt = promptFor(null);
+
+    expect(prompt).toMatch(/\*\*operate\*\*.*\*\*debug\*\*.*\*\*create\*\*/);
+    expect(prompt).toContain("Stay flexible");
+  });
+
+  it("sends the unconfirmed to staff instead of guessing, and states nothing we could not source", () => {
+    const prompt = promptFor(null);
+
+    expect(prompt).toContain("never guess about the lab");
+    for (const unconfirmed of ["1,200", "Studio 101", "square feet", "sq ft"]) expect(prompt).not.toContain(unconfirmed);
+  });
+
+  it("sits in the static prefix: right after the intro, and the same whatever the page or locale", () => {
+    const general = promptFor(null);
+    const onTool = buildSystemPrompt([], { tools: mockTools, focusedTool: trotec, locale: "fr" });
+    const where = general.indexOf("## Where you are");
+
+    expect(where).toBeGreaterThan(0);
+    expect(where).toBeLessThan(general.indexOf("## Linking tools"));
+    expect(onTool.slice(0, onTool.indexOf("## Linking tools"))).toBe(general.slice(0, general.indexOf("## Linking tools")));
+  });
+});

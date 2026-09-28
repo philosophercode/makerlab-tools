@@ -15,13 +15,21 @@ export const DOWN_VISIBLE = 6;
  * name and "1 of 2 down", or — when nothing is — "All machines running" with
  * how many are in service. Never an empty panel.
  */
-export function DownMachines({ down, unitsInService }: { down: KioskDownMachine[]; unitsInService: number }) {
+export function DownMachines({
+  down,
+  unitsInService,
+  className,
+}: {
+  down: KioskDownMachine[];
+  unitsInService: number;
+  className?: string;
+}) {
   const t = useTranslations("kiosk");
   const shown = down.slice(0, DOWN_VISIBLE);
   const hidden = down.length - shown.length;
 
   return (
-    <section aria-labelledby="kiosk-machines" className="flex min-h-0 flex-col gap-[2vmin]">
+    <section aria-labelledby="kiosk-machines" className={cn("flex min-h-0 min-w-0 flex-col gap-[2vmin]", className)}>
       <h2 id="kiosk-machines" className={KIOSK_TYPE.label}>
         {t("machinesHeading")}
       </h2>
@@ -35,10 +43,10 @@ export function DownMachines({ down, unitsInService }: { down: KioskDownMachine[
         </div>
       ) : (
         <>
-          <ul className="grid min-h-0 grid-cols-[repeat(auto-fill,minmax(min(100%,34vmin),1fr))] gap-[1.5vmin]">
+          <ul className="grid min-h-0 grid-cols-[repeat(auto-fill,minmax(var(--kiosk-card-min),1fr))] gap-[1.5vmin]">
             {shown.map((machine) => (
               <li key={machine.toolSlug} className="flex min-w-0 items-center gap-[2vmin] border border-border bg-card p-[1.5vmin]">
-                <ToolImage src={machine.imageSrc} name={machine.toolName} sizes="12vmin" className="size-[11vmin] shrink-0" />
+                <ToolImage src={machine.imageSrc} name={machine.toolName} sizes="12vmin" className="size-(--kiosk-thumb) shrink-0" />
                 <div className="flex min-w-0 flex-col gap-[0.8vmin]">
                   <p className={cn(KIOSK_TYPE.body, "line-clamp-2 font-medium")}>{machine.toolName}</p>
                   <p className={cn(KIOSK_TYPE.small, "flex items-baseline gap-[1vmin]")}>

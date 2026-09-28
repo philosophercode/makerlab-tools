@@ -129,10 +129,10 @@ Blocking or removing someone is on the same page.
 ### Change branding, colours, or the assistant's name
 
 Environment variables in Vercel, no code change: `NEXT_PUBLIC_SITE_NAME`,
-`NEXT_PUBLIC_INSTITUTION`, `NEXT_PUBLIC_TAGLINE`, `NEXT_PUBLIC_LOGO`,
+`NEXT_PUBLIC_INSTITUTION`, `NEXT_PUBLIC_TAGLINE`, `NEXT_PUBLIC_LOGO`, `NEXT_PUBLIC_WORDMARK`,
 `NEXT_PUBLIC_COLOR_PRIMARY`, `NEXT_PUBLIC_COLOR_PRIMARY_DARK`,
 `NEXT_PUBLIC_CHAT_ASSISTANT_NAME`, and `AUDIENCE`. The lab hours shown in the header and on
-the lab screen are `NEXT_PUBLIC_LAB_HOURS` (one line of text, default `LAB OPEN 9AM-9PM`).
+the lab screen are `NEXT_PUBLIC_LAB_HOURS` (one line of text, default `LAB OPEN 8AM-8PM`).
 Full explanations in `v5/.env.example`. **Redeploy after changing any variable** — a
 deployment only sees the values it was built with.
 

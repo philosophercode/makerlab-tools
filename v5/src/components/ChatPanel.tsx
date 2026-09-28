@@ -6,7 +6,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { isCutOff } from "./chat/cut-off";
-import { ClipboardCheckIcon, MapPinIcon, SearchIcon, SquarePenIcon, XIcon } from "lucide-react";
+import { BotMessageSquareIcon, ClipboardCheckIcon, LightbulbIcon, PlayIcon, SquarePenIcon, WrenchIcon, XIcon } from "lucide-react";
 import { useChatLauncher } from "./ChatLauncherContext";
 import { siteConfig } from "../lib/site-config";
 import { startGoogleSignIn } from "../lib/auth/sign-in-client";
@@ -26,11 +26,16 @@ import { usePageSelectionReader, type PageSelection } from "./chat/page-selectio
 import { FROSTED } from "./system/frosted";
 import { cn } from "@/lib/utils";
 
-/** The generic starters, with the icon each chip carries. */
+/**
+ * The generic starters (identity spec 2026-09-28 §4): one each for what the
+ * assistant is for — operate a machine, debug a problem, create something —
+ * with the word as a kicker and the icon each chip carries. Examples, not a
+ * menu: the person can ask anything.
+ */
 const SUGGESTIONS = [
-  { icon: SearchIcon, key: "suggestionFindMachine" },
-  { icon: ClipboardCheckIcon, key: "suggestionTraining" },
-  { icon: MapPinIcon, key: "suggestionSafety" },
+  { icon: PlayIcon, key: "starterOperate", kicker: "starterOperateLabel" },
+  { icon: WrenchIcon, key: "starterDebug", kicker: "starterDebugLabel" },
+  { icon: LightbulbIcon, key: "starterCreate", kicker: "starterCreateLabel" },
 ] as const;
 
 /** A path segment as written, decoded when it can be. */
@@ -48,8 +53,8 @@ function pageContext(path: string, selection: PageSelection | null): { path: str
 }
 
 /**
- * The MakerLab assistant (UI system spec §9; phase 5b): a docked side sheet on
- * AI Elements. `ChatFab` loads this module the first time the chat opens —
+ * The MakerLAB Assistant (UI system spec §9; phase 5b; identity spec
+ * 2026-09-28): a docked side sheet on AI Elements. `ChatFab` loads this module the first time the chat opens —
  * it carries the AI SDK, the sheet and the composer, which no page needs
  * before then — and keeps it mounted from then on, so a conversation survives
  * navigation.
@@ -103,10 +108,10 @@ export function ChatPanel() {
         : [];
     const starters =
       own.length > 0
-        ? own.map((question, n) => ({ key: `tool-${n}`, Icon: SUGGESTIONS[n % SUGGESTIONS.length].icon, label: question, send: question }))
-        : SUGGESTIONS.map(({ key, icon }) => ({ key, Icon: icon, label: t(key), send: t(key) }));
+        ? own.map((question, n) => ({ key: `tool-${n}`, Icon: SUGGESTIONS[n % SUGGESTIONS.length].icon, kicker: null, label: question, send: question }))
+        : SUGGESTIONS.map(({ key, icon, kicker }) => ({ key, Icon: icon, kicker: t(kicker), label: t(key), send: t(key) }));
     return curateHere
-      ? [{ key: "curate", Icon: ClipboardCheckIcon, label: t("curateStarter"), send: t("curatePrompt") }, ...starters]
+      ? [{ key: "curate", Icon: ClipboardCheckIcon, kicker: null, label: t("curateStarter"), send: t("curatePrompt") }, ...starters]
       : starters;
   }, [toolId, toolStarters, curateHere, t]);
 
@@ -295,7 +300,10 @@ export function ChatPanel() {
           className={cn(FROSTED, "w-full gap-0 overflow-hidden border-0 p-0 sm:w-[440px] sm:border-s")}
         >
           <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3">
-            <SheetTitle className="font-mono text-label tracking-[0.08em]">{t("title")}</SheetTitle>
+            <SheetTitle className="flex items-center gap-2 font-heading text-sm font-medium normal-case">
+              <BotMessageSquareIcon aria-hidden="true" className="size-4 text-primary-ink" />
+              {t("title")}
+            </SheetTitle>
             <div className="flex items-center gap-1">
               {messages.length > 0 ? (
                 <Button variant="ghost" size="icon-sm" onClick={clearChat} aria-label={t("newChatAria")} title={t("newChatTitle")}>
@@ -316,10 +324,17 @@ export function ChatPanel() {
                 <div className="flex flex-col gap-4">
                   <p className="text-sm text-muted-foreground">{toolId ? t("greetingTool") : t("greetingGeneral")}</p>
                   <Suggestions>
-                    {chips.map(({ key, Icon, label, send: text }) => (
+                    {chips.map(({ key, Icon, kicker, label, send: text }) => (
                       <Suggestion key={key} suggestion={text} onClick={handleSuggestion} disabled={isLoading}>
                         <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-                        <span>{label}</span>
+                        {kicker ? (
+                          <span className="flex flex-col items-start gap-0.5">
+                            <span className="font-mono text-label tracking-[0.08em] text-muted-foreground uppercase">{kicker}</span>{" "}
+                            <span>{label}</span>
+                          </span>
+                        ) : (
+                          <span>{label}</span>
+                        )}
                       </Suggestion>
                     ))}
                   </Suggestions>

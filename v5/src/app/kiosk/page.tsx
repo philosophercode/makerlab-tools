@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
 import "./kiosk.css";
@@ -16,8 +16,20 @@ import { kioskLocale, kioskMessages } from "./kiosk-locale";
 
 export const metadata: Metadata = {
   title: `Lab status — ${siteConfig.name}`,
-  description: `What is running in the ${siteConfig.institution} MakerLab right now.`,
+  description: `What is running in the ${siteConfig.institution} MakerLAB right now.`,
   robots: { index: false },
+};
+
+/**
+ * `viewport-fit=cover` lets the screen paint under a phone's notch and home
+ * bar, and the kiosk's padding keeps the text clear of them with
+ * `env(safe-area-inset-*)`. The browser chrome is the screen's own dark.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0f0f0f",
 };
 
 /**

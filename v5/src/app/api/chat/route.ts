@@ -154,6 +154,14 @@ export async function POST(req: Request) {
           data: { titles: manuals.map((m) => m.title) },
           transient: true,
         });
+        // The attached manuals' stored addresses, kept on the message: the only
+        // manual links the chat draws that no `search_manual` call returned —
+        // as documents, never at a page the model picked (manual text spec
+        // amendment 2026-09-28 "Citations always resolve").
+        writer.write({
+          type: "data-manual-links",
+          data: { kind: "manual-links", links: manuals.map((m) => ({ title: m.title, url: m.url })) },
+        });
       }
 
       // Build the capability context for this turn. The chat surface populates
@@ -562,7 +570,7 @@ function appendManualSections(
 
   const list = manuals.map((m) => `- **${m.title}** — ${m.url}`).join("\n");
   sections.push(
-    `## Available manuals\n\nThe following PDF manuals are attached to this conversation as documents — read both their text and figures directly:\n\n${list}`
+    `## Available manuals\n\nThe following PDF manuals are attached to this conversation as documents — read both their text and figures directly:\n\n${list}\n\nThese are not searchable, so there is no \`ref\` to cite them by. Cite a page of one as plain text — "(${manuals[0].title}, p. 12)" — and, if you link the manual, link exactly its address above: never add \`#page=\` to it and never write any other address for it. The chat does not turn a page anchor you write into a link.`
   );
 
   if (focused && focused.links.length > 0) {

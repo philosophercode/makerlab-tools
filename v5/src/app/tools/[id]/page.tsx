@@ -7,6 +7,7 @@ import { DetailShell } from "../../../components/DetailShell";
 import { FlagButton } from "../../../components/FlagButton";
 import { ToolChatStarters } from "../../../components/ToolChatStarters";
 import { UsageBeacon } from "../../../components/usage/UsageBeacon";
+import { SignedInToolLocation } from "../../../components/map/SignedInToolLocation";
 import { getCatalogTool, getManualContents, getToolMaintenanceHistory } from "../../../lib/catalog";
 import { findToolByNotionPageId } from "../../../lib/data/catalog";
 import { isLegacyNotionId } from "../../../lib/legacy-id";
@@ -139,7 +140,19 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
       <Suspense fallback={null}>
         <QrArrivalNotice toolName={tool.name} />
       </Suspense>
-      <DetailShell tool={tool} projects={projects} manualContents={manualContents} maintenance={maintenance} />
+      <DetailShell
+        tool={tool}
+        projects={projects}
+        manualContents={manualContents}
+        maintenance={maintenance}
+        location={
+          // Signed-in viewers only (map access, PR #98): a dynamic hole, so the
+          // cached shell sent to everyone else carries no placement.
+          <Suspense fallback={null}>
+            <SignedInToolLocation tool={tool} />
+          </Suspense>
+        }
+      />
       {/* Usage insight's view count (usage insight spec §5.3): the page is
           cached, so the browser says it was seen. Suspended for the same
           reason as the QR notice — it reads `?src=qr`. */}
