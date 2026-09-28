@@ -21,8 +21,8 @@ const ITEM = {
 };
 
 const CATEGORIES = [
-  { id: "c1", name: "FDM", group: "3D Printing" },
-  { id: "c2", name: "Hand Tools", group: null },
+  { id: "c1", name: "FDM Printers", group: "3D Printing", slug: "fdm-printers", description: "Filament printers. Not resin printers." },
+  { id: "c2", name: "Hand Tools", group: null, slug: "hand-tools", description: null },
 ];
 
 describe("researchSystemPrompt", () => {
@@ -88,8 +88,9 @@ describe("buildSearchPrompt / buildReadPrompt", () => {
     expect(prompt).toContain("Brand: Prusa Research");
     expect(prompt).toContain("Category hint: 3D Printing");
     expect(prompt).toContain("MakerLab, bench 2");
-    expect(prompt).toContain("- FDM (group: 3D Printing)");
-    expect(prompt).toContain("- Hand Tools");
+    // Taxonomy v2 (spec §4.2): every category as `slug — Parent › Name: description`.
+    expect(prompt).toContain("- fdm-printers — 3D Printing › FDM Printers: Filament printers. Not resin printers.");
+    expect(prompt).toContain("- hand-tools — Hand Tools");
   });
 
   it("sends no person — not a name, not an email — even when handed a whole row", () => {

@@ -18,6 +18,7 @@ import {
   parseGalleryState,
   sortTools,
   toGallerySearchParams,
+  visibleInGallery,
   type GalleryGroup,
   type GallerySort,
   type GalleryState,
@@ -103,33 +104,36 @@ export function GalleryShell({ tools }: GalleryShellProps) {
   const mainRef = useRef<HTMLElement>(null);
   useStickyOffset(mainRef);
 
+  // Hidden-by-default categories stay out unless the Category facet names one
+  // (taxonomy v2); the Category facet itself still lists them, with counts.
+  const visible = useMemo(() => visibleInGallery(tools, state), [tools, state]);
   const categories = useMemo(() => uniqueValues(tools.map((tool) => tool.category)), [tools]);
-  const materials = useMemo(() => uniqueValues(tools.flatMap((tool) => tool.materials)), [tools]);
-  const locations = useMemo(() => uniqueValues(tools.map((tool) => tool.location)), [tools]);
+  const materials = useMemo(() => uniqueValues(visible.flatMap((tool) => tool.materials)), [visible]);
+  const locations = useMemo(() => uniqueValues(visible.map((tool) => tool.location)), [visible]);
 
   const query = state.query.trim();
   const shownTools = useMemo(() => {
-    const faceted = narrowed(tools, state);
+    const faceted = narrowed(visible, state);
     // Empty query keeps the catalogue's order; a query ranks by fuzzy match.
     const ranked = query ? matchSorter(faceted, query, { keys: SEARCH_KEYS.slice() }) : faceted;
     return sortTools(ranked, state.sort);
-  }, [tools, state, query]);
+  }, [visible, state, query]);
   const sections = useMemo(() => groupTools(shownTools, state.group), [shownTools, state.group]);
 
   const facts = useMemo(() => {
-    const available = tools.filter((tool) => availableUnits(tool) > 0).length;
+    const available = visible.filter((tool) => availableUnits(tool) > 0).length;
     return [
-      t("facts.tools", { count: tools.length }),
+      t("facts.tools", { count: visible.length }),
       t("facts.available", { count: available }),
       t("facts.categories", { count: categories.length }),
     ].join(" · ");
-  }, [tools, categories.length, t]);
+  }, [visible, categories.length, t]);
 
   const facet = (key: Facet, label: string, values: readonly string[], valueLabel?: (value: string) => string) => (
     <FacetFilter
       label={label}
       value={state[key]}
-      options={facetOptions(narrowed(tools, state, key), values, (tool, value) => matchesFacet(tool, key, value), valueLabel)}
+      options={facetOptions(narrowed(key === "category" ? tools : visible, state, key), values, (tool, value) => matchesFacet(tool, key, value), valueLabel)}
       onChange={(value) => set({ [key]: value })}
     />
   );
@@ -184,7 +188,7 @@ export function GalleryShell({ tools }: GalleryShellProps) {
         }
         activeCount={activeCount}
         shown={shownTools.length}
-        total={tools.length}
+        total={visible.length}
         onClear={narrowing ? clear : null}
         secondary={
           <>

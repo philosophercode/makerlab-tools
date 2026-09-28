@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, gte, inArray, isNotNull, lt, sql, type SQL } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte, inArray, isNotNull, isNull, lt, or, sql, type SQL } from "drizzle-orm";
 import { rawRows } from "../db/raw.ts";
 import { getDb } from "../db/client.ts";
 import {
@@ -32,7 +32,7 @@ import { findDuplicate, findDuplicates, initialResolution } from "./duplicates.t
 import { isUniqueViolation } from "./pg-errors.ts";
 import { DISPLAY_NAME_MAX } from "../tool-names.ts";
 import { displayNameClashes } from "./tool-name-clash.ts";
-import { findOrCreateCategory } from "./taxonomy.ts";
+import { createCategoryProposal } from "./category-admin.ts";
 import { createToolRecord } from "./tool-create.ts";
 import { isUuid } from "./uuid.ts";
 import type { Refused, WriteRefusal } from "./write-result.ts";
@@ -234,8 +234,19 @@ export interface ApprovalFields {
   /** The official name; blank or absent is none. */
   officialName?: string | null;
   description: string | null;
+  /** An existing category (taxonomy v2: research's slug, resolved). Null is none. */
   categoryId: string | null;
-  /** Used only when `categoryId` is null: found case-insensitively, or created. */
+  /**
+   * A new category research (or the reviewer) proposes (taxonomy v2 spec
+   * §4.4). **Never created here**: it becomes a `category_proposals` row
+   * naming the new tool, which waits on `/admin/taxonomy`; the tool goes into
+   * `categoryId` meanwhile, and accepting the proposal moves it.
+   */
+  categoryProposal?: { name: string; parentSlug: string | null; description: string | null; reason: string | null } | null;
+  /**
+   * The pre-v2 shape of the same thing (a card or a page opened before the
+   * change): its group names the parent. Recorded as a proposal, never created.
+   */
   newCategory?: { name: string; group: string | null } | null;
   locationId: string | null;
   materials: string[];
@@ -1173,9 +1184,8 @@ export async function approvePendingTool(
   if (name.length > DISPLAY_NAME_MAX) return { ok: false, reason: "invalid_field" };
   if (fields.categoryId !== null && !isUuid(fields.categoryId)) return { ok: false, reason: "invalid_field" };
   if (fields.locationId !== null && !isUuid(fields.locationId)) return { ok: false, reason: "invalid_field" };
-  if (fields.categoryId === null && fields.newCategory && !fields.newCategory.name.trim()) {
-    return { ok: false, reason: "invalid_field" };
-  }
+  if (fields.newCategory && !fields.newCategory.name.trim()) return { ok: false, reason: "invalid_field" };
+  if (fields.categoryProposal && !fields.categoryProposal.name.trim()) return { ok: false, reason: "invalid_field" };
 
   const db = options.db ?? (await getDb());
   try {
@@ -1206,12 +1216,14 @@ export async function approvePendingTool(
         chosen.map((resource) => resource.url)
       );
 
-      let categoryId = fields.categoryId;
+      // An existing, live category only (taxonomy v2): approval never creates one.
+      const categoryId = fields.categoryId;
       if (categoryId) {
-        const [found] = await tx.select({ id: categories.id }).from(categories).where(eq(categories.id, categoryId));
-        if (!found) throw new Refusal("invalid_field");
-      } else if (fields.newCategory) {
-        categoryId = (await findOrCreateCategory(tx, fields.newCategory)).id;
+        const [found] = await tx
+          .select({ id: categories.id, retiredAt: categories.retiredAt })
+          .from(categories)
+          .where(eq(categories.id, categoryId));
+        if (!found || found.retiredAt) throw new Refusal("invalid_field");
       }
       if (fields.locationId) {
         const [found] = await tx.select({ id: locations.id }).from(locations).where(eq(locations.id, fields.locationId));
@@ -1245,6 +1257,20 @@ export async function approvePendingTool(
         },
         input.actorUserId
       );
+      // A proposed new category becomes a proposal naming this tool (taxonomy v2
+      // spec §4.4), in this transaction; accepting it on /admin/taxonomy moves the tool.
+      const proposal = await categoryProposalFrom(tx, fields);
+      if (proposal) {
+        const recorded = await createCategoryProposal(tx, {
+          ...proposal,
+          source: "research",
+          subjectType: "tool",
+          subjectId: created.toolId,
+          nearestExistingId: categoryId,
+          actorUserId: input.actorUserId ?? null,
+        });
+        if (!recorded.ok) throw new Refusal("invalid_field");
+      }
       // The lab's documents are never fetched: not archived, not read (§3.4).
       // `resourceIds` is in the order given, research's first.
       const fetchable = created.resourceIds.filter(
@@ -1735,4 +1761,39 @@ function emptyToNull(value: string | null | undefined): string | null {
 
 function capError(message: string): string {
   return message.length > MAX_ERROR_LENGTH ? message.slice(0, MAX_ERROR_LENGTH) : message;
+}
+
+/**
+ * The category proposal an approval carries, with its parent resolved: a
+ * `parentSlug` (taxonomy v2) or a pre-v2 `group`, matched to a live top-level
+ * category by slug or name. An unknown parent proposes a top-level category;
+ * the reviewer on `/admin/taxonomy` can still put it anywhere.
+ */
+async function categoryProposalFrom(
+  db: Db,
+  fields: ApprovalFields
+): Promise<{ name: string; parentId: string | null; description: string | null; reason: string | null } | null> {
+  const proposal = fields.categoryProposal
+    ? { name: fields.categoryProposal.name, parent: fields.categoryProposal.parentSlug, description: fields.categoryProposal.description, reason: fields.categoryProposal.reason }
+    : fields.newCategory
+      ? { name: fields.newCategory.name, parent: fields.newCategory.group, description: null, reason: null }
+      : null;
+  if (!proposal) return null;
+  let parentId: string | null = null;
+  const parent = proposal.parent?.trim();
+  if (parent) {
+    const [row] = await db
+      .select({ id: categories.id })
+      .from(categories)
+      .where(
+        and(
+          isNull(categories.parentId),
+          isNull(categories.retiredAt),
+          or(eq(categories.slug, parent.toLowerCase()), eq(sql`lower(${categories.name})`, parent.toLowerCase()))
+        )
+      )
+      .limit(1);
+    parentId = row?.id ?? null;
+  }
+  return { name: proposal.name.trim(), parentId, description: proposal.description, reason: proposal.reason };
 }

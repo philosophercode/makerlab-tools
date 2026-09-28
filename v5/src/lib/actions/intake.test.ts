@@ -159,7 +159,8 @@ describe("approve these", () => {
     const fields = (proposed.proposals[0].input as { fields: ApprovalFields }).fields;
     expect(fields).toMatchObject({
       description: "An enclosed FDM printer.",
-      newCategory: { name: "FDM", group: "3D Printing" },
+      // Taxonomy v2: research's unmatched pre-v2 category is a proposal, never created.
+      categoryProposal: { name: "FDM", parentSlug: "3D Printing", description: null, reason: null },
       materials: ["PLA", "PETG"],
       trainingRequired: true,
       resourceUrls: ["https://example.com/p1s.pdf"],

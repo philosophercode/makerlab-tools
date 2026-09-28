@@ -212,7 +212,9 @@ export interface ActionSubject {
     | "unit"
     | "resource"
     | "import"
-    | "mirror";
+    | "mirror"
+    | "category"
+    | "category_proposal";
   id: string;
 }
 

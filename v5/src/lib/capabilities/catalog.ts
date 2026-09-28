@@ -112,6 +112,21 @@ function officialOf(tool: MakerLabTool): { official_name?: string } {
   return official ? { official_name: official } : {};
 }
 
+/**
+ * What a list or a search offers by default (taxonomy v2 spec §4.9): for
+ * everybody but staff, tools whose category the gallery hides by default
+ * (Shop Infrastructure & Supplies) are left out — unless the caller asked for
+ * that category by name, as the gallery's facet does. Staff see everything.
+ * `get_tool_details` still answers for any published tool: its page is public.
+ */
+function shownByDefault(view: CatalogView, tools: MakerLabTool[], askedCategory?: string): MakerLabTool[] {
+  if (view.states) return tools;
+  const asked = askedCategory?.toLowerCase();
+  return tools.filter(
+    (t) => !t.galleryHidden || (asked !== undefined && (t.category.toLowerCase().includes(asked) || t.categorySub.toLowerCase().includes(asked)))
+  );
+}
+
 function stateOf(view: CatalogView, id: string): { state?: CatalogToolState } {
   const state = view.states?.get(id);
   return state ? { state } : {};
@@ -151,7 +166,7 @@ const listTools: CapabilityTool<ListToolsInput, ListToolsResult> = {
   kind: "read",
   async run({ category, location }, ctx) {
     const view = await catalogFor(ctx);
-    let tools = view.tools;
+    let tools = shownByDefault(view, view.tools, category);
     if (category) {
       const cat = category.toLowerCase();
       tools = tools.filter(
@@ -191,7 +206,7 @@ const searchTools: CapabilityTool<SearchToolsInput, SearchToolsResult> = {
   async run({ query }, ctx) {
     const q = query.toLowerCase();
     const view = await catalogFor(ctx);
-    const tools = view.tools;
+    const tools = shownByDefault(view, view.tools);
     const results = tools.filter((t) =>
       [t.name, t.officialName ?? "", t.description, t.shortDescription, ...t.materials, ...t.tags]
         .join(" ")

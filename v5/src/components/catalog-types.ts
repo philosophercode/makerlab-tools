@@ -23,8 +23,18 @@ export interface MakerLabTool {
    * it differs; searched beside the name.
    */
   officialName?: string | null;
+  /** The top-level category (taxonomy v2: the parent's name), or a pre-v2 row's group. */
   category: string;
+  /** The category itself — the second level, or the top-level name when it has none. */
   categorySub: string;
+  /** The category's slug (taxonomy v2); absent on fixtures from before it. */
+  categorySlug?: string | null;
+  /**
+   * The category is left out of the public gallery by default (Shop
+   * Infrastructure & Supplies). Its page, search and staff surfaces still
+   * show it; choosing its category in the gallery's facet shows it too.
+   */
+  galleryHidden?: boolean;
   location: string;
   zone: string;
   trainingLevel: "Beginner" | "Intermediate" | "Advanced";
@@ -104,6 +114,7 @@ export type GalleryTool = Pick<
   | "materials"
   | "tags"
   | "addedAt"
+  | "galleryHidden"
 > & {
   /** Only each unit's status: the table's "available" count and the availability sort. */
   units: Array<Pick<MakerLabUnit, "status">>;
@@ -128,6 +139,7 @@ export function toGalleryTool(tool: MakerLabTool): GalleryTool {
     materials: tool.materials,
     tags: tool.tags,
     addedAt: tool.addedAt ?? null,
+    galleryHidden: Boolean(tool.galleryHidden),
     units: tool.units.map((unit) => ({ status: unit.status })),
   };
 }

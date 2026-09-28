@@ -42,7 +42,7 @@ describe("getCatalogTools", () => {
     expect(form4).toMatchObject({
       name: "Form 4",
       category: "3D Printing",
-      categorySub: "Resin",
+      categorySub: "Resin Printers & Post-Processing",
       location: "MakerLab",
       zone: "Resin Bench",
       mapId: "ML-RESIN-01",

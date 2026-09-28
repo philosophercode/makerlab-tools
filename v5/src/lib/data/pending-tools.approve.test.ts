@@ -5,6 +5,7 @@ import { rawRows } from "../db/raw";
 import {
   attachments,
   categories,
+  categoryProposals,
   locations,
   pendingTools,
   resources,
@@ -255,35 +256,57 @@ describe("approvePendingTool", () => {
     expect((await getPendingTool(id, { db }))?.approvalNote).toBe("Checked the plate on the machine.");
   });
 
-  it("creates the proposed category when none was picked, and reuses one that matches", async () => {
+  it("never creates a category: a proposed one becomes a category proposal naming the new tool (taxonomy v2)", async () => {
+    const [printing] = await db.insert(categories).values({ name: "3D Printing", slug: "3d-printing" }).returning();
+    const [fdm] = await db.insert(categories).values({ name: "FDM Printers", slug: "fdm-printers", parentId: printing.id }).returning();
     const first = await researchedItem({ name: "First" });
     const created = await approvePendingTool(
       {
         id: first,
         actorUserId: APPROVER,
         publish: true,
-        fields: fields({ name: "First", newCategory: { name: "FDM", group: "3D Printing" } }),
+        fields: fields({
+          name: "First",
+          categoryId: fdm.id,
+          categoryProposal: { name: "Large-format FDM", parentSlug: "3d-printing", description: "Printers over 500 mm.", reason: "No size split" },
+        }),
       },
       { db }
     );
     if (!created.ok) throw new Error(created.reason);
     const [tool] = await db.select().from(tools).where(eq(tools.id, created.toolId));
-    const [category] = await db.select().from(categories);
-    expect(category).toMatchObject({ name: "FDM", group: "3D Printing" });
-    expect(tool.categoryId).toBe(category.id);
+    expect(tool.categoryId).toBe(fdm.id);
+    expect((await counts()).categories).toBe(2);
+    const [proposal] = await db.select().from(categoryProposals);
+    expect(proposal).toMatchObject({
+      name: "Large-format FDM",
+      parentId: printing.id,
+      source: "research",
+      subjectType: "tool",
+      subjectId: created.toolId,
+      nearestExistingId: fdm.id,
+      status: "pending",
+    });
 
+    // The pre-v2 shape is a proposal too, its group naming the parent.
     const second = await researchedItem({ name: "Second" });
-    const reused = await approvePendingTool(
-      {
-        id: second,
-        actorUserId: APPROVER,
-        publish: true,
-        fields: fields({ name: "Second", newCategory: { name: "fdm", group: "3d printing" } }),
-      },
+    const legacy = await approvePendingTool(
+      { id: second, actorUserId: APPROVER, publish: true, fields: fields({ name: "Second", newCategory: { name: "Resin", group: "3D printing" } }) },
       { db }
     );
-    if (!reused.ok) throw new Error(reused.reason);
-    expect((await counts()).categories).toBe(1);
+    if (!legacy.ok) throw new Error(legacy.reason);
+    expect((await counts()).categories).toBe(2);
+    const proposals = await db.select().from(categoryProposals);
+    expect(proposals.find((row) => row.name === "Resin")).toMatchObject({ parentId: printing.id, subjectId: legacy.toolId });
+  });
+
+  it("refuses a retired category", async () => {
+    const [gone] = await db.insert(categories).values({ name: "Gone", slug: "gone", retiredAt: new Date() }).returning();
+    const id = await researchedItem();
+    expect(await approvePendingTool({ id, actorUserId: APPROVER, publish: true, fields: fields({ categoryId: gone.id }) }, { db })).toEqual({
+      ok: false,
+      reason: "invalid_field",
+    });
   });
 
   it("keeps only the resources the reviewer chose, and refuses one research never verified", async () => {

@@ -17,7 +17,7 @@ import { importLinkResource } from "../../lib/import/resources";
 import type { ImportLink, LabDoc } from "../../lib/import/types";
 import { imageRetryInProgress } from "../../lib/intake/image-retry-state";
 import { INTAKE_POLL_INTERVAL_MS, REDO_HIGHLIGHT_SHOW_MS } from "../../lib/intake/limits";
-import { initialDraft, NEW_CATEGORY, toFields, type ApprovalDraft as Draft } from "../../lib/intake/approval-draft";
+import { categoryProposalOf, initialDraft, toFields, type ApprovalDraft as Draft } from "../../lib/intake/approval-draft";
 import { trainingEvidence } from "../../lib/intake/training";
 import { isImageOnlyFocus, type ResearchFocusField } from "../../lib/intake/research-focus";
 import { ADMIN_INTAKE_PATH, type PendingToolView } from "../../lib/intake/types";
@@ -711,8 +711,10 @@ function ProposedRecord({
 }) {
   const t = useTranslations("admin.intake");
   const tEditor = useTranslations("admin.inventory.editor");
-  const proposed = research.category;
-  const offersNew = proposed.name.trim() !== "" && !categories.some((c) => c.id === proposed.existingId);
+  // Taxonomy v2 (spec §4.4): research chose an existing slug; a new category
+  // it proposes is recorded for /admin/taxonomy, never created here.
+  const newCategory = categoryProposalOf(research);
+  const confidence = research.category.confidence ?? null;
   // Only the description rides in this box now: the specs are not folded into it
   // (amendment "Short descriptions"), so a specs-only redo does not mark it.
   const textUpdated = updated.includes("description");
@@ -807,15 +809,27 @@ function ProposedRecord({
                 onChange={(event) => set("category", event.target.value)}
               >
                 <option value="">{tEditor("noneSelected")}</option>
-                {offersNew ? (
-                  <option value={NEW_CATEGORY}>{t("newCategory", { name: categoryLabel(proposed.name, proposed.group) })}</option>
-                ) : null}
                 {categories.map((category) => (
                   <option key={category.id} value={category.id}>
                     {categoryLabel(category.name, category.group)}
                   </option>
                 ))}
               </NativeSelect>
+              {confidence ? <ReviewNote>{t("categoryConfidence", { level: t(`categoryConfidenceLevel.${confidence}`) })}</ReviewNote> : null}
+              {newCategory ? (
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={draft.proposeCategory}
+                    onChange={(event) => set("proposeCategory", event.target.checked)}
+                  />
+                  <span>
+                    {t("proposeNewCategory", { name: newCategory.name })}
+                    {newCategory.reason ? <span className="block text-xs text-muted-foreground">{newCategory.reason}</span> : null}
+                  </span>
+                </label>
+              ) : null}
             </Field>
             <Field id="intake-location" label={tEditor("fieldLocation")}>
               <NativeSelect

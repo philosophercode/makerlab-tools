@@ -2,7 +2,8 @@ import { z } from "zod";
 import { getDb, DbUnavailableError } from "../db/client";
 import { UNIT_CONDITION, UNIT_STATUS, type UnitCondition, type UnitStatus } from "../db/schema/vocabulary";
 import { createPendingBatch, listPendingTools, type NewPendingTool, type PendingTool } from "../data/pending-tools";
-import { findOrCreateCategory, findOrCreateLocation } from "../data/taxonomy";
+import { createCategoryProposal, matchExistingCategory } from "../data/category-admin";
+import { findOrCreateLocation } from "../data/taxonomy";
 import { createToolRecord, type NewToolRecord } from "../data/tool-create";
 import { displayNameClashes } from "../data/tool-name-clash";
 import { promoteAttachmentsToPublic } from "../files/promote";
@@ -373,6 +374,8 @@ interface CreateResult {
   created: {
     tool: boolean;
     category: { id: string; isNew: boolean } | null;
+    /** A category the lab does not have, proposed for review instead of created (taxonomy v2 spec §4.5). */
+    categoryProposal?: { id: string; name: string } | null;
     location: { id: string; isNew: boolean } | null;
     units: number;
     resources: number;
@@ -394,7 +397,7 @@ function toVocab<T extends string>(value: string | undefined, vocab: readonly T[
 const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
   name: "create_tool",
   description:
-    "Create a draft catalogue listing for one tool: find or create its category and location, create the tool (unpublished), its units, and each manual or video resource whose link verifies. Everything is a draft until staff publish it. Photos cannot be attached over MCP. Returns the created ids and a draft link; when something did not land it says exactly what.",
+    "Create a draft catalogue listing for one tool: match its category to one of the lab's (by slug, else by exact name) — never creating one: an unknown category is proposed for review on /admin/taxonomy and the draft has none until then — find or create its location, create the tool (unpublished), its units, and each manual or video resource whose link verifies. Everything is a draft until staff publish it. Photos cannot be attached over MCP. Returns the created ids and a draft link; when something did not land it says exactly what.",
   inputSchema: createInputSchema,
   kind: "write",
   // In the chat a tool is added through identify_tools, background research
@@ -467,6 +470,7 @@ const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
       unitIds: string[];
       resourceIds: string[];
       category: CreateResult["created"]["category"];
+      categoryProposal: CreateResult["created"]["categoryProposal"];
       location: CreateResult["created"]["location"];
     };
     try {
@@ -477,14 +481,16 @@ const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
         // Category and location are best-effort: the tool is still worth
         // having without them. Each runs in its own savepoint so a failed
         // statement cannot abort the transaction the tool is written in.
+        // Match or propose, never create (taxonomy v2 spec §4.5): a category the
+        // lab has, by slug then exact name; anything else is a proposal below.
         let category: CreateResult["created"]["category"] = null;
+        let unmatched: { name: string; group: string | null } | null = null;
         if (candidate.category) {
-          const { name, group } = candidate.category;
+          const { name, group, slug } = candidate.category;
           try {
-            const found = await tx.transaction((sp) =>
-              findOrCreateCategory(sp, { name, group: group || null })
-            );
-            category = { id: found.id, isNew: found.created };
+            const found = await matchExistingCategory(tx, { slug: slug ?? null, name, group: group || null });
+            if (found) category = { id: found, isNew: false };
+            else if (name.trim()) unmatched = { name, group: group || null };
           } catch (err) {
             warnings.push(`Could not resolve category "${name}": ${errMsg(err)}`);
           }
@@ -523,7 +529,26 @@ const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
           // `tools.add` is required to be offered this tool at all.
           ctx.identity?.userId ?? null
         );
-        return { ...record, category, location };
+        let categoryProposal: CreateResult["created"]["categoryProposal"] = null;
+        if (unmatched) {
+          const parentId = unmatched.group ? await matchExistingCategory(tx, { slug: null, name: unmatched.group, group: null, topLevel: true }) : null;
+          const proposed = await createCategoryProposal(tx, {
+            name: unmatched.name,
+            parentId,
+            source: "mcp",
+            subjectType: "tool",
+            subjectId: record.toolId,
+            reason: "Named by an MCP client's create_tool; not one of the lab's categories.",
+            actorUserId: ctx.identity?.userId ?? null,
+          });
+          if (proposed.ok) {
+            categoryProposal = { id: proposed.id, name: unmatched.name.trim() };
+            warnings.push(
+              `Category "${unmatched.name.trim()}" is not one of the lab's, so it was not created: it is proposed for review on /admin/taxonomy, and the draft has no category until somebody decides. Use list_categories for the lab's slugs.`
+            );
+          }
+        }
+        return { ...record, category, categoryProposal, location };
       });
     } catch (err) {
       if (err instanceof NameTakenError) {
@@ -564,6 +589,7 @@ const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
       created: {
         tool: true,
         category: outcome.category,
+        categoryProposal: outcome.categoryProposal,
         location: outcome.location,
         units: outcome.unitIds.length,
         resources: outcome.resourceIds.length,

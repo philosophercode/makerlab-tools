@@ -1443,3 +1443,25 @@ is never the assistant's. `api/chat/taint.route.test.ts`: taint now shown with `
 destructive card with `archive_tool`, and a model that calls `remove_person` stores nothing.
 
 **Status.** Built on `v5/assistant-gui-parity` (PR #95).
+
+### 2026-09-28 — taxonomy v2 adds six actions and two reads
+
+Taxonomy v2 (`docs/specs/2026-09-28-taxonomy-v2-design.md` §7) registers six actions in
+`lib/actions/taxonomy.ts`, each with a GUI door on `/admin/taxonomy` (`app/admin/taxonomy/actions.ts`,
+one-line `performAction` wrappers) and a proposing tool:
+
+| Action | Tool | Risk | Permission | Chat | MCP |
+|---|---|---|---|---|---|
+| `taxonomy.propose_category` | `propose_category` | catalog | `tools.edit` | propose | propose |
+| `taxonomy.decide_proposal` | `decide_category_proposal` | catalog | `taxonomy.manage` | propose | propose |
+| `taxonomy.merge` | `merge_categories` | destructive | `taxonomy.manage` | propose (typed name) | never |
+| `taxonomy.edit_category` | `edit_category` | catalog | `taxonomy.manage` | propose | propose |
+| `taxonomy.set_retired` | `retire_category` | catalog | `taxonomy.manage` | propose | propose |
+| `taxonomy.recategorize_tool` | `recategorize_tool` | catalog | `tools.edit` | propose | propose |
+
+`taxonomy.manage` is a new permission held by admin and super admin. Two reads join
+`capabilities/catalog-reads.ts`, on chat and MCP: `list_categories` (`tools.edit`) and
+`list_category_proposals` (`taxonomy.manage`, fenced, on `OUTSIDE_CONTENT_TOOLS`). No name matches the
+deny list. **Counts:** action tools 36 → **42** for a director, 32 → **38** for a SuperMaker; chat tools
+54 → **62** and 49 → **57**; the MCP staff list gains the five non-destructive proposing tools and the
+two reads (`test/mcp/expected-tools.ts`).

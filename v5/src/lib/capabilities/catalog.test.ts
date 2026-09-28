@@ -109,7 +109,7 @@ describe("get_tool_details", () => {
       slug: "form-4",
       name: "Form 4",
       category: "3D Printing",
-      category_sub: "Resin",
+      category_sub: "Resin Printers & Post-Processing",
       location: "MakerLab",
       zone: "Resin Bench",
       training_level: "Intermediate",

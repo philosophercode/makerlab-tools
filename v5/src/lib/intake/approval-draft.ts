@@ -23,8 +23,6 @@ export interface DraftItem {
   serialNumber: string | null;
 }
 
-/** The option that creates research's proposed category at approval. */
-export const NEW_CATEGORY = "__new__";
 
 /** What the reviewer is editing: the proposal as text, the way inputs hold it. */
 export interface ApprovalDraft {
@@ -33,7 +31,14 @@ export interface ApprovalDraft {
   /** The official name; blank is none. */
   officialName: string;
   description: string;
+  /** An existing category's id, or "" for none (taxonomy v2: approval never creates one). */
   category: string;
+  /**
+   * Also record research's proposed new category (taxonomy v2 spec §4.4) —
+   * a `category_proposals` row naming the new tool, decided on
+   * `/admin/taxonomy`. On by default whenever research proposed one.
+   */
+  proposeCategory: boolean;
   locationId: string;
   materials: string;
   ppeRequired: string;
@@ -84,6 +89,7 @@ export function initialDraft(
     officialName: research?.canonicalName.trim() ?? "",
     description: research ? proposedDescription(research) : "",
     category: research ? proposedCategory(research, categories) : "",
+    proposeCategory: research ? categoryProposalOf(research) !== null : false,
     locationId: matchLocation(item.locationHint, locations),
     materials: (research?.materials ?? []).join(", "),
     ppeRequired: (research?.ppeRequired ?? []).join(", "),
@@ -109,13 +115,28 @@ export function proposedDescription(research: ResearchResult): string {
 }
 
 /**
- * The category research matched, if the lab still has it; otherwise research's
- * proposal, to be created at approval; otherwise none.
+ * The category research chose, if the lab still has it (and it is not
+ * retired — `categories` holds live ones only); otherwise none. Never a new
+ * one: a new category is a proposal ({@link categoryProposalOf}).
  */
 function proposedCategory(research: ResearchResult, categories: CategoryOption[]): string {
   const existing = research.category.existingId;
   if (existing && categories.some((category) => category.id === existing)) return existing;
-  return research.category.name.trim() ? NEW_CATEGORY : "";
+  return "";
+}
+
+/**
+ * The new category research proposes, as approval records it: research's own
+ * `proposal` (taxonomy v2), or — for a row researched before v2, which named a
+ * category the lab did not have — that name, under its group.
+ */
+export function categoryProposalOf(
+  research: ResearchResult
+): { name: string; parentSlug: string | null; description: string | null; reason: string | null } | null {
+  const { proposal, existingId, slug, name, group } = research.category;
+  if (proposal?.name.trim()) return proposal;
+  if (!slug && existingId === null && name.trim()) return { name: name.trim(), parentSlug: group, description: null, reason: null };
+  return null;
 }
 
 /** A location whose room or zone is the hint, ignoring case. */
@@ -138,13 +159,12 @@ function splitList(value: string): string[] {
 
 /** The draft as `approvePendingTool` takes it, with the chosen image. */
 export function toFields(draft: ApprovalDraft, research: ResearchResult, image: ApprovalImageChoice, imported = false): ApprovalFields {
-  const isNew = draft.category === NEW_CATEGORY;
   return {
     name: draft.name.trim(),
     officialName: draft.officialName.trim() || null,
     description: draft.description.trim() || null,
-    categoryId: draft.category && !isNew ? draft.category : null,
-    newCategory: isNew ? { name: research.category.name, group: research.category.group } : null,
+    categoryId: draft.category || null,
+    categoryProposal: draft.proposeCategory ? categoryProposalOf(research) : null,
     locationId: draft.locationId || null,
     materials: splitList(draft.materials),
     ppeRequired: splitList(draft.ppeRequired),

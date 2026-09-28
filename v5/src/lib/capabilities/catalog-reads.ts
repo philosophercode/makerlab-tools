@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { countMaintenanceLogsForUnit, listUnitsForTool } from "../data/units";
 import { getBulkImport, listBulkImports } from "../data/bulk-imports";
+import { listCategoryProposals } from "../data/category-admin";
+import { listCategories } from "../data/taxonomy";
 import { listPendingTools } from "../data/pending-tools";
 import { listResourcesForEditor } from "../data/resources";
 import { findToolForEditor } from "../data/tools";
@@ -147,9 +149,82 @@ function oneLine(text: string, max: number): string {
   return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
 }
 
+// ── list_categories / list_category_proposals (taxonomy v2) ─────────
+
+interface ListCategoriesResult {
+  categories: { slug: string; path: string; description: string | null; hidden_from_gallery: boolean }[];
+}
+
+/**
+ * The lab's categories with their slugs and descriptions (taxonomy v2 spec
+ * §4.6), so `recategorize_tool`, `propose_category` and `merge_categories`
+ * can name one. Staff's own entries, not outside text.
+ */
+const listCategoriesTool: CapabilityTool<Record<string, never>, ListCategoriesResult> = {
+  name: "list_categories",
+  description:
+    "List the lab's categories: each one's slug, its path (Parent › Name) and what belongs in it, and whether the public gallery hides it. Staff who edit the catalogue only. Use the slugs with recategorize_tool, propose_category and merge_categories.",
+  inputSchema: z.strictObject({}),
+  kind: "read",
+  requiredPermission: "tools.edit",
+  run: async () => {
+    const categories = await listCategories();
+    return {
+      categories: categories.map((category) => ({
+        slug: category.slug ?? "",
+        path: category.group ? `${category.group} › ${category.name}` : category.name,
+        description: category.description ?? null,
+        hidden_from_gallery: Boolean(category.galleryHidden),
+      })),
+    };
+  },
+};
+
+interface ListCategoryProposalsResult {
+  proposals: string;
+}
+
+/**
+ * The waiting category proposals (taxonomy v2 spec §4.6). A proposal's name,
+ * description and reason were written by research, an MCP client or somebody
+ * else — fenced as untrusted text, and reading them taints the turn.
+ */
+const listCategoryProposalsTool: CapabilityTool<Record<string, never>, ListCategoryProposalsResult> = {
+  name: "list_category_proposals",
+  description:
+    "List the category proposals waiting on /admin/taxonomy: each one's id, kind (a new category, or the consolidation audit's flag on an existing one), proposed name and parent, source, the tool that prompted it and research's nearest existing category — fenced as untrusted text. Staff with taxonomy rights only. Use the ids with decide_category_proposal.",
+  inputSchema: z.strictObject({}),
+  kind: "read",
+  requiredPermission: "taxonomy.manage",
+  run: async () => {
+    const [proposals, categories] = await Promise.all([listCategoryProposals({ decidedLimit: 0 }), listCategories({ includeRetired: true })]);
+    const slugOf = new Map(categories.map((category) => [category.id, category.slug ?? category.name]));
+    const lines = proposals
+      .filter((proposal) => proposal.status === "pending")
+      .map((proposal) =>
+        [
+          `- id: ${proposal.id} · ${proposal.kind === "review_category" ? `review (${proposal.flag ?? "flag"})` : "new category"} · ${oneLine(proposal.name, 80)}`,
+          `  parent: ${proposal.parentId ? (slugOf.get(proposal.parentId) ?? "?") : "(top level)"} · source: ${proposal.source}` +
+            ` · nearest existing: ${proposal.nearestExistingId ? (slugOf.get(proposal.nearestExistingId) ?? "?") : "(none)"}` +
+            (proposal.subjectName ? ` · subject: ${oneLine(proposal.subjectName, 80)}` : ""),
+          proposal.description ? `  description: ${oneLine(proposal.description, 300)}` : "",
+          proposal.reason ? `  reason: ${oneLine(proposal.reason, 300)}` : "",
+        ]
+          .filter(Boolean)
+          .join("\n")
+      );
+    return { proposals: fenceUntrusted("category proposals (written by research, assistants or other people)", lines.join("\n") || "(none waiting)", OTHERS_TEXT_NOTE) };
+  },
+};
+
 export const catalogReads: Capability = {
   id: "catalog-reads",
   // The actions capability's prompt names these; nothing of their own to add.
   promptFragment: () => "",
-  tools: [getToolUnitsTool as unknown as CapabilityTool<unknown, unknown>, listImportsTool as unknown as CapabilityTool<unknown, unknown>],
+  tools: [
+    getToolUnitsTool as unknown as CapabilityTool<unknown, unknown>,
+    listImportsTool as unknown as CapabilityTool<unknown, unknown>,
+    listCategoriesTool as unknown as CapabilityTool<unknown, unknown>,
+    listCategoryProposalsTool as unknown as CapabilityTool<unknown, unknown>,
+  ],
 };

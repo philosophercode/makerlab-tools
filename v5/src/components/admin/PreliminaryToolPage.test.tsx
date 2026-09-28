@@ -243,8 +243,10 @@ describe("PreliminaryToolPage — the proposal", () => {
     // Training is the lab's call: never pre-filled from research, even its "true".
     expect(screen.getByLabelText("Training required before use")).toHaveDisplayValue("Staff to confirm (saved as required)");
     expect(screen.getByLabelText("Serial number")).toHaveValue("SN-42");
-    // Research proposed a category the lab does not have: it is offered new.
-    expect(screen.getByLabelText("Category")).toHaveDisplayValue("Create “3D Printing — FDM”");
+    // Research named a category the lab does not have: none is chosen, and it is
+    // offered as a proposal for /admin/taxonomy instead (taxonomy v2) — ticked.
+    expect(screen.getByLabelText("Category")).toHaveValue("");
+    expect(screen.getByRole("checkbox", { name: /Also propose a new category, “FDM”/ })).toBeChecked();
     // The hint matched a zone, ignoring case.
     expect(screen.getByLabelText("Location")).toHaveValue("l-1");
   });
@@ -288,7 +290,7 @@ describe("PreliminaryToolPage — the proposal", () => {
         officialName: "Original Prusa MK4S",
         description: "An open-frame FDM printer.",
         categoryId: null,
-        newCategory: { name: "FDM", group: "3D Printing" },
+        categoryProposal: { name: "FDM", parentSlug: "3D Printing", description: null, reason: null },
         locationId: "l-1",
         materials: ["PLA", "TPU"],
         ppeRequired: [],

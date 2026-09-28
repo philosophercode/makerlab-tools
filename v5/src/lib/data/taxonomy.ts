@@ -1,4 +1,5 @@
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { getDb } from "../db/client.ts";
 import { categories, locations } from "../db/schema/index.ts";
 import type { Db } from "../db/types.ts";
@@ -23,8 +24,19 @@ import { isUniqueViolation } from "./pg-errors.ts";
 export interface CategoryOption {
   id: string;
   name: string;
-  /** The heading a category sits under, or null — many have none. */
+  /**
+   * The heading a category sits under: its parent's name (taxonomy v2), or a
+   * pre-v2 row's free-text group, or null for a top-level category.
+   */
   group: string | null;
+  /** Stable and unique — what research answers with (taxonomy v2 spec §4). Absent only in old fixtures. */
+  slug?: string;
+  /** What belongs and what does not; null on rows nobody described yet. */
+  description?: string | null;
+  parentId?: string | null;
+  parentSlug?: string | null;
+  /** Left out of the public gallery by default — its own flag or its parent's. */
+  galleryHidden?: boolean;
 }
 
 export interface LocationOption {
@@ -40,21 +52,56 @@ export interface TaxonomyQueryOptions {
   db?: Db;
 }
 
-/**
- * Every category, grouped ones first and each group's members alphabetical.
- *
- * `nulls last` is the whole point of the ordering clause: an ungrouped category
- * is the exception, and a select that opens on the exceptions reads as broken.
- */
-export async function listCategories(
-  options: TaxonomyQueryOptions = {}
-): Promise<CategoryOption[]> {
-  const db = options.db ?? (await getDb());
+export interface ListCategoriesOptions extends TaxonomyQueryOptions {
+  /** Include retired (and merged) categories — `/admin/taxonomy` only. */
+  includeRetired?: boolean;
+}
 
-  return db
-    .select({ id: categories.id, name: categories.name, group: categories.group })
+/**
+ * Every live category in tree order (taxonomy v2): each top-level category
+ * followed by its children (by `sort_order`, then name); then any pre-v2 rows
+ * still carrying a free-text group, by group then name. Retired categories are
+ * left out: a select must not offer a category nobody should choose.
+ */
+export async function listCategories(options: ListCategoriesOptions = {}): Promise<CategoryOption[]> {
+  const db = options.db ?? (await getDb());
+  const parent = alias(categories, "parent_category");
+
+  const rows = await db
+    .select({
+      id: categories.id,
+      name: categories.name,
+      legacyGroup: categories.group,
+      slug: categories.slug,
+      description: categories.description,
+      parentId: categories.parentId,
+      parentName: parent.name,
+      parentSlug: parent.slug,
+      galleryHidden: categories.galleryHidden,
+      parentHidden: parent.galleryHidden,
+    })
     .from(categories)
-    .orderBy(sql`${categories.group} asc nulls last`, asc(categories.name));
+    .leftJoin(parent, eq(categories.parentId, parent.id))
+    .where(options.includeRetired ? undefined : isNull(categories.retiredAt))
+    .orderBy(
+      sql`case when ${categories.group} is not null then 1 else 0 end`,
+      sql`coalesce(${parent.sortOrder}, ${categories.sortOrder})`,
+      sql`coalesce(${parent.name}, ${categories.group}, ${categories.name})`,
+      sql`${categories.parentId} is not null`,
+      asc(categories.sortOrder),
+      asc(categories.name)
+    );
+
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    group: row.parentName ?? row.legacyGroup ?? null,
+    slug: row.slug,
+    description: row.description,
+    parentId: row.parentId,
+    parentSlug: row.parentSlug ?? null,
+    galleryHidden: row.galleryHidden || Boolean(row.parentHidden),
+  }));
 }
 
 /** Every location, by room then zone — the order somebody walking the lab uses. */
@@ -80,7 +127,7 @@ export async function listLocations(
  * The category named `name` in `group`, created if there is none (spec §5.4:
  * approving a researched tool may propose a category the lab does not have).
  *
- * The match is the one `categories_name_group_key` enforces —
+ * The match is the one `categories_name_group_parent_key` enforces —
  * case-insensitive on the name and on the group, a null group being its own
  * value — so "fdm" in "3d printing" finds "FDM" in "3D Printing" rather than
  * making a near-twin.

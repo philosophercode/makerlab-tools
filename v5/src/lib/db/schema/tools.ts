@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
-import { boolean, index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
-import { actorColumns, notionPageId, timestamps, userReference } from "./helpers.ts";
+import { boolean, foreignKey, index, pgTable, text, timestamp, uuid } from "drizzle-orm/pg-core";
+import { actorColumns, inListCheck, notionPageId, timestamps, userReference } from "./helpers.ts";
+import { TOOL_ITEM_KIND } from "./vocabulary.ts";
 import { categories, locations } from "./taxonomy.ts";
 
 /**
@@ -53,6 +54,15 @@ export const tools = pgTable(
      * generic chips.
      */
     starterQuestions: text("starter_questions").array().notNull().default(sql`'{}'::text[]`),
+    /**
+     * What the record is (taxonomy v2 spec §3 facets): a piece of `equipment`,
+     * an `accessory` of one (a plunge base, an air manager), a `consumable`
+     * (sanding sheets, masks) or a `fixture` (benches, carts). A facet, not a
+     * category, so an accessory stays beside the tool it fits.
+     */
+    itemKind: text("item_kind").notNull().default("equipment"),
+    /** The tool an accessory belongs to (plunge base → router). Null for everything else. */
+    parentToolId: uuid("parent_tool_id"),
     published: boolean("published").notNull().default(false),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     lastReviewedAt: timestamp("last_reviewed_at", { withTimezone: true }),
@@ -65,5 +75,7 @@ export const tools = pgTable(
     index("tools_name_trgm_idx").using("gin", sql`${t.name} gin_trgm_ops`),
     index("tools_category_idx").on(t.categoryId),
     index("tools_location_idx").on(t.locationId),
+    inListCheck("tools_item_kind_check", "item_kind", TOOL_ITEM_KIND),
+    foreignKey({ columns: [t.parentToolId], foreignColumns: [t.id], name: "tools_parent_tool_id_fk" }).onDelete("set null"),
   ]
 );

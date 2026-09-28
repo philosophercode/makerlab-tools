@@ -11,7 +11,11 @@ import {
 } from "../db/schema/index.ts";
 import { UNIT_STATUS, isOneOf, type UnitStatus } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
+import { alias } from "drizzle-orm/pg-core";
 import { openRefreshesByTool } from "./tool-refreshes.ts";
+
+/** A category's parent (taxonomy v2): the heading an inventory row shows. */
+const parentCategory = alias(categories, "parent_category");
 import { bundledThumbnailsForUrl } from "./catalog.ts";
 import { isImageThumbnails, type ImageThumbnails } from "../images/thumbnail-urls.ts";
 
@@ -156,12 +160,14 @@ export async function listInventoryRows(
       updatedAt: tools.updatedAt,
       floorCheck: tools.floorCheck,
       categoryName: categories.name,
-      categoryGroup: categories.group,
+      // Taxonomy v2: the heading is the parent's name; a pre-v2 row keeps its group.
+      categoryGroup: sql<string | null>`coalesce(${parentCategory.name}, ${categories.group})`,
       room: locations.room,
       zone: locations.zone,
     })
     .from(tools)
     .leftJoin(categories, eq(tools.categoryId, categories.id))
+    .leftJoin(parentCategory, eq(categories.parentId, parentCategory.id))
     .leftJoin(locations, eq(tools.locationId, locations.id))
     .orderBy(asc(tools.name));
 

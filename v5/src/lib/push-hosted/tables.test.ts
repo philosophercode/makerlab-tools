@@ -37,8 +37,15 @@ describe("planTables", () => {
     const pending = plan.tables.find((t) => t.name === "pending_tools")!;
     expect(pending.deferred).toEqual(["duplicate_of_pending_id"]);
     expect(pending.primaryKey).toEqual(["id"]);
-    const others = plan.tables.filter((t) => t.name !== "pending_tools");
+    const others = plan.tables.filter((t) => !["pending_tools", "categories", "tools"].includes(t.name));
     expect(others.every((t) => t.deferred.length === 0)).toBe(true);
+  });
+
+  it("defers taxonomy v2's self-references: a category's parent and merge target, a tool's parent tool", () => {
+    const byName = new Map(plan.tables.map((t) => [t.name, t]));
+    expect(byName.get("categories")!.deferred.sort()).toEqual(["merged_into_id", "parent_id"]);
+    expect(byName.get("tools")!.deferred).toEqual(["parent_tool_id"]);
+    expect(byName.has("category_proposals")).toBe(true);
   });
 
   it("never inserts GENERATED ALWAYS columns", () => {

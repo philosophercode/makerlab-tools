@@ -209,7 +209,14 @@ function common(row: AnySourceRow): Properties {
 
 export function categoryProperties(row: CategorySourceRow): BuiltProperties {
   return {
-    properties: { Name: titleProp(row.name), Group: textProp(row.group), ...common(row) },
+    properties: {
+      Name: titleProp(row.name),
+      Group: textProp(row.group),
+      Slug: textProp(row.slug ?? null),
+      Description: textProp(row.description ?? null),
+      Retired: checkboxProp(row.retired === true),
+      ...common(row),
+    },
     missingRelation: false,
   };
 }

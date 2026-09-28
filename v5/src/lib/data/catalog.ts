@@ -9,6 +9,7 @@ import {
   units,
 } from "../db/schema/index.ts";
 import type { Db } from "../db/types.ts";
+import { alias } from "drizzle-orm/pg-core";
 import { compactNotionId } from "../legacy-id.ts";
 import { slugify } from "../db/slug.ts";
 import { BUNDLED_TOOL_IMAGES } from "./bundled-tool-images.ts";
@@ -36,6 +37,9 @@ import type { MakerLabTool, MakerLabUnit, ToolStatus } from "../../components/ca
  * `"server-only"`: `scripts/` loads this module under plain Node.
  */
 
+/** A category's parent (taxonomy v2), joined for the heading and the gallery-hidden flag. */
+const parentCategory = alias(categories, "parent_category");
+
 /** A `tools` row joined to its category and location. */
 export interface ToolRow {
   id: string;
@@ -54,7 +58,16 @@ export interface ToolRow {
   notes: string | null;
   starterQuestions: string[];
   categoryName: string | null;
+  /**
+   * The heading the category sits under (taxonomy v2): its parent's name, a
+   * pre-v2 row's free-text group, or — for a top-level category with no
+   * second level ("Laser Cutting & Engraving") — its own name.
+   */
   categoryGroup: string | null;
+  /** The category's slug; absent on fixtures from before taxonomy v2. */
+  categorySlug?: string | null;
+  /** The category (or its parent) is left out of the public gallery by default. */
+  galleryHidden?: boolean | null;
   room: string | null;
   zone: string | null;
   mapTag: string | null;
@@ -238,7 +251,9 @@ async function loadTools(db: Db, where: SQL | undefined): Promise<MakerLabTool[]
       notes: tools.notes,
       starterQuestions: tools.starterQuestions,
       categoryName: categories.name,
-      categoryGroup: categories.group,
+      categoryGroup: sql<string | null>`coalesce(${parentCategory.name}, ${categories.group}, ${categories.name})`,
+      categorySlug: categories.slug,
+      galleryHidden: sql<boolean | null>`(${categories.galleryHidden} or coalesce(${parentCategory.galleryHidden}, false))`,
       room: locations.room,
       zone: locations.zone,
       mapTag: locations.mapTag,
@@ -246,6 +261,7 @@ async function loadTools(db: Db, where: SQL | undefined): Promise<MakerLabTool[]
     })
     .from(tools)
     .leftJoin(categories, eq(tools.categoryId, categories.id))
+    .leftJoin(parentCategory, eq(categories.parentId, parentCategory.id))
     .leftJoin(locations, eq(tools.locationId, locations.id))
     .where(where)
     .orderBy(asc(tools.name));
@@ -399,6 +415,8 @@ export function toMakerLabTool(
     officialName: tool.officialName ?? null,
     category: tool.categoryGroup || "Uncategorized",
     categorySub: tool.categoryName || "Other",
+    categorySlug: tool.categorySlug ?? null,
+    galleryHidden: Boolean(tool.galleryHidden),
     location: tool.room || "Unknown",
     zone: tool.zone || "Unknown",
     trainingLevel: deriveTrainingLevel(tool),

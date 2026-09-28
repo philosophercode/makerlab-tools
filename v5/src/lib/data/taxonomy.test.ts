@@ -30,7 +30,7 @@ beforeEach(async () => {
 });
 
 describe("listCategories", () => {
-  it("orders by group then name, with ungrouped categories last", async () => {
+  it("orders pre-v2 rows by group then name, after the tree", async () => {
     await db.insert(categories).values([
       { name: "Vinyl Cutting", group: null },
       { name: "Resin Printing", group: "3D Printing" },
@@ -39,11 +39,34 @@ describe("listCategories", () => {
     ]);
 
     expect((await listCategories({ db })).map((option) => [option.group, option.name])).toEqual([
+      [null, "Vinyl Cutting"],
       ["3D Printing", "FDM Printing"],
       ["3D Printing", "Resin Printing"],
       ["Subtractive", "Laser Cutting"],
-      [null, "Vinyl Cutting"],
     ]);
+  });
+
+  it("lists the v2 tree in order — each parent, then its children — with the parent as the heading", async () => {
+    const [tools] = await db.insert(categories).values({ name: "Power Tools", slug: "power-tools", sortOrder: 20 }).returning();
+    const [print] = await db.insert(categories).values({ name: "3D Printing", slug: "3d-printing", sortOrder: 10 }).returning();
+    const [shop] = await db
+      .insert(categories)
+      .values({ name: "Shop", slug: "shop", sortOrder: 30, galleryHidden: true })
+      .returning();
+    await db.insert(categories).values([
+      { name: "Sanders", slug: "sanders", parentId: tools.id, sortOrder: 20, description: "Orbital sanders." },
+      { name: "Drills", slug: "drills", parentId: tools.id, sortOrder: 10 },
+      { name: "FDM Printers", slug: "fdm-printers", parentId: print.id, sortOrder: 10 },
+      { name: "PPE", slug: "ppe", parentId: shop.id, sortOrder: 10 },
+      { name: "Gone", slug: "gone", parentId: tools.id, sortOrder: 30, retiredAt: new Date() },
+    ]);
+
+    const options = await listCategories({ db });
+    expect(options.map((option) => option.slug)).toEqual(["3d-printing", "fdm-printers", "power-tools", "drills", "sanders", "shop", "ppe"]);
+    const sanders = options.find((option) => option.slug === "sanders")!;
+    expect(sanders).toMatchObject({ group: "Power Tools", parentSlug: "power-tools", description: "Orbital sanders.", galleryHidden: false });
+    expect(options.find((option) => option.slug === "ppe")!.galleryHidden).toBe(true);
+    expect((await listCategories({ db, includeRetired: true })).map((option) => option.slug)).toContain("gone");
   });
 
   it("is empty on a workspace with no categories rather than throwing", async () => {
