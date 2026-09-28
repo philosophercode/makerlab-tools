@@ -53,9 +53,9 @@ test.describe("Language switch", () => {
       .selectOption("es");
 
     // Server re-render after router.refresh() localizes the visible chrome:
-    // Spanish gallery title from messages/es.json => "HERRAMIENTAS // MÁQUINAS".
+    // Spanish gallery title from messages/es.json => "Herramientas".
     await expect(
-      page.getByRole("heading", { name: "HERRAMIENTAS // MÁQUINAS" })
+      page.getByRole("heading", { name: "Herramientas", exact: true })
     ).toBeVisible();
 
     // <html lang>/<dir> are corrected from the NEXT_LOCALE cookie by
@@ -75,7 +75,7 @@ test.describe("Language switch", () => {
 
     // Arabic gallery title from messages/ar.json.
     await expect(
-      page.getByRole("heading", { name: "الأدوات // الآلات" })
+      page.getByRole("heading", { name: "الأدوات", exact: true })
     ).toBeVisible();
 
     // Reload so LocaleHtmlScript applies lang/dir from the cookie before paint.

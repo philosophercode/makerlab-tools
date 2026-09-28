@@ -18,8 +18,13 @@ export interface SiteConfig {
   chatAssistantName: string;
   /** Audience description used in the AI system prompt (server-only). */
   audience: string;
-  /** Path to the logo image in /public. */
+  /** Path to the logo image in /public (the full lockup, e.g. "MakerLAB@CORNELL TECH"). */
   logo: string;
+  /**
+   * Path to the wordmark alone in /public ("MakerLAB"), shown as a mask in the
+   * site header so it takes the theme's text colour. Cropped from `logo`.
+   */
+  wordmark: string;
   /**
    * The lab's opening hours as one line of text, shown in the header's status
    * strip and on the kiosk screen (`/kiosk`). Free text until hours are
@@ -34,16 +39,17 @@ export interface SiteConfig {
 }
 
 export const siteConfig: SiteConfig = {
-  name: process.env.NEXT_PUBLIC_SITE_NAME ?? "MakerLab Tools",
+  name: process.env.NEXT_PUBLIC_SITE_NAME ?? "MakerLAB Tools",
   institution: process.env.NEXT_PUBLIC_INSTITUTION ?? "Cornell Tech",
   tagline:
     process.env.NEXT_PUBLIC_TAGLINE ??
-    "Browse, search, and learn about makerspace equipment.",
+    "Your digital guide to making at Cornell Tech",
   chatAssistantName:
-    process.env.NEXT_PUBLIC_CHAT_ASSISTANT_NAME ?? "MakerLab Assistant",
+    process.env.NEXT_PUBLIC_CHAT_ASSISTANT_NAME ?? "MakerLAB Assistant",
   audience: process.env.AUDIENCE ?? "students who may be beginners",
   logo: process.env.NEXT_PUBLIC_LOGO ?? "/makerlab-logo-transparent.png",
-  labHours: process.env.NEXT_PUBLIC_LAB_HOURS || "LAB OPEN 9AM-9PM",
+  wordmark: process.env.NEXT_PUBLIC_WORDMARK ?? "/makerlab-wordmark.png",
+  labHours: process.env.NEXT_PUBLIC_LAB_HOURS || "LAB OPEN 8AM-8PM",
   colors: {
     primary: process.env.NEXT_PUBLIC_COLOR_PRIMARY ?? "#ff6b35",
     primaryDark: process.env.NEXT_PUBLIC_COLOR_PRIMARY_DARK ?? "#cc4f1f",

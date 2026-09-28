@@ -8,9 +8,9 @@ test.describe("Gallery", () => {
   test("loads at / and shows the demo-catalogue tools", async ({ page }) => {
     await page.goto("/");
 
-    // Gallery heading from messages/en.json gallery.title => "TOOLS // MACHINES".
+    // Gallery heading from messages/en.json gallery.title => "Tools".
     await expect(
-      page.getByRole("heading", { name: "TOOLS // MACHINES" })
+      page.getByRole("heading", { name: "Tools", exact: true })
     ).toBeVisible();
 
     // Both mock tools render as cards (ToolCard renders an <h2> with the name).

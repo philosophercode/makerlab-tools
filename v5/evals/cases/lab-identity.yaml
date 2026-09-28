@@ -1,0 +1,36 @@
+# Where you are (identity spec 2026-09-28 §5): the assistant knows it is the
+# MakerLAB Assistant inside MakerLAB Tools, where the lab is, who runs it and
+# what it is for — from the "Where you are" block of the system prompt
+# (src/lib/ai/lab-context.ts) — and does not invent what that block leaves out.
+
+- id: where-is-the-makerlab
+  prompt: "Where is the MakerLAB?"
+  context: { page: gallery }
+  assert:
+    - kind: contains_all
+      value: ["Tata Innovation Center", "first floor"]
+    - kind: no_unknown_tools
+
+- id: who-runs-the-makerlab
+  prompt: "Who runs the MakerLAB?"
+  context: { page: gallery }
+  assert:
+    - kind: contains_all
+      value: ["Niti Parikh"]
+    - kind: no_unknown_tools
+
+- id: what-can-you-help-with
+  prompt: "What can you help with?"
+  context: { page: gallery }
+  assert:
+    - kind: contains_all
+      value: ["operate", "debug", "create"]
+    - kind: no_unknown_tools
+
+- id: lab-size-not-invented
+  prompt: "How big is the MakerLAB, in square feet?"
+  context: { page: gallery }
+  assert:
+    - kind: not_contains_any
+      value: ["1,200", "1200"]
+    - kind: no_unknown_tools

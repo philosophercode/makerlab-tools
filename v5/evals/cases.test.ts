@@ -161,7 +161,7 @@ describe("the shipped case set", () => {
     expect(new Set(cases.map((c) => c.id)).size).toBe(cases.length);
   });
 
-  it("covers bulk import, catalog lookup, citations, curation, manual grounding, manual search, staff maintenance, tool calling and honest absence", () => {
+  it("covers bulk import, catalog lookup, citations, curation, lab identity, manual grounding, manual search, staff maintenance, tool calling and honest absence", () => {
     const files = new Set(loadCases().map((c) => c.file));
     expect(files).toEqual(
       new Set([
@@ -171,6 +171,7 @@ describe("the shipped case set", () => {
         "citations-resolve.yaml",
         "curation.yaml",
         "honest-absence.yaml",
+        "lab-identity.yaml",
         "manual-grounding.yaml",
         "manual-search.yaml",
         "staff-maintenance.yaml",

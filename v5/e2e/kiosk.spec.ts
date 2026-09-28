@@ -41,11 +41,11 @@ test.describe("Kiosk", () => {
     await expect(page.locator(".status-strip")).toHaveCount(0);
     await expect(page.locator(".demo-banner")).toHaveCount(0);
     await expect(page.locator('[data-slot="chat-launcher"]')).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Open MakerLab assistant" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Open the MakerLAB Assistant" })).toHaveCount(0);
 
     // The demo seed: one open ticket, the lab hours, the demo chip in place of the banner.
     await expect(page.locator("[data-kiosk-tickets]")).toHaveText("1");
-    await expect(page.getByText("LAB OPEN 9AM-9PM")).toBeVisible();
+    await expect(page.getByText("LAB OPEN 8AM-8PM")).toBeVisible();
     await expect(page.locator("[data-kiosk-demo]")).toHaveText("Demo data");
     await expect(page.getByRole("region", { name: "Machines" })).toBeVisible();
     await expect(page.getByRole("img", { name: /^QR code that opens .*\/\?src=kiosk&ask=1$/ })).toBeVisible();
@@ -228,12 +228,12 @@ test.describe("Kiosk", () => {
     await page.goto("/?src=kiosk&ask=1");
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
-    await expect(dialog.getByRole("heading", { name: "MAKERLAB ASSISTANT" })).toBeVisible();
+    await expect(dialog.getByRole("heading", { name: "MakerLAB Assistant" })).toBeVisible();
   });
 
   test("the catalogue without ?ask=1 leaves the assistant closed", async ({ page }) => {
     await page.goto("/?src=kiosk");
-    await expect(page.getByRole("button", { name: "Open MakerLab assistant" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open the MakerLAB Assistant" })).toBeVisible();
     await expect(page.getByRole("dialog")).toHaveCount(0);
   });
 });
