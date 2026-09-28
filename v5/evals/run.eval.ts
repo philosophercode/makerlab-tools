@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { generateText, stepCountIs, type LanguageModel } from "ai";
 import { getCatalogTools, isDemoCatalog } from "@/lib/catalog";
-import { gatewayLanguageModel, languageModelFor, modelIdFor } from "@/lib/ai/models";
+import { chatProviderOptions, gatewayLanguageModel, languageModelFor, modelIdFor } from "@/lib/ai/models";
 import { getNotionEnvContract } from "@/lib/notion";
 import { loadCases, type EvalCase } from "./cases";
 import { buildFixture } from "./fixtures";
@@ -71,6 +71,10 @@ async function executeCase(evalCase: EvalCase): Promise<CaseExecution> {
   const result = await generateText({
     model,
     system,
+    // The chat route's own call options — its reasoning effort and prompt-cache
+    // key (`MODEL_CHAT_REASONING`, `MODEL_CHAT_CACHE_KEY`) — so a run gates the
+    // settings production uses. An OpenAI block is ignored by other providers.
+    providerOptions: chatProviderOptions(),
     // The case's history, then its prompt: a single user message for most.
     messages: caseMessages(evalCase),
     tools: aiTools,

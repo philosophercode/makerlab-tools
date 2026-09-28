@@ -292,6 +292,87 @@ export function providerOptionsFor(job: ModelJob): { gateway: { serviceTier: Gat
   return tier ? { gateway: { serviceTier: tier } } : undefined;
 }
 
+/** A chat reasoning-effort setting: `"default"` sends no hint, leaving the provider's own. */
+export type ChatReasoningSetting = "default" | "none" | "minimal" | "low" | "medium" | "high";
+
+const CHAT_REASONING_SETTINGS: readonly ChatReasoningSetting[] = ["default", "none", "minimal", "low", "medium", "high"];
+
+/** Overrides {@link CHAT_REASONING_DEFAULT}; `default` sends no hint. */
+export const CHAT_REASONING_ENV = "MODEL_CHAT_REASONING";
+
+/**
+ * How hard the chat model reasons before its first word (performance plan,
+ * quick win 2). Every measured chat step streamed 0.4–1.4s of hidden
+ * reasoning at the provider default; `low` trims most of that. The §10 eval
+ * gate (the Trotec SOP naming check among it) runs with the same setting —
+ * `evals/run.eval.ts` passes {@link chatProviderOptions} — and
+ * `MODEL_CHAT_REASONING=default` puts the provider default back without a
+ * deploy.
+ */
+export const CHAT_REASONING_DEFAULT: ChatReasoningSetting = "low";
+
+/** Overrides {@link CHAT_PROMPT_CACHE_KEY_DEFAULT}; `off` sends none. */
+export const CHAT_PROMPT_CACHE_KEY_ENV = "MODEL_CHAT_CACHE_KEY";
+
+/**
+ * The prompt-cache key chat calls send (performance plan, "Order the prompt so
+ * the provider cache can hit"). OpenAI-family caching is automatic and
+ * prefix-based; the key routes requests that share a prefix to the same cache.
+ * The prompt's stable part comes first for the same reason (`chat-adapter.ts`).
+ * Bump the suffix when the stable prompt changes shape.
+ */
+export const CHAT_PROMPT_CACHE_KEY_DEFAULT = "makerlab-chat-v1";
+
+/** The chat job's reasoning effort, or null for "send no hint". Throws {@link ModelConfigError} on a bad override. */
+export function chatReasoningEffort(): Exclude<ChatReasoningSetting, "default"> | null {
+  const override = process.env[CHAT_REASONING_ENV]?.trim().toLowerCase();
+  let setting = CHAT_REASONING_DEFAULT;
+  if (override) {
+    if (!(CHAT_REASONING_SETTINGS as readonly string[]).includes(override)) {
+      throw new ModelConfigError(
+        `${CHAT_REASONING_ENV} is not a reasoning effort (expected "default", "none", "minimal", "low", "medium" or "high").`,
+        { job: "chat", envVar: CHAT_REASONING_ENV }
+      );
+    }
+    setting = override as ChatReasoningSetting;
+  }
+  return setting === "default" ? null : setting;
+}
+
+/** The chat job's prompt-cache key, or null when `MODEL_CHAT_CACHE_KEY=off`. */
+export function chatPromptCacheKey(): string | null {
+  const override = process.env[CHAT_PROMPT_CACHE_KEY_ENV]?.trim();
+  if (!override) return CHAT_PROMPT_CACHE_KEY_DEFAULT;
+  return override.toLowerCase() === "off" ? null : override.slice(0, 64);
+}
+
+/** What {@link chatProviderOptions} returns. */
+// A type alias, not an interface: the AI SDK's `providerOptions` wants an index signature.
+export type ChatProviderOptions = {
+  gateway?: { serviceTier: GatewayServiceTier };
+  openai?: { reasoningEffort?: Exclude<ChatReasoningSetting, "default">; promptCacheKey?: string };
+};
+
+/**
+ * The `providerOptions` every chat model call passes: the service tier
+ * ({@link providerOptionsFor}), the reasoning effort and the prompt-cache key.
+ * The Gateway hands a provider's own options through under its name, so the
+ * `openai` block reaches an OpenAI-family model (Luna) and is ignored by any
+ * other `MODEL_CHAT`. Undefined when there is nothing to send.
+ */
+export function chatProviderOptions(): ChatProviderOptions | undefined {
+  const options: ChatProviderOptions = { ...providerOptionsFor("chat") };
+  const reasoningEffort = chatReasoningEffort();
+  const promptCacheKey = chatPromptCacheKey();
+  if (reasoningEffort || promptCacheKey) {
+    options.openai = {
+      ...(reasoningEffort ? { reasoningEffort } : {}),
+      ...(promptCacheKey ? { promptCacheKey } : {}),
+    };
+  }
+  return Object.keys(options).length > 0 ? options : undefined;
+}
+
 /** The language model for `job`, through the Gateway. */
 export function languageModelFor(job: LanguageJob): LanguageModelV3 {
   const spec = jobSpec(job);

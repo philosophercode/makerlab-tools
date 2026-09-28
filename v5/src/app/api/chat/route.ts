@@ -21,11 +21,12 @@ import type { MakerLabTool } from "../../../components/catalog-types";
 import { checkRateLimit, type RateLimitDecision } from "../../../lib/rate-limit";
 import { resolveIdentity } from "../../../lib/auth/identity";
 import { siteConfig } from "../../../lib/site-config";
-import { languageModelFor } from "../../../lib/ai/models";
+import { chatProviderOptions, languageModelFor } from "../../../lib/ai/models";
 import { chatExaSearch, EXA_SEARCH_TOOL } from "../../../lib/ai/exa";
 import { describeChatError } from "../../../lib/chat/describe-chat-error";
 import { resourceHosts } from "../../../lib/capabilities/web";
 import { fetchManualPdf, type ManualPdfSource } from "../../../lib/chat/fetch-manual-pdf";
+import { cachedManualPdf } from "../../../lib/chat/manual-pdf-cache";
 import { loadToolManualsForChat } from "../../../lib/chat/tool-manuals";
 import { curationForChat, recordSearchResults } from "../../../lib/chat/curation";
 import { markOutsideReads, newTurnState } from "../../../lib/chat/taint";
@@ -83,38 +84,41 @@ interface ChatRequest {
 }
 
 export async function POST(req: Request) {
-  // Who is asking, then how much they are allowed — both before any expensive
-  // work (catalogue read / model call). Anonymous visitors get a small allowance
-  // keyed by hashed IP; signed-in callers get a generous one keyed by user id
-  // (auth design spec §8).
-  const identity = await resolveIdentity(req);
-  const decision = await checkRateLimit("chat", identity);
+  // Who is asking and what they sent, together: reading the body does not wait
+  // on the session lookup (performance plan, quick win 8).
+  const [identity, body] = await Promise.all([resolveIdentity(req), req.json() as Promise<ChatRequest>]);
+  const { messages, toolId, locale, pendingId, id: rawChatId, page } = body;
+  const chatId = typeof rawChatId === "string" && rawChatId.trim() ? rawChatId.slice(0, 200) : undefined;
+
+  // How much they are allowed (auth design spec §8: anonymous visitors get a
+  // small allowance keyed by hashed IP, signed-in callers a generous one keyed
+  // by user id) — checked alongside the reads that depend only on the caller
+  // and the page, which used to run one after another. A refused request
+  // still never reaches the model; the reads it started are cached or cheap.
+  const [decision, pageContext, outcomes, tools, focused, curation] = await Promise.all([
+    checkRateLimit("chat", identity),
+    // What the page shows and what is selected, and what became of this chat's
+    // cards — both read from the database as this caller may see them.
+    loadPageContext(identity, page),
+    loadProposalOutcomes(chatId, identity),
+    getCatalogTools(),
+    toolId ? getCatalogTool(toolId) : Promise.resolve(null),
+    // Curation (refresh research spec §12): the record the page shows, only for
+    // a caller who may curate it — never composed for anyone else.
+    curationForChat(identity, { toolId, pendingId }),
+  ]);
   if (!decision.allowed) {
     return rateLimitedResponse(decision);
   }
 
-  const { messages, toolId, locale, pendingId, id: rawChatId, page }: ChatRequest = await req.json();
-  const chatId = typeof rawChatId === "string" && rawChatId.trim() ? rawChatId.slice(0, 200) : undefined;
-  // What the page shows and what is selected, and what became of this chat's
-  // cards — both read from the database as this caller may see them.
-  const [pageContext, outcomes] = await Promise.all([
-    loadPageContext(identity, page),
-    loadProposalOutcomes(chatId, identity),
-  ]);
-  const tools = await getCatalogTools();
-  const focused = toolId ? await getCatalogTool(toolId) : null;
-  // Curation (refresh research spec §12): the record the page shows, only for
-  // a caller who may curate it — never composed for anyone else.
-  const curation = await curationForChat(identity, { toolId, pendingId });
   // Searchable manuals are answered through `search_manual` and listed in the
   // prompt with their contents; only the rest are attached whole (manual text
   // spec §3.6 — the fallback for `no_text`, `failed` or unprocessed manuals).
-  const toolManuals = focused
-    ? await loadToolManualsForChat(focused.id, identity)
-    : { outlines: [], searchableResourceIds: new Set<string>() };
-  const { manuals, skipped } = focused
-    ? await collectToolManuals(focused.id, toolManuals.searchableResourceIds)
-    : { manuals: [], skipped: 0 };
+  // The two reads are independent; the PDFs themselves are fetched inside the
+  // stream, so its response starts without waiting on a manual host.
+  const [toolManuals, focusedResources] = focused
+    ? await Promise.all([loadToolManualsForChat(focused.id, identity), loadResourcesForManuals(focused.id)])
+    : [{ outlines: [], searchableResourceIds: new Set<string>() }, [] as ToolResource[]];
   if (focused) {
     const hosts = resourceHosts(focused);
     console.info(
@@ -124,8 +128,6 @@ export async function POST(req: Request) {
       `[chat] read_page hosts: ${hosts.length ? hosts.join(", ") : "none"}`
     );
     console.info(`[chat] manuals searchable: ${toolManuals.outlines.length}`);
-    console.info(`[chat] manuals attached: ${manuals.length}`);
-    console.info(`[chat] manuals not attached (link only): ${skipped}`);
   }
 
   // Convert the UI messages, attach any server-fetched manuals, and surface the
@@ -137,14 +139,19 @@ export async function POST(req: Request) {
   if (attachments.length > 0) {
     console.info(`[chat] attachments for this turn: ${attachments.length}`);
   }
-  const modelMessages = attachManualsToFirstUserMessage(baseMessages, manuals);
 
   const stream = createUIMessageStream({
     // Surface a useful, user-facing reason instead of the SDK's masked default
     // (e.g. tell a provider's bad minute from a real bug) — worded by kind, so
     // it names no provider and no configuration value.
     onError: reportChatError,
-    execute: ({ writer }) => {
+    execute: async ({ writer }) => {
+      const { manuals, skipped } = await collectToolManuals(focusedResources, toolManuals.searchableResourceIds);
+      if (focused) {
+        console.info(`[chat] manuals attached: ${manuals.length}`);
+        console.info(`[chat] manuals not attached (link only): ${skipped}`);
+      }
+      const modelMessages = attachManualsToFirstUserMessage(baseMessages, manuals);
       if (manuals.length > 0) {
         writer.write({
           type: "data-manuals-attached",
@@ -194,6 +201,10 @@ export async function POST(req: Request) {
         // Resolved here, inside the stream, so a misconfigured MODEL_CHAT
         // reaches the student as the error row naming the variable.
         model: languageModelFor("chat"),
+        // Low reasoning effort and a stable prompt-cache key (performance plan,
+        // quick win 2 and "Order the prompt so the provider cache can hit");
+        // `MODEL_CHAT_REASONING` / `MODEL_CHAT_CACHE_KEY` override them.
+        providerOptions: chatProviderOptions(),
         system: [appendManualSections(system, focused, manuals), pageContextSection(pageContext), outcomes]
           .filter(Boolean)
           .join("\n\n"),
@@ -444,51 +455,72 @@ async function fetchPdfAsBase64(title: string, source: ManualPdfSource): Promise
   return Buffer.from(fetched.bytes).toString("base64");
 }
 
-async function collectToolManuals(
-  toolId: string,
-  searchableResourceIds: ReadonlySet<string> = new Set()
-): Promise<{ manuals: AttachedManual[]; skipped: number }> {
-  // Only the focused tool's resources are read (spec §3.10, Article 4's "load
-  // context lazily") — the whole resource table used to come back from Notion
-  // just to be filtered down to one tool's rows here.
-  let forTool: ToolResource[];
+/**
+ * The focused tool's resources, for the manuals to attach. Only that tool's
+ * rows are read (spec §3.10, Article 4's "load context lazily"). A failure
+ * leaves the manuals as links, never the request.
+ */
+async function loadResourcesForManuals(toolId: string): Promise<ToolResource[]> {
   try {
-    forTool = await listResourcesForTool(toolId);
+    return await listResourcesForTool(toolId);
   } catch (err) {
     console.warn("[chat] failed to load resources for manuals", err);
-    return { manuals: [], skipped: 0 };
+    return [];
+  }
+}
+
+/**
+ * Fetch the manuals to attach: every PDF resource that is not searchable, up to
+ * {@link MAX_PDFS_PER_CHAT}, in resource order. They are fetched in parallel —
+ * one wave of up to the cap, then another only to replace failures — rather
+ * than one after another (performance plan, quick win 8), and a PDF fetched in
+ * the last few minutes comes from memory (`manual-pdf-cache.ts`).
+ */
+async function collectToolManuals(
+  forTool: ToolResource[],
+  searchableResourceIds: ReadonlySet<string> = new Set()
+): Promise<{ manuals: AttachedManual[]; skipped: number }> {
+  const candidates: { resource: ToolResource; source: ManualPdfSource }[] = [];
+  for (const r of forTool) {
+    // Searchable: `search_manual` reads it page by page — never attached, and
+    // never counted against MAX_PDFS_PER_CHAT.
+    if (searchableResourceIds.has(r.id)) continue;
+    const source = pickPdfSource(r);
+    if (!source) {
+      if (r.url) {
+        console.info(`[chat] skipping non-PDF resource: ${r.title} (${r.url})`);
+      }
+      continue;
+    }
+    candidates.push({ resource: r, source });
   }
 
   const manuals: AttachedManual[] = [];
   let skipped = 0;
   try {
-    for (const r of forTool) {
-      // Searchable: `search_manual` reads it page by page — never attached, and
-      // never counted against MAX_PDFS_PER_CHAT.
-      if (searchableResourceIds.has(r.id)) continue;
-      const source = pickPdfSource(r);
-      if (!source) {
-        if (r.url) {
-          console.info(`[chat] skipping non-PDF resource: ${r.title} (${r.url})`);
-        }
-        continue;
-      }
-      if (manuals.length >= MAX_PDFS_PER_CHAT) {
-        console.info(
-          `[chat] PDF cap reached (${MAX_PDFS_PER_CHAT}); skipping: ${r.title}`
-        );
-        continue;
-      }
-      const title = r.title || "Manual";
-      const { url } = source;
-      const data = await fetchPdfAsBase64(title, source);
-      if (!data) {
-        skipped += 1;
-        continue;
-      }
-      manuals.push(
-        r.archivedUrl && r.url && url === r.archivedUrl ? { title, url, sourceUrl: r.url, data } : { title, url, data }
+    let next = 0;
+    while (manuals.length < MAX_PDFS_PER_CHAT && next < candidates.length) {
+      const wave = candidates.slice(next, next + (MAX_PDFS_PER_CHAT - manuals.length));
+      next += wave.length;
+      const fetched = await Promise.all(
+        wave.map(({ resource, source }) =>
+          cachedManualPdf(source.url, () => fetchPdfAsBase64(resource.title || "Manual", source))
+        )
       );
+      wave.forEach(({ resource: r, source: { url } }, index) => {
+        const data = fetched[index];
+        if (!data) {
+          skipped += 1;
+          return;
+        }
+        const title = r.title || "Manual";
+        manuals.push(
+          r.archivedUrl && r.url && url === r.archivedUrl ? { title, url, sourceUrl: r.url, data } : { title, url, data }
+        );
+      });
+    }
+    for (const { resource } of candidates.slice(next)) {
+      console.info(`[chat] PDF cap reached (${MAX_PDFS_PER_CHAT}); skipping: ${resource.title}`);
     }
   } catch (err) {
     // Never let base64 collection take down the request; the manuals stay links.

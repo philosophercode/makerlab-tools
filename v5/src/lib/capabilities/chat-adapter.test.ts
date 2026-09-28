@@ -1,7 +1,9 @@
 // @vitest-environment node
 import { mockTools } from "../../components/mock-catalog";
 import type { MakerLabTool } from "../../components/catalog-types";
-import { buildSystemPrompt, hasUsableUrl } from "./chat-adapter";
+import { buildSystemPrompt, CONVERSATION_HEADING, hasUsableUrl } from "./chat-adapter";
+// The real registry, as the chat route composes it.
+import { CAPABILITIES } from "./index";
 
 /**
  * The chat adapter's own prompt sections — the rules added when the chat
@@ -105,5 +107,45 @@ describe("citing sources", () => {
 
     expect(prompt).toContain("Three formats:");
     expect(prompt).toContain('3. A resource with "no link on file": its exact title in bold, `**Trotec Speedy 400 SOP**`, with no link.');
+  });
+});
+
+describe("prompt order for the provider's prefix cache (performance plan)", () => {
+  const form4 = fixtureTool("form-4");
+  const ada = { role: "user", userId: "u-1", name: "Ada Lovelace", email: "ada@cornell.edu" } as never;
+
+  function stablePart(prompt: string): string {
+    const at = prompt.indexOf(CONVERSATION_HEADING);
+    expect(at).toBeGreaterThan(0);
+    return prompt.slice(0, at);
+  }
+
+  it("keeps the part before 'This conversation' identical across pages, people and locales", () => {
+    const gallery = buildSystemPrompt(CAPABILITIES, { tools: mockTools, locale: "en" });
+    const onTrotec = buildSystemPrompt(CAPABILITIES, { tools: mockTools, focusedTool: trotec, locale: "fr" });
+    const onForm4 = buildSystemPrompt(CAPABILITIES, { tools: mockTools, focusedTool: form4, locale: "en", identity: ada });
+
+    expect(stablePart(onTrotec)).toBe(stablePart(gallery));
+    expect(stablePart(onForm4)).toBe(stablePart(gallery));
+    expect(stablePart(onForm4)).not.toContain("Ada Lovelace");
+    expect(stablePart(onTrotec)).not.toContain("## Active tool context");
+  });
+
+  it("puts the per-request parts after the heading", () => {
+    const prompt = buildSystemPrompt(CAPABILITIES, { tools: mockTools, focusedTool: trotec, locale: "fr", identity: ada });
+    const tail = prompt.slice(prompt.indexOf(CONVERSATION_HEADING));
+
+    expect(tail).toContain("## Response language");
+    expect(tail).toContain("## Active tool context");
+    expect(tail).toContain("## Resources for this tool");
+    expect(tail).toContain("Ada Lovelace");
+  });
+
+  it("lists the catalog and the linking rules once, not twice (quick win 4)", () => {
+    const prompt = buildSystemPrompt(CAPABILITIES, { tools: mockTools, focusedTool: trotec, locale: "en" });
+
+    expect(prompt.match(/## MakerLab catalog \(/g)).toHaveLength(1);
+    expect(prompt.match(/## Linking tools/g)).toHaveLength(1);
+    expect(prompt.match(/## Active tool context/g)).toHaveLength(1);
   });
 });

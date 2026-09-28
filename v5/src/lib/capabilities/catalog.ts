@@ -282,23 +282,27 @@ function describeCatalogEntry(tool: MakerLabTool): string {
   return `${head}\n  units: ${units}`;
 }
 
+/**
+ * The "Browsing the catalog" rules. The listing at the end of this fragment is
+ * the whole catalog, so a "what do you have" question is answered from it
+ * directly: telling the model to call `list_tools` for those cost a full extra
+ * model step, about 1.5–2s before the first word (performance plan, quick
+ * win 1).
+ */
+export const BROWSING_SECTION = `## Browsing the catalog\n\nThe **MakerLab catalog** list at the end of this section is complete: every tool in the lab, with its category, location and training level. **Answer from it directly** — without calling a tool — when the student asks what the lab has, which tools of a kind there are ("what 3D printers do you have?", "show me the laser cutters") or what is in a room ("what's in the wood shop?").\n\nCall a catalog tool only when the answer needs more than that list shows:\n\n- \`search_tools\` — keyword search across names, descriptions, materials, and tags. Use this when the student describes a need ("something to cut acrylic", "a tool for sanding") and the names alone do not settle it.\n- \`get_tool_details\` — full details for one tool by id, slug, or name. Use this when the student asks about a specific tool's specs, description, training, PPE, restrictions, units, or resources, before answering with anything beyond the summary in the catalog list.\n- \`list_tools\` — the catalog with each tool's description, optionally filtered by category or location (partial match). Use it only when you need the descriptions of many tools at once.\n\nGround every answer in the catalog. If a student asks about a tool that isn't in the catalog, say so honestly rather than inventing one.`;
+
 function promptFragment(env: PromptEnv): string {
-  const { tools, focusedTool } = env;
+  const { tools } = env;
   const sections: string[] = [];
 
-  sections.push(
-    `## Browsing the catalog\n\nUse the catalog tools to answer questions about what's in the lab:\n\n- \`list_tools\` — list everything, optionally filtered by category or location (partial match). Use this for "what do you have", "show me the 3D printers", "what's in the wood shop".\n- \`search_tools\` — keyword search across names, descriptions, materials, and tags. Use this when the student describes a need ("something to cut acrylic", "a tool for sanding") rather than naming a tool.\n- \`get_tool_details\` — full details for one tool by id, slug, or name. Use this when the student asks about a specific tool's specs, training, PPE, restrictions, units, or resources, before answering with anything beyond the summary already in the catalog list below.\n\nGround every answer in the catalog. If a student asks about a tool that isn't in the catalog, say so honestly rather than inventing one.`
-  );
+  sections.push(BROWSING_SECTION);
 
   sections.push(
-    `## Linking tools\n\nWhenever you mention a tool that exists in the catalog below, **format its name as a markdown link** to its detail page using the slug provided in the catalog: \`[Tool Name](/tools/<slug>)\`. This lets the student jump straight to the tool's page. Examples:\n- "You could use the [Bambu Lab X1-Carbon Combo 3D Printer](/tools/<slug>) for that."\n- "For laser cutting acrylic, check the [Epilog Helix 24](/tools/<slug>)."\n\nDo **not** link the tool the student is already viewing (see Active tool context). Do not invent slugs — only use slugs from the catalog list.`
+    `## Linking tools\n\nWhenever you mention a tool that exists in the catalog below, **format its name as a markdown link** to its detail page using the slug provided in the catalog: \`[Tool Name](/tools/<slug>)\`. This lets the student jump straight to the tool's page. Examples:\n- "You could use the [Bambu Lab X1-Carbon Combo 3D Printer](/tools/<slug>) for that."\n- "For laser cutting acrylic, check the [Epilog Helix 24](/tools/<slug>)."\n\nDo **not** link the tool the student is already viewing (see Active tool context under This conversation, when there is one). Do not invent slugs — only use slugs from the catalog list.`
   );
 
-  if (focusedTool) {
-    sections.push(
-      `## Active tool context\n\nThe student is currently viewing the **${focusedTool.name}** detail page in the MakerLab catalog. If they use pronouns like "this", "it", "that tool", or "the machine", or ask things like "how do I use it" / "what can I make with this" without naming a tool, assume they are asking about the ${focusedTool.name}. Do not wrap "${focusedTool.name}" itself in a tool link — the student is already on its page.`
-    );
-  }
+  // The focused tool ("Active tool context") is per-request: the chat adapter
+  // puts it in the prompt's "This conversation" tail.
 
   sections.push(`## MakerLab catalog (${tools.length} tools)`);
   sections.push(tools.map(describeCatalogEntry).join("\n"));

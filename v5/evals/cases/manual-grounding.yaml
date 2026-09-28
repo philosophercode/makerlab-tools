@@ -35,3 +35,16 @@
   assert:
     - kind: cites_resource
       value: "Trotec Speedy 400 SOP"
+
+# Performance plan, quick win 4 / "Order the prompt": the page's tool now sits
+# in the prompt's closing "This conversation" section, after the catalog. A
+# pronoun must still resolve to it.
+- id: trotec-pronoun-after-prompt-reorder
+  prompt: "Where is this machine, and what can I cut on it?"
+  context: { page: tool, toolId: trotec-speedy-400 }
+  assert:
+    - kind: contains_all
+      value: ["Laser Room"]
+    - kind: no_fabricated_specs
+      fields: [materials]
+    - kind: no_unknown_tools

@@ -32,3 +32,13 @@
   assert:
     - kind: contains_all
       value: ["name"]
+
+# Performance plan, "Order the prompt": the signed-in name moved from the
+# maintenance rules to the prompt's "This conversation" tail. A signed-in
+# student is still not asked who they are.
+- id: issue-report-signed-in-files-without-asking
+  prompt: "The exhaust fan on the Trotec Speedy 400 is making a loud grinding noise. Please file a maintenance ticket for it."
+  context: { page: gallery, as: student }
+  assert:
+    - kind: called_tool
+      value: report_issue

@@ -173,11 +173,20 @@ describe("promptFragment", () => {
     expect(fragment).toContain("units: Form 4 // A [In Use]");
   });
 
-  it("names the focused tool and tells the model not to link it", async () => {
+  it("is the same on every page: the focused tool is the chat adapter's per-request tail", async () => {
     const tools = await getCatalogTools();
     const fragment = catalog.promptFragment?.({ tools, focusedTool: tools[0] }) ?? "";
 
-    expect(fragment).toContain("Active tool context");
-    expect(fragment).toContain("already on its page");
+    expect(fragment).toBe(catalog.promptFragment?.({ tools }));
+    expect(fragment).not.toContain("## Active tool context");
+  });
+
+  it("answers what-do-you-have questions from the listing, not with list_tools (quick win 1)", async () => {
+    const tools = await getCatalogTools();
+    const fragment = catalog.promptFragment?.({ tools }) ?? "";
+
+    expect(fragment).toMatch(/Answer from it directly/);
+    expect(fragment).toContain("what 3D printers do you have?");
+    expect(fragment).not.toMatch(/list_tools\` — list everything[^\n]*Use this for "what do you have"/);
   });
 });
