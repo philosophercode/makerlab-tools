@@ -5,6 +5,7 @@ import { DefaultChatTransport, type FileUIPart } from "ai";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
+import { isCutOff } from "./chat/cut-off";
 import { ClipboardCheckIcon, MapPinIcon, SearchIcon, SquarePenIcon, XIcon } from "lucide-react";
 import { useChatLauncher } from "./ChatLauncherContext";
 import { isKioskPath } from "./kiosk-path";
@@ -172,8 +173,12 @@ export function ChatFab() {
   }, [isOpen]);
 
   const [readingManuals, setReadingManuals] = useState<string[] | null>(null);
+  // The stream ended without a finish (the function timed out or the network
+  // dropped): say so instead of leaving a half answer that looks complete.
+  const [cutOff, setCutOff] = useState(false);
   const { messages, sendMessage, setMessages, status, error } = useChat({
     transport,
+    onFinish: (finish) => setCutOff(isCutOff(finish)),
     onData: ({ type, data }) => {
       if (type === "data-manuals-attached") {
         const titles = (data as { titles?: string[] })?.titles;
@@ -191,6 +196,7 @@ export function ChatFab() {
   const sheetRef = useRef<HTMLDivElement>(null);
 
   function clearChat() {
+    setCutOff(false);
     setMessages([]);
     setDraft("");
     setReadingManuals(null);
@@ -203,6 +209,7 @@ export function ChatFab() {
   // synchronous setState-in-effect cascade.
   function send(text: string, files: FileUIPart[] = []) {
     setReadingManuals(null);
+    setCutOff(false);
     sendMessage(files.length > 0 ? { text, files } : { text });
   }
 
@@ -381,6 +388,12 @@ export function ChatFab() {
                     <Message from="assistant" kind="error" role="alert">
                       <MessageContent>
                         <p>{error.message?.trim() ? error.message : t("error")}</p>
+                      </MessageContent>
+                    </Message>
+                  ) : cutOff && !isLoading ? (
+                    <Message from="assistant" kind="error" role="alert">
+                      <MessageContent>
+                        <p>{t("cutOff")}</p>
                       </MessageContent>
                     </Message>
                   ) : null}

@@ -275,7 +275,8 @@
     "scrollToLatest": "Scroll to the latest message",
     "dictate": "Dictate",
     "sourcesCount": "{count, plural, one {# manual page} other {# manual pages}}",
-    "citationAria": "Open {citation}"
+    "citationAria": "Open {citation}",
+    "cutOff": "The answer was cut off before it finished. Ask again, or ask for a shorter answer."
   },
   "qr": {
     "arrivalLabel": "Scanned from this machine",
