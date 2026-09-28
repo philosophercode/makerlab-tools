@@ -1,3 +1,5 @@
+import type { ImageThumbnails } from "../lib/images/thumbnail-urls.ts";
+
 export type ToolStatus = "Available" | "In Use" | "Training Required" | "Offline";
 
 export interface MakerLabUnit {
@@ -30,7 +32,13 @@ export interface MakerLabTool {
   status: ToolStatus;
   shortDescription: string;
   description: string;
+  /** The original image, or "" when the tool has none. */
   imageSrc: string;
+  /**
+   * Pre-rendered AVIF/WebP widths of `imageSrc` (`lib/images/thumbnail-urls`),
+   * which `ToolImage` shows instead of it; null/absent when there are none.
+   */
+  thumbnails?: ImageThumbnails | null;
   ppe: string[];
   materials: string[];
   tags: string[];
@@ -68,6 +76,60 @@ export interface MakerLabTool {
    * such tools sort last.
    */
   addedAt?: string | null;
+}
+
+/**
+ * What the gallery reads of a tool — its cards, table, search, facets, sorts
+ * and groups — and so all the home page sends to the browser for each one
+ * (`toGalleryTool`). The rest of a `MakerLabTool` (links, notes, safety text,
+ * unit details, starter questions) belongs to the tool's own page; sending it
+ * for every tool made the home page's HTML several times larger.
+ */
+export type GalleryTool = Pick<
+  MakerLabTool,
+  | "id"
+  | "slug"
+  | "name"
+  | "officialName"
+  | "category"
+  | "categorySub"
+  | "location"
+  | "zone"
+  | "trainingLevel"
+  | "status"
+  | "description"
+  | "imageSrc"
+  | "thumbnails"
+  | "ppe"
+  | "materials"
+  | "tags"
+  | "addedAt"
+> & {
+  /** Only each unit's status: the table's "available" count and the availability sort. */
+  units: Array<Pick<MakerLabUnit, "status">>;
+};
+
+export function toGalleryTool(tool: MakerLabTool): GalleryTool {
+  return {
+    id: tool.id,
+    slug: tool.slug,
+    name: tool.name,
+    officialName: tool.officialName ?? null,
+    category: tool.category,
+    categorySub: tool.categorySub,
+    location: tool.location,
+    zone: tool.zone,
+    trainingLevel: tool.trainingLevel,
+    status: tool.status,
+    description: tool.description,
+    imageSrc: tool.imageSrc,
+    thumbnails: tool.thumbnails ?? null,
+    ppe: tool.ppe,
+    materials: tool.materials,
+    tags: tool.tags,
+    addedAt: tool.addedAt ?? null,
+    units: tool.units.map((unit) => ({ status: unit.status })),
+  };
 }
 
 export interface CatalogStats {

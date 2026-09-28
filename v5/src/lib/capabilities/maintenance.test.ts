@@ -129,10 +129,11 @@ describe("report_issue — the ticket that lands", () => {
     expect(row.dateReported).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
-  it("drops the kiosk's cached ticket count, so the lab screen shows the ticket on its next poll", async () => {
+  it("drops the cached ticket reads (kiosk count, tool maintenance history), not the catalogue", async () => {
     vi.mocked(revalidateTag).mockClear();
     await file(issue());
     expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("maintenance", { expire: 0 });
+    expect(vi.mocked(revalidateTag)).not.toHaveBeenCalledWith("catalog", expect.anything());
   });
 
   it("files a ticket unlinked when the unit label resolves to nothing", async () => {

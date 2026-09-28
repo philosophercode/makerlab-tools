@@ -5,7 +5,6 @@ import type { Db } from "../db/types.ts";
 import { imageRetryInProgress } from "../intake/image-retry-state.ts";
 import { parseResearchResult, researchResultSchema, type ResearchImages, type ResearchResult } from "../research/result.ts";
 import { countResearchRequestedSince } from "./pending-tools.ts";
-import { hasUploadedPhoto } from "./research-images.ts";
 import { isUuid } from "./uuid.ts";
 
 /**
@@ -20,8 +19,9 @@ import { isUuid } from "./uuid.ts";
  * clicks, or a click and a finishing run, are served one after the other.
  *
  * - {@link startImageRetry} — the button: the item must be `researched`, have a
- *   result, have no uploaded photo (that photo is the cover) and no run already
- *   going; and the press **costs one** against the daily research allowance,
+ *   result and no run already going — an uploaded photo is no bar, since it is
+ *   a choice beside the found images, not the cover (amendment "An uploaded
+ *   photo is a choice, not the product image"); and the press **costs one** against the daily research allowance,
  *   counted and recorded under the same per-person lock the Research route
  *   takes, so the two cannot together pass it.
  * - {@link finishImageRetry} — the run's result replaces `research.images`,
@@ -70,7 +70,6 @@ export async function startImageRetry(
     const row = await lockRow(tx, id);
     if (!row) return { ok: false, reason: "not_found" };
     if (row.status !== "researched" || !row.research) return { ok: false, reason: "not_editable" };
-    if (await hasUploadedPhoto(tx, id)) return { ok: false, reason: "not_editable" };
     if (imageRetryInProgress(row.research.imageRetry, now.getTime())) return { ok: false, reason: "image_retry_running" };
 
     const used = await countResearchRequestedSince(input.requestedBy, input.since, { db: tx });

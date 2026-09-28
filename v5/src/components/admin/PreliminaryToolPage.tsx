@@ -180,10 +180,10 @@ export function PreliminaryToolPage({
   const [identity, setIdentity] = useState({ name: item.name, brand: item.brand ?? "" });
   const [unitSerial, setUnitSerial] = useState(item.serialNumber ?? "");
   const [checked, setChecked] = useState(false);
-  // An uploaded photo is the cover, so research looked for no other (§5.1 step 3).
-  const hasUploadedPhoto = item.photos.length > 0;
+  // The chat's photos are choices beside what research found, never the cover
+  // by default (amendment "An uploaded photo is a choice, not the product image").
   const [imageChoice, setImageChoice] = useState<ApprovalImageChoice>(() =>
-    initialImageChoice(research?.images, hasUploadedPhoto)
+    initialImageChoice(research?.images, item.photos)
   );
   const [note, setNote] = useState("");
   const [redoOpen, setRedoOpen] = useState(false);
@@ -198,7 +198,7 @@ export function PreliminaryToolPage({
   const [choiceFor, setChoiceFor] = useState(imagesKey);
   if (choiceFor !== imagesKey) {
     setChoiceFor(imagesKey);
-    setImageChoice(initialImageChoice(research?.images, hasUploadedPhoto));
+    setImageChoice(initialImageChoice(research?.images, item.photos));
   }
 
   // A Find a different image run in flight: poll like the queue does, and
@@ -311,8 +311,7 @@ export function PreliminaryToolPage({
 
   async function approve(action: ApprovePendingAction, which: "approve" | "draft") {
     if (!research) return;
-    // The admin's own photo is the cover; nothing else is sent in its place.
-    const image = hasUploadedPhoto ? ({ choice: "none" } as const) : imageChoice;
+    const image = imageChoice;
     const fields = toFields(draft, research, image, imported !== null);
     const result = await write(which, () =>
       action({ id: item.id, fields, overrideNote: low ? note.trim() : null })
@@ -460,7 +459,7 @@ export function PreliminaryToolPage({
                 {redoOpen ? (
                   <ResearchAgainDialog
                     initialNote={research?.reviewerNote ?? ""}
-                    imageAvailable={!hasUploadedPhoto && research !== null}
+                    imageAvailable={research !== null}
                     onSubmit={(request) => void researchAgain(request)}
                     onCancel={() => setRedoOpen(false)}
                   />
@@ -588,7 +587,7 @@ export function PreliminaryToolPage({
                   name={item.name}
                   images={research.images}
                   imageError={research.imageError}
-                  hasUploadedPhoto={hasUploadedPhoto}
+                  uploads={item.photos}
                   value={imageChoice}
                   onChange={setImageChoice}
                   retry={retry}

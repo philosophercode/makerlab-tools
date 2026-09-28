@@ -1,8 +1,9 @@
 import "server-only";
 
-import { getBlobStore, isBlobConfigured, type BlobStore } from "../blob";
+import { getBlobStore, isBlobConfigured, type BlobStore, type ReadBlob } from "../blob";
 import { createAttachment, findAttachmentsByIds } from "../data/attachments";
 import type { ApprovalImageChoice, PendingTool } from "../data/pending-tools";
+import { recordUploadCutout } from "../data/research-images";
 import { getDb } from "../db/client";
 import type { Db } from "../db/types";
 import { promoteAttachmentsToPublic } from "../files/promote";
@@ -38,6 +39,11 @@ import { IMAGE_MAX_BYTES } from "./limits";
  * - **`cleaned`** — the recorded copy must still be this item's own
  *   `research_image_cleaned` attachment. It is made public with
  *   `promoteAttachmentsToPublic` (`copyToPublic`, then the row repointed).
+ * - **`upload`** — one of the item's own photos from the chat (amendment "An
+ *   uploaded photo is a choice, not the product image"): it must be listed in
+ *   the item's `photos`, and is then either used as it was taken or, with
+ *   `removeBackground`, given the same deterministic cutout a picked candidate
+ *   gets — see {@link prepareUpload}.
  * - **`none`**, or no choice at all — nothing.
  *
  * **A file that cannot be had is a warning, not a refusal** (§5.2 step 4). A
@@ -116,6 +122,18 @@ export async function prepareApprovalImage(
     // Rank 1's original beside its cleaned copy: the admin chose it over the cut.
     const rejectedCut = images?.cleaned?.fromUrl === candidate.url;
     return storeOriginal(candidate.url, store, options, rejectedCut ? null : pickHints(candidate));
+  }
+
+  if (choice.choice === "upload") {
+    // Only a photo this item owns. `photos` never lists the cleaned copy, so
+    // this is the item's uploads and nothing else; the row is checked again
+    // below, since the list was read before this request.
+    if (!item.photos.some((photo) => photo.attachmentId === choice.attachmentId)) {
+      return { ok: false, reason: "invalid_field" };
+    }
+    const store = resolveStore(options.store);
+    if (!store) return notAttached("upload");
+    return prepareUpload(item.id, choice.attachmentId, choice.removeBackground, store, options);
   }
 
   const cleaned = images?.cleaned ?? null;
@@ -273,6 +291,158 @@ async function publishCleaned(
     console.error(`[approval-image] could not publish the cleaned copy ${attachmentId}`, err);
     return notAttached("cleaned");
   }
+}
+
+/**
+ * One of the item's own uploaded photos as the cover (amendment "An uploaded
+ * photo is a choice, not the product image").
+ *
+ * - **`removeBackground: false`** — the photo exactly as it was taken. It is
+ *   already the item's; it only has to be public, which `identify_tools`
+ *   usually made it (a chat upload is stored private, §3.3) — when that
+ *   promotion failed, it is promoted here, as a cleaned copy is.
+ * - **`removeBackground: true`** — its bytes read back from the store that
+ *   holds them (`blobCredentials(access)`, through {@link BlobStore.read}) and
+ *   given the same deterministic crop-and-cutout a picked candidate gets
+ *   (`research/images/pick-clean.ts`: classified on the spot, since research
+ *   never ranked it; trimmed to the product plus its margin; never a
+ *   generative redraw). A cut is stored **public** under the tool-photo prefix
+ *   and recorded as this item's `research_image_cleaned` copy
+ *   (`recordUploadCutout`), which is what the transaction takes as the cover;
+ *   the photo itself follows it as an ordinary tool photo. When no cut can be
+ *   made — a busy backdrop, a cut that fails its checks, a format `sharp`
+ *   cannot read — the photo is used **as it was taken**, and `cleaned` is null,
+ *   exactly as a picked candidate's original bytes are stored.
+ *
+ * A photo whose bytes cannot be read back is used as taken too. A cutout that
+ * cannot be stored or recorded, a promotion that fails, or a row that is no
+ * longer the item's own upload is `image_not_attached`.
+ */
+async function prepareUpload(
+  pendingId: string,
+  attachmentId: string,
+  removeBackground: boolean,
+  store: BlobStore,
+  options: ApprovalImageOptions
+): Promise<PreparedApprovalImage> {
+  try {
+    const db = options.db ?? (await getDb());
+    const [row] = await findAttachmentsByIds([attachmentId], { db });
+    if (
+      !row ||
+      row.ownerType !== "pending_tool" ||
+      row.ownerId !== pendingId ||
+      (row.origin !== null && row.origin !== "upload")
+    ) {
+      return notAttached("upload");
+    }
+
+    if (removeBackground) {
+      const cut = await cutOutUpload(pendingId, row, store, db);
+      if (cut === "failed") return notAttached("upload");
+      if (cut) return { ok: true, kind: "upload", coverId: cut.id, cleaned: cut.kind };
+      // No cut could be made: the photo as it was taken.
+    }
+
+    if (row.access !== "public") {
+      const promoted = await promoteAttachmentsToPublic([row.id], { db, store });
+      if (promoted.promoted !== 1) return notAttached("upload");
+    }
+    return { ok: true, kind: "upload", coverId: row.id, cleaned: null };
+  } catch (err) {
+    console.error(`[approval-image] could not use the uploaded photo ${attachmentId}`, err);
+    return notAttached("upload");
+  }
+}
+
+/**
+ * The cutout of an uploaded photo, stored public and recorded — or null when
+ * no cut could be made (the caller uses the photo as taken), or `"failed"`
+ * when one was made and could not be kept.
+ */
+async function cutOutUpload(
+  pendingId: string,
+  row: { id: string; blobPathname: string; access: string; originalFilename: string | null; uploadedBy: string | null },
+  store: BlobStore,
+  db: Db
+): Promise<{ id: string; kind: CleanedKind } | null | "failed"> {
+  const access = row.access === "public" ? "public" : "private";
+  const bytes = await readBlobBytes(await store.read(row.blobPathname, access), IMAGE_MAX_BYTES);
+  if (!bytes) {
+    console.warn(`[approval-image] the uploaded photo ${row.id} could not be read back; used as it was taken`);
+    return null;
+  }
+  const info = inspectImage(bytes);
+  // A format the cutout cannot decode (HEIC, say): the photo as taken.
+  if (!info) return null;
+
+  const picked = await cleanPickedImage({ bytes, info }, {});
+  if (!picked.cleaned) {
+    if (picked.note && picked.note !== "busy_background") {
+      console.info(`[approval-image] the uploaded photo ${row.id} is used as it was taken: ${picked.note}`);
+    }
+    return null;
+  }
+
+  const stem = (row.originalFilename ?? "photo").replace(/\.[a-z0-9]{1,5}$/i, "").slice(0, 32) || "photo";
+  const filename = `${stem}-background-removed.png`;
+  let stored: { pathname: string; url: string };
+  try {
+    stored = await store.putUpload(
+      TOOL_PHOTO_PREFIX,
+      new File([picked.bytes as Uint8Array<ArrayBuffer>], filename, { type: "image/png" }),
+      "public"
+    );
+  } catch (err) {
+    console.error(`[approval-image] could not store the cutout of the uploaded photo ${row.id}`, err);
+    return "failed";
+  }
+
+  try {
+    const id = await recordUploadCutout(db, {
+      pendingId,
+      blobPathname: stored.pathname,
+      publicUrl: stored.url,
+      sizeBytes: picked.bytes.byteLength,
+      width: picked.info.width,
+      height: picked.info.height,
+      uploadedBy: row.uploadedBy,
+      filename,
+    });
+    return { id, kind: picked.cleaned };
+  } catch (err) {
+    console.error(`[approval-image] could not record the cutout of the uploaded photo ${row.id}`, err);
+    await store.del([stored.pathname], "public").catch((cause: unknown) => {
+      console.error(`[approval-image] could not delete unrecorded cutout ${stored.pathname}`, cause);
+    });
+    return "failed";
+  }
+}
+
+/** A read blob's bytes, or null when there is none or it is over `maxBytes`. */
+async function readBlobBytes(blob: ReadBlob | null, maxBytes: number): Promise<Uint8Array | null> {
+  if (!blob) return null;
+  if (blob.body instanceof Uint8Array) return blob.body.byteLength > maxBytes ? null : blob.body;
+  const reader = blob.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    total += value.byteLength;
+    if (total > maxBytes) {
+      await reader.cancel().catch(() => {});
+      return null;
+    }
+    chunks.push(value);
+  }
+  const bytes = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return bytes;
 }
 
 const EXTENSIONS: Record<ImageFormat, string> = {
