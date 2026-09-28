@@ -2335,6 +2335,7 @@
     "ticketsWaiting": "{count} waiting",
     "ticketsUnavailable": "Not available",
     "askHeading": "Ask the assistant on your phone",
+    "openAssistant": "Open the assistant",
     "qrLabel": "QR code that opens {url}",
     "featuredHeading": "Featured",
     "featuredTool": "Tool",
