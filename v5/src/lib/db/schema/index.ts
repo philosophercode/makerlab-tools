@@ -30,3 +30,4 @@ export * from "./access.ts";
 export * from "./blocked-emails.ts";
 export * from "./action-proposals.ts";
 export * from "./usage.ts";
+export * from "./lab-settings.ts";

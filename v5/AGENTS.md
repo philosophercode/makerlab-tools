@@ -1597,6 +1597,26 @@ and its 2026-09-28 amendment are the detail.
   `?staff=1`. The home tile counts open gaps (`countOpenGaps`).
 - **Demo seed** writes a synthetic week (`demo-usage.ts`) so the page has
   something to show locally and in E2E.
+- **Value report** (`/admin/insights/value`, the Insights page's second tab;
+  spec amendment "Value report", migration `0024_lab_settings`): per term or
+  custom range, questions answered (app + MCP lookups ÷ lookups per question),
+  share handled without staff, **estimated** staff hours and dollars, after-hours
+  share in lab time, top tools, question kinds, follow-up counts, beside the
+  previous period, with the formulas in words. Pure arithmetic in
+  `lib/usage/value/` (`assumptions`, `lab-clock`, `periods`, `report`, `csv`,
+  `format`); reads in `value-queries.ts` (staff always left out) and one
+  loader, `load.ts`, shared by the page and the chat read `get_value_report`
+  (`insights.view`, chat only, never MCP). Words for page, print and CSV come
+  from one model (`components/admin/insights/value/value-report-model.ts`).
+  **Assumptions** (minutes per question 4, $40/h, staffed hours from
+  `siteConfig.labHours`, contiguous term windows, all gap kinds unhandled, MCP
+  at 2 lookups a question) live in `lab_settings` (`data/lab-settings.ts`, key
+  `value_report`, JSON re-validated on read) and change only through
+  `insights.set_value_assumptions` (`insights.configure`, admin and super
+  admin; `assistant: "never"`). Print is the browser's, over
+  `styles/value-report-print.css` (`:has([data-value-report])`, one Letter
+  page); CSV is built on the server and saved by the island — no export route.
+  Staffed hours are whole hours because rollups are hourly.
 
 ## Key files
 

@@ -546,3 +546,75 @@ E2E `e2e/admin-insights.spec.ts`.
 **Status.** Phases 1 and 2 built, plus the queue's two GUI decisions; PR "v5 usage insights".
 Migration `0022` is the next free number on `main` today — if another PR lands a `0022` first,
 this one renumbers.
+
+### 2026-09-28 — Value report
+
+The owner asked for a **value report** a lab director can hand a dean to justify the subscription
+(about $200 a month): per term or custom date range, estimated staff hours saved and after-hours
+coverage, from the anonymous usage data only. Built on branch `v5/insights-value-report`.
+
+**Where.** `/admin/insights/value`, a second tab beside **Usage** on the Insights surface
+(`InsightsTabs`, `LinkTabs`). Read on `insights.view`. The period is a term (`?term=fall-2026`, the six
+most recent as links) or a custom range (`?from=YYYY-MM-DD&to=YYYY-MM-DD`, at most 366 days, a plain
+GET form); anything else is the current term. Uncached; an unreadable report says so, never zeros.
+
+**Lab-set assumptions** (`lab_settings`, key `value_report`, migration `0024_lab_settings`; one JSON
+value per deployment, re-validated on every read — `lib/usage/value/assumptions.ts`):
+
+| Assumption | Default |
+|---|---|
+| Minutes of staff time a question would otherwise take | **4** (0.5–60) |
+| Loaded staff cost per hour | **$40** (0–1000) |
+| Staffed hours, lab time (`LAB_TIMEZONE`) | from `siteConfig.labHours` / `NEXT_PUBLIC_LAB_HOURS` — "LAB OPEN 8AM-8PM" → **8 AM–8 PM, every day** (weekdays only if the text says Mon–Fri); whole hours |
+| Terms (month-day windows, every year, no overlap) | **Spring 01-01 → 05-20, Summer 05-21 → 08-20, Fall 08-21 → 12-31** (contiguous, so every day has a term and a previous term) |
+| Unanswered kinds that are *not* handled without staff | **all four** gap kinds |
+| Count MCP questions / lookups per question | **yes / 2** |
+
+A stored value that no longer parses falls back to the defaults and the page says so. They are
+changed on the page by `insights.set_value_assumptions` (registered action, `performAction`, gated on
+the new **`insights.configure`** — admin and super admin — `assistant: "never"`, GUI only; parity spec
+amendment "value report"). The row keeps `updated_by`/`updated_at`, shown under the report. No audit
+event: the setting is state and the row says who set it.
+
+**Formulas** (shown on the report in words with the period's numbers, `lib/usage/value/report.ts`):
+
+- **Questions answered** = assistant turns in the app (`chat_turn`) + MCP questions, where MCP
+  questions = MCP calls to the public catalogue reads (`list_tools`, `search_tools`,
+  `get_tool_details`, `get_unit_details`, `get_maintenance_history`, `search_manual`) ÷ lookups per
+  question, rounded down.
+- **Handled without staff** = app turns − `gap` events of the counted kinds (never below zero) + MCP
+  questions. MCP has no unanswered signal; the formula says so.
+- **Staff hours saved** ≈ handled × minutes per question ÷ 60. **Value** ≈ hours × hourly cost.
+- **After hours** = questions whose lab-time hour is outside staffed hours ÷ questions answered.
+  Counted per UTC hour and converted with `Intl` (`lab-clock.ts`), so the DST changeover moves
+  nothing; rollups are hourly, which is why staffed hours are whole hours.
+- Also: question kinds, the five most-asked tools, manual citations; corrections filed from the
+  Unanswered queue in the period (by their `Unanswered in the assistant: ` prefix — the gap row is
+  deleted after 30 days, the correction stays) and how many are fixed; manuals made searchable;
+  problem reports the assistant filed (`maintenance_logs.type = 'issue_report'` with no Notion id —
+  `report_issue` is the only writer — by `date_reported`), resolved, and the median whole days
+  from reported to resolved.
+- Every headline beside the **previous period**: the term before, or the same number of days
+  before a custom range. **Staff are always left out.** Everything is a count; nothing names a person.
+
+**Export.** **Print or save as PDF** is the browser's print over `styles/value-report-print.css`
+(scoped with `:has([data-value-report])`: everything but the report `display: none`, Letter, one page,
+black on white); **Download CSV** saves the same numbers (headlines for both periods, breakdowns,
+assumptions) built on the server, quoted and formula-safe, named after the report. Title:
+"`{chatAssistantName}` — Fall 2026 value report", with `siteConfig.name · institution` above it.
+
+**Assistant.** `get_value_report` (`capabilities/value-report.ts`, in `admin-reads`): chat only,
+`insights.view`, never on MCP or for students and visitors; a term or range in, the report's counts,
+estimates, assumptions and formulas out, no question text, so it does not taint the turn.
+
+**Tests.** Unit: `assumptions`, `lab-clock` (DST both ways, east of UTC), `periods` (term edges,
+gaps, previous periods, bounds across DST), `report` (zero data, MCP rounding, unanswered kinds,
+after hours across the changeover), `csv`/`format`. Integration (PGlite): `value-report.integration.test.ts`
+(a seeded fall and summer, stored assumptions, custom ranges, empty, the rollup watermark, corrections,
+tickets and median, manuals, the settings row). Action: `app/admin/insights/value-actions.test.ts`.
+Page: `value/page.test.tsx`. Component: `value/value-report.test.tsx`. Capability:
+`capabilities/value-report.test.ts`. E2E: `e2e/admin-value-report.spec.ts` (refusal, tab, demo week,
+CSV download, one-page print, saving an assumption).
+
+**Status.** Built; PR "v5 insights: value report". Migration `0024` is the next free number on
+`main` today; if another PR lands a `0024` first, this one renumbers.

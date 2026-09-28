@@ -15,3 +15,11 @@ export type InsightsActionResult = QueueActionResult<InsightsWriteError>;
 
 /** The shape the Unanswered queue's island takes for each decision. */
 export type GapDecisionAction = (input: { gapId: string }) => Promise<InsightsActionResult>;
+
+/** The value report's page (usage insight spec amendment "Value report"). */
+export const VALUE_REPORT_PATH = "/admin/insights/value";
+
+/** Why saving the value report's assumptions did not land: a value out of range, or terms that overlap. */
+export type ValueAssumptionsError = "invalid_field";
+
+export type ValueAssumptionsResult = QueueActionResult<ValueAssumptionsError>;

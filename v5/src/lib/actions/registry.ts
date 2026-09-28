@@ -21,7 +21,7 @@ import {
   PENDING_RESEARCH,
   PENDING_SAVE_IDENTITY,
 } from "./intake";
-import { INSIGHTS_DISMISS_GAP, INSIGHTS_FILE_CORRECTION } from "./insights";
+import { INSIGHTS_DISMISS_GAP, INSIGHTS_FILE_CORRECTION, INSIGHTS_SET_VALUE_ASSUMPTIONS } from "./insights";
 import { TICKETS_LOG_COMPLETED } from "./maintenance-log";
 import { MANUALS_REPROCESS, MANUALS_REPROCESS_LIBRARY } from "./manuals";
 import { MIRROR_DISCONNECT, MIRROR_SET_PAUSED, MIRROR_SYNC_NOW } from "./mirror";
@@ -117,6 +117,8 @@ const DEFINITIONS = [
   // Usage insight: the Unanswered queue's decisions (usage insight spec §7).
   INSIGHTS_DISMISS_GAP,
   INSIGHTS_FILE_CORRECTION,
+  // The value report's assumptions (usage insight spec amendment "Value report").
+  INSIGHTS_SET_VALUE_ASSUMPTIONS,
 ];
 
 /** Every definition, runnable. */

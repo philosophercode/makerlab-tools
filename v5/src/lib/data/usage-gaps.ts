@@ -22,6 +22,14 @@ import { isUuid } from "./uuid.ts";
 
 export type GapDecisionError = "not_found";
 
+/**
+ * How a correction filed from the Unanswered queue begins. The value report
+ * counts those corrections by it (`usage/value/value-queries.ts`), because the
+ * gap row itself is deleted 30 days after it was last asked and the
+ * correction is what stays.
+ */
+export const UNANSWERED_CORRECTION_PREFIX = "Unanswered in the assistant: ";
+
 export interface GapSubject {
   id: string;
   question: string;
@@ -88,7 +96,7 @@ export async function fileGapCorrection(
       .values({
         toolId: gap.toolId,
         fieldFlagged: null,
-        issueDescription: `Unanswered in the assistant: ${gap.question}`,
+        issueDescription: `${UNANSWERED_CORRECTION_PREFIX}${gap.question}`,
         status: "new",
         createdBy: actorUserId,
         updatedBy: actorUserId,

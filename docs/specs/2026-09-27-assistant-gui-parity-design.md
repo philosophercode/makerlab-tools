@@ -1483,3 +1483,23 @@ deny list. **Counts:** action tools 36 → **42** for a director, 32 → **38** 
 two reads (`test/mcp/expected-tools.ts`).
 With usage insight's two GUI-only actions (above, `assistant: "never"`, so no tool count moves) the
 registry holds 50 definitions. Taxonomy v2's migration is `0023_taxonomy_v2`; usage insight took `0022`.
+
+### 2026-09-28 — value report: one GUI-only action and one read
+
+The usage insight spec's "Value report" amendment adds `/admin/insights/value`, whose lab-set
+assumptions (minutes per question, hourly cost, staffed hours, terms, what counts as handled) are one
+registered action, run by the page's server action (`app/admin/insights/actions.ts`,
+`saveValueAssumptions`):
+
+| Action | Tool | Risk | Permission | Chat | MCP |
+|---|---|---|---|---|---|
+| `insights.set_value_assumptions` | `set_value_report_assumptions` | operational | `insights.configure` | never | never |
+
+`assistant: "never"`, no tool and no preview: these are the numbers a dean is shown, so they change
+on the report, beside the formulas they feed. `insights.configure` is a new permission held by admin
+and super admin (its own grant so "directors only" is one line). One chat-only read joins
+`capabilities/admin-reads.ts`: `get_value_report` (`insights.view`) — the report's counts, estimates
+and assumptions for a term or range, no question text, so it does not taint the turn and is not on
+MCP. No name matches the deny list. **Counts:** action tools unchanged (42 / 38); chat tools 62 →
+**63** for a director and 57 → **58** for a SuperMaker; the MCP lists do not change. The registry
+holds 51 definitions. Migration `0024_lab_settings`.

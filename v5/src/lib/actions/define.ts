@@ -215,7 +215,8 @@ export interface ActionSubject {
     | "mirror"
     | "category"
     | "category_proposal"
-    | "usage_gap";
+    | "usage_gap"
+    | "lab_setting";
   id: string;
 }
 
