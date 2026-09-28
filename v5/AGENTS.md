@@ -1388,8 +1388,16 @@ data; the QR code opens the catalogue with the chat.
   `html:has([data-kiosk])`. The logo is a CSS mask filled with
   `--on-surface`, so a single-colour logo reads on dark; the QR code is drawn in
   `currentColor` on an `--on-surface` plate (no pure white). Type is `vmin` with
-  `clamp()` (`kiosk-type.ts`); landscape is two columns, portrait
-  (`portrait:` variant) stacks with the QR code last.
+  `clamp()` (`kiosk-type.ts`, ceilings at the 4K value). Three layouts, named
+  once as custom variants in `styles/ui.css`: `kiosk-wall` (landscape, ≥600px
+  tall: two columns, one screen, no scroll), `kiosk-scroll` (everything else:
+  an upright iPad puts the ticket count and featured item beside the QR code
+  and scrolls inside the screen if it must) and `kiosk-phone` (<640px wide or a
+  phone on its side: one column, 112px QR code plus an "Open the assistant"
+  link). Panels read `--kiosk-*` custom properties set per layout on the root,
+  are placed with `grid-template-areas`, and pad with `env(safe-area-inset-*)`
+  (`viewport-fit=cover` on the page). `kiosk.css` also hands the h1 size back
+  from globals.css's unlayered narrow-screen rule (`revert-layer`).
 - **The QR code** (`lib/kiosk/qr.ts`, server-only; `qrcode` is now a runtime
   dependency) encodes `kioskAskUrl(origin)` = `<origin>/?src=kiosk&ask=1`
   (`lib/kiosk/params.ts`). `AskParamOpener` in the root layout (its own
