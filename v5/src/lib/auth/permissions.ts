@@ -47,6 +47,10 @@ export const statement = {
   feedback: ["manage"],
   mirror: ["manage"],
   users: ["manage"],
+  // Taxonomy v2 (spec 2026-09-28 §4.4): decide category proposals, merge,
+  // rename and retire categories. Admins and super admins both — the lab's
+  // SuperMakers run the catalogue day to day; proposing needs only `tools.edit`.
+  taxonomy: ["manage"],
   // Usage insight (usage insight spec §8, §13 Q3): anonymous usage counts and
   // the Unanswered queue on /admin/insights. SuperMakers and directors both.
   insights: ["view"],
@@ -88,6 +92,7 @@ export const roles = {
     maintenance: ["manage"],
     feedback: ["manage"],
     mirror: ["manage"],
+    taxonomy: ["manage"],
     insights: ["view"],
   }),
   super_admin: ac.newRole({
@@ -99,6 +104,7 @@ export const roles = {
     mirror: ["manage"],
     insights: ["view"],
     users: ["manage"],
+    taxonomy: ["manage"],
     user: [...ACCOUNT_MANAGEMENT.user],
     session: [...ACCOUNT_MANAGEMENT.session],
   }),
@@ -169,6 +175,7 @@ export const ADMIN_SURFACE_PERMISSIONS: Permission[] = [
   "mirror.manage",
   "insights.view",
   "users.manage",
+  "taxonomy.manage",
 ];
 
 /** True when `subject` holds any {@link ADMIN_SURFACE_PERMISSIONS}. */

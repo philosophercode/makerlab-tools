@@ -73,7 +73,11 @@ export interface SourceRowBase {
 
 export interface CategorySourceRow extends SourceRowBase {
   name: string;
+  /** The heading: the parent's name (taxonomy v2), or a pre-v2 row's group. */
   group: string | null;
+  slug?: string | null;
+  description?: string | null;
+  retired?: boolean;
 }
 
 export interface LocationSourceRow extends SourceRowBase {
@@ -304,9 +308,18 @@ function text(value: unknown): string | null {
 
 async function categoryRows(query: SourceQuery): Promise<CategorySourceRow[]> {
   const rows = await pageOf<Record<string, unknown>>("categories", "categories", query, {
-    columns: sql`s.name as "name", s."group" as "group"`,
+    columns: sql`s.name as "name",
+                 coalesce((select p.name from categories p where p.id = s.parent_id), s."group") as "group",
+                 s.slug as "slug", s.description as "description", (s.retired_at is not null) as "retired"`,
   });
-  return rows.map((row) => ({ ...base(row), name: String(row.name ?? ""), group: text(row.group) }));
+  return rows.map((row) => ({
+    ...base(row),
+    name: String(row.name ?? ""),
+    group: text(row.group),
+    slug: text(row.slug),
+    description: text(row.description),
+    retired: row.retired === true,
+  }));
 }
 
 async function locationRows(query: SourceQuery): Promise<LocationSourceRow[]> {

@@ -162,6 +162,13 @@
       "when": 1790575102449,
       "tag": "0022_usage_insight",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790579798542,
+      "tag": "0023_taxonomy_v2",
+      "breakpoints": true
     }
   ]
 }

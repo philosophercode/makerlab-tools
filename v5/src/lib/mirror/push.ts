@@ -4,7 +4,7 @@ import type { Db } from "../db/types.ts";
 import { deleteMirrorPage, getMirrorPageIds, listOrphanedMirrorPages, upsertMirrorPage } from "../data/mirror-pages.ts";
 import { claimMirrorRun, finishMirrorRun, releaseMirrorRun, type ClaimedMirror } from "../data/mirrors.ts";
 import { mirrorClientFor } from "./credentials.ts";
-import { validateDatabaseSchema } from "./database-schemas.ts";
+import { absentOptionalProperties, validateDatabaseSchema } from "./database-schemas.ts";
 import { MIRROR_PUSH_BUDGET_MS } from "./limits.ts";
 import { NotionMirrorError, scrubSecrets, type NotionClient, type NotionClientOptions } from "./notion-client.ts";
 import { buildMirrorProperties, relationTargets, type MirrorRelations } from "./properties.ts";
@@ -96,6 +96,8 @@ interface RunState {
   failedEntities: Set<MirrorEntity>;
   missingDatabases: Set<MirrorEntity>;
   schemaMismatches: Map<MirrorEntity, string[]>;
+  /** Optional properties a mapped database lacks (added after it was made): left out of its pages. */
+  absentOptional: Map<MirrorEntity, string[]>;
   /** The last Notion status and code a row failed with — for the detail line. */
   lastRowError: { status: number | null; code: string | null } | null;
   consecutiveUnavailable: number;
@@ -190,6 +192,7 @@ async function run(claim: ClaimedMirror, options: PushMirrorOptions, db: Db): Pr
     failedEntities: new Set(),
     missingDatabases: new Set(),
     schemaMismatches: new Map(),
+    absentOptional: new Map(),
     lastRowError: null,
     consecutiveUnavailable: 0,
     stop: null,
@@ -327,6 +330,7 @@ async function databaseUsable(entity: MirrorEntity, databaseId: string, ctx: Ent
       state.failedEntities.add(entity);
       return false;
     }
+    state.absentOptional.set(entity, absentOptionalProperties(entity, database));
     return true;
   } catch (error) {
     const notion = asNotionError(error);
@@ -387,6 +391,7 @@ async function pushRow(
     }
 
     const built = buildMirrorProperties(entity, row as never, relations);
+    for (const name of state.absentOptional.get(entity) ?? []) delete built.properties[name];
     let pageId = row.pageId;
     if (pageId) {
       try {

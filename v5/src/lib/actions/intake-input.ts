@@ -53,10 +53,22 @@ export const approvalFields = z.strictObject({
   officialName: optionalText(MAX_LINE).optional(),
   description: optionalText(MAX_DESCRIPTION),
   categoryId: pendingId.nullable(),
+  // The pre-v2 shape (a card stored before taxonomy v2): recorded as a proposal, never created.
   newCategory: z
     .strictObject({
       name: z.string().trim().min(1).max(MAX_LINE),
       group: optionalText(MAX_LINE),
+    })
+    .nullable()
+    .optional(),
+  // Taxonomy v2 (spec §4.4): a new category research proposed, recorded as a
+  // `category_proposals` row naming the new tool — never created at approval.
+  categoryProposal: z
+    .strictObject({
+      name: z.string().trim().min(1).max(60),
+      parentSlug: optionalText(120),
+      description: optionalText(600),
+      reason: optionalText(600),
     })
     .nullable()
     .optional(),

@@ -39,6 +39,8 @@ export const OUTSIDE_CONTENT_TOOLS: readonly string[] = [
   "list_corrections",
   "list_project_queue",
   "list_imports",
+  // Category proposals: names, descriptions and reasons research or others wrote.
+  "list_category_proposals",
   // The record a curation turn works on: research read from the web.
   "get_record",
 ];

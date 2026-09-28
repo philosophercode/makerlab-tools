@@ -312,3 +312,27 @@ export function isOneOf<const T extends readonly string[]>(
 ): value is T[number] {
   return typeof value === "string" && (list as readonly string[]).includes(value);
 }
+
+/**
+ * What a tool record is (taxonomy v2 spec §3 facets; migration `0023`). A
+ * facet beside the category, so accessories and consumables stop being
+ * categories of their own.
+ */
+export const TOOL_ITEM_KIND = ["equipment", "accessory", "consumable", "fixture"] as const;
+export type ToolItemKind = (typeof TOOL_ITEM_KIND)[number];
+
+/** A category proposal asks for a new category, or asks a person to reconsider one (the audit). */
+export const CATEGORY_PROPOSAL_KIND = ["new_category", "review_category"] as const;
+export type CategoryProposalKind = (typeof CATEGORY_PROPOSAL_KIND)[number];
+
+/** Where a category proposal came from (taxonomy v2 spec §4). */
+export const CATEGORY_PROPOSAL_SOURCE = ["research", "refresh", "chat", "mcp", "audit", "gui"] as const;
+export type CategoryProposalSource = (typeof CATEGORY_PROPOSAL_SOURCE)[number];
+
+/**
+ * `pending` until a person decides: `accepted` (created), `merged` (the tool
+ * went to an existing category instead, or the flagged category was merged),
+ * `rejected`.
+ */
+export const CATEGORY_PROPOSAL_STATUS = ["pending", "accepted", "rejected", "merged"] as const;
+export type CategoryProposalStatus = (typeof CATEGORY_PROPOSAL_STATUS)[number];

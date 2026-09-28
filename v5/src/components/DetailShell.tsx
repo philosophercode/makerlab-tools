@@ -77,7 +77,7 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
 
   type Row = [string, React.ReactNode];
   const specs: Row[] = [
-    [t("category"), `${tool.category}${tool.categorySub ? ` › ${tool.categorySub}` : ""}`],
+    [t("category"), `${tool.category}${tool.categorySub && tool.categorySub !== tool.category ? ` › ${tool.categorySub}` : ""}`],
     [t("location"), `${tool.location}${tool.zone ? ` › ${tool.zone}` : ""}`],
     ...(tool.materials.length > 0 ? ([[t("materials"), tool.materials.join(", ")]] as Row[]) : []),
     ...(tool.trainingLabel ? ([[t("trainingRow"), tool.trainingLabel]] as Row[]) : []),

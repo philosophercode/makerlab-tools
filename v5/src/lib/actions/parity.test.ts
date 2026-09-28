@@ -26,6 +26,7 @@ import * as peopleAllowance from "./people-allowance";
 import * as peopleRoster from "./people-roster";
 import * as projects from "./projects";
 import { ACTIONS } from "./registry";
+import * as taxonomy from "./taxonomy";
 import * as tickets from "./tickets";
 import * as maintenanceLog from "./maintenance-log";
 import { ACTION_DEFINITIONS } from "./registry";
@@ -63,6 +64,7 @@ const DEFINITION_MODULES = [
   imports,
   refresh,
   mirror,
+  taxonomy,
   insights,
 ];
 

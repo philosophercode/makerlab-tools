@@ -38,7 +38,7 @@ export interface InventoryFilterState {
   /** Free text, matched fuzzily by the island — never a database query. */
   query: string;
   state: ToolState | null;
-  /** A `categories.name`, matched exactly. */
+  /** A `categories.name`, or a top-level category's name (taxonomy v2), matched exactly. */
   category: string | null;
   /** A `locations.room`, matched exactly. */
   location: string | null;
@@ -110,7 +110,9 @@ export function hasActiveFilters(filters: InventoryFilterState): boolean {
  */
 export function matchesFilters(row: InventoryRow, filters: InventoryFilterState): boolean {
   if (filters.state && row.state !== filters.state) return false;
-  if (filters.category && row.categoryName !== filters.category) return false;
+  // A category or its heading (taxonomy v2: the top-level category), so a link to
+  // "Power Tools" lists every power tool.
+  if (filters.category && row.categoryName !== filters.category && row.categoryGroup !== filters.category) return false;
   if (filters.location && row.room !== filters.location) return false;
   if (filters.attention && !matchesAttention(row, filters.attention)) return false;
   return true;

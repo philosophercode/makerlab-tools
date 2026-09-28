@@ -977,6 +977,60 @@ researched or published on its own (Article 5). See the spec's 2026-09-24 amendm
 - **Uploads**: kind `import` on `POST /api/uploads` (private, `tools.add`). The chat's
   paperclip takes list files and names them to the model as `[Attached documents: …]`.
 
+## Taxonomy v2 (`categories` tree, `category_proposals`; taxonomy v2 spec, migration `0023`)
+
+Nine top-level categories by process or shop, each with a second level, every category with a
+slug and a description (`docs/specs/2026-09-28-taxonomy-v2-design.md`). **Nothing creates a
+category except a person accepting a proposal on `/admin/taxonomy`** (or the one-off migration).
+
+- **The tree** is `categories.parent_id` (two levels; a parent is top-level), with `slug` (unique,
+  never changes; a row inserted without one gets one from the `categories_default_slug` trigger),
+  `description`, `sort_order`, `gallery_hidden`, `retired_at`, `merged_into_id`. The free-text
+  `group` is only a pre-v2 row's heading now; `listCategories()` answers `group` = the parent's name
+  (or that old group) so every select reads the same, and leaves retired categories out. The seed is
+  `src/lib/taxonomy/tree.ts`; the demo seed writes it.
+- **`npm run taxonomy:migrate`** (dry run; `-- --apply` writes, one transaction) creates the tree and
+  moves every tool by `src/lib/taxonomy/mapping.ts` (slug, then name, then old category), sets
+  `item_kind` / `parent_tool_id` where still the defaults, and retires emptied old categories with
+  `merged_into_id`. Deterministic and idempotent; **refuses while the dev server holds the PGlite
+  lock**; production gets it through `npm run data:push`. **`npm run taxonomy:audit`** (`-- --dry-run`
+  to only print) writes `review_category` proposals for 0–1-tool leaves, >25-tool categories and one
+  name under two parents, and prints proposals pending over 14 days. It never changes the tree.
+- **Research decides** (`research/prompt.ts` `categoryBlock`): every live category, uncapped, as
+  `slug — Parent › Name: description`; the answer is `category: { slug, confidence }` (required, the
+  nearest when none fits) plus an optional `categoryProposal`. `matchCategory` is **exact on the
+  slug**; a pre-v2 `{ name, group }` answer still matches by name. `ResearchResult.category` gains
+  optional `slug`, `confidence`, `proposal` (old rows parse).
+- **Approval never creates a category**: `approvePendingTool` puts the tool in the chosen existing
+  (live) category and records research's proposal — `categoryProposal`, or the pre-v2 `newCategory`
+  — as a `category_proposals` row naming the new tool (`nearest_existing_id` = the chosen category).
+  Accepting it later moves the tool in if it is still there. The preliminary page shows a ticked
+  "Also propose a new category" box. **MCP `create_tool` matches or proposes**: slug, then exact name;
+  anything else leaves the draft uncategorised and proposes (`source: mcp`), said in its warnings.
+- **`/admin/taxonomy`** (`taxonomy.manage` — admin and super admin; surface key `taxonomy`, Keep data
+  fresh, its tile counts pending proposals): the queue (Accept / Use this category instead / Reject;
+  an audit flag: Merge into / Dismiss), the tree with counts, slugs, descriptions and the hidden badge
+  (rename and describe inline, merge on a second click naming both, retire when empty, move a tool
+  through the editor's revision check), old pre-v2 rows and retired ones apart, and **Propose a
+  category**. Writes are `src/lib/data/category-admin.ts`, one transaction each, refusals as values.
+- **Actions** (`lib/actions/taxonomy.ts`): `taxonomy.propose_category` (`propose_category`,
+  `tools.edit`), `taxonomy.decide_proposal` (`decide_category_proposal`), `taxonomy.merge`
+  (`merge_categories`, destructive: typed name, never MCP), `taxonomy.edit_category` (`edit_category`),
+  `taxonomy.set_retired` (`retire_category`) — those four on `taxonomy.manage` — and
+  `taxonomy.recategorize_tool` (`recategorize_tool`, `tools.edit`, revision token). Reads:
+  `list_categories` (`tools.edit`) and `list_category_proposals` (`taxonomy.manage`, fenced, taints).
+  Audited: `category.created`, `category.merged`, `category.retired`.
+- **Hidden from the gallery**: *Shop Infrastructure & Supplies* (`gallery_hidden`, inherited). The
+  catalogue carries `galleryHidden` and `categorySlug`; `visibleInGallery` leaves those tools out until
+  the Category facet names the category; the assistant's `search_tools` / `list_tools` do the same for
+  everybody but staff. `category` is the parent's name (a single-level category is its own heading,
+  said once). The inventory's Category filter also takes a top-level name.
+- **Facets**: `tools.item_kind` (`equipment` | `accessory` | `consumable` | `fixture`) and
+  `tools.parent_tool_id` (accessory → tool). Not yet in the editor or the gallery.
+- **Mirror**: the categories database gains `Slug`, `Description`, `Retired` as **optional**
+  properties (`MirrorPropertySpec.optional`): a mirror made before them is not `schema_mismatch`, and
+  the push leaves absent optional properties out (`absentOptionalProperties`). `Group` is the heading.
+
 ## Tool names: display and official (`tools.official_name`; tool display names spec, migration `0015`)
 
 A tool has two names (`docs/specs/2026-09-24-tool-display-names-design.md`).
@@ -1558,7 +1612,8 @@ and its 2026-09-28 amendment are the detail.
 | `src/lib/data/revision.ts` | The editor's concurrency token — `extract(epoch from updated_at)::text`, **never a `Date`** (read the docstring before touching a conflict check) |
 | `src/lib/data/tools.ts` / `units.ts` | Row-level inventory writes, every one revision-checked. Tools are archived, never deleted |
 | `src/lib/data/inventory.ts` | The `/admin/inventory` read — every tool, its state and its needs-attention flags, plus the units that belong to no tool |
-| `src/lib/data/taxonomy.ts` | `listCategories()` / `listLocations()` — the two option lists an editing surface needs, the only place these tables are read whole — plus `findOrCreateCategory` / `findOrCreateLocation` for intake |
+| `src/lib/data/taxonomy.ts` | `listCategories()` / `listLocations()` — the two option lists an editing surface needs (live categories in tree order, `group` = the heading) — plus `findOrCreateLocation` for intake. `findOrCreateCategory` is left for the Notion import only: nothing else creates a category |
+| `src/lib/data/category-admin.ts` / `src/lib/taxonomy/*` | Taxonomy v2: proposals, decisions, merge, rename, retire, `matchExistingCategory`; the seed tree, the migration mapping and plan, the audit (see "Taxonomy v2") |
 | `src/lib/data/pending-tools.ts` | `pending_tools`: the batch, every status transition as a conditional write, and the two approval transactions |
 | `src/lib/data/duplicates.ts` / `tool-create.ts` | The intake duplicate check (same normalisation in TypeScript and SQL), and `createToolRecord` — one tool with its units and resources, slug retried in a savepoint |
 | `src/lib/intake/*` | Client-safe intake types, limits and `canActOnPendingTool` / `isResearchable`; `approve.ts` composes approval with audit and invalidation |
@@ -1807,6 +1862,8 @@ npm run test:all     # full test suite
 npm run data:push -- --to .env.hosted [--dry-run] [--yes]   # copy local PGlite + .blob-data up to a hosted deploy
 npm run thumbnails:bundled [-- --check]   # after changing public/tool-images/*.png
 npm run thumbnails:backfill [-- --apply]  # thumbnails for Blob images that have none (dry run by default)
+npm run taxonomy:migrate [-- --apply]     # taxonomy v2: the tree + every tool moved (dry run by default; stop npm run dev first)
+npm run taxonomy:audit [-- --dry-run]     # consolidation audit: writes review proposals only
 ```
 
 `data:push` (`scripts/push-local-to-hosted.ts`, logic in `src/lib/push-hosted/`) replaces the

@@ -28,6 +28,7 @@ describe("surfacesFor — who is shown what", () => {
       "inventory",
       "refresh",
       "research",
+      "taxonomy",
       "insights",
       "maintenance",
       "corrections",

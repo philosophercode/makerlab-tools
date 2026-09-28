@@ -74,7 +74,7 @@ function findings(name: string) {
   return {
     canonicalName: name,
     description: "A machine.",
-    category: { name: "Resin", group: "3D Printing" },
+    category: { slug: "resin-printers-post-processing", confidence: "high" },
     candidateLinks: [{ title: "Manual", url: manualUrl(name), type: "Manual" }],
     sourceUrls: [pageUrl(name)],
     evidence: { userStatedModel: true, manufacturerPageFound: true },
@@ -91,7 +91,7 @@ function draft(name: string) {
     tags: ["SLA"],
     trainingRequired: true,
     useRestrictions: null,
-    category: { name: "Resin", group: "3D Printing" },
+    category: { slug: "resin-printers-post-processing", confidence: "high" },
     resources: [{ title: "Manual", url: manualUrl(name), type: "Manual" }],
     sourceUrls: [pageUrl(name), manualUrl(name)],
     evidence: {

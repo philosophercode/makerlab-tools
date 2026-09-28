@@ -1,30 +1,36 @@
 import type { CategoryOption } from "../data/taxonomy.ts";
 
 /**
- * The research step's proposed category, resolved against the taxonomy that
- * already exists (spec §3.7: "resolve category and location against the
- * taxonomy").
+ * Research's category, resolved against the taxonomy that exists (taxonomy
+ * v2 spec §4.3; data platform spec §3.7).
  *
- * The model names a category in its own words; the preliminary page wants to
- * preselect a real one when there is one, and to offer "create this category"
- * only when there is not. So this answers one question — *which existing
- * category did the model mean?* — and answers "none" whenever it cannot be
- * sure. A wrong preselection is worse than an empty one: the reviewer has to
- * notice it to fix it.
+ * **Taxonomy v2: by exact slug.** The prompt lists every live category as
+ * `slug — Parent › Name: description` and research answers with one slug, so
+ * matching is equality after trimming and lower-casing — no fuzzy guess. A
+ * slug the lab does not have (misspelt, invented, retired) is no match:
+ * `existingId` is null and the reviewer chooses. A wrong preselection is
+ * worse than an empty one: the reviewer has to notice it to fix it.
  *
- * Pure, and it creates nothing. Creating a category is approval's business
- * (`findOrCreateCategory`, behind `tools.approve`).
+ * **Pre-v2 answers** (a stub, a stored row, a model that answered
+ * `{ name, group }`) still match by name, as before: name and group both, or
+ * the one category with that name when the group does not contradict it.
+ *
+ * Pure, and it creates nothing. Nothing in research creates a category;
+ * approval records a proposal (`category_proposals`) instead.
  */
 
 export interface ProposedCategory {
   name: string;
   group: string | null;
+  /** Taxonomy v2: the slug research chose. */
+  slug?: string;
 }
 
 export interface MatchedCategory {
   name: string;
   group: string | null;
   existingId: string | null;
+  slug?: string;
 }
 
 /** Case, surrounding space and runs of space do not make two categories different. */
@@ -33,26 +39,18 @@ function key(value: string | null | undefined): string {
 }
 
 /**
- * `proposed` with `existingId` set when it names an existing category.
- *
- * - **Name and group both match** — that category.
- * - **Exactly one category has the name, and the model's group does not
- *   contradict it** (it gave none, or the stored category has none) — that
- *   one. "Resin" means the "Resin" under "3D Printing" when there is only one
- *   "Resin".
- * - **Otherwise** — no match. Guessing between "Laser › Accessories" and
- *   "Printing › Accessories", or reading "Printing › Accessories" as the only
- *   "Laser › Accessories", is the wrong preselection this module exists to
- *   avoid.
- *
- * A match answers with the *stored* spelling, so the page shows the taxonomy's
- * name, not the model's paraphrase of it. No match keeps the model's words for
- * the reviewer to accept or change.
+ * `proposed` with `existingId` set when it names an existing category. A
+ * match answers with the *stored* name, heading and slug, so the page shows
+ * the taxonomy's words, not the model's.
  */
-export function matchCategory(
-  proposed: ProposedCategory | null,
-  categories: readonly CategoryOption[]
-): MatchedCategory {
+export function matchCategory(proposed: ProposedCategory | null, categories: readonly CategoryOption[]): MatchedCategory {
+  const slug = key(proposed?.slug);
+  if (slug) {
+    const chosen = categories.find((category) => category.slug !== undefined && key(category.slug) === slug);
+    if (!chosen) return { name: proposed?.name.trim() || slug, group: proposed?.group?.trim() || null, existingId: null, slug };
+    return { name: chosen.name, group: chosen.group, existingId: chosen.id, slug: chosen.slug };
+  }
+
   const name = proposed?.name.trim() ?? "";
   const group = proposed?.group?.trim() || null;
   if (!name) return { name: "", group, existingId: null };
@@ -62,7 +60,7 @@ export function matchCategory(
   const chosen = exact ?? (sameName.length === 1 && !groupNamesOther(group, sameName[0]) ? sameName[0] : null);
 
   if (!chosen) return { name, group, existingId: null };
-  return { name: chosen.name, group: chosen.group, existingId: chosen.id };
+  return { name: chosen.name, group: chosen.group, existingId: chosen.id, ...(chosen.slug ? { slug: chosen.slug } : {}) };
 }
 
 /**

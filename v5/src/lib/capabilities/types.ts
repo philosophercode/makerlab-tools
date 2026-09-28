@@ -322,7 +322,8 @@ export interface ToolCandidate {
   /** The full product name with model or part number. Optional. */
   official_name?: string;
   description: string;
-  category?: { name: string; group: string; isNew: boolean };
+  /** `slug`: the lab's category slug (taxonomy v2) — matched exactly; a category the lab lacks is proposed, never created. */
+  category?: { name: string; group: string; isNew: boolean; slug?: string };
   location?: { room: string; zone: string; isNew: boolean };
   materials: string[];
   ppe_required: string[];
@@ -381,7 +382,16 @@ export const toolCandidateSchema: z.ZodType<ToolCandidate> = z.object({
     .describe("The full product name with its model or part number, as the manufacturer writes it."),
   description: z.string(),
   category: z
-    .object({ name: z.string(), group: z.string(), isNew: z.boolean() })
+    .object({
+      name: z.string(),
+      group: z.string(),
+      isNew: z.boolean(),
+      slug: z
+        .string()
+        .max(120)
+        .optional()
+        .describe("The lab's category slug (from list_categories), when you know it. Matched exactly; a category the lab does not have is proposed for review, never created."),
+    })
     .optional(),
   location: z
     .object({ room: z.string(), zone: z.string(), isNew: z.boolean() })

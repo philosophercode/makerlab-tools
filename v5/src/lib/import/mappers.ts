@@ -65,6 +65,13 @@ function createdAt(record: { createdTime: string }): Date {
   return new Date(record.createdTime);
 }
 
+/**
+ * A Notion category as a **pre-v2** row (taxonomy v2 spec §4.9): Notion's
+ * `group` is kept as the free-text group, no parent. The slug is left to the
+ * `categories_default_slug` trigger (group + name, numbered on a collision), so
+ * two Notion rows can never collide on it here. `npm run taxonomy:migrate`
+ * then moves the imported tools into the v2 tree and retires these rows.
+ */
 export function toCategoryRow(record: CategoryRecord): Mapped<typeof categories.$inferInsert> {
   return {
     row: {

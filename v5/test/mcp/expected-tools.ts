@@ -5,7 +5,8 @@
  */
 
 /** Assistant–GUI parity spec phase 7: the reads an MCP client needs to name ids in a proposal. */
-export const ADMIN_READS_FOR_PROPOSALS = ["list_corrections", "list_project_queue", "get_tool_units", "list_imports"];
+/** Taxonomy v2 added `list_categories` and `list_category_proposals` (spec 2026-09-28 §4.6). */
+export const ADMIN_READS_FOR_PROPOSALS = ["list_corrections", "list_project_queue", "get_tool_units", "list_imports", "list_categories", "list_category_proposals"];
 
 /** Every action MCP may propose (§3.8, §11 answer 4): queue and catalogue work, nothing else. */
 export const MCP_PROPOSING_TOOLS = [
@@ -28,5 +29,11 @@ export const MCP_PROPOSING_TOOLS = [
   "set_import_hints",
   "merge_import_row",
   "decide_import_suggestions",
+  // Taxonomy v2 (spec 2026-09-28 §4.6); merge_categories is destructive, so never over MCP.
+  "propose_category",
+  "decide_category_proposal",
+  "edit_category",
+  "retire_category",
+  "recategorize_tool",
 ];
 

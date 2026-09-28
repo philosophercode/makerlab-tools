@@ -171,10 +171,11 @@ describe("who is offered what (the phase 2 measurement, §11 answer 8)", () => {
     // the figures are in the spec's phases 4–6 amendment.
     // Owner decision 2026-09-27 took remove_person, unblock_email,
     // grant_research_allowance and disconnect_mirror off the assistant.
-    expect(offered("super_admin").actionTools).toHaveLength(36);
-    expect(offered("admin").actionTools).toHaveLength(32);
-    expect(offered("super_admin").chatTools).toBe(54);
-    expect(offered("admin").chatTools).toBe(49);
+    // Taxonomy v2 added six action tools and two reads for both staff roles.
+    expect(offered("super_admin").actionTools).toHaveLength(42);
+    expect(offered("admin").actionTools).toHaveLength(38);
+    expect(offered("super_admin").chatTools).toBe(62);
+    expect(offered("admin").chatTools).toBe(57);
     expect(offered("user").chatTools).toBe(9);
   });
 });

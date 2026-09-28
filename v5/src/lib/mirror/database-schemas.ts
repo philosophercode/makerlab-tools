@@ -49,6 +49,14 @@ export interface MirrorPropertySpec {
   target?: MirrorEntity;
   /** For a select: the options created with the database (Notion adds any others on first use). */
   options?: readonly string[];
+  /**
+   * Added after mirrors already existed (taxonomy v2's Slug, Parent and
+   * Description): created with a new database and written when a database has
+   * it, but a database without it is not `schema_mismatch` — the push leaves
+   * the property out ({@link absentOptionalProperties}). A wrong type is still
+   * a mismatch.
+   */
+  optional?: true;
 }
 
 /** The property every database carries: the Postgres uuid. */
@@ -83,7 +91,12 @@ const COMMON: readonly MirrorPropertySpec[] = [
 const SCHEMAS: Readonly<Record<MirrorEntity, readonly MirrorPropertySpec[]>> = {
   categories: [
     { name: "Name", type: "title" },
+    // The heading: the parent's name (taxonomy v2) or a pre-v2 row's group.
     { name: "Group", type: "rich_text" },
+    // Taxonomy v2 (spec 2026-09-28 §4.9); optional so existing mirrors keep pushing.
+    { name: "Slug", type: "rich_text", optional: true },
+    { name: "Description", type: "rich_text", optional: true },
+    { name: "Retired", type: "checkbox", optional: true },
   ],
   locations: [
     { name: "Name", type: "title" },
@@ -218,7 +231,7 @@ export function validateDatabaseSchema(
   for (const expected of expectedProperties(entity, mapping)) {
     const actual = properties[expected.name];
     if (!actual) {
-      missing.push(expected.name);
+      if (!expected.optional) missing.push(expected.name);
       continue;
     }
     if (actual.type !== expected.type) {
@@ -237,6 +250,12 @@ export function validateDatabaseSchema(
     ...(missing.length ? { missing } : {}),
     ...(wrongType.length ? { wrongType } : {}),
   };
+}
+
+/** The optional properties `database` lacks — the push leaves them out of every page it writes. */
+export function absentOptionalProperties(entity: MirrorEntity, database: NotionDatabaseObject): string[] {
+  const properties = database.properties ?? {};
+  return SCHEMAS[entity].filter((spec) => spec.optional && !properties[spec.name]).map((spec) => spec.name);
 }
 
 /** One property's schema as `POST /databases` / `PATCH /databases/:id` take it. */

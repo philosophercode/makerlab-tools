@@ -6,6 +6,7 @@ import { rawRows } from "../db/raw.ts";
 import type { Db } from "../db/types.ts";
 import { listInventoryRows } from "./inventory.ts";
 import { countOpenInboxProposals } from "./action-proposals.ts";
+import { countPendingCategoryProposals } from "./category-admin.ts";
 import { countOpenTickets } from "./maintenance.ts";
 import { countManualsByState } from "./manual-chunks.ts";
 import { getMirrorViewForOwner } from "./mirrors.ts";
@@ -51,6 +52,8 @@ export interface OverviewCounts {
   };
   refresh: { proposed: number; running: number; failed: number };
   manuals: { searchable: number; total: number; failed: number };
+  /** Category proposals waiting on `/admin/taxonomy` (taxonomy v2 spec §5.3). */
+  taxonomy: { pending: number };
   /** Unanswered questions waiting in `/admin/insights`' queue (usage insight spec §6). */
   insights: { openGaps: number };
   maintenance: { open: number; inProgress: number; urgent: number; series: number[] };
@@ -195,6 +198,10 @@ export const COUNT_LOADER_READS: { [K in CountLoader]: (ctx: OverviewContext) =>
             from projects`
     );
     return { waiting: n(row?.waiting), published: n(row?.published) };
+  },
+
+  async taxonomy({ db }) {
+    return { pending: await countPendingCategoryProposals({ db }) };
   },
 
   async proposals({ db, userId }) {

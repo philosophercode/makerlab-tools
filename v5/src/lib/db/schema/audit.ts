@@ -49,6 +49,13 @@ export const AUDIT_ACTIONS = [
   // person on `/account` (`lib/people/rename.ts`). `detail` is `{ from, to }`;
   // the actor says which of the two it was.
   "user.name_changed",
+  // Taxonomy v2 (spec 2026-09-28 §4.6): a category created by accepting a
+  // proposal (`detail.proposalId`), merged into another (`detail.into`,
+  // `detail.movedTools`), or retired / restored (`detail.retired`). A rename
+  // or a new description is an ordinary edit and is not recorded.
+  "category.created",
+  "category.merged",
+  "category.retired",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

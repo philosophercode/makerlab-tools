@@ -1459,3 +1459,27 @@ Both are `assistant: "never"` for now, with no tool and no preview: the queue is
 text, and the usage insight spec's phase 4 decides how the assistant reads it (fenced, tainting the
 turn) before it may propose acting on it. The registry holds 44 definitions. No capability tool,
 MCP list or tool count changes. PR: "v5 usage insights" (#79 merges last).
+
+### 2026-09-28 — taxonomy v2 adds six actions and two reads
+
+Taxonomy v2 (`docs/specs/2026-09-28-taxonomy-v2-design.md` §7) registers six actions in
+`lib/actions/taxonomy.ts`, each with a GUI door on `/admin/taxonomy` (`app/admin/taxonomy/actions.ts`,
+one-line `performAction` wrappers) and a proposing tool:
+
+| Action | Tool | Risk | Permission | Chat | MCP |
+|---|---|---|---|---|---|
+| `taxonomy.propose_category` | `propose_category` | catalog | `tools.edit` | propose | propose |
+| `taxonomy.decide_proposal` | `decide_category_proposal` | catalog | `taxonomy.manage` | propose | propose |
+| `taxonomy.merge` | `merge_categories` | destructive | `taxonomy.manage` | propose (typed name) | never |
+| `taxonomy.edit_category` | `edit_category` | catalog | `taxonomy.manage` | propose | propose |
+| `taxonomy.set_retired` | `retire_category` | catalog | `taxonomy.manage` | propose | propose |
+| `taxonomy.recategorize_tool` | `recategorize_tool` | catalog | `tools.edit` | propose | propose |
+
+`taxonomy.manage` is a new permission held by admin and super admin. Two reads join
+`capabilities/catalog-reads.ts`, on chat and MCP: `list_categories` (`tools.edit`) and
+`list_category_proposals` (`taxonomy.manage`, fenced, on `OUTSIDE_CONTENT_TOOLS`). No name matches the
+deny list. **Counts:** action tools 36 → **42** for a director, 32 → **38** for a SuperMaker; chat tools
+54 → **62** and 49 → **57**; the MCP staff list gains the five non-destructive proposing tools and the
+two reads (`test/mcp/expected-tools.ts`).
+With usage insight's two GUI-only actions (above, `assistant: "never"`, so no tool count moves) the
+registry holds 50 definitions. Taxonomy v2's migration is `0023_taxonomy_v2`; usage insight took `0022`.

@@ -115,10 +115,63 @@ const evidencePartialSchema = z.object({
 
 export type EvidencePartial = Partial<IntakeEvidence>;
 
-const categorySchema = z.object({
-  name: text(120),
-  group: text(120).nullable().default(null),
+/** How sure research is of its category (taxonomy v2 spec §4.2). */
+export const CATEGORY_CONFIDENCE = ["high", "medium", "low"] as const;
+export type CategoryConfidence = (typeof CATEGORY_CONFIDENCE)[number];
+
+/**
+ * The category research chose (taxonomy v2 spec §4.2): **the slug of one of
+ * the lab's categories**, exactly as the prompt listed it, and how sure it
+ * is. Lenient: a missing slug is empty (assembly then finds no match), a
+ * confidence outside the three is dropped. The pre-v2 shape, `{ name, group }`,
+ * still reads — from a stub or an older model answer — and matching falls
+ * back to the name for it.
+ */
+const categorySchema = z
+  .object({
+    slug: z.unknown().optional(),
+    confidence: z.unknown().optional(),
+    name: text(120).default(""),
+    group: text(120).nullable().default(null),
+  })
+  .transform(({ slug, confidence, name, group }) => {
+    const cleanSlug = typeof slug === "string" ? slug.trim().toLowerCase().slice(0, 120) : "";
+    const level = typeof confidence === "string" ? confidence.trim().toLowerCase() : "";
+    return {
+      name,
+      group,
+      ...(cleanSlug ? { slug: cleanSlug } : {}),
+      ...((CATEGORY_CONFIDENCE as readonly string[]).includes(level) ? { confidence: level as CategoryConfidence } : {}),
+    };
+  });
+
+/** A new category research proposes when none of the lab's fits (taxonomy v2 spec §4.2). */
+export interface CategoryProposalDraft {
+  name: string;
+  parentSlug: string | null;
+  description: string | null;
+  reason: string | null;
+}
+
+const categoryProposalSchema = z.object({
+  name: text(60),
+  parentSlug: text(120).nullable().default(null),
+  description: text(600).nullable().default(null),
+  reason: text(600).nullable().default(null),
 });
+
+/** Lenient: anything that is not a proposal with a name is no proposal. */
+function readCategoryProposal(value: unknown): CategoryProposalDraft | null {
+  const parsed = categoryProposalSchema.safeParse(value);
+  if (!parsed.success || !parsed.data.name) return null;
+  const { name, parentSlug, description, reason } = parsed.data;
+  return {
+    name,
+    parentSlug: parentSlug ? parentSlug.toLowerCase() : null,
+    description: description || null,
+    reason: reason || null,
+  };
+}
 
 /**
  * The official name arrives as `officialName` (tool display names spec §5.2)
@@ -172,6 +225,8 @@ export const fetchDraftSchema = z.preprocess(withOfficialName, z.object({
   /** Where the emergency stop is and how to use it, when a page says (refresh research spec §3.2). */
   emergencyStop: text(1000).nullable().default(null),
   category: categorySchema.nullable().default(null),
+  /** A new category, only when none of the lab's fits (taxonomy v2 spec §4.2). Never created by research. */
+  categoryProposal: z.unknown().optional().transform(readCategoryProposal),
   resources: linksSchema,
   sourceUrls: urlList,
   evidence: evidencePartialSchema.default({}),

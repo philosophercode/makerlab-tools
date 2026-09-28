@@ -213,6 +213,8 @@ export interface ActionSubject {
     | "resource"
     | "import"
     | "mirror"
+    | "category"
+    | "category_proposal"
     | "usage_gap";
   id: string;
 }

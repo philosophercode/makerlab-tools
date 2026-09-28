@@ -828,7 +828,12 @@
       "invalid_body": "That request did not have the expected shape.",
       "confirmation_mismatch": "The name typed did not match, so nothing was changed.",
       "only_on_people_page": "That change can only be made on the People page.",
-      "not_offered": "The assistant can no longer make this change, so nothing was changed. Make it on its page in the app."
+      "not_offered": "The assistant can no longer make this change, so nothing was changed. Make it on its page in the app.",
+      "already_decided": "Somebody decided this already. The page now shows what they chose.",
+      "has_children": "This category still has categories under it. Move or merge those first.",
+      "not_empty": "Tools are still in this category. Merge it into another so they have somewhere to go.",
+      "retired_target": "That category is retired. Choose a live one, or restore it first.",
+      "invalid_decision": "That decision does not apply here: an audit flag can be merged or dismissed, and a merge needs a category."
     },
     "warnings": {
       "audit_unavailable": "Saved, but this change could not be written to the audit log. Tell whoever runs the deployment.",
@@ -1194,7 +1199,14 @@
       "filtersLabel": "Filter the intake queue",
       "search": "Search the queue",
       "searchPlaceholder": "Name, brand or who identified it",
-      "statusFacet": "Status"
+      "statusFacet": "Status",
+      "categoryConfidence": "Research chose this category with {level} confidence.",
+      "categoryConfidenceLevel": {
+        "high": "high",
+        "medium": "medium",
+        "low": "low"
+      },
+      "proposeNewCategory": "Also propose a new category, “{name}”, for review on the Taxonomy page (the tool moves there if it is accepted)"
     },
     "mirror": {
       "unavailable": "The mirror's settings could not be read. The database may be unreachable — try again in a moment.",
@@ -1762,6 +1774,7 @@
         "proposals": "Assistant proposals",
         "users": "People",
         "mirror": "Notion mirror",
+        "taxonomy": "Taxonomy",
         "insights": "Insights"
       }
     },
@@ -1810,6 +1823,7 @@
         "paused": "Paused",
         "failed": "Last push failed"
       },
+      "taxonomyUnit": "category proposals waiting",
       "insightsUnit": "unanswered questions"
     },
     "facts": {
@@ -1839,7 +1853,9 @@
       "researching": "{count, plural, one {# researching} other {# researching}}",
       "importsReady": "{count, plural, one {# import ready} other {# imports ready}}",
       "lastPush": "Last push {date}",
-      "unreadable": "Counts could not be read"
+      "unreadable": "Counts could not be read",
+      "categories": "{count, plural, one {# category} other {# categories}}",
+      "topLevel": "{count} top-level"
     },
     "addEquipment": {
       "title": "Add equipment",
@@ -1847,6 +1863,89 @@
       "tabQueue": "Queue",
       "tabImports": "Imports",
       "importList": "Import a list"
+    },
+    "taxonomyTitle": "Taxonomy",
+    "taxonomyLede": "The category tree research chooses from, and the categories research, assistants and the audit have proposed. Accept, merge or reject a proposal; rename, describe, merge or retire a category.",
+    "taxonomy": {
+      "proposalsHeading": "{count, plural, =0 {No proposals waiting} one {# proposal waiting} other {# proposals waiting}}",
+      "proposalsEmpty": "Nothing is waiting. Research, assistants and the consolidation audit add proposals here; nothing becomes a category until somebody accepts it.",
+      "decidedHeading": "{count, plural, one {# recent decision} other {# recent decisions}}",
+      "decidedLine": "{name}: {status} ({into})",
+      "status": {
+        "pending": "waiting",
+        "accepted": "accepted",
+        "rejected": "rejected",
+        "merged": "merged"
+      },
+      "proposalFor": "Proposal: {name}",
+      "kindNew": "New category",
+      "flag": {
+        "sparse": "Audit: 0–1 tools",
+        "crowded": "Audit: over 25 tools",
+        "duplicate_name": "Audit: same name twice",
+        "review": "Audit"
+      },
+      "source": {
+        "research": "From research",
+        "refresh": "From refresh",
+        "chat": "From the assistant",
+        "mcp": "From an MCP client",
+        "audit": "From the audit",
+        "gui": "From a person"
+      },
+      "reason": "Why: {reason}",
+      "subjectTool": "Prompted by {name}, which waits in its nearest category until this is decided.",
+      "subjectCategory": "About the category {name}.",
+      "nearest": "Research’s nearest existing category: {name}",
+      "decideFor": "Decide the proposal {name}",
+      "accept": "Accept",
+      "mergeInto": "Use this category instead",
+      "mergeFlagged": "Merge into this category",
+      "reject": "Reject",
+      "dismiss": "Dismiss",
+      "chooseCategory": "Choose a category…",
+      "mergeTargetFor": "Category for {name}",
+      "decided": {
+        "accept": "Accepted: the category exists now.",
+        "merge": "Merged.",
+        "reject": "Rejected."
+      },
+      "treeHeading": "Categories",
+      "treeEmpty": "There is no category tree yet. Run npm run taxonomy:migrate -- --apply to create it.",
+      "legacyHeading": "{count, plural, one {# old category} other {# old categories}} not yet migrated",
+      "legacyHint": "Rows from before the v2 tree, still holding tools. Move their tools or merge them into a v2 category.",
+      "uncategorized": "{count, plural, one {# tool has} other {# tools have}} no category: {names}",
+      "retiredHeading": "{count, plural, one {# retired category} other {# retired categories}}",
+      "mergedInto": "merged into {name}",
+      "restore": "Restore",
+      "toolCount": "{count, plural, one {# tool} other {# tools}}",
+      "hiddenFromGallery": "Hidden from the gallery",
+      "legacyGroup": "Old group: {group}",
+      "noDescription": "No description yet — research chooses better with one.",
+      "renameLabel": "Rename {name}",
+      "renameTooltip": "Rename",
+      "describeLabel": "Edit the description of {name}",
+      "describeTooltip": "Edit the description",
+      "nameLabel": "Name",
+      "descriptionLabel": "Description",
+      "descriptionHint": "One to three sentences: what belongs here, and what does not. Research reads this.",
+      "toolsIn": "{count, plural, one {# tool} other {# tools}} — move one",
+      "moveLabel": "Category for {name}",
+      "manageFor": "Manage {name}",
+      "mergeIntoPlaceholder": "Merge into…",
+      "merge": "Merge",
+      "mergeConfirm": "Merge {from} into {into} — its tools move and it is retired",
+      "retire": "Retire",
+      "retireNeedsEmpty": "Only an empty category can be retired; merge one that holds tools.",
+      "proposeOpen": "Propose a category",
+      "proposeHeading": "Propose a category",
+      "parentLabel": "Under",
+      "parentHint": "A top-level category, or none for a new top-level one. The tree is two levels deep.",
+      "topLevel": "(top level)",
+      "reasonLabel": "Why none of the existing ones fits",
+      "proposeSubmit": "Propose",
+      "cancel": "Cancel",
+      "proposed": "Proposed “{name}”. It waits above for a decision."
     },
     "insights": {
       "title": "Insights",
@@ -2307,7 +2406,16 @@
       "mirror_sync_now": "Sync the Notion mirror ({page}) now",
       "mirror_pause": "Pause the Notion mirror ({page})",
       "mirror_resume": "Resume the Notion mirror ({page})",
-      "mirror_disconnect": "Disconnect the Notion mirror ({page})"
+      "mirror_disconnect": "Disconnect the Notion mirror ({page})",
+      "taxonomy_propose": "Propose the category “{name}”",
+      "taxonomy_decide_accept": "Accept the proposed category “{name}”",
+      "taxonomy_decide_merge": "Merge the proposal “{name}” into an existing category",
+      "taxonomy_decide_reject": "Reject the proposed category “{name}”",
+      "taxonomy_merge": "Merge {from} into {into} ({count, plural, one {# tool moves} other {# tools move}})",
+      "taxonomy_edit_category": "Edit the category “{name}”",
+      "taxonomy_retire": "Retire the category “{name}”",
+      "taxonomy_restore": "Restore the category “{name}”",
+      "taxonomy_recategorize_tool": "Move {name} to another category"
     },
     "fields": {
       "role": "Role",
@@ -2348,7 +2456,10 @@
       "quantity": "Units",
       "mergeInto": "Merge into",
       "tools": "Tools",
-      "mirrorPaused": "Mirror"
+      "mirrorPaused": "Mirror",
+      "description": "Description",
+      "retired": "Retired",
+      "categoryProposal": "Proposed category"
     },
     "values": {
       "role": {
