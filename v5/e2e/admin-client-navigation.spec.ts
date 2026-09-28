@@ -53,6 +53,7 @@ const WALK: readonly Hop[] = [
   { label: "Intake › Queue", click: tab("Queue"), path: /\/admin\/intake$/, heading: "Intake", current: tab("Queue") },
   to("Refresh research", /\/admin\/refresh$/),
   to("Manuals", /\/admin\/research$/),
+  to("Insights", /\/admin\/insights$/),
   to("People", /\/admin\/users$/),
   to("Projects", /\/admin\/projects$/),
   to("Overview", /\/admin$/),

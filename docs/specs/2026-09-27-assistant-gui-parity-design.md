@@ -1443,3 +1443,19 @@ is never the assistant's. `api/chat/taint.route.test.ts`: taint now shown with `
 destructive card with `archive_tool`, and a model that calls `remove_person` stores nothing.
 
 **Status.** Built on `v5/assistant-gui-parity` (PR #95).
+
+### 2026-09-28 — usage insight: two GUI-only actions
+
+The usage insight spec (`2026-09-27-usage-insight-design.md`, §7) adds the Unanswered queue on
+`/admin/insights`, and its two decisions are registered actions like every other GUI write, run
+through `performAction` by the page's server actions (`app/admin/insights/actions.ts`):
+
+| Action | Tool | Risk | Permission | Chat | MCP |
+|---|---|---|---|---|---|
+| `insights.dismiss_gap` | `dismiss_unanswered_question` | operational | `insights.view` | never | never |
+| `insights.file_correction` | `file_unanswered_as_correction` | operational | `insights.view` | never | never |
+
+Both are `assistant: "never"` for now, with no tool and no preview: the queue is student-written
+text, and the usage insight spec's phase 4 decides how the assistant reads it (fenced, tainting the
+turn) before it may propose acting on it. The registry holds 44 definitions. No capability tool,
+MCP list or tool count changes. PR: "v5 usage insights" (#79 merges last).

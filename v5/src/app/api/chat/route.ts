@@ -32,6 +32,7 @@ import { markOutsideReads, newTurnState } from "../../../lib/chat/taint";
 import { curationCapability } from "../../../lib/capabilities/curation";
 import { loadPageContext, pageContextSection } from "../../../lib/actions/page-context";
 import { loadProposalOutcomes } from "../../../lib/chat/proposal-outcomes";
+import { recordChatTurnUsage } from "../../../lib/usage/chat-turn";
 import { chatPrepareStep } from "./prepare-step";
 import {
   CAPABILITIES,
@@ -218,6 +219,11 @@ export async function POST(req: Request) {
           markOutsideReads(ctx.turn, step);
         },
         stopWhen: stepCountIs(10),
+        // Usage insight (usage insight spec §5.1): what this turn was about,
+        // counted with no one in it and written after the response. Never
+        // throws; a failed insert costs the student nothing.
+        onFinish: ({ steps }) =>
+          recordChatTurnUsage({ steps, messages, role: identity.role, focusedToolId: focused?.id, locale, turn: ctx.turn }),
       });
 
       writer.merge(result.toUIMessageStream({ onError: reportChatError }));

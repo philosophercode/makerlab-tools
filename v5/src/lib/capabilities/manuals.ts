@@ -4,6 +4,7 @@ import { getDb } from "../db/client";
 import { searchManuals, type ManualPassage } from "../manuals/search";
 import { CITE_HREF_PREFIX, citationRef } from "../manuals/citation-ref";
 import { recordTurnText } from "../chat/turn-sources";
+import { logManualPassages, logScopedTool } from "../usage/turn-log";
 import { fenceUntrusted } from "../web/fence";
 import type { MakerLabTool } from "../../components/catalog-types";
 import type { Capability, CapabilityTool, ManualOutlineForPrompt, PromptEnv } from "./types";
@@ -109,6 +110,9 @@ const searchManualTool: CapabilityTool<SearchManualInput, SearchManualResult> = 
       scoped = await getCatalogTool(ctx.focusedToolId);
     }
     const scope = scoped ? `${scoped.name} manuals` : "all manuals";
+    // Usage insight (§5.1): which tool this turn asked about, and the passages
+    // an answer may cite — with the document id and page a link does not carry.
+    logScopedTool(ctx.turn, scoped?.id);
 
     const db = await getDb();
     const result = await searchManuals(db, {
@@ -136,6 +140,7 @@ const searchManualTool: CapabilityTool<SearchManualInput, SearchManualResult> = 
     for (const passage of result.passages) {
       if (passage.pdfUrl) recordTurnText(ctx, passage.pdfUrl, passage.content);
     }
+    logManualPassages(ctx.turn, result.passages);
     return {
       status: "ok",
       scope,

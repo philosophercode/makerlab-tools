@@ -13,6 +13,7 @@ import * as corrections from "./corrections";
 import * as catalog from "./catalog";
 import { EXEMPT, EXEMPT_KINDS, ROUTE_BACKED } from "./exempt";
 import * as imports from "./imports";
+import * as insights from "./insights";
 import * as intake from "./intake";
 import * as manuals from "./manuals";
 import * as mirror from "./mirror";
@@ -62,6 +63,7 @@ const DEFINITION_MODULES = [
   imports,
   refresh,
   mirror,
+  insights,
 ];
 
 /** Export name → definition, for every registered definition. */

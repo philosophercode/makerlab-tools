@@ -1,6 +1,7 @@
 import {
   BookOpenText,
   Boxes,
+  ChartColumn,
   Flag,
   GalleryVerticalEnd,
   Inbox,
@@ -44,6 +45,7 @@ export const SURFACE_KEYS = [
   "inventory",
   "refresh",
   "research",
+  "insights",
   "maintenance",
   "corrections",
   "projects",
@@ -60,6 +62,7 @@ export const COUNT_LOADERS = [
   "inventory",
   "refresh",
   "manuals",
+  "insights",
   "maintenance",
   "corrections",
   "projects",
@@ -106,6 +109,9 @@ export const ADMIN_SURFACES: readonly AdminSurface[] = [
   { key: "inventory", href: "/admin/inventory", group: "keepFresh", permission: "tools.edit", icon: Boxes, count: "inventory" },
   { key: "refresh", href: "/admin/refresh", group: "keepFresh", permission: "tools.edit", icon: RefreshCw, count: "refresh" },
   { key: "research", href: "/admin/research", group: "keepFresh", permission: "tools.edit", icon: BookOpenText, count: "manuals" },
+  // Usage insight (usage insight spec §6): what the lab asks about and what
+  // the assistant could not answer. Curation, so it sits with Keep fresh.
+  { key: "insights", href: "/admin/insights", group: "keepFresh", permission: "insights.view", icon: ChartColumn, count: "insights" },
   { key: "maintenance", href: "/admin/maintenance", group: "queues", permission: "maintenance.manage", icon: Wrench, count: "maintenance" },
   { key: "corrections", href: "/admin/corrections", group: "queues", permission: "feedback.manage", icon: Flag, count: "corrections" },
   { key: "projects", href: "/admin/projects", group: "queues", permission: "projects.moderate", icon: GalleryVerticalEnd, count: "projects" },
