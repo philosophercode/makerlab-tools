@@ -29,8 +29,43 @@ const devBlobPatterns: NonNullable<NonNullable<NextConfig["images"]>["remotePatt
     ]
   : [];
 
+// What no server function reads at runtime, kept out of every function's file
+// trace. `blob-local.ts`, `local-dir.ts` and `migrations-folder.ts` join paths
+// onto `process.cwd()`, so the tracer copies the whole project — including the
+// ~78 MB of committed `public/tool-images` — into each function (performance
+// plan, quick win 3). `public/` is served by the CDN, never read with `fs`.
+// PGlite (~21 MB) is left out only when the build has `DATABASE_URL`: that
+// deployment talks to Neon and `db/client.ts` imports PGlite lazily, so it is
+// never loaded. A build without `DATABASE_URL` (a preview, E2E) keeps it for
+// the demo database.
+// These globs are matched against paths relative to this folder.
+const traceExcludes = [
+  "public/**",
+  ".blob-data/**",
+  ".blob-data-e2e/**",
+  ".pglite-data/**",
+  ".workflow-data/**",
+  ".workflow-vitest/**",
+  ".swc/**",
+  "*.tsbuildinfo",
+  "package-lock.json",
+  "e2e/**",
+  "evals/**",
+  "test/**",
+  "scripts/**",
+  "docs/**",
+  "*.md",
+  // The TypeScript sources are compiled into `.next/`; only the SQL migrations
+  // (read by the demo database's migrator) and generated JSON stay traced.
+  "src/**/*.{ts,tsx,css,woff2,txt}",
+  ...(process.env.DATABASE_URL
+    ? ["node_modules/@electric-sql/pglite/**", "node_modules/@electric-sql/pglite-pgvector/**"]
+    : []),
+];
+
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  outputFileTracingExcludes: { "*": traceExcludes },
   // PGlite ships its WASM build and its extension tarballs as files it locates
   // with `import.meta.url`. Bundled into the server output those become
   // `/_next/static/media/...` URLs that nothing can read from disk, so a build

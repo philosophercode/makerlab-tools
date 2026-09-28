@@ -1,8 +1,6 @@
 import { sql } from "drizzle-orm";
 import { createNeonDb } from "./neon.ts";
-import { createPgliteDb, openPersistentPglite } from "./pglite.ts";
 import { localDataDir } from "./local-dir.ts";
-import { seedDemo } from "./demo-seed.ts";
 import type { DataSubstrate, Db } from "./types.ts";
 
 /**
@@ -27,6 +25,12 @@ import type { DataSubstrate, Db } from "./types.ts";
  * Not `server-only`: the import and migrate scripts load this module under
  * plain Node, where that package cannot resolve. Nothing under `src/lib/db/`
  * is imported by client components.
+ *
+ * PGlite (about 21 MB of WASM and extension bundles) and the demo seed are
+ * loaded with a dynamic `import()`, so the Neon path never evaluates them and a
+ * production build with `DATABASE_URL` set can leave them out of every
+ * function's trace (`next.config.ts`, `outputFileTracingExcludes`) — a large
+ * part of each cold start (performance plan, quick win 3).
  */
 
 /** Neon is configured but cannot be reached; callers fail toward stale, not wrong (Article 4). */
@@ -48,9 +52,13 @@ function openDb(substrate: DataSubstrate): Promise<Db> {
     case "neon":
       return Promise.resolve(createNeonDb(process.env.DATABASE_URL as string));
     case "pglite-local":
-      return openPersistentPglite(localDataDir() as string).then((local) => local.db);
+      return import("./pglite.ts")
+        .then(({ openPersistentPglite }) => openPersistentPglite(localDataDir() as string))
+        .then((local) => local.db);
     default:
-      return createPgliteDb({ seed: seedDemo });
+      return Promise.all([import("./pglite.ts"), import("./demo-seed.ts")]).then(
+        ([{ createPgliteDb }, { seedDemo }]) => createPgliteDb({ seed: seedDemo })
+      );
   }
 }
 
