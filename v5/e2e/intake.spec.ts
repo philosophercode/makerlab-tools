@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 import { DEMO_ACCOUNTS } from "../src/lib/db/demo-seed";
+import { makeProductPng } from "../test/gateway/png";
 import {
   AFTER_TABLE_REPLY,
   ASK_FOR_ITEMS_REPLY,
@@ -45,7 +46,16 @@ import { signIn } from "./utils/session";
  * plain white backdrop; research probes it, classifies it `plain`, has nothing
  * to rank it against, and cuts the backdrop out deterministically (no model).
  * The review page preselects that cleaned copy (served by the cleaned-image
- * route), the test approves it, and the gallery card shows the published copy.
+ * route) and shows it loading.
+ *
+ * **The photo from the chat (amendment "An uploaded photo is a choice, not the
+ * product image").** The admin attaches a photo of the Domino with the
+ * identify message — a product on a plain backdrop, like the stub's. It
+ * identifies the item and nothing more: research still finds and cleans its
+ * own image (preselected), and the photo is one more choice, "Your photo". The
+ * test picks it with **Remove the background** on, approves, and the gallery
+ * card shows the photo's deterministic cutout — not research's copy, and not
+ * the photo as taken.
  */
 
 test.describe.configure({ retries: 0 });
@@ -72,6 +82,14 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   const chat = page.getByRole("dialog");
   await expect(chat.getByText("I'd like to add new equipment to the inventory.")).toBeVisible();
   await expect(chat.getByText(ASK_FOR_ITEMS_REPLY)).toBeVisible({ timeout: 15_000 });
+
+  // A photo of the Domino, sent with the message; the stub gives it to the first item.
+  await chat.locator('input[type="file"]').setInputFiles({
+    name: "domino-bench.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(makeProductPng({ width: 800, height: 600 })),
+  });
+  await expect(chat.getByRole("button", { name: "Remove domino-bench.png" })).toBeVisible({ timeout: 15_000 });
 
   await chat.getByRole("textbox", { name: "Ask the lab console" }).fill(IDENTIFY_PROMPT);
   await chat.getByRole("button", { name: "Send" }).click();
@@ -150,11 +168,24 @@ test("an admin identifies three tools in the chat, researches two, and approves 
     })
     .toBeGreaterThan(0);
 
+  // The photo from the chat did not stop research looking (above), and is one
+  // more choice — labelled as the admin's own, not preselected.
+  const mine = imageGroup.getByRole("radio", { name: "Your photo" });
+  await expect(mine).not.toBeChecked();
+  const photo = imageGroup.getByRole("img", { name: `${domino.name}, your photo 1` });
+  await expect
+    .poll(() => photo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth), {
+      timeout: 15_000,
+    })
+    .toBeGreaterThan(0);
+  await mine.check();
+  await expect(imageGroup.getByRole("checkbox", { name: "Remove the background" })).toBeChecked();
+
   await page.getByRole("button", { name: "Approve", exact: true }).click();
   await expect(page.getByText("Approved and published. It is in the catalog now.")).toBeVisible({
     timeout: 15_000,
   });
-  // The cleaned copy was attached, so there is no image warning.
+  // The photo's cutout was attached, so there is no image warning.
   await expect(
     page.getByText(
       "The tool was created, but its image could not be attached. Add a photo in the editor."
@@ -162,15 +193,16 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   ).toHaveCount(0);
 
   // The tool is in the gallery — approval invalidated the cached catalogue —
-  // and its card shows the cleaned copy, now public in this server's local
-  // Blob store, not the placeholder.
+  // and its card shows the photo's background-removed copy, public in this
+  // server's local Blob store: not research's copy, not the photo as taken,
+  // not the placeholder.
   await page.goto("/");
   const heading = page.getByRole("heading", { name: domino.name, level: 2 });
   await expect(heading).toBeVisible({ timeout: 15_000 });
   const cover = page.locator('a[data-slot="tool-card"]').filter({ has: heading }).locator("img");
   // The PNG itself until approval's thumbnails land (written after it
   // answers), then their WebP fallback beside it under thumbs/.
-  await expect(cover).toHaveAttribute("src", /\/api\/dev-blob\/.+\.(png|webp)$/);
+  await expect(cover).toHaveAttribute("src", /\/api\/dev-blob\/.*domino-bench-background-removed.*\.(png|webp)$/);
   await expect
     .poll(() => cover.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth), {
       timeout: 15_000,
