@@ -4,6 +4,7 @@ import { lazy, Suspense, useState, type ComponentType } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useChatLauncher } from "./ChatLauncherContext";
+import { isKioskPath } from "./kiosk-path";
 
 /** The admin opens the assistant from its section bar and ⌘K; the floating button is not drawn there. */
 function isAdminPath(pathname: string): boolean {
@@ -31,7 +32,8 @@ const LazyPanel = lazy(() => preloadChatPanel().then((panel) => ({ default: pane
  * The assistant's floating button, and the assistant itself once it has been
  * opened (performance: the panel is not part of any page's first load).
  *
- * The button is drawn on public pages only (see `ChatPanel`). The panel
+ * The button is drawn on public pages only (see `ChatPanel`), and on `/kiosk`
+ * nothing is drawn at all. The panel
  * mounts the first time anything opens the chat — this button, the admin
  * section bar, ⌘K, Report, the QR notice — and then stays mounted, so the
  * conversation survives navigation exactly as before.
@@ -47,6 +49,10 @@ export function ChatFab() {
   // first open mounts the panel in the same commit that opens it.
   const [mount, setMount] = useState<{ Panel: ComponentType | null } | null>(null);
   if (isOpen && mount === null) setMount({ Panel: LoadedPanel });
+
+  // The kiosk is read-only: the phone is the interactive surface, reached
+  // through its QR code (kiosk spec §2). No button and no sheet there.
+  if (isKioskPath(pathname)) return null;
 
   return (
     <>

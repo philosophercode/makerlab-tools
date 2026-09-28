@@ -1,5 +1,5 @@
 /**
- * Thumbnails for public images already in Blob (performance, migration `0020`).
+ * Thumbnails for public images already in Blob (performance, migration `0021`).
  *
  *   npm run thumbnails:backfill                 # dry run: list what would be rendered
  *   npm run thumbnails:backfill -- --apply      # render, upload and record them

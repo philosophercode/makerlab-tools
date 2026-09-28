@@ -23,7 +23,7 @@ import { ATTACHMENT_ACCESS, ATTACHMENT_ORIGIN, ATTACHMENT_OWNER } from "./vocabu
  * written before migration `0008`, except archived manuals, which it backfills
  * from their `source_key`.
  *
- * `thumbnails` (migration `0020`) is a public image's pre-rendered widths in
+ * `thumbnails` (migration `0021`) is a public image's pre-rendered widths in
  * AVIF and WebP (`src/lib/images/thumbnail-urls.ts`): written after upload or
  * approval, or by `npm run thumbnails:backfill`; null until then, and pages
  * fall back to `next/image` on the original.

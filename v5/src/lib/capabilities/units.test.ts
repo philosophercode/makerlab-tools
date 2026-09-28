@@ -126,7 +126,8 @@ describe("get_unit_details", () => {
         priority: "High",
         status: "In Progress",
         date_reported: "2024-09-01",
-        description: "The tank film is clouded.",
+        // A reporter's words, fenced as data (assistant–GUI parity spec §8.4).
+      description: expect.stringMatching(/^<untrusted-page [^\n]*>\n.*\nThe tank film is clouded\.\n<\/untrusted-page /),
       },
     ]);
   });

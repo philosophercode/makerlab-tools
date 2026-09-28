@@ -10,6 +10,7 @@ import {
   type ApprovePendingInput,
   type PendingTool,
 } from "../data/pending-tools";
+import type { AuditTrail } from "../data/audit";
 import { getDb } from "../db/client";
 import type { Db } from "../db/types";
 import { parseResearchResult } from "../research/result";
@@ -102,6 +103,8 @@ export type IntakeApprovalResult =
 /** Who is approving. Always a signed-in person — the gate saw to that. */
 export interface IntakeApprover {
   userId: string;
+  /** The surface and the confirmed proposal, for the audit events (assistant–GUI parity spec §3.7). */
+  trail?: AuditTrail;
 }
 
 export interface IntakeApprovalOptions {
@@ -155,6 +158,7 @@ export async function approveAndRecord(
 
   const pendingRecorded = await record(
     {
+      ...approver.trail,
       actorUserId: approver.userId,
       action: "pending.approved",
       subjectType: "pending_tool",
@@ -180,6 +184,7 @@ export async function approveAndRecord(
   const publishRecorded = approved.published
     ? await record(
         {
+          ...approver.trail,
           actorUserId: approver.userId,
           action: "tool.published",
           subjectType: "tool",
@@ -258,6 +263,7 @@ export async function addUnitAndRecord(
 
   const recorded = await record(
     {
+      ...approver.trail,
       actorUserId: approver.userId,
       action: "pending.approved",
       subjectType: "pending_tool",

@@ -4,7 +4,7 @@ import { getDb } from "../db/client.ts";
 import { user } from "../db/schema/index.ts";
 import type { Role } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
-import { recordAuditEvent } from "./audit.ts";
+import { recordAuditEvent, type AuditTrail } from "./audit.ts";
 import { toUserRecord, type UserRecord } from "./users.ts";
 
 /**
@@ -36,6 +36,8 @@ export interface AddPersonInput {
   title: string | null;
   /** Who added them — the audit actor. */
   actorUserId: string | null;
+  /** The surface and proposal the addition came from, for its audit event (parity spec §3.7). */
+  trail?: AuditTrail;
 }
 
 export type AddPersonResult =
@@ -83,6 +85,7 @@ export async function addPersonAccount(
 
       await recordAuditEvent(
         {
+          ...input.trail,
           actorUserId: input.actorUserId,
           action: "user.added",
           subjectType: "user",

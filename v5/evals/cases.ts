@@ -47,9 +47,21 @@ export interface EvalCaseContext {
    * unchanged.
    */
   as?: EvalCaller;
+  /**
+   * The page the person is on (assistant–GUI parity spec §10.1), as a path —
+   * `/admin/maintenance` — composed into the prompt's "Where the person is"
+   * block by the same `loadPageContext` the chat route uses.
+   */
+  path?: string;
+  /**
+   * The rows ticked on that page, by the name the page shows (a ticket's
+   * title). The harness looks each up in the eval database and sends its id,
+   * as the page would. Requires `path`.
+   */
+  selection?: string[];
 }
 
-export const EVAL_CALLERS = ["student", "staff"] as const;
+export const EVAL_CALLERS = ["student", "staff", "super_admin"] as const;
 export type EvalCaller = (typeof EVAL_CALLERS)[number];
 
 /** One earlier message of the conversation a case continues. */
@@ -404,8 +416,8 @@ function validateCase(raw: YamlValue, file: string): EvalCase {
   if (raw.context !== undefined && raw.context !== null) {
     if (!isRecord(raw.context)) fail(file, 0, `case "${id}": context must be a mapping`);
     for (const key of Object.keys(raw.context)) {
-      if (key !== "page" && key !== "toolId" && key !== "curate" && key !== "as") {
-        fail(file, 0, `case "${id}": unknown context key "${key}" (expected page, toolId, curate, as)`);
+      if (!["page", "toolId", "curate", "as", "path", "selection"].includes(key)) {
+        fail(file, 0, `case "${id}": unknown context key "${key}" (expected page, toolId, curate, as, path, selection)`);
       }
     }
     if (raw.context.page !== undefined) {
@@ -432,6 +444,16 @@ function validateCase(raw: YamlValue, file: string): EvalCase {
         fail(file, 0, `case "${id}": context.as must be one of ${EVAL_CALLERS.join(", ")}`);
       }
       context.as = caller as EvalCaller;
+    }
+    if (raw.context.path !== undefined) {
+      const path = requireString(raw.context.path, file, `case "${id}": context.path`);
+      if (!path.startsWith("/")) fail(file, 0, `case "${id}": context.path must start with /`);
+      context.path = path;
+    }
+    if (raw.context.selection !== undefined) {
+      if (!context.path) fail(file, 0, `case "${id}": context.selection requires context.path`);
+      if (!Array.isArray(raw.context.selection)) fail(file, 0, `case "${id}": context.selection must be a list of names`);
+      context.selection = raw.context.selection.map((name) => requireString(name, file, `case "${id}": context.selection entries`));
     }
   }
 

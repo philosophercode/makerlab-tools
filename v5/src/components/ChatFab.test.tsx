@@ -111,6 +111,14 @@ beforeEach(() => {
 });
 
 describe("ChatFab", () => {
+  it("draws nothing on the kiosk — no button and no sheet (kiosk spec §2: the phone is the interactive surface)", () => {
+    pathnameMock.mockReturnValue("/kiosk");
+    const { container } = render(<ChatFab />);
+
+    expect(screen.queryByRole("button", { name: "Open MakerLab assistant" })).not.toBeInTheDocument();
+    expect(container).toBeEmptyDOMElement();
+  });
+
   it("is closed by default — only the FAB shows, no dialog", () => {
     render(<ChatFab />);
 

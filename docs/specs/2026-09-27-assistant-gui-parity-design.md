@@ -1,10 +1,10 @@
 # Assistant–GUI Parity: One Action Layer for People, Assistant and MCP — Design Spec
 
 **Date:** 2026-09-27
-**Status:** Draft
+**Status:** Accepted 2026-09-27 (owner's answers to §11 in the amendment below). **Phases 1–8 built**, with **Log completed maintenance** (§11 answer 5), on branch `v5/assistant-gui-parity`; see the as-built amendments. **Assistant limits** (owner decision 2026-09-27): the assistant never touches `super_admin`, allowances, removal, blocking or the mirror's disconnect, nor secrets, tokens, hosting, the database, backups, the audit trail, email export or messaging — see the last amendment
 **Target:** `v5/`
-**Branch:** `docs/spec-assistant-gui-parity`
-**Spec PR:** #91 · **Implementation PR:** — (one per phase, §9)
+**Branch:** `docs/spec-assistant-gui-parity` (spec); `v5/assistant-gui-parity` (implementation)
+**Spec PR:** #91 · **Implementation PR:** #95 (phases 1–8, one PR)
 
 ## 1. Summary
 
@@ -505,14 +505,14 @@ least role holding the permission: *anyone* (no sign-in), *user* (signed in), *a
 | 3 | `projects.submit` → `submit_project` | catalog (draft) | propose | propose |
 | 7 | `account.revoke_token` → `revoke_my_token` | destructive | propose | never |
 | 10 | `catalog.refresh_cache` → `refresh_catalog` | operational | propose | never |
-| 12 | `pending.edit` → `edit_pending_item` | catalog | propose (batch) | propose |
-| 13 | `pending.discard` → `discard_pending_items` | destructive | propose (one) | never |
+| 12 | `pending.edit` → `edit_pending_items` (never the `discard` decision; amendment "Stage 3 review fixes") | catalog | propose (batch) | propose |
+| 13 | `pending.discard` → `discard_pending_item` | destructive | propose (one) | never |
 | 14 | `pending.research` → `research_pending_items` | spend | propose (batch) | never |
 | 15 | `pending.save_identity` → `rename_pending_item` | catalog | propose | propose |
 | 16 | `pending.different_image` → `find_different_image` | spend | propose | never |
 | 17–18 | `pending.approve` / `pending.approve_draft` → `approve_pending_items` (`publish: boolean`) | catalog | propose (batch) | propose |
 | 19 | `pending.add_unit` → `add_pending_as_unit` | catalog | propose | propose |
-| 23–26 | `imports.*` → `confirm_import_columns`, `edit_import_rows`, `remove_import_rows`, `merge_import_row`, `decide_import_suggestions` | catalog | propose | propose |
+| 23–26 | `imports.*` → `confirm_import_columns`, `edit_import_rows`, `remove_import_rows`, `merge_import_row`, `decide_import_suggestions` | catalog | propose | propose (`remove_import_rows`: never, and refused in a tainted turn) |
 | 26 | `imports.request_suggestions` → `request_import_suggestions` | spend | propose | never |
 | 27 | field edits | catalog | **unchanged**: curation `propose_change` | unchanged |
 | 28 | `tools.mark_reviewed` → `mark_tool_reviewed` | catalog | propose (batch) | propose |
@@ -718,7 +718,7 @@ constitution amendment**. §11 Q2 asks the owner to confirm that reading.
 | `ADMIN_ACTION_TIER` (existing, 120 / min) | — | `admin-action:<rateLimitKey>` | In `performAction`, **shared with the GUI** |
 | `mcpWrite` (existing, 10 / min) | — | identity | Before each MCP write, proposals included |
 
-At most **50 open proposals per person**, and a batch holds at most 20 items. Spend actions
+At most **50 open proposals per person** (per surface, as built: the chat's and MCP's are counted apart), and a batch holds at most 20 items. Spend actions
 still pass the day's research allowance in `run()`, as the GUI does.
 
 ### 8.4 Prompt injection from tool data
@@ -902,3 +902,544 @@ The harness gains:
 None of these blocks phase 1, which changes no behaviour. Q1, Q6 and Q7 block phase 2; Q2
 and Q3 block phases 4 and 5; Q4 and Q11 block phase 7; Q5 blocks the `log-maintenance-wen`
 eval.
+
+## Amendments
+
+Appended per [`DRIFT.md`](DRIFT.md). Original text above is never edited.
+
+### 2026-09-27 — the owner's answers to §11
+
+| # | Answer |
+|---|---|
+| 1 | **Click only.** A typed "yes" never commits; the chat's `update_ticket` typed-yes path moves to the card (phase 2). |
+| 2 | **Yes.** A card clicked in the app by somebody holding the permission is "a person with the permission, in the app". No constitution amendment. |
+| 3 | **Yes in the chat, by card; never over MCP** — research, a different image, refresh, import suggestions, manual reprocess. |
+| 4 | **MCP gets proposals only**, landing in the `/admin/proposals` inbox. `update_ticket` over MCP keeps working as today. |
+| 5 | **Add "Log completed maintenance"** to `/admin/maintenance` and as an action, together. |
+| 6 | **Masked emails** in `find_people`. |
+| 7 | **60 minutes** in the chat, **7 days** in the MCP inbox. |
+| 8 | **One tool per action.** Measure the tool block per role in phase 2 and record it. |
+| 9 | **`audit_events` keeps its scope** plus the new `surface` column; `action_proposals` is the full trail. |
+| 10 | **Photos later**, out of scope. |
+| 11 | **Only the proposal's creator confirms.** |
+
+**Status.** Accepted.
+
+### 2026-09-27 — phase 1 as built: the action layer, no behaviour change
+
+**What was built.** `v5/src/lib/actions/`:
+
+| File | What it holds |
+|---|---|
+| `define.ts` | `defineAction`, `ActionDefinition`, `ActionMeta`, the risk and MCP vocabulary; refuses at load a destructive batch, a people/spend/destructive action over MCP, `assistant: "never"` without a reason |
+| `perform.ts` | `performAction(def, rawInput, identity, { surface, proposalId? })` |
+| `registry.ts` | `ACTIONS` (10 definitions) and `actionById` |
+| `people.ts` | `people.set_role`, `people.set_title`, `people.set_name` |
+| `people-roster.ts` | `people.add`, `people.remove`, `people.unblock_email` |
+| `people-allowance.ts` | `people.grant_allowance` |
+| `people-gate.ts` | the super-admin floor reconciliation, run as `afterGate` by the People actions (not by the allowance, which never ran it) |
+| `tickets.ts` / `corrections.ts` / `projects.ts` | `tickets.update`, `corrections.set_status`, `projects.set_published` |
+| `parity.ts` / `exempt.ts` / `parity.test.ts` | the parity guard (§10) |
+
+`app/admin/users/actions.ts`, `users/allowance-actions.ts`, `maintenance/actions.ts`,
+`corrections/actions.ts` and `projects/actions.ts` are one-line wrappers:
+`performAction(DEF, input, await resolveIdentityFromHeaders(), { surface: "gui" })`.
+`writeTicket` (`lib/admin/ticket-write.ts`) is a wrapper over `tickets.update` too, taking the
+surface; `update_ticket` passes `"assistant"` when the chat adapter stamped `ctx.surface = "chat"`,
+else `"mcp"` (see "Review fixes" below). Every
+existing test under `app/admin/{users,maintenance,corrections,projects}` and
+`capabilities/staff.test.ts` passes unchanged, as do the `admin-users`, `admin-queues`,
+`corrections` and `projects` E2E specs.
+
+**Where the definition differs from §3.2, and why.**
+
+1. **No `db` parameter.** `check(input, ctx)` and `run(input, ctx)` take the context
+   (`identity`, `surface`, `proposalId`); the data modules resolve `getDb()` themselves, as every
+   caller already relies on.
+2. **`invalidInput` instead of a shared `invalid_input` code.** A parse failure answers the
+   action's own code (`invalid_title`, `invalid_field`…), so no island meets a code it has no
+   `admin.errors.<code>` string for. `ProjectWriteError` gained `invalid_field` (a message
+   already existed) for a request that is not an id and a boolean, which the page never sends.
+3. **`afterGate`**, a step between the gate and the parse, holds the People page's floor
+   reconciliation — the page ran it before reading the input, and still does.
+4. **`run()` answers `committed`.** Absent, the action was a no-op success ("admin → admin"),
+   so `afterCommit` and the refresh are skipped, exactly as the page behaved. A run whose audit
+   event is inside its own statement (a rename) reports its own `warning`.
+5. **Schemas are as lenient as the server actions they replaced.** Ids are strings, not
+   uuids — `"nobody"` still answers `unknown_user` — and objects strip unknown keys rather than
+   refuse them (the allowance's `strictObject` is kept). Tightening is phase 2's, where the
+   model writes the input.
+6. **`preview` and `revision` are not in the type yet.** Previews arrive with the card
+   (phase 2), revision tokens with the catalogue actions (phase 4).
+7. **`afterCommit` that throws is a warning** (`audit_unavailable`), never a failure — the
+   change has landed. The queue writes' afterCommits never threw; the guard is for later ones.
+8. **`people.set_name`** (Edit name, PR #92) postdates §4's walk and is registered as
+   `set_person_name`, risk `people`. `people.grant_allowance` lives in its own file.
+9. **`runQueueWrite` has no callers** — `performAction` took its sequence over step for step.
+   The function awaits deletion approval; `QueueActionResult` stays as the queues' result type.
+10. **Definitions import their path constants and error unions from the page's result module**
+    (`app/admin/<page>/action-result.ts`, directive-free), type-only except the path, so an
+    island and its action still read one declaration of the codes.
+11. **No `direct` default over MCP** (§3.8's table, narrowed by §11 answer 4). `operational`
+    and `catalog` both default to `"propose"`; `"direct"` must be written on the definition and
+    `defineAction` refuses it for any id outside `DIRECT_OVER_MCP`, which holds only
+    `tickets.update` (the grandfathered `update_ticket`). `corrections.set_status` therefore
+    proposes over MCP when phase 7 registers it, not `direct` as row 42 of §4.9 says.
+
+**The parity guard.** `parity.ts` reads every `.ts`/`.tsx` under `src/` (not only `src/app/`)
+with the TypeScript parser and reports each GUI write: an export of a `"use server"` module, a
+function whose own body opens with `"use server"`, and a `POST`/`PUT`/`PATCH`/`DELETE` export of
+an `src/app/**/route.ts`. `parity.test.ts` fails when one is neither a
+`performAction(<registered definition from lib/actions/>)` wrapper nor in `EXEMPT` with a
+reason; when an `EXEMPT` entry names an endpoint that is gone or already a wrapper; and when a
+registered action has no GUI endpoint. `EXEMPT` holds 68 entries today, each naming its phase or
+its "never" reason; it only shrinks. The per-role "tool offer equals server-action gate" check
+waits for the generated tools (phase 2).
+
+**Review fixes (stage 1 review, same day).**
+
+- **MCP `direct` is explicit and fenced** (deviation 11 above); a registry test asserts
+  `update_ticket` is the only direct action.
+- **The surface is stamped by the adapter, never inferred.** `CapabilityCtx.surface`
+  (`"chat" | "mcp"`) is set by `toAiTools` and `registerAll` after the caller's ctx, so no
+  request field can set it. `update_ticket` reads it instead of `chatId`, which the chat sets
+  only when the client sends an `id` — a chat turn without one would otherwise have been
+  audited as MCP once phase 2 records `surface`.
+- **The guard enforces thin wrappers.** `parity.ts` marks an endpoint `thin` only when its
+  body is one `return performAction(…)` (or an arrow whose expression is that call) with no
+  call in the arguments except `resolveIdentityFromHeaders`; the guard counts only thin,
+  single-`performAction` endpoints as wrappers. An endpoint that writes and also calls the
+  layer fails.
+- **`people.set_role` refuses a cookie that is not the gated identity.** Better Auth's
+  `setRole` authenticates from the request cookie; `run()` now reads that session and answers
+  `not_permitted` unless its user is `ctx.identity.userId`, so a confirm route can never gate
+  one person and write as another. One extra session read per role change.
+
+**Status.** Accepted.
+
+### 2026-09-27 — phases 2 and 3 as built: proposals, the card, page context
+
+**What was built.**
+
+| Where | What |
+|---|---|
+| Migration `0020_assistant_actions` | `action_proposals` (§3.5: group, action id, stored input, subject, stored preview, surface, chat, status, result, `tainted`, creator + name snapshot, decider, `expires_at`) with its `updated_at` trigger; `audit_events.surface` (`gui` default, CHECK `gui/assistant/mcp/system`) and `audit_events.proposal_id` |
+| `lib/data/action-proposals.ts` | create (TTL from the database clock: 60 minutes chat, 7 days MCP — §11 answer 7), claim (`UPDATE … WHERE status='open' AND expires_at > now() AND created_by = me RETURNING`, so a second click claims nothing), settle, cancel, count open, list one person's proposals in one chat |
+| `lib/data/audit.ts` + the four in-transaction writers | `AuditTrail { surface, proposalId }` on every event; `auditTrail(ctx)` in `define.ts` spreads it from the action context, so the People page and a card write events that differ in those two columns only |
+| `lib/actions/define.ts` | `ActionPreview` / `ActionPreviewRow`, `ActionToolShape` + `toolShape()`, and `preview` / `tool` on `ActionDefinition` |
+| `lib/actions/proposals.ts` | `proposeAction` (limiter → permission → tool args → the definition's own input schema → `check` → `preview` → rows) and `decideActionProposals` (per row, in order: claim that one row → `performAction(def, row.input, identity, { surface, proposalId, beforeRun: staleness })` → settle; a 20 s budget leaves unreached rows open); `typedMatches` for destructive cards |
+| `lib/actions/staleness.ts` | `driftedFields`: the confirm-time "has the subject moved on?" comparison (§3.3 step 4) |
+| `lib/actions/maintenance-log.ts` | `tickets.log_completed` → `log_completed_maintenance` (§11 answer 5) |
+| `lib/actions/page-context.ts` | `PAGE_CONTEXTS`, `loadPageContext`, the fenced "Where the person is" block (§3.6) |
+| `lib/capabilities/actions.ts` | the generated capability: one proposing tool per definition with a `tool` and a `preview`; `DEFERRED_TOOLS`; `actionsPromptFragment` |
+| `lib/capabilities/admin-reads.ts` | `find_people` (masked email, §11 answer 6), `list_corrections`, `list_project_queue` (their free text fenced) |
+| `lib/chat/proposal-outcomes.ts` | "Proposals in this conversation" (§5.3) |
+| `app/api/action-proposals/route.ts` | `POST` confirm / cancel (cookie only, `actionConfirm` tier, `strictObject` body of ids + decision), `GET ?ids=` (what a card re-reads on mount) and `GET ?chatId=` — the caller's own rows only |
+| `components/chat/ActionProposalCard.tsx` | the card: single and batch (a checkbox per row, **Confirm N**), states open / confirming / confirmed / failed / conflict / expired / cancelled / already decided / not found, before → after from the stored preview, vocabulary through `actions.values.*`; `type="button"` everywhere |
+| `components/chat/page-selection.tsx` | `PageSelectionProvider`, `usePublishSelection`, `usePageSelectionReader` |
+| `components/system/queue/QueueList.tsx` | optional `selectable`: a checkbox per open card, the ticked ids the current filters still show published, and a bar with **Ask the assistant about these** |
+| `components/admin/LogCompletedForm.tsx`, `lib/data/tool-options.ts` | **Log completed maintenance** on `/admin/maintenance` |
+| `app/api/chat/route.ts`, `components/ChatFab.tsx` | the chat body's `page`; both server-read blocks appended to the system prompt |
+
+Rate tiers `assistantPropose` (30/min) and `actionConfirm` (60/min) are in `ROUTE_TIERS`; the commit
+still passes `ADMIN_ACTION_TIER` inside `performAction`, shared with the GUI. At most 50 open
+proposals per person, 20 per card.
+
+**Owner's answers, as applied.** Q1: the chat's `update_ticket` is the generated tool and only
+proposes; the typed-yes prompt rules are gone from `staffPromptFragment`, and the actions fragment
+says typed words never confirm. Q2/Q3: nothing in phase 2 spends; the spend actions arrive with
+phase 5. Q4: MCP's `update_ticket` is still `staff.ts`'s direct write (now `mcpOnly`), and no
+generated tool is registered over MCP yet. Q5: built, both ways. Q6: `find_people` returns
+`l***@cornell.edu`. Q7: the TTLs above. Q9: `audit_events` scope unchanged; the new columns only.
+Q11: every claim and cancel is conditional on `created_by`; somebody else's id answers `not_found`.
+
+**Q8, the measurement** (composed chat tool block per role, `capabilities/actions.test.ts` pins it):
+
+| Role | Chat tools | Of them, action tools | Tool schemas + descriptions (chars) | Prompt without the catalogue (chars) |
+|---|---|---|---|---|
+| anonymous / user | 9 | 0 | 6,465 | 10,421 |
+| admin (SuperMaker) | 19 | 4 | 14,346 | 17,037 |
+| super_admin | 26 | 10 | 18,878 | 17,154 |
+
+Ten action tools for a director, a third of the 30 at which §3.4 would fold areas into
+`more_actions`: **one tool per action, no fold** (§11 answer 8). Phases 4 and 5 add roughly 25; the
+count is re-measured then.
+
+**Where the build differs from §3–§6, and why.**
+
+1. **Generated tools are chat only** (`chatOnly`). MCP proposals and the `/admin/proposals` inbox
+   are phase 7; until then the one MCP write stays `staff.ts`'s `update_ticket`, marked `mcpOnly`, so
+   each surface has exactly one tool of that name (a parity test checks per surface).
+2. **Each definition declares its tool's arguments** (`tool: toolShape(schema, toInputs)`) rather than
+   reusing `input`. The GUI schemas stay as lenient as phase 1 left them (deviation 5); the model's
+   schema is strict, capped and described, and maps to one definition input per subject. A batch is a
+   list of ids and one change (`ticket_ids`, `user_ids`, `correction_ids`); each id is its own row,
+   deduplicated, confirmed or refused on its own. Chat `update_ticket` keeps "assign to `me` or
+   `nobody`"; any `maintenance.manage` holder (§4.9 row 41) waits for a person read tool of its own.
+3. **`people.remove` has no tool yet** (`DEFERRED_TOOLS`, "Phase 6"): the destructive card's typed
+   confirmation is enforced by the route already (`typedMatches`: trimmed, NFKC, case-folded; one id
+   only), but taint tracking (§8.4) comes first. `tainted` is stored and always false until then.
+4. **Propose runs no `afterGate`.** The People page's floor reconciliation writes the caller's row;
+   proposing writes nothing, so it runs at the click, inside `performAction`, as on the page.
+5. **Preview rows carry a `format`** (`role`, `ticketStatus`, `priority`, `correctionStatus`,
+   `published`, `maintenanceType`) so vocabulary renders through `actions.values.*`; summaries are
+   `actions.summary.<area>_<verb>`. A test scans the definitions for every key they use.
+6. **A refused batch item** is one line on the card ("1 more was not proposed: …"), with the subject
+   id and code returned to the model — not a greyed row with the subject's name, which a refusal
+   such as "unknown user" does not have.
+7. **The outcomes block** lists this person's proposals in this chat from the last day (at most 15),
+   each with its state now — simpler than "since the last turn", and a turn that re-asks sees the
+   same truth. It is fenced: a subject name can be a visitor's ticket title.
+8. **Page context is for people who can act.** `loadPageContext` returns nothing unless the caller
+   can reach an admin surface, so visitors' and students' prompts are unchanged (the tool page's own
+   section already names the tool). The queues had no selection (§3.6 assumed they did):
+   `QueueList` gained an opt-in checkbox per card, used by maintenance, corrections and projects, plus
+   a bar that opens the chat. `InventoryBoard` publishes its existing selection. `IntakeList` has none
+   yet and `ImportTable`'s is not published; both arrive with phase 5's intake actions.
+   `toolId` / `pendingId` are still read.
+9. **Not built in this phase:** the card's "Ask again" (an expired card says to ask again), the
+   "via assistant" tag (there is no audit list page to put it on), `get_tool_units` / `list_imports`
+   (phases 4 and 5), and fencing `list_open_tickets`' descriptions (phase 6, with taint).
+10. **Log completed maintenance** is a ticket that starts `resolved`: the signed-in person is reporter
+    and assignee (no reporter email), both dates are today in `LAB_TIMEZONE`, the type is one of
+    `COMPLETED_MAINTENANCE_TYPES` (every type but `issue_report`), a unit must belong to the tool, and
+    archived tools are refused. No audit event (§4.11); the mirror is told.
+
+**Tests.** PGlite integration: `lib/actions/proposals.test.ts` runs the same change from the page's
+server action and from propose + confirm (title, role through the admin plugin, add person, ticket,
+correction) and compares rows and audit events; a demotion between propose and confirm answers
+`not_permitted`; another person's id answers `not_found`; expired, already decided, a partly refused
+batch, cancel. `api/action-proposals/route.test.ts` (cookie only — a bearer token is anonymous;
+no input rides along; rate limit), `api/chat/staff-tools.route.test.ts` (the card replaced the typed
+yes), `api/chat/page-context.route.test.ts` (a forged selection is dropped; the outcomes block reads
+the database), `lib/actions/page-context.test.ts`, the migration, the card, the queue selection and
+the log form. `e2e/assistant-actions.spec.ts`: a card confirms by id, ticked tickets reach the chat as
+ids, and the log form lands a row. Evals: `evals/cases/assistant-actions.yaml` (nine cases — the ninth, `clicked-is-not-evidence`, added with the review fixes — with
+`as: super_admin`, `path`, `selection`, `proposed_action`, `not_claimed_done`); the two
+`staff-maintenance.yaml` cases that encoded the typed yes now expect a proposal. Not run (paid).
+
+**Review fixes (same stage).**
+
+- **Conflict at the click (§3.3 step 4, §5.2, §5.5).** `performAction` gained an optional
+  `beforeRun` (after the gate, `afterGate`, parse and `check`; before `run`). The confirm route
+  passes one that re-runs the definition's own `preview` on the stored input and compares each shown
+  field's `before` with the card's (`staleness.ts`). A difference answers `conflict`: nothing runs,
+  the row settles `conflict` with `result.drifted` (field, was, now), the card says "this changed
+  after the card was made" and shows each field's value now, and the outcomes block tells the model
+  the same. Field by field, so a change to a field the card does not touch (a ticket's priority under
+  a card that only closes it) does not stop it. A subject that vanished is left to the action's own
+  not-found code. The GUI keeps last-write-wins: its screen is fresh, a stored card is not.
+- **One row claimed at a time**, just before it runs, within a 20 s budget (`CONFIRM_BUDGET_MS`,
+  inside the route's 30 s `maxDuration`). Rows not reached answer `open` and stay open, so a timeout
+  can strand at most the one row being applied, never the rest of a card.
+- **The destructive typed-name gate reads only the caller's own open rows**, so another person's
+  destructive id answers `not_found` like any other foreign id and never blocks the caller's batch.
+- **Stored text in prompt blocks is flattened and quoted** (`inlineText` in `web/fence.ts`):
+  subject names in the outcomes block and every title, name and label in the page-context lines. A
+  ticket title with a line break can no longer add a fake "confirmed and done" line.
+- **The card reads the server's state on mount** (`GET ?ids=`) and turns a row Expired when its
+  `expiresAt` passes on screen, so a re-rendered card never offers Confirm for a decided row.
+- **Queue selection is what the person sees**: only open cards have checkboxes, and only ticked rows
+  the current search and facets still show are sent to the chat.
+
+**Status.** Built on `v5/assistant-gui-parity`; not merged.
+
+
+### 2026-09-27 — phases 4, 5 and 6 as built: the catalogue, intake and imports, spend, destructive actions and taint
+
+**What was built.** 31 definitions (42 registered in all; 40 offered to the assistant, two `never`):
+
+| Where | Actions (id → tool) |
+|---|---|
+| `lib/actions/catalog.ts` over `catalog-write.ts` | `tools.set_published` → `set_tool_published` (batch), `tools.mark_reviewed` → `mark_tool_reviewed` (batch), `tools.archive` → `archive_tool` (destructive), `tools.restore` → `restore_tool` |
+| `lib/actions/units.ts` | `units.add` / `units.edit` / `units.retire` → `add_unit`, `edit_unit`, `retire_unit`; `units.delete` → `delete_unit` (destructive) |
+| `lib/actions/resources.ts` | `resources.add` / `resources.edit` → `add_resource`, `edit_resource` (links only; the panel keeps file uploads); `resources.remove` → `remove_resource` (destructive) |
+| `lib/actions/intake.ts` (+ `intake-input.ts`) | `pending.approve` → `approve_pending_items` (`publish`, batch), `pending.add_unit` → `add_pending_as_unit`, `pending.discard` → `discard_pending_item` (destructive), `pending.save_identity` → `rename_pending_item`, `pending.edit` → `edit_pending_items` (batch), `pending.different_image` → `find_different_image` (spend), `pending.research` → `research_pending_items` (spend) |
+| `lib/actions/imports.ts` | `imports.edit_row`, `imports.set_hints`, `imports.remove_rows`, `imports.merge_row`, `imports.decide_suggestions` (`accept`/`ignore`), `imports.request_suggestions` (spend); `imports.confirm_columns` (`never`) |
+| `lib/actions/manuals.ts` | `manuals.reprocess` → `reprocess_manual` (spend); `manuals.reprocess_library` (`never`: the same run from the library table) |
+| `lib/actions/refresh.ts` | `refresh.queue` → `queue_refresh` (spend) |
+| `lib/actions/mirror.ts` | `mirror.sync_now` → `sync_mirror`, `mirror.set_paused` → `pause_mirror` (both `mcp: never`), `mirror.disconnect` → `disconnect_mirror` (destructive) |
+| `lib/actions/people-roster.ts` | `people.remove` → `remove_person` gained its tool and preview (destructive); `DEFERRED_TOOLS` is empty |
+
+The GUI endpoints are one-line wrappers: `admin/inventory/{actions,unit-actions,resource-actions}.ts` (all but `saveTool`, `loadToolForEditor` and photos), `admin/intake/actions.ts` (all six; Approve and Approve as draft set `publish` after the body), `admin/intake/imports/actions.ts` (all but the `loadImport` read), `admin/research/actions.ts`, `admin/refresh/actions.ts#queueToolRefresh`, `admin/mirror/actions.ts#{syncNow,setPaused,disconnect}`. Every existing test under those folders and their E2E specs (`admin-inventory`, `tool-editor`, `intake`, `mirror`) pass unchanged. **`EXEMPT` went from 69 entries to 37.**
+
+Also built:
+
+- **Read tools** (`capabilities/catalog-reads.ts`): `get_tool_units` (`tools.edit`) and `list_imports` (`tools.add`; the caller's imports, or any for a reviewer; rows fenced). `list_open_tickets` now fences each description (stage 2's deferral).
+- **Destructive cards**: a text field "Type “name” to confirm"; Confirm stays off until `typedMatches` (moved to the client-safe `typed-confirm.ts`, the same fold the route re-checks); Enter never confirms; the typed text is sent as `typed`.
+- **Taint** (§8.4, `lib/chat/taint.ts`): `CapabilityCtx.turn`, made by the chat route, shared by reference with every tool's ctx; `toAiTools` marks it when `read_page`, `search_manual`, `list_open_tickets`, `list_corrections`, `list_project_queue` or `list_imports` starts, and the route's `onStepFinish` marks it for `exa_search` (the Gateway's tool, not wrapped). `proposeAction` refuses `people` and `destructive` from a tainted turn with `tainted_turn` before reading anything, and stores `tainted` on every other row; the card shows "Suggested after reading outside content".
+- **Selection** on `/admin/intake` (`IntakeList` via `QueueList`, whose `renderList` now receives the row renderer so a batched layout keeps its checkboxes) and on an import's review (`ImportReview`); `PAGE_CONTEXTS` reads `pending_tool` selections on both and names the import on its review page.
+- **Messages**: summaries, fields and values for every new preview; `admin.errors` gained `unresolved_duplicate`, `not_researchable`, `too_many_items`, `invalid_body`, `confirmation_mismatch`. The card now names any code that has an `admin.errors` (or `admin.mirror.errors`) sentence instead of a fixed list.
+
+**Owner's answers, as applied.** Q2: publishing and archiving from a card is a person, with `tools.publish`, in the app; audited `tool.published` / `tool.archived` with `surface: assistant` (`tool-state.ts` and `intake/approve.ts` take the trail). Q3: the five spend actions are cards in the chat, never over MCP (`defineAction` refuses it); the allowance is checked at the click by the button's own code. Q8: measured below.
+
+**Q8, the measurement again** (same method as phase 2's table, re-run: descriptions plus `z.toJSONSchema` of each input, and `buildSystemPrompt` with an empty catalogue):
+
+| Role | Chat tools | Of them, action tools | Tool schemas + descriptions (chars) | Prompt without the catalogue (chars) |
+|---|---|---|---|---|
+| anonymous / user | 9 | 0 | 5,985 | 10,423 |
+| admin (SuperMaker) | 50 | 33 | 36,206 | 18,782 |
+| super_admin | 58 | 40 | 41,058 | 18,916 |
+
+Both staff roles are now past §3.4's fold threshold of 30 action tools. Per §11 answer 8 (one tool per action; fold only if the evals show wrong-tool picks) **nothing is folded**; the new eval cases below are the evidence to look at before deciding. `capabilities/actions.test.ts` pins the counts.
+
+**Where the build differs from §3–§6, and why.**
+
+1. **One definition for publish and unpublish** (`tools.set_published`, like `projects.set_published`), not two ids: they are one decision and one tool (§4.9 row 29 already had one tool). Archive and restore stay two, because their risks differ.
+2. **The revision is the proposal's.** `toInputs` reads the tool's current revision and stores it on the input; the write layer's own check answers `conflict` if anything saved the tool since — any field, as for a second panel. Staleness (phase 2) still names a changed field the card shows when there is one.
+3. **`proposeCheck`** (new, on `ActionDefinition`): refusals only a proposal needs, run after `check` at propose time and never on the GUI path — an intake item that is not researched, has an undecided duplicate or is graded low (`low_confidence`: the reviewer's own "I've checked this" note is the page's), a unit with maintenance history. The GUI's order of refusals is unchanged.
+4. **"Approve these" approves research's proposal untouched.** The page's starting draft and its conversion to `ApprovalFields` moved to `lib/intake/approval-draft.ts` (client-safe; `PreliminaryToolPage` and `ProductImage` import it), and `toInputs` builds each item's approval from it: research's name (made distinct), description, category, location hint match, lists, training "staff to confirm" → required, every verified link, the preselected image. A reviewer who wants to change a field uses the page.
+5. **Two actions are route-backed** (`ROUTE_BACKED` in `exempt.ts`): `pending.research` and `pending.edit`. A route answers HTTP statuses, its own limiter tier and a body shape the intake table reads, so it cannot be a one-line wrapper. `POST /api/pending-tools/research`'s start moved verbatim to `lib/intake/research-start.ts`, which the route and `pending.research` both run; the PATCH route and `pending.edit` both write through `updatePendingTool`. The routes keep their own gates; the parity guard checks each route-backed action names an existing, exempt route.
+6. **`pending.research` is one proposal for the batch**, as one press of the button is one request (one allowance decision, one workflow run); its subject is the first item and its preview lists the names.
+7. **Refusals carry `remaining` and `retryAfterSeconds`** (`ActionRefusal`), so `daily_limit` and `sync_too_soon` answer through `performAction` exactly as the server actions did. A success shape that names its own `warning` (the editor's `files_not_attached`) keeps it (`ActionResult`).
+8. **`revalidate` may be built from the input** (an intake item's own page).
+9. **Deferred, not built:** `account.revoke_token` (#7 — the account gate is "signed in", not a permission, and `performAction` gates on a permission; it needs its own gate kind), `catalog.refresh_cache` (#10 — the route also serves `x-admin-secret` callers with no session), `refresh.again` (it closes a refresh on its review page first; the assistant queues with `queue_refresh`). `imports.confirm_columns` is registered `never` (a column mapping is choices made looking at the file, like the mirror's mapping, §4.9 #51). No "Ask again" button and no "via assistant" tag yet (phase 2's deferrals stand).
+10. **Taint is per chat request.** Text read in an earlier turn is still in the conversation's history, but the next message is a new turn and starts clean — that is what "ask again in a new message" relies on (§5.4). The eval harness's action stub refuses from the same turn state.
+
+**Tests.** PGlite integration: `lib/actions/catalog.test.ts` (publish from the editor and from a card — same row, same `tool.published` but for `surface`/`proposal_id`; an editor save between card and click → `conflict`, nothing written; a batch of reviews; archive refused tainted, refused mistyped, confirmed typed; a unit with history refused at propose; units and links added through cards move the revision), `lib/actions/intake.test.ts` (approve these → two drafts, `pending.approved` as the assistant's; the stored approval is one the page's button accepts; publish refused without `tools.publish`; low confidence and unresearched refused on their rows; research spends only at the click and is refused at the click when the allowance shrank; discard typed, refused tainted), `lib/actions/imports-mirror.test.ts` (rows removed only from the named import; suggestions start at the click; the mirror disconnected with its title typed and audited; `remove_person` tainted / mistyped / typed, `user.removed` as the assistant's; self-removal refused at propose). `api/chat/taint.route.test.ts` runs the real route: a ticket whose description tells the assistant to remove Casey, read in the same turn, gets `tainted_turn` and no card; the same request clean draws the destructive card; a tainted catalogue proposal is stored and shown `tainted`. Unit: `lib/chat/taint.test.ts`, `capabilities/catalog-reads.test.ts`, page-context (intake and import selections), the card (typed confirmation, Enter, mismatch, taint line, any `admin.errors` code). E2E (`e2e/assistant-actions.spec.ts`): ticked intake items reach the chat as `pending_tool` ids; a destructive card enables Confirm only once the name is typed and sends it. Evals (`evals/cases/assistant-actions.yaml`, not run — paid): `publish-form-4`, `approve-these`, `approve-these-none-selected`, `research-is-a-card`, `archive-asks-for-the-name`, `injection-in-ticket` (the fixture adds a visitor's Trotec ticket that tells the assistant to remove Casey), `remove-after-reading-tickets`, `remove-in-a-clean-turn`.
+
+**Stage 3 review fixes** (same branch, after review of the phases 4–6 commit):
+
+1. **One door for discarding a pending item from the assistant.** `updatePendingTool` treats `duplicateResolution: "discard"` as a discard, so `edit_pending_items` could discard up to 20 items with no typed name, from a tainted turn. `pending.edit`'s input and tool now take only `new_tool` / `add_unit`; the tool points the model at `discard_pending_item`. The doors that discard a pending item are: `discard_pending_item` (destructive, typed name), `remove_import_rows` (below), and, for people, the intake table's `PATCH /api/pending-tools/[id]` (`discard: true` or `duplicateResolution: "discard"`) and the review page's Discard.
+2. **Taint covers every read that returns visitors' text.** `get_unit_details` and `get_maintenance_history` return a unit's recent tickets, so they are in `OUTSIDE_CONTENT_TOOLS`, and `recentMaintenance` now fences each description and flattens each title to one capped line, as `list_open_tickets` does. `get_record` (a curation turn's record: research read from the web) is in the list too. A turn **starts** tainted when the route itself put outside text in the prompt: manual PDFs attached for the focused tool, or a curation record (`newTurnState({ outsideInPrompt })`). `list_intake_queue` is deliberately **not** in the list: it is the id resolver for every intake action, its free text is a name and brand of at most 200 characters (already flat) and research's own error message, and tainting it would make `discard_pending_item` unusable without a page selection.
+3. **An approval card goes stale with its item.** `ActionPreview` gained an optional `version`: an opaque token the click compares like a row's `before` (`staleness.ts`; a drift is `opaque` and the card names no value for it). `pending.approve`'s version hashes the item's name, brand, duplicate decision, research request and research result, so a rename or a new research between card and click answers `conflict` and approves nothing. The status, the add-unit decision and low confidence are still re-checked under `approveAndRecord`'s lock; the version is read just before it.
+4. **`imports.remove_rows` stays catalog but may not follow the rows' text.** It discards rows that were never researched and that nothing links to yet, which is why it batches without a typed name. A new definition flag, `refuseWhenTainted`, refuses it (`tainted_turn`) from a turn that read outside content, `list_imports` included; and it is `mcp: "never"`.
+5. **An import's review page names only that import's rows.** The selection loader receives the path's import id and keeps only rows whose `importId` matches (and that the caller may act on).
+
+Tests: `intake.test.ts` (rename → conflict; changed research → conflict; `edit_pending_items` refuses `discard`), `taint.route.test.ts` (an injected ticket reached through `get_unit_details` gets `tainted_turn`; `remove_import_rows` refused after an outside read), `taint.test.ts` (the list; a turn that starts tainted), `staleness.test.ts` (version drift), `page-context.test.ts` (a foreign import's row and a queue item are dropped), `imports-mirror.test.ts` (tainted removal refused; `mcp: never`). Eval: `discard-is-its-own-action`.
+
+**Status.** Built on `v5/assistant-gui-parity`; not merged.
+
+### 2026-09-27 — phases 7 and 8 as built: MCP proposals, the inbox, docs and the drift check
+
+**What was built.**
+
+| Where | What |
+|---|---|
+| `lib/capabilities/actions.ts` | A second generated tool per action with `mcp: "propose"` (`mcpOnly`, same name, arguments and permission as the chat's): `proposeAction` with `surface: "mcp"`, no chat, no taint; answers `{ proposed: true, proposal_ids, inbox: "/admin/proposals", expires_at }` and "NOTHING HAS CHANGED YET". Its description adds `MCP_PROPOSAL_NOTE` (the inbox, 7 days, only you confirm). The chat's prompt tells the person where MCP proposals went |
+| `lib/actions/define.ts` | `assistant: "never"` now means `mcp: "never"` too (default, and refused if declared otherwise); `imports.confirm_columns` is therefore `never` over MCP |
+| `lib/data/action-proposals.ts` | `listInboxProposals` (the viewer's own MCP rows: open, and decided in the last 7 days) and `countOpenInboxProposals` |
+| `lib/actions/inbox.ts` | `buildInbox`: open rows → the chat's card payloads, one per proposal group, grouped by area in registry order; decided rows → a reference list |
+| `app/admin/proposals/page.tsx`, `components/admin/DecidedProposals.tsx` | **Assistant proposals** (`/admin/proposals`): the same `ActionProposalCard`, confirming through the same `POST /api/action-proposals` (cookie only, creator only), so a confirm is `performAction` with `surface: "mcp"` and the permission checked again. A count and a link for field changes waiting on `/admin/refresh`, which links back |
+| `lib/admin/surfaces.ts`, `data/admin-overview.ts`, `admin-tiles.ts` | The inbox is a surface in **Queues** (section bar, ⌘K, a half tile counting the viewer's open MCP proposals). A surface's `permission` may now be a list (any of): the inbox is open to every `ADMIN_SURFACE_PERMISSIONS` holder, since it holds whatever its viewer proposed |
+| `capabilities/admin-reads.ts`, `catalog-reads.ts` | `list_corrections`, `list_project_queue`, `get_tool_units` and `list_imports` are offered over MCP too (same gates, text fenced), so an MCP client can find the ids its proposals name. `find_people` stays chat only |
+| `lib/mcp/handler.ts` | The server's instructions say changes are proposals that wait in the inbox, and which areas are never available |
+| `lib/actions/exempt.ts` | Every remaining exemption is a decision: its reason starts with one of `EXEMPT_KINDS` (`Never`, `Not a write`, `Account gate…`, `Route-backed`…), and `parity.test.ts` refuses a "Later". The five "Later" entries became decisions (below) |
+| `lib/actions/spec-drift.test.ts` | Phase 8's drift check, mechanical: every registered id and tool name is written in this spec; every id §4.9 names is registered or listed with the amendment that decided otherwise; each §4.9 row's MCP column matches the definition, or the deviation is named |
+| Docs | `docs/mcp.md` (the proposing tools, the inbox, what is never over MCP), `docs/assistant.md` (new: what the assistant can do, for people), `docs/architecture-guide.md` (the action layer), `docs/specs/README.md`, `v5/AGENTS.md` |
+
+**Owner's answers, as applied.** Q4: MCP gets proposals only. There is **no `act` scope** and no
+`direct` beyond `update_ticket`, which keeps working over MCP exactly as before (`staff.ts`'s
+`writeTicket` call, `surface: mcp`); `set_correction_status` proposes (phase 1 deviation 11).
+Q3: no spend action over MCP (`defineAction` refuses it). Q7: 7 days, from the database's clock.
+Q11: only the creator sees or confirms; another person's id answers `not_found`, and a bearer
+token cannot confirm at all (`resolveIdentity` reads the cookie only).
+
+**Q8 over MCP** (the MCP tool list per credential, pinned by `capabilities/mcp-access.test.ts` and
+`api/mcp/route.test.ts`; lists in `test/mcp/expected-tools.ts`):
+
+| Credential | MCP tools | Of them, proposing tools |
+|---|---|---|
+| anonymous | 6 | 0 |
+| student | 9 | 0 |
+| SuperMaker or director, full access | 37 | 19 |
+| SuperMaker or director, read-only | 13 | 0 |
+
+A director's MCP list equals a SuperMaker's: every difference between the two roles is a people
+action, and none is exposed. The chat's counts are unchanged (58 / 50 / 9).
+
+**The registry as built** (42 definitions; this is what `spec-drift.test.ts` reads §4.9 against):
+
+| Action | Tool | Risk | Permission | Chat | MCP |
+|---|---|---|---|---|---|
+| `people.set_role` | `set_person_role` | people | `users.manage` | propose | never |
+| `people.set_title` | `set_person_title` | people | `users.manage` | propose (batch ≤ 20) | never |
+| `people.set_name` | `set_person_name` | people | `users.manage` | propose | never |
+| `people.add` | `add_person` | people | `users.manage` | propose | never |
+| `people.remove` | `remove_person` | destructive | `users.manage` | propose | never |
+| `people.unblock_email` | `unblock_email` | people | `users.manage` | propose | never |
+| `people.grant_allowance` | `grant_research_allowance` | people | `users.manage` | propose | never |
+| `tickets.update` | `update_ticket` | operational | `maintenance.manage` | propose (batch ≤ 20) | direct |
+| `tickets.log_completed` | `log_completed_maintenance` | operational | `maintenance.manage` | propose | propose |
+| `corrections.set_status` | `set_correction_status` | operational | `feedback.manage` | propose (batch ≤ 20) | propose |
+| `projects.set_published` | `set_project_published` | catalog | `projects.moderate` | propose | propose |
+| `tools.set_published` | `set_tool_published` | catalog | `tools.publish` | propose (batch ≤ 20) | propose |
+| `tools.mark_reviewed` | `mark_tool_reviewed` | catalog | `tools.edit` | propose (batch ≤ 20) | propose |
+| `tools.archive` | `archive_tool` | destructive | `tools.publish` | propose | never |
+| `tools.restore` | `restore_tool` | catalog | `tools.publish` | propose | propose |
+| `units.add` | `add_unit` | catalog | `tools.edit` | propose | propose |
+| `units.edit` | `edit_unit` | catalog | `tools.edit` | propose | propose |
+| `units.retire` | `retire_unit` | catalog | `tools.edit` | propose | propose |
+| `units.delete` | `delete_unit` | destructive | `tools.edit` | propose | never |
+| `resources.add` | `add_resource` | catalog | `tools.edit` | propose | propose |
+| `resources.edit` | `edit_resource` | catalog | `tools.edit` | propose | propose |
+| `resources.remove` | `remove_resource` | destructive | `tools.edit` | propose | never |
+| `pending.approve` | `approve_pending_items` | catalog | `tools.approve` | propose (batch ≤ 20) | propose |
+| `pending.add_unit` | `add_pending_as_unit` | catalog | `tools.approve` | propose | propose |
+| `pending.discard` | `discard_pending_item` | destructive | `tools.approve` | propose | never |
+| `pending.save_identity` | `rename_pending_item` | catalog | `tools.approve` | propose | propose |
+| `pending.edit` | `edit_pending_items` | catalog | `tools.add` | propose (batch ≤ 20) | propose |
+| `pending.different_image` | `find_different_image` | spend | `tools.approve` | propose | never |
+| `pending.research` | `research_pending_items` | spend | `tools.add` | propose | never |
+| `imports.confirm_columns` | `confirm_import_columns` | catalog | `tools.add` | never | never |
+| `imports.edit_row` | `edit_import_row` | catalog | `tools.add` | propose | propose |
+| `imports.set_hints` | `set_import_hints` | catalog | `tools.add` | propose | propose |
+| `imports.remove_rows` | `remove_import_rows` | catalog | `tools.add` | propose | never |
+| `imports.merge_row` | `merge_import_row` | catalog | `tools.add` | propose | propose |
+| `imports.decide_suggestions` | `decide_import_suggestions` | catalog | `tools.add` | propose | propose |
+| `imports.request_suggestions` | `request_import_suggestions` | spend | `tools.add` | propose | never |
+| `manuals.reprocess` | `reprocess_manual` | spend | `tools.edit` | propose | never |
+| `manuals.reprocess_library` | `reprocess_library_manual` | spend | `tools.edit` | never | never |
+| `refresh.queue` | `queue_refresh` | spend | `tools.edit` | propose | never |
+| `mirror.sync_now` | `sync_mirror` | operational | `mirror.manage` | propose | never |
+| `mirror.set_paused` | `pause_mirror` | operational | `mirror.manage` | propose | never |
+| `mirror.disconnect` | `disconnect_mirror` | destructive | `mirror.manage` | propose | never |
+
+§4.9 names three tools differently from the build: `edit_import_rows` is `edit_import_row` (one row
+per call) plus `set_import_hints`, and `manuals.reprocess_library` (`reprocess_library_manual`) is
+registered `never` (the library table's door to `manuals.reprocess`).
+
+**Where the build differs from §3.8, §6 and §9, and why.**
+
+1. **No `act` scope**, and nothing on the token or consent pages (§11 answer 4 settles it).
+2. **The inbox holds action proposals only.** Field changes (`propose_change` over MCP) keep their
+   review on `/admin/refresh`, where citations and quote checks are shown and anyone with
+   `tools.edit` decides them (refresh research spec §12, unchanged); the inbox counts them and
+   links there, and the Refresh section links back.
+3. **Four read tools reach MCP** that §3.4 listed for the chat (above); `find_people` does not.
+4. **Taint does not apply over MCP.** An MCP client reads whatever it likes outside the app, so
+   the server cannot know; that is one more reason people, destructive and `refuseWhenTainted`
+   actions are never exposed there, and each MCP proposal is still a card its creator must press.
+5. **Exemptions became decisions.** `POST /api/admin/revalidate` (`catalog.refresh_cache`, #10):
+   never — a cache flush, not a change, and every action refreshes its own pages.
+   `refreshAgain`: never as its own action — it closes an open refresh on its review page; the
+   assistant starts research with `queue_refresh`. `POST /api/projects` (`projects.submit`, #3):
+   never through the assistant — a student's own write-up with uploads (§2 non-goal on files), and
+   students are offered no action tools. `revokeTokenAction` / `revokeAppAction`
+   (`account.revoke_token`, #7): an account gate, not an admin permission — a person manages their
+   own credentials beside the list. The spec's §4.9 rows for these stand as history.
+6. **Not built:** pruning decided proposals after 90 days (§5.5 — rows are small; a cron step can
+   follow when the table needs it), the card's "Ask again", and a "via MCP" tag (there is still no
+   audit list page; `audit_events.surface` records it).
+
+**Tests.** `api/mcp/proposals.route.test.ts` (real MCP route, real confirm route, PGlite): a token
+proposes, nothing changes, the row is `surface: mcp` for 7 days; another admin cannot see or confirm
+it; the token itself cannot confirm (401); the creator's cookie confirms, audited `tool.unpublished`
+with `surface: mcp` and the proposal id; `set_correction_status` proposes; a director's token has no
+people tool; no destructive or spending tool. `lib/actions/inbox.test.ts`, the MCP half of
+`capabilities/actions.test.ts`, `parity.test.ts` (an MCP tool for exactly the `mcp: "propose"`
+actions; exemptions are decisions), `define.test.ts`, `mcp-access.test.ts` (no people, spend or
+destructive tool for any credential; a director's list equals a SuperMaker's), the overview loader
+and tile, `surfaces.test.ts`, `AdminNav.test.tsx`, `spec-drift.test.ts`. E2E
+(`e2e/assistant-actions.spec.ts`): a token made on `/account/tokens` proposes over `/api/mcp`, the
+card is on `/admin/proposals` from the section bar, Dismiss settles it and it moves to the decided
+list. Evals: one case (`mcp-proposals-inbox`), not run (paid).
+
+**Review fixes (stage 4).**
+
+1. **The 50-open cap is per surface.** `countOpenProposals` takes the proposing surface, so a
+   week of MCP proposals (a looping client, a leaked token) can never lock the same person's
+   chat assistant out; each surface has its own 50 (§8.3 amended). Tests: `action-proposals.test.ts`
+   and `proposals.test.ts` (50 open MCP rows, a chat proposal still goes through, a 51st MCP one is
+   `too_many_open`).
+2. **The inbox is bounded.** An `open` or stranded `confirming` MCP row leaves the inbox 7 days
+   after it expired, like a decided one (`listInboxProposals`); rows stay in the table as the trail.
+3. **A card's re-read has its own limiter.** `GET /api/action-proposals` checks
+   `actionProposalRead` (300 / min), not `actionConfirm`, so loading an inbox of many cards never
+   spends the budget of the Confirm click itself.
+4. **`refuseWhenTainted` means never over MCP**, enforced by `defineAction` (the default, and
+   refused if declared otherwise), since MCP has no taint tracking.
+5. **Not built: which credential proposed.** An MCP row does not record the token or OAuth client
+   that made it, so revoking a leaked token leaves its open proposals in the owner's inbox for up
+   to 7 days, indistinguishable from their own client's. Each still needs its creator's click in
+   the app, and the owner can dismiss them there. Recording the credential needs a column
+   (a migration), a "proposed by" line on the card and a cancel on revoke: a follow-up.
+
+**Status.** Built on `v5/assistant-gui-parity`; one PR for phases 1–8, to merge before #79 (the
+flatten), which merges last.
+
+### 2026-09-27 — owner decision: assistant limits
+
+The owner narrowed §1's "anything the GUI can" (2026-09-27, added to PR #95). The GUI keeps every
+one of these for people who hold the permission; only the assistant loses them.
+
+**The assistant acts only as the signed-in person, never past their role.** Unchanged from §8.2,
+now pinned by its own test: a tool is offered on either surface only when the person holds the
+capability's and the tool's permission (`capabilitiesForIdentity`, `mcpToolAllowed`), and
+`proposeAction` and the confirm route's `performAction` ask `can()` again.
+
+**Never, on any surface (chat or MCP), whatever the role:**
+
+| # | What | How it is enforced |
+|---|---|---|
+| 1 | Setting anyone's role to `super_admin`, or changing an existing super admin's role | `people.set_role` stays in the chat for User ↔ Admin changes. Its `check` and `run` refuse `only_on_people_page` ("That change can only be made on the People page.") when `ctx.surface` is not `gui` and either the current or the new role is `super_admin` (`superAdminPageOnly`, `lib/actions/people.ts`). `people.add` refuses a `super_admin` role the same way (a floor address included, since it would be stored `super_admin`). Checked at propose time and again at the click |
+| 2 | Granting research allowances | `people.grant_allowance` is `assistant: "never"`, no tool, no preview |
+| 3 | Removing people; blocking or unblocking addresses | `people.remove` (whose `block` option is the only block door) and `people.unblock_email` are `assistant: "never"`, no tool, no preview; `people.block_email` is on the id list before it exists |
+| 4 | Disconnecting the Notion mirror | `mirror.disconnect` is `assistant: "never"`, no tool, no preview |
+| 5 | Reading or setting environment variables or secrets; creating tokens or handling any secret; deploying or changing hosting; raw SQL or database access; restoring backups or `data:push`; editing or deleting audit events; bulk-exporting people's emails; sending emails or messages | No action or tool does any of these today. The deny list's categories (below) make one that did fail at load (an action) or vanish from both surfaces (any capability tool). Token creation and the Notion secret stay `EXEMPT` "Never" (§2). `find_people` keeps masking |
+
+**The deny list** (`lib/actions/define.ts`):
+
+- `ASSISTANT_FORBIDDEN_ACTIONS` — ids with the reason: `people.grant_allowance`, `people.remove`,
+  `people.block_email`, `people.unblock_email`, `mirror.disconnect`.
+- `ASSISTANT_FORBIDDEN_CATEGORIES` — words that name forbidden work: secrets (`env`, `secret`,
+  `credential`, `password`…), tokens (`token`, `oauth`, `consent`), hosting (`deploy`, `vercel`,
+  `domain`, `dns`, `rollback`, `promote`…), database (`sql`, `db`, `migrate`, `raw`…), backups
+  (`backup`, `dump`, `push`, `data`), audit (`audit`, `trail`), messaging (`send`, `mail`,
+  `message`, `notify`, `sms`, `slack`, `invite`…), export (`export`, `download`, `csv`, `email`,
+  `emails`, `addresses`), people (`block`, `unblock`, `ban`, `allowance`). An action id or tool name
+  is split on `.`, `_`, `-`; one matching word forbids it. Deliberately broad: a false match costs a
+  `neverReason`, a missed one is a leak. No tool offered today matches.
+
+**Where it is enforced (defence in depth):**
+
+1. **At load** — `defineAction` throws for an action on the deny list that is not
+   `assistant: "never"`, and for any `"never"` action that still carries a `tool` or `preview`.
+2. **Where tools are generated** — `proposableDefinitions` (the one list both surfaces' action tools
+   come from) keeps only `assistantMayPropose` definitions; `capabilitiesForIdentity` (chat) and
+   `mcpToolAllowed` (MCP registration, the `/mcp` page and the per-call re-check) drop any
+   capability tool whose name is forbidden, for every role.
+3. **At propose time** — `proposeAction` answers `not_offered` for a definition the assistant may
+   not propose.
+4. **At the click** — `decideActionProposals` settles a stored proposal whose action the assistant
+   may no longer propose as `failed` / `not_offered` before `performAction` runs, so a card stored
+   before this decision (or a row written by anything but `proposeAction`) commits nothing.
+   `admin.errors.not_offered` and `admin.errors.only_on_people_page` are the card's sentences.
+
+**Counts** (the phase 2 measurement, §11 answer 8): action tools 40 → **36** for a director,
+33 → **32** for a SuperMaker; chat tools 58 → **54** and 50 → **49**; students 9. The MCP lists are
+unchanged (none of the four was ever on MCP).
+
+**The registry, changed rows** (the phases 7–8 table stands as history):
+
+| Action | Tool | Risk | Permission | Chat | MCP |
+|---|---|---|---|---|---|
+| `people.set_role` | `set_person_role` | people | `users.manage` | propose (User ↔ Admin only; never `super_admin`) | never |
+| `people.add` | `add_person` | people | `users.manage` | propose (never as `super_admin`) | never |
+| `people.remove` | `remove_person` | destructive | `users.manage` | never | never |
+| `people.unblock_email` | `unblock_email` | people | `users.manage` | never | never |
+| `people.grant_allowance` | `grant_research_allowance` | people | `users.manage` | never | never |
+| `mirror.disconnect` | `disconnect_mirror` | destructive | `mirror.manage` | never | never |
+
+§5.4 ("Remove Casey") stands as history: the assistant now says removal is done on the People page.
+
+**Tests.** `lib/actions/assistant-limits.test.ts` (new): the categories match sample future ids
+(`db.run_sql`, `data.push`, `send_email`, `export_emails`, `create_token`, `edit_audit_event`…) and no
+tool offered today; `defineAction` refuses each forbidden id unless `never`, and a `never` with a
+tool; the registry's forbidden actions are exactly the four, `never`, with no tool, preview or MCP;
+for every role, neither the chat's composed tools (curation included) nor the MCP list nor the
+`/mcp` page carries a forbidden tool, and every tool offered needs a permission that role holds; a
+rogue capability's `send_email`, `run_sql`, `set_env`, `create_token`, `deploy_now`,
+`restore_backup`, `delete_audit_event` are dropped on both surfaces for a super admin; and every read
+either surface offers a super admin (PGlite, seeded users, a ticket and a correction carrying
+addresses) returns no full address. `proposals.test.ts`: `set_role` to or from `super_admin` and
+`add` as `super_admin` refused on the chat and MCP surfaces; User ↔ Admin still confirms; a forged
+stored promotion and a card whose subject became a super admin are refused at the click; the People
+page still promotes, demotes and adds super admins. `imports-mirror.test.ts`: `mirror.disconnect`,
+`people.remove`, `people.grant_allowance` and `people.unblock_email` propose `not_offered`, and
+stored proposals for each are refused at the click with nothing changed (the typed name
+notwithstanding). `capabilities/actions.test.ts`: no role is offered the four; the prompt says what
+is never the assistant's. `api/chat/taint.route.test.ts`: taint now shown with `set_person_role`, the
+destructive card with `archive_tool`, and a model that calls `remove_person` stores nothing.
+
+**Status.** Built on `v5/assistant-gui-parity` (PR #95).

@@ -11,6 +11,7 @@ import type { Identity } from "../auth/identity";
 // `catalog.ts` (pulled in to resolve unit labels) imports cacheTag/cacheLife.
 vi.mock("next/cache", () => nextCacheMock());
 
+import { revalidateTag } from "next/cache";
 import { maintenance } from "./maintenance";
 
 /**
@@ -128,12 +129,9 @@ describe("report_issue — the ticket that lands", () => {
     expect(row.dateReported).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
-  it("drops the tool pages' cached maintenance history, and only it, once the ticket lands", async () => {
-    const { revalidateTag } = await import("next/cache");
+  it("drops the cached ticket reads (kiosk count, tool maintenance history), not the catalogue", async () => {
     vi.mocked(revalidateTag).mockClear();
-
-    await file(issue({ unit_label: "Form 4 // A" }));
-
+    await file(issue());
     expect(vi.mocked(revalidateTag)).toHaveBeenCalledWith("maintenance", { expire: 0 });
     expect(vi.mocked(revalidateTag)).not.toHaveBeenCalledWith("catalog", expect.anything());
   });

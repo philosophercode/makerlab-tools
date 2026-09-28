@@ -15,11 +15,13 @@ export const ADMIN_PROJECTS_PATH = "/admin/projects";
 /**
  * Why a project did not change.
  *
- * Only one code of its own: publishing takes no input but a boolean, so there
- * is no field to be invalid. `not_found` means the submission is gone —
- * somebody deleted it, or the page has been open since before it was.
+ * - `not_found` — the submission is gone: somebody deleted it, or the page has
+ *   been open since before it was.
+ * - `invalid_field` — the request was not an id and a boolean. The page never
+ *   sends one; the action layer's schema answers it for any other caller
+ *   (assistant–GUI parity spec §3.3) rather than publishing on a truthy string.
  */
-export type ProjectWriteError = "not_found";
+export type ProjectWriteError = "not_found" | "invalid_field";
 
 export type ProjectActionError = AdminGateError | ProjectWriteError;
 

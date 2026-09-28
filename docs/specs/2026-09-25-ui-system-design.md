@@ -1552,7 +1552,7 @@ is the working reference):
   thumbnails are committed, content-hashed and served immutable
   (`npm run thumbnails:bundled`, re-run when a PNG changes; a test fails until
   it is). Blob photos get theirs after upload, approval and refresh
-  (`attachments.thumbnails`, migration `0020`), existing ones through
+  (`attachments.thumbnails`, migration `0021`), existing ones through
   `npm run thumbnails:backfill` (dry run by default). Without thumbnails the
   image falls back to `next/image`, now optimized. 1280 px was left out: no
   slot is wider than ~264 CSS px, so 640 covers 2.4× screens.

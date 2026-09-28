@@ -31,8 +31,8 @@ import type { MakerLabProject, ProjectToolRef } from "../../components/catalog-t
 type ProjectRow = typeof projects.$inferSelect;
 
 /** Every published project, newest first (spec §4.10). */
-export async function listPublishedProjects(): Promise<MakerLabProject[]> {
-  const db = await getDb();
+export async function listPublishedProjects(options: { db?: Db } = {}): Promise<MakerLabProject[]> {
+  const db = options.db ?? (await getDb());
   const rows = await db
     .select()
     .from(projects)

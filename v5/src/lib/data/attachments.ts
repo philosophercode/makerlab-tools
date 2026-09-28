@@ -348,7 +348,7 @@ export interface StoredAttachment {
   sourceUrl: string | null;
   /** Who uploaded it — what a claim by typed-in id checks (bulk intake's source file). */
   uploadedBy: string | null;
-  /** A public image's thumbnails (migration `0020`) — files the sweep deletes with it. */
+  /** A public image's thumbnails (migration `0021`) — files the sweep deletes with it. */
   thumbnails?: unknown;
 }
 

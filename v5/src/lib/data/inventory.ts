@@ -67,7 +67,7 @@ export interface InventoryRow {
   officialName?: string | null;
   /** The cover photo's public URL, or null — null *is* the "no photo" state. */
   photoUrl: string | null;
-  /** The cover's thumbnails (migration `0020`), when it has them — the table's 24px icon uses the smallest. */
+  /** The cover's thumbnails (migration `0021`), when it has them — the table's 24px icon uses the smallest. */
   photoThumbnails?: ImageThumbnails;
   categoryName: string | null;
   categoryGroup: string | null;

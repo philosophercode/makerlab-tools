@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
+import { usePublishSelection } from "../chat/page-selection";
 import { matchSorter } from "match-sorter";
 import type { ColumnDef, RowSelectionState, VisibilityState } from "@tanstack/react-table";
 import type { InventoryRow, ToolState } from "../../lib/data/inventory";
@@ -104,6 +105,9 @@ export function InventoryBoard({ rows, initial, actions, canPublish = true, queu
   const [selection, setSelection] = useState<RowSelectionState>({});
   const [refreshing, setRefreshing] = useState<string[] | null>(null);
   const [visibility, setVisibility] = useState<VisibilityState>(DEFAULT_HIDDEN);
+  // The ticked tools, told to the assistant (parity spec §3.6): "these".
+  const selectedIds = useMemo(() => Object.keys(selection).filter((id) => selection[id]), [selection]);
+  usePublishSelection("tool", selectedIds);
 
   useEffect(() => {
     const query = toSearchParams(filters).toString();

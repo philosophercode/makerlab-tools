@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { getCatalogTools } from "../catalog";
 import { createMaintenanceLog } from "../data/maintenance";
-import { invalidateMaintenanceHistory } from "../revalidate";
+import { invalidateMaintenance } from "../revalidate";
 import { buildUnitLookup, findUnit } from "./helpers";
 import type {
   Capability,
@@ -137,14 +137,20 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
         photoAttachmentIds: photoIds,
       });
 
+      // The kiosk's open-ticket count (kiosk spec §3.1) and the tool page's
+      // maintenance history. A cache that cannot
+      // be dropped is a screen a poll behind, never a lost ticket.
+      try {
+        invalidateMaintenance();
+      } catch (err) {
+        console.warn(`[maintenance] ticket ${record.id} filed; the ticket-count cache could not be cleared`, err);
+      }
+
       // Photos offered but none claimed: say so rather than let the student
       // believe staff can see the picture they took (Article 4). Until the
       // upload route moves to Blob this is the normal case, because the ids in
       // the hint are still Notion file_upload ids and no `attachments` row
       // answers to them.
-      // The tool page's maintenance history lists tickets; it is cached.
-      invalidateMaintenanceHistory();
-
       const photosLost = photoIds.length > 0 && record.photosAttached === 0;
       if (photosLost) {
         console.warn(

@@ -11,18 +11,18 @@ import type {
   IntakeApproveResult,
 } from "../../app/admin/intake/action-result";
 import type { AdminActionWarning } from "../../lib/admin/action-result";
-import type { ApprovalFields, ApprovalImageChoice } from "../../lib/data/pending-tools";
+import type { ApprovalImageChoice } from "../../lib/data/pending-tools";
 import type { CategoryOption, LocationOption } from "../../lib/data/taxonomy";
 import { importLinkResource } from "../../lib/import/resources";
 import type { ImportLink, LabDoc } from "../../lib/import/types";
 import { imageRetryInProgress } from "../../lib/intake/image-retry-state";
 import { INTAKE_POLL_INTERVAL_MS, REDO_HIGHLIGHT_SHOW_MS } from "../../lib/intake/limits";
-import { trainingAtApproval, trainingEvidence } from "../../lib/intake/training";
+import { initialDraft, NEW_CATEGORY, toFields, type ApprovalDraft as Draft } from "../../lib/intake/approval-draft";
+import { trainingEvidence } from "../../lib/intake/training";
 import { isImageOnlyFocus, type ResearchFocusField } from "../../lib/intake/research-focus";
 import { ADMIN_INTAKE_PATH, type PendingToolView } from "../../lib/intake/types";
 import type { ResearchImages, ResearchResult } from "../../lib/research/result";
-import { distinctDisplayName } from "../../lib/tool-name-choice";
-import { DISPLAY_NAME_MAX, displayNameFrom, isNameTaken, OFFICIAL_NAME_MAX } from "../../lib/tool-names";
+import { DISPLAY_NAME_MAX, isNameTaken, OFFICIAL_NAME_MAX } from "../../lib/tool-names";
 import { ConfidenceStrip, isWebLink } from "../ConfidenceStrip";
 import { requestResearch } from "./IntakeList";
 import { initialImageChoice, ProductImage } from "./ProductImage";
@@ -136,30 +136,6 @@ export interface ImportedExtras {
   links: ImportLink[];
   labDocs: LabDoc[];
   notes: string | null;
-}
-
-/** The option that creates research's proposed category at approval. */
-const NEW_CATEGORY = "__new__";
-
-/** What the reviewer is editing: the proposal as text, the way inputs hold it. */
-interface Draft {
-  /** The display name (tool display names spec §5.3). */
-  name: string;
-  /** The official name; blank is none. */
-  officialName: string;
-  description: string;
-  category: string;
-  locationId: string;
-  materials: string;
-  ppeRequired: string;
-  tags: string;
-  /** Null is "staff to confirm" — saved as required unless the reviewer says otherwise (`intake/training.ts`). */
-  trainingRequired: boolean | null;
-  useRestrictions: string;
-  serialNumber: string;
-  resourceUrls: string[];
-  /** The import's own links still ticked (bulk intake spec §3.4). */
-  importLinkUrls: string[];
 }
 
 /** Which write is in flight. One at a time, and every control knows it. */
@@ -1168,117 +1144,6 @@ function settledFromProps(
   return null;
 }
 
-/** The proposal as the form's starting point. */
-/** Research's display name, made distinct from every tool's when it would repeat one. */
-function initialName(item: PendingToolView, research: ResearchResult, takenNames: readonly string[]): string {
-  const category = research.category.name || null;
-  const base = displayNameFrom({
-    displayName: research.displayName,
-    officialName: research.canonicalName,
-    fallback: item.name,
-    category,
-  });
-  return (
-    distinctDisplayName(
-      { base, answer: research.displayName, sourceName: research.canonicalName.trim() || item.name, category },
-      takenNames
-    ) || base
-  );
-}
-
-function initialDraft(
-  item: PendingToolView,
-  research: ResearchResult | null,
-  categories: CategoryOption[],
-  locations: LocationOption[],
-  imported: ImportedExtras | null = null,
-  takenNames: readonly string[] = []
-): Draft {
-  return {
-    // Every link the list gave starts ticked, like research's.
-    importLinkUrls: (imported?.links ?? []).map((link) => link.url),
-    // Research's short name (or, on an older row, its official name through the
-    // display guard); the official name beside it (tool display names spec §5.3).
-    // One no other tool has, keeping the attribute that tells it apart
-    // (amendment 2026-09-25); when there is none the box says so.
-    name: research ? initialName(item, research, takenNames) : item.name,
-    officialName: research?.canonicalName.trim() ?? "",
-    description: research ? proposedDescription(research) : "",
-    category: research ? proposedCategory(research, categories) : "",
-    locationId: matchLocation(item.locationHint, locations),
-    materials: (research?.materials ?? []).join(", "),
-    ppeRequired: (research?.ppeRequired ?? []).join(", "),
-    tags: (research?.tags ?? []).join(", "),
-    // Training is the lab's call (research amendment 2026-09-24): every item
-    // starts at "staff to confirm", whatever research or an older row says.
-    trainingRequired: null,
-    useRestrictions: research?.useRestrictions ?? "",
-    serialNumber: item.serialNumber ?? "",
-    // Every verified link starts ticked; unticking one is the edit.
-    resourceUrls: (research?.resources ?? []).map((resource) => resource.url),
-  };
-}
-
-/**
- * The description research drafted, alone. The specs are no longer appended
- * as a Markdown list (gateway spec amendment 2026-09-26 "Short descriptions"):
- * a description says what the tool is and what it is for, touching on a spec
- * or two in prose. Research's specs still back its evidence and confidence.
- */
-export function proposedDescription(research: ResearchResult): string {
-  return research.description.trim();
-}
-
-/**
- * The category research matched, if the lab still has it; otherwise research's
- * proposal, to be created at approval; otherwise none.
- */
-function proposedCategory(research: ResearchResult, categories: CategoryOption[]): string {
-  const existing = research.category.existingId;
-  if (existing && categories.some((category) => category.id === existing)) return existing;
-  return research.category.name.trim() ? NEW_CATEGORY : "";
-}
-
-/** A location whose room or zone is the hint, ignoring case. */
-function matchLocation(hint: string | null, locations: LocationOption[]): string {
-  const wanted = hint?.trim().toLowerCase();
-  if (!wanted) return "";
-  const match = locations.find(
-    (location) => location.room.toLowerCase() === wanted || location.zone.toLowerCase() === wanted
-  );
-  return match?.id ?? "";
-}
-
 function categoryLabel(name: string, group: string | null): string {
   return group ? `${group} — ${name}` : name;
-}
-
-/** "PLA, resin" → ["PLA", "resin"]. Blanks dropped. */
-function splitList(value: string): string[] {
-  return value
-    .split(",")
-    .map((entry) => entry.trim())
-    .filter(Boolean);
-}
-
-/** The draft as `approvePendingTool` takes it, with the chosen image. */
-function toFields(draft: Draft, research: ResearchResult, image: ApprovalImageChoice, imported = false): ApprovalFields {
-  const isNew = draft.category === NEW_CATEGORY;
-  return {
-    name: draft.name.trim(),
-    officialName: draft.officialName.trim() || null,
-    description: draft.description.trim() || null,
-    categoryId: draft.category && !isNew ? draft.category : null,
-    newCategory: isNew ? { name: research.category.name, group: research.category.group } : null,
-    locationId: draft.locationId || null,
-    materials: splitList(draft.materials),
-    ppeRequired: splitList(draft.ppeRequired),
-    tags: splitList(draft.tags),
-    trainingRequired: trainingAtApproval(draft.trainingRequired),
-    useRestrictions: draft.useRestrictions.trim() || null,
-    serialNumber: draft.serialNumber.trim() || null,
-    resourceUrls: draft.resourceUrls,
-    ...(imported ? { importLinkUrls: draft.importLinkUrls } : {}),
-    image,
-  };
 }

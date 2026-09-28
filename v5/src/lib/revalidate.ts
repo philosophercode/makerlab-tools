@@ -51,13 +51,13 @@ export const CATALOG_TAG = "catalog";
 export const PROJECTS_TAG = "projects";
 
 /**
- * The tool page's maintenance history (`getToolMaintenanceHistory`), which is
- * tagged with the catalogue *and* this: a ticket filed or worked changes the
- * history without touching the catalogue, so it drops only this.
+ * Every cached read of maintenance tickets: the kiosk's open-ticket count, and
+ * a tool page's maintenance history (`getToolMaintenanceHistory`, which also
+ * carries the catalogue tag).
  */
 export const MAINTENANCE_TAG = "maintenance";
 
-/** Tags a full refresh has to clear. `CATALOG_TAG` covers the maintenance history too. */
+/** Tags a full refresh has to clear. */
 export const ALL_TAGS = [CATALOG_TAG, PROJECTS_TAG] as const;
 
 /**
@@ -80,14 +80,11 @@ export function invalidateProjects(): void {
 }
 
 /**
- * Drop the cached maintenance histories, and nothing else. Never throws: a
- * ticket that landed is not un-landed by a cache that could not be told (the
- * history then catches up when its cache expires).
+ * Drop cached ticket counts — today only the kiosk's open-ticket figure (kiosk
+ * spec §3.1). Called after every ticket write, so a screen polling once a
+ * minute shows a new ticket on its next poll while costing Postgres nothing in
+ * between.
  */
-export function invalidateMaintenanceHistory(): void {
-  try {
-    revalidateTag(MAINTENANCE_TAG, EXPIRE_NOW);
-  } catch (err) {
-    console.error("[revalidate] could not invalidate the maintenance history", err);
-  }
+export function invalidateMaintenance(): void {
+  revalidateTag(MAINTENANCE_TAG, EXPIRE_NOW);
 }

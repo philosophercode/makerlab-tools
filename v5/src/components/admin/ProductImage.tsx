@@ -3,6 +3,7 @@
 import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import type { ApprovalImageChoice } from "../../lib/data/pending-tools";
+import { initialImageChoice } from "../../lib/intake/approval-draft";
 import type { CleanedKind, ImageCandidate, ImageRetryState, ImageView, ResearchImages } from "../../lib/research/result";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -125,15 +126,7 @@ export function plannedClean(candidate: ImageCandidate): PlannedClean {
  * otherwise rank 1, otherwise no image — and always no image when the admin's
  * own photo is the cover.
  */
-export function initialImageChoice(
-  images: ResearchImages | null | undefined,
-  hasUploadedPhoto: boolean
-): ApprovalImageChoice {
-  if (hasUploadedPhoto || !images) return NONE;
-  if (images.cleaned) return { choice: "cleaned" };
-  const first = images.candidates[0];
-  return first ? { choice: "original", candidateUrl: first.url } : NONE;
-}
+export { initialImageChoice };
 
 /**
  * Where a cleaned copy is served from — the only URL the page builds itself.

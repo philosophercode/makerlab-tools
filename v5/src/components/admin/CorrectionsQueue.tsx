@@ -41,6 +41,7 @@ export function CorrectionsQueue({ corrections, action }: CorrectionsQueueProps)
       items={corrections}
       getId={(correction) => correction.id}
       isOpen={(correction) => correction.status === WAITING}
+      selectable={{ kind: "feedback", name: (correction) => correction.toolName || correction.issueDescription.slice(0, 60) }}
       searchText={(correction) =>
         [correction.toolName, correction.issueDescription, correction.suggestedFix, correction.reporterName].join(" ")
       }

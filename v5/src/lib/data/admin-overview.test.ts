@@ -37,6 +37,33 @@ it("counts the demo seed's waiting work per loader", async () => {
   expect(o.maintenance).toMatchObject({ open: 1, urgent: 1 });
   expect(o.corrections?.open).toBeGreaterThanOrEqual(1);
   expect(o.mirror).toEqual({ state: "notConnected" });
+  expect(o.proposals).toEqual({ open: 0 });
+});
+
+it("counts only the viewer's own open, unexpired MCP proposals (assistant–GUI parity spec §6)", async () => {
+  const { actionProposals } = await import("../db/schema/index");
+  const { sql } = await import("drizzle-orm");
+  const base = {
+    groupId: crypto.randomUUID(),
+    actionId: "tools.set_published",
+    input: {},
+    subjectType: "tool",
+    subjectId: "t",
+    preview: {},
+    expiresAt: sql`now() + interval '1 day'`,
+  };
+  const me = DEMO_ACCOUNTS.superAdmin.id;
+  await db.insert(actionProposals).values([
+    { ...base, surface: "mcp", createdBy: me },
+    { ...base, surface: "mcp", createdBy: me },
+    { ...base, surface: "mcp", createdBy: me, status: "confirmed" },
+    { ...base, surface: "mcp", createdBy: me, expiresAt: sql`now() - interval '1 minute'` },
+    // A chat card is not the inbox's.
+    { ...base, surface: "assistant", createdBy: me },
+  ]);
+  expect((await loadAdminOverview(["proposals"], { db, userId: me })).proposals).toEqual({ open: 2 });
+  expect((await loadAdminOverview(["proposals"], { db, userId: null })).proposals).toEqual({ open: 0 });
+  await db.delete(actionProposals);
 });
 
 it("reads only the loaders it is asked for", async () => {

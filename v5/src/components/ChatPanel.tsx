@@ -21,6 +21,7 @@ import { ChatComposer } from "./chat/ChatComposer";
 import { parseCeiling } from "./chat/chat-text";
 import { useChatAttachments } from "./chat/use-chat-attachments";
 import { useDictation } from "./chat/use-dictation";
+import { usePageSelectionReader, type PageSelection } from "./chat/page-selection";
 import { FROSTED } from "./system/frosted";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +41,11 @@ function safeDecode(segment: string): string {
   }
 }
 
+/** What the chat body says about the page: the path, and a selection when there is one. */
+function pageContext(path: string, selection: PageSelection | null): { path: string; selection?: PageSelection } {
+  return selection && selection.ids.length > 0 ? { path, selection: { kind: selection.kind, ids: selection.ids.slice(0, 50) } } : { path };
+}
+
 /**
  * The MakerLab assistant (UI system spec §9; phase 5b): a docked side sheet on
  * AI Elements. `ChatFab` loads this module the first time the chat opens —
@@ -51,7 +57,8 @@ function safeDecode(segment: string): string {
  *   inline-end corner; on `/admin/*` that button is not drawn (it collided
  *   with bulk bars) and the section bar's **Ask the assistant** and ⌘K open it
  *   instead. Anything else — Report, Add equipment, the QR notice — opens it
- *   through `ChatLauncherContext`, optionally with a first message.
+ *   through `ChatLauncherContext`, optionally with a first message. On
+ *   `/kiosk` `ChatFab` draws nothing at all: that screen is read-only.
  * - **The sheet** (`ui/sheet`): 440px from `sm`, the whole screen on a phone,
  *   frosted, the focus trapped inside, Escape closes, focus returns to what
  *   opened it; closing keeps the conversation, the draft and the attachments.
@@ -122,6 +129,15 @@ export function ChatPanel() {
     localeRef.current = locale;
   }, [locale]);
 
+  // Where the person is (assistant–GUI parity spec §3.6): the path, and the
+  // rows a list page has ticked, read at send time. Ids only — the server
+  // re-reads every one and drops what this person may not act on.
+  const pathRef = useRef(pathname);
+  useEffect(() => {
+    pathRef.current = pathname;
+  }, [pathname]);
+  const readSelection = usePageSelectionReader();
+
   const transport = useMemo(
     () =>
       // eslint-disable-next-line react-hooks/refs -- the closure below runs at send time inside an event handler, not during render. Reading the refs there is safe.
@@ -138,10 +154,11 @@ export function ChatPanel() {
             locale: localeRef.current,
             ...(toolIdRef.current ? { toolId: toolIdRef.current } : {}),
             ...(pendingIdRef.current ? { pendingId: pendingIdRef.current } : {}),
+            page: pageContext(pathRef.current, readSelection()),
           },
         }),
       }),
-    []
+    [readSelection]
   );
 
   // The Markdown renderer loads when the chat is first opened, not with every page.

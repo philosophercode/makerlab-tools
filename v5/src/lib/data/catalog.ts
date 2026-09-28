@@ -96,7 +96,7 @@ export interface AttachmentRow {
   originalFilename: string | null;
   /** Set on an archived manual (`manual:<resource id>:<url>`); see `./manual-archives.ts`. */
   sourceKey?: string | null;
-  /** A public image's pre-rendered thumbnails (migration `0020`), or null/absent when none were made. */
+  /** A public image's pre-rendered thumbnails (migration `0021`), or null/absent when none were made. */
   thumbnails?: ImageThumbnails | null;
 }
 

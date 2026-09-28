@@ -4,6 +4,7 @@ import {
   account,
   apiTokens,
   bulkImports,
+  actionProposals,
   chatProposals,
   oauthAccessToken,
   oauthConsent,
@@ -14,7 +15,7 @@ import {
 } from "../db/schema/index.ts";
 import type { Role } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
-import { recordAuditEvent } from "./audit.ts";
+import { recordAuditEvent, type AuditTrail } from "./audit.ts";
 import { insertBlockedEmail } from "./blocked-emails.ts";
 
 /**
@@ -74,6 +75,8 @@ export interface RemoveUserInput {
   actorUserId: string | null;
   /** Also block the address from signing up again, with an optional reason. */
   block?: { reason?: string | null } | null;
+  /** The surface and proposal the removal came from, for its audit events (parity spec §3.7). */
+  trail?: AuditTrail;
 }
 
 export interface RemovalOptions {
@@ -116,6 +119,7 @@ export async function removeUserAccount(
     await tx.update(pendingTools).set({ createdByName: target.name }).where(eq(pendingTools.createdBy, target.id));
     await tx.update(bulkImports).set({ createdByName: target.name }).where(eq(bulkImports.createdBy, target.id));
     await tx.update(chatProposals).set({ createdByName: target.name }).where(eq(chatProposals.createdBy, target.id));
+    await tx.update(actionProposals).set({ createdByName: target.name }).where(eq(actionProposals.createdBy, target.id));
     // Touched so the Notion mirror re-pushes them without the author's email
     // (it reads that through a join). A ticket's assignee needs nothing: the
     // foreign key clears `assigned_to_user_id` and the trigger stamps it.
@@ -143,6 +147,7 @@ export async function removeUserAccount(
 
     await recordAuditEvent(
       {
+        ...input.trail,
         actorUserId: input.actorUserId,
         action: "user.removed",
         subjectType: "user",
@@ -162,6 +167,7 @@ export async function removeUserAccount(
       if (inserted) {
         await recordAuditEvent(
           {
+            ...input.trail,
             actorUserId: input.actorUserId,
             action: "email.blocked",
             subjectType: "email",
