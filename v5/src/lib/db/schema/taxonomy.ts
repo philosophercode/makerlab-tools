@@ -22,7 +22,7 @@ import { CATEGORY_PROPOSAL_KIND, CATEGORY_PROPOSAL_SOURCE, CATEGORY_PROPOSAL_STA
  * case-insensitive name collisions across different groups, and a name-only
  * constraint would refuse the import.
  *
- * **Taxonomy v2** (spec 2026-09-28, migration `0022`): a two-level tree.
+ * **Taxonomy v2** (spec 2026-09-28, migration `0023`): a two-level tree.
  *
  * - `slug` — stable, unique, what research answers with and what matching
  *   compares (exactly). A row inserted without one gets one from its name

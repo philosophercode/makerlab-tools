@@ -7,6 +7,7 @@ import { getCatalogTools } from "../catalog";
 import { resetDbForTests } from "../db/client";
 import { catalog } from "./catalog";
 import type { CapabilityCtx, CapabilityTool } from "./types";
+import { identityFor } from "../../../test/utils/identities";
 
 vi.mock("next/cache", () => nextCacheMock());
 
@@ -179,5 +180,32 @@ describe("promptFragment", () => {
 
     expect(fragment).toContain("Active tool context");
     expect(fragment).toContain("already on its page");
+  });
+});
+
+// ── Map access (PR #98): signed-in callers only ───────────────────
+
+describe("get_tool_details map field", () => {
+  it("is absent for an anonymous caller, a caller with no identity, and the public MCP", async () => {
+    for (const caller of [{}, { identity: identityFor("anonymous") }] as CapabilityCtx[]) {
+      const result = (await tool("get_tool_details").run({ id_or_name: "form-4" }, caller)) as Record<string, unknown>;
+      expect(result.found).toBe(true);
+      expect(result).not.toHaveProperty("map");
+    }
+  });
+
+  it("is present for a signed-in caller (null here: the demo seed's places are not on the plan)", async () => {
+    const result = (await tool("get_tool_details").run(
+      { id_or_name: "form-4" },
+      { identity: identityFor("user") }
+    )) as Record<string, unknown>;
+    expect(result).toHaveProperty("map", null);
+  });
+
+  it("tells only a signed-in caller's assistant about the map", async () => {
+    const tools = await getCatalogTools();
+    expect(catalog.promptFragment?.({ tools }) ?? "").not.toContain("Where things are");
+    expect(catalog.promptFragment?.({ tools, identity: identityFor("anonymous") }) ?? "").not.toContain("/map");
+    expect(catalog.promptFragment?.({ tools, identity: identityFor("user") }) ?? "").toContain("Where things are");
   });
 });

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { headers } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
 import "./kiosk.css";
@@ -11,12 +11,25 @@ import type { KioskSnapshot } from "../../lib/kiosk/types";
 import { labTimezone } from "../../lib/lab-time";
 import { requestOrigin } from "../../lib/request-origin";
 import { siteConfig } from "../../lib/site-config";
+import { scheduleUsage } from "../../lib/usage/schedule";
 import { kioskLocale, kioskMessages } from "./kiosk-locale";
 
 export const metadata: Metadata = {
   title: `Lab status — ${siteConfig.name}`,
-  description: `What is running in the ${siteConfig.institution} MakerLab right now.`,
+  description: `What is running in the ${siteConfig.institution} MakerLAB right now.`,
   robots: { index: false },
+};
+
+/**
+ * `viewport-fit=cover` lets the screen paint under a phone's notch and home
+ * bar, and the kiosk's padding keeps the text clear of them with
+ * `env(safe-area-inset-*)`. The browser chrome is the screen's own dark.
+ */
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0f0f0f",
 };
 
 /**
@@ -38,6 +51,10 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
   const locale = kioskLocale(params.lang);
   const origin = requestOrigin(await headers()) ?? authBaseUrl();
   const askUrl = kioskAskUrl(origin);
+
+  // Usage insight (§3.3): the screen was loaded. A wall screen reads no
+  // cookie, so there is nobody to count, only that it was switched on.
+  scheduleUsage([{ kind: "kiosk_view", surface: "web", audience: "anonymous", source: "screen" }]);
 
   const [{ snapshot, renderedAt }, qrSvg, messages] = await Promise.all([
     readSnapshot(origin),

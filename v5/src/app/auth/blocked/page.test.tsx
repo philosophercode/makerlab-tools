@@ -10,7 +10,7 @@ describe("/auth/blocked", () => {
   it("says this address cannot sign in, naming the site from config", () => {
     render(<AuthBlockedPage />);
 
-    expect(screen.getByRole("heading", { name: "This account can't sign in to MakerLab Tools" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "This account can't sign in to MakerLAB Tools" })).toBeInTheDocument();
     expect(screen.getByText(/has blocked this address/)).toBeInTheDocument();
   });
 

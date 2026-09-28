@@ -4,6 +4,7 @@ import { account, session, verification } from "../db/schema/auth.ts";
 import { manualChunks, manualPages } from "../db/schema/manuals.ts";
 import { notionMirrors } from "../db/schema/mirror.ts";
 import { oauthAccessToken, oauthApplication } from "../db/schema/access.ts";
+import { usageEvents, usageGaps } from "../db/schema/usage.ts";
 
 /**
  * What the nightly export deliberately leaves out (data platform design spec
@@ -106,6 +107,23 @@ export const REBUILT_AFTER_RESTORE: ReadonlySet<string> = new Set([
   getTableName(manualPages),
   getTableName(manualChunks),
 ]);
+
+/**
+ * Tables the nightly file and `data:push` leave out because their rows are
+ * **promised to be short-lived** (usage insight spec §4, §8): raw usage events
+ * (30 days) and the Unanswered queue, which holds scrubbed student questions
+ * (30 days after last asked). A backup kept for up to three years would break
+ * both promises quietly, and a restore would resurrect text that was meant to
+ * be gone. Their counts live on in `usage_rollups`, which is backed up: it is
+ * hourly counts and names nobody. `data:push` skips them too, so testing on a
+ * local database never lands in the hosted one's numbers.
+ */
+export const RETENTION_BOUND: ReadonlySet<string> = new Set([getTableName(usageEvents), getTableName(usageGaps)]);
+
+/** True when this table's rows must not outlive their retention window in a backup or a push. */
+export function isRetentionBound(table: PgTable): boolean {
+  return RETENTION_BOUND.has(getTableName(table));
+}
 
 /** Per-table column blanklists, by SQL table name. */
 const REDACTED_COLUMNS: Readonly<Record<string, readonly string[]>> = {

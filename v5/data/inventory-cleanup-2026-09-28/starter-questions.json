@@ -1,0 +1,1341 @@
+[
+  {
+    "slug": "airaj-hacksaw",
+    "questions": [
+      "How do I adjust the blade tension?",
+      "What if the blade keeps bending or snapping?",
+      "Can I cut metal and plastic with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "aoyue-int-2703a",
+    "questions": [
+      "How do I set up the hot-air gun to remove a part?",
+      "Why won't my solder melt onto the joint?",
+      "Can I desolder a whole component with this?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "apple-pencil",
+    "questions": [
+      "How do I connect it to the iPad?",
+      "Why isn't the iPad picking up my strokes?",
+      "Can I sketch concept drawings with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "bambu-lab-x1-carbon-combo-3d-printer",
+    "questions": [
+      "How do I start my first print?",
+      "Why is my print not sticking to the bed?",
+      "Can I print carbon-fiber parts with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "bantam-desktop-pcb-milling-machine-othermill-pro",
+    "questions": [
+      "How do I mill my first circuit board?",
+      "What if my traces come out rough or uneven?",
+      "Can I make small parts from aluminum or brass?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "bantam-tools-desktop-cnc-milling-machine",
+    "questions": [
+      "How do I set up my first milling job?",
+      "What if the cut doesn't come out the right depth?",
+      "What can I make in aluminum with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "bga-rework-station",
+    "questions": [
+      "How do I remove a chip from a circuit board?",
+      "Why won't the chip come off the board?",
+      "Which boards and parts can I repair with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "bofa-ad500-fume-extractor",
+    "questions": [
+      "How do I turn it on with the laser cutter?",
+      "What if the laser smell doesn't go away?",
+      "Which machines does it work with?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "other"
+    ]
+  },
+  {
+    "slug": "bosch-gst-150-bce",
+    "questions": [
+      "How do I change the blade?",
+      "What if the blade keeps wandering off the line?",
+      "Can I cut curves and bevels in chipboard?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "brother-compact-monochrome-laser-printer",
+    "questions": [
+      "How do I print double-sided?",
+      "What if the paper jams?",
+      "Can I print on envelopes or labels?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "cowryman-router-plane",
+    "questions": [
+      "How do I set the cutting depth?",
+      "Why is the bottom of my groove uneven?",
+      "What can I clean up with it in joinery?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "creality-ender-3-v3-3d-printer",
+    "questions": [
+      "How do I start my first print?",
+      "Why is my print not sticking to the bed?",
+      "Can I print flexible parts with TPU?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "cricut-easy-press-3",
+    "questions": [
+      "How do I press a design onto a T-shirt?",
+      "Why is my iron-on peeling off after pressing?",
+      "What can I put designs on besides shirts?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "cricut-maker-3",
+    "questions": [
+      "How do I cut my first vinyl decal?",
+      "Why isn't it cutting all the way through?",
+      "Can I cut leather or balsa wood with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "dewalt-dcb107-12v-20v-max-lithium-ion-charger",
+    "questions": [
+      "How do I charge a battery with it?",
+      "What if the charger light blinks?",
+      "Which batteries can I charge with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "other"
+    ]
+  },
+  {
+    "slug": "dewalt-drill-dcd777c2",
+    "questions": [
+      "How do I change the drill bit?",
+      "Why does the screw keep stripping?",
+      "Can I drill holes in steel with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "dewalt-orbital-sander-dwe6421",
+    "questions": [
+      "How do I attach a new sanding disc?",
+      "Why am I getting swirl marks?",
+      "Can I prep a painted surface with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "dewalt-screwdriver-bit-set",
+    "questions": [
+      "Which bit do I use for a Torx screw?",
+      "How do I put a bit in the drill?",
+      "Can I use these bits in an impact driver?"
+    ],
+    "kinds": [
+      "other",
+      "operate",
+      "create"
+    ]
+  },
+  {
+    "slug": "dremel-3000",
+    "questions": [
+      "How do I swap attachments?",
+      "Why is my cut burning the material?",
+      "Can I engrave glass with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "dremel-workstation-220",
+    "questions": [
+      "How do I mount my rotary tool on it?",
+      "Why isn't my hole coming out straight?",
+      "Can I drill holes at an angle with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "drill-master-heat-gun",
+    "questions": [
+      "How do I pick between the two heat settings?",
+      "What if the paint won't lift off?",
+      "Can I shrink wire wraps with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "dust-masks",
+    "questions": [
+      "How do I put one on so it fits well?",
+      "Which kinds of dust is it made for?",
+      "What if it gets dirty during a project?"
+    ],
+    "kinds": [
+      "operate",
+      "other",
+      "other"
+    ]
+  },
+  {
+    "slug": "epilog-helix-24-laser-8000-laser-system",
+    "questions": [
+      "How do I send my design to the laser?",
+      "Why didn't the laser cut all the way through?",
+      "Can I engrave glass with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "eversewn-sparrow-x2-sewing-embroidery-machine",
+    "questions": [
+      "How do I thread it for sewing?",
+      "Why do my stitches keep bunching up?",
+      "Can I embroider my own design onto fabric?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "festool-575267-dust-extractor-ct-midi-hepa",
+    "questions": [
+      "How do I hook it up to a power tool?",
+      "What if the suction gets weak?",
+      "Can I use it for wet cleanup too?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "festool-bench",
+    "questions": [
+      "How do I clamp my work to the table?",
+      "How do I make straight cuts with the guide rail?",
+      "What can I use the perforated top for?"
+    ],
+    "kinds": [
+      "operate",
+      "operate",
+      "create"
+    ]
+  },
+  {
+    "slug": "festool-ps-300-eq-plus-trion-jigsaw",
+    "questions": [
+      "How do I change the blade?",
+      "What if my veneer keeps splintering?",
+      "Can I make mitre cuts with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "form-2",
+    "questions": [
+      "How do I start my first resin print?",
+      "Why did my print fail to stick to the platform?",
+      "What can I make with resin on it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "form-4",
+    "questions": [
+      "How do I start my first resin print?",
+      "What if my print comes out with missing parts?",
+      "Can I make functional parts with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "form-cure",
+    "questions": [
+      "How do I pick the cure time and temperature?",
+      "Why do my parts still feel tacky after curing?",
+      "Which resins can I cure in it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "form-wash",
+    "questions": [
+      "How do I wash a print still on the platform?",
+      "Why do my parts still feel sticky after washing?",
+      "Which washing liquids can I use in it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "fulton-hose-ring-clamp",
+    "questions": [
+      "How do I tighten it onto a hose?",
+      "What if the hose keeps slipping off the port?",
+      "Which fittings can I join a hose to with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "other"
+    ]
+  },
+  {
+    "slug": "glowforge-aura",
+    "questions": [
+      "How do I start my first cut?",
+      "Why didn't it cut all the way through?",
+      "Can I engrave leather or cork with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "gopro-7-hero-black",
+    "questions": [
+      "How do I start recording video?",
+      "Why is my footage still shaky?",
+      "Can I film underwater with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "hakko-fx-888d",
+    "questions": [
+      "How do I set the iron temperature?",
+      "Why won't solder stick to my tip?",
+      "Can I use lead-free solder with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "heat-gun-truepower-drillmaster",
+    "questions": [
+      "Which heat setting should I start with?",
+      "What if the plastic starts to scorch?",
+      "Can I bend PVC or PLA with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "hercules-sanding-sheets",
+    "questions": [
+      "Which grit should I start with?",
+      "Can I use these on a power sander?",
+      "Can I sand plastic or metal with them?"
+    ],
+    "kinds": [
+      "other",
+      "operate",
+      "create"
+    ]
+  },
+  {
+    "slug": "hi-spec-16-piece-metal-hand-needle-files-tool-set-kit",
+    "questions": [
+      "Which file should I use for small details?",
+      "How do I deburr a metal edge?",
+      "Can I shape plastic parts with these?"
+    ],
+    "kinds": [
+      "operate",
+      "operate",
+      "create"
+    ]
+  },
+  {
+    "slug": "hp-sprout-j4w72aa-aba",
+    "questions": [
+      "How do I capture an object in 3D?",
+      "What if my scan comes out incomplete?",
+      "What can I make with my scans in Sprout Workspace?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "husky-coping-saw",
+    "questions": [
+      "How do I swap or re-angle the blade?",
+      "What if the blade keeps popping out?",
+      "Can I cut tight curves in wood with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "infrared-ic-heater",
+    "questions": [
+      "How do I solder a small PCB in it?",
+      "Why didn't my solder joints melt fully?",
+      "Can I replace components on a board with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "ipad-6th-generation-mr7f2ll-a",
+    "questions": [
+      "How do I get started with a 3D scanning app?",
+      "Why isn't the Apple Pencil working with it?",
+      "What can I design on it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "kootans-spokeshave-planer",
+    "questions": [
+      "How do I adjust the blade depth?",
+      "Why is it chattering instead of cutting smoothly?",
+      "Can I shape curved parts like chair legs?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "label-maker-ac-adapter",
+    "questions": [
+      "How do I plug it into the label maker?",
+      "What if the label maker won't power on?",
+      "Can I use it instead of batteries?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "other"
+    ]
+  },
+  {
+    "slug": "makita-plunge-base",
+    "questions": [
+      "How do I fit the router into the plunge base?",
+      "How do I set the plunge depth?",
+      "Can I cut mortises or inlays with it?"
+    ],
+    "kinds": [
+      "operate",
+      "operate",
+      "create"
+    ]
+  },
+  {
+    "slug": "makita-rt0701c",
+    "questions": [
+      "How do I pick the right speed?",
+      "Why is my cut burning the wood?",
+      "Can I route acrylic or MDF with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "marples-mps10189-japanese-style-pull-saw",
+    "questions": [
+      "How do I make a flush cut on a dowel?",
+      "What if the saw keeps binding in the cut?",
+      "Can I cut dovetails with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "marvey-hotwire-foam-cutter",
+    "questions": [
+      "How do I cut a shape out of foam?",
+      "Why is it tearing the foam instead of cutting?",
+      "Can I cut felt with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "matter-and-form-3d-scanner",
+    "questions": [
+      "How do I scan my first object?",
+      "What if my scan has holes or missing parts?",
+      "Can I 3D print what I scan?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "mayku-form-box-vacuum-former",
+    "questions": [
+      "How do I make my first mold?",
+      "Why isn't the sheet forming tight around my part?",
+      "What can I make with the clear sheets?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "meta-quest-2-vr-headset",
+    "questions": [
+      "How do I set it up for the first time?",
+      "What if the controllers stop tracking?",
+      "Can I play PC VR games with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "original-prusa-i3-mk3s-enclosure-bundle",
+    "questions": [
+      "How do I start my first print?",
+      "Why is my print warping or lifting?",
+      "Can I print nylon or ASA in it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "oscilloscope-textronix",
+    "questions": [
+      "How do I see a signal on the screen for the first time?",
+      "What if my waveform won't hold still on the screen?",
+      "What can I measure in my circuit with this?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "peachtree-woodworking-supply-pvc-hose",
+    "questions": [
+      "How do I hook this hose up to a machine?",
+      "Which machines can I connect it to?",
+      "What if the suction feels weak through the hose?"
+    ],
+    "kinds": [
+      "operate",
+      "other",
+      "debug"
+    ]
+  },
+  {
+    "slug": "plunge-cut-track-saw-ts-55-req-f-plus",
+    "questions": [
+      "How do I set up the guide rail for my first cut?",
+      "Why is my cut splintering along the edge?",
+      "Can I cut plywood sheets with this?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "plywood-stacking-rolling-cart",
+    "questions": [
+      "How do I load sheets onto the cart?",
+      "Which materials can I store on it?",
+      "Can I use it to move plywood around the lab?"
+    ],
+    "kinds": [
+      "operate",
+      "other",
+      "other"
+    ]
+  },
+  {
+    "slug": "powertec-hose-coupler-70136",
+    "questions": [
+      "How do I connect two hoses with this?",
+      "Which hose sizes does it join?",
+      "How do I switch hoses between tools?"
+    ],
+    "kinds": [
+      "operate",
+      "other",
+      "other"
+    ]
+  },
+  {
+    "slug": "prusa-i3-mk3s",
+    "questions": [
+      "How do I start my first print?",
+      "Why is my print not sticking to the bed?",
+      "Can I print flexible parts with this?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "rockwell-bladerunner-x2-rk7323",
+    "questions": [
+      "How do I change the blade?",
+      "What if the blade wanders off my line?",
+      "Can I cut ceramic tile with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "roland-camm-1-gs-24-desktop-vinyl-cutter",
+    "questions": [
+      "How do I load vinyl and start a cut?",
+      "Why isn't my vinyl cutting all the way through?",
+      "Can I make heat-transfer designs for a shirt?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "ryobi-drill-press",
+    "questions": [
+      "How do I set the depth for repeatable holes?",
+      "Why does my bit wander when I start a hole?",
+      "Can I drill metal with this?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "ryobi-nail-gun",
+    "questions": [
+      "How do I load nails into it?",
+      "What if a nail jams in the nailer?",
+      "What can I build with a brad nailer?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "ryobi-one-18v-lithium-ion-1-5-ah-battery-pbp002",
+    "questions": [
+      "Which tools does this battery fit?",
+      "How do I charge this battery?",
+      "How do I check how much charge is left?"
+    ],
+    "kinds": [
+      "other",
+      "operate",
+      "other"
+    ]
+  },
+  {
+    "slug": "ryobi-one-18v-lithium-ion-3-0-ah-battery-p103",
+    "questions": [
+      "Which tools does this battery fit?",
+      "How do I charge this battery?",
+      "Why pick this one for overhead work?"
+    ],
+    "kinds": [
+      "other",
+      "operate",
+      "other"
+    ]
+  },
+  {
+    "slug": "ryobi-one-18v-lithium-ion-4-ah-battery-pbp004",
+    "questions": [
+      "Which tools does this battery fit?",
+      "How do I charge this battery?",
+      "How do I check how much charge is left?"
+    ],
+    "kinds": [
+      "other",
+      "operate",
+      "other"
+    ]
+  },
+  {
+    "slug": "ryobi-one-18v-lithium-ion-charger-pcg002",
+    "questions": [
+      "How do I charge a battery with it?",
+      "How long does a 1.5 Ah battery take to charge?",
+      "What if the charger light doesn't come on?"
+    ],
+    "kinds": [
+      "operate",
+      "other",
+      "debug"
+    ]
+  },
+  {
+    "slug": "ryobi-p117-dual-chemistry-12v-18v-battery-charger-replacement",
+    "questions": [
+      "How do I charge a battery with it?",
+      "Which battery packs can it charge?",
+      "What if my battery won't start charging?"
+    ],
+    "kinds": [
+      "operate",
+      "other",
+      "debug"
+    ]
+  },
+  {
+    "slug": "ryobi-p209d-drill-driver",
+    "questions": [
+      "How do I switch between drilling and driving screws?",
+      "Why do my screws keep stripping?",
+      "How do I change the drill bit?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "operate"
+    ]
+  },
+  {
+    "slug": "ryobi-p305-one-18v-lithium-ion-cordless-hot-glue-gun",
+    "questions": [
+      "How do I load a glue stick?",
+      "What if glue drips or strings everywhere?",
+      "Which glue sticks fit in it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "other"
+    ]
+  },
+  {
+    "slug": "ryobi-p322-brad-nailer",
+    "questions": [
+      "How do I load brads into it?",
+      "What if a brad jams?",
+      "What can I assemble with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "ryobi-p593-18-volt-one-lithium-ion-cordless-pvc-and-pex-cutter",
+    "questions": [
+      "How do I make my first cut?",
+      "What if my cut comes out crooked?",
+      "Can I cut rubber hose with this?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "ryobi-pcl235-one-18v-drill-driver",
+    "questions": [
+      "How do I set the clutch for driving screws?",
+      "Why does it stop turning before the screw is in?",
+      "Can I drill into metal with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "ryobi-vacuum-cleaner-p7131",
+    "questions": [
+      "How do I empty the dust bowl?",
+      "Why is the suction getting weaker?",
+      "How do I use the crevice tool?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "operate"
+    ]
+  },
+  {
+    "slug": "shaper-origin",
+    "questions": [
+      "How do I start my first cut?",
+      "What if it loses track of where it is?",
+      "Can I make an inlay with this?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "shopbot-buddy-bt48-l36-x-w76-x-h67",
+    "questions": [
+      "How do I start my first job?",
+      "Why is my cut not going all the way through?",
+      "Can I cut aluminum with this?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "singer-stylist-7258",
+    "questions": [
+      "How do I thread the machine?",
+      "Why do my stitches keep skipping?",
+      "How do I make a buttonhole?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "skil-multi-detail-sander",
+    "questions": [
+      "How do I swap the sanding pads?",
+      "Which pad should I use for corners?",
+      "Can I sand curved edges with it?"
+    ],
+    "kinds": [
+      "operate",
+      "other",
+      "create"
+    ]
+  },
+  {
+    "slug": "smd-rework-station",
+    "questions": [
+      "How do I remove a surface-mount part?",
+      "What if the solder won't melt under the hot air?",
+      "How do I set the temperature and airflow?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "operate"
+    ]
+  },
+  {
+    "slug": "spear-jackson-traditional-brass-back-tenon-saw-9550b",
+    "questions": [
+      "How do I start a straight cut?",
+      "What if my cut keeps drifting off the line?",
+      "Can I cut a tenon joint with this?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "stanley-1-12-137-62-low-angle-sweetheart-jack-plane",
+    "questions": [
+      "How do I set the blade depth?",
+      "Why is the plane tearing the wood?",
+      "Can I plane end grain with this?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "stanley-20-221-10-inch-12-points-per-inch-sharptooth-mini-utility-saw",
+    "questions": [
+      "How do I start a clean cut?",
+      "What if the blade binds in the cut?",
+      "Can I cut plastic pipe with this?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "stanley-20-807-10-inch-mini-hack-light-duty-utility-saw",
+    "questions": [
+      "How do I change the blade?",
+      "What if the blade keeps snagging in metal?",
+      "Can I cut PVC pipe with this?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "stanley-coping-saw",
+    "questions": [
+      "How do I change the blade?",
+      "How do I make an interior cutout?",
+      "Can I cut plastic with it?"
+    ],
+    "kinds": [
+      "operate",
+      "operate",
+      "create"
+    ]
+  },
+  {
+    "slug": "stanley-hand-planer-contractor-grade-low-angle",
+    "questions": [
+      "How do I adjust the blade?",
+      "Why is it chattering on end grain?",
+      "How do I chamfer an edge with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "stanley-heavy-duty-extreme-staple-gun-tr150",
+    "questions": [
+      "How do I load staples?",
+      "What if a staple jams?",
+      "Can I use it to upholster a seat?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "stanley-saw-15-206",
+    "questions": [
+      "How do I start a plunge cut in the board?",
+      "What if the cut edge comes out ragged?",
+      "Can I cut an opening in plasterboard?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "stanley-sharptooth-heavy-duty-saw-15-087",
+    "questions": [
+      "How do I start a cut?",
+      "What if the saw keeps binding?",
+      "What can I cut with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "structure-sensor",
+    "questions": [
+      "How do I connect it to an iPad?",
+      "Why is my scan coming out with holes?",
+      "What can I scan with it?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "suizan-dozuki-dovetail-saw",
+    "questions": [
+      "How do I cut with a pull saw?",
+      "What if my cut wanders off the line?",
+      "Can I make angled cuts for dovetails?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "suizan-replacement-blade",
+    "questions": [
+      "How do I swap the blade on the saw?",
+      "Which saw does this blade fit?",
+      "What's this blade best for?"
+    ],
+    "kinds": [
+      "operate",
+      "other",
+      "create"
+    ]
+  },
+  {
+    "slug": "tripod-with-adapter",
+    "questions": [
+      "How do I mount my phone on it?",
+      "Which devices can I attach to it?",
+      "Can I use it for 3D scanning?"
+    ],
+    "kinds": [
+      "operate",
+      "other",
+      "create"
+    ]
+  },
+  {
+    "slug": "trotec-speedy-400-80w",
+    "questions": [
+      "How do I send my first job to the laser?",
+      "Why isn't the laser cutting all the way through?",
+      "Can I engrave glass with this?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "ultimaker-3",
+    "questions": [
+      "How do I start my first print?",
+      "Why is my print not sticking to the plate?",
+      "Can I print with dissolvable PVA supports?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "ultimaker-3-extended",
+    "questions": [
+      "How do I start my first print?",
+      "What if one nozzle stops printing mid-job?",
+      "Can I print in two materials at once?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "ultimaker-metal-expansion-kit",
+    "questions": [
+      "How do I get started printing metal parts?",
+      "Which printer does this kit work with?",
+      "What can I make in stainless steel?"
+    ],
+    "kinds": [
+      "operate",
+      "other",
+      "create"
+    ]
+  },
+  {
+    "slug": "ultimaker-s5",
+    "questions": [
+      "How do I start my first print?",
+      "Why is my print not sticking to the plate?",
+      "Can I print with two materials at once?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "ultimaker-s5-air-manager",
+    "questions": [
+      "How do I use it with the S5?",
+      "What's the filter for?",
+      "Which materials can I print with it on?"
+    ],
+    "kinds": [
+      "operate",
+      "other",
+      "create"
+    ]
+  },
+  {
+    "slug": "valley-craft-a-frame-bin-cart",
+    "questions": [
+      "How do I find where parts are kept?",
+      "How do I move the cart around the lab?",
+      "What can I store in the bins?"
+    ],
+    "kinds": [
+      "other",
+      "operate",
+      "create"
+    ]
+  },
+  {
+    "slug": "wazer-waterjet-pro",
+    "questions": [
+      "How do I start my first cut?",
+      "Why isn't it cutting all the way through?",
+      "Can I cut glass artwork with this?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "weller-wesd51",
+    "questions": [
+      "How do I set the iron's temperature?",
+      "Why won't the solder stick to the tip?",
+      "Can I repair a broken electronics board?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "wen-benchtop-belt-and-disc-sander-6502t",
+    "questions": [
+      "How do I sand an angled edge?",
+      "What if the belt slides off to one side?",
+      "What can I smooth with the belt vs the disc?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "create"
+    ]
+  },
+  {
+    "slug": "wen-woodworking-dust-collector-dc3401",
+    "questions": [
+      "How do I connect it to a tool?",
+      "Why is the suction getting weaker?",
+      "How do I empty the collection bag?"
+    ],
+    "kinds": [
+      "operate",
+      "debug",
+      "operate"
+    ]
+  },
+  {
+    "slug": "woodworking-tools-storage-bench",
+    "questions": [
+      "Which hand tools are kept here?",
+      "How do I use the bench for assembly?",
+      "Can I clamp my work to the bench?"
+    ],
+    "kinds": [
+      "other",
+      "operate",
+      "other"
+    ]
+  }
+]

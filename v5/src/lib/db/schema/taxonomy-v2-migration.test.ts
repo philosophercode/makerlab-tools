@@ -9,14 +9,14 @@ import { categories, categoryProposals } from "./taxonomy";
 import { tools } from "./tools";
 
 /**
- * Migration `0022` (taxonomy v2): slugs, the tree columns, category proposals
+ * Migration `0023` (taxonomy v2): slugs, the tree columns, category proposals
  * and the two tool facets. The slug backfill is run **as read from the
  * migration file** against rows shaped the way they looked before, as the
  * `0016` and `0018` tests do.
  */
 
 function backfill(): string {
-  const file = readFileSync(join(migrationsFolder(), "0022_taxonomy_v2.sql"), "utf8");
+  const file = readFileSync(join(migrationsFolder(), "0023_taxonomy_v2.sql"), "utf8");
   const statement = file
     .split("--> statement-breakpoint")
     .map((part) => part.trim())
@@ -25,7 +25,7 @@ function backfill(): string {
   return statement as string;
 }
 
-describe("migration 0022 — taxonomy v2", () => {
+describe("migration 0023 — taxonomy v2", () => {
   it("gives a category inserted without a slug one from its group and name", async () => {
     const db = await createPgliteDb();
     const [row] = await db.insert(categories).values({ name: "FDM Printer", group: "3D Printing" }).returning();

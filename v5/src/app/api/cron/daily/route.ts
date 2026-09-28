@@ -5,6 +5,7 @@ import { reportHeartbeat } from "../../../../lib/cron/heartbeat";
 import { runManualArchiveBackfill } from "../../../../lib/cron/manual-archive";
 import { runMirrorBackstop } from "../../../../lib/cron/mirror-backstop";
 import { runPendingExpiry } from "../../../../lib/cron/pending-expiry";
+import { runUsageRollup } from "../../../../lib/usage/rollup";
 import { rateLimitAsync } from "../../../../lib/rate-limit";
 import { resolveIdentity } from "../../../../lib/auth/identity";
 
@@ -30,12 +31,16 @@ import { resolveIdentity } from "../../../../lib/auth/identity";
  *    `identified` for two weeks, always well past the 24-hour orphan window —
  *    so a photo an expired item held is deleted from Blob and from the table
  *    in this same run (§4.10 "its attachments deleted").
- * 4. **Mirror backstop** (Phase 8) — a `mirrorPush` workflow started for every
+ * 4. **Usage rollup** (usage insight spec §5.4) — raw usage events rolled
+ *    into hourly counts, then raw events older than 30 days deleted, and
+ *    unanswered questions last asked more than 30 days ago deleted with their
+ *    text (`src/lib/usage/rollup.ts`). The counts are kept.
+ * 5. **Mirror backstop** (Phase 8) — a `mirrorPush` workflow started for every
  *    active Notion mirror whose data is newer than its last sync, or whose
  *    last push was not `ok` (§3.8 trigger 3). The stage only starts the runs;
  *    each pushes in its own workflow, outside this function's 60 seconds. A
  *    run that could not be started fails the stage, as a throw does.
- * 5. **Manual archive backfill** — up to ten Manual resources whose link has
+ * 6. **Manual archive backfill** — up to ten Manual resources whose link has
  *    no PDF copy in Blob yet, handed to one `archiveManuals` run
  *    (`src/lib/cron/manual-archive.ts`). Backfills imported manuals over time
  *    and catches any approval whose run never started. Like the mirror stage
@@ -126,7 +131,7 @@ export async function GET(req: Request) {
   return response;
 }
 
-/** The five stages, in order; the first to fail answers for the run. */
+/** The six stages, in order; the first to fail answers for the run. */
 async function runStages(store: BlobStore): Promise<Response> {
   let backup: Awaited<ReturnType<typeof runBackup>>;
   try {
@@ -165,6 +170,19 @@ async function runStages(store: BlobStore): Promise<Response> {
     );
   }
 
+  // After cleanup, before anything that hands work elsewhere (usage insight
+  // spec §5.4). Idempotent: a retried run recounts the same hours.
+  let usage: Awaited<ReturnType<typeof runUsageRollup>>;
+  try {
+    usage = await runUsageRollup();
+  } catch (error) {
+    console.error("[cron] usage rollup failed:", error);
+    return Response.json(
+      { ok: false, stage: "usage", backup, pendingExpiry, cleanup, error: message(error) },
+      { status: 500 }
+    );
+  }
+
   // Last, because it is the least urgent and the only stage that hands work
   // to something else: every earlier stage has landed, and reports, whatever
   // happens here.
@@ -174,7 +192,7 @@ async function runStages(store: BlobStore): Promise<Response> {
   } catch (error) {
     console.error("[cron] mirror backstop failed:", error);
     return Response.json(
-      { ok: false, stage: "mirror", backup, pendingExpiry, cleanup, error: message(error) },
+      { ok: false, stage: "mirror", backup, pendingExpiry, cleanup, usage, error: message(error) },
       { status: 500 }
     );
   }
@@ -188,6 +206,7 @@ async function runStages(store: BlobStore): Promise<Response> {
         backup,
         pendingExpiry,
         cleanup,
+        usage,
         mirror,
         error: `${mirror.failed} mirror push(es) could not be started`,
       },
@@ -203,7 +222,7 @@ async function runStages(store: BlobStore): Promise<Response> {
   } catch (error) {
     console.error("[cron] manual archive backfill failed:", error);
     return Response.json(
-      { ok: false, stage: "manuals", backup, pendingExpiry, cleanup, mirror, error: message(error) },
+      { ok: false, stage: "manuals", backup, pendingExpiry, cleanup, usage, mirror, error: message(error) },
       { status: 500 }
     );
   }
@@ -215,6 +234,7 @@ async function runStages(store: BlobStore): Promise<Response> {
         backup,
         pendingExpiry,
         cleanup,
+        usage,
         mirror,
         manuals,
         error: "the manual archive run could not be started",
@@ -223,5 +243,5 @@ async function runStages(store: BlobStore): Promise<Response> {
     );
   }
 
-  return Response.json({ ok: true, backup, pendingExpiry, cleanup, mirror, manuals });
+  return Response.json({ ok: true, backup, pendingExpiry, cleanup, usage, mirror, manuals });
 }

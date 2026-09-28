@@ -14,7 +14,8 @@ import {
   user,
   verification,
 } from "../db/schema/index";
-import { EXCLUDED_TABLES, isExcludedFromBackup, isRebuiltAfterRestore, REBUILT_AFTER_RESTORE, redactRows } from "./backup-policy";
+import { EXCLUDED_TABLES, isExcludedFromBackup, isRebuiltAfterRestore, isRetentionBound, REBUILT_AFTER_RESTORE, RETENTION_BOUND, redactRows } from "./backup-policy";
+import { usageEvents, usageGaps, usageRollups } from "../db/schema/usage";
 
 /**
  * The policy is small enough to read, so these tests assert the *decision*
@@ -22,6 +23,19 @@ import { EXCLUDED_TABLES, isExcludedFromBackup, isRebuiltAfterRestore, REBUILT_A
  * later phase widens `EXCLUDED_TABLES` or the redaction map, these are the
  * assertions that should have to be rewritten on purpose.
  */
+
+describe("RETENTION_BOUND (usage insight spec §4, §8)", () => {
+  it("holds back raw usage events and the Unanswered queue, and nothing else", () => {
+    expect(isRetentionBound(usageEvents)).toBe(true);
+    expect(isRetentionBound(usageGaps)).toBe(true);
+    expect(RETENTION_BOUND.size).toBe(2);
+  });
+
+  it("keeps the hourly counts, which name nobody", () => {
+    expect(isRetentionBound(usageRollups)).toBe(false);
+    expect(isExcludedFromBackup(usageRollups)).toBe(false);
+  });
+});
 
 describe("EXCLUDED_TABLES", () => {
   it("skips the three tables whose rows are live credentials", () => {

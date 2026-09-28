@@ -159,7 +159,6 @@ body::selection {
   border-bottom: 1px solid var(--outline);
 }
 
-.brand-lockup,
 .primary-nav,
 .nav-actions,
 .status-strip {
@@ -167,23 +166,56 @@ body::selection {
   text-transform: uppercase;
 }
 
+/* The MakerLAB lockup (identity spec 2026-09-28 §2): the wordmark, and under
+   it the site's name and tagline. Names keep their own case — "MakerLAB
+   Tools", never "MAKERLAB TOOLS". 16 + 2 + 14 = 32px tall, so the one-row bar
+   stays at --nav-height (64px). */
 .brand-lockup {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-family: var(--font-display);
-  font-weight: 700;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  min-width: 0;
   /* In the one-row bar the brand keeps its width; the compact bar lets it
      ellipsize (below). */
   flex: none;
   white-space: nowrap;
+  color: var(--on-surface);
 }
 
-.brand-lockup span:last-child {
+/* The wordmark PNG as a mask, painted in the text colour: black on light,
+   white on dark, from the one asset (as the kiosk draws the full logo). */
+.brand-wordmark {
+  display: block;
+  width: 95px; /* the crop is 1014 × 171 */
+  height: 16px;
+  background-color: currentColor;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: left center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: left center;
+}
+
+.brand-text {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  max-width: 100%;
+  line-height: 14px;
+}
+
+.brand-name {
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.brand-tagline {
   color: var(--on-surface-muted);
-  font-family: var(--font-mono);
   font-size: 12px;
-  font-weight: 500;
+  font-weight: 400;
 }
 
 .primary-nav {
@@ -653,9 +685,9 @@ body::selection {
   }
 }
 
-/* The bar on the design's breakpoints (DESIGN.md §6, §8.12). From xl: one
-   row with the tagline. From lg to xl: one row, tighter, no tagline, a
-   narrower search field. Below lg: the compact bar — brand and controls,
+/* The bar on the design's breakpoints (DESIGN.md §6, §8.12). From 1440: one
+   row with the tagline. From xl: one row, no tagline. From lg to xl: one
+   row, tighter, a narrower search field. Below lg: the compact bar — brand and controls,
    then the links across the width. (The compact switch used to be 860px,
    and from there to ~1180px the brand ran into the links and "Sign in"
    wrapped.) */
@@ -667,8 +699,12 @@ body::selection {
   .primary-nav {
     gap: 20px;
   }
+}
 
-  .brand-lockup span:last-child {
+/* The tagline needs the room: from 1440 only (at 1280 it pushed the bar past
+   the window in Spanish). Below, the lockup is the wordmark and the name. */
+@media (max-width: 1439.98px) {
+  .brand-tagline {
     display: none;
   }
 }
@@ -690,7 +726,7 @@ body::selection {
     overflow: hidden;
   }
 
-  .brand-lockup span:first-child {
+  .brand-name {
     overflow: hidden;
     text-overflow: ellipsis;
   }

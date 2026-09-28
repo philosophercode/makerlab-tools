@@ -7,6 +7,9 @@ import { registerAll } from "../capabilities/mcp-adapter";
 import { authBaseUrl } from "../auth/config";
 import { resolveMcpCaller, type McpAuthRefusal, type McpCaller } from "../auth/mcp-caller";
 import { checkRateLimit } from "../rate-limit";
+import { mcpCallUsage } from "../usage/mcp-call";
+import { scheduleUsage } from "../usage/schedule";
+import { siteConfig } from "../site-config";
 
 /**
  * The MCP endpoint (MCP access spec §3, §5.2), shared by its two URLs:
@@ -112,6 +115,9 @@ function createServer(caller: McpCaller): McpServer {
       const decision = await checkRateLimit("mcpWrite", caller.identity);
       return decision.allowed ? null : "Too many changes in a minute. Wait a moment and try again.";
     },
+    // Usage insight (§3.3): the tool's name and the tool it resolved, never
+    // the token or the person — only the role's audience bucket.
+    afterCall: (tool, result) => scheduleUsage(mcpCallUsage(tool.name, result, caller.identity.role)),
   });
   return server;
 }
@@ -119,7 +125,7 @@ function createServer(caller: McpCaller): McpServer {
 /** What the server tells a client about who it is talking as. */
 function instructionsFor(caller: McpCaller): string {
   const base =
-    "MakerLab Tools: the lab's equipment catalogue — tools, units, availability, maintenance history and manuals.";
+    `${siteConfig.name}: the lab's equipment catalogue — tools, units, availability, maintenance history and manuals.`;
   if (caller.via === "anonymous" || caller.via === "legacy_token") {
     return `${base} You are connected without signing in, so only the public read-only tools are available. Maintenance history carries no reporter names.`;
   }

@@ -51,6 +51,9 @@ export const statement = {
   // rename and retire categories. Admins and super admins both — the lab's
   // SuperMakers run the catalogue day to day; proposing needs only `tools.edit`.
   taxonomy: ["manage"],
+  // Usage insight (usage insight spec §8, §13 Q3): anonymous usage counts and
+  // the Unanswered queue on /admin/insights. SuperMakers and directors both.
+  insights: ["view"],
 } as const;
 
 export const ac = createAccessControl(statement);
@@ -90,6 +93,7 @@ export const roles = {
     feedback: ["manage"],
     mirror: ["manage"],
     taxonomy: ["manage"],
+    insights: ["view"],
   }),
   super_admin: ac.newRole({
     projects: ["submit", "moderate"],
@@ -98,6 +102,7 @@ export const roles = {
     maintenance: ["manage"],
     feedback: ["manage"],
     mirror: ["manage"],
+    insights: ["view"],
     users: ["manage"],
     taxonomy: ["manage"],
     user: [...ACCOUNT_MANAGEMENT.user],
@@ -168,6 +173,7 @@ export const ADMIN_SURFACE_PERMISSIONS: Permission[] = [
   "maintenance.manage",
   "feedback.manage",
   "mirror.manage",
+  "insights.view",
   "users.manage",
   "taxonomy.manage",
 ];

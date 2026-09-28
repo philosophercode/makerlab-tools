@@ -23,6 +23,11 @@ interface DetailShellProps {
   manualContents?: ManualContents[];
   /** The most recent maintenance logs across the tool's units, without names. */
   maintenance?: ToolMaintenanceEntry[];
+  /**
+   * "Where it is" (floor map spec §6.2). The page passes it in its own
+   * Suspense boundary and only a signed-in viewer gets anything (map access).
+   */
+  location?: React.ReactNode;
 }
 
 function resourceLabel(link: MakerLabTool["links"][number], fallback: string): string {
@@ -61,7 +66,7 @@ function maintenanceTone(status: string): StatusTone {
  *   box, no empty maintenance history. Safety is the exception: it always
  *   says what to do, falling back to the lab's standing guidance.
  */
-export function DetailShell({ tool, projects = [], manualContents = [], maintenance = [] }: DetailShellProps) {
+export function DetailShell({ tool, projects = [], manualContents = [], maintenance = [], location = null }: DetailShellProps) {
   const t = useTranslations("detail");
   const tStatus = useTranslations("gallery.status");
   const tUi = useTranslations("ui");
@@ -175,6 +180,10 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
           ) : null}
         </div>
       </section>
+
+      {/* Where it is on the floor map (floor map spec §6.2): a slot the page
+          fills for signed-in viewers only (map access, PR #98). */}
+      {location}
 
       <div data-slot="tool-columns" className="grid min-w-0 gap-8 lg:grid-cols-2 lg:gap-10">
         <div className="flex min-w-0 flex-col gap-8">

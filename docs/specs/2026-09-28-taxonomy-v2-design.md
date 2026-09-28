@@ -81,7 +81,7 @@ along — accessories (printer upgrades, the plunge base → the router, the App
 chargers and batteries, hose fittings, the tripod, the label-maker adapter), consumables (sanding
 sheets, the replacement blade, dust masks) and fixtures (benches and carts).
 
-## 4. Data model (migration `0022_taxonomy_v2`)
+## 4. Data model (migration `0023_taxonomy_v2`)
 
 ### 4.1 `categories`
 

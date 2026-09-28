@@ -9,6 +9,7 @@ import { classifyPage, isVideoUrl, type PageSubject } from "./source-pages.ts";
 import { matchCategory } from "./taxonomy-match.ts";
 import { cleanStarterQuestions } from "../starter-questions.ts";
 import { displayNameFrom } from "../tool-names.ts";
+import { stripTrackingParams } from "../web/tracking-params.ts";
 
 /**
  * Turn the model's draft into the {@link ResearchResult} that is stored (spec
@@ -163,12 +164,16 @@ export function draftFromFindings(findings: SearchFindings, options: { keepCandi
 /** Links with the same URL once each, first title wins, order kept. */
 export function uniqueLinks(links: readonly ModelLink[]): ModelLink[] {
   const seen = new Set<string>();
-  return links.filter((link) => {
-    const url = link.url.trim();
-    if (seen.has(url)) return false;
-    seen.add(url);
-    return true;
-  });
+  // Tracking parameters off first (`?utm_source=chatgpt.com`, amendment
+  // 2026-09-28), so a link and its tracked twin are one link.
+  return links
+    .map((link) => ({ ...link, url: stripTrackingParams(link.url) }))
+    .filter((link) => {
+      const url = link.url.trim();
+      if (seen.has(url)) return false;
+      seen.add(url);
+      return true;
+    });
 }
 
 /**

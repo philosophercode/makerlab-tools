@@ -1,10 +1,10 @@
 # Usage Insight: What the Lab Asks About, and What It Cannot Answer — Design Spec
 
 **Date:** 2026-09-27
-**Status:** Draft
+**Status:** Phases 1–2 built, with the Unanswered queue's two decisions (amendment 2026-09-28); phases 3–4 open
 **Target:** `v5/`
-**Branch:** `docs/feature-specs`
-**Spec PR:** — · **Implementation PR:** — (one per phase, §9)
+**Branch:** `docs/feature-specs` · implementation `v5/usage-insight`
+**Spec PR:** — · **Implementation PR:** "v5 usage insights" (phases 1–2)
 
 ## 1. Summary
 
@@ -457,3 +457,92 @@ set, recorded in the phase 3 amendment.
 None of these blocks phase 1 except Q2, which decides whether `usage_gaps.question` exists,
 and Q4, which sets the prune constants. Q3 blocks phase 2, and Q5 blocks phase 3's
 `record_gap`.
+
+## Amendments
+
+### 2026-09-28 — phases 1 and 2 as built, with the owner's defaults
+
+The owner approved building usage insight ("anonymous data on what tools people ask about and what
+kinds of questions, on the admin page") and set these defaults, which answer §13 as follows:
+
+| § 13 | Answer |
+|---|---|
+| Q1 | First-party only. Nothing depends on Vercel Web Analytics. |
+| Q2 | Keep the text of unanswered questions, **30 days** (not 90), then only counts. |
+| Q3 | `insights.view` for `admin` and `super_admin`. |
+| Q4 | Raw events 30 days, then hourly rollups kept indefinitely; gap text 30 days after last asked. |
+| Q5 | Not yet: `record_gap` waits for phase 3 and its evals. A phrase heuristic stands in (below). |
+| Q6 | Yes, one sentence on About ("How it works"). |
+| Q7 | Staff excluded by default, with a toggle. |
+
+**Built** (branch `v5/usage-insight`; migration `0022_usage_insight`):
+
+- **Schema** (`src/lib/db/schema/usage.ts`): `usage_events`, `usage_rollups`, `usage_gaps` as §4,
+  with these changes:
+  - `USAGE_KINDS` adds **`kiosk_view`** (`source` `screen` for the status screen loading, `qr` for
+    an arrival from its QR code). The owner asked for kiosk views.
+  - `usage_events.question_kind` (and the same column in the rollup key): **`operate` / `debug` /
+    `create` / `other`**, set on `chat_turn` by a keyword heuristic
+    (`lib/usage/question-kind.ts`). No model call. The owner asked for "what kinds of questions";
+    the heuristic is free and keeps student text away from a second model.
+  - `usage_rollups` key adds `page` (for "top 3 pages") and `question_kind`. Its `tool_id` and
+    `manual_document_id` are **not** foreign keys: `on delete set null` would fold a deleted tool's
+    rows into the null key and collide on the `NULLS NOT DISTINCT` index.
+  - `GAP_KINDS` replaces `model_declared` with **`honest_absence`**: the answer itself says the
+    catalogue or manual does not cover it (`lib/usage/absence.ts`, a narrow English phrase list,
+    only when nothing was cited). `record_gap` (phase 3) is the precise version.
+  - `usage_gaps.question` keeps the **latest** occurrence's wording, not the first, and the row is
+    deleted 30 days after `last_seen`, so no stored question text is ever older than 30 days.
+    `dismissed_at_occurrences` records when it was dismissed; three more askings reopen it.
+- **Recording**: `lib/usage/` — `events.ts` (audience from role), `from-turn.ts`, `scrub.ts`
+  (emails, URLs, phone numbers, NetID-shaped tokens of 2–3 letters and **2–5** digits, so `CO2`
+  and `MK4` survive; 300 characters by code point), `gap-key.ts`, `record.ts` (never throws;
+  `USAGE_INSIGHT=off` records nothing), `schedule.ts` (`after()`), `turn-log.ts` (the passages
+  `search_manual` returned, keyed on the turn's `TurnState`, which carries the document id and page a
+  link does not), `chat-turn.ts` (the route's `onFinish`), `mcp-call.ts` (the MCP adapter's new
+  `afterCall` hook), `beacon.ts`, `rollup.ts`, `queries.ts`, `demo-usage.ts`.
+- **Beacon**: `POST /api/usage` and `components/usage/UsageBeacon.tsx`, on `/tools/[id]` and, for
+  kiosk arrivals, in the root layout beside `AskParamOpener`. Tier `usage` 60/min; GPC, DNT, bots and
+  `USAGE_INSIGHT=off` record nothing; always 204 (429 past the tier). It is `EXEMPT` in the parity
+  guard as "Not a user action": a browser's own count, with no permission to gate on.
+- **Cron**: `/api/cron/daily` stage 4, `usage`, after cleanup. It recounts every complete hour
+  still held raw and **replaces** those rollup rows in one transaction (idempotent, and exact when
+  a tool is deleted), then prunes raw events older than 30 days on an hour boundary, then gaps
+  last asked more than 30 days ago.
+- **Backup**: `cron/backup-policy.ts` gains `RETENTION_BOUND` (`usage_events`, `usage_gaps`),
+  skipped by the nightly backup **and by `data:push`**; `usage_rollups` is backed up.
+- **The page**: `/admin/insights`, surface `insights` (Keep data fresh, `ChartColumn`), a half tile
+  counting open gaps. Header links for 7 / 30 / 90 days and Include staff; a totals strip (app
+  questions, MCP calls, tool page views, QR scans, kiosk loads and arrivals, citations, unanswered,
+  answered rate); the **Unanswered** queue; **Most asked about / Never asked about** on the shared
+  `DataTable` (asked in the app and over MCP, views, QR, citations, unanswered); **question kinds**
+  as one `Sparkline` per kind; **busiest times** as a 7 × 24 `<table>` in lab time (the table is
+  the screen-reader form, shaded from `--primary-ink`); **manuals cited** with top pages.
+  "Counting since …" before any data, an error row when unreadable.
+- **The Unanswered queue's decisions** (pulled forward from phase 3, GUI only):
+  `insights.dismiss_gap` and `insights.file_correction` are registered actions run through
+  `performAction` (gate `insights.view`). Both are `assistant: "never"` until phase 4 decides how
+  the assistant reads gap text, so no tool, preview or MCP exposure. Filing writes a `feedback` row
+  (`issue_description` "Unanswered in the assistant: …", no reporter, `new`) in one transaction with
+  the gap's `filed` status; a correction outlives the gap's 30 days because a staff member chose to
+  keep it. **Add a manual** links to the tool's page, where the editor is. Queue refresh and bulk
+  dismiss wait for phase 3.
+- **About**: one sentence in "How it works".
+
+**Not built yet**: the tool editor's "Asked about … in the last 30 days" line; `record_gap`,
+bulk dismiss and Queue refresh from the row (phase 3); `usage_summary` and the admin chips
+(phase 4); the gap-precision evals.
+
+**Tests**: unit (`lib/usage/*.test.ts`: scrub, gap key, question kinds, absence phrases, audience,
+`fromTurn`, MCP calls); integration on PGlite (`usage.integration.test.ts`: recording, gap upsert
+and reopening, no identifier columns, never throws, rollup idempotence, the 29/31-day boundaries,
+a deleted tool, the watermark, staff toggle, never-asked, the DST cell; `api/chat/usage.route.test.ts`:
+a Form 4 turn citing page 12, a not-in-catalog gap scrubbed, an identical answer when the usage
+write fails; `api/mcp/usage.route.test.ts`; `api/usage/route.test.ts`: tier, GPC, DNT, bot, off,
+unpublished, no identifiers; the cron stage and the backup's tables; the page's gate; the two
+actions and their permission); components (`UnansweredQueue`, `BusiestHeatmap`, `UsageBeacon`);
+E2E `e2e/admin-insights.spec.ts`.
+
+**Status.** Phases 1 and 2 built, plus the queue's two GUI decisions; PR "v5 usage insights".
+Migration `0022` is the next free number on `main` today — if another PR lands a `0022` first,
+this one renumbers.

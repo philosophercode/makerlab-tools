@@ -214,7 +214,8 @@ export interface ActionSubject {
     | "import"
     | "mirror"
     | "category"
-    | "category_proposal";
+    | "category_proposal"
+    | "usage_gap";
   id: string;
 }
 

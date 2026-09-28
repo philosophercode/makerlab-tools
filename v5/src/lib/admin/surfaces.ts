@@ -1,6 +1,7 @@
 import {
   BookOpenText,
   Boxes,
+  ChartColumn,
   Flag,
   FolderTree,
   GalleryVerticalEnd,
@@ -46,6 +47,7 @@ export const SURFACE_KEYS = [
   "refresh",
   "research",
   "taxonomy",
+  "insights",
   "maintenance",
   "corrections",
   "projects",
@@ -63,6 +65,7 @@ export const COUNT_LOADERS = [
   "refresh",
   "manuals",
   "taxonomy",
+  "insights",
   "maintenance",
   "corrections",
   "projects",
@@ -111,6 +114,9 @@ export const ADMIN_SURFACES: readonly AdminSurface[] = [
   { key: "research", href: "/admin/research", group: "keepFresh", permission: "tools.edit", icon: BookOpenText, count: "manuals" },
   // Taxonomy v2 (spec 2026-09-28 §5.3): the category tree and the proposals waiting on it.
   { key: "taxonomy", href: "/admin/taxonomy", group: "keepFresh", permission: "taxonomy.manage", icon: FolderTree, count: "taxonomy" },
+  // Usage insight (usage insight spec §6): what the lab asks about and what
+  // the assistant could not answer. Curation, so it sits with Keep fresh.
+  { key: "insights", href: "/admin/insights", group: "keepFresh", permission: "insights.view", icon: ChartColumn, count: "insights" },
   { key: "maintenance", href: "/admin/maintenance", group: "queues", permission: "maintenance.manage", icon: Wrench, count: "maintenance" },
   { key: "corrections", href: "/admin/corrections", group: "queues", permission: "feedback.manage", icon: Flag, count: "corrections" },
   { key: "projects", href: "/admin/projects", group: "queues", permission: "projects.moderate", icon: GalleryVerticalEnd, count: "projects" },

@@ -28,11 +28,16 @@
     "names:backfill": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/backfill-display-names.ts",
     "descriptions:shorten": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/shorten-descriptions.ts",
     "resources:language": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/resource-language.ts",
+    "projects:seed": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/seed-projects.ts",
     "thumbnails:bundled": "node --experimental-strip-types scripts/generate-tool-thumbnails.ts",
     "thumbnails:backfill": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/backfill-thumbnails.ts",
     "taxonomy:migrate": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/taxonomy-migrate.ts",
     "taxonomy:audit": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/taxonomy-audit.ts",
-    "data:push":"node --env-file-if-exists=.env.local --experimental-strip-types scripts/push-local-to-hosted.ts"
+    "inventory:cleanup": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/inventory-cleanup.ts",
+    "data:push": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/push-local-to-hosted.ts",
+    "blob:repoint": "node --experimental-strip-types scripts/repoint-hosted-blobs.ts",
+    "manuals:resolve-links": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/resolve-manual-links.ts",
+    "resources:clean-urls": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/clean-resource-urls.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.160",

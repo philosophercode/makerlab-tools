@@ -35,20 +35,30 @@ const stats: CatalogStats = {
 };
 
 describe("GlobalChrome", () => {
-  it("renders the brand lockup using siteConfig (default name) linking home", () => {
+  it("renders the MakerLAB lockup from siteConfig: wordmark, site name and tagline, linking home", () => {
     render(<GlobalChrome stats={stats} />);
 
-    // Default site name from site-config.ts (env unset).
-    expect(siteConfig.name).toBe("MakerLab Tools");
-    const brand = screen.getByRole("link", { name: /MakerLab Tools/ });
+    // Defaults from site-config.ts (env unset) — identity spec 2026-09-28 §1.
+    expect(siteConfig.name).toBe("MakerLAB Tools");
+    expect(siteConfig.tagline).toBe("Your digital guide to making at Cornell Tech");
+    const brand = screen.getByRole("link", { name: /MakerLAB Tools/ });
     expect(brand).toHaveAttribute("href", "/");
     expect(brand).toHaveClass("brand-lockup");
+    expect(brand).toHaveTextContent("MakerLAB Tools");
+    expect(brand).toHaveTextContent("Your digital guide to making at Cornell Tech");
+    // The old lockup is gone.
+    expect(screen.queryByText("// CORNELL TECH")).not.toBeInTheDocument();
   });
 
-  it("renders the brand tagline from the translation catalog", () => {
+  it("draws the wordmark from the lab's own logo asset, as decoration", () => {
     render(<GlobalChrome stats={stats} />);
-    // en.json: nav.brandTagline = "// CORNELL TECH"
-    expect(screen.getByText("// CORNELL TECH")).toBeInTheDocument();
+
+    const brand = screen.getByRole("link", { name: /MakerLAB Tools/ });
+    const wordmark = brand.querySelector('[data-slot="brand-wordmark"]') as HTMLElement;
+    expect(wordmark).not.toBeNull();
+    expect(wordmark).toHaveAttribute("aria-hidden", "true");
+    expect(siteConfig.wordmark).toBe("/makerlab-wordmark.png");
+    expect(wordmark.style.maskImage || wordmark.getAttribute("style")).toContain("/makerlab-wordmark.png");
   });
 
   it("renders PrimaryNav with its links", () => {
@@ -115,7 +125,8 @@ describe("GlobalChrome", () => {
 
     const nav = screen.getByRole("navigation", { name: "Primary navigation" });
     expect(await screen.findByRole("button", { name: /Sign in/ })).toBeInTheDocument();
-    expect(nav.querySelectorAll("a")).toHaveLength(3);
+    // TOOLS, MAP (floor map spike), PROJECTS, ABOUT.
+    expect(nav.querySelectorAll("a")).toHaveLength(4);
     expect(screen.getByRole("button", { name: "Report a problem" })).toBeInTheDocument();
   });
 

@@ -54,17 +54,17 @@ test.describe("Chat assistant", () => {
 
     await page.goto("/");
 
-    // Open the chat sheet via the FAB (aria-label "Open MakerLab assistant").
-    await page.getByRole("button", { name: "Open MakerLab assistant" }).click();
+    // Open the chat sheet via the FAB (aria-label "Open the MakerLAB Assistant").
+    await page.getByRole("button", { name: "Open the MakerLAB Assistant" }).click();
 
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     await expect(
-      dialog.getByRole("heading", { name: "MAKERLAB ASSISTANT" })
+      dialog.getByRole("heading", { name: "MakerLAB Assistant" })
     ).toBeVisible();
 
-    // Type into the composer (aria-label "Ask the lab console") and submit.
-    const input = dialog.getByRole("textbox", { name: "Ask the lab console" });
+    // Type into the composer (aria-label "Ask the MakerLAB Assistant") and submit.
+    const input = dialog.getByRole("textbox", { name: "Ask the MakerLAB Assistant" });
     await input.fill("What is the Form 4?");
     await dialog.getByRole("button", { name: "Send" }).click();
 
@@ -78,7 +78,7 @@ test.describe("Chat assistant", () => {
   test("the chat FAB toggles the panel closed", async ({ page }) => {
     await page.goto("/");
 
-    await page.getByRole("button", { name: "Open MakerLab assistant" }).click();
+    await page.getByRole("button", { name: "Open the MakerLAB Assistant" }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 
@@ -90,12 +90,12 @@ test.describe("Chat assistant", () => {
   // UI system phase 5b: a docked sheet — Escape closes it and focus goes back.
   test("Escape closes the sheet and returns focus to the button", async ({ page }) => {
     await page.goto("/");
-    const fab = page.getByRole("button", { name: "Open MakerLab assistant" });
+    const fab = page.getByRole("button", { name: "Open the MakerLAB Assistant" });
     await fab.click();
-    const dialog = page.getByRole("dialog", { name: "MAKERLAB ASSISTANT" });
+    const dialog = page.getByRole("dialog", { name: "MakerLAB Assistant" });
     await expect(dialog).toBeVisible();
     // A keyboard's focus starts in the composer.
-    await expect(dialog.getByRole("textbox", { name: "Ask the lab console" })).toBeFocused();
+    await expect(dialog.getByRole("textbox", { name: "Ask the MakerLAB Assistant" })).toBeFocused();
 
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
@@ -136,9 +136,9 @@ test.describe("Chat assistant", () => {
     );
 
     await page.goto("/tools/form-4");
-    await page.getByRole("button", { name: "Open MakerLab assistant" }).click();
-    const dialog = page.getByRole("dialog", { name: "MAKERLAB ASSISTANT" });
-    await dialog.getByRole("textbox", { name: "Ask the lab console" }).fill("How do I replace the tank?");
+    await page.getByRole("button", { name: "Open the MakerLAB Assistant" }).click();
+    const dialog = page.getByRole("dialog", { name: "MakerLAB Assistant" });
+    await dialog.getByRole("textbox", { name: "Ask the MakerLAB Assistant" }).fill("How do I replace the tank?");
     await page.keyboard.press("Enter");
 
     const mark = dialog.getByRole("link", { name: "Open Form 4 Manual, p. 42" });
@@ -165,10 +165,10 @@ test.describe("Chat assistant on admin pages (UI system phase 5b)", () => {
     await page.goto("/admin/inventory");
     const bar = page.getByRole("navigation", { name: "Admin sections" });
     await expect(bar).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByRole("button", { name: "Open MakerLab assistant" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Open the MakerLAB Assistant" })).toHaveCount(0);
 
     await bar.getByRole("button", { name: "Ask the assistant" }).click();
-    const sheet = page.getByRole("dialog", { name: "MAKERLAB ASSISTANT" });
+    const sheet = page.getByRole("dialog", { name: "MakerLAB Assistant" });
     await expect(sheet).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(sheet).toHaveCount(0);
@@ -183,5 +183,52 @@ test.describe("Chat assistant on admin pages (UI system phase 5b)", () => {
     await palette.getByRole("option", { name: "Ask the assistant: “which printer takes resin”" }).click();
     await expect(sheet.getByText(ASSISTANT_REPLY)).toBeVisible({ timeout: 15_000 });
     expect(sent).toEqual(["which printer takes resin"]);
+  });
+});
+
+// The first-visit callout (identity spec 2026-09-28 §3): shown once per
+// browser, gone when dismissed, and never on the kiosk.
+test.describe("Meet the MakerLAB Assistant", () => {
+  const callout = (page: import("@playwright/test").Page) =>
+    page.getByRole("complementary", { name: "About the MakerLAB Assistant" });
+
+  test("shows on a first visit, dismisses, and stays dismissed after a reload", async ({ page }) => {
+    await page.goto("/");
+    await expect(callout(page)).toBeVisible();
+    await expect(callout(page)).toContainText("Meet the MakerLAB Assistant");
+
+    await callout(page).getByRole("button", { name: "Dismiss" }).click();
+    await expect(callout(page)).toHaveCount(0);
+
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Open the MakerLAB Assistant" })).toBeVisible();
+    await expect(callout(page)).toHaveCount(0);
+  });
+
+  test("shows once: ignored, it is gone after a reload", async ({ page }) => {
+    await page.goto("/");
+    await expect(callout(page)).toBeVisible();
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Open the MakerLAB Assistant" })).toBeVisible();
+    await expect(callout(page)).toHaveCount(0);
+  });
+
+  test("opens the chat, whose starters are operate, debug and create", async ({ page }) => {
+    await page.goto("/");
+    await callout(page).getByRole("button", { name: "Ask a question" }).click();
+
+    const dialog = page.getByRole("dialog", { name: "MakerLAB Assistant" });
+    await expect(dialog).toBeVisible();
+    for (const kicker of ["Operate", "Debug", "Create"]) {
+      await expect(dialog.getByRole("button", { name: new RegExp(`^${kicker} `) })).toBeVisible();
+    }
+    await expect(callout(page)).toHaveCount(0);
+  });
+
+  test("is not on the kiosk", async ({ page }) => {
+    await page.goto("/kiosk");
+    // The screen itself, not the loading state (both carry data-kiosk).
+    await expect(page.locator("[data-kiosk-main]")).toBeVisible();
+    await expect(callout(page)).toHaveCount(0);
   });
 });

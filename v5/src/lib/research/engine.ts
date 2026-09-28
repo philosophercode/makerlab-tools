@@ -29,6 +29,7 @@ import {
 import type { ResearchResult } from "./result.ts";
 import { selectSearchTexts, type SearchPageText } from "./search-text.ts";
 import { DEFAULT_MAX_LINKS, verifyResourceLinks } from "./verify-links.ts";
+import { resolveManualLinks } from "./resolve-manual-links.ts";
 
 /**
  * The research engine's two model passes, apart from any row (refresh research
@@ -236,6 +237,11 @@ export async function runRead(
   try {
     const checked = await verifyResourceLinks(english.kept, { signal, maxLinks: DEFAULT_MAX_LINKS, englishOnly: true });
     links = { verified: checked.verified, dropped: [...english.dropped, ...checked.dropped] };
+    // A Manual link that is a download page, not the file: follow it to the
+    // PDF, keeping the page beside it (amendment 2026-09-28).
+    const resolved = await resolveManualLinks(links.verified, { signal });
+    links = { ...links, verified: resolved.links };
+    for (const note of resolved.notes) console.info(`[research] ${opts.requestId}: ${note}`);
   } catch (error) {
     throw classifyResearchError(error, "verify");
   }

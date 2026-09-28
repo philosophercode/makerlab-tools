@@ -134,7 +134,7 @@ describe("getCatalogStats", () => {
   it("counts the published tools and reports lab hours", async () => {
     const stats = await getCatalogStats();
     expect(stats.toolsInInventory).toBe(2);
-    expect(stats.labHours).toBe("LAB OPEN 9AM-9PM");
+    expect(stats.labHours).toBe("LAB OPEN 8AM-8PM");
   });
 });
 

@@ -1,10 +1,13 @@
 "use client";
 
-import { lazy, Suspense, useState, type ComponentType } from "react";
+import { lazy, Suspense, useEffect, useState, type ComponentType } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { BotMessageSquareIcon } from "lucide-react";
 import { useChatLauncher } from "./ChatLauncherContext";
 import { isKioskPath } from "./kiosk-path";
+import { AssistantIntro } from "./chat/AssistantIntro";
+import { useAssistantIntro } from "./chat/assistant-intro-store";
 
 /** The admin opens the assistant from its section bar and ⌘K; the floating button is not drawn there. */
 function isAdminPath(pathname: string): boolean {
@@ -29,8 +32,9 @@ export function preloadChatPanel(): Promise<ComponentType> {
 const LazyPanel = lazy(() => preloadChatPanel().then((panel) => ({ default: panel })));
 
 /**
- * The assistant's floating button, and the assistant itself once it has been
- * opened (performance: the panel is not part of any page's first load).
+ * The MakerLAB Assistant's floating button (identity spec 2026-09-28), its
+ * one-time introduction, and the assistant itself once it has been opened
+ * (performance: the panel is not part of any page's first load).
  *
  * The button is drawn on public pages only (see `ChatPanel`), and on `/kiosk`
  * nothing is drawn at all. The panel
@@ -50,6 +54,17 @@ export function ChatFab() {
   const [mount, setMount] = useState<{ Panel: ComponentType | null } | null>(null);
   if (isOpen && mount === null) setMount({ Panel: LoadedPanel });
 
+  // The first-visit callout (identity spec §3): beside the button, on the
+  // first page it can show on and nowhere after, never on /admin (no button
+  // there) or /kiosk (returns below). Opening the chat by any route counts as
+  // having met the assistant. Showing it does not load the panel; only
+  // opening the chat does.
+  const introEligible = !isAdminPath(pathname) && !isKioskPath(pathname) && !isOpen;
+  const { visible: introVisible, markSeen: markIntroSeen } = useAssistantIntro(pathname, introEligible);
+  useEffect(() => {
+    if (isOpen) markIntroSeen();
+  }, [isOpen, markIntroSeen]);
+
   // The kiosk is read-only: the phone is the interactive surface, reached
   // through its QR code (kiosk spec §2). No button and no sheet there.
   if (isKioskPath(pathname)) return null;
@@ -67,11 +82,21 @@ export function ChatFab() {
           onClick={() => open()}
           onPointerEnter={() => void preloadChatPanel()}
           onFocus={() => void preloadChatPanel()}
-          className="ui fixed end-4 bottom-4 z-40 inline-flex size-12 cursor-pointer items-center justify-center border border-primary bg-primary font-mono text-sm font-bold text-primary-foreground transition-colors duration-150 hover:bg-primary/85 sm:end-6 sm:bottom-6"
+          className="ui fixed end-4 bottom-4 z-40 inline-flex size-12 cursor-pointer items-center justify-center border border-primary bg-primary text-primary-foreground transition-colors duration-150 hover:bg-primary/85 sm:end-6 sm:bottom-6"
         >
-          <span aria-hidden="true">&gt;_</span>
+          <BotMessageSquareIcon aria-hidden="true" className="size-6" />
         </button>
       )}
+      {introVisible ? (
+        <AssistantIntro
+          t={t}
+          onDismiss={markIntroSeen}
+          onOpen={() => {
+            markIntroSeen();
+            open();
+          }}
+        />
+      ) : null}
       {mount === null ? null : mount.Panel ? (
         <mount.Panel />
       ) : (

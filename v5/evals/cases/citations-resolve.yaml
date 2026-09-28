@@ -1,0 +1,40 @@
+# Every manual citation in an answer opens the right page of a real PDF
+# (manual text spec amendment 2026-09-28 "Citations always resolve"). The
+# owner saw citations that opened an unknown blob, the wrong document, or a
+# page the manual does not have. `citations_resolve` checks each manual link
+# in the answer: it came from a search_manual result (never typed by the
+# model), it answers 200 application/pdf from the eval's local blob origin
+# (evals/local-blob-server.ts), its #page=N is within the PDF's pages, and the
+# passage cited is on that page of manual_pages.
+
+- id: citations-resolve-tool-page
+  prompt: "How do I clean the build platform after a print?"
+  context: { page: tool, toolId: form-4 }
+  assert:
+    - kind: called_tool
+      value: search_manual
+    - kind: citations_resolve
+
+- id: citations-resolve-troubleshooting
+  prompt: "My print didn't stick to the build platform. What should I check?"
+  context: { page: tool, toolId: form-4 }
+  assert:
+    - kind: called_tool
+      value: search_manual
+    - kind: citations_resolve
+
+- id: citations-resolve-no-tool
+  prompt: "How do I replace the resin tank on the Form 4? Link me to the manual page."
+  context: { page: gallery }
+  assert:
+    - kind: called_tool
+      value: search_manual
+    - kind: citations_resolve
+
+- id: citations-resolve-scan-no-tool
+  prompt: "How long should Form 4 prints stay in the IPA wash, and how long should they dry?"
+  context: { page: gallery }
+  assert:
+    - kind: called_tool
+      value: search_manual
+    - kind: citations_resolve

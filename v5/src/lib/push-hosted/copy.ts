@@ -1,4 +1,4 @@
-import { mentionsLocalStore, transformRow, type Rewrites, type Row } from "./rows.ts";
+import { mentionsForeignStore, mentionsLocalStore, transformRow, type Rewrites, type Row } from "./rows.ts";
 import { ident, type SqlClient } from "./sql.ts";
 import type { CopyPlan, TablePlan } from "./tables.ts";
 
@@ -65,6 +65,8 @@ export interface CopyLimits {
   batchRows?: number;
   /** Approximate JSON bytes per insert statement. */
   batchBytes?: number;
+  /** The target's Blob store hosts: a row still naming another store is counted in `stillForeign`. */
+  targetHosts?: readonly string[];
 }
 
 export interface CopyResult {
@@ -73,6 +75,8 @@ export interface CopyResult {
   relinked: number;
   /** Rows that still mention `/api/dev-blob/` after rewriting, per table. */
   stillLocal: Map<string, number>;
+  /** Rows that still name a Blob store that is not the target's after rewriting, per table. */
+  stillForeign: Map<string, number>;
 }
 
 /**
@@ -93,7 +97,8 @@ export async function copyTables(
 ): Promise<CopyResult> {
   const batchRows = limits.batchRows ?? 500;
   const batchBytes = limits.batchBytes ?? 2_000_000;
-  const result: CopyResult = { rows: new Map(), relinked: 0, stillLocal: new Map() };
+  const result: CopyResult = { rows: new Map(), relinked: 0, stillLocal: new Map(), stillForeign: new Map() };
+  const targetHosts = limits.targetHosts ?? [];
   const deferred = new Map<TablePlan, Row[]>();
 
   await target.query("begin");
@@ -120,6 +125,9 @@ export async function copyTables(
             deferred.get(table)!.push(later);
           }
           if (mentionsLocalStore(row)) result.stillLocal.set(table.name, (result.stillLocal.get(table.name) ?? 0) + 1);
+          if (mentionsForeignStore(row, targetHosts)) {
+            result.stillForeign.set(table.name, (result.stillForeign.get(table.name) ?? 0) + 1);
+          }
           const json = JSON.stringify(row);
           batch.push(json);
           bytes += json.length;

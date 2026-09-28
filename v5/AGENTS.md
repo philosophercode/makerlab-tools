@@ -977,7 +977,7 @@ researched or published on its own (Article 5). See the spec's 2026-09-24 amendm
 - **Uploads**: kind `import` on `POST /api/uploads` (private, `tools.add`). The chat's
   paperclip takes list files and names them to the model as `[Attached documents: …]`.
 
-## Taxonomy v2 (`categories` tree, `category_proposals`; taxonomy v2 spec, migration `0022`)
+## Taxonomy v2 (`categories` tree, `category_proposals`; taxonomy v2 spec, migration `0023`)
 
 Nine top-level categories by process or shop, each with a second level, every category with a
 slug and a description (`docs/specs/2026-09-28-taxonomy-v2-design.md`). **Nothing creates a
@@ -1517,8 +1517,16 @@ data; the QR code opens the catalogue with the chat.
   `html:has([data-kiosk])`. The logo is a CSS mask filled with
   `--on-surface`, so a single-colour logo reads on dark; the QR code is drawn in
   `currentColor` on an `--on-surface` plate (no pure white). Type is `vmin` with
-  `clamp()` (`kiosk-type.ts`); landscape is two columns, portrait
-  (`portrait:` variant) stacks with the QR code last.
+  `clamp()` (`kiosk-type.ts`, ceilings at the 4K value). Three layouts, named
+  once as custom variants in `styles/ui.css`: `kiosk-wall` (landscape, ≥600px
+  tall: two columns, one screen, no scroll), `kiosk-scroll` (everything else:
+  an upright iPad puts the ticket count and featured item beside the QR code
+  and scrolls inside the screen if it must) and `kiosk-phone` (<640px wide or a
+  phone on its side: one column, 112px QR code plus an "Open the assistant"
+  link). Panels read `--kiosk-*` custom properties set per layout on the root,
+  are placed with `grid-template-areas`, and pad with `env(safe-area-inset-*)`
+  (`viewport-fit=cover` on the page). `kiosk.css` also hands the h1 size back
+  from globals.css's unlayered narrow-screen rule (`revert-layer`).
 - **The QR code** (`lib/kiosk/qr.ts`, server-only; `qrcode` is now a runtime
   dependency) encodes `kioskAskUrl(origin)` = `<origin>/?src=kiosk&ask=1`
   (`lib/kiosk/params.ts`). `AskParamOpener` in the root layout (its own
@@ -1528,7 +1536,7 @@ data; the QR code opens the catalogue with the chat.
   picks a supported locale (`app/kiosk/kiosk-locale.ts`), `kiosk.*` strings
   with English underneath, times in `LAB_TIMEZONE`.
 - **Hours** are `siteConfig.labHours` (`NEXT_PUBLIC_LAB_HOURS`, default
-  `LAB OPEN 9AM-9PM`), which the header's status strip reads too. Phase 2
+  `LAB OPEN 8AM-8PM`), which the header's status strip reads too. Phase 2
   structures them.
 - **Tests:** `lib/kiosk/{derive,qr,snapshot}.test.ts`, `app/api/kiosk/route.test.ts`,
   `components/kiosk/KioskScreen.test.tsx`, `components/kiosk-chrome.test.tsx`,
@@ -1537,11 +1545,66 @@ data; the QR code opens the catalogue with the chat.
   screenshot per viewport). The QR test has no decoder: it reads the modules
   back out of the SVG and compares them with `qrcode`'s matrix for `askUrl`.
 
+## Usage insight (`usage_*`; usage insight spec, migration `0022`)
+
+Anonymous counts of what the lab asks about, on **`/admin/insights`**
+(`insights.view`: admin and super admin). `docs/specs/2026-09-27-usage-insight-design.md`
+and its 2026-09-28 amendment are the detail.
+
+- **No per-person data, by schema.** `usage_events` / `usage_rollups` have no
+  user, session, chat, token, IP, email or user-agent column; the only thing
+  recorded about who caused an event is `audience` (`anonymous` | `member` |
+  `staff`, from the role — `lib/usage/events.ts`). A test asserts the column
+  names. Do not add one; do not pass an identity or a chat id into `lib/usage/`.
+- **What is counted** (`USAGE_KINDS`): `tool_view` (beacon; `source` `qr` |
+  `direct`), `kiosk_view` (`screen` from `/kiosk`'s render, `qr` from an
+  arrival with `?src=kiosk`), `chat_turn` (with `question_kind` operate /
+  debug / create / other — a keyword heuristic, `question-kind.ts`, no model),
+  `tool_asked` (focused tool, `get_tool_details` found, `search_manual` scope;
+  chat and MCP), `manual_cited` (a passage the answer linked to, with page),
+  `gap`, `mcp_call` (the tool name).
+- **Recording never costs a student anything.** The chat route's `onFinish`
+  calls `recordChatTurnUsage` (`lib/usage/chat-turn.ts`), MCP's
+  `registerAll` has an `afterCall` hook (`handler.ts` → `mcpCallUsage`); both
+  schedule `recordUsage` with `after()` (`schedule.ts`). `recordUsage` never
+  throws — a failed insert is one `[usage]` warning. `USAGE_INSIGHT=off`
+  records nothing. `search_manual` logs the passages it returned on the turn's
+  `TurnState` (`turn-log.ts`) — that is how a citation link becomes a document
+  id and page.
+- **The beacon** (`POST /api/usage`, `components/usage/UsageBeacon.tsx`): tool
+  pages are cached, so the browser says it was seen, once per tool per tab
+  (`sessionStorage`), with `sendBeacon`. Tier `usage` 60/min; `Sec-GPC`, `DNT`,
+  bots → nothing; a published tool only; always 204. `EXEMPT` in the parity
+  guard (not a user action).
+- **Unanswered** (`usage_gaps`): a turn that could not answer — `get_tool_details`
+  found nothing, every `search_tools` empty, `search_manual` `no_results` and
+  nothing cited, or the answer saying so (`absence.ts`, English phrases) — is
+  upserted by `gap-key.ts` (normalised question + tool). The text is scrubbed
+  (`scrub.ts`), the **latest** wording kept, and the row deleted **30 days after
+  it was last asked**. Decisions: `insights.dismiss_gap` (three more askings
+  reopen it) and `insights.file_correction` (a `feedback` row, no reporter,
+  lands on `/admin/corrections`) — GUI only (`assistant: "never"` until the
+  spec's phase 4).
+- **Retention.** The daily cron's `usage` stage (`rollup.ts`, after cleanup)
+  recounts every complete hour still held raw into `usage_rollups` (replacing,
+  so a re-run is idempotent), deletes raw events older than 30 days and gaps
+  past theirs. Rollups are kept and name nobody. `usage_events` and
+  `usage_gaps` are `RETENTION_BOUND` (`cron/backup-policy.ts`): never in the
+  backup file, never copied by `data:push`.
+- **Reads** (`queries.ts`): rollups for rolled hours plus raw events after the
+  watermark (last rolled hour + 1h), so nothing is counted twice before or after
+  the cron; days and the 7 × 24 grid in `LAB_TIMEZONE`; staff left out unless
+  `?staff=1`. The home tile counts open gaps (`countOpenGaps`).
+- **Demo seed** writes a synthetic week (`demo-usage.ts`) so the page has
+  something to show locally and in E2E.
+
 ## Key files
 
 | Path | Purpose |
 |---|---|
-| `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults), including `labHours` |
+| `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults), including `labHours` and the header `wordmark`. Names: **MakerLAB** is the lab, **MakerLAB Tools** the site, **MakerLAB Assistant** the AI (identity spec 2026-09-28) |
+| `src/lib/ai/lab-context.ts` | The assistant's "Where you are" block — the lab, its people, Cornell Tech, and its operate / debug / create purpose — placed after the intro in the static prompt prefix. Sourced facts only; sources in its comments |
+| `src/components/chat/assistant-intro-store.ts` / `AssistantIntro.tsx` | The first-visit "Meet the MakerLAB Assistant" callout beside the chat button, remembered in `localStorage` (try/catch), gone once dismissed or the chat opens |
 | `src/lib/kiosk/*` / `src/components/kiosk/*` / `src/app/kiosk/` | The lab status screen: snapshot loader, pure timing and derivations, QR code; the client screen; the page (see "The lab status screen") |
 | `src/lib/db/client.ts` | `getDb()`, `dataSubstrate()`, `pingDb()` — the one entry point to Postgres/PGlite |
 | `src/lib/notion.ts` | Notion API client — used by the one-time import and its scripts; no request path reads or writes Notion through it (the mirror has its own client) |
@@ -1629,7 +1692,7 @@ data; the QR code opens the catalogue with the chat.
 | `src/app/account/tokens/`, `src/app/oauth/`, `src/app/.well-known/` | The token page, the OAuth sign-in and consent pages, the discovery documents |
 | `src/app/account/page.tsx`, `src/lib/account/name-actions.ts` | "Your account": your own name (`updateOwnName`), your address |
 | `src/app/api/uploads/route.ts` | The one upload route → Vercel Blob + an `attachments` row |
-| `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup, then the mirror backstop, then the manual archive backfill; then the heartbeat ping |
+| `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup, then the usage rollup and 30-day prune, then the mirror backstop, then the manual archive backfill; then the heartbeat ping |
 | `src/lib/manuals/*` | The manual archive: `archive` (`archiveManual`), `steps` (`archiveManualStep`, `indexManualStep`), `start` (the one `workflow/api` import), `trigger` (`requestManualArchive`, never throws); manual text: `extract` (unpdf), `index-document`, `stored-bytes`, `digest`; manual search: `chunk` (`CHUNKER_VERSION`), `embed` (job `embed`), `passages` (the index step's second half), `search` (`searchManuals`, hybrid + RRF) |
 | `src/lib/data/manual-documents.ts` | `manual_documents` / `manual_pages`: the one-transaction write, current-PDF lists for the step and backfill, editor states, tool-page contents, research's stored-text lookups |
 | `src/lib/data/manual-chunks.ts` | `manual_chunks`: the one-transaction passage write, which documents need passages, the chat's view of a tool's manuals, Re-process, the `/admin/research` counts |

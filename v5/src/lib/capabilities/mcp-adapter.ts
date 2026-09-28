@@ -32,6 +32,11 @@ export interface RegisterAllOptions {
    * (§5.2). Answers a refusal message, or null to go ahead.
    */
   beforeWrite?: (tool: CapabilityTool<unknown, unknown>) => Promise<string | null>;
+  /**
+   * Told of every call that ran, after it answered — Usage Insight counts MCP
+   * calls here (usage insight spec §3.3). Must not throw; a throw is ignored.
+   */
+  afterCall?: (tool: CapabilityTool<unknown, unknown>, result: unknown) => void;
 }
 
 /**
@@ -76,6 +81,11 @@ function registerTool(
       }
       try {
         const result = await tool.run(input, ctx);
+        try {
+          opts.afterCall?.(tool, result);
+        } catch {
+          // Counting a call never changes its answer.
+        }
         return {
           content: [{ type: "text" as const, text: JSON.stringify(result, null, 2) }],
         };

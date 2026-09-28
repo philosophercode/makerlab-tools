@@ -13,6 +13,7 @@ import { GlobalChrome } from "../components/GlobalChrome";
 import { DemoDataBanner } from "../components/DemoDataBanner";
 import { SiteChrome } from "../components/SiteChrome";
 import { AskParamOpener } from "../components/AskParamOpener";
+import { UsageBeacon } from "../components/usage/UsageBeacon";
 import { ThemeScript } from "../components/ThemeScript";
 import { LocaleHtmlScript } from "../components/LocaleHtmlScript";
 import { getCatalogStats, getPaletteTools } from "../lib/catalog";
@@ -20,7 +21,8 @@ import { siteConfig } from "../lib/site-config";
 
 export const metadata: Metadata = {
   title: `${siteConfig.name}`,
-  description: `Technical Schematic tool catalog for ${siteConfig.institution} MakerLab.`,
+  // The site's tagline, and what it is (identity spec 2026-09-28 §1).
+  description: `${siteConfig.tagline}: the ${siteConfig.institution} MakerLAB's tools, manuals and the ${siteConfig.chatAssistantName}.`,
 };
 
 // Brand colors come from NEXT_PUBLIC_* env (inlined at build), so an inline
@@ -81,6 +83,8 @@ async function LocalizedTree({
               cannot, and must not take the chat button out of the HTML with it. */}
           <Suspense fallback={null}>
             <AskParamOpener />
+            {/* Counts an arrival from the kiosk's QR code (`?src=kiosk`), nothing else. */}
+            <UsageBeacon kind="kiosk_view" />
           </Suspense>
         </PageSelectionProvider>
       </ChatLauncherProvider>
