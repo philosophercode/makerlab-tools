@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useId, useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import type { RefreshActionError, RefreshReviewActions, RefreshWarning } from "../../app/admin/refresh/action-result";
 import type { RefreshStatus } from "../../lib/db/schema/vocabulary";
@@ -15,6 +15,7 @@ import { Field } from "../system/Field";
 import { Glyph } from "../system/StatusGlyph";
 import { ReviewDiagnosis, ReviewNote } from "../system/review/ReviewCard";
 import { ProposalCard } from "./ProposalCard";
+import { usePoll } from "./use-poll";
 
 /**
  * One refresh's review (refresh research spec §5.2, §6): the proposal cards,
@@ -64,11 +65,7 @@ export function RefreshReview({ view, actions }: { view: RefreshReviewView; acti
   const descriptionsId = useId();
 
   const running = view.status === "queued" || view.status === "researching";
-  useEffect(() => {
-    if (!running) return;
-    const timer = setInterval(() => router.refresh(), INTAKE_POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [running, router]);
+  usePoll(() => router.refresh(), INTAKE_POLL_INTERVAL_MS, running);
 
   const actionable = view.proposals.filter(isActionable);
   const notFound = view.proposals.filter((p) => !isActionable(p));
