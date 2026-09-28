@@ -1,0 +1,34 @@
+[
+  {
+    "toolSlug": "bambu-lab-x1-carbon-combo-3d-printer",
+    "toolId": "09e38acb-a835-4986-859f-5ec30ef0810e",
+    "resourceId": "c914bed4-c435-4a11-8319-976a2b3c5316",
+    "title": "Bambu Lab X1-Carbon Combo 3D Printer - SOP",
+    "from": "https://cdn1.bambulab.com/documentation/quick-start-e254168f69145/X1C/English%20version-Quick%20Start%20Guide%20for%20X1-Carbon.pdf?utm_source=chatgpt.com",
+    "to": "https://cdn1.bambulab.com/documentation/quick-start-e254168f69145/X1C/English%20version-Quick%20Start%20Guide%20for%20X1-Carbon.pdf"
+  },
+  {
+    "toolSlug": "plunge-cut-track-saw-ts-55-req-f-plus",
+    "toolId": "7e275d84-43c8-4c2a-82c8-1d31cb1ac2f2",
+    "resourceId": "9cb58054-2d6e-4d32-8103-8cdda992df29",
+    "title": "Plunge Cut Track Saw TS 55 REQ-F-Plus - SOP",
+    "from": "https://www.festoolusa.com/-/media/tts/fcp/festool-usa/downloads/manuals/festool-ts55req-supplemental-manual.pdf?utm_source=chatgpt.com",
+    "to": "https://www.festoolusa.com/-/media/tts/fcp/festool-usa/downloads/manuals/festool-ts55req-supplemental-manual.pdf"
+  },
+  {
+    "toolSlug": "ultimaker-s5",
+    "toolId": "9db78154-87c8-436e-be33-e5806904f58f",
+    "resourceId": "2f07c340-9bfa-4a3a-97b5-c5e5cced5db1",
+    "title": "Ultimaker S5 - SOP",
+    "from": "https://um-support-files.ultimaker.com/manuals/user-manual/S5-Pro-Bundle/EN-Pro%20Bundle-User%20manual-V2.2.pdf?utm_source=chatgpt.com",
+    "to": "https://um-support-files.ultimaker.com/manuals/user-manual/S5-Pro-Bundle/EN-Pro%20Bundle-User%20manual-V2.2.pdf"
+  },
+  {
+    "toolSlug": "dewalt-drill-dcd777c2",
+    "toolId": "d0e7ed18-25ff-49fe-8d73-e796f4ef5d11",
+    "resourceId": "1e5dc2b1-41bd-4d88-8e3a-6183cbd2787e",
+    "title": "DeWalt Drill (DCD777C2) - SOP",
+    "from": "https://www.dewalt.ca/GLOBALBOM/QU/DCD777C2/1/Instruction_Manual/EN/NA136155_DCD777_DCD778_T1_NA.pdf?utm_source=chatgpt.com",
+    "to": "https://www.dewalt.ca/GLOBALBOM/QU/DCD777C2/1/Instruction_Manual/EN/NA136155_DCD777_DCD778_T1_NA.pdf"
+  }
+]
