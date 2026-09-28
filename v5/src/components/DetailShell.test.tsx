@@ -17,7 +17,7 @@ describe("DetailShell", () => {
 
     it("renders the hero image from imageSrc", () => {
       const { container } = render(<DetailShell tool={toolWithLinks} />);
-      const img = container.querySelector(".td-hero-image img") as HTMLImageElement;
+      const img = container.querySelector('[data-slot="tool-hero"] img') as HTMLImageElement;
       expect(img).not.toBeNull();
       // next/image rewrites the src through the optimizer but the original
       // path is encoded in the URL — assert the original filename survives.
@@ -29,13 +29,14 @@ describe("DetailShell", () => {
       expect(screen.getByText(toolWithLinks.description)).toBeInTheDocument();
     });
 
-    it("renders the status chip and a training chip", () => {
+    it("says status, training and PPE as glyphs and words on one line", () => {
       const { container } = render(<DetailShell tool={toolWithLinks} />);
-      // status === "Available" — scope to the status chip row (the unit table
+      // status === "Available" — scope to the status line (the unit table
       // also shows "Available" for the available unit).
-      const chipRow = container.querySelector(
-        '.td-chip-row[aria-label="Tool status"]'
-      ) as HTMLElement;
+      const chipRow = container.querySelector('[data-slot="tool-status-line"]') as HTMLElement;
+      expect(chipRow).toHaveAttribute("aria-label", "Tool status");
+      expect(chipRow.querySelector('[data-glyph="ok"]')).not.toBeNull();
+      expect(within(chipRow).getByText(/1 of 1 unit available/)).toBeInTheDocument();
       expect(chipRow).not.toBeNull();
       expect(within(chipRow).getByText("Available")).toBeInTheDocument();
       // trainingChip => "{level} training" => "Intermediate training"
@@ -53,29 +54,20 @@ describe("DetailShell", () => {
       }
     });
 
-    it("lists materials (joined) in the at-a-glance card and details table", () => {
+    it("lists materials (joined) once, in the specifications", () => {
       render(<DetailShell tool={toolWithLinks} />);
       const joined = toolWithLinks.materials.join(", ");
-      // Appears in the glance card and the details table => >= 2.
-      expect(screen.getAllByText(joined).length).toBeGreaterThanOrEqual(2);
+      // The "at a glance" card that repeated them is gone (phase 5a).
+      expect(screen.getAllByText(joined)).toHaveLength(1);
     });
 
-    it("renders category and location in the details table", () => {
+    it("renders category and location in the specifications list", () => {
       const { container } = render(<DetailShell tool={toolWithLinks} />);
-      const table = container.querySelector(".td-kv-table") as HTMLElement;
-      expect(table).not.toBeNull();
-      const rowText = Array.from(table.querySelectorAll("tr")).map((tr) =>
-        (tr.textContent || "").replace(/\s+/g, " ").trim()
-      );
-      // category / categorySub combined cell (text split across nodes in the DOM;
-      // textContent of the <tr> concatenates the <th> label and the <td> value).
-      expect(rowText).toContain(
-        `Category${toolWithLinks.category} / ${toolWithLinks.categorySub}`
-      );
-      // location / zone combined cell
-      expect(rowText).toContain(
-        `Location${toolWithLinks.location} / ${toolWithLinks.zone}`
-      );
+      const specs = container.querySelector('[data-slot="tool-specs"]') as HTMLElement;
+      expect(specs.tagName).toBe("DL");
+      const rowText = Array.from(specs.children).map((row) => (row.textContent || "").replace(/\s+/g, " ").trim());
+      expect(rowText).toContain(`Category${toolWithLinks.category} › ${toolWithLinks.categorySub}`);
+      expect(rowText).toContain(`Location${toolWithLinks.location} › ${toolWithLinks.zone}`);
     });
 
     it("renders each resource link with its href and label", () => {
@@ -84,6 +76,25 @@ describe("DetailShell", () => {
         const anchor = screen.getByRole("link", { name: new RegExp(link.label, "i") });
         expect(anchor).toHaveAttribute("href", link.href);
       }
+    });
+
+    it("marks a link whose manual the assistant can search, and only that one", () => {
+      const [first, second] = toolWithLinks.links;
+      const { container } = render(
+        <DetailShell
+          tool={toolWithLinks}
+          manualContents={[
+            { href: first.href, outline: [], searchable: true },
+            ...(second ? [{ href: second.href, outline: [], searchable: false }] : []),
+          ]}
+        />
+      );
+      const marks = container.querySelectorAll('[data-slot="searchable-manual"]');
+      expect(marks).toHaveLength(1);
+      expect(screen.getByRole("link", { name: new RegExp(first.label, "i") })).toContainElement(marks[0] as HTMLElement);
+      expect(within(marks[0] as HTMLElement).getByText("Searchable by the assistant")).toBeInTheDocument();
+      // An empty outline shows no Contents list.
+      expect(screen.queryByText("Contents")).toBeNull();
     });
 
     it("surfaces the Safety Doc / SOP action buttons that match a resource kind", () => {
@@ -103,27 +114,42 @@ describe("DetailShell", () => {
         screen.getByRole("heading", { name: "Physical Machines" })
       ).toBeInTheDocument();
       const unit = toolWithLinks.units[0];
-      expect(screen.getByText(unit.name)).toBeInTheDocument();
-      expect(screen.getByText(unit.serial)).toBeInTheDocument();
+      // jsdom renders the phone list too; scope to the table (DataTable's rule).
+      const table = within(screen.getByRole("table", { name: "Physical Machines" }));
+      expect(table.getByText(unit.name)).toBeInTheDocument();
+      expect(table.getByText(unit.serial)).toBeInTheDocument();
       // status + condition values are present in the table
-      expect(screen.getAllByText(unit.status).length).toBeGreaterThanOrEqual(1);
-      expect(screen.getByText(unit.condition)).toBeInTheDocument();
+      expect(screen.getAllByText("Available").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getByRole("table", { name: "Physical Machines" })).toBeInTheDocument();
+      expect(table.getByText(unit.condition)).toBeInTheDocument();
     });
 
-    it("renders the back-to-tools link", () => {
-      render(<DetailShell tool={toolWithLinks} />);
-      const back = screen.getByRole("link", { name: /Back to all tools/i });
-      expect(back).toHaveAttribute("href", "/");
-    });
-
-    it("renders breadcrumbs ending in the tool name", () => {
+    it("renders breadcrumbs Tools › tool name, with no Inventory step", () => {
       const { container } = render(<DetailShell tool={toolWithLinks} />);
-      const crumbs = container.querySelector(".td-breadcrumbs") as HTMLElement;
+      const crumbs = container.querySelector('[data-slot="tool-breadcrumbs"]') as HTMLElement;
       expect(crumbs).not.toBeNull();
       const scoped = within(crumbs);
       expect(scoped.getByRole("link", { name: "Tools" })).toBeInTheDocument();
-      expect(scoped.getByText("Inventory")).toBeInTheDocument();
-      expect(scoped.getByText(toolWithLinks.name)).toBeInTheDocument();
+      expect(scoped.getByRole("link", { name: "Tools" })).toHaveAttribute("href", "/");
+      expect(scoped.queryByText("Inventory")).not.toBeInTheDocument();
+      expect(scoped.getByText(toolWithLinks.name)).toHaveAttribute("aria-current", "page");
+    });
+
+    it("shows recent maintenance without names, and leaves the section out when there is none", () => {
+      const { rerender } = render(
+        <DetailShell
+          tool={toolWithLinks}
+          maintenance={[
+            { id: "m1", unitLabel: "Form 4 // A", title: "Resin tank leaking", type: "Issue Report", status: "Open", dateReported: "2026-09-20", dateResolved: "" },
+          ]}
+        />
+      );
+      const history = screen.getByRole("region", { name: "Maintenance history" });
+      expect(within(history).getByText("Resin tank leaking")).toBeInTheDocument();
+      expect(within(history).getByText("2026-09-20")).toBeInTheDocument();
+      expect(within(history).getByText("Open")).toBeInTheDocument();
+      rerender(<DetailShell tool={toolWithLinks} />);
+      expect(screen.queryByRole("region", { name: "Maintenance history" })).not.toBeInTheDocument();
     });
 
     it("mounts without error (smoke for the whole shell)", () => {
@@ -135,43 +161,50 @@ describe("DetailShell", () => {
     it("shows the In Use status chip", () => {
       render(<DetailShell tool={inUseTool} />);
       // status chip + each in-use unit row may also show "In Use"
-      expect(screen.getAllByText("In Use").length).toBeGreaterThanOrEqual(1);
+      expect(screen.getAllByText("In use").length).toBeGreaterThanOrEqual(1);
     });
 
     it("renders a row for every unit", () => {
       render(<DetailShell tool={inUseTool} />);
+      const table = within(screen.getByRole("table", { name: "Physical Machines" }));
       for (const unit of inUseTool.units) {
-        expect(screen.getByText(unit.name)).toBeInTheDocument();
+        expect(table.getByRole("rowheader", { name: unit.name })).toBeInTheDocument();
       }
     });
   });
 
   describe("conditional rendering", () => {
-    it("falls back to 'Contact MakerLab staff' when there are no materials", () => {
+    it("leaves out the materials row when there are no materials (no placeholder)", () => {
       const noMaterials = { ...toolWithLinks, materials: [] };
       render(<DetailShell tool={noMaterials} />);
-      expect(
-        screen.getAllByText("Contact MakerLab staff").length
-      ).toBeGreaterThanOrEqual(1);
+      const specs = document.querySelector('[data-slot="tool-specs"]') as HTMLElement;
+      expect(within(specs).queryByText("Materials")).not.toBeInTheDocument();
+      expect(screen.queryByText("Contact MakerLab staff")).not.toBeInTheDocument();
     });
 
-    it("shows the no-documents empty state when there are no links", () => {
+    it("leaves out Documents & Resources when there are no links (no empty box)", () => {
       const noLinks = { ...toolWithLinks, links: [] };
       render(<DetailShell tool={noLinks} />);
-      expect(screen.getByText("No documents linked yet.")).toBeInTheDocument();
+      expect(screen.queryByRole("region", { name: "Documents & Resources" })).not.toBeInTheDocument();
+      expect(screen.queryByText("No documents linked yet.")).not.toBeInTheDocument();
     });
 
-    it("omits the PPE-required chip when ppe is empty", () => {
+    it("lays Details beside Documents and the machines in two columns", () => {
+      render(<DetailShell tool={toolWithLinks} />);
+      const columns = document.querySelector('[data-slot="tool-columns"]') as HTMLElement;
+      expect(columns.className).toMatch(/lg:grid-cols-2/);
+      expect(within(columns).getByRole("region", { name: "Details" })).toBeInTheDocument();
+      expect(within(columns).getByRole("region", { name: "Documents & Resources" })).toBeInTheDocument();
+    });
+
+    it("omits the PPE-required chip and the PPE row when ppe is empty", () => {
       const noPpe = { ...toolWithLinks, ppe: [] };
       render(<DetailShell tool={noPpe} />);
-      // The "PPE Required" safety-section heading still renders, but the chip
-      // (inside .td-chip-row) is gone. With no PPE there is exactly one match
-      // (the section heading) instead of two.
-      expect(screen.getAllByText("PPE Required")).toHaveLength(1);
+      expect(screen.queryByText("PPE Required")).not.toBeInTheDocument();
     });
 
-    it("renders the emergency-stop fallback when emergencyStop is null", () => {
-      render(<DetailShell tool={inUseTool} />); // inUseTool.emergencyStop === null
+    it("falls back to the lab's standing guidance when a tool records no safety facts", () => {
+      render(<DetailShell tool={{ ...inUseTool, ppe: [], emergencyStop: null, useRestrictions: null }} />);
       expect(
         screen.getByText(
           "Follow posted lab guidance and notify staff in an emergency."

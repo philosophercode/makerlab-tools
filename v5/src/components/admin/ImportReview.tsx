@@ -1,5 +1,6 @@
 "use client";
 
+import { usePublishSelection } from "../chat/page-selection";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -87,6 +88,8 @@ export function ImportReview({
   const [view, setView] = useState(initialImport);
   const [items, setItems] = useState(initialItems);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  // The ticked rows are what "these" means in the chat (assistant–GUI parity spec §3.6).
+  usePublishSelection("pending_tool", [...selected]);
   const [filter, setFilter] = useState<ImportFilter>("all");
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState<string | null>(null);

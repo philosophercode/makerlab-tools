@@ -4,6 +4,8 @@ import type { BlobStore } from "../blob";
 import type { Revision } from "../data/revision";
 import type { Db } from "../db/types";
 import { storeResearchImage } from "../intake/approval-image";
+import type { PickHints } from "../research/images/pick-clean";
+import { BACKGROUND_CLASSES, type BackgroundClass } from "../research/result";
 import { attachPhotos } from "../inventory/photo-edits";
 import { addResource } from "../inventory/resource-edits";
 import type { InventoryWriteError, InventoryWriteWarning } from "../inventory/result";
@@ -26,8 +28,10 @@ import { hasVerifiedEvidence, isActionable, type FieldProposal, type ProposedCov
  *   chain of writes is one person's edits in order.
  * - **Cover photo** — the image research ranked first is downloaded **now**,
  *   through the SSRF guard (`storeResearchImage`, the approval image path),
- *   stored public and attached as the tool's photo; with no other photo it is
- *   the cover. A download that fails is the `image_not_attached` warning on a
+ *   **cleaned** the way intake's picked image is (the deterministic crop and
+ *   cutout, from the hints the proposal recorded — amendment "The picked image
+ *   is cleaned too"), stored public and attached as the tool's photo; with no
+ *   other photo it is the cover. A download that fails is the `image_not_attached` warning on a
  *   landed write, never a refusal.
  *
  * What is refused before anything is written: a proposal that is not a change
@@ -140,7 +144,11 @@ export async function applyProposals(proposals: readonly FieldProposal[], ctx: A
     const proposed = cover.proposed as Partial<ProposedCover> | undefined;
     const coverId =
       typeof proposed?.url === "string" && ctx.actorUserId
-        ? await storeResearchImage(proposed.url, { uploadedBy: ctx.actorUserId, db: ctx.db, store: ctx.store })
+        ? await storeResearchImage(
+            proposed.url,
+            { uploadedBy: ctx.actorUserId, db: ctx.db, store: ctx.store },
+            coverHints(proposed)
+          )
         : null;
     if (!coverId) {
       warning = "image_not_attached";
@@ -157,6 +165,20 @@ export async function applyProposals(proposals: readonly FieldProposal[], ctx: A
   }
 
   return { ok: true, revision, applied, resourceIds, ...(warning ? { warning } : {}) };
+}
+
+/**
+ * The cleaning hints a stored cover proposal carries, read leniently: the row
+ * is JSON (a proposal from before the hints, or hand-edited), so anything not
+ * the right shape is simply absent — the background is then classified, and a
+ * box `cleanPickedImage` cannot validate is no box.
+ */
+function coverHints(proposed: Partial<ProposedCover>): PickHints {
+  const background = BACKGROUND_CLASSES.includes(proposed.background as BackgroundClass)
+    ? (proposed.background as BackgroundClass)
+    : null;
+  const box = Array.isArray(proposed.productBox) ? proposed.productBox : null;
+  return { background, composite: proposed.composite === true, productBox: box };
 }
 
 /**

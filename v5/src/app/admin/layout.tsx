@@ -2,7 +2,8 @@ import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { AdminNav } from "../../components/admin/AdminNav";
 import { AdminNotice } from "../../components/admin/AdminNotice";
-import { CommandPalette } from "../../components/admin/CommandPalette";
+import { AskAssistantButton } from "../../components/chat/AskAssistantButton";
+import { PaletteScope } from "../../components/palette/palette-scope";
 import { EmptyState } from "../../components/system/EmptyState";
 import { surfacesFor } from "../../lib/admin/surfaces";
 import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
@@ -24,8 +25,10 @@ import { siteConfig } from "../../lib/site-config";
  * lie about the page existing and a redirect to sign-in would lose where they
  * were going. `AdminNotice` says which of the two situations this is.
  *
- * **Past the gate, every page gets the section bar** (`AdminNav`) and the ⌘K
- * palette, both over `surfacesFor(identity)` — the one list in
+ * **Past the gate, every page gets the section bar** (`AdminNav`, ending in
+ * **Ask the assistant** — the floating chat button is not drawn here, UI
+ * system phase 5b) and the ⌘K
+ * palette (the header's, told who this is by `PaletteScope`), both over `surfacesFor(identity)` — the one list in
  * `lib/admin/surfaces.ts`, filtered by the same `can()` each page calls — so
  * no admin page is reachable only through `/admin` and none of them links to
  * a refusal. The 88px display "ADMIN" that stacked above every page's own
@@ -47,7 +50,7 @@ export default async function AdminLayout({
   const t = await getTranslations("admin");
 
   return (
-    <main className="page-shell admin-shell">
+    <main className="mx-auto w-full max-w-[1600px] px-4 pt-6 pb-24 sm:px-8 sm:pt-8 sm:pb-16">
       <h1 id="admin-title" className="sr-only">
         {t("title")}
       </h1>
@@ -79,7 +82,10 @@ async function AdminGate({ children }: { children: React.ReactNode }) {
 
   return (
     <>
-      <AdminNav items={items} end={<CommandPalette role={identity.role} tools={tools} />} />
+      {/* The header's ⌘K palette learns this viewer and the index with drafts. */}
+      <PaletteScope role={identity.role} tools={tools} />
+      {/* The floating chat button is not drawn on admin pages; the bar opens the assistant. */}
+      <AdminNav items={items} end={<AskAssistantButton />} />
       {children}
     </>
   );

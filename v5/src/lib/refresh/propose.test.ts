@@ -253,6 +253,32 @@ describe("proposeChanges", () => {
     ).toMatchObject({ kind: "new", proposed: { url: "https://wenproducts.com/img/dc3401.jpg", width: 1200 } });
   });
 
+  it("carries what accepting the cover needs to clean it: background, composite, product box", () => {
+    const candidate = {
+      url: "https://wenproducts.com/img/dc3401.jpg",
+      pageUrl: null,
+      source: "og" as const,
+      width: 1200,
+      height: 900,
+      contentType: "image/jpeg" as const,
+      rank: 1 as const,
+      reason: "Front view",
+      background: "busy" as const,
+      composite: true,
+      productBox: [0.2, 0.2, 0.8, 0.9] as const,
+    };
+    const research = researchFixture({ images: { candidates: [candidate], cleaned: null } });
+    expect(byField(proposeChanges({ tool: toolFixture({ hasCover: false }), research, includeDescription: false }), "cover_photo")?.proposed).toEqual({
+      url: candidate.url,
+      pageUrl: null,
+      width: 1200,
+      height: 900,
+      background: "busy",
+      composite: true,
+      productBox: [0.2, 0.2, 0.8, 0.9],
+    });
+  });
+
   it("an unidentifiable tool gets a floor check and nothing else", () => {
     const research = researchFixture({ sourceUrls: [], description: "", resources: [] });
     expect(isIdentified(research)).toBe(false);
@@ -384,5 +410,30 @@ describe("helpers", () => {
   it("resourceKey drops www, trailing slash, size parameters and a locale segment", () => {
     expect(resourceKey("https://www.example.com/en-us/manual.pdf/?w=100")).toBe(resourceKey("http://example.com/manual.pdf"));
     expect(resourceKey("not a url")).toBeNull();
+  });
+});
+
+describe('proposeChanges — English resources (amendment "English resources only")', () => {
+  it("proposes the en-us link beside the tool's de-de one, which does not count as having it", () => {
+    const proposals = proposeChanges({
+      tool: toolFixture({ resourceUrls: ["https://www.wenproducts.com/de-de/products/DC3401"] }),
+      research: researchFixture({
+        resources: [{ title: "Product page", url: "https://www.wenproducts.com/en-us/products/DC3401", type: "Other" }],
+      }),
+      includeDescription: false,
+    });
+    const resources = proposals.filter((p) => p.field === "resource");
+    expect(resources.map((p) => p.id)).toEqual(["resource:https://www.wenproducts.com/en-us/products/DC3401"]);
+  });
+
+  it("still treats an English link at the same address as already there", () => {
+    const proposals = proposeChanges({
+      tool: toolFixture({ resourceUrls: ["https://www.wenproducts.com/en-gb/products/DC3401"] }),
+      research: researchFixture({
+        resources: [{ title: "Product page", url: "https://www.wenproducts.com/en-us/products/DC3401", type: "Other" }],
+      }),
+      includeDescription: false,
+    });
+    expect(proposals.filter((p) => p.field === "resource")).toEqual([]);
   });
 });

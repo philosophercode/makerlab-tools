@@ -1,50 +1,32 @@
 "use server";
 
-import { writeTicket } from "../../../lib/admin/ticket-write";
-import { type MaintenanceActionResult, type TicketPatch } from "./action-result";
+import { performAction } from "../../../lib/actions/perform";
+import { TICKETS_LOG_COMPLETED } from "../../../lib/actions/maintenance-log";
+import { TICKETS_UPDATE } from "../../../lib/actions/tickets";
+import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
+import { type LogCompletedFields, type LogCompletedResult, type MaintenanceActionResult, type TicketPatch } from "./action-result";
 
 /**
- * Working a ticket (spec §5.6, §4.8, §8).
+ * Working a ticket (spec §5.6, §4.8, §8) — a one-line wrapper over
+ * `tickets.update` (`src/lib/actions/tickets.ts`), the definition MCP's and
+ * the chat's `update_ticket` share through `writeTicket`, so the surfaces
+ * cannot disagree about what working a ticket means.
  *
- * **It checks `maintenance.manage` for itself.** A server action is a POST
- * endpoint with a generated name, reachable without the page that offers the
- * control, so the page's own gate is evidence of nothing — and this is the
- * permission this surface needs, not `tools.edit`, which a SuperMaker might
- * hold without ever having been given the tickets.
- *
- * **No audit event, deliberately.** §4.11 scopes the trail to security-relevant
- * actions and says ordinary edits are not logged; moving a ticket to "in
- * progress" is the most ordinary edit in the lab. `maintenance_logs` carries
- * `updated_by` and `updated_at`, which is the record this change earns.
- *
- * **And no cache invalidation.** Nothing cached reads a ticket: the catalogue
- * shows unit *status*, which is the tool editor's field and a different write.
- * Busting the catalogue here would cost a full re-read every time somebody
- * ticked a box.
- *
- * **But it does tell the Notion mirror.** The mirror carries every maintenance
- * log (§3.8), so a ticket's status, priority, assignee or resolution is a
- * change it should hold. `requestMirrorPush()` runs after the write commits,
- * never throws, and coalesces: a reviewer clearing ten tickets starts one
- * push two minutes later, not ten. A refused write never reaches it.
+ * It checks `maintenance.manage` for itself (a server action is reachable
+ * without its page), writes no audit event (§4.11: an ordinary edit),
+ * invalidates no cache (nothing cached reads a ticket) and tells the Notion
+ * mirror. One action for status, priority, assignee and resolution: the patch
+ * writes only the keys the control sent.
  */
-
-/** Names this surface in the console line a failure leaves behind. */
-const SURFACE = "admin/maintenance";
+export async function updateTicket(input: { logId: string; patch: TicketPatch }): Promise<MaintenanceActionResult> {
+  return performAction(TICKETS_UPDATE, input, await resolveIdentityFromHeaders(), { surface: "gui" });
+}
 
 /**
- * Change one ticket's status, priority, assignee or resolution.
- *
- * One action rather than four, because the controls are four views of one row
- * and the page saves each of them the moment it changes — a queue somebody has
- * ten minutes for cannot afford a Save button per field. The patch shape is
- * what keeps that safe: an unsent key is not written.
+ * **Log completed maintenance** (parity spec §11 answer 5) — a wrapper over
+ * `tickets.log_completed`, the definition the assistant's
+ * `log_completed_maintenance` card commits too.
  */
-export async function updateTicket(input: {
-  logId: string;
-  patch: TicketPatch;
-}): Promise<MaintenanceActionResult> {
-  // The write itself is shared with MCP's `update_ticket` (MCP access spec
-  // §3.2), so the two cannot disagree about what working a ticket means.
-  return writeTicket(input, { surface: SURFACE });
+export async function logCompletedMaintenance(input: LogCompletedFields): Promise<LogCompletedResult> {
+  return performAction(TICKETS_LOG_COMPLETED, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }

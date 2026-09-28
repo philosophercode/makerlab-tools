@@ -9,6 +9,7 @@ import { QueueList } from "../system/queue/QueueList";
 import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
 import { ReviewCard } from "../system/review/ReviewCard";
 import { TicketControls } from "./TicketControls";
+import { personLabel } from "./person-label";
 
 /**
  * The ticket queue on `/admin/maintenance` (spec §5.6), on the shared
@@ -57,6 +58,7 @@ export function MaintenanceQueue({ tickets, staff, action }: MaintenanceQueuePro
       items={tickets}
       getId={(ticket) => ticket.id}
       isOpen={(ticket) => OPEN_STATUSES.has(ticket.status)}
+      selectable={{ kind: "maintenance_log", name: (ticket) => ticket.title }}
       searchText={(ticket) =>
         [ticket.title, ticket.toolName, ticket.unitLabel, ticket.description, ticket.reportedByName, ticket.assignedToName].join(" ")
       }
@@ -100,6 +102,8 @@ function TicketCard({
   action: UpdateTicketAction;
 }) {
   const t = useTranslations("admin.maintenance");
+  const tPeople = useTranslations("admin.people");
+  const reporter = personLabel(tPeople, ticket.reportedByName, ticket.reporterRemoved);
   const open = OPEN_STATUSES.has(ticket.status);
   const urgent = open && (ticket.priority === "high" || ticket.priority === "critical");
 
@@ -136,7 +140,7 @@ function TicketCard({
       }
     >
       <p className="m-0 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
-        <span>{ticket.reportedByName ? t("reportedBy", { name: ticket.reportedByName }) : t("reportedAnonymously")}</span>
+        <span>{reporter ? t("reportedBy", { name: reporter }) : t("reportedAnonymously")}</span>
         {/* The one thing an admin does with a ticket they do not understand is
             ask the person who filed it (§8 — this page and nowhere else). */}
         {ticket.reportedByEmail ? (

@@ -65,7 +65,7 @@ function Bars({ values, max, width, height }: Geometry) {
       {values.map((value, i) => {
         // A zero is drawn as a 1px stub, so "nothing that day" is visible and
         // distinct from "no data" (an empty series draws nothing at all).
-        const h = value <= 0 ? 1 : Math.max(2, (value / max) * height);
+        const h = value <= 0 ? 2 : Math.max(4, (value / max) * height);
         const isLast = i === values.length - 1;
         return (
           <rect
@@ -75,7 +75,7 @@ function Bars({ values, max, width, height }: Geometry) {
             width={barWidth}
             height={h}
             data-last={isLast || undefined}
-            className={isLast ? "fill-primary-ink" : value <= 0 ? "fill-foreground/15" : "fill-foreground/45"}
+            className={isLast ? "fill-primary-ink" : value <= 0 ? "fill-foreground/40" : "fill-foreground/75"}
           />
         );
       })}
@@ -94,7 +94,7 @@ function Line({ values, max, peak, width, height }: Geometry & { peak: number })
       <polyline
         fill="none"
         strokeWidth={1}
-        className="stroke-foreground/55"
+        className="stroke-foreground/75"
         points={values.map((v, i) => `${x(i)},${y(v)}`).join(" ")}
       />
       {peakIndex !== values.length - 1 ? (

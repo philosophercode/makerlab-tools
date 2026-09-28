@@ -11,7 +11,18 @@
 > *Revised 2026-09-25: identity kept; reconciled with Tufte's density rules and
 > the shadcn/AI Elements token mapping; patterns section added (§8). Phase 4:
 > tiles, navigation, tabs and the ⌘K palette refined (§8.2, §8.12); queues and
-> status lines added (§8.13, §8.14).*
+> status lines added (§8.13, §8.14). Phase 5a: sort and group-by (§8.4), empty
+> and error pages (§8.9), public pages, the tool page and one-time secrets
+> (§8.16–§8.18), header controls (§8.12). Public polish: the frosted surface
+> (§3, §5), one toolbar for every list with a phone Filters sheet (§8.4), the
+> segmented control (§8.10), ⌘K and a search field on every page and a header
+> that never moves (§8.12), queue controls that never shift (§8.13, §8.14),
+> the dense tool page (§8.17). Phase 5b: the chat as built on AI Elements —
+> the sheet, tool lines, manual citations, the composer (§8.11); focus
+> return for things opened from many places and the frosted sheet and dialog
+> (§3, §8.8); the assistant's launchers (§8.12, §8.15). 2026-09-26: the
+> header fits every width from 390 to 1920 on the design's own breakpoints,
+> and a table wider than its column scrolls inside itself (§6, §8.3, §8.12).*
 
 ## 1. Creative North Star: "The Blueprint Archive"
 
@@ -75,6 +86,7 @@ hex values.
 | `--outline` | hairlines | #CFC6B8 | #2A2A2A | `border` |
 | `--outline-strong` | control boundaries (3:1) | #8A8171 | #6E6A64 | `input` |
 | `--rule` | table row rules | ink 10% | ink 10% | `rule` |
+| `--surface-frosted` | floating menus over a moving page | card 88% + blur | card 88% + blur | — (`FROSTED`) |
 | `--status-ok` | ● | #2B7549 | #5CC98A | `ok` |
 | `--status-warn` | ▲ | #8A5300 | #E0A23A | `warn` |
 | `--status-bad` | ■, errors, destructive | #B31B1B | #F0645A | `bad`, `destructive` |
@@ -91,6 +103,15 @@ errors in dark mode (2.8:1 there). Errors use `--status-bad`.
 **The No-Line rule.** Do not separate major page sections with 1px lines; use a
 tonal shift (`surface-container-low` against `background`). Hairlines are for
 rows, controls and the one bar under the admin section nav.
+
+**Frosted surface.** A panel that floats over the page — the profile menu,
+the ⌘K palette, the chat sheet, the Report a correction dialog — is a *frosted plate*
+(`FROSTED`, `src/components/system/frosted.ts`): `--surface-frosted` (the card
+colour at 88%) with `backdrop-filter: blur(16px) saturate(140%)`, a hairline
+`--outline-strong` border, no shadow. Where `backdrop-filter` is unsupported it
+is the solid card. At 88% the page behind reads as texture, never as text, so
+every text pair on it keeps AA. Use it for nothing else: a card on the page is
+a plain plate.
 
 **Nested depth.** Cards are plates machined out of the background: a
 `surface-container` card on `background`, a `surface-container-high` hover. The
@@ -118,8 +139,10 @@ fonts happen to be installed is not a design.
 - **Radius: 0.** Every corner is 90°. (Enforced globally.)
 - **Shadows: none.** Depth is tonal stacking. The old "ambient 64px glow" for
   modals is retired; a sheet or dialog sits on a 28% scrim instead.
-- **Retired flourishes:** glassmorphism on overlays, gradients on CTAs, pulsing
-  status dots. They cost ink and say nothing. The crosshair corners
+- **Retired flourishes:** decorative glass, gradients on CTAs, pulsing status
+  dots. They cost ink and say nothing. The one exception is functional: a
+  floating menu over a moving page is frosted (§3), so the text under it
+  cannot be read through it. The crosshair corners
   (`TechnicalFrame`) stay on the gallery hero only.
 - **Focus: a 2px `--primary-ink` outline**, offset 2px, on `:focus-visible`,
   on everything interactive. Never `outline: none` without it.
@@ -130,7 +153,9 @@ fonts happen to be installed is not a design.
 
 - 4px grid: 4 · 8 · 12 · 16 · 24 · 32 · 48. Snap to it.
 - Page gutter 16px on a phone, 32px from `sm`. No horizontal page scroll, ever;
-  a wide thing (the section bar, a code block) scrolls inside itself.
+  a wide thing (the section bar, a code block, a table wider than its
+  column) scrolls inside itself. `e2e/header-stability.spec.ts` checks the
+  main routes at 390, 1024 and 1440.
 - Breakpoints: `sm 640 · md 768 · lg 1024 · xl 1280`. Nothing else.
 - Controls: 32px default, 28px in toolbars, 24px for row actions; touch rows ≥ 40px.
 
@@ -155,19 +180,60 @@ lede → **facts line** (`101 TOOLS · 86 PUBLISHED · 11 DRAFTS · 97 NEED ATTE
 - **Don't** stack a display heading above it (the old 88px "ADMIN"); don't put
   more than one filled button in the actions.
 - Gallery and tool page keep their display heroes.
+- **Sticky chrome never hides what it scrolls to.** The nav and status strip
+  stick (`--sticky-chrome-height`); inside the admin, every heading, link,
+  button and anchor target has `scroll-margin-top` of that height plus 16px, so
+  focusing the header's actions with Tab, or following a `#` link, lands them
+  below the strip instead of under it. Content scrolled past by hand goes
+  under the opaque strip, which sits above it (`z-index: 20`); nothing in the
+  admin sets a z-index that competes with it.
 
 ![Header, section bar and facts line](screens/after-inventory-desktop.webp)
 
-### 8.2 Tiles — `Tile`, `TileGroup`
+### 8.2 Tiles — `Tile`, `TileGroup`, `TileGrid`
 
-Whole tile is the link. Mono title + icon → headline number (40px, tabular) with
-the words for what it counts → ≤ 4 facts (`glyph label ……… value`) → optional
-30-day sparkline with a `30 DAYS` caption. Accent left border and accent number
-when the headline is **work waiting for a person**; muted number when it is 0.
+Whole tile is the link. Every tile has the same anatomy, in the same places:
+**label row** (mono title left, icon right) → **headline** (40px tabular
+number and the words for what it counts, on one baseline) → **facts table** →
+optional 30-day **sparkline** with a `30 DAYS` caption, **pinned to the tile's
+foot**. Accent left border and accent number when the headline is **work
+waiting for a person**; muted number when it is 0. Tiles side by side read as
+small multiples.
 
-- **Use** for the admin home: one tile per surface, one column per job, only
-  the surfaces the viewer may open (`surfacesFor`), each counted by its own
-  loader so one unreadable table costs one tile.
+- **Use** for the admin home: one tile per surface, grouped by job, only the
+  surfaces the viewer may open (`surfacesFor`), each counted by its own loader
+  so one unreadable table costs one tile.
+- **Facts are a three-column table** (`glyph | label | value`), the same on
+  every row: a fixed glyph column (empty when the row has no glyph), the label,
+  and the number right-aligned in one tabular mono column. So every label
+  starts at the same x and every number ends at the same x, glyph or not. Never
+  indent a row with padding or an invisible glyph — the column is reserved on
+  every row. A zero is a muted `0`, so the non-zero counts stand out. The
+  table is at most 24rem wide, so on a wide tile the numbers stay near their
+  labels.
+- **Groups are bands** (owner, 2026-09-25). Each group is a heading over a row
+  of cells, spanning as many grid columns as it has cells; groups flow into the
+  home's grid (`TileGrid`: one column on a phone, two from `sm`, four from
+  `xl`) and each is a CSS subgrid, so the groups in one band share their
+  heading row and their tile row. At 1440 that is two rectangular bands —
+  `ADD EQUIPMENT | KEEP DATA FRESH` (1 + 3) over `QUEUES | PEOPLE & SETTINGS`
+  (3 + 1) — every tile in a band the same height, every heading on one line,
+  no column left empty under a short group. At two columns a group takes the
+  full width and a group's last odd cell spans both columns. One column on a
+  phone, in the same order.
+- **Half tiles pair.** A surface with only a number or a state — People, the
+  Notion mirror, Projects with nothing waiting, a count that could not be read
+  — is a **half tile** (`size="half"`: 28px number, no trend). Consecutive half
+  tiles in a group share one cell, stacked (side by side when the cell spans
+  two columns), so two stand where one full tile would. A lone half tile takes
+  a cell of its own and stretches to the row's edges.
+- **Say what the number counts**, in the unit and the facts, whenever another
+  number on screen could seem to contradict it: the Inventory tile's "of 104
+  tools need attention" sits beside "Published — in the catalog 100" and
+  "Drafts and archived 4", because the status strip's "100 tools in inventory"
+  counts published tools only.
+- **Sparklines are readable at a glance**: bars at 75% ink, a zero day a 2px
+  stub at 40%, today in the accent ink.
 - **The link's name is the title**; the number and facts are its description,
   so a links list reads "Inventory", not a paragraph.
 - **Accent means waiting work above zero** — open tickets, researched items,
@@ -197,7 +263,12 @@ RESEARCH (2)] · CLEAR`). On a phone: a two-line list item per row.
 - **Selection survives filtering, and says so**: `3 TOOLS SELECTED · 1 NOT
   SHOWN BY THE FILTERS`. Select-all takes the rows shown.
 - **Sticky header only when the page scrolls the table**, on the page
-  background; a short table on a card is not sticky. A short, narrow table
+  background; a short table on a card is not sticky. **A table wider than
+  its column scrolls sideways inside its own frame**, never the page (the
+  inventory at 1024px); its header is sticky only while the table fits, which
+  `DataTable` measures — a header in a scroll box cannot stick to the page.
+  The frame starts as a scroll box, so the first paint never widens the page,
+  and nothing moves when it opens up. A short, narrow table
   (seven rows, two columns) may stay a table on a phone and scroll inside
   itself; anything longer or wider gets the two-line list.
 - **Phone: one of the two, not both.** The list and the table are never both
@@ -215,18 +286,44 @@ RESEARCH (2)] · CLEAR`). On a phone: a two-line list item per row.
 
 ### 8.4 Filter bar — `FilterBar`, `FacetFilter`, `ColumnsMenu`
 
-Search (left) → one facet button per dimension (`STATE ▾`, `NEEDS ATTENTION
-Never reviewed ▾` when set) → Clear → `Showing 21 of 101` → Columns. A facet menu
-lists values **with the count each would leave**, disables values that leave
-nothing, and filters are written to the URL so a view is a link.
+One toolbar for every list (the gallery, the inventory, people, import review,
+the queues, manuals), two rows:
+
+```
+[ ⌕ Search …………………………………………………………………… ]            SHOWING 21 OF 101
+[STATUS ▾] [CATEGORY ▾] [LOCATION ▾] [× CLEAR]   [GROUP BY ▾] [▥ COLUMNS] [SORT ▾] [▦|☰]
+```
+
+Row 1 is the search across the page with the count as quiet mono text at its
+end. Row 2 is the facets and Clear on the left; `secondary` (Group by, Columns)
+and `end` (Sort, the view switch) on the right. With the default state nothing
+wraps from 1024 to 1440; set values may push the right group under, right-aligned.
+**On a phone**: the search, then one row — **Filters** (with how many facets are
+set) and `end` — and the count on a small line under it; Filters opens a
+`Sheet` holding the facets, Group by, Columns, Clear and "Show 12 results". A
+facet menu lists values **with the count each would leave**, disables values
+that leave nothing, and filters are written to the URL so a view is a link.
 
 - A chosen facet names its value on the button (`STATE Draft ▾`, read as
   "State: Draft"); its border moves to the accent ink.
-- A short fixed choice **inside a row or a form** (a role, a token's expiry)
-  is a `NativeSelect` — a real `<select>`, the phone's own picker — bounded by
-  `--outline-strong` like `Input`.
+- A short fixed choice **inside a row or a form** (a role) is a
+  `NativeSelect` — a real `<select>`, the phone's own picker — bounded by
+  `--outline-strong` like `Input`. A choice that has only one sensible answer
+  is not a choice: say it as text (a token's expiry, "90 days, one semester").
+- **Sort and Group by** (`ChoiceMenu`) sit at the end of the bar and look like
+  facets, but narrow nothing: no counts, no "Any", always a value; the value is
+  in the accent ink only when it is not the default. The default sort is the
+  list's own order ("Best match" while searching).
+- **Grouped, a list is labelled sections** in order — "not recorded" last —
+  each heading sticky under the top bar (mono label, the count at the end:
+  `3D PRINTING › FDM ······ 4 TOOLS`). Every section has the same layout and,
+  as tables, the same column widths (small multiples); the sort applies inside
+  each section. Items under a group heading drop a heading level.
+- **Everything is in the URL** — search, facets, view, sort, group — even on a
+  cached page (`useUrlSearch`: defaults on the server, the URL after hydration).
 - **Don't** use native selects for facets; don't filter server-side on each
-  keystroke; don't show an empty table without naming the filter.
+  keystroke; don't show an empty table without naming the filter; don't let
+  the bar's end group push the page sideways on a phone (it wraps).
 
 ![Facet counts](screens/after-inventory-facet.webp)
 
@@ -243,6 +340,24 @@ nothing, and filters are written to the URL so a view is a link.
 
 Always with the word (visible, or `sr-only` in `compact` cells). **Don't** use a
 coloured dot alone, a pill background, or Badge for status.
+
+**Glyphs only where they carry meaning** (owner, 2026-09-25). A glyph is a
+flag for the eye; one on every row is noise, and a hollow ○ beside "Running"
+reads as a spinner. In a tile's facts, and anywhere a count is listed:
+
+- **▲ warn** and **■ bad** mark a row **only when its count is non-zero**
+  (No photo 3, High or critical 5, Failed 1); **◆ active** marks work waiting
+  on you when non-zero (Identified, not researched 2). A row that says it
+  could not be read is ■ bad.
+- **A zero or neutral row has no glyph** — the reserved glyph column stays
+  empty, and a zero is a muted `0`. Neutral means a stock or a state that asks
+  nothing of anyone: Published, Handled, Manuals on file.
+- **In progress has no glyph.** Running, Researching and a ticket in progress
+  are being handled; the label says so, and a mark would claim they need
+  someone. There is no in-progress tone, and ○ idle / ● ok are not used in
+  facts (they remain for status *cells*, where every row has a status).
+- The rule is enforced in one place (`factGlyph` in `system/Tile.tsx`), so a
+  caller cannot put a glyph on a zero.
 
 ### 8.6 Review / proposal card — `ReviewCard`
 
@@ -285,8 +400,18 @@ decision gets a `Dialog`.
 
 `Dialog` for a decision (confirm, report a correction, research again); `Sheet`
 (side panel, full screen on a phone) for a workspace (tool editor, chat). Both
-trap focus, close on Escape and return focus. Scrim 28% ink, no shadow.
+trap focus, close on Escape and return focus. Scrim 28% ink, no shadow; the
+plate is frosted (§3). Opening one adds **no scrollbar compensation** — the
+root always keeps its scrollbar, so nothing behind it moves.
 
+- **Focus goes back to what opened it.** One opener is a Radix trigger
+  (`DialogTrigger asChild`), and Radix returns focus there. A panel opened
+  from many places (the chat: its button, the section bar, ⌘K, Report, the QR
+  notice) remembers the focused element when it opens and gives focus back
+  when it closes — Radix alone would return it to a trigger it never had.
+- **Initial focus is where the work starts**: the chat's composer where there
+  is a keyboard; the sheet itself on touch, so a phone does not raise its
+  keyboard over what the panel says first.
 - **Don't** mark something `aria-modal` that isn't; don't nest dialogs.
 
 ### 8.9 Empty, loading, error — `EmptyState`, `Skeleton`, `RowStatus`
@@ -296,6 +421,11 @@ trap focus, close on Escape and return focus. Scrim 28% ink, no shadow.
 - **Loading**: skeleton rows in the table's shape; a spinner only inline.
 - **Error**: say what failed and that nothing was lost; failing toward stale is
   shown, not hidden (Article 4). Row actions report inline (`RowStatus`).
+- **Pages**: a 404 and an error boundary are pages in the system's frame
+  (`PublicPage` + `EmptyState`; the error one `tone="bad"` with Try again),
+  never the framework's bare default.
+- **A missing image** is an empty plate with the thing's initials in mono,
+  never the browser's broken-image icon.
 
 ### 8.10 Buttons — `Button`
 
@@ -308,43 +438,134 @@ trap focus, close on Escape and return focus. Scrim 28% ink, no shadow.
 | `destructive` | bad-tone hairline + label, at rest | discard, delete, ban — confirm inline |
 | `link` | orange-ink underlined | inline navigation |
 
+**Segmented control — `SegmentedControl`** (`system/SegmentedControl.tsx`).
+Two to four mutually exclusive views of the same thing (the gallery's Grid |
+Table): **every segment always outlined** in the control-boundary ink, equal
+size, shared borders, the chosen one **filled in ink** (`foreground` on
+`background`), not orange — it is a state, not the action. A named `group` of
+buttons with `aria-pressed`, each its own tab stop, the focus outline above its
+neighbours. **Don't** draw only the chosen half (the other looks missing), and
+don't use it for navigation between pages (`LinkTabs`).
+
+**One-shot actions keep their state in the button — `AsyncButton`**
+(`src/components/system/AsyncButton.tsx`). For an action that runs once and is
+over — Refresh catalog, Looks good, Re-process — the button is the status:
+idle (the label) → pending (a small spinner over the label, which stays in
+place invisible so the **width never changes**; disabled, `aria-busy`) → done
+(a check and `DONE` for 1.5 s, announced through a live region, then the label
+again) → error (the label again, with the reason on a `RowStatus` line beside
+it). No sentence left standing next to the button, no toast. A button's label
+names its object when a neighbour could be confused with it: **Refresh
+catalog** (the cache) is not **Refresh research** (the surface).
+
 ### 8.11 Chat — AI Elements
 
-Docked side sheet (440px; full screen on a phone). `Conversation` (live log,
-sticks to bottom, "scroll to latest" button) → `Message`: assistant text is
-unboxed prose; the user's turn is a square `secondary` block; cards (`ReviewCard`,
-intake table, import card) span the full width. `Suggestions` stack as sentences
-on the empty state. A running tool is a one-line status with a spinner (`Tool`
-header). Manual citations render as `InlineCitation` + a `Sources` list — the
-answer shows its evidence. `PromptInput`: attach, dictate, text, send.
+Docked side sheet from the inline end (440px; full screen on a phone),
+frosted, `MAKERLAB ASSISTANT` as a mono label with New chat and Close at the
+end of its header row. `Conversation` (a `role="log"`, so replies are read
+out; sticks to the bottom while a reply streams; a square "scroll to latest"
+button at the inline end) → `Message`: assistant text is unboxed prose; the
+user's turn is a square `secondary` block; cards (`ReviewCard`, intake
+table, import card) span the full width. `Suggestions` stack as sentences on
+the empty state, each with a small icon. `PromptInput` at the foot:
+attachments above the text, attach and dictate on the left, **Send** — the
+sheet's one filled button — on the right; Enter sends, Shift+Enter is a new
+line.
 
-- **Don't** use rounded bubbles or avatars; don't strip citations; don't open a
-  floating card that can't fit the cards it contains.
+```
+TO REPLACE THE RESIN TANK ON THE FORM 4:
+1. Lift the front edge and slide it out (Replacing the resin tank [P. 42]).
+◌ 📖 Searching the Prusa MK4S manual…
+2 MANUAL PAGES ▾
+```
 
-![Chat](screens/after-chat-desktop.webp)
+- **Markdown is the page's.** The answer's lists, tables, code and headings are
+  drawn by the same rules as a tool description (`MARKDOWN_PROSE`); raw HTML
+  from the model is never rendered — a tag shows as the text it is.
+- **A running tool is one line** (`Tool` header): a small spinner in the
+  accent ink and the words for what it is doing, in the order the turn does
+  it. A finished call leaves no line; its result is the answer.
+- **Evidence, inline and listed.** A link to a page the manual search returned
+  is an `InlineCitation`: the linked words, then a mono `P. 42` mark that
+  opens the manual at that page, with a card (hover or focus) naming the
+  manual, section and passage. Under the answer, `SOURCES` lists the pages it
+  cited, one ruled row each. A page that was read but not cited is not listed.
+- **Where it opens.** Public pages: a square Safety Orange `>_` block at the
+  inline-end corner. Admin pages: no floating block (it collided with bulk
+  bars) — the section bar's `ASK THE ASSISTANT` and ⌘K.
+- **Don't** use rounded bubbles or avatars; don't strip citations; don't show
+  a tool's JSON to a student; don't open a floating card that can't fit the
+  cards it contains; don't push the page aside under the sheet (the page
+  would reflow — a layout shift).
+
+![Chat, as built in phase 5b](screens/phase5b-chat-desktop-light.webp)
 
 ### 8.12 Navigation and IA
 
-- **Public**: `TOOLS · PROJECTS · ABOUT · REPORT` in the top bar; status strip
-  below (`86 TOOLS IN INVENTORY · LAB OPEN 9AM–9PM`).
+- **Public**: `TOOLS · PROJECTS · ABOUT · REPORT` in the top bar, then
+  `[⌕ Search tools… ⌘K]` beside the language and theme controls (an icon
+  button on a phone); status strip below (`86 TOOLS IN INVENTORY · LAB OPEN
+  9AM–9PM`). Report is the bar's one accent; **Sign in** is a hairline box in
+  ink; the local-only **Sign in as (dev)** is muted and dashed and shortens to
+  `DEV` below `xl`. The profile menu is a frosted plate (§3).
+- **The bar fits every width, on the design's breakpoints.** From `xl` it is
+  one row with the `// CORNELL TECH` tagline. From `lg` to `xl` it is still
+  one row, tighter (24px between groups, 20px between links), without the
+  tagline, with a narrower search field. Below `lg` it is the compact bar:
+  brand and controls, then the links across the full width. No label in the
+  one-row bar wraps, in any of the twelve languages. The language control is
+  a 32px square showing its `文A` glyph at every width, like the theme toggle
+  (the open list names every language): a select is as wide as its longest
+  option, and the name pushed the bar past 1280px in Spanish and Russian.
+  (The compact switch used to sit at 860px, off the breakpoint scale, and from
+  there to ~1180px the brand ran into the links and Sign in wrapped.)
+- **The bar never moves.** Every control has the same box on every page: the
+  page always carries its scrollbar (`overflow-y: scroll` on the root — a
+  styled scrollbar takes space, and Chromium ignores `scrollbar-gutter` for
+  one), the active link changes colour and underline only, never weight or
+  size. `e2e/header-stability.spec.ts` measures it with scrollbars shown, at
+  390, 1024, 1280 and 1440.
 - **Admin**: a section bar under the top bar on every admin page:
-  `OVERVIEW ┃ INTAKE · IMPORT A LIST ┃ INVENTORY · REFRESH · MANUALS ┃
-  MAINTENANCE · CORRECTIONS · PROJECTS ┃ PEOPLE · NOTION MIRROR ┃ ⌕ SEARCH ⌘K`,
+  `OVERVIEW ┃ INTAKE ┃ INVENTORY · REFRESH · MANUALS ┃
+  MAINTENANCE · CORRECTIONS · PROJECTS ┃ PEOPLE · NOTION MIRROR ┃ ▭ ASK THE ASSISTANT`
+  (the icon alone on a phone, the words still its name),
   dividers between jobs, the most specific current page underlined in the
   accent (an item's page marks its surface), only surfaces the viewer's
   permissions open, **no counts**. On a phone it scrolls inside itself. The
   one list behind the bar, the home and the palette is
   `src/lib/admin/surfaces.ts` — a page added there appears in all three.
+- **Admin navigation never waits on a hole.** A click in the section bar, a
+  tab or a row link commits at once: the section bar stays, the page area
+  shows the one `EmptyState` loading line (`AdminPageLoading`), and the page
+  streams into it. Every admin page reads the request at its root, so its
+  prefetched segment is a shell with a dynamic hole; without a Suspense
+  boundary inside the new segment that hole held the previous page on screen
+  and, in production (Next 16.1 with its bundled React 19.3 canary, `cacheComponents`), the
+  transition was sometimes never retried — the click did nothing until
+  something else re-rendered the page. So **every folder under `app/admin`
+  with a page below it has a `loading.tsx`** (enforced by
+  `app/admin/loading-boundaries.test.ts`), and
+  `e2e/admin-client-navigation.spec.ts` clicks through every section against
+  the production build.
 - **Page header**: `// ADMIN / GROUP` (plus `/ SURFACE` as a link on an item's
   page) → title → lede → facts line → actions (`AdminPageHeader`).
-- **Tabs that are pages** (`LinkTabs`): Add equipment's `QUEUE · IMPORTS ·
-  IMPORT A LIST` under one header. Links with `aria-current`, not
-  `role="tab"` — each tab is a URL; a tab the viewer cannot open is not shown.
-- **⌘K palette** (`CommandPalette`): `ADMIN PAGES` (with their group),
-  `ACTIONS` (Add equipment, Refresh the catalog), `TOOLS` (display name, the
-  official name muted, `DRAFT` marked). Every word typed must match; nothing
-  fuzzy. `/` jumps to the page's filter search. The assistant joins it in
-  phase 5 ("Ask the assistant: …").
+- **Tabs that are pages** (`LinkTabs`): Intake's `QUEUE · IMPORTS` under one
+  header. Links with `aria-current`, not `role="tab"` — each tab is a URL; a
+  tab the viewer cannot open is not shown.
+- **One surface per job's page, actions in the header.** Adding equipment is
+  one surface, **Intake**: importing a list is its header action (`IMPORT A
+  LIST`), not a surface, tile or palette entry of its own. A page's primary
+  action sits in its header's actions — Inventory's `ADD INVENTORY`, Refresh's
+  `REFRESH RESEARCH…` (a dialog that picks the tools), Intake's `IMPORT A LIST`.
+- **⌘K palette** (`palette/CommandPalette`, on every page from the header):
+  `PAGES` (Tools, Projects, About, MCP), `CATEGORIES` (the gallery filtered to
+  one, with its count), `ADMIN PAGES` and `ACTIONS` only for a role that opens
+  them, `TOOLS` (display name, the official name muted, the category or `DRAFT`
+  at the end). Every word typed must match; nothing fuzzy. A frosted plate.
+  `/` jumps to the page's own filter search. `ASSISTANT` is the **last**
+  group, for everybody: "Ask the assistant" with nothing typed, "Ask the
+  assistant: “…”" with the query as the first message — last, so Enter still
+  opens the first tool or page that matches, and there even when nothing does.
 - **Don't** make a page reachable only through a hub; don't list a surface that
   will refuse the viewer; don't put waiting counts in the bar; don't use
   `role="tab"` for navigation.
@@ -361,6 +582,19 @@ holding the settled work, filtered too.
 - A filter that empties the open list **names itself** (`Nothing here matches
   "belt" · Priority: High`) with Clear. An empty queue says what fills it and
   shows no filter bar.
+- **Typed fields are a button until wanted.** A card's click-to-save controls
+  (status, priority, assignee) are always there; a field somebody writes a
+  sentence into (a ticket's resolution) is `ADD RESOLUTION`, or the saved words
+  on two clamped lines with `EDIT RESOLUTION`, until pressed — then the box
+  opens, focused, with Save and Cancel; Escape cancels; focus returns to the
+  button.
+- **The control row never shifts.** `STATUS [Open ▾]  PRIORITY [High ▾]
+  ASSIGNED TO [Nobody ▾]  SAVED ··········· [ADD RESOLUTION]` — inline mono
+  labels, `NativeSelect` and `Button` at the same 28px, "Saving… / Saved" in a
+  reserved `SaveSlot`, the resolution button at the row's end. The editor opens
+  in its own full-width slot **below** the row (Save and Cancel left, in a row
+  of their own); a refusal's sentence is the last line. A control whose label
+  changes (Publish / Unpublish) keeps the wider label's width.
 - Cards may be grouped (intake by batch); the layout stays the same.
 - **Don't** split a queue into Open / Settled tabs; don't box the cards; don't
   hide the controls behind a row click on a phone.
@@ -369,7 +603,13 @@ holding the settled work, filtered too.
 
 One inline line for an action's outcome, in the muted, warn or bad ink:
 `Saving… → Saved`, a warning when a change landed minus a guarantee, the
-refusal's reason. Always in the DOM as a live region, empty until it speaks.
+refusal's reason. Beside a save-on-click control the short words go in a
+reserved **`SaveSlot`** (so nothing moves when "Saved" appears) and the
+sentences on their own `RowStatus` line. Always in the DOM as a live region, empty until it speaks.
+**"Saved" only for a write that landed**: a control that saves on change is
+disabled until the page has hydrated (`useHydrated`), a change to the value it
+already holds sends nothing, and an answer that does not match the choice is a
+failure, not a success.
 No toasts (owner decision). A page that could not read its data says so with
 `EmptyState tone="bad"`, never an empty list.
 
@@ -378,8 +618,57 @@ No toasts (owner decision). A page that could not read its data says so with
 - 390px is a first-class width: tables become two-line lists, before/after
   stacks, bars scroll inside themselves, sheets go full screen.
 - 16px gutters; no horizontal page scroll; touch rows ≥ 40px.
-- The chat launcher must never cover the one action on screen (bulk bars reserve
-  its corner; admin opens chat from the nav).
+- The chat launcher must never cover the one action on screen: it is not drawn
+  on admin pages (where bulk bars live; the section bar and ⌘K open the chat),
+  and on a phone the chat is the whole screen, safe areas respected.
+
+### 8.16 Public pages — `PublicPage`, `PageSection`, `Markdown`
+
+Projects, about, `/mcp`, account and OAuth pages share one frame: a reading
+column on the page background (880px; 560px for a single decision; the page
+width for a grid of cards), `PageHeader` as the h1 (`// MCP SERVER` crumb,
+title, lede, facts, the one filled action), then sections separated by
+whitespace — an h2 in Space Grotesk and an optional muted lede.
+
+- Prose is 15px at a readable measure, links in the accent ink.
+- Markdown written by people or research renders through `Markdown` (GFM, no
+  raw HTML), in the page's tokens — never the chat's styles.
+- **Don't** put a page in a rounded card, stack a display heading on a working
+  page, or box each section.
+
+### 8.17 Tool page
+
+Facts, not panels, and only the facts the tool has: crumb `// TOOLS › FORM 4`
+→ hero (a **small** image plate, ~16rem, beside the display title, the
+official name in mono, **one** status line of glyphs and words, the
+description, Safety doc / SOP) → **two columns on desktop**: **Safety**, the
+one tinted section (bad start rule, compact label/value rows), then **Details**
+as a dense `<dl>` on the left; **Documents & resources** as a ruled list (the
+kind as a mono word, the manual's Contents under it) and **Physical machines**
+(`DataTable`) on the right → **Maintenance history** (date, status glyph,
+title, unit — never who reported it) and **Built with this** across the page.
+One column on a phone.
+
+- Say a fact once: no "at a glance" card repeating the specs.
+- **Empty is absent**: a row or section with nothing to say is not drawn — no
+  "Contact MakerLab staff", no "No documents linked yet" box, no empty history.
+  Safety always says what to do, falling back to the lab's standing guidance.
+- **Don't** colour a chip for status (use the glyph line) or tint any section
+  but Safety.
+
+### 8.18 One-time secrets — the token reveal
+
+A secret shown once (a personal access token) appears in the same column as
+the form that made it, on a warn-ruled plate: ▲ **"Save this token now. You
+won't be able to see or copy it again after you leave this page."** above the
+secret, the secret in a copyable block, what to do next (an environment
+variable, then the client), and the same sentence again **beside the button
+that dismisses it**. Nothing else on the page holds the secret, and nothing the
+page offers to copy — a setup prompt for an assistant included — contains it:
+prompts name the environment variable instead.
+
+- **Copy setup prompt for your AI**: a short prompt, one Copy button, sign-in
+  first; a token only from `MAKERLAB_MCP_TOKEN`, never pasted into a chat.
 
 ## 9. Do's and Don'ts
 

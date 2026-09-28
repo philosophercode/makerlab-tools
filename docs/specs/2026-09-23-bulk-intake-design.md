@@ -1,7 +1,7 @@
 # Bulk Intake: Import a List of Equipment — Design Spec
 
 **Date:** 2026-09-23
-**Status:** Draft
+**Status:** Implemented (status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/` (not Blueprint)
 **Branch:** `v5/bulk-intake-spec`
 **Spec PR:** #TBD · **Implementation PR:** #TBD

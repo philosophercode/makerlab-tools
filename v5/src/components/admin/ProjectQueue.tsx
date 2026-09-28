@@ -8,6 +8,7 @@ import type { SetProjectPublishedAction } from "../../app/admin/projects/action-
 import { QueueList } from "../system/queue/QueueList";
 import { ReviewCard } from "../system/review/ReviewCard";
 import { PublishToggle } from "./PublishToggle";
+import { personLabel } from "./person-label";
 
 /**
  * The moderation queue on `/admin/projects` (spec §5.6, §5.5, Article 5), on
@@ -34,6 +35,7 @@ export function ProjectQueue({ projects, action }: ProjectQueueProps) {
       items={projects}
       getId={(project) => project.id}
       isOpen={(project) => !project.published}
+      selectable={{ kind: "project", name: (project) => project.title }}
       searchText={(project) => [project.title, project.authorName, project.body, project.materials.join(" ")].join(" ")}
       labels={{
         list: t("queueLabel"),
@@ -51,6 +53,8 @@ export function ProjectQueue({ projects, action }: ProjectQueueProps) {
 
 function ProjectCard({ project, action }: { project: ProjectModerationEntry; action: SetProjectPublishedAction }) {
   const t = useTranslations("admin.projects");
+  const tPeople = useTranslations("admin.people");
+  const author = personLabel(tPeople, project.authorName, project.authorRemoved);
 
   return (
     <ReviewCard
@@ -59,7 +63,7 @@ function ProjectCard({ project, action }: { project: ProjectModerationEntry; act
       tone={project.published ? "settled" : "default"}
       meta={
         <>
-          <span>{project.authorName ? t("by", { name: project.authorName }) : t("byAnonymous")}</span>
+          <span>{author ? t("by", { name: author }) : t("byAnonymous")}</span>
           <span className="tabular-nums">{t("submittedOn", { date: new Date(project.createdAt).toISOString().slice(0, 10) })}</span>
           {project.published ? (
             // Published rows have a page; the ones being judged deliberately

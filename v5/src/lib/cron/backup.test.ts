@@ -54,10 +54,20 @@ describe("backupTables", () => {
     expect(names).toContain("user");
     expect(names).toContain("account");
 
-    // Phase 4's credentials, no. Discovery would have archived thirty days of
-    // live bearer tokens without anybody choosing to (backup-policy.ts).
+    // Phase 4's credentials, no. Discovery would have archived live bearer
+    // tokens without anybody choosing to (backup-policy.ts).
     expect(names).not.toContain("session");
     expect(names).not.toContain("verification");
+  });
+
+  it("leaves out the manual search tables a restore rebuilds, and keeps their documents", () => {
+    const names = backupTables().map(getTableName);
+
+    // Page text and 512-number embeddings: most of the file's bytes, all of
+    // them rebuilt from the stored PDFs by `npm run manuals:index -- --force`.
+    expect(names).not.toContain("manual_pages");
+    expect(names).not.toContain("manual_chunks");
+    expect(names).toContain("manual_documents");
   });
 });
 
@@ -163,7 +173,6 @@ describe("runBackup", () => {
     const seeded = await db.select().from(tools);
     expect(result.tables.tools).toBe(seeded.length);
     expect(result.bytes).toBeGreaterThan(0);
-    expect(result.retentionDays).toBe(30);
   });
 
   it("includes an empty table rather than omitting it", async () => {
@@ -187,19 +196,21 @@ describe("runBackup", () => {
   });
 });
 
-describe("runBackup — 30-day retention", () => {
-  it("prunes backups past the window and keeps the rest", async () => {
+describe("runBackup — tiered retention", () => {
+  it("prunes what the tiers no longer keep and deletes nothing else", async () => {
     const store = fakeStore();
     const now = new Date("2026-09-20T07:17:00.000Z");
     store.list.mockResolvedValue([
-      { pathname: "backups/2026-08-01.json", uploadedAt: "" },
-      { pathname: "backups/2026-09-19.json", uploadedAt: "" },
+      { pathname: "backups/2023-01-01.json", uploadedAt: "" }, // past three years
+      { pathname: "backups/2026-08-01.json", uploadedAt: "" }, // August's monthly copy…
+      { pathname: "backups/2026-08-02.json", uploadedAt: "" }, // …is this newer one
+      { pathname: "backups/2026-09-19.json", uploadedAt: "" }, // daily
     ]);
 
     const result = await runBackup(store, { db, now });
 
-    expect(result.pruned).toEqual(["backups/2026-08-01.json"]);
-    expect(store.del).toHaveBeenCalledWith(["backups/2026-08-01.json"]);
+    expect(result.pruned).toEqual(["backups/2023-01-01.json", "backups/2026-08-01.json"]);
+    expect(store.del).toHaveBeenCalledWith(result.pruned, "private");
   });
 });
 
@@ -211,16 +222,35 @@ describe("expiredBackups", () => {
     // housekeeper — an upload that landed under the wrong prefix must survive.
     expect(
       expiredBackups(
-        ["uploads/project/lamp-Xa9k2.png", "backups/notes.txt", "backups/"],
+        [
+          { pathname: "uploads/project/lamp-Xa9k2.png" },
+          { pathname: "backups/notes.txt" },
+          { pathname: "backups/" },
+          { pathname: "backups/2020-01-01.json.bak" },
+        ],
         now
       )
     ).toEqual([]);
   });
 
-  it("keeps a backup exactly one day inside the window", () => {
-    expect(expiredBackups(["backups/2026-08-22.json"], now)).toEqual([]);
-    expect(expiredBackups(["backups/2026-08-21.json"], now)).toEqual([
-      "backups/2026-08-21.json",
-    ]);
+  it("keeps a week of dailies and one copy of each older week", () => {
+    const blobs = Array.from({ length: 14 }, (_, i) => ({
+      pathname: `backups/2026-09-${String(7 + i).padStart(2, "0")}.json`,
+    }));
+    // 09-07 … 09-13 is ISO week 37: only its newest, 09-13, survives.
+    expect(expiredBackups(blobs, now)).toEqual(
+      ["07", "08", "09", "10", "11", "12"].map((d) => `backups/2026-09-${d}.json`)
+    );
+  });
+
+  it("reads the day from the name and ignores an uploadedAt from another day", () => {
+    // A copy re-uploaded later must not pass for a recent backup.
+    expect(
+      expiredBackups([{ pathname: "backups/2020-06-01.json", uploadedAt: "2026-09-20T01:00:00.000Z" }], now)
+    ).toEqual(["backups/2020-06-01.json"]);
+  });
+
+  it("does not throw on an unreadable uploadedAt", () => {
+    expect(expiredBackups([{ pathname: "backups/2026-09-19.json", uploadedAt: "not a date" }], now)).toEqual([]);
   });
 });

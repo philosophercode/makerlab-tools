@@ -1,7 +1,10 @@
 # Operational Hardening — Design Spec
 
 **Date:** 2026-07-29
-**Status:** Draft — awaiting approval
+**Status:** Built — phases 1, 3, 4, 5 and 7 in code. Phase 2 (uptime monitor) is account
+setup a person does, documented in [`docs/operations.md`](../operations.md) with a heartbeat
+for the nightly job. Phase 6 (Notion webhook) is **superseded** — v5 is Postgres-first. See
+amendment 2026-09-27.
 **Target:** `v5/`
 **Branch:** `v5/ops-hardening`
 
@@ -405,3 +408,61 @@ having the manual when it needed it. The spec's framing was the weaker idea.
 
 **Status.** Accepted. §3.4's prompt-caching half is built as written; the lazy-attachment
 half is superseded, not skipped.
+
+### 2026-09-27 — ops cleanup: legacy route removed, tiered retention, monitoring, phase 6 superseded (as-built)
+
+**1. `/api/admin/backup` is deleted.** The data platform's `/api/cron/daily` replaced it in
+Phase 3 (data platform spec §3.9), and it was kept only pending deletion approval. It was
+still reachable with a secret and wrote a version-1 Notion dump to the *same* pathname the
+nightly Postgres export uses, so a hand-trigger would have overwritten that day's real backup
+(data platform spec, Phase 3–4 review). Removed: `v5/src/app/api/admin/backup/route.ts` and
+its test. Nothing imported it, `vercel.json` already scheduled only `/api/cron/daily`, and no
+admin link or environment variable belonged to it alone. §3.3's *intent* — a daily private
+backup that fails loudly — is met by `/api/cron/daily`.
+
+**2. Retention is tiered, not 30 days.** §3.3 and §8 say "retains 30 days". Now
+(`v5/src/lib/cron/backup-retention.ts`, pure, tested at every boundary): every backup for 7
+days; the newest of each ISO week to one calendar month; of each calendar month to one year;
+of each calendar quarter to three years; nothing older. Same-day duplicates keep the newest;
+a pathname that is not a backup is never deleted, and neither is a stamp whose date cannot be
+read. *Why:* with a flat window the oldest copy is always a month old, so damage nobody
+notices for five weeks is unrecoverable. Tiers reach back three years in about 30–35 files.
+
+**3. Manual search data is not backed up.** `manual_pages` and `manual_chunks` (page text,
+passages, 512-dimension embeddings) are derived from the stored PDFs and are most of the
+file's bytes. The export skips them (`REBUILT_AFTER_RESTORE` in `backup-policy.ts`; `npm run
+data:push` still copies them). After a restore, `npm run manuals:index -- --force` from `v5/`
+rebuilds them — `--force` because the restored `manual_documents` rows already carry the
+current extractor and chunker versions, so a plain run finds nothing to do. Documented in
+`docs/operations.md` → Restoring.
+
+**4. Cron failures are no longer silent (phase 2, and §5's "failures surface in Vercel's
+cron log").** A non-200 in the cron log was the only signal, and Vercel notifies nobody. Two
+small additions:
+
+- **Heartbeat.** Every nightly run that passes the secret check pings `CRON_HEARTBEAT_URL` —
+  `<url>` on success, `<url>/fail` on any failure (`v5/src/lib/cron/heartbeat.ts`).
+  Healthchecks.io or Better Stack emails when a ping fails *or never arrives*, which also
+  catches a cron that stopped being scheduled. Unset, nothing happens; a heartbeat that
+  cannot be delivered never fails the job; the URL is never logged.
+- **`/admin` notice.** A super admin on the live database sees a warning when the newest
+  backup file is over 36 hours old, when there is none, when no Blob store is linked, or when
+  Blob could not be read (`v5/src/lib/cron/backup-freshness.ts`). It reads the files, not a
+  run record, so a run that claimed success without writing still shows. `/api/health` is
+  unchanged: its status code is about the database (§3.1), and a Blob `list` on every probe
+  would cost more than the signal is worth.
+
+`docs/operations.md` → Monitoring is the operator's checklist: the uptime monitor on
+`/api/health` (5 minutes, alert on status ≠ 200, confirm after two failures), the heartbeat,
+the AI Gateway budget, Vercel usage and spend alerts, and an optional log drain. Phase 2 is
+still account setup that only a person can do, but it now has instructions and a second
+signal for the job most likely to fail quietly.
+
+**5. Phase 6 (Notion automation → webhook) is superseded.** It existed to refresh the cache
+when staff edited Notion (§3.2 path 2). Since the data platform (2026-09-14) Postgres is the
+source of truth and staff edit on `/admin`: inventory edits and intake approvals call
+`invalidateCatalog()` themselves (`src/lib/inventory/tool-edits.ts`,
+`src/lib/intake/approve.ts`), and Notion is only a one-way mirror the app writes to. There is
+no Notion edit left to listen for. Open question 3 is moot for the same reason.
+
+**Status.** Accepted.

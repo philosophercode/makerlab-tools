@@ -7,6 +7,9 @@ import { intake } from "./intake";
 import { flags } from "./flags";
 import { reports } from "./reports";
 import { staff } from "./staff";
+import { adminReads } from "./admin-reads";
+import { catalogReads } from "./catalog-reads";
+import { actions } from "./actions";
 import type { Capability } from "./types";
 
 /**
@@ -33,9 +36,19 @@ import type { Capability } from "./types";
  *                    `create_tool` writes a draft tool (MCP only).
  *  - `flags`       — file catalog corrections (write).
  *  - `reports`     — `list_my_reports`, a signed-in caller's own reports (MCP only).
- *  - `staff`       — the intake queue, the maintenance queue and `update_ticket`,
- *                    and `propose_change` (MCP only, each gated by its own
- *                    permission — MCP access spec §3.2).
+ *  - `staff`       — the intake queue, the maintenance queue, `update_ticket`
+ *                    (MCP only: the one direct MCP write) and `propose_change`
+ *                    (MCP only). Each is gated by its own permission — MCP
+ *                    access spec §3.2, amendment 2026-09-25. In the chat
+ *                    `update_ticket` is the `actions` one, which proposes.
+ *  - `admin-reads` — `find_people` (chat only), `list_corrections`,
+ *                    `list_project_queue`: the reads the action tools resolve
+ *                    names with.
+ *  - `actions`     — one proposing tool per registered action, generated from
+ *                    `lib/actions/registry.ts` (assistant–GUI parity spec
+ *                    §3.4), and an MCP twin for each `mcp: "propose"` action
+ *                    whose proposal waits in `/admin/proposals` (phase 7).
+ *                    Each only proposes; the person's click commits.
  *
  * Not every tool reaches both surfaces: `chatOnly` tools are never registered
  * over MCP, and `mcpOnly` tools are never handed to the chat model.
@@ -43,10 +56,23 @@ import type { Capability } from "./types";
  * This module is the canonical import for everything in the capabilities layer:
  * the registry itself, the two adapters, and the shared contract types.
  */
-export const CAPABILITIES: Capability[] = [catalog, units, web, manuals, maintenance, intake, flags, reports, staff];
+export const CAPABILITIES: Capability[] = [
+  catalog,
+  units,
+  web,
+  manuals,
+  maintenance,
+  intake,
+  flags,
+  reports,
+  staff,
+  adminReads,
+  catalogReads,
+  actions,
+];
 
 // Re-export the individual capabilities for direct/selective use and testing.
-export { catalog, units, web, manuals, maintenance, intake, flags, reports, staff };
+export { catalog, units, web, manuals, maintenance, intake, flags, reports, staff, adminReads, catalogReads, actions };
 
 // Re-export the surface adapters so consumers import from one place.
 export {

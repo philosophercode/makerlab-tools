@@ -1,290 +1,54 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
-import { headers } from "next/headers";
-import { authorizeAdminAction } from "../../../lib/admin/action-gate";
-import { AUDIT_WARNING, record, warn } from "../../../lib/admin/audit-warning";
-import { getAuth } from "../../../lib/auth/config";
-import { reconcileSuperAdminFloor } from "../../../lib/auth/floor-role";
-import { type Identity } from "../../../lib/auth/identity";
-import { isSuperAdminFloor } from "../../../lib/auth/super-admins";
-import { countUsersWithRole, findUserById, type UserRecord } from "../../../lib/data/users";
-import { isOneOf, ROLES, type Role } from "../../../lib/db/schema/vocabulary";
-import {
-  ADMIN_USERS_PATH,
-  type AdminActionError,
-  type AdminActionResult,
-  type AdminActionWarning,
+import { PEOPLE_SET_NAME, PEOPLE_SET_ROLE, PEOPLE_SET_TITLE } from "../../../lib/actions/people";
+import { PEOPLE_ADD, PEOPLE_REMOVE, PEOPLE_UNBLOCK_EMAIL } from "../../../lib/actions/people-roster";
+import { performAction } from "../../../lib/actions/perform";
+import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
+import type {
+  AddPersonInput,
+  AddPersonResult,
+  AdminActionResult,
+  RemoveUserResult,
+  SetNameResult,
+  SetTitleResult,
+  UnblockEmailResult,
 } from "./action-result";
 
 /**
- * The two writes `/admin/users` performs (data platform design spec §5.2, §8).
+ * The writes `/admin/users` performs (data platform spec §5.2, §8; auth spec
+ * amendment 2026-09-25 for Remove and Unblock).
  *
- * **Each one checks its own permission.** A server action is a POST endpoint
- * with a generated name: it is reachable without ever rendering the page that
- * offers it, so nothing it receives — and nothing about the page that rendered
- * the control — is evidence of anything (§8). The identity is resolved here,
- * `users.manage` is checked here, and the limiter runs here.
- *
- * **The write goes through the admin plugin, the reads do not.** `set-role`
- * and `ban-user` carry behaviour worth having (a ban deletes the person's
- * sessions, so they are signed out mid-visit rather than on expiry), and they
- * authorize against the same declaration `can()` does. The roster itself is
- * read straight from Postgres — see `src/lib/data/users.ts`.
- *
- * **Refusals are values, not exceptions.** Each action answers
- * `{ ok: false, error: <code> }` and the client island renders the matching
- * `next-intl` string. A thrown error in a server action reaches the browser as
- * a digest and an error boundary, which is the wrong shape for "you cannot
- * demote the floor address, and here is why" (§5.2).
- *
- * **And a change that lands without its audit event is a success with a
- * warning, not a failure.** The two writes are two statements and only the
- * first one is the change; `record` and `warn` come from
- * `src/lib/admin/audit-warning.ts`, which every admin surface shares.
+ * **Each is a one-line wrapper** over its action definition in
+ * `src/lib/actions/people*.ts` (assistant–GUI parity spec §3.1). A server
+ * action is a POST endpoint with a generated name, reachable without the page
+ * that offers it, so it trusts nothing the page sent about who is asking: the
+ * identity comes from the session cookie here, and `performAction` runs the
+ * same gate (limiter, sign-in, `users.manage`), the floor reconciliation, the
+ * action's own refusals and its audit — the path the assistant's confirmation
+ * card will take in phase 2. Refusals are values the island renders; a change
+ * that lands without its audit event is a success with a warning.
  */
 
-/** Names this surface in the console line a missing audit event leaves behind. */
-const AUDIT_SURFACE = "admin/users";
-
-/**
- * Change one person's role.
- *
- * Refuses, in this order: an anonymous caller, the rate ceiling, a caller
- * without `users.manage`, a role outside the vocabulary, an unknown target, the
- * super-admin floor, and a demotion that would leave nobody holding
- * `super_admin` at all (spec §10, "the last super admin demotes themselves").
- *
- * A change to the role the person already has is a no-op that reports success
- * and writes no audit event — the trail records changes, and "admin → admin"
- * is not one.
- */
-export async function setUserRole(input: {
-  userId: string;
-  role: string;
-}): Promise<AdminActionResult> {
-  const gate = await authorize();
-  if (!gate.ok) return gate;
-  // `gateWarning` is the reconciliation's own audit gap, if it had one. It
-  // rides on every success below, including the ones that change nothing here:
-  // the caller's row still moved.
-  const { identity, warning: gateWarning } = gate;
-
-  if (!isOneOf(ROLES, input.role)) return { ok: false, error: "invalid_role" };
-  const role: Role = input.role;
-
-  const target = await findUserById(input.userId);
-  if (!target) return { ok: false, error: "unknown_user" };
-  if (target.role === role) return { ok: true, role, ...warn(gateWarning) };
-
-  const protection = await demotionProtection(target, role);
-  if (protection) return { ok: false, error: protection };
-
-  try {
-    const auth = await getAuth();
-    if (!auth) return { ok: false, error: "failed" };
-    await auth.api.setRole({
-      body: { userId: target.id, role },
-      headers: await requestHeaders(),
-    });
-  } catch (err) {
-    // The plugin refuses with an `APIError`; anything else is a database or
-    // configuration problem. Either way the row did not change, and the caller
-    // is told that rather than being shown a success they did not get.
-    console.error("[admin/users] set-role failed", err);
-    return { ok: false, error: "failed" };
-  }
-
-  const recorded = await record(
-    {
-      actorUserId: identity.userId,
-      action: "role.changed",
-      subjectType: "user",
-      subjectId: target.id,
-      // Both halves: "became an admin" is not answerable later without the
-      // "from", and that is the question an audit trail exists to answer.
-      detail: { from: target.role, to: role },
-    },
-    AUDIT_SURFACE
-  );
-
-  revalidatePath(ADMIN_USERS_PATH);
-  return { ok: true, role, ...warn(gateWarning, recorded) };
+export async function setUserRole(input: { userId: string; role: string }): Promise<AdminActionResult> {
+  return performAction(PEOPLE_SET_ROLE, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }
 
-/**
- * Ban or unban one person.
- *
- * A ban deletes their sessions, so it bites immediately rather than on the next
- * page load — and `resolveIdentity` refuses a banned user anyway, so even a
- * cookie that outlived the sweep resolves to anonymous.
- *
- * The floor address cannot be banned, and neither can the last super admin;
- * banning yourself is refused here so the message is ours (the plugin refuses
- * it too, with an error code the page would have to translate).
- */
-export async function setUserBanned(input: {
-  userId: string;
-  banned: boolean;
-  reason?: string;
-}): Promise<AdminActionResult> {
-  const gate = await authorize();
-  if (!gate.ok) return gate;
-  const { identity, warning: gateWarning } = gate;
-
-  const target = await findUserById(input.userId);
-  if (!target) return { ok: false, error: "unknown_user" };
-  if (target.banned === input.banned) {
-    return { ok: true, banned: input.banned, ...warn(gateWarning) };
-  }
-
-  if (input.banned) {
-    // Self-ban first: the plugin refuses it too, but with an error code the
-    // page would have to translate, and this way the message is ours.
-    if (target.id === identity.userId) return { ok: false, error: "self_ban" };
-    // No "last super admin" check here, deliberately. Reaching this line means
-    // somebody *else* holds `users.manage` — the caller — so banning this
-    // account cannot leave the lab without one.
-    if (isSuperAdminFloor(target.email)) return { ok: false, error: "protected_floor" };
-  }
-
-  const reason = (input.reason ?? "").trim() || undefined;
-
-  try {
-    const auth = await getAuth();
-    if (!auth) return { ok: false, error: "failed" };
-    const requestedHeaders = await requestHeaders();
-    if (input.banned) {
-      await auth.api.banUser({
-        body: { userId: target.id, ...(reason ? { banReason: reason } : {}) },
-        headers: requestedHeaders,
-      });
-    } else {
-      await auth.api.unbanUser({
-        body: { userId: target.id },
-        headers: requestedHeaders,
-      });
-    }
-  } catch (err) {
-    console.error("[admin/users] ban-user failed", err);
-    return { ok: false, error: "failed" };
-  }
-
-  const recorded = await record(
-    {
-      actorUserId: identity.userId,
-      action: "user.banned",
-      subjectType: "user",
-      subjectId: target.id,
-      // `AUDIT_ACTIONS` has no `user.unbanned` (spec §4.11), so lifting a ban is
-      // the same action with `banned: false`. The alternative is a vocabulary
-      // that drifts from the spec, which is worse than a flag in the detail.
-      detail: { banned: input.banned, ...(reason ? { reason } : {}) },
-    },
-    AUDIT_SURFACE
-  );
-
-  revalidatePath(ADMIN_USERS_PATH);
-  return {
-    ok: true,
-    banned: input.banned,
-    ...warn(gateWarning, recorded),
-  };
+export async function setUserTitle(input: { userId: string; title: string | null }): Promise<SetTitleResult> {
+  return performAction(PEOPLE_SET_TITLE, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }
 
-// ── The shared preamble ─────────────────────────────────────────────
-
-type Gate =
-  | { ok: true; identity: Identity; warning?: AdminActionWarning }
-  | { ok: false; error: AdminActionError };
-
-/**
- * Resolve the caller, bound their attempts, check `users.manage` — and then
- * do the one thing that is this page's alone.
- *
- * The first three are {@link authorizeAdminAction}, shared with every other
- * admin surface. The last step is the one that is not a refusal: the floor is written onto the
- * caller's own row before either action calls the plugin. `can()` honours the
- * floor and the plugin does not — see `lib/auth/floor-role.ts` — so without
- * this a floor address whose row says `user` reaches the page with every
- * control live and every save failing. It runs after the permission check, so
- * only somebody the app already treats as a director can trigger it, and it is
- * a no-op for everyone whose row already agrees.
- */
-async function authorize(): Promise<Gate> {
-  // Identity, limiter, then the permission — the sequence every admin action
-  // shares, which is why it lives in `src/lib/admin/action-gate.ts` now rather
-  // than here. Only the step below it is this page's own.
-  const gate = await authorizeAdminAction("users.manage");
-  if (!gate.ok) return gate;
-  const { identity } = gate;
-
-  let reconciliation;
-  try {
-    reconciliation = await reconcileSuperAdminFloor(identity);
-  } catch (err) {
-    // The write that follows depends on this having landed, so reporting
-    // "failed" is the honest answer — better than letting the plugin refuse
-    // for a reason the page cannot explain.
-    console.error("[admin/users] super-admin floor reconciliation failed", err);
-    return { ok: false, error: "failed" };
-  }
-
-  // The reconciliation may have promoted this caller — and lifted a ban — with
-  // no trail. That rides back as a warning on whatever the action goes on to
-  // do, because refusing here would deny a change the database has kept.
-  return {
-    ok: true,
-    identity,
-    ...(reconciliation.audited ? {} : { warning: AUDIT_WARNING }),
-  };
+export async function setUserName(input: { userId: string; name: string }): Promise<SetNameResult> {
+  return performAction(PEOPLE_SET_NAME, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }
 
-/**
- * Why `target` may not be moved to `nextRole`, or null when they may.
- *
- * Only demotions are protected — promoting anybody, including a floor address
- * that already holds the role, is always fine. Two guarantees, and they are
- * not the same one:
- *
- * - **The floor.** An address in `AUTH_SUPER_ADMIN_EMAILS` resolves
- *   `super_admin` whatever its row says, so demoting it in the database would
- *   produce a row that disagrees with the running app — confusing rather than
- *   dangerous, and worth refusing plainly.
- * - **The last super admin.** A deployment with no floor configured — a
- *   preview, a fork — can genuinely lock itself out, and this is the case spec
- *   §10 names. Banned super admins do not count towards "somebody is left":
- *   they resolve to anonymous and can undo nothing.
- */
-async function demotionProtection(
-  target: UserRecord,
-  nextRole: Role
-): Promise<AdminActionError | null> {
-  if (nextRole === "super_admin") return null;
-
-  if (isSuperAdminFloor(target.email)) return "protected_floor";
-
-  if (target.role === "super_admin") {
-    const remaining = await countUsersWithRole("super_admin", {
-      excludeUserId: target.id,
-    });
-    if (remaining === 0) return "last_super_admin";
-  }
-
-  return null;
+export async function addPerson(input: AddPersonInput): Promise<AddPersonResult> {
+  return performAction(PEOPLE_ADD, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }
 
-/**
- * The incoming request's headers as a real `Headers`.
- *
- * Better Auth iterates what it is given and `next/headers` returns a read-only
- * look-alike, so this copies rather than casts. Only the cookie is needed:
- * `set-role` is `requireHeaders: true` and authenticates from the session.
- */
-async function requestHeaders(): Promise<Headers> {
-  const incoming = await headers();
-  const copy = new Headers();
-  const cookie = incoming.get("cookie");
-  if (cookie) copy.set("cookie", cookie);
-  return copy;
+export async function removeUser(input: { userId: string; block: boolean; reason?: string }): Promise<RemoveUserResult> {
+  return performAction(PEOPLE_REMOVE, input, await resolveIdentityFromHeaders(), { surface: "gui" });
+}
+
+export async function unblockBlockedEmail(input: { email: string }): Promise<UnblockEmailResult> {
+  return performAction(PEOPLE_UNBLOCK_EMAIL, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }

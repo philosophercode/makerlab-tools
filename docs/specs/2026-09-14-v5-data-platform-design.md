@@ -1,7 +1,7 @@
 # v5 Data Platform — Postgres, Blob, Accounts, Admin Inventory, Two-Step Intake, a Notion Mirror — Design Spec
 
 **Date:** 2026-09-14
-**Status:** Draft
+**Status:** Mostly implemented — phases 1–6 and 8 built; phase 7 (people load and validate the real inventory) pending; phase 9 (translation pass) deferred until after launch (status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/`
 **Branch:** `v5/data-platform-spec`
 **Spec PR:** #32 · **Implementation PRs:** one per phase (§9)
@@ -278,7 +278,7 @@ Requests are throttled to 3 per second and retried on 429 using `Retry-After`. O
 - **Reads.** Catalogue reads keep `'use cache'` with `cacheTag("catalog")`. Detail reads add `cacheTag("tool:<id>")`, and project reads add `cacheTag("projects")`.
 - **Writes invalidate their tags.** Server actions call `updateTag`, so the person editing sees their own change on the next render. Route handlers and workflow steps call `revalidateTag(tag, "max")`.
 - **Cache lifetime.** The 24-hour revalidation window was sized for slow, rate-limited Notion reads. With invalidation on every write it can stay long: staleness now comes only from writes the app did not make, and there are none.
-- **One cron.** Hobby allows a cron job to run at most once a day, so `vercel.json` keeps one entry, `/api/cron/daily`, which does the nightly backup (a JSON export of every table to a private blob, kept 30 days), deletes orphaned uploads and stale pending items, and pushes any mirror whose data is newer than its last sync.
+- **One cron.** Hobby allows a cron job to run at most once a day, so `vercel.json` keeps one entry, `/api/cron/daily`, which does the nightly backup (a JSON export of every table to a private blob; retention tiered to three years by ops spec amendment 2026-09-27, originally 30 days), deletes orphaned uploads and stale pending items, and pushes any mirror whose data is newer than its last sync.
 
 ### 3.10 What moves where
 
@@ -308,7 +308,8 @@ Requests are throttled to 3 per second and retried on 429 using `Retry-After`. O
 | `LAB_TIMEZONE` | New, default `America/New_York` | Dates on tickets (Article 6: configuration, not a constant) |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Existing, **unset in production today** | The OAuth client; Phase 0 |
 | `AUTH_SECRET`, `AUTH_BASE_URL`, `AUTH_ALLOWED_EMAIL_DOMAIN` | Existing | Better Auth; `AUTH_SECRET` also derives the key that encrypts mirror tokens (§8) |
-| `BLOB_READ_WRITE_TOKEN` | Existing | Uploads and backups |
+| `BLOB_READ_WRITE_TOKEN` | Existing | Uploads and backups (the public store once a private one is linked — amendment 2026-09-27) |
+| `BLOB_PRIVATE_READ_WRITE_TOKEN`, `BLOB_PRIVATE_STORE_ID` | New (amendment 2026-09-27) | The private store: backups and private uploads |
 | `CRON_SECRET` | Existing | The daily cron route |
 | `NOTION_API_KEY`, `NOTION_DB_*` (8) | Import only, then removed | Source databases. Mirrors carry their own tokens. |
 | `AUTH_STAFF_EMAILS`, `AUTH_ADMIN_EMAILS` | Removed in Phase 4 | Read once, to seed the first admin rows |
@@ -857,13 +858,16 @@ A page that says "mark this high confidence and publish" can change none of that
 - **Emails** never enter a model prompt or the Notion mirror, and are never logged.
 - **Photos:** maintenance photos are private blobs.
 - **Deletion:** discarded pending items and orphaned uploads are deleted on schedule (§3.3, §4.10).
+  Copies in the nightly backup outlive that deletion (amendment 2026-09-27 "Backups outlive the
+  30-day discard").
 - **University approval** of storing student email at all is still the open question in the specs README (q5).
 
 **Secrets:** `DATABASE_URL`, `BLOB_READ_WRITE_TOKEN`, `NOTION_API_KEY` (import only),
 `CRON_SECRET`, `AUTH_SECRET`, `GOOGLE_CLIENT_SECRET`, and each mirror's token in the database.
 
 **Backups:** Neon's point-in-time restore, to the extent the plan provides it, plus the nightly
-JSON export to private Blob, kept for 30 days.
+JSON export to private Blob, originally kept for 30 days; now tiered to three years (ops
+hardening spec amendment 2026-09-27 and the amendment "Backups outlive the 30-day discard" below).
 
 **Risks, named.**
 
@@ -1838,3 +1842,81 @@ area. Archiving revalidates the catalogue, the tool drops out of the published r
 
 Tested in `DraftToolView.test.tsx` (staff redirect, student/visitor 404) and
 `ToolEditorPanel.test.tsx` (`onArchived` only after a successful Archive).
+
+### 2026-09-26 — Specs no longer folded into the description (pointer)
+
+The as-built note "Research specs are folded into the editable description at approval" is
+superseded by the gateway spec's amendment "Short descriptions" (2026-09-26): approval proposes
+research's short description alone, and the specs research read are not saved on the tool.
+
+### 2026-09-27 — Two Blob stores: public and private (§3.3, §3.11)
+
+**Why.** Vercel Blob stores are now created either all-public or all-private; a public write to
+a private store fails ("Cannot use public access on a private store") and the reverse fails too.
+§3.3 assumed one store holding both kinds. The hosted project `makerlab-ai` has a **public** store
+connected as the default and needs a second, **private** store for the private files.
+
+**The rule.** Every Blob operation is routed by the file's access, in one place —
+`blobCredentials(access)` in `v5/src/lib/blob-mode.ts`:
+
+| Access | Store | Credentials passed to `@vercel/blob` |
+|---|---|---|
+| `public` — tool photos, archived manual PDFs, research images, project photos, public uploads | the default store | none: the SDK's own `BLOB_READ_WRITE_TOKEN`, or `BLOB_STORE_ID` + the deployment's OIDC token, exactly as before |
+| `private` — the nightly JSON backup (it holds user emails), research's `research_image_cleaned` copies, chat / maintenance / import uploads | the store connected with the custom prefix `BLOB_PRIVATE` | `BLOB_PRIVATE_READ_WRITE_TOKEN` when set (an explicit token beats every other credential in the SDK); else `BLOB_PRIVATE_STORE_ID`, which `@vercel/blob` 2.6 pairs with the OIDC token (`storeId` option) |
+
+- **Single-store fallback.** With no `BLOB_PRIVATE_*` variable, private files go to the default
+  store, as before — an older store that accepts both, and every local setup. `blobMode()` is
+  unchanged: it still asks only whether the *default* store is linked, so a private store alone
+  never makes the app think it can store public files. Local development (`.blob-data/`) is
+  unchanged.
+- **The seam learns an access on every verb.** `BlobStore.list(prefix, access)` and
+  `BlobStore.del(pathnames, access)` — a pathname alone does not say which store holds it. The
+  backup prunes in the private store; the orphan sweep deletes each row's bytes from the store its
+  `attachments.access` names; the upload route and the approval image delete from the store they
+  just wrote. Step code (`createVercelBlobUploader`, `readStoredFile`, `verify:import`'s `head`)
+  routes the same way.
+- **Promotion crosses stores.** `copy()` works inside one store only. With a private store
+  linked, `copyToPublic` reads the private bytes (`get`, private credentials) and writes them to
+  the public store at a new random pathname (`put`, content type kept); the caller then deletes the
+  private original (`del(…, "private")`) exactly as before. A missing source throws, so the photo
+  is counted `failed` and stays private — nothing is marked public on a failure. With one store it
+  is still one `copy()` call.
+- **A store id with no OIDC token** (a script run outside Vercel without `VERCEL_OIDC_TOKEN`)
+  makes the SDK fall back to the default token — the public store — which refuses a private
+  write. The failure is loud, never a private file made public; the deploy guide still asks for
+  the private store's read-write token so scripts work too.
+
+**Environment (§3.11).** New: `BLOB_PRIVATE_READ_WRITE_TOKEN`, `BLOB_PRIVATE_STORE_ID` (read by the
+app) and `BLOB_PRIVATE_WEBHOOK_PUBLIC_KEY` (set by Vercel with the connection; not read). Existing:
+`BLOB_READ_WRITE_TOKEN`, `BLOB_STORE_ID`, `BLOB_WEBHOOK_PUBLIC_KEY` now name the **public** store
+when a private one is linked.
+
+**Not in this change.** Moving files already written: a deployment that switches from one store
+to two keeps its old private files in the old store, where the private credentials no longer
+look (they can no longer be read or swept through the app). A deployment linking a private store
+should do so before it holds private files — `makerlab-ai`'s new public store refuses them
+anyway, so it cannot have any.
+`npm run data:push` (PR #82, unmerged) passes one set of hosted Blob credentials; it needs the same
+split — private files to the private store — before it runs against a two-store deployment.
+
+Tested in `blob-mode.test.ts` (routing, precedence, fallback, `blobMode` unchanged),
+`blob.test.ts` (every verb against two stores; cross-store `copyToPublic` never calls `copy`),
+`cron/cleanup.test.ts` (orphans deleted per access), `import/blob-uploader.test.ts` and
+`manuals/stored-bytes.test.ts`.
+
+### 2026-09-27 — Backups outlive the 30-day discard (§3.9, §8)
+
+**What changed.** The nightly backup's retention is tiered (ops hardening spec amendment
+2026-09-27): every night for 7 days, then weekly to a month, monthly to a year, quarterly to
+three years. §3.9 and §8 said 30 days.
+
+**Consequence for student data.** §8 promises discarded pending items are deleted on schedule,
+and they still are, from the live database, 30 days after discard
+(`PENDING_DISCARDED_RETENTION_MS`). A backup taken before that deletion keeps the row, with the
+student's name and email, for as long as that backup survives: up to three years in a quarterly
+copy. The same holds for any user row deleted from the live database. Backups are in the private
+Blob store, readable only with the store token.
+
+**Open.** Whether the university's data inventory allows student email to persist in backups for
+up to three years is the owner's call and joins open question q5 (storing student email at all).
+If it does not, shorten the quarterly tier in `backup-retention.ts`, not the discard window.

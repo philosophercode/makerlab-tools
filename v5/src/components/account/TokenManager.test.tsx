@@ -24,7 +24,7 @@ const EXISTING: TokenRow = {
 
 function setup(initialTokens: TokenRow[] = [EXISTING]) {
   const createAction = vi.fn(
-    async (input: { name: string; expiry: string; readOnly: boolean }): Promise<CreateTokenResult> => ({
+    async (input: { name: string; readOnly: boolean }): Promise<CreateTokenResult> => ({
       ok: true,
       token: TOKEN,
       summary: {
@@ -63,37 +63,89 @@ describe("TokenManager", () => {
     expect(document.body.textContent).not.toContain(TOKEN);
   });
 
-  it("defaults to 90 days, labelled one semester", () => {
-    setup();
-    const expiry = screen.getByLabelText("Expires") as HTMLSelectElement;
-    expect(expiry.value).toBe("90");
-    expect(within(expiry).getByRole("option", { name: "In 90 days (one semester)" })).toBeInTheDocument();
+  it("offers no expiry choice: every token lasts 90 days, said as a date", () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-25T12:00:00Z"));
+    try {
+      setup();
+      expect(screen.queryByLabelText("Expires")).toBeNull();
+      expect(screen.queryByRole("combobox")).toBeNull();
+      expect(screen.getByTestId("token-expiry")).toHaveTextContent("Dec 24, 2026 — 90 days, one semester.");
+      // Read-only is still the one choice.
+      expect(screen.getByRole("checkbox", { name: /read-only/i })).not.toBeChecked();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
-  it("creates a token with the chosen expiry and read-only, and reveals it once with setup snippets", async () => {
+  it("puts the form and the reveal in one column", async () => {
+    const user = userEvent.setup();
+    setup();
+    await user.type(screen.getByLabelText("Name"), "Laptop");
+    await user.click(screen.getByRole("button", { name: "Create token" }));
+    const reveal = (await screen.findByRole("heading", { name: /Your new token/ })).closest("section")!;
+    const form = screen.getByRole("button", { name: "Create token" }).closest("form")!;
+    // One shared column: the reveal and the form's section are siblings in the same width-capped wrapper.
+    const column = reveal.parentElement!;
+    expect(column).toHaveClass("max-w-[640px]");
+    expect(column).toContainElement(form);
+  });
+
+  it("creates a read-only token and reveals it once, warning to save it now and again beside Done", async () => {
     const user = userEvent.setup();
     const { createAction } = setup();
 
     await user.type(screen.getByLabelText("Name"), "Claude Code on my laptop");
-    await user.selectOptions(screen.getByLabelText("Expires"), "30");
     await user.click(screen.getByRole("checkbox", { name: /read-only/i }));
     await user.click(screen.getByRole("button", { name: "Create token" }));
 
-    expect(createAction).toHaveBeenCalledWith({ name: "Claude Code on my laptop", expiry: "30", readOnly: true });
+    expect(createAction).toHaveBeenCalledWith({ name: "Claude Code on my laptop", readOnly: true });
     const reveal = await screen.findByRole("heading", { name: /Your new token/ });
     const panel = reveal.closest("section")!;
     expect(within(panel).getByLabelText("Personal access token")).toHaveTextContent(TOKEN);
-    expect(within(panel).getByText(/won't be shown again/)).toBeInTheDocument();
+
+    // The warning: above the token, and repeated next to the button that dismisses the reveal.
+    const warnings = within(panel).getAllByText(
+      "Save this token now. You won't be able to see or copy it again after you leave this page."
+    );
+    expect(warnings).toHaveLength(2);
+    const tokenBlock = within(panel).getByLabelText("Personal access token");
+    expect(warnings[0].compareDocumentPosition(tokenBlock) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const done = within(panel).getByRole("button", { name: "I've copied it" });
+    expect(warnings[1].closest("div")).toContainElement(done);
+
     expect(panel).toHaveTextContent("claude mcp add --transport http makerlab https://tools.example.edu/api/mcp");
     expect(panel).toHaveTextContent('bearer_token_env_var = "MAKERLAB_MCP_TOKEN"');
     expect(panel).toHaveTextContent(`export MAKERLAB_MCP_TOKEN=${TOKEN}`);
+
+    // The setup prompt names the variable, never the token.
+    const prompt = within(panel).getByLabelText("setup prompt");
+    expect(prompt).toHaveTextContent("MAKERLAB_MCP_TOKEN");
+    expect(prompt).toHaveTextContent("https://tools.example.edu/api/mcp");
+    expect(prompt).toHaveTextContent("Never ask me to paste the token into this chat");
+    expect(prompt.textContent).not.toContain(TOKEN);
+    expect(within(panel).getByRole("button", { name: "Copy setup prompt" })).toBeInTheDocument();
 
     // The new row is listed as read-only.
     expect(within(tokenRow("Claude Code on my laptop")).getByText("Read-only")).toBeInTheDocument();
 
     // Dismissed, it is gone for good: nothing on the page holds it any more.
-    await user.click(screen.getByRole("button", { name: "I've copied it" }));
+    await user.click(done);
     expect(document.body.textContent).not.toContain(TOKEN);
+  });
+
+  it("copies the setup prompt without the token", async () => {
+    const user = userEvent.setup();
+    const writeText = vi.fn<(text: string) => Promise<void>>(async () => {});
+    Object.defineProperty(navigator, "clipboard", { value: { writeText }, configurable: true });
+    setup();
+    await user.type(screen.getByLabelText("Name"), "Laptop");
+    await user.click(screen.getByRole("button", { name: "Create token" }));
+    await user.click(await screen.findByRole("button", { name: "Copy setup prompt" }));
+    expect(writeText).toHaveBeenCalledTimes(1);
+    const copied = writeText.mock.calls[0][0];
+    expect(copied).toContain("Authorization: Bearer $MAKERLAB_MCP_TOKEN");
+    expect(copied).not.toContain(TOKEN);
   });
 
   it("revokes only after an inline confirmation", async () => {

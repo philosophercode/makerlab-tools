@@ -62,6 +62,12 @@ export interface MakerLabTool {
    * wrote them. Absent or empty means the chat's generic chips.
    */
   starterQuestions?: string[];
+  /**
+   * When the tool was added to the catalogue (ISO), for the gallery's
+   * "Recently added" sort (UI system phase 5a). Null or absent when unknown;
+   * such tools sort last.
+   */
+  addedAt?: string | null;
 }
 
 export interface CatalogStats {

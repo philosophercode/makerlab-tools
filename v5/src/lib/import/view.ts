@@ -22,6 +22,8 @@ export interface ImportView {
   itemCount: number;
   duplicateCount: number;
   createdByName: string | null;
+  /** The importer's account has been removed; the name is the snapshot. */
+  createdByRemoved: boolean;
   createdAt: string;
 }
 
@@ -60,6 +62,7 @@ export function toImportView(record: BulkImportRecord | BulkImportSummary, creat
     itemCount: record.itemCount,
     duplicateCount: record.duplicateCount,
     createdByName: "createdByName" in record ? record.createdByName : createdByName,
+    createdByRemoved: "createdByRemoved" in record ? record.createdByRemoved : false,
     createdAt: record.createdAt.toISOString(),
   };
 }

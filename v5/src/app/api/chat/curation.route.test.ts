@@ -12,6 +12,7 @@ vi.mock("@/lib/rate-limit", async (importOriginal) => {
 });
 vi.mock("next/cache", () => ({ cacheTag: vi.fn(), cacheLife: vi.fn(), revalidateTag: vi.fn() }));
 
+import { CAPABILITIES } from "../../../lib/capabilities";
 import { eq } from "drizzle-orm";
 import { POST } from "@/app/api/chat/route";
 import { resetAuthForTests } from "@/lib/auth/config";
@@ -108,8 +109,15 @@ it("offers no tool that accepts, publishes, archives or writes a record", async 
   const { cookie } = await signIn("admin");
   await send({ messages: [userMessage("Curate this entry")], toolId: "form-4" }, { cookie });
   const names = toolNames();
-  for (const forbidden of ["accept_proposal", "accept_change", "update_tool", "save_tool", "publish_tool", "archive_tool", "create_tool"]) {
+  for (const forbidden of ["accept_proposal", "accept_change", "update_tool", "save_tool", "publish_tool", "create_tool"]) {
     expect(names).not.toContain(forbidden);
+  }
+  // The action layer's `archive_tool` and `set_tool_published` are offered, and
+  // only propose: a card the person confirms (assistant–GUI parity spec §3.4).
+  for (const proposing of ["archive_tool", "set_tool_published"]) {
+    const offered = CAPABILITIES.find((c) => c.id === "actions")!.tools.find((t) => t.name === proposing);
+    expect(offered?.kind).toBe("write");
+    expect(offered?.description).toMatch(/Proposes/);
   }
 });
 

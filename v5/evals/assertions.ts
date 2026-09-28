@@ -15,8 +15,10 @@ import type { EvalFixture, EvalFixtureTool } from "./fixtures";
  * | `contains_all` / `not_contains_any` | Literal substrings |
  * | `no_fabricated_specs` | Numbers attributed to named fields match the fixture |
  * | `cites_resource` | The answer references one of the machine's documents |
- * | `cites_page` | The answer cites a manual page: a `#page=N` link or "p. N" (N = `value` when given) |
+ * | `cites_page` | The answer cites a manual page: a `#page=N` link or "p. N" (N = `value` when given; `file.pdf#page=N` pins the document) |
  * | `says_not_covered` | The answer says the manual does not cover the question |
+ * | `proposed_action` | That action tool was called — which only ever proposes a card (assistant–GUI parity spec §10.1) |
+ * | `not_claimed_done` | The answer never says a change was made: nothing is done until the person confirms the card |
  *
  * `no_unknown_tools` and `no_fabricated_specs` are the two that matter — they
  * are the direct test of "grounded, never fabricated," which is the whole
@@ -35,6 +37,8 @@ export const ASSERTION_KINDS = [
   "cites_resource",
   "cites_page",
   "says_not_covered",
+  "proposed_action",
+  "not_claimed_done",
 ] as const;
 
 export type AssertionKind = (typeof ASSERTION_KINDS)[number];
@@ -248,6 +252,32 @@ export function notCalledTool(toolCalls: RecordedToolCall[], name: string): Chec
   return { ok: false, detail: `"${name}" was called ${count} time(s)` };
 }
 
+/**
+ * Phrases that claim a change was made. A proposal is not a change (parity
+ * spec §3.4): until the card is confirmed, "done" is the one thing the
+ * assistant must never say.
+ */
+const DONE_CLAIMS = [
+  /\bdone\b/,
+  /\b(has|have) been (updated|changed|added|removed|resolved|set|published|logged|recorded|made)\b/,
+  /\b(is|are) now (an? |the )?(admin|super admin|supermaker|resolved|published|closed|set|on the roster|added)\b/,
+  /\bi('ve| have) (updated|changed|added|removed|resolved|set|published|logged|recorded|made|marked)\b/,
+  /\b(successfully|all set)\b/,
+];
+
+/** What a segment that talks about the card, not about a finished change, says. */
+const PENDING_CUES = ["confirm", "card", "once you", "when you", "after you", "until", "nothing has changed", "not yet", "won't", "will not"];
+
+/** `not_claimed_done` — no sentence says the change happened (§10.1). */
+export function notClaimedDone(text: string): Check {
+  for (const segment of splitSegments(text)) {
+    const low = normalize(segment);
+    if (PENDING_CUES.some((cue) => low.includes(cue))) continue;
+    if (DONE_CLAIMS.some((claim) => claim.test(low))) return { ok: false, detail: "the answer says the change was made", excerpt: segment };
+  }
+  return { ok: true };
+}
+
 /** `contains_all` — every literal is present (case-insensitive). */
 export function containsAll(text: string, values: string[]): Check {
   const low = text.toLowerCase();
@@ -443,14 +473,36 @@ export function runAssertion(spec: AssertionSpec, input: AssertionInput): Assert
     }
     case "says_not_covered":
       return outcome("the answer says the manual does not cover it", saysNotCovered(text));
+    case "proposed_action": {
+      // Every action tool only proposes (the harness stubs it to answer
+      // `proposed: true`, as the real one does), so a call is a proposal.
+      const name = asString(spec.value);
+      return outcome(`the assistant proposed ${name}`, calledTool(toolCalls, name));
+    }
+    case "not_claimed_done":
+      return outcome("the answer never claims the change was made", notClaimedDone(text));
   }
 }
 
 /**
  * A page citation (manual text spec §3.6): a link whose URL ends `#page=N`,
- * or "p. N" / "page N" in the text. With `page`, N must be that page.
+ * or "p. N" / "page N" in the text. With `page`, N must be that page. A
+ * `page` of the form `file.pdf#page=N` pins the document too: the answer must
+ * link that file at that page, so a same-numbered page of another manual on
+ * the machine does not pass.
  */
 export function citesPage(text: string, page?: string): Check {
+  const pinned = page?.match(/^(.+)#page=(\d+)$/);
+  if (pinned) {
+    const [, file, n] = pinned;
+    const escaped = file.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (new RegExp(`${escaped}#page=${n}(?!\\d)`).test(text)) return { ok: true };
+    const linked = [...text.matchAll(/([^\s/()]+\.pdf)#page=(\d+)/g)].map((m) => `${m[1]}#page=${m[2]}`);
+    return {
+      ok: false,
+      detail: linked.length ? `links ${[...new Set(linked)].join(", ")}, not ${page}` : `no link to ${page} in the answer`,
+    };
+  }
   const pages = [
     ...[...text.matchAll(/#page=(\d+)/g)].map((m) => m[1]),
     ...[...text.matchAll(/\b(?:p|pp|page)\.?\s*(\d+)/gi)].map((m) => m[1]),
@@ -478,6 +530,8 @@ const NOT_COVERED_CUES = [
   "does not specify",
   "doesn't address",
   "does not address",
+  "doesn't state",
+  "does not state",
   "not in the manual",
   "no information",
   "couldn't find",

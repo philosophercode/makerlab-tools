@@ -14,11 +14,7 @@ import {
  * because a server action is reachable without the page that offers it.
  */
 
-export async function createTokenAction(input: {
-  name: string;
-  expiry: string;
-  readOnly: boolean;
-}): Promise<CreateTokenResult> {
+export async function createTokenAction(input: { name: string; readOnly: boolean }): Promise<CreateTokenResult> {
   return createToken(input);
 }
 

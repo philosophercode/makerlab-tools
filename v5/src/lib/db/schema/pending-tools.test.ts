@@ -79,20 +79,18 @@ describe("pending_tools", () => {
     expect(triggers).toHaveLength(1);
   });
 
-  it("requires an owner — a pending item always belongs to somebody", async () => {
-    await expectViolation(
-      db.execute(
-        sql`insert into pending_tools (batch_id, name) values (gen_random_uuid(), 'Nobody''s')`
-      ),
-      /created_by/
-    );
+  it("refuses an owner that names no account", async () => {
     await expectViolation(
       db.insert(pendingTools).values(pendingRow("no-such-user")),
       /pending_tools_created_by_user_id_fk/
     );
   });
 
-  it("removes a person's pending rows with their account, since nobody else can act on them", async () => {
+  it("keeps a person's pending rows when their account goes, owner cleared (migration 0016)", async () => {
+    // It used to cascade ("a pending item always has an owner"). Removing a
+    // person must not delete what they identified — approved items included —
+    // so the owner is `set null` like every other actor column (auth spec
+    // amendment 2026-09-25), and anyone holding `tools.approve` works it.
     const owner = await insertUser();
     const reviewer = await insertUser();
     const [row] = await db
@@ -106,7 +104,9 @@ describe("pending_tools", () => {
 
     await db.delete(user).where(eq(user.id, owner));
 
-    expect(await db.select().from(pendingTools).where(eq(pendingTools.id, row.id))).toHaveLength(0);
+    const [orphan] = await db.select().from(pendingTools).where(eq(pendingTools.id, row.id));
+    expect(orphan.createdBy).toBeNull();
+    expect(orphan.researchRequestedBy).toBe(reviewer);
     // Somebody else's row the departed person merely touched survives, nulled.
     const [survivor] = await db.select().from(pendingTools).where(eq(pendingTools.id, kept.id));
     expect(survivor.researchRequestedBy).toBeNull();

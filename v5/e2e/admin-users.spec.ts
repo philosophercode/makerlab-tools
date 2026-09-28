@@ -113,11 +113,14 @@ test.describe("/admin/users — changing a role", () => {
     await expect(ownRow.getByText("you", { exact: true })).toBeVisible();
     // This server boots with AUTH_SUPER_ADMIN_EMAILS blank, so there is no
     // floor — the only thing standing between the lab and a lock-out is the
-    // "last director" guard, and it is visible rather than a surprise on save.
-    await expect(
-      ownRow.getByRole("combobox", { name: new RegExp(DEMO_ACCOUNTS.superAdmin.name) })
-    ).toBeDisabled();
-    await expect(ownRow.getByText(/last director/i)).toBeVisible();
+    // "last super admin" guard, and it is visible rather than a surprise on
+    // save: a short badge, with the full reason as the select's description.
+    const ownRole = ownRow.getByRole("combobox", { name: new RegExp(DEMO_ACCOUNTS.superAdmin.name) });
+    await expect(ownRole).toBeDisabled();
+    await expect(ownRow.getByText("Last super admin", { exact: true })).toBeVisible();
+    await expect(ownRole).toHaveAccessibleDescription(/last super admin/i);
+    // Roles are named for what they authorize; titles live in their own column.
+    await expect(ownRole.locator("option")).toHaveText(["User", "Admin", "Super admin"]);
 
     await expect(page.locator("body")).not.toContainText(PLACEHOLDER_LEAK);
   });
@@ -128,10 +131,10 @@ test.describe("/admin/users — changing a role", () => {
     baseURL,
   }) => {
     await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
-    // Wait for the islands to hydrate: a select changed before React owns it
-    // has no handler behind it, and the admin layout ships more script since
-    // UI phase 4 (the ⌘K palette), which made that race winnable.
-    await page.goto("/admin/users", { waitUntil: "networkidle" });
+    // No wait for hydration on purpose: `RoleSelect` is disabled until React
+    // owns it (`use-hydrated.ts`), and `selectOption` waits for it to be
+    // enabled. Before that fix a role chosen early looked saved and was not.
+    await page.goto("/admin/users");
 
     const row = page.getByRole("row", { name: new RegExp(DEMO_ACCOUNTS.promotable.name) });
     const select = row.getByRole("combobox", {
@@ -174,5 +177,259 @@ test.describe("/admin/users — changing a role", () => {
     await nav.getByRole("button", { name: /signed in as/i }).click();
     await expect(nav.getByRole("menuitem", { name: /add equipment/i })).toBeVisible();
     await expect(nav.getByRole("menuitem", { name: "ADMIN" })).toBeVisible();
+  });
+});
+
+test.describe("/admin/users — removing a person (auth spec amendment 2026-09-25)", () => {
+  const robin = DEMO_ACCOUNTS.removable;
+
+  test("a director removes somebody and blocks their address; they are signed out at once", async ({
+    page,
+    context,
+    baseURL,
+    browser,
+  }) => {
+    // Robin is signed in somewhere else before the removal.
+    const robinContext = await browser.newContext({ baseURL });
+    await signIn(robinContext, robin, baseURL);
+
+    await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+    await page.goto("/admin/users");
+    const table = page.getByRole("table", { name: "People and their roles" });
+    const blocked = page.getByRole("table", { name: "Blocked email addresses" });
+    const robinRow = table.getByRole("row", { name: new RegExp(robin.name) });
+
+    // A retry after the removal landed finds Robin already gone and blocked:
+    // it checks that state rather than failing on a row that cannot come back.
+    if ((await robinRow.count()) > 0) {
+      await robinRow.getByRole("button", { name: `Remove ${robin.name}` }).click();
+
+      // It asks first, inline, and says what happens.
+      await expect(
+        robinRow.getByText(
+          `Remove ${robin.name}? They lose access and their account is deleted. Their reports and history stay.`
+        )
+      ).toBeVisible();
+      await robinRow.getByRole("checkbox", { name: "Also block this email from signing up again" }).click();
+      await robinRow.getByRole("textbox", { name: `Reason for blocking ${robin.email}` }).fill("E2E removal");
+      await robinRow.getByRole("button", { name: `Remove ${robin.name}` }).click();
+
+      await expect(
+        page.getByText(`${robin.name} was removed, and ${robin.email} is blocked from signing up again.`)
+      ).toBeVisible({ timeout: SAVE_TIMEOUT });
+      await expect(robinRow).toHaveCount(0);
+    }
+
+    // A reload: the server agrees.
+    await page.reload();
+    await expect(robinRow).toHaveCount(0);
+    await expect(blocked.getByRole("row", { name: new RegExp(robin.email) })).toContainText("E2E removal");
+
+    // Robin's session went with the account: the same cookie is anonymous now.
+    const identity = await robinContext.request.get("/api/identity");
+    expect((await identity.json()).role).toBe("anonymous");
+    await robinContext.close();
+  });
+
+  test("the director cannot remove themselves, and is told why", async ({ page, context, baseURL }) => {
+    await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+    await page.goto("/admin/users");
+
+    const ownRow = page
+      .getByRole("table", { name: "People and their roles" })
+      .getByRole("row", { name: new RegExp(DEMO_ACCOUNTS.superAdmin.name) });
+    await expect(ownRow.getByRole("button", { name: `Remove ${DEMO_ACCOUNTS.superAdmin.name}` })).toBeDisabled();
+    await expect(ownRow.getByText("Your account", { exact: true })).toBeVisible();
+    await expect(
+      ownRow.getByRole("button", { name: `Remove ${DEMO_ACCOUNTS.superAdmin.name}` })
+    ).toHaveAccessibleDescription("You cannot remove yourself.");
+  });
+
+  test("and unblocks the address from the Blocked emails list", async ({ page, context, baseURL }) => {
+    await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+    await page.goto("/admin/users");
+    const blocked = page.getByRole("table", { name: "Blocked email addresses" });
+
+    if ((await blocked.getByRole("row", { name: new RegExp(robin.email) }).count()) > 0) {
+      await blocked.getByRole("button", { name: `Unblock ${robin.email}` }).click();
+      await expect(page.getByText(`${robin.email} can sign up again.`)).toBeVisible({ timeout: SAVE_TIMEOUT });
+    }
+
+    await page.reload();
+    await expect(page.getByRole("heading", { name: "Blocked emails" })).toBeVisible();
+    await expect(page.getByText("No addresses are blocked.")).toBeVisible();
+  });
+});
+
+test.describe("/admin/users — adding somebody before they sign in", () => {
+  const email = "e2e-added-person@cornell.edu";
+
+  test("a super admin adds a person, who shows as not signed in yet, and can be removed again", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+    await page.goto("/admin/users");
+    const table = page.getByRole("table", { name: "People and their roles" });
+    const row = table.getByRole("row", { name: new RegExp(email) });
+    const addForm = page.locator("form").filter({ has: page.getByRole("textbox", { name: "Email" }) });
+
+    // A retry after the add landed finds the row already there.
+    if ((await row.count()) === 0) {
+      await page.getByRole("button", { name: "Add person" }).click();
+      // One "Add person" on screen at a time: the opener is gone while the form is open.
+      await expect(page.getByRole("button", { name: "Add person" })).toHaveCount(0);
+      await page.getByRole("textbox", { name: "Email" }).fill(email.toUpperCase());
+      await page.getByRole("combobox", { name: "Role", exact: true }).selectOption("admin");
+      await page.getByRole("textbox", { name: "Title", exact: true }).fill("Tech Lead");
+      await addForm.getByRole("button", { name: "Add", exact: true }).click();
+      await expect(page.getByText(`${email} was added.`)).toBeVisible({ timeout: SAVE_TIMEOUT });
+    }
+
+    await page.reload();
+    await expect(row).toHaveCount(1, { timeout: SAVE_TIMEOUT });
+    await expect(row.getByText("Not signed in yet")).toBeVisible();
+    await expect(row.getByTestId("person-title")).toHaveText("Tech Lead");
+    await expect(row.getByRole("combobox", { name: new RegExp(email) })).toHaveValue("admin");
+
+    // Adding the same address again is refused, in words.
+    await page.getByRole("button", { name: "Add person" }).click();
+    await page.getByRole("textbox", { name: "Email" }).fill(email);
+    await addForm.getByRole("button", { name: "Add", exact: true }).click();
+    await expect(page.getByText("Somebody with that address is already on the list.")).toBeVisible({
+      timeout: SAVE_TIMEOUT,
+    });
+    await addForm.getByRole("button", { name: "Cancel" }).click();
+
+    // A super admin names them before they ever sign in; Google will not replace it.
+    if ((await row.getByTestId("person-name").textContent()) === email) {
+      await row.getByRole("button", { name: `Edit the name for ${email}` }).click();
+      const nameField = row.getByRole("textbox", { name: `Name for ${email}` });
+      await nameField.fill("  E2E   Added Person ");
+      await nameField.press("Enter");
+      await expect(row.getByTestId("person-name")).toHaveText("E2E Added Person", { timeout: SAVE_TIMEOUT });
+    }
+    await page.reload();
+    await expect(row.getByTestId("person-name")).toHaveText("E2E Added Person");
+    // Their address is said under the name now that it is no longer the name.
+    await expect(row.getByText(email, { exact: true })).toBeVisible();
+
+    // And somebody who never signed in can be removed like anyone else.
+    await row.getByRole("button", { name: "Remove E2E Added Person" }).click();
+    await row.getByRole("button", { name: "Remove E2E Added Person" }).click();
+    await expect(page.getByText("E2E Added Person was removed.")).toBeVisible({ timeout: SAVE_TIMEOUT });
+    await page.reload();
+    await expect(row).toHaveCount(0);
+  });
+
+  test("Cancel and Escape close the form without adding anybody, and hand focus back", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+    await page.goto("/admin/users");
+    const opener = page.getByRole("button", { name: "Add person" });
+    const emailField = page.getByRole("textbox", { name: "Email" });
+
+    await opener.click();
+    await emailField.fill("never-added@cornell.edu");
+    await page.getByRole("button", { name: "Cancel" }).click();
+    await expect(emailField).toHaveCount(0);
+    await expect(opener).toBeFocused();
+
+    await opener.click();
+    await expect(emailField).toHaveValue("");
+    await emailField.fill("never-added@cornell.edu");
+    await emailField.press("Escape");
+    await expect(emailField).toHaveCount(0);
+    await expect(opener).toBeFocused();
+
+    await expect(page.getByRole("row", { name: /never-added@cornell\.edu/ })).toHaveCount(0);
+  });
+});
+
+test.describe("/admin/users — sorting and filtering the roster", () => {
+  test("sorts by Person from the header, with aria-sort", async ({ page, context, baseURL }) => {
+    await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+    await page.goto("/admin/users");
+    const table = page.getByRole("table", { name: "People and their roles" });
+    const personHeader = table.getByRole("columnheader", { name: /Person/ });
+    const names = async () => (await table.getByTestId("person-name").allTextContents()).map((n) => n.trim());
+
+    await personHeader.getByRole("button").click();
+    await expect(personHeader).toHaveAttribute("aria-sort", "ascending");
+    const ascending = await names();
+    expect(ascending).toEqual([...ascending].sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())));
+
+    await personHeader.getByRole("button").click();
+    await expect(personHeader).toHaveAttribute("aria-sort", "descending");
+    expect(await names()).toEqual([...ascending].reverse());
+  });
+
+  test("filters by signed in and by title, into a link that reopens the same view", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+    await page.goto("/admin/users");
+    const table = page.getByRole("table", { name: "People and their roles" });
+    const filters = page.getByRole("search");
+
+    await filters.getByRole("button", { name: "Signed in" }).click();
+    await page.getByRole("menuitemradio", { name: /^Signed in/ }).click();
+    await expect(page).toHaveURL(/signed_in=yes/);
+    await expect(table.getByText("Not signed in yet")).toHaveCount(0);
+
+    await filters.getByRole("button", { name: "Title" }).click();
+    await page.getByRole("menuitemradio", { name: /^Super Admin/ }).click();
+    await expect(page).toHaveURL(/title=Super\+Admin/);
+    await expect(filters.getByRole("button", { name: /Title: Super Admin/ })).toBeVisible();
+    await expect(table.getByRole("row", { name: new RegExp(DEMO_ACCOUNTS.superAdmin.name) })).toBeVisible();
+    const titles = await table.getByTestId("person-title").allTextContents();
+    expect(titles.length).toBeGreaterThan(0);
+    for (const title of titles) expect(title).toBe("Super Admin");
+    await expect(table.getByRole("row", { name: new RegExp(DEMO_ACCOUNTS.superAdmin.name) })).toBeVisible();
+
+    // The URL is the view: a reload lands on the same narrowed roster.
+    await page.reload();
+    await expect(filters.getByRole("button", { name: /Title: Super Admin/ })).toBeVisible();
+    await expect(table.getByTestId("person-title")).toHaveText(titles);
+  });
+});
+
+test.describe("/account — your own name", () => {
+  const pat = DEMO_ACCOUNTS.promotable;
+
+  test("anybody signed in renames themselves, and it sticks", async ({ page, context, baseURL }) => {
+    await signIn(context, pat, baseURL);
+    await page.goto("/account");
+    await expect(page.getByRole("heading", { name: "Your account", level: 1 })).toBeVisible();
+    await expect(page.getByText(pat.email, { exact: true })).toBeVisible();
+
+    const name = page.getByTestId("own-name");
+    const rename = async (to: string) => {
+      await page.getByRole("button", { name: "Edit your name" }).click();
+      const field = page.getByRole("textbox", { name: "Your name" });
+      await field.fill(to);
+      await field.press("Enter");
+      await expect(name).toHaveText(to.trim(), { timeout: SAVE_TIMEOUT });
+    };
+
+    await rename("Pat P. Renamed ");
+    await page.reload();
+    await expect(name).toHaveText("Pat P. Renamed");
+
+    // Blank is refused, in words, and nothing changes.
+    await page.getByRole("button", { name: "Edit your name" }).click();
+    await page.getByRole("textbox", { name: "Your name" }).fill("   ");
+    await page.getByRole("button", { name: "Save" }).click();
+    await expect(page.getByText("A name needs 1 to 80 characters.")).toBeVisible({ timeout: SAVE_TIMEOUT });
+    await page.getByRole("button", { name: "Cancel" }).click();
+
+    // Put it back: the roster tests above find Pat by name.
+    await rename(pat.name);
   });
 });

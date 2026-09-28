@@ -1,5 +1,6 @@
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
+import { AddInventoryButton } from "../../../components/admin/AddInventoryButton";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { InventoryBoard } from "../../../components/admin/InventoryBoard";
 import { UnlinkedUnits } from "../../../components/admin/UnlinkedUnits";
@@ -109,6 +110,7 @@ export default async function AdminInventoryPage({
           t("facts.drafts", { count: count("draft") }),
           t("facts.needAttention", { count: rows.filter((row) => row.needsAttention).length }),
         ]}
+        actions={<AddInventoryButton role={identity.role} />}
       />
 
       <UnlinkedUnits units={unlinked} />

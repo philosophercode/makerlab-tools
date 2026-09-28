@@ -55,8 +55,9 @@ describe("Sparkline", () => {
     expect(bars).toHaveLength(4);
     expect(bars[3]).toHaveAttribute("data-last", "true");
     expect(bars[3].getAttribute("class")).toContain("fill-primary-ink");
-    // A zero day is a 1px stub, visibly different from a day with counts.
-    expect(bars[0].getAttribute("height")).toBe("1");
+    // A zero day is a 2px stub, visibly different from a day with counts (min 4px).
+    expect(bars[0].getAttribute("height")).toBe("2");
+    expect(Number(bars[2].getAttribute("height"))).toBeGreaterThanOrEqual(4);
     expect(Number(bars[3].getAttribute("height"))).toBeGreaterThan(Number(bars[1].getAttribute("height")));
   });
 

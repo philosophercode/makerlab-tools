@@ -17,6 +17,13 @@
 export const ROLES = ["user", "admin", "super_admin"] as const;
 export type Role = (typeof ROLES)[number];
 
+/**
+ * The longest custom title a person may carry (`user.title`). A label under a
+ * name, not a bio: the `user_title_length_check` CHECK and the People page's
+ * action both read this one number.
+ */
+export const USER_TITLE_MAX_LENGTH = 60;
+
 export const UNIT_STATUS = [
   "available",
   "in_use",
@@ -37,6 +44,13 @@ export const MAINTENANCE_TYPE = [
   "calibration",
 ] as const;
 export type MaintenanceType = (typeof MAINTENANCE_TYPE)[number];
+
+/**
+ * The kinds of work **Log completed maintenance** records (assistant–GUI
+ * parity spec §11 answer 5): every type but a problem report.
+ */
+export const COMPLETED_MAINTENANCE_TYPES = ["preventive_maintenance", "repair", "inspection", "calibration"] as const satisfies readonly MaintenanceType[];
+export type CompletedMaintenanceType = (typeof COMPLETED_MAINTENANCE_TYPES)[number];
 
 export const MAINTENANCE_PRIORITY = ["low", "medium", "high", "critical"] as const;
 export type MaintenancePriority = (typeof MAINTENANCE_PRIORITY)[number];
@@ -163,6 +177,14 @@ export const MANUAL_OUTLINE_SOURCE = ["pdf", "inferred", "none"] as const;
 export type ManualOutlineSource = (typeof MANUAL_OUTLINE_SOURCE)[number];
 
 /**
+ * Where a stored page's text came from (manual text spec phase 3; migration
+ * `0019`): the PDF's own text layer, or OCR — a vision model reading the
+ * page's picture, for a scanned manual. Either way the page number is the PDF's.
+ */
+export const MANUAL_PAGE_SOURCE = ["text", "ocr"] as const;
+export type ManualPageSource = (typeof MANUAL_PAGE_SOURCE)[number];
+
+/**
  * Where a refresh of an existing tool is (refresh research spec §4.1; migration
  * `0012`): queued by an admin, researched in the background, then waiting with
  * its proposals — or failed — until a person has decided every one.
@@ -213,6 +235,27 @@ export type ImportStatus = (typeof IMPORT_STATUS)[number];
  */
 export const RESOURCE_ORIGIN = ["lab_document"] as const;
 export type ResourceOrigin = (typeof RESOURCE_ORIGIN)[number];
+
+/**
+ * Which surface a person used for an audited change (assistant–GUI parity
+ * spec §3.7): the GUI, a confirmation card in the app's chat, an MCP
+ * client, or the app itself on nobody's behalf.
+ */
+export const AUDIT_SURFACE = ["gui", "assistant", "mcp", "system"] as const;
+export type AuditSurface = (typeof AUDIT_SURFACE)[number];
+
+/**
+ * Where an assistant's action proposal is (parity spec §3.5): waiting on a
+ * click (`open`), being run (`confirming`, the claim that stops two tabs
+ * committing one card), or decided. Expiry is not a status: it is
+ * `expires_at` passing while the row is still open.
+ */
+export const ACTION_PROPOSAL_STATUS = ["open", "confirming", "confirmed", "failed", "conflict", "cancelled"] as const;
+export type ActionProposalStatus = (typeof ACTION_PROPOSAL_STATUS)[number];
+
+/** The surface a proposal came from: the app's chat, or an MCP client (phase 7). */
+export const ACTION_PROPOSAL_SURFACE = ["assistant", "mcp"] as const;
+export type ActionProposalSurface = (typeof ACTION_PROPOSAL_SURFACE)[number];
 
 /** True when `value` is one of `list`; narrows the type. */
 export function isOneOf<const T extends readonly string[]>(

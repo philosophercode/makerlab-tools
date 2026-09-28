@@ -1,7 +1,7 @@
 # Agent Eval Harness (Minimal) — Design Spec
 
 **Date:** 2026-07-29
-**Status:** Draft — awaiting approval
+**Status:** Implemented — `npm run eval` (status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/`
 **Branch:** `v5/evals`
 

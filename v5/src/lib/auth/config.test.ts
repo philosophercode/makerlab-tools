@@ -19,8 +19,10 @@ import {
   hasSessionEnv,
   resetAuthForTests,
 } from "@/lib/auth/config";
+import { addPersonAccount } from "@/lib/data/user-add";
+import { updateUserName } from "@/lib/data/users";
 import { getDb, resetDbForTests } from "@/lib/db/client";
-import { session, user } from "@/lib/db/schema/index";
+import { account, session, user } from "@/lib/db/schema/index";
 
 // No live OAuth (Article 3). Google's token endpoint is mocked by MSW and the
 // id_token is a hand-built JWT — the Google provider decodes it rather than
@@ -307,6 +309,183 @@ describe("sign-in callback — non-institutional account", () => {
     const { callback } = await signInThroughGoogle("someone@gmail.com");
     expect([302, 303, 307].includes(callback.status)).toBe(true);
     expect(callback.headers.get("location")).toBeTruthy();
+  });
+});
+
+describe("sign-in callback — somebody a super admin added first", () => {
+  // The People page's "Add person" (`lib/data/user-add.ts`) writes a `user`
+  // row with no `account`. Their first Google sign-in must attach to that row
+  // — same id, same role, same title — not fail and not create a second one.
+
+  async function preAdd(overrides: Partial<Parameters<typeof addPersonAccount>[0]> = {}) {
+    const result = await addPersonAccount({
+      email: "luis@cornell.edu",
+      name: "luis@cornell.edu",
+      role: "admin",
+      title: "Assistant Director",
+      actorUserId: null,
+      ...overrides,
+    });
+    if (!result.ok) throw new Error(result.error);
+    return result.person;
+  }
+
+  it("links Google to the existing row, keeping its id, role and title", async () => {
+    stubAuthEnv();
+    const added = await preAdd();
+    expect(added.firstSignedInAt).toBeNull();
+
+    const { callback } = await signInThroughGoogle("luis@cornell.edu", "Luis Example");
+    expect([302, 303, 307].includes(callback.status)).toBe(true);
+    expect(callback.headers.get("location") ?? "").not.toContain("error");
+
+    const db = await getDb();
+    const rows = await db.select().from(user).where(eq(user.email, "luis@cornell.edu"));
+    expect(rows).toHaveLength(1);
+    const [row] = rows;
+    expect(row.id).toBe(added.id);
+    expect(row.role).toBe("admin");
+    expect(row.title).toBe("Assistant Director");
+    // The placeholder name gives way to Google's, and Google verified the address.
+    expect(row.name).toBe("Luis Example");
+    expect(row.emailVerified).toBe(true);
+    // No longer "Not signed in yet".
+    expect(row.firstSignedInAt).toBeInstanceOf(Date);
+
+    const accounts = await db.select().from(account).where(eq(account.userId, added.id));
+    expect(accounts).toHaveLength(1);
+    expect(accounts[0].providerId).toBe("google");
+
+    const sessions = await db.select().from(session).where(eq(session.userId, added.id));
+    expect(sessions).toHaveLength(1);
+    expect(setCookieFor(callback, "better-auth.session_token")).toBeDefined();
+  });
+
+  it("signs the same person in again without a second account", async () => {
+    stubAuthEnv();
+    const added = await preAdd();
+    await signInThroughGoogle("luis@cornell.edu", "Luis Example");
+    const first = (await userRow("luis@cornell.edu")).firstSignedInAt;
+
+    // Same Google subject as the first time: the account is found, not relinked.
+    sub -= 1;
+    await signInThroughGoogle("luis@cornell.edu", "Luis Example");
+
+    const db = await getDb();
+    expect(await db.select().from(account).where(eq(account.userId, added.id))).toHaveLength(1);
+    expect((await userRow("luis@cornell.edu")).firstSignedInAt).toEqual(first);
+  });
+
+  it("keeps a name typed at Add person instead of Google's, and still takes the photo", async () => {
+    stubAuthEnv();
+    const added = await preAdd({ name: "Luis Typed" });
+
+    await signInThroughGoogle("luis@cornell.edu", "Luis Example");
+
+    const row = await userRow("luis@cornell.edu");
+    expect(row.id).toBe(added.id);
+    expect(row.name).toBe("Luis Typed");
+    expect(row.image).toBe("https://example.com/a.png");
+  });
+
+  it("keeps a name a super admin corrected before the first sign-in", async () => {
+    stubAuthEnv();
+    const added = await preAdd();
+    await updateUserName(added.id, "Luis Corrected");
+
+    await signInThroughGoogle("luis@cornell.edu", "Luis Example");
+
+    expect((await userRow("luis@cornell.edu")).name).toBe("Luis Corrected");
+  });
+
+  it("keeps a floor address a super admin when it was added as one", async () => {
+    stubAuthEnv({ AUTH_SUPER_ADMIN_EMAILS: "luis@cornell.edu" });
+    const added = await preAdd({ role: "super_admin", title: "Director" });
+    await signInThroughGoogle("luis@cornell.edu", "Luis Example");
+
+    const row = await userRow("luis@cornell.edu");
+    expect(row.id).toBe(added.id);
+    expect(row.role).toBe("super_admin");
+    expect(row.title).toBe("Director");
+  });
+
+  it("does not link a Google account whose address Google has not verified", async () => {
+    stubAuthEnv();
+    const added = await preAdd();
+    const auth = createAuth(await getDb());
+
+    const start = await auth.handler(
+      new Request(`${ORIGIN}${AUTH_BASE_PATH}/sign-in/social`, {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: ORIGIN },
+        body: JSON.stringify({ provider: "google", callbackURL: "/tools" }),
+      })
+    );
+    const state = new URL(((await start.json()) as { url: string }).url).searchParams.get("state");
+    mockGoogleToken(
+      idToken({ sub: "google-sub-unverified", email: "luis@cornell.edu", name: "Mallory", hd: "cornell.edu", email_verified: false })
+    );
+    const callback = await auth.handler(
+      new Request(`${ORIGIN}${AUTH_BASE_PATH}/callback/google?code=auth-code&state=${state}`, {
+        headers: { cookie: cookieHeader(start), origin: ORIGIN },
+      })
+    );
+    expect(callback.headers.get("location") ?? "").toContain("error");
+
+    const db = await getDb();
+    expect(await db.select().from(account).where(eq(account.userId, added.id))).toHaveLength(0);
+    expect(await db.select().from(session).where(eq(session.userId, added.id))).toHaveLength(0);
+    const row = await userRow("luis@cornell.edu");
+    expect(row.name).toBe("luis@cornell.edu");
+    expect(row.firstSignedInAt).toBeNull();
+  });
+
+  it("stamps nothing for somebody who signed up the ordinary way", async () => {
+    stubAuthEnv();
+    await signInThroughGoogle("student@cornell.edu");
+    const row = await userRow("student@cornell.edu");
+    // The column default: created at their first sign-in, so that is it.
+    expect(row.firstSignedInAt).toBeInstanceOf(Date);
+  });
+});
+
+describe("sign-in callback — a name somebody edited", () => {
+  it("takes Google's name at sign-up", async () => {
+    stubAuthEnv();
+    await signInThroughGoogle("ada@cornell.edu", "Ada Lovelace");
+    expect((await userRow("ada@cornell.edu")).name).toBe("Ada Lovelace");
+  });
+
+  it("is not overwritten by Google at a later sign-in", async () => {
+    stubAuthEnv();
+    await signInThroughGoogle("ada@cornell.edu", "Ada Lovelace");
+    const row = await userRow("ada@cornell.edu");
+    await updateUserName(row.id, "Ada K. Lovelace");
+
+    // Same Google subject: the linked account is found, and Google still says "Ada Lovelace".
+    sub -= 1;
+    await signInThroughGoogle("ada@cornell.edu", "Ada Lovelace");
+
+    const db = await getDb();
+    expect(await db.select().from(account).where(eq(account.userId, row.id))).toHaveLength(1);
+    expect((await userRow("ada@cornell.edu")).name).toBe("Ada K. Lovelace");
+  });
+
+  it("cannot be changed through Better Auth's own update-user endpoint", async () => {
+    stubAuthEnv();
+    const { callback } = await signInThroughGoogle("ada@cornell.edu", "Ada Lovelace");
+    const auth = createAuth(await getDb());
+
+    const res = await auth.handler(
+      new Request(`${ORIGIN}${AUTH_BASE_PATH}/update-user`, {
+        method: "POST",
+        headers: { "content-type": "application/json", origin: ORIGIN, cookie: cookieHeader(callback) },
+        body: JSON.stringify({ name: "Not Audited" }),
+      })
+    );
+
+    expect(res.status).toBe(404);
+    expect((await userRow("ada@cornell.edu")).name).toBe("Ada Lovelace");
   });
 });
 

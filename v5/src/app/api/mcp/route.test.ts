@@ -23,6 +23,7 @@
 // import, and its factory can only reach a module imported before the one it
 // replaces.
 import { nextCacheMock } from "../../../../test/mocks/next-cache";
+import { ADMIN_READS_FOR_PROPOSALS, MCP_PROPOSING_TOOLS } from "../../../../test/mcp/expected-tools";
 
 vi.mock("next/cache", () => nextCacheMock());
 vi.mock("@/lib/ai/models", async (importOriginal) =>
@@ -119,7 +120,7 @@ async function bearerFor(
 ): Promise<{ headers: Record<string, string>; userId: string; email: string; token: string; tokenId: string }> {
   const email = `mcp-${role}-${Math.random().toString(36).slice(2)}@cornell.edu`;
   const person = await seedUser({ email, role, name: options.name ?? `Test ${role}` });
-  const created = await createApiToken({ userId: person.id, name: "test", readOnly: Boolean(options.readOnly), expiry: "90" });
+  const created = await createApiToken({ userId: person.id, name: "test", readOnly: Boolean(options.readOnly) });
   if (!created.ok) throw new Error("expected a token");
   return {
     headers: { authorization: `Bearer ${created.token}` },
@@ -245,6 +246,8 @@ describe("tools/list by identity", () => {
         "report_correction",
         "report_issue",
         "update_ticket",
+        ...ADMIN_READS_FOR_PROPOSALS,
+        ...MCP_PROPOSING_TOOLS,
       ].sort()
     );
   });
@@ -252,7 +255,7 @@ describe("tools/list by identity", () => {
   it("gives a read-only token no write tool", async () => {
     const admin = await bearerFor("admin", { readOnly: true });
     expect(await toolNames(admin.headers)).toEqual(
-      [...PUBLIC_READS, "list_intake_queue", "list_my_reports", "list_open_tickets"].sort()
+      [...PUBLIC_READS, "list_intake_queue", "list_my_reports", "list_open_tickets", ...ADMIN_READS_FOR_PROPOSALS].sort()
     );
   });
 });

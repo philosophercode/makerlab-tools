@@ -1,0 +1,2 @@
+ALTER TABLE "user" ADD COLUMN "title" text;--> statement-breakpoint
+ALTER TABLE "user" ADD CONSTRAINT "user_title_length_check" CHECK ("title" is null or (char_length("title") between 1 and 60 and "title" = btrim("title")));

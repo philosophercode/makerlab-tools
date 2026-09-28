@@ -12,6 +12,7 @@ import type { ResearchFocusField } from "../intake/research-focus.ts";
 import { verifyCitations } from "../refresh/citations.ts";
 import type { ImageHint } from "../web/read-page.ts";
 import { assembleResearchResult, draftFromFindings, uniqueHosts, uniqueLinks } from "./assemble.ts";
+import { keepEnglishLinks } from "./english-links.ts";
 import { classifyResearchError } from "./errors.ts";
 import { pickManualPdfs, withManualPdf } from "./manual-pdfs.ts";
 import { parseFetchDraft, parseSearchFindings, type FetchDraft, type ModelLink, type SearchFindings } from "./model-output.ts";
@@ -160,6 +161,7 @@ export async function runRead(
   let imageHints: ImageHint[] = [];
   let fromSearch: string[] = [];
   let pagesRead: ReadPagesResult["pages"] = [];
+  let pageLanguages: NonNullable<ReadPagesResult["languages"]> = [];
   if (urls.length === 0 && !toolManual) {
     draft = draftFromFindings(findings);
   } else {
@@ -193,6 +195,7 @@ export async function runRead(
     imageHints = read.imageHints;
     fromSearch = searchTextUrls(read);
     pagesRead = read.pages;
+    pageLanguages = read.languages ?? [];
     if (read.failures.length > 0 || fromSearch.length > 0 || manualTextUrls(read).length > 0) {
       // Hosts and status codes only — never a path, a query or an item name.
       const viaSearch = fromSearch.length > 0 ? `; ${fromSearch.length} from the search's text` : "";
@@ -226,9 +229,13 @@ export async function runRead(
     }
   }
 
+  // English only (amendment "English resources only"), before any link is opened:
+  // a dropped link costs no request and takes none of the eight places.
+  const english = keepEnglishLinks(uniqueLinks(draft.resources), { languages: pageLanguages, searchTexts });
   let links: { verified: ModelLink[]; dropped: string[] };
   try {
-    links = await verifyResourceLinks(uniqueLinks(draft.resources), { signal, maxLinks: DEFAULT_MAX_LINKS });
+    const checked = await verifyResourceLinks(english.kept, { signal, maxLinks: DEFAULT_MAX_LINKS, englishOnly: true });
+    links = { verified: checked.verified, dropped: [...english.dropped, ...checked.dropped] };
   } catch (error) {
     throw classifyResearchError(error, "verify");
   }

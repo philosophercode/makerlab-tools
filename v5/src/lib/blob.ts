@@ -2,7 +2,9 @@ import "server-only";
 
 import { copy, del, get, list, put } from "@vercel/blob";
 import { createLocalBlobBackend } from "./blob-local";
-import { blobMode } from "./blob-mode";
+import { blobCredentials, blobMode, hasPrivateBlobStore, type BlobAccess } from "./blob-mode";
+
+export type { BlobAccess } from "./blob-mode";
 
 /**
  * Blob storage — one narrow seam over Vercel Blob (ops hardening design spec
@@ -38,6 +40,13 @@ import { blobMode } from "./blob-mode";
  * {@link BlobStore.read} is the one read verb, for a *private* file the app
  * serves to somebody entitled to it — the review page's background-removed
  * image (gateway spec §5.2). A public file needs no read: its URL is the read.
+ *
+ * **Every verb knows which store it touches** (blob stores amendment,
+ * 2026-09-27). A Vercel Blob store is either all-public or all-private now, so
+ * a deployment may link two; `blobCredentials(access)` (`blob-mode.ts`) picks
+ * one. That is why `list` and `del` take an access too — a pathname alone does
+ * not say which store holds it — and why `copyToPublic` becomes a read from the
+ * private store and a write to the public one when the two differ.
  */
 
 /** A stored file's bytes, as {@link BlobStore.read} hands them back. */
@@ -52,9 +61,6 @@ export interface ListedBlob {
   pathname: string;
   uploadedAt: string;
 }
-
-/** Whether a stored file is reachable by URL. Mirrors `attachments.access`. */
-export type BlobAccess = "public" | "private";
 
 /** What the store recorded for an uploaded file. */
 export interface StoredUpload {
@@ -82,9 +88,11 @@ export interface BlobStore {
     access: BlobAccess
   ): Promise<StoredUpload>;
   /**
-   * Copy an existing blob to a **public**, random pathname under `prefix`,
-   * keeping its file name as the stem. The source is left where it is; the
-   * caller deletes it once the row points at the copy.
+   * Copy an existing **private** blob to a **public**, random pathname under
+   * `prefix`, keeping its file name as the stem. The source is left where it
+   * is; the caller deletes it (`del(…, "private")`) once the row points at the
+   * copy. With a separate private store this reads the bytes from it and
+   * writes them to the public store, since `copy()` cannot cross stores.
    *
    * The one way a private upload becomes public: a photo attached in chat is
    * stored private because it might become a maintenance photo, and one that
@@ -98,10 +106,16 @@ export interface BlobStore {
    * it missing on Vercel.
    */
   read(pathname: string, access?: BlobAccess): Promise<ReadBlob | null>;
-  /** Every blob under `prefix`, following pagination to the end. */
-  list(prefix: string): Promise<ListedBlob[]>;
-  /** Delete by pathname. A no-op when the list is empty. */
-  del(pathnames: string[]): Promise<void>;
+  /**
+   * Every blob under `prefix` in the store that holds `access` files,
+   * following pagination to the end.
+   */
+  list(prefix: string, access: BlobAccess): Promise<ListedBlob[]>;
+  /**
+   * Delete by pathname from the store that holds `access` files. A no-op when
+   * the list is empty.
+   */
+  del(pathnames: string[], access: BlobAccess): Promise<void>;
 }
 
 /**
@@ -118,7 +132,7 @@ export function isBlobConfigured(): boolean {
   return blobMode() !== "none";
 }
 
-/** Guards a runaway `list` loop; 30 days of daily backups is ~30 blobs. */
+/** Guards a runaway `list` loop; tiered retention keeps ~30–35 backup blobs. */
 const MAX_LIST_PAGES = 20;
 
 /**
@@ -198,6 +212,7 @@ function vercelBlobStore(): BlobStore {
   return {
     async put(pathname, body, contentType) {
       const result = await put(pathname, body, {
+        ...blobCredentials("private"),
         access: "private",
         contentType,
         // The pathname *is* the retention key (`backups/YYYY-MM-DD.json`), so a
@@ -215,6 +230,7 @@ function vercelBlobStore(): BlobStore {
       // the caller records whatever came back. The original filename is kept in
       // the `attachments` row, not relied on here — it is untrusted input.
       const result = await put(`${prefix}${safeFilename(file.name)}`, file, {
+        ...blobCredentials(access),
         access,
         contentType: file.type || "application/octet-stream",
         addRandomSuffix: true,
@@ -223,14 +239,35 @@ function vercelBlobStore(): BlobStore {
     },
 
     async copyToPublic(pathname, prefix) {
-      // `copy()` takes the new access among its options, so this is one call
-      // rather than a download and a re-upload. Whether the live store accepts
-      // a *private* source with a *public* destination is not verified — the
-      // SDK's types allow it and its docs neither promise nor forbid it. If it
-      // refuses, the caller counts the photo as failed and it stays private,
-      // which the chat card reports; nothing is marked public on a failure.
       const basename = pathname.slice(pathname.lastIndexOf("/") + 1);
-      const result = await copy(pathname, `${prefix}${safeFilename(basename)}`, {
+      const destination = `${prefix}${safeFilename(basename)}`;
+
+      if (hasPrivateBlobStore()) {
+        // Two stores: `copy()` works inside one store only, so the bytes are
+        // read from the private store and written to the public one. A source
+        // that is not there throws, so the caller counts the photo as failed
+        // and it stays private — nothing is marked public on a failure.
+        const source = await get(pathname, { ...blobCredentials("private"), access: "private" });
+        if (!source || source.statusCode !== 200 || !source.stream) {
+          throw new Error(`copyToPublic: no private blob at ${pathname}`);
+        }
+        const result = await put(destination, source.stream, {
+          ...blobCredentials("public"),
+          access: "public",
+          contentType: source.blob.contentType || "application/octet-stream",
+          addRandomSuffix: true,
+        });
+        return { pathname: result.pathname, url: result.url };
+      }
+
+      // One store holding both kinds (no `BLOB_PRIVATE_*`): `copy()` takes the
+      // new access among its options, so this is one call rather than a
+      // download and a re-upload. A store created since Vercel split public
+      // and private refuses a private source with a public destination — link
+      // a private store then. If it refuses, the caller counts the photo as
+      // failed and it stays private, which the chat card reports; nothing is
+      // marked public on a failure.
+      const result = await copy(pathname, destination, {
         access: "public",
         addRandomSuffix: true,
       });
@@ -241,16 +278,16 @@ function vercelBlobStore(): BlobStore {
       // `get` answers null for a blob that is not there and a 304 only to a
       // conditional request, which this never makes; either way there are no
       // bytes to hand back.
-      const result = await get(pathname, { access });
+      const result = await get(pathname, { ...blobCredentials(access), access });
       if (!result || result.statusCode !== 200) return null;
       return { body: result.stream, contentType: result.blob.contentType };
     },
 
-    async list(prefix) {
+    async list(prefix, access) {
       const blobs: ListedBlob[] = [];
       let cursor: string | undefined;
       for (let page = 0; page < MAX_LIST_PAGES; page += 1) {
-        const result = await list({ prefix, cursor });
+        const result = await list({ ...blobCredentials(access), prefix, cursor });
         for (const blob of result.blobs) {
           blobs.push({
             pathname: blob.pathname,
@@ -263,9 +300,9 @@ function vercelBlobStore(): BlobStore {
       return blobs;
     },
 
-    async del(pathnames) {
+    async del(pathnames, access) {
       if (pathnames.length === 0) return;
-      await del(pathnames);
+      await del(pathnames, blobCredentials(access));
     },
   };
 }

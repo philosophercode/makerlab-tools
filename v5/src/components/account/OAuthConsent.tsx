@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { ConsentResult } from "../../lib/account/oauth-consent";
-import "../../styles/account.css";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RowStatus } from "../admin/RowStatus";
 
 /**
  * The consent page's buttons (MCP access spec §3.4): Allow or Deny, with
@@ -41,26 +43,33 @@ export function OAuthConsent({
   }
 
   return (
-    <div className="account-form">
-      <label className="account-check">
-        <input type="checkbox" checked={readOnly} onChange={(event) => setReadOnly(event.target.checked)} />
-        <span>
+    <div className="mt-4 flex flex-col gap-4 border border-border bg-card p-4">
+      <div className="flex items-start gap-2">
+        <Checkbox
+          id="consent-read-only"
+          className="mt-0.5"
+          checked={readOnly}
+          aria-describedby="consent-read-only-hint"
+          onCheckedChange={(value) => setReadOnly(value === true)}
+        />
+        <label htmlFor="consent-read-only" className="flex flex-col text-sm">
           <strong>{t("readOnly")}</strong>
-          <br />
-          <span className="account-field-hint">{t("readOnlyHint")}</span>
-        </span>
-      </label>
-      <div className="account-actions">
-        <button type="button" className="account-button is-primary" disabled={busy} onClick={() => decide(true)}>
-          {t("allow")}
-        </button>
-        <button type="button" className="account-button" disabled={busy} onClick={() => decide(false)}>
-          {t("deny")}
-        </button>
+          <span id="consent-read-only-hint" className="text-xs text-muted-foreground">
+            {t("readOnlyHint")}
+          </span>
+        </label>
       </div>
-      <p className={`account-status${error ? " is-error" : ""}`} role="status">
-        {error ?? ""}
-      </p>
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="default" disabled={busy} onClick={() => decide(true)}>
+          {t("allow")}
+        </Button>
+        <Button type="button" disabled={busy} onClick={() => decide(false)}>
+          {t("deny")}
+        </Button>
+      </div>
+      <RowStatus tone={error ? "bad" : "muted"} as="p" className="text-sm">
+        {error}
+      </RowStatus>
     </div>
   );
 }

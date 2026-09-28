@@ -95,10 +95,7 @@ export default async function AdminMirrorPage() {
   if (!mirrorKeyAvailable()) {
     return (
       <MirrorSection view={view}>
-        <div className="admin-mirror-notice" role="status">
-          <h3>{t("mirror.keyUnavailableTitle")}</h3>
-          <p>{t("mirror.keyUnavailableBody")}</p>
-        </div>
+        <MirrorNotice title={t("mirror.keyUnavailableTitle")}>{t("mirror.keyUnavailableBody")}</MirrorNotice>
         {view ? <MirrorStatus view={view} timeZone={timeZone} /> : null}
       </MirrorSection>
     );
@@ -107,15 +104,22 @@ export default async function AdminMirrorPage() {
   if (!view) {
     return (
       <MirrorSection view={view}>
-        <section className="admin-mirror-panel" aria-labelledby="mirror-howto-title">
-          <h3 id="mirror-howto-title">{t("mirror.howToTitle")}</h3>
-          <ol className="admin-mirror-steps">
-            <li>{t("mirror.howToIntegration")}</li>
-            <li>{t("mirror.howToPage")}</li>
-            <li>{t("mirror.howToShare")}</li>
-            <li>{t("mirror.howToPaste")}</li>
+        <section className="ui flex flex-col gap-3" aria-labelledby="mirror-howto-title">
+          <h3 id="mirror-howto-title" className="font-heading text-lg font-medium uppercase">
+            {t("mirror.howToTitle")}
+          </h3>
+          <ol className="flex max-w-[72ch] list-none flex-col text-sm">
+            {(["howToIntegration", "howToPage", "howToShare", "howToPaste"] as const).map((step, index) => (
+              <li key={step} className="flex gap-3 border-b border-rule py-1.5 last:border-b-0">
+                {/* The number is metadata: mono, tabular, muted — the step is the words. */}
+                <span aria-hidden="true" className="w-4 shrink-0 font-mono text-label text-muted-foreground tabular-nums">
+                  {index + 1}
+                </span>
+                <span>{t(`mirror.${step}`)}</span>
+              </li>
+            ))}
           </ol>
-          <p className="admin-mirror-hint">{t("mirror.privacyNote")}</p>
+          <MirrorPrivacyNote />
         </section>
         <MirrorConnect actions={actions} />
       </MirrorSection>
@@ -127,10 +131,9 @@ export default async function AdminMirrorPage() {
   if (needsToken) {
     return (
       <MirrorSection view={view}>
-        <div className="admin-mirror-notice" role="status">
-          <h3>{t("mirror.needsTokenTitle")}</h3>
-          <p>{t(view.connected ? "mirror.needsTokenRejected" : "mirror.needsTokenDisconnected")}</p>
-        </div>
+        <MirrorNotice title={t("mirror.needsTokenTitle")}>
+          {t(view.connected ? "mirror.needsTokenRejected" : "mirror.needsTokenDisconnected")}
+        </MirrorNotice>
         <MirrorConnect actions={actions} initialPageUrl={view.parentPageId} />
         <MirrorStatus view={view} timeZone={timeZone} />
         {view.connected ? <MirrorControls view={view} actions={actions} /> : null}
@@ -144,7 +147,7 @@ export default async function AdminMirrorPage() {
       <MirrorStatus view={view} timeZone={timeZone} />
       <MirrorControls view={view} actions={actions} />
       <MirrorMapping mapping={view.mapping} editable actions={actions} />
-      <p className="admin-mirror-hint">{t("mirror.privacyNote")}</p>
+      <MirrorPrivacyNote />
     </MirrorSection>
   );
 }
@@ -172,4 +175,24 @@ async function MirrorSection({ view, children }: { view: MirrorView | null | und
       {children}
     </section>
   );
+}
+
+/**
+ * A state the page is in rather than an outcome of a click: no key to encrypt
+ * with, or a token Notion no longer takes. A warn rule down its start edge and
+ * the words — never colour alone (DESIGN.md §8.9).
+ */
+function MirrorNotice({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div role="status" className="ui flex flex-col gap-1 border-s-2 border-s-warn bg-muted px-4 py-3">
+      <h3 className="font-heading text-base font-medium uppercase">{title}</h3>
+      <p className="max-w-[72ch] text-sm">{children}</p>
+    </div>
+  );
+}
+
+/** Who can read the mirror's workspace: said on every state that can push. */
+async function MirrorPrivacyNote() {
+  const t = await getTranslations("admin");
+  return <p className="ui max-w-[72ch] text-xs leading-snug text-muted-foreground">{t("mirror.privacyNote")}</p>;
 }

@@ -1,7 +1,7 @@
 # UI System (shadcn/ui, Tufte density, admin IA) — Design Spec
 
 **Date:** 2026-09-25
-**Status:** Draft
+**Status:** Mostly implemented — phases 1–5 built; phase 6 (delete legacy CSS) waits for the repo flatten, PR #79 (status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/`
 **Branch:** `v5/ui-spike` (spike; not for merge as-is)
 **Spec PR:** — · **Implementation PR:** — (one per phase, §9)
@@ -70,8 +70,8 @@ route or permission changes (the spike adds one read, `loadAdminOverview`).
   `loadAdminOverview` (spike) and count helpers it may grow.
 - **No density toggle yet.** One dense-but-calm density is chosen (§5.3); a
   compact/comfortable switch is an open question (§13), not a phase.
-- **Not the successor app.** Next-generation work happens in
-  `philosophercode/blueprint`; this keeps v5 maintainable while it is live.
+- **Not a new app.** This restyles v5 in place; it is the product going forward
+  (framing updated 2026-09-27 — this bullet first pointed at a separate successor repo).
 - **v4 (root `src/`)** is frozen and untouched.
 
 ## 3. Principles (Tufte-informed, as rules)
@@ -590,12 +590,12 @@ queues; 5 depends on 1; 6 is last.
 | React Compiler skips DataTable | acceptable at this scale; revisit |
 | AI Elements CLI prompts/over-installs | copy from registry JSON; record deps per component |
 | Fonts: `next/font/google` needs network at build | vendor WOFF2 + `next/font/local` |
-| Maintenance mode (AGENTS.md) — this is a large change | phased, behaviour-preserving PRs; owner decides scope (§16) |
+| A large change to a live app | phased, behaviour-preserving PRs; owner decides scope (§16) |
 
 ## 16. Open questions (owner)
 
-1. **Scope under maintenance mode**: all six phases in v5, or phases 1–4 (admin)
-   here and the public/chat work in Blueprint? *Owner, before phase 1.*
+1. **Scope**: all six phases in v5, or phases 1–4 (admin) only? *Owner, before
+   phase 1.* — **Settled:** all six in v5; phases 1–5 are built, phase 6 follows PR #79.
 2. **Fonts**: vendor Space Grotesk / Inter / JetBrains Mono (recommended), or
    accept system fallbacks? *Owner.*
 3. **Accent ink**: approve `--primary-ink` #B8431A for orange text on light
@@ -996,3 +996,541 @@ capability or permission changes. Where phase 4 differs, and why:
   and trends replace ten one-line links) and fits one desktop screen (937 px).
 - **Package added:** `cmdk` ^1.1.1 (shadcn `Command`). `Dialog` is the
   existing `radix-ui` package.
+
+### 2026-09-25 — Phase 5a as built (public pages)
+
+Branch `v5/ui-phase-5a`. §13's phase 5 is split: **5a is the public pages** —
+the gallery, the tool page, projects, about, `/mcp`, `/account/tokens`, the
+OAuth pages, error / empty / loading states, the header and phones — and **5b is
+the chat** (AI Elements, `Sheet`, streamdown, the FAB rules), untouched here.
+Two owner requests of 2026-09-25 are built in this phase. Where 5a differs from
+§8.2 / §13, and why:
+
+- **One frame for working pages.** `system/PublicPage.tsx` holds `PublicPage`
+  (a `main` reading column, 880px, `narrow` 560px for a single decision, `wide`
+  for a grid, `PageHeader` as the h1), `PageSection` (h2 + lede, separated by
+  whitespace only), `SectionLabel` and `Prose`. Projects (list, detail, new),
+  about, `/mcp`, `/account/tokens`, `/oauth/sign-in`, `/oauth/consent` and
+  `/auth/rejected` are on it; the rounded `td-panel td-prose` card is gone from
+  all of them. `system/Markdown.tsx` renders a tool description, a project
+  write-up and its preview with the page's tokens (GFM, no raw HTML), so pages
+  no longer borrow the chat's `.chat-markdown` and its `--td-*` overrides.
+- **Gallery on `FilterBar` (§8.2).** Search, then **Category / Material /
+  Location** as `FacetFilter` menus with per-value counts (given the other
+  facets). They are **single-valued**, like every facet in the app (a link
+  names one value per dimension): the old console's multi-select categories
+  and its "select a whole material group" heading are gone. The hero keeps the
+  display title and gains a facts line (`18 TOOLS · 14 AVAILABLE NOW ·
+  5 CATEGORIES`). Cards are one plate with the status as `StatusGlyph` + word
+  and the category (the pulsing orange "in use" dot, colour alone, is gone). A
+  tool with no photo shows its initials on an empty plate
+  (`ToolImage`), not the browser's broken-image icon. The grid/table switch is
+  a two-button group with `aria-pressed`, not `Tabs`: both views are the same
+  list, and the choice is a URL parameter, not an in-page panel.
+- **Sort and Group by (owner request (a)).** `ChoiceMenu`
+  (`system/data-table/ChoiceMenu.tsx`) is a `FacetFilter`-looking radio menu
+  with no counts and no "Any". **Sort:** Name A–Z (the default — "Best match"
+  while searching, when the default is the search rank), Name Z–A, Category,
+  Location, **Recently added** (`tools.created_at`, now carried as
+  `MakerLabTool.addedAt`), **Most available** (units available now). **Group
+  by:** None, **Category** (`3D PRINTING › FDM`), **Category group** (`3D
+  PRINTING` — the cards' tag), **Location** (room). Grouped, the gallery is
+  labelled `section`s in order (alphabetical, "Uncategorized"/"Unknown" last),
+  each with an h2 heading **sticky under the top bar** (its height measured,
+  since the bar wraps on a phone) carrying the count (`4 TOOLS`) — small
+  multiples; the sort applies inside every section; in the table view each
+  section is its own `DataTable` named by the section (`Tools: Laser`), same
+  column widths, no sticky header of its own, the keyboard hint once. Cards
+  under a group are h3. `gallery-filters.ts` (pure) owns the URL vocabulary —
+  `?q=&category=&material=&location=&view=table&sort=&group=`, defaults left
+  out, unknown values dropped — and `sortTools` / `groupTools`.
+- **The gallery's URL is read on the client.** The gallery is one cached
+  prerender for everybody (`cacheComponents`), so the server cannot hand the
+  island its `searchParams` as `/admin/inventory` does. `useUrlSearch`
+  (`components/use-url-state.ts`) makes the query string the state:
+  `useSyncExternalStore` renders the defaults on the server and while
+  hydrating, then the URL; writes are `replaceState` (no server round trip, no
+  Back-button history per keystroke). A linked grouped view therefore paints
+  ungrouped for one frame. The search box writes `q` untrimmed — trimming a
+  controlled value would eat the space being typed.
+- **The gallery table** gained Status (glyph + word), Room and Available
+  (`available/units`, right-aligned) columns, and fixed column proportions so
+  grouped tables line up.
+- **Tool page (§8.2).** One column of facts: a mono `// TOOLS / INVENTORY /
+  NAME` crumb; the hero (image plate, display title, **official name** in mono
+  under it, a status line of glyphs and words — status, training, PPE, `1 OF 1
+  UNIT AVAILABLE` — the description, the Safety doc / SOP buttons); **Safety**
+  as the one tinted section (bad start rule, 5% bad wash; PPE as labels,
+  e-stop, restrictions as a `<dl>`); **Details** as a dense `<dl>` (category,
+  location, materials, training, map id, tags, notes); **Documents &
+  resources** as a ruled list with the kind as a mono word (Safety in the bad
+  ink, a lab document in the accent ink) and the manual **Contents** under its
+  manual; **Physical machines** as a `DataTable` (`tool/UnitsTable.tsx`,
+  status glyphs, ISO dates, a two-line item on a phone); **Maintenance
+  history** (new, below); **Built with this**. The "at a glance" card (which
+  repeated the materials) and the separate "Notes & tips" panel (which
+  repeated the notes) are gone.
+- **Maintenance history on the tool page** is one new read,
+  `listMaintenanceHistoryForTool` (data/maintenance.ts): the ten newest logs
+  across the tool's units with date, status, title, type and unit label —
+  **no reporter name, email or description**, the line MCP already draws for an
+  anonymous caller. It is cached with the catalogue
+  (`getToolMaintenanceHistory`, tag `catalog`); maintenance writes do not
+  invalidate that tag, so a new ticket appears when the catalogue's cache next
+  turns over. The page says "No maintenance has been logged" when empty. This
+  is the phase's one data addition (§5 said none beyond counts); it is a read
+  of public fields only.
+- **Tokens and `/mcp` (owner request (b))** — see the MCP access spec's
+  amendment "One lifetime, a louder reveal, a setup prompt": 90 days for every
+  token with no choice, the form and reveal in one 640px column, the
+  "Save this token now…" warning above the token and beside **I've copied it**,
+  and **Copy setup prompt for your AI** on `/mcp`'s Connect section and on the
+  reveal. `/mcp` now puts Connect straight after the addresses; its tool list is
+  a hairline-ruled list instead of a boxed card per tool (5,975 → 4,339 px), and
+  Try it is on `Field` / `Input` / `NativeSelect` / `Checkbox` / `Button` /
+  `RowStatus`. `CopyableCode` is a card-toned `pre` with a `Button` and a
+  `role="status"` "copied" announcement. The account pages' error line used
+  `--primary-ink` for errors and `--status-bad` for warnings (swapped); every
+  outcome there is now `RowStatus` with the right tone.
+- **Header.** "Sign in" is a hairline box in ink, so the bar keeps one accent
+  (Report); **"Sign in as (dev)"** is muted and dashed, never wraps, and says
+  "Dev" on a phone (its accessible name stays "Sign in as (dev)"). The profile
+  menu keeps its own menu-button code — it already follows the APG pattern
+  (arrows, Home/End, Escape returns focus, **Tab closes**); Radix's
+  `DropdownMenu` traps Tab and would change behaviour its tests pin — but its
+  panel loses the retired glass blur and glow for a card plate with a
+  `--outline-strong` border.
+- **Error, empty, loading.** `app/not-found.tsx` and `app/error.tsx` are pages
+  in the system's frame (`PublicPage` + `EmptyState`, the error one
+  `tone="bad"` with Try again), replacing Next's bare defaults. The gallery's
+  loading fallback is skeleton plates in the grid's shape (reduced-motion
+  safe). An emptied gallery names its filters (`No tools match "laser" ·
+  Category: Laser.`) with Clear.
+- **Shared fix.** `FilterBar`'s end group (count, Columns — and now Sort, Group
+  by, View) wraps; unwrapped, it pushed the gallery 111px past a 390px phone.
+- **Not done here (5b or later):** the chat (`ChatFab`, `.chat-*` CSS,
+  `admin-import.css`'s chat pieces), `FlagButton`'s dialog, the QR arrival
+  notice's chat hand-off (restyled only), and the `--td-*` mapping that
+  `.admin-shell` still supplies for `ManualStateCounts`' `td-panel`.
+- **Removed.** `account.css` (120 lines) and `mcp.css` (141) whole; from
+  `globals.css` the gallery console, `technical-frame`, `tool-card*`,
+  `tool-grid`, skeleton and loading-dots rules, the whole `.tool-detail` palette
+  and every `td-*` page rule but `td-panel`, the projects gallery / detail /
+  form rules, `chip`, `eyebrow`, `empty-state`, `project-empty`, two unused
+  keyframes and the comments they left behind — **2,155 lines of legacy CSS
+  net** (4,318 → 2,163; 21 added for the header). `TechnicalFrame.tsx` (no
+  importers). `ui.css` unchanged.
+- **Tests.** New: `gallery-filters.test.ts`; `GalleryShell.test.tsx`
+  rewritten (facet counts, URL write-back and read, sort keys, group sections
+  with counts, sticky headings, h3 cards, grouped tables); `ToolCard`
+  (glyph + word, heading level, missing photo); `DetailShell` (status line,
+  `<dl>` specs, units table, maintenance history); `maintenance.test.ts`
+  (`listMaintenanceHistoryForTool`: no names, bounded); the token and prompt
+  tests listed in the MCP amendment. E2E: `search.spec` moved to the
+  `searchbox` and facet menus and gained a Group-by test; `tool-editor.spec`'s
+  public unit row is the phone list; `intake.spec`'s cover selector;
+  `projects.spec`'s error locator; new `account-tokens.spec`.
+  `admin-overview.test.ts`'s "reported today" case compared a JavaScript UTC
+  date with the database's `current_date` and failed every evening after 8pm
+  in New York; it now asks the database for today.
+- **Measured** (scratch database: the demo seed plus 16 tools across seven
+  categories, three rooms; 1440 / 390, light, anonymous): gallery 1,635 →
+  1,531 / 2,801 → 2,602 px; tool page (Form 4) 2,209 → 1,694 / 3,185 → 2,327;
+  project 2,219 → 1,687 / 1,767 → 1,429; about 1,319 → 1,060 / 1,879 → 1,592;
+  `/mcp` 5,975 → 4,339 / 7,667 → 5,799; `/account/tokens` (student) 1,609 →
+  1,360 desktop, 1,858 → 2,031 phone (the new-token form is now full-width
+  controls stacked, not a 560px box beside nothing). No page scrolls sideways at
+  390px.
+- **Packages added:** none. No shadcn primitive was added: `Dialog`/`Sheet`
+  are for the chat and the flag dialog (5b); every public control here is an
+  existing primitive.
+
+
+### 2026-09-25 — Admin polish (owner requests after phase 4)
+
+Branch `v5/admin-polish`. Six owner requests on the admin pages, built on the
+phase 1–4 system. No data model or permission changes; one new read
+(`lastRefreshedByTool`). Where the admin now differs from the phase-4
+amendment, and why:
+
+- **The Notion mirror's not-yet-connected state is on the system.** Its text
+  was the legacy mirror CSS (19px display panel headings, a 1.6 line-height
+  numbered list, `--td-*` hints) and read unlike every other admin page. The
+  steps are an unboxed section with an `h3` in the same style as People's
+  "Setup allowances", numbered in mono; `MirrorConnect` is `Field` + `Input` +
+  `Button` (Test connection, then the one filled Connect) with its outcome in
+  `RowStatus`; the "no key" and "needs a new token" notices are a warn-rule
+  block. `admin-mirror-notice`, `-steps`, `-form`, `-field-hint` and the
+  connect form's input rule are deleted; the connected state (`MirrorStatus`,
+  `MirrorControls`, `MirrorMapping`) keeps `admin-mirror.css` for now.
+- **A ticket's resolution is a button until it is wanted** (DESIGN.md §8.13).
+  The always-open textarea made every open card two rows taller. Now: **Add
+  resolution**, or the saved words on two clamped lines with **Edit
+  resolution**; pressing it opens the box inline, focused, with Save and
+  Cancel; Escape cancels; focus returns to the button; a landed save closes it,
+  a refused one keeps the words in the box. Same action, same `maintenance.manage`
+  write, one `RowStatus` per card. Maintenance at 1440 / 390 on the seeded
+  scratch database: 1,532 → 1,426 / 2,448 → 1,857 px.
+- **`RoleSelect` cannot say "Saved" for a write that did not land.** The
+  phase-4 race, reproduced by holding the page's scripts back: a role chosen
+  before its Suspense boundary hydrated was reset to the rendered value by
+  hydration; when React replayed the queued `change` event it carried that
+  reset value, `setUserRole` answered `ok` for a role the person already held,
+  and the row said "Saved". Three guards: every click-to-save select
+  (`RoleSelect`, the ticket controls) is **disabled until hydrated**
+  (`admin/use-hydrated.ts`, `useSyncExternalStore` — disabled in the server's
+  HTML); a change to the value already held sends nothing; and an `ok` whose
+  `role` is not the one chosen is shown as `failed` with the held role
+  restored. `admin-users.spec.ts` no longer waits for `networkidle`.
+- **The home's tiles line up** (DESIGN.md §8.2). The four job columns stacked
+  tiles of different heights, so rows were ragged. The columns now share one
+  row grid (`TileGrid`; each `TileGroup` a CSS subgrid spanning the same number
+  of tracks): a tile spans two tracks and fills them, a **half tile** one —
+  People, the mirror, Projects with nothing waiting, and a tile whose count
+  could not be read. Inside, the parts keep their places and the sparkline is
+  pinned to the foot. Sparklines were too faint: bars 45 → 75% ink, a zero day
+  a 2px stub at 40% (was 1px at 15%), 22px tall. The Inventory tile says what
+  it counts — "of 104 tools need attention", beside "Published — in the
+  catalog" and "Drafts and archived" — so it no longer looks like it
+  contradicts the status strip's published count. Phone: one column, same
+  order. Home at 1440 / 390, seeded: 937 → 1,028 / 2,302 → 2,192 px (the rows
+  are taller where the tallest tile sets them; the phone is shorter).
+- **Intake is one surface.** "Import a list" is no longer a surface: gone from
+  `surfaces.ts` (and so from the section bar, the tiles and ⌘K), and from
+  Intake's tabs, which are now **Queue · Imports**. Importing a list is
+  Intake's header action (`ImportListAction`, shown to `tools.add` holders, not
+  shown on the import page itself); `/admin/intake/imports/new` keeps its URL,
+  its own `tools.add` check and sits under the Imports tab, and the section bar
+  marks Intake there. The Intake tile carries the imports as a line, "Imported
+  lists waiting for review", read only for a viewer holding `tools.add`
+  (`AdminSurface.alsoCounts`, `countLoadersFor`) and counted in the home's
+  "items waiting on you". The header's title is "Intake" under the `// ADD
+  EQUIPMENT` crumb.
+- **Page actions.** `/admin/inventory` has **Add inventory** in its header —
+  the same chat intake seed as the home's Add equipment (there is no second way
+  to add a tool). `/admin/refresh` has **Refresh research…**, a `Dialog`
+  (`RefreshPicker`) that picks tools with presets (Never reviewed, No manual,
+  Not refreshed in 90 days), a category, a name search and a `DataTable` with
+  boxes, then queues through the inventory's `queueToolRefresh` — `tools.edit`,
+  25 a press, the shared daily allowance, open refreshes not selectable. A
+  dialog rather than an inline panel because it is a decision with its own
+  list, not a form that belongs to the page. The empty queue's sentence points
+  to the button.
+- **Screens** (before/after, 1440 and 390, both themes for the home, demo seed
+  and a seed with every tile non-zero): `v5/.livecheck/admin-polish/shots/`,
+  not committed.
+- **Packages added:** none.
+
+### 2026-09-25 — Admin polish, continued (one-shot buttons, names, lab-day sparklines)
+
+Same branch, three more owner requests after the amendment above:
+
+- **One-shot actions keep their state in the button** (DESIGN.md §8.10).
+  `AsyncButton` (`system/AsyncButton.tsx`): idle → pending (spinner over the
+  label, which stays in place invisible, so the width never shifts; disabled,
+  `aria-busy`) → done (check + "Done" for 1.5 s, announced in a live region,
+  then the label) → error (label, reason on a `RowStatus` line). `onRun`
+  answers `true`, a translated sentence, or `false` for a failure the caller
+  reports elsewhere. Used by the header's catalog refresh, the tool editor's
+  **Looks good** and a resource's **Re-process** (the editor's `run` now
+  answers whether the write landed; its own status line still carries a
+  refusal's reason). The catalog button no longer leaves "Catalog refreshed"
+  standing beside it.
+- **Names.** The catalog cache button is **Refresh catalog** in every locale
+  (its `aria-label`, which said "from Notion" and did not contain the visible
+  words, is gone); the refresh surface is **Refresh research** on its tile, in
+  the section bar and in ⌘K, matching its page header.
+- **Sparklines count the lab's days.** `loadAdminOverview` bucketed by the
+  database's `current_date` and `created_at::date` — UTC on Vercel — so from
+  8pm in New York a ticket filed that evening fell off "today" (and the test
+  "reported today… last slot" failed after 8pm Eastern). The loader now takes
+  the lab's today from `labToday(now)` and buckets timestamps by
+  `(created_at at time zone LAB_TIMEZONE)::date`; `date_reported` was already a
+  lab date. `now` is injectable, and the tests run on a fixed clock with a
+  23:30 Eastern case, a 00:30-next-day case and a `LAB_TIMEZONE=UTC` case.
+
+### 2026-09-25 — Public polish (owner requests after phase 5a)
+
+Branch `v5/public-polish`. Owner requests after phase 5a and admin polish:
+bring the admin's quality to the public Tools pages, steady the header, make
+⌘K work everywhere, and finish the Manuals and queue pages. No data model or
+permission changes. Where the app now differs from the amendments above:
+
+- **Header does not move.** Measured with visible scrollbars, the whole bar
+  shifted 8px (1440 → 1432px client width) between a page that scrolls and one
+  that does not (`/projects`, `/admin/research` against `/`): the themed
+  `::-webkit-scrollbar` is a classic scrollbar even where the OS overlays.
+  The root now reserves the gutter (`scrollbar-gutter: stable`), and
+  `e2e/header-stability.spec.ts` asserts every header control's box is
+  identical across `/`, `/projects`, `/about`, a tool page and admin pages at
+  1440 and 390, with scrollbars shown.
+- **Frosted menus.** The profile menu (and the ⌘K dialog) sit on a
+  `--surface-frosted` plate: the card colour at 88% with
+  `backdrop-filter: blur(16px) saturate(140%)`, a hairline `--outline-strong`
+  border, no shadow; solid `--surface-container` where `backdrop-filter` is
+  unsupported. This reverses DESIGN.md §5's "no glass" for overlays only, by
+  owner request: text over a moving page must stay readable (AA at 88%).
+- **⌘K everywhere.** The palette moved out of the admin layout into the site
+  header (`SitePalette`): pages (Tools, Projects, About, MCP), categories (a
+  filtered gallery link), tools by display name, official name or slug, and —
+  for a viewer whose role opens them — admin pages and actions. A header
+  field, "Search tools… ⌘K", opens it (an icon button on a phone). `/` still
+  focuses the page's own filter search.
+- **Gallery toolbar.** One `FilterToolbar` layout shared with the inventory:
+  full-width search, then facets left and Sort / Group by / view right, the
+  count as a quiet line; on a phone a **Filters** button opening a sheet with
+  the facets (active count on the button). The view switch is a
+  `SegmentedControl`: both halves outlined, the chosen one filled.
+- **Cards** show the image, the display name and the category only;
+  availability and training live on the tool page and in the table.
+- **Gallery table** gained a Status facet, the Columns menu, and sorting on
+  every column, over the same filter state as the grid.
+- **Tool page, denser.** A smaller image beside the title; the status line on
+  one line; Details, Documents, machines and specs in two columns on desktop;
+  Safety as a compact block; empty sections are left out rather than drawn
+  as placeholder boxes. The crumb is `Tools › <tool>`.
+- **Manuals** (`/admin/research`): a state strip, the manuals as a
+  `DataTable` with state facets and **Re-process**, plain-English help.
+- **Queues.** Controls in one aligned row, `RowStatus` inline beside them in a
+  reserved slot, the resolution editor in its own full-width slot, so nothing
+  moves when "Saved" appears or the editor opens.
+
+As built (same branch):
+
+- **Header.** `scrollbar-gutter: stable` alone did not fix it — Chromium
+  ignores the gutter for a styled `::-webkit-scrollbar` — so the root has
+  `overflow-y: scroll` as well. The active nav link already changed colour and
+  underline only, so no width reservation was needed. The frosted plate is
+  the `FROSTED` utility string (`system/frosted.ts`, `supports-[backdrop-filter]`
+  variants), shared by the profile menu and the palette.
+- **Toolbar.** `FilterBar` itself is the shared layout (every list already
+  used it); new props `secondary` and `activeCount`. The count sits at the end
+  of the search row rather than at the start of row 2, which is what lets row 2
+  fit at 1024. With two facets and a grouping set, the right group wraps under,
+  right-aligned. `ui/sheet.tsx` is added (Radix Dialog, fade only).
+- **Gallery.** `?status=` joins the URL vocabulary; room and zone are one
+  column; official name and materials are optional columns. Column visibility
+  is page state, shared by every grouped section's table.
+- **Tool page.** The crumb is `// TOOLS › NAME`; "Back to all tools" is gone
+  (the crumb is the way back).
+- **⌘K.** Messages moved from `admin.palette` to `palette`. The admin section
+  bar no longer carries its own palette button — the header's field is on
+  every page. Pages, categories and tools for everybody; admin pages and
+  actions only through `surfacesFor(role)`.
+- **Manuals.** New read `listManualLibrary` (same current-PDF rule and buckets
+  as `countManualsByState`, asserted against it) and action
+  `reprocessLibraryManual` (`tools.edit`, tested for the adjacent-permission
+  refusal). "Run npm run manuals:index" is replaced by a sentence for staff;
+  the CLI stays in `v5/AGENTS.md`.
+- **Removed.** `ManualStateCounts`, `.td-panel`, the `.admin-shell` `--td-*`
+  mapping (the mirror and editor rules read the theme tokens), `.page-shell`,
+  the profile panel's own plate rules and the header's catch-all button rule:
+  legacy CSS 1,801 → 1,750 lines (85 deleted); 74 dead message lines across
+  the 12 locales; the tool page's placeholder branches.
+- **Measured** (scratch database: demo seed + 16 tools, 6 manuals, tickets,
+  corrections, projects; light): tool page (Form 4) 1,694 → 1,095 px desktop,
+  2,327 → 1,698 phone; a sparse tool 1,644 → 900 / 2,164 → 1,342; gallery
+  phone 2,602 → 2,391 (no tags on cards); gallery table 1,084 → 1,124 desktop
+  (the two-row toolbar). Manuals grew (900 → 944 / 889 → 1,454): it now lists
+  the manuals. Maintenance 1,426 → 1,381 desktop. Screens at 1440 / 1024 / 390
+  (toolbar also 800), both themes: `v5/.livecheck/public-polish/`, not
+  committed.
+- **Not done:** the owner's "Remove instead of Ban" on the People page was
+  not built on this branch (it needs the owner's direct go-ahead as an
+  auth/security change); Ban is unchanged.
+- **Packages added:** none.
+
+
+### 2026-09-25 — Admin tiles cleanup (owner feedback on the overview)
+
+Branch `v5/admin-tiles-cleanup`. Owner feedback with a screenshot of `/admin`
+(dark, 1440). No data, permission or count changes; `loadAdminOverview` is
+untouched. Where the home now differs from the admin-polish amendment, and why:
+
+- **Fact rows align** (DESIGN.md §8.2). A fact's glyph sat inline before its
+  label, and a row without a tone drew an invisible `–` — a different advance
+  width from ○ ▲ ■ — so "Handled", "Manuals on file" and "Published — in the
+  catalog" started a few pixels off the rows with a glyph. The facts are now a
+  three-column grid on every tile, `glyph | label | value`: the glyph column
+  is a fixed width and present on every row (empty when there is no glyph),
+  the label starts at one x, the value is right-aligned tabular mono in one
+  column. Each row carries `data-slot="tile-fact-glyph|label|value"`.
+- **Glyphs only where they carry meaning** (DESIGN.md §8.5). The hollow ○ on
+  "Running", "Researching", "In progress" and on zero rows read as "in
+  progress" and was noise. Rule, enforced by `factGlyph` in `Tile.tsx` so no
+  caller can break it: ▲ warn, ■ bad and ◆ active only on a non-zero row (or a
+  row that says it could not be read); zero and neutral rows have no glyph;
+  in-progress has none (the label says it, and no mark claims someone is
+  needed); ● ok / ○ idle are not used in facts. A zero is a muted `0`.
+  `admin-tiles.ts` no longer passes `idle`/`ok`, and a ticket in progress is
+  no longer `warn`.
+- **Groups are bands, not columns.** The four job columns were subgrids of one
+  row grid, so a short group left its column empty under it (Intake under one
+  tile; People & settings under two halves) and the Manuals and Projects tiles
+  ended a row below everything else. Each group now spans as many columns as
+  it has cells and is a subgrid of the home's grid, so at 1440 the home is two
+  rectangular bands, `ADD EQUIPMENT | KEEP DATA FRESH` (1 + 3) over `QUEUES |
+  PEOPLE & SETTINGS` (3 + 1): headings on one line, every tile in a band the
+  same height. At two columns (sm–xl) each group is a full-width band and a
+  last odd cell spans both columns; a phone is one column, same order.
+  Consecutive half tiles share one cell (`pairHalves`), stacked, or side by
+  side when the cell is two columns wide. `tileRows` and `TileGroup rows` are
+  gone; `TileGroup` takes `cells`.
+- **Tile anatomy** is fixed: label row (title, icon) → number and caption on
+  one baseline → facts table (≤ 24rem, so a wide tile's numbers stay near
+  their labels) → sparkline and `30 DAYS` pinned to the foot.
+- **Sticky chrome.** Scrolled, the page header's Add equipment / Refresh
+  catalog buttons went under the sticky status strip. Scrolling content under
+  an opaque sticky strip is correct; what was wrong is that nothing kept a
+  *focused* or *anchored* target clear of it. `.admin-shell` gives its
+  headings, links, buttons and `[id]` targets `scroll-margin-top:
+  calc(var(--sticky-chrome-height) + 16px)`. The global header and strip are
+  not touched (a concurrent workflow owns them).
+- **Screens** (before/after, light and dark, 1440 / 1024 / 800 / 390, demo seed
+  and a scratch seed with every tile non-zero): `v5/.livecheck/admin-tiles-cleanup/shots/`,
+  not committed.
+- **Packages added:** none.
+
+### 2026-09-26 — Phase 5b chat as built (AI Elements, the sheet, the flag dialog)
+
+Branch `v5/ui-phase-5b`. §9's mapping and the owner's decision 6 are built:
+the chat is AI Elements in a docked `Sheet`, Markdown is `streamdown`, the
+floating button is hidden on admin pages, and admins open the assistant from
+the section bar and ⌘K. `useChat`, `/api/chat`, the tools and every custom
+part — the intake table, the import card, proposal cards, report and
+maintenance turns — are unchanged and render inside messages. Where 5b
+differs from §8.3 / §9, and why:
+
+- **Components copied, trimmed, themed.** `src/components/ai-elements/`
+  holds `conversation`, `message`, `prompt-input`, `tool`, `sources`,
+  `inline-citation`, `suggestion` and `loader`, copied from
+  `registry.ai-sdk.dev` (the CLI prompts and over-installs, §11) and cut to
+  what the chat uses. Cut, with the dependency it would have added:
+  `MessageBranch*` / `MessageActions` / `MessageAttachment` (`button-group`),
+  `PromptInput`'s own attachment store, action menu, model select, tabs and
+  command (`nanoid`, `input-group`, `select`, `hover-card` for previews) —
+  our uploads go to `/api/uploads` as they are picked, so the composer keeps
+  its own attachment row — `ToolInput` / `ToolOutput` (`code-block`, Shiki)
+  and `InlineCitationCarousel*` (`embla-carousel`). Every copy is square,
+  outline-focused and on the shared tokens; the global rule removes the rest.
+- **The sheet.** `ui/sheet` (Radix Dialog): 440px from the inline end at
+  `sm` and up, the whole screen on a phone, frosted (`FROSTED`, a hairline on
+  the open side only), the 28% scrim. Radix gives the focus trap, Escape and
+  focus return; focus goes to the composer on a fine pointer and to the
+  sheet itself on touch (so a phone does not raise its keyboard over the
+  starters). Opening it adds no scrollbar compensation — the root always has
+  its scrollbar (`html body[data-scroll-locked]`), so the header does not move
+  (`e2e/header-stability.spec.ts` covers the chat too). §8.3's push-aside
+  panel on the tool page is **not** built: reflowing the page under an open
+  chat is a layout shift, and a push-aside panel cannot also trap focus.
+- **Messages.** `Conversation` (use-stick-to-bottom, `role="log"`: replies are
+  announced) with the square "scroll to latest" button; `Message` carries
+  `data-role` (`user` / `assistant`) and, for a notice or a failure,
+  `data-kind` (`notice` / `error`) — the tests read those, not CSS classes.
+  Assistant text is unboxed prose through `MessageResponse` (streamdown,
+  **raw HTML off**: its `raw` rehype plugin is dropped, keeping `sanitize` and
+  `harden`; its link-safety modal and copy/download controls are off). The
+  user's turn is a square `secondary` block. Cards span the column.
+- **Tool status lines.** Each running tool call is a `Tool` header — a spinner
+  and the same words as before ("📖 Searching the Form 4 manual…") — in the
+  order the parts arrive, including after text in a multi-step turn (the
+  hand-rolled line showed only before any text). A finished call draws
+  nothing; a finished `search_manual`'s passages feed the citations.
+- **Citations (§9.1).** `search_manual` already gives each passage a
+  `citation` and a `url` that opens the PDF at the page, and the prompt has
+  the model link them. A link in the answer whose address is one of this
+  message's passage URLs renders as an `InlineCitation`: the link text, then a
+  mono `P. 42` mark that opens the page, with a hover/focus card naming the
+  manual, section and page. Under the answer, `Sources` lists the passages the
+  answer cited — "2 manual pages" — each a link to its page. Passages
+  retrieved but not cited are not listed (the list is the evidence the answer
+  used, not everything it read). `<cite>` markup is still stripped.
+- **Composer.** `PromptInput`: the text is a growing textarea (Enter sends,
+  Shift+Enter is a new line, IME-safe), attach and dictate on the left, Send
+  (the surface's one filled button) on the right. The attachment row, the
+  upload spinner and the upload error sit above it. "Dictate" moved to
+  next-intl (§12).
+- **Starters.** `Suggestions` stacked as sentences: the tool's own questions
+  on its page, "Curate this entry" first for a curator, else the generic
+  three.
+- **Launchers.** The floating button is a square Safety Orange block (the
+  round, glowing one broke §5) on public pages only; on `/admin/*` it is not
+  rendered. The admin section bar ends with **Ask the assistant**, and the
+  ⌘K palette (every page) passes `onAsk`: "Ask the assistant" with an empty
+  query, "Ask the assistant: “…”" with the query as the first message. The
+  assistant group is the palette's **last** group, so Enter still opens the
+  first tool that matches.
+- **Report a correction** (`FlagButton`) is a `Dialog` (decision, DESIGN.md
+  §8.8) with `Field`, `NativeSelect`, `Textarea`, `Input` and `Button`; its
+  inline stylesheet is gone. Same fields, same inline confirmation, same kept
+  text on failure.
+- **Removed.** Every `.chat-*` rule and the RTL/phone overrides for them in
+  `globals.css`, `admin-import.css` (its launcher rules are utilities in
+  `ImportLauncher`; `.import-card` is utilities in `ImportCard`), `--ambient-glow`,
+  `FlagButton`'s stylesheet, ChatFab's nine inline SVGs, and `react-markdown`
+  from the chat (pages keep it through `system/Markdown`).
+- **Packages added:** `streamdown` ^2.6.0 (`MessageResponse`) and
+  `use-stick-to-bottom` ^1.1.6 (`Conversation`). The collapsible and hover
+  card primitives come from the existing `radix-ui` package.
+
+As built (same branch), where the build refined the plan above:
+
+- **streamdown's elements are ours.** streamdown draws each element with its
+  own Tailwind classes (a toolbar frame around tables, a three-box code
+  block, `**bold**` as a `<span>`), written for a build that scans its
+  package; ours scans `src/` only, so a few of those classes existed here and
+  most did not. `ai-elements/message-markdown.tsx` hands it plain elements
+  (headings, `strong`, lists, blockquote, rule, table, `pre`/`code`), which
+  the pages' Markdown rules draw — now `system/markdown-prose.ts`, shared
+  with `system/Markdown`. With `raw` dropped, a tag in the model's text is
+  shown as text (react-markdown dropped it silently).
+- **Focus return is the chat's own.** Radix Dialog returns focus to its
+  `Trigger`; the chat has five openers and no Radix trigger, so it remembers
+  the focused element when it opens and restores it on close. The flag
+  dialog uses a real `DialogTrigger`. Both have a test.
+- **The citation's words drop the citation.** The prompt has the model link
+  "Replacing the resin tank (Form 4 Manual, p. 42)"; the words keep
+  "Replacing the resin tank" and the `P. 42` mark says the page, so the page
+  is not said twice. A mark's accessible name is "Open Form 4 Manual, p. 42".
+- **Loader is a `span`** (the upstream `div` sat inside the tool line's `p`).
+- **The composer's text stays enabled while a turn runs** (review): disabling
+  the focused textarea dropped focus to the sheet on every send, so a keyboard
+  user had to find the field again. Send, attach and dictate wait; Enter does
+  not send until Send is enabled, and the next question can be drafted.
+- **streamdown loads with the chat, not the page** (review): imported
+  statically from the root layout's chat it added about 365 KB of script to
+  every page. `MessageResponse` is its own module
+  (`ai-elements/message-response.tsx`), `ChatMessage` imports `ChatResponse`
+  lazily and the sheet preloads it on open; until it lands an answer shows as
+  plain text. Script on `/`: main 1.49 MB, 5b as first built 1.86 MB, now
+  1.37 MB (react-markdown also left the chat).
+- **The flag dialog is frosted too** (owner: menus and dialogs are frosted).
+- **CSS removed:** 707 lines of stylesheet (`globals.css` −653/+2: every
+  `.chat-*` rule, their phone and RTL overrides, three keyframes,
+  `--ambient-glow`, two orphaned comments; `admin-import.css` −54, deleted)
+  and `FlagButton`'s 127-line inline stylesheet — 834 lines in all. Legacy
+  CSS: 2,093 → 1,388 lines (`globals.css` 1,771 → 1,120; `ui.css`
+  unchanged at 220).
+- **Measured** (1440 × 900 / 390 × 844): the panel was a 360px card at most
+  560px tall with about 430px for messages; it is 440 × 900 with 736px for
+  messages, and 390 × 844 with 680px on a phone. The intake table and
+  proposal cards get a 408px column instead of about 325.
+- **Tests.** Seven `ChatFab` assertions moved from CSS classes to
+  `data-role` / `data-kind` / `data-has-card` (same claims); new: Escape and
+  focus return, the draft surviving a close, Enter / Shift+Enter, no floating
+  button on admin pages and the section bar opening the chat, the `log`
+  role, Markdown and no HTML, site links closing the sheet, tool lines after
+  text and none for a finished call, inline citations and Sources (cited
+  only, never an address the search did not return), `manual-citations`
+  unit tests, the palette's assistant group (empty query, last, Enter still
+  opens the tool, offered when nothing matches) and the flag dialog's focus
+  return. E2E: `chat.spec` (Escape and focus, composer focus, a citation and
+  its source, the admin launchers and ⌘K's first message) and
+  `header-stability.spec` (the assistant open on a public and an admin page
+  moves nothing).
+- **Screens:** before/after at 1440 and 390, light and dark, anonymous and
+  admin, in `v5/.livecheck/ui-phase-5b/` (not committed); a curated set is
+  `docs/MakerLab_design/screens/phase5b-*.webp`.
+- **Not done:** the push-aside panel (above); `ToolInput` / `ToolOutput`
+  for curation turns (would add Shiki); the user's attached photos are still
+  not drawn in their message (they never were).

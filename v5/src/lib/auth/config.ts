@@ -7,9 +7,12 @@ import { nextCookies } from "better-auth/next-js";
 import { admin } from "better-auth/plugins/admin";
 import { mcp } from "better-auth/plugins";
 
+import { markFirstSignIn } from "../data/users";
 import { dataSubstrate, getDb } from "../db/client";
 import * as schema from "../db/schema/index";
+import { emailBlockedError, emailNotAllowedError, isSignUpBlocked } from "./blocked-sign-in";
 import { devSignInPlugin } from "./dev-sign-in-plugin";
+import { keepChosenName } from "./provider-name";
 import { ac, roles } from "./permissions";
 import { allowedEmailDomain, allowedEmails, isAllowedEmail } from "./roles";
 import { isSuperAdminFloor } from "./super-admins";
@@ -140,9 +143,58 @@ export function createAuth(db: Db) {
             // and do nothing. The picker gets wider; the two enforcement
             // points below do not move.
             ...(namedExceptions ? {} : { hd: domain }),
+            // A name somebody chose — typed at Add person, or edited on the
+            // People page before the first sign-in — survives the account
+            // link; only the address placeholder gives way to Google's. See
+            // `provider-name.ts`, which also says why an already-linked
+            // account needs nothing here.
+            mapProfileToUser: (profile) => keepChosenName(profile, db),
           },
         }
       : {},
+    // `update-user` would let any signed-in browser rename itself (and set a
+    // photo) with no length rule and no audit event. Names are changed by
+    // `setUserName` (People page) and `updateOwnName` (`/account`), which
+    // validate and record `user.name_changed`; nothing in the app calls this.
+    disabledPaths: ["/update-user"],
+    user: {
+      // The People page's custom title (`user.title`, migration `0017`).
+      // Declared so a session carries it to the profile menu; `input: false`
+      // so no Better Auth endpoint — `update-user` included — accepts it from
+      // a client. Only `setUserTitle` on `/admin/users` writes it.
+      additionalFields: {
+        title: { type: "string", required: false, input: false },
+      },
+    },
+    account: {
+      // People a super admin added on the People page before they ever signed
+      // in (`lib/data/user-add.ts`): a `user` row with no `account`. At their
+      // first Google sign-in Better Auth finds that row by email and *links*
+      // the Google account to it, so they keep the role and title they were
+      // given instead of failing or getting a duplicate.
+      //
+      // - `trustedProviders` is left empty on purpose: linking still requires
+      //   Google to say the address is verified (`email_verified`), so an
+      //   unverified Google account that merely claims somebody's address
+      //   cannot take over a pre-added row.
+      // - `requireLocalEmailVerified: false` because a pre-added row cannot be
+      //   verified — nobody has proved anything yet; the super admin who typed
+      //   it is the reason it exists. There is no password or email sign-up
+      //   here, so no unverified row can come from anywhere else.
+      // - `updateUserInfoOnLink` copies their Google photo at the link, and
+      //   their Google name *only* when the row's name is the address
+      //   placeholder — a name somebody typed is kept (`mapProfileToUser`
+      //   above, `provider-name.ts`). Role and title are not provider fields,
+      //   so they are untouched.
+      //
+      // The domain rule still applies: the after-hook below refuses a session
+      // for an address outside it, whichever path created the row.
+      accountLinking: {
+        enabled: true,
+        requireLocalEmailVerified: false,
+        updateUserInfoOnLink: true,
+      },
+    },
     session: {
       expiresIn: SESSION_MAX_AGE_SECONDS,
       updateAge: SESSION_UPDATE_AGE_SECONDS,
@@ -154,13 +206,36 @@ export function createAuth(db: Db) {
         create: {
           before: async (user) => {
             // Enforcement #1: refuse to even create a user outside the domain.
-            if (!isAllowedEmail(user.email)) return false;
+            // Thrown, not `false`: `false` surfaces as Better Auth's generic
+            // `unable_to_create_user`, while this code lands on /auth/rejected.
+            if (!isAllowedEmail(user.email)) throw emailNotAllowedError();
+            // A blocked address (auth spec amendment 2026-09-25): refused
+            // before any row exists, like the domain. Thrown rather than
+            // `false` so the OAuth callback can say *why* — its error redirect
+            // carries this code, and the auth route sends it to `/auth/blocked`.
+            // The floor is never blocked (`blocked-sign-in.ts`).
+            if (await isSignUpBlocked(user.email, db)) throw emailBlockedError();
             // The floor (§3.4). No user row exists before the first sign-in,
             // so there is no admin to promote anybody: the listed address
             // arrives already a super admin, and that is how the first one
             // comes to exist.
             if (isSuperAdminFloor(user.email)) {
               return { data: { ...user, role: "super_admin" } };
+            }
+          },
+        },
+      },
+      session: {
+        create: {
+          // "Not signed in yet" ends here: a pre-added person's first session
+          // stamps `first_signed_in_at`. Everybody else already has one (the
+          // column defaults to the row's creation), so this matches nothing
+          // for them. Never allowed to fail a sign-in over a roster date.
+          after: async (session) => {
+            try {
+              await markFirstSignIn(session.userId, { db });
+            } catch (err) {
+              console.error("[auth] could not record a first sign-in", err);
             }
           },
         },

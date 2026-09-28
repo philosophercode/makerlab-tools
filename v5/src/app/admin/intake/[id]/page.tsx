@@ -28,6 +28,7 @@ import { siteConfig } from "../../../../lib/site-config";
 import { CurateChatStarter } from "../../../../components/CurateChatStarter";
 import type { ResearchResult } from "../../../../lib/research/result";
 import { ADMIN_INTAKE_PATH, type IntakeActions } from "../action-result";
+import { personLabel } from "../../../../components/admin/person-label";
 import {
   addPendingUnit,
   approvePending,
@@ -140,10 +141,11 @@ export default async function AdminIntakeItemPage({ params }: { params: Promise<
 
   const view = toPendingToolView(item);
   const tStatus = await getTranslations("intake.status");
+  const identifiedBy = personLabel(await getTranslations("admin.people"), view.createdByName, view.createdByRemoved);
   const facts = [
     tStatus(item.status),
     item.brand,
-    view.createdByName ? t("intake.identifiedBy", { name: view.createdByName }) : null,
+    identifiedBy ? t("intake.identifiedBy", { name: identifiedBy }) : null,
     t("intake.identifiedOn", { date: view.createdAt.slice(0, 10) }),
   ];
 

@@ -2,6 +2,7 @@
 
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
 import { useChatLauncher } from "../../../components/ChatLauncherContext";
 
 /** Marks traffic that arrived from a label on a machine. */
@@ -30,41 +31,21 @@ export function QrArrivalNotice({ toolName }: QrArrivalNoticeProps) {
   if (searchParams?.get(QR_SOURCE_PARAM) !== QR_SOURCE_VALUE) return null;
 
   return (
-    // `.tool-detail` carries the detail palette (--td-*); the margin override
-    // keeps this flush above the shell instead of double-spacing it.
-    <div className="tool-detail" style={{ margin: "24px auto 0" }}>
-      <section className="td-panel" aria-label={t("arrivalLabel")}>
-        <p className="td-eyebrow">{t("arrivalEyebrow")}</p>
-        <div className="td-section-title">
-          <h2>{t("arrivalTitle", { tool: toolName })}</h2>
+    // Above the tool page's column, the same width; the accent start rule
+    // marks it as the thing waiting on the visitor (UI system phase 5a).
+    <div className="ui mx-auto w-full max-w-[1200px] px-4 pt-6 sm:px-8">
+      <section
+        aria-label={t("arrivalLabel")}
+        className="flex flex-col gap-2 border border-s-4 border-border border-s-primary-ink bg-card p-4 sm:flex-row sm:items-center sm:justify-between"
+      >
+        <div className="flex min-w-0 flex-col gap-1">
+          <p className="font-mono text-label tracking-[0.08em] text-muted-foreground uppercase">{t("arrivalEyebrow")}</p>
+          <h2 className="font-heading text-lg font-medium uppercase">{t("arrivalTitle", { tool: toolName })}</h2>
+          <p className="text-sm text-muted-foreground">{t("arrivalBody")}</p>
         </div>
-        <p>{t("arrivalBody")}</p>
-        <div className="td-actions">
-          {/* Styled inline rather than with `.td-button`: that class appends an
-              "↗" via ::after, which would promise navigation this does not do.
-              Colors still come from the detail palette's CSS variables. */}
-          <button
-            type="button"
-            onClick={() => open(t("arrivalSeed", { tool: toolName }))}
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              justifyContent: "center",
-              height: 44,
-              padding: "0 18px",
-              minWidth: 140,
-              borderRadius: 8,
-              border: "1.5px solid var(--td-accent)",
-              background: "var(--td-accent)",
-              color: "#ffffff",
-              fontWeight: 700,
-              fontSize: 14,
-              cursor: "pointer",
-            }}
-          >
-            {t("arrivalAction")}
-          </button>
-        </div>
+        <Button variant="default" className="self-start sm:self-auto" onClick={() => open(t("arrivalSeed", { tool: toolName }))}>
+          {t("arrivalAction")}
+        </Button>
       </section>
     </div>
   );

@@ -207,6 +207,14 @@ describe("ResearchResult.images (gateway spec §4.1)", () => {
     expect(researchImagesSchema.safeParse(images({ cleanNote: "redrawn" as never })).success).toBe(false);
   });
 
+  it("parses a candidate's product box, and refuses one that is not a box (amendment \"The picked image is cleaned too\")", () => {
+    const boxed = candidate(2, { productBox: [0.2, 0.1, 0.8, 0.9] });
+    expect(imageCandidateSchema.parse(boxed)).toEqual(boxed);
+    for (const productBox of [[0.8, 0.1, 0.2, 0.9], [0, 0, 1.2, 1], [0.1, 0.1, 0.5]]) {
+      expect(imageCandidateSchema.safeParse(candidate(2, { productBox: productBox as never })).success).toBe(false);
+    }
+  });
+
   it("refuses a bad images value on the result as a whole", () => {
     expect(parseResearchResult({ ...wellFormed(), images: { candidates: [candidate(4 as 1)], cleaned: null } })).toBeNull();
     expect(parseResearchResult({ ...wellFormed(), imageError: 42 })).toBeNull();

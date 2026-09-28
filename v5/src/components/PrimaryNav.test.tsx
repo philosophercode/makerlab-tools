@@ -312,7 +312,7 @@ describe("PrimaryNav — what the bar holds", () => {
     await screen.findByRole("button", { name: "Signed in as Isaac" });
     expect(screen.queryByRole("link", { name: "ADMIN" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Add new equipment/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /Refresh the/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Refresh catalog" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "SIGN OUT" })).not.toBeInTheDocument();
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
@@ -325,7 +325,7 @@ describe("PrimaryNav — what the bar holds", () => {
     await user.click(await screen.findByRole("button", { name: "Signed in as Niti" }));
 
     const items = screen.getAllByRole("menuitem").map((item) => item.textContent);
-    expect(items).toEqual(["ADMIN", "ADD EQUIPMENT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]);
+    expect(items).toEqual(["ADMIN", "ADD EQUIPMENT", "YOUR ACCOUNT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]);
   });
 
   it("offers development-only sign-in only when the server says every guard passed", async () => {

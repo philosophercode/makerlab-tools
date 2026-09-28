@@ -51,11 +51,16 @@ Either way the assistant gets exactly your role's permissions and never more.
 A **personal access token** is the fallback for a client or script that can't
 sign in with OAuth: Claude Desktop's `claude_desktop_config.json` through the
 `mcp-remote` bridge, a CI job, your own script, or an older client. Get one from
-**profile menu → Connect an AI assistant → New token**. Name it after the device,
-choose when it expires (30 days, **90 days (one semester)**, the default, or
-never), and tick **Read-only** if the assistant only needs to look things up.
-Copy the token (`mlt_…`). It is shown once. Put it in an environment variable
-rather than in a file or a chat:
+**profile menu → Connect an AI assistant → New token**. Name it after the device
+and tick **Read-only** if the assistant only needs to look things up. **Every
+token expires 90 days after you make it (one semester)** — there is no choice
+of expiry, and no token that never expires; the page shows the date before you
+create it. Make a new one next term.
+
+Copy the token (`mlt_…`) straight away. **Save it now: you won't be able to see
+or copy it again after you leave the page** — the page says so above the token
+and again beside **I've copied it**. Put it in an environment variable rather
+than in a file or a chat:
 
 ```bash
 export MAKERLAB_MCP_TOKEN=mlt_…   # in your shell profile
@@ -190,8 +195,25 @@ with S256). Otherwise use the open address, optionally with the header
 
 ## Let the assistant set itself up
 
-Paste this into Claude Code, Codex, or any coding agent that can edit its own
-MCP config. It uses sign-in, so no secret passes through the chat:
+The quickest way: open **`/mcp`** (or, right after creating a token, the
+token's reveal on `/account/tokens`) and press **Copy setup prompt** under
+**Copy setup prompt for your AI**. Paste it into Claude, ChatGPT or Codex. The
+prompt carries the addresses for the deployment you are on and asks the
+assistant to connect itself — or to tell you the exact steps if it can't:
+
+- **On `/mcp`** it gives the **sign-in address first** (`/api/mcp/signed-in`,
+  OAuth with Google, no token); only if the assistant cannot sign in does it
+  fall back to the open address with `Authorization: Bearer
+  $MAKERLAB_MCP_TOKEN`, **read from the `MAKERLAB_MCP_TOKEN` environment
+  variable at run time**.
+- **On the token reveal** it assumes you have just put the new token in
+  `MAKERLAB_MCP_TOKEN` and gives the open address with that header.
+
+Neither prompt ever contains a token, and both tell the assistant never to ask
+you to paste one into the chat, and never to print it or write it into a file.
+
+A longer version for a coding agent that edits its own MCP config — Claude Code,
+Codex — uses sign-in too, so no secret passes through the chat:
 
 ```text
 Set up the MakerLab Tools MCP server for yourself.
@@ -234,9 +256,64 @@ and marks the ones your account can use.
 | `list_open_tickets` | — | — | ✓ | "What maintenance is open, worst first?" |
 | `update_ticket` | — | — | ✓ | "Mark the Trotec focus ticket resolved" |
 | `propose_change` | — | — | ✓ (a proposal) | "Propose a clearer description for the Form 4" |
+| `list_corrections`, `list_project_queue`, `get_tool_units`, `list_imports` | — | — | ✓ | "Which units does the Prusa have?" |
+| The proposing tools (below) | — | — | ✓ (proposals) | "Publish the Form 4", "Retire Prusa #3", "Approve the two researched drills" |
 
 A read-only token or connection gets the reads in its column and none of the
 tools that file or change anything.
+
+### Changes are proposals you confirm in the app
+
+Since the assistant–GUI parity work (2026-09-27) an assistant connected over MCP
+can ask for most of what staff do by hand in `/admin`, but it **never makes the
+change itself**. Each of these tools stores a **proposal** and answers
+"nothing has changed yet":
+
+| Area | Tools |
+|---|---|
+| Maintenance | `log_completed_maintenance` (work already done) |
+| Corrections, projects | `set_correction_status`, `set_project_published` |
+| Catalogue | `set_tool_published`, `mark_tool_reviewed`, `restore_tool` |
+| Units and links | `add_unit`, `edit_unit`, `retire_unit`, `add_resource`, `edit_resource` |
+| Intake | `approve_pending_items`, `add_pending_as_unit`, `rename_pending_item`, `edit_pending_items` |
+| Imported lists | `edit_import_row`, `set_import_hints`, `merge_import_row`, `decide_import_suggestions` |
+
+The proposal waits in **Assistant proposals** (`/admin/proposals`, in the admin
+section bar) for **7 days**. Only you — the person the token or connection acts
+as — see it there, and only you can press **Confirm**, signed in to the site.
+The card shows exactly what will change, read from the database, not from the
+assistant's words; confirming checks your permission and every rule again, as
+the button on the page would. A token can never confirm anything: the confirm
+button works with your browser session only.
+
+At most 50 proposals from MCP wait at once (counted apart from the assistant in
+the site, so a busy client never blocks it). The inbox does not yet say which
+token or app made a proposal, and revoking a token does not withdraw what it
+already proposed: if you revoke one you suspect, dismiss its cards in the inbox.
+
+**Never over MCP**, whatever your role or scope: anything about people (roles,
+titles, adding or removing someone, allowances), anything that cannot be undone
+(archiving a tool, deleting a unit, removing a link, discarding an intake item,
+disconnecting the Notion mirror), and anything that spends the research budget
+(research, a different image, name suggestions, re-processing a manual,
+refreshing research). Ask the assistant in the site for most of those — it puts
+the same kind of card in front of you there.
+
+**Never through any assistant**, in the site or over MCP, whatever your role
+(owner decision 2026-09-27): making someone a super admin or changing a super
+admin's role, granting research allowances, removing people, blocking or
+unblocking addresses, and disconnecting the Notion mirror — use the People page
+or the mirror page. Nor can an assistant read or set secrets or environment
+variables, create tokens, deploy or change hosting, run SQL, restore backups or
+push data, edit the audit trail, export people's email addresses or send emails
+or messages: no such tool exists, and the server drops any tool named for that
+work from every list.
+
+`update_ticket` is the one tool that still changes something directly, as it
+always has, so clients that already use it keep working.
+
+What the assistant in the site itself can do, for everybody and for staff, is
+in [`assistant.md`](assistant.md).
 
 ## Keeping it safe
 
@@ -247,9 +324,16 @@ tools that file or change anything.
 - Tokens are stored only as a hash and never appear in logs; the page shows the
   first eight characters (`mlt_ab12cd34…`) so you can tell them apart.
 - Nothing an assistant does publishes, archives or edits the catalogue. New
-  tools are drafts; catalogue changes are **proposals** a person accepts in the
-  app (under "Proposals from assistants" on the refresh review page). Working a
-  maintenance ticket is the one direct change, and only for staff.
+  tools are drafts; every other change is a **proposal** that waits for you in
+  the app — field edits (`propose_change`) under "Proposals from assistants" on
+  the Refresh page, everything else in **Assistant proposals**
+  (`/admin/proposals`), where only you can confirm it. Working a maintenance
+  ticket is the one direct change, and only for staff.
+- A leaked token cannot add an admin, remove anyone or spend the research
+  budget, even as a proposal: those tools are never offered over MCP. Nor can
+  it reach a secret, a deployment, the database, the audit trail or anyone's
+  email address: no assistant, in the site or over MCP, has a tool for any of
+  those.
 
 ## Troubleshooting
 

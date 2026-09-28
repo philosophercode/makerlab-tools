@@ -296,6 +296,9 @@ describe("composites and product boxes (amendment \"Composites and product crop\
     expect("composite" in ranked[0].candidate).toBe(false);
     expect(ranked[2]).toMatchObject({ composite: true, productBox: [0.27, 0.18, 0.75, 0.7] });
     expect(ranked[0]).toMatchObject({ composite: false, productBox: [0.2, 0.25, 0.8, 0.85] });
+    // Every candidate records its box, so a picked one can be cropped at approval; none recorded without one.
+    expect(ranked.map((entry) => entry.candidate.productBox)).toEqual([[0.2, 0.25, 0.8, 0.85], undefined, [0.27, 0.18, 0.75, 0.7]]);
+    expect("productBox" in ranked[1].candidate).toBe(false);
   });
 
   it("keeps a composite first when every image is one", async () => {

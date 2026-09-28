@@ -4,13 +4,17 @@ import type { CatalogStats } from "./catalog-types";
 import { PrimaryNav } from "./PrimaryNav";
 import { ThemeToggle } from "./ThemeToggle";
 import { LanguageSelector } from "./LanguageSelector";
+import { HeaderSearch } from "./palette/HeaderSearch";
+import type { PaletteTool } from "./palette/palette-types";
 import { siteConfig } from "../lib/site-config";
 
 interface GlobalChromeProps {
   stats: CatalogStats;
+  /** The published tools the ⌘K palette searches (public polish). */
+  paletteTools?: readonly PaletteTool[];
 }
 
-export function GlobalChrome({ stats }: GlobalChromeProps) {
+export function GlobalChrome({ stats, paletteTools = [] }: GlobalChromeProps) {
   const t = useTranslations();
 
   return (
@@ -22,6 +26,7 @@ export function GlobalChrome({ stats }: GlobalChromeProps) {
         </Link>
         <PrimaryNav />
         <div className="nav-actions" aria-label={t("nav.utilityControlsLabel")}>
+          <HeaderSearch tools={paletteTools} />
           <LanguageSelector />
           <ThemeToggle />
         </div>

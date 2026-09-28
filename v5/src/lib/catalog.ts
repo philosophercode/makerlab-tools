@@ -6,8 +6,11 @@ import {
   listCatalogTools,
 } from "./data/catalog";
 import { listManualContentsForTool, type ManualContents } from "./data/manual-documents";
+import { listMaintenanceHistoryForTool, type ToolMaintenanceEntry } from "./data/maintenance";
 import { dataSubstrate, getDb } from "./db/client";
+import { siteConfig } from "./site-config";
 import type { CatalogStats, MakerLabTool } from "../components/catalog-types";
+import type { PaletteTool } from "../components/palette/palette-types";
 
 /**
  * The catalogue the app reads (spec §3.9, §3.10).
@@ -43,7 +46,8 @@ export async function getCatalogStats(): Promise<CatalogStats> {
 
   return {
     toolsInInventory: await countPublishedTools(),
-    labHours: "LAB OPEN 9AM-9PM",
+    // Configuration, not a literal in a query module (Article 6; kiosk spec §4.1).
+    labHours: siteConfig.labHours,
   };
 }
 
@@ -71,4 +75,39 @@ export async function getManualContents(toolId: string): Promise<ManualContents[
   cacheLife(CATALOG_CACHE);
 
   return listManualContentsForTool(await getDb(), toolId);
+}
+
+/**
+ * The tool page's "Maintenance history" (UI system phase 5a): the ten most
+ * recent logs across the tool's units, without names. Cached with the
+ * catalogue — a maintenance write does not invalidate it, so a new ticket
+ * appears when the catalogue's cache next turns over; the page says "recent".
+ */
+export async function getToolMaintenanceHistory(toolId: string): Promise<ToolMaintenanceEntry[]> {
+  "use cache";
+  cacheTag("catalog");
+  cacheLife(CATALOG_CACHE);
+
+  return listMaintenanceHistoryForTool(toolId, { db: await getDb(), limit: 10 });
+}
+
+/**
+ * The ⌘K palette's tools for everybody (public polish): the published
+ * catalogue, narrowed to what the palette matches on and groups by. Cached
+ * with the catalogue, so it costs the root layout nothing after the first read.
+ */
+export async function getPaletteTools(): Promise<PaletteTool[]> {
+  "use cache";
+  cacheTag("catalog");
+  cacheLife(CATALOG_CACHE);
+
+  const tools = await getCatalogTools();
+  return tools.map((tool) => ({
+    id: tool.id,
+    slug: tool.slug,
+    name: tool.name,
+    officialName: tool.officialName ?? null,
+    category: tool.category || null,
+    published: true,
+  }));
 }

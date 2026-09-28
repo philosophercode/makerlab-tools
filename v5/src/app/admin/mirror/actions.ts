@@ -2,16 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { MIRROR_DISCONNECT, MIRROR_SET_PAUSED, MIRROR_SYNC_NOW } from "../../../lib/actions/mirror";
+import { performAction } from "../../../lib/actions/perform";
 import { authorizeAdminAction } from "../../../lib/admin/action-gate";
+import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { record, warn } from "../../../lib/admin/audit-warning";
 import type { Identity } from "../../../lib/auth/identity";
-import { disconnectMirror, getMirrorForOwner, setMirrorPaused, type MirrorRecord } from "../../../lib/data/mirrors";
+import { getMirrorForOwner, type MirrorRecord } from "../../../lib/data/mirrors";
 import { MIRROR_ENTITY, type MirrorEntity } from "../../../lib/db/schema/vocabulary";
 import { connectMirror, mirrorTokenSchema, testMirrorConnection } from "../../../lib/mirror/connect";
 import { applyPastedMapping, ensureMirrorDatabases } from "../../../lib/mirror/databases";
 import { scrubSecrets } from "../../../lib/mirror/notion-client";
 import { parseNotionId } from "../../../lib/mirror/notion-id";
-import { syncMirrorNow } from "../../../lib/mirror/start";
 import { MIRROR_SETUP_TIER, rateLimitAsync } from "../../../lib/rate-limit";
 import {
   MIRROR_PATH,
@@ -60,8 +62,6 @@ const connectInput = z.strictObject({
   token: z.string().max(4096),
   pageUrl: z.string().max(4096),
 });
-
-const pausedInput = z.strictObject({ paused: z.boolean() });
 
 const mappingInput = z.strictObject(
   Object.fromEntries(MIRROR_ENTITY.map((entity) => [entity, z.string().max(2048).optional()])) as Record<
@@ -161,24 +161,12 @@ export async function saveMapping(input: unknown): Promise<MirrorActionResult> {
  * how long is left, which the page shows beside the disabled button.
  */
 export async function syncNow(input?: unknown): Promise<MirrorActionResult> {
-  return run({ setup: false, schema: noInput, input }, async (identity) => {
-    const mirror = await ownMirror(identity);
-    if (!mirror?.hasToken) return { ok: false, error: "not_connected" };
-
-    const synced = await syncMirrorNow(identity.userId);
-    if (synced.ok) return { ok: true };
-    return synced.retryAfterSeconds !== undefined
-      ? { ok: false, error: synced.code, retryAfterSeconds: synced.retryAfterSeconds }
-      : { ok: false, error: synced.code };
-  });
+  return performAction(MIRROR_SYNC_NOW, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }
 
 /** **Pause** / **Resume**. A paused mirror is skipped by every trigger. Not audited (§4.11). */
 export async function setPaused(input: unknown): Promise<MirrorActionResult> {
-  return run({ setup: false, schema: pausedInput, input }, async (identity, parsed) => {
-    const updated = await setMirrorPaused(identity.userId, parsed.paused);
-    return updated ? { ok: true } : { ok: false, error: "not_connected" };
-  });
+  return performAction(MIRROR_SET_PAUSED, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }
 
 /**
@@ -187,22 +175,7 @@ export async function setPaused(input: unknown): Promise<MirrorActionResult> {
  * Audited as `mirror.disconnected`.
  */
 export async function disconnect(input?: unknown): Promise<MirrorActionResult> {
-  return run({ setup: false, schema: noInput, input }, async (identity) => {
-    const mirror = await ownMirror(identity);
-    if (!mirror?.hasToken) return { ok: false, error: "not_connected" };
-    if (!(await disconnectMirror(identity.userId))) return { ok: false, error: "not_connected" };
-
-    const recorded = await record(
-      {
-        actorUserId: identity.userId,
-        action: "mirror.disconnected",
-        subjectType: "mirror",
-        subjectId: mirror.id,
-      },
-      SURFACE
-    );
-    return { ok: true, ...warn(undefined, recorded) };
-  });
+  return performAction(MIRROR_DISCONNECT, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }
 
 // ── Internals ───────────────────────────────────────────────────────

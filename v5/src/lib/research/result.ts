@@ -263,6 +263,13 @@ export interface ImageCandidate {
    * was asked, and when the model could not tell (`unknown` is not stored).
    */
   view?: ImageView;
+  /**
+   * The ranking's box around the product, `[x0, y0, x1, y1]` normalised 0–1
+   * (`images/crop.ts`'s `parseProductBox`), so whichever candidate is picked
+   * can be cropped the way rank 1 is (amendment "The picked image is cleaned
+   * too"). Absent on older rows and when the ranking gave none.
+   */
+  productBox?: readonly [number, number, number, number];
 }
 
 export interface ResearchImages {
@@ -318,6 +325,11 @@ const httpUrl = z.string().refine((value) => {
   }
 }, "must be an http(s) URL");
 
+/** A recorded product box: four numbers in 0–1, `x0 < x1`, `y0 < y1`. */
+const productBoxSchema = z
+  .tuple([z.number().min(0).max(1), z.number().min(0).max(1), z.number().min(0).max(1), z.number().min(0).max(1)])
+  .refine(([x0, y0, x1, y1]) => x0 < x1 && y0 < y1, "must be a box with x0 < x1 and y0 < y1");
+
 export const imageCandidateSchema: z.ZodType<ImageCandidate> = z.strictObject({
   url: httpUrl,
   pageUrl: httpUrl.nullable(),
@@ -331,6 +343,7 @@ export const imageCandidateSchema: z.ZodType<ImageCandidate> = z.strictObject({
   background: z.enum(BACKGROUND_CLASSES).optional(),
   composite: z.boolean().optional(),
   view: z.enum(IMAGE_VIEWS).optional(),
+  productBox: productBoxSchema.optional(),
 });
 
 export const researchImagesSchema: z.ZodType<ResearchImages> = z

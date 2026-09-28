@@ -5,7 +5,9 @@ import { currentPdf } from "../data/manual-documents.ts";
 import { isUuid } from "../data/uuid.ts";
 import { rawRows } from "../db/raw.ts";
 import type { Db } from "../db/types.ts";
+import { EMBEDDING_DIMENSIONS } from "../ai/models.ts";
 import { defaultEmbeddingTarget, embedQuery, toVectorLiteral, type EmbeddingTarget } from "./embed.ts";
+import { defaultRerankTarget, rerankDocuments, type RerankTarget } from "./rerank.ts";
 
 /**
  * Hybrid search over manual passages (manual text spec §3.5, phase 2).
@@ -17,9 +19,15 @@ import { defaultEmbeddingTarget, embedQuery, toVectorLiteral, type EmbeddingTarg
  *    a passage holding more of the words ranks higher. Plus an **exact match on
  *    part-number-like tokens** (`E-302`, `3401-038`, `0300-0100-0001`), its own
  *    ranked list, because stemming and tokenising mangle exactly those.
- * 2. **Vector:** cosine distance on `embedding` (HNSW), top {@link CANDIDATES}.
+ * 2. **Vector:** cosine distance on `embedding` (HNSW, `halfvec` since
+ *    migration `0019`), top {@link CANDIDATES}.
  * 3. **Fuse** the lists with reciprocal rank fusion, k = {@link RRF_K}, and
  *    keep the top `limit` (default {@link DEFAULT_LIMIT}).
+ *    **Rerank** (phase 3, `rerank: true` — the chat's `search_manual` asks for
+ *    it): the top {@link RERANK_CANDIDATES} fused passages go to the reranking
+ *    model (`rerank.ts`) and its order replaces the fused one before the top
+ *    `limit` are kept. A reranker that fails or is slow leaves the fused order
+ *    (`rerankFailed`); `MODEL_RERANK=off` skips it.
  * 4. **Merge** passages next to each other in the same section into one span,
  *    so the model reads a section, not fragments.
  * 5. **Access, in the SQL** (§8): a viewer who may edit tools (lab staff,
@@ -39,6 +47,8 @@ export const DEFAULT_LIMIT = 8;
 export const CANDIDATES = 30;
 /** Reciprocal rank fusion's constant (Cormack et al.): score = Σ 1 / (k + rank). */
 export const RRF_K = 60;
+/** Fused passages handed to the reranker, when reranking. */
+export const RERANK_CANDIDATES = 24;
 
 export type SearchMode = "hybrid" | "fts" | "vector";
 
@@ -64,6 +74,11 @@ export interface SearchManualsInput {
   merge?: boolean;
   /** The query's embedding, already computed (the retrieval eval embeds each question once). */
   queryEmbedding?: number[];
+  /**
+   * Rerank the fused candidates (phase 3): `true` for the deployment's `rerank`
+   * job, or a model (tests, the eval). Default: no reranking.
+   */
+  rerank?: boolean | RerankTarget;
 }
 
 export interface ManualPassage {
@@ -80,10 +95,12 @@ export interface ManualPassage {
   content: string;
   /** The stored PDF opened at `pageStart` (`…/manual.pdf#page=N`); null for a private file. */
   pdfUrl: string | null;
-  /** Fused score (higher is better). */
+  /** Fused score, or the reranker's when reranked (higher is better). */
   score: number;
   /** The passages merged into this one. */
   ordinals: number[];
+  /** Its first page's text was read by OCR from a scan (phase 3). */
+  ocr: boolean;
 }
 
 export interface SearchManualsResult {
@@ -91,8 +108,12 @@ export interface SearchManualsResult {
   /** True when the query could not be embedded and only full text was searched. */
   vectorFailed: boolean;
   queryTokens: number;
-  /** Dollars the Gateway reported for the query embedding; null when none. */
+  /** Dollars the Gateway reported for the query embedding (and the rerank); null when none. */
   cost: number | null;
+  /** The reranker ordered these passages. */
+  reranked: boolean;
+  /** Reranking was asked for and failed or timed out: the fused order stands. */
+  rerankFailed: boolean;
 }
 
 /** Search manual passages. Never throws for an embedding failure; a database failure throws. */
@@ -100,7 +121,14 @@ export async function searchManuals(db: Db, input: SearchManualsInput): Promise<
   const query = input.query.trim().slice(0, 500);
   const limit = Math.max(1, Math.min(input.limit ?? DEFAULT_LIMIT, 20));
   const mode = input.mode ?? "hybrid";
-  const empty: SearchManualsResult = { passages: [], vectorFailed: false, queryTokens: 0, cost: null };
+  const empty: SearchManualsResult = {
+    passages: [],
+    vectorFailed: false,
+    queryTokens: 0,
+    cost: null,
+    reranked: false,
+    rerankFailed: false,
+  };
   if (!query) return empty;
   const toolIds = input.toolIds?.filter(isUuid);
   if (input.toolIds && (!toolIds || toolIds.length === 0)) return empty;
@@ -125,20 +153,55 @@ export async function searchManuals(db: Db, input: SearchManualsInput): Promise<
     }
   }
 
+  let rerankTarget: RerankTarget | null = null;
+  if (input.rerank === true) {
+    try {
+      rerankTarget = defaultRerankTarget();
+    } catch {
+      // A malformed MODEL_RERANK: search as if reranking were off, and say so.
+      console.warn("[manuals] MODEL_RERANK is not a Gateway model id; searching without reranking");
+    }
+  } else if (input.rerank) {
+    rerankTarget = input.rerank;
+  }
+
   const includePrivate = canSearchPrivateManuals(input.viewer);
   const lexical = mode !== "vector" || vectorFailed;
+  const fusedLimit = rerankTarget ? Math.max(limit, RERANK_CANDIDATES) : limit;
   const rows = await rawRows<PassageRow>(
     db,
-    fusedQuery({ query, toolIds, includePrivate, vector, lexical, tokens: partNumberTokens(query), limit })
+    fusedQuery({ query, toolIds, includePrivate, vector, lexical, tokens: partNumberTokens(query), limit: fusedLimit })
   );
 
-  const passages = rows.map(toPassage);
+  let passages = rows.map(toPassage);
+  let reranked = false;
+  let rerankFailed = false;
+  if (rerankTarget && passages.length > 1) {
+    const result = await rerankDocuments(query, passages.map(rerankText), rerankTarget);
+    if (result) {
+      passages = result.order.filter(({ index }) => passages[index]).map(({ index, score }) => ({ ...passages[index], score }));
+      reranked = true;
+      if (result.cost !== null) cost = (cost ?? 0) + result.cost;
+    } else {
+      rerankFailed = true;
+    }
+  }
+  passages = passages.slice(0, limit);
+
   return {
     passages: input.merge === false ? passages : mergeAdjacent(passages),
     vectorFailed,
     queryTokens,
     cost,
+    reranked,
+    rerankFailed,
   };
+}
+
+/** What the reranker reads of a passage: where it sits in the manual, then its text. */
+function rerankText(passage: ManualPassage): string {
+  const where = [passage.documentTitle, ...passage.sectionPath].join(" › ");
+  return `${where}\n${passage.content}`;
 }
 
 // ── SQL ─────────────────────────────────────────────────────────────
@@ -156,8 +219,12 @@ interface PassageRow {
   page_label: string | null;
   content: string;
   public_url: string | null;
+  page_source: string | null;
   score: number | string;
 }
+
+/** The column's type (migration `0019`), for the query vector's cast. A trusted literal. */
+const HALFVEC = sql.raw(`halfvec(${EMBEDDING_DIMENSIONS})`);
 
 function fusedQuery(args: {
   query: string;
@@ -209,10 +276,10 @@ function fusedQuery(args: {
     }
   }
   if (args.vector) {
-    lists.push(sql`select id, row_number() over (order by embedding <=> ${args.vector}::vector, id) as rank
+    lists.push(sql`select id, row_number() over (order by embedding <=> ${args.vector}::${HALFVEC}, id) as rank
                      from visible
                     where embedding is not null
-                    order by embedding <=> ${args.vector}::vector
+                    order by embedding <=> ${args.vector}::${HALFVEC}
                     limit ${CANDIDATES}`);
   }
   if (lists.length === 0) return sql`select null where false`;
@@ -241,7 +308,7 @@ function fusedQuery(args: {
     )
     select c.document_id, c.ordinal, c.tool_id, t.name as tool_name, t.slug as tool_slug,
            d.title as document_title, c.section_path, c.page_start, c.page_end, p.page_label,
-           c.content, a.public_url, f.score
+           c.content, a.public_url, p.source as page_source, f.score
       from fused f
       join manual_chunks c on c.id = f.id
       join manual_documents d on d.id = c.document_id
@@ -290,6 +357,7 @@ function toPassage(row: PassageRow): ManualPassage {
     pdfUrl: row.public_url ? `${row.public_url.split("#")[0]}#page=${pageStart}` : null,
     score: Number(row.score),
     ordinals: [Number(row.ordinal)],
+    ocr: row.page_source === "ocr",
   };
 }
 

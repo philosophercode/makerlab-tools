@@ -256,9 +256,9 @@ describe("the readers", () => {
     const id = await resource();
     await pdf(id);
     const none = await resource({ title: "Video", url: "https://video.test/x" });
-    expect(await listManualStates(db, [id, none])).toEqual(new Map([[id, { state: "processing", pageCount: null, reason: null, searchable: false }]]));
+    expect(await listManualStates(db, [id, none])).toEqual(new Map([[id, { state: "processing", pageCount: null, reason: null, searchable: false, ocr: false }]]));
     await indexResourceManuals(id, { db, passages: false, read: serve(fixture("outline.pdf")) });
-    expect((await listManualStates(db, [id])).get(id)).toEqual({ state: "ready", pageCount: 4, reason: null, searchable: false });
+    expect((await listManualStates(db, [id])).get(id)).toEqual({ state: "ready", pageCount: 4, reason: null, searchable: false, ocr: false });
   });
 
   it("gives the tool page the outline of public, published, ready manuals only", async () => {
@@ -274,6 +274,8 @@ describe("the readers", () => {
     expect(contents).toHaveLength(1);
     expect(contents[0].href).toBe(`https://blob.test/${shown}.pdf`);
     expect(contents[0].outline.map((e) => e.title)).toEqual(["Introduction", "Specifications", "Electrical", "Maintenance"]);
+    // Text stored but no passages built: listed for its Contents, not yet searchable.
+    expect(contents[0].searchable).toBe(false);
   });
 
   it("finds a stored manual for research by its source link, its stored copy, or its tool", async () => {

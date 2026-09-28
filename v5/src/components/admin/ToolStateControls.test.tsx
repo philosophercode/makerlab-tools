@@ -40,7 +40,7 @@ function renderControls(
   props: { canPublish?: boolean } = {}
 ) {
   const handlers = {
-    onMarkReviewed: vi.fn(),
+    onMarkReviewed: vi.fn(async () => true),
     onPublish: vi.fn(),
     onUnpublish: vi.fn(),
     onArchive: vi.fn(),

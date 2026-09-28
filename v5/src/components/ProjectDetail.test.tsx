@@ -158,7 +158,7 @@ describe("ProjectDetail markdown", () => {
 
   it("renders an empty body without throwing", async () => {
     const { container } = await renderDetail({ body: "" });
-    expect(container.querySelector(".project-detail-body")).toBeInTheDocument();
+    expect(container.querySelector('[data-slot="project-body"]')).toBeInTheDocument();
   });
 });
 
@@ -228,13 +228,13 @@ describe("ProjectDetail photos and link", () => {
       "https://files.notion.so/two.png",
     ]);
     expect(
-      container.querySelectorAll(".project-detail-thumb")
+      container.querySelectorAll('[data-slot="project-thumb"]')
     ).toHaveLength(2);
   });
 
   it("omits the gallery section when there are no photos", async () => {
     const { container } = await renderDetail({ photos: [] });
-    expect(container.querySelector(".project-detail-gallery")).toBeNull();
+    expect(container.querySelector('[data-slot="project-photos"]')).toBeNull();
     expect(container.querySelector("img")).toBeNull();
   });
 

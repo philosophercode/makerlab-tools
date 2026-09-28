@@ -5,7 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { matchSorter } from "match-sorter";
 import type { MakerLabTool } from "../catalog-types";
-import { GalleryTable } from "../GalleryTable";
+import { GALLERY_DEFAULT_HIDDEN, GalleryTable, useGalleryColumns } from "../GalleryTable";
 import { PageHeader } from "../system/PageHeader";
 import { EmptyState } from "../system/EmptyState";
 import { Input } from "../ui/input";
@@ -47,6 +47,7 @@ function writeUrl(highlight: string | null, query: string) {
 
 export function MapExplorer({ plan, tools }: { plan: FloorPlan; tools: MakerLabTool[] }) {
   const t = useTranslations("map");
+  const galleryColumns = useGalleryColumns();
   const params = useSearchParams();
   const [highlight, setHighlight] = useState<string | null>(() => params.get("highlight"));
   const [query, setQuery] = useState(() => params.get("q") ?? "");
@@ -193,7 +194,7 @@ export function MapExplorer({ plan, tools }: { plan: FloorPlan; tools: MakerLabT
                     : t("inRoom", { room: here!.zone.room })}
               </p>
               <p className="text-sm">{t("toolsHere", { count: panelTools.length })}</p>
-              {panelTools.length > 0 ? <GalleryTable tools={panelTools} /> : null}
+              {panelTools.length > 0 ? <GalleryTable tools={panelTools} columns={galleryColumns} visibility={GALLERY_DEFAULT_HIDDEN} /> : null}
             </section>
           ) : null}
 

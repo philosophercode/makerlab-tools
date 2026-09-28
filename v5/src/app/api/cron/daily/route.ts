@@ -1,6 +1,7 @@
-import { getBlobStore, isBlobConfigured } from "../../../../lib/blob";
+import { getBlobStore, isBlobConfigured, type BlobStore } from "../../../../lib/blob";
 import { runBackup } from "../../../../lib/cron/backup";
 import { runCleanup } from "../../../../lib/cron/cleanup";
+import { reportHeartbeat } from "../../../../lib/cron/heartbeat";
 import { runManualArchiveBackfill } from "../../../../lib/cron/manual-archive";
 import { runMirrorBackstop } from "../../../../lib/cron/mirror-backstop";
 import { runPendingExpiry } from "../../../../lib/cron/pending-expiry";
@@ -11,12 +12,14 @@ import { resolveIdentity } from "../../../../lib/auth/identity";
  * `GET /api/cron/daily` — the one scheduled job (data platform design spec
  * §3.9, §4.10).
  *
- * It replaces `GET /api/admin/backup`, which dumped Notion. Hobby allows a
- * cron at most once a day, so everything nightly shares this one entry in
- * `vercel.json`:
+ * It replaced a nightly Notion dump (the retired `/api/admin/backup`). Hobby
+ * allows a cron at most once a day, so everything nightly shares this one
+ * entry in `vercel.json`:
  *
- * 1. **Backup** — a JSON export of every Postgres table to a private blob,
- *    kept 30 days.
+ * 1. **Backup** — a JSON export of every Postgres table (bar credentials and
+ *    the rebuildable manual search tables) to a private blob, kept on tiers:
+ *    daily for a week, then weekly, monthly and quarterly to three years
+ *    (`src/lib/cron/backup-retention.ts`).
  * 2. **Pending-tool expiry** (Phase 6) — items left `identified` more than 14
  *    days discarded, their photos released; items an abandoned research run
  *    has held for more than a day marked `failed`, so a person can act on
@@ -42,7 +45,10 @@ import { resolveIdentity } from "../../../../lib/auth/identity";
  * **Nothing here fails quietly.** Every stage reports, and any one failing
  * makes the whole invocation non-200 so it shows in Vercel's cron log as
  * failed. A backup that silently stopped running is the thing this route was
- * built to prevent.
+ * built to prevent. Vercel's log tells nobody, though, so each run also pings
+ * `CRON_HEARTBEAT_URL` — `<url>` on success, `<url>/fail` otherwise — and the
+ * heartbeat monitor emails when a ping fails or never arrives
+ * (`src/lib/cron/heartbeat.ts`, `docs/operations.md`).
  */
 
 // `runtime` cannot be set when nextConfig.cacheComponents is enabled.
@@ -50,8 +56,8 @@ import { resolveIdentity } from "../../../../lib/auth/identity";
 export const maxDuration = 60;
 
 /**
- * Two accepted callers, carried over from `/api/admin/backup` rather than
- * quietly dropped: Vercel Cron, which sends `Authorization: Bearer
+ * Two accepted callers, carried over from the retired Notion backup route
+ * rather than quietly dropped: Vercel Cron, which sends `Authorization: Bearer
  * $CRON_SECRET`, and a person holding `ADMIN_REVALIDATE_SECRET` — the
  * hand-trigger `docs/deploy.md` documents for the first run after a deploy.
  *
@@ -107,15 +113,21 @@ export async function GET(req: Request) {
     );
   }
 
-  if (!isBlobConfigured()) {
-    return Response.json(
-      { ok: false, error: "BLOB_READ_WRITE_TOKEN is not set" },
-      { status: 503 }
-    );
-  }
+  // Every run that got past the gates reports to the heartbeat monitor, good
+  // or bad. A refused caller does not: a stranger must not be able to mark
+  // the job failed, or (with a leaked secret) healthy.
+  const response = isBlobConfigured()
+    ? await runStages(getBlobStore())
+    : Response.json(
+        { ok: false, error: "No Blob store is linked (BLOB_READ_WRITE_TOKEN or BLOB_STORE_ID)" },
+        { status: 503 }
+      );
+  await reportHeartbeat(response.ok);
+  return response;
+}
 
-  const store = getBlobStore();
-
+/** The five stages, in order; the first to fail answers for the run. */
+async function runStages(store: BlobStore): Promise<Response> {
   let backup: Awaited<ReturnType<typeof runBackup>>;
   try {
     backup = await runBackup(store);

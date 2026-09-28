@@ -71,6 +71,11 @@
   --status-warn: #8a5300;
   --status-bad: #b31b1b;
   --status-idle: var(--on-surface-muted);
+  /* A floating panel over a moving page (the profile menu, the ⌘K dialog):
+     the card colour, mostly opaque, blurred behind (DESIGN.md §3 "Frosted
+     surface"; public polish). 88% keeps every text pair at AA whatever
+     scrolls beneath; follows light/dark through --surface-container. */
+  --surface-frosted: color-mix(in srgb, var(--surface-container) 88%, transparent);
 }
 
 @media (prefers-color-scheme: dark) {

@@ -4,10 +4,10 @@ Guidance for AI agents (and humans) working in the **v5** app. This is the
 active application. Everything below is scoped to the `v5/` directory.
 
 > [!IMPORTANT]
-> The **root `CLAUDE.md` describes v4** — an AirTable-backed app with
+> The **root `src/` tree is v4** — an AirTable-backed app with
 > `AIRTABLE_TABLE_*` env vars. **That does not apply to v5.** v5's data layer is
-> **Postgres** (`DATABASE_URL`), not Notion and not AirTable. When working in
-> `v5/`, follow this file, not the root v4 doc.
+> **Postgres** (`DATABASE_URL`), not Notion and not AirTable. The root
+> `AGENTS.md` is the repo map; this file is the app detail.
 
 ## What this is
 
@@ -20,7 +20,7 @@ the catalog to external agents. White-labelled via env vars.
 
 - **Next.js 16** (App Router, React Server Components, `cacheComponents` enabled), **React 19**, **TypeScript**, **Tailwind CSS 4**.
 - **i18n:** `next-intl`, **12 locales**, cookie-based (`NEXT_LOCALE`) — no URL-prefix routing. Config in `src/i18n/config.ts`; messages in `messages/*.json`.
-- **AI:** Vercel **AI SDK v6** (`ai`, `@ai-sdk/react`) through the **Vercel AI Gateway** (`@ai-sdk/gateway`) — the *only* model path (gateway spec 2026-09-23: `ANTHROPIC_API_KEY`, `@ai-sdk/anthropic` and the direct-provider `src/lib/model.ts` are retired and removed). Every model call names a **job**, not a model — `chat`, `researchSearch`, `researchRead`, `imageRank`, bulk intake's `importParse` and `nameSuggest` (`MODEL_IMPORT_PARSE`, `MODEL_NAME_SUGGEST`, both flex), the display-name backfill's `displayName` (`MODEL_DISPLAY_NAME`, flex), and the embedding job `embed` (`openai/text-embedding-3-small` at 512 dimensions, manual search — manual text spec phase 2) — resolved by `src/lib/ai/models.ts`'s `MODEL_JOBS`, each with a code default (`openai/gpt-6-luna` for every language job — chat passed the §10 eval gate once its prompt was tuned, gateway spec amendment "Chat prompt tuning for Luna") and one `MODEL_<JOB>` env override. Each job also names a Gateway **service tier** — `flex` for the background jobs (research search/read, image ranking, the starter-question backfill), none for chat — sent by `providerOptionsFor(job)` and overridden by `MODEL_<JOB>_TIER` (`default`/`flex`/`priority`; amendment "Manuals as text and flex tier for research"). Research's read step gives a manual PDF as **text**, not a file part (`RESEARCH_ATTACH_PDFS = false` in `intake/limits.ts`) — the lab's own extraction first (a stored manual, or the downloaded PDF extracted in memory: outline plus the pages richest in specs), the search's captured copy only as the fallback (manual text spec, phase 1); chat answers from a processed manual with `search_manual` and attaches only the manuals not yet processed (phase 2). There is **no image model**: the `imageClean` redraw was retired on 2026-09-23 because it altered product labels (spec amendment "No generative redraw"); background removal is a deterministic cutout in code. Web search is `gateway.tools.exaSearch` (Exa, provider-executed — one request leaves our process regardless of how many search legs the Gateway runs); reading a specific page is `read_page`, our own capability tool over `src/lib/web/*`'s SSRF-guarded fetch, not a provider tool. Auth is `AI_GATEWAY_API_KEY` when set, else the deployment's own Vercel OIDC token — production sets neither key nor a fallback, only the Gateway. Markdown via `react-markdown` + `remark-gfm`.
+- **AI:** Vercel **AI SDK v6** (`ai`, `@ai-sdk/react`) through the **Vercel AI Gateway** (`@ai-sdk/gateway`) — the *only* model path (gateway spec 2026-09-23: `ANTHROPIC_API_KEY`, `@ai-sdk/anthropic` and the direct-provider `src/lib/model.ts` are retired and removed). Every model call names a **job**, not a model — `chat`, `researchSearch`, `researchRead`, `imageRank`, bulk intake's `importParse` and `nameSuggest` (`MODEL_IMPORT_PARSE`, `MODEL_NAME_SUGGEST`, both flex), the display-name backfill's `displayName` (`MODEL_DISPLAY_NAME`, flex), the description shortener's `descriptionShorten` (`MODEL_DESCRIPTION_SHORTEN`, flex), the embedding job `embed` (`openai/text-embedding-3-small` at 512 dimensions, manual search — manual text spec phase 2), the scanned-manual OCR job `ocr` (`MODEL_OCR`, flex, run only by `manuals:index`) and the reranking job `rerank` (`cohere/rerank-v4-fast`, `MODEL_RERANK`, `off` disables it — phase 3) — resolved by `src/lib/ai/models.ts`'s `MODEL_JOBS`, each with a code default (`openai/gpt-6-luna` for every language job — chat passed the §10 eval gate once its prompt was tuned, gateway spec amendment "Chat prompt tuning for Luna") and one `MODEL_<JOB>` env override. Each job also names a Gateway **service tier** — `flex` for the background jobs (research search/read, image ranking, the starter-question backfill), none for chat — sent by `providerOptionsFor(job)` and overridden by `MODEL_<JOB>_TIER` (`default`/`flex`/`priority`; amendment "Manuals as text and flex tier for research"). Research's read step gives a manual PDF as **text**, not a file part (`RESEARCH_ATTACH_PDFS = false` in `intake/limits.ts`) — the lab's own extraction first (a stored manual, or the downloaded PDF extracted in memory: outline plus the pages richest in specs), the search's captured copy only as the fallback (manual text spec, phase 1); chat answers from a processed manual with `search_manual` and attaches only the manuals not yet processed (phase 2). There is **no image model**: the `imageClean` redraw was retired on 2026-09-23 because it altered product labels (spec amendment "No generative redraw"); background removal is a deterministic cutout in code. Web search is `gateway.tools.exaSearch` (Exa, provider-executed — one request leaves our process regardless of how many search legs the Gateway runs); reading a specific page is `read_page`, our own capability tool over `src/lib/web/*`'s SSRF-guarded fetch, not a provider tool. Auth is `AI_GATEWAY_API_KEY` when set, else the deployment's own Vercel OIDC token — production sets neither key nor a fallback, only the Gateway. Markdown via `react-markdown` + `remark-gfm` on pages (`system/Markdown`) and `streamdown` in the chat (raw HTML off, UI system phase 5b).
 - **MCP:** `@modelcontextprotocol/sdk` (stateless HTTP JSON-RPC server at `/api/mcp`, and `/api/mcp/signed-in` for OAuth clients) — see "MCP access" below.
 - **Validation:** `zod`. **Search:** `match-sorter` (fuzzy, ranked).
 
@@ -74,8 +74,9 @@ variable list.
   goes to `feedback`, a maintenance ticket to `maintenance_logs`, a project
   submission to `projects` + `project_tools` — see `src/lib/data/*.ts`.
   `src/lib/data/notion-ids.ts` (the Phase-2 page-id bridge) has no importers
-  left and is awaiting deletion approval, as are `/api/upload-notion` and
-  `/api/admin/backup`.
+  left and is awaiting deletion approval, as is `/api/upload-notion`. The
+  retired Notion-dump `/api/admin/backup` was deleted (ops spec amendment
+  2026-09-27); `/api/cron/daily` is the only backup.
 - **No request path writes Notion** as of Phase 6, except the mirror, which
   pushes from a workflow and from its own settings page. Intake's chat tool,
   `identify_tools`, writes `pending_tools` rows and makes the photos it claims
@@ -116,6 +117,16 @@ variable list.
   URLs); a `PGLITE_DATA_DIR` target uses `createBlobUploader()`, i.e.
   `.blob-data/` with `<AUTH_BASE_URL>/api/dev-blob/…` URLs when there is no
   token.
+- **Two Blob stores: public and private.** A Vercel Blob store is either
+  all-public or all-private, so a deployment links the default store (public)
+  and a second one connected with the custom prefix `BLOB_PRIVATE`
+  (`BLOB_PRIVATE_READ_WRITE_TOKEN`, or `BLOB_PRIVATE_STORE_ID` + OIDC).
+  **Every `@vercel/blob` call spreads `blobCredentials(access)`**
+  (`src/lib/blob-mode.ts`) — never call the SDK without it. `BlobStore.list`
+  and `del` take an access; `copyToPublic` reads from the private store and
+  writes to the public one when both are linked (`copy()` cannot cross
+  stores). With no `BLOB_PRIVATE_*`, private files use the default store, as
+  before; `blobMode()` is unchanged (data platform spec, amendment 2026-09-27).
 - **Failing toward stale, not wrong (Article 4).** `DATABASE_URL` unset serves
   the PGlite demo seed with `DemoDataBanner` shown. `DATABASE_URL` set but
   unreachable never falls back to demo or invented data — cached pages keep
@@ -217,6 +228,16 @@ Phase 5 extends both. The shape it sets:
   only `super_admin` holds. A SuperMaker gets past the layout and is refused on
   the page, **and is told so**: `AdminNotice` renders "not signed in" or "not
   permitted", never a 404 and never an error boundary (Article 4).
+- **Every admin folder with a page below it has a `loading.tsx`**
+  (`AdminPageLoading`; DESIGN.md §8.12, `app/admin/loading-boundaries.test.ts`).
+  Admin pages read the request at their root, so a page's prefetched segment is
+  a shell with an unfilled hole (`$L…`, `isPartial`). Without a Suspense
+  boundary inside the new segment a client navigation suspended on that hole
+  behind the layout's visible boundary and, in the production build, was
+  sometimes never retried — URL unchanged, RSC 200, page never mounted until
+  an unrelated re-render. `e2e/admin-client-navigation.spec.ts` walks every
+  section by clicking. Not a CSS problem: the admin stylesheet chunks were
+  ruled out (one global stylesheet still hung).
 - **One list of surfaces, three views** (UI system phase 4).
   `src/lib/admin/surfaces.ts` holds every admin page's key, href, group,
   permission, icon and count loader; `surfacesFor(identity)` — the same `can()`
@@ -228,13 +249,18 @@ Phase 5 extends both. The shape it sets:
   aggregate per loader, only the viewer's, each failing to `null` on its own —
   a tile says "Could not be read", never 0. Waiting counts live on the tiles,
   never in the bar. Every admin page's header is `AdminPageHeader` (crumb from
-  the group, a facts line from the page's own rows). Add equipment is the
-  `src/app/admin/intake/(tabs)/` route group — Queue, Imports, Import a list,
-  as `LinkTabs` links — and the four queues share `QueueList`.
+  the group, a facts line from the page's own rows). Intake is the
+  `src/app/admin/intake/(tabs)/` route group — Queue and Imports as `LinkTabs`
+  links, **Import a list** as its header action, not a surface of its own
+  (amendment 2026-09-25 "Admin polish"; its count rides on the Intake tile via
+  `alsoCounts`) — and the four queues share `QueueList`. The home's tiles sit
+  on one row grid (`TileGrid`/`TileGroup` subgrids, half tiles for a bare
+  number or state).
 - **Server actions check themselves.** A server action is a POST endpoint with
   a generated name, reachable without the page that offers it, so
-  `src/app/admin/users/actions.ts` resolves the identity, rate-limits
-  (`ADMIN_ACTION_TIER`, 120/min per person), and re-checks `users.manage` — it
+  `src/app/admin/users/actions.ts` resolves the identity and `performAction`
+  rate-limits (`ADMIN_ACTION_TIER`, 120/min per person) and re-checks
+  `users.manage` — it
   trusts nothing from the page that rendered the control (spec §8). Refusals are
   **values** (`{ ok: false, error }`), not exceptions, so the island can render
   the reason; every code has an `admin.errors.<code>` string.
@@ -245,7 +271,7 @@ Phase 5 extends both. The shape it sets:
   the auth instance is even constructed — percent-decoding and lower-casing the
   path first, so `%61dmin` and `/ADMIN/` are the same refusal.
 - **A change that landed minus a guarantee is a warning, not an error.** The
-  audit write happens *after* `auth.api.setRole` / `banUser` has committed, so
+  audit write happens *after* `auth.api.setRole` has committed, so
   throwing there would make the page show the old value over a database holding
   the new one. `record()` reports instead, and the action answers
   `{ ok: true, …, warning: "audit_unavailable" }`. Both islands keep the new
@@ -335,22 +361,123 @@ Phase 5 extends both. The shape it sets:
   every text field keep working — a deployment with no Blob store is still one
   where a wrong description is worth fixing (Article 4).
 - **Two things cannot be undone, so they cannot be done.** An address in
-  `AUTH_SUPER_ADMIN_EMAILS` cannot be demoted or banned, and the last
-  unbanned `super_admin` cannot be demoted. The table disables those rows with
-  the reason showing; the action derives both again before it writes.
-- **Reads go straight to Postgres, writes go through the plugin.**
-  `src/lib/data/users.ts` selects the roster; `auth.api.setRole` / `banUser` /
-  `unbanUser` perform the change, because a ban there also deletes the person's
-  sessions.
+  `AUTH_SUPER_ADMIN_EMAILS` cannot be demoted or removed (nor blocked), and the
+  last `super_admin` cannot be demoted or removed; nobody removes themselves.
+  The table disables those rows with the reason showing; the action derives
+  them again before it writes.
+- **Reads go straight to Postgres; a role change goes through the plugin,
+  removal does not.** `src/lib/data/users.ts` selects the roster;
+  `auth.api.setRole` changes a role. **Remove** (auth spec amendment
+  2026-09-25, which retired Ban) is `removeUser` → `removeUserAccount`
+  (`src/lib/data/user-removal.ts`): **one transaction** — name snapshots
+  (`created_by_name` on `pending_tools`, `bulk_imports`, `chat_proposals`),
+  sessions, personal tokens and OAuth grants deleted, `account` and `user`
+  deleted, the optional block, and `user.removed` / `email.blocked` written
+  *inside* it (so a lost event rolls the removal back — the opposite of a role
+  change). History stays: `pending_tools.created_by` and `bulk_imports.created_by`
+  stopped cascading in migration `0016`; tickets, corrections and projects keep
+  their name/email snapshots and old id, and the queues say "<name> (removed)"
+  (`accountRemoved()` in `data/account-removed.ts`, `components/admin/person-label.ts`).
+  A removed owner's own Notion mirror cascades.
+- **Blocked emails** (`blocked_emails`, `data/blocked-emails.ts`): written only
+  by a removal with "Also block this email…", listed and **Unblock**ed on the
+  People page (`email.unblocked`). `databaseHooks.user.create.before` refuses a
+  blocked address before any row exists (`lib/auth/blocked-sign-in.ts`); the
+  auth route rewrites Better Auth's `?error=email_blocked` redirect to
+  `/auth/blocked`. The floor is never refused. The `banned` columns stay
+  (the admin plugin selects them) and nothing writes them; migration `0016`
+  turned every banned account into a block plus a removal.
+- **Titles** (`user.title`, migration `0017`): null unless a super admin set a
+  custom one on the People page (`TitleEditor` → `setUserTitle`, audited as
+  `user.title_changed`). What is shown is `displayTitle()` in
+  `src/lib/people/title.ts` — the custom title, else the role's
+  `admin.titles.<role>` label — on the roster and in the profile menu. Better
+  Auth knows the field as `input: false`, so none of its endpoints write it.
+  The message keys are `admin.personTitle.*` (`admin.title` is the admin
+  area's own h1 — two `title` keys in one object silently collide).
+- **Role and title are never the same words.** A role is authorization only
+  and is labelled **User / Admin / Super admin** everywhere (`admin.roles.*`:
+  the select, the Role facet, the Add person form). Titles (Director, Assistant
+  Director, Tech Lead, Supermaker, Student…) are only ever shown as titles, in
+  their own column. Do not put a title word into `admin.roles`.
+- **The roster is one row per person** (`UsersRoster`): Person (name + pencil
+  "Edit the name for <name>" → `NameEditor`, YOU, address under it in small
+  mono — said once when the name *is* the address), Title (text + pencil
+  "Edit the title for <name>" → `TitleEditor`), Role, First signed in, Account.
+  Both pencils are one component, `components/system/InlineTextEditor.tsx`
+  (read / field + Save + Cancel, Escape cancels, focus back to the pencil, shows
+  what the server stored, one `role="status"`); reuse it for any other short
+  inline text rather than copying `TitleEditor`. A locked
+  control shows a short `LockNote` badge — "Protected", "Last super admin",
+  "Your account" — with the full `admin.errors.<code>` sentence in its tooltip
+  and as the disabled control's `aria-describedby`; a refusal the server just
+  gave is still said in full.
+- **Finding people**: search (name, address, title) plus three `FacetFilter`s —
+  Role, Signed in (`yes` / `no`), Title (every title *as shown*: custom, else
+  the role's default label) — all in the URL (`q`, `role`, `signed_in`,
+  `title`; `users-filters.ts`), counted per option like the inventory's.
+  Person, Title (as shown), Role (most privileged first) and First signed in
+  ("Not signed in yet" first) sort from their headers with `aria-sort`; text
+  sorts set `sortingFn: "text"` explicitly (TanStack's `auto` samples rows
+  after the tenth, so a short roster would sort case-sensitively). Sort is not
+  in the URL, as on the inventory.
+- **Names** (`lib/people/name.ts`): trimmed, whitespace collapsed, 1–80
+  characters (`PERSON_NAME_MAX_LENGTH`, Add person included). A super admin
+  renames anybody on the roster (`setUserName`, `users.manage`); anybody signed
+  in renames themselves on **`/account`** ("Your account" in the profile menu;
+  `updateOwnName` in `lib/account/name-actions.ts`, account gate, always the
+  caller's own row). Both go through `renamePerson` (`lib/people/rename.ts`) and
+  record `user.name_changed` `{ from, to }`; a lost event is a warning, not a
+  failure. Better Auth's own `/update-user` is in `disabledPaths` — it took a
+  name from any browser with no rule and no audit.
+- **Google never overwrites a chosen name.** An already-linked account is not
+  updated at sign-in (`overrideUserInfoOnSignIn` stays off). The one late write
+  is the account link for somebody added ahead of time: the Google provider's
+  `mapProfileToUser` → `keepChosenName` (`lib/auth/provider-name.ts`) hands back
+  the row's own name unless it is the address placeholder, so a name typed at
+  Add person (or edited on the roster before they sign in) is kept and a blank
+  one becomes their Google name. No column records "edited": the placeholder
+  *is* the marker. `config.test.ts` covers all three cases.
+- **Add person** (`AddPersonForm` → `addPerson`, audited as `user.added`, in
+  one transaction with the row — `lib/data/user-add.ts`): a super admin puts
+  somebody on the roster before their first sign-in, with email (trimmed,
+  lower-cased), optional name (the address stands in until Google's; a typed
+  one is kept), role and optional title. The **Add person** button opens the
+  form inline and disappears while it is open; the form's buttons are **Add**
+  (the one filled button) and **Cancel** — Cancel or Escape closes and empties
+  it and returns focus to Add person; after a landed add it stays open,
+  emptied, for the next person. Refused, as values: not an address, too long, a role outside the
+  vocabulary, `isAllowedEmail` false (`email_not_allowed` — the same rule the
+  create hook runs), blocked (`email_blocked`, floor exempt), or already a row
+  (`duplicate_email`). A floor address is stored `super_admin` whatever was
+  chosen. The row has `email_verified` false and **`first_signed_in_at` null**
+  (migration `0018`; the column defaults to `now()`, so every row Better Auth
+  or a seed creates is "signed in" at creation, and the backfill set existing
+  rows to `created_at`). The roster shows null as "Not signed in yet"; the
+  `session.create.after` hook in `auth/config.ts` stamps it. Removing such a
+  person is an ordinary Remove.
+- **Their first Google sign-in links to that row** — `account.accountLinking`
+  in `auth/config.ts`: `requireLocalEmailVerified: false` (a pre-added row
+  cannot be verified; there is no password or email sign-up to make one any
+  other way), `trustedProviders` deliberately **not** set (so Google must say
+  `email_verified`, and an unverified Google account claiming the address
+  cannot take the row), `updateUserInfoOnLink: true` (Google's photo, and
+  Google's name only over the address placeholder — see "Google never
+  overwrites a chosen name"; role and title are not provider fields and stay).
+  Linking skips `user.create.before`, so the role/title/floor chosen at Add
+  person are what they arrive with; the after-hook's domain check still runs.
+  `config.test.ts` drives the real OAuth callback (MSW token endpoint, forged
+  id_token) to prove same id, one account, role and title kept, and no link
+  without `email_verified`.
 - **Every security-relevant change is recorded.** `src/lib/data/audit.ts` is
   insert-and-select only — there is deliberately no update or delete export,
-  and a test asserts the module's shape. `AUDIT_ACTIONS` has no
-  `user.unbanned`, so lifting a ban is `user.banned` with `detail.banned:
-  false`.
-- **Server actions pass down as props.** `RoleSelect` and `BanToggle` take the
-  action rather than importing it, which keeps `next/headers`, the limiter and
-  `server-only` out of a client component's graph and makes both testable with
-  a `vi.fn`.
+  and a test asserts the module's shape. Each event snapshots `actor_name` at
+  insert (a subselect), so an actor removed later is still named. `AUDIT_ACTIONS`
+  has no `user.unbanned`; old lifts are `user.banned` with `detail.banned: false`.
+- **Server actions pass down as props.** `RoleSelect`, `RemoveUserControl` and
+  `BlockedEmailsList` take the action rather than importing it, which keeps
+  `next/headers`, the limiter and `server-only` out of a client component's
+  graph and makes them testable with a `vi.fn`.
 - **Submitting a project needs an account** (spec §5.5) — the one place in the
   app where sign-in is required. `POST /api/projects` answers 401
   `sign_in_required` to an anonymous caller, the byline comes from the session
@@ -364,9 +491,11 @@ Phase 5 extends both. The shape it sets:
   open work on the page and folds the settled work behind a disclosure, because
   the person using these has twenty tickets and ten minutes; and each one's
   control **saves on the click**, with `useRowAction` giving all of them the
-  same contract (optimistic, a refusal restores, a warning keeps). The shared
-  preamble is `src/lib/admin/queue-write.ts` — gate, write, record, refresh,
-  each step only as far as the last one earned.
+  same contract (optimistic, a refusal restores, a warning keeps). Their
+  writes are action definitions run by `performAction` (see "The action
+  layer") — gate, write, record, refresh, each step only as far as the last
+  one earned. (`queue-write.ts`'s `runQueueWrite` has no callers since and
+  awaits deletion approval.)
 - **Each queue checks its own permission, and a test proves it is its own.** No
   role holds `tools.edit` without `feedback.manage`, so each `actions.test.ts`
   mocks `can()` for one case and asserts the endpoint is refused to a caller
@@ -391,6 +520,217 @@ Phase 5 extends both. The shape it sets:
   its rows reach a model prompt and the mirror (§8). Which function a caller
   picks is the whole of that decision, which is why they are two functions and
   not one with a flag.
+
+## The action layer (`src/lib/actions/`; assistant–GUI parity spec, phases 1–8)
+
+Every GUI write is defined once, as data plus a `run()`, and every surface runs
+it through **`performAction(def, input, identity, { surface })`**
+(`docs/specs/2026-09-27-assistant-gui-parity-design.md`). Phase 1 moved the
+People page and the three queues onto it with no behaviour change; phase 2 gave
+the assistant a proposing tool per action and the confirmation card that
+commits it; phase 3 told the chat where the person is; phases 4–6 moved the
+catalogue editor, intake, imports, refresh, manuals and the mirror's running
+controls onto it, with typed confirmation for destructive cards and taint;
+phase 7 gave MCP clients proposals that wait in an inbox; phase 8 made every
+exemption a decision and the spec–registry drift check a test. What it means
+for people is in `docs/assistant.md`.
+
+- **One path.** `performAction`: `authorizeAdminAction` (limiter → signed in →
+  permission) → `afterGate` → parse (`input`, a parse failure answers the
+  definition's `invalidInput` code) → `check` → `run` (a throw is `failed`) →
+  `afterCommit` + `revalidate` only when `run` answered `committed`. Refusals are
+  values; a lost audit event (or any `afterCommit` throw) is a warning on a
+  success, never a failure.
+- **Server actions are one-line wrappers**: `performAction(PEOPLE_SET_TITLE,
+  input, await resolveIdentityFromHeaders(), { surface: "gui" })`. Their
+  exported names and result types are unchanged, so no island changed. Put a
+  write's rules in its definition (`check`/`run`), never in the wrapper — that
+  is what makes them hold on every surface.
+- **Definitions**: `people.ts` (role, title, name), `people-roster.ts` (add,
+  remove, unblock), `people-allowance.ts`, `people-gate.ts` (the floor
+  reconciliation as `afterGate`), `tickets.ts`, `corrections.ts`,
+  `projects.ts`, `maintenance-log.ts` (phases 1–2); `catalog.ts` (publish,
+  mark reviewed, archive, restore), `units.ts`, `resources.ts` over the
+  shared `catalog-write.ts` (the editor's revision token rides on every input
+  — the panel's, or the one a proposal read — so a save between card and click
+  answers `conflict`) (phase 4); `intake.ts` (+ `intake-input.ts`),
+  `imports.ts`, `manuals.ts`, `refresh.ts` (phase 5); `mirror.ts` (phase 6).
+  `registry.ts`'s `ACTIONS` lists them. `defineAction` refuses
+  at load a destructive batch, a `people`/`spend`/`destructive` action over MCP,
+  `mcp: "direct"` on anything but `tickets.update` (`DIRECT_OVER_MCP`; MCP gets
+  proposals only, §11 answer 4), `assistant: "never"` without `neverReason`,
+  a `"never"` that still carries a `tool`/`preview`, and an action on the
+  **assistant's deny list** that is not `"never"` (below).
+  A capability tool that records a surface reads `ctx.surface`, which the chat
+  and MCP adapters stamp — never `chatId`. `writeTicket` (MCP's and the
+  chat's `update_ticket`) is a wrapper over `tickets.update`.
+- **The parity guard** (`parity.test.ts`, scanner `parity.ts`, list
+  `exempt.ts`): every export of a `"use server"` module, every inline
+  `"use server"` function and every `POST`/`PUT`/`PATCH`/`DELETE` of a
+  `src/app/**/route.ts` must be a thin `return performAction(<registered
+  definition>, …)` wrapper (nothing else in the body; only
+  `resolveIdentityFromHeaders()` may be called in its arguments) or an `EXEMPT`
+  entry with a reason. **Adding a server action or a
+  mutation route means adding a definition (and registering it, and importing
+  its module in the guard) or an exemption** — and exemptions only shrink: a
+  stale one fails the test too. The guard also fails a proposable action with
+  no `tool` + `preview` that is not in `DEFERRED_TOOLS` (`capabilities/actions.ts`,
+  which only shrinks too — empty since phase 6). An action whose GUI door is an
+  API route (HTTP statuses, its own limiter tier) is `ROUTE_BACKED` in
+  `exempt.ts`: the route stays `EXEMPT` and calls **the same write** the
+  definition's `run()` does (`pending.research` → `lib/intake/research-start.ts`,
+  moved verbatim out of the route; `pending.edit` → `updatePendingTool`).
+- **The assistant only proposes** (phase 2). `capabilities/actions.ts` generates
+  one chat tool per definition that has a `tool` (`toolShape(schema,
+  toInputs)`: the model's strict, described arguments → one definition input
+  per subject; a batch is a list of ids with one change) and a `preview` (the
+  card's summary key, before → after rows and subject name, **read from the
+  database**, never model text). Its `run()` is `proposeAction`
+  (`proposals.ts`): the `assistantPropose` limiter, the permission, the
+  arguments, the definition's own `input`, `check`, `preview` → one
+  `action_proposals` row per subject (`data/action-proposals.ts`, migration
+  `0020`; 60 minutes in the chat, 7 days for MCP; ≤ 50 open per person per surface) and a
+  `data-action-proposal` part drawn by `components/chat/ActionProposalCard.tsx`.
+  **Nothing commits until the person clicks Confirm**: `POST
+  /api/action-proposals` (cookie only — `resolveIdentity` never reads a
+  bearer, so a token cannot confirm; `actionConfirm` tier; body = ids +
+  decision, nothing else) claims the creator's open rows **one at a time**
+  (a 20 s budget; unreached rows stay open) and runs each **stored** input
+  through `performAction` with `{ surface: "assistant", proposalId,
+  beforeRun }`, so every rule and the permission are checked again at the
+  click. `beforeRun` re-runs the definition's `preview` and answers
+  `conflict` if a field the card shows has changed since (`staleness.ts`):
+  a card's "before" can be an hour old, so a stored proposal is never
+  last-write-wins the way a fresh GUI screen is. The card re-reads its rows
+  on mount (`GET ?ids=`). A typed "yes" commits nothing (the prompt says so;
+  §11 answer 1). Text from records that goes into a prompt block as a line
+  goes through `inlineText` (`web/fence.ts`): one line, capped, quoted.
+  Each card sentence is `actions.summary.<area>_<verb>`; each row's vocabulary
+  goes through `actions.values.<format>.*` (`preview-messages.test.ts` checks
+  every key a definition names exists).
+- **Audit names the surface.** `audit_events.surface` (`gui` default) and
+  `proposal_id`; every event an action writes spreads `auditTrail(ctx)`, the
+  in-transaction writers (`addPersonAccount`, `removeUserAccount`,
+  `unblockEmail`, `renamePerson`) take a `trail`. A change from the People page
+  and the same change from a card differ in those two columns only
+  (`proposals.test.ts` runs both and compares).
+- **What the next turn knows** is read, not told: the chat route appends
+  "Proposals in this conversation" (`lib/chat/proposal-outcomes.ts`, the
+  caller's rows in this chat) — the model says something was done only when
+  that block says confirmed.
+- **Page context** (phase 3): `ChatFab` sends `page: { path, selection? }`
+  (the ticked ids, from `usePublishSelection` in `components/chat/page-selection.tsx`,
+  read at send time). `lib/actions/page-context.ts` matches the path against
+  `PAGE_CONTEXTS`, checks the page's own permission, keeps only uuids of the
+  page's selection kind (≤ 50), reads their names from the database and
+  appends a fenced "Where the person is" block — only for somebody who can
+  reach an admin surface. A forged or foreign id is dropped before any read;
+  an unknown path is never echoed. `QueueList`'s opt-in `selectable` gives the
+  maintenance, corrections and projects queues checkboxes on open cards (only
+  ticked rows the current filters show are sent) and an **Ask the
+  assistant about these** bar; `InventoryBoard` publishes its selection.
+- **Read tools for the actions** (chat only): `capabilities/admin-reads.ts` —
+  `find_people` (`users.manage`, masked emails `l***@cornell.edu`),
+  `list_corrections`, `list_project_queue` (other people's words fenced with
+  `OTHERS_TEXT_NOTE`); `capabilities/catalog-reads.ts` — `get_tool_units`
+  (`tools.edit`: units with ids and maintenance counts, resources) and
+  `list_imports` (`tools.add`: the caller's imports, or a reviewer's; rows
+  fenced). `list_open_tickets` fences each description.
+- **Assistant limits — the deny list** (owner decision 2026-09-27; spec
+  amendment "Assistant limits"). The assistant (chat and MCP) acts only as the
+  signed-in person and never past their role, and **never, on any surface,
+  whatever the role**: sets anyone's role to `super_admin` or changes a super
+  admin's role (`people.set_role`/`people.add` refuse `only_on_people_page`
+  off the GUI — `superAdminPageOnly` in `people.ts`); grants allowances,
+  removes people, blocks/unblocks addresses, disconnects the mirror
+  (`people.grant_allowance`, `people.remove`, `people.unblock_email`,
+  `mirror.disconnect` are `assistant: "never"`, no tool); nor touches secrets,
+  env vars, tokens, hosting/deploys, SQL/the database, backups/`data:push`, the
+  audit trail, bulk email export or messaging. `define.ts` holds
+  `ASSISTANT_FORBIDDEN_ACTIONS` (ids) and `ASSISTANT_FORBIDDEN_CATEGORIES`
+  (words matched against an action id or any tool name). Enforced four times:
+  `defineAction` at load; `proposableDefinitions` / `capabilitiesForIdentity`
+  / `mcpToolAllowed` where tools are offered (`assistantMayPropose`,
+  `assistantToolForbidden`); `proposeAction` (`not_offered`); and the confirm
+  route, which refuses a stored proposal for a forbidden action before
+  `performAction` runs. **Adding an action or a capability tool whose name
+  says secret/token/deploy/sql/backup/audit/export/email/send…** fails
+  `assistant-limits.test.ts` unless it is `assistant: "never"`: that is the
+  point — rename it only if it truly is none of those. The GUI keeps all of
+  these for people with the permission.
+- **Destructive cards** (`risk: "destructive"`: `tools.archive`, `units.delete`,
+  `resources.remove`, `pending.discard`; `people.remove` and
+  `mirror.disconnect` are destructive too but never the assistant's):
+  never batched, and Confirm stays off until the subject's stored name is typed
+  (`typed-confirm.ts`, the same fold the route checks again). Enter never
+  confirms.
+- **Taint** (`lib/chat/taint.ts`, §8.4): a chat turn that called
+  `read_page`, `exa_search`, `search_manual`, `list_open_tickets`,
+  `get_unit_details`, `get_maintenance_history`, `list_corrections`,
+  `list_project_queue`, `list_imports` or `get_record` is tainted —
+  `CapabilityCtx.turn`, built by the route, marked by `toAiTools` when such a
+  tool starts and by the route's `onStepFinish` for Exa. A turn starts tainted
+  when the route attached manual PDFs or a curation record. Its proposals are
+  stored `tainted` and the card says so; `people` and `destructive` proposals,
+  and definitions marked `refuseWhenTainted` (`imports.remove_rows`), are
+  refused (`tainted_turn`) and the assistant asks for a new message. A new
+  read tool that returns anybody else's text must be added to
+  `OUTSIDE_CONTENT_TOOLS` and fence that text.
+- **A proposal's `version`** (`ActionPreview.version`): an opaque token for
+  what the change was built from but the rows do not show; a different one at
+  the click is `conflict`. `pending.approve` uses it so a rename or new
+  research between card and click approves nothing stale.
+- **`edit_pending_items` never discards**: the `discard` duplicate decision is
+  `discard_pending_item`'s alone (destructive, typed name).
+- **Spend actions** (`pending.research`, `pending.different_image`,
+  `imports.request_suggestions`, `manuals.reprocess`, `refresh.queue`): cards
+  in the chat only, never over MCP (§11 answer 3); the card's sentence shows the
+  allowance left (`allowance.ts`, a summary value, never a compared row), and
+  the allowance is checked at the click by the same code the button runs.
+- **`proposeCheck`** on a definition: refusals only a proposal needs (an intake
+  item not researched or graded low, a unit with history), so no card is drawn
+  that the click can only refuse; never run on the GUI path.
+- **"Approve these"** builds, per item, the approval the review page sends
+  untouched (`lib/intake/approval-draft.ts`, shared with
+  `PreliminaryToolPage`); a low-confidence item needs the reviewer's own note
+  and is refused on its row. `IntakeList` and `ImportReview` publish their
+  selection (`pending_tool`).
+- **MCP proposals** (phase 7): `capabilities/actions.ts` also generates an
+  `mcpOnly` tool of the same name for every definition with `mcp: "propose"`
+  (queue and catalogue work). Its `run()` is `proposeAction` with `surface:
+  "mcp"` and no chat: the row waits **7 days** in the creator's **Assistant
+  proposals** inbox, `/admin/proposals` (`lib/actions/inbox.ts` →
+  the chat's `ActionProposalCard`; `data/action-proposals.ts`'s
+  `listInboxProposals`), and only its creator, signed in with a cookie, can
+  confirm it — through the same `POST /api/action-proposals`, so the commit is
+  `performAction` with `surface: "mcp"`. A token can never confirm (the route
+  never reads a bearer). **Never over MCP**: `people`, `spend`, `destructive`,
+  anything `assistant: "never"` (`defineAction` makes it `mcp: "never"`), and
+  `refuseWhenTainted` or mirror controls (declared `never`). No `act` scope:
+  the only direct MCP write is `staff.ts`'s `update_ticket`
+  (`DIRECT_OVER_MCP`). `list_corrections`, `list_project_queue`,
+  `get_tool_units` and `list_imports` are on MCP too, so a client can find ids;
+  `find_people` is chat only. The MCP tool lists per credential are asserted
+  exactly (`test/mcp/expected-tools.ts`): add a proposable action and those
+  lists change on purpose.
+- **The inbox is an admin surface** (`surfaces.ts` key `proposals`, group
+  Queues, a half tile counting the viewer's open MCP proposals). A surface's
+  `permission` may be a list (any of, `mayOpen`): the inbox is open to every
+  `ADMIN_SURFACE_PERMISSIONS` holder, and shows only the viewer's own rows.
+  Field changes proposed over MCP (`propose_change`) stay on `/admin/refresh`;
+  each page links to the other.
+- **Exemptions are decisions** (phase 8): each `EXEMPT` reason starts with one
+  of `EXEMPT_KINDS` ("Never", "Not a write", "Account gate…", "Route-backed"…);
+  a "Later" fails `parity.test.ts`. **`spec-drift.test.ts`** reads the spec's
+  §4.9 table: every registered id and tool name must be written in the spec,
+  every §4.9 id registered or in its `NOT_REGISTERED` with a reason, and each
+  row's MCP column must match the definition or be in `MCP_DEVIATIONS`. A new
+  action therefore needs a line in the spec's as-built registry table.
+- **Log completed maintenance** (`tickets.log_completed`, `maintenance-log.ts`):
+  the form on `/admin/maintenance` (`LogCompletedForm`, tools and units from
+  `data/tool-options.ts`) and `log_completed_maintenance` — a ticket that
+  starts resolved, the person as reporter and assignee, a unit only of that
+  tool, no archived tools.
 
 ## Adding equipment (`pending_tools`, Phase 6; the image stage is gateway spec §3.5)
 
@@ -512,9 +852,16 @@ creates a tool (Article 5).
   records `pending.approved` **and** `tool.published`; a lost audit event is a
   warning on a success, as everywhere else. **The image choice is resolved
   here too:** "cleaned" promotes the already-stored private attachment to
-  public; "original" downloads the candidate's own URL and stores it (both as
-  `attachments.origin`, `research_image` / `research_image_cleaned` — see
-  C11 in the gateway spec); a download or store failure is never a reason to
+  public; "original" downloads the candidate's own URL, **cleans it** with
+  the same deterministic crop and cutout rank 1 gets
+  (`research/images/pick-clean.ts`, from the candidate's recorded
+  `background` / `composite` / `productBox`, classified on the spot when
+  absent; the downloaded bytes when no cut is possible), and stores it —
+  except rank 1's original chosen beside its cleaned copy, stored uncut
+  (amendment "The picked image is cleaned too"; refresh's accepted cover
+  goes through the same `storeResearchImage`). Both are
+  `attachments.origin` `research_image` / `research_image_cleaned` — see
+  C11 in the gateway spec; a download or store failure is never a reason to
   fail the rest of the approval — it is the `image_not_attached` warning
   (`admin.warnings.image_not_attached`), the same "warning on a landed write"
   shape every admin surface uses. Low confidence keeps both Approve buttons off
@@ -662,6 +1009,43 @@ name with model or part number, shown under the tool page's title when it differ
   (`src/lib/display-name-rules.ts`), shared by the backfill, research's read prompt and
   Suggest names.
 
+## Tool descriptions: short (gateway spec amendment 2026-09-26 "Short descriptions")
+
+- **The rule** (the owner's): say what the tool is and what students use it for, touching on a
+  spec or two; **1–3 sentences, at most 5** for a complicated machine, about 450 characters
+  (code's limit is `DESCRIPTION_LIMIT_CHARS`, 500), plain prose, **no Markdown list**. One
+  module, `src/lib/description-rules.ts` (pure): `DESCRIPTION_RULES` (the text research's
+  read prompt and the shorten script share), `descriptionProblems`, `newNumbers`.
+- **Research** still gathers the full `specs` list (evidence, confidence), but approval no
+  longer folds it into the description (`proposedDescription` is the description alone).
+- **Shorten what is stored**: `npm run descriptions:shorten -- [--dry-run] [--ids] [--limit]`
+  (`scripts/shorten-descriptions.ts`, job `descriptionShorten`, flex): rewrites descriptions
+  that break the rule from **only the facts already in them**; a rewrite that still breaks
+  the rule, is not shorter or adds a number is rejected; writes carry the revision read at
+  selection (an edit meanwhile is skipped). Same target/lock handling as `names:backfill`.
+
+## English resources only (gateway spec amendment 2026-09-26 "English resources only")
+
+- **The rule** (the owner's): every link research or refresh keeps — manual, product page,
+  video, other — is an English page or an English manual; a multilingual manual with an
+  English section counts. Judged **in code, no model call**: `src/lib/research/language.ts`
+  (pure) — `urlLanguages` (path/subdomain/query locale, PDF file-name tokens; a ccTLD is not a
+  signal), `declaredLanguage` (`<html lang>`, now returned by `readPage` as `lang`),
+  `textLanguage` (1,000-char windows, script then stop words; a manual needs one English
+  window), `titleLanguage`, and `pageLanguage` (text → declared → URL; unknown is kept).
+- **Where**: the prompt's `ENGLISH_PARAGRAPH` (both passes); `candidatePageUrls` skips
+  candidates whose URL names only another language; `readCandidatePages` judges every page
+  read (a manual on its whole text) and leaves non-English ones out as `skipped (not English:
+  de)`, returning `languages`; `pickManualPdfs` skips non-English PDFs; `keepEnglishLinks`
+  (`research/english-links.ts`) runs in `engine.ts` before verification, dropping into
+  `droppedLinks`; `verifyUrl({ englishOnly })` drops a YouTube video with a non-English oEmbed
+  title (research only). Refresh's diff lets `/en-us/x` be proposed beside a tool's `/de-de/x`;
+  `propose_change` refuses a non-English resource (`not_english`).
+- **Existing links**: `npm run resources:language -- [--json] [--ids] [--no-fetch]`
+  (`scripts/resource-language.ts`) — read-only report (slug, title, URL, reason); opens links
+  with no URL/title signal through `readPage` (6 s, four at a time, no PDFs or videos). Same
+  target/lock handling as `names:backfill`.
+
 ## MCP access (`api_tokens`, `oauth_*`; MCP access spec, migration `0014`)
 
 MCP callers act as a person, with that person's role and never more
@@ -678,11 +1062,19 @@ MCP callers act as a person, with that person's role and never more
   every write (and `requiresSignIn`) needs a signed-in caller; a read-only token or grant gets no
   writes. The server is built per request. Anonymous gets the six public reads; maintenance
   history carries reporter names only for `maintenance.manage`.
-- **MCP-only tools**: `list_my_reports` (`capabilities/reports.ts`), and `list_intake_queue`,
-  `list_open_tickets`, `update_ticket` (through `lib/admin/ticket-write.ts`, the admin page's own
-  path), `propose_change` (a `chat_proposals` row with `chat_id = "mcp"`, shown on
-  `/admin/refresh` under "Proposals from assistants") in `capabilities/staff.ts`. Nothing over MCP
-  publishes or edits the catalogue (Article 5).
+- **MCP-only tools**: `list_my_reports` (`capabilities/reports.ts`), `propose_change` in
+  `capabilities/staff.ts` (a `chat_proposals` row with `chat_id = "mcp"`, shown on
+  `/admin/refresh` under "Proposals from assistants"), and the generated proposing tools
+  (`capabilities/actions.ts`, parity spec phase 7 — see "The action layer": an
+  `action_proposals` row with `surface = mcp`, confirmed by its creator on `/admin/proposals`).
+  Nothing over MCP publishes or edits the catalogue (Article 5).
+- **Staff queue tools, chat and MCP** (amendment 2026-09-25): `list_intake_queue`
+  (`tools.approve`), `list_open_tickets` and `update_ticket` (`maintenance.manage`, through
+  `lib/admin/ticket-write.ts`, the admin page's own path) in `capabilities/staff.ts`. The chat
+  offers them only through `capabilitiesForIdentity` (never to anonymous or students). **Since
+  the parity spec's phase 2 `staff.ts`'s `update_ticket` is MCP only** (the one direct MCP write,
+  §11 answer 4); the chat's `update_ticket` is the generated proposing tool, and the typed-yes
+  rule is gone. Reporter names, never emails.
 - **Rate limits**: `mcp` 30/min per IP, `mcpSignedIn` 60/min per token or person, `mcpWrite`
   10/min per identity before each write call.
 - **Sign in with Google is the default way to connect** (amendment 2026-09-24): the page and
@@ -698,8 +1090,12 @@ MCP callers act as a person, with that person's role and never more
   and no `Authorization` and hands it to `handleMcpRequest`: always anonymous, under the `mcp`
   per-IP limit, and a write or staff tool is `not_runnable` before any call.
 - **Tokens** (`/account/tokens`, profile menu → Connect an AI assistant): shown once, stored as a
-  hash, prefix for display, 30/90/never (90 default), read-only option, ≤ 20 live, audited
-  `token.created` / `token.revoked`. **Never log a token** — only `displayPrefix`.
+  hash, prefix for display, **90 days for every token, no choice** (`TOKEN_LIFETIME_DAYS`,
+  `lib/account/token-lifetime.ts`; a posted `expiry` is ignored — amendment 2026-09-25 "One
+  lifetime"), read-only option, ≤ 20 live, audited `token.created` / `token.revoked`. The
+  reveal says "Save this token now…" above the token and beside **I've copied it**, and both it
+  and `/mcp` offer **Copy setup prompt for your AI** (`AiSetupPrompt`), which names
+  `MAKERLAB_MCP_TOKEN` and never contains a token. **Never log a token** — only `displayPrefix`.
 - **OAuth** (the `mcp` plugin in `auth/config.ts`): clients use `/api/mcp/signed-in`, whose
   anonymous 401 points at `/.well-known/oauth-protected-resource/…`; the auth route forces
   `prompt=consent` on `/api/auth/mcp/authorize`; `/oauth/sign-in` and `/oauth/consent` (read-only
@@ -806,7 +1202,7 @@ is copied into Blob once, and the tool page and the chat prefer the copy.
   out of `fileUrls`; the chat attaches `archivedUrl` first, so one manual is
   attached once, and "(attached)" matches the copy or the source.
 
-## Manual text and search (`manual_documents`, `manual_pages`, `manual_chunks`; manual text spec phases 1–2)
+## Manual text and search (`manual_documents`, `manual_pages`, `manual_chunks`; manual text spec phases 1–3)
 
 Every stored manual PDF is also kept as **text, page by page, with its
 outline** (`docs/specs/2026-09-23-manual-text-and-search-design.md`, migration
@@ -852,7 +1248,8 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   (`research/manual-pdfs.ts`).
 - **pgvector.** Migration `0011` creates the `vector` extension and
   `manual_chunks` (a generated English `tsvector` + GIN, `vector(512)` + HNSW
-  cosine, `tool_id`). PGlite loads the extension from
+  cosine, `tool_id`); since `0019` the column is **`halfvec(512)`** with a
+  `halfvec_cosine_ops` index, and queries cast to `halfvec(512)`. PGlite loads the extension from
   `@electric-sql/pglite-pgvector` (`PGLITE_EXTENSIONS` in `db/pglite.ts`, kept
   in `serverExternalPackages` like PGlite itself); Neon ships it.
 - **Passages** (`manuals/chunk.ts`, `CHUNKER_VERSION`): cut along the outline,
@@ -901,6 +1298,30 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   passages are missing or stale is chunked and embedded, with tokens and the
   Gateway-reported cost printed (`--text-only` skips it; `--dry-run` chunks and
   counts without embedding).
+- **OCR (phase 3, migration `0019`)** — only `manuals:index` runs it, never the
+  workflow. A PDF that extracts as `no_text` is drawn page by page without a
+  canvas (`manuals/page-images.ts`: the images each page paints, from pdf.js's
+  operator list, composited with `sharp`), each page read by job `ocr`
+  (`manuals/transcribe.ts` — a transcription, headings marked `#`/`##` for the
+  outline, the page fenced as data) and stored `ready` (`manuals/ocr.ts`):
+  pages at their own PDF numbers with `manual_pages.source = 'ocr'`,
+  `manual_documents.ocr_version = 'ocr-1:<model>'`. Caps: 150 pages
+  (`--ocr-max-pages`), ~$1 a manual by reported cost (`ocr_partial` when cut
+  short). A transient model failure stores `no_text` without `ocr_version`, so
+  the next run retries; a refused page is stored empty. A scan read at this key
+  is never read again (`--force` keeps OCR text; `--force-ocr` re-reads), and
+  the workflow's Re-process keeps it (`ocr_kept`). The run ends with a Summary
+  (PDFs, manuals OCR'd, pages, passages, cost); a second run finds nothing to do.
+  An OCR'd passage carries `ocr: true` and `search_manual` adds a `transcribed`
+  note; the editor tag adds "· OCR". JPEG 2000 scans draw blank (no OpenJPEG
+  wasm configured).
+- **Reranking (phase 3).** `searchManuals({ rerank: true })` — `search_manual`
+  asks for it, refresh research does not — sends the top 24 fused passages to
+  job `rerank` (`manuals/rerank.ts`, AI SDK `rerank()`), whose order and score
+  replace the fused ones before the top 8 are kept and merged. 2.5 s timeout,
+  no retries; any failure keeps the fused order (`rerankFailed`).
+  `MODEL_RERANK=off` skips it. Tests: `models-stub.ts`'s `rerankingModelFor`
+  keeps the given order unless a test calls `setRerankingModel(rerankingModel(…))`.
 - **Admin.** The editor's tag says **Searchable · N pages** once passages
   exist; **Re-process** on a resource row with a PDF marks its documents stale
   (`markResourceManualsStale` — nothing deleted) and starts the archive
@@ -909,18 +1330,92 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   (`countManualsByState`).
 - **Tests** seed documents straight into PGlite (`test/manuals/seed.ts`) and
   embed with `test/ai/fake-embeddings.ts` (hashed bag of words, or pinned
-  one-hot vectors); `models-stub.ts` has `setEmbeddingModel`, and the workflow
+  one-hot vectors); `test/fixtures/manuals/scanned-image.pdf` is a real scan
+  (image XObjects) for the OCR tests; `models-stub.ts` has `setEmbeddingModel`, and the workflow
   tier stubs the Gateway's `/embedding-model` endpoint (`gatewayHandlers({
   embedding })`). The live retrieval eval is a `.livecheck` script (results in
   the spec's phase-2 amendment).
+
+## The lab status screen (`/kiosk`; kiosk spec phase 1)
+
+A full-screen, read-only page for the TV at the front of the lab and the ISAM
+booth iPad (spec `docs/specs/2026-09-27-kiosk-mode-design.md`, PR #93). No
+sign-in, no migration, no model call, no new permission. Owner answers
+(2026-09-27): the open-ticket count is shown, in the lab and at the booth; a
+featured project's author is first name + last initial; it runs on production
+data; the QR code opens the catalogue with the chat.
+
+- **One loader, cached behind invalidation.** `src/lib/kiosk/snapshot.ts`:
+  `assembleKioskSnapshot({ db, now })` reads the published catalogue, one
+  grouped count of unit statuses (`data/kiosk.ts` — the catalogue folds
+  `under_maintenance`/`out_of_service`/`retired` into "Offline", the kiosk needs
+  them apart), `countOpenTickets` (`data/maintenance.ts`, the same statement the
+  `/admin` maintenance tile now uses) and the published projects.
+  `loadKioskSnapshot()` is that under `"use cache"`, tagged `catalog`,
+  `projects` **and `maintenance`**, on `KIOSK_CACHE` (revalidate 5 min as a
+  backstop, expire 24 h). **Every ticket write calls `invalidateMaintenance()`**
+  (`writeTicket` and `report_issue`); unit-status writes already call
+  `invalidateCatalog()`. A new ticket write path must do the same, or the screen
+  lags five minutes.
+- **Failure is not zero.** The ticket count fails alone to `null` ("—", "Not
+  available"); anything else throws, so `/api/kiosk` answers 503 and the page
+  renders "Lab status is unavailable right now" with the QR code. Never a zeroed
+  snapshot.
+- **Privacy.** `KioskSnapshot` (`lib/kiosk/types.ts`) has no field for an email,
+  a ticket's text, a draft or a full name; the loader maps field by field.
+  `shortAuthorName` ("Maya Rodriguez" → "Maya R.", anything with `@` → null) runs
+  on the server; the full name never reaches the client. `snapshot.test.ts`'s
+  privacy case asserts the serialised payload.
+- **`GET /api/kiosk`**: public, `ROUTE_TIERS.kiosk` (20/min) keyed by the hashed
+  client IP — **it reads no cookie** (no `resolveIdentity`) — checked before the
+  loader; `Cache-Control: no-store`; adds `askUrl` and `servedAt` outside the
+  cache.
+- **The screen** (`components/kiosk/KioskScreen.tsx`) polls every 60 s + ≤10 s
+  jitter, backs off 1 → 2 → 5 min, keeps the last good snapshot, and measures
+  staleness from **its own last good poll**, not `generatedAt` (a cached read
+  keeps its fill time for minutes while still being current). The "Updated" line
+  becomes an amber bar in the footer after 3 min, or at once when
+  `navigator.onLine` is false. Featured rotation is clock-derived (20 s), so a
+  refresh keeps its place and screens agree; a 2 s burn-in shift of ≤8 px every
+  5 min; wake lock re-asked on `visibilitychange`; reload at 04:00 lab time,
+  skipped while polls fail. All the timing lives in `lib/kiosk/derive.ts`,
+  pure and tested at its boundaries.
+- **Dark, full-bleed, no site chrome.** `ThemeScript` forces `data-theme="dark"`
+  on `/kiosk` before paint without storing it; `SiteChrome` (a client wrapper
+  in the root layout) drops `GlobalChrome` and `DemoDataBanner` there and
+  `ChatFab` returns null (`isKioskPath`, `components/kiosk-path.ts`);
+  `app/kiosk/kiosk.css` hides the root's permanent scrollbar with
+  `html:has([data-kiosk])`. The logo is a CSS mask filled with
+  `--on-surface`, so a single-colour logo reads on dark; the QR code is drawn in
+  `currentColor` on an `--on-surface` plate (no pure white). Type is `vmin` with
+  `clamp()` (`kiosk-type.ts`); landscape is two columns, portrait
+  (`portrait:` variant) stacks with the QR code last.
+- **The QR code** (`lib/kiosk/qr.ts`, server-only; `qrcode` is now a runtime
+  dependency) encodes `kioskAskUrl(origin)` = `<origin>/?src=kiosk&ask=1`
+  (`lib/kiosk/params.ts`). `AskParamOpener` in the root layout (its own
+  Suspense, so the chat button stays in the HTML) opens the chat on `?ask=1`,
+  once, anywhere but the kiosk.
+- **Language:** `/kiosk` ignores the cookie and `Accept-Language`; `?lang=`
+  picks a supported locale (`app/kiosk/kiosk-locale.ts`), `kiosk.*` strings
+  with English underneath, times in `LAB_TIMEZONE`.
+- **Hours** are `siteConfig.labHours` (`NEXT_PUBLIC_LAB_HOURS`, default
+  `LAB OPEN 9AM-9PM`), which the header's status strip reads too. Phase 2
+  structures them.
+- **Tests:** `lib/kiosk/{derive,qr,snapshot}.test.ts`, `app/api/kiosk/route.test.ts`,
+  `components/kiosk/KioskScreen.test.tsx`, `components/kiosk-chrome.test.tsx`,
+  `e2e/kiosk.spec.ts` (drives the poll with Playwright's clock and
+  `page.route`, never the shared demo database; `KIOSK_SCREENSHOT_DIR` keeps a
+  screenshot per viewport). The QR test has no decoder: it reads the modules
+  back out of the SVG and compares them with `qrcode`'s matrix for `askUrl`.
 
 ## Key files
 
 | Path | Purpose |
 |---|---|
-| `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults) |
+| `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults), including `labHours` |
+| `src/lib/kiosk/*` / `src/components/kiosk/*` / `src/app/kiosk/` | The lab status screen: snapshot loader, pure timing and derivations, QR code; the client screen; the page (see "The lab status screen") |
 | `src/lib/db/client.ts` | `getDb()`, `dataSubstrate()`, `pingDb()` — the one entry point to Postgres/PGlite |
-| `src/lib/notion.ts` | Notion API client — used by the one-time import and its scripts (and the retired `/api/admin/backup`, awaiting deletion); no request path reads or writes Notion through it (the mirror has its own client) |
+| `src/lib/notion.ts` | Notion API client — used by the one-time import and its scripts; no request path reads or writes Notion through it (the mirror has its own client) |
 | `src/lib/data/attachments.ts` | `attachments` rows: create, claim onto an owner, reorder, release, list orphans, delete |
 | `src/lib/data/revision.ts` | The editor's concurrency token — `extract(epoch from updated_at)::text`, **never a `Date`** (read the docstring before touching a conflict check) |
 | `src/lib/data/tools.ts` / `units.ts` | Row-level inventory writes, every one revision-checked. Tools are archived, never deleted |
@@ -956,10 +1451,12 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/app/admin/inventory/actions.ts` + `unit-`/`resource-`/`photo-actions.ts` | The editor's server actions, one module per section, each checking its own permission |
 | `src/components/admin/ToolEditorPanel.tsx` | The editor itself: the revision token, the conflict, and the five sections beside it |
 | `src/app/tools/[id]/EditToolControl.tsx` / `DraftToolView.tsx` | Edit mode on a tool page (phone-first), and drafts at their slug for `catalog.view_drafts` |
-| `src/lib/revalidate.ts` | `invalidateCatalog()` / `invalidateProjects()` — the one home for the cache tag strings, and `{ expire: 0 }`, because `revalidateTag` with a *named* profile is stale-while-revalidate and would serve the pre-publish page to one more reader |
+| `src/lib/revalidate.ts` | `invalidateCatalog()` / `invalidateProjects()` / `invalidateMaintenance()` (the kiosk's ticket count) — the one home for the cache tag strings, and `{ expire: 0 }`, because `revalidateTag` with a *named* profile is stale-while-revalidate and would serve the pre-publish page to one more reader |
 | `src/lib/blob.ts` | The Blob seam — `put` (private backups, fixed pathname) and `putUpload` (random pathname, caller's access) |
 | `src/lib/cron/backup.ts`, `src/lib/cron/cleanup.ts` | The nightly Postgres export and the orphaned-upload sweep |
-| `src/lib/cron/backup-policy.ts` | What the nightly export holds back — `session` / `verification` skipped, `account` tokens blanked. A backup is data, not credentials |
+| `src/lib/cron/backup-policy.ts` | What the nightly export holds back — `session` / `verification` / `oauth_access_token` skipped, token columns blanked (a backup is data, not credentials), and `manual_pages` / `manual_chunks` left out because `npm run manuals:index -- --force` rebuilds them after a restore |
+| `src/lib/cron/backup-retention.ts` | Pure tiered retention: every day for 7 days, newest per ISO week to 1 month, per month to 1 year, per quarter to 3 years |
+| `src/lib/cron/heartbeat.ts`, `src/lib/cron/backup-freshness.ts` | Failure visibility: the nightly run pings `CRON_HEARTBEAT_URL` (`/fail` on failure); `/admin` warns a super admin when the newest backup is over 36 hours old (`docs/operations.md`) |
 | `src/lib/catalog.ts` | Catalog orchestration + cache, reading Postgres |
 | `src/lib/rate-limit.ts` | In-memory (or Upstash) sliding-window limiter, tiered by role |
 | `src/lib/auth/config.ts` | The Better Auth instance: Drizzle adapter, database sessions, admin plugin, domain enforcement |
@@ -967,12 +1464,24 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/auth/permissions.ts` | `statement` / `ac` / `roles` / `can()` — what each role may do |
 | `src/lib/auth/super-admins.ts` | `AUTH_SUPER_ADMIN_EMAILS`, the lock-out floor |
 | `src/lib/auth/floor-role.ts` | `reconcileSuperAdminFloor` — writes the floor's role and lifts its ban onto the row, because the admin plugin reads the row and not `can()` |
-| `src/app/admin/layout.tsx` | The `/admin` front door — signed in? holds an admin permission? — then the section bar and ⌘K palette on every admin page |
+| `src/app/admin/layout.tsx` | The `/admin` front door — signed in? holds an admin permission? — then the section bar on every admin page, and `PaletteScope` telling the header's ⌘K who this is |
 | `src/lib/admin/surfaces.ts` / `src/lib/data/admin-overview.ts` | Every admin surface once (tiles, bar, palette, each with its permission) / the home's count loaders |
+| `src/components/palette/*` | The ⌘K palette on every page: `CommandPalette`, `HeaderSearch`, `PaletteScope`, `palette-match` |
 | `src/app/admin/inventory/page.tsx` | The review table (`tools.edit`), uncached, filtered from the URL |
-| `src/app/admin/users/actions.ts` | `setUserRole` / `setUserBanned` — the app's first server actions |
-| `src/lib/data/users.ts` | The `/admin/users` roster, read straight from Postgres |
-| `src/lib/admin/queue-write.ts` | `runQueueWrite` — the gate/write/record/refresh preamble the three §5.6 queues share |
+| `src/app/admin/users/actions.ts` | `setUserRole` / `setUserTitle` / `setUserName` / `addPerson` / `removeUser` / `unblockBlockedEmail` — the People page's server actions (Ban retired 2026-09-25), wrappers over `lib/actions/people*.ts` |
+| `src/lib/data/user-removal.ts` / `blocked-emails.ts` / `account-removed.ts` | Removing a person in one transaction; the blocked-address list; "an id that names no account" in SQL |
+| `src/lib/auth/blocked-sign-in.ts` | Refusing a blocked address in the create hook, and the redirect to `/auth/blocked` |
+| `src/lib/data/users.ts` | The `/admin/users` roster, read straight from Postgres; `markFirstSignIn` |
+| `src/lib/data/user-add.ts` | Add person: the pre-added `user` row and its `user.added` event, one transaction |
+| `src/lib/actions/*` | The action layer: `performAction`, `defineAction`, `ACTIONS` / `ACTION_DEFINITIONS`, the People, queue, log-completed, catalogue, intake, import, spend and mirror definitions, `proposals.ts` (propose / confirm), `page-context.ts`, `typed-confirm.ts`, `inbox.ts` (the MCP inbox's cards), the parity guard (`parity.ts`, `exempt.ts`) and the spec drift check (`spec-drift.test.ts`) |
+| `src/lib/chat/taint.ts` | Whether a chat turn read outside content (§8.4) |
+| `src/lib/intake/research-start.ts` / `approval-draft.ts` | The one research start (route and card); the review page's default approval (page and card) |
+| `src/lib/data/action-proposals.ts` / `action-subjects.ts` | `action_proposals` (claim once, creator only, TTLs); the id → name reads previews and page context use |
+| `src/lib/capabilities/actions.ts` / `admin-reads.ts` | The generated proposing tools (chat, and MCP for `mcp: "propose"`) and their prompt; `find_people`, `list_corrections`, `list_project_queue` |
+| `src/app/api/action-proposals/route.ts` | Confirm / cancel an assistant proposal (cookie only), and re-read the caller's proposals by id or chat |
+| `src/app/admin/proposals/page.tsx` | **Assistant proposals**: the viewer's own MCP proposals as confirmation cards, and the last week's decided ones |
+| `src/components/chat/ActionProposalCard.tsx` / `page-selection.tsx` | The confirmation card; the page selection the chat sends |
+| `src/lib/admin/queue-write.ts` | `QueueActionResult`; `runQueueWrite` has no callers since the action layer (awaiting deletion approval) |
 | `src/app/admin/maintenance/`, `corrections/`, `projects/` | The three queues: one page, one result module and one action apiece |
 | `src/components/admin/use-row-action.ts` | What every queue control does around its action — optimistic, refusal restores, warning keeps |
 | `src/components/admin/MaintenanceQueue.tsx` / `CorrectionsQueue.tsx` / `ProjectQueue.tsx` | The three card lists, each with its own small island |
@@ -986,14 +1495,16 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/capabilities/mcp-catalog.ts`, `src/app/mcp/`, `src/lib/mcp/try-it.ts` | The public `/mcp` page: the registry described by audience, and Try it (anonymous, through the MCP handler) |
 | `src/lib/data/api-tokens.ts`, `src/lib/auth/api-token-format.ts` | Personal access tokens (hash, prefix, revoke, last use) and the OAuth grant reads ("Connected apps") |
 | `src/app/account/tokens/`, `src/app/oauth/`, `src/app/.well-known/` | The token page, the OAuth sign-in and consent pages, the discovery documents |
+| `src/app/account/page.tsx`, `src/lib/account/name-actions.ts` | "Your account": your own name (`updateOwnName`), your address |
 | `src/app/api/uploads/route.ts` | The one upload route → Vercel Blob + an `attachments` row |
-| `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup, then the mirror backstop, then the manual archive backfill |
+| `src/app/api/cron/daily/route.ts` | The single nightly cron (`vercel.json`): backup, then pending-item expiry, then orphaned-upload cleanup, then the mirror backstop, then the manual archive backfill; then the heartbeat ping |
 | `src/lib/manuals/*` | The manual archive: `archive` (`archiveManual`), `steps` (`archiveManualStep`, `indexManualStep`), `start` (the one `workflow/api` import), `trigger` (`requestManualArchive`, never throws); manual text: `extract` (unpdf), `index-document`, `stored-bytes`, `digest`; manual search: `chunk` (`CHUNKER_VERSION`), `embed` (job `embed`), `passages` (the index step's second half), `search` (`searchManuals`, hybrid + RRF) |
 | `src/lib/data/manual-documents.ts` | `manual_documents` / `manual_pages`: the one-transaction write, current-PDF lists for the step and backfill, editor states, tool-page contents, research's stored-text lookups |
 | `src/lib/data/manual-chunks.ts` | `manual_chunks`: the one-transaction passage write, which documents need passages, the chat's view of a tool's manuals, Re-process, the `/admin/research` counts |
 | `src/lib/capabilities/manuals.ts` / `src/lib/chat/tool-manuals.ts` | `search_manual` and its prompt (outline of the focused tool's searchable manuals); what the chat route loads to decide what is searched and what is attached |
-| `src/app/admin/research/page.tsx` | Manual counts by state (`tools.edit`) |
+| `src/app/admin/research/page.tsx` + `actions.ts` | **Manuals** (`tools.edit`): the state strip, the library table (`listManualLibrary`) and Re-process (`reprocessLibraryManual`) |
 | `scripts/index-manuals.ts` | `npm run manuals:index` — the manual-text and passages backfill (tokens and cost printed) |
+| `scripts/push-local-to-hosted.ts` / `src/lib/push-hosted/*` | `npm run data:push` — copy the local database and files up to a hosted deployment: `tables` (plan from the schema), `rows` (redact, rewrite URLs), `files` (local files, uploads, reuse), `copy` (one transaction), `migrations` (the schema check), `target-env` (the `--to` file), `run` |
 | `src/workflows/archive-manuals.ts` | `archiveManuals(resourceIds)` — one step per resource |
 | `src/lib/data/manual-archives.ts` / `src/lib/cron/manual-archive.ts` | The archive's key, stale-copy release and the nightly due list; the cron stage |
 | `src/lib/import/*` | Bulk intake: the parsers and validation (pure), `service.ts` (starting an import), `extract.ts` / `suggest-names.ts` (the two model calls), `import-steps.ts` / `suggest-steps.ts` (steps), `research-queue.ts` (chunked Research selected) |
@@ -1006,7 +1517,7 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/app/admin/mirror/` + `src/components/admin/Mirror*.tsx` | The settings page, its seven server actions, and the four islands (`MirrorConnect`, `MirrorMapping`, `MirrorStatus`, `MirrorControls`) |
 | `test/fakes/notion-fake.ts` | The in-memory Notion every mirror test (and the E2E stub) talks to |
 | `src/app/api/admin/revalidate/route.ts` | Cache invalidation (`tools.edit`, or `x-admin-secret` for session-less callers) |
-| `src/components/ChatFab.tsx` | Chat UI (`useChat`, citations stripped, photo upload); starter chips are the tool's own on its page (`ToolChatStarters` → `ChatLauncherContext`), else the generic three |
+| `src/components/ChatFab.tsx` | Chat UI: `useChat` and its transport, the docked `Sheet`, the launchers (the floating button on public pages only); starter chips are the tool's own on its page (`ToolChatStarters` → `ChatLauncherContext`), else the generic three. Its parts live in `src/components/chat/` (`ChatMessage`, `ChatResponse` with manual citations, `ChatComposer`, `use-chat-attachments` for photo/list uploads, `use-dictation`, `AskAssistantButton`) on AI Elements in `src/components/ai-elements/` |
 | `src/lib/starter-questions.ts` / `scripts/generate-starter-questions.ts` | A tool's assistant starter questions — the cleaning rules, and the backfill for tools that have none |
 | `src/lib/tool-names.ts` / `scripts/backfill-display-names.ts` | A tool's display and official names — the display rules and guard, and the backfill that shortens imported names |
 | `src/lib/tool-name-brand.ts` / `tool-name-choice.ts` / `display-name-rules.ts` / `data/tool-name-clash.ts` | Bare-brand refusal and category nouns; unique names with the distinguishing spec; the one rules text the prompts share; the `duplicate_name` read |
@@ -1018,11 +1529,10 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 - Server components by default; add `"use client"` only when needed.
 - Server-only modules import `"server-only"` (e.g. `rate-limit.ts`).
 - Theme/brand via **CSS variables** (`--primary`, `--background`, …) — `[data-theme="light|dark"]` on `<html>`, never hardcoded colors.
-- **The `.td-*` utilities are global; their `--td-*` tokens are not.** They are
-  declared on `.tool-detail`, and `.admin-shell` supplies its own mapped onto
-  the global theme tokens. Using a `.td-*` class anywhere else means supplying
-  the tokens there too: an unresolvable `var()` does not fall back, it computes
-  to `unset`, so the rule fails *silently and wrongly* rather than visibly.
+- **The `--td-*` tokens and `.td-*` classes are gone** (public polish). Legacy
+  CSS reads the global theme tokens directly. An unresolvable `var()` does not
+  fall back — it computes to `unset` — so a rule copied from old history that
+  names one fails *silently and wrongly*; use the theme tokens.
 - **UI system** (spec `docs/specs/2026-09-25-ui-system-design.md`, being
   adopted phase by phase): Tailwind 4 theme + utilities with no preflight,
   from `src/styles/ui.css` (imported before `globals.css`); shadcn primitives
@@ -1054,10 +1564,49 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   are URLs: links with `aria-current`, never `role="tab"`) and `queue/QueueList`
   (search + facets over a queue, open work on the page, settled behind a
   disclosure) in `system/`; `AdminNav`, `AdminPageHeader` and `CommandPalette`
-  (shadcn `Command` over `cmdk` in `ui/dialog`) in `admin/`. An inline outcome
+  (shadcn `Command` over `cmdk` in `ui/dialog`; since public polish in
+  `palette/`, mounted in the site header for everybody — see below) in `admin/`. An inline outcome
   is `RowStatus` (codes, or `tone` + words); a page that could not read its
   data is `EmptyState tone="bad"`. `admin-row-status`, `admin-empty`,
   `admin-section*` and the `admin-queue*` rules are gone.
+  **Public pages** (phase 5a): working pages are `PublicPage` + `PageSection`
+  (`system/PublicPage.tsx`); Markdown on a page is `system/Markdown`, never the
+  chat's `.chat-markdown`. The gallery is `FilterBar` + `FacetFilter` +
+  `ChoiceMenu` (Sort, Group by), its state in the URL through
+  `gallery-filters.ts` and `useUrlSearch` (the page is one cached prerender, so
+  the island reads the query string itself); grouped, it is sticky-headed
+  sections with counts. The tool page is one column (`DetailShell`, units as
+  `tool/UnitsTable`, the maintenance history from `getToolMaintenanceHistory` —
+  no names). `app/not-found.tsx` / `app/error.tsx` exist. `account.css`,
+  `mcp.css`, the `.tool-detail` palette and the gallery/projects legacy rules
+  are gone.
+  **Public polish**: every list's toolbar is the one `FilterBar` (search with
+  the count, then facets left and `secondary`/`end` right; a phone **Filters**
+  `Sheet`, `ui/sheet.tsx`); view switches are `system/SegmentedControl`; the
+  gallery table has a Status facet, Columns and sorting on every column
+  (`useGalleryColumns`). The ⌘K palette (`palette/CommandPalette`) is in the
+  header on every page (`HeaderSearch`): published tools from the root layout
+  (`getPaletteTools`), the role from `PrimaryNav`'s identity
+  (`lib/auth/identity-store.ts`), and on admin pages the server-resolved role
+  and draft index via `PaletteScope`. Floating menus use `FROSTED`
+  (`system/frosted.ts`). The root always shows its scrollbar so the header
+  never moves (`e2e/header-stability.spec.ts`). Save-on-click controls report
+  "Saved" in a reserved `SaveSlot` (`admin/RowStatus.tsx`). The tool page is
+  two columns on desktop and draws no empty section.
+  **Chat** (phase 5b): AI Elements copied from `registry.ai-sdk.dev` into
+  `src/components/ai-elements/` (Conversation, Message, PromptInput, Tool,
+  Sources, InlineCitation, Suggestion, Loader), trimmed to what the chat uses
+  — never run the AI Elements CLI (it prompts to overwrite `ui/` and installs
+  every component's dependencies). The chat is a frosted `Sheet`; Markdown is
+  streamdown with its `raw` rehype plugin dropped (model text never renders
+  as HTML) and plain elements (`ai-elements/message-markdown.tsx`) styled by
+  the pages' `MARKDOWN_PROSE`. A link whose address one of the turn's
+  `search_manual` passages returned is an inline citation, and the cited
+  pages are the answer's Sources (`chat/manual-citations.ts`). Messages carry
+  `data-role` / `data-kind` for tests. The floating button is not drawn on
+  `/admin/*`: the section bar's **Ask the assistant** and ⌘K (`onAsk`, from
+  `HeaderSearch`) open it. `FlagButton` is a `Dialog`. The `.chat-*` CSS and
+  `admin-import.css` are gone.
 - All branding strings come from `siteConfig` (`@/lib/site-config`).
 - Every API route is **rate-limited by identity** before expensive work — user id when signed in, hashed IP when not.
 - Authorization is **always** `can(subject, permission)` from `src/lib/auth/permissions.ts`. Never compare role names, and never gate inside a capability tool's `run()`.
@@ -1115,7 +1664,15 @@ npm run build        # runs db:migrate, then production build
 npm run lint         # eslint
 npm run typecheck    # tsc --noEmit
 npm run test:all     # full test suite
+npm run data:push -- --to .env.hosted [--dry-run] [--yes]   # copy local PGlite + .blob-data up to a hosted deploy
 ```
+
+`data:push` (`scripts/push-local-to-hosted.ts`, logic in `src/lib/push-hosted/`) replaces the
+hosted database's rows with the local ones (`PGLITE_DATA_DIR`) and uploads local files to
+Vercel Blob, rewriting their URLs in the hosted copy only. Target credentials come only from
+the `--to` file (`vercel env pull`), never `process.env`, and are never printed. It refuses
+unless checkout, local and hosted are at the same migration; skips and blanks what the nightly
+backup does (`backup-policy.ts`). Usage and caveats: `docs/deploy.md` Part 2 step 6.
 
 ## Gotchas
 
@@ -1128,5 +1685,12 @@ npm run test:all     # full test suite
   four) call `useRefreshNudge()` (`src/components/admin/use-refresh-nudge.ts`)
   after a successful action; islands that keep their own confirmed state (the
   queues, `RoleSelect`) are unaffected. E2E scenario 8 is the canary.
+- **A save-on-change control is disabled until hydrated** (`useHydrated`,
+  `src/components/admin/use-hydrated.ts`). A select changed before its
+  Suspense boundary hydrated is reset by hydration, and React replays the
+  queued change event with the *reset* value — which once earned an `ok` and a
+  "Saved" on `/admin/users` for a role that never changed. `RoleSelect` also
+  sends nothing for a change to the value it holds, and treats an answer whose
+  `role` differs from the choice as `failed`.
 - The in-memory rate limiter is a per-process singleton; it resets on cold start (fine for abuse prevention). Upstash backs it only when **both** `UPSTASH_REDIS_REST_*` vars are set.
 - Python scripts under `scripts/` use Node with `--experimental-strip-types`; they are migration/maintenance tools, not part of the app build.

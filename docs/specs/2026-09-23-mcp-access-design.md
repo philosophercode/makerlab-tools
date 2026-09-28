@@ -1,7 +1,7 @@
 # MCP Access: Public Reads, Personal Tokens, Sign-in — Design Spec
 
 **Date:** 2026-09-23
-**Status:** Implemented (branch `v5/mcp-access`, 2026-09-24) — see the amendment at the end
+**Status:** Implemented — phases 0–4 (branch `v5/mcp-access`, 2026-09-24); see the amendment at the end
 **Target:** `v5/`
 **Branch:** `v5/mcp-access-spec`
 **Spec PR:** #TBD · **Implementation PR:** #TBD
@@ -623,3 +623,114 @@ data, not signed in).** `/mcp` rendered the two addresses as `http://localhost:3
 Form 4 with its official name, 7 ms — the same results `curl` got from `/api/mcp`. A long JSON
 line first widened the page; the result blocks now scroll inside themselves. `/about` and
 `/account/tokens` link to `/mcp`.
+
+### 2026-09-25 — One lifetime, a louder reveal, a setup prompt
+
+**Why.** The owner asked (2026-09-25), on the token flow: "the expires, I would just do 90 days,
+no options"; the Create-token form "juts out of the column"; on the reveal "it should say …
+make sure to save it, you won't be able to copy these after"; and "a piece of text and then a
+button to copy this prompt to give to an AI". Built in UI system phase 5a (branch
+`v5/ui-phase-5a`).
+
+**What changes.**
+
+1. **Every token lives 90 days — one semester. No choice.** §4.1's `expires_at` row ("Choices:
+   30 days, 90 days, or never") and §5.1 step 2's "name, expiry, read-only toggle" are
+   superseded: the form asks for a name and read-only only, and says the date as text
+   (`Dec 24, 2026 — 90 days, one semester`). `TOKEN_EXPIRY_CHOICES`, `DEFAULT_TOKEN_EXPIRY` and
+   `expiryFor` are gone; `TOKEN_LIFETIME_DAYS = 90` and `tokenExpiryFrom` live in
+   `src/lib/account/token-lifetime.ts` (client-safe, so the page and `createApiToken` share
+   the number). `createToken`'s input is `{ name, readOnly }`; an `expiry` a stale page still
+   posts is **ignored**, never honoured, so no new token can be made that never expires.
+   Tokens created before this change keep the expiry they were given (including "never"),
+   and the list still shows them as they are.
+2. **One column.** The create form and the one-time reveal share one width-capped column
+   (640px), so the form no longer juts past the reveal or the reveal past the form. The
+   reveal appears directly under the form.
+3. **The reveal says "save it now", twice.** Above the token, as a warning (▲ and the words,
+   bold, on a warn-ruled plate): **"Save this token now. You won't be able to see or copy it
+   again after you leave this page."** — and the same sentence again beside **I've copied
+   it**, the button that dismisses the reveal. A line under the first gives the expiry date.
+4. **"Copy setup prompt for your AI".** A short prompt with one Copy button (`AiSetupPrompt`,
+   messages `account.aiPrompt.*`) that a student pastes into Claude, ChatGPT or Codex, telling
+   the assistant how to connect itself to the MakerLab MCP server:
+   - on **`/mcp`'s Connect section** (`SignInSetup`): the **sign-in address first**
+     (`/api/mcp/signed-in`, OAuth, no token); only if it cannot sign in, the open address with
+     `Authorization: Bearer $MAKERLAB_MCP_TOKEN`, **read from the environment variable at run
+     time**;
+   - on the **token reveal**: the student has just put the token in `MAKERLAB_MCP_TOKEN`, so
+     the prompt names the open address and that variable.
+
+   **Neither prompt contains a token.** Both tell the assistant never to ask for the token in
+   the chat, never to print it and never to write it into a file, and to give the student the
+   steps if it cannot add servers itself. The addresses are the request's origin on `/mcp` and
+   `authBaseUrl()` on the reveal, as the other snippets are. `/mcp` now puts Connect right
+   after the addresses, before the tool list and Try it.
+
+`docs/mcp.md` says the same ("When to use a personal access token instead", "Let the
+assistant set itself up").
+
+**Tests.** `api-tokens.test.ts` (every token 90 days; `tokenExpiryFrom`),
+`token-actions.test.ts` (a posted `expiry: "never"` still yields 90 days),
+`TokenManager.test.tsx` (no select, the date as text, one column, the warning above the token
+and beside Done, the prompt names the variable and never the token, Copy writes the prompt
+without the token), `SignInSetup.test.tsx` (sign-in address before the variable, no `mlt_`,
+Copy and its announcement), `McpAddresses.test.tsx`; E2E `account-tokens.spec.ts` (a student
+creates a token end to end; the form and the reveal share their left edge and width; `/mcp`
+offers the prompt with the sign-in address first).
+
+
+### 2026-09-25 — Staff queue tools in the site chat
+
+**Why.** The owner asked (2026-09-25) to manage maintenance through the assistant in the site
+chat, not only through an MCP client: "what maintenance is open on the Form 4?", "mark the
+resin tank ticket resolved: replaced the tank". The tools already existed; §3.2 made them
+MCP-only.
+
+**What changes.** `list_open_tickets`, `update_ticket` and `list_intake_queue` (the `staff`
+capability) are now on **both surfaces**: `mcpOnly` is dropped from the three. `propose_change`
+in `staff` stays MCP-only — the chat has its own `propose_change` (the `curation` capability,
+composed per page, refresh research spec §12), and the two never meet in one tool set.
+
+- **Gating is unchanged and declared once.** Each tool keeps its own `requiredPermission`
+  (`maintenance.manage` for the two ticket tools, `tools.approve` for the intake queue). The
+  chat composes the registry through `capabilitiesForIdentity`, as it does for intake and
+  curation, so an anonymous visitor or a student is offered none of them; MCP still asks
+  `mcpToolAllowed`. `/api/chat` resolves its caller from the session cookie only (a token never
+  works there), and `update_ticket` writes through `writeTicket` → `runQueueWrite`, the admin
+  page's own path: the permission gate, `ADMIN_ACTION_TIER` and the mirror push, as the
+  signed-in person (`assign_to: "me"` is that person).
+- **The chat prompt.** `staff.promptFragment` (`staffPromptFragment`) was empty; it now renders,
+  **only for a caller holding the permission**, a "Lab staff tools" section per queue the caller
+  holds (the `can()` there is presentation; `capabilitiesForIdentity` is the gate). Rules:
+  answer "what's open on X" from `list_open_tickets`, filtered to that machine; **before
+  `update_ticket`, state the exact change — the ticket's title and machine, the new status,
+  priority, assignee (`me` or `nobody`) and the resolution note word for word — ask for
+  confirmation, and call it only after an explicit yes in a later message**, even when the
+  request sounded decided; use ids from `list_open_tickets`, never guessed; say a ticket changed
+  only on an `updated` result; resolution notes in English. `update_ticket`'s description
+  carries the confirm-first rule for MCP clients too.
+- **Redaction.** Unchanged: `list_open_tickets` carries reporter **names** — its caller holds
+  `maintenance.manage`, the bar `get_unit_details` / `get_maintenance_history` already use —
+  and never an email address; the prompt says emails are never shown or asked for.
+- **Descriptions** now say "Staff only" and read right on both surfaces; the `/mcp` page lists
+  them from the registry unchanged (audience Staff), so nothing there says MCP-only.
+- **A landed write stays a success.** `runQueueWrite`'s `revalidatePath` is now guarded: a
+  refresh that cannot be scheduled from a streaming chat response logs a warning instead of
+  turning a committed ticket change into a "nothing changed".
+
+**Tests.** `access.test.ts`: anonymous and `user` get none of the three in the chat, `admin`
+and `super_admin` get all three, each gated on its own permission, and the registry alone
+never offers `propose_change`. `staff.test.ts`: the fragment is empty for anonymous, `user` and
+no identity; for staff it has both queues, the state-and-confirm rule, the `updated`-only rule,
+no email. `src/app/api/chat/staff-tools.route.test.ts` (PGlite, the real route): a staff
+session's tool set and prompt include them and a student's and a visitor's do not;
+`list_open_tickets` returns reporter names and no email; a confirmed `update_ticket` changes the
+seeded ticket as the signed-in person.
+
+**Evals.** `evals/cases/staff-maintenance.yaml`: staff asking what is open on the Form 4 calls
+`list_open_tickets`; "mark the resin tank ticket resolved: replaced the tank" does not call
+`update_ticket` and asks; after a "yes" it does; a student asking both calls neither. The
+harness gained `context.as` (`student` / `staff`, the demo accounts, composed through
+`capabilitiesForIdentity`), `history` (earlier turns), an eval-only open Form 4 ticket
+(`evals/ticket-fixture.ts`) and `EVAL_CASES` to run one file.

@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useContainerNarrow } from "./use-container-narrow";
+import { useFitsWidth } from "./use-fits-width";
 import { usePhoneLayout } from "./use-phone-layout";
 
 /**
@@ -41,6 +42,9 @@ import { usePhoneLayout } from "./use-phone-layout";
  *   item — a table squeezed into 390px is a table nobody can read. A table
  *   without `mobileRow` (a short, narrow one) stays a table and scrolls
  *   sideways inside itself.
+ * - **Never wider than the page.** From `sm` a table wider than its column
+ *   (the inventory at 1024px) scrolls sideways inside its own frame; its
+ *   header sticks to the page only while the table fits (`useFitsWidth`).
  *
  * Filtering is **not** here: the caller filters and passes the rows in,
  * because which filters exist, and whether they live in the URL, is the
@@ -152,6 +156,12 @@ export function DataTable<T>({
   const t = useTranslations("ui.dataTable");
   const viewportPhone = usePhoneLayout();
   const frame = useRef<HTMLDivElement>(null);
+  // A page-length table (viewport layout, with a phone list) scrolls sideways
+  // inside its own frame until it is measured to fit; only then does the frame
+  // open and the header stick to the page (DESIGN.md §8.3, `useFitsWidth`).
+  const pageTable = layout === "viewport" && Boolean(mobileRow);
+  const [scroller, setScroller] = useState<HTMLDivElement | null>(null);
+  const fits = useFitsWidth(scroller, pageTable);
   const containerNarrow = useContainerNarrow(frame, 640, layout === "container");
   // Container mode: an unmeasured container keeps the table (false), never both.
   const phone = layout === "container" ? (containerNarrow ?? false) : viewportPhone;
@@ -300,15 +310,18 @@ export function DataTable<T>({
   const showTable = !mobileRow || phone !== true;
   const showList = Boolean(mobileRow) && phone !== false;
   // Viewport mode lets CSS choose while both render; container mode never renders both.
-  const tableFrame = layout === "container" || !mobileRow ? "overflow-x-auto" : "hidden sm:block";
+  // `relative`, so a cell's absolutely placed text (an `sr-only` header) is
+  // clipped by the scroll box instead of widening the page past it.
+  const tableFrame = cn("relative", pageTable ? ["hidden sm:block", !fits && "overflow-x-auto"] : "overflow-x-auto");
   const listFrame = layout === "container" ? undefined : "sm:hidden";
   const hint = keyboardHint ?? Boolean(onActivate || selectable);
-  const sticky = stickyHeader ?? Boolean(mobileRow);
+  // A header in a scroll box would stick to the box, pushed down by the chrome offset.
+  const sticky = (stickyHeader ?? Boolean(mobileRow)) && (!pageTable || fits);
 
   return (
     <div ref={frame} data-slot="data-table" className={cn("ui relative", className)}>
       {showTable ? (
-        <div className={tableFrame}>
+        <div ref={setScroller} data-slot="data-table-frame" className={tableFrame}>
           <table
             data-slot="table"
             aria-label={labels.table}

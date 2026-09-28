@@ -50,6 +50,8 @@ export interface ReadPageResult {
   /** The PDF's bytes, for `application/pdf`. */
   pdf: Uint8Array | null;
   images: ImageHint[];
+  /** The page's declared language (`<html lang>`), when it declares one (amendment "English resources only"). */
+  lang?: string;
   reason?: string;
 }
 
@@ -120,7 +122,24 @@ function interpret(fetched: Extract<GuardedFetchResult, { ok: true }>): ReadPage
   }
 
   const page = extractPage(decoded, url);
-  return { url, status: "ok", contentType, title: page.title, text: cap(page.text), pdf: null, images: page.images };
+  // The markup's own declaration first; the server's Content-Language header as the fallback.
+  const lang = page.lang ?? headerLanguage(fetched.headers);
+  return {
+    url,
+    status: "ok",
+    contentType,
+    title: page.title,
+    text: cap(page.text),
+    pdf: null,
+    images: page.images,
+    ...(lang ? { lang } : {}),
+  };
+}
+
+/** The first tag of a `Content-Language` header, or undefined. */
+function headerLanguage(headers: Headers | undefined): string | undefined {
+  const first = headers?.get("content-language")?.split(",")[0].trim();
+  return first && /^[a-z]{2,3}(?:-[a-z0-9]{2,8})*$/i.test(first) ? first : undefined;
 }
 
 function failure(fetched: Extract<GuardedFetchResult, { ok: false }>): ReadPageResult {

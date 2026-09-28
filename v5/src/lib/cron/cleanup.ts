@@ -64,8 +64,14 @@ export async function runCleanup(
     return { orphans: 0, blobsDeleted: 0, rowsDeleted: 0 };
   }
 
+  // Each row's access names the store its bytes are in (blob stores
+  // amendment): a public orphan is in the public store, a private one in the
+  // private store when there is one.
   const pathnames = orphans.map((row) => row.blobPathname);
-  await store.del(pathnames);
+  const privatePaths = orphans.filter((row) => row.access !== "public").map((row) => row.blobPathname);
+  const publicPaths = orphans.filter((row) => row.access === "public").map((row) => row.blobPathname);
+  if (privatePaths.length > 0) await store.del(privatePaths, "private");
+  if (publicPaths.length > 0) await store.del(publicPaths, "public");
 
   const rowsDeleted = await deleteAttachments(
     orphans.map((row) => row.id),

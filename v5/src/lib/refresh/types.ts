@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { BackgroundClass } from "../research/result.ts";
 
 /**
  * What refresh research proposes (refresh research spec §4.2, §12.2).
@@ -78,6 +79,15 @@ export interface ProposedCover {
   pageUrl: string | null;
   width: number;
   height: number;
+  /**
+   * What research recorded about the image, for cleaning it when it is
+   * accepted (gateway spec amendment "The picked image is cleaned too").
+   * Absent on proposals made before; the background is then classified at
+   * acceptance.
+   */
+  background?: BackgroundClass;
+  composite?: boolean;
+  productBox?: readonly [number, number, number, number];
 }
 
 export interface FieldProposal {

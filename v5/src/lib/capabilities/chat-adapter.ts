@@ -6,6 +6,7 @@ import type {
   PromptEnv,
 } from "./types";
 import { languageNameForLocale } from "../../i18n/config";
+import { newTurnState, readsOutsideContent } from "../chat/taint";
 import { siteConfig } from "../site-config";
 import type { MakerLabTool } from "../../components/catalog-types";
 
@@ -37,6 +38,10 @@ export function toAiTools(
   ctx: CapabilityCtx
 ): Record<string, Tool> {
   const aiTools: Record<string, Tool> = {};
+  // Stamped here, after the caller's ctx, so a tool always knows it runs in the chat.
+  // The turn's taint is the route's object when it made one (shared by
+  // reference, so the step hook and every tool see the same state).
+  const chatCtx: CapabilityCtx = { ...ctx, surface: "chat", turn: ctx.turn ?? newTurnState() };
   for (const capability of capabilities) {
     for (const capTool of capability.tools) {
       // MCP-only tools are writes the chat reaches another way. Intake's
@@ -44,7 +49,7 @@ export function toAiTools(
       // pending rows, background research and a human approval (spec §5.4),
       // and handing the model a direct write would be a way round all three.
       if (capTool.mcpOnly) continue;
-      aiTools[capTool.name] = wrapTool(capTool, ctx);
+      aiTools[capTool.name] = wrapTool(capTool, chatCtx);
     }
   }
   return aiTools;
@@ -58,7 +63,11 @@ function wrapTool(
   return tool({
     description: capTool.description,
     inputSchema: capTool.inputSchema,
-    execute: (input: unknown) => capTool.run(input, ctx),
+    execute: (input: unknown) => {
+      // Marked as the read starts: whatever it returns reaches the model (§8.4).
+      if (ctx.turn && readsOutsideContent(capTool.name)) ctx.turn.readOutside = true;
+      return capTool.run(input, ctx);
+    },
   });
 }
 

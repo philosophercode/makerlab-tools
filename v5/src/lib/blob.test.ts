@@ -23,6 +23,9 @@ import { join } from "node:path";
 import { getBlobStore, isBlobConfigured } from "./blob";
 
 beforeEach(() => {
+  // One store unless a test links a private one (blob stores amendment).
+  vi.stubEnv("BLOB_PRIVATE_READ_WRITE_TOKEN", "");
+  vi.stubEnv("BLOB_PRIVATE_STORE_ID", "");
   sdk.put.mockReset().mockResolvedValue({ pathname: "backups/2026-07-29.json" });
   sdk.copy.mockReset().mockResolvedValue({
     pathname: "uploads/tool/plate-Xa9k2-Qm7p1.jpg",
@@ -55,6 +58,14 @@ describe("put", () => {
     expect(sdk.put).toHaveBeenCalledTimes(1);
     const [, , options] = sdk.put.mock.calls[0];
     expect(options.access).toBe("private");
+  });
+
+  it("with one store, passes no credentials — the SDK's default store, exactly as before the split", async () => {
+    await getBlobStore().put("backups/2026-07-29.json", "{}", "application/json");
+
+    const [, , options] = sdk.put.mock.calls[0];
+    expect(options.token).toBeUndefined();
+    expect(options.storeId).toBeUndefined();
   });
 
   it("keeps the exact pathname, because the pathname is the retention key", async () => {
@@ -145,6 +156,104 @@ describe("putUpload", () => {
   });
 });
 
+/**
+ * Two stores (blob stores amendment, 2026-09-27): a store is all-public or
+ * all-private, so a private file goes to the store linked with the prefix
+ * `BLOB_PRIVATE`, and a public one to the default store.
+ */
+describe("two stores — routing by access", () => {
+  const PRIVATE = { token: "vercel_blob_rw_private" };
+
+  beforeEach(() => {
+    vi.stubEnv("BLOB_PRIVATE_READ_WRITE_TOKEN", PRIVATE.token);
+  });
+
+  function photo() {
+    return new File([new Uint8Array([1, 2, 3])], "plate.jpg", { type: "image/jpeg" });
+  }
+
+  it("writes the backup to the private store", async () => {
+    await getBlobStore().put("backups/2026-09-27.json", "{}", "application/json");
+    expect(sdk.put.mock.calls[0][2]).toMatchObject({ ...PRIVATE, access: "private" });
+  });
+
+  it("writes a private upload to the private store and a public one to the default store", async () => {
+    sdk.put.mockResolvedValue({ pathname: "uploads/x.jpg", url: "https://x/uploads/x.jpg" });
+    const store = getBlobStore();
+    await store.putUpload("uploads/chat/", photo(), "private");
+    await store.putUpload("uploads/tool/", photo(), "public");
+
+    expect(sdk.put.mock.calls[0][2]).toMatchObject({ ...PRIVATE, access: "private" });
+    expect(sdk.put.mock.calls[1][2].access).toBe("public");
+    expect(sdk.put.mock.calls[1][2].token).toBeUndefined();
+    expect(sdk.put.mock.calls[1][2].storeId).toBeUndefined();
+  });
+
+  it("reads, lists and deletes through the store that holds the access", async () => {
+    const store = getBlobStore();
+    await store.read("research/cleaned/a.png", "private");
+    await store.read("uploads/tool/a.png", "public");
+    await store.list("backups/", "private");
+    await store.del(["backups/old.json"], "private");
+    await store.del(["uploads/tool/a.png"], "public");
+
+    expect(sdk.get.mock.calls[0][1]).toEqual({ ...PRIVATE, access: "private" });
+    expect(sdk.get.mock.calls[1][1]).toEqual({ access: "public" });
+    expect(sdk.list.mock.calls[0][0]).toMatchObject({ ...PRIVATE, prefix: "backups/" });
+    expect(sdk.del.mock.calls[0]).toEqual([["backups/old.json"], PRIVATE]);
+    expect(sdk.del.mock.calls[1]).toEqual([["uploads/tool/a.png"], {}]);
+  });
+
+  it("uses the private store id (OIDC) when that is all the private store set", async () => {
+    vi.stubEnv("BLOB_PRIVATE_READ_WRITE_TOKEN", "");
+    vi.stubEnv("BLOB_PRIVATE_STORE_ID", "store_private");
+    await getBlobStore().put("backups/2026-09-27.json", "{}", "application/json");
+    expect(sdk.put.mock.calls[0][2]).toMatchObject({ storeId: "store_private", access: "private" });
+  });
+
+  describe("copyToPublic across stores", () => {
+    it("reads the private bytes and writes them to the public store — never copy(), which cannot cross stores", async () => {
+      const stream = new ReadableStream<Uint8Array>();
+      sdk.get.mockResolvedValueOnce({ statusCode: 200, stream, blob: { contentType: "image/png" } });
+      sdk.put.mockResolvedValueOnce({
+        pathname: "uploads/tool/plate-Xa9k2-Qm7p1.png",
+        url: "https://public.blob.vercel-storage.com/uploads/tool/plate-Xa9k2-Qm7p1.png",
+      });
+
+      const stored = await getBlobStore().copyToPublic("uploads/chat/plate-Xa9k2.png", "uploads/tool/");
+
+      expect(sdk.copy).not.toHaveBeenCalled();
+      expect(sdk.get).toHaveBeenCalledExactlyOnceWith("uploads/chat/plate-Xa9k2.png", {
+        ...PRIVATE,
+        access: "private",
+      });
+      const [to, body, options] = sdk.put.mock.calls[0];
+      expect(to).toBe("uploads/tool/plate-Xa9k2.png");
+      expect(body).toBe(stream);
+      expect(options).toEqual({ access: "public", contentType: "image/png", addRandomSuffix: true });
+      expect(stored).toEqual({
+        pathname: "uploads/tool/plate-Xa9k2-Qm7p1.png",
+        url: "https://public.blob.vercel-storage.com/uploads/tool/plate-Xa9k2-Qm7p1.png",
+      });
+    });
+
+    it("leaves the private original for the caller to delete", async () => {
+      sdk.get.mockResolvedValueOnce({ statusCode: 200, stream: new ReadableStream(), blob: { contentType: "image/png" } });
+      sdk.put.mockResolvedValueOnce({ pathname: "uploads/tool/p.png", url: "https://x/p.png" });
+      await getBlobStore().copyToPublic("uploads/chat/p.png", "uploads/tool/");
+      expect(sdk.del).not.toHaveBeenCalled();
+    });
+
+    it("rejects, and writes nothing public, when the private source is missing", async () => {
+      sdk.get.mockResolvedValueOnce(null);
+      await expect(getBlobStore().copyToPublic("uploads/chat/gone.png", "uploads/tool/")).rejects.toThrow(
+        /no private blob/
+      );
+      expect(sdk.put).not.toHaveBeenCalled();
+    });
+  });
+});
+
 describe("copyToPublic", () => {
   it("copies to a PUBLIC, random pathname under the prefix, keeping the file name", async () => {
     await getBlobStore().copyToPublic("uploads/chat/plate-Xa9k2.jpg", "uploads/tool/");
@@ -196,7 +305,7 @@ describe("list", () => {
         hasMore: false,
       });
 
-    const blobs = await getBlobStore().list("backups/");
+    const blobs = await getBlobStore().list("backups/", "private");
 
     expect(sdk.list).toHaveBeenCalledTimes(2);
     expect(sdk.list.mock.calls[1][0].cursor).toBe("c1");
@@ -213,7 +322,7 @@ describe("list", () => {
       cursor: "always-more",
     });
 
-    const blobs = await getBlobStore().list("backups/");
+    const blobs = await getBlobStore().list("backups/", "private");
 
     expect(sdk.list).toHaveBeenCalledTimes(20);
     expect(blobs).toHaveLength(20);
@@ -222,16 +331,14 @@ describe("list", () => {
 
 describe("del", () => {
   it("does not call the SDK when there is nothing to prune", async () => {
-    await getBlobStore().del([]);
+    await getBlobStore().del([], "private");
     expect(sdk.del).not.toHaveBeenCalled();
   });
 
   it("passes the pathnames through in one call", async () => {
-    await getBlobStore().del(["backups/a.json", "backups/b.json"]);
-    expect(sdk.del).toHaveBeenCalledExactlyOnceWith([
-      "backups/a.json",
-      "backups/b.json",
-    ]);
+    await getBlobStore().del(["backups/a.json", "backups/b.json"], "private");
+    // One store: no credentials beyond the SDK's own default.
+    expect(sdk.del).toHaveBeenCalledExactlyOnceWith(["backups/a.json", "backups/b.json"], {});
   });
 });
 

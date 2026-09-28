@@ -26,6 +26,7 @@ const IMPORT: ImportView = {
   itemCount: 4,
   duplicateCount: 1,
   createdByName: "Niti",
+  createdByRemoved: false,
   createdAt: "2026-09-24T00:00:00.000Z",
 };
 

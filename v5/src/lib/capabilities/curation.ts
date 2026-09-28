@@ -13,6 +13,8 @@ import { otherToolNames } from "../data/tool-name-clash";
 import { getDb } from "../db/client";
 import { DISPLAY_NAME_MAX, isNameTaken, isValidDisplayName, OFFICIAL_NAME_MAX, type DisplayNameContext } from "../tool-names";
 import { fenceUntrusted } from "../web/fence";
+import { linkLanguage } from "../research/english-links";
+import { describeJudgement, urlLanguage } from "../research/language";
 import type { Capability, CapabilityCtx, CapabilityTool, CurationContext, PromptEnv } from "./types";
 
 /**
@@ -64,7 +66,7 @@ export const CHAT_PROPOSAL_FIELDS = [
 type ChatProposalField = (typeof CHAT_PROPOSAL_FIELDS)[number];
 
 /** What `propose_change`'s `value` is, per field — shared by the chat's tool and MCP's. */
-export const PROPOSAL_VALUE_DESCRIPTION = `The proposed value: a string (name — the short display name people say, at most ${DISPLAY_NAME_MAX} characters, no part number; official_name — the full product name with model or part number; description, use_restrictions, emergency_stop, floor_check), the complete list of strings (materials, tags), true/false (training_required), or { title, url, type: Manual|Video|Other } (resource).`;
+export const PROPOSAL_VALUE_DESCRIPTION = `The proposed value: a string (name — the short display name people say, at most ${DISPLAY_NAME_MAX} characters, no part number; official_name — the full product name with model or part number; description, use_restrictions, emergency_stop, floor_check), the complete list of strings (materials, tags), true/false (training_required), or { title, url, type: Manual|Video|Other } (resource — an English page or manual only).`;
 
 /** The longest `reason` kept (§12.1: ≤ 200 characters, shown on the card). */
 export const REASON_MAX_CHARS = 200;
@@ -189,6 +191,8 @@ export async function proposeChange(
   if (!subject) return refuse("not_found", "This record is no longer there to curate.");
   const labRule = labRuleRefusal(field, value, subject);
   if (labRule) return labRule;
+  const language = languageRefusal(field, value, ctx);
+  if (language) return language;
   const proposal = buildProposal(field, value, subject, input, ctx);
   if (!proposal) return refuse("matches", "The record already says that. Nothing to propose.");
 
@@ -312,6 +316,23 @@ function labRuleRefusal(field: ChatProposalField, value: unknown, subject: Curat
   return null;
 }
 
+/**
+ * English only (gateway spec amendment "English resources only"): a resource
+ * whose address, or the text this turn read from it, is in another language is
+ * refused — the lab keeps English websites and manuals.
+ */
+function languageRefusal(field: ChatProposalField, value: unknown, ctx: CapabilityCtx): ToolResult | null {
+  if (field !== "resource") return null;
+  const resource = value as ProposedResource;
+  const read = turnTexts(ctx).map((entry) => ({ url: entry.url, title: null, text: entry.text }));
+  const judgement = linkLanguage(resource, { searchTexts: read });
+  if (judgement.verdict !== "not_english") return null;
+  return refuse(
+    "not_english",
+    `That page is not in English (${describeJudgement(judgement)}). The lab keeps English websites and manuals only: find the English version — the manufacturer's en-us or en-gb page, or the English edition of the manual (a multilingual one with English is fine) — and propose that, or propose nothing.`
+  );
+}
+
 /** The proposal code makes of the model's value: kind, current, quotes checked — or null when it changes nothing. */
 function buildProposal(
   field: ChatProposalField,
@@ -330,7 +351,9 @@ function buildProposal(
   if (field === "resource") {
     const resource = value as ProposedResource;
     const key = resourceKey(resource.url);
-    if ((subject.record.resourceUrls ?? []).some((url) => resourceKey(url) === key)) return null;
+    // A link in another language does not count as having the English one.
+    const have = (subject.record.resourceUrls ?? []).filter((url) => urlLanguage(url).verdict !== "not_english");
+    if (have.some((url) => resourceKey(url) === key)) return null;
     return { ...base, id: `resource:${resource.url}`, kind: "new", current: null, proposed: resource, citations, ...(reason ? { reason } : {}) };
   }
 

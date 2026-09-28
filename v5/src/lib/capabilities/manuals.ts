@@ -26,6 +26,10 @@ import type { Capability, CapabilityTool, ManualOutlineForPrompt, PromptEnv } fr
  * - **Citations are built here**, not by the model: every passage carries the
  *   `citation` text ("Form 4 manual, p. 42") and the `url` that opens the
  *   stored PDF at that page, so the model copies rather than invents.
+ * - **Reranked** (phase 3): the search asks the `rerank` job to order the fused
+ *   candidates; a reranker that fails or is slow leaves the fused order.
+ * - A passage **read by OCR** from a scanned manual says so (`transcribed`),
+ *   so the model can point the student at the page for an exact figure.
  *
  * Read-only and open to everyone. Registered on MCP too (§7: "expose
  * search_manual as a read tool with the same access rules").
@@ -50,6 +54,8 @@ interface PassageForModel {
   tool: string | null;
   section: string;
   text: string;
+  /** Present when the page was read by OCR from a scan. */
+  transcribed?: string;
 }
 
 type SearchManualResult =
@@ -101,10 +107,12 @@ const searchManualTool: CapabilityTool<SearchManualInput, SearchManualResult> = 
       toolIds: scoped ? [scoped.id] : undefined,
       limit: SEARCH_MANUAL_LIMIT,
       viewer: ctx.identity,
+      rerank: true,
     });
     console.info(
       `[manuals] search_manual: scope=${scoped ? scoped.id : "all"} passages=${result.passages.length}` +
-        `${result.vectorFailed ? " (full text only)" : ""}`
+        `${result.vectorFailed ? " (full text only)" : ""}${result.reranked ? " reranked" : ""}` +
+        `${result.rerankFailed ? " (rerank failed)" : ""}`
     );
 
     if (result.passages.length === 0) {
@@ -145,6 +153,10 @@ function normalise(text: string): string {
   return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 }
 
+/** What a passage read by OCR carries, for the model. */
+export const OCR_NOTE =
+  "Read by OCR from a scanned page: a character may be misread. For an exact figure, point the student to the page.";
+
 /** "Form 4 Manual, p. 42" · "…, pp. 42–43" · "…, p. 42 (printed 3-12)". */
 export function passageCitation(passage: Pick<ManualPassage, "documentTitle" | "pageStart" | "pageEnd" | "pageLabel">): string {
   const pages =
@@ -154,7 +166,7 @@ export function passageCitation(passage: Pick<ManualPassage, "documentTitle" | "
   return `${passage.documentTitle}, ${pages}${printed}`;
 }
 
-function toModelPassage(passage: ManualPassage): PassageForModel {
+export function toModelPassage(passage: ManualPassage): PassageForModel {
   const citation = passageCitation(passage);
   return {
     citation,
@@ -162,6 +174,7 @@ function toModelPassage(passage: ManualPassage): PassageForModel {
     tool: passage.toolName,
     section: passage.sectionPath.join(" › "),
     text: fenceUntrusted(citation, passage.content),
+    ...(passage.ocr ? { transcribed: OCR_NOTE } : {}),
   };
 }
 

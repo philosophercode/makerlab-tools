@@ -1,4 +1,5 @@
 import { getTranslations } from "next-intl/server";
+import { ImportListAction } from "../../../../components/admin/ImportListAction";
 import { AdminPageHeader } from "../../../../components/admin/AdminPageHeader";
 import { LinkTabs } from "../../../../components/system/LinkTabs";
 import { ADMIN_INTAKE_PATH } from "../../../../lib/intake/types";
@@ -9,15 +10,17 @@ import { can } from "../../../../lib/auth/permissions";
 import { loadAdminOverview } from "../../../../lib/data/admin-overview";
 
 /**
- * **Add equipment** — one header over three tabs (UI system spec §8.1: "Add
- * equipment becomes one page with tabs — Queue · Imports · Import a list",
- * instead of imports being a list at the bottom of intake):
+ * **Intake** — the one surface for adding equipment: one header over two tabs
+ * and an action (UI system spec §8.1; amendment 2026-09-25 "Admin polish",
+ * which folded the separate "Import a list" surface in here):
  *
  * - **Queue** `/admin/intake` — everything identified, researching or waiting
  *   for approval (`tools.approve`);
  * - **Imports** `/admin/intake/imports` — the recent imports, each resumable
  *   (`tools.add`);
- * - **Import a list** `/admin/intake/imports/new` (`tools.add`).
+ * - **Import a list** — the header's primary action, a link to
+ *   `/admin/intake/imports/new` (`tools.add`), which keeps its own URL and its
+ *   own check and sits under the Imports tab.
  *
  * A route group, not a merge: each tab keeps its own URL and its own
  * permission check, and a tab the viewer cannot open is not offered. One
@@ -46,7 +49,6 @@ export default async function AddEquipmentLayout({ children }: Readonly<{ childr
     ...(canImport
       ? [
           { href: `${ADMIN_INTAKE_PATH}/imports`, label: t("addEquipment.tabImports") },
-          { href: `${ADMIN_INTAKE_PATH}/imports/new`, label: t("addEquipment.tabImport") },
         ]
       : []),
   ];
@@ -54,8 +56,13 @@ export default async function AddEquipmentLayout({ children }: Readonly<{ childr
   return (
     <section className="flex flex-col gap-4">
       <AdminPageHeader
-        group="addEquipment"
-        title={t("addEquipment.title")}
+        surface="intake"
+        title={t("intakeTitle")}
+        actions={
+          canImport ? (
+            <ImportListAction href={`${ADMIN_INTAKE_PATH}/imports/new`} />
+          ) : undefined
+        }
         lede={t("intakeLede")}
         facts={[
           ...(canReview

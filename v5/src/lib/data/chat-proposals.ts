@@ -80,6 +80,8 @@ export interface AssistantProposalRow {
   toolName: string;
   proposal: FieldProposal;
   proposedBy: string | null;
+  /** The proposer's account has been removed (auth spec amendment 2026-09-25). */
+  proposedByRemoved: boolean;
   createdAt: Date;
 }
 
@@ -113,7 +115,18 @@ export async function listOpenAssistantProposals(
   return rows.flatMap(({ row, toolName, proposedBy }) => {
     const proposal = fieldProposalSchema.safeParse(row.proposal);
     if (!proposal.success) return [];
-    return [{ id: row.id, toolId: row.subjectId, toolName, proposal: proposal.data, proposedBy, createdAt: row.createdAt }];
+    return [
+      {
+        id: row.id,
+        toolId: row.subjectId,
+        toolName,
+        proposal: proposal.data,
+        // Live, or the snapshot written when the proposer was removed.
+        proposedBy: proposedBy ?? row.createdByName ?? null,
+        proposedByRemoved: row.createdBy === null && row.createdByName !== null,
+        createdAt: row.createdAt,
+      },
+    ];
   });
 }
 

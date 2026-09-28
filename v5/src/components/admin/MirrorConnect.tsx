@@ -1,7 +1,5 @@
 "use client";
 
-import "../../styles/admin-mirror.css";
-
 import { useId, useState, type FormEvent } from "react";
 import { useTranslations } from "next-intl";
 import type { AdminActionWarning } from "../../lib/admin/action-result";
@@ -10,6 +8,10 @@ import {
   type MirrorActionError,
   type MirrorActions,
 } from "../../app/admin/mirror/action-result";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Field, hintId } from "../system/Field";
+import { RowStatus, type RowStatusTone } from "./RowStatus";
 import { useRefreshNudge } from "./use-refresh-nudge";
 
 /**
@@ -50,8 +52,6 @@ export function MirrorConnect({ actions, initialPageUrl = "" }: MirrorConnectPro
   const nudge = useRefreshNudge();
   const tokenId = useId();
   const pageId = useId();
-  const tokenHintId = `${tokenId}-hint`;
-  const pageHintId = `${pageId}-hint`;
 
   const [token, setToken] = useState("");
   const [pageUrl, setPageUrl] = useState(initialPageUrl);
@@ -101,82 +101,72 @@ export function MirrorConnect({ actions, initialPageUrl = "" }: MirrorConnectPro
   }
 
   let line: string | null = null;
-  let tone = "";
+  let tone: RowStatusTone = "muted";
   if (outcome?.kind === "found") {
     line = outcome.title ? t("mirror.connect.found", { title: outcome.title }) : t("mirror.connect.foundUntitled");
-    tone = " is-ok";
+    tone = "ok";
   } else if (outcome?.kind === "connected") {
     line = outcome.warning
       ? t(`warnings.${outcome.warning}`)
       : outcome.title
         ? t("mirror.connect.connected", { title: outcome.title })
         : t("mirror.connect.connectedUntitled");
-    tone = outcome.warning ? " is-warning" : " is-ok";
+    tone = outcome.warning ? "warn" : "ok";
   } else if (outcome?.kind === "error") {
     line = t(mirrorErrorMessageKey(outcome.error));
-    tone = " is-error";
+    tone = "bad";
   }
 
   return (
-    <section className="admin-mirror-panel" aria-labelledby="mirror-connect-title">
-      <h3 id="mirror-connect-title">{t("mirror.connect.title")}</h3>
-      <form className="admin-mirror-form" onSubmit={(event) => void connect(event)} noValidate>
-        <div className="admin-field">
-          <label htmlFor={tokenId}>{t("mirror.connect.tokenLabel")}</label>
-          <input
+    <section className="ui flex flex-col gap-3 border-t border-rule pt-4" aria-labelledby="mirror-connect-title">
+      <h3 id="mirror-connect-title" className="font-heading text-lg font-medium uppercase">
+        {t("mirror.connect.title")}
+      </h3>
+      <form className="flex max-w-xl flex-col gap-3" onSubmit={(event) => void connect(event)} noValidate>
+        <Field id={tokenId} label={t("mirror.connect.tokenLabel")} hint={t("mirror.connect.tokenHint")}>
+          <Input
             id={tokenId}
             type="password"
             name="notion-token"
             autoComplete="off"
             spellCheck={false}
             autoCapitalize="off"
-            aria-describedby={tokenHintId}
+            aria-describedby={hintId(tokenId)}
+            className="font-mono"
             value={token}
             onChange={(event) => {
               setToken(event.target.value);
               edited();
             }}
           />
-          <span id={tokenHintId} className="admin-mirror-field-hint">
-            {t("mirror.connect.tokenHint")}
-          </span>
-        </div>
-        <div className="admin-field">
-          <label htmlFor={pageId}>{t("mirror.connect.pageLabel")}</label>
-          <input
+        </Field>
+        <Field id={pageId} label={t("mirror.connect.pageLabel")} hint={t("mirror.connect.pageHint")}>
+          <Input
             id={pageId}
             type="url"
             name="notion-page"
             inputMode="url"
             autoComplete="off"
             spellCheck={false}
-            aria-describedby={pageHintId}
+            aria-describedby={hintId(pageId)}
             value={pageUrl}
             onChange={(event) => {
               setPageUrl(event.target.value);
               edited();
             }}
           />
-          <span id={pageHintId} className="admin-mirror-field-hint">
-            {t("mirror.connect.pageHint")}
-          </span>
-        </div>
-        <div className="admin-mirror-actions">
-          <button
-            type="button"
-            className="admin-button"
-            disabled={!filled || busy !== null}
-            onClick={() => void test()}
-          >
+        </Field>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="button" disabled={!filled || busy !== null} onClick={() => void test()}>
             {busy === "test" ? t("mirror.connect.testing") : t("mirror.connect.test")}
-          </button>
-          <button type="submit" className="admin-button is-primary" disabled={!filled || busy !== null}>
+          </Button>
+          <Button type="submit" variant="default" disabled={!filled || busy !== null}>
             {busy === "connect" ? t("mirror.connect.connecting") : t("mirror.connect.connect")}
-          </button>
+          </Button>
         </div>
-        <p className={`admin-mirror-line${tone}`} role="status">
+        <RowStatus tone={tone} as="p" className="text-sm">
           {line}
-        </p>
+        </RowStatus>
       </form>
     </section>
   );

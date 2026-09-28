@@ -1,9 +1,12 @@
 import { sql } from "drizzle-orm";
 import type { CountLoader } from "../admin/surfaces.ts";
 import { getDb } from "../db/client.ts";
+import { labTimezone, labToday } from "../lab-time.ts";
 import { rawRows } from "../db/raw.ts";
 import type { Db } from "../db/types.ts";
 import { listInventoryRows } from "./inventory.ts";
+import { countOpenInboxProposals } from "./action-proposals.ts";
+import { countOpenTickets } from "./maintenance.ts";
 import { countManualsByState } from "./manual-chunks.ts";
 import { getMirrorViewForOwner } from "./mirrors.ts";
 
@@ -50,7 +53,10 @@ export interface OverviewCounts {
   maintenance: { open: number; inProgress: number; urgent: number; series: number[] };
   corrections: { open: number; handled: number; series: number[] };
   projects: { waiting: number; published: number };
-  users: { total: number; admins: number; banned: number };
+  /** The viewer's own MCP proposals waiting in the Assistant proposals inbox (assistant–GUI parity spec §6). */
+  proposals: { open: number };
+  /** `blocked` is the blocked-address list, which replaced bans (auth spec amendment 2026-09-25). */
+  users: { total: number; admins: number; blocked: number };
   mirror: { state: "notConnected" | "connected" | "paused" | "failed" };
 }
 
@@ -64,6 +70,14 @@ export interface OverviewContext {
   db: Db;
   /** The viewer — the mirror tile is their own mirror, found by owner (§8). */
   userId: string | null;
+  /**
+   * The series' days are the **lab's** days (`LAB_TIMEZONE`): `today` is the
+   * lab's date now, and a timestamp is bucketed by its date in `timeZone`. The
+   * database's own `current_date` is UTC on Vercel, so after 8pm in New York a
+   * ticket filed today was counted as tomorrow's and fell off the last slot.
+   */
+  today: string;
+  timeZone: string;
 }
 
 type Num = number | string | null;
@@ -71,7 +85,8 @@ const n = (value: Num | undefined) => Number(value ?? 0);
 
 /** Each surface's count loader. */
 export const COUNT_LOADER_READS: { [K in CountLoader]: (ctx: OverviewContext) => Promise<OverviewCounts[K]> } = {
-  async intake({ db }) {
+  async intake(ctx) {
+    const { db } = ctx;
     const [[row], series] = await Promise.all([
       // An imported row not yet sent to research is reviewed on its import's
       // page, not in the queue (bulk intake spec §5) — so it is not counted as
@@ -84,7 +99,7 @@ export const COUNT_LOADER_READS: { [K in CountLoader]: (ctx: OverviewContext) =>
                    count(*) filter (where status = 'failed') as failed
               from pending_tools`
       ),
-      dailySeries(db, sql`created_at::date`, sql`pending_tools`),
+      dailySeries(ctx, labDay(ctx, sql`created_at`), sql`pending_tools`),
     ]);
     return {
       identified: n(row?.identified),
@@ -141,21 +156,18 @@ export const COUNT_LOADER_READS: { [K in CountLoader]: (ctx: OverviewContext) =>
     };
   },
 
-  async maintenance({ db }) {
-    const [[row], series] = await Promise.all([
-      rawRows<Record<string, Num>>(
-        db,
-        sql`select count(*) filter (where status = 'open') as open,
-                   count(*) filter (where status = 'in_progress') as in_progress,
-                   count(*) filter (where status in ('open', 'in_progress') and priority in ('high', 'critical')) as urgent
-              from maintenance_logs`
-      ),
-      dailySeries(db, sql`coalesce(date_reported, created_at::date)`, sql`maintenance_logs`),
+  async maintenance(ctx) {
+    const { db } = ctx;
+    // The counts are shared with the kiosk's open-ticket figure (kiosk spec §4.1).
+    const [counts, series] = await Promise.all([
+      countOpenTickets(db),
+      dailySeries(ctx, sql`coalesce(date_reported, ${labDay(ctx, sql`created_at`)})`, sql`maintenance_logs`),
     ]);
-    return { open: n(row?.open), inProgress: n(row?.in_progress), urgent: n(row?.urgent), series };
+    return { ...counts, series };
   },
 
-  async corrections({ db }) {
+  async corrections(ctx) {
+    const { db } = ctx;
     const [[row], series] = await Promise.all([
       rawRows<Record<string, Num>>(
         db,
@@ -163,7 +175,7 @@ export const COUNT_LOADER_READS: { [K in CountLoader]: (ctx: OverviewContext) =>
                    count(*) filter (where status <> 'new') as handled
               from feedback`
       ),
-      dailySeries(db, sql`created_at::date`, sql`feedback`),
+      dailySeries(ctx, labDay(ctx, sql`created_at`), sql`feedback`),
     ]);
     return { open: n(row?.open), handled: n(row?.handled), series };
   },
@@ -178,15 +190,19 @@ export const COUNT_LOADER_READS: { [K in CountLoader]: (ctx: OverviewContext) =>
     return { waiting: n(row?.waiting), published: n(row?.published) };
   },
 
+  async proposals({ db, userId }) {
+    return { open: userId ? await countOpenInboxProposals(userId, { db }) : 0 };
+  },
+
   async users({ db }) {
     const [row] = await rawRows<Record<string, Num>>(
       db,
       sql`select count(*) as total,
                  count(*) filter (where role in ('admin', 'super_admin')) as admins,
-                 count(*) filter (where banned) as banned
+                 (select count(*) from blocked_emails) as blocked
             from "user"`
     );
-    return { total: n(row?.total), admins: n(row?.admins), banned: n(row?.banned) };
+    return { total: n(row?.total), admins: n(row?.admins), blocked: n(row?.blocked) };
   },
 
   async mirror({ db, userId }) {
@@ -208,10 +224,11 @@ export const COUNT_LOADER_READS: { [K in CountLoader]: (ctx: OverviewContext) =>
  */
 export async function loadAdminOverview(
   loaders: readonly CountLoader[],
-  options: { db?: Db; userId?: string | null } = {}
+  options: { db?: Db; userId?: string | null; now?: Date } = {}
 ): Promise<AdminOverview> {
   const db = options.db ?? (await getDb());
-  const ctx: OverviewContext = { db, userId: options.userId ?? null };
+  const now = options.now ?? new Date();
+  const ctx: OverviewContext = { db, userId: options.userId ?? null, today: labToday(now), timeZone: validTimeZone(labTimezone()) };
   const wanted = [...new Set(loaders)].filter((name) => name in COUNT_LOADER_READS);
 
   const settled = await Promise.allSettled(wanted.map((name) => COUNT_LOADER_READS[name](ctx)));
@@ -228,14 +245,34 @@ export async function loadAdminOverview(
   return out as AdminOverview;
 }
 
-/** Daily counts over `table` by `dayExpr`, oldest first, zero-filled — one statement. */
-async function dailySeries(db: Db, dayExpr: ReturnType<typeof sql>, table: ReturnType<typeof sql>): Promise<number[]> {
+/** A timestamp column's date in the lab's timezone. */
+function labDay(ctx: OverviewContext, column: ReturnType<typeof sql>): ReturnType<typeof sql> {
+  return sql`(${column} at time zone ${ctx.timeZone})::date`;
+}
+
+/** `LAB_TIMEZONE` if Intl knows it, else UTC — the same fallback `labToday` takes, so the two agree. */
+function validTimeZone(timeZone: string): string {
+  try {
+    new Intl.DateTimeFormat("en-CA", { timeZone });
+    return timeZone;
+  } catch {
+    return "UTC";
+  }
+}
+
+/**
+ * Daily counts over `table` by `dayExpr` (a date in the lab's timezone),
+ * oldest first, zero-filled — one statement. "Today" is the lab's today,
+ * passed in, never the database's `current_date`.
+ */
+async function dailySeries(ctx: OverviewContext, dayExpr: ReturnType<typeof sql>, table: ReturnType<typeof sql>): Promise<number[]> {
   const days = SERIES_DAYS;
   const rows = await rawRows<{ age: Num; n: Num }>(
-    db,
-    sql`select (current_date - ${dayExpr}) as age, count(*) as n
+    ctx.db,
+    sql`select (${ctx.today}::date - ${dayExpr}) as age, count(*) as n
           from ${table}
-         where ${dayExpr} > current_date - ${days}::int
+         where ${dayExpr} > ${ctx.today}::date - ${days}::int
+           and ${dayExpr} <= ${ctx.today}::date
          group by 1`
   );
   return fill(rows, days);

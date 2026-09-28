@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import type { EditableTool } from "../../lib/data/tools";
+import { AsyncButton } from "../system/AsyncButton";
 
 /**
  * Looks good, Publish, Unpublish, Archive and Restore (spec §5.3(3), §5.3(5)).
@@ -27,7 +28,8 @@ export interface ToolStateControlsProps {
   /** Whether the viewer holds `tools.publish`, as the server reported it. */
   canPublish: boolean;
   pending: boolean;
-  onMarkReviewed: () => void;
+  /** Answers whether it landed: the button flashes Done, or the panel's line says why not. */
+  onMarkReviewed: () => Promise<boolean>;
   onPublish: () => void;
   onUnpublish: () => void;
   onArchive: () => void;
@@ -61,14 +63,10 @@ export function ToolStateControls({
       </p>
 
       <div className="admin-unit-actions">
-        <button
-          type="button"
-          className="admin-button is-primary"
-          disabled={pending}
-          onClick={onMarkReviewed}
-        >
+        {/* One shot, its state in the button (DESIGN.md §8.10, `AsyncButton`). */}
+        <AsyncButton variant="default" size="sm" disabled={pending} onRun={onMarkReviewed} doneLabel={t("done")}>
           {t("looksGood")}
-        </button>
+        </AsyncButton>
 
         {canPublish ? (
           <>

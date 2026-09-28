@@ -7,8 +7,9 @@ import { gatewayLanguageModel, languageModelFor, modelIdFor } from "@/lib/ai/mod
 import { getNotionEnvContract } from "@/lib/notion";
 import { loadCases, type EvalCase } from "./cases";
 import { buildFixture } from "./fixtures";
-import { composeCase } from "./harness";
+import { caseMessages, composeCase } from "./harness";
 import { seedEvalManual } from "./manual-fixture";
+import { seedEvalTickets } from "./ticket-fixture";
 import { formatReport, runSuite, type CaseExecution } from "./runner";
 
 /**
@@ -70,7 +71,8 @@ async function executeCase(evalCase: EvalCase): Promise<CaseExecution> {
   const result = await generateText({
     model,
     system,
-    prompt: evalCase.prompt,
+    // The case's history, then its prompt: a single user message for most.
+    messages: caseMessages(evalCase),
     tools: aiTools,
     stopWhen: stepCountIs(6),
   });
@@ -110,7 +112,15 @@ describe("agent evals", () => {
     // The Form 4's fixture manual, processed and searchable (manual text spec
     // §10) — one sub-cent embedding call through the Gateway.
     await seedEvalManual();
-    const cases = loadCases();
+    // An open Form 4 ticket for the staff maintenance cases.
+    await seedEvalTickets();
+    // `EVAL_CASES=staff-maintenance` runs one case file (or a comma list of
+    // files or case ids) — a cheap way to check one behaviour.
+    const only = (process.env.EVAL_CASES ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+    const cases = loadCases().filter(
+      (c) => only.length === 0 || only.includes(c.id) || only.includes(c.file.replace(/\.ya?ml$/, ""))
+    );
+    if (cases.length === 0) throw new Error(`EVAL_CASES="${process.env.EVAL_CASES}" matches no case file or id`);
     console.info(`Running ${cases.length} eval cases against ${MODEL_LABEL}…`);
 
     // Built from the catalogue the harness actually composes with, so an

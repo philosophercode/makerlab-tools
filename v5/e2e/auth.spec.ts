@@ -110,7 +110,7 @@ test.describe("Sign-in", () => {
     await expect(nav.getByRole("menuitem", { name: /add equipment/i })).toHaveCount(0);
     await expect(nav.getByRole("menuitem", { name: /^admin$/i })).toHaveCount(0);
     // Refresh left the header for /admin on 2026-09-23.
-    await expect(nav.getByRole("button", { name: /Refresh the/i })).toHaveCount(0);
+    await expect(nav.getByRole("button", { name: "Refresh catalog" })).toHaveCount(0);
   });
 
   test("an admin's role comes from their row, and unlocks the admin controls", async ({
@@ -133,7 +133,7 @@ test.describe("Sign-in", () => {
     await page.goto("/admin");
     const actions = page.getByRole("group", { name: "Admin actions" });
     await expect(actions.getByRole("button", { name: /add equipment/i })).toBeVisible();
-    await expect(actions.getByRole("button", { name: /Refresh the/i })).toBeVisible();
+    await expect(actions.getByRole("button", { name: "Refresh catalog" })).toBeVisible();
   });
 
   test("a cookie signed with the wrong secret is nobody", async ({

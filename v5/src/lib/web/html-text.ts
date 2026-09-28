@@ -27,6 +27,12 @@ export interface ExtractedPage {
    * not listed again.
    */
   images: ImageHint[];
+  /**
+   * The page's declared language: `<html lang>` (or `xml:lang`), else a
+   * `Content-Language` meta — absent when it declares none (amendment "English
+   * resources only").
+   */
+  lang?: string;
 }
 
 /** At most this many gallery pictures are taken from one page. */
@@ -76,6 +82,8 @@ type Region = "main" | "article" | "body";
 export function extractPage(html: string, baseUrl: string): ExtractedPage {
   let base = baseUrl;
   let title: string | null = null;
+  let lang: string | null = null;
+  let metaLang: string | null = null;
   const og: string[] = [];
   const twitter: string[] = [];
   const jsonLd: string[] = [];
@@ -138,8 +146,12 @@ export function extractPage(html: string, baseUrl: string): ExtractedPage {
     // Start tag.
     if (tag.name === "meta") {
       readMeta(tag.attrs, og, twitter);
+      if (metaLang === null && (tag.attrs["http-equiv"] ?? "").toLowerCase() === "content-language") {
+        metaLang = languageTag(tag.attrs.content);
+      }
       continue;
     }
+    if (tag.name === "html" && lang === null) lang = languageTag(tag.attrs.lang ?? tag.attrs["xml:lang"]);
     if (tag.name === "base" && tag.attrs.href) {
       try {
         base = new URL(decodeEntities(tag.attrs.href), baseUrl).href;
@@ -189,7 +201,14 @@ export function extractPage(html: string, baseUrl: string): ExtractedPage {
   // A page with a <main> or <article> keeps its gallery there; the rest is chrome.
   const content = gallery.some((image) => image.inContent) ? gallery.filter((image) => image.inContent) : gallery;
   const images = collectImages(base, baseUrl, og, twitter, jsonLdImages(jsonLd), content.map((image) => image.raw));
-  return { title, text, images };
+  const declared = lang ?? metaLang;
+  return { title, text, images, ...(declared ? { lang: declared } : {}) };
+}
+
+/** A language tag as declared (`en-US`), trimmed; null when empty or not tag-shaped. */
+function languageTag(raw: string | undefined): string | null {
+  const value = decodeEntities(raw ?? "").split(",")[0].trim();
+  return /^[a-z]{2,3}(?:[-_][a-z0-9]{2,8})*$/i.test(value) ? value : null;
 }
 
 interface Tag {

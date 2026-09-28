@@ -106,6 +106,18 @@ export const DEMO_ACCOUNTS = {
     role: "user",
     sessionToken: "demo-session-promotable",
   },
+  /**
+   * The account `e2e/admin-users.spec.ts` **removes** (auth spec amendment
+   * 2026-09-25). Its own row for the reason `promotable` has one — and more so:
+   * after that spec runs, it no longer exists on that server.
+   */
+  removable: {
+    id: "demo-user-robin",
+    name: "Robin Removable",
+    email: "robin@cornell.edu",
+    role: "user",
+    sessionToken: "demo-session-removable",
+  },
 } as const;
 
 /**

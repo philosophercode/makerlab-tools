@@ -167,7 +167,7 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   await page.goto("/");
   const heading = page.getByRole("heading", { name: domino.name, level: 2 });
   await expect(heading).toBeVisible({ timeout: 15_000 });
-  const cover = page.locator("a.tool-card").filter({ has: heading }).locator(".tool-card-image img");
+  const cover = page.locator('a[data-slot="tool-card"]').filter({ has: heading }).locator("img");
   await expect(cover).toHaveAttribute("src", /\/api\/dev-blob\/.+\.png$/);
   await expect
     .poll(() => cover.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth), {

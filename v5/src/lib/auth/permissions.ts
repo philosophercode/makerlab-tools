@@ -14,7 +14,7 @@ import type { Role } from "./roles";
  *
  * The shape is Better Auth's access-control module because the admin plugin
  * expects roles described that way; passing the same `ac` / `roles` to the
- * plugin is what makes `set-role` and `ban-user` answer to this declaration
+ * plugin is what makes `set-role` answer to this declaration
  * instead of to the library's defaults.
  *
  * **One check, everywhere.** Server actions, route handlers and capability
@@ -57,7 +57,11 @@ export const ac = createAccessControl(statement);
  * capability nobody holds is one nobody can be tricked into using.
  */
 const ACCOUNT_MANAGEMENT = {
-  user: ["list", "get", "set-role", "ban", "update"],
+  // No `ban` since the auth spec amendment of 2026-09-25: Remove replaced Ban,
+  // and withholding the grant means the plugin's own `ban-user` refuses too.
+  // No `delete` either: removal is the app's own transaction
+  // (`lib/data/user-removal.ts`), gated on `users.manage`, never the plugin's.
+  user: ["list", "get", "set-role", "update"],
   session: ["list", "revoke"],
 } as const;
 
@@ -68,7 +72,7 @@ const ACCOUNT_MANAGEMENT = {
  *   a project is the whole of it; browsing and chatting never needed an account.
  * - `admin` — a SuperMaker. Runs the catalogue and the lab's day-to-day
  *   records, but cannot change who is who.
- * - `super_admin` — a director. Everything, including roles and bans.
+ * - `super_admin` — a director. Everything, including roles and removing people.
  */
 export const roles = {
   user: ac.newRole({

@@ -180,7 +180,7 @@ export async function POST(req: NextRequest) {
     return Response.json(
       {
         code: "blob_not_configured",
-        error: "File uploads are unavailable: BLOB_READ_WRITE_TOKEN is not set.",
+        error: "File uploads are unavailable: no Blob store is linked (BLOB_READ_WRITE_TOKEN or BLOB_STORE_ID).",
       },
       { status: 503 }
     );
@@ -285,7 +285,7 @@ export async function POST(req: NextRequest) {
     // store forever — the cron only sweeps files that *have* a row. Remove
     // them here so a failed upload leaves nothing behind.
     try {
-      await store.del([stored.pathname]);
+      await store.del([stored.pathname], access);
     } catch (cleanupErr) {
       console.error("[uploads] orphaned blob cleanup failed", cleanupErr);
     }

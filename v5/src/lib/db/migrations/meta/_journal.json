@@ -113,6 +113,41 @@
       "when": 1790305585410,
       "tag": "0015_tool_official_name",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1790390044993,
+      "tag": "0016_people_remove",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790536369007,
+      "tag": "0017_people_titles",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1790538662906,
+      "tag": "0018_people_add",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1790540577033,
+      "tag": "0019_manual_phase3",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790549088519,
+      "tag": "0020_assistant_actions",
+      "breakpoints": true
     }
   ]
 }

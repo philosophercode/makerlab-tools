@@ -1,7 +1,7 @@
 # Gateway-First Models and a Product Image Finder — Design Spec
 
 **Date:** 2026-09-23
-**Status:** Draft
+**Status:** Implemented — the Gateway is the only model path (status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/`
 **Branch:** `v5/gateway-images-spec`
 **Spec PR:** #TBD · **Implementation PR:** #TBD
@@ -2056,3 +2056,248 @@ This run's candidates did not include the milling bit or the driver bit the eval
 Othermill case shows "no image rather than a wrong one" working.
 
 **Status.** Built on `v5/research-fixes`.
+
+### 2026-09-26 — The picked image is cleaned too (§3.5, §4.1, §5.2, §6, §10; refresh research spec §3.3)
+
+**Why.** Only rank 1 got a cleaned copy. An admin who picked Option 2 or 3 on the preliminary
+page got that picture exactly as its host served it — backdrop, banner and all — while rank 1
+would have been cut out. Refresh research's accepted cover (`cover_photo`) was never cleaned at
+all: refresh keeps no cleaned copy (`rankAndClean(…, { clean: false })`). The owner's ask:
+whichever image becomes the tool's photo has its background removed, the same way rank 1's is.
+
+**The design: clean at pick time, not during research.** Cleaning every ranked candidate during
+research would store up to three private copies per item, change `ResearchImages.cleaned` to a
+list, and still leave refresh uncovered (it stores nothing). Cleaning the one image that is
+chosen, when it is downloaded, covers both paths with one function and costs only CPU — the
+same deterministic cutout and crop, **no model call, never a generative redraw** (amendment
+"No generative redraw").
+
+- **`images/pick-clean.ts` (`cleanPickedImage`)** takes the downloaded bytes and whatever
+  research recorded about the candidate — `background`, `composite`, `productBox` — and runs
+  `makeCleanCopy` on them. A candidate recorded without a background class (older rows, a
+  refresh proposal made before this amendment) is **classified on the fly** from its border
+  pixels. It answers the cleaned PNG (`kind` `cut` / `cropped` / `cropped_and_cut`) or, when
+  no copy can be made — a busy backdrop with no box, already transparent, a cut that fails its
+  checks, no `sharp` — **the original bytes, unchanged**, with the note saying why. Never throws.
+- **Approval (`intake/approval-image.ts`).** A choice of `original` downloads the candidate as
+  before (the exact-URL rule and the guarded fetch are unchanged — §8's SSRF rule still holds:
+  only a URL research recorded is ever fetched) and then cleans it. The stored file is the
+  cleaned PNG when one was made, else the original; it is still `origin: "research_image"`,
+  public, unowned until the transaction claims it, with `sourceUrl` the candidate's URL — the
+  claim rule (`takeCover`) is unchanged. **One exception:** rank 1's original chosen *beside* its
+  recorded cleaned copy (`images.cleaned.fromUrl` is that URL) is stored raw. The page shows the
+  two side by side, so picking "Original" there is a deliberate rejection of the cut.
+- **Refresh (`refresh/apply.ts`).** `storeResearchImage` takes the same hints and cleans the
+  same way. `ProposedCover` gains the optional `background`, `composite` and `productBox` of the
+  candidate it was made from; older stored proposals have none and are classified on the fly.
+- **§4.1.** `ImageCandidate` gains an optional `productBox` — the ranking's validated box
+  (`parseProductBox`), recorded for every ranked candidate, so a picked banner can be cropped
+  the way rank 1 is. Absent on older rows and when the ranking gave none; old rows parse.
+
+  ```ts
+  // ImageCandidate
+  productBox?: readonly [number, number, number, number]; // normalised 0–1, x0 < x1, y0 < y1
+  ```
+- **Audit.** `pending.approved`'s `image` detail gains `cleaned`: the kind of copy made at
+  approval, or `null` when the original was stored. Still never a URL.
+- **§6, honest previews.** Every candidate tile that will be cleaned on approval says so in one
+  line, from what research recorded: "Background removed when approved" (a plain or
+  unclassified backdrop), "Cropped to the product when approved" (a box and a banner or busy
+  backdrop), or "Busy background — used as it is" (busy, no box). A transparent candidate keeps
+  "Already on a clean background"; rank 1's "Original" beside a cleaned copy says nothing new
+  (it is stored raw). The tile still shows the source picture — the cleaned result is made at
+  approval, not before, so the page promises the operation, not a preview it does not have.
+  New strings are English only, under `admin.intake.image.*`, as before.
+
+**Unchanged.** Rank 1's cleaned copy during research, its tile and route; "nothing is stored
+until approval"; the `image_not_attached` warning for a download or store that fails; the
+cutout's thresholds.
+
+**§10.** `pick-clean.test.ts`: a plain candidate is cut; an unclassified one is classified and
+cut; a busy one with no box comes back as the original bytes with `busy_background`; a banner
+with a box is cropped. `approval-image.test.ts`: choosing Option 2 on a plain backdrop stores a
+cut-out PNG (transparent corner) and records `cleaned: "cut"`; a busy Option 2 stores the
+original bytes; rank 1's original beside its cleaned copy is stored raw. `apply.test.ts`: an
+accepted cover on a plain backdrop is stored cleaned. `ProductImage.test.tsx`: the tile notes.
+
+**Status.** Built on `v5/clean-picked-image`.
+
+### 2026-09-26 — Short descriptions (§3.3, §5.2, §10)
+
+**Why (Isaac).** Descriptions came out long and full of specs: a paragraph of 550–800 characters
+followed, after approval, by the whole spec sheet as a Markdown list. The owner's rule: "say what
+the device is and what it does, lightly touch on specs; one to three sentences, a complicated
+device max five sentences." This replaces the 4–6 sentence rule of amendment "Luna description
+tuning"; everything else that amendment set (open with what it is, the makerspace sentence,
+strictly factual, no PPE, no meta-talk) stays.
+
+**What changed.**
+- **One rule module**, `src/lib/description-rules.ts` (pure, no imports, like
+  `display-name-rules.ts`): `DESCRIPTION_MAX_SENTENCES` (5), `DESCRIPTION_TARGET_CHARS` (450 —
+  what the model is asked for), `DESCRIPTION_LIMIT_CHARS` (500 — "roughly 450": what code treats
+  as too long), `descriptionProblems(text)` → `too_many_sentences` | `too_long` | `has_list`
+  (a Markdown bullet or numbered list line; sentences counted at `.`, `!`, `?` before a space or
+  the end, ignoring decimals and common abbreviations such as "e.g."), and `DESCRIPTION_RULES`,
+  the shape as a model is told it — **one text** shared by research's read prompt and the
+  shortening script.
+- **The shape.** 1–3 sentences (at most 5 for a complicated machine), about 450 characters or
+  fewer, plain prose: (1) what it is — type, make and model; (2) what students use it for in a
+  makerspace; at most one or two headline specs woven into a sentence (a working area, a laser
+  power), never a list of them. No Markdown lists, no PPE, no meta-talk.
+- **Research's read prompt** (`research/prompt.ts`) uses `DESCRIPTION_RULES` plus the
+  research-only source rule: every fact from the pages, never from memory, and **write less when
+  the pages say little**. The "reach 550 characters" floor is gone. The JSON shape's hint says
+  "1–3 sentences (max 5), about 450 characters or fewer". The **specs list is unchanged** —
+  research still gathers every spec row, because specs back `specsFromSource` and the
+  confidence grade.
+- **No spec list folded in at approval** (supersedes the data-platform spec's as-built note
+  "Research specs are folded into the editable description at approval"). `proposedDescription`
+  is the description alone; the specs research read are not saved on the tool (there is still no
+  specs column). A redo scoped to **Specs** no longer marks the description box as updated,
+  since the box no longer carries them.
+- **Shortening what is already stored**: `npm run descriptions:shorten -- [--dry-run] [--limit N]
+  [--ids a,b]` (`scripts/shorten-descriptions.ts`), modelled on the display-name backfill: same
+  target order (`src/lib/import/target.ts`: `DATABASE_URL`, else `PGLITE_DATA_DIR`), the same
+  PGlite lock message, the same argument parser. It selects every tool (archived included) whose
+  description has a `descriptionProblems` entry, and asks a new job, **`descriptionShorten`**
+  (`MODEL_DESCRIPTION_SHORTEN`, default `openai/gpt-6-luna`; tier **flex**,
+  `MODEL_DESCRIPTION_SHORTEN_TIER`), to rewrite it to `DESCRIPTION_RULES` using **only facts
+  already in the current description** — the description fenced as untrusted data, with the
+  tool's name and category for context; no tools, no web.
+  - **Code checks the answer.** A rewrite is written only when it is non-empty, has no
+    `descriptionProblems`, is shorter than the original, and contains **no number the original
+    does not** (`newNumbers` — the cheap guard against invented specs). Otherwise the tool is
+    left as it is (`rejected`, with the reason).
+  - **The write** is `description` through `updateTool` with the revision read just before it; a
+    tool whose description changed meanwhile, or whose revision moved, is skipped.
+  - **`--dry-run`** calls the model and prints before and after with an estimated cost; nothing
+    is written. The estimate is printed before the first call and actual usage at the end, as in
+    the display-name backfill.
+- **Unchanged:** refresh research proposes research's (now short) description by its existing
+  rules (opt-in unless missing or thin); the tool editor and MCP take any description a person
+  writes — the rule is for what a model drafts, not a limit on staff.
+
+**§10.** `description-rules.test.ts` — sentence counting (decimals, "e.g.", a trailing sentence
+without a stop), the limit, lists (bullets and numbered), a short description passes.
+`prompt.test.ts` — the new length and shape, no spec list, the factual and write-less rules, the
+old 550–800 wording gone. `PreliminaryToolPage.test.tsx` — the description is pre-filled without
+specs. `scripts/shorten-descriptions.test.ts` — which tools are selected, `--ids`/`--limit`, the
+prompt (fenced, rules included, "only facts in the description"), the answer checks (new number,
+still too long, empty), dry run writes nothing, a write lands with the revision, and an edit
+meanwhile is skipped. The model is a mock; nothing reaches the Gateway. Evals: no case asserts
+description length, so none changed.
+
+**Status.** Built on `v5/short-descriptions`. Not run against any database.
+
+### 2026-09-26 — English resources only (§3.2, §3.3, §5.1, §8, §10; refresh research spec §4, §12.2)
+
+**Why (the owner).** "When finding a document or resource, the requirement is to be in
+English. It needs to be an English website or manual." Research had no such rule: a German
+manufacturer's `/de-de/` product page or a French-only manual could be read, quoted and saved
+as a tool's link as readily as the English one, and nothing told the reviewer.
+
+**The rule.** Every link research or refresh keeps — a manual, the product page, a video,
+anything under "Other" — is an **English page or an English manual**. A **multilingual manual
+that includes English counts as English**. A page in another language is **never kept**, even
+the manufacturer's own; when an English equivalent exists (the brand's `en-us` / `en-gb` /
+`/en/` page, the English edition of a manual) research prefers it. When only a non-English
+version exists, there is no link — an empty list is a better answer than a page the lab's
+students cannot read.
+
+**Deterministic, no model call.** Language is judged in code, from signals research already
+has — nothing new is fetched during research and no job is added. One pure module,
+`src/lib/research/language.ts`:
+
+- **`urlLanguages(url)`** — the URL's own locale: a language path segment among the first two
+  (`/de/`, `/de-de/`, `/fr_FR/`, `/zh-hans/`, `/intl/ja/`), a language subdomain (`de.`, `fr.`),
+  a `lang` / `language` / `locale` / `hl` / `lng` query value, and the language tokens of a PDF's
+  file name (`…_DE.pdf`, `manual_en_de_fr.pdf`). Tokens that are also English words or countries
+  (`uk`, `ca`, `id`, `it` in a file name, `no`, …) are not read as a language where they are
+  ambiguous. A URL whose languages include English is English; one that names only other
+  languages is not; one that names none says nothing. A country top-level domain is **not** a
+  signal (German brands serve English under `.de/en/`).
+- **`declaredLanguage(tag)`** — the page's `<html lang>` (or `xml:lang`, else a
+  `Content-Language` meta, else the response's `Content-Language` header), read by
+  `web/html-text.ts` and returned by `readPage` as `lang`.
+- **`textLanguage(text, { manual })`** — the text in 1,000-character windows. A window whose
+  letters are mostly a non-Latin script (Han, kana, Hangul, Cyrillic, Arabic, Hebrew, Thai,
+  Greek) is that language; otherwise English and a dozen other languages' **stop words** are
+  counted and a window is English, or another language, only when that side has at least three
+  hits and half again as many as the other. The text is English when at least a fifth of the
+  decided windows are English — so an English page with a German paragraph stays English —
+  and **for a manual, one English window is enough** (a
+  multilingual manual has a section per language). Not English when the decided windows are
+  otherwise another language's. Too little text to decide is "unknown".
+- **`pageLanguage({ url, lang, text, manual })`** — the verdict, strongest signal first:
+  decisive **text** (so `lang="en"` on a German page, a common template default, does not pass
+  it, and English text under a `/de/` path is kept), then the declared **`lang`**, then the
+  **URL**. `unknown` is kept — the rule drops a page only on evidence.
+- **`titleLanguage(title)`** — a link title in a non-Latin script, or naming a non-English
+  manual word ("Bedienungsanleitung", "mode d'emploi", "manuale d'uso", "handleiding",
+  "instrukcja", "bruksanvisning"…). Used only where there is no text.
+
+**Where it is enforced.**
+
+1. **The prompt** (`research/prompt.ts`, both passes): a new `## English only` paragraph —
+   search in English; on a brand with regional sites, choose the English (`en-us`, `en-gb`,
+   `/en/`) page; the English edition of a manual, or a multilingual one with English; never a
+   page in another language as a link, even the manufacturer's; none rather than a
+   non-English one. The read pass is told a page in another language was left out.
+2. **The read list** (`read-pages.ts`, `candidatePageUrls`): a candidate whose URL names only
+   a non-English locale is not read at all — it would spend one of the four reads — and the
+   **manual finder** (`manual-pdfs.ts`, `pickManualPdfs`) skips a PDF whose URL or captured
+   text is not English.
+3. **The read itself** (`readCandidatePages`): each page's verdict is taken from what was read
+   — the HTML's text and `lang`, the search's copy, a manual's **whole** extracted or stored
+   text (not the digest, so a multilingual manual's English section is seen). A page judged not
+   English is **not given to the model** (its description and quotes must be English and
+   verbatim) and is listed among the pages not read as `"<host>: skipped (not English: de)"`;
+   the result records it (`nonEnglish`).
+4. **The links** (`research/english-links.ts`, `keepEnglishLinks`, in `engine.ts` before link
+   verification, so a dropped link neither costs a request nor takes one of the eight places):
+   a link is dropped when the page read for it, or the search's captured copy of it, is not
+   English; otherwise when its URL names only other languages; otherwise when its title does.
+   A dropped link is a `droppedLinks` note like any other (`Manual "…" (url) — not English
+   (de, from the page's text)`), so the reviewer is told. For a **YouTube** link, the oEmbed
+   answer link verification already fetches gives the title; a title mostly in a non-Latin
+   script drops it (`verifyUrl`'s `englishOnly`, research only — the MCP `create_tool` path is
+   unchanged).
+5. **Refresh** inherits all of the above (it runs the same engine). In the diff
+   (`refresh/propose.ts`), a tool link whose URL names only another language no longer hides
+   the English link research found at the same address minus its locale (`resourceKey` drops a
+   locale segment), so `/en-us/x2d` is proposed beside the tool's `/de-de/x2d`. Refresh still
+   never proposes a removal.
+6. **Research with the assistant** (`capabilities/curation.ts`, `propose_change`): a `resource`
+   whose URL, or the text this turn read from it, is not English is refused `not_english`.
+
+**Focus-merge and assembly** need nothing new: a **Links** redo takes the new run's links, which
+passed the gate; a redo that does not touch links keeps the stored ones as they were (the
+reviewer decides at approval).
+
+**What is already stored.** `npm run resources:language -- [--json] [--ids a,b] [--no-fetch]`
+(`scripts/resource-language.ts`) lists every tool resource (archived tools included) whose URL,
+title or page looks non-English, with the tool's slug, the resource's title and URL, and the
+reason. **Read-only**: it writes nothing and calls no model. Same target and PGlite lock
+handling as `names:backfill` (`src/lib/import/target.ts`). Unless `--no-fetch`, a link with no
+URL or title signal is opened through `readPage` (the SSRF-guarded fetch) with a 6-second
+budget, four at a time, PDFs and videos not downloaded, and judged by `pageLanguage`. `--json`
+prints one JSON array. Staff decide what to replace.
+
+**Unchanged.** Staff may add any link they choose in the editor, the review page or an import;
+lab documents are never checked. The chat answers in the reader's locale as before.
+
+**§10.** `language.test.ts` — URL locales (path, subdomain, query, file name, English and
+multilingual file names, ambiguous tokens, no signal), `<html lang>`, text windows (German,
+French, Japanese, English, English with a German paragraph), a multilingual manual with an
+English section kept, `lang="en"` on German text dropped, English text on a `/de/` path kept.
+`english-links.test.ts` — a German manufacturer page is dropped with its reason; an `en-us`
+page kept; a multilingual PDF with an English section kept; a URL-only `/fr-fr/` link dropped;
+unknown kept. `read-pages.test.ts` — a German page is not given to the model and is listed as
+skipped; a `/de-de/` candidate is not read. `manual-pdfs.test.ts` — a German-only PDF is not
+picked. `verify-links.test.ts` — a YouTube title in Japanese is dropped with `englishOnly`.
+`propose.test.ts` — an `en-us` link is proposed beside a `de-de` one. `prompt.test.ts` — the
+English-only paragraph in both passes. `curation.test.ts` — `not_english`.
+`scripts/resource-language.test.ts` — which resources are listed and why, `--json`, nothing
+written.
+
+**Status.** Built on `v5/english-resources`. The script was not run against any database.

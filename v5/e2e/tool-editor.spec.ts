@@ -117,17 +117,19 @@ test.describe("taking a machine out of service, from a phone", () => {
   const UNIT_ROW = /ML-LSR-400/;
 
   /**
-   * The unit's row in the public page's Physical Machines table.
+   * The unit's entry in the public page's Physical Machines list.
    *
-   * Scoped to that table rather than to the page: the serial is printed twice
-   * on a tool page — once here and once in the specifications table as the map
-   * id a QR label carries — and only one of them has a status beside it.
+   * Scoped to that `DataTable` rather than to the page: the serial is printed
+   * twice on a tool page — once here and once in the specifications as the map
+   * id a QR label carries — and only one of them has a status beside it. At
+   * this phone width the table is its two-line list (UI system phase 5a), a
+   * `list` named like the table, with one `listitem` per unit.
    */
   function publicUnitRow(page: import("@playwright/test").Page) {
     return page
-      .getByRole("table")
-      .filter({ has: page.getByRole("columnheader", { name: "Condition" }) })
-      .getByRole("row", { name: UNIT_ROW });
+      .getByRole("list", { name: "Physical Machines" })
+      .getByRole("listitem")
+      .filter({ hasText: UNIT_ROW });
   }
 
   /** Open the sheet over the tool's own page and hand back its status select. */

@@ -45,13 +45,21 @@ export interface BulkImportRecord {
   itemCount: number;
   duplicateCount: number;
   workflowRunId: string | null;
-  createdBy: string;
+  /** Null once the person who imported it has been removed. */
+  createdBy: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
-/** An import as the list on `/admin/intake` shows it: no text, the owner's name. */
-export type BulkImportSummary = Omit<BulkImportRecord, "sourceText"> & { createdByName: string | null };
+/**
+ * An import as the list on `/admin/intake` shows it: no text, the owner's name
+ * — live, or the snapshot written when their account was removed, in which
+ * case `createdByRemoved` says so (auth spec amendment 2026-09-25).
+ */
+export type BulkImportSummary = Omit<BulkImportRecord, "sourceText"> & {
+  createdByName: string | null;
+  createdByRemoved: boolean;
+};
 
 interface Options {
   db?: Db;
@@ -137,19 +145,21 @@ export async function listBulkImports(query: { limit?: number } = {}, options: O
       createdBy: bulkImports.createdBy,
       createdAt: bulkImports.createdAt,
       updatedAt: bulkImports.updatedAt,
-      createdByName: user.name,
+      liveCreatorName: user.name,
+      snapshotCreatorName: bulkImports.createdByName,
     })
     .from(bulkImports)
     .leftJoin(user, eq(user.id, bulkImports.createdBy))
     .orderBy(desc(bulkImports.createdAt))
     .limit(query.limit ?? 20);
-  return rows.map((row) => ({
+  return rows.map(({ liveCreatorName, snapshotCreatorName, ...row }) => ({
     ...row,
     sourceKind: row.sourceKind as ImportSourceKind,
     format: row.format as ImportFormat,
     status: row.status as ImportStatus,
     columnMap: row.columnMap ?? null,
-    createdByName: row.createdByName ?? null,
+    createdByName: liveCreatorName ?? snapshotCreatorName ?? null,
+    createdByRemoved: row.createdBy === null && snapshotCreatorName !== null,
   }));
 }
 
@@ -410,8 +420,11 @@ export async function chargeSuggestionAllowance(
 // ── Internals ───────────────────────────────────────────────────────
 
 function toRecord(row: typeof bulkImports.$inferSelect): BulkImportRecord {
+  // The removal snapshot is the list's concern (`listBulkImports`), not the record's.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const { createdByName: _snapshot, ...rest } = row;
   return {
-    ...row,
+    ...rest,
     sourceKind: row.sourceKind as ImportSourceKind,
     format: row.format as ImportFormat,
     status: row.status as ImportStatus,

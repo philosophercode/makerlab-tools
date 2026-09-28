@@ -1,6 +1,7 @@
 # Student Projects Gallery — Design Spec
 
 **Date:** 2026-05-29
+**Status:** Superseded by [`docs/specs/2026-07-29-projects-gallery-design.md`](../../specs/2026-07-29-projects-gallery-design.md), which is implemented. An older duplicate kept for history; do not implement against it.
 **App:** MakerLab Tools v5 (`v5/`), Next.js 16 App Router, Notion-backed, deployed on Vercel.
 **Scope:** One PR. Read side (gallery + bidirectional tool links) is independently reviewable from the submit side.
 

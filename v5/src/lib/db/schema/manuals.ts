@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import {
   customType,
+  halfvec,
   index,
   integer,
   jsonb,
@@ -9,12 +10,11 @@ import {
   text,
   timestamp,
   uuid,
-  vector,
 } from "drizzle-orm/pg-core";
 import { attachments } from "./attachments.ts";
 import { inListCheck, timestamps } from "./helpers.ts";
 import { tools } from "./tools.ts";
-import { MANUAL_DOCUMENT_STATUS, MANUAL_OUTLINE_SOURCE } from "./vocabulary.ts";
+import { MANUAL_DOCUMENT_STATUS, MANUAL_OUTLINE_SOURCE, MANUAL_PAGE_SOURCE } from "./vocabulary.ts";
 
 /**
  * Manual text (manual text and search spec §4; migration `0010`, phase 1).
@@ -23,7 +23,7 @@ import { MANUAL_DOCUMENT_STATUS, MANUAL_OUTLINE_SOURCE } from "./vocabulary.ts";
  * archived manual or a staff upload on a resource), its text page by page in
  * `manual_pages`, and (phase 2, migration `0011`) its search passages in
  * `manual_chunks`, each indexed twice: a generated `tsvector` (GIN) and a
- * 512-dimension embedding (pgvector, HNSW cosine).
+ * 512-dimension embedding (pgvector, HNSW cosine; half precision since `0019`).
  *
  * - `attachment_id` is **unique and cascades**: a document is the text of one
  *   stored file, and goes when the file's row does. A resource whose link
@@ -35,6 +35,11 @@ import { MANUAL_DOCUMENT_STATUS, MANUAL_OUTLINE_SOURCE } from "./vocabulary.ts";
  *   passages were built and embedded — `manuals/chunk.ts`'s `CHUNKER_VERSION`
  *   and e.g. `openai/text-embedding-3-small@512`. Both null until passages
  *   exist; a different value re-chunks and re-embeds (`manuals/passages.ts`).
+ * - `ocr_version` (phase 3, migration `0019`) is set when a scanned PDF's
+ *   pages were read by OCR (`manuals/ocr.ts`): the OCR version and model, e.g.
+ *   `ocr-1:openai/gpt-6-luna`. A `no_text` document with another value (or
+ *   none) is transcribed by the next `manuals:index`; each page's `source`
+ *   says whether its text is the PDF's own or OCR's.
  *
  * Relative imports with `.ts` extensions: the index step loads the schema
  * under plain Node.
@@ -65,6 +70,7 @@ export const manualDocuments = pgTable(
     extractorVersion: text("extractor_version").notNull(),
     embeddingModel: text("embedding_model"),
     chunkerVersion: text("chunker_version"),
+    ocrVersion: text("ocr_version"),
     processedAt: timestamp("processed_at", { withTimezone: true }).notNull(),
     ...timestamps(),
   },
@@ -86,8 +92,13 @@ export const manualPages = pgTable(
     /** The printed label ("iv", "3-12"), when the PDF declares page labels. */
     pageLabel: text("page_label"),
     text: text("text").notNull(),
+    /** `text` (the PDF's text layer) or `ocr` (read from the page's picture). */
+    source: text("source").notNull().default("text"),
   },
-  (t) => [primaryKey({ columns: [t.documentId, t.pageNumber] })]
+  (t) => [
+    primaryKey({ columns: [t.documentId, t.pageNumber] }),
+    inListCheck("manual_pages_source_check", "source", MANUAL_PAGE_SOURCE),
+  ]
 );
 
 /** The dimension every stored embedding has (spec §3.4). Changing it is a migration and a re-embed. */
@@ -114,6 +125,10 @@ const tsvector = customType<{ data: string }>({
  * - `tool_id` is copied from the document for filtering; scoping and access are
  *   still decided through the document's attachment and resource
  *   (`manuals/search.ts`).
+ * - `embedding` is **`halfvec(512)`** since migration `0019` (phase 3): half
+ *   precision halves the vector's storage and index size, and retrieval does
+ *   not notice. Queries cast to `halfvec(512)`; the index is
+ *   `halfvec_cosine_ops`.
  */
 export const manualChunks = pgTable(
   "manual_chunks",
@@ -130,11 +145,11 @@ export const manualChunks = pgTable(
     content: text("content").notNull(),
     searchText: text("search_text").notNull(),
     tsv: tsvector("tsv").generatedAlwaysAs(sql`to_tsvector('english', search_text)`),
-    embedding: vector("embedding", { dimensions: MANUAL_EMBEDDING_DIMENSIONS }),
+    embedding: halfvec("embedding", { dimensions: MANUAL_EMBEDDING_DIMENSIONS }),
   },
   (t) => [
     index("manual_chunks_tsv_idx").using("gin", t.tsv),
-    index("manual_chunks_embedding_idx").using("hnsw", t.embedding.op("vector_cosine_ops")),
+    index("manual_chunks_embedding_idx").using("hnsw", t.embedding.op("halfvec_cosine_ops")),
     index("manual_chunks_tool_idx").on(t.toolId),
     index("manual_chunks_document_idx").on(t.documentId, t.ordinal),
   ]

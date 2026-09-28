@@ -1,7 +1,8 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, sql } from "drizzle-orm";
 import { getDb } from "../db/client.ts";
 import { auditEvents } from "../db/schema/index.ts";
 import type { AuditAction } from "../db/schema/index.ts";
+import type { AuditSurface } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
 
 /**
@@ -25,8 +26,18 @@ import type { Db } from "../db/types.ts";
  * like every other module under `src/lib/data/`.
  */
 
+/**
+ * Which surface the change came through, and the proposal a card confirmed
+ * (assistant–GUI parity spec §3.7). Absent, the event is the GUI's — the
+ * column default, and every event written before the column existed.
+ */
+export interface AuditTrail {
+  surface?: AuditSurface;
+  proposalId?: string | null;
+}
+
 /** One event, in the column shape the table takes. */
-export interface NewAuditEvent {
+export interface NewAuditEvent extends AuditTrail {
   /**
    * Who did it. `user.id`, and the foreign key means it must name a real row —
    * correct, because in production this comes from a resolved session. Null is
@@ -62,15 +73,22 @@ export async function recordAuditEvent(
   options: AuditWriteOptions = {}
 ): Promise<{ id: string }> {
   const db = options.db ?? (await getDb());
+  const actorUserId = event.actorUserId || null;
 
   const [created] = await db
     .insert(auditEvents)
     .values({
-      actorUserId: event.actorUserId || null,
+      actorUserId,
+      // The actor's name as it is now, read in the same statement (auth spec
+      // amendment 2026-09-25): the foreign key clears if the person is ever
+      // removed, and this is what still says who it was. No caller passes it.
+      actorName: actorUserId ? sql`(select "name" from "user" where "id" = ${actorUserId})` : null,
       action: event.action,
       subjectType: event.subjectType,
       subjectId: event.subjectId,
       detail: event.detail ?? null,
+      surface: event.surface ?? "gui",
+      proposalId: event.proposalId ?? null,
     })
     .returning({ id: auditEvents.id });
 
@@ -82,10 +100,18 @@ export interface AuditEventRecord {
   id: string;
   at: Date;
   actorUserId: string | null;
+  /**
+   * The actor's name when the event was written. With `actorUserId` null and
+   * this set, the actor's account has since been removed.
+   */
+  actorName: string | null;
   action: string;
   subjectType: string;
   subjectId: string;
   detail: Record<string, unknown> | null;
+  /** The surface the person used: gui, assistant, mcp or system. */
+  surface: AuditSurface;
+  proposalId: string | null;
 }
 
 export interface ListAuditEventsQuery {
@@ -130,9 +156,12 @@ export async function listAuditEvents(
     id: row.id,
     at: row.at,
     actorUserId: row.actorUserId,
+    actorName: row.actorName ?? null,
     action: row.action,
     subjectType: row.subjectType,
     subjectId: row.subjectId,
     detail: row.detail ?? null,
+    surface: row.surface as AuditSurface,
+    proposalId: row.proposalId ?? null,
   }));
 }

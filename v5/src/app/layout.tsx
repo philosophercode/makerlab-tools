@@ -8,11 +8,14 @@ import "../styles/globals.css";
 import { fontVariables } from "./fonts";
 import { ChatFab } from "../components/ChatFab";
 import { ChatLauncherProvider } from "../components/ChatLauncherContext";
+import { PageSelectionProvider } from "../components/chat/page-selection";
 import { GlobalChrome } from "../components/GlobalChrome";
 import { DemoDataBanner } from "../components/DemoDataBanner";
+import { SiteChrome } from "../components/SiteChrome";
+import { AskParamOpener } from "../components/AskParamOpener";
 import { ThemeScript } from "../components/ThemeScript";
 import { LocaleHtmlScript } from "../components/LocaleHtmlScript";
-import { getCatalogStats } from "../lib/catalog";
+import { getCatalogStats, getPaletteTools } from "../lib/catalog";
 import { siteConfig } from "../lib/site-config";
 
 export const metadata: Metadata = {
@@ -30,6 +33,7 @@ const brandColorVars = {
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const catalogStats = await getCatalogStats();
+  const paletteTools = await getPaletteTools();
 
   // The <html> shell is rendered statically (Cache Components). Locale is
   // request data (a cookie), so it can't be read at the static root — instead,
@@ -43,7 +47,9 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
       </head>
       <body>
         <Suspense fallback={null}>
-          <LocalizedTree catalogStats={catalogStats}>{children}</LocalizedTree>
+          <LocalizedTree catalogStats={catalogStats} paletteTools={paletteTools}>
+            {children}
+          </LocalizedTree>
         </Suspense>
       </body>
     </html>
@@ -52,20 +58,31 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
 
 async function LocalizedTree({
   catalogStats,
+  paletteTools,
   children,
 }: {
   catalogStats: Awaited<ReturnType<typeof getCatalogStats>>;
+  paletteTools: Awaited<ReturnType<typeof getPaletteTools>>;
   children: React.ReactNode;
 }) {
   return (
     <NextIntlClientProvider>
       <ChatLauncherProvider>
-        <GlobalChrome stats={catalogStats} />
-        <DemoDataBanner />
-        {children}
-        <Suspense fallback={null}>
-          <ChatFab />
-        </Suspense>
+        <PageSelectionProvider>
+          <SiteChrome>
+            <GlobalChrome stats={catalogStats} paletteTools={paletteTools} />
+            <DemoDataBanner />
+          </SiteChrome>
+          {children}
+          <Suspense fallback={null}>
+            <ChatFab />
+          </Suspense>
+          {/* Its own boundary: it reads the query string, which a prerender
+              cannot, and must not take the chat button out of the HTML with it. */}
+          <Suspense fallback={null}>
+            <AskParamOpener />
+          </Suspense>
+        </PageSelectionProvider>
       </ChatLauncherProvider>
     </NextIntlClientProvider>
   );

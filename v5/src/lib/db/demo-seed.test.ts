@@ -114,6 +114,8 @@ describe("seedDemo", () => {
       [DEMO_ACCOUNTS.superAdmin.email, "super_admin"],
       [DEMO_ACCOUNTS.admin.email, "admin"],
       [DEMO_ACCOUNTS.promotable.email, "user"],
+      // The spare the People E2E removes (auth spec amendment 2026-09-25).
+      [DEMO_ACCOUNTS.removable.email, "user"],
     ]);
 
     const sessions = await db.select().from(session);

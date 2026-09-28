@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { startGoogleSignIn } from "../../lib/auth/sign-in-client";
-import "../../styles/account.css";
+import { Button } from "@/components/ui/button";
+import { RowStatus } from "../admin/RowStatus";
 
 /**
  * "Sign in with Google" on `/oauth/sign-in` (MCP access spec §3.4). Starts the
@@ -26,13 +27,13 @@ export function OAuthSignIn({ resumeUrl }: { resumeUrl: string }) {
   }
 
   return (
-    <div className="account-actions">
-      <button type="button" className="account-button is-primary" disabled={busy} onClick={signIn}>
+    <div className="flex flex-col items-start gap-2 pt-4">
+      <Button type="button" variant="default" disabled={busy} onClick={signIn}>
         {t("signInButton")}
-      </button>
-      <p className={`account-status${error ? " is-error" : ""}`} role="status">
-        {error ?? ""}
-      </p>
+      </Button>
+      <RowStatus tone={error ? "bad" : "muted"} as="p" className="text-sm">
+        {error}
+      </RowStatus>
     </div>
   );
 }

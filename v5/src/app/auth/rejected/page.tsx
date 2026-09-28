@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
+import { Prose, PublicPage } from "../../../components/system/PublicPage";
 import { siteConfig } from "../../../lib/site-config";
+import { allowedEmailDomain } from "../../../lib/auth/roles";
 
 /**
  * `/auth/rejected` — where a non-institutional Google account lands (auth design
@@ -21,25 +24,22 @@ export default function AuthRejectedPage() {
   const t = useTranslations("auth");
 
   return (
-    <main className="tool-detail">
-      <section className="td-panel td-prose">
-        <p className="td-eyebrow">{t("eyebrow")}</p>
-        <h1>{t("title", { institution: siteConfig.institution })}</h1>
-
+    <PublicPage width="narrow" crumbs={[{ label: t("eyebrow") }]} title={t("title", { institution: siteConfig.institution })}>
+      <Prose className="pt-2">
         <p>
           {t("body", {
             site: siteConfig.name,
             institution: siteConfig.institution,
+            domain: allowedEmailDomain(),
           })}
         </p>
         <p>{t("stillWorks")}</p>
-
-        <div className="td-prose-actions">
-          <Link className="td-button" href="/">
-            {t("browseTools")}
-          </Link>
-        </div>
-      </section>
-    </main>
+      </Prose>
+      <div className="pt-6">
+        <Button asChild variant="default">
+          <Link href="/">{t("browseTools")}</Link>
+        </Button>
+      </div>
+    </PublicPage>
   );
 }

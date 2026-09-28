@@ -10,6 +10,7 @@ import {
 } from "../db/schema/index.ts";
 import type { Db } from "../db/types.ts";
 import { compactNotionId } from "../legacy-id.ts";
+import { slugify } from "../db/slug.ts";
 import { BUNDLED_TOOL_IMAGES } from "./bundled-tool-images.ts";
 import { isManualArchiveKey, manualSourceKey } from "./manual-archives.ts";
 import { isUuid } from "./uuid.ts";
@@ -55,6 +56,8 @@ export interface ToolRow {
   room: string | null;
   zone: string | null;
   mapTag: string | null;
+  /** When the tool row was created — the gallery's "Recently added" sort. Absent on older fixtures. */
+  createdAt?: Date | string | null;
 }
 
 /** A `units` row belonging to one tool. */
@@ -235,6 +238,7 @@ async function loadTools(db: Db, where: SQL | undefined): Promise<MakerLabTool[]
       room: locations.room,
       zone: locations.zone,
       mapTag: locations.mapTag,
+      createdAt: tools.createdAt,
     })
     .from(tools)
     .leftJoin(categories, eq(tools.categoryId, categories.id))
@@ -408,20 +412,28 @@ export function toMakerLabTool(
     links: resourceLinks(resourceRows, files),
     units: mappedUnits,
     starterQuestions: tool.starterQuestions ?? [],
+    addedAt: tool.createdAt ? new Date(tool.createdAt).toISOString() : null,
   };
 }
+
+/** Each bundled photo by the slug its (imported) name gives — the slug a tool keeps across renames. */
+const BUNDLED_BY_SLUG: ReadonlyMap<string, string> = new Map([...BUNDLED_TOOL_IMAGES].map((name) => [slugify(name), name]));
 
 /**
  * The tool's first public photo in Blob, or the bundled photo named after it.
  * The bundled photos carry the imported (long) names, which the display-name
  * backfill moves to `official_name` — so whichever of the two names has a
  * bundled photo wins, the display name first (tool display names spec §5.8).
+ * When neither does (both names were changed since the import), the slug —
+ * derived from the imported name at creation and never changed — finds it.
  */
-export function toolImageSrc(tool: Pick<ToolRow, "name" | "officialName">, files: AttachmentRow[]): string {
+export function toolImageSrc(tool: Pick<ToolRow, "name" | "officialName"> & { slug?: string }, files: AttachmentRow[]): string {
   const image = files.find((file) => file.access === "public" && file.publicUrl);
   if (image?.publicUrl) return image.publicUrl;
-  const bundled = [tool.name, tool.officialName ?? ""].find((name) => name.trim() && BUNDLED_TOOL_IMAGES.has(bundledFileName(name)));
-  return localToolImage(bundled ?? tool.name);
+  const bundled =
+    [tool.name, tool.officialName ?? ""].find((name) => name.trim() && BUNDLED_TOOL_IMAGES.has(bundledFileName(name))) ??
+    (tool.slug ? BUNDLED_BY_SLUG.get(tool.slug) : undefined);
+  return bundled ? localToolImage(bundled) : localToolImage(tool.name);
 }
 
 function bundledFileName(name: string): string {

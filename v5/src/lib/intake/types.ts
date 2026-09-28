@@ -58,6 +58,8 @@ export interface PendingToolView {
   /** Whether a workflow run holds the item — with the above, tells a stalled start from one under way. */
   hasWorkflowRun: boolean;
   createdByName: string | null;
+  /** The person who identified it has been removed; the name is the snapshot. */
+  createdByRemoved?: boolean;
   createdAt: string;
   updatedAt: string;
 }

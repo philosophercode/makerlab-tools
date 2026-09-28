@@ -649,7 +649,7 @@ describe("deleteDiscardedPendingTools", () => {
 });
 
 describe("releasePhotosOfMissingPendingTools", () => {
-  it("releases photos whose pending item is gone — a removed person's items cascade — and no others", async () => {
+  it("releases photos whose pending item is gone, and no others", async () => {
     await db.insert(user).values({ id: "leaving", name: "Leaving", email: "leaving@cornell.edu" });
     const theirPhoto = await upload({ uploadedBy: "leaving" });
     const batch = await createPendingBatch(
@@ -660,8 +660,14 @@ describe("releasePhotosOfMissingPendingTools", () => {
     const keptPhoto = await upload();
     await oneItem("Staying", { attachmentIds: [keptPhoto] });
 
+    // Removing the person no longer takes their items with them (migration
+    // 0016) — the row, and its photo, stay.
     await db.delete(user).where(eq(user.id, "leaving"));
-    expect(await getPendingTool(batch.items[0].id, { db })).toBeNull();
+    expect(await getPendingTool(batch.items[0].id, { db })).toMatchObject({ createdBy: null });
+    expect(await releasePhotosOfMissingPendingTools({ db })).toBe(0);
+
+    // A row deleted by a path that did not release its photos is what this is for.
+    await db.delete(pendingTools).where(eq(pendingTools.id, batch.items[0].id));
 
     expect(await releasePhotosOfMissingPendingTools({ db })).toBe(1);
     const [released] = await db.select().from(attachments).where(eq(attachments.id, theirPhoto));

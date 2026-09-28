@@ -6,6 +6,7 @@ import { chatProposals, tools } from "../db/schema/index";
 import { capabilitiesForIdentity } from "./access";
 import { CHAT_PROPOSAL_FIELDS, cleanValue, CURATION_TOOLS, curationCapability } from "./curation";
 import type { CapabilityCtx, CurationContext } from "./types";
+import { ENGLISH, GERMAN, repeat } from "../research/language-samples.test-helpers";
 
 /**
  * The `curation` capability (refresh research spec §12.1, §12.5 "Unit"):
@@ -228,5 +229,48 @@ describe("turn sources", () => {
     recordTurnHost(turn, "https://www.formlabs.com/form-4");
     recordTurnHost(turn, "not a url");
     expect(turnHosts(turn)).toEqual(["www.formlabs.com"]);
+  });
+});
+
+describe('propose_change — English resources (amendment "English resources only")', () => {
+  it("refuses a resource whose address names another language, or whose text this turn read is not English", async () => {
+    expect(
+      await proposeChange.run(
+        {
+          subject: { kind: "tool", id: toolId },
+          field: "resource",
+          value: { title: "Form 4 Produktseite", url: "https://formlabs.example/de-de/form4", type: "Other" },
+        },
+        ctx()
+      )
+    ).toMatchObject({ status: "refused", code: "not_english" });
+
+    const turn = ctx();
+    recordTurnText(turn, "https://formlabs.example/form4-manual.pdf", repeat(GERMAN, 3));
+    expect(
+      await proposeChange.run(
+        {
+          subject: { kind: "tool", id: toolId },
+          field: "resource",
+          value: { title: "Form 4 manual", url: "https://formlabs.example/form4-manual.pdf", type: "Manual" },
+        },
+        turn
+      )
+    ).toMatchObject({ status: "refused", code: "not_english" });
+  });
+
+  it("proposes the English page", async () => {
+    const turn = ctx();
+    recordTurnText(turn, "https://formlabs.example/en-us/form4", repeat(ENGLISH, 3));
+    expect(
+      await proposeChange.run(
+        {
+          subject: { kind: "tool", id: toolId },
+          field: "resource",
+          value: { title: "Form 4 product page", url: "https://formlabs.example/en-us/form4", type: "Other" },
+        },
+        turn
+      )
+    ).toMatchObject({ status: "proposed" });
   });
 });

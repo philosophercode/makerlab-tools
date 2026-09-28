@@ -1,7 +1,7 @@
 # Chat Inventory Intake — Design Spec
 
 **Date:** 2026-06-01
-**Status:** Approved for planning
+**Status:** Superseded 2026-09-27 by the two-step intake in [`2026-09-14-v5-data-platform-design.md`](2026-09-14-v5-data-platform-design.md) phase 6 (`identify_tools`, background research, approval). Kept for history; do not implement against it.
 **Target:** v5 (`v5/`, Notion-backed)
 **Branch:** `philosophercode/chat-inventory-intake`
 

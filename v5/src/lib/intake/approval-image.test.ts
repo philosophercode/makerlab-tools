@@ -23,7 +23,8 @@ vi.mock("../manuals/start", () => ({ startManualArchive: vi.fn(async () => true)
 
 import { eq } from "drizzle-orm";
 import { http, HttpResponse } from "msw";
-import { makePng } from "../../../test/gateway/png";
+import { makePng, makeProductPng } from "../../../test/gateway/png";
+import { decode } from "../../../test/images/synthetic";
 import { server } from "../../../test/msw/server";
 import { seedUser } from "../../../test/utils/session";
 import { setResolvedAddresses } from "../../../test/web/resolver";
@@ -150,6 +151,7 @@ async function researchedItem(
     withUpload?: boolean;
     overrides?: Partial<ResearchResult>;
     rank1Background?: ImageCandidate["background"];
+    rank2?: Partial<ImageCandidate>;
   } = {}
 ): Promise<{ id: string; cleanedId: string | null; uploadId: string | null }> {
   let uploadId: string | null = null;
@@ -205,6 +207,7 @@ async function researchedItem(
         contentType: "image/jpeg",
         rank: 2,
         reason: "A side view.",
+        ...options.rank2,
       },
     ],
     cleaned: cleanedId ? { attachmentId: cleanedId, fromUrl: IMAGE_URL } : null,
@@ -327,6 +330,23 @@ describe("choice: original", () => {
     expect(photos).toEqual([{ id: expect.any(String), position: 0, origin: "research_image", access: "public" }]);
   });
 
+  it("records the rank-1 original chosen beside its cleaned copy as stored uncut", async () => {
+    imageHost(() => new HttpResponse(makeProductPng({ width: 640, height: 480 }), { headers: { "content-type": "image/png" } }));
+    const store = fakeStore();
+    const { id } = await researchedItem();
+
+    await approveAndRecord(
+      { userId: approver },
+      { id, publish: true, fields: fields({ choice: "original", candidateUrl: IMAGE_URL }) },
+      { store }
+    );
+
+    // A plain backdrop, but the admin chose the original over the cut: stored as downloaded.
+    const [, file] = store.putUpload.mock.calls[0];
+    expect(new Uint8Array(await file.arrayBuffer())).toEqual(makeProductPng({ width: 640, height: 480 }));
+    expect((await pendingEvent(id)).detail).toMatchObject({ image: { choice: "original", attached: true, cleaned: null } });
+  });
+
   it("records the choice in the audit trail, and no URL", async () => {
     imageHost();
     const { id } = await researchedItem();
@@ -443,6 +463,133 @@ describe("choice: original", () => {
 
     expect(result).toMatchObject({ ok: true, warning: "image_not_attached", imageAttached: false });
     expect(store.del).toHaveBeenCalledOnce();
+  });
+});
+
+describe("choice: original, not rank 1 — cleaned at approval", () => {
+  /** The image host answering each URL with its own picture. */
+  function pictures(byUrl: Record<string, Uint8Array>) {
+    const hits: string[] = [];
+    server.use(
+      http.get("https://images.example.com/*", ({ request }) => {
+        hits.push(request.url);
+        const bytes = byUrl[request.url];
+        return bytes
+          ? new HttpResponse(bytes, { headers: { "content-type": "image/png" } })
+          : new HttpResponse("gone", { status: 404 });
+      })
+    );
+    return hits;
+  }
+
+  it("cuts Option 2's plain backdrop away and stores the cutout as the cover", async () => {
+    const hits = pictures({ [RANK_2_URL]: makeProductPng({ width: 600, height: 400 }) });
+    const store = fakeStore();
+    const { id, cleanedId } = await researchedItem({ rank2: { background: "plain" } });
+
+    const result = await approveAndRecord(
+      { userId: approver },
+      { id, publish: true, fields: fields({ choice: "original", candidateUrl: RANK_2_URL }) },
+      { store }
+    );
+
+    expect(result).toMatchObject({ ok: true, imageAttached: true });
+    expect(result).not.toHaveProperty("warning");
+    if (!result.ok) throw new Error("unreachable");
+    expect(hits).toEqual([RANK_2_URL]);
+
+    const [prefix, file, access] = store.putUpload.mock.calls[0];
+    expect(prefix).toBe("uploads/tool/");
+    expect(access).toBe("public");
+    expect(file.type).toBe("image/png");
+    expect(file.name).toBe("p1s-side.png");
+    const pixels = await decode(new Uint8Array(await file.arrayBuffer()));
+    expect(pixels.data[3]).toBe(0); // the corner is transparent: the backdrop is gone
+    // Trimmed to the product (the middle half) plus the cutout's small margin.
+    expect(pixels.width).toBeLessThan(400);
+
+    const photos = await toolPhotos(result.toolId);
+    expect(photos).toEqual([{ id: expect.any(String), position: 0, origin: "research_image", access: "public" }]);
+    expect(await attachment(photos[0].id)).toMatchObject({
+      sourceUrl: RANK_2_URL,
+      contentType: "image/png",
+      width: pixels.width,
+      height: pixels.height,
+    });
+    expect((await pendingEvent(id)).detail).toMatchObject({ image: { choice: "original", attached: true, cleaned: "cut" } });
+    // Rank 1's unchosen cleaned copy is still let go.
+    expect(await attachment(cleanedId!)).toMatchObject({ ownerType: null, ownerId: null });
+  });
+
+  it("classifies a candidate recorded without a background, and cleans it", async () => {
+    pictures({ [RANK_2_URL]: makeProductPng({ width: 600, height: 400 }) });
+    const store = fakeStore();
+    const { id } = await researchedItem();
+
+    await approveAndRecord(
+      { userId: approver },
+      { id, publish: true, fields: fields({ choice: "original", candidateUrl: RANK_2_URL }) },
+      { store }
+    );
+
+    const [, file] = store.putUpload.mock.calls[0];
+    expect((await decode(new Uint8Array(await file.arrayBuffer()))).data[3]).toBe(0);
+    expect((await pendingEvent(id)).detail).toMatchObject({ image: { cleaned: "cut" } });
+  });
+
+  it("stores a busy Option 2 as downloaded — the original, not a failure", async () => {
+    const busy = makePng({ width: 640, height: 480, alpha: false });
+    pictures({ [RANK_2_URL]: busy });
+    const store = fakeStore();
+    const { id } = await researchedItem({ rank2: { background: "busy" } });
+
+    const result = await approveAndRecord(
+      { userId: approver },
+      { id, publish: true, fields: fields({ choice: "original", candidateUrl: RANK_2_URL }) },
+      { store }
+    );
+
+    expect(result).toMatchObject({ ok: true, imageAttached: true });
+    expect(result).not.toHaveProperty("warning");
+    const [, file] = store.putUpload.mock.calls[0];
+    expect(new Uint8Array(await file.arrayBuffer())).toEqual(busy);
+    expect((await pendingEvent(id)).detail).toMatchObject({ image: { choice: "original", attached: true, cleaned: null } });
+  });
+
+  it("crops a banner picked as Option 2 to the product box research recorded", async () => {
+    // A 1000 × 500 white banner: an orange bar along the top, the product in a quarter of it.
+    const width = 1000;
+    const height = 500;
+    const raw = new Uint8Array(width * height * 4).fill(255);
+    const paint = (left: number, top: number, w: number, h: number, rgb: [number, number, number]) => {
+      for (let y = top; y < top + h; y += 1) {
+        for (let x = left; x < left + w; x += 1) raw.set([...rgb, 255], (y * width + x) * 4);
+      }
+    };
+    paint(0, 0, width, 60, [240, 110, 30]);
+    paint(400, 180, 200, 200, [30, 60, 160]);
+    const sharp = (await import("sharp")).default;
+    const bannerBytes = new Uint8Array(await sharp(raw, { raw: { width, height, channels: 4 } }).removeAlpha().png().toBuffer());
+    pictures({ [RANK_2_URL]: bannerBytes });
+    const store = fakeStore();
+    const { id } = await researchedItem({
+      rank2: { background: "plain", composite: true, productBox: [0.4, 0.36, 0.6, 0.76] },
+    });
+
+    await approveAndRecord(
+      { userId: approver },
+      { id, publish: true, fields: fields({ choice: "original", candidateUrl: RANK_2_URL }) },
+      { store }
+    );
+
+    const [, file] = store.putUpload.mock.calls[0];
+    const pixels = await decode(new Uint8Array(await file.arrayBuffer()));
+    expect(pixels.width).toBeLessThan(300);
+    for (let p = 0; p < pixels.data.length; p += 4) {
+      const orange = pixels.data[p] === 240 && pixels.data[p + 1] === 110 && pixels.data[p + 2] === 30;
+      expect(orange && pixels.data[p + 3] > 0).toBe(false);
+    }
+    expect((await pendingEvent(id)).detail).toMatchObject({ image: { cleaned: "cropped_and_cut" } });
   });
 });
 

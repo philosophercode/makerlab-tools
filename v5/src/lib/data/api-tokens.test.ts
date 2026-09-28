@@ -6,7 +6,8 @@ import { hashApiToken } from "../auth/api-token-format";
 import { seedUser } from "../../../test/utils/session";
 import {
   createApiToken,
-  expiryFor,
+  TOKEN_LIFETIME_DAYS,
+  tokenExpiryFrom,
   findApiTokenByHash,
   findOAuthAccessToken,
   listApiTokens,
@@ -36,7 +37,7 @@ afterAll(() => resetDbForTests());
 describe("creating a token", () => {
   it("answers the token once and stores only its hash and prefix", async () => {
     const person = await seedUser({ email: "tok-create@cornell.edu" });
-    const created = await createApiToken({ userId: person.id, name: "  Claude   Code  ", readOnly: false, expiry: "90" });
+    const created = await createApiToken({ userId: person.id, name: "  Claude   Code  ", readOnly: false });
     if (!created.ok) throw new Error("expected a token");
 
     expect(created.token).toMatch(/^mlt_/);
@@ -56,40 +57,40 @@ describe("creating a token", () => {
     expect(listed[0]).not.toHaveProperty("tokenHash");
   });
 
-  it("expires in 30 or 90 days, or never", async () => {
+  it("expires every token in 90 days — one semester, no choice, never 'never'", async () => {
     const now = new Date("2026-09-24T12:00:00Z");
-    expect(expiryFor("30", now)?.toISOString()).toBe("2026-10-24T12:00:00.000Z");
-    expect(expiryFor("90", now)?.toISOString()).toBe("2026-12-23T12:00:00.000Z");
-    expect(expiryFor("never", now)).toBeNull();
+    expect(TOKEN_LIFETIME_DAYS).toBe(90);
+    expect(tokenExpiryFrom(now).toISOString()).toBe("2026-12-23T12:00:00.000Z");
 
     const person = await seedUser({ email: "tok-expiry@cornell.edu" });
-    const never = await createApiToken({ userId: person.id, name: "Forever", readOnly: true, expiry: "never" });
-    expect(never.ok && never.summary.expiresAt).toBeNull();
-    expect(never.ok && never.summary.readOnly).toBe(true);
+    const before = Date.now();
+    const created = await createApiToken({ userId: person.id, name: "Laptop", readOnly: true });
+    if (!created.ok) throw new Error("expected a token");
+    expect(created.summary.readOnly).toBe(true);
+    const days = (created.summary.expiresAt!.getTime() - before) / 86_400_000;
+    expect(days).toBeGreaterThan(89.99);
+    expect(days).toBeLessThan(90.01);
   });
 
-  it("refuses an empty or over-long name and an expiry outside the choices", async () => {
+  it("refuses an empty or over-long name", async () => {
     const person = await seedUser({ email: "tok-invalid@cornell.edu" });
-    expect(await createApiToken({ userId: person.id, name: "   ", readOnly: false, expiry: "90" })).toEqual({
+    expect(await createApiToken({ userId: person.id, name: "   ", readOnly: false })).toEqual({
       ok: false,
       reason: "invalid_field",
     });
-    expect(await createApiToken({ userId: person.id, name: "x".repeat(81), readOnly: false, expiry: "90" })).toEqual({
+    expect(await createApiToken({ userId: person.id, name: "x".repeat(81), readOnly: false })).toEqual({
       ok: false,
       reason: "invalid_field",
     });
-    expect(
-      await createApiToken({ userId: person.id, name: "ok", readOnly: false, expiry: "365" as never })
-    ).toEqual({ ok: false, reason: "invalid_field" });
   });
 
   it("caps live tokens per person", async () => {
     const person = await seedUser({ email: "tok-cap@cornell.edu" });
     for (let i = 0; i < MAX_ACTIVE_TOKENS; i += 1) {
-      const created = await createApiToken({ userId: person.id, name: `t${i}`, readOnly: false, expiry: "30" });
+      const created = await createApiToken({ userId: person.id, name: `t${i}`, readOnly: false });
       expect(created.ok).toBe(true);
     }
-    expect(await createApiToken({ userId: person.id, name: "one more", readOnly: false, expiry: "30" })).toEqual({
+    expect(await createApiToken({ userId: person.id, name: "one more", readOnly: false })).toEqual({
       ok: false,
       reason: "too_many_tokens",
     });
@@ -100,7 +101,7 @@ describe("revoking a token", () => {
   it("stamps revoked_at, only for its owner, once", async () => {
     const owner = await seedUser({ email: "tok-owner@cornell.edu" });
     const other = await seedUser({ email: "tok-other@cornell.edu" });
-    const created = await createApiToken({ userId: owner.id, name: "Laptop", readOnly: false, expiry: "90" });
+    const created = await createApiToken({ userId: owner.id, name: "Laptop", readOnly: false });
     if (!created.ok) throw new Error("expected a token");
 
     expect(await revokeApiToken(other.id, created.summary.id)).toEqual({ ok: false, reason: "not_found" });
@@ -117,7 +118,7 @@ describe("revoking a token", () => {
 describe("looking a token up", () => {
   it("finds it by hash with its owner, and reports expiry", async () => {
     const person = await seedUser({ email: "tok-lookup@cornell.edu", role: "admin", name: "Sam Staff" });
-    const created = await createApiToken({ userId: person.id, name: "Laptop", readOnly: true, expiry: "30" });
+    const created = await createApiToken({ userId: person.id, name: "Laptop", readOnly: true });
     if (!created.ok) throw new Error("expected a token");
 
     const found = await findApiTokenByHash(hashApiToken(created.token));
@@ -139,7 +140,7 @@ describe("looking a token up", () => {
 
   it("records last use at most once a minute", async () => {
     const person = await seedUser({ email: "tok-touch@cornell.edu" });
-    const created = await createApiToken({ userId: person.id, name: "Laptop", readOnly: false, expiry: "30" });
+    const created = await createApiToken({ userId: person.id, name: "Laptop", readOnly: false });
     if (!created.ok) throw new Error("expected a token");
     const db = await getDb();
     const lastUsed = async () =>

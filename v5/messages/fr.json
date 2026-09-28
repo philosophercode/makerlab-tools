@@ -22,11 +22,11 @@
     "signedInAria": "Connecté en tant que {name}"
   },
   "catalogRefresh": {
-    "action": "ACTUALISER",
-    "actionAria": "Actualiser le catalogue de {institution} depuis Notion",
+    "action": "Actualiser le catalogue",
     "refreshing": "Actualisation…",
     "refreshed": "Catalogue actualisé",
-    "failed": "Échec de l’actualisation — réessayez"
+    "failed": "Échec de l’actualisation — réessayez",
+    "done": "Terminé"
   },
   "status": {
     "labStatusLabel": "État du labo",
@@ -48,7 +48,6 @@
     "loading": "chargement de l'inventaire",
     "columnTool": "Outil",
     "columnCategory": "Catégorie",
-    "columnZone": "Zone",
     "columnTraining": "Formation",
     "trainingBeginner": "Débutant",
     "trainingIntermediate": "Intermédiaire",
@@ -56,7 +55,6 @@
   },
   "detail": {
     "breadcrumbTools": "Outils",
-    "breadcrumbInventory": "Inventaire",
     "toolStatusLabel": "État de l'outil",
     "trainingChip": "formation {level}",
     "ppeRequired": "EPI obligatoire",
@@ -64,17 +62,14 @@
     "viewSop": "Voir la procédure (SOP)",
     "atAGlanceLabel": "En un coup d'œil",
     "materials": "Matériaux",
-    "contactStaff": "Contacter l'équipe du MakerLab",
     "safetyAccess": "Sécurité et accès",
     "ppeNotice": "Les EPI doivent être portés avant utilisation. Consultez les consignes affichées.",
     "emergencyStop": "Arrêt d'urgence",
     "emergencyStopFallback": "Suivez les consignes affichées du labo et prévenez l'équipe en cas d'urgence.",
     "useRestrictions": "Restrictions d'utilisation",
-    "useRestrictionsFallback": "Ouvert à tous les utilisateurs formés du MakerLab pendant les heures d'ouverture.",
     "documentsResources": "Documents et ressources",
     "openResource": "Ouvrir la ressource",
     "resourceFallback": "Ressource",
-    "noDocuments": "Aucun document lié pour l'instant.",
     "details": "Détails",
     "category": "Catégorie",
     "location": "Emplacement",
@@ -89,7 +84,6 @@
     "serial": "Numéro de série",
     "acquired": "Acquis le",
     "notesTips": "Notes et conseils",
-    "backToTools": "‹ Retour à tous les outils",
     "builtWithThis": "Réalisé avec cet outil",
     "builtWithThisBy": "par {author}"
   },
@@ -161,7 +155,6 @@
     "newChatTitle": "Démarrer une nouvelle conversation",
     "closeAria": "Fermer l'assistant",
     "closeTitle": "Fermer (conserve la conversation)",
-    "closeScrimAria": "Fermer l'assistant MakerLab",
     "greetingTool": "Posez vos questions sur cet outil — j'ai ses caractéristiques, ses matériaux et ses liens vers les ressources.",
     "greetingGeneral": "Comment puis-je vous aider aujourd'hui ?",
     "suggestionFindMachine": "Trouver une machine pour un projet",

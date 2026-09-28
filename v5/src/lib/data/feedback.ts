@@ -3,6 +3,7 @@ import { getDb } from "../db/client.ts";
 import { feedback, tools } from "../db/schema/index.ts";
 import { FEEDBACK_STATUS, isOneOf, type FlagField } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
+import { accountRemoved } from "./account-removed.ts";
 import { rankByVocabulary } from "./rank.ts";
 import { isUuid } from "./uuid.ts";
 
@@ -116,6 +117,8 @@ export interface FeedbackQueueEntry {
    * not a log line (§8).
    */
   reporterEmail: string;
+  /** The reporter's account has been removed; the name above is the snapshot. */
+  reporterRemoved: boolean;
   /** One of `FEEDBACK_STATUS`. */
   status: string;
   createdAt: Date;
@@ -168,6 +171,7 @@ export async function listFeedbackQueue(
       suggestedFix: feedback.suggestedFix,
       reporterName: feedback.reporterName,
       reporterEmail: feedback.reporterEmail,
+      reporterRemoved: accountRemoved(feedback.reporterUserId),
       status: feedback.status,
       createdAt: feedback.createdAt,
     })
@@ -186,6 +190,7 @@ export async function listFeedbackQueue(
     suggestedFix: row.suggestedFix || "",
     reporterName: row.reporterName || "",
     reporterEmail: row.reporterEmail || "",
+    reporterRemoved: Boolean(row.reporterRemoved),
     status: row.status,
     createdAt: row.createdAt,
   }));

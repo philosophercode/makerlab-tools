@@ -4,6 +4,7 @@ import { apiTokens, oauthAccessToken, oauthApplication, oauthConsent, user } fro
 import type { Db } from "../db/types.ts";
 import { generateApiToken } from "../auth/api-token-format.ts";
 import { isUuid } from "./uuid.ts";
+import { TOKEN_LIFETIME_DAYS, tokenExpiryFrom } from "../account/token-lifetime.ts";
 
 /**
  * Personal access tokens and OAuth grants (MCP access spec §4.1, §5.1, §6).
@@ -26,10 +27,8 @@ export interface ApiTokenOptions {
   db?: Db;
 }
 
-/** How long a new token lives. Default 90 days; "never" is available, not preselected (§11 Q2). */
-export const TOKEN_EXPIRY_CHOICES = ["30", "90", "never"] as const;
-export type TokenExpiryChoice = (typeof TOKEN_EXPIRY_CHOICES)[number];
-export const DEFAULT_TOKEN_EXPIRY: TokenExpiryChoice = "90";
+/** Every token lives 90 days — one semester, no choice (amendment 2026-09-25). */
+export { TOKEN_LIFETIME_DAYS, tokenExpiryFrom };
 
 /** Live (unrevoked, unexpired) tokens one person may hold. A ceiling, not a quota anybody should meet. */
 export const MAX_ACTIVE_TOKENS = 20;
@@ -56,18 +55,12 @@ export interface NewApiToken {
   userId: string;
   name: string;
   readOnly: boolean;
-  expiry: TokenExpiryChoice;
 }
 
 export type CreateApiTokenResult =
   | { ok: true; token: string; summary: ApiTokenSummary }
   | { ok: false; reason: "invalid_field" | "too_many_tokens" };
 
-/** The expiry timestamp a choice means, from `now`. */
-export function expiryFor(choice: TokenExpiryChoice, now: Date = new Date()): Date | null {
-  if (choice === "never") return null;
-  return new Date(now.getTime() + Number(choice) * 24 * 60 * 60_000);
-}
 
 /**
  * Create a token for `userId`. Answers the token itself — the only time it
@@ -79,9 +72,6 @@ export async function createApiToken(
 ): Promise<CreateApiTokenResult> {
   const name = input.name.replace(/\s+/g, " ").trim();
   if (!name || name.length > TOKEN_NAME_MAX) return { ok: false, reason: "invalid_field" };
-  if (!(TOKEN_EXPIRY_CHOICES as readonly string[]).includes(input.expiry)) {
-    return { ok: false, reason: "invalid_field" };
-  }
 
   const db = options.db ?? (await getDb());
   const active = await countActiveTokens(input.userId, { db });
@@ -96,7 +86,7 @@ export async function createApiToken(
       prefix: generated.prefix,
       tokenHash: generated.hash,
       readOnly: input.readOnly,
-      expiresAt: expiryFor(input.expiry),
+      expiresAt: tokenExpiryFrom(),
     })
     .returning();
 

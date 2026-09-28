@@ -38,12 +38,48 @@ export interface EvalCaseContext {
    * `page: tool`.
    */
   curate?: boolean;
+  /**
+   * Who is asking, signed in (MCP access spec amendment 2026-09-25): `student`
+   * (the demo student) or `staff` (the demo SuperMaker). Set, the tool set and
+   * prompt are composed for that person exactly as the chat route composes
+   * them (`capabilitiesForIdentity`); left out, the harness's historical
+   * caller — every chat tool, no identity — is kept, so older cases are
+   * unchanged.
+   */
+  as?: EvalCaller;
+  /**
+   * The page the person is on (assistant–GUI parity spec §10.1), as a path —
+   * `/admin/maintenance` — composed into the prompt's "Where the person is"
+   * block by the same `loadPageContext` the chat route uses.
+   */
+  path?: string;
+  /**
+   * The rows ticked on that page, by the name the page shows (a ticket's
+   * title). The harness looks each up in the eval database and sends its id,
+   * as the page would. Requires `path`.
+   */
+  selection?: string[];
 }
 
-/** One eval case: a single-turn request plus the assertions it must satisfy. */
+export const EVAL_CALLERS = ["student", "staff", "super_admin"] as const;
+export type EvalCaller = (typeof EVAL_CALLERS)[number];
+
+/** One earlier message of the conversation a case continues. */
+export interface EvalTurn {
+  role: "user" | "assistant";
+  text: string;
+}
+
+/** One eval case: a request (after an optional history) plus the assertions it must satisfy. */
 export interface EvalCase {
   id: string;
   prompt: string;
+  /**
+   * Earlier turns, oldest first, before `prompt` — for a behaviour that spans
+   * messages, such as confirming a ticket change and then being told "yes".
+   * Assertions judge only the final turn's answer and tool calls.
+   */
+  history?: EvalTurn[];
   context: EvalCaseContext;
   assert: AssertionSpec[];
   /** Case file the case came from, for error messages. */
@@ -380,8 +416,8 @@ function validateCase(raw: YamlValue, file: string): EvalCase {
   if (raw.context !== undefined && raw.context !== null) {
     if (!isRecord(raw.context)) fail(file, 0, `case "${id}": context must be a mapping`);
     for (const key of Object.keys(raw.context)) {
-      if (key !== "page" && key !== "toolId" && key !== "curate") {
-        fail(file, 0, `case "${id}": unknown context key "${key}" (expected page, toolId, curate)`);
+      if (!["page", "toolId", "curate", "as", "path", "selection"].includes(key)) {
+        fail(file, 0, `case "${id}": unknown context key "${key}" (expected page, toolId, curate, as, path, selection)`);
       }
     }
     if (raw.context.page !== undefined) {
@@ -402,6 +438,40 @@ function validateCase(raw: YamlValue, file: string): EvalCase {
       if (raw.context.curate && context.page !== "tool") fail(file, 0, `case "${id}": context.curate requires page: tool`);
       context.curate = raw.context.curate;
     }
+    if (raw.context.as !== undefined) {
+      const caller = raw.context.as;
+      if (typeof caller !== "string" || !(EVAL_CALLERS as readonly string[]).includes(caller)) {
+        fail(file, 0, `case "${id}": context.as must be one of ${EVAL_CALLERS.join(", ")}`);
+      }
+      context.as = caller as EvalCaller;
+    }
+    if (raw.context.path !== undefined) {
+      const path = requireString(raw.context.path, file, `case "${id}": context.path`);
+      if (!path.startsWith("/")) fail(file, 0, `case "${id}": context.path must start with /`);
+      context.path = path;
+    }
+    if (raw.context.selection !== undefined) {
+      if (!context.path) fail(file, 0, `case "${id}": context.selection requires context.path`);
+      if (!Array.isArray(raw.context.selection)) fail(file, 0, `case "${id}": context.selection must be a list of names`);
+      context.selection = raw.context.selection.map((name) => requireString(name, file, `case "${id}": context.selection entries`));
+    }
+  }
+
+  let history: EvalTurn[] | undefined;
+  if (raw.history !== undefined && raw.history !== null) {
+    if (!Array.isArray(raw.history) || raw.history.length === 0) {
+      fail(file, 0, `case "${id}": history must be a non-empty list`);
+    }
+    history = raw.history.map((entry) => {
+      if (!isRecord(entry) || Object.keys(entry).length !== 1) {
+        fail(file, 0, `case "${id}": each history entry must be one "user:" or "assistant:" line`);
+      }
+      const [role] = Object.keys(entry);
+      if (role !== "user" && role !== "assistant") {
+        fail(file, 0, `case "${id}": history entries are "user" or "assistant", not "${role}"`);
+      }
+      return { role, text: requireString(entry[role], file, `case "${id}": history ${role}`) };
+    });
   }
 
   if (!Array.isArray(raw.assert) || raw.assert.length === 0) {
@@ -411,6 +481,7 @@ function validateCase(raw: YamlValue, file: string): EvalCase {
   return {
     id,
     prompt,
+    ...(history ? { history } : {}),
     context,
     assert: raw.assert.map((entry) => validateAssertion(entry, file, id)),
     file,

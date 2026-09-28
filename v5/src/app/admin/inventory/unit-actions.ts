@@ -1,15 +1,12 @@
 "use server";
 
+import { performAction } from "../../../lib/actions/perform";
+import { UNITS_ADD, UNITS_DELETE, UNITS_EDIT, UNITS_RETIRE } from "../../../lib/actions/units";
+import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import type { NewUnit, UnitPatch } from "../../../lib/data/units";
-import {
-  addUnit as addUnitWrite,
-  editUnit as editUnitWrite,
-  removeUnit as removeUnitWrite,
-  retireUnitForTool,
-  type UnitWritePayload,
-} from "../../../lib/inventory/unit-edits";
+import type { UnitWritePayload } from "../../../lib/inventory/unit-edits";
 import type { InventoryActionResult } from "./action-result";
-import { withToolEdit, type ToolWriteInput } from "./tool-write-context";
+import type { ToolWriteInput } from "./tool-write-context";
 
 /**
  * The Units section of the tool editor (spec §5.3(3), §4.5).
@@ -27,20 +24,23 @@ import { withToolEdit, type ToolWriteInput } from "./tool-write-context";
  * token mean something for a unit-only edit.
  *
  * **No audit events**: a unit going out of service is an ordinary edit (§4.11).
+ *
+ * One-line wrappers over `units.*` (`src/lib/actions/units.ts`, assistant–GUI
+ * parity spec §9 phase 4).
  */
 
 /** Add a unit. A duplicate serial refuses with `duplicate_serial`; §4.5. */
 export async function addUnit(
   input: ToolWriteInput & { unit: NewUnit }
 ): Promise<InventoryActionResult<UnitWritePayload>> {
-  return withToolEdit(input, (context) => addUnitWrite(context, input.unit));
+  return performAction(UNITS_ADD, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }
 
 /** Edit label, serial, asset tag, status, condition, date acquired or notes. */
 export async function editUnit(
   input: ToolWriteInput & { unitId: string; patch: UnitPatch }
 ): Promise<InventoryActionResult<UnitWritePayload>> {
-  return withToolEdit(input, (context) => editUnitWrite(context, input.unitId, input.patch));
+  return performAction(UNITS_EDIT, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }
 
 /**
@@ -50,7 +50,7 @@ export async function editUnit(
 export async function retireUnit(
   input: ToolWriteInput & { unitId: string }
 ): Promise<InventoryActionResult<UnitWritePayload>> {
-  return withToolEdit(input, (context) => retireUnitForTool(context, input.unitId));
+  return performAction(UNITS_RETIRE, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }
 
 /**
@@ -63,5 +63,5 @@ export async function retireUnit(
 export async function deleteUnit(
   input: ToolWriteInput & { unitId: string }
 ): Promise<InventoryActionResult<UnitWritePayload>> {
-  return withToolEdit(input, (context) => removeUnitWrite(context, input.unitId));
+  return performAction(UNITS_DELETE, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }

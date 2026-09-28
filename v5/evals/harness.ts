@@ -1,16 +1,25 @@
 import {
   CAPABILITIES,
+  capabilitiesForIdentity,
   composeChat,
   type Capability,
   type CapabilityCtx,
 } from "@/lib/capabilities";
 import { getCatalogTool, getCatalogTools } from "@/lib/catalog";
 import { loadToolManualsForChat } from "@/lib/chat/tool-manuals";
-import type { Tool } from "ai";
+import type { ModelMessage, Tool } from "ai";
+import type { Identity } from "@/lib/auth/identity";
 import { curationCapability } from "@/lib/capabilities/curation";
 import type { CurationContext } from "@/lib/capabilities/types";
+import { DEMO_ACCOUNTS } from "@/lib/db/demo-seed";
 import { loadCurationSubject, recordFields } from "@/lib/refresh/curation";
-import type { EvalCase } from "./cases";
+import { loadPageContext, pageContextSection, PAGE_CONTEXTS } from "@/lib/actions/page-context";
+import { TAINT_REFUSED_RISKS } from "@/lib/actions/proposals";
+import { ACTION_DEFINITIONS } from "@/lib/actions/registry";
+import { getDb } from "@/lib/db/client";
+import { feedback, maintenanceLogs, pendingTools, projects, tools as toolsTable } from "@/lib/db/schema/index";
+import { inArray } from "drizzle-orm";
+import type { EvalCaller, EvalCase, EvalTurn } from "./cases";
 
 /**
  * The bridge between a case and the assistant (design spec §3).
@@ -37,6 +46,36 @@ export function stubWrites(capabilities: Capability[] = CAPABILITIES): Capabilit
     ...capability,
     tools: capability.tools.map((capTool) => {
       if (capTool.kind !== "write") return capTool;
+      // An action tool only ever proposes (assistant–GUI parity spec §3.4);
+      // its stub answers the way the real one does, so the model is judged on
+      // what it says after a real proposal.
+      if (capability.id === "actions") {
+        const risk = ACTION_DEFINITIONS.find((def) => def.toolName === capTool.name)?.risk;
+        return {
+          ...capTool,
+          // A turn that read outside content may not propose people or
+          // destructive changes (§8.4) — the real tool refuses before storing
+          // anything, and so does this stub, from the same turn state.
+          run: async (input: unknown, ctx?: CapabilityCtx) =>
+            ctx?.turn?.readOutside && risk && TAINT_REFUSED_RISKS.includes(risk)
+              ? {
+                  proposed: false,
+                  stubbed: true,
+                  code: "tainted_turn",
+                  message:
+                    "This turn read content from outside the lab, so it may not propose changes to people or anything that cannot be undone. Nothing was proposed or changed. Ask the person to repeat the request in a new message.",
+                }
+              : {
+                  proposed: true,
+                  stubbed: true,
+                  tool: capTool.name,
+                  count: 1,
+                  input,
+                  message:
+                    "A confirmation card is now in front of the person. NOTHING HAS CHANGED YET: it changes only if they press Confirm on the card. Say so in one short line and point them to the card; never say it is done.",
+                },
+        };
+      }
       return {
         ...capTool,
         run: async (input: unknown) => ({
@@ -116,14 +155,24 @@ export async function composeCase(evalCase: EvalCase): Promise<ComposedCase> {
   // A curation case (refresh research spec §12): the tool's record, as the
   // chat route loads it for staff; `propose_change` is a write and is stubbed.
   const curation = evalCase.context.curate && focused ? await curationFor(focused.id) : null;
-  const ctx: CapabilityCtx = { locale: "en", focusedToolId: focused?.id, ...(curation ? { curation } : {}) };
+  const identity = evalCase.context.as ? evalIdentity(evalCase.context.as) : undefined;
+  const ctx: CapabilityCtx = {
+    locale: "en",
+    focusedToolId: focused?.id,
+    ...(curation ? { curation } : {}),
+    ...(identity ? { identity } : {}),
+  };
   // The focused tool's searchable manuals, as the chat route loads them — the
   // eval's fixture manual (`manual-fixture.ts`) once `npm run eval` seeded it,
   // nothing offline. `search_manual` itself stays live: it reads the eval's
   // own PGlite database and nothing else.
   const manualOutlines = focused ? (await loadToolManualsForChat(focused.id, null)).outlines : [];
   const capabilities = curation ? [...CAPABILITIES, curationCapability("tool")] : CAPABILITIES;
-  const composed = composeChat(stubLiveReads(stubWrites(capabilities)), ctx, {
+  // A case that names its caller gets that caller's registry, through the same
+  // `capabilitiesForIdentity` the route uses; one that does not keeps the
+  // historical, unfiltered composition.
+  const permitted = identity ? capabilitiesForIdentity(capabilities, identity) : capabilities;
+  const composed = composeChat(stubLiveReads(stubWrites(permitted)), ctx, {
     tools,
     focusedTool: focused,
     locale: "en",
@@ -131,7 +180,69 @@ export async function composeCase(evalCase: EvalCase): Promise<ComposedCase> {
     ...(curation ? { curation } : {}),
   });
 
-  return { system: composed.system, tools: composed.tools };
+  // Where the person is (§10.1): the same loader and block the chat route uses.
+  const page = evalCase.context.path && identity ? await pageBlock(identity, evalCase.context.path, evalCase.context.selection) : "";
+  return { system: [composed.system, page].filter(Boolean).join("\n\n"), tools: composed.tools };
+}
+
+/** The selectable table for each selection kind, and the column its rows are named by. */
+async function idsByName(kind: string, names: string[]): Promise<string[]> {
+  const db = await getDb();
+  if (kind === "maintenance_log") {
+    const rows = await db.select({ id: maintenanceLogs.id, name: maintenanceLogs.title }).from(maintenanceLogs).where(inArray(maintenanceLogs.title, names));
+    return rows.map((row) => row.id);
+  }
+  if (kind === "feedback") {
+    const rows = await db.select({ id: feedback.id }).from(feedback).where(inArray(feedback.issueDescription, names));
+    return rows.map((row) => row.id);
+  }
+  if (kind === "project") {
+    const rows = await db.select({ id: projects.id }).from(projects).where(inArray(projects.title, names));
+    return rows.map((row) => row.id);
+  }
+  if (kind === "pending_tool") {
+    const rows = await db.select({ id: pendingTools.id }).from(pendingTools).where(inArray(pendingTools.name, names));
+    return rows.map((row) => row.id);
+  }
+  if (kind === "tool") {
+    const rows = await db.select({ id: toolsTable.id }).from(toolsTable).where(inArray(toolsTable.name, names));
+    return rows.map((row) => row.id);
+  }
+  return [];
+}
+
+/** The "Where the person is" block for a case, its selection named as the page names rows. */
+async function pageBlock(identity: Identity, path: string, selection?: string[]): Promise<string> {
+  const kind = PAGE_CONTEXTS.find((entry) => entry.pattern.test(path))?.selection?.kind;
+  const ids = kind && selection?.length ? await idsByName(kind, selection) : [];
+  if (selection?.length && ids.length !== selection.length) {
+    throw new Error(`context.selection ${JSON.stringify(selection)} did not all resolve on ${path}`);
+  }
+  return pageContextSection(await loadPageContext(identity, { path, ...(kind && ids.length ? { selection: { kind, ids } } : {}) }));
+}
+
+/**
+ * The signed-in person a case asks as: the demo seed's student or SuperMaker,
+ * as `resolveIdentity` would return them. Writes are stubbed, so the ids are
+ * only ever read.
+ */
+export function evalIdentity(caller: EvalCaller): Identity {
+  const account = caller === "super_admin" ? DEMO_ACCOUNTS.superAdmin : caller === "staff" ? DEMO_ACCOUNTS.admin : DEMO_ACCOUNTS.user;
+  return {
+    role: account.role,
+    userId: account.id,
+    email: account.email,
+    name: account.name,
+    rateLimitKey: account.id,
+  };
+}
+
+/** The conversation a case sends: its history, oldest first, then its prompt. */
+export function caseMessages(evalCase: EvalCase): ModelMessage[] {
+  const turns: EvalTurn[] = [...(evalCase.history ?? []), { role: "user", text: evalCase.prompt }];
+  return turns.map((turn): ModelMessage =>
+    turn.role === "user" ? { role: "user", content: turn.text } : { role: "assistant", content: turn.text }
+  );
 }
 
 /** The focused tool's record for a curation case, shaped as the chat route shapes it. */

@@ -1,8 +1,14 @@
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { EmptyState } from "../../../components/system/EmptyState";
 import { RefreshList, type RefreshListRow } from "../../../components/admin/RefreshList";
+import { RefreshPicker } from "../../../components/admin/RefreshPicker";
+import type { PickerTool } from "../../../components/admin/refresh-picker-filters";
+import { listInventoryRows } from "../../../lib/data/inventory";
+import { lastRefreshedByTool } from "../../../lib/data/tool-refreshes";
+import { queueToolRefresh } from "./actions";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { listRefreshQueue } from "../../../lib/data/tool-refreshes";
@@ -10,6 +16,7 @@ import { listOpenAssistantProposals, MCP_PROPOSAL_CHAT_ID } from "../../../lib/d
 import { ChatProposalCards, type ChatProposalItem } from "../../../components/ChatProposalCards";
 import { countByKind, refreshRank } from "../../../lib/refresh/types";
 import { siteConfig } from "../../../lib/site-config";
+import { personLabel } from "../../../components/admin/person-label";
 
 /**
  * `/admin/refresh` — refreshes waiting for a decision (refresh research spec
@@ -19,6 +26,11 @@ import { siteConfig } from "../../../lib/site-config";
  * other *new*, nothing to change — failed refreshes (waiting for **Refresh
  * again**) and running ones after. Uncached: `RefreshList` polls while a run is
  * going. A database that cannot be reached is said, never an empty list.
+ *
+ * **Refresh research…** (amendment 2026-09-25 "Admin polish") starts research
+ * from here too: the header's primary action opens `RefreshPicker` over every
+ * tool that is not archived, and queues through the inventory's own
+ * `queueToolRefresh` — its permission, its 25 a press, its daily allowance.
  */
 
 export const metadata = {
@@ -55,6 +67,7 @@ export default async function AdminRefreshPage() {
   }
 
   const byStatus = (...statuses: string[]) => (rows ?? []).filter((row) => statuses.includes(row.status)).length;
+  const pickerTools = await loadPickerTools();
 
   return (
     <section className="flex flex-col gap-4">
@@ -71,6 +84,11 @@ export default async function AdminRefreshPage() {
               ]
             : [t("facts.unreadable")]
         }
+        actions={
+          pickerTools ? (
+            <RefreshPicker tools={pickerTools} action={queueToolRefresh} now={new Date().toISOString()} />
+          ) : undefined
+        }
       />
       {rows ? (
         <RefreshList rows={rows} />
@@ -80,6 +98,34 @@ export default async function AdminRefreshPage() {
       <AssistantProposals />
     </section>
   );
+}
+
+/**
+ * The tools the picker offers: every tool but archived ones (an archived tool
+ * is settled — archiving is one outcome of a review), with the flags its
+ * presets read and when each was last refreshed. Null when either read failed:
+ * the button is then not offered, rather than offering a list that is wrong.
+ */
+async function loadPickerTools(): Promise<PickerTool[] | null> {
+  try {
+    const [inventory, refreshed] = await Promise.all([listInventoryRows(), lastRefreshedByTool()]);
+    return inventory
+      .filter((row) => row.state !== "archived")
+      .map((row) => ({
+        id: row.id,
+        name: row.name,
+        officialName: row.officialName ?? null,
+        categoryName: row.categoryName,
+        noManual: row.attention.noManual,
+        neverReviewed: row.attention.neverReviewed,
+        lastRefreshedAt: refreshed.get(row.id)?.toISOString() ?? null,
+        refreshOpen: Boolean(row.openRefreshId),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (err) {
+    console.error("[admin/refresh] could not read the tools for the picker", err);
+    return null;
+  }
 }
 
 /**
@@ -102,6 +148,7 @@ async function AssistantProposals() {
   }
   if (rows.length === 0) return null;
 
+  const tPeople = await getTranslations("admin.people");
   const byTool = new Map<string, { name: string; items: ChatProposalItem[]; proposedBy: Set<string> }>();
   for (const row of rows) {
     const group = byTool.get(row.toolId) ?? { name: row.toolName, items: [], proposedBy: new Set<string>() };
@@ -111,7 +158,8 @@ async function AssistantProposals() {
       subject: { kind: "tool", id: row.toolId, name: row.toolName },
       proposal: row.proposal,
     });
-    if (row.proposedBy) group.proposedBy.add(row.proposedBy);
+    const proposer = personLabel(tPeople, row.proposedBy, row.proposedByRemoved);
+    if (proposer) group.proposedBy.add(proposer);
     byTool.set(row.toolId, group);
   }
 
@@ -120,7 +168,13 @@ async function AssistantProposals() {
       <h3 id="assistant-proposals-heading" className="font-heading text-lg font-medium uppercase">
         {t("assistantHeading")}
       </h3>
-      <p className="max-w-[72ch] text-sm text-muted-foreground">{t("assistantLede")}</p>
+      <p className="max-w-[72ch] text-sm text-muted-foreground">
+        {t("assistantLede")}{" "}
+        {/* Assistant–GUI parity spec §3.8: the inbox holds every other MCP proposal. */}
+        <Link className="text-primary-ink hover:underline" href="/admin/proposals">
+          {t("assistantInboxLink")}
+        </Link>
+      </p>
       {[...byTool.entries()].map(([toolId, group]) => (
         <div key={toolId} className="flex flex-col gap-1 py-2">
           <h4 className="font-mono text-label font-medium uppercase">{group.name}</h4>

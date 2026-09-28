@@ -12,6 +12,7 @@ import { extractManual, MANUAL_EXTRACT_MAX_BYTES, type ExtractedManual } from ".
 import { readPage, type ImageHint, type ReadPageResult } from "../web/read-page.ts";
 import type { SearchFindings } from "./model-output.ts";
 import { buildReadPrompt, type ResearchItemInput } from "./prompt.ts";
+import { pageLanguage, urlLanguage, type LanguageJudgement } from "./language.ts";
 import { findSearchText, usesSearchText, type SearchPageText } from "./search-text.ts";
 import { orderPagesForReading, type PageSubject } from "./source-pages.ts";
 
@@ -56,6 +57,14 @@ import { orderPagesForReading, type PageSubject } from "./source-pages.ts";
  *   stand in, capped at {@link RESEARCH_MANUAL_TEXT_MAX_CHARS}. All three are
  *   marked `via: "manual"`, with `manualSource` saying which. At most `maxPdfs`
  *   manuals are given either way.
+ * - **English only** (amendment "English resources only"): each page's
+ *   language is judged from what was read (`language.ts`) — the HTML's text and
+ *   `lang`, the search's copy, a manual's whole text (not its digest, so a
+ *   multilingual manual's English section is seen). A page that is not English
+ *   is not given to the model; it is listed as `"<host>: skipped (not English:
+ *   de)"`, and every verdict is returned in `languages` for the link gate. A
+ *   candidate whose URL names only another language is not read at all
+ *   ({@link candidatePageUrls}).
  *
  * Plain Node: step code imports this.
  */
@@ -82,6 +91,15 @@ export interface ReadPageText {
   manualSource?: "stored" | "pdf" | "search";
 }
 
+/** What a page read was judged to be, by the URL it was asked for and the URL it ended at. */
+export interface PageLanguageRecord {
+  /** The URL the read ended at (or the search copy's URL). */
+  url: string;
+  /** The URL the read was asked for. */
+  requested: string;
+  judgement: LanguageJudgement;
+}
+
 /** A PDF read whole, for a file part. */
 export interface ReadPdf {
   url: string;
@@ -94,6 +112,8 @@ export interface ReadPagesResult {
   imageHints: ImageHint[];
   /** `"<host>: <status>"` (with the reader's short reason code), one per page that gave nothing. */
   failures: string[];
+  /** Each page's language verdict, English or not (amendment "English resources only"). Absent: none judged. */
+  languages?: PageLanguageRecord[];
 }
 
 export interface ReadCandidatePagesOptions {
@@ -149,7 +169,10 @@ export function candidatePageUrls(
   max = RESEARCH_MAX_PAGE_READS,
   subject: PageSubject = { brand: null, name: null }
 ): string[] {
-  const all = [...findings.candidateLinks.map((link) => link.url), ...findings.sourceUrls];
+  // A page whose address names only another language is not worth one of the reads (amendment "English resources only").
+  const all = [...findings.candidateLinks.map((link) => link.url), ...findings.sourceUrls].filter(
+    (url) => urlLanguage(url).verdict !== "not_english"
+  );
   return orderPagesForReading(all, { brand: subject.brand, name: subject.name || findings.canonicalName }, max);
 }
 
@@ -184,7 +207,15 @@ export async function readCandidatePages(
     }
   });
 
-  const out: ReadPagesResult = { pages: [], pdfs: [], imageHints: [], failures: [] };
+  const languages: PageLanguageRecord[] = [];
+  const out: ReadPagesResult = { pages: [], pdfs: [], imageHints: [], failures: [], languages };
+  /** Records the verdict; true when the page is not English and must be left out. */
+  const notEnglish = (url: string, requested: string, host: string, judgement: LanguageJudgement): boolean => {
+    languages.push({ url, requested, judgement });
+    if (judgement.verdict !== "not_english") return false;
+    out.failures.push(`${host}: skipped (not English: ${judgement.lang ?? "unknown"})`);
+    return true;
+  };
   const seenImages = new Set<string>();
   const searchTexts = opts.searchTexts ?? [];
   const usedSearchTexts = new Set<string>();
@@ -196,6 +227,9 @@ export async function readCandidatePages(
     const storedManual = stored[n];
     if (storedManual || !result) {
       if (!storedManual) continue;
+      const storedHost = hostOf(targets[n]) ?? "(unknown host)";
+      const storedJudgement = pageLanguage({ url: targets[n], text: allPagesText(storedManual.pages), manual: true });
+      if (notEnglish(targets[n], targets[n], storedHost, storedJudgement)) continue;
       if (manualTexts >= maxPdfs) {
         out.failures.push(`${hostOf(targets[n]) ?? "(unknown host)"}: skipped (PDF limit)`);
         continue;
@@ -225,6 +259,9 @@ export async function readCandidatePages(
       const copy = findSearchText(targets[n], searchTexts);
       if (copy && !usedSearchTexts.has(copy.url)) {
         usedSearchTexts.add(copy.url);
+        const judgement = pageLanguage({ url: copy.url, text: copy.text, manual: looksLikePdfUrl(copy.url) });
+        // Recorded under the copy's own URL: a copy found for another locale's address says nothing about this one.
+        if (notEnglish(copy.url, copy.url, host, judgement)) continue;
         out.pages.push({ url: copy.url, title: copy.title, text: copy.text, via: "search" });
         continue;
       }
@@ -249,6 +286,8 @@ export async function readCandidatePages(
       }
       const extracted = await extract(result.pdf).catch(() => null);
       if (extracted?.status === "ready") {
+        const judgement = pageLanguage({ url: result.url, text: allPagesText(extracted.pages), manual: true });
+        if (notEnglish(result.url, targets[n], host, judgement)) continue;
         manualTexts += 1;
         out.pages.push({
           url: result.url,
@@ -266,6 +305,7 @@ export async function readCandidatePages(
         continue;
       }
       usedSearchTexts.add(copy.url);
+      if (notEnglish(copy.url, copy.url, host, pageLanguage({ url: copy.url, text: copy.text, manual: true }))) continue;
       manualTexts += 1;
       out.pages.push({
         url: result.url,
@@ -278,10 +318,19 @@ export async function readCandidatePages(
     }
 
     const text = result.text?.trim() ?? "";
-    if (text) out.pages.push({ url: result.url, title: result.title, text });
-    else out.failures.push(`${host}: empty`);
+    if (!text) {
+      out.failures.push(`${host}: empty`);
+      continue;
+    }
+    if (notEnglish(result.url, targets[n], host, pageLanguage({ url: result.url, lang: result.lang, text }))) continue;
+    out.pages.push({ url: result.url, title: result.title, text });
   }
   return out;
+}
+
+/** Every page's text, for judging a whole manual's language (not only its digest). */
+function allPagesText(pages: readonly { text: string }[]): string {
+  return pages.map((page) => page.text).join("\n");
 }
 
 /** A manual's text cut to {@link RESEARCH_MANUAL_TEXT_MAX_CHARS}, at a line or word break when one is near. */

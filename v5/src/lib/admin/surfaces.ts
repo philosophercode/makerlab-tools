@@ -1,9 +1,9 @@
 import {
   BookOpenText,
   Boxes,
-  FileSpreadsheet,
   Flag,
   GalleryVerticalEnd,
+  Inbox,
   PackagePlus,
   RefreshCw,
   Share2,
@@ -11,9 +11,8 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { can, type Permission } from "../auth/permissions";
+import { ADMIN_SURFACE_PERMISSIONS, can, type Permission } from "../auth/permissions";
 import type { Role } from "../auth/roles";
-import { IMPORT_PERMISSION } from "../import/access";
 import { INTAKE_REVIEW_PERMISSION } from "../intake/access";
 
 /**
@@ -42,13 +41,13 @@ export type AdminGroup = (typeof ADMIN_GROUPS)[number];
 
 export const SURFACE_KEYS = [
   "intake",
-  "import",
   "inventory",
   "refresh",
   "research",
   "maintenance",
   "corrections",
   "projects",
+  "proposals",
   "users",
   "mirror",
 ] as const;
@@ -64,6 +63,7 @@ export const COUNT_LOADERS = [
   "maintenance",
   "corrections",
   "projects",
+  "proposals",
   "users",
   "mirror",
 ] as const;
@@ -73,22 +73,46 @@ export interface AdminSurface {
   key: SurfaceKey;
   href: string;
   group: AdminGroup;
-  /** What the page itself checks; the surface is listed only to holders. */
-  permission: Permission;
+  /**
+   * What the page itself checks; the surface is listed only to holders. A
+   * list means any one of them — the Assistant proposals inbox, which holds
+   * whatever its viewer proposed, under whichever permission that was.
+   */
+  permission: Permission | readonly Permission[];
   icon: LucideIcon;
   /** The overview loader behind the surface's tile. */
   count: CountLoader;
+  /**
+   * Loaders whose numbers the tile also carries, each read only for a viewer
+   * holding its permission — Intake's tile says how many imported lists wait
+   * for review (`tools.add`), since importing a list is part of Intake
+   * (amendment 2026-09-25 "Admin polish").
+   */
+  alsoCounts?: readonly { loader: CountLoader; permission: Permission }[];
 }
 
 export const ADMIN_SURFACES: readonly AdminSurface[] = [
-  { key: "intake", href: "/admin/intake", group: "addEquipment", permission: INTAKE_REVIEW_PERMISSION, icon: PackagePlus, count: "intake" },
-  { key: "import", href: "/admin/intake/imports/new", group: "addEquipment", permission: IMPORT_PERMISSION, icon: FileSpreadsheet, count: "imports" },
+  // One surface for adding equipment: the queue, the imports and "Import a
+  // list" are Intake's tabs and its header action, not surfaces of their own.
+  {
+    key: "intake",
+    href: "/admin/intake",
+    group: "addEquipment",
+    permission: INTAKE_REVIEW_PERMISSION,
+    icon: PackagePlus,
+    count: "intake",
+    alsoCounts: [{ loader: "imports", permission: "tools.add" }],
+  },
   { key: "inventory", href: "/admin/inventory", group: "keepFresh", permission: "tools.edit", icon: Boxes, count: "inventory" },
   { key: "refresh", href: "/admin/refresh", group: "keepFresh", permission: "tools.edit", icon: RefreshCw, count: "refresh" },
   { key: "research", href: "/admin/research", group: "keepFresh", permission: "tools.edit", icon: BookOpenText, count: "manuals" },
   { key: "maintenance", href: "/admin/maintenance", group: "queues", permission: "maintenance.manage", icon: Wrench, count: "maintenance" },
   { key: "corrections", href: "/admin/corrections", group: "queues", permission: "feedback.manage", icon: Flag, count: "corrections" },
   { key: "projects", href: "/admin/projects", group: "queues", permission: "projects.moderate", icon: GalleryVerticalEnd, count: "projects" },
+  // The Assistant proposals inbox (assistant–GUI parity spec §3.8, §6): the
+  // viewer's own proposals from MCP clients. Anybody who reaches /admin may
+  // have made one, so it is open to every admin-surface permission.
+  { key: "proposals", href: "/admin/proposals", group: "queues", permission: ADMIN_SURFACE_PERMISSIONS, icon: Inbox, count: "proposals" },
   { key: "users", href: "/admin/users", group: "settings", permission: "users.manage", icon: Users, count: "users" },
   { key: "mirror", href: "/admin/mirror", group: "settings", permission: "mirror.manage", icon: Share2, count: "mirror" },
 ];
@@ -98,7 +122,13 @@ export const ADMIN_HOME = "/admin";
 
 /** The surfaces `subject` may open, in {@link ADMIN_SURFACES} order. Nobody (anonymous, a student) gets none. */
 export function surfacesFor(subject: { role: Role | null | undefined } | null | undefined): AdminSurface[] {
-  return ADMIN_SURFACES.filter((surface) => can(subject, surface.permission));
+  return ADMIN_SURFACES.filter((surface) => mayOpen(subject, surface));
+}
+
+/** Whether `subject` holds `surface`'s permission (any one of a list). */
+export function mayOpen(subject: { role: Role | null | undefined } | null | undefined, surface: Pick<AdminSurface, "permission">): boolean {
+  const permissions: readonly Permission[] = typeof surface.permission === "string" ? [surface.permission] : surface.permission;
+  return permissions.some((permission) => can(subject, permission));
 }
 
 /** A surface by key. */
@@ -109,9 +139,20 @@ export function surface(key: SurfaceKey): AdminSurface {
 }
 
 /**
+ * The count loaders `subject`'s tiles read: each surface's own, and the extra
+ * ones it carries that `subject` holds the permission for.
+ */
+export function countLoadersFor(subject: { role: Role | null | undefined } | null | undefined): CountLoader[] {
+  return surfacesFor(subject).flatMap((entry) => [
+    entry.count,
+    ...(entry.alsoCounts ?? []).filter((extra) => can(subject, extra.permission)).map((extra) => extra.loader),
+  ]);
+}
+
+/**
  * The href in `hrefs` that `pathname` is on: the longest one that is the path
- * or a prefix of it, so `/admin/intake/imports/new` is "Import a list" and not
- * also "Intake", whose path is its prefix. `/admin` itself only on the home.
+ * or a prefix of it, so an item's page marks its surface. `/admin` itself only
+ * on the home.
  */
 export function currentHref(pathname: string, hrefs: readonly string[]): string | null {
   const path = pathname.replace(/\/+$/, "") || "/";

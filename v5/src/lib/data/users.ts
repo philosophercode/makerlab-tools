@@ -39,6 +39,13 @@ export interface UserRecord {
   role: Role;
   banned: boolean;
   banReason: string | null;
+  /** The custom title, or null for the role's default (`lib/people/title.ts`). */
+  title: string | null;
+  /**
+   * When they first had a session, or null for somebody a super admin added
+   * who has not signed in yet (migration `0018`, `lib/data/user-add.ts`).
+   */
+  firstSignedInAt: Date | null;
   createdAt: Date;
 }
 
@@ -110,7 +117,84 @@ export async function countUsersWithRole(
   return Number(row?.total ?? 0);
 }
 
-function toUserRecord(row: typeof user.$inferSelect): UserRecord {
+/**
+ * Set one person's custom title, or clear it with null. Written here rather
+ * than through Better Auth: the column is ours, the admin plugin has no
+ * endpoint for it, and `auth/config.ts` declares it `input: false` so no
+ * Better Auth endpoint can write it either. The caller has already normalised
+ * the value (`normalizeTitle`) and checked `users.manage`; the CHECK is the
+ * last word on length. Returns false when no such row exists.
+ */
+export async function updateUserTitle(
+  id: string,
+  title: string | null,
+  options: UserQueryOptions = {}
+): Promise<boolean> {
+  const db = options.db ?? (await getDb());
+  const rows = await db
+    .update(user)
+    .set({ title, updatedAt: new Date() })
+    .where(eq(user.id, id))
+    .returning({ id: user.id });
+  return rows.length > 0;
+}
+
+/**
+ * Set one person's display name. Written here rather than through Better
+ * Auth's `update-user`, which `auth/config.ts` disables: that endpoint takes a
+ * name from any signed-in browser with no length rule and no audit event. The
+ * caller has already normalised the value (`normalizeName`) and decided who
+ * may change it (`lib/people/rename.ts`). Returns false when no such row exists.
+ */
+export async function updateUserName(
+  id: string,
+  name: string,
+  options: UserQueryOptions = {}
+): Promise<boolean> {
+  const db = options.db ?? (await getDb());
+  const rows = await db
+    .update(user)
+    .set({ name, updatedAt: new Date() })
+    .where(eq(user.id, id))
+    .returning({ id: user.id });
+  return rows.length > 0;
+}
+
+/**
+ * One account by address, or null. The address is compared lower-cased — the
+ * way every row stores it — so a Google profile's capitalisation does not
+ * matter. Used at sign-in to decide whose name wins (`auth/provider-name.ts`).
+ */
+export async function findUserByEmail(
+  email: string,
+  options: UserQueryOptions = {}
+): Promise<UserRecord | null> {
+  const normalized = (email ?? "").trim().toLowerCase();
+  if (!normalized) return null;
+  const db = options.db ?? (await getDb());
+  const [row] = await db.select().from(user).where(eq(user.email, normalized)).limit(1);
+  return row ? toUserRecord(row) : null;
+}
+
+/**
+ * Stamp a person's first sign-in, if they have not had one. Called from the
+ * session create hook in `auth/config.ts` on every new session; only a row a
+ * super admin added ahead of time is ever still null, so for everybody else
+ * this matches nothing. Returns true when it stamped one.
+ */
+export async function markFirstSignIn(userId: string, options: UserQueryOptions = {}): Promise<boolean> {
+  if (!userId) return false;
+  const db = options.db ?? (await getDb());
+  const rows = await db
+    .update(user)
+    .set({ firstSignedInAt: new Date() })
+    .where(and(eq(user.id, userId), isNull(user.firstSignedInAt)))
+    .returning({ id: user.id });
+  return rows.length > 0;
+}
+
+/** A `user` row as the roster reads it. Shared with `user-add.ts`. */
+export function toUserRecord(row: typeof user.$inferSelect): UserRecord {
   return {
     id: row.id,
     email: row.email,
@@ -120,6 +204,8 @@ function toUserRecord(row: typeof user.$inferSelect): UserRecord {
     role: (row.role ?? "user") as Role,
     banned: Boolean(row.banned),
     banReason: row.banReason ?? null,
+    title: row.title ?? null,
+    firstSignedInAt: row.firstSignedInAt ?? null,
     createdAt: row.createdAt,
   };
 }

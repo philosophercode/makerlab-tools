@@ -1,16 +1,36 @@
 "use client";
 
-import { useEffect, useId, useState } from "react";
+import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
+import { Field } from "./system/Field";
+import { RowStatus } from "./admin/RowStatus";
+import { FROSTED } from "./system/frosted";
+import { cn } from "@/lib/utils";
 
 /**
- * "Report a correction" — a quiet text control in the tool detail footer that
- * opens a short modal form (design spec 2026-07-29 §6). Technical-schematic:
- * text only, no icon-only control, no colour until focus/hover, square corners
- * (the global reset forces `border-radius: 0`).
+ * "Report a correction" — a quiet text control at the foot of the tool page
+ * that opens a short form in a `Dialog` (design spec 2026-07-29 §6; UI system
+ * phase 5b, DESIGN.md §8.8: a decision gets a dialog) on the frosted plate.
+ * Radix gives the focus trap, Escape and focus return; the fields are `Field` + `NativeSelect` /
+ * `Textarea` / `Input`, the actions `Button`s.
  *
  * The confirmation replaces the form in place rather than firing a toast —
- * toasts vanish before they are read. On failure the typed input is kept.
+ * toasts vanish before they are read. On failure the typed input is kept, and
+ * closing after a failure keeps it too; only a report that was sent resets.
  *
  * This is a client component, so it cannot import the server-only `flags`
  * capability; `FIELD_OPTIONS` mirrors `FLAG_FIELDS` there and `FlagButton.test.tsx`
@@ -43,7 +63,7 @@ const ERROR_MESSAGE_KEY: Record<string, "errorInvalid" | "errorRateLimited" | "e
 };
 
 interface FlagButtonProps {
-  /** Notion page id of the tool being reported. */
+  /** Id of the tool being reported. */
   toolId: string;
   /** Pre-selected field, when the control is opened from a specific one. */
   field?: FieldOption;
@@ -51,7 +71,7 @@ interface FlagButtonProps {
 
 export function FlagButton({ toolId, field: initialField = "description" }: FlagButtonProps) {
   const t = useTranslations("flag");
-  const headingId = useId();
+  const id = useId();
 
   const [open, setOpen] = useState(false);
   const [field, setField] = useState<FieldOption>(initialField);
@@ -62,18 +82,9 @@ export function FlagButton({ toolId, field: initialField = "description" }: Flag
   const [errorKey, setErrorKey] = useState<"errorInvalid" | "errorRateLimited" | "errorFailed" | null>(null);
   const [sent, setSent] = useState(false);
 
-  // Esc closes, matching the rest of the app's overlays.
-  useEffect(() => {
-    if (!open) return;
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open]);
-
-  function close() {
-    setOpen(false);
+  function onOpenChange(next: boolean) {
+    setOpen(next);
+    if (next) return;
     // Reset only after a successful report; a failed one keeps what was typed.
     if (sent) {
       setSent(false);
@@ -118,250 +129,102 @@ export function FlagButton({ toolId, field: initialField = "description" }: Flag
     }
   }
 
+  const ids = {
+    field: `${id}-field`,
+    description: `${id}-description`,
+    suggestion: `${id}-suggestion`,
+    reporter: `${id}-reporter`,
+  };
+
   return (
-    <>
-      <style href="makerlab-flag-button" precedence="medium">
-        {FLAG_STYLES}
-      </style>
+    <div className="ui mx-auto mb-10 w-full max-w-[1200px] px-4 sm:px-8">
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        {/* A Radix trigger, so closing returns focus here. */}
+        <DialogTrigger asChild>
+          <Button variant="link" className="h-auto px-0 py-1 font-mono text-label text-muted-foreground normal-case underline hover:text-foreground">
+            {t("trigger")}
+          </Button>
+        </DialogTrigger>
+        <DialogContent closeLabel={t("close")} className={cn(FROSTED, "max-h-[calc(100dvh-2rem)] overflow-y-auto")}>
+          <DialogHeader>
+            <p className="font-mono text-label tracking-[0.08em] text-muted-foreground uppercase">{t("eyebrow")}</p>
+            <DialogTitle>{sent ? t("sentTitle") : t("title")}</DialogTitle>
+            <DialogDescription>{sent ? t("sentBody") : t("lede")}</DialogDescription>
+          </DialogHeader>
 
-      <div className="flag-footer">
-        <button type="button" className="flag-trigger" onClick={() => setOpen(true)}>
-          {t("trigger")}
-        </button>
-      </div>
+          {sent ? (
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="default">{t("close")}</Button>
+              </DialogClose>
+            </DialogFooter>
+          ) : (
+            <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+              <Field id={ids.field} label={t("fieldLabel")}>
+                <NativeSelect
+                  id={ids.field}
+                  value={field}
+                  onChange={(event) => setField(event.target.value as FieldOption)}
+                  className="w-full"
+                >
+                  {FIELD_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {t(`fields.${option}`)}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
 
-      {open ? (
-        <div
-          className="flag-overlay"
-          role="presentation"
-          onClick={(event) => {
-            if (event.target === event.currentTarget) close();
-          }}
-        >
-          <div className="flag-modal" role="dialog" aria-modal="true" aria-labelledby={headingId}>
-            {sent ? (
-              <div className="flag-sent">
-                <p className="flag-eyebrow">{t("eyebrow")}</p>
-                <h2 id={headingId}>{t("sentTitle")}</h2>
-                <p className="flag-note">{t("sentBody")}</p>
-                <div className="flag-actions">
-                  <button type="button" className="flag-submit" onClick={close}>
-                    {t("close")}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <form className="flag-form" onSubmit={handleSubmit}>
-                <p className="flag-eyebrow">{t("eyebrow")}</p>
-                <h2 id={headingId}>{t("title")}</h2>
-                <p className="flag-note">{t("lede")}</p>
+              <Field id={ids.description} label={t("descriptionLabel")}>
+                <Textarea
+                  id={ids.description}
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder={t("descriptionPlaceholder")}
+                  maxLength={MAX_TEXT}
+                  rows={4}
+                  required
+                />
+              </Field>
 
-                <label className="flag-field">
-                  <span>{t("fieldLabel")}</span>
-                  <select
-                    value={field}
-                    onChange={(event) => setField(event.target.value as FieldOption)}
-                  >
-                    {FIELD_OPTIONS.map((option) => (
-                      <option key={option} value={option}>
-                        {t(`fields.${option}`)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
+              <Field id={ids.suggestion} label={t("suggestionLabel")}>
+                <Textarea
+                  id={ids.suggestion}
+                  value={suggestion}
+                  onChange={(event) => setSuggestion(event.target.value)}
+                  maxLength={MAX_TEXT}
+                  rows={2}
+                />
+              </Field>
 
-                <label className="flag-field">
-                  <span>{t("descriptionLabel")}</span>
-                  <textarea
-                    value={description}
-                    onChange={(event) => setDescription(event.target.value)}
-                    placeholder={t("descriptionPlaceholder")}
-                    maxLength={MAX_TEXT}
-                    rows={4}
-                    required
-                  />
-                </label>
+              <Field id={ids.reporter} label={t("nameLabel")}>
+                <Input
+                  id={ids.reporter}
+                  type="text"
+                  value={reporter}
+                  onChange={(event) => setReporter(event.target.value)}
+                  maxLength={MAX_REPORTER}
+                />
+              </Field>
 
-                <label className="flag-field">
-                  <span>{t("suggestionLabel")}</span>
-                  <textarea
-                    value={suggestion}
-                    onChange={(event) => setSuggestion(event.target.value)}
-                    maxLength={MAX_TEXT}
-                    rows={2}
-                  />
-                </label>
+              {errorKey ? (
+                <RowStatus tone="bad" role="alert">
+                  {t(errorKey)}
+                </RowStatus>
+              ) : null}
 
-                <label className="flag-field">
-                  <span>{t("nameLabel")}</span>
-                  <input
-                    type="text"
-                    value={reporter}
-                    onChange={(event) => setReporter(event.target.value)}
-                    maxLength={MAX_REPORTER}
-                  />
-                </label>
-
-                {errorKey ? (
-                  <p className="flag-error" role="alert">
-                    {t(errorKey)}
-                  </p>
-                ) : null}
-
-                <div className="flag-actions">
-                  <button
-                    type="submit"
-                    className="flag-submit"
-                    disabled={!description.trim() || submitting}
-                  >
-                    {submitting ? t("submitting") : t("submit")}
-                  </button>
-                  <button type="button" className="flag-cancel" onClick={close}>
-                    {t("cancel")}
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      ) : null}
-    </>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button>{t("cancel")}</Button>
+                </DialogClose>
+                <Button type="submit" variant="default" disabled={!description.trim() || submitting}>
+                  {submitting ? t("submitting") : t("submit")}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
-
-/**
- * Scoped styles, hoisted by React 19 (`precedence`) so they dedupe across
- * renders. They live here rather than in `globals.css` only because this
- * component was added under separate file ownership — folding them into the
- * stylesheet later is a no-op. Everything reads the global theme tokens, so
- * light/dark both work; the global reset already squares the corners.
- */
-const FLAG_STYLES = `
-.flag-footer {
-  width: min(1220px, calc(100vw - 56px));
-  margin: 0 auto 40px;
-  display: flex;
-  justify-content: flex-start;
-}
-.flag-trigger {
-  border: none;
-  background: none;
-  padding: 4px 0;
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  color: var(--on-surface-muted);
-  text-decoration: underline;
-  text-underline-offset: 3px;
-  cursor: pointer;
-}
-.flag-trigger:hover,
-.flag-trigger:focus-visible {
-  color: var(--on-surface);
-}
-.flag-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 60;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.55);
-}
-.flag-modal {
-  width: min(520px, 100%);
-  max-height: calc(100dvh - 32px);
-  overflow-y: auto;
-  padding: 24px;
-  border: 1px solid var(--outline);
-  background: var(--surface-container);
-  color: var(--on-surface);
-}
-.flag-form,
-.flag-sent {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-}
-.flag-modal h2 {
-  margin: 0;
-  font-family: var(--font-display);
-  font-size: 20px;
-}
-.flag-eyebrow {
-  margin: 0;
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--on-surface-muted);
-}
-.flag-note {
-  margin: 0;
-  font-size: 14px;
-  color: var(--on-surface-muted);
-}
-.flag-field {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.flag-field > span {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--on-surface-muted);
-}
-.flag-field input,
-.flag-field select,
-.flag-field textarea {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid var(--outline);
-  background: var(--background);
-  color: var(--on-surface);
-  font-family: var(--font-body);
-  font-size: 14px;
-}
-.flag-field textarea {
-  resize: vertical;
-}
-.flag-field input:focus,
-.flag-field select:focus,
-.flag-field textarea:focus {
-  border-color: var(--primary);
-}
-.flag-error {
-  margin: 0;
-  font-size: 14px;
-  color: var(--status-bad);
-}
-.flag-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-.flag-submit,
-.flag-cancel {
-  min-height: 44px;
-  padding: 0 18px;
-  border: 1px solid var(--outline);
-  background: none;
-  color: var(--on-surface);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  cursor: pointer;
-}
-.flag-submit {
-  border-color: var(--on-surface);
-}
-.flag-submit:disabled {
-  border-color: var(--outline);
-  color: var(--on-surface-muted);
-  cursor: not-allowed;
-}
-`;

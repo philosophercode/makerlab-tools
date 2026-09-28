@@ -74,7 +74,7 @@ async function asAdminOnThePage() {
     role: "admin",
     name: "Ada Admin",
   });
-  const created = await createApiToken({ userId: signedIn.user.id, name: "t", readOnly: false, expiry: "90" });
+  const created = await createApiToken({ userId: signedIn.user.id, name: "t", readOnly: false });
   if (!created.ok) throw new Error("expected a token");
   setMockHeaders({
     cookie: signedIn.cookie,

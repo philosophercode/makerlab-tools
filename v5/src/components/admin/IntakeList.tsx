@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import type { IntakeConfidenceLevel } from "../../lib/capabilities/types";
 import { hasStalledStart } from "../../lib/intake/access";
@@ -23,6 +23,7 @@ import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
 import { DuplicateChoice } from "../system/review/DuplicateChoice";
 import { ReviewCard, ReviewDiagnosis, ReviewNote } from "../system/review/ReviewCard";
 import { PENDING_STATUS_TONE } from "./pending-status-tone";
+import { personLabel } from "./person-label";
 
 /**
  * The review queue on `/admin/intake` (spec §5.4 step 10, §6).
@@ -233,7 +234,9 @@ export function IntakeList({ items, filters = true }: IntakeListProps) {
         emptyOpen: t("emptyOpen"),
       }}
       renderItem={(item) => <IntakeRow item={item} />}
-      renderList={(run) => <Batches items={run} />}
+      renderList={(run, _part, row) => <Batches items={run} row={row} />}
+      // Ticked items are what "approve these" means in the chat (assistant–GUI parity spec §5.2).
+      selectable={{ kind: "pending_tool", name: (item) => item.name }}
     />
   );
 }
@@ -242,7 +245,7 @@ export function IntakeList({ items, filters = true }: IntakeListProps) {
  * Items grouped by batch, the batch with the newest item first. Within a batch
  * the order is the one the server sent — alphabetical, from `listPendingTools`.
  */
-function Batches({ items }: { items: PendingToolView[] }) {
+function Batches({ items, row }: { items: PendingToolView[]; row: (item: PendingToolView) => ReactNode }) {
   const t = useTranslations("admin.intake");
 
   const batches = new Map<string, PendingToolView[]>();
@@ -262,9 +265,7 @@ function Batches({ items }: { items: PendingToolView[] }) {
           </h3>
           <ul className="flex flex-col">
             {batch.map((item) => (
-              <li key={item.id}>
-                <IntakeRow item={item} />
-              </li>
+              <li key={item.id}>{row(item)}</li>
             ))}
           </ul>
         </section>
@@ -285,6 +286,8 @@ function IntakeRow({ item }: { item: PendingToolView }) {
   const t = useTranslations("admin.intake");
   const tStatus = useTranslations("intake.status");
   const tIntake = useTranslations("intake");
+  const tPeople = useTranslations("admin.people");
+  const identifiedBy = personLabel(tPeople, item.createdByName, item.createdByRemoved);
   const photo = item.photos.find((candidate) => candidate.url)?.url ?? null;
   const settled = SETTLED.has(item.status);
   const linked = item.status === "researched" || item.status === "approved";
@@ -329,7 +332,7 @@ function IntakeRow({ item }: { item: PendingToolView }) {
       meta={
         <>
           {item.brand ? <span>{item.brand}</span> : null}
-          <span>{item.createdByName ? t("identifiedBy", { name: item.createdByName }) : t("identifiedByUnknown")}</span>
+          <span>{identifiedBy ? t("identifiedBy", { name: identifiedBy }) : t("identifiedByUnknown")}</span>
           <span className="tabular-nums">{t("identifiedOn", { date: day(item.createdAt) })}</span>
         </>
       }

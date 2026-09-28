@@ -1,9 +1,11 @@
 import { REVALIDATE_ENDPOINT, RefreshCatalogButton } from "./RefreshCatalogButton";
-import { render, screen, userEvent, waitFor } from "../../test/utils/render";
+import { act, render, screen, userEvent, waitFor } from "../../test/utils/render";
+import { DONE_MS } from "./system/AsyncButton";
 
 /**
  * Since 2026-09-23 the control lives in `/admin`'s action row
- * (`admin/AdminActions`), not the header.
+ * (`admin/AdminActions`), not the header; since 2026-09-25 it is **Refresh
+ * catalog** and its state lives in the button (`AsyncButton`).
  *
  * The control is gated twice — here for presentation, and in
  * `/api/admin/revalidate` for real. These tests cover the presentation half;
@@ -18,138 +20,98 @@ function stubFetch(result: Promise<{ ok: boolean }> | { ok: boolean }) {
     .mockImplementation(async () => (await result) as unknown as Response);
 }
 
-// en.json: catalogRefresh.action = "REFRESH".
+const theButton = () => screen.getByRole("button", { name: "Refresh catalog" });
+
 describe("RefreshCatalogButton — who can see it", () => {
   it("renders nothing while identity is still resolving", () => {
     const { container } = render(<RefreshCatalogButton role={undefined} />);
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders nothing for an anonymous visitor", () => {
-    const { container } = render(<RefreshCatalogButton role="anonymous" />);
+  it.each(["anonymous", "user"] as const)("renders nothing for %s", (role) => {
+    const { container } = render(<RefreshCatalogButton role={role} />);
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders nothing for an ordinary signed-in user", () => {
-    const { container } = render(<RefreshCatalogButton role="user" />);
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it("renders for an admin", () => {
-    render(<RefreshCatalogButton role="admin" />);
-    expect(screen.getByRole("button", { name: /Refresh the/ })).toHaveTextContent(
-      "REFRESH"
-    );
-  });
-
-  it("renders for a super admin", () => {
-    render(<RefreshCatalogButton role="super_admin" />);
-    expect(screen.getByRole("button", { name: /Refresh the/ })).toBeInTheDocument();
+  it.each(["admin", "super_admin"] as const)("renders for %s, labelled Refresh catalog", (role) => {
+    render(<RefreshCatalogButton role={role} />);
+    expect(theButton()).toBeInTheDocument();
   });
 
   it("is the shared quiet Button, not the header's chrome", () => {
     render(<RefreshCatalogButton role="admin" />);
-
-    const button = screen.getByRole("button", { name: /Refresh the/ });
-    expect(button).toHaveAttribute("data-slot", "button");
-    expect(button).toHaveAttribute("data-variant", "quiet");
-    expect(button).not.toHaveClass("primary-nav-report");
-  });
-
-  it("names the institution from config rather than leaving the placeholder", () => {
-    render(<RefreshCatalogButton role="admin" />);
-
-    const button = screen.getByRole("button", { name: /Refresh the/ });
-    // A next-intl placeholder with no argument renders literally — this has
-    // already been a real bug on this branch (Article 6).
-    expect(button.getAttribute("aria-label")).toContain("Cornell Tech");
-    expect(button.getAttribute("aria-label")).not.toContain("{institution}");
+    expect(theButton()).toHaveAttribute("data-slot", "button");
+    expect(theButton()).toHaveAttribute("data-variant", "quiet");
   });
 });
 
-// en.json: refreshing = "Refreshing…", refreshed = "Catalog refreshed",
-// failed = "Refresh failed — try again".
 describe("RefreshCatalogButton — refreshing", () => {
   it("posts to the existing revalidate endpoint, with no secret header", async () => {
     const user = userEvent.setup();
     const fetchSpy = stubFetch({ ok: true });
     render(<RefreshCatalogButton role="admin" />);
 
-    await user.click(screen.getByRole("button", { name: /Refresh the/ }));
+    await user.click(theButton());
 
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
     const [url, init] = fetchSpy.mock.calls[0];
     expect(url).toBe(REVALIDATE_ENDPOINT);
     expect(init?.method).toBe("POST");
-    // The session cookie is the credential; the browser must never hold the
-    // shared secret.
     expect(JSON.stringify(init?.headers)).not.toContain("x-admin-secret");
   });
 
-  it("says nothing until the staff member asks", () => {
-    const { container } = render(<RefreshCatalogButton role="admin" />);
-
-    // The live region is in the DOM from the start so an announcement lands
-    // when it arrives, but `:empty` keeps it out of the layout (and out of the
-    // accessibility tree) until there is something to say — which is why this
-    // queries the node directly rather than by role.
-    expect(container.querySelector('[role="status"]')).toBeEmptyDOMElement();
-  });
-
-  it("reports refreshing while the request is in flight, and disables the control", async () => {
+  it("is busy and disabled while the request is in flight, keeping its label in place", async () => {
     const user = userEvent.setup();
     let settle: (value: { ok: boolean }) => void = () => {};
     stubFetch(new Promise<{ ok: boolean }>((resolve) => (settle = resolve)));
     render(<RefreshCatalogButton role="admin" />);
 
-    const button = screen.getByRole("button", { name: /Refresh the/ });
+    const button = theButton();
     await user.click(button);
 
-    await waitFor(() =>
-      expect(screen.getByRole("status")).toHaveTextContent("Refreshing…")
-    );
+    await waitFor(() => expect(button).toHaveAttribute("aria-busy", "true"));
     expect(button).toBeDisabled();
+    expect(button).toHaveAttribute("data-state", "pending");
+    // No sentence beside the button while it works.
+    expect(screen.queryByText(/Refreshing/)).not.toBeInTheDocument();
 
     settle({ ok: true });
     await waitFor(() => expect(button).not.toBeDisabled());
   });
 
-  it("confirms in place, not in a toast — the message stays on screen", async () => {
-    const user = userEvent.setup();
-    stubFetch({ ok: true });
-    render(<RefreshCatalogButton role="admin" />);
+  it("flashes Done in the button, announces it, then returns to its label", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      stubFetch({ ok: true });
+      render(<RefreshCatalogButton role="admin" />);
 
-    await user.click(screen.getByRole("button", { name: /Refresh the/ }));
+      await user.click(theButton());
 
-    const status = await screen.findByText("Catalog refreshed");
-    expect(status).toBeInTheDocument();
-    // Nothing dismisses it: a refresh is worth confirming, and a toast is gone
-    // before it is read.
-    await new Promise((resolve) => setTimeout(resolve, 50));
-    expect(screen.getByText("Catalog refreshed")).toBeInTheDocument();
+      expect(await screen.findByRole("button", { name: "Done" })).toHaveAttribute("data-state", "done");
+      expect(screen.getByRole("status")).toHaveTextContent("Catalog refreshed");
+
+      await act(async () => {
+        vi.advanceTimersByTime(DONE_MS + 10);
+      });
+      expect(theButton()).toHaveAttribute("data-state", "idle");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
-  it("reports failure when the endpoint refuses", async () => {
+  it("says a failure on the line beside the button when the endpoint refuses", async () => {
     const user = userEvent.setup();
     stubFetch({ ok: false });
     render(<RefreshCatalogButton role="admin" />);
 
-    await user.click(screen.getByRole("button", { name: /Refresh the/ }));
+    await user.click(theButton());
 
-    expect(await screen.findByText(/Refresh failed/)).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Refresh failed/);
+    expect(theButton()).toBeEnabled();
   });
 
-  it("reports failure when the request never lands", async () => {
-    const user = userEvent.setup();
-    vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("offline"));
-    render(<RefreshCatalogButton role="admin" />);
-
-    await user.click(screen.getByRole("button", { name: /Refresh the/ }));
-
-    expect(await screen.findByText(/Refresh failed/)).toBeInTheDocument();
-  });
-
-  it("can be retried after a failure", async () => {
+  it("can be retried after the request never landed", async () => {
     const user = userEvent.setup();
     const fetchSpy = vi
       .spyOn(globalThis, "fetch")
@@ -157,13 +119,13 @@ describe("RefreshCatalogButton — refreshing", () => {
       .mockResolvedValueOnce({ ok: true } as unknown as Response);
     render(<RefreshCatalogButton role="admin" />);
 
-    const button = screen.getByRole("button", { name: /Refresh the/ });
-    await user.click(button);
-    await screen.findByText(/Refresh failed/);
+    await user.click(theButton());
+    await screen.findByRole("alert");
 
-    await user.click(button);
+    await user.click(theButton());
 
-    expect(await screen.findByText("Catalog refreshed")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Done" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 });

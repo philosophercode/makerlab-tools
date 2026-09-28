@@ -76,6 +76,8 @@ const manualStage = vi.hoisted(() => ({ startManualArchive: vi.fn() }));
 vi.mock("../../../../lib/manuals/start", () => ({ startManualArchive: manualStage.startManualArchive }));
 
 import { eq, sql } from "drizzle-orm";
+import { http, HttpResponse } from "msw";
+import { server } from "../../../../../test/msw/server";
 import { saveMirrorConnection } from "@/lib/data/mirrors";
 import { getDb, resetDbForTests } from "@/lib/db/client";
 import { DEMO_ACCOUNTS } from "@/lib/db/demo-seed";
@@ -271,7 +273,7 @@ describe("GET /api/cron/daily — the pending-expiry stage", () => {
     const body = await (await GET(authorized())).json();
 
     expect(body.ok).toBe(true);
-    expect(blob.del).toHaveBeenCalledWith([blobPathname]);
+    expect(blob.del).toHaveBeenCalledWith([blobPathname], "public");
     const db = await getDb();
     expect(await db.select().from(attachments).where(sql`id = ${photoId}`)).toEqual([]);
     const [pending] = await db.select().from(pendingTools).where(sql`id = ${pendingId}`);
@@ -476,5 +478,53 @@ describe("GET /api/cron/daily — blob not configured", () => {
     expect(res.status).toBe(503);
     expect((await res.json()).error).toContain("BLOB_READ_WRITE_TOKEN");
     expect(blob.put).not.toHaveBeenCalled();
+  });
+});
+
+describe("GET /api/cron/daily — the heartbeat", () => {
+  const PING = "https://hc-ping.example/nightly";
+
+  function pings() {
+    const hits: string[] = [];
+    server.use(
+      http.post(`${PING}*`, ({ request }) => {
+        hits.push(new URL(request.url).pathname);
+        return new HttpResponse(null, { status: 200 });
+      })
+    );
+    return hits;
+  }
+
+  beforeEach(() => {
+    vi.stubEnv("CRON_HEARTBEAT_URL", PING);
+  });
+
+  it("pings the monitor after a run that succeeded", async () => {
+    const hits = pings();
+    const res = await GET(authorized());
+    expect(res.status).toBe(200);
+    expect(hits).toEqual(["/nightly"]);
+  });
+
+  it("pings /fail after a stage failed, and still answers 500", async () => {
+    const hits = pings();
+    blob.put.mockRejectedValueOnce(new Error("blob down"));
+    const res = await GET(authorized());
+    expect(res.status).toBe(500);
+    expect(hits).toEqual(["/nightly/fail"]);
+  });
+
+  it("pings /fail when no Blob store is linked", async () => {
+    const hits = pings();
+    blob.configured.value = false;
+    await GET(authorized());
+    expect(hits).toEqual(["/nightly/fail"]);
+  });
+
+  it("does not ping for a refused caller", async () => {
+    const hits = pings();
+    const res = await GET(cronRequest({ authorization: "Bearer nope" }));
+    expect(res.status).toBe(403);
+    expect(hits).toEqual([]);
   });
 });

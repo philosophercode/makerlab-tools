@@ -1,11 +1,12 @@
 import { Suspense } from "react";
 import { getTranslations } from "next-intl/server";
 import { OAuthSignIn } from "../../../components/account/OAuthSignIn";
+import { Prose, PublicPage } from "../../../components/system/PublicPage";
+import { Button } from "@/components/ui/button";
 import { AUTH_BASE_PATH } from "../../../lib/auth/config";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { oauthClientName } from "../../../lib/data/api-tokens";
 import { siteConfig } from "../../../lib/site-config";
-import "../../../styles/account.css";
 
 /**
  * `/oauth/sign-in` — where an MCP client's OAuth authorization sends somebody
@@ -24,14 +25,9 @@ type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 export default async function OAuthSignInPage({ searchParams }: { searchParams: SearchParams }) {
   const t = await getTranslations("account.oauth");
   return (
-    <main className="tool-detail">
-      <section className="td-panel td-prose">
-        <p className="td-eyebrow">{t("eyebrow")}</p>
-        <Suspense fallback={<p>{t("loading")}</p>}>
-          <SignIn searchParams={searchParams} />
-        </Suspense>
-      </section>
-    </main>
+    <Suspense fallback={<p className="px-4 pt-8 text-sm text-muted-foreground sm:px-8">{t("loading")}</p>}>
+      <SignIn searchParams={searchParams} />
+    </Suspense>
   );
 }
 
@@ -53,25 +49,25 @@ async function SignIn({ searchParams }: { searchParams: SearchParams }) {
   const resumeUrl = resumeUrlFor(params);
   const identity = await resolveIdentityFromHeaders();
 
+  const crumbs = [{ label: t("eyebrow") }];
   if (identity.role !== "anonymous") {
     return (
-      <>
-        <h1>{t("signInTitle", { client })}</h1>
-        <p>{t("alreadySignedIn")}</p>
-        <p>
-          <a className="account-button is-primary" href={resumeUrl}>
-            {t("continue")}
-          </a>
-        </p>
-      </>
+      <PublicPage width="narrow" crumbs={crumbs} title={t("signInTitle", { client })} lede={t("alreadySignedIn")}>
+        <div className="pt-4">
+          <Button asChild variant="default">
+            <a href={resumeUrl}>{t("continue")}</a>
+          </Button>
+        </div>
+      </PublicPage>
     );
   }
 
   return (
-    <>
-      <h1>{t("signInTitle", { client })}</h1>
-      <p>{t("signInBody", { client, institution: siteConfig.institution })}</p>
+    <PublicPage width="narrow" crumbs={crumbs} title={t("signInTitle", { client })}>
+      <Prose className="pt-2">
+        <p>{t("signInBody", { client, institution: siteConfig.institution })}</p>
+      </Prose>
       <OAuthSignIn resumeUrl={resumeUrl} />
-    </>
+    </PublicPage>
   );
 }

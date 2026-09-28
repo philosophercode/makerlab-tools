@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { DataTable } from "../system/data-table/DataTable";
 import { EmptyState } from "../system/EmptyState";
 import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
+import { personLabel } from "./person-label";
 
 /**
  * Add equipment's **Imports** tab, `/admin/intake/imports` (bulk intake spec
@@ -32,6 +33,7 @@ const STATUS_TONE: Record<ImportStatus, StatusTone> = {
 
 export function ImportsList({ imports }: { imports: ImportView[] | null }) {
   const t = useTranslations("admin.import");
+  const tPeople = useTranslations("admin.people");
   const router = useRouter();
 
   const columns = useMemo<ColumnDef<ImportView, unknown>[]>(
@@ -71,9 +73,12 @@ export function ImportsList({ imports }: { imports: ImportView[] | null }) {
       },
       {
         id: "by",
-        accessorFn: (row) => row.createdByName ?? "",
+        accessorFn: (row) => personLabel(tPeople, row.createdByName, row.createdByRemoved),
         header: t("columnBy"),
-        cell: ({ row }) => row.original.createdByName ?? <span className="text-muted-foreground">–</span>,
+        cell: ({ row }) =>
+          personLabel(tPeople, row.original.createdByName, row.original.createdByRemoved) || (
+            <span className="text-muted-foreground">–</span>
+          ),
       },
       {
         id: "created",
@@ -83,7 +88,7 @@ export function ImportsList({ imports }: { imports: ImportView[] | null }) {
         cell: ({ row }) => row.original.createdAt.slice(0, 10),
       },
     ],
-    [t]
+    [t, tPeople]
   );
 
   return (
@@ -120,7 +125,7 @@ export function ImportsList({ imports }: { imports: ImportView[] | null }) {
               <p className="text-xs text-muted-foreground">
                 {[
                   row.status === "ready" ? t("listCounts", { items: row.itemCount, duplicates: row.duplicateCount }) : t(`status.${row.status}`),
-                  row.createdByName,
+                  personLabel(tPeople, row.createdByName, row.createdByRemoved),
                   row.createdAt.slice(0, 10),
                 ]
                   .filter(Boolean)

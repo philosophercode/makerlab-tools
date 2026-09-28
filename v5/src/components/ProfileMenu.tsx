@@ -7,8 +7,10 @@ import { useTranslations } from "next-intl";
 import { useChatLauncher } from "./ChatLauncherContext";
 import { AdminLink } from "./AdminLink";
 import { ProfileAvatar } from "./ProfileAvatar";
+import { FROSTED } from "./system/frosted";
 import { canAddEquipment } from "../lib/capabilities/access";
 import { canReachAdmin } from "../lib/auth/permissions";
+import { displayTitle } from "../lib/people/title";
 import {
   firstNameOf,
   signOutAndReload,
@@ -19,7 +21,7 @@ import {
  * The signed-in person's control in the header: photo, first name, caret, and
  * a menu holding everything that used to crowd the nav bar (Isaac, 2026-09-23).
  *
- * The menu shows who you are (name, email, role), then only the entries this
+ * The menu shows who you are (name, email, title — `lib/people/title.ts`), then only the entries this
  * identity can use: Admin for anyone holding an admin-surface permission
  * (`AdminLink`'s own rule), Add equipment for `tools.add`, and Sign out for
  * everyone. As with every header control, hiding an entry is presentation —
@@ -32,7 +34,7 @@ import {
  */
 export function ProfileMenu({ identity }: { identity: ClientIdentity }) {
   const t = useTranslations("nav");
-  const tRoles = useTranslations("admin.roles");
+  const tTitles = useTranslations("admin.titles");
   const { open: openChat } = useChatLauncher();
 
   const [isOpen, setIsOpen] = useState(false);
@@ -49,8 +51,11 @@ export function ProfileMenu({ identity }: { identity: ClientIdentity }) {
   const fullName = identity.name?.trim() || "";
   const firstName = firstNameOf(identity.name);
   const initial = (fullName || identity.email || "?").charAt(0).toUpperCase();
-  const roleLabel =
-    identity.role === "anonymous" ? null : tRoles(identity.role);
+  // The title a super admin set on the People page, else the role's default.
+  const titleLabel =
+    identity.role === "anonymous"
+      ? null
+      : displayTitle({ role: identity.role, title: identity.title }, (role) => tTitles(role));
 
   const items = useCallback(
     () =>
@@ -185,7 +190,7 @@ export function ProfileMenu({ identity }: { identity: ClientIdentity }) {
       </button>
 
       {isOpen ? (
-        <div className="profile-menu-panel">
+        <div className={`profile-menu-panel ${FROSTED}`}>
           <div className="profile-menu-header">
             <ProfileAvatar image={identity.image} initial={initial} size={40} />
             <div className="profile-menu-who">
@@ -193,7 +198,7 @@ export function ProfileMenu({ identity }: { identity: ClientIdentity }) {
               {identity.email ? (
                 <p className="profile-menu-email">{identity.email}</p>
               ) : null}
-              {roleLabel ? <p className="profile-menu-role">{roleLabel}</p> : null}
+              {titleLabel ? <p className="profile-menu-role">{titleLabel}</p> : null}
             </div>
           </div>
 
@@ -228,6 +233,18 @@ export function ProfileMenu({ identity }: { identity: ClientIdentity }) {
                 </button>
               </li>
             ) : null}
+            {/* Everyone signed in may change their own name. */}
+            <li role="none">
+              <Link
+                href="/account"
+                role="menuitem"
+                tabIndex={-1}
+                className="profile-menu-item"
+                onClick={() => close(false)}
+              >
+                {t("yourAccount")}
+              </Link>
+            </li>
             {/* Everyone signed in may create a personal access token (MCP
                 access spec §5.1). */}
             <li role="none">

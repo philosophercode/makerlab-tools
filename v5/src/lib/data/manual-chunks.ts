@@ -246,6 +246,71 @@ export async function countManualsByState(db: Db): Promise<ManualStateCounts> {
   };
 }
 
+// ── The library (the /admin/research list) ─────────────────────────
+
+import type { ManualLibraryRow, ManualLibraryState } from "./manual-library.ts";
+export { MANUAL_LIBRARY_STATES, type ManualLibraryRow, type ManualLibraryState } from "./manual-library.ts";
+
+/**
+ * Every current manual PDF with its state (public polish: the Manuals page's
+ * table). The same buckets and the same current-PDF rule as
+ * {@link countManualsByState}, so the strip above the table and its facet
+ * counts agree. One statement; ordered by tool, then title.
+ */
+export async function listManualLibrary(db: Db): Promise<ManualLibraryRow[]> {
+  const rows = await rawRows<{
+    id: string;
+    resource_id: string;
+    title: string;
+    tool_id: string | null;
+    tool_name: string | null;
+    tool_slug: string | null;
+    status: string | null;
+    searchable: boolean | null;
+    page_count: number | string | null;
+    passages: number | string | null;
+    status_reason: string | null;
+    processed_at: Date | string | null;
+  }>(
+    db,
+    sql`select a.id, r.id as resource_id, r.title, t.id as tool_id, t.name as tool_name, t.slug as tool_slug,
+               d.status, d.page_count, d.status_reason, d.processed_at,
+               (select count(*) from manual_chunks c where c.document_id = d.id) as passages,
+               (d.chunker_version is not null and d.embedding_model is not null
+                  and exists (select 1 from manual_chunks c where c.document_id = d.id)) as searchable
+          from resources r
+          join attachments a on ${currentPdf("a", "r")}
+          left join manual_documents d on d.attachment_id = a.id
+          left join tools t on t.id = r.tool_id
+         order by t.name asc nulls last, r.title asc, a.created_at asc`
+  );
+  return rows.map((row) => {
+    const state: ManualLibraryState =
+      row.status === null
+        ? "processing"
+        : row.status === "no_text"
+          ? "noText"
+          : row.status === "failed"
+            ? "failed"
+            : row.searchable
+              ? "searchable"
+              : "textOnly";
+    return {
+      id: row.id,
+      resourceId: row.resource_id,
+      title: row.title,
+      toolId: row.tool_id,
+      toolName: row.tool_name,
+      toolSlug: row.tool_slug,
+      state,
+      pageCount: row.page_count === null ? null : Number(row.page_count),
+      passages: Number(row.passages ?? 0),
+      reason: row.status_reason,
+      processedAt: row.processed_at === null ? null : new Date(row.processed_at),
+    };
+  });
+}
+
 // ── The chat's view of a tool's manuals ────────────────────────────
 
 /** One of a tool's current PDFs as the chat sees it. */

@@ -7,6 +7,7 @@ import { setResolvedAddresses } from "../../../test/web/resolver";
 import type { ReadPageResult } from "../web/read-page";
 import { RESEARCH_ATTACH_PDFS, RESEARCH_MANUAL_TEXT_MAX_CHARS, RESEARCH_MAX_PDFS_READ } from "../intake/limits";
 import { MANUAL_EXTRACT_MAX_BYTES } from "../manuals/extract";
+import { ENGLISH, FRENCH, GERMAN, JAPANESE, repeat } from "./language-samples.test-helpers";
 import { parseSearchFindings } from "./model-output";
 import {
   READ_CONCURRENCY,
@@ -515,5 +516,97 @@ describe("readCandidatePages — our own extraction first (manual text spec §3.
     expect(text).toContain(`source="${MANUAL} (manual text)"`);
     expect(text).toContain("extracted from this PDF manual by the lab's server");
     expect(text).not.toContain("as the search engine captured it");
+  });
+});
+
+describe('readCandidatePages — English only (amendment "English resources only")', () => {
+  it("does not give a German page to the model, lists it as skipped, and records every verdict", async () => {
+    const result = await readCandidatePages(["https://maker.test/en/x2d", "https://maker.test/x2d-de"], {
+      signal,
+      allowedHosts: [],
+      read: async (url) =>
+        url.endsWith("-de")
+          ? page(url, { text: repeat(GERMAN, 3), lang: "de" })
+          : page(url, { text: repeat(ENGLISH, 3), lang: "en" }),
+    });
+    expect(result.pages.map((p) => p.url)).toEqual(["https://maker.test/en/x2d"]);
+    expect(result.failures).toEqual(["maker.test: skipped (not English: de)"]);
+    expect(result.languages?.map((r) => [r.url, r.judgement.verdict])).toEqual([
+      ["https://maker.test/en/x2d", "english"],
+      ["https://maker.test/x2d-de", "not_english"],
+    ]);
+  });
+
+  it("drops a German page that declares lang='en', and keeps one with too little text to judge", async () => {
+    const result = await readCandidatePages(["https://maker.test/a", "https://maker.test/b"], {
+      signal,
+      allowedHosts: [],
+      read: async (url) =>
+        url.endsWith("/a") ? page(url, { text: repeat(GERMAN, 3), lang: "en" }) : page(url, { text: "X2D — 350 × 320 mm" }),
+    });
+    expect(result.pages.map((p) => p.url)).toEqual(["https://maker.test/b"]);
+  });
+
+  it("keeps a multilingual PDF manual with an English section, judged on its whole text", async () => {
+    const MANUAL = "https://maker.test/x2d-manual.pdf";
+    const pages = [GERMAN, FRENCH, ENGLISH, JAPANESE].flatMap((text, n) =>
+      Array.from({ length: 3 }, (_, k) => ({ pageNumber: n * 3 + k + 1, label: null, text: repeat(text, 2) }))
+    );
+    const result = await readCandidatePages([MANUAL], {
+      signal,
+      allowedHosts: [],
+      read: async (url) => page(url, { contentType: "application/pdf", text: null, title: null, pdf: new Uint8Array([1]) }),
+      extract: async () => ({
+        status: "ready",
+        reason: null,
+        pageCount: pages.length,
+        pages,
+        outline: [],
+        outlineSource: "none",
+        title: "X2D manual",
+      }),
+    });
+    expect(result.pages).toHaveLength(1);
+    expect(result.pages[0]).toMatchObject({ url: MANUAL, via: "manual", manualSource: "pdf" });
+  });
+
+  it("skips a German-only PDF manual", async () => {
+    const MANUAL = "https://maker.test/x2d-anleitung.pdf";
+    const pages = Array.from({ length: 4 }, (_, k) => ({ pageNumber: k + 1, label: null, text: repeat(GERMAN, 2) }));
+    const result = await readCandidatePages([MANUAL], {
+      signal,
+      allowedHosts: [],
+      read: async (url) => page(url, { contentType: "application/pdf", text: null, title: null, pdf: new Uint8Array([1]) }),
+      extract: async () => ({ status: "ready", reason: null, pageCount: pages.length, pages, outline: [], outlineSource: "none", title: null }),
+    });
+    expect(result.pages).toEqual([]);
+    expect(result.failures).toEqual(["maker.test: skipped (not English: de)"]);
+  });
+
+  it("does not use the search's copy when it is not English", async () => {
+    const url = "https://maker.test/x2d";
+    const result = await readCandidatePages([url], {
+      signal,
+      allowedHosts: [],
+      read: async () => failed(url, "failed", "http_403"),
+      searchTexts: [{ url, title: "X2D", text: repeat(FRENCH, 3) }],
+    });
+    expect(result.pages).toEqual([]);
+    expect(result.failures).toEqual(["maker.test: skipped (not English: fr)"]);
+  });
+
+  it("does not spend a read on a candidate whose address names only another language", () => {
+    const findings = parseSearchFindings(
+      JSON.stringify({
+        candidateLinks: [
+          { title: "Produkt", url: "https://maker.test/de-de/x2d", type: "Other" },
+          { title: "Product", url: "https://maker.test/en-us/x2d", type: "Other" },
+          { title: "Handbuch", url: "https://cdn.maker.test/X2D_DE.pdf", type: "Manual" },
+          { title: "Manual", url: "https://cdn.maker.test/X2D_EN_DE_FR.pdf", type: "Manual" },
+        ],
+        sourceUrls: [],
+      })
+    );
+    expect(candidatePageUrls(findings)).toEqual(["https://maker.test/en-us/x2d", "https://cdn.maker.test/X2D_EN_DE_FR.pdf"]);
   });
 });

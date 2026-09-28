@@ -21,6 +21,7 @@ function correction(overrides: Partial<FeedbackQueueEntry> = {}): FeedbackQueueE
     suggestedFix: "Add Rigid 10K.",
     reporterName: "Ada Lovelace",
     reporterEmail: "ada@cornell.edu",
+    reporterRemoved: false,
     status: "new",
     createdAt: new Date("2026-03-04T15:00:00.000Z"),
     ...overrides,

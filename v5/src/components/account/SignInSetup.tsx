@@ -1,5 +1,7 @@
 import { useTranslations } from "next-intl";
 import type { McpSnippets } from "../../lib/account/mcp-snippets";
+import { PageSection, SectionLabel } from "../system/PublicPage";
+import { AiSetupPrompt } from "./AiSetupPrompt";
 import { CopyableCode } from "./CopyableCode";
 
 /**
@@ -9,35 +11,45 @@ import { CopyableCode } from "./CopyableCode";
  * to copy or keep safe: Claude Code, Codex, Claude Desktop, claude.ai and
  * ChatGPT. Personal access tokens are the fallback below it on the page.
  *
+ * It opens with **Copy setup prompt for your AI** (amendment 2026-09-25): text
+ * a student pastes into their assistant so it connects itself — the sign-in
+ * address first, a token only from `MAKERLAB_MCP_TOKEN`, never in the chat.
+ *
  * Shown signed in or not: the client sends the person here to sign in.
  * Presentational — no state of its own.
  */
-export function SignInSetup({ snippets }: { snippets: Pick<McpSnippets, "signedInUrl" | "claudeCodeSignIn" | "codexSignIn" | "codexLogin"> }) {
+export function SignInSetup({
+  snippets,
+}: {
+  snippets: Pick<McpSnippets, "url" | "signedInUrl" | "claudeCodeSignIn" | "codexSignIn" | "codexLogin">;
+}) {
   const t = useTranslations("account.signIn");
   return (
-    <section className="account-section" aria-labelledby="sign-in-heading">
-      <h2 id="sign-in-heading">{t("heading")}</h2>
-      <p>{t("body")}</p>
+    <PageSection id="sign-in-heading" title={t("heading")} lede={t("body")}>
       <CopyableCode label={t("addressLabel")} value={snippets.signedInUrl} />
 
-      <h3>{t("claudeCodeHeading")}</h3>
-      <p>{t("claudeCodeBody")}</p>
-      <CopyableCode label={t("claudeCodeHeading")} value={snippets.claudeCodeSignIn} />
-      <p>{t("claudeCodeThen")}</p>
+      <div className="mt-2 border-s-2 border-s-primary-ink ps-4">
+        <AiSetupPrompt snippets={snippets} variant="signIn" headingId="mcp-ai-prompt-heading" />
+      </div>
 
-      <h3>{t("codexHeading")}</h3>
-      <p>{t("codexBody")}</p>
+      <SectionLabel>{t("claudeCodeHeading")}</SectionLabel>
+      <p className="text-sm">{t("claudeCodeBody")}</p>
+      <CopyableCode label={t("claudeCodeHeading")} value={snippets.claudeCodeSignIn} />
+      <p className="text-sm">{t("claudeCodeThen")}</p>
+
+      <SectionLabel>{t("codexHeading")}</SectionLabel>
+      <p className="text-sm">{t("codexBody")}</p>
       <CopyableCode label={t("codexHeading")} value={snippets.codexSignIn} />
-      <p>{t("codexAgain")}</p>
+      <p className="text-sm">{t("codexAgain")}</p>
       <CopyableCode label={t("codexAgainLabel")} value={snippets.codexLogin} />
 
-      <h3>{t("connectorsHeading")}</h3>
-      <p>{t("connectorsBody")}</p>
+      <SectionLabel>{t("connectorsHeading")}</SectionLabel>
+      <p className="text-sm">{t("connectorsBody")}</p>
 
-      <h3>{t("chatgptHeading")}</h3>
-      <p>{t("chatgptBody")}</p>
+      <SectionLabel>{t("chatgptHeading")}</SectionLabel>
+      <p className="text-sm">{t("chatgptBody")}</p>
 
-      <p className="account-field-hint">{t("readOnlyNote")}</p>
-    </section>
+      <p className="text-xs text-muted-foreground">{t("readOnlyNote")}</p>
+    </PageSection>
   );
 }

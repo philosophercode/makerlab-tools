@@ -1,4 +1,7 @@
-import { render, screen, userEvent, waitFor } from "../../../test/utils/render";
+import { renderToString } from "react-dom/server";
+import { NextIntlClientProvider } from "next-intl";
+import enMessages from "../../../messages/en.json";
+import { fireEvent, render, screen, userEvent, waitFor } from "../../../test/utils/render";
 import { RoleSelect } from "./RoleSelect";
 import type { AdminActionResult } from "../../app/admin/users/action-result";
 
@@ -34,15 +37,16 @@ function theSelect() {
   return screen.getByRole("combobox", { name: /Ada Lovelace/ });
 }
 
-// en.json: admin.roles.user = "Student", admin = "SuperMaker",
-// super_admin = "Director".
+// en.json: admin.roles.user = "User", admin = "Admin", super_admin = "Super
+// admin" -- authorization names. Titles (Director, Supermaker, Student) are
+// a different thing and never appear here.
 describe("RoleSelect — what it offers", () => {
   it("offers every stored role, labelled in words rather than identifiers", () => {
     renderSelect();
 
     expect(
       screen.getAllByRole("option").map((option) => option.textContent)
-    ).toEqual(["Student", "SuperMaker", "Director"]);
+    ).toEqual(["User", "Admin", "Super admin"]);
   });
 
   it("shows the role the person currently holds", () => {
@@ -77,7 +81,7 @@ describe("RoleSelect — changing it", () => {
 
     await user.selectOptions(theSelect(), "user");
 
-    expect(await screen.findByText(/last director/i)).toBeInTheDocument();
+    expect(await screen.findByText(/last super admin/i)).toBeInTheDocument();
     // The page must not be left asserting a change that did not happen.
     await waitFor(() => expect(theSelect()).toHaveValue("super_admin"));
   });
@@ -113,14 +117,25 @@ describe("RoleSelect — rows that cannot change", () => {
     renderSelect({ role: "super_admin", disabledReason: "protected_floor" });
 
     expect(theSelect()).toBeDisabled();
-    expect(screen.getByText(/protected in the deployment's settings/i)).toBeInTheDocument();
+    expect(screen.getByTestId("lock-note")).toHaveTextContent("Protected");
+    expect(theSelect()).toHaveAccessibleDescription(/protected in the deployment's settings/i);
   });
 
-  it("disables the last director's row with its own reason", () => {
+  it("disables the last super admin's row with a short badge, the reason as its description", () => {
     renderSelect({ role: "super_admin", disabledReason: "last_super_admin" });
 
     expect(theSelect()).toBeDisabled();
-    expect(screen.getByText(/last director/i)).toBeInTheDocument();
+    expect(screen.getByTestId("lock-note")).toHaveTextContent("Last super admin");
+    expect(theSelect()).toHaveAccessibleDescription(/This is the last super admin/);
+  });
+
+  it("shows the full reason in a tooltip when the badge is focused", async () => {
+    const user = userEvent.setup();
+    renderSelect({ role: "super_admin", disabledReason: "protected_floor" });
+
+    await user.tab();
+    expect(screen.getByTestId("lock-note")).toHaveFocus();
+    expect(await screen.findByRole("tooltip")).toHaveTextContent(/protected in the deployment's settings/i);
   });
 
   it("never calls the action for a disabled row", async () => {
@@ -133,5 +148,49 @@ describe("RoleSelect — rows that cannot change", () => {
     });
 
     expect(action).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * The UI phase-4 race: a role chosen before the page hydrated looked saved and
+ * did not persist. Hydration put the select back to the rendered role and React
+ * replayed the queued change event with that value; the action, asked to set
+ * the role the person already held, answered `ok`, and the row said "Saved".
+ */
+describe("RoleSelect — it cannot say Saved for a write that did not land", () => {
+  it("is disabled in the server's HTML, so nothing can be chosen before React owns it", () => {
+    const html = renderToString(
+      <NextIntlClientProvider locale="en" messages={enMessages}>
+        <RoleSelect userId="u1" personName="Ada Lovelace" role="user" action={vi.fn()} />
+      </NextIntlClientProvider>
+    );
+    expect(html).toMatch(/<select[^>]*disabled/);
+  });
+
+  it("is enabled once hydrated", () => {
+    renderSelect();
+    expect(theSelect()).toBeEnabled();
+  });
+
+  it("does not call the action, or say Saved, for a change to the role already held", () => {
+    const { action } = renderSelect({ role: "user" });
+
+    // What the replayed event looked like: a change whose value is the old one.
+    fireEvent.change(theSelect(), { target: { value: "user" } });
+
+    expect(action).not.toHaveBeenCalled();
+    expect(screen.queryByText("Saved")).not.toBeInTheDocument();
+  });
+
+  it("does not say Saved when the server answers with a role other than the one chosen", async () => {
+    const user = userEvent.setup();
+    const { action } = renderSelect({ role: "user" });
+    action.mockResolvedValue({ ok: true, role: "user" });
+
+    await user.selectOptions(theSelect(), "admin");
+
+    expect(await screen.findByText(enMessages.admin.errors.failed)).toBeInTheDocument();
+    expect(screen.queryByText("Saved")).not.toBeInTheDocument();
+    expect(theSelect()).toHaveValue("user");
   });
 });

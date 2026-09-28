@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { MakerLabTool } from "../catalog-types";
 import { locateTool } from "../../lib/map/locate";
+import { Button } from "@/components/ui/button";
 import { FloorMap } from "./FloorMap";
 
 /**
@@ -19,10 +20,10 @@ export function ToolLocationMap({ tool }: { tool: MakerLabTool }) {
   const located = locateTool(tool);
 
   return (
-    <section className="td-panel" aria-labelledby="tool-location-heading">
-      <header className="td-section-title td-section-title-bordered">
-        <h2 id="tool-location-heading">{t("whereHeading")}</h2>
-      </header>
+    <section data-slot="tool-location" className="min-w-0" aria-labelledby="tool-location-heading">
+      <h2 id="tool-location-heading" className="mb-2 font-heading text-base font-medium uppercase">
+        {t("whereHeading")}
+      </h2>
       {located ? (
         <div className="ui grid gap-4 sm:grid-cols-[minmax(0,320px)_1fr] sm:items-start">
           <div className="border border-border">
@@ -63,9 +64,9 @@ export function ToolLocationMap({ tool }: { tool: MakerLabTool }) {
               </p>
             ) : null}
             <p>
-              <Link className="td-button" href={located.href}>
-                {t("openMap")}
-              </Link>
+              <Button asChild variant="outline" size="sm">
+                <Link href={located.href}>{t("openMap")}</Link>
+              </Button>
             </p>
           </div>
         </div>
@@ -74,9 +75,9 @@ export function ToolLocationMap({ tool }: { tool: MakerLabTool }) {
           <p className="text-sm text-muted-foreground">
             {t("notOnMap", { location: tool.location, zone: tool.zone })}
           </p>
-          <Link className="td-button" href="/map">
-            {t("openMap")}
-          </Link>
+          <Button asChild variant="outline" size="sm">
+            <Link href="/map">{t("openMap")}</Link>
+          </Button>
         </div>
       )}
     </section>

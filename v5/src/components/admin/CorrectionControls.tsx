@@ -5,7 +5,7 @@ import { FEEDBACK_STATUS } from "../../lib/db/schema/vocabulary";
 import type { SetCorrectionStatusAction } from "../../app/admin/corrections/action-result";
 import { Button } from "@/components/ui/button";
 import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
-import { RowStatus } from "./RowStatus";
+import { RowStatus, SaveSlot } from "./RowStatus";
 import { useRowAction } from "./use-row-action";
 
 /**
@@ -51,7 +51,10 @@ export function CorrectionControls({
       role="group"
       aria-label={t("statusFor", { tool: toolName })}
     >
-      <StatusGlyph tone={CORRECTION_STATUS_TONE[row.value] ?? "idle"} label={t(`status.${row.value}`)} className="me-2" />
+      {/* The status and "Saved" beside it, both in fixed places: the buttons after
+          them change with the status, so nothing before them may move (public polish). */}
+      <StatusGlyph tone={CORRECTION_STATUS_TONE[row.value] ?? "idle"} label={t(`status.${row.value}`)} className="min-w-24" />
+      <SaveSlot pending={row.pending} saved={row.saved} error={row.error} warning={row.warning} />
 
       {FEEDBACK_STATUS.filter((option) => option !== row.value).map((option) => (
         <Button
@@ -65,7 +68,7 @@ export function CorrectionControls({
         </Button>
       ))}
 
-      <RowStatus pending={row.pending} saved={row.saved} error={row.error} warning={row.warning} />
+      <RowStatus pending={false} saved={false} error={row.error} warning={row.warning} />
     </div>
   );
 }

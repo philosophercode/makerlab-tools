@@ -1,11 +1,12 @@
 import { put } from "@vercel/blob";
 import { createLocalBlobBackend } from "../blob-local.ts";
-import { blobMode } from "../blob-mode.ts";
+import { blobCredentials, blobMode, hasVercelBlobStore } from "../blob-mode.ts";
 import type { BlobUploader } from "./files.ts";
 
 /**
  * The real uploader: Vercel Blob through `@vercel/blob`, authenticated by
- * `BLOB_READ_WRITE_TOKEN`. A random suffix is always added so a pathname can
+ * `BLOB_READ_WRITE_TOKEN` or, for a store connected by `BLOB_STORE_ID`, the
+ * deployment's OIDC token. A random suffix is always added so a pathname can
  * never be guessed from a filename, and so two files with the same name under
  * one owner never collide.
  *
@@ -14,12 +15,15 @@ import type { BlobUploader } from "./files.ts";
  * files on one person's laptop.
  */
 export function createVercelBlobUploader(): BlobUploader {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    throw new Error("BLOB_READ_WRITE_TOKEN is not set; cannot copy files to Vercel Blob.");
+  if (!hasVercelBlobStore()) {
+    throw new Error("No Vercel Blob store is linked (BLOB_READ_WRITE_TOKEN or BLOB_STORE_ID); cannot copy files to Vercel Blob.");
   }
   return {
     async put(pathname, body, options) {
       const result = await put(pathname, Buffer.from(body.buffer, body.byteOffset, body.byteLength), {
+        // A private file (research's cleaned copy) goes to the private store
+        // when one is linked; see `blobCredentials`.
+        ...blobCredentials(options.access),
         access: options.access,
         contentType: options.contentType,
         addRandomSuffix: true,

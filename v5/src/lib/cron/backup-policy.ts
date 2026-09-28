@@ -1,8 +1,9 @@
 import { getTableName } from "drizzle-orm";
 import type { PgTable } from "drizzle-orm/pg-core";
-import { account, session, verification } from "../db/schema/auth";
-import { notionMirrors } from "../db/schema/mirror";
-import { oauthAccessToken, oauthApplication } from "../db/schema/access";
+import { account, session, verification } from "../db/schema/auth.ts";
+import { manualChunks, manualPages } from "../db/schema/manuals.ts";
+import { notionMirrors } from "../db/schema/mirror.ts";
+import { oauthAccessToken, oauthApplication } from "../db/schema/access.ts";
 
 /**
  * What the nightly export deliberately leaves out (data platform design spec
@@ -13,8 +14,8 @@ import { oauthAccessToken, oauthApplication } from "../db/schema/access";
  * backup should do: a table added in a later phase is exported because it
  * exists, not because somebody remembered. But Phase 4 added tables whose rows
  * are *live credentials*, and a `select *` over them writes bearer tokens into
- * a file that is then kept for thirty days. A restorable copy of the catalogue
- * is worth having; a thirty-day archive of session tokens is a way for anyone
+ * a file that is then kept for up to three years. A restorable copy of the
+ * catalogue is worth having; an archive of session tokens is a way for anyone
  * holding one backup to sign in as anybody.
  *
  * So the default stays "back it up", and the exceptions are named here:
@@ -83,6 +84,29 @@ export const EXCLUDED_TABLES: ReadonlySet<string> = new Set([
   getTableName(oauthAccessToken),
 ]);
 
+/**
+ * Tables the nightly file leaves out because they are **derived**, not
+ * because they are secret: a manual's page text (`manual_pages`) and its search
+ * passages with their 512-number embeddings (`manual_chunks`). Together they
+ * are most of the file's bytes and all of them are rebuilt from the stored
+ * PDFs, which live in Blob, not in the backup.
+ *
+ * `manual_documents` stays in — it is small and records each manual's outline
+ * and status. That is also why a restore must rebuild with `--force`: the
+ * restored rows already carry the current extractor and chunker versions, so a
+ * plain `manuals:index` would find nothing to do.
+ *
+ *     cd v5 && npm run manuals:index -- --force
+ *
+ * (manual text and search spec; `docs/operations.md` "Restoring a backup").
+ * Backup only: `npm run data:push` still copies these tables, since a hosted
+ * database without them has no manual search until somebody re-embeds.
+ */
+export const REBUILT_AFTER_RESTORE: ReadonlySet<string> = new Set([
+  getTableName(manualPages),
+  getTableName(manualChunks),
+]);
+
 /** Per-table column blanklists, by SQL table name. */
 const REDACTED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   [getTableName(account)]: ACCOUNT_SECRETS,
@@ -90,9 +114,26 @@ const REDACTED_COLUMNS: Readonly<Record<string, readonly string[]>> = {
   [getTableName(oauthApplication)]: OAUTH_CLIENT_SECRETS,
 };
 
-/** True when this table's rows must not be written to a backup file at all. */
+/**
+ * The Drizzle property names blanked for this table (empty when none). Also
+ * read by `npm run data:push`, which applies the same policy to what it copies
+ * to a hosted database (`src/lib/push-hosted/rows.ts`).
+ */
+export function redactedColumnKeys(tableName: string): readonly string[] {
+  return REDACTED_COLUMNS[tableName] ?? [];
+}
+
+/**
+ * True when this table's rows are credentials and must not be written to a
+ * backup file — or copied by `data:push` — at all.
+ */
 export function isExcludedFromBackup(table: PgTable): boolean {
   return EXCLUDED_TABLES.has(getTableName(table));
+}
+
+/** True when the nightly file skips this table because a restore rebuilds it. */
+export function isRebuiltAfterRestore(table: PgTable): boolean {
+  return REBUILT_AFTER_RESTORE.has(getTableName(table));
 }
 
 /**

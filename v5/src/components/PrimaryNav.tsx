@@ -15,6 +15,7 @@ import {
   type ClientIdentity,
   type SignInStart,
 } from "../lib/auth/sign-in-client";
+import { publishIdentity } from "../lib/auth/identity-store";
 
 const LINKS = [
   { href: "/", key: "tools", match: (path: string) => path === "/" || path.startsWith("/tools") },
@@ -55,7 +56,10 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
     const controller = new AbortController();
     let active = true;
     fetchIdentity(controller.signal).then((resolved) => {
-      if (active) setIdentity(resolved);
+      if (!active) return;
+      setIdentity(resolved);
+      // The ⌘K palette beside the nav offers what this role opens (public polish).
+      publishIdentity(resolved);
     });
     return () => {
       active = false;
@@ -125,8 +129,11 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
             <a
               className="primary-nav-report primary-nav-dev-sign-in"
               href={`${DEV_SIGN_IN_ENDPOINT}?next=${encodeURIComponent(pathname)}`}
+              aria-label={t("devSignIn")}
             >
-              {t("devSignIn")}
+              {/* Short below xl, where the one-row bar is tight (DESIGN.md §8.12). */}
+              <span className="xl:hidden">{t("devSignInShort")}</span>
+              <span className="hidden xl:inline">{t("devSignIn")}</span>
             </a>
           ) : null}
           {signInNotice ? (

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { record, warn } from "../admin/audit-warning";
-import type { NewAuditEvent } from "../data/audit";
+import type { AuditTrail, NewAuditEvent } from "../data/audit";
 import type { Revision } from "../data/revision";
 import {
   markToolReviewed,
@@ -43,6 +43,8 @@ export interface ToolStateChange {
   expectedRevision: Revision;
   /** Who is doing it. Recorded as the audit event's actor. */
   actorUserId?: string | null;
+  /** The surface and the confirmed proposal, for the audit event (assistant–GUI parity spec §3.7). */
+  trail?: AuditTrail;
   /** A handle to use instead of {@link getDb} — tests pass an isolated one. */
   db?: Db;
 }
@@ -159,7 +161,7 @@ async function changeState(
   const written = await write(db);
   if (!written.ok) return { ok: false, error: written.reason };
 
-  const recorded = event ? await record(event(), AUDIT_SURFACE) : true;
+  const recorded = event ? await record({ ...input.trail, ...event() }, AUDIT_SURFACE) : true;
 
   invalidateCatalog();
   return { ok: true, revision: written.revision, ...warn(undefined, recorded) };

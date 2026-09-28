@@ -38,7 +38,7 @@ test.describe("Projects gallery", () => {
   test("renders the sample project and opens its page", async ({ page }) => {
     await page.goto("/projects");
 
-    // projects.title => "STUDENT PROJECTS".
+    // projects.title => "Student projects", set in capitals by CSS (the name is case-insensitive here).
     await expect(
       page.getByRole("heading", { name: "STUDENT PROJECTS", level: 1 })
     ).toBeVisible();
@@ -343,9 +343,9 @@ test.describe("Project submission — the real write path", () => {
         ),
       });
 
-    // `.project-form-error` rather than role=alert: Next's route announcer is
+    // `[data-slot="form-error"]` rather than role=alert: Next's route announcer is
     // also a live region, and two matches is a strict-mode violation.
-    await expect(page.locator("p.project-form-error")).toContainText(
+    await expect(page.locator("[data-slot=\"form-error\"]")).toContainText(
       "Photo uploads are unavailable"
     );
     await expect(

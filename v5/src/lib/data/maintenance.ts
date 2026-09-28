@@ -1,6 +1,7 @@
-import { desc, eq, sql } from "drizzle-orm";
+import { desc, eq, or, sql } from "drizzle-orm";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { getDb } from "../db/client.ts";
+import { rawRows } from "../db/raw.ts";
 import { maintenanceLogs, tools, units } from "../db/schema/index.ts";
 import {
   MAINTENANCE_PRIORITY,
@@ -8,8 +9,10 @@ import {
   MAINTENANCE_TYPE,
   isOneOf,
 } from "../db/schema/vocabulary.ts";
+import type { CompletedMaintenanceType } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
 import { labToday } from "../lab-time.ts";
+import { accountRemoved } from "./account-removed.ts";
 import { claimAttachments } from "./attachments.ts";
 import { rankByVocabulary } from "./rank.ts";
 import { isUuid } from "./uuid.ts";
@@ -45,6 +48,36 @@ import { isUuid } from "./uuid.ts";
  * Relative imports with `.ts` extensions and no `@/` alias, and no
  * `"server-only"`: `scripts/` loads these modules under plain Node.
  */
+
+/**
+ * How many tickets are waiting and being worked — the `/admin` maintenance
+ * tile's numbers and the kiosk's open-ticket figure (kiosk spec §4.1), from one
+ * statement so the two can never disagree. Counts only: no title, no
+ * description, no reporter leaves this function, which is what lets a public
+ * screen show it.
+ */
+export interface OpenTicketCounts {
+  open: number;
+  inProgress: number;
+  /** Open or in progress, at `high` or `critical` priority. */
+  urgent: number;
+}
+
+export async function countOpenTickets(db?: Db): Promise<OpenTicketCounts> {
+  const handle = db ?? (await getDb());
+  const [row] = await rawRows<Record<string, number | string | null>>(
+    handle,
+    sql`select count(*) filter (where status = 'open') as open,
+               count(*) filter (where status = 'in_progress') as in_progress,
+               count(*) filter (where status in ('open', 'in_progress') and priority in ('high', 'critical')) as urgent
+          from maintenance_logs`
+  );
+  return {
+    open: Number(row?.open ?? 0),
+    inProgress: Number(row?.in_progress ?? 0),
+    urgent: Number(row?.urgent ?? 0),
+  };
+}
 
 /** One maintenance log, flattened and translated into display text. */
 export interface MaintenanceHistoryEntry {
@@ -117,6 +150,61 @@ export async function listMaintenanceHistoryForUnit(
     .limit(options.limit ?? DEFAULT_LIMIT);
 
   return rows.map(toMaintenanceHistoryEntry);
+}
+
+/** One line of a tool's public maintenance history (UI system phase 5a). */
+export interface ToolMaintenanceEntry {
+  id: string;
+  /** The unit's label, or "" for a log filed against the tool as a whole. */
+  unitLabel: string;
+  title: string;
+  /** Display text, as {@link toDisplayLabel} gives it; "" when not recorded. */
+  type: string;
+  status: string;
+  /** ISO day; "" when not recorded. */
+  dateReported: string;
+  dateResolved: string;
+}
+
+/**
+ * The most recent maintenance logs for a tool, newest first — the tool page's
+ * "Maintenance history": logs filed against any of its units, and logs whose
+ * `tool_id` names it directly (a ticket with no unit, or one whose unit was
+ * retired — `tool_id` and `unit_label` are write-time snapshots that outlive
+ * the unit, §4.8). A **public** read: it selects no reporter
+ * name, no email and no description, the same line MCP draws for an anonymous
+ * caller (maintenance history carries names only for `maintenance.manage`).
+ */
+export async function listMaintenanceHistoryForTool(
+  toolId: string,
+  options: MaintenanceQueryOptions = {}
+): Promise<ToolMaintenanceEntry[]> {
+  if (!isUuid(toolId)) return [];
+  const db = options.db ?? (await getDb());
+  const rows = await db
+    .select({
+      id: maintenanceLogs.id,
+      unitLabel: sql<string | null>`coalesce(${units.unitLabel}, ${maintenanceLogs.unitLabel})`,
+      title: maintenanceLogs.title,
+      type: maintenanceLogs.type,
+      status: maintenanceLogs.status,
+      dateReported: maintenanceLogs.dateReported,
+      dateResolved: maintenanceLogs.dateResolved,
+    })
+    .from(maintenanceLogs)
+    .leftJoin(units, eq(maintenanceLogs.unitId, units.id))
+    .where(or(eq(maintenanceLogs.toolId, toolId), eq(units.toolId, toolId)))
+    .orderBy(sql`${maintenanceLogs.dateReported} desc nulls last`, desc(maintenanceLogs.createdAt))
+    .limit(options.limit ?? 10);
+  return rows.map((row) => ({
+    id: row.id,
+    unitLabel: row.unitLabel ?? "",
+    title: row.title,
+    type: toDisplayLabel(row.type),
+    status: toDisplayLabel(row.status),
+    dateReported: row.dateReported ?? "",
+    dateResolved: row.dateResolved ?? "",
+  }));
 }
 
 /** The columns {@link listMaintenanceHistoryForUnit} selects, before translation. */
@@ -361,6 +449,8 @@ export interface MaintenanceQueueEntry {
    * `listUsers`' emails do.
    */
   reportedByEmail: string;
+  /** The reporter's account has been removed; the name above is the snapshot. */
+  reporterRemoved: boolean;
   assignedToUserId: string | null;
   assignedToName: string;
   dateReported: string;
@@ -430,6 +520,7 @@ export async function listMaintenanceQueue(
       unitLabel: maintenanceLogs.unitLabel,
       reportedByName: maintenanceLogs.reportedByName,
       reportedByEmail: maintenanceLogs.reportedByEmail,
+      reporterRemoved: accountRemoved(maintenanceLogs.reportedByUserId),
       assignedToUserId: maintenanceLogs.assignedToUserId,
       assignedToName: maintenanceLogs.assignedToName,
       dateReported: maintenanceLogs.dateReported,
@@ -464,6 +555,7 @@ export async function listMaintenanceQueue(
     unitLabel: row.unitLabel || "",
     reportedByName: row.reportedByName || "",
     reportedByEmail: row.reportedByEmail || "",
+    reporterRemoved: Boolean(row.reporterRemoved),
     assignedToUserId: row.assignedToUserId,
     assignedToName: row.assignedToName || "",
     dateReported: row.dateReported || "",
@@ -555,4 +647,66 @@ export async function updateMaintenanceLog(
     .returning({ id: maintenanceLogs.id });
 
   return rows.length > 0 ? { ok: true } : { ok: false, reason: "not_found" };
+}
+
+// ── Logging maintenance already done (parity spec §11 answer 5) ─────
+
+export { COMPLETED_MAINTENANCE_TYPES, type CompletedMaintenanceType } from "../db/schema/vocabulary.ts";
+
+export interface CompletedMaintenanceLog {
+  toolId: string;
+  toolName: string;
+  /** A unit of that tool, already checked to belong to it; null for the tool as a whole. */
+  unitId: string | null;
+  unitLabel: string | null;
+  title: string;
+  /** What was done. */
+  resolution: string;
+  type: CompletedMaintenanceType;
+  /** The person who did it — reporter, assignee and author. */
+  actor: { userId: string; name: string };
+}
+
+/**
+ * Record maintenance somebody already did — "replaced the belt on the WEN" —
+ * as a ticket that starts resolved (**Log completed maintenance**, parity spec
+ * §11 answer 5; `/admin/maintenance` and the assistant's
+ * `log_completed_maintenance`).
+ *
+ * The person who did it is the reporter and the assignee, both dates are
+ * today in the lab's timezone, and the resolution is what was done. The
+ * caller has resolved the tool and checked the unit belongs to it; the
+ * snapshots (`tool_name`, `unit_label`) are taken here as on every ticket.
+ * **No reporter email**: a log is staff's own record, not somebody to reply to.
+ *
+ * Throws on a database failure; the caller reports that as `failed`.
+ */
+export async function logCompletedMaintenance(
+  input: CompletedMaintenanceLog,
+  options: MaintenanceWriteOptions = {}
+): Promise<{ id: string; dateResolved: string }> {
+  const db = options.db ?? (await getDb());
+  const today = labToday();
+  const [row] = await db
+    .insert(maintenanceLogs)
+    .values({
+      title: input.title,
+      type: input.type,
+      status: "resolved",
+      resolution: input.resolution,
+      toolId: input.toolId,
+      toolName: input.toolName,
+      unitId: input.unitId,
+      unitLabel: input.unitLabel,
+      reportedByName: input.actor.name,
+      reportedByUserId: input.actor.userId,
+      assignedToUserId: input.actor.userId,
+      assignedToName: input.actor.name,
+      dateReported: today,
+      dateResolved: today,
+      createdBy: input.actor.userId,
+      updatedBy: input.actor.userId,
+    })
+    .returning({ id: maintenanceLogs.id });
+  return { id: row.id, dateResolved: today };
 }

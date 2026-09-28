@@ -1,12 +1,9 @@
 "use client";
 
-import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { can } from "../lib/auth/permissions";
 import type { Role } from "../lib/auth/roles";
-import { siteConfig } from "../lib/site-config";
-import { Button } from "@/components/ui/button";
-import { RowStatus } from "./admin/RowStatus";
+import { AsyncButton } from "./system/AsyncButton";
 
 /**
  * "Refresh catalogue" — the staff control that invalidates the cached catalog
@@ -27,14 +24,14 @@ import { RowStatus } from "./admin/RowStatus";
  * header until 2026-09-23, when Isaac cleared the bar down to the page links,
  * Report and the profile menu.
  *
- * Feedback stays on screen until the next attempt rather than firing a toast —
- * a refresh is something staff want confirmed, and a toast is gone before it is
- * read (the same reasoning as `FlagButton`'s in-place confirmation).
+ * **Its state lives in the button** (`AsyncButton`, owner 2026-09-25): a
+ * spinner while it runs, "Done" with a check for a moment when the catalog was
+ * refreshed, and a failure said on the line beside it — no toast, and no
+ * sentence left lying next to the button. Labelled **Refresh catalog**, so it
+ * is never mistaken for refresh research.
  */
 
 export const REVALIDATE_ENDPOINT = "/api/admin/revalidate";
-
-type RefreshState = "idle" | "refreshing" | "refreshed" | "failed";
 
 interface RefreshCatalogButtonProps {
   /** The caller's role, or `undefined` while identity is still resolving. */
@@ -43,15 +40,12 @@ interface RefreshCatalogButtonProps {
 
 export function RefreshCatalogButton({ role }: RefreshCatalogButtonProps) {
   const t = useTranslations("catalogRefresh");
-  const [state, setState] = useState<RefreshState>("idle");
 
   // Without a role that holds `tools.edit` nothing renders — a SuperMaker whose
   // grants change sees the control go, and nobody sees it flicker in.
   if (!can({ role }, "tools.edit")) return null;
 
-  async function handleRefresh() {
-    if (state === "refreshing") return;
-    setState("refreshing");
+  async function refresh(): Promise<true | string> {
     try {
       const res = await fetch(REVALIDATE_ENDPOINT, {
         method: "POST",
@@ -59,29 +53,15 @@ export function RefreshCatalogButton({ role }: RefreshCatalogButtonProps) {
         // The session cookie is the credential; it rides along same-origin.
         body: "{}",
       });
-      setState(res.ok ? "refreshed" : "failed");
+      return res.ok ? true : t("failed");
     } catch {
-      setState("failed");
+      return t("failed");
     }
   }
 
-  const statusKey =
-    state === "idle" ? null : (state as "refreshing" | "refreshed" | "failed");
-
   return (
-    <>
-      <Button
-        onClick={handleRefresh}
-        disabled={state === "refreshing"}
-        aria-label={t("actionAria", { institution: siteConfig.institution })}
-      >
-        {t("action")}
-      </Button>
-      {/* Always in the DOM so the live region is there before it has anything
-          to say; empty, it takes no space. */}
-      <RowStatus tone={state === "failed" ? "bad" : "muted"} className="basis-auto">
-        {statusKey ? t(statusKey) : null}
-      </RowStatus>
-    </>
+    <AsyncButton onRun={refresh} doneLabel={t("done")} doneMessage={t("refreshed")}>
+      {t("action")}
+    </AsyncButton>
   );
 }

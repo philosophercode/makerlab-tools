@@ -22,11 +22,11 @@
     "signedInAria": "{name}(으)로 로그인됨"
   },
   "catalogRefresh": {
-    "action": "새로고침",
-    "actionAria": "{institution} 카탈로그를 Notion에서 새로고침",
+    "action": "카탈로그 새로 고침",
     "refreshing": "새로고침 중…",
     "refreshed": "카탈로그를 새로고침했습니다",
-    "failed": "새로고침 실패 — 다시 시도하세요"
+    "failed": "새로고침 실패 — 다시 시도하세요",
+    "done": "완료"
   },
   "status": {
     "labStatusLabel": "랩 상태",
@@ -48,7 +48,6 @@
     "loading": "재고 로드 중",
     "columnTool": "도구",
     "columnCategory": "카테고리",
-    "columnZone": "구역",
     "columnTraining": "교육",
     "trainingBeginner": "초급",
     "trainingIntermediate": "중급",
@@ -56,7 +55,6 @@
   },
   "detail": {
     "breadcrumbTools": "도구",
-    "breadcrumbInventory": "재고",
     "toolStatusLabel": "도구 상태",
     "trainingChip": "{level} 교육",
     "ppeRequired": "보호장비 필수",
@@ -64,17 +62,14 @@
     "viewSop": "SOP 보기",
     "atAGlanceLabel": "한눈에 보기",
     "materials": "재료",
-    "contactStaff": "MakerLab 직원에게 문의하세요",
     "safetyAccess": "안전 및 사용 권한",
     "ppeNotice": "사용 전에 보호장비를 착용해야 합니다. 게시된 지침을 확인하세요.",
     "emergencyStop": "비상 정지",
     "emergencyStopFallback": "게시된 랩 지침을 따르고 비상 시 직원에게 알리세요.",
     "useRestrictions": "사용 제한",
-    "useRestrictionsFallback": "랩 운영 시간 동안 교육을 받은 모든 MakerLab 사용자에게 개방됩니다.",
     "documentsResources": "문서 및 자료",
     "openResource": "자료 열기",
     "resourceFallback": "자료",
-    "noDocuments": "아직 연결된 문서가 없습니다.",
     "details": "세부 정보",
     "category": "카테고리",
     "location": "위치",
@@ -89,7 +84,6 @@
     "serial": "일련번호",
     "acquired": "취득일",
     "notesTips": "메모 및 팁",
-    "backToTools": "‹ 모든 도구로 돌아가기",
     "builtWithThis": "이 도구로 제작",
     "builtWithThisBy": "{author} 작성"
   },
@@ -161,7 +155,6 @@
     "newChatTitle": "새 대화 시작",
     "closeAria": "어시스턴트 닫기",
     "closeTitle": "닫기 (대화 유지)",
-    "closeScrimAria": "MakerLab 어시스턴트 닫기",
     "greetingTool": "이 도구에 대해 물어보세요. 사양, 재료, 자료 링크를 알고 있습니다.",
     "greetingGeneral": "오늘 무엇을 도와드릴까요?",
     "suggestionFindMachine": "프로젝트에 맞는 장비 찾기",
