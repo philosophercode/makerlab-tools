@@ -51,7 +51,19 @@ export type InventoryActionWarning = InventoryWriteWarning;
  * would report a conflict against itself.
  */
 export type InventoryActionResult<T = unknown> =
-  | ({ ok: true; revision: Revision; warning?: InventoryActionWarning } & T)
+  | ({
+      ok: true;
+      revision: Revision;
+      warning?: InventoryActionWarning;
+      /**
+       * The tool as it now stands, read in the same request, so the open panel
+       * need not call `loadToolForEditor` again (performance plan, "Make a
+       * tool-editor save a single round trip"). Absent when it could not be
+       * read; the panel then reads it itself. Its revision is **not** the one
+       * the panel keeps — `revision` above is.
+       */
+      editor?: ToolEditorData;
+    } & T)
   | { ok: false; error: InventoryActionError };
 
 /** Everything the panel needs to render itself, once it is allowed to. */

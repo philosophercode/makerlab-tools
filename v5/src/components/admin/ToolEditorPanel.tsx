@@ -15,6 +15,7 @@ import { ToolStateControls } from "./ToolStateControls";
 import { UnitsEditor } from "./UnitsEditor";
 import { RowStatus } from "./RowStatus";
 import type { ToolEditorActions } from "./tool-editor-actions";
+import type { ToolEditorData } from "../../lib/data/tool-editor";
 
 /**
  * The tool editor (spec §5.3(3)–(5), §6).
@@ -169,7 +170,13 @@ export function ToolEditorPanel({
       // accepted, so there is no longer another version to choose between.
       setTheirs(null);
 
-      if (options.refresh) await refreshChildren();
+      if (options.refresh) {
+        // The write's own answer carries the tool as it now stands; reading it
+        // again is only the fallback (performance plan, "Make a tool-editor
+        // save a single round trip").
+        if (result.editor) adoptChildren(result.editor);
+        else await refreshChildren();
+      }
       options.onSuccess?.();
       return true;
     } catch {
@@ -202,16 +209,21 @@ export function ToolEditorPanel({
   async function refreshChildren() {
     const result = await actions.load(idOrSlug);
     if (!result.ok) return;
+    adoptChildren(result.editor);
+  }
+
+  /** Take a fresh read's children and state (see {@link refreshChildren}). */
+  function adoptChildren(fresh: ToolEditorData) {
     setEditor((current) =>
       current
         ? {
             ...current,
-            units: result.editor.units,
-            resources: result.editor.resources,
-            photos: result.editor.photos,
-            tool: { ...current.tool, ...stateOnly(result.editor) },
+            units: fresh.units,
+            resources: fresh.resources,
+            photos: fresh.photos,
+            tool: { ...current.tool, ...stateOnly(fresh) },
           }
-        : result.editor
+        : current
     );
   }
 
@@ -344,8 +356,11 @@ export function ToolEditorPanel({
                 if (result.ok) {
                   // Rebase the form on what the database now holds, so its next
                   // patch is a diff against the truth rather than against what
-                  // the panel opened with.
-                  await refreshFields();
+                  // the panel opened with — from the save's own answer when it
+                  // carries the tool, else read again.
+                  const fresh = result.editor;
+                  if (fresh) setEditor((current) => (current ? { ...current, tool: fresh.tool } : current));
+                  else await refreshFields();
                   setFormEpoch((epoch) => epoch + 1);
                 }
                 return result;
@@ -464,7 +479,7 @@ function args(toolId: string, expectedRevision: string) {
  * token that write returned — taking the fresher one there would let the next
  * save overwrite somebody else's change without ever reporting a conflict.
  */
-function stateOnly(editor: ToolEditorPayload) {
+function stateOnly(editor: ToolEditorData) {
   const { published, archivedAt, lastReviewedAt, lastReviewedBy } = editor.tool;
   return { published, archivedAt, lastReviewedAt, lastReviewedBy };
 }

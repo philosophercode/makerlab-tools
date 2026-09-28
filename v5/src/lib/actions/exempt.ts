@@ -75,6 +75,7 @@ export const EXEMPT: Readonly<Record<string, string>> = {
 
   // ── Reads that happen to be server actions ───────────────────────────
   "src/app/admin/inventory/actions.ts#loadToolForEditor": "Not a write: the editor panel's read",
+  "src/app/admin/refresh/actions.ts#loadRefreshPickerTools": "Not a write: the Refresh research picker's tool list, read when it opens",
   "src/app/admin/intake/imports/actions.ts#loadImport": "Not a write: the import review's read (its polling)",
 
   // ── Not user actions (§4.8 "out of scope") ───────────────────────────

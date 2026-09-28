@@ -249,6 +249,40 @@ describe("the panel's one live region", () => {
     expect(await screen.findByText("Saved")).toBeInTheDocument();
   });
 
+  it("takes the tool from the save's own answer, with no second read (performance plan)", async () => {
+    const { tool, units, resources, photos } = payload({ description: "Fixed on the server", revision: "1758000001.5" });
+    const actions = stubActions({
+      save: vi.fn(async () => ({ ok: true as const, revision: "1758000001.5", editor: { tool, units, resources, photos } })),
+      attachPhotos: vi.fn(async () => ({
+        ok: true as const,
+        revision: "r",
+        photosSubmitted: 0,
+        photosAttached: 0,
+        editor: { tool, units, resources, photos },
+      })),
+    });
+    await openPanel(actions);
+    expect(actions.load).toHaveBeenCalledTimes(1);
+
+    await userEvent.type(descriptionBox(), "!");
+    await userEvent.click(screen.getByRole("button", { name: "Save details" }));
+
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+    await waitFor(() => expect(descriptionBox()).toHaveValue("Fixed on the server"));
+    expect(actions.load).toHaveBeenCalledTimes(1);
+  });
+
+  it("reads the tool again when the save's answer does not carry it", async () => {
+    const actions = stubActions();
+    await openPanel(actions);
+
+    await userEvent.type(descriptionBox(), "!");
+    await userEvent.click(screen.getByRole("button", { name: "Save details" }));
+
+    expect(await screen.findByText("Saved")).toBeInTheDocument();
+    await waitFor(() => expect(actions.load).toHaveBeenCalledTimes(2));
+  });
+
   it("keeps the change and says what is missing when the audit write failed", async () => {
     const actions = stubActions({
       publish: vi.fn(async () => ({

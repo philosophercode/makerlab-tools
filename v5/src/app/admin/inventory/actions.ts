@@ -12,6 +12,7 @@ import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { saveToolFields } from "../../../lib/inventory/tool-edits";
 import { type InventoryActionResult, type LoadToolEditorResult } from "./action-result";
 import { withToolEdit, type ToolWriteInput } from "./tool-write-context";
+import { withFreshEditor } from "./fresh-editor";
 
 /**
  * The tool editor's own writes (spec §5.3(3)–(5), §8).
@@ -76,12 +77,21 @@ export async function loadToolForEditor(idOrSlug: string): Promise<LoadToolEdito
   return { ok: true, editor: { ...editor, categories, locations, otherToolNames: taken } };
 }
 
-/** Save the editor's fields. `tools.edit`. */
+/** The fields the review table shows (`InventoryRow`): a save touching only others leaves it as it was. */
+const BOARD_FIELDS: readonly (keyof ToolPatch)[] = ["name", "officialName", "categoryId", "locationId", "floorCheck"];
+
+/**
+ * Save the editor's fields. `tools.edit`. The answer carries the tool as it
+ * now stands, and re-renders the review table only when a column it shows
+ * changed (performance plan, "Make a tool-editor save a single round trip").
+ */
 export async function saveTool(
   input: ToolWriteInput & { patch: ToolPatch }
 ): Promise<InventoryActionResult> {
-  return withToolEdit(input, (context) =>
-    saveToolFields({ ...context, patch: input.patch })
+  const revalidate = BOARD_FIELDS.some((field) => input.patch[field] !== undefined);
+  return withFreshEditor(
+    input.toolId,
+    await withToolEdit(input, (context) => saveToolFields({ ...context, patch: input.patch }), { revalidate })
   );
 }
 
