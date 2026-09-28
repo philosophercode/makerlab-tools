@@ -1,5 +1,6 @@
 "use client";
 
+import { useMemo } from "react";
 import { useSharedIdentity } from "../../lib/auth/identity-store";
 import { useChatLauncher } from "../ChatLauncherContext";
 import { CommandPalette } from "./CommandPalette";
@@ -10,8 +11,8 @@ import type { PaletteTool } from "./palette-types";
  * The header's search field and the ⌘K palette behind it, on every page
  * (public polish). Who is asking comes from the header's own identity answer
  * (`PrimaryNav` publishes it) — or, on an admin page, from the admin layout,
- * which resolved it on the server and also hands over the tool index with
- * drafts (`PaletteScope`). Anonymous until one of them has answered, so the
+ * which resolved it on the server and also hands over the drafts the viewer
+ * may open (`PaletteScope`), added to the published list. Anonymous until one of them has answered, so the
  * palette never offers a page that would refuse the viewer.
  *
  * The palette also opens the assistant (phase 5b, `onAsk`): what was typed
@@ -24,5 +25,7 @@ export function HeaderSearch({ tools }: { tools: readonly PaletteTool[] }) {
   const scope = usePaletteScope();
   const { open } = useChatLauncher();
   const role = scope?.role ?? identity?.role ?? "anonymous";
-  return <CommandPalette role={role} tools={scope ? scope.tools : tools} onAsk={(query) => open(query || undefined)} />;
+  const drafts = scope?.drafts;
+  const all = useMemo(() => (drafts && drafts.length > 0 ? [...tools, ...drafts] : tools), [tools, drafts]);
+  return <CommandPalette role={role} tools={all} onAsk={(query) => open(query || undefined)} />;
 }

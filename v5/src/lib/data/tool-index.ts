@@ -26,10 +26,15 @@ export interface ToolIndexEntry {
 }
 
 export async function listToolIndex(
-  options: { includeDrafts: boolean; db?: Db }
+  options: {
+    includeDrafts: boolean;
+    /** Only the drafts: what the admin palette adds to the published list every page already has. */
+    draftsOnly?: boolean;
+    db?: Db;
+  }
 ): Promise<ToolIndexEntry[]> {
   const db = options.db ?? (await getDb());
-  const live = isNull(tools.archivedAt);
+  const live = options.draftsOnly ? and(isNull(tools.archivedAt), eq(tools.published, false)) : isNull(tools.archivedAt);
   return db
     .select({
       id: tools.id,

@@ -39,11 +39,15 @@ export default async function AdminHomePage() {
   const t = await getTranslations("admin");
   const identity = await resolveIdentityFromHeaders();
   const open = surfacesFor(identity);
-  const overview = await loadAdminOverview(countLoadersFor(identity), { userId: identity.userId });
-  const backupNotice = await adminBackupNotice({
-    canManageUsers: can(identity, "users.manage"),
-    substrate: dataSubstrate(),
-  });
+  // Together, not one after the other: the backup notice is a Blob list on a
+  // cold instance (performance plan, quick win 14).
+  const [overview, backupNotice] = await Promise.all([
+    loadAdminOverview(countLoadersFor(identity), { userId: identity.userId }),
+    adminBackupNotice({
+      canManageUsers: can(identity, "users.manage"),
+      substrate: dataSubstrate(),
+    }),
+  ]);
   const tiles = open.map((entry) => {
     // An extra count the viewer may read is its counts or null (failed); one
     // they may not is absent, and the tile says nothing about it.

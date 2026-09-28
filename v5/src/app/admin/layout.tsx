@@ -9,7 +9,9 @@ import { ScopedMessages } from "../../components/ScopedMessages";
 import { surfacesFor } from "../../lib/admin/surfaces";
 import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
 import { can, canReachAdmin } from "../../lib/auth/permissions";
-import { listToolIndex, type ToolIndexEntry } from "../../lib/data/tool-index";
+import { getDraftPaletteTools } from "../../lib/catalog";
+import type { Role } from "../../lib/auth/roles";
+import type { PaletteTool } from "../../components/palette/palette-types";
 import { siteConfig } from "../../lib/site-config";
 
 /**
@@ -66,6 +68,23 @@ export default async function AdminLayout({
   );
 }
 
+/**
+ * The palette's drafts for a viewer who may see them (cached under the
+ * catalogue tag). A read that fails leaves the published list the header
+ * already has, which is still true (Article 4).
+ */
+async function AdminPaletteScope({ role, withDrafts }: { role: Role; withDrafts: boolean }) {
+  let drafts: PaletteTool[] = [];
+  if (withDrafts) {
+    try {
+      drafts = await getDraftPaletteTools();
+    } catch (err) {
+      console.error("[admin] could not read the palette's drafts", err);
+    }
+  }
+  return <PaletteScope role={role} drafts={drafts} />;
+}
+
 /** Resolves who is asking, and renders the children only if they may be here. */
 async function AdminGate({ children }: { children: React.ReactNode }) {
   const identity = await resolveIdentityFromHeaders();
@@ -74,20 +93,15 @@ async function AdminGate({ children }: { children: React.ReactNode }) {
   if (!canReachAdmin(identity)) return <AdminNotice kind="forbidden" />;
 
   const items = surfacesFor(identity).map(({ key, href, group }) => ({ key, href, group }));
-  // The palette's tools. A list that cannot be read is said in the palette,
-  // never an empty one that would claim the lab owns nothing (Article 4).
-  let tools: ToolIndexEntry[] | null;
-  try {
-    tools = await listToolIndex({ includeDrafts: can(identity, "catalog.view_drafts") });
-  } catch (err) {
-    console.error("[admin] could not read the palette's tool list", err);
-    tools = null;
-  }
 
   return (
     <>
-      {/* The header's ⌘K palette learns this viewer and the index with drafts. */}
-      <PaletteScope role={identity.role} tools={tools} />
+      {/* The header's ⌘K palette learns this viewer and the drafts they may
+          open — in its own boundary, so the page never waits on it
+          (performance plan, quick win 12). */}
+      <Suspense fallback={null}>
+        <AdminPaletteScope role={identity.role} withDrafts={can(identity, "catalog.view_drafts")} />
+      </Suspense>
       {/* The floating chat button is not drawn on admin pages; the bar opens the assistant. */}
       <AdminNav items={items} end={<AskAssistantButton />} />
       {children}

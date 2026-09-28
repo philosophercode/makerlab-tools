@@ -4,7 +4,7 @@ import { getDb } from "../db/client.ts";
 import { labTimezone, labToday } from "../lab-time.ts";
 import { rawRows } from "../db/raw.ts";
 import type { Db } from "../db/types.ts";
-import { listInventoryRows } from "./inventory.ts";
+import { countInventory } from "./inventory.ts";
 import { countOpenInboxProposals } from "./action-proposals.ts";
 import { countManualsByState } from "./manual-chunks.ts";
 import { getMirrorViewForOwner } from "./mirrors.ts";
@@ -120,19 +120,10 @@ export const COUNT_LOADER_READS: { [K in CountLoader]: (ctx: OverviewContext) =>
     return { ready: n(row?.ready), mapping: n(row?.mapping), last30: n(row?.last30) };
   },
 
+  // One aggregate statement, not the inventory page's full read (performance
+  // plan, quick win 14); `countInventory` mirrors that read's flags.
   async inventory({ db }) {
-    const rows = await listInventoryRows({ db });
-    const count = (test: (row: (typeof rows)[number]) => boolean) => rows.reduce((sum, row) => (test(row) ? sum + 1 : sum), 0);
-    return {
-      total: rows.length,
-      published: count((row) => row.state === "published"),
-      draft: count((row) => row.state === "draft"),
-      archived: count((row) => row.state === "archived"),
-      needsAttention: count((row) => row.needsAttention),
-      noPhoto: count((row) => row.attention.noPhoto),
-      noManual: count((row) => row.attention.noManual),
-      neverReviewed: count((row) => row.attention.neverReviewed),
-    };
+    return countInventory({ db });
   },
 
   async refresh({ db }) {
