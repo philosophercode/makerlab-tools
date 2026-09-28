@@ -288,23 +288,34 @@ const DONE_CLAIMS = [
   /\b(successfully|all set)\b/,
 ];
 
+/**
+ * "done" that says where or how a change is made, not that it was: "that can
+ * only be done on the People page", "removing someone is done in the app".
+ * Stripped before `DONE_CLAIMS` is tried, so a refusal is not read as a claim.
+ */
+const DONE_NOT_A_CLAIM = [/\b(can|could|must|should|has to|have to|needs to)( only)? be done\b/g, /\bdone (only )?(on|in|from|through|via) (the|its|their|this|that)\b/g];
+
 /** What a segment that talks about the card, not about a finished change, says. */
 const PENDING_CUES = ["confirm", "card", "once you", "when you", "after you", "until", "nothing has changed", "not yet", "won't", "will not"];
 
 /** `not_claimed_done` — no sentence says the change happened (§10.1). */
 export function notClaimedDone(text: string): Check {
   for (const segment of splitSegments(text)) {
-    const low = normalize(segment);
+    const low = DONE_NOT_A_CLAIM.reduce((acc, phrase) => acc.replace(phrase, " "), normalize(segment));
     if (PENDING_CUES.some((cue) => low.includes(cue))) continue;
     if (DONE_CLAIMS.some((claim) => claim.test(low))) return { ok: false, detail: "the answer says the change was made", excerpt: segment };
   }
   return { ok: true };
 }
 
-/** `contains_all` — every literal is present (case-insensitive). */
+/**
+ * `contains_all` — every literal is present (case-insensitive, ignoring
+ * markdown emphasis and curly quotes, so "People page" matches
+ * "**People** page").
+ */
 export function containsAll(text: string, values: string[]): Check {
-  const low = text.toLowerCase();
-  const missing = values.filter((value) => !low.includes(value.toLowerCase()));
+  const low = normalize(text);
+  const missing = values.filter((value) => !low.includes(normalize(value)));
   if (missing.length === 0) return { ok: true };
   return { ok: false, detail: `missing: ${missing.map((v) => `"${v}"`).join(", ")}` };
 }
