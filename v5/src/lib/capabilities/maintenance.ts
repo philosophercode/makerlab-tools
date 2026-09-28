@@ -137,7 +137,8 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
         photoAttachmentIds: photoIds,
       });
 
-      // The kiosk's open-ticket count (kiosk spec §3.1). A cache that cannot
+      // The kiosk's open-ticket count (kiosk spec §3.1) and the tool page's
+      // maintenance history. A cache that cannot
       // be dropped is a screen a poll behind, never a lost ticket.
       try {
         invalidateMaintenance();

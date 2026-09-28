@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { matchSorter } from "match-sorter";
 import { LayoutGrid, Rows3 } from "lucide-react";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
-import type { MakerLabTool } from "./catalog-types";
+import type { GalleryTool } from "./catalog-types";
 import { TOOL_STATUS_KEY, ToolCard } from "./ToolCard";
-import { GALLERY_DEFAULT_HIDDEN, GalleryTable, useGalleryColumns } from "./GalleryTable";
+import type { ToolImagePriority } from "./ToolImage";
+import { GALLERY_DEFAULT_HIDDEN, useGalleryColumns } from "./gallery-columns";
 import { GalleryHero } from "./GalleryHero";
 import {
   GALLERY_STATUSES,
@@ -32,14 +33,18 @@ import { SegmentedControl } from "./system/SegmentedControl";
 import { facetOptions, uniqueValues } from "./system/data-table/facet-options";
 
 interface GalleryShellProps {
-  tools: MakerLabTool[];
+  tools: GalleryTool[];
 }
+
+// The table view (TanStack Table under `DataTable`) loads when somebody
+// switches to it; the grid everybody lands on does not carry it.
+const GalleryTable = lazy(() => import("./GalleryTable").then((mod) => ({ default: mod.GalleryTable })));
 
 // Ranked, typo-tolerant search keys. match-sorter ranks earlier keys above
 // later ones when match quality ties, so key order doubles as relevance
 // weight: name first, then the structured metadata (category / tags /
 // materials), then the free-text description last.
-const SEARCH_KEYS: ReadonlyArray<keyof MakerLabTool> = [
+const SEARCH_KEYS: ReadonlyArray<keyof GalleryTool> = [
   "name",
   // The official name, with its model or part number (tool display names spec §5.6).
   "officialName",
@@ -57,7 +62,7 @@ const SEARCH_KEYS: ReadonlyArray<keyof MakerLabTool> = [
 type Facet = "status" | "category" | "material" | "location";
 const FACETS: readonly Facet[] = ["status", "category", "material", "location"];
 
-function matchesFacet(tool: MakerLabTool, facet: Facet, value: string): boolean {
+function matchesFacet(tool: GalleryTool, facet: Facet, value: string): boolean {
   if (facet === "status") return tool.status === value;
   if (facet === "category") return tool.category === value;
   if (facet === "material") return tool.materials.includes(value);
@@ -65,7 +70,7 @@ function matchesFacet(tool: MakerLabTool, facet: Facet, value: string): boolean 
 }
 
 /** The rows every facet but `except` leaves — what a facet's counts are taken over. */
-function narrowed(tools: readonly MakerLabTool[], state: GalleryState, except?: Facet): MakerLabTool[] {
+function narrowed(tools: readonly GalleryTool[], state: GalleryState, except?: Facet): GalleryTool[] {
   return tools.filter((tool) =>
     FACETS.every(
       (facet) => facet === except || !state[facet] || matchesFacet(tool, facet, state[facet]!)
@@ -128,7 +133,7 @@ export function GalleryShell({ tools }: GalleryShellProps) {
       onChange={(value) => set({ [key]: value })}
     />
   );
-  const statusLabel = (value: string) => t(`status.${TOOL_STATUS_KEY[value as MakerLabTool["status"]]}`);
+  const statusLabel = (value: string) => t(`status.${TOOL_STATUS_KEY[value as GalleryTool["status"]]}`);
 
   const sortOptions: ChoiceOption<"default" | GallerySort>[] = [
     { value: "default", label: query ? t("sort.relevance") : t("sort.name") },
@@ -236,6 +241,7 @@ export function GalleryShell({ tools }: GalleryShellProps) {
             tableLabel={t("toolGalleryLabel")}
             columns={columns}
             visibility={visibility}
+            leading
           />
         </section>
       ) : (
@@ -260,6 +266,7 @@ export function GalleryShell({ tools }: GalleryShellProps) {
                   visibility={visibility}
                   stickyHeader={false}
                   keyboardHint={index === sections.length - 1}
+                  leading={index === 0}
                 />
               </section>
             );
@@ -279,37 +286,52 @@ function Tools({
   visibility,
   stickyHeader,
   keyboardHint,
+  leading = false,
 }: {
-  tools: MakerLabTool[];
+  tools: GalleryTool[];
   view: GalleryState["view"];
   headingLevel: 2 | 3;
   tableLabel: string;
-  columns: ColumnDef<MakerLabTool, unknown>[];
+  columns: ColumnDef<GalleryTool, unknown>[];
   visibility: VisibilityState;
   stickyHeader?: boolean;
   keyboardHint?: boolean;
+  /** The first list on the page: its first row's images are fetched eagerly. */
+  leading?: boolean;
 }) {
   if (view === "table") {
     return (
-      <GalleryTable
-        tools={tools}
-        columns={columns}
-        visibility={visibility}
-        label={tableLabel}
-        stickyHeader={stickyHeader}
-        keyboardHint={keyboardHint}
-      />
+      <Suspense fallback={<p className="py-6 font-mono text-label text-muted-foreground uppercase">{tableLabel}</p>}>
+        <GalleryTable
+          tools={tools}
+          columns={columns}
+          visibility={visibility}
+          label={tableLabel}
+          stickyHeader={stickyHeader}
+          keyboardHint={keyboardHint}
+        />
+      </Suspense>
     );
   }
   return (
     <ul className="m-0 grid list-none grid-cols-2 gap-3 p-0 sm:gap-4 md:grid-cols-3 xl:grid-cols-5">
-      {tools.map((tool) => (
+      {tools.map((tool, index) => (
         <li key={tool.id} className="min-w-0">
-          <ToolCard tool={tool} headingLevel={headingLevel} />
+          <ToolCard tool={tool} headingLevel={headingLevel} imagePriority={leading ? cardImagePriority(index) : "lazy"} />
         </li>
       ))}
     </ul>
   );
+}
+
+/**
+ * The first row is fetched eagerly and everything below it lazily. A row is
+ * two cards on a phone and five on a wide screen, so the first two — the
+ * likely LCP image on any screen — are `high`, the next three `eager`.
+ */
+export function cardImagePriority(index: number): ToolImagePriority {
+  if (index < 2) return "high";
+  return index < 5 ? "eager" : "lazy";
 }
 
 /**
