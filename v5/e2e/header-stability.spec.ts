@@ -138,8 +138,8 @@ for (const [width, height, wordmarkHeight] of [
       };
     });
     expect(m.wordmark.height).toBe(wordmarkHeight);
-    // The crop's own aspect ratio, 1014 × 171.
-    expect(Math.abs(m.wordmark.width - Math.round((wordmarkHeight * 1014) / 171))).toBeLessThanOrEqual(1);
+    // The crop's own aspect ratio, 475 × 79.
+    expect(Math.abs(m.wordmark.width - Math.round((wordmarkHeight * 475) / 79))).toBeLessThanOrEqual(1);
     expect(m.headerHeight).toBe(m.navHeight);
     expect(m.clipped).toBe(false);
     if (width >= 1024) expect(Math.abs(m.navCentre)).toBeLessThanOrEqual(1);

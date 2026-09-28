@@ -194,11 +194,11 @@ body::selection {
 
 /* The wordmark PNG as a mask, painted in the text colour: black on light,
    white on dark, from the one asset (as the kiosk draws the full logo). Its
-   width follows the height at the crop's own 1014 × 171. */
+   width follows the height at the crop's own 475 × 79. */
 .brand-wordmark {
   display: block;
   flex: none;
-  width: calc(var(--wordmark-height) * 1014 / 171);
+  width: calc(var(--wordmark-height) * 475 / 79);
   height: var(--wordmark-height);
   background-color: currentColor;
   mask-size: contain;
