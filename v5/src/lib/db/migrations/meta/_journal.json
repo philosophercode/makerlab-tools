@@ -169,6 +169,13 @@
       "when": 1790579798542,
       "tag": "0023_taxonomy_v2",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1790580631940,
+      "tag": "0024_lab_settings",
+      "breakpoints": true
     }
   ]
 }

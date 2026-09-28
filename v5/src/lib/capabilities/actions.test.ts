@@ -172,10 +172,11 @@ describe("who is offered what (the phase 2 measurement, §11 answer 8)", () => {
     // Owner decision 2026-09-27 took remove_person, unblock_email,
     // grant_research_allowance and disconnect_mirror off the assistant.
     // Taxonomy v2 added six action tools and two reads for both staff roles.
+    // The value report added one read, get_value_report, for both (insights.view).
     expect(offered("super_admin").actionTools).toHaveLength(42);
     expect(offered("admin").actionTools).toHaveLength(38);
-    expect(offered("super_admin").chatTools).toBe(62);
-    expect(offered("admin").chatTools).toBe(57);
+    expect(offered("super_admin").chatTools).toBe(63);
+    expect(offered("admin").chatTools).toBe(58);
     expect(offered("user").chatTools).toBe(9);
   });
 });

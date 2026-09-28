@@ -109,18 +109,33 @@ const n = (value: Num | undefined) => Number(value ?? 0);
 export function usageSource(query: { days: number; includeStaff: boolean; now: Date }): SQL {
   const now = query.now.toISOString();
   const from = sql`${now}::timestamptz - make_interval(days => ${query.days})`;
-  const audience = query.includeStaff ? sql`true` : sql`audience <> 'staff'`;
+  return sourceWithin(from, sql`${now}::timestamptz`, true, query.includeStaff);
+}
+
+/**
+ * The same source over `[start, end)` — the value report's periods, which are
+ * lab dates rather than "the last N days". A rollup hour counts when it starts
+ * inside the window.
+ */
+export function usageSourceBetween(query: { start: Date; end: Date; includeStaff: boolean }): SQL {
+  return sourceWithin(sql`${query.start.toISOString()}::timestamptz`, sql`${query.end.toISOString()}::timestamptz`, false, query.includeStaff);
+}
+
+function sourceWithin(from: SQL, to: SQL, endInclusive: boolean, includeStaff: boolean): SQL {
+  const audience = includeStaff ? sql`true` : sql`audience <> 'staff'`;
+  const rawEnd = endInclusive ? sql`occurred_at <= ${to}` : sql`occurred_at < ${to}`;
+  const rollupEnd = endInclusive ? sql`true` : sql`hour_start < ${to}`;
   return sql`(
     with mark as (
       select coalesce(max(hour_start) + interval '1 hour', '-infinity'::timestamptz) as wm from usage_rollups
     )
     select hour_start as ts, kind, surface, audience, tool_id, manual_document_id, page, source, question_kind, count
       from usage_rollups, mark
-     where hour_start < mark.wm and hour_start >= ${from} and ${audience}
+     where hour_start < mark.wm and hour_start >= ${from} and ${rollupEnd} and ${audience}
     union all
     select occurred_at as ts, kind, surface, audience, tool_id, manual_document_id, page, source, question_kind, 1 as count
       from usage_events, mark
-     where occurred_at >= mark.wm and occurred_at >= ${from} and occurred_at <= ${now}::timestamptz and ${audience}
+     where occurred_at >= mark.wm and occurred_at >= ${from} and ${rawEnd} and ${audience}
   )`;
 }
 

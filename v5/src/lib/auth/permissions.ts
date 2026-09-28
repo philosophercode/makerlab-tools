@@ -53,7 +53,10 @@ export const statement = {
   taxonomy: ["manage"],
   // Usage insight (usage insight spec §8, §13 Q3): anonymous usage counts and
   // the Unanswered queue on /admin/insights. SuperMakers and directors both.
-  insights: ["view"],
+  // `configure` sets the value report's assumptions (minutes per question,
+  // hourly cost, staffed hours, terms) — its own grant so "directors only" is
+  // one line; admins and super admins both today.
+  insights: ["view", "configure"],
 } as const;
 
 export const ac = createAccessControl(statement);
@@ -93,7 +96,7 @@ export const roles = {
     feedback: ["manage"],
     mirror: ["manage"],
     taxonomy: ["manage"],
-    insights: ["view"],
+    insights: ["view", "configure"],
   }),
   super_admin: ac.newRole({
     projects: ["submit", "moderate"],
@@ -102,7 +105,7 @@ export const roles = {
     maintenance: ["manage"],
     feedback: ["manage"],
     mirror: ["manage"],
-    insights: ["view"],
+    insights: ["view", "configure"],
     users: ["manage"],
     taxonomy: ["manage"],
     user: [...ACCOUNT_MANAGEMENT.user],

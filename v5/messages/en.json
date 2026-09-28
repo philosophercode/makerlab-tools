@@ -2061,6 +2061,137 @@
         "dismissFor": "Dismiss “{question}”",
         "dismissed": "Dismissed",
         "dismissedMessage": "Dismissed. It comes back if it is asked three more times."
+      },
+      "tabs": {
+        "label": "Insights views",
+        "usage": "Usage",
+        "value": "Value report"
+      },
+      "value": {
+        "title": "Value report",
+        "lede": "What the assistant saved the lab, estimated from anonymous usage counts — a page to print for whoever funds it.",
+        "metaTitle": "Value report",
+        "reportTitle": "{assistant} — {period} value report",
+        "customPeriod": "{from} – {to}",
+        "termName": "{term, select, spring {Spring} summer {Summer} fall {Fall} other {Term}} {year}",
+        "termKind": "{term, select, spring {Spring} summer {Summer} fall {Fall} other {Term}}",
+        "dates": "{from} – {to}",
+        "toDate": "to date (through {today})",
+        "estimateBadge": "Estimate",
+        "estimateNote": "Estimates from anonymous usage counts and the lab's own assumptions (below). Staff activity is left out. Nothing here says who asked.",
+        "since": "Counting started {date}; earlier days have no data.",
+        "unreadable": "The value report could not be read just now. Nothing has been lost; try again in a moment.",
+        "facts": {
+          "period": "{period}",
+          "staffExcluded": "Staff left out",
+          "estimate": "Estimates"
+        },
+        "picker": {
+          "label": "Report period",
+          "terms": "Term",
+          "custom": "Custom range",
+          "from": "From",
+          "to": "To",
+          "show": "Show"
+        },
+        "actions": {
+          "label": "Export",
+          "print": "Print or save as PDF",
+          "csv": "Download CSV"
+        },
+        "metrics": {
+          "label": "Headline numbers",
+          "questionsAnswered": "Questions answered",
+          "handledShare": "Handled without staff",
+          "staffHoursSaved": "Staff hours saved",
+          "dollarValue": "Estimated value",
+          "afterHoursShare": "Asked outside staffed hours",
+          "handledDetail": "{handled} of {total} questions",
+          "hoursDetail": "at {minutes} min per question",
+          "valueDetail": "at {cost} per staff hour",
+          "afterDetail": "{count} questions",
+          "questionsDetail": "{app} in the app · {mcp} over MCP",
+          "none": "—"
+        },
+        "compare": {
+          "label": "vs {period}",
+          "up": "▲ {change}",
+          "down": "▼ {change}",
+          "same": "no change",
+          "new": "none in {period}",
+          "points": "{value} pts"
+        },
+        "formulas": {
+          "heading": "How these numbers are calculated",
+          "questions": "Questions answered = {app} assistant questions in the app + {mcp} over MCP ({lookups} catalogue lookups by outside assistants ÷ {perQuestion} lookups per question, rounded down) = {total}.",
+          "questionsNoMcp": "Questions answered = {app} assistant questions in the app. MCP lookups by outside assistants ({lookups}) are not counted, as the lab chose.",
+          "handled": "Handled without staff = {app} app questions − {unanswered} the assistant could not answer ({kinds}) + {mcp} MCP questions = {handled}, or {share} of questions. MCP has no “could not answer” signal, so every MCP question counts as handled.",
+          "handledNoMcp": "Handled without staff = {app} app questions − {unanswered} the assistant could not answer ({kinds}) = {handled}, or {share} of questions.",
+          "noKinds": "none counted",
+          "hours": "Staff hours saved ≈ {handled} handled questions × {minutes} minutes a staff member would otherwise spend ÷ 60 = {hours} hours.",
+          "value": "Estimated value ≈ {hours} hours × {cost} loaded staff cost per hour = {value}.",
+          "afterHours": "Outside staffed hours = {after} of {total} questions were asked when staff are not in ({staffed}, {timeZone}) = {share}. Hours are counted in lab time, so daylight saving moves nothing.",
+          "note": "Every count is anonymous: questions are counted, never stored with who asked. Staff testing is left out. Counts can be low (a blocked request, a failed write), never high."
+        },
+        "breakdown": {
+          "tools": "Most asked-about tools",
+          "toolsEmpty": "No tool was asked about in this period.",
+          "toolAsked": "{count, plural, one {# question} other {# questions}}",
+          "deletedTool": "Deleted tool",
+          "kinds": "What kinds of questions",
+          "followUp": "Follow-up and upkeep",
+          "citations": "Manual pages cited in answers",
+          "manualsCited": "Manuals cited",
+          "unansweredFiled": "Unanswered questions filed as catalogue corrections",
+          "unansweredFixed": "… of those, fixed",
+          "manualsAdded": "Manuals made searchable",
+          "ticketsFiled": "Problem reports filed through the assistant",
+          "ticketsResolved": "… of those, resolved",
+          "medianDays": "Median days to resolve",
+          "medianDaysValue": "{days, plural, =0 {same day} one {# day} other {# days}}"
+        },
+        "assumptionsLine": "Assumptions set by the lab: {minutes} min of staff time per question · {cost} per staff hour · staffed {staffed} ({timeZone}).",
+        "assumptionsChanged": "Last changed {date} by {name}.",
+        "assumptionsChangedNoName": "Last changed {date}.",
+        "assumptionsDefault": "These are the defaults; the lab has not set its own.",
+        "assumptionsInvalid": "The saved assumptions could not be read, so the defaults are shown. Save them again below.",
+        "staffed": {
+          "everyDay": "every day",
+          "weekdays": "Mon–Fri",
+          "none": "never",
+          "range": "{days}, {open}–{close}"
+        },
+        "assumptions": {
+          "heading": "Assumptions",
+          "note": "The report's estimates rest on these numbers. Set them to what your lab can defend; every change shows on the report at once.",
+          "readOnly": "Only admins and super admins can change these.",
+          "minutes": "Minutes of staff time per question",
+          "minutesHint": "What answering one question in person would take. 0.5–60.",
+          "cost": "Loaded staff cost per hour (USD)",
+          "costHint": "Wage plus benefits and overhead, per hour.",
+          "days": "Staffed days",
+          "open": "Staff in from",
+          "close": "Staff leave at",
+          "hoursHint": "In lab time ({timeZone}). Questions outside these hours count as after hours.",
+          "terms": "Terms",
+          "termsHint": "Month and day (MM-DD), the same every year. Terms may not overlap.",
+          "termStart": "{term} starts",
+          "termEnd": "{term} ends",
+          "unanswered": "Not handled without staff",
+          "unansweredHint": "Questions the assistant could not answer, by why. A ticked kind is subtracted from the questions handled.",
+          "mcp": "Count questions from outside assistants (MCP)",
+          "mcpPerQuestion": "MCP lookups per question",
+          "mcpHint": "An outside assistant usually searches and then reads a tool: about two lookups make one question.",
+          "save": "Save assumptions",
+          "defaults": "Reset to defaults",
+          "errors": {
+            "invalid": "Check the values: each must be a number in its range.",
+            "terms_overlap": "Two terms overlap. Each day may belong to one term only.",
+            "term_backwards": "A term ends before it starts.",
+            "not_a_date": "A term date is not a real month and day (MM-DD).",
+            "hours_backwards": "Staff must leave after they arrive."
+          }
+        }
       }
     }
   },

@@ -4,6 +4,7 @@ import { AdminNotice } from "../../../components/admin/AdminNotice";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { BusiestHeatmap } from "../../../components/admin/insights/BusiestHeatmap";
 import { InsightsControls } from "../../../components/admin/insights/InsightsControls";
+import { InsightsTabs } from "../../../components/admin/insights/InsightsTabs";
 import { parseInsightsParams } from "../../../components/admin/insights/insights-params";
 import { InsightsSummary } from "../../../components/admin/insights/InsightsSummary";
 import { InsightsToolTable } from "../../../components/admin/insights/InsightsToolTable";
@@ -62,7 +63,10 @@ export default async function AdminInsightsPage({ searchParams }: { searchParams
   }
 
   const header = (facts: string[] = []) => (
-    <AdminPageHeader surface="insights" title={t("title")} lede={t("lede")} facts={facts} actions={<InsightsControls params={params} />} />
+    <>
+      <AdminPageHeader surface="insights" title={t("title")} lede={t("lede")} facts={facts} actions={<InsightsControls params={params} />} />
+      <InsightsTabs />
+    </>
   );
 
   if (!data) {

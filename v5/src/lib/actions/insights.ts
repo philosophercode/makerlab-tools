@@ -2,8 +2,10 @@ import "server-only";
 
 import { z } from "zod";
 import { CORRECTIONS_PATH } from "../../app/admin/corrections/action-result";
-import { INSIGHTS_PATH, type InsightsWriteError } from "../../app/admin/insights/action-result";
+import { INSIGHTS_PATH, VALUE_REPORT_PATH, type InsightsWriteError, type ValueAssumptionsError } from "../../app/admin/insights/action-result";
+import { setLabSetting, VALUE_REPORT_SETTING } from "../data/lab-settings";
 import { dismissGap, fileGapCorrection } from "../data/usage-gaps";
+import { normalizeAssumptions, valueAssumptionsSchema, type ValueAssumptions } from "../usage/value/assumptions";
 import { defineAction } from "./define";
 
 /**
@@ -62,4 +64,39 @@ export const INSIGHTS_FILE_CORRECTION = defineAction<{ gapId: string }, object, 
     return { ok: true, value: {}, ...(outcome.changed ? { committed: true } : {}) };
   },
   revalidate: [INSIGHTS_PATH, CORRECTIONS_PATH],
+});
+
+/**
+ * The value report's assumptions (usage insight spec amendment "Value
+ * report"): minutes per question, hourly cost, staffed hours, term windows,
+ * which unanswered kinds do not count as handled, and MCP. One JSON setting per
+ * deployment (`lab_settings.value_report`), validated in full on every save.
+ * Gated on **`insights.configure`** — admins and super admins today, its own
+ * grant so "directors only" is one line in `permissions.ts`.
+ *
+ * GUI only (`assistant: "never"`): these numbers are what a dean is shown, so
+ * they are changed on the report itself, beside the formulas they feed. The
+ * row records who changed it last (`updated_by`), which the page shows. No
+ * audit event: the setting is state, and the row says who set it.
+ */
+const VALUE_NEVER_REASON =
+  "The value report's assumptions are what a dean is shown; they are set on /admin/insights/value itself, beside the formulas they feed";
+
+export const INSIGHTS_SET_VALUE_ASSUMPTIONS = defineAction<ValueAssumptions, object, ValueAssumptionsError>({
+  id: "insights.set_value_assumptions",
+  toolName: "set_value_report_assumptions",
+  description:
+    "Set the value report's assumptions: minutes of staff time per question, loaded hourly cost, staffed hours, term dates and what counts as handled without staff.",
+  permission: "insights.configure",
+  risk: "operational",
+  assistant: "never",
+  neverReason: VALUE_NEVER_REASON,
+  input: valueAssumptionsSchema,
+  invalidInput: "invalid_field",
+  subject: () => ({ type: "lab_setting", id: VALUE_REPORT_SETTING }),
+  run: async (input, ctx) => {
+    const outcome = await setLabSetting(VALUE_REPORT_SETTING, normalizeAssumptions(input), ctx.identity.userId);
+    return { ok: true, value: {}, ...(outcome.changed ? { committed: true } : {}) };
+  },
+  revalidate: [INSIGHTS_PATH, VALUE_REPORT_PATH],
 });
