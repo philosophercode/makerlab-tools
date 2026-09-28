@@ -1,0 +1,592 @@
+[
+  {
+    "slug": "airaj-hacksaw",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "hand tool"
+  },
+  {
+    "slug": "apple-pencil",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "Apple publishes no user manual PDF; usage lives in the web-only iPad User Guide"
+  },
+  {
+    "slug": "bga-rework-station",
+    "status": "not_found",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "model not identifiable from record"
+  },
+  {
+    "slug": "bofa-ad500-fume-extractor",
+    "status": "found",
+    "url": "https://www.donaldsonbofa.com/wp-content/uploads/2024/08/Donaldson-BOFA-AD-500-iQ-User-Manual-UK.pdf",
+    "title": "BOFA AD 500 iQ User Manual",
+    "source": "donaldsonbofa.com (official)",
+    "confidence": "medium",
+    "bytes": 838296,
+    "note": "official manual for AD 500 iQ; record says AD500 without iQ, so exact variant ambiguous (older non-iQ manual only on a third-party wiki)"
+  },
+  {
+    "slug": "brother-compact-monochrome-laser-printer",
+    "status": "found",
+    "url": "https://support.brother.com/g/s/id/htmldoc/printer/cv_hll2460dw/use/PDF/PDF.pdf",
+    "title": "Brother HL-L2400D Online User's Guide",
+    "source": "support.brother.com (official)",
+    "confidence": "high",
+    "bytes": 2552912,
+    "note": "official PDF user's guide covering HL-L2400D and sibling models"
+  },
+  {
+    "slug": "cowryman-router-plane",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "hand tool"
+  },
+  {
+    "slug": "cricut-easy-press-3",
+    "status": "found",
+    "url": "https://d2e2oszluhwxlw.cloudfront.net/help/manuals/cricut-easypress-3-user-guide-namr.pdf",
+    "title": "Cricut EasyPress 3 User Guide",
+    "source": "Cricut official CDN (d2e2oszluhwxlw.cloudfront.net, linked from help.cricut.com)",
+    "confidence": "high",
+    "bytes": 126696,
+    "note": "official North America user guide for exact model"
+  },
+  {
+    "slug": "dewalt-screwdriver-bit-set",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "bit set"
+  },
+  {
+    "slug": "dremel-3000",
+    "status": "found",
+    "url": "https://www.dremel.com/storage/en-us/3000-1-25h-33978-original$pdf-246670-en-us.pdf",
+    "title": "Dremel 3000 Operating/Safety Instructions",
+    "source": "dremel.com (official)",
+    "confidence": "high",
+    "bytes": 3530600,
+    "note": "official US operating/safety instructions for exact model (EN/FR/ES)"
+  },
+  {
+    "slug": "dust-masks",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "PPE consumable"
+  },
+  {
+    "slug": "festool-575267-dust-extractor-ct-midi-hepa",
+    "status": "found",
+    "url": "https://media.cdn.festool.io/productmedia/Images/attachment/8ec81cba-8af1-11eb-8115-005056b31774.pdf",
+    "title": "Festool CT MINI I / CT MIDI I HEPA Original Instructions",
+    "source": "media.cdn.festool.io (official)",
+    "confidence": "medium",
+    "bytes": 9714975,
+    "note": "successor model (CT MIDI I HEPA); exact 575267 manual on festoolusa.com returns an empty body to curl"
+  },
+  {
+    "slug": "festool-bench",
+    "status": "found",
+    "url": "https://media.cdn.festool.io/productmedia/Images/attachment/d391dba7-ebb8-11f0-8a6a-005056b3ad01.pdf",
+    "title": "Festool MFT/3 Original Instructions",
+    "source": "media.cdn.festool.io (official, linked from festool.com product page)",
+    "confidence": "high",
+    "bytes": 2214490,
+    "note": "official PDF for exact model; multilingual, English section starts p.8"
+  },
+  {
+    "slug": "festool-ps-300-eq-plus-trion-jigsaw",
+    "status": "found",
+    "url": "https://media.cdn.festool.io/productmedia/Images/attachment/1ef8dce4-331a-11eb-8111-005056b31774.pdf",
+    "title": "Festool Trion PS 300 EQ Original Instructions",
+    "source": "media.cdn.festool.io (official)",
+    "confidence": "high",
+    "bytes": 1683578,
+    "note": "official US edition (EN/FR/ES) for exact model"
+  },
+  {
+    "slug": "form-2",
+    "status": "found",
+    "url": "https://media.formlabs.com/m/7253926716b40054/original/-ENUS-Form-2-Manual.pdf",
+    "title": "Form 2 Manual",
+    "source": "media.formlabs.com (official)",
+    "confidence": "high",
+    "bytes": 615065,
+    "note": "official PDF for exact model; already on file as a non-Manual resource"
+  },
+  {
+    "slug": "form-cure",
+    "status": "found",
+    "url": "https://media.formlabs.com/m/c401ff26124914/original/-ENUS-Form-Cure-2nd-Generation-Manual.pdf",
+    "title": "Form Cure V2 Manual",
+    "source": "media.formlabs.com (official)",
+    "confidence": "high",
+    "bytes": 477614,
+    "note": "official manual for Form Cure 2nd Generation (record says V2)"
+  },
+  {
+    "slug": "fulton-hose-ring-clamp",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "hose clamp"
+  },
+  {
+    "slug": "hercules-sanding-sheets",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "abrasive consumable"
+  },
+  {
+    "slug": "hi-spec-16-piece-metal-hand-needle-files-tool-set-kit",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "hand tool"
+  },
+  {
+    "slug": "husky-coping-saw",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "hand tool"
+  },
+  {
+    "slug": "infrared-ic-heater",
+    "status": "found",
+    "url": "https://www.puhuit.com/videos/700MBCD/T962/INFRARED%20IC%20HEATER%20T-962%20User%20Manual.pdf",
+    "title": "PUHUI T-962 Infrared IC Heater User Manual",
+    "source": "puhuit.com (official)",
+    "confidence": "medium",
+    "bytes": 913706,
+    "note": "official manual for T-962; model taken from description (PUHUI T-962), record name is generic"
+  },
+  {
+    "slug": "kootans-spokeshave-planer",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "hand tool"
+  },
+  {
+    "slug": "label-maker-ac-adapter",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "AC adapter"
+  },
+  {
+    "slug": "makita-plunge-base",
+    "status": "found",
+    "url": "https://cdn.makitatools.com/apps/cms/doc/prod/RT0/647d7eb3-3b81-48d3-b5c1-3ae0fe4e121d_RT0701C_IM.pdf",
+    "title": "Makita RT0700C / RT0701C Instruction Manual",
+    "source": "cdn.makitatools.com (official)",
+    "confidence": "medium",
+    "bytes": 2721567,
+    "note": "no standalone plunge-base manual; router manual covers plunge base setup"
+  },
+  {
+    "slug": "makita-rt0701c",
+    "status": "found",
+    "url": "https://cdn.makitatools.com/apps/cms/doc/prod/RT0/647d7eb3-3b81-48d3-b5c1-3ae0fe4e121d_RT0701C_IM.pdf",
+    "title": "Makita RT0700C / RT0701C Instruction Manual",
+    "source": "cdn.makitatools.com (official)",
+    "confidence": "high",
+    "bytes": 2721567,
+    "note": "official PDF for exact model, linked from makitatools.com product page"
+  },
+  {
+    "slug": "marples-mps10189-japanese-style-pull-saw",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "hand tool"
+  },
+  {
+    "slug": "marvey-hotwire-foam-cutter",
+    "status": "not_found",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "no instruction PDF published by Marvy Uchida or found elsewhere"
+  },
+  {
+    "slug": "matter-and-form-3d-scanner",
+    "status": "found",
+    "url": "https://cdn.shopify.com/s/files/1/0634/4346/8486/files/MFStudio_User-Manual_EN.pdf",
+    "title": "Matter and Form 3D Scanner V1/V2 User Manual",
+    "source": "matterandform.net (official, Shopify CDN)",
+    "confidence": "medium",
+    "bytes": 1418100,
+    "note": "official V1/V2 manual linked from matterandform.net/pages/v2; exact generation not stated in record"
+  },
+  {
+    "slug": "meta-quest-2-vr-headset",
+    "status": "found",
+    "url": "https://2876316.fs1.hubspotusercontent-na1.net/hubfs/2876316/Website/meta%20quest%202%20guide.pdf",
+    "title": "Meta Quest 2 Safety and Warranty Guide",
+    "source": "third-party HubSpot host",
+    "confidence": "low",
+    "bytes": 1144894,
+    "note": "official Meta copies are signed/expiring fbcdn URLs; this is a third-party copy of Meta's safety guide, not a full user manual"
+  },
+  {
+    "slug": "oscilloscope-textronix",
+    "status": "not_found",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "model not identifiable from record"
+  },
+  {
+    "slug": "peachtree-woodworking-supply-pvc-hose",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "hose"
+  },
+  {
+    "slug": "plunge-cut-track-saw-ts-55-req-f-plus",
+    "status": "found",
+    "url": "https://media.cdn.festool.io/productmedia/Images/attachment/4f022087-5dc8-11f1-8a72-005056b3ad01.pdf",
+    "title": "Festool TS 55 FEQ Operating Instructions",
+    "source": "media.cdn.festool.io (official, linked from festoolusa.com product page)",
+    "confidence": "medium",
+    "bytes": 3473505,
+    "note": "closest model (TS 55 FEQ, current successor); festoolusa.com REQ manual URLs now return empty 200 responses; exact-model REQ/REBQ original instructions exist only on third-party hosts, e.g. https://www.quincaillerie-lapeyre.fr/media/wysiwyg/Fournisseurs/FESTOOL/506380.pdf (verified PDF, multilingual incl. English)"
+  },
+  {
+    "slug": "plywood-stacking-rolling-cart",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "cart"
+  },
+  {
+    "slug": "powertec-hose-coupler-70136",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "dust-collection hose reducer"
+  },
+  {
+    "slug": "prusa-i3-mk3s",
+    "status": "found",
+    "url": "https://cdn.prusa3d.com/downloads/manual/prusa3d_manual_mk3s_en.pdf",
+    "title": "Original Prusa i3 MK3S+ Handbook",
+    "source": "cdn.prusa3d.com (official, linked from help.prusa3d.com)",
+    "confidence": "high",
+    "bytes": 17654967,
+    "note": "official handbook v3.18 for exact model; unversioned URL tracks latest"
+  },
+  {
+    "slug": "rockwell-bladerunner-x2-rk7323",
+    "status": "found",
+    "url": "https://pdf.lowes.com/productdocuments/3ccc8552-491a-4ebc-afd3-4e8ff915ef4b/63059450.pdf",
+    "title": "Rockwell BladeRunner X2 RK7323 Manual",
+    "source": "pdf.lowes.com (Lowe's CDN, manufacturer PDF)",
+    "confidence": "low",
+    "bytes": 9006777,
+    "note": "Rockwell's own trilingual manual for exact model, only found on retailer CDN; rockwelltools.com product page has no PDF"
+  },
+  {
+    "slug": "ryobi-drill-press",
+    "status": "found",
+    "url": "https://images.thdstatic.com/catalog/pdfImages/70/70dee0f4-a6b8-4cfe-b38b-bec0aaa745db.pdf",
+    "title": "RYOBI DP103L Drill Press Operator's Manual",
+    "source": "images.thdstatic.com (Home Depot CDN, manufacturer PDF)",
+    "confidence": "low",
+    "bytes": 3097583,
+    "note": "Ryobi operator's manual for exact model (DP103L), only on retailer CDN; ryobitools.com hosts none"
+  },
+  {
+    "slug": "ryobi-nail-gun",
+    "status": "not_found",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "model not identifiable from record (P320/P321/P322 are all 18V 18GA). Existing link suggests P322 but no official P322 PDF found; P321 manual on Home Depot CDN (verified): https://images.thdstatic.com/catalog/pdfImages/3d/3d35f81c-42b0-4544-b07c-34207230191e.pdf"
+  },
+  {
+    "slug": "ryobi-pcl235-one-18v-drill-driver",
+    "status": "found",
+    "url": "https://images.thdstatic.com/catalog/pdfImages/eb/ebd5e891-1c0a-40e6-8991-fcaf540ffa94.pdf",
+    "title": "RYOBI PCL235 Impact Driver Operator's Manual",
+    "source": "images.thdstatic.com (Home Depot CDN, manufacturer PDF)",
+    "confidence": "low",
+    "bytes": 1273697,
+    "note": "Ryobi operator's manual for exact model (PCL235), only on retailer CDN"
+  },
+  {
+    "slug": "shaper-origin",
+    "status": "found",
+    "url": "https://assets.shapertools.com/manual/origin/PKG-00056-C_ProductManualSO1-EN-SN-UN-ON.pdf",
+    "title": "Shaper Origin Product Manual",
+    "source": "assets.shapertools.com (official)",
+    "confidence": "medium",
+    "bytes": 1065660,
+    "note": "official Gen 1 (SO1) manual; generation not stated in record; no Gen 2 PDF found"
+  },
+  {
+    "slug": "shopbot-buddy-bt48-l36-x-w76-x-h67",
+    "status": "found",
+    "url": "https://shopbottools.com/wp-content/uploads/2024/01/SBG-00142-User-Guide-20150317.pdf",
+    "title": "ShopBot User Guide",
+    "source": "shopbottools.com (official, Buddy documentation page)",
+    "confidence": "medium",
+    "bytes": 2305684,
+    "note": "general ShopBot user guide listed for Buddy; Buddy-specific setup manual also at https://shopbottools.com/wp-content/uploads/2024/01/BuddySetupManual.pdf"
+  },
+  {
+    "slug": "skil-multi-detail-sander",
+    "status": "found",
+    "url": "https://www.skil.com/cdn/shop/files/SR232301_Manual.pdf",
+    "title": "SKIL SR232301 Multi-Sander Owner's Manual",
+    "source": "skil.com (official)",
+    "confidence": "high",
+    "bytes": 5401325,
+    "note": "official PDF for exact model (cache-buster ?v param dropped; same file)"
+  },
+  {
+    "slug": "smd-rework-station",
+    "status": "not_found",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "model not identifiable from record"
+  },
+  {
+    "slug": "spear-jackson-traditional-brass-back-tenon-saw-9550b",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "hand tool"
+  },
+  {
+    "slug": "stanley-1-12-137-62-low-angle-sweetheart-jack-plane",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "hand tool"
+  },
+  {
+    "slug": "stanley-20-221-10-inch-12-points-per-inch-sharptooth-mini-utility-saw",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "hand tool"
+  },
+  {
+    "slug": "stanley-20-807-10-inch-mini-hack-light-duty-utility-saw",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "hand tool"
+  },
+  {
+    "slug": "stanley-coping-saw",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "hand tool"
+  },
+  {
+    "slug": "stanley-hand-planer-contractor-grade-low-angle",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "hand tool"
+  },
+  {
+    "slug": "stanley-heavy-duty-extreme-staple-gun-tr150",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "manual staple gun; Stanley support has a TR150HL instruction-sheet article (support.stanleytools.com/hc/en-us/articles/360012600657) but it returns 403 to automated fetches, so no PDF verified"
+  },
+  {
+    "slug": "stanley-saw-15-206",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "hand tool"
+  },
+  {
+    "slug": "stanley-sharptooth-heavy-duty-saw-15-087",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "hand tool"
+  },
+  {
+    "slug": "structure-sensor",
+    "status": "found",
+    "url": "https://s3.amazonaws.com/io.structure.assets/Quick_Start_Guide_V1.2.pdf",
+    "title": "Structure Sensor Quick Start Guide",
+    "source": "s3.amazonaws.com/io.structure.assets (Structure/Occipital official asset bucket)",
+    "confidence": "medium",
+    "bytes": 3005841,
+    "note": "quick-start guide (29 pp) for original ST01; no full manual published; path-style https URL used because virtual-host https fails cert check"
+  },
+  {
+    "slug": "suizan-dozuki-dovetail-saw",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "hand tool"
+  },
+  {
+    "slug": "suizan-replacement-blade",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "replacement blade"
+  },
+  {
+    "slug": "tripod-with-adapter",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "tripod"
+  },
+  {
+    "slug": "ultimaker-3",
+    "status": "found",
+    "url": "https://um-support-files.ultimaker.com/manuals/user-manual/UM3/Ultimaker%203%20-%20User%20manual%20EN%20v1.4.pdf",
+    "title": "Ultimaker 3 User Manual",
+    "source": "um-support-files.ultimaker.com (official)",
+    "confidence": "high",
+    "bytes": 12614744,
+    "note": "official PDF for exact model (already on file as a non-Manual resource)"
+  },
+  {
+    "slug": "ultimaker-3-extended",
+    "status": "found",
+    "url": "https://um-support-files.ultimaker.com/manuals/user-manual/UM3/Ultimaker%203%20-%20User%20manual%20EN%20v1.4.pdf",
+    "title": "Ultimaker 3 User Manual",
+    "source": "um-support-files.ultimaker.com (official)",
+    "confidence": "high",
+    "bytes": 12614744,
+    "note": "official manual covers Ultimaker 3 and 3 Extended (already on file as a non-Manual resource)"
+  },
+  {
+    "slug": "valley-craft-a-frame-bin-cart",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "cart"
+  },
+  {
+    "slug": "woodworking-tools-storage-bench",
+    "status": "none_expected",
+    "url": null,
+    "title": null,
+    "source": null,
+    "confidence": null,
+    "bytes": null,
+    "note": "bench"
+  }
+]

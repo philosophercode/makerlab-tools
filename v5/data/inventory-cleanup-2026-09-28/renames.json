@@ -1,0 +1,649 @@
+{
+  "tools": [
+    {
+      "slug": "airaj-hacksaw",
+      "id": "2ad47c07-0035-4641-af8f-bbf297522a4f",
+      "from": "AIRAJ HackSaw",
+      "to": "AIRAJ Hacksaw",
+      "reason": "“HackSaw” → “Hacksaw”"
+    },
+    {
+      "slug": "bosch-gst-150-bce",
+      "id": "7f4b9c39-3f74-4f3c-a043-877fd7099645",
+      "from": "BOSCH GST 150 BCE",
+      "to": "Bosch GST 150 BCE Jigsaw",
+      "reason": "BOSCH → Bosch; add the noun",
+      "officialName": "Bosch PRO GST 150 BCE Jigsaw"
+    },
+    {
+      "slug": "cricut-maker-3",
+      "id": "10211857-57b6-4a5e-b10c-0af14a14b179",
+      "from": "Cricut Maker® 3",
+      "to": "Cricut Maker 3",
+      "reason": "drop ®"
+    },
+    {
+      "slug": "dewalt-screwdriver-bit-set",
+      "id": "676c025f-134b-4f2f-9bf1-b75be2b14ca9",
+      "from": "DEWALT Screwdriver Bit Set",
+      "to": "DeWalt Screwdriver Bit Set",
+      "reason": "DEWALT → DeWalt"
+    },
+    {
+      "slug": "dremel-workstation-220",
+      "id": "45b44b30-b7cb-4ae5-9793-4337fc0a2803",
+      "from": "DREMEL Workstation 220",
+      "to": "Dremel Workstation 220",
+      "reason": "DREMEL → Dremel",
+      "officialName": "Dremel 220-01 WorkStation"
+    },
+    {
+      "slug": "drill-master-heat-gun",
+      "id": "1cf02aae-5201-46ef-8774-16354b485912",
+      "from": "Drill master Heat Gun",
+      "to": "Drill Master Heat Gun",
+      "reason": "“Drill master” → “Drill Master”",
+      "officialName": "Drill Master 1500 Watt Dual Temperature Heat Gun"
+    },
+    {
+      "slug": "heat-gun-truepower-drillmaster",
+      "id": "4889ca3c-2752-4060-9627-6447e21803c5",
+      "from": "Heat Gun (TruePower / DrillMaster)",
+      "to": "Drill Master Heat Gun (TruePower)",
+      "reason": "brand first; “DrillMaster” → “Drill Master”",
+      "officialName": "Drill Master 96289 Dual Temperature Heat Gun"
+    },
+    {
+      "slug": "festool-ps-300-eq-plus-trion-jigsaw",
+      "id": "07d3aa0a-7b85-4b8c-b0c1-659113b1b81b",
+      "from": "FESTOOL PS 300 EQ-PLUS TRION JIGSAW",
+      "to": "Festool PS 300 EQ-Plus Trion Jigsaw",
+      "reason": "FESTOOL / all caps → normal casing",
+      "officialName": "Festool PS 300 EQ-Plus TRION Pendulum Jigsaw"
+    },
+    {
+      "slug": "form-2",
+      "id": "bfb2c148-9c12-4da3-912e-52717a21918d",
+      "from": "Form 2",
+      "to": "Formlabs Form 2",
+      "reason": "add the brand"
+    },
+    {
+      "slug": "form-4",
+      "id": "55c41b8f-86ff-408b-8152-b5ed90ef157f",
+      "from": "Form 4",
+      "to": "Formlabs Form 4",
+      "reason": "add the brand"
+    },
+    {
+      "slug": "form-cure",
+      "id": "a19363e9-058d-4f23-b064-456f41fcf020",
+      "from": "Form Cure",
+      "to": "Formlabs Form Cure",
+      "reason": "add the brand",
+      "officialName": "Formlabs Form Cure V2"
+    },
+    {
+      "slug": "form-wash",
+      "id": "25976403-7a59-47c1-93a0-c82e350340d2",
+      "from": "Form Wash",
+      "to": "Formlabs Form Wash",
+      "reason": "add the brand"
+    },
+    {
+      "slug": "fulton-hose-ring-clamp",
+      "id": "120d6911-40f9-4270-9556-556c252e007d",
+      "from": "FULTON Hose Ring Clamp",
+      "to": "Fulton Hose Ring Clamp",
+      "reason": "FULTON → Fulton"
+    },
+    {
+      "slug": "gopro-7-hero-black",
+      "id": "9035826d-c8c7-4ab3-b94d-dc80625d1351",
+      "from": "GoPro 7 Hero Black",
+      "to": "GoPro HERO7 Black",
+      "reason": "the product's own spelling"
+    },
+    {
+      "slug": "kootans-spokeshave-planer",
+      "id": "d59f7ce8-5e75-4c35-9466-c0713aa97d1e",
+      "from": "KOOTANS Spokeshave Planer",
+      "to": "Kootans Spokeshave",
+      "reason": "KOOTANS → Kootans; it is a spokeshave, not a planer"
+    },
+    {
+      "slug": "makita-plunge-base",
+      "id": "d22c2ce7-5925-4da3-a02f-f978493aa398",
+      "from": "MAKITA Plunge Base",
+      "to": "Makita Plunge Base",
+      "reason": "MAKITA → Makita"
+    },
+    {
+      "slug": "marvey-hotwire-foam-cutter",
+      "id": "11b8b9e1-ca57-4963-a719-eec08699b20f",
+      "from": "Marvey Hotwire Foam Cutter",
+      "to": "Marvy Hotwire Foam Cutter",
+      "reason": "Marvey → Marvy (Marvy Uchida)",
+      "officialName": "Marvy Uchida Super Hotwire Foam Cutter"
+    },
+    {
+      "slug": "oscilloscope-textronix",
+      "id": "863cd6ff-5d34-405f-801e-dd1f3a0e5796",
+      "from": "Oscilloscope Textronix",
+      "to": "Tektronix Oscilloscope",
+      "reason": "Textronix → Tektronix, brand first (model not in the record)"
+    },
+    {
+      "slug": "peachtree-woodworking-supply-pvc-hose",
+      "id": "5079f66d-e8f4-43e2-a2a5-4814f4bf19c6",
+      "from": "PEACHTREE WOODWORKING SUPPLY PVC Hose",
+      "to": "Peachtree PVC Dust Collection Hose",
+      "reason": "PEACHTREE WOODWORKING SUPPLY → Peachtree; say what the hose is for"
+    },
+    {
+      "slug": "plunge-cut-track-saw-ts-55-req-f-plus",
+      "id": "7e275d84-43c8-4c2a-82c8-1d31cb1ac2f2",
+      "from": "Plunge Cut Track Saw TS 55 REQ-F-Plus",
+      "to": "Festool TS 55 Track Saw",
+      "reason": "add the brand; model detail moves to the official name",
+      "officialName": "Festool TS 55 REQ-F-Plus Plunge Cut Track Saw"
+    },
+    {
+      "slug": "powertec-hose-coupler-70136",
+      "id": "03127d01-31e4-4bbb-8898-199705277bb0",
+      "from": "POWERTEC Cone Reducer",
+      "to": "Powertec Cone Reducer",
+      "reason": "POWERTEC → Powertec"
+    },
+    {
+      "slug": "ryobi-drill-press",
+      "id": "15795fb5-c449-4f0f-a2f9-b8d2c0c0a73c",
+      "from": "RYOBI Drill Press",
+      "to": "Ryobi Drill Press",
+      "reason": "RYOBI → Ryobi",
+      "officialName": "RYOBI DP103L 10 in. Drill Press"
+    },
+    {
+      "slug": "ryobi-nail-gun",
+      "id": "b150843e-3f53-46a9-b091-58c41db5bb11",
+      "from": "RYOBI Nail Gun",
+      "to": "Ryobi Nail Gun",
+      "reason": "RYOBI → Ryobi"
+    },
+    {
+      "slug": "ryobi-pcl235-one-18v-drill-driver",
+      "id": "83ce758d-9b0c-49e2-80a2-2e1744b21706",
+      "from": "RYOBI Impact Driver",
+      "to": "Ryobi Impact Driver",
+      "reason": "RYOBI → Ryobi"
+    },
+    {
+      "slug": "ryobi-vacuum-cleaner-p7131",
+      "id": "5c869257-b8e9-46d3-b815-833c834bb51d",
+      "from": "RYOBI Hand Vacuum",
+      "to": "Ryobi Hand Vacuum",
+      "reason": "RYOBI → Ryobi"
+    },
+    {
+      "slug": "skil-multi-detail-sander",
+      "id": "80b6fbf4-61fe-40e9-a0ed-c6a57514744f",
+      "from": "SKIL Multi - Detail Sander",
+      "to": "SKIL Multi-Detail Sander",
+      "reason": "“Multi - Detail” → “Multi-Detail”",
+      "officialName": "SKIL 1.2 Amp Multi-Sander (SR232301)"
+    },
+    {
+      "slug": "stanley-coping-saw",
+      "id": "2c06bb6b-b068-4b59-a2f3-3b9503c6d501",
+      "from": "STANLEY Coping Saw",
+      "to": "Stanley Coping Saw",
+      "reason": "STANLEY → Stanley"
+    },
+    {
+      "slug": "stanley-saw-15-206",
+      "id": "52e50df9-a8d5-463a-9510-b56672110065",
+      "from": "STANLEY Wallboard Saw",
+      "to": "Stanley Wallboard Saw",
+      "reason": "STANLEY → Stanley"
+    },
+    {
+      "slug": "suizan-dozuki-dovetail-saw",
+      "id": "7c1a450d-2bf0-4a7a-bd2b-1f1e84e42118",
+      "from": "SUIZAN Dozuki Dovetail Saw",
+      "to": "Suizan Dozuki Dovetail Saw",
+      "reason": "SUIZAN → Suizan",
+      "officialName": "SUIZAN Dozuki Dovetail Saw SDE-002"
+    },
+    {
+      "slug": "suizan-replacement-blade",
+      "id": "1a81e735-4c80-4610-9d3b-a40413f3e330",
+      "from": "SUIZAN Replacement Blade",
+      "to": "Suizan Dozuki Replacement Blade",
+      "reason": "SUIZAN → Suizan; say which saw it fits"
+    },
+    {
+      "slug": "tripod-with-adapter",
+      "id": "ff290a8c-9a98-4e81-9707-90f08925ca60",
+      "from": "Tripod with adapter",
+      "to": "Tripod with Adapter",
+      "reason": "title case"
+    },
+    {
+      "slug": "wazer-waterjet-pro",
+      "id": "ed76347c-7411-44f8-8d4e-c2e0f27d6953",
+      "from": "WAZER - Waterjet Pro",
+      "to": "WAZER Pro Waterjet",
+      "reason": "drop the “ - ”; the maker styles its name WAZER"
+    }
+  ],
+  "units": [
+    {
+      "toolSlug": "airaj-hacksaw",
+      "toolId": "2ad47c07-0035-4641-af8f-bbf297522a4f",
+      "unitId": "a8092f46-5cc0-4972-9856-f9a32e7806e3",
+      "from": "AIRAJ HackSaw #1",
+      "to": "AIRAJ Hacksaw #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "aoyue-int-2703a",
+      "toolId": "494b044e-8a4c-4e38-a9d4-4d1068790d2e",
+      "unitId": "d8e056b6-017e-4368-a13e-5b18c339bec9",
+      "from": "AOYUE Int 2703A+ #1",
+      "to": "Aoyue Soldering Station #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "bosch-gst-150-bce",
+      "toolId": "7f4b9c39-3f74-4f3c-a043-877fd7099645",
+      "unitId": "86721aeb-d272-4f0c-9b12-31d5c49e6585",
+      "from": "BOSCH GST 150 BCE #1",
+      "to": "Bosch Jigsaw #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "brother-compact-monochrome-laser-printer",
+      "toolId": "e2532ed3-f98c-4c7f-83ff-6e2e35e65263",
+      "unitId": "90572c6b-95ec-43ea-ab4f-53be9398dcb3",
+      "from": "Brother Compact Monochrome #1",
+      "to": "Brother Laser Printer #1",
+      "reason": "truncated label"
+    },
+    {
+      "toolSlug": "cricut-maker-3",
+      "toolId": "10211857-57b6-4a5e-b10c-0af14a14b179",
+      "unitId": "86a14a24-1b0a-4f0f-9eb3-d4ddeb4fa70a",
+      "from": "Cricut Maker® 3 #1",
+      "to": "Cricut Maker 3 #1",
+      "reason": "drop ®"
+    },
+    {
+      "toolSlug": "dewalt-dcb107-12v-20v-max-lithium-ion-charger",
+      "toolId": "6a933b01-999d-474c-bf7c-a4c44ffa6339",
+      "unitId": "e98b3edb-599c-442c-b9ef-4bf3e42d25bc",
+      "from": "DEWALT DCB107 12V/20V #1",
+      "to": "DeWalt Charger #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "dewalt-orbital-sander-dwe6421",
+      "toolId": "8442d8be-86e8-4ecd-b040-5cbf73f7883a",
+      "unitId": "39fdc110-3c68-4f93-8690-91c4a860e7b0",
+      "from": "DEWALT Sander #1",
+      "to": "DeWalt Sander #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "dewalt-orbital-sander-dwe6421",
+      "toolId": "8442d8be-86e8-4ecd-b040-5cbf73f7883a",
+      "unitId": "ea602b27-0739-4dde-9f03-f43b610b6aa5",
+      "from": "DEWALT Sander #2",
+      "to": "DeWalt Sander #2",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "dewalt-screwdriver-bit-set",
+      "toolId": "676c025f-134b-4f2f-9bf1-b75be2b14ca9",
+      "unitId": "9da45c50-c428-48f7-a1f5-99beb29a44bb",
+      "from": "DEWALT Screwdriver Bit Set #1",
+      "to": "DeWalt Bit Set #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "dremel-workstation-220",
+      "toolId": "45b44b30-b7cb-4ae5-9793-4337fc0a2803",
+      "unitId": "7b49e710-4535-4a6a-b15f-7091ef203600",
+      "from": "DREMEL Workstation 220 #1",
+      "to": "Dremel Workstation #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "drill-master-heat-gun",
+      "toolId": "1cf02aae-5201-46ef-8774-16354b485912",
+      "unitId": "31734b44-ddec-4dba-8b4b-72761de56dba",
+      "from": "Drill master Heat Gun #1",
+      "to": "Drill Master Heat Gun #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "festool-ps-300-eq-plus-trion-jigsaw",
+      "toolId": "07d3aa0a-7b85-4b8c-b0c1-659113b1b81b",
+      "unitId": "c47ebd31-e2f1-4217-80d2-83fa71de04a5",
+      "from": "FESTOOL PS 300 #1",
+      "to": "Festool Jigsaw #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "fulton-hose-ring-clamp",
+      "toolId": "120d6911-40f9-4270-9556-556c252e007d",
+      "unitId": "7efa785e-da76-4a1c-b713-783cd17d5d28",
+      "from": "FULTON Hose Ring Clamp #1",
+      "to": "Fulton Hose Clamp #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "hakko-fx-888d",
+      "toolId": "fc181fba-f1f4-4dfa-9d23-7f0092f15f67",
+      "unitId": "99379e6e-b749-4a81-94be-4824ee8262b0",
+      "from": "HAKKO #1",
+      "to": "Hakko #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "hakko-fx-888d",
+      "toolId": "fc181fba-f1f4-4dfa-9d23-7f0092f15f67",
+      "unitId": "22a5f126-3444-4773-aa5f-d4f3f73c23ac",
+      "from": "HAKKO #2",
+      "to": "Hakko #2",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "hakko-fx-888d",
+      "toolId": "fc181fba-f1f4-4dfa-9d23-7f0092f15f67",
+      "unitId": "cd39f095-c80b-4a38-95e6-5df457ad2daf",
+      "from": "HAKKO #3",
+      "to": "Hakko #3",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "heat-gun-truepower-drillmaster",
+      "toolId": "4889ca3c-2752-4060-9627-6447e21803c5",
+      "unitId": "03135d73-61f0-40a6-8f3d-dd7ec550cf20",
+      "from": "Heat Gun (TruePower #1",
+      "to": "TruePower Heat Gun #1",
+      "reason": "truncated label"
+    },
+    {
+      "toolSlug": "hi-spec-16-piece-metal-hand-needle-files-tool-set-kit",
+      "toolId": "64b139ee-4ffa-4135-beef-68284f5ca760",
+      "unitId": "c44e6afe-3b22-4cb9-851f-bb1ffa6e2217",
+      "from": "Hi-Spec 16 Piece #1",
+      "to": "Hi-Spec File Set #1",
+      "reason": "truncated label"
+    },
+    {
+      "toolSlug": "hp-sprout-j4w72aa-aba",
+      "toolId": "393b0739-a0a6-434e-8443-88c696c96a06",
+      "unitId": "46e2a212-dc44-4c4f-a6e1-13051059e89b",
+      "from": "HP Sprout (J4W72AA#ABA) #1",
+      "to": "HP Sprout #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "kootans-spokeshave-planer",
+      "toolId": "d59f7ce8-5e75-4c35-9466-c0713aa97d1e",
+      "unitId": "0f8044c5-aa8f-41aa-be8a-9cb32b638b22",
+      "from": "KOOTANS Spokeshave Planer #1",
+      "to": "Kootans Spokeshave #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "makita-plunge-base",
+      "toolId": "d22c2ce7-5925-4da3-a02f-f978493aa398",
+      "unitId": "9aeebd43-e0f6-45ed-9dd0-feedec9583b3",
+      "from": "MAKITA Plunge Base #1",
+      "to": "Makita Plunge Base #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "marples-mps10189-japanese-style-pull-saw",
+      "toolId": "be186167-9863-43f5-8d93-a7222bac4324",
+      "unitId": "2009ce45-ac97-4ac6-914d-e350bf32e9b7",
+      "from": "Marples MPS10189 Japanese #1",
+      "to": "Marples Pull Saw #1",
+      "reason": "truncated label"
+    },
+    {
+      "toolSlug": "marvey-hotwire-foam-cutter",
+      "toolId": "11b8b9e1-ca57-4963-a719-eec08699b20f",
+      "unitId": "be55817b-d1a9-459b-b79d-1a0c0a549f15",
+      "from": "Marvey Hotwire Foam Cutter #1",
+      "to": "Marvy Foam Cutter #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "oscilloscope-textronix",
+      "toolId": "863cd6ff-5d34-405f-801e-dd1f3a0e5796",
+      "unitId": "48675954-670e-4b3b-bb42-06c94baee9eb",
+      "from": "Oscilloscope Textronix #1",
+      "to": "Tektronix Oscilloscope #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "peachtree-woodworking-supply-pvc-hose",
+      "toolId": "5079f66d-e8f4-43e2-a2a5-4814f4bf19c6",
+      "unitId": "4cc713c5-da6c-4e49-b26a-e9df8c89600a",
+      "from": "PEACHTREE WOODWORKING SUPPLY #1",
+      "to": "Peachtree Dust Hose #1",
+      "reason": "truncated label"
+    },
+    {
+      "toolSlug": "plunge-cut-track-saw-ts-55-req-f-plus",
+      "toolId": "7e275d84-43c8-4c2a-82c8-1d31cb1ac2f2",
+      "unitId": "a28444ea-d570-4100-9b69-a486ce6a7af0",
+      "from": "Plunge Cut Track #1",
+      "to": "Festool Track Saw #1",
+      "reason": "truncated label"
+    },
+    {
+      "toolSlug": "powertec-hose-coupler-70136",
+      "toolId": "03127d01-31e4-4bbb-8898-199705277bb0",
+      "unitId": "e3953532-a5d5-42a5-ba3c-53f4ee7907f0",
+      "from": "POWERTEC Hose Coupler (70136) #1",
+      "to": "Powertec Cone Reducer #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "ryobi-nail-gun",
+      "toolId": "b150843e-3f53-46a9-b091-58c41db5bb11",
+      "unitId": "09e9c649-f2d7-4e53-8f8f-5733f1a09554",
+      "from": "RYOBI Nail Gun #1",
+      "to": "Ryobi Nail Gun #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "ryobi-one-18v-lithium-ion-1-5-ah-battery-pbp002",
+      "toolId": "c8876641-9f0a-464d-a7ae-13e5e5fb46c2",
+      "unitId": "4483d0bb-29a1-4f10-a3b6-03c974068d83",
+      "from": "RYOBI ONE+ 18V #1",
+      "to": "Ryobi 1.5Ah Battery #1",
+      "reason": "four tools shared the label “RYOBI ONE+ 18V #1”"
+    },
+    {
+      "toolSlug": "ryobi-one-18v-lithium-ion-3-0-ah-battery-p103",
+      "toolId": "7c84335f-b0c8-41e0-9589-6ca61ec72088",
+      "unitId": "c102ee85-b8a4-4f64-9751-2ed05c20f90d",
+      "from": "RYOBI ONE+ 18V #1",
+      "to": "Ryobi 3Ah Battery #1",
+      "reason": "four tools shared the label “RYOBI ONE+ 18V #1”"
+    },
+    {
+      "toolSlug": "ryobi-one-18v-lithium-ion-4-ah-battery-pbp004",
+      "toolId": "31d8615d-4798-4a45-aa44-91ebb7d50789",
+      "unitId": "51fde3d9-6176-437b-9e1e-89a2366fbdbc",
+      "from": "RYOBI ONE+ 18V #1",
+      "to": "Ryobi 4Ah Battery #1",
+      "reason": "four tools shared the label “RYOBI ONE+ 18V #1”"
+    },
+    {
+      "toolSlug": "ryobi-one-18v-lithium-ion-charger-pcg002",
+      "toolId": "39303286-d5d8-4cc5-854f-e643aaa1b65e",
+      "unitId": "2c95cf1f-c32f-4416-881f-2b6faf62d80e",
+      "from": "RYOBI ONE+ 18V #1",
+      "to": "Ryobi ONE+ Charger #1",
+      "reason": "four tools shared the label “RYOBI ONE+ 18V #1”"
+    },
+    {
+      "toolSlug": "ryobi-p117-dual-chemistry-12v-18v-battery-charger-replacement",
+      "toolId": "281dad1c-2372-403c-838c-300e8f596be4",
+      "unitId": "e58f108a-2e73-4fc7-9c3c-cc83f288ac7e",
+      "from": "RYOBI P117 Dual #1",
+      "to": "Ryobi Dual-Chemistry Charger #1",
+      "reason": "truncated label"
+    },
+    {
+      "toolSlug": "ryobi-p209d-drill-driver",
+      "toolId": "20c842e1-11c1-4e28-905d-b3c935820083",
+      "unitId": "586efed9-37fd-42d3-b250-ab88c1a4ad9d",
+      "from": "RYOBI P209D #1",
+      "to": "Ryobi Drill Driver #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "ryobi-p322-brad-nailer",
+      "toolId": "eb978216-cd6d-47b9-810b-411813bf60a4",
+      "unitId": "33538de9-c561-4c07-a375-0eeea7c93083",
+      "from": "RYOBI P322 Brad Nailer #1",
+      "to": "Ryobi Brad Nailer #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "ryobi-p593-18-volt-one-lithium-ion-cordless-pvc-and-pex-cutter",
+      "toolId": "64aaa600-e50d-4058-817d-28dd891a9004",
+      "unitId": "a91bbc0f-3b31-4e1a-ab16-8285d7daf6bb",
+      "from": "RYOBI P593 18-Volt #1",
+      "to": "Ryobi PVC Cutter #1",
+      "reason": "truncated label"
+    },
+    {
+      "toolSlug": "ryobi-pcl235-one-18v-drill-driver",
+      "toolId": "83ce758d-9b0c-49e2-80a2-2e1744b21706",
+      "unitId": "286d9cc1-07a1-4c4f-8fe8-5b408b678772",
+      "from": "RYOBI Drill #1",
+      "to": "Ryobi Impact Driver #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "ryobi-vacuum-cleaner-p7131",
+      "toolId": "5c869257-b8e9-46d3-b815-833c834bb51d",
+      "unitId": "d2151029-58cc-4a2a-b135-9e15163bd302",
+      "from": "RYOBI Vacuum Cleaner P7131 #1",
+      "to": "Ryobi Hand Vacuum #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "skil-multi-detail-sander",
+      "toolId": "80b6fbf4-61fe-40e9-a0ed-c6a57514744f",
+      "unitId": "451ab7b3-dda7-4d53-8bd2-2a56f63d76a9",
+      "from": "SKIL Multi - Detail Sander #1",
+      "to": "SKIL Detail Sander #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "spear-jackson-traditional-brass-back-tenon-saw-9550b",
+      "toolId": "68b264dd-5481-41ea-9d8c-81378876f525",
+      "unitId": "df6b153c-f29c-4ddb-b7bf-850ddcab5a2a",
+      "from": "SPEAR & JACKSON #1",
+      "to": "Spear & Jackson Tenon Saw #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "stanley-1-12-137-62-low-angle-sweetheart-jack-plane",
+      "toolId": "96c958e5-6a58-43ab-9f7a-ed47ee929045",
+      "unitId": "9e4d72cd-14d7-47b3-93ab-e82bab7e071f",
+      "from": "Stanley 1-12-137 62-Low #1",
+      "to": "Stanley Jack Plane #1",
+      "reason": "truncated label"
+    },
+    {
+      "toolSlug": "stanley-20-221-10-inch-12-points-per-inch-sharptooth-mini-utility-saw",
+      "toolId": "eaf39d32-08b3-4a26-b442-dc075a2d6253",
+      "unitId": "45287a03-c37e-4d56-b890-9d4cdeab8da1",
+      "from": "STANLEY 20-221 10-Inch #1",
+      "to": "Stanley Mini Utility Saw #1",
+      "reason": "truncated label"
+    },
+    {
+      "toolSlug": "stanley-20-807-10-inch-mini-hack-light-duty-utility-saw",
+      "toolId": "efbed5fd-71e4-42db-8de6-418c6aa63b2c",
+      "unitId": "67598ba0-ce47-485f-9fb8-fea93f186a45",
+      "from": "STANLEY 20-807 10-Inch #1",
+      "to": "Stanley Mini Hacksaw #1",
+      "reason": "truncated label"
+    },
+    {
+      "toolSlug": "stanley-coping-saw",
+      "toolId": "2c06bb6b-b068-4b59-a2f3-3b9503c6d501",
+      "unitId": "9e0f2729-6137-4c69-9fe5-58c8e0e84eb8",
+      "from": "STANLEY Coping Saw #1",
+      "to": "Stanley Coping Saw #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "stanley-hand-planer-contractor-grade-low-angle",
+      "toolId": "64f5e54c-66e6-488a-9cca-1519d9b751c2",
+      "unitId": "b743a857-3115-465f-a194-8729c4279fc7",
+      "from": "STANLEY Hand Planer, #1",
+      "to": "Stanley Block Plane #1",
+      "reason": "truncated label"
+    },
+    {
+      "toolSlug": "stanley-heavy-duty-extreme-staple-gun-tr150",
+      "toolId": "91350bb7-03ce-4d33-a69b-f8435720bf06",
+      "unitId": "691dd3c0-d0ac-4c17-b9e6-fb7556d5ba32",
+      "from": "STANLEY Heavy Duty #1",
+      "to": "Stanley Staple Gun #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "stanley-saw-15-206",
+      "toolId": "52e50df9-a8d5-463a-9510-b56672110065",
+      "unitId": "f5eda310-2bde-4228-bd82-656cfb14649b",
+      "from": "STANLEY Saw 15-206 #1",
+      "to": "Stanley Wallboard Saw #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "stanley-sharptooth-heavy-duty-saw-15-087",
+      "toolId": "476af275-14c7-4a30-80a5-e3fb6f7ff2b7",
+      "unitId": "851f4054-8d6e-4517-b684-948c06f35bbb",
+      "from": "STANLEY SharpTooth Heavy #1",
+      "to": "Stanley Short Cut Saw #1",
+      "reason": "truncated label"
+    },
+    {
+      "toolSlug": "suizan-dozuki-dovetail-saw",
+      "toolId": "7c1a450d-2bf0-4a7a-bd2b-1f1e84e42118",
+      "unitId": "3b161407-53f9-4861-b451-06185af65f3f",
+      "from": "SUIZAN Dozuki Dovetail Saw #1",
+      "to": "Suizan Dozuki Saw #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "suizan-replacement-blade",
+      "toolId": "1a81e735-4c80-4610-9d3b-a40413f3e330",
+      "unitId": "4e1218d3-d053-4f67-b0ca-8fe11edac60e",
+      "from": "SUIZAN Replacement Blade #1",
+      "to": "Suizan Replacement Blade #1",
+      "reason": "casing / match the tool's name"
+    },
+    {
+      "toolSlug": "woodworking-tools-storage-bench",
+      "toolId": "5977416e-7592-433a-aed7-54cc7c59ad43",
+      "unitId": "8d691a86-e3f5-45f5-912e-ad4015722fe6",
+      "from": "Woodworking Tools & #1",
+      "to": "Woodworking Bench #1",
+      "reason": "truncated label"
+    }
+  ]
+}
