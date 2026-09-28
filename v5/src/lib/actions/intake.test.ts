@@ -43,7 +43,7 @@ import {
   type ApprovalFields,
 } from "../data/pending-tools";
 import { getDb, resetDbForTests } from "../db/client";
-import { pendingTools, tools } from "../db/schema/index";
+import { attachments, pendingTools, tools } from "../db/schema/index";
 import { eq } from "drizzle-orm";
 import type { ResearchResult } from "../research/result";
 import { signInAsNew } from "../../../test/utils/session";
@@ -170,6 +170,40 @@ describe("approve these", () => {
       ok: true,
       published: false,
     });
+  });
+
+  it("sends research's image over a photo from the chat, and the photo — background removed — only when research found none", async () => {
+    // Amendment "An uploaded photo is a choice, not the product image": the card
+    // sends what the page preselects, and the page never lets the photo displace a found image.
+    const db = await getDb();
+    async function withPhoto(name: string, images: ResearchResult["images"]) {
+      const [photo] = await db
+        .insert(attachments)
+        .values({ blobPathname: `uploads/chat/${crypto.randomUUID()}.jpg`, access: "public", contentType: "image/jpeg", origin: "upload", uploadedBy: adminId })
+        .returning({ id: attachments.id });
+      const batch = await createPendingBatch({ createdBy: adminId, items: [{ name, attachmentIds: [photo.id] }] });
+      const id = batch.items[0].id;
+      await queueForResearch([id], { requestedBy: adminId });
+      await markResearching(id);
+      await completeResearch(id, research({ canonicalName: name, images }));
+      return { id, photoId: photo.id };
+    }
+    const found = await withPhoto("Zorblax Photo Rig", {
+      candidates: [
+        { url: "https://example.com/p1s.png", pageUrl: "https://example.com/p1s", source: "og", width: 1200, height: 900, contentType: "image/png", rank: 1, reason: "The printer." },
+      ],
+      cleaned: null,
+    });
+    const nothing = await withPhoto("Quimby Wood Jig", { candidates: [], cleaned: null });
+
+    const proposed = await propose("pending.approve", { pending_ids: [found.id, nothing.id], publish: false });
+    if (!proposed.ok) throw new Error(proposed.error);
+    expect(proposed.refused).toEqual([]);
+    const images = proposed.proposals.map((p) => (p.input as { fields: ApprovalFields }).fields.image);
+    expect(images).toEqual([
+      { choice: "original", candidateUrl: "https://example.com/p1s.png" },
+      { choice: "upload", attachmentId: nothing.photoId, removeBackground: true },
+    ]);
   });
 
   it("refuses publish for somebody without tools.publish, on every row", async () => {

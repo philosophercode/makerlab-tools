@@ -193,10 +193,11 @@ describe("GalleryShell — group by", () => {
     expect(cardNames()).toEqual(["Prusa MK4", "Form 4", "Trotec Speedy 400", "Bandsaw"]);
   });
 
-  it("groups the table view too: one table per section, named by it", () => {
+  it("groups the table view too: one table per section, named by it", async () => {
     window.history.replaceState(null, "", "/?group=categoryGroup&view=table");
     render(<GalleryShell tools={mockCatalog} />);
-    const table = screen.getByRole("table", { name: "Tools: 3D Printing" });
+    // The table view loads on demand (GalleryShell's lazy GalleryTable).
+    const table = await screen.findByRole("table", { name: "Tools: 3D Printing" });
     expect(within(table).getAllByRole("rowheader")).toHaveLength(2);
     expect(screen.getByRole("table", { name: "Tools: Laser" })).toBeInTheDocument();
   });
@@ -207,7 +208,7 @@ describe("GalleryShell — table view", () => {
     const user = userEvent.setup();
     render(<GalleryShell tools={mockCatalog} />);
     await user.click(screen.getByRole("button", { name: "Table" }));
-    return { user, table: screen.getByRole("table", { name: "Tool gallery" }) };
+    return { user, table: await screen.findByRole("table", { name: "Tool gallery" }) };
   }
 
   it("is a real table whose sort state is on the header cell, and the view is in the URL", async () => {
@@ -271,7 +272,7 @@ describe("GalleryShell — status facet and view switch", () => {
     expect(cardNames()).not.toContain("Bandsaw");
 
     await user.click(screen.getByRole("button", { name: "Table" }));
-    const table = screen.getByRole("table", { name: "Tool gallery" });
+    const table = await screen.findByRole("table", { name: "Tool gallery" });
     expect(within(table).queryByRole("row", { name: /Bandsaw/ })).not.toBeInTheDocument();
     expect(within(table).getByRole("row", { name: /Prusa MK4/ })).toBeInTheDocument();
   });

@@ -4,6 +4,7 @@ import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import type { ApprovalImageChoice } from "../../lib/data/pending-tools";
 import { initialImageChoice } from "../../lib/intake/approval-draft";
+import type { PendingToolPhotoView } from "../../lib/intake/types";
 import type { CleanedKind, ImageCandidate, ImageRetryState, ImageView, ResearchImages } from "../../lib/research/result";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -60,10 +61,17 @@ import { DifferentImageControl } from "./DifferentImageControl";
  *   `onFindDifferent`: the image stage again, with an optional note.
  * - **"From <host>"** on every tile links the page the image was declared on
  *   (source attribution), or the image itself when Exa gave no page.
- * - **Nothing to choose, nothing drawn.** An item with an uploaded photo shows
- *   "Using your photo" — research skipped the stage, and the photo is the
- *   cover. A stage that failed is one line with its reason; one that found
- *   nothing is one line. Never an empty frame.
+ * - **Your photo is a choice, not the cover** (amendment "An uploaded photo is
+ *   a choice, not the product image"). Each photo added in the chat is a tile
+ *   of its own, named "Your photo" ("Your photo 2", …), after what research
+ *   found and before "No image". The selected one carries a "Remove the
+ *   background" checkbox, on by default: on, approval gives it the same
+ *   deterministic cutout a picked candidate gets (used as taken when the
+ *   backdrop cannot be cut); off, it is used exactly as taken. A photo that is
+ *   still private shows a placeholder rather than a guessed URL.
+ * - **Nothing to choose, nothing drawn.** A stage that failed is one line with
+ *   its reason; one that found nothing is one line — followed by the item's
+ *   own photos, when it has any. Never an empty frame.
  *
  * Controlled: the page owns the choice, because it sends it with Approve.
  * {@link initialImageChoice} is the preselection rule.
@@ -77,8 +85,8 @@ export interface ProductImageProps {
   images: ResearchImages | null | undefined;
   /** `research.imageError` — why the stage failed, when it did. */
   imageError: string | null | undefined;
-  /** The item has a photo somebody attached in the chat: it is the cover. */
-  hasUploadedPhoto: boolean;
+  /** The photos added in the chat — offered beside what research found. */
+  uploads: readonly PendingToolPhotoView[];
   value: ApprovalImageChoice;
   onChange: (choice: ApprovalImageChoice) => void;
   /** `research.imageRetry` — the latest **Find a different image** run. */
@@ -123,8 +131,8 @@ export function plannedClean(candidate: ImageCandidate): PlannedClean {
 
 /**
  * What the page starts with (§5.2 step 1): the cleaned copy when there is one,
- * otherwise rank 1, otherwise no image — and always no image when the admin's
- * own photo is the cover.
+ * otherwise rank 1, otherwise the first uploaded photo with its background
+ * removed, otherwise no image.
  */
 export { initialImageChoice };
 
@@ -143,7 +151,7 @@ export function ProductImage({
   name,
   images,
   imageError,
-  hasUploadedPhoto,
+  uploads,
   value,
   onChange,
   retry,
@@ -153,8 +161,8 @@ export function ProductImage({
   const t = useTranslations("admin.intake.image");
   const [cleanedBroken, setCleanedBroken] = useState(false);
 
-  // Research from before the stage existed: there is nothing to say.
-  if (!hasUploadedPhoto && images === undefined && !imageError) return null;
+  // Research from before the stage existed, and no photo: there is nothing to say.
+  if (uploads.length === 0 && images === undefined && !imageError) return null;
 
   const titleId = `intake-image-title-${pendingId}`;
   const heading = (
@@ -162,16 +170,6 @@ export function ProductImage({
       {t("title")}
     </h3>
   );
-
-  if (hasUploadedPhoto) {
-    return (
-      <Section titleId={titleId}>
-        {heading}
-        <p className="text-table">{t("usingYourPhoto")}</p>
-        <ReviewNote>{t("usingYourPhotoHint")}</ReviewNote>
-      </Section>
-    );
-  }
 
   const candidates = images?.candidates ?? [];
   const cleaned = images?.cleaned ?? null;
@@ -185,13 +183,17 @@ export function ProductImage({
     <DifferentImageControl pendingId={pendingId} retry={retry} running={retryRunning} onRequest={onFindDifferent} />
   ) : null;
   const cleanNote = cleaned ? null : (images?.cleanNote ?? null);
-  if (!images || (candidates.length === 0 && !cleaned)) {
+  const nothingFound = !images || (candidates.length === 0 && !cleaned);
+  const status = nothingFound ? (
+    <p className="text-table">
+      {imageError ? t("failed", { reason: imageError }) : images?.allRejected ? t("noneShowedProduct") : t("notFound")}
+    </p>
+  ) : null;
+  if (nothingFound && uploads.length === 0) {
     return (
       <Section titleId={titleId}>
         {heading}
-        <p className="text-table">
-          {imageError ? t("failed", { reason: imageError }) : images?.allRejected ? t("noneShowedProduct") : t("notFound")}
-        </p>
+        {status}
         {different}
       </Section>
     );
@@ -199,7 +201,11 @@ export function ProductImage({
 
   const group = `intake-image-${pendingId}`;
   const [first, ...rest] = candidates;
-  const fallback: ApprovalImageChoice = first ? { choice: "original", candidateUrl: first.url } : NONE;
+  const fallback: ApprovalImageChoice = first
+    ? { choice: "original", candidateUrl: first.url }
+    : uploads[0]
+      ? { choice: "upload", attachmentId: uploads[0].attachmentId, removeBackground: true }
+      : NONE;
 
   function chooseOriginal(candidate: ImageCandidate) {
     onChange({ choice: "original", candidateUrl: candidate.url });
@@ -207,6 +213,17 @@ export function ProductImage({
 
   function isOriginal(candidate: ImageCandidate): boolean {
     return value.choice === "original" && value.candidateUrl === candidate.url;
+  }
+
+  /** The current choice, when it is `photo`. */
+  function uploadChoice(photo: PendingToolPhotoView): Extract<ApprovalImageChoice, { choice: "upload" }> | null {
+    return value.choice === "upload" && value.attachmentId === photo.attachmentId ? value : null;
+  }
+
+  function chooseUpload(photo: PendingToolPhotoView) {
+    // Picking the chosen tile again keeps its checkbox as it was.
+    if (uploadChoice(photo)) return;
+    onChange({ choice: "upload", attachmentId: photo.attachmentId, removeBackground: true });
   }
 
   /** The one-line note on a candidate's tile: what approval does to it. */
@@ -224,7 +241,7 @@ export function ProductImage({
   return (
     <Section titleId={titleId}>
       {heading}
-      <ReviewNote>{t("hint")}</ReviewNote>
+      {status ?? <ReviewNote>{t("hint")}</ReviewNote>}
       {cleanNote ? <ReviewNote tone="warn">{t(`cleanNote.${cleanNote}`)}</ReviewNote> : null}
 
       <div className="flex flex-col gap-3" role="radiogroup" aria-labelledby={titleId}>
@@ -314,6 +331,56 @@ export function ProductImage({
           </div>
         ) : null}
 
+        {uploads.length > 0 ? (
+          <div data-slot="upload-choices" className="flex flex-col gap-1.5">
+            <ReviewNote>{t("uploadsNote")}</ReviewNote>
+            <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
+              {uploads.map((photo, index) => {
+                const chosen = uploadChoice(photo);
+                const label = uploads.length === 1 ? t("uploadChoice") : t("uploadChoiceNumbered", { index: index + 1 });
+                const checkboxId = `${group}-upload-${index + 1}-clean`;
+                return (
+                  <Tile
+                    key={photo.attachmentId}
+                    group={group}
+                    id={`${group}-upload-${index + 1}`}
+                    small={!nothingFound}
+                    label={label}
+                    checked={chosen !== null}
+                    onSelect={() => chooseUpload(photo)}
+                    picture={
+                      photo.url ? (
+                        // eslint-disable-next-line @next/next/no-img-element -- the item's own public photo, as the Photos list shows it
+                        <img src={photo.url} alt={t("uploadAlt", { name, index: index + 1 })} loading="lazy" />
+                      ) : (
+                        <p className="p-2 text-center text-xs text-muted-foreground">{t("uploadPrivate")}</p>
+                      )
+                    }
+                    note={chosen ? (chosen.removeBackground ? t("uploadCleanOn") : t("uploadCleanOff")) : undefined}
+                    noteTone="muted"
+                    extra={
+                      chosen ? (
+                        <div className="flex items-center gap-2 text-table">
+                          <input
+                            id={checkboxId}
+                            type="checkbox"
+                            className="size-4 accent-primary"
+                            checked={chosen.removeBackground}
+                            onChange={(event) => onChange({ ...chosen, removeBackground: event.target.checked })}
+                          />
+                          <label htmlFor={checkboxId}>{t("removeBackground")}</label>
+                        </div>
+                      ) : null
+                    }
+                    source={null}
+                    fromLabel={(host) => t("from", { host })}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
         <div
           data-selected={value.choice === "none" || undefined}
           className="flex items-center gap-2 border border-border p-2 text-table data-[selected]:border-primary-ink"
@@ -329,6 +396,7 @@ export function ProductImage({
           />
           <label htmlFor={`${group}-none`}>{t("noneChoice")}</label>
         </div>
+        {value.choice === "none" && uploads.length > 0 ? <ReviewNote>{t("noneWithPhotos")}</ReviewNote> : null}
       </div>
       {different}
     </Section>
@@ -358,6 +426,7 @@ function Tile({
   small = false,
   note,
   noteTone = "warn",
+  extra,
   source,
   fromLabel,
 }: {
@@ -373,6 +442,8 @@ function Tile({
   small?: boolean;
   note?: string;
   noteTone?: "muted" | "warn";
+  /** A control under the picture — the uploaded photo's "Remove the background". */
+  extra?: ReactNode;
   /** The candidate whose page is credited — for the cleaned copy, the original it was made from. */
   source: ImageCandidate | null;
   fromLabel: (host: string) => string;
@@ -421,6 +492,7 @@ function Tile({
       >
         {picture}
       </div>
+      {extra}
       {note ? <ReviewNote tone={noteTone}>{note}</ReviewNote> : null}
       {link ? (
         <a

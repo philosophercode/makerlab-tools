@@ -261,6 +261,7 @@ describe("PrimaryNav — sign-in control", () => {
   });
 });
 
+// Floor map spike (spec 2026-09-25, open question): MAP joins the links.
 // Isaac, 2026-09-23: the bar holds TOOLS, PROJECTS, ABOUT, REPORT and the
 // profile control (or SIGN IN) — nothing else, whatever the role. Admin, Add
 // equipment and Sign out are in the profile menu; Refresh is on /admin.
@@ -283,6 +284,7 @@ describe("PrimaryNav — what the bar holds", () => {
 
     expect(screen.getAllByRole("link").map((link) => link.textContent)).toEqual([
       "TOOLS",
+      "MAP",
       "PROJECTS",
       "ABOUT",
     ]);
@@ -296,7 +298,7 @@ describe("PrimaryNav — what the bar holds", () => {
     render(<PrimaryNav />);
 
     await screen.findByRole("button", { name: /Sign in/ });
-    expect(screen.getAllByRole("link")).toHaveLength(3);
+    expect(screen.getAllByRole("link")).toHaveLength(4);
     expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual([
       "REPORT",
       "SIGN IN",

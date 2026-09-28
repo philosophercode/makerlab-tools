@@ -1,4 +1,6 @@
 node_modules/
+# A worktree may symlink node_modules to the main checkout; never commit the link.
+/node_modules
 .next/
 out/
 build/
@@ -29,3 +31,7 @@ tsconfig.tsbuildinfo
 # Local persistent database (PGLITE_DATA_DIR, src/lib/db/local-dir.ts): a real
 # import reviewed on a laptop before it goes to Neon.
 .pglite-data/
+
+# Projects seed scratch (Notion dumps, raw downloads, screenshots)
+data/projects-seed/_work/
+data/projects-seed/_screens/

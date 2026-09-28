@@ -2,9 +2,19 @@
  * The kiosk owns the whole viewport (kiosk spec §6). The root keeps a
  * scrollbar on every other page so the header never moves; on a TV that is a
  * grey bar down one edge for days, so it goes while a kiosk is on the page.
- * An upright iPad that needs to scroll scrolls inside the screen itself.
+ * An upright iPad or a phone that needs to scroll scrolls inside the screen
+ * itself.
  */
 html:has([data-kiosk]) {
   overflow: hidden;
   scrollbar-gutter: auto;
+}
+
+/*
+ * globals.css sets every h1 to 36px under 560px wide, unlayered, which beats
+ * the kiosk's type utilities: on a phone "Lab status" came out as a headline.
+ * `revert-layer` hands the size back to the utilities (`KIOSK_TYPE.label`).
+ */
+[data-kiosk] h1 {
+  font-size: revert-layer;
 }

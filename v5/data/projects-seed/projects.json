@@ -1,0 +1,202 @@
+{
+  "source": {
+    "name": "Made in MakerLAB",
+    "owner": "Niti P. (MakerLAB Director)",
+    "url": "https://teal-magpie-225.notion.site/3c0bf30de85780aabe33e62e8a8a9ae4?v=3c0bf30de85780699dcf000c49670cea",
+    "collectionId": "3c0bf30d-e857-8055-8277-000bf27a05a6",
+    "viewId": "3c0bf30d-e857-8069-9dcf-000c49670cea",
+    "fetchedAt": "2026-09-28",
+    "method": "Notion public API (loadPageChunk, queryCollection) on teal-magpie-225.notion.site; images through the site's /image/ proxy at full resolution",
+    "notes": [
+      "Order is the Notion gallery view's order; the seed gives the first project the newest created_at so the app's newest-first gallery keeps it.",
+      "Every row's page body is the unedited Notion project template ('Provide an overview…', empty action items, empty Documents); the real content is the About property, Partner Org., URL and Attach file. Only TrachPal's body holds a document (FINAL INSPIRE SUBMISSION.pdf), which is not an image and is not seeded.",
+      "No row names an individual maker, so the credit is the partner organisation as given in 'Partner Org.'.",
+      "Some rows carry hidden leftover template properties (dates, 'Account Management', 'Human Resources', priority, status). They are not in the collection schema and are not used.",
+      "The table view's page_sort lists an eleventh page (3c1bf30d-e857-8012-bc1f-d84b74aeb7ef) that is not public; it could not be fetched."
+    ]
+  },
+  "projects": [
+    {
+      "notionPageId": "3c1bf30d-e857-8033-a923-ff4229cb4eba",
+      "slug": "towards-considerate-embodied-ai",
+      "title": "Towards Considerate Embodied AI",
+      "credit": "MakerLAB · Weill Cornell, Coler NY H+H",
+      "partnerOrg": { "label": "Weill Cornell, Coler NY H+H", "url": null },
+      "year": null,
+      "link": "https://arxiv.org/abs/2602.03054",
+      "notionText": "Co-Designing Embodied AI in Healthcare explores how healthcare professionals and multidisciplinary teams can collaboratively design embodied AI solutions for real-world clinical environments. Through a 14-week workshop spanning emergency departments, rehabilitation facilities, and sleep disorder clinics, participants moved from early brainstorming to high fidelity prototypes, using hands-on learning and iterative design to understand practical tradeoffs. The project offers guidelines for developing embodied AI that is context aware, socially considerate, and grounded in real-world deployment.",
+      "description": "**Co-Designing Embodied AI in Healthcare** asked clinicians and multidisciplinary teams to design the robots they would actually want on the floor. Over a 14-week workshop spanning an emergency department, a long-term rehabilitation facility and a sleep disorder clinic, participants moved from early brainstorming to three high-fidelity robot prototypes.\n\nEach robot is built on a shared mobile base with a custom upper body for its setting. **RELIA the BearER** (emergency department) pairs mounted speakers and a touchscreen with a storage body for medical-kit delivery. **DreamE** (sleep clinic) is a calm, concierge-style robot with a touchscreen, a desk surface and voice-controlled storage drums. **RoamIN** (rehabilitation) adds vision, a scrolling display, a moving hand and a tactile interface for recreation and social connection.\n\nThe bodies are probably made the way most MakerLAB prototypes are: flat wooden panels and slatted forms that were likely laser cut, a fabric shell on RELIA, and off-the-shelf screens and speakers mounted to the frame. Going from abstract concepts to physical prototypes is what let participants weigh real trade-offs: size, noise, storage and how a robot should signal what it is doing.\n\n**Tip:** when co-designing with busy clinicians, bring a physical mock-up to every session. A cardboard or plywood body on a real base answers questions a sketch cannot.",
+      "materials": ["Plywood", "Fabric", "Touchscreens", "Speakers", "Mobile robot base"],
+      "tools": [
+        { "slug": "epilog-helix-24-laser-8000-laser-system", "confidence": "medium", "reason": "Flat wooden face panels and DreamE's slatted drums read as laser-cut sheet stock (could equally be the Trotec)." },
+        { "slug": "singer-stylist-7258", "confidence": "low", "reason": "RELIA's fitted fabric body was probably sewn; nothing in the source says on which machine." }
+      ],
+      "images": [
+        { "file": "towards-considerate-embodied-ai-1.jpg", "alt": "Three healthcare robot prototypes: RELIA the BearER, DreamE and RoamIN, with labelled features", "source": { "notionAttachment": "attachment:a3beb7c1-b5a5-42d7-9e61-444f1b502a97:Screenshot_2026-08-18_at_9.40.55_PM.png", "blockId": "3c1bf30d-e857-8033-a923-ff4229cb4eba", "property": "Attach file", "url": "https://teal-magpie-225.notion.site/image/attachment%3Aa3beb7c1-b5a5-42d7-9e61-444f1b502a97%3AScreenshot_2026-08-18_at_9.40.55_PM.png?table=block&id=3c1bf30d-e857-8033-a923-ff4229cb4eba&spaceId=330bf30d-e857-8136-95a3-0003f199900e&cache=v2" } }
+      ]
+    },
+    {
+      "notionPageId": "3c1bf30d-e857-80e7-a17a-f4039061e6f6",
+      "slug": "smart-glove",
+      "title": "Smart Glove",
+      "credit": "MakerLAB · ADAPT Community Network",
+      "partnerOrg": { "label": "ADAPT Community Network", "url": "https://adaptcommunitynetwork.org/" },
+      "year": null,
+      "link": "https://www.instructables.com/Smart-Glove-an-Interactive-Manual-on-Hand/",
+      "notionText": "Smart Glove is a wearable assistive device that helps users interact with smart home technologies through touch and audio feedback. Designed for people with disabilities, older adults, and anyone who benefits from hands-on guidance, the glove provides intuitive, step-by-step instructions as users touch different parts of a device, such as buttons, knobs, or screens, making smart technologies easier to learn and operate independently.",
+      "description": "**Smart Glove** is a wearable \"manual on your hand\". As the wearer touches a button, knob or screen on an appliance, the glove recognises it and plays step-by-step audio guidance, so people with disabilities, older adults and anyone who benefits from hands-on instruction can learn smart home devices independently.\n\nThe prototype is a black glove with conductive fingertips and a round Circuit Playground-style microcontroller on the back of the hand, wired to a small red NFC/RFID reader module and a LiPo battery. The photos suggest each control on the device carries an NFC tag: the reader picks up whichever control the hand is on, and the board triggers the matching instruction on a Bluetooth speaker.\n\nTo test it, the team built a life-size **Smart Oven** mock-up from cardboard, with white discs for the dials and buttons, a paper menu display and a \"Try Bake a Pizza!\" card that walks the user through a task. A mock-up like this is a cheap way to rehearse the full interaction before touching a real appliance.\n\n**Tips:** tape or tie down the wiring at the wrist so the glove survives repeated use, and put tags where a finger naturally lands, not where they are easiest to stick. The full build is documented on Instructables (linked).",
+      "materials": ["Glove", "Circuit Playground board", "NFC/RFID reader module", "NFC tags", "LiPo battery", "Cardboard", "Bluetooth speaker"],
+      "tools": [
+        { "slug": "hakko-fx-888d", "confidence": "medium", "reason": "Header pins on the NFC reader and the battery leads are soldered; the electronics bench's Hakko is the likely iron." },
+        { "slug": "epilog-helix-24-laser-8000-laser-system", "confidence": "low", "reason": "The oven mock-up's cardboard panel and white control discs are cleanly cut and may have been laser cut; they could also be hand cut." }
+      ],
+      "images": [
+        { "file": "smart-glove-1.jpg", "alt": "The Smart Glove with a round microcontroller and NFC reader on the back of the hand, beside a cardboard smart-oven mock-up", "source": { "notionAttachment": "attachment:1326bc7d-4438-4cb4-aab5-5489e1d3a513:Screenshot_2026-08-18_at_9.34.27_PM.png", "blockId": "3c1bf30d-e857-80e7-a17a-f4039061e6f6", "property": "Attach file", "url": "https://teal-magpie-225.notion.site/image/attachment%3A1326bc7d-4438-4cb4-aab5-5489e1d3a513%3AScreenshot_2026-08-18_at_9.34.27_PM.png?table=block&id=3c1bf30d-e857-80e7-a17a-f4039061e6f6&spaceId=330bf30d-e857-8136-95a3-0003f199900e&cache=v2" } }
+      ]
+    },
+    {
+      "notionPageId": "3c1bf30d-e857-8057-8e29-c08ff43688bd",
+      "slug": "coler-portraits",
+      "title": "Coler Portraits",
+      "credit": "MakerLAB · NYC Health + Hospitals/Coler",
+      "partnerOrg": { "label": "NYC Health + Hospitals/Coler", "url": "https://www.nychealthandhospitals.org/locations/coler/" },
+      "year": null,
+      "link": "https://docs.google.com/document/d/1kfYyMT7QfybS0Vljiv07HgbiMJod7rXJiHMkfC9zG98/edit?usp=sharing",
+      "notionText": "SkillShare Videos is a growing collection of short videos that celebrate the exchange of knowledge, skills, and making across communities. Each video features someone sharing a skill they are passionate about, from a graduate student demonstrating a digital fabrication tool to a nursing home resident sharing the craft of hand knitting and their deep understanding of pattern and structure. Together, these videos serve as both conversation starters and a living documentation of the diverse knowledge and skills people carry with them.",
+      "description": "**SkillShare Videos** is a growing collection of short videos celebrating the exchange of knowledge, skills and making across communities. Each one features a person sharing a skill they care about, from a graduate student demonstrating a digital fabrication tool to a nursing home resident at Coler sharing hand knitting and a deep understanding of pattern and structure.\n\nThe videos work two ways: as conversation starters when residents, students and staff meet, and as a living record of the knowledge people carry with them. The still here comes from one of the sessions, with residents and the MakerLAB team talking around a laptop.\n\nThe making here is mostly filming and editing rather than fabrication. Short, single-skill clips are likely what keeps the series easy to add to: one person, one skill, a few minutes each.\n\n**Tip:** record where the skill naturally happens and let the person teach in their own words; the conversation that follows is as much the point as the video.",
+      "materials": [],
+      "tools": [],
+      "images": [
+        { "file": "coler-portraits-1.jpg", "alt": "Residents and MakerLAB team members in conversation during a SkillShare session", "source": { "notionAttachment": "attachment:ed215f8f-14ed-42ab-acab-115ebfa547d9:Screenshot_2026-08-18_at_9.10.16_PM.png", "blockId": "3c1bf30d-e857-8057-8e29-c08ff43688bd", "property": "Attach file", "url": "https://teal-magpie-225.notion.site/image/attachment%3Aed215f8f-14ed-42ab-acab-115ebfa547d9%3AScreenshot_2026-08-18_at_9.10.16_PM.png?table=block&id=3c1bf30d-e857-8057-8e29-c08ff43688bd&spaceId=330bf30d-e857-8136-95a3-0003f199900e&cache=v2" } }
+      ]
+    },
+    {
+      "notionPageId": "3c1bf30d-e857-80b1-babf-ca4a9a189e45",
+      "slug": "communal-loom",
+      "title": "Communal Loom",
+      "credit": "MakerLAB · NYC Health + Hospitals/Coler",
+      "partnerOrg": { "label": "NYC Health + Hospitals/Coler", "url": "https://www.nychealthandhospitals.org/locations/coler/" },
+      "year": null,
+      "link": "https://arxiv.org/abs/2410.24036",
+      "notionText": "For most health or well-being interventions, the process of evaluation is distinct from the activity itself, both in terms of who is involved, and how the actual data is collected and analyzed. Tangible interaction affords the opportunity to combine direct and embodied collaboration with a holistic approach to data collection and evaluation. We demonstrate this potential by describing our experiences designing and using the Communal Loom, an artifact for art therapy that translates quantitative data to collectively woven artifacts. https://arxiv.org/abs/2410.24036 | ",
+      "description": "**The Communal Loom** is an art-therapy artifact that turns well-being data into a shared weaving. Evaluation of a health intervention is usually separate from the activity itself; here the two are the same act, so participants make the data and the artwork together.\n\nThe photos show how it works: each participant fills in a small card with a grid of answers (columns A–D, rows 1–8), and coloured yarns tied to the card carry those answers onto the loom. Woven row by row, the colours become a record of the group, in this case bands of navy, green, yellow and red on a white weft.\n\nThe loom is a large frame with black warp threads; how it was built is not documented here, though a frame like this is often cut from sheet stock. The accompanying paper (linked) describes the design and the sessions at Coler in detail.\n\n**Tip:** keep the colour-to-answer mapping simple and visible next to the loom, so the finished weaving stays readable as data long after the session.",
+      "materials": ["Yarn", "Paper survey cards", "Loom frame"],
+      "tools": [
+        { "slug": "epilog-helix-24-laser-8000-laser-system", "confidence": "low", "reason": "The loom frame may have been laser cut, but neither the text nor the photos show how it was made." }
+      ],
+      "images": [
+        { "file": "communal-loom-1.jpg", "alt": "A survey card with coloured yarns tied to it, and a close-up of the woven result in navy, green, yellow and red", "source": { "notionAttachment": "attachment:f3a9fbef-14ce-4139-9c95-204d260e8973:Screenshot_2026-08-18_at_9.37.19_PM.png", "blockId": "3c1bf30d-e857-80b1-babf-ca4a9a189e45", "property": "Attach file", "url": "https://teal-magpie-225.notion.site/image/attachment%3Af3a9fbef-14ce-4139-9c95-204d260e8973%3AScreenshot_2026-08-18_at_9.37.19_PM.png?table=block&id=3c1bf30d-e857-80b1-babf-ca4a9a189e45&spaceId=330bf30d-e857-8136-95a3-0003f199900e&cache=v2" } }
+      ]
+    },
+    {
+      "notionPageId": "3c1bf30d-e857-80a9-8af6-f80ac64cca22",
+      "slug": "script-reader",
+      "title": "Script Reader",
+      "credit": "MakerLAB · ADAPT Community Network",
+      "partnerOrg": { "label": "ADAPT Community Network", "url": "https://adaptcommunitynetwork.org/" },
+      "year": "2026",
+      "link": "https://adapt-stage-prompter-production.up.railway.app/",
+      "notionLinkRaw": "Controller: https://adapt-stage-prompter-production.up.railway.app/?role=controllerActor/Audience View: https://adapt-stage-prompter-production.up.railway.app/",
+      "notionText": "A clear, accessible script navigation system that allows actors to easily view and control scripts during rehearsals and performances. Designed to support actors with limited hand mobility, the system reduces reliance on physical script handling and shared projections. Journey Through Oz performances in August 2026 featured the software as live captioning for both actors and audiences.",
+      "description": "**Script Reader** is an accessible script-navigation system for actors with limited hand mobility. Instead of handling paper scripts or relying on a shared projection, actors see their lines on a large screen, and the script can be advanced from a simple controller view.\n\nThe system has two web views: a **controller**, run from a laptop beside the stage, and an **actor/audience view** that shows the scene name, the character and the current line in large high-contrast type. In the **Journey Through Oz** performances in August 2026 it doubled as live captioning for both the actors and the audience.\n\nThis is a software project rather than a fabrication one. The photos show it in use: a Glinda line from Munchkinland on the stage display, and the controller running on a laptop at the tech table during a performance.\n\n**Tips:** test font size and contrast from the actors' actual positions on stage, and give the controller large, forgiving buttons; whoever runs it is watching the stage, not the screen.",
+      "materials": [],
+      "tools": [],
+      "images": [
+        { "file": "script-reader-1.jpg", "alt": "An actor in a wheelchair on stage beside a large screen showing Glinda's line in the Journey Through Oz performance", "source": { "notionAttachment": "attachment:4fb1f260-7bd6-4bdc-8d35-40fb1483ba50:IMG_1653.jpg", "blockId": "3c1bf30d-e857-80a9-8af6-f80ac64cca22", "property": "Attach file", "url": "https://teal-magpie-225.notion.site/image/attachment%3A4fb1f260-7bd6-4bdc-8d35-40fb1483ba50%3AIMG_1653.jpg?table=block&id=3c1bf30d-e857-80a9-8af6-f80ac64cca22&spaceId=330bf30d-e857-8136-95a3-0003f199900e&cache=v2" } },
+        { "file": "script-reader-2.jpg", "alt": "The Script Reader controller running on a laptop at the tech table during a performance", "source": { "notionAttachment": "attachment:b86e6c97-c7ae-4dd4-b5bf-e9640608ee52:IMG_1376.jpg", "blockId": "3c1bf30d-e857-80a9-8af6-f80ac64cca22", "property": "page_cover", "url": "https://teal-magpie-225.notion.site/image/attachment%3Ab86e6c97-c7ae-4dd4-b5bf-e9640608ee52%3AIMG_1376.jpg?table=block&id=3c1bf30d-e857-80a9-8af6-f80ac64cca22&spaceId=330bf30d-e857-8136-95a3-0003f199900e&cache=v2" } }
+      ]
+    },
+    {
+      "notionPageId": "3c0bf30d-e857-8099-a103-fc67a2f66a55",
+      "slug": "tidal-sensor",
+      "title": "Tidal Sensor",
+      "credit": "MakerLAB · Solar One, Stuyvesant Cove Park",
+      "partnerOrg": { "label": "Solar One, Stuyvesant Cove Park", "url": "https://solar1.org/stuycovepark/" },
+      "year": null,
+      "link": "https://docs.google.com/document/d/1V_sTtG0tWPie6UGqgdLQslupaGqkwAczM3WaahKCNnM/edit?usp=sharing",
+      "notionText": "New York City’s waterfront communities are increasingly shaped by rising tides, coastal flooding, and shoreline vulnerability. Through the community engagement initiative CRAFT@Large, MakerLAB at Cornell Tech connected with the Solar One program at Stuyvesant Cove Park to collaboratively address recurring “splash over” events, in which large waves and high tides overtop the seawall and flood the park. The partnership created an opportunity for undergraduate interns at MakerLAB to work directly with a community partner on the development and deployment of a low-cost, open-source tidal monitoring system.",
+      "description": "**Tidal Sensor** is a low-cost, open-source tidal monitoring system built with Solar One for Stuyvesant Cove Park, where large waves and high tides regularly \"splash over\" the seawall and flood the park. It came out of CRAFT@Large, MakerLAB's community engagement initiative, and gave undergraduate interns the chance to design and deploy hardware with a community partner.\n\nThe sensor is housed in a vertical length of white PVC pipe. A **MaxSonar ultrasonic distance sensor** points down out of the bottom to measure the distance to the water surface, and a **5 W / 5 V solar panel** angled off the side keeps it powered. The electronics are likely sealed inside the tube, with the cable exiting through a gland at the top, and the whole unit is strapped to its mount with zip ties.\n\nThe photo shows it being bench-tested at MakerLAB, clamped to a wooden block at the edge of a table, a quick way to rehearse the field mounting before going to the waterfront.\n\n**Tips:** point the ultrasonic sensor straight down with a clear cone beneath it; waves and spray make noisy readings, so average several samples per reading. Seal every cable entry, since salt air finds any gap.",
+      "materials": ["PVC pipe", "Solar panel (5 W / 5 V)", "MaxSonar ultrasonic distance sensor", "Microcontroller", "Zip ties", "Wood"],
+      "tools": [
+        { "slug": "hakko-fx-888d", "confidence": "low", "reason": "The solar and sensor leads were probably soldered at the electronics bench; not shown." },
+        { "slug": "ryobi-p593-18-volt-one-lithium-ion-cordless-pvc-and-pex-cutter", "confidence": "low", "reason": "The housing is cut PVC pipe; the lab's PVC cutter is the natural tool, but the photo does not show which was used." }
+      ],
+      "images": [
+        { "file": "tidal-sensor-1.jpg", "alt": "The tidal sensor on the bench: a PVC tube with a solar panel on the side and an ultrasonic sensor at the bottom, with labels", "source": { "notionAttachment": "attachment:97dcdb51-3ba6-48ea-bb71-dfe607b4e0c7:Screenshot_2026-08-18_at_1.56.56_PM.png", "blockId": "3c0bf30d-e857-8099-a103-fc67a2f66a55", "property": "Attach file", "url": "https://teal-magpie-225.notion.site/image/attachment%3A97dcdb51-3ba6-48ea-bb71-dfe607b4e0c7%3AScreenshot_2026-08-18_at_1.56.56_PM.png?table=block&id=3c0bf30d-e857-8099-a103-fc67a2f66a55&spaceId=330bf30d-e857-8136-95a3-0003f199900e&cache=v2" } }
+      ]
+    },
+    {
+      "notionPageId": "3c0bf30d-e857-8024-90e5-c1e7f8bee39e",
+      "slug": "makerlab-tools",
+      "title": "MakerLAB Tools",
+      "credit": "MakerLAB · Cornell Tech",
+      "partnerOrg": { "label": "Cornell Tech", "url": "https://tech.cornell.edu/" },
+      "year": null,
+      "link": "https://makerlab-tools-v5.vercel.app/",
+      "notionText": "MakerLAB Tools is a conversational AI guide to making at Cornell Tech, connecting students to MakerLAB inventory, equipment specifications, setup instructions, troubleshooting, and maintenance support in plain language and multiple languages. Built on a structured Notion database and exposed through a live Model Context Protocol (MCP) server, the system can also be accessed through LLM clients such as Claude and ChatGPT. Visitors can explore the catalog, scope a multi machine project, and troubleshoot a 3D printer issue.",
+      "description": "**MakerLAB Tools** is a conversational AI guide to making at Cornell Tech: the site you are on. It connects students to the MakerLAB inventory, equipment specifications, setup instructions, troubleshooting and maintenance support, in plain language and in multiple languages.\n\nThe catalogue started as a structured Notion database and is exposed through a live Model Context Protocol (MCP) server, so it can also be used from LLM clients such as Claude and ChatGPT. Visitors can browse the tools, scope a project that spans several machines, or troubleshoot a 3D printer problem with the assistant.\n\nThis is a software project; the screenshot shows the Tools // Machines catalogue with its search, category, material and location filters.\n\n**Tip:** ask the assistant to plan a project end to end (\"I want to make a laser-cut box with a 3D-printed hinge\"); it will point you to the machines, training and resources you need.",
+      "materials": [],
+      "tools": [],
+      "images": [
+        { "file": "makerlab-tools-1.jpg", "alt": "The MakerLAB Tools catalogue page with search and filters above a grid of tools", "source": { "notionAttachment": "attachment:84cfdada-cfb6-4780-8eb4-d205bf795223:Screenshot_2026-08-18_at_7.55.58_PM.png", "blockId": "3c0bf30d-e857-8024-90e5-c1e7f8bee39e", "property": "Attach file", "url": "https://teal-magpie-225.notion.site/image/attachment%3A84cfdada-cfb6-4780-8eb4-d205bf795223%3AScreenshot_2026-08-18_at_7.55.58_PM.png?table=block&id=3c0bf30d-e857-8024-90e5-c1e7f8bee39e&spaceId=330bf30d-e857-8136-95a3-0003f199900e&cache=v2" } }
+      ]
+    },
+    {
+      "notionPageId": "3c0bf30d-e857-8017-a8f9-fd04c81ade5f",
+      "slug": "trachpal-track-education-model",
+      "title": "TrachPal-Track Education Model",
+      "credit": "MakerLAB · Weill Cornell Emergency Medicine Simulation Program",
+      "partnerOrg": { "label": "Weill Cornell Emergency Medicine Simulation Program", "url": "https://emed.weill.cornell.edu/divisions/simulation-program" },
+      "year": null,
+      "link": "https://drive.google.com/file/d/12CTpUYqwyG24dgPI8vpg2k6uApO6XY4S/view?usp=sharing",
+      "notionText": "TrachPal is a hands-on simulation tool designed to support caregivers of children with new tracheostomy tubes as they prepare for discharge. Developed as a more accessible complement to high-fidelity simulation training, TrachPal enables caregivers to engage in repeated, deliberate practice of essential tracheostomy care skills at the bedside and outside of scheduled education sessions. By providing additional opportunities for hands-on practice, TrachPal aims to build caregiver confidence, reinforce critical skills, and support safer transitions from the hospital to home.",
+      "description": "**TrachPal** is a hands-on simulation tool for caregivers of children with new tracheostomy tubes, built to help them prepare for discharge. It complements high-fidelity simulation training with something far more accessible: a model caregivers can practise on at the bedside and outside scheduled education sessions.\n\nThe model is a compact white body with a stoma opening (the green ring) that takes a real tracheostomy tube, so caregivers can rehearse inserting, securing and changing it with the actual device they will use at home. The smooth, squared-off body is most likely 3D printed.\n\nRepeated, deliberate practice is the goal: the more often a caregiver can run through the steps, the more confident they are when it matters, which supports a safer transition from hospital to home.\n\n**Tip:** for a trainer that is handled over and over, print with thick walls and rounded edges, and make the stoma insert a separate, replaceable part so it can be swapped when it wears.",
+      "materials": ["PLA", "Tracheostomy tube"],
+      "tools": [
+        { "slug": "bambu-lab-x1-carbon-combo-3d-printer", "confidence": "medium", "reason": "The smooth white squared-off body reads as an FDM print; the specific printer is not stated." }
+      ],
+      "images": [
+        { "file": "trachpal-1.jpg", "alt": "A hand inserting a tracheostomy tube into the stoma opening of the white TrachPal model", "source": { "notionAttachment": "attachment:0a30c881-929e-43c5-9899-89c1e79b4b8c:Screenshot_2026-08-18_at_10.08.19_PM.png", "blockId": "3c0bf30d-e857-8017-a8f9-fd04c81ade5f", "property": "Attach file", "url": "https://teal-magpie-225.notion.site/image/attachment%3A0a30c881-929e-43c5-9899-89c1e79b4b8c%3AScreenshot_2026-08-18_at_10.08.19_PM.png?table=block&id=3c0bf30d-e857-8017-a8f9-fd04c81ade5f&spaceId=330bf30d-e857-8136-95a3-0003f199900e&cache=v2" } }
+      ]
+    },
+    {
+      "notionPageId": "3c0bf30d-e857-80e0-be73-ea6867ca3318",
+      "slug": "openpsd",
+      "title": "OpenPSD",
+      "credit": "MakerLAB · Weill Cornell Medicine",
+      "partnerOrg": { "label": "Weill Cornell Medicine", "url": "https://weillcornell.org/" },
+      "year": null,
+      "link": "https://drive.google.com/file/d/1C9DQL_Aomn5D56YPLXHDm3Hepx8wAb0T/view?usp=sharing",
+      "notionText": "Developed in collaboration with the Otterburn Lab at Weill Cornell Medicine, this project reverse engineered a discontinued medical device used to measure sensory recovery following breast reconstruction. The resulting open source, handheld pressure sensing device provides a more accessible, clinician centered tool for evaluating nerve sensation and supporting future research and care.",
+      "description": "**OpenPSD** is an open-source, handheld pressure-sensing device, developed with the Otterburn Lab at Weill Cornell Medicine. The team reverse engineered a discontinued medical device used to measure sensory recovery after breast reconstruction, producing a more accessible, clinician-centred tool for evaluating nerve sensation.\n\nThe device has a **streamlined unibody** with a **contoured grip**, a thin brass-wire probe at the tip that the clinician presses against the skin, and **portable embedded hardware** inside the body that measures the applied pressure. The one-piece pink enclosure was most likely 3D printed.\n\nReverse engineering a discontinued instrument usually means measuring the original's behaviour, then rebuilding it with off-the-shelf sensors and a custom enclosure; making it open source means other clinics and researchers can build and adapt their own.\n\n**Tip:** for a handheld clinical tool, iterate the grip with quick test prints in the clinician's hand before finalising the electronics layout inside.",
+      "materials": ["PLA", "Brass wire", "Pressure sensor", "Embedded electronics"],
+      "tools": [
+        { "slug": "bambu-lab-x1-carbon-combo-3d-printer", "confidence": "medium", "reason": "The one-piece contoured pink enclosure looks FDM printed; the printer is not stated." },
+        { "slug": "hakko-fx-888d", "confidence": "medium", "reason": "Embedded sensing hardware inside the grip implies soldered electronics." }
+      ],
+      "images": [
+        { "file": "openpsd-1.jpg", "alt": "The pink OpenPSD handheld device pressing its brass-wire probe against the back of a hand, with labelled features", "source": { "notionAttachment": "attachment:a21df321-8400-4d96-9730-5bccb3aa62a1:Screenshot_2026-08-18_at_9.23.55_PM.png", "blockId": "3c0bf30d-e857-80e0-be73-ea6867ca3318", "property": "Attach file", "url": "https://teal-magpie-225.notion.site/image/attachment%3Aa21df321-8400-4d96-9730-5bccb3aa62a1%3AScreenshot_2026-08-18_at_9.23.55_PM.png?table=block&id=3c0bf30d-e857-80e0-be73-ea6867ca3318&spaceId=330bf30d-e857-8136-95a3-0003f199900e&cache=v2" } }
+      ]
+    },
+    {
+      "notionPageId": "3c0bf30d-e857-80df-b0b2-edc44ac83cf6",
+      "slug": "cpr-for-all",
+      "title": "CPR for All",
+      "credit": "MakerLAB · Weill Cornell Medicine",
+      "partnerOrg": { "label": "Weill Cornell Medicine", "url": "http://weillcornell.org" },
+      "year": null,
+      "link": "https://docs.google.com/document/d/1gkmYcTTO0PIlWtyfZw2mizAMThCbp_4k/edit?usp=sharing&ouid=117974507638759186546&rtpof=true&sd=true",
+      "notionText": "Developed in collaboration with Weill Cornell Medicine emergency physicians and the Pakistan Life Saver’s Program, this project created a low cost, digitally fabricated CPR training model for schoolchildren in Pakistan. The model provides immediate feedback on chest compression depth and rate, making CPR training more accessible in low resource settings.",
+      "description": "**CPR for All** is a low-cost, digitally fabricated CPR training model for schoolchildren in Pakistan, developed with Weill Cornell Medicine emergency physicians and the Pakistan Life Saver's Program. It gives immediate feedback on chest-compression depth and rate, making CPR training possible where full manikins are out of reach.\n\nThe prototype is a compression box: a top and bottom plate joined by a bolted scissor linkage, with a squishy green ball between them providing the resistance of a chest. Blue corner brackets hold the frame together, and an electronics board with sensors underneath measures how far and how fast the top is pressed.\n\nThe photos show two stages: the open frame on the cutting mat (Figure 2) and a closed version being tested with real compressions (Figure 3). \"Digitally fabricated\" suggests the plates and linkage were cut on a laser cutter from flat stock, which keeps the design cheap to reproduce anywhere with access to one.\n\n**Tips:** calibrate depth feedback against a real manikin before testing with students, and design the linkage so it bottoms out at a safe maximum depth.",
+      "materials": ["Cardboard", "Bolts and nuts", "Foam ball", "Microcontroller", "Sensors", "Jumper wires"],
+      "tools": [
+        { "slug": "epilog-helix-24-laser-8000-laser-system", "confidence": "medium", "reason": "Described as digitally fabricated; the flat plates and linkage with bolt holes look laser cut (could be the Trotec)." },
+        { "slug": "bambu-lab-x1-carbon-combo-3d-printer", "confidence": "low", "reason": "The blue corner brackets may be 3D printed, or may be tape; the photo is too small to tell." },
+        { "slug": "hakko-fx-888d", "confidence": "low", "reason": "The feedback electronics under the plate were probably soldered; mostly jumper wires are visible." }
+      ],
+      "images": [
+        { "file": "cpr-for-all-1.jpg", "alt": "The CPR trainer's bolted scissor frame with a green ball inside, and a student testing chest compressions on the closed prototype", "source": { "notionAttachment": "attachment:208cfe7b-a784-4586-b8bd-e9c0b7bbda30:Screenshot_2026-08-18_at_9.20.05_PM.png", "blockId": "3c0bf30d-e857-80df-b0b2-edc44ac83cf6", "property": "Attach file", "url": "https://teal-magpie-225.notion.site/image/attachment%3A208cfe7b-a784-4586-b8bd-e9c0b7bbda30%3AScreenshot_2026-08-18_at_9.20.05_PM.png?table=block&id=3c0bf30d-e857-80df-b0b2-edc44ac83cf6&spaceId=330bf30d-e857-8136-95a3-0003f199900e&cache=v2" } }
+      ]
+    }
+  ]
+}

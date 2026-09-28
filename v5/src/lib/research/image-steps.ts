@@ -1,5 +1,5 @@
 import { completeResearch, getPendingTool, type PendingTool } from "../data/pending-tools.ts";
-import { hasUploadedPhoto, releaseCleanedImages } from "../data/research-images.ts";
+import { releaseCleanedImages } from "../data/research-images.ts";
 import { getDb } from "../db/client.ts";
 import type { Db } from "../db/types.ts";
 import { IMAGE_STEP_MAX_RETRIES, IMAGE_STEP_TIMEOUT_MS, RESEARCH_STEP_MAX_RETRIES } from "../intake/limits.ts";
@@ -25,8 +25,11 @@ import type { ItemStepResult } from "./step-types.ts";
  * and the image hints the pages and Exa gave, and writes the item —
  * `researching` → `researched` — with `research.images` filled in:
  *
- * 1. **Skipped** when the item owns a photo the admin uploaded: that photo is
- *    the cover, and nothing is spent (`images: null`, no error).
+ * 1. **An uploaded photo changes nothing here.** A photo the admin added in
+ *    the chat identified the item; it is not the product image, and the stage
+ *    runs exactly as it does without one (amendment "An uploaded photo is a
+ *    choice, not the product image"). The review page offers the photo beside
+ *    what this stage finds, and approval cleans it if it is chosen.
  * 2. **Candidates** — page metadata images first, then the pages' JSON-LD and
  *    gallery pictures in turn, Exa only as a top-up, at most 10, size variants
  *    of one picture counted once.
@@ -132,9 +135,7 @@ async function findImagesFor(
   const db = await getDb();
   await releaseCleanedImages(db, id);
 
-  const outcome: StageOutcome = (await hasUploadedPhoto(db, id))
-    ? { images: null, imageError: null }
-    : await runStage(db, id, { name: result.canonicalName.trim() || item.name, brand: item.brand }, hints);
+  const outcome = await runStage(db, id, { name: result.canonicalName.trim() || item.name, brand: item.brand }, hints);
 
   return write(db, id, requestId, { ...result, images: outcome.images, imageError: outcome.imageError }, focus);
 }

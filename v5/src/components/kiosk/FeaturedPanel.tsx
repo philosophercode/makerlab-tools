@@ -20,20 +20,20 @@ export function FeaturedPanel({ item, className }: { item: KioskFeatured | null;
   const image = item.kind === "tool" ? item.imageSrc : item.coverSrc;
 
   return (
-    <section aria-labelledby="kiosk-featured" className={cn("flex min-h-0 flex-col gap-[1.5vmin]", className)}>
+    <section aria-labelledby="kiosk-featured" className={cn("flex min-w-0 flex-col gap-[1.5vmin]", className)}>
       <h2 id="kiosk-featured" className={KIOSK_TYPE.label}>
         {t("featuredHeading")} · {item.kind === "tool" ? t("featuredTool") : t("featuredProject")}
       </h2>
       <article
         key={`${item.kind}:${item.slug}`}
         data-kiosk-featured={item.slug}
-        className="flex min-h-0 flex-1 gap-[2vmin] overflow-hidden border border-border bg-card p-[1.5vmin] animate-in fade-in duration-1000 motion-reduce:animate-none"
+        className="flex min-w-0 items-start gap-[max(12px,2vmin)] border border-border bg-card p-[max(10px,1.5vmin)] animate-in fade-in duration-1000 motion-reduce:animate-none"
       >
-        <ToolImage src={image} name={name} sizes="20vmin" className="aspect-square h-full max-h-[22vmin] min-h-[10vmin] shrink-0" />
-        <div className="flex min-h-0 min-w-0 flex-col gap-[1vmin] overflow-hidden">
+        <ToolImage src={image} name={name} sizes="20vmin" className="size-(--kiosk-featured-thumb) shrink-0" />
+        <div className="flex min-w-0 flex-col gap-[1vmin]">
           <p className={cn(KIOSK_TYPE.body, "line-clamp-2 font-medium")}>{name}</p>
           {item.kind === "tool" ? (
-            <p className={cn(KIOSK_TYPE.small, "line-clamp-3 text-muted-foreground portrait:line-clamp-2")}>{item.shortDescription}</p>
+            <p className={cn(KIOSK_TYPE.small, "line-clamp-3 text-muted-foreground kiosk-wall:line-clamp-2 kiosk-phone:line-clamp-4")}>{item.shortDescription}</p>
           ) : (
             <>
               {item.author ? <p className={KIOSK_TYPE.small}>{t("featuredBy", { name: item.author })}</p> : null}

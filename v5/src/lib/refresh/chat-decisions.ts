@@ -15,6 +15,7 @@ import type { Db } from "../db/types";
 import type { InventoryWriteWarning } from "../inventory/result";
 import { requestManualArchive } from "../manuals/trigger";
 import { requestMirrorPush } from "../mirror/trigger";
+import { scheduleThumbnails } from "../images/schedule-thumbnails";
 import { applyProposals, refusalFor } from "./apply";
 import { applyToResearch, loadCurationSubject, pendingRecord } from "./curation";
 import { currentValue } from "./decide";
@@ -156,6 +157,8 @@ async function acceptForTool(group: ChatProposalRow[], ctx: ChatDecisionContext,
   }
   await rebaseSiblings(db, "tool", subjectId, baseRevision, applied.revision, acceptable.map((row) => row.proposal.field));
   if (applied.resourceIds.length > 0) await requestManualArchive(applied.resourceIds);
+  // An accepted cover photo gets its thumbnails once this has answered.
+  scheduleThumbnails({ owner: { ownerType: "tool", ownerId: subject.id } });
   await requestMirrorPush();
   return [...refused, ...results];
 }

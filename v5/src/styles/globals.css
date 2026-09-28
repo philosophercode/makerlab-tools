@@ -13,11 +13,12 @@
   --outline: #cfc6b8;
   --grid-dot: rgba(23, 23, 23, 0.08);
   /* The families are self-hosted by next/font (src/app/fonts.ts), which
-     defines the --font-space-grotesk / --font-inter / --font-jetbrains-mono
-     variables on <html>: the family name plus a metric-matched fallback. */
-  --font-display: var(--font-space-grotesk, "Space Grotesk"), "Arial Narrow", Arial, sans-serif;
-  --font-body: var(--font-inter, Inter), Arial, sans-serif;
-  --font-mono: var(--font-jetbrains-mono, "JetBrains Mono"), "SFMono-Regular", Consolas, monospace;
+     defines two variables per family on <html>: `-latin`, the preloaded Latin
+     face alone, then the Extended face (downloaded only for characters outside
+     Latin) with a metric-matched fallback. */
+  --font-display: var(--font-space-grotesk-latin, "Space Grotesk"), var(--font-space-grotesk, "Space Grotesk"), "Arial Narrow", Arial, sans-serif;
+  --font-body: var(--font-inter-latin, Inter), var(--font-inter, Inter), Arial, sans-serif;
+  --font-mono: var(--font-jetbrains-mono-latin, "JetBrains Mono"), var(--font-jetbrains-mono, "JetBrains Mono"), "SFMono-Regular", Consolas, monospace;
   --nav-height: 64px;
   --status-strip-height: 33px;
   --sticky-chrome-height: calc(var(--nav-height) + var(--status-strip-height));
@@ -541,7 +542,11 @@ body::selection {
      but the square shows only the glyph. */
   color: transparent;
   text-indent: -999px;
-  font-family: var(--font-mono);
+  /* The system font, not the mono webfont: each option is a language's name
+     in its own script (Русский, Türkçe, 日本語…), and drawing them in the
+     webfont made every page download its Latin Extended + Cyrillic file. The
+     text is transparent anyway; the open list is the platform's. */
+  font-family: system-ui, sans-serif;
   font-size: 12px;
   cursor: pointer;
   transition: border-color 160ms ease-in;

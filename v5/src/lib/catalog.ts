@@ -85,7 +85,9 @@ export async function getManualContents(toolId: string): Promise<ManualContents[
  */
 export async function getToolMaintenanceHistory(toolId: string): Promise<ToolMaintenanceEntry[]> {
   "use cache";
-  cacheTag("catalog");
+  // "maintenance" too (`MAINTENANCE_TAG`): filing or working a ticket drops
+  // the history without re-reading the whole catalogue.
+  cacheTag("catalog", "maintenance");
   cacheLife(CATALOG_CACHE);
 
   return listMaintenanceHistoryForTool(toolId, { db: await getDb(), limit: 10 });

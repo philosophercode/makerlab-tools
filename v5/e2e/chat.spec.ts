@@ -227,7 +227,8 @@ test.describe("Meet the MakerLAB Assistant", () => {
 
   test("is not on the kiosk", async ({ page }) => {
     await page.goto("/kiosk");
-    await expect(page.locator("[data-kiosk]")).toBeVisible();
+    // The screen itself, not the loading state (both carry data-kiosk).
+    await expect(page.locator("[data-kiosk-main]")).toBeVisible();
     await expect(callout(page)).toHaveCount(0);
   });
 });
