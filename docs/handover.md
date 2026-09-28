@@ -131,9 +131,33 @@ Blocking or removing someone is on the same page.
 Environment variables in Vercel, no code change: `NEXT_PUBLIC_SITE_NAME`,
 `NEXT_PUBLIC_INSTITUTION`, `NEXT_PUBLIC_TAGLINE`, `NEXT_PUBLIC_LOGO`,
 `NEXT_PUBLIC_COLOR_PRIMARY`, `NEXT_PUBLIC_COLOR_PRIMARY_DARK`,
-`NEXT_PUBLIC_CHAT_ASSISTANT_NAME`, and `AUDIENCE`. Full explanations in
-`v5/.env.example`. **Redeploy after changing any variable** — a deployment only sees the
-values it was built with.
+`NEXT_PUBLIC_CHAT_ASSISTANT_NAME`, and `AUDIENCE`. The lab hours shown in the header and on
+the lab screen are `NEXT_PUBLIC_LAB_HOURS` (one line of text, default `LAB OPEN 9AM-9PM`).
+Full explanations in `v5/.env.example`. **Redeploy after changing any variable** — a
+deployment only sees the values it was built with.
+
+### Run the lab status screen (`/kiosk`)
+
+`/kiosk` is a full-screen, read-only status page for the TV at the front of the lab and the
+ISAM booth iPad (kiosk spec, phase 1). Nobody signs in on it. It shows which machines are
+down or under maintenance (from each unit's status), the number of open tickets, the lab
+hours, a rotating featured tool or published student project (author as "Maya R."), and a
+large QR code that opens the catalogue with the assistant on the viewer's own phone
+(`/?src=kiosk&ask=1`). It refreshes itself every minute through `GET /api/kiosk`, keeps its
+last data if the network drops (an amber bar says so after three minutes), shifts a few
+pixels every five minutes against burn-in, and reloads itself at 04:00 so a deploy reaches
+it.
+
+- **TV:** open `https://makerlab-ai.vercel.app/kiosk` in the TV's browser and make it full
+  screen (F11 or the browser's kiosk mode). Turn off the TV's own sleep/screensaver.
+- **iPad:** open the same address in Safari → Share → **Add to Home Screen**, open it from
+  the home screen, then Settings → Accessibility → **Guided Access** on (triple-click to
+  start) and Settings → Display & Brightness → **Auto-Lock: Never**. Landscape or portrait
+  both work.
+- `?lang=fr` (any supported language) changes the screen's language; otherwise it is always
+  English, whatever the device is set to.
+- **It is only as current as the unit statuses.** A broken machine nobody marked in
+  **Admin → Inventory** still shows as running.
 
 ### Check the nightly backup is still running
 

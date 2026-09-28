@@ -8,6 +8,7 @@ import {
 import { listManualContentsForTool, type ManualContents } from "./data/manual-documents";
 import { listMaintenanceHistoryForTool, type ToolMaintenanceEntry } from "./data/maintenance";
 import { dataSubstrate, getDb } from "./db/client";
+import { siteConfig } from "./site-config";
 import type { CatalogStats, MakerLabTool } from "../components/catalog-types";
 import type { PaletteTool } from "../components/palette/palette-types";
 
@@ -45,7 +46,8 @@ export async function getCatalogStats(): Promise<CatalogStats> {
 
   return {
     toolsInInventory: await countPublishedTools(),
-    labHours: "LAB OPEN 9AM-9PM",
+    // Configuration, not a literal in a query module (Article 6; kiosk spec §4.1).
+    labHours: siteConfig.labHours,
   };
 }
 

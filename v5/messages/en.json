@@ -2307,5 +2307,36 @@
         "mirror": "Notion mirror"
       }
     }
+  },
+  "kiosk": {
+    "title": "Lab status",
+    "clockLabel": "Time now",
+    "hoursLabel": "Hours",
+    "machinesHeading": "Machines",
+    "allRunning": "All machines running",
+    "unitsInService": "{count, plural, one {# machine in service} other {# machines in service}}",
+    "downCount": "{down} of {total} down",
+    "allDown": "{total, plural, one {Down} other {All # down}}",
+    "stateUnderMaintenance": "Under maintenance",
+    "stateOutOfService": "Out of service",
+    "stateMixed": "Down for service",
+    "moreDown": "+{count} more down",
+    "ticketsHeading": "Open tickets",
+    "ticketsWorking": "{count} being worked on",
+    "ticketsWaiting": "{count} waiting",
+    "ticketsUnavailable": "Not available",
+    "askHeading": "Ask the assistant on your phone",
+    "qrLabel": "QR code that opens {url}",
+    "featuredHeading": "Featured",
+    "featuredTool": "Tool",
+    "featuredProject": "Student project",
+    "featuredBy": "by {name}",
+    "builtWith": "Built with {tools}",
+    "updated": "Updated {time}",
+    "staleBar": "Can't reach the server — showing {time}",
+    "offlineBar": "Offline — showing {time}",
+    "demo": "Demo data",
+    "unavailableTitle": "Lab status is unavailable right now",
+    "unavailableBody": "The assistant still works: scan the code to ask it."
   }
 }

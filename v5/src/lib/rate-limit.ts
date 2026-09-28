@@ -211,6 +211,10 @@ export const ROUTE_TIERS = {
   // What a proposal card re-reads on mount (`GET /api/action-proposals`). Its
   // own bucket, so an inbox of many cards never spends the Confirm clicks'.
   actionProposalRead: { limit: 300, windowMs: 60_000 },
+  // The kiosk's poll (kiosk spec §8): a screen asks once a minute, so twenty
+  // covers a lab or a booth full of screens behind one address. Keyed by
+  // hashed IP only — the route reads no cookie.
+  kiosk: { limit: 20, windowMs: 60_000 },
 } as const;
 
 export type RouteScope = keyof typeof ROUTE_TIERS;

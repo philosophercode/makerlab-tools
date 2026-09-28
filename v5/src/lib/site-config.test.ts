@@ -25,6 +25,7 @@ describe("site-config", () => {
       delete process.env.NEXT_PUBLIC_LOGO;
       delete process.env.NEXT_PUBLIC_COLOR_PRIMARY;
       delete process.env.NEXT_PUBLIC_COLOR_PRIMARY_DARK;
+      delete process.env.NEXT_PUBLIC_LAB_HOURS;
 
       vi.resetModules();
       const { siteConfig } = await import("@/lib/site-config");
@@ -37,6 +38,7 @@ describe("site-config", () => {
       expect(siteConfig.chatAssistantName).toBe("MakerLab Assistant");
       expect(siteConfig.audience).toBe("students who may be beginners");
       expect(siteConfig.logo).toBe("/makerlab-logo-transparent.png");
+      expect(siteConfig.labHours).toBe("LAB OPEN 9AM-9PM");
       expect(siteConfig.colors).toEqual({
         primary: "#ff6b35",
         primaryDark: "#cc4f1f",
@@ -54,6 +56,7 @@ describe("site-config", () => {
       vi.stubEnv("NEXT_PUBLIC_LOGO", "/acme-logo.svg");
       vi.stubEnv("NEXT_PUBLIC_COLOR_PRIMARY", "#123456");
       vi.stubEnv("NEXT_PUBLIC_COLOR_PRIMARY_DARK", "#0a1a2a");
+      vi.stubEnv("NEXT_PUBLIC_LAB_HOURS", "Mon–Fri 10am–6pm");
 
       vi.resetModules();
       const { siteConfig } = await import("@/lib/site-config");
@@ -64,6 +67,7 @@ describe("site-config", () => {
       expect(siteConfig.chatAssistantName).toBe("Acme Helper");
       expect(siteConfig.audience).toBe("expert machinists");
       expect(siteConfig.logo).toBe("/acme-logo.svg");
+      expect(siteConfig.labHours).toBe("Mon–Fri 10am–6pm");
       expect(siteConfig.colors).toEqual({
         primary: "#123456",
         primaryDark: "#0a1a2a",
@@ -79,6 +83,15 @@ describe("site-config", () => {
 
       expect(siteConfig.name).toBe("Just The Name");
       expect(siteConfig.institution).toBe("Cornell Tech");
+    });
+
+    it("treats an empty NEXT_PUBLIC_LAB_HOURS as unset, so the header never shows a blank", async () => {
+      vi.stubEnv("NEXT_PUBLIC_LAB_HOURS", "");
+
+      vi.resetModules();
+      const { siteConfig } = await import("@/lib/site-config");
+
+      expect(siteConfig.labHours).toBe("LAB OPEN 9AM-9PM");
     });
   });
 });
