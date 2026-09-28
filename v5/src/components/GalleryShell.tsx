@@ -256,7 +256,7 @@ export function GalleryShell({ tools }: GalleryShellProps) {
               <section key={section.key} aria-labelledby={id} data-slot="gallery-section">
                 <h2
                   id={id}
-                  className="sticky top-[var(--gallery-sticky-top,64px)] z-10 mb-3 flex items-baseline justify-between gap-3 border-b border-rule bg-background py-2 font-mono text-label tracking-[0.08em] uppercase"
+                  className="sticky top-[var(--gallery-sticky-top,var(--nav-height))] z-10 mb-3 flex items-baseline justify-between gap-3 border-b border-rule bg-background py-2 font-mono text-label tracking-[0.08em] uppercase"
                 >
                   <span>{section.label}</span>
                   <span className="text-muted-foreground tabular-nums">{t("sectionCount", { count: section.tools.length })}</span>
