@@ -618,7 +618,7 @@ for people is in `docs/assistant.md`.
   "Proposals in this conversation" (`lib/chat/proposal-outcomes.ts`, the
   caller's rows in this chat) — the model says something was done only when
   that block says confirmed.
-- **Page context** (phase 3): `ChatFab` sends `page: { path, selection? }`
+- **Page context** (phase 3): `ChatPanel` sends `page: { path, selection? }`
   (the ticked ids, from `usePublishSelection` in `components/chat/page-selection.tsx`,
   read at send time). `lib/actions/page-context.ts` matches the path against
   `PAGE_CONTEXTS`, checks the page's own permission, keeps only uuids of the
@@ -895,7 +895,7 @@ creates a tool (Article 5).
   saved through `updateTool` with the revision check), and the catalogue
   carries them as `MakerLabTool.starterQuestions`. The tool page renders
   `ToolChatStarters`, which registers them with `ChatLauncherContext`;
-  `ChatFab` shows them as its chips while the path still names that tool (slug
+  `ChatPanel` shows them as its chips while the path still names that tool (slug
   or id), and the generic, translated chips everywhere else and for a tool
   with none. The questions are data, English as written. Not carried by the
   Notion mirror (a new property would put existing mirrors in
@@ -1346,6 +1346,96 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   embedding })`). The live retrieval eval is a `.livecheck` script (results in
   the spec's phase-2 amendment).
 
+## Performance conventions (performance plan, 2026-09-28)
+
+What keeps pages and the assistant quick. Each is guarded by a test; break one
+and say why in the PR.
+
+- **Client translations are sent per layout** (`src/i18n/client-messages.ts`).
+  The root `NextIntlClientProvider` sends only `PUBLIC_CLIENT_MESSAGES` (the
+  public namespaces plus the few `admin.*` subtrees the header, ⌘K palette,
+  chat cards and Edit control show staff); `app/admin/layout.tsx` adds `admin`
+  and `app/account`, `app/oauth` and `app/mcp` layouts add `account`, through
+  `ScopedMessages` → the client `MessagesScope`, which merges onto the
+  parent's messages. Server components read everything with
+  `getTranslations`. **A client component that uses a new namespace needs it
+  listed there**: `client-messages.test.ts` reads every client component's
+  `useTranslations` calls and names the key its layout does not send.
+- **The chat's code loads on demand.** `ChatFab` is only the launcher button;
+  `chat/ChatPanel` (the sheet, `useChat`, the transport, the composer, the
+  messages) is `next/dynamic` loaded on the first open or seeded message,
+  warmed on idle (not with Save-Data) and on pointer/focus of the button, and
+  stays mounted once loaded. `ChatMessage` lazy-loads its cards (intake table,
+  proposals, actions, imports). Never import `ai` / `@ai-sdk/react` from a
+  component outside `chat/ChatPanel`, or the AI SDK (with all of zod and its
+  locales, ~140 KB gz) is back in every page's first load. `useChat` runs with
+  `experimental_throttle: 50` and `ChatMessage` is memoised
+  (`chat/ChatPanel.perf.test.tsx`).
+- **The chat prompt is stable first, per-request last**
+  (`capabilities/chat-adapter.ts`): the intro, every capability's
+  `promptFragment`, the reading and citing rules, then `# This conversation`
+  with the language, the focused tool and its resources, and every
+  capability's optional `conversationFragment` (the signed-in reporter's
+  name, the focused tool's manual outlines, a curation record); the route
+  appends attached manuals, the page context and proposal outcomes after it.
+  **A `promptFragment` must not vary by caller, page or locale** — only by
+  role — or the provider's prefix cache misses; put per-request text in
+  `conversationFragment`. The catalog listing and the linking rules are the
+  catalog capability's and appear once. "What do you have" is answered from
+  the listing, not `list_tools`.
+- **Chat call options** come from `chatProviderOptions()` (`ai/models.ts`):
+  `openai.reasoningEffort` `low` (`MODEL_CHAT_REASONING`: `default` sends
+  none, or `none`/`minimal`/`low`/`medium`/`high`) and `openai.promptCacheKey`
+  `makerlab-chat-v1` (`MODEL_CHAT_CACHE_KEY`, `off` sends none; bump the
+  suffix when the stable prompt changes shape), plus the tier. The evals pass
+  the same options — run `npm run eval` after changing either.
+- **The chat route waits on as little as possible**: identity and the body
+  together; rate limit, page context, outcomes, catalogue, focused tool and
+  curation in one `Promise.all`; manual outlines and resources together; the
+  manual PDFs fetched **inside the stream**, in parallel, and kept for ten
+  minutes per URL (`chat/manual-pdf-cache.ts`; tests call
+  `clearManualPdfCache()`). The real fix for PDF latency is processing the
+  manuals: after deploying, run `npm run manuals:index` against production so
+  `search_manual` answers and nothing is attached.
+- **Polling is `usePoll(tick, ms, active)`** (`components/admin/use-poll.ts`):
+  ticks are skipped while `document.hidden`, one fires when the tab is shown
+  again after a missed one, and an async tick is never overlapped. Never write
+  a bare `setInterval(router.refresh)`.
+- **Who is asking, once.** `resolveIdentityFromHeaders` is wrapped in React
+  `cache()`: layouts and pages may each call it and pay for one session read
+  per request. In the browser, `loadSharedIdentity()` / `useSharedIdentity()`
+  (`lib/auth/identity-store.ts`) share one `/api/identity` request per page
+  load between the header, the palette, the Edit control and the project form
+  — never call `fetchIdentity` from a component.
+- **List reads are list-shaped.** The gallery gets `GalleryTool`
+  (`toGalleryTool`, card/table/search/facet fields, units as statuses); the
+  intake list `listIntakeQueueSummaries` (no research blobs, imports filtered
+  in SQL); the refresh list no research; the `/admin` inventory tile
+  `countInventory` (one statement; a parity test ties it to
+  `listInventoryRows`). The admin palette scope sends only the drafts
+  (`getDraftPaletteTools`, cached under `catalog`), loaded in its own Suspense
+  boundary, so `AdminGate` never waits on it. The refresh picker reads its
+  tools when it opens (`loadRefreshPickerTools`).
+- **Editor saves are one round trip.** `saveTool` and the photo actions answer
+  with the tool as it now stands (`inventory/fresh-editor.ts`), and `saveTool`
+  re-renders `/admin/inventory` only when a column the table shows changed.
+  Mirror pushes run after the response (`mirror/after-response.ts`).
+- **Every page has a loading state shaped like it.** Public routes with
+  dynamic data have a `loading.tsx` (`system/PublicPageLoading`: `tool`,
+  `cards`, `page`); every admin page folder has one with an
+  `AdminPageLoading shape` (`tiles`, `table`, `detail`, `page`).
+- **Function traces stay small** (`next.config.ts`
+  `outputFileTracingExcludes`): `public/`, local data folders, TypeScript
+  sources, docs and tests never ship in a function, and PGlite — loaded with
+  `import()` in `db/client.ts` — is left out when the build has
+  `DATABASE_URL`. A function that needs a file at runtime must not live under
+  an excluded glob.
+- **Manual search uses its indexes** (`manuals/search.ts`): visibility is a
+  per-document CTE, full text goes through GIN, the part-number regex runs
+  only on GIN candidates, and an unscoped vector leg reads HNSW with
+  `hnsw.ef_search` raised in its own transaction; a scoped one stays exact.
+  Never reference a CTE holding passages from more than one place.
+
 ## Key files
 
 | Path | Purpose |
@@ -1454,7 +1544,7 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/app/admin/mirror/` + `src/components/admin/Mirror*.tsx` | The settings page, its seven server actions, and the four islands (`MirrorConnect`, `MirrorMapping`, `MirrorStatus`, `MirrorControls`) |
 | `test/fakes/notion-fake.ts` | The in-memory Notion every mirror test (and the E2E stub) talks to |
 | `src/app/api/admin/revalidate/route.ts` | Cache invalidation (`tools.edit`, or `x-admin-secret` for session-less callers) |
-| `src/components/ChatFab.tsx` | Chat UI: `useChat` and its transport, the docked `Sheet`, the launchers (the floating button on public pages only); starter chips are the tool's own on its page (`ToolChatStarters` → `ChatLauncherContext`), else the generic three. Its parts live in `src/components/chat/` (`ChatMessage`, `ChatResponse` with manual citations, `ChatComposer`, `use-chat-attachments` for photo/list uploads, `use-dictation`, `AskAssistantButton`) on AI Elements in `src/components/ai-elements/` |
+| `src/components/ChatFab.tsx` / `src/components/chat/ChatPanel.tsx` | Chat UI. `ChatFab` is the launcher (the floating button on public pages only) and loads `ChatPanel` on demand: `useChat` and its transport, the docked `Sheet`; starter chips are the tool's own on its page (`ToolChatStarters` → `ChatLauncherContext`), else the generic three. Its parts live in `src/components/chat/` (`ChatMessage`, `ChatResponse` with manual citations, `ChatComposer`, `use-chat-attachments` for photo/list uploads, `use-dictation`, `AskAssistantButton`) on AI Elements in `src/components/ai-elements/` |
 | `src/lib/starter-questions.ts` / `scripts/generate-starter-questions.ts` | A tool's assistant starter questions — the cleaning rules, and the backfill for tools that have none |
 | `src/lib/tool-names.ts` / `scripts/backfill-display-names.ts` | A tool's display and official names — the display rules and guard, and the backfill that shortens imported names |
 | `src/lib/tool-name-brand.ts` / `tool-name-choice.ts` / `display-name-rules.ts` / `data/tool-name-clash.ts` | Bare-brand refusal and category nouns; unique names with the distinguishing spec; the one rules text the prompts share; the `duplicate_name` read |
@@ -1525,7 +1615,7 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   header on every page (`HeaderSearch`): published tools from the root layout
   (`getPaletteTools`), the role from `PrimaryNav`'s identity
   (`lib/auth/identity-store.ts`), and on admin pages the server-resolved role
-  and draft index via `PaletteScope`. Floating menus use `FROSTED`
+  and the drafts via `PaletteScope`, added to the published list. Floating menus use `FROSTED`
   (`system/frosted.ts`). The root always shows its scrollbar so the header
   never moves (`e2e/header-stability.spec.ts`). Save-on-click controls report
   "Saved" in a reserved `SaveSlot` (`admin/RowStatus.tsx`). The tool page is
