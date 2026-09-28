@@ -749,3 +749,151 @@ stub gained a reranking seam (`rerankingModelFor` keeps the given order unless a
   upload scans often.
 - **Migration numbering.** Written as `0018`; renumbered `0019` when "Add person"
   (`0018_people_add`) merged first.
+
+### 2026-09-28 — Citations always resolve; research follows download pages to the PDF (§3.6, §3.7, §6, §8, §10)
+
+Two owner reports from the live site. **(1)** "When it would cite a PDF, clicking the
+citation went to an unknown document or an unknown blob — the link was broken, or it didn't
+link to the right article, or hallucinated." Seen on the Bambu Lab X1-Carbon page: "My print
+isn't sticking to the plate" got a citation labelled *Bambu Lab X1-Carbon Combo 3D Printer
+- SOP, p. 9* whose link opened Bambu's *Quick Start Guide for X1-Carbon.pdf*. **(2)**
+"Sometimes the research agent saves the URL but the page is a PDF embedded in a website
+with a download button; it stops one step before. If it's near a download page for the
+manual, click the download and download the manual." Also: stored links carry tracking
+parameters (`?utm_source=chatgpt.com`).
+
+**Root cause of (1), with evidence.**
+
+- **The model typed the citation's address, and the chat linked whatever it typed.**
+  `search_manual` built each passage's `url` correctly — from `attachments.public_url`, in
+  the same SQL row as the document's title — but §3.6's prompt told the model to *copy* it
+  into a Markdown link, and `ChatResponse` drew every link: a tool URL as a citation,
+  "anything else" as an ordinary link. A hosted manual URL is ~180 characters ending in two
+  random suffixes (`…/cacfee3b-…-dTQAmC4fMDlsPrtEOUnX-y1OIJa0TNQV6O1MwOXKUnDm2IF3qju.pdf`:
+  the local store's, then `data:push`'s); a model that retypes it wrong by one character
+  produces a 404 on the Blob store that is drawn exactly like evidence — the "unknown
+  blob". The prompt's own example address was the placeholder `https://…/manual.pdf#page=42`.
+- **Most manuals had no tool result at all.** On the hosted site only **34** manuals are
+  searchable (read-only scan of all 101 public tool pages on 2026-09-28); the rest —
+  the Form 4's and the X1-Carbon's among them, **15 pages** link a manufacturer PDF with no
+  archived copy — are attached whole (§3.6 fallback). There the system prompt lists each
+  manual's title and address, and the model writes the `#page=N` and the label itself. The
+  X1-Carbon case is this path: the resource titled *…- SOP* **is** the Quick Start Guide
+  (its stored URL is `cdn1.bambulab.com/…/Quick Start Guide for X1-Carbon.pdf?utm_source=chatgpt.com`),
+  so the model's label (the resource's title) and the file disagree. That row is a data
+  error to fix by hand; the code now never lets a model-written label or page stand as a
+  citation.
+- **Not the Blob store rewrite, today.** The hypothesis that `data:push` left stale URLs
+  after the stores were deleted and recreated on 2026-09-27 was checked: every one of the
+  1,628 Blob URLs on the 101 public pages is on the new store (`9oamtafdsnh6jn7l`) and all
+  34 distinct manual PDFs answer 200 `application/pdf`; `manual_documents`, `manual_pages`
+  and `manual_chunks` store no URL (search joins `attachments` at query time). The gap was
+  real, though: `data:push` rewrote only local-store URLs and left any URL already on *a*
+  Vercel store alone as "already works on the hosted site" — true only while that store
+  exists — and every re-push gives every file a new URL, so a conversation open across the
+  re-push, or any copy of a URL outside `attachments`, pointed at the deleted store.
+- **The eval could not see any of it.** Its fixture manuals had `https://eval.blob.test/…`
+  addresses that never resolve, and `cites_page` only pattern-matched `#page=N`.
+
+**(1) as built — a citation is the tool's, or it is not a link.**
+
+- **Refs, not addresses.** Every `search_manual` passage carries a `ref` —
+  `<first 8 hex of the document id>-<page>`, e.g. `3f2a9c10-42`
+  (`manuals/citation-ref.ts`) — beside its `citation` and `url`. The chat prompt has the
+  model cite as `[words (citation)](#cite-<ref>)` and **never** write a manual address, a PDF
+  link or a `#page=` link. MCP clients still get the `url`.
+- **The chat links only what a tool returned** (`classifyLink` in
+  `components/chat/manual-citations.ts`): a `#cite-<ref>` or a passage's exact URL is a
+  citation opening the **tool's** URL; the route's new `data-manual-links` part (the
+  attached manuals' stored addresses) may be linked as a *document*, with any `#page=` the
+  model added dropped; a site path is internal; **any other manual-looking address** — a
+  PDF, a `#page=` anchor, a Blob or local-store URL, a ref that matches nothing — is drawn
+  as its words, marked `data-slot="unverified-citation"` with the `chat.unverifiedCitation`
+  tooltip, and is **not a link**. Ordinary web pages stay ordinary links.
+- **The label comes from the same row as the URL.** A citation's words lose any
+  "(<document>, p. N)" the model wrote (`citationPhrase`); the page mark, the card and
+  *Sources* show the passage's own `citation` (`manual_documents.title` + page), so "SOP,
+  p. 9" can never label a link to another document.
+- **Attached manuals** (not searchable): the prompt says to cite their pages as plain text
+  and to link only the listed address, never with `#page=`.
+- **`data:push` rewrites every column that can hold a Blob URL.** Every column of every
+  table already went through `rewriteUrls`; it now also treats a public URL on a Blob store
+  that is **not the target's** (`storeHosts` from the env file's `BLOB_READ_WRITE_TOKEN` /
+  `BLOB_STORE_ID`) as a file to carry: from `.blob-data/` when it is there, else fetched
+  from its URL while that answers, else reported (a refusal unless
+  `--allow-missing-files`). An earlier push's copy on another store is never reused, and
+  the run warns about any row that still names one. `push-hosted/url-columns.test.ts` scans
+  the Drizzle schema for **every** text, varchar, text[] and jsonb column and proves a local
+  and an old-store URL in each is rewritten; the url-named columns are pinned so a new one
+  is a reviewed change.
+- **Repair for already-pushed data: `npm run blob:repoint`** (`push-hosted/repoint.ts`).
+  `-- --to .env.hosted` reports (dry run, the default) every value in any string column of
+  the hosted database that names a Blob store other than the deployment's, and the current
+  copy it would point at — matched by pathname **stem** (the pathname without its random
+  suffixes; one current attachment per stem, else reported and left alone). `--apply`
+  rewrites them in one transaction, page anchors kept. An `attachments` row whose own file
+  is on the old store is listed for `data:push`, not re-pointed.
+
+**(2) as built — follow the download page to the PDF.**
+
+- **Finder** (`manuals/pdf-links.ts`, pure): a page's PDF candidates, best first — a
+  PDF.js viewer's `?file=`, an `<iframe>`/`<embed>`/`<object>` PDF, a Google Drive file
+  (`/file/d/<id>/view` → `uc?export=download&id=`), a Dropbox share (`?dl=1`), a `.pdf` link
+  or `data-*` attribute, a link with `download`, a meta refresh, then links whose words say
+  Download / Manual / User Guide / PDF (pages to follow). Only the landing page's own site
+  or a known file host (Drive, Dropbox, CloudFront, S3, Azure, Akamai, Shopify, Bambu's
+  CDN, …); a candidate whose address or link words are not English is dropped.
+- **Resolver** (`manuals/resolve-pdf.ts`): opens the link through the SSRF-guarded fetch
+  (new `stopAfterBytes`: only the first 3 MB are read); a PDF is a 200 typed
+  `application/pdf` (or a generic binary type on a `.pdf` address or attachment name)
+  **whose bytes open `%PDF-`**, never over `MAX_MANUAL_BYTES` (25 MB, the archive's).
+  Otherwise it follows the page's candidates breadth-first, **at most 2 hops**, 5
+  candidates a page, 10 requests in all, 10 s each.
+- **In research** (`research/resolve-manual-links.ts`, from `engine.ts` after link
+  verification): up to 2 verified **Manual** links that are not PDFs are resolved; on
+  success the Manual becomes the PDF's address and the page is kept beside it as an
+  "Other" link "… — download page". A link that does not resolve is kept as it was.
+- **Backfill: `npm run manuals:resolve-links`** (`manuals/link-backfill.ts`): every Manual
+  resource with a web link and no stored PDF; dry run by default (what it would change and
+  why not for the rest); `--apply` points each at its PDF and adds the download page, then
+  the nightly archive copies the file and `npm run manuals:index` makes it searchable.
+  Target: `DATABASE_URL`, else `PGLITE_DATA_DIR`. Dry-run against a throwaway PGlite seeded
+  from the HTML fixtures: 4 checked, 3 resolved (support hub → iframe viewer, PDF.js
+  viewer, Download button), 1 left (no PDF on the page).
+
+**Tracking parameters.** `web/tracking-params.ts` strips `utm_*`, the ad and mail click
+ids (`gclid`, `fbclid`, `msclkid`, `mc_cid`, `_hsenc` …) and YouTube's/Spotify's `si`,
+keeping every other parameter and the fragment. Applied where links are saved: research's
+`uniqueLinks`, `createResource`/`updateResource`, `createToolRecord` (approval) and an
+imported item's lab documents. **Backfill: `npm run resources:clean-urls`** — dry run by
+default, `--apply` cleans stored links and re-keys each archived copy
+(`manual:<resource>:<url>`) so it stays the resource's current PDF. The hosted pages show 4
+tracked links today.
+
+**§10 — "citations resolve".** One pure check (`manuals/citation-check.ts`, with
+`citation-evidence.ts` gathering what it judges) says, for every manual-looking link in an
+answer: (1) it came from a `search_manual` result; (2) it answers 200 `application/pdf` with
+`%PDF-`; (3) its `#page=N` is within the PDF's page count; (4) the passage's opening words
+are on that page of `manual_pages`; (5) words carrying a citation name the document and page
+the link opens. It backs the eval assertion **`citations_resolve`** (new case file
+`evals/cases/citations-resolve.yaml`: two questions on the Form 4's page, two from the
+gallery) and a non-paid integration test in `app/api/chat/manual-search.route.test.ts`
+(real `search_manual` on seeded passages, PDFs served by MSW). The eval's manuals are now
+real PDFs in a local Blob store served on 127.0.0.1 (`evals/local-blob-server.ts`), and
+`cites_page` reads `#cite-` refs through the recorded tool output.
+
+**Eval run, 2026-09-28** (`EVAL_CASES=citations-resolve`, `openai/gpt-6-luna`, once): 3/4
+passed. Every answer cited with `#cite-` refs only, and every cited PDF resolved at a page
+it has with the passage on it; the fourth failed only on the label check being too strict
+("Form Wash Guide, p. 3" for "Form Wash Guide (scanned), p. 3"). The check now accepts a
+shortened title of the same document (two words or more), with that answer as a unit test;
+the case was not re-run.
+
+**Not done / open.**
+
+- **Hosted data is not touched by this change.** The owner runs `blob:repoint` (dry run,
+  then `--apply` if it lists anything), `resources:clean-urls` and `manuals:resolve-links`
+  against production, then the nightly archive and `manuals:index`.
+- **The X1-Carbon "SOP" resource** points at Bambu's Quick Start Guide — a data fix for
+  staff (retitle it, or link the lab's SOP).
+- **Google Drive's large-file warning page** (a confirm form) is not followed.

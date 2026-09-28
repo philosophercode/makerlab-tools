@@ -8,6 +8,7 @@ import type {
 import { languageNameForLocale } from "../../i18n/config";
 import { newTurnState, readsOutsideContent } from "../chat/taint";
 import { siteConfig } from "../site-config";
+import { LAB_CONTEXT } from "../ai/lab-context";
 import type { MakerLabTool } from "../../components/catalog-types";
 
 /**
@@ -83,7 +84,9 @@ export function buildSystemPrompt(
   env: PromptEnv
 ): string {
   const { tools, focusedTool, locale } = env;
-  const sections: string[] = [introSection(), linkingSection()];
+  // The lab context is static: it goes right after the intro, in the prompt's
+  // cacheable prefix, before anything that varies by request.
+  const sections: string[] = [introSection(), LAB_CONTEXT, linkingSection()];
 
   for (const capability of capabilities) {
     const fragment = capability.promptFragment(env).trim();
@@ -131,7 +134,7 @@ export function composeChat(
 // ── Prompt sections (parity with the original chat route) ───────────
 
 function introSection(): string {
-  return `You are the ${siteConfig.chatAssistantName} — a friendly, knowledgeable helper for ${siteConfig.audience} using the ${siteConfig.institution} MakerLab. Answer questions about lab tools, training requirements, safety, materials, and which machines are right for a given project. Be concise, accurate, and grounded only in the catalog provided below. If the user asks about a tool that isn't in the catalog, say so honestly.`;
+  return `You are the ${siteConfig.chatAssistantName} — a friendly, knowledgeable helper for ${siteConfig.audience} using the ${siteConfig.institution} MakerLAB. Answer questions about lab tools, training requirements, safety, materials, and which machines are right for a given project. Be concise, accurate, and grounded only in the catalog and the lab context provided below. If the user asks about a tool that isn't in the catalog, say so honestly.`;
 }
 
 function linkingSection(): string {

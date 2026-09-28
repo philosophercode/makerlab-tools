@@ -91,7 +91,7 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   });
   await expect(chat.getByRole("button", { name: "Remove domino-bench.png" })).toBeVisible({ timeout: 15_000 });
 
-  await chat.getByRole("textbox", { name: "Ask the lab console" }).fill(IDENTIFY_PROMPT);
+  await chat.getByRole("textbox", { name: "Ask the MakerLAB Assistant" }).fill(IDENTIFY_PROMPT);
   await chat.getByRole("button", { name: "Send" }).click();
 
   const card = chat.getByRole("region", { name: "Identified equipment" });

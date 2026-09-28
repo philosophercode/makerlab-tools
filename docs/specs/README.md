@@ -40,6 +40,7 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 | [Official and Display Names](2026-09-24-tool-display-names-design.md) | `tools.official_name`; backfill with `npm run names:backfill` |
 | [Manual Text and Search](2026-09-23-manual-text-and-search-design.md) | Phases 1–3: page text, passages, embeddings, `search_manual`; OCR for scanned PDFs, reranking, `halfvec` storage. Re-index with `npm run manuals:index` |
 | [Assistant–GUI Parity](2026-09-27-assistant-gui-parity-design.md) | Phases 1–8 on `v5/assistant-gui-parity` (one PR; merges before #79): `src/lib/actions/` and `performAction`, proposing tools and the confirmation card, page context, taint, MCP proposals and the `/admin/proposals` inbox. What the assistant can do, for users: [`assistant.md`](../assistant.md) |
+| [MakerLAB Identity](2026-09-28-makerlab-identity-design.md) | MakerLAB / MakerLAB Tools / MakerLAB Assistant naming, the wordmark header, the assistant's first-visit callout and operate/debug/create starters, the "Where you are" prompt block (`src/lib/ai/lab-context.ts`), the About page |
 | [Operational Hardening](2026-07-29-operational-hardening-design.md) | Health endpoint, demo banner, nightly backup with tiered retention, staff refresh, backup heartbeat. Phase 2 (uptime monitor) is account setup in [`operations.md`](../operations.md); phase 6 (Notion webhook) superseded |
 
 ### Mostly implemented — open work named

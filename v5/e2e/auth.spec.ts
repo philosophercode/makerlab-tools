@@ -37,7 +37,7 @@ test.describe("Sign-in", () => {
     await page.goto("/");
 
     await expect(
-      page.getByRole("heading", { name: "TOOLS // MACHINES" })
+      page.getByRole("heading", { name: "Tools", exact: true })
     ).toBeVisible();
 
     await page

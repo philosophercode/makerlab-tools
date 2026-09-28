@@ -88,7 +88,7 @@ async function headerFits(page: Page): Promise<string[]> {
   });
 }
 
-for (const width of [1024, 1280]) {
+for (const width of [1024, 1280, 1440]) {
   test(`the one-row bar fits at ${width}px, signed in and not`, async ({ page, context, baseURL }) => {
     await page.setViewportSize({ width, height: 800 });
     await page.goto("/");
@@ -105,7 +105,7 @@ for (const width of [1024, 1280]) {
 // Every language, because the long ones are what broke it: at 1280 the
 // language select, as wide as "Português (Brasil)", pushed the bar past the
 // window in Spanish and Russian (DESIGN.md §8.12).
-for (const width of [1024, 1280]) {
+for (const width of [1024, 1280, 1440]) {
   test(`the one-row bar fits at ${width}px in every language`, async ({ page, context, baseURL }) => {
     await page.setViewportSize({ width, height: 800 });
     const failures: string[] = [];
@@ -221,10 +221,10 @@ test("opening the assistant does not push the page sideways (UI system phase 5b)
     // Public pages open it from the floating button; admin pages from the section bar.
     const opener =
       route === "/"
-        ? page.getByRole("button", { name: "Open MakerLab assistant" })
+        ? page.getByRole("button", { name: "Open the MakerLAB Assistant" })
         : page.getByRole("navigation", { name: "Admin sections" }).getByRole("button", { name: "Ask the assistant" });
     await opener.click();
-    const sheet = page.getByRole("dialog", { name: "MAKERLAB ASSISTANT" });
+    const sheet = page.getByRole("dialog", { name: "MakerLAB Assistant" });
     await expect(sheet).toBeVisible();
     expect(await page.evaluate(() => getComputedStyle(document.body).paddingRight)).toBe("0px");
     expect(await headerBoxes(page), `header with the assistant open on ${route}`).toBe(before);
