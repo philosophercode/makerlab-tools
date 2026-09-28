@@ -1399,7 +1399,7 @@ data; the QR code opens the catalogue with the chat.
   picks a supported locale (`app/kiosk/kiosk-locale.ts`), `kiosk.*` strings
   with English underneath, times in `LAB_TIMEZONE`.
 - **Hours** are `siteConfig.labHours` (`NEXT_PUBLIC_LAB_HOURS`, default
-  `LAB OPEN 9AM-9PM`), which the header's status strip reads too. Phase 2
+  `LAB OPEN 8AM-8PM`), which the header's status strip reads too. Phase 2
   structures them.
 - **Tests:** `lib/kiosk/{derive,qr,snapshot}.test.ts`, `app/api/kiosk/route.test.ts`,
   `components/kiosk/KioskScreen.test.tsx`, `components/kiosk-chrome.test.tsx`,

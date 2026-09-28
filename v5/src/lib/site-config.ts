@@ -49,7 +49,7 @@ export const siteConfig: SiteConfig = {
   audience: process.env.AUDIENCE ?? "students who may be beginners",
   logo: process.env.NEXT_PUBLIC_LOGO ?? "/makerlab-logo-transparent.png",
   wordmark: process.env.NEXT_PUBLIC_WORDMARK ?? "/makerlab-wordmark.png",
-  labHours: process.env.NEXT_PUBLIC_LAB_HOURS || "LAB OPEN 9AM-9PM",
+  labHours: process.env.NEXT_PUBLIC_LAB_HOURS || "LAB OPEN 8AM-8PM",
   colors: {
     primary: process.env.NEXT_PUBLIC_COLOR_PRIMARY ?? "#ff6b35",
     primaryDark: process.env.NEXT_PUBLIC_COLOR_PRIMARY_DARK ?? "#cc4f1f",

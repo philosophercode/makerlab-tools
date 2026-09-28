@@ -63,8 +63,8 @@ test.describe("Chat assistant", () => {
       dialog.getByRole("heading", { name: "MakerLAB Assistant" })
     ).toBeVisible();
 
-    // Type into the composer (aria-label "Ask the lab console") and submit.
-    const input = dialog.getByRole("textbox", { name: "Ask the lab console" });
+    // Type into the composer (aria-label "Ask the MakerLAB Assistant") and submit.
+    const input = dialog.getByRole("textbox", { name: "Ask the MakerLAB Assistant" });
     await input.fill("What is the Form 4?");
     await dialog.getByRole("button", { name: "Send" }).click();
 
@@ -95,7 +95,7 @@ test.describe("Chat assistant", () => {
     const dialog = page.getByRole("dialog", { name: "MakerLAB Assistant" });
     await expect(dialog).toBeVisible();
     // A keyboard's focus starts in the composer.
-    await expect(dialog.getByRole("textbox", { name: "Ask the lab console" })).toBeFocused();
+    await expect(dialog.getByRole("textbox", { name: "Ask the MakerLAB Assistant" })).toBeFocused();
 
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
@@ -138,7 +138,7 @@ test.describe("Chat assistant", () => {
     await page.goto("/tools/form-4");
     await page.getByRole("button", { name: "Open the MakerLAB Assistant" }).click();
     const dialog = page.getByRole("dialog", { name: "MakerLAB Assistant" });
-    await dialog.getByRole("textbox", { name: "Ask the lab console" }).fill("How do I replace the tank?");
+    await dialog.getByRole("textbox", { name: "Ask the MakerLAB Assistant" }).fill("How do I replace the tank?");
     await page.keyboard.press("Enter");
 
     const mark = dialog.getByRole("link", { name: "Open Form 4 Manual, p. 42" });
@@ -186,8 +186,8 @@ test.describe("Chat assistant on admin pages (UI system phase 5b)", () => {
   });
 });
 
-// The first-visit callout (identity spec 2026-09-28 §3): once per browser,
-// gone when dismissed, and never on the kiosk.
+// The first-visit callout (identity spec 2026-09-28 §3): shown once per
+// browser, gone when dismissed, and never on the kiosk.
 test.describe("Meet the MakerLAB Assistant", () => {
   const callout = (page: import("@playwright/test").Page) =>
     page.getByRole("complementary", { name: "About the MakerLAB Assistant" });
@@ -200,6 +200,14 @@ test.describe("Meet the MakerLAB Assistant", () => {
     await callout(page).getByRole("button", { name: "Dismiss" }).click();
     await expect(callout(page)).toHaveCount(0);
 
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Open the MakerLAB Assistant" })).toBeVisible();
+    await expect(callout(page)).toHaveCount(0);
+  });
+
+  test("shows once: ignored, it is gone after a reload", async ({ page }) => {
+    await page.goto("/");
+    await expect(callout(page)).toBeVisible();
     await page.reload();
     await expect(page.getByRole("button", { name: "Open the MakerLAB Assistant" })).toBeVisible();
     await expect(callout(page)).toHaveCount(0);

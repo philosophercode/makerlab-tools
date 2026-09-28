@@ -73,7 +73,7 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   await expect(chat.getByText("I'd like to add new equipment to the inventory.")).toBeVisible();
   await expect(chat.getByText(ASK_FOR_ITEMS_REPLY)).toBeVisible({ timeout: 15_000 });
 
-  await chat.getByRole("textbox", { name: "Ask the lab console" }).fill(IDENTIFY_PROMPT);
+  await chat.getByRole("textbox", { name: "Ask the MakerLAB Assistant" }).fill(IDENTIFY_PROMPT);
   await chat.getByRole("button", { name: "Send" }).click();
 
   const card = chat.getByRole("region", { name: "Identified equipment" });

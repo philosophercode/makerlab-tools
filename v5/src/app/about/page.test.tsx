@@ -70,7 +70,7 @@ describe("/about", () => {
     expect(project).toHaveTextContent("MakerLAB Assistant");
     for (const mode of ["Operate", "Debug", "Create"]) expect(within(project).getByText(mode)).toBeInTheDocument();
     expect(project).toHaveTextContent(
-      "Built by Isaac Steinberg (Tech Lead, Johnson Cornell Tech MBA '26) with Niti Parikh (Director) and Luis Rodrigo Navarro (Assistant Director)."
+      "Built by Isaac Steinberg (Tech Lead, Johnson Cornell Tech MBA '26) for the MakerLAB, which Niti Parikh (Director) and Luis Rodrigo Navarro (Assistant Director) run."
     );
   });
 

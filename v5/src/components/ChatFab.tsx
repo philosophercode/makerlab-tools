@@ -24,7 +24,7 @@ import { useChatAttachments } from "./chat/use-chat-attachments";
 import { useDictation } from "./chat/use-dictation";
 import { usePageSelectionReader, type PageSelection } from "./chat/page-selection";
 import { AssistantIntro } from "./chat/AssistantIntro";
-import { useAssistantIntroSeen } from "./chat/assistant-intro-store";
+import { useAssistantIntro } from "./chat/assistant-intro-store";
 import { FROSTED } from "./system/frosted";
 import { cn } from "@/lib/utils";
 
@@ -286,13 +286,15 @@ export function ChatFab() {
 
   const showLoader = isLoading && messages[messages.length - 1]?.role !== "assistant";
 
-  // The first-visit callout (identity spec §3): beside the button, once per
-  // browser, never on /admin (no button there) or /kiosk (returns below).
-  // Opening the chat by any route counts as having met the assistant.
-  const { seen: introSeen, markSeen: markIntroSeen } = useAssistantIntroSeen();
+  // The first-visit callout (identity spec §3): beside the button, on the
+  // first page it can show on and nowhere after, never on /admin (no button
+  // there) or /kiosk (returns below). Opening the chat by any route counts as
+  // having met the assistant.
+  const introEligible = !onAdmin && !isKioskPath(pathname) && !isOpen;
+  const { visible: introVisible, markSeen: markIntroSeen } = useAssistantIntro(pathname, introEligible);
   useEffect(() => {
-    if (isOpen && !introSeen) markIntroSeen();
-  }, [isOpen, introSeen, markIntroSeen]);
+    if (isOpen) markIntroSeen();
+  }, [isOpen, markIntroSeen]);
 
   // The kiosk is read-only: the phone is the interactive surface, reached
   // through its QR code (kiosk spec §2). No button and no sheet there.
@@ -314,7 +316,7 @@ export function ChatFab() {
           <BotMessageSquareIcon aria-hidden="true" className="size-6" />
         </button>
       )}
-      {!onAdmin && !isOpen && !introSeen ? (
+      {introVisible ? (
         <AssistantIntro
           t={t}
           onDismiss={markIntroSeen}

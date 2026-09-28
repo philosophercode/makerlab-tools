@@ -22,15 +22,15 @@ export default function AboutPage() {
   const t = useTranslations("about");
 
   return (
-    <PublicPage crumbs={[{ label: t("eyebrow") }]} title={t("title")} lede={t("lede")}>
-      <PageSection id="about-lab" title={t("labHeading")}>
+    <PublicPage crumbs={[{ label: t("eyebrow") }]} title={t("title")} lede={t("lede")} keepCase>
+      <PageSection keepCase id="about-lab" title={t("labHeading")}>
         <Prose>
           <p>{t("labBody")}</p>
           <p>{t("historyBody")}</p>
         </Prose>
       </PageSection>
 
-      <PageSection id="about-visit" title={t("visitHeading")}>
+      <PageSection keepCase id="about-visit" title={t("visitHeading")}>
         <Prose>
           <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-[max-content_1fr]">
             <dt className="font-mono text-label tracking-[0.08em] text-muted-foreground uppercase sm:pt-0.5">{t("whereLabel")}</dt>
@@ -44,7 +44,7 @@ export default function AboutPage() {
         </Prose>
       </PageSection>
 
-      <PageSection id="about-people" title={t("peopleHeading")}>
+      <PageSection keepCase id="about-people" title={t("peopleHeading")}>
         <ul className="flex flex-col gap-3">
           {ABOUT_PEOPLE.map((person) => (
             <li key={person.email} className="flex flex-col gap-0.5 text-sm">
@@ -58,13 +58,13 @@ export default function AboutPage() {
         </ul>
       </PageSection>
 
-      <PageSection id="about-community" title={t("communityHeading")}>
+      <PageSection keepCase id="about-community" title={t("communityHeading")}>
         <Prose>
           <p>{t("communityBody")}</p>
         </Prose>
       </PageSection>
 
-      <PageSection id="about-resources" title={t("resourcesHeading")}>
+      <PageSection keepCase id="about-resources" title={t("resourcesHeading")}>
         <Prose>
           <ul>
             <li>
@@ -80,7 +80,7 @@ export default function AboutPage() {
         </Prose>
       </PageSection>
 
-      <PageSection id="about-projects" title={t("projectsHeading")}>
+      <PageSection keepCase id="about-projects" title={t("projectsHeading")}>
         <Prose>
           <p>{t("projectsBody")}</p>
           <p>
@@ -89,7 +89,7 @@ export default function AboutPage() {
         </Prose>
       </PageSection>
 
-      <PageSection id="about-this-project" title={t("projectHeading")}>
+      <PageSection keepCase id="about-this-project" title={t("projectHeading")}>
         <Prose>
           <p>{t("projectBody")}</p>
           <dl className="grid gap-x-6 gap-y-2 sm:grid-cols-[max-content_1fr]">
@@ -109,7 +109,7 @@ export default function AboutPage() {
 
       {/* MCP access spec §7, open question 4: list the MCP endpoint here; the
           link goes to the public /mcp page (amendment 2026-09-25). */}
-      <PageSection id="about-mcp" title={t("mcpHeading")}>
+      <PageSection keepCase id="about-mcp" title={t("mcpHeading")}>
         <Prose>
           <p>{t("mcpBody")}</p>
           <p>

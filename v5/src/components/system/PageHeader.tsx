@@ -31,10 +31,15 @@ export interface PageHeaderProps {
   /** The title's heading level: `h1` on a page with no other h1, else `h2`. */
   as?: "h1" | "h2";
   titleId?: string;
+  /**
+   * Keep the title's own capitalization instead of the uppercase default —
+   * for a title carrying a proper name whose case matters ("MakerLAB").
+   */
+  keepCase?: boolean;
   className?: string;
 }
 
-export function PageHeader({ title, crumbs = [], lede, actions, facts, as: Heading = "h2", titleId, className }: PageHeaderProps) {
+export function PageHeader({ title, crumbs = [], lede, actions, facts, as: Heading = "h2", titleId, keepCase = false, className }: PageHeaderProps) {
   const t = useTranslations("ui");
   return (
     <header data-slot="page-header" className={cn("ui flex flex-col gap-2 pb-4", className)}>
@@ -59,7 +64,7 @@ export function PageHeader({ title, crumbs = [], lede, actions, facts, as: Headi
       ) : null}
       <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
         <div className="min-w-0">
-          <Heading id={titleId} className="font-heading text-[26px] leading-[1.05] font-medium uppercase sm:text-[30px]">
+          <Heading id={titleId} className={cn("font-heading text-[26px] leading-[1.05] font-medium sm:text-[30px]", keepCase ? "normal-case" : "uppercase")}>
             {title}
           </Heading>
           {lede ? <p className="mt-1.5 max-w-[72ch] text-sm leading-normal text-muted-foreground">{lede}</p> : null}

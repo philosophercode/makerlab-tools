@@ -38,11 +38,13 @@ The site's tagline is "Your digital guide to making at Cornell Tech"
 3. **Assistant button.** An assistant icon (lucide `BotMessageSquare`), labelled
    "Open the MakerLAB Assistant". On a first visit a small callout beside it —
    "Meet the MakerLAB Assistant — ask how to operate a machine, debug a
-   problem, or plan a build" — with **Ask a question** and **Dismiss**. It goes
-   for good when dismissed or when the chat is opened by any route
-   (`chat/assistant-intro-store.ts`, `localStorage` key
-   `makerlab.assistant-intro.seen`, every access in try/catch; storage that
-   throws counts as seen). Not a dialog: no focus taken, nothing blocked. The
+   problem, or plan a build" — with **Ask a question** and **Dismiss**. It
+   shows once: on the first page it can, staying there until that page is
+   left, and never again even if ignored; dismissing it or opening the chat by
+   any route hides it at once, in every open tab (`storage` event). The admin
+   and the kiosk do not use up the showing (`chat/assistant-intro-store.ts`,
+   `localStorage` key `makerlab.assistant-intro.seen`, every access in
+   try/catch; storage that throws counts as seen). Not a dialog: no focus taken, nothing blocked. The
    entrance animates only under `motion-safe`. Never on `/kiosk` or `/admin/*`.
 4. **Starters.** The generic starter chips are one each for operate, debug and
    create, the word as a kicker: "How do I start a print on a 3D printer?",
@@ -87,15 +89,18 @@ Steinberg's role and the operate / debug / create framing. Left out as
 unconfirmed: floor area, room names, where the lab was before 2025, the Super
 Maker process beyond "apply", and other access rules.
 
-**Open item.** The official page lists 8 AM–8 PM for Access Holders; the
-header's status strip still shows `NEXT_PUBLIC_LAB_HOURS` (default
-`LAB OPEN 9AM-9PM`). The owner should confirm which is right.
+**Hours.** The official page lists 8 AM–8 PM for Access Holders, so the
+`NEXT_PUBLIC_LAB_HOURS` default (the header's status strip and the kiosk) is
+now `LAB OPEN 8AM-8PM` to match the About page and the assistant; the old
+`9AM-9PM` came from the design mock. Open item: the owner confirms the hours,
+and production's `NEXT_PUBLIC_LAB_HOURS`, if set, is updated to match.
 
 ## 10. Testing
 
 - Component: the header lockup (`GlobalChrome.test.tsx`); the button, the
-  callout (shows once, dismisses, remembered, opening the chat counts, not on
-  the kiosk or admin, storage that throws) and the three starters
+  callout (shows once and not on the next page, dismisses, remembered, other
+  tabs, opening the chat counts, not on the kiosk or admin, storage that
+  throws) and the three starters
   (`ChatFab.test.tsx`); the About page (`app/about/page.test.tsx`).
 - Prompt: `chat-adapter.test.ts` — the block's facts, its place in the static
   prefix, and the absence of unconfirmed figures.

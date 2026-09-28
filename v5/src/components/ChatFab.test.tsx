@@ -1,4 +1,4 @@
-import { render, screen, userEvent, waitFor, within } from "../../test/utils/render";
+import { act, render, screen, userEvent, waitFor, within } from "../../test/utils/render";
 
 // ── Mocks ──────────────────────────────────────────────────────────
 //
@@ -185,7 +185,7 @@ describe("ChatFab", () => {
       screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
 
-    const input = screen.getByRole("textbox", { name: "Ask the lab console" });
+    const input = screen.getByRole("textbox", { name: "Ask the MakerLAB Assistant" });
     await user.type(input, "Where is the 3D printer?");
     await user.click(screen.getByRole("button", { name: "Send" }));
 
@@ -201,7 +201,7 @@ describe("ChatFab", () => {
       screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
     const input = screen.getByRole("textbox", {
-      name: "Ask the lab console",
+      name: "Ask the MakerLAB Assistant",
     }) as HTMLInputElement;
     await user.type(input, "hello");
     await user.click(screen.getByRole("button", { name: "Send" }));
@@ -257,7 +257,7 @@ describe("ChatFab", () => {
     ).toBeInTheDocument();
     // Send waits while loading. The text stays enabled so a keyboard's focus
     // is not dropped on every send; Enter does not send meanwhile.
-    const composer = screen.getByRole("textbox", { name: "Ask the lab console" });
+    const composer = screen.getByRole("textbox", { name: "Ask the MakerLAB Assistant" });
     expect(composer).toBeEnabled();
     expect(screen.getByRole("button", { name: "Send" })).toBeDisabled();
     await user.type(composer, "next question{Enter}");
@@ -664,7 +664,7 @@ describe("ChatFab — photo uploads", () => {
       expect.objectContaining({ method: "POST" })
     );
 
-    const input = screen.getByRole("textbox", { name: "Ask the lab console" });
+    const input = screen.getByRole("textbox", { name: "Ask the MakerLAB Assistant" });
     await user.type(input, "the printer is broken");
     await user.click(screen.getByRole("button", { name: "Send" }));
 
@@ -738,7 +738,7 @@ describe("ChatFab — photo uploads", () => {
     ).toBeInTheDocument();
     // And the conversation is still usable without one.
     expect(
-      screen.getByRole("textbox", { name: "Ask the lab console" })
+      screen.getByRole("textbox", { name: "Ask the MakerLAB Assistant" })
     ).toBeEnabled();
   });
 
@@ -773,7 +773,7 @@ describe("ChatFab — photo uploads", () => {
     );
     await screen.findByRole("button", { name: "Remove plate.jpg" });
     await user.type(
-      screen.getByRole("textbox", { name: "Ask the lab console" }),
+      screen.getByRole("textbox", { name: "Ask the MakerLAB Assistant" }),
       message
     );
     await user.click(screen.getByRole("button", { name: "Send" }));
@@ -1053,17 +1053,17 @@ describe("ChatFab — the sheet (UI system phase 5b)", () => {
     const user = userEvent.setup();
     render(<ChatFab />);
     await user.click(screen.getByRole("button", FAB));
-    await user.type(screen.getByRole("textbox", { name: "Ask the lab console" }), "half a question");
+    await user.type(screen.getByRole("textbox", { name: "Ask the MakerLAB Assistant" }), "half a question");
     await user.click(screen.getByRole("button", { name: "Close assistant" }));
     await user.click(screen.getByRole("button", FAB));
-    expect(screen.getByRole("textbox", { name: "Ask the lab console" })).toHaveValue("half a question");
+    expect(screen.getByRole("textbox", { name: "Ask the MakerLAB Assistant" })).toHaveValue("half a question");
   });
 
   it("sends on Enter and keeps Shift+Enter for a new line", async () => {
     const user = userEvent.setup();
     render(<ChatFab />);
     await user.click(screen.getByRole("button", FAB));
-    const input = screen.getByRole("textbox", { name: "Ask the lab console" });
+    const input = screen.getByRole("textbox", { name: "Ask the MakerLAB Assistant" });
     await user.type(input, "line one{Shift>}{Enter}{/Shift}line two");
     expect(sendMessage).not.toHaveBeenCalled();
     await user.type(input, "{Enter}");
@@ -1270,7 +1270,7 @@ describe("the MakerLAB Assistant's identity (identity spec 2026-09-28 §3–4)",
     const { unmount } = render(<ChatFab />);
     await userEvent.setup().click(screen.getByRole("button", { name: "Dismiss" }));
     expect(intro()).not.toBeInTheDocument();
-    expect(window.localStorage.getItem(ASSISTANT_INTRO_KEY)).toBe("1");
+    expect(window.localStorage.getItem(ASSISTANT_INTRO_KEY)).toBe("dismissed");
     unmount();
 
     resetAssistantIntroForTests(); // a new page load: only storage remembers
@@ -1282,15 +1282,52 @@ describe("the MakerLAB Assistant's identity (identity spec 2026-09-28 §3–4)",
     render(<ChatFab />);
     await userEvent.setup().click(screen.getByRole("button", { name: "Ask a question" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
-    expect(window.localStorage.getItem(ASSISTANT_INTRO_KEY)).toBe("1");
+    expect(window.localStorage.getItem(ASSISTANT_INTRO_KEY)).toBe("dismissed");
   });
 
   it("is not shown again once the chat was opened some other way", async () => {
     render(<ChatFab />);
     await userEvent.setup().click(screen.getByRole("button", { name: "Open the MakerLAB Assistant" }));
-    expect(window.localStorage.getItem(ASSISTANT_INTRO_KEY)).toBe("1");
+    expect(window.localStorage.getItem(ASSISTANT_INTRO_KEY)).toBe("dismissed");
     await userEvent.setup().click(screen.getByRole("button", { name: "Close assistant" }));
     expect(intro()).not.toBeInTheDocument();
+  });
+
+  it("shows once: stays on the first page, gone on the next page and the next visit, even if ignored", () => {
+    const { rerender, unmount } = render(<ChatFab />);
+    expect(intro()).toBeInTheDocument();
+    expect(window.localStorage.getItem(ASSISTANT_INTRO_KEY)).toBe("1");
+    rerender(<ChatFab />);
+    expect(intro()).toBeInTheDocument(); // still on the page it was shown on
+
+    pathnameMock.mockReturnValue("/tools/form-4");
+    rerender(<ChatFab />);
+    expect(intro()).not.toBeInTheDocument(); // the next page
+    unmount();
+
+    resetAssistantIntroForTests(); // a new page load: only storage remembers
+    pathnameMock.mockReturnValue("/");
+    render(<ChatFab />);
+    expect(intro()).not.toBeInTheDocument();
+  });
+
+  it("disappears when it is dismissed in another tab", () => {
+    render(<ChatFab />);
+    expect(intro()).toBeInTheDocument();
+    act(() => {
+      window.dispatchEvent(new StorageEvent("storage", { key: ASSISTANT_INTRO_KEY, oldValue: "1", newValue: "dismissed" }));
+    });
+    expect(intro()).not.toBeInTheDocument();
+  });
+
+  it("does not use up its one showing on the admin", () => {
+    pathnameMock.mockReturnValue("/admin/inventory");
+    const { unmount } = render(<ChatFab />);
+    expect(window.localStorage.getItem(ASSISTANT_INTRO_KEY)).toBeNull();
+    unmount();
+    pathnameMock.mockReturnValue("/");
+    render(<ChatFab />);
+    expect(intro()).toBeInTheDocument();
   });
 
   it("is never drawn on the kiosk or the admin", () => {

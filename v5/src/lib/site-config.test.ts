@@ -39,7 +39,7 @@ describe("site-config", () => {
       expect(siteConfig.audience).toBe("students who may be beginners");
       expect(siteConfig.logo).toBe("/makerlab-logo-transparent.png");
       expect(siteConfig.wordmark).toBe("/makerlab-wordmark.png");
-      expect(siteConfig.labHours).toBe("LAB OPEN 9AM-9PM");
+      expect(siteConfig.labHours).toBe("LAB OPEN 8AM-8PM");
       expect(siteConfig.colors).toEqual({
         primary: "#ff6b35",
         primaryDark: "#cc4f1f",
@@ -94,7 +94,7 @@ describe("site-config", () => {
       vi.resetModules();
       const { siteConfig } = await import("@/lib/site-config");
 
-      expect(siteConfig.labHours).toBe("LAB OPEN 9AM-9PM");
+      expect(siteConfig.labHours).toBe("LAB OPEN 8AM-8PM");
     });
   });
 });

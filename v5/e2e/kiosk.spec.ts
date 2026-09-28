@@ -45,7 +45,7 @@ test.describe("Kiosk", () => {
 
     // The demo seed: one open ticket, the lab hours, the demo chip in place of the banner.
     await expect(page.locator("[data-kiosk-tickets]")).toHaveText("1");
-    await expect(page.getByText("LAB OPEN 9AM-9PM")).toBeVisible();
+    await expect(page.getByText("LAB OPEN 8AM-8PM")).toBeVisible();
     await expect(page.locator("[data-kiosk-demo]")).toHaveText("Demo data");
     await expect(page.getByRole("region", { name: "Machines" })).toBeVisible();
     await expect(page.getByRole("img", { name: /^QR code that opens .*\/\?src=kiosk&ask=1$/ })).toBeVisible();
