@@ -9,7 +9,7 @@ import type { ChatProposalItem } from "../ChatProposalCards";
 import type { IntakeTablePayload } from "../../lib/intake/types";
 import type { ImportCardPayload } from "../../lib/import/view";
 import type { ActionProposalCardPayload } from "../../lib/capabilities/actions";
-import { citedPassages, manualPassages } from "./manual-citations";
+import { attachedManualLinks, citedPassages, manualPassages } from "./manual-citations";
 import { stripCitations, toolStatusLabel, type ChatT } from "./chat-text";
 
 type Part = UIMessage["parts"][number];
@@ -73,7 +73,9 @@ export const ChatMessage = memo(function ChatMessage({
   onInternalNavigate: () => void;
 }) {
   const passages = useMemo(() => manualPassages(message.parts), [message.parts]);
+  const documents = useMemo(() => attachedManualLinks(message.parts), [message.parts]);
   const citationLabel = useMemo(() => (citation: string) => t("citationAria", { citation }), [t]);
+  const unverifiedLabel = t("unverifiedCitation");
 
   const proposals = message.parts
     .filter((p): p is Part & { data: ChatProposalItem } => p.type === "data-proposal" && isKind(p, "proposal"))
@@ -93,8 +95,10 @@ export const ChatMessage = memo(function ChatMessage({
             <ChatResponse
               text={part.text}
               passages={passages}
+              documents={documents}
               onInternalNavigate={onInternalNavigate}
               citationLabel={citationLabel}
+              unverifiedLabel={unverifiedLabel}
             />
           </Suspense>
         ) : (

@@ -12,6 +12,8 @@ import {
 import { UNIT_STATUS, isOneOf, type UnitStatus } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
 import { openRefreshesByTool } from "./tool-refreshes.ts";
+import { bundledThumbnailsForUrl } from "./catalog.ts";
+import { isImageThumbnails, type ImageThumbnails } from "../images/thumbnail-urls.ts";
 
 /**
  * The `/admin/inventory` review table (spec §5.3(a)).
@@ -65,6 +67,8 @@ export interface InventoryRow {
   officialName?: string | null;
   /** The cover photo's public URL, or null — null *is* the "no photo" state. */
   photoUrl: string | null;
+  /** The cover's thumbnails (migration `0021`), when it has them — the table's 24px icon uses the smallest. */
+  photoThumbnails?: ImageThumbnails;
   categoryName: string | null;
   categoryGroup: string | null;
   room: string | null;
@@ -182,7 +186,8 @@ export async function listInventoryRows(
         : "draft";
     const unitSummary = unitCounts.get(tool.id);
     const openTicketCount = tickets.get(tool.id) ?? 0;
-    const photoUrl = photos.get(tool.id) ?? null;
+    const cover = photos.get(tool.id);
+    const photoUrl = cover?.url ?? null;
 
     // An archived tool has been dealt with — archiving is one of the three
     // outcomes of a review (§5.3(a)3). Leaving its flags set would put settled
@@ -204,6 +209,7 @@ export async function listInventoryRows(
       name: tool.name,
       officialName: tool.officialName,
       photoUrl,
+      ...(cover?.thumbnails ? { photoThumbnails: cover.thumbnails } : {}),
       categoryName: tool.categoryName,
       categoryGroup: tool.categoryGroup,
       room: tool.room,
@@ -286,14 +292,6 @@ export function worseOf(current: UnitStatus | null, candidate: string): UnitStat
     : current;
 }
 
-/**
- * Each tool's cover photo — the lowest-position public attachment it owns
- * (§4.7: position 0 is the cover).
- *
- * `distinct on` so one row comes back per tool rather than every photo in the
- * lab. A private file is not a cover: the table shows what the gallery would
- * show, and the gallery cannot show a file with no public URL.
- */
 /** The inventory's counts, as the `/admin` home's tile shows them. */
 export interface InventoryCounts {
   total: number;
@@ -371,11 +369,23 @@ export async function countInventory(options: InventoryQueryOptions = {}): Promi
   };
 }
 
-async function selectCoverPhotos(db: Db, toolIds: string[]): Promise<Map<string, string>> {
+/**
+ * Each tool's cover photo — the lowest-position public attachment it owns
+ * (§4.7: position 0 is the cover).
+ *
+ * `distinct on` so one row comes back per tool rather than every photo in the
+ * lab. A private file is not a cover: the table shows what the gallery would
+ * show, and the gallery cannot show a file with no public URL.
+ */
+async function selectCoverPhotos(
+  db: Db,
+  toolIds: string[]
+): Promise<Map<string, { url: string; thumbnails: ImageThumbnails | null }>> {
   const rows = await db
     .selectDistinctOn([attachments.ownerId], {
       ownerId: attachments.ownerId,
       publicUrl: attachments.publicUrl,
+      thumbnails: attachments.thumbnails,
     })
     .from(attachments)
     .where(
@@ -388,9 +398,13 @@ async function selectCoverPhotos(db: Db, toolIds: string[]): Promise<Map<string,
     )
     .orderBy(asc(attachments.ownerId), asc(attachments.position), asc(attachments.id));
 
-  const byTool = new Map<string, string>();
+  const byTool = new Map<string, { url: string; thumbnails: ImageThumbnails | null }>();
   for (const row of rows) {
-    if (row.ownerId && row.publicUrl) byTool.set(row.ownerId, row.publicUrl);
+    if (!row.ownerId || !row.publicUrl) continue;
+    byTool.set(row.ownerId, {
+      url: row.publicUrl,
+      thumbnails: isImageThumbnails(row.thumbnails) ? row.thumbnails : bundledThumbnailsForUrl(row.publicUrl),
+    });
   }
   return byTool;
 }

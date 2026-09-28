@@ -33,3 +33,18 @@ export const HEALTH_CACHE = {
   revalidate: 30, // 30 s
   expire: 60, //  1 min
 } as const;
+
+/**
+ * The kiosk snapshot (`loadKioskSnapshot`, kiosk spec §3.1). Freshness comes
+ * from invalidation — every unit-status and ticket write clears one of its
+ * tags — so the five-minute revalidate is a backstop, not the mechanism: ten
+ * screens polling every minute cost ten cache reads a minute and close to
+ * zero database queries. The day-long expiry keeps serving the last good read
+ * through a database outage (fail toward stale); the screen says how old its
+ * data is.
+ */
+export const KIOSK_CACHE = {
+  stale: 60, //  1 min
+  revalidate: 5 * 60, //  5 min — backstop
+  expire: 60 * 60 * 24, // 24 h — hard ceiling
+} as const;

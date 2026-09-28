@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getCatalogTools } from "../catalog";
 import { createMaintenanceLog } from "../data/maintenance";
+import { invalidateMaintenance } from "../revalidate";
 import { buildUnitLookup, findUnit } from "./helpers";
 import type {
   Capability,
@@ -135,6 +136,15 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
         reportedByUserId: ctx.identity?.userId || null,
         photoAttachmentIds: photoIds,
       });
+
+      // The kiosk's open-ticket count (kiosk spec §3.1) and the tool page's
+      // maintenance history. A cache that cannot
+      // be dropped is a screen a poll behind, never a lost ticket.
+      try {
+        invalidateMaintenance();
+      } catch (err) {
+        console.warn(`[maintenance] ticket ${record.id} filed; the ticket-count cache could not be cleared`, err);
+      }
 
       // Photos offered but none claimed: say so rather than let the student
       // believe staff can see the picture they took (Article 4). Until the

@@ -12,6 +12,8 @@ import { ChatLauncherProvider } from "../components/ChatLauncherContext";
 import { PageSelectionProvider } from "../components/chat/page-selection";
 import { GlobalChrome } from "../components/GlobalChrome";
 import { DemoDataBanner } from "../components/DemoDataBanner";
+import { SiteChrome } from "../components/SiteChrome";
+import { AskParamOpener } from "../components/AskParamOpener";
 import { ThemeScript } from "../components/ThemeScript";
 import { LocaleHtmlScript } from "../components/LocaleHtmlScript";
 import { getCatalogStats, getPaletteTools } from "../lib/catalog";
@@ -21,7 +23,8 @@ import type { Messages } from "../i18n/messages";
 
 export const metadata: Metadata = {
   title: `${siteConfig.name}`,
-  description: `Technical Schematic tool catalog for ${siteConfig.institution} MakerLab.`,
+  // The site's tagline, and what it is (identity spec 2026-09-28 §1).
+  description: `${siteConfig.tagline}: the ${siteConfig.institution} MakerLAB's tools, manuals and the ${siteConfig.chatAssistantName}.`,
 };
 
 // Brand colors come from NEXT_PUBLIC_* env (inlined at build), so an inline
@@ -73,11 +76,18 @@ async function LocalizedTree({
     <NextIntlClientProvider messages={messages}>
       <ChatLauncherProvider>
         <PageSelectionProvider>
-          <GlobalChrome stats={catalogStats} paletteTools={paletteTools} />
-          <DemoDataBanner />
+          <SiteChrome>
+            <GlobalChrome stats={catalogStats} paletteTools={paletteTools} />
+            <DemoDataBanner />
+          </SiteChrome>
           {children}
           <Suspense fallback={null}>
             <ChatFab />
+          </Suspense>
+          {/* Its own boundary: it reads the query string, which a prerender
+              cannot, and must not take the chat button out of the HTML with it. */}
+          <Suspense fallback={null}>
+            <AskParamOpener />
           </Suspense>
         </PageSelectionProvider>
       </ChatLauncherProvider>

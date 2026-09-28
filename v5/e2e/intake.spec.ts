@@ -91,7 +91,7 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   });
   await expect(chat.getByRole("button", { name: "Remove domino-bench.png" })).toBeVisible({ timeout: 15_000 });
 
-  await chat.getByRole("textbox", { name: "Ask the lab console" }).fill(IDENTIFY_PROMPT);
+  await chat.getByRole("textbox", { name: "Ask the MakerLAB Assistant" }).fill(IDENTIFY_PROMPT);
   await chat.getByRole("button", { name: "Send" }).click();
 
   const card = chat.getByRole("region", { name: "Identified equipment" });
@@ -200,7 +200,9 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   const heading = page.getByRole("heading", { name: domino.name, level: 2 });
   await expect(heading).toBeVisible({ timeout: 15_000 });
   const cover = page.locator('a[data-slot="tool-card"]').filter({ has: heading }).locator("img");
-  await expect(cover).toHaveAttribute("src", /\/api\/dev-blob\/.*domino-bench-background-removed.*\.png$/);
+  // The PNG itself until approval's thumbnails land (written after it
+  // answers), then their WebP fallback beside it under thumbs/.
+  await expect(cover).toHaveAttribute("src", /\/api\/dev-blob\/.*domino-bench-background-removed.*\.(png|webp)$/);
   await expect
     .poll(() => cover.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth), {
       timeout: 15_000,

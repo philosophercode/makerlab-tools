@@ -135,6 +135,20 @@ describe("transformRow", () => {
     expect(untouched.public_url).toBe("/tool-images/form-4.png");
   });
 
+  it("drops a pushed attachment's local thumbnails, for the hosted copy to render its own", () => {
+    const rewrites: Rewrites = {
+      byPathname: new Map([["tools/a/photo-1.jpg", { pathname: "tools/a/photo-1-Zz9.jpg", url: "https://s.public.blob.vercel-storage.com/tools/a/photo-1-Zz9.jpg", access: "public" }]]),
+      byUrl: new Map(),
+    };
+    const local = { base: "http://localhost:3001/api/dev-blob/thumbs/tools/a/photo-1.abc", widths: [160], width: 10, height: 10 };
+    const { row } = transformRow(
+      table("attachments"),
+      { id: "a1", blob_pathname: "tools/a/photo-1.jpg", access: "public", public_url: "http://localhost:3001/api/dev-blob/tools/a/photo-1.jpg", thumbnails: local },
+      rewrites
+    );
+    expect(row.thumbnails).toBeNull();
+  });
+
   it("holds a self-reference back for the second pass", () => {
     const { row, deferred } = transformRow(
       table("pending_tools"),

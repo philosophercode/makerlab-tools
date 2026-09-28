@@ -1,33 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import dynamic from "next/dynamic";
+import { lazy, Suspense, useEffect, useState, type ComponentType } from "react";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
+import { BotMessageSquareIcon } from "lucide-react";
 import { useChatLauncher } from "./ChatLauncherContext";
-
-/**
- * The chat's code — the AI SDK (with the whole of zod and its locales), the
- * sheet, the composer, the message cards — is one chunk loaded on demand
- * (performance plan, "Load the chat code only when the chat is opened"). It
- * used to be part of every page's first load: 120–170 KB gzipped of the
- * 390–430 KB each page shipped.
- */
-const loadChatPanel = () => import("./chat/ChatPanel");
-const ChatPanel = dynamic(() => loadChatPanel().then((module) => module.ChatPanel), { ssr: false });
-
-/** How long after mount the chat's code may start loading on its own. */
-const PRELOAD_GRACE_MS = 4000;
-
-/** Start downloading the chat's code without mounting it. */
-export function preloadChatPanel(): void {
-  void loadChatPanel();
-}
+import { isKioskPath } from "./kiosk-path";
+import { AssistantIntro } from "./chat/AssistantIntro";
+import { useAssistantIntro } from "./chat/assistant-intro-store";
 
 /** The admin opens the assistant from its section bar and ⌘K; the floating button is not drawn there. */
 function isAdminPath(pathname: string): boolean {
   return pathname === "/admin" || pathname.startsWith("/admin/");
 }
+
+let LoadedPanel: ComponentType | null = null;
+
+/**
+ * Fetch the chat panel's code (`ChatPanel`: the AI SDK, the sheet, the
+ * composer — the largest part of the app's JavaScript). Called when the chat
+ * first opens, and ahead of that when the pointer or focus reaches the button,
+ * so the panel is usually there by the time it is clicked.
+ */
+export function preloadChatPanel(): Promise<ComponentType> {
+  return import("./ChatPanel").then((mod) => {
+    LoadedPanel = mod.ChatPanel;
+    return mod.ChatPanel;
+  });
+}
+
+/** How long after mount the panel's code may start loading on its own. */
+const PRELOAD_GRACE_MS = 4000;
 
 interface IdleWindow {
   requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
@@ -40,54 +43,69 @@ function savesData(): boolean {
   return connection?.saveData === true;
 }
 
+const LazyPanel = lazy(() => preloadChatPanel().then((panel) => ({ default: panel })));
+
 /**
- * The MakerLab assistant's launcher (UI system spec §9; phase 5b), mounted
- * once in the root layout.
+ * The MakerLAB Assistant's floating button (identity spec 2026-09-28), its
+ * one-time introduction, and the assistant itself once it has been opened
+ * (performance: the panel is not part of any page's first load).
  *
- * - **Where it opens.** On public pages, the square button at the inline-end
- *   corner; on `/admin/*` that button is not drawn (it collided with bulk
- *   bars) and the section bar's **Ask the assistant** and ⌘K open it instead.
- *   Anything else — Report, Add equipment, the QR notice — opens it through
- *   `ChatLauncherContext`, optionally with a first message.
- * - **The conversation** is `ChatPanel`, loaded the first time the chat opens
- *   or is sent a message, and warmed once the browser is idle or the pointer
- *   reaches the button. Once mounted it stays mounted, so the conversation
- *   survives navigation and closing the sheet.
+ * The button is drawn on public pages only (see `ChatPanel`), and on `/kiosk`
+ * nothing is drawn at all. The panel
+ * mounts the first time anything opens the chat — this button, the admin
+ * section bar, ⌘K, Report, the QR notice — and then stays mounted, so the
+ * conversation survives navigation exactly as before.
  */
 export function ChatFab() {
   const t = useTranslations("chat");
-  const { isOpen, open, pendingSeed } = useChatLauncher();
+  const { isOpen, open } = useChatLauncher();
   const pathname = usePathname() || "/";
-  const onAdmin = isAdminPath(pathname);
+  // How the panel is mounted is decided once, at the first open, and never
+  // switched: a different element there would remount it and drop the
+  // conversation. Already loaded (the pointer got there first) → directly;
+  // otherwise through `lazy`. Set during render, not in an effect, so the
+  // first open mounts the panel in the same commit that opens it.
+  const [mount, setMount] = useState<{ Panel: ComponentType | null } | null>(null);
+  if (isOpen && mount === null) setMount({ Panel: LoadedPanel });
 
-  // Mounted from the first open (or seeded message) on — kept in state so a
-  // closed sheet keeps its conversation. Adjusted during render, React's
-  // pattern for state derived from a change, so the panel mounts in the same
-  // commit that opened the chat.
-  const [mounted, setMounted] = useState(false);
-  if (!mounted && (isOpen || pendingSeed)) setMounted(true);
-
-  // Warm the chunk once the page has settled, so the first open is instant —
-  // off the critical path, and not at all for a visitor saving data. A few
-  // seconds' grace first: parsing the AI SDK while the page is still
-  // hydrating would slow exactly what moving it out of the first load saved.
+  // The first-visit callout (identity spec §3): beside the button, on the
+  // first page it can show on and nowhere after, never on /admin (no button
+  // there) or /kiosk (returns below). Opening the chat by any route counts as
+  // having met the assistant. Showing it does not load the panel; only
+  // opening the chat does.
+  const introEligible = !isAdminPath(pathname) && !isKioskPath(pathname) && !isOpen;
+  const { visible: introVisible, markSeen: markIntroSeen } = useAssistantIntro(pathname, introEligible);
   useEffect(() => {
-    if (savesData()) return;
+    if (isOpen) markIntroSeen();
+  }, [isOpen, markIntroSeen]);
+
+  // Warm the panel's chunk once the page has settled, so the first open is
+  // instant — off the critical path (a few seconds' grace, so parsing the AI
+  // SDK never competes with hydration), and not at all for a visitor saving
+  // data or on the kiosk (performance plan).
+  const onKiosk = isKioskPath(pathname);
+  useEffect(() => {
+    if (onKiosk || savesData()) return;
     const idle = window as unknown as IdleWindow;
     let handle: number | undefined;
+    const warm = () => void preloadChatPanel().catch(() => undefined);
     const timer = window.setTimeout(() => {
-      if (idle.requestIdleCallback) handle = idle.requestIdleCallback(preloadChatPanel, { timeout: 10_000 });
-      else preloadChatPanel();
+      if (idle.requestIdleCallback) handle = idle.requestIdleCallback(warm, { timeout: 10_000 });
+      else warm();
     }, PRELOAD_GRACE_MS);
     return () => {
       window.clearTimeout(timer);
       if (handle !== undefined) idle.cancelIdleCallback?.(handle);
     };
-  }, []);
+  }, [onKiosk]);
+
+  // The kiosk is read-only: the phone is the interactive surface, reached
+  // through its QR code (kiosk spec §2). No button and no sheet there.
+  if (isKioskPath(pathname)) return null;
 
   return (
     <>
-      {onAdmin ? null : (
+      {isAdminPath(pathname) ? null : (
         <button
           type="button"
           data-slot="chat-launcher"
@@ -96,14 +114,30 @@ export function ChatFab() {
           aria-label={t("openAria")}
           title={t("openAria")}
           onClick={() => open()}
-          onPointerEnter={preloadChatPanel}
-          onFocus={preloadChatPanel}
-          className="ui fixed end-4 bottom-4 z-40 inline-flex size-12 cursor-pointer items-center justify-center border border-primary bg-primary font-mono text-sm font-bold text-primary-foreground transition-colors duration-150 hover:bg-primary/85 sm:end-6 sm:bottom-6"
+          onPointerEnter={() => void preloadChatPanel()}
+          onFocus={() => void preloadChatPanel()}
+          className="ui fixed end-4 bottom-4 z-40 inline-flex size-12 cursor-pointer items-center justify-center border border-primary bg-primary text-primary-foreground transition-colors duration-150 hover:bg-primary/85 sm:end-6 sm:bottom-6"
         >
-          <span aria-hidden="true">&gt;_</span>
+          <BotMessageSquareIcon aria-hidden="true" className="size-6" />
         </button>
       )}
-      {mounted ? <ChatPanel /> : null}
+      {introVisible ? (
+        <AssistantIntro
+          t={t}
+          onDismiss={markIntroSeen}
+          onOpen={() => {
+            markIntroSeen();
+            open();
+          }}
+        />
+      ) : null}
+      {mount === null ? null : mount.Panel ? (
+        <mount.Panel />
+      ) : (
+        <Suspense fallback={null}>
+          <LazyPanel />
+        </Suspense>
+      )}
     </>
   );
 }

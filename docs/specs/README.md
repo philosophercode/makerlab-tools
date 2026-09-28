@@ -40,6 +40,7 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 | [Official and Display Names](2026-09-24-tool-display-names-design.md) | `tools.official_name`; backfill with `npm run names:backfill` |
 | [Manual Text and Search](2026-09-23-manual-text-and-search-design.md) | Phases 1–3: page text, passages, embeddings, `search_manual`; OCR for scanned PDFs, reranking, `halfvec` storage. Re-index with `npm run manuals:index` |
 | [Assistant–GUI Parity](2026-09-27-assistant-gui-parity-design.md) | Phases 1–8 on `v5/assistant-gui-parity` (one PR; merges before #79): `src/lib/actions/` and `performAction`, proposing tools and the confirmation card, page context, taint, MCP proposals and the `/admin/proposals` inbox. What the assistant can do, for users: [`assistant.md`](../assistant.md) |
+| [MakerLAB Identity](2026-09-28-makerlab-identity-design.md) | MakerLAB / MakerLAB Tools / MakerLAB Assistant naming, the wordmark header, the assistant's first-visit callout and operate/debug/create starters, the "Where you are" prompt block (`src/lib/ai/lab-context.ts`), the About page |
 | [Operational Hardening](2026-07-29-operational-hardening-design.md) | Health endpoint, demo banner, nightly backup with tiered retention, staff refresh, backup heartbeat. Phase 2 (uptime monitor) is account setup in [`operations.md`](../operations.md); phase 6 (Notion webhook) superseded |
 
 ### Mostly implemented — open work named
@@ -50,6 +51,27 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 | [UI System](2026-09-25-ui-system-design.md) — shadcn/ui, Tufte density, admin IA, AI Elements chat | Phases 1–5 | **Phase 6** (delete legacy CSS) waits for the repo flatten, PR #79 |
 | [Sign-in and Tiered Rate Limiting](2026-07-29-auth-and-rate-limiting-design.md) | Google sign-in, tiered rate limits as specced | The env-list role model is **superseded** by Better Auth and the `user` table (data platform phase 4) |
 | [Intake Confidence](2026-07-29-intake-confidence-design.md) | Confidence grading and parallel identification, now inside the research pipeline | The chat-side card behaviour is **obsolete** — `propose_listing` was removed with the two-step intake (data platform phase 6) |
+
+### Draft — not started
+
+| Spec | Notes |
+|---|---|
+| [Usage Insight](2026-09-27-usage-insight-design.md) — anonymous usage events in Postgres and an `/admin/insights` page: most- and never-asked-about tools, QR scans, busy times, an Unanswered queue | Awaiting review. 4 phases; phases 1–2 do not need parity. Open questions §13 (question-text retention, who sees it) gate phase 1 |
+| [Kiosk Mode](2026-09-27-kiosk-mode-design.md) — public read-only lab screen at `/kiosk`: down machines, ticket counts, hours, featured tool, QR to chat | **Phase 1 built** (#94, `/kiosk`); phases 2–3 awaiting review; phase 2 adds editable hours and pins |
+| [Recurring Maintenance](2026-09-27-recurring-maintenance-design.md) — per-tool or per-unit schedules; the nightly cron opens a preventive ticket when one falls due | Awaiting review. 4 phases; phase 4 suggests schedules from manuals. Open questions §13 Q1–Q4 gate phase 1 |
+| [Notifications](2026-09-27-notifications-design.md) — email on ticket, correction and project changes; a daily staff digest; Web Push later | Awaiting review. Sending domain and Cornell approval of the provider block phase 1 |
+
+All six 2026-09-27 feature specs build on the Assistant–GUI Parity action layer; each writes its
+migration as `00NN` and takes the next free number when it lands.
+
+### Ideas — not decided
+
+The owner has considered these but has not decided to build them. Do not implement against them.
+
+| Spec | Notes |
+|---|---|
+| [Training Sign-offs](2026-09-27-training-signoffs-design.md) — who is trained on which tool, workshops, refreshers; advisory only, no lockout | Undecided. First questions: does the lab want it, and are training records student records? |
+| [Consumables](2026-09-27-consumables-design.md) — stock of filament, resin, sheets and blades by location; student "out / running low" reports; a restock list | Undecided. Recommended start is reports and a restock list only, without counts |
 
 ### Superseded — kept for history, do not implement against
 

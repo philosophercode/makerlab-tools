@@ -125,8 +125,12 @@ describe("prompt order for the provider's prefix cache (performance plan)", () =
     const onTrotec = buildSystemPrompt(CAPABILITIES, { tools: mockTools, focusedTool: trotec, locale: "fr" });
     const onForm4 = buildSystemPrompt(CAPABILITIES, { tools: mockTools, focusedTool: form4, locale: "en", identity: ada });
 
+    // Signed in, the prompt varies by role only (the floor-map rules, #98) — not by person.
+    const grace = { role: "user", userId: "u-2", name: "Grace Hopper", email: "grace@cornell.edu" } as never;
+    const graceOnGallery = buildSystemPrompt(CAPABILITIES, { tools: mockTools, locale: "ja", identity: grace });
+
     expect(stablePart(onTrotec)).toBe(stablePart(gallery));
-    expect(stablePart(onForm4)).toBe(stablePart(gallery));
+    expect(stablePart(onForm4)).toBe(stablePart(graceOnGallery));
     expect(stablePart(onForm4)).not.toContain("Ada Lovelace");
     expect(stablePart(onTrotec)).not.toContain("## Active tool context");
   });
@@ -147,5 +151,53 @@ describe("prompt order for the provider's prefix cache (performance plan)", () =
     expect(prompt.match(/## MakerLab catalog \(/g)).toHaveLength(1);
     expect(prompt.match(/## Linking tools/g)).toHaveLength(1);
     expect(prompt.match(/## Active tool context/g)).toHaveLength(1);
+  });
+
+  it("keeps the lab context and the manual citation rules in the stable part", () => {
+    const stable = stablePart(buildSystemPrompt(CAPABILITIES, { tools: mockTools, focusedTool: trotec, locale: "fr", identity: ada }));
+
+    expect(stable).toContain("## Where you are");
+    expect(stable).toContain("## Searching manuals");
+    expect(stable).toContain("#cite-");
+    expect(stable).toContain("## Citing sources");
+  });
+});
+
+describe("where you are (identity spec 2026-09-28 §5)", () => {
+  it("tells the assistant what it is, where the lab is and who runs it", () => {
+    const prompt = promptFor(null);
+
+    expect(prompt).toContain("## Where you are");
+    expect(prompt).toContain("MakerLAB Assistant");
+    expect(prompt).toContain("**MakerLAB Tools**");
+    expect(prompt).toContain("**first floor of the Tata Innovation Center**");
+    expect(prompt).toContain("Roosevelt Island");
+    expect(prompt).toContain("**Niti Parikh**");
+    expect(prompt).toContain("**Luis Rodrigo Navarro**");
+    expect(prompt).toContain("Cornell University's graduate campus in New York City");
+  });
+
+  it("names its purpose — operate, debug, create — without forcing it", () => {
+    const prompt = promptFor(null);
+
+    expect(prompt).toMatch(/\*\*operate\*\*.*\*\*debug\*\*.*\*\*create\*\*/);
+    expect(prompt).toContain("Stay flexible");
+  });
+
+  it("sends the unconfirmed to staff instead of guessing, and states nothing we could not source", () => {
+    const prompt = promptFor(null);
+
+    expect(prompt).toContain("never guess about the lab");
+    for (const unconfirmed of ["1,200", "Studio 101", "square feet", "sq ft"]) expect(prompt).not.toContain(unconfirmed);
+  });
+
+  it("sits in the static prefix: right after the intro, and the same whatever the page or locale", () => {
+    const general = promptFor(null);
+    const onTool = buildSystemPrompt([], { tools: mockTools, focusedTool: trotec, locale: "fr" });
+    const where = general.indexOf("## Where you are");
+
+    expect(where).toBeGreaterThan(0);
+    expect(where).toBeLessThan(general.indexOf(CONVERSATION_HEADING));
+    expect(onTool.slice(0, onTool.indexOf(CONVERSATION_HEADING))).toBe(general.slice(0, general.indexOf(CONVERSATION_HEADING)));
   });
 });

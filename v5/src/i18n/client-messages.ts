@@ -38,6 +38,8 @@ export const PUBLIC_CLIENT_MESSAGES = [
   "catalogRefresh",
   "projectForm",
   "mcpPage",
+  // The floor map (`/map`) and the tool page's location map (#98).
+  "map",
   // The chat's cards, drawn on any page the chat opens on.
   "intake",
   "actions",

@@ -24,6 +24,10 @@ import { clearManualPdfCache } from "@/lib/chat/manual-pdf-cache";
 import { getDb, resetDbForTests } from "@/lib/db/client";
 import { attachments, resources, tools as toolsTable } from "@/lib/db/schema/index";
 import { buildDocumentPassages } from "@/lib/manuals/passages";
+import { checkCitations, evidenceUrls, toolPassages } from "@/lib/manuals/citation-check";
+import { gatherCitationEvidence } from "@/lib/manuals/citation-evidence";
+import { citationRef } from "@/lib/manuals/citation-ref";
+import { buildPdf } from "../../../../test/fixtures/manuals/build-pdf";
 import { fakeEmbeddingTarget } from "../../../../test/ai/fake-embeddings";
 import {
   recordedCalls,
@@ -286,5 +290,99 @@ describe("whole-PDF attachment is only the fallback", () => {
 
     expect(fileParts().map((p) => p.filename).sort()).toEqual(["Pending Manual.pdf", "Scanned Manual.pdf"]);
     expect(systemOf()).not.toContain("(searchable)");
+  });
+});
+
+/**
+ * "Citations resolve" (manual text spec amendment 2026-09-28), with no paid
+ * call: `search_manual` runs for real on a seeded manual, a stub model cites
+ * the passage the way the prompt asks (`#cite-<ref>`), and the same check the
+ * eval uses (`citation-check.ts`) validates every link — from the tool, a PDF
+ * that answers 200 (MSW serves real bytes), a page it has, the words on it,
+ * and a label naming the document the link opens.
+ */
+describe("citations resolve", () => {
+  const CITE_PAGES = [
+    "Cleaning the build platform. Wipe the platform with isopropyl alcohol after every print.",
+    "Replacing the resin tank. Lift the resin tank straight up and set it on a flat surface.",
+    "Troubleshooting. A print that does not stick needs a clean platform.",
+  ];
+  const CITE_OUTLINE = [
+    { title: "Cleaning", page: 1, level: 1 },
+    { title: "Resin tank", page: 2, level: 1 },
+    { title: "Troubleshooting", page: 3, level: 1 },
+  ];
+
+  function servePdf(url: string, pages: string[], status = 200) {
+    const bytes = buildPdf({ pages: pages.map((text) => ({ lines: [{ text, y: 700 }] })) });
+    server.use(
+      http.get(url, () =>
+        status === 200
+          ? HttpResponse.arrayBuffer(bytes.slice().buffer, { headers: { "content-type": "application/pdf" } })
+          : new HttpResponse(null, { status })
+      )
+    );
+  }
+
+  async function citedAnswer(answer: (ref: string) => string, status = 200) {
+    // One manual at a time, so the search's passages are this one's.
+    const db = await getDb();
+    await db.delete(attachments);
+    if (inserted.length) await db.delete(resources).where(inArray(resources.id, inserted.splice(0)));
+    const seeded = await searchableManual("form-4", { title: "Form 4 Manual", pages: CITE_PAGES, outline: CITE_OUTLINE });
+    servePdf(seeded.publicUrl!, CITE_PAGES, status);
+    const ref = citationRef(seeded.documentId, 2);
+    const text = answer(ref);
+    stubChat(toolCallModel([{ toolName: "search_manual", input: { query: "replace the resin tank" } }], text));
+    await send({ messages: [userMessage("how do I replace the resin tank")], toolId: "form-4" });
+    const passages = toolPassages([toolResult("search_manual")]);
+    const evidence = await gatherCitationEvidence(evidenceUrls(text, passages), { db: await getDb() });
+    return { seeded, ref, report: checkCitations(text, passages, evidence) };
+  }
+
+  it("gives each passage the ref the prompt tells the model to cite it by", async () => {
+    const { seeded, ref } = await citedAnswer(() => "ok");
+    const passage = toolResult("search_manual").passages.find((p: any) => p.citation === "Form 4 Manual, p. 2");
+    expect(passage).toMatchObject({ ref, url: `${seeded.publicUrl}#page=2` });
+    expect(systemOf()).toContain("(#cite-3f2a9c10-42)");
+    expect(systemOf()).toContain("Never write a manual's web address");
+  });
+
+  it("passes a #cite- citation: from the tool, resolves to the PDF, a page it has, the passage on it, the right label", async () => {
+    const { ref, report } = await citedAnswer((r) => `Lift it straight up ([Replacing the resin tank (Form 4 Manual, p. 2)](#cite-${r})).`);
+    expect(report.citations).toEqual([expect.objectContaining({ href: `#cite-${ref}`, page: 2, problems: [] })]);
+    expect(report.ok).toBe(true);
+  });
+
+  it("fails a URL the model typed, a label naming another document, and a stored address that no longer answers", async () => {
+    const typed = await citedAnswer(() => "See [the manual](https://blob.test/manual.pdf#page=2).");
+    expect(typed.report.citations[0].problems).toEqual(["not_from_tool"]);
+    const relabelled = await citedAnswer((r) => `Lift it ([tank (Bambu Lab X1-Carbon SOP, p. 9)](#cite-${r})).`);
+    expect(relabelled.report.citations[0].problems).toEqual(["label_mismatch"]);
+    const gone = await citedAnswer((r) => `Lift it ([tank](#cite-${r})).`, 404);
+    expect(gone.report.citations[0].problems).toEqual(["does_not_resolve"]);
+  });
+});
+
+describe("attached manuals' links (amendment 2026-09-28)", () => {
+  it("streams the attached manuals' stored addresses for the chat, and tells the model never to add a page", async () => {
+    const db = await getDb();
+    const formId = await toolIdOf("form-4");
+    const [created] = await db
+      .insert(resources)
+      .values({ toolId: formId, title: "Raw Manual", type: "Manual", url: "https://x.test/raw.pdf" })
+      .returning({ id: resources.id });
+    inserted.push(created.id);
+    server.use(
+      http.get("https://x.test/raw.pdf", () =>
+        HttpResponse.arrayBuffer(new TextEncoder().encode("%PDF-1.4\n").buffer, { headers: { "content-type": "application/pdf" } })
+      )
+    );
+
+    const body = await send({ messages: [userMessage("help")], toolId: "form-4" });
+
+    expect(body).toContain('"type":"data-manual-links"');
+    expect(body).toContain('"url":"https://x.test/raw.pdf"');
+    expect(systemOf()).toContain("never add `#page=` to it");
   });
 });

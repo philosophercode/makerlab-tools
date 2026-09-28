@@ -28,7 +28,13 @@
     "names:backfill": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/backfill-display-names.ts",
     "descriptions:shorten": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/shorten-descriptions.ts",
     "resources:language": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/resource-language.ts",
-    "data:push": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/push-local-to-hosted.ts"
+    "projects:seed": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/seed-projects.ts",
+    "thumbnails:bundled": "node --experimental-strip-types scripts/generate-tool-thumbnails.ts",
+    "thumbnails:backfill": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/backfill-thumbnails.ts",
+    "data:push": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/push-local-to-hosted.ts",
+    "blob:repoint": "node --experimental-strip-types scripts/repoint-hosted-blobs.ts",
+    "manuals:resolve-links": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/resolve-manual-links.ts",
+    "resources:clean-urls": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/clean-resource-urls.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.160",
@@ -49,6 +55,7 @@
     "match-sorter": "^8.3.0",
     "next": "16.1.6",
     "next-intl": "^4.13.0",
+    "qrcode": "^1.5.4",
     "radix-ui": "^1.6.7",
     "react": "19.2.3",
     "react-dom": "19.2.3",
@@ -82,7 +89,6 @@
     "eslint-config-next": "16.1.6",
     "jsdom": "^29.1.1",
     "msw": "^2.14.6",
-    "qrcode": "^1.5.4",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.7"

@@ -8,7 +8,11 @@ import { getNotionEnvContract } from "@/lib/notion";
 import { loadCases, type EvalCase } from "./cases";
 import { buildFixture } from "./fixtures";
 import { caseMessages, composeCase } from "./harness";
-import { seedEvalManual } from "./manual-fixture";
+import { getDb } from "@/lib/db/client";
+import { evidenceUrls } from "@/lib/manuals/citation-check";
+import { gatherCitationEvidence } from "@/lib/manuals/citation-evidence";
+import { recordedPassages } from "./assertions";
+import { seedEvalManual, stopEvalManualServer } from "./manual-fixture";
 import { seedEvalTickets } from "./ticket-fixture";
 import { formatReport, runSuite, type CaseExecution } from "./runner";
 
@@ -81,10 +85,23 @@ async function executeCase(evalCase: EvalCase): Promise<CaseExecution> {
     stopWhen: stepCountIs(6),
   });
 
+  const outputs = new Map(
+    result.steps.flatMap((step) => step.toolResults.map((r) => [r.toolCallId, r.output] as const))
+  );
+  const toolCalls = result.steps.flatMap((step) =>
+    step.toolCalls.map((call) => ({ name: call.toolName, input: call.input, output: outputs.get(call.toolCallId) }))
+  );
+  // What every cited manual address answers, for `citations_resolve`: a GET on
+  // the eval's local blob origin and the stored page texts (one real request
+  // per cited PDF, no model call).
+  const urls = evidenceUrls(result.text, recordedPassages(toolCalls));
+  const evidence = urls.length > 0 ? await gatherCitationEvidence(urls, { db: await getDb() }) : new Map();
+
   return {
     text: result.text,
-    toolCalls: result.steps.flatMap((step) =>
-      step.toolCalls.map((call) => ({ name: call.toolName, input: call.input }))
+    toolCalls,
+    citationEvidence: Object.fromEntries(
+      [...evidence].map(([url, e]) => [url, { ...e, pages: Object.fromEntries(e.pages) }])
     ),
     usage: {
       inputTokens: result.usage.inputTokens ?? 0,
@@ -110,6 +127,10 @@ describe("agent evals", () => {
         "AI_GATEWAY_API_KEY (or VERCEL_OIDC_TOKEN) is required — `npm run eval` makes real model calls through the Gateway"
       );
     }
+  });
+
+  afterAll(async () => {
+    await stopEvalManualServer();
   });
 
   it("answers every case in evals/cases", async () => {

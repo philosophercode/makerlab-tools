@@ -1346,6 +1346,152 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   embedding })`). The live retrieval eval is a `.livecheck` script (results in
   the spec's phase-2 amendment).
 
+## Images, caching and page weight (performance, migration `0021`)
+
+Tool photos were ~99% of every page's bytes (the home page was 27 MB on a
+phone: 1–2.5 MB original PNGs for 180px cards). Every image is now served at
+the size it is shown. The rules:
+
+- **Thumbnails, never originals.** A tool photo has pre-rendered widths
+  (160 / 320 / 640 px, never enlarged) in **AVIF and WebP**, named
+  `${base}.${width}.${format}` (`src/lib/images/thumbnail-urls.ts`), rendered
+  by `sharp` with **resize only** — no crop, pad or redraw, alpha and margins
+  kept (`src/lib/images/thumbnails.ts`), so a product keeps the framing
+  approval gave it. `ToolImage` draws them as a `<picture>` with the caller's
+  `sizes`, `width`/`height` for the aspect ratio, lazy by default; the tool
+  page's hero and the gallery's first row are eager (`priority="high"` for the
+  first two cards and the hero — `fetchpriority="high"` — `cardImagePriority`).
+  `MakerLabTool.thumbnails` carries them; `toolImage()` in
+  `src/lib/data/catalog.ts` picks them. A tool with no photo is `imageSrc: ""`
+  (the empty plate, no request) — never a guessed `/tool-images/<name>.png`.
+- **Bundled photos** (`public/tool-images/*.png`, kept as sources): thumbnails
+  are committed under `public/tool-images/thumbs/` with a **content hash** in
+  the name, listed in the generated `src/lib/data/bundled-tool-thumbnails.ts`,
+  and served `Cache-Control: public, max-age=31536000, immutable`
+  (`next.config.ts` `headers()`). **Re-run `npm run thumbnails:bundled`
+  whenever a PNG there is added, replaced or removed**, and commit both;
+  `bundled-tool-thumbnails.test.ts` fails until you do (`-- --check` is the
+  same check). It never deletes: files no photo names any more are listed as
+  stale for somebody to remove.
+- **Blob photos** (uploads, research and product images): `attachments.thumbnails`
+  (jsonb, migration `0021`) holds `{ base, widths, width, height }`; the files
+  sit beside the original at `thumbs/<original pathname>.<hash>.<w>.<fmt>`,
+  public, cached a year (`src/lib/images/attachment-thumbnails.ts`). They are
+  written **after the response** (`scheduleThumbnails`, `after()`) by
+  `POST /api/uploads` (public images), intake approval and accepted refresh
+  covers, which then drop the catalogue/project caches. Rows from before
+  this, or whose run failed: **`npm run thumbnails:backfill`** (dry run by
+  default; `-- --apply [--limit N]`; target = `DATABASE_URL`, else
+  `PGLITE_DATA_DIR`; store = `blobMode()`), then `POST /api/admin/revalidate`.
+  Until a row has thumbnails, `ToolImage` falls back to `next/image` on the
+  original (optimized, AVIF/WebP, 31-day `minimumCacheTTL`; `/api/dev-blob/`
+  URLs unoptimized). The daily sweep deletes an orphan's thumbnails with it;
+  `data:push` nulls them in the hosted copy (backfill there).
+- **Not in the first load:** the assistant (`ChatPanel` — AI SDK, sheet,
+  composer) mounts the first time the chat opens (`ChatFab`, preloaded on
+  hover/focus of the button); the ⌘K dialog (`CommandPaletteDialog`, cmdk)
+  the first time the palette opens; the gallery's table view (`GalleryTable`,
+  TanStack Table) when somebody switches to it. Each is kept mounted once
+  loaded. The home page sends `toGalleryTool()` per tool, not the whole
+  `MakerLabTool`.
+- **Fonts** are two faces per family split by `unicode-range`
+  (`src/app/fonts.ts`): the preloaded Latin face and an Extended face (Latin
+  Extended, Cyrillic) fetched only when a page shows those characters. Draw a
+  language's native name in the system font (the language picker does), or
+  every page downloads the Extended faces.
+- **Caching:** public pages are partial prerenders; the catalogue is
+  `"use cache"` + `cacheTag("catalog")`, projects `"projects"`, and a tool
+  page's maintenance history also `"maintenance"`, which filing or working a
+  ticket drops (`invalidateMaintenance`, shared with the kiosk count) without re-reading the
+  catalogue. The body still renders per request because the locale is a
+  cookie (`LocalizedTree`); making public pages fully static needs locale
+  routing that does not read the cookie in the page.
+- **Measure** with `npx -y lighthouse@12` against `next build && next start`
+  (mobile and `--preset=desktop`). The demo seed has two tools, so a
+  representative run seeds the bundled photos' names as tools locally
+  (not committed).
+
+## The lab status screen (`/kiosk`; kiosk spec phase 1)
+
+A full-screen, read-only page for the TV at the front of the lab and the ISAM
+booth iPad (spec `docs/specs/2026-09-27-kiosk-mode-design.md`, PR #93). No
+sign-in, no migration, no model call, no new permission. Owner answers
+(2026-09-27): the open-ticket count is shown, in the lab and at the booth; a
+featured project's author is first name + last initial; it runs on production
+data; the QR code opens the catalogue with the chat.
+
+- **One loader, cached behind invalidation.** `src/lib/kiosk/snapshot.ts`:
+  `assembleKioskSnapshot({ db, now })` reads the published catalogue, one
+  grouped count of unit statuses (`data/kiosk.ts` — the catalogue folds
+  `under_maintenance`/`out_of_service`/`retired` into "Offline", the kiosk needs
+  them apart), `countOpenTickets` (`data/maintenance.ts`, the same statement the
+  `/admin` maintenance tile now uses) and the published projects.
+  `loadKioskSnapshot()` is that under `"use cache"`, tagged `catalog`,
+  `projects` **and `maintenance`**, on `KIOSK_CACHE` (revalidate 5 min as a
+  backstop, expire 24 h). **Every ticket write calls `invalidateMaintenance()`**
+  (`writeTicket` and `report_issue`); unit-status writes already call
+  `invalidateCatalog()`. A new ticket write path must do the same, or the screen
+  lags five minutes.
+- **Failure is not zero.** The ticket count fails alone to `null` ("—", "Not
+  available"); anything else throws, so `/api/kiosk` answers 503 and the page
+  renders "Lab status is unavailable right now" with the QR code. Never a zeroed
+  snapshot.
+- **Privacy.** `KioskSnapshot` (`lib/kiosk/types.ts`) has no field for an email,
+  a ticket's text, a draft or a full name; the loader maps field by field.
+  `shortAuthorName` ("Maya Rodriguez" → "Maya R.", anything with `@` → null) runs
+  on the server; the full name never reaches the client. `snapshot.test.ts`'s
+  privacy case asserts the serialised payload.
+- **`GET /api/kiosk`**: public, `ROUTE_TIERS.kiosk` (20/min) keyed by the hashed
+  client IP — **it reads no cookie** (no `resolveIdentity`) — checked before the
+  loader; `Cache-Control: no-store`; adds `askUrl` and `servedAt` outside the
+  cache.
+- **The screen** (`components/kiosk/KioskScreen.tsx`) polls every 60 s + ≤10 s
+  jitter, backs off 1 → 2 → 5 min, keeps the last good snapshot, and measures
+  staleness from **its own last good poll**, not `generatedAt` (a cached read
+  keeps its fill time for minutes while still being current). The "Updated" line
+  becomes an amber bar in the footer after 3 min, or at once when
+  `navigator.onLine` is false. Featured rotation is clock-derived (20 s), so a
+  refresh keeps its place and screens agree; a 2 s burn-in shift of ≤8 px every
+  5 min; wake lock re-asked on `visibilitychange`; reload at 04:00 lab time,
+  skipped while polls fail. All the timing lives in `lib/kiosk/derive.ts`,
+  pure and tested at its boundaries.
+- **Dark, full-bleed, no site chrome.** `ThemeScript` forces `data-theme="dark"`
+  on `/kiosk` before paint without storing it; `SiteChrome` (a client wrapper
+  in the root layout) drops `GlobalChrome` and `DemoDataBanner` there and
+  `ChatFab` returns null (`isKioskPath`, `components/kiosk-path.ts`);
+  `app/kiosk/kiosk.css` hides the root's permanent scrollbar with
+  `html:has([data-kiosk])`. The logo is a CSS mask filled with
+  `--on-surface`, so a single-colour logo reads on dark; the QR code is drawn in
+  `currentColor` on an `--on-surface` plate (no pure white). Type is `vmin` with
+  `clamp()` (`kiosk-type.ts`, ceilings at the 4K value). Three layouts, named
+  once as custom variants in `styles/ui.css`: `kiosk-wall` (landscape, ≥600px
+  tall: two columns, one screen, no scroll), `kiosk-scroll` (everything else:
+  an upright iPad puts the ticket count and featured item beside the QR code
+  and scrolls inside the screen if it must) and `kiosk-phone` (<640px wide or a
+  phone on its side: one column, 112px QR code plus an "Open the assistant"
+  link). Panels read `--kiosk-*` custom properties set per layout on the root,
+  are placed with `grid-template-areas`, and pad with `env(safe-area-inset-*)`
+  (`viewport-fit=cover` on the page). `kiosk.css` also hands the h1 size back
+  from globals.css's unlayered narrow-screen rule (`revert-layer`).
+- **The QR code** (`lib/kiosk/qr.ts`, server-only; `qrcode` is now a runtime
+  dependency) encodes `kioskAskUrl(origin)` = `<origin>/?src=kiosk&ask=1`
+  (`lib/kiosk/params.ts`). `AskParamOpener` in the root layout (its own
+  Suspense, so the chat button stays in the HTML) opens the chat on `?ask=1`,
+  once, anywhere but the kiosk.
+- **Language:** `/kiosk` ignores the cookie and `Accept-Language`; `?lang=`
+  picks a supported locale (`app/kiosk/kiosk-locale.ts`), `kiosk.*` strings
+  with English underneath, times in `LAB_TIMEZONE`.
+- **Hours** are `siteConfig.labHours` (`NEXT_PUBLIC_LAB_HOURS`, default
+  `LAB OPEN 8AM-8PM`), which the header's status strip reads too. Phase 2
+  structures them.
+- **Tests:** `lib/kiosk/{derive,qr,snapshot}.test.ts`, `app/api/kiosk/route.test.ts`,
+  `components/kiosk/KioskScreen.test.tsx`, `components/kiosk-chrome.test.tsx`,
+  `e2e/kiosk.spec.ts` (drives the poll with Playwright's clock and
+  `page.route`, never the shared demo database; `KIOSK_SCREENSHOT_DIR` keeps a
+  screenshot per viewport). The QR test has no decoder: it reads the modules
+  back out of the SVG and compares them with `qrcode`'s matrix for `askUrl`.
+
+
 ## Performance conventions (performance plan, 2026-09-28)
 
 What keeps pages and the assistant quick. Each is guarded by a test; break one
@@ -1361,19 +1507,17 @@ and say why in the PR.
   `getTranslations`. **A client component that uses a new namespace needs it
   listed there**: `client-messages.test.ts` reads every client component's
   `useTranslations` calls and names the key its layout does not send.
-- **The chat's code loads on demand.** `ChatFab` is only the launcher button;
-  `chat/ChatPanel` (the sheet, `useChat`, the transport, the composer, the
-  messages) is `next/dynamic` loaded on the first open or seeded message,
-  warmed on idle (not with Save-Data) and on pointer/focus of the button, and
-  stays mounted once loaded. `ChatMessage` lazy-loads its cards (intake table,
-  proposals, actions, imports). Never import `ai` / `@ai-sdk/react` from a
-  component outside `chat/ChatPanel`, or the AI SDK (with all of zod and its
-  locales, ~140 KB gz) is back in every page's first load. `useChat` runs with
-  `experimental_throttle: 50` and `ChatMessage` is memoised
-  (`chat/ChatPanel.perf.test.tsx`).
+- **The chat's code loads on demand** (from #97; see "Images, caching and
+  page weight" below): `ChatFab` is the launcher, `ChatPanel` is loaded with
+  `React.lazy` on the first open, preloaded on pointer/focus of the button and
+  once the page has been idle for a few seconds (not with Save-Data, not on
+  `/kiosk`). `ChatMessage` lazy-loads its cards (intake table, proposals,
+  actions, imports). Never import `ai` / `@ai-sdk/react` from a component
+  outside `ChatPanel`. `useChat` runs with `experimental_throttle: 50` and
+  `ChatMessage` is memoised (`ChatPanel.perf.test.tsx`).
 - **The chat prompt is stable first, per-request last**
-  (`capabilities/chat-adapter.ts`): the intro, every capability's
-  `promptFragment`, the reading and citing rules, then `# This conversation`
+  (`capabilities/chat-adapter.ts`): the intro, `LAB_CONTEXT` (#101), every
+  capability's `promptFragment` (the `#cite-<ref>` rules of #102 among them), the reading and citing rules, then `# This conversation`
   with the language, the focused tool and its resources, and every
   capability's optional `conversationFragment` (the signed-in reporter's
   name, the focused tool's manual outlines, a curation record); the route
@@ -1408,8 +1552,7 @@ and say why in the PR.
   load between the header, the palette, the Edit control and the project form
   — never call `fetchIdentity` from a component.
 - **List reads are list-shaped.** The gallery gets `GalleryTool`
-  (`toGalleryTool`, card/table/search/facet fields, units as statuses); the
-  intake list `listIntakeQueueSummaries` (no research blobs, imports filtered
+  (`toGalleryTool`, from #97); the intake list `listIntakeQueueSummaries` (no research blobs, imports filtered
   in SQL); the refresh list no research; the `/admin` inventory tile
   `countInventory` (one statement; a parity test ties it to
   `listInventoryRows`). The admin palette scope sends only the drafts
@@ -1426,7 +1569,8 @@ and say why in the PR.
   `AdminPageLoading shape` (`tiles`, `table`, `detail`, `page`).
 - **Function traces stay small** (`next.config.ts`
   `outputFileTracingExcludes`): `public/`, local data folders, TypeScript
-  sources, docs and tests never ship in a function, and PGlite — loaded with
+  sources, docs, tests and the projects seed bundle (`data/`) never ship in a
+  function, and PGlite — loaded with
   `import()` in `db/client.ts` — is left out when the build has
   `DATABASE_URL`. A function that needs a file at runtime must not live under
   an excluded glob.
@@ -1440,7 +1584,10 @@ and say why in the PR.
 
 | Path | Purpose |
 |---|---|
-| `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults) |
+| `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults), including `labHours` and the header `wordmark`. Names: **MakerLAB** is the lab, **MakerLAB Tools** the site, **MakerLAB Assistant** the AI (identity spec 2026-09-28) |
+| `src/lib/ai/lab-context.ts` | The assistant's "Where you are" block — the lab, its people, Cornell Tech, and its operate / debug / create purpose — placed after the intro in the static prompt prefix. Sourced facts only; sources in its comments |
+| `src/components/chat/assistant-intro-store.ts` / `AssistantIntro.tsx` | The first-visit "Meet the MakerLAB Assistant" callout beside the chat button, remembered in `localStorage` (try/catch), gone once dismissed or the chat opens |
+| `src/lib/kiosk/*` / `src/components/kiosk/*` / `src/app/kiosk/` | The lab status screen: snapshot loader, pure timing and derivations, QR code; the client screen; the page (see "The lab status screen") |
 | `src/lib/db/client.ts` | `getDb()`, `dataSubstrate()`, `pingDb()` — the one entry point to Postgres/PGlite |
 | `src/lib/notion.ts` | Notion API client — used by the one-time import and its scripts; no request path reads or writes Notion through it (the mirror has its own client) |
 | `src/lib/data/attachments.ts` | `attachments` rows: create, claim onto an owner, reorder, release, list orphans, delete |
@@ -1478,7 +1625,9 @@ and say why in the PR.
 | `src/app/admin/inventory/actions.ts` + `unit-`/`resource-`/`photo-actions.ts` | The editor's server actions, one module per section, each checking its own permission |
 | `src/components/admin/ToolEditorPanel.tsx` | The editor itself: the revision token, the conflict, and the five sections beside it |
 | `src/app/tools/[id]/EditToolControl.tsx` / `DraftToolView.tsx` | Edit mode on a tool page (phone-first), and drafts at their slug for `catalog.view_drafts` |
-| `src/lib/revalidate.ts` | `invalidateCatalog()` / `invalidateProjects()` — the one home for the cache tag strings, and `{ expire: 0 }`, because `revalidateTag` with a *named* profile is stale-while-revalidate and would serve the pre-publish page to one more reader |
+| `src/lib/images/*` | Thumbnails: `thumbnail-urls` (names, `srcset`, client-safe), `thumbnails` (the `sharp` render), `bundled-thumbnails` (`npm run thumbnails:bundled`), `attachment-thumbnails` (Blob rows; `npm run thumbnails:backfill`), `schedule-thumbnails` (after the response) |
+| `src/components/ToolImage.tsx` | Every tool photo: the thumbnail `<picture>`, the `next/image` fallback, the empty plate |
+| `src/lib/revalidate.ts` | `invalidateCatalog()` / `invalidateProjects()` / `invalidateMaintenance()` (the kiosk's ticket count, a tool page's maintenance history) — the one home for the cache tag strings, and `{ expire: 0 }`, because `revalidateTag` with a *named* profile is stale-while-revalidate and would serve the pre-publish page to one more reader |
 | `src/lib/blob.ts` | The Blob seam — `put` (private backups, fixed pathname) and `putUpload` (random pathname, caller's access) |
 | `src/lib/cron/backup.ts`, `src/lib/cron/cleanup.ts` | The nightly Postgres export and the orphaned-upload sweep |
 | `src/lib/cron/backup-policy.ts` | What the nightly export holds back — `session` / `verification` / `oauth_access_token` skipped, token columns blanked (a backup is data, not credentials), and `manual_pages` / `manual_chunks` left out because `npm run manuals:index -- --force` rebuilds them after a restore |
@@ -1692,6 +1841,8 @@ npm run lint         # eslint
 npm run typecheck    # tsc --noEmit
 npm run test:all     # full test suite
 npm run data:push -- --to .env.hosted [--dry-run] [--yes]   # copy local PGlite + .blob-data up to a hosted deploy
+npm run thumbnails:bundled [-- --check]   # after changing public/tool-images/*.png
+npm run thumbnails:backfill [-- --apply]  # thumbnails for Blob images that have none (dry run by default)
 ```
 
 `data:push` (`scripts/push-local-to-hosted.ts`, logic in `src/lib/push-hosted/`) replaces the

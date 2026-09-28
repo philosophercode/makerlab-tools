@@ -13,7 +13,7 @@ export default function GalleryPage() {
 }
 
 async function GalleryData() {
-  // Only what the gallery reads crosses to the browser (performance plan, quick win 11).
-  const tools = (await getCatalogTools()).map(toGalleryTool);
-  return <GalleryShell tools={tools} />;
+  const tools = await getCatalogTools();
+  // Only what the gallery reads travels to the browser (`toGalleryTool`).
+  return <GalleryShell tools={tools.map(toGalleryTool)} />;
 }

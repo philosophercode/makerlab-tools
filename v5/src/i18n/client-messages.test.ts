@@ -60,10 +60,12 @@ describe("what reaches the browser (performance plan, quick win 6)", () => {
 
 // ── Every client component's translations are sent by its layout ─────
 
-type Scope = "public" | "admin" | "account";
+type Scope = "public" | "admin" | "account" | "kiosk";
 
 /** The scope a route file renders in, by where it sits under `app/`. */
 function routeScope(rel: string): Scope {
+  // `/kiosk` has its own provider with only `kiosk.*` (`app/kiosk/kiosk-locale.ts`).
+  if (/^app\/kiosk(\/|$)/.test(rel)) return "kiosk";
   if (/^app\/admin(\/|$)/.test(rel)) return "admin";
   if (/^app\/(account|oauth|mcp)(\/|$)/.test(rel)) return "account";
   return "public";
@@ -73,6 +75,7 @@ const AVAILABLE: Record<Scope, Messages> = {
   public: publicClientMessages(english),
   admin: mergeClientMessages(publicClientMessages(english), scopedClientMessages(english, "admin")),
   account: mergeClientMessages(publicClientMessages(english), scopedClientMessages(english, "account")),
+  kiosk: { kiosk: english.kiosk },
 };
 
 function has(messages: Messages, dotted: string): boolean {

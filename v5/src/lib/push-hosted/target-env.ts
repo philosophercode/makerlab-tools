@@ -105,6 +105,33 @@ export function resolveTargetCredentials(env: EnvMap): TargetCredentials {
 }
 
 /**
+ * The store id a credential names: `vercel_blob_rw_<id>_<secret>` for a token,
+ * `store_<id>` (or the bare id) for OIDC. Null when it names none.
+ */
+export function blobStoreId(credentials: BlobCredentials): string | null {
+  if (credentials.kind === "token") {
+    const match = /^vercel_blob_rw_([A-Za-z0-9]+)_/.exec(credentials.token);
+    return match ? match[1] : null;
+  }
+  const id = credentials.storeId.replace(/^store_/, "").trim();
+  return /^[A-Za-z0-9]+$/.test(id) ? id : null;
+}
+
+/**
+ * The hosts the target's stores serve files from — `<id>.public.blob.vercel-storage.com`
+ * and `<id>.private…` — so `data:push` can tell a URL on the target's store
+ * from one on a store that was deleted or replaced (amendment 2026-09-28).
+ */
+export function storeHosts(...credentials: (BlobCredentials | null)[]): string[] {
+  const hosts: string[] = [];
+  for (const credential of credentials) {
+    const id = credential ? blobStoreId(credential)?.toLowerCase() : null;
+    if (id) hosts.push(`${id}.public.blob.vercel-storage.com`, `${id}.private.blob.vercel-storage.com`);
+  }
+  return hosts;
+}
+
+/**
  * A function that replaces every value from the env file (and the parts of a
  * connection string — user, password, host) found in `text` with `[redacted]`.
  * Applied to every error before it is printed.

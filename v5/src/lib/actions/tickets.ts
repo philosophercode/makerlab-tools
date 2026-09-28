@@ -6,6 +6,7 @@ import { ticketSubjects } from "../data/action-subjects";
 import { updateMaintenanceLog } from "../data/maintenance";
 import { MAINTENANCE_PRIORITY, MAINTENANCE_STATUS } from "../db/schema/vocabulary";
 import { requestMirrorPush } from "../mirror/trigger";
+import { invalidateMaintenance } from "../revalidate";
 import { defineAction, toolShape, type ActionPreviewRow } from "./define";
 import { recordIds } from "./tool-args";
 
@@ -118,6 +119,8 @@ export const TICKETS_UPDATE = defineAction<
     return { ok: true, value: {}, committed: true };
   },
   afterCommit: async () => {
+    // The kiosk's ticket counts (kiosk spec §3.1).
+    invalidateMaintenance();
     await requestMirrorPush();
     return undefined;
   },

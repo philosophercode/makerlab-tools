@@ -36,6 +36,7 @@ import { findOrCreateCategory } from "./taxonomy.ts";
 import { createToolRecord } from "./tool-create.ts";
 import { isUuid } from "./uuid.ts";
 import type { Refused, WriteRefusal } from "./write-result.ts";
+import { cleanLink } from "../web/tracking-params.ts";
 
 /**
  * `pending_tools` — the two-step add-tool flow's scratch rows (spec §4.10,
@@ -1472,7 +1473,7 @@ export async function approvePendingAsUnit(
             fresh.map((doc) => ({
               toolId: tool.id,
               title: doc.title,
-              url: doc.url,
+              url: cleanLink(doc.url),
               type: doc.type,
               origin: doc.origin ?? null,
               createdBy: input.actorUserId,

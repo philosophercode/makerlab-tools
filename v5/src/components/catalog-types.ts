@@ -1,3 +1,5 @@
+import type { ImageThumbnails } from "../lib/images/thumbnail-urls.ts";
+
 export type ToolStatus = "Available" | "In Use" | "Training Required" | "Offline";
 
 export interface MakerLabUnit {
@@ -30,7 +32,13 @@ export interface MakerLabTool {
   status: ToolStatus;
   shortDescription: string;
   description: string;
+  /** The original image, or "" when the tool has none. */
   imageSrc: string;
+  /**
+   * Pre-rendered AVIF/WebP widths of `imageSrc` (`lib/images/thumbnail-urls`),
+   * which `ToolImage` shows instead of it; null/absent when there are none.
+   */
+  thumbnails?: ImageThumbnails | null;
   ppe: string[];
   materials: string[];
   tags: string[];
@@ -71,12 +79,11 @@ export interface MakerLabTool {
 }
 
 /**
- * What the gallery's cards, table, search, facets and sorts read of a tool —
- * all the home page serializes for the browser (performance plan, quick win
- * 11). The full record carried units' serials and conditions, links, notes,
- * restrictions, starter questions and a short description the gallery never
- * shows: about 330 KB of flight data on `/` with the real catalogue. Units
- * keep only their status (availability counts, the table's n/m column).
+ * What the gallery reads of a tool — its cards, table, search, facets, sorts
+ * and groups — and so all the home page sends to the browser for each one
+ * (`toGalleryTool`). The rest of a `MakerLabTool` (links, notes, safety text,
+ * unit details, starter questions) belongs to the tool's own page; sending it
+ * for every tool made the home page's HTML several times larger.
  */
 export type GalleryTool = Pick<
   MakerLabTool,
@@ -90,15 +97,18 @@ export type GalleryTool = Pick<
   | "zone"
   | "trainingLevel"
   | "status"
+  | "description"
   | "imageSrc"
+  | "thumbnails"
+  | "ppe"
   | "materials"
   | "tags"
-  | "ppe"
-  | "description"
   | "addedAt"
-> & { units: Pick<MakerLabUnit, "status">[] };
+> & {
+  /** Only each unit's status: the table's "available" count and the availability sort. */
+  units: Array<Pick<MakerLabUnit, "status">>;
+};
 
-/** A catalogue tool as the gallery gets it — see {@link GalleryTool}. */
 export function toGalleryTool(tool: MakerLabTool): GalleryTool {
   return {
     id: tool.id,
@@ -111,11 +121,12 @@ export function toGalleryTool(tool: MakerLabTool): GalleryTool {
     zone: tool.zone,
     trainingLevel: tool.trainingLevel,
     status: tool.status,
+    description: tool.description,
     imageSrc: tool.imageSrc,
+    thumbnails: tool.thumbnails ?? null,
+    ppe: tool.ppe,
     materials: tool.materials,
     tags: tool.tags,
-    ppe: tool.ppe,
-    description: tool.description,
     addedAt: tool.addedAt ?? null,
     units: tool.units.map((unit) => ({ status: unit.status })),
   };

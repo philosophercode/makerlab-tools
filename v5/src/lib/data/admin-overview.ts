@@ -6,6 +6,7 @@ import { rawRows } from "../db/raw.ts";
 import type { Db } from "../db/types.ts";
 import { countInventory } from "./inventory.ts";
 import { countOpenInboxProposals } from "./action-proposals.ts";
+import { countOpenTickets } from "./maintenance.ts";
 import { countManualsByState } from "./manual-chunks.ts";
 import { getMirrorViewForOwner } from "./mirrors.ts";
 
@@ -148,17 +149,12 @@ export const COUNT_LOADER_READS: { [K in CountLoader]: (ctx: OverviewContext) =>
 
   async maintenance(ctx) {
     const { db } = ctx;
-    const [[row], series] = await Promise.all([
-      rawRows<Record<string, Num>>(
-        db,
-        sql`select count(*) filter (where status = 'open') as open,
-                   count(*) filter (where status = 'in_progress') as in_progress,
-                   count(*) filter (where status in ('open', 'in_progress') and priority in ('high', 'critical')) as urgent
-              from maintenance_logs`
-      ),
+    // The counts are shared with the kiosk's open-ticket figure (kiosk spec §4.1).
+    const [counts, series] = await Promise.all([
+      countOpenTickets(db),
       dailySeries(ctx, sql`coalesce(date_reported, ${labDay(ctx, sql`created_at`)})`, sql`maintenance_logs`),
     ]);
-    return { open: n(row?.open), inProgress: n(row?.in_progress), urgent: n(row?.urgent), series };
+    return { ...counts, series };
   },
 
   async corrections(ctx) {

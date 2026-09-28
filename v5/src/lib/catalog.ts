@@ -9,6 +9,7 @@ import { listManualContentsForTool, type ManualContents } from "./data/manual-do
 import { listMaintenanceHistoryForTool, type ToolMaintenanceEntry } from "./data/maintenance";
 import { dataSubstrate, getDb } from "./db/client";
 import { listToolIndex } from "./data/tool-index";
+import { siteConfig } from "./site-config";
 import type { CatalogStats, MakerLabTool } from "../components/catalog-types";
 import type { PaletteTool } from "../components/palette/palette-types";
 
@@ -46,7 +47,8 @@ export async function getCatalogStats(): Promise<CatalogStats> {
 
   return {
     toolsInInventory: await countPublishedTools(),
-    labHours: "LAB OPEN 9AM-9PM",
+    // Configuration, not a literal in a query module (Article 6; kiosk spec §4.1).
+    labHours: siteConfig.labHours,
   };
 }
 
@@ -84,7 +86,9 @@ export async function getManualContents(toolId: string): Promise<ManualContents[
  */
 export async function getToolMaintenanceHistory(toolId: string): Promise<ToolMaintenanceEntry[]> {
   "use cache";
-  cacheTag("catalog");
+  // "maintenance" too (`MAINTENANCE_TAG`): filing or working a ticket drops
+  // the history without re-reading the whole catalogue.
+  cacheTag("catalog", "maintenance");
   cacheLife(CATALOG_CACHE);
 
   return listMaintenanceHistoryForTool(toolId, { db: await getDb(), limit: 10 });

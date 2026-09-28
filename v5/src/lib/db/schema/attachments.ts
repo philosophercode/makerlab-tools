@@ -1,4 +1,5 @@
-import { index, integer, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { index, integer, jsonb, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import type { ImageThumbnails } from "../../images/thumbnail-urls.ts";
 import { inListCheck, timestamps } from "./helpers.ts";
 import { ATTACHMENT_ACCESS, ATTACHMENT_ORIGIN, ATTACHMENT_OWNER } from "./vocabulary.ts";
 
@@ -21,6 +22,11 @@ import { ATTACHMENT_ACCESS, ATTACHMENT_ORIGIN, ATTACHMENT_OWNER } from "./vocabu
  * URL for a background-removed copy (gateway spec §4.2). Both are null on rows
  * written before migration `0008`, except archived manuals, which it backfills
  * from their `source_key`.
+ *
+ * `thumbnails` (migration `0021`) is a public image's pre-rendered widths in
+ * AVIF and WebP (`src/lib/images/thumbnail-urls.ts`): written after upload or
+ * approval, or by `npm run thumbnails:backfill`; null until then, and pages
+ * fall back to `next/image` on the original.
  */
 export const attachments = pgTable(
   "attachments",
@@ -40,6 +46,7 @@ export const attachments = pgTable(
     sourceKey: text("source_key").unique(),
     origin: text("origin"),
     sourceUrl: text("source_url"),
+    thumbnails: jsonb("thumbnails").$type<ImageThumbnails>(),
     uploadedBy: text("uploaded_by"),
     ...timestamps(),
   },

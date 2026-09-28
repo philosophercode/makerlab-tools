@@ -50,6 +50,13 @@ export const CATALOG_TAG = "catalog";
 /** Every cached project read — the gallery and each project page. */
 export const PROJECTS_TAG = "projects";
 
+/**
+ * Every cached read of maintenance tickets: the kiosk's open-ticket count, and
+ * a tool page's maintenance history (`getToolMaintenanceHistory`, which also
+ * carries the catalogue tag).
+ */
+export const MAINTENANCE_TAG = "maintenance";
+
 /** Tags a full refresh has to clear. */
 export const ALL_TAGS = [CATALOG_TAG, PROJECTS_TAG] as const;
 
@@ -70,4 +77,14 @@ export function invalidateCatalog(): void {
 /** Drop the cached project gallery. */
 export function invalidateProjects(): void {
   revalidateTag(PROJECTS_TAG, EXPIRE_NOW);
+}
+
+/**
+ * Drop cached ticket counts — today only the kiosk's open-ticket figure (kiosk
+ * spec §3.1). Called after every ticket write, so a screen polling once a
+ * minute shows a new ticket on its next poll while costing Postgres nothing in
+ * between.
+ */
+export function invalidateMaintenance(): void {
+  revalidateTag(MAINTENANCE_TAG, EXPIRE_NOW);
 }

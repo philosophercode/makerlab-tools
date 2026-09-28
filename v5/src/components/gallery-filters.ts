@@ -151,12 +151,12 @@ export function sortTools<T extends GalleryTool>(tools: readonly T[], sort: Gall
 
 // ── Grouping ────────────────────────────────────────────────────────
 
-export interface ToolSection {
+export interface ToolSection<T extends GalleryTool = GalleryTool> {
   /** Stable, URL-safe-ish id for the section's heading. */
   key: string;
   /** The section's label, as data (category and room names are data, not messages). */
   label: string;
-  tools: GalleryTool[];
+  tools: T[];
 }
 
 /** Values the catalogue uses for "not recorded", which group last. */
@@ -194,9 +194,9 @@ function compareOrder(a: string[], b: string[]): number {
  * last), each keeping the order the tools arrived in — so the sort applies
  * inside every section. `null` is one unlabelled section.
  */
-export function groupTools(tools: readonly GalleryTool[], group: GalleryGroup | null): ToolSection[] {
+export function groupTools<T extends GalleryTool>(tools: readonly T[], group: GalleryGroup | null): ToolSection<T>[] {
   if (!group) return [{ key: "all", label: "", tools: tools.slice() }];
-  const sections = new Map<string, ToolSection & { order: string[] }>();
+  const sections = new Map<string, ToolSection<T> & { order: string[] }>();
   for (const tool of tools) {
     const { key, label, order } = groupKeyOf(tool, group);
     const section = sections.get(key);

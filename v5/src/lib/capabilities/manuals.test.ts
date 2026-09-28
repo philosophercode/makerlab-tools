@@ -37,7 +37,12 @@ describe("toModelPassage", () => {
 
   it("fences the text and carries the citation and the page link", () => {
     const out = toModelPassage(passage);
-    expect(out).toMatchObject({ citation: "X2D Manual, p. 12", url: "https://b.test/m.pdf#page=12", section: "Nozzle › Replacing it" });
+    expect(out).toMatchObject({
+      ref: "d-12",
+      citation: "X2D Manual, p. 12",
+      url: "https://b.test/m.pdf#page=12",
+      section: "Nozzle › Replacing it",
+    });
     expect(out.text).toContain("<untrusted-page");
     expect(out.transcribed).toBeUndefined();
   });
