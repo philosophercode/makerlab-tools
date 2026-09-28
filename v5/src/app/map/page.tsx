@@ -1,14 +1,13 @@
 import { Suspense } from "react";
-import { MapExplorer } from "../../components/map/MapExplorer";
-import { getCatalogTools } from "../../lib/catalog";
-import { STUDIO_101 } from "../../lib/map/studio-101";
+import { MapGate } from "../../components/map/MapGate";
 import { siteConfig } from "../../lib/site-config";
 
 /**
  * `/map` — the lab's floor plan with every published tool placed on it
- * (floor map spec §6.3). The catalogue read is the gallery's own cached one;
- * the explorer reads `?highlight=` and `?q=` itself, inside this boundary, so
- * the shell stays static under `cacheComponents`.
+ * (floor map spec §6.3), for signed-in people only (map access, PR #98).
+ * The session read happens inside this boundary, in `MapGate`, so the shell
+ * stays static under `cacheComponents` and holds no plan data; the explorer
+ * reads `?highlight=` and `?q=` itself.
  */
 
 export const metadata = {
@@ -18,12 +17,7 @@ export const metadata = {
 export default function MapPage() {
   return (
     <Suspense fallback={null}>
-      <MapData />
+      <MapGate />
     </Suspense>
   );
-}
-
-async function MapData() {
-  const tools = await getCatalogTools();
-  return <MapExplorer plan={STUDIO_101} tools={tools} />;
 }

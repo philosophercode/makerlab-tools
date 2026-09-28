@@ -1,3 +1,5 @@
+// The plan is shown to signed-in people only (map access, PR #98): keep it out of client bundles.
+import "server-only";
 import type { FloorPlan } from "./types";
 
 /**

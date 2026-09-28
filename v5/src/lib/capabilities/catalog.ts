@@ -5,6 +5,7 @@ import { listCatalogTools, listToolStates, type CatalogToolState } from "../data
 import { findTool, summarizeTool } from "./helpers";
 import { officialNameShown } from "../tool-names";
 import { mapFactsFor, type ToolMapFacts } from "../map/locate";
+import { canSeeMap } from "../map/access";
 import type {
   Capability,
   CapabilityCtx,
@@ -82,6 +83,7 @@ interface ToolDetailsResult {
   /**
    * Where the tool stands on the lab's floor map, with a `/map?highlight=`
    * link (floor map spec §5.4); null when its location is not on the map.
+   * Absent entirely for a caller who is not signed in (`canSeeMap`).
    */
   map?: ToolMapFacts | null;
   /** Only for a caller holding `tools.edit`: published, draft or archived. */
@@ -265,7 +267,7 @@ const getToolDetails: CapabilityTool<GetToolDetailsInput, ToolDetailsResult> = {
       links: tool.links,
       units: tool.units,
       detail_page: `/tools/${tool.slug}`,
-      map: mapFactsFor(tool),
+      ...(canSeeMap(ctx.identity) ? { map: mapFactsFor(tool) } : {}),
       ...(view ? stateOf(view, tool.id) : {}),
     };
   },
@@ -301,9 +303,12 @@ function promptFragment(env: PromptEnv): string {
     `## Linking tools\n\nWhenever you mention a tool that exists in the catalog below, **format its name as a markdown link** to its detail page using the slug provided in the catalog: \`[Tool Name](/tools/<slug>)\`. This lets the student jump straight to the tool's page. Examples:\n- "You could use the [Bambu Lab X1-Carbon Combo 3D Printer](/tools/<slug>) for that."\n- "For laser cutting acrylic, check the [Epilog Helix 24](/tools/<slug>)."\n\nDo **not** link the tool the student is already viewing (see Active tool context). Do not invent slugs — only use slugs from the catalog list.`
   );
 
-  sections.push(
-    `## Where things are\n\nWhen a student asks where a tool is ("where is the laser cutter?"), call \`get_tool_details\` and answer from its \`map\` field: the zone (with its number), the room, and the station label when there is one, then link the floor map with the \`map_page\` path it gives: \`[See it on the floor map](/map?highlight=4A)\`. If \`map\` is null, say the tool's location is not on the map yet and give the location and zone the catalog has — never guess a zone.`
-  );
+  // Only a signed-in caller gets `map` from get_tool_details (canSeeMap).
+  if (canSeeMap(env.identity)) {
+    sections.push(
+      `## Where things are\n\nWhen a student asks where a tool is ("where is the laser cutter?"), call \`get_tool_details\` and answer from its \`map\` field: the zone (with its number), the room, and the station label when there is one, then link the floor map with the \`map_page\` path it gives: \`[See it on the floor map](/map?highlight=4A)\`. If \`map\` is null, say the tool's location is not on the map yet and give the location and zone the catalog has — never guess a zone.`
+    );
+  }
 
   if (focusedTool) {
     sections.push(
