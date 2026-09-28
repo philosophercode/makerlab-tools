@@ -1,4 +1,4 @@
-import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, gt, inArray, or, sql } from "drizzle-orm";
 import { getDb } from "../db/client.ts";
 import { actionProposals } from "../db/schema/index.ts";
 import type { ActionProposalStatus, ActionProposalSurface } from "../db/schema/vocabulary.ts";
@@ -229,4 +229,54 @@ export async function listChatActionProposals(
     .orderBy(desc(actionProposals.createdAt))
     .limit(options.limit ?? 30);
   return rows.map(({ row, expired }) => toRecord(row, Boolean(expired)));
+}
+
+/** How long a decided MCP proposal stays listed in the inbox, for reference (§6). */
+export const INBOX_DECIDED_DAYS = 7;
+
+/**
+ * `userId`'s MCP proposals for the **Assistant proposals** inbox
+ * (`/admin/proposals`, §3.8, §6): every one still open (an expired one
+ * included, so it can say it expired), and those decided in the last
+ * {@link INBOX_DECIDED_DAYS} days. Only the creator's own rows: nobody sees,
+ * let alone confirms, another person's (§11 answer 11). Newest first, bounded.
+ */
+export async function listInboxProposals(
+  userId: string,
+  options: ActionProposalOptions & { limit?: number } = {}
+): Promise<ActionProposalRecord[]> {
+  const db = options.db ?? (await getDb());
+  const rows = await db
+    .select({ row: actionProposals, expired: EXPIRED })
+    .from(actionProposals)
+    .where(
+      and(
+        eq(actionProposals.surface, "mcp"),
+        eq(actionProposals.createdBy, userId),
+        or(
+          inArray(actionProposals.status, ["open", "confirming"]),
+          gt(actionProposals.decidedAt, sql`now() - ${`${INBOX_DECIDED_DAYS} days`}::interval`)
+        )
+      )
+    )
+    .orderBy(desc(actionProposals.createdAt))
+    .limit(options.limit ?? 200);
+  return rows.map(({ row, expired }) => toRecord(row, Boolean(expired)));
+}
+
+/** How many of `userId`'s MCP proposals wait in the inbox now: open and unexpired (the `/admin` tile). */
+export async function countOpenInboxProposals(userId: string, options: ActionProposalOptions = {}): Promise<number> {
+  const db = options.db ?? (await getDb());
+  const [row] = await db
+    .select({ total: sql<number>`count(*)::int` })
+    .from(actionProposals)
+    .where(
+      and(
+        eq(actionProposals.surface, "mcp"),
+        eq(actionProposals.createdBy, userId),
+        eq(actionProposals.status, "open"),
+        gt(actionProposals.expiresAt, sql`now()`)
+      )
+    );
+  return Number(row?.total ?? 0);
 }

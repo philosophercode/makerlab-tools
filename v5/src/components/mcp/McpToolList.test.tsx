@@ -1,4 +1,5 @@
 import { nextCacheMock } from "../../../test/mocks/next-cache";
+import { ADMIN_READS_FOR_PROPOSALS, MCP_PROPOSING_TOOLS } from "../../../test/mcp/expected-tools";
 import { render, screen, within } from "../../../test/utils/render";
 import { CAPABILITIES } from "../../lib/capabilities";
 import { describeMcpTools, mcpToolNamesForRole } from "../../lib/capabilities/mcp-catalog";
@@ -46,6 +47,9 @@ it("groups every tool under Anyone, Signed-in lab members and Staff", () => {
     "list_open_tickets",
     "update_ticket",
     "propose_change",
+    // Assistant–GUI parity phase 7: the id reads and the proposing tools.
+    ...ADMIN_READS_FOR_PROPOSALS,
+    ...MCP_PROPOSING_TOOLS,
   ]);
 });
 
@@ -58,7 +62,7 @@ it("says read or write for each tool", () => {
 it.each([
   ["anonymous", 6, "report_issue"],
   ["user", 9, "update_ticket"],
-  ["admin", 14, null],
+  ["admin", 37, null],
 ] as const)("marks the tools a %s viewer can use", (role, count, notUsable) => {
   renderAs(role);
   expect(screen.getAllByText("You can use this")).toHaveLength(count);

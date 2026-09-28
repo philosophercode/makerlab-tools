@@ -286,7 +286,8 @@ export function defineAction<I, R extends object, E extends string, C = true>(
   const full: ActionDefinition<I, R, E, C> = {
     ...def,
     assistant: def.assistant ?? "propose",
-    mcp: def.mcp ?? defaultMcpExposure(def.risk),
+    // What the assistant may never propose, an MCP client may not either.
+    mcp: def.mcp ?? (def.assistant === "never" ? "never" : defaultMcpExposure(def.risk)),
     maxBatch: def.maxBatch ?? 1,
   };
   if (full.risk === "destructive" && full.maxBatch !== 1) {
@@ -294,6 +295,9 @@ export function defineAction<I, R extends object, E extends string, C = true>(
   }
   if (full.assistant === "never" && !full.neverReason) {
     throw new Error(`[actions] ${full.id}: assistant "never" needs a neverReason`);
+  }
+  if (full.assistant === "never" && full.mcp !== "never") {
+    throw new Error(`[actions] ${full.id}: an action the assistant never proposes is never exposed over MCP`);
   }
   if (full.mcp !== "never" && defaultMcpExposure(full.risk) === "never") {
     throw new Error(`[actions] ${full.id}: ${full.risk} actions are never exposed over MCP`);

@@ -197,3 +197,43 @@ test("a destructive card confirms only once the name is typed, and sends it (pha
   await expect(proposal).toContainText("Done");
   expect(decided).toEqual([{ ids: [card.items[0].id], decision: "confirm", typed: "trotec speedy 400" }]);
 });
+
+test("an MCP proposal waits in its owner's Assistant proposals inbox (phase 7)", async ({ page, context, baseURL }) => {
+  // The director: nothing else in the suite reads their proposals or tokens.
+  await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+  await page.goto("/account/tokens");
+  await page.getByLabel("Name").fill("E2E inbox");
+  await page.getByRole("button", { name: "Create token" }).click();
+  const reveal = page.locator('[data-slot="token-reveal"]');
+  const token = (await reveal.getByLabel("Personal access token", { exact: true }).textContent())?.trim() ?? "";
+  expect(token).toMatch(/^mlt_/);
+
+  // The MCP client, as the token: find the tool, then propose a change to it.
+  const call = async (name: string, args: Record<string, unknown>) => {
+    const res = await page.request.post("/api/mcp", {
+      headers: { authorization: `Bearer ${token}`, accept: "application/json, text/event-stream", "content-type": "application/json" },
+      data: { jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } },
+    });
+    const json = (await res.json()) as { result: { content: { text: string }[] } };
+    return JSON.parse(json.result.content[0].text);
+  };
+  const found = await call("search_tools", { query: "Form 4" });
+  const proposed = await call("mark_tool_reviewed", { tool_ids: [found.tools[0].id] });
+  expect(proposed).toMatchObject({ proposed: true, inbox: "/admin/proposals" });
+
+  await page.goto("/admin");
+  const bar = page.getByRole("navigation", { name: "Admin sections" });
+  await bar.getByRole("link", { name: "Assistant proposals", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/proposals$/);
+
+  // The card is drawn from the stored proposal. Dismissing it changes nothing
+  // (the confirm path is covered against PGlite by api/mcp/proposals.route.test.ts).
+  const card = page.getByRole("article", { name: /Mark Form 4 as reviewed/ });
+  await expect(card).toContainText("Waiting for you", { timeout: 15_000 });
+  await page.getByRole("button", { name: "Dismiss" }).click();
+  await expect(card).toContainText("Dismissed");
+
+  await page.reload();
+  await expect(page.getByRole("article", { name: /Mark Form 4 as reviewed/ })).toHaveCount(0);
+  await expect(page.locator('[data-slot="decided-proposals"]')).toContainText("Mark Form 4 as reviewed");
+});

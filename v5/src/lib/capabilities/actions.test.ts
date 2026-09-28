@@ -11,7 +11,7 @@ vi.mock("../actions/proposals", async (importOriginal) => ({
 import type { Identity } from "../auth/identity";
 import type { Role } from "../auth/roles";
 import { CAPABILITIES, capabilitiesForIdentity } from "./index";
-import { actions, actionsPromptFragment } from "./actions";
+import { actions, actionsPromptFragment, MCP_PROPOSAL_NOTE } from "./actions";
 
 /**
  * The generated `actions` capability (assistant–GUI parity spec §3.4): each
@@ -26,7 +26,8 @@ function identity(role: Role): Identity {
   return { role, userId: role === "anonymous" ? null : `u-${role}`, email: null, name: "Dee", rateLimitKey: `k-${role}` };
 }
 
-const tool = (name: string) => actions.tools.find((t) => t.name === name)!;
+const tool = (name: string) => actions.tools.find((t) => t.name === name && !t.mcpOnly)!;
+const mcpTool = (name: string) => actions.tools.find((t) => t.name === name && t.mcpOnly);
 
 beforeEach(() => propose.proposeAction.mockReset());
 
@@ -84,11 +85,59 @@ describe("a generated tool's run()", () => {
   });
 });
 
+describe("a generated MCP tool's run() (phase 7)", () => {
+  it("stores an MCP proposal for the inbox, draws no card, and says nothing has changed", async () => {
+    const row = {
+      id: "p-9",
+      subjectId: "t-1",
+      preview: { summary: { key: "tools_publish", values: { name: "Form 4" } }, rows: [], subjectName: "Form 4" },
+      expiresAt: new Date("2026-10-04T12:00:00Z"),
+    };
+    propose.proposeAction.mockResolvedValue({ ok: true, groupId: "g-9", proposals: [row], refused: [] });
+    const writer = { write: vi.fn() };
+    const result = (await mcpTool("set_tool_published")!.run({ tool_ids: ["t-1"], published: true }, {
+      identity: identity("admin"),
+      writer: writer as never,
+      chatId: "not-a-chat",
+      surface: "mcp",
+    })) as Record<string, unknown>;
+
+    expect(propose.proposeAction).toHaveBeenCalledWith(expect.objectContaining({ id: "tools.set_published" }), expect.anything(), {
+      identity: identity("admin"),
+      surface: "mcp",
+      chatId: null,
+      tainted: false,
+    });
+    expect(writer.write).not.toHaveBeenCalled();
+    expect(result).toMatchObject({ proposed: true, count: 1, subjects: ["Form 4"], proposal_ids: ["p-9"], inbox: "/admin/proposals", expires_at: "2026-10-04T12:00:00.000Z" });
+    expect(String(result.message)).toMatch(/NOTHING HAS CHANGED YET/);
+  });
+
+  it("tells MCP clients where the proposal waits and who confirms it", () => {
+    const listed = mcpTool("set_correction_status")!;
+    expect(listed.description).toContain(MCP_PROPOSAL_NOTE);
+    expect(listed.kind).toBe("write");
+    expect(listed.requiredPermission).toBe("feedback.manage");
+  });
+
+  it("exists only for actions MCP may propose: never people, spend, destructive, or the direct update_ticket", () => {
+    for (const name of ["set_person_title", "remove_person", "research_pending_items", "archive_tool", "disconnect_mirror", "sync_mirror", "remove_import_rows", "update_ticket"]) {
+      expect(mcpTool(name), name).toBeUndefined();
+    }
+  });
+
+  it("answers a refusal as a code and a sentence", async () => {
+    propose.proposeAction.mockResolvedValue({ ok: false, error: "not_permitted" });
+    const result = await mcpTool("set_tool_published")!.run({ tool_ids: ["t-1"], published: true }, { identity: identity("admin"), surface: "mcp" });
+    expect(result).toMatchObject({ proposed: false, code: "not_permitted" });
+  });
+});
+
 describe("who is offered what (the phase 2 measurement, §11 answer 8)", () => {
   const offered = (role: Role) => {
     const caps = capabilitiesForIdentity(CAPABILITIES, identity(role));
     return {
-      actionTools: caps.find((c) => c.id === "actions")!.tools.map((t) => t.name),
+      actionTools: caps.find((c) => c.id === "actions")!.tools.filter((t) => !t.mcpOnly).map((t) => t.name),
       chatTools: caps.flatMap((c) => c.tools.filter((t) => !t.mcpOnly)).length,
     };
   };
@@ -121,6 +170,10 @@ describe("who is offered what (the phase 2 measurement, §11 answer 8)", () => {
 describe("actionsPromptFragment", () => {
   it.each(["anonymous", "user"] as const)("says nothing to %s", (role) => {
     expect(actionsPromptFragment({ tools: [], identity: identity(role) })).toBe("");
+  });
+
+  it("points the person to the inbox for changes an MCP assistant proposed", () => {
+    expect(actionsPromptFragment({ tools: [], identity: identity("admin") })).toMatch(/\/admin\/proposals/);
   });
 
   it("gives the rules to somebody offered a tool, naming only their tools", () => {

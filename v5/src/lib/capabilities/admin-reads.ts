@@ -17,7 +17,10 @@ import type { Capability, CapabilityTool } from "./types";
  * other people wrote is fenced** (§8.4): a correction's report and a
  * project's write-up are data, never instructions.
  *
- * Chat only for now; which of these MCP gets is phase 7's question.
+ * **Over MCP** (phase 7): `list_corrections` and `list_project_queue` too, so
+ * an MCP client can find the ids its proposals name. `find_people` stays chat
+ * only — no people action is ever exposed over MCP (§3.8), so an MCP client
+ * has nothing to resolve a person for.
  */
 
 /** `luis@cornell.edu` → `l***@cornell.edu`. Anything not shaped like an address is hidden whole. */
@@ -85,7 +88,6 @@ const listCorrectionsTool: CapabilityTool<Record<string, never>, { count: number
     "List the corrections still waiting (new or reviewed), as /admin/corrections shows them: each one's id, tool, field and status, with the reporter's words fenced as untrusted text. Staff only.",
   inputSchema: z.object({}) as unknown as z.ZodType<Record<string, never>>,
   kind: "read",
-  chatOnly: true,
   requiredPermission: "feedback.manage",
   run: async () => {
     const open = (await listFeedbackQueue()).filter((row) => OPEN_CORRECTION_STATUSES.has(row.status)).slice(0, 50);
@@ -113,7 +115,6 @@ const listProjectQueueTool: CapabilityTool<Record<string, never>, { count: numbe
     "List submitted projects, unpublished first, as /admin/projects shows them: each one's id, title, author and whether it is published, with the write-up fenced as untrusted text. Staff only.",
   inputSchema: z.object({}) as unknown as z.ZodType<Record<string, never>>,
   kind: "read",
-  chatOnly: true,
   requiredPermission: "projects.moderate",
   run: async () => {
     const rows = (await listProjectsForModeration({ limit: 50 })).map((project) =>

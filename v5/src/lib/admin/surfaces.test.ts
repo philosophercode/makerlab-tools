@@ -1,6 +1,6 @@
 import { can, canReachAdmin } from "../auth/permissions";
 import type { Role } from "../auth/roles";
-import { ADMIN_GROUPS, ADMIN_SURFACES, COUNT_LOADERS, SURFACE_KEYS, countLoadersFor, currentHref, surfacesFor } from "./surfaces";
+import { ADMIN_GROUPS, ADMIN_SURFACES, COUNT_LOADERS, SURFACE_KEYS, countLoadersFor, currentHref, mayOpen, surfacesFor } from "./surfaces";
 
 /**
  * The one list of admin surfaces (UI system spec §8.1): what each role is
@@ -31,6 +31,7 @@ describe("surfacesFor — who is shown what", () => {
       "maintenance",
       "corrections",
       "projects",
+      "proposals",
       "mirror",
     ]);
   });
@@ -42,9 +43,9 @@ describe("surfacesFor — who is shown what", () => {
   it.each(["anonymous", "user", "admin", "super_admin"] as const)(
     "never lists a surface %s's own permission would refuse",
     (role) => {
-      for (const surface of surfacesFor({ role })) expect(can({ role }, surface.permission)).toBe(true);
+      for (const surface of surfacesFor({ role })) expect(mayOpen({ role }, surface)).toBe(true);
       for (const surface of ADMIN_SURFACES.filter((entry) => !keys(role).includes(entry.key))) {
-        expect(can({ role }, surface.permission)).toBe(false);
+        expect(mayOpen({ role }, surface)).toBe(false);
       }
     }
   );

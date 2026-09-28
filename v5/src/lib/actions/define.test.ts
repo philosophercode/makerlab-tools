@@ -55,3 +55,8 @@ it("refuses a direct MCP exposure for anything but the grandfathered update_tick
   expect(() => defineAction({ ...base("operational"), mcp: "direct" })).toThrow(/proposals only/);
   expect(defineAction({ ...base("operational"), id: "tickets.update", mcp: "direct" }).mcp).toBe("direct");
 });
+
+it("keeps an action the assistant never proposes off MCP too (phase 7)", () => {
+  expect(defineAction({ ...base("catalog"), assistant: "never", neverReason: "a form" }).mcp).toBe("never");
+  expect(() => defineAction({ ...base("catalog"), assistant: "never", neverReason: "a form", mcp: "propose" })).toThrow(/never exposed over MCP/);
+});

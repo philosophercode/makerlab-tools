@@ -1349,7 +1349,8 @@
       "dialogLimit": "That would pass today's research limit. {remaining} left today.",
       "goToRefresh": "Open the Refresh page",
       "assistantHeading": "Proposals from assistants",
-      "assistantLede": "Changes staff members' AI assistants proposed over MCP. Nothing changes until you accept one; accepting saves it through the editor's revision check.",
+      "assistantLede": "Field changes staff members' AI assistants proposed over MCP. Nothing changes until you accept one; accepting saves it through the editor's revision check. Other changes an assistant proposed over MCP wait in its owner's Assistant proposals inbox.",
+      "assistantInboxLink": "Open Assistant proposals",
       "assistantBy": "Proposed through: {names}",
       "assistantUnavailable": "Proposals from assistants could not be loaded right now.",
       "columnSafety": "Safety",
@@ -1713,6 +1714,7 @@
         "maintenance": "Maintenance",
         "corrections": "Corrections",
         "projects": "Projects",
+        "proposals": "Assistant proposals",
         "users": "People",
         "mirror": "Notion mirror"
       }
@@ -1752,6 +1754,7 @@
       "correctionsSeries": "{total, plural, one {# correction} other {# corrections}} filed in the last 30 days",
       "projectsUnit": "waiting to be published",
       "projectsPublished": "Published",
+      "proposalsUnit": "from your connected assistants, waiting for you",
       "usersUnit": "people have signed in",
       "usersAdmins": "Admins",
       "usersBlocked": "Blocked addresses",
@@ -2276,6 +2279,31 @@
       "typeToConfirm": "Type “{name}” to confirm",
       "typeToConfirmLabel": "The name, exactly",
       "tainted": "Suggested after reading outside content (a web page, a manual, a ticket or an import). Check it is what you asked for."
+    },
+    "inbox": {
+      "title": "Assistant proposals",
+      "lede": "Changes an AI assistant you connected over MCP asked for. Nothing changes until you confirm one here; only you can, and each waits 7 days.",
+      "factsWaiting": "{count, plural, one {# waiting for you} other {# waiting for you}}",
+      "factsDecided": "{count, plural, one {# decided this week} other {# decided this week}}",
+      "empty": "Nothing waiting. When an assistant connected over MCP proposes a change, it appears here for you to confirm.",
+      "unavailable": "Your proposals could not be loaded right now.",
+      "decidedHeading": "Decided in the last 7 days",
+      "fieldChanges": "{count, plural, one {# field change proposed by assistants waits on the Refresh page.} other {# field changes proposed by assistants wait on the Refresh page.}}",
+      "fieldChangesLink": "Review them there",
+      "area": {
+        "people": "People",
+        "tickets": "Maintenance",
+        "corrections": "Corrections",
+        "projects": "Projects",
+        "tools": "Catalogue",
+        "units": "Units",
+        "resources": "Resources",
+        "pending": "Intake",
+        "imports": "Imported lists",
+        "manuals": "Manuals",
+        "refresh": "Refresh research",
+        "mirror": "Notion mirror"
+      }
     }
   }
 }

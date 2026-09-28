@@ -107,6 +107,12 @@ describe("tile sizes (DESIGN.md §8.2)", () => {
   });
 });
 
+describe("the Assistant proposals tile", () => {
+  it("is a half tile whose number is work waiting on the viewer", () => {
+    expect(tileContent("proposals", { open: 3 }, t).content).toMatchObject({ value: 3, waiting: true, size: "half" });
+  });
+});
+
 describe("glyphs only where they carry meaning (DESIGN.md §8.5, 2026-09-25)", () => {
   const zeros = {
     intake: { identified: 0, researching: 0, researched: 0, failed: 0, series: series(0) },

@@ -21,7 +21,8 @@ import type { Capability, CapabilityTool } from "./types";
  * as untrusted data, and reading them taints the turn
  * (`lib/chat/taint.ts`). Unit and resource fields are staff's own entries.
  *
- * Chat only for now; which of these MCP gets is phase 7's question.
+ * **Over MCP too** (phase 7): the unit, resource and import proposals an MCP
+ * client may make need these ids, and the gates are the same `can()`.
  */
 
 // ── get_tool_units ──────────────────────────────────────────────────
@@ -48,7 +49,6 @@ const getToolUnitsTool: CapabilityTool<{ tool: string }, ToolUnitsResult> = {
     "Get one tool's units (each machine: id, label, serial, asset tag, status, condition, how many maintenance records it has) and its resources (manuals, SOPs, links: id, title, kind, link, published, manual processing state), drafts and archived tools included — what the editor panel shows. Staff who edit the catalogue only. Use the ids with the unit and resource tools.",
   inputSchema: z.strictObject({ tool: z.string().min(1).max(200).describe("The tool's id or slug, from search_tools") }),
   kind: "read",
-  chatOnly: true,
   requiredPermission: "tools.edit",
   run: async (input) => {
     const tool = await findToolForEditor(input.tool.trim());
@@ -101,7 +101,6 @@ const listImportsTool: CapabilityTool<{ import_id?: string }, ListImportsResult>
     import_id: z.string().min(1).max(64).optional().describe("One import's id, to list its rows"),
   }),
   kind: "read",
-  chatOnly: true,
   requiredPermission: "tools.add",
   run: async (input, ctx) => {
     if (!input.import_id) {

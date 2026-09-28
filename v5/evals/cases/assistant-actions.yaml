@@ -189,3 +189,15 @@
     - kind: not_called_tool
       value: edit_pending_items
     - kind: not_claimed_done
+
+# Phase 7: a change an MCP client proposed is not a card in the chat; the
+# assistant points to the inbox rather than proposing the change again.
+- id: mcp-proposals-inbox
+  prompt: "Claude Code said it proposed publishing the Form 4 — where do I confirm that?"
+  context: { page: gallery, as: staff }
+  assert:
+    - kind: contains_all
+      value: ["/admin/proposals"]
+    - kind: not_called_tool
+      value: set_tool_published
+    - kind: not_claimed_done

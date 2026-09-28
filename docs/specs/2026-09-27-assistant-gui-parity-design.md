@@ -1,7 +1,7 @@
 # Assistant–GUI Parity: One Action Layer for People, Assistant and MCP — Design Spec
 
 **Date:** 2026-09-27
-**Status:** Accepted 2026-09-27 (owner's answers to §11 in the amendment below). Phases 1–6 built, with **Log completed maintenance** (§11 answer 5) (branch `v5/assistant-gui-parity`); phases 7–8 open
+**Status:** Accepted 2026-09-27 (owner's answers to §11 in the amendment below). **Phases 1–8 built**, with **Log completed maintenance** (§11 answer 5), on branch `v5/assistant-gui-parity`; see the as-built amendments
 **Target:** `v5/`
 **Branch:** `docs/spec-assistant-gui-parity` (spec); `v5/assistant-gui-parity` (implementation)
 **Spec PR:** #91 · **Implementation PR:** — (one per phase, §9)
@@ -1209,3 +1209,131 @@ Both staff roles are now past §3.4's fold threshold of 30 action tools. Per §1
 Tests: `intake.test.ts` (rename → conflict; changed research → conflict; `edit_pending_items` refuses `discard`), `taint.route.test.ts` (an injected ticket reached through `get_unit_details` gets `tainted_turn`; `remove_import_rows` refused after an outside read), `taint.test.ts` (the list; a turn that starts tainted), `staleness.test.ts` (version drift), `page-context.test.ts` (a foreign import's row and a queue item are dropped), `imports-mirror.test.ts` (tainted removal refused; `mcp: never`). Eval: `discard-is-its-own-action`.
 
 **Status.** Built on `v5/assistant-gui-parity`; not merged.
+
+### 2026-09-27 — phases 7 and 8 as built: MCP proposals, the inbox, docs and the drift check
+
+**What was built.**
+
+| Where | What |
+|---|---|
+| `lib/capabilities/actions.ts` | A second generated tool per action with `mcp: "propose"` (`mcpOnly`, same name, arguments and permission as the chat's): `proposeAction` with `surface: "mcp"`, no chat, no taint; answers `{ proposed: true, proposal_ids, inbox: "/admin/proposals", expires_at }` and "NOTHING HAS CHANGED YET". Its description adds `MCP_PROPOSAL_NOTE` (the inbox, 7 days, only you confirm). The chat's prompt tells the person where MCP proposals went |
+| `lib/actions/define.ts` | `assistant: "never"` now means `mcp: "never"` too (default, and refused if declared otherwise); `imports.confirm_columns` is therefore `never` over MCP |
+| `lib/data/action-proposals.ts` | `listInboxProposals` (the viewer's own MCP rows: open, and decided in the last 7 days) and `countOpenInboxProposals` |
+| `lib/actions/inbox.ts` | `buildInbox`: open rows → the chat's card payloads, one per proposal group, grouped by area in registry order; decided rows → a reference list |
+| `app/admin/proposals/page.tsx`, `components/admin/DecidedProposals.tsx` | **Assistant proposals** (`/admin/proposals`): the same `ActionProposalCard`, confirming through the same `POST /api/action-proposals` (cookie only, creator only), so a confirm is `performAction` with `surface: "mcp"` and the permission checked again. A count and a link for field changes waiting on `/admin/refresh`, which links back |
+| `lib/admin/surfaces.ts`, `data/admin-overview.ts`, `admin-tiles.ts` | The inbox is a surface in **Queues** (section bar, ⌘K, a half tile counting the viewer's open MCP proposals). A surface's `permission` may now be a list (any of): the inbox is open to every `ADMIN_SURFACE_PERMISSIONS` holder, since it holds whatever its viewer proposed |
+| `capabilities/admin-reads.ts`, `catalog-reads.ts` | `list_corrections`, `list_project_queue`, `get_tool_units` and `list_imports` are offered over MCP too (same gates, text fenced), so an MCP client can find the ids its proposals name. `find_people` stays chat only |
+| `lib/mcp/handler.ts` | The server's instructions say changes are proposals that wait in the inbox, and which areas are never available |
+| `lib/actions/exempt.ts` | Every remaining exemption is a decision: its reason starts with one of `EXEMPT_KINDS` (`Never`, `Not a write`, `Account gate…`, `Route-backed`…), and `parity.test.ts` refuses a "Later". The five "Later" entries became decisions (below) |
+| `lib/actions/spec-drift.test.ts` | Phase 8's drift check, mechanical: every registered id and tool name is written in this spec; every id §4.9 names is registered or listed with the amendment that decided otherwise; each §4.9 row's MCP column matches the definition, or the deviation is named |
+| Docs | `docs/mcp.md` (the proposing tools, the inbox, what is never over MCP), `docs/assistant.md` (new: what the assistant can do, for people), `docs/architecture-guide.md` (the action layer), `docs/specs/README.md`, `v5/AGENTS.md` |
+
+**Owner's answers, as applied.** Q4: MCP gets proposals only. There is **no `act` scope** and no
+`direct` beyond `update_ticket`, which keeps working over MCP exactly as before (`staff.ts`'s
+`writeTicket` call, `surface: mcp`); `set_correction_status` proposes (phase 1 deviation 11).
+Q3: no spend action over MCP (`defineAction` refuses it). Q7: 7 days, from the database's clock.
+Q11: only the creator sees or confirms; another person's id answers `not_found`, and a bearer
+token cannot confirm at all (`resolveIdentity` reads the cookie only).
+
+**Q8 over MCP** (the MCP tool list per credential, pinned by `capabilities/mcp-access.test.ts` and
+`api/mcp/route.test.ts`; lists in `test/mcp/expected-tools.ts`):
+
+| Credential | MCP tools | Of them, proposing tools |
+|---|---|---|
+| anonymous | 6 | 0 |
+| student | 9 | 0 |
+| SuperMaker or director, full access | 37 | 19 |
+| SuperMaker or director, read-only | 13 | 0 |
+
+A director's MCP list equals a SuperMaker's: every difference between the two roles is a people
+action, and none is exposed. The chat's counts are unchanged (58 / 50 / 9).
+
+**The registry as built** (42 definitions; this is what `spec-drift.test.ts` reads §4.9 against):
+
+| Action | Tool | Risk | Permission | Chat | MCP |
+|---|---|---|---|---|---|
+| `people.set_role` | `set_person_role` | people | `users.manage` | propose | never |
+| `people.set_title` | `set_person_title` | people | `users.manage` | propose (batch ≤ 20) | never |
+| `people.set_name` | `set_person_name` | people | `users.manage` | propose | never |
+| `people.add` | `add_person` | people | `users.manage` | propose | never |
+| `people.remove` | `remove_person` | destructive | `users.manage` | propose | never |
+| `people.unblock_email` | `unblock_email` | people | `users.manage` | propose | never |
+| `people.grant_allowance` | `grant_research_allowance` | people | `users.manage` | propose | never |
+| `tickets.update` | `update_ticket` | operational | `maintenance.manage` | propose (batch ≤ 20) | direct |
+| `tickets.log_completed` | `log_completed_maintenance` | operational | `maintenance.manage` | propose | propose |
+| `corrections.set_status` | `set_correction_status` | operational | `feedback.manage` | propose (batch ≤ 20) | propose |
+| `projects.set_published` | `set_project_published` | catalog | `projects.moderate` | propose | propose |
+| `tools.set_published` | `set_tool_published` | catalog | `tools.publish` | propose (batch ≤ 20) | propose |
+| `tools.mark_reviewed` | `mark_tool_reviewed` | catalog | `tools.edit` | propose (batch ≤ 20) | propose |
+| `tools.archive` | `archive_tool` | destructive | `tools.publish` | propose | never |
+| `tools.restore` | `restore_tool` | catalog | `tools.publish` | propose | propose |
+| `units.add` | `add_unit` | catalog | `tools.edit` | propose | propose |
+| `units.edit` | `edit_unit` | catalog | `tools.edit` | propose | propose |
+| `units.retire` | `retire_unit` | catalog | `tools.edit` | propose | propose |
+| `units.delete` | `delete_unit` | destructive | `tools.edit` | propose | never |
+| `resources.add` | `add_resource` | catalog | `tools.edit` | propose | propose |
+| `resources.edit` | `edit_resource` | catalog | `tools.edit` | propose | propose |
+| `resources.remove` | `remove_resource` | destructive | `tools.edit` | propose | never |
+| `pending.approve` | `approve_pending_items` | catalog | `tools.approve` | propose (batch ≤ 20) | propose |
+| `pending.add_unit` | `add_pending_as_unit` | catalog | `tools.approve` | propose | propose |
+| `pending.discard` | `discard_pending_item` | destructive | `tools.approve` | propose | never |
+| `pending.save_identity` | `rename_pending_item` | catalog | `tools.approve` | propose | propose |
+| `pending.edit` | `edit_pending_items` | catalog | `tools.add` | propose (batch ≤ 20) | propose |
+| `pending.different_image` | `find_different_image` | spend | `tools.approve` | propose | never |
+| `pending.research` | `research_pending_items` | spend | `tools.add` | propose | never |
+| `imports.confirm_columns` | `confirm_import_columns` | catalog | `tools.add` | never | never |
+| `imports.edit_row` | `edit_import_row` | catalog | `tools.add` | propose | propose |
+| `imports.set_hints` | `set_import_hints` | catalog | `tools.add` | propose | propose |
+| `imports.remove_rows` | `remove_import_rows` | catalog | `tools.add` | propose | never |
+| `imports.merge_row` | `merge_import_row` | catalog | `tools.add` | propose | propose |
+| `imports.decide_suggestions` | `decide_import_suggestions` | catalog | `tools.add` | propose | propose |
+| `imports.request_suggestions` | `request_import_suggestions` | spend | `tools.add` | propose | never |
+| `manuals.reprocess` | `reprocess_manual` | spend | `tools.edit` | propose | never |
+| `manuals.reprocess_library` | `reprocess_library_manual` | spend | `tools.edit` | never | never |
+| `refresh.queue` | `queue_refresh` | spend | `tools.edit` | propose | never |
+| `mirror.sync_now` | `sync_mirror` | operational | `mirror.manage` | propose | never |
+| `mirror.set_paused` | `pause_mirror` | operational | `mirror.manage` | propose | never |
+| `mirror.disconnect` | `disconnect_mirror` | destructive | `mirror.manage` | propose | never |
+
+§4.9 names three tools differently from the build: `edit_import_rows` is `edit_import_row` (one row
+per call) plus `set_import_hints`, and `manuals.reprocess_library` (`reprocess_library_manual`) is
+registered `never` (the library table's door to `manuals.reprocess`).
+
+**Where the build differs from §3.8, §6 and §9, and why.**
+
+1. **No `act` scope**, and nothing on the token or consent pages (§11 answer 4 settles it).
+2. **The inbox holds action proposals only.** Field changes (`propose_change` over MCP) keep their
+   review on `/admin/refresh`, where citations and quote checks are shown and anyone with
+   `tools.edit` decides them (refresh research spec §12, unchanged); the inbox counts them and
+   links there, and the Refresh section links back.
+3. **Four read tools reach MCP** that §3.4 listed for the chat (above); `find_people` does not.
+4. **Taint does not apply over MCP.** An MCP client reads whatever it likes outside the app, so
+   the server cannot know; that is one more reason people, destructive and `refuseWhenTainted`
+   actions are never exposed there, and each MCP proposal is still a card its creator must press.
+5. **Exemptions became decisions.** `POST /api/admin/revalidate` (`catalog.refresh_cache`, #10):
+   never — a cache flush, not a change, and every action refreshes its own pages.
+   `refreshAgain`: never as its own action — it closes an open refresh on its review page; the
+   assistant starts research with `queue_refresh`. `POST /api/projects` (`projects.submit`, #3):
+   never through the assistant — a student's own write-up with uploads (§2 non-goal on files), and
+   students are offered no action tools. `revokeTokenAction` / `revokeAppAction`
+   (`account.revoke_token`, #7): an account gate, not an admin permission — a person manages their
+   own credentials beside the list. The spec's §4.9 rows for these stand as history.
+6. **Not built:** pruning decided proposals after 90 days (§5.5 — rows are small; a cron step can
+   follow when the table needs it), the card's "Ask again", and a "via MCP" tag (there is still no
+   audit list page; `audit_events.surface` records it).
+
+**Tests.** `api/mcp/proposals.route.test.ts` (real MCP route, real confirm route, PGlite): a token
+proposes, nothing changes, the row is `surface: mcp` for 7 days; another admin cannot see or confirm
+it; the token itself cannot confirm (401); the creator's cookie confirms, audited `tool.unpublished`
+with `surface: mcp` and the proposal id; `set_correction_status` proposes; a director's token has no
+people tool; no destructive or spending tool. `lib/actions/inbox.test.ts`, the MCP half of
+`capabilities/actions.test.ts`, `parity.test.ts` (an MCP tool for exactly the `mcp: "propose"`
+actions; exemptions are decisions), `define.test.ts`, `mcp-access.test.ts` (no people, spend or
+destructive tool for any credential; a director's list equals a SuperMaker's), the overview loader
+and tile, `surfaces.test.ts`, `AdminNav.test.tsx`, `spec-drift.test.ts`. E2E
+(`e2e/assistant-actions.spec.ts`): a token made on `/account/tokens` proposes over `/api/mcp`, the
+card is on `/admin/proposals` from the section bar, Dismiss settles it and it moves to the decided
+list. Evals: one case (`mcp-proposals-inbox`), not run (paid).
+
+**Status.** Built on `v5/assistant-gui-parity`; one PR for phases 1–8, to merge before #79 (the
+flatten), which merges last.

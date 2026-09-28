@@ -124,7 +124,7 @@ function instructionsFor(caller: McpCaller): string {
     return `${base} You are connected without signing in, so only the public read-only tools are available. Maintenance history carries no reporter names.`;
   }
   const scope = caller.readOnly ? " This connection is read-only." : "";
-  return `${base} You are acting as a signed-in lab member with the role "${caller.identity.role}"; the tools listed are exactly the ones that role allows.${scope} Nothing you do publishes or edits the catalogue: new tools are drafts and catalogue changes are proposals a person accepts in the app.`;
+  return `${base} You are acting as a signed-in lab member with the role "${caller.identity.role}"; the tools listed are exactly the ones that role allows.${scope} Nothing you do publishes or edits the catalogue: new tools are drafts, and every other change (publishing, units, intake approvals, corrections…) except working a maintenance ticket with update_ticket is a proposal that waits in the app's Assistant proposals inbox (/admin/proposals) until this person confirms it there. Never say a proposed change was made. Changes to people, anything that cannot be undone, and anything that spends research budget are not available here.`;
 }
 
 function rpcError(status: number, code: number, message: string, headers: Record<string, string> = {}): Response {

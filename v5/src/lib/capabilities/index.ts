@@ -36,17 +36,19 @@ import type { Capability } from "./types";
  *                    `create_tool` writes a draft tool (MCP only).
  *  - `flags`       — file catalog corrections (write).
  *  - `reports`     — `list_my_reports`, a signed-in caller's own reports (MCP only).
- *  - `staff`       — the intake queue, the maintenance queue and `update_ticket`
- *                    (chat and MCP, staff only; in the chat the assistant
- *                    confirms a ticket change before making it), and
- *                    `propose_change` (MCP only). Each is gated by its own
- *                    permission — MCP access spec §3.2, amendment 2026-09-25.
- *                    In the chat `update_ticket` is the `actions` one.
- *  - `admin-reads` — `find_people`, `list_corrections`, `list_project_queue`:
- *                    the reads the action tools resolve names with (chat only).
+ *  - `staff`       — the intake queue, the maintenance queue, `update_ticket`
+ *                    (MCP only: the one direct MCP write) and `propose_change`
+ *                    (MCP only). Each is gated by its own permission — MCP
+ *                    access spec §3.2, amendment 2026-09-25. In the chat
+ *                    `update_ticket` is the `actions` one, which proposes.
+ *  - `admin-reads` — `find_people` (chat only), `list_corrections`,
+ *                    `list_project_queue`: the reads the action tools resolve
+ *                    names with.
  *  - `actions`     — one proposing tool per registered action, generated from
  *                    `lib/actions/registry.ts` (assistant–GUI parity spec
- *                    §3.4). Each only proposes; the person's click commits.
+ *                    §3.4), and an MCP twin for each `mcp: "propose"` action
+ *                    whose proposal waits in `/admin/proposals` (phase 7).
+ *                    Each only proposes; the person's click commits.
  *
  * Not every tool reaches both surfaces: `chatOnly` tools are never registered
  * over MCP, and `mcpOnly` tools are never handed to the chat model.

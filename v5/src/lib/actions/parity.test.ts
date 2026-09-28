@@ -11,7 +11,7 @@ import { CAPABILITIES } from "../capabilities";
 import { CURATION_TOOLS } from "../capabilities/curation";
 import * as corrections from "./corrections";
 import * as catalog from "./catalog";
-import { EXEMPT, ROUTE_BACKED } from "./exempt";
+import { EXEMPT, EXEMPT_KINDS, ROUTE_BACKED } from "./exempt";
 import * as imports from "./imports";
 import * as intake from "./intake";
 import * as manuals from "./manuals";
@@ -115,6 +115,11 @@ describe("every GUI write is an action or an explicit exemption", () => {
     expect(stale, "Remove these from lib/actions/exempt.ts").toEqual([]);
   });
 
+  it("holds only decisions: every exemption's reason is one of the kinds, never a deferral (phase 8)", () => {
+    const undecided = Object.entries(EXEMPT).filter(([, reason]) => !EXEMPT_KINDS.some((kind) => reason.startsWith(kind)));
+    expect(undecided).toEqual([]);
+  });
+
   it("gives every exemption a reason", () => {
     for (const [key, reason] of Object.entries(EXEMPT)) expect(reason.trim().length, key).toBeGreaterThan(10);
   });
@@ -204,7 +209,19 @@ describe("the generated tools (phase 2)", () => {
       expect(tool, def.id).toBeDefined();
       expect(tool!.requiredPermission, def.id).toBe(def.permission);
       expect(tool!.kind).toBe("write");
-      expect(tool!.chatOnly, "MCP proposals are phase 7").toBe(true);
+      expect(tool!.chatOnly, "the chat's tool draws a card").toBe(true);
+    }
+  });
+
+  it("gives every action MCP may propose its own MCP tool, and no other action one (phase 7, §3.8)", () => {
+    const mcpTools = generated.filter((t) => t.mcpOnly);
+    const expected = proposableDefinitions().filter((def) => def.mcp === "propose");
+    expect(mcpTools.map((t) => t.name).sort()).toEqual(expected.map((def) => def.toolName).sort());
+    for (const def of expected) {
+      const tool = mcpTools.find((t) => t.name === def.toolName)!;
+      expect(tool.requiredPermission, def.id).toBe(def.permission);
+      expect(tool.kind, def.id).toBe("write");
+      expect(["people", "spend", "destructive"], def.id).not.toContain(def.risk);
     }
   });
 

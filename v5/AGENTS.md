@@ -521,7 +521,7 @@ Phase 5 extends both. The shape it sets:
   picks is the whole of that decision, which is why they are two functions and
   not one with a flag.
 
-## The action layer (`src/lib/actions/`; assistant–GUI parity spec, phases 1–6)
+## The action layer (`src/lib/actions/`; assistant–GUI parity spec, phases 1–8)
 
 Every GUI write is defined once, as data plus a `run()`, and every surface runs
 it through **`performAction(def, input, identity, { surface })`**
@@ -530,8 +530,10 @@ People page and the three queues onto it with no behaviour change; phase 2 gave
 the assistant a proposing tool per action and the confirmation card that
 commits it; phase 3 told the chat where the person is; phases 4–6 moved the
 catalogue editor, intake, imports, refresh, manuals and the mirror's running
-controls onto it, with typed confirmation for destructive cards and taint.
-MCP proposals are phase 7.
+controls onto it, with typed confirmation for destructive cards and taint;
+phase 7 gave MCP clients proposals that wait in an inbox; phase 8 made every
+exemption a decision and the spec–registry drift check a test. What it means
+for people is in `docs/assistant.md`.
 
 - **One path.** `performAction`: `authorizeAdminAction` (limiter → signed in →
   permission) → `afterGate` → parse (`input`, a parse failure answers the
@@ -668,6 +670,37 @@ MCP proposals are phase 7.
   `PreliminaryToolPage`); a low-confidence item needs the reviewer's own note
   and is refused on its row. `IntakeList` and `ImportReview` publish their
   selection (`pending_tool`).
+- **MCP proposals** (phase 7): `capabilities/actions.ts` also generates an
+  `mcpOnly` tool of the same name for every definition with `mcp: "propose"`
+  (queue and catalogue work). Its `run()` is `proposeAction` with `surface:
+  "mcp"` and no chat: the row waits **7 days** in the creator's **Assistant
+  proposals** inbox, `/admin/proposals` (`lib/actions/inbox.ts` →
+  the chat's `ActionProposalCard`; `data/action-proposals.ts`'s
+  `listInboxProposals`), and only its creator, signed in with a cookie, can
+  confirm it — through the same `POST /api/action-proposals`, so the commit is
+  `performAction` with `surface: "mcp"`. A token can never confirm (the route
+  never reads a bearer). **Never over MCP**: `people`, `spend`, `destructive`,
+  anything `assistant: "never"` (`defineAction` makes it `mcp: "never"`), and
+  `refuseWhenTainted` or mirror controls (declared `never`). No `act` scope:
+  the only direct MCP write is `staff.ts`'s `update_ticket`
+  (`DIRECT_OVER_MCP`). `list_corrections`, `list_project_queue`,
+  `get_tool_units` and `list_imports` are on MCP too, so a client can find ids;
+  `find_people` is chat only. The MCP tool lists per credential are asserted
+  exactly (`test/mcp/expected-tools.ts`): add a proposable action and those
+  lists change on purpose.
+- **The inbox is an admin surface** (`surfaces.ts` key `proposals`, group
+  Queues, a half tile counting the viewer's open MCP proposals). A surface's
+  `permission` may be a list (any of, `mayOpen`): the inbox is open to every
+  `ADMIN_SURFACE_PERMISSIONS` holder, and shows only the viewer's own rows.
+  Field changes proposed over MCP (`propose_change`) stay on `/admin/refresh`;
+  each page links to the other.
+- **Exemptions are decisions** (phase 8): each `EXEMPT` reason starts with one
+  of `EXEMPT_KINDS` ("Never", "Not a write", "Account gate…", "Route-backed"…);
+  a "Later" fails `parity.test.ts`. **`spec-drift.test.ts`** reads the spec's
+  §4.9 table: every registered id and tool name must be written in the spec,
+  every §4.9 id registered or in its `NOT_REGISTERED` with a reason, and each
+  row's MCP column must match the definition or be in `MCP_DEVIATIONS`. A new
+  action therefore needs a line in the spec's as-built registry table.
 - **Log completed maintenance** (`tickets.log_completed`, `maintenance-log.ts`):
   the form on `/admin/maintenance` (`LogCompletedForm`, tools and units from
   `data/tool-options.ts`) and `log_completed_maintenance` — a ticket that
@@ -1004,10 +1037,12 @@ MCP callers act as a person, with that person's role and never more
   every write (and `requiresSignIn`) needs a signed-in caller; a read-only token or grant gets no
   writes. The server is built per request. Anonymous gets the six public reads; maintenance
   history carries reporter names only for `maintenance.manage`.
-- **MCP-only tools**: `list_my_reports` (`capabilities/reports.ts`), and `propose_change` in
+- **MCP-only tools**: `list_my_reports` (`capabilities/reports.ts`), `propose_change` in
   `capabilities/staff.ts` (a `chat_proposals` row with `chat_id = "mcp"`, shown on
-  `/admin/refresh` under "Proposals from assistants"). Nothing over MCP publishes or edits the
-  catalogue (Article 5).
+  `/admin/refresh` under "Proposals from assistants"), and the generated proposing tools
+  (`capabilities/actions.ts`, parity spec phase 7 — see "The action layer": an
+  `action_proposals` row with `surface = mcp`, confirmed by its creator on `/admin/proposals`).
+  Nothing over MCP publishes or edits the catalogue (Article 5).
 - **Staff queue tools, chat and MCP** (amendment 2026-09-25): `list_intake_queue`
   (`tools.approve`), `list_open_tickets` and `update_ticket` (`maintenance.manage`, through
   `lib/admin/ticket-write.ts`, the admin page's own path) in `capabilities/staff.ts`. The chat
@@ -1340,12 +1375,13 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/auth/blocked-sign-in.ts` | Refusing a blocked address in the create hook, and the redirect to `/auth/blocked` |
 | `src/lib/data/users.ts` | The `/admin/users` roster, read straight from Postgres; `markFirstSignIn` |
 | `src/lib/data/user-add.ts` | Add person: the pre-added `user` row and its `user.added` event, one transaction |
-| `src/lib/actions/*` | The action layer: `performAction`, `defineAction`, `ACTIONS` / `ACTION_DEFINITIONS`, the People, queue, log-completed, catalogue, intake, import, spend and mirror definitions, `proposals.ts` (propose / confirm), `page-context.ts`, `typed-confirm.ts`, and the parity guard (`parity.ts`, `exempt.ts`) |
+| `src/lib/actions/*` | The action layer: `performAction`, `defineAction`, `ACTIONS` / `ACTION_DEFINITIONS`, the People, queue, log-completed, catalogue, intake, import, spend and mirror definitions, `proposals.ts` (propose / confirm), `page-context.ts`, `typed-confirm.ts`, `inbox.ts` (the MCP inbox's cards), the parity guard (`parity.ts`, `exempt.ts`) and the spec drift check (`spec-drift.test.ts`) |
 | `src/lib/chat/taint.ts` | Whether a chat turn read outside content (§8.4) |
 | `src/lib/intake/research-start.ts` / `approval-draft.ts` | The one research start (route and card); the review page's default approval (page and card) |
 | `src/lib/data/action-proposals.ts` / `action-subjects.ts` | `action_proposals` (claim once, creator only, TTLs); the id → name reads previews and page context use |
-| `src/lib/capabilities/actions.ts` / `admin-reads.ts` | The generated proposing tools and their prompt; `find_people`, `list_corrections`, `list_project_queue` |
+| `src/lib/capabilities/actions.ts` / `admin-reads.ts` | The generated proposing tools (chat, and MCP for `mcp: "propose"`) and their prompt; `find_people`, `list_corrections`, `list_project_queue` |
 | `src/app/api/action-proposals/route.ts` | Confirm / cancel an assistant proposal (cookie only), and re-read the caller's proposals by id or chat |
+| `src/app/admin/proposals/page.tsx` | **Assistant proposals**: the viewer's own MCP proposals as confirmation cards, and the last week's decided ones |
 | `src/components/chat/ActionProposalCard.tsx` / `page-selection.tsx` | The confirmation card; the page selection the chat sends |
 | `src/lib/admin/queue-write.ts` | `QueueActionResult`; `runQueueWrite` has no callers since the action layer (awaiting deletion approval) |
 | `src/app/admin/maintenance/`, `corrections/`, `projects/` | The three queues: one page, one result module and one action apiece |

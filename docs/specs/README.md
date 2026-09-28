@@ -39,6 +39,7 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 | [Refresh Research](2026-09-23-refresh-research-design.md) | Phases 1–4 built. Not yet run over the real inventory |
 | [Official and Display Names](2026-09-24-tool-display-names-design.md) | `tools.official_name`; backfill with `npm run names:backfill` |
 | [Manual Text and Search](2026-09-23-manual-text-and-search-design.md) | Phases 1–3: page text, passages, embeddings, `search_manual`; OCR for scanned PDFs, reranking, `halfvec` storage. Re-index with `npm run manuals:index` |
+| [Assistant–GUI Parity](2026-09-27-assistant-gui-parity-design.md) | Phases 1–8 on `v5/assistant-gui-parity` (one PR; merges before #79): `src/lib/actions/` and `performAction`, proposing tools and the confirmation card, page context, taint, MCP proposals and the `/admin/proposals` inbox. What the assistant can do, for users: [`assistant.md`](../assistant.md) |
 | [Operational Hardening](2026-07-29-operational-hardening-design.md) | Health endpoint, demo banner, nightly backup with tiered retention, staff refresh, backup heartbeat. Phase 2 (uptime monitor) is account setup in [`operations.md`](../operations.md); phase 6 (Notion webhook) superseded |
 
 ### Mostly implemented — open work named
@@ -49,7 +50,6 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 | [UI System](2026-09-25-ui-system-design.md) — shadcn/ui, Tufte density, admin IA, AI Elements chat | Phases 1–5 | **Phase 6** (delete legacy CSS) waits for the repo flatten, PR #79 |
 | [Sign-in and Tiered Rate Limiting](2026-07-29-auth-and-rate-limiting-design.md) | Google sign-in, tiered rate limits as specced | The env-list role model is **superseded** by Better Auth and the `user` table (data platform phase 4) |
 | [Intake Confidence](2026-07-29-intake-confidence-design.md) | Confidence grading and parallel identification, now inside the research pipeline | The chat-side card behaviour is **obsolete** — `propose_listing` was removed with the two-step intake (data platform phase 6) |
-| [Assistant–GUI Parity](2026-09-27-assistant-gui-parity-design.md) — one action layer so the assistant (and MCP, narrower) can do anything the GUI can, by proposal and confirmation card | **Phase 1**: `src/lib/actions/` (`performAction`, the registry), People and the three queues moved onto it, the parity guard | **Phases 2–8**: proposals and the card, page context, catalogue, intake/import, destructive + taint, MCP exposure, docs. §11 answered 2026-09-27 |
 
 ### Superseded — kept for history, do not implement against
 

@@ -10,15 +10,32 @@
  * are the spec's §9; "never" entries are §2's non-goals and §4.9's "never"
  * rows, and stay.
  *
+ * **Every entry is a decision, not a deferral** (phase 8): each reason starts
+ * with one of {@link EXEMPT_KINDS}, and `parity.test.ts` refuses a "Later".
+ *
  * Keys are `<repo-relative file>#<export>`, as `parity.ts` reports them.
  */
+
+/** What an exemption may be: the only openings a reason may start with. */
+export const EXEMPT_KINDS = [
+  "Never",
+  "Not a write",
+  "Not a user action",
+  "Route-backed",
+  "Already shared",
+  "Account gate, not an admin permission",
+  "The confirm route itself",
+  "Retired",
+] as const;
+
 export const EXEMPT: Readonly<Record<string, string>> = {
   // ── The catalogue (§4.4) ─────────────────────────────────────────────
   "src/app/admin/inventory/actions.ts#saveTool": "Never: field edits stay on curation's propose_change, which carries citations and quote checks (§4.9 #27, §2 non-goals)",
   "src/app/admin/inventory/photo-actions.ts#attachPhotos": "Never this iteration: photos are §2's non-goal (§11 Q10, later)",
   "src/app/admin/inventory/photo-actions.ts#reorderPhotos": "Never this iteration: photos are §2's non-goal (§11 Q10, later)",
   "src/app/admin/inventory/photo-actions.ts#removePhoto": "Never this iteration: photos are §2's non-goal (§11 Q10, later)",
-  "src/app/api/admin/revalidate/route.ts#POST": "Later: catalog.refresh_cache (§4.9 #10); the route also serves x-admin-secret callers with no session, which performAction cannot gate",
+  "src/app/api/admin/revalidate/route.ts#POST":
+    "Never: a cache flush, not a change anybody asked for — every action already refreshes the pages it changes (`revalidate`), and the route also serves x-admin-secret callers with no session, which performAction cannot gate (§4.9 #10, stage 4)",
 
   // ── Intake (§4.2) ────────────────────────────────────────────────────
   "src/app/api/pending-tools/[id]/route.ts#PATCH":
@@ -28,7 +45,8 @@ export const EXEMPT: Readonly<Record<string, string>> = {
   "src/app/api/imports/route.ts#POST": "Already shared: startImport is the one path for this route and the chat's start_import (bulk intake spec)",
 
   // ── Refresh research (§4.5 #37–39) ───────────────────────────────────
-  "src/app/admin/refresh/actions.ts#refreshAgain": "Later: Refresh again closes a refresh on its review page before queueing; the assistant queues with queue_refresh (refresh.queue)",
+  "src/app/admin/refresh/actions.ts#refreshAgain":
+    "Never as its own action: Refresh again closes an open refresh on its review page, which is the review surface (as decideRefreshProposals); the assistant starts research with queue_refresh (refresh.queue) (stage 4)",
   "src/app/admin/refresh/actions.ts#decideRefreshProposals": "Never: /admin/refresh is the review surface for research proposals (§4.9 #38)",
   "src/app/api/chat-proposals/route.ts#POST": "Never: deciding a field proposal is the person's click, by design (§2, refresh research spec §12)",
   "src/app/api/action-proposals/route.ts#POST": "The confirm route itself (§3.5): it runs stored proposals through performAction, so its writes are registered actions; not a GUI write of its own",
@@ -40,13 +58,14 @@ export const EXEMPT: Readonly<Record<string, string>> = {
   "src/app/admin/mirror/actions.ts#saveMapping": "Never: a mapping is a form of column choices, not a sentence (§4.9 #51)",
 
   // ── Public and account (§4.1) ────────────────────────────────────────
-  "src/app/api/projects/route.ts#POST": "Later phase: projects.submit (§4.9 #3), with its photo upload",
+  "src/app/api/projects/route.ts#POST":
+    "Never through the assistant: a project is a student's own write-up with its photo uploads, and files through a generated action are §2's non-goal; students are offered no action tools (§4.9 #3, stage 4)",
   "src/app/api/flags/route.ts#POST": "Already shared: the `flags` capability behind report_correction (§1)",
   "src/app/api/uploads/route.ts#POST": "Never: uploading a file is not a sentence; photos reach the chat as attachments (§2)",
   "src/app/account/tokens/actions.ts#createTokenAction": "Never: creates a secret (§2)",
   "src/app/account/tokens/actions.ts#revokeTokenAction":
-    "Later: account.revoke_token (§4.9 #7) — the account gate is signed-in, not a permission, and performAction's gate is a permission; needs its own gate kind",
-  "src/app/account/tokens/actions.ts#revokeAppAction": "Later: account.revoke_token, for OAuth grants (as revokeTokenAction)",
+    "Account gate, not an admin permission: a person manages their own credentials on /account/tokens beside the list, and performAction gates on a permission; revoking a credential from a model that may have read outside text is not offered (§4.9 #7, stage 4)",
+  "src/app/account/tokens/actions.ts#revokeAppAction": "Account gate, not an admin permission: as revokeTokenAction, for OAuth grants (§4.9 #7, stage 4)",
   "src/app/account/actions.ts#updateOwnNameAction": "Account gate, not an admin permission: people rename themselves on /account; the admin rename is people.set_name",
   "src/app/oauth/consent/actions.ts#decideConsentAction": "Never: consent must be the person's own act (§2)",
   "src/i18n/actions.ts#changeLocale": "Never: a client preference (§4.1 #4)",

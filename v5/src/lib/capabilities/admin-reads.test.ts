@@ -43,7 +43,12 @@ describe("find_people", () => {
     expect(tool("find_people").requiredPermission).toBe("users.manage");
     expect(tool("list_corrections").requiredPermission).toBe("feedback.manage");
     expect(tool("list_project_queue").requiredPermission).toBe("projects.moderate");
-    for (const t of adminReads.tools) expect(t).toMatchObject({ kind: "read", chatOnly: true });
+    for (const t of adminReads.tools) expect(t.kind).toBe("read");
+    // Phase 7: MCP gets the queue reads its proposals need, never find_people
+    // (no people action is exposed over MCP, §3.8).
+    expect(tool("find_people").chatOnly).toBe(true);
+    expect(tool("list_corrections").chatOnly).toBeFalsy();
+    expect(tool("list_project_queue").chatOnly).toBeFalsy();
   });
 });
 

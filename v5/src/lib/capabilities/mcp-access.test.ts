@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { nextCacheMock } from "../../../test/mocks/next-cache";
+import { ADMIN_READS_FOR_PROPOSALS, MCP_PROPOSING_TOOLS } from "../../../test/mcp/expected-tools";
 import { mcpAccessFor } from "../../../test/utils/identities";
 import { CAPABILITIES } from "./index";
 import { mcpToolsFor } from "./mcp-access";
@@ -32,6 +33,11 @@ const ADMIN_TOOLS = [
   "list_open_tickets",
   "update_ticket",
   "propose_change",
+  // The reads MCP proposals resolve ids with (assistant–GUI parity phase 7).
+  ...ADMIN_READS_FOR_PROPOSALS,
+  // One proposing tool per `mcp: "propose"` action, in registry order. Never
+  // a people, spend or destructive action (§3.8).
+  ...MCP_PROPOSING_TOOLS,
 ];
 
 function names(role: Parameters<typeof mcpAccessFor>[0], readOnly = false): string[] {
@@ -56,8 +62,44 @@ describe("the MCP tool list by identity", () => {
   });
 
   it("gives a read-only token its role's reads and no writes", () => {
-    expect(names("admin", true)).toEqual([...PUBLIC_READS, "list_my_reports", "list_intake_queue", "list_open_tickets"]);
+    expect(names("admin", true)).toEqual([...PUBLIC_READS, "list_my_reports", "list_intake_queue", "list_open_tickets", ...ADMIN_READS_FOR_PROPOSALS]);
     expect(names("user", true)).toEqual([...PUBLIC_READS, "list_my_reports"]);
+  });
+
+  it("never offers a people, spend or destructive action, or find_people, to any credential (§3.8)", () => {
+    const never = [
+      "find_people",
+      "set_person_role",
+      "set_person_title",
+      "set_person_name",
+      "add_person",
+      "remove_person",
+      "unblock_email",
+      "grant_research_allowance",
+      "research_pending_items",
+      "find_different_image",
+      "request_import_suggestions",
+      "reprocess_manual",
+      "queue_refresh",
+      "archive_tool",
+      "delete_unit",
+      "remove_resource",
+      "discard_pending_item",
+      "remove_import_rows",
+      "disconnect_mirror",
+      "sync_mirror",
+      "pause_mirror",
+    ];
+    for (const role of ["anonymous", "user", "admin", "super_admin"] as const) {
+      for (const readOnly of [false, true]) {
+        const listed = names(role, readOnly);
+        expect(listed.filter((name) => never.includes(name)), `${role}${readOnly ? " read-only" : ""}`).toEqual([]);
+      }
+    }
+  });
+
+  it("gives a director exactly a SuperMaker's MCP tools: nothing about people", () => {
+    expect(names("super_admin")).toEqual(names("admin"));
   });
 
   it("never offers a chat-only tool", () => {
