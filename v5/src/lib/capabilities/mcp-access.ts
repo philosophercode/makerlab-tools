@@ -1,3 +1,4 @@
+import { assistantToolForbidden } from "../actions/define";
 import type { Identity } from "../auth/identity";
 import { meetsRequiredPermission } from "./access";
 import type { Capability, CapabilityTool } from "./types";
@@ -35,6 +36,8 @@ export function mcpToolAllowed(
   access: McpAccess
 ): boolean {
   if (tool.chatOnly) return false;
+  // The assistant's deny list (owner decision 2026-09-27): nobody's, any role.
+  if (assistantToolForbidden(tool.name)) return false;
   if (!meetsRequiredPermission(access.identity, capability.requiredPermission)) return false;
   if (!meetsRequiredPermission(access.identity, tool.requiredPermission)) return false;
 

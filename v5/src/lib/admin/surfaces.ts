@@ -3,6 +3,7 @@ import {
   Boxes,
   Flag,
   GalleryVerticalEnd,
+  Inbox,
   PackagePlus,
   RefreshCw,
   Share2,
@@ -10,7 +11,7 @@ import {
   Wrench,
   type LucideIcon,
 } from "lucide-react";
-import { can, type Permission } from "../auth/permissions";
+import { ADMIN_SURFACE_PERMISSIONS, can, type Permission } from "../auth/permissions";
 import type { Role } from "../auth/roles";
 import { INTAKE_REVIEW_PERMISSION } from "../intake/access";
 
@@ -46,6 +47,7 @@ export const SURFACE_KEYS = [
   "maintenance",
   "corrections",
   "projects",
+  "proposals",
   "users",
   "mirror",
 ] as const;
@@ -61,6 +63,7 @@ export const COUNT_LOADERS = [
   "maintenance",
   "corrections",
   "projects",
+  "proposals",
   "users",
   "mirror",
 ] as const;
@@ -70,8 +73,12 @@ export interface AdminSurface {
   key: SurfaceKey;
   href: string;
   group: AdminGroup;
-  /** What the page itself checks; the surface is listed only to holders. */
-  permission: Permission;
+  /**
+   * What the page itself checks; the surface is listed only to holders. A
+   * list means any one of them — the Assistant proposals inbox, which holds
+   * whatever its viewer proposed, under whichever permission that was.
+   */
+  permission: Permission | readonly Permission[];
   icon: LucideIcon;
   /** The overview loader behind the surface's tile. */
   count: CountLoader;
@@ -102,6 +109,10 @@ export const ADMIN_SURFACES: readonly AdminSurface[] = [
   { key: "maintenance", href: "/admin/maintenance", group: "queues", permission: "maintenance.manage", icon: Wrench, count: "maintenance" },
   { key: "corrections", href: "/admin/corrections", group: "queues", permission: "feedback.manage", icon: Flag, count: "corrections" },
   { key: "projects", href: "/admin/projects", group: "queues", permission: "projects.moderate", icon: GalleryVerticalEnd, count: "projects" },
+  // The Assistant proposals inbox (assistant–GUI parity spec §3.8, §6): the
+  // viewer's own proposals from MCP clients. Anybody who reaches /admin may
+  // have made one, so it is open to every admin-surface permission.
+  { key: "proposals", href: "/admin/proposals", group: "queues", permission: ADMIN_SURFACE_PERMISSIONS, icon: Inbox, count: "proposals" },
   { key: "users", href: "/admin/users", group: "settings", permission: "users.manage", icon: Users, count: "users" },
   { key: "mirror", href: "/admin/mirror", group: "settings", permission: "mirror.manage", icon: Share2, count: "mirror" },
 ];
@@ -111,7 +122,13 @@ export const ADMIN_HOME = "/admin";
 
 /** The surfaces `subject` may open, in {@link ADMIN_SURFACES} order. Nobody (anonymous, a student) gets none. */
 export function surfacesFor(subject: { role: Role | null | undefined } | null | undefined): AdminSurface[] {
-  return ADMIN_SURFACES.filter((surface) => can(subject, surface.permission));
+  return ADMIN_SURFACES.filter((surface) => mayOpen(subject, surface));
+}
+
+/** Whether `subject` holds `surface`'s permission (any one of a list). */
+export function mayOpen(subject: { role: Role | null | undefined } | null | undefined, surface: Pick<AdminSurface, "permission">): boolean {
+  const permissions: readonly Permission[] = typeof surface.permission === "string" ? [surface.permission] : surface.permission;
+  return permissions.some((permission) => can(subject, permission));
 }
 
 /** A surface by key. */

@@ -165,6 +165,7 @@ describe("the shipped case set", () => {
     const files = new Set(loadCases().map((c) => c.file));
     expect(files).toEqual(
       new Set([
+        "assistant-actions.yaml",
         "bulk-import.yaml",
         "catalog-lookup.yaml",
         "curation.yaml",

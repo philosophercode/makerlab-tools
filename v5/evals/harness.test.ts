@@ -158,11 +158,28 @@ describe("composeCase", () => {
   it("composes a staff case's tools and prompt for the demo SuperMaker", async () => {
     const { system, tools } = await composeCase(testCase({ context: { page: "gallery", as: "staff" } }));
     expect(Object.keys(tools)).toEqual(expect.arrayContaining(["list_open_tickets", "update_ticket", "list_intake_queue"]));
-    expect(system).toMatch(/state the exact change and ask for confirmation/);
-    // update_ticket is a write: recorded, never run.
+    expect(system).toMatch(/The Confirm button is the only way to commit/);
+    // update_ticket is the chat's proposing tool: stubbed to propose, never run.
     const execute = tools.update_ticket.execute as (input: unknown, options: unknown) => Promise<unknown>;
-    const result = await execute({ ticket_id: "x", status: "resolved" }, {});
-    expect(result).toMatchObject({ stubbed: true, tool: "update_ticket" });
+    const result = await execute({ ticket_ids: ["x"], status: "resolved" }, {});
+    expect(result).toMatchObject({ proposed: true, stubbed: true, tool: "update_ticket" });
+  });
+
+  it("composes a director's case with the People tools and the page they are on", async () => {
+    const { system, tools } = await composeCase(testCase({ context: { page: "gallery", as: "super_admin", path: "/admin/users" } }));
+    expect(Object.keys(tools)).toEqual(expect.arrayContaining(["find_people", "set_person_title", "add_person"]));
+    expect(system).toContain("They are on **People (/admin/users)**");
+  });
+
+  it("sends a case's selection as the page would: ids looked up by name, names read back by the server", async () => {
+    const { system } = await composeCase(
+      testCase({ context: { page: "gallery", as: "staff", path: "/admin/maintenance", selection: ["Laser bed out of focus"] } })
+    );
+    expect(system).toMatch(/Selected \(1 tickets\):/);
+    expect(system).toContain('"Laser bed out of focus"');
+    await expect(
+      composeCase(testCase({ context: { page: "gallery", as: "staff", path: "/admin/maintenance", selection: ["No such ticket"] } }))
+    ).rejects.toThrow(/did not all resolve/);
   });
 
   it("gives a student case none of the staff tools, through the route's own filter", async () => {
@@ -194,6 +211,7 @@ describe("composeCase", () => {
 
   it("asks as the demo seed's accounts", () => {
     expect(evalIdentity("staff")).toMatchObject({ role: "admin", userId: "demo-user-niti" });
+    expect(evalIdentity("super_admin")).toMatchObject({ role: "super_admin", userId: "demo-user-isaac" });
     expect(evalIdentity("student")).toMatchObject({ role: "user", userId: "demo-user-casey" });
   });
 

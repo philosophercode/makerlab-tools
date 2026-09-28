@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import type { IntakeConfidenceLevel } from "../../lib/capabilities/types";
 import { hasStalledStart } from "../../lib/intake/access";
@@ -234,7 +234,9 @@ export function IntakeList({ items, filters = true }: IntakeListProps) {
         emptyOpen: t("emptyOpen"),
       }}
       renderItem={(item) => <IntakeRow item={item} />}
-      renderList={(run) => <Batches items={run} />}
+      renderList={(run, _part, row) => <Batches items={run} row={row} />}
+      // Ticked items are what "approve these" means in the chat (assistant–GUI parity spec §5.2).
+      selectable={{ kind: "pending_tool", name: (item) => item.name }}
     />
   );
 }
@@ -243,7 +245,7 @@ export function IntakeList({ items, filters = true }: IntakeListProps) {
  * Items grouped by batch, the batch with the newest item first. Within a batch
  * the order is the one the server sent — alphabetical, from `listPendingTools`.
  */
-function Batches({ items }: { items: PendingToolView[] }) {
+function Batches({ items, row }: { items: PendingToolView[]; row: (item: PendingToolView) => ReactNode }) {
   const t = useTranslations("admin.intake");
 
   const batches = new Map<string, PendingToolView[]>();
@@ -263,9 +265,7 @@ function Batches({ items }: { items: PendingToolView[] }) {
           </h3>
           <ul className="flex flex-col">
             {batch.map((item) => (
-              <li key={item.id}>
-                <IntakeRow item={item} />
-              </li>
+              <li key={item.id}>{row(item)}</li>
             ))}
           </ul>
         </section>

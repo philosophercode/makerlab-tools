@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
@@ -167,7 +168,13 @@ async function AssistantProposals() {
       <h3 id="assistant-proposals-heading" className="font-heading text-lg font-medium uppercase">
         {t("assistantHeading")}
       </h3>
-      <p className="max-w-[72ch] text-sm text-muted-foreground">{t("assistantLede")}</p>
+      <p className="max-w-[72ch] text-sm text-muted-foreground">
+        {t("assistantLede")}{" "}
+        {/* Assistant–GUI parity spec §3.8: the inbox holds every other MCP proposal. */}
+        <Link className="text-primary-ink hover:underline" href="/admin/proposals">
+          {t("assistantInboxLink")}
+        </Link>
+      </p>
       {[...byTool.entries()].map(([toolId, group]) => (
         <div key={toolId} className="flex flex-col gap-1 py-2">
           <h4 className="font-mono text-label font-medium uppercase">{group.name}</h4>

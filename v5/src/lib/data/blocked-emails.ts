@@ -2,7 +2,7 @@ import { asc, eq } from "drizzle-orm";
 import { getDb } from "../db/client.ts";
 import { blockedEmails, user } from "../db/schema/index.ts";
 import type { Db } from "../db/types.ts";
-import { recordAuditEvent } from "./audit.ts";
+import { recordAuditEvent, type AuditTrail } from "./audit.ts";
 
 /**
  * `blocked_emails` — addresses that may not sign up (auth spec amendment
@@ -100,7 +100,7 @@ export async function listBlockedEmails(options: BlockedEmailOptions = {}): Prom
  * because nothing changed.
  */
 export async function unblockEmail(
-  input: { email: string; actorUserId: string | null },
+  input: { email: string; actorUserId: string | null; trail?: AuditTrail },
   options: BlockedEmailOptions = {}
 ): Promise<{ removed: boolean }> {
   const normalized = normalizeBlockedEmail(input.email);
@@ -114,6 +114,7 @@ export async function unblockEmail(
     if (deleted.length === 0) return { removed: false };
     await recordAuditEvent(
       {
+        ...input.trail,
         actorUserId: input.actorUserId,
         action: "email.unblocked",
         subjectType: "email",

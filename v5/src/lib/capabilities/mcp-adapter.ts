@@ -96,7 +96,8 @@ export function registerAll(
   capabilities: Capability[],
   opts: RegisterAllOptions
 ): void {
-  const ctx: CapabilityCtx = { identity: opts.access.identity, ...opts.ctx };
+  // `surface` last, so nothing in `opts.ctx` can relabel an MCP call.
+  const ctx: CapabilityCtx = { identity: opts.access.identity, ...opts.ctx, surface: "mcp" };
   for (const capability of capabilities) {
     for (const tool of capability.tools) {
       if (!mcpToolAllowed(capability, tool, opts.access)) continue;

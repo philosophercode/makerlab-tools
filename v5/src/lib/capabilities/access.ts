@@ -1,3 +1,4 @@
+import { assistantToolForbidden } from "../actions/define";
 import { can, type Permission } from "../auth/permissions";
 import type { Role } from "../auth/roles";
 import type { Capability } from "./types";
@@ -18,7 +19,13 @@ import type { Capability } from "./types";
  * `mcpToolAllowed` in `mcp-access.ts`, which adds MCP's own two rules: a write
  * needs a signed-in caller, and a read-only token gets no writes.
  *
- * Client-safe: `permissions.ts` is pure data and the `Capability` import is
+ * **The assistant's deny list wins over any role** (owner decision
+ * 2026-09-27): a tool whose name falls in a forbidden category
+ * (`assistantToolForbidden` — secrets, tokens, hosting, the database,
+ * backups, the audit trail, exporting emails, sending messages, …) is offered
+ * to nobody, here or over MCP.
+ *
+ * Client-safe: `permissions.ts` and `actions/define.ts` are pure data and the `Capability` import is
  * type-only, so the header can ask {@link canAddEquipment} without pulling the
  * registry (and the database modules behind it) into the browser bundle.
  */
@@ -65,8 +72,11 @@ export function capabilitiesForIdentity(
         tools: [],
       };
     }
-    // A tool may name a permission of its own on top of its capability's.
-    const tools = capability.tools.filter((tool) => meetsRequiredPermission(subject, tool.requiredPermission));
+    // A tool may name a permission of its own on top of its capability's; and
+    // one on the assistant's deny list is nobody's, whatever their role.
+    const tools = capability.tools.filter(
+      (tool) => meetsRequiredPermission(subject, tool.requiredPermission) && !assistantToolForbidden(tool.name)
+    );
     return tools.length === capability.tools.length ? capability : { ...capability, tools };
   });
 }

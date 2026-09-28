@@ -202,6 +202,15 @@ export const ROUTE_TIERS = {
   // Starting a bulk import (bulk intake spec §8): a parse, and for a document a
   // model run — a handful a minute is more than anybody imports.
   imports: { limit: 6, windowMs: 60_000 },
+  // The assistant's action proposals (assistant–GUI parity spec §8.3), per
+  // person: each generated tool's run() checks this before any read. And the
+  // Confirm / Cancel clicks on the cards; what a confirm then commits also
+  // passes ADMIN_ACTION_TIER, shared with the GUI, inside performAction.
+  assistantPropose: { limit: 30, windowMs: 60_000 },
+  actionConfirm: { limit: 60, windowMs: 60_000 },
+  // What a proposal card re-reads on mount (`GET /api/action-proposals`). Its
+  // own bucket, so an inbox of many cards never spends the Confirm clicks'.
+  actionProposalRead: { limit: 300, windowMs: 60_000 },
   // The kiosk's poll (kiosk spec §8): a screen asks once a minute, so twenty
   // covers a lab or a booth full of screens behind one address. Keyed by
   // hashed IP only — the route reads no cookie.

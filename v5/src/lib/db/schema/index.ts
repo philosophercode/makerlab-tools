@@ -28,3 +28,4 @@ export * from "./manuals.ts";
 export * from "./refresh.ts";
 export * from "./access.ts";
 export * from "./blocked-emails.ts";
+export * from "./action-proposals.ts";
