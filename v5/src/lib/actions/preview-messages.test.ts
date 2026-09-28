@@ -20,7 +20,8 @@ const fields = en.actions.fields as Record<string, string>;
 const values = en.actions.values as Record<string, Record<string, string>>;
 
 it("has a summary string for every summary key a preview uses", () => {
-  const keys = new Set([...sources.matchAll(/"((?:people|tickets|corrections|projects)_[a-z_]+)"/g)].map((m) => m[1]));
+  // `pending_tool` is a subject type, not a summary.
+  const keys = new Set([...sources.matchAll(/"((?:people|tickets|corrections|projects|tools|units|resources|manuals|pending|imports|refresh|mirror)_[a-z_]+)"/g)].map((m) => m[1]).filter((key) => key !== "pending_tool"));
   expect(keys.size).toBeGreaterThan(8);
   expect([...keys].filter((key) => !(key in summaries))).toEqual([]);
 });

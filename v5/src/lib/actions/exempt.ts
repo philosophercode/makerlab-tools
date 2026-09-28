@@ -13,57 +13,27 @@
  * Keys are `<repo-relative file>#<export>`, as `parity.ts` reports them.
  */
 export const EXEMPT: Readonly<Record<string, string>> = {
-  // ── Phase 4: catalogue actions (§4.9 #28–35) ─────────────────────────
-  "src/app/admin/inventory/actions.ts#saveTool": "Field edits stay on curation's propose_change (§4.9 #27); the editor's save is wrapped in phase 4 with its revision token",
-  "src/app/admin/inventory/actions.ts#markToolReviewed": "Phase 4: tools.mark_reviewed",
-  "src/app/admin/inventory/actions.ts#publish": "Phase 4: tools.publish",
-  "src/app/admin/inventory/actions.ts#unpublish": "Phase 4: tools.unpublish",
-  "src/app/admin/inventory/actions.ts#archive": "Phase 4 (destructive in phase 6): tools.archive",
-  "src/app/admin/inventory/actions.ts#restore": "Phase 4: tools.restore",
-  "src/app/admin/inventory/unit-actions.ts#addUnit": "Phase 4: units.add",
-  "src/app/admin/inventory/unit-actions.ts#editUnit": "Phase 4: units.edit",
-  "src/app/admin/inventory/unit-actions.ts#retireUnit": "Phase 4: units.retire",
-  "src/app/admin/inventory/unit-actions.ts#deleteUnit": "Phase 4 (destructive in phase 6): units.delete",
-  "src/app/admin/inventory/resource-actions.ts#addResource": "Phase 4: resources.add",
-  "src/app/admin/inventory/resource-actions.ts#editResource": "Phase 4: resources.edit",
-  "src/app/admin/inventory/resource-actions.ts#removeResource": "Phase 4 (destructive in phase 6): resources.remove",
-  "src/app/admin/inventory/resource-actions.ts#reprocessManual": "Phase 5 (spend): manuals.reprocess",
-  "src/app/admin/research/actions.ts#reprocessLibraryManual": "Phase 5 (spend): manuals.reprocess, from the library table",
+  // ── The catalogue (§4.4) ─────────────────────────────────────────────
+  "src/app/admin/inventory/actions.ts#saveTool": "Never: field edits stay on curation's propose_change, which carries citations and quote checks (§4.9 #27, §2 non-goals)",
   "src/app/admin/inventory/photo-actions.ts#attachPhotos": "Never this iteration: photos are §2's non-goal (§11 Q10, later)",
   "src/app/admin/inventory/photo-actions.ts#reorderPhotos": "Never this iteration: photos are §2's non-goal (§11 Q10, later)",
   "src/app/admin/inventory/photo-actions.ts#removePhoto": "Never this iteration: photos are §2's non-goal (§11 Q10, later)",
-  "src/app/api/admin/revalidate/route.ts#POST": "Phase 4: catalog.refresh_cache; also serves x-admin-secret callers with no session",
+  "src/app/api/admin/revalidate/route.ts#POST": "Later: catalog.refresh_cache (§4.9 #10); the route also serves x-admin-secret callers with no session, which performAction cannot gate",
 
-  // ── Phase 5: intake and import actions (§4.9 #12–19, #23–26) ─────────
-  "src/app/admin/intake/actions.ts#approvePending": "Phase 5: pending.approve",
-  "src/app/admin/intake/actions.ts#approvePendingAsDraft": "Phase 5: pending.approve_draft",
-  "src/app/admin/intake/actions.ts#addPendingUnit": "Phase 5: pending.add_unit",
-  "src/app/admin/intake/actions.ts#discardPending": "Phase 5 (destructive in phase 6): pending.discard",
-  "src/app/admin/intake/actions.ts#savePendingIdentity": "Phase 5: pending.save_identity",
-  "src/app/admin/intake/actions.ts#requestDifferentImage": "Phase 5 (spend): pending.different_image",
-  "src/app/api/pending-tools/[id]/route.ts#PATCH": "Phase 5: pending.edit and pending.discard, from the chat's intake table",
-  "src/app/api/pending-tools/research/route.ts#POST": "Phase 5 (spend): pending.research",
-  "src/app/admin/intake/imports/actions.ts#confirmImportColumns": "Phase 5: imports.confirm_columns",
-  "src/app/admin/intake/imports/actions.ts#updateImportRow": "Phase 5: imports.edit_rows",
-  "src/app/admin/intake/imports/actions.ts#setImportRowHints": "Phase 5: imports.edit_rows",
-  "src/app/admin/intake/imports/actions.ts#removeImportRows": "Phase 5: imports.remove_rows",
-  "src/app/admin/intake/imports/actions.ts#mergeImportRow": "Phase 5: imports.merge_row",
-  "src/app/admin/intake/imports/actions.ts#acceptImportSuggestions": "Phase 5: imports.decide_suggestions",
-  "src/app/admin/intake/imports/actions.ts#ignoreImportSuggestions": "Phase 5: imports.decide_suggestions",
-  "src/app/admin/intake/imports/actions.ts#requestImportSuggestions": "Phase 5 (spend): imports.request_suggestions",
+  // ── Intake (§4.2) ────────────────────────────────────────────────────
+  "src/app/api/pending-tools/[id]/route.ts#PATCH":
+    "Route-backed (ROUTE_BACKED): the intake table's HTTP shape (status codes, the item view) over updatePendingTool / discardPendingTool, the same writes pending.edit and pending.discard run",
+  "src/app/api/pending-tools/research/route.ts#POST":
+    "Route-backed (ROUTE_BACKED): the route keeps its limiter tier and 401/403 and runs lib/intake/research-start.ts, the one start pending.research runs too",
   "src/app/api/imports/route.ts#POST": "Already shared: startImport is the one path for this route and the chat's start_import (bulk intake spec)",
 
-  // ── Refresh research (§4.9 #37–39) ───────────────────────────────────
-  "src/app/admin/refresh/actions.ts#queueToolRefresh": "Phase 5 (spend): refresh.queue",
-  "src/app/admin/refresh/actions.ts#refreshAgain": "Phase 5 (spend): refresh.queue",
+  // ── Refresh research (§4.5 #37–39) ───────────────────────────────────
+  "src/app/admin/refresh/actions.ts#refreshAgain": "Later: Refresh again closes a refresh on its review page before queueing; the assistant queues with queue_refresh (refresh.queue)",
   "src/app/admin/refresh/actions.ts#decideRefreshProposals": "Never: /admin/refresh is the review surface for research proposals (§4.9 #38)",
   "src/app/api/chat-proposals/route.ts#POST": "Never: deciding a field proposal is the person's click, by design (§2, refresh research spec §12)",
   "src/app/api/action-proposals/route.ts#POST": "The confirm route itself (§3.5): it runs stored proposals through performAction, so its writes are registered actions; not a GUI write of its own",
 
-  // ── Phase 7 / mirror (§4.9 #50–51) ───────────────────────────────────
-  "src/app/admin/mirror/actions.ts#syncNow": "Mirror phase: mirror.sync_now",
-  "src/app/admin/mirror/actions.ts#setPaused": "Mirror phase: mirror.set_paused",
-  "src/app/admin/mirror/actions.ts#disconnect": "Phase 6 (destructive): mirror.disconnect",
+  // ── The Notion mirror's setup (§4.9 #50–51) ──────────────────────────
   "src/app/admin/mirror/actions.ts#testConnection": "Never: takes a Notion secret, which must never enter a model's context (§2)",
   "src/app/admin/mirror/actions.ts#connect": "Never: takes a Notion secret, which must never enter a model's context (§2)",
   "src/app/admin/mirror/actions.ts#createDatabases": "Never: a mapping is a form of column choices, not a sentence (§4.9 #51)",
@@ -74,8 +44,9 @@ export const EXEMPT: Readonly<Record<string, string>> = {
   "src/app/api/flags/route.ts#POST": "Already shared: the `flags` capability behind report_correction (§1)",
   "src/app/api/uploads/route.ts#POST": "Never: uploading a file is not a sentence; photos reach the chat as attachments (§2)",
   "src/app/account/tokens/actions.ts#createTokenAction": "Never: creates a secret (§2)",
-  "src/app/account/tokens/actions.ts#revokeTokenAction": "Phase 6 (destructive): account.revoke_token",
-  "src/app/account/tokens/actions.ts#revokeAppAction": "Phase 6 (destructive): account.revoke_token, for OAuth grants",
+  "src/app/account/tokens/actions.ts#revokeTokenAction":
+    "Later: account.revoke_token (§4.9 #7) — the account gate is signed-in, not a permission, and performAction's gate is a permission; needs its own gate kind",
+  "src/app/account/tokens/actions.ts#revokeAppAction": "Later: account.revoke_token, for OAuth grants (as revokeTokenAction)",
   "src/app/account/actions.ts#updateOwnNameAction": "Account gate, not an admin permission: people rename themselves on /account; the admin rename is people.set_name",
   "src/app/oauth/consent/actions.ts#decideConsentAction": "Never: consent must be the person's own act (§2)",
   "src/i18n/actions.ts#changeLocale": "Never: a client preference (§4.1 #4)",
@@ -85,7 +56,7 @@ export const EXEMPT: Readonly<Record<string, string>> = {
 
   // ── Reads that happen to be server actions ───────────────────────────
   "src/app/admin/inventory/actions.ts#loadToolForEditor": "Not a write: the editor panel's read",
-  "src/app/admin/intake/imports/actions.ts#loadImport": "Not a write: the import review's read",
+  "src/app/admin/intake/imports/actions.ts#loadImport": "Not a write: the import review's read (its polling)",
 
   // ── Not user actions (§4.8 "out of scope") ───────────────────────────
   "src/app/api/auth/[...all]/route.ts#POST": "Not a user action: sign-in and sign-out (§2)",
@@ -95,4 +66,17 @@ export const EXEMPT: Readonly<Record<string, string>> = {
   "src/app/api/mcp/signed-in/route.ts#POST": "Not a user action: the MCP stream itself",
   "src/app/api/mcp/signed-in/route.ts#DELETE": "Not a user action: the MCP stream itself",
   "src/app/api/upload-notion/route.ts#POST": "Retired, awaiting deletion approval (data platform spec)",
+};
+
+/**
+ * Registered actions whose GUI door is an API route rather than a server
+ * action. A route answers HTTP — status codes, its own limiter tier, a body
+ * shape a client island reads — so it cannot be a one-line `performAction`
+ * wrapper; instead it and the definition call **the same write** (named in
+ * the route's `EXEMPT` reason). The parity guard accepts these as the
+ * action's GUI endpoint, and checks each route is in `EXEMPT`.
+ */
+export const ROUTE_BACKED: Readonly<Record<string, string>> = {
+  "pending.edit": "src/app/api/pending-tools/[id]/route.ts#PATCH",
+  "pending.research": "src/app/api/pending-tools/research/route.ts#POST",
 };

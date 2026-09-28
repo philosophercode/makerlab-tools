@@ -121,3 +121,79 @@ test("Log completed maintenance records a resolved ticket from the queue page", 
   await page.locator('[data-slot="queue-settled"] summary').click({ timeout: 15_000 });
   await expect(page.getByRole("article", { name: title })).toContainText("Resolved");
 });
+
+test("ticked intake items reach the chat as pending ids (approve these, phase 5)", async ({ page, context, baseURL }) => {
+  await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
+  const bodies: Record<string, unknown>[] = [];
+  await page.route("**/api/chat", async (route) => {
+    bodies.push(route.request().postDataJSON());
+    await route.fulfill({ status: 200, headers: STREAM_HEADERS, body: stream(text("0", "Approve them as drafts?")) });
+  });
+
+  await page.goto("/admin/intake");
+  await page.getByRole("checkbox", { name: "Select “Prusa MK4S”" }).click({ timeout: 15_000 });
+  await expect(page.getByText("1 selected")).toBeVisible();
+  await page.getByRole("button", { name: "Ask the assistant about these" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("textbox", { name: "Ask the lab console" }).fill("Approve these as drafts");
+  await dialog.getByRole("button", { name: "Send" }).click();
+  await expect(dialog.getByText("Approve them as drafts?")).toBeVisible();
+
+  const pageContext = bodies[0].page as { path: string; selection: { kind: string; ids: string[] } };
+  expect(pageContext.path).toBe("/admin/intake");
+  expect(pageContext.selection).toEqual({ kind: "pending_tool", ids: [expect.stringMatching(/^[0-9a-f-]{36}$/)] });
+});
+
+test("a destructive card confirms only once the name is typed, and sends it (phase 6)", async ({ page, context, baseURL }) => {
+  await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
+  const card = {
+    kind: "action-proposal",
+    groupId: "33333333-3333-4333-8333-333333333333",
+    actionId: "tools.archive",
+    risk: "destructive",
+    items: [
+      {
+        id: "44444444-4444-4444-8444-444444444444",
+        subjectId: "55555555-5555-4555-8555-555555555555",
+        preview: {
+          summary: { key: "tools_archive", values: { name: "Trotec Speedy 400" } },
+          rows: [{ field: "archived", before: "active", after: "archived", format: "archived" }],
+          subjectName: "Trotec Speedy 400",
+          link: "/tools/trotec-speedy-400",
+        },
+        expiresAt: "2099-01-01T00:00:00.000Z",
+      },
+    ],
+    refused: [],
+  };
+  await page.route("**/api/chat", (route) =>
+    route.fulfill({
+      status: 200,
+      headers: STREAM_HEADERS,
+      body: stream([...text("0", "Type the name on the card to confirm."), { type: "data-action-proposal", id: card.groupId, data: card }]),
+    })
+  );
+  await page.route("**/api/action-proposals?ids=*", (route) => route.fulfill({ json: { proposals: [] } }));
+  const decided: unknown[] = [];
+  await page.route("**/api/action-proposals", async (route) => {
+    if (route.request().method() !== "POST") return route.fallback();
+    decided.push(route.request().postDataJSON());
+    await route.fulfill({ json: { results: [{ id: card.items[0].id, status: "confirmed", link: "/tools/trotec-speedy-400" }] } });
+  });
+
+  await page.goto("/");
+  await page.getByRole("button", { name: "Open MakerLab assistant" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("textbox", { name: "Ask the lab console" }).fill("Archive the Trotec");
+  await dialog.getByRole("button", { name: "Send" }).click();
+
+  const proposal = dialog.getByRole("article", { name: "Archive Trotec Speedy 400" });
+  await expect(proposal).toContainText("Cannot be undone");
+  const confirm = dialog.getByRole("button", { name: "Confirm" });
+  await expect(confirm).toBeDisabled();
+  await dialog.getByRole("textbox", { name: "The name, exactly" }).fill("trotec speedy 400");
+  await expect(confirm).toBeEnabled();
+  await confirm.click();
+  await expect(proposal).toContainText("Done");
+  expect(decided).toEqual([{ ids: [card.items[0].id], decision: "confirm", typed: "trotec speedy 400" }]);
+});

@@ -5,8 +5,10 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 import type { ActionPreview, ActionPreviewRow } from "../../lib/actions/define";
 import type { DriftedField } from "../../lib/actions/staleness";
+import { typedMatches } from "../../lib/actions/typed-confirm";
 import type { ActionProposalCardPayload } from "../../lib/capabilities/actions";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
 import { ReviewCard, ReviewNote } from "../system/review/ReviewCard";
 
@@ -85,31 +87,10 @@ const RISK_TONE: Record<ActionProposalCardPayload["risk"], StatusTone> = {
   destructive: "bad",
 };
 
-/** Codes with an `admin.errors.<code>` sentence; anything else reads as "failed". */
-const KNOWN_ERRORS = new Set([
-  "not_signed_in",
-  "not_permitted",
-  "rate_limited",
-  "unknown_user",
-  "invalid_role",
-  "protected_floor",
-  "last_super_admin",
-  "self_remove",
-  "invalid_title",
-  "invalid_email",
-  "invalid_name",
-  "email_not_allowed",
-  "email_blocked",
-  "duplicate_email",
-  "conflict",
-  "not_found",
-  "invalid_field",
-  "failed",
-]);
-
 export function ActionProposalCard({ payload }: { payload: ActionProposalCardPayload }) {
   const t = useTranslations("actions");
   const te = useTranslations("admin.errors");
+  const tm = useTranslations("admin.mirror.errors");
   const tw = useTranslations("admin.warnings");
   const router = useRouter();
   const [rows, setRows] = useState<Record<string, RowState>>(() =>
@@ -170,7 +151,18 @@ export function ActionProposalCard({ payload }: { payload: ActionProposalCardPay
   const open = payload.items.filter((item) => rows[item.id]?.status === "open");
   const chosen = open.filter((item) => included.has(item.id)).map((item) => item.id);
   const busy = payload.items.some((item) => rows[item.id]?.status === "confirming");
-  const reason = (code: string | undefined) => te(KNOWN_ERRORS.has(code ?? "") ? (code as "failed") : "failed");
+  // Every refusal an action answers has an `admin.errors.<code>` sentence (the
+  // mirror's own under `admin.mirror.errors`); anything else reads as "failed".
+  const reason = (code: string | undefined) => {
+    if (code && te.has(code as "failed")) return te(code as "failed");
+    if (code && tm.has(code as "not_connected")) return tm(code as "not_connected");
+    return te("failed");
+  };
+  // A destructive card (§5.4): one row, never batched, confirmed by typing its name.
+  const destructive = payload.risk === "destructive";
+  const [typed, setTyped] = useState("");
+  const subjectName = payload.items[0]?.preview.subjectName ?? "";
+  const typedOk = !destructive || typedMatches(typed, subjectName);
 
   async function decide(ids: string[], decision: "confirm" | "cancel") {
     if (ids.length === 0) return;
@@ -180,7 +172,7 @@ export function ActionProposalCard({ payload }: { payload: ActionProposalCardPay
       const res = await fetch("/api/action-proposals", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ids, decision }),
+        body: JSON.stringify({ ids, decision, ...(destructive && decision === "confirm" ? { typed } : {}) }),
       });
       const body = (await res.json().catch(() => null)) as { results?: Outcome[] } | null;
       if (!res.ok || !body?.results) throw new Error("request refused");
@@ -278,9 +270,39 @@ export function ActionProposalCard({ payload }: { payload: ActionProposalCardPay
         </ReviewNote>
       ) : null}
 
+      {payload.tainted ? (
+        <ReviewNote tone="warn">
+          {t("card.tainted")}
+        </ReviewNote>
+      ) : null}
+
+      {open.length > 0 && destructive ? (
+        <label className="flex w-full flex-col gap-1 text-xs">
+          <span>{t("card.typeToConfirm", { name: subjectName })}</span>
+          <Input
+            value={typed}
+            aria-label={t("card.typeToConfirmLabel")}
+            autoComplete="off"
+            spellCheck={false}
+            className="w-full"
+            onChange={(event) => setTyped(event.target.value)}
+            // Enter never confirms: the click is the act (§6 keyboard).
+            onKeyDown={(event) => {
+              if (event.key === "Enter") event.preventDefault();
+            }}
+          />
+        </label>
+      ) : null}
+
       {open.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
-          <Button type="button" variant="default" size="sm" disabled={busy || chosen.length === 0} onClick={() => void decide(chosen, "confirm")}>
+          <Button
+            type="button"
+            variant="default"
+            size="sm"
+            disabled={busy || chosen.length === 0 || !typedOk}
+            onClick={() => void decide(chosen, "confirm")}
+          >
             {batch ? t("card.confirmCount", { count: chosen.length }) : t("card.confirm")}
           </Button>
           <Button type="button" variant="quiet" size="sm" disabled={busy} onClick={() => void decide(open.map((item) => item.id), "cancel")}>

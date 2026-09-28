@@ -28,6 +28,7 @@ import { resourceHosts } from "../../../lib/capabilities/web";
 import { fetchManualPdf, type ManualPdfSource } from "../../../lib/chat/fetch-manual-pdf";
 import { loadToolManualsForChat } from "../../../lib/chat/tool-manuals";
 import { curationForChat, recordSearchResults } from "../../../lib/chat/curation";
+import { markOutsideReads, newTurnState } from "../../../lib/chat/taint";
 import { curationCapability } from "../../../lib/capabilities/curation";
 import { loadPageContext, pageContextSection } from "../../../lib/actions/page-context";
 import { loadProposalOutcomes } from "../../../lib/chat/proposal-outcomes";
@@ -164,6 +165,8 @@ export async function POST(req: Request) {
         identity,
         ...(curation ? { curation } : {}),
         ...(chatId ? { chatId } : {}),
+        // Whether this turn read outside content (assistant–GUI parity spec §8.4).
+        turn: newTurnState(),
       };
 
       // Compose the system prompt + capability tools from the shared registry
@@ -198,7 +201,11 @@ export async function POST(req: Request) {
         // Exa and read_page carry no per-turn cap of their own; we count.
         prepareStep: chatPrepareStep(Object.keys(chatTools)),
         // What the searches returned, for a curation turn's quote check and read_page hosts.
-        onStepFinish: (step) => recordSearchResults(ctx, step),
+        // And whether it read outside content, for the tools the adapter does not wrap (Exa).
+        onStepFinish: (step) => {
+          recordSearchResults(ctx, step);
+          markOutsideReads(ctx.turn, step);
+        },
         stopWhen: stepCountIs(10),
       });
 

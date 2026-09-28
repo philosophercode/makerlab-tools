@@ -96,7 +96,8 @@ export async function performAction<I, R extends object, E extends string, C>(
       console.error(`[${label}] after the change landed`, err);
       commitWarning = AUDIT_WARNING;
     }
-    refresh(def.revalidate ?? [], label);
+    const paths = typeof def.revalidate === "function" ? def.revalidate(input) : (def.revalidate ?? []);
+    refresh(paths, label);
   }
 
   // One warning for all of them: the admin's question is the same either way —

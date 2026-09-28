@@ -19,6 +19,7 @@ import type { ActionContext, ActionPreview } from "./define";
 import { performAction } from "./perform";
 import { actionById, type AnyActionDefinition } from "./registry";
 import { driftedFields, type DriftedField } from "./staleness";
+import { typedMatches } from "./typed-confirm";
 
 /**
  * Proposing and confirming (assistant–GUI parity spec §3.4, §3.5): the
@@ -44,7 +45,16 @@ export interface ProposeContext {
   identity: Identity;
   surface: ActionProposalSurface;
   chatId: string | null;
+  /**
+   * The turn read text from outside the lab's staff (§8.4). Stored on every
+   * row it proposes, and a `people` or `destructive` action is refused
+   * outright (`tainted_turn`) before anything is read.
+   */
+  tainted?: boolean;
 }
+
+/** The risks a tainted turn may never propose (§8.4). */
+export const TAINT_REFUSED_RISKS: readonly string[] = ["people", "destructive"];
 
 /** An item of a batch that was refused while the rest were proposed. */
 export interface RefusedItem {
@@ -66,6 +76,7 @@ export async function proposeAction(def: AnyActionDefinition, args: unknown, ctx
   // outlive a role change.
   if (!can(identity, def.permission)) return { ok: false, error: "not_permitted" };
   if (!def.tool || !def.preview) return { ok: false, error: "not_offered" };
+  if (ctx.tainted && TAINT_REFUSED_RISKS.includes(def.risk)) return { ok: false, error: "tainted_turn" };
 
   const parsedArgs = def.tool.schema.safeParse(args);
   if (!parsedArgs.success) return { ok: false, error: "invalid_input" };
@@ -93,7 +104,7 @@ export async function proposeAction(def: AnyActionDefinition, args: unknown, ctx
     // "Resolve these" with a ticket named twice is one change, not two cards.
     if (seen.has(subject.id)) continue;
     seen.add(subject.id);
-    const refusal = def.check ? await def.check(input, actionCtx) : null;
+    const refusal = (def.check ? await def.check(input, actionCtx) : null) ?? (def.proposeCheck ? await def.proposeCheck(input, actionCtx) : null);
     if (refusal) {
       refused.push({ subjectId: subject.id, error: refusal });
       continue;
@@ -118,6 +129,7 @@ export async function proposeAction(def: AnyActionDefinition, args: unknown, ctx
       preview: item.preview as unknown as Record<string, unknown>,
       surface: ctx.surface,
       chatId: ctx.chatId,
+      tainted: ctx.tainted === true,
       createdBy: identity.userId as string,
     }))
   );
@@ -284,8 +296,4 @@ async function explainUnclaimed(ids: readonly string[], userId: string): Promise
   return out;
 }
 
-/** A typed confirmation matches the subject's name: trimmed, Unicode-normalised, case-folded. */
-export function typedMatches(typed: string | undefined, subjectName: string): boolean {
-  const fold = (value: string) => value.normalize("NFKC").trim().replace(/\s+/g, " ").toLocaleLowerCase("en");
-  return typeof typed === "string" && fold(subjectName).length > 0 && fold(typed) === fold(subjectName);
-}
+export { typedMatches };

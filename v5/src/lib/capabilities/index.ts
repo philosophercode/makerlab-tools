@@ -8,6 +8,7 @@ import { flags } from "./flags";
 import { reports } from "./reports";
 import { staff } from "./staff";
 import { adminReads } from "./admin-reads";
+import { catalogReads } from "./catalog-reads";
 import { actions } from "./actions";
 import type { Capability } from "./types";
 
@@ -64,11 +65,12 @@ export const CAPABILITIES: Capability[] = [
   reports,
   staff,
   adminReads,
+  catalogReads,
   actions,
 ];
 
 // Re-export the individual capabilities for direct/selective use and testing.
-export { catalog, units, web, manuals, maintenance, intake, flags, reports, staff, adminReads, actions };
+export { catalog, units, web, manuals, maintenance, intake, flags, reports, staff, adminReads, catalogReads, actions };
 
 // Re-export the surface adapters so consumers import from one place.
 export {

@@ -11,7 +11,10 @@ import {
   ticketSubjects,
   toolSubjects,
 } from "../data/action-subjects";
+import { getBulkImport } from "../data/bulk-imports";
 import { isUuid } from "../data/uuid";
+import { canActOnImport } from "../import/access";
+import { canActOnPendingTool } from "../intake/access";
 import { fenceUntrusted, inlineText, OTHERS_TEXT_NOTE } from "../web/fence";
 
 /**
@@ -72,7 +75,7 @@ interface PageEntry {
   permission?: Permission;
   /** The record the page shows, from the path's captured segment. */
   subject?: (segment: string, identity: Identity) => Promise<string | null>;
-  selection?: { kind: SelectionKind; noun: string; load: (ids: string[]) => Promise<Line[]> };
+  selection?: { kind: SelectionKind; noun: string; load: (ids: string[], identity: Identity) => Promise<Line[]> };
 }
 
 /*
@@ -96,6 +99,13 @@ const projectLines = async (ids: string[]): Promise<Line[]> =>
   (await projectSubjects(ids)).map((p) => ({
     id: p.id,
     text: `project id=${p.id}: ${inlineText(p.title)} · ${p.published ? "published" : "not published"}`,
+  }));
+
+/** Only items the caller may act on: their own, or any for a reviewer (`canActOnPendingTool`). */
+const pendingLines = async (ids: string[], identity: Identity): Promise<Line[]> =>
+  (await pendingSubjects(ids)).filter((p) => canActOnPendingTool(identity, p)).map((p) => ({
+    id: p.id,
+    text: `pending item id=${p.id}: ${inlineText(p.name, 120)}${p.brand ? ` (${inlineText(p.brand, 60)})` : ""} · ${p.status}`,
   }));
 
 const toolLines = async (ids: string[]): Promise<Line[]> =>
@@ -134,7 +144,12 @@ export const PAGE_CONTEXTS: readonly PageEntry[] = [
     permission: "tools.edit",
     selection: { kind: "tool", noun: "tools", load: toolLines },
   },
-  { pattern: /^\/admin\/intake$/, name: "the intake queue (/admin/intake)", permission: "tools.approve" },
+  {
+    pattern: /^\/admin\/intake$/,
+    name: "the intake queue (/admin/intake)",
+    permission: "tools.approve",
+    selection: { kind: "pending_tool", noun: "pending items", load: pendingLines },
+  },
   {
     pattern: /^\/admin\/intake\/([0-9a-f-]{36})$/i,
     name: "a pending item's review page",
@@ -145,7 +160,20 @@ export const PAGE_CONTEXTS: readonly PageEntry[] = [
       return item ? `pending item id=${item.id}: ${inlineText(item.name, 120)}${item.brand ? ` (${inlineText(item.brand, 60)})` : ""} · ${item.status}` : null;
     },
   },
-  { pattern: /^\/admin\/intake\/imports(\/[0-9a-f-]{36})?$/i, name: "bulk imports (/admin/intake/imports)", permission: "tools.add" },
+  {
+    pattern: /^\/admin\/intake\/imports\/([0-9a-f-]{36})$/i,
+    name: "one bulk import's review (/admin/intake/imports/…)",
+    permission: "tools.add",
+    subject: async (id, identity) => {
+      if (!isUuid(id)) return null;
+      const found = await getBulkImport(id);
+      // Somebody else's import is named only to a reviewer, as the page itself does.
+      if (!found || !canActOnImport(identity, found)) return null;
+      return `import id=${found.id}: ${inlineText(found.sourceName ?? "pasted list", 120)} · ${found.status}`;
+    },
+    selection: { kind: "pending_tool", noun: "import rows", load: pendingLines },
+  },
+  { pattern: /^\/admin\/intake\/imports$/i, name: "bulk imports (/admin/intake/imports)", permission: "tools.add" },
   { pattern: /^\/admin\/refresh(\/[0-9a-f-]{36})?$/i, name: "refresh research (/admin/refresh)", permission: "tools.edit" },
   { pattern: /^\/admin\/mirror$/, name: "the Notion mirror settings (/admin/mirror)", permission: "mirror.manage" },
   { pattern: /^\/admin\/research$/, name: "the manual library (/admin/research)", permission: "tools.edit" },
@@ -201,7 +229,7 @@ export async function loadPageContext(identity: Identity, raw: unknown): Promise
       if (entry.selection && selection && selection.kind === entry.selection.kind) {
         const ids = [...new Set(selection.ids.filter(isUuid))].slice(0, MAX_SELECTION);
         if (ids.length > 0) {
-          const lines = await entry.selection.load(ids);
+          const lines = await entry.selection.load(ids, identity);
           // In the order the person ticked them; unknown ids simply vanish.
           const byId = new Map(lines.map((line) => [line.id, line.text]));
           const ordered = ids.flatMap((id) => (byId.has(id) ? [byId.get(id) as string] : []));

@@ -5,6 +5,7 @@ import { ADMIN_USERS_PATH, PERSON_NAME_MAX_LENGTH, type AdminActionError } from 
 import { isSignUpBlocked } from "../auth/blocked-sign-in";
 import { isAllowedEmail, normalizeEmail } from "../auth/roles";
 import { isSuperAdminFloor } from "../auth/super-admins";
+import { maskEmail } from "../capabilities/admin-reads";
 import { isEmailBlocked, unblockEmail } from "../data/blocked-emails";
 import { addPersonAccount } from "../data/user-add";
 import { removeUserAccount } from "../data/user-removal";
@@ -161,6 +162,33 @@ export const PEOPLE_REMOVE = defineAction<
   subject: (input) => ({ type: "user", id: input.userId }),
   afterGate: reconcileFloorAfterGate,
   check: async (input, ctx) => removalRefusal(input.userId, ctx.identity.userId),
+  // The card (§5.4): who goes, as the People page shows them, with "Also block
+  // this address" off unless the person said "block". Typed name to confirm.
+  tool: toolShape(
+    z.strictObject({
+      user_id: z.string().min(1).max(64).describe("The person's id, from find_people"),
+      block: z.boolean().optional().describe("Also block their address from signing up again — only if the person said so"),
+      reason: z.string().max(BLOCK_REASON_MAX).optional().describe("Why they are blocked, if the person said"),
+    }),
+    (args) => ({
+      ok: true,
+      inputs: [{ userId: args.user_id, block: args.block ?? false, ...(args.block && args.reason ? { reason: args.reason } : {}) }],
+    })
+  ),
+  preview: async (input) => {
+    const target = await findUserById(input.userId);
+    if (!target) return null;
+    return {
+      summary: { key: input.block ? "people_remove_block" : "people_remove", values: { name: target.name } },
+      rows: [
+        { field: "role", before: target.role, after: null, format: "role" as const },
+        ...(target.title ? [{ field: "title", before: target.title, after: null }] : []),
+        ...(input.block ? [{ field: "blocked", before: null, after: maskEmail(target.email) }] : []),
+      ],
+      subjectName: target.name,
+      link: ADMIN_USERS_PATH,
+    };
+  },
   run: async (input, ctx) => {
     const refusal = await removalRefusal(input.userId, ctx.identity.userId);
     if (refusal) return { ok: false, error: refusal };

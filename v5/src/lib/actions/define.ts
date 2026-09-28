@@ -72,7 +72,7 @@ export interface ActionPreviewRow {
    * The values are vocabulary, shown through `actions.values.<format>.<value>`
    * rather than as typed ("in_progress" reads "In progress").
    */
-  format?: "role" | "ticketStatus" | "priority" | "correctionStatus" | "published" | "maintenanceType";
+  format?: "role" | "ticketStatus" | "priority" | "correctionStatus" | "published" | "maintenanceType" | "unitStatus" | "unitCondition" | "archived";
 }
 
 /**
@@ -101,7 +101,18 @@ export function toolShape<T, I>(
 
 /** What an action changes, for the card, the conflict check and audit. */
 export interface ActionSubject {
-  type: "user" | "email" | "maintenance_log" | "feedback" | "project" | "tool" | "pending_tool";
+  type:
+    | "user"
+    | "email"
+    | "maintenance_log"
+    | "feedback"
+    | "project"
+    | "tool"
+    | "pending_tool"
+    | "unit"
+    | "resource"
+    | "import"
+    | "mirror";
   id: string;
 }
 
@@ -134,12 +145,29 @@ export interface ActionContext {
  */
 export type ActionOutcome<R, E extends string, C> =
   | { ok: true; value: R; committed?: C; warning?: AdminActionWarning }
-  | { ok: false; error: E | AdminGateError };
+  | ActionRefusal<E>;
 
-/** The answer every surface gets: the action's own success shape, or a code. */
+/**
+ * A refusal, and the two numbers a few of them carry: what is left of an
+ * allowance (`daily_limit`), and how long until a rate is free again
+ * (`sync_too_soon`). The pages always rendered them beside the sentence; an
+ * action answers them exactly as its server action did.
+ */
+export type ActionRefusal<E extends string> = {
+  ok: false;
+  error: E | AdminGateError;
+  remaining?: number;
+  retryAfterSeconds?: number;
+};
+
+/**
+ * The answer every surface gets: the action's own success shape, or a code.
+ * A success shape that names its own `warning` (the tool editor's, which adds
+ * `files_not_attached`) keeps it; every other one gets the shared audit one.
+ */
 export type ActionResult<R, E extends string> =
-  | ({ ok: true; warning?: AdminActionWarning } & R)
-  | { ok: false; error: E | AdminGateError };
+  | ({ ok: true } & ("warning" extends keyof R ? unknown : { warning?: AdminActionWarning }) & R)
+  | ActionRefusal<E>;
 
 /**
  * The parts of a definition that are data — what the parity guard, the
@@ -182,7 +210,7 @@ export interface ActionDefinition<I, R extends object, E extends string, C = tru
    * People page's super-admin floor reconciliation, which writes the caller's
    * own row. Its warning rides on whatever the action then answers.
    */
-  afterGate?: (ctx: ActionContext) => Promise<{ ok: true; warning?: AdminActionWarning } | { ok: false; error: E | AdminGateError }>;
+  afterGate?: (ctx: ActionContext) => Promise<{ ok: true; warning?: AdminActionWarning } | ActionRefusal<E>>;
   /**
    * Refusals beyond the permission (floor, last super admin, self-removal, an
    * unknown target), as codes. Runs at propose time too (phase 2), so it reads
@@ -190,6 +218,13 @@ export interface ActionDefinition<I, R extends object, E extends string, C = tru
    * between a check and a click.
    */
   check?: (input: I, ctx: ActionContext) => Promise<E | null>;
+  /**
+   * Refusals only a proposal needs, run after `check` when the assistant
+   * proposes: what the click would certainly refuse (an intake item not yet
+   * researched, a unit with history), so no card is drawn that can only fail.
+   * Never on the GUI path, whose order of refusals stays as it was.
+   */
+  proposeCheck?: (input: I, ctx: ActionContext) => Promise<string | null>;
   /** The change itself, against `src/lib/data`. A throw becomes `failed`. */
   run: (input: I, ctx: ActionContext) => Promise<ActionOutcome<R, E, C>>;
   /**
@@ -198,8 +233,12 @@ export interface ActionDefinition<I, R extends object, E extends string, C = tru
    * island answers a failure by restoring the value it replaced.
    */
   afterCommit?: (input: I, committed: C, ctx: ActionContext) => Promise<AdminActionWarning | undefined>;
-  /** Pages to refresh once something committed. Guarded: a refresh that cannot be scheduled logs. */
-  revalidate?: string[];
+  /**
+   * Pages to refresh once something committed — a list, or one built from the
+   * input (an intake item's own page). Guarded: a refresh that cannot be
+   * scheduled logs.
+   */
+  revalidate?: string[] | ((input: I) => string[]);
   /**
    * The card's before → after, read from the database (§3.2). Runs at propose
    * time after `check`; null means the subject is not there (`not_found`).

@@ -2,6 +2,8 @@
 import { getDb, resetDbForTests } from "../db/client";
 import { maintenanceLogs, tools } from "../db/schema/index";
 import type { Identity } from "../auth/identity";
+import { createPendingBatch } from "../data/pending-tools";
+import { startImport } from "../import/service";
 import { loadPageContext, MAX_SELECTION, PAGE_CONTEXTS, pageContextSection, SELECTION_KINDS } from "./page-context";
 
 /**
@@ -82,6 +84,25 @@ describe("loadPageContext", () => {
 
   it("strips a query string and a trailing slash before matching", async () => {
     expect((await loadPageContext(staff, { path: "/admin/maintenance/?x=1#y" })).page).toContain("maintenance");
+  });
+
+  it("names the ticked intake items on /admin/intake, from the database", async () => {
+    const batch = await createPendingBatch({ createdBy: null, items: [{ name: "Zyx lathe", brand: "Zyx" }, { name: "Qopa drill" }] });
+    const [a, b] = batch.items.map((item) => item.id);
+    const context = await loadPageContext(staff, { path: "/admin/intake", selection: { kind: "pending_tool", ids: [b, a] } });
+    expect(context.selection?.noun).toBe("pending items");
+    expect(context.selection?.lines[0]).toContain(`pending item id=${b}: "Qopa drill"`);
+    expect(context.selection?.lines[1]).toContain('"Zyx lathe" ("Zyx") · identified');
+  });
+
+  it("names an import to a reviewer on its review page, and nothing to a student", async () => {
+    const owner: Identity = { role: "admin", userId: null, email: null, name: "Owner", rateLimitKey: "o" };
+    const started = await startImport({ userId: null as never, text: "Band saw", origin: "page", startRun: async () => ({ runId: "x" }) });
+    if (!started.ok) throw new Error(started.error);
+    const path = `/admin/intake/imports/${started.import.id}`;
+    // A reviewer (tools.approve) is named every import, as the page shows them.
+    expect((await loadPageContext(owner, { path })).subject).toContain(`import id=${started.import.id}`);
+    expect((await loadPageContext(student, { path })).page).toBeNull();
   });
 
   it("knows only the selection kinds the client can send", () => {

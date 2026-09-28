@@ -14,8 +14,10 @@ import type { CurationContext } from "@/lib/capabilities/types";
 import { DEMO_ACCOUNTS } from "@/lib/db/demo-seed";
 import { loadCurationSubject, recordFields } from "@/lib/refresh/curation";
 import { loadPageContext, pageContextSection, PAGE_CONTEXTS } from "@/lib/actions/page-context";
+import { TAINT_REFUSED_RISKS } from "@/lib/actions/proposals";
+import { ACTION_DEFINITIONS } from "@/lib/actions/registry";
 import { getDb } from "@/lib/db/client";
-import { feedback, maintenanceLogs, projects, tools as toolsTable } from "@/lib/db/schema/index";
+import { feedback, maintenanceLogs, pendingTools, projects, tools as toolsTable } from "@/lib/db/schema/index";
 import { inArray } from "drizzle-orm";
 import type { EvalCaller, EvalCase, EvalTurn } from "./cases";
 
@@ -48,17 +50,30 @@ export function stubWrites(capabilities: Capability[] = CAPABILITIES): Capabilit
       // its stub answers the way the real one does, so the model is judged on
       // what it says after a real proposal.
       if (capability.id === "actions") {
+        const risk = ACTION_DEFINITIONS.find((def) => def.toolName === capTool.name)?.risk;
         return {
           ...capTool,
-          run: async (input: unknown) => ({
-            proposed: true,
-            stubbed: true,
-            tool: capTool.name,
-            count: 1,
-            input,
-            message:
-              "A confirmation card is now in front of the person. NOTHING HAS CHANGED YET: it changes only if they press Confirm on the card. Say so in one short line and point them to the card; never say it is done.",
-          }),
+          // A turn that read outside content may not propose people or
+          // destructive changes (§8.4) — the real tool refuses before storing
+          // anything, and so does this stub, from the same turn state.
+          run: async (input: unknown, ctx?: CapabilityCtx) =>
+            ctx?.turn?.readOutside && risk && TAINT_REFUSED_RISKS.includes(risk)
+              ? {
+                  proposed: false,
+                  stubbed: true,
+                  code: "tainted_turn",
+                  message:
+                    "This turn read content from outside the lab, so it may not propose changes to people or anything that cannot be undone. Nothing was proposed or changed. Ask the person to repeat the request in a new message.",
+                }
+              : {
+                  proposed: true,
+                  stubbed: true,
+                  tool: capTool.name,
+                  count: 1,
+                  input,
+                  message:
+                    "A confirmation card is now in front of the person. NOTHING HAS CHANGED YET: it changes only if they press Confirm on the card. Say so in one short line and point them to the card; never say it is done.",
+                },
         };
       }
       return {
@@ -183,6 +198,10 @@ async function idsByName(kind: string, names: string[]): Promise<string[]> {
   }
   if (kind === "project") {
     const rows = await db.select({ id: projects.id }).from(projects).where(inArray(projects.title, names));
+    return rows.map((row) => row.id);
+  }
+  if (kind === "pending_tool") {
+    const rows = await db.select({ id: pendingTools.id }).from(pendingTools).where(inArray(pendingTools.name, names));
     return rows.map((row) => row.id);
   }
   if (kind === "tool") {

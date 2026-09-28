@@ -50,6 +50,7 @@ describe("a generated tool's run()", () => {
       identity: identity("super_admin"),
       surface: "assistant",
       chatId: "chat-1",
+      tainted: false,
     });
     expect(writer.write).toHaveBeenCalledWith({
       type: "data-action-proposal",
@@ -97,16 +98,22 @@ describe("who is offered what (the phase 2 measurement, §11 answer 8)", () => {
     expect(offered("user").actionTools).toEqual([]);
   });
 
-  it("offers a SuperMaker the queue actions and no People action", () => {
-    expect(offered("admin").actionTools.sort()).toEqual(
-      ["log_completed_maintenance", "set_correction_status", "set_project_published", "update_ticket"].sort()
-    );
+  it("offers a SuperMaker the queue, catalogue, intake, import, spend and mirror actions, and no People action", () => {
+    const admin = offered("admin").actionTools;
+    for (const name of ["update_ticket", "set_tool_published", "archive_tool", "approve_pending_items", "research_pending_items", "queue_refresh", "disconnect_mirror"]) {
+      expect(admin).toContain(name);
+    }
+    expect(admin.filter((name) => /person|people|allowance|unblock/.test(name))).toEqual([]);
   });
 
-  it("offers a director every generated tool, well under the fold threshold of 30", () => {
-    expect(offered("super_admin").actionTools).toHaveLength(10);
-    expect(offered("super_admin").chatTools).toBe(26);
-    expect(offered("admin").chatTools).toBe(19);
+  it("pins the counts (phase 4–6 measurement: one tool per action, §11 answer 8)", () => {
+    // Past §3.4's fold threshold of 30 for both staff roles. The owner's answer
+    // is one tool per action, folding only if the evals show wrong-tool picks;
+    // the figures are in the spec's phases 4–6 amendment.
+    expect(offered("super_admin").actionTools).toHaveLength(40);
+    expect(offered("admin").actionTools).toHaveLength(33);
+    expect(offered("super_admin").chatTools).toBe(58);
+    expect(offered("admin").chatTools).toBe(50);
     expect(offered("user").chatTools).toBe(9);
   });
 });

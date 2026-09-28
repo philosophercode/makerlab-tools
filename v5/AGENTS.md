@@ -521,14 +521,17 @@ Phase 5 extends both. The shape it sets:
   picks is the whole of that decision, which is why they are two functions and
   not one with a flag.
 
-## The action layer (`src/lib/actions/`; assistant–GUI parity spec, phases 1–3)
+## The action layer (`src/lib/actions/`; assistant–GUI parity spec, phases 1–6)
 
 Every GUI write is defined once, as data plus a `run()`, and every surface runs
 it through **`performAction(def, input, identity, { surface })`**
 (`docs/specs/2026-09-27-assistant-gui-parity-design.md`). Phase 1 moved the
 People page and the three queues onto it with no behaviour change; phase 2 gave
 the assistant a proposing tool per action and the confirmation card that
-commits it; phase 3 told the chat where the person is. MCP proposals are phase 7.
+commits it; phase 3 told the chat where the person is; phases 4–6 moved the
+catalogue editor, intake, imports, refresh, manuals and the mirror's running
+controls onto it, with typed confirmation for destructive cards and taint.
+MCP proposals are phase 7.
 
 - **One path.** `performAction`: `authorizeAdminAction` (limiter → signed in →
   permission) → `afterGate` → parse (`input`, a parse failure answers the
@@ -544,7 +547,13 @@ commits it; phase 3 told the chat where the person is. MCP proposals are phase 7
 - **Definitions**: `people.ts` (role, title, name), `people-roster.ts` (add,
   remove, unblock), `people-allowance.ts`, `people-gate.ts` (the floor
   reconciliation as `afterGate`), `tickets.ts`, `corrections.ts`,
-  `projects.ts`; `registry.ts`'s `ACTIONS` lists them. `defineAction` refuses
+  `projects.ts`, `maintenance-log.ts` (phases 1–2); `catalog.ts` (publish,
+  mark reviewed, archive, restore), `units.ts`, `resources.ts` over the
+  shared `catalog-write.ts` (the editor's revision token rides on every input
+  — the panel's, or the one a proposal read — so a save between card and click
+  answers `conflict`) (phase 4); `intake.ts` (+ `intake-input.ts`),
+  `imports.ts`, `manuals.ts`, `refresh.ts` (phase 5); `mirror.ts` (phase 6).
+  `registry.ts`'s `ACTIONS` lists them. `defineAction` refuses
   at load a destructive batch, a `people`/`spend`/`destructive` action over MCP,
   `mcp: "direct"` on anything but `tickets.update` (`DIRECT_OVER_MCP`; MCP gets
   proposals only, §11 answer 4) and `assistant: "never"` without `neverReason`.
@@ -562,7 +571,11 @@ commits it; phase 3 told the chat where the person is. MCP proposals are phase 7
   its module in the guard) or an exemption** — and exemptions only shrink: a
   stale one fails the test too. The guard also fails a proposable action with
   no `tool` + `preview` that is not in `DEFERRED_TOOLS` (`capabilities/actions.ts`,
-  which only shrinks too).
+  which only shrinks too — empty since phase 6). An action whose GUI door is an
+  API route (HTTP statuses, its own limiter tier) is `ROUTE_BACKED` in
+  `exempt.ts`: the route stays `EXEMPT` and calls **the same write** the
+  definition's `run()` does (`pending.research` → `lib/intake/research-start.ts`,
+  moved verbatim out of the route; `pending.edit` → `updatePendingTool`).
 - **The assistant only proposes** (phase 2). `capabilities/actions.ts` generates
   one chat tool per definition that has a `tool` (`toolShape(schema,
   toInputs)`: the model's strict, described arguments → one definition input
@@ -612,10 +625,39 @@ commits it; phase 3 told the chat where the person is. MCP proposals are phase 7
   maintenance, corrections and projects queues checkboxes on open cards (only
   ticked rows the current filters show are sent) and an **Ask the
   assistant about these** bar; `InventoryBoard` publishes its selection.
-- **Read tools for the actions** (`capabilities/admin-reads.ts`, chat only):
+- **Read tools for the actions** (chat only): `capabilities/admin-reads.ts` —
   `find_people` (`users.manage`, masked emails `l***@cornell.edu`),
   `list_corrections`, `list_project_queue` (other people's words fenced with
-  `OTHERS_TEXT_NOTE`).
+  `OTHERS_TEXT_NOTE`); `capabilities/catalog-reads.ts` — `get_tool_units`
+  (`tools.edit`: units with ids and maintenance counts, resources) and
+  `list_imports` (`tools.add`: the caller's imports, or a reviewer's; rows
+  fenced). `list_open_tickets` fences each description.
+- **Destructive cards** (`risk: "destructive"`: `tools.archive`, `units.delete`,
+  `resources.remove`, `pending.discard`, `people.remove`, `mirror.disconnect`):
+  never batched, and Confirm stays off until the subject's stored name is typed
+  (`typed-confirm.ts`, the same fold the route checks again). Enter never
+  confirms.
+- **Taint** (`lib/chat/taint.ts`, §8.4): a chat turn that called
+  `read_page`, `exa_search`, `search_manual`, `list_open_tickets`,
+  `list_corrections`, `list_project_queue` or `list_imports` is tainted —
+  `CapabilityCtx.turn`, built by the route, marked by `toAiTools` when such a
+  tool starts and by the route's `onStepFinish` for Exa. Its proposals are
+  stored `tainted` and the card says so; `people` and `destructive` proposals
+  are refused (`tainted_turn`) and the assistant asks for a new message. A new
+  outside-content read tool must be added to `OUTSIDE_CONTENT_TOOLS`.
+- **Spend actions** (`pending.research`, `pending.different_image`,
+  `imports.request_suggestions`, `manuals.reprocess`, `refresh.queue`): cards
+  in the chat only, never over MCP (§11 answer 3); the card's sentence shows the
+  allowance left (`allowance.ts`, a summary value, never a compared row), and
+  the allowance is checked at the click by the same code the button runs.
+- **`proposeCheck`** on a definition: refusals only a proposal needs (an intake
+  item not researched or graded low, a unit with history), so no card is drawn
+  that the click can only refuse; never run on the GUI path.
+- **"Approve these"** builds, per item, the approval the review page sends
+  untouched (`lib/intake/approval-draft.ts`, shared with
+  `PreliminaryToolPage`); a low-confidence item needs the reviewer's own note
+  and is refused on its row. `IntakeList` and `ImportReview` publish their
+  selection (`pending_tool`).
 - **Log completed maintenance** (`tickets.log_completed`, `maintenance-log.ts`):
   the form on `/admin/maintenance` (`LogCompletedForm`, tools and units from
   `data/tool-options.ts`) and `log_completed_maintenance` — a ticket that
@@ -1288,7 +1330,9 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/auth/blocked-sign-in.ts` | Refusing a blocked address in the create hook, and the redirect to `/auth/blocked` |
 | `src/lib/data/users.ts` | The `/admin/users` roster, read straight from Postgres; `markFirstSignIn` |
 | `src/lib/data/user-add.ts` | Add person: the pre-added `user` row and its `user.added` event, one transaction |
-| `src/lib/actions/*` | The action layer: `performAction`, `defineAction`, `ACTIONS` / `ACTION_DEFINITIONS`, the People, queue and log-completed definitions, `proposals.ts` (propose / confirm), `page-context.ts`, and the parity guard (`parity.ts`, `exempt.ts`) |
+| `src/lib/actions/*` | The action layer: `performAction`, `defineAction`, `ACTIONS` / `ACTION_DEFINITIONS`, the People, queue, log-completed, catalogue, intake, import, spend and mirror definitions, `proposals.ts` (propose / confirm), `page-context.ts`, `typed-confirm.ts`, and the parity guard (`parity.ts`, `exempt.ts`) |
+| `src/lib/chat/taint.ts` | Whether a chat turn read outside content (§8.4) |
+| `src/lib/intake/research-start.ts` / `approval-draft.ts` | The one research start (route and card); the review page's default approval (page and card) |
 | `src/lib/data/action-proposals.ts` / `action-subjects.ts` | `action_proposals` (claim once, creator only, TTLs); the id → name reads previews and page context use |
 | `src/lib/capabilities/actions.ts` / `admin-reads.ts` | The generated proposing tools and their prompt; `find_people`, `list_corrections`, `list_project_queue` |
 | `src/app/api/action-proposals/route.ts` | Confirm / cancel an assistant proposal (cookie only), and re-read the caller's proposals by id or chat |

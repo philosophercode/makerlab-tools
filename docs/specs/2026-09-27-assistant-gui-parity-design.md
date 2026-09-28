@@ -1,7 +1,7 @@
 # Assistant–GUI Parity: One Action Layer for People, Assistant and MCP — Design Spec
 
 **Date:** 2026-09-27
-**Status:** Accepted 2026-09-27 (owner's answers to §11 in the amendment below). Phases 1–3 built, with **Log completed maintenance** (§11 answer 5) (branch `v5/assistant-gui-parity`); phases 4–8 open
+**Status:** Accepted 2026-09-27 (owner's answers to §11 in the amendment below). Phases 1–6 built, with **Log completed maintenance** (§11 answer 5) (branch `v5/assistant-gui-parity`); phases 7–8 open
 **Target:** `v5/`
 **Branch:** `docs/spec-assistant-gui-parity` (spec); `v5/assistant-gui-parity` (implementation)
 **Spec PR:** #91 · **Implementation PR:** — (one per phase, §9)
@@ -1144,3 +1144,58 @@ ids, and the log form lands a row. Evals: `evals/cases/assistant-actions.yaml` (
 
 **Status.** Built on `v5/assistant-gui-parity`; not merged.
 
+
+### 2026-09-27 — phases 4, 5 and 6 as built: the catalogue, intake and imports, spend, destructive actions and taint
+
+**What was built.** 31 definitions (42 registered in all; 40 offered to the assistant, two `never`):
+
+| Where | Actions (id → tool) |
+|---|---|
+| `lib/actions/catalog.ts` over `catalog-write.ts` | `tools.set_published` → `set_tool_published` (batch), `tools.mark_reviewed` → `mark_tool_reviewed` (batch), `tools.archive` → `archive_tool` (destructive), `tools.restore` → `restore_tool` |
+| `lib/actions/units.ts` | `units.add` / `units.edit` / `units.retire` → `add_unit`, `edit_unit`, `retire_unit`; `units.delete` → `delete_unit` (destructive) |
+| `lib/actions/resources.ts` | `resources.add` / `resources.edit` → `add_resource`, `edit_resource` (links only; the panel keeps file uploads); `resources.remove` → `remove_resource` (destructive) |
+| `lib/actions/intake.ts` (+ `intake-input.ts`) | `pending.approve` → `approve_pending_items` (`publish`, batch), `pending.add_unit` → `add_pending_as_unit`, `pending.discard` → `discard_pending_item` (destructive), `pending.save_identity` → `rename_pending_item`, `pending.edit` → `edit_pending_items` (batch), `pending.different_image` → `find_different_image` (spend), `pending.research` → `research_pending_items` (spend) |
+| `lib/actions/imports.ts` | `imports.edit_row`, `imports.set_hints`, `imports.remove_rows`, `imports.merge_row`, `imports.decide_suggestions` (`accept`/`ignore`), `imports.request_suggestions` (spend); `imports.confirm_columns` (`never`) |
+| `lib/actions/manuals.ts` | `manuals.reprocess` → `reprocess_manual` (spend); `manuals.reprocess_library` (`never`: the same run from the library table) |
+| `lib/actions/refresh.ts` | `refresh.queue` → `queue_refresh` (spend) |
+| `lib/actions/mirror.ts` | `mirror.sync_now` → `sync_mirror`, `mirror.set_paused` → `pause_mirror` (both `mcp: never`), `mirror.disconnect` → `disconnect_mirror` (destructive) |
+| `lib/actions/people-roster.ts` | `people.remove` → `remove_person` gained its tool and preview (destructive); `DEFERRED_TOOLS` is empty |
+
+The GUI endpoints are one-line wrappers: `admin/inventory/{actions,unit-actions,resource-actions}.ts` (all but `saveTool`, `loadToolForEditor` and photos), `admin/intake/actions.ts` (all six; Approve and Approve as draft set `publish` after the body), `admin/intake/imports/actions.ts` (all but the `loadImport` read), `admin/research/actions.ts`, `admin/refresh/actions.ts#queueToolRefresh`, `admin/mirror/actions.ts#{syncNow,setPaused,disconnect}`. Every existing test under those folders and their E2E specs (`admin-inventory`, `tool-editor`, `intake`, `mirror`) pass unchanged. **`EXEMPT` went from 69 entries to 37.**
+
+Also built:
+
+- **Read tools** (`capabilities/catalog-reads.ts`): `get_tool_units` (`tools.edit`) and `list_imports` (`tools.add`; the caller's imports, or any for a reviewer; rows fenced). `list_open_tickets` now fences each description (stage 2's deferral).
+- **Destructive cards**: a text field "Type “name” to confirm"; Confirm stays off until `typedMatches` (moved to the client-safe `typed-confirm.ts`, the same fold the route re-checks); Enter never confirms; the typed text is sent as `typed`.
+- **Taint** (§8.4, `lib/chat/taint.ts`): `CapabilityCtx.turn`, made by the chat route, shared by reference with every tool's ctx; `toAiTools` marks it when `read_page`, `search_manual`, `list_open_tickets`, `list_corrections`, `list_project_queue` or `list_imports` starts, and the route's `onStepFinish` marks it for `exa_search` (the Gateway's tool, not wrapped). `proposeAction` refuses `people` and `destructive` from a tainted turn with `tainted_turn` before reading anything, and stores `tainted` on every other row; the card shows "Suggested after reading outside content".
+- **Selection** on `/admin/intake` (`IntakeList` via `QueueList`, whose `renderList` now receives the row renderer so a batched layout keeps its checkboxes) and on an import's review (`ImportReview`); `PAGE_CONTEXTS` reads `pending_tool` selections on both and names the import on its review page.
+- **Messages**: summaries, fields and values for every new preview; `admin.errors` gained `unresolved_duplicate`, `not_researchable`, `too_many_items`, `invalid_body`, `confirmation_mismatch`. The card now names any code that has an `admin.errors` (or `admin.mirror.errors`) sentence instead of a fixed list.
+
+**Owner's answers, as applied.** Q2: publishing and archiving from a card is a person, with `tools.publish`, in the app; audited `tool.published` / `tool.archived` with `surface: assistant` (`tool-state.ts` and `intake/approve.ts` take the trail). Q3: the five spend actions are cards in the chat, never over MCP (`defineAction` refuses it); the allowance is checked at the click by the button's own code. Q8: measured below.
+
+**Q8, the measurement again** (same method as phase 2's table, re-run: descriptions plus `z.toJSONSchema` of each input, and `buildSystemPrompt` with an empty catalogue):
+
+| Role | Chat tools | Of them, action tools | Tool schemas + descriptions (chars) | Prompt without the catalogue (chars) |
+|---|---|---|---|---|
+| anonymous / user | 9 | 0 | 5,985 | 10,423 |
+| admin (SuperMaker) | 50 | 33 | 36,206 | 18,782 |
+| super_admin | 58 | 40 | 41,058 | 18,916 |
+
+Both staff roles are now past §3.4's fold threshold of 30 action tools. Per §11 answer 8 (one tool per action; fold only if the evals show wrong-tool picks) **nothing is folded**; the new eval cases below are the evidence to look at before deciding. `capabilities/actions.test.ts` pins the counts.
+
+**Where the build differs from §3–§6, and why.**
+
+1. **One definition for publish and unpublish** (`tools.set_published`, like `projects.set_published`), not two ids: they are one decision and one tool (§4.9 row 29 already had one tool). Archive and restore stay two, because their risks differ.
+2. **The revision is the proposal's.** `toInputs` reads the tool's current revision and stores it on the input; the write layer's own check answers `conflict` if anything saved the tool since — any field, as for a second panel. Staleness (phase 2) still names a changed field the card shows when there is one.
+3. **`proposeCheck`** (new, on `ActionDefinition`): refusals only a proposal needs, run after `check` at propose time and never on the GUI path — an intake item that is not researched, has an undecided duplicate or is graded low (`low_confidence`: the reviewer's own "I've checked this" note is the page's), a unit with maintenance history. The GUI's order of refusals is unchanged.
+4. **"Approve these" approves research's proposal untouched.** The page's starting draft and its conversion to `ApprovalFields` moved to `lib/intake/approval-draft.ts` (client-safe; `PreliminaryToolPage` and `ProductImage` import it), and `toInputs` builds each item's approval from it: research's name (made distinct), description, category, location hint match, lists, training "staff to confirm" → required, every verified link, the preselected image. A reviewer who wants to change a field uses the page.
+5. **Two actions are route-backed** (`ROUTE_BACKED` in `exempt.ts`): `pending.research` and `pending.edit`. A route answers HTTP statuses, its own limiter tier and a body shape the intake table reads, so it cannot be a one-line wrapper. `POST /api/pending-tools/research`'s start moved verbatim to `lib/intake/research-start.ts`, which the route and `pending.research` both run; the PATCH route and `pending.edit` both write through `updatePendingTool`. The routes keep their own gates; the parity guard checks each route-backed action names an existing, exempt route.
+6. **`pending.research` is one proposal for the batch**, as one press of the button is one request (one allowance decision, one workflow run); its subject is the first item and its preview lists the names.
+7. **Refusals carry `remaining` and `retryAfterSeconds`** (`ActionRefusal`), so `daily_limit` and `sync_too_soon` answer through `performAction` exactly as the server actions did. A success shape that names its own `warning` (the editor's `files_not_attached`) keeps it (`ActionResult`).
+8. **`revalidate` may be built from the input** (an intake item's own page).
+9. **Deferred, not built:** `account.revoke_token` (#7 — the account gate is "signed in", not a permission, and `performAction` gates on a permission; it needs its own gate kind), `catalog.refresh_cache` (#10 — the route also serves `x-admin-secret` callers with no session), `refresh.again` (it closes a refresh on its review page first; the assistant queues with `queue_refresh`). `imports.confirm_columns` is registered `never` (a column mapping is choices made looking at the file, like the mirror's mapping, §4.9 #51). No "Ask again" button and no "via assistant" tag yet (phase 2's deferrals stand).
+10. **Taint is per chat request.** Text read in an earlier turn is still in the conversation's history, but the next message is a new turn and starts clean — that is what "ask again in a new message" relies on (§5.4). The eval harness's action stub refuses from the same turn state.
+
+**Tests.** PGlite integration: `lib/actions/catalog.test.ts` (publish from the editor and from a card — same row, same `tool.published` but for `surface`/`proposal_id`; an editor save between card and click → `conflict`, nothing written; a batch of reviews; archive refused tainted, refused mistyped, confirmed typed; a unit with history refused at propose; units and links added through cards move the revision), `lib/actions/intake.test.ts` (approve these → two drafts, `pending.approved` as the assistant's; the stored approval is one the page's button accepts; publish refused without `tools.publish`; low confidence and unresearched refused on their rows; research spends only at the click and is refused at the click when the allowance shrank; discard typed, refused tainted), `lib/actions/imports-mirror.test.ts` (rows removed only from the named import; suggestions start at the click; the mirror disconnected with its title typed and audited; `remove_person` tainted / mistyped / typed, `user.removed` as the assistant's; self-removal refused at propose). `api/chat/taint.route.test.ts` runs the real route: a ticket whose description tells the assistant to remove Casey, read in the same turn, gets `tainted_turn` and no card; the same request clean draws the destructive card; a tainted catalogue proposal is stored and shown `tainted`. Unit: `lib/chat/taint.test.ts`, `capabilities/catalog-reads.test.ts`, page-context (intake and import selections), the card (typed confirmation, Enter, mismatch, taint line, any `admin.errors` code). E2E (`e2e/assistant-actions.spec.ts`): ticked intake items reach the chat as `pending_tool` ids; a destructive card enables Confirm only once the name is typed and sends it. Evals (`evals/cases/assistant-actions.yaml`, not run — paid): `publish-form-4`, `approve-these`, `approve-these-none-selected`, `research-is-a-card`, `archive-asks-for-the-name`, `injection-in-ticket` (the fixture adds a visitor's Trotec ticket that tells the assistant to remove Casey), `remove-after-reading-tickets`, `remove-in-a-clean-turn`.
+
+**Status.** Built on `v5/assistant-gui-parity`; not merged.

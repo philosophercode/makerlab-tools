@@ -785,7 +785,12 @@
       "unverified_quote": "None of this proposal's quotes were found on the page it names, so it cannot be accepted here. Open the editor and check the manufacturer's page yourself.",
       "replaces_lab_rule": "This would remove or replace one of the lab's own rules (a use restriction or a training requirement). Research can only add to them. Change the lab's rules in the editor if you mean to.",
       "too_many_tools": "Refresh at most 25 tools at a time.",
-      "expired": "This proposal is more than a week old. Ask the assistant again."
+      "expired": "This proposal is more than a week old. Ask the assistant again.",
+      "unresolved_duplicate": "Decide what to do with the possible duplicate first.",
+      "not_researchable": "This is already researching or settled.",
+      "too_many_items": "Too many items at once.",
+      "invalid_body": "That request did not have the expected shape.",
+      "confirmation_mismatch": "The name typed did not match, so nothing was changed."
     },
     "warnings": {
       "audit_unavailable": "Saved, but this change could not be written to the audit log. Tell whoever runs the deployment.",
@@ -2101,7 +2106,42 @@
       "tickets_log_completed": "Log completed maintenance on {tool}",
       "corrections_set_status": "Set the status of the correction on {name}",
       "projects_publish": "Publish the project “{title}”",
-      "projects_unpublish": "Unpublish the project “{title}”"
+      "projects_unpublish": "Unpublish the project “{title}”",
+      "people_remove": "Remove {name} from the roster",
+      "people_remove_block": "Remove {name} from the roster and block their address",
+      "tools_publish": "Publish {name}",
+      "tools_unpublish": "Unpublish {name}",
+      "tools_mark_reviewed": "Mark {name} as reviewed (“Looks good”)",
+      "tools_archive": "Archive {name}",
+      "tools_restore": "Restore {name} from the archive",
+      "units_add": "Add the unit “{label}” to {tool}",
+      "units_edit": "Change the unit “{label}” of {tool}",
+      "units_retire": "Retire the unit “{label}” of {tool}",
+      "units_delete": "Delete the unit “{label}” of {tool}",
+      "resources_add": "Add “{title}” to {tool}",
+      "resources_edit": "Change “{title}” on {tool}",
+      "resources_remove": "Remove “{title}” from {tool}",
+      "manuals_reprocess": "Re-process the manual “{title}” ({tool})",
+      "pending_approve": "Approve and publish {name}",
+      "pending_approve_draft": "Approve {name} as a draft",
+      "pending_add_unit": "Add {name} as another unit of {tool}",
+      "pending_discard": "Discard {name} from the intake queue",
+      "pending_save_identity": "Rename the pending item {name}",
+      "pending_edit": "Edit the pending item {name}",
+      "pending_different_image": "Find a different image for {name} (1 research item; {left} left today)",
+      "pending_research": "Research {count, plural, one {# item} other {# items}} ({left} research items left today)",
+      "imports_edit_row": "Edit a row of {file}",
+      "imports_set_hints": "Set hints on {count, plural, one {# row} other {# rows}} of {file}",
+      "imports_remove_rows": "Remove {count, plural, one {# row} other {# rows}} from {file}",
+      "imports_merge_row": "Merge a row of {file} into another",
+      "imports_accept_suggestions": "Accept the suggested names on {count, plural, one {# row} other {# rows}} of {file}",
+      "imports_ignore_suggestions": "Ignore the suggested names on {count, plural, one {# row} other {# rows}} of {file}",
+      "imports_request_suggestions": "Suggest names for {count, plural, one {# row} other {# rows}} of {file} (a quarter research item each)",
+      "refresh_queue": "Refresh research on {count, plural, one {# tool} other {# tools}} ({left} research items left today)",
+      "mirror_sync_now": "Sync the Notion mirror ({page}) now",
+      "mirror_pause": "Pause the Notion mirror ({page})",
+      "mirror_resume": "Resume the Notion mirror ({page})",
+      "mirror_disconnect": "Disconnect the Notion mirror ({page})"
     },
     "fields": {
       "role": "Role",
@@ -2115,7 +2155,34 @@
       "assignee": "Assigned to",
       "resolution": "Resolution",
       "published": "Gallery",
-      "type": "Kind of work"
+      "type": "Kind of work",
+      "catalogue": "Catalogue",
+      "lastReviewed": "Last reviewed",
+      "archived": "State",
+      "unitLabel": "Unit",
+      "serialNumber": "Serial number",
+      "assetTag": "Asset tag",
+      "unitStatus": "Status",
+      "condition": "Condition",
+      "dateAcquired": "Acquired",
+      "notes": "Notes",
+      "resourceTitle": "Title",
+      "resourceType": "Kind",
+      "url": "Link",
+      "blocked": "Blocked address",
+      "toolName": "Name",
+      "category": "New category",
+      "brand": "Brand",
+      "categoryHint": "Category hint",
+      "locationHint": "Location hint",
+      "duplicateResolution": "Duplicate",
+      "researchNote": "Note for research",
+      "items": "Items",
+      "rows": "Rows",
+      "quantity": "Units",
+      "mergeInto": "Merge into",
+      "tools": "Tools",
+      "mirrorPaused": "Mirror"
     },
     "values": {
       "role": {
@@ -2151,6 +2218,24 @@
         "repair": "Repair",
         "inspection": "Inspection",
         "calibration": "Calibration"
+      },
+      "unitStatus": {
+        "available": "Available",
+        "in_use": "In use",
+        "under_maintenance": "Under maintenance",
+        "out_of_service": "Out of service",
+        "retired": "Retired"
+      },
+      "unitCondition": {
+        "excellent": "Excellent",
+        "good": "Good",
+        "fair": "Fair",
+        "needs_repair": "Needs repair",
+        "new": "New"
+      },
+      "archived": {
+        "archived": "Archived",
+        "active": "In inventory"
       }
     },
     "card": {
@@ -2187,7 +2272,10 @@
       "expiredHint": "This card expired before it was confirmed, so nothing changed. Ask the assistant again.",
       "refused": "{count, plural, one {# more was} other {# more were}} not proposed: {reasons}",
       "view": "Open the page",
-      "requestFailed": "That did not go through. Nothing was changed; try again."
+      "requestFailed": "That did not go through. Nothing was changed; try again.",
+      "typeToConfirm": "Type “{name}” to confirm",
+      "typeToConfirmLabel": "The name, exactly",
+      "tainted": "Suggested after reading outside content (a web page, a manual, a ticket or an import). Check it is what you asked for."
     }
   }
 }

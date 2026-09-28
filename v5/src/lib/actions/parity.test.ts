@@ -10,7 +10,15 @@ import { join, relative } from "node:path";
 import { CAPABILITIES } from "../capabilities";
 import { CURATION_TOOLS } from "../capabilities/curation";
 import * as corrections from "./corrections";
-import { EXEMPT } from "./exempt";
+import * as catalog from "./catalog";
+import { EXEMPT, ROUTE_BACKED } from "./exempt";
+import * as imports from "./imports";
+import * as intake from "./intake";
+import * as manuals from "./manuals";
+import * as mirror from "./mirror";
+import * as refresh from "./refresh";
+import * as resources from "./resources";
+import * as units from "./units";
 import { endpointsInSource, type GuiEndpoint } from "./parity";
 import * as people from "./people";
 import * as peopleAllowance from "./people-allowance";
@@ -38,7 +46,23 @@ import { ROLES } from "../db/schema/vocabulary";
 const APP = join(import.meta.dirname, "..", "..", "..");
 
 /** Every definition module; adding one to the registry means adding it here. */
-const DEFINITION_MODULES = [people, peopleRoster, peopleAllowance, tickets, maintenanceLog, corrections, projects];
+const DEFINITION_MODULES = [
+  people,
+  peopleRoster,
+  peopleAllowance,
+  tickets,
+  maintenanceLog,
+  corrections,
+  projects,
+  catalog,
+  units,
+  resources,
+  manuals,
+  intake,
+  imports,
+  refresh,
+  mirror,
+];
 
 /** Export name → definition, for every registered definition. */
 const DEFINITIONS_BY_EXPORT = new Map(
@@ -97,8 +121,19 @@ describe("every GUI write is an action or an explicit exemption", () => {
 
   it("backs every registered action with at least one GUI endpoint (parity runs both ways)", () => {
     const used = new Set(ENDPOINTS.map(wrapped).filter(Boolean));
-    const orphans = [...DEFINITIONS_BY_EXPORT].filter(([name]) => !used.has(name)).map(([, def]) => (def as { id: string }).id);
+    const orphans = [...DEFINITIONS_BY_EXPORT]
+      .filter(([name, def]) => !used.has(name) && !((def as { id: string }).id in ROUTE_BACKED))
+      .map(([, def]) => (def as { id: string }).id);
     expect(orphans).toEqual([]);
+  });
+
+  it("backs a route-backed action with a route that exists, is exempt with its reason, and is not a wrapper", () => {
+    const keys = new Map(ENDPOINTS.map((e) => [e.key, e]));
+    for (const [id, key] of Object.entries(ROUTE_BACKED)) {
+      expect(ACTIONS.some((a) => a.id === id), id).toBe(true);
+      expect(keys.has(key), key).toBe(true);
+      expect(EXEMPT[key], key).toMatch(/Route-backed/);
+    }
   });
 
   it("imports every registered definition from a module this guard reads", () => {

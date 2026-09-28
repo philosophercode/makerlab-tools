@@ -56,8 +56,12 @@ export interface QueueListProps<T> {
   /** Still somebody's work — on the page rather than behind the disclosure. */
   isOpen: (item: T) => boolean;
   renderItem: (item: T) => ReactNode;
-  /** Lay out a run of cards (open or settled) — batches, say. Default: a plain list. */
-  renderList?: (items: T[], part: "open" | "settled") => ReactNode;
+  /**
+   * Lay out a run of cards (open or settled) — batches, say. Default: a plain
+   * list. `row` draws one card as the default list would, with its checkbox
+   * when the list is `selectable`, so a custom layout keeps the selection.
+   */
+  renderList?: (items: T[], part: "open" | "settled", row: (item: T) => ReactNode) => ReactNode;
   /** The text a search matches: title, tool, body, who. */
   searchText?: (item: T) => string;
   facets?: readonly QueueFacet<T>[];
@@ -133,26 +137,31 @@ export function QueueList<T>({
     setQuery("");
     setChosen({});
   };
+  /** One card's contents: with its checkbox when it is open and the list selects. */
+  function drawRow(part: "open" | "settled", item: T): ReactNode {
+    return selectable && part === "open" ? (
+      <div className="flex items-start gap-2">
+        <Checkbox
+          className="mt-4"
+          checked={ticked.has(getId(item))}
+          onCheckedChange={(on) => toggle(getId(item), on === true)}
+          aria-label={t("select", { name: selectable.name(item) })}
+        />
+        <div className="min-w-0 flex-1">{renderItem(item)}</div>
+      </div>
+    ) : (
+      renderItem(item)
+    );
+  }
+  const row = (part: "open" | "settled") => (item: T) => drawRow(part, item);
   const list = (part: "open" | "settled", run: T[]) =>
     renderList ? (
-      renderList(run, part)
+      renderList(run, part, row(part))
     ) : (
       <ul aria-label={part === "open" ? labels.list : undefined} className="m-0 flex list-none flex-col p-0">
-        {run.map((item) =>
-          selectable && part === "open" ? (
-            <li key={getId(item)} className="flex items-start gap-2">
-              <Checkbox
-                className="mt-4"
-                checked={ticked.has(getId(item))}
-                onCheckedChange={(on) => toggle(getId(item), on === true)}
-                aria-label={t("select", { name: selectable.name(item) })}
-              />
-              <div className="min-w-0 flex-1">{renderItem(item)}</div>
-            </li>
-          ) : (
-            <li key={getId(item)}>{renderItem(item)}</li>
-          )
-        )}
+        {run.map((item) => (
+          <li key={getId(item)}>{row(part)(item)}</li>
+        ))}
       </ul>
     );
   const filterWords = active.map((facet) => `${facet.label}: ${facet.valueLabel(chosen[facet.id] as string)}`);

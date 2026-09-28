@@ -6,6 +6,7 @@ import type { MakerLabTool } from "../../components/catalog-types";
 // is erased at emit, so no server module reaches the browser bundle.
 import type { Identity } from "../auth/identity";
 import type { Permission } from "../auth/permissions";
+import type { TurnState } from "../chat/taint";
 
 /**
  * Shared contract for the capability-registry architecture (design spec §3,
@@ -98,6 +99,13 @@ export interface CapabilityCtx {
    * when the client sends one.
    */
   surface?: "chat" | "mcp";
+  /**
+   * Chat only — whether this turn has read text from outside the lab's staff
+   * (a web page, a manual, a ticket, an import): assistant–GUI parity spec
+   * §8.4. Built by the route, shared by reference with every tool's copy of
+   * the ctx; the chat adapter marks it when an outside-content tool starts.
+   */
+  turn?: TurnState;
 }
 
 /** The record a curation turn is about, as the tools and the prompt see it (§12.1). */

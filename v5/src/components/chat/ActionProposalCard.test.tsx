@@ -203,3 +203,75 @@ it("leaves a row the request had no time for open to confirm again", async () =>
   await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
   expect(await screen.findByRole("button", { name: "Confirm" })).toBeEnabled();
 });
+
+describe("a destructive card (§5.4)", () => {
+  function removal(overrides: Partial<ActionProposalCardPayload> = {}): ActionProposalCardPayload {
+    return payload({
+      actionId: "people.remove",
+      risk: "destructive",
+      items: [
+        {
+          id: "p9",
+          subjectId: "u-casey",
+          preview: {
+            summary: { key: "people_remove", values: { name: "Casey Rivera" } },
+            rows: [{ field: "role", before: "user", after: null, format: "role" }],
+            subjectName: "Casey Rivera",
+            link: "/admin/users",
+          },
+          expiresAt: FUTURE,
+        },
+      ],
+      ...overrides,
+    });
+  }
+
+  it("keeps Confirm off until the name is typed, sends what was typed, and never confirms on Enter", async () => {
+    const bodies: unknown[] = [];
+    server.use(
+      http.post("*/api/action-proposals", async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json({ results: [{ id: "p9", status: "confirmed", link: "/admin/users" }] });
+      })
+    );
+    render(<ActionProposalCard payload={removal()} />);
+    expect(screen.getByText("Cannot be undone")).toBeInTheDocument();
+    const confirm = screen.getByRole("button", { name: "Confirm" });
+    expect(confirm).toBeDisabled();
+
+    const field = screen.getByRole("textbox", { name: "The name, exactly" });
+    await userEvent.type(field, "casey");
+    expect(confirm).toBeDisabled();
+    await userEvent.type(field, " RIVERA {Enter}");
+    expect(bodies).toEqual([]);
+    expect(confirm).toBeEnabled();
+
+    await userEvent.click(confirm);
+    expect(await screen.findByText("Done")).toBeInTheDocument();
+    expect(bodies).toEqual([{ ids: ["p9"], decision: "confirm", typed: "casey RIVERA " }]);
+  });
+
+  it("says a mismatch in words and leaves the card confirmable", async () => {
+    server.use(
+      http.post("*/api/action-proposals", () => HttpResponse.json({ results: [{ id: "p9", status: "failed", error: "confirmation_mismatch" }] }))
+    );
+    render(<ActionProposalCard payload={removal()} />);
+    await userEvent.type(screen.getByRole("textbox", { name: "The name, exactly" }), "Casey Rivera");
+    await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+    expect(await screen.findByText(/The name typed did not match/)).toBeInTheDocument();
+  });
+});
+
+it("marks a card proposed after reading outside content", () => {
+  render(<ActionProposalCard payload={payload({ tainted: true })} />);
+  expect(screen.getByText(/Suggested after reading outside content/)).toBeInTheDocument();
+});
+
+it("names a refusal from a newer action in words, not as failed", async () => {
+  server.use(
+    http.post("*/api/action-proposals", () => HttpResponse.json({ results: [{ id: "p1", status: "failed", error: "daily_limit" }] }))
+  );
+  render(<ActionProposalCard payload={payload()} />);
+  await userEvent.click(screen.getByRole("button", { name: "Confirm" }));
+  expect(await screen.findByText(/research allowance|today/i)).toBeInTheDocument();
+});
