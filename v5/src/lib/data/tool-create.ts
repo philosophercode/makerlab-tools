@@ -6,6 +6,7 @@ import type { Db } from "../db/types.ts";
 import { cleanStarterQuestions } from "../starter-questions.ts";
 import { cleanOfficialName, normalizeName } from "../tool-names.ts";
 import { isUniqueViolation } from "./pg-errors.ts";
+import { cleanLink } from "../web/tracking-params.ts";
 
 /**
  * Creating a tool row, with its units and resources (spec §5.4 step 11, §4.4).
@@ -130,7 +131,8 @@ export async function createToolRecord(
         input.resources.map((resource) => ({
           toolId: created.id,
           title: resource.title.trim(),
-          url: resource.url,
+          // Without `utm_*` and other tracking parameters (amendment 2026-09-28).
+          url: cleanLink(resource.url),
           type: resource.type,
           origin: resource.origin ?? null,
           ...actor,

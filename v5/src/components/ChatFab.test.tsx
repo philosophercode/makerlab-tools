@@ -1203,16 +1203,22 @@ describe("ChatFab — manual citations (spec §9.1)", () => {
             status: "ok",
             scope: "Form 4 manuals",
             passages: [
-              { citation: "Form 4 Manual, p. 42", url: URL_42, tool: "Form 4", section: "Maintenance › Resin tank", text: "Lift the front edge." },
-              { citation: "Form 4 Manual, pp. 44–45", url: URL_44, tool: "Form 4", section: "Maintenance", text: "Slide it in." },
-              { citation: "Form 4 Manual, p. 50", url: URL_50, tool: "Form 4", section: "Cleaning", text: "Wipe it." },
+              { ref: "3f2a9c10-42", citation: "Form 4 Manual, p. 42", url: URL_42, tool: "Form 4", section: "Maintenance › Resin tank", text: "Lift the front edge." },
+              { ref: "3f2a9c10-44", citation: "Form 4 Manual, pp. 44–45", url: URL_44, tool: "Form 4", section: "Maintenance", text: "Slide it in." },
+              { ref: "3f2a9c10-50", citation: "Form 4 Manual, p. 50", url: URL_50, tool: "Form 4", section: "Cleaning", text: "Wipe it." },
             ],
           },
         },
+        ...extraParts,
         { type: "text", text },
       ],
     } as unknown as UseChatReturn["messages"][number];
   }
+
+  let extraParts: Array<Record<string, unknown>> = [];
+  beforeEach(() => {
+    extraParts = [];
+  });
 
   async function openWith(text: string) {
     const user = userEvent.setup();
@@ -1252,11 +1258,43 @@ describe("ChatFab — manual citations (spec §9.1)", () => {
     expect(within(dialog).queryByText("Form 4 Manual, p. 50")).not.toBeInTheDocument();
   });
 
-  it("treats a link the manual search did not return as an ordinary link", async () => {
-    const { dialog } = await openWith("See [the maker's page](https://example.com/manual.pdf#page=42).");
+  it("draws a #cite- ref as the citation, opening the tool's URL (amendment 2026-09-28)", async () => {
+    const { dialog } = await openWith(`Lift it ([Replacing the resin tank (Form 4 Manual, p. 42)](#cite-3f2a9c10-42)).`);
+    const mark = within(dialog).getByRole("link", { name: "Open Form 4 Manual, p. 42" });
+    expect(mark).toHaveAttribute("href", URL_42);
+    expect(within(dialog).getByRole("button", { name: "1 manual page" })).toBeInTheDocument();
+  });
+
+  it("never links a manual address the search did not return: a PDF, a changed page, a garbled ref", async () => {
+    const { dialog } = await openWith(
+      "See [the maker's page](https://example.com/manual.pdf#page=42), " +
+        "[a retyped blob](https://blob.example/manuals/form-4.pdf#page=43) and [a bad ref](#cite-3f2a9c11-42). " +
+        "The [product page](https://formlabs.example/form-4) is fine."
+    );
     expect(within(dialog).queryByRole("link", { name: /^Open / })).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: /manual page/ })).not.toBeInTheDocument();
-    expect(within(dialog).getByRole("link", { name: "the maker's page" })).toHaveAttribute("target", "_blank");
+    for (const words of ["the maker's page", "a retyped blob", "a bad ref"]) {
+      expect(within(dialog).queryByRole("link", { name: words })).not.toBeInTheDocument();
+      const text = within(dialog).getByText(words);
+      expect(text).toHaveAttribute("data-slot", "unverified-citation");
+      expect(text).toHaveAttribute("title", expect.stringContaining("did not come from a manual search"));
+    }
+    // An ordinary web page is still an ordinary link.
+    expect(within(dialog).getByRole("link", { name: "product page" })).toHaveAttribute("target", "_blank");
+  });
+
+  it("links an attached manual as the document the route listed, dropping a page the model added", async () => {
+    extraParts = [
+      {
+        type: "data-manual-links",
+        data: { kind: "manual-links", links: [{ title: "Form 4 Quick Start", url: "https://blob.example/manuals/quick.pdf" }] },
+      },
+    ];
+    const { dialog } = await openWith("See [the quick start](https://blob.example/manuals/quick.pdf#page=7).");
+    expect(within(dialog).getByRole("link", { name: "the quick start" })).toHaveAttribute(
+      "href",
+      "https://blob.example/manuals/quick.pdf"
+    );
   });
 });
 

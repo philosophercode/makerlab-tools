@@ -309,6 +309,7 @@
     "dictate": "Dictate",
     "sourcesCount": "{count, plural, one {# manual page} other {# manual pages}}",
     "citationAria": "Open {citation}",
+    "unverifiedCitation": "Not linked: this manual reference did not come from a manual search, so it could not be checked",
     "cutOff": "The answer was cut off before it finished. Ask again, or ask for a shorter answer."
   },
   "qr": {
