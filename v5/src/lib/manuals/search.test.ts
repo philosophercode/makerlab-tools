@@ -312,3 +312,30 @@ describe("fake embeddings", () => {
     expect(after.map((c) => c.id)).not.toEqual(before.map((c) => c.id));
   });
 });
+
+describe("searchManuals — index use (performance plan)", () => {
+  it("widens the HNSW beam for an unscoped vector search only, in its own transaction", async () => {
+    const tool = await seedTool(db, { name: "Form 4" });
+    await manual(tool, "Form 4 Manual", [CLEAN, RESIN, ERROR]);
+    const transaction = vi.spyOn(db, "transaction");
+
+    const unscoped = await searchManuals(db, { query: "resin tank", viewer: anonymous, target });
+    expect(unscoped.passages[0].content).toContain("resin tank");
+    expect(transaction).toHaveBeenCalledTimes(1);
+
+    const scoped = await searchManuals(db, { query: "resin tank", toolIds: [tool], viewer: anonymous, target });
+    expect(scoped.passages[0].content).toContain("resin tank");
+    const ftsOnly = await searchManuals(db, { query: "resin tank", mode: "fts", viewer: anonymous, target });
+    expect(ftsOnly.passages[0].content).toContain("resin tank");
+    expect(transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("still matches a part number wrapped in punctuation", async () => {
+    const tool = await seedTool(db, { name: "Form 4" });
+    await manual(tool, "Form 4 Manual", [CLEAN, "If the screen shows (E-417) or M3x8, stop.", RESIN]);
+    for (const query of ["E-417", "M3x8"]) {
+      const { passages } = await searchManuals(db, { query, mode: "fts", viewer: anonymous, target });
+      expect(passages[0]?.content, query).toContain("(E-417)");
+    }
+  });
+});
