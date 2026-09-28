@@ -19,7 +19,11 @@
   --font-display: var(--font-space-grotesk-latin, "Space Grotesk"), var(--font-space-grotesk, "Space Grotesk"), "Arial Narrow", Arial, sans-serif;
   --font-body: var(--font-inter-latin, Inter), var(--font-inter, Inter), Arial, sans-serif;
   --font-mono: var(--font-jetbrains-mono-latin, "JetBrains Mono"), var(--font-jetbrains-mono, "JetBrains Mono"), "SFMono-Regular", Consolas, monospace;
-  --nav-height: 64px;
+  /* The top bar's height, and the wordmark's (identity spec, amendment
+     "Wordmark at the mockup's size"). The bar is exactly --nav-height, so the
+     status strip and every sticky offset below it line up. */
+  --nav-height: 96px;
+  --wordmark-height: 48px;
   --status-strip-height: 33px;
   --sticky-chrome-height: calc(var(--nav-height) + var(--status-strip-height));
 }
@@ -149,12 +153,16 @@ body::selection {
   position: sticky;
   top: 0;
   z-index: 30;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 32px;
-  min-height: 64px;
-  padding: 16px 32px;
+  /* Three columns, the outer two equal, so the links sit in the middle of
+     the page whatever the brand and the controls measure (the owner kept
+     them centred). A side wider than its share takes what it needs instead
+     of running under the links. */
+  display: grid;
+  grid-template-columns: minmax(max-content, 1fr) auto minmax(max-content, 1fr);
+  align-items: start;
+  gap: 24px;
+  height: var(--nav-height);
+  padding: 12px 32px;
   background: var(--background);
   border-bottom: 1px solid var(--outline);
 }
@@ -166,15 +174,16 @@ body::selection {
   text-transform: uppercase;
 }
 
-/* The MakerLAB lockup (identity spec 2026-09-28 §2): the wordmark, and under
-   it the site's name and tagline. Names keep their own case — "MakerLAB
-   Tools", never "MAKERLAB TOOLS". 16 + 2 + 14 = 32px tall, so the one-row bar
-   stays at --nav-height (64px). */
+/* The MakerLAB lockup (identity spec 2026-09-28 §2): the wordmark, large as
+   in the Director's mockup, and under it the site's name and tagline on one
+   line. Names keep their own case — "MakerLAB Tools", never "MAKERLAB TOOLS".
+   48 + 4 + 20 = 72px, inside the 96px bar's 12px padding. */
 .brand-lockup {
+  justify-self: start;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
   /* In the one-row bar the brand keeps its width; the compact bar lets it
      ellipsize (below). */
@@ -184,11 +193,13 @@ body::selection {
 }
 
 /* The wordmark PNG as a mask, painted in the text colour: black on light,
-   white on dark, from the one asset (as the kiosk draws the full logo). */
+   white on dark, from the one asset (as the kiosk draws the full logo). Its
+   width follows the height at the crop's own 1014 × 171. */
 .brand-wordmark {
   display: block;
-  width: 95px; /* the crop is 1014 × 171 */
-  height: 16px;
+  flex: none;
+  width: calc(var(--wordmark-height) * 1014 / 171);
+  height: var(--wordmark-height);
   background-color: currentColor;
   mask-size: contain;
   mask-repeat: no-repeat;
@@ -201,20 +212,20 @@ body::selection {
 .brand-text {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 12px;
   max-width: 100%;
-  line-height: 14px;
+  line-height: 20px;
 }
 
 .brand-name {
   font-family: var(--font-display);
-  font-size: 13px;
+  font-size: 20px;
   font-weight: 700;
 }
 
 .brand-tagline {
   color: var(--on-surface-muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 400;
 }
 
@@ -225,6 +236,10 @@ body::selection {
      Sign in. Without it the row stretched, and a child with no padding of its
      own (the old name label) sat at the top of the row, above the rest. */
   align-items: center;
+  /* In the middle column, on the wordmark's line (as in the mockup), not
+     halfway down the lockup. */
+  justify-self: center;
+  min-height: var(--wordmark-height);
   gap: 32px;
   color: var(--on-surface-muted);
   font-size: 12px;
@@ -491,6 +506,8 @@ body::selection {
   display: flex;
   flex: none;
   align-items: center;
+  justify-self: end;
+  min-height: var(--wordmark-height);
   gap: 8px;
 }
 
@@ -690,10 +707,25 @@ body::selection {
    row, tighter, a narrower search field. Below lg: the compact bar — brand and controls,
    then the links across the width. (The compact switch used to be 860px,
    and from there to ~1180px the brand ran into the links and "Sign in"
-   wrapped.) */
+   wrapped.) The wordmark steps down with the width — 48px from 1440, 40
+   from xl, 32 from lg — so the longest translation of the links (Spanish)
+   still fits between it and the controls with the scrollbar showing. */
+@media (min-width: 1280px) and (max-width: 1439.98px) {
+  :root {
+    --nav-height: 88px;
+    --wordmark-height: 40px;
+  }
+}
+
 @media (max-width: 1279.98px) {
+  :root {
+    --nav-height: 80px;
+    --wordmark-height: 32px;
+  }
+
   .top-nav {
-    gap: 24px;
+    gap: 16px;
+    padding-inline: 24px;
   }
 
   .primary-nav {
@@ -710,30 +742,37 @@ body::selection {
 }
 
 @media (max-width: 1023.98px) {
+  /* 12 + (36 + 4 + 20) + 10 + 36 (the links) + 10. A translation that wraps
+     a link grows the bar past it (min-height); the gallery measures. */
   :root {
-    --nav-height: 105px;
+    --nav-height: 128px;
+    --wordmark-height: 36px;
   }
 
   .top-nav {
-    display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
-    align-items: center;
     gap: 10px 12px;
+    height: auto;
+    min-height: var(--nav-height);
     padding: 12px 16px 10px;
   }
 
   .brand-lockup {
+    max-width: 100%;
     overflow: hidden;
   }
 
   .brand-name {
     overflow: hidden;
+    font-size: 16px;
     text-overflow: ellipsis;
   }
 
   .primary-nav {
     grid-column: 1 / -1;
     grid-row: 2;
+    justify-self: stretch;
+    min-height: 0;
     width: 100%;
     justify-content: space-between;
     gap: 4px;
@@ -764,8 +803,18 @@ body::selection {
 }
 
 @media (max-width: 560px) {
+  /* 12 + (30 + 4 + 18) + 10 + 36 + 10. */
   :root {
-    --nav-height: 104px;
+    --nav-height: 120px;
+    --wordmark-height: 30px;
+  }
+
+  .brand-text {
+    line-height: 18px;
+  }
+
+  .brand-name {
+    font-size: 15px;
   }
 
   .status-strip {
