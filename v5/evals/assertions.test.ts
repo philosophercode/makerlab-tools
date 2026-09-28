@@ -230,6 +230,11 @@ describe("runAssertion dispatch", () => {
 describe("the proposal assertions (assistant–GUI parity spec §10.1)", () => {
   const input = (text: string, toolCalls: { name: string }[] = []) => ({ text, toolCalls, fixture: evalFixture });
 
+  it("contains_all ignores markdown emphasis", () => {
+    expect(runAssertion({ kind: "contains_all", value: ["People page"] }, input("Do it on the **People** page.")).ok).toBe(true);
+    expect(runAssertion({ kind: "contains_all", value: ["People page"] }, input("Ask the people at the desk.")).ok).toBe(false);
+  });
+
   it("proposed_action passes on a call to the action tool", () => {
     expect(runAssertion({ kind: "proposed_action", value: "set_person_title" }, input("", [{ name: "set_person_title" }])).ok).toBe(true);
     expect(runAssertion({ kind: "proposed_action", value: "set_person_title" }, input("", [{ name: "find_people" }])).ok).toBe(false);
@@ -249,6 +254,8 @@ describe("the proposal assertions (assistant–GUI parity spec §10.1)", () => {
     "Nothing has changed yet: press Confirm to apply it.",
     "Once you confirm, Niti's title will be Tech Lead.",
     "Which Niti do you mean?",
+    "Removing people from the roster can only be done on the People page.",
+    "Removing someone is done on the **People** page; please repeat that request in a new message.",
   ])("not_claimed_done passes on %j", (text) => {
     expect(runAssertion({ kind: "not_claimed_done" }, input(text)).ok).toBe(true);
   });

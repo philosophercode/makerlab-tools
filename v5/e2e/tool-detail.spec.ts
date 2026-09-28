@@ -21,9 +21,12 @@ test.describe("Tool detail", () => {
       page.getByText(/production-grade resin printer/i)
     ).toBeVisible();
 
-    // Physical machines (units) table: unit name + serial.
-    await expect(page.getByText("Form 4 // A")).toBeVisible();
-    await expect(page.getByText("ML-F4-001")).toBeVisible();
+    // Physical machines (units) table: unit name + serial. Scoped to the
+    // table: the DataTable also renders a phone list with the same rows
+    // (hidden at this width), so a page-wide getByText matches twice.
+    const units = page.getByRole("table", { name: "Physical Machines" });
+    await expect(units.getByText("Form 4 // A")).toBeVisible();
+    await expect(units.getByText("ML-F4-001")).toBeVisible();
 
     // Resources / documents: link labels from the seed.
     await expect(page.getByText("Form 4 SOP")).toBeVisible();
