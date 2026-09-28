@@ -65,7 +65,7 @@ describe("GalleryShell — search and facets", () => {
   it("renders one card per tool, the title and a facts line", () => {
     render(<GalleryShell tools={mockCatalog} />);
     expect(cardNames()).toHaveLength(mockCatalog.length);
-    expect(screen.getByRole("heading", { level: 1, name: "TOOLS // MACHINES" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "Tools" })).toBeInTheDocument();
     expect(screen.getByText(/4 tools · \d+ available now · 3 categories/)).toBeInTheDocument();
     expect(searchBox()).toBeInTheDocument();
   });

@@ -67,7 +67,7 @@ test("a proposal card shows the stored change and confirms by id alone", async (
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Open MakerLab assistant" }).click();
+  await page.getByRole("button", { name: "Open the MakerLAB Assistant" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("textbox", { name: "Ask the lab console" }).fill("Set Niti's title to Tech Lead");
   await dialog.getByRole("button", { name: "Send" }).click();
@@ -182,7 +182,7 @@ test("a destructive card confirms only once the name is typed, and sends it (pha
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Open MakerLab assistant" }).click();
+  await page.getByRole("button", { name: "Open the MakerLAB Assistant" }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByRole("textbox", { name: "Ask the lab console" }).fill("Archive the Trotec");
   await dialog.getByRole("button", { name: "Send" }).click();

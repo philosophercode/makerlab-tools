@@ -89,6 +89,7 @@ import { ToolChatStarters } from "./ToolChatStarters";
 import { CurateChatStarter } from "./CurateChatStarter";
 import { AskAssistantButton } from "./chat/AskAssistantButton";
 import type { IntakeTablePayload } from "../lib/intake/types";
+import { ASSISTANT_INTRO_KEY, resetAssistantIntroForTests } from "./chat/assistant-intro-store";
 
 beforeEach(() => {
   // These mocks are module-scoped, so their call history survives between
@@ -107,7 +108,7 @@ describe("ChatFab", () => {
     pathnameMock.mockReturnValue("/kiosk");
     const { container } = render(<ChatFab />);
 
-    expect(screen.queryByRole("button", { name: "Open MakerLab assistant" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open the MakerLAB Assistant" })).not.toBeInTheDocument();
     expect(container).toBeEmptyDOMElement();
   });
 
@@ -115,7 +116,7 @@ describe("ChatFab", () => {
     render(<ChatFab />);
 
     expect(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     ).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
@@ -125,17 +126,17 @@ describe("ChatFab", () => {
     render(<ChatFab />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
 
     const dialog = screen.getByRole("dialog");
     expect(dialog).toBeInTheDocument();
     // Title + general greeting visible in the empty state.
     expect(
-      screen.getByRole("heading", { name: "MAKERLAB ASSISTANT" })
+      screen.getByRole("heading", { name: "MakerLAB Assistant" })
     ).toBeInTheDocument();
     expect(
-      screen.getByText("How can I help you today?")
+      screen.getByText(/I can help you operate a machine, debug a problem or plan a build/)
     ).toBeInTheDocument();
   });
 
@@ -144,7 +145,7 @@ describe("ChatFab", () => {
     render(<ChatFab />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
     expect(screen.getByRole("dialog")).toBeInTheDocument();
 
@@ -163,7 +164,7 @@ describe("ChatFab", () => {
     render(<ChatFab />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
 
     expect(
@@ -181,7 +182,7 @@ describe("ChatFab", () => {
     render(<ChatFab />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
 
     const input = screen.getByRole("textbox", { name: "Ask the lab console" });
@@ -197,7 +198,7 @@ describe("ChatFab", () => {
     render(<ChatFab />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
     const input = screen.getByRole("textbox", {
       name: "Ask the lab console",
@@ -213,7 +214,7 @@ describe("ChatFab", () => {
     render(<ChatFab />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
     // Send button is disabled with an empty draft, so clicking is a no-op.
     const send = screen.getByRole("button", { name: "Send" });
@@ -227,14 +228,14 @@ describe("ChatFab", () => {
     render(<ChatFab />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
     await user.click(
-      screen.getByRole("button", { name: "Find a machine for a project" })
+      screen.getByRole("button", { name: /How do I start a print on a 3D printer\?/ })
     );
 
     expect(sendMessage).toHaveBeenCalledWith({
-      text: "Find a machine for a project",
+      text: "How do I start a print on a 3D printer?",
     });
   });
 
@@ -247,7 +248,7 @@ describe("ChatFab", () => {
     render(<ChatFab />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
 
     // Typing indicator appears because the last message is from the user.
@@ -274,7 +275,7 @@ describe("ChatFab", () => {
     render(<ChatFab />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
 
     // The real message is shown verbatim, not the generic fallback.
@@ -292,7 +293,7 @@ describe("ChatFab", () => {
     render(<ChatFab />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
 
     expect(
@@ -308,7 +309,7 @@ describe("ChatFab", () => {
     render(<ChatFab />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
     await user.click(screen.getByRole("button", { name: "Start new chat" }));
 
@@ -322,7 +323,7 @@ describe("ChatFab", () => {
     render(<ChatFab />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
 
     expect(
@@ -397,7 +398,7 @@ describe("ChatFab", () => {
 describe("ChatFab — <cite> tag stripping", () => {
   async function open(user: ReturnType<typeof userEvent.setup>) {
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
   }
 
@@ -474,7 +475,7 @@ describe("ChatFab — pending tool-call status", () => {
     useChatReturn = baseReturn({ messages });
     render(<ChatFab />);
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
   }
 
@@ -580,7 +581,7 @@ describe("ChatFab — intake table", () => {
       ],
     });
     render(<ChatFab />);
-    await user.click(screen.getByRole("button", { name: "Open MakerLab assistant" }));
+    await user.click(screen.getByRole("button", { name: "Open the MakerLAB Assistant" }));
 
     const card = screen.getByRole("region", { name: "Identified equipment" });
     expect(card).toBeInTheDocument();
@@ -598,7 +599,7 @@ describe("ChatFab — intake table", () => {
       ],
     });
     render(<ChatFab />);
-    await user.click(screen.getByRole("button", { name: "Open MakerLab assistant" }));
+    await user.click(screen.getByRole("button", { name: "Open the MakerLAB Assistant" }));
 
     expect(screen.getByRole("region", { name: "Identified equipment" })).toBeInTheDocument();
   });
@@ -643,7 +644,7 @@ describe("ChatFab — photo uploads", () => {
     render(<ChatFab />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
 
     const fileInput = document.querySelector(
@@ -688,7 +689,7 @@ describe("ChatFab — photo uploads", () => {
     render(<ChatFab />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
     const fileInput = document.querySelector(
       'input[type="file"]'
@@ -721,7 +722,7 @@ describe("ChatFab — photo uploads", () => {
     render(<ChatFab />);
 
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
     await user.upload(
       document.querySelector('input[type="file"]') as HTMLInputElement,
@@ -761,7 +762,7 @@ describe("ChatFab — photo uploads", () => {
     );
     render(<ChatFab />);
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
     const fileInput = document.querySelector(
       'input[type="file"]'
@@ -854,7 +855,7 @@ describe("ChatFab — rate-limit ceiling", () => {
     });
     render(<ChatFab />);
     await user.click(
-      screen.getByRole("button", { name: "Open MakerLab assistant" })
+      screen.getByRole("button", { name: "Open the MakerLAB Assistant" })
     );
     return user;
   }
@@ -914,7 +915,7 @@ describe("ChatFab — rate-limit ceiling", () => {
     const FORM_4 = ["What resins can I print with?", "How do I wash and cure a print?", "How big can a part be?"];
 
     async function openChat() {
-      await userEvent.setup().click(screen.getByRole("button", { name: "Open MakerLab assistant" }));
+      await userEvent.setup().click(screen.getByRole("button", { name: "Open the MakerLAB Assistant" }));
     }
 
     it("offers the tool's own questions on its page, and sends one when clicked", async () => {
@@ -928,7 +929,7 @@ describe("ChatFab — rate-limit ceiling", () => {
       await openChat();
 
       for (const question of FORM_4) expect(screen.getByRole("button", { name: question })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "Find a machine for a project" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /How do I start a print on a 3D printer\?/ })).not.toBeInTheDocument();
 
       await userEvent.setup().click(screen.getByRole("button", { name: "How big can a part be?" }));
       expect(sendMessage).toHaveBeenCalledWith({ text: "How big can a part be?" });
@@ -955,9 +956,9 @@ describe("ChatFab — rate-limit ceiling", () => {
         </>
       );
       await openChat();
-      expect(screen.getByRole("button", { name: "Find a machine for a project" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Check training requirements" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Ask about safety or policy" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /How do I start a print on a 3D printer\?/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /My print is stringing/ })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /I want to make a lamp/ })).toBeInTheDocument();
     });
 
     it("keeps the generic chips on a page that is not that tool's", async () => {
@@ -969,7 +970,7 @@ describe("ChatFab — rate-limit ceiling", () => {
         </>
       );
       await openChat();
-      expect(screen.getByRole("button", { name: "Find a machine for a project" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /How do I start a print on a 3D printer\?/ })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: FORM_4[0] })).not.toBeInTheDocument();
     });
 
@@ -986,14 +987,14 @@ describe("ChatFab — rate-limit ceiling", () => {
 
       pathnameMock.mockReturnValue("/");
       rerender(<ChatFab />);
-      expect(screen.getByRole("button", { name: "Find a machine for a project" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /How do I start a print on a 3D printer\?/ })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: FORM_4[0] })).not.toBeInTheDocument();
     });
   });
 
   describe("curation (refresh research spec §12.3)", () => {
     async function openChat() {
-      await userEvent.setup().click(screen.getByRole("button", { name: "Open MakerLab assistant" }));
+      await userEvent.setup().click(screen.getByRole("button", { name: "Open the MakerLAB Assistant" }));
     }
 
     it("offers Curate this entry when the page registered a record this viewer may curate, and sends the curation prompt", async () => {
@@ -1034,14 +1035,14 @@ describe("ChatFab — rate-limit ceiling", () => {
 
 // ── Phase 5b: AI Elements, the sheet, citations, launchers ──────────
 describe("ChatFab — the sheet (UI system phase 5b)", () => {
-  const FAB = { name: "Open MakerLab assistant" };
+  const FAB = { name: "Open the MakerLAB Assistant" };
 
   it("closes on Escape and returns focus to the button that opened it", async () => {
     const user = userEvent.setup();
     render(<ChatFab />);
     const fab = screen.getByRole("button", FAB);
     await user.click(fab);
-    expect(screen.getByRole("dialog", { name: "MAKERLAB ASSISTANT" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "MakerLAB Assistant" })).toBeInTheDocument();
 
     await user.keyboard("{Escape}");
     await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
@@ -1081,7 +1082,7 @@ describe("ChatFab — the sheet (UI system phase 5b)", () => {
     expect(screen.queryByRole("button", FAB)).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "Ask the assistant" }));
-    expect(screen.getByRole("dialog", { name: "MAKERLAB ASSISTANT" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "MakerLAB Assistant" })).toBeInTheDocument();
   });
 
   it("keeps the floating button on a public page", () => {
@@ -1104,7 +1105,7 @@ describe("ChatFab — assistant prose (streamdown)", () => {
     const user = userEvent.setup();
     useChatReturn = baseReturn({ messages });
     render(<ChatFab />);
-    await user.click(screen.getByRole("button", { name: "Open MakerLab assistant" }));
+    await user.click(screen.getByRole("button", { name: "Open the MakerLAB Assistant" }));
     return { user, dialog: screen.getByRole("dialog") };
   }
 
@@ -1198,7 +1199,7 @@ describe("ChatFab — manual citations (spec §9.1)", () => {
     const user = userEvent.setup();
     useChatReturn = baseReturn({ messages: [userMsg("u1", "How do I replace the resin tank?"), answer(text)] });
     render(<ChatFab />);
-    await user.click(screen.getByRole("button", { name: "Open MakerLab assistant" }));
+    await user.click(screen.getByRole("button", { name: "Open the MakerLAB Assistant" }));
     return { user, dialog: screen.getByRole("dialog") };
   }
 
@@ -1237,5 +1238,93 @@ describe("ChatFab — manual citations (spec §9.1)", () => {
     expect(within(dialog).queryByRole("link", { name: /^Open / })).not.toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: /manual page/ })).not.toBeInTheDocument();
     expect(within(dialog).getByRole("link", { name: "the maker's page" })).toHaveAttribute("target", "_blank");
+  });
+});
+
+describe("the MakerLAB Assistant's identity (identity spec 2026-09-28 §3–4)", () => {
+  beforeEach(() => {
+    window.localStorage.clear();
+    resetAssistantIntroForTests();
+  });
+
+  const intro = () => screen.queryByRole("complementary", { name: "About the MakerLAB Assistant" });
+
+  it("draws the button as the assistant: an icon, not a prompt glyph, and a label that names it", () => {
+    render(<ChatFab />);
+    const button = screen.getByRole("button", { name: "Open the MakerLAB Assistant" });
+    expect(button.querySelector("svg")).not.toBeNull();
+    expect(button).not.toHaveTextContent(">_");
+  });
+
+  it("introduces the assistant on a first visit, beside the button, without taking focus", () => {
+    render(<ChatFab />);
+    const callout = intro();
+    expect(callout).toBeInTheDocument();
+    expect(callout).toHaveTextContent("Meet the MakerLAB Assistant");
+    expect(callout).toHaveTextContent("Ask how to operate a machine, debug a problem, or plan a build.");
+    expect(callout).not.toContainElement(document.activeElement as HTMLElement);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("dismisses for good: gone now, remembered, and not shown on the next visit", async () => {
+    const { unmount } = render(<ChatFab />);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Dismiss" }));
+    expect(intro()).not.toBeInTheDocument();
+    expect(window.localStorage.getItem(ASSISTANT_INTRO_KEY)).toBe("1");
+    unmount();
+
+    resetAssistantIntroForTests(); // a new page load: only storage remembers
+    render(<ChatFab />);
+    expect(intro()).not.toBeInTheDocument();
+  });
+
+  it("opens the chat from the callout, and that counts as having met it", async () => {
+    render(<ChatFab />);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Ask a question" }));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(window.localStorage.getItem(ASSISTANT_INTRO_KEY)).toBe("1");
+  });
+
+  it("is not shown again once the chat was opened some other way", async () => {
+    render(<ChatFab />);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Open the MakerLAB Assistant" }));
+    expect(window.localStorage.getItem(ASSISTANT_INTRO_KEY)).toBe("1");
+    await userEvent.setup().click(screen.getByRole("button", { name: "Close assistant" }));
+    expect(intro()).not.toBeInTheDocument();
+  });
+
+  it("is never drawn on the kiosk or the admin", () => {
+    pathnameMock.mockReturnValue("/kiosk");
+    const { unmount } = render(<ChatFab />);
+    expect(intro()).not.toBeInTheDocument();
+    unmount();
+
+    pathnameMock.mockReturnValue("/admin/inventory");
+    render(<ChatFab />);
+    expect(intro()).not.toBeInTheDocument();
+  });
+
+  it("stays out of the way when the browser cannot store anything", () => {
+    const storage = vi.spyOn(window, "localStorage", "get").mockImplementation(() => {
+      throw new Error("SecurityError");
+    });
+    expect(() => render(<ChatFab />)).not.toThrow();
+    expect(intro()).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Open the MakerLAB Assistant" })).toBeInTheDocument();
+    storage.mockRestore();
+  });
+
+  it("opens with three starters: operate, debug and create", async () => {
+    render(<ChatFab />);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Open the MakerLAB Assistant" }));
+    const chips = within(screen.getByRole("dialog")).getAllByRole("button", { name: /^(Operate|Debug|Create) / });
+    expect(chips.map((chip) => chip.textContent)).toEqual([
+      "Operate How do I start a print on a 3D printer?",
+      "Debug My print is stringing — what should I check?",
+      "Create I want to make a lamp — which machines could I use?",
+    ]);
+
+    await userEvent.setup().click(chips[1]);
+    expect(sendMessage).toHaveBeenCalledWith({ text: "My print is stringing — what should I check?" });
   });
 });

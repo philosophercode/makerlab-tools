@@ -30,14 +30,15 @@ describe("site-config", () => {
       vi.resetModules();
       const { siteConfig } = await import("@/lib/site-config");
 
-      expect(siteConfig.name).toBe("MakerLab Tools");
+      expect(siteConfig.name).toBe("MakerLAB Tools");
       expect(siteConfig.institution).toBe("Cornell Tech");
       expect(siteConfig.tagline).toBe(
-        "Browse, search, and learn about makerspace equipment.",
+        "Your digital guide to making at Cornell Tech",
       );
-      expect(siteConfig.chatAssistantName).toBe("MakerLab Assistant");
+      expect(siteConfig.chatAssistantName).toBe("MakerLAB Assistant");
       expect(siteConfig.audience).toBe("students who may be beginners");
       expect(siteConfig.logo).toBe("/makerlab-logo-transparent.png");
+      expect(siteConfig.wordmark).toBe("/makerlab-wordmark.png");
       expect(siteConfig.labHours).toBe("LAB OPEN 9AM-9PM");
       expect(siteConfig.colors).toEqual({
         primary: "#ff6b35",
@@ -54,6 +55,7 @@ describe("site-config", () => {
       vi.stubEnv("NEXT_PUBLIC_CHAT_ASSISTANT_NAME", "Acme Helper");
       vi.stubEnv("AUDIENCE", "expert machinists");
       vi.stubEnv("NEXT_PUBLIC_LOGO", "/acme-logo.svg");
+      vi.stubEnv("NEXT_PUBLIC_WORDMARK", "/acme-wordmark.svg");
       vi.stubEnv("NEXT_PUBLIC_COLOR_PRIMARY", "#123456");
       vi.stubEnv("NEXT_PUBLIC_COLOR_PRIMARY_DARK", "#0a1a2a");
       vi.stubEnv("NEXT_PUBLIC_LAB_HOURS", "Mon–Fri 10am–6pm");
@@ -67,6 +69,7 @@ describe("site-config", () => {
       expect(siteConfig.chatAssistantName).toBe("Acme Helper");
       expect(siteConfig.audience).toBe("expert machinists");
       expect(siteConfig.logo).toBe("/acme-logo.svg");
+      expect(siteConfig.wordmark).toBe("/acme-wordmark.svg");
       expect(siteConfig.labHours).toBe("Mon–Fri 10am–6pm");
       expect(siteConfig.colors).toEqual({
         primary: "#123456",

@@ -119,6 +119,7 @@ file in `cases/` is loaded automatically):
 | `cases/tool-calling.yaml` | Calling a capability instead of guessing |
 | `cases/staff-maintenance.yaml` | Staff reading the maintenance queue, and confirming before changing a ticket; students getting no staff tools |
 | `cases/honest-absence.yaml` | Saying "we don't have that" |
+| `cases/lab-identity.yaml` | Knowing where it is: the MakerLAB's location and people, what the assistant is for, and not inventing the rest |
 
 Append a case:
 

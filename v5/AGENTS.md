@@ -1412,7 +1412,9 @@ data; the QR code opens the catalogue with the chat.
 
 | Path | Purpose |
 |---|---|
-| `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults), including `labHours` |
+| `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults), including `labHours` and the header `wordmark`. Names: **MakerLAB** is the lab, **MakerLAB Tools** the site, **MakerLAB Assistant** the AI (identity spec 2026-09-28) |
+| `src/lib/ai/lab-context.ts` | The assistant's "Where you are" block — the lab, its people, Cornell Tech, and its operate / debug / create purpose — placed after the intro in the static prompt prefix. Sourced facts only; sources in its comments |
+| `src/components/chat/assistant-intro-store.ts` / `AssistantIntro.tsx` | The first-visit "Meet the MakerLAB Assistant" callout beside the chat button, remembered in `localStorage` (try/catch), gone once dismissed or the chat opens |
 | `src/lib/kiosk/*` / `src/components/kiosk/*` / `src/app/kiosk/` | The lab status screen: snapshot loader, pure timing and derivations, QR code; the client screen; the page (see "The lab status screen") |
 | `src/lib/db/client.ts` | `getDb()`, `dataSubstrate()`, `pingDb()` — the one entry point to Postgres/PGlite |
 | `src/lib/notion.ts` | Notion API client — used by the one-time import and its scripts; no request path reads or writes Notion through it (the mirror has its own client) |
