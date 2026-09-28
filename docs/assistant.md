@@ -27,8 +27,10 @@ The assistant can prepare almost anything you do in `/admin`, in a sentence:
 | "Sync the Notion mirror", "Pause the mirror" | The mirror's running controls |
 
 Directors can also ask for **people** changes: "Add luis@cornell.edu as an admin
-with title Supermaker", "Set Niti's title to Tech Lead", "Give Luis 20 more
-research items this week".
+with title Supermaker", "Set Niti's title to Tech Lead", "Make Luis a user".
+Making someone a super admin, changing a super admin's role, granting research
+allowances, removing someone and blocking or unblocking an address are done on
+the **People** page only; the assistant says so.
 
 ### Nothing changes until you press Confirm
 
@@ -43,8 +45,8 @@ since the card was drawn, nothing is saved and the card says what it is now.
 - **Several records, one card.** "Approve these" gives one card with a checkbox
   per item; untick any you do not want.
 - **Things that cannot be undone** — archiving a tool, deleting a unit, removing
-  a link, discarding an intake item, removing a person, disconnecting the mirror —
-  are one at a time, and you type the name on the card to confirm.
+  a link, discarding an intake item — are one at a time, and you type the name
+  on the card to confirm.
 - **Research costs money.** Research, a different image, name suggestions,
   re-processing a manual and refreshing research come as cards that show how
   much of today's allowance is left.
@@ -64,7 +66,14 @@ undone, and anything that spends research budget are never available to them.
 
 ## What it will not do
 
-Create or show access tokens, answer a sign-in consent screen, connect the
-Notion mirror (that needs a Notion secret), change the language, upload files
-for you, or edit a tool's fields directly — for fields it proposes a change,
-with its sources, that staff accept on the tool's page or the Refresh page.
+Create or show access tokens, answer a sign-in consent screen, connect or
+disconnect the Notion mirror (connecting needs a Notion secret), change the
+language, upload files for you, or edit a tool's fields directly — for fields it
+proposes a change, with its sources, that staff accept on the tool's page or the
+Refresh page.
+
+Whatever your role, it never touches the **super admin** role, research
+allowances, removing people or blocking addresses (the People page), secrets or
+environment variables, deployments or hosting, the database, backups, the audit
+trail, anyone's full email address, and it never sends emails or messages
+(owner decision 2026-09-27).

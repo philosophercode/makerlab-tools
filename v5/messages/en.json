@@ -790,7 +790,9 @@
       "not_researchable": "This is already researching or settled.",
       "too_many_items": "Too many items at once.",
       "invalid_body": "That request did not have the expected shape.",
-      "confirmation_mismatch": "The name typed did not match, so nothing was changed."
+      "confirmation_mismatch": "The name typed did not match, so nothing was changed.",
+      "only_on_people_page": "That change can only be made on the People page.",
+      "not_offered": "The assistant can no longer make this change, so nothing was changed. Make it on its page in the app."
     },
     "warnings": {
       "audit_unavailable": "Saved, but this change could not be written to the audit log. Tell whoever runs the deployment.",

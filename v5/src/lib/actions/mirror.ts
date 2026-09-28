@@ -120,21 +120,21 @@ export const MIRROR_SET_PAUSED = defineAction<{ paused: boolean }, object, Mirro
 
 /**
  * **Disconnect**: the stored token goes; the mapping and the pages stay for a
- * reconnect. Audited as `mirror.disconnected`. Destructive for the assistant:
- * the card asks for the Notion page's title.
+ * reconnect. Audited as `mirror.disconnected`. Never the assistant's (owner
+ * decision 2026-09-27): only the mirror page's button.
  */
 export const MIRROR_DISCONNECT = defineAction<z.infer<typeof noInput>, object, MirrorRefusal>({
   id: "mirror.disconnect",
   toolName: "disconnect_mirror",
   description:
-    "Disconnect the person's own Notion mirror (the stored Notion token is deleted; reconnecting needs it pasted again). Proposes the disconnect; nothing changes until the person types the Notion page's title on the card and confirms.",
+    "Disconnect the person's own Notion mirror (the stored Notion token is deleted; reconnecting needs it pasted again).",
   permission: "mirror.manage",
   risk: "destructive",
+  assistant: "never",
+  neverReason: "Disconnecting the mirror deletes a stored secret; it is the mirror page's alone (owner decision 2026-09-27)",
   input: noInput,
   invalidInput: "invalid_field",
   subject: () => ({ type: "mirror", id: "mine" }),
-  tool: toolShape(z.strictObject({}), () => ({ ok: true, inputs: [{}] })),
-  preview: (_input, ctx) => mirrorPreview(ctx, "mirror_disconnect"),
   run: (_input, ctx) =>
     asOwner(ctx, async (userId) => {
       const mirror = await getMirrorForOwner(userId);

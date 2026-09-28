@@ -558,7 +558,9 @@ for people is in `docs/assistant.md`.
   `registry.ts`'s `ACTIONS` lists them. `defineAction` refuses
   at load a destructive batch, a `people`/`spend`/`destructive` action over MCP,
   `mcp: "direct"` on anything but `tickets.update` (`DIRECT_OVER_MCP`; MCP gets
-  proposals only, §11 answer 4) and `assistant: "never"` without `neverReason`.
+  proposals only, §11 answer 4), `assistant: "never"` without `neverReason`,
+  a `"never"` that still carries a `tool`/`preview`, and an action on the
+  **assistant's deny list** that is not `"never"` (below).
   A capability tool that records a surface reads `ctx.surface`, which the chat
   and MCP adapters stamp — never `chatId`. `writeTicket` (MCP's and the
   chat's `update_ticket`) is a wrapper over `tickets.update`.
@@ -634,8 +636,31 @@ for people is in `docs/assistant.md`.
   (`tools.edit`: units with ids and maintenance counts, resources) and
   `list_imports` (`tools.add`: the caller's imports, or a reviewer's; rows
   fenced). `list_open_tickets` fences each description.
+- **Assistant limits — the deny list** (owner decision 2026-09-27; spec
+  amendment "Assistant limits"). The assistant (chat and MCP) acts only as the
+  signed-in person and never past their role, and **never, on any surface,
+  whatever the role**: sets anyone's role to `super_admin` or changes a super
+  admin's role (`people.set_role`/`people.add` refuse `only_on_people_page`
+  off the GUI — `superAdminPageOnly` in `people.ts`); grants allowances,
+  removes people, blocks/unblocks addresses, disconnects the mirror
+  (`people.grant_allowance`, `people.remove`, `people.unblock_email`,
+  `mirror.disconnect` are `assistant: "never"`, no tool); nor touches secrets,
+  env vars, tokens, hosting/deploys, SQL/the database, backups/`data:push`, the
+  audit trail, bulk email export or messaging. `define.ts` holds
+  `ASSISTANT_FORBIDDEN_ACTIONS` (ids) and `ASSISTANT_FORBIDDEN_CATEGORIES`
+  (words matched against an action id or any tool name). Enforced four times:
+  `defineAction` at load; `proposableDefinitions` / `capabilitiesForIdentity`
+  / `mcpToolAllowed` where tools are offered (`assistantMayPropose`,
+  `assistantToolForbidden`); `proposeAction` (`not_offered`); and the confirm
+  route, which refuses a stored proposal for a forbidden action before
+  `performAction` runs. **Adding an action or a capability tool whose name
+  says secret/token/deploy/sql/backup/audit/export/email/send…** fails
+  `assistant-limits.test.ts` unless it is `assistant: "never"`: that is the
+  point — rename it only if it truly is none of those. The GUI keeps all of
+  these for people with the permission.
 - **Destructive cards** (`risk: "destructive"`: `tools.archive`, `units.delete`,
-  `resources.remove`, `pending.discard`, `people.remove`, `mirror.disconnect`):
+  `resources.remove`, `pending.discard`; `people.remove` and
+  `mirror.disconnect` are destructive too but never the assistant's):
   never batched, and Confirm stays off until the subject's stored name is typed
   (`typed-confirm.ts`, the same fold the route checks again). Enter never
   confirms.

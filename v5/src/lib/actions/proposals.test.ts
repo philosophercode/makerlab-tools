@@ -249,16 +249,16 @@ describe("checked again at the click", () => {
 describe("a card whose subject moved on (§3.3 step 4)", () => {
   it("refuses a role change when the role changed since the card, and says what it is now", async () => {
     const director = await signIn("super_admin", "dee@cornell.edu");
-    const target = await seedUser({ email: "luis@cornell.edu", role: "admin" });
-    const proposed = await proposeAction(def("people.set_role"), { user_id: target.id, role: "user" }, {
+    const target = await seedUser({ email: "luis@cornell.edu", role: "user" });
+    const proposed = await proposeAction(def("people.set_role"), { user_id: target.id, role: "admin" }, {
       identity: director,
       surface: "assistant",
       chatId: null,
     });
     if (!proposed.ok) throw new Error("refused");
-    // Another super admin promotes the person while the card sits in the chat.
+    // Another super admin promotes the person on the People page while the card sits in the chat.
     const db = await getDb();
-    await db.update(user).set({ role: "super_admin" }).where(eq(user.id, target.id));
+    await db.update(user).set({ role: "admin" }).where(eq(user.id, target.id));
 
     const results = await decideActionProposals({ ids: [proposed.proposals[0].id], decision: "confirm" }, director);
     expect(results).toEqual([
@@ -266,10 +266,10 @@ describe("a card whose subject moved on (§3.3 step 4)", () => {
         id: proposed.proposals[0].id,
         status: "conflict",
         error: "conflict",
-        drifted: [{ field: "role", was: "admin", now: "super_admin", format: "role" }],
+        drifted: [{ field: "role", was: "user", now: "admin", format: "role" }],
       },
     ]);
-    expect((await findUserById(target.id))?.role).toBe("super_admin");
+    expect((await findUserById(target.id))?.role).toBe("admin");
     const [row] = await db.select().from(actionProposals).where(eq(actionProposals.id, proposed.proposals[0].id));
     expect(row).toMatchObject({ status: "conflict", result: { error: "conflict" } });
     expect((await listAuditEvents()).filter((e) => e.action === "user.role_changed")).toEqual([]);
@@ -375,9 +375,11 @@ describe("proposing", () => {
       ok: false,
       error: "invalid_input",
     });
+    // A super admin's role is the People page's alone (owner decision 2026-09-27),
+    // which answers before the last-super-admin rule would.
     expect(await proposeAction(def("people.set_role"), { user_id: director.userId, role: "user" }, { identity: director, surface: "assistant", chatId: null })).toMatchObject({
       ok: false,
-      error: "last_super_admin",
+      error: "only_on_people_page",
     });
     expect(await proposeAction(def("people.set_role"), { user_id: "nobody", role: "admin" }, { identity: director, surface: "assistant", chatId: null })).toMatchObject({
       ok: false,
@@ -449,6 +451,75 @@ describe("proposing", () => {
     const staffTools = capabilitiesForIdentity(CAPABILITIES, { role: "admin" }).find((c) => c.id === "actions")!.tools.map((t) => t.name);
     expect(staffTools).not.toContain("set_person_role");
     expect(staffTools).toContain("update_ticket");
+  });
+});
+
+describe("the super-admin role is the People page's alone (owner decision 2026-09-27)", () => {
+  const asAssistant = (identity: Identity) => ({ identity, surface: "assistant" as const, chatId: null });
+
+  it("never proposes making somebody a super admin, or changing a super admin's role, from chat or MCP", async () => {
+    const director = await signIn("super_admin", "dee@cornell.edu");
+    const admin = await seedUser({ email: "luis@cornell.edu", role: "admin" });
+    const other = await seedUser({ email: "niti@cornell.edu", role: "super_admin" });
+    for (const surface of ["assistant", "mcp"] as const) {
+      const ctx = { identity: director, surface, chatId: null };
+      expect(await proposeAction(def("people.set_role"), { user_id: admin.id, role: "super_admin" }, ctx)).toMatchObject({ ok: false, error: "only_on_people_page" });
+      expect(await proposeAction(def("people.set_role"), { user_id: other.id, role: "admin" }, ctx)).toMatchObject({ ok: false, error: "only_on_people_page" });
+      expect(await proposeAction(def("people.set_role"), { user_id: other.id, role: "super_admin" }, ctx)).toMatchObject({ ok: false, error: "only_on_people_page" });
+      expect(await proposeAction(def("people.add"), { email: "new@cornell.edu", role: "super_admin" }, ctx)).toMatchObject({ ok: false, error: "only_on_people_page" });
+    }
+    expect(await (await getDb()).select().from(actionProposals)).toEqual([]);
+  });
+
+  it("still moves somebody between user and admin from a card", async () => {
+    const director = await signIn("super_admin", "dee@cornell.edu");
+    const target = await seedUser({ email: "luis@cornell.edu", role: "admin" });
+    const { results } = await proposeAndConfirm("people.set_role", { user_id: target.id, role: "user" }, director);
+    expect(results).toEqual([expect.objectContaining({ status: "confirmed" })]);
+    expect((await findUserById(target.id))?.role).toBe("user");
+  });
+
+  it("refuses at the click a stored proposal that would promote, and one whose subject became a super admin", async () => {
+    const director = await signIn("super_admin", "dee@cornell.edu");
+    const a = await seedUser({ email: "a@cornell.edu", role: "admin", name: "Ada" });
+    const b = await seedUser({ email: "b@cornell.edu", role: "user", name: "Bo" });
+    // Written straight to the table, as if by something other than proposeAction.
+    const [forged] = await createActionProposals([
+      {
+        groupId: crypto.randomUUID(),
+        actionId: "people.set_role",
+        input: { userId: a.id, role: "super_admin" },
+        subjectType: "user",
+        subjectId: a.id,
+        preview: { summary: { key: "people_set_role", values: { name: "Ada" } }, rows: [{ field: "role", before: "admin", after: "super_admin", format: "role" }], subjectName: "Ada" },
+        surface: "assistant",
+        chatId: null,
+        createdBy: director.userId as string,
+      },
+    ]);
+    expect(await decideActionProposals({ ids: [forged.id], decision: "confirm" }, director)).toEqual([
+      expect.objectContaining({ status: "failed", error: "only_on_people_page" }),
+    ]);
+    expect((await findUserById(a.id))?.role).toBe("admin");
+
+    const proposed = await proposeAction(def("people.set_role"), { user_id: b.id, role: "admin" }, asAssistant(director));
+    if (!proposed.ok) throw new Error(proposed.error);
+    await (await getDb()).update(user).set({ role: "super_admin" }).where(eq(user.id, b.id));
+    expect(await decideActionProposals({ ids: [proposed.proposals[0].id], decision: "confirm" }, director)).toEqual([
+      expect.objectContaining({ status: "failed", error: "only_on_people_page" }),
+    ]);
+    expect((await findUserById(b.id))?.role).toBe("super_admin");
+    expect((await listAuditEvents()).filter((e) => e.action === "role.changed")).toEqual([]);
+  });
+
+  it("leaves the People page able to promote and demote super admins, as before", async () => {
+    await signIn("super_admin", "dee@cornell.edu");
+    const target = await seedUser({ email: "luis@cornell.edu", role: "admin" });
+    expect(await setUserRole({ userId: target.id, role: "super_admin" })).toMatchObject({ ok: true });
+    expect((await findUserById(target.id))?.role).toBe("super_admin");
+    expect(await setUserRole({ userId: target.id, role: "admin" })).toMatchObject({ ok: true });
+    expect((await findUserById(target.id))?.role).toBe("admin");
+    expect(await addPerson({ email: "new@cornell.edu", role: "super_admin" })).toMatchObject({ ok: true });
   });
 });
 

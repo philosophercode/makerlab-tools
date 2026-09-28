@@ -149,20 +149,32 @@ describe("who is offered what (the phase 2 measurement, §11 answer 8)", () => {
 
   it("offers a SuperMaker the queue, catalogue, intake, import, spend and mirror actions, and no People action", () => {
     const admin = offered("admin").actionTools;
-    for (const name of ["update_ticket", "set_tool_published", "archive_tool", "approve_pending_items", "research_pending_items", "queue_refresh", "disconnect_mirror"]) {
+    for (const name of ["update_ticket", "set_tool_published", "archive_tool", "approve_pending_items", "research_pending_items", "queue_refresh", "sync_mirror"]) {
       expect(admin).toContain(name);
     }
     expect(admin.filter((name) => /person|people|allowance|unblock/.test(name))).toEqual([]);
+  });
+
+  it("offers nobody, super admins included, the actions the owner took off the assistant (2026-09-27)", () => {
+    for (const role of ["anonymous", "user", "admin", "super_admin"] as const) {
+      const tools = offered(role).actionTools;
+      for (const name of ["remove_person", "unblock_email", "grant_research_allowance", "disconnect_mirror"]) {
+        expect(tools, `${name} for ${role}`).not.toContain(name);
+      }
+    }
+    expect(offered("super_admin").actionTools).toContain("set_person_role");
   });
 
   it("pins the counts (phase 4–6 measurement: one tool per action, §11 answer 8)", () => {
     // Past §3.4's fold threshold of 30 for both staff roles. The owner's answer
     // is one tool per action, folding only if the evals show wrong-tool picks;
     // the figures are in the spec's phases 4–6 amendment.
-    expect(offered("super_admin").actionTools).toHaveLength(40);
-    expect(offered("admin").actionTools).toHaveLength(33);
-    expect(offered("super_admin").chatTools).toBe(58);
-    expect(offered("admin").chatTools).toBe(50);
+    // Owner decision 2026-09-27 took remove_person, unblock_email,
+    // grant_research_allowance and disconnect_mirror off the assistant.
+    expect(offered("super_admin").actionTools).toHaveLength(36);
+    expect(offered("admin").actionTools).toHaveLength(32);
+    expect(offered("super_admin").chatTools).toBe(54);
+    expect(offered("admin").chatTools).toBe(49);
     expect(offered("user").chatTools).toBe(9);
   });
 });
@@ -183,5 +195,12 @@ describe("actionsPromptFragment", () => {
     expect(staff).toContain("`update_ticket`");
     expect(staff).not.toContain("`set_person_role`");
     expect(actionsPromptFragment({ tools: [], identity: identity("super_admin") })).toContain("`set_person_role`");
+  });
+
+  it("tells the model what is never its to do, and names none of those tools (owner decision 2026-09-27)", () => {
+    const director = actionsPromptFragment({ tools: [], identity: identity("super_admin") });
+    expect(director).toMatch(/never yours, whatever the person's role/);
+    expect(director).toMatch(/super admin/i);
+    for (const name of ["remove_person", "unblock_email", "grant_research_allowance", "disconnect_mirror"]) expect(director).not.toContain(`\`${name}\``);
   });
 });
