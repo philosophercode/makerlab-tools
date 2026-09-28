@@ -17,6 +17,16 @@ import { PgliteLockedError } from "../src/lib/db/pglite-lock.ts";
 
 async function main(): Promise<void> {
   const url = process.env.DATABASE_URL;
+  // A preview build shares production's DATABASE_URL on this project, so a
+  // PR's migrations would land in production before the PR merges — under
+  // numbers that can change before it does (2026-09-28: 0020 and 0022 were
+  // applied from previews and then renumbered on main). Only production
+  // builds migrate; `MIGRATE_ON_PREVIEW=1` opts in when previews get their
+  // own database (e.g. a Neon branch per preview).
+  if (url && process.env.VERCEL_ENV === "preview" && process.env.MIGRATE_ON_PREVIEW !== "1") {
+    console.log("Preview build: migrations skipped (they run only on production deploys).");
+    return;
+  }
   if (url) {
     const db = createNeonDb(url);
     await migrateNeon(db);
