@@ -1,19 +1,31 @@
+import { CITE_HREF_PREFIX, isCitationLikeHref, withoutFragment } from "../../lib/manuals/citation-ref";
+
 /**
- * Manual citations in an answer (UI system spec §9.1, phase 5b).
+ * Manual citations in an answer (UI system spec §9.1, phase 5b; manual text
+ * spec amendment 2026-09-28 "Citations always resolve").
  *
- * `search_manual` builds every passage's `citation` ("Form 4 Manual, p. 42")
- * and a `url` that opens the stored PDF at that page, and its prompt has the
- * model cite a fact as a Markdown link to that url (capabilities/manuals.ts).
- * The call's output streams to the browser as the tool part's `output`, so the
- * chat can recognise those links for what they are: a link whose address is
- * one of this message's passage URLs is a citation — drawn inline with its
- * page — and the passages the answer linked are its `Sources`.
+ * `search_manual` builds every passage's `citation` ("Form 4 Manual, p. 42"),
+ * a `url` that opens the stored PDF at that page and a short `ref`, and its
+ * prompt has the model cite a fact as a Markdown link to `#cite-<ref>`
+ * (capabilities/manuals.ts). The call's output streams to the browser as the
+ * tool part's `output`, so the chat can draw those links for what they are: a
+ * link to one of this message's refs — or, as before, to one of its passage
+ * URLs exactly — is a citation, drawn inline with its page and opening the
+ * **tool's** URL; the passages the answer linked are its `Sources`.
  *
- * Nothing is inferred from the link text: only an address the tool returned
- * counts, so a model cannot make an ordinary link look like evidence.
+ * **Only a tool's address becomes a manual link** ({@link classifyLink}).
+ * Nothing is inferred from the link text, and a manual-looking address the
+ * model wrote itself — a PDF, a `#page=` anchor, a Blob URL, a ref that
+ * matches nothing — is drawn as plain words, marked unverified, never as a
+ * link: that is where the broken and invented citations came from. The one
+ * other source is the route's `data-manual-links` part: the manuals it
+ * attached whole, by the stored address, which may be linked as a document
+ * (never at a page the model chose).
  */
 
 export interface ManualPassageRef {
+  /** `3f2a9c10-42` — what the model links as `#cite-<ref>`. */
+  ref: string;
   /** "Form 4 Manual, p. 42" — built by the tool, not the model. */
   citation: string;
   /** Opens the PDF at the page. */
@@ -31,9 +43,12 @@ interface SearchManualOutput {
 
 const EXCERPT_MAX = 280;
 
-/** Every passage with a URL that this message's finished `search_manual` calls returned, by URL. */
+/**
+ * Every passage with a URL that this message's finished `search_manual` calls
+ * returned, keyed by its URL **and** by `#cite-<ref>` (both keys, one object).
+ */
 export function manualPassages(parts: readonly { type: string }[]): Map<string, ManualPassageRef> {
-  const byUrl = new Map<string, ManualPassageRef>();
+  const byKey = new Map<string, ManualPassageRef>();
   for (const part of parts) {
     if (part.type !== "tool-search_manual") continue;
     const { state, output } = part as { state?: string; output?: SearchManualOutput };
@@ -41,27 +56,83 @@ export function manualPassages(parts: readonly { type: string }[]): Map<string, 
     for (const raw of output.passages as Array<Record<string, unknown>>) {
       const url = typeof raw?.url === "string" ? raw.url.trim() : "";
       const citation = typeof raw?.citation === "string" ? raw.citation.trim() : "";
-      if (!url || !citation || byUrl.has(url)) continue;
-      byUrl.set(url, {
+      const ref = typeof raw?.ref === "string" ? raw.ref.trim().toLowerCase() : "";
+      if (!url || !citation) continue;
+      const passage: ManualPassageRef = byKey.get(url) ?? {
+        ref,
         citation,
         url,
         section: typeof raw.section === "string" ? raw.section : "",
         excerpt: typeof raw.text === "string" ? passageExcerpt(raw.text) : "",
-      });
+      };
+      if (!byKey.has(url)) byKey.set(url, passage);
+      if (ref && !byKey.has(`${CITE_HREF_PREFIX}${ref}`)) byKey.set(`${CITE_HREF_PREFIX}${ref}`, passage);
+    }
+  }
+  return byKey;
+}
+
+/**
+ * The manuals the route attached whole to this turn (`data-manual-links`), by
+ * their stored address without a fragment: a document the model may link, but
+ * not at a page of its choosing.
+ */
+export function attachedManualLinks(parts: readonly { type: string }[]): Map<string, string> {
+  const byUrl = new Map<string, string>();
+  for (const part of parts) {
+    if (part.type !== "data-manual-links") continue;
+    const data = (part as { data?: { kind?: unknown; links?: unknown } }).data;
+    if (data?.kind !== "manual-links" || !Array.isArray(data.links)) continue;
+    for (const link of data.links as Array<Record<string, unknown>>) {
+      const url = typeof link?.url === "string" ? withoutFragment(link.url.trim()) : "";
+      const title = typeof link?.title === "string" ? link.title : "";
+      if (url && !byUrl.has(url)) byUrl.set(url, title);
     }
   }
   return byUrl;
 }
 
-/** The passages a text links to, in the order it first links them. */
+/** What one link in an answer is, and so how it is drawn. */
+export type LinkKind =
+  | { kind: "citation"; passage: ManualPassageRef }
+  | { kind: "document"; url: string; title: string }
+  | { kind: "internal"; href: string }
+  | { kind: "unverified" }
+  | { kind: "external"; href: string };
+
+/**
+ * Decide what a link the model wrote may be (see the module comment): a
+ * passage's ref or exact URL is a citation; an attached manual's own address
+ * (any `#page=` the model added dropped) is a document; a site path is
+ * internal; any other manual-looking address is unverified and drawn as
+ * text; everything else is an ordinary external link.
+ */
+export function classifyLink(
+  href: string,
+  passages: ReadonlyMap<string, ManualPassageRef>,
+  documents: ReadonlyMap<string, string> = new Map()
+): LinkKind {
+  const target = href.trim();
+  const passage = passages.get(target) ?? passages.get(target.toLowerCase());
+  if (passage) return { kind: "citation", passage };
+  if (target.startsWith("/") && !target.startsWith("//")) return { kind: "internal", href: target };
+  const document = documents.get(withoutFragment(target));
+  if (document !== undefined) return { kind: "document", url: withoutFragment(target), title: document };
+  if (isCitationLikeHref(target)) return { kind: "unverified" };
+  return { kind: "external", href: target };
+}
+
+/** The passages a text links to (by ref or URL), in the order it first links them. */
 export function citedPassages(text: string, passages: ReadonlyMap<string, ManualPassageRef>): ManualPassageRef[] {
   if (passages.size === 0) return [];
-  const found: Array<{ at: number; passage: ManualPassageRef }> = [];
-  for (const passage of passages.values()) {
-    const at = text.indexOf(`](${passage.url})`);
-    if (at >= 0) found.push({ at, passage });
+  const found = new Map<ManualPassageRef, number>();
+  for (const [key, passage] of passages) {
+    const at = text.toLowerCase().indexOf(`](${key.toLowerCase()})`);
+    if (at < 0) continue;
+    const seen = found.get(passage);
+    if (seen === undefined || at < seen) found.set(passage, at);
   }
-  return found.sort((a, b) => a.at - b.at).map(({ passage }) => passage);
+  return [...found].sort((a, b) => a[1] - b[1]).map(([passage]) => passage);
 }
 
 /** "Form 4 Manual, pp. 44–45 (printed 3-12)" → "pp. 44–45": the part a reader scans for. */
@@ -75,16 +146,32 @@ export function pageMark(citation: string): string {
  * "Replacing the resin tank (Form 4 Manual, p. 42)" → "Replacing the resin
  * tank", since the mark after it says the page. Words that are nothing but
  * the citation keep the manual's name ("Form 4 Manual").
+ *
+ * **Any** "(<document>, p. N)" the model wrote is dropped, not only the exact
+ * citation: the only document name and page drawn for a citation are the
+ * passage's own (the mark, the card, Sources), from the same
+ * `manual_documents` row as the URL — so words naming another document ("SOP,
+ * p. 9" over a link to the quick-start guide) can never label the link
+ * (manual text spec amendment 2026-09-28). Words that are only a citation
+ * become the passage's document title.
  */
 export function citationPhrase(words: string, citation: string): string {
   const text = words.trim();
-  if (text === citation) return citation.replace(/,\s*pp?\. .*$/, "");
-  const suffix = `(${citation})`;
-  if (text.endsWith(suffix)) {
-    const rest = text.slice(0, -suffix.length).trim();
-    if (rest) return rest;
-  }
+  const title = citation.replace(/,\s*pp?\. .*$/, "");
+  if (text === citation) return title;
+  const withoutParenthetical = text.replace(/\s*\([^()]*,\s*pp?\.\s*\d[^()]*(?:\([^()]*\))?[^()]*\)\s*$/, "").trim();
+  if (withoutParenthetical !== text) return withoutParenthetical || title;
+  if (/^[^()]*,\s*pp?\.\s*\d/.test(text)) return title;
   return words;
+}
+
+/**
+ * The words of a link to an attached manual, without any "(<document>, p. N)"
+ * the model put in them: the link opens the whole document, not a page, and
+ * is named by the route's title for it (the link's `title`).
+ */
+export function documentPhrase(words: string, title: string): string {
+  return citationPhrase(words, `${title}, p. 0`);
 }
 
 /**

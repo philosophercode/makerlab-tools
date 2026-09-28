@@ -39,7 +39,7 @@ import { UploadFailedError } from "../src/lib/push-hosted/files.ts";
 import { latestRepoMigration } from "../src/lib/push-hosted/migrations.ts";
 import { formatBytes, runPush } from "../src/lib/push-hosted/run.ts";
 import { sqlClient } from "../src/lib/push-hosted/sql.ts";
-import { readEnvFile, resolveTargetCredentials, secretScrubber } from "../src/lib/push-hosted/target-env.ts";
+import { readEnvFile, resolveTargetCredentials, secretScrubber, storeHosts } from "../src/lib/push-hosted/target-env.ts";
 
 export interface PushArgs {
   to: string | null;
@@ -135,6 +135,9 @@ async function main(): Promise<number> {
       repoMigration: latestRepoMigration(migrationsFolder()),
       dryRun: args.dryRun,
       allowMissingFiles: args.allowMissingFiles,
+      // A public URL on any other store (one deleted and recreated, as on
+      // 2026-09-27) is carried to the target's like a local file.
+      targetBlobHosts: storeHosts(credentials.blob, credentials.privateBlob),
       log: (line) => console.log(scrub(line)),
     });
 
@@ -158,6 +161,10 @@ async function main(): Promise<number> {
     if (copy.stillLocal.size > 0) {
       console.log("  WARNING: rows still mention the local file store (/api/dev-blob/):");
       for (const [table, n] of copy.stillLocal) console.log(`    ${table}: ${n}`);
+    }
+    if (copy.stillForeign.size > 0) {
+      console.log("  WARNING: rows still name a Blob store that is not the target's (run npm run blob:repoint -- --to <file>):");
+      for (const [table, n] of copy.stillForeign) console.log(`    ${table}: ${n}`);
     }
     console.log(`\nDelete ${args.to} when you are finished: it holds the production credentials.`);
     return 0;

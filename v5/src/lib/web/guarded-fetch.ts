@@ -45,6 +45,8 @@ export type GuardedFetchResult =
       bytes: Uint8Array;
       /** The final response's headers (after any redirects). */
       headers: Headers;
+      /** True when `stopAfterBytes` cut the body short: `bytes` is its start only. */
+      truncated?: boolean;
     }
   | {
       ok: false;
@@ -75,6 +77,13 @@ export interface GuardedFetchOptions {
    * `detail`. For a caller that wants a PDF and has no use for a product page.
    */
   refuseTypes?: readonly string[];
+  /**
+   * Read only the body's first bytes: stop after this many and answer `ok`
+   * with `truncated: true`. For a caller that needs a file's magic bytes, not
+   * the file (the manual PDF resolver). `maxBytes` still refuses a response
+   * whose declared length is larger.
+   */
+  stopAfterBytes?: number;
 }
 
 export const RESOLVE_HOST_HOOK = Symbol.for("makerlab.web.resolveHost");
@@ -143,19 +152,20 @@ export async function guardedFetch(url: string, opts: GuardedFetchOptions): Prom
         return { ok: false, url: current, reason: "too_large", status: response.status };
       }
 
-      const body = await readCapped(response, cap, opts.signal);
+      const body = await readCapped(response, cap, opts.signal, opts.stopAfterBytes);
       if (body === "too_large") {
         return { ok: false, url: current, reason: "too_large", status: response.status };
       }
-      if (!(body instanceof Uint8Array)) return networkFailure(current, body.error, opts.signal);
+      if (!("bytes" in body)) return networkFailure(current, body.error, opts.signal);
 
       return {
         ok: true,
         url: current,
         status: response.status,
         contentType: response.headers.get("content-type"),
-        bytes: body,
+        bytes: body.bytes,
         headers: response.headers,
+        ...(body.truncated ? { truncated: true } : {}),
       };
     }
   } catch (error) {
@@ -253,23 +263,30 @@ async function discard(response: Response): Promise<void> {
 async function readCapped(
   response: Response,
   cap: number,
-  signal: AbortSignal
-): Promise<Uint8Array | "too_large" | { error: unknown }> {
-  if (!response.body) return new Uint8Array(0);
+  signal: AbortSignal,
+  stopAfter?: number
+): Promise<{ bytes: Uint8Array; truncated: boolean } | "too_large" | { error: unknown }> {
+  if (!response.body) return { bytes: new Uint8Array(0), truncated: false };
   const reader = response.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
+  let truncated = false;
   try {
     for (;;) {
       if (signal.aborted) throw signal.reason ?? new DOMException("aborted", "AbortError");
       const { done, value } = await reader.read();
       if (done) break;
       total += value.byteLength;
+      chunks.push(value);
+      if (stopAfter !== undefined && total >= stopAfter) {
+        reader.cancel().catch(() => {});
+        truncated = true;
+        break;
+      }
       if (total > cap) {
         reader.cancel().catch(() => {});
         return "too_large";
       }
-      chunks.push(value);
     }
   } catch (error) {
     reader.cancel().catch(() => {});
@@ -281,7 +298,7 @@ async function readCapped(
     bytes.set(chunk, offset);
     offset += chunk.byteLength;
   }
-  return bytes;
+  return { bytes, truncated };
 }
 
 function networkFailure(url: string, error: unknown, signal: AbortSignal): Failure {

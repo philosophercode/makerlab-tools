@@ -275,7 +275,8 @@
     "scrollToLatest": "Scroll to the latest message",
     "dictate": "Dictate",
     "sourcesCount": "{count, plural, one {# manual page} other {# manual pages}}",
-    "citationAria": "Open {citation}"
+    "citationAria": "Open {citation}",
+    "unverifiedCitation": "Not linked: this manual reference did not come from a manual search, so it could not be checked"
   },
   "qr": {
     "arrivalLabel": "Scanned from this machine",

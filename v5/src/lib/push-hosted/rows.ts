@@ -40,6 +40,31 @@ export function isLocalBlobUrl(value: string, origin?: string): boolean {
   }
 }
 
+/** Every Vercel Blob store's public and private hosts end with this. */
+export const VERCEL_BLOB_HOST_SUFFIX = ".blob.vercel-storage.com";
+
+/** The Blob store host of a Vercel Blob URL (`9oam….public.blob.vercel-storage.com`), or null. */
+export function blobStoreHost(value: string): string | null {
+  try {
+    const host = new URL(value).hostname.toLowerCase();
+    return host.endsWith(VERCEL_BLOB_HOST_SUFFIX) ? host : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * True for a Vercel Blob URL on a store that is **not** one of the target's
+ * (`targetHosts`): a file in a store that was deleted and recreated, or in a
+ * store the local side was once linked to (manual text spec amendment
+ * 2026-09-28). Such a URL "works on the hosted site" only while that store
+ * exists — the reason `data:push` now carries these files too.
+ */
+export function isForeignBlobUrl(value: string, targetHosts: readonly string[]): boolean {
+  const host = blobStoreHost(value);
+  return host !== null && targetHosts.length > 0 && !targetHosts.includes(host);
+}
+
 /** `http://localhost:3001/api/dev-blob/tools/a%20b.jpg` → `tools/a b.jpg`. */
 export function localPathnameFromUrl(value: string): string {
   const path = new URL(value).pathname.slice(DEV_BLOB_PATH.length);
@@ -67,13 +92,17 @@ export function emptyRewrites(): Rewrites {
  * Replace every occurrence of an old URL, anywhere in a value: a text column,
  * a string inside jsonb (research results, audit details), an array element.
  * Longest URLs first, so one URL that prefixes another is not half-replaced.
+ *
+ * Every column of every table goes through this (`transformRow`), which is
+ * what makes the rewrite total: `url-columns.test.ts` scans the schema for
+ * every column that can hold a string and proves each one is rewritten.
  */
 export function rewriteUrls(value: unknown, byUrl: Map<string, string>): unknown {
   if (byUrl.size === 0) return value;
   const pairs = [...byUrl.entries()].sort((a, b) => b[0].length - a[0].length);
   const visit = (v: unknown): unknown => {
     if (typeof v === "string") {
-      if (!v.includes(DEV_BLOB_PATH)) return v;
+      if (!v.includes(DEV_BLOB_PATH) && !v.includes(VERCEL_BLOB_HOST_SUFFIX)) return v;
       let out = v;
       for (const [from, to] of pairs) if (out.includes(from)) out = out.split(from).join(to);
       return out;
@@ -127,4 +156,14 @@ export function transformRow(
 /** True when a row still mentions the local store after rewriting (reported, not fatal). */
 export function mentionsLocalStore(row: Row): boolean {
   return JSON.stringify(row).includes(DEV_BLOB_PATH);
+}
+
+/** True when a row still mentions a Blob store that is not the target's after rewriting (reported, not fatal). */
+export function mentionsForeignStore(row: Row, targetHosts: readonly string[]): boolean {
+  if (targetHosts.length === 0) return false;
+  const text = JSON.stringify(row);
+  if (!text.includes(VERCEL_BLOB_HOST_SUFFIX)) return false;
+  return [...text.matchAll(/https?:\/\/([a-z0-9.-]+\.blob\.vercel-storage\.com)/gi)].some(
+    (match) => !targetHosts.includes(match[1].toLowerCase())
+  );
 }

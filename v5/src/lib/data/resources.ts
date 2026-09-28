@@ -7,6 +7,7 @@ import { isManualArchiveKey, manualSourceKey } from "./manual-archives.ts";
 import { listManualStates, type ManualState } from "./manual-documents.ts";
 import { isUuid } from "./uuid.ts";
 import type { Refused } from "./write-result.ts";
+import { stripTrackingParams } from "../web/tracking-params.ts";
 
 /**
  * Resource reads on Postgres (spec §3.10, §4.6, §4.7).
@@ -327,7 +328,8 @@ function toResourceValues(input: ResourcePatch): ResourceValues | null {
     // Refused rather than stored: a bare `example.com` renders as a relative
     // link and sends the reader to a page on this site that does not exist.
     if (url !== null && !WEB_URL.test(url)) return null;
-    values.url = url;
+    // Stored without `utm_*` and other tracking parameters (amendment 2026-09-28).
+    values.url = url === null ? null : stripTrackingParams(url);
   }
 
   return values;

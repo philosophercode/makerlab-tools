@@ -28,7 +28,10 @@
     "names:backfill": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/backfill-display-names.ts",
     "descriptions:shorten": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/shorten-descriptions.ts",
     "resources:language": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/resource-language.ts",
-    "data:push": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/push-local-to-hosted.ts"
+    "data:push": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/push-local-to-hosted.ts",
+    "blob:repoint": "node --experimental-strip-types scripts/repoint-hosted-blobs.ts",
+    "manuals:resolve-links": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/resolve-manual-links.ts",
+    "resources:clean-urls": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/clean-resource-urls.ts"
   },
   "dependencies": {
     "@ai-sdk/gateway": "^3.0.160",

@@ -1,7 +1,16 @@
 import type { LocalBlobBackend } from "../blob-local.ts";
 import type { BlobUploader } from "../import/files.ts";
 import { copyTables, countRows, type CopyLimits, type CopyResult } from "./copy.ts";
-import { findEarlierUploads, scanLocalFiles, uploadFiles, type LocalFileScan } from "./files.ts";
+import {
+  fetchRemoteBytes,
+  findEarlierUploads,
+  probeRemoteHead,
+  scanLocalFiles,
+  uploadFiles,
+  type LocalFileScan,
+  type RemoteFetch,
+  type RemoteProbe,
+} from "./files.ts";
 import { migrationMismatch, readMigrationState, type RepoMigration } from "./migrations.ts";
 import { emptyRewrites, type Row, type UploadedFile } from "./rows.ts";
 import type { SqlClient } from "./sql.ts";
@@ -36,6 +45,16 @@ export interface PushOptions {
   dryRun: boolean;
   /** Proceed even when some local rows' files are missing from `.blob-data/`. */
   allowMissingFiles?: boolean;
+  /**
+   * The target's Blob store hosts (`storeHosts` in `target-env.ts`). A public
+   * URL on any other store is carried like a local file (amendment
+   * 2026-09-28). Absent or empty: nothing is treated as foreign.
+   */
+  targetBlobHosts?: readonly string[];
+  /** HEAD for a foreign file the local store lacks. Default: a real HEAD request. */
+  probeRemote?: RemoteProbe;
+  /** GET for such a file's bytes. Default: a real GET. */
+  fetchRemote?: RemoteFetch;
   plan?: CopyPlan;
   limits?: CopyLimits;
   log?: (line: string) => void;
@@ -70,7 +89,11 @@ export async function runPush(options: PushOptions): Promise<PushReport> {
     const attachments = (
       await options.source.query<{ r: Row }>("select to_jsonb(t) as r from attachments t")
     ).map((row) => row.r);
-    const files = await scanLocalFiles(attachments, options.localStore, options.localOrigin);
+    const targetHosts = options.targetBlobHosts ?? [];
+    const files = await scanLocalFiles(attachments, options.localStore, options.localOrigin, {
+      targetHosts,
+      probeRemote: options.probeRemote ?? probeRemoteHead,
+    });
 
     await options.target.query("begin transaction read only");
     let targetMigrations;
@@ -86,7 +109,8 @@ export async function runPush(options: PushOptions): Promise<PushReport> {
         );
         earlier = findEarlierUploads(
           files.files,
-          hosted.map((row) => row.r)
+          hosted.map((row) => row.r),
+          targetHosts
         );
       }
     } finally {
@@ -111,6 +135,13 @@ export async function runPush(options: PushOptions): Promise<PushReport> {
       problems.push(
         `${files.missing.length} attachment row(s) point at local files that are missing from .blob-data/ ` +
           "(listed above). Fix or remove them locally, or pass --allow-missing-files to copy those rows unchanged."
+      );
+    }
+    if (files.unreachable.length > 0 && !options.allowMissingFiles) {
+      problems.push(
+        `${files.unreachable.length} attachment row(s) point at a Blob store that is not the target's, and their files ` +
+          "are neither in .blob-data/ nor reachable at their URL (listed above) — citations and images to them would " +
+          "404. Re-upload them locally, or pass --allow-missing-files to copy those rows unchanged."
       );
     }
     if (toUpload.length > 0 && !options.uploader) {
@@ -142,14 +173,15 @@ export async function runPush(options: PushOptions): Promise<PushReport> {
         (done, total) => {
           if (done === total || done % 25 === 0) log(`  ${done}/${total}`);
         },
-        earlier
+        earlier,
+        options.fetchRemote ?? fetchRemoteBytes
       );
     }
     report.uploaded = toUpload.length;
     report.uploadedBytes = toUpload.reduce((sum, file) => sum + file.size, 0);
 
     log("\nReplacing the hosted rows (one transaction)…");
-    report.copy = await copyTables(options.source, options.target, plan, rewrites, options.limits, (name, rows) =>
+    report.copy = await copyTables(options.source, options.target, plan, rewrites, { ...options.limits, targetHosts }, (name, rows) =>
       log(`  ${name.padEnd(22)} ${rows}`)
     );
     return report;
@@ -185,11 +217,19 @@ function printPlan(
   if (blanked.length > 0) {
     log(`Blanked on the way: ${blanked.map((t) => `${t.name}.{${t.redacted.join(",")}}`).join("  ")}`);
   }
-  log(`\nLocal files: ${files.files.length} (${formatBytes(files.bytes)})`);
+  log(
+    `\nLocal files: ${files.files.length} (${formatBytes(files.bytes)})` +
+      `${files.foreign > 0 ? `, of which ${files.foreign} on a Blob store that is not the target's` : ""}`
+  );
   log(`  to upload: ${toUpload}${reused > 0 ? `   already on the hosted store from an earlier push: ${reused}` : ""}`);
   if (files.missing.length > 0) {
     log(`Missing from .blob-data/ (${files.missing.length}):`);
     for (const m of files.missing.slice(0, 20)) log(`  attachment ${m.id}  ${m.pathname}`);
     if (files.missing.length > 20) log(`  … and ${files.missing.length - 20} more`);
+  }
+  if (files.unreachable.length > 0) {
+    log(`On another Blob store and unreachable (${files.unreachable.length}):`);
+    for (const m of files.unreachable.slice(0, 20)) log(`  attachment ${m.id}  ${m.url}`);
+    if (files.unreachable.length > 20) log(`  … and ${files.unreachable.length - 20} more`);
   }
 }
