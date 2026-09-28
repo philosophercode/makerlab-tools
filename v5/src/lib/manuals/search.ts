@@ -175,6 +175,14 @@ export async function searchManuals(db: Db, input: SearchManualsInput): Promise<
     vector && !toolIds
       ? await db.transaction(async (tx) => {
           await tx.execute(sql`select set_config('hnsw.ef_search', ${String(HNSW_EF_SEARCH)}, true)`);
+          // pgvector ≥ 0.8: keep scanning the index until enough passages
+          // survive the visibility filter, so a viewer who may see only a few
+          // manuals still gets its CANDIDATES. Older pgvector has no such
+          // setting (and rejects the name), so it is only set where it exists.
+          await tx.execute(sql`select set_config('hnsw.iterative_scan', 'relaxed_order', true)
+                                 from pg_extension
+                                where extname = 'vector'
+                                  and string_to_array(extversion, '.')::int[] >= array[0, 8]`);
           return rawRows<PassageRow>(tx as unknown as Db, fused);
         })
       : await rawRows<PassageRow>(db, fused);
@@ -246,10 +254,12 @@ const HALFVEC = sql.raw(`halfvec(${EMBEDDING_DIMENSIONS})`);
  *   frequency is a GIN-filtered count, and only passages matching a lexeme
  *   are scored. Same idf and `ts_rank` sum as before.
  * - **Part numbers** stay an exact whole-word regex, run on the passages the
- *   GIN index says hold the token's own lexemes, not on every passage.
+ *   GIN index says hold the token's own lexemes (or, for an alphanumeric
+ *   token, a lexeme starting with it), not on every passage.
  * - **Vector:** unscoped, the HNSW index orders the candidates (the index
- *   exists for this; {@link searchManuals} raises `hnsw.ef_search` so the
- *   visibility filter still leaves {@link CANDIDATES}). Scoped to a few tools,
+ *   exists for this; {@link searchManuals} raises `hnsw.ef_search` and, on
+ *   pgvector 0.8+, turns on iterative scans, so the visibility filter still
+ *   leaves {@link CANDIDATES}). Scoped to a few tools,
  *   the distance is computed exactly over their passages instead — an HNSW
  *   scan filtered down to one tool could return none.
  */
@@ -310,8 +320,17 @@ function fusedQuery(args: {
       // holding every lexeme the token itself parses to (`E-302` → e-302, e,
       // 302), which a whole-word occurrence of it always yields. Scanning the
       // text of every visible passage was most of an unscoped search's time.
+      //
+      // A code joined to another by a slash (`M3/M4`, `0300/0100`) is one
+      // "file" lexeme to Postgres, so for a plain alphanumeric token the index
+      // is also asked for lexemes *starting* with it (`m3:*`, a GIN prefix
+      // probe). A code in second place (`M4` in `M3/M4`) is still missed.
       const mayHold = sql.join(
-        args.tokens.map((token) => sql`c.tsv @@ plainto_tsquery('english', ${token})`),
+        args.tokens.map((token) =>
+          /^[A-Za-z0-9]+$/.test(token)
+            ? sql`(c.tsv @@ plainto_tsquery('english', ${token}) or c.tsv @@ to_tsquery('simple', ${`${token.toLowerCase()}:*`}))`
+            : sql`c.tsv @@ plainto_tsquery('english', ${token})`
+        ),
         sql` or `
       );
       lists.push(sql`select id, row_number() over (order by hits desc, id) as rank

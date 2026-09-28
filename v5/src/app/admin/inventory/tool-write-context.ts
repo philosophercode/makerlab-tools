@@ -77,7 +77,7 @@ export async function withToolWrite<T>(
     if (options.revalidate !== false) revalidatePath(INVENTORY_PATH);
     // After the answer is sent: the person is waiting on the save, not on
     // telling Notion about it (performance plan).
-    requestMirrorPushAfterResponse();
+    await requestMirrorPushAfterResponse();
   }
   return result;
 }

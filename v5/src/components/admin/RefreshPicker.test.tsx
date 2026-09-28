@@ -134,7 +134,7 @@ describe("RefreshPicker", () => {
 describe("RefreshPicker — tools read when it opens (performance plan)", () => {
   const action = vi.fn<QueueRefreshAction>(async () => ({ ok: true, queued: 0, skipped: 0, missing: 0 }));
 
-  it("reads the tools on the first open only, not with the page", async () => {
+  it("reads the tools when it opens, not with the page — and again on the next open, so a refresh just queued shows", async () => {
     const user = userEvent.setup();
     const loadTools = vi.fn(async () => TOOLS);
     render(<RefreshPicker loadTools={loadTools} action={action} now={NOW} />);
@@ -143,8 +143,10 @@ describe("RefreshPicker — tools read when it opens (performance plan)", () => 
     await user.click(screen.getByRole("button", { name: "Refresh research…" }));
     expect(await screen.findByRole("row", { name: /Form 4/ })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Close" }));
-    await user.click(screen.getByRole("button", { name: "Refresh research…" }));
     expect(loadTools).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole("button", { name: "Refresh research…" }));
+    expect(await screen.findByRole("row", { name: /Form 4/ })).toBeInTheDocument();
+    expect(loadTools).toHaveBeenCalledTimes(2);
   });
 
   it("says so when the tools cannot be read", async () => {

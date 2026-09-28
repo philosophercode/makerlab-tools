@@ -441,6 +441,10 @@ const CONFIDENCE_LEVELS = new Set(["high", "medium", "low"]);
  * rows, each research blob validated with zod, cost 10× and more after a
  * bulk import. A stored grade that is not one of the three is treated like
  * research that no longer validates; the item's own page does the full check.
+ *
+ * Deliberately a summary: research with a valid grade but otherwise invalid
+ * content lists as researched here and is flagged only on the item's page.
+ * Reading the whole blob to decide would bring back the cost this avoids.
  */
 export async function listIntakeQueueSummaries(
   query: { settledLimit?: number } = {},

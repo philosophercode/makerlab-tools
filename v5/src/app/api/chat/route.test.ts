@@ -285,6 +285,29 @@ describe("POST /api/chat — rate limiting", () => {
     expect(json.error).toMatch(/too many requests/i);
     expect(recordedCalls(model)).toHaveLength(0);
   });
+
+  it("checks the limit before any read keyed by what the client sent", async () => {
+    const db = await getDb();
+    const reads = () => select.mock.calls.length + execute.mock.calls.length;
+    const select = vi.spyOn(db, "select");
+    const execute = vi.spyOn(db, "execute");
+    let readsWhileChecking = -1;
+    checkRateLimit.mockImplementationOnce(async () => {
+      const before = reads();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      readsWhileChecking = reads() - before;
+      return { allowed: false, remaining: 0, limit: 60, windowMs: 60 * 60_000, retryAfterSeconds: 60, role: "student" };
+    });
+
+    const res = await POST(
+      chatRequest({ messages: [userMessage("hi")], toolId: "00000000-0000-4000-8000-000000000000", pendingId: "x" })
+    );
+
+    expect(res.status).toBe(429);
+    expect(readsWhileChecking).toBe(0);
+    select.mockRestore();
+    execute.mockRestore();
+  });
 });
 
 describe("POST /api/chat — response", () => {

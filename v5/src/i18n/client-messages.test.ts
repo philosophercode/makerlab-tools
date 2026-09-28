@@ -160,9 +160,25 @@ function scopesByFile(): Map<string, Set<Scope>> {
 
 const SCOPES = scopesByFile();
 
+/**
+ * Modules that run in the browser: those with the "use client" directive and
+ * everything they import — a hook-using helper without the directive (say
+ * `ConfidenceStrip`) runs client-side too, and reads only what was sent.
+ */
+const CLIENT_MODULES = (() => {
+  const stack = FILES.filter((file) => /^\s*["']use client["']/.test(TEXT.get(file) ?? ""));
+  const seen = new Set<string>();
+  while (stack.length > 0) {
+    const file = stack.pop() as string;
+    if (seen.has(file)) continue;
+    seen.add(file);
+    stack.push(...(IMPORTS.get(file) ?? []));
+  }
+  return seen;
+})();
+
 function isClient(file: string): boolean {
-  const text = TEXT.get(file) ?? "";
-  return /^\s*["']use client["']/.test(text) && text.includes("useTranslations(");
+  return CLIENT_MODULES.has(file) && (TEXT.get(file) ?? "").includes("useTranslations(");
 }
 
 /** Every key a file asks for: `ns.key` for a literal, `ns.*` when the key is computed. */
@@ -194,6 +210,8 @@ describe("client components get the translations they use", () => {
     // The tool editor panel is admin code rendered on a public tool page.
     const panel = FILES.find((file) => file.endsWith("components/admin/ToolEditorPanel.tsx")) as string;
     expect([...(SCOPES.get(panel) ?? [])].sort()).toEqual(["admin", "public"]);
+    // A module without the directive, imported by a client component, is checked too.
+    expect(files.some((file) => file.endsWith("ConfidenceStrip.tsx"))).toBe(true);
   });
 
   it.each(files.map((file) => [path.relative(SRC, file), file]))("%s", (_rel, file) => {

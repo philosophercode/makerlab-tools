@@ -58,7 +58,7 @@ export function inventoryOutcome<T extends object>(
  * the response is sent (`mirror/after-response.ts`). Never throws.
  */
 export async function tellMirror(): Promise<undefined> {
-  requestMirrorPushAfterResponse();
+  await requestMirrorPushAfterResponse();
   return undefined;
 }
 

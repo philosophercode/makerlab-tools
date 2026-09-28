@@ -8,13 +8,20 @@ import { requestMirrorPush } from "./trigger";
  * workflow start) before answering, for something nobody sees for two
  * minutes. `after()` runs it once the answer is on its way.
  *
- * Outside a Next request (a test, a script) `after` is unavailable; the push
- * is then started straight away, not awaited. It never throws either way.
+ * Outside a Next request (a test, a script, the CLI) `after` is unavailable;
+ * the push then runs straight away and the returned promise is that push, so
+ * a caller that awaits it keeps the process (or a frozen serverless function)
+ * alive until the claim is taken and released. Inside a request it resolves at
+ * once. It never rejects either way.
  */
-export function requestMirrorPushAfterResponse(): void {
+export function requestMirrorPushAfterResponse(): Promise<void> {
   try {
     after(() => requestMirrorPush());
+    return Promise.resolve();
   } catch {
-    void requestMirrorPush();
+    return requestMirrorPush().then(
+      () => undefined,
+      () => undefined
+    );
   }
 }

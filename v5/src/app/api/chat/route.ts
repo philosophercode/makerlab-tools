@@ -92,11 +92,15 @@ export async function POST(req: Request) {
 
   // How much they are allowed (auth design spec §8: anonymous visitors get a
   // small allowance keyed by hashed IP, signed-in callers a generous one keyed
-  // by user id) — checked alongside the reads that depend only on the caller
-  // and the page, which used to run one after another. A refused request
-  // still never reaches the model; the reads it started are cached or cheap.
-  const [decision, pageContext, outcomes, tools, focused, curation] = await Promise.all([
-    checkRateLimit("chat", identity),
+  // by user id). Checked before any other read: a refused caller must not set
+  // off database reads keyed by what it sent, and gets a 429, never a 500 from
+  // a read it should not have reached. One fast query; the reads below that
+  // depend only on the caller and the page then run together.
+  const decision = await checkRateLimit("chat", identity);
+  if (!decision.allowed) {
+    return rateLimitedResponse(decision);
+  }
+  const [pageContext, outcomes, tools, focused, curation] = await Promise.all([
     // What the page shows and what is selected, and what became of this chat's
     // cards — both read from the database as this caller may see them.
     loadPageContext(identity, page),
@@ -107,9 +111,6 @@ export async function POST(req: Request) {
     // a caller who may curate it — never composed for anyone else.
     curationForChat(identity, { toolId, pendingId }),
   ]);
-  if (!decision.allowed) {
-    return rateLimitedResponse(decision);
-  }
 
   // Searchable manuals are answered through `search_manual` and listed in the
   // prompt with their contents; only the rest are attached whole (manual text

@@ -98,7 +98,10 @@ export function RefreshPicker({ tools: given, loadTools, action, now }: RefreshP
         .catch(() => setLoaded("failed"));
     }
     if (!next) {
-      // Closing forgets the press, so the next opening starts clean.
+      // Closing forgets the press, so the next opening starts clean — and,
+      // for a list read on demand, re-reads it: a refresh just queued must
+      // show as open next time, not be tickable again.
+      if (!given && Array.isArray(loaded)) setLoaded(null);
       setResult(null);
       setSelection({});
       setFilters(NO_PICKER_FILTERS);
