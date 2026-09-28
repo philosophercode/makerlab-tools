@@ -5,6 +5,8 @@ import { labTimezone, labToday } from "../lab-time.ts";
 import { rawRows } from "../db/raw.ts";
 import type { Db } from "../db/types.ts";
 import { listInventoryRows } from "./inventory.ts";
+import { countOpenInboxProposals } from "./action-proposals.ts";
+import { countOpenTickets } from "./maintenance.ts";
 import { countManualsByState } from "./manual-chunks.ts";
 import { getMirrorViewForOwner } from "./mirrors.ts";
 
@@ -51,6 +53,8 @@ export interface OverviewCounts {
   maintenance: { open: number; inProgress: number; urgent: number; series: number[] };
   corrections: { open: number; handled: number; series: number[] };
   projects: { waiting: number; published: number };
+  /** The viewer's own MCP proposals waiting in the Assistant proposals inbox (assistant–GUI parity spec §6). */
+  proposals: { open: number };
   /** `blocked` is the blocked-address list, which replaced bans (auth spec amendment 2026-09-25). */
   users: { total: number; admins: number; blocked: number };
   mirror: { state: "notConnected" | "connected" | "paused" | "failed" };
@@ -154,17 +158,12 @@ export const COUNT_LOADER_READS: { [K in CountLoader]: (ctx: OverviewContext) =>
 
   async maintenance(ctx) {
     const { db } = ctx;
-    const [[row], series] = await Promise.all([
-      rawRows<Record<string, Num>>(
-        db,
-        sql`select count(*) filter (where status = 'open') as open,
-                   count(*) filter (where status = 'in_progress') as in_progress,
-                   count(*) filter (where status in ('open', 'in_progress') and priority in ('high', 'critical')) as urgent
-              from maintenance_logs`
-      ),
+    // The counts are shared with the kiosk's open-ticket figure (kiosk spec §4.1).
+    const [counts, series] = await Promise.all([
+      countOpenTickets(db),
       dailySeries(ctx, sql`coalesce(date_reported, ${labDay(ctx, sql`created_at`)})`, sql`maintenance_logs`),
     ]);
-    return { open: n(row?.open), inProgress: n(row?.in_progress), urgent: n(row?.urgent), series };
+    return { ...counts, series };
   },
 
   async corrections(ctx) {
@@ -189,6 +188,10 @@ export const COUNT_LOADER_READS: { [K in CountLoader]: (ctx: OverviewContext) =>
             from projects`
     );
     return { waiting: n(row?.waiting), published: n(row?.published) };
+  },
+
+  async proposals({ db, userId }) {
+    return { open: userId ? await countOpenInboxProposals(userId, { db }) : 0 };
   },
 
   async users({ db }) {

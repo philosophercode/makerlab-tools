@@ -100,6 +100,11 @@ export function ChatLauncherProvider({
   );
 }
 
+/** The launcher, or null outside a provider (a component test). */
+export function useOptionalChatLauncher(): ChatLauncher | null {
+  return useContext(ChatLauncherContext);
+}
+
 export function useChatLauncher(): ChatLauncher {
   const ctx = useContext(ChatLauncherContext);
   if (!ctx) {

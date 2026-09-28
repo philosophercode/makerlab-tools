@@ -7,7 +7,14 @@ import { authorizeAdminAction } from "./action-gate";
 import type { AdminActionWarning, AdminGateError } from "./action-result";
 
 /**
- * The preamble every queue write shares (spec §5.6, §8).
+ * The preamble every queue write shared (spec §5.6, §8).
+ *
+ * **`runQueueWrite` has no callers since the action layer** (assistant–GUI
+ * parity spec phase 1): the three queues are `tickets.update`,
+ * `corrections.set_status` and `projects.set_published` in
+ * `src/lib/actions/`, run by `performAction`, which took this sequence over
+ * step for step. The function awaits deletion approval; `QueueActionResult`
+ * stays, because the queues' result modules still name their answer with it.
  *
  * `/admin/maintenance`, `/admin/corrections` and `/admin/projects` are three
  * pages doing one shape of work: gate on the permission *this* surface needs,

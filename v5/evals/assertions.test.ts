@@ -205,7 +205,7 @@ describe("says_not_covered", () => {
 
 describe("runAssertion dispatch", () => {
   it("handles every declared kind", () => {
-    expect(ASSERTION_KINDS).toHaveLength(10);
+    expect(ASSERTION_KINDS).toHaveLength(12);
     for (const kind of ASSERTION_KINDS) {
       const outcome = runAssertion(
         {
@@ -224,5 +224,32 @@ describe("runAssertion dispatch", () => {
   it("recognizes only declared kinds", () => {
     expect(isAssertionKind("mentions_tool")).toBe(true);
     expect(isAssertionKind("vibes_check")).toBe(false);
+  });
+});
+
+describe("the proposal assertions (assistant–GUI parity spec §10.1)", () => {
+  const input = (text: string, toolCalls: { name: string }[] = []) => ({ text, toolCalls, fixture: evalFixture });
+
+  it("proposed_action passes on a call to the action tool", () => {
+    expect(runAssertion({ kind: "proposed_action", value: "set_person_title" }, input("", [{ name: "set_person_title" }])).ok).toBe(true);
+    expect(runAssertion({ kind: "proposed_action", value: "set_person_title" }, input("", [{ name: "find_people" }])).ok).toBe(false);
+  });
+
+  it.each([
+    "Done — Niti is now a Tech Lead.",
+    "I've updated Niti's title.",
+    "Niti's title has been changed to Tech Lead.",
+    "All set!",
+  ])("not_claimed_done fails on %j", (text) => {
+    expect(runAssertion({ kind: "not_claimed_done" }, input(text)).ok).toBe(false);
+  });
+
+  it.each([
+    "Here's the change — confirm it on the card.",
+    "Nothing has changed yet: press Confirm to apply it.",
+    "Once you confirm, Niti's title will be Tech Lead.",
+    "Which Niti do you mean?",
+  ])("not_claimed_done passes on %j", (text) => {
+    expect(runAssertion({ kind: "not_claimed_done" }, input(text)).ok).toBe(true);
   });
 });

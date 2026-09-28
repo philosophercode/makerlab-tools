@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { performAction } from "../../../lib/actions/perform";
+import { REFRESH_QUEUE } from "../../../lib/actions/refresh";
 import { authorizeAdminAction } from "../../../lib/admin/action-gate";
+import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { closeEmptyRefresh, getRefresh } from "../../../lib/data/tool-refreshes";
 import { isUuid } from "../../../lib/data/uuid";
@@ -35,41 +38,13 @@ import {
 const SURFACE = "admin/refresh";
 const INVENTORY_PATH = "/admin/inventory";
 
-const queueSchema = z.strictObject({
-  toolIds: z.array(z.string().refine(isUuid)).min(1).max(1000),
-  includeDescription: z.boolean(),
-  note: z.string().max(4000).nullable(),
-});
-
-/** **Refresh research (N)** on `/admin/inventory` (§5.1). */
+/**
+ * **Refresh research (N)** on `/admin/inventory` (§5.1) — a one-line wrapper
+ * over `refresh.queue` (`src/lib/actions/refresh.ts`, assistant–GUI parity
+ * spec §9 phase 5): the same gate, allowance and run as the assistant's card.
+ */
 export async function queueToolRefresh(input: QueueRefreshInput): Promise<QueueRefreshResult> {
-  const gate = await authorizeAdminAction("tools.edit");
-  if (!gate.ok) return gate;
-  const userId = gate.identity.userId;
-  if (!userId) return { ok: false, error: "not_signed_in" };
-
-  const parsed = queueSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, error: "invalid_field" };
-  const note = parseReviewerNote(parsed.data.note);
-  if (note === "too_long" || note === "invalid") return { ok: false, error: "invalid_field" };
-  // A note is about one machine (§5.1: "available when N = 1").
-  if (note !== null && parsed.data.toolIds.length !== 1) return { ok: false, error: "invalid_field" };
-
-  try {
-    const outcome = await queueRefresh({
-      userId,
-      toolIds: parsed.data.toolIds,
-      note,
-      includeDescription: parsed.data.includeDescription,
-    });
-    if (!outcome.ok) return outcome;
-    revalidatePath(INVENTORY_PATH);
-    revalidatePath(ADMIN_REFRESH_PATH);
-    return { ok: true, queued: outcome.queued, skipped: outcome.skipped, missing: outcome.missing };
-  } catch (error) {
-    console.error(`[${SURFACE}] queue failed`, error);
-    return { ok: false, error: "failed" };
-  }
+  return performAction(REFRESH_QUEUE, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }
 
 const decideSchema = z.strictObject({

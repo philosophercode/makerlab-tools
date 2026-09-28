@@ -28,6 +28,7 @@ it("links exactly a SuperMaker's surfaces, grouped by job, and not People", () =
     "Maintenance",
     "Corrections",
     "Projects",
+    "Assistant proposals",
   ]);
   // People was the settings group's other member; the mirror keeps it alive.
   expect(within(nav).getByRole("list", { name: "People & settings" })).toBeInTheDocument();

@@ -1,18 +1,20 @@
 import "server-only";
 
-import type { Identity } from "../auth/identity";
-import { updateMaintenanceLog, type MaintenanceLogPatch } from "../data/maintenance";
-import { requestMirrorPush } from "../mirror/trigger";
-import { runQueueWrite, type QueueActionResult } from "./queue-write";
+import { performAction } from "../actions/perform";
+import { TICKETS_UPDATE } from "../actions/tickets";
+import type { ActionSurface } from "../actions/define";
+import { resolveIdentityFromHeaders, type Identity } from "../auth/identity";
+import type { MaintenanceLogPatch } from "../data/maintenance";
+import type { QueueActionResult } from "./queue-write";
 
 /**
- * Working one maintenance ticket — the one write `/admin/maintenance`'s server
- * action and MCP's `update_ticket` share (MCP access spec §3.2: "the same
- * `runQueueWrite` path the admin page uses").
- *
- * Gate (`maintenance.manage`, the admin action ceiling), write, then tell the
- * Notion mirror, which carries every log. No audit event and no cache
- * invalidation, for the reasons `app/admin/maintenance/actions.ts` gives.
+ * Working one maintenance ticket from outside the admin page — MCP's and the
+ * chat's `update_ticket` (MCP access spec §3.2). A wrapper over the same
+ * `tickets.update` definition `/admin/maintenance` runs
+ * (`src/lib/actions/tickets.ts`, assistant–GUI parity spec phase 1), so the
+ * gate, the write and the mirror push cannot drift between them.
+ * The kiosk's ticket-count cache is cleared by the action's afterCommit
+ * (`invalidateMaintenance`, kiosk spec §3.1).
  */
 
 /** The page the change refreshes. */
@@ -22,17 +24,8 @@ export type TicketWriteError = "not_found" | "invalid_field";
 
 export async function writeTicket(
   input: { logId: string; patch: MaintenanceLogPatch },
-  options: { identity?: Identity; surface?: string } = {}
+  options: { identity?: Identity; surface?: ActionSurface } = {}
 ): Promise<QueueActionResult<TicketWriteError>> {
-  return runQueueWrite<TicketWriteError>({
-    permission: "maintenance.manage",
-    path: MAINTENANCE_PATH,
-    surface: options.surface ?? "admin/maintenance",
-    identity: options.identity,
-    write: (identity) => updateMaintenanceLog(input.logId, input.patch, { actorUserId: identity.userId }),
-    afterCommit: async () => {
-      await requestMirrorPush();
-      return undefined;
-    },
-  });
+  const identity = options.identity ?? (await resolveIdentityFromHeaders());
+  return performAction(TICKETS_UPDATE, input, identity, { surface: options.surface ?? "gui" });
 }

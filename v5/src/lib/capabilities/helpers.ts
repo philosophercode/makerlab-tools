@@ -1,4 +1,5 @@
 import { listMaintenanceHistoryForUnit } from "../data/maintenance";
+import { fenceUntrusted, OTHERS_TEXT_NOTE } from "../web/fence";
 import type {
   MakerLabTool,
   MakerLabUnit,
@@ -118,6 +119,12 @@ export interface MaintenanceEntry {
   reported_by?: string;
 }
 
+/** One line of somebody else's short text: whitespace collapsed, capped. */
+function flatLine(value: string, max = 160): string {
+  const flat = value.replace(/\s+/g, " ").trim();
+  return flat.length > max ? `${flat.slice(0, max - 1)}…` : flat;
+}
+
 /** The model sees a recap, not an archive — and the read is bounded to match. */
 const MAX_MAINTENANCE_ENTRIES = 10;
 
@@ -150,12 +157,15 @@ export function recentMaintenance(
     })
     .then((logs) =>
       logs.map((log) => ({
-        title: log.title,
+        // A reporter's words — often an anonymous visitor's — are data, never
+        // instructions (assistant–GUI parity spec §8.4): the title flattened
+        // to one capped line, the description fenced, as list_open_tickets does.
+        title: flatLine(log.title),
         type: log.type,
         priority: log.priority,
         status: log.status,
         date_reported: log.dateReported,
-        description: log.description,
+        description: fenceUntrusted("a maintenance ticket's description (written by whoever reported it)", log.description, OTHERS_TEXT_NOTE),
         ...(options.includeReporter && log.reportedByName ? { reported_by: log.reportedByName } : {}),
       }))
     );

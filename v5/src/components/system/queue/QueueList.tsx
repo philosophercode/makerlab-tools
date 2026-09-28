@@ -3,6 +3,9 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { useOptionalChatLauncher } from "../../ChatLauncherContext";
+import { usePublishSelection, type PageSelectionKind } from "../../chat/page-selection";
 import { EmptyState } from "../EmptyState";
 import { FacetFilter } from "../data-table/FacetFilter";
 import { FilterBar } from "../data-table/FilterBar";
@@ -30,6 +33,13 @@ import { facetOptions } from "../data-table/facet-options";
  *
  * Layout only: the caller owns each card and what its controls do, and may
  * group the open or settled cards (`renderList`; intake groups by batch).
+ *
+ * **Selection is for the assistant** (assistant–GUI parity spec §3.6): with
+ * `selectable`, each open card gets a checkbox, the ticked ids the current
+ * filters still show are published to the chat (`usePublishSelection`) —
+ * never a row the person can no longer see — and a bar offers **Ask the
+ * assistant about these** — "resolve these: replaced the belt" then proposes one card
+ * for exactly those rows. The queues' own controls still save one row each.
  */
 export interface QueueFacet<T> {
   id: string;
@@ -46,11 +56,17 @@ export interface QueueListProps<T> {
   /** Still somebody's work — on the page rather than behind the disclosure. */
   isOpen: (item: T) => boolean;
   renderItem: (item: T) => ReactNode;
-  /** Lay out a run of cards (open or settled) — batches, say. Default: a plain list. */
-  renderList?: (items: T[], part: "open" | "settled") => ReactNode;
+  /**
+   * Lay out a run of cards (open or settled) — batches, say. Default: a plain
+   * list. `row` draws one card as the default list would, with its checkbox
+   * when the list is `selectable`, so a custom layout keeps the selection.
+   */
+  renderList?: (items: T[], part: "open" | "settled", row: (item: T) => ReactNode) => ReactNode;
   /** The text a search matches: title, tool, body, who. */
   searchText?: (item: T) => string;
   facets?: readonly QueueFacet<T>[];
+  /** Tickable cards whose ids the chat is told about; `name` labels each checkbox. */
+  selectable?: { kind: PageSelectionKind; name: (item: T) => string };
   labels: {
     /** The open list's accessible name. */
     list: string;
@@ -75,11 +91,21 @@ export function QueueList<T>({
   renderList,
   searchText,
   facets = [],
+  selectable,
   labels,
 }: QueueListProps<T>) {
   const t = useTranslations("ui.queue");
   const [query, setQuery] = useState("");
   const [chosen, setChosen] = useState<Record<string, string | null>>({});
+  const [ticked, setTicked] = useState<ReadonlySet<string>>(() => new Set());
+  const launcher = useOptionalChatLauncher();
+  const toggle = (id: string, on: boolean) =>
+    setTicked((current) => {
+      const next = new Set(current);
+      if (on) next.add(id);
+      else next.delete(id);
+      return next;
+    });
 
   const needle = query.trim().toLowerCase();
   const active = facets.filter((facet) => chosen[facet.id]);
@@ -98,19 +124,43 @@ export function QueueList<T>({
   const open = shown.filter(isOpen);
   const settled = shown.filter((item) => !isOpen(item));
 
+  // What the chat is told about is what the person can see ticked: open rows
+  // that pass the current search and filters. A row ticked and then filtered
+  // out (or resolved elsewhere) drops out, and comes back with its filter.
+  // (`usePublishSelection` keys on the ids' content, so a new array each render is fine.)
+  const tickedIds = open.map(getId).filter((id) => ticked.has(id));
+  usePublishSelection(selectable?.kind ?? "maintenance_log", selectable ? tickedIds : []);
+
   if (items.length === 0) return <EmptyState>{labels.empty}</EmptyState>;
 
   const clear = () => {
     setQuery("");
     setChosen({});
   };
+  /** One card's contents: with its checkbox when it is open and the list selects. */
+  function drawRow(part: "open" | "settled", item: T): ReactNode {
+    return selectable && part === "open" ? (
+      <div className="flex items-start gap-2">
+        <Checkbox
+          className="mt-4"
+          checked={ticked.has(getId(item))}
+          onCheckedChange={(on) => toggle(getId(item), on === true)}
+          aria-label={t("select", { name: selectable.name(item) })}
+        />
+        <div className="min-w-0 flex-1">{renderItem(item)}</div>
+      </div>
+    ) : (
+      renderItem(item)
+    );
+  }
+  const row = (part: "open" | "settled") => (item: T) => drawRow(part, item);
   const list = (part: "open" | "settled", run: T[]) =>
     renderList ? (
-      renderList(run, part)
+      renderList(run, part, row(part))
     ) : (
       <ul aria-label={part === "open" ? labels.list : undefined} className="m-0 flex list-none flex-col p-0">
         {run.map((item) => (
-          <li key={getId(item)}>{renderItem(item)}</li>
+          <li key={getId(item)}>{row(part)(item)}</li>
         ))}
       </ul>
     );
@@ -145,6 +195,20 @@ export function QueueList<T>({
           total={items.length}
           onClear={filtering ? clear : null}
         />
+      ) : null}
+
+      {selectable && tickedIds.length > 0 ? (
+        <div data-slot="queue-selection" role="status" className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="font-mono text-label tracking-[0.08em] uppercase">{t("selectedCount", { count: tickedIds.length })}</span>
+          {launcher ? (
+            <Button variant="default" size="sm" onClick={() => launcher.open()}>
+              {t("askAssistant")}
+            </Button>
+          ) : null}
+          <Button variant="ghost" size="sm" onClick={() => setTicked(new Set())}>
+            {t("clearSelection")}
+          </Button>
+        </div>
       ) : null}
 
       {open.length > 0 ? (

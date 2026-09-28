@@ -1,13 +1,15 @@
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
+import { LogCompletedForm } from "../../../components/admin/LogCompletedForm";
 import { MaintenanceQueue } from "../../../components/admin/MaintenanceQueue";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { listMaintenanceQueue } from "../../../lib/data/maintenance";
+import { listToolUnitOptions } from "../../../lib/data/tool-options";
 import { listAssignableStaff } from "../../../lib/data/users";
 import { siteConfig } from "../../../lib/site-config";
-import { updateTicket } from "./actions";
+import { logCompletedMaintenance, updateTicket } from "./actions";
 
 /**
  * `/admin/maintenance` — the ticket queue (spec §5.6, §6).
@@ -42,7 +44,7 @@ export default async function AdminMaintenancePage() {
 
   // The roster read is the assignee list, not an authorization input: assigning
   // a ticket grants nobody anything (see `listAssignableStaff`).
-  const [tickets, staff] = await Promise.all([listMaintenanceQueue(), listAssignableStaff()]);
+  const [tickets, staff, toolOptions] = await Promise.all([listMaintenanceQueue(), listAssignableStaff(), listToolUnitOptions()]);
 
   const open = tickets.filter((ticket) => ticket.status === "open").length;
   const inProgress = tickets.filter((ticket) => ticket.status === "in_progress").length;
@@ -63,6 +65,9 @@ export default async function AdminMaintenancePage() {
           t("facts.tickets", { count: tickets.length }),
         ]}
       />
+
+      {/* Work already done, recorded as a resolved ticket (parity spec §11 answer 5). */}
+      <LogCompletedForm tools={toolOptions} action={logCompletedMaintenance} />
 
       <MaintenanceQueue
         tickets={tickets}

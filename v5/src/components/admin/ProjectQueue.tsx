@@ -35,6 +35,7 @@ export function ProjectQueue({ projects, action }: ProjectQueueProps) {
       items={projects}
       getId={(project) => project.id}
       isOpen={(project) => !project.published}
+      selectable={{ kind: "project", name: (project) => project.title }}
       searchText={(project) => [project.title, project.authorName, project.body, project.materials.join(" ")].join(" ")}
       labels={{
         list: t("queueLabel"),

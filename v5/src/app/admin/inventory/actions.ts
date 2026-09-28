@@ -6,16 +6,12 @@ import { loadToolEditor } from "../../../lib/data/tool-editor";
 import { otherToolNames } from "../../../lib/data/tool-name-clash";
 import { getDb } from "../../../lib/db/client";
 import type { ToolPatch } from "../../../lib/data/tools";
+import { TOOLS_ARCHIVE, TOOLS_MARK_REVIEWED, TOOLS_RESTORE, TOOLS_SET_PUBLISHED } from "../../../lib/actions/catalog";
+import { performAction } from "../../../lib/actions/perform";
+import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { saveToolFields } from "../../../lib/inventory/tool-edits";
-import {
-  archiveTool,
-  markReviewed,
-  publishTool,
-  restoreTool,
-  unpublishTool,
-} from "../../../lib/inventory/tool-state";
 import { type InventoryActionResult, type LoadToolEditorResult } from "./action-result";
-import { withToolEdit, withToolWrite, type ToolWriteInput } from "./tool-write-context";
+import { withToolEdit, type ToolWriteInput } from "./tool-write-context";
 
 /**
  * The tool editor's own writes (spec §5.3(3)–(5), §8).
@@ -44,7 +40,10 @@ import { withToolEdit, withToolWrite, type ToolWriteInput } from "./tool-write-c
  * write that is in the database.
  *
  * The child sections — units, resources, photos — are in their own modules
- * beside this one, so no module grows past one job.
+ * beside this one, so no module grows past one job. Everything but the
+ * editor's own field save and read is a one-line wrapper over the action
+ * layer (assistant–GUI parity spec §9 phase 4), so the assistant's card runs
+ * the same gate, revision check and audit.
  */
 
 /**
@@ -87,34 +86,30 @@ export async function saveTool(
 }
 
 /**
- * **Looks good** — the review's one-click mark (§5.3(3)). `tools.edit`.
- *
- * Deliberately not `tools.publish`: saying a record is accurate is the review
- * itself, and it is the same act as fixing a field.
+ * **Looks good** — the review's one-click mark (§5.3(3)). `tools.edit`: saying
+ * a record is accurate is the review itself. A wrapper over
+ * `tools.mark_reviewed` (`src/lib/actions/catalog.ts`).
  */
 export async function markToolReviewed(input: ToolWriteInput): Promise<InventoryActionResult> {
-  // `withToolEdit`, not `withToolWrite("tools.edit", …)`: naming the permission
-  // here as well as there is a second place for it to be wrong, and the two
-  // would not disagree loudly — one action quietly gating on the other's.
-  return withToolEdit(input, markReviewed);
+  return performAction(TOOLS_MARK_REVIEWED, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }
 
-/** Publish a tool: the draft becomes catalogue (Article 5). `tools.publish`. */
+/** Publish a tool: the draft becomes catalogue (Article 5). `tools.publish`, audited. */
 export async function publish(input: ToolWriteInput): Promise<InventoryActionResult> {
-  return withToolWrite("tools.publish", input, publishTool);
+  return performAction(TOOLS_SET_PUBLISHED, { ...input, published: true }, await resolveIdentityFromHeaders(), { surface: "gui" });
 }
 
-/** Unpublish: it stops being catalogue without losing anything. `tools.publish`. */
+/** Unpublish: it stops being catalogue without losing anything. `tools.publish`, audited. */
 export async function unpublish(input: ToolWriteInput): Promise<InventoryActionResult> {
-  return withToolWrite("tools.publish", input, unpublishTool);
+  return performAction(TOOLS_SET_PUBLISHED, { ...input, published: false }, await resolveIdentityFromHeaders(), { surface: "gui" });
 }
 
-/** Archive: the machine is gone, its history is not. Never a delete. */
+/** Archive: the machine is gone, its history is not. Never a delete. `tools.publish`, audited. */
 export async function archive(input: ToolWriteInput): Promise<InventoryActionResult> {
-  return withToolWrite("tools.publish", input, archiveTool);
+  return performAction(TOOLS_ARCHIVE, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }
 
 /** Restore an archived tool. Recorded as `tool.archived` with `archived: false`. */
 export async function restore(input: ToolWriteInput): Promise<InventoryActionResult> {
-  return withToolWrite("tools.publish", input, restoreTool);
+  return performAction(TOOLS_RESTORE, input, await resolveIdentityFromHeaders(), { surface: "gui" });
 }

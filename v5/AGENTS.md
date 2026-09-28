@@ -258,8 +258,9 @@ Phase 5 extends both. The shape it sets:
   number or state).
 - **Server actions check themselves.** A server action is a POST endpoint with
   a generated name, reachable without the page that offers it, so
-  `src/app/admin/users/actions.ts` resolves the identity, rate-limits
-  (`ADMIN_ACTION_TIER`, 120/min per person), and re-checks `users.manage` — it
+  `src/app/admin/users/actions.ts` resolves the identity and `performAction`
+  rate-limits (`ADMIN_ACTION_TIER`, 120/min per person) and re-checks
+  `users.manage` — it
   trusts nothing from the page that rendered the control (spec §8). Refusals are
   **values** (`{ ok: false, error }`), not exceptions, so the island can render
   the reason; every code has an `admin.errors.<code>` string.
@@ -490,9 +491,11 @@ Phase 5 extends both. The shape it sets:
   open work on the page and folds the settled work behind a disclosure, because
   the person using these has twenty tickets and ten minutes; and each one's
   control **saves on the click**, with `useRowAction` giving all of them the
-  same contract (optimistic, a refusal restores, a warning keeps). The shared
-  preamble is `src/lib/admin/queue-write.ts` — gate, write, record, refresh,
-  each step only as far as the last one earned.
+  same contract (optimistic, a refusal restores, a warning keeps). Their
+  writes are action definitions run by `performAction` (see "The action
+  layer") — gate, write, record, refresh, each step only as far as the last
+  one earned. (`queue-write.ts`'s `runQueueWrite` has no callers since and
+  awaits deletion approval.)
 - **Each queue checks its own permission, and a test proves it is its own.** No
   role holds `tools.edit` without `feedback.manage`, so each `actions.test.ts`
   mocks `can()` for one case and asserts the endpoint is refused to a caller
@@ -517,6 +520,217 @@ Phase 5 extends both. The shape it sets:
   its rows reach a model prompt and the mirror (§8). Which function a caller
   picks is the whole of that decision, which is why they are two functions and
   not one with a flag.
+
+## The action layer (`src/lib/actions/`; assistant–GUI parity spec, phases 1–8)
+
+Every GUI write is defined once, as data plus a `run()`, and every surface runs
+it through **`performAction(def, input, identity, { surface })`**
+(`docs/specs/2026-09-27-assistant-gui-parity-design.md`). Phase 1 moved the
+People page and the three queues onto it with no behaviour change; phase 2 gave
+the assistant a proposing tool per action and the confirmation card that
+commits it; phase 3 told the chat where the person is; phases 4–6 moved the
+catalogue editor, intake, imports, refresh, manuals and the mirror's running
+controls onto it, with typed confirmation for destructive cards and taint;
+phase 7 gave MCP clients proposals that wait in an inbox; phase 8 made every
+exemption a decision and the spec–registry drift check a test. What it means
+for people is in `docs/assistant.md`.
+
+- **One path.** `performAction`: `authorizeAdminAction` (limiter → signed in →
+  permission) → `afterGate` → parse (`input`, a parse failure answers the
+  definition's `invalidInput` code) → `check` → `run` (a throw is `failed`) →
+  `afterCommit` + `revalidate` only when `run` answered `committed`. Refusals are
+  values; a lost audit event (or any `afterCommit` throw) is a warning on a
+  success, never a failure.
+- **Server actions are one-line wrappers**: `performAction(PEOPLE_SET_TITLE,
+  input, await resolveIdentityFromHeaders(), { surface: "gui" })`. Their
+  exported names and result types are unchanged, so no island changed. Put a
+  write's rules in its definition (`check`/`run`), never in the wrapper — that
+  is what makes them hold on every surface.
+- **Definitions**: `people.ts` (role, title, name), `people-roster.ts` (add,
+  remove, unblock), `people-allowance.ts`, `people-gate.ts` (the floor
+  reconciliation as `afterGate`), `tickets.ts`, `corrections.ts`,
+  `projects.ts`, `maintenance-log.ts` (phases 1–2); `catalog.ts` (publish,
+  mark reviewed, archive, restore), `units.ts`, `resources.ts` over the
+  shared `catalog-write.ts` (the editor's revision token rides on every input
+  — the panel's, or the one a proposal read — so a save between card and click
+  answers `conflict`) (phase 4); `intake.ts` (+ `intake-input.ts`),
+  `imports.ts`, `manuals.ts`, `refresh.ts` (phase 5); `mirror.ts` (phase 6).
+  `registry.ts`'s `ACTIONS` lists them. `defineAction` refuses
+  at load a destructive batch, a `people`/`spend`/`destructive` action over MCP,
+  `mcp: "direct"` on anything but `tickets.update` (`DIRECT_OVER_MCP`; MCP gets
+  proposals only, §11 answer 4), `assistant: "never"` without `neverReason`,
+  a `"never"` that still carries a `tool`/`preview`, and an action on the
+  **assistant's deny list** that is not `"never"` (below).
+  A capability tool that records a surface reads `ctx.surface`, which the chat
+  and MCP adapters stamp — never `chatId`. `writeTicket` (MCP's and the
+  chat's `update_ticket`) is a wrapper over `tickets.update`.
+- **The parity guard** (`parity.test.ts`, scanner `parity.ts`, list
+  `exempt.ts`): every export of a `"use server"` module, every inline
+  `"use server"` function and every `POST`/`PUT`/`PATCH`/`DELETE` of a
+  `src/app/**/route.ts` must be a thin `return performAction(<registered
+  definition>, …)` wrapper (nothing else in the body; only
+  `resolveIdentityFromHeaders()` may be called in its arguments) or an `EXEMPT`
+  entry with a reason. **Adding a server action or a
+  mutation route means adding a definition (and registering it, and importing
+  its module in the guard) or an exemption** — and exemptions only shrink: a
+  stale one fails the test too. The guard also fails a proposable action with
+  no `tool` + `preview` that is not in `DEFERRED_TOOLS` (`capabilities/actions.ts`,
+  which only shrinks too — empty since phase 6). An action whose GUI door is an
+  API route (HTTP statuses, its own limiter tier) is `ROUTE_BACKED` in
+  `exempt.ts`: the route stays `EXEMPT` and calls **the same write** the
+  definition's `run()` does (`pending.research` → `lib/intake/research-start.ts`,
+  moved verbatim out of the route; `pending.edit` → `updatePendingTool`).
+- **The assistant only proposes** (phase 2). `capabilities/actions.ts` generates
+  one chat tool per definition that has a `tool` (`toolShape(schema,
+  toInputs)`: the model's strict, described arguments → one definition input
+  per subject; a batch is a list of ids with one change) and a `preview` (the
+  card's summary key, before → after rows and subject name, **read from the
+  database**, never model text). Its `run()` is `proposeAction`
+  (`proposals.ts`): the `assistantPropose` limiter, the permission, the
+  arguments, the definition's own `input`, `check`, `preview` → one
+  `action_proposals` row per subject (`data/action-proposals.ts`, migration
+  `0020`; 60 minutes in the chat, 7 days for MCP; ≤ 50 open per person per surface) and a
+  `data-action-proposal` part drawn by `components/chat/ActionProposalCard.tsx`.
+  **Nothing commits until the person clicks Confirm**: `POST
+  /api/action-proposals` (cookie only — `resolveIdentity` never reads a
+  bearer, so a token cannot confirm; `actionConfirm` tier; body = ids +
+  decision, nothing else) claims the creator's open rows **one at a time**
+  (a 20 s budget; unreached rows stay open) and runs each **stored** input
+  through `performAction` with `{ surface: "assistant", proposalId,
+  beforeRun }`, so every rule and the permission are checked again at the
+  click. `beforeRun` re-runs the definition's `preview` and answers
+  `conflict` if a field the card shows has changed since (`staleness.ts`):
+  a card's "before" can be an hour old, so a stored proposal is never
+  last-write-wins the way a fresh GUI screen is. The card re-reads its rows
+  on mount (`GET ?ids=`). A typed "yes" commits nothing (the prompt says so;
+  §11 answer 1). Text from records that goes into a prompt block as a line
+  goes through `inlineText` (`web/fence.ts`): one line, capped, quoted.
+  Each card sentence is `actions.summary.<area>_<verb>`; each row's vocabulary
+  goes through `actions.values.<format>.*` (`preview-messages.test.ts` checks
+  every key a definition names exists).
+- **Audit names the surface.** `audit_events.surface` (`gui` default) and
+  `proposal_id`; every event an action writes spreads `auditTrail(ctx)`, the
+  in-transaction writers (`addPersonAccount`, `removeUserAccount`,
+  `unblockEmail`, `renamePerson`) take a `trail`. A change from the People page
+  and the same change from a card differ in those two columns only
+  (`proposals.test.ts` runs both and compares).
+- **What the next turn knows** is read, not told: the chat route appends
+  "Proposals in this conversation" (`lib/chat/proposal-outcomes.ts`, the
+  caller's rows in this chat) — the model says something was done only when
+  that block says confirmed.
+- **Page context** (phase 3): `ChatFab` sends `page: { path, selection? }`
+  (the ticked ids, from `usePublishSelection` in `components/chat/page-selection.tsx`,
+  read at send time). `lib/actions/page-context.ts` matches the path against
+  `PAGE_CONTEXTS`, checks the page's own permission, keeps only uuids of the
+  page's selection kind (≤ 50), reads their names from the database and
+  appends a fenced "Where the person is" block — only for somebody who can
+  reach an admin surface. A forged or foreign id is dropped before any read;
+  an unknown path is never echoed. `QueueList`'s opt-in `selectable` gives the
+  maintenance, corrections and projects queues checkboxes on open cards (only
+  ticked rows the current filters show are sent) and an **Ask the
+  assistant about these** bar; `InventoryBoard` publishes its selection.
+- **Read tools for the actions** (chat only): `capabilities/admin-reads.ts` —
+  `find_people` (`users.manage`, masked emails `l***@cornell.edu`),
+  `list_corrections`, `list_project_queue` (other people's words fenced with
+  `OTHERS_TEXT_NOTE`); `capabilities/catalog-reads.ts` — `get_tool_units`
+  (`tools.edit`: units with ids and maintenance counts, resources) and
+  `list_imports` (`tools.add`: the caller's imports, or a reviewer's; rows
+  fenced). `list_open_tickets` fences each description.
+- **Assistant limits — the deny list** (owner decision 2026-09-27; spec
+  amendment "Assistant limits"). The assistant (chat and MCP) acts only as the
+  signed-in person and never past their role, and **never, on any surface,
+  whatever the role**: sets anyone's role to `super_admin` or changes a super
+  admin's role (`people.set_role`/`people.add` refuse `only_on_people_page`
+  off the GUI — `superAdminPageOnly` in `people.ts`); grants allowances,
+  removes people, blocks/unblocks addresses, disconnects the mirror
+  (`people.grant_allowance`, `people.remove`, `people.unblock_email`,
+  `mirror.disconnect` are `assistant: "never"`, no tool); nor touches secrets,
+  env vars, tokens, hosting/deploys, SQL/the database, backups/`data:push`, the
+  audit trail, bulk email export or messaging. `define.ts` holds
+  `ASSISTANT_FORBIDDEN_ACTIONS` (ids) and `ASSISTANT_FORBIDDEN_CATEGORIES`
+  (words matched against an action id or any tool name). Enforced four times:
+  `defineAction` at load; `proposableDefinitions` / `capabilitiesForIdentity`
+  / `mcpToolAllowed` where tools are offered (`assistantMayPropose`,
+  `assistantToolForbidden`); `proposeAction` (`not_offered`); and the confirm
+  route, which refuses a stored proposal for a forbidden action before
+  `performAction` runs. **Adding an action or a capability tool whose name
+  says secret/token/deploy/sql/backup/audit/export/email/send…** fails
+  `assistant-limits.test.ts` unless it is `assistant: "never"`: that is the
+  point — rename it only if it truly is none of those. The GUI keeps all of
+  these for people with the permission.
+- **Destructive cards** (`risk: "destructive"`: `tools.archive`, `units.delete`,
+  `resources.remove`, `pending.discard`; `people.remove` and
+  `mirror.disconnect` are destructive too but never the assistant's):
+  never batched, and Confirm stays off until the subject's stored name is typed
+  (`typed-confirm.ts`, the same fold the route checks again). Enter never
+  confirms.
+- **Taint** (`lib/chat/taint.ts`, §8.4): a chat turn that called
+  `read_page`, `exa_search`, `search_manual`, `list_open_tickets`,
+  `get_unit_details`, `get_maintenance_history`, `list_corrections`,
+  `list_project_queue`, `list_imports` or `get_record` is tainted —
+  `CapabilityCtx.turn`, built by the route, marked by `toAiTools` when such a
+  tool starts and by the route's `onStepFinish` for Exa. A turn starts tainted
+  when the route attached manual PDFs or a curation record. Its proposals are
+  stored `tainted` and the card says so; `people` and `destructive` proposals,
+  and definitions marked `refuseWhenTainted` (`imports.remove_rows`), are
+  refused (`tainted_turn`) and the assistant asks for a new message. A new
+  read tool that returns anybody else's text must be added to
+  `OUTSIDE_CONTENT_TOOLS` and fence that text.
+- **A proposal's `version`** (`ActionPreview.version`): an opaque token for
+  what the change was built from but the rows do not show; a different one at
+  the click is `conflict`. `pending.approve` uses it so a rename or new
+  research between card and click approves nothing stale.
+- **`edit_pending_items` never discards**: the `discard` duplicate decision is
+  `discard_pending_item`'s alone (destructive, typed name).
+- **Spend actions** (`pending.research`, `pending.different_image`,
+  `imports.request_suggestions`, `manuals.reprocess`, `refresh.queue`): cards
+  in the chat only, never over MCP (§11 answer 3); the card's sentence shows the
+  allowance left (`allowance.ts`, a summary value, never a compared row), and
+  the allowance is checked at the click by the same code the button runs.
+- **`proposeCheck`** on a definition: refusals only a proposal needs (an intake
+  item not researched or graded low, a unit with history), so no card is drawn
+  that the click can only refuse; never run on the GUI path.
+- **"Approve these"** builds, per item, the approval the review page sends
+  untouched (`lib/intake/approval-draft.ts`, shared with
+  `PreliminaryToolPage`); a low-confidence item needs the reviewer's own note
+  and is refused on its row. `IntakeList` and `ImportReview` publish their
+  selection (`pending_tool`).
+- **MCP proposals** (phase 7): `capabilities/actions.ts` also generates an
+  `mcpOnly` tool of the same name for every definition with `mcp: "propose"`
+  (queue and catalogue work). Its `run()` is `proposeAction` with `surface:
+  "mcp"` and no chat: the row waits **7 days** in the creator's **Assistant
+  proposals** inbox, `/admin/proposals` (`lib/actions/inbox.ts` →
+  the chat's `ActionProposalCard`; `data/action-proposals.ts`'s
+  `listInboxProposals`), and only its creator, signed in with a cookie, can
+  confirm it — through the same `POST /api/action-proposals`, so the commit is
+  `performAction` with `surface: "mcp"`. A token can never confirm (the route
+  never reads a bearer). **Never over MCP**: `people`, `spend`, `destructive`,
+  anything `assistant: "never"` (`defineAction` makes it `mcp: "never"`), and
+  `refuseWhenTainted` or mirror controls (declared `never`). No `act` scope:
+  the only direct MCP write is `staff.ts`'s `update_ticket`
+  (`DIRECT_OVER_MCP`). `list_corrections`, `list_project_queue`,
+  `get_tool_units` and `list_imports` are on MCP too, so a client can find ids;
+  `find_people` is chat only. The MCP tool lists per credential are asserted
+  exactly (`test/mcp/expected-tools.ts`): add a proposable action and those
+  lists change on purpose.
+- **The inbox is an admin surface** (`surfaces.ts` key `proposals`, group
+  Queues, a half tile counting the viewer's open MCP proposals). A surface's
+  `permission` may be a list (any of, `mayOpen`): the inbox is open to every
+  `ADMIN_SURFACE_PERMISSIONS` holder, and shows only the viewer's own rows.
+  Field changes proposed over MCP (`propose_change`) stay on `/admin/refresh`;
+  each page links to the other.
+- **Exemptions are decisions** (phase 8): each `EXEMPT` reason starts with one
+  of `EXEMPT_KINDS` ("Never", "Not a write", "Account gate…", "Route-backed"…);
+  a "Later" fails `parity.test.ts`. **`spec-drift.test.ts`** reads the spec's
+  §4.9 table: every registered id and tool name must be written in the spec,
+  every §4.9 id registered or in its `NOT_REGISTERED` with a reason, and each
+  row's MCP column must match the definition or be in `MCP_DEVIATIONS`. A new
+  action therefore needs a line in the spec's as-built registry table.
+- **Log completed maintenance** (`tickets.log_completed`, `maintenance-log.ts`):
+  the form on `/admin/maintenance` (`LogCompletedForm`, tools and units from
+  `data/tool-options.ts`) and `log_completed_maintenance` — a ticket that
+  starts resolved, the person as reporter and assignee, a unit only of that
+  tool, no archived tools.
 
 ## Adding equipment (`pending_tools`, Phase 6; the image stage is gateway spec §3.5)
 
@@ -848,16 +1062,19 @@ MCP callers act as a person, with that person's role and never more
   every write (and `requiresSignIn`) needs a signed-in caller; a read-only token or grant gets no
   writes. The server is built per request. Anonymous gets the six public reads; maintenance
   history carries reporter names only for `maintenance.manage`.
-- **MCP-only tools**: `list_my_reports` (`capabilities/reports.ts`), and `propose_change` in
+- **MCP-only tools**: `list_my_reports` (`capabilities/reports.ts`), `propose_change` in
   `capabilities/staff.ts` (a `chat_proposals` row with `chat_id = "mcp"`, shown on
-  `/admin/refresh` under "Proposals from assistants"). Nothing over MCP publishes or edits the
-  catalogue (Article 5).
+  `/admin/refresh` under "Proposals from assistants"), and the generated proposing tools
+  (`capabilities/actions.ts`, parity spec phase 7 — see "The action layer": an
+  `action_proposals` row with `surface = mcp`, confirmed by its creator on `/admin/proposals`).
+  Nothing over MCP publishes or edits the catalogue (Article 5).
 - **Staff queue tools, chat and MCP** (amendment 2026-09-25): `list_intake_queue`
   (`tools.approve`), `list_open_tickets` and `update_ticket` (`maintenance.manage`, through
   `lib/admin/ticket-write.ts`, the admin page's own path) in `capabilities/staff.ts`. The chat
-  offers them only through `capabilitiesForIdentity` (never to anonymous or students), and
-  `staffPromptFragment` tells staff the rule: state the exact change and wait for a yes before
-  `update_ticket`. Reporter names, never emails.
+  offers them only through `capabilitiesForIdentity` (never to anonymous or students). **Since
+  the parity spec's phase 2 `staff.ts`'s `update_ticket` is MCP only** (the one direct MCP write,
+  §11 answer 4); the chat's `update_ticket` is the generated proposing tool, and the typed-yes
+  rule is gone. Reporter names, never emails.
 - **Rate limits**: `mcp` 30/min per IP, `mcpSignedIn` 60/min per token or person, `mcpWrite`
   10/min per identity before each write call.
 - **Sign in with Google is the default way to connect** (amendment 2026-09-24): the page and
@@ -1119,11 +1336,84 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   embedding })`). The live retrieval eval is a `.livecheck` script (results in
   the spec's phase-2 amendment).
 
+## The lab status screen (`/kiosk`; kiosk spec phase 1)
+
+A full-screen, read-only page for the TV at the front of the lab and the ISAM
+booth iPad (spec `docs/specs/2026-09-27-kiosk-mode-design.md`, PR #93). No
+sign-in, no migration, no model call, no new permission. Owner answers
+(2026-09-27): the open-ticket count is shown, in the lab and at the booth; a
+featured project's author is first name + last initial; it runs on production
+data; the QR code opens the catalogue with the chat.
+
+- **One loader, cached behind invalidation.** `src/lib/kiosk/snapshot.ts`:
+  `assembleKioskSnapshot({ db, now })` reads the published catalogue, one
+  grouped count of unit statuses (`data/kiosk.ts` — the catalogue folds
+  `under_maintenance`/`out_of_service`/`retired` into "Offline", the kiosk needs
+  them apart), `countOpenTickets` (`data/maintenance.ts`, the same statement the
+  `/admin` maintenance tile now uses) and the published projects.
+  `loadKioskSnapshot()` is that under `"use cache"`, tagged `catalog`,
+  `projects` **and `maintenance`**, on `KIOSK_CACHE` (revalidate 5 min as a
+  backstop, expire 24 h). **Every ticket write calls `invalidateMaintenance()`**
+  (`writeTicket` and `report_issue`); unit-status writes already call
+  `invalidateCatalog()`. A new ticket write path must do the same, or the screen
+  lags five minutes.
+- **Failure is not zero.** The ticket count fails alone to `null` ("—", "Not
+  available"); anything else throws, so `/api/kiosk` answers 503 and the page
+  renders "Lab status is unavailable right now" with the QR code. Never a zeroed
+  snapshot.
+- **Privacy.** `KioskSnapshot` (`lib/kiosk/types.ts`) has no field for an email,
+  a ticket's text, a draft or a full name; the loader maps field by field.
+  `shortAuthorName` ("Maya Rodriguez" → "Maya R.", anything with `@` → null) runs
+  on the server; the full name never reaches the client. `snapshot.test.ts`'s
+  privacy case asserts the serialised payload.
+- **`GET /api/kiosk`**: public, `ROUTE_TIERS.kiosk` (20/min) keyed by the hashed
+  client IP — **it reads no cookie** (no `resolveIdentity`) — checked before the
+  loader; `Cache-Control: no-store`; adds `askUrl` and `servedAt` outside the
+  cache.
+- **The screen** (`components/kiosk/KioskScreen.tsx`) polls every 60 s + ≤10 s
+  jitter, backs off 1 → 2 → 5 min, keeps the last good snapshot, and measures
+  staleness from **its own last good poll**, not `generatedAt` (a cached read
+  keeps its fill time for minutes while still being current). The "Updated" line
+  becomes an amber bar in the footer after 3 min, or at once when
+  `navigator.onLine` is false. Featured rotation is clock-derived (20 s), so a
+  refresh keeps its place and screens agree; a 2 s burn-in shift of ≤8 px every
+  5 min; wake lock re-asked on `visibilitychange`; reload at 04:00 lab time,
+  skipped while polls fail. All the timing lives in `lib/kiosk/derive.ts`,
+  pure and tested at its boundaries.
+- **Dark, full-bleed, no site chrome.** `ThemeScript` forces `data-theme="dark"`
+  on `/kiosk` before paint without storing it; `SiteChrome` (a client wrapper
+  in the root layout) drops `GlobalChrome` and `DemoDataBanner` there and
+  `ChatFab` returns null (`isKioskPath`, `components/kiosk-path.ts`);
+  `app/kiosk/kiosk.css` hides the root's permanent scrollbar with
+  `html:has([data-kiosk])`. The logo is a CSS mask filled with
+  `--on-surface`, so a single-colour logo reads on dark; the QR code is drawn in
+  `currentColor` on an `--on-surface` plate (no pure white). Type is `vmin` with
+  `clamp()` (`kiosk-type.ts`); landscape is two columns, portrait
+  (`portrait:` variant) stacks with the QR code last.
+- **The QR code** (`lib/kiosk/qr.ts`, server-only; `qrcode` is now a runtime
+  dependency) encodes `kioskAskUrl(origin)` = `<origin>/?src=kiosk&ask=1`
+  (`lib/kiosk/params.ts`). `AskParamOpener` in the root layout (its own
+  Suspense, so the chat button stays in the HTML) opens the chat on `?ask=1`,
+  once, anywhere but the kiosk.
+- **Language:** `/kiosk` ignores the cookie and `Accept-Language`; `?lang=`
+  picks a supported locale (`app/kiosk/kiosk-locale.ts`), `kiosk.*` strings
+  with English underneath, times in `LAB_TIMEZONE`.
+- **Hours** are `siteConfig.labHours` (`NEXT_PUBLIC_LAB_HOURS`, default
+  `LAB OPEN 9AM-9PM`), which the header's status strip reads too. Phase 2
+  structures them.
+- **Tests:** `lib/kiosk/{derive,qr,snapshot}.test.ts`, `app/api/kiosk/route.test.ts`,
+  `components/kiosk/KioskScreen.test.tsx`, `components/kiosk-chrome.test.tsx`,
+  `e2e/kiosk.spec.ts` (drives the poll with Playwright's clock and
+  `page.route`, never the shared demo database; `KIOSK_SCREENSHOT_DIR` keeps a
+  screenshot per viewport). The QR test has no decoder: it reads the modules
+  back out of the SVG and compares them with `qrcode`'s matrix for `askUrl`.
+
 ## Key files
 
 | Path | Purpose |
 |---|---|
-| `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults) |
+| `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults), including `labHours` |
+| `src/lib/kiosk/*` / `src/components/kiosk/*` / `src/app/kiosk/` | The lab status screen: snapshot loader, pure timing and derivations, QR code; the client screen; the page (see "The lab status screen") |
 | `src/lib/db/client.ts` | `getDb()`, `dataSubstrate()`, `pingDb()` — the one entry point to Postgres/PGlite |
 | `src/lib/notion.ts` | Notion API client — used by the one-time import and its scripts; no request path reads or writes Notion through it (the mirror has its own client) |
 | `src/lib/data/attachments.ts` | `attachments` rows: create, claim onto an owner, reorder, release, list orphans, delete |
@@ -1161,7 +1451,7 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/app/admin/inventory/actions.ts` + `unit-`/`resource-`/`photo-actions.ts` | The editor's server actions, one module per section, each checking its own permission |
 | `src/components/admin/ToolEditorPanel.tsx` | The editor itself: the revision token, the conflict, and the five sections beside it |
 | `src/app/tools/[id]/EditToolControl.tsx` / `DraftToolView.tsx` | Edit mode on a tool page (phone-first), and drafts at their slug for `catalog.view_drafts` |
-| `src/lib/revalidate.ts` | `invalidateCatalog()` / `invalidateProjects()` — the one home for the cache tag strings, and `{ expire: 0 }`, because `revalidateTag` with a *named* profile is stale-while-revalidate and would serve the pre-publish page to one more reader |
+| `src/lib/revalidate.ts` | `invalidateCatalog()` / `invalidateProjects()` / `invalidateMaintenance()` (the kiosk's ticket count) — the one home for the cache tag strings, and `{ expire: 0 }`, because `revalidateTag` with a *named* profile is stale-while-revalidate and would serve the pre-publish page to one more reader |
 | `src/lib/blob.ts` | The Blob seam — `put` (private backups, fixed pathname) and `putUpload` (random pathname, caller's access) |
 | `src/lib/cron/backup.ts`, `src/lib/cron/cleanup.ts` | The nightly Postgres export and the orphaned-upload sweep |
 | `src/lib/cron/backup-policy.ts` | What the nightly export holds back — `session` / `verification` / `oauth_access_token` skipped, token columns blanked (a backup is data, not credentials), and `manual_pages` / `manual_chunks` left out because `npm run manuals:index -- --force` rebuilds them after a restore |
@@ -1178,12 +1468,20 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
 | `src/lib/admin/surfaces.ts` / `src/lib/data/admin-overview.ts` | Every admin surface once (tiles, bar, palette, each with its permission) / the home's count loaders |
 | `src/components/palette/*` | The ⌘K palette on every page: `CommandPalette`, `HeaderSearch`, `PaletteScope`, `palette-match` |
 | `src/app/admin/inventory/page.tsx` | The review table (`tools.edit`), uncached, filtered from the URL |
-| `src/app/admin/users/actions.ts` | `setUserRole` / `setUserTitle` / `setUserName` / `addPerson` / `removeUser` / `unblockBlockedEmail` — the People page's server actions (Ban retired 2026-09-25) |
+| `src/app/admin/users/actions.ts` | `setUserRole` / `setUserTitle` / `setUserName` / `addPerson` / `removeUser` / `unblockBlockedEmail` — the People page's server actions (Ban retired 2026-09-25), wrappers over `lib/actions/people*.ts` |
 | `src/lib/data/user-removal.ts` / `blocked-emails.ts` / `account-removed.ts` | Removing a person in one transaction; the blocked-address list; "an id that names no account" in SQL |
 | `src/lib/auth/blocked-sign-in.ts` | Refusing a blocked address in the create hook, and the redirect to `/auth/blocked` |
 | `src/lib/data/users.ts` | The `/admin/users` roster, read straight from Postgres; `markFirstSignIn` |
 | `src/lib/data/user-add.ts` | Add person: the pre-added `user` row and its `user.added` event, one transaction |
-| `src/lib/admin/queue-write.ts` | `runQueueWrite` — the gate/write/record/refresh preamble the three §5.6 queues share |
+| `src/lib/actions/*` | The action layer: `performAction`, `defineAction`, `ACTIONS` / `ACTION_DEFINITIONS`, the People, queue, log-completed, catalogue, intake, import, spend and mirror definitions, `proposals.ts` (propose / confirm), `page-context.ts`, `typed-confirm.ts`, `inbox.ts` (the MCP inbox's cards), the parity guard (`parity.ts`, `exempt.ts`) and the spec drift check (`spec-drift.test.ts`) |
+| `src/lib/chat/taint.ts` | Whether a chat turn read outside content (§8.4) |
+| `src/lib/intake/research-start.ts` / `approval-draft.ts` | The one research start (route and card); the review page's default approval (page and card) |
+| `src/lib/data/action-proposals.ts` / `action-subjects.ts` | `action_proposals` (claim once, creator only, TTLs); the id → name reads previews and page context use |
+| `src/lib/capabilities/actions.ts` / `admin-reads.ts` | The generated proposing tools (chat, and MCP for `mcp: "propose"`) and their prompt; `find_people`, `list_corrections`, `list_project_queue` |
+| `src/app/api/action-proposals/route.ts` | Confirm / cancel an assistant proposal (cookie only), and re-read the caller's proposals by id or chat |
+| `src/app/admin/proposals/page.tsx` | **Assistant proposals**: the viewer's own MCP proposals as confirmation cards, and the last week's decided ones |
+| `src/components/chat/ActionProposalCard.tsx` / `page-selection.tsx` | The confirmation card; the page selection the chat sends |
+| `src/lib/admin/queue-write.ts` | `QueueActionResult`; `runQueueWrite` has no callers since the action layer (awaiting deletion approval) |
 | `src/app/admin/maintenance/`, `corrections/`, `projects/` | The three queues: one page, one result module and one action apiece |
 | `src/components/admin/use-row-action.ts` | What every queue control does around its action — optimistic, refusal restores, warning keeps |
 | `src/components/admin/MaintenanceQueue.tsx` / `CorrectionsQueue.tsx` / `ProjectQueue.tsx` | The three card lists, each with its own small island |

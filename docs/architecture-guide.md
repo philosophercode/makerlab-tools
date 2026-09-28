@@ -163,8 +163,33 @@ always super admins, which is how the first one exists and why the lab cannot lo
 out. A person's title (People page) is display only.
 
 `/admin` is one list of surfaces (`v5/src/lib/admin/surfaces.ts`) rendered three ways —
-the tile home, the section bar and the ⌘K palette. Every admin write is a server action
-that checks its own permission and records an `audit_events` row.
+the tile home, the section bar and the ⌘K palette. Every admin write is defined once in the
+**action layer** (below); the page's server action is a one-line wrapper over it.
+
+### The action layer: one path for people, the assistant and MCP
+
+`v5/src/lib/actions/` (assistant–GUI parity spec, `docs/specs/2026-09-27-…`). Each GUI write
+is a **definition** — input schema, permission, risk, `check`, `preview`, `run`,
+`afterCommit` — registered in `registry.ts`, and every surface runs it through
+`performAction(def, input, identity, { surface })`: gate (limiter, sign-in, permission via
+`authorizeAdminAction`) → parse → the action's own refusals → run → audit (`audit_events`
+carries `surface` and `proposal_id`) → revalidate.
+
+- **The GUI** calls it from a thin server action with the cookie's identity.
+- **The chat assistant** gets one generated tool per definition
+  (`capabilities/actions.ts`), and that tool only **proposes**: it stores an
+  `action_proposals` row and draws a card from it. The change happens when the person
+  clicks **Confirm** (`POST /api/action-proposals`, cookie only), which runs the stored
+  input through `performAction` again, permission and all.
+- **MCP clients** get the same proposing tools for queue and catalogue work only; their
+  proposals wait 7 days in the creator's **Assistant proposals** inbox
+  (`/admin/proposals`). People, destructive and spending actions are never exposed over
+  MCP; `update_ticket` is the one direct MCP write, kept for existing clients.
+- **The parity guard** (`actions/parity.test.ts`) fails CI when a new server action or
+  mutation route is neither a wrapper nor an exemption with a reason, and
+  `actions/spec-drift.test.ts` fails when the registry and the spec's §4.9 disagree.
+
+Adding a write means adding a definition, not a server action with logic in it.
 
 ---
 

@@ -58,6 +58,7 @@ export function MaintenanceQueue({ tickets, staff, action }: MaintenanceQueuePro
       items={tickets}
       getId={(ticket) => ticket.id}
       isOpen={(ticket) => OPEN_STATUSES.has(ticket.status)}
+      selectable={{ kind: "maintenance_log", name: (ticket) => ticket.title }}
       searchText={(ticket) =>
         [ticket.title, ticket.toolName, ticket.unitLabel, ticket.description, ticket.reportedByName, ticket.assignedToName].join(" ")
       }

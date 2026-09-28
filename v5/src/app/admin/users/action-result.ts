@@ -38,6 +38,9 @@ export const ADMIN_USERS_PATH = "/admin/users";
  * - **Add person** only: `invalid_email` (not an address), `email_not_allowed` (outside the
  *   domain rule and `AUTH_ALLOWED_EMAILS`), `email_blocked` (on the blocked
  *   list) and `duplicate_email` (somebody already has that address).
+ * - `only_on_people_page` — the assistant (chat or MCP) asked to make somebody a
+ *   super admin, or to change a super admin's role: only this page may (owner
+ *   decision 2026-09-27).
  */
 export type AdminActionError =
   | AdminGateError
@@ -51,7 +54,8 @@ export type AdminActionError =
   | "invalid_name"
   | "email_not_allowed"
   | "email_blocked"
-  | "duplicate_email";
+  | "duplicate_email"
+  | "only_on_people_page";
 
 /**
  * The longest name kept — at Add person, **Edit name** here, and on

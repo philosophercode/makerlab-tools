@@ -36,19 +36,23 @@ describe("staffPromptFragment", () => {
     expect(text).toContain("list_intake_queue");
   });
 
-  it("requires the exact change to be stated and confirmed before update_ticket", () => {
+  // Assistant–GUI parity §11 answer 1: the card replaced the typed yes.
+  it("tells staff a ticket change is a card the person confirms, never a typed yes", () => {
     const text = prompt("admin");
-    expect(text).toMatch(/state the exact change and ask for confirmation/);
-    expect(text).toMatch(/only after an explicit yes in a later message/);
-    // The fields the confirmation must name.
-    for (const field of ["status", "priority", "assignee", "resolution note"]) expect(text).toContain(field);
+    expect(text).toMatch(/a card the person confirms/);
+    expect(text).toMatch(/changes nothing by itself/);
+    expect(text).not.toMatch(/explicit yes/);
     expect(text).toMatch(/`me`.*`nobody`/);
   });
 
-  it("claims a change only on an updated result, and never shows emails", () => {
+  it("sends work already done to log_completed_maintenance and problems to report_issue", () => {
     const text = prompt("admin");
-    expect(text).toContain('status: "updated"');
-    expect(text).toMatch(/email addresses are never shown/);
+    expect(text).toContain("log_completed_maintenance");
+    expect(text).toContain("report_issue");
+  });
+
+  it("never shows emails", () => {
+    expect(prompt("admin")).toMatch(/email addresses are never shown/);
   });
 
   it("never puts the caller's email in the prompt", () => {
@@ -63,10 +67,10 @@ describe("staffPromptFragment", () => {
 describe("the staff tools' descriptions", () => {
   const byName = Object.fromEntries(staff.tools.map((tool) => [tool.name, tool]));
 
-  it("are on both surfaces except propose_change, which stays MCP-only", () => {
+  it("are on both surfaces except the MCP writes: propose_change, and update_ticket, which the chat has as a card", () => {
     expect(byName.list_open_tickets.mcpOnly).toBeFalsy();
-    expect(byName.update_ticket.mcpOnly).toBeFalsy();
     expect(byName.list_intake_queue.mcpOnly).toBeFalsy();
+    expect(byName.update_ticket.mcpOnly).toBe(true);
     expect(byName.propose_change.mcpOnly).toBe(true);
   });
 

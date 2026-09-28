@@ -14,6 +14,8 @@ vi.mock("next/cache", () => ({ cacheTag: vi.fn(), cacheLife: vi.fn(), revalidate
 
 import { eq } from "drizzle-orm";
 import { POST } from "@/app/api/chat/route";
+import { POST as DECIDE } from "@/app/api/action-proposals/route";
+import { actionProposals } from "@/lib/db/schema/index";
 import { resetAuthForTests } from "@/lib/auth/config";
 import { getDb, resetDbForTests } from "@/lib/db/client";
 import { maintenanceLogs } from "@/lib/db/schema/index";
@@ -22,10 +24,11 @@ import { signInAsNew } from "../../../../test/utils/session";
 
 /**
  * Managing maintenance from the site chat (MCP access spec amendment
- * 2026-09-25): the route composes the staff queue tools only for a caller
- * holding their permission, tells staff to confirm before a write, and a
- * confirmed `update_ticket` writes through the admin page's own path as the
- * signed-in person.
+ * 2026-09-25; assistant–GUI parity spec phase 2): the route composes the
+ * staff queue tools only for a caller holding their permission, the chat's
+ * `update_ticket` only proposes a card, and the person's Confirm — through
+ * `POST /api/action-proposals` — writes through the admin page's own path as
+ * the signed-in person. A typed "yes" changes nothing.
  */
 
 const STAFF_TOOLS = ["list_open_tickets", "update_ticket", "list_intake_queue"];
@@ -87,12 +90,15 @@ afterEach(() => {
   resetDbForTests();
 });
 
-it("gives a staff session the queue tools and the confirm-before-write rule", async () => {
+it("gives a staff session the queue tools and the confirm-on-the-card rule", async () => {
   const { cookie } = await signIn("admin");
   await send({ messages: [userMessage("What maintenance is open on the Form 4?")] }, { cookie });
-  expect(toolNames()).toEqual(expect.arrayContaining(STAFF_TOOLS));
+  expect(toolNames()).toEqual(expect.arrayContaining([...STAFF_TOOLS, "log_completed_maintenance", "set_correction_status"]));
   expect(system()).toContain("### Maintenance queue");
-  expect(system()).toMatch(/state the exact change and ask for confirmation/);
+  expect(system()).toMatch(/The Confirm button is the only way to commit/);
+  // A SuperMaker is offered no People tool.
+  expect(toolNames()).not.toContain("set_person_title");
+  expect(toolNames()).not.toContain("find_people");
 });
 
 it("gives a student and an anonymous visitor none of them, and no staff instructions", async () => {
@@ -116,29 +122,53 @@ it("list_open_tickets answers the staff member with reporter names and no emails
   expect(stream).not.toContain("casey@cornell.edu");
 });
 
-it("a confirmed update_ticket writes as the signed-in person, through the admin path", async () => {
+it("update_ticket only proposes; the person's Confirm writes as them, through the admin path", async () => {
   const { cookie, userId } = await signIn("admin");
   const ticket = await laserTicket();
   stubChat(
     toolCallModel(
-      [{ toolName: "update_ticket", input: { ticket_id: ticket.id, status: "resolved", assign_to: "me", resolution: "Refocused the lens." } }],
-      "Done — the ticket is resolved."
+      [{ toolName: "update_ticket", input: { ticket_ids: [ticket.id], status: "resolved", assign_to: "me", resolution: "Refocused the lens." } }],
+      "Here is the change — confirm it on the card."
     )
   );
-  const stream = await send(
-    {
-      messages: [
-        userMessage("Mark the laser ticket resolved: refocused the lens"),
-        { id: "a1", role: "assistant", parts: [{ type: "text", text: "I'll mark **Laser bed out of focus** as Resolved, assigned to you, with the note \"Refocused the lens.\" — shall I go ahead?" }] },
-        userMessage("Yes"),
-      ],
-    },
-    { cookie }
+  const stream = await send({ messages: [userMessage("Mark the laser ticket resolved: refocused the lens")] }, { cookie });
+  expect(stream).toContain('"proposed":true');
+  expect(stream).toContain('"type":"data-action-proposal"');
+
+  // Proposed is not done.
+  expect((await laserTicket()).status).toBe(ticket.status);
+  const db = await getDb();
+  const [proposal] = await db.select().from(actionProposals).where(eq(actionProposals.subjectId, ticket.id));
+  expect(proposal).toMatchObject({ actionId: "tickets.update", status: "open", surface: "assistant", chatId: "chat-staff", createdBy: userId });
+
+  const res = await DECIDE(
+    new Request("http://localhost/api/action-proposals", {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie },
+      body: JSON.stringify({ ids: [proposal.id], decision: "confirm" }),
+    }) as never
   );
-  expect(stream).toContain('"output":{"status":"updated"');
+  expect(await res.json()).toEqual({ results: [expect.objectContaining({ id: proposal.id, status: "confirmed" })] });
 
   const after = await laserTicket();
   expect(after.status).toBe("resolved");
   expect(after.resolution).toBe("Refocused the lens.");
   expect(after.assignedToUserId).toBe(userId);
+});
+
+it("a typed yes after a card calls nothing and changes nothing", async () => {
+  const { cookie } = await signIn("admin");
+  const ticket = await laserTicket();
+  stubChat(textModel("Press Confirm on the card to apply it."));
+  await send(
+    {
+      messages: [
+        userMessage("Mark the laser ticket resolved"),
+        { id: "a1", role: "assistant", parts: [{ type: "text", text: "Here is the change — confirm it on the card." }] },
+        userMessage("Yes, do it"),
+      ],
+    },
+    { cookie }
+  );
+  expect((await laserTicket()).status).toBe(ticket.status);
 });
