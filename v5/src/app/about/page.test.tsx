@@ -73,6 +73,14 @@ describe("/about", () => {
     );
   });
 
+  it("links the product page and the quick start from About this project", () => {
+    render(<AboutPage />);
+
+    const project = section("About this project");
+    expect(within(project).getByRole("link", { name: "What MakerLAB Tools can do" })).toHaveAttribute("href", "/product");
+    expect(within(project).getByRole("link", { name: "Quick start guide" })).toHaveAttribute("href", "/product/quick-start");
+  });
+
   it("keeps the MCP pointer and the way back to the tools", () => {
     render(<AboutPage />);
 

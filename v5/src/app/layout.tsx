@@ -13,6 +13,7 @@ import { PageSelectionProvider } from "../components/chat/page-selection";
 import { GlobalChrome } from "../components/GlobalChrome";
 import { DemoDataBanner } from "../components/DemoDataBanner";
 import { SiteChrome } from "../components/SiteChrome";
+import { SiteFooter } from "../components/SiteFooter";
 import { AskParamOpener } from "../components/AskParamOpener";
 import { UsageBeacon } from "../components/usage/UsageBeacon";
 import { ThemeScript } from "../components/ThemeScript";
@@ -82,6 +83,9 @@ async function LocalizedTree({
             <DemoDataBanner />
           </SiteChrome>
           {children}
+          <SiteChrome>
+            <SiteFooter />
+          </SiteChrome>
           <Suspense fallback={null}>
             <ChatFab />
           </Suspense>

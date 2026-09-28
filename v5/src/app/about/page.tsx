@@ -97,6 +97,10 @@ export default function AboutPage() {
           <p>{t("whyBody")}</p>
           <p>{t("creditsBody")}</p>
           <p>{t("feedbackBody")}</p>
+          {/* Product page amendment 2026-09-28: the product page and quick start are linked here and from the footer, not the main nav. */}
+          <p>
+            <Link href="/product">{t("productLink")}</Link> · <Link href="/product/quick-start">{t("quickStartLink")}</Link>
+          </p>
         </Prose>
       </PageSection>
 
