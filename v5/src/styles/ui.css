@@ -46,6 +46,24 @@
   }
 }
 
+/* The lab status screen's three layouts (kiosk spec §6), named once so every
+   panel asks the same question. `kiosk-wall`: landscape with room for
+   everything at once (a TV, a laptop, an iPad on its side) — two columns, no
+   scrolling. `kiosk-scroll`: everything else — an upright iPad, and phones —
+   stacked, scrolling inside the screen. `kiosk-phone` (a subset of
+   `kiosk-scroll`, declared after it so it wins): narrower than 640px, or a
+   phone on its side — one column, small QR code, an "Open the assistant" link. */
+@custom-variant kiosk-wall (@media (orientation: landscape) and (min-height: 600px));
+@custom-variant kiosk-scroll (@media not all and (orientation: landscape) and (min-height: 600px));
+@custom-variant kiosk-phone {
+  @media (max-width: 639.98px) {
+    @slot;
+  }
+  @media (orientation: landscape) and (max-height: 599.98px) {
+    @slot;
+  }
+}
+
 /* ── Tokens the UI system adds (spec §6.1; DESIGN.md §3) ────────────────────
    The palette itself stays in globals.css; these are the contrast fixes. The
    values are asserted against WCAG 2.2 AA in src/styles/tokens.test.ts. */

@@ -85,7 +85,7 @@ export const PromptInputTextarea = ({ className, onKeyDown, ...props }: PromptIn
       name="message"
       rows={1}
       className={cn(
-        "field-sizing-content max-h-40 min-h-10 w-full resize-none bg-transparent px-3 pt-2.5 pb-1 text-sm leading-normal text-foreground outline-hidden",
+        "field-sizing-content max-h-40 min-h-10 w-full resize-none bg-transparent px-3 pt-2.5 pb-1 text-base leading-normal text-foreground outline-hidden md:text-sm",
         "placeholder:text-muted-foreground disabled:cursor-not-allowed",
         // The frame draws the focus ring; the field inside it does not repeat it.
         "focus-visible:outline-hidden",

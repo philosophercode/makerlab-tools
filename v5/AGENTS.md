@@ -1463,8 +1463,16 @@ data; the QR code opens the catalogue with the chat.
   `html:has([data-kiosk])`. The logo is a CSS mask filled with
   `--on-surface`, so a single-colour logo reads on dark; the QR code is drawn in
   `currentColor` on an `--on-surface` plate (no pure white). Type is `vmin` with
-  `clamp()` (`kiosk-type.ts`); landscape is two columns, portrait
-  (`portrait:` variant) stacks with the QR code last.
+  `clamp()` (`kiosk-type.ts`, ceilings at the 4K value). Three layouts, named
+  once as custom variants in `styles/ui.css`: `kiosk-wall` (landscape, ≥600px
+  tall: two columns, one screen, no scroll), `kiosk-scroll` (everything else:
+  an upright iPad puts the ticket count and featured item beside the QR code
+  and scrolls inside the screen if it must) and `kiosk-phone` (<640px wide or a
+  phone on its side: one column, 112px QR code plus an "Open the assistant"
+  link). Panels read `--kiosk-*` custom properties set per layout on the root,
+  are placed with `grid-template-areas`, and pad with `env(safe-area-inset-*)`
+  (`viewport-fit=cover` on the page). `kiosk.css` also hands the h1 size back
+  from globals.css's unlayered narrow-screen rule (`revert-layer`).
 - **The QR code** (`lib/kiosk/qr.ts`, server-only; `qrcode` is now a runtime
   dependency) encodes `kioskAskUrl(origin)` = `<origin>/?src=kiosk&ask=1`
   (`lib/kiosk/params.ts`). `AskParamOpener` in the root layout (its own
@@ -1474,7 +1482,7 @@ data; the QR code opens the catalogue with the chat.
   picks a supported locale (`app/kiosk/kiosk-locale.ts`), `kiosk.*` strings
   with English underneath, times in `LAB_TIMEZONE`.
 - **Hours** are `siteConfig.labHours` (`NEXT_PUBLIC_LAB_HOURS`, default
-  `LAB OPEN 9AM-9PM`), which the header's status strip reads too. Phase 2
+  `LAB OPEN 8AM-8PM`), which the header's status strip reads too. Phase 2
   structures them.
 - **Tests:** `lib/kiosk/{derive,qr,snapshot}.test.ts`, `app/api/kiosk/route.test.ts`,
   `components/kiosk/KioskScreen.test.tsx`, `components/kiosk-chrome.test.tsx`,
@@ -1487,7 +1495,9 @@ data; the QR code opens the catalogue with the chat.
 
 | Path | Purpose |
 |---|---|
-| `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults), including `labHours` |
+| `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults), including `labHours` and the header `wordmark`. Names: **MakerLAB** is the lab, **MakerLAB Tools** the site, **MakerLAB Assistant** the AI (identity spec 2026-09-28) |
+| `src/lib/ai/lab-context.ts` | The assistant's "Where you are" block — the lab, its people, Cornell Tech, and its operate / debug / create purpose — placed after the intro in the static prompt prefix. Sourced facts only; sources in its comments |
+| `src/components/chat/assistant-intro-store.ts` / `AssistantIntro.tsx` | The first-visit "Meet the MakerLAB Assistant" callout beside the chat button, remembered in `localStorage` (try/catch), gone once dismissed or the chat opens |
 | `src/lib/kiosk/*` / `src/components/kiosk/*` / `src/app/kiosk/` | The lab status screen: snapshot loader, pure timing and derivations, QR code; the client screen; the page (see "The lab status screen") |
 | `src/lib/db/client.ts` | `getDb()`, `dataSubstrate()`, `pingDb()` — the one entry point to Postgres/PGlite |
 | `src/lib/notion.ts` | Notion API client — used by the one-time import and its scripts; no request path reads or writes Notion through it (the mirror has its own client) |

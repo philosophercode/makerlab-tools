@@ -63,7 +63,7 @@ describe("assembleKioskSnapshot", () => {
     // archived tool's units are not the catalogue's.
     expect(snapshot.unitsInService).toBe(3);
     expect(snapshot.generatedAt).toBe(NOW.toISOString());
-    expect(snapshot.lab).toEqual({ hoursText: "LAB OPEN 9AM-9PM", openNow: null, closesAt: null });
+    expect(snapshot.lab).toEqual({ hoursText: "LAB OPEN 8AM-8PM", openNow: null, closesAt: null });
   });
 
   it("counts open and in-progress tickets, and nothing settled", async () => {

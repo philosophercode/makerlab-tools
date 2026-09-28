@@ -11,7 +11,7 @@ import { KIOSK_TYPE } from "./kiosk-type";
  * it, so "7" reads as a lab looking after its machines (§12). A count that
  * could not be read is "—" and "Not available", never 0 (§5.3).
  */
-export function TicketCount({ tickets }: { tickets: KioskTicketCounts | null }) {
+export function TicketCount({ tickets, className }: { tickets: KioskTicketCounts | null; className?: string }) {
   const t = useTranslations("kiosk");
   const total = tickets ? tickets.open + tickets.inProgress : null;
 
@@ -19,7 +19,10 @@ export function TicketCount({ tickets }: { tickets: KioskTicketCounts | null }) 
     // The heading comes first for a screen reader; the figure is drawn first.
     <section
       aria-labelledby="kiosk-tickets"
-      className="flex flex-row-reverse items-end justify-end gap-[3vmin] border border-border bg-card p-[2.5vmin]"
+      className={cn(
+        "flex min-w-0 flex-row-reverse items-end justify-end gap-[3vmin] border border-border bg-card p-[max(12px,2.5vmin)] kiosk-phone:gap-4",
+        className
+      )}
     >
       <div className="flex min-w-0 flex-col gap-[1vmin] pb-[0.8vmin]">
         <h2 id="kiosk-tickets" className={KIOSK_TYPE.label}>

@@ -20,9 +20,20 @@ export function GlobalChrome({ stats, paletteTools = [] }: GlobalChromeProps) {
   return (
     <>
       <header className="top-nav">
+        {/* The MakerLAB lockup: the wordmark (a mask, so it takes the theme's
+            text colour), then the site's name and tagline. The wordmark is
+            decoration; the link's name is the words beside it. */}
         <Link className="brand-lockup" href="/">
-          <span>{siteConfig.name}</span>
-          <span>{t("nav.brandTagline")}</span>
+          <span
+            aria-hidden="true"
+            data-slot="brand-wordmark"
+            className="brand-wordmark"
+            style={{ maskImage: `url(${siteConfig.wordmark})`, WebkitMaskImage: `url(${siteConfig.wordmark})` }}
+          />
+          <span className="brand-text">
+            <span className="brand-name">{siteConfig.name}</span>
+            <span className="brand-tagline">{siteConfig.tagline}</span>
+          </span>
         </Link>
         <PrimaryNav />
         <div className="nav-actions" aria-label={t("nav.utilityControlsLabel")}>

@@ -35,8 +35,8 @@ export function PublicPage({ children, width = "default", mainClassName, ...head
 }
 
 /**
- * One section of a public page: an h2 (Space Grotesk, uppercase), an optional
- * lede, then the content. Sections are separated by whitespace and nothing
+ * One section of a public page: an h2 (Space Grotesk, uppercase unless
+ * `keepCase`), an optional lede, then the content. Sections are separated by whitespace and nothing
  * else (the No-Line rule). `min-w-0` so a long command scrolls inside its
  * block instead of widening the column.
  */
@@ -45,17 +45,20 @@ export function PageSection({
   title,
   lede,
   children,
+  keepCase = false,
   className,
 }: {
   id: string;
   title: ReactNode;
   lede?: ReactNode;
   children?: ReactNode;
+  /** Keep the heading's own capitalization (a proper name like "MakerLAB"). */
+  keepCase?: boolean;
   className?: string;
 }) {
   return (
     <section aria-labelledby={id} data-slot="page-section" className={cn("ui flex min-w-0 flex-col gap-3 pt-8", className)}>
-      <h2 id={id} className="font-heading text-lg font-medium uppercase">
+      <h2 id={id} className={cn("font-heading text-lg font-medium", keepCase ? "normal-case" : "uppercase")}>
         {title}
       </h2>
       {lede ? <div className="max-w-[72ch] text-sm leading-normal text-muted-foreground">{lede}</div> : null}

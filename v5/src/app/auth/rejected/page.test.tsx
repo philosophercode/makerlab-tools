@@ -14,7 +14,7 @@ describe("/auth/rejected", () => {
   it("names the institution the app signs in with, from config", () => {
     render(<AuthRejectedPage />);
 
-    // Default site-config values (env unset): "Cornell Tech" / "MakerLab Tools".
+    // Default site-config values (env unset): "Cornell Tech" / "MakerLAB Tools".
     expect(siteConfig.institution).toBe("Cornell Tech");
     expect(
       screen.getByRole("heading", {
@@ -22,7 +22,7 @@ describe("/auth/rejected", () => {
       })
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/MakerLab Tools signs in with Cornell Tech accounts only/)
+      screen.getByText(/MakerLAB Tools signs in with Cornell Tech accounts only/)
     ).toBeInTheDocument();
   });
 

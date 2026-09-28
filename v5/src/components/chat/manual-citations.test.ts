@@ -1,5 +1,13 @@
 import { fenceUntrusted } from "../../lib/web/fence";
-import { citationPhrase, citedPassages, manualPassages, pageMark, passageExcerpt } from "./manual-citations";
+import {
+  attachedManualLinks,
+  citationPhrase,
+  citedPassages,
+  classifyLink,
+  manualPassages,
+  pageMark,
+  passageExcerpt,
+} from "./manual-citations";
 
 const URL_42 = "https://blob.example/manuals/form-4.pdf#page=42";
 const URL_44 = "https://blob.example/manuals/form-4.pdf#page=44";
@@ -8,19 +16,21 @@ function searchPart(passages: unknown[], state = "output-available", status = "o
   return { type: "tool-search_manual", state, output: { status, scope: "Form 4 manuals", passages } };
 }
 
-const P42 = { citation: "Form 4 Manual, p. 42", url: URL_42, tool: "Form 4", section: "Maintenance › Resin tank", text: fenceUntrusted("Form 4 Manual, p. 42", "Lift the front edge of the tank.") };
-const P44 = { citation: "Form 4 Manual, pp. 44–45", url: URL_44, tool: "Form 4", section: "", text: "plain" };
+const P42 = { ref: "3f2a9c10-42", citation: "Form 4 Manual, p. 42", url: URL_42, tool: "Form 4", section: "Maintenance › Resin tank", text: fenceUntrusted("Form 4 Manual, p. 42", "Lift the front edge of the tank.") };
+const P44 = { ref: "3f2a9c10-44", citation: "Form 4 Manual, pp. 44–45", url: URL_44, tool: "Form 4", section: "", text: "plain" };
 
 describe("manualPassages", () => {
-  it("collects the passages a finished search_manual call returned, by URL", () => {
-    const byUrl = manualPassages([{ type: "text" }, searchPart([P42, P44])]);
-    expect([...byUrl.keys()]).toEqual([URL_42, URL_44]);
-    expect(byUrl.get(URL_42)).toEqual({
+  it("collects the passages a finished search_manual call returned, by URL and by #cite- ref", () => {
+    const byKey = manualPassages([{ type: "text" }, searchPart([P42, P44])]);
+    expect([...byKey.keys()]).toEqual([URL_42, "#cite-3f2a9c10-42", URL_44, "#cite-3f2a9c10-44"]);
+    expect(byKey.get(URL_42)).toEqual({
+      ref: "3f2a9c10-42",
       citation: "Form 4 Manual, p. 42",
       url: URL_42,
       section: "Maintenance › Resin tank",
       excerpt: "Lift the front edge of the tank.",
     });
+    expect(byKey.get("#cite-3f2a9c10-42")).toBe(byKey.get(URL_42));
   });
 
   it("ignores a call still running, one that found nothing, and passages with no URL", () => {
@@ -45,6 +55,48 @@ describe("citedPassages", () => {
   it("leaves out passages read but not cited, and addresses nobody returned", () => {
     expect(citedPassages(`See [the manual](${URL_42}).`, byUrl).map((p) => p.url)).toEqual([URL_42]);
     expect(citedPassages("See [a page](https://example.com/manual.pdf#page=42).", byUrl)).toEqual([]);
+  });
+
+  it("counts a #cite- ref and the same passage's URL once, at its first link", () => {
+    const text = `First ([a](#cite-3f2a9c10-44)), then ([b](${URL_42})), again ([c](${URL_44})).`;
+    expect(citedPassages(text, byUrl).map((p) => p.url)).toEqual([URL_44, URL_42]);
+  });
+});
+
+describe("classifyLink (amendment 2026-09-28: only a tool's address is a manual link)", () => {
+  const passages = manualPassages([searchPart([P42, P44])]);
+  const documents = attachedManualLinks([
+    { type: "data-manual-links", data: { kind: "manual-links", links: [{ title: "Quick start", url: "https://b.test/q.pdf" }] } } as never,
+  ]);
+
+  it("resolves a ref or an exact passage URL to the passage", () => {
+    expect(classifyLink("#cite-3f2a9c10-42", passages)).toEqual({ kind: "citation", passage: passages.get(URL_42) });
+    expect(classifyLink(URL_44, passages)).toMatchObject({ kind: "citation", passage: { url: URL_44 } });
+  });
+
+  it("marks every other manual-looking address unverified: an unknown ref, another page, a PDF, a Blob file", () => {
+    for (const href of [
+      "#cite-3f2a9c10-43",
+      "https://blob.example/manuals/form-4.pdf#page=43",
+      "https://maker.example/manual.pdf",
+      "https://ehlhvy4tr3zposou.public.blob.vercel-storage.com/manuals/x-abc",
+      "http://localhost:3001/api/dev-blob/manuals/x.pdf",
+    ]) {
+      expect(classifyLink(href, passages, documents)).toEqual({ kind: "unverified" });
+    }
+  });
+
+  it("lets an attached manual through as a document, without the page the model added", () => {
+    expect(classifyLink("https://b.test/q.pdf#page=9", passages, documents)).toEqual({
+      kind: "document",
+      url: "https://b.test/q.pdf",
+      title: "Quick start",
+    });
+  });
+
+  it("leaves site paths and ordinary web pages alone", () => {
+    expect(classifyLink("/tools/form-4", passages)).toEqual({ kind: "internal", href: "/tools/form-4" });
+    expect(classifyLink("https://formlabs.example/form-4", passages)).toEqual({ kind: "external", href: "https://formlabs.example/form-4" });
   });
 });
 
@@ -71,6 +123,13 @@ describe("citationPhrase", () => {
 
   it("leaves other words alone", () => {
     expect(citationPhrase("the resin tank section", "Form 4 Manual, p. 42")).toBe("the resin tank section");
+  });
+
+  it("drops a citation naming another document or page: only the passage's own label is drawn (amendment 2026-09-28)", () => {
+    const quickStart = "Quick Start Guide for X1-Carbon, p. 9";
+    expect(citationPhrase("Bed adhesion (Bambu Lab X1-Carbon Combo 3D Printer - SOP, p. 9)", quickStart)).toBe("Bed adhesion");
+    expect(citationPhrase("Bambu Lab X1-Carbon Combo 3D Printer - SOP, p. 9", quickStart)).toBe("Quick Start Guide for X1-Carbon");
+    expect(citationPhrase("Tank (Form 4 Manual, p. 42 (printed 3-12))", "Form 4 Manual, p. 42 (printed 3-12)")).toBe("Tank");
   });
 });
 
