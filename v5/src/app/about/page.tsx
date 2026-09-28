@@ -13,7 +13,7 @@ export const metadata = {
 /**
  * `/about` (identity spec 2026-09-28 §6): about the MakerLAB first, in the
  * order of Cornell Tech's own MakerLAB page — what it is, where and when,
- * who runs it, the community, where to learn more — then the projects, then
+ * who runs it, the community, where to learn more — then
  * this site and its assistant. A reading column on `PublicPage`. Facts are
  * paraphrased from the pages linked here; the official page is the authority
  * for hours and access.
@@ -77,15 +77,6 @@ export default function AboutPage() {
               <a href={ABOUT_LINKS.instagram}>{t("instagramLink")}</a>
             </li>
           </ul>
-        </Prose>
-      </PageSection>
-
-      <PageSection keepCase id="about-projects" title={t("projectsHeading")}>
-        <Prose>
-          <p>{t("projectsBody")}</p>
-          <p>
-            <Link href="/projects">{t("projectsLink")}</Link>
-          </p>
         </Prose>
       </PageSection>
 

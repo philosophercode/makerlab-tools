@@ -18,7 +18,7 @@ describe("/about", () => {
     expect(metadata.title).toBe("About — MakerLAB Tools");
   });
 
-  it("follows the official page's order, then Projects and About this project", () => {
+  it("follows the official page's order, then About this project", () => {
     render(<AboutPage />);
 
     const headings = screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
@@ -28,7 +28,6 @@ describe("/about", () => {
       "People",
       "Community",
       "Learn more",
-      "Projects",
       "About this project",
       "Connect an AI assistant",
     ]);
@@ -56,10 +55,10 @@ describe("/about", () => {
     expect(within(people).getByRole("link", { name: "Email Niti Parikh" })).toHaveAttribute("href", "mailto:ntp27@cornell.edu");
   });
 
-  it("points to the projects gallery", () => {
+  it("has no separate Projects section (the gallery has its own page)", () => {
     render(<AboutPage />);
 
-    expect(within(section("Projects")).getByRole("link", { name: "See the projects" })).toHaveAttribute("href", "/projects");
+    expect(screen.queryByRole("heading", { level: 2, name: "Projects" })).toBeNull();
   });
 
   it("describes MakerLAB Tools and the assistant — operate, debug, create — and credits the team", () => {
