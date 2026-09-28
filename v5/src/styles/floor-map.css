@@ -1,0 +1,154 @@
+/*
+ * The floor map (floor map spec 2026-09-25 §6). A blueprint schematic: the
+ * page's paper, a 1px dot grid, hairline walls, mono labels, 0px radii.
+ * Density is ink (tonal plates), never the accent; the accent is reserved for
+ * "where it is" — the highlighted zone and station (DESIGN.md §2.3).
+ */
+
+.floor-map {
+  --fm-ink: var(--on-surface);
+  --fm-paper: var(--surface-container);
+  --fm-wall: var(--on-surface);
+  --fm-grid: color-mix(in srgb, var(--on-surface) 9%, transparent);
+  --fm-step-0: transparent;
+  --fm-step-1: color-mix(in srgb, var(--on-surface) 5%, transparent);
+  --fm-step-2: color-mix(in srgb, var(--on-surface) 10%, transparent);
+  --fm-step-3: color-mix(in srgb, var(--on-surface) 16%, transparent);
+  --fm-step-4: color-mix(in srgb, var(--on-surface) 23%, transparent);
+  --fm-here: color-mix(in srgb, var(--primary) 32%, transparent);
+  display: block;
+  width: 100%;
+  height: auto;
+  background: var(--fm-paper);
+  font-family: var(--font-mono);
+}
+
+.floor-map text {
+  font-family: var(--font-mono);
+  fill: var(--fm-ink);
+  pointer-events: none;
+}
+
+.floor-map .fm-grid {
+  fill: var(--fm-grid);
+}
+
+.floor-map .fm-outline,
+.floor-map .fm-wall {
+  fill: none;
+  stroke: var(--fm-wall);
+  stroke-width: 6;
+  stroke-linejoin: miter;
+  pointer-events: none;
+}
+
+.floor-map .fm-wall {
+  stroke-width: 4;
+}
+
+.floor-map .fm-zone {
+  stroke: var(--on-surface-muted);
+  stroke-width: 1.5;
+  stroke-dasharray: 8 6;
+  transition: fill 150ms linear;
+}
+
+.floor-map .fm-zone[data-step="0"] { fill: var(--fm-step-0); }
+.floor-map .fm-zone[data-step="1"] { fill: var(--fm-step-1); }
+.floor-map .fm-zone[data-step="2"] { fill: var(--fm-step-2); }
+.floor-map .fm-zone[data-step="3"] { fill: var(--fm-step-3); }
+.floor-map .fm-zone[data-step="4"] { fill: var(--fm-step-4); }
+
+/* Search matches: an accent-ink rule round the zone, no fill change. */
+.floor-map .fm-zone[data-match="true"] {
+  stroke: var(--primary-ink);
+  stroke-width: 5;
+  stroke-dasharray: none;
+}
+
+/* Where it is. */
+.floor-map .fm-zone[data-here="true"] {
+  fill: var(--fm-here);
+  stroke: var(--primary-ink);
+  stroke-width: 6;
+  stroke-dasharray: none;
+}
+
+.floor-map .fm-zone[data-selected="true"] {
+  stroke: var(--fm-ink);
+  stroke-width: 6;
+  stroke-dasharray: none;
+}
+
+.floor-map .fm-zone-number {
+  font-size: 44px;
+  font-weight: 500;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.floor-map .fm-zone-count {
+  font-size: 20px;
+  text-anchor: middle;
+  dominant-baseline: central;
+  fill: var(--on-surface-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+/* Station tags: the plan's black labels, inverted in dark mode by the tokens. */
+.floor-map .fm-tag {
+  fill: var(--fm-ink);
+}
+
+.floor-map .fm-tag-text {
+  fill: var(--fm-paper);
+  font-size: 22px;
+  font-weight: 700;
+  text-anchor: middle;
+  dominant-baseline: central;
+}
+
+.floor-map .fm-station[data-empty="true"] .fm-tag {
+  fill: var(--on-surface-muted);
+}
+
+.floor-map .fm-station[data-here="true"] .fm-tag {
+  fill: var(--primary);
+  stroke: var(--primary-ink);
+  stroke-width: 3;
+}
+
+.floor-map .fm-station[data-here="true"] .fm-tag-text {
+  fill: var(--ink-on-primary, #0f0f0f);
+}
+
+.floor-map .fm-station[data-match="true"] .fm-tag {
+  stroke: var(--primary-ink);
+  stroke-width: 4;
+}
+
+/* Focus: the global 2px accent-ink outline stays (it draws a box round the
+   link in most engines); the focused region also draws its own shape. */
+.floor-map a {
+  cursor: pointer;
+}
+
+.floor-map a:focus-visible .fm-zone,
+.floor-map a:hover .fm-zone {
+  stroke: var(--primary-ink);
+  stroke-width: 6;
+  stroke-dasharray: none;
+}
+
+.floor-map a:focus-visible .fm-tag,
+.floor-map a:hover .fm-tag {
+  stroke: var(--primary-ink);
+  stroke-width: 5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floor-map .fm-zone {
+    transition: none;
+  }
+}

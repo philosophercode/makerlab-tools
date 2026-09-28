@@ -10,8 +10,16 @@
  * duplicate check's measure, so the table starts with nothing to resolve.
  */
 
+/**
+ * The first of the four ports the E2E run uses: the main app on it, the
+ * Gateway stub on +1, the Notion stub on +2, the intake app on +3. 3100 unless
+ * `E2E_PORT_BASE` says otherwise — so a second checkout (or an agent's
+ * worktree) can run the suite beside one already running.
+ */
+export const E2E_PORT_BASE = Number(process.env.E2E_PORT_BASE) || 3100;
+
 /** The port the stub listens on. The app reaches it through `AI_GATEWAY_BASE_URL`. */
-export const GATEWAY_STUB_PORT = 3101;
+export const GATEWAY_STUB_PORT = E2E_PORT_BASE + 1;
 
 export const GATEWAY_STUB_ORIGIN = `http://localhost:${GATEWAY_STUB_PORT}`;
 
@@ -22,7 +30,7 @@ export const GATEWAY_STUB_ORIGIN = `http://localhost:${GATEWAY_STUB_PORT}`;
  * cleaned product image and approval can publish it (playwright.config.ts).
  * Its demo database is its own, too.
  */
-export const INTAKE_APP_PORT = 3103;
+export const INTAKE_APP_PORT = E2E_PORT_BASE + 3;
 
 export const INTAKE_APP_ORIGIN = `http://localhost:${INTAKE_APP_PORT}`;
 

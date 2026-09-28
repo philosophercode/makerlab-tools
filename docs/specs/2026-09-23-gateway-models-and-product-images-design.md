@@ -2301,3 +2301,108 @@ English-only paragraph in both passes. `curation.test.ts` — `not_english`.
 written.
 
 **Status.** Built on `v5/english-resources`. The script was not run against any database.
+
+### 2026-09-27 — An uploaded photo is a choice, not the product image (§2, §3.5, §4.3, §5.1, §5.2, §6, §10)
+
+**Why.** The owner photographed an item in the assistant chat; the assistant identified it and
+added it to intake — and the approved tool's product image was that phone photo. §2's goal
+"Uploaded photos come first" and §5.1 step 3 ("*Skipped* when the item already owns an `upload`
+photo") made that the rule. The owner's ask: the photo is **identification evidence**, not a
+replacement for the image search; research still looks for a product image, the photo is
+offered as one choice among the found ones, clearly labelled as the admin's own, and — if
+chosen — cleaned exactly like a found image.
+
+**Where the photo was substituted (the trace, before this amendment).**
+
+1. *Chat.* `POST /api/uploads` stores the photo **private**; the message carries an
+   `[Attached photos: attachment_id=…]` hint.
+2. *`identify_tools`* (`lib/capabilities/intake.ts`) records the item, claims the photo onto
+   it (`pending_tool`, `origin` `upload`) and promotes it to a public random pathname
+   (`files/promote.ts`) so the intake card can show it.
+3. *Research* (`workflows/research-batch.ts` → `research/image-steps.ts`'s `findImagesFor`):
+   `hasUploadedPhoto(db, id)` (`data/research-images.ts`) was true, so the stage was
+   **skipped** — `images: null`, no candidates, no cleaned copy. **This was the substitution.**
+4. *Find a different image* (`data/image-retry.ts`'s `startImageRetry`): refused
+   `not_editable` for an item with an uploaded photo, so there was no way back to a search —
+   on the page or through the assistant's `pending.different_image`.
+5. *Review page.* `PreliminaryToolPage` computed `hasUploadedPhoto = item.photos.length > 0`,
+   `ProductImage` drew only "Using your photo", `initialImageChoice(images, true)` answered
+   `none`, **Research again** disabled its Image chip, and `approve()` forced
+   `image: { choice: "none" }`. The assistant's **approve these** (`actions/intake.ts`'s
+   `defaultApproval`) sent `none` the same way.
+6. *Approval* (`data/pending-tools.ts`'s `approvePendingTool`): with no cover, `reownAttachments`
+   moved the photo to the tool at position 0, and the catalogue's lowest-position public photo
+   is the tool image (`data/catalog.ts`) — so the raw photo, uncleaned, became the product image.
+
+**The design.**
+
+- **§5.1 step 3, replaced: the stage always runs.** `findImages` no longer asks whether the
+  item has an upload; `hasUploadedPhoto` is gone. An item with a photo is searched, ranked and
+  cleaned exactly as one without — and costs what it costs. `startImageRetry` no longer refuses
+  such an item; **Research again** offers Image for any researched item.
+- **§4.3: a fourth choice.** `ApprovalImageChoice` gains
+  `{ choice: "upload"; attachmentId: string; removeBackground: boolean }` (Zod: `attachmentId`
+  a uuid, strict). `attachmentId` must be one of the item's own `photos` (the listing that
+  never includes a cleaned copy), else `invalid_field`, before anything is read.
+- **§5.2: approval (`intake/approval-image.ts`'s `prepareUpload`).**
+  - `removeBackground: false` — the photo **exactly as taken** becomes the cover. It is already
+    the item's and normally already public; one whose promotion failed at identify time is
+    promoted here (`promoteAttachmentsToPublic` → `copyToPublic`, the same private→public copy
+    step, which reads from the private store and writes to the public one when a deployment has
+    two — `blobCredentials(access)`).
+  - `removeBackground: true` — the photo's bytes are read back from the store that holds them
+    (`BlobStore.read(pathname, access)`; never fetched by URL), and given the **same
+    deterministic crop-and-cutout a picked candidate gets** (`research/images/pick-clean.ts`'s
+    `cleanPickedImage`; the background classified on the spot since research never ranked the
+    photo; the cut trimmed to the product plus the cutout's margin, as every cleaned image is;
+    **never a generative redraw**). A cut is stored **public** under `uploads/tool/` and recorded
+    as the item's own `research_image_cleaned` copy with no `source_url`
+    (`data/research-images.ts`'s `recordUploadCutout`) — the transaction's `takeCover` and
+    `releaseUnchosenCleaned` already know that kind. When no cut can be made (a busy backdrop,
+    a cut that fails its checks, a format the cutout cannot decode such as HEIC), the photo is
+    used as taken and `cleaned` is null — exactly as a picked candidate's original bytes are
+    stored.
+  - `takeCover` also accepts one of the item's own uploads (`origin` `upload` or null) — and only
+    when it is **public**, so a cover is never a file a visitor cannot load.
+  - A read, store or record failure is `image_not_attached`, as for every other choice.
+  - The audit detail is `image: { choice: "upload", attached, cleaned }` — never a URL or path.
+  - The photos that were not made the cover still follow it as tool photos (unchanged §3.3
+    behaviour); the photo a cutout was made from follows its cutout.
+- **Preselection (`intake/approval-draft.ts`'s `initialImageChoice(images, uploads)`).** The
+  cleaned copy, else rank 1, else **the first uploaded photo with its background removed**,
+  else none. A found image always leads; the photo is preselected only when research found
+  nothing. The review page and the assistant's **approve these** share the rule, and the card's
+  staleness version now includes the item's photo ids.
+- **§6: the page (`ProductImage`).** "Using your photo" is gone. Each chat photo is a tile after
+  the found candidates and before "No image", named **"Your photo"** ("Your photo 1", "Your
+  photo 2" when there are several), under one line: "Added in the chat to identify it. Choose
+  one as the cover if you prefer it; your photos go to the tool as well, after the chosen
+  image." The chosen photo carries a **Remove the background** checkbox, on by default, with
+  one honest line — "Background removed when approved, where the backdrop is plain enough to
+  cut — otherwise used as taken." or "Used exactly as taken." A photo still private is a
+  placeholder, never a guessed URL. When research found nothing (or the stage failed), the
+  status line is followed by the photos, which are then preselected. With "No image" chosen
+  and photos present, one line says the first photo becomes the tool's picture — because it
+  does (step 6 of the trace is unchanged for that case).
+
+**Unchanged.** Research is still shown no photos (`modelPlateRead` stays null); `identify_tools`
+still promotes chat photos at identify time; the cleaned-image route serves research's private
+copy only; no migration (`research_image_cleaned` already existed, `source_url` is nullable).
+
+**§10.** `ProductImage.test.tsx` — the photo offered beside found images with research's image
+preselected; choosing it (removeBackground true), unticking the checkbox, re-clicking keeping
+the checkbox, several photos numbered, a private one as a placeholder, research found nothing /
+the stage failed with photos, the "No image" note; `initialImageChoice` never lets a photo
+displace a found image and falls back to it. `approval-image.test.ts` — a plain-backdrop private
+photo is read from the private store, cut, stored public as the cover (transparent corner,
+trimmed), the photo after it, audit `cleaned: "cut"`; a busy photo used as taken; removal off
+stores nothing new; a private photo promoted before it is the cover; another item's photo, the
+cleaned copy or a random id refused `invalid_field` with nothing read; no store is
+`image_not_attached` with the photo kept; a found image chosen puts the photo second.
+`image-steps.test.ts` — an item with a photo is probed, ranked and cut, the photo untouched.
+`research-batch.workflow.test.ts` — one of the four items has a photo; three rankings still run.
+`image-retry-steps.test.ts` — `startImageRetry` allows an item with a photo.
+`research-images.test.ts` — `recordUploadCutout`'s row. `actions/intake.test.ts` — **approve
+these** sends research's image over a photo, and the photo only when research found none.
+
+**Status.** Built on `v5/intake-uploaded-photo`, stacked on #95.

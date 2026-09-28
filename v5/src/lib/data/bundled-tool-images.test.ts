@@ -2,7 +2,8 @@ import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { BUNDLED_TOOL_IMAGES } from "./bundled-tool-images";
-import { toolImageSrc } from "./catalog";
+import { bundledThumbnailsForUrl, toolImage, toolImageSrc, type AttachmentRow } from "./catalog";
+import { BUNDLED_TOOL_THUMBNAILS } from "./bundled-tool-thumbnails";
 
 describe("BUNDLED_TOOL_IMAGES", () => {
   it("lists exactly the photos in public/tool-images", () => {
@@ -34,7 +35,55 @@ describe("toolImageSrc's bundled fallback (tool display names spec §5.8)", () =
     expect(src).toBe(`/tool-images/${encodeURIComponent("RYOBI PCL235 ONE+ 18V Drill_ Driver")}.png`);
   });
 
-  it("falls back to the display name when neither has a photo", () => {
-    expect(toolImageSrc({ name: "New Thing", officialName: null }, [])).toBe("/tool-images/New%20Thing.png");
+  it("answers no image, not a guessed path, when neither name has a photo", () => {
+    // `ToolImage` draws the empty plate for "" — a guessed
+    // `/tool-images/New%20Thing.png` was a request that could only 404.
+    expect(toolImageSrc({ name: "New Thing", officialName: null }, [])).toBe("");
+  });
+});
+
+describe("toolImage — which thumbnails a tool is shown with", () => {
+  const blob = (overrides: Partial<AttachmentRow> = {}): AttachmentRow => ({
+    ownerType: "tool",
+    ownerId: "t",
+    position: 0,
+    access: "public",
+    publicUrl: "https://abc.public.blob.vercel-storage.com/uploads/tool/IMG_1-x.jpg",
+    originalFilename: "IMG_1.jpg",
+    ...overrides,
+  });
+  const own = { base: "https://abc.public.blob.vercel-storage.com/thumbs/uploads/tool/IMG_1-x.0123", widths: [160, 320, 640], width: 4032, height: 3024 };
+
+  it("uses a Blob photo's own thumbnails", () => {
+    expect(toolImage({ name: "Saw", officialName: null }, [blob({ thumbnails: own })])).toEqual({
+      imageSrc: "https://abc.public.blob.vercel-storage.com/uploads/tool/IMG_1-x.jpg",
+      thumbnails: own,
+    });
+  });
+
+  it("has none for a Blob photo that has not been rendered yet (next/image then resizes the original)", () => {
+    expect(toolImage({ name: "Form 4", officialName: null }, [blob()]).thumbnails).toBeNull();
+    expect(toolImage({ name: "Saw", officialName: null }, [blob({ thumbnails: { base: "" } as never })]).thumbnails).toBeNull();
+  });
+
+  it("uses the bundled set for a photo found by name", () => {
+    expect(toolImage({ name: "Form 4", officialName: null }, [])).toEqual({
+      imageSrc: "/tool-images/Form%204.png",
+      thumbnails: BUNDLED_TOOL_THUMBNAILS["Form 4"],
+    });
+    const slash = toolImage({ name: "DEWALT Charger", officialName: "DEWALT DCB107 12V/20V MAX Lithium Ion Charger" }, []);
+    expect(slash.thumbnails).toBe(BUNDLED_TOOL_THUMBNAILS["DEWALT DCB107 12V_20V MAX Lithium Ion Charger"]);
+  });
+
+  it("uses the bundled set when an attachment points at a bundled photo, encoded or not", () => {
+    const trotec = BUNDLED_TOOL_THUMBNAILS["Trotec Speedy 400, 80w"];
+    expect(toolImage({ name: "Trotec", officialName: null }, [blob({ publicUrl: "/tool-images/Trotec Speedy 400, 80w.png" })]).thumbnails).toBe(trotec);
+    expect(bundledThumbnailsForUrl("/tool-images/Trotec%20Speedy%20400%2C%2080w.png")).toBe(trotec);
+    expect(bundledThumbnailsForUrl("/tool-images/Nope.png")).toBeNull();
+    expect(bundledThumbnailsForUrl("/tool-images/%E0%A4%A.png")).toBeNull();
+  });
+
+  it("has neither image nor thumbnails for a tool with no photo", () => {
+    expect(toolImage({ name: "New Thing", officialName: null }, [])).toEqual({ imageSrc: "", thumbnails: null });
   });
 });

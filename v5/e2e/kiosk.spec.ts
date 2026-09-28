@@ -98,6 +98,81 @@ test.describe("Kiosk", () => {
     });
   }
 
+  // Phone, upright iPad and TV, with three machines down and a long featured
+  // description (the case that used to push an upright iPad into a scroll):
+  // nothing runs off the side, and nothing sits under the header — the clock
+  // and the title never overlap the panels, however the layout stacks.
+  for (const viewport of [
+    { name: "phone-390x844", width: 390, height: 844 },
+    { name: "ipad-portrait-810x1080", width: 810, height: 1080 },
+    { name: "tv-1920x1080", width: 1920, height: 1080 },
+  ]) {
+    test(`at ${viewport.name} nothing overflows sideways or overlaps the header`, async ({ page }) => {
+      await page.setViewportSize({ width: viewport.width, height: viewport.height });
+      await page.clock.install();
+      await openKiosk(page);
+      const real = await (await page.request.get("/api/kiosk")).json();
+      await page.route("**/api/kiosk", (route) =>
+        route.fulfill({
+          json: {
+            ...real,
+            tickets: { open: 4, inProgress: 2 },
+            down: [
+              { toolSlug: "form-4", toolName: "Form 4", imageSrc: "/tool-images/Form%204.png", unitsDown: 1, unitsTotal: 2, state: "under_maintenance" },
+              { toolSlug: "trotec-speedy-400", toolName: "Trotec Speedy 400", imageSrc: "", unitsDown: 1, unitsTotal: 1, state: "out_of_service" },
+              { toolSlug: "bambu-x1c", toolName: "Bambu Lab X1 Carbon with AMS", imageSrc: "", unitsDown: 2, unitsTotal: 4, state: "mixed" },
+            ],
+            featured: [
+              {
+                kind: "tool",
+                slug: "form-4",
+                name: "Formlabs Form 4 resin 3D printer",
+                shortDescription: "A high-precision desktop resin printer. ".repeat(12),
+                imageSrc: "/tool-images/Form%204.png",
+              },
+            ],
+          },
+        })
+      );
+      await page.clock.runFor(71_000);
+      await expect(page.locator("[data-kiosk-tickets]")).toHaveText("6");
+
+      const layout = await page.evaluate(() => {
+        const root = document.scrollingElement ?? document.documentElement;
+        const screenEl = document.querySelector<HTMLElement>("[data-kiosk-shift]")!;
+        const header = document.querySelector("[data-kiosk] header")!.getBoundingClientRect();
+        const regions = [...document.querySelectorAll("[data-kiosk] main > section, [data-kiosk] footer")].map((el) => ({
+          name: el.getAttribute("aria-labelledby") ?? el.tagName,
+          top: el.getBoundingClientRect().top,
+        }));
+        // Everything inside the header stays inside it (the clock never spills out).
+        const spill = [...document.querySelectorAll("[data-kiosk] header *")].filter((el) => {
+          const box = el.getBoundingClientRect();
+          return box.width > 0 && (box.left < header.left - 1 || box.right > header.right + 1 || box.bottom > header.bottom + 1);
+        }).length;
+        return {
+          pageX: root.scrollWidth - root.clientWidth,
+          screenX: screenEl.scrollWidth - screenEl.clientWidth,
+          headerBottom: header.bottom,
+          regions,
+          spill,
+        };
+      });
+      expect(layout.pageX).toBeLessThanOrEqual(0);
+      expect(layout.screenX).toBeLessThanOrEqual(0);
+      expect(layout.spill).toBe(0);
+      for (const region of layout.regions) expect(region.top, region.name).toBeGreaterThanOrEqual(layout.headerBottom);
+
+      if (viewport.width < 640) {
+        // On a phone the assistant is a link as well as a (smaller) QR code.
+        await expect(page.getByRole("link", { name: "Open the assistant" })).toHaveAttribute("href", /\/\?src=kiosk&ask=1$/);
+      } else {
+        await expect(page.getByRole("link", { name: "Open the assistant" })).toBeHidden();
+      }
+      await screenshot(page, `${viewport.name}-machines-down`);
+    });
+  }
+
   test("answers /api/kiosk with public data only", async ({ request }) => {
     const res = await request.get("/api/kiosk");
     expect(res.status()).toBe(200);

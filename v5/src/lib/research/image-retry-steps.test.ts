@@ -284,6 +284,26 @@ describe("startImageRetry", () => {
     ).toEqual({ ok: true });
   });
 
+  it("allows a run on an item with an uploaded photo — the photo is a choice, not the cover", async () => {
+    const { id } = await researchedItem();
+    const db = await getDb();
+    const [photo] = await db
+      .insert(attachments)
+      .values({
+        blobPathname: `uploads/chat/${crypto.randomUUID()}.jpg`,
+        access: "public",
+        contentType: "image/jpeg",
+        origin: "upload",
+        ownerType: "pending_tool",
+        ownerId: id,
+      })
+      .returning({ id: attachments.id });
+    expect(photo.id).toBeTruthy();
+    expect(
+      await startImageRetry(id, { requestedBy: ADMIN, requestId: crypto.randomUUID(), note: null, limit: 1000, since: new Date(0) })
+    ).toEqual({ ok: true });
+  });
+
   it("refuses an item that is not researched", async () => {
     const { items } = await createPendingBatch({ createdBy: ADMIN, items: [{ name: "Not researched yet", brand: null }] });
     expect(
