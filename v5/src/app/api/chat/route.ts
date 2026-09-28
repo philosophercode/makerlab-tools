@@ -64,7 +64,9 @@ interface AttachedManual {
   data: string;
 }
 
-export const maxDuration = 60;
+// Long step-by-step answers with manual lookups can run past a minute; at 60 s
+// Vercel ended the stream mid-sentence. 300 s is the platform default.
+export const maxDuration = 300;
 
 interface ChatRequest {
   /** The conversation's id (`useChat`), recorded on the proposals a curation turn makes. */
