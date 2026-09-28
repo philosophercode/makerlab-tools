@@ -20,6 +20,12 @@ export interface SiteConfig {
   audience: string;
   /** Path to the logo image in /public. */
   logo: string;
+  /**
+   * The lab's opening hours as one line of text, shown in the header's status
+   * strip and on the kiosk screen (`/kiosk`). Free text until hours are
+   * structured (kiosk spec phase 2); `NEXT_PUBLIC_LAB_HOURS` overrides it.
+   */
+  labHours: string;
   /** Brand colors — injected as CSS variables at the root layout. */
   colors: {
     primary: string;
@@ -37,6 +43,7 @@ export const siteConfig: SiteConfig = {
     process.env.NEXT_PUBLIC_CHAT_ASSISTANT_NAME ?? "MakerLab Assistant",
   audience: process.env.AUDIENCE ?? "students who may be beginners",
   logo: process.env.NEXT_PUBLIC_LOGO ?? "/makerlab-logo-transparent.png",
+  labHours: process.env.NEXT_PUBLIC_LAB_HOURS || "LAB OPEN 9AM-9PM",
   colors: {
     primary: process.env.NEXT_PUBLIC_COLOR_PRIMARY ?? "#ff6b35",
     primaryDark: process.env.NEXT_PUBLIC_COLOR_PRIMARY_DARK ?? "#cc4f1f",

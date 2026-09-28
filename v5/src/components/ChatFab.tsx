@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { ClipboardCheckIcon, MapPinIcon, SearchIcon, SquarePenIcon, XIcon } from "lucide-react";
 import { useChatLauncher } from "./ChatLauncherContext";
+import { isKioskPath } from "./kiosk-path";
 import { siteConfig } from "../lib/site-config";
 import { startGoogleSignIn } from "../lib/auth/sign-in-client";
 import { toVisionFileParts, withRecentPhotos } from "../lib/chat/photo-parts";
@@ -54,7 +55,8 @@ function isAdminPath(pathname: string): boolean {
  *   corner; on `/admin/*` that button is not drawn (it collided with bulk
  *   bars) and the section bar's **Ask the assistant** and ⌘K open it instead.
  *   Anything else — Report, Add equipment, the QR notice — opens it through
- *   `ChatLauncherContext`, optionally with a first message.
+ *   `ChatLauncherContext`, optionally with a first message. On `/kiosk`
+ *   nothing is drawn at all: that screen is read-only.
  * - **The sheet** (`ui/sheet`): 440px from `sm`, the whole screen on a phone,
  *   frosted, the focus trapped inside, Escape closes, focus returns to what
  *   opened it; closing keeps the conversation, the draft and the attachments.
@@ -260,6 +262,10 @@ export function ChatFab() {
   }
 
   const showLoader = isLoading && messages[messages.length - 1]?.role !== "assistant";
+
+  // The kiosk is read-only: the phone is the interactive surface, reached
+  // through its QR code (kiosk spec §2). No button and no sheet there.
+  if (isKioskPath(pathname)) return null;
 
   return (
     <>

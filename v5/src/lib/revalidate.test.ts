@@ -3,7 +3,7 @@ import { nextCacheMock } from "../../test/mocks/next-cache";
 vi.mock("next/cache", () => nextCacheMock());
 
 import { revalidateTag } from "next/cache";
-import { ALL_TAGS, invalidateCatalog, invalidateProjects } from "./revalidate";
+import { ALL_TAGS, invalidateCatalog, invalidateMaintenance, invalidateProjects } from "./revalidate";
 
 /**
  * The tag names, pinned.
@@ -42,6 +42,13 @@ describe("invalidateProjects", () => {
   it("clears the projects tag, expiring it on the spot", () => {
     invalidateProjects();
     expect(revalidateTag).toHaveBeenCalledWith("projects", { expire: 0 });
+  });
+});
+
+describe("invalidateMaintenance", () => {
+  it("clears the tag the kiosk's ticket count is cached under, expiring it on the spot", () => {
+    invalidateMaintenance();
+    expect(revalidateTag).toHaveBeenCalledWith("maintenance", { expire: 0 });
   });
 });
 

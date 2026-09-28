@@ -202,6 +202,10 @@ export const ROUTE_TIERS = {
   // Starting a bulk import (bulk intake spec §8): a parse, and for a document a
   // model run — a handful a minute is more than anybody imports.
   imports: { limit: 6, windowMs: 60_000 },
+  // The kiosk's poll (kiosk spec §8): a screen asks once a minute, so twenty
+  // covers a lab or a booth full of screens behind one address. Keyed by
+  // hashed IP only — the route reads no cookie.
+  kiosk: { limit: 20, windowMs: 60_000 },
 } as const;
 
 export type RouteScope = keyof typeof ROUTE_TIERS;
