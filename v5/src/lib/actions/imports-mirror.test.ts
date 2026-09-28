@@ -17,8 +17,9 @@ import { listAuditEvents } from "../data/audit";
 import { getPendingTool, listPendingTools } from "../data/pending-tools";
 import { findUserById } from "../data/users";
 import { getDb, resetDbForTests } from "../db/client";
-import { actionProposals, notionMirrors, user } from "../db/schema/index";
+import { actionProposals, notionMirrors } from "../db/schema/index";
 import { saveMirrorConnection } from "../data/mirrors";
+import { createActionProposals } from "../data/action-proposals";
 import { encryptMirrorToken } from "../mirror/token-crypto";
 import { startImport } from "../import/service";
 import { seedUser, signInAsNew } from "../../../test/utils/session";
@@ -29,9 +30,9 @@ import { actionById } from "./registry";
  * Imports, the mirror and People's removal from a card (assistant–GUI parity
  * spec §9 phases 5–6): row changes land as the import page's would and only
  * on the caller's own import; asking for name suggestions spends at the
- * click; disconnecting the mirror and removing a person need the typed name,
- * are audited as the assistant's, and are never proposed from a turn that
- * read outside content.
+ * click; disconnecting the mirror, removing a person, granting an allowance
+ * and unblocking an address are never the assistant's (owner decision
+ * 2026-09-27), not even from a proposal already stored.
  */
 
 let identity: Identity;
@@ -116,7 +117,7 @@ describe("imports", () => {
 });
 
 describe("the mirror", () => {
-  it("disconnects the caller's own mirror with its page's title typed, audited as the assistant's", async () => {
+  it("never disconnects from the assistant: no proposal, and a stored one is refused at the click (owner decision 2026-09-27)", async () => {
     await as("admin");
     const db = await getDb();
     const { mirror } = await saveMirrorConnection(
@@ -128,14 +129,12 @@ describe("the mirror", () => {
       },
       { db }
     );
-    const proposed = await propose("mirror.disconnect", {});
-    if (!proposed.ok) throw new Error(proposed.error);
-    expect(proposed.proposals[0].preview).toMatchObject({ subjectName: "Lab mirror", summary: { key: "mirror_disconnect" } });
-    expect(await confirm([proposed.proposals[0].id], "lab mirror")).toEqual([expect.objectContaining({ status: "confirmed" })]);
+    expect(await propose("mirror.disconnect", {})).toEqual({ ok: false, error: "not_offered" });
+    const stored = await storedProposal("mirror.disconnect", {}, "mirror", "mine", "Lab mirror");
+    expect(await confirm([stored.id], "lab mirror")).toEqual([expect.objectContaining({ status: "failed", error: "not_offered" })]);
     const [after] = await db.select().from(notionMirrors).where(eq(notionMirrors.id, mirror.id));
-    expect(after.tokenCiphertext).toBeNull();
-    const event = (await listAuditEvents()).find((e) => e.action === "mirror.disconnected");
-    expect(event).toMatchObject({ surface: "assistant", subjectId: mirror.id, actorUserId: userId });
+    expect(after.tokenCiphertext).not.toBeNull();
+    expect((await listAuditEvents()).find((e) => e.action === "mirror.disconnected")).toBeUndefined();
   });
 
   it("proposes nothing for somebody with no connected mirror", async () => {
@@ -144,32 +143,47 @@ describe("the mirror", () => {
   });
 });
 
-describe("removing a person (§5.4)", () => {
-  it("is refused in a tainted turn, and needs the name typed in a clean one", async () => {
+describe("the People actions the assistant never takes (owner decision 2026-09-27)", () => {
+  it("never proposes removing a person, and refuses a stored removal at the click even with the name typed", async () => {
     await as("super_admin");
     const casey = await seedUser({ email: "casey@cornell.edu", role: "user", name: "Casey Rivera" });
-    expect(await propose("people.remove", { user_id: casey.id }, true)).toEqual({ ok: false, error: "tainted_turn" });
-
-    const proposed = await propose("people.remove", { user_id: casey.id });
-    if (!proposed.ok) throw new Error(proposed.error);
-    expect(proposed.proposals[0].preview).toMatchObject({
-      summary: { key: "people_remove", values: { name: "Casey Rivera" } },
-      subjectName: "Casey Rivera",
-    });
-    expect(await confirm([proposed.proposals[0].id], "Casey")).toEqual([
-      expect.objectContaining({ status: "failed", error: "confirmation_mismatch" }),
-    ]);
+    expect(await propose("people.remove", { user_id: casey.id })).toEqual({ ok: false, error: "not_offered" });
+    const stored = await storedProposal("people.remove", { userId: casey.id, block: true }, "user", casey.id, "Casey Rivera");
+    expect(await confirm([stored.id], "casey rivera")).toEqual([expect.objectContaining({ status: "failed", error: "not_offered" })]);
     expect(await findUserById(casey.id)).not.toBeNull();
-
-    expect(await confirm([proposed.proposals[0].id], "casey rivera")).toEqual([expect.objectContaining({ status: "confirmed" })]);
-    expect(await findUserById(casey.id)).toBeNull();
-    const removed = (await listAuditEvents()).find((e) => e.action === "user.removed");
-    expect(removed).toMatchObject({ surface: "assistant", proposalId: proposed.proposals[0].id });
+    expect((await listAuditEvents()).find((e) => e.action === "user.removed")).toBeUndefined();
   });
 
-  it("refuses removing yourself before any card is drawn", async () => {
+  it("never grants an allowance or unblocks an address, even from a stored proposal", async () => {
     await as("super_admin");
-    expect(await propose("people.remove", { user_id: userId })).toMatchObject({ ok: false, error: "self_remove" });
-    expect((await (await getDb()).select().from(user).where(eq(user.id, userId))).length).toBe(1);
+    const luis = await seedUser({ email: "luis@cornell.edu", role: "admin", name: "Luis" });
+    expect(await propose("people.grant_allowance", { user_id: luis.id, extra_items: 50, days: 3 })).toEqual({ ok: false, error: "not_offered" });
+    expect(await propose("people.unblock_email", { email: "gone@cornell.edu" })).toEqual({ ok: false, error: "not_offered" });
+    const grant = await storedProposal("people.grant_allowance", { userId: luis.id, extraItems: 50, days: 3 }, "user", luis.id, "Luis");
+    const unblock = await storedProposal("people.unblock_email", { email: "gone@cornell.edu" }, "email", "gone@cornell.edu", "gone@cornell.edu");
+    expect(await confirm([grant.id, unblock.id])).toEqual([
+      expect.objectContaining({ status: "failed", error: "not_offered" }),
+      expect.objectContaining({ status: "failed", error: "not_offered" }),
+    ]);
+    const events = (await listAuditEvents()).map((e) => e.action);
+    expect(events).not.toContain("allowance.granted");
   });
 });
+
+/** A proposal row written straight to the table, as one stored before its action left the assistant. */
+async function storedProposal(actionId: string, input: unknown, subjectType: string, subjectId: string, subjectName: string) {
+  const [row] = await createActionProposals([
+    {
+      groupId: crypto.randomUUID(),
+      actionId,
+      input,
+      subjectType,
+      subjectId,
+      preview: { summary: { key: "x", values: {} }, rows: [], subjectName },
+      surface: "assistant",
+      chatId: "chat-1",
+      createdBy: userId,
+    },
+  ]);
+  return row;
+}

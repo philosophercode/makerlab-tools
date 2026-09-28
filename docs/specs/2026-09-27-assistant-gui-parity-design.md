@@ -1,7 +1,7 @@
 # Assistant–GUI Parity: One Action Layer for People, Assistant and MCP — Design Spec
 
 **Date:** 2026-09-27
-**Status:** Accepted 2026-09-27 (owner's answers to §11 in the amendment below). **Phases 1–8 built**, with **Log completed maintenance** (§11 answer 5), on branch `v5/assistant-gui-parity`; see the as-built amendments
+**Status:** Accepted 2026-09-27 (owner's answers to §11 in the amendment below). **Phases 1–8 built**, with **Log completed maintenance** (§11 answer 5), on branch `v5/assistant-gui-parity`; see the as-built amendments. **Assistant limits** (owner decision 2026-09-27): the assistant never touches `super_admin`, allowances, removal, blocking or the mirror's disconnect, nor secrets, tokens, hosting, the database, backups, the audit trail, email export or messaging — see the last amendment
 **Target:** `v5/`
 **Branch:** `docs/spec-assistant-gui-parity` (spec); `v5/assistant-gui-parity` (implementation)
 **Spec PR:** #91 · **Implementation PR:** #95 (phases 1–8, one PR)
@@ -1357,3 +1357,89 @@ list. Evals: one case (`mcp-proposals-inbox`), not run (paid).
 
 **Status.** Built on `v5/assistant-gui-parity`; one PR for phases 1–8, to merge before #79 (the
 flatten), which merges last.
+
+### 2026-09-27 — owner decision: assistant limits
+
+The owner narrowed §1's "anything the GUI can" (2026-09-27, added to PR #95). The GUI keeps every
+one of these for people who hold the permission; only the assistant loses them.
+
+**The assistant acts only as the signed-in person, never past their role.** Unchanged from §8.2,
+now pinned by its own test: a tool is offered on either surface only when the person holds the
+capability's and the tool's permission (`capabilitiesForIdentity`, `mcpToolAllowed`), and
+`proposeAction` and the confirm route's `performAction` ask `can()` again.
+
+**Never, on any surface (chat or MCP), whatever the role:**
+
+| # | What | How it is enforced |
+|---|---|---|
+| 1 | Setting anyone's role to `super_admin`, or changing an existing super admin's role | `people.set_role` stays in the chat for User ↔ Admin changes. Its `check` and `run` refuse `only_on_people_page` ("That change can only be made on the People page.") when `ctx.surface` is not `gui` and either the current or the new role is `super_admin` (`superAdminPageOnly`, `lib/actions/people.ts`). `people.add` refuses a `super_admin` role the same way (a floor address included, since it would be stored `super_admin`). Checked at propose time and again at the click |
+| 2 | Granting research allowances | `people.grant_allowance` is `assistant: "never"`, no tool, no preview |
+| 3 | Removing people; blocking or unblocking addresses | `people.remove` (whose `block` option is the only block door) and `people.unblock_email` are `assistant: "never"`, no tool, no preview; `people.block_email` is on the id list before it exists |
+| 4 | Disconnecting the Notion mirror | `mirror.disconnect` is `assistant: "never"`, no tool, no preview |
+| 5 | Reading or setting environment variables or secrets; creating tokens or handling any secret; deploying or changing hosting; raw SQL or database access; restoring backups or `data:push`; editing or deleting audit events; bulk-exporting people's emails; sending emails or messages | No action or tool does any of these today. The deny list's categories (below) make one that did fail at load (an action) or vanish from both surfaces (any capability tool). Token creation and the Notion secret stay `EXEMPT` "Never" (§2). `find_people` keeps masking |
+
+**The deny list** (`lib/actions/define.ts`):
+
+- `ASSISTANT_FORBIDDEN_ACTIONS` — ids with the reason: `people.grant_allowance`, `people.remove`,
+  `people.block_email`, `people.unblock_email`, `mirror.disconnect`.
+- `ASSISTANT_FORBIDDEN_CATEGORIES` — words that name forbidden work: secrets (`env`, `secret`,
+  `credential`, `password`…), tokens (`token`, `oauth`, `consent`), hosting (`deploy`, `vercel`,
+  `domain`, `dns`, `rollback`, `promote`…), database (`sql`, `db`, `migrate`, `raw`…), backups
+  (`backup`, `dump`, `push`, `data`), audit (`audit`, `trail`), messaging (`send`, `mail`,
+  `message`, `notify`, `sms`, `slack`, `invite`…), export (`export`, `download`, `csv`, `email`,
+  `emails`, `addresses`), people (`block`, `unblock`, `ban`, `allowance`). An action id or tool name
+  is split on `.`, `_`, `-`; one matching word forbids it. Deliberately broad: a false match costs a
+  `neverReason`, a missed one is a leak. No tool offered today matches.
+
+**Where it is enforced (defence in depth):**
+
+1. **At load** — `defineAction` throws for an action on the deny list that is not
+   `assistant: "never"`, and for any `"never"` action that still carries a `tool` or `preview`.
+2. **Where tools are generated** — `proposableDefinitions` (the one list both surfaces' action tools
+   come from) keeps only `assistantMayPropose` definitions; `capabilitiesForIdentity` (chat) and
+   `mcpToolAllowed` (MCP registration, the `/mcp` page and the per-call re-check) drop any
+   capability tool whose name is forbidden, for every role.
+3. **At propose time** — `proposeAction` answers `not_offered` for a definition the assistant may
+   not propose.
+4. **At the click** — `decideActionProposals` settles a stored proposal whose action the assistant
+   may no longer propose as `failed` / `not_offered` before `performAction` runs, so a card stored
+   before this decision (or a row written by anything but `proposeAction`) commits nothing.
+   `admin.errors.not_offered` and `admin.errors.only_on_people_page` are the card's sentences.
+
+**Counts** (the phase 2 measurement, §11 answer 8): action tools 40 → **36** for a director,
+33 → **32** for a SuperMaker; chat tools 58 → **54** and 50 → **49**; students 9. The MCP lists are
+unchanged (none of the four was ever on MCP).
+
+**The registry, changed rows** (the phases 7–8 table stands as history):
+
+| Action | Tool | Risk | Permission | Chat | MCP |
+|---|---|---|---|---|---|
+| `people.set_role` | `set_person_role` | people | `users.manage` | propose (User ↔ Admin only; never `super_admin`) | never |
+| `people.add` | `add_person` | people | `users.manage` | propose (never as `super_admin`) | never |
+| `people.remove` | `remove_person` | destructive | `users.manage` | never | never |
+| `people.unblock_email` | `unblock_email` | people | `users.manage` | never | never |
+| `people.grant_allowance` | `grant_research_allowance` | people | `users.manage` | never | never |
+| `mirror.disconnect` | `disconnect_mirror` | destructive | `mirror.manage` | never | never |
+
+§5.4 ("Remove Casey") stands as history: the assistant now says removal is done on the People page.
+
+**Tests.** `lib/actions/assistant-limits.test.ts` (new): the categories match sample future ids
+(`db.run_sql`, `data.push`, `send_email`, `export_emails`, `create_token`, `edit_audit_event`…) and no
+tool offered today; `defineAction` refuses each forbidden id unless `never`, and a `never` with a
+tool; the registry's forbidden actions are exactly the four, `never`, with no tool, preview or MCP;
+for every role, neither the chat's composed tools (curation included) nor the MCP list nor the
+`/mcp` page carries a forbidden tool, and every tool offered needs a permission that role holds; a
+rogue capability's `send_email`, `run_sql`, `set_env`, `create_token`, `deploy_now`,
+`restore_backup`, `delete_audit_event` are dropped on both surfaces for a super admin; and every read
+either surface offers a super admin (PGlite, seeded users, a ticket and a correction carrying
+addresses) returns no full address. `proposals.test.ts`: `set_role` to or from `super_admin` and
+`add` as `super_admin` refused on the chat and MCP surfaces; User ↔ Admin still confirms; a forged
+stored promotion and a card whose subject became a super admin are refused at the click; the People
+page still promotes, demotes and adds super admins. `imports-mirror.test.ts`: `mirror.disconnect`,
+`people.remove`, `people.grant_allowance` and `people.unblock_email` propose `not_offered`, and
+stored proposals for each are refused at the click with nothing changed (the typed name
+notwithstanding). `capabilities/actions.test.ts`: no role is offered the four; the prompt says what
+is never the assistant's. `api/chat/taint.route.test.ts`: taint now shown with `set_person_role`, the
+destructive card with `archive_tool`, and a model that calls `remove_person` stores nothing.
+
+**Status.** Built on `v5/assistant-gui-parity` (PR #95).
