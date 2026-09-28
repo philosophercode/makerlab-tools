@@ -4,6 +4,7 @@ import path from "node:path";
 import en from "../../messages/en.json";
 import {
   mergeClientMessages,
+  omitMessages,
   pickMessages,
   publicClientMessages,
   scopedClientMessages,
@@ -35,23 +36,40 @@ describe("what reaches the browser (performance plan, quick win 6)", () => {
   it("leaves the admin and account namespaces off public pages", () => {
     const publicSet = publicClientMessages(english);
     expect(publicSet.account).toBeUndefined();
-    expect(Object.keys(publicSet.admin as Messages).sort()).toEqual(["errors", "inventory", "mirror", "nav", "titles", "warnings"]);
-    // en.json is ~109 KB; the public set is a fraction of it.
-    expect(size(publicSet)).toBeLessThan(size(english) * 0.45);
+    expect((publicSet.admin as Messages).intake).toBeUndefined();
+    expect((publicSet.admin as Messages).users).toBeUndefined();
+    // en.json is ~105 KB; the public set is a fraction of it.
+    expect(size(publicSet)).toBeLessThan(size(english) * 0.5);
+  });
+
+  it("never sends a string twice: a scope leaves out what the public set sent", () => {
+    const admin = scopedClientMessages(english, "admin").admin as Messages;
+    expect(admin.nav).toBeUndefined();
+    expect((admin.inventory as Messages).editor).toBeUndefined();
+    expect(admin.inventory).toBeDefined();
+    expect(mergeClientMessages(publicClientMessages(english), scopedClientMessages(english, "admin")).admin).toEqual(english.admin);
+  });
+
+  it("omits without touching the source", () => {
+    const messages: Messages = { a: { x: "1", y: "2" } };
+    expect(omitMessages(messages, ["a.x"])).toEqual({ a: { y: "2" } });
+    expect(omitMessages(messages, ["a.x", "a.y"])).toEqual({});
+    expect(messages).toEqual({ a: { x: "1", y: "2" } });
   });
 });
 
 // ── Every client component's translations are sent by its layout ─────
 
-/** Where a client component can render, by its path. */
-function scopeOf(file: string): "public" | "admin" | "account" {
-  const rel = path.relative(SRC, file);
-  if (/(^|\/)admin\//.test(rel)) return "admin";
-  if (/(^|\/)account\//.test(rel)) return "account";
+type Scope = "public" | "admin" | "account";
+
+/** The scope a route file renders in, by where it sits under `app/`. */
+function routeScope(rel: string): Scope {
+  if (/^app\/admin(\/|$)/.test(rel)) return "admin";
+  if (/^app\/(account|oauth|mcp)(\/|$)/.test(rel)) return "account";
   return "public";
 }
 
-const AVAILABLE = {
+const AVAILABLE: Record<Scope, Messages> = {
   public: publicClientMessages(english),
   admin: mergeClientMessages(publicClientMessages(english), scopedClientMessages(english, "admin")),
   account: mergeClientMessages(publicClientMessages(english), scopedClientMessages(english, "account")),
@@ -84,19 +102,67 @@ function covers(sent: unknown, full: unknown): boolean {
   return Object.entries(full).every(([key, value]) => covers((sent as Messages)[key], value));
 }
 
-function clientFiles(dir: string): string[] {
+function sourceFiles(dir: string): string[] {
   const out: string[] = [];
   for (const name of readdirSync(dir)) {
     const full = path.join(dir, name);
     if (statSync(full).isDirectory()) {
       if (name === "node_modules" || name.startsWith(".")) continue;
-      out.push(...clientFiles(full));
-    } else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name)) {
-      const text = readFileSync(full, "utf8");
-      if (/^\s*["']use client["']/.test(text) && text.includes("useTranslations(")) out.push(full);
+      out.push(...sourceFiles(full));
+    } else if (/\.tsx?$/.test(name) && !/\.test\.tsx?$/.test(name) && !name.endsWith(".d.ts")) {
+      out.push(full);
     }
   }
   return out;
+}
+
+const FILES = sourceFiles(SRC);
+const TEXT = new Map(FILES.map((file) => [file, readFileSync(file, "utf8")]));
+
+/** A module specifier as a file under `src/`, or null for a package. */
+function resolveImport(from: string, spec: string): string | null {
+  const base = spec.startsWith("@/") ? path.join(SRC, spec.slice(2)) : spec.startsWith(".") ? path.resolve(path.dirname(from), spec) : null;
+  if (!base) return null;
+  for (const candidate of [base, `${base}.ts`, `${base}.tsx`, path.join(base, "index.ts"), path.join(base, "index.tsx")]) {
+    if (TEXT.has(candidate)) return candidate;
+  }
+  return null;
+}
+
+/** Static and dynamic imports alike: the lazy chat panel renders in the page that loads it. */
+const IMPORTS = new Map(
+  FILES.map((file) => {
+    const specs = [...(TEXT.get(file) ?? "").matchAll(/(?:from\s+|import\s*\(\s*|import\s+)["']([^"']+)["']/g)].map((m) => m[1]);
+    return [file, specs.map((spec) => resolveImport(file, spec)).filter((f): f is string => Boolean(f))];
+  })
+);
+
+/** Every scope a module can render in: the scopes of the route files that reach it. */
+function scopesByFile(): Map<string, Set<Scope>> {
+  const scopes = new Map<string, Set<Scope>>();
+  const routes = FILES.filter((file) => /\/app\/(.+\/)?(page|layout|loading|error|not-found|template)\.tsx$/.test(file));
+  for (const route of routes) {
+    const scope = routeScope(path.relative(SRC, route));
+    const stack = [route];
+    const seen = new Set<string>();
+    while (stack.length > 0) {
+      const file = stack.pop() as string;
+      if (seen.has(file)) continue;
+      seen.add(file);
+      const set = scopes.get(file) ?? new Set<Scope>();
+      set.add(scope);
+      scopes.set(file, set);
+      stack.push(...(IMPORTS.get(file) ?? []));
+    }
+  }
+  return scopes;
+}
+
+const SCOPES = scopesByFile();
+
+function isClient(file: string): boolean {
+  const text = TEXT.get(file) ?? "";
+  return /^\s*["']use client["']/.test(text) && text.includes("useTranslations(");
 }
 
 /** Every key a file asks for: `ns.key` for a literal, `ns.*` when the key is computed. */
@@ -121,20 +187,22 @@ function requestedKeys(text: string): { key: string; whole: boolean }[] {
 }
 
 describe("client components get the translations they use", () => {
-  const files = clientFiles(SRC);
+  const files = FILES.filter(isClient);
 
-  it("finds the client components", () => {
+  it("finds the client components, and the routes that render them", () => {
     expect(files.length).toBeGreaterThan(50);
+    // The tool editor panel is admin code rendered on a public tool page.
+    const panel = FILES.find((file) => file.endsWith("components/admin/ToolEditorPanel.tsx")) as string;
+    expect([...(SCOPES.get(panel) ?? [])].sort()).toEqual(["admin", "public"]);
   });
 
   it.each(files.map((file) => [path.relative(SRC, file), file]))("%s", (_rel, file) => {
-    const scope = scopeOf(file);
-    const available = AVAILABLE[scope];
-    const missing = requestedKeys(readFileSync(file, "utf8"))
-      .filter(({ key, whole }) => (whole ? !hasWhole(available, key) : !has(available, key)))
-      // A key that is not in en.json at all is another test's business.
-      .filter(({ key }) => has(english, key))
-      .map(({ key, whole }) => (whole ? `${key} (all of it)` : key));
-    expect(missing, `not sent to ${scope} pages — add to i18n/client-messages.ts`).toEqual([]);
+    const wanted = requestedKeys(TEXT.get(file) ?? "").filter(({ key }) => has(english, key));
+    const missing = [...(SCOPES.get(file) ?? new Set<Scope>(["public"]))].flatMap((scope) =>
+      wanted
+        .filter(({ key, whole }) => (whole ? !hasWhole(AVAILABLE[scope], key) : !has(AVAILABLE[scope], key)))
+        .map(({ key, whole }) => `${scope}: ${whole ? `${key} (all of it)` : key}`)
+    );
+    expect(missing, "not sent where this renders — add to i18n/client-messages.ts").toEqual([]);
   });
 });
