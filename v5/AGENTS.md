@@ -1826,6 +1826,7 @@ and its 2026-09-28 amendment are the detail.
 | `src/lib/tool-names.ts` / `scripts/backfill-display-names.ts` | A tool's display and official names — the display rules and guard, and the backfill that shortens imported names |
 | `src/lib/tool-name-brand.ts` / `tool-name-choice.ts` / `display-name-rules.ts` / `data/tool-name-clash.ts` | Bare-brand refusal and category nouns; unique names with the distinguishing spec; the one rules text the prompts share; the `duplicate_name` read |
 | `src/app/page.tsx`, `tools/[id]/page.tsx` | Gallery + tool detail |
+| `src/app/product/` / `src/components/product/*` / `src/components/SiteFooter.tsx` | The product page and quick start (`/product`, `/product/quick-start`; identity spec amendment "Product page and quick start"): copy under `product` in the messages, screenshots and costs in `product-content.ts`, images and the walkthrough in `public/product/`; the site footer that links them |
 
 ## Conventions
 

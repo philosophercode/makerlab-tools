@@ -133,3 +133,52 @@ longest translation of the links (Spanish) fitting with the scrollbar shown;
 for the same reason the bar's gaps are tighter (24px, 16px below 1280) and the
 search trigger is 144px from lg to xl (was 176). Tested in
 `e2e/header-stability.spec.ts` (sizes, fit, centring).
+
+## Amendment — Product page and quick start (2026-09-28)
+
+The owner wanted a page to send the Director and Assistant Director: "like a
+good consumer SaaS product page, showing all the big features with
+screenshots (and a short video walkthrough if possible), plus a quick-start
+guide: what's there, what to play with, how to use it, and what it costs."
+
+- **`/product`** — hero ("MakerLAB AI" — the owner renamed the assistant for this page, 2026-09-28; the app-wide rename is a separate PR — **Try it** →
+  `/tools/bambu-lab-x1-carbon-combo-3d-printer?ask=1`, the running example,
+  with the chat opened by `AskParamOpener`; **Quick start** beside it), a
+  49-second walkthrough (MP4 + WebM, `preload="none"`, poster, English
+  captions, a text transcript), operate / debug / create with one real
+  question and answer each, eleven feature sections with screenshots, **what
+  it costs to run**, privacy and safety, credits. Costs are the measured unit
+  costs and dated monthly estimates from the 2026-09-28 pricing memo — chat
+  ≈ $0.0003 (≈ $0.002 with manual reranking), research $0.02–0.05 a tool,
+  indexing a fraction of a cent (20 manuals / 1,136 pages cost $0.013), OCR
+  ≤ $1 a manual, AI ≈ $10–15 and hosting ≈ $20–40 a month. **Never a
+  subscription price** on this page: pricing is a separate decision.
+- **`/product/quick-start`** — eight numbered steps with screenshots (open
+  the site; ask the X1-Carbon "How do I start a print with the AMS?"; follow
+  a citation; report a problem; staff: intake from a photo, People and
+  titles, the kiosk; connect Claude or ChatGPT via `/mcp`) and things to try.
+- **Linked from the About page and a new site footer** (`SiteFooter`: Product,
+  Quick start, About, Connect an AI, the official MakerLAB page), not the main
+  nav. The footer is drawn on every page but the kiosk (`SiteChrome`).
+- **Static server components.** Words in `messages/en.json` under `product`
+  and `footer` (other locales fall back to English, Article 6); facts that are
+  not prose (screenshots, links, costs) in `app/product/product-content.ts`.
+  Metadata, including the Open Graph card (`public/product/og.png`, 1200×630),
+  is English, like `/about`'s.
+- **Screenshots are real.** Captured 2026-09-28 at 2× in the light theme:
+  public pages and the three pillar answers from the live site; staff screens
+  (intake, value report, action card, map, People), the ticket and the manual
+  citation from a local production build on the demo seed, captioned "Demo
+  data". Each is AVIF + WebP at two widths under `public/product/`, drawn by
+  `ProductShot` (`<picture>`, intrinsic size, lazy but the first screen).
+  The capture scripts are not committed; re-capture after a visible UI change.
+- **Found while capturing:** on the live site neither the X1-Carbon's searchable
+  manual nor its attached quick start guide covers the AMS, so the quick start's
+  own example question gets a "the manual doesn't cover this" answer. The
+  pillar screenshot uses a question the guide answers ("What does the quick
+  start guide say about the first print?"). Adding and indexing Bambu Lab's AMS
+  documentation (`npm run manuals:index`) would fix the AMS answer.
+- Tested in `app/product/page.test.tsx`, `app/product/quick-start/page.test.tsx`,
+  `components/SiteFooter.test.tsx`, `app/about/page.test.tsx` and
+  `e2e/product.spec.ts` (footer and About links, every image decodes, video and
+  captions served, no sideways scroll on a phone, no footer on the kiosk).
