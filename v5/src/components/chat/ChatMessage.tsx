@@ -1,17 +1,14 @@
 "use client";
 
-import { Suspense, lazy, useMemo, type ReactNode } from "react";
+import { Suspense, lazy, memo, useMemo, type ReactNode } from "react";
 import type { UIMessage } from "ai";
 import { Message, MessageContent } from "../ai-elements/message";
 import { Tool, ToolHeader } from "../ai-elements/tool";
 import { Source, Sources, SourcesContent, SourcesTrigger } from "../ai-elements/sources";
-import { IntakeTableCard } from "../IntakeTableCard";
-import { ImportCard } from "../ImportCard";
-import { ChatProposalCards, type ChatProposalItem } from "../ChatProposalCards";
+import type { ChatProposalItem } from "../ChatProposalCards";
 import type { IntakeTablePayload } from "../../lib/intake/types";
 import type { ImportCardPayload } from "../../lib/import/view";
 import type { ActionProposalCardPayload } from "../../lib/capabilities/actions";
-import { ActionProposalCard } from "./ActionProposalCard";
 import { citedPassages, manualPassages } from "./manual-citations";
 import { stripCitations, toolStatusLabel, type ChatT } from "./chat-text";
 
@@ -29,6 +26,17 @@ const ChatResponse = lazy(() => loadChatResponse().then((module) => ({ default: 
 export function preloadChatResponse(): void {
   void loadChatResponse();
 }
+
+/**
+ * The cards — the intake table (TanStack Table), the proposal and import
+ * cards — load only when a turn carries one: most conversations never do, and
+ * the chat's own chunk opens faster without them (performance plan, "Load the
+ * chat code only when the chat is opened").
+ */
+const IntakeTableCard = lazy(() => import("../IntakeTableCard").then((m) => ({ default: m.IntakeTableCard })));
+const ImportCard = lazy(() => import("../ImportCard").then((m) => ({ default: m.ImportCard })));
+const ChatProposalCards = lazy(() => import("../ChatProposalCards").then((m) => ({ default: m.ChatProposalCards })));
+const ActionProposalCard = lazy(() => import("./ActionProposalCard").then((m) => ({ default: m.ActionProposalCard })));
 
 const RUNNING = new Set(["input-streaming", "input-available"]);
 
@@ -50,8 +58,12 @@ const RUNNING = new Set(["input-streaming", "input-available"]);
  *   linked, each opening the PDF there.
  *
  * A turn with nothing to show yet renders nothing; the chat's loader covers it.
+ *
+ * Memoised (performance plan, quick win 9): the AI SDK replaces only the
+ * streaming message's object, so the earlier turns skip every re-render while
+ * an answer streams. `t` and `onInternalNavigate` are stable.
  */
-export function ChatMessage({
+export const ChatMessage = memo(function ChatMessage({
   message,
   t,
   onInternalNavigate,
@@ -105,27 +117,43 @@ export function ChatMessage({
     if (part.type === "data-intake-table" && isKind(part, "intake-table")) {
       hasCard = true;
       const data = (part as { data: IntakeTablePayload }).data;
-      blocks.push(<IntakeTableCard key={`intake-${data.batchId}`} payload={data} />);
+      blocks.push(
+        <Suspense key={`intake-${data.batchId}`} fallback={null}>
+          <IntakeTableCard payload={data} />
+        </Suspense>
+      );
       return;
     }
     if (part.type === "data-proposal" && isKind(part, "proposal")) {
       hasCard = true;
       if (!proposalsPlaced) {
         proposalsPlaced = true;
-        blocks.push(<ChatProposalCards key={`proposals-${index}`} items={proposals} />);
+        blocks.push(
+          <Suspense key={`proposals-${index}`} fallback={null}>
+            <ChatProposalCards items={proposals} />
+          </Suspense>
+        );
       }
       return;
     }
     if (part.type === "data-action-proposal" && isKind(part, "action-proposal")) {
       hasCard = true;
       const data = (part as { data: ActionProposalCardPayload }).data;
-      blocks.push(<ActionProposalCard key={`action-${data.groupId}`} payload={data} />);
+      blocks.push(
+        <Suspense key={`action-${data.groupId}`} fallback={null}>
+          <ActionProposalCard payload={data} />
+        </Suspense>
+      );
       return;
     }
     if (part.type === "data-import-card" && isKind(part, "import-card")) {
       hasCard = true;
       const data = (part as { data: ImportCardPayload }).data;
-      blocks.push(<ImportCard key={`import-${data.import.id}`} payload={data} />);
+      blocks.push(
+        <Suspense key={`import-${data.import.id}`} fallback={null}>
+          <ImportCard payload={data} />
+        </Suspense>
+      );
     }
   });
 
@@ -148,7 +176,7 @@ export function ChatMessage({
       </MessageContent>
     </Message>
   );
-}
+});
 
 function isKind(part: Part, kind: string): boolean {
   return (part as { data?: { kind?: unknown } }).data?.kind === kind;

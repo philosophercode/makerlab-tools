@@ -83,8 +83,18 @@ vi.mock("../lib/chat/downscale-image", () => ({
   downscaleForVision: (file: Blob) => downscaleForVision(file),
 }));
 
+// `next/dynamic`: ChatFab loads the chat's code on first open. Here the panel
+// is handed back eagerly, so a click opens the sheet in the same act() — the
+// lazy load itself is covered in `ChatFab.lazy.test.tsx`.
+vi.mock("next/dynamic", async () => {
+  const { ChatPanel } = await import("./chat/ChatPanel");
+  return { default: () => ChatPanel };
+});
+
 // Imported after the mocks above are hoisted.
 import { ChatFab } from "./ChatFab";
+// The conversation itself, mounted directly where a test reads what it hands useChat.
+import { ChatPanel } from "./chat/ChatPanel";
 import { ToolChatStarters } from "./ToolChatStarters";
 import { CurateChatStarter } from "./CurateChatStarter";
 import { AskAssistantButton } from "./chat/AskAssistantButton";
@@ -329,8 +339,22 @@ describe("ChatFab", () => {
   // at send time. With `useChat` mocked, we instead assert the component
   // passes a transport (and onData handler) into the hook — the request-body
   // forwarding itself is covered by the chat-route integration tests.
-  it("passes a transport and onData handler into useChat", () => {
+  it("does not mount the conversation until the chat is opened", async () => {
+    const user = userEvent.setup();
     render(<ChatFab />);
+    expect(lastUseChatOptions).toBeUndefined();
+
+    await user.click(screen.getByRole("button", { name: "Open MakerLab assistant" }));
+    expect(lastUseChatOptions).toBeTruthy();
+  });
+
+  it("throttles streamed updates to one render per 50ms (performance plan)", () => {
+    render(<ChatPanel />);
+    expect((lastUseChatOptions as { experimental_throttle?: number }).experimental_throttle).toBe(50);
+  });
+
+  it("passes a transport and onData handler into useChat", () => {
+    render(<ChatPanel />);
 
     expect(lastUseChatOptions).toBeTruthy();
     const opts = lastUseChatOptions as {
@@ -342,7 +366,7 @@ describe("ChatFab", () => {
   });
 
   it("bounds earlier photos in the request it sends", () => {
-    render(<ChatFab />);
+    render(<ChatPanel />);
     const { transport } = lastUseChatOptions as {
       transport: {
         prepareSendMessagesRequest: (options: {
@@ -574,7 +598,8 @@ describe("ChatFab — intake table", () => {
     render(<ChatFab />);
     await user.click(screen.getByRole("button", { name: "Open MakerLab assistant" }));
 
-    const card = screen.getByRole("region", { name: "Identified equipment" });
+    // The card's code loads when a turn carries one.
+    const card = await screen.findByRole("region", { name: "Identified equipment" });
     expect(card).toBeInTheDocument();
     expect(screen.getByText("Bambu Lab X1-Carbon Combo")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Research selected (1)" })).toBeEnabled();
@@ -592,7 +617,7 @@ describe("ChatFab — intake table", () => {
     render(<ChatFab />);
     await user.click(screen.getByRole("button", { name: "Open MakerLab assistant" }));
 
-    expect(screen.getByRole("region", { name: "Identified equipment" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Identified equipment" })).toBeInTheDocument();
   });
 });
 
@@ -1013,7 +1038,7 @@ describe("ChatFab — rate-limit ceiling", () => {
     it("tells the route which pending item a preliminary page shows", () => {
       const id = "11111111-1111-4111-8111-111111111111";
       pathnameMock.mockReturnValue(`/admin/intake/${id}`);
-      render(<ChatFab />);
+      render(<ChatPanel />);
       const { transport } = lastUseChatOptions as {
         transport: { prepareSendMessagesRequest: (options: { id: string; messages: unknown[]; trigger: string; messageId: undefined }) => { body: Record<string, unknown> } };
       };
