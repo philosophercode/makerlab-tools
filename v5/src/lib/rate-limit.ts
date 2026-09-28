@@ -208,6 +208,9 @@ export const ROUTE_TIERS = {
   // passes ADMIN_ACTION_TIER, shared with the GUI, inside performAction.
   assistantPropose: { limit: 30, windowMs: 60_000 },
   actionConfirm: { limit: 60, windowMs: 60_000 },
+  // What a proposal card re-reads on mount (`GET /api/action-proposals`). Its
+  // own bucket, so an inbox of many cards never spends the Confirm clicks'.
+  actionProposalRead: { limit: 300, windowMs: 60_000 },
 } as const;
 
 export type RouteScope = keyof typeof ROUTE_TIERS;

@@ -718,7 +718,7 @@ constitution amendment**. §11 Q2 asks the owner to confirm that reading.
 | `ADMIN_ACTION_TIER` (existing, 120 / min) | — | `admin-action:<rateLimitKey>` | In `performAction`, **shared with the GUI** |
 | `mcpWrite` (existing, 10 / min) | — | identity | Before each MCP write, proposals included |
 
-At most **50 open proposals per person**, and a batch holds at most 20 items. Spend actions
+At most **50 open proposals per person** (per surface, as built: the chat's and MCP's are counted apart), and a batch holds at most 20 items. Spend actions
 still pass the day's research allowance in `run()`, as the GUI does.
 
 ### 8.4 Prompt injection from tool data
@@ -1334,6 +1334,26 @@ and tile, `surfaces.test.ts`, `AdminNav.test.tsx`, `spec-drift.test.ts`. E2E
 (`e2e/assistant-actions.spec.ts`): a token made on `/account/tokens` proposes over `/api/mcp`, the
 card is on `/admin/proposals` from the section bar, Dismiss settles it and it moves to the decided
 list. Evals: one case (`mcp-proposals-inbox`), not run (paid).
+
+**Review fixes (stage 4).**
+
+1. **The 50-open cap is per surface.** `countOpenProposals` takes the proposing surface, so a
+   week of MCP proposals (a looping client, a leaked token) can never lock the same person's
+   chat assistant out; each surface has its own 50 (§8.3 amended). Tests: `action-proposals.test.ts`
+   and `proposals.test.ts` (50 open MCP rows, a chat proposal still goes through, a 51st MCP one is
+   `too_many_open`).
+2. **The inbox is bounded.** An `open` or stranded `confirming` MCP row leaves the inbox 7 days
+   after it expired, like a decided one (`listInboxProposals`); rows stay in the table as the trail.
+3. **A card's re-read has its own limiter.** `GET /api/action-proposals` checks
+   `actionProposalRead` (300 / min), not `actionConfirm`, so loading an inbox of many cards never
+   spends the budget of the Confirm click itself.
+4. **`refuseWhenTainted` means never over MCP**, enforced by `defineAction` (the default, and
+   refused if declared otherwise), since MCP has no taint tracking.
+5. **Not built: which credential proposed.** An MCP row does not record the token or OAuth client
+   that made it, so revoking a leaked token leaves its open proposals in the owner's inbox for up
+   to 7 days, indistinguishable from their own client's. Each still needs its creator's click in
+   the app, and the owner can dismiss them there. Recording the credential needs a column
+   (a migration), a "proposed by" line on the card and a cancel on revoke: a follow-up.
 
 **Status.** Built on `v5/assistant-gui-parity`; one PR for phases 1–8, to merge before #79 (the
 flatten), which merges last.

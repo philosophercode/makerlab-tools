@@ -87,7 +87,7 @@ export async function proposeAction(def: AnyActionDefinition, args: unknown, ctx
   if (mapped.inputs.length === 0) return { ok: false, error: "nothing_to_change" };
   if (mapped.inputs.length > def.maxBatch) return { ok: false, error: "too_many" };
 
-  const open = await countOpenProposals(identity.userId);
+  const open = await countOpenProposals(identity.userId, { surface: ctx.surface });
   if (open + mapped.inputs.length > MAX_OPEN_PROPOSALS) return { ok: false, error: "too_many_open" };
 
   const groupId = randomUUID();

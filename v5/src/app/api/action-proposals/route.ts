@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   const identity = await resolveIdentity(req);
-  const limit = await checkRateLimit("actionConfirm", identity);
+  const limit = await checkRateLimit("actionProposalRead", identity);
   if (!limit.allowed) {
     return refuse(429, "rate_limited", "Too many requests. Please slow down.", { "Retry-After": String(limit.retryAfterSeconds) });
   }

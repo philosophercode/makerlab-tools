@@ -10,6 +10,7 @@ import {
   createActionProposals,
   getActionProposals,
   listChatActionProposals,
+  listInboxProposals,
   settleActionProposal,
   type NewActionProposal,
 } from "./action-proposals";
@@ -105,6 +106,29 @@ describe("action proposals", () => {
     await createActionProposals([proposal(), proposal(), proposal({ createdBy: "u-sam" })], { db });
     expect(await countOpenProposals("u-dee", { db })).toBe(2);
     expect(await getActionProposals(["nope", "'; drop table user;--"], { db })).toEqual([]);
+  });
+
+  it("counts open proposals per surface, so a full MCP backlog never blocks the chat", async () => {
+    await createActionProposals(
+      Array.from({ length: 50 }, () => proposal({ surface: "mcp", chatId: null })),
+      { db }
+    );
+    expect(await countOpenProposals("u-dee", { db, surface: "mcp" })).toBe(50);
+    expect(await countOpenProposals("u-dee", { db, surface: "assistant" })).toBe(0);
+  });
+
+  it("drops open or stranded confirming MCP rows from the inbox a week after they expired", async () => {
+    const [fresh, stale, stuck] = await createActionProposals(
+      [proposal({ surface: "mcp", chatId: null }), proposal({ surface: "mcp", chatId: null }), proposal({ surface: "mcp", chatId: null })],
+      { db }
+    );
+    await db.update(actionProposals).set({ expiresAt: sql`now() - interval '8 days'` }).where(eq(actionProposals.id, stale.id));
+    await db
+      .update(actionProposals)
+      .set({ status: "confirming", expiresAt: sql`now() - interval '8 days'` })
+      .where(eq(actionProposals.id, stuck.id));
+    const ids = (await listInboxProposals("u-dee", { db })).map((row) => row.id);
+    expect(ids).toEqual([fresh.id]);
   });
 
   it("lists one person's proposals in one chat, newest first", async () => {

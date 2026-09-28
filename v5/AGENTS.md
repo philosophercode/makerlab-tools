@@ -587,7 +587,7 @@ for people is in `docs/assistant.md`.
   (`proposals.ts`): the `assistantPropose` limiter, the permission, the
   arguments, the definition's own `input`, `check`, `preview` → one
   `action_proposals` row per subject (`data/action-proposals.ts`, migration
-  `0020`; 60 minutes in the chat, 7 days for MCP; ≤ 50 open per person) and a
+  `0020`; 60 minutes in the chat, 7 days for MCP; ≤ 50 open per person per surface) and a
   `data-action-proposal` part drawn by `components/chat/ActionProposalCard.tsx`.
   **Nothing commits until the person clicks Confirm**: `POST
   /api/action-proposals` (cookie only — `resolveIdentity` never reads a

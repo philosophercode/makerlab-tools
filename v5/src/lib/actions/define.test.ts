@@ -60,3 +60,8 @@ it("keeps an action the assistant never proposes off MCP too (phase 7)", () => {
   expect(defineAction({ ...base("catalog"), assistant: "never", neverReason: "a form" }).mcp).toBe("never");
   expect(() => defineAction({ ...base("catalog"), assistant: "never", neverReason: "a form", mcp: "propose" })).toThrow(/never exposed over MCP/);
 });
+
+it("keeps a refuseWhenTainted action off MCP: there is no taint tracking there (phase 7)", () => {
+  expect(defineAction({ ...base("catalog"), refuseWhenTainted: true }).mcp).toBe("never");
+  expect(() => defineAction({ ...base("catalog"), refuseWhenTainted: true, mcp: "propose" })).toThrow(/refuseWhenTainted/);
+});

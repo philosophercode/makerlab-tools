@@ -154,4 +154,12 @@ describe("GET /api/action-proposals", () => {
     const bad = await GET(new NextRequest("http://localhost/api/action-proposals?ids=nope", { headers: { cookie: me.cookie } }));
     expect(bad.status).toBe(400);
   });
+
+  it("reads on its own limiter, so an inbox of cards never spends the Confirm clicks' budget", async () => {
+    const me = await staff();
+    const { row } = await ticketProposal(me.user.id);
+    limiter.allowed = false; // actionConfirm exhausted
+    const res = await GET(new NextRequest(`http://localhost/api/action-proposals?ids=${row.id}`, { headers: { cookie: me.cookie } }));
+    expect(res.status).toBe(200);
+  });
 });

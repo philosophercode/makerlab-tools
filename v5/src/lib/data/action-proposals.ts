@@ -32,7 +32,11 @@ export const PROPOSAL_TTL_MINUTES: Record<ActionProposalSurface, number> = {
   mcp: 7 * 24 * 60,
 };
 
-/** At most this many open proposals per person (§8.3). */
+/**
+ * At most this many open proposals per person **per surface** (§8.3). Counted
+ * per surface so a week-long MCP backlog (a looping client, a leaked token)
+ * can never lock the same person's chat assistant out.
+ */
 export const MAX_OPEN_PROPOSALS = 50;
 
 export interface NewActionProposal {
@@ -128,13 +132,23 @@ export async function createActionProposals(
   return inserted.map((row) => toRecord(row, false));
 }
 
-/** How many proposals `userId` has open and unexpired. */
-export async function countOpenProposals(userId: string, options: ActionProposalOptions = {}): Promise<number> {
+/** How many proposals `userId` has open and unexpired on `surface` (or on any surface, when omitted). */
+export async function countOpenProposals(
+  userId: string,
+  options: ActionProposalOptions & { surface?: ActionProposalSurface } = {}
+): Promise<number> {
   const db = options.db ?? (await getDb());
   const [row] = await db
     .select({ total: sql<number>`count(*)::int` })
     .from(actionProposals)
-    .where(and(eq(actionProposals.createdBy, userId), eq(actionProposals.status, "open"), gt(actionProposals.expiresAt, sql`now()`)));
+    .where(
+      and(
+        eq(actionProposals.createdBy, userId),
+        eq(actionProposals.status, "open"),
+        gt(actionProposals.expiresAt, sql`now()`),
+        options.surface ? eq(actionProposals.surface, options.surface) : undefined
+      )
+    );
   return Number(row?.total ?? 0);
 }
 
@@ -236,9 +250,10 @@ export const INBOX_DECIDED_DAYS = 7;
 
 /**
  * `userId`'s MCP proposals for the **Assistant proposals** inbox
- * (`/admin/proposals`, §3.8, §6): every one still open (an expired one
- * included, so it can say it expired), and those decided in the last
- * {@link INBOX_DECIDED_DAYS} days. Only the creator's own rows: nobody sees,
+ * (`/admin/proposals`, §3.8, §6): every one open or confirming that expired
+ * less than {@link INBOX_DECIDED_DAYS} days ago (an expired one included, so
+ * it can say it expired, then dropped so the page stays bounded), and those
+ * decided in the last {@link INBOX_DECIDED_DAYS} days. Only the creator's own rows: nobody sees,
  * let alone confirms, another person's (§11 answer 11). Newest first, bounded.
  */
 export async function listInboxProposals(
@@ -254,7 +269,10 @@ export async function listInboxProposals(
         eq(actionProposals.surface, "mcp"),
         eq(actionProposals.createdBy, userId),
         or(
-          inArray(actionProposals.status, ["open", "confirming"]),
+          and(
+            inArray(actionProposals.status, ["open", "confirming"]),
+            gt(actionProposals.expiresAt, sql`now() - ${`${INBOX_DECIDED_DAYS} days`}::interval`)
+          ),
           gt(actionProposals.decidedAt, sql`now() - ${`${INBOX_DECIDED_DAYS} days`}::interval`)
         )
       )

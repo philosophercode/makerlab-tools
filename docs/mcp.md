@@ -286,6 +286,11 @@ assistant's words; confirming checks your permission and every rule again, as
 the button on the page would. A token can never confirm anything: the confirm
 button works with your browser session only.
 
+At most 50 proposals from MCP wait at once (counted apart from the assistant in
+the site, so a busy client never blocks it). The inbox does not yet say which
+token or app made a proposal, and revoking a token does not withdraw what it
+already proposed: if you revoke one you suspect, dismiss its cards in the inbox.
+
 **Never over MCP**, whatever your role or scope: anything about people (roles,
 titles, adding or removing someone, allowances), anything that cannot be undone
 (archiving a tool, deleting a unit, removing a link, discarding an intake item,

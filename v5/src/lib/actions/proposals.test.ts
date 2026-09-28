@@ -387,6 +387,27 @@ describe("proposing", () => {
     expect(await db.select().from(actionProposals)).toEqual([]);
   });
 
+  it("counts the open cap per surface: 50 MCP proposals waiting never block a chat proposal", async () => {
+    const director = await signIn("super_admin", "dee@cornell.edu");
+    const target = await seedUser({ email: "luis@cornell.edu", role: "admin" });
+    const row = {
+      groupId: crypto.randomUUID(),
+      actionId: "people.set_title",
+      input: { userId: target.id, title: "X" },
+      subjectType: "user",
+      subjectId: target.id,
+      preview: {},
+      surface: "mcp" as const,
+      chatId: null,
+      createdBy: director.userId as string,
+    };
+    await createActionProposals(Array.from({ length: 50 }, () => row));
+    const chat = await proposeAction(def("people.set_title"), { user_ids: [target.id], title: "Lead" }, { identity: director, surface: "assistant", chatId: "chat-1" });
+    expect(chat.ok).toBe(true);
+    const mcp = await proposeAction(def("tickets.update"), { ticket_ids: [crypto.randomUUID()], status: "resolved" }, { identity: director, surface: "mcp", chatId: null });
+    expect(mcp).toMatchObject({ ok: false, error: "too_many_open" });
+  });
+
   it("refuses a caller without the permission before reading anything", async () => {
     const staff = await signIn("admin", "sam@cornell.edu");
     const target = await seedUser({ email: "luis@cornell.edu", role: "user" });
