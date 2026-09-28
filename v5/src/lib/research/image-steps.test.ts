@@ -177,7 +177,10 @@ describe("findImages", () => {
     expect(findImages.maxRetries).toBe(IMAGE_STEP_MAX_RETRIES);
   });
 
-  it("skips the stage for an item with an uploaded photo, spending nothing", async () => {
+  it("runs the stage for an item with an uploaded photo, and leaves the photo where it is", async () => {
+    // Amendment "An uploaded photo is a choice, not the product image": the
+    // photo identified the item; the search for a product image still runs.
+    await useLocalBlob();
     const id = await researchingItem();
     const db = await getDb();
     const photo = await createAttachment({
@@ -191,16 +194,27 @@ describe("findImages", () => {
       origin: "upload",
     });
     await claimAttachments(db, [photo.id], { ownerType: "pending_tool", ownerId: id });
+    const rank = ranking([0]);
 
-    // No model stubbed: a ranking call would throw.
-    expect(await findImages(id, REQUEST, RESULT, PAGE_HINTS)).toEqual({ outcome: "researched", confidence: "medium" });
+    expect(await findImages(id, REQUEST, RESULT, [hint("studio-front")])).toEqual({ outcome: "researched", confidence: "medium" });
 
     const row = await getPendingTool(id);
     expect(row?.status).toBe("researched");
-    expect(row?.research?.images).toBeNull();
     expect(row?.research?.imageError).toBeNull();
     expect(row?.research?.canonicalName).toBe("Bambu Lab P1S");
-    expect(imageRequests).toEqual([]);
+    // The found picture was probed, ranked and cut out, exactly as without a photo.
+    expect(imageRequests).toEqual(["studio-front.png"]);
+    expect(rank.doGenerateCalls).toHaveLength(1);
+    expect(row?.research?.images?.candidates).toEqual([
+      expect.objectContaining({ url: hint("studio-front").url, rank: 1, background: "plain" }),
+    ]);
+    expect(row?.research?.images?.cleaned).toEqual(
+      expect.objectContaining({ fromUrl: hint("studio-front").url, attachmentId: expect.any(String) })
+    );
+    // The photo is untouched: still the item's, still an upload — a choice on the review page.
+    expect(row?.photos.map((p) => p.attachmentId)).toEqual([photo.id]);
+    const owned = await ownedBy(id);
+    expect(owned.map((a) => a.origin).sort()).toEqual(["research_image_cleaned", "upload"]);
   });
 
   it("records no candidates when research found no image", async () => {

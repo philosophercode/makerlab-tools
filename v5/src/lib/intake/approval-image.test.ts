@@ -721,3 +721,183 @@ describe("choice: none, and no Blob store", () => {
     expect(result).toMatchObject({ ok: true, warning: "audit_unavailable", imageAttached: false });
   });
 });
+
+describe('choice: upload (amendment "An uploaded photo is a choice, not the product image")', () => {
+  const PHOTO_PATH = "uploads/chat/p1s-bench.jpg";
+
+  /** An item researched with the usual candidates and cleaned copy, plus a photo from the chat. */
+  async function withPhoto(access: "public" | "private" = "public") {
+    const [photo] = await db
+      .insert(attachments)
+      .values({
+        blobPathname: PHOTO_PATH,
+        access,
+        publicUrl: access === "public" ? `https://store.public.blob.test/${PHOTO_PATH}` : null,
+        contentType: "image/png",
+        originalFilename: "p1s-bench.png",
+        uploadedBy: approver,
+        origin: "upload",
+      })
+      .returning({ id: attachments.id });
+    const item = await researchedItem();
+    // `researchedItem` names no photo here; give it this one, as identify_tools would have.
+    await db
+      .update(attachments)
+      .set({ ownerType: "pending_tool", ownerId: item.id, position: 0 })
+      .where(eq(attachments.id, photo.id));
+    return { ...item, photoId: photo.id };
+  }
+
+  /** A store that holds the photo's bytes, under the access it was stored with. */
+  function storeWith(bytes: Uint8Array, access: "public" | "private" = "public") {
+    const store = fakeStore();
+    store.read.mockImplementation((async (pathname: string, readAccess: "public" | "private" = "private") =>
+      pathname === PHOTO_PATH && readAccess === access ? { body: bytes, contentType: "image/png" } : null) as never);
+    return store;
+  }
+
+  it("cuts a plain backdrop out of the photo, stores the cutout public as the cover, and keeps the photo after it", async () => {
+    const hits = imageHost();
+    const store = storeWith(makeProductPng({ width: 600, height: 400 }), "private");
+    const { id, cleanedId, photoId } = await withPhoto("private");
+
+    const result = await approveAndRecord(
+      { userId: approver },
+      { id, publish: true, fields: fields({ choice: "upload", attachmentId: photoId, removeBackground: true }) },
+      { store }
+    );
+
+    expect(result).toMatchObject({ ok: true, imageAttached: true });
+    expect(result).not.toHaveProperty("warning");
+    if (!result.ok) throw new Error("unreachable");
+    // Read back from the private store it lives in; nothing fetched from the web.
+    expect(store.read).toHaveBeenCalledWith(PHOTO_PATH, "private");
+    expect(hits).toEqual([]);
+
+    const [prefix, file, access] = store.putUpload.mock.calls[0];
+    expect(prefix).toBe("uploads/tool/");
+    expect(access).toBe("public");
+    expect(file.type).toBe("image/png");
+    expect(file.name).toBe("p1s-bench-background-removed.png");
+    const pixels = await decode(new Uint8Array(await file.arrayBuffer()));
+    expect(pixels.data[3]).toBe(0); // the corner is transparent: the backdrop is gone
+    expect(pixels.width).toBeLessThan(400); // trimmed to the product plus the cutout's margin
+
+    const photos = await toolPhotos(result.toolId);
+    expect(photos).toEqual([
+      { id: expect.any(String), position: 0, origin: "research_image_cleaned", access: "public" },
+      { id: photoId, position: 1, origin: "upload", access: "private" },
+    ]);
+    expect(await attachment(photos[0].id)).toMatchObject({
+      sourceUrl: null,
+      contentType: "image/png",
+      uploadedBy: approver,
+      publicUrl: expect.stringContaining("https://store.public.blob.test/uploads/tool/"),
+      width: pixels.width,
+      height: pixels.height,
+    });
+    expect((await pendingEvent(id)).detail).toMatchObject({ image: { choice: "upload", attached: true, cleaned: "cut" } });
+    // Research's cleaned copy nobody chose is let go.
+    expect(await attachment(cleanedId!)).toMatchObject({ ownerType: null, ownerId: null });
+  });
+
+  it("uses the photo as taken when its backdrop is too busy to cut", async () => {
+    const store = storeWith(makePng({ width: 640, height: 480, alpha: false }));
+    const { id, photoId } = await withPhoto();
+
+    const result = await approveAndRecord(
+      { userId: approver },
+      { id, publish: true, fields: fields({ choice: "upload", attachmentId: photoId, removeBackground: true }) },
+      { store }
+    );
+
+    expect(result).toMatchObject({ ok: true, imageAttached: true });
+    if (!result.ok) throw new Error("unreachable");
+    expect(store.putUpload).not.toHaveBeenCalled();
+    expect(await toolPhotos(result.toolId)).toEqual([{ id: photoId, position: 0, origin: "upload", access: "public" }]);
+    expect((await pendingEvent(id)).detail).toMatchObject({ image: { choice: "upload", attached: true, cleaned: null } });
+  });
+
+  it("uses the photo exactly as taken when background removal is off — even on a plain backdrop", async () => {
+    const store = storeWith(makeProductPng({ width: 600, height: 400 }));
+    const { id, photoId } = await withPhoto();
+
+    const result = await approveAndRecord(
+      { userId: approver },
+      { id, publish: true, fields: fields({ choice: "upload", attachmentId: photoId, removeBackground: false }) },
+      { store }
+    );
+
+    expect(result).toMatchObject({ ok: true, imageAttached: true });
+    if (!result.ok) throw new Error("unreachable");
+    expect(store.read).not.toHaveBeenCalled();
+    expect(store.putUpload).not.toHaveBeenCalled();
+    expect(await toolPhotos(result.toolId)).toEqual([{ id: photoId, position: 0, origin: "upload", access: "public" }]);
+  });
+
+  it("makes a photo that is still private public before it becomes the cover", async () => {
+    const store = storeWith(new Uint8Array(), "private");
+    const { id, photoId } = await withPhoto("private");
+
+    const result = await approveAndRecord(
+      { userId: approver },
+      { id, publish: true, fields: fields({ choice: "upload", attachmentId: photoId, removeBackground: false }) },
+      { store }
+    );
+
+    expect(result).toMatchObject({ ok: true, imageAttached: true });
+    if (!result.ok) throw new Error("unreachable");
+    expect(store.copyToPublic).toHaveBeenCalledWith(PHOTO_PATH, "uploads/tool/");
+    expect(await attachment(photoId)).toMatchObject({ access: "public", ownerType: "tool", ownerId: result.toolId, position: 0 });
+  });
+
+  it("refuses a photo that is not the item's own, and the item's cleaned copy named as a photo", async () => {
+    const store = storeWith(makeProductPng({ width: 600, height: 400 }));
+    const { id, cleanedId } = await withPhoto();
+    const [stranger] = await db
+      .insert(attachments)
+      .values({ blobPathname: "uploads/chat/someone-else.jpg", access: "public", origin: "upload", uploadedBy: approver })
+      .returning({ id: attachments.id });
+
+    for (const attachmentId of [stranger.id, cleanedId!, crypto.randomUUID()]) {
+      const result = await approveAndRecord(
+        { userId: approver },
+        { id, publish: true, fields: fields({ choice: "upload", attachmentId, removeBackground: true }) },
+        { store }
+      );
+      expect(result).toEqual({ ok: false, error: "invalid_field" });
+    }
+    expect(store.read).not.toHaveBeenCalled();
+    expect(store.putUpload).not.toHaveBeenCalled();
+    expect(await attachment(stranger.id)).toMatchObject({ ownerType: null, ownerId: null });
+  });
+
+  it("with no Blob store, still approves, says the image is missing, and keeps the photo", async () => {
+    const { id, photoId } = await withPhoto();
+
+    const result = await approveAndRecord(
+      { userId: approver },
+      { id, publish: true, fields: fields({ choice: "upload", attachmentId: photoId, removeBackground: true }) }
+    );
+
+    expect(result).toMatchObject({ ok: true, imageAttached: false, warning: "image_not_attached" });
+    if (!result.ok) throw new Error("unreachable");
+    expect(await toolPhotos(result.toolId)).toEqual([{ id: photoId, position: 0, origin: "upload", access: "public" }]);
+  });
+
+  it("choosing a found image puts the photo after it, never in front", async () => {
+    const { id, cleanedId, photoId } = await withPhoto();
+
+    const result = await approveAndRecord(
+      { userId: approver },
+      { id, publish: true, fields: fields({ choice: "cleaned" }) },
+      { store: fakeStore() }
+    );
+
+    if (!result.ok) throw new Error("unreachable");
+    expect(await toolPhotos(result.toolId)).toEqual([
+      { id: cleanedId, position: 0, origin: "research_image_cleaned", access: "public" },
+      { id: photoId, position: 1, origin: "upload", access: "public" },
+    ]);
+  });
+});

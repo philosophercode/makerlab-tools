@@ -22,7 +22,7 @@ import {
 /** Must match `AUTH_SECRET` in playwright.config.ts's `webServer.env`. */
 export const E2E_AUTH_SECRET = "e2e-only-secret-not-used-anywhere-else";
 
-export const E2E_BASE_URL = "http://localhost:3100";
+export const E2E_BASE_URL = `http://localhost:${Number(process.env.E2E_PORT_BASE) || 3100}`;
 
 /** Put a properly signed session cookie for a demo account in the browser. */
 export async function signIn(
