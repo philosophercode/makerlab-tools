@@ -1,4 +1,4 @@
-import type { PendingTool } from "../data/pending-tools";
+import type { IntakeQueueSummary, PendingTool } from "../data/pending-tools";
 import type { PendingToolView } from "./types";
 
 /**
@@ -33,6 +33,38 @@ export function toPendingToolView(item: PendingTool): PendingToolView {
     researchError: item.researchError,
     researchRequestedAt: item.researchRequestedAt?.toISOString() ?? null,
     hasWorkflowRun: item.workflowRunId !== null,
+    createdByName: item.createdByName,
+    createdByRemoved: item.createdByRemoved,
+    createdAt: item.createdAt.toISOString(),
+    updatedAt: item.updatedAt.toISOString(),
+  };
+}
+
+/**
+ * The intake list's slim row (`listIntakeQueueSummaries`) as the browser sees
+ * it — the same shape {@link toPendingToolView} gives the full item.
+ */
+export function summaryToPendingToolView(item: IntakeQueueSummary): PendingToolView {
+  return {
+    id: item.id,
+    batchId: item.batchId,
+    status: item.status,
+    name: item.name,
+    brand: item.brand,
+    categoryHint: item.categoryHint,
+    locationHint: item.locationHint,
+    serialNumber: item.serialNumber,
+    duplicateOf: item.duplicateOf,
+    duplicateResolution: item.duplicateResolution,
+    photos: item.photos.map((photo) => ({
+      attachmentId: photo.attachmentId,
+      url: photo.url,
+      filename: photo.filename,
+    })),
+    confidenceLevel: item.confidenceLevel,
+    researchError: item.researchError,
+    researchRequestedAt: item.researchRequestedAt?.toISOString() ?? null,
+    hasWorkflowRun: item.hasWorkflowRun,
     createdByName: item.createdByName,
     createdByRemoved: item.createdByRemoved,
     createdAt: item.createdAt.toISOString(),

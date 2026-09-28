@@ -183,9 +183,9 @@ describe("propose_change", () => {
     });
 
     it("tells the model the lab's rules stay, on a tool only", () => {
-      const tool = curationCapability("tool").promptFragment({ tools: [], curation });
+      const tool = curationCapability("tool").conversationFragment?.({ tools: [], curation });
       expect(tool).toMatch(/The lab's rules stay/);
-      const pending = curationCapability("pending").promptFragment({ tools: [], curation: { ...curation, kind: "pending" } });
+      const pending = curationCapability("pending").conversationFragment?.({ tools: [], curation: { ...curation, kind: "pending" } });
       expect(pending).not.toMatch(/The lab's rules stay/);
     });
   });

@@ -8,6 +8,7 @@ import {
 import { listManualContentsForTool, type ManualContents } from "./data/manual-documents";
 import { listMaintenanceHistoryForTool, type ToolMaintenanceEntry } from "./data/maintenance";
 import { dataSubstrate, getDb } from "./db/client";
+import { listToolIndex } from "./data/tool-index";
 import { siteConfig } from "./site-config";
 import type { CatalogStats, MakerLabTool } from "../components/catalog-types";
 import type { PaletteTool } from "../components/palette/palette-types";
@@ -98,6 +99,22 @@ export async function getToolMaintenanceHistory(toolId: string): Promise<ToolMai
  * catalogue, narrowed to what the palette matches on and groups by. Cached
  * with the catalogue, so it costs the root layout nothing after the first read.
  */
+/**
+ * The unpublished, unarchived tools, for the admin ⌘K palette of a viewer who
+ * may see drafts — added to the published list the root layout already sends
+ * (`getPaletteTools`), rather than a second full list on every admin page
+ * (performance plan, quick win 12). Cached under the catalogue tag, which
+ * every tool write, publish and draft creation busts.
+ */
+export async function getDraftPaletteTools(): Promise<PaletteTool[]> {
+  "use cache";
+  cacheTag("catalog");
+  cacheLife(CATALOG_CACHE);
+
+  const rows = await listToolIndex({ includeDrafts: true, draftsOnly: true });
+  return rows.map((row) => ({ ...row, published: false }));
+}
+
 export async function getPaletteTools(): Promise<PaletteTool[]> {
   "use cache";
   cacheTag("catalog");

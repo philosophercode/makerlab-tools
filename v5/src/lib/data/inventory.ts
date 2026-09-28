@@ -298,6 +298,83 @@ export function worseOf(current: UnitStatus | null, candidate: string): UnitStat
     : current;
 }
 
+/** The inventory's counts, as the `/admin` home's tile shows them. */
+export interface InventoryCounts {
+  total: number;
+  published: number;
+  draft: number;
+  archived: number;
+  needsAttention: number;
+  noPhoto: number;
+  noManual: number;
+  neverReviewed: number;
+}
+
+/**
+ * {@link listInventoryRows}' states and attention flags, counted in one
+ * statement (performance plan, quick win 14). The `/admin` home ran the whole
+ * inventory read — six statements and a row object per tool — to show eight
+ * numbers. Each condition mirrors the row's: the cover photo of
+ * {@link selectCoverPhotos}, the manual of {@link selectManualFlags}, the open
+ * tickets of {@link selectOpenTicketCounts}, a floor check with any
+ * non-space text, and nothing flagged on an archived tool.
+ * `inventory.test.ts` checks the two agree.
+ */
+export async function countInventory(options: InventoryQueryOptions = {}): Promise<InventoryCounts> {
+  const db = options.db ?? (await getDb());
+  const manualTypes = sql.join(MANUAL_TYPES.map((type) => sql`${type}`), sql`, `);
+  const openStatuses = sql.join(OPEN_TICKET_STATUSES.map((status) => sql`${status}`), sql`, `);
+  const result = (await db.execute(sql`
+    with flags as (
+      select t.archived_at is not null as archived,
+             t.published,
+             t.last_reviewed_at is null as never_reviewed,
+             coalesce(t.floor_check ~ '[^[:space:]]', false) as floor_check,
+             not exists (
+               select 1 from attachments a
+                where a.owner_type = 'tool' and a.owner_id = t.id
+                  and a.access = 'public' and a.public_url is not null
+             ) as no_photo,
+             not coalesce((
+               select bool_or(coalesce(
+                        lower(coalesce(r.type, '')) in (${manualTypes})
+                        or r.url ilike '%.pdf'
+                        or ra.content_type = 'application/pdf'
+                        or ra.original_filename ilike '%.pdf', false))
+                 from resources r
+                 left join attachments ra on ra.owner_type = 'resource' and ra.owner_id = r.id
+                where r.tool_id = t.id
+             ), false) as no_manual,
+             exists (
+               select 1 from maintenance_logs m
+                where m.tool_id = t.id and m.status in (${openStatuses})
+             ) as open_tickets
+        from tools t
+    )
+    select count(*)::int as total,
+           count(*) filter (where not archived and published)::int as published,
+           count(*) filter (where not archived and not published)::int as draft,
+           count(*) filter (where archived)::int as archived,
+           count(*) filter (where not archived and (no_photo or no_manual or open_tickets or never_reviewed or floor_check))::int as needs_attention,
+           count(*) filter (where not archived and no_photo)::int as no_photo,
+           count(*) filter (where not archived and no_manual)::int as no_manual,
+           count(*) filter (where not archived and never_reviewed)::int as never_reviewed
+      from flags
+  `)) as unknown as { rows: Record<string, number | string>[] };
+  const row = result.rows[0] ?? {};
+  const n = (value: number | string | undefined) => Number(value ?? 0);
+  return {
+    total: n(row.total),
+    published: n(row.published),
+    draft: n(row.draft),
+    archived: n(row.archived),
+    needsAttention: n(row.needs_attention),
+    noPhoto: n(row.no_photo),
+    noManual: n(row.no_manual),
+    neverReviewed: n(row.never_reviewed),
+  };
+}
+
 /**
  * Each tool's cover photo — the lowest-position public attachment it owns
  * (§4.7: position 0 is the cover).

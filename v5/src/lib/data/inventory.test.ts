@@ -11,7 +11,7 @@ import {
   units,
 } from "../db/schema/index";
 import type { Db } from "../db/types";
-import { listInventoryRows, listUnlinkedUnits, worseOf } from "./inventory";
+import { countInventory, listInventoryRows, listUnlinkedUnits, worseOf } from "./inventory";
 
 /**
  * The review table's read, against a real (in-process) Postgres.
@@ -279,6 +279,57 @@ describe("listInventoryRows — cost", () => {
     // Six since refresh research: the open refreshes are read in bulk too.
     expect(await statementsFor(2)).toBe(6);
     expect(await statementsFor(20)).toBe(6);
+  });
+});
+
+describe("countInventory — the /admin home's counts (performance plan, quick win 14)", () => {
+  it("agrees with the inventory rows, flag by flag", async () => {
+    const done = await addTool("done", "Done", { lastReviewedAt: new Date() });
+    await addPhoto(done);
+    await db.insert(resources).values({ toolId: done, title: "SOP", type: "SOP", url: "#" });
+
+    const privatePhoto = await addTool("private", "Private Photo", { lastReviewedAt: new Date() });
+    await addPhoto(privatePhoto, { access: "private", publicUrl: null });
+    await db.insert(resources).values({ toolId: privatePhoto, title: "Guide", type: null, url: "https://x.test/m.PDF" });
+
+    const ticketed = await addTool("ticketed", "Ticketed", { lastReviewedAt: new Date() });
+    await addPhoto(ticketed);
+    await db.insert(resources).values({ toolId: ticketed, title: "Video", type: "Video", url: "https://x.test/v" });
+    await db.insert(maintenanceLogs).values([
+      { toolId: ticketed, title: "Leak", status: "open" },
+      { toolId: done, title: "Old jam", status: "resolved" },
+    ]);
+
+    const blankCheck = await addTool("blank", "Blank Floor Check", { lastReviewedAt: new Date(), floorCheck: "  \n " });
+    await addPhoto(blankCheck);
+    await db.insert(resources).values({ toolId: blankCheck, title: "Manual", type: "manual" });
+    const realCheck = await addTool("real", "Real Floor Check", { lastReviewedAt: new Date(), floorCheck: "Check the belt" });
+    await addPhoto(realCheck);
+    await db.insert(resources).values({ toolId: realCheck, title: "Manual", type: "Manual" });
+
+    await addTool("draft", "Draft", { published: false });
+    await addTool("archived", "Archived", { archivedAt: new Date() });
+
+    const rows = await listInventoryRows({ db });
+    const count = (test: (row: (typeof rows)[number]) => boolean) => rows.filter(test).length;
+    const expected = {
+      total: rows.length,
+      published: count((row) => row.state === "published"),
+      draft: count((row) => row.state === "draft"),
+      archived: count((row) => row.state === "archived"),
+      needsAttention: count((row) => row.needsAttention),
+      noPhoto: count((row) => row.attention.noPhoto),
+      noManual: count((row) => row.attention.noManual),
+      neverReviewed: count((row) => row.attention.neverReviewed),
+    };
+
+    expect(await countInventory({ db })).toEqual(expected);
+    // The fixture exercises every flag both ways.
+    expect(expected).toEqual({ total: 7, published: 5, draft: 1, archived: 1, needsAttention: 4, noPhoto: 2, noManual: 2, neverReviewed: 1 });
+  });
+
+  it("counts an empty inventory as zeros", async () => {
+    expect(await countInventory({ db })).toMatchObject({ total: 0, needsAttention: 0 });
   });
 });
 

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
 import { NextIntlClientProvider } from "next-intl";
+import { getMessages } from "next-intl/server";
 // The UI system (Tailwind theme + utilities, shadcn tokens) first, so its
 // cascade-layer order is declared before globals.css adds to `base`.
 import "../styles/ui.css";
@@ -18,6 +19,8 @@ import { ThemeScript } from "../components/ThemeScript";
 import { LocaleHtmlScript } from "../components/LocaleHtmlScript";
 import { getCatalogStats, getPaletteTools } from "../lib/catalog";
 import { siteConfig } from "../lib/site-config";
+import { publicClientMessages } from "../i18n/client-messages";
+import type { Messages } from "../i18n/messages";
 
 export const metadata: Metadata = {
   title: `${siteConfig.name}`,
@@ -67,8 +70,11 @@ async function LocalizedTree({
   paletteTools: Awaited<ReturnType<typeof getPaletteTools>>;
   children: React.ReactNode;
 }) {
+  // Only the translations client components on public pages use; admin and
+  // account layouts add their own (`i18n/client-messages.ts`).
+  const messages = publicClientMessages((await getMessages()) as Messages);
   return (
-    <NextIntlClientProvider>
+    <NextIntlClientProvider messages={messages}>
       <ChatLauncherProvider>
         <PageSelectionProvider>
           <SiteChrome>

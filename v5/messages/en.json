@@ -1418,6 +1418,8 @@
       "picker": {
         "open": "Refresh research…",
         "close": "Close",
+        "loadingTools": "Reading the tools…",
+        "toolsUnavailable": "The tools could not be read. Close this and try again.",
         "lede": "Choose the tools to research again from the manufacturer's pages — up to {max} a press, from the same daily allowance as intake. Nothing changes until you accept a proposal.",
         "presetsLabel": "Choose by reason",
         "preset": {
@@ -2423,6 +2425,7 @@
   },
   "ui": {
     "breadcrumb": "Breadcrumb",
+    "loading": "Loading…",
     "inlineEdit": {
       "save": "Save",
       "cancel": "Cancel",

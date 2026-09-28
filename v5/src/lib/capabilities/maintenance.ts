@@ -199,12 +199,20 @@ function promptSafeName(name: string | null | undefined): string | null {
   return cleaned ? cleaned.slice(0, 80) : null;
 }
 
-function promptFragment(env: PromptEnv): string {
+/**
+ * Who is reporting — the per-request line (the signed-in name, or nobody),
+ * kept out of the stable fragment so that fragment is the same for every
+ * student and the provider can cache it.
+ */
+function conversationFragment(env: PromptEnv): string {
   const signedInName = promptSafeName(env.identity?.name);
   const reporterLine = signedInName
     ? `The student is signed in as **${signedInName}**, so do not ask who they are — \`report_issue\` records their verified name and email from the session automatically. Leave \`reported_by\` empty; anything you put there is ignored.`
     : `Nobody is signed in, so ask for the student's name or NetID and pass it as \`reported_by\`. If they would rather not give one, file the ticket anyway — an anonymous report still beats an unreported fault.`;
+  return `## Who is reporting a maintenance issue\n\n${reporterLine}`;
+}
 
+function promptFragment(): string {
   return `## Reporting maintenance issues
 
 You are a first-line helper, not a ticket-creation machine. Follow this order:
@@ -214,7 +222,7 @@ You are a first-line helper, not a ticket-creation machine. Follow this order:
 3. **Proactively offer to log.** Even after a successful self-fix for things staff should know about (jams, low filament, missing parts, anything that affects the next user), gently offer: "Want me to log a quick note so staff knows this happened?" Don't push — just offer.
 4. **Gather details and file.** Once the student agrees (or asks directly), collect: a short title, a clear description of what's wrong and what's already been tried, the affected unit if any, and a priority. If they named a specific unit you don't recognize, call \`get_unit_details\` first to verify it exists. Then call \`report_issue\`. After it succeeds, tell the student the ticket was filed and include the ticket ID. If they only name a tool (not a specific unit), it's fine to file without one — but ask first if they can tell you which unit.
 
-**Who is reporting.** ${reporterLine}
+**Who is reporting.** See "Who is reporting a maintenance issue" under This conversation below.
 
 If the student's message includes a hint like \`[Attached photos: attachment_id=<id> name=<name>; ...]\`, pass each \`attachment_id\` value as the \`photo_attachment_ids\` argument to \`report_issue\` (do not echo the raw hint back to the student). If the tool result says the photos could not be attached, tell the student the ticket was filed without them rather than implying staff can see the picture.
 
@@ -226,5 +234,6 @@ Priority guide: Critical = unsafe or blocks all lab use · High = tool unusable 
 export const maintenance: Capability = {
   id: "maintenance",
   promptFragment,
+  conversationFragment,
   tools: [reportIssue as CapabilityTool<unknown, unknown>],
 };

@@ -86,7 +86,11 @@ export async function getLatestRefreshForTool(toolId: string, options: RefreshOp
 }
 
 /** One row of `/admin/refresh`: the refresh and the tool it is about. */
-export interface RefreshQueueRow extends ToolRefresh {
+/**
+ * One row of the review list. Without the research itself: the list shows the
+ * proposals' counts, and every open tab polls it while research runs.
+ */
+export interface RefreshQueueRow extends Omit<ToolRefresh, "research"> {
   toolName: string;
   toolSlug: string;
   toolPublished: boolean;
@@ -100,9 +104,28 @@ export interface RefreshQueueRow extends ToolRefresh {
  */
 export async function listRefreshQueue(options: RefreshOptions = {}): Promise<RefreshQueueRow[]> {
   const db = options.db ?? (await getDb());
+  // Every column but `research` — the largest, and zod-parsed per row — which
+  // the list never shows (performance plan, "Slim the intake and refresh list
+  // queries").
+  const listColumns = {
+    id: toolRefreshes.id,
+    toolId: toolRefreshes.toolId,
+    status: toolRefreshes.status,
+    requestId: toolRefreshes.requestId,
+    baseRevision: toolRefreshes.baseRevision,
+    note: toolRefreshes.note,
+    includeDescription: toolRefreshes.includeDescription,
+    proposals: toolRefreshes.proposals,
+    researchError: toolRefreshes.researchError,
+    requestedBy: toolRefreshes.requestedBy,
+    decidedBy: toolRefreshes.decidedBy,
+    decidedAt: toolRefreshes.decidedAt,
+    createdAt: toolRefreshes.createdAt,
+    updatedAt: toolRefreshes.updatedAt,
+  };
   const rows = await db
     .select({
-      refresh: toolRefreshes,
+      refresh: listColumns,
       toolName: tools.name,
       toolSlug: tools.slug,
       toolPublished: tools.published,
@@ -119,7 +142,20 @@ export async function listRefreshQueue(options: RefreshOptions = {}): Promise<Re
     if (latest.has(row.refresh.toolId)) continue;
     latest.set(row.refresh.toolId, true);
     out.push({
-      ...toRefresh(row.refresh),
+      id: row.refresh.id,
+      toolId: row.refresh.toolId,
+      status: isRefreshStatus(row.refresh.status) ? row.refresh.status : "failed",
+      requestId: row.refresh.requestId,
+      baseRevision: row.refresh.baseRevision,
+      note: row.refresh.note,
+      includeDescription: row.refresh.includeDescription,
+      proposals: row.refresh.proposals == null ? null : parseProposals(row.refresh.proposals),
+      researchError: row.refresh.researchError,
+      requestedBy: row.refresh.requestedBy,
+      decidedBy: row.refresh.decidedBy,
+      decidedAt: row.refresh.decidedAt,
+      createdAt: row.refresh.createdAt,
+      updatedAt: row.refresh.updatedAt,
       toolName: row.toolName,
       toolSlug: row.toolSlug,
       toolPublished: row.toolPublished,

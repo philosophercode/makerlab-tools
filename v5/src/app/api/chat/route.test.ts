@@ -58,6 +58,7 @@ import {
   units,
 } from "@/lib/db/schema/index";
 import { resetAuthForTests } from "@/lib/auth/config";
+import { clearManualPdfCache } from "@/lib/chat/manual-pdf-cache";
 import { server } from "../../../../test/msw/server";
 import { signInAsNew } from "../../../../test/utils/session";
 import {
@@ -232,6 +233,8 @@ const userMessage = (text: string) => ({
 beforeEach(() => {
   vi.stubEnv("DATABASE_URL", "");
   resetAuthForTests();
+  // The route keeps fetched manual PDFs for a few minutes; cases reuse URLs.
+  clearManualPdfCache();
   // Undo any `vi.stubGlobal("fetch", …)` from a prior PDF test (the shared
   // setup file does not call vi.unstubAllGlobals).
   vi.unstubAllGlobals();
@@ -281,6 +284,29 @@ describe("POST /api/chat — rate limiting", () => {
     const json = await res.json();
     expect(json.error).toMatch(/too many requests/i);
     expect(recordedCalls(model)).toHaveLength(0);
+  });
+
+  it("checks the limit before any read keyed by what the client sent", async () => {
+    const db = await getDb();
+    const reads = () => select.mock.calls.length + execute.mock.calls.length;
+    const select = vi.spyOn(db, "select");
+    const execute = vi.spyOn(db, "execute");
+    let readsWhileChecking = -1;
+    checkRateLimit.mockImplementationOnce(async () => {
+      const before = reads();
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      readsWhileChecking = reads() - before;
+      return { allowed: false, remaining: 0, limit: 60, windowMs: 60 * 60_000, retryAfterSeconds: 60, role: "student" };
+    });
+
+    const res = await POST(
+      chatRequest({ messages: [userMessage("hi")], toolId: "00000000-0000-4000-8000-000000000000", pendingId: "x" })
+    );
+
+    expect(res.status).toBe(429);
+    expect(readsWhileChecking).toBe(0);
+    select.mockRestore();
+    execute.mockRestore();
   });
 });
 
@@ -385,6 +411,23 @@ describe("POST /api/chat — tools wired", () => {
     // (amendment "Manuals as text and flex tier for research").
     expect(call.providerOptions?.gateway).toBeUndefined();
     expect(JSON.stringify(call.tools)).not.toMatch(/anthropic/i);
+  });
+
+  it("asks for low reasoning effort and sends a stable prompt-cache key (performance plan)", async () => {
+    vi.stubEnv("MODEL_CHAT_REASONING", "");
+    vi.stubEnv("MODEL_CHAT_CACHE_KEY", "");
+    await send({ messages: [userMessage("hi")] });
+
+    expect(firstCall().providerOptions?.openai).toEqual({ reasoningEffort: "low", promptCacheKey: "makerlab-chat-v1" });
+  });
+
+  it("puts the page's tool after the stable prompt, under This conversation", async () => {
+    await send({ messages: [userMessage("hi")], toolId: "trotec-speedy-400" });
+    const system = systemOf();
+
+    expect(system.indexOf("# This conversation")).toBeGreaterThan(system.indexOf("## MakerLab catalog"));
+    expect(system.indexOf("## Active tool context")).toBeGreaterThan(system.indexOf("# This conversation"));
+    expect(system.match(/## MakerLab catalog \(/g)).toHaveLength(1);
   });
 
   it("stops offering read_page after five calls in one turn, and keeps everything else", async () => {
@@ -815,6 +858,42 @@ describe("PDF manual collection (focused tool)", () => {
     // The fallback for what is not attached is read_page on a link, never a provider tool.
     expect(annotated).toContain("`read_page`");
     expect(annotated).not.toContain("web_fetch");
+  });
+
+  it("fetches the manuals in parallel, not one after another (performance plan)", async () => {
+    await addResources([
+      { title: "Manual 1", url: "https://x.test/p1.pdf" },
+      { title: "Manual 2", url: "https://x.test/p2.pdf" },
+      { title: "Manual 3", url: "https://x.test/p3.pdf" },
+    ]);
+    let inFlight = 0;
+    let peak = 0;
+    const slowPdf = async () => {
+      inFlight += 1;
+      peak = Math.max(peak, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      inFlight -= 1;
+      return pdfResponse();
+    };
+    server.use(...[1, 2, 3].map((n) => http.get(`https://x.test/p${n}.pdf`, slowPdf)));
+
+    await send({ messages: [userMessage("how do I use this")], toolId: "form-4" });
+
+    expect(peak).toBe(3);
+    // Resource order is kept whatever order the fetches finish in.
+    expect(fileParts().map((part) => part.filename)).toEqual(["Manual 1.pdf", "Manual 2.pdf", "Manual 3.pdf"]);
+  });
+
+  it("fetches a manual once for a conversation's next turn, from memory (performance plan)", async () => {
+    await addResources([{ title: "Manual 1", url: "https://x.test/again.pdf" }]);
+    const hits = servePdfs({ "https://x.test/again.pdf": () => pdfResponse() });
+
+    await send({ messages: [userMessage("how do I use this")], toolId: "form-4" });
+    await send({ messages: [userMessage("how do I use this"), userMessage("and clean it?")], toolId: "form-4" });
+
+    expect(hits).toHaveLength(1);
+    const [, second] = recordedCalls(model);
+    expect((second.prompt.find((m: any) => m.role === "user")?.content as any[]).some((p: any) => p.type === "file")).toBe(true);
   });
 
   it("does not run manual collection when no toolId is provided", async () => {

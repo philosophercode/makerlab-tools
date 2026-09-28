@@ -39,6 +39,7 @@ import { EmptyState } from "../system/EmptyState";
 import { Field, hintId } from "../system/Field";
 import { Glyph, StatusGlyph } from "../system/StatusGlyph";
 import { ReviewCard, ReviewNote, ReviewSources } from "../system/review/ReviewCard";
+import { usePoll } from "./use-poll";
 
 /**
  * `/admin/intake/[id]` — the page an admin approves from (spec §5.4 steps
@@ -206,14 +207,14 @@ export function PreliminaryToolPage({
   const [now, setNow] = useState(() => Date.now());
   const retry = research?.imageRetry ?? null;
   const retryRunning = imageRetryInProgress(retry, now);
-  useEffect(() => {
-    if (!retryRunning) return;
-    const timer = setInterval(() => {
+  usePoll(
+    () => {
       setNow(Date.now());
       router.refresh();
-    }, INTAKE_POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [retryRunning, router]);
+    },
+    INTAKE_POLL_INTERVAL_MS,
+    retryRunning
+  );
 
   // What the last redo changed, marked "Updated just now" briefly. Keyed by
   // the record itself, so a new landing (an image search finishing while the

@@ -28,6 +28,7 @@ import { EmptyState } from "../system/EmptyState";
 import { FacetFilter } from "../system/data-table/FacetFilter";
 import { FilterBar } from "../system/data-table/FilterBar";
 import { ReviewNote } from "../system/review/ReviewCard";
+import { usePoll } from "./use-poll";
 
 /**
  * `/admin/intake/imports/[id]` — one import, as it stands (bulk intake spec
@@ -110,21 +111,22 @@ export function ImportReview({
   // Poll while a document is being read, or suggestions are arriving.
   const polling = view.status === "parsing" || suggestUntil !== null;
   const load = actions.load;
-  useEffect(() => {
-    if (!polling) return;
-    const timer = setInterval(async () => {
+  usePoll(
+    async () => {
       try {
         const result = await load({ importId: view.id });
-        if (!result.ok) return;
-        setView(result.import);
-        setItems(result.items);
+        if (result.ok) {
+          setView(result.import);
+          setItems(result.items);
+        }
       } catch {
         // A dropped poll is retried on the next tick.
       }
       if (suggestUntil !== null && Date.now() > suggestUntil) setSuggestUntil(null);
-    }, IMPORT_POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [polling, load, view.id, suggestUntil]);
+    },
+    IMPORT_POLL_INTERVAL_MS,
+    polling
+  );
 
   // Progressive rendering: more rows as the end of the table comes into view.
   const sentinel = useRef<HTMLDivElement>(null);

@@ -3,11 +3,11 @@
 import "../../styles/admin-mirror.css";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { MIRROR_ENTITY, MIRROR_STATUS, type MirrorEntity } from "../../lib/db/schema/vocabulary";
 import { MIRROR_POLL_INTERVAL_MS } from "../../lib/mirror/limits";
 import { MIRROR_ERROR_CODES, type MirrorErrorCode, type MirrorView } from "../../lib/mirror/types";
+import { usePoll } from "./use-poll";
 
 /**
  * What the mirror last did, and what it is doing now (spec §3.8 "Status",
@@ -43,11 +43,7 @@ export function MirrorStatus({ view, timeZone }: MirrorStatusProps) {
   const router = useRouter();
 
   const polling = view.running || view.syncPending;
-  useEffect(() => {
-    if (!polling) return;
-    const timer = setInterval(() => router.refresh(), MIRROR_POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [polling, router]);
+  usePoll(() => router.refresh(), MIRROR_POLL_INTERVAL_MS, polling);
 
   function when(iso: string | null) {
     if (!iso) return <span className="admin-mirror-unset">{t("status.never")}</span>;

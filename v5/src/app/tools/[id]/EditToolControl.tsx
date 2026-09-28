@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { ToolEditorPanel } from "../../../components/admin/ToolEditorPanel";
 import { archivedToolHref } from "../../../components/admin/inventory-filters";
 import type { ToolEditorActions } from "../../../components/admin/tool-editor-actions";
-import { fetchIdentity, type ClientIdentity } from "../../../lib/auth/sign-in-client";
+import { loadSharedIdentity, useSharedIdentity } from "../../../lib/auth/identity-store";
 import { can } from "../../../lib/auth/permissions";
 import { CurateChatStarter } from "../../../components/CurateChatStarter";
 
@@ -40,16 +40,14 @@ export interface EditToolControlProps {
 
 export function EditToolControl({ slug, toolName, actions }: EditToolControlProps) {
   const t = useTranslations("admin.inventory.editor");
-  const [identity, setIdentity] = useState<ClientIdentity | null>(null);
+  // The header's answer, shared: no second /api/identity request (performance
+  // plan, quick win 10), and the control appears together with the header.
+  const identity = useSharedIdentity();
   const [open, setOpen] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    const controller = new AbortController();
-    void fetchIdentity(controller.signal).then((answer) => {
-      if (!controller.signal.aborted) setIdentity(answer);
-    });
-    return () => controller.abort();
+    void loadSharedIdentity();
   }, []);
 
   // `identity` is null while the answer is outstanding *and* when it could not

@@ -94,9 +94,9 @@ describe("the capability", () => {
 
   it("adds the outline section only on a tool page with searchable manuals", () => {
     const env = { tools: [], locale: "en" };
-    expect(manuals.promptFragment(env)).not.toContain("(searchable)");
+    expect(manuals.conversationFragment?.(env)).not.toContain("(searchable)");
     const focused = { name: "Form 4" } as never;
-    const withOutline = manuals.promptFragment({
+    const withOutline = manuals.conversationFragment?.({
       ...env,
       focusedTool: focused,
       manualOutlines: [{ title: "Form 4 Manual", pageCount: 2, pdfUrl: null, outline: [{ title: "Care", page: 1, level: 1 }] }],

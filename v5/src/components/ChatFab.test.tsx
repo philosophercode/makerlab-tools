@@ -357,6 +357,11 @@ describe("ChatFab", () => {
   // at send time. With `useChat` mocked, we instead assert the component
   // passes a transport (and onData handler) into the hook — the request-body
   // forwarding itself is covered by the chat-route integration tests.
+  it("throttles streamed updates to one render per 50ms (performance plan)", () => {
+    render(<ChatPanel />);
+    expect((lastUseChatOptions as { experimental_throttle?: number }).experimental_throttle).toBe(50);
+  });
+
   it("passes a transport and onData handler into useChat", () => {
     render(<ChatPanel />); // the panel itself: `ChatFab` mounts it only once opened
 
@@ -602,7 +607,8 @@ describe("ChatFab — intake table", () => {
     render(<ChatFab />);
     await user.click(screen.getByRole("button", { name: "Open the MakerLAB Assistant" }));
 
-    const card = screen.getByRole("region", { name: "Identified equipment" });
+    // The card's code loads when a turn carries one.
+    const card = await screen.findByRole("region", { name: "Identified equipment" });
     expect(card).toBeInTheDocument();
     expect(screen.getByText("Bambu Lab X1-Carbon Combo")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Research selected (1)" })).toBeEnabled();
@@ -620,7 +626,7 @@ describe("ChatFab — intake table", () => {
     render(<ChatFab />);
     await user.click(screen.getByRole("button", { name: "Open the MakerLAB Assistant" }));
 
-    expect(screen.getByRole("region", { name: "Identified equipment" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Identified equipment" })).toBeInTheDocument();
   });
 });
 

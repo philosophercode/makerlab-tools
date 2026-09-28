@@ -29,6 +29,20 @@ export function preloadChatPanel(): Promise<ComponentType> {
   });
 }
 
+/** How long after mount the panel's code may start loading on its own. */
+const PRELOAD_GRACE_MS = 4000;
+
+interface IdleWindow {
+  requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+  cancelIdleCallback?: (handle: number) => void;
+}
+
+/** A visitor on a metered connection who asked browsers to save data. */
+function savesData(): boolean {
+  const connection = (navigator as Navigator & { connection?: { saveData?: boolean } }).connection;
+  return connection?.saveData === true;
+}
+
 const LazyPanel = lazy(() => preloadChatPanel().then((panel) => ({ default: panel })));
 
 /**
@@ -64,6 +78,26 @@ export function ChatFab() {
   useEffect(() => {
     if (isOpen) markIntroSeen();
   }, [isOpen, markIntroSeen]);
+
+  // Warm the panel's chunk once the page has settled, so the first open is
+  // instant — off the critical path (a few seconds' grace, so parsing the AI
+  // SDK never competes with hydration), and not at all for a visitor saving
+  // data or on the kiosk (performance plan).
+  const onKiosk = isKioskPath(pathname);
+  useEffect(() => {
+    if (onKiosk || savesData()) return;
+    const idle = window as unknown as IdleWindow;
+    let handle: number | undefined;
+    const warm = () => void preloadChatPanel().catch(() => undefined);
+    const timer = window.setTimeout(() => {
+      if (idle.requestIdleCallback) handle = idle.requestIdleCallback(warm, { timeout: 10_000 });
+      else warm();
+    }, PRELOAD_GRACE_MS);
+    return () => {
+      window.clearTimeout(timer);
+      if (handle !== undefined) idle.cancelIdleCallback?.(handle);
+    };
+  }, [onKiosk]);
 
   // The kiosk is read-only: the phone is the interactive surface, reached
   // through its QR code (kiosk spec §2). No button and no sheet there.

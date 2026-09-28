@@ -124,13 +124,16 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
     );
   }
 
+  // Three independent reads, together (performance plan, quick win 5):
   // "Built with this" — published projects referencing this tool (empty if no
-  // projects DB is configured).
-  const projects = await getProjectsForTool(tool.id);
-  // Each processed manual's chapters, linked to their pages (manual text spec §6).
-  const manualContents = await getManualContents(tool.id);
-  // The recent maintenance across its units, without names (UI system phase 5a).
-  const maintenance = await getToolMaintenanceHistory(tool.id);
+  // projects DB is configured); each processed manual's chapters, linked to
+  // their pages (manual text spec §6); the recent maintenance across its
+  // units, without names (UI system phase 5a).
+  const [projects, manualContents, maintenance] = await Promise.all([
+    getProjectsForTool(tool.id),
+    getManualContents(tool.id),
+    getToolMaintenanceHistory(tool.id),
+  ]);
 
   return (
     <>

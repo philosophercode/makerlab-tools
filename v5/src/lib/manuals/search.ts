@@ -168,10 +168,24 @@ export async function searchManuals(db: Db, input: SearchManualsInput): Promise<
   const includePrivate = canSearchPrivateManuals(input.viewer);
   const lexical = mode !== "vector" || vectorFailed;
   const fusedLimit = rerankTarget ? Math.max(limit, RERANK_CANDIDATES) : limit;
-  const rows = await rawRows<PassageRow>(
-    db,
-    fusedQuery({ query, toolIds, includePrivate, vector, lexical, tokens: partNumberTokens(query), limit: fusedLimit })
-  );
+  const fused = fusedQuery({ query, toolIds, includePrivate, vector, lexical, tokens: partNumberTokens(query), limit: fusedLimit });
+  // An unscoped vector leg reads the HNSW index: widen its beam for this one
+  // statement (`set_config(…, true)` lasts until the transaction ends).
+  const rows =
+    vector && !toolIds
+      ? await db.transaction(async (tx) => {
+          await tx.execute(sql`select set_config('hnsw.ef_search', ${String(HNSW_EF_SEARCH)}, true)`);
+          // pgvector ≥ 0.8: keep scanning the index until enough passages
+          // survive the visibility filter, so a viewer who may see only a few
+          // manuals still gets its CANDIDATES. Older pgvector has no such
+          // setting (and rejects the name), so it is only set where it exists.
+          await tx.execute(sql`select set_config('hnsw.iterative_scan', 'relaxed_order', true)
+                                 from pg_extension
+                                where extname = 'vector'
+                                  and string_to_array(extversion, '.')::int[] >= array[0, 8]`);
+          return rawRows<PassageRow>(tx as unknown as Db, fused);
+        })
+      : await rawRows<PassageRow>(db, fused);
 
   let passages = rows.map(toPassage);
   let reranked = false;
@@ -226,6 +240,29 @@ interface PassageRow {
 /** The column's type (migration `0019`), for the query vector's cast. A trusted literal. */
 const HALFVEC = sql.raw(`halfvec(${EMBEDDING_DIMENSIONS})`);
 
+/**
+ * The fused query. Shaped so Postgres can use the indexes (performance plan,
+ * "Fix the unscoped manual-search SQL"): the old form put every visible
+ * passage — embedding and `tsvector` included — in one CTE referenced four
+ * times, which Postgres materialises, so neither the GIN nor the HNSW index
+ * could be used and an unscoped search scanned, copied and exactly scored
+ * every passage (8–16 s in production).
+ *
+ * - **Visibility is decided per document** (`visible_docs`, a handful of
+ *   rows), and each leg reads `manual_chunks` directly, filtered by it.
+ * - **Full text** goes through the GIN index: each lexeme's document
+ *   frequency is a GIN-filtered count, and only passages matching a lexeme
+ *   are scored. Same idf and `ts_rank` sum as before.
+ * - **Part numbers** stay an exact whole-word regex, run on the passages the
+ *   GIN index says hold the token's own lexemes (or, for an alphanumeric
+ *   token, a lexeme starting with it), not on every passage.
+ * - **Vector:** unscoped, the HNSW index orders the candidates (the index
+ *   exists for this; {@link searchManuals} raises `hnsw.ef_search` and, on
+ *   pgvector 0.8+, turns on iterative scans, so the visibility filter still
+ *   leaves {@link CANDIDATES}). Scoped to a few tools,
+ *   the distance is computed exactly over their passages instead — an HNSW
+ *   scan filtered down to one tool could return none.
+ */
 function fusedQuery(args: {
   query: string;
   toolIds: readonly string[] | undefined;
@@ -241,7 +278,9 @@ function fusedQuery(args: {
   const scope = args.toolIds
     ? sql` and r.tool_id in (${sql.join(args.toolIds.map((id) => sql`${id}::uuid`), sql`, `)})`
     : sql``;
+  const inVisible = sql`c.document_id in (select id from visible_docs)`;
 
+  const ctes: SQL[] = [];
   const lists: SQL[] = [];
   if (args.lexical) {
     // The query's lexemes, as `websearch_to_tsquery` stems them; each weighted
@@ -249,38 +288,72 @@ function fusedQuery(args: {
     // `ts_rank` for that lexeme alone. A word every passage has — the tool's
     // own name, which the contextual header puts in all of them — weighs
     // nothing, and a passage holding more of the rare words ranks higher.
+    ctes.push(sql`lexemes as (
+      select distinct quote_literal(m[1])::tsquery as q
+        from regexp_matches(websearch_to_tsquery('english', ${args.query})::text, '''((?:[^'']|'''')+)''', 'g') as m
+    ),
+    idf as materialized (
+      select l.q,
+             ln(1 + ((select count(*) from manual_chunks c where ${inVisible}) - df.n + 0.5) / (df.n + 0.5)) as idf
+        from lexemes l
+        cross join lateral (select count(*) as n from manual_chunks c where c.tsv @@ l.q and ${inVisible}) as df
+    )`);
+    // One GIN probe for the passages holding any lexeme, then each passage's
+    // score summed over the lexemes it holds — no (lexeme × passage) join to
+    // group back together. `idf` is materialised: a handful of rows, computed
+    // once, not re-run inside every passage's sum.
     lists.push(sql`select id, row_number() over (order by score desc, id) as rank
                      from (
-                       select v.id, sum(s.idf * ts_rank(v.tsv, s.q)) as score
-                         from visible v
-                         join (
-                           select t.q,
-                                  ln(1 + ((select count(*) from visible) - count(v2.id) + 0.5) / (count(v2.id) + 0.5)) as idf
-                             from (select distinct quote_literal(m[1])::tsquery as q
-                                     from regexp_matches(websearch_to_tsquery('english', ${args.query})::text, '''((?:[^'']|'''')+)''', 'g') as m) as t
-                             left join visible v2 on v2.tsv @@ t.q
-                            group by t.q
-                         ) as s on v.tsv @@ s.q
-                        group by v.id
+                       select c.id,
+                              (select sum(s.idf * ts_rank(c.tsv, s.q)) from idf s where c.tsv @@ s.q) as score
+                         from manual_chunks c
+                        where c.tsv @@ (select string_agg(q::text, ' | ')::tsquery from lexemes)
+                          and ${inVisible}
                      ) as scored
                     order by rank limit ${CANDIDATES}`);
     if (args.tokens.length > 0) {
       const hits = sql.join(
-        args.tokens.map((token) => sql`(case when search_text ~* ${exactPattern(token)} then 1 else 0 end)`),
+        args.tokens.map((token) => sql`(case when c.search_text ~* ${exactPattern(token)} then 1 else 0 end)`),
         sql` + `
       );
+      // The regex runs only on candidates the GIN index finds: passages
+      // holding every lexeme the token itself parses to (`E-302` → e-302, e,
+      // 302), which a whole-word occurrence of it always yields. Scanning the
+      // text of every visible passage was most of an unscoped search's time.
+      //
+      // A code joined to another by a slash (`M3/M4`, `0300/0100`) is one
+      // "file" lexeme to Postgres, so for a plain alphanumeric token the index
+      // is also asked for lexemes *starting* with it (`m3:*`, a GIN prefix
+      // probe). A code in second place (`M4` in `M3/M4`) is still missed.
+      const mayHold = sql.join(
+        args.tokens.map((token) =>
+          /^[A-Za-z0-9]+$/.test(token)
+            ? sql`(c.tsv @@ plainto_tsquery('english', ${token}) or c.tsv @@ to_tsquery('simple', ${`${token.toLowerCase()}:*`}))`
+            : sql`c.tsv @@ plainto_tsquery('english', ${token})`
+        ),
+        sql` or `
+      );
       lists.push(sql`select id, row_number() over (order by hits desc, id) as rank
-                       from (select id, ${hits} as hits from visible) as h
+                       from (select c.id, ${hits} as hits from manual_chunks c where (${mayHold}) and ${inVisible}) as h
                       where hits > 0
                       order by rank limit ${CANDIDATES}`);
     }
   }
   if (args.vector) {
-    lists.push(sql`select id, row_number() over (order by embedding <=> ${args.vector}::${HALFVEC}, id) as rank
-                     from visible
-                    where embedding is not null
-                    order by embedding <=> ${args.vector}::${HALFVEC}
-                    limit ${CANDIDATES}`);
+    // `+ 0` keeps a scoped search off the index: exact distances over a few
+    // tools' passages, rather than an approximate scan the scope filters down
+    // to nothing.
+    const distance = args.toolIds
+      ? sql`(c.embedding <=> ${args.vector}::${HALFVEC}) + 0`
+      : sql`c.embedding <=> ${args.vector}::${HALFVEC}`;
+    lists.push(sql`select id, row_number() over (order by distance, id) as rank
+                     from (
+                       select c.id, ${distance} as distance
+                         from manual_chunks c
+                        where c.embedding is not null and ${inVisible}
+                        order by ${distance}
+                        limit ${CANDIDATES}
+                     ) as nearest`);
   }
   if (lists.length === 0) return sql`select null where false`;
 
@@ -290,15 +363,15 @@ function fusedQuery(args: {
   );
 
   return sql`
-    with visible as (
-      select c.id, c.tsv, c.embedding, c.search_text
-        from manual_chunks c
-        join manual_documents d on d.id = c.document_id and d.status = 'ready'
+    with visible_docs as (
+      select d.id
+        from manual_documents d
         join attachments a on a.id = d.attachment_id
         join resources r on ${currentPdf("a", "r")}
         join tools t on t.id = r.tool_id
-       where t.archived_at is null${access}${scope}
+       where d.status = 'ready' and t.archived_at is null${access}${scope}
     ),
+    ${ctes.length > 0 ? sql`${sql.join(ctes, sql`, `)},` : sql``}
     ranked as (${union}),
     fused as (
       select id, sum(1.0 / (${RRF_K} + rank)) as score
@@ -317,6 +390,13 @@ function fusedQuery(args: {
       left join manual_pages p on p.document_id = c.document_id and p.page_number = c.page_start
      order by f.score desc, c.document_id, c.ordinal`;
 }
+
+/**
+ * How many nearest neighbours an HNSW scan considers (pgvector's default is
+ * 40). Raised for an unscoped search so that, after the visibility filter,
+ * {@link CANDIDATES} passages are still left to fuse.
+ */
+export const HNSW_EF_SEARCH = 200;
 
 /**
  * Tokens that look like part numbers or error codes: a digit plus a letter or

@@ -416,7 +416,10 @@ export function curationCapability(kind: "tool" | "pending"): Capability {
   return {
     id: "curation",
     requiredPermission: kind === "tool" ? "tools.edit" : "tools.approve",
-    promptFragment,
+    // The whole fragment carries the record being curated, so it belongs to
+    // this request: it goes in the prompt's "This conversation" tail.
+    promptFragment: () => "",
+    conversationFragment: promptFragment,
     tools: [getRecordTool as CapabilityTool<unknown, unknown>, proposeChangeTool as CapabilityTool<unknown, unknown>],
   };
 }

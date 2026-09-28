@@ -20,6 +20,7 @@ import { eq, inArray } from "drizzle-orm";
 import { http, HttpResponse } from "msw";
 import { POST } from "@/app/api/chat/route";
 import { resetAuthForTests } from "@/lib/auth/config";
+import { clearManualPdfCache } from "@/lib/chat/manual-pdf-cache";
 import { getDb, resetDbForTests } from "@/lib/db/client";
 import { attachments, resources, tools as toolsTable } from "@/lib/db/schema/index";
 import { buildDocumentPassages } from "@/lib/manuals/passages";
@@ -121,6 +122,8 @@ const OUTLINE = [
 beforeEach(() => {
   vi.stubEnv("DATABASE_URL", "");
   resetAuthForTests();
+  // The route keeps fetched manual PDFs for a few minutes; cases reuse URLs.
+  clearManualPdfCache();
   vi.spyOn(console, "info").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
   stubChat(textModel("Hello."));

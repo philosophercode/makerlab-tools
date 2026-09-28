@@ -8,6 +8,7 @@ import {
   type PhotoOrderPayload,
 } from "../../../lib/inventory/photo-edits";
 import type { InventoryActionResult } from "./action-result";
+import { withFreshEditor } from "./fresh-editor";
 import { withToolEdit, type ToolWriteInput } from "./tool-write-context";
 
 /**
@@ -36,14 +37,14 @@ import { withToolEdit, type ToolWriteInput } from "./tool-write-context";
 export async function attachPhotos(
   input: ToolWriteInput & { attachmentIds: readonly string[] }
 ): Promise<InventoryActionResult<PhotoCountPayload>> {
-  return withToolEdit(input, (context) => attachPhotosWrite(context, input.attachmentIds));
+  return withFreshEditor(input.toolId, await withToolEdit(input, (context) => attachPhotosWrite(context, input.attachmentIds)));
 }
 
 /** Set the order; the first is the cover. Ids from another tool move nothing. */
 export async function reorderPhotos(
   input: ToolWriteInput & { orderedIds: readonly string[] }
 ): Promise<InventoryActionResult<PhotoOrderPayload>> {
-  return withToolEdit(input, (context) => reorderPhotosWrite(context, input.orderedIds));
+  return withFreshEditor(input.toolId, await withToolEdit(input, (context) => reorderPhotosWrite(context, input.orderedIds)));
 }
 
 /**
@@ -56,5 +57,5 @@ export async function reorderPhotos(
 export async function removePhoto(
   input: ToolWriteInput & { attachmentId: string }
 ): Promise<InventoryActionResult<PhotoOrderPayload>> {
-  return withToolEdit(input, (context) => removePhotoWrite(context, input.attachmentId));
+  return withFreshEditor(input.toolId, await withToolEdit(input, (context) => removePhotoWrite(context, input.attachmentId)));
 }

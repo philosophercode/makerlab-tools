@@ -9,6 +9,7 @@ import { languageNameForLocale } from "../../i18n/config";
 import { newTurnState, readsOutsideContent } from "../chat/taint";
 import { siteConfig } from "../site-config";
 import { LAB_CONTEXT } from "../ai/lab-context";
+import { CITE_HREF_PREFIX } from "../manuals/citation-ref";
 import type { MakerLabTool } from "../../components/catalog-types";
 
 /**
@@ -19,9 +20,10 @@ import type { MakerLabTool } from "../../components/catalog-types";
  *   shape. The `execute` runs the tool's `run(input, ctx)` and hands the model
  *   its structured result. A tool that renders a widget writes its own UI part
  *   through `ctx.writer` (intake's `data-intake-table`).
- * - {@link buildSystemPrompt} composes the system prompt by joining the chat
- *   surface's scaffolding (intro, tool-linking, focused-tool context, resource
- *   reading/citing, catalog listing) with each capability's `promptFragment`.
+ * - {@link buildSystemPrompt} composes the system prompt: the chat surface's
+ *   scaffolding (intro, resource reading/citing) and each capability's
+ *   `promptFragment` first, then a "This conversation" tail with the
+ *   per-request parts (language, focused tool, `conversationFragment`s).
  * - {@link composeChat} is a convenience that returns both at once.
  *
  * Manual (PDF) attachment sections remain owned by the chat route itself — they
@@ -73,43 +75,66 @@ function wrapTool(
 }
 
 /**
- * Compose the chat system prompt: the chat surface scaffolding plus every
- * capability's `promptFragment(env)`, in registry order. Preserves parity with
- * the original chat route prompt (intro, tool-linking, focused-tool context,
- * resource reading/citing, catalog listing) while letting capabilities inject
- * their own instructions (unit lookups, maintenance flow, intake, …).
+ * The heading that opens the per-request tail of the system prompt. Everything
+ * above it is the same for every request by callers with the same capability
+ * set, so a provider's prefix cache can reuse it across turns and students;
+ * everything below it (and whatever the route appends after it — attached
+ * manuals, the page the person is on, the conversation's proposals) is about
+ * this one request (performance plan, "Order the prompt so the provider cache
+ * can hit").
+ */
+export const CONVERSATION_HEADING = "# This conversation";
+
+/**
+ * Compose the chat system prompt, in two parts:
+ *
+ * 1. **Stable** — the intro, every capability's `promptFragment(env)` in
+ *    registry order (the catalog capability's owns tool linking and the one
+ *    catalog listing), then the reading and citing rules. Nothing here names
+ *    the caller, the page or the locale.
+ * 2. **This conversation** — the response language, the focused tool and its
+ *    resources, then every capability's `conversationFragment(env)` (who is
+ *    signed in, the focused tool's manual contents, a curation record).
+ *
+ * The catalog listing, linking rules and focused-tool context used to be
+ * emitted twice — once by the catalog capability, once here — about 4.5k
+ * tokens on every model step (performance plan, quick win 4).
  */
 export function buildSystemPrompt(
   capabilities: Capability[],
   env: PromptEnv
 ): string {
-  const { tools, focusedTool, locale } = env;
+  const { focusedTool, locale } = env;
   // The lab context is static: it goes right after the intro, in the prompt's
   // cacheable prefix, before anything that varies by request.
-  const sections: string[] = [introSection(), LAB_CONTEXT, linkingSection()];
-
+  const stable: string[] = [introSection(), LAB_CONTEXT];
   for (const capability of capabilities) {
     const fragment = capability.promptFragment(env).trim();
-    if (fragment) sections.push(fragment);
+    if (fragment) stable.push(fragment);
   }
+  stable.push(readingSection());
+  stable.push(citingSection());
 
+  const conversation: string[] = [];
   if (locale && locale !== "en") {
-    sections.push(languageSection(locale));
+    conversation.push(languageSection(locale));
   }
-
   if (focusedTool) {
-    sections.push(focusedToolSection(focusedTool));
+    conversation.push(focusedToolSection(focusedTool));
   }
-
   if (focusedTool && focusedTool.links.length > 0) {
-    sections.push(resourcesSection(focusedTool));
+    conversation.push(resourcesSection(focusedTool));
+  }
+  for (const capability of capabilities) {
+    const fragment = capability.conversationFragment?.(env).trim();
+    if (fragment) conversation.push(fragment);
   }
 
-  sections.push(readingSection());
-  sections.push(citingSection());
-  sections.push(catalogSection(tools));
-
-  return sections.join("\n\n");
+  return [
+    ...stable,
+    `${CONVERSATION_HEADING}\n\nEverything below is about this request only: the person asking, the page they are on and what it shows.`,
+    ...conversation,
+  ].join("\n\n");
 }
 
 /**
@@ -135,10 +160,6 @@ export function composeChat(
 
 function introSection(): string {
   return `You are the ${siteConfig.chatAssistantName} — a friendly, knowledgeable helper for ${siteConfig.audience} using the ${siteConfig.institution} MakerLAB. Answer questions about lab tools, training requirements, safety, materials, and which machines are right for a given project. Be concise, accurate, and grounded only in the catalog and the lab context provided below. If the user asks about a tool that isn't in the catalog, say so honestly.`;
-}
-
-function linkingSection(): string {
-  return `## Linking tools\n\nWhenever you mention a tool that exists in the catalog below, **format its name as a markdown link** to its detail page using the slug provided in the catalog: \`[Tool Name](/tools/<slug>)\`. This lets the student jump straight to the tool's page. Examples:\n- "You could use the [Bambu Lab X1-Carbon Combo 3D Printer](/tools/<slug>) for that."\n- "For laser cutting acrylic, check the [Epilog Helix 24](/tools/<slug>)."\n\nDo **not** link the tool the student is already viewing (see Active tool context). Do not invent slugs — only use slugs from the catalog list.`;
 }
 
 function languageSection(locale: string): string {
@@ -189,20 +210,7 @@ function readingSection(): string {
 }
 
 function citingSection(): string {
-  return `## Citing sources\n\nWhen you draw on a \`search_manual\` passage, an attached manual, a page read with \`read_page\`, or an \`exa_search\` result, cite the source inline as a **markdown link** using its exact URL — the passage's \`url\`, a URL from the lists above, or the result's own URL for a search. Three formats:\n\n1. PDF with a known page: \`[Form 4 Manual, p. 14](https://media.formlabs.com/.../-ENUS-Form-4-Manual.pdf#page=14)\` — a \`search_manual\` passage's \`url\` already ends in \`#page=N\`; for an attached manual, append it so browser PDF viewers jump to the page.\n2. HTML page or PDF with no known page: \`[Trotec Speedy 400 SOP](https://...)\`.\n3. A resource with "no link on file": its exact title in bold, \`**Trotec Speedy 400 SOP**\`, with no link.\n\nDo not invent page numbers or URLs. Always use exact URLs from the lists above or from a search result.`;
-}
-
-function catalogSection(tools: MakerLabTool[]): string {
-  const header = `## MakerLab catalog (${tools.length} tools)`;
-  const list = tools
-    .map((t) => {
-      const head = `- **${t.name}** — slug: \`${t.slug}\` — ${t.category}${t.categorySub ? ` / ${t.categorySub}` : ""} · ${t.location}${t.zone ? ` / ${t.zone}` : ""} · ${t.trainingLevel}`;
-      if (!t.units.length) return head;
-      const units = t.units.map((unit) => `${unit.name} [${unit.status}]`).join(", ");
-      return `${head}\n  units: ${units}`;
-    })
-    .join("\n");
-  return `${header}\n\n${list}`;
+  return `## Citing sources\n\nCite every source you draw on inline. Three formats:\n\n1. A \`search_manual\` passage: a markdown link to \`${CITE_HREF_PREFIX}<ref>\` with the passage's \`ref\`, as "Searching manuals" says — never its web address and never a \`#page=\` link.\n2. A page read with \`read_page\`, an \`exa_search\` result, or a resource listed in this prompt: a markdown link to its exact URL, e.g. \`[Trotec Speedy 400 SOP](https://...)\`.\n3. A resource with "no link on file": its exact title in bold, \`**Trotec Speedy 400 SOP**\`, with no link.\n\nDo not invent page numbers or URLs. Cite only a \`ref\` a search returned.`;
 }
 
 /** Full multi-line description of the focused tool (parity with the route). */

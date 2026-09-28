@@ -1,7 +1,10 @@
 // @vitest-environment node
 import {
+  CHAT_PROMPT_CACHE_KEY_ENV,
+  CHAT_REASONING_ENV,
   GATEWAY_MODEL_ID_PATTERN,
   MODEL_JOBS,
+  chatProviderOptions,
   ModelConfigError,
   gatewayLanguageModel,
   gatewayProvider,
@@ -195,6 +198,50 @@ describe('service tiers (amendment "Manuals as text and flex tier for research")
       expect(error.message).not.toContain(value);
     }
   );
+});
+
+describe("chat provider options (performance plan: reasoning effort, prompt cache key)", () => {
+  beforeEach(() => {
+    vi.stubEnv(CHAT_REASONING_ENV, "");
+    vi.stubEnv(CHAT_PROMPT_CACHE_KEY_ENV, "");
+    vi.stubEnv("MODEL_CHAT_TIER", "");
+  });
+
+  it("asks for low reasoning and sends a stable cache key by default, and no tier", () => {
+    expect(chatProviderOptions()).toEqual({ openai: { reasoningEffort: "low", promptCacheKey: "makerlab-chat-v1" } });
+  });
+
+  it("MODEL_CHAT_REASONING=default leaves the provider's own effort; other values pass through", () => {
+    vi.stubEnv(CHAT_REASONING_ENV, "default");
+    expect(chatProviderOptions()).toEqual({ openai: { promptCacheKey: "makerlab-chat-v1" } });
+    vi.stubEnv(CHAT_REASONING_ENV, " Medium ");
+    expect(chatProviderOptions()?.openai?.reasoningEffort).toBe("medium");
+  });
+
+  it("MODEL_CHAT_CACHE_KEY=off sends none; a custom key replaces the default", () => {
+    vi.stubEnv(CHAT_PROMPT_CACHE_KEY_ENV, "off");
+    expect(chatProviderOptions()).toEqual({ openai: { reasoningEffort: "low" } });
+    vi.stubEnv(CHAT_PROMPT_CACHE_KEY_ENV, "makerlab-chat-v2");
+    expect(chatProviderOptions()?.openai?.promptCacheKey).toBe("makerlab-chat-v2");
+  });
+
+  it("keeps the chat tier override", () => {
+    vi.stubEnv("MODEL_CHAT_TIER", "priority");
+    expect(chatProviderOptions()?.gateway).toEqual({ serviceTier: "priority" });
+  });
+
+  it("refuses an unknown effort, naming the variable and never the value", () => {
+    vi.stubEnv(CHAT_REASONING_ENV, "sk-live-abc123secret");
+    let thrown: unknown;
+    try {
+      chatProviderOptions();
+    } catch (error) {
+      thrown = error;
+    }
+    expect(ModelConfigError.isInstance(thrown)).toBe(true);
+    expect((thrown as ModelConfigError).envVar).toBe(CHAT_REASONING_ENV);
+    expect((thrown as ModelConfigError).message).not.toContain("sk-live");
+  });
 });
 
 describe("the model factories", () => {

@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import type { IntakeConfidenceLevel } from "../../lib/capabilities/types";
 import { hasStalledStart } from "../../lib/intake/access";
@@ -24,6 +24,7 @@ import { DuplicateChoice } from "../system/review/DuplicateChoice";
 import { ReviewCard, ReviewDiagnosis, ReviewNote } from "../system/review/ReviewCard";
 import { PENDING_STATUS_TONE } from "./pending-status-tone";
 import { personLabel } from "./person-label";
+import { usePoll } from "./use-poll";
 
 /**
  * The review queue on `/admin/intake` (spec §5.4 step 10, §6).
@@ -197,11 +198,7 @@ export function IntakeList({ items, filters = true }: IntakeListProps) {
   const router = useRouter();
   const polling = items.some((item) => isInFlight(item));
 
-  useEffect(() => {
-    if (!polling) return;
-    const timer = setInterval(() => router.refresh(), INTAKE_POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [polling, router]);
+  usePoll(() => router.refresh(), INTAKE_POLL_INTERVAL_MS, polling);
 
   // The shared queue layout (UI system phase 4): the open work by batch, the
   // decided work folded away, search and a Status facet over both.

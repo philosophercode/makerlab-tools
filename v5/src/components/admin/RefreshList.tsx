@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import type { ColumnDef } from "@tanstack/react-table";
 import { INTAKE_POLL_INTERVAL_MS } from "../../lib/intake/limits";
@@ -10,6 +10,7 @@ import type { RefreshStatus } from "../../lib/db/schema/vocabulary";
 import { DataTable } from "../system/data-table/DataTable";
 import { EmptyState } from "../system/EmptyState";
 import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
+import { usePoll } from "./use-poll";
 
 /**
  * `/admin/refresh`'s list (refresh research spec §5.2, §6) as a `DataTable`:
@@ -47,11 +48,7 @@ export function RefreshList({ rows }: { rows: RefreshListRow[] }) {
   const router = useRouter();
   const running = rows.some((row) => row.status === "queued" || row.status === "researching");
 
-  useEffect(() => {
-    if (!running) return;
-    const timer = setInterval(() => router.refresh(), INTAKE_POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [running, router]);
+  usePoll(() => router.refresh(), INTAKE_POLL_INTERVAL_MS, running);
 
   const columns = useMemo<ColumnDef<RefreshListRow, unknown>[]>(() => {
     const count = (id: "differs" | "new" | "unverified" | "safety", header: string): ColumnDef<RefreshListRow, unknown> => ({

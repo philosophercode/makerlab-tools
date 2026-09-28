@@ -3,7 +3,7 @@ import { authorizeAdminAction } from "../../../lib/admin/action-gate";
 import type { Permission } from "../../../lib/auth/permissions";
 import type { Revision } from "../../../lib/data/revision";
 import type { InventoryWriteResult } from "../../../lib/inventory/result";
-import { requestMirrorPush } from "../../../lib/mirror/trigger";
+import { requestMirrorPushAfterResponse } from "../../../lib/mirror/after-response";
 import { INVENTORY_PATH, type InventoryActionResult } from "./action-result";
 
 /**
@@ -13,7 +13,8 @@ import { INVENTORY_PATH, type InventoryActionResult } from "./action-result";
  * tool's state — the action behind it is the same moves: check its own
  * permission, build the write context out of the caller's identity and the
  * token the panel holds, and — only if the write landed — refresh the review
- * table and ask the Notion mirror to catch up (`requestMirrorPush()`, §3.8
+ * table and ask the Notion mirror to catch up (`requestMirrorPush()` once the
+ * response is sent, `mirror/after-response.ts`; §3.8
  * trigger 1: "publishing, and saving an edit"). Doing it here is what makes
  * every editor write, publish, archive and Looks good a trigger, without each
  * action having to remember.
@@ -47,7 +48,15 @@ export interface ToolWriteActor extends ToolWriteInput {
 export async function withToolWrite<T>(
   permission: Permission,
   input: ToolWriteInput,
-  write: (context: ToolWriteActor) => Promise<InventoryWriteResult<T>>
+  write: (context: ToolWriteActor) => Promise<InventoryWriteResult<T>>,
+  options: {
+    /**
+     * Re-render the review table in this action's answer. False when the
+     * change touches nothing the table shows (a description, the PPE list):
+     * the answer then carries no page, just the result (performance plan).
+     */
+    revalidate?: boolean;
+  } = {}
 ): Promise<InventoryActionResult<T>> {
   const gate = await authorizeAdminAction(permission);
   if (!gate.ok) return gate;
@@ -65,8 +74,10 @@ export async function withToolWrite<T>(
   // transaction committed. `requestMirrorPush` never throws, so a mirror that
   // cannot be told never turns a landed write into a failure (Article 4).
   if (result.ok) {
-    revalidatePath(INVENTORY_PATH);
-    await requestMirrorPush();
+    if (options.revalidate !== false) revalidatePath(INVENTORY_PATH);
+    // After the answer is sent: the person is waiting on the save, not on
+    // telling Notion about it (performance plan).
+    await requestMirrorPushAfterResponse();
   }
   return result;
 }
@@ -80,7 +91,8 @@ export async function withToolWrite<T>(
  */
 export function withToolEdit<T>(
   input: ToolWriteInput,
-  write: (context: ToolWriteActor) => Promise<InventoryWriteResult<T>>
+  write: (context: ToolWriteActor) => Promise<InventoryWriteResult<T>>,
+  options: { revalidate?: boolean } = {}
 ): Promise<InventoryActionResult<T>> {
-  return withToolWrite("tools.edit", input, write);
+  return withToolWrite("tools.edit", input, write, options);
 }

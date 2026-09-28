@@ -190,6 +190,18 @@ describe("saveTool", () => {
     const row = await toolRow();
     expect(row.description).toBe("after");
     expect(row.updatedBy).toBe(maker.user.id);
+    // The answer carries the tool as it now stands, so the panel need not
+    // read it again; a description is not a column the review table shows, so
+    // the table is not re-rendered in the answer (performance plan).
+    expect(result.editor?.tool.description).toBe("after");
+    expect(revalidatePath).not.toHaveBeenCalledWith("/admin/inventory");
+  });
+
+  it("re-renders the review table when a column it shows changed", async () => {
+    await asSuperMaker();
+    const result = await saveTool({ toolId, expectedRevision: await revision(), patch: { name: "Form 4L" } });
+
+    expect(result.ok).toBe(true);
     expect(revalidatePath).toHaveBeenCalledWith("/admin/inventory");
   });
 

@@ -7,7 +7,9 @@ import { REFRESH_QUEUE } from "../../../lib/actions/refresh";
 import { authorizeAdminAction } from "../../../lib/admin/action-gate";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
-import { closeEmptyRefresh, getRefresh } from "../../../lib/data/tool-refreshes";
+import { closeEmptyRefresh, getRefresh, lastRefreshedByTool } from "../../../lib/data/tool-refreshes";
+import { listInventoryRows } from "../../../lib/data/inventory";
+import type { PickerTool } from "../../../components/admin/refresh-picker-filters";
 import { isUuid } from "../../../lib/data/uuid";
 import { parseReviewerNote } from "../../../lib/intake/reviewer-note";
 import { decideRefresh } from "../../../lib/refresh/decisions";
@@ -36,6 +38,37 @@ import {
  */
 
 const SURFACE = "admin/refresh";
+
+/**
+ * The tools **Refresh research…** offers, read when the dialog opens rather
+ * than with every render of the page (performance plan, "Slim the intake and
+ * refresh list queries"): the page polls itself every few seconds while
+ * research runs, and each poll re-read the whole inventory for a dialog
+ * nobody had open. Null when the caller may not, or a read failed.
+ */
+export async function loadRefreshPickerTools(): Promise<PickerTool[] | null> {
+  const gate = await authorizeAdminAction("tools.edit");
+  if (!gate.ok) return null;
+  try {
+    const [inventory, refreshed] = await Promise.all([listInventoryRows(), lastRefreshedByTool()]);
+    return inventory
+      .filter((row) => row.state !== "archived")
+      .map((row) => ({
+        id: row.id,
+        name: row.name,
+        officialName: row.officialName ?? null,
+        categoryName: row.categoryName,
+        noManual: row.attention.noManual,
+        neverReviewed: row.attention.neverReviewed,
+        lastRefreshedAt: refreshed.get(row.id)?.toISOString() ?? null,
+        refreshOpen: Boolean(row.openRefreshId),
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  } catch (err) {
+    console.error("[admin/refresh] could not read the tools for the picker", err);
+    return null;
+  }
+}
 const INVENTORY_PATH = "/admin/inventory";
 
 /**

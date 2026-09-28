@@ -1,7 +1,9 @@
 // @vitest-environment node
 import { mockTools } from "../../components/mock-catalog";
 import type { MakerLabTool } from "../../components/catalog-types";
-import { buildSystemPrompt, hasUsableUrl } from "./chat-adapter";
+import { buildSystemPrompt, CONVERSATION_HEADING, hasUsableUrl } from "./chat-adapter";
+// The real registry, as the chat route composes it.
+import { CAPABILITIES } from "./index";
 
 /**
  * The chat adapter's own prompt sections — the rules added when the chat
@@ -108,6 +110,69 @@ describe("citing sources", () => {
   });
 });
 
+describe("prompt order for the provider's prefix cache (performance plan)", () => {
+  const form4 = fixtureTool("form-4");
+  const ada = { role: "user", userId: "u-1", name: "Ada Lovelace", email: "ada@cornell.edu" } as never;
+
+  function stablePart(prompt: string): string {
+    const at = prompt.indexOf(CONVERSATION_HEADING);
+    expect(at).toBeGreaterThan(0);
+    return prompt.slice(0, at);
+  }
+
+  it("keeps the part before 'This conversation' identical across pages, people and locales", () => {
+    const gallery = buildSystemPrompt(CAPABILITIES, { tools: mockTools, locale: "en" });
+    const onTrotec = buildSystemPrompt(CAPABILITIES, { tools: mockTools, focusedTool: trotec, locale: "fr" });
+    const onForm4 = buildSystemPrompt(CAPABILITIES, { tools: mockTools, focusedTool: form4, locale: "en", identity: ada });
+
+    // Signed in, the prompt varies by role only (the floor-map rules, #98) — not by person.
+    const grace = { role: "user", userId: "u-2", name: "Grace Hopper", email: "grace@cornell.edu" } as never;
+    const graceOnGallery = buildSystemPrompt(CAPABILITIES, { tools: mockTools, locale: "ja", identity: grace });
+
+    expect(stablePart(onTrotec)).toBe(stablePart(gallery));
+    expect(stablePart(onForm4)).toBe(stablePart(graceOnGallery));
+    expect(stablePart(onForm4)).not.toContain("Ada Lovelace");
+    expect(stablePart(onTrotec)).not.toContain("## Active tool context");
+  });
+
+  it("puts the per-request parts after the heading", () => {
+    const prompt = buildSystemPrompt(CAPABILITIES, { tools: mockTools, focusedTool: trotec, locale: "fr", identity: ada });
+    const tail = prompt.slice(prompt.indexOf(CONVERSATION_HEADING));
+
+    expect(tail).toContain("## Response language");
+    expect(tail).toContain("## Active tool context");
+    expect(tail).toContain("## Resources for this tool");
+    expect(tail).toContain("Ada Lovelace");
+  });
+
+  it("lists the catalog and the linking rules once, not twice (quick win 4)", () => {
+    const prompt = buildSystemPrompt(CAPABILITIES, { tools: mockTools, focusedTool: trotec, locale: "en" });
+
+    expect(prompt.match(/## MakerLab catalog \(/g)).toHaveLength(1);
+    expect(prompt.match(/## Linking tools/g)).toHaveLength(1);
+    expect(prompt.match(/## Active tool context/g)).toHaveLength(1);
+  });
+
+  it("keeps the lab context and the manual citation rules in the stable part", () => {
+    const stable = stablePart(buildSystemPrompt(CAPABILITIES, { tools: mockTools, focusedTool: trotec, locale: "fr", identity: ada }));
+
+    expect(stable).toContain("## Where you are");
+    expect(stable).toContain("## Searching manuals");
+    expect(stable).toContain("#cite-");
+    expect(stable).toContain("## Citing sources");
+  });
+
+  it("cites manual passages only by #cite-<ref>, never by a #page= URL (#102 over the old rule)", () => {
+    const prompt = buildSystemPrompt(CAPABILITIES, { tools: mockTools, focusedTool: trotec, locale: "en", identity: ada });
+    const citing = prompt.slice(prompt.indexOf("## Citing sources")).split("\n## ")[0];
+
+    expect(citing).toContain("#cite-<ref>");
+    expect(citing).not.toMatch(/ends in `#page=N`|append it so browser PDF viewers/);
+    expect(citing).not.toMatch(/\.pdf#page=\d/);
+    expect(prompt).not.toMatch(/\.pdf#page=\d/);
+  });
+});
+
 describe("where you are (identity spec 2026-09-28 §5)", () => {
   it("tells the assistant what it is, where the lab is and who runs it", () => {
     const prompt = promptFor(null);
@@ -142,7 +207,7 @@ describe("where you are (identity spec 2026-09-28 §5)", () => {
     const where = general.indexOf("## Where you are");
 
     expect(where).toBeGreaterThan(0);
-    expect(where).toBeLessThan(general.indexOf("## Linking tools"));
-    expect(onTool.slice(0, onTool.indexOf("## Linking tools"))).toBe(general.slice(0, general.indexOf("## Linking tools")));
+    expect(where).toBeLessThan(general.indexOf(CONVERSATION_HEADING));
+    expect(onTool.slice(0, onTool.indexOf(CONVERSATION_HEADING))).toBe(general.slice(0, general.indexOf(CONVERSATION_HEADING)));
   });
 });

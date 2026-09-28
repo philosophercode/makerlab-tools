@@ -224,8 +224,20 @@ export interface ManualOutlineForPrompt {
 export interface Capability {
   /** Stable id, e.g. "catalog" | "units" | "maintenance" | "intake". */
   id: string;
-  /** Instructions appended to the system prompt for this capability. */
+  /**
+   * Instructions appended to the system prompt for this capability. Keep it
+   * the same for every request by callers with the same permissions — no
+   * caller name, focused tool or locale — so the prompt's stable prefix can be
+   * cached by the provider; per-request text goes in
+   * {@link conversationFragment}.
+   */
   promptFragment: (env: PromptEnv) => string;
+  /**
+   * Optional. The per-request part of this capability's instructions — who is
+   * signed in, the focused tool's manuals, a curation record — placed in the
+   * prompt's closing "This conversation" section (`chat-adapter.ts`).
+   */
+  conversationFragment?: (env: PromptEnv) => string;
   /**
    * Optional. The permission a caller must hold to use this capability on a
    * session surface (chat). Absent means everyone, anonymous visitors included.

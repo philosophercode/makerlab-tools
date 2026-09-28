@@ -178,6 +178,10 @@ export function ChatPanel() {
   const [cutOff, setCutOff] = useState(false);
   const { messages, sendMessage, setMessages, status, error } = useChat({
     transport,
+    // At most one render per 50ms while an answer streams, instead of one per
+    // chunk (performance plan, quick win 9); with ChatMessage memoised, only
+    // the streaming message re-renders.
+    experimental_throttle: 50,
     onFinish: (finish) => setCutOff(isCutOff(finish)),
     onData: ({ type, data }) => {
       if (type === "data-manuals-attached") {

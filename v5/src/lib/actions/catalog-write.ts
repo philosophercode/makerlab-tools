@@ -6,7 +6,7 @@ import { findToolForEditor } from "../data/tools";
 import type { Revision } from "../data/revision";
 import type { InventoryWriteError, InventoryWriteResult, InventoryWriteWarning } from "../inventory/result";
 import type { ToolWriteContext } from "../inventory/tool-transaction";
-import { requestMirrorPush } from "../mirror/trigger";
+import { requestMirrorPushAfterResponse } from "../mirror/after-response";
 import type { ActionContext, ActionOutcome } from "./define";
 
 /**
@@ -53,9 +53,12 @@ export function inventoryOutcome<T extends object>(
   return { ok: true, value: value as InventoryValue<T>, committed: true };
 }
 
-/** Every editor write tells the mirror once it landed (§3.8 trigger 1). Never throws. */
+/**
+ * Every editor write tells the mirror once it landed (§3.8 trigger 1), after
+ * the response is sent (`mirror/after-response.ts`). Never throws.
+ */
 export async function tellMirror(): Promise<undefined> {
-  await requestMirrorPush();
+  await requestMirrorPushAfterResponse();
   return undefined;
 }
 
