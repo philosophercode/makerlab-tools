@@ -1,6 +1,7 @@
 # ISAM 2026 Demo Abstract — Decisions Log
 
-> Working notes for the extended abstract submission. Source: `abstract-v1.1.html` (mirror: `abstract-v1.1.md`).
+> Working notes for the extended abstract submission. **Current source: `abstract-v2.md`** — build with
+> `node docs/isam-2026-demo/build.mjs` (see "V2" below). V1/V1.1 sources are kept as records.
 > Submission deadline: **10 July 2026** (submitted 30 May). Final upload, via the presenter portal: **30 September 2026**.
 > Regular registration closes **15 September 2026**; at least one author must be registered to present.
 > Demo install/session: **Sunday evening, 11 October 2026**, on-site at Rice University, Houston (symposium 11–13 October).
@@ -18,7 +19,72 @@
   - PDF: `"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --headless --disable-gpu --no-pdf-header-footer --print-to-pdf=abstract-v1.1.pdf "file://$PWD/abstract-v1.1.html"`
   - DOCX: `pandoc abstract-v1.1.html -o abstract-v1.1.docx --resource-path="$PWD"`
 
-## Planned for V2 (Isaac, post-submission — there is more time before the 30 Sep final upload)
+- **V2 — WORKING copy for the 30 Sep final upload (2026-09-28).** Title changed to *"MakerLAB AI: AI to
+  Help Operate, Fix, and Build in Makerspaces."* 2 pages, abstract 288 words, 3 figures, 4 references.
+  **Source of truth: `abstract-v2.md`.** Rebuild everything with one command from the repo root:
+
+  ```bash
+  node docs/isam-2026-demo/build.mjs
+  ```
+
+  `build.mjs` (no dependencies; a small converter for the Markdown subset the paper uses — front
+  matter, `##`/`###`, bold/italic/links, `^1^` superscripts, `- ` lists, `![Fig. N: caption](file.png
+  "wide" | "width=2.1in")`, `<!-- comments -->` dropped) fills `abstract-template.html` (the ISAM print
+  CSS: Letter, 0.75 in margins, 3.4 in columns / 0.2 in gutter, Times 16/12/10/8 pt), writes
+  `abstract-v2.html`, prints `MakerLAB AI - ISAM 2026 Demo V2.pdf` with headless Chrome, and reports the
+  abstract word count (limit 300) and page count (must be 2; exits non-zero when over).
+
+## V1.1 → V2 changes (2026-09-28)
+
+- **Naming (owner, 2026-09-28):** the assistant is **MakerLAB AI**; **MakerLAB Tools** is the platform;
+  the **MakerLAB** is the physical lab (Studio 101, Tata Innovation Center). Retitled from "The
+  MakerLAB Assistant: …" to "MakerLAB AI: …". The accepted submission and ISAM's program carry the
+  old title — Niti should agree, and the title field in the presenter portal must match the PDF.
+  The live app still labels the chat "MakerLAB Assistant" (visible in Fig. 1's chat header).
+- **Framing:** OPERATE / DEBUG / CREATE (V1.1: operate / debug / scope); research question stated
+  explicitly in §1; §3 is now "Process and Results" with measured numbers.
+- **System now described as built:** Postgres + file storage with a one-way Notion mirror (V1.1 said
+  Notion-hosted); manual archive with page-level citations (OCR for scans, hybrid search, reranking);
+  photo/list intake with background research and staff approval (V1.1 listed it as future work);
+  tickets from chat; GUI parity through confirmation cards (typed name for irreversible changes; no
+  people/irreversible changes after reading outside text); kiosk; projects gallery seeded from the
+  lab's projects; anonymous usage insights + value report; MCP; 12 languages.
+- **Numbers and their sources:** 79 published tools / 98 units (public MCP `list_tools` +
+  `get_tool_details`, 2026-09-28; the site header says 100 in inventory); ~54 archived manuals /
+  ~2,400 pages (**approximate**, supplied by the coordinator — the public MCP cannot count the
+  archive; it shows 60 manual links on 51 tools. Confirm on `/admin/research` before upload);
+  59 eval cases (`v5/evals/cases/*.yaml`); 54/59 and 55/59 on 2026-09-28, 50/55 on the earlier
+  main, fixed cases 6/6 twice (coordinator's run log; PR #113 notes one flaky case,
+  `staff-update-after-yes`); 6,385 offline tests (PR #113); ≈0.03¢ per chat turn with a manual
+  search ($0.0003, manual-text spec); ≈2–5¢ per researched tool (bulk-intake spec: $0.0248 for one,
+  $0.0779 for three); 20 manuals indexed for $0.013 (coordinator; not found in the repo).
+- **URL:** https://makerlab-ai.vercel.app (replaces makerlab-tools-v5.vercel.app); code cited as [4]
+  (the repo is public; it has **no LICENSE**, so the paper says "code public", not "open source").
+- **Demo set-up (§4):** kiosk on a TV; laptop 1 public assistant; laptop 2 staff intake from a photo;
+  iPad on the X1-Carbon page; visitors' phones via the kiosk QR; optional MCP laptop. Requirements:
+  table, power, Wi-Fi, monitor/TV.
+- **Generative-AI disclosure** rewritten to the template's policy (disclose use beyond editing, in
+  Acknowledgements): code written with Claude Code and Codex under Isaac's direction and review; text
+  drafted with Claude and checked by the authors; Figs. 1 and 3 are unedited assistant output.
+- **Figures (new, live site 2026-09-28, 2x):** `fig-assistant-debug-v2.png` (Fig. 1, spans both
+  columns: wordmark header + cited SOP answer, pp. 8 and 10), `fig-kiosk-v2.png` (Fig. 2, 7:02 PM
+  capture), `fig-assistant-create-v2.png` (Fig. 3, lamp question). V1.1 figures are unchanged.
+- **Authors:** unchanged from V1.1 (Isaac, Niti, Miguel). Luis Rodrigo Navarro is thanked in the
+  Acknowledgements; a TODO comment in `abstract-v2.md` asks whether to add him as an author.
+
+## Open items for V2 (owner / Niti)
+
+- [ ] Niti: approve the retitle to "MakerLAB AI: …" and the new framing; check her affiliation line.
+- [ ] Add Luis as an author, or keep him in the Acknowledgements (ISAM may not allow author changes).
+- [ ] Confirm the manual archive count (~54 / ~2,400 pages) on `/admin/research`; update if different.
+- [ ] Rename the chat label in the app to "MakerLAB AI" before the demo, then retake Fig. 1 so the
+      screenshot matches the paper (`siteConfig.chatAssistantName` / `NEXT_PUBLIC_CHAT_ASSISTANT_NAME`).
+- [ ] Isaac's affiliation line still reads "MBA '26, Johnson Cornell Tech" (as in V1.1); the app
+      titles him Tech Lead — choose one.
+- [ ] Before 11 Oct: set `RATE_LIMIT_ANON_CHAT` for the booth's shared IP (docs/deploy.md).
+- [ ] Upload the PDF via the presenter portal by **30 Sep 2026**.
+
+## Planned for V2 (V1.1-era notes — V2 did the URL and cited answers; data provenance and the demo video are not in V2)
 
 - **Add the public demo URL:** https://makerlab-tools-v5.vercel.app (the ISAM template even expects a
   "Public Demo" line). Pairs with one clause on how a lab adopts it.
