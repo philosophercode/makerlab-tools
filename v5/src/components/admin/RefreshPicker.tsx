@@ -41,14 +41,23 @@ import {
  */
 
 export interface RefreshPickerProps {
-  tools: readonly PickerTool[];
+  /** The tools to offer, when the page already has them. */
+  tools?: readonly PickerTool[];
+  /**
+   * Or read them when the dialog opens (`/admin/refresh`): the page polls
+   * while research runs, and the whole inventory is not worth re-reading for
+   * a dialog nobody has open. Null is a read that failed.
+   */
+  loadTools?: () => Promise<PickerTool[] | null>;
   action: QueueRefreshAction;
   /** "now" for the 90-day preset: the server's clock, so both renders agree. */
   now: string;
 }
 
-export function RefreshPicker({ tools, action, now }: RefreshPickerProps) {
+export function RefreshPicker({ tools: given, loadTools, action, now }: RefreshPickerProps) {
   const t = useTranslations("admin.refresh.picker");
+  const [loaded, setLoaded] = useState<readonly PickerTool[] | "loading" | "failed" | null>(null);
+  const tools = useMemo<readonly PickerTool[]>(() => given ?? (Array.isArray(loaded) ? loaded : []), [given, loaded]);
   const tr = useTranslations("admin.refresh");
   const te = useTranslations("admin.errors");
   const [open, setOpen] = useState(false);
@@ -82,6 +91,12 @@ export function RefreshPicker({ tools, action, now }: RefreshPickerProps) {
 
   function reset(next: boolean) {
     setOpen(next);
+    if (next && !given && loadTools && !Array.isArray(loaded) && loaded !== "loading") {
+      setLoaded("loading");
+      loadTools()
+        .then((list) => setLoaded(list ?? "failed"))
+        .catch(() => setLoaded("failed"));
+    }
     if (!next) {
       // Closing forgets the press, so the next opening starts clean.
       setResult(null);
@@ -199,31 +214,37 @@ export function RefreshPicker({ tools, action, now }: RefreshPickerProps) {
         </div>
 
         <div className="min-h-0 overflow-y-auto border-y border-rule">
-          <DataTable
-            data={shown}
-            columns={columns}
-            getRowId={(tool) => tool.id}
-            getRowName={(tool) => tool.name}
-            labels={{ table: t("tableLabel"), selected: (n) => t("selected", { count: n }) }}
-            selectable
-            canSelectRow={(tool) => !tool.refreshOpen}
-            selectDescribedBy={(tool) => (tool.refreshOpen ? `${tool.id}-open` : undefined)}
-            selection={selection}
-            onSelectionChange={setSelection}
-            stickyHeader={false}
-            keyboardHint={false}
-            empty={
-              <EmptyState
-                action={
-                  <Button size="sm" variant="ghost" onClick={() => setFilters(NO_PICKER_FILTERS)}>
-                    {t("clear")}
-                  </Button>
-                }
-              >
-                {tools.length === 0 ? t("noTools") : t("noMatch", { filters: filterWords.join(" · ") })}
-              </EmptyState>
-            }
-          />
+          {!given && loaded === "loading" ? (
+            <EmptyState>{t("loadingTools")}</EmptyState>
+          ) : !given && loaded === "failed" ? (
+            <EmptyState tone="bad">{t("toolsUnavailable")}</EmptyState>
+          ) : (
+            <DataTable
+              data={shown}
+              columns={columns}
+              getRowId={(tool) => tool.id}
+              getRowName={(tool) => tool.name}
+              labels={{ table: t("tableLabel"), selected: (n) => t("selected", { count: n }) }}
+              selectable
+              canSelectRow={(tool) => !tool.refreshOpen}
+              selectDescribedBy={(tool) => (tool.refreshOpen ? `${tool.id}-open` : undefined)}
+              selection={selection}
+              onSelectionChange={setSelection}
+              stickyHeader={false}
+              keyboardHint={false}
+              empty={
+                <EmptyState
+                  action={
+                    <Button size="sm" variant="ghost" onClick={() => setFilters(NO_PICKER_FILTERS)}>
+                      {t("clear")}
+                    </Button>
+                  }
+                >
+                  {tools.length === 0 ? t("noTools") : t("noMatch", { filters: filterWords.join(" · ") })}
+                </EmptyState>
+              }
+            />
+          )}
         </div>
 
         <DialogFooter className="flex-col items-stretch gap-3 sm:flex-col sm:items-stretch">

@@ -1,7 +1,8 @@
 // @vitest-environment node
 import { eq, sql } from "drizzle-orm";
 import { createPgliteDb } from "../db/pglite";
-import { attachments, pendingTools, researchRequests, tools, user } from "../db/schema/index";
+import { attachments, bulkImports, pendingTools, researchRequests, tools, user } from "../db/schema/index";
+import { summaryToPendingToolView, toPendingToolView } from "../intake/view";
 import type { Db } from "../db/types";
 import type { ResearchResult } from "../research/result";
 import { hasUnresolvedDuplicate } from "../intake/access";
@@ -16,6 +17,7 @@ import {
   getPendingTool,
   INVALID_STORED_RESEARCH,
   listIntakeQueue,
+  listIntakeQueueSummaries,
   listPendingTools,
   markReadyAsUnit,
   markRedoRequest,
@@ -766,5 +768,38 @@ describe('a guided redo (amendment "Guided redo (focus + guidance)")', () => {
     await markResearching(id, { db, requestId });
     await completeResearch(id, redone(), { db, requestId, focus: ["specs"] });
     expect((await getPendingTool(id, { db }))?.research?.canonicalName).toBe("Prusa MK4S+");
+  });
+});
+
+describe("listIntakeQueueSummaries — the intake list's slim read (performance plan)", () => {
+  it("shows what the full read shows, minus imported rows not yet researched", async () => {
+    const researched = await oneItem("Prusa MK4S");
+    await setStatus(researched, { status: "researched", research: research("low") as never });
+    const broken = await oneItem("Broken Research");
+    await setStatus(broken, { status: "researched", research: sql`'{"confidence":{"level":"odd"}}'::jsonb` as never });
+    const failed = await oneItem("Failed One");
+    await setStatus(failed, { status: "failed", researchError: "timeout" });
+    await oneItem("Just Identified");
+    const settled = await oneItem("Approved Earlier");
+    await setStatus(settled, { status: "discarded" });
+
+    const [imported] = await db
+      .insert(bulkImports)
+      .values({ batchId: crypto.randomUUID(), sourceKind: "paste", format: "list", sourceText: "x", createdBy: OWNER, status: "ready" })
+      .returning({ id: bulkImports.id });
+    const importedIdentified = await oneItem("Imported, not sent");
+    await setStatus(importedIdentified, { importId: imported.id });
+    const importedQueued = await oneItem("Imported, researched");
+    await setStatus(importedQueued, { importId: imported.id, status: "researched", research: research("high") as never });
+
+    const full = (await listIntakeQueue({}, { db }))
+      .filter((item) => !(item.importId && item.status === "identified"))
+      .map(toPendingToolView);
+    const slim = (await listIntakeQueueSummaries({}, { db })).map(summaryToPendingToolView);
+
+    expect(slim).toEqual(full);
+    expect(slim.map((item) => item.name)).not.toContain("Imported, not sent");
+    expect(slim.find((item) => item.name === "Broken Research")?.researchError).toBe(INVALID_STORED_RESEARCH);
+    expect(slim.find((item) => item.name === "Prusa MK4S")?.confidenceLevel).toBe("low");
   });
 });

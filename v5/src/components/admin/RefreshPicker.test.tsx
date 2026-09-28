@@ -130,3 +130,27 @@ describe("RefreshPicker", () => {
     expect(within(dialog).getByRole("button", { name: "Refresh research (25)" })).toBeEnabled();
   });
 });
+
+describe("RefreshPicker — tools read when it opens (performance plan)", () => {
+  const action = vi.fn<QueueRefreshAction>(async () => ({ ok: true, queued: 0, skipped: 0, missing: 0 }));
+
+  it("reads the tools on the first open only, not with the page", async () => {
+    const user = userEvent.setup();
+    const loadTools = vi.fn(async () => TOOLS);
+    render(<RefreshPicker loadTools={loadTools} action={action} now={NOW} />);
+    expect(loadTools).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole("button", { name: "Refresh research…" }));
+    expect(await screen.findByRole("row", { name: /Form 4/ })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    await user.click(screen.getByRole("button", { name: "Refresh research…" }));
+    expect(loadTools).toHaveBeenCalledTimes(1);
+  });
+
+  it("says so when the tools cannot be read", async () => {
+    const user = userEvent.setup();
+    render(<RefreshPicker loadTools={async () => null} action={action} now={NOW} />);
+    await user.click(screen.getByRole("button", { name: "Refresh research…" }));
+    expect(await screen.findByText("The tools could not be read. Close this and try again.")).toBeInTheDocument();
+  });
+});

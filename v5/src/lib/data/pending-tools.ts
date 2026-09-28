@@ -405,6 +405,116 @@ export async function listIntakeQueue(
   return [...open, ...settled];
 }
 
+/** One row of `/admin/intake`'s list — {@link listIntakeQueueSummaries}. */
+export interface IntakeQueueSummary {
+  id: string;
+  batchId: string;
+  status: PendingStatus;
+  name: string;
+  brand: string | null;
+  categoryHint: string | null;
+  locationHint: string | null;
+  serialNumber: string | null;
+  duplicateOf: DuplicateOf | null;
+  duplicateResolution: DuplicateResolution | null;
+  photos: PendingPhoto[];
+  confidenceLevel: "high" | "medium" | "low" | null;
+  researchError: string | null;
+  researchRequestedAt: Date | null;
+  hasWorkflowRun: boolean;
+  createdByName: string | null;
+  createdByRemoved: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+const CONFIDENCE_LEVELS = new Set(["high", "medium", "low"]);
+
+/**
+ * What `/admin/intake`'s list shows, read for the list (performance plan,
+ * "Slim the intake and refresh list queries"): the same items as
+ * {@link listIntakeQueue} minus the imported rows not yet sent to research
+ * (reviewed on their import's page), filtered in SQL rather than after
+ * reading all of them, and without the research, lab documents, links or
+ * name suggestion. The confidence grade is read out of the research in SQL;
+ * the page polls this every few seconds while research runs, and the full
+ * rows, each research blob validated with zod, cost 10× and more after a
+ * bulk import. A stored grade that is not one of the three is treated like
+ * research that no longer validates; the item's own page does the full check.
+ */
+export async function listIntakeQueueSummaries(
+  query: { settledLimit?: number } = {},
+  options: PendingToolOptions = {}
+): Promise<IntakeQueueSummary[]> {
+  const db = options.db ?? (await getDb());
+  const notImportedIdentified = sql`not (${pendingTools.importId} is not null and ${pendingTools.status} = 'identified')`;
+  const select = () =>
+    db
+      .select({
+        id: pendingTools.id,
+        batchId: pendingTools.batchId,
+        status: pendingTools.status,
+        name: pendingTools.name,
+        brand: pendingTools.brand,
+        categoryHint: pendingTools.categoryHint,
+        locationHint: pendingTools.locationHint,
+        serialNumber: pendingTools.serialNumber,
+        duplicateOfToolId: pendingTools.duplicateOfToolId,
+        duplicateOfPendingId: pendingTools.duplicateOfPendingId,
+        duplicateResolution: pendingTools.duplicateResolution,
+        hasResearch: sql<boolean>`${pendingTools.research} is not null`,
+        confidenceLevel: sql<string | null>`${pendingTools.research}->'confidence'->>'level'`,
+        researchError: pendingTools.researchError,
+        researchRequestedAt: pendingTools.researchRequestedAt,
+        workflowRunId: pendingTools.workflowRunId,
+        createdBy: pendingTools.createdBy,
+        createdByName: pendingTools.createdByName,
+        liveCreatorName: user.name,
+        createdAt: pendingTools.createdAt,
+        updatedAt: pendingTools.updatedAt,
+      })
+      .from(pendingTools)
+      .leftJoin(user, eq(user.id, pendingTools.createdBy));
+  const order = [desc(pendingTools.createdAt), asc(pendingTools.batchId), asc(pendingTools.name), asc(pendingTools.id)];
+  const [open, settled] = await Promise.all([
+    select()
+      .where(and(inArray(pendingTools.status, [...OPEN_PENDING_STATUSES]), notImportedIdentified))
+      .orderBy(...order),
+    select()
+      .where(inArray(pendingTools.status, ["approved", "discarded"]))
+      .orderBy(...order)
+      .limit(query.settledLimit ?? INTAKE_SETTLED_LIMIT),
+  ]);
+  const rows = [...open, ...settled];
+  if (rows.length === 0) return [];
+
+  const { toolById, pendingById, photosByOwner } = await loadListRelations(db, rows);
+  return rows.map((row) => {
+    const level = row.confidenceLevel && CONFIDENCE_LEVELS.has(row.confidenceLevel) ? row.confidenceLevel : null;
+    return {
+      id: row.id,
+      batchId: row.batchId,
+      status: row.status as PendingStatus,
+      name: row.name,
+      brand: row.brand,
+      categoryHint: row.categoryHint,
+      locationHint: row.locationHint,
+      serialNumber: row.serialNumber,
+      duplicateOf: duplicateOfRow(row, toolById, pendingById),
+      duplicateResolution: (row.duplicateResolution as DuplicateResolution | null) ?? null,
+      photos: photosByOwner.get(row.id) ?? [],
+      confidenceLevel: level as IntakeQueueSummary["confidenceLevel"],
+      researchError: row.researchError ?? (row.hasResearch && level === null ? INVALID_STORED_RESEARCH : null),
+      researchRequestedAt: row.researchRequestedAt,
+      hasWorkflowRun: row.workflowRunId !== null,
+      createdByName: row.liveCreatorName ?? row.createdByName ?? null,
+      createdByRemoved: row.createdBy === null && row.createdByName !== null,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+    };
+  });
+}
+
 // ── Creating ────────────────────────────────────────────────────────
 
 /**
@@ -1556,9 +1666,74 @@ async function readPendingTools(db: Db, where: SQL | undefined, limit: number | 
   const rows = limit === null ? await query : await query.limit(limit);
   if (rows.length === 0) return [];
 
-  const ids = rows.map(({ row }) => row.id);
-  const toolIds = unique(rows.map(({ row }) => row.duplicateOfToolId));
-  const pendingIds = unique(rows.map(({ row }) => row.duplicateOfPendingId));
+  const { toolById, pendingById, photosByOwner } = await loadListRelations(
+    db,
+    rows.map(({ row }) => row)
+  );
+
+  return rows.map(({ row, liveCreatorName }) => {
+    const duplicateOf = duplicateOfRow(row, toolById, pendingById);
+
+    const research = row.research == null ? null : parseResearchResult(row.research);
+    const researchError =
+      row.researchError ?? (row.research != null && research === null ? INVALID_STORED_RESEARCH : null);
+
+    return {
+      id: row.id,
+      batchId: row.batchId,
+      status: row.status as PendingStatus,
+      name: row.name,
+      brand: row.brand,
+      categoryHint: row.categoryHint,
+      locationHint: row.locationHint,
+      serialNumber: row.serialNumber,
+      duplicateOfToolId: row.duplicateOfToolId,
+      duplicateOfPendingId: row.duplicateOfPendingId,
+      duplicateResolution: (row.duplicateResolution as DuplicateResolution | null) ?? null,
+      research,
+      researchError,
+      workflowRunId: row.workflowRunId,
+      researchRequestId: row.researchRequestId,
+      researchRequestedBy: row.researchRequestedBy,
+      researchRequestedAt: row.researchRequestedAt,
+      createdBy: row.createdBy,
+      approvedBy: row.approvedBy,
+      approvedAt: row.approvedAt,
+      approvalNote: row.approvalNote,
+      createdToolId: row.createdToolId,
+      createdUnitId: row.createdUnitId,
+      importId: row.importId,
+      sourceRow: row.sourceRow,
+      quantity: row.quantity,
+      serials: row.serials ?? [],
+      labDocs: Array.isArray(row.labDocs) ? row.labDocs : [],
+      links: Array.isArray(row.links) ? row.links : [],
+      notes: row.notes,
+      nameSuggestion: row.nameSuggestion ?? null,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
+      duplicateOf,
+      photos: photosByOwner.get(row.id) ?? [],
+      createdByName: liveCreatorName ?? row.createdByName ?? null,
+      createdByRemoved: row.createdBy === null && row.createdByName !== null,
+    };
+  });
+}
+
+type ListRelations = Awaited<ReturnType<typeof loadListRelations>>;
+
+/**
+ * What a list of pending rows needs besides the rows: the tool or pending item
+ * each duplicate points at, and each row's photos (not the cleaned research
+ * copy). Shared by the full read and the intake list's slim one.
+ */
+async function loadListRelations(
+  db: Db,
+  rows: readonly { id: string; duplicateOfToolId: string | null; duplicateOfPendingId: string | null }[]
+) {
+  const ids = rows.map((row) => row.id);
+  const toolIds = unique(rows.map((row) => row.duplicateOfToolId));
+  const pendingIds = unique(rows.map((row) => row.duplicateOfPendingId));
 
   const [matchedTools, matchedPending, photos] = await Promise.all([
     toolIds.length
@@ -1608,65 +1783,19 @@ async function readPendingTools(db: Db, where: SQL | undefined, limit: number | 
     photosByOwner.set(photo.ownerId, list);
   }
 
-  return rows.map(({ row, liveCreatorName }) => {
-    let duplicateOf: DuplicateOf | null = null;
-    const tool = row.duplicateOfToolId ? toolById.get(row.duplicateOfToolId) : undefined;
-    const pending = row.duplicateOfPendingId ? pendingById.get(row.duplicateOfPendingId) : undefined;
-    if (tool) {
-      duplicateOf = { kind: "tool", id: tool.id, name: tool.name, slug: tool.slug, published: tool.published };
-    } else if (pending) {
-      duplicateOf = {
-        kind: "pending",
-        id: pending.id,
-        name: pending.name,
-        status: pending.status as PendingStatus,
-      };
-    }
+  return { toolById, pendingById, photosByOwner };
+}
 
-    const research = row.research == null ? null : parseResearchResult(row.research);
-    const researchError =
-      row.researchError ?? (row.research != null && research === null ? INVALID_STORED_RESEARCH : null);
-
-    return {
-      id: row.id,
-      batchId: row.batchId,
-      status: row.status as PendingStatus,
-      name: row.name,
-      brand: row.brand,
-      categoryHint: row.categoryHint,
-      locationHint: row.locationHint,
-      serialNumber: row.serialNumber,
-      duplicateOfToolId: row.duplicateOfToolId,
-      duplicateOfPendingId: row.duplicateOfPendingId,
-      duplicateResolution: (row.duplicateResolution as DuplicateResolution | null) ?? null,
-      research,
-      researchError,
-      workflowRunId: row.workflowRunId,
-      researchRequestId: row.researchRequestId,
-      researchRequestedBy: row.researchRequestedBy,
-      researchRequestedAt: row.researchRequestedAt,
-      createdBy: row.createdBy,
-      approvedBy: row.approvedBy,
-      approvedAt: row.approvedAt,
-      approvalNote: row.approvalNote,
-      createdToolId: row.createdToolId,
-      createdUnitId: row.createdUnitId,
-      importId: row.importId,
-      sourceRow: row.sourceRow,
-      quantity: row.quantity,
-      serials: row.serials ?? [],
-      labDocs: Array.isArray(row.labDocs) ? row.labDocs : [],
-      links: Array.isArray(row.links) ? row.links : [],
-      notes: row.notes,
-      nameSuggestion: row.nameSuggestion ?? null,
-      createdAt: row.createdAt,
-      updatedAt: row.updatedAt,
-      duplicateOf,
-      photos: photosByOwner.get(row.id) ?? [],
-      createdByName: liveCreatorName ?? row.createdByName ?? null,
-      createdByRemoved: row.createdBy === null && row.createdByName !== null,
-    };
-  });
+function duplicateOfRow(
+  row: { duplicateOfToolId: string | null; duplicateOfPendingId: string | null },
+  toolById: ListRelations["toolById"],
+  pendingById: ListRelations["pendingById"]
+): DuplicateOf | null {
+  const tool = row.duplicateOfToolId ? toolById.get(row.duplicateOfToolId) : undefined;
+  const pending = row.duplicateOfPendingId ? pendingById.get(row.duplicateOfPendingId) : undefined;
+  if (tool) return { kind: "tool", id: tool.id, name: tool.name, slug: tool.slug, published: tool.published };
+  if (pending) return { kind: "pending", id: pending.id, name: pending.name, status: pending.status as PendingStatus };
+  return null;
 }
 
 type PatchValues = {

@@ -4,10 +4,10 @@ import { IntakeList } from "../../../../components/admin/IntakeList";
 import { EmptyState } from "../../../../components/system/EmptyState";
 import { resolveIdentityFromHeaders } from "../../../../lib/auth/identity";
 import { can } from "../../../../lib/auth/permissions";
-import { listIntakeQueue } from "../../../../lib/data/pending-tools";
+import { listIntakeQueueSummaries } from "../../../../lib/data/pending-tools";
 import { INTAKE_REVIEW_PERMISSION } from "../../../../lib/intake/access";
 import type { PendingToolView } from "../../../../lib/intake/types";
-import { toPendingToolView } from "../../../../lib/intake/view";
+import { summaryToPendingToolView } from "../../../../lib/intake/view";
 import { siteConfig } from "../../../../lib/site-config";
 
 /**
@@ -22,7 +22,7 @@ import { siteConfig } from "../../../../lib/site-config";
  * Every pending item, newest batch first: the ones identified in the chat and
  * never sent to research, the ones researching now, the ones waiting for a
  * decision, and — folded away — the most recent ones already decided. The
- * open ones are read **uncapped** (`listIntakeQueue`): however much history
+ * open ones are read **uncapped** (`listIntakeQueueSummaries`): however much history
  * accumulates, an item waiting for a decision is never pushed off the one page
  * that offers it. A researched item links to its preliminary page, which is
  * where approval happens.
@@ -50,9 +50,9 @@ export default async function AdminIntakePage() {
     // An imported row not yet sent to research is reviewed on its import's page
     // (bulk intake spec §5): four hundred of them here would bury the queue.
     // Once researched it appears here like any other item.
-    items = (await listIntakeQueue())
-      .filter((item) => !(item.importId && item.status === "identified"))
-      .map(toPendingToolView);
+    // Filtered in SQL, and read without the research blobs this list never
+    // shows (performance plan, "Slim the intake and refresh list queries").
+    items = (await listIntakeQueueSummaries()).map(summaryToPendingToolView);
   } catch (err) {
     console.error("[admin/intake] could not read the queue", err);
     items = null;
