@@ -6,6 +6,7 @@ import { QrArrivalNotice } from "./QrArrivalNotice";
 import { DetailShell } from "../../../components/DetailShell";
 import { FlagButton } from "../../../components/FlagButton";
 import { ToolChatStarters } from "../../../components/ToolChatStarters";
+import { SignedInToolLocation } from "../../../components/map/SignedInToolLocation";
 import { getCatalogTool, getManualContents, getToolMaintenanceHistory } from "../../../lib/catalog";
 import { findToolByNotionPageId } from "../../../lib/data/catalog";
 import { isLegacyNotionId } from "../../../lib/legacy-id";
@@ -138,7 +139,19 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
       <Suspense fallback={null}>
         <QrArrivalNotice toolName={tool.name} />
       </Suspense>
-      <DetailShell tool={tool} projects={projects} manualContents={manualContents} maintenance={maintenance} />
+      <DetailShell
+        tool={tool}
+        projects={projects}
+        manualContents={manualContents}
+        maintenance={maintenance}
+        location={
+          // Signed-in viewers only (map access, PR #98): a dynamic hole, so the
+          // cached shell sent to everyone else carries no placement.
+          <Suspense fallback={null}>
+            <SignedInToolLocation tool={tool} />
+          </Suspense>
+        }
+      />
       {/* The assistant's starter chips for this tool, handed to the chat in
           the layout; nothing is rendered (amendment "Tool-specific starter
           questions"). */}
