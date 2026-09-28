@@ -1,7 +1,8 @@
 import { mockCatalog } from "../../test/fixtures/catalog";
-import type { MakerLabTool } from "./catalog-types";
+import { toGalleryTool } from "./catalog-types";
 import {
   DEFAULT_GALLERY_STATE,
+  availableUnits,
   groupTools,
   parseGalleryState,
   sortTools,
@@ -10,7 +11,7 @@ import {
 
 /** The gallery's URL vocabulary, sort and grouping (UI system phase 5a). */
 
-const names = (tools: MakerLabTool[]) => tools.map((tool) => tool.name);
+const names = (tools: readonly { name: string }[]) => tools.map((tool) => tool.name);
 
 describe("parseGalleryState / toGallerySearchParams", () => {
   it("round-trips every choice and leaves defaults out of the URL", () => {
@@ -89,5 +90,17 @@ describe("groupTools", () => {
       "Laser › CO2",
       "Woodworking › Cutting",
     ]);
+  });
+});
+
+describe("toGalleryTool (performance plan, quick win 11)", () => {
+  it("keeps what the gallery reads and drops the rest", () => {
+    const slim = toGalleryTool(mockCatalog[0]);
+    expect(slim).not.toHaveProperty("shortDescription");
+    expect(slim).not.toHaveProperty("links");
+    expect(slim).not.toHaveProperty("notes");
+    expect(slim.units.every((unit) => Object.keys(unit).join() === "status")).toBe(true);
+    expect(availableUnits(slim)).toBe(availableUnits(mockCatalog[0]));
+    expect(JSON.stringify(slim).length).toBeLessThan(JSON.stringify(mockCatalog[0]).length);
   });
 });

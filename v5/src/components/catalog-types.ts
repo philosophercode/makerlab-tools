@@ -70,6 +70,57 @@ export interface MakerLabTool {
   addedAt?: string | null;
 }
 
+/**
+ * What the gallery's cards, table, search, facets and sorts read of a tool —
+ * all the home page serializes for the browser (performance plan, quick win
+ * 11). The full record carried units' serials and conditions, links, notes,
+ * restrictions, starter questions and a short description the gallery never
+ * shows: about 330 KB of flight data on `/` with the real catalogue. Units
+ * keep only their status (availability counts, the table's n/m column).
+ */
+export type GalleryTool = Pick<
+  MakerLabTool,
+  | "id"
+  | "slug"
+  | "name"
+  | "officialName"
+  | "category"
+  | "categorySub"
+  | "location"
+  | "zone"
+  | "trainingLevel"
+  | "status"
+  | "imageSrc"
+  | "materials"
+  | "tags"
+  | "ppe"
+  | "description"
+  | "addedAt"
+> & { units: Pick<MakerLabUnit, "status">[] };
+
+/** A catalogue tool as the gallery gets it — see {@link GalleryTool}. */
+export function toGalleryTool(tool: MakerLabTool): GalleryTool {
+  return {
+    id: tool.id,
+    slug: tool.slug,
+    name: tool.name,
+    officialName: tool.officialName ?? null,
+    category: tool.category,
+    categorySub: tool.categorySub,
+    location: tool.location,
+    zone: tool.zone,
+    trainingLevel: tool.trainingLevel,
+    status: tool.status,
+    imageSrc: tool.imageSrc,
+    materials: tool.materials,
+    tags: tool.tags,
+    ppe: tool.ppe,
+    description: tool.description,
+    addedAt: tool.addedAt ?? null,
+    units: tool.units.map((unit) => ({ status: unit.status })),
+  };
+}
+
 export interface CatalogStats {
   toolsInInventory: number;
   labHours: string;

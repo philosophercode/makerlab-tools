@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import { matchSorter } from "match-sorter";
 import { LayoutGrid, Rows3 } from "lucide-react";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
-import type { MakerLabTool } from "./catalog-types";
+import type { GalleryTool } from "./catalog-types";
 import { TOOL_STATUS_KEY, ToolCard } from "./ToolCard";
 import { GALLERY_DEFAULT_HIDDEN, GalleryTable, useGalleryColumns } from "./GalleryTable";
 import { GalleryHero } from "./GalleryHero";
@@ -32,14 +32,14 @@ import { SegmentedControl } from "./system/SegmentedControl";
 import { facetOptions, uniqueValues } from "./system/data-table/facet-options";
 
 interface GalleryShellProps {
-  tools: MakerLabTool[];
+  tools: GalleryTool[];
 }
 
 // Ranked, typo-tolerant search keys. match-sorter ranks earlier keys above
 // later ones when match quality ties, so key order doubles as relevance
 // weight: name first, then the structured metadata (category / tags /
 // materials), then the free-text description last.
-const SEARCH_KEYS: ReadonlyArray<keyof MakerLabTool> = [
+const SEARCH_KEYS: ReadonlyArray<keyof GalleryTool> = [
   "name",
   // The official name, with its model or part number (tool display names spec §5.6).
   "officialName",
@@ -57,7 +57,7 @@ const SEARCH_KEYS: ReadonlyArray<keyof MakerLabTool> = [
 type Facet = "status" | "category" | "material" | "location";
 const FACETS: readonly Facet[] = ["status", "category", "material", "location"];
 
-function matchesFacet(tool: MakerLabTool, facet: Facet, value: string): boolean {
+function matchesFacet(tool: GalleryTool, facet: Facet, value: string): boolean {
   if (facet === "status") return tool.status === value;
   if (facet === "category") return tool.category === value;
   if (facet === "material") return tool.materials.includes(value);
@@ -65,7 +65,7 @@ function matchesFacet(tool: MakerLabTool, facet: Facet, value: string): boolean 
 }
 
 /** The rows every facet but `except` leaves — what a facet's counts are taken over. */
-function narrowed(tools: readonly MakerLabTool[], state: GalleryState, except?: Facet): MakerLabTool[] {
+function narrowed(tools: readonly GalleryTool[], state: GalleryState, except?: Facet): GalleryTool[] {
   return tools.filter((tool) =>
     FACETS.every(
       (facet) => facet === except || !state[facet] || matchesFacet(tool, facet, state[facet]!)
@@ -128,7 +128,7 @@ export function GalleryShell({ tools }: GalleryShellProps) {
       onChange={(value) => set({ [key]: value })}
     />
   );
-  const statusLabel = (value: string) => t(`status.${TOOL_STATUS_KEY[value as MakerLabTool["status"]]}`);
+  const statusLabel = (value: string) => t(`status.${TOOL_STATUS_KEY[value as GalleryTool["status"]]}`);
 
   const sortOptions: ChoiceOption<"default" | GallerySort>[] = [
     { value: "default", label: query ? t("sort.relevance") : t("sort.name") },
@@ -280,11 +280,11 @@ function Tools({
   stickyHeader,
   keyboardHint,
 }: {
-  tools: MakerLabTool[];
+  tools: GalleryTool[];
   view: GalleryState["view"];
   headingLevel: 2 | 3;
   tableLabel: string;
-  columns: ColumnDef<MakerLabTool, unknown>[];
+  columns: ColumnDef<GalleryTool, unknown>[];
   visibility: VisibilityState;
   stickyHeader?: boolean;
   keyboardHint?: boolean;

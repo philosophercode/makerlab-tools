@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
-import type { MakerLabTool } from "./catalog-types";
+import type { GalleryTool } from "./catalog-types";
 import { DataTable } from "./system/data-table/DataTable";
 import { StatusGlyph } from "./system/StatusGlyph";
 import { TOOL_STATUS_KEY, TOOL_STATUS_TONE } from "./ToolCard";
@@ -29,9 +29,9 @@ import { GALLERY_STATUSES, availableUnits } from "./gallery-filters";
 /** Hidden until asked for: useful, but not what somebody scanning the lab needs. */
 export const GALLERY_DEFAULT_HIDDEN: VisibilityState = { officialName: false, materials: false };
 
-export function useGalleryColumns(): ColumnDef<MakerLabTool, unknown>[] {
+export function useGalleryColumns(): ColumnDef<GalleryTool, unknown>[] {
   const t = useTranslations("gallery");
-  return useMemo<ColumnDef<MakerLabTool, unknown>[]>(
+  return useMemo<ColumnDef<GalleryTool, unknown>[]>(
     () => [
       {
         id: "name",
@@ -132,8 +132,8 @@ export function GalleryTable({
   stickyHeader,
   keyboardHint,
 }: {
-  tools: MakerLabTool[];
-  columns: ColumnDef<MakerLabTool, unknown>[];
+  tools: GalleryTool[];
+  columns: ColumnDef<GalleryTool, unknown>[];
   visibility: VisibilityState;
   /** The table's name: the gallery's, or its section's when grouped. */
   label?: string;
@@ -175,10 +175,10 @@ export function GalleryTable({
   );
 }
 
-const getRowId = (tool: MakerLabTool) => tool.id;
-const getRowName = (tool: MakerLabTool) => tool.name;
+const getRowId = (tool: GalleryTool) => tool.id;
+const getRowName = (tool: GalleryTool) => tool.name;
 
 /** 24px, contained: a product shot, not a crop. Decorative — the name is beside it. */
-function Thumb({ tool }: { tool: MakerLabTool }) {
+function Thumb({ tool }: { tool: GalleryTool }) {
   return <ToolImage src={tool.imageSrc} name={tool.name} sizes="24px" className="size-6 shrink-0 border border-border bg-card text-[8px]" />;
 }

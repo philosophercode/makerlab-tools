@@ -1,10 +1,10 @@
 import Link from "next/link";
-import type { MakerLabTool, ToolStatus } from "./catalog-types";
+import type { GalleryTool, ToolStatus } from "./catalog-types";
 import type { StatusTone } from "./system/StatusGlyph";
 import { ToolImage } from "./ToolImage";
 
 interface ToolCardProps {
-  tool: MakerLabTool;
+  tool: GalleryTool;
   /** h2 on an ungrouped gallery; h3 under a group's h2. */
   headingLevel?: 2 | 3;
 }
