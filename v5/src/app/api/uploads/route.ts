@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { getBlobStore, isBlobConfigured, type BlobAccess } from "../../../lib/blob";
 import { createAttachment } from "../../../lib/data/attachments";
+import { scheduleThumbnails } from "../../../lib/images/schedule-thumbnails";
 import { rateLimitAsync } from "../../../lib/rate-limit";
 import { resolveIdentity, type Identity } from "../../../lib/auth/identity";
 import { can, type Permission } from "../../../lib/auth/permissions";
@@ -291,6 +292,10 @@ export async function POST(req: NextRequest) {
     }
     return Response.json({ error: "Upload failed" }, { status: 502 });
   }
+
+  // A public photo is about to be shown on a tool or project page: its
+  // thumbnails are rendered after this answers (never while the person waits).
+  if (access === "public" && isImage) scheduleThumbnails({ ids: [attachmentId] });
 
   return Response.json({
     attachmentId,

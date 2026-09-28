@@ -117,8 +117,13 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
       <section data-slot="tool-hero" className="grid min-w-0 gap-5 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)] md:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] md:gap-8">
         <ToolImage
           src={tool.imageSrc}
+          thumbnails={tool.thumbnails}
           name={tool.name}
-          sizes="(min-width: 768px) 256px, (min-width: 640px) 208px, 100vw"
+          // The plate's width: the column (16rem / 13rem), capped at 12rem
+          // on a phone.
+          sizes="(min-width: 768px) 256px, (min-width: 640px) 208px, 192px"
+          // The page's LCP element: fetched first, never lazily.
+          priority="high"
           className="aspect-[4/3] w-full max-w-[12rem] border border-border bg-card p-3 sm:max-w-none"
         />
         <div className="flex min-w-0 flex-col gap-2.5">

@@ -217,11 +217,14 @@ export type DiscardResult =
 /**
  * The product image an approval makes the tool's cover (gateway spec §4.3):
  * the background-removed copy of rank 1, one of the recorded candidates by its
- * exact URL, or none. Absent means none.
+ * exact URL, one of the item's own uploaded photos (amendment "An uploaded
+ * photo is a choice, not the product image") — its background removed or
+ * not — or none. Absent means none.
  */
 export type ApprovalImageChoice =
   | { choice: "cleaned" }
   | { choice: "original"; candidateUrl: string }
+  | { choice: "upload"; attachmentId: string; removeBackground: boolean }
   | { choice: "none" };
 
 /** What approval turns into the tool's fields — the preliminary page's form. */
@@ -267,8 +270,9 @@ export interface ApprovePendingInput {
   overrideNote?: string | null;
   /**
    * The prepared cover (gateway spec §5.2 step 3): a public `research_image`
-   * nobody owns yet, or this item's own `research_image_cleaned` copy, already
-   * made public. Null or absent for no image.
+   * nobody owns yet, this item's own `research_image_cleaned` copy (research's,
+   * or the cutout of an uploaded photo), already made public, or one of this
+   * item's own uploaded photos, public. Null or absent for no image.
    */
   coverAttachmentId?: string | null;
 }
@@ -1469,12 +1473,16 @@ async function releaseUnchosenCleaned(tx: Db, pendingId: string, keep: string | 
 
 /**
  * Make `coverId` the new tool's cover, at position 0, and say whether it
- * worked. Only two kinds of row qualify, which is what keeps this from being a
- * way to annex somebody else's file:
+ * worked. Only three kinds of row qualify, which is what keeps this from being
+ * a way to annex somebody else's file:
  *
  * - a `research_image` **nobody owns** — the original an admin chose, which
  *   `intake/approval-image.ts` stored moments ago;
- * - this item's own `research_image_cleaned` copy.
+ * - this item's own `research_image_cleaned` copy — research's, or the cutout
+ *   of an uploaded photo made at approval;
+ * - one of this item's own uploaded photos (`origin` `upload`, or null on an
+ *   older row), chosen as it was taken — and only when it is **public**, so a
+ *   photo whose promotion failed never becomes a cover nobody can load.
  *
  * Runs before the item's photos are re-owned, so they land after it. The tool
  * is new, so position 0 is before everything it has.
@@ -1489,7 +1497,10 @@ async function takeCover(tx: Db, pendingId: string, toolId: string, coverId: str
         eq(attachments.id, coverId),
         sql`((${attachments.ownerId} is null and ${attachments.origin} = 'research_image')
              or (${attachments.ownerType} = 'pending_tool' and ${attachments.ownerId} = ${pendingId}
-                 and ${attachments.origin} = 'research_image_cleaned'))`
+                 and ${attachments.origin} = 'research_image_cleaned')
+             or (${attachments.ownerType} = 'pending_tool' and ${attachments.ownerId} = ${pendingId}
+                 and (${attachments.origin} is null or ${attachments.origin} = 'upload')
+                 and ${attachments.access} = 'public'))`
       )
     )
     .returning({ id: attachments.id });

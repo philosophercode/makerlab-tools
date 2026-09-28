@@ -14,7 +14,8 @@ import { type LogCompletedFields, type LogCompletedResult, type MaintenanceActio
  *
  * It checks `maintenance.manage` for itself (a server action is reachable
  * without its page), writes no audit event (§4.11: an ordinary edit),
- * invalidates no cache (nothing cached reads a ticket) and tells the Notion
+ * drops the ticket caches (the kiosk count, the tool pages' maintenance
+ * history — `invalidateMaintenance`, in the action's afterCommit) and tells the Notion
  * mirror. One action for status, priority, assignee and resolution: the patch
  * writes only the keys the control sent.
  */

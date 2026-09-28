@@ -41,6 +41,8 @@ const list = z.array(z.string().trim().min(1).max(MAX_LINE)).max(50);
 const imageChoice = z.discriminatedUnion("choice", [
   z.strictObject({ choice: z.literal("cleaned") }),
   z.strictObject({ choice: z.literal("original"), candidateUrl: z.string().min(1).max(2048) }),
+  // One of the item's own uploaded photos; which ones are its own is decided by `approval-image.ts`.
+  z.strictObject({ choice: z.literal("upload"), attachmentId: pendingId, removeBackground: z.boolean() }),
   z.strictObject({ choice: z.literal("none") }),
 ]);
 

@@ -12,6 +12,8 @@ import type { Db } from "../db/types.ts";
 import { compactNotionId } from "../legacy-id.ts";
 import { slugify } from "../db/slug.ts";
 import { BUNDLED_TOOL_IMAGES } from "./bundled-tool-images.ts";
+import { BUNDLED_TOOL_THUMBNAILS } from "./bundled-tool-thumbnails.ts";
+import { isImageThumbnails, type ImageThumbnails } from "../images/thumbnail-urls.ts";
 import { isManualArchiveKey, manualSourceKey } from "./manual-archives.ts";
 import { isUuid } from "./uuid.ts";
 import type { MakerLabTool, MakerLabUnit, ToolStatus } from "../../components/catalog-types.ts";
@@ -94,6 +96,8 @@ export interface AttachmentRow {
   originalFilename: string | null;
   /** Set on an archived manual (`manual:<resource id>:<url>`); see `./manual-archives.ts`. */
   sourceKey?: string | null;
+  /** A public image's pre-rendered thumbnails (migration `0021`), or null/absent when none were made. */
+  thumbnails?: ImageThumbnails | null;
 }
 
 /** Attachments grouped by `<owner type>:<owner id>`, each list in position order. */
@@ -332,6 +336,7 @@ async function selectAttachments(
       publicUrl: attachments.publicUrl,
       originalFilename: attachments.originalFilename,
       sourceKey: attachments.sourceKey,
+      thumbnails: attachments.thumbnails,
     })
     .from(attachments)
     .where(and(or(ownedByTool, ownedByResource), isNotNull(attachments.publicUrl)))
@@ -401,7 +406,7 @@ export function toMakerLabTool(
     status,
     shortDescription: tool.description || "Catalog record pending description.",
     description: tool.description || "This tool record is available in the MakerLab catalog.",
-    imageSrc: toolImageSrc(tool, attachmentsFor(files, "tool", tool.id)),
+    ...toolImage(tool, attachmentsFor(files, "tool", tool.id)),
     ppe: tool.ppeRequired.length ? tool.ppeRequired : ["Check posted lab guidance"],
     materials: tool.materials,
     tags: tool.tags,
@@ -426,14 +431,53 @@ const BUNDLED_BY_SLUG: ReadonlyMap<string, string> = new Map([...BUNDLED_TOOL_IM
  * bundled photo wins, the display name first (tool display names spec §5.8).
  * When neither does (both names were changed since the import), the slug —
  * derived from the imported name at creation and never changed — finds it.
+ *
+ * With no photo at all the answer is `""`, and `ToolImage` draws the empty
+ * plate straight away: a guessed `/tool-images/<name>.png` was a request that
+ * could only 404 (and a console error on every page that showed it).
  */
 export function toolImageSrc(tool: Pick<ToolRow, "name" | "officialName"> & { slug?: string }, files: AttachmentRow[]): string {
+  return toolImage(tool, files).imageSrc;
+}
+
+/**
+ * The tool's image (`toolImageSrc`) and the thumbnails to show instead of it,
+ * or `thumbnails: null` when there are none — then `ToolImage` falls back to
+ * `next/image` on the original.
+ *
+ * - A Blob photo carries its own (`attachments.thumbnails`, written after
+ *   upload or approval, or by `npm run thumbnails:backfill`).
+ * - A bundled photo's are in `BUNDLED_TOOL_THUMBNAILS`, whether the catalogue
+ *   found it by name or an attachment points at it (`/tool-images/<file>.png`,
+ *   as the demo seed's Trotec does).
+ */
+export function toolImage(
+  tool: Pick<ToolRow, "name" | "officialName"> & { slug?: string },
+  files: AttachmentRow[]
+): { imageSrc: string; thumbnails: ImageThumbnails | null } {
   const image = files.find((file) => file.access === "public" && file.publicUrl);
-  if (image?.publicUrl) return image.publicUrl;
+  if (image?.publicUrl) {
+    const own = isImageThumbnails(image.thumbnails) ? image.thumbnails : null;
+    return { imageSrc: image.publicUrl, thumbnails: own ?? bundledThumbnailsForUrl(image.publicUrl) };
+  }
   const bundled =
     [tool.name, tool.officialName ?? ""].find((name) => name.trim() && BUNDLED_TOOL_IMAGES.has(bundledFileName(name))) ??
     (tool.slug ? BUNDLED_BY_SLUG.get(tool.slug) : undefined);
-  return bundled ? localToolImage(bundled) : localToolImage(tool.name);
+  if (!bundled) return { imageSrc: "", thumbnails: null };
+  return { imageSrc: localToolImage(bundled), thumbnails: BUNDLED_TOOL_THUMBNAILS[bundledFileName(bundled)] ?? null };
+}
+
+/** The bundled thumbnails for a `/tool-images/<file>.png` URL (percent-encoded or not), or null. */
+export function bundledThumbnailsForUrl(url: string): ImageThumbnails | null {
+  const match = /^\/tool-images\/([^/]+)\.png$/.exec(url);
+  if (!match) return null;
+  let file: string;
+  try {
+    file = decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+  return BUNDLED_TOOL_THUMBNAILS[file] ?? null;
 }
 
 function bundledFileName(name: string): string {

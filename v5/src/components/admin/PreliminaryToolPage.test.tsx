@@ -297,8 +297,9 @@ describe("PreliminaryToolPage — the proposal", () => {
         useRestrictions: null,
         serialNumber: "SN-42",
         resourceUrls: ["https://example.com/manual.pdf"],
-        // The item has uploaded photos: they are the cover, and nothing replaces them.
-        image: { choice: "none" },
+        // Research found no image here, so the page preselects the first uploaded photo,
+        // background removed (amendment "An uploaded photo is a choice, not the product image").
+        image: { choice: "upload", attachmentId: "p1", removeBackground: true },
       },
     });
   });
@@ -413,13 +414,24 @@ describe("PreliminaryToolPage — the product image", () => {
     expect(imageFields(props)).toEqual({ choice: "none" });
   });
 
-  it("uses the uploaded photo and offers no candidates, even when research recorded some", async () => {
+  it("offers the uploaded photos beside research's candidates, and keeps research's image preselected", async () => {
+    // Amendment "An uploaded photo is a choice, not the product image".
     const props = renderPage({ research: research({ images: IMAGES }) });
 
-    expect(screen.getByText("Using your photo")).toBeInTheDocument();
-    expect(screen.queryByRole("radio", { name: "Background removed" })).not.toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Background removed" })).toBeChecked();
+    expect(screen.getByRole("radio", { name: "Your photo 1" })).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: "Your photo 2" })).not.toBeChecked();
     await userEvent.click(approveButton());
-    expect(imageFields(props)).toEqual({ choice: "none" });
+    expect(imageFields(props)).toEqual({ choice: "cleaned" });
+  });
+
+  it("sends the chosen photo, as taken when the reviewer unticks Remove the background", async () => {
+    const props = renderPage({ research: research({ images: IMAGES }) });
+
+    await userEvent.click(screen.getByRole("radio", { name: "Your photo 1" }));
+    await userEvent.click(screen.getByRole("checkbox", { name: "Remove the background" }));
+    await userEvent.click(approveButton());
+    expect(imageFields(props)).toEqual({ choice: "upload", attachmentId: "p1", removeBackground: false });
   });
 
   it("shows no product image section for an add-unit item", () => {
@@ -902,10 +914,10 @@ describe('PreliminaryToolPage — a guided redo (amendment "Guided redo (focus +
     expect(router.refresh).toHaveBeenCalled();
   });
 
-  it("does not offer the image when the item has its own photo", async () => {
+  it("offers the image even when the item has its own photo — the photo is not the cover", async () => {
     renderPage();
     await userEvent.click(screen.getByRole("button", { name: "Research again" }));
-    expect(screen.getByRole("button", { name: "Image" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Image" })).toBeEnabled();
   });
 
   it("marks the sections the last redo changed as updated just now, briefly", async () => {
