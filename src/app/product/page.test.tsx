@@ -103,7 +103,7 @@ describe("/product", () => {
     expect(privacy).toHaveTextContent("Cornell Google account");
     expect(within(privacy).getByRole("link", { name: "What MakerLAB AI can and can't do, by role" })).toHaveAttribute("href", "/assistant");
     const credits = screen.getByRole("region", { name: "Who made it" });
-    expect(credits).toHaveTextContent("Isaac Steinberg (Tech Lead, Johnson Cornell Tech MBA '26)");
+    expect(credits).toHaveTextContent("Isaac Steinberg (Software Engineer and Architect, Johnson Cornell Tech MBA '26) with Claude-assisted development");
     expect(credits).toHaveTextContent("Niti Parikh (Director) and Luis Rodrigo Navarro (Assistant Director)");
     expect(within(credits).getByRole("link", { name: "About the MakerLAB" })).toHaveAttribute("href", "/about");
   });
