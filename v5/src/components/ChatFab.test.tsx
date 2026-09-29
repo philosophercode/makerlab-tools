@@ -1289,18 +1289,58 @@ describe("ChatFab — manual citations (spec §9.1)", () => {
     expect(within(dialog).getByRole("link", { name: "product page" })).toHaveAttribute("target", "_blank");
   });
 
-  it("links an attached manual as the document the route listed, dropping a page the model added", async () => {
+  it("links an attached manual as the document the route listed when no page is cited", async () => {
     extraParts = [
       {
         type: "data-manual-links",
         data: { kind: "manual-links", links: [{ title: "Form 4 Quick Start", url: "https://blob.example/manuals/quick.pdf" }] },
       },
     ];
-    const { dialog } = await openWith("See [the quick start](https://blob.example/manuals/quick.pdf#page=7).");
+    const { dialog } = await openWith("See [the quick start](https://blob.example/manuals/quick.pdf).");
     expect(within(dialog).getByRole("link", { name: "the quick start" })).toHaveAttribute(
       "href",
       "https://blob.example/manuals/quick.pdf"
     );
+  });
+
+  describe("pages of an attached manual (amendment 2026-09-28b)", () => {
+    const X1C_URL = "https://cdn.example/Quick%20Start%20Guide%20for%20X1-Carbon.pdf";
+    const X1C_TITLE = "Bambu Lab X1-Carbon Combo 3D Printer - SOP";
+    beforeEach(() => {
+      extraParts = [
+        {
+          type: "data-manual-links",
+          data: { kind: "manual-links", links: [{ title: X1C_TITLE, url: X1C_URL, ref: "09e38acb", pageCount: 20 }] },
+        },
+      ];
+    });
+
+    it("draws a #cite-<ref>-<page> as a clickable citation opening the stored PDF at that page", async () => {
+      const { user, dialog } = await openWith(`Clean the plate ([Plate adhesion (${X1C_TITLE}, p. 8)](#cite-09e38acb-8)).`);
+      const mark = within(dialog).getByRole("link", { name: `Open ${X1C_TITLE}, p. 8` });
+      expect(mark).toHaveAttribute("href", `${X1C_URL}#page=8`);
+      expect(mark).toHaveAttribute("target", "_blank");
+      expect(mark).toHaveTextContent("p. 8");
+      expect(within(dialog).getByText("Plate adhesion")).toBeInTheDocument();
+      await user.click(within(dialog).getByRole("button", { name: "1 manual page" }));
+      expect(within(dialog).getByRole("link", { name: `${X1C_TITLE}, p. 8` })).toHaveAttribute("href", `${X1C_URL}#page=8`);
+    });
+
+    it("turns the plain-text page reference the live site showed into that citation", async () => {
+      const { dialog } = await openWith(`Wash the plate with dish soap (${X1C_TITLE}, p. 8).`);
+      const mark = within(dialog).getByRole("link", { name: `Open ${X1C_TITLE}, p. 8` });
+      expect(mark).toHaveAttribute("href", `${X1C_URL}#page=8`);
+    });
+
+    it("links the stored address at a page the model anchored, and never a page the PDF lacks", async () => {
+      const { dialog } = await openWith(
+        `See [nozzle](${X1C_URL}#page=12), [too far](#cite-09e38acb-99) and (${X1C_TITLE}, p. 40).`
+      );
+      expect(within(dialog).getByRole("link", { name: `Open ${X1C_TITLE}, p. 12` })).toHaveAttribute("href", `${X1C_URL}#page=12`);
+      expect(within(dialog).queryByRole("link", { name: /p\. (99|40)$/ })).not.toBeInTheDocument();
+      expect(within(dialog).getByText("too far")).toHaveAttribute("data-slot", "unverified-citation");
+      expect(dialog.textContent).toContain(`(${X1C_TITLE}, p. 40)`);
+    });
   });
 });
 

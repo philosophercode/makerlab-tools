@@ -28,8 +28,11 @@ const NO_DOCUMENTS: ReadonlyMap<string, string> = new Map();
  *   repeat in them, which the mark now says), then a mono `P. 42` mark that
  *   opens the **tool's** URL for the page, with a card (hover or focus) naming
  *   the manual, the section and the passage's words.
- * - **An attached manual** (the route's `data-manual-links`) opens the stored
- *   document, without any page the model added.
+ * - **A page of an attached manual** (the route's `data-manual-links`), cited
+ *   as `#cite-<ref>-<page>` at a page the PDF has, is a citation like the
+ *   above, opening the **stored** address at `#page=N` (amendment
+ *   2026-09-28b); `ChatMessage` has already linked the plain-text form.
+ *   Any other link to an attached manual opens the whole stored document.
  * - **A manual-looking address no tool returned** — a PDF, a `#page=` link, a
  *   Blob URL, an unknown ref — is drawn as its words, marked unverified, and is
  *   **not** a link (manual text spec amendment 2026-09-28).

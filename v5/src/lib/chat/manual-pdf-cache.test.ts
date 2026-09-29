@@ -14,6 +14,13 @@ describe("cachedManualPdf", () => {
     expect(load).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps facts read from the bytes beside them (the page count)", async () => {
+    const load = vi.fn(async () => ({ data: "JVBERi0=", pageCount: 12 }));
+    await cachedManualPdf("https://x.test/p.pdf", load);
+    expect(await cachedManualPdf("https://x.test/p.pdf", load)).toEqual({ data: "JVBERi0=", pageCount: 12 });
+    expect(load).toHaveBeenCalledTimes(1);
+  });
+
   it("shares one in-flight fetch between concurrent turns", async () => {
     let release: (value: string) => void = () => {};
     const load = vi.fn(() => new Promise<string>((resolve) => (release = resolve)));

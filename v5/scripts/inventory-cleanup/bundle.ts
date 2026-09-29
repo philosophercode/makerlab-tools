@@ -9,7 +9,7 @@
  * kept for the reviewer; the hosted database is matched by slug, so the same
  * bundle applies to both.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { z } from "zod";
@@ -57,6 +57,34 @@ const manual = z.object({
   note: z.string().nullable().optional(),
 });
 
+/**
+ * A manual added beside any the tool has (`manuals-add.json`, bundles from
+ * 2026-09-28-bambu-ams on): the `manuals` list above adds one only to a tool
+ * with none. Matched by URL, so a second run is `already`.
+ */
+const manualAdd = z.object({
+  slug: z.string().min(1),
+  url: z.string().url(),
+  title: z.string().min(1),
+  source: z.string(),
+  bytes: z.number().int().positive().max(25 * 1024 * 1024),
+  note: z.string().optional(),
+});
+
+/**
+ * A resource renamed (and optionally retyped), found by its tool's slug and
+ * its current URL, only while its title is still `from`
+ * (`resources-retitle.json`).
+ */
+const resourceRetitle = z.object({
+  toolSlug: z.string().min(1),
+  url: z.string().url(),
+  from: z.string().min(1),
+  to: z.string().min(1),
+  type: z.string().min(1).optional(),
+  reason: z.string(),
+});
+
 const urlClean = z.object({
   toolSlug: z.string().min(1),
   title: z.string(),
@@ -70,6 +98,8 @@ export type TagEdit = z.infer<typeof tagEdit>;
 export type StarterQuestionsEntry = z.infer<typeof starterQuestions>;
 export type ManualEntry = z.infer<typeof manual>;
 export type UrlClean = z.infer<typeof urlClean>;
+export type ManualAdd = z.infer<typeof manualAdd>;
+export type ResourceRetitle = z.infer<typeof resourceRetitle>;
 
 export interface CleanupBundle {
   renames: { tools: ToolRename[]; units: UnitRelabel[] };
@@ -77,6 +107,8 @@ export interface CleanupBundle {
   starterQuestions: StarterQuestionsEntry[];
   manuals: ManualEntry[];
   urls: UrlClean[];
+  manualsAdd: ManualAdd[];
+  retitles: ResourceRetitle[];
 }
 
 export const bundleSchema = z.object({
@@ -85,19 +117,30 @@ export const bundleSchema = z.object({
   starterQuestions: z.array(starterQuestions),
   manuals: z.array(manual),
   urls: z.array(urlClean),
+  manualsAdd: z.array(manualAdd),
+  retitles: z.array(resourceRetitle),
 });
 
-function readJson(dir: string, file: string): unknown {
-  return JSON.parse(readFileSync(join(dir, file), "utf8"));
+/**
+ * A file of the bundle, parsed. A later, smaller bundle holds only the files
+ * it needs, so a missing file is `empty` — an empty list, or no renames.
+ */
+function readJson(dir: string, file: string, empty: unknown): unknown {
+  const path = join(dir, file);
+  if (!existsSync(path)) return empty;
+  return JSON.parse(readFileSync(path, "utf8"));
 }
 
 /** The bundle in `dir`, checked; throws naming the file and field that is wrong. */
 export function loadBundle(dir: string = DEFAULT_BUNDLE_DIR): CleanupBundle {
+  if (!existsSync(dir)) throw new Error(`No bundle at ${dir}`);
   return bundleSchema.parse({
-    renames: readJson(dir, "renames.json"),
-    tags: readJson(dir, "tags-remove.json"),
-    starterQuestions: readJson(dir, "starter-questions.json"),
-    manuals: readJson(dir, "manuals.json"),
-    urls: readJson(dir, "urls-clean.json"),
+    renames: readJson(dir, "renames.json", { tools: [], units: [] }),
+    tags: readJson(dir, "tags-remove.json", []),
+    starterQuestions: readJson(dir, "starter-questions.json", []),
+    manuals: readJson(dir, "manuals.json", []),
+    urls: readJson(dir, "urls-clean.json", []),
+    manualsAdd: readJson(dir, "manuals-add.json", []),
+    retitles: readJson(dir, "resources-retitle.json", []),
   });
 }
