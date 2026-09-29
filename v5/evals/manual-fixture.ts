@@ -82,6 +82,30 @@ const SCAN_OUTLINE = [
 
 const SCAN_PAGE_COUNT = 6;
 
+/**
+ * An **attached, not indexed** manual (manual text spec amendment 2026-09-28b
+ * "Attached manuals cite pages too"): a Trotec operator guide uploaded as a
+ * PDF with no `manual_documents` row, so `search_manual` cannot read it and
+ * the chat attaches it whole — the case the X1-Carbon's quick-start guide is
+ * in production. The model cites its pages as `#cite-<ref>-<page>`, which
+ * `citations_resolve` checks against the manual the harness attached. Written
+ * for the eval, and — like the Form 4 manual — free of numbers other than its
+ * page numbers, so no spec case can take a figure from it.
+ */
+export const EVAL_ATTACHED_TITLE = "Trotec Speedy 400 Operator Guide";
+export const EVAL_ATTACHED_PATHNAME = "manuals/trotec-speedy-400-operator-guide.pdf";
+
+const ATTACHED_PAGES: Record<number, string> = {
+  1: "Trotec Speedy 400 Operator Guide\nFor lab members who have completed laser training",
+  3: "Before you start\nTurn on the exhaust and check that it is running. Confirm your material is on the lab's approved material list. A fire watch stays at the machine for the whole job: never leave the laser running unattended.",
+  5: "Focusing the lens\nHang the focus tool on the lens head. Raise the work table slowly until the material just touches the focus tool and the tool tips over, then stop the table. Remove the focus tool before you start the job.",
+  7: "Starting a job\nSend the job from the print dialog, select it on the control panel and press start. Keep the lid closed while the laser runs.",
+  8: "After the job\nLet the exhaust clear the fumes before you open the lid. Remove your parts and any scraps from the honeycomb table.",
+  9: "Emergency\nIf a flame keeps burning, press the red emergency stop on the right side of the gantry and tell staff.",
+};
+
+const ATTACHED_PAGE_COUNT = 10;
+
 let server: LocalBlobServer | null = null;
 
 /**
@@ -115,7 +139,43 @@ export async function seedEvalManual(): Promise<LocalBlobServer> {
     outline: SCAN_OUTLINE,
     ocr: true,
   });
+  await seedEvalAttachedManual(server);
   return server;
+}
+
+/**
+ * Upload the Trotec's operator guide to `files` as a public PDF resource with
+ * no manual document — attached whole, never searchable. Idempotent; no model
+ * call, so the offline harness test uses it too. Returns its resource id.
+ */
+export async function seedEvalAttachedManual(files: LocalBlobServer): Promise<string> {
+  const db = await getDb();
+  const [existing] = await db
+    .select({ ownerId: attachments.ownerId })
+    .from(attachments)
+    .where(eq(attachments.blobPathname, EVAL_ATTACHED_PATHNAME));
+  if (existing?.ownerId) return existing.ownerId;
+  const [trotec] = await db.select({ id: tools.id }).from(tools).where(eq(tools.slug, "trotec-speedy-400"));
+  if (!trotec) throw new Error("the demo seed has no trotec-speedy-400 tool");
+  await files.store.put(EVAL_ATTACHED_PATHNAME, fixturePdf(ATTACHED_PAGE_COUNT, ATTACHED_PAGES), {
+    access: "public",
+    contentType: "application/pdf",
+    allowOverwrite: true,
+  });
+  const [resource] = await db
+    .insert(resources)
+    .values({ toolId: trotec.id, title: EVAL_ATTACHED_TITLE, type: "Manual", url: null })
+    .returning({ id: resources.id });
+  await db.insert(attachments).values({
+    ownerType: "resource",
+    ownerId: resource.id,
+    blobPathname: EVAL_ATTACHED_PATHNAME,
+    access: "public",
+    publicUrl: files.url(EVAL_ATTACHED_PATHNAME),
+    contentType: "application/pdf",
+    origin: "upload",
+  });
+  return resource.id;
 }
 
 /** Stop the eval's file server. */

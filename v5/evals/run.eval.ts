@@ -9,6 +9,7 @@ import { loadCases, type EvalCase } from "./cases";
 import { buildFixture } from "./fixtures";
 import { caseMessages, composeCase } from "./harness";
 import { getDb } from "@/lib/db/client";
+import { attachManualsToFirstUserMessage } from "@/lib/chat/attached-manuals";
 import { evidenceUrls } from "@/lib/manuals/citation-check";
 import { gatherCitationEvidence } from "@/lib/manuals/citation-evidence";
 import { recordedPassages } from "./assertions";
@@ -70,7 +71,7 @@ const REPORT_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), ".la
 
 /** Execute one case: the real registry and prompt composition, one model call. */
 async function executeCase(evalCase: EvalCase): Promise<CaseExecution> {
-  const { system, tools: aiTools } = await composeCase(evalCase);
+  const { system, tools: aiTools, manuals, attachedManuals } = await composeCase(evalCase);
 
   const result = await generateText({
     model,
@@ -79,8 +80,10 @@ async function executeCase(evalCase: EvalCase): Promise<CaseExecution> {
     // key (`MODEL_CHAT_REASONING`, `MODEL_CHAT_CACHE_KEY`) — so a run gates the
     // settings production uses. An OpenAI block is ignored by other providers.
     providerOptions: chatProviderOptions(),
-    // The case's history, then its prompt: a single user message for most.
-    messages: caseMessages(evalCase),
+    // The case's history, then its prompt: a single user message for most —
+    // with the focused tool's unsearchable manuals attached as PDFs, as the
+    // route attaches them.
+    messages: attachManualsToFirstUserMessage(caseMessages(evalCase), manuals),
     tools: aiTools,
     stopWhen: stepCountIs(6),
   });
@@ -93,13 +96,15 @@ async function executeCase(evalCase: EvalCase): Promise<CaseExecution> {
   );
   // What every cited manual address answers, for `citations_resolve`: a GET on
   // the eval's local blob origin and the stored page texts (one real request
-  // per cited PDF, no model call).
-  const urls = evidenceUrls(result.text, recordedPassages(toolCalls));
+  // per cited PDF, no model call). An attached manual's page is resolved
+  // against what the route would have streamed for this turn.
+  const urls = evidenceUrls(result.text, recordedPassages(toolCalls), attachedManuals);
   const evidence = urls.length > 0 ? await gatherCitationEvidence(urls, { db: await getDb() }) : new Map();
 
   return {
     text: result.text,
     toolCalls,
+    attachedManuals,
     citationEvidence: Object.fromEntries(
       [...evidence].map(([url, e]) => [url, { ...e, pages: Object.fromEntries(e.pages) }])
     ),
