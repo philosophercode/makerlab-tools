@@ -1,12 +1,16 @@
 import { z } from "zod";
 import { getDb, DbUnavailableError } from "../db/client";
-import { UNIT_CONDITION, UNIT_STATUS, type UnitCondition, type UnitStatus } from "../db/schema/vocabulary";
+import { IDENTIFY_CONFIDENCE, UNIT_CONDITION, UNIT_STATUS, type UnitCondition, type UnitStatus } from "../db/schema/vocabulary";
 import { createPendingBatch, listPendingTools, type NewPendingTool, type PendingTool } from "../data/pending-tools";
 import { createCategoryProposal, matchExistingCategory } from "../data/category-admin";
 import { findOrCreateLocation } from "../data/taxonomy";
 import { createToolRecord, type NewToolRecord } from "../data/tool-create";
 import { displayNameClashes } from "../data/tool-name-clash";
 import { promoteAttachmentsToPublic } from "../files/promote";
+import { sharePhotosWithItems, type ShareRequest } from "../files/share-photo";
+import { researchAllowanceLeft } from "../intake/allowance";
+import { mergeIdentifiedItems, type MergedItem } from "../intake/identify-items";
+import { IMPORT_MAX_QUANTITY } from "../import/limits";
 import { IDENTIFY_MAX_ITEMS, IDENTIFY_MAX_MODEL_NAME_SEARCHES, RESEARCH_MAX_ITEMS_PER_REQUEST } from "../intake/limits";
 import type { DuplicateOf, IntakeTablePayload, IntakeTableWarning } from "../intake/types";
 import { toPendingToolView } from "../intake/view";
@@ -21,7 +25,6 @@ import { INTAKE_PERMISSION } from "./access";
 import {
   toolCandidateSchema,
   type Capability,
-  type CapabilityCtx,
   type CapabilityTool,
 } from "./types";
 
@@ -72,8 +75,26 @@ const identifyItemSchema = z.object({
     .max(25)
     .default([])
     .describe(
-      "The attachment_id values, from the [Attached photos: ...] hint, of the photos that show THIS item."
+      "The attachment_id values, from the [Attached photos: ...] hint, of EVERY photo that shows THIS item. One photo may appear on several items (a bench with three tools on it); the same object in two photos is ONE item listing both."
     ),
+  quantity: z
+    .number()
+    .int()
+    .min(1)
+    .max(IMPORT_MAX_QUANTITY)
+    .optional()
+    .describe(
+      'How many identical copies of this exact item there are — "two Ryobi batteries" is ONE item with quantity 2. Leave out for one.'
+    ),
+  confidence: z
+    .enum(IDENTIFY_CONFIDENCE)
+    .optional()
+    .describe(
+      '"sure" when the make and model were read off the item or told; "likely" when you know the kind and probably the model; "unsure" for a suspected item you cannot name — give it a plain descriptive name ("Cordless drill, brand not visible"), never an invented model.'
+    ),
+  seenIn: hintSchema.describe(
+    'Where the item is: which photo and where in it ("photo 2, left — the orange drill"), or "listed" when the person typed it.'
+  ),
 });
 
 const identifyInputSchema = z.object({
@@ -91,7 +112,9 @@ type IdentifyInput = z.infer<typeof identifyInputSchema>;
 interface IdentifyResult {
   card_rendered: boolean;
   batchId: string;
-  items: { id: string; name: string; duplicateOf: DuplicateOf | null }[];
+  items: { id: string; name: string; quantity: number; certainty: string | null; duplicateOf: DuplicateOf | null }[];
+  /** Entries that named an object another entry already had, folded into it. */
+  mergedEntries?: number;
   warnings: IntakeTableWarning[];
 }
 
@@ -111,31 +134,53 @@ const DB_UNAVAILABLE =
   "The inventory database is unreachable right now, so nothing was saved. Tell the person in one sentence and suggest trying again in a few minutes.";
 
 /**
- * Which photos each item may claim, and which of this turn's photos no item
- * named.
+ * Which photos each item shows, which of those it claims and which it gets a
+ * copy of, and which of this turn's photos no item named.
  *
  * Only ids in this turn's `[Attached photos: ...]` hint: an id the model
  * carried over from an earlier turn is dropped here. That hint is text in the
  * caller's own message, so it is **not** proof the caller uploaded the photo —
  * anybody can type an id. The ownership check is in the claim itself:
- * `createPendingBatch` claims only uploads the caller made (§8).
+ * `createPendingBatch` claims only uploads the caller made (§8), and a copy is
+ * made only of a photo one of the batch's items claimed.
  *
- * A lone item that names no photos gets all of them, because there is nothing
- * else they could show. Otherwise a photo the model gave to no item is
- * reported back as `unassigned`, so the card can say it was not used rather
- * than leave it for the orphan sweep in silence (Article 4).
+ * When no item names any photo, two cases are still unambiguous: a lone item
+ * gets every photo, and a lone photo belongs to every item (one picture of
+ * several things — amendment "Many items at once"). Otherwise a photo the model
+ * gave to no item is reported back as `unassigned`, so the card can say it was
+ * not used rather than leave it for the orphan sweep in silence (Article 4).
+ *
+ * **One photo, several items.** An upload has one owner, so the first item
+ * that shows a photo claims it (`own`) and every later one gets its own copy
+ * (`shared`, `sharePhotosWithItems`).
  */
-function photosPerItem(
-  items: IdentifyInput["items"],
-  ctx: CapabilityCtx
-): { perItem: string[][]; unassigned: string[] } {
-  const turn = new Set(
-    (ctx.attachments ?? []).map((a) => a.attachmentId).filter((id) => id.length > 0)
-  );
-  const perItem = items.map((item) => item.attachmentIds.filter((id) => turn.has(id)));
-  if (items.length === 1 && items[0].attachmentIds.length === 0) perItem[0] = [...turn];
-  const named = new Set(perItem.flat());
-  return { perItem, unassigned: [...turn].filter((id) => !named.has(id)) };
+export function photosPerItem(
+  items: readonly Pick<MergedItem, "attachmentIds">[],
+  turnIds: readonly string[]
+): { own: string[][]; shared: string[][]; unassigned: string[] } {
+  const turn = [...new Set(turnIds.filter((id) => id.length > 0))];
+  const inTurn = new Set(turn);
+  const perItem = items.map((item) => [...new Set(item.attachmentIds.filter((id) => inTurn.has(id)))]);
+  if (turn.length > 0 && perItem.every((photos) => photos.length === 0)) {
+    if (items.length === 1) perItem[0] = [...turn];
+    else if (turn.length === 1) perItem.forEach((_, index) => (perItem[index] = [turn[0]]));
+  }
+
+  const holder = new Map<string, number>();
+  const own: string[][] = [];
+  const shared: string[][] = [];
+  perItem.forEach((photos, index) => {
+    own.push([]);
+    shared.push([]);
+    for (const id of photos) {
+      if (holder.has(id)) shared[index].push(id);
+      else {
+        holder.set(id, index);
+        own[index].push(id);
+      }
+    }
+  });
+  return { own, shared, unassigned: turn.filter((id) => !holder.has(id)) };
 }
 
 /** Every photo now on these rows that a browser still cannot load. */
@@ -156,14 +201,23 @@ const identifyTools: CapabilityTool<IdentifyInput, IdentifyResult | IdentifyErro
     const userId = ctx.identity?.userId;
     if (!userId) return { card_rendered: false, error: SIGN_IN_REQUIRED };
 
-    const { perItem: photos, unassigned } = photosPerItem(input.items, ctx);
-    const items: NewPendingTool[] = input.items.map((item, index) => ({
+    // One item per distinct object: a count left in a name becomes the
+    // quantity, and the same object seen twice becomes one item (amendment
+    // "Many items at once"). The inventory's duplicate check runs below.
+    const { items: merged } = mergeIdentifiedItems(input.items);
+    const turnIds = (ctx.attachments ?? []).map((a) => a.attachmentId);
+    const { own, shared, unassigned } = photosPerItem(merged, turnIds);
+    const items: NewPendingTool[] = merged.map((item, index) => ({
       name: item.name,
       brand: item.brand ?? null,
       categoryHint: item.categoryHint ?? null,
       locationHint: item.locationHint ?? null,
       serialNumber: item.serialNumber ?? null,
-      attachmentIds: photos[index],
+      attachmentIds: own[index],
+      quantity: item.quantity,
+      ...(item.extraSerials.length > 0 && item.serialNumber ? { serials: [item.serialNumber, ...item.extraSerials] } : {}),
+      identifyConfidence: item.confidence ?? null,
+      seenIn: item.seenIn ?? null,
     }));
 
     // One transaction: every row or none, so a failure here saved nothing.
@@ -179,13 +233,30 @@ const identifyTools: CapabilityTool<IdentifyInput, IdentifyResult | IdentifyErro
       };
     }
 
+    // A photo that shows several items: the first claimed it above; each
+    // other item gets its own copy, before promotion deletes the private
+    // original. Best-effort — the rows are committed.
+    const ids = batch.items.map((item) => item.id);
+    const shareRequests: ShareRequest[] = shared.flatMap((photos, index) =>
+      photos.map((attachmentId, k) => ({ attachmentId, ownerId: ids[index], position: own[index].length + k }))
+    );
+    let shareFailed = 0;
+    if (shareRequests.length > 0) {
+      try {
+        shareFailed = (await sharePhotosWithItems(shareRequests, { uploadedBy: userId, ownerIds: ids })).failed;
+      } catch (err) {
+        console.error("[intake] identify_tools could not share a photo between items", err);
+        shareFailed = shareRequests.length;
+      }
+    }
+
     const warnings: IntakeTableWarning[] = [];
     if (batch.items.some((item) => item.photosAttached < item.photosSubmitted)) {
       warnings.push("photos_not_attached");
     }
+    if (shareFailed > 0) warnings.push("photos_not_shared");
     if (unassigned.length > 0) warnings.push("photos_unassigned");
 
-    const ids = batch.items.map((item) => item.id);
     let rows: PendingTool[];
     try {
       rows = await listPendingTools({ ids });
@@ -219,18 +290,28 @@ const identifyTools: CapabilityTool<IdentifyInput, IdentifyResult | IdentifyErro
     // is public when its row has a URL, and not otherwise.
     if (privatePhotoIds(rows).length > 0) warnings.push("photos_not_public");
 
+    // Read for the card's confirmation line only; the route checks at the click.
+    const researchLeft = await researchAllowanceLeft(userId);
     const payload: IntakeTablePayload = {
       kind: "intake-table",
       batchId: batch.batchId,
       items: rows.map(toPendingToolView),
       warnings,
+      researchLeft,
     };
     ctx.writer?.write({ type: "data-intake-table", data: payload });
 
     return {
       card_rendered: Boolean(ctx.writer),
       batchId: batch.batchId,
-      items: rows.map((row) => ({ id: row.id, name: row.name, duplicateOf: row.duplicateOf })),
+      items: rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        quantity: row.quantity,
+        certainty: row.identifyConfidence,
+        duplicateOf: row.duplicateOf,
+      })),
+      ...(merged.length < input.items.length ? { mergedEntries: input.items.length - merged.length } : {}),
       warnings,
     };
   },
@@ -609,11 +690,11 @@ function promptFragment(): string {
   return [
     `## Adding equipment to the inventory (intake)`,
     `When someone wants to add equipment — from photos, a description, dictated notes, or all of these — act as an intake agent. Your job in the chat is **identification only**: work out what each item is and record it with \`identify_tools\`. Research (manuals, specs, links) happens later in the background, after the person chooses which items to research, and a person approves every new tool.`,
-    `1. **Identify each item.** From the photos and the words, settle each item's full make and model — "a Bambu X-something" plus a photo of the front becomes "Bambu Lab X1-Carbon Combo". Read model and serial plates in the photos when you can.`,
+    `1. **Identify every item.** From the photos and the words, settle each item's full make and model — "a Bambu X-something" plus a photo of the front becomes "Bambu Lab X1-Carbon Combo". Read model and serial plates in the photos when you can. **Look for every distinct piece of equipment**: one photo of a bench may show a drill press, a Cricut and two batteries — that is three items, not one. A typed list ("a drill press, two Ryobi batteries and a Cricut") is one item per thing named.`,
     `2. **Search only to settle a model name.** You may use \`exa_search\` at most ${IDENTIFY_MAX_MODEL_NAME_SEARCHES} times in the whole turn, and only when a model name is genuinely unclear. Never look up manuals, specs, videos or links, and never \`read_page\` a manual — that is the background research's job, and doing it here spends the person's budget for nothing.`,
-    `3. **Call \`identify_tools\` once, with every item.** Put all the items from this turn in a single call. Map each photo to the item it shows using the \`[Attached photos: attachment_id=... name=...]\` hint in the message: pass that item's \`attachment_id\` values as its \`attachmentIds\`. Add \`brand\`, \`categoryHint\`, \`locationHint\` and \`serialNumber\` when you know them; never invent a serial number.`,
-    `4. **If you cannot identify an item, ask — don't include it.** Leave it out of the call and ask one short question the person can answer in five seconds, e.g. "I can see it's a filament 3D printer but can't read the model — could you photograph the label on the side?" Include everything else you did identify.`,
-    `5. **After the table appears, say one short line** — that they can edit any row, untick what they don't want, and press **Research selected** (up to ${RESEARCH_MAX_ITEMS_PER_REQUEST} at a time). Do not restate the rows; the table shows them. If the result has \`warnings\`, the table already says so.`,
+    `3. **Call \`identify_tools\` once, with every item.** Put all the items from this turn — from every photo and every line — in a single call. Map photos to items using the \`[Attached photos: attachment_id=... name=...]\` hint in the message: pass the \`attachment_id\` of **every** photo that shows an item as its \`attachmentIds\`. One photo may be on several items (it shows several things); **the same object in two photos is ONE item** listing both photos, never two. Identical copies are one item with \`quantity\` ("two Ryobi batteries" → quantity 2), never one entry per copy. Set \`seenIn\` to where you saw it ("photo 2, left — the orange drill", or "listed"), and \`confidence\`: \`sure\` (read or told), \`likely\`, or \`unsure\`. Add \`brand\`, \`categoryHint\`, \`locationHint\` and \`serialNumber\` when you know them; never invent a serial number.`,
+    `4. **An item you cannot name is still included, as \`unsure\`.** Give it a plain descriptive name — "Filament 3D printer, model not visible" — never an invented make or model; it starts unticked on the table. Then ask one short question the person can answer in five seconds, e.g. "I can't read the model on the printer at the back — could you photograph the label on the side?" A thing you only glimpse and that is clearly not equipment (a mug, a chair) is left out.`,
+    `5. **After the table appears, say one short line** — how many items you found, and that they can edit any row, untick what they don't want, and press **Add to research** (up to ${RESEARCH_MAX_ITEMS_PER_REQUEST} at a time), **Just add to intake** or **Discard**. Do not restate the rows; the table shows them. If the result has \`warnings\`, the table already says so.`,
     `6. **Duplicates are resolved on the table, not in chat.** A row that matches an existing tool or another pending item is flagged there with its own choices (add as another unit, a different tool, or remove). Don't ask about them and don't call \`identify_tools\` again for them.`,
     `If \`identify_tools\` returns an \`error\`, relay it in one sentence and do not claim anything was saved unless the error says it was. You cannot research, approve or publish tools from the chat; if asked, say it happens on the Intake page.`,
     `### Long lists go to an import, not the chat`,

@@ -1,3 +1,5 @@
+import { mkdirSync } from "node:fs";
+import path from "node:path";
 import { test, expect } from "@playwright/test";
 
 import { DEMO_ACCOUNTS } from "../src/lib/db/demo-seed";
@@ -7,6 +9,9 @@ import {
   ASK_FOR_ITEMS_REPLY,
   IDENTIFY_PROMPT,
   INTAKE_ITEMS,
+  MULTI_ITEMS,
+  MULTI_PHOTOS,
+  MULTI_PROMPT,
 } from "./stubs/intake-fixture";
 import { signIn } from "./utils/session";
 
@@ -102,16 +107,16 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   for (const item of [domino, sawstop, shapeoko]) {
     await expect(card.getByRole("checkbox", { name: `Select ${item.identifiedAs}` })).toBeChecked();
   }
-  await expect(card.getByRole("button", { name: "Research selected (3)" })).toBeEnabled();
+  await expect(card.getByRole("button", { name: "Add to research (3)" })).toBeEnabled();
 
   // Deselect one: it stays `identified` and waits on the Intake page.
   await card.getByRole("checkbox", { name: `Select ${shapeoko.identifiedAs}` }).uncheck();
-  await expect(card.getByRole("button", { name: "Research selected (2)" })).toBeEnabled();
+  await expect(card.getByRole("button", { name: "Add to research (2)" })).toBeEnabled();
 
   // Edit one — a typo, fixed through PATCH rather than through the model.
   await card.getByRole("button", { name: `Edit ${domino.identifiedAs}` }).click();
   // Research waits while a row is being edited.
-  await expect(card.getByRole("button", { name: "Research selected (2)" })).toBeDisabled();
+  await expect(card.getByRole("button", { name: "Add to research (2)" })).toBeDisabled();
   await card.getByRole("textbox", { name: "Name" }).fill(domino.name);
   await card.getByRole("button", { name: "Save" }).click();
   // The row now shows what the database answered with, still selected.
@@ -120,7 +125,12 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   });
 
   // ── Step 2: research, in the background ───────────────────────────────────
-  await card.getByRole("button", { name: "Research selected (2)" }).click();
+  // Asked first: how much of today's allowance it uses, and about what it costs.
+  await card.getByRole("button", { name: "Add to research (2)" }).click();
+  await expect(card.getByRole("group", { name: "Confirm research" })).toContainText(
+    /Research 2 items\? That uses 2 of the \d+ research credits you have left today — about \$0\.06–\$0\.07\./
+  );
+  await card.getByRole("button", { name: "Start research (2)" }).click();
   await expect(
     card.getByText("Researching 2 tools — you can close this. Results will be on the Intake page.")
   ).toBeVisible({ timeout: 15_000 });
@@ -216,4 +226,101 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   });
   // And the one approved is no longer asking for anything.
   await expect(page.getByRole("button", { name: `Research ${domino.name}` })).toHaveCount(0);
+});
+
+/**
+ * Many items at once (data platform spec amendment "Many items at once"): two
+ * photos in one message, four objects across them. One card lists them all —
+ * the object in both photos once, with both photos (the second a copy the
+ * server made); the pair as one row of two; the one the model could not name
+ * unticked. Nothing is researched here: the card asks before spending, is
+ * cancelled, one row is discarded and the rest are just added to intake, where
+ * the queue offers **Research selected** with the same confirmation.
+ *
+ * Runs on the intake server (local Blob), after the scenario above; its names
+ * are its own, so neither sees the other's rows as duplicates.
+ */
+test("one message with two photos becomes one card of every suspected item, selected and kept for later", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  test.setTimeout(120_000);
+  await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
+  await page.goto("/");
+
+  const nav = page.getByRole("navigation", { name: "Primary navigation" });
+  await nav.getByRole("button", { name: /signed in as/i }).click({ timeout: 15_000 });
+  await nav.getByRole("menuitem", { name: /add equipment/i }).click();
+  const chat = page.getByRole("dialog");
+  await expect(chat.getByText(ASK_FOR_ITEMS_REPLY)).toBeVisible({ timeout: 15_000 });
+
+  await chat
+    .locator('input[type="file"]')
+    .setInputFiles(MULTI_PHOTOS.map((name) => path.join(__dirname, "../evals/fixtures/photos", name)));
+  await expect(chat.getByRole("button", { name: `Remove ${MULTI_PHOTOS[1]}` })).toBeVisible({ timeout: 15_000 });
+  await chat.getByRole("textbox", { name: "Ask the MakerLAB Assistant" }).fill(MULTI_PROMPT);
+  await chat.getByRole("button", { name: "Send" }).click();
+
+  const card = chat.getByRole("region", { name: "Identified equipment" });
+  await expect(card).toBeVisible({ timeout: 30_000 });
+
+  // Every suspected item, ticked — except the one the model was unsure of.
+  for (const name of [MULTI_ITEMS.drillPress, MULTI_ITEMS.cutter, MULTI_ITEMS.battery]) {
+    await expect(card.getByRole("checkbox", { name: `Select ${name}` })).toBeChecked();
+  }
+  await expect(card.getByRole("checkbox", { name: `Select ${MULTI_ITEMS.unsure}` })).not.toBeChecked();
+  await expect(card.getByText("Not sure — check it")).toBeVisible();
+  await expect(card.getByLabel("2 units")).toHaveText("×2");
+  await expect(card.getByText("Seen: photo 1, centre; photo 2, left")).toBeVisible();
+
+  // Each item shows its photo: the drill press holds the bench photo, the
+  // Cricut the shelf photo and a copy of the bench's, the battery another copy
+  // of the bench's (server-side copies, amendment "Many items at once").
+  for (const name of Object.values(MULTI_ITEMS)) {
+    const photo = card.getByRole("img", { name: `Photo of ${name}` });
+    await expect(photo).toBeVisible();
+    await expect
+      .poll(() => photo.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth), { timeout: 15_000 })
+      .toBeGreaterThan(0);
+  }
+  await expect(card.getByText("+1")).toBeVisible();
+
+  // Add to research asks first — and Cancel spends nothing.
+  await card.getByRole("button", { name: "Add to research (3)" }).click();
+  const confirm = card.getByRole("group", { name: "Confirm research" });
+  await expect(confirm).toContainText(/Research 3 items\? That uses 3 of the \d+ research credits you have left today — about \$0\.09–\$0\.11\./);
+  if (process.env.INTAKE_SHOTS_DIR) {
+    mkdirSync(process.env.INTAKE_SHOTS_DIR, { recursive: true });
+    await chat.screenshot({ path: path.join(process.env.INTAKE_SHOTS_DIR, "selection-card-confirm.png") });
+  }
+  await confirm.getByRole("button", { name: "Cancel" }).click();
+  if (process.env.INTAKE_SHOTS_DIR) {
+    await card.scrollIntoViewIfNeeded();
+    await chat.screenshot({ path: path.join(process.env.INTAKE_SHOTS_DIR, "selection-card.png") });
+  }
+
+  // Discard the unnamed one: tick only it, Discard (1), confirm.
+  for (const name of [MULTI_ITEMS.drillPress, MULTI_ITEMS.cutter, MULTI_ITEMS.battery]) {
+    await card.getByRole("checkbox", { name: `Select ${name}` }).uncheck();
+  }
+  await card.getByRole("checkbox", { name: `Select ${MULTI_ITEMS.unsure}` }).check();
+  await card.getByRole("button", { name: "Discard (1)" }).click();
+  await card.getByRole("button", { name: "Discard 1 item" }).click();
+  await expect(card.getByText(MULTI_ITEMS.unsure, { exact: true })).toHaveCount(0, { timeout: 15_000 });
+
+  // The rest wait on the Intake page.
+  await card.getByRole("button", { name: "Just add to intake" }).click();
+  await expect(card.getByText(/Saved to intake — 3 items wait on the Intake page/)).toBeVisible();
+
+  // ── The queue: the same selection, the same confirmation ────────────────
+  await page.goto("/admin/intake");
+  await expect(page.getByRole("button", { name: `Research ${MULTI_ITEMS.battery}` })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByLabel("2 units")).toHaveText("×2");
+  await page.getByRole("checkbox", { name: `Select “${MULTI_ITEMS.drillPress}”` }).check();
+  await page.getByRole("checkbox", { name: `Select “${MULTI_ITEMS.battery}”` }).check();
+  await page.getByRole("button", { name: "Research selected (2)" }).click();
+  await expect(page.getByRole("group", { name: "Confirm research" })).toContainText("Research 2 items?");
+  await page.getByRole("button", { name: "Cancel" }).click();
+  await expect(page.getByRole("group", { name: "Confirm research" })).toHaveCount(0);
 });

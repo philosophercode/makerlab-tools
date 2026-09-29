@@ -20,6 +20,16 @@ vi.mock("../files/promote", () => ({
   promoteAttachmentsToPublic: (ids: string[]) => promote.fn(ids),
 }));
 
+// Sharing one photo between items copies its blob (amendment "Many items at
+// once"). The real function runs against this file's database with a fake
+// store standing in for Blob, so the rows it writes are the real ones.
+const share = vi.hoisted(() => ({
+  fn: vi.fn<(requests: unknown[], options: Record<string, unknown>) => Promise<{ shared: number; failed: number }>>(),
+}));
+vi.mock("../files/share-photo", () => ({
+  sharePhotosWithItems: (requests: unknown[], options: Record<string, unknown>) => share.fn(requests, options),
+}));
+
 // `createPendingBatch` is wrapped so one test can make the database go away.
 const pendingHook = vi.hoisted(() => ({ failWith: null as null | Error }));
 vi.mock("../data/pending-tools", async (importOriginal) => {
@@ -116,7 +126,8 @@ async function attachmentRow(id: string) {
 interface IdentifyResult {
   card_rendered: boolean;
   batchId: string;
-  items: { id: string; name: string; duplicateOf: { kind: string; name: string } | null }[];
+  items: { id: string; name: string; quantity: number; certainty: string | null; duplicateOf: { kind: string; name: string } | null }[];
+  mergedEntries?: number;
   warnings: string[];
   error?: string;
 }
@@ -143,9 +154,31 @@ beforeAll(() => {
   resetDbForTests();
 });
 
+/** A Blob store that copies by renaming, for the real `sharePhotosWithItems`. */
+function copyingStore() {
+  return {
+    put: vi.fn(),
+    putUpload: vi.fn(),
+    read: vi.fn(),
+    list: vi.fn().mockResolvedValue([]),
+    del: vi.fn().mockResolvedValue(undefined),
+    copyToPublic: vi.fn(async (pathname: string, prefix: string) => {
+      const name = `${pathname.slice(pathname.lastIndexOf("/") + 1)}-copy-${crypto.randomUUID().slice(0, 6)}`;
+      return { pathname: `${prefix}${name}`, url: `https://store.public.blob.vercel-storage.com/${prefix}${name}` };
+    }),
+  };
+}
+
 beforeEach(() => {
   vi.stubEnv("DATABASE_URL", "");
   pendingHook.failWith = null;
+  share.fn.mockReset().mockImplementation(async (requests, options) => {
+    const actual = await vi.importActual<typeof import("../files/share-photo")>("../files/share-photo");
+    return actual.sharePhotosWithItems(requests as Parameters<typeof actual.sharePhotosWithItems>[0], {
+      ...(options as unknown as Parameters<typeof actual.sharePhotosWithItems>[1]),
+      store: copyingStore() as unknown as import("../blob").BlobStore,
+    });
+  });
   promote.fn.mockReset().mockImplementation(async (ids) => {
     const db = await getDb();
     for (const id of ids) {
@@ -229,15 +262,32 @@ describe("identify_tools — the rows it writes", () => {
     expect((await attachmentRow(plate)).ownerId).toBe(item.id);
   });
 
-  it("does not spread the turn's photos across a batch, and says one went unused", async () => {
-    const front = await upload();
+  it("gives one photo of several things to every item when none names it (amendment \"Many items at once\")", async () => {
+    const bench = await upload();
 
     const result = await runIdentify(
       [{ name: "Zorbex Filament Extruder 9000" }, { name: "Quillon Bench Grinder QB-6" }],
-      ctx({ attachments: [photo(front)] })
+      ctx({ attachments: [photo(bench)] })
+    );
+
+    // The first item claims the upload; the second gets its own copy.
+    expect((await attachmentRow(bench)).ownerId).toBe(result.items[0].id);
+    const db = await getDb();
+    const copies = await db.select().from(attachments).where(eq(attachments.ownerId, result.items[1].id));
+    expect(copies).toHaveLength(1);
+    expect(result.warnings).toEqual([]);
+  });
+
+  it("does not guess between several photos and several items, and says one went unused", async () => {
+    const [front, side] = [await upload(), await upload()];
+
+    const result = await runIdentify(
+      [{ name: "Zorbex Filament Extruder 9000" }, { name: "Quillon Bench Grinder QB-6" }],
+      ctx({ attachments: [photo(front), photo(side)] })
     );
 
     expect((await attachmentRow(front)).ownerId).toBeNull();
+    expect((await attachmentRow(side)).ownerId).toBeNull();
     expect(result.warnings).toContain("photos_unassigned");
   });
 
@@ -321,7 +371,7 @@ describe("identify_tools — the card and the model's answer", () => {
 
     expect(Object.keys(result).sort()).toEqual(["batchId", "card_rendered", "items", "warnings"]);
     expect(result.card_rendered).toBe(true);
-    expect(Object.keys(result.items[0]).sort()).toEqual(["duplicateOf", "id", "name"]);
+    expect(Object.keys(result.items[0]).sort()).toEqual(["certainty", "duplicateOf", "id", "name", "quantity"]);
     const text = JSON.stringify(result);
     expect(text).not.toMatch(/research|confidence|evidence/i);
   });
@@ -422,6 +472,106 @@ describe("identify_tools — photos", () => {
     expect(promote.fn).not.toHaveBeenCalled();
     expect(result.warnings).toEqual(["photos_not_attached"]);
     expect((await attachmentRow(taken)).access).toBe("private");
+  });
+});
+
+describe("identify_tools — many items at once (amendment \"Many items at once\")", () => {
+  it("turns one message with two photos into one pending item per distinct object", async () => {
+    const [bench, shelf] = [await upload(), await upload()];
+    const context = ctx({ attachments: [photo(bench, "bench.jpg"), photo(shelf, "shelf.jpg")] });
+
+    // What a vision model hands over for a bench (drill press, Cricut) and a
+    // shelf (the same Cricut again, two batteries, something it cannot name).
+    const result = await runIdentify(
+      [
+        { name: "Zorbex Drill Press DP-10", brand: "Zorbex", attachmentIds: [bench], confidence: "sure", seenIn: "photo 1, left" },
+        { name: "Quillon Cutter Q3", brand: "Quillon", attachmentIds: [bench], confidence: "likely", seenIn: "photo 1, right" },
+        { name: "Cutter Q3", brand: "Quillon", attachmentIds: [shelf], confidence: "sure", seenIn: "photo 2, top shelf" },
+        { name: "two Zorbex 18V batteries", attachmentIds: [shelf], seenIn: "photo 2" },
+        { name: "Cordless tool, brand not visible", attachmentIds: [shelf], confidence: "unsure", seenIn: "photo 2, bottom" },
+      ],
+      context
+    );
+
+    // Five entries, four objects: the cutter seen twice is one item.
+    expect(result.items.map((item) => [item.name, item.quantity, item.certainty])).toEqual([
+      ["Zorbex Drill Press DP-10", 1, "sure"],
+      ["Quillon Cutter Q3", 1, "sure"],
+      ["Zorbex 18V batteries", 2, null],
+      ["Cordless tool, brand not visible", 1, "unsure"],
+    ]);
+    expect(result).toMatchObject({ mergedEntries: 1, warnings: [] });
+
+    const db = await getDb();
+    const rows = await db.select().from(pendingTools).where(eq(pendingTools.batchId, result.batchId));
+    expect(rows).toHaveLength(4);
+    const byName = new Map(rows.map((row) => [row.name, row]));
+    expect(byName.get("Zorbex 18V batteries")?.quantity).toBe(2);
+    expect(byName.get("Quillon Cutter Q3")).toMatchObject({ identifyConfidence: "sure", seenIn: "photo 1, right; photo 2, top shelf" });
+
+    // Each photo is claimed once, by the first item that shows it; every other
+    // item that shows it has its own public copy — each a "Your photo" choice.
+    expect((await attachmentRow(bench)).ownerId).toBe(result.items[0].id);
+    expect((await attachmentRow(shelf)).ownerId).toBe(result.items[1].id);
+    expect(share.fn).toHaveBeenCalledTimes(1);
+    const [requests] = share.fn.mock.calls[0];
+    expect(requests).toEqual([
+      { attachmentId: bench, ownerId: result.items[1].id, position: 1 },
+      { attachmentId: shelf, ownerId: result.items[2].id, position: 0 },
+      { attachmentId: shelf, ownerId: result.items[3].id, position: 0 },
+    ]);
+
+    const payload = writtenPayload(context);
+    expect(payload.items.map((item) => item.photos.length)).toEqual([1, 2, 1, 1]);
+    expect(payload.items.every((item) => item.photos.every((p) => p.url !== null))).toBe(true);
+    expect(payload.items[3]).toMatchObject({ identifyConfidence: "unsure", seenIn: "photo 2, bottom", quantity: 1 });
+    expect(typeof payload.researchLeft).toBe("number");
+  });
+
+  it("still flags an item that is already in the inventory", async () => {
+    const result = await runIdentify([
+      { name: "Form 4", attachmentIds: [] },
+      { name: "Zorbex Filament Extruder 9000" },
+    ]);
+    expect(result.items[0].duplicateOf).toMatchObject({ kind: "tool", name: "Form 4" });
+    expect(result.items[1].duplicateOf).toBeNull();
+  });
+
+  it("records a typed list's counts as quantities", async () => {
+    const result = await runIdentify([
+      { name: "Zorbex Drill Press DP-10", seenIn: "listed" },
+      { name: "Zorbex 18V battery", quantity: 2, seenIn: "listed" },
+      { name: "3x Quillon Clamp QC-4", seenIn: "listed" },
+    ]);
+    expect(result.items.map((item) => [item.name, item.quantity])).toEqual([
+      ["Zorbex Drill Press DP-10", 1],
+      ["Zorbex 18V battery", 2],
+      ["Quillon Clamp QC-4", 3],
+    ]);
+  });
+
+  it("says so when a photo could not be copied to every item that shows it", async () => {
+    const bench = await upload();
+    share.fn.mockResolvedValue({ shared: 0, failed: 1 });
+    const result = await runIdentify(
+      [
+        { name: "Zorbex Drill Press DP-10", attachmentIds: [bench] },
+        { name: "Quillon Cutter Q3", attachmentIds: [bench] },
+      ],
+      ctx({ attachments: [photo(bench)] })
+    );
+    expect(result.warnings).toEqual(["photos_not_shared"]);
+    expect((await attachmentRow(bench)).ownerId).toBe(result.items[0].id);
+  });
+
+  it("takes the new fields from the model and refuses a bad one", () => {
+    const parsed = identify.inputSchema.safeParse({
+      items: [{ name: "Drill", quantity: 2, confidence: "unsure", seenIn: "photo 1" }],
+    });
+    expect(parsed.success).toBe(true);
+    expect(identify.inputSchema.safeParse({ items: [{ name: "Drill", confidence: "maybe" }] }).success).toBe(false);
+    expect(identify.inputSchema.safeParse({ items: [{ name: "Drill", quantity: 0 }] }).success).toBe(false);
+    expect(identify.inputSchema.safeParse({ items: [{ name: "Drill", quantity: 51 }] }).success).toBe(false);
   });
 });
 
@@ -765,6 +915,14 @@ describe("the intake prompt", () => {
 
   it("resolves duplicates on the table, not in chat", () => {
     expect(prompt).toMatch(/Duplicates are resolved on the table, not in chat/);
+  });
+
+  it("asks for every item, one per object, with counts and certainty", () => {
+    expect(prompt).toContain("Look for every distinct piece of equipment");
+    expect(prompt).toContain("the same object in two photos is ONE item");
+    expect(prompt).toContain("quantity 2");
+    expect(prompt).toContain("`unsure`");
+    expect(prompt).toContain("Add to research");
   });
 });
 

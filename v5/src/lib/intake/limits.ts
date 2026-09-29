@@ -142,6 +142,22 @@ export const IMAGE_RETRY_MAX_SEARCHES = 1;
  */
 export const RESEARCH_START_STALE_MS = 5 * 60_000;
 
+/**
+ * About what researching one item costs, in US dollars — the bulk intake spec's
+ * measured figure (§8: "a 400-item import researched fully is roughly
+ * $12–14", so 3–3.5¢ an item: search, read and the image stage on the flex
+ * tier). Shown as a range beside **Add to research** (data platform spec
+ * amendment "Many items at once"); never charged or compared against anything
+ * — the allowance counts items, not dollars. Re-measure before changing.
+ */
+export const RESEARCH_ESTIMATED_USD_PER_ITEM = { low: 0.03, high: 0.035 } as const;
+
+/** The estimate for `count` items, as a low–high range in US dollars. */
+export function researchCostRange(count: number): { low: number; high: number } {
+  const n = Math.max(0, Math.floor(count));
+  return { low: n * RESEARCH_ESTIMATED_USD_PER_ITEM.low, high: n * RESEARCH_ESTIMATED_USD_PER_ITEM.high };
+}
+
 /** Items one `identify_tools` call may create. */
 export const IDENTIFY_MAX_ITEMS = 25;
 
