@@ -7,7 +7,8 @@
  * Creates the nine top-level categories and their second level
  * (`src/lib/taxonomy/tree.ts`), moves every tool per the review's mapping
  * (`src/lib/taxonomy/mapping.ts`: by slug, then name, then old category), sets
- * `item_kind` / `parent_tool_id` where they are still the defaults, and
+ * `item_kind` / `parent_tool_id` where they are still the defaults (with the
+ * move, or on a tool already placed — the report counts both), and
  * retires every old category left empty with `merged_into_id` naming where
  * its tools went. Deterministic and idempotent: a second run prints an empty
  * plan. The plan and the logic are `src/lib/taxonomy/migrate.ts`.
@@ -26,7 +27,7 @@
  */
 import { fileURLToPath } from "node:url";
 import { PgliteLockedError } from "../src/lib/db/pglite-lock.ts";
-import { applyTaxonomyPlan, formatTaxonomyPlan, planIsEmpty, planTaxonomyMigration, readTaxonomySnapshot } from "../src/lib/taxonomy/migrate.ts";
+import { applyTaxonomyPlan, formatApplyReport, formatTaxonomyPlan, planIsEmpty, planTaxonomyMigration, readTaxonomySnapshot } from "../src/lib/taxonomy/migrate.ts";
 
 export interface MigrateOptions {
   apply: boolean;
@@ -68,10 +69,7 @@ async function main(): Promise<void> {
       return;
     }
     const report = await applyTaxonomyPlan(opened.db, plan);
-    console.log(
-      `Written: ${report.created} categories created, ${report.updated} updated, ${report.moved} tools moved, ` +
-        `${report.facets} facet updates, ${report.retired} old categories retired.`
-    );
+    console.log(formatApplyReport(report));
     console.log("The catalogue is cached for minutes: the new categories show once it expires, or after POST /api/admin/revalidate.");
   } finally {
     await opened.close();

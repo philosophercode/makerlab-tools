@@ -108,6 +108,17 @@ describe("GalleryShell — search and facets", () => {
     expect(cardNames()).toEqual(["Trotec Speedy 400"]);
   });
 
+  it("filters by item kind (taxonomy v2 facet), a tool with none counting as equipment, and writes ?kind=", async () => {
+    const user = userEvent.setup();
+    const tools = mockCatalog.map((tool) => (tool.slug === "form-4" ? { ...tool, itemKind: "accessory" as const } : tool));
+    render(<GalleryShell tools={tools} />);
+    await user.click(within(screen.getByRole("search")).getByRole("button", { name: /^Item kind/ }));
+    expect(await screen.findByRole("menuitemradio", { name: /Equipment/ })).toHaveTextContent("3");
+    await user.click(screen.getByRole("menuitemradio", { name: /Accessory/ }));
+    expect(cardNames()).toEqual(["Form 4"]);
+    expect(window.location.search).toBe("?kind=accessory");
+  });
+
   it("names the filters that emptied the gallery, with Clear", async () => {
     const user = userEvent.setup();
     render(<GalleryShell tools={mockCatalog} />);

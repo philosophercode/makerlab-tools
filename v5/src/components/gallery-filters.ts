@@ -1,4 +1,5 @@
 import type { GalleryTool, ToolStatus } from "./catalog-types";
+import { TOOL_ITEM_KIND, type ToolItemKind } from "../lib/db/schema/vocabulary";
 
 /**
  * What the gallery is showing, and how that survives a link (UI system phase
@@ -6,7 +7,7 @@ import type { GalleryTool, ToolStatus } from "./catalog-types";
  *
  * Directive-free on purpose, like `admin/inventory-filters.ts`: the island
  * imports it and so do the tests. **Every choice lives in the URL** — search,
- * the four facets (status, category, material, location), the view, the sort and the grouping — so "the woodshop,
+ * the five facets (status, category, material, location, item kind), the view, the sort and the grouping — so "the woodshop,
  * grouped by category, as a table" is a link somebody can send.
  *
  * Parsing drops anything the gallery does not offer (a hand-edited
@@ -46,6 +47,8 @@ export interface GalleryState {
   material: string | null;
   /** `GalleryTool.location` — the room. */
   location: string | null;
+  /** `GalleryTool.itemKind` (taxonomy v2 facet): equipment, accessory, consumable or fixture. */
+  kind: ToolItemKind | null;
   view: GalleryView;
   sort: GallerySort | null;
   group: GalleryGroup | null;
@@ -57,6 +60,7 @@ export const DEFAULT_GALLERY_STATE: GalleryState = {
   category: null,
   material: null,
   location: null,
+  kind: null,
   view: "grid",
   sort: null,
   group: null,
@@ -81,6 +85,7 @@ export function parseGalleryState(params: Params): GalleryState {
     category: read(params, "category") || null,
     material: read(params, "material") || null,
     location: read(params, "location") || null,
+    kind: oneOf(TOOL_ITEM_KIND, read(params, "kind")),
     view: oneOf(GALLERY_VIEWS, read(params, "view")) ?? "grid",
     sort: oneOf(GALLERY_SORTS, read(params, "sort")),
     group: oneOf(GALLERY_GROUPS, read(params, "group")),
@@ -96,6 +101,7 @@ export function toGallerySearchParams(state: GalleryState): URLSearchParams {
   if (state.category) params.set("category", state.category);
   if (state.material) params.set("material", state.material);
   if (state.location) params.set("location", state.location);
+  if (state.kind) params.set("kind", state.kind);
   if (state.view !== "grid") params.set("view", state.view);
   if (state.sort) params.set("sort", state.sort);
   if (state.group) params.set("group", state.group);
@@ -118,7 +124,7 @@ export function visibleInGallery<T extends Pick<GalleryTool, "category" | "galle
 
 /** True while a facet narrows the gallery (search is said separately). */
 export function hasFacetFilters(state: GalleryState): boolean {
-  return Boolean(state.status || state.category || state.material || state.location);
+  return Boolean(state.status || state.category || state.material || state.location || state.kind);
 }
 
 // ── Sorting ─────────────────────────────────────────────────────────

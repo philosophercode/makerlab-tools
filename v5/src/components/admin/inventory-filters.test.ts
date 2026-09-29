@@ -64,6 +64,7 @@ describe("parseInventoryFilters", () => {
         state: "draft",
         category: "Resin Printing",
         location: "Bloomberg 061",
+        kind: "accessory",
         attention: "no_manual",
       })
     ).toEqual({
@@ -71,6 +72,7 @@ describe("parseInventoryFilters", () => {
       state: "draft",
       category: "Resin Printing",
       location: "Bloomberg 061",
+      kind: "accessory",
       attention: "no_manual",
     });
   });
@@ -110,6 +112,14 @@ describe("matchesFilters", () => {
     expect(matchesFilters(row(), filters({ state: "draft" }))).toBe(false);
     expect(matchesFilters(row(), filters({ category: "Laser Cutting" }))).toBe(false);
     expect(matchesFilters(row(), filters({ location: "Bloomberg 061" }))).toBe(true);
+  });
+
+  it("narrows by item kind, reading a row with none as equipment", () => {
+    expect(matchesFilters(row(), filters({ kind: "equipment" }))).toBe(true);
+    expect(matchesFilters(row(), filters({ kind: "accessory" }))).toBe(false);
+    expect(matchesFilters({ ...row(), itemKind: "accessory" }, filters({ kind: "accessory" }))).toBe(true);
+    expect(parseInventoryFilters({ kind: "gadget" }).kind).toBeNull();
+    expect(toSearchParams(filters({ kind: "fixture" })).toString()).toBe("kind=fixture");
   });
 
   it("matches one flag at a time", () => {

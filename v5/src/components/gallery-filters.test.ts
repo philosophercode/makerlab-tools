@@ -21,6 +21,7 @@ describe("parseGalleryState / toGallerySearchParams", () => {
       category: "Laser",
       material: "Acrylic",
       location: "Laser Room",
+      kind: "accessory" as const,
       view: "table" as const,
       sort: "recent" as const,
       group: "location" as const,
@@ -39,6 +40,8 @@ describe("parseGalleryState / toGallerySearchParams", () => {
     expect(parseGalleryState({ sort: ["name-desc", "recent"] }).sort).toBe("name-desc");
     expect(parseGalleryState({ status: "Broken" }).status).toBeNull();
     expect(parseGalleryState({ status: "In Use" }).status).toBe("In Use");
+    expect(parseGalleryState({ kind: "gadget" }).kind).toBeNull();
+    expect(parseGalleryState({ kind: "consumable" }).kind).toBe("consumable");
   });
 });
 

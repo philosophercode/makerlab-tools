@@ -75,6 +75,8 @@ export interface InventoryRow {
   photoThumbnails?: ImageThumbnails;
   categoryName: string | null;
   categoryGroup: string | null;
+  /** Taxonomy v2 facet (`TOOL_ITEM_KIND`); absent on fixtures from before it, which read as equipment. */
+  itemKind?: string;
   room: string | null;
   zone: string | null;
   unitCount: number;
@@ -162,6 +164,7 @@ export async function listInventoryRows(
       categoryName: categories.name,
       // Taxonomy v2: the heading is the parent's name; a pre-v2 row keeps its group.
       categoryGroup: sql<string | null>`coalesce(${parentCategory.name}, ${categories.group})`,
+      itemKind: tools.itemKind,
       room: locations.room,
       zone: locations.zone,
     })
@@ -218,6 +221,7 @@ export async function listInventoryRows(
       ...(cover?.thumbnails ? { photoThumbnails: cover.thumbnails } : {}),
       categoryName: tool.categoryName,
       categoryGroup: tool.categoryGroup,
+      itemKind: tool.itemKind,
       room: tool.room,
       zone: tool.zone,
       unitCount: unitSummary?.total ?? 0,
