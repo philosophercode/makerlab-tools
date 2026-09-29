@@ -1,0 +1,10 @@
+[
+  {
+    "toolSlug": "bambu-lab-x1-carbon-combo-3d-printer",
+    "url": "https://cdn1.bambulab.com/documentation/quick-start-e254168f69145/X1C/English%20version-Quick%20Start%20Guide%20for%20X1-Carbon.pdf",
+    "from": "Bambu Lab X1-Carbon Combo 3D Printer - SOP",
+    "to": "Bambu Lab X1-Carbon Quick Start Guide",
+    "type": "Manual",
+    "reason": "The link is Bambu's English Quick Start Guide for X1-Carbon (9.7 MB PDF), not a lab SOP; the chat cited it as \"SOP, p. N\". As a Manual the nightly archive copies it and manuals:index makes it searchable."
+  }
+]

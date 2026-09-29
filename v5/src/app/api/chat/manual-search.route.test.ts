@@ -375,14 +375,47 @@ describe("attached manuals' links (amendment 2026-09-28)", () => {
     inserted.push(created.id);
     server.use(
       http.get("https://x.test/raw.pdf", () =>
-        HttpResponse.arrayBuffer(new TextEncoder().encode("%PDF-1.4\n").buffer, { headers: { "content-type": "application/pdf" } })
+        HttpResponse.arrayBuffer(buildPdf({ pages: PAGES.map((text) => ({ lines: [{ text, y: 700 }] })) }).slice().buffer, {
+          headers: { "content-type": "application/pdf" },
+        })
       )
     );
 
     const body = await send({ messages: [userMessage("help")], toolId: "form-4" });
 
     expect(body).toContain('"type":"data-manual-links"');
+    // Counted from the bytes: the chat links a cited page only when the PDF has it.
+    expect(body).toContain(`"pageCount":${PAGES.length}`);
     expect(body).toContain('"url":"https://x.test/raw.pdf"');
-    expect(systemOf()).toContain("never add `#page=` to it");
+    // The ref the model cites its pages by, from the resource id (amendment 2026-09-28b).
+    const ref = created.id.replace(/-/g, "").slice(0, 8);
+    expect(body).toContain(`"ref":"${ref}"`);
+    expect(systemOf()).toContain(`(#cite-${ref}-12)`);
+    expect(systemOf()).toContain("Never write a manual's web address");
+    expect(systemOf()).not.toContain("https://x.test/raw.pdf — ");
+  });
+
+  it("does not attach a second resource that links the searchable manual's own PDF", async () => {
+    const db = await getDb();
+    await db.delete(attachments);
+    const seeded = await searchableManual("form-4", { title: "Form 4 Manual", pages: PAGES });
+    // The same PDF answers, so only the dedupe keeps it from being attached.
+    const bytes = buildPdf({ pages: PAGES.map((text) => ({ lines: [{ text, y: 700 }] })) });
+    server.use(
+      http.get(seeded.publicUrl!, () =>
+        HttpResponse.arrayBuffer(bytes.slice().buffer, { headers: { "content-type": "application/pdf" } })
+      )
+    );
+    const formId = await toolIdOf("form-4");
+    const [sop] = await db
+      .insert(resources)
+      .values({ toolId: formId, title: "Form 4 - SOP", type: "SOP", url: seeded.publicUrl })
+      .returning({ id: resources.id });
+    inserted.push(sop.id);
+
+    const body = await send({ messages: [userMessage("help")], toolId: "form-4" });
+
+    expect(body).not.toContain('"type":"data-manual-links"');
+    expect(systemOf()).not.toContain("## Available manuals");
   });
 });

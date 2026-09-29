@@ -18,8 +18,17 @@ export const CITE_HREF_PREFIX = "#cite-";
 
 /** A passage's ref: `<first 8 hex of the document id>-<first page>`. */
 export function citationRef(documentId: string, pageStart: number): string {
-  const prefix = documentId.replace(/[^0-9a-f]/gi, "").slice(0, 8).toLowerCase() || "doc";
-  return `${prefix}-${Math.max(1, Math.trunc(pageStart))}`;
+  return `${documentRefPrefix(documentId)}-${Math.max(1, Math.trunc(pageStart))}`;
+}
+
+/**
+ * The part of a ref that names the document: the first eight hex digits of an
+ * id. A manual the chat attached whole is cited as `#cite-<its prefix>-<page>`
+ * (amendment 2026-09-28b "Attached manuals cite pages too"), the prefix taken
+ * from its resource id by the route.
+ */
+export function documentRefPrefix(id: string): string {
+  return id.replace(/[^0-9a-f]/gi, "").slice(0, 8).toLowerCase() || "doc";
 }
 
 /** `#cite-3f2a9c10-42` → `3f2a9c10-42`; anything else → null. */

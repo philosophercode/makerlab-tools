@@ -28,6 +28,8 @@ import { resourceHosts } from "../../../lib/capabilities/web";
 import { fetchManualPdf, type ManualPdfSource } from "../../../lib/chat/fetch-manual-pdf";
 import { cachedManualPdf } from "../../../lib/chat/manual-pdf-cache";
 import { loadToolManualsForChat } from "../../../lib/chat/tool-manuals";
+import { CITE_HREF_PREFIX, documentRefPrefix } from "../../../lib/manuals/citation-ref";
+import { countPages } from "../../../lib/manuals/page-count";
 import { curationForChat, recordSearchResults } from "../../../lib/chat/curation";
 import { markOutsideReads, newTurnState } from "../../../lib/chat/taint";
 import { curationCapability } from "../../../lib/capabilities/curation";
@@ -62,8 +64,21 @@ interface AttachedManual {
    * matches either.
    */
   sourceUrl?: string;
+  /**
+   * What the model cites a page of it by — `#cite-<ref>-<page>` — the first
+   * eight hex digits of the resource id (amendment 2026-09-28b).
+   */
+  ref: string;
+  /** Pages in the PDF, read from the bytes; null when pdf.js could not tell. */
+  pageCount: number | null;
   /** Base64-encoded PDF bytes, present only if the server-side fetch succeeded. */
   data: string;
+}
+
+/** A fetched manual: its bytes, base64, and how many pages they hold. */
+interface FetchedPdf {
+  data: string;
+  pageCount: number | null;
 }
 
 // Long step-by-step answers with manual lookups can run past a minute; at 60 s
@@ -166,9 +181,16 @@ export async function POST(req: Request) {
         // manual links the chat draws that no `search_manual` call returned —
         // as documents, never at a page the model picked (manual text spec
         // amendment 2026-09-28 "Citations always resolve").
+        // Each carries the `ref` the model cites its pages by and the page
+        // count, so the chat can link `#cite-<ref>-<page>` to the stored
+        // address at that page, and only at a page the PDF has (amendment
+        // 2026-09-28b "Attached manuals cite pages too").
         writer.write({
           type: "data-manual-links",
-          data: { kind: "manual-links", links: manuals.map((m) => ({ title: m.title, url: m.url })) },
+          data: {
+            kind: "manual-links",
+            links: manuals.map((m) => ({ title: m.title, url: m.url, ref: m.ref, pageCount: m.pageCount })),
+          },
         });
       }
 
@@ -459,7 +481,7 @@ function pickPdfSource(resource: ToolResource): ManualPdfSource | null {
  * null on any failure — a blocked or non-PDF answer included; the manual is
  * then only a link in the prompt, and the chat request carries on without it.
  */
-async function fetchPdfAsBase64(title: string, source: ManualPdfSource): Promise<string | null> {
+async function fetchPdfAsBase64(title: string, source: ManualPdfSource): Promise<FetchedPdf | null> {
   const fetched = await fetchManualPdf(source, {
     maxBytes: MAX_PDF_BYTES,
     timeoutMs: PDF_FETCH_TIMEOUT_MS,
@@ -469,7 +491,10 @@ async function fetchPdfAsBase64(title: string, source: ManualPdfSource): Promise
     console.warn("[chat] PDF not attached:", title, source.url, fetched.reason);
     return null;
   }
-  return Buffer.from(fetched.bytes).toString("base64");
+  // Counted once per fetch (the cache keeps it beside the bytes): the chat
+  // links a cited page only when the PDF has it.
+  const pageCount = await countPages(fetched.bytes);
+  return { data: Buffer.from(fetched.bytes).toString("base64"), pageCount };
 }
 
 /**
@@ -498,10 +523,24 @@ async function collectToolManuals(
   searchableResourceIds: ReadonlySet<string> = new Set()
 ): Promise<{ manuals: AttachedManual[]; skipped: number }> {
   const candidates: { resource: ToolResource; source: ManualPdfSource }[] = [];
+  // The addresses of the searchable manuals: another resource linking the
+  // same PDF (the Form 4's "SOP" is its manual's manufacturer link) is the same
+  // document, answered by `search_manual` — attaching it too would leave the
+  // model a second, uncitable copy to quote from.
+  const searchableUrls = new Set(
+    forTool
+      .filter((r) => searchableResourceIds.has(r.id))
+      .flatMap((r) => [r.url, r.archivedUrl, ...r.fileUrls])
+      .filter((url): url is string => Boolean(url))
+  );
   for (const r of forTool) {
     // Searchable: `search_manual` reads it page by page — never attached, and
     // never counted against MAX_PDFS_PER_CHAT.
     if (searchableResourceIds.has(r.id)) continue;
+    if ((r.url && searchableUrls.has(r.url)) || (r.archivedUrl && searchableUrls.has(r.archivedUrl))) {
+      console.info(`[chat] not attaching ${r.title}: the same PDF is searchable`);
+      continue;
+    }
     const source = pickPdfSource(r);
     if (!source) {
       if (r.url) {
@@ -525,14 +564,18 @@ async function collectToolManuals(
         )
       );
       wave.forEach(({ resource: r, source: { url } }, index) => {
-        const data = fetched[index];
-        if (!data) {
+        const pdf = fetched[index];
+        if (!pdf) {
           skipped += 1;
           return;
         }
         const title = r.title || "Manual";
+        const { data, pageCount } = pdf;
+        const ref = documentRefPrefix(r.id);
         manuals.push(
-          r.archivedUrl && r.url && url === r.archivedUrl ? { title, url, sourceUrl: r.url, data } : { title, url, data }
+          r.archivedUrl && r.url && url === r.archivedUrl
+            ? { title, url, sourceUrl: r.url, ref, pageCount, data }
+            : { title, url, ref, pageCount, data }
         );
       });
     }
@@ -601,9 +644,12 @@ function appendManualSections(
 
   const sections: string[] = [system];
 
-  const list = manuals.map((m) => `- **${m.title}** — ${m.url}`).join("\n");
+  const list = manuals
+    .map((m) => `- **${m.title}** — ref \`${m.ref}\`${m.pageCount ? `, ${m.pageCount} pages` : ""}`)
+    .join("\n");
+  const example = manuals[0];
   sections.push(
-    `## Available manuals\n\nThe following PDF manuals are attached to this conversation as documents — read both their text and figures directly:\n\n${list}\n\nThese are not searchable, so there is no \`ref\` to cite them by. Cite a page of one as plain text — "(${manuals[0].title}, p. 12)" — and, if you link the manual, link exactly its address above: never add \`#page=\` to it and never write any other address for it. The chat does not turn a page anchor you write into a link.`
+    `## Available manuals\n\nThe following PDF manuals are attached to this conversation as documents — read both their text and figures directly:\n\n${list}\n\nCite every fact you take from one with its page, as a markdown link whose address is \`${CITE_HREF_PREFIX}\` followed by the manual's \`ref\`, a hyphen and the PDF page number (counting the file's pages from 1, not the number printed on the page), with the manual's title and page in the linked words: e.g. [Loading filament (${example.title}, p. 12)](${CITE_HREF_PREFIX}${example.ref}-12). The chat turns that into the link that opens the manual at that page. Never write a manual's web address, a PDF link or a \`#page=\` link yourself.`
   );
 
   if (focused && focused.links.length > 0) {

@@ -897,3 +897,53 @@ the case was not re-run.
 - **The X1-Carbon "SOP" resource** points at Bambu's Quick Start Guide — a data fix for
   staff (retitle it, or link the lab's SOP).
 - **Google Drive's large-file warning page** (a confirm form) is not followed.
+
+### 2026-09-28b — Attached manuals cite pages too (§3.6)
+
+Owner report from the live site, after the amendment above shipped: on the Bambu Lab
+X1-Carbon Combo page an answer showed *Bambu Lab X1-Carbon Combo 3D Printer - SOP, p. 8* as
+plain text, not a link; the same on the Form 4.
+
+**Root cause, with evidence** (read-only, public MCP and pages, 2026-09-28):
+
+- **The X1-Carbon has no searchable manual.** `search_manual` for it answers `no_results`
+  for any query; `get_tool_details` lists five links, none with an archived copy. So the
+  route attaches its PDFs whole (§3.6 fallback): the "SOP" (Bambu's 9.7 MB X1-Carbon Quick
+  Start Guide) fits the chat's 10 MB cap; the Combo guide (46.7 MB) does not.
+- **The attached path told the model to write pages as plain text** — "Cite a page of one
+  as plain text … The chat does not turn a page anchor you write into a link" — and
+  `classifyLink` drew a link to an attached manual as the whole document, page dropped. The
+  amendment above chose that on purpose, so that no model-written page became a link. The
+  result is what the owner saw: a correct page, not clickable.
+- **Why the "SOP" was never made searchable:** the nightly archive (`listManualsDueForArchive`)
+  takes only resources typed `Manual`; this one is typed `SOP`.
+- **The Form 4** has a searchable manual (`search_manual` returns `#cite-` passages from
+  *Quick Start Guide (Form 4)*), but its "Form 4 - SOP" resource links the **same**
+  manufacturer PDF, which the route attached whole beside it — a second, uncitable copy.
+
+**As built.**
+
+- **A page of an attached manual is a citation.** Each attached manual gets a `ref` (the
+  first eight hex digits of its resource id, `documentRefPrefix`) and its **page count**,
+  read from the fetched bytes with pdf.js (`manuals/page-count.ts`; kept beside the bytes in
+  `manual-pdf-cache.ts`). Both ride on `data-manual-links`. The prompt lists each manual by
+  title, ref and page count — **no address** — and has the model cite
+  `[words (Title, p. N)](#cite-<ref>-N)`.
+- **The chat builds the link** (`manual-citations.ts`): `#cite-<ref>-<N>` — or the stored
+  address with `#page=N` — for an attached manual, at a page `1 ≤ N ≤ pageCount`, is a
+  citation whose URL is the **stored** address + `#page=N` and whose label is the route's
+  title + page (`attachedPagePassage`). It is drawn like a search citation (mark, card,
+  Sources). The model supplies only the page number; a page the PDF lacks, or a ref that
+  matches nothing, is drawn unverified. A part streamed before refs (no page count) accepts
+  any page ≥ 1.
+- **Plain-text references are linked too** (`linkAttachedPageMentions`): "(<exact attached
+  title>, p. N)" or "pp. N–M" outside a link's words becomes that citation, so the answer
+  the owner saw renders clickable.
+- **No second copy of a searchable manual:** the route does not attach a resource whose
+  link or archived copy is the address of a searchable one.
+- **Data** (`data/inventory-cleanup-2026-09-28-bambu-ams/`, `npm run inventory:cleanup --
+  --bundle <dir>`; the loader now takes a bundle with only some files, plus
+  `manuals-add.json` and `resources-retitle.json`): the "SOP" is retitled *Bambu Lab
+  X1-Carbon Quick Start Guide* and retyped `Manual`, and Bambu's English *AMS Quick Start
+  Guide* (3.8 MB, 10 pages, mostly drawings — read by OCR) is added as a Manual. The Combo
+  guide (46.7 MB) stays a link: over the archive's 25 MB.

@@ -9,7 +9,7 @@ import type { ChatProposalItem } from "../ChatProposalCards";
 import type { IntakeTablePayload } from "../../lib/intake/types";
 import type { ImportCardPayload } from "../../lib/import/view";
 import type { ActionProposalCardPayload } from "../../lib/capabilities/actions";
-import { attachedManualLinks, citedPassages, manualPassages } from "./manual-citations";
+import { attachedManualLinks, attachedManuals, citedPassages, linkAttachedPageMentions, manualPassages } from "./manual-citations";
 import { stripCitations, toolStatusLabel, type ChatT } from "./chat-text";
 
 type Part = UIMessage["parts"][number];
@@ -74,13 +74,16 @@ export const ChatMessage = memo(function ChatMessage({
 }) {
   const passages = useMemo(() => manualPassages(message.parts), [message.parts]);
   const documents = useMemo(() => attachedManualLinks(message.parts), [message.parts]);
+  const attached = useMemo(() => attachedManuals(message.parts), [message.parts]);
   const citationLabel = useMemo(() => (citation: string) => t("citationAria", { citation }), [t]);
   const unverifiedLabel = t("unverifiedCitation");
 
   const proposals = message.parts
     .filter((p): p is Part & { data: ChatProposalItem } => p.type === "data-proposal" && isKind(p, "proposal"))
     .map((p) => p.data);
-  const assistantText = message.role === "assistant" ? textOf(message.parts) : "";
+  // A page of an attached manual written as plain text is linked before
+  // anything reads the answer, so the Sources and the prose agree.
+  const assistantText = message.role === "assistant" ? linkAttachedPageMentions(textOf(message.parts), attached) : "";
   const cited = citedPassages(assistantText, passages);
 
   const blocks: ReactNode[] = [];
@@ -93,7 +96,7 @@ export const ChatMessage = memo(function ChatMessage({
         message.role === "assistant" ? (
           <Suspense key={index} fallback={<p className="text-sm whitespace-pre-wrap">{stripCitations(part.text)}</p>}>
             <ChatResponse
-              text={part.text}
+              text={linkAttachedPageMentions(part.text, attached)}
               passages={passages}
               documents={documents}
               onInternalNavigate={onInternalNavigate}

@@ -19,8 +19,11 @@ import { CITE_HREF_PREFIX, isCitationLikeHref, withoutFragment } from "../../lib
  * matches nothing — is drawn as plain words, marked unverified, never as a
  * link: that is where the broken and invented citations came from. The one
  * other source is the route's `data-manual-links` part: the manuals it
- * attached whole, by the stored address, which may be linked as a document
- * (never at a page the model chose).
+ * attached whole, each with its stored address, a `ref` and its page count.
+ * A page of one cited as `#cite-<ref>-<page>` (or written as plain
+ * "(<title>, p. N)") is a citation opening the **stored** address at that
+ * page, when the PDF has it (amendment 2026-09-28b "Attached manuals cite
+ * pages too"); the model supplies the page number and nothing else.
  */
 
 export interface ManualPassageRef {
@@ -69,27 +72,128 @@ export function manualPassages(parts: readonly { type: string }[]): Map<string, 
       if (ref && !byKey.has(`${CITE_HREF_PREFIX}${ref}`)) byKey.set(`${CITE_HREF_PREFIX}${ref}`, passage);
     }
   }
+  // The attached manuals' pages the answer cites (amendment 2026-09-28b). A
+  // search's passage keeps its key.
+  for (const [key, passage] of attachedPassages(parts, attachedManuals(parts))) {
+    if (!byKey.has(key)) byKey.set(key, passage);
+  }
   return byKey;
 }
 
-/**
- * The manuals the route attached whole to this turn (`data-manual-links`), by
- * their stored address without a fragment: a document the model may link, but
- * not at a page of its choosing.
- */
-export function attachedManualLinks(parts: readonly { type: string }[]): Map<string, string> {
-  const byUrl = new Map<string, string>();
+/** A manual the route attached whole to this turn (`data-manual-links`). */
+export interface AttachedManualLink {
+  title: string;
+  /** Its stored address, without a fragment. */
+  url: string;
+  /** What its pages are cited by (`#cite-<ref>-<page>`); empty on a part streamed before refs existed. */
+  ref: string;
+  /** Pages in the PDF, or null when the route could not tell. */
+  pageCount: number | null;
+}
+
+/** The manuals the route attached whole to this turn, each once, in order. */
+export function attachedManuals(parts: readonly { type: string }[]): AttachedManualLink[] {
+  const byUrl = new Map<string, AttachedManualLink>();
   for (const part of parts) {
     if (part.type !== "data-manual-links") continue;
     const data = (part as { data?: { kind?: unknown; links?: unknown } }).data;
     if (data?.kind !== "manual-links" || !Array.isArray(data.links)) continue;
     for (const link of data.links as Array<Record<string, unknown>>) {
       const url = typeof link?.url === "string" ? withoutFragment(link.url.trim()) : "";
-      const title = typeof link?.title === "string" ? link.title : "";
-      if (url && !byUrl.has(url)) byUrl.set(url, title);
+      if (!url || byUrl.has(url)) continue;
+      const ref = typeof link.ref === "string" && /^[0-9a-z]{1,16}$/.test(link.ref) ? link.ref : "";
+      const pageCount = typeof link.pageCount === "number" && Number.isInteger(link.pageCount) && link.pageCount > 0 ? link.pageCount : null;
+      byUrl.set(url, { title: typeof link.title === "string" ? link.title : "", url, ref, pageCount });
     }
   }
-  return byUrl;
+  return [...byUrl.values()];
+}
+
+/**
+ * The attached manuals by their stored address without a fragment: a
+ * document the model may link. A link to one at a page is a citation when
+ * that page is one the PDF has ({@link manualPassages}); otherwise the whole
+ * document.
+ */
+export function attachedManualLinks(parts: readonly { type: string }[]): Map<string, string> {
+  return new Map(attachedManuals(parts).map((manual) => [manual.url, manual.title]));
+}
+
+/** Whether `page` may be cited in `manual`: a whole page number within its page count, when known. */
+function hasPage(manual: AttachedManualLink, page: number): boolean {
+  return Number.isInteger(page) && page >= 1 && (manual.pageCount === null || page <= manual.pageCount);
+}
+
+/**
+ * A page of an attached manual as a passage: the citation is the route's
+ * title and the page, and the URL is the **stored** address with `#page=N` —
+ * the model supplies only the number, and only one the PDF has.
+ */
+export function attachedPagePassage(manual: AttachedManualLink, page: number): ManualPassageRef | null {
+  if (!hasPage(manual, page)) return null;
+  return {
+    ref: manual.ref ? `${manual.ref}-${page}` : "",
+    citation: `${manual.title}, p. ${page}`,
+    url: `${manual.url}#page=${page}`,
+    section: "",
+    excerpt: "",
+  };
+}
+
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * Turn a page reference to an attached manual that the model wrote as plain
+ * text — "(Bambu Lab X1-Carbon Combo 3D Printer - SOP, p. 8)", the form the
+ * prompt asked for before refs — into a `#cite-` link, so it is drawn as a
+ * citation. Only the route's exact title is recognised, only at a page the
+ * PDF has, and never inside a link's words.
+ */
+export function linkAttachedPageMentions(text: string, manuals: readonly AttachedManualLink[]): string {
+  let out = text;
+  const titled = manuals.filter((m) => m.ref && m.title.trim()).sort((a, b) => b.title.length - a.title.length);
+  for (const manual of titled) {
+    const pattern = new RegExp(`${escapeRegExp(manual.title.trim())},\\s*pp?\\.\\s*(\\d{1,5})(?:\\s*[–-]\\s*\\d{1,5})?`, "g");
+    out = out.replace(pattern, (match: string, page: string, offset: number, whole: string) => {
+      // Already the words of a link: leave it to the link.
+      if (/^[^[\]\n]*\]\(/.test(whole.slice(offset + match.length))) return match;
+      if (!hasPage(manual, Number(page))) return match;
+      return `[${match}](${CITE_HREF_PREFIX}${manual.ref}-${Number(page)})`;
+    });
+  }
+  return out;
+}
+
+/**
+ * The attached manuals' pages this message's text links — `#cite-<ref>-<page>`
+ * or the stored address with `#page=N` — as passages keyed the way
+ * {@link manualPassages} keys a search's.
+ */
+function attachedPassages(parts: readonly { type: string }[], manuals: readonly AttachedManualLink[]): Map<string, ManualPassageRef> {
+  const byKey = new Map<string, ManualPassageRef>();
+  if (manuals.length === 0) return byKey;
+  const text = parts
+    .filter((part) => part.type === "text")
+    .map((part) => linkAttachedPageMentions(String((part as { text?: unknown }).text ?? ""), manuals))
+    .join("\n");
+  const add = (manual: AttachedManualLink, page: number) => {
+    const passage = attachedPagePassage(manual, page);
+    if (!passage) return;
+    if (!byKey.has(passage.url)) byKey.set(passage.url, passage);
+    const shared = byKey.get(passage.url)!;
+    if (passage.ref) byKey.set(`${CITE_HREF_PREFIX}${passage.ref}`, shared);
+  };
+  for (const manual of manuals) {
+    if (manual.ref) {
+      const cite = new RegExp(`${escapeRegExp(CITE_HREF_PREFIX + manual.ref)}-(\\d{1,5})\\b`, "gi");
+      for (const match of text.matchAll(cite)) add(manual, Number(match[1]));
+    }
+    const anchored = new RegExp(`${escapeRegExp(manual.url)}#page=(\\d{1,5})\\b`, "g");
+    for (const match of text.matchAll(anchored)) add(manual, Number(match[1]));
+  }
+  return byKey;
 }
 
 /** What one link in an answer is, and so how it is drawn. */

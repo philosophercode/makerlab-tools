@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
-import { getDocumentProxy } from "unpdf";
 import { rawRows } from "../db/raw.ts";
+import { countPages } from "./page-count.ts";
 import type { Db } from "../db/types.ts";
 import { hasPdfMagic } from "../web/pdf-magic.ts";
 import type { DocumentEvidence } from "./citation-check.ts";
@@ -51,23 +51,7 @@ async function evidenceFor(url: string, options: GatherOptions): Promise<Documen
   return { status: 200, contentType, pdfMagic, pageCount, pages };
 }
 
-/** The PDF's page count, or null when pdf.js cannot open it. */
-export async function countPages(bytes: Uint8Array): Promise<number | null> {
-  try {
-    const pdf = await getDocumentProxy(new Uint8Array(bytes), {
-      isEvalSupported: false,
-      disableFontFace: true,
-      verbosity: 0,
-    } as Parameters<typeof getDocumentProxy>[1]);
-    try {
-      return pdf.numPages;
-    } finally {
-      void pdf.loadingTask.destroy().catch(() => {});
-    }
-  } catch {
-    return null;
-  }
-}
+export { countPages };
 
 /** The stored text of each page of the document whose attachment is at `url`. */
 async function storedPages(db: Db, url: string): Promise<Map<number, string>> {

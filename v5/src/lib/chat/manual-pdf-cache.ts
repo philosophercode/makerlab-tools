@@ -19,48 +19,60 @@ const TTL_MS = 10 * 60 * 1000;
 /** About 40 MB of base64 — four manuals at the chat's 10 MB per-file cap. */
 const MAX_CACHED_CHARS = 40 * 1024 * 1024;
 
+/**
+ * What is kept for one URL: the base64 bytes, alone or with facts read from
+ * them once (the route keeps the page count beside them).
+ */
+export type CachedValue = string | { data: string };
+
 interface Entry {
-  data: string;
+  value: CachedValue;
   expires: number;
 }
 
 const settled = new Map<string, Entry>();
-const inFlight = new Map<string, Promise<string | null>>();
+const inFlight = new Map<string, Promise<CachedValue | null>>();
+
+function sizeOf(value: CachedValue): number {
+  return typeof value === "string" ? value.length : value.data.length;
+}
 
 function cachedChars(): number {
   let total = 0;
-  for (const entry of settled.values()) total += entry.data.length;
+  for (const entry of settled.values()) total += sizeOf(entry.value);
   return total;
 }
 
-function remember(url: string, data: string, now: number): void {
-  if (data.length > MAX_CACHED_CHARS) return;
+function remember(url: string, value: CachedValue, now: number): void {
+  const size = sizeOf(value);
+  if (size > MAX_CACHED_CHARS) return;
   settled.delete(url);
   // Oldest first (Map keeps insertion order): drop until the new one fits.
-  while (settled.size > 0 && cachedChars() + data.length > MAX_CACHED_CHARS) {
+  while (settled.size > 0 && cachedChars() + size > MAX_CACHED_CHARS) {
     const oldest = settled.keys().next().value as string;
     settled.delete(oldest);
   }
-  settled.set(url, { data, expires: now + TTL_MS });
+  settled.set(url, { value, expires: now + TTL_MS });
 }
 
 /**
- * The base64 bytes for `url`: from memory when fetched in the last
- * {@link TTL_MS}, else from `load` (null on failure, and not remembered).
+ * The base64 bytes for `url` (or the value carrying them): from memory when
+ * fetched in the last {@link TTL_MS}, else from `load` (null on failure, and
+ * not remembered). One URL is always loaded with the same kind of value.
  */
-export async function cachedManualPdf(url: string, load: () => Promise<string | null>): Promise<string | null> {
+export async function cachedManualPdf<T extends CachedValue>(url: string, load: () => Promise<T | null>): Promise<T | null> {
   const now = Date.now();
   const hit = settled.get(url);
-  if (hit && hit.expires > now) return hit.data;
+  if (hit && hit.expires > now) return hit.value as T;
   if (hit) settled.delete(url);
 
   const pending = inFlight.get(url);
-  if (pending) return pending;
+  if (pending) return pending as Promise<T | null>;
 
   const promise = load()
-    .then((data) => {
-      if (data) remember(url, data, Date.now());
-      return data;
+    .then((value) => {
+      if (value) remember(url, value, Date.now());
+      return value;
     })
     .finally(() => inFlight.delete(url));
   inFlight.set(url, promise);

@@ -34,7 +34,7 @@ import type { Db } from "../../src/lib/db/types.ts";
 import { cleanStarterQuestions } from "../../src/lib/starter-questions.ts";
 import type { CleanupBundle, ManualEntry } from "./bundle.ts";
 
-export type Section = "name" | "officialName" | "tags" | "starterQuestions" | "unit" | "manual" | "url";
+export type Section = "name" | "officialName" | "tags" | "starterQuestions" | "unit" | "manual" | "url" | "retitle" | "manualAdd";
 
 export type Status =
   | "applied" // written (or, in a dry run, would be)
@@ -80,6 +80,8 @@ function slugsOf(bundle: CleanupBundle): string[] {
     ...bundle.renames.units.map((entry) => entry.toolSlug),
     ...bundle.manuals.map((entry) => entry.slug),
     ...bundle.urls.map((entry) => entry.toolSlug),
+    ...bundle.retitles.map((entry) => entry.toolSlug),
+    ...bundle.manualsAdd.map((entry) => entry.slug),
   ];
   return all.filter((slug) => (seen.has(slug) ? false : (seen.add(slug), true)));
 }
@@ -228,6 +230,89 @@ export async function runCleanup(db: Db, bundle: CleanupBundle, options: Cleanup
         const outcome = await touchedWrite(db, tool.id, revision, (tx) =>
           updateResource(tx, { toolId: tool.id, resourceId: source.id }, { url: clean.to }, { actorUserId: null })
         );
+        if (outcome.ok) revision = outcome.revision;
+        else {
+          change.status = "refused";
+          change.detail += ` (${outcome.reason})`;
+        }
+      }
+      record(change);
+    }
+
+    // ── Resource titles (and types) ──
+    for (const retitle of bundle.retitles.filter((entry) => entry.toolSlug === slug)) {
+      const rows = await db
+        .select({ id: resources.id, url: resources.url, title: resources.title, type: resources.type })
+        .from(resources)
+        .where(eq(resources.toolId, tool.id));
+      const source = rows.find((row) => row.url === retitle.url);
+      const typeDone = !retitle.type || source?.type?.toLowerCase() === retitle.type.toLowerCase();
+      if (!source) {
+        record({ section: "retitle", slug, status: "not_found", detail: `no resource at ${retitle.url}` });
+        continue;
+      }
+      if (source.title === retitle.to && typeDone) {
+        record({ section: "retitle", slug, status: "already", detail: retitle.to });
+        continue;
+      }
+      if (source.title !== retitle.from && source.title !== retitle.to) {
+        record({ section: "retitle", slug, status: "changed", detail: `now “${source.title}”, expected “${retitle.from}”` });
+        continue;
+      }
+      const patch = { title: retitle.to, ...(retitle.type ? { type: retitle.type } : {}) };
+      const change: Change = {
+        section: "retitle",
+        slug,
+        status: "applied",
+        detail: `“${source.title}” (${source.type ?? "no type"}) → “${retitle.to}”${retitle.type ? ` (${retitle.type})` : ""}`,
+      };
+      if (options.apply) {
+        const outcome = await touchedWrite(db, tool.id, revision, (tx) =>
+          updateResource(tx, { toolId: tool.id, resourceId: source.id }, patch, { actorUserId: null })
+        );
+        if (outcome.ok) revision = outcome.revision;
+        else {
+          change.status = "refused";
+          change.detail += ` (${outcome.reason})`;
+        }
+      }
+      record(change);
+    }
+
+    // ── Manuals added beside the tool's others ──
+    for (const add of bundle.manualsAdd.filter((entry) => entry.slug === slug)) {
+      const [sameUrl] = await db
+        .select({ id: resources.id, type: resources.type, title: resources.title })
+        .from(resources)
+        .where(and(eq(resources.toolId, tool.id), eq(resources.url, add.url)));
+      if (sameUrl && sameUrl.type?.toLowerCase() === "manual") {
+        record({ section: "manualAdd", slug, status: "already", detail: `${sameUrl.title}: ${add.url}` });
+        continue;
+      }
+      const change: Change = {
+        section: "manualAdd",
+        slug,
+        status: "applied",
+        detail: sameUrl ? `retype “${sameUrl.title}” as ${add.title}: ${add.url}` : `${add.title}: ${add.url}`,
+      };
+      if (options.apply) {
+        const outcome = await touchedWrite(db, tool.id, revision, async (tx) => {
+          if (sameUrl) {
+            return updateResource(
+              tx,
+              { toolId: tool.id, resourceId: sameUrl.id },
+              { type: MANUAL_TYPE, title: add.title },
+              { actorUserId: null }
+            );
+          }
+          const created = await createResource(
+            tx,
+            tool.id,
+            { title: add.title, type: MANUAL_TYPE, url: add.url, published: true },
+            { actorUserId: null }
+          );
+          return created.ok ? { ok: true as const } : created;
+        });
         if (outcome.ok) revision = outcome.revision;
         else {
           change.status = "refused";

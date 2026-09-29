@@ -8,6 +8,12 @@
  *   npm run inventory:cleanup -- --apply         # write it
  *   npm run inventory:cleanup -- --apply --include-low   # also low-confidence manual links
  *   npm run inventory:cleanup -- --apply --revalidate https://makerlab-ai.vercel.app
+ *   npm run inventory:cleanup -- --bundle data/inventory-cleanup-2026-09-28-bambu-ams [--apply]
+ *
+ * - **`--bundle <dir>`** applies a later, smaller bundle: only the files it
+ *   has (a missing file is empty). Besides the 2026-09-28 files it may hold
+ *   `manuals-add.json` (a Manual beside the tool's others) and
+ *   `resources-retitle.json` (a resource renamed and retyped, by its URL).
  *
  * - **Target** is the import scripts' order (`src/lib/import/target.ts`):
  *   `DATABASE_URL`, else `PGLITE_DATA_DIR`. The local database is
@@ -20,6 +26,7 @@
  *   `--revalidate <site>` drops it now (`POST /api/admin/revalidate` with
  *   `ADMIN_REVALIDATE_SECRET`).
  */
+import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { PgliteLockedError } from "../src/lib/db/pglite-lock.ts";
 import { loadBundle } from "./inventory-cleanup/bundle.ts";
@@ -29,20 +36,26 @@ export interface CleanupArgs {
   apply: boolean;
   includeLow: boolean;
   revalidate: string | null;
+  /** A bundle directory other than the 2026-09-28 one, relative to the working directory. */
+  bundle: string | null;
 }
 
 export function parseArgs(argv: readonly string[]): CleanupArgs {
-  const args: CleanupArgs = { apply: false, includeLow: false, revalidate: null };
+  const args: CleanupArgs = { apply: false, includeLow: false, revalidate: null, bundle: null };
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
     if (arg === "--apply") args.apply = true;
     else if (arg === "--dry-run") args.apply = false;
     else if (arg === "--include-low") args.includeLow = true;
-    else if (arg === "--revalidate") {
+    else if (arg === "--bundle") {
+      const dir = argv[++i];
+      if (!dir || dir.startsWith("--")) throw new Error("--bundle needs a directory, e.g. data/inventory-cleanup-2026-09-28-bambu-ams");
+      args.bundle = dir;
+    } else if (arg === "--revalidate") {
       const site = argv[++i];
       if (!site || !/^https?:\/\//.test(site)) throw new Error("--revalidate needs the site's URL, e.g. https://makerlab-ai.vercel.app");
       args.revalidate = site.replace(/\/+$/, "");
-    } else throw new Error(`Unknown argument ${arg}. Use --dry-run (default), --apply, --include-low, --revalidate <site>.`);
+    } else throw new Error(`Unknown argument ${arg}. Use --dry-run (default), --apply, --include-low, --bundle <dir>, --revalidate <site>.`);
   }
   return args;
 }
@@ -55,7 +68,8 @@ export function summarize(report: CleanupReport): string[] {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
-  const bundle = loadBundle();
+  const bundle = args.bundle ? loadBundle(resolve(args.bundle)) : loadBundle();
+  if (args.bundle) console.log(`Bundle: ${resolve(args.bundle)}`);
   const { describeImportTarget, openImportTarget, resolveImportTarget } = await import("../src/lib/import/target.ts");
   const target = resolveImportTarget();
   console.log(`Target: ${describeImportTarget(target)}${args.apply ? "" : " — dry run, nothing is written"}`);

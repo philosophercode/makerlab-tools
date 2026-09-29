@@ -1,6 +1,9 @@
 import { fenceUntrusted } from "../../lib/web/fence";
 import {
   attachedManualLinks,
+  attachedManuals,
+  attachedPagePassage,
+  linkAttachedPageMentions,
   citationPhrase,
   citedPassages,
   classifyLink,
@@ -142,5 +145,56 @@ describe("passageExcerpt", () => {
     const excerpt = passageExcerpt(fenceUntrusted("x", "word ".repeat(200)));
     expect(excerpt.length).toBeLessThanOrEqual(280);
     expect(excerpt.endsWith("…")).toBe(true);
+  });
+});
+
+describe("pages of an attached manual (amendment 2026-09-28b)", () => {
+  const URL = "https://cdn.example/X1C%20Quick%20Start.pdf";
+  const TITLE = "Bambu Lab X1-Carbon Combo 3D Printer - SOP";
+  const linksPart = (link: Record<string, unknown>) => ({ type: "data-manual-links", data: { kind: "manual-links", links: [link] } });
+  const manual = { title: TITLE, url: URL, ref: "09e38acb", pageCount: 20 };
+
+  it("reads the ref and page count the route streamed, dropping a fragment and a malformed ref", () => {
+    expect(attachedManuals([linksPart({ ...manual, url: `${URL}#page=3` })])).toEqual([manual]);
+    expect(attachedManuals([linksPart({ title: TITLE, url: URL, ref: "not a ref!", pageCount: -1 })])).toEqual([
+      { title: TITLE, url: URL, ref: "", pageCount: null },
+    ]);
+  });
+
+  it("builds a page's passage from the stored address and title, only at a page the PDF has", () => {
+    expect(attachedPagePassage(manual, 8)).toEqual({
+      ref: "09e38acb-8",
+      citation: `${TITLE}, p. 8`,
+      url: `${URL}#page=8`,
+      section: "",
+      excerpt: "",
+    });
+    expect(attachedPagePassage(manual, 0)).toBeNull();
+    expect(attachedPagePassage(manual, 21)).toBeNull();
+    expect(attachedPagePassage({ ...manual, pageCount: null }, 300)?.url).toBe(`${URL}#page=300`);
+  });
+
+  it("links a plain-text page reference by the exact title, never inside a link's words", () => {
+    expect(linkAttachedPageMentions(`Soap it (${TITLE}, p. 8).`, [manual])).toBe(`Soap it ([${TITLE}, p. 8](#cite-09e38acb-8)).`);
+    expect(linkAttachedPageMentions(`See ${TITLE}, pp. 8–9.`, [manual])).toBe(`See [${TITLE}, pp. 8–9](#cite-09e38acb-8).`);
+    const linked = `[Plate (${TITLE}, p. 8)](#cite-09e38acb-8)`;
+    expect(linkAttachedPageMentions(linked, [manual])).toBe(linked);
+    expect(linkAttachedPageMentions(`(${TITLE}, p. 40)`, [manual])).toBe(`(${TITLE}, p. 40)`);
+    expect(linkAttachedPageMentions(`(Another Manual, p. 8)`, [manual])).toBe(`(Another Manual, p. 8)`);
+    expect(linkAttachedPageMentions(`(${TITLE}, p. 8)`, [{ ...manual, ref: "" }])).toBe(`(${TITLE}, p. 8)`);
+  });
+
+  it("keys the cited pages by ref and by the stored address at that page, beside a search's passages", () => {
+    const parts = [
+      searchPart([P42]),
+      linksPart(manual),
+      { type: "text", text: `A [x](#cite-09e38acb-8), B [y](${URL}#page=12), C [z](#cite-09e38acb-99), D (${TITLE}, p. 3)` },
+    ];
+    const passages = manualPassages(parts);
+    expect(classifyLink("#cite-09e38acb-8", passages)).toMatchObject({ kind: "citation", passage: { url: `${URL}#page=8` } });
+    expect(classifyLink(`${URL}#page=12`, passages)).toMatchObject({ kind: "citation", passage: { citation: `${TITLE}, p. 12` } });
+    expect(classifyLink("#cite-09e38acb-3", passages)).toMatchObject({ kind: "citation", passage: { url: `${URL}#page=3` } });
+    expect(classifyLink("#cite-09e38acb-99", passages)).toEqual({ kind: "unverified" });
+    expect(classifyLink("#cite-3f2a9c10-42", passages)).toMatchObject({ kind: "citation", passage: { url: URL_42 } });
   });
 });

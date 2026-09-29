@@ -1,4 +1,5 @@
 // @vitest-environment node
+import { fileURLToPath } from "node:url";
 import { eq } from "drizzle-orm";
 import { createPgliteDb } from "../src/lib/db/pglite.ts";
 import { resources, tools, units } from "../src/lib/db/schema/index.ts";
@@ -66,6 +67,8 @@ function bundle(overrides: Partial<CleanupBundle> = {}): CleanupBundle {
         to: "https://example.test/sop.pdf",
       },
     ],
+    manualsAdd: [],
+    retitles: [],
     ...overrides,
   };
 }
@@ -176,6 +179,63 @@ describe("runCleanup", () => {
   });
 });
 
+describe("the Bambu AMS bundle (2026-09-28-bambu-ams)", () => {
+  const X1C = "bambu-lab-x1-carbon-combo-3d-printer";
+  const DIR = fileURLToPath(new URL("../data/inventory-cleanup-2026-09-28-bambu-ams/", import.meta.url));
+  const QSG = "https://cdn1.bambulab.com/documentation/quick-start-e254168f69145/X1C/English%20version-Quick%20Start%20Guide%20for%20X1-Carbon.pdf";
+  const AMS = "https://cdn1.bambulab.com/documentation/quick-start-0fa3c8ddd3d3f/AMS/English%20version-Quick%20Start%20Guide%20for%20AMS.pdf";
+
+  async function seedX1c(): Promise<string> {
+    const id = await insertTool(X1C, "Bambu Lab X1-Carbon Combo 3D Printer");
+    await db.insert(resources).values([
+      { toolId: id, title: "Bambu Lab X1-Carbon Combo 3D Printer - SOP", type: "SOP", url: QSG },
+      { toolId: id, title: "Bambu Lab X1-Carbon Combo quick start guide (PDF)", type: "Manual", url: "https://cdn1.bambulab.com/documentation/Quick%20Start%20Guide%20for%20X1-Carbon%20Combo.pdf" },
+    ]);
+    return id;
+  }
+
+  it("loads only the files it has, the rest empty", () => {
+    const committed = loadBundle(DIR);
+    expect(committed.manuals).toEqual([]);
+    expect(committed.renames).toEqual({ tools: [], units: [] });
+    expect(committed.manualsAdd.map((m) => [m.slug, m.url])).toEqual([[X1C, AMS]]);
+    expect(committed.retitles.map((r) => [r.toolSlug, r.url, r.type])).toEqual([[X1C, QSG, "Manual"]]);
+  });
+
+  it("dry-runs, then retitles the mislabelled guide as a Manual and adds the AMS guide beside the tool's manuals, once", async () => {
+    const id = await seedX1c();
+    const committed = loadBundle(DIR);
+    const dry = await runCleanup(db, committed, { apply: false, includeLow: false });
+    expect(dry.changes.map((c) => [c.section, c.status])).toEqual([
+      ["retitle", "applied"],
+      ["manualAdd", "applied"],
+    ]);
+    expect(await db.select().from(resources).where(eq(resources.toolId, id))).toHaveLength(2);
+
+    await runCleanup(db, committed, { apply: true, includeLow: false });
+    const rows = await db.select().from(resources).where(eq(resources.toolId, id));
+    expect(rows.map((r) => [r.type, r.title, r.url]).sort()).toEqual(
+      [
+        ["Manual", "Bambu Lab X1-Carbon Quick Start Guide", QSG],
+        ["Manual", "Bambu Lab X1-Carbon Combo quick start guide (PDF)", "https://cdn1.bambulab.com/documentation/Quick%20Start%20Guide%20for%20X1-Carbon%20Combo.pdf"],
+        ["Manual", "Bambu Lab AMS Quick Start Guide", AMS],
+      ].sort()
+    );
+
+    const again = await runCleanup(db, committed, { apply: true, includeLow: false });
+    expect(again.changes.map((c) => c.status)).toEqual(["already", "already"]);
+  });
+
+  it("leaves a resource staff renamed meanwhile alone", async () => {
+    const id = await seedX1c();
+    await db.update(resources).set({ title: "Staff SOP" }).where(eq(resources.url, QSG));
+    const report = await runCleanup(db, loadBundle(DIR), { apply: true, includeLow: false });
+    expect(report.changes.find((c) => c.section === "retitle")?.status).toBe("changed");
+    const [row] = await db.select().from(resources).where(eq(resources.url, QSG));
+    expect([row.title, row.type, row.toolId]).toEqual(["Staff SOP", "SOP", id]);
+  });
+});
+
 describe("the committed bundle", () => {
   it("parses, names each tool once per file, and keeps every question a valid chip", () => {
     const committed = loadBundle();
@@ -201,7 +261,9 @@ describe("the committed bundle", () => {
 
 describe("parseArgs", () => {
   it("is a dry run unless --apply", () => {
-    expect(parseArgs([])).toEqual({ apply: false, includeLow: false, revalidate: null });
+    expect(parseArgs([])).toEqual({ apply: false, includeLow: false, revalidate: null, bundle: null });
+    expect(parseArgs(["--bundle", "data/x"]).bundle).toBe("data/x");
+    expect(() => parseArgs(["--bundle"])).toThrow(/needs a directory/);
     expect(parseArgs(["--apply", "--include-low"])).toMatchObject({ apply: true, includeLow: true });
     expect(parseArgs(["--revalidate", "https://x.test/"]).revalidate).toBe("https://x.test");
     expect(() => parseArgs(["--nope"])).toThrow(/Unknown argument/);
