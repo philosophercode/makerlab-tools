@@ -117,7 +117,7 @@ file in `cases/` is loaded automatically):
 | `cases/catalog-lookup.yaml` | Finding the right machine from a natural request |
 | `cases/manual-grounding.yaml` | Answering from the record, citing the document, inventing nothing |
 | `cases/manual-search.yaml` | Answering from `search_manual` passages with page citations |
-| `cases/citations-resolve.yaml` | Every manual citation came from a search, opens the real PDF at a page it has, with the passage on it |
+| `cases/citations-resolve.yaml` | Every manual citation came from a search or an attached manual, opens the real PDF at a page it has, with the passage on it |
 | `cases/tool-calling.yaml` | Calling a capability instead of guessing |
 | `cases/staff-maintenance.yaml` | Staff reading the maintenance queue, and confirming before changing a ticket; students getting no staff tools |
 | `cases/honest-absence.yaml` | Saying "we don't have that" |
@@ -196,8 +196,8 @@ Kept small on purpose. Structural assertions do almost all the useful work.
 | `cites_resource` | `value: "Trotec Speedy 400 SOP"` (optional) | The answer references a document attached to the machine |
 | `proposed_action` | `value: set_person_title` | That action tool was called — which only ever proposes a card |
 | `not_claimed_done` | — | No sentence says the change was made ("done", "I've updated…") unless it is about the card |
-| `cites_page` | `value: "42"` or `"file.pdf#page=42"` (optional) | The answer cites a manual page; a `#cite-<ref>` is read as the URL the search returned for it |
-| `citations_resolve` | — | At least one manual link, and every one came from a `search_manual` result, answers 200 `application/pdf` (`%PDF-`), opens a page the PDF has, cites words on that page, and is labelled with the document it opens |
+| `cites_page` | `value: "42"` or `"file.pdf#page=42"` (optional) | The answer cites a manual page; a `#cite-<ref>` is read as the URL the search returned for it, and an attached manual's `#cite-<ref>-<page>` or "(<title>, p. N)" as its stored address at that page |
+| `citations_resolve` | — | At least one manual link, and every one came from a `search_manual` result or a manual attached to the turn, answers 200 `application/pdf` (`%PDF-`), opens a page the PDF has, cites words on that page (searched passages only), and is labelled with the document it opens |
 
 `citations_resolve` needs evidence a pure function cannot fetch, so the executor
 (`run.eval.ts`) gathers it after the answer — a GET of each cited PDF and its
@@ -205,6 +205,19 @@ stored page texts (`src/lib/manuals/citation-evidence.ts`) — and the check
 itself is `src/lib/manuals/citation-check.ts`. The fixture manuals are real
 PDFs in a local Blob store served on 127.0.0.1 (`local-blob-server.ts`), so
 the GET is a real one.
+
+**Attached manuals** (manual text spec amendment 2026-09-28b). A manual with no
+searchable text is attached to the turn whole, and the model cites its pages as
+`#cite-<ref>-<page>` (or plain "(<exact title>, p. N)"). `composeCase` attaches
+them with the route's own code (`src/lib/chat/attached-manuals.ts`) — only
+files in the lab's own store, never a PDF on the web — and returns what the
+route streams as `data-manual-links` (title, stored address, ref, page count)
+as `attachedManuals`, which the check resolves those citations against: the
+ref must be the attached manual's, the page within the page count the route
+sent and the PDF's own, the address must answer a PDF, and the words must name
+that manual at that page. The fixture's Trotec Speedy 400 Operator Guide
+(`manual-fixture.ts`) is such a manual; `citations-resolve-attached-manual`
+checks it.
 
 **`no_unknown_tools` and `no_fabricated_specs` are the two that matter.** They
 are the direct test of "grounded, never fabricated," which is the assistant's
@@ -291,7 +304,7 @@ should be revisited, not worked around.
 | `assertions.ts` | The assertion vocabulary. Pure functions, no I/O |
 | `cases.ts` | YAML subset parser + validation. Fails loudly at load |
 | `fixtures.ts` | Pins the mock catalogue: aliases, spec fields, equipment lexicon |
-| `harness.ts` | `composeCase` (the real prompt + tool set for one case), `stubWrites`, `stubLiveReads`, `caseMessages` (history + prompt), `evalIdentity` (`as:`) |
+| `harness.ts` | `composeCase` (the real prompt + tool set for one case, and the manuals the route would attach), `stubWrites`, `stubLiveReads`, `caseMessages` (history + prompt), `evalIdentity` (`as:`) |
 | `ticket-fixture.ts` | `seedEvalTickets` — the open Form 4 ticket the staff cases read |
 | `runner.ts` | Control flow: execute → assert → retry → classify → report |
 | `run.eval.ts` | `npm run eval` entrypoint: the real model call and safety rails |
