@@ -3,14 +3,21 @@
  *
  *   npm run qr:labels -- --base-url https://tools.example.edu
  *   npm run qr:labels -- --locale ja --qr-mm 45 --out big-labels.html
+ *   npm run qr:labels -- --pdf --size 2in --paper letter --out labels.pdf
+ *
+ * `--pdf` writes the same print sheets `/admin/inventory/qr` makes (the
+ * shared `src/lib/qr/*` layout, `pdf-lib`), with the default label style;
+ * the admin page is where the style is chosen. The HTML sheet is kept for
+ * anybody who prints from a browser.
  *
  * Each label encodes `<site>/tools/<slug>?src=qr` — a normal tool URL every
  * phone camera opens natively, so there is no in-app scanner and no runtime
  * dependency. The QR image is generated at error-correction level H because
  * these stickers live on machines that get knocked, wiped, and scuffed.
  *
- * `qrcode` is a devDependency and is imported lazily, so it never reaches the
- * browser bundle.
+ * The URL format and the location line are `src/lib/qr/urls.ts` and
+ * `labels.ts`, shared with the tool page, the admin sheets and the assistant,
+ * so a label printed from any of them resolves the same way.
  */
 import { readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -19,6 +26,16 @@ import { and, asc, eq, isNull } from "drizzle-orm";
 import { getDirection, isSupportedLocale, DEFAULT_LOCALE } from "../src/i18n/config.ts";
 import { getDb } from "../src/lib/db/client.ts";
 import { locations, tools } from "../src/lib/db/schema/index.ts";
+import { QR_SOURCE_PARAM, QR_SOURCE_VALUE, toolQrTargetUrl } from "../src/lib/qr/urls.ts";
+import { formatLabelLocation as formatRoomZone, labelContentFor } from "../src/lib/qr/labels.ts";
+import {
+  DEFAULT_LABEL_STYLE,
+  DEFAULT_SHEET,
+  LABEL_PRESETS,
+  PAPER_IDS,
+  type LabelStyle,
+  type PaperId,
+} from "../src/lib/qr/label-layout.ts";
 
 /**
  * The minimum a label needs: something to route to, something to print. Both
@@ -63,16 +80,14 @@ export interface LabelSheetStrings {
 export type QrEncoder = (url: string) => Promise<string>;
 
 /** Marks traffic as arriving from a machine, and nothing else (spec §8). */
-export const QR_SOURCE_PARAM = "src";
-export const QR_SOURCE_VALUE = "qr";
+export { QR_SOURCE_PARAM, QR_SOURCE_VALUE };
 
 /**
  * The URL a label encodes. Deliberately the real tool page — no redirect
  * service to keep running, and no short link to expire (spec §2).
  */
 export function toolPageUrl(baseUrl: string, slug: string): string {
-  const origin = baseUrl.replace(/\/+$/, "");
-  return `${origin}/tools/${encodeURIComponent(slug)}?${QR_SOURCE_PARAM}=${QR_SOURCE_VALUE}`;
+  return toolQrTargetUrl(baseUrl, slug);
 }
 
 /**
@@ -80,12 +95,9 @@ export function toolPageUrl(baseUrl: string, slug: string): string {
  * string (the label simply omits the line) rather than printing "undefined".
  */
 export function formatLabelLocation(source: QrLabelSource): string {
-  const parts = [source.location, source.zone]
-    .map((part) => (part || "").trim())
-    .filter((part) => part.length > 0);
   // Notion fills both room and zone with the same sentinel when a tool has no
-  // location relation; printing it twice is noise.
-  return Array.from(new Set(parts)).join(" / ");
+  // location relation; printing it twice is noise (handled in the shared lib).
+  return formatRoomZone(source.location, source.zone);
 }
 
 /**
@@ -313,6 +325,22 @@ interface CliOptions {
   locale: string;
   out: string;
   qrMm: number;
+  /** Write the admin page's PDF sheets instead of the HTML sheet. */
+  pdf: boolean;
+  /** `--size 2in` (a preset) or `--size 60x40` (millimetres). */
+  size: { widthMm: number; heightMm: number };
+  paper: PaperId;
+}
+
+const SIZE_PATTERN = /^(\d+(?:\.\d+)?)x(\d+(?:\.\d+)?)$/;
+
+/** A preset id (`1in` … `3in`) or `<w>x<h>` in millimetres; anything else is the default. */
+export function parseLabelSize(value: string | undefined): { widthMm: number; heightMm: number } {
+  const preset = LABEL_PRESETS.find((entry) => entry.id === value);
+  if (preset) return { widthMm: preset.widthMm, heightMm: preset.heightMm };
+  const match = SIZE_PATTERN.exec(value ?? "");
+  if (match) return { widthMm: Number(match[1]), heightMm: Number(match[2]) };
+  return { widthMm: DEFAULT_LABEL_STYLE.widthMm, heightMm: DEFAULT_LABEL_STYLE.heightMm };
 }
 
 export function parseArgs(argv: string[]): CliOptions {
@@ -328,6 +356,9 @@ export function parseArgs(argv: string[]): CliOptions {
 
   const locale = flags.get("locale") || DEFAULT_LOCALE;
   const qrMm = Number(flags.get("qr-mm"));
+  // `--pdf` takes no value (the loop above would hand it the next flag), so read its presence.
+  const pdf = argv.includes("--pdf");
+  const paper = flags.get("paper");
 
   return {
     baseUrl:
@@ -336,9 +367,32 @@ export function parseArgs(argv: string[]): CliOptions {
       process.env.NEXT_PUBLIC_SITE_URL ||
       null,
     locale: isSupportedLocale(locale) ? locale : DEFAULT_LOCALE,
-    out: flags.get("out") || "qr-labels.html",
+    out: flags.get("out") || (pdf ? "qr-labels.pdf" : "qr-labels.html"),
     qrMm: Number.isFinite(qrMm) && qrMm > 0 ? Math.max(MIN_QR_MM, qrMm) : DEFAULT_QR_MM,
+    pdf,
+    size: parseLabelSize(flags.get("size")),
+    paper: (PAPER_IDS as readonly string[]).includes(paper ?? "") ? (paper as PaperId) : DEFAULT_SHEET.paper,
   };
+}
+
+/**
+ * The admin page's PDF sheets for every published tool, in the default style
+ * with the location line on (`/admin/inventory/qr` is where a style is chosen).
+ */
+export async function buildPdfSheet(
+  sources: QrLabelSource[],
+  options: { baseUrl: string; size: { widthMm: number; heightMm: number }; paper: PaperId },
+  wordmarkPath: string = join(process.cwd(), "public", "makerlab-wordmark.png")
+): Promise<Uint8Array> {
+  const { buildLabelSheetPdf } = await import("../src/lib/qr/label-pdf.ts");
+  const style: LabelStyle = { ...DEFAULT_LABEL_STYLE, ...options.size, showLocation: true };
+  const labels = sources
+    .filter((source) => source.published !== false && (source.slug || source.id || "").trim())
+    .map((source) =>
+      labelContentFor({ slug: (source.slug || source.id).trim(), name: source.name, room: source.location, zone: source.zone }, options.baseUrl)
+    );
+  const wordmarkPng = await readFile(wordmarkPath).catch(() => null);
+  return buildLabelSheetPdf({ labels, style, sheet: { ...DEFAULT_SHEET, paper: options.paper }, wordmarkPng });
 }
 
 /**
@@ -389,6 +443,16 @@ async function main(): Promise<void> {
   }
 
   const sources = await loadSources();
+
+  if (options.pdf) {
+    const bytes = await buildPdfSheet(sources, { baseUrl: options.baseUrl, size: options.size, paper: options.paper });
+    await writeFile(options.out, bytes);
+    const count = deriveLabels(sources, options.baseUrl).length;
+    console.log(`Wrote ${count} label(s) to ${options.out} (${options.size.widthMm} × ${options.size.heightMm} mm, ${options.paper}).`);
+    console.log('Print at 100 % ("Actual size"), never "Fit to page", and scan one in the lab before cutting the rest.');
+    return;
+  }
+
   const strings = await loadSheetStrings(options.locale);
   const html = await buildLabelSheet(sources, {
     baseUrl: options.baseUrl,

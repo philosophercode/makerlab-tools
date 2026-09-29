@@ -14,6 +14,11 @@ do"), linked from the chat, About, `/mcp` and the product page.
   manual, with page references, and say whether a unit is working.
 - File a maintenance problem ("Prusa #1's nozzle is clogged") and report a
   mistake on a tool's page. It tries to help you fix the problem first.
+- Give you a tool's QR code ("can I have a QR code for this device?"): the code
+  appears in the chat with Download PNG and SVG links, and scanning it opens
+  the tool's page — the same code the lab's machine labels carry
+  (`get_tool_qr_code`, published tools only). Staff print sheets of labels from
+  **Inventory → QR labels**.
 
 ## Lab staff (SuperMakers and directors)
 

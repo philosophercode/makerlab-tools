@@ -67,9 +67,11 @@ interface FlagButtonProps {
   toolId: string;
   /** Pre-selected field, when the control is opened from a specific one. */
   field?: FieldOption;
+  /** Drawn inside a row the page already lays out (the tool page footer), without its own wrapper. */
+  inline?: boolean;
 }
 
-export function FlagButton({ toolId, field: initialField = "description" }: FlagButtonProps) {
+export function FlagButton({ toolId, field: initialField = "description", inline = false }: FlagButtonProps) {
   const t = useTranslations("flag");
   const id = useId();
 
@@ -137,7 +139,7 @@ export function FlagButton({ toolId, field: initialField = "description" }: Flag
   };
 
   return (
-    <div className="ui mx-auto mb-10 w-full max-w-[1200px] px-4 sm:px-8">
+    <div className={inline ? "contents" : "ui mx-auto mb-10 w-full max-w-[1200px] px-4 sm:px-8"}>
       <Dialog open={open} onOpenChange={onOpenChange}>
         {/* A Radix trigger, so closing returns focus here. */}
         <DialogTrigger asChild>

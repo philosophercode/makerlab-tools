@@ -2,6 +2,7 @@ import { catalog } from "./catalog";
 import { units } from "./units";
 import { web } from "./web";
 import { manuals } from "./manuals";
+import { qr } from "./qr";
 import { maintenance } from "./maintenance";
 import { intake } from "./intake";
 import { flags } from "./flags";
@@ -30,6 +31,8 @@ import type { Capability } from "./types";
  *  - `manuals`     — `search_manual`: hybrid search over processed manual
  *                    passages, with page citations (manual text spec §3.6);
  *                    on MCP too, public manuals only.
+ *  - `qr`          — `get_tool_qr_code`: a published tool's QR code as a chat
+ *                    card with download links (read, chat only, everyone).
  *  - `maintenance` — file maintenance tickets (write).
  *  - `intake`      — `identify_tools` records equipment as pending rows (chat
  *                    only; research and approval happen off the chat), and
@@ -61,6 +64,7 @@ export const CAPABILITIES: Capability[] = [
   units,
   web,
   manuals,
+  qr,
   maintenance,
   intake,
   flags,
@@ -72,7 +76,7 @@ export const CAPABILITIES: Capability[] = [
 ];
 
 // Re-export the individual capabilities for direct/selective use and testing.
-export { catalog, units, web, manuals, maintenance, intake, flags, reports, staff, adminReads, catalogReads, actions };
+export { catalog, units, web, manuals, qr, maintenance, intake, flags, reports, staff, adminReads, catalogReads, actions };
 
 // Re-export the surface adapters so consumers import from one place.
 export {

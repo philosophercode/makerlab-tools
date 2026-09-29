@@ -1,0 +1,116 @@
+vi.mock("./label-files", () => ({
+  buildPdf: vi.fn(async () => new Uint8Array([37, 80, 68, 70])),
+  printPdf: vi.fn(),
+  savePdf: vi.fn(),
+  saveBlob: vi.fn(),
+  labelSvgFile: vi.fn(async () => new Blob(["<svg/>"])),
+  labelPngFile: vi.fn(async () => new Blob(["png"])),
+  loadMeasure: vi.fn(() => new Promise(() => {})),
+}));
+
+import { render, screen, userEvent, waitFor, within } from "../../../../test/utils/render";
+import { SETTINGS_STORAGE_KEY } from "../../../lib/qr/settings";
+import { buildPdf, printPdf, savePdf } from "./label-files";
+import { QrLabelStudio, type QrLabelRow } from "./QrLabelStudio";
+
+/**
+ * `/admin/inventory/qr`'s island (QR labels): the list with its selection,
+ * the live preview and the print actions, and the styler's settings
+ * remembered per browser.
+ */
+
+const rows: QrLabelRow[] = [
+  { id: "1", slug: "form-4", name: "Form 4", category: "3D Printers", room: "Main Lab", zone: "Resin Bench" },
+  { id: "2", slug: "trotec-speedy-400", name: "Trotec Speedy 400", category: "Laser Cutters", room: "Laser Room", zone: "Laser Bay" },
+  { id: "3", slug: "prusa-mk4", name: "Prusa MK4", category: "3D Printers", room: "Main Lab", zone: null },
+];
+
+const origin = "https://makerlab-ai.vercel.app";
+
+beforeEach(() => {
+  try {
+    window.localStorage.clear();
+  } catch {
+    // no storage in this environment
+  }
+  vi.mocked(buildPdf).mockClear();
+  vi.mocked(printPdf).mockClear();
+  vi.mocked(savePdf).mockClear();
+});
+
+function setup() {
+  const user = userEvent.setup();
+  render(<QrLabelStudio rows={rows} origin={origin} wordmarkHref="/makerlab-wordmark.png" />);
+  return user;
+}
+
+describe("QrLabelStudio", () => {
+  it("previews the first tool's label with the ?src=qr address, at the chosen size", () => {
+    setup();
+    const preview = screen.getByRole("img", { name: "Label preview for Form 4" });
+    expect(preview).toHaveAttribute("data-qr-preview", "https://makerlab-ai.vercel.app/tools/form-4?src=qr");
+    expect(preview.getAttribute("viewBox")).toBe("0 0 50.8 50.8");
+    expect(screen.getByText("12 labels per US Letter page (3 × 4).")).toBeInTheDocument();
+  });
+
+  it("previews the tool a row asks for", async () => {
+    const user = setup();
+    const table = screen.getByRole("table", { name: "Published tools to print labels for" });
+    const row = within(table).getByRole("rowheader", { name: "Trotec Speedy 400" }).closest("tr")!;
+    await user.click(within(row).getByRole("button", { name: "Preview" }));
+    expect(screen.getByRole("img", { name: "Label preview for Trotec Speedy 400" })).toBeInTheDocument();
+  });
+
+  it("prints the selected tools in one click", async () => {
+    const user = setup();
+    await user.click(screen.getByRole("button", { name: "Select all (3)" }));
+    await user.click(screen.getAllByRole("button", { name: "Print selected (3)" })[0]);
+    await waitFor(() => expect(printPdf).toHaveBeenCalledTimes(1));
+    const [labels, settings] = vi.mocked(buildPdf).mock.calls[0];
+    expect(labels.map((label) => label.url)).toEqual([
+      "https://makerlab-ai.vercel.app/tools/form-4?src=qr",
+      "https://makerlab-ai.vercel.app/tools/trotec-speedy-400?src=qr",
+      "https://makerlab-ai.vercel.app/tools/prusa-mk4?src=qr",
+    ]);
+    expect(settings.sheet.paper).toBe("letter");
+  });
+
+  it("selects only what the filter shows with Select filtered", async () => {
+    const user = setup();
+    await user.type(screen.getByRole("searchbox", { name: "Search tools" }), "Trotec");
+    await user.click(screen.getByRole("button", { name: "Select filtered (1)" }));
+    await user.click(screen.getAllByRole("button", { name: "Print selected (1)" })[0]);
+    await waitFor(() => expect(printPdf).toHaveBeenCalled());
+    expect(vi.mocked(buildPdf).mock.calls[0][0].map((label) => label.name)).toEqual(["Trotec Speedy 400"]);
+  });
+
+  it("prints all, prints one, and downloads the PDF", async () => {
+    const user = setup();
+    await user.click(screen.getByRole("button", { name: "Print all (3)" }));
+    await waitFor(() => expect(printPdf).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(buildPdf).mock.calls[0][0]).toHaveLength(3);
+
+    await user.click(screen.getByRole("button", { name: "Print this one" }));
+    await waitFor(() => expect(printPdf).toHaveBeenCalledTimes(2));
+    expect(vi.mocked(buildPdf).mock.calls[1][0].map((label) => label.name)).toEqual(["Form 4"]);
+
+    await user.click(screen.getByRole("button", { name: "Download PDF" }));
+    await waitFor(() => expect(savePdf).toHaveBeenCalledWith(expect.any(Uint8Array), "qr-labels.pdf"));
+  });
+
+  it("changes the size, recounts the page and remembers the choice", async () => {
+    const user = setup();
+    await user.click(screen.getByRole("button", { name: "1 inch square" }));
+    expect(screen.getByText("48 labels per US Letter page (6 × 8).")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Label preview for Form 4" }).getAttribute("viewBox")).toBe("0 0 25.4 25.4");
+    expect(screen.getByText(/The code is .* mm\. Under 25 mm/)).toBeInTheDocument();
+    expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY)!).preset).toBe("1in");
+  });
+
+  it("switches the page to one label per page for a label printer", async () => {
+    const user = setup();
+    await user.selectOptions(screen.getByRole("combobox", { name: "Paper" }), "label");
+    expect(screen.getByText("One label per page, at the label's own size.")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: "Light cut guides" })).not.toBeInTheDocument();
+  });
+});

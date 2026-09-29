@@ -1,7 +1,7 @@
 # QR Codes on Machines — Design Spec
 
 **Date:** 2026-07-29
-**Status:** Implemented — `npm run qr:labels` (status audit 2026-09-27, [`README.md`](README.md))
+**Status:** Implemented — `npm run qr:labels` (status audit 2026-09-27, [`README.md`](README.md)); amended 2026-09-29, "QR labels in the app" (§12)
 **Target:** `v5/`
 **Branch:** `v5/qr-labels`
 
@@ -181,3 +181,72 @@ what data is displayed; labels printed at a size that will not scan.
    labelling convention.*
 3. **Label every machine, or start with the ten most-used?** A partial rollout tests whether
    anyone scans before committing to a hundred labels.
+
+## 12. Amendment 2026-09-29 — QR labels in the app
+
+Owner request: staff add inventory, print a code for that device and tape it on the laser
+cutter; anybody who sees it scans it and lands on that tool's page. §3's "label generation is
+a script, not a route" is superseded: printing moves into the app, beside the inventory, so it
+no longer needs a developer. The script stays (`npm run qr:labels`, now also `--pdf`).
+
+**One URL format, one module.** `v5/src/lib/qr/urls.ts` owns `?src=qr` and
+`toolQrTargetUrl(origin, slug)` = `<origin>/tools/<slug>?src=qr` — the format §3 printed and
+`QrArrivalNotice` reads. The script, the arrival notice, the admin sheets, the tool page's
+dialog, the image route and the assistant all import it, so old and new labels behave the
+same. The origin is `qrSiteUrl()` (`lib/qr/site-url.ts`): `NEXT_PUBLIC_SITE_URL`, else
+`https://${VERCEL_PROJECT_PRODUCTION_URL}`, else `https://makerlab-ai.vercel.app` — the
+production site, never the request's host, because a label outlives any preview deployment.
+
+**Admin: `/admin/inventory/qr` ("QR labels", `tools.edit`).** Linked from the inventory's
+header. Published tools only (a draft has no public page to open), with search, a category
+facet, row checkboxes, the header box for "select all shown", and **Select all** / **Select
+filtered**. A styler with a live preview: square presets 1″, 1.5″, 2″ (default), 3″ or a
+custom width × height in inches or millimetres; the tool name, location, an extra line
+(default "Scan for manual & help"), the MakerLAB wordmark and the short address, each
+switchable; paper US Letter (default), A4, or **one label per page** at the label's own size
+for a label printer; margin, gap and light dashed cut guides. **Print this one**, **Print
+selected**, **Print all** build the PDF in the browser (`pdf-lib`, loaded on the first click)
+and open the print dialog in one click (a hidden frame; where a browser refuses to print a
+framed PDF it opens in a tab); **Download PDF**, and the previewed label as an SVG (physical
+size in mm, wordmark inlined) or a 300 dpi PNG. The style is remembered per browser in
+`localStorage` (try/catch; no table — a style is a printing preference, not a record).
+Printing writes nothing, so there is no server action and no audit event.
+
+**Layout** (`lib/qr/label-layout.ts`, pure, millimetres): the code takes what the text
+leaves; under 45 % of the label's short side, text is dropped (address, location, extra line,
+wordmark — never the name) and the styler says so. A code under 25 mm (§6's floor) is drawn
+at error correction **M** (fewer, larger modules) and the styler warns; from 25 mm up it is
+**H**. A label at least 1.4 times as wide as tall puts the text beside the code. The sheet
+packs as many columns and rows as fit inside the margins with the gap between, centred;
+e.g. with 10 mm margins and 4 mm gaps, 2″ labels are 12 per Letter page and 15 per A4. Type
+is Helvetica (a standard PDF font; the preview measures with its real metrics), so the PDF
+prints at the size the styler says when printed at 100 %.
+
+**Tool page.** A quiet **QR code & share** control beside "Report a correction" opens a
+dialog: the code, **Download PNG** / **Download SVG**, **Copy link** (the plain page address)
+and, where the browser has a share sheet, **Share** (the PNG as a file where files can be
+shared, else the link). Published pages only; nothing asks who is looking, so the page stays
+cached.
+
+**`GET /api/qr/[slug]?format=svg|png&size=&download=1`.** Public, published tools only (a
+draft, an archived tool and an unknown slug are one 404), rate-limited per hashed IP
+(`ROUTE_TIERS.qr`, 60/min, no cookie read), `Cache-Control: public, max-age=3600,
+s-maxage=86400, stale-while-revalidate=604800`. SVG by default; PNG 128–2048 px (whole-pixel
+modules, so at most the asked size and within one module of it); `download=1` answers as an
+attachment `<slug>-qr.<ext>`.
+
+**Assistant: `get_tool_qr_code`** (`lib/capabilities/qr.ts`). "Can I have a QR code for this
+device?" — a read, offered to everybody including anonymous visitors, chat only (over MCP the
+image is one GET of the route). It resolves a published tool by id, slug or name, or the tool
+whose page the person is on, and writes a `data-tool-qr` part the chat draws as the code with
+Download PNG / SVG links (`ToolQrCard`). It is not a proposal and returns only catalogue data,
+so the confirmation card and the taint rules do not apply. Eval case `qr-code-calls-tool`.
+
+**Tests.** `lib/qr/*.test.ts` (URL format against the script's, layout and packing per preset
+and paper, the PDF read back with `pdf-lib`, settings storage), `app/api/qr/[slug]/route.test.ts`,
+`capabilities/qr.test.ts`, `app/admin/inventory/qr/page.test.tsx` (the gate),
+`components/admin/qr/QrLabelStudio.test.tsx`, `components/tool/ToolQrButton.test.tsx`,
+`components/chat/ToolQrCard.test.tsx`.
+
+**Still open.** §11.2 (sticker stock) is now a setting rather than a blocker; print one sheet
+and scan it in the lab before cutting a hundred (§9 step 3 still applies).

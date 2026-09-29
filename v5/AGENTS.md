@@ -1545,6 +1545,47 @@ data; the QR code opens the catalogue with the chat.
   screenshot per viewport). The QR test has no decoder: it reads the modules
   back out of the SVG and compares them with `qrcode`'s matrix for `askUrl`.
 
+## QR labels (`/admin/inventory/qr`, `/api/qr/[slug]`, `get_tool_qr_code`)
+
+QR codes spec amendment 2026-09-29 ("QR labels in the app"). Staff print a code
+for each machine; anybody who scans it lands on that tool's page. No migration,
+no new permission, no model call.
+
+- **One URL format.** `src/lib/qr/urls.ts` owns `?src=qr` and
+  `toolQrTargetUrl(origin, slug)`; the label script, `QrArrivalNotice`, the
+  admin sheets, the tool page's dialog, the image route and the assistant all
+  import it — never spell the URL again. The origin is `qrSiteUrl()`
+  (`NEXT_PUBLIC_SITE_URL` → `https://${VERCEL_PROJECT_PRODUCTION_URL}` →
+  `https://makerlab-ai.vercel.app`), never the request host: a label outlives
+  a preview deployment. Pages compute it on the server and pass URLs down.
+- **`src/lib/qr/*` is shared and pure** (except `png.ts`, server-only): the
+  matrix and its path (`matrix.ts`), the label layout and sheet packing in
+  millimetres (`label-layout.ts`), the label SVG (`label-svg.ts`), the PDF
+  (`label-pdf.ts`, `pdf-lib`, Helvetica — a standard font, nothing embedded),
+  the styler settings (`settings.ts`). Its relative imports carry `.ts` so the
+  label script runs it under plain Node (`npm run qr:labels -- --pdf`).
+- **The admin page** (`tools.edit`, linked from the inventory header; a
+  `loading.tsx` like every admin folder) lists published tools only and hands
+  them to `components/admin/qr/QrLabelStudio`, which does the rest in the
+  browser: preview, PDF (`pdf-lib` loaded on the first click), one-click print
+  through a hidden frame, SVG/PNG of one label. Printing writes nothing — no
+  server action, no audit, nothing for the parity guard. The style lives in
+  `localStorage` (try/catch), read after hydration (`useHydrated`).
+- **`GET /api/qr/[slug]`** is public, published-only (draft, archived and
+  unknown are one 404), limited per hashed IP (`ROUTE_TIERS.qr`, no cookie),
+  CDN-cached. The tool page's `ToolQrButton` (beside `FlagButton`, which takes
+  `inline` there) and the chat's `ToolQrCard` load their images from it.
+- **`get_tool_qr_code`** (`capabilities/qr.ts`, capability `qr`) is a read for
+  every role, anonymous included, chat only; it writes a `data-tool-qr` part.
+  It is not a proposal and not an outside-content read, so neither the
+  confirmation card nor taint applies. Its name must stay clear of the deny
+  list's words (`download`, `export`… would forbid it).
+- **Tests:** `lib/qr/*.test.ts`, `app/api/qr/[slug]/route.test.ts`,
+  `capabilities/qr.test.ts`, `app/admin/inventory/qr/page.test.tsx`,
+  `components/admin/qr/QrLabelStudio.test.tsx`,
+  `components/tool/ToolQrButton.test.tsx`, `components/chat/ToolQrCard.test.tsx`,
+  `scripts/generate-qr-labels.test.ts`; eval case `qr-code-calls-tool`.
+
 
 ## Performance conventions (performance plan, 2026-09-28)
 
@@ -1715,6 +1756,7 @@ and its 2026-09-28 amendment are the detail.
 | `src/lib/ai/lab-context.ts` | The assistant's "Where you are" block — the lab, its people, Cornell Tech, and its operate / debug / create purpose — placed after the intro in the static prompt prefix. Sourced facts only; sources in its comments |
 | `src/components/chat/assistant-intro-store.ts` / `AssistantIntro.tsx` | The first-visit "Meet the MakerLAB Assistant" callout beside the chat button, remembered in `localStorage` (try/catch), gone once dismissed or the chat opens |
 | `src/lib/kiosk/*` / `src/components/kiosk/*` / `src/app/kiosk/` | The lab status screen: snapshot loader, pure timing and derivations, QR code; the client screen; the page (see "The lab status screen") |
+| `src/lib/qr/*` / `src/components/admin/qr/*` / `src/app/admin/inventory/qr/` / `src/app/api/qr/[slug]/` | QR labels: the URL format, layout, SVG and PDF; the admin label page; the public image route (see "QR labels") |
 | `src/lib/db/client.ts` | `getDb()`, `dataSubstrate()`, `pingDb()` — the one entry point to Postgres/PGlite |
 | `src/lib/notion.ts` | Notion API client — used by the one-time import and its scripts; no request path reads or writes Notion through it (the mirror has its own client) |
 | `src/lib/data/attachments.ts` | `attachments` rows: create, claim onto an owner, reorder, release, list orphans, delete |
