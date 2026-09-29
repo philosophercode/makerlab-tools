@@ -1,3 +1,4 @@
+import { attachedCiteTarget, linkAttachedPageMentions, type AttachedManualLink } from "./attached-citations.ts";
 import { CITE_HREF_PREFIX, isCitationLikeHref, pageFromUrl, refFromHref, withoutFragment } from "./citation-ref.ts";
 
 /**
@@ -25,6 +26,18 @@ import { CITE_HREF_PREFIX, isCitationLikeHref, pageFromUrl, refFromHref, without
  * The checks run on the tool's URL, never on what the model wrote: the chat
  * draws the tool's URL (`components/chat/manual-citations.ts`), so that is
  * what a student clicks.
+ *
+ * **Attached manuals** (amendment 2026-09-28b "Attached manuals cite pages
+ * too"). A manual with no searchable text is attached to the turn whole, and
+ * the route tells the chat its stored address, `ref` and page count
+ * (`data-manual-links`, {@link AttachedManualLink}). A page of one is cited
+ * as `#cite-<ref>-<page>`, or as plain text "(<exact title>, p. N)", which
+ * the chat links the same way. Such a citation comes from the route rather
+ * than a search: an attached manual has the ref (or the link is its stored
+ * address). It must resolve to a PDF, its page must be within both the page
+ * count the route sent and the PDF's own, and the words must name that
+ * manual at that page. An attached manual has no stored text and no passage,
+ * so rule 4 does not apply to it.
  */
 
 /** A passage as `search_manual` handed it to the model (`capabilities/manuals.ts`). */
@@ -149,12 +162,46 @@ export function citationLinks(markdown: string): string[] {
   return [...new Set(answerLinks(markdown).filter(isCitationLikeHref))];
 }
 
+/**
+ * The answer as the chat reads it: every plain-text "(<attached title>, p. N)"
+ * turned into its `#cite-<ref>-<N>` link — at any page, so an out-of-range one
+ * is judged rather than silently left as words.
+ */
+export function withAttachedMentionsLinked(markdown: string, attached: readonly AttachedManualLink[]): string {
+  return attached.length > 0 ? linkAttachedPageMentions(markdown, attached, { onlyPagesItHas: false }) : markdown;
+}
+
+/**
+ * The attached manual a link stands for when no search passage does: its
+ * `#cite-<ref>-<page>`, or its stored address (with `#page=N`, or bare — the
+ * whole document, `page` null).
+ */
+export function attachedForHref(
+  href: string,
+  attached: readonly AttachedManualLink[]
+): { manual: AttachedManualLink; page: number | null } | null {
+  const cited = attachedCiteTarget(href, attached);
+  if (cited) return cited;
+  const base = withoutFragment(href.trim());
+  const manual = attached.find((m) => m.url === base);
+  return manual ? { manual, page: pageFromUrl(href) } : null;
+}
+
 /** The PDF addresses (no fragment) whose evidence a check of this answer needs. */
-export function evidenceUrls(markdown: string, passages: readonly ToolPassage[]): string[] {
+export function evidenceUrls(
+  markdown: string,
+  passages: readonly ToolPassage[],
+  attached: readonly AttachedManualLink[] = []
+): string[] {
   const urls = new Set<string>();
-  for (const href of citationLinks(markdown)) {
+  for (const href of citationLinks(withAttachedMentionsLinked(markdown, attached))) {
     const passage = passageForHref(href, passages);
-    if (passage?.url) urls.add(withoutFragment(passage.url));
+    if (passage?.url) {
+      urls.add(withoutFragment(passage.url));
+      continue;
+    }
+    const target = attachedForHref(href, attached);
+    if (target) urls.add(target.manual.url);
   }
   return [...urls];
 }
@@ -163,15 +210,18 @@ export function evidenceUrls(markdown: string, passages: readonly ToolPassage[])
 export function checkCitations(
   markdown: string,
   passages: readonly ToolPassage[],
-  evidence: ReadonlyMap<string, DocumentEvidence>
+  evidence: ReadonlyMap<string, DocumentEvidence>,
+  attached: readonly AttachedManualLink[] = []
 ): CitationReport {
-  const entries = answerLinkEntries(markdown);
-  const citations = citationLinks(markdown).map((href) =>
+  const text = withAttachedMentionsLinked(markdown, attached);
+  const entries = answerLinkEntries(text);
+  const citations = citationLinks(text).map((href) =>
     judge(
       href,
       entries.filter((entry) => entry.href === href).map((entry) => entry.words),
       passages,
-      evidence
+      evidence,
+      attached
     )
   );
   return { ok: citations.every((c) => c.problems.length === 0), citations };
@@ -181,10 +231,13 @@ function judge(
   href: string,
   labels: readonly string[],
   passages: readonly ToolPassage[],
-  evidence: ReadonlyMap<string, DocumentEvidence>
+  evidence: ReadonlyMap<string, DocumentEvidence>,
+  attached: readonly AttachedManualLink[]
 ): CitationVerdict {
   const passage = passageForHref(href, passages);
   if (!passage?.url) {
+    const target = attachedForHref(href, attached);
+    if (target) return judgeAttached(href, labels, target.manual, target.page, evidence);
     const why = href.toLowerCase().startsWith(CITE_HREF_PREFIX)
       ? `no search_manual result has the ref in ${href}`
       : `${href} is not an address any search_manual result returned`;
@@ -224,6 +277,54 @@ function judge(
   if (!passageOnPages(unfence(passage.text), onPages)) {
     verdict.problems.push("passage_not_on_page");
     verdict.detail.push(`the passage cited as "${passage.citation}" is not on page${last > page ? `s ${page}–${last}` : ` ${page}`} of the stored text`);
+  }
+  return verdict;
+}
+
+/**
+ * A link to a manual attached whole: the words name it (at the cited page),
+ * the page is one the route said the PDF has, and the stored address answers
+ * 200 with a PDF that has the page. A bare stored address is the whole
+ * document: no page to check.
+ */
+function judgeAttached(
+  href: string,
+  labels: readonly string[],
+  manual: AttachedManualLink,
+  page: number | null,
+  evidence: ReadonlyMap<string, DocumentEvidence>
+): CitationVerdict {
+  const url = page === null ? manual.url : `${manual.url}#page=${page}`;
+  const verdict: CitationVerdict = { href, url, page, problems: [], detail: [] };
+  for (const words of labels) {
+    const said = wordsCitation(words);
+    if (!said) continue;
+    if (sameTitle(said.title, manual.title) && (page === null || said.page === page)) continue;
+    verdict.problems.push("label_mismatch");
+    verdict.detail.push(
+      `the words say "${said.title}, p. ${said.page}" but the link opens ${page === null ? manual.title : `${manual.title}, p. ${page}`}`
+    );
+    return verdict;
+  }
+  if (page !== null && (page < 1 || (manual.pageCount !== null && page > manual.pageCount))) {
+    verdict.problems.push("page_out_of_range");
+    verdict.detail.push(`page ${page} of the attached ${manual.title}, which the route says has ${manual.pageCount} pages`);
+    return verdict;
+  }
+  const doc = evidence.get(manual.url);
+  if (!doc || doc.status !== 200) {
+    verdict.problems.push("does_not_resolve");
+    verdict.detail.push(`${manual.url} answered ${doc ? doc.status || "no response" : "nothing (not fetched)"}`);
+    return verdict;
+  }
+  if (doc.contentType !== "application/pdf" || !doc.pdfMagic) {
+    verdict.problems.push("not_a_pdf");
+    verdict.detail.push(`${manual.url} answered ${doc.contentType ?? "no content type"}${doc.pdfMagic ? "" : " without %PDF-"}`);
+    return verdict;
+  }
+  if (page !== null && (doc.pageCount === null || page > doc.pageCount)) {
+    verdict.problems.push("page_out_of_range");
+    verdict.detail.push(`page ${page} of a PDF with ${doc.pageCount ?? "an unknown number of"} pages`);
   }
   return verdict;
 }

@@ -38,3 +38,17 @@
     - kind: called_tool
       value: search_manual
     - kind: citations_resolve
+
+# An attached, not indexed manual (amendment 2026-09-28b "Attached manuals
+# cite pages too"): the Trotec's operator guide has no searchable text, so the
+# harness attaches it whole, as the route does, and the model cites a page as
+# #cite-<ref>-<page> (or "(<title>, p. N)"). `citations_resolve` checks the
+# ref is the attached manual's, the page is within its pages, the stored
+# address answers a PDF, and the words name that manual at that page.
+- id: citations-resolve-attached-manual
+  prompt: "How do I focus the lens before a job? Point me to the manual page."
+  context: { page: tool, toolId: trotec-speedy-400 }
+  assert:
+    - kind: citations_resolve
+    - kind: cites_page
+      value: "trotec-speedy-400-operator-guide.pdf#page=5"
