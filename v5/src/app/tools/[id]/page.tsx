@@ -8,6 +8,7 @@ import { FlagButton } from "../../../components/FlagButton";
 import { ToolChatStarters } from "../../../components/ToolChatStarters";
 import { UsageBeacon } from "../../../components/usage/UsageBeacon";
 import { SignedInToolLocation } from "../../../components/map/SignedInToolLocation";
+import { SignedInToolMiniMap } from "../../../components/map/SignedInToolMiniMap";
 import { getCatalogTool, getCatalogTools, getManualContents, getToolMaintenanceHistory } from "../../../lib/catalog";
 import { toolRelations } from "../../../components/tool/relations";
 import { findToolByNotionPageId } from "../../../lib/data/catalog";
@@ -154,6 +155,13 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
         manualContents={manualContents}
         maintenance={maintenance}
         relations={relations}
+        heroMap={
+          // The mini-map beside the photo: the same rule as "Where it is" —
+          // its own dynamic hole, signed-in viewers only.
+          <Suspense fallback={null}>
+            <SignedInToolMiniMap tool={tool} />
+          </Suspense>
+        }
         location={
           // Signed-in viewers only (map access, PR #98): a dynamic hole, so the
           // cached shell sent to everyone else carries no placement.
