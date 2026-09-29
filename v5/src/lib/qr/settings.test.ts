@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, fromMm, loadSettings, sanitizeSettings, saveSettings, toMm } from "./settings";
+import { DEFAULT_SETTINGS, SETTINGS_STORAGE_KEY, fromMm, loadSettings, sanitizeSettings, saveSettings, toMm, withSizeDefaults, type QrLabelSettings } from "./settings";
 
 describe("label styler settings", () => {
   it("round-trips through storage", () => {
@@ -42,6 +42,20 @@ describe("label styler settings", () => {
 
   it("takes a preset's size from the preset, not from what was stored", () => {
     expect(sanitizeSettings({ preset: "3in", style: { widthMm: 10, heightMm: 10 } }).style.widthMm).toBe(76.2);
+  });
+
+  it("turns the wordmark and extra line off for a 1-inch label and a small custom one, not for the others", () => {
+    const at = (preset: QrLabelSettings["preset"], widthMm: number, heightMm = widthMm) =>
+      withSizeDefaults({ ...DEFAULT_SETTINGS, preset, style: { ...DEFAULT_SETTINGS.style, widthMm, heightMm } }).style;
+    expect(at("1in", 25.4)).toMatchObject({ showBrand: false, showExtra: false, extraText: "Scan for manual & help" });
+    expect(at("custom", 32)).toMatchObject({ showBrand: false, showExtra: false });
+    expect(at("custom", 70)).toMatchObject({ showBrand: true, showExtra: true });
+    expect(at("2in", 50.8)).toMatchObject({ showBrand: true, showExtra: true });
+  });
+
+  it("keeps a stored extra line switched off", () => {
+    expect(sanitizeSettings({ style: { showExtra: false } }).style.showExtra).toBe(false);
+    expect(sanitizeSettings({}).style.showExtra).toBe(true);
   });
 
   it("converts between inches and millimetres", () => {

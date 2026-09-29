@@ -40,6 +40,8 @@ export interface LabelStyle {
   showLocation: boolean;
   /** One optional line of the lab's own words ("Scan for manual & help"); empty for none. */
   extraText: string;
+  /** Whether the extra line is printed; the words are kept while it is off. */
+  showExtra: boolean;
   /** The MakerLAB wordmark. */
   showBrand: boolean;
   /** The short address under the code, for a camera that will not scan. */
@@ -52,6 +54,7 @@ export const DEFAULT_LABEL_STYLE: LabelStyle = {
   showName: true,
   showLocation: false,
   extraText: "Scan for manual & help",
+  showExtra: true,
   showBrand: true,
   showUrl: true,
 };
@@ -235,7 +238,7 @@ function blocksFor(style: LabelStyle, content: LabelContent, widthPt: number, na
   if (style.showLocation && content.location.trim() && !dropped.has("location")) {
     blocks.push({ kind: "location", lines: [ellipsize(content.location.trim(), widthPt, smallPt, false, measure)], sizePt: smallPt, bold: false });
   }
-  const extra = style.extraText.trim().slice(0, EXTRA_TEXT_MAX);
+  const extra = style.showExtra ? style.extraText.trim().slice(0, EXTRA_TEXT_MAX) : "";
   if (extra && !dropped.has("extra")) blocks.push({ kind: "extra", lines: wrapText(extra, widthPt, smallPt, false, 2, measure), sizePt: smallPt, bold: false });
   if (style.showUrl && content.shortUrl && !dropped.has("url")) {
     // An address is not wrapped: shrink it to fit, then shorten it.
@@ -250,7 +253,7 @@ function droppable(style: LabelStyle, content: LabelContent, dropped: Set<Droppa
   const present: Record<DroppableKind, boolean> = {
     url: style.showUrl && Boolean(content.shortUrl),
     location: style.showLocation && Boolean(content.location.trim()),
-    extra: Boolean(style.extraText.trim()),
+    extra: style.showExtra && Boolean(style.extraText.trim()),
     brand: style.showBrand,
     name: false,
   };

@@ -1580,7 +1580,20 @@ no new permission, no model call.
   It is not a proposal and not an outside-content read, so neither the
   confirmation card nor taint applies. Its name must stay clear of the deny
   list's words (`download`, `export`… would forbid it).
+- **Codes in chat photos.** The chat route reads QR codes in the turn's
+  photos (`lib/chat/photo-qr.ts` → `lib/qr/decode.ts`: `jsqr` over `sharp`
+  pixels at 1600/1000/2400 px, ≤1.5 s an image, ≤4 images, 2.5 s a turn,
+  never throws) and matches them with `lib/qr/match.ts` (our hosts only,
+  `/tools/<slug|id|Notion id>`). The prompt gets a "QR codes in this
+  message's photos" section of server-resolved hints — a published tool's
+  slug and name, "not published", or "an external site". **A decoded payload
+  never reaches the prompt**: it is text off a sticker anybody could print.
+- **Size defaults.** The 1″ preset, and a custom size whose code would fall
+  under 25 mm, start with the wordmark and the extra line off
+  (`withSizeDefaults`, applied only when the size changes; `showExtra` keeps
+  the words while the line is off).
 - **Tests:** `lib/qr/*.test.ts`, `app/api/qr/[slug]/route.test.ts`,
+  `lib/chat/photo-qr.test.ts` (photo-like fixtures from `test/images/qr-photo.ts`),
   `capabilities/qr.test.ts`, `app/admin/inventory/qr/page.test.tsx`,
   `components/admin/qr/QrLabelStudio.test.tsx`,
   `components/tool/ToolQrButton.test.tsx`, `components/chat/ToolQrCard.test.tsx`,

@@ -248,5 +248,18 @@ and paper, the PDF read back with `pdf-lib`, settings storage), `app/api/qr/[slu
 `components/admin/qr/QrLabelStudio.test.tsx`, `components/tool/ToolQrButton.test.tsx`,
 `components/chat/ToolQrCard.test.tsx`.
 
+**Codes in chat photos** (owner follow-up, same day). A person who photographs a machine's
+label and asks the assistant about it gets an answer about that machine: the chat route reads
+QR codes in the turn's photos on the server (`jsqr` over `sharp`-decoded pixels, a few sizes,
+time-bounded, never failing the turn) and, when a code is one of our tool links (our hosts,
+`/tools/<slug>` with or without `?src=qr`, a tool id or a legacy Notion id), adds a hint
+naming the published tool — `[QR code in photo "IMG_2041.jpg": links to tool
+trotec-speedy-400 ("Trotec Speedy 400")]` — in a prompt section that tells the model to treat
+it as identified. A draft's or unknown slug's code says only "not published"; any other link
+is "an external site" and any other payload is dropped. Decoded text never reaches the prompt.
+
+**Size defaults** (owner decision). The 1″ preset, and a custom size whose code would fall
+under 25 mm, start with the wordmark and the extra line off; either can be switched back on.
+
 **Still open.** §11.2 (sticker stock) is now a setting rather than a blocker; print one sheet
 and scan it in the lab before cutting a hundred (§9 step 3 still applies).

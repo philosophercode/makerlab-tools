@@ -105,6 +105,11 @@ describe("QrLabelStudio", () => {
     expect(screen.getByRole("img", { name: "Label preview for Form 4" }).getAttribute("viewBox")).toBe("0 0 25.4 25.4");
     expect(screen.getByText(/The code is .* mm\. Under 25 mm/)).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY)!).preset).toBe("1in");
+    // The 1-inch default: the code gets the room, and either can go back on.
+    expect(screen.getByRole("checkbox", { name: "MakerLAB wordmark" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Extra line" })).not.toBeChecked();
+    await user.click(screen.getByRole("checkbox", { name: "MakerLAB wordmark" }));
+    expect(screen.getByRole("checkbox", { name: "MakerLAB wordmark" })).toBeChecked();
   });
 
   it("switches the page to one label per page for a label printer", async () => {

@@ -5,7 +5,9 @@ import {
   LABEL_MAX_MM,
   LABEL_MIN_MM,
   LABEL_PRESETS,
+  MIN_QR_MM,
   PAPER_IDS,
+  layoutLabel,
   SHEET_GAP_MAX_MM,
   SHEET_MARGIN_MAX_MM,
   type LabelPresetId,
@@ -69,6 +71,7 @@ export function sanitizeSettings(raw: unknown): QrLabelSettings {
       showName: bool(style.showName, DEFAULT_LABEL_STYLE.showName),
       showLocation: bool(style.showLocation, DEFAULT_LABEL_STYLE.showLocation),
       extraText: typeof style.extraText === "string" ? style.extraText.slice(0, EXTRA_TEXT_MAX) : DEFAULT_LABEL_STYLE.extraText,
+      showExtra: bool(style.showExtra, DEFAULT_LABEL_STYLE.showExtra),
       showBrand: bool(style.showBrand, DEFAULT_LABEL_STYLE.showBrand),
       showUrl: bool(style.showUrl, DEFAULT_LABEL_STYLE.showUrl),
     },
@@ -113,4 +116,25 @@ export function fromMm(mm: number, unit: SizeUnit): number {
 
 export function toMm(value: number, unit: SizeUnit): number {
   return unit === "in" ? value * 25.4 : value;
+}
+
+/** A typical label, for judging a size before any tool is chosen. */
+const SAMPLE_LABEL = {
+  name: "Trotec Speedy 400",
+  location: "Laser Room / Laser Bay",
+  url: "https://makerlab-ai.vercel.app/tools/trotec-speedy-400?src=qr",
+  shortUrl: "makerlab-ai.vercel.app/tools/trotec-speedy-400",
+};
+
+/**
+ * The defaults a newly chosen size brings (owner decision 2026-09-29): on the
+ * 1-inch preset, and on a custom size whose code would fall under the 25 mm
+ * floor, the wordmark and the extra line start off so the code gets the room.
+ * Applied only when the size changes; either can be switched back on.
+ */
+export function withSizeDefaults(settings: QrLabelSettings): QrLabelSettings {
+  const small =
+    settings.preset === "1in" ||
+    (settings.preset === "custom" && layoutLabel(settings.style, SAMPLE_LABEL).qr.size < MIN_QR_MM);
+  return small ? { ...settings, style: { ...settings.style, showBrand: false, showExtra: false } } : settings;
 }

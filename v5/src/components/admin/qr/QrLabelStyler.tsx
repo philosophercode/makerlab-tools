@@ -19,7 +19,7 @@ import {
   type PaperId,
   type SheetSetup,
 } from "../../../lib/qr/label-layout";
-import { DEFAULT_SETTINGS, fromMm, toMm, type QrLabelSettings, type SizeUnit } from "../../../lib/qr/settings";
+import { DEFAULT_SETTINGS, fromMm, toMm, withSizeDefaults, type QrLabelSettings, type SizeUnit } from "../../../lib/qr/settings";
 
 /**
  * The label styler: size (four square presets, or a custom width and height
@@ -37,22 +37,26 @@ export function QrLabelStyler({ settings, onChange }: { settings: QrLabelSetting
 
   function choosePreset(value: string) {
     const preset = LABEL_PRESETS.find((entry) => entry.id === value);
-    if (preset) onChange({ ...settings, preset: preset.id, style: { ...style, widthMm: preset.widthMm, heightMm: preset.heightMm } });
-    else onChange({ ...settings, preset: "custom" });
+    // A new size brings its defaults: a small code gets the room (`withSizeDefaults`).
+    if (preset) onChange(withSizeDefaults({ ...settings, preset: preset.id, style: { ...style, widthMm: preset.widthMm, heightMm: preset.heightMm } }));
+    else onChange(withSizeDefaults({ ...settings, preset: "custom" }));
   }
 
   function setDimension(key: "widthMm" | "heightMm", raw: string) {
     const value = Number(raw);
     if (!Number.isFinite(value) || value <= 0) return;
-    setStyle({ [key]: Math.min(LABEL_MAX_MM, Math.max(LABEL_MIN_MM, toMm(value, unit))) });
+    const mm = Math.min(LABEL_MAX_MM, Math.max(LABEL_MIN_MM, toMm(value, unit)));
+    if (mm === style[key]) return;
+    onChange(withSizeDefaults({ ...settings, style: { ...style, [key]: mm } }));
   }
 
   const step = unit === "in" ? 0.125 : 1;
-  const toggles: { key: "showName" | "showLocation" | "showBrand" | "showUrl"; label: string }[] = [
+  const toggles: { key: "showName" | "showLocation" | "showBrand" | "showUrl" | "showExtra"; label: string }[] = [
     { key: "showName", label: t("showName") },
     { key: "showLocation", label: t("showLocation") },
     { key: "showBrand", label: t("showBrand") },
     { key: "showUrl", label: t("showUrl") },
+    { key: "showExtra", label: t("showExtra") },
   ];
 
   return (
@@ -125,6 +129,7 @@ export function QrLabelStyler({ settings, onChange }: { settings: QrLabelSetting
           <Input
             id={`${id}-extra`}
             value={style.extraText}
+            disabled={!style.showExtra}
             maxLength={EXTRA_TEXT_MAX}
             placeholder={t("extraTextPlaceholder")}
             onChange={(event) => setStyle({ extraText: event.target.value })}

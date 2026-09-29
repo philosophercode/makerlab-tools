@@ -19,6 +19,11 @@ do"), linked from the chat, About, `/mcp` and the product page.
   the tool's page — the same code the lab's machine labels carry
   (`get_tool_qr_code`, published tools only). Staff print sheets of labels from
   **Inventory → QR labels**.
+- Recognise a machine from a photo of its label: attach a photo with one of the
+  lab's QR codes in it and the assistant knows which tool it is. The server
+  reads the code; only our own tool links are used (a code for a tool that is
+  not published, or for another website, identifies nothing and is never
+  followed).
 
 ## Lab staff (SuperMakers and directors)
 

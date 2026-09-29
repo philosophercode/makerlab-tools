@@ -28,6 +28,7 @@ import { getDb } from "../src/lib/db/client.ts";
 import { locations, tools } from "../src/lib/db/schema/index.ts";
 import { QR_SOURCE_PARAM, QR_SOURCE_VALUE, toolQrTargetUrl } from "../src/lib/qr/urls.ts";
 import { formatLabelLocation as formatRoomZone, labelContentFor } from "../src/lib/qr/labels.ts";
+import { DEFAULT_SETTINGS, withSizeDefaults } from "../src/lib/qr/settings.ts";
 import {
   DEFAULT_LABEL_STYLE,
   DEFAULT_SHEET,
@@ -385,7 +386,13 @@ export async function buildPdfSheet(
   wordmarkPath: string = join(process.cwd(), "public", "makerlab-wordmark.png")
 ): Promise<Uint8Array> {
   const { buildLabelSheetPdf } = await import("../src/lib/qr/label-pdf.ts");
-  const style: LabelStyle = { ...DEFAULT_LABEL_STYLE, ...options.size, showLocation: true };
+  const preset = LABEL_PRESETS.find((entry) => entry.widthMm === options.size.widthMm && entry.heightMm === options.size.heightMm);
+  // The admin page's size defaults: a small code drops the wordmark and extra line.
+  const { style } = withSizeDefaults({
+    ...DEFAULT_SETTINGS,
+    preset: preset?.id ?? "custom",
+    style: { ...DEFAULT_LABEL_STYLE, ...options.size, showLocation: true } satisfies LabelStyle,
+  });
   const labels = sources
     .filter((source) => source.published !== false && (source.slug || source.id || "").trim())
     .map((source) =>
