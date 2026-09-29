@@ -115,6 +115,17 @@ export const MODEL_JOBS = {
     serviceTier: "flex",
     tierEnv: "MODEL_DESCRIPTION_SHORTEN_TIER",
   },
+  // The starter-answer grader (`npm run starters:refresh`): judges one pre-run
+  // chip answer — answered, grounded, specific, safe, stable — as JSON. No
+  // tools. A script nobody waits on, so flex. (Its replacement questions are
+  // written by `researchRead`, like the starter-question backfill.)
+  starterGrade: {
+    kind: "language",
+    env: "MODEL_STARTER_GRADE",
+    default: "openai/gpt-6-luna",
+    serviceTier: "flex",
+    tierEnv: "MODEL_STARTER_GRADE_TIER",
+  },
   // Manual passages and search queries (manual text spec §3.4). An embedding
   // job, not a language one: `embeddingModelFor`, never `languageModelFor`.
   // No tier hint — embeddings are cheap and a search is waited on.

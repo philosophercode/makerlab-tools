@@ -81,6 +81,8 @@ export const EXEMPT: Readonly<Record<string, string>> = {
   // ── Not user actions (§4.8 "out of scope") ───────────────────────────
   "src/app/api/auth/[...all]/route.ts#POST": "Not a user action: sign-in and sign-out (§2)",
   "src/app/api/chat/route.ts#POST": "Not a user action: the chat stream itself",
+  "src/app/api/chat/starters/route.ts#POST":
+    "Not a user action: the chat saying a starter chip was answered from the cache — an anonymous usage count, as the chat stream records for a live turn",
   "src/app/api/mcp/route.ts#POST": "Not a user action: the MCP stream itself",
   "src/app/api/mcp/route.ts#DELETE": "Not a user action: the MCP stream itself",
   "src/app/api/mcp/signed-in/route.ts#POST": "Not a user action: the MCP stream itself",

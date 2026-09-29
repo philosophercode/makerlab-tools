@@ -13,10 +13,11 @@ describe("planTables", () => {
   const plan = planTables();
   const position = new Map(plan.tables.map((t, i) => [t.name, i]));
 
-  it("copies every schema table except live sign-ins and the retention-bound usage tables", () => {
+  it("copies every schema table except live sign-ins, the retention-bound usage tables and the deployment-bound starter answers", () => {
     // usage_events and usage_gaps are promised to be short-lived (usage insight
     // spec §4): a local database's test events never land in the hosted one.
-    expect(plan.skipped).toEqual(["oauth_access_token", "session", "usage_events", "usage_gaps", "verification"]);
+    // starter_answers carry the local database's own addresses and hashes.
+    expect(plan.skipped).toEqual(["oauth_access_token", "session", "starter_answers", "usage_events", "usage_gaps", "verification"]);
     const all = schemaTables().map(getTableName).sort();
     expect([...plan.tables.map((t) => t.name), ...plan.skipped].sort()).toEqual(all);
     expect(position.has("user")).toBe(true);

@@ -14,7 +14,8 @@ import {
   user,
   verification,
 } from "../db/schema/index";
-import { EXCLUDED_TABLES, isExcludedFromBackup, isRebuiltAfterRestore, isRetentionBound, REBUILT_AFTER_RESTORE, RETENTION_BOUND, redactRows } from "./backup-policy";
+import { DEPLOYMENT_BOUND, EXCLUDED_TABLES, isDeploymentBound, isExcludedFromBackup, isRebuiltAfterRestore, isRetentionBound, REBUILT_AFTER_RESTORE, RETENTION_BOUND, redactRows } from "./backup-policy";
+import { starterAnswers } from "../db/schema/starter-answers";
 import { usageEvents, usageGaps, usageRollups } from "../db/schema/usage";
 
 /**
@@ -34,6 +35,16 @@ describe("RETENTION_BOUND (usage insight spec §4, §8)", () => {
   it("keeps the hourly counts, which name nobody", () => {
     expect(isRetentionBound(usageRollups)).toBe(false);
     expect(isExcludedFromBackup(usageRollups)).toBe(false);
+  });
+});
+
+describe("DEPLOYMENT_BOUND (starter answers)", () => {
+  it("keeps pre-run starter answers out of data:push but in the nightly backup", () => {
+    expect(isDeploymentBound(starterAnswers)).toBe(true);
+    expect(DEPLOYMENT_BOUND.size).toBe(1);
+    expect(isExcludedFromBackup(starterAnswers)).toBe(false);
+    expect(isRetentionBound(starterAnswers)).toBe(false);
+    expect(isRebuiltAfterRestore(starterAnswers)).toBe(false);
   });
 });
 

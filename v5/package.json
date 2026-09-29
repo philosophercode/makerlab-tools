@@ -15,6 +15,7 @@
     "test:e2e:ui": "playwright test --ui",
     "test:all": "npm run lint && npm run typecheck && npm run test && npm run test:e2e",
     "eval": "vitest run --config evals/vitest.config.ts",
+    "starters:refresh": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/starters-refresh.ts",
     "qr:labels": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/generate-qr-labels.ts",
     "migrate:resources": "node --env-file=.env.local --experimental-strip-types scripts/migrate-tools-to-resources.ts",
     "drop:deprecated-columns": "node --env-file=.env.local --experimental-strip-types scripts/drop-deprecated-notion-columns.ts",

@@ -294,7 +294,7 @@ const getToolDetails: CapabilityTool<GetToolDetailsInput, ToolDetailsResult> = {
  * Describe a single catalog tool in the compact bullet form the chat system
  * prompt uses (name + slug + category/location/training, then a units line).
  */
-function describeCatalogEntry(tool: MakerLabTool): string {
+export function describeCatalogEntry(tool: MakerLabTool): string {
   const official = officialNameShown(tool);
   const head = `- **${tool.name}**${official ? ` (official: ${official})` : ""} — slug: \`${tool.slug}\` — ${tool.category}${
     tool.categorySub ? ` / ${tool.categorySub}` : ""

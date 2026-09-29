@@ -218,6 +218,9 @@ export const ROUTE_TIERS = {
   // Usage insight's page-view beacon (usage insight spec §5.3, §8): one per
   // tool per tab, so sixty a minute is a busy browser, not a person.
   usage: { limit: 60, windowMs: 60_000 },
+  // Starter answers: the chat reads a page's cached chip answers when it
+  // opens, and says when a chip served one. A handful a page view.
+  starters: { limit: 60, windowMs: 60_000 },
 } as const;
 
 export type RouteScope = keyof typeof ROUTE_TIERS;
