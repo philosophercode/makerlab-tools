@@ -34,7 +34,7 @@ describe("/product/quick-start", () => {
   it("asks the X1-Carbon about the AMS, and walks staff through intake, people and the kiosk", () => {
     render(<QuickStartPage />);
 
-    const ask = screen.getByRole("listitem", { name: "Ask the assistant on a tool page" });
+    const ask = screen.getByRole("listitem", { name: "Ask MakerLAB AI on a tool page" });
     expect(ask).toHaveTextContent("“How do I start a print with the AMS?”");
     const intake = screen.getByRole("listitem", { name: "Add a tool from a photo" });
     expect(intake).toHaveTextContent("Staff");

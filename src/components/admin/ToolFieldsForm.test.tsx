@@ -116,7 +116,7 @@ it("shows nothing beside the fields the other person did not touch", () => {
 describe('assistant starter questions (amendment "Tool-specific starter questions")', () => {
   it("shows three boxes, holding the tool's questions and blanks for the rest", () => {
     renderForm({ values: tool({ starterQuestions: ["What resins can I print with?"] }) });
-    expect(screen.getByRole("group", { name: "Assistant starter questions" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "MakerLAB AI starter questions" })).toBeInTheDocument();
     expect(screen.getByLabelText("Starter question 1")).toHaveValue("What resins can I print with?");
     expect(screen.getByLabelText("Starter question 2")).toHaveValue("");
     expect(screen.getByLabelText("Starter question 3")).toHaveValue("");

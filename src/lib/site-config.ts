@@ -45,7 +45,7 @@ export const siteConfig: SiteConfig = {
     process.env.NEXT_PUBLIC_TAGLINE ??
     "Your digital guide to making at Cornell Tech",
   chatAssistantName:
-    process.env.NEXT_PUBLIC_CHAT_ASSISTANT_NAME ?? "MakerLAB Assistant",
+    process.env.NEXT_PUBLIC_CHAT_ASSISTANT_NAME ?? "MakerLAB AI",
   audience: process.env.AUDIENCE ?? "students who may be beginners",
   logo: process.env.NEXT_PUBLIC_LOGO ?? "/makerlab-logo-transparent.png",
   wordmark: process.env.NEXT_PUBLIC_WORDMARK ?? "/makerlab-wordmark.png",

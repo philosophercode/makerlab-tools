@@ -75,7 +75,7 @@ export function valueReportSummary(data: ValueReportData) {
       set_by_lab: data.assumptions.origin === "stored",
     },
     formulas: [
-      "questions answered = assistant questions in the app + MCP lookups ÷ lookups per question (rounded down)",
+      "questions answered = MakerLAB AI questions in the app + MCP lookups ÷ lookups per question (rounded down)",
       "handled without staff = app questions − questions it could not answer + MCP questions",
       "staff hours saved ≈ handled × minutes per question ÷ 60",
       "estimated value ≈ staff hours saved × hourly cost",

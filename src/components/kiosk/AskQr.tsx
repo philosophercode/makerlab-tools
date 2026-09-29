@@ -12,7 +12,7 @@ import { KIOSK_TYPE } from "./kiosk-type";
  * will not scan.
  *
  * On a phone (`kiosk-phone`) the reader is already holding one: the code
- * shrinks and sits beside an "Open the assistant" link to the same address.
+ * shrinks and sits beside an "Open MakerLAB AI" link to the same address.
  *
  * The SVG is made on the server from our own URL (`kioskQrSvg`), never from
  * anything a person typed.

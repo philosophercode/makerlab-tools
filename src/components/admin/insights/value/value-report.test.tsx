@@ -16,7 +16,7 @@ import { ValueReportView } from "./ValueReportView";
 const t = createTranslator({ locale: "en", messages: enMessages, namespace: "admin.insights" }) as unknown as Translate;
 const NY = "America/New_York";
 const assumptions = defaultAssumptions("LAB OPEN 8AM-8PM");
-const brand = { assistant: "MakerLAB Assistant", labName: "MakerLAB Tools · Cornell Tech" };
+const brand = { assistant: "MakerLAB AI", labName: "MakerLAB Tools · Cornell Tech" };
 
 function data(current: Partial<ValueCounts>, previous: Partial<ValueCounts> = {}): ValueReportData {
   const report = computeValueReport({ ...emptyCounts(), ...current }, assumptions, NY);
@@ -59,7 +59,7 @@ const busy = data(
 describe("ValueReportView", () => {
   it("titles the report with the assistant, the term and the lab, and says it is an estimate", () => {
     render(<ValueReportView model={valueReportViewModel(busy, t, brand)} />);
-    expect(screen.getByRole("heading", { level: 3, name: "MakerLAB Assistant — Fall 2026 value report" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "MakerLAB AI — Fall 2026 value report" })).toBeInTheDocument();
     expect(screen.getByText("MakerLAB Tools · Cornell Tech")).toBeInTheDocument();
     expect(screen.getByText(/Aug 21, 2026 – Dec 31, 2026 · to date \(through Sep 28, 2026\)/)).toBeInTheDocument();
     expect(screen.getAllByText("Estimate")).toHaveLength(2);
@@ -81,7 +81,7 @@ describe("ValueReportView", () => {
     render(<ValueReportView model={valueReportViewModel(busy, t, brand)} />);
     const formulas = within(screen.getByRole("region", { name: "How these numbers are calculated" })).getAllByRole("listitem").map((li) => li.textContent);
     expect(formulas).toHaveLength(5);
-    expect(formulas[0]).toContain("= 50 assistant questions in the app + 2 over MCP (4 catalogue lookups by outside assistants ÷ 2 lookups per question, rounded down) = 52");
+    expect(formulas[0]).toContain("= 50 MakerLAB AI questions in the app + 2 over MCP (4 catalogue lookups by outside assistants ÷ 2 lookups per question, rounded down) = 52");
     expect(formulas[2]).toBe("Staff hours saved ≈ 48 handled questions × 4 minutes a staff member would otherwise spend ÷ 60 = 3.2 hours.");
     expect(formulas[3]).toBe("Estimated value ≈ 3.2 hours × $40 loaded staff cost per hour = $128.");
     expect(formulas[4]).toContain("every day, 8 AM–8 PM, America/New_York");
@@ -109,8 +109,8 @@ describe("ValueReportView", () => {
 
 describe("the CSV", () => {
   it("carries the headline numbers for both terms, the formulas' inputs and the assumptions", () => {
-    const { csv, fileName } = valueReportCsv(busy, "MakerLAB Assistant — Fall 2026 value report", t);
-    expect(fileName).toBe("makerlab-assistant-fall-2026-value-report.csv");
+    const { csv, fileName } = valueReportCsv(busy, "MakerLAB AI — Fall 2026 value report", t);
+    expect(fileName).toBe("makerlab-ai-fall-2026-value-report.csv");
     const lines = csv.trim().split("\r\n");
     expect(lines[0]).toBe("Section,Metric,Fall 2026,Summer 2026,Note");
     expect(lines).toContain("Headline,Questions answered,52,10,");

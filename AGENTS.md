@@ -6,7 +6,7 @@ canonical entry point; `CLAUDE.md` points here.
 ## What this is
 
 A digital inventory + discovery app for makerspace equipment: browse/search a
-tool gallery, view tool detail pages, chat with an AI assistant (tool-aware,
+tool gallery, view tool detail pages, chat with **MakerLAB AI**, the in-app AI (tool-aware,
 can look up units and file maintenance tickets), and an MCP endpoint exposing
 the catalog to external agents. White-labelled via env vars.
 

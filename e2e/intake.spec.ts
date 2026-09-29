@@ -79,12 +79,16 @@ test("an admin identifies three tools in the chat, researches two, and approves 
 
   // ── Step 1: identify, in the chat ─────────────────────────────────────────
   // The profile menu's Add equipment entry opens the chat with the intake seed
-  // (§5.4 step 1). The profile control asks `/api/identity` after mount, so it
-  // arrives a beat after the page.
+  // in the composer (§5.4 step 1); nothing is sent until Send. The profile
+  // control asks `/api/identity` after mount, so it arrives a beat after the page.
   const nav = page.getByRole("navigation", { name: "Primary navigation" });
   await nav.getByRole("button", { name: /signed in as/i }).click({ timeout: 15_000 });
   await nav.getByRole("menuitem", { name: /add equipment/i }).click();
   const chat = page.getByRole("dialog");
+  await expect(chat.getByRole("textbox", { name: "Ask MakerLAB AI" })).toHaveValue(
+    "I'd like to add new equipment to the inventory."
+  );
+  await chat.getByRole("button", { name: "Send" }).click();
   await expect(chat.getByText("I'd like to add new equipment to the inventory.")).toBeVisible();
   await expect(chat.getByText(ASK_FOR_ITEMS_REPLY)).toBeVisible({ timeout: 15_000 });
 
@@ -96,7 +100,7 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   });
   await expect(chat.getByRole("button", { name: "Remove domino-bench.png" })).toBeVisible({ timeout: 15_000 });
 
-  await chat.getByRole("textbox", { name: "Ask the MakerLAB Assistant" }).fill(IDENTIFY_PROMPT);
+  await chat.getByRole("textbox", { name: "Ask MakerLAB AI" }).fill(IDENTIFY_PROMPT);
   await chat.getByRole("button", { name: "Send" }).click();
 
   const card = chat.getByRole("region", { name: "Identified equipment" });

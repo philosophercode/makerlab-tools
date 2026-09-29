@@ -35,7 +35,7 @@ describe("site-config", () => {
       expect(siteConfig.tagline).toBe(
         "Your digital guide to making at Cornell Tech",
       );
-      expect(siteConfig.chatAssistantName).toBe("MakerLAB Assistant");
+      expect(siteConfig.chatAssistantName).toBe("MakerLAB AI");
       expect(siteConfig.audience).toBe("students who may be beginners");
       expect(siteConfig.logo).toBe("/makerlab-logo-transparent.png");
       expect(siteConfig.wordmark).toBe("/makerlab-wordmark.png");

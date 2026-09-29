@@ -83,7 +83,7 @@ describe("the chat's code loads on open", () => {
     render(<ChatFab />);
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: "Open the MakerLAB Assistant" }));
+    await user.click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
 
     expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });

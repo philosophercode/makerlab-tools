@@ -73,7 +73,7 @@ it("publishes the ticked ids and offers to ask the assistant about them", async 
   expect(read()).toEqual({ kind: "maintenance_log", ids: ["a", "b"] });
   expect(screen.getByRole("status")).toHaveTextContent("2 selected");
 
-  await userEvent.click(screen.getByRole("button", { name: "Ask the assistant about these" }));
+  await userEvent.click(screen.getByRole("button", { name: "Ask MakerLAB AI about these" }));
   expect(isOpen).toBe(true);
 
   await userEvent.click(screen.getByRole("button", { name: "Clear selection" }));

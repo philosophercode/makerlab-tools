@@ -16,7 +16,7 @@ description of itself:
 |---|---|
 | **MakerLAB** | The physical makerspace at Cornell Tech |
 | **MakerLAB Tools** | This website (`siteConfig.name`) |
-| **MakerLAB Assistant** | The AI inside it (`siteConfig.chatAssistantName`) |
+| **MakerLAB AI** | The AI inside it (`siteConfig.chatAssistantName`); "MakerLAB Assistant" until the amendment "Renamed to MakerLAB AI" below |
 
 The site's tagline is "Your digital guide to making at Cornell Tech"
 (`siteConfig.tagline`).
@@ -182,3 +182,51 @@ guide: what's there, what to play with, how to use it, and what it costs."
   `components/SiteFooter.test.tsx`, `app/about/page.test.tsx` and
   `e2e/product.spec.ts` (footer and About links, every image decodes, video and
   captions served, no sideways scroll on a phone, no footer on the kiosk).
+
+## Amendment — Renamed to MakerLAB AI; openers pre-fill (2026-09-28)
+
+**The name.** The owner renamed the assistant **MakerLAB AI** across the app
+(it was "MakerLAB Assistant", earlier "MakerLab assistant" and, in the
+translations, "lab console"). The three names are now **MakerLAB** (the
+physical lab), **MakerLAB Tools** (the platform) and **MakerLAB AI** (the AI
+inside it). `siteConfig.chatAssistantName` defaults to "MakerLAB AI"
+(`NEXT_PUBLIC_CHAT_ASSISTANT_NAME` still overrides it per deploy). What
+changed:
+
+- The launcher button ("Open MakerLAB AI"), the one-time callout ("Meet
+  MakerLAB AI", labelled "About MakerLAB AI"), the sheet title, the composer
+  ("Ask MakerLAB AI…"), close and typing labels, the general greeting, the
+  admin section bar and ⌘K ("Ask MakerLAB AI", "Ask MakerLAB AI: “…”"),
+  "Ask MakerLAB AI about these", the kiosk ("Ask MakerLAB AI on your phone",
+  "Open MakerLAB AI"), the About, product and quick-start pages, the insights
+  and value report (its title is "MakerLAB AI — … value report", so the CSV is
+  `makerlab-ai-….csv`), and admin copy that meant the in-app AI ("Searchable
+  by MakerLAB AI", "MakerLAB AI starter questions", …).
+- The system prompt: "You are **MakerLAB AI**, the AI inside **MakerLAB
+  Tools** … Call yourself MakerLAB AI; the MakerLAB is the physical lab and
+  MakerLAB Tools the website" (`lab-context.ts`), and the intro in
+  `chat-adapter.ts`.
+- Other locales: the chat title, launcher and composer strings now carry
+  "MakerLAB AI" as a proper name (no more translated "assistant"/"lab
+  console"); the rest of their copy waits for the translation phase and falls
+  back to English as before.
+- **Not renamed:** "assistant" where it means any AI a person connects over
+  MCP ("Connect an AI assistant", "Assistant proposals", "outside
+  assistants"), code identifiers (`AssistantIntro`, `chatAssistantName`, the
+  `makerlab.assistant-intro.seen` key — renaming it would show the callout
+  again to everyone who dismissed it), and the MCP server's identifier
+  `makerlab`, which names the platform's catalogue, not the AI.
+
+**Openers pre-fill instead of sending.** The header's **Report**, **Add
+equipment** (profile menu, ⌘K, the admin buttons) and the QR arrival notice
+used to open the chat *and send* their prompt at once, spending one of an
+anonymous visitor's few messages on words they did not write. They now open
+the chat with the prompt **in the composer**, focused with the caret at the
+end, and nothing is sent until the person presses Send (they can add the
+details first). The one exception is ⌘K's "Ask MakerLAB AI: “…”", which is
+still sent at once: the text is what the person typed, and choosing that
+option is the send. `useChatLauncher().open(text)` pre-fills;
+`open(text, { send: true })` sends. Tested in `ChatFab.test.tsx` ("opening
+the chat with a first message") and `e2e/chat.spec.ts` ("Report pre-fills the
+composer and sends only on Send"); `e2e/intake.spec.ts` presses Send after
+Add equipment.

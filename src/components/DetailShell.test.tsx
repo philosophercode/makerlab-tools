@@ -104,7 +104,7 @@ describe("DetailShell", () => {
       const marks = container.querySelectorAll('[data-slot="searchable-manual"]');
       expect(marks).toHaveLength(1);
       expect(screen.getByRole("link", { name: new RegExp(first.label, "i") })).toContainElement(marks[0] as HTMLElement);
-      expect(within(marks[0] as HTMLElement).getByText("Searchable by the assistant")).toBeInTheDocument();
+      expect(within(marks[0] as HTMLElement).getByText("Searchable by MakerLAB AI")).toBeInTheDocument();
       // An empty outline shows no Contents list.
       expect(screen.queryByText("Contents")).toBeNull();
     });
