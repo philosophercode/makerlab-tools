@@ -816,6 +816,15 @@
       "clearSelection": "Clear selection",
       "selectedCount": "{count, plural, one {# tool selected} other {# tools selected}}",
       "refreshSelected": "Refresh research ({count})",
+      "exportAll": "Export CSV",
+      "exportShown": "Export CSV ({count} shown)",
+      "exportSelected": "Export CSV ({count})",
+      "exporting": "Exporting…",
+      "exportError": {
+        "forbidden": "Only a super admin can export the tools.",
+        "rate_limited": "Too many exports just now. Wait a minute and try again.",
+        "failed": "The export could not be made. Try again."
+      },
       "columnSelect": "Select",
       "columnTickets": "Tickets",
       "columnAttention": "Needs",
