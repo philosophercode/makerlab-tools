@@ -77,3 +77,70 @@ describe("citations_resolve", () => {
     expect(outcome.ok).toBe(true);
   });
 });
+
+/**
+ * A manual attached whole (amendment 2026-09-28b): the eval fixture's Trotec
+ * operator guide, as the harness captures it from the route's attachment
+ * code — its stored address on the eval's local blob origin, ref and page
+ * count — and what a GET of it answered (no stored page text: never indexed).
+ */
+const GUIDE_URL = "http://127.0.0.1:4100/api/dev-blob/manuals/trotec-speedy-400-operator-guide.pdf";
+const guide = { title: "Trotec Speedy 400 Operator Guide", url: GUIDE_URL, ref: "5d2e7b41", pageCount: 10 };
+const guideEvidence: Record<string, RecordedDocumentEvidence> = {
+  [GUIDE_URL]: { status: 200, contentType: "application/pdf", pdfMagic: true, pageCount: 10, pages: {} },
+};
+
+describe("citations_resolve — attached manuals", () => {
+  it("passes a #cite-<ref>-<page> of the attached manual", () => {
+    const answer =
+      "Hang the focus tool on the lens head ([Focusing the lens (Trotec Speedy 400 Operator Guide, p. 5)](#cite-5d2e7b41-5)).";
+    expect(citationsResolve(answer, [], guideEvidence, [guide])).toEqual({ ok: true });
+  });
+
+  it("passes the plain-text form, and counts it as the answer's manual link", () => {
+    const answer = "Hang the focus tool on the lens head (Trotec Speedy 400 Operator Guide, p. 5).";
+    expect(citationsResolve(answer, [], guideEvidence, [guide])).toEqual({ ok: true });
+    expect(citationsResolve(answer, [], guideEvidence, []).ok).toBe(false);
+  });
+
+  it("fails an out-of-range page, in either form, and an unknown ref", () => {
+    const cite = (text: string) => citationsResolve(text, [], guideEvidence, [guide]).detail;
+    expect(cite("[Focus (Trotec Speedy 400 Operator Guide, p. 12)](#cite-5d2e7b41-12)")).toContain("page_out_of_range");
+    expect(cite("Focus it (Trotec Speedy 400 Operator Guide, p. 12).")).toContain("page_out_of_range");
+    expect(cite("[Focus (Trotec Speedy 400 SOP, p. 5)](#cite-0badc0de-5)")).toContain("not_from_tool");
+  });
+
+  it("fails a label naming the lab's SOP over a link to the operator guide", () => {
+    expect(citationsResolve("[Focus (Trotec Speedy 400 SOP, p. 5)](#cite-5d2e7b41-5)", [], guideEvidence, [guide]).detail).toContain(
+      "label_mismatch"
+    );
+  });
+
+  it("lets cites_page pin the attached document through its ref or its plain-text mention", () => {
+    for (const text of [
+      "[Focus (Trotec Speedy 400 Operator Guide, p. 5)](#cite-5d2e7b41-5)",
+      "Focus the lens first (Trotec Speedy 400 Operator Guide, p. 5).",
+    ]) {
+      const outcome = runAssertion(
+        { kind: "cites_page", value: "trotec-speedy-400-operator-guide.pdf#page=5" },
+        { text, toolCalls: [], fixture: evalFixture, attachedManuals: [guide] }
+      );
+      expect(outcome.ok).toBe(true);
+    }
+    expect(expandCitationRefs("[t](#cite-5d2e7b41-5)", [], [guide])).toBe(`[t](${GUIDE_URL}#page=5)`);
+  });
+
+  it("is reachable through runAssertion with the harness's attached manuals", () => {
+    const outcome = runAssertion(
+      { kind: "citations_resolve" },
+      {
+        text: "[Focus (Trotec Speedy 400 Operator Guide, p. 5)](#cite-5d2e7b41-5)",
+        toolCalls: [],
+        fixture: evalFixture,
+        citationEvidence: guideEvidence,
+        attachedManuals: [guide],
+      }
+    );
+    expect(outcome.ok).toBe(true);
+  });
+});
