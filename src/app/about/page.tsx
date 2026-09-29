@@ -98,8 +98,7 @@ export default function AboutPage() {
           {/* Usage insight spec §8, §13 Q6: one sentence on what is counted. */}
           <p>{t("usageBody")}</p>
           <p>{t("whyBody")}</p>
-          <p>{t("originBody")}</p>
-          <p>{t("storyBody")}</p>
+          <p>{t("thanksBody")}</p>
           <p>{t("creditsBody")}</p>
           <p>{t("feedbackBody")}</p>
           {/* Product page amendment 2026-09-28: the product page and quick start are linked here and from the footer, not the main nav. */}
