@@ -8,7 +8,8 @@ import { FlagButton } from "../../../components/FlagButton";
 import { ToolChatStarters } from "../../../components/ToolChatStarters";
 import { UsageBeacon } from "../../../components/usage/UsageBeacon";
 import { SignedInToolLocation } from "../../../components/map/SignedInToolLocation";
-import { getCatalogTool, getManualContents, getToolMaintenanceHistory } from "../../../lib/catalog";
+import { getCatalogTool, getCatalogTools, getManualContents, getToolMaintenanceHistory } from "../../../lib/catalog";
+import { toolRelations } from "../../../components/tool/relations";
 import { findToolByNotionPageId } from "../../../lib/data/catalog";
 import { isLegacyNotionId } from "../../../lib/legacy-id";
 import { getProjectsForTool } from "../../../lib/projects";
@@ -129,11 +130,15 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
   // projects DB is configured); each processed manual's chapters, linked to
   // their pages (manual text spec §6); the recent maintenance across its
   // units, without names (UI system phase 5a).
-  const [projects, manualContents, maintenance] = await Promise.all([
+  // The accessory links (taxonomy v2 facet) come from the cached catalogue
+  // list, which the gallery has already warmed: no query of their own.
+  const [projects, manualContents, maintenance, catalogue] = await Promise.all([
     getProjectsForTool(tool.id),
     getManualContents(tool.id),
     getToolMaintenanceHistory(tool.id),
+    getCatalogTools(),
   ]);
+  const relations = toolRelations(tool, catalogue);
 
   return (
     <>
@@ -148,6 +153,7 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
         projects={projects}
         manualContents={manualContents}
         maintenance={maintenance}
+        relations={relations}
         location={
           // Signed-in viewers only (map access, PR #98): a dynamic hole, so the
           // cached shell sent to everyone else carries no placement.

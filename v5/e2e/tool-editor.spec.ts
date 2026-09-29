@@ -200,4 +200,40 @@ test.describe("taking a machine out of service, from a phone", () => {
     await page.goto(TOOL);
     await expect(publicUnitRow(page)).toContainText("Available", { timeout: 15_000 });
   });
+
+  /**
+   * The taxonomy v2 facets (Item kind, Accessory of) through the same sheet
+   * and save. Here rather than in `tool-facets.spec.ts` because it writes the
+   * Trotec too: in a describe of its own it would move the tool's revision
+   * under the unit-status save above, which then reports a conflict.
+   */
+  async function saveFacets(page: import("@playwright/test").Page, kind: string, parent: { label: string } | "") {
+    await page.goto(TOOL);
+    await page.getByRole("button", { name: "Edit this tool" }).click({ timeout: 15_000 });
+    const sheet = page.getByRole("complementary", { name: "Editing Trotec Speedy 400" });
+    await expect(sheet).toBeVisible({ timeout: 15_000 });
+    await sheet.getByLabel("Item kind").selectOption(kind);
+    await sheet.getByLabel("Accessory of").selectOption(parent);
+    await sheet.getByRole("button", { name: "Save details" }).click();
+    await expect(sheet.getByText("Saved", { exact: true })).toBeVisible({ timeout: 15_000 });
+  }
+
+  test("Item kind and Accessory of land, and the page links the parent", async ({ page, context, baseURL }) => {
+    await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
+    await saveFacets(page, "accessory", { label: "Form 4" });
+
+    await page.goto(TOOL);
+    const specs = page.locator('[data-slot="tool-specs"]');
+    await expect(specs.getByText("Accessory", { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(specs.getByRole("link", { name: "Form 4" })).toHaveAttribute("href", "/tools/form-4");
+  });
+
+  test("and the facets are put back", async ({ page, context, baseURL }) => {
+    await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
+    await saveFacets(page, "equipment", "");
+
+    await page.goto(TOOL);
+    await expect(page.getByRole("heading", { name: "Trotec Speedy 400", level: 1 })).toBeVisible();
+    await expect(page.locator('[data-slot="tool-specs"]').getByText("Accessory of")).toHaveCount(0);
+  });
 });

@@ -1,6 +1,7 @@
 import type { AdminGateError } from "../../../lib/admin/action-result";
 import type { CategoryOption, LocationOption } from "../../../lib/data/taxonomy";
 import type { ToolEditorData } from "../../../lib/data/tool-editor";
+import type { ParentToolOption } from "../../../lib/data/tool-relations";
 import type { Revision } from "../../../lib/data/revision";
 import type {
   InventoryWriteError,
@@ -76,6 +77,11 @@ export interface ToolEditorPayload extends ToolEditorData {
    * before saving (display names amendment 2026-09-25). The save checks again.
    */
   otherToolNames?: string[];
+  /**
+   * The tools this one may be an accessory of (taxonomy v2 facet): not
+   * archived, not accessories themselves, not this tool. The save checks again.
+   */
+  parentOptions?: ParentToolOption[];
 }
 
 /** What opening (or reloading) the panel answers. */

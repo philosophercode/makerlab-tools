@@ -4,6 +4,7 @@ import { authorizeAdminAction } from "../../../lib/admin/action-gate";
 import { listCategories, listLocations } from "../../../lib/data/taxonomy";
 import { loadToolEditor } from "../../../lib/data/tool-editor";
 import { otherToolNames } from "../../../lib/data/tool-name-clash";
+import { listParentToolOptions } from "../../../lib/data/tool-relations";
 import { getDb } from "../../../lib/db/client";
 import type { ToolPatch } from "../../../lib/data/tools";
 import { TOOLS_ARCHIVE, TOOLS_MARK_REVIEWED, TOOLS_RESTORE, TOOLS_SET_PUBLISHED } from "../../../lib/actions/catalog";
@@ -68,17 +69,19 @@ export async function loadToolForEditor(idOrSlug: string): Promise<LoadToolEdito
 
   // The two option lists the fields form needs. Read here rather than in
   // `loadToolEditor`, which is about one tool: these belong to the whole lab.
-  const [categories, locations, taken] = await Promise.all([
+  const db = await getDb();
+  const [categories, locations, taken, parentOptions] = await Promise.all([
     listCategories(),
     listLocations(),
-    getDb().then((db) => otherToolNames(db, editor.tool.id)),
+    otherToolNames(db, editor.tool.id),
+    listParentToolOptions(db, editor.tool.id),
   ]);
 
-  return { ok: true, editor: { ...editor, categories, locations, otherToolNames: taken } };
+  return { ok: true, editor: { ...editor, categories, locations, otherToolNames: taken, parentOptions } };
 }
 
 /** The fields the review table shows (`InventoryRow`): a save touching only others leaves it as it was. */
-const BOARD_FIELDS: readonly (keyof ToolPatch)[] = ["name", "officialName", "categoryId", "locationId", "floorCheck"];
+const BOARD_FIELDS: readonly (keyof ToolPatch)[] = ["name", "officialName", "categoryId", "locationId", "floorCheck", "itemKind"];
 
 /**
  * Save the editor's fields. `tools.edit`. The answer carries the tool as it

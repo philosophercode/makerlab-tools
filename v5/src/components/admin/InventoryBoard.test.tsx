@@ -167,6 +167,15 @@ describe("InventoryBoard — filters", () => {
     expect(window.location.search).toBe("?location=Bloomberg+059&attention=any");
   });
 
+  it("narrows by item kind (taxonomy v2 facet) and writes ?kind=", async () => {
+    window.history.replaceState(null, "", "/admin/inventory");
+    render(<InventoryBoard rows={[...ROWS, row({ id: "d", slug: "plunge-base", name: "Plunge Base", itemKind: "accessory" })]} initial={NO_FILTERS} />);
+    const user = userEvent.setup();
+    await pickFacet(user, "Item kind", /Accessory/);
+    expect(toolNames()).toEqual(["Plunge Base"]);
+    expect(window.location.search).toBe("?kind=accessory");
+  });
+
   it("searches the name, the category and the slug", async () => {
     const user = setup();
     const search = screen.getByRole("searchbox", { name: "Search" });

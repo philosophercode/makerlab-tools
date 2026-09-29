@@ -98,7 +98,14 @@
     "trainingAdvanced": "Advanced",
     "statusFacet": "Status",
     "columnOfficialName": "Official name",
-    "columnMaterials": "Materials"
+    "columnMaterials": "Materials",
+    "itemKindFacet": "Item kind",
+    "itemKind": {
+      "equipment": "Equipment",
+      "accessory": "Accessory",
+      "consumable": "Consumable",
+      "fixture": "Fixture"
+    }
   },
   "detail": {
     "breadcrumbTools": "Tools",
@@ -137,7 +144,16 @@
     "labDocument": "Lab document",
     "unitsAvailable": "{available} of {count, plural, one {# unit} other {# units}} available",
     "maintenanceHistory": "Maintenance history",
-    "maintenanceNoStatus": "Not recorded"
+    "maintenanceNoStatus": "Not recorded",
+    "accessoryOf": "Accessory of",
+    "accessories": "Accessories",
+    "itemKindRow": "Item kind",
+    "itemKind": {
+      "equipment": "Equipment",
+      "accessory": "Accessory",
+      "consumable": "Consumable",
+      "fixture": "Fixture"
+    }
   },
   "projects": {
     "title": "Student projects",
@@ -778,7 +794,18 @@
         "fieldFloorCheck": "Floor check",
         "floorCheckHint": "Refresh research could not identify this machine. Write down what the nameplate says, then clear this box.",
         "done": "Done",
-        "reprocessStarted": "Started"
+        "reprocessStarted": "Started",
+        "fieldItemKind": "Item kind",
+        "itemKindHint": "Equipment is a tool in its own right; an accessory fits another tool; a consumable gets used up; a fixture is furniture or installed.",
+        "itemKind": {
+          "equipment": "Equipment",
+          "accessory": "Accessory",
+          "consumable": "Consumable",
+          "fixture": "Fixture"
+        },
+        "fieldAccessoryOf": "Accessory of",
+        "accessoryOfHint": "The tool this one attaches to or upgrades. Leave empty when it serves many tools (a battery for a whole platform).",
+        "parentUnlisted": "(a tool no longer offered)"
       },
       "edit": "Edit",
       "refreshOpen": "Refresh open",
@@ -790,7 +817,14 @@
       "columnSelect": "Select",
       "columnTickets": "Tickets",
       "columnAttention": "Needs",
-      "addInventory": "Add inventory"
+      "addInventory": "Add inventory",
+      "filterItemKind": "Item kind",
+      "itemKind": {
+        "equipment": "Equipment",
+        "accessory": "Accessory",
+        "consumable": "Consumable",
+        "fixture": "Fixture"
+      }
     },
     "errors": {
       "not_signed_in": "You are not signed in any more. Sign in and try again.",

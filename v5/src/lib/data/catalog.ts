@@ -18,6 +18,7 @@ import { isImageThumbnails, type ImageThumbnails } from "../images/thumbnail-url
 import { isManualArchiveKey, manualSourceKey } from "./manual-archives.ts";
 import { isUuid } from "./uuid.ts";
 import type { MakerLabTool, MakerLabUnit, ToolStatus } from "../../components/catalog-types.ts";
+import { TOOL_ITEM_KIND, type ToolItemKind } from "../db/schema/vocabulary.ts";
 
 /**
  * The catalogue read path on Postgres (spec §3.10, §4.13).
@@ -71,6 +72,10 @@ export interface ToolRow {
   room: string | null;
   zone: string | null;
   mapTag: string | null;
+  /** Taxonomy v2 facet (`TOOL_ITEM_KIND`); absent on fixtures from before it. */
+  itemKind?: string | null;
+  /** The tool this one is an accessory of; absent on fixtures from before it. */
+  parentToolId?: string | null;
   /** When the tool row was created — the gallery's "Recently added" sort. Absent on older fixtures. */
   createdAt?: Date | string | null;
 }
@@ -258,6 +263,8 @@ async function loadTools(db: Db, where: SQL | undefined): Promise<MakerLabTool[]
       zone: locations.zone,
       mapTag: locations.mapTag,
       createdAt: tools.createdAt,
+      itemKind: tools.itemKind,
+      parentToolId: tools.parentToolId,
     })
     .from(tools)
     .leftJoin(categories, eq(tools.categoryId, categories.id))
@@ -399,6 +406,11 @@ function attachmentKey(ownerType: string, ownerId: string): string {
   return `${ownerType}:${ownerId}`;
 }
 
+/** A stored item kind, or equipment — the column default — for anything else (an older fixture). */
+function toItemKind(value: string | null | undefined): ToolItemKind {
+  return (TOOL_ITEM_KIND as readonly string[]).includes(value ?? "") ? (value as ToolItemKind) : "equipment";
+}
+
 export function toMakerLabTool(
   tool: ToolRow,
   unitRows: UnitRow[],
@@ -436,6 +448,8 @@ export function toMakerLabTool(
     units: mappedUnits,
     starterQuestions: tool.starterQuestions ?? [],
     addedAt: tool.createdAt ? new Date(tool.createdAt).toISOString() : null,
+    itemKind: toItemKind(tool.itemKind),
+    parentToolId: tool.parentToolId ?? null,
   };
 }
 

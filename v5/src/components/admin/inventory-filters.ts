@@ -1,4 +1,5 @@
 import type { InventoryRow, ToolState } from "../../lib/data/inventory";
+import { TOOL_ITEM_KIND, type ToolItemKind } from "../../lib/db/schema/vocabulary";
 
 /**
  * What `/admin/inventory` is filtered to, and how that survives a link.
@@ -42,6 +43,8 @@ export interface InventoryFilterState {
   category: string | null;
   /** A `locations.room`, matched exactly. */
   location: string | null;
+  /** Taxonomy v2 facet `tools.item_kind`. Optional so older callers need not name it. */
+  kind?: ToolItemKind | null;
   attention: AttentionFilter | null;
 }
 
@@ -50,6 +53,7 @@ export const NO_FILTERS: InventoryFilterState = {
   state: null,
   category: null,
   location: null,
+  kind: null,
   attention: null,
 };
 
@@ -70,6 +74,7 @@ export function parseInventoryFilters(params: SearchParams): InventoryFilterStat
     state: oneOf(INVENTORY_STATES, first(params.state)),
     category: first(params.category) || null,
     location: first(params.location) || null,
+    kind: oneOf(TOOL_ITEM_KIND, first(params.kind)),
     attention: oneOf(ATTENTION_FILTERS, first(params.attention)),
   };
 }
@@ -81,6 +86,7 @@ export function toSearchParams(filters: InventoryFilterState): URLSearchParams {
   if (filters.state) params.set("state", filters.state);
   if (filters.category) params.set("category", filters.category);
   if (filters.location) params.set("location", filters.location);
+  if (filters.kind) params.set("kind", filters.kind);
   if (filters.attention) params.set("attention", filters.attention);
   return params;
 }
@@ -114,6 +120,7 @@ export function matchesFilters(row: InventoryRow, filters: InventoryFilterState)
   // "Power Tools" lists every power tool.
   if (filters.category && row.categoryName !== filters.category && row.categoryGroup !== filters.category) return false;
   if (filters.location && row.room !== filters.location) return false;
+  if (filters.kind && (row.itemKind ?? "equipment") !== filters.kind) return false;
   if (filters.attention && !matchesAttention(row, filters.attention)) return false;
   return true;
 }
@@ -167,6 +174,7 @@ export function describeFilters(
   if (filters.state) part(t("filterState"), t(`state.${filters.state}`));
   if (filters.category) part(t("filterCategory"), filters.category);
   if (filters.location) part(t("filterLocation"), filters.location);
+  if (filters.kind) part(t("filterItemKind"), t(`itemKind.${filters.kind}`));
   if (filters.attention) {
     part(t("filterAttention"), filters.attention === "any" ? t("attentionAny") : t(`flags.${filters.attention}`));
   }

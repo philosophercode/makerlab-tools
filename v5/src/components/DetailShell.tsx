@@ -14,6 +14,7 @@ import { StatusGlyph, type StatusTone } from "./system/StatusGlyph";
 import { TOOL_STATUS_KEY, TOOL_STATUS_TONE } from "./ToolCard";
 import { ToolImage } from "./ToolImage";
 import { UnitsTable } from "./tool/UnitsTable";
+import type { ToolRelations } from "./tool/relations";
 
 interface DetailShellProps {
   tool: MakerLabTool;
@@ -28,6 +29,11 @@ interface DetailShellProps {
    * Suspense boundary and only a signed-in viewer gets anything (map access).
    */
   location?: React.ReactNode;
+  /**
+   * Accessory links (taxonomy v2 facet): the tool this one is an accessory of,
+   * and the published accessories of this one. Empty is absent.
+   */
+  relations?: ToolRelations;
 }
 
 function resourceLabel(link: MakerLabTool["links"][number], fallback: string): string {
@@ -66,7 +72,7 @@ function maintenanceTone(status: string): StatusTone {
  *   box, no empty maintenance history. Safety is the exception: it always
  *   says what to do, falling back to the lab's standing guidance.
  */
-export function DetailShell({ tool, projects = [], manualContents = [], maintenance = [], location = null }: DetailShellProps) {
+export function DetailShell({ tool, projects = [], manualContents = [], maintenance = [], location = null, relations }: DetailShellProps) {
   const t = useTranslations("detail");
   const tStatus = useTranslations("gallery.status");
   const tUi = useTranslations("ui");
@@ -78,6 +84,17 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
   type Row = [string, React.ReactNode];
   const specs: Row[] = [
     [t("category"), `${tool.category}${tool.categorySub && tool.categorySub !== tool.category ? ` › ${tool.categorySub}` : ""}`],
+    ...(tool.itemKind && tool.itemKind !== "equipment" ? ([[t("itemKindRow"), t(`itemKind.${tool.itemKind}`)]] as Row[]) : []),
+    ...(relations?.accessoryOf
+      ? ([
+          [
+            t("accessoryOf"),
+            <Link key="parent" data-slot="accessory-of" href={`/tools/${relations.accessoryOf.slug}`} className="text-primary-ink hover:underline">
+              {relations.accessoryOf.name}
+            </Link>,
+          ],
+        ] as Row[])
+      : []),
     [t("location"), `${tool.location}${tool.zone ? ` › ${tool.zone}` : ""}`],
     ...(tool.materials.length > 0 ? ([[t("materials"), tool.materials.join(", ")]] as Row[]) : []),
     ...(tool.trainingLabel ? ([[t("trainingRow"), tool.trainingLabel]] as Row[]) : []),
@@ -256,6 +273,22 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
           ) : null}
         </div>
       </div>
+
+      {relations && relations.accessories.length > 0 ? (
+        <section aria-labelledby="tool-accessories" data-slot="tool-accessories" className="min-w-0">
+          <SectionHeading id="tool-accessories">{t("accessories")}</SectionHeading>
+          <ul className="m-0 list-none border-t border-rule p-0">
+            {relations.accessories.map((accessory) => (
+              <li key={accessory.slug} className="border-b border-rule py-1.5">
+                <Link href={`/tools/${accessory.slug}`} className="group flex items-baseline justify-between gap-3">
+                  <strong className="text-table font-medium group-hover:text-primary-ink group-hover:underline">{accessory.name}</strong>
+                  <ArrowUpRight aria-hidden="true" className="size-3.5 text-muted-foreground" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       {maintenance.length > 0 ? (
         <section aria-labelledby="tool-maintenance" className="min-w-0">

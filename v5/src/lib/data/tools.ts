@@ -2,6 +2,7 @@ import { and, eq, or, sql } from "drizzle-orm";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { getDb } from "../db/client.ts";
 import { tools } from "../db/schema/index.ts";
+import { TOOL_ITEM_KIND, type ToolItemKind } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
 import { revisionEquals, revisionOf, type Revision } from "./revision.ts";
 import { starterQuestionsFromEditor } from "../starter-questions.ts";
@@ -59,6 +60,10 @@ export interface EditableTool {
   notes: string | null;
   /** What to note from the nameplate (refresh research spec §4.1); absent on fixtures from before it. */
   floorCheck?: string | null;
+  /** Taxonomy v2 facet: equipment, accessory, consumable or fixture; absent on fixtures from before it. */
+  itemKind?: ToolItemKind;
+  /** The tool this one is an accessory of (taxonomy v2 facet), or null; absent on fixtures from before it. */
+  parentToolId?: string | null;
   /** The assistant's starter chips on this tool's page; empty means the generic ones. */
   starterQuestions: string[];
   published: boolean;
@@ -93,6 +98,14 @@ export interface ToolPatch {
   floorCheck?: string | null;
   /** Up to three; validated by `starterQuestionsFromEditor`, refused (`invalid_field`) rather than cut. */
   starterQuestions?: readonly string[];
+  /** Taxonomy v2 facet; refused (`invalid_field`) outside `TOOL_ITEM_KIND`. */
+  itemKind?: ToolItemKind;
+  /**
+   * The tool this one is an accessory of; null clears it. Refused
+   * (`invalid_field`) when it is this tool, no tool, or itself an accessory of
+   * another (one level: a parent is never a child).
+   */
+  parentToolId?: string | null;
 }
 
 /** What every write here answers. A refusal means nothing was written. */
@@ -157,6 +170,8 @@ export async function findToolForEditor(
       notes: tools.notes,
       floorCheck: tools.floorCheck,
       starterQuestions: tools.starterQuestions,
+      itemKind: sql<ToolItemKind>`${tools.itemKind}`,
+      parentToolId: tools.parentToolId,
       published: tools.published,
       archivedAt: tools.archivedAt,
       lastReviewedAt: tools.lastReviewedAt,
@@ -217,6 +232,9 @@ export async function updateTool(
   if (patch.name !== undefined && (await renamesOntoAnother(db, id, patch.name))) {
     return { ok: false, reason: "duplicate_name" };
   }
+  if (patch.parentToolId && !(await isValidParent(db, id, patch.parentToolId))) {
+    return { ok: false, reason: "invalid_field" };
+  }
   return writeTool(db, id, values, expectedRevision, options.actorUserId);
 }
 
@@ -231,6 +249,20 @@ async function renamesOntoAnother(db: Db, id: string, name: string): Promise<boo
   const own = rows.find((row) => row.id === id);
   if (own && normalizeName(own.name) === normalizeName(name)) return false;
   return isNameTaken(name, rows.filter((row) => row.id !== id).map((row) => row.name));
+}
+
+/**
+ * True when `parentId` may be tool `id`'s parent (taxonomy v2 facet): another
+ * tool that exists and is not itself an accessory of something — one level,
+ * so there is never a chain or a cycle — and `id` has no accessories of its
+ * own (a parent never becomes a child).
+ */
+async function isValidParent(db: Db, id: string, parentId: string): Promise<boolean> {
+  if (!isUuid(parentId) || parentId === id) return false;
+  const [parent] = await db.select({ parentToolId: tools.parentToolId }).from(tools).where(eq(tools.id, parentId)).limit(1);
+  if (!parent || parent.parentToolId !== null) return false;
+  const [child] = await db.select({ id: tools.id }).from(tools).where(eq(tools.parentToolId, id)).limit(1);
+  return !child;
 }
 
 /**
@@ -410,6 +442,15 @@ function toToolValues(patch: ToolPatch): ToolValues | null {
   if (patch.tags !== undefined) values.tags = cleanList(patch.tags);
 
   if (patch.trainingRequired !== undefined) values.trainingRequired = patch.trainingRequired;
+
+  if (patch.itemKind !== undefined) {
+    if (!(TOOL_ITEM_KIND as readonly string[]).includes(patch.itemKind)) return null;
+    values.itemKind = patch.itemKind;
+  }
+  if (patch.parentToolId !== undefined) {
+    if (patch.parentToolId !== null && !isUuid(patch.parentToolId)) return null;
+    values.parentToolId = patch.parentToolId;
+  }
 
   if (patch.starterQuestions !== undefined) {
     const questions = starterQuestionsFromEditor(patch.starterQuestions);
