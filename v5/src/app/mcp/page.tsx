@@ -13,7 +13,6 @@ import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
 import { CAPABILITIES } from "../../lib/capabilities";
 import { describeMcpTools, mcpToolNamesForRole, tryItToolNames } from "../../lib/capabilities/mcp-catalog";
 import { requestOrigin } from "../../lib/request-origin";
-import { siteConfig } from "../../lib/site-config";
 import { runMcpTryIt } from "./actions";
 
 /**
@@ -29,7 +28,9 @@ import { runMcpTryIt } from "./actions";
  */
 
 export const metadata = {
-  title: `MCP server — ${siteConfig.name}`,
+  title: "MCP server",
+  description:
+    "Connect Claude, ChatGPT, Codex or another AI assistant to the lab's catalog: search the equipment, see which units are free and read the manuals.",
 };
 
 export default async function McpPage() {

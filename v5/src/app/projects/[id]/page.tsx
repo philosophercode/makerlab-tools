@@ -1,6 +1,8 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ProjectDetail } from "../../../components/ProjectDetail";
 import { getProject } from "../../../lib/projects";
+import { projectPageMetadata } from "./metadata";
 
 interface ProjectDetailPageProps {
   params: Promise<{ id: string }>;
@@ -9,6 +11,12 @@ interface ProjectDetailPageProps {
 // No `generateStaticParams`: the project set is empty without `NOTION_DB_PROJECTS`,
 // which Cache Components rejects for prerender. Detail pages render on demand
 // from the cached published set instead.
+
+/** The project's title and cover photo as the link preview (`./metadata.ts`). */
+export async function generateMetadata({ params }: ProjectDetailPageProps): Promise<Metadata> {
+  const { id } = await params;
+  return projectPageMetadata(id);
+}
 
 export default async function ProjectDetailPage({
   params,

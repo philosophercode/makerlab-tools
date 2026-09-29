@@ -109,7 +109,7 @@ describe("/product", () => {
   });
 
   it("has a title, description and Open Graph image", () => {
-    expect(metadata.title).toBe("MakerLAB AI — MakerLAB Tools");
+    expect(metadata.title).toBe("MakerLAB AI");
     expect(metadata.description).toMatch(/operate, debug and create/);
     expect(metadata.openGraph?.images).toEqual([expect.objectContaining({ url: "/product/og.png", width: 1200, height: 630 })]);
   });

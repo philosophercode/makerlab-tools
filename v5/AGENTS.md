@@ -1913,6 +1913,17 @@ and its 2026-09-28 amendment are the detail.
   `HeaderSearch`) open it. `FlagButton` is a `Dialog`. The `.chat-*` CSS and
   `admin-import.css` are gone.
 - All branding strings come from `siteConfig` (`@/lib/site-config`).
+- **Page titles name the page only** (`title: "Inventory"`): the root
+  layout's template makes it "Inventory · MakerLAB Tools". Link previews
+  (`src/lib/share/`): `metadataBase` is `siteUrl()` (`NEXT_PUBLIC_SITE_URL`,
+  else `VERCEL_PROJECT_PRODUCTION_URL`, else the live deployment); pages
+  without an image inherit the generated site card (`app/opengraph-image.tsx`,
+  `twitter-image.tsx`); tool and project pages show their photo through
+  `recordShareMetadata` — public-store and bundled photos only, via
+  `/_next/image` at 640 px — and a draft or unknown id gets `{}`. A page that
+  sets `openGraph` replaces the root's, so it spreads `baseOpenGraph()` and
+  names its image. The card's fonts are static TTFs cut by
+  `scripts/share-card-fonts.py` (`next/og` cannot read WOFF2).
 - Every API route is **rate-limited by identity** before expensive work — user id when signed in, hashed IP when not.
 - Authorization is **always** `can(subject, permission)` from `src/lib/auth/permissions.ts`. Never compare role names, and never gate inside a capability tool's `run()`.
 - Maintenance tickets are always written in **English** even when the chat replies in another locale.

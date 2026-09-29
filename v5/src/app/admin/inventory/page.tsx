@@ -11,7 +11,6 @@ import {
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { listInventoryRows, listUnlinkedUnits } from "../../../lib/data/inventory";
-import { siteConfig } from "../../../lib/site-config";
 import type { ToolEditorActions } from "../../../components/admin/tool-editor-actions";
 import {
   archive,
@@ -77,7 +76,7 @@ const EDITOR_ACTIONS: ToolEditorActions = {
 };
 
 export const metadata = {
-  title: `Inventory — ${siteConfig.name}`,
+  title: "Inventory",
 };
 
 export default async function AdminInventoryPage({

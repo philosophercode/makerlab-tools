@@ -15,7 +15,7 @@ import { scheduleUsage } from "../../lib/usage/schedule";
 import { kioskLocale, kioskMessages } from "./kiosk-locale";
 
 export const metadata: Metadata = {
-  title: `Lab status — ${siteConfig.name}`,
+  title: "Lab status",
   description: `What is running in the ${siteConfig.institution} MakerLAB right now.`,
   robots: { index: false },
 };

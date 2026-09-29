@@ -2825,7 +2825,7 @@
     "notOnMap": "This tool’s location ({location} / {zone}) is not on the floor map yet."
   },
   "product": {
-    "metaTitle": "MakerLAB AI — {site}",
+    "metaTitle": "MakerLAB AI",
     "metaDescription": "The AI in MakerLAB Tools helps you operate, debug and create in the Cornell Tech MakerLAB: answers from each machine's own manual, maintenance tickets from the chat, a lab status screen, and staff tools that ask before they change anything.",
     "eyebrow": "Product",
     "heroKicker": "MakerLAB Tools · Cornell Tech",
@@ -2984,7 +2984,7 @@
     "closingHeading": "Try it on a real machine",
     "closingLede": "Open the X1-Carbon's page and ask the assistant anything about it.",
     "quickStartPage": {
-      "metaTitle": "Quick start — {site}",
+      "metaTitle": "Quick start",
       "metaDescription": "Eight steps to MakerLAB Tools and its assistant: ask about a machine, follow a manual citation, report a problem, add equipment, set up the lab screen and connect your own AI.",
       "title": "Quick start",
       "lede": "What's there, what to try, and how to use it. Steps 1–4 and 8 work for anyone; 5–7 are for MakerLAB staff.",

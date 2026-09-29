@@ -8,7 +8,6 @@ import { listIntakeQueueSummaries } from "../../../../lib/data/pending-tools";
 import { INTAKE_REVIEW_PERMISSION } from "../../../../lib/intake/access";
 import type { PendingToolView } from "../../../../lib/intake/types";
 import { summaryToPendingToolView } from "../../../../lib/intake/view";
-import { siteConfig } from "../../../../lib/site-config";
 
 /**
  * `/admin/intake` — Add equipment's **Queue** tab: the review queue (spec
@@ -36,7 +35,7 @@ import { siteConfig } from "../../../../lib/site-config";
  */
 
 export const metadata = {
-  title: `Intake — ${siteConfig.name}`,
+  title: "Intake",
 };
 
 export default async function AdminIntakePage() {
