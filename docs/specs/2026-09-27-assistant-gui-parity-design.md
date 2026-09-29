@@ -1503,3 +1503,58 @@ and assumptions for a term or range, no question text, so it does not taint the 
 MCP. No name matches the deny list. **Counts:** action tools unchanged (42 / 38); chat tools 62 →
 **63** for a director and 57 → **58** for a SuperMaker; the MCP lists do not change. The registry
 holds 51 definitions. Migration `0024_lab_settings`.
+
+### 2026-09-29 — the capabilities page: `/assistant`, generated from the registries
+
+The owner asked for "a place where we can see what the assistant can do and can't do", by role, as
+the `/mcp` page shows MCP tools. `/assistant` is that page — public, no sign-in — titled "What
+MakerLAB AI can and can't do".
+
+**Generated, so it cannot drift.** `lib/assistant/capabilities-page.ts`
+(`buildAssistantCapabilities(CAPABILITIES, ACTIONS)`) walks the two registries the assistant is built
+from and asks the gates the surfaces ask:
+
+- **Rows.** One per registered action (`action:<id>`) and one per capability tool that is not an
+  action's (`tool:<name>`), plus the chat's web search (`exa_search`, added beside the registry by
+  the chat route). A capability tool sharing an action's tool name — MCP's direct `update_ticket` —
+  folds into that action's row. Kinds: `read`; `record` (a write tool that files a report, a draft,
+  pending items or a field proposal); `propose` (an action `assistantMayPropose` holds); `pageOnly`
+  (an action `assistant: "never"` outside the deny list: `imports.confirm_columns`,
+  `manuals.reprocess_library` and the three `insights.*`), shown with why it stays on its page.
+- **Chat, per role.** `capabilitiesForIdentity(CAPABILITIES, { role })` for visitor (anonymous),
+  lab member (`user`), admin (SuperMakers) and super admin (directors), tools that are not `mcpOnly`.
+- **MCP.** The least-privileged audience `audienceOf` finds (anyone / signed in / staff), and the
+  mode: `read`, `record`, `inbox` (an `mcp: "propose"` action — the proposal waits in
+  `/admin/proposals`), `direct` (`DIRECT_OVER_MCP`, `update_ticket` only) or none.
+- **Notes.** From the definition: `spend` risk ("spends research credits"), `destructive` ("can't be
+  undone — type the name to confirm"), `maxBatch` > 1 ("up to N at once"), people/destructive/
+  `refuseWhenTainted` ("not in a message that read outside text"), `SUPER_ADMIN_GUARDED`
+  (`people.set_role`, `people.add`: "User ↔ Admin only; never super admin"), and a read on
+  `OUTSIDE_CONTENT_TOOLS` ("outside text").
+- **Never, on any surface, whatever the role.** The "Assistant limits" deny list itself: the
+  super-admin rule, every `ASSISTANT_FORBIDDEN_ACTIONS` id (including `people.block_email`, which has
+  no action yet) and every `ASSISTANT_FORBIDDEN_CATEGORIES` category with its refused words. Forbidden
+  actions appear here only, never as a row.
+
+Only the human words are hand-written — each row's label, each page-only reason, each never line and
+its reason (`assistantPage` in `messages/en.json`) — plus the area a row sits in (`ACTION_AREAS` by
+id prefix, `TOOL_AREAS` by tool name).
+
+**The page.** A "What it can do for you" line for the viewer's role (counts of lookups, reports and
+proposals, and of those that spend credits or cannot be undone); the matrix by area (catalog, units &
+manuals; maintenance; corrections; projects; intake & research; categories; people; insights; Notion
+mirror) with one column per role and one for an outside AI, the viewer's column tinted and headed
+"You"; the never list; how a change is confirmed. Below `sm` the role and MCP columns fold into one
+line under each label, so a phone never scrolls sideways. Linked from the chat's empty state ("What
+can MakerLAB AI do?"), About, `/mcp` and the product page's privacy section.
+
+**Tests.** `lib/assistant/capabilities-page.test.ts`: every registered action appears exactly once
+(row or never); every capability tool exactly once (own row, or its action's); every read tool as a
+read row; every forbidden action, category and the super-admin rule under never and nowhere else;
+every row, reason and never line has its `en.json` words; every tool and action prefix has an area,
+no stale entries; each role's chat rows equal `capabilitiesForIdentity`'s tools; MCP modes and
+audiences for representative rows. `components/assistant/AssistantCapabilities.test.tsx`: rendering,
+highlighting, notes, the never list. `e2e/assistant-page.spec.ts`: visitor and super-admin
+highlighting, the four links, no sideways scroll at 375px.
+
+No action, tool, permission or count changes.

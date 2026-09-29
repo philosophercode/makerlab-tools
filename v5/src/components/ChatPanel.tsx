@@ -3,6 +3,7 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type FileUIPart } from "ai";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { isCutOff } from "./chat/cut-off";
@@ -342,6 +343,10 @@ export function ChatPanel() {
                       </Suggestion>
                     ))}
                   </Suggestions>
+                  {/* Parity spec amendment 2026-09-29: what it can and can't do, by role. */}
+                  <Link href="/assistant" onClick={close} className="w-fit text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground">
+                    {t("capabilitiesLink")}
+                  </Link>
                 </div>
               ) : (
                 <>
