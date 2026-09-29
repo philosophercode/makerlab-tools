@@ -248,7 +248,7 @@
     "createBody": "I have an idea. How could I make it with the machines here?",
     "assistantLimits": "It answers from the catalog and each tool's manuals, says so when it doesn't know, and sends you to MakerLAB staff for safety questions, access and training sign-offs.",
     "whyBody": "It was built so that anyone can find the right machine and learn how to use it safely before they walk over, in their own language.",
-    "thanksBody": "Thanks to Miguel, who interned with the MakerLAB in 2025 and 2026, for building the first inventory search that sparked the idea.",
+    "thanksBody": "Thanks to Miguel Ramirez Peraza, who interned with the MakerLAB in 2025 and 2026, for building the first inventory search that sparked the idea.",
     "creditsBody": "Built by Isaac Steinberg (Software Engineer and Architect, Johnson Cornell Tech MBA '26) with Claude-assisted development for the MakerLAB, which Niti Parikh (Director) and Luis Rodrigo Navarro (Assistant Director) run.",
     "feedbackBody": "If you spot a mistake, use \"Report a correction\" on the tool's page — corrections go to the staff queue and are fixed in the app. For a broken machine, use Report in the header.",
     "browseTools": "Browse tools",
