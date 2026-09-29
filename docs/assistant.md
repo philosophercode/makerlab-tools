@@ -4,6 +4,10 @@ The assistant is the chat button on every page (on admin pages, **Ask the
 assistant** in the section bar). What it can do depends on who is signed in:
 it is offered exactly what your account could do by hand, never more.
 
+The full list, by role — generated from the same definitions the assistant
+runs on — is the public page **`/assistant`** ("What MakerLAB AI can and can't
+do"), linked from the chat, About, `/mcp` and the product page.
+
 ## Everybody
 
 - Find equipment ("what can cut acrylic?"), explain how a machine works from its

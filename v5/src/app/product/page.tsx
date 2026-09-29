@@ -54,6 +54,12 @@ export default function ProductPage() {
             </li>
           ))}
         </ul>
+        {/* Parity spec amendment 2026-09-29: the full list, generated from the registry. */}
+        <p className="text-[15px]">
+          <Link href="/assistant" className="text-primary-ink underline underline-offset-4">
+            {t("assistantPageLink")}
+          </Link>
+        </p>
       </ProductSection>
 
       <ProductSection id="product-credits" title={t("creditsHeading")}>

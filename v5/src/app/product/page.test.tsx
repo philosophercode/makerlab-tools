@@ -99,7 +99,9 @@ describe("/product", () => {
   it("covers privacy and credits the people who made and run it", () => {
     render(<ProductPage />);
 
-    expect(screen.getByRole("region", { name: "Privacy and safety" })).toHaveTextContent("Cornell Google account");
+    const privacy = screen.getByRole("region", { name: "Privacy and safety" });
+    expect(privacy).toHaveTextContent("Cornell Google account");
+    expect(within(privacy).getByRole("link", { name: "What MakerLAB AI can and can't do, by role" })).toHaveAttribute("href", "/assistant");
     const credits = screen.getByRole("region", { name: "Who made it" });
     expect(credits).toHaveTextContent("Isaac Steinberg (Tech Lead, Johnson Cornell Tech MBA '26)");
     expect(credits).toHaveTextContent("Niti Parikh (Director) and Luis Rodrigo Navarro (Assistant Director)");

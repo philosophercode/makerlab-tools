@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import Link from "next/link";
 import { headers } from "next/headers";
 import { getTranslations } from "next-intl/server";
 import { McpAddresses } from "../../components/mcp/McpAddresses";
@@ -43,7 +44,7 @@ export default async function McpPage() {
 }
 
 async function McpPageBody() {
-  const [requestHeaders, identity] = await Promise.all([headers(), resolveIdentityFromHeaders()]);
+  const [requestHeaders, identity, t] = await Promise.all([headers(), resolveIdentityFromHeaders(), getTranslations("mcpPage")]);
   const snippets = mcpSnippets(requestOrigin(requestHeaders) ?? authBaseUrl());
 
   const tools = describeMcpTools(CAPABILITIES);
@@ -55,6 +56,12 @@ async function McpPageBody() {
       <McpAddresses publicUrl={snippets.url} signedInUrl={snippets.signedInUrl} />
       <McpConnect snippets={snippets} />
       <McpToolList tools={tools} usable={usable} viewerRole={identity.role} />
+      {/* Parity spec amendment 2026-09-29: the chat's side of the same story, every role at once. */}
+      <p className="pt-4 text-sm">
+        <Link href="/assistant" className="text-primary-ink underline-offset-4 hover:underline">
+          {t("assistantPageLink")}
+        </Link>
+      </p>
       <McpTryIt tools={tools.filter((tool) => runnable.has(tool.name))} runAction={runMcpTryIt} />
     </>
   );
