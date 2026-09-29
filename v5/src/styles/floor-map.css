@@ -66,6 +66,22 @@
   stroke-dasharray: none;
 }
 
+/* A thumbnail lighting up a set of places (a project's "Where you'll work"):
+   each matched zone is filled like "here", since there is no search to tell
+   apart from. */
+.floor-map[data-mode="thumbnail"] .fm-zone[data-match="true"] {
+  fill: var(--fm-here);
+  stroke-width: 6;
+}
+
+.floor-map[data-mode="thumbnail"] .fm-station[data-match="true"] .fm-tag {
+  fill: var(--primary);
+}
+
+.floor-map[data-mode="thumbnail"] .fm-station[data-match="true"] .fm-tag-text {
+  fill: var(--ink-on-primary, #0f0f0f);
+}
+
 /* Where it is. */
 .floor-map .fm-zone[data-here="true"] {
   fill: var(--fm-here);

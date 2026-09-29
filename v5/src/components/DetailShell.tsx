@@ -83,7 +83,17 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
 
   type Row = [string, React.ReactNode];
   const specs: Row[] = [
-    [t("category"), `${tool.category}${tool.categorySub && tool.categorySub !== tool.category ? ` › ${tool.categorySub}` : ""}`],
+    // The category and the room link to the gallery filtered by them (map UX
+    // pass, cross-links): the same facet values the gallery offers.
+    [
+      t("category"),
+      <span key="category">
+        <Link data-slot="category-link" href={`/?category=${encodeURIComponent(tool.category)}`} className="text-primary-ink hover:underline">
+          {tool.category}
+        </Link>
+        {tool.categorySub && tool.categorySub !== tool.category ? ` › ${tool.categorySub}` : ""}
+      </span>,
+    ],
     ...(tool.itemKind && tool.itemKind !== "equipment" ? ([[t("itemKindRow"), t(`itemKind.${tool.itemKind}`)]] as Row[]) : []),
     ...(relations?.accessoryOf
       ? ([
@@ -95,7 +105,15 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
           ],
         ] as Row[])
       : []),
-    [t("location"), `${tool.location}${tool.zone ? ` › ${tool.zone}` : ""}`],
+    [
+      t("location"),
+      <span key="location">
+        <Link data-slot="location-link" href={`/?location=${encodeURIComponent(tool.location)}`} className="text-primary-ink hover:underline">
+          {tool.location}
+        </Link>
+        {tool.zone ? ` › ${tool.zone}` : ""}
+      </span>,
+    ],
     ...(tool.materials.length > 0 ? ([[t("materials"), tool.materials.join(", ")]] as Row[]) : []),
     ...(tool.trainingLabel ? ([[t("trainingRow"), tool.trainingLabel]] as Row[]) : []),
     ...(tool.mapId ? ([[t("mapId"), <code key="map" className="font-mono text-xs">{tool.mapId}</code>]] as Row[]) : []),

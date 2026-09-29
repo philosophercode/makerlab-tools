@@ -171,7 +171,8 @@
     "photosLabel": "Project photos",
     "toolsUsed": "Tools used",
     "materials": "Materials",
-    "back": "‹ Back to all projects"
+    "back": "‹ Back to all projects",
+    "materialTools": "Tools for {material} in the gallery"
   },
   "projectForm": {
     "title": "Share your project",
@@ -2822,7 +2823,17 @@
     "openMap": "Open map",
     "signedOutLede": "Where every tool lives in the lab.",
     "signedOut": "Sign in to see the floor map. Use the Sign in control in the header, then come back.",
-    "notOnMap": "This tool’s location ({location} / {zone}) is not on the floor map yet."
+    "notOnMap": "This tool’s location ({location} / {zone}) is not on the floor map yet.",
+    "zoneBar": "Zones",
+    "allZones": "All zones",
+    "zoneChip": "{number} · {zone}",
+    "backToAll": "Whole map",
+    "toolsAt": "Tools at {place}",
+    "matchesHeading": "Matches for “{query}”",
+    "workHeading": "Where you’ll work",
+    "workLede": "{tools, plural, one {The # tool this project used is} other {The # tools this project used are}} {zones, plural, =0 {not on the floor map yet.} one {in one zone of the lab.} other {spread over # zones of the lab.}}",
+    "workSvgTitle": "Floor plan with {count, plural, one {zone {zones}} other {zones {zones}}} highlighted",
+    "workOpenZone": "Open on map"
   },
   "product": {
     "metaTitle": "MakerLAB AI — {site}",
@@ -3073,7 +3084,7 @@
       "super_adminBody": "Directors",
       "mcp": "Outside AI",
       "mcpBody": "Over MCP, with a token",
-    "mcpShort": "MCP"
+      "mcpShort": "MCP"
     },
     "you": "You",
     "forYouHeading": "What it can do for you",

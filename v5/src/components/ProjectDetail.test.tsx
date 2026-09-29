@@ -202,6 +202,20 @@ describe("ProjectDetail tool links", () => {
     expect(screen.getByText("PLA")).toBeInTheDocument();
   });
 
+  it("links a material the catalogue's tools list to the gallery filtered by it; others stay labels", async () => {
+    render(
+      await ProjectDetail({ project: project({ materials: ["plywood", "Unobtainium"] }), galleryMaterials: ["Plywood", "PLA"] })
+    );
+    expect(screen.getByRole("link", { name: "plywood" })).toHaveAttribute("href", "/?material=Plywood");
+    expect(screen.queryByRole("link", { name: "Unobtainium" })).toBeNull();
+    expect(screen.getByText("Unobtainium")).toBeInTheDocument();
+  });
+
+  it("renders the work map slot it is given, after the tools", async () => {
+    render(await ProjectDetail({ project: project(), workMap: <section aria-label="Work map slot" /> }));
+    expect(screen.getByRole("region", { name: "Work map slot" })).toBeInTheDocument();
+  });
+
   it("always offers a way back to the gallery", async () => {
     await renderDetail();
     const back = screen.getByRole("link", { name: "‹ Back to all projects" });

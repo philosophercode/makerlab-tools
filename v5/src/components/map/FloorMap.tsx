@@ -80,11 +80,14 @@ export function FloorMap({
   const { x, y, w, h } = plan.viewBox;
   const max = zoneCounts ? Math.max(0, ...zoneCounts.values()) : 0;
 
-  // In the thumbnail only the station that is "here" is drawn: seventeen tags
-  // at 320px are noise, one is the answer.
-  // A thumbnail draws its one tag twice as big, so it still reads at 320px.
+  // In the thumbnail only the station that is "here" is drawn — and, for a
+  // set of tools (a project's "Where you'll work"), the matched ones:
+  // seventeen tags at 320px are noise, the answer is one or a few.
+  // A thumbnail draws its tags twice as big, so they still read at 320px.
   const tagScale = full ? 1 : 2;
-  const stations = full ? plan.stations : plan.stations.filter((s) => s.id === here?.station?.id);
+  const stations = full
+    ? plan.stations
+    : plan.stations.filter((s) => s.id === here?.station?.id || matchedStations?.has(s.id));
 
   function activate(id: string) {
     return onSelect

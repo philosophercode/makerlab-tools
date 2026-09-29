@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { MapGate } from "../../components/map/MapGate";
+import { PublicPageLoading } from "../../components/system/PublicPageLoading";
 import { siteConfig } from "../../lib/site-config";
 
 /**
@@ -16,7 +17,9 @@ export const metadata = {
 
 export default function MapPage() {
   return (
-    <Suspense fallback={null}>
+    // The session read takes a moment: say the page is coming rather than
+    // showing an empty screen (map UX pass).
+    <Suspense fallback={<PublicPageLoading shape="page" />}>
       <MapGate />
     </Suspense>
   );
