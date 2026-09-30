@@ -3,14 +3,13 @@ import { useTranslations } from "next-intl";
 import type { MakerLabTool } from "../catalog-types";
 import { locateTool } from "../../lib/map/locate";
 import { Button } from "@/components/ui/button";
-import { FloorMap } from "./FloorMap";
 
 /**
- * "Where it is" on the tool page (floor map spec §6.2): the plan as a small
- * picture with the tool's zone (and station, when its map tag names one) in
- * the accent, the place in words beside it, and one "Open map" link to
- * `/map?highlight=…`. The words are the text alternative; the picture is
- * named by a sentence saying the same thing.
+ * "Where it is" on the tool page (floor map spec §6.2), compact: the place in
+ * words — zone, room, station — on one row, and one "Open full map" link to
+ * `/map?highlight=…`. The picture moved up into the hero as the mini-map
+ * (`ToolMiniMap`), so the page draws the plan once, small; these words are
+ * its text alternative.
  *
  * A tool whose location is not on the map gets the sentence that says so and
  * a link to the whole map — never a guessed zone (Article 4).
@@ -25,50 +24,19 @@ export function ToolLocationMap({ tool }: { tool: MakerLabTool }) {
         {t("whereHeading")}
       </h2>
       {located ? (
-        <div className="ui grid gap-4 sm:grid-cols-[minmax(0,320px)_1fr] sm:items-start">
-          <div className="border border-border">
-            <FloorMap
-              plan={located.plan}
-              mode="thumbnail"
-              here={located.place}
-              labels={{
-                title: located.place.station
-                  ? t("whereThumbStation", {
-                      tool: tool.name,
-                      id: located.place.station.id,
-                      label: located.place.station.label,
-                      number: located.place.zone.number,
-                      zone: located.place.zone.zone,
-                    })
-                  : t("whereThumbTitle", {
-                      tool: tool.name,
-                      number: located.place.zone.number,
-                      zone: located.place.zone.zone,
-                      room: located.place.zone.room,
-                    }),
-                zone: () => "",
-                station: () => "",
-              }}
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <p className="font-heading text-2xl font-medium uppercase leading-tight">
+        <div className="ui flex flex-wrap items-center justify-between gap-x-4 gap-y-2 border-y border-rule py-2">
+          <p className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="font-heading text-lg leading-tight font-medium uppercase">
               {t("whereZone", { number: located.place.zone.number, zone: located.place.zone.zone })}
-            </p>
-            <p className="font-mono text-label uppercase text-muted-foreground">
-              {t("whereRoom", { room: located.place.zone.room })}
-            </p>
+            </span>
+            <span className="font-mono text-label text-muted-foreground uppercase">{t("whereRoom", { room: located.place.zone.room })}</span>
             {located.place.station ? (
-              <p className="text-sm">
-                {t("whereStation", { id: located.place.station.id, label: located.place.station.label })}
-              </p>
+              <span className="text-sm">{t("whereStation", { id: located.place.station.id, label: located.place.station.label })}</span>
             ) : null}
-            <p>
-              <Button asChild variant="outline" size="sm">
-                <Link href={located.href}>{t("openMap")}</Link>
-              </Button>
-            </p>
-          </div>
+          </p>
+          <Button asChild variant="outline" size="sm">
+            <Link href={located.href}>{t("openFullMap")}</Link>
+          </Button>
         </div>
       ) : (
         <div className="ui flex flex-wrap items-center justify-between gap-3">

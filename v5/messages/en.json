@@ -2975,6 +2975,8 @@
     "whereThumbTitle": "{tool} is in zone {number}, {zone}, {room}",
     "whereThumbStation": "{tool} is at station {id}, {label}, in zone {number}, {zone}",
     "openMap": "Open map",
+    "openFullMap": "Open full map",
+    "miniMapLabel":"Where {tool} is — open map",
     "signedOutLede": "Where every tool lives in the lab.",
     "signedOut": "Sign in to see the floor map. Use the Sign in control in the header, then come back.",
     "notOnMap": "This tool’s location ({location} / {zone}) is not on the floor map yet."
