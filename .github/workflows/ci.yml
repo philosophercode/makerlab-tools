@@ -25,6 +25,11 @@ jobs:
         with:
           node-version: 24
           cache: npm
+      # The npm the lockfile is written with. Node 24's bundled npm (11.19)
+      # validates the optional wasm32 builds' nested deps differently and
+      # rejects this lockfile, while 11.6 rewrites the other way; bump both
+      # together.
+      - run: npm install -g npm@11.6.2
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
