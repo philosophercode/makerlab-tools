@@ -41,6 +41,8 @@ export interface CaseExecution {
   citationEvidence?: Record<string, RecordedDocumentEvidence>;
   /** The manuals attached whole to the turn, as the route streams them (`data-manual-links`). */
   attachedManuals?: AttachedManualLink[];
+  /** What the route's QR reader found in the case's photos, as the prompt section names it. */
+  qrHints?: string[];
 }
 
 /** Runs one case against the assistant. Injected so tests can stub the model. */
@@ -203,6 +205,32 @@ export async function runSuite(
     totals,
     usage,
     cases: results,
+  };
+}
+
+/**
+ * One report from several consecutive suites — the demo-catalogue cases, then
+ * the `catalog: lab` cases once the extra machines are seeded. Cases keep
+ * their order; totals and usage add up; the run starts when the first did.
+ */
+export function mergeReports(reports: SuiteReport[]): SuiteReport {
+  if (reports.length === 0) throw new Error("mergeReports needs at least one report");
+  if (reports.length === 1) return reports[0];
+  const sum = (pick: (report: SuiteReport) => number) => reports.reduce((total, report) => total + pick(report), 0);
+  const totals: SuiteTotals = {
+    total: sum((r) => r.totals.total),
+    passed: sum((r) => r.totals.passed),
+    flaky: sum((r) => r.totals.flaky),
+    failed: sum((r) => r.totals.failed),
+    errored: sum((r) => r.totals.errored),
+  };
+  return {
+    startedAt: reports[0].startedAt,
+    durationMs: sum((r) => r.durationMs),
+    ok: totals.failed === 0 && totals.errored === 0,
+    totals,
+    usage: { inputTokens: sum((r) => r.usage.inputTokens), outputTokens: sum((r) => r.usage.outputTokens) },
+    cases: reports.flatMap((r) => r.cases),
   };
 }
 

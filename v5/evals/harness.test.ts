@@ -3,8 +3,11 @@ import { CAPABILITIES } from "@/lib/capabilities";
 import type { Capability } from "@/lib/capabilities";
 import { getNotionEnvContract } from "@/lib/notion";
 import { z } from "zod";
-import type { EvalCase } from "./cases";
-import { caseMessages, composeCase, evalIdentity, stubLiveReads, stubWrites } from "./harness";
+import { readdirSync } from "node:fs";
+import path from "node:path";
+import { PHOTOS_DIR, type EvalCase } from "./cases";
+import { caseMessages, casePhotos, composeCase, evalIdentity, evalPhotoId, stubLiveReads, stubWrites } from "./harness";
+import { seedEvalLabCatalog } from "./lab-catalog-fixture";
 
 vi.mock("next/cache", () => nextCacheMock());
 
@@ -256,4 +259,48 @@ describe("composeCase", () => {
       composeCase(testCase({ context: { page: "tool", toolId: "bambu-x1-carbon" } }))
     ).rejects.toThrow(/not in the fixture catalog/);
   });
+});
+
+// Photo identification (cases/photo-identify.yaml). Last in the file: seeding
+// the lab fixture adds machines to this process's demo database for good, as
+// it does in `npm run eval`, where the lab cases run last.
+describe("photos, as the route hands them on", () => {
+  it("rebuilds a case's photos the way collectAttachments does: hint id, name, bytes as a data URL", () => {
+    const photos = casePhotos(testCase({ photos: ["IMG_2041.jpg", "IMG_2044.jpg"] }));
+    expect(photos.map((p) => [p.attachmentId, p.name, p.contentType])).toEqual([
+      [evalPhotoId(0), "IMG_2041.jpg", "image/jpeg"],
+      [evalPhotoId(1), "IMG_2044.jpg", "image/jpeg"],
+    ]);
+    expect(photos[0].dataUrl).toMatch(/^data:image\/jpeg;base64,\/9j\//);
+    expect(casePhotos(testCase())).toEqual([]);
+  });
+
+  it("keeps every photo fixture a JPEG no longer than 1024 px", async () => {
+    const sharp = (await import("sharp")).default;
+    const files = readdirSync(PHOTOS_DIR).filter((name) => /^IMG_\d+\.jpg$/.test(name));
+    expect(files.length).toBeGreaterThanOrEqual(7);
+    for (const file of files) {
+      const meta = await sharp(path.join(PHOTOS_DIR, file)).metadata();
+      expect([file, meta.format]).toEqual([file, "jpeg"]);
+      expect(Math.max(meta.width ?? 0, meta.height ?? 0)).toBeLessThanOrEqual(1024);
+    }
+  });
+
+  it("reads the QR label in a photo with the route's reader and adds the route's prompt section", async () => {
+    await seedEvalLabCatalog();
+    const { system, qrHints } = await composeCase(
+      testCase({ prompt: "How do I use this?", photos: ["IMG_2068.jpg"], context: { page: "gallery", catalog: "lab" } })
+    );
+    expect(qrHints).toEqual(['[QR code in photo "IMG_2068.jpg": links to tool epilog-helix-24 ("Epilog Helix 24")]']);
+    expect(system).toContain("## QR codes in this message's photos");
+    expect(system).toContain(qrHints[0]);
+    // The lab fixture's machines are in the catalogue the prompt lists.
+    expect(system).toContain("slug: `ultimaker-3-extended`");
+  }, 20_000);
+
+  it("adds no QR section for a photo without a code", async () => {
+    const { system, qrHints } = await composeCase(testCase({ photos: ["IMG_2044.jpg"], context: { catalog: "lab" } }));
+    expect(qrHints).toEqual([]);
+    expect(system).not.toContain("QR codes in this message's photos");
+  }, 20_000);
 });

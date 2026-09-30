@@ -30,6 +30,7 @@ import type { EvalFixture, EvalFixtureTool } from "./fixtures";
  * | `citations_resolve` | Every manual link came from a `search_manual` result or a manual attached to the turn (`#cite-<ref>-<page>`, "(<title>, p. N)"), answers 200 `application/pdf`, opens a page the PDF has, and the passage is on that page (`src/lib/manuals/citation-check.ts`; the executor gathers the evidence) |
  * | `proposed_action` | That action tool was called — which only ever proposes a card (assistant–GUI parity spec §10.1) |
  * | `not_claimed_done` | The answer never says a change was made: nothing is done until the person confirms the card |
+ * | `identified_tool` | The machine in a photo: the first catalog machine the answer names is `<slug>`; `<slug>\|ask` also accepts an answer that asks or says it cannot tell, naming it among the candidates; `none` means no catalog machine is claimed to be the one pictured and the answer says the lab lacks it |
  *
  * `no_unknown_tools` and `no_fabricated_specs` are the two that matter — they
  * are the direct test of "grounded, never fabricated," which is the whole
@@ -53,6 +54,7 @@ export const ASSERTION_KINDS = [
   "not_claimed_done",
   "identified_items",
   "identified_count",
+  "identified_tool",
 ] as const;
 
 export type AssertionKind = (typeof ASSERTION_KINDS)[number];
@@ -544,7 +546,135 @@ export function runAssertion(spec: AssertionSpec, input: AssertionInput): Assert
       const range = asString(spec.value);
       return outcome(`one identify_tools call recorded ${range} item(s)`, identifiedCount(toolCalls, range));
     }
+    case "identified_tool": {
+      const value = asString(spec.value);
+      return outcome(identifiedToolExpectation(value), identifiedTool(text, fixture, value));
+    }
   }
+}
+
+// ── identified_tool (photo identification) ─────────────────────────
+
+/** Where the answer names a catalog machine: by a name, an alias or a `/tools/<slug>` link. */
+export interface ToolMention {
+  slug: string;
+  index: number;
+}
+
+/**
+ * The names each machine is recognised by when judging an identification: its
+ * own name always, an extra alias only when no other machine's name or alias
+ * contains it — "Formlabs" is dropped once the lab has a Form 2 too, since it
+ * names either printer.
+ */
+function identifyingNames(fixture: EvalFixture): { slug: string; name: string }[] {
+  const out: { slug: string; name: string }[] = [];
+  for (const tool of fixture.tools) {
+    for (const alias of new Set(tool.aliases)) {
+      const low = normalize(alias);
+      const shared =
+        alias !== tool.name &&
+        fixture.tools.some((other) => other.slug !== tool.slug && other.aliases.some((a) => normalize(a).includes(low)));
+      if (!shared) out.push({ slug: tool.slug, name: low });
+    }
+  }
+  return out;
+}
+
+/**
+ * Every catalog machine the answer names, in order. Overlapping matches keep
+ * the longest ("Ultimaker 3 Extended" is not also an "Ultimaker 3"), and a
+ * markdown link counts once, at its label.
+ */
+export function toolMentions(text: string, fixture: EvalFixture): ToolMention[] {
+  const low = normalize(text);
+  const hits: { slug: string; start: number; end: number }[] = [];
+  for (const { slug, name } of identifyingNames(fixture)) {
+    const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    for (const match of low.matchAll(new RegExp(`(^|[^a-z0-9])(${escaped})(?=[^a-z0-9]|$)`, "g"))) {
+      const start = match.index + match[1].length;
+      hits.push({ slug, start, end: start + match[2].length });
+    }
+  }
+  for (const match of low.matchAll(/\/tools\/([a-z0-9-]+)/g)) {
+    if (fixture.slugs.includes(match[1])) hits.push({ slug: match[1], start: match.index, end: match.index + match[0].length });
+  }
+  hits.sort((a, b) => a.start - b.start || b.end - b.start - (a.end - a.start));
+  const kept: typeof hits = [];
+  for (const hit of hits) {
+    if (kept.some((k) => hit.start < k.end && k.start < hit.end)) continue;
+    kept.push(hit);
+  }
+  return kept.sort((a, b) => a.start - b.start).map(({ slug, start }) => ({ slug, index: start }));
+}
+
+/** "This is the …", "that looks like …", "it appears to be …" — a claim about what is pictured. */
+const IDENTITY_CLAIM = /\b(this|that|it|the machine|the photo|the picture|your photo)\b[^.?!,;:]{0,30}?\b(is|'s|looks like|appears to be|seems to be|matches)\b/g;
+
+/** The catalog machine a segment claims is pictured: one named within a few words after the claim, same clause. */
+function claimedTool(segment: string, fixture: EvalFixture): string | null {
+  const low = normalize(segment);
+  const mentions = toolMentions(segment, fixture);
+  for (const claim of low.matchAll(IDENTITY_CLAIM)) {
+    const end = claim.index + claim[0].length;
+    const named = mentions.find((m) => m.index >= end && m.index - end <= 25 && !/[,;:\u2014]/.test(low.slice(end, m.index)));
+    if (named) return named.slug;
+  }
+  return null;
+}
+
+function identifiedToolExpectation(value: string): string {
+  if (value === "none") return "the answer names no catalog machine as the one pictured and says the lab lacks it";
+  const [slug, ask] = value.split("|");
+  return ask
+    ? `the answer identifies ${slug}, or asks / says it cannot tell which machine it is, with ${slug} among the candidates`
+    : `the answer identifies ${slug}`;
+}
+
+/** "I can't tell which model", "which one is it", "could be either" — the answer leaves the choice open. */
+const UNDECIDED =
+  /\b(can't|cannot|can not|couldn't|unable to)\b[^.?!]{0,20}\b(tell|identify|determine|distinguish|confirm which)\b|\bnot (sure|clear) which\b|\bwhich (one|model)\b|\bhard to tell\b|\bcould be either\b|\balso a possibility\b|\b(doesn't|does not) (distinguish|show which)\b/;
+
+/**
+ * `identified_tool` — which catalog machine the answer says is in the photo.
+ *
+ *  - `<slug>`: the first catalog machine the answer names is that one. An
+ *    answer that opens with the wrong machine fails even if it names the right
+ *    one later; one that names no machine at all fails.
+ *  - `<slug>|ask`: that, or the answer leaves the choice open — asks a
+ *    question (a "?") or says it cannot tell which one it is — and names the
+ *    machine among its candidates: the honest reply to an ambiguous photo.
+ *    Naming a different machine first, neither asking nor hedging, fails, and
+ *    so does leaving the right machine out of the candidates.
+ *  - `none`: no sentence claims a catalog machine is the one pictured ("this
+ *    is the Dremel 3000"), and the answer says the lab does not have it.
+ *    Suggesting a catalog machine as an alternative is fine.
+ */
+export function identifiedTool(text: string, fixture: EvalFixture, value: string): Check {
+  if (value === "none") {
+    for (const segment of splitSegments(text)) {
+      if (isDenial(segment)) continue;
+      const claimed = claimedTool(segment, fixture);
+      if (claimed) return { ok: false, detail: `the answer says the photo shows ${claimed}, a catalog machine`, excerpt: segment };
+    }
+    if (!splitSegments(text).some(isDenial)) {
+      return { ok: false, detail: "the answer never says the lab does not have it", excerpt: text.slice(0, 200) };
+    }
+    return { ok: true };
+  }
+
+  const [slug, mode] = value.split("|");
+  if (!fixture.slugs.includes(slug)) return { ok: false, detail: `"${slug}" is not a catalog machine in this run` };
+  const mentions = toolMentions(text, fixture);
+  if (mentions.length === 0) return { ok: false, detail: "the answer names no catalog machine", excerpt: text.slice(0, 200) };
+  if (mentions[0].slug === slug) return { ok: true };
+  const open = text.includes("?") || UNDECIDED.test(normalize(text));
+  if (mode === "ask" && open && mentions.some((m) => m.slug === slug)) return { ok: true };
+  return {
+    ok: false,
+    detail: `the answer names ${mentions[0].slug} first${mode === "ask" ? ", without asking or saying it cannot tell which machine it is" : ""}`,
+    excerpt: text.slice(Math.max(0, mentions[0].index - 60), mentions[0].index + 80).trim(),
+  };
 }
 
 // ── identify_tools (amendment "Many items at once") ────────────────

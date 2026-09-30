@@ -59,7 +59,18 @@ export interface EvalCaseContext {
    * as the page would. Requires `path`.
    */
   selection?: string[];
+  /**
+   * The catalogue the case runs against: `demo` (the default — the demo
+   * seed's two machines) or `lab`, the demo seed plus the look-alike machines
+   * of `lab-catalog-fixture.ts`, for identifying a machine from a photo.
+   * `run.eval.ts` runs every `lab` case after all the others, since the extra
+   * machines cannot be taken out again.
+   */
+  catalog?: EvalCatalog;
 }
+
+export const EVAL_CATALOGS = ["demo", "lab"] as const;
+export type EvalCatalog = (typeof EVAL_CATALOGS)[number];
 
 export const EVAL_CALLERS = ["student", "staff", "super_admin"] as const;
 export type EvalCaller = (typeof EVAL_CALLERS)[number];
@@ -410,6 +421,7 @@ function validateAssertion(raw: YamlValue, file: string, caseId: string): Assert
     "not_contains_any",
     "identified_items",
     "identified_count",
+    "identified_tool",
   ];
   if (needsValue.includes(kind) && (spec.value === undefined || spec.value.length === 0)) {
     fail(file, 0, `case "${caseId}": ${kind} requires a "value"`);
@@ -419,6 +431,10 @@ function validateAssertion(raw: YamlValue, file: string, caseId: string): Assert
   }
   if (kind === "identified_count" && (typeof spec.value !== "string" || !/^\d+(-\d+)?$/.test(spec.value))) {
     fail(file, 0, `case "${caseId}": identified_count takes a count or a range, like "3" or "3-4"`);
+  }
+
+  if (kind === "identified_tool" && (typeof spec.value !== "string" || !/^(none|[a-z0-9][a-z0-9-]*(\|ask)?)$/.test(spec.value))) {
+    fail(file, 0, `case "${caseId}": identified_tool takes a catalog slug, "<slug>|ask" or "none"`);
   }
 
   return spec;
@@ -434,8 +450,8 @@ function validateCase(raw: YamlValue, file: string): EvalCase {
   if (raw.context !== undefined && raw.context !== null) {
     if (!isRecord(raw.context)) fail(file, 0, `case "${id}": context must be a mapping`);
     for (const key of Object.keys(raw.context)) {
-      if (!["page", "toolId", "curate", "as", "path", "selection"].includes(key)) {
-        fail(file, 0, `case "${id}": unknown context key "${key}" (expected page, toolId, curate, as, path, selection)`);
+      if (!["page", "toolId", "curate", "as", "path", "selection", "catalog"].includes(key)) {
+        fail(file, 0, `case "${id}": unknown context key "${key}" (expected page, toolId, curate, as, path, selection, catalog)`);
       }
     }
     if (raw.context.page !== undefined) {
@@ -472,6 +488,13 @@ function validateCase(raw: YamlValue, file: string): EvalCase {
       if (!context.path) fail(file, 0, `case "${id}": context.selection requires context.path`);
       if (!Array.isArray(raw.context.selection)) fail(file, 0, `case "${id}": context.selection must be a list of names`);
       context.selection = raw.context.selection.map((name) => requireString(name, file, `case "${id}": context.selection entries`));
+    }
+    if (raw.context.catalog !== undefined) {
+      const catalog = raw.context.catalog;
+      if (typeof catalog !== "string" || !(EVAL_CATALOGS as readonly string[]).includes(catalog)) {
+        fail(file, 0, `case "${id}": context.catalog must be one of ${EVAL_CATALOGS.join(", ")}`);
+      }
+      context.catalog = catalog as EvalCatalog;
     }
   }
 

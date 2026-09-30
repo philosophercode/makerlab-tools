@@ -13,7 +13,8 @@ import {
   noUnknownTools,
   runAssertion,
 } from "./assertions";
-import { evalFixture } from "./fixtures";
+import { buildFixture, evalFixture } from "./fixtures";
+import { mockTools } from "@/components/mock-catalog";
 
 // Unit coverage for the assertion vocabulary (design spec §10). These are pure
 // functions — no model, no network, no API key — so they run inside `npm test`.
@@ -205,7 +206,7 @@ describe("says_not_covered", () => {
 
 describe("runAssertion dispatch", () => {
   it("handles every declared kind", () => {
-    expect(ASSERTION_KINDS).toHaveLength(15);
+    expect(ASSERTION_KINDS).toHaveLength(16);
     for (const kind of ASSERTION_KINDS) {
       const outcome = runAssertion(
         {
@@ -295,5 +296,85 @@ describe("the proposal assertions (assistant–GUI parity spec §10.1)", () => {
     "Removing someone is done on the **People** page; please repeat that request in a new message.",
   ])("not_claimed_done passes on %j", (text) => {
     expect(runAssertion({ kind: "not_claimed_done" }, input(text)).ok).toBe(true);
+  });
+});
+
+describe("identified_tool", () => {
+  // A small lab with look-alikes, built the way `run.eval.ts` builds the
+  // `catalog: lab` fixture — from catalogue tools — so aliases apply.
+  const lab = buildFixture(
+    [
+      ["form-4", "Form 4"],
+      ["form-2", "Form 2"],
+      ["ultimaker-3", "Ultimaker 3"],
+      ["ultimaker-3-extended", "Ultimaker 3 Extended"],
+      ["dremel-3000", "Dremel 3000"],
+      ["epilog-helix-24", "Epilog Helix 24"],
+    ].map(([slug, name]) => ({ ...mockTools[0], id: slug, slug, name, officialName: null }))
+  );
+  const judge = (text: string, value: string) => runAssertion({ kind: "identified_tool", value }, { text, toolCalls: [], fixture: lab });
+
+  it("passes when the first machine named is the one in the photo, plain or linked", () => {
+    expect(judge("That's the **Form 4**, our resin printer. To start it…", "form-4").ok).toBe(true);
+    expect(judge("This is the [Epilog Helix 24](/tools/epilog-helix-24).", "epilog-helix-24").ok).toBe(true);
+    expect(judge("An Epilog laser — ours is on the laser bay.", "epilog-helix-24").ok).toBe(true);
+  });
+
+  it("fails when another machine comes first, or none is named", () => {
+    const wrong = judge("This is the Form 2. Unlike the Form 4, it…", "form-4");
+    expect(wrong.ok).toBe(false);
+    expect(wrong.detail).toMatch(/names form-2 first/);
+    expect(judge("That looks like a resin printer.", "form-4").detail).toMatch(/names no catalog machine/);
+  });
+
+  it("keeps the longest name: an Ultimaker 3 Extended is not also an Ultimaker 3", () => {
+    expect(judge("This is the Ultimaker 3 Extended.", "ultimaker-3").ok).toBe(false);
+    expect(judge("This is the Ultimaker 3 Extended.", "ultimaker-3-extended").ok).toBe(true);
+  });
+
+  it("does not let a maker's name shared by two machines count as either", () => {
+    // "Formlabs" is a Form 4 alias, but the Form 2 is a Formlabs printer too.
+    expect(judge("A Formlabs printer — this is the Form 2.", "form-2").ok).toBe(true);
+  });
+
+  it("with |ask, also accepts a question that names it among the candidates", () => {
+    expect(judge("Is this the Ultimaker 3 or the Ultimaker 3 Extended?", "ultimaker-3-extended|ask").ok).toBe(true);
+    expect(judge("This is the Ultimaker 3 Extended.", "ultimaker-3-extended|ask").ok).toBe(true);
+    const confidentWrong = judge("This is the Ultimaker 3. You can book it for this afternoon.", "ultimaker-3-extended|ask");
+    expect(confidentWrong.ok).toBe(false);
+    expect(confidentWrong.detail).toMatch(/without asking or saying it cannot tell/);
+    // A question that leaves the right machine out is no better.
+    expect(judge("Is this the Ultimaker 3?", "ultimaker-3-extended|ask").ok).toBe(false);
+  });
+
+  it("with |ask, also accepts saying it cannot tell, naming the candidates", () => {
+    const hedged = "It looks like an Ultimaker, but I can’t tell which model. The lab has the Ultimaker 3 and the Ultimaker 3 Extended; check the label.";
+    expect(judge(hedged, "ultimaker-3-extended|ask").ok).toBe(true);
+    // Hedging about availability is not hedging about which machine it is.
+    expect(judge("This is the Ultimaker 3. I can’t confirm it will be free this afternoon; the Ultimaker 3 Extended may be.", "ultimaker-3-extended|ask").ok).toBe(false);
+  });
+
+  it("counts a machine class the lab has as that machine, not an unknown one", () => {
+    const withShopBot = buildFixture([{ ...mockTools[0], id: "shopbot-buddy-bt48", slug: "shopbot-buddy-bt48", name: "ShopBot Buddy BT48", officialName: null }]);
+    expect(noUnknownTools("That looks like the ShopBot Buddy BT48, the CNC router.", withShopBot).ok).toBe(true);
+    expect(noUnknownTools("You can use the CNC router in the wood shop.", evalFixture).ok).toBe(false);
+  });
+
+  it("none: passes when the lab's lack is said and a catalog machine is only an alternative", () => {
+    expect(
+      judge("That looks like a benchtop belt and disc sander. The lab doesn't have one; for small sanding jobs the Dremel 3000 could help.", "none").ok
+    ).toBe(true);
+    expect(judge("This is a belt sander, which isn't in our catalog. The closest thing is the Dremel 3000.", "none").ok).toBe(true);
+  });
+
+  it("none: fails when the photo is claimed to be a catalog machine, or the lack is never said", () => {
+    const claimed = judge("This is the Dremel 3000, on the Hand Tool Wall.", "none");
+    expect(claimed.ok).toBe(false);
+    expect(claimed.detail).toMatch(/shows dremel-3000/);
+    expect(judge("It looks like a belt sander. Belt sanders need eye protection.", "none").detail).toMatch(/never says the lab does not have it/);
+  });
+
+  it("fails loudly on a slug the run's catalogue does not have", () => {
+    expect(judge("This is the Form 4.", "bambu-lab-x1-carbon").detail).toMatch(/not a catalog machine in this run/);
   });
 });

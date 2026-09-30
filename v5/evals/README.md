@@ -122,6 +122,7 @@ file in `cases/` is loaded automatically):
 | `cases/staff-maintenance.yaml` | Staff reading the maintenance queue, and confirming before changing a ticket; students getting no staff tools |
 | `cases/honest-absence.yaml` | Saying "we don't have that" |
 | `cases/lab-identity.yaml` | Knowing where it is: the MakerLAB's location and people, what the assistant is for, and not inventing the rest |
+| `cases/photo-identify.yaml` | Working out which catalogue machine is in a student's photo — or asking, when look-alikes leave it open — against the fuller lab (`catalog: lab`) |
 
 Append a case:
 
@@ -192,6 +193,36 @@ at load:
       value: ["drill press", "cricut|maker", "battery|p103"]
 ```
 
+The route's own pieces run on those photos too: the capability layer gets them
+as this turn's `attachments` (the fixed ids above; every write that would
+claim one is stubbed, so nothing is uploaded), and the route's QR reader
+(`src/lib/chat/photo-qr.ts`) decodes any code in them into the same "QR codes
+in this message's photos" prompt section — the run's JSON records the hints
+as `qrHints`.
+
+**Identifying a machine from a photo** (`cases/photo-identify.yaml`). The
+photos are `IMG_*.jpg`, made by `make-identify-photos.mjs` from the bundled
+product images — one studio shot, the rest on a drawn bench, tilted, cut off,
+soft and grainy, one with a QR label, one of a machine the lab does not have —
+and named like phone photos, because the file name reaches the model in the
+hint. Two machines are no test of recognition, so these cases say
+`catalog: lab`: the demo seed plus the look-alikes in `lab-catalog-fixture.ts`
+(four FDM printers, two of them Ultimakers that differ mainly in height, a
+second Formlabs printer, a second laser, a CNC router and bench tools).
+`run.eval.ts` runs every other case first, against the two machines their
+assertions are written for, then seeds the lab and runs the `catalog: lab`
+cases; the report merges both.
+
+```yaml
+- id: photo-ambiguous-ultimaker
+  prompt: "Can I use this one this afternoon?"
+  photos: [IMG_2057.jpg]
+  context: { page: gallery, as: student, catalog: lab }
+  assert:
+    - kind: identified_tool
+      value: ultimaker-3-extended|ask
+```
+
 To run one file or case, name it: `EVAL_CASES=staff-maintenance npm run eval`
 (a comma list of file names without `.yaml`, or case ids).
 
@@ -218,6 +249,7 @@ Kept small on purpose. Structural assertions do almost all the useful work.
 | `cites_page` | `value: "42"` or `"file.pdf#page=42"` (optional) | The answer cites a manual page; a `#cite-<ref>` is read as the URL the search returned for it, and an attached manual's `#cite-<ref>-<page>` or "(<title>, p. N)" as its stored address at that page |
 | `identified_items` | `value: ["drill press", "battery x2"]` | The last `identify_tools` call has a different item for each entry: alternatives joined by `\|`, matched in brand + name; a trailing ` xN` needs quantity ≥ N |
 | `identified_count` | `value: "3"` or `"3-4"` | The last `identify_tools` call recorded that many items |
+| `identified_tool` | `value: "form-4"`, `"ultimaker-3\|ask"` or `"none"` | The machine in the photo: the first catalogue machine the answer names (plain, bold, linked or by a unique alias) is that slug. `\|ask` also passes an answer that asks or says it cannot tell, with that machine among the candidates it names. `none`: no sentence claims a catalogue machine is the one pictured, and the answer says the lab lacks it |
 | `citations_resolve` | — | At least one manual link, and every one came from a `search_manual` result or a manual attached to the turn, answers 200 `application/pdf` (`%PDF-`), opens a page the PDF has, cites words on that page (searched passages only), and is labelled with the document it opens |
 
 `citations_resolve` needs evidence a pure function cannot fetch, so the executor
@@ -283,7 +315,9 @@ make this theatre.
 
 Today that fixture catalogue is exactly two machines: **Form 4** (resin printer)
 and **Trotec Speedy 400** (CO2 laser). Write cases against those; anything else
-is, correctly, a machine the lab does not have.
+is, correctly, a machine the lab does not have. The one exception is a
+`catalog: lab` case, which runs last against those two plus the machines in
+`lab-catalog-fixture.ts` (see "Identifying a machine from a photo" above).
 
 **It exercises the real path.** The runner composes the system prompt and the
 tool set through the same `CAPABILITIES` registry and `composeChat` that
@@ -327,6 +361,8 @@ should be revisited, not worked around.
 | `fixtures.ts` | Pins the mock catalogue: aliases, spec fields, equipment lexicon |
 | `harness.ts` | `composeCase` (the real prompt + tool set for one case, and the manuals the route would attach), `stubWrites`, `stubLiveReads`, `caseMessages` (history + prompt), `evalIdentity` (`as:`) |
 | `ticket-fixture.ts` | `seedEvalTickets` — the open Form 4 ticket the staff cases read |
+| `lab-catalog-fixture.ts` | `seedEvalLabCatalog` — the look-alike machines the `catalog: lab` (photo) cases run against |
+| `fixtures/photos/` | Photo fixtures and the scripts that make them (`make-photos.mjs`, `make-identify-photos.mjs`) |
 | `runner.ts` | Control flow: execute → assert → retry → classify → report |
 | `run.eval.ts` | `npm run eval` entrypoint: the real model call and safety rails |
 | `vitest.config.ts` | Config for `npm run eval` only — never picked up by `npm test` |
