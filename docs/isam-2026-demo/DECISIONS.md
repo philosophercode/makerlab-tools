@@ -60,7 +60,7 @@
 
 ## Accuracy flags (must stay honest in the prose)
 
-- **MCP endpoint: SHIPPED** (merged from main, PR #19). `v5/src/app/api/mcp/route.ts` —
+- **MCP endpoint: SHIPPED** (merged from main, PR #19). `src/app/api/mcp/route.ts` —
   standards-based MCP server (official SDK, streamable HTTP, server name `makerlab`) exposing
   `list_tools`, `search_tools`, `get_tool_details`, `get_unit_details`,
   `get_maintenance_history`. Abstract states it as live — accurate.
@@ -72,7 +72,7 @@
 
 - **MCP HTTP endpoint** (#19) — see above. The "bring your own AI" demo thread is now real.
 - **i18n / 12-language UI** (#15) — cookie-based locale, selector, RTL support. Languages
-  (`v5/src/i18n/config.ts`): English, Simplified Chinese, Spanish, Hindi, Korean, Arabic (RTL),
+  (`src/i18n/config.ts`): English, Simplified Chinese, Spanish, Hindi, Korean, Arabic (RTL),
   French, Brazilian Portuguese, Russian, Turkish, Japanese, Hebrew (RTL). Elevated the
   localization story in §2 from "chat answers in any language" to full UI localization.
 - **Gallery fuzzy ranked search + material/location facets** (#17) — reflected in §2.
@@ -111,7 +111,7 @@
 
 ## Dark-mode fix (v5 app code) — DONE + verified
 
-`v5/src/styles/globals.css`: the `.tool-detail` page had a private, light-only `--td-*` palette and
+`src/styles/globals.css`: the `.tool-detail` page had a private, light-only `--td-*` palette and
 hardcoded literals, so dark mode rendered light. Fix: routed ~40 scattered literals through the
 `--td-*` palette and added a dark override (under both `[data-theme="dark"]` and the
 `prefers-color-scheme: dark` media query). Light mode unchanged. Verified by prototyping on the live

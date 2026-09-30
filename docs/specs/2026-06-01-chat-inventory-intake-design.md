@@ -78,7 +78,7 @@ type Capability = {
 
 ### 3.2 Registry
 
-`v5/src/lib/capabilities/index.ts` exports an ordered array of capabilities:
+`src/lib/capabilities/index.ts` exports an ordered array of capabilities:
 
 ```ts
 export const CAPABILITIES = [catalog, units, maintenance, intake];
@@ -86,13 +86,13 @@ export const CAPABILITIES = [catalog, units, maintenance, intake];
 
 ### 3.3 Adapters
 
-- **Chat adapter** (`v5/src/lib/capabilities/chat-adapter.ts`): `toAiTools(caps, ctx)`
+- **Chat adapter** (`src/lib/capabilities/chat-adapter.ts`): `toAiTools(caps, ctx)`
   → `Record<string, AiTool>`. Wraps each `run()` in the AI SDK `tool()` shape. For
   tools with `card`, after `run()` returns it calls `ctx.writer.write({ type:
   "data-card", data: card(result), ... })` so the client renders a widget, and
   returns a compact text result to the model. Composes the system prompt by joining
   each capability's `promptFragment`.
-- **MCP adapter** (`v5/src/lib/capabilities/mcp-adapter.ts`): `registerAll(server,
+- **MCP adapter** (`src/lib/capabilities/mcp-adapter.ts`): `registerAll(server,
   caps)` → calls `server.registerTool(name, { description, inputSchema },
   handler)`; the handler runs `run()` and returns `{ content: [{ type: "text", text:
   JSON.stringify(result) }] }`. **Rule for `write` tools:** they are registered over
@@ -178,7 +178,7 @@ name. If a strong match exists, the card shows "Already in catalog" and offers
 
 ## 5. Notion write layer
 
-New functions in `v5/src/lib/notion.ts`, following the existing
+New functions in `src/lib/notion.ts`, following the existing
 `createMaintenanceLog` pattern (`/pages` POST, write-prop helpers already present:
 `titleProp`, `richTextProp`, `selectProp`, `relationProp`, `dateProp`,
 `fileUploadsProp`). Add `multiSelectProp`, `checkboxProp`, `urlProp` as needed.
@@ -237,7 +237,7 @@ must send the image bytes to the model.
 - Add an "Add equipment" entry (nav button and/or FAB action) that calls
   `useChatLauncher().open("I'd like to add new equipment to the inventory.")`.
 - Add `nav.add` / `nav.addAria` / `nav.addSeed` to all 12 locale files
-  (`v5/messages/*.json`), mirroring the `nav.report*` keys PR #25 added.
+  (`messages/*.json`), mirroring the `nav.report*` keys PR #25 added.
 
 ## 7. Relationship to PR #25 (merged)
 

@@ -133,7 +133,7 @@ Environment variables in Vercel, no code change: `NEXT_PUBLIC_SITE_NAME`,
 `NEXT_PUBLIC_COLOR_PRIMARY`, `NEXT_PUBLIC_COLOR_PRIMARY_DARK`,
 `NEXT_PUBLIC_CHAT_ASSISTANT_NAME`, and `AUDIENCE`. The lab hours shown in the header and on
 the lab screen are `NEXT_PUBLIC_LAB_HOURS` (one line of text, default `LAB OPEN 8AM-8PM`).
-Full explanations in `v5/.env.example`. **Redeploy after changing any variable** — a
+Full explanations in `.env.example`. **Redeploy after changing any variable** — a
 deployment only sees the values it was built with.
 
 ### Run the lab status screen (`/kiosk`)
@@ -203,7 +203,7 @@ failure, and the body names which stage broke.
 
 **To restore:** download the file from Vercel → Storage → the private Blob store. It holds
 the table rows as JSON. There is no automated restore, on purpose. The manual search tables
-are not in the file; after loading the rows, rebuild them from `v5/` with
+are not in the file; after loading the rows, rebuild them from the repo root with
 `npm run manuals:index -- --force`. Steps: [`operations.md` → Restoring](operations.md#restoring).
 **[dev]** for anything beyond reading the file.
 
@@ -293,15 +293,15 @@ or command line required. Do this first and diagnose afterwards.
 ## 7. Making code changes **[dev]**
 
 ```bash
-git clone https://github.com/philosophercode/makerlab-tools && cd makerlab-tools/v5
+git clone https://github.com/philosophercode/makerlab-tools && cd makerlab-tools
 npm install
 npm run dev          # works with no credentials, using the demo catalogue
 npm run test:all     # must pass before merging
 ```
 
 Read [`docs/constitution.md`](constitution.md) first — it is short and it is the rules.
-**Every feature starts with a spec in `docs/specs/` that merges before the code.** The live
-app is `v5/`; the root `src/` directory is the old v4 app and is not used.
+**Every feature starts with a spec in `docs/specs/` that merges before the code.** The app
+is the repository root.
 
 ---
 
@@ -310,12 +310,12 @@ app is `v5/`; the root `src/` directory is the old v4 app and is not used.
 Nothing about Cornell is hardcoded. Follow [`deploy.md`](deploy.md) Part 2, then:
 
 1. Set the `NEXT_PUBLIC_*` branding variables and `AUTH_ALLOWED_EMAIL_DOMAIN` for your
-   institution, and replace the logo in `v5/public/`.
+   institution, and replace the logo in `public/`.
 2. **Only if migrating an existing Notion catalogue:** run `npm run import:notion` once
    ([`deploy.md`](deploy.md) Stage 2). A new lab skips this and adds equipment through
    intake.
 
-Full variable list with explanations: `v5/.env.example`.
+Full variable list with explanations: `.env.example`.
 
 ---
 

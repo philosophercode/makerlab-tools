@@ -5,10 +5,7 @@ repository and applies equally to Claude Code, Codex, and human contributors.
 This file exists so Claude Code loads it automatically; keeping the content in
 one place stops the two documents from drifting apart.
 
-Two things to know before anything else:
-
-1. **The active app is `v5/`** (Postgres-backed, with Notion read only by the
-   one-time import), not the root `src/` tree (v4, AirTable, frozen). When
-   working in `v5/`, also read [`v5/AGENTS.md`](./v5/AGENTS.md).
-2. **This repository is the product.** v5 is the live Cornell Tech deployment
-   (<https://makerlab-ai.vercel.app>) and development continues here.
+**This repository is the product.** The app lives at the repository root and is
+the live Cornell Tech deployment (<https://makerlab-ai.vercel.app>); development
+continues here. Its data layer is Postgres; Notion is read only by the one-time
+import.

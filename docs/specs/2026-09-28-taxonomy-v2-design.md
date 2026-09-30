@@ -57,7 +57,7 @@ This change:
 ## 3. The tree
 
 Nine top-level categories and their second level, exactly as the review's §3. Every node's
-description is in `v5/src/lib/taxonomy/tree.ts`.
+description is in `src/lib/taxonomy/tree.ts`.
 
 | Top level (slug) | Second level (slugs) |
 |---|---|
@@ -71,7 +71,7 @@ description is in `v5/src/lib/taxonomy/tree.ts`.
 | Scanning, XR & Media (`scanning-xr-media`) | 3D Scanners (`3d-scanners`) · VR/XR (`vr-xr`) · Cameras & Mounts (`cameras-mounts`) · Tablets (`tablets`) |
 | Shop Infrastructure & Supplies (`shop-infrastructure-supplies`, **hidden from the public gallery**) | Dust Collection (`dust-collection`) · PPE (`ppe`) · Benches & Carts (`benches-carts`) · Batteries & Chargers (`batteries-chargers`) · Consumables (`consumables`) · Office (`office`) |
 
-**Where every tool goes** is `v5/src/lib/taxonomy/mapping.ts`, three rules, first match wins:
+**Where every tool goes** is `src/lib/taxonomy/mapping.ts`, three rules, first match wins:
 by **slug** (every tool the review listed; ⚑ items take the review's suggested place), by **name**
 (tools the review named that the saved listing had no slug for — the Ryobi impact driver, the
 Waveshare e-paper HAT, the Stanley wallboard saw), then by **old category** (`group › name`, the
@@ -125,7 +125,7 @@ answer is `category: { slug, confidence }` plus an optional top-level `categoryP
 
 ### 5.1 `npm run taxonomy:migrate` (dry run by default; `-- --apply` writes)
 
-`v5/scripts/taxonomy-migrate.ts` over `v5/src/lib/taxonomy/migrate.ts`. Target is the import scripts'
+`scripts/taxonomy-migrate.ts` over `src/lib/taxonomy/migrate.ts`. Target is the import scripts'
 order (`DATABASE_URL`, else `PGLITE_DATA_DIR`); **it refuses while the dev server holds the PGlite
 lock** (`PgliteLockedError`), dry run included. The plan is a pure function of the rows:
 

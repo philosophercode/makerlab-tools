@@ -13,7 +13,7 @@ open in a PR, say so and stop — planning against a moving spec wastes the plan
 
 ## Steps
 
-1. **Read** `docs/constitution.md`, the spec, and `v5/AGENTS.md`.
+1. **Read** `docs/constitution.md`, the spec, `AGENTS.md` and the `docs/architecture/` files for the areas it touches.
 
 2. **Verify the spec against the current code.** Specs go stale. Confirm the files,
    types, and patterns it references still exist and still look the way it assumes.
@@ -22,7 +22,7 @@ open in a PR, say so and stop — planning against a moving spec wastes the plan
 3. **Decompose into tasks**, grouped by the spec's phases. Each task states:
    - the files it creates or changes
    - what "done" means, concretely
-   - its tests, and which layer they belong to (`v5/TESTING.md`)
+   - its tests, and which layer they belong to (`TESTING.md`)
    - what it depends on, and what can run in parallel with it
 
 4. **Flag the risky ones.** Which tasks are likely to be harder than they look,

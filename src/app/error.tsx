@@ -1,23 +1,38 @@
 "use client";
 
-export default function Error({
-  reset,
-}: {
-  error: Error & { digest?: string };
-  reset: () => void;
-}) {
+import Link from "next/link";
+import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "../components/system/EmptyState";
+import { PublicPage } from "../components/system/PublicPage";
+
+/**
+ * The app's error boundary (UI system phase 5a; DESIGN.md §8.9): say what
+ * failed and that nothing was lost, offer Try again and the way home. The
+ * catalogue fails toward stale, never toward invented data (Article 4); when
+ * even that is impossible, this is what the visitor sees — in the system's
+ * frame and words, not a stack trace.
+ */
+export default function RouteError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+  const t = useTranslations("errors");
   return (
-    <div className="mx-auto max-w-xl px-4 py-20 text-center">
-      <h2 className="text-xl font-semibold">Something went wrong</h2>
-      <p className="mt-2 text-sm text-muted">
-        An unexpected error occurred. This is likely a temporary issue.
-      </p>
-      <button
-        onClick={reset}
-        className="mt-4 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-dark transition-colors"
+    <PublicPage width="narrow" crumbs={[{ label: t("errorCrumb") }]} title={t("errorTitle")}>
+      <EmptyState
+        tone="bad"
+        className="mt-4"
+        action={
+          <>
+            <Button variant="default" onClick={() => reset()}>
+              {t("tryAgain")}
+            </Button>
+            <Button asChild>
+              <Link href="/">{t("browseTools")}</Link>
+            </Button>
+          </>
+        }
       >
-        Try again
-      </button>
-    </div>
+        {t("errorBody")}
+      </EmptyState>
+    </PublicPage>
   );
 }

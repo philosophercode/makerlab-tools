@@ -189,7 +189,7 @@ cutter; anybody who sees it scans it and lands on that tool's page. §3's "label
 a script, not a route" is superseded: printing moves into the app, beside the inventory, so it
 no longer needs a developer. The script stays (`npm run qr:labels`, now also `--pdf`).
 
-**One URL format, one module.** `v5/src/lib/qr/urls.ts` owns `?src=qr` and
+**One URL format, one module.** `src/lib/qr/urls.ts` owns `?src=qr` and
 `toolQrTargetUrl(origin, slug)` = `<origin>/tools/<slug>?src=qr` — the format §3 printed and
 `QrArrivalNotice` reads. The script, the arrival notice, the admin sheets, the tool page's
 dialog, the image route and the assistant all import it, so old and new labels behave the

@@ -1,11 +1,10 @@
-// AirTable record wrapper
-export interface AirtableRecord<T> {
+export interface NotionRecord<T> {
   id: string;
   createdTime: string;
+  lastEditedTime: string;
   fields: T;
 }
 
-// AirTable attachment
 export interface Attachment {
   id: string;
   url: string;
@@ -21,52 +20,84 @@ export interface Attachment {
   };
 }
 
-// ── Categories table ────────────────────────────────────────────────
-
 export interface CategoryFields {
   name: string;
   group: string;
 }
 
-export type CategoryRecord = AirtableRecord<CategoryFields>;
-
-// ── Locations table ─────────────────────────────────────────────────
+export type CategoryRecord = NotionRecord<CategoryFields>;
 
 export interface LocationFields {
-  name: string; // zone name
+  id: string;
+  zone: string;
   room: string;
 }
 
-export type LocationRecord = AirtableRecord<LocationFields>;
-
-// ── Tools table ─────────────────────────────────────────────────────
+export type LocationRecord = NotionRecord<LocationFields>;
 
 export interface ToolFields {
   name: string;
   description?: string;
-  description_reviewed?: boolean;
-  category?: string[]; // linked record IDs
-  location?: string[]; // linked record IDs
+  category?: string[];
+  location?: string[];
   materials?: string[];
   ppe_required?: string[];
   tags?: string[];
-  authorized_only?: boolean;
   training_required?: boolean;
   use_restrictions?: string;
   emergency_stop?: string;
-  safety_doc_url?: string;
-  sop_url?: string;
-  video_url?: string;
-  map_tag?: string;
   image_attachments?: Attachment[];
-  generated_image?: Attachment[];
-  manual_attachments?: Attachment[];
   notes?: string;
+  published?: boolean;
+  /**
+   * Write-only: references to images already uploaded via the Notion
+   * file_upload API. The read path returns URL-based attachments in
+   * `image_attachments`; this field is consumed when creating a record so
+   * the Notion `image_attachments` files property is built with
+   * `type: "file_upload"` entries.
+   */
+  image_uploads?: Array<{ id: string; name: string }>;
 }
 
-export type ToolRecord = AirtableRecord<ToolFields>;
+export type ToolRecord = NotionRecord<ToolFields>;
 
-// Resolved tool with category/location objects instead of IDs
+export interface ResourceFields {
+  title: string;
+  tool?: string[];
+  type?: string;
+  url?: string;
+  files?: Attachment[];
+  notes?: string;
+  published?: boolean;
+}
+
+export type ResourceRecord = NotionRecord<ResourceFields>;
+
+export interface ProjectFields {
+  title: string;
+  author: string;
+  /** Markdown write-up. */
+  body: string;
+  photos?: Attachment[];
+  /** Relation IDs into the Tools DB. */
+  tools_used?: string[];
+  link?: string;
+  materials?: string[];
+  published?: boolean;
+  /** created_time submission timestamp. */
+  date?: string;
+  /**
+   * Write-only: references to files already uploaded via the Notion
+   * file_upload API. Mirrors the maintenance photo flow — the read path
+   * returns URL-based attachments in `photos`; this field is consumed when
+   * creating a record so the Notion `files` property is built with
+   * `type: "file_upload"` entries.
+   */
+  photo_uploads?: Array<{ id: string; name: string }>;
+}
+
+export type ProjectRecord = NotionRecord<ProjectFields>;
+
 export interface ToolWithMeta {
   id: string;
   name: string;
@@ -83,18 +114,10 @@ export interface ToolWithMeta {
   use_restrictions: string | null;
   emergency_stop: string | null;
   notes: string | null;
-  safety_doc_url: string | null;
-  sop_url: string | null;
-  video_url: string | null;
   map_tag: string | null;
   image_url: string | null;
-  generated_image_url: string | null;
   image_attachments: Attachment[];
-  generated_image: Attachment[];
-  manual_attachments: Attachment[];
 }
-
-// ── Units table ─────────────────────────────────────────────────────
 
 export type UnitStatus =
   | "Available"
@@ -107,19 +130,16 @@ export type UnitCondition = "Excellent" | "Good" | "Fair" | "Needs Repair";
 
 export interface UnitFields {
   unit_label: string;
-  tool?: string[]; // linked record IDs
+  tool?: string[];
   serial_number?: string;
   asset_tag?: string;
   status?: UnitStatus;
   condition?: UnitCondition;
   date_acquired?: string;
   notes?: string;
-  qr_code_id?: string;
 }
 
-export type UnitRecord = AirtableRecord<UnitFields>;
-
-// ── Maintenance_Logs table ──────────────────────────────────────────
+export type UnitRecord = NotionRecord<UnitFields>;
 
 export type MaintenanceType =
   | "Issue Report"
@@ -134,22 +154,34 @@ export type MaintenanceStatus = "Open" | "In Progress" | "Resolved" | "Closed";
 
 export interface MaintenanceLogFields {
   title: string;
-  unit?: string[]; // linked record IDs
+  unit?: string[];
   type?: MaintenanceType;
   priority?: MaintenancePriority;
   status?: MaintenanceStatus;
   reported_by?: string;
+  /**
+   * Write-only: the verified reporter's email, taken from the server-resolved
+   * session and never from tool or request input (auth spec §4). Empty on
+   * anonymous reports and on every record created before this property existed,
+   * which the read path simply ignores.
+   */
+  reporter_email?: string;
   assigned_to?: string;
   description?: string;
   resolution?: string;
   date_reported?: string;
   date_resolved?: string;
   photo_attachments?: Attachment[];
+  /**
+   * Write-only: references to files already uploaded via the Notion
+   * file_upload API. The read path returns URL-based attachments in
+   * `photo_attachments`; this field is consumed when creating a record so
+   * the Notion `files` property is built with `type: "file_upload"` entries.
+   */
+  photo_uploads?: Array<{ id: string; name: string }>;
 }
 
-export type MaintenanceLogRecord = AirtableRecord<MaintenanceLogFields>;
-
-// ── Flags table ─────────────────────────────────────────────────────
+export type MaintenanceLogRecord = NotionRecord<MaintenanceLogFields>;
 
 export type FlaggedField =
   | "description"
@@ -163,7 +195,8 @@ export type FlaggedField =
 export type FlagStatus = "New" | "Reviewed" | "Fixed" | "Dismissed";
 
 export interface FlagFields {
-  tool?: string[]; // linked record IDs
+  title: string;
+  tool?: string[];
   field_flagged?: FlaggedField;
   issue_description?: string;
   suggested_fix?: string;
@@ -172,4 +205,4 @@ export interface FlagFields {
   created_at?: string;
 }
 
-export type FlagRecord = AirtableRecord<FlagFields>;
+export type FlagRecord = NotionRecord<FlagFields>;

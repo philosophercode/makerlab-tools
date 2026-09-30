@@ -1,135 +1,232 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
+import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
+import { Field } from "./system/Field";
+import { RowStatus } from "./admin/RowStatus";
+import { FROSTED } from "./system/frosted";
+import { cn } from "@/lib/utils";
 
-interface FlagButtonProps {
-  toolId: string;
-  field: string;
-  label?: string;
-}
+/**
+ * "Report a correction" — a quiet text control at the foot of the tool page
+ * that opens a short form in a `Dialog` (design spec 2026-07-29 §6; UI system
+ * phase 5b, DESIGN.md §8.8: a decision gets a dialog) on the frosted plate.
+ * Radix gives the focus trap, Escape and focus return; the fields are `Field` + `NativeSelect` /
+ * `Textarea` / `Input`, the actions `Button`s.
+ *
+ * The confirmation replaces the form in place rather than firing a toast —
+ * toasts vanish before they are read. On failure the typed input is kept, and
+ * closing after a failure keeps it too; only a report that was sent resets.
+ *
+ * This is a client component, so it cannot import the server-only `flags`
+ * capability; `FIELD_OPTIONS` mirrors `FLAG_FIELDS` there and `FlagButton.test.tsx`
+ * asserts the two stay in step.
+ */
 
-const FIELD_LABELS: Record<string, string> = {
-  description: "Description",
-  image: "Image",
-  name: "Name",
-  category: "Category",
-  location: "Location",
-  materials: "Materials",
-  safety_info: "Safety Info",
+const FIELD_OPTIONS = [
+  "description",
+  "image",
+  "name",
+  "category",
+  "location",
+  "materials",
+  "safety_info",
+] as const;
+
+type FieldOption = (typeof FIELD_OPTIONS)[number];
+
+/** Mirrors MAX_FLAG_TEXT in lib/capabilities/flags.ts (spec §8). */
+const MAX_TEXT = 2_000;
+const MAX_REPORTER = 200;
+
+/** Error `code`s from `/api/flags` mapped to the message key shown to students. */
+const ERROR_MESSAGE_KEY: Record<string, "errorInvalid" | "errorRateLimited" | "errorFailed"> = {
+  invalid_input: "errorInvalid",
+  unknown_tool: "errorInvalid",
+  rate_limited: "errorRateLimited",
+  not_configured: "errorFailed",
+  write_failed: "errorFailed",
 };
 
-export default function FlagButton({ toolId, field, label }: FlagButtonProps) {
+interface FlagButtonProps {
+  /** Id of the tool being reported. */
+  toolId: string;
+  /** Pre-selected field, when the control is opened from a specific one. */
+  field?: FieldOption;
+  /** Drawn inside a row the page already lays out (the tool page footer), without its own wrapper. */
+  inline?: boolean;
+}
+
+export function FlagButton({ toolId, field: initialField = "description", inline = false }: FlagButtonProps) {
+  const t = useTranslations("flag");
+  const id = useId();
+
   const [open, setOpen] = useState(false);
-  const [issueDescription, setIssueDescription] = useState("");
-  const [suggestedFix, setSuggestedFix] = useState("");
+  const [field, setField] = useState<FieldOption>(initialField);
+  const [description, setDescription] = useState("");
+  const [suggestion, setSuggestion] = useState("");
   const [reporter, setReporter] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ success: boolean; error?: string } | null>(null);
+  const [errorKey, setErrorKey] = useState<"errorInvalid" | "errorRateLimited" | "errorFailed" | null>(null);
+  const [sent, setSent] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  function onOpenChange(next: boolean) {
+    setOpen(next);
+    if (next) return;
+    // Reset only after a successful report; a failed one keeps what was typed.
+    if (sent) {
+      setSent(false);
+      setField(initialField);
+      setDescription("");
+      setSuggestion("");
+      setReporter("");
+    }
+    setErrorKey(null);
+  }
+
+  async function handleSubmit(event: React.FormEvent) {
+    event.preventDefault();
+    if (!description.trim() || submitting) return;
+
+    setErrorKey(null);
     setSubmitting(true);
-    setResult(null);
-
     try {
-      const res = await fetch("/api/flag", {
+      const res = await fetch("/api/flags", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tool_id: toolId,
           field_flagged: field,
-          issue_description: issueDescription,
-          suggested_fix: suggestedFix || undefined,
-          reporter: reporter || undefined,
+          issue_description: description.trim(),
+          suggested_fix: suggestion.trim() || undefined,
+          reporter: reporter.trim() || undefined,
         }),
       });
-      const data = await res.json();
-      setResult(data);
-      if (data.success) {
-        setIssueDescription("");
-        setSuggestedFix("");
+
+      if (!res.ok) {
+        const data = (await res.json().catch(() => null)) as { code?: string } | null;
+        setErrorKey(ERROR_MESSAGE_KEY[data?.code || ""] || "errorFailed");
+        return;
       }
+
+      setSent(true);
     } catch {
-      setResult({ success: false, error: "Network error" });
+      setErrorKey("errorFailed");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  const ids = {
+    field: `${id}-field`,
+    description: `${id}-description`,
+    suggestion: `${id}-suggestion`,
+    reporter: `${id}-reporter`,
   };
 
-  if (result?.success) {
-    return (
-      <span className="text-xs text-accent-amber">
-        Thanks — we&apos;ll review this.
-      </span>
-    );
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1 text-xs text-muted hover:text-accent-amber transition-colors opacity-0 group-hover:opacity-100 focus:opacity-100"
-        aria-label={`Flag ${label || FIELD_LABELS[field] || field} as incorrect`}
-        title="Report incorrect information"
-      >
-        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-            d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z" />
-        </svg>
-      </button>
-    );
-  }
-
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="mt-2 rounded-lg border border-accent-amber/20 bg-accent-amber/5 p-3 space-y-2"
-    >
-      <p className="text-xs font-medium text-accent-amber">
-        Flag {FIELD_LABELS[field] || field} as incorrect
-      </p>
-      <textarea
-        required
-        value={issueDescription}
-        onChange={(e) => setIssueDescription(e.target.value)}
-        placeholder="What's wrong?"
-        rows={2}
-        className="w-full rounded border border-card-border bg-card-bg px-2 py-1.5 text-xs placeholder:text-muted focus:border-accent-amber focus:outline-none focus:ring-1 focus:ring-accent-amber resize-none"
-      />
-      <textarea
-        value={suggestedFix}
-        onChange={(e) => setSuggestedFix(e.target.value)}
-        placeholder="What should it say instead? (optional)"
-        rows={2}
-        className="w-full rounded border border-card-border bg-card-bg px-2 py-1.5 text-xs placeholder:text-muted focus:border-accent-amber focus:outline-none focus:ring-1 focus:ring-accent-amber resize-none"
-      />
-      <input
-        type="text"
-        value={reporter}
-        onChange={(e) => setReporter(e.target.value)}
-        placeholder="Your name or NetID (optional)"
-        className="w-full rounded border border-card-border bg-card-bg px-2 py-1.5 text-xs placeholder:text-muted focus:border-accent-amber focus:outline-none focus:ring-1 focus:ring-accent-amber"
-      />
-      {result?.error && (
-        <p className="text-xs text-danger">{result.error}</p>
-      )}
-      <div className="flex gap-2">
-        <button
-          type="submit"
-          disabled={submitting || !issueDescription.trim()}
-          className="rounded bg-accent-amber px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
-        >
-          {submitting ? "Sending..." : "Submit"}
-        </button>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="rounded px-3 py-1 text-xs text-muted hover:text-foreground"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
+    <div className={inline ? "contents" : "ui mx-auto mb-10 w-full max-w-[1200px] px-4 sm:px-8"}>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        {/* A Radix trigger, so closing returns focus here. */}
+        <DialogTrigger asChild>
+          <Button variant="link" className="h-auto px-0 py-1 font-mono text-label text-muted-foreground normal-case underline hover:text-foreground">
+            {t("trigger")}
+          </Button>
+        </DialogTrigger>
+        <DialogContent closeLabel={t("close")} className={cn(FROSTED, "max-h-[calc(100dvh-2rem)] overflow-y-auto")}>
+          <DialogHeader>
+            <p className="font-mono text-label tracking-[0.08em] text-muted-foreground uppercase">{t("eyebrow")}</p>
+            <DialogTitle>{sent ? t("sentTitle") : t("title")}</DialogTitle>
+            <DialogDescription>{sent ? t("sentBody") : t("lede")}</DialogDescription>
+          </DialogHeader>
+
+          {sent ? (
+            <DialogFooter>
+              <DialogClose asChild>
+                <Button variant="default">{t("close")}</Button>
+              </DialogClose>
+            </DialogFooter>
+          ) : (
+            <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
+              <Field id={ids.field} label={t("fieldLabel")}>
+                <NativeSelect
+                  id={ids.field}
+                  value={field}
+                  onChange={(event) => setField(event.target.value as FieldOption)}
+                  className="w-full"
+                >
+                  {FIELD_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {t(`fields.${option}`)}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+
+              <Field id={ids.description} label={t("descriptionLabel")}>
+                <Textarea
+                  id={ids.description}
+                  value={description}
+                  onChange={(event) => setDescription(event.target.value)}
+                  placeholder={t("descriptionPlaceholder")}
+                  maxLength={MAX_TEXT}
+                  rows={4}
+                  required
+                />
+              </Field>
+
+              <Field id={ids.suggestion} label={t("suggestionLabel")}>
+                <Textarea
+                  id={ids.suggestion}
+                  value={suggestion}
+                  onChange={(event) => setSuggestion(event.target.value)}
+                  maxLength={MAX_TEXT}
+                  rows={2}
+                />
+              </Field>
+
+              <Field id={ids.reporter} label={t("nameLabel")}>
+                <Input
+                  id={ids.reporter}
+                  type="text"
+                  value={reporter}
+                  onChange={(event) => setReporter(event.target.value)}
+                  maxLength={MAX_REPORTER}
+                />
+              </Field>
+
+              {errorKey ? (
+                <RowStatus tone="bad" role="alert">
+                  {t(errorKey)}
+                </RowStatus>
+              ) : null}
+
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button>{t("cancel")}</Button>
+                </DialogClose>
+                <Button type="submit" variant="default" disabled={!description.trim() || submitting}>
+                  {submitting ? t("submitting") : t("submit")}
+                </Button>
+              </DialogFooter>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }

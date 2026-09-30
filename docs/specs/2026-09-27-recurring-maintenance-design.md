@@ -357,7 +357,7 @@ Phase 2 can run in parallel with phase 3 once phase 1 merges.
 
 ## 10. Testing and evals
 
-Per `v5/TESTING.md`. The suite uses PGlite, mocks all HTTP and stubs model calls at the
+Per `TESTING.md`. The suite uses PGlite, mocks all HTTP and stubs model calls at the
 boundary (Article 3).
 
 - **Unit (`interval.test.ts`).** These cases are checked:

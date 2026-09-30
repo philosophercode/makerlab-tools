@@ -3,7 +3,7 @@
 **Date:** 2026-07-29
 **Status:** Implemented — `npm run eval` (status audit 2026-09-27, [`README.md`](README.md))
 **Target:** `v5/`
-**Branch:** `v5/evals`
+**Branch:** `evals`
 
 ## 1. Summary
 
@@ -51,7 +51,7 @@ cheap, deterministic, and catch real regressions. Model-graded scoring is deferr
 ## 3. Architecture
 
 ```
-v5/evals/
+evals/
   cases/
     catalog-lookup.yaml      # finds the right machine
     manual-grounding.yaml    # cites the manual, invents nothing

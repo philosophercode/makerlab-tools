@@ -1,234 +1,217 @@
-import { notFound } from "next/navigation";
+import type { Metadata } from "next";
+import { Suspense } from "react";
+import { permanentRedirect } from "next/navigation";
+import { DraftToolView } from "./DraftToolView";
+import { EditToolControl } from "./EditToolControl";
+import { QrArrivalNotice } from "./QrArrivalNotice";
+import { toolPageMetadata } from "./metadata";
+import { DetailShell } from "../../../components/DetailShell";
+import { FlagButton } from "../../../components/FlagButton";
+import { ToolChatStarters } from "../../../components/ToolChatStarters";
+import { ToolQrButton } from "../../../components/tool/ToolQrButton";
+import { qrSiteUrl } from "../../../lib/qr/site-url";
+import { toolPageUrl, toolQrTargetUrl } from "../../../lib/qr/urls";
+import { UsageBeacon } from "../../../components/usage/UsageBeacon";
+import { SignedInToolLocation } from "../../../components/map/SignedInToolLocation";
+import { SignedInToolMiniMap } from "../../../components/map/SignedInToolMiniMap";
+import { getCatalogTool, getCatalogTools, getManualContents, getToolMaintenanceHistory } from "../../../lib/catalog";
+import { toolRelations } from "../../../components/tool/relations";
+import { findToolByNotionPageId } from "../../../lib/data/catalog";
+import { isLegacyNotionId } from "../../../lib/legacy-id";
+import { getProjectsForTool } from "../../../lib/projects";
+import type { ToolEditorActions } from "../../../components/admin/tool-editor-actions";
 import {
-  fetchTool,
-  fetchAllCategories,
-  fetchAllLocations,
-  fetchUnitsByTool,
-  resolveTools,
-} from "@/lib/airtable";
-import ImageGallery from "@/components/ImageGallery";
-import SafetyBadges from "@/components/SafetyBadges";
-import DocLinks from "@/components/DocLinks";
-import UnitStatusTable from "@/components/UnitStatusTable";
-import Chat from "@/components/Chat";
-import FlagButton from "@/components/FlagButton";
-import ImageActions from "@/components/ImageActions";
-import MobileToolLayout from "@/components/MobileToolLayout";
+  archive,
+  loadToolForEditor,
+  markToolReviewed,
+  publish,
+  restore,
+  saveTool,
+  unpublish,
+} from "../../admin/inventory/actions";
+import { attachPhotos, removePhoto, reorderPhotos } from "../../admin/inventory/photo-actions";
+import {
+  addResource,
+  editResource,
+  removeResource,
+  reprocessManual,
+} from "../../admin/inventory/resource-actions";
+import { addUnit, deleteUnit, editUnit, retireUnit } from "../../admin/inventory/unit-actions";
 
-export const revalidate = 3600; // ISR: 1 hour — tool data rarely changes
+/**
+ * The tool editor's actions, handed to the page's Edit control (spec §5.3(b)).
+ *
+ * The same endpoints `/admin/inventory` uses — one editor, one set of writes,
+ * one place each permission is checked. They travel as props because a client
+ * island that imported them would drag `next/headers` and the limiter into the
+ * browser bundle; handing them down is not a grant, since every one of them
+ * re-checks its own permission (§8).
+ */
+const EDITOR_ACTIONS: ToolEditorActions = {
+  load: loadToolForEditor,
+  save: saveTool,
+  markReviewed: markToolReviewed,
+  publish,
+  unpublish,
+  archive,
+  restore,
+  addUnit,
+  editUnit,
+  retireUnit,
+  deleteUnit,
+  addResource,
+  editResource,
+  removeResource,
+  reprocessManual,
+  attachPhotos,
+  reorderPhotos,
+  removePhoto,
+};
 
-export default async function ToolDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+interface ToolDetailPageProps {
+  params: Promise<{
+    id: string;
+  }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}
+
+// No `generateStaticParams`: enumerating the slugs would make `next build`
+// depend on the database, which the client is explicitly designed not to
+// require — `DATABASE_URL` may be unset, Neon may be asleep, and PGlite cannot
+// run inside the bundled build (spec §3.2). Tool pages render on first request
+// instead and are then served from the cache, which is where they came from
+// anyway: every catalogue read is `"use cache"` + `cacheTag("catalog")`, so a
+// later write invalidates them by tag rather than waiting for the next build
+// (spec §3.9). `/projects/[id]` skips it for the same reason.
+
+/**
+ * The tool's name as the title and its photo as the link preview
+ * (`./metadata.ts`). It awaits `params` like the page itself does, and reads
+ * the same cached catalogue entry, so it adds no dynamic data the page does
+ * not already have.
+ */
+export async function generateMetadata({ params }: Pick<ToolDetailPageProps, "params">): Promise<Metadata> {
   const { id } = await params;
+  return toolPageMetadata(id);
+}
 
-  let tool;
-  let units: Awaited<ReturnType<typeof fetchUnitsByTool>> = [];
-  try {
-    const [toolRecord, categories, locations, fetchedUnits] = await Promise.all([
-      fetchTool(id),
-      fetchAllCategories(),
-      fetchAllLocations(),
-      fetchUnitsByTool(id).catch(() => [] as Awaited<ReturnType<typeof fetchUnitsByTool>>),
-    ]);
-    const resolved = resolveTools([toolRecord], categories, locations);
-    tool = resolved[0];
-    units = fetchedUnits;
-  } catch {
-    notFound();
+/**
+ * Re-encodes the incoming query string for a redirect target. `?src=qr` is
+ * the case that matters (`QrArrivalNotice` reads it on whatever page it lands
+ * on), but nothing here is specific to that one key — a legacy link keeps
+ * whatever it was carrying.
+ */
+function preserveQueryString(searchParams: Record<string, string | string[] | undefined>): string {
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(searchParams)) {
+    if (value === undefined) continue;
+    for (const v of Array.isArray(value) ? value : [value]) qs.append(key, v);
+  }
+  const serialized = qs.toString();
+  return serialized ? `?${serialized}` : "";
+}
+
+export default async function ToolDetailPage({ params, searchParams }: ToolDetailPageProps) {
+  const { id } = await params;
+  const tool = await getCatalogTool(id);
+
+  if (!tool) {
+    // Printed QR labels and old links encode a Notion page id rather than a
+    // slug (spec Goal 2). A match redirects permanently to the tool's current
+    // slug; anything else — a stale id, a typo, a slug that never existed —
+    // falls through to the draft check below.
+    if (isLegacyNotionId(id)) {
+      const match = await findToolByNotionPageId(id);
+      if (match) {
+        const query = preserveQueryString(await searchParams);
+        permanentRedirect(`/tools/${match.slug}${query}`);
+      }
+    }
+
+    // The catalogue read is cached and published-only, so a miss is not yet a
+    // 404: it may be a draft, and somebody holding `catalog.view_drafts` is
+    // allowed to open it (§5.3(b)). The identity read happens inside this
+    // boundary and nowhere above it, which is what keeps every *published*
+    // tool page prerenderable. `DraftToolView` calls `notFound()` for everyone
+    // else — the same refusal a slug nobody owns gets, so neither answer
+    // reveals that a draft exists.
+    return (
+      <Suspense fallback={null}>
+        <DraftToolView idOrSlug={id} actions={EDITOR_ACTIONS} />
+      </Suspense>
+    );
   }
 
-  if (!tool) notFound();
-
-  const infoContent = (
-    <>
-      {/* Image */}
-      <div className="group relative">
-        <ImageGallery
-          images={tool.image_attachments}
-          toolName={tool.name}
-          localImageUrl={tool.image_url || undefined}
-          generatedImageUrl={tool.generated_image_url || undefined}
-        />
-        <div className="absolute top-2 right-2">
-          <FlagButton toolId={id} field="image" />
-        </div>
-      </div>
-      <ImageActions toolName={tool.name} />
-
-      {/* Name + description */}
-      <div className="group">
-        <div className="flex items-start justify-between gap-2">
-          <h1 className="text-2xl font-bold">{tool.name}</h1>
-          <FlagButton toolId={id} field="name" />
-        </div>
-        <div className="flex items-start justify-between gap-2 mt-2">
-          <p className="text-muted leading-relaxed">
-            {tool.description}
-          </p>
-          <FlagButton toolId={id} field="description" />
-        </div>
-      </div>
-
-      {/* Notes */}
-      {tool.notes && (
-        <div>
-          <span className="block text-xs font-medium text-muted mb-1">
-            Notes
-          </span>
-          <p className="text-sm text-muted leading-relaxed whitespace-pre-wrap">
-            {tool.notes}
-          </p>
-        </div>
-      )}
-
-      {/* Safety */}
-      <div className="group flex items-start justify-between gap-2">
-        <SafetyBadges
-          ppe_required={tool.ppe_required}
-          training_required={tool.training_required}
-          authorized_only={tool.authorized_only}
-        />
-        <FlagButton toolId={id} field="safety_info" />
-      </div>
-
-      {/* Metadata */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="group">
-          <div className="flex items-center gap-1">
-            <span className="text-xs font-medium text-muted">Category</span>
-            <FlagButton toolId={id} field="category" />
-          </div>
-          <p className="mt-0.5 text-sm">
-            {tool.category_group} — {tool.category_sub}
-          </p>
-        </div>
-        <div className="group">
-          <div className="flex items-center gap-1">
-            <span className="text-xs font-medium text-muted">Location</span>
-            <FlagButton toolId={id} field="location" />
-          </div>
-          <p className="mt-0.5 text-sm">
-            {tool.location_room} — {tool.location_zone}
-          </p>
-        </div>
-      </div>
-
-      {/* Materials */}
-      {tool.materials.length > 0 && (
-        <div className="group">
-          <div className="flex items-center gap-1 mb-1.5">
-            <span className="text-xs font-medium text-muted">
-              Compatible Materials
-            </span>
-            <FlagButton toolId={id} field="materials" />
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {tool.materials.map((m) => (
-              <span
-                key={m}
-                className="rounded-full bg-muted-bg px-2.5 py-0.5 text-xs"
-              >
-                {m}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Use restrictions */}
-      {tool.use_restrictions && (
-        <div>
-          <span className="block text-xs font-medium text-muted mb-1">
-            Use Restrictions
-          </span>
-          <p className="text-sm text-muted leading-relaxed">
-            {tool.use_restrictions}
-          </p>
-        </div>
-      )}
-
-      {/* Emergency stop */}
-      {tool.emergency_stop && (
-        <div className="rounded-lg border border-danger/20 bg-danger/5 p-3">
-          <span className="block text-xs font-semibold text-danger mb-1">
-            Emergency Stop
-          </span>
-          <p className="text-sm">{tool.emergency_stop}</p>
-        </div>
-      )}
-
-      {/* Documentation links */}
-      <DocLinks
-        safety_doc_url={tool.safety_doc_url}
-        sop_url={tool.sop_url}
-        video_url={tool.video_url}
-      />
-
-      {/* Manual downloads */}
-      {tool.manual_attachments.length > 0 && (
-        <div>
-          <span className="block text-sm font-medium text-muted mb-2">Manuals</span>
-          <div className="space-y-1.5">
-            {tool.manual_attachments.map((a) => (
-              <a
-                key={a.id}
-                href={a.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-2 rounded-lg border border-card-border px-3 py-2 text-sm hover:bg-muted-bg transition-colors"
-              >
-                <span>📄</span>
-                <span className="truncate">{a.filename}</span>
-                <span className="ml-auto text-xs text-muted">
-                  {(a.size / 1024).toFixed(0)} KB
-                </span>
-              </a>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Units table */}
-      <UnitStatusTable units={units} />
-    </>
-  );
-
-  const chatContent = (
-    <Chat
-      toolId={id}
-      header={`Ask about ${tool.name}`}
-      suggestions={(() => {
-        const s: string[] = [`How do I use the ${tool.name}?`];
-        if (tool.ppe_required.length > 0)
-          s.push("What PPE do I need?");
-        if (tool.training_required)
-          s.push("How do I get trained on this?");
-        else
-          s.push("Any safety precautions?");
-        if (tool.materials.length > 0)
-          s.push(`What ${tool.materials.slice(0, 2).join(" and ")} settings should I use?`);
-        else
-          s.push("What can I make with this?");
-        return s.slice(0, 3);
-      })()}
-    />
-  );
+  // Three independent reads, together (performance plan, quick win 5):
+  // "Built with this" — published projects referencing this tool (empty if no
+  // projects DB is configured); each processed manual's chapters, linked to
+  // their pages (manual text spec §6); the recent maintenance across its
+  // units, without names (UI system phase 5a).
+  // The accessory links (taxonomy v2 facet) come from the cached catalogue
+  // list, which the gallery has already warmed: no query of their own.
+  const [projects, manualContents, maintenance, catalogue] = await Promise.all([
+    getProjectsForTool(tool.id),
+    getManualContents(tool.id),
+    getToolMaintenanceHistory(tool.id),
+    getCatalogTools(),
+  ]);
+  const relations = toolRelations(tool, catalogue);
 
   return (
-    <div className="mx-auto max-w-7xl px-4 pb-4 lg:py-8 flex flex-col lg:block max-lg:h-[calc(100dvh-3.5rem)] max-lg:overflow-hidden">
-      {/* Breadcrumb */}
-      <nav className="lg:sticky lg:top-14 z-40 -mx-4 mb-2 lg:mb-6 border-b border-card-border bg-background/90 px-4 py-2 lg:py-2.5 text-sm text-muted backdrop-blur-sm flex-shrink-0">
-        <a href="/" className="hover:text-foreground">
-          Tools
-        </a>
-        <span className="mx-2">/</span>
-        <span className="text-foreground font-medium">{tool.name}</span>
-      </nav>
-
-      <MobileToolLayout infoContent={infoContent} chatContent={chatContent} />
-    </div>
+    <>
+      {/* Arrivals from a QR label on a machine get the assistant surfaced above
+          the specs. Suspended so reading `?src=qr` stays a dynamic hole and the
+          prerendered detail shell below is untouched. */}
+      <Suspense fallback={null}>
+        <QrArrivalNotice toolName={tool.name} />
+      </Suspense>
+      <DetailShell
+        tool={tool}
+        projects={projects}
+        manualContents={manualContents}
+        maintenance={maintenance}
+        relations={relations}
+        heroMap={
+          // The mini-map beside the photo: the same rule as "Where it is" —
+          // its own dynamic hole, signed-in viewers only.
+          <Suspense fallback={null}>
+            <SignedInToolMiniMap tool={tool} />
+          </Suspense>
+        }
+        location={
+          // Signed-in viewers only (map access, PR #98): a dynamic hole, so the
+          // cached shell sent to everyone else carries no placement.
+          <Suspense fallback={null}>
+            <SignedInToolLocation tool={tool} />
+          </Suspense>
+        }
+      />
+      {/* Usage insight's view count (usage insight spec §5.3): the page is
+          cached, so the browser says it was seen. Suspended for the same
+          reason as the QR notice — it reads `?src=qr`. */}
+      <Suspense fallback={null}>
+        <UsageBeacon kind="tool_view" toolId={tool.id} />
+      </Suspense>
+      {/* The assistant's starter chips for this tool, handed to the chat in
+          the layout; nothing is rendered (amendment "Tool-specific starter
+          questions"). */}
+      <ToolChatStarters slug={tool.slug} id={tool.id} questions={tool.starterQuestions ?? []} />
+      {/* Edit mode, phone-first (§5.3(b)). Another dynamic hole of its own:
+          the control asks `/api/identity` after mount, so the shell above it
+          stays cached for the visitors who are not staff. */}
+      <EditToolControl slug={tool.slug} toolName={tool.name} actions={EDITOR_ACTIONS} />
+      {/* Quiet footer controls, below the content and not competing with it:
+          the tool's QR code to save or share (QR labels) and reporting a
+          wrong field (report-a-correction spec §6). */}
+      <div className="ui mx-auto mb-10 flex w-full max-w-[1200px] flex-wrap items-center gap-x-6 gap-y-1 px-4 sm:px-8">
+        <ToolQrButton
+          slug={tool.slug}
+          toolName={tool.name}
+          pageUrl={toolPageUrl(qrSiteUrl(), tool.slug)}
+          scanUrl={toolQrTargetUrl(qrSiteUrl(), tool.slug)}
+        />
+        <FlagButton toolId={tool.id} inline />
+      </div>
+    </>
   );
 }

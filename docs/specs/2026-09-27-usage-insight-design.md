@@ -369,7 +369,7 @@ needs parity phase 2.
 
 ## 10. Testing
 
-Per `v5/TESTING.md`. There are no network calls, and `streamText` is stubbed (Article 3).
+Per `TESTING.md`. There are no network calls, and `streamText` is stubbed (Article 3).
 
 - **Unit**
   - `fromTurn`: each gap kind; no gap when a tool resolved; a deduplicated `tool_asked`;
