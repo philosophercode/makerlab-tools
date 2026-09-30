@@ -5,7 +5,6 @@ import { CorrectionsQueue } from "../../../components/admin/CorrectionsQueue";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { listFeedbackQueue } from "../../../lib/data/feedback";
-import { siteConfig } from "../../../lib/site-config";
 import { setCorrectionStatus } from "./actions";
 
 /**
@@ -25,7 +24,7 @@ import { setCorrectionStatus } from "./actions";
  */
 
 export const metadata = {
-  title: `Corrections — ${siteConfig.name}`,
+  title: "Corrections",
 };
 
 export default async function AdminCorrectionsPage() {

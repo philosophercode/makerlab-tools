@@ -9,6 +9,7 @@ import type { ChatProposalItem } from "../ChatProposalCards";
 import type { IntakeTablePayload } from "../../lib/intake/types";
 import type { ImportCardPayload } from "../../lib/import/view";
 import type { ActionProposalCardPayload } from "../../lib/capabilities/actions";
+import type { ToolQrCardPayload } from "../../lib/capabilities/qr";
 import { attachedManualLinks, attachedManuals, citedPassages, linkAttachedPageMentions, manualPassages } from "./manual-citations";
 import { stripCitations, toolStatusLabel, type ChatT } from "./chat-text";
 
@@ -37,6 +38,7 @@ const IntakeTableCard = lazy(() => import("../IntakeTableCard").then((m) => ({ d
 const ImportCard = lazy(() => import("../ImportCard").then((m) => ({ default: m.ImportCard })));
 const ChatProposalCards = lazy(() => import("../ChatProposalCards").then((m) => ({ default: m.ChatProposalCards })));
 const ActionProposalCard = lazy(() => import("./ActionProposalCard").then((m) => ({ default: m.ActionProposalCard })));
+const ToolQrCard = lazy(() => import("./ToolQrCard").then((m) => ({ default: m.ToolQrCard })));
 
 const RUNNING = new Set(["input-streaming", "input-available"]);
 
@@ -53,7 +55,8 @@ const RUNNING = new Set(["input-streaming", "input-available"]);
  *   turn's in one `ChatProposalCards` where the first arrived), an
  *   import's hand-off (`data-import-card`) and the assistant's proposed
  *   actions (`data-action-proposal`, one `ActionProposalCard` each —
- *   assistant–GUI parity spec §6);
+ *   assistant–GUI parity spec §6) and a tool's QR code (`data-tool-qr`,
+ *   `ToolQrCard`, written by `get_tool_qr_code`);
  * - then, for an answer that cited the manual, its **Sources**: the pages it
  *   linked, each opening the PDF there.
  *
@@ -149,6 +152,16 @@ export const ChatMessage = memo(function ChatMessage({
       blocks.push(
         <Suspense key={`action-${data.groupId}`} fallback={null}>
           <ActionProposalCard payload={data} />
+        </Suspense>
+      );
+      return;
+    }
+    if (part.type === "data-tool-qr" && isKind(part, "tool-qr")) {
+      hasCard = true;
+      const data = (part as { data: ToolQrCardPayload }).data;
+      blocks.push(
+        <Suspense key={`qr-${index}`} fallback={null}>
+          <ToolQrCard payload={data} />
         </Suspense>
       );
       return;

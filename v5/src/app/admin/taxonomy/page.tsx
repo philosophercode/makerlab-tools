@@ -5,7 +5,6 @@ import { TaxonomyBoard } from "../../../components/admin/TaxonomyBoard";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { listAdminCategories, listCategoryProposals, listToolsForTaxonomy } from "../../../lib/data/category-admin";
-import { siteConfig } from "../../../lib/site-config";
 import { decideCategoryProposal, editCategory, mergeCategories, proposeCategory, recategorizeTool, setCategoryRetired } from "./actions";
 
 /**
@@ -19,7 +18,7 @@ import { decideCategoryProposal, editCategory, mergeCategories, proposeCategory,
  */
 
 export const metadata = {
-  title: `Taxonomy — ${siteConfig.name}`,
+  title: "Taxonomy",
 };
 
 export default async function AdminTaxonomyPage() {

@@ -17,7 +17,7 @@ const OPEN_CHAT = /Open the MakerLAB (Assistant|AI)/;
 test("an anonymous visitor sees the page, the Visitor column highlighted, and the never list", async ({ page }) => {
   await page.goto("/assistant");
   await expect(page.getByRole("heading", { level: 1, name: "What MakerLAB AI can and can't do" })).toBeVisible();
-  await expect(page).toHaveTitle("What MakerLAB AI can do — MakerLAB Tools");
+  await expect(page).toHaveTitle("What MakerLAB AI can do · MakerLAB Tools");
   await expect(page.locator('th[aria-current="true"]')).toHaveAttribute("data-role", "anonymous");
   await expect(page.locator("[data-slot=for-you]")).toContainText("prepare no changes for you to confirm");
 

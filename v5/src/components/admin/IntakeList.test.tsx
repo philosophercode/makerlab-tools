@@ -432,3 +432,64 @@ describe("IntakeList", () => {
     });
   });
 });
+
+describe("IntakeList — Research selected (amendment \"Many items at once\")", () => {
+  const ITEMS = [
+    item({ id: "11111111-1111-4111-8111-111111111111", name: "RYOBI Drill Press", quantity: 1 }),
+    item({ id: "22222222-2222-4222-8222-222222222222", name: "RYOBI ONE+ 18V Battery", quantity: 2, seenIn: "photo 1" }),
+    item({ id: "33333333-3333-4333-8333-333333333333", name: "Laser under review", status: "researching" }),
+    item({ id: "44444444-4444-4444-8444-444444444444", name: "Cordless tool", identifyConfidence: "unsure" }),
+  ];
+
+  it("shows each item's count, where it was seen and an unsure mark", () => {
+    render(<IntakeList items={ITEMS} researchLeft={40} />);
+    expect(screen.getByLabelText("2 units")).toHaveTextContent("×2");
+    expect(screen.getByText("Seen: photo 1")).toBeInTheDocument();
+    expect(screen.getByText("Not sure — check it")).toBeInTheDocument();
+  });
+
+  it("researches the ticked items that can be, after the spend confirmation, in one request", async () => {
+    const user = userEvent.setup();
+    const fetchSpy = stubFetch(202, { requestId: "r", runId: "run", queued: [], readyAsUnit: [] });
+    render(<IntakeList items={ITEMS} researchLeft={40} />);
+
+    await user.click(screen.getByRole("checkbox", { name: "Select “RYOBI Drill Press”" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select “RYOBI ONE+ 18V Battery”" }));
+    await user.click(screen.getByRole("checkbox", { name: "Select “Laser under review”" }));
+
+    // The researching one is ticked but cannot be sent again.
+    await user.click(screen.getByRole("button", { name: "Research selected (2)" }));
+    expect(screen.getByRole("group", { name: "Confirm research" })).toHaveTextContent(
+      "Research 2 items? That uses 2 of the 40 research credits you have left today — about $0.06–$0.07."
+    );
+    expect(fetchSpy).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Start research (2)" }));
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    const [url, init] = fetchSpy.mock.calls[0];
+    expect(url).toBe("/api/pending-tools/research");
+    expect(JSON.parse(String(init?.body))).toEqual({
+      ids: ["11111111-1111-4111-8111-111111111111", "22222222-2222-4222-8222-222222222222"],
+    });
+    expect(router.refresh).toHaveBeenCalled();
+  });
+
+  it("says when none of the ticked items can be researched from here", async () => {
+    const user = userEvent.setup();
+    render(<IntakeList items={ITEMS} researchLeft={40} />);
+    await user.click(screen.getByRole("checkbox", { name: "Select “Laser under review”" }));
+    expect(screen.getByRole("button", { name: "Research selected (0)" })).toBeDisabled();
+    expect(screen.getByText("None of the ticked items can be researched from here.")).toBeInTheDocument();
+  });
+
+  it("names the refusal when the route says no", async () => {
+    const user = userEvent.setup();
+    stubFetch(429, { code: "daily_limit", error: "x", remaining: 0 });
+    render(<IntakeList items={ITEMS} researchLeft={0} />);
+    await user.click(screen.getByRole("checkbox", { name: "Select “RYOBI Drill Press”" }));
+    await user.click(screen.getByRole("button", { name: "Research selected (1)" }));
+    await user.click(screen.getByRole("button", { name: "Start research (1)" }));
+    expect(await screen.findByText(/today's research limit/)).toBeInTheDocument();
+    expect(router.refresh).not.toHaveBeenCalled();
+  });
+});

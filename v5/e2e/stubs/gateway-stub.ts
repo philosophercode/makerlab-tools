@@ -25,6 +25,8 @@ import {
   GATEWAY_STUB_ORIGIN,
   GATEWAY_STUB_PORT,
   INTAKE_ITEMS,
+  MULTI_ITEMS,
+  MULTI_PROMPT,
   type IntakeFixtureItem,
 } from "./intake-fixture.ts";
 
@@ -139,6 +141,22 @@ function identifyToolInput(said: string) {
 }
 
 /** The text of the last message's text parts only — what the person (or the tool result's caller) most recently said. */
+/**
+ * The multi-item scenario's `identify_tools` input: four objects across the
+ * message's two photos (amendment "Many items at once").
+ */
+function multiIdentifyInput(said: string) {
+  const [first, second] = [...said.matchAll(/attachment_id=([0-9a-f-]{36})/gi)].map((match) => match[1]);
+  return {
+    items: [
+      { name: MULTI_ITEMS.drillPress, brand: "RYOBI", categoryHint: "Drilling", attachmentIds: [first], confidence: "sure", seenIn: "photo 1, left" },
+      { name: MULTI_ITEMS.cutter, brand: "Cricut", categoryHint: "Cutting", attachmentIds: [first, second], confidence: "sure", seenIn: "photo 1, centre; photo 2, left" },
+      { name: MULTI_ITEMS.battery, brand: "RYOBI", categoryHint: "Batteries", attachmentIds: [first], quantity: 2, confidence: "likely", seenIn: "photo 1, right" },
+      { name: MULTI_ITEMS.unsure, categoryHint: "Electronics", attachmentIds: [second], confidence: "unsure", seenIn: "photo 2, right" },
+    ],
+  };
+}
+
 function lastMessageText(req: ParsedLanguageRequest): string {
   const last = req.prompt.at(-1);
   if (!last) return "";
@@ -160,6 +178,7 @@ function answerChat(req: ParsedLanguageRequest): WireStreamPart[] {
   if (lastMessageHasToolResult(req)) return streamedText(AFTER_TABLE_REPLY);
   const said = lastMessageText(req);
   if (/add new equipment/i.test(said)) return streamedText(ASK_FOR_ITEMS_REPLY);
+  if (said.includes(MULTI_PROMPT)) return streamedToolCall("call_identify_multi_e2e", "identify_tools", multiIdentifyInput(said));
   return streamedToolCall("call_identify_e2e", "identify_tools", identifyToolInput(said));
 }
 

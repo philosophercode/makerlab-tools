@@ -5,7 +5,6 @@ import { EmptyState } from "../../../components/system/EmptyState";
 import { Prose, PublicPage } from "../../../components/system/PublicPage";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { oauthClientName } from "../../../lib/data/api-tokens";
-import { siteConfig } from "../../../lib/site-config";
 import { decideConsentAction } from "./actions";
 
 /**
@@ -18,7 +17,7 @@ import { decideConsentAction } from "./actions";
  */
 
 export const metadata = {
-  title: `Connect an app — ${siteConfig.name}`,
+  title: "Connect an app",
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;

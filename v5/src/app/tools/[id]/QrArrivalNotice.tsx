@@ -4,10 +4,9 @@ import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { useChatLauncher } from "../../../components/ChatLauncherContext";
-
-/** Marks traffic that arrived from a label on a machine. */
-export const QR_SOURCE_PARAM = "src";
-export const QR_SOURCE_VALUE = "qr";
+// One definition of the marker a label carries, shared with everything that
+// makes a code (`lib/qr/urls.ts`), so old and new labels land the same way.
+import { QR_SOURCE_PARAM, QR_SOURCE_VALUE } from "../../../lib/qr/urls";
 
 interface QrArrivalNoticeProps {
   toolName: string;

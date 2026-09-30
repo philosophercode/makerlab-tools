@@ -93,7 +93,13 @@ function rowOf(name: string): HTMLElement {
 }
 
 function researchButton(): HTMLElement {
-  return screen.getByRole("button", { name: /^Research selected/ });
+  return screen.getByRole("button", { name: /^Add to research/ });
+}
+
+/** Add to research, then confirm the spend. */
+async function research(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(researchButton());
+  await user.click(screen.getByRole("button", { name: /^Start research/ }));
 }
 
 describe("IntakeTableCard — selection", () => {
@@ -106,7 +112,7 @@ describe("IntakeTableCard — selection", () => {
     const all = screen.getByRole("checkbox", { name: "Select all rows" });
     expect(all).toBeChecked();
     expect(all).not.toBePartiallyChecked();
-    expect(researchButton()).toHaveTextContent("Research selected (3)");
+    expect(researchButton()).toHaveTextContent("Add to research (3)");
   });
 
   it("selects some, none and all again from the header", async () => {
@@ -118,13 +124,13 @@ describe("IntakeTableCard — selection", () => {
     await user.click(screen.getByRole("checkbox", { name: "Select Glowforge Pro" }));
     expect(all).not.toBeChecked();
     expect(all).toBePartiallyChecked();
-    expect(researchButton()).toHaveTextContent("Research selected (2)");
+    expect(researchButton()).toHaveTextContent("Add to research (2)");
 
     // All.
     await user.click(all);
     expect(all).toBeChecked();
     expect(all).not.toBePartiallyChecked();
-    expect(researchButton()).toHaveTextContent("Research selected (3)");
+    expect(researchButton()).toHaveTextContent("Add to research (3)");
 
     // None.
     await user.click(all);
@@ -132,7 +138,7 @@ describe("IntakeTableCard — selection", () => {
     for (const item of THREE) {
       expect(screen.getByRole("checkbox", { name: `Select ${item.name}` })).not.toBeChecked();
     }
-    expect(researchButton()).toHaveTextContent("Research selected (0)");
+    expect(researchButton()).toHaveTextContent("Add to research (0)");
     expect(researchButton()).toBeDisabled();
   });
 });
@@ -214,7 +220,7 @@ describe("IntakeTableCard — editing a row", () => {
 
     expect(call()).toEqual({ url: `/api/pending-tools/${C}`, method: "PATCH", body: { discard: true } });
     expect(screen.queryByText("Roland GS2-24")).not.toBeInTheDocument();
-    expect(researchButton()).toHaveTextContent("Research selected (2)");
+    expect(researchButton()).toHaveTextContent("Add to research (2)");
   });
 
   it("keeps a row whose removal was refused, and says why", async () => {
@@ -244,7 +250,7 @@ describe("IntakeTableCard — duplicates", () => {
       "Choose what to do with this duplicate before it can be researched."
     );
     expect(screen.getByRole("link", { name: "Form 4" })).toHaveAttribute("href", "/tools/form-4");
-    expect(researchButton()).toHaveTextContent("Research selected (1)");
+    expect(researchButton()).toHaveTextContent("Add to research (1)");
   });
 
   it("lists it as a different tool, and then selects it", async () => {
@@ -263,7 +269,7 @@ describe("IntakeTableCard — duplicates", () => {
     expect(box).toBeEnabled();
     expect(box).toBeChecked();
     expect(screen.getByText("Listing as a separate tool")).toBeInTheDocument();
-    expect(researchButton()).toHaveTextContent("Research selected (2)");
+    expect(researchButton()).toHaveTextContent("Add to research (2)");
   });
 
   it("adds it as another unit with the serial number typed", async () => {
@@ -339,7 +345,7 @@ describe("IntakeTableCard — Research", () => {
     expect(researchButton()).toBeDisabled();
 
     answer(json(200, { item: { ...THREE[2], status: "discarded" } }));
-    expect(await screen.findByRole("button", { name: "Research selected (2)" })).toBeEnabled();
+    expect(await screen.findByRole("button", { name: "Add to research (2)" })).toBeEnabled();
   });
 
   it("posts exactly the selected ids, and says research has started", async () => {
@@ -350,7 +356,7 @@ describe("IntakeTableCard — Research", () => {
     render(<IntakeTableCard payload={payload(THREE)} />);
 
     await user.click(screen.getByRole("checkbox", { name: "Select Glowforge Pro" }));
-    await user.click(researchButton());
+    await research(user);
 
     expect(call()).toEqual({
       url: "/api/pending-tools/research",
@@ -371,7 +377,7 @@ describe("IntakeTableCard — Research", () => {
     expect(within(rowOf("Roland GS2-24")).getByText("Queued")).toBeInTheDocument();
     // The table is done; nothing on it can be changed now.
     expect(screen.getByRole("button", { name: "Edit Glowforge Pro" })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: /^Research selected/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Add to research/ })).not.toBeInTheDocument();
   });
 
   it("says when an add-unit item skipped research", async () => {
@@ -382,7 +388,7 @@ describe("IntakeTableCard — Research", () => {
     );
     render(<IntakeTableCard payload={payload([THREE[0], unit])} />);
 
-    await user.click(researchButton());
+    await research(user);
 
     expect(call().body).toEqual({ ids: [A, B] });
     expect(screen.getByText(/Researching 1 tool —/)).toBeInTheDocument();
@@ -402,7 +408,7 @@ describe("IntakeTableCard — Research", () => {
       );
     render(<IntakeTableCard payload={payload(THREE)} />);
 
-    await user.click(researchButton());
+    await research(user);
 
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Research couldn’t start. The items are saved and queued — press Retry."
@@ -424,7 +430,7 @@ describe("IntakeTableCard — Research", () => {
     );
     render(<IntakeTableCard payload={payload(THREE)} />);
 
-    await user.click(researchButton());
+    await research(user);
 
     expect(screen.getByRole("alert")).toHaveTextContent("You can research 2 more today.");
     // Not a start failure: the table stays usable and the button returns.
@@ -437,7 +443,7 @@ describe("IntakeTableCard — Research", () => {
     fetchMock.mockRejectedValueOnce(new TypeError("network down"));
     render(<IntakeTableCard payload={payload(THREE)} />);
 
-    await user.click(researchButton());
+    await research(user);
 
     expect(screen.getByRole("alert")).toHaveTextContent("That didn’t go through. Try again.");
     expect(screen.queryByText(/Researching/)).not.toBeInTheDocument();
@@ -489,5 +495,137 @@ describe("IntakeTableCard — photos and warnings", () => {
     expect(
       screen.getByText("Some photos are attached but can’t be shown here yet.")
     ).toBeInTheDocument();
+  });
+});
+
+describe("IntakeTableCard — many items at once (amendment \"Many items at once\")", () => {
+  const BENCH = [
+    row(A, "RYOBI Drill Press", { identifyConfidence: "sure", seenIn: "photo 1, left" }),
+    row(B, "RYOBI ONE+ 18V Battery", { quantity: 2, identifyConfidence: "likely", seenIn: "photo 1, front" }),
+    row(C, "Cordless tool, brand not visible", { identifyConfidence: "unsure", seenIn: "photo 2" }),
+  ];
+
+  function bench(researchLeft: number | null = 40): IntakeTablePayload {
+    return { ...payload(BENCH), researchLeft };
+  }
+
+  it("ticks every suspected item except the one the model was unsure of", () => {
+    render(<IntakeTableCard payload={bench()} />);
+
+    expect(screen.getByRole("checkbox", { name: "Select RYOBI Drill Press" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Select RYOBI ONE+ 18V Battery" })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "Select Cordless tool, brand not visible" })).not.toBeChecked();
+    expect(within(rowOf("Cordless tool, brand not visible")).getByText("Not sure — check it")).toBeInTheDocument();
+    expect(screen.getByLabelText("2 units")).toHaveTextContent("×2");
+    expect(screen.getByText("Seen: photo 1, left")).toBeInTheDocument();
+    expect(researchButton()).toHaveTextContent("Add to research (2)");
+  });
+
+  it("asks before spending: the count, the allowance left and about what it costs", async () => {
+    const user = userEvent.setup();
+    render(<IntakeTableCard payload={bench(40)} />);
+
+    await user.click(researchButton());
+
+    const confirm = screen.getByRole("group", { name: "Confirm research" });
+    expect(confirm).toHaveTextContent(
+      "Research 2 items? That uses 2 of the 40 research credits you have left today — about $0.06–$0.07."
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    // The ticks are held while the question is open.
+    expect(screen.getByRole("checkbox", { name: "Select RYOBI Drill Press" })).toBeDisabled();
+
+    await user.click(within(confirm).getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("group", { name: "Confirm research" })).not.toBeInTheDocument();
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(researchButton()).toBeEnabled();
+  });
+
+  it("starts research for exactly the ticked items once confirmed", async () => {
+    const user = userEvent.setup();
+    fetchMock.mockResolvedValueOnce(json(202, { requestId: "r-1", runId: "run-1", queued: [A, B, C], readyAsUnit: [] }));
+    render(<IntakeTableCard payload={bench(40)} />);
+
+    await user.click(screen.getByRole("checkbox", { name: "Select Cordless tool, brand not visible" }));
+    await user.click(researchButton());
+    expect(screen.getByRole("group", { name: "Confirm research" })).toHaveTextContent("Research 3 items?");
+    await user.click(screen.getByRole("button", { name: "Start research (3)" }));
+
+    expect(call()).toEqual({ url: "/api/pending-tools/research", method: "POST", body: { ids: [A, B, C] } });
+    expect(screen.getByText(/Researching 3 tools/)).toBeInTheDocument();
+  });
+
+  it("warns when the selection is more than the allowance left, and words it without a number it cannot read", async () => {
+    const user = userEvent.setup();
+    const { unmount } = render(<IntakeTableCard payload={bench(1)} />);
+    await user.click(researchButton());
+    expect(screen.getByText(/more than the 1 you have left today/)).toBeInTheDocument();
+    unmount();
+
+    render(<IntakeTableCard payload={bench(null)} />);
+    await user.click(researchButton());
+    expect(screen.getByRole("group", { name: "Confirm research" })).toHaveTextContent(
+      "Research 2 items? That uses 2 of today’s research credits — about $0.06–$0.07."
+    );
+  });
+
+  it("starts at once when every ticked item is another unit, which costs nothing", async () => {
+    const user = userEvent.setup();
+    const unit = row(A, "Formlabs Form 4", { duplicateOf: TOOL_MATCH, duplicateResolution: "add_unit" });
+    fetchMock.mockResolvedValueOnce(json(202, { requestId: "r-1", runId: null, queued: [], readyAsUnit: [A] }));
+    render(<IntakeTableCard payload={{ ...payload([unit]), researchLeft: 0 }} />);
+
+    await user.click(researchButton());
+
+    expect(screen.queryByRole("group", { name: "Confirm research" })).not.toBeInTheDocument();
+    expect(call().body).toEqual({ ids: [A] });
+  });
+
+  it("just adds to intake: nothing is sent, and the card says where they wait", async () => {
+    const user = userEvent.setup();
+    render(<IntakeTableCard payload={bench()} />);
+
+    await user.click(screen.getByRole("button", { name: "Just add to intake" }));
+
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(screen.getByText(/Saved to intake — 3 items wait on the Intake page/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Open the Intake page" })).toHaveAttribute("href", "/admin/intake");
+    expect(screen.getByRole("checkbox", { name: "Select RYOBI Drill Press" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /^Add to research/ })).not.toBeInTheDocument();
+  });
+
+  it("discards the ticked items after asking, one PATCH each", async () => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(json(200, { item: { ...BENCH[0], status: "discarded" } }))
+      .mockResolvedValueOnce(json(200, { item: { ...BENCH[1], status: "discarded" } }));
+    render(<IntakeTableCard payload={bench()} />);
+
+    await user.click(screen.getByRole("button", { name: "Discard (2)" }));
+    const confirm = screen.getByRole("group", { name: "Discard the ticked items" });
+    expect(confirm).toHaveTextContent("Discard 2 items? They leave intake, and their photos are deleted.");
+    expect(fetchMock).not.toHaveBeenCalled();
+    await user.click(within(confirm).getByRole("button", { name: "Discard 2 items" }));
+
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(call(0)).toEqual({ url: `/api/pending-tools/${A}`, method: "PATCH", body: { discard: true } });
+    expect(call(1)).toEqual({ url: `/api/pending-tools/${B}`, method: "PATCH", body: { discard: true } });
+    expect(screen.queryByText("RYOBI Drill Press")).not.toBeInTheDocument();
+    expect(screen.getByText("Cordless tool, brand not visible")).toBeInTheDocument();
+    expect(researchButton()).toHaveTextContent("Add to research (0)");
+  });
+
+  it("keeps a row whose discard was refused, and says why", async () => {
+    const user = userEvent.setup();
+    fetchMock
+      .mockResolvedValueOnce(json(409, { code: "not_editable", error: "x" }))
+      .mockResolvedValueOnce(json(200, { item: { ...BENCH[1], status: "discarded" } }));
+    render(<IntakeTableCard payload={bench()} />);
+
+    await user.click(screen.getByRole("button", { name: "Discard (2)" }));
+    await user.click(screen.getByRole("button", { name: "Discard 2 items" }));
+
+    expect(screen.getByText("RYOBI Drill Press")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("This item has moved on");
   });
 });

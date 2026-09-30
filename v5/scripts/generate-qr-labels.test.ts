@@ -2,6 +2,8 @@
 import { resolve } from "node:path";
 import {
   buildLabelSheet,
+  buildPdfSheet,
+  parseLabelSize,
   DEFAULT_QR_MM,
   deriveLabels,
   formatLabelLocation,
@@ -304,5 +306,30 @@ describe("encodeQrSvg (the real encoder)", () => {
     const modules = (svg.match(/viewBox="0 0 (\d+)/) || [])[1];
     const defaultModules = (defaultSvg.match(/viewBox="0 0 (\d+)/) || [])[1];
     expect(Number(modules)).toBeGreaterThan(Number(defaultModules));
+  });
+});
+
+describe("--pdf (the admin page's sheets, from the shared lib)", () => {
+  it("parses --pdf, --size and --paper, defaulting to 2-inch labels on Letter", () => {
+    expect(parseArgs([]).pdf).toBe(false);
+    const options = parseArgs(["--pdf", "--size", "3in", "--paper", "a4"]);
+    expect(options).toMatchObject({ pdf: true, out: "qr-labels.pdf", size: { widthMm: 76.2, heightMm: 76.2 }, paper: "a4" });
+    expect(parseArgs(["--pdf", "--paper", "tabloid"]).paper).toBe("letter");
+  });
+
+  it("reads a preset or <w>x<h> in millimetres", () => {
+    expect(parseLabelSize("1.5in")).toEqual({ widthMm: 38.1, heightMm: 38.1 });
+    expect(parseLabelSize("62x29")).toEqual({ widthMm: 62, heightMm: 29 });
+    expect(parseLabelSize("huge")).toEqual({ widthMm: 50.8, heightMm: 50.8 });
+  });
+
+  it("writes a real PDF, twelve published labels to a Letter page", async () => {
+    const { PDFDocument } = await import("pdf-lib");
+    const sources = Array.from({ length: 13 }, (_, i) => source({ id: `t-${i}`, slug: `tool-${i}`, name: `Tool ${i}` }));
+    sources.push(source({ id: "draft", slug: "draft", published: false }));
+    const bytes = await buildPdfSheet(sources, { baseUrl: BASE, size: { widthMm: 50.8, heightMm: 50.8 }, paper: "letter" });
+    const doc = await PDFDocument.load(bytes);
+    expect(doc.getPageCount()).toBe(2);
+    expect(doc.getPage(0).getSize()).toEqual({ width: 612, height: 792 });
   });
 });

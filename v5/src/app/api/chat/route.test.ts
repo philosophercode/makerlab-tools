@@ -1034,3 +1034,31 @@ describe("POST /api/chat — photos reach the model", () => {
     );
   });
 });
+
+// ── QR codes in photos (QR labels amendment) ─────────────────────────
+describe("POST /api/chat — QR codes in photos", () => {
+  const photoMessage = (bytes: Buffer, name = "label.jpg") => ({
+    id: "1",
+    role: "user",
+    parts: [
+      { type: "text", text: `how do I use this?\n\n[Attached photos: attachment_id= name=${name}]` },
+      { type: "file", mediaType: "image/jpeg", filename: name, url: `data:image/jpeg;base64,${bytes.toString("base64")}` },
+    ],
+  });
+
+  it("tells the model which published tool a photographed label links to", async () => {
+    const { qrPhoto } = await import("../../../../test/images/qr-photo");
+    const bytes = await qrPhoto("https://makerlab-ai.vercel.app/tools/form-4?src=qr", { rotate: 10 });
+    const { res } = await send({ messages: [photoMessage(bytes)] });
+    expect(res.status).toBe(200);
+    const system = systemOf();
+    expect(system).toContain("## QR codes in this message's photos");
+    expect(system).toContain('[QR code in photo "label.jpg": links to tool form-4 ("Form 4")]');
+  });
+
+  it("adds nothing, and still answers, when a photo cannot be read", async () => {
+    const { res } = await send({ messages: [photoMessage(Buffer.from("not an image at all"))] });
+    expect(res.status).toBe(200);
+    expect(systemOf()).not.toContain("QR codes in this message's photos");
+  });
+});

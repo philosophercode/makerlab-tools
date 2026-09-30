@@ -205,12 +205,12 @@ describe("says_not_covered", () => {
 
 describe("runAssertion dispatch", () => {
   it("handles every declared kind", () => {
-    expect(ASSERTION_KINDS).toHaveLength(13);
+    expect(ASSERTION_KINDS).toHaveLength(15);
     for (const kind of ASSERTION_KINDS) {
       const outcome = runAssertion(
         {
           kind,
-          value: kind === "called_tool" || kind === "not_called_tool" ? "get_unit_details" : "Form 4",
+          value: kind === "called_tool" || kind === "not_called_tool" ? "get_unit_details" : kind === "identified_count" ? "2" : "Form 4",
           fields: ["materials"],
         },
         { text: "The Form 4 is a resin printer.", toolCalls: noCalls, fixture: evalFixture }
@@ -224,6 +224,43 @@ describe("runAssertion dispatch", () => {
   it("recognizes only declared kinds", () => {
     expect(isAssertionKind("mentions_tool")).toBe(true);
     expect(isAssertionKind("vibes_check")).toBe(false);
+  });
+});
+
+describe("the identify_tools assertions (amendment \"Many items at once\")", () => {
+  const call = (items: unknown[]) => [{ name: "identify_tools", input: { items } }];
+  const input = (toolCalls: { name: string; input?: unknown }[]) => ({ text: "", toolCalls, fixture: evalFixture });
+  const bench = call([
+    { name: "RYOBI 10 in. Drill Press", brand: "RYOBI", attachmentIds: ["p1"] },
+    { name: "Cricut Maker 3", brand: "Cricut", attachmentIds: ["p1"] },
+    { name: "RYOBI ONE+ 18V Battery P103", brand: "RYOBI", quantity: 2, attachmentIds: ["p1"] },
+  ]);
+
+  it("matches each wanted entry to a different item, by any alternative", () => {
+    expect(runAssertion({ kind: "identified_items", value: ["drill press", "cricut|maker", "battery x2"] }, input(bench)).ok).toBe(true);
+  });
+
+  it("needs the quantity an entry asks for", () => {
+    const outcome = runAssertion({ kind: "identified_items", value: ["battery x3"] }, input(bench));
+    expect(outcome.ok).toBe(false);
+    expect(outcome.detail).toContain("quantity 2");
+  });
+
+  it("never lets one item satisfy two entries", () => {
+    expect(runAssertion({ kind: "identified_items", value: ["ryobi", "ryobi", "ryobi"] }, input(bench)).ok).toBe(false);
+  });
+
+  it("counts the items of the last call, as a number or a range", () => {
+    expect(runAssertion({ kind: "identified_count", value: "3" }, input(bench)).ok).toBe(true);
+    expect(runAssertion({ kind: "identified_count", value: "2-4" }, input(bench)).ok).toBe(true);
+    const outcome = runAssertion({ kind: "identified_count", value: "2" }, input(bench));
+    expect(outcome.ok).toBe(false);
+    expect(outcome.detail).toContain("3 item(s)");
+  });
+
+  it("fails when identify_tools was never called", () => {
+    expect(runAssertion({ kind: "identified_count", value: "1" }, input([])).detail).toBe("identify_tools was never called");
+    expect(runAssertion({ kind: "identified_items", value: ["x"] }, input([{ name: "start_import" }])).ok).toBe(false);
   });
 });
 

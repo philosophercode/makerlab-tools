@@ -25,7 +25,7 @@ test("the footer leads to the product page, which offers Try it on the X1-Carbon
   await page.getByRole("contentinfo").getByRole("link", { name: "Product" }).click();
   await expect(page).toHaveURL(/\/product$/);
   await expect(page.getByRole("heading", { level: 1, name: "MakerLAB AI" })).toBeVisible();
-  await expect(page).toHaveTitle("MakerLAB AI — MakerLAB Tools");
+  await expect(page).toHaveTitle("MakerLAB AI · MakerLAB Tools");
   await expect(page.getByRole("link", { name: "Try it" }).first()).toHaveAttribute("href", "/tools/bambu-lab-x1-carbon-combo-3d-printer?ask=1");
   await expect(page.locator('meta[property="og:image"]')).toHaveAttribute("content", /\/product\/og\.png$/);
 });
