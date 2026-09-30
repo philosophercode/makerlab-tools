@@ -69,6 +69,10 @@ const traceExcludes = [
 
 const nextConfig: NextConfig = {
   cacheComponents: true,
+  // The app is the repository root. Pin it: agent worktrees are checkouts
+  // nested inside the main one, and with two lockfiles on the path Next would
+  // otherwise infer the outer checkout as the workspace (and tracing) root.
+  turbopack: { root: import.meta.dirname },
   outputFileTracingExcludes: { "*": traceExcludes },
   // PGlite ships its WASM build and its extension tarballs as files it locates
   // with `import.meta.url`. Bundled into the server output those become
