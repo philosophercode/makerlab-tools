@@ -209,6 +209,22 @@ describe("composeCase", () => {
     expect(caseMessages(testCase())).toEqual([{ role: "user", content: "What should I use to cut acrylic?" }]);
   });
 
+  it("attaches a case's photos to its last message, with the chat's hint", () => {
+    const messages = caseMessages(testCase({ prompt: "Add these", photos: ["shelf-a.jpg", "shelf-b.jpg"] }));
+    expect(messages).toHaveLength(1);
+    const [message] = messages;
+    const content = message.content as { type: string; text?: string; mediaType?: string; filename?: string; data?: Uint8Array }[];
+    expect(content[0]).toEqual({
+      type: "text",
+      text: "Add these\n\n[Attached photos: attachment_id=00000000-0000-4000-8000-000000000001 name=shelf-a.jpg; attachment_id=00000000-0000-4000-8000-000000000002 name=shelf-b.jpg]",
+    });
+    expect(content.slice(1).map((part) => [part.type, part.mediaType, part.filename])).toEqual([
+      ["file", "image/jpeg", "shelf-a.jpg"],
+      ["file", "image/jpeg", "shelf-b.jpg"],
+    ]);
+    expect(content[1].data?.length).toBeGreaterThan(1000);
+  });
+
   it("asks as the demo seed's accounts", () => {
     expect(evalIdentity("staff")).toMatchObject({ role: "admin", userId: "demo-user-niti" });
     expect(evalIdentity("super_admin")).toMatchObject({ role: "super_admin", userId: "demo-user-isaac" });

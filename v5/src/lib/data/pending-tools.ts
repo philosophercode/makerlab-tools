@@ -14,8 +14,10 @@ import {
 } from "../db/schema/index.ts";
 import {
   DUPLICATE_RESOLUTION,
+  IDENTIFY_CONFIDENCE,
   isOneOf,
   type DuplicateResolution,
+  type IdentifyConfidence,
   type PendingStatus,
 } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
@@ -109,6 +111,10 @@ export interface PendingToolRecord {
   notes: string | null;
   /** The Suggest names pass's answer, until it is accepted or ignored. */
   nameSuggestion: NameSuggestion | null;
+  /** How sure the chat's identification was (amendment "Many items at once"); null for imported rows. */
+  identifyConfidence: IdentifyConfidence | null;
+  /** Where the chat saw the item — "photo 1, left" — or null. */
+  seenIn: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -171,6 +177,20 @@ export interface NewPendingTool {
   serialNumber?: string | null;
   /** `attachments.id`s of the uploads that show this item. */
   attachmentIds?: string[];
+  /**
+   * Units approval creates, from the count the person gave in the chat ("two
+   * Ryobi batteries"); 1–50, 1 when absent. An import's comes in `imported`.
+   */
+  quantity?: number;
+  /**
+   * Every serial when the chat merged entries with different plates (two
+   * machines of one model): the first is `serialNumber`. Absent otherwise.
+   */
+  serials?: string[];
+  /** How sure the chat was (amendment "Many items at once"). */
+  identifyConfidence?: IdentifyConfidence | null;
+  /** Where the chat saw it: "photo 1, left — the orange drill". */
+  seenIn?: string | null;
   /** Bulk intake's extra fields (bulk intake spec §4.1); absent for the chat's items. */
   imported?: Pick<ImportItem, "quantity" | "serials" | "labDocs" | "links" | "notes" | "sourceRow"> & {
     importId: string;
@@ -430,6 +450,9 @@ export interface IntakeQueueSummary {
   duplicateOf: DuplicateOf | null;
   duplicateResolution: DuplicateResolution | null;
   photos: PendingPhoto[];
+  quantity: number;
+  identifyConfidence: IdentifyConfidence | null;
+  seenIn: string | null;
   confidenceLevel: "high" | "medium" | "low" | null;
   researchError: string | null;
   researchRequestedAt: Date | null;
@@ -478,6 +501,9 @@ export async function listIntakeQueueSummaries(
         duplicateOfToolId: pendingTools.duplicateOfToolId,
         duplicateOfPendingId: pendingTools.duplicateOfPendingId,
         duplicateResolution: pendingTools.duplicateResolution,
+        quantity: pendingTools.quantity,
+        identifyConfidence: pendingTools.identifyConfidence,
+        seenIn: pendingTools.seenIn,
         hasResearch: sql<boolean>`${pendingTools.research} is not null`,
         confidenceLevel: sql<string | null>`${pendingTools.research}->'confidence'->>'level'`,
         researchError: pendingTools.researchError,
@@ -519,6 +545,9 @@ export async function listIntakeQueueSummaries(
       duplicateOf: duplicateOfRow(row, toolById, pendingById),
       duplicateResolution: (row.duplicateResolution as DuplicateResolution | null) ?? null,
       photos: photosByOwner.get(row.id) ?? [],
+      quantity: row.quantity,
+      identifyConfidence: isOneOf(IDENTIFY_CONFIDENCE, row.identifyConfidence) ? row.identifyConfidence : null,
+      seenIn: row.seenIn ?? null,
       confidenceLevel: level as IntakeQueueSummary["confidenceLevel"],
       researchError: row.researchError ?? (row.hasResearch && level === null ? INVALID_STORED_RESEARCH : null),
       researchRequestedAt: row.researchRequestedAt,
@@ -590,6 +619,11 @@ export async function createPendingBatch(
           // A similar name is a hint, stored as "It's a different tool" (research fixes amendment 2026-09-24).
           duplicateResolution: initialResolution(match),
           createdBy: input.createdBy,
+          identifyConfidence: item.identifyConfidence ?? null,
+          seenIn: emptyToNull(item.seenIn),
+          ...(!imported && (item.quantity !== undefined || item.serials?.length)
+            ? { quantity: clampQuantity(item.quantity ?? 1, item.serials?.length ?? 0), serials: item.serials ?? [] }
+            : {}),
           ...(imported
             ? {
                 importId: imported.importId,
@@ -1741,6 +1775,8 @@ async function readPendingTools(db: Db, where: SQL | undefined, limit: number | 
       links: Array.isArray(row.links) ? row.links : [],
       notes: row.notes,
       nameSuggestion: row.nameSuggestion ?? null,
+      identifyConfidence: isOneOf(IDENTIFY_CONFIDENCE, row.identifyConfidence) ? row.identifyConfidence : null,
+      seenIn: row.seenIn ?? null,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       duplicateOf,

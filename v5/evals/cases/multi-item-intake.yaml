@@ -1,0 +1,40 @@
+# Many items at once (data platform spec amendment "Many items at once"): one
+# photo of several things, several photos, or a typed list all become ONE
+# identify_tools call with one entry per distinct object — the same object in
+# two photos is one entry, identical copies are one entry with a quantity.
+# identify_tools is stubbed, like every write; the photos are
+# evals/fixtures/photos (made by make-photos.mjs from the bundled tool images).
+
+- id: multi-intake-one-photo-three-tools
+  prompt: "Can you add everything on this bench to the inventory?"
+  photos: [bench-three-tools.jpg]
+  context: { page: gallery, as: staff }
+  assert:
+    - kind: identified_count
+      value: "3"
+    - kind: identified_items
+      value: ["drill press", "cricut|maker", "battery|p103|lithium"]
+    - kind: not_called_tool
+      value: start_import
+
+- id: multi-intake-two-photos-dedupe
+  prompt: "Two photos from the craft shelf — please add what's in them."
+  photos: [shelf-a.jpg, shelf-b.jpg]
+  context: { page: gallery, as: staff }
+  assert:
+    # The Cricut is in both photos: one item, not two.
+    - kind: identified_count
+      value: "2"
+    - kind: identified_items
+      value: ["cricut|maker", "hakko|888|solder"]
+
+- id: multi-intake-typed-list-quantities
+  prompt: "Please add a drill press, two Ryobi 18V batteries and a Cricut Maker 3 to the inventory."
+  context: { page: gallery, as: staff }
+  assert:
+    - kind: identified_count
+      value: "3"
+    - kind: identified_items
+      value: ["drill press", "ryobi|battery x2", "cricut|maker"]
+    - kind: not_called_tool
+      value: start_import

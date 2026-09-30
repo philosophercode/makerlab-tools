@@ -8,7 +8,7 @@ import { bulkImports } from "./imports.ts";
 import { toolRefreshes } from "./refresh.ts";
 import { tools } from "./tools.ts";
 import { units } from "./units.ts";
-import { DUPLICATE_RESOLUTION, PENDING_STATUS } from "./vocabulary.ts";
+import { DUPLICATE_RESOLUTION, IDENTIFY_CONFIDENCE, PENDING_STATUS } from "./vocabulary.ts";
 
 /**
  * Pending tools — equipment identified in the chat and waiting to be
@@ -41,6 +41,11 @@ import { DUPLICATE_RESOLUTION, PENDING_STATUS } from "./vocabulary.ts";
  *   product or manual links from the list, offered at approval; `notes` stay
  *   here and never reach a search; `name_suggestion` is the optional Suggest
  *   names pass's answer, waiting for Accept or Ignore.
+ * - **Many items at once** (data platform spec amendment "Many items at once",
+ *   migration `0025`): `identify_confidence` is how sure the chat was about the
+ *   item (`sure` / `likely` / `unsure`) and `seen_in` where it was seen ("photo
+ *   1, left — the orange drill"), both only for the chat's rows. A chat item's
+ *   `quantity` is the count the person gave ("two Ryobi batteries").
  */
 export const pendingTools = pgTable(
   "pending_tools",
@@ -89,10 +94,13 @@ export const pendingTools = pgTable(
     links: jsonb("links").$type<ImportLink[]>().notNull().default(sql`'[]'::jsonb`),
     notes: text("notes"),
     nameSuggestion: jsonb("name_suggestion").$type<NameSuggestion>(),
+    identifyConfidence: text("identify_confidence"),
+    seenIn: text("seen_in"),
     ...timestamps(),
   },
   (t) => [
     inListCheck("pending_tools_status_check", "status", PENDING_STATUS),
+    inListCheck("pending_tools_identify_confidence_check", "identify_confidence", IDENTIFY_CONFIDENCE),
     inListCheck(
       "pending_tools_duplicate_resolution_check",
       "duplicate_resolution",

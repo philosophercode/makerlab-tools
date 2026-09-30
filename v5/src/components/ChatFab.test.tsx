@@ -611,7 +611,7 @@ describe("ChatFab — intake table", () => {
     const card = await screen.findByRole("region", { name: "Identified equipment" });
     expect(card).toBeInTheDocument();
     expect(screen.getByText("Bambu Lab X1-Carbon Combo")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Research selected (1)" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Add to research (1)" })).toBeEnabled();
     // The message gives the card the full column, as it does for an identification card.
     expect(card.closest("[data-role]")).toHaveAttribute("data-has-card");
   });

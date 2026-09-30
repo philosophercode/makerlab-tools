@@ -1,5 +1,5 @@
 import type { IntakeConfidenceLevel } from "../capabilities/types";
-import type { DuplicateResolution, PendingStatus } from "../db/schema/vocabulary";
+import type { DuplicateResolution, IdentifyConfidence, PendingStatus } from "../db/schema/vocabulary";
 
 /**
  * The shapes the two-step add-tool flow passes between server and browser
@@ -17,7 +17,7 @@ import type { DuplicateResolution, PendingStatus } from "../db/schema/vocabulary
  * messages loaded (Article 6).
  */
 
-export type { DuplicateResolution, PendingStatus };
+export type { DuplicateResolution, IdentifyConfidence, PendingStatus };
 
 /** Where the review queue lives — linked from the chat card once research starts. */
 export const ADMIN_INTAKE_PATH = "/admin/intake";
@@ -50,6 +50,18 @@ export interface PendingToolView {
   duplicateOf: DuplicateOf | null;
   duplicateResolution: DuplicateResolution | null;
   photos: PendingToolPhotoView[];
+  /**
+   * Units approval creates — the count the person gave ("two Ryobi
+   * batteries"), or an import's quantity. Absent reads as 1.
+   */
+  quantity?: number;
+  /**
+   * How sure the chat's identification was (amendment "Many items at once").
+   * An `unsure` item starts unticked. Absent or null for imported rows.
+   */
+  identifyConfidence?: IdentifyConfidence | null;
+  /** Where the chat saw the item — "photo 1, left" — shown under its name. */
+  seenIn?: string | null;
   /** The research grade, once there is research. Null before, and for add-unit items. */
   confidenceLevel: IntakeConfidenceLevel | null;
   researchError: string | null;
@@ -73,8 +85,10 @@ export interface PendingToolView {
  *   cannot show them yet.
  * - `photos_unassigned` — photos sent this turn that the model matched to no
  *   item, so nothing claimed them.
+ * - `photos_not_shared` — a photo showing several items could not be copied
+ *   to every one of them (amendment "Many items at once"); the first item has it.
  */
-export type IntakeTableWarning = "photos_not_attached" | "photos_not_public" | "photos_unassigned";
+export type IntakeTableWarning = "photos_not_attached" | "photos_not_public" | "photos_unassigned" | "photos_not_shared";
 
 /** The `data-intake-table` stream part `identify_tools` writes (§5.4 step 4). */
 export interface IntakeTablePayload {
@@ -82,6 +96,13 @@ export interface IntakeTablePayload {
   batchId: string;
   items: PendingToolView[];
   warnings: IntakeTableWarning[];
+  /**
+   * What is left of the caller's research allowance when the card was drawn
+   * (amendment "Many items at once"), for the **Add to research** confirmation.
+   * Informational only — the research route checks the real allowance at the
+   * click. Absent or null when it could not be read.
+   */
+  researchLeft?: number | null;
 }
 
 /** `PATCH /api/pending-tools/[id]`. At least one key; `discard: true` discards. */
