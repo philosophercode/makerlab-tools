@@ -130,4 +130,10 @@ export const handlers = [
   http.post(/\/pipeline$/, () => {
     return HttpResponse.json([{ result: 1 }, { result: 1 }]);
   }),
+
+  // The chat's pre-run starter answers (starter answers): the chat asks for
+  // them whenever its chips show. By default there are none, so every chip
+  // answers live as before; a test that wants a cached chip overrides this.
+  http.get(/\/api\/chat\/starters(\?.*)?$/, () => HttpResponse.json({ answers: [] })),
+  http.post(/\/api\/chat\/starters$/, () => new HttpResponse(null, { status: 204 })),
 ];

@@ -3,11 +3,13 @@ import { AdminNotice } from "../../../components/admin/AdminNotice";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { ManualLibrary } from "../../../components/admin/ManualLibrary";
 import { ManualStateStrip } from "../../../components/admin/ManualStateStrip";
+import { StarterAnswerTable } from "../../../components/admin/StarterAnswerTable";
 import { EmptyState } from "../../../components/system/EmptyState";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { countManualsByState, listManualLibrary } from "../../../lib/data/manual-chunks";
 import { getDb } from "../../../lib/db/client";
+import { loadStarterChipRows, type StarterChipAdminRow } from "../../../lib/starters/admin-rows";
 import { reprocessLibraryManual } from "./actions";
 
 /**
@@ -30,10 +32,21 @@ export default async function AdminResearchPage() {
   if (!can(identity, "tools.edit")) return <AdminNotice kind="forbidden" />;
 
   let data;
+  // The starter chips' cache (starter answers) is read on its own: a failure
+  // there says so in its section and leaves the manual library standing.
+  let starterRows: StarterChipAdminRow[] | null = null;
   try {
     const db = await getDb();
-    const [counts, rows] = await Promise.all([countManualsByState(db), listManualLibrary(db)]);
+    const [counts, rows, starters] = await Promise.all([
+      countManualsByState(db),
+      listManualLibrary(db),
+      loadStarterChipRows(db).catch((err: unknown) => {
+        console.error("[admin/research] could not read the starter answers", err);
+        return null;
+      }),
+    ]);
     data = { counts, rows };
+    starterRows = starters;
   } catch (err) {
     console.error("[admin/research] could not read the manual library", err);
     data = null;
@@ -65,6 +78,13 @@ export default async function AdminResearchPage() {
       <ManualStateStrip counts={counts} />
       <p className="ui max-w-[78ch] text-sm leading-normal text-muted-foreground">{t("research.note")}</p>
       <ManualLibrary rows={rows} reprocess={reprocessLibraryManual} />
+      <section aria-labelledby="starter-answers" className="flex flex-col gap-3 pt-4">
+        <h2 id="starter-answers" className="font-heading text-base font-medium">
+          {t("research.starters.title")}
+        </h2>
+        <p className="ui max-w-[78ch] text-sm leading-normal text-muted-foreground">{t("research.starters.note")}</p>
+        {starterRows ? <StarterAnswerTable rows={starterRows} /> : <EmptyState tone="bad">{t("research.starters.unreadable")}</EmptyState>}
+      </section>
     </section>
   );
 }

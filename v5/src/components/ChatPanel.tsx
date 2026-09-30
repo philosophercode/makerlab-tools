@@ -1,7 +1,7 @@
 "use client";
 
 import { useChat } from "@ai-sdk/react";
-import { DefaultChatTransport, type FileUIPart } from "ai";
+import { DefaultChatTransport, type FileUIPart, type UIMessage } from "ai";
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -23,6 +23,7 @@ import { ChatComposer } from "./chat/ChatComposer";
 import { parseCeiling } from "./chat/chat-text";
 import { useChatAttachments } from "./chat/use-chat-attachments";
 import { useDictation } from "./chat/use-dictation";
+import { newMessageId, useStarterAnswers, type StarterScope } from "./chat/use-starter-answers";
 import { usePageSelectionReader, type PageSelection } from "./chat/page-selection";
 import { FROSTED } from "./system/frosted";
 import { cn } from "@/lib/utils";
@@ -102,11 +103,14 @@ export function ChatPanel() {
   // registered some and the path still names it (spec amendment "Tool-specific
   // starter questions"), else the generic three. Tool questions are data,
   // English as researched; the generic ones are translated.
-  const chips = useMemo(() => {
-    const own =
+  const own = useMemo(
+    () =>
       toolId && toolStarters && toolStarters.keys.some((key) => key === toolId || key === safeDecode(toolId))
         ? toolStarters.questions
-        : [];
+        : [],
+    [toolId, toolStarters]
+  );
+  const chips = useMemo(() => {
     const starters =
       own.length > 0
         ? own.map((question, n) => ({ key: `tool-${n}`, Icon: SUGGESTIONS[n % SUGGESTIONS.length].icon, kicker: null, label: question, send: question }))
@@ -114,7 +118,17 @@ export function ChatPanel() {
     return curateHere
       ? [{ key: "curate", Icon: ClipboardCheckIcon, kicker: null, label: t("curateStarter"), send: t("curatePrompt") }, ...starters]
       : starters;
-  }, [toolId, toolStarters, curateHere, t]);
+  }, [own, curateHere, t]);
+
+  // Pre-run answers for these chips (starter answers): the tool's own chips on
+  // its page, the general chips off any tool page, English only — the answers
+  // were made in English, as an anonymous visitor. A tool page showing the
+  // generic chips asks live: there the live answer is about that tool.
+  const starterScope = useMemo<StarterScope | null>(() => {
+    if (locale !== "en") return null;
+    if (toolId) return own.length > 0 ? { toolId: safeDecode(toolId), locale } : null;
+    return pendingId ? null : { toolId: null, locale };
+  }, [locale, toolId, own, pendingId]);
 
   // `useChat` bakes the transport into a ref on first mount and never refreshes
   // it (see @ai-sdk/react useChat — only `id`/`chat` prop changes recreate the
@@ -192,6 +206,7 @@ export function ChatPanel() {
     },
   });
   const isLoading = status === "streaming" || status === "submitted";
+  const starters = useStarterAnswers(starterScope, isOpen && messages.length === 0);
   // A refusal at the allowance ceiling is not an error state — see parseCeiling.
   const ceiling = parseCeiling(error);
 
@@ -233,9 +248,40 @@ export function ChatPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `send`/`consumeSeed` are stable for this purpose; the nonce ref guards against resends.
   }, [pendingSeed, isLoading]);
 
-  function handleSuggestion(text: string) {
-    if (isLoading) return;
-    send(text);
+  // A chip with a pre-run answer (starter answers) shows the question and that
+  // answer at once, drawn by the same `ChatMessage` as a live one, with no
+  // model call; the conversation then carries on live, the cached answer part
+  // of the history the next turn sends. Anything else is asked live.
+  const [answeringChip, setAnsweringChip] = useState(false);
+  async function handleSuggestion(text: string) {
+    if (isLoading || answeringChip) return;
+    // Usually the chip set's answers are in hand by the time a chip is
+    // clicked; only a click before they arrive waits (briefly) for them.
+    let cached = starters.answerNow(text);
+    if (cached === undefined) {
+      setAnsweringChip(true);
+      try {
+        cached = await starters.answerFor(text);
+      } finally {
+        setAnsweringChip(false);
+      }
+    }
+    if (!cached) {
+      send(text);
+      return;
+    }
+    showCachedAnswer(text, cached);
+  }
+
+  function showCachedAnswer(text: string, cached: UIMessage) {
+    setReadingManuals(null);
+    setCutOff(false);
+    setMessages((current) => [
+      ...current,
+      { id: newMessageId(), role: "user", parts: [{ type: "text", text }] },
+      { ...cached, id: newMessageId() },
+    ]);
+    starters.markServed(text);
   }
 
   // Sign-in offered at the ceiling. Comes back to the page the conversation
@@ -330,7 +376,7 @@ export function ChatPanel() {
                   <p className="text-sm text-muted-foreground">{toolId ? t("greetingTool") : t("greetingGeneral")}</p>
                   <Suggestions>
                     {chips.map(({ key, Icon, kicker, label, send: text }) => (
-                      <Suggestion key={key} suggestion={text} onClick={handleSuggestion} disabled={isLoading}>
+                      <Suggestion key={key} suggestion={text} onClick={(value) => void handleSuggestion(value)} disabled={isLoading || answeringChip}>
                         <Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
                         {kicker ? (
                           <span className="flex flex-col items-start gap-0.5">

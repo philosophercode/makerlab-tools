@@ -4,6 +4,7 @@ import { account, session, verification } from "../db/schema/auth.ts";
 import { manualChunks, manualPages } from "../db/schema/manuals.ts";
 import { notionMirrors } from "../db/schema/mirror.ts";
 import { oauthAccessToken, oauthApplication } from "../db/schema/access.ts";
+import { starterAnswers } from "../db/schema/starter-answers.ts";
 import { usageEvents, usageGaps } from "../db/schema/usage.ts";
 
 /**
@@ -119,6 +120,22 @@ export const REBUILT_AFTER_RESTORE: ReadonlySet<string> = new Set([
  * local database never lands in the hosted one's numbers.
  */
 export const RETENTION_BOUND: ReadonlySet<string> = new Set([getTableName(usageEvents), getTableName(usageGaps)]);
+
+/**
+ * Tables `data:push` leaves out because their rows belong to **the database
+ * that made them** (starter answers): a pre-run chip answer carries that
+ * database's own manual addresses (a local copy's are `localhost` ones) and a
+ * hash of its rows, so copied to another deployment it would be wrong or,
+ * at best, stale. The hosted deployment makes its own with
+ * `npm run starters:refresh`. The nightly backup keeps them — a restore is
+ * the same deployment.
+ */
+export const DEPLOYMENT_BOUND: ReadonlySet<string> = new Set([getTableName(starterAnswers)]);
+
+/** True when this table's rows are made per deployment and never pushed to another. */
+export function isDeploymentBound(table: PgTable): boolean {
+  return DEPLOYMENT_BOUND.has(getTableName(table));
+}
 
 /** True when this table's rows must not outlive their retention window in a backup or a push. */
 export function isRetentionBound(table: PgTable): boolean {

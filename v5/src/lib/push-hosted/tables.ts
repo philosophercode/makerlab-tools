@@ -1,6 +1,6 @@
 import { getTableColumns, getTableName, is } from "drizzle-orm";
 import { PgTable, getTableConfig } from "drizzle-orm/pg-core";
-import { isExcludedFromBackup, isRetentionBound, redactedColumnKeys } from "../cron/backup-policy.ts";
+import { isDeploymentBound, isExcludedFromBackup, isRetentionBound, redactedColumnKeys } from "../cron/backup-policy.ts";
 import * as schema from "../db/schema/index.ts";
 
 /**
@@ -93,7 +93,7 @@ export function planTables(tables: PgTable[] = schemaTables()): CopyPlan {
   const plans = new Map<string, TablePlan>();
   const edges: Edge[] = [];
   for (const table of tables) {
-    if (isExcludedFromBackup(table) || isRetentionBound(table)) {
+    if (isExcludedFromBackup(table) || isRetentionBound(table) || isDeploymentBound(table)) {
       skipped.push(getTableName(table));
       continue;
     }
