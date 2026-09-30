@@ -69,6 +69,12 @@
 - **Figures (new, live site 2026-09-28, 2x):** `fig-assistant-debug-v2.png` (Fig. 1, spans both
   columns: wordmark header + cited SOP answer, pp. 8 and 10), `fig-kiosk-v2.png` (Fig. 2, 7:02 PM
   capture), `fig-assistant-create-v2.png` (Fig. 3, lamp question). V1.1 figures are unchanged.
+- **Figs. 1 and 3 retaken (live site 2026-09-30, 2x):** `fig-assistant-operate-v2.png` (Fig. 1, "How do
+  I load filament on the X1 Carbon?", cited steps, SOP p. 9; cropped after step 3) replaces the
+  adhesion answer, which opened with "I couldn't find". "Replace the filament" was tried first and
+  also came back "the manual doesn't cover", so the question became "load". `fig-assistant-plan-v2.png`
+  (Fig. 3, "I want to CNC a chair with laser-cut inlays. Can you help me plan?"; cropped after step 2
+  of 4 to hold two pages) replaces the lamp question. The old PNGs stay in the folder, unused.
 - **Authors:** unchanged from V1.1 (Isaac, Niti, Miguel). Luis Rodrigo Navarro is thanked in the
   Acknowledgements; a TODO comment in `abstract-v2.md` asks whether to add him as an author.
 

@@ -42,9 +42,10 @@ if (!fmMatch) throw new Error("abstract: missing front matter (--- … ---) at t
 md = md.slice(fmMatch[0].length);
 let listKey = null;
 for (const line of fmMatch[1].split("\n")) {
-  const item = line.match(/^\s+-\s+(.*)$/);
+  // Leading whitespace is optional on both: Markdown formatters re-indent this block.
+  const item = line.match(/^\s*-\s+(.*)$/);
   if (item && listKey) { fm[listKey].push(item[1]); continue; }
-  const kv = line.match(/^(\w+):\s*(.*)$/);
+  const kv = line.match(/^\s*(\w+):\s*(.*)$/);
   if (!kv) continue;
   if (kv[2] === "") { listKey = kv[1]; fm[listKey] = []; }
   else { listKey = null; fm[kv[1]] = kv[2]; }
