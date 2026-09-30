@@ -1,0 +1,32 @@
+# Every PR and every push to main: lint, typecheck, unit + workflow tests and
+# spec coverage. Vercel's build runs none of the tests, so this is the gate
+# (architecture review H1). The E2E suite stays local for now (TESTING.md).
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npx vitest run
+      - run: npm run spec:coverage -- --ci
