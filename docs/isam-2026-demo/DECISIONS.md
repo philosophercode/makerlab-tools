@@ -53,7 +53,7 @@
   `get_tool_details`, 2026-09-28; the site header says 100 in inventory); ~54 archived manuals /
   ~2,400 pages (**approximate**, supplied by the coordinator — the public MCP cannot count the
   archive; it shows 60 manual links on 51 tools. Confirm on `/admin/research` before upload);
-  59 eval cases (`v5/evals/cases/*.yaml`); 54/59 and 55/59 on 2026-09-28, 50/55 on the earlier
+  59 eval cases (`evals/cases/*.yaml`); 54/59 and 55/59 on 2026-09-28, 50/55 on the earlier
   main, fixed cases 6/6 twice (coordinator's run log; PR #113 notes one flaky case,
   `staff-update-after-yes`); 6,385 offline tests (PR #113); ≈0.03¢ per chat turn with a manual
   search ($0.0003, manual-text spec); ≈2–5¢ per researched tool (bulk-intake spec: $0.0248 for one,
