@@ -39,8 +39,8 @@ variable list.
   from Postgres, cached with `cacheTag("catalog")` / `cacheLife("minutes")`.
 - `src/lib/data/*.ts` — the query modules underneath: `catalog.ts`,
   `projects.ts`, `maintenance.ts`, `resources.ts`, plus `uuid.ts` (the shape
-  guard every untrusted id passes before it reaches a uuid column) and
-  `notion-ids.ts`. Relative imports with `.ts` extensions, no `@/` alias, no
+  guard every untrusted id passes before it reaches a uuid column).
+  Relative imports with `.ts` extensions, no `@/` alias, no
   `"server-only"` — `scripts/` loads them under plain Node.
 - **Notion is read only by the one-time import** (`npm run import:notion`;
   target per `src/lib/import/target.ts`: `--dry-run` → memory, else
@@ -52,9 +52,8 @@ variable list.
 - **Every student-facing write is on Postgres** as of Phase 3. A correction
   goes to `feedback`, a maintenance ticket to `maintenance_logs`, a project
   submission to `projects` + `project_tools` — see `src/lib/data/*.ts`.
-  `src/lib/data/notion-ids.ts` (the Phase-2 page-id bridge) has no importers
-  left and is awaiting deletion approval, as is `/api/upload-notion`. The
-  retired Notion-dump `/api/admin/backup` was deleted (ops spec amendment
+  The Phase-2 page-id bridge (`src/lib/data/notion-ids.ts`) and the retired
+  `/api/upload-notion` were deleted (2026-09-30). The retired Notion-dump `/api/admin/backup` was deleted (ops spec amendment
   2026-09-27); `/api/cron/daily` is the only backup.
 - **No request path writes Notion** as of Phase 6, except the mirror, which
   pushes from a workflow and from its own settings page. Intake's chat tool,

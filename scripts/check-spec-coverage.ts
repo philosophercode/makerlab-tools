@@ -126,9 +126,6 @@ const ACCEPTED: Record<string, string> = {
   "env-var:NOTION_API_BASE_URL":
     "test-only: points the mirror's Notion client at the E2E stub (e2e/stubs/notion-stub.ts); production never sets it (docs/architecture/testing.md)",
   "npm-script:spec:coverage": "this script",
-  "npm-script:migrate:resources": "one-off migration tool, not app surface",
-  "npm-script:drop:deprecated-columns": "one-off migration tool, not app surface",
-  "npm-script:clear:migration-notes": "one-off migration tool, not app surface",
 };
 
 function main() {
