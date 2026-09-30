@@ -64,7 +64,7 @@ variable list.
   (throws `DbUnavailableError`), `resetDbForTests()`.
 - **Local database (`PGLITE_DATA_DIR`).** Precedence is `DATABASE_URL` >
   `PGLITE_DATA_DIR` > demo seed. With `DATABASE_URL` unset and
-  `PGLITE_DATA_DIR` set (e.g. `.pglite-data`, git-ignored; relative to `v5/`),
+  `PGLITE_DATA_DIR` set (e.g. `.pglite-data`, git-ignored; relative to the repo root),
   `getDb()` opens a **persistent** PGlite in that directory — created if
   missing, migrated on every open, **never demo-seeded** — as substrate
   `"pglite-local"`: no `DemoDataBanner`, `/api/health` answers
@@ -2182,3 +2182,4 @@ backup does (`backup-policy.ts`). Usage and caveats: `docs/deploy.md` Part 2 ste
   `role` differs from the choice as `failed`.
 - The in-memory rate limiter is a per-process singleton; it resets on cold start (fine for abuse prevention). Upstash backs it only when **both** `UPSTASH_REDIS_REST_*` vars are set.
 - Python scripts under `scripts/` use Node with `--experimental-strip-types`; they are migration/maintenance tools, not part of the app build.
+- **Agent worktrees sit inside the app root.** `.claude/worktrees/` holds full checkouts of this repo. `tsconfig.json`, ESLint, the vitest unit project and the build trace ignore `.claude/`, but `@workflow/vitest` scans the whole root (dot folders included, no exclude option), so finished worktrees should be pruned.

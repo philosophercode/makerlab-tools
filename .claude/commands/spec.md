@@ -10,7 +10,7 @@ begins. Your job in this command is the spec only — do not write implementatio
 ## Steps
 
 1. **Read the ground rules.** `docs/constitution.md`, then `docs/specs/TEMPLATE.md`.
-   Skim `docs/v5-plan.md` and `v5/AGENTS.md` so the spec fits the architecture
+   Skim `docs/v5-plan.md` and `AGENTS.md` so the spec fits the architecture
    rather than inventing a parallel one.
 
 2. **Read a good example.** `docs/specs/2026-05-29-v5-test-suite-design.md` is the

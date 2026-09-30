@@ -62,7 +62,7 @@ import { render, screen, userEvent } from "../../test/utils/render";
 
 > Relative depth varies: from `src/lib/*.test.ts` use `../../test/...`; from
 > `src/components/*.test.tsx` use `../../test/...`; from
-> `src/app/api/**/route.test.ts` go up to the v5 root then into `test/`.
+> `src/app/api/**/route.test.ts` go up to the repo root then into `test/`.
 
 ---
 

@@ -11,7 +11,7 @@ drift directions and the rule for each. Follow it.
 
 ## Steps
 
-1. **Run the mechanical check first**, from `v5/`:
+1. **Run the mechanical check first**, from the repo root:
 
    ```bash
    npm run spec:coverage
@@ -35,7 +35,7 @@ drift directions and the rule for each. Follow it.
      in the format DRIFT.md gives.
    - **UNDOCUMENTED** — code exists, no spec covers it. Recommend one of: spec it
      retroactively, remove it, or add it to the `ACCEPTED` map in
-     `v5/scripts/check-spec-coverage.ts` with a reason.
+     `scripts/check-spec-coverage.ts` with a reason.
    - **NOT-BUILT** — specified, agreed, absent. Note whether it was deferred deliberately
      (check the spec and README) or simply missed.
 
