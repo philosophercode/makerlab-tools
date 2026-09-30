@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import { getMessages } from "next-intl/server";
@@ -20,13 +20,34 @@ import { ThemeScript } from "../components/ThemeScript";
 import { LocaleHtmlScript } from "../components/LocaleHtmlScript";
 import { getCatalogStats, getPaletteTools } from "../lib/catalog";
 import { siteConfig } from "../lib/site-config";
+import { baseOpenGraph, SITE_DESCRIPTION } from "../lib/share/metadata";
+import { siteUrl } from "../lib/share/site-url";
 import { publicClientMessages } from "../i18n/client-messages";
 import type { Messages } from "../i18n/messages";
 
+/**
+ * Every page's title is "<page> · <site>" through the template; a page names
+ * only itself. The link preview (`opengraph-image.tsx`, `twitter-image.tsx`)
+ * is the site card unless a page names its own image; `openGraph` and
+ * `twitter` carry no title or description here, so each page's own are used
+ * (Next fills them from the page's `title` and `description`).
+ */
 export const metadata: Metadata = {
-  title: `${siteConfig.name}`,
+  metadataBase: siteUrl(),
+  title: { default: siteConfig.name, template: `%s · ${siteConfig.name}` },
   // The site's tagline, and what it is (identity spec 2026-09-28 §1).
-  description: `${siteConfig.tagline}: the ${siteConfig.institution} MakerLAB's tools, manuals and the ${siteConfig.chatAssistantName}.`,
+  description: SITE_DESCRIPTION,
+  applicationName: siteConfig.name,
+  openGraph: baseOpenGraph(),
+  twitter: { card: "summary_large_image" },
+};
+
+/** The browser chrome takes the page's paper (light) or ink (dark) colour. */
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f4ee" },
+    { media: "(prefers-color-scheme: dark)", color: "#0f0f0f" },
+  ],
 };
 
 // Brand colors come from NEXT_PUBLIC_* env (inlined at build), so an inline

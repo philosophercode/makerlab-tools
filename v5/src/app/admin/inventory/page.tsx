@@ -14,7 +14,6 @@ import {
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { listInventoryRows, listUnlinkedUnits } from "../../../lib/data/inventory";
-import { siteConfig } from "../../../lib/site-config";
 import type { ToolEditorActions } from "../../../components/admin/tool-editor-actions";
 import {
   archive,
@@ -80,7 +79,7 @@ const EDITOR_ACTIONS: ToolEditorActions = {
 };
 
 export const metadata = {
-  title: `Inventory — ${siteConfig.name}`,
+  title: "Inventory",
 };
 
 export default async function AdminInventoryPage({
@@ -138,6 +137,8 @@ export default async function AdminInventoryPage({
         canPublish={can(identity, "tools.publish")}
         // Refresh research is `tools.edit`, which this page already requires.
         queueRefresh={queueToolRefresh}
+        // Export CSV: super admins. Presentation again — /api/admin/tools/export checks it.
+        canExport={can(identity, "catalog.export")}
       />
     </section>
   );

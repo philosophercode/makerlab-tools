@@ -15,7 +15,7 @@ describe("/about", () => {
     render(<AboutPage />);
 
     expect(screen.getByRole("heading", { level: 1, name: "The MakerLAB at Cornell Tech" })).toBeInTheDocument();
-    expect(metadata.title).toBe("About — MakerLAB Tools");
+    expect(metadata.title).toBe("About");
   });
 
   it("follows the official page's order, then About this project", () => {

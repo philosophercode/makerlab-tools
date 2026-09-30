@@ -5,7 +5,6 @@ import { can } from "../../../../../lib/auth/permissions";
 import { listBulkImports } from "../../../../../lib/data/bulk-imports";
 import { IMPORT_PERMISSION } from "../../../../../lib/import/access";
 import { toImportView, type ImportView } from "../../../../../lib/import/view";
-import { siteConfig } from "../../../../../lib/site-config";
 
 /**
  * `/admin/intake/imports` — Add equipment's **Imports** tab (UI system phase
@@ -19,7 +18,7 @@ import { siteConfig } from "../../../../../lib/site-config";
  */
 
 export const metadata = {
-  title: `Imports — ${siteConfig.name}`,
+  title: "Imports",
 };
 
 export default async function AdminImportsPage() {

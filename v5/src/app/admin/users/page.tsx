@@ -9,7 +9,6 @@ import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { listBlockedEmails } from "../../../lib/data/blocked-emails";
 import { listUsers } from "../../../lib/data/users";
-import { siteConfig } from "../../../lib/site-config";
 import { addPerson, removeUser, setUserName, setUserRole, setUserTitle, unblockBlockedEmail } from "./actions";
 import { AddPersonForm } from "../../../components/admin/AddPersonForm";
 import { AllowanceGrant } from "../../../components/admin/AllowanceGrant";
@@ -38,7 +37,7 @@ import type { AllowanceCandidate } from "./allowance-result";
  */
 
 export const metadata = {
-  title: `People — ${siteConfig.name}`,
+  title: "People",
 };
 
 export default async function AdminUsersPage({

@@ -12,7 +12,6 @@ import { listRefreshQueue } from "../../../lib/data/tool-refreshes";
 import { listOpenAssistantProposals, MCP_PROPOSAL_CHAT_ID } from "../../../lib/data/chat-proposals";
 import { ChatProposalCards, type ChatProposalItem } from "../../../components/ChatProposalCards";
 import { countByKind, refreshRank } from "../../../lib/refresh/types";
-import { siteConfig } from "../../../lib/site-config";
 import { personLabel } from "../../../components/admin/person-label";
 
 /**
@@ -31,7 +30,7 @@ import { personLabel } from "../../../components/admin/person-label";
  */
 
 export const metadata = {
-  title: `Refresh research — ${siteConfig.name}`,
+  title: "Refresh research",
 };
 
 /** Where a status sorts when it has no proposals to rank by. */

@@ -15,7 +15,7 @@ import { siteConfig } from "../../../lib/site-config";
  */
 
 export const metadata = {
-  title: `Sign-in — ${siteConfig.name}`,
+  title: "Sign-in",
 };
 
 export default function AuthBlockedPage() {

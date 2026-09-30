@@ -1,6 +1,5 @@
 import { Suspense } from "react";
 import { MapGate } from "../../components/map/MapGate";
-import { siteConfig } from "../../lib/site-config";
 
 /**
  * `/map` — the lab's floor plan with every published tool placed on it
@@ -11,7 +10,7 @@ import { siteConfig } from "../../lib/site-config";
  */
 
 export const metadata = {
-  title: `Floor map — ${siteConfig.name}`,
+  title: "Floor map",
 };
 
 export default function MapPage() {

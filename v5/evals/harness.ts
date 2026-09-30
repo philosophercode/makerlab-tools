@@ -28,7 +28,9 @@ import { ACTION_DEFINITIONS } from "@/lib/actions/registry";
 import { getDb } from "@/lib/db/client";
 import { feedback, maintenanceLogs, pendingTools, projects, tools as toolsTable } from "@/lib/db/schema/index";
 import { inArray } from "drizzle-orm";
-import type { EvalCaller, EvalCase, EvalTurn } from "./cases";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { PHOTOS_DIR, type EvalCaller, type EvalCase, type EvalTurn } from "./cases";
 
 /**
  * The bridge between a case and the assistant (design spec §3).
@@ -278,12 +280,38 @@ export function evalIdentity(caller: EvalCaller): Identity {
   };
 }
 
+/**
+ * The attachment id a case's nth photo is sent under — fixed, so an assertion
+ * can name it. Writes are stubbed, so nothing ever claims it.
+ */
+export function evalPhotoId(index: number): string {
+  return `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`;
+}
+
 /** The conversation a case sends: its history, oldest first, then its prompt. */
 export function caseMessages(evalCase: EvalCase): ModelMessage[] {
   const turns: EvalTurn[] = [...(evalCase.history ?? []), { role: "user", text: evalCase.prompt }];
-  return turns.map((turn): ModelMessage =>
+  const messages = turns.map((turn): ModelMessage =>
     turn.role === "user" ? { role: "user", content: turn.text } : { role: "assistant", content: turn.text }
   );
+  if (!evalCase.photos?.length) return messages;
+
+  // The final message carries its photos the way ChatPanel sends them: the
+  // text with the `[Attached photos: …]` hint, then one image part each.
+  const hint = evalCase.photos.map((name, index) => `attachment_id=${evalPhotoId(index)} name=${name}`).join("; ");
+  messages[messages.length - 1] = {
+    role: "user",
+    content: [
+      { type: "text", text: `${evalCase.prompt}\n\n[Attached photos: ${hint}]` },
+      ...evalCase.photos.map((name) => ({
+        type: "file" as const,
+        mediaType: "image/jpeg",
+        filename: name,
+        data: readFileSync(path.join(PHOTOS_DIR, name)),
+      })),
+    ],
+  };
+  return messages;
 }
 
 /** The focused tool's record for a curation case, shaped as the chat route shapes it. */

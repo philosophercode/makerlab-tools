@@ -22,6 +22,7 @@ import { StatusGlyph } from "./system/StatusGlyph";
 import { DuplicateChoice } from "./system/review/DuplicateChoice";
 import { ReviewNote } from "./system/review/ReviewCard";
 import { PENDING_STATUS_TONE } from "./admin/pending-status-tone";
+import { ResearchSpendConfirm } from "./ResearchSpendConfirm";
 
 /**
  * The intake table card (data platform spec §5.4 step 5, §6): what the chat
@@ -53,6 +54,16 @@ import { PENDING_STATUS_TONE } from "./admin/pending-status-tone";
  *
  * Refusals render `intake.table.errors.<code>`; the route's English `error` is
  * never shown (Article 6).
+ *
+ * **Many items at once** (amendment "Many items at once"): one photo of a
+ * bench, several photos or a typed list make one card with a row per suspected
+ * item. Every row starts ticked except a duplicate still to decide and an item
+ * the model marked `unsure`; each shows its count and where it was seen. Three
+ * ways out, each about the ticked rows: **Add to research (N)** asks first —
+ * how much of today's allowance it uses and roughly what it costs
+ * (`ResearchSpendConfirm`) — then posts to the research route; **Just add to
+ * intake** leaves them identified on `/admin/intake` and says so; **Discard
+ * (N)** asks, then discards each through the same PATCH as a row's Remove.
  */
 
 const ERROR_CODES: readonly PendingApiErrorCode[] = [
@@ -125,6 +136,7 @@ function errorText(t: T, refusal: Refusal): string {
 
 type Research =
   | { phase: "idle" }
+  | { phase: "confirming"; ids: string[] }
   | { phase: "starting"; ids: string[] }
   | { phase: "started"; ids: string[]; response: ResearchStartedResponse }
   | { phase: "refused"; ids: string[]; refusal: Refusal };
@@ -148,13 +160,23 @@ export interface IntakeTableCardProps {
   payload: IntakeTablePayload;
 }
 
+/** What the card is doing besides research: kept for later, or discarding the ticked rows. */
+type Closing = "idle" | "kept" | "confirmDiscard" | "discarding";
+
+/** Starts ticked: can be researched, and the model was not unsure what it is. */
+function startsTicked(row: PendingToolView): boolean {
+  return !isGone(row) && !isUnresolved(row) && row.identifyConfidence !== "unsure";
+}
+
 export function IntakeTableCard({ payload }: IntakeTableCardProps) {
   const t = useTranslations("intake");
   const [rows, setRows] = useState<PendingToolView[]>(() => payload.items.filter((row) => !isGone(row)));
-  // Every row that can be researched starts ticked (§5.4 step 5).
+  // Every row that can be researched starts ticked (§5.4 step 5) — except an
+  // item the model was unsure of (amendment "Many items at once").
   const [selected, setSelected] = useState<Set<string>>(
-    () => new Set(payload.items.filter((row) => !isGone(row) && !isUnresolved(row)).map((row) => row.id))
+    () => new Set(payload.items.filter(startsTicked).map((row) => row.id))
   );
+  const [closing, setClosing] = useState<Closing>("idle");
   /** Rows being edited: the typing so far. */
   const [drafts, setDrafts] = useState<Record<string, Draft>>({});
   /** Rows choosing "Add as another unit": the serial being typed. */
@@ -166,13 +188,18 @@ export function IntakeTableCard({ payload }: IntakeTableCardProps) {
 
   const eligibleIds = rows.filter((row) => !isUnresolved(row)).map((row) => row.id);
   const selectedIds = eligibleIds.filter((id) => selected.has(id));
+  // Add-unit items skip research and cost nothing (§5.4 step 8).
+  const billable = rows.filter((row) => selected.has(row.id) && !isUnresolved(row) && row.duplicateResolution !== "add_unit").length;
 
   // Once research has been asked for, the rows belong to it: a queued item
   // refuses edits anyway, and a start that failed is retried with the same ids.
   const locked =
+    research.phase === "confirming" ||
     research.phase === "starting" ||
     research.phase === "started" ||
-    (research.phase === "refused" && research.refusal.code === "start_failed");
+    (research.phase === "refused" && research.refusal.code === "start_failed") ||
+    closing === "kept" ||
+    closing === "discarding";
   const editing = Object.keys(drafts).length + Object.keys(serials).length;
   const busy = editing > 0 || saving.size > 0;
 
@@ -263,6 +290,25 @@ export function IntakeTableCard({ payload }: IntakeTableCardProps) {
   async function addAsUnit(row: PendingToolView) {
     const value = serials[row.id]?.trim() ?? "";
     await commit(row, { duplicateResolution: "add_unit", ...(value ? { serialNumber: value } : {}) }, true);
+  }
+
+  /** Ask first when anything costs research; add-unit items alone start at once. */
+  function askResearch(ids: string[]) {
+    setClosing("idle");
+    if (billable === 0) void startResearch(ids);
+    else setResearch({ phase: "confirming", ids });
+  }
+
+  /** Discard every ticked row, one PATCH each; a refusal stays on its row. */
+  async function discardSelected(ids: string[]) {
+    setClosing("discarding");
+    for (const id of ids) {
+      const row = rows.find((r) => r.id === id);
+      if (!row) continue;
+      const refusal = await patch(row, { discard: true });
+      if (refusal) setRefusals((prev) => ({ ...prev, [id]: refusal }));
+    }
+    setClosing("idle");
   }
 
   async function startResearch(ids: string[]) {
@@ -397,6 +443,28 @@ export function IntakeTableCard({ payload }: IntakeTableCardProps) {
       <div className="flex flex-col gap-2" aria-live="polite">
         {research.phase === "started" ? (
           <StartedNote t={t} response={research.response} waiting={waiting} />
+        ) : closing === "kept" ? (
+          <KeptNote t={t} count={rows.length} />
+        ) : research.phase === "confirming" ? (
+          <ResearchSpendConfirm
+            count={billable}
+            left={payload.researchLeft ?? null}
+            starting={false}
+            onConfirm={() => void startResearch(research.ids)}
+            onCancel={() => setResearch({ phase: "idle" })}
+          />
+        ) : closing === "confirmDiscard" || closing === "discarding" ? (
+          <div role="group" aria-label={t("table.discardSelectedLabel")} className="flex flex-col gap-2 border border-border p-2">
+            <ReviewNote tone="bad">{t("table.confirmDiscard", { count: selectedIds.length })}</ReviewNote>
+            <span className="flex flex-wrap gap-1">
+              <Button variant="destructive" size="sm" disabled={closing === "discarding"} onClick={() => void discardSelected(selectedIds)}>
+                {closing === "discarding" ? t("table.discarding") : t("table.discardYes", { count: selectedIds.length })}
+              </Button>
+              <Button variant="ghost" size="sm" disabled={closing === "discarding"} onClick={() => setClosing("idle")}>
+                {t("table.discardKeep")}
+              </Button>
+            </span>
+          </div>
         ) : (
           <>
             {research.phase === "refused" ? (
@@ -408,20 +476,45 @@ export function IntakeTableCard({ payload }: IntakeTableCardProps) {
               <Button variant="default" className="self-start" onClick={() => startResearch(research.ids)}>
                 {t("table.retry")}
               </Button>
+            ) : rows.length === 0 ? (
+              <ReviewNote tone="ink">{t("table.allDiscarded")}</ReviewNote>
             ) : (
-              <Button
-                variant="default"
-                className="self-start"
-                disabled={selectedIds.length === 0 || busy || locked}
-                onClick={() => startResearch(selectedIds)}
-              >
-                {research.phase === "starting" ? t("table.starting") : t("table.researchSelected", { count: selectedIds.length })}
-              </Button>
+              <span className="flex flex-wrap gap-2">
+                <Button
+                  variant="default"
+                  disabled={selectedIds.length === 0 || busy || locked}
+                  onClick={() => askResearch(selectedIds)}
+                >
+                  {research.phase === "starting" ? t("table.starting") : t("table.researchSelected", { count: selectedIds.length })}
+                </Button>
+                <Button variant="outline" disabled={busy || locked} onClick={() => setClosing("kept")}>
+                  {t("table.keepInIntake")}
+                </Button>
+                <Button
+                  variant="ghost"
+                  disabled={selectedIds.length === 0 || busy || locked}
+                  onClick={() => setClosing("confirmDiscard")}
+                >
+                  {t("table.discardSelected", { count: selectedIds.length })}
+                </Button>
+              </span>
             )}
           </>
         )}
       </div>
     </section>
+  );
+}
+
+/** **Just add to intake**: nothing is spent, and the rows wait where research can start later. */
+function KeptNote({ t, count }: { t: T; count: number }) {
+  return (
+    <div className="flex flex-col gap-1">
+      <ReviewNote tone="ink">{t("table.kept", { count })}</ReviewNote>
+      <Button asChild variant="link" size="sm" className="self-start">
+        <Link href={ADMIN_INTAKE_PATH}>{t("table.openIntake")}</Link>
+      </Button>
+    </div>
   );
 }
 
@@ -502,9 +595,19 @@ function RowName({ parts }: { parts: RowParts }) {
       />
     );
   }
+  const quantity = row.quantity ?? 1;
   return (
     <span className="flex flex-col gap-1">
-      <span className="font-medium">{row.name}</span>
+      <span className="font-medium">
+        {row.name}
+        {quantity > 1 ? (
+          <span className="ml-1 font-mono text-micro text-muted-foreground" aria-label={t("table.quantityAria", { count: quantity })}>
+            {t("table.quantity", { count: quantity })}
+          </span>
+        ) : null}
+      </span>
+      {row.identifyConfidence === "unsure" ? <StatusGlyph tone="warn" label={t("table.certaintyUnsure")} /> : null}
+      {row.seenIn ? <span className="text-xs text-muted-foreground">{t("table.seenIn", { where: row.seenIn })}</span> : null}
       {row.status !== "identified" ? (
         <StatusGlyph tone={PENDING_STATUS_TONE[row.status]} label={parts.t(`status.${row.status}`)} />
       ) : null}
