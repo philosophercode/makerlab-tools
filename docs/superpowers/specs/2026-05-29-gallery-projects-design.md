@@ -34,7 +34,7 @@ Operator creates the DB in Notion, shares it with the integration, and sets `NOT
 
 Notion relations are inherently two-way, so `tools_used` yields a "Projects" back-relation on each Tool with no extra schema work.
 
-## Data layer (`v5/src/lib/`)
+## Data layer (`src/lib/`)
 
 - **`notion.ts`**: add `projects` to the DB env map (`NOTION_DB_PROJECTS`), a `ProjectRecord` type + `pageToProject()` parser, `fetchAllProjects()` (published-only filter option), `fetchProject(id)`, and `createProject(fields)` (writes page with `published=false`, photo `file_upload` attachments reusing the pattern from the maintenance photo flow, and `tools_used` relation IDs). Tolerate lower/Title-cased property names like the existing parsers.
 - **`catalog.ts`** (or a new `projects.ts`): `getPublishedProjects()` and `getProject(id)` behind `"use cache"` with a new `cacheTag("projects")` + `cacheLife("minutes")`. Add a helper to map a tool id → its linked published projects for the "Built with this" section (derive from the back-relation, or by scanning projects' `tools_used`).
@@ -57,7 +57,7 @@ Notion relations are inherently two-way, so `tools_used` yields a "Projects" bac
 ## Cross-cutting
 
 - **Moderation:** `published=false` by default; admin flips in Notion. Gallery + detail + "Built with this" only ever show published projects. `/projects/new` is always reachable.
-- **i18n:** all new UI strings (gallery, detail labels, form labels, confirmation/errors, nav) into all 12 `v5/messages/*.json` files; English authoritative, others machine-translated (flag for native QC). Project *content* is not translated.
+- **i18n:** all new UI strings (gallery, detail labels, form labels, confirmation/errors, nav) into all 12 `messages/*.json` files; English authoritative, others machine-translated (flag for native QC). Project *content* is not translated.
 - **Rate limiting:** the submit endpoint uses the existing limiter.
 - **Caching:** `projects` tag; revalidate endpoint busts it.
 - **Nav:** the existing `/projects` nav entry stays; add a visible "Submit a project" affordance on `/projects`.

@@ -330,7 +330,7 @@ domain and in local development. `AUTH_ALLOWED_EMAIL_DOMAIN` makes the `cornell.
 restriction configuration rather than a constant — which the spec's own white-label
 principle (constitution Article 6) implies but did not state.
 
-**Status.** Accepted. All four are documented in `v5/.env.example` and in
+**Status.** Accepted. All four are documented in `.env.example` and in
 [`../handover.md`](../handover.md) §2.
 
 ### ~~Open — phase 5 not built~~ (superseded 2026-07-29, see below)
@@ -372,7 +372,7 @@ Three things the spec did not describe:
    asks for a name exactly as before — and still files without one if the student declines,
    because an anonymous report beats an unreported fault.
 
-**Status.** Accepted. Verified by 19 tests in `v5/src/lib/capabilities/maintenance.test.ts`
+**Status.** Accepted. Verified by 19 tests in `src/lib/capabilities/maintenance.test.ts`
 covering verified name and email, fallback to the model-supplied name with no email,
 `reporter_email` in tool input being ignored (signed in and signed out), the Notion
 property fallback, and prompt-fragment escaping.
@@ -383,7 +383,7 @@ Until the column exists, tickets file with the verified *name* and no email.
 
 ### 2026-07-29 — the E2E session is stubbed at `/api/identity`, not signed (as-built)
 
-**What changed.** §10 calls for "Playwright with a stubbed session cookie." `v5/e2e/auth.spec.ts`
+**What changed.** §10 calls for "Playwright with a stubbed session cookie." `e2e/auth.spec.ts`
 sets a session cookie under the real name (`makerlab.identity`), but its **value is opaque and
 nothing verifies it**. The signed-in state is produced by intercepting `GET /api/identity` with
 `page.route()` and answering from the cookie the browser actually sent.
@@ -407,7 +407,7 @@ absent, expired, tampered, non-domain, staff and admin cookies (`src/lib/auth/id
 The browser-side seam — cookie present ⇒ header shows the name — is what E2E adds.
 
 **Also.** §10's third E2E assertion, "anonymous chat works", was already covered before this
-change: `v5/e2e/chat.spec.ts` never signs in, so its whole path is the anonymous one. It is not
+change: `e2e/chat.spec.ts` never signs in, so its whole path is the anonymous one. It is not
 duplicated in `auth.spec.ts`.
 
 **Status.** Accepted. The spec's intent (no live OAuth, assert the header states) is met; the
@@ -422,7 +422,7 @@ its prompt fragment is replaced by a short note telling the assistant that addin
 is limited to staff. The header's "Add" entry point appears only for staff and admins.
 
 **Where the rule lives.** A capability declares `minimumRole`; `capabilitiesForRole` in
-`v5/src/lib/capabilities/access.ts` enforces it once, when the chat composes its tools. That
+`src/lib/capabilities/access.ts` enforces it once, when the chat composes its tools. That
 keeps §3.4's rule that authorization is enforced once rather than per tool, and no tool's
 `run()` checks a role. MCP is unchanged: its trust boundary is `MCP_TOKEN`, which already
 gates `create_tool` there, and an MCP caller has no role to check.
@@ -472,7 +472,7 @@ identity-route and sign-in-client tests. The E2E specs open the menu before choo
 ### 2026-09-24 — Development-only sign-in (adds a route; amends §3.2, §6 and §8)
 
 **What changed.** A new route, `GET /api/dev/sign-in?as=<email>&next=<path>`
-(`v5/src/app/api/dev/sign-in/route.ts`), lets the person running `npm run dev` sign in
+(`src/app/api/dev/sign-in/route.ts`), lets the person running `npm run dev` sign in
 without the Google round trip. It creates a **real Better Auth database session** for `as`
 (or `DEV_AUTO_SIGN_IN_EMAIL` when `as` is omitted), sets the ordinary session cookie, and
 redirects to `next`. The user row is created if missing, with the role a first Google
@@ -481,7 +481,7 @@ otherwise. The owner can therefore sign in as a test student (`?as=student@corne
 see the student experience.
 
 **How it signs in.** Through Better Auth, not beside it. A plugin
-(`v5/src/lib/auth/dev-sign-in-plugin.ts`) adds one `SERVER_ONLY` endpoint,
+(`src/lib/auth/dev-sign-in-plugin.ts`) adds one `SERVER_ONLY` endpoint,
 `auth.api.devSignIn`. Better Auth's router skips `SERVER_ONLY` endpoints, so it has no
 `/api/auth/*` URL in any environment. The endpoint calls
 `internalAdapter.createUser`, `internalAdapter.createSession` and `setSessionCookie`. That
@@ -525,7 +525,7 @@ small **Sign in as (dev)** link beside Sign in. The link goes to
 other locales fall back to it.
 
 **Environment.** `DEV_AUTO_SIGN_IN` and `DEV_AUTO_SIGN_IN_EMAIL` are documented, commented
-out, in `v5/.env.example`, and in `docs/deploy.md` Stage 3b. **They must never be set on a
+out, in `.env.example`, and in `docs/deploy.md` Stage 3b. **They must never be set on a
 deployment.**
 
 **Why.** The owner runs the app locally all day, and each Google round trip after a

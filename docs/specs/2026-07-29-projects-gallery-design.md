@@ -293,7 +293,7 @@ submission still works and still records no email: the ISAM demo depends on it (
 
 ### 2026-07-29 — E2E coverage added, two of §10's four cases not exercisable
 
-**What changed.** `v5/e2e/projects.spec.ts` closes the browser-layer half of §9
+**What changed.** `e2e/projects.spec.ts` closes the browser-layer half of §9
 phase 2 — seven Playwright tests over `/projects` and `/projects/new`.
 
 **What §10 asked for, and what was built.** §10's E2E list has four cases. Two are
@@ -337,9 +337,9 @@ the mock backend has no projects.
 
 **What changed.** The MakerLAB Director keeps a public Notion database of the lab's own
 projects ("Made in MakerLAB"). Its ten public rows and eleven photos are committed as a
-bundle, `v5/data/projects-seed/` (`projects.json` + `images/`, resized to 2000 px and
-stripped of EXIF), and `npm run projects:seed` loads it (`v5/scripts/seed-projects.ts`,
-logic in `v5/src/lib/projects-seed/`).
+bundle, `data/projects-seed/` (`projects.json` + `images/`, resized to 2000 px and
+stripped of EXIF), and `npm run projects:seed` loads it (`scripts/seed-projects.ts`,
+logic in `src/lib/projects-seed/`).
 
 - **Target and files** follow the import scripts (`src/lib/import/target.ts`):
   `DATABASE_URL`, else `PGLITE_DATA_DIR`; photos go through the import's uploader — public

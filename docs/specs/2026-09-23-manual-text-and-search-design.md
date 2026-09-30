@@ -289,7 +289,7 @@ CREATE INDEX manual_chunks_tool_idx ON manual_chunks (tool_id);
 
 ## 10. Testing
 
-- **Extraction:** fixture PDFs committed under `v5/test/fixtures/manuals/` (small, generated
+- **Extraction:** fixture PDFs committed under `test/fixtures/manuals/` (small, generated
   or openly licensed): one with an outline, one without (inferred headings), one with page
   labels, one scanned image-only, one encrypted. Assert pages, outline, labels, status.
 - **Chunking:** passages never cross sections, page ranges are right, overlap holds,

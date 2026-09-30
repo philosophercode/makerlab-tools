@@ -65,7 +65,7 @@ from day one.
 ## 3. Architecture
 
 - **Data** lives in four new tables (§4) behind a query module, `src/lib/data/consumables.ts`.
-  It uses relative imports with `.ts`, per `v5/AGENTS.md`, so scripts can load it.
+  It uses relative imports with `.ts`, per `AGENTS.md`, so scripts can load it.
 - **Permission:** add `consumables: ["manage"]` to `statement` in
   `src/lib/auth/permissions.ts`, granted to `admin` and `super_admin`. `user` does not get
   it: reporting needs no permission, just as `report_correction` needs none.
@@ -274,7 +274,7 @@ proposals) to have landed.
 
 ## 10. Testing
 
-Per `v5/TESTING.md`, with no network and PGlite plus the demo seed. The seed gains:
+Per `TESTING.md`, with no network and PGlite plus the demo seed. The seed gains:
 
 - 4 consumables: black PLA, Tough resin, 3 mm acrylic, 80-grit sandpaper;
 - stock rows, one of them low;
