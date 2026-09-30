@@ -215,8 +215,15 @@ export function typeScale(shortMm: number) {
 const DROP_ORDER: DroppableKind[] = ["url", "location", "extra", "brand"];
 
 /**
+ * The code's floor as a share of the label's short side, under which text is
+ * dropped. At 40 % a 1.5-inch label keeps every line switched on (a 16 mm
+ * code, flagged by `qrSmall`); a 1-inch one still sheds the address.
+ */
+export const MIN_QR_SHARE = 0.4;
+
+/**
  * Lay out one label. The code gets whatever the text leaves; when that is
- * under 45 % of the label's short side, the least important text is dropped
+ * under {@link MIN_QR_SHARE} of the label's short side, the least important text is dropped
  * (the address, then the location, the extra line, the wordmark — never the
  * name) and the caller says so. A label at least 1.4 times as wide as it is
  * tall puts the text beside the code.
@@ -281,7 +288,7 @@ function layoutStacked(style: LabelStyle, content: LabelContent, measure: Measur
     const fixed = (showBrand ? brandH + gap : 0) + (blocks.length ? gap + textH : 0);
     const qrSize = Math.min(innerW, heightMm - padMm * 2 - fixed);
     const next = droppable(style, content, dropped);
-    if (qrSize < short * 0.45 && next) {
+    if (qrSize < short * MIN_QR_SHARE && next) {
       dropped.add(next);
       continue;
     }
