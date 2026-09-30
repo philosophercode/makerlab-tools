@@ -38,6 +38,7 @@ import { loadPageContext, pageContextSection } from "../../../lib/actions/page-c
 import { loadProposalOutcomes } from "../../../lib/chat/proposal-outcomes";
 import { recordChatTurnUsage } from "../../../lib/usage/chat-turn";
 import { chatPrepareStep } from "./prepare-step";
+import { photoQrHints, photoQrSection } from "../../../lib/chat/photo-qr";
 import {
   CAPABILITIES,
   capabilitiesForIdentity,
@@ -128,6 +129,10 @@ export async function POST(req: Request) {
   if (attachments.length > 0) {
     console.info(`[chat] attachments for this turn: ${attachments.length}`);
   }
+  // QR codes in this turn's photos (QR labels amendment), read while the
+  // manuals are fetched: our tool links become a resolved hint for the model;
+  // nothing a code says is passed on. Time-bounded and never rejects.
+  const qrHintsPending = attachments.length > 0 ? photoQrHints(attachments) : Promise.resolve([] as string[]);
 
   const stream = createUIMessageStream({
     // Surface a useful, user-facing reason instead of the SDK's masked default
@@ -141,6 +146,8 @@ export async function POST(req: Request) {
         console.info(`[chat] manuals not attached (link only): ${skipped}`);
       }
       const modelMessages = attachManualsToFirstUserMessage(baseMessages, manuals);
+      const qrHints = await qrHintsPending;
+      if (qrHints.length > 0) console.info(`[chat] QR codes read from photos: ${qrHints.length}`);
       if (manuals.length > 0) {
         writer.write({
           type: "data-manuals-attached",
@@ -209,7 +216,7 @@ export async function POST(req: Request) {
         // quick win 2 and "Order the prompt so the provider cache can hit");
         // `MODEL_CHAT_REASONING` / `MODEL_CHAT_CACHE_KEY` override them.
         providerOptions: chatProviderOptions(),
-        system: [appendManualSections(system, focused, manuals), pageContextSection(pageContext), outcomes]
+        system: [appendManualSections(system, focused, manuals), pageContextSection(pageContext), outcomes, photoQrSection(qrHints)]
           .filter(Boolean)
           .join("\n\n"),
         messages: modelMessages,

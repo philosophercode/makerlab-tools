@@ -331,7 +331,15 @@
     "citationAria": "Open {citation}",
     "unverifiedCitation": "Not linked: this manual reference did not come from a manual search, so it could not be checked",
     "cutOff": "The answer was cut off before it finished. Ask again, or ask for a shorter answer.",
-    "capabilitiesLink": "What can MakerLAB AI do?"
+    "capabilitiesLink": "What can MakerLAB AI do?",
+    "makingQrCode": "▦ Making the QR code…",
+    "qrCard": {
+      "label": "QR code",
+      "alt": "QR code that opens the {tool} page",
+      "opens": "Scanning it opens {url}",
+      "downloadPng": "Download PNG",
+      "downloadSvg": "Download SVG"
+    }
   },
   "qr": {
     "arrivalLabel": "Scanned from this machine",
@@ -343,7 +351,19 @@
     "sheetTitle": "QR labels",
     "sheetSubtitle": "Print on sticker stock, cut, and apply one label to each machine.",
     "labelCta": "Scan for help",
-    "sheetEmpty": "No published tools to label."
+    "sheetEmpty": "No published tools to label.",
+    "shareTrigger": "QR code & share",
+    "shareEyebrow": "Share this tool",
+    "shareTitle": "QR code for {tool}",
+    "shareDescription": "Scanning it opens this page. Save it for a label, copy the link, or share it.",
+    "imageAlt": "QR code that opens the {tool} page",
+    "downloadPng": "Download PNG",
+    "downloadSvg": "Download SVG",
+    "copyLink": "Copy link",
+    "copied": "Link copied",
+    "copyFailed": "Could not copy the link. Select the address above instead.",
+    "share": "Share…",
+    "close": "Close"
   },
   "intake": {
     "confidenceHigh": "High confidence",
@@ -2268,6 +2288,106 @@
           }
         }
       }
+    },
+    "qrLabels": {
+      "open": "QR labels",
+      "title": "QR labels",
+      "lede": "Print a code for each machine: anybody who scans it lands on that tool's page, with the assistant ready.",
+      "filtersLabel": "Filter the tools to label",
+      "search": "Search tools",
+      "searchPlaceholder": "Name, category or location",
+      "filterCategory": "Category",
+      "tableLabel": "Published tools to print labels for",
+      "columnTool": "Tool",
+      "columnCategory": "Category",
+      "columnLocation": "Location",
+      "columnActions": "Actions",
+      "previewRow": "Preview",
+      "printRow": "Print",
+      "selectRow": "Select {name}",
+      "selectShown": "Select all shown",
+      "selectAll": "Select all ({count})",
+      "selectFiltered": "Select filtered ({count})",
+      "clearSelection": "Clear selection",
+      "selectedCount": "{count, plural, one {# tool selected} other {# tools selected}}",
+      "emptyCatalogue": "No published tools to label yet.",
+      "emptyFiltered": "No tool matches this search. Clear the filters to see them all.",
+      "stylerLabel": "Label style and printing",
+      "previewHeading": "Preview · {tool}",
+      "previewEmpty": "Preview",
+      "previewAlt": "Label preview for {tool}",
+      "previewFacts": "{width} × {height} mm · code {qr} mm",
+      "qrSmall": "The code is {qr} mm. Under {min} mm it may stop scanning once the label is scuffed; choose a larger label, or leave out some text.",
+      "dropped": "Not enough room for: {items}.",
+      "droppable": {
+        "url": "the address",
+        "location": "the location",
+        "extra": "the extra line",
+        "brand": "the wordmark",
+        "name": "the name"
+      },
+      "printThis": "Print this one",
+      "downloadSvg": "Label SVG",
+      "downloadPng": "Label PNG",
+      "sheetHeading": "Print sheets",
+      "perPage": "{count, plural, one {# label} other {# labels}} per {paper} page ({cols} × {rows}).",
+      "perPageLabel": "One label per page, at the label's own size.",
+      "tooLarge": "This label is larger than the page. Choose a smaller size or smaller margins.",
+      "printSelected": "Print selected ({count})",
+      "printAll": "Print all ({count})",
+      "downloadPdf": "Download PDF",
+      "labelsAndPages": "{count, plural, one {# label} other {# labels}} on {pages, plural, one {# page} other {# pages}}",
+      "printHint": "print at 100 % (Actual size), not Fit to page.",
+      "pdfTitle": "MakerLAB QR labels",
+      "failed": "The file could not be made. Try again.",
+      "busy": {
+        "print": "Preparing the print…",
+        "pdf": "Making the PDF…",
+        "svg": "Making the SVG…",
+        "png": "Making the PNG…"
+      },
+      "sizeHeading": "Label size",
+      "sizeLabel": "Label size",
+      "preset": {
+        "1in": "1 inch square",
+        "1_5in": "1.5 inch square",
+        "2in": "2 inch square",
+        "3in": "3 inch square",
+        "custom": "Custom size"
+      },
+      "presetShort": {
+        "1in": "1″",
+        "1_5in": "1.5″",
+        "2in": "2″",
+        "3in": "3″",
+        "custom": "Custom"
+      },
+      "width": "Width",
+      "height": "Height",
+      "unit": "Unit",
+      "unitIn": "in",
+      "unitMm": "mm",
+      "contentHeading": "On the label",
+      "showName": "Tool name",
+      "showLocation": "Location",
+      "showBrand": "MakerLAB wordmark",
+      "showUrl": "Short address under the code",
+      "showExtra": "Extra line",
+      "extraText": "Extra line wording",
+      "extraTextHint": "Up to 60 characters.",
+      "extraTextPlaceholder": "Scan for manual & help",
+      "pageHeading": "Page",
+      "paper": "Paper",
+      "paperOption": {
+        "letter": "US Letter",
+        "a4": "A4",
+        "label": "One label per page (label printer)"
+      },
+      "margin": "Margin (mm)",
+      "gap": "Gap (mm)",
+      "cutGuides": "Light cut guides",
+      "labelPaperHint": "For a label printer: each page is one label, with no margin.",
+      "reset": "Reset to defaults"
     }
   },
   "account": {
@@ -2911,7 +3031,7 @@
     "features": {
       "toolPages": {
         "title": "A page for every tool",
-        "body": "Every tool in the lab has a page: what it does, the training and PPE it needs, the emergency stop, specs and materials, the SOP and manuals, and every physical unit with its status and location. Scan the QR label on a machine to land on its page.",
+        "body": "Every tool in the lab has a page: what it does, the training and PPE it needs, the emergency stop, specs and materials, the SOP and manuals, and every physical unit with its status and location. Scan the QR label on a machine to land on its page. Staff print the labels from the inventory, at the sticker size they use, and anyone can save a tool’s code from its page or ask MakerLAB AI for it.",
         "alt": "The X1-Carbon's tool page with its safety panel, details, documents and units."
       },
       "citations": {
@@ -3108,7 +3228,7 @@
       "super_adminBody": "Directors",
       "mcp": "Outside AI",
       "mcpBody": "Over MCP, with a token",
-    "mcpShort": "MCP"
+      "mcpShort": "MCP"
     },
     "you": "You",
     "forYouHeading": "What it can do for you",
@@ -3211,7 +3331,8 @@
       "list_categories": "Read the categories",
       "list_category_proposals": "Read proposed categories",
       "find_people": "Look people up (addresses masked)",
-      "get_value_report": "Read the value report's numbers"
+      "get_value_report": "Read the value report's numbers",
+      "get_tool_qr_code": "Show a tool's QR code, ready to download"
     },
     "actions": {
       "people_set_role": "Move someone between User and Admin",

@@ -1,4 +1,7 @@
+import Link from "next/link";
+import { QrCode } from "lucide-react";
 import { getTranslations } from "next-intl/server";
+import { Button } from "@/components/ui/button";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
 import { AddInventoryButton } from "../../../components/admin/AddInventoryButton";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
@@ -109,7 +112,18 @@ export default async function AdminInventoryPage({
           t("facts.drafts", { count: count("draft") }),
           t("facts.needAttention", { count: rows.filter((row) => row.needsAttention).length }),
         ]}
-        actions={<AddInventoryButton role={identity.role} />}
+        actions={
+          <>
+            {/* QR labels (`/admin/inventory/qr`): print a code for each machine. Same permission as this page. */}
+            <Button asChild>
+              <Link href="/admin/inventory/qr">
+                <QrCode aria-hidden="true" />
+                {t("qrLabels.open")}
+              </Link>
+            </Button>
+            <AddInventoryButton role={identity.role} />
+          </>
+        }
       />
 
       <UnlinkedUnits units={unlinked} />

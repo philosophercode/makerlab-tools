@@ -42,3 +42,13 @@
   assert:
     - kind: called_tool
       value: report_issue
+
+# QR labels: a read for everybody, anonymous visitors included. The code is
+# drawn as a card with download links, so the tool must be called; the model
+# cannot make a code in text.
+- id: qr-code-calls-tool
+  prompt: "Can I have a QR code for the Trotec Speedy 400? I want to stick it on the machine."
+  context: { page: gallery }
+  assert:
+    - kind: called_tool
+      value: get_tool_qr_code
