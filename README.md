@@ -1,4 +1,4 @@
-# MakerLab Tools
+# MakerLAB Tools
 
 The equipment inventory and AI assistant for the **Cornell Tech MakerLAB**. Students
 find a machine, read how to use it, and ask an assistant that answers from the lab's own
@@ -8,13 +8,8 @@ equipment in the same app.
 **Live:** <https://makerlab-ai.vercel.app>
 
 Deployed across the lab's ~100 machines, and the subject of an accepted demo paper at
-ISAM 2026.
-
-> [!NOTE]
-> **The app is `v5/`.** Run every command below from there. The root `src/` tree is v4, an
-> older AirTable-backed version kept for reference only; a pending change (PR #79) moves
-> `v5/` to the repository root and retires it. Until then, paths in these docs are written
-> for the current layout.
+ISAM 2026. **ISAM 2026 demo:** the abstract, figures and submission record are in
+[`docs/isam-2026-demo/`](docs/isam-2026-demo/).
 
 ---
 
@@ -55,8 +50,9 @@ Next.js 16 (App Router, React Server Components, `cacheComponents`), React 19,
 TypeScript, Tailwind CSS 4 with shadcn/ui. **Postgres** (Neon) through Drizzle ORM, with
 pgvector for manual search; **Vercel Blob** for files (one public store, one private).
 Better Auth with Google sign-in, restricted to Cornell addresses. Models through the
-**Vercel AI Gateway** via the AI SDK. MCP via `@modelcontextprotocol/sdk`. Vitest, React
-Testing Library, MSW and Playwright. Hosted on Vercel.
+**Vercel AI Gateway** via the AI SDK; background jobs on the Workflow SDK. MCP via
+`@modelcontextprotocol/sdk`. Vitest, React Testing Library, MSW and Playwright. Hosted on
+Vercel.
 
 Notion is no longer the data layer: it is read once by the import script, and optionally
 receives a one-way copy of the inventory.
@@ -66,20 +62,20 @@ receives a one-way copy of the inventory.
 ## Quick start
 
 ```bash
-cd v5
+git clone https://github.com/philosophercode/makerlab-tools.git
+cd makerlab-tools
 npm install
 npm run dev                  # http://localhost:3000
 ```
 
 **It runs with no configuration.** With `DATABASE_URL` unset the app uses an in-process
 Postgres (PGlite) seeded with two demo tools, shows a **demo data** banner, and stores
-uploads in `v5/.blob-data/`. Add `AI_GATEWAY_API_KEY` to `v5/.env.local` to turn the
-assistant on. `v5/.env.example` documents every variable.
+uploads in `.blob-data/`. Add `AI_GATEWAY_API_KEY` to `.env.local` to turn the assistant
+on. [`.env.example`](.env.example) documents every variable.
 
 **Working against the real inventory locally** uses a persistent PGlite database:
 
 ```bash
-cd v5
 PGLITE_DATA_DIR=.pglite-data npm run dev -- -p 3001     # set AUTH_BASE_URL=http://localhost:3001
 ```
 
@@ -89,8 +85,6 @@ filled from Notion and later copied to the hosted site is in
 [`docs/deploy.md`](docs/deploy.md).
 
 ### Commands
-
-Run from `v5/`:
 
 ```bash
 npm run dev            # dev server
@@ -108,19 +102,44 @@ The test suite needs **no credentials and makes no network calls**.
 
 ---
 
+## Layout
+
+| Path | What |
+|---|---|
+| `src/app` | Pages, `/admin`, API routes |
+| `src/components` | UI: `ui/` (shadcn), `system/` (app primitives), `chat/`, `admin/` … |
+| `src/lib` | Data layer, action layer, capabilities, AI jobs, research, manuals, auth |
+| `src/workflows` | Background jobs (Workflow SDK) |
+| `messages/` | Interface strings, 12 locales |
+| `scripts/` | Import, migration and maintenance tools, run with `node --experimental-strip-types` |
+| `test/`, `e2e/`, `evals/` | Shared test harness, Playwright specs, agent eval harness |
+| `public/`, `data/` | Bundled tool images; dated data bundles |
+| `docs/` | Everything below |
+
 ## Documentation
 
 | Document | For |
 |---|---|
 | [`docs/deploy.md`](docs/deploy.md) | **Setting it up.** Local stages, then a Vercel deployment step by step. |
 | [`docs/handover.md`](docs/handover.md) | **Running it.** Accounts, routine tasks, backups, what to do when it breaks. |
+| [`docs/operations.md`](docs/operations.md) | Monitoring, backups and restore. |
 | [`docs/architecture-guide.md`](docs/architecture-guide.md) | **How it works.** Start here if you are inheriting the code. |
+| [`docs/assistant.md`](docs/assistant.md) | What the assistant can do, by role. |
 | [`docs/mcp.md`](docs/mcp.md) | Connecting Claude, ChatGPT, Codex and other MCP clients. |
 | [`docs/constitution.md`](docs/constitution.md) | The rules every change must respect. |
 | [`docs/specs/`](docs/specs/README.md) | Design specs and what is built against each. |
 | [`docs/MakerLab_design/DESIGN.md`](docs/MakerLab_design/DESIGN.md) | The design system. |
-| [`AGENTS.md`](AGENTS.md), [`v5/AGENTS.md`](v5/AGENTS.md) | Repo map, conventions and app detail, for people and AI assistants alike. |
-| [`v5/TESTING.md`](v5/TESTING.md) | Test suite runbook. |
+| [`AGENTS.md`](AGENTS.md) | Conventions and app detail, for people and AI assistants alike. |
+| [`TESTING.md`](TESTING.md) | Test suite runbook. |
+| [`.env.example`](.env.example) | Every environment variable, with what it does. |
+| [`evals/README.md`](evals/README.md) | The agent eval harness. |
+
+## History
+
+This repository once held two apps side by side. The older AirTable-backed version (v4)
+was removed when the current app moved to the repository root; it is preserved at the
+git tag [`v4-final`](https://github.com/philosophercode/makerlab-tools/tree/v4-final).
+Dated specs in `docs/specs/` written before the move refer to paths under `v5/`.
 
 ## Contributing
 
@@ -129,6 +148,11 @@ Every feature starts with a spec that merges **before** the implementation
 [`docs/specs/TEMPLATE.md`](docs/specs/TEMPLATE.md), or `/spec` in Claude Code.
 `npm run test:all` must pass before any merge.
 
+## License
+
+This repository has no license file, so no open-source license applies and default
+copyright holds. Ask the owners below before reusing any part of it.
+
 ## Who owns it
 
 The **Cornell Tech MakerLAB**:
@@ -136,4 +160,3 @@ The **Cornell Tech MakerLAB**:
 - **Niti Parikh** — Director
 - **Luis Rodrigo Navarro** — Assistant Director
 - **Isaac Steinberg** — Tech Lead
-
