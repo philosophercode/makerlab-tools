@@ -70,6 +70,18 @@ describe("DetailShell", () => {
       expect(rowText).toContain(`Location${toolWithLinks.location} › ${toolWithLinks.zone}`);
     });
 
+    it("links the category and the room to the gallery filtered by them", () => {
+      const { container } = render(<DetailShell tool={toolWithLinks} />);
+      expect(container.querySelector('[data-slot="category-link"]')).toHaveAttribute(
+        "href",
+        `/?category=${encodeURIComponent(toolWithLinks.category)}`
+      );
+      expect(container.querySelector('[data-slot="location-link"]')).toHaveAttribute(
+        "href",
+        `/?location=${encodeURIComponent(toolWithLinks.location)}`
+      );
+    });
+
     it("renders each resource link with its href and label", () => {
       render(<DetailShell tool={toolWithLinks} />);
       for (const link of toolWithLinks.links) {

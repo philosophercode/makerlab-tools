@@ -20,6 +20,7 @@ import { ColumnsMenu } from "../system/data-table/ColumnsMenu";
 import { facetOptions, uniqueValues } from "../system/data-table/facet-options";
 import { EmptyState } from "../system/EmptyState";
 import { Glyph, StatusGlyph, type StatusTone } from "../system/StatusGlyph";
+import { ExportToolsCsvButton } from "./ExportToolsCsvButton";
 import { RefreshDialog } from "./RefreshDialog";
 import { ToolEditorPanel } from "./ToolEditorPanel";
 import type { ToolEditorActions } from "./tool-editor-actions";
@@ -71,6 +72,8 @@ export interface InventoryBoardProps {
   canPublish?: boolean;
   /** **Refresh research**: when given, rows can be selected and sent. The action checks `tools.edit` itself. */
   queueRefresh?: QueueRefreshAction;
+  /** Whether the viewer holds `catalog.export` (**Export CSV**). Presentation only; the route checks it. */
+  canExport?: boolean;
 }
 
 const STATE_TONE: Record<ToolState, StatusTone> = { published: "ok", draft: "idle", archived: "muted" };
@@ -95,7 +98,7 @@ const FLAG_KEY: Record<(typeof FLAG_ORDER)[number], string> = {
 /** Hidden until asked for: useful, but not what a review runs on. */
 const DEFAULT_HIDDEN: VisibilityState = { updated: false };
 
-export function InventoryBoard({ rows, initial, actions, canPublish = true, queueRefresh }: InventoryBoardProps) {
+export function InventoryBoard({ rows, initial, actions, canPublish = true, queueRefresh, canExport = false }: InventoryBoardProps) {
   const t = useTranslations("admin.inventory");
   const [filters, setFilters] = useState<InventoryFilterState>(initial);
   // The row rather than its id, so the panel can name the tool before its own read answers.
@@ -313,7 +316,18 @@ export function InventoryBoard({ rows, initial, actions, canPublish = true, queu
         total={rows.length}
         onClear={active ? clearFilters : null}
         activeCount={[filters.state, filters.attention, filters.category, filters.location, filters.kind].filter(Boolean).length}
-        secondary={<ColumnsMenu columns={columns} visibility={visibility} onChange={setVisibility} />}
+        secondary={
+          <>
+            {canExport ? (
+              // Filtered, it exports what the table shows; otherwise every tool, every state.
+              <ExportToolsCsvButton
+                ids={active ? visible.map(getRowId) : undefined}
+                label={active ? t("exportShown", { count: visible.length }) : t("exportAll")}
+              />
+            ) : null}
+            <ColumnsMenu columns={columns} visibility={visibility} onChange={setVisibility} />
+          </>
+        }
       />
 
       <DataTable
@@ -327,7 +341,7 @@ export function InventoryBoard({ rows, initial, actions, canPublish = true, queu
             {emptyMessage}
           </EmptyState>
         }
-        selectable={Boolean(queueRefresh)}
+        selectable={Boolean(queueRefresh) || canExport}
         selection={selection}
         onSelectionChange={setSelection}
         columnVisibility={visibility}
@@ -341,6 +355,7 @@ export function InventoryBoard({ rows, initial, actions, canPublish = true, queu
                 {t("refreshSelected", { count: ids.length })}
               </Button>
             ) : null}
+            {canExport ? <ExportToolsCsvButton ids={ids} label={t("exportSelected", { count: ids.length })} /> : null}
             <Button variant="ghost" size="sm" onClick={clear}>
               {t("clearSelection")}
             </Button>
@@ -348,7 +363,7 @@ export function InventoryBoard({ rows, initial, actions, canPublish = true, queu
         )}
         mobileRow={(row, { selected, toggle }) => (
           <div className="flex items-start gap-3 px-1 py-2.5">
-            {queueRefresh ? (
+            {queueRefresh || canExport ? (
               <Checkbox className="mt-0.5" checked={selected} onCheckedChange={toggle} aria-label={t("selectRow", { name: row.name })} />
             ) : null}
             <div className="min-w-0 flex-1">

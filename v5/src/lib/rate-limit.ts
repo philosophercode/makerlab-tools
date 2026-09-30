@@ -215,6 +215,10 @@ export const ROUTE_TIERS = {
   // covers a lab or a booth full of screens behind one address. Keyed by
   // hashed IP only — the route reads no cookie.
   kiosk: { limit: 20, windowMs: 60_000 },
+  // A tool's QR code image (`/api/qr/[slug]`): public, keyed by hashed IP,
+  // no cookie. The tool page's dialog loads one or two; an admin previewing
+  // a sheet a handful — sixty a minute is generous, and the CDN answers most.
+  qr: { limit: 60, windowMs: 60_000 },
   // Usage insight's page-view beacon (usage insight spec §5.3, §8): one per
   // tool per tab, so sixty a minute is a busy browser, not a person.
   usage: { limit: 60, windowMs: 60_000 },

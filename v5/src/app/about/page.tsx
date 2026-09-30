@@ -6,7 +6,7 @@ import { siteConfig } from "../../lib/site-config";
 import { ABOUT_LINKS, ABOUT_PEOPLE } from "./about-content";
 
 export const metadata = {
-  title: `About — ${siteConfig.name}`,
+  title: "About",
   description: `The ${siteConfig.institution} MakerLAB, and ${siteConfig.name}: ${siteConfig.tagline}.`,
 };
 

@@ -7,7 +7,7 @@ import { useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import type { IntakeConfidenceLevel } from "../../lib/capabilities/types";
 import { hasStalledStart } from "../../lib/intake/access";
-import { INTAKE_POLL_INTERVAL_MS } from "../../lib/intake/limits";
+import { INTAKE_POLL_INTERVAL_MS, RESEARCH_MAX_ITEMS_PER_REQUEST } from "../../lib/intake/limits";
 import type { ResearchFocusField } from "../../lib/intake/research-focus";
 import {
   ADMIN_INTAKE_PATH,
@@ -23,6 +23,7 @@ import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
 import { DuplicateChoice } from "../system/review/DuplicateChoice";
 import { ReviewCard, ReviewDiagnosis, ReviewNote } from "../system/review/ReviewCard";
 import { PENDING_STATUS_TONE } from "./pending-status-tone";
+import { ResearchSpendConfirm } from "../ResearchSpendConfirm";
 import { personLabel } from "./person-label";
 import { usePoll } from "./use-poll";
 
@@ -65,6 +66,12 @@ import { usePoll } from "./use-poll";
  * confirmation. All of them are the table card's own
  * `PATCH /api/pending-tools/[id]`, so the route's ownership and state checks
  * are the ones that apply.
+ *
+ * **Research selected** (amendment "Many items at once"): the ticks that tell
+ * the chat what "these" means also drive a **Research selected (N)** button in
+ * the selection bar — the items that can be researched from here (identified,
+ * failed or stalled, with any duplicate decided), after the same
+ * `ResearchSpendConfirm` the chat card shows, in one POST of their ids.
  */
 
 /** The route both controls call. Never imported — it is Part A's endpoint. */
@@ -185,6 +192,8 @@ const LEVEL_KEYS: Record<IntakeConfidenceLevel, string> = {
 
 export interface IntakeListProps {
   items: PendingToolView[];
+  /** The viewer's research allowance left, for the confirmation; null or absent when unknown. */
+  researchLeft?: number | null;
   /** The search and facets over the queue; off for the one item an item page shows. */
   filters?: boolean;
 }
@@ -192,7 +201,7 @@ export interface IntakeListProps {
 /** Every status a queue item can be in, in the order work moves. */
 const STATUSES: readonly PendingStatus[] = ["identified", "queued", "researching", "researched", "failed", "approved", "discarded"];
 
-export function IntakeList({ items, filters = true }: IntakeListProps) {
+export function IntakeList({ items, filters = true, researchLeft = null }: IntakeListProps) {
   const t = useTranslations("admin.intake");
   const tStatus = useTranslations("intake.status");
   const router = useRouter();
@@ -234,6 +243,7 @@ export function IntakeList({ items, filters = true }: IntakeListProps) {
       renderList={(run, _part, row) => <Batches items={run} row={row} />}
       // Ticked items are what "approve these" means in the chat (assistant–GUI parity spec §5.2).
       selectable={{ kind: "pending_tool", name: (item) => item.name }}
+      selectionActions={(ticked, clear) => <ResearchTicked items={ticked} left={researchLeft} onStarted={clear} />}
     />
   );
 }
@@ -324,11 +334,16 @@ function IntakeRow({ item }: { item: PendingToolView }) {
           {item.confidenceLevel ? (
             <StatusGlyph tone={CONFIDENCE_TONE[item.confidenceLevel]} label={tIntake(LEVEL_KEYS[item.confidenceLevel])} />
           ) : null}
+          {item.identifyConfidence === "unsure" && item.status === "identified" ? (
+            <StatusGlyph tone="warn" label={tIntake("table.certaintyUnsure")} />
+          ) : null}
         </>
       }
       meta={
         <>
           {item.brand ? <span>{item.brand}</span> : null}
+          {(item.quantity ?? 1) > 1 ? <span aria-label={tIntake("table.quantityAria", { count: item.quantity ?? 1 })}>{tIntake("table.quantity", { count: item.quantity ?? 1 })}</span> : null}
+          {item.seenIn ? <span>{tIntake("table.seenIn", { where: item.seenIn })}</span> : null}
           <span>{identifiedBy ? t("identifiedBy", { name: identifiedBy }) : t("identifiedByUnknown")}</span>
           <span className="tabular-nums">{t("identifiedOn", { date: day(item.createdAt) })}</span>
         </>
@@ -493,6 +508,81 @@ function ResearchButton({ id, name, kind }: { id: string; name: string; kind: "r
         {!pending && error ? t(`errors.${error}`) : null}
       </ReviewNote>
     </>
+  );
+}
+
+/** Can go to research from the queue: nothing running, nothing to decide first. */
+export function researchableFromQueue(item: PendingToolView): boolean {
+  const waiting = item.status === "identified" || item.status === "failed" || startFailed(item);
+  return waiting && !(item.duplicateOf !== null && item.duplicateResolution === null);
+}
+
+/**
+ * **Research selected (N)** for the ticked items (amendment "Many items at
+ * once"): only those {@link researchableFromQueue}, at most
+ * `RESEARCH_MAX_ITEMS_PER_REQUEST` (the route's own cap — more is its
+ * `too_many_items`), after the spend confirmation. One POST of their ids to
+ * the research route, like the chat card's.
+ */
+function ResearchTicked({ items, left, onStarted }: { items: PendingToolView[]; left: number | null; onStarted: () => void }) {
+  const t = useTranslations("admin.intake");
+  const router = useRouter();
+  const [phase, setPhase] = useState<"idle" | "confirming" | "starting">("idle");
+  const [error, setError] = useState<PendingApiErrorCode | null>(null);
+  const [started, setStarted] = useState<number | null>(null);
+  const ready = items.filter(researchableFromQueue);
+  const billable = ready.filter((item) => item.duplicateResolution !== "add_unit").length;
+
+  async function start() {
+    setPhase("starting");
+    setError(null);
+    let code: PendingApiErrorCode | null;
+    try {
+      const res = await fetch(RESEARCH_ENDPOINT, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ids: ready.map((item) => item.id) }),
+      });
+      code = await answer(res);
+    } catch {
+      code = "failed";
+    }
+    setPhase("idle");
+    if (code) {
+      setError(code);
+      return;
+    }
+    setStarted(ready.length);
+    onStarted();
+    router.refresh();
+  }
+
+  return (
+    <span className="flex flex-col gap-1">
+      {phase === "confirming" || phase === "starting" ? (
+        <ResearchSpendConfirm
+          count={billable}
+          left={left}
+          starting={phase === "starting"}
+          onConfirm={() => void start()}
+          onCancel={() => setPhase("idle")}
+        />
+      ) : (
+        <Button
+          variant="default"
+          size="sm"
+          disabled={ready.length === 0}
+          onClick={() => (billable === 0 ? void start() : setPhase("confirming"))}
+        >
+          {t("researchSelected", { count: ready.length })}
+        </Button>
+      )}
+      <ReviewNote role="status" tone={error ? "bad" : "muted"}>
+        {ready.length === 0 && items.length > 0 ? t("researchSelectedNone") : null}
+        {error ? t(`errors.${error}`, { max: RESEARCH_MAX_ITEMS_PER_REQUEST }) : null}
+        {!error && started !== null ? t("researchSelectedStarted", { count: started }) : null}
+      </ReviewNote>
+    </span>
   );
 }
 

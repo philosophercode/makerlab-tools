@@ -9,7 +9,6 @@ import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { countManualsByState, listManualLibrary } from "../../../lib/data/manual-chunks";
 import { getDb } from "../../../lib/db/client";
-import { siteConfig } from "../../../lib/site-config";
 import { loadStarterChipRows, type StarterChipAdminRow } from "../../../lib/starters/admin-rows";
 import { reprocessLibraryManual } from "./actions";
 
@@ -24,7 +23,7 @@ import { reprocessLibraryManual } from "./actions";
  */
 
 export const metadata = {
-  title: `Manuals — ${siteConfig.name}`,
+  title: "Manuals",
 };
 
 export default async function AdminResearchPage() {

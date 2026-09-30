@@ -299,6 +299,19 @@ Phase 5 extends both. The shape it sets:
   and the island import — it owns which values a URL may carry, and drops any
   it does not offer. An empty table names the filter that emptied it; "no
   results" on its own tells a reviewer nothing (§6).
+- **Export CSV is super admins' (`catalog.export`), and tools only.** The inventory's
+  `FilterBar` offers **Export CSV** (every tool, published/draft/archived, with a Status
+  column) or **Export CSV (n shown)** when a filter is set, and the selection bar
+  **Export CSV (n)** (`ExportToolsCsvButton`). It posts `{ ids? }` to
+  `POST /api/admin/tools/export`, which re-checks the permission (401 anonymous, 403
+  anyone else), rate-limits (10/min) and answers `text/csv` as an attachment
+  (`makerlab-tools-YYYY-MM-DD.csv`, `no-store`). One flat row per tool — the stored
+  fields (`lib/data/tool-export.ts`, never the catalogue's display fallbacks), lists
+  `; `-joined, **public photo and published-resource links only**, the tool page URL,
+  timestamps — written by `lib/export/csv.ts` (RFC 4180, UTF-8 BOM for Excel, CRLF, a
+  cell starting `=` `+` `-` `@` tab or CR prefixed with `'`). No tickets, unit history,
+  corrections or usage. Not an assistant or MCP action, by the owner's decision
+  (`exempt.ts` "Not a write").
 - **Editing inventory is optimistic, and its token is a string.** The tool
   editor reads a revision when it opens and hands it back with the save; the
   write happens only if `tools.updated_at` has not moved. The token is
@@ -748,10 +761,29 @@ creates a tool (Article 5).
   — data-platform spec amendment 2026-09-24) and emits one `data-intake-table` part. `research_tool` and
   `propose_listing` are gone; the intake prompt allows two web searches, only
   to settle a model name.
+- **Many items at once** (data-platform spec amendment "Many items at once",
+  migration `0025`). The prompt asks for every distinct object in every photo
+  and every line of a list, one entry each, with `quantity`, `seenIn` and
+  `confidence` (`sure`/`likely`/`unsure` — an item it cannot name is included as
+  `unsure`, never dropped). Before any row is written,
+  `intake/identify-items.ts` turns a count left in a name into the quantity and
+  folds the same object seen twice into one item (never two serials, never
+  `unsure`). **A photo that shows several items** is claimed by the first and
+  **copied** to each other one (`files/share-photo.ts`, `copyToPublic` + a new
+  `attachments` row — two rows must never share a blob, or one item's discard
+  deletes another's picture); a lone photo with no mapping goes to every item.
+  `pending_tools.identify_confidence` / `seen_in` are stored; the count is the
+  existing `quantity` (units at approval).
 - **The table card talks to routes, never to the model.** `IntakeTableCard`
   edits, removes and resolves duplicates through `PATCH
-  /api/pending-tools/[id]`, and **Research selected (N)** is `POST
-  /api/pending-tools/research` with exactly the ticked ids. Every check in that
+  /api/pending-tools/[id]`, and **Add to research (N)** is `POST
+  /api/pending-tools/research` with exactly the ticked ids — after
+  `ResearchSpendConfirm` shows the count, the allowance left (`researchLeft`,
+  `intake/allowance.ts`) and about what it costs
+  (`RESEARCH_ESTIMATED_USD_PER_ITEM`). `unsure` rows start unticked. **Just add
+  to intake** sends nothing; **Discard (N)** asks, then PATCHes each.
+  `/admin/intake`'s selection bar (`QueueList`'s `selectionActions`) has the
+  same **Research selected (N)** and confirmation. Every check in that
   route runs before any row moves; add-unit items skip research; a `start()`
   that throws leaves the items `queued` with the reason in `research_error`,
   and the same POST is the Retry.
@@ -1545,6 +1577,60 @@ data; the QR code opens the catalogue with the chat.
   screenshot per viewport). The QR test has no decoder: it reads the modules
   back out of the SVG and compares them with `qrcode`'s matrix for `askUrl`.
 
+## QR labels (`/admin/inventory/qr`, `/api/qr/[slug]`, `get_tool_qr_code`)
+
+QR codes spec amendment 2026-09-29 ("QR labels in the app"). Staff print a code
+for each machine; anybody who scans it lands on that tool's page. No migration,
+no new permission, no model call.
+
+- **One URL format.** `src/lib/qr/urls.ts` owns `?src=qr` and
+  `toolQrTargetUrl(origin, slug)`; the label script, `QrArrivalNotice`, the
+  admin sheets, the tool page's dialog, the image route and the assistant all
+  import it — never spell the URL again. The origin is `qrSiteUrl()`
+  (`NEXT_PUBLIC_SITE_URL` → `https://${VERCEL_PROJECT_PRODUCTION_URL}` →
+  `https://makerlab-ai.vercel.app`), never the request host: a label outlives
+  a preview deployment. Pages compute it on the server and pass URLs down.
+- **`src/lib/qr/*` is shared and pure** (except `png.ts`, server-only): the
+  matrix and its path (`matrix.ts`), the label layout and sheet packing in
+  millimetres (`label-layout.ts`), the label SVG (`label-svg.ts`), the PDF
+  (`label-pdf.ts`, `pdf-lib`, Helvetica — a standard font, nothing embedded),
+  the styler settings (`settings.ts`). Its relative imports carry `.ts` so the
+  label script runs it under plain Node (`npm run qr:labels -- --pdf`).
+- **The admin page** (`tools.edit`, linked from the inventory header; a
+  `loading.tsx` like every admin folder) lists published tools only and hands
+  them to `components/admin/qr/QrLabelStudio`, which does the rest in the
+  browser: preview, PDF (`pdf-lib` loaded on the first click), one-click print
+  through a hidden frame, SVG/PNG of one label. Printing writes nothing — no
+  server action, no audit, nothing for the parity guard. The style lives in
+  `localStorage` (try/catch), read after hydration (`useHydrated`).
+- **`GET /api/qr/[slug]`** is public, published-only (draft, archived and
+  unknown are one 404), limited per hashed IP (`ROUTE_TIERS.qr`, no cookie),
+  CDN-cached. The tool page's `ToolQrButton` (beside `FlagButton`, which takes
+  `inline` there) and the chat's `ToolQrCard` load their images from it.
+- **`get_tool_qr_code`** (`capabilities/qr.ts`, capability `qr`) is a read for
+  every role, anonymous included, chat only; it writes a `data-tool-qr` part.
+  It is not a proposal and not an outside-content read, so neither the
+  confirmation card nor taint applies. Its name must stay clear of the deny
+  list's words (`download`, `export`… would forbid it).
+- **Codes in chat photos.** The chat route reads QR codes in the turn's
+  photos (`lib/chat/photo-qr.ts` → `lib/qr/decode.ts`: `jsqr` over `sharp`
+  pixels at 1600/1000/2400 px, ≤1.5 s an image, ≤4 images, 2.5 s a turn,
+  never throws) and matches them with `lib/qr/match.ts` (our hosts only,
+  `/tools/<slug|id|Notion id>`). The prompt gets a "QR codes in this
+  message's photos" section of server-resolved hints — a published tool's
+  slug and name, "not published", or "an external site". **A decoded payload
+  never reaches the prompt**: it is text off a sticker anybody could print.
+- **Size defaults.** The 1″ preset, and a custom size whose code would fall
+  under 25 mm, start with the wordmark and the extra line off
+  (`withSizeDefaults`, applied only when the size changes; `showExtra` keeps
+  the words while the line is off).
+- **Tests:** `lib/qr/*.test.ts`, `app/api/qr/[slug]/route.test.ts`,
+  `lib/chat/photo-qr.test.ts` (photo-like fixtures from `test/images/qr-photo.ts`),
+  `capabilities/qr.test.ts`, `app/admin/inventory/qr/page.test.tsx`,
+  `components/admin/qr/QrLabelStudio.test.tsx`,
+  `components/tool/ToolQrButton.test.tsx`, `components/chat/ToolQrCard.test.tsx`,
+  `scripts/generate-qr-labels.test.ts`; eval case `qr-code-calls-tool`.
+
 
 ## Performance conventions (performance plan, 2026-09-28)
 
@@ -1766,12 +1852,15 @@ good answers kept, so a click answers at once with no model call.
 | `src/lib/ai/lab-context.ts` | The assistant's "Where you are" block — the lab, its people, Cornell Tech, and its operate / debug / create purpose — placed after the intro in the static prompt prefix. Sourced facts only; sources in its comments |
 | `src/components/chat/assistant-intro-store.ts` / `AssistantIntro.tsx` | The first-visit "Meet the MakerLAB Assistant" callout beside the chat button, remembered in `localStorage` (try/catch), gone once dismissed or the chat opens |
 | `src/lib/kiosk/*` / `src/components/kiosk/*` / `src/app/kiosk/` | The lab status screen: snapshot loader, pure timing and derivations, QR code; the client screen; the page (see "The lab status screen") |
+| `src/lib/map/*` / `src/components/map/*` | The floor map, signed-in only (`canSeeMap`): the plan data, `placeTool`, `planWork` (tools grouped by zone); `/map`'s explorer (a picked place is a **pushed** `?highlight=`, so Back returns to the whole map; the search is a replaced `?q=`), the tool page's "Where it is" and the project page's "Where you'll work" (`SignedIn*` wrappers read identity in their own Suspense hole, so cached shells carry no placement) |
+| `src/lib/qr/*` / `src/components/admin/qr/*` / `src/app/admin/inventory/qr/` / `src/app/api/qr/[slug]/` | QR labels: the URL format, layout, SVG and PDF; the admin label page; the public image route (see "QR labels") |
 | `src/lib/db/client.ts` | `getDb()`, `dataSubstrate()`, `pingDb()` — the one entry point to Postgres/PGlite |
 | `src/lib/notion.ts` | Notion API client — used by the one-time import and its scripts; no request path reads or writes Notion through it (the mirror has its own client) |
 | `src/lib/data/attachments.ts` | `attachments` rows: create, claim onto an owner, reorder, release, list orphans, delete |
 | `src/lib/data/revision.ts` | The editor's concurrency token — `extract(epoch from updated_at)::text`, **never a `Date`** (read the docstring before touching a conflict check) |
 | `src/lib/data/tools.ts` / `units.ts` | Row-level inventory writes, every one revision-checked. Tools are archived, never deleted |
 | `src/lib/data/inventory.ts` | The `/admin/inventory` read — every tool, its state and its needs-attention flags, plus the units that belong to no tool |
+| `src/lib/data/tool-export.ts` / `src/lib/export/*` / `src/app/api/admin/tools/export/route.ts` | The tools CSV (`catalog.export`, super admins): the read (all or selected ids, public links only), the columns and the RFC 4180 writer, the route |
 | `src/lib/data/taxonomy.ts` | `listCategories()` / `listLocations()` — the two option lists an editing surface needs (live categories in tree order, `group` = the heading) — plus `findOrCreateLocation` for intake. `findOrCreateCategory` is left for the Notion import only: nothing else creates a category |
 | `src/lib/data/category-admin.ts` / `src/lib/taxonomy/*` | Taxonomy v2: proposals, decisions, merge, rename, retire, `matchExistingCategory`; the seed tree, the migration mapping and plan, the audit (see "Taxonomy v2") |
 | `src/lib/data/pending-tools.ts` | `pending_tools`: the batch, every status transition as a conditional write, and the two approval transactions |
@@ -1964,6 +2053,17 @@ good answers kept, so a click answers at once with no model call.
   `HeaderSearch`) open it. `FlagButton` is a `Dialog`. The `.chat-*` CSS and
   `admin-import.css` are gone.
 - All branding strings come from `siteConfig` (`@/lib/site-config`).
+- **Page titles name the page only** (`title: "Inventory"`): the root
+  layout's template makes it "Inventory · MakerLAB Tools". Link previews
+  (`src/lib/share/`): `metadataBase` is `siteUrl()` (`NEXT_PUBLIC_SITE_URL`,
+  else `VERCEL_PROJECT_PRODUCTION_URL`, else the live deployment); pages
+  without an image inherit the generated site card (`app/opengraph-image.tsx`,
+  `twitter-image.tsx`); tool and project pages show their photo through
+  `recordShareMetadata` — public-store and bundled photos only, via
+  `/_next/image` at 640 px — and a draft or unknown id gets `{}`. A page that
+  sets `openGraph` replaces the root's, so it spreads `baseOpenGraph()` and
+  names its image. The card's fonts are static TTFs cut by
+  `scripts/share-card-fonts.py` (`next/og` cannot read WOFF2).
 - Every API route is **rate-limited by identity** before expensive work — user id when signed in, hashed IP when not.
 - Authorization is **always** `can(subject, permission)` from `src/lib/auth/permissions.ts`. Never compare role names, and never gate inside a capability tool's `run()`.
 - Maintenance tickets are always written in **English** even when the chat replies in another locale.

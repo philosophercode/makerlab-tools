@@ -9,6 +9,7 @@ import { officialNameShown } from "../lib/tool-names";
 import { isoDay } from "../lib/iso-day";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Markdown } from "./system/Markdown";
 import { StatusGlyph, type StatusTone } from "./system/StatusGlyph";
 import { TOOL_STATUS_KEY, TOOL_STATUS_TONE } from "./ToolCard";
@@ -29,6 +30,11 @@ interface DetailShellProps {
    * Suspense boundary and only a signed-in viewer gets anything (map access).
    */
   location?: React.ReactNode;
+  /**
+   * The mini-map beside the photo (`map/ToolMiniMap`). Like `location`, the
+   * page passes it in its own Suspense boundary, signed-in viewers only.
+   */
+  heroMap?: React.ReactNode;
   /**
    * Accessory links (taxonomy v2 facet): the tool this one is an accessory of,
    * and the published accessories of this one. Empty is absent.
@@ -60,7 +66,8 @@ function maintenanceTone(status: string): StatusTone {
  * polish). Tufte's rule is the brief: every mark a reading somebody needs, and
  * nothing drawn for a fact the tool does not have.
  *
- * - **Hero**: a small image plate beside the name, official name, a status
+ * - **Hero**: a small image plate (and, signed in, the mini-map — beside it
+ *   on a phone, under it from `sm`) beside the name, official name, a status
  *   line on one line (status, training, PPE, units available), the
  *   description and the Safety doc / SOP buttons.
  * - **Two columns on desktop** (one on a phone): Safety & access — the one
@@ -72,7 +79,7 @@ function maintenanceTone(status: string): StatusTone {
  *   box, no empty maintenance history. Safety is the exception: it always
  *   says what to do, falling back to the lab's standing guidance.
  */
-export function DetailShell({ tool, projects = [], manualContents = [], maintenance = [], location = null, relations }: DetailShellProps) {
+export function DetailShell({ tool, projects = [], manualContents = [], maintenance = [], location = null, heroMap = null, relations }: DetailShellProps) {
   const t = useTranslations("detail");
   const tStatus = useTranslations("gallery.status");
   const tUi = useTranslations("ui");
@@ -80,10 +87,21 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
   const sopLink = findResource(tool, "SOP");
   const officialName = officialNameShown(tool);
   const available = tool.units.filter((unit) => unit.status === "Available").length;
+  const hasPhoto = Boolean(tool.imageSrc || tool.thumbnails);
 
   type Row = [string, React.ReactNode];
   const specs: Row[] = [
-    [t("category"), `${tool.category}${tool.categorySub && tool.categorySub !== tool.category ? ` › ${tool.categorySub}` : ""}`],
+    // The category and the room link to the gallery filtered by them (map UX
+    // pass, cross-links): the same facet values the gallery offers.
+    [
+      t("category"),
+      <span key="category">
+        <Link data-slot="category-link" href={`/?category=${encodeURIComponent(tool.category)}`} className="text-primary-ink hover:underline">
+          {tool.category}
+        </Link>
+        {tool.categorySub && tool.categorySub !== tool.category ? ` › ${tool.categorySub}` : ""}
+      </span>,
+    ],
     ...(tool.itemKind && tool.itemKind !== "equipment" ? ([[t("itemKindRow"), t(`itemKind.${tool.itemKind}`)]] as Row[]) : []),
     ...(relations?.accessoryOf
       ? ([
@@ -95,7 +113,15 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
           ],
         ] as Row[])
       : []),
-    [t("location"), `${tool.location}${tool.zone ? ` › ${tool.zone}` : ""}`],
+    [
+      t("location"),
+      <span key="location">
+        <Link data-slot="location-link" href={`/?location=${encodeURIComponent(tool.location)}`} className="text-primary-ink hover:underline">
+          {tool.location}
+        </Link>
+        {tool.zone ? ` › ${tool.zone}` : ""}
+      </span>,
+    ],
     ...(tool.materials.length > 0 ? ([[t("materials"), tool.materials.join(", ")]] as Row[]) : []),
     ...(tool.trainingLabel ? ([[t("trainingRow"), tool.trainingLabel]] as Row[]) : []),
     ...(tool.mapId ? ([[t("mapId"), <code key="map" className="font-mono text-xs">{tool.mapId}</code>]] as Row[]) : []),
@@ -137,17 +163,29 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
       </nav>
 
       <section data-slot="tool-hero" className="grid min-w-0 gap-5 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)] md:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] md:gap-8">
-        <ToolImage
-          src={tool.imageSrc}
-          thumbnails={tool.thumbnails}
-          name={tool.name}
-          // The plate's width: the column (16rem / 13rem), capped at 12rem
-          // on a phone.
-          sizes="(min-width: 768px) 256px, (min-width: 640px) 208px, 192px"
-          // The page's LCP element: fetched first, never lazily.
-          priority="high"
-          className="aspect-[4/3] w-full max-w-[12rem] border border-border bg-card p-3 sm:max-w-none"
-        />
+        {/* The photo and, for signed-in people, the mini-map (`heroMap`):
+            side by side on a phone, stacked in the image column from `sm` up.
+            The photo is first and fixed in size, so the map streaming in
+            beside it never moves it. */}
+        <div data-slot="tool-hero-media" className="group/hero-media flex min-w-0 gap-3 sm:flex-col">
+          <ToolImage
+            src={tool.imageSrc}
+            thumbnails={tool.thumbnails}
+            name={tool.name}
+            // The plate's width: the column (16rem / 13rem), capped at 12rem
+            // on a phone.
+            sizes="(min-width: 768px) 256px, (min-width: 640px) 208px, 192px"
+            // The page's LCP element: fetched first, never lazily.
+            priority="high"
+            className={cn(
+              "aspect-[4/3] w-full max-w-[12rem] shrink-0 border border-border bg-card p-3 sm:max-w-none",
+              // No photo: the initials plate gives way to the map when there
+              // is one, so only the picture that exists is drawn.
+              !hasPhoto && "group-has-[[data-slot=tool-minimap]]/hero-media:hidden",
+            )}
+          />
+          {heroMap}
+        </div>
         <div className="flex min-w-0 flex-col gap-2.5">
           <h1 className="font-heading text-[clamp(30px,4vw,48px)] leading-[0.95] font-medium tracking-tight uppercase">{tool.name}</h1>
           {/* The official name, under the display name, when it says more

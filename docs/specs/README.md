@@ -31,7 +31,7 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 | [v5 Test Suite](2026-05-29-v5-test-suite-design.md) | Four offline layers; runbook in `v5/TESTING.md` |
 | [Student Projects Gallery](2026-07-29-projects-gallery-design.md) | Storage moved from Notion to Postgres (data platform phase 3); moderation at `/admin/projects` |
 | [Agent Eval Harness](2026-07-29-agent-eval-harness-design.md) | `npm run eval`; real, paid, never in CI |
-| [QR Codes on Machines](2026-07-29-qr-codes-design.md) | `npm run qr:labels` |
+| [QR Codes on Machines](2026-07-29-qr-codes-design.md) | `npm run qr:labels`; amendment 2026-09-29 "QR labels in the app": print sheets at `/admin/inventory/qr`, a QR dialog on each tool page, `get_tool_qr_code`, `/api/qr/[slug]` |
 | [Report a Correction](2026-07-29-report-a-correction-design.md) | Corrections land in `feedback`, worked at `/admin/corrections` |
 | [Bulk Intake](2026-09-23-bulk-intake-design.md) | Import a list on `/admin/intake`; allowances on People |
 | [Gateway-First Models and a Product Image Finder](2026-09-23-gateway-models-and-product-images-design.md) | Gateway is the only model path; deterministic cutout, no generative redraw |

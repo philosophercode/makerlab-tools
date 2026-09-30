@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { MapGate } from "../../components/map/MapGate";
-import { siteConfig } from "../../lib/site-config";
+import { PublicPageLoading } from "../../components/system/PublicPageLoading";
 
 /**
  * `/map` — the lab's floor plan with every published tool placed on it
@@ -11,12 +11,14 @@ import { siteConfig } from "../../lib/site-config";
  */
 
 export const metadata = {
-  title: `Floor map — ${siteConfig.name}`,
+  title: "Floor map",
 };
 
 export default function MapPage() {
   return (
-    <Suspense fallback={null}>
+    // The session read takes a moment: say the page is coming rather than
+    // showing an empty screen (map UX pass).
+    <Suspense fallback={<PublicPageLoading shape="page" />}>
       <MapGate />
     </Suspense>
   );

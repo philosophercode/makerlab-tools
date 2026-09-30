@@ -50,4 +50,19 @@ describe("FloorMap", () => {
     expect(container.querySelectorAll("[data-station]")).toHaveLength(1);
     expect(container.querySelector('[data-here="true"]')).not.toBeNull();
   });
+
+  it("thumbnail with a set of places: draws the matched stations too, still nothing focusable", () => {
+    const { container } = render(
+      <FloorMap
+        plan={STUDIO_101}
+        mode="thumbnail"
+        labels={labels}
+        matchedZones={new Set(["Z2", "Z4"])}
+        matchedStations={new Set(["4A", "2B"])}
+      />
+    );
+    expect(screen.queryAllByRole("link")).toHaveLength(0);
+    expect([...container.querySelectorAll("[data-station]")].map((el) => el.getAttribute("data-station")).sort()).toEqual(["2B", "4A"]);
+    expect(container.querySelectorAll('.fm-zone[data-match="true"]')).toHaveLength(2);
+  });
 });

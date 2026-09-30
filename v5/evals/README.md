@@ -173,6 +173,25 @@ stubbed; an action tool's stub answers `proposed: true`, as the real one does,
 because every action tool only puts a confirmation card in front of the
 person.
 
+A case may attach **photos** to its final message — file names in
+`evals/fixtures/photos/` (made from the bundled tool images by
+`make-photos.mjs` there), sent as image parts with the chat's own
+`[Attached photos: attachment_id=… name=…]` hint, the way `ChatPanel` sends
+them (data platform spec amendment "Many items at once"). A missing file fails
+at load:
+
+```yaml
+- id: multi-intake-one-photo-three-tools
+  prompt: "Can you add everything on this bench to the inventory?"
+  photos: [bench-three-tools.jpg]
+  context: { page: gallery, as: staff }
+  assert:
+    - kind: identified_count
+      value: "3"
+    - kind: identified_items
+      value: ["drill press", "cricut|maker", "battery|p103"]
+```
+
 To run one file or case, name it: `EVAL_CASES=staff-maintenance npm run eval`
 (a comma list of file names without `.yaml`, or case ids).
 
@@ -197,6 +216,8 @@ Kept small on purpose. Structural assertions do almost all the useful work.
 | `proposed_action` | `value: set_person_title` | That action tool was called — which only ever proposes a card |
 | `not_claimed_done` | — | No sentence says the change was made ("done", "I've updated…") unless it is about the card |
 | `cites_page` | `value: "42"` or `"file.pdf#page=42"` (optional) | The answer cites a manual page; a `#cite-<ref>` is read as the URL the search returned for it, and an attached manual's `#cite-<ref>-<page>` or "(<title>, p. N)" as its stored address at that page |
+| `identified_items` | `value: ["drill press", "battery x2"]` | The last `identify_tools` call has a different item for each entry: alternatives joined by `\|`, matched in brand + name; a trailing ` xN` needs quantity ≥ N |
+| `identified_count` | `value: "3"` or `"3-4"` | The last `identify_tools` call recorded that many items |
 | `citations_resolve` | — | At least one manual link, and every one came from a `search_manual` result or a manual attached to the turn, answers 200 `application/pdf` (`%PDF-`), opens a page the PDF has, cites words on that page (searched passages only), and is labelled with the document it opens |
 
 `citations_resolve` needs evidence a pure function cannot fetch, so the executor

@@ -13,7 +13,7 @@ describe("/product/quick-start", () => {
 
     expect(screen.getByRole("heading", { level: 1, name: "Quick start" })).toBeInTheDocument();
     expect(within(screen.getByRole("navigation", { name: /breadcrumb/i })).getByRole("link", { name: "Product" })).toHaveAttribute("href", "/product");
-    expect(metadata.title).toBe("Quick start — MakerLAB Tools");
+    expect(metadata.title).toBe("Quick start");
     expect(metadata.openGraph?.images).toEqual([expect.objectContaining({ url: "/product/og.png" })]);
   });
 

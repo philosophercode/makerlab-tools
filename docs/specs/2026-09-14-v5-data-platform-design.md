@@ -1920,3 +1920,93 @@ Blob store, readable only with the store token.
 **Open.** Whether the university's data inventory allows student email to persist in backups for
 up to three years is the owner's call and joins open question q5 (storing student email at all).
 If it does not, shorten the quarterly tier in `backup-retention.ts`, not the discard window.
+
+### 2026-09-29 — Many items at once: one photo, several photos or a list (§5.4)
+
+**Asked by Isaac:** "make sure the assistant can add multiple inventory items at the same time —
+one photo of several things, several photos of several things, or a message listing several
+things — it should add all the suspected inventory items it finds to intake, and then you can
+check them / select them and 'Add to research'."
+
+**What already existed.** `identify_tools` took up to 25 items in one call, each with the photo
+ids from the turn's `[Attached photos: …]` hint; the chat sent several photos in one message;
+the model saw them all; one `data-intake-table` card listed the items with checkboxes, inline
+edit, duplicate choices and **Research selected (N)** (the research route, route-backed
+`pending.research`); `/admin/intake` let the ticked items be named to the assistant. Four gaps:
+
+1. **One photo, several items did not work.** An `attachments` row has one owner, so the second
+   item that named a photo failed to claim it (`photos_not_attached`), and a photo no item
+   named was never spread across a batch. The "Your photo" choice (gateway spec amendment "An
+   uploaded photo is a choice, not the product image") was the first item's alone.
+2. **Counts and repeats were the model's problem.** "Two Ryobi batteries" had no field, and the
+   same object seen in two photos became two rows (which the duplicate check does not compare
+   within a chat batch).
+3. **The prompt said to leave out what it could not name**, so a suspected item was silently
+   dropped instead of offered.
+4. **Nothing said what research would spend before it started**, and the card had no way to
+   keep items for later or drop several at once; `/admin/intake` had no **Research selected**.
+
+**What changed.**
+
+- **The model is asked for every object.** The intake prompt: one entry per distinct piece of
+  equipment in every photo and every line of a list; the same object in two photos is one entry
+  listing both photos; identical copies are one entry with `quantity`; every entry says where it
+  was seen (`seenIn`) and how sure it is (`confidence`: `sure` / `likely` / `unsure`). An item it
+  cannot name is **included** as `unsure`, with a plain descriptive name and never an invented
+  model, and it asks one question about it.
+- **`identify_tools` input** gains `quantity` (1–50), `confidence` and `seenIn`; the result gives
+  the model each item's `quantity` and `certainty`, and `mergedEntries` when it folded some.
+- **Code makes the batch honest before any row is written** (`src/lib/intake/identify-items.ts`,
+  pure): a count left in a name ("two …", "3x …", "… x2", "… (2)", not "10 inch …") becomes the
+  quantity (`quantityFromName`, reusing the bulk import's `parseLine`); entries whose name and
+  brand normalize alike (`normalizeToolName`, the duplicate check's own) become one item with
+  every photo, the surer confidence and the larger count — except two different serial numbers,
+  which are two units of one tool (`serials`), and `unsure` entries, which are never merged
+  (`mergeIdentifiedItems`). The duplicate check against the inventory and other batches then
+  runs exactly as before, so "add as a unit of X?" is unchanged.
+- **One photo, several items** (`src/lib/files/share-photo.ts`). The first item that shows a
+  photo claims the upload as before; every other item that shows it gets **its own public copy**
+  (`copyToPublic`, a new `attachments` row owned by that item, `origin` kept). Two rows never
+  point at one blob: a discard, promotion's "delete the private original" and approval's re-own
+  would otherwise delete another item's picture. Only a photo one of the batch's items claimed,
+  uploaded by the caller, is copied; copies are made before promotion; a failure is the new
+  warning `photos_not_shared`, never silent. When no item names any photo, a lone item gets every
+  photo (as before) and **a lone photo goes to every item** (new; several photos and several
+  items with no mapping are still not guessed at, `photos_unassigned`).
+- **Migration `0025`**: `pending_tools.identify_confidence` (`sure`/`likely`/`unsure`, checked)
+  and `seen_in`, nullable, chat rows only. A chat item's count is the existing `quantity`
+  column, so approval makes that many units (`approvalUnits`) as it does for an import.
+- **The card** (`IntakeTableCard`): every row ticked except an unresolved duplicate and an
+  `unsure` item (marked "Not sure — check it"); each row shows `×N` and "Seen: …". Three ways
+  out, each about the ticked rows:
+  - **Add to research (N)** first shows `ResearchSpendConfirm`: the count, the research
+    allowance left today (`researchLeft` on the payload, read by `intake/allowance.ts` — the
+    route's own limit and ledger) and about what it costs (`RESEARCH_ESTIMATED_USD_PER_ITEM`,
+    3–3.5¢ from the bulk intake spec's measured "$12–14 for 400 items"). Confirm posts the ids
+    to the research route, which checks everything again; add-unit items alone start at once.
+  - **Just add to intake** sends nothing; the items wait on `/admin/intake` (the 14-day expiry
+    applies) and the card says so.
+  - **Discard (N)** asks, then discards each through the same `PATCH` as a row's Remove.
+- **`/admin/intake`**: `QueueList` takes `selectionActions`; the intake queue's selection bar
+  offers **Research selected (N)** for the ticked items that can be researched (identified,
+  failed or stalled, duplicate decided) behind the same confirmation, one POST. Rows show the
+  count, "Seen: …" and the unsure mark.
+- **Nothing new reaches the model's hands.** Research still starts only from a person's click
+  on the route-backed `pending.research` (or its card in the chat); identify stays `tools.add`,
+  chat-only; the assistant's limits and the parity guard are untouched (no new server action or
+  route).
+
+**Tests.** `identify-items.test.ts` (counts in names, merges, serials, unsure never merged);
+`share-photo.test.ts` (copies, ownership, batch-only, failures, no store);
+`capabilities/intake.test.ts` (one message, two photos, five entries → four rows with
+quantities, certainty and seen-in, each photo claimed once and copied to the others, one photo
+spread to an unmapped batch, `photos_not_shared`, the schema); `IntakeTableCard.test.tsx` and
+`IntakeList.test.tsx` (default ticks, the confirmation's numbers, cancel, add-unit bypass, keep,
+bulk discard, the queue's Research selected); `e2e/intake.spec.ts` (two real photos → four rows,
+the copies load, confirm → cancel, discard one, keep the rest, the queue's confirmation). Evals:
+`evals/cases/multi-item-intake.yaml` — one photo of three tools, two photos with one tool in
+both, a typed list with a count — with case `photos` (sent as the chat sends them) and the
+assertion kinds `identified_items` / `identified_count` (`evals/README.md`). Run once on
+2026-09-29 against `openai/gpt-6-luna`: 3/3 passed.
+
+**Status.** Built on `v5/multi-item-intake`.

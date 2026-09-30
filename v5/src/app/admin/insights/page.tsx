@@ -16,7 +16,6 @@ import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { isoDay } from "../../../lib/iso-day";
 import { labTimezone } from "../../../lib/lab-time";
-import { siteConfig } from "../../../lib/site-config";
 import { loadInsights, type InsightsData } from "../../../lib/usage/queries";
 import { dismissUnanswered, fileUnansweredAsCorrection } from "./actions";
 
@@ -34,7 +33,7 @@ import { dismissUnanswered, fileUnansweredAsCorrection } from "./actions";
  */
 
 export const metadata = {
-  title: `Insights — ${siteConfig.name}`,
+  title: "Insights",
 };
 
 function validTimeZone(timeZone: string): string {

@@ -34,6 +34,8 @@ export const EXEMPT: Readonly<Record<string, string>> = {
   "src/app/admin/inventory/photo-actions.ts#attachPhotos": "Never this iteration: photos are §2's non-goal (§11 Q10, later)",
   "src/app/admin/inventory/photo-actions.ts#reorderPhotos": "Never this iteration: photos are §2's non-goal (§11 Q10, later)",
   "src/app/admin/inventory/photo-actions.ts#removePhoto": "Never this iteration: photos are §2's non-goal (§11 Q10, later)",
+  "src/app/api/admin/tools/export/route.ts#POST":
+    "Not a write: the tools CSV download (catalog.export), a POST only because a selection of ids does not fit a URL; kept out of the assistant and MCP on purpose (owner's decision 2026-09-29)",
   "src/app/api/admin/revalidate/route.ts#POST":
     "Never: a cache flush, not a change anybody asked for — every action already refreshes the pages it changes (`revalidate`), and the route also serves x-admin-secret callers with no session, which performAction cannot gate (§4.9 #10, stage 4)",
 

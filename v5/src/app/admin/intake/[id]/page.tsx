@@ -24,7 +24,6 @@ import { findToolForEditor } from "../../../../lib/data/tools";
 import { getDb } from "../../../../lib/db/client";
 import { hasStalledStart, INTAKE_REVIEW_PERMISSION } from "../../../../lib/intake/access";
 import { toPendingToolView } from "../../../../lib/intake/view";
-import { siteConfig } from "../../../../lib/site-config";
 import { CurateChatStarter } from "../../../../components/CurateChatStarter";
 import type { ResearchResult } from "../../../../lib/research/result";
 import { ADMIN_INTAKE_PATH, type IntakeActions } from "../action-result";
@@ -63,7 +62,7 @@ import {
  */
 
 export const metadata = {
-  title: `Intake — ${siteConfig.name}`,
+  title: "Intake",
 };
 
 /** The actions `PreliminaryToolPage` receives — a `"use server"` module can export only functions. */

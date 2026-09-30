@@ -5,7 +5,6 @@ import { ProjectQueue } from "../../../components/admin/ProjectQueue";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { listProjectsForModeration } from "../../../lib/data/projects";
-import { siteConfig } from "../../../lib/site-config";
 import { setPublished } from "./actions";
 
 /**
@@ -26,7 +25,7 @@ import { setPublished } from "./actions";
  */
 
 export const metadata = {
-  title: `Projects — ${siteConfig.name}`,
+  title: "Projects",
 };
 
 export default async function AdminProjectsPage() {

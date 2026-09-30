@@ -171,7 +171,8 @@
     "photosLabel": "Project photos",
     "toolsUsed": "Tools used",
     "materials": "Materials",
-    "back": "‹ Back to all projects"
+    "back": "‹ Back to all projects",
+    "materialTools": "Tools for {material} in the gallery"
   },
   "projectForm": {
     "title": "Share your project",
@@ -331,7 +332,15 @@
     "citationAria": "Open {citation}",
     "unverifiedCitation": "Not linked: this manual reference did not come from a manual search, so it could not be checked",
     "cutOff": "The answer was cut off before it finished. Ask again, or ask for a shorter answer.",
-    "capabilitiesLink": "What can MakerLAB AI do?"
+    "capabilitiesLink": "What can MakerLAB AI do?",
+    "makingQrCode": "▦ Making the QR code…",
+    "qrCard": {
+      "label": "QR code",
+      "alt": "QR code that opens the {tool} page",
+      "opens": "Scanning it opens {url}",
+      "downloadPng": "Download PNG",
+      "downloadSvg": "Download SVG"
+    }
   },
   "qr": {
     "arrivalLabel": "Scanned from this machine",
@@ -343,7 +352,19 @@
     "sheetTitle": "QR labels",
     "sheetSubtitle": "Print on sticker stock, cut, and apply one label to each machine.",
     "labelCta": "Scan for help",
-    "sheetEmpty": "No published tools to label."
+    "sheetEmpty": "No published tools to label.",
+    "shareTrigger": "QR code & share",
+    "shareEyebrow": "Share this tool",
+    "shareTitle": "QR code for {tool}",
+    "shareDescription": "Scanning it opens this page. Save it for a label, copy the link, or share it.",
+    "imageAlt": "QR code that opens the {tool} page",
+    "downloadPng": "Download PNG",
+    "downloadSvg": "Download SVG",
+    "copyLink": "Copy link",
+    "copied": "Link copied",
+    "copyFailed": "Could not copy the link. Select the address above instead.",
+    "share": "Share…",
+    "close": "Close"
   },
   "intake": {
     "confidenceHigh": "High confidence",
@@ -375,7 +396,7 @@
     },
     "table": {
       "label": "Identified equipment",
-      "lede": "Check each row, untick anything you don’t want researched yet, then press Research.",
+      "lede": "One row per item found. Untick anything you don’t want, fix a name with Edit, then add the ticked ones to research — or just to intake for later.",
       "selectAllAria": "Select all rows",
       "selectRowAria": "Select {name}",
       "selectAllVisible": "Research all",
@@ -413,7 +434,7 @@
       "confirmAddUnit": "Add unit",
       "resolvedAddUnit": "Adding as another unit of {name}",
       "resolvedNewTool": "Listing as a separate tool",
-      "researchSelected": "Research selected ({count})",
+      "researchSelected": "Add to research ({count})",
       "starting": "Starting research…",
       "started": "Researching {count, plural, one {# tool} other {# tools}} — you can close this. Results will be on the Intake page.",
       "startedNothingQueued": "Nothing new needed researching. Everything is on the Intake page.",
@@ -439,8 +460,31 @@
       "warnings": {
         "photos_not_attached": "Some photos couldn’t be attached — they may have expired or already belong to something else.",
         "photos_not_public": "Some photos are attached but can’t be shown here yet.",
-        "photos_unassigned": "Some photos weren’t matched to any item, so they weren’t attached."
-      }
+        "photos_unassigned": "Some photos weren’t matched to any item, so they weren’t attached.",
+        "photos_not_shared": "A photo showing several items couldn’t be copied to every one of them — the first item has it."
+      },
+      "keepInIntake": "Just add to intake",
+      "kept": "Saved to intake — {count, plural, one {# item waits} other {# items wait}} on the Intake page, where you can research {count, plural, one {it} other {them}} any time. Items nobody researches are cleared after 14 days.",
+      "discardSelected": "Discard ({count})",
+      "discardSelectedLabel": "Discard the ticked items",
+      "confirmDiscard": "Discard {count, plural, one {# item} other {# items}}? {count, plural, one {It leaves} other {They leave}} intake, and {count, plural, one {its photos are} other {their photos are}} deleted.",
+      "discardYes": "Discard {count, plural, one {# item} other {# items}}",
+      "discardKeep": "Keep",
+      "discarding": "Discarding…",
+      "allDiscarded": "Everything from this batch was discarded.",
+      "quantity": "×{count}",
+      "quantityAria": "{count} units",
+      "certaintyUnsure": "Not sure — check it",
+      "seenIn": "Seen: {where}"
+    },
+    "spend": {
+      "label": "Confirm research",
+      "summary": "Research {count, plural, one {# item} other {# items}}? That uses {count} of the {left} research credits you have left today — about {cost}.",
+      "summaryUnknown": "Research {count, plural, one {# item} other {# items}}? That uses {count} of today’s research credits — about {cost}.",
+      "overLimit": "That is more than the {left} you have left today; research will refuse it unless your allowance has grown.",
+      "confirm": "Start research ({count})",
+      "starting": "Starting research…",
+      "cancel": "Cancel"
     }
   },
   "flag": {
@@ -840,6 +884,15 @@
       "clearSelection": "Clear selection",
       "selectedCount": "{count, plural, one {# tool selected} other {# tools selected}}",
       "refreshSelected": "Refresh research ({count})",
+      "exportAll": "Export CSV",
+      "exportShown": "Export CSV ({count} shown)",
+      "exportSelected": "Export CSV ({count})",
+      "exporting": "Exporting…",
+      "exportError": {
+        "forbidden": "Only a super admin can export the tools.",
+        "rate_limited": "Too many exports just now. Wait a minute and try again.",
+        "failed": "The export could not be made. Try again."
+      },
       "columnSelect": "Select",
       "columnTickets": "Tickets",
       "columnAttention": "Needs",
@@ -1268,7 +1321,10 @@
         "medium": "medium",
         "low": "low"
       },
-      "proposeNewCategory": "Also propose a new category, “{name}”, for review on the Taxonomy page (the tool moves there if it is accepted)"
+      "proposeNewCategory": "Also propose a new category, “{name}”, for review on the Taxonomy page (the tool moves there if it is accepted)",
+      "researchSelected": "Research selected ({count})",
+      "researchSelectedNone": "None of the ticked items can be researched from here.",
+      "researchSelectedStarted": "Research started for {count, plural, one {# item} other {# items}}."
     },
     "mirror": {
       "unavailable": "The mirror's settings could not be read. The database may be unreachable — try again in a moment.",
@@ -2257,6 +2313,106 @@
           }
         }
       }
+    },
+    "qrLabels": {
+      "open": "QR labels",
+      "title": "QR labels",
+      "lede": "Print a code for each machine: anybody who scans it lands on that tool's page, with the assistant ready.",
+      "filtersLabel": "Filter the tools to label",
+      "search": "Search tools",
+      "searchPlaceholder": "Name, category or location",
+      "filterCategory": "Category",
+      "tableLabel": "Published tools to print labels for",
+      "columnTool": "Tool",
+      "columnCategory": "Category",
+      "columnLocation": "Location",
+      "columnActions": "Actions",
+      "previewRow": "Preview",
+      "printRow": "Print",
+      "selectRow": "Select {name}",
+      "selectShown": "Select all shown",
+      "selectAll": "Select all ({count})",
+      "selectFiltered": "Select filtered ({count})",
+      "clearSelection": "Clear selection",
+      "selectedCount": "{count, plural, one {# tool selected} other {# tools selected}}",
+      "emptyCatalogue": "No published tools to label yet.",
+      "emptyFiltered": "No tool matches this search. Clear the filters to see them all.",
+      "stylerLabel": "Label style and printing",
+      "previewHeading": "Preview · {tool}",
+      "previewEmpty": "Preview",
+      "previewAlt": "Label preview for {tool}",
+      "previewFacts": "{width} × {height} mm · code {qr} mm",
+      "qrSmall": "The code is {qr} mm. Under {min} mm it may stop scanning once the label is scuffed; choose a larger label, or leave out some text.",
+      "dropped": "Not enough room for: {items}.",
+      "droppable": {
+        "url": "the address",
+        "location": "the location",
+        "extra": "the extra line",
+        "brand": "the wordmark",
+        "name": "the name"
+      },
+      "printThis": "Print this one",
+      "downloadSvg": "Label SVG",
+      "downloadPng": "Label PNG",
+      "sheetHeading": "Print sheets",
+      "perPage": "{count, plural, one {# label} other {# labels}} per {paper} page ({cols} × {rows}).",
+      "perPageLabel": "One label per page, at the label's own size.",
+      "tooLarge": "This label is larger than the page. Choose a smaller size or smaller margins.",
+      "printSelected": "Print selected ({count})",
+      "printAll": "Print all ({count})",
+      "downloadPdf": "Download PDF",
+      "labelsAndPages": "{count, plural, one {# label} other {# labels}} on {pages, plural, one {# page} other {# pages}}",
+      "printHint": "print at 100 % (Actual size), not Fit to page.",
+      "pdfTitle": "MakerLAB QR labels",
+      "failed": "The file could not be made. Try again.",
+      "busy": {
+        "print": "Preparing the print…",
+        "pdf": "Making the PDF…",
+        "svg": "Making the SVG…",
+        "png": "Making the PNG…"
+      },
+      "sizeHeading": "Label size",
+      "sizeLabel": "Label size",
+      "preset": {
+        "1in": "1 inch square",
+        "1_5in": "1.5 inch square",
+        "2in": "2 inch square",
+        "3in": "3 inch square",
+        "custom": "Custom size"
+      },
+      "presetShort": {
+        "1in": "1″",
+        "1_5in": "1.5″",
+        "2in": "2″",
+        "3in": "3″",
+        "custom": "Custom"
+      },
+      "width": "Width",
+      "height": "Height",
+      "unit": "Unit",
+      "unitIn": "in",
+      "unitMm": "mm",
+      "contentHeading": "On the label",
+      "showName": "Tool name",
+      "showLocation": "Location",
+      "showBrand": "MakerLAB wordmark",
+      "showUrl": "Short address under the code",
+      "showExtra": "Extra line",
+      "extraText": "Extra line wording",
+      "extraTextHint": "Up to 60 characters.",
+      "extraTextPlaceholder": "Scan for manual & help",
+      "pageHeading": "Page",
+      "paper": "Paper",
+      "paperOption": {
+        "letter": "US Letter",
+        "a4": "A4",
+        "label": "One label per page (label printer)"
+      },
+      "margin": "Margin (mm)",
+      "gap": "Gap (mm)",
+      "cutGuides": "Light cut guides",
+      "labelPaperHint": "For a label printer: each page is one label, with no margin.",
+      "reset": "Reset to defaults"
     }
   },
   "account": {
@@ -2844,12 +3000,24 @@
     "whereThumbTitle": "{tool} is in zone {number}, {zone}, {room}",
     "whereThumbStation": "{tool} is at station {id}, {label}, in zone {number}, {zone}",
     "openMap": "Open map",
+    "openFullMap": "Open full map",
+    "miniMapLabel":"Where {tool} is — open map",
     "signedOutLede": "Where every tool lives in the lab.",
     "signedOut": "Sign in to see the floor map. Use the Sign in control in the header, then come back.",
-    "notOnMap": "This tool’s location ({location} / {zone}) is not on the floor map yet."
+    "notOnMap": "This tool’s location ({location} / {zone}) is not on the floor map yet.",
+    "zoneBar": "Zones",
+    "allZones": "All zones",
+    "zoneChip": "{number} · {zone}",
+    "backToAll": "Whole map",
+    "toolsAt": "Tools at {place}",
+    "matchesHeading": "Matches for “{query}”",
+    "workHeading": "Where you’ll work",
+    "workLede": "{tools, plural, one {The # tool this project used is} other {The # tools this project used are}} {zones, plural, =0 {not on the floor map yet.} one {in one zone of the lab.} other {spread over # zones of the lab.}}",
+    "workSvgTitle": "Floor plan with {count, plural, one {zone {zones}} other {zones {zones}}} highlighted",
+    "workOpenZone": "Open on map"
   },
   "product": {
-    "metaTitle": "MakerLAB AI — {site}",
+    "metaTitle": "MakerLAB AI",
     "metaDescription": "The AI in MakerLAB Tools helps you operate, debug and create in the Cornell Tech MakerLAB: answers from each machine's own manual, maintenance tickets from the chat, a lab status screen, and staff tools that ask before they change anything.",
     "eyebrow": "Product",
     "heroKicker": "MakerLAB Tools · Cornell Tech",
@@ -2900,7 +3068,7 @@
     "features": {
       "toolPages": {
         "title": "A page for every tool",
-        "body": "Every tool in the lab has a page: what it does, the training and PPE it needs, the emergency stop, specs and materials, the SOP and manuals, and every physical unit with its status and location. Scan the QR label on a machine to land on its page.",
+        "body": "Every tool in the lab has a page: what it does, the training and PPE it needs, the emergency stop, specs and materials, the SOP and manuals, and every physical unit with its status and location. Scan the QR label on a machine to land on its page. Staff print the labels from the inventory, at the sticker size they use, and anyone can save a tool’s code from its page or ask MakerLAB AI for it.",
         "alt": "The X1-Carbon's tool page with its safety panel, details, documents and units."
       },
       "citations": {
@@ -3008,7 +3176,7 @@
     "closingHeading": "Try it on a real machine",
     "closingLede": "Open the X1-Carbon's page and ask the assistant anything about it.",
     "quickStartPage": {
-      "metaTitle": "Quick start — {site}",
+      "metaTitle": "Quick start",
       "metaDescription": "Eight steps to MakerLAB Tools and its assistant: ask about a machine, follow a manual citation, report a problem, add equipment, set up the lab screen and connect your own AI.",
       "title": "Quick start",
       "lede": "What's there, what to try, and how to use it. Steps 1–4 and 8 work for anyone; 5–7 are for MakerLAB staff.",
@@ -3097,7 +3265,7 @@
       "super_adminBody": "Directors",
       "mcp": "Outside AI",
       "mcpBody": "Over MCP, with a token",
-    "mcpShort": "MCP"
+      "mcpShort": "MCP"
     },
     "you": "You",
     "forYouHeading": "What it can do for you",
@@ -3200,7 +3368,8 @@
       "list_categories": "Read the categories",
       "list_category_proposals": "Read proposed categories",
       "find_people": "Look people up (addresses masked)",
-      "get_value_report": "Read the value report's numbers"
+      "get_value_report": "Read the value report's numbers",
+      "get_tool_qr_code": "Show a tool's QR code, ready to download"
     },
     "actions": {
       "people_set_role": "Move someone between User and Admin",
