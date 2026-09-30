@@ -41,7 +41,10 @@ import type { Role } from "./roles";
 export const statement = {
   ...defaultStatements,
   projects: ["submit", "moderate"],
-  catalog: ["view_drafts"],
+  // `export`: the tools CSV on /admin/inventory (all tools or the selected
+  // ones, every state). Directors only — the whole catalogue leaving the app in
+  // one file is a super admin's call; "admins too" is one line below.
+  catalog: ["view_drafts", "export"],
   tools: ["add", "approve", "edit", "publish"],
   maintenance: ["manage"],
   feedback: ["manage"],
@@ -100,7 +103,7 @@ export const roles = {
   }),
   super_admin: ac.newRole({
     projects: ["submit", "moderate"],
-    catalog: ["view_drafts"],
+    catalog: ["view_drafts", "export"],
     tools: ["add", "approve", "edit", "publish"],
     maintenance: ["manage"],
     feedback: ["manage"],

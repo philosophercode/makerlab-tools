@@ -38,7 +38,7 @@ their own Notion workspace for reading.
 |---|---|---|
 | `user` | Student | Browse, chat, report problems and corrections, submit projects |
 | `admin` | Supermaker | Also edit the inventory, work the queues, add equipment, run research, manage the mirror |
-| `super_admin` | Super Admin | Also manage people, roles, titles and allowances |
+| `super_admin` | Super Admin | Also manage people, roles, titles and allowances, and export the tools as a CSV (**Admin → Inventory → Export CSV**: every tool, the filtered ones, or the selected ones) |
 
 Anyone not signed in can still browse and chat. A person's **title** (also set on People)
 is only a label — it is what shows on the People page and in their profile menu.

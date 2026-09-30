@@ -123,6 +123,8 @@ export default async function AdminInventoryPage({
         canPublish={can(identity, "tools.publish")}
         // Refresh research is `tools.edit`, which this page already requires.
         queueRefresh={queueToolRefresh}
+        // Export CSV: super admins. Presentation again — /api/admin/tools/export checks it.
+        canExport={can(identity, "catalog.export")}
       />
     </section>
   );

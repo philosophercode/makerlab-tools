@@ -299,6 +299,19 @@ Phase 5 extends both. The shape it sets:
   and the island import — it owns which values a URL may carry, and drops any
   it does not offer. An empty table names the filter that emptied it; "no
   results" on its own tells a reviewer nothing (§6).
+- **Export CSV is super admins' (`catalog.export`), and tools only.** The inventory's
+  `FilterBar` offers **Export CSV** (every tool, published/draft/archived, with a Status
+  column) or **Export CSV (n shown)** when a filter is set, and the selection bar
+  **Export CSV (n)** (`ExportToolsCsvButton`). It posts `{ ids? }` to
+  `POST /api/admin/tools/export`, which re-checks the permission (401 anonymous, 403
+  anyone else), rate-limits (10/min) and answers `text/csv` as an attachment
+  (`makerlab-tools-YYYY-MM-DD.csv`, `no-store`). One flat row per tool — the stored
+  fields (`lib/data/tool-export.ts`, never the catalogue's display fallbacks), lists
+  `; `-joined, **public photo and published-resource links only**, the tool page URL,
+  timestamps — written by `lib/export/csv.ts` (RFC 4180, UTF-8 BOM for Excel, CRLF, a
+  cell starting `=` `+` `-` `@` tab or CR prefixed with `'`). No tickets, unit history,
+  corrections or usage. Not an assistant or MCP action, by the owner's decision
+  (`exempt.ts` "Not a write").
 - **Editing inventory is optimistic, and its token is a string.** The tool
   editor reads a revision when it opens and hands it back with the save; the
   write happens only if `tools.updated_at` has not moved. The token is
@@ -1740,6 +1753,7 @@ and its 2026-09-28 amendment are the detail.
 | `src/lib/data/revision.ts` | The editor's concurrency token — `extract(epoch from updated_at)::text`, **never a `Date`** (read the docstring before touching a conflict check) |
 | `src/lib/data/tools.ts` / `units.ts` | Row-level inventory writes, every one revision-checked. Tools are archived, never deleted |
 | `src/lib/data/inventory.ts` | The `/admin/inventory` read — every tool, its state and its needs-attention flags, plus the units that belong to no tool |
+| `src/lib/data/tool-export.ts` / `src/lib/export/*` / `src/app/api/admin/tools/export/route.ts` | The tools CSV (`catalog.export`, super admins): the read (all or selected ids, public links only), the columns and the RFC 4180 writer, the route |
 | `src/lib/data/taxonomy.ts` | `listCategories()` / `listLocations()` — the two option lists an editing surface needs (live categories in tree order, `group` = the heading) — plus `findOrCreateLocation` for intake. `findOrCreateCategory` is left for the Notion import only: nothing else creates a category |
 | `src/lib/data/category-admin.ts` / `src/lib/taxonomy/*` | Taxonomy v2: proposals, decisions, merge, rename, retire, `matchExistingCategory`; the seed tree, the migration mapping and plan, the audit (see "Taxonomy v2") |
 | `src/lib/data/pending-tools.ts` | `pending_tools`: the batch, every status transition as a conditional write, and the two approval transactions |
