@@ -421,7 +421,6 @@ export async function chargeSuggestionAllowance(
 
 function toRecord(row: typeof bulkImports.$inferSelect): BulkImportRecord {
   // The removal snapshot is the list's concern (`listBulkImports`), not the record's.
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const { createdByName: _snapshot, ...rest } = row;
   return {
     ...rest,
