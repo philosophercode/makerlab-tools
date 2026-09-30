@@ -67,6 +67,12 @@ export interface QueueListProps<T> {
   facets?: readonly QueueFacet<T>[];
   /** Tickable cards whose ids the chat is told about; `name` labels each checkbox. */
   selectable?: { kind: PageSelectionKind; name: (item: T) => string };
+  /**
+   * The page's own buttons for the ticked cards, in the selection bar beside
+   * **Ask the assistant** — `/admin/intake`'s **Research selected** (amendment
+   * "Many items at once"). Given the ticked items as shown and a `clear`.
+   */
+  selectionActions?: (ticked: T[], clear: () => void) => ReactNode;
   labels: {
     /** The open list's accessible name. */
     list: string;
@@ -92,6 +98,7 @@ export function QueueList<T>({
   searchText,
   facets = [],
   selectable,
+  selectionActions,
   labels,
 }: QueueListProps<T>) {
   const t = useTranslations("ui.queue");
@@ -200,6 +207,7 @@ export function QueueList<T>({
       {selectable && tickedIds.length > 0 ? (
         <div data-slot="queue-selection" role="status" className="flex flex-wrap items-center gap-2 text-sm">
           <span className="font-mono text-label tracking-[0.08em] uppercase">{t("selectedCount", { count: tickedIds.length })}</span>
+          {selectionActions ? selectionActions(open.filter((item) => ticked.has(getId(item))), () => setTicked(new Set())) : null}
           {launcher ? (
             <Button variant="default" size="sm" onClick={() => launcher.open()}>
               {t("askAssistant")}

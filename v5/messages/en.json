@@ -375,7 +375,7 @@
     },
     "table": {
       "label": "Identified equipment",
-      "lede": "Check each row, untick anything you don’t want researched yet, then press Research.",
+      "lede": "One row per item found. Untick anything you don’t want, fix a name with Edit, then add the ticked ones to research — or just to intake for later.",
       "selectAllAria": "Select all rows",
       "selectRowAria": "Select {name}",
       "selectAllVisible": "Research all",
@@ -413,7 +413,7 @@
       "confirmAddUnit": "Add unit",
       "resolvedAddUnit": "Adding as another unit of {name}",
       "resolvedNewTool": "Listing as a separate tool",
-      "researchSelected": "Research selected ({count})",
+      "researchSelected": "Add to research ({count})",
       "starting": "Starting research…",
       "started": "Researching {count, plural, one {# tool} other {# tools}} — you can close this. Results will be on the Intake page.",
       "startedNothingQueued": "Nothing new needed researching. Everything is on the Intake page.",
@@ -439,8 +439,31 @@
       "warnings": {
         "photos_not_attached": "Some photos couldn’t be attached — they may have expired or already belong to something else.",
         "photos_not_public": "Some photos are attached but can’t be shown here yet.",
-        "photos_unassigned": "Some photos weren’t matched to any item, so they weren’t attached."
-      }
+        "photos_unassigned": "Some photos weren’t matched to any item, so they weren’t attached.",
+        "photos_not_shared": "A photo showing several items couldn’t be copied to every one of them — the first item has it."
+      },
+      "keepInIntake": "Just add to intake",
+      "kept": "Saved to intake — {count, plural, one {# item waits} other {# items wait}} on the Intake page, where you can research {count, plural, one {it} other {them}} any time. Items nobody researches are cleared after 14 days.",
+      "discardSelected": "Discard ({count})",
+      "discardSelectedLabel": "Discard the ticked items",
+      "confirmDiscard": "Discard {count, plural, one {# item} other {# items}}? {count, plural, one {It leaves} other {They leave}} intake, and {count, plural, one {its photos are} other {their photos are}} deleted.",
+      "discardYes": "Discard {count, plural, one {# item} other {# items}}",
+      "discardKeep": "Keep",
+      "discarding": "Discarding…",
+      "allDiscarded": "Everything from this batch was discarded.",
+      "quantity": "×{count}",
+      "quantityAria": "{count} units",
+      "certaintyUnsure": "Not sure — check it",
+      "seenIn": "Seen: {where}"
+    },
+    "spend": {
+      "label": "Confirm research",
+      "summary": "Research {count, plural, one {# item} other {# items}}? That uses {count} of the {left} research credits you have left today — about {cost}.",
+      "summaryUnknown": "Research {count, plural, one {# item} other {# items}}? That uses {count} of today’s research credits — about {cost}.",
+      "overLimit": "That is more than the {left} you have left today; research will refuse it unless your allowance has grown.",
+      "confirm": "Start research ({count})",
+      "starting": "Starting research…",
+      "cancel": "Cancel"
     }
   },
   "flag": {
@@ -1244,7 +1267,10 @@
         "medium": "medium",
         "low": "low"
       },
-      "proposeNewCategory": "Also propose a new category, “{name}”, for review on the Taxonomy page (the tool moves there if it is accepted)"
+      "proposeNewCategory": "Also propose a new category, “{name}”, for review on the Taxonomy page (the tool moves there if it is accepted)",
+      "researchSelected": "Research selected ({count})",
+      "researchSelectedNone": "None of the ticked items can be researched from here.",
+      "researchSelectedStarted": "Research started for {count, plural, one {# item} other {# items}}."
     },
     "mirror": {
       "unavailable": "The mirror's settings could not be read. The database may be unreachable — try again in a moment.",

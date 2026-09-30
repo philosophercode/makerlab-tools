@@ -98,6 +98,17 @@ export type PendingStatus = (typeof PENDING_STATUS)[number];
 export const DUPLICATE_RESOLUTION = ["new_tool", "add_unit", "discard"] as const;
 export type DuplicateResolution = (typeof DUPLICATE_RESOLUTION)[number];
 
+/**
+ * How sure the chat's identification was about one item (data platform spec
+ * amendment "Many items at once"): `sure` — make and model read or told;
+ * `likely` — the kind and probably the model; `unsure` — a suspected item the
+ * model could not name, recorded so the person can decide. An `unsure` row
+ * starts unticked on the intake card. Null for imported rows and rows made
+ * before migration `0025`.
+ */
+export const IDENTIFY_CONFIDENCE = ["sure", "likely", "unsure"] as const;
+export type IdentifyConfidence = (typeof IDENTIFY_CONFIDENCE)[number];
+
 export const ATTACHMENT_OWNER = [
   "tool",
   "resource",
