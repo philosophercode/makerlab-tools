@@ -89,7 +89,6 @@ export const EXEMPT: Readonly<Record<string, string>> = {
   "src/app/api/mcp/route.ts#DELETE": "Not a user action: the MCP stream itself",
   "src/app/api/mcp/signed-in/route.ts#POST": "Not a user action: the MCP stream itself",
   "src/app/api/mcp/signed-in/route.ts#DELETE": "Not a user action: the MCP stream itself",
-  "src/app/api/upload-notion/route.ts#POST": "Retired, awaiting deletion approval (data platform spec)",
   "src/app/api/usage/route.ts#POST":
     "Not a user action: the page-view beacon a browser sends by itself — an anonymous count, not a change anybody asked for, with no permission to gate on (usage insight spec §5.3)",
 };
