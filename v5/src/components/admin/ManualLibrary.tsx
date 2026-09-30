@@ -184,7 +184,13 @@ export function ManualLibrary({ rows, reprocess }: { rows: ManualLibraryRow[]; r
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{row.title}</p>
               <p className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-xs text-muted-foreground">
-                <span>{row.toolName ?? t("noTool")}</span>
+                {row.toolSlug ? (
+                  <Link href={`/tools/${row.toolSlug}`} className="hover:text-primary-ink hover:underline">
+                    {row.toolName}
+                  </Link>
+                ) : (
+                  <span>{row.toolName ?? t("noTool")}</span>
+                )}
                 {row.pageCount !== null ? <span className="tabular-nums">{t("columnPages")}: {row.pageCount}</span> : null}
               </p>
               <StateCell row={row} reason={(code) => tReason(reasonKey(code))} />

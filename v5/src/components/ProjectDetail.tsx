@@ -9,6 +9,23 @@ import { Markdown } from "./system/Markdown";
 
 interface ProjectDetailProps {
   project: MakerLabProject;
+  /**
+   * "Where you'll work" — the page passes it in its own Suspense boundary and
+   * only a signed-in viewer gets anything (map access; `SignedInProjectWorkMap`).
+   */
+  workMap?: React.ReactNode;
+  /**
+   * The materials the published catalogue's tools list (the gallery's
+   * Materials facet values). A project material that is one of them links to
+   * the gallery filtered by it; any other is a plain label.
+   */
+  galleryMaterials?: readonly string[];
+}
+
+/** The gallery's spelling of a material, matched case-insensitively, or null. */
+function galleryMaterial(material: string, known: readonly string[]): string | null {
+  const key = material.trim().toLowerCase();
+  return known.find((value) => value.trim().toLowerCase() === key) ?? null;
 }
 
 /** An ISO day (DESIGN.md §2: dates are ISO, comparable, locale-neutral), or nothing. */
@@ -24,7 +41,7 @@ function isoDay(date: string | null): string {
  * `// PROJECTS / TITLE` crumb, the byline and date as the facts line, the
  * photos, the write-up, and the tools and materials as labels.
  */
-export async function ProjectDetail({ project }: ProjectDetailProps) {
+export async function ProjectDetail({ project, workMap = null, galleryMaterials = [] }: ProjectDetailProps) {
   const t = await getTranslations("projectDetail");
   const date = isoDay(project.date);
   const [cover, ...rest] = project.photos;
@@ -82,14 +99,26 @@ export async function ProjectDetail({ project }: ProjectDetailProps) {
         </PageSection>
       ) : null}
 
+      {/* Where the tools above are in the lab: signed-in viewers only. */}
+      {workMap}
+
       {project.materials.length > 0 ? (
         <PageSection id="project-materials" title={t("materials")}>
           <div className="flex flex-wrap gap-2">
-            {project.materials.map((material) => (
-              <Badge key={material} className="text-label">
-                {material}
-              </Badge>
-            ))}
+            {project.materials.map((material) => {
+              const known = galleryMaterial(material, galleryMaterials);
+              return known ? (
+                <Badge asChild key={material} className="text-label">
+                  <Link href={`/?material=${encodeURIComponent(known)}`} title={t("materialTools", { material: known })}>
+                    {material}
+                  </Link>
+                </Badge>
+              ) : (
+                <Badge key={material} className="text-label">
+                  {material}
+                </Badge>
+              );
+            })}
           </div>
         </PageSection>
       ) : null}

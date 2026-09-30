@@ -1,29 +1,39 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { matchSorter } from "match-sorter";
+import { ArrowLeft } from "lucide-react";
 import type { MakerLabTool } from "../catalog-types";
 import { GalleryTable } from "../GalleryTable";
-import { GALLERY_DEFAULT_HIDDEN, useGalleryColumns } from "../gallery-columns";
-import { PageHeader } from "../system/PageHeader";
+import { useGalleryColumns } from "../gallery-columns";
+import { PageHeader, type Crumb } from "../system/PageHeader";
 import { EmptyState } from "../system/EmptyState";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import { indexPlan, mapHref, placeTools, resolveHighlight } from "../../lib/map/placement";
 import type { FloorPlan } from "../../lib/map/types";
 import { FloorMap, type FloorMapLabels } from "./FloorMap";
+import { MAP_UNPLACED, mapPlaceUrl } from "./map-url";
+import { PlaceChip, PlaceLink } from "./PlaceLink";
 
 /**
  * `/map` (floor map spec §6.3): the whole plan with zones shaded by how many
  * tools they hold, a search that lights up where matching tools are, and a
  * side panel with the tools of the picked place in the gallery's own table.
  *
- * State lives in the URL — `?highlight=<station or zone>&q=<search>` — and is
- * written back with `replaceState` (the `GalleryShell` / inventory idiom), so
- * the assistant's "where is the laser cutter?" link and a person's own view
- * are the same kind of link. `?highlight=unplaced` shows the tools the map
+ * **The place is navigation, the search is not** (map UX pass): picking a
+ * zone or station *pushes* `?highlight=` onto the history, so the browser's
+ * Back button (and a phone's back gesture) returns to the whole map; typing a
+ * search *replaces* `?q=` so keystrokes never pile onto Back. The picked
+ * place is read from `useSearchParams`, which Next keeps in step with
+ * `history.pushState`, Back/Forward and `<Link>` alike — the breadcrumb's
+ * "Map" link and the header's nav both clear it with no state of their own.
+ *
+ * The way out of a place is in one spot at every width: the zone bar above
+ * the map ("All zones" first), a "Whole map" button at the head of the panel,
+ * the breadcrumb, and Escape. `?highlight=unplaced` shows the tools the map
  * cannot place.
  */
 
@@ -36,22 +46,20 @@ const SEARCH_KEYS: ReadonlyArray<keyof MakerLabTool> = [
   "materials",
 ];
 
-const UNPLACED = "unplaced";
-
-function writeUrl(highlight: string | null, query: string) {
-  const params = new URLSearchParams();
-  if (highlight) params.set("highlight", highlight);
-  if (query.trim()) params.set("q", query.trim());
-  const qs = params.toString();
-  window.history.replaceState(window.history.state, "", qs ? `/map?${qs}` : "/map");
-}
+/** The panel's table: the place is the panel's heading, so no location column; a search's matches keep it. */
+const PANEL_HIDDEN = { officialName: false, materials: false, training: false, location: false } as const;
+const MATCHES_HIDDEN = { officialName: false, materials: false, training: false, category: false } as const;
 
 export function MapExplorer({ plan, tools }: { plan: FloorPlan; tools: MakerLabTool[] }) {
   const t = useTranslations("map");
   const galleryColumns = useGalleryColumns();
   const params = useSearchParams();
-  const [highlight, setHighlight] = useState<string | null>(() => params.get("highlight"));
+  const highlight = params.get("highlight") || null;
   const [query, setQuery] = useState(() => params.get("q") ?? "");
+  const panelHeading = useRef<HTMLHeadingElement>(null);
+  const panel = useRef<HTMLElement>(null);
+  const focusPanel = useRef(false);
+  const zoneBar = useRef<HTMLElement>(null);
 
   const index = useMemo(() => indexPlan(plan), [plan]);
   const placement = useMemo(() => placeTools(index, tools), [index, tools]);
@@ -78,18 +86,66 @@ export function MapExplorer({ plan, tools }: { plan: FloorPlan; tools: MakerLabT
     };
   }, [index, matches]);
 
-  const here = highlight && highlight !== UNPLACED ? resolveHighlight(index, highlight) : null;
-  const unknownHighlight = highlight && highlight !== UNPLACED && !here ? highlight : null;
+  const here = highlight && highlight !== MAP_UNPLACED ? resolveHighlight(index, highlight) : null;
+  const unknownHighlight = highlight && highlight !== MAP_UNPLACED && !here ? highlight : null;
+  const hasPlace = Boolean(here) || highlight === MAP_UNPLACED;
 
+  /** Go to a place (or the whole map): a history entry, so Back undoes it. */
   function select(id: string | null) {
-    setHighlight(id);
-    writeUrl(id, query);
+    if (id === highlight) return;
+    focusPanel.current = id !== null;
+    window.history.pushState(null, "", mapPlaceUrl(id, query));
   }
 
   function search(value: string) {
     setQuery(value);
-    writeUrl(highlight, value);
+    window.history.replaceState(window.history.state, "", mapPlaceUrl(highlight, value));
   }
+
+  // After picking a place, bring its panel to the reader: on a phone it sits
+  // under the map, out of sight. Focus names it for a screen reader too.
+  useEffect(() => {
+    if (!focusPanel.current || !hasPlace) return;
+    focusPanel.current = false;
+    const heading = panelHeading.current;
+    const section = panel.current;
+    if (!heading || !section) return;
+    heading.focus({ preventScroll: true });
+    // The panel's top (its "Whole map" button first) lands below the sticky
+    // header — its scroll margin is the header's height.
+    const top = section.getBoundingClientRect().top;
+    if (top < 0 || top > window.innerHeight * 0.75) {
+      const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      section.scrollIntoView?.({ block: "start", behavior: reduce ? "auto" : "smooth" });
+    }
+  }, [highlight, hasPlace]);
+
+  // On a phone the zone bar scrolls sideways: keep the current chip in view.
+  useEffect(() => {
+    const bar = zoneBar.current;
+    const chip = bar?.querySelector<HTMLElement>("[aria-current]");
+    if (!bar || !chip || bar.scrollWidth <= bar.clientWidth) return;
+    const left = chip.offsetLeft - bar.offsetLeft;
+    if (left < bar.scrollLeft || left + chip.offsetWidth > bar.scrollLeft + bar.clientWidth) {
+      bar.scrollLeft = Math.max(0, left - 16);
+    }
+  }, [highlight]);
+
+  // Escape leaves the place for the whole map — unless it belongs to
+  // something else: a dialog (the chat, ⌘K) or a search box clearing itself.
+  useEffect(() => {
+    if (!highlight) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest?.("[role='dialog'], [role='alertdialog']")) return;
+      if (target instanceof HTMLInputElement && target.value) return;
+      focusPanel.current = false;
+      window.history.pushState(null, "", mapPlaceUrl(null, query));
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [highlight, query]);
 
   const labels: FloorMapLabels = {
     title: t("svgTitle", { plan: plan.title }),
@@ -100,7 +156,7 @@ export function MapExplorer({ plan, tools }: { plan: FloorPlan; tools: MakerLabT
 
   // The tools the side panel lists: the picked place's, narrowed by the search.
   let panelTools: MakerLabTool[] = [];
-  if (highlight === UNPLACED) panelTools = placement.unplaced;
+  if (highlight === MAP_UNPLACED) panelTools = placement.unplaced;
   else if (here?.station) panelTools = placement.byStation.get(here.station.id) ?? [];
   else if (here) panelTools = placement.byZone.get(here.zone.id) ?? [];
   if (matches) {
@@ -109,12 +165,23 @@ export function MapExplorer({ plan, tools }: { plan: FloorPlan; tools: MakerLabT
   }
 
   const placed = tools.length - placement.unplaced.length;
+  const zoneTitle = here ? t("zoneHeading", { number: here.zone.number, zone: here.zone.zone }) : "";
+  const stationTitle = here?.station ? t("stationHeading", { id: here.station.id, label: here.station.label }) : "";
+  const placeTitle = highlight === MAP_UNPLACED ? t("unplacedHeading") : here?.station ? stationTitle : zoneTitle;
+
+  // The breadcrumb says where you are and is a way back up: Map › Zone › Station.
+  const crumbs: Crumb[] = [{ label: t("crumb"), href: hasPlace ? "/map" : undefined }];
+  if (here) crumbs.push({ label: zoneTitle, href: here.station ? mapHref(here.zone.id) : undefined });
+  if (here?.station) crumbs.push({ label: here.station.id });
+  if (highlight === MAP_UNPLACED) crumbs.push({ label: t("unplacedHeading") });
+
+  const zoneStations = here && !here.station ? plan.stations.filter((s) => s.zoneId === here.zone.id) : [];
 
   return (
     <main className="ui mx-auto flex w-full max-w-[1440px] flex-col gap-4 px-4 py-6 sm:px-8">
       <PageHeader
         as="h1"
-        crumbs={[{ label: t("crumb") }]}
+        crumbs={crumbs}
         title={t("title")}
         lede={t("lede")}
         facts={t("facts", {
@@ -154,6 +221,28 @@ export function MapExplorer({ plan, tools }: { plan: FloorPlan; tools: MakerLabT
           : ""}
       </p>
 
+      {/* The zone bar: every zone one tap away, "All zones" first — the same
+          spot at every width, so the way back out is never hunted for. */}
+      <nav ref={zoneBar} aria-label={t("zoneBar")} data-slot="map-zone-bar" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+        <ul className="flex w-max gap-2 sm:w-auto sm:flex-wrap">
+          <li>
+            <PlaceChip id={null} current={!highlight} onSelect={select} label={t("allZones")} count={tools.length} />
+          </li>
+          {plan.zones.map((zone) => (
+            <li key={zone.id}>
+              <PlaceChip
+                id={zone.id}
+                current={here?.zone.id === zone.id}
+                matched={matchPlaces?.zones.has(zone.id) ?? false}
+                onSelect={select}
+                label={t("zoneChip", { number: zone.number, zone: zone.zone })}
+                count={zoneCounts.get(zone.id) ?? 0}
+              />
+            </li>
+          ))}
+        </ul>
+      </nav>
+
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] lg:items-start">
         <div className="border border-border">
           <FloorMap
@@ -173,29 +262,89 @@ export function MapExplorer({ plan, tools }: { plan: FloorPlan; tools: MakerLabT
         <aside className="flex min-w-0 flex-col gap-4" aria-label={t("places")}>
           {unknownHighlight ? <EmptyState>{t("unknownHighlight", { id: unknownHighlight })}</EmptyState> : null}
 
-          {here || highlight === UNPLACED ? (
-            <section className="flex flex-col gap-2" aria-labelledby="map-selection-heading">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 id="map-selection-heading" className="font-heading text-xl font-medium uppercase">
-                  {highlight === UNPLACED
-                    ? t("unplacedHeading")
-                    : here?.station
-                      ? t("stationHeading", { id: here.station.id, label: here.station.label })
-                      : t("zoneHeading", { number: here!.zone.number, zone: here!.zone.zone })}
-                </h2>
-                <Button variant="ghost" size="sm" onClick={() => select(null)}>
-                  {t("showAll")}
+          {hasPlace ? (
+            <section
+              ref={panel}
+              data-slot="map-selection"
+              className="flex scroll-mt-[calc(var(--sticky-chrome-height)+16px)] flex-col gap-2"
+              aria-labelledby="map-selection-heading"
+            >
+              <p>
+                <Button variant="quiet" size="sm" onClick={() => select(null)} data-slot="map-back">
+                  <ArrowLeft aria-hidden="true" />
+                  {t("backToAll")}
                 </Button>
-              </div>
-              <p className="font-mono text-label uppercase text-muted-foreground">
-                {highlight === UNPLACED
-                  ? t("unplacedBody", { count: placement.unplaced.length })
-                  : here?.station
-                    ? t("stationIn", { number: here.zone.number, zone: here.zone.zone })
-                    : t("inRoom", { room: here!.zone.room })}
               </p>
+              <h2
+                id="map-selection-heading"
+                ref={panelHeading}
+                tabIndex={-1}
+                className="font-heading text-xl font-medium uppercase focus-visible:outline-none"
+              >
+                {placeTitle}
+              </h2>
+              <p className="font-mono text-label uppercase text-muted-foreground">
+                {highlight === MAP_UNPLACED ? (
+                  t("unplacedBody", { count: placement.unplaced.length })
+                ) : here?.station ? (
+                  <a
+                    href={mapHref(here.zone.id)}
+                    className="underline-offset-4 hover:text-primary-ink hover:underline"
+                    onClick={(event) => {
+                      event.preventDefault();
+                      select(here.zone.id);
+                    }}
+                  >
+                    {t("stationIn", { number: here.zone.number, zone: here.zone.zone })}
+                  </a>
+                ) : (
+                  t("inRoom", { room: here!.zone.room })
+                )}
+              </p>
+              {zoneStations.length > 0 ? (
+                <div className="flex flex-col gap-1">
+                  <h3 className="font-mono text-micro uppercase text-muted-foreground">{t("stationsHere")}</h3>
+                  <ul className="flex flex-wrap gap-2">
+                    {zoneStations.map((station) => (
+                      <li key={station.id}>
+                        <PlaceChip
+                          id={station.id}
+                          current={false}
+                          matched={matchPlaces?.stations.has(station.id) ?? false}
+                          onSelect={select}
+                          label={`${station.id} ${station.label}`}
+                          count={stationCounts.get(station.id) ?? 0}
+                          size="sm"
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <p className="text-sm">{t("toolsHere", { count: panelTools.length })}</p>
-              {panelTools.length > 0 ? <GalleryTable tools={panelTools} columns={galleryColumns} visibility={GALLERY_DEFAULT_HIDDEN} /> : null}
+              {panelTools.length > 0 ? (
+                <GalleryTable
+                  tools={panelTools}
+                  columns={galleryColumns}
+                  visibility={PANEL_HIDDEN}
+                  label={t("toolsAt", { place: placeTitle })}
+                />
+              ) : null}
+            </section>
+          ) : matches && query.trim() ? (
+            // Searching with no place picked: the matches, each with where it is.
+            <section data-slot="map-matches" className="flex flex-col gap-2" aria-labelledby="map-matches-heading">
+              <h2 id="map-matches-heading" className="font-heading text-xl font-medium uppercase">
+                {t("matchesHeading", { query: query.trim() })}
+              </h2>
+              {matches.length > 0 ? (
+                <GalleryTable
+                  tools={matches}
+                  columns={galleryColumns}
+                  visibility={MATCHES_HIDDEN}
+                  label={t("matchesHeading", { query: query.trim() })}
+                />
+              ) : null}
             </section>
           ) : null}
 
@@ -237,8 +386,8 @@ export function MapExplorer({ plan, tools }: { plan: FloorPlan; tools: MakerLabT
               })}
               <li className="border-t border-rule py-1.5">
                 <PlaceLink
-                  id={UNPLACED}
-                  current={highlight === UNPLACED}
+                  id={MAP_UNPLACED}
+                  current={highlight === MAP_UNPLACED}
                   matched={(matchPlaces?.unplaced ?? 0) > 0}
                   onSelect={select}
                   label={t("unplacedHeading")}
@@ -251,43 +400,5 @@ export function MapExplorer({ plan, tools }: { plan: FloorPlan; tools: MakerLabT
         </aside>
       </div>
     </main>
-  );
-}
-
-function PlaceLink({
-  id,
-  label,
-  count,
-  current,
-  matched,
-  strong = false,
-  onSelect,
-}: {
-  id: string;
-  label: string;
-  count: number;
-  current: boolean;
-  matched: boolean;
-  strong?: boolean;
-  onSelect: (id: string | null) => void;
-}) {
-  return (
-    <a
-      href={mapHref(id)}
-      aria-current={current ? "location" : undefined}
-      onClick={(event) => {
-        event.preventDefault();
-        onSelect(current ? null : id);
-      }}
-      className={[
-        "inline-flex min-h-6 items-baseline gap-2 text-sm hover:text-primary-ink",
-        strong ? "font-medium" : "text-muted-foreground",
-        current ? "text-primary-ink underline underline-offset-4" : "",
-        matched ? "text-primary-ink" : "",
-      ].join(" ")}
-    >
-      <span>{label}</span>
-      <span className="font-mono text-micro tabular-nums">{count}</span>
-    </a>
   );
 }
