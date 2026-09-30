@@ -20,10 +20,6 @@ affiliations:
 pdf: MakerLAB AI - ISAM 2026 Demo V2.pdf
 ---
 
-<!-- TODO (Isaac / Niti): V1.1 does not list Luis Rodrigo Navarro (the MakerLAB's Assistant
-     Director, ln328@cornell.edu). Decide whether to add him as an author — ISAM may not
-     allow author changes after acceptance — or thank him in the Acknowledgements. -->
-
 ![Fig. 1: MakerLAB Tools on a machine page, with MakerLAB AI open. Asked why a first print will not stick, it answers from the Bambu Lab X1-Carbon's archived SOP with page references (pp. 8, 10) and says the manual has no adhesion-troubleshooting section. (Live site, 28 Sep 2026.)](fig-assistant-debug-v2.png "wide")
 
 ## Abstract
@@ -62,7 +58,7 @@ The assistant is deployed; its effect on students is not yet measured. The insig
 
 ## Acknowledgements
 
-We thank the MakerLAB staff, SuperMakers and interns at Cornell Tech and Cornell University, and the students who make the lab. **Use of generative AI (ISAM policy):** Isaac Steinberg designed the system and directed and reviewed all of its code, which was written with the AI coding assistants Claude Code (Anthropic) and Codex (OpenAI). This abstract was drafted and revised with Anthropic's Claude from the authors' notes and the project's specifications; the authors checked each claim and figure against the running system. The answers in Figs. 1 and 3 are unedited output of the deployed assistant, which uses commercial language models through the Vercel AI Gateway.
+We thank Niti Parikh and the MakerLAB staff; Luis Rodrigo Navarro, who joined as Assistant Director in late summer 2026 and is helping with inventory intake; the SuperMakers and interns at Cornell Tech and Cornell University; and the students who make the lab. **Use of generative AI (ISAM policy):** Isaac Steinberg designed the system and directed and reviewed all of its code, which was written with the AI coding assistants Claude Code (Anthropic) and Codex (OpenAI). This abstract was drafted and revised with Anthropic's Claude from the authors' notes and the project's specifications; the authors checked each claim and figure against the running system. The answers in Figs. 1 and 3 are unedited output of the deployed assistant, which uses commercial language models through the Vercel AI Gateway.
 
 ## References
 
