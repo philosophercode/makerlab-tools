@@ -1,4 +1,12 @@
 import { CITE_HREF_PREFIX, isCitationLikeHref, withoutFragment } from "../../lib/manuals/citation-ref";
+import {
+  attachedManualHasPage as hasPage,
+  escapeRegExp,
+  linkAttachedPageMentions,
+  type AttachedManualLink,
+} from "../../lib/manuals/attached-citations";
+
+export { linkAttachedPageMentions, type AttachedManualLink };
 
 /**
  * Manual citations in an answer (UI system spec §9.1, phase 5b; manual text
@@ -80,17 +88,6 @@ export function manualPassages(parts: readonly { type: string }[]): Map<string, 
   return byKey;
 }
 
-/** A manual the route attached whole to this turn (`data-manual-links`). */
-export interface AttachedManualLink {
-  title: string;
-  /** Its stored address, without a fragment. */
-  url: string;
-  /** What its pages are cited by (`#cite-<ref>-<page>`); empty on a part streamed before refs existed. */
-  ref: string;
-  /** Pages in the PDF, or null when the route could not tell. */
-  pageCount: number | null;
-}
-
 /** The manuals the route attached whole to this turn, each once, in order. */
 export function attachedManuals(parts: readonly { type: string }[]): AttachedManualLink[] {
   const byUrl = new Map<string, AttachedManualLink>();
@@ -119,11 +116,6 @@ export function attachedManualLinks(parts: readonly { type: string }[]): Map<str
   return new Map(attachedManuals(parts).map((manual) => [manual.url, manual.title]));
 }
 
-/** Whether `page` may be cited in `manual`: a whole page number within its page count, when known. */
-function hasPage(manual: AttachedManualLink, page: number): boolean {
-  return Number.isInteger(page) && page >= 1 && (manual.pageCount === null || page <= manual.pageCount);
-}
-
 /**
  * A page of an attached manual as a passage: the citation is the route's
  * title and the page, and the URL is the **stored** address with `#page=N` —
@@ -138,32 +130,6 @@ export function attachedPagePassage(manual: AttachedManualLink, page: number): M
     section: "",
     excerpt: "",
   };
-}
-
-function escapeRegExp(text: string): string {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/**
- * Turn a page reference to an attached manual that the model wrote as plain
- * text — "(Bambu Lab X1-Carbon Combo 3D Printer - SOP, p. 8)", the form the
- * prompt asked for before refs — into a `#cite-` link, so it is drawn as a
- * citation. Only the route's exact title is recognised, only at a page the
- * PDF has, and never inside a link's words.
- */
-export function linkAttachedPageMentions(text: string, manuals: readonly AttachedManualLink[]): string {
-  let out = text;
-  const titled = manuals.filter((m) => m.ref && m.title.trim()).sort((a, b) => b.title.length - a.title.length);
-  for (const manual of titled) {
-    const pattern = new RegExp(`${escapeRegExp(manual.title.trim())},\\s*pp?\\.\\s*(\\d{1,5})(?:\\s*[–-]\\s*\\d{1,5})?`, "g");
-    out = out.replace(pattern, (match: string, page: string, offset: number, whole: string) => {
-      // Already the words of a link: leave it to the link.
-      if (/^[^[\]\n]*\]\(/.test(whole.slice(offset + match.length))) return match;
-      if (!hasPage(manual, Number(page))) return match;
-      return `[${match}](${CITE_HREF_PREFIX}${manual.ref}-${Number(page)})`;
-    });
-  }
-  return out;
 }
 
 /**

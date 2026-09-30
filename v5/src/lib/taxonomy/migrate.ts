@@ -263,6 +263,9 @@ export interface ApplyReport {
   created: number;
   updated: number;
   moved: number;
+  /** Of the moved tools, how many had a facet written with the move (item kind or parent). */
+  movedWithFacets: number;
+  /** Facet writes on tools that did not move (already in the tree). */
   facets: number;
   retired: number;
 }
@@ -273,7 +276,7 @@ export interface ApplyReport {
  * plan just made from the same handle. Any failure rolls every write back.
  */
 export async function applyTaxonomyPlan(db: Db, plan: TaxonomyPlan): Promise<ApplyReport> {
-  const report: ApplyReport = { created: 0, updated: 0, moved: 0, facets: 0, retired: 0 };
+  const report: ApplyReport = { created: 0, updated: 0, moved: 0, movedWithFacets: 0, facets: 0, retired: 0 };
   await db.transaction(async (tx) => {
     for (const rename of plan.legacySlugRenames) {
       await tx.update(categories).set({ slug: rename.to }).where(eq(categories.id, rename.categoryId));
@@ -331,6 +334,7 @@ export async function applyTaxonomyPlan(db: Db, plan: TaxonomyPlan): Promise<App
         })
         .where(eq(tools.id, move.toolId));
       report.moved++;
+      if (move.itemKind || move.parentToolSlug) report.movedWithFacets++;
     }
 
     for (const facet of plan.facets) {
@@ -358,6 +362,24 @@ export async function applyTaxonomyPlan(db: Db, plan: TaxonomyPlan): Promise<App
   return report;
 }
 
+/** Moves that also write a facet (item kind or parent tool). */
+export function movesWithFacets(plan: TaxonomyPlan): number {
+  return plan.moves.filter((move) => move.itemKind || move.parentToolSlug).length;
+}
+
+/**
+ * The apply report as the one line `taxonomy:migrate` prints. Facets written
+ * with a move are said with the move — "0 facet updates" alone once read as
+ * "no facets were set" when every one had ridden along with its move.
+ */
+export function formatApplyReport(report: ApplyReport): string {
+  return (
+    `Written: ${report.created} categories created, ${report.updated} updated, ` +
+    `${report.moved} tools moved (${report.movedWithFacets} with facets), ` +
+    `${report.facets} facet updates on tools already placed, ${report.retired} old categories retired.`
+  );
+}
+
 /** The plan as the lines `taxonomy:migrate` prints. */
 export function formatTaxonomyPlan(plan: TaxonomyPlan): string[] {
   const lines: string[] = [];
@@ -376,6 +398,7 @@ export function formatTaxonomyPlan(plan: TaxonomyPlan): string[] {
     lines.push(`${indent}${what} ${category.slug} — ${category.name}${hidden}`);
   }
   lines.push(`Tools: ${plan.moves.length} to move, ${plan.alreadyPlaced} already placed, ${plan.unmapped.length} unmapped.`);
+  lines.push(`Facets: ${movesWithFacets(plan)} set with a move, ${plan.facets.length} on tools already placed.`);
   for (const move of plan.moves) {
     const facets = [move.itemKind ? `kind ${move.itemKind}` : null, move.parentToolSlug ? `accessory of ${move.parentToolSlug}` : null].filter(Boolean);
     lines.push(`  ${move.toolSlug}: ${move.from ?? "(none)"} → ${move.to} [${move.rule}]${facets.length ? ` (${facets.join(", ")})` : ""}`);

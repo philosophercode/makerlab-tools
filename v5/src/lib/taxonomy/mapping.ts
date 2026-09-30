@@ -19,7 +19,12 @@ import type { ToolItemKind } from "../db/schema/vocabulary.ts";
  *
  * Facets ride along: `itemKind` and `parentSlug` set `tools.item_kind` and
  * `tools.parent_tool_id`, only where they are still the defaults (a person's
- * choice is never overwritten).
+ * choice is never overwritten). A tool with no `itemKind` is equipment. Keyed
+ * on the slug, so they hold whatever the tool is called and whichever of
+ * `taxonomy:migrate` and `inventory:cleanup` ran first; a re-run sets any
+ * facet still at its default, on a tool that moves or one already placed.
+ * The Ryobi ONE+ batteries and chargers are accessories with **no** parent:
+ * they serve every ONE+ tool, and `parent_tool_id` names one tool.
  *
  * Pure data, no runtime imports: `scripts/` loads it under plain Node.
  */
@@ -59,6 +64,11 @@ export const TOOL_MOVES: Readonly<Record<string, ToolMove>> = {
   "shopbot-buddy-bt48-l36-x-w76-x-h67": { category: "cnc-mills-routers" },
   "shaper-origin": { category: "cnc-mills-routers" },
   "wazer-waterjet-pro": { category: "waterjet" },
+  // Added after the review's listing (the 2026-09-28 cleanup bundle has them):
+  // by slug too, so a rename never matters.
+  "creality-ender-3-v3-3d-printer": { category: "fdm-printers" },
+  "glowforge-aura": { category: "laser-cutting-engraving" },
+  "bofa-ad500-fume-extractor": { category: "dust-collection" },
   // Power Tools
   "bosch-gst-150-bce": { category: "saws-cutters" },
   "festool-ps-300-eq-plus-trion-jigsaw": { category: "saws-cutters" },
@@ -124,6 +134,10 @@ export const TOOL_MOVES: Readonly<Record<string, ToolMove>> = {
   "tripod-with-adapter": accessory("cameras-mounts"),
   "ipad-6th-generation-mr7f2ll-a": { category: "tablets" },
   "apple-pencil": accessory("tablets", "ipad-6th-generation-mr7f2ll-a"),
+  // Hosted-only (added on production after the review). No audio category
+  // exists; Cameras & Mounts is the nearest media leaf. Propose "Audio & Smart
+  // Home" on /admin/taxonomy if more arrive (taxonomy spec, amendment "Facets").
+  "apple-homepod-2nd-generation": { category: "cameras-mounts" },
   // Shop Infrastructure & Supplies
   "festool-575267-dust-extractor-ct-midi-hepa": { category: "dust-collection" },
   "wen-woodworking-dust-collector-dc3401": { category: "dust-collection" },
@@ -132,6 +146,9 @@ export const TOOL_MOVES: Readonly<Record<string, ToolMove>> = {
   "powertec-hose-coupler-70136": accessory("dust-collection"),
   "ryobi-vacuum-cleaner-p7131": { category: "dust-collection" },
   "dust-masks": consumable("ppe"),
+  // Hosted-only. A wall-mounted alarm: PPE is the nearest safety leaf, and it
+  // is a fixture (installed, never borrowed) rather than equipment.
+  "nest-protect-smoke-and-co-alarm": fixture("ppe"),
   "festool-bench": fixture("benches-carts"),
   "woodworking-tools-storage-bench": fixture("benches-carts"),
   "plywood-stacking-rolling-cart": fixture("benches-carts"),

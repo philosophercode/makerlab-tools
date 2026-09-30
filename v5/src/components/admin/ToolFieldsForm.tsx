@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import type { CategoryOption, LocationOption } from "../../lib/data/taxonomy";
 import type { EditableTool, ToolPatch } from "../../lib/data/tools";
+import type { ParentToolOption } from "../../lib/data/tool-relations";
+import { TOOL_ITEM_KIND, type ToolItemKind } from "../../lib/db/schema/vocabulary";
 import { STARTER_QUESTION_MAX_CHARS, STARTER_QUESTIONS_MAX } from "../../lib/starter-questions";
 import { DISPLAY_NAME_MAX, isNameTaken, OFFICIAL_NAME_MAX } from "../../lib/tool-names";
 
@@ -42,6 +44,11 @@ export interface ToolFieldsFormProps {
    * amendment 2026-09-25).
    */
   takenNames?: readonly string[];
+  /**
+   * The tools the "Accessory of" picker offers (taxonomy v2 facet). The
+   * current parent is always shown, even when it is no longer offered.
+   */
+  parentOptions?: readonly ParentToolOption[];
 }
 
 /** The editable text of one tool, flattened so the form can diff it. */
@@ -53,6 +60,10 @@ interface Draft {
   description: string;
   categoryId: string;
   locationId: string;
+  /** Taxonomy v2 facet (`TOOL_ITEM_KIND`). */
+  itemKind: string;
+  /** The tool this one is an accessory of; blank is none. */
+  parentToolId: string;
   materials: string;
   ppeRequired: string;
   tags: string;
@@ -81,6 +92,7 @@ export function ToolFieldsForm({
   pending,
   onSave,
   takenNames = [],
+  parentOptions = [],
 }: ToolFieldsFormProps) {
   const t = useTranslations("admin.inventory.editor");
   // Initialised once. See the note above about rebasing rather than syncing.
@@ -92,6 +104,14 @@ export function ToolFieldsForm({
   const nameTooLong = draft.name !== base.name && draft.name.trim().length > DISPLAY_NAME_MAX;
   // Display names are unique across tools; another tool's is refused before it is sent.
   const nameTaken = draft.name !== base.name && isNameTaken(draft.name, takenNames);
+
+  // The current parent stays choosable even when it is no longer offered
+  // (archived since, say): a select that cannot show its own value lies.
+  const parents =
+    base.parentToolId && !parentOptions.some((option) => option.id === base.parentToolId)
+      ? [...parentOptions, { id: base.parentToolId, name: t("parentUnlisted") }]
+      : parentOptions;
+  const parentName = (id: string) => (id ? parents.find((option) => option.id === id)?.name ?? t("parentUnlisted") : "");
 
   function set<K extends keyof Draft>(field: K, value: Draft[K]) {
     setDraft((current) => ({ ...current, [field]: value }));
@@ -113,6 +133,8 @@ export function ToolFieldsForm({
     const other = theirDraft[field];
     if (mine === other) return null;
     if (field === "starterQuestions") return questionLines(other as string).join(" · ");
+    if (field === "itemKind") return t(`itemKind.${other as string}`);
+    if (field === "parentToolId") return parentName(other as string);
     return typeof other === "boolean" ? (other ? t("yes") : t("no")) : other;
   }
 
@@ -205,6 +227,47 @@ export function ToolFieldsForm({
             </option>
           ))}
         </select>
+      </div>
+
+      <div className="admin-field">
+        <label htmlFor="tool-item-kind">{t("fieldItemKind")}</label>
+        <select
+          id="tool-item-kind"
+          value={draft.itemKind}
+          aria-describedby="tool-item-kind-hint"
+          onChange={(event) => set("itemKind", event.target.value)}
+        >
+          {TOOL_ITEM_KIND.map((kind) => (
+            <option key={kind} value={kind}>
+              {t(`itemKind.${kind}`)}
+            </option>
+          ))}
+        </select>
+        <p className="admin-field-hint" id="tool-item-kind-hint">
+          {t("itemKindHint")}
+        </p>
+        {theirValue("itemKind")}
+      </div>
+
+      <div className="admin-field">
+        <label htmlFor="tool-parent">{t("fieldAccessoryOf")}</label>
+        <select
+          id="tool-parent"
+          value={draft.parentToolId}
+          aria-describedby="tool-parent-hint"
+          onChange={(event) => set("parentToolId", event.target.value)}
+        >
+          <option value="">{t("noneSelected")}</option>
+          {parents.map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.name}
+            </option>
+          ))}
+        </select>
+        <p className="admin-field-hint" id="tool-parent-hint">
+          {t("accessoryOfHint")}
+        </p>
+        {theirValue("parentToolId")}
       </div>
 
       <div className="admin-field">
@@ -330,6 +393,8 @@ function toDraft(tool: EditableTool): Draft {
     description: tool.description ?? "",
     categoryId: tool.categoryId ?? "",
     locationId: tool.locationId ?? "",
+    itemKind: tool.itemKind ?? "equipment",
+    parentToolId: tool.parentToolId ?? "",
     materials: tool.materials.join(", "),
     ppeRequired: tool.ppeRequired.join(", "),
     tags: tool.tags.join(", "),
@@ -373,6 +438,8 @@ function patchOf(base: Draft, draft: Draft): ToolPatch {
   if (draft.description !== base.description) patch.description = draft.description;
   if (draft.categoryId !== base.categoryId) patch.categoryId = draft.categoryId || null;
   if (draft.locationId !== base.locationId) patch.locationId = draft.locationId || null;
+  if (draft.itemKind !== base.itemKind) patch.itemKind = draft.itemKind as ToolItemKind;
+  if (draft.parentToolId !== base.parentToolId) patch.parentToolId = draft.parentToolId || null;
   if (draft.trainingRequired !== base.trainingRequired) {
     patch.trainingRequired = draft.trainingRequired;
   }

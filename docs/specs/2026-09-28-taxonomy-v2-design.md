@@ -243,4 +243,62 @@ the page (`TaxonomyBoard.test.tsx`); the knock-ons (`taxonomy/surfaces.test.ts`)
 
 ## Amendments
 
-(none yet)
+### 2026-09-29 — Facets: the report, the editor, the tool page and the filters
+
+**What was wrong.** After `taxonomy:migrate -- --apply` on the local and hosted databases the owner
+read "0 facet updates" and concluded no tool had an item kind or a parent. The facets *were* written
+(local SQL: 16 accessories — 5 with a parent — 3 consumables, 4 fixtures, 82 equipment). Every
+facet rides along with its tool's move (§5.1 step 3), and the report counted those under
+"tools moved"; `facets` counted only writes on tools that did **not** move, which on a first run is
+always zero. Nothing in the app read `item_kind` or `parent_tool_id`, so nothing contradicted it.
+The mapping keys on the slug (never the display name), so `inventory:cleanup`'s renames (PR #105)
+could not have mattered, in either order.
+
+**Changes.**
+
+1. **The report says it.** The dry run prints `Facets: N set with a move, M on tools already
+   placed.`; `--apply` prints `… T tools moved (N with facets), M facet updates on tools already
+   placed, …` (`formatApplyReport`). The plan is unchanged: a facet still at its default is set on
+   a tool that moves *or* one already placed; a chosen one is never overwritten. Idempotent.
+2. **Five more slugs mapped** (`mapping.ts`), so a re-run places them without an old-category
+   rule: the two hosted-only tools — `apple-homepod-2nd-generation` → **Cameras & Mounts**
+   (`cameras-mounts`; no audio category exists and the tree prefers an existing leaf — propose
+   "Audio & Smart Home" on `/admin/taxonomy` if more audio arrives) and
+   `nest-protect-smoke-and-co-alarm` → **PPE** (`ppe`, the nearest safety leaf) as a **fixture**
+   — and the three the cleanup bundle added after the review (`creality-ender-3-v3-3d-printer`,
+   `glowforge-aura`, `bofa-ad500-fume-extractor`).
+3. **The editor** (tool editor panel, `/admin/inventory` and edit mode) gains **Item kind** (a
+   select over `TOOL_ITEM_KIND`) and **Accessory of** (a picker over every tool not archived, not
+   itself an accessory, not this one — `listParentToolOptions`). Both save through the existing
+   `saveTool` action and `updateTool`'s revision check, sending only what changed. `updateTool`
+   refuses (`invalid_field`) an unknown kind, the tool itself, a parent that is itself an
+   accessory, and giving a parent to a tool that has accessories: **one level**, so no chain and no
+   cycle.
+4. **The tool page** says **Item kind** (when not equipment) and **Accessory of** *tool* (a link)
+   in Details, and a parent's page lists **Accessories**. Both come from the cached published
+   catalogue (`toolRelations`); a draft or archived relative is not linked.
+5. **Filters.** The gallery and the inventory gain an **Item kind** facet (`?kind=`). The gallery's
+   visibility is unchanged: Shop Infrastructure stays hidden by default, so most consumables and
+   fixtures appear once its category is chosen.
+
+**The facet mapping** (every other tool is equipment with no parent):
+
+| Item kind | Tools (slug → parent) |
+|---|---|
+| accessory, with parent | `original-prusa-i3-mk3s-enclosure-bundle` → `prusa-i3-mk3s`; `ultimaker-metal-expansion-kit` → `ultimaker-s5`; `ultimaker-s5-air-manager` → `ultimaker-s5`; `makita-plunge-base` → `makita-rt0701c`; `apple-pencil` → `ipad-6th-generation-mr7f2ll-a` |
+| accessory, no parent | the Ryobi ONE+ 1.5/3/4 Ah batteries and two chargers, the DeWalt charger (a battery or charger serves a whole platform; `parent_tool_id` names one tool), `fulton-hose-ring-clamp`, `peachtree-woodworking-supply-pvc-hose`, `powertec-hose-coupler-70136` (dust-collection fittings), `tripod-with-adapter`, `label-maker-ac-adapter` |
+| consumable | `dust-masks`, `hercules-sanding-sheets`, `suizan-replacement-blade` |
+| fixture | `festool-bench`, `woodworking-tools-storage-bench`, `plywood-stacking-rolling-cart`, `valley-craft-a-frame-bin-cart`, `nest-protect-smoke-and-co-alarm` |
+
+**Re-running** (both databases; stop `npm run dev` first for the local one):
+`npm run taxonomy:migrate` (dry run — expect the two hosted-only tools to move and nothing else),
+then `npm run taxonomy:migrate -- --apply`.
+
+**Testing.** `taxonomy/migrate-facets.test.ts` (every mapped slug seeded under the cleanup's names,
+cleanup before and after the migration, facets filled on already-placed tools, a chosen facet kept,
+the report wording, the hosted-only tools, every cleanup-bundle slug mapped);
+`app/admin/inventory/actions.facets.test.ts` (load, save, conflict, clear, refusals);
+`ToolFieldsForm.test.tsx`, `tool/relations.test.tsx`, `GalleryShell.test.tsx`,
+`InventoryBoard.test.tsx`, `inventory-filters.test.ts`, `gallery-filters.test.ts`; Playwright
+`e2e/tool-facets.spec.ts` (read-only) and the Trotec facet round trip in `e2e/tool-editor.spec.ts`'s
+serial describe.

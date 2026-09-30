@@ -1,4 +1,5 @@
 import { runAssertion, type AssertionOutcome, type RecordedDocumentEvidence, type RecordedToolCall } from "./assertions";
+import type { AttachedManualLink } from "@/lib/manuals/attached-citations";
 import type { EvalCase } from "./cases";
 import type { EvalFixture } from "./fixtures";
 
@@ -38,6 +39,8 @@ export interface CaseExecution {
   usage?: TokenUsage;
   /** Manual PDF evidence for the answer's citations (`citations_resolve`), gathered by the executor. */
   citationEvidence?: Record<string, RecordedDocumentEvidence>;
+  /** The manuals attached whole to the turn, as the route streams them (`data-manual-links`). */
+  attachedManuals?: AttachedManualLink[];
 }
 
 /** Runs one case against the assistant. Injected so tests can stub the model. */
@@ -92,6 +95,7 @@ function assess(
       text: execution.text,
       toolCalls: execution.toolCalls,
       citationEvidence: execution.citationEvidence,
+      attachedManuals: execution.attachedManuals,
       fixture,
       toolId: evalCase.context.toolId,
     })

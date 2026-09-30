@@ -6,6 +6,7 @@ import { matchSorter } from "match-sorter";
 import { LayoutGrid, Rows3 } from "lucide-react";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
 import type { GalleryTool } from "./catalog-types";
+import { TOOL_ITEM_KIND } from "../lib/db/schema/vocabulary";
 import { TOOL_STATUS_KEY, ToolCard } from "./ToolCard";
 import type { ToolImagePriority } from "./ToolImage";
 import { GALLERY_DEFAULT_HIDDEN, useGalleryColumns } from "./gallery-columns";
@@ -60,13 +61,14 @@ const SEARCH_KEYS: ReadonlyArray<keyof GalleryTool> = [
   "description",
 ];
 
-type Facet = "status" | "category" | "material" | "location";
-const FACETS: readonly Facet[] = ["status", "category", "material", "location"];
+type Facet = "status" | "category" | "material" | "location" | "kind";
+const FACETS: readonly Facet[] = ["status", "category", "material", "location", "kind"];
 
 function matchesFacet(tool: GalleryTool, facet: Facet, value: string): boolean {
   if (facet === "status") return tool.status === value;
   if (facet === "category") return tool.category === value;
   if (facet === "material") return tool.materials.includes(value);
+  if (facet === "kind") return (tool.itemKind ?? "equipment") === value;
   return tool.location === value;
 }
 
@@ -138,6 +140,7 @@ export function GalleryShell({ tools }: GalleryShellProps) {
     />
   );
   const statusLabel = (value: string) => t(`status.${TOOL_STATUS_KEY[value as GalleryTool["status"]]}`);
+  const kindLabel = (value: string) => t(`itemKind.${value}`);
 
   const sortOptions: ChoiceOption<"default" | GallerySort>[] = [
     { value: "default", label: query ? t("sort.relevance") : t("sort.name") },
@@ -161,9 +164,10 @@ export function GalleryShell({ tools }: GalleryShellProps) {
     state.category ? `${t("category")}: ${state.category}` : null,
     state.material ? `${t("materials")}: ${state.material}` : null,
     state.location ? `${t("location")}: ${state.location}` : null,
+    state.kind ? `${t("itemKindFacet")}: ${kindLabel(state.kind)}` : null,
   ].filter(Boolean);
   const narrowing = Boolean(query) || hasFacetFilters(state);
-  const clear = () => set({ query: "", status: null, category: null, material: null, location: null });
+  const clear = () => set({ query: "", status: null, category: null, material: null, location: null, kind: null });
   const activeCount = FACETS.filter((key) => state[key]).length;
 
   return (
@@ -184,6 +188,7 @@ export function GalleryShell({ tools }: GalleryShellProps) {
             {facet("category", t("category"), categories)}
             {facet("material", t("materials"), materials)}
             {facet("location", t("location"), locations)}
+            {facet("kind", t("itemKindFacet"), TOOL_ITEM_KIND, kindLabel)}
           </>
         }
         activeCount={activeCount}

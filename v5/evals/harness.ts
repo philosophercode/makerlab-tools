@@ -7,6 +7,15 @@ import {
 } from "@/lib/capabilities";
 import { getCatalogTool, getCatalogTools } from "@/lib/catalog";
 import { loadToolManualsForChat } from "@/lib/chat/tool-manuals";
+import {
+  appendManualSections,
+  attachedManualLinks,
+  collectToolManuals,
+  pickPdfSource,
+  type AttachedManual,
+} from "@/lib/chat/attached-manuals";
+import { listResourcesForTool } from "@/lib/data/resources";
+import type { AttachedManualLink } from "@/lib/manuals/attached-citations";
 import type { ModelMessage, Tool } from "ai";
 import type { Identity } from "@/lib/auth/identity";
 import { curationCapability } from "@/lib/capabilities/curation";
@@ -137,6 +146,30 @@ export function stubLiveReads(capabilities: Capability[] = CAPABILITIES): Capabi
 export interface ComposedCase {
   system: string;
   tools: Record<string, Tool>;
+  /**
+   * The focused tool's manuals attached whole (no searchable text), with their
+   * bytes — attach them to the messages with `attachManualsToFirstUserMessage`,
+   * as the route does.
+   */
+  manuals: AttachedManual[];
+  /**
+   * What the route streams about those manuals as `data-manual-links` — title,
+   * stored address, ref, page count — for `citations_resolve`, as the
+   * search results' passages are captured from the tool calls.
+   */
+  attachedManuals: AttachedManualLink[];
+}
+
+/**
+ * The focused tool's manuals the route would attach whole
+ * (`lib/chat/attached-manuals.ts`), limited to the lab's own store: a
+ * resource whose PDF is only a link on the web is left out, so an eval never
+ * fetches from the live network (design spec §8). The fixture's attached
+ * manual (`manual-fixture.ts`) is an upload on the eval's local blob origin.
+ */
+async function attachedManualsFor(toolId: string, searchable: ReadonlySet<string>): Promise<AttachedManual[]> {
+  const ownStore = (await listResourcesForTool(toolId)).filter((r) => pickPdfSource(r)?.ownStore !== false);
+  return (await collectToolManuals(ownStore, searchable)).manuals;
 }
 
 /**
@@ -168,7 +201,10 @@ export async function composeCase(evalCase: EvalCase): Promise<ComposedCase> {
   // eval's fixture manual (`manual-fixture.ts`) once `npm run eval` seeded it,
   // nothing offline. `search_manual` itself stays live: it reads the eval's
   // own PGlite database and nothing else.
-  const manualOutlines = focused ? (await loadToolManualsForChat(focused.id, null)).outlines : [];
+  const toolManuals = focused ? await loadToolManualsForChat(focused.id, null) : null;
+  const manualOutlines = toolManuals?.outlines ?? [];
+  // The rest of its PDF manuals, attached whole, as the route attaches them.
+  const manuals = focused && toolManuals ? await attachedManualsFor(focused.id, toolManuals.searchableResourceIds) : [];
   const capabilities = curation ? [...CAPABILITIES, curationCapability("tool")] : CAPABILITIES;
   // A case that names its caller gets that caller's registry, through the same
   // `capabilitiesForIdentity` the route uses; one that does not keeps the
@@ -184,7 +220,12 @@ export async function composeCase(evalCase: EvalCase): Promise<ComposedCase> {
 
   // Where the person is (§10.1): the same loader and block the chat route uses.
   const page = evalCase.context.path && identity ? await pageBlock(identity, evalCase.context.path, evalCase.context.selection) : "";
-  return { system: [composed.system, page].filter(Boolean).join("\n\n"), tools: composed.tools };
+  return {
+    system: [appendManualSections(composed.system, focused, manuals), page].filter(Boolean).join("\n\n"),
+    tools: composed.tools,
+    manuals,
+    attachedManuals: attachedManualLinks(manuals),
+  };
 }
 
 /** The selectable table for each selection kind, and the column its rows are named by. */

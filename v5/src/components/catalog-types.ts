@@ -1,4 +1,5 @@
 import type { ImageThumbnails } from "../lib/images/thumbnail-urls.ts";
+import type { ToolItemKind } from "../lib/db/schema/vocabulary.ts";
 
 export type ToolStatus = "Available" | "In Use" | "Training Required" | "Offline";
 
@@ -86,6 +87,13 @@ export interface MakerLabTool {
    * such tools sort last.
    */
   addedAt?: string | null;
+  /**
+   * Taxonomy v2 facet: `equipment`, `accessory`, `consumable` or `fixture`.
+   * Absent on fixtures from before it, which read as equipment.
+   */
+  itemKind?: ToolItemKind;
+  /** The tool this one is an accessory of (its id), or null/absent. */
+  parentToolId?: string | null;
 }
 
 /**
@@ -115,6 +123,7 @@ export type GalleryTool = Pick<
   | "tags"
   | "addedAt"
   | "galleryHidden"
+  | "itemKind"
 > & {
   /** Only each unit's status: the table's "available" count and the availability sort. */
   units: Array<Pick<MakerLabUnit, "status">>;
@@ -140,6 +149,7 @@ export function toGalleryTool(tool: MakerLabTool): GalleryTool {
     tags: tool.tags,
     addedAt: tool.addedAt ?? null,
     galleryHidden: Boolean(tool.galleryHidden),
+    itemKind: tool.itemKind ?? "equipment",
     units: tool.units.map((unit) => ({ status: unit.status })),
   };
 }

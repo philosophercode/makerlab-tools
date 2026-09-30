@@ -9,7 +9,7 @@ import { matchSorter } from "match-sorter";
 import type { ColumnDef, RowSelectionState, VisibilityState } from "@tanstack/react-table";
 import type { InventoryRow, ToolState } from "../../lib/data/inventory";
 import { thumbnailUrl } from "../../lib/images/thumbnail-urls";
-import type { UnitStatus } from "../../lib/db/schema/vocabulary";
+import { TOOL_ITEM_KIND, type ToolItemKind, type UnitStatus } from "../../lib/db/schema/vocabulary";
 import type { QueueRefreshAction } from "../../app/admin/refresh/action-result";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -137,6 +137,7 @@ export function InventoryBoard({ rows, initial, actions, canPublish = true, queu
       ),
       category: facetOptions(without("category"), uniqueValues(rows.map((r) => r.categoryName)), (row, v) => row.categoryName === v),
       location: facetOptions(without("location"), uniqueValues(rows.map((r) => r.room)), (row, v) => row.room === v),
+      kind: facetOptions(without("kind"), TOOL_ITEM_KIND, (row, v) => (row.itemKind ?? "equipment") === v, (v) => t(`itemKind.${v}`)),
     };
   }, [rows, filters, t]);
 
@@ -300,12 +301,18 @@ export function InventoryBoard({ rows, initial, actions, canPublish = true, queu
             />
             <FacetFilter label={t("filterCategory")} value={filters.category} options={facets.category} onChange={(v) => update({ category: v })} />
             <FacetFilter label={t("filterLocation")} value={filters.location} options={facets.location} onChange={(v) => update({ location: v })} />
+            <FacetFilter
+              label={t("filterItemKind")}
+              value={filters.kind ?? null}
+              options={facets.kind}
+              onChange={(v) => update({ kind: v as ToolItemKind | null })}
+            />
           </>
         }
         shown={visible.length}
         total={rows.length}
         onClear={active ? clearFilters : null}
-        activeCount={[filters.state, filters.attention, filters.category, filters.location].filter(Boolean).length}
+        activeCount={[filters.state, filters.attention, filters.category, filters.location, filters.kind].filter(Boolean).length}
         secondary={<ColumnsMenu columns={columns} visibility={visibility} onChange={setVisibility} />}
       />
 

@@ -1,7 +1,9 @@
+import { attachedCiteTarget, type AttachedManualLink } from "@/lib/manuals/attached-citations";
 import {
   checkCitations,
   citationLinks,
   toolPassages,
+  withAttachedMentionsLinked,
   type DocumentEvidence,
   type ToolPassage,
 } from "@/lib/manuals/citation-check";
@@ -25,7 +27,7 @@ import type { EvalFixture, EvalFixtureTool } from "./fixtures";
  * | `cites_resource` | The answer references one of the machine's documents |
  * | `cites_page` | The answer cites a manual page: a `#page=N` link or "p. N" (N = `value` when given; `file.pdf#page=N` pins the document) |
  * | `says_not_covered` | The answer says the manual does not cover the question |
- * | `citations_resolve` | Every manual link came from a `search_manual` result, answers 200 `application/pdf`, opens a page the PDF has, and the passage is on that page (`src/lib/manuals/citation-check.ts`; the executor gathers the evidence) |
+ * | `citations_resolve` | Every manual link came from a `search_manual` result or a manual attached to the turn (`#cite-<ref>-<page>`, "(<title>, p. N)"), answers 200 `application/pdf`, opens a page the PDF has, and the passage is on that page (`src/lib/manuals/citation-check.ts`; the executor gathers the evidence) |
  * | `proposed_action` | That action tool was called — which only ever proposes a card (assistant–GUI parity spec §10.1) |
  * | `not_claimed_done` | The answer never says a change was made: nothing is done until the person confirms the card |
  *
@@ -94,6 +96,12 @@ export interface AssertionInput {
   toolCalls: RecordedToolCall[];
   /** Manual PDF evidence by address (no fragment), for `citations_resolve`. */
   citationEvidence?: Record<string, RecordedDocumentEvidence>;
+  /**
+   * The manuals attached whole to the turn, as the route streams them
+   * (`data-manual-links`): what `#cite-<ref>-<page>` and "(<title>, p. N)"
+   * resolve against.
+   */
+  attachedManuals?: AttachedManualLink[];
   /** The pinned catalog. */
   fixture: EvalFixture;
   /** Slug/id of the machine the case is focused on, if any. */
@@ -507,15 +515,15 @@ export function runAssertion(spec: AssertionSpec, input: AssertionInput): Assert
       const value = spec.value === undefined ? undefined : asString(spec.value);
       return outcome(
         value ? `the answer cites page ${value}` : "the answer cites a manual page",
-        citesPage(expandCitationRefs(text, toolCalls), value)
+        citesPage(expandCitationRefs(text, toolCalls, input.attachedManuals), value)
       );
     }
     case "says_not_covered":
       return outcome("the answer says the manual does not cover it", saysNotCovered(text));
     case "citations_resolve":
       return outcome(
-        "every manual link came from search_manual, resolves to the PDF, opens a page it has, and the passage is on that page",
-        citationsResolve(text, toolCalls, input.citationEvidence ?? {})
+        "every manual link came from search_manual or an attached manual, resolves to the PDF, opens a page it has, and the passage is on that page",
+        citationsResolve(text, toolCalls, input.citationEvidence ?? {}, input.attachedManuals)
       );
     case "proposed_action": {
       // Every action tool only proposes (the harness stubs it to answer
@@ -633,31 +641,42 @@ export function recordedPassages(toolCalls: readonly RecordedToolCall[]): ToolPa
 
 /**
  * The answer with each `](#cite-<ref>)` replaced by the URL the search
- * returned for that ref — what the chat draws — so `cites_page` judges the
- * page the student would open. A ref no search returned is left as written.
+ * returned for that ref — or, for an attached manual's `#cite-<ref>-<page>`
+ * (or plain "(<its title>, p. N)"), its stored address at that page — what
+ * the chat draws, so `cites_page`
+ * judges the page the student would open. A ref nothing returned is left as
+ * written.
  */
-export function expandCitationRefs(text: string, toolCalls: readonly RecordedToolCall[]): string {
+export function expandCitationRefs(
+  text: string,
+  toolCalls: readonly RecordedToolCall[],
+  attached: readonly AttachedManualLink[] = []
+): string {
   const passages = recordedPassages(toolCalls);
-  if (passages.length === 0) return text;
-  return text.replace(/\]\((#cite-[^)\s]+)\)/gi, (whole, href: string) => {
+  if (passages.length === 0 && attached.length === 0) return text;
+  return withAttachedMentionsLinked(text, attached).replace(/\]\((#cite-[^)\s]+)\)/gi, (whole, href: string) => {
     const ref = href.slice(CITE_HREF_PREFIX.length).toLowerCase();
     const url = passages.find((p) => p.ref === ref && p.url)?.url;
-    return url ? `](${url})` : whole;
+    if (url) return `](${url})`;
+    const target = attachedCiteTarget(href, attached);
+    return target ? `](${target.manual.url}#page=${target.page})` : whole;
   });
 }
 
 /**
- * `citations_resolve` (manual text spec amendment 2026-09-28): the answer
- * links at least one manual page, and every manual-looking link passes
- * `checkCitations` — from a tool result, resolving to the PDF, a page it has,
- * the passage on it.
+ * `citations_resolve` (manual text spec amendments 2026-09-28 and
+ * 2026-09-28b): the answer links at least one manual page — a plain-text
+ * "(<attached title>, p. N)" counts, as the chat links it — and every
+ * manual-looking link passes `checkCitations`: from a search result or an
+ * attached manual, resolving to the PDF, a page it has, the passage on it.
  */
 export function citationsResolve(
   text: string,
   toolCalls: readonly RecordedToolCall[],
-  evidence: Record<string, RecordedDocumentEvidence>
+  evidence: Record<string, RecordedDocumentEvidence>,
+  attached: readonly AttachedManualLink[] = []
 ): Check {
-  if (citationLinks(text).length === 0) {
+  if (citationLinks(withAttachedMentionsLinked(text, attached)).length === 0) {
     return { ok: false, detail: "the answer links no manual page", excerpt: text.slice(0, 200) };
   }
   const byUrl = new Map<string, DocumentEvidence>(
@@ -666,7 +685,7 @@ export function citationsResolve(
       { ...e, pages: new Map(Object.entries(e.pages).map(([n, t]) => [Number(n), t])) },
     ])
   );
-  const report = checkCitations(text, recordedPassages(toolCalls), byUrl);
+  const report = checkCitations(text, recordedPassages(toolCalls), byUrl, attached);
   if (report.ok) return { ok: true };
   const bad = report.citations.filter((c) => c.problems.length > 0);
   return {

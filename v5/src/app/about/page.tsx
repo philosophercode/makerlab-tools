@@ -92,6 +92,9 @@ export default function AboutPage() {
             ))}
           </dl>
           <p>{t("assistantLimits")}</p>
+          <p>
+            <Link href="/assistant">{t("assistantPageLink")}</Link>
+          </p>
           {/* Usage insight spec §8, §13 Q6: one sentence on what is counted. */}
           <p>{t("usageBody")}</p>
           <p>{t("whyBody")}</p>

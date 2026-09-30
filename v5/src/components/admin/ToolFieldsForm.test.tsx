@@ -179,3 +179,43 @@ describe("display names are unique across tools (amendment 2026-09-25)", () => {
     expect(onSave).toHaveBeenCalledWith({ name: "Ryobi ONE+ 4Ah Battery" });
   });
 });
+
+describe("taxonomy v2 facets", () => {
+  const parents = [
+    { id: "router-1", name: "Makita Compact Router" },
+    { id: "ipad-1", name: "iPad (6th generation)" },
+  ];
+
+  it("shows Item kind (equipment by default) and an empty Accessory of", () => {
+    renderForm({ parentOptions: parents });
+    expect(screen.getByLabelText("Item kind")).toHaveValue("equipment");
+    expect(screen.getByLabelText("Accessory of")).toHaveValue("");
+  });
+
+  it("sends only the facets that changed", async () => {
+    const { onSave } = renderForm({ parentOptions: parents });
+    await userEvent.selectOptions(screen.getByLabelText("Item kind"), "accessory");
+    await userEvent.selectOptions(screen.getByLabelText("Accessory of"), "Makita Compact Router");
+    await save();
+    expect(onSave).toHaveBeenCalledWith({ itemKind: "accessory", parentToolId: "router-1" });
+  });
+
+  it("clears Accessory of with null", async () => {
+    const { onSave } = renderForm({ values: tool({ itemKind: "accessory", parentToolId: "ipad-1" }), parentOptions: parents });
+    expect(screen.getByLabelText("Accessory of")).toHaveValue("ipad-1");
+    await userEvent.selectOptions(screen.getByLabelText("Accessory of"), "");
+    await save();
+    expect(onSave).toHaveBeenCalledWith({ parentToolId: null });
+  });
+
+  it("keeps a current parent that is no longer offered, and names the other version on a conflict", () => {
+    renderForm({
+      values: tool({ itemKind: "accessory", parentToolId: "gone-1" }),
+      theirs: tool({ itemKind: "consumable", parentToolId: "router-1" }),
+      parentOptions: parents,
+    });
+    expect(screen.getByLabelText("Accessory of")).toHaveValue("gone-1");
+    expect(screen.getByText(/Their version: Consumable/)).toBeInTheDocument();
+    expect(screen.getByText(/Their version: Makita Compact Router/)).toBeInTheDocument();
+  });
+});
