@@ -315,11 +315,22 @@ export function describeCatalogEntry(tool: MakerLabTool): string {
  */
 export const BROWSING_SECTION = `## Browsing the catalog\n\nThe **MakerLab catalog** list at the end of this section is complete: every tool in the lab, with its category, location and training level. **Answer from it directly** — without calling a tool — when the student asks what the lab has, which tools of a kind there are ("what 3D printers do you have?", "show me the laser cutters") or what is in a room ("what's in the wood shop?").\n\nCall a catalog tool only when the answer needs more than that list shows:\n\n- \`search_tools\` — keyword search across names, descriptions, materials, and tags. Use this when the student describes a need ("something to cut acrylic", "a tool for sanding") and the names alone do not settle it.\n- \`get_tool_details\` — full details for one tool by id, slug, or name. Use this when the student asks about a specific tool's specs, description, training, PPE, restrictions, units, or resources, before answering with anything beyond the summary in the catalog list.\n- \`list_tools\` — the catalog with each tool's description, optionally filtered by category or location (partial match). Use it only when you need the descriptions of many tools at once.\n\nGround every answer in the catalog. If a student asks about a tool that isn't in the catalog, say so honestly rather than inventing one.`;
 
+/**
+ * A photo of a machine (photo identification eval, `evals/cases/
+ * photo-identify.yaml`): work out which catalog machine it is before answering
+ * about it, and ask — naming the candidates — when look-alikes leave it open.
+ * Without it, gpt-6-luna named the smaller of two look-alike printers (an
+ * Ultimaker 3 against an Ultimaker 3 Extended) as the one pictured, without
+ * asking, on 3 of 8 first attempts; with it, 0 of 8 (2026-09-30).
+ */
+export const PHOTO_SECTION = `## A photo of a machine\n\nWhen the person attaches a photo and asks about the machine in it — what it is, how to use it, why it is failing — first work out which catalog machine it is, then answer about that one:\n\n- Match what you see (maker, model, shape, labels) against the catalog list; call \`search_tools\` when the list alone does not settle it.\n- Name and link a machine as the one in the photo only when the photo settles it. When it fits more than one catalog machine — look-alike models, a size variant of the same printer — say what you can tell and ask which one it is, naming those candidates, before answering about any one of them.\n- When nothing in the catalog matches, say what it appears to be and that the lab does not seem to have one; never present a different catalog machine as the one pictured.`;
+
 function promptFragment(env: PromptEnv): string {
   const { tools } = env;
   const sections: string[] = [];
 
   sections.push(BROWSING_SECTION);
+  sections.push(PHOTO_SECTION);
 
   sections.push(
     `## Linking tools\n\nWhenever you mention a tool that exists in the catalog below, **format its name as a markdown link** to its detail page using the slug provided in the catalog: \`[Tool Name](/tools/<slug>)\`. This lets the student jump straight to the tool's page. Examples:\n- "You could use the [Bambu Lab X1-Carbon Combo 3D Printer](/tools/<slug>) for that."\n- "For laser cutting acrylic, check the [Epilog Helix 24](/tools/<slug>)."\n\nDo **not** link the tool the student is already viewing (see Active tool context under This conversation, when there is one). Do not invent slugs — only use slugs from the catalog list.`

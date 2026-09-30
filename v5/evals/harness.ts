@@ -26,6 +26,8 @@ import { loadPageContext, pageContextSection, PAGE_CONTEXTS } from "@/lib/action
 import { getDb } from "@/lib/db/client";
 import { feedback, maintenanceLogs, pendingTools, projects, tools as toolsTable } from "@/lib/db/schema/index";
 import { inArray } from "drizzle-orm";
+import { photoQrHints, photoQrSection } from "@/lib/chat/photo-qr";
+import type { UploadedImage } from "@/lib/capabilities/types";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { PHOTOS_DIR, type EvalCaller, type EvalCase, type EvalTurn } from "./cases";
@@ -64,6 +66,8 @@ export interface ComposedCase {
    * search results' passages are captured from the tool calls.
    */
   attachedManuals: AttachedManualLink[];
+  /** What the route's QR reader made of the case's photos — one line per code of ours. */
+  qrHints: string[];
 }
 
 /**
@@ -97,8 +101,14 @@ export async function composeCase(evalCase: EvalCase): Promise<ComposedCase> {
   // chat route loads it for staff; `propose_change` is a write and is stubbed.
   const curation = evalCase.context.curate && focused ? await curationFor(focused.id) : null;
   const identity = evalCase.context.as ? evalIdentity(evalCase.context.as) : undefined;
+  // This turn's photos, as the route hands them to the capability layer, and
+  // any QR code in them read by the route's own reader (QR labels amendment):
+  // one of our tool links becomes the same prompt section the route adds.
+  const attachments = casePhotos(evalCase);
+  const qrHints = attachments.length > 0 ? await photoQrHints(attachments) : [];
   const ctx: CapabilityCtx = {
     locale: "en",
+    ...(attachments.length > 0 ? { attachments } : {}),
     focusedToolId: focused?.id,
     ...(curation ? { curation } : {}),
     ...(identity ? { identity } : {}),
@@ -127,10 +137,11 @@ export async function composeCase(evalCase: EvalCase): Promise<ComposedCase> {
   // Where the person is (§10.1): the same loader and block the chat route uses.
   const page = evalCase.context.path && identity ? await pageBlock(identity, evalCase.context.path, evalCase.context.selection) : "";
   return {
-    system: [appendManualSections(composed.system, focused, manuals), page].filter(Boolean).join("\n\n"),
+    system: [appendManualSections(composed.system, focused, manuals), page, photoQrSection(qrHints)].filter(Boolean).join("\n\n"),
     tools: composed.tools,
     manuals,
     attachedManuals: attachedManualLinks(manuals),
+    qrHints,
   };
 }
 
@@ -192,6 +203,21 @@ export function evalIdentity(caller: EvalCaller): Identity {
  */
 export function evalPhotoId(index: number): string {
   return `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`;
+}
+
+/**
+ * A case's photos as the route's `collectAttachments` rebuilds them from the
+ * message: the hint's attachment id and name, paired with the inline bytes.
+ * The upload to Blob is what the stub skips — the id is fixed
+ * ({@link evalPhotoId}) and every write that would claim it is stubbed.
+ */
+export function casePhotos(evalCase: EvalCase): UploadedImage[] {
+  return (evalCase.photos ?? []).map((name, index) => ({
+    attachmentId: evalPhotoId(index),
+    name,
+    contentType: "image/jpeg",
+    dataUrl: `data:image/jpeg;base64,${readFileSync(path.join(PHOTOS_DIR, name)).toString("base64")}`,
+  }));
 }
 
 /** The conversation a case sends: its history, oldest first, then its prompt. */

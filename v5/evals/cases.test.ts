@@ -109,6 +109,29 @@ describe("parseCaseFile validation", () => {
     ).toThrow(/curate requires page: tool/);
   });
 
+  it("takes a catalog of demo or lab, and nothing else", () => {
+    const [lab] = parseCaseFile(`- id: a\n  prompt: "hi"\n  context: { catalog: lab }\n  assert:\n    - kind: no_unknown_tools\n`, "t.yaml");
+    expect(lab.context.catalog).toBe("lab");
+    const [plain] = parseCaseFile(`- id: a\n  prompt: "hi"\n  assert:\n    - kind: no_unknown_tools\n`, "t.yaml");
+    expect(plain.context.catalog).toBeUndefined();
+    expect(() =>
+      parseCaseFile(`- id: a\n  prompt: "hi"\n  context: { catalog: full }\n  assert:\n    - kind: no_unknown_tools\n`, "t.yaml")
+    ).toThrow(/context.catalog must be one of demo, lab/);
+  });
+
+  it("takes identified_tool as a slug, <slug>|ask or none", () => {
+    for (const value of ["form-4", "ultimaker-3|ask", "none"]) {
+      const [parsed] = parseCaseFile(`- id: a\n  prompt: "hi"\n  assert:\n    - kind: identified_tool\n      value: "${value}"\n`, "t.yaml");
+      expect(parsed.assert[0]).toEqual({ kind: "identified_tool", value });
+    }
+    expect(() => parseCaseFile(`- id: a\n  prompt: "hi"\n  assert:\n    - kind: identified_tool\n`, "t.yaml")).toThrow(/requires a "value"/);
+    for (const bad of ["Form 4", "form-4|maybe", "[form-4, form-2]"]) {
+      expect(() =>
+        parseCaseFile(`- id: a\n  prompt: "hi"\n  assert:\n    - kind: identified_tool\n      value: ${bad.startsWith("[") ? bad : `"${bad}"`}\n`, "t.yaml")
+      ).toThrow(/identified_tool takes a catalog slug/);
+    }
+  });
+
   it("takes photos from evals/fixtures/photos, and refuses one that is not there", () => {
     const [parsed] = parseCaseFile(
       `- id: a\n  prompt: "hi"\n  photos: [bench-three-tools.jpg]\n  assert:\n    - kind: identified_count\n      value: "3"\n`,
@@ -178,7 +201,7 @@ describe("the shipped case set", () => {
     expect(new Set(cases.map((c) => c.id)).size).toBe(cases.length);
   });
 
-  it("covers bulk import, catalog lookup, citations, curation, lab identity, manual grounding, manual search, staff maintenance, tool calling and honest absence", () => {
+  it("covers bulk import, catalog lookup, citations, curation, lab identity, manual grounding, manual search, photo identification, staff maintenance, tool calling and honest absence", () => {
     const files = new Set(loadCases().map((c) => c.file));
     expect(files).toEqual(
       new Set([
@@ -192,6 +215,7 @@ describe("the shipped case set", () => {
         "manual-grounding.yaml",
         "manual-search.yaml",
         "multi-item-intake.yaml",
+        "photo-identify.yaml",
         "staff-maintenance.yaml",
         "tool-calling.yaml",
       ])

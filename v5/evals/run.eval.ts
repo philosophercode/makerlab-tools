@@ -15,7 +15,8 @@ import { gatherCitationEvidence } from "@/lib/manuals/citation-evidence";
 import { recordedPassages } from "./assertions";
 import { seedEvalManual, stopEvalManualServer } from "./manual-fixture";
 import { seedEvalTickets } from "./ticket-fixture";
-import { formatReport, runSuite, type CaseExecution } from "./runner";
+import { formatReport, mergeReports, runSuite, type CaseExecution, type SuiteReport } from "./runner";
+import { seedEvalLabCatalog } from "./lab-catalog-fixture";
 
 /**
  * `npm run eval` — the on-demand agent eval suite (design spec §5; gateway spec
@@ -71,7 +72,7 @@ const REPORT_PATH = path.join(path.dirname(fileURLToPath(import.meta.url)), ".la
 
 /** Execute one case: the real registry and prompt composition, one model call. */
 async function executeCase(evalCase: EvalCase): Promise<CaseExecution> {
-  const { system, tools: aiTools, manuals, attachedManuals } = await composeCase(evalCase);
+  const { system, tools: aiTools, manuals, attachedManuals, qrHints } = await composeCase(evalCase);
 
   const result = await generateText({
     model,
@@ -105,6 +106,7 @@ async function executeCase(evalCase: EvalCase): Promise<CaseExecution> {
     text: result.text,
     toolCalls,
     attachedManuals,
+    ...(qrHints.length > 0 ? { qrHints } : {}),
     citationEvidence: Object.fromEntries(
       [...evidence].map(([url, e]) => [url, { ...e, pages: Object.fromEntries(e.pages) }])
     ),
@@ -153,13 +155,23 @@ describe("agent evals", () => {
     if (cases.length === 0) throw new Error(`EVAL_CASES="${process.env.EVAL_CASES}" matches no case file or id`);
     console.info(`Running ${cases.length} eval cases against ${MODEL_LABEL}…`);
 
-    // Built from the catalogue the harness actually composes with, so an
+    // Two phases: every demo-catalogue case first, then — once the lab
+    // fixture's look-alike machines are seeded, which is never undone — the
+    // `catalog: lab` cases (photo identification). Each phase's fixture is
+    // built from the catalogue the harness actually composes with, so an
     // assertion can never police a machine or a manual the model was not given.
-    const fixture = buildFixture(await getCatalogTools());
-
-    const report = await runSuite(cases, executeCase, fixture, {
-      onCase: (result) => console.info(`  ${result.status.toUpperCase()} ${result.id}`),
-    });
+    const onCase = (result: { status: string; id: string }) => console.info(`  ${result.status.toUpperCase()} ${result.id}`);
+    const phases: SuiteReport[] = [];
+    const demoCases = cases.filter((c) => c.context.catalog !== "lab");
+    const labCases = cases.filter((c) => c.context.catalog === "lab");
+    if (demoCases.length > 0) {
+      phases.push(await runSuite(demoCases, executeCase, buildFixture(await getCatalogTools()), { onCase }));
+    }
+    if (labCases.length > 0) {
+      await seedEvalLabCatalog();
+      phases.push(await runSuite(labCases, executeCase, buildFixture(await getCatalogTools()), { onCase }));
+    }
+    const report = mergeReports(phases);
 
     console.info(formatReport(report));
     writeFileSync(REPORT_PATH, `${JSON.stringify(report, null, 2)}\n`);

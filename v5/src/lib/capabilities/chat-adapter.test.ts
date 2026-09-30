@@ -153,6 +153,13 @@ describe("prompt order for the provider's prefix cache (performance plan)", () =
     expect(prompt.match(/## Active tool context/g)).toHaveLength(1);
   });
 
+  it("tells the model how to identify a machine in a photo, in the stable part (photo identification eval)", () => {
+    const stable = stablePart(buildSystemPrompt(CAPABILITIES, { tools: mockTools, locale: "en" }));
+    expect(stable.match(/## A photo of a machine/g)).toHaveLength(1);
+    expect(stable).toContain("ask which one it is, naming those candidates");
+    expect(stable).toContain("the lab does not seem to have one");
+  });
+
   it("keeps the lab context and the manual citation rules in the stable part", () => {
     const stable = stablePart(buildSystemPrompt(CAPABILITIES, { tools: mockTools, focusedTool: trotec, locale: "fr", identity: ada }));
 

@@ -2,6 +2,7 @@ import type { EvalCase } from "./cases";
 import { evalFixture } from "./fixtures";
 import {
   formatReport,
+  mergeReports,
   runCase,
   runSuite,
   type CaseExecution,
@@ -144,6 +145,30 @@ describe("runSuite", () => {
 
     expect(report.totals).toMatchObject({ flaky: 1, passed: 0, failed: 0 });
     expect(report.ok).toBe(true);
+  });
+});
+
+describe("mergeReports", () => {
+  it("adds the phases up, keeping the cases in order", async () => {
+    const demo = await runSuite([testCase()], stubModel("Use the Trotec Speedy 400."), evalFixture);
+    const lab = await runSuite(
+      [testCase({ id: "photo-case" }), testCase({ id: "photo-fails", assert: [{ kind: "no_unknown_tools" }] })],
+      stubModel("Try the Glowforge Pro."),
+      evalFixture
+    );
+    const merged = mergeReports([demo, lab]);
+
+    expect(merged.cases.map((c) => c.id)).toEqual(["laser-by-capability", "photo-case", "photo-fails"]);
+    expect(merged.totals).toEqual({ total: 3, passed: 1, flaky: 0, failed: 2, errored: 0 });
+    expect(merged.ok).toBe(false);
+    expect(merged.usage.inputTokens).toBe(demo.usage.inputTokens + lab.usage.inputTokens);
+    expect(merged.startedAt).toBe(demo.startedAt);
+  });
+
+  it("returns a single phase unchanged and refuses none", async () => {
+    const only = await runSuite([testCase()], stubModel("Use the Trotec Speedy 400."), evalFixture);
+    expect(mergeReports([only])).toBe(only);
+    expect(() => mergeReports([])).toThrow(/at least one/);
   });
 });
 

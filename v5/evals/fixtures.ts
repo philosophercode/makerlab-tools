@@ -123,6 +123,21 @@ export const SPEC_FIELDS: Record<string, SpecField> = {
 const EXTRA_ALIASES: Record<string, string[]> = {
   "form-4": ["Formlabs", "Formlabs Form 4", "Form4"],
   "trotec-speedy-400": ["Trotec", "Speedy 400"],
+  // The photo-identification lab (`lab-catalog-fixture.ts`); only in the
+  // fixture when a `catalog: lab` case runs.
+  "bambu-lab-x1-carbon": ["Bambu Lab", "Bambu", "X1-Carbon", "X1 Carbon", "X1C"],
+  "prusa-i3-mk3s-plus": ["Original Prusa i3 MK3S+", "Prusa i3 MK3S", "Prusa MK3S+", "Prusa MK3S", "MK3S+", "MK3S"],
+  "ultimaker-3": ["UM3"],
+  "ultimaker-3-extended": ["Ultimaker 3E", "UM3 Extended"],
+  "form-2": ["Formlabs Form 2", "Form2"],
+  "epilog-helix-24": ["Epilog", "Epilog Helix", "Helix 24"],
+  // A machine class the demo lab lacks (EQUIPMENT_LEXICON) that this lab has.
+  "shopbot-buddy-bt48": ["ShopBot", "ShopBot Buddy", "CNC router"],
+  "dremel-3000": ["Dremel"],
+  "cricut-maker-3": ["Cricut", "Cricut Maker", "vinyl cutter"],
+  "hakko-fx-888d": ["Hakko", "FX-888D", "FX-888"],
+  "mayku-formbox": ["Mayku", "FormBox", "Form Box"],
+  "singer-stylist-7258": ["Singer", "Singer Stylist"],
 };
 
 /**
@@ -191,7 +206,7 @@ function toFixtureTool(tool: MakerLabTool): EvalFixtureTool {
     id: tool.id,
     slug: tool.slug,
     name: tool.name,
-    aliases: [tool.name, ...(EXTRA_ALIASES[tool.slug] ?? [])],
+    aliases: [tool.name, ...(tool.officialName ? [tool.officialName] : []), ...(EXTRA_ALIASES[tool.slug] ?? [])],
     specs,
     resources: tool.links.map((link) => ({
       label: link.label,

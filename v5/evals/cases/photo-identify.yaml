@@ -1,0 +1,127 @@
+# Identifying a machine from a photo: a student photographs a machine itself
+# (not its QR label, except in the last case) and asks about it in the chat.
+# The assistant must work out which catalogue machine it is — or ask, when the
+# photo cannot settle it — and never put a machine the lab does not have, or
+# the wrong one, in front of the student as "this is it".
+#
+# These run against the fuller lab of `lab-catalog-fixture.ts` (`catalog:
+# lab`): the demo seed's Form 4 and Trotec plus thirteen machines, look-alikes
+# among them — four FDM printers (two Ultimakers that differ mainly in
+# height), a second Formlabs printer, a second laser. The photos are
+# evals/fixtures/photos/IMG_*.jpg, made by make-identify-photos.mjs from the
+# bundled product images: one studio shot, the rest on a drawn bench, tilted,
+# cut off, soft and grainy. They are named like phone photos because the file
+# name reaches the model in the attachment hint.
+#
+# `identified_tool` judges the first catalogue machine the answer names;
+# `<slug>|ask` also accepts asking, or saying it cannot tell, with it among the
+# candidates named; `none` means no catalogue machine is claimed to be the one
+# pictured. Every case asks as a signed-in student (`as: student`), with the
+# student's tool set; one repeats a question as staff, who also hold intake.
+
+# IMG_2041: the Form 4, studio shot. Operate: identify it, then answer from its
+# manual with a page citation. The fixture manual (manual-fixture.ts) has no
+# power-on steps — asked "how do I start it?", the assistant rightly says the
+# manual does not cover that — so the question is one it does cover:
+# "Preparing the printer" (p. 12) and loading a cartridge (p. 30).
+- id: photo-operate-form4
+  prompt: "What is this machine and how do I get it ready to print?"
+  photos: [IMG_2041.jpg]
+  context: { page: gallery, as: student, catalog: lab }
+  assert:
+    - kind: identified_tool
+      value: form-4
+    - kind: called_tool
+      value: search_manual
+    - kind: cites_page
+    - kind: no_unknown_tools
+
+# IMG_2044: the Bambu Lab X1-Carbon on a cluttered bench, tilted, its right
+# side out of frame. Debug: identify it, then troubleshoot that machine —
+# without inventing a manual page it does not have.
+- id: photo-debug-bambu-in-situ
+  prompt: "This keeps failing, what should I check?"
+  photos: [IMG_2044.jpg]
+  context: { page: gallery, as: student, catalog: lab }
+  assert:
+    - kind: identified_tool
+      value: bambu-lab-x1-carbon
+    - kind: no_unknown_tools
+
+# The same photo and question from lab staff, who also hold identify_tools
+# (intake). A question about a machine is not a request to add it: the answer
+# must identify the catalogue machine, not file it as new equipment.
+- id: photo-debug-bambu-staff-not-intake
+  prompt: "This keeps failing, what should I check?"
+  photos: [IMG_2044.jpg]
+  context: { page: gallery, as: staff, catalog: lab }
+  assert:
+    - kind: identified_tool
+      value: bambu-lab-x1-carbon
+    - kind: not_called_tool
+      value: identify_tools
+
+# IMG_2072: the Prusa i3 MK3S+, close and off-centre on the bench. Debug again,
+# on a different printer family.
+- id: photo-debug-prusa-in-situ
+  prompt: "The first layer won't stick on this printer. Any ideas?"
+  photos: [IMG_2072.jpg]
+  context: { page: gallery, as: student, catalog: lab }
+  assert:
+    - kind: identified_tool
+      value: prusa-i3-mk3s-plus
+    - kind: no_unknown_tools
+
+# IMG_2050: the ShopBot, with nothing but a question mark. Pass: it names the
+# ShopBot first, or asks what they want to know while naming it — a reply that
+# names no machine, or another one, fails. The machine needs training, so any
+# "can I use it" answer should say so, but that is the manual-grounding cases'
+# job; this one is about recognition.
+- id: photo-no-text-shopbot
+  prompt: "?"
+  photos: [IMG_2050.jpg]
+  context: { page: gallery, as: student, catalog: lab }
+  assert:
+    - kind: identified_tool
+      value: shopbot-buddy-bt48|ask
+    - kind: no_unknown_tools
+
+# IMG_2057: an Ultimaker 3 Extended with its top — and the model name on it —
+# out of frame. The lab has an Ultimaker 3 and an Ultimaker 3 Extended (and
+# an S5). Asking which one it is — or saying it cannot tell, with the Extended
+# among the candidates named — is right; naming the Ultimaker 3 (or any other
+# machine) as the one pictured, neither asking nor hedging, is not. Naming the
+# Extended first is also a pass.
+- id: photo-ambiguous-ultimaker
+  prompt: "Can I use this one this afternoon?"
+  photos: [IMG_2057.jpg]
+  context: { page: gallery, as: student, catalog: lab }
+  assert:
+    - kind: identified_tool
+      value: ultimaker-3-extended|ask
+
+# IMG_2063: a benchtop belt and disc sander — not in the catalogue. The answer
+# must not present a catalogue machine as the one pictured, and must say the
+# lab does not have it (suggesting a catalogue alternative is fine).
+- id: photo-not-in-lab-sander
+  prompt: "Where is this in the lab?"
+  photos: [IMG_2063.jpg]
+  context: { page: gallery, as: student, catalog: lab }
+  assert:
+    - kind: identified_tool
+      value: none
+    - kind: not_contains_any
+      value: ["it's located in", "you'll find it in", "it is located in"]
+
+# IMG_2068: the top of a laser cutter with a MakerLAB QR label on the lid; the
+# wordmark on the front is out of frame. The route reads the code (the harness
+# runs the same reader) and names epilog-helix-24 in the prompt — a sanity
+# check of the QR path beside the laser the lab also has, the Trotec.
+- id: photo-qr-label-epilog
+  prompt: "How do I use this?"
+  photos: [IMG_2068.jpg]
+  context: { page: gallery, as: student, catalog: lab }
+  assert:
+    - kind: identified_tool
+      value: epilog-helix-24
+    - kind: no_unknown_tools
