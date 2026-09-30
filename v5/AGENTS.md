@@ -761,10 +761,29 @@ creates a tool (Article 5).
   — data-platform spec amendment 2026-09-24) and emits one `data-intake-table` part. `research_tool` and
   `propose_listing` are gone; the intake prompt allows two web searches, only
   to settle a model name.
+- **Many items at once** (data-platform spec amendment "Many items at once",
+  migration `0025`). The prompt asks for every distinct object in every photo
+  and every line of a list, one entry each, with `quantity`, `seenIn` and
+  `confidence` (`sure`/`likely`/`unsure` — an item it cannot name is included as
+  `unsure`, never dropped). Before any row is written,
+  `intake/identify-items.ts` turns a count left in a name into the quantity and
+  folds the same object seen twice into one item (never two serials, never
+  `unsure`). **A photo that shows several items** is claimed by the first and
+  **copied** to each other one (`files/share-photo.ts`, `copyToPublic` + a new
+  `attachments` row — two rows must never share a blob, or one item's discard
+  deletes another's picture); a lone photo with no mapping goes to every item.
+  `pending_tools.identify_confidence` / `seen_in` are stored; the count is the
+  existing `quantity` (units at approval).
 - **The table card talks to routes, never to the model.** `IntakeTableCard`
   edits, removes and resolves duplicates through `PATCH
-  /api/pending-tools/[id]`, and **Research selected (N)** is `POST
-  /api/pending-tools/research` with exactly the ticked ids. Every check in that
+  /api/pending-tools/[id]`, and **Add to research (N)** is `POST
+  /api/pending-tools/research` with exactly the ticked ids — after
+  `ResearchSpendConfirm` shows the count, the allowance left (`researchLeft`,
+  `intake/allowance.ts`) and about what it costs
+  (`RESEARCH_ESTIMATED_USD_PER_ITEM`). `unsure` rows start unticked. **Just add
+  to intake** sends nothing; **Discard (N)** asks, then PATCHes each.
+  `/admin/intake`'s selection bar (`QueueList`'s `selectionActions`) has the
+  same **Research selected (N)** and confirmation. Every check in that
   route runs before any row moves; add-unit items skip research; a `start()`
   that throws leaves the items `queued` with the reason in `research_error`,
   and the same POST is the Retry.
@@ -1927,6 +1946,17 @@ and its 2026-09-28 amendment are the detail.
   `HeaderSearch`) open it. `FlagButton` is a `Dialog`. The `.chat-*` CSS and
   `admin-import.css` are gone.
 - All branding strings come from `siteConfig` (`@/lib/site-config`).
+- **Page titles name the page only** (`title: "Inventory"`): the root
+  layout's template makes it "Inventory · MakerLAB Tools". Link previews
+  (`src/lib/share/`): `metadataBase` is `siteUrl()` (`NEXT_PUBLIC_SITE_URL`,
+  else `VERCEL_PROJECT_PRODUCTION_URL`, else the live deployment); pages
+  without an image inherit the generated site card (`app/opengraph-image.tsx`,
+  `twitter-image.tsx`); tool and project pages show their photo through
+  `recordShareMetadata` — public-store and bundled photos only, via
+  `/_next/image` at 640 px — and a draft or unknown id gets `{}`. A page that
+  sets `openGraph` replaces the root's, so it spreads `baseOpenGraph()` and
+  names its image. The card's fonts are static TTFs cut by
+  `scripts/share-card-fonts.py` (`next/og` cannot read WOFF2).
 - Every API route is **rate-limited by identity** before expensive work — user id when signed in, hashed IP when not.
 - Authorization is **always** `can(subject, permission)` from `src/lib/auth/permissions.ts`. Never compare role names, and never gate inside a capability tool's `run()`.
 - Maintenance tickets are always written in **English** even when the chat replies in another locale.

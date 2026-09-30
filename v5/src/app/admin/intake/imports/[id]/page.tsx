@@ -14,7 +14,6 @@ import { canActOnImport, IMPORT_PERMISSION } from "../../../../../lib/import/acc
 import { buildTablePreview, readImportTable, type TablePreview } from "../../../../../lib/import/preview";
 import { toImportItemView, toImportView } from "../../../../../lib/import/view";
 import { ADMIN_INTAKE_PATH } from "../../../../../lib/intake/types";
-import { siteConfig } from "../../../../../lib/site-config";
 import type { ImportActions } from "../action-result";
 import {
   acceptImportSuggestions,
@@ -36,7 +35,7 @@ import {
  */
 
 export const metadata = {
-  title: `Import — ${siteConfig.name}`,
+  title: "Import",
 };
 
 const ACTIONS: ImportActions = {

@@ -51,6 +51,13 @@ since the card was drawn, nothing is saved and the card says what it is now.
 - **Things that cannot be undone** — archiving a tool, deleting a unit, removing
   a link, discarding an intake item — are one at a time, and you type the name
   on the card to confirm.
+- **Several things at once.** Send one photo of a whole bench, several photos,
+  or a list ("a drill press, two Ryobi batteries and a Cricut"): the assistant
+  puts every item it finds on one card — the same machine in two photos once,
+  two of a kind as one row of two, anything it cannot name unticked and marked
+  "Not sure". Tick what you want and press **Add to research** (it shows how
+  much of today's allowance that uses and about what it costs, and asks first),
+  **Just add to intake** for later, or **Discard**.
 - **Research costs money.** Research, a different image, name suggestions,
   re-processing a manual and refreshing research come as cards that show how
   much of today's allowance is left.

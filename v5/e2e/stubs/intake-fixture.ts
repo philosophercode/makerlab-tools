@@ -78,5 +78,27 @@ export const IDENTIFY_PROMPT =
 /** The stubbed chat model's reply to the header's Add seed. */
 export const ASK_FOR_ITEMS_REPLY = "What are they? Send photos, or tell me the makes and models.";
 
+/**
+ * Many items at once (data platform spec amendment "Many items at once"): the
+ * second scenario's message, sent with two photos. The stub answers with one
+ * `identify_tools` call naming four objects across them — one of them in both
+ * photos, one a pair, one it cannot name.
+ */
+export const MULTI_PROMPT = "Everything on the craft bench and the shelf, please.";
+
+export const MULTI_ITEMS = {
+  /** In photo 1 only. */
+  drillPress: "RYOBI DP103L Drill Press",
+  /** In both photos: one item with two photos (the second a copy). */
+  cutter: "Cricut Maker 3",
+  /** In photo 1, a pair: one item, quantity 2. */
+  battery: "RYOBI ONE+ 18V 3.0 Ah Battery P103",
+  /** In photo 2, unnamed: starts unticked. */
+  unsure: "Soldering station, model not visible",
+} as const;
+
+/** The two photos the scenario sends — the eval's own fixtures (`evals/fixtures/photos`). */
+export const MULTI_PHOTOS = ["bench-three-tools.jpg", "shelf-b.jpg"] as const;
+
 /** The stubbed chat model's line after the table renders. */
 export const AFTER_TABLE_REPLY = "Three items are on the table. Untick anything you don't want researched yet.";

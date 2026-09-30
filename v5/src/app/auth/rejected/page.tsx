@@ -17,7 +17,7 @@ import { allowedEmailDomain } from "../../../lib/auth/roles";
  */
 
 export const metadata = {
-  title: `Sign-in — ${siteConfig.name}`,
+  title: "Sign-in",
 };
 
 export default function AuthRejectedPage() {

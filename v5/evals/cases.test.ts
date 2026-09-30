@@ -109,6 +109,23 @@ describe("parseCaseFile validation", () => {
     ).toThrow(/curate requires page: tool/);
   });
 
+  it("takes photos from evals/fixtures/photos, and refuses one that is not there", () => {
+    const [parsed] = parseCaseFile(
+      `- id: a\n  prompt: "hi"\n  photos: [bench-three-tools.jpg]\n  assert:\n    - kind: identified_count\n      value: "3"\n`,
+      "t.yaml"
+    );
+    expect(parsed.photos).toEqual(["bench-three-tools.jpg"]);
+    expect(() =>
+      parseCaseFile(`- id: a\n  prompt: "hi"\n  photos: [nope.jpg]\n  assert:\n    - kind: identified_count\n      value: "3"\n`, "t.yaml")
+    ).toThrow(/not in evals\/fixtures\/photos/);
+    expect(() =>
+      parseCaseFile(`- id: a\n  prompt: "hi"\n  assert:\n    - kind: identified_count\n      value: "three"\n`, "t.yaml")
+    ).toThrow(/count or a range/);
+    expect(() => parseCaseFile(`- id: a\n  prompt: "hi"\n  assert:\n    - kind: identified_items\n`, "t.yaml")).toThrow(
+      /requires a "value"/
+    );
+  });
+
   it("accepts a curation case on a tool page", () => {
     const [parsed] = parseCaseFile(
       `- id: a\n  prompt: "hi"\n  context: { page: tool, toolId: form-4, curate: true }\n  assert:\n    - kind: not_called_tool\n      value: propose_change\n`,
@@ -174,6 +191,7 @@ describe("the shipped case set", () => {
         "lab-identity.yaml",
         "manual-grounding.yaml",
         "manual-search.yaml",
+        "multi-item-intake.yaml",
         "staff-maintenance.yaml",
         "tool-calling.yaml",
       ])

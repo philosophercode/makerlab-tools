@@ -9,7 +9,6 @@ import { toConnectedAppRow, toTokenRow } from "../../../lib/account/token-rows";
 import { authBaseUrl } from "../../../lib/auth/config";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { listApiTokens, listConnectedApps } from "../../../lib/data/api-tokens";
-import { siteConfig } from "../../../lib/site-config";
 import { createTokenAction, revokeAppAction, revokeTokenAction } from "./actions";
 
 /**
@@ -28,7 +27,7 @@ import { createTokenAction, revokeAppAction, revokeTokenAction } from "./actions
  */
 
 export const metadata = {
-  title: `Connect an AI assistant — ${siteConfig.name}`,
+  title: "Connect an AI assistant",
 };
 
 export default async function AccountTokensPage() {

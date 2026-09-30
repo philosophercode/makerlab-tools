@@ -9,7 +9,8 @@ import { siteConfig } from "../../lib/site-config";
 import { getPublishedProjects } from "../../lib/projects";
 
 export const metadata = {
-  title: `Projects — ${siteConfig.name}`,
+  title: "Projects",
+  description: `Builds, experiments and course outcomes from the ${siteConfig.institution} MakerLAB community.`,
 };
 
 /**

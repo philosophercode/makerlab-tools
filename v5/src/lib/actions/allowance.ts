@@ -1,7 +1,6 @@
 import "server-only";
 
-import { countResearchRequestedSince } from "../data/pending-tools";
-import { researchLimitFor } from "../data/research-allowances";
+import { researchAllowanceLeft } from "../intake/allowance";
 import type { ActionContext } from "./define";
 
 /**
@@ -11,17 +10,8 @@ import type { ActionContext } from "./define";
  * with every press, and a card must not turn stale because the person
  * researched something else meanwhile. The click is checked against the real
  * allowance by the action itself. Never throws; "?" when it cannot be read.
+ * The count itself is `intake/allowance.ts`, shared with the intake card.
  */
 export async function allowanceLeft(ctx: ActionContext): Promise<number | string> {
-  const userId = ctx.identity.userId;
-  if (!userId) return "?";
-  try {
-    const [limit, used] = await Promise.all([
-      researchLimitFor(userId),
-      countResearchRequestedSince(userId, new Date(Date.now() - 24 * 60 * 60_000)),
-    ]);
-    return Math.max(0, limit - used);
-  } catch {
-    return "?";
-  }
+  return (await researchAllowanceLeft(ctx.identity.userId)) ?? "?";
 }

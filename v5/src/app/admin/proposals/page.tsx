@@ -12,7 +12,6 @@ import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { listInboxProposals } from "../../../lib/data/action-proposals";
 import { listOpenAssistantProposals, MCP_PROPOSAL_CHAT_ID } from "../../../lib/data/chat-proposals";
-import { siteConfig } from "../../../lib/site-config";
 
 /**
  * `/admin/proposals` — the **Assistant proposals** inbox (assistant–GUI parity
@@ -38,7 +37,7 @@ import { siteConfig } from "../../../lib/site-config";
  */
 
 export const metadata = {
-  title: `Assistant proposals — ${siteConfig.name}`,
+  title: "Assistant proposals",
 };
 
 export default async function AdminProposalsPage() {

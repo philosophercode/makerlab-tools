@@ -5,7 +5,6 @@ import { OwnNameEditor } from "../../components/account/OwnNameEditor";
 import { EmptyState } from "../../components/system/EmptyState";
 import { PageSection, Prose, PublicPage } from "../../components/system/PublicPage";
 import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
-import { siteConfig } from "../../lib/site-config";
 import { updateOwnNameAction } from "./actions";
 
 /**
@@ -21,7 +20,7 @@ import { updateOwnNameAction } from "./actions";
  */
 
 export const metadata = {
-  title: `Your account — ${siteConfig.name}`,
+  title: "Your account",
 };
 
 export default async function AccountPage() {

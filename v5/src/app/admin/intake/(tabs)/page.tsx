@@ -6,9 +6,9 @@ import { resolveIdentityFromHeaders } from "../../../../lib/auth/identity";
 import { can } from "../../../../lib/auth/permissions";
 import { listIntakeQueueSummaries } from "../../../../lib/data/pending-tools";
 import { INTAKE_REVIEW_PERMISSION } from "../../../../lib/intake/access";
+import { researchAllowanceLeft } from "../../../../lib/intake/allowance";
 import type { PendingToolView } from "../../../../lib/intake/types";
 import { summaryToPendingToolView } from "../../../../lib/intake/view";
-import { siteConfig } from "../../../../lib/site-config";
 
 /**
  * `/admin/intake` — Add equipment's **Queue** tab: the review queue (spec
@@ -36,7 +36,7 @@ import { siteConfig } from "../../../../lib/site-config";
  */
 
 export const metadata = {
-  title: `Intake — ${siteConfig.name}`,
+  title: "Intake",
 };
 
 export default async function AdminIntakePage() {
@@ -58,5 +58,7 @@ export default async function AdminIntakePage() {
     items = null;
   }
 
-  return items ? <IntakeList items={items} /> : <EmptyState tone="bad">{t("intake.unavailable")}</EmptyState>;
+  // For **Research selected**'s confirmation only; the route checks at the click.
+  const researchLeft = items ? await researchAllowanceLeft(identity.userId) : null;
+  return items ? <IntakeList items={items} researchLeft={researchLeft} /> : <EmptyState tone="bad">{t("intake.unavailable")}</EmptyState>;
 }
