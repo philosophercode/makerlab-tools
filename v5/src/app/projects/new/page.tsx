@@ -1,9 +1,8 @@
-import { siteConfig } from "../../../lib/site-config";
 import { getCatalogTools } from "../../../lib/catalog";
 import { ProjectSubmitForm } from "../../../components/ProjectSubmitForm";
 
 export const metadata = {
-  title: `Submit a project — ${siteConfig.name}`,
+  title: "Submit a project",
 };
 
 export default async function NewProjectPage() {

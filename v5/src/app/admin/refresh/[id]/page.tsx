@@ -15,7 +15,6 @@ import {
   loadRefreshSubject,
 } from "../../../../lib/data/tool-refreshes";
 import { countByKind, isActionable } from "../../../../lib/refresh/types";
-import { siteConfig } from "../../../../lib/site-config";
 import { ADMIN_REFRESH_PATH, type RefreshReviewActions } from "../action-result";
 import { decideRefreshProposals, refreshAgain } from "../actions";
 
@@ -34,7 +33,7 @@ import { decideRefreshProposals, refreshAgain } from "../actions";
  */
 
 export const metadata = {
-  title: `Refresh research — ${siteConfig.name}`,
+  title: "Refresh research",
 };
 
 const ACTIONS: RefreshReviewActions = { decide: decideRefreshProposals, again: refreshAgain };

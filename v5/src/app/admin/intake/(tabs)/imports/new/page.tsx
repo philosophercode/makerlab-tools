@@ -4,7 +4,6 @@ import { ImportLauncher } from "../../../../../../components/admin/ImportLaunche
 import { resolveIdentityFromHeaders } from "../../../../../../lib/auth/identity";
 import { can } from "../../../../../../lib/auth/permissions";
 import { IMPORT_PERMISSION } from "../../../../../../lib/import/access";
-import { siteConfig } from "../../../../../../lib/site-config";
 
 /**
  * `/admin/intake/imports/new` — Add equipment's **Import a list** tab (bulk
@@ -13,7 +12,7 @@ import { siteConfig } from "../../../../../../lib/site-config";
  */
 
 export const metadata = {
-  title: `Import a list — ${siteConfig.name}`,
+  title: "Import a list",
 };
 
 export default async function NewImportPage() {

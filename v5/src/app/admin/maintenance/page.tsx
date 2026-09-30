@@ -8,7 +8,6 @@ import { can } from "../../../lib/auth/permissions";
 import { listMaintenanceQueue } from "../../../lib/data/maintenance";
 import { listToolUnitOptions } from "../../../lib/data/tool-options";
 import { listAssignableStaff } from "../../../lib/data/users";
-import { siteConfig } from "../../../lib/site-config";
 import { logCompletedMaintenance, updateTicket } from "./actions";
 
 /**
@@ -33,7 +32,7 @@ import { logCompletedMaintenance, updateTicket } from "./actions";
  */
 
 export const metadata = {
-  title: `Maintenance — ${siteConfig.name}`,
+  title: "Maintenance",
 };
 
 export default async function AdminMaintenancePage() {

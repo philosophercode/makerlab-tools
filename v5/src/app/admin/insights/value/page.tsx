@@ -32,7 +32,7 @@ import { saveValueAssumptions } from "../actions";
  */
 
 export const metadata = {
-  title: `Value report — ${siteConfig.name}`,
+  title: "Value report",
 };
 
 function validTimeZone(timeZone: string): string {

@@ -1,8 +1,10 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { permanentRedirect } from "next/navigation";
 import { DraftToolView } from "./DraftToolView";
 import { EditToolControl } from "./EditToolControl";
 import { QrArrivalNotice } from "./QrArrivalNotice";
+import { toolPageMetadata } from "./metadata";
 import { DetailShell } from "../../../components/DetailShell";
 import { FlagButton } from "../../../components/FlagButton";
 import { ToolChatStarters } from "../../../components/ToolChatStarters";
@@ -77,6 +79,17 @@ interface ToolDetailPageProps {
 // anyway: every catalogue read is `"use cache"` + `cacheTag("catalog")`, so a
 // later write invalidates them by tag rather than waiting for the next build
 // (spec §3.9). `/projects/[id]` skips it for the same reason.
+
+/**
+ * The tool's name as the title and its photo as the link preview
+ * (`./metadata.ts`). It awaits `params` like the page itself does, and reads
+ * the same cached catalogue entry, so it adds no dynamic data the page does
+ * not already have.
+ */
+export async function generateMetadata({ params }: Pick<ToolDetailPageProps, "params">): Promise<Metadata> {
+  const { id } = await params;
+  return toolPageMetadata(id);
+}
 
 /**
  * Re-encodes the incoming query string for a redirect target. `?src=qr` is

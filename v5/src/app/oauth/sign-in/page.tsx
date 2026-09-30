@@ -17,7 +17,7 @@ import { siteConfig } from "../../../lib/site-config";
  */
 
 export const metadata = {
-  title: `Sign in to connect an app — ${siteConfig.name}`,
+  title: "Sign in to connect an app",
 };
 
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
