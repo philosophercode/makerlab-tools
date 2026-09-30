@@ -245,7 +245,11 @@ export function QrLabelStudio({ rows, origin, wordmarkHref }: QrLabelStudioProps
         />
       </div>
 
-      <aside aria-label={t("stylerLabel")} className="flex min-w-0 flex-col gap-5 border border-border bg-card p-4 lg:sticky lg:top-24 lg:self-start">
+      {/* Sticky beside a long list, so it scrolls itself: taller than the window, its lower half was out of reach until the list ended. */}
+      <aside
+        aria-label={t("stylerLabel")}
+        className="flex min-w-0 flex-col gap-5 border border-border bg-card p-4 lg:sticky lg:top-24 lg:max-h-[calc(100dvh-7rem)] lg:self-start lg:overflow-y-auto lg:overscroll-contain"
+      >
         <section aria-labelledby="qr-preview-heading" className="flex flex-col gap-3">
           <h3 id="qr-preview-heading" className="font-mono text-label tracking-[0.08em] uppercase">
             {preview ? t("previewHeading", { tool: preview.name }) : t("previewEmpty")}

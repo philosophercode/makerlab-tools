@@ -4,6 +4,7 @@ import {
   DEFAULT_SHEET,
   LABEL_PRESETS,
   MIN_QR_MM,
+  MIN_QR_SHARE,
   PAPER_SIZES,
   ellipsize,
   estimateTextWidth,
@@ -108,12 +109,21 @@ describe("layoutLabel — physical dimensions", () => {
     expect(layout.level).toBe("M");
   });
 
+  it("keeps every line on a 1.5-inch label with everything switched on", () => {
+    const everything = style({ widthMm: 38.1, heightMm: 38.1, showLocation: true, showExtra: true, showUrl: true, showBrand: true });
+    const layout = layoutLabel(everything, content);
+    expect(layout.dropped).toEqual([]);
+    expect(layout.lines.map((line) => line.kind)).toEqual(["name", "location", "extra", "url"]);
+    expect(layout.brand).not.toBeNull();
+    expect(layout.qr.size).toBeGreaterThanOrEqual(38.1 * MIN_QR_SHARE - 1e-9);
+  });
+
   it("drops the least important text first when the code would be too small, never the name", () => {
     const layout = layoutLabel(style({ widthMm: 25.4, heightMm: 25.4, showLocation: true }), content);
     expect(layout.dropped[0]).toBe("url");
     expect(layout.dropped).not.toContain("name");
     expect(layout.lines.some((line) => line.kind === "name")).toBe(true);
-    expect(layout.qr.size).toBeGreaterThanOrEqual(25.4 * 0.45 - 1e-9);
+    expect(layout.qr.size).toBeGreaterThanOrEqual(25.4 * MIN_QR_SHARE - 1e-9);
   });
 
   it("puts the text beside the code on a wide label", () => {
