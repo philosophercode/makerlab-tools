@@ -43,8 +43,9 @@ export default defineConfig({
           environment: "jsdom",
           setupFiles: ["./vitest.setup.ts"],
           // Playwright specs live in e2e/ and must not be collected by Vitest;
+          // agent worktrees under .claude/ are whole copies of this repo;
           // workflow tests belong to the workflow project.
-          exclude: ["**/node_modules/**", "**/dist/**", "e2e/**", "**/*.workflow.test.ts"],
+          exclude: ["**/node_modules/**", "**/dist/**", "e2e/**", ".claude/**", "**/*.workflow.test.ts"],
         },
       },
       "./vitest.workflow.config.ts",

@@ -3,7 +3,7 @@
  *
  *   node --experimental-strip-types test/fixtures/manuals/generate.ts
  *
- * Run from `v5/` after changing `fixtures.ts`, and commit the PDFs.
+ * Run from the repo root after changing `fixtures.ts`, and commit the PDFs.
  */
 import { writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";

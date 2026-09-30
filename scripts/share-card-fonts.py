@@ -5,7 +5,7 @@ The share cards (`src/app/opengraph-image.tsx`, `apple-icon.tsx`) are drawn by
 weight from a variable font. So the Latin faces under `src/fonts/` are pinned
 to the weights the cards use and written as TTF beside the card code.
 
-Run from `v5/` after changing a face under `src/fonts/`:
+Run from the repo root after changing a face under `src/fonts/`:
 
     python3 scripts/share-card-fonts.py
 

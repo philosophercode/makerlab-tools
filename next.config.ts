@@ -54,6 +54,8 @@ const traceExcludes = [
   "test/**",
   "scripts/**",
   "docs/**",
+  // Agent worktrees (untracked, local only): whole copies of this repo.
+  ".claude/**",
   // `npm run projects:seed`'s bundle (#99): read by the script, never at runtime.
   "data/**",
   "*.md",

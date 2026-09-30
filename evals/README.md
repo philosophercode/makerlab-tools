@@ -15,7 +15,7 @@ The suite checks the three behaviours that carry the assistant's value:
 plus the one that matters most when it regresses: it **admits what the lab does
 not have**.
 
-Design spec: [`docs/specs/2026-07-29-agent-eval-harness-design.md`](../../docs/specs/2026-07-29-agent-eval-harness-design.md).
+Design spec: [`docs/specs/2026-07-29-agent-eval-harness-design.md`](../docs/specs/2026-07-29-agent-eval-harness-design.md).
 
 ---
 

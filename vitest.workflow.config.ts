@@ -13,7 +13,11 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  * - **It builds bundles first.** A global setup scans the project root for
  *   files with `"use workflow"` / `"use step"` and writes `workflows.mjs` and
  *   `steps.mjs` to `.workflow-vitest/`; runs are recorded under
- *   `.workflow-data/`. Both are git-ignored.
+ *   `.workflow-data/`. Both are git-ignored. The scan includes dot folders and
+ *   has no exclude option, so agent worktrees under `.claude/worktrees/` (whole
+ *   copies of this repo) are scanned too: keep them pruned. Scoping the plugin
+ *   to `src/` with its `cwd` option breaks every workflow test (tried at the
+ *   flatten).
  * - **Step code runs from that bundle, through Node's native `import()`,
  *   outside Vite's module graph.** So `vi.mock()` does not reach it, and
  *   neither do this config's aliases — the step bundle inlines project files

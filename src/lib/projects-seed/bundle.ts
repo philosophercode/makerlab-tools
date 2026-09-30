@@ -54,7 +54,7 @@ export type SeedBundle = z.infer<typeof seedBundleSchema>;
 export type SeedProject = z.infer<typeof projectSchema>;
 export type SeedToolLink = z.infer<typeof toolLinkSchema>;
 
-/** Where the committed bundle lives, relative to `v5/`. */
+/** Where the committed bundle lives, relative to the repo root. */
 export const DEFAULT_BUNDLE_DIR = "data/projects-seed";
 
 /** Read and validate `projects.json`; duplicate page ids or slugs are refused. */

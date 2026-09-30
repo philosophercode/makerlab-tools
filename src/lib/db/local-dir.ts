@@ -6,7 +6,7 @@ import { resolve } from "node:path";
  * anywhere shared.
  *
  * Returns the absolute directory (relative values resolve against the working
- * directory, which is `v5/` under `next dev` and the npm scripts), or null when
+ * directory, which is the repo root under `next dev` and the npm scripts), or null when
  * the variable is unset or blank.
  *
  * Local only. On Vercel or in a production build a directory on one machine's

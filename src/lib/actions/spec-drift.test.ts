@@ -19,14 +19,13 @@ import { ACTION_DEFINITIONS } from "./registry";
  *   row's MCP column agrees with each definition's `mcp`, or the difference is
  *   in {@link MCP_DEVIATIONS} with the amendment that made it.
  *
- * The spec lives beside `v5/` today and at the repository root after the
- * flatten (PR #79); both places are looked for.
+ * The spec lives in `docs/specs/` at the repository root, which is the app root.
  */
 
 const SPEC_NAME = "2026-09-27-assistant-gui-parity-design.md";
 const HERE = fileURLToPath(new URL(".", import.meta.url));
 const APP = join(HERE, "..", "..", "..");
-const SPEC_PATH = [join(APP, "..", "docs", "specs", SPEC_NAME), join(APP, "docs", "specs", SPEC_NAME)].find((path) => existsSync(path));
+const SPEC_PATH = [join(APP, "docs", "specs", SPEC_NAME)].find((path) => existsSync(path));
 
 /** §4.9 ids that are deliberately not registered, and where that was decided. */
 const NOT_REGISTERED: Record<string, string> = {

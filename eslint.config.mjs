@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
     ".workflow-vitest/**",
     ".swc/**",
     "src/app/.well-known/workflow/**",
+    // Agent worktrees: full checkouts of this repo nested inside it.
+    ".claude/**",
   ]),
 ]);
 

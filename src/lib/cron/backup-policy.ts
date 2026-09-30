@@ -98,7 +98,7 @@ export const EXCLUDED_TABLES: ReadonlySet<string> = new Set([
  * restored rows already carry the current extractor and chunker versions, so a
  * plain `manuals:index` would find nothing to do.
  *
- *     cd v5 && npm run manuals:index -- --force
+ *     npm run manuals:index -- --force
  *
  * (manual text and search spec; `docs/operations.md` "Restoring a backup").
  * Backup only: `npm run data:push` still copies these tables, since a hosted
