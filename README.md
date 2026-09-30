@@ -129,7 +129,7 @@ The test suite needs **no credentials and makes no network calls**.
 | [`docs/constitution.md`](docs/constitution.md) | The rules every change must respect. |
 | [`docs/specs/`](docs/specs/README.md) | Design specs and what is built against each. |
 | [`docs/MakerLab_design/DESIGN.md`](docs/MakerLab_design/DESIGN.md) | The design system. |
-| [`AGENTS.md`](AGENTS.md) | Conventions and app detail, for people and AI assistants alike. |
+| [`AGENTS.md`](AGENTS.md), [`docs/architecture/`](docs/architecture/) | Conventions, then the app in detail area by area, for people and AI assistants alike. |
 | [`TESTING.md`](TESTING.md) | Test suite runbook. |
 | [`.env.example`](.env.example) | Every environment variable, with what it does. |
 | [`evals/README.md`](evals/README.md) | The agent eval harness. |

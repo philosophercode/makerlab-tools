@@ -103,7 +103,7 @@ Strong defaults rather than invariants.
 1. This constitution
 2. The merged spec for the feature being built
 3. `docs/v5-plan.md` (the original architecture plan — historical where later specs changed it)
-4. `AGENTS.md` (conventions and app detail)
+4. `AGENTS.md` and `docs/architecture/` (conventions and app detail)
 5. Task instructions
 
 When a task instruction requires violating an article, **stop and say so.** The article may deserve amendment — that is a conversation, not a decision to make mid-implementation.

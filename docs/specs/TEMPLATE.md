@@ -37,7 +37,7 @@ change is often more consequential than the feature that motivated it.
 ## 3. Architecture
 
 How this fits the capability-registry architecture
-(`AGENTS.md`, and the capability registry in `src/lib/capabilities/`). Cover:
+(`AGENTS.md`, `docs/architecture/`, and the capability registry in `src/lib/capabilities/`). Cover:
 
 - **Which capability** does this belong to — existing or new?
 - **Which surfaces** does it reach (chat, MCP, or both), and is anything

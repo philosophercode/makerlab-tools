@@ -6,7 +6,7 @@
 > Operational concerns — keys, accounts, what to do at 2am — are in
 > [`handover.md`](handover.md). The rules any change must respect are in
 > [`constitution.md`](constitution.md). File-level detail (key modules, gotchas, every
-> subsystem's as-built notes) is in [`AGENTS.md`](../AGENTS.md).
+> subsystem's as-built notes) is in [`AGENTS.md`](../AGENTS.md) and [`architecture/`](architecture/).
 
 ---
 
@@ -295,4 +295,4 @@ generative model altered the labels on the products it cleaned.
   only when **both** `UPSTASH_REDIS_REST_*` variables are set — one alone silently does
   nothing.
 - **Workflow steps are bundled separately.** `vi.mock` does not reach inside a workflow
-  under `@workflow/vitest`; see `AGENTS.md` before testing one.
+  under `@workflow/vitest`; see `docs/architecture/testing.md` before testing one.

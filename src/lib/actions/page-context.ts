@@ -198,7 +198,7 @@ export const PAGE_CONTEXTS: readonly PageEntry[] = [
       }
       const tool = await findActiveToolByRef(ref);
       // A draft is named only to somebody who may see drafts — anyone else's
-      // page for it was a 404 (AGENTS.md "Drafts are reachable…").
+      // page for it was a 404 (docs/architecture/admin.md "Drafts are reachable…").
       if (!tool || (!tool.published && !can(identity, "catalog.view_drafts"))) return null;
       return `tool id=${tool.id} (slug ${tool.slug}): ${inlineText(tool.name, 120)} · ${tool.published ? "published" : "draft"}`;
     },

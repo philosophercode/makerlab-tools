@@ -13,7 +13,7 @@ open in a PR, say so and stop — planning against a moving spec wastes the plan
 
 ## Steps
 
-1. **Read** `docs/constitution.md`, the spec, and `AGENTS.md`.
+1. **Read** `docs/constitution.md`, the spec, `AGENTS.md` and the `docs/architecture/` files for the areas it touches.
 
 2. **Verify the spec against the current code.** Specs go stale. Confirm the files,
    types, and patterns it references still exist and still look the way it assumes.
