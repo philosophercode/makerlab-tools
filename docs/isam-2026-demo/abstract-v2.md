@@ -52,7 +52,7 @@ The system is built spec-first: each feature starts as a written design with ope
 
 ## 4. The Demonstration
 
-Visitors drive the live system. **Operate, debug and fix:** on an iPad open to the Bambu Lab X1-Carbon page, or on their own phone via the kiosk's QR code, they ask how to start a print or why it fails, follow the cited manual page, and file a ticket. **Create:** on a laptop, they describe something to make and get a plan mapped to the lab's machines. **Scan a machine:** a printed label on a sample tool opens its page, or a photo of it in the chat. **Add a tool:** on a second, staff laptop, they photograph an object and watch it become a researched draft awaiting approval, with every change confirmed on a card. **Bring your own AI:** an optional laptop connects Claude or ChatGPT to the MCP endpoint. The kiosk runs on a TV throughout, on live lab data. **Requirements:** one table, power, reliable Wi-Fi, and a monitor or TV.
+Visitors use the live system at three stations. **Browse and ask (laptop):** they browse the inventory, open a machine page, and ask the assistant how to operate, debug or fix it, or how to make something with the lab's machines; answers cite the manual page, and a printed QR label on a sample tool opens its page. **Bring your own AI (second laptop):** Claude or ChatGPT, connected to the MCP endpoint, searches the same inventory and manuals from outside the site. **Add to the inventory (phone):** they photograph an object and watch it become a researched draft awaiting a staff member's approval. The kiosk runs on a TV throughout, on live lab data. **Requirements:** one table, power, reliable Wi-Fi, and a monitor or TV.
 
 ## 5. Discussion and Next Steps
 
