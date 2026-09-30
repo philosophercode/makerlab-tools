@@ -22,6 +22,7 @@ const APP_PERMISSIONS = [
   "projects.submit",
   "projects.moderate",
   "catalog.view_drafts",
+  "catalog.export",
   "tools.add",
   "tools.approve",
   "tools.edit",

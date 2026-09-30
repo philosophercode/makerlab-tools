@@ -150,6 +150,7 @@ export const TOOL_AREAS: Readonly<Record<string, AreaId>> = {
   list_tools: "catalog",
   search_tools: "catalog",
   get_tool_details: "catalog",
+  get_tool_qr_code: "catalog",
   get_unit_details: "catalog",
   get_tool_units: "catalog",
   search_manual: "catalog",

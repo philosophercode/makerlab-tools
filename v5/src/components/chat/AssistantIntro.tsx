@@ -28,6 +28,10 @@ export function AssistantIntro({
       className={cn(
         FROSTED,
         "ui fixed end-4 bottom-20 z-40 flex w-[min(18rem,calc(100vw-2rem))] flex-col gap-2 p-3 sm:end-6 sm:bottom-[5.5rem]",
+        // Out of the way while any dialog is open (the tool page's QR dialog on
+        // a phone): it sits outside the dialog's layer and would cover the page
+        // around it. It comes back, still undismissed, when the dialog closes.
+        "[body:has([role=dialog][data-state=open])_&]:hidden",
         "motion-safe:animate-in motion-safe:fade-in-0 motion-safe:slide-in-from-bottom-2 motion-safe:duration-300"
       )}
     >

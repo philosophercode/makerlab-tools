@@ -12,7 +12,6 @@ import { can, canReachAdmin } from "../../lib/auth/permissions";
 import { getDraftPaletteTools } from "../../lib/catalog";
 import type { Role } from "../../lib/auth/roles";
 import type { PaletteTool } from "../../components/palette/palette-types";
-import { siteConfig } from "../../lib/site-config";
 
 /**
  * The `/admin` shell and its front door (spec §6, §8; UI system spec §8.1).
@@ -44,7 +43,7 @@ import { siteConfig } from "../../lib/site-config";
  */
 
 export const metadata = {
-  title: `Admin — ${siteConfig.name}`,
+  title: "Admin",
 };
 
 export default async function AdminLayout({

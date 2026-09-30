@@ -1,13 +1,19 @@
+import type { Metadata } from "next";
 import { Suspense } from "react";
 import { permanentRedirect } from "next/navigation";
 import { DraftToolView } from "./DraftToolView";
 import { EditToolControl } from "./EditToolControl";
 import { QrArrivalNotice } from "./QrArrivalNotice";
+import { toolPageMetadata } from "./metadata";
 import { DetailShell } from "../../../components/DetailShell";
 import { FlagButton } from "../../../components/FlagButton";
 import { ToolChatStarters } from "../../../components/ToolChatStarters";
+import { ToolQrButton } from "../../../components/tool/ToolQrButton";
+import { qrSiteUrl } from "../../../lib/qr/site-url";
+import { toolPageUrl, toolQrTargetUrl } from "../../../lib/qr/urls";
 import { UsageBeacon } from "../../../components/usage/UsageBeacon";
 import { SignedInToolLocation } from "../../../components/map/SignedInToolLocation";
+import { SignedInToolMiniMap } from "../../../components/map/SignedInToolMiniMap";
 import { getCatalogTool, getCatalogTools, getManualContents, getToolMaintenanceHistory } from "../../../lib/catalog";
 import { toolRelations } from "../../../components/tool/relations";
 import { findToolByNotionPageId } from "../../../lib/data/catalog";
@@ -77,6 +83,17 @@ interface ToolDetailPageProps {
 // anyway: every catalogue read is `"use cache"` + `cacheTag("catalog")`, so a
 // later write invalidates them by tag rather than waiting for the next build
 // (spec §3.9). `/projects/[id]` skips it for the same reason.
+
+/**
+ * The tool's name as the title and its photo as the link preview
+ * (`./metadata.ts`). It awaits `params` like the page itself does, and reads
+ * the same cached catalogue entry, so it adds no dynamic data the page does
+ * not already have.
+ */
+export async function generateMetadata({ params }: Pick<ToolDetailPageProps, "params">): Promise<Metadata> {
+  const { id } = await params;
+  return toolPageMetadata(id);
+}
 
 /**
  * Re-encodes the incoming query string for a redirect target. `?src=qr` is
@@ -154,6 +171,13 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
         manualContents={manualContents}
         maintenance={maintenance}
         relations={relations}
+        heroMap={
+          // The mini-map beside the photo: the same rule as "Where it is" —
+          // its own dynamic hole, signed-in viewers only.
+          <Suspense fallback={null}>
+            <SignedInToolMiniMap tool={tool} />
+          </Suspense>
+        }
         location={
           // Signed-in viewers only (map access, PR #98): a dynamic hole, so the
           // cached shell sent to everyone else carries no placement.
@@ -176,9 +200,18 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
           the control asks `/api/identity` after mount, so the shell above it
           stays cached for the visitors who are not staff. */}
       <EditToolControl slug={tool.slug} toolName={tool.name} actions={EDITOR_ACTIONS} />
-      {/* Quiet footer control for reporting a wrong field (report-a-correction
-          spec §6). Deliberately below the content, not competing with it. */}
-      <FlagButton toolId={tool.id} />
+      {/* Quiet footer controls, below the content and not competing with it:
+          the tool's QR code to save or share (QR labels) and reporting a
+          wrong field (report-a-correction spec §6). */}
+      <div className="ui mx-auto mb-10 flex w-full max-w-[1200px] flex-wrap items-center gap-x-6 gap-y-1 px-4 sm:px-8">
+        <ToolQrButton
+          slug={tool.slug}
+          toolName={tool.name}
+          pageUrl={toolPageUrl(qrSiteUrl(), tool.slug)}
+          scanUrl={toolQrTargetUrl(qrSiteUrl(), tool.slug)}
+        />
+        <FlagButton toolId={tool.id} inline />
+      </div>
     </>
   );
 }

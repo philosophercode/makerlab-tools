@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import {
@@ -80,6 +80,13 @@ export interface EvalCase {
    * Assertions judge only the final turn's answer and tool calls.
    */
   history?: EvalTurn[];
+  /**
+   * Photos attached to the final message, by file name in
+   * `evals/fixtures/photos/` (amendment "Many items at once"): sent as image
+   * parts with the `[Attached photos: attachment_id=… name=…]` hint the chat
+   * adds, exactly as `ChatPanel` sends them. Missing files fail at load.
+   */
+  photos?: string[];
   context: EvalCaseContext;
   assert: AssertionSpec[];
   /** Case file the case came from, for error messages. */
@@ -395,12 +402,23 @@ function validateAssertion(raw: YamlValue, file: string, caseId: string): Assert
   // Per-kind required arguments. An assertion missing its argument would
   // otherwise pass vacuously, which is the failure mode this harness must not
   // have.
-  const needsValue: string[] = ["mentions_tool", "called_tool", "not_called_tool", "contains_all", "not_contains_any"];
+  const needsValue: string[] = [
+    "mentions_tool",
+    "called_tool",
+    "not_called_tool",
+    "contains_all",
+    "not_contains_any",
+    "identified_items",
+    "identified_count",
+  ];
   if (needsValue.includes(kind) && (spec.value === undefined || spec.value.length === 0)) {
     fail(file, 0, `case "${caseId}": ${kind} requires a "value"`);
   }
   if (kind === "no_fabricated_specs" && (!spec.fields || spec.fields.length === 0)) {
     fail(file, 0, `case "${caseId}": no_fabricated_specs requires a non-empty "fields" list`);
+  }
+  if (kind === "identified_count" && (typeof spec.value !== "string" || !/^\d+(-\d+)?$/.test(spec.value))) {
+    fail(file, 0, `case "${caseId}": identified_count takes a count or a range, like "3" or "3-4"`);
   }
 
   return spec;
@@ -474,6 +492,18 @@ function validateCase(raw: YamlValue, file: string): EvalCase {
     });
   }
 
+  let photos: string[] | undefined;
+  if (raw.photos !== undefined && raw.photos !== null) {
+    if (!Array.isArray(raw.photos) || raw.photos.length === 0) fail(file, 0, `case "${id}": photos must be a non-empty list of file names`);
+    photos = raw.photos.map((entry) => {
+      const name = requireString(entry, file, `case "${id}": photos entries`);
+      if (name.includes("/") || !existsSync(path.join(PHOTOS_DIR, name))) {
+        fail(file, 0, `case "${id}": photo "${name}" is not in evals/fixtures/photos`);
+      }
+      return name;
+    });
+  }
+
   if (!Array.isArray(raw.assert) || raw.assert.length === 0) {
     fail(file, 0, `case "${id}": assert must be a non-empty list`);
   }
@@ -482,6 +512,7 @@ function validateCase(raw: YamlValue, file: string): EvalCase {
     id,
     prompt,
     ...(history ? { history } : {}),
+    ...(photos ? { photos } : {}),
     context,
     assert: raw.assert.map((entry) => validateAssertion(entry, file, id)),
     file,
@@ -504,6 +535,9 @@ export function parseCaseFile(source: string, file: string): EvalCase[] {
  * rewrites that exact pattern into an asset URL, which is not a filesystem path.
  */
 export const CASES_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "cases");
+
+/** Where a case's `photos` live. */
+export const PHOTOS_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures", "photos");
 
 /** Load every `*.yaml` case file in `dir`, in filename order. */
 export function loadCases(dir: string = CASES_DIR): EvalCase[] {

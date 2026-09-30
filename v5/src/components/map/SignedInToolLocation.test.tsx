@@ -34,6 +34,6 @@ describe("SignedInToolLocation (map access, PR #98)", () => {
     render(element!);
     expect(screen.getByRole("heading", { name: "Where it is" })).toBeInTheDocument();
     expect(screen.getByText("Zone 2 · 3D Printing Hub")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Open map" })).toHaveAttribute("href", "/map?highlight=Z2");
+    expect(screen.getByRole("link", { name: "Open full map" })).toHaveAttribute("href", "/map?highlight=Z2");
   });
 });

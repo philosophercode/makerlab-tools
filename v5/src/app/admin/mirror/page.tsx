@@ -12,7 +12,6 @@ import { getMirrorViewForOwner } from "../../../lib/data/mirrors";
 import { labTimezone } from "../../../lib/lab-time";
 import { mirrorKeyAvailable } from "../../../lib/mirror/token-crypto";
 import type { MirrorView } from "../../../lib/mirror/types";
-import { siteConfig } from "../../../lib/site-config";
 import {
   connect,
   createDatabases,
@@ -57,7 +56,7 @@ import type { MirrorActions } from "./action-result";
  */
 
 export const metadata = {
-  title: `Notion mirror — ${siteConfig.name}`,
+  title: "Notion mirror",
 };
 
 /** The last push failed because of the token itself; a new one is the fix. */

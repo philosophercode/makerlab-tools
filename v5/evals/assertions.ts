@@ -51,6 +51,8 @@ export const ASSERTION_KINDS = [
   "citations_resolve",
   "proposed_action",
   "not_claimed_done",
+  "identified_items",
+  "identified_count",
 ] as const;
 
 export type AssertionKind = (typeof ASSERTION_KINDS)[number];
@@ -531,7 +533,75 @@ export function runAssertion(spec: AssertionSpec, input: AssertionInput): Assert
     }
     case "not_claimed_done":
       return outcome("the answer never claims the change was made", notClaimedDone(text));
+    case "identified_items": {
+      const wanted = asList(spec.value);
+      return outcome(
+        `one identify_tools call recorded ${wanted.map((w) => `"${w}"`).join(", ")}`,
+        identifiedItemsMatch(toolCalls, wanted)
+      );
+    }
+    case "identified_count": {
+      const range = asString(spec.value);
+      return outcome(`one identify_tools call recorded ${range} item(s)`, identifiedCount(toolCalls, range));
+    }
   }
+}
+
+// ── identify_tools (amendment "Many items at once") ────────────────
+
+interface IdentifiedEntry {
+  name: string;
+  brand?: string;
+  quantity?: number;
+  attachmentIds?: string[];
+}
+
+/** The items of the last `identify_tools` call, or null when there was none. */
+export function identifiedEntries(toolCalls: RecordedToolCall[]): IdentifiedEntry[] | null {
+  const call = [...toolCalls].reverse().find((c) => c.name === "identify_tools");
+  if (!call) return null;
+  const items = (call.input as { items?: unknown } | undefined)?.items;
+  return Array.isArray(items) ? (items.filter((item) => item && typeof item === "object") as IdentifiedEntry[]) : [];
+}
+
+/**
+ * `identified_items` — each wanted entry matches a different recorded item.
+ * An entry is alternatives joined by `|`, matched case-insensitively against
+ * the item's brand and name ("cricut|maker 3"), and may end in ` xN`: that item
+ * must carry a quantity of at least N ("battery x2").
+ */
+export function identifiedItemsMatch(toolCalls: RecordedToolCall[], wanted: string[]): Check {
+  const items = identifiedEntries(toolCalls);
+  if (!items) return { ok: false, detail: "identify_tools was never called" };
+  const used = new Set<number>();
+  for (const entry of wanted) {
+    const match = entry.match(/^(.*?)(?:\s+x(\d+))?$/i);
+    const alternatives = (match?.[1] ?? entry).split("|").map((alt) => alt.trim().toLowerCase()).filter(Boolean);
+    const quantity = match?.[2] ? Number(match[2]) : null;
+    const index = items.findIndex((item, i) => {
+      if (used.has(i)) return false;
+      const text = `${item.brand ?? ""} ${item.name ?? ""}`.toLowerCase();
+      return alternatives.some((alt) => text.includes(alt));
+    });
+    if (index < 0) {
+      return { ok: false, detail: `no item matched "${entry}" (items: ${items.map((i) => i.name).join("; ") || "none"})` };
+    }
+    const found = items[index];
+    if (quantity !== null && (found.quantity ?? 1) < quantity) {
+      return { ok: false, detail: `"${found.name}" matched "${entry}" but has quantity ${found.quantity ?? 1}` };
+    }
+    used.add(index);
+  }
+  return { ok: true };
+}
+
+/** `identified_count` — the last identify_tools call recorded N items, or N–M. */
+export function identifiedCount(toolCalls: RecordedToolCall[], range: string): Check {
+  const items = identifiedEntries(toolCalls);
+  if (!items) return { ok: false, detail: "identify_tools was never called" };
+  const [low, high = low] = range.split("-").map(Number);
+  if (items.length >= low && items.length <= high) return { ok: true };
+  return { ok: false, detail: `${items.length} item(s): ${items.map((i) => i.name).join("; ")}` };
 }
 
 /**
