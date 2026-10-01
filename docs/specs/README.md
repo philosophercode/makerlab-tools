@@ -60,9 +60,9 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 |---|---|
 | [Kiosk Mode](2026-09-27-kiosk-mode-design.md) — public read-only lab screen at `/kiosk`: down machines, ticket counts, hours, featured tool, QR to chat | **Phase 1 built** (#94, `/kiosk`); phases 2–3 awaiting review; phase 2 adds editable hours and pins |
 | [Recurring Maintenance](2026-09-27-recurring-maintenance-design.md) — per-tool or per-unit schedules; the nightly cron opens a preventive ticket when one falls due | Awaiting review. 4 phases; phase 4 suggests schedules from manuals. Open questions §13 Q1–Q4 gate phase 1 |
-| [Notifications](2026-09-27-notifications-design.md) — email on ticket, correction and project changes; a daily staff digest; Web Push later | Awaiting review. Sending domain and Cornell approval of the provider block phase 1 |
+| [Email Notifications](2026-09-30-email-notifications-design.md) — staff emailed when a ticket is filed (v1, before the 11 Oct demo); then preferences on `/account`, a daily digest, reporter "resolved" mail and a delivery log (v1.1). Outbox + Workflow + Resend, exactly-once per recipient | Awaiting review. The sending domain (§11 Q1) and the default recipients (Q3) gate v1 going live |
 
-All six 2026-09-27 feature specs build on the Assistant–GUI Parity action layer; each writes its
+The 2026-09-27 feature specs build on the Assistant–GUI Parity action layer; each writes its
 migration as `00NN` and takes the next free number when it lands.
 
 ### Ideas — not decided
@@ -80,6 +80,7 @@ The owner has considered these but has not decided to build them. Do not impleme
 |---|---|
 | [Chat Inventory Intake](2026-06-01-chat-inventory-intake-design.md) | [v5 Data Platform](2026-09-14-v5-data-platform-design.md) phase 6 — the two-step intake (`identify_tools`, background research, approval) |
 | [AI Gateway Migration](2026-07-29-ai-gateway-migration-design.md) | [Gateway-First Models and a Product Image Finder](2026-09-23-gateway-models-and-product-images-design.md) |
+| [Notifications (2026-09-27)](2026-09-27-notifications-design.md) | [Email Notifications](2026-09-30-email-notifications-design.md) — immediate staff mail on new tickets; Web Push dropped |
 | [Gallery Projects (2026-05-29)](../superpowers/specs/2026-05-29-gallery-projects-design.md) | [Student Projects Gallery](2026-07-29-projects-gallery-design.md) — an older duplicate |
 
 ---
