@@ -4,7 +4,7 @@
 
       node docs/isam-2026-demo/build.mjs
 
-  It writes abstract-v2.html and "MakerLAB AI - ISAM 2026 Demo V2.pdf" next to this
+  It writes abstract-v2.html and "The MakerLAB Assistant - ISAM 2026 Demo V2.pdf" next to this
   file (headless Chrome), and prints the abstract's word count (limit 300) and the
   PDF's page count (must stay 2). Syntax: see the header of build.mjs. Comments like
   this one never reach the PDF.
@@ -20,7 +20,7 @@ affiliations:
 - ^1^Isaac Steinberg; MBA '26, Johnson Cornell Tech; ies22@cornell.edu
 - ^2^Niti Parikh; Director, Learning Spaces & MakerLABs, Cornell Tech; ntp27@cornell.edu
 - ^3^Miguel Ramirez Peraza; MakerLAB Intern, Cornell Tech; ramirezperazamiguel@gmail.com
-  pdf: MakerLAB AI - ISAM 2026 Demo V2.pdf
+  pdf: The MakerLAB Assistant - ISAM 2026 Demo V2.pdf
 
 ---
 
