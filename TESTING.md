@@ -231,7 +231,7 @@ diagnostic for developers, not a gate.
 
 ## CI
 
-`.github/workflows/ci.yml` runs on every PR and every push to `main`: `npm run
-lint`, `npm run typecheck`, `npx vitest run` (both projects) and `npm run
-spec:coverage -- --ci`. The E2E suite is not in CI yet; run `npm run test:e2e`
+`.github/workflows/ci.yml` runs on every PR and every push to `main`: one job
+for `npm run lint`, `npm run typecheck` and `npm run spec:coverage -- --ci`,
+and `npx vitest run` (both projects) split four ways with `--shard`. The E2E suite is not in CI yet; run `npm run test:e2e`
 locally before merging anything that changes a page.

@@ -16,9 +16,10 @@ permissions:
   contents: read
 
 jobs:
-  checks:
+  static:
+    name: lint, typecheck, spec coverage
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,5 +34,25 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
-      - run: npx vitest run
       - run: npm run spec:coverage -- --ci
+
+  # ~530 test files take ~20 minutes on one 2-core runner, so they are split
+  # four ways. The longer per-test timeout absorbs the slower machine; a few
+  # tests (importing every locale file, for one) take ~5 s there.
+  tests:
+    name: tests (${{ matrix.shard }}/4)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm install -g npm@11.6.2
+      - run: npm ci
+      - run: npx vitest run --shard=${{ matrix.shard }}/4 --testTimeout=30000
