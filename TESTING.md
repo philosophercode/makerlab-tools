@@ -226,5 +226,12 @@ full verified snippet and both seams are in
 ## Coverage
 
 `npm run test:coverage` produces a `v8` coverage report (`text` to stdout +
-`html`). There is **no enforced threshold** and **no CI workflow** — by design.
-Coverage is a diagnostic for developers, not a gate.
+`html`). There is **no enforced threshold** — by design. Coverage is a
+diagnostic for developers, not a gate.
+
+## CI
+
+`.github/workflows/ci.yml` runs on every PR and every push to `main`: one job
+for `npm run lint`, `npm run typecheck` and `npm run spec:coverage -- --ci`,
+and `npx vitest run` (both projects) split four ways with `--shard`. The E2E suite is not in CI yet; run `npm run test:e2e`
+locally before merging anything that changes a page.
