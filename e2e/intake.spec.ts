@@ -263,7 +263,7 @@ test("one message with two photos becomes one card of every suspected item, sele
     .locator('input[type="file"]')
     .setInputFiles(MULTI_PHOTOS.map((name) => path.join(__dirname, "../evals/fixtures/photos", name)));
   await expect(chat.getByRole("button", { name: `Remove ${MULTI_PHOTOS[1]}` })).toBeVisible({ timeout: 15_000 });
-  await chat.getByRole("textbox", { name: "Ask the MakerLAB Assistant" }).fill(MULTI_PROMPT);
+  await chat.getByRole("textbox", { name: "Ask MakerLAB AI" }).fill(MULTI_PROMPT);
   await chat.getByRole("button", { name: "Send" }).click();
 
   const card = chat.getByRole("region", { name: "Identified equipment" });

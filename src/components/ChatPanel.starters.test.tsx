@@ -71,7 +71,7 @@ async function openWithChips() {
       <ChatFab />
     </>
   );
-  await userEvent.setup().click(screen.getByRole("button", { name: "Open the MakerLAB Assistant" }));
+  await userEvent.setup().click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
   await waitFor(() => expect(gets).toHaveLength(1));
 }
 
@@ -108,7 +108,7 @@ describe("starter chips with a pre-run answer", () => {
   it("asks for the general chips' answers off a tool page", async () => {
     pathnameMock.mockReturnValue("/");
     render(<ChatFab />);
-    await userEvent.setup().click(screen.getByRole("button", { name: "Open the MakerLAB Assistant" }));
+    await userEvent.setup().click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
     await waitFor(() => expect(gets).toHaveLength(1));
     expect(gets[0].searchParams.has("toolId")).toBe(false);
   });
@@ -125,7 +125,7 @@ describe("starter chips with a pre-run answer", () => {
       </>
     );
     const user = userEvent.setup();
-    await user.click(screen.getByRole("button", { name: "Open the MakerLAB Assistant" }));
+    await user.click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
     expect(screen.getByText("Standard, Tough and Flexible resin.")).toBeInTheDocument();
 
     await user.type(screen.getByRole("textbox"), "Which one is strongest?");
