@@ -31,6 +31,16 @@ export function documentRefPrefix(id: string): string {
   return id.replace(/[^0-9a-f]/gi, "").slice(0, 8).toLowerCase() || "doc";
 }
 
+/**
+ * Where `text` first links to `href` as Markdown (`](href)`), ignoring case,
+ * or -1. The one test for "the answer cited this passage": the chat's Sources
+ * (`components/chat/manual-citations.ts`) and Usage Insight's `manual_cited`
+ * (`lib/usage/from-turn.ts`) both use it, by `#cite-<ref>` and by exact URL.
+ */
+export function linkPosition(text: string, href: string): number {
+  return text.toLowerCase().indexOf(`](${href.toLowerCase()})`);
+}
+
 /** `#cite-3f2a9c10-42` → `3f2a9c10-42`; anything else → null. */
 export function refFromHref(href: string): string | null {
   const trimmed = href.trim();

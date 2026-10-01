@@ -1,4 +1,5 @@
 import type { GapKind, UsageAudience } from "../db/schema/vocabulary.ts";
+import { CITE_HREF_PREFIX, linkPosition } from "../manuals/citation-ref.ts";
 import { answerDeclaresAbsence } from "./absence.ts";
 import type { UsageEvent, UsageGapInput } from "./events.ts";
 import { classifyQuestion } from "./question-kind.ts";
@@ -14,7 +15,8 @@ import type { PassageUsage } from "./turn-log.ts";
  *   `search_manual` was scoped to;
  * - one `manual_cited` per passage the answer actually linked to — the same
  *   test the chat's Sources use (`components/chat/manual-citations.ts`): a
- *   link whose address is one `search_manual` returned this turn;
+ *   link to the `#cite-<ref>` of a passage `search_manual` returned this turn
+ *   (what the prompt asks the model to write), or to its exact URL;
  * - at most one `gap`, when §5.2 says the turn could not answer, with the
  *   student's last message scrubbed for the Unanswered queue.
  *
@@ -52,9 +54,14 @@ function outputsOf(steps: readonly TurnStep[], toolName: string): Record<string,
   );
 }
 
-/** The passage URLs `text` links to as Markdown (`](url)`). */
-export function citedUrls(text: string, urls: Iterable<string>): string[] {
-  return [...urls].filter((url) => text.includes(`](${url})`));
+/**
+ * The passages (by URL) `text` links to as Markdown — by `](#cite-<ref>)` or
+ * by `](url)` — each once, however many times or ways it is linked.
+ */
+export function citedUrls(text: string, passages: ReadonlyMap<string, Pick<PassageUsage, "ref">>): string[] {
+  return [...passages]
+    .filter(([url, { ref }]) => (ref && linkPosition(text, `${CITE_HREF_PREFIX}${ref}`) >= 0) || linkPosition(text, url) >= 0)
+    .map(([url]) => url);
 }
 
 export function fromTurn(input: TurnInput): TurnUsageOutput {
@@ -71,7 +78,7 @@ export function fromTurn(input: TurnInput): TurnUsageOutput {
   for (const id of input.scopedToolIds) asked.add(id);
   for (const toolId of asked) events.push({ ...base, kind: "tool_asked", toolId });
 
-  const cited = citedUrls(input.text, input.passages.keys());
+  const cited = citedUrls(input.text, input.passages);
   for (const url of cited) {
     const passage = input.passages.get(url)!;
     events.push({ ...base, kind: "manual_cited", toolId: passage.toolId, manualDocumentId: passage.documentId, page: passage.page });

@@ -27,8 +27,12 @@ and its 2026-09-28 amendment are the detail.
   schedule `recordUsage` with `after()` (`schedule.ts`). `recordUsage` never
   throws — a failed insert is one `[usage]` warning. `USAGE_INSIGHT=off`
   records nothing. `search_manual` logs the passages it returned on the turn's
-  `TurnState` (`turn-log.ts`) — that is how a citation link becomes a document
-  id and page.
+  `TurnState` (`turn-log.ts`), each with its `ref` — that is how a citation
+  link becomes a document id and page. A citation is a link to the passage's
+  `#cite-<ref>` (what the prompt asks for) or its exact URL, matched by the
+  same `linkPosition` the chat's Sources use (`lib/manuals/citation-ref.ts`;
+  spec amendment 2026-09-30). A page of a manual attached whole is not a
+  `manual_cited`.
 - **The beacon** (`POST /api/usage`, `components/usage/UsageBeacon.tsx`): tool
   pages are cached, so the browser says it was seen, once per tool per tab
   (`sessionStorage`), with `sendBeacon`. Tier `usage` 60/min; `Sec-GPC`, `DNT`,

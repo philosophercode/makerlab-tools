@@ -618,3 +618,38 @@ CSV download, one-page print, saving an assumption).
 
 **Status.** Built; PR "v5 insights: value report". Migration `0024` is the next free number on
 `main` today; if another PR lands a `0024` first, this one renumbers.
+
+### 2026-09-30 — Citations by ref are counted (fix)
+
+**Observed in production on 2026-09-30.** `/admin/insights` showed **Manual citations 0** and the
+value report **Manual pages cited in answers 0 / Manuals cited 0** over 30 days, while the chat drew
+manual-page citations ("3 MANUAL PAGES": ShopBot User Guide p. 74 and p. 5, Shaper Origin Product
+Manual pp. 14–15) and the same page counted 19 assistant turns.
+
+**Cause.** Manual text spec amendment 2026-09-28 ("Citations always resolve") changed how the model
+cites a passage: as a link to `#cite-<ref>`, never to the PDF's URL. The chat's `citedPassages`
+learned the ref; `from-turn.ts` still matched only `](<passage url>)`, so no `manual_cited` event was
+written after that change.
+
+**Fix — no change to what counts.** §4 and §5.1 stand: a `manual_cited` is a passage `search_manual`
+returned this turn that the final text links to, matched as `citedPassages` matches it. That matching
+is now one helper, `linkPosition` (`lib/manuals/citation-ref.ts`), used by both the chat and
+`from-turn.ts`: a link to the passage's `#cite-<ref>` or to its exact URL, ignoring case, each passage
+once however often it is linked. `turn-log.ts` keeps each logged passage's `ref`, built with the same
+`citationRef(documentId, pageStart)` the tool returned.
+
+**Still not counted** (unchanged, by §4): a page of a manual the route attached whole
+(`#cite-<resource ref>-<page>` or "(<title>, p. N)", manual text amendment 2026-09-28b) — e.g. the
+Bambu Lab X1-Carbon's quick-start guide. It is not a `search_manual` passage and has no
+`manual_documents` row for `manual_document_id`. Counting it is a separate decision (what document
+id it records, how the Manuals cited table names it) and needs its own amendment.
+
+**No backfill.** Events are written from the finished turn in memory; the turns themselves (answer
+text, tool outputs) are not stored anywhere (no chat transcript table; the client keeps them), so
+the citations missed since refs shipped cannot be recovered. The counts start again from the deploy
+of this fix; `chat_turn`, `tool_asked` and `gap` for those turns were recorded correctly.
+
+**Tests.** `lib/usage/from-turn.test.ts` (a turn citing three passages by `#cite-<ref>`, one in upper
+case and one twice, plus a garbled ref; ref and URL to one passage count once);
+`app/api/chat/usage.route.test.ts` (the real route and `search_manual`, the answer citing page 12 by
+`#cite-<ref>`, one `manual_cited` with the document and page).

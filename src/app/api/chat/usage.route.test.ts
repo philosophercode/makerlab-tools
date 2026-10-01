@@ -30,6 +30,7 @@ import { POST } from "@/app/api/chat/route";
 import { resetAuthForTests } from "@/lib/auth/config";
 import { getDb, resetDbForTests } from "@/lib/db/client";
 import { attachments, resources, tools as toolsTable, usageEvents, usageGaps } from "@/lib/db/schema/index";
+import { citationRef } from "@/lib/manuals/citation-ref";
 import { buildDocumentPassages } from "@/lib/manuals/passages";
 import { fakeEmbeddingTarget } from "../../../../test/ai/fake-embeddings";
 import { resetModelStubs, setEmbeddingModel, setLanguageModel, textModel, toolCallModel } from "../../../../test/ai/models-stub";
@@ -137,6 +138,31 @@ describe("usage recorded from a chat turn", () => {
     expect(events.filter((e) => e.kind === "tool_asked").map((e) => e.toolId)).toEqual([toolId]);
     expect(events.find((e) => e.kind === "manual_cited")).toMatchObject({ manualDocumentId: seeded.documentId, page: 12, toolId });
     expect(events.some((e) => e.kind === "gap")).toBe(false);
+  });
+
+  // Regression (production, 2026-09-30: Insights showed 0 manual citations
+  // while the chat drew "1 MANUAL PAGE"): the model cites by `#cite-<ref>`, as
+  // the prompt tells it to — never by the PDF's URL.
+  it("writes manual_cited (page 12) when the answer cites the passage by #cite-<ref>", async () => {
+    const db = await getDb();
+    const toolId = await form4Id();
+    const seeded = await seedManual(db, { toolId, title: "Form 4 Manual", pages: PAGES, outline: OUTLINE });
+    inserted.push(seeded.resourceId);
+    expect((await buildDocumentPassages(db, seeded.documentId, { target })).status).toBe("built");
+    const ref = citationRef(seeded.documentId, 12);
+    setLanguageModel(
+      "chat",
+      toolCallModel([{ toolName: "search_manual", input: { query: "replace the resin tank" } }], `Lift it straight up ([Resin tank (Form 4 Manual, p. 12)](#cite-${ref})).`)
+    );
+
+    const stream = await send({ messages: [userMessage("How do I replace the resin tank?")], toolId: "form-4", locale: "en" });
+    // The chat received the same ref in the tool's output, so it drew the citation.
+    expect(stream).toContain(`"ref":"${ref}"`);
+
+    await vi.waitFor(async () => expect((await eventsNow()).some((e) => e.kind === "manual_cited")).toBe(true), { timeout: 5000 });
+    const cited = (await eventsNow()).filter((e) => e.kind === "manual_cited");
+    expect(cited).toHaveLength(1);
+    expect(cited[0]).toMatchObject({ manualDocumentId: seeded.documentId, page: 12, toolId, surface: "chat", audience: "anonymous" });
   });
 
   it("puts a question the catalogue cannot answer in the Unanswered queue, scrubbed", async () => {

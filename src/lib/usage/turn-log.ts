@@ -1,3 +1,5 @@
+import { citationRef } from "../manuals/citation-ref.ts";
+
 /**
  * What a chat turn looked at, for Usage Insight (usage insight spec §5.1):
  * the manual passages `search_manual` returned — with the document id and page
@@ -13,6 +15,12 @@ export interface PassageUsage {
   documentId: string;
   toolId: string | null;
   page: number;
+  /**
+   * What the answer links it by — `#cite-<ref>`, the form the chat prompt asks
+   * for (manual text spec amendment 2026-09-28) — built exactly as
+   * `search_manual` built the one it returned.
+   */
+  ref: string;
 }
 
 interface TurnUsage {
@@ -42,7 +50,12 @@ export function logManualPassages(
   const usage = usageOf(turn);
   for (const passage of passages) {
     if (!passage.pdfUrl || usage.passages.has(passage.pdfUrl)) continue;
-    usage.passages.set(passage.pdfUrl, { documentId: passage.documentId, toolId: passage.toolId, page: passage.pageStart });
+    usage.passages.set(passage.pdfUrl, {
+      documentId: passage.documentId,
+      toolId: passage.toolId,
+      page: passage.pageStart,
+      ref: citationRef(passage.documentId, passage.pageStart),
+    });
   }
 }
 
