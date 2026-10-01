@@ -94,6 +94,7 @@
 | `src/app/api/chat/route.ts` | The chat: streaming, through the Gateway (job `chat`); capability tools (`get_unit_details`, `report_issue`, `identify_tools`, `read_page`, …) plus `exa_search` (added directly, like the retired `web_search` before it — not a capability), PDF manual attach |
 | `src/app/api/mcp/route.ts`, `signed-in/route.ts`, `src/lib/mcp/handler.ts` | The MCP endpoint: caller → rate limit → a server holding only that caller's tools (6 public reads anonymously) |
 | `src/lib/auth/mcp-caller.ts` | `resolveMcpCaller` — personal token, legacy `MCP_TOKEN`, OAuth token, or anonymous; a bad bearer is refused, never anonymous |
+| `src/lib/capabilities/insights.ts` / `usage-summary.ts` | MCP only, super admins only (`insights.export`): `get_usage_summary` (the Insights Usage tab's counts, through `loadInsights`) and the MCP twin of `get_value_report` |
 | `src/lib/capabilities/mcp-access.ts` | `mcpToolAllowed` / `mcpToolsFor` — which tools an MCP caller is offered |
 | `src/lib/capabilities/mcp-catalog.ts`, `src/app/mcp/`, `src/lib/mcp/try-it.ts` | The public `/mcp` page: the registry described by audience, and Try it (anonymous, through the MCP handler) |
 | `src/lib/data/api-tokens.ts`, `src/lib/auth/api-token-format.ts` | Personal access tokens (hash, prefix, revoke, last use) and the OAuth grant reads ("Connected apps") |

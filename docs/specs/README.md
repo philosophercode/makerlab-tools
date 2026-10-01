@@ -52,7 +52,7 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 | [UI System](2026-09-25-ui-system-design.md) — shadcn/ui, Tufte density, admin IA, AI Elements chat | Phases 1–5 | **Phase 6** (delete legacy CSS): the repo flatten it waited for is done; needs a screenshot sweep, after the demo |
 | [Sign-in and Tiered Rate Limiting](2026-07-29-auth-and-rate-limiting-design.md) | Google sign-in, tiered rate limits as specced | The env-list role model is **superseded** by Better Auth and the `user` table (data platform phase 4) |
 | [Intake Confidence](2026-07-29-intake-confidence-design.md) | Confidence grading and parallel identification, now inside the research pipeline | The chat-side card behaviour is **obsolete** — `propose_listing` was removed with the two-step intake (data platform phase 6) |
-| [Usage Insight](2026-09-27-usage-insight-design.md) — anonymous usage events in Postgres and an `/admin/insights` page: most- and never-asked-about tools, QR scans, busy times, an Unanswered queue | Phases 1–2 (#107, migration `0022`) with the Unanswered queue's two decisions (amendment 2026-09-28); the value report on `/admin/insights/value` (#109) | **Phases 3–4** |
+| [Usage Insight](2026-09-27-usage-insight-design.md) — anonymous usage events in Postgres and an `/admin/insights` page: most- and never-asked-about tools, QR scans, busy times, an Unanswered queue | Phases 1–2 (#107, migration `0022`) with the Unanswered queue's two decisions (amendment 2026-09-28); the value report on `/admin/insights/value` (#109); usage counts over MCP for super admins, `insights.export` (amendment 2026-09-30) | **Phases 3–4** |
 
 ### Draft — not started
 

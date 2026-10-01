@@ -3369,6 +3369,7 @@
       "list_category_proposals": "Read proposed categories",
       "find_people": "Look people up (addresses masked)",
       "get_value_report": "Read the value report's numbers",
+      "get_usage_summary": "Read the Insights page's usage counts",
       "get_tool_qr_code": "Show a tool's QR code, ready to download"
     },
     "actions": {

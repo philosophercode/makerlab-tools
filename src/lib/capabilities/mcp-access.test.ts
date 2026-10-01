@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { nextCacheMock } from "../../../test/mocks/next-cache";
-import { ADMIN_READS_FOR_PROPOSALS, MCP_PROPOSING_TOOLS } from "../../../test/mcp/expected-tools";
+import { ADMIN_READS_FOR_PROPOSALS, MCP_PROPOSING_TOOLS, SUPER_ADMIN_ONLY_TOOLS } from "../../../test/mcp/expected-tools";
 import { mcpAccessFor } from "../../../test/utils/identities";
 import { CAPABILITIES } from "./index";
 import { mcpToolsFor } from "./mcp-access";
@@ -56,9 +56,9 @@ describe("the MCP tool list by identity", () => {
     }
   });
 
-  it("offers a SuperMaker and a director the staff tools", () => {
+  it("offers a SuperMaker the staff tools, and a director those and the usage counts", () => {
     expect(names("admin")).toEqual(ADMIN_TOOLS);
-    expect(names("super_admin")).toEqual(ADMIN_TOOLS);
+    expect(names("super_admin")).toEqual([...ADMIN_TOOLS, ...SUPER_ADMIN_ONLY_TOOLS]);
   });
 
   it("gives a read-only token its role's reads and no writes", () => {
@@ -98,8 +98,9 @@ describe("the MCP tool list by identity", () => {
     }
   });
 
-  it("gives a director exactly a SuperMaker's MCP tools: nothing about people", () => {
-    expect(names("super_admin")).toEqual(names("admin"));
+  it("gives a director a SuperMaker's MCP tools plus the usage counts: nothing about people", () => {
+    expect(names("super_admin")).toEqual([...names("admin"), ...SUPER_ADMIN_ONLY_TOOLS]);
+    expect(names("super_admin", true)).toEqual([...names("admin", true), ...SUPER_ADMIN_ONLY_TOOLS]);
   });
 
   it("never offers a chat-only tool", () => {

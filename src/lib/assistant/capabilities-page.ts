@@ -173,6 +173,7 @@ export const TOOL_AREAS: Readonly<Record<string, AreaId>> = {
   list_category_proposals: "taxonomy",
   find_people: "people",
   get_value_report: "insights",
+  get_usage_summary: "insights",
 };
 
 /**

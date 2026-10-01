@@ -68,7 +68,7 @@ and its 2026-09-28 amendment are the detail.
   `lib/usage/value/` (`assumptions`, `lab-clock`, `periods`, `report`, `csv`,
   `format`); reads in `value-queries.ts` (staff always left out) and one
   loader, `load.ts`, shared by the page and the chat read `get_value_report`
-  (`insights.view`, chat only, never MCP). Words for page, print and CSV come
+  (`insights.view`, chat; over MCP only as the super-admin twin below). Words for page, print and CSV come
   from one model (`components/admin/insights/value/value-report-model.ts`).
   **Assumptions** (minutes per question 4, $40/h, staffed hours from
   `siteConfig.labHours`, contiguous term windows, all gap kinds unhandled, MCP
@@ -79,3 +79,15 @@ and its 2026-09-28 amendment are the detail.
   `styles/value-report-print.css` (`:has([data-value-report])`, one Letter
   page); CSV is built on the server and saved by the island — no export route.
   Staffed hours are whole hours because rollups are hourly.
+- **Over MCP, super admins only** (spec amendment 2026-09-30): two reads on
+  **`insights.export`** (held by `super_admin` alone), both `mcpOnly`, in the
+  `insights` capability (`capabilities/insights.ts`, last in the registry). `get_value_report` is an MCP twin of the chat
+  tool (`getValueReportMcpTool`: same name, input, loader and summary).
+  `get_usage_summary` (`capabilities/usage-summary.ts`) is the Usage tab for
+  `days` 7 / 30 / 90 (default 30) and `include_staff` (default false): it calls
+  `loadInsights` with the page's `insightsTimeZone()` and `answeredPercent`
+  (`usage/answered.ts`), so its numbers are the page's — totals, the Unanswered
+  queue's **counts**, top ten tools, never-asked count and 25 names, question
+  kinds, the five busiest cells, the five most-cited manuals. **No question
+  text ever** (it never reads `data.gaps`), nothing about a person, read-only.
+  No custom range: the page has none.
