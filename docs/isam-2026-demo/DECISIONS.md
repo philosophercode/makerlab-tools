@@ -31,7 +31,7 @@
   matter, `##`/`###`, bold/italic/links, `^1^` superscripts, `- ` lists, `![Fig. N: caption](file.png
   "wide" | "width=2.1in")`, `<!-- comments -->` dropped) fills `abstract-template.html` (the ISAM print
   CSS: Letter, 0.75 in margins, 3.4 in columns / 0.2 in gutter, Times 16/12/10/8 pt), writes
-  `abstract-v2.html`, prints `The MakerLAB Assistant - ISAM 2026 Demo V2.pdf` with headless Chrome, and reports the
+  `abstract-v2.html`, prints `MakerLAB AI - ISAM 2026 Demo V2.pdf` with headless Chrome, and reports the
   abstract word count (limit 300) and page count (must be 2; exits non-zero when over).
 
 ## V1.1 → V2 changes (2026-09-28)
