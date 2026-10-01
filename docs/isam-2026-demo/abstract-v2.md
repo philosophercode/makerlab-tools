@@ -12,7 +12,7 @@
 
 ---
 
-venue: International Symposium on Academic Makerspaces — ISAM 2026
+venue: International Symposium on Academic Makerspaces — ISAM 2026 · Demo paper, final version, 30 September 2026
 title: MakerLAB AI: Tools to Operate, Fix, and Build in Makerspaces
 authors: Isaac Steinberg^1^, Niti Parikh^2^, and Miguel Ramirez Peraza^3^
 affiliations:
