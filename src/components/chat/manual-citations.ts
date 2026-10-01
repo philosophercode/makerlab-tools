@@ -1,4 +1,4 @@
-import { CITE_HREF_PREFIX, isCitationLikeHref, withoutFragment } from "../../lib/manuals/citation-ref";
+import { CITE_HREF_PREFIX, isCitationLikeHref, linkPosition, withoutFragment } from "../../lib/manuals/citation-ref";
 import {
   attachedManualHasPage as hasPage,
   escapeRegExp,
@@ -197,7 +197,7 @@ export function citedPassages(text: string, passages: ReadonlyMap<string, Manual
   if (passages.size === 0) return [];
   const found = new Map<ManualPassageRef, number>();
   for (const [key, passage] of passages) {
-    const at = text.toLowerCase().indexOf(`](${key.toLowerCase()})`);
+    const at = linkPosition(text, key);
     if (at < 0) continue;
     const seen = found.get(passage);
     if (seen === undefined || at < seen) found.set(passage, at);
