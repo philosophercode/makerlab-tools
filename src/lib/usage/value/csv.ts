@@ -29,7 +29,7 @@ export function toCsv(header: [string, string, string, string, string], rows: Cs
   return `${lines.join("\r\n")}\r\n`;
 }
 
-/** `makerlab-assistant-value-report-fall-2026.csv` — lower case, hyphens, nothing a filesystem minds. */
+/** `makerlab-ai-value-report-fall-2026.csv` — lower case, hyphens, nothing a filesystem minds. */
 export function csvFileName(title: string): string {
   const slug = title
     .normalize("NFKD")

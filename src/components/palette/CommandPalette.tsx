@@ -22,9 +22,10 @@ import type { CommandPaletteDialog as DialogComponent } from "./CommandPaletteDi
  *   checks — so the palette never offers a refusal; an anonymous visitor or a
  *   student sees none, and no admin action.
  * - **Actions**: Add equipment (`tools.add`) and Refresh catalog (`tools.edit`).
- * - **`onAsk`** opens the assistant (phase 5b; the header passes it on every
- *   page): "Ask the assistant" with nothing typed (`onAsk("")`), "Ask the
- *   assistant: “…”" with the query as the first message. It is the last
+ * - **`onAsk`** opens MakerLAB AI (phase 5b; the header passes it on every
+ *   page): "Ask MakerLAB AI" with nothing typed (`onAsk("")`), "Ask MakerLAB
+ *   AI: “…”" with the query as the first message, sent at once because the
+ *   person typed it. Add equipment only pre-fills the composer. It is the last
  *   group, so Enter still opens the first tool or page that matches.
  *
  * The header shows it as a compact field, "Search tools… ⌘K" (an icon button

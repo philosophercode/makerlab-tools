@@ -67,9 +67,9 @@ test("a proposal card shows the stored change and confirms by id alone", async (
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Open the MakerLAB Assistant" }).click();
+  await page.getByRole("button", { name: "Open MakerLAB AI" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByRole("textbox", { name: "Ask the MakerLAB Assistant" }).fill("Set Niti's title to Tech Lead");
+  await dialog.getByRole("textbox", { name: "Ask MakerLAB AI" }).fill("Set Niti's title to Tech Lead");
   await dialog.getByRole("button", { name: "Send" }).click();
 
   const proposal = dialog.getByRole("article", { name: "Set Niti Parikh's title" });
@@ -91,9 +91,9 @@ test("ticked tickets reach the chat as ids, with the page they were ticked on", 
   await page.goto("/admin/maintenance");
   await page.getByRole("checkbox", { name: "Select “Laser bed out of focus”" }).click({ timeout: 15_000 });
   await expect(page.getByText("1 selected")).toBeVisible();
-  await page.getByRole("button", { name: "Ask the assistant about these" }).click();
+  await page.getByRole("button", { name: "Ask MakerLAB AI about these" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByRole("textbox", { name: "Ask the MakerLAB Assistant" }).fill("Resolve these: refocused the lens");
+  await dialog.getByRole("textbox", { name: "Ask MakerLAB AI" }).fill("Resolve these: refocused the lens");
   await dialog.getByRole("button", { name: "Send" }).click();
   await expect(dialog.getByText("Which change?")).toBeVisible();
 
@@ -133,9 +133,9 @@ test("ticked intake items reach the chat as pending ids (approve these, phase 5)
   await page.goto("/admin/intake");
   await page.getByRole("checkbox", { name: "Select “Prusa MK4S”" }).click({ timeout: 15_000 });
   await expect(page.getByText("1 selected")).toBeVisible();
-  await page.getByRole("button", { name: "Ask the assistant about these" }).click();
+  await page.getByRole("button", { name: "Ask MakerLAB AI about these" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByRole("textbox", { name: "Ask the MakerLAB Assistant" }).fill("Approve these as drafts");
+  await dialog.getByRole("textbox", { name: "Ask MakerLAB AI" }).fill("Approve these as drafts");
   await dialog.getByRole("button", { name: "Send" }).click();
   await expect(dialog.getByText("Approve them as drafts?")).toBeVisible();
 
@@ -182,9 +182,9 @@ test("a destructive card confirms only once the name is typed, and sends it (pha
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "Open the MakerLAB Assistant" }).click();
+  await page.getByRole("button", { name: "Open MakerLAB AI" }).click();
   const dialog = page.getByRole("dialog");
-  await dialog.getByRole("textbox", { name: "Ask the MakerLAB Assistant" }).fill("Archive the Trotec");
+  await dialog.getByRole("textbox", { name: "Ask MakerLAB AI" }).fill("Archive the Trotec");
   await dialog.getByRole("button", { name: "Send" }).click();
 
   const proposal = dialog.getByRole("article", { name: "Archive Trotec Speedy 400" });

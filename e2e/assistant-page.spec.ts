@@ -12,7 +12,7 @@ import { signIn } from "./utils/session";
  */
 
 // PR #117 renames the chat to "MakerLAB AI"; accept either name.
-const OPEN_CHAT = /Open the MakerLAB (Assistant|AI)/;
+const OPEN_CHAT = "Open MakerLAB AI";
 
 test("an anonymous visitor sees the page, the Visitor column highlighted, and the never list", async ({ page }) => {
   await page.goto("/assistant");

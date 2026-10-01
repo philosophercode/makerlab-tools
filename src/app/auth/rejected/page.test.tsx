@@ -31,7 +31,7 @@ describe("/auth/rejected", () => {
 
     expect(
       screen.getByText(
-        /browse the whole catalog and ask the assistant questions without signing in/i
+        /browse the whole catalog and ask MakerLAB AI questions without signing in/i
       )
     ).toBeInTheDocument();
   });

@@ -5,17 +5,29 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
 /**
- * A one-shot message to auto-send into the chat. The nonce lets the same text
- * re-trigger a send on repeat clicks — a plain string wouldn't change, so the
+ * A one-shot opening message for the chat. By default it is only **put in the
+ * composer** (focused, caret at the end) and waits for the person to press
+ * Send: a button such as Report or Add equipment must not spend a message —
+ * an anonymous visitor's allowance is small — on words the person did not
+ * write. `send: true` sends it at once, and is for text the person typed
+ * themselves (⌘K's "Ask MakerLAB AI: “…”"). The nonce lets the same text
+ * re-trigger on repeat clicks — a plain string wouldn't change, so the
  * consumer's effect wouldn't fire again.
  */
-interface ChatSeed {
+export interface ChatSeed {
   text: string;
   nonce: number;
+  send: boolean;
+}
+
+export interface OpenChatOptions {
+  /** Send the text at once instead of pre-filling the composer. Only for words the person typed. */
+  send?: boolean;
 }
 
 /**
@@ -32,13 +44,16 @@ export interface ToolStarters {
 interface ChatLauncher {
   /** Whether the chat sheet is open. */
   isOpen: boolean;
-  /** A pending message to auto-send, or null. `ChatFab` consumes it. */
+  /** A pending opening message (pre-filled, or sent with `send`), or null. `ChatPanel` consumes it. */
   pendingSeed: ChatSeed | null;
-  /** Open the chat. Pass `seedText` to also auto-send an opening message. */
-  open: (seedText?: string) => void;
+  /**
+   * Open the chat. `seedText` is put in the composer for the person to send;
+   * with `{ send: true }` it is sent at once (only for text the person typed).
+   */
+  open: (seedText?: string, options?: OpenChatOptions) => void;
   /** Close the chat (the conversation is preserved). */
   close: () => void;
-  /** Clear the pending seed once it has been sent. */
+  /** Clear the pending seed once it has been used. */
   consumeSeed: () => void;
   /** The showing tool's starter questions, or null off a tool page. */
   toolStarters: ToolStarters | null;
@@ -62,7 +77,7 @@ const ChatLauncherContext = createContext<ChatLauncher | null>(null);
 /**
  * Owns just the chat launcher's open state and any one-shot seed message, so
  * that entry points outside `ChatFab` (e.g. the nav "Report" / "Add equipment"
- * buttons) can open and seed the chat. All conversation/message state stays
+ * buttons) can open the chat with its composer pre-filled. All conversation/message state stays
  * inside `ChatFab`.
  */
 export function ChatLauncherProvider({
@@ -75,13 +90,12 @@ export function ChatLauncherProvider({
   const [toolStarters, setToolStarters] = useState<ToolStarters | null>(null);
   const [curate, setCurate] = useState<CurateTarget | null>(null);
 
-  const open = useCallback((seedText?: string) => {
+  const nonceRef = useRef(0);
+  const open = useCallback((seedText?: string, options?: OpenChatOptions) => {
     setIsOpen(true);
     if (seedText) {
-      setPendingSeed((prev) => ({
-        text: seedText,
-        nonce: (prev?.nonce ?? 0) + 1,
-      }));
+      nonceRef.current += 1;
+      setPendingSeed({ text: seedText, nonce: nonceRef.current, send: options?.send === true });
     }
   }, []);
 

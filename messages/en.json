@@ -125,7 +125,7 @@
     "resourceFallback": "Resource",
     "manualContents": "Contents",
     "manualContentsPage": "p. {page}",
-    "searchableManual": "Searchable by the assistant",
+    "searchableManual": "Searchable by MakerLAB AI",
     "details": "Details",
     "category": "Category",
     "location": "Location",
@@ -239,7 +239,7 @@
     "youtubeLink": "How-to videos on YouTube",
     "instagramLink": "@cornelltechmakerlab on Instagram",
     "projectHeading": "About this project",
-    "projectBody": "MakerLAB Tools is the lab's digital guide: every machine and hand tool in one catalog, with which units are free, the manuals, the safety requirements and the training each one needs. Inside it is the MakerLAB Assistant, an AI that knows the lab's real inventory. Ask it to help you:",
+    "projectBody": "MakerLAB Tools is the lab's digital guide: every machine and hand tool in one catalog, with which units are free, the manuals, the safety requirements and the training each one needs. Inside it is MakerLAB AI, which knows the lab's real inventory. Ask it to help you:",
     "operateLabel": "Operate",
     "operateBody": "How do I use this machine?",
     "debugLabel": "Debug",
@@ -260,27 +260,27 @@
     "assistantPageLink": "What MakerLAB AI can and can't do"
   },
   "chat": {
-    "openAria": "Open the MakerLAB Assistant",
-    "title": "MakerLAB Assistant",
+    "openAria": "Open MakerLAB AI",
+    "title": "MakerLAB AI",
     "newChatAria": "Start new chat",
     "newChatTitle": "Start new chat",
-    "closeAria": "Close assistant",
+    "closeAria": "Close MakerLAB AI",
     "closeTitle": "Close (keeps conversation)",
     "greetingTool": "Ask about this tool — I have its specs, materials, and resource links.",
-    "greetingGeneral": "I'm the MakerLAB Assistant. I can help you operate a machine, debug a problem or plan a build with the tools the lab has.",
+    "greetingGeneral": "I'm MakerLAB AI. I can help you operate a machine, debug a problem or plan a build with the tools the lab has.",
     "starterOperateLabel": "Operate",
     "starterOperate": "How do I start a print on a 3D printer?",
     "starterDebugLabel": "Debug",
     "starterDebug": "My print is stringing — what should I check?",
     "starterCreateLabel": "Create",
     "starterCreate": "I want to make a lamp — which machines could I use?",
-    "introLabel": "About the MakerLAB Assistant",
-    "introTitle": "Meet the MakerLAB Assistant",
+    "introLabel": "About MakerLAB AI",
+    "introTitle": "Meet MakerLAB AI",
     "introBody": "Ask how to operate a machine, debug a problem, or plan a build.",
     "introOpen": "Ask a question",
     "introDismiss": "Dismiss",
-    "composerPlaceholder": "Ask the MakerLAB Assistant...",
-    "composerAria": "Ask the MakerLAB Assistant",
+    "composerPlaceholder": "Ask MakerLAB AI...",
+    "composerAria": "Ask MakerLAB AI",
     "sendAria": "Send",
     "attachAria": "Attach photos",
     "attachTitle": "Attach photos",
@@ -290,7 +290,7 @@
     "uploadFailed": "Photo upload failed",
     "uploadsUnavailable": "Photo uploads are unavailable right now. You can still send your message without a photo.",
     "toolRunningAria": "Tool running",
-    "typingAria": "Assistant is typing",
+    "typingAria": "MakerLAB AI is typing",
     "readingManualsAria": "Reading manuals",
     "reading": "Reading: {titles}…",
     "error": "Something went wrong. Try again.",
@@ -325,7 +325,7 @@
       "failed": "The list could not be read.",
       "review": "Review import"
     },
-    "askAssistant": "Ask the assistant",
+    "askAssistant": "Ask MakerLAB AI",
     "scrollToLatest": "Scroll to the latest message",
     "dictate": "Dictate",
     "sourcesCount": "{count, plural, one {# manual page} other {# manual pages}}",
@@ -346,7 +346,7 @@
     "arrivalLabel": "Scanned from this machine",
     "arrivalEyebrow": "Scanned at the machine",
     "arrivalTitle": "Ask about the {tool}",
-    "arrivalBody": "You scanned the code on this machine. The assistant can answer questions about it, walk you through setup, or file a maintenance report.",
+    "arrivalBody": "You scanned the code on this machine. MakerLAB AI can answer questions about it, walk you through setup, or file a maintenance report.",
     "arrivalAction": "Ask about this machine",
     "arrivalSeed": "I'm standing at the {tool} and I have a question about it.",
     "sheetTitle": "QR labels",
@@ -520,7 +520,7 @@
     "eyebrow": "Sign-in",
     "title": "That account isn't a {institution} account",
     "body": "{site} signs in with {institution} accounts only (addresses ending in @{domain}), so this one can't be used. Sign in again and pick your {institution} Google account.",
-    "stillWorks": "Nothing is locked. You can browse the whole catalog and ask the assistant questions without signing in — signing in only raises the hourly message limit and puts your verified name on anything you file.",
+    "stillWorks": "Nothing is locked. You can browse the whole catalog and ask MakerLAB AI questions without signing in — signing in only raises the hourly message limit and puts your verified name on anything you file.",
     "browseTools": "Browse the catalog",
     "blockedTitle": "This account can't sign in to {site}",
     "blockedBody": "A {site} administrator has blocked this address from signing up, so no account was created. If you think that's a mistake, ask the lab's staff."
@@ -553,7 +553,7 @@
     "intakeTitle": "Intake",
     "intakeLede": "New equipment, researched in the background and waiting for approval.",
     "researchTitle": "Manuals",
-    "researchLede": "Every manual PDF on a tool, and whether the assistant can read and search it.",
+    "researchLede": "Every manual PDF on a tool, and whether MakerLAB AI can read and search it.",
     "research": {
       "searchable": "Searchable",
       "textOnly": "Text stored",
@@ -562,7 +562,7 @@
       "processing": "Processing",
       "pages": "Pages stored",
       "passages": "Search passages",
-      "note": "Manuals are read automatically overnight, and again when a PDF is added or changed. A manual the assistant cannot search yet is attached whole to the chat instead. To read one again now, use Re-process on its row.",
+      "note": "Manuals are read automatically overnight, and again when a PDF is added or changed. A manual MakerLAB AI cannot search yet is attached whole to the chat instead. To read one again now, use Re-process on its row.",
       "tableLabel": "Manuals, their tool and state",
       "filtersLabel": "Filter the manuals",
       "search": "Search manuals",
@@ -767,8 +767,8 @@
         "fieldUseRestrictions": "Use restrictions",
         "fieldEmergencyStop": "Emergency stop",
         "fieldNotes": "Notes",
-        "fieldStarterQuestions": "Assistant starter questions",
-        "starterQuestionsHint": "Up to three short questions the assistant offers on this tool's page. Leave them blank for the general ones.",
+        "fieldStarterQuestions": "MakerLAB AI starter questions",
+        "starterQuestionsHint": "Up to three short questions MakerLAB AI offers on this tool's page. Leave them blank for the general ones.",
         "starterQuestionN": "Starter question {n}",
         "listPlaceholder": "Separate with commas",
         "noneSelected": "Not set",
@@ -936,14 +936,14 @@
       "unverified_quote": "None of this proposal's quotes were found on the page it names, so it cannot be accepted here. Open the editor and check the manufacturer's page yourself.",
       "replaces_lab_rule": "This would remove or replace one of the lab's own rules (a use restriction or a training requirement). Research can only add to them. Change the lab's rules in the editor if you mean to.",
       "too_many_tools": "Refresh at most 25 tools at a time.",
-      "expired": "This proposal is more than a week old. Ask the assistant again.",
+      "expired": "This proposal is more than a week old. Ask MakerLAB AI again.",
       "unresolved_duplicate": "Decide what to do with the possible duplicate first.",
       "not_researchable": "This is already researching or settled.",
       "too_many_items": "Too many items at once.",
       "invalid_body": "That request did not have the expected shape.",
       "confirmation_mismatch": "The name typed did not match, so nothing was changed.",
       "only_on_people_page": "That change can only be made on the People page.",
-      "not_offered": "The assistant can no longer make this change, so nothing was changed. Make it on its page in the app.",
+      "not_offered": "MakerLAB AI can no longer make this change, so nothing was changed. Make it on its page in the app.",
       "already_decided": "Somebody decided this already. The page now shows what they chose.",
       "has_children": "This category still has categories under it. Move or merge those first.",
       "not_empty": "Tools are still in this category. Merge it into another so they have somewhere to go.",
@@ -1615,7 +1615,7 @@
         "or": "or",
         "pasteLabel": "Paste a list",
         "pastePlaceholder": "Paste spreadsheet cells, or one item per line",
-        "pasteHint": "Cells copied from a spreadsheet keep their columns. A plain list is read one item a line; a document is read by the assistant.",
+        "pasteHint": "Cells copied from a spreadsheet keep their columns. A plain list is read one item a line; a document is read by MakerLAB AI.",
         "submit": "Import",
         "importing": "Importing…"
       },
@@ -1811,7 +1811,7 @@
       "notesLabel": "Notes: {notes}",
       "importLinkLabel": "{title} ({type})",
       "openLink": "Open",
-      "labDocsOnApproval": "These lab documents are added as Lab document links. They are never opened by research or the assistant.",
+      "labDocsOnApproval": "These lab documents are added as Lab document links. They are never opened by research or MakerLAB AI.",
       "labDocument": "Lab document",
       "allowance": {
         "title": "Setup allowances",
@@ -1921,7 +1921,7 @@
       "refreshUnit": "waiting for a decision",
       "refreshRunning": "Running",
       "refreshFailed": "Failed",
-      "manualsUnit": "manuals the assistant can search",
+      "manualsUnit": "manuals MakerLAB AI can search",
       "manualsTotal": "Manuals on file",
       "manualsFailed": "Could not be read",
       "maintenanceUnit": "open tickets",
@@ -2008,7 +2008,7 @@
       "source": {
         "research": "From research",
         "refresh": "From refresh",
-        "chat": "From the assistant",
+        "chat": "From MakerLAB AI",
         "mcp": "From an MCP client",
         "audit": "From the audit",
         "gui": "From a person"
@@ -2069,7 +2069,7 @@
     },
     "insights": {
       "title": "Insights",
-      "lede": "What the lab asks about, which manuals answer it, and what the assistant could not. Anonymous counts: nothing here says who asked.",
+      "lede": "What the lab asks about, which manuals answer it, and what MakerLAB AI could not. Anonymous counts: nothing here says who asked.",
       "facts": {
         "period": "Last {days} days",
         "since": "Counting since {date}",
@@ -2089,7 +2089,7 @@
       "unreadable": "The usage counts could not be read just now. Nothing has been lost; try again in a moment.",
       "summary": {
         "label": "Totals for the period",
-        "chatTurns": "Assistant questions (app)",
+        "chatTurns": "MakerLAB AI questions (app)",
         "mcpCalls": "MCP tool calls",
         "toolViews": "Tool page views",
         "qrScans": "QR scans on machines",
@@ -2132,8 +2132,8 @@
       },
       "heatmap": {
         "heading": "Busiest times",
-        "note": "Assistant questions and tool page views by hour, in lab time ({timeZone}).",
-        "tableLabel": "Assistant questions and tool page views by day of the week and hour",
+        "note": "MakerLAB AI questions and tool page views by hour, in lab time ({timeZone}).",
+        "tableLabel": "MakerLAB AI questions and tool page views by day of the week and hour",
         "day": "Day",
         "cell": "{day} {hour}:00 — {count}",
         "days": {
@@ -2148,7 +2148,7 @@
       },
       "manuals": {
         "heading": "Manuals cited",
-        "tableLabel": "Manuals the assistant cited, how often, and the pages cited most",
+        "tableLabel": "Manuals MakerLAB AI cited, how often, and the pages cited most",
         "columnManual": "Manual",
         "columnTool": "Tool",
         "columnCitations": "Citations",
@@ -2159,7 +2159,7 @@
       },
       "gaps": {
         "heading": "Unanswered",
-        "note": "Questions the assistant could not answer, each once with how often it was asked. The wording is scrubbed of emails, phone numbers and IDs, shown only here, and deleted 30 days after it was last asked.",
+        "note": "Questions MakerLAB AI could not answer, each once with how often it was asked. The wording is scrubbed of emails, phone numbers and IDs, shown only here, and deleted 30 days after it was last asked.",
         "facts": "{open} open · {filed} filed · {dismissed} dismissed",
         "empty": "No open unanswered questions.",
         "listLabel": "Unanswered questions",
@@ -2169,7 +2169,7 @@
           "not_in_catalog": "Not in the catalog",
           "no_manual_passage": "Manual has no answer",
           "no_search_results": "Search found nothing",
-          "honest_absence": "Assistant said it does not know"
+          "honest_absence": "MakerLAB AI said it does not know"
         },
         "addManual": "Add a manual",
         "addManualFor": "Add a manual to {tool}",
@@ -2189,7 +2189,7 @@
       },
       "value": {
         "title": "Value report",
-        "lede": "What the assistant saved the lab, estimated from anonymous usage counts — a page to print for whoever funds it.",
+        "lede": "What MakerLAB AI saved the lab, estimated from anonymous usage counts — a page to print for whoever funds it.",
         "metaTitle": "Value report",
         "reportTitle": "{assistant} — {period} value report",
         "customPeriod": "{from} – {to}",
@@ -2243,10 +2243,10 @@
         },
         "formulas": {
           "heading": "How these numbers are calculated",
-          "questions": "Questions answered = {app} assistant questions in the app + {mcp} over MCP ({lookups} catalogue lookups by outside assistants ÷ {perQuestion} lookups per question, rounded down) = {total}.",
-          "questionsNoMcp": "Questions answered = {app} assistant questions in the app. MCP lookups by outside assistants ({lookups}) are not counted, as the lab chose.",
-          "handled": "Handled without staff = {app} app questions − {unanswered} the assistant could not answer ({kinds}) + {mcp} MCP questions = {handled}, or {share} of questions. MCP has no “could not answer” signal, so every MCP question counts as handled.",
-          "handledNoMcp": "Handled without staff = {app} app questions − {unanswered} the assistant could not answer ({kinds}) = {handled}, or {share} of questions.",
+          "questions": "Questions answered = {app} MakerLAB AI questions in the app + {mcp} over MCP ({lookups} catalogue lookups by outside assistants ÷ {perQuestion} lookups per question, rounded down) = {total}.",
+          "questionsNoMcp": "Questions answered = {app} MakerLAB AI questions in the app. MCP lookups by outside assistants ({lookups}) are not counted, as the lab chose.",
+          "handled": "Handled without staff = {app} app questions − {unanswered} MakerLAB AI could not answer ({kinds}) + {mcp} MCP questions = {handled}, or {share} of questions. MCP has no “could not answer” signal, so every MCP question counts as handled.",
+          "handledNoMcp": "Handled without staff = {app} app questions − {unanswered} MakerLAB AI could not answer ({kinds}) = {handled}, or {share} of questions.",
           "noKinds": "none counted",
           "hours": "Staff hours saved ≈ {handled} handled questions × {minutes} minutes a staff member would otherwise spend ÷ 60 = {hours} hours.",
           "value": "Estimated value ≈ {hours} hours × {cost} loaded staff cost per hour = {value}.",
@@ -2265,7 +2265,7 @@
           "unansweredFiled": "Unanswered questions filed as catalogue corrections",
           "unansweredFixed": "… of those, fixed",
           "manualsAdded": "Manuals made searchable",
-          "ticketsFiled": "Problem reports filed through the assistant",
+          "ticketsFiled": "Problem reports filed through MakerLAB AI",
           "ticketsResolved": "… of those, resolved",
           "medianDays": "Median days to resolve",
           "medianDaysValue": "{days, plural, =0 {same day} one {# day} other {# days}}"
@@ -2298,7 +2298,7 @@
           "termStart": "{term} starts",
           "termEnd": "{term} ends",
           "unanswered": "Not handled without staff",
-          "unansweredHint": "Questions the assistant could not answer, by why. A ticked kind is subtracted from the questions handled.",
+          "unansweredHint": "Questions MakerLAB AI could not answer, by why. A ticked kind is subtracted from the questions handled.",
           "mcp": "Count questions from outside assistants (MCP)",
           "mcpPerQuestion": "MCP lookups per question",
           "mcpHint": "An outside assistant usually searches and then reads a tool: about two lookups make one question.",
@@ -2678,7 +2678,7 @@
       "searchFor": "“{query}”",
       "select": "Select “{name}”",
       "selectedCount": "{count, plural, one {# selected} other {# selected}}",
-      "askAssistant": "Ask the assistant about these",
+      "askAssistant": "Ask MakerLAB AI about these",
       "clearSelection": "Clear selection"
     }
   },
@@ -2708,9 +2708,9 @@
     "draft": "Draft",
     "hint": "↑ ↓ to move · Enter to open · Esc to close",
     "toolsUnavailable": "The tool list could not be read.",
-    "assistant": "Assistant",
-    "ask": "Ask the assistant: “{query}”",
-    "askEmpty": "Ask the assistant"
+    "assistant": "MakerLAB AI",
+    "ask": "Ask MakerLAB AI: “{query}”",
+    "askEmpty": "Ask MakerLAB AI"
   },
   "actions": {
     "summary": {
@@ -2899,7 +2899,7 @@
       "failedReason": "Not done: {reason}",
       "conflict": "Not done: this changed after the card was made, so nothing was saved.",
       "driftedNow": "{field} is now {value}.",
-      "expiredHint": "This card expired before it was confirmed, so nothing changed. Ask the assistant again.",
+      "expiredHint": "This card expired before it was confirmed, so nothing changed. Ask MakerLAB AI again.",
       "refused": "{count, plural, one {# more was} other {# more were}} not proposed: {reasons}",
       "view": "Open the page",
       "requestFailed": "That did not go through. Nothing was changed; try again.",
@@ -2950,8 +2950,8 @@
     "ticketsWorking": "{count} being worked on",
     "ticketsWaiting": "{count} waiting",
     "ticketsUnavailable": "Not available",
-    "askHeading": "Ask the assistant on your phone",
-    "openAssistant": "Open the assistant",
+    "askHeading": "Ask MakerLAB AI on your phone",
+    "openAssistant": "Open MakerLAB AI",
     "qrLabel": "QR code that opens {url}",
     "featuredHeading": "Featured",
     "featuredTool": "Tool",
@@ -2963,7 +2963,7 @@
     "offlineBar": "Offline — showing {time}",
     "demo": "Demo data",
     "unavailableTitle": "Lab status is unavailable right now",
-    "unavailableBody": "The assistant still works: scan the code to ask it."
+    "unavailableBody": "MakerLAB AI still works: scan the code to ask it."
   },
   "map": {
     "crumb": "Map",
@@ -3018,7 +3018,7 @@
   },
   "product": {
     "metaTitle": "MakerLAB AI",
-    "metaDescription": "The AI in MakerLAB Tools helps you operate, debug and create in the Cornell Tech MakerLAB: answers from each machine's own manual, maintenance tickets from the chat, a lab status screen, and staff tools that ask before they change anything.",
+    "metaDescription": "MakerLAB AI helps you operate, debug and create in the Cornell Tech MakerLAB: answers from each machine's own manual, maintenance tickets from the chat, a lab status screen, and staff tools that ask before they change anything.",
     "eyebrow": "Product",
     "heroKicker": "MakerLAB Tools · Cornell Tech",
     "heroTitle": "MakerLAB AI",
@@ -3031,7 +3031,7 @@
     "demoCaption": "Demo data",
     "liveCaption": "Live site, 2026-09-28",
     "videoHeading": "See it in under a minute",
-    "videoLede": "The X1-Carbon's page, a question to the assistant, its answer from the quick start guide, then the lab status screen. Recorded on the live site.",
+    "videoLede": "The X1-Carbon's page, a question to MakerLAB AI, its answer from the quick start guide, then the lab status screen. Recorded on the live site.",
     "videoLabel": "Walkthrough of MakerLAB Tools",
     "videoFallback": "Your browser can't play this video.",
     "videoDownload": "Download the video",
@@ -3039,8 +3039,8 @@
     "transcript": {
       "one": "The Bambu Lab X1-Carbon's tool page: photo, training and PPE requirements, the safety panel, documents and the machines in the lab.",
       "two": "The chat opens and someone asks: “What does the quick start guide say about the first print?”",
-      "three": "The assistant answers in steps taken from Bambu Lab's quick start guide and names the page it used.",
-      "four": "The lab status screen: machines that are down, open tickets, today's hours, a featured tool and a QR code that opens the assistant on a phone."
+      "three": "MakerLAB AI answers in steps taken from Bambu Lab's quick start guide and names the page it used.",
+      "four": "The lab status screen: machines that are down, open tickets, today's hours, a featured tool and a QR code that opens MakerLAB AI on a phone."
     },
     "pillarsHeading": "Operate, debug, create",
     "pillarsLede": "Three kinds of question, one AI. Each answer below is real, from the X1-Carbon's page on the live site.",
@@ -3049,19 +3049,19 @@
         "label": "Operate",
         "question": "What does the quick start guide say about the first print?",
         "body": "How to use a machine, step by step, from its own manual, with the page it came from.",
-        "alt": "The assistant's answer about the X1-Carbon's first print: four steps from the quick start guide, citing page 8."
+        "alt": "MakerLAB AI's answer about the X1-Carbon's first print: four steps from the quick start guide, citing page 8."
       },
       "debug": {
         "label": "Debug",
         "question": "My first layer isn't sticking to the build plate. What should I check?",
         "body": "What to check when something goes wrong, what not to force, and when to stop and get staff.",
-        "alt": "The assistant's answer about first-layer adhesion: plate, slicer plate type, bed levelling, material settings, then ask staff."
+        "alt": "MakerLAB AI's answer about first-layer adhesion: plate, slicer plate type, bed levelling, material settings, then ask staff."
       },
       "create": {
         "label": "Create",
         "question": "I want to print a two-colour phone stand. Which printer, and what settings?",
         "body": "From an idea to the right machine in this lab, the material, and the settings to start from.",
-        "alt": "The assistant recommends the X1-Carbon with its AMS for a two-colour phone stand, PLA, and how to assign colours in Bambu Studio."
+        "alt": "MakerLAB AI recommends the X1-Carbon with its AMS for a two-colour phone stand, PLA, and how to assign colours in Bambu Studio."
       }
     },
     "featuresHeading": "What's in it",
@@ -3073,22 +3073,22 @@
       },
       "citations": {
         "title": "Answers you can check",
-        "body": "The assistant searches each machine's manual, page by page, and links the exact pages it used. Tap a page reference to open the manual there. When the manual doesn't cover a question, it says so instead of guessing.",
+        "body": "MakerLAB AI searches each machine's manual, page by page, and links the exact pages it used. Tap a page reference to open the manual there. When the manual doesn't cover a question, it says so instead of guessing.",
         "alt": "An answer about replacing the Form 4's resin tank, with page references 38 and 20 and a list of the two manual pages it used."
       },
       "intake": {
         "title": "Add equipment from a photo or a list",
-        "body": "Staff photograph a machine or paste an inventory list. The assistant identifies each item, then researches it in the background: the manufacturer's page, specs, the manual and a clean product photo. Nothing is published until a staff member reviews and approves it.",
+        "body": "Staff photograph a machine or paste an inventory list. MakerLAB AI identifies each item, then researches it in the background: the manufacturer's page, specs, the manual and a clean product photo. Nothing is published until a staff member reviews and approves it.",
         "alt": "The review page for a researched Prusa MK4S: identified name and brand, a high-confidence grade with its reasons and sources, and the proposed record."
       },
       "tickets": {
         "title": "Maintenance tickets from the chat",
-        "body": "Tell the assistant a machine is broken. It helps you try the obvious fix first, then files a ticket in the maintenance queue with the machine, the unit and a priority. Staff see it at once, and the lab screen counts it until it's resolved.",
-        "alt": "A chat on the Trotec Speedy 400's page: the assistant suggests checking the focus, then files a high-priority ticket."
+        "body": "Tell MakerLAB AI a machine is broken. It helps you try the obvious fix first, then files a ticket in the maintenance queue with the machine, the unit and a priority. Staff see it at once, and the lab screen counts it until it's resolved.",
+        "alt": "A chat on the Trotec Speedy 400's page: MakerLAB AI suggests checking the focus, then files a high-priority ticket."
       },
       "kiosk": {
         "title": "A lab status screen",
-        "body": "Open /kiosk on the TV or an iPad at the door: machines that are down, open tickets, today's hours and a featured tool. It refreshes itself, and its QR code opens the assistant on a visitor's phone.",
+        "body": "Open /kiosk on the TV or an iPad at the door: machines that are down, open tickets, today's hours and a featured tool. It refreshes itself, and its QR code opens MakerLAB AI on a visitor's phone.",
         "alt": "The lab status screen: three machines with units down, 13 open tickets, the hours, a QR code and a featured tool."
       },
       "projects": {
@@ -3098,12 +3098,12 @@
       },
       "insights": {
         "title": "Usage insights and a value report",
-        "body": "Which tools people ask about, which they never do, the busiest hours, and the questions the assistant couldn't answer, so staff can add the missing manual. The value report turns this into staff hours saved and after-hours coverage, on one printable page for whoever funds the lab.",
+        "body": "Which tools people ask about, which they never do, the busiest hours, and the questions MakerLAB AI couldn't answer, so staff can add the missing manual. The value report turns this into staff hours saved and after-hours coverage, on one printable page for whoever funds the lab.",
         "alt": "The value report: questions answered, the share handled without staff, staff hours saved, estimated value and questions asked outside staffed hours, with each formula written out."
       },
       "actions": {
         "title": "Anything the admin screens do, from a sentence",
-        "body": "Staff can ask the assistant to resolve a ticket, publish a tool, add a unit or approve intake. It prepares the change on a card that shows exactly what will change, and nothing happens until you press Confirm. It acts with your permissions, never more.",
+        "body": "Staff can ask MakerLAB AI to resolve a ticket, publish a tool, add a unit or approve intake. It prepares the change on a card that shows exactly what will change, and nothing happens until you press Confirm. It acts with your permissions, never more.",
         "never": "It never touches the super admin role, removes people, blocks addresses, handles secrets, deployments or backups, shows anyone's full email address, or sends email.",
         "alt": "A confirmation card in the chat: update the ticket “Laser bed out of focus”, status open to resolved, with the resolution note, and Confirm and Dismiss buttons."
       },
@@ -3114,7 +3114,7 @@
       },
       "languages": {
         "title": "12 languages",
-        "body": "The site and the assistant work in English, 中文, Español, हिन्दी, 한국어, العربية, Français, Português, Русский, Türkçe, 日本語 and עברית. Pick one from the language menu; tickets still reach staff in English.",
+        "body": "The site and MakerLAB AI work in English, 中文, Español, हिन्दी, 한국어, العربية, Français, Português, Русский, Türkçe, 日本語 and עברית. Pick one from the language menu; tickets still reach staff in English.",
         "alt": "The X1-Carbon's tool page in Japanese."
       },
       "map": {
@@ -3167,17 +3167,17 @@
     "privacy": {
       "signIn": "Signing in uses your Cornell Google account. Anyone can browse and ask; signing in unlocks reporting as yourself, the floor map and staff tools.",
       "usage": "Usage is counted anonymously: which tools and manuals are asked about, and which questions go unanswered. Nothing records who asked.",
-      "permissions": "The assistant acts only with your permissions and asks before any change. Typing “yes” doesn't confirm anything; the Confirm button does.",
+      "permissions": "MakerLAB AI acts only with your permissions and asks before any change. Typing “yes” doesn't confirm anything; the Confirm button does.",
       "safety": "For safety, access and training sign-offs it sends you to MakerLAB staff. It isn't a substitute for a checkout."
     },
     "creditsHeading": "Who made it",
     "credits": "Built by Isaac Steinberg (Tech Lead, Johnson Cornell Tech MBA '26) for the MakerLAB, run by Niti Parikh (Director) and Luis Rodrigo Navarro (Assistant Director).",
     "aboutLink": "About the MakerLAB",
     "closingHeading": "Try it on a real machine",
-    "closingLede": "Open the X1-Carbon's page and ask the assistant anything about it.",
+    "closingLede": "Open the X1-Carbon's page and ask MakerLAB AI anything about it.",
     "quickStartPage": {
       "metaTitle": "Quick start",
-      "metaDescription": "Eight steps to MakerLAB Tools and its assistant: ask about a machine, follow a manual citation, report a problem, add equipment, set up the lab screen and connect your own AI.",
+      "metaDescription": "Eight steps to MakerLAB Tools and MakerLAB AI: ask about a machine, follow a manual citation, report a problem, add equipment, set up the lab screen and connect your own AI.",
       "title": "Quick start",
       "lede": "What's there, what to try, and how to use it. Steps 1–4 and 8 work for anyone; 5–7 are for MakerLAB staff.",
       "stepLabel": "Step {n}",
@@ -3192,9 +3192,9 @@
           "alt": "The tools gallery: a search box, filters and tool cards with photos."
         },
         "ask": {
-          "title": "Ask the assistant on a tool page",
-          "body": "Open the Bambu Lab X1-Carbon and press the orange button at the bottom right. Ask “How do I start a print with the AMS?”, or “What does the quick start guide say about the first print?” (shown here). The assistant knows which machine you're looking at, so you don't have to name it.",
-          "alt": "The assistant's answer on the X1-Carbon's page, citing the quick start guide."
+          "title": "Ask MakerLAB AI on a tool page",
+          "body": "Open the Bambu Lab X1-Carbon and press the orange button at the bottom right. Ask “How do I start a print with the AMS?”, or “What does the quick start guide say about the first print?” (shown here). MakerLAB AI knows which machine you're looking at, so you don't have to name it.",
+          "alt": "MakerLAB AI's answer on the X1-Carbon's page, citing the quick start guide."
         },
         "cite": {
           "title": "Follow a manual citation",
@@ -3203,12 +3203,12 @@
         },
         "report": {
           "title": "Report a problem",
-          "body": "Tell the assistant what's wrong, or press Report in the header. It suggests the obvious checks first, then files a ticket for the right machine. Sign in so staff know who reported it.",
-          "alt": "The assistant files a maintenance ticket for the Trotec Speedy 400."
+          "body": "Tell MakerLAB AI what's wrong, or press Report in the header. It suggests the obvious checks first, then files a ticket for the right machine. Sign in so staff know who reported it.",
+          "alt": "MakerLAB AI files a maintenance ticket for the Trotec Speedy 400."
         },
         "intake": {
           "title": "Add a tool from a photo",
-          "body": "Sign in with your Cornell Google account and open Admin → Intake. Press Ask the assistant, attach a photo of the machine (or an inventory list) and say “add this”. Check the name it identified, then press Research selected. Research runs in the background; when the item is ready, open it on Intake, review the proposed record and approve it.",
+          "body": "Sign in with your Cornell Google account and open Admin → Intake. Press Ask MakerLAB AI, attach a photo of the machine (or an inventory list) and say “add this”. Check the name it identified, then press Research selected. Research runs in the background; when the item is ready, open it on Intake, review the proposed record and approve it.",
           "alt": "An intake item ready for review, with its confidence grade, sources and proposed record."
         },
         "people": {
@@ -3229,7 +3229,7 @@
       },
       "tryHeading": "Things to try",
       "try": {
-        "firstPrint": "Ask the X1-Carbon's assistant how to start your first print",
+        "firstPrint": "Ask MakerLAB AI how to start your first print on the X1-Carbon",
         "cutAcrylic": "Ask “What can cut 3 mm acrylic?” from the home page",
         "language": "Switch the language menu to 日本語 or Español and ask again",
         "kiosk": "Open the lab status screen and scan its QR code with your phone",

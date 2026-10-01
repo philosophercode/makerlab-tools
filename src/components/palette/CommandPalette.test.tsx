@@ -167,7 +167,7 @@ it("offers the assistant only when it is given onAsk (phase 5's hook)", async ()
   render(<CommandPalette role="admin" tools={TOOLS} onAsk={onAsk} />);
   dialog = await openPalette(user);
   await user.type(within(dialog).getByRole("combobox"), "how do I");
-  await user.click(within(dialog).getByRole("option", { name: /Ask the assistant: “how do I”/ }));
+  await user.click(within(dialog).getByRole("option", { name: /Ask MakerLAB AI: “how do I”/ }));
   expect(onAsk).toHaveBeenCalledWith("how do I");
 });
 
@@ -176,14 +176,14 @@ it("opens the assistant with nothing typed, and keeps it last so Enter opens the
   const onAsk = vi.fn();
   render(<CommandPalette role="admin" tools={TOOLS} onAsk={onAsk} />);
   let dialog = await openPalette(user);
-  await user.click(within(dialog).getByRole("option", { name: "Ask the assistant" }));
+  await user.click(within(dialog).getByRole("option", { name: "Ask MakerLAB AI" }));
   expect(onAsk).toHaveBeenCalledWith("");
 
   dialog = await openPalette(user);
   await user.type(within(dialog).getByRole("combobox"), "form 4");
   const options = within(dialog).getAllByRole("option");
   expect(options[0]).toHaveAccessibleName(/Form 4/);
-  expect(options[options.length - 1]).toHaveAccessibleName("Ask the assistant: “form 4”");
+  expect(options[options.length - 1]).toHaveAccessibleName("Ask MakerLAB AI: “form 4”");
   await user.keyboard("{Enter}");
   expect(router.push).toHaveBeenCalledWith("/tools/form-4");
   expect(onAsk).toHaveBeenCalledTimes(1);

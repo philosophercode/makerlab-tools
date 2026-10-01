@@ -55,7 +55,7 @@ function pageContext(path: string, selection: PageSelection | null): { path: str
 }
 
 /**
- * The MakerLAB Assistant (UI system spec §9; phase 5b; identity spec
+ * MakerLAB AI (UI system spec §9; phase 5b; identity spec
  * 2026-09-28): a docked side sheet on AI Elements. `ChatFab` loads this module the first time the chat opens —
  * it carries the AI SDK, the sheet and the composer, which no page needs
  * before then — and keeps it mounted from then on, so a conversation survives
@@ -63,9 +63,10 @@ function pageContext(path: string, selection: PageSelection | null): { path: str
  *
  * - **Where it opens.** On public pages, `ChatFab`'s square button at the
  *   inline-end corner; on `/admin/*` that button is not drawn (it collided
- *   with bulk bars) and the section bar's **Ask the assistant** and ⌘K open it
+ *   with bulk bars) and the section bar's **Ask MakerLAB AI** and ⌘K open it
  *   instead. Anything else — Report, Add equipment, the QR notice — opens it
- *   through `ChatLauncherContext`, optionally with a first message. On
+ *   through `ChatLauncherContext`, optionally with a first message in the
+ *   composer for the person to send (only ⌘K's typed question is sent at once). On
  *   `/kiosk` `ChatFab` draws nothing at all: that screen is read-only.
  * - **The sheet** (`ui/sheet`): 440px from `sm`, the whole screen on a phone,
  *   frosted, the focus trapped inside, Escape closes, focus returns to what
@@ -233,20 +234,43 @@ export function ChatPanel() {
     sendMessage(files.length > 0 ? { text, files } : { text });
   }
 
-  // Auto-send a seeded message when something outside ChatFab (e.g. the nav
-  // "Report" / "Add equipment" buttons, ⌘K's "Ask the assistant: …") opens the
-  // chat with an intent. The nonce guard makes this idempotent so a re-render
-  // never resends, and we wait until any in-flight turn finishes before sending.
+  // An opening message from outside ChatFab (the nav's Report, Add equipment,
+  // the QR notice, ⌘K). Most only **pre-fill** the composer — focused, caret
+  // at the end — and wait for the person to press Send, so a button never
+  // spends a message on words the person did not write. ⌘K's "Ask MakerLAB
+  // AI: “…”" carries text the person typed and is sent at once (`send`),
+  // after any in-flight turn finishes. The nonce guard makes this idempotent,
+  // so a re-render never refills or resends.
   const lastSeedNonce = useRef<number | null>(null);
+  const prefilled = useRef<string | null>(null);
   useEffect(() => {
-    if (!pendingSeed || isLoading) return;
+    if (!pendingSeed) return;
+    if (pendingSeed.send && isLoading) return;
     if (lastSeedNonce.current !== pendingSeed.nonce) {
       lastSeedNonce.current = pendingSeed.nonce;
-      send(pendingSeed.text);
+      if (pendingSeed.send) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- a one-shot handoff from the launcher, guarded by the nonce.
+        send(pendingSeed.text);
+      } else {
+        prefilled.current = pendingSeed.text;
+        setDraft(pendingSeed.text);
+      }
     }
     consumeSeed();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `send`/`consumeSeed` are stable for this purpose; the nonce ref guards against resends.
   }, [pendingSeed, isLoading]);
+
+  // After a pre-fill lands in the composer: focus it with the caret at the end,
+  // after the sheet's own open focus (which may have chosen the sheet on touch).
+  useEffect(() => {
+    if (prefilled.current === null || draft !== prefilled.current) return;
+    prefilled.current = null;
+    const composer = textareaRef.current;
+    if (!composer || composer.disabled) return;
+    composer.focus();
+    const end = composer.value.length;
+    composer.setSelectionRange(end, end);
+  }, [draft]);
 
   // A chip with a pre-run answer (starter answers) shows the question and that
   // answer at once, drawn by the same `ChatMessage` as a live one, with no

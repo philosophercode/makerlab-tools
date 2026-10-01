@@ -1,7 +1,7 @@
-# What the MakerLab assistant can do
+# What MakerLAB AI can do
 
-The assistant is the chat button on every page (on admin pages, **Ask the
-assistant** in the section bar). What it can do depends on who is signed in:
+MakerLAB AI is the chat button on every page (on admin pages, **Ask MakerLAB
+AI** in the section bar). What it can do depends on who is signed in:
 it is offered exactly what your account could do by hand, never more.
 
 The full list, by role — generated from the same definitions the assistant
@@ -27,7 +27,7 @@ do"), linked from the chat, About, `/mcp` and the product page.
 
 ## Lab staff (SuperMakers and directors)
 
-The assistant can prepare almost anything you do in `/admin`, in a sentence:
+MakerLAB AI can prepare almost anything you do in `/admin`, in a sentence:
 
 | Ask | What it prepares |
 |---|---|
@@ -44,13 +44,13 @@ Directors can also ask for **people** changes: "Add luis@cornell.edu as an admin
 with title Supermaker", "Set Niti's title to Tech Lead", "Make Luis a user".
 Making someone a super admin, changing a super admin's role, granting research
 allowances, removing someone and blocking or unblocking an address are done on
-the **People** page only; the assistant says so.
+the **People** page only; MakerLAB AI says so.
 
 ### Nothing changes until you press Confirm
 
-The assistant never makes a change itself. It puts a **card** in front of you
-showing exactly what will change — read from the database, not written by the
-assistant — and the change happens only when you press **Confirm**. Typing "yes"
+MakerLAB AI never makes a change itself. It puts a **card** in front of you
+showing exactly what will change — read from the database, not written by
+MakerLAB AI — and the change happens only when you press **Confirm**. Typing "yes"
 in the chat does not confirm anything. Confirming checks your permission and
 every rule again, just as the button on the page would; if the record changed
 since the card was drawn, nothing is saved and the card says what it is now.
@@ -72,9 +72,9 @@ since the card was drawn, nothing is saved and the card says what it is now.
   re-processing a manual and refreshing research come as cards that show how
   much of today's allowance is left.
 - **"These", "this", "here"** mean the page you are on and the rows you have
-  ticked; the assistant asks when nothing is ticked.
+  ticked; MakerLAB AI asks when nothing is ticked.
 - **After reading outside text** (a web page, a manual, a ticket or an imported
-  list) in the same message, the assistant will not prepare changes to people or
+  list) in the same message, MakerLAB AI will not prepare changes to people or
   anything that cannot be undone, and says so. Ask again in a new message.
 
 ## An assistant on your own computer (MCP)

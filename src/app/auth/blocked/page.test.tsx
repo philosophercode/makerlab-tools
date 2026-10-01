@@ -18,7 +18,7 @@ describe("/auth/blocked", () => {
     render(<AuthBlockedPage />);
 
     expect(
-      screen.getByText(/browse the whole catalog and ask the assistant questions without signing in/i)
+      screen.getByText(/browse the whole catalog and ask MakerLAB AI questions without signing in/i)
     ).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Browse the catalog" })).toHaveAttribute("href", "/");
   });

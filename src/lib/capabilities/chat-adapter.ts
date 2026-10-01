@@ -159,7 +159,7 @@ export function composeChat(
 // ── Prompt sections (parity with the original chat route) ───────────
 
 function introSection(): string {
-  return `You are the ${siteConfig.chatAssistantName} — a friendly, knowledgeable helper for ${siteConfig.audience} using the ${siteConfig.institution} MakerLAB. Answer questions about lab tools, training requirements, safety, materials, and which machines are right for a given project. Be concise, accurate, and grounded only in the catalog and the lab context provided below. If the user asks about a tool that isn't in the catalog, say so honestly.`;
+  return `You are ${siteConfig.chatAssistantName} — a friendly, knowledgeable helper for ${siteConfig.audience} using the ${siteConfig.institution} MakerLAB. Answer questions about lab tools, training requirements, safety, materials, and which machines are right for a given project. Be concise, accurate, and grounded only in the catalog and the lab context provided below. If the user asks about a tool that isn't in the catalog, say so honestly.`;
 }
 
 function languageSection(locale: string): string {

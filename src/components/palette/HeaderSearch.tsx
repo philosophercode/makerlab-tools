@@ -15,8 +15,10 @@ import type { PaletteTool } from "./palette-types";
  * may open (`PaletteScope`), added to the published list. Anonymous until one of them has answered, so the
  * palette never offers a page that would refuse the viewer.
  *
- * The palette also opens the assistant (phase 5b, `onAsk`): what was typed
- * becomes the first message. The chat is for everybody, so this is on every
+ * The palette also opens MakerLAB AI (phase 5b, `onAsk`): what was typed
+ * becomes the first message and is **sent at once** — the person wrote it and
+ * chose "Ask MakerLAB AI: “…”". Every other entry point (Report, Add
+ * equipment, the QR notice) only pre-fills the composer. The chat is for everybody, so this is on every
  * page; on admin pages, where the floating button is not drawn, it is one of
  * the two ways in (with the section bar's button).
  */
@@ -27,5 +29,5 @@ export function HeaderSearch({ tools }: { tools: readonly PaletteTool[] }) {
   const role = scope?.role ?? identity?.role ?? "anonymous";
   const drafts = scope?.drafts;
   const all = useMemo(() => (drafts && drafts.length > 0 ? [...tools, ...drafts] : tools), [tools, drafts]);
-  return <CommandPalette role={role} tools={all} onAsk={(query) => open(query || undefined)} />;
+  return <CommandPalette role={role} tools={all} onAsk={(query) => open(query || undefined, { send: true })} />;
 }
