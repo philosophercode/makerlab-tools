@@ -2,6 +2,7 @@ import { sql, type SQL } from "drizzle-orm";
 import { getDb } from "../db/client.ts";
 import { rawRows } from "../db/raw.ts";
 import type { Db } from "../db/types.ts";
+import { labTimezone } from "../lab-time.ts";
 import { QUESTION_KINDS, type GapKind, type QuestionKind } from "../db/schema/vocabulary.ts";
 
 /**
@@ -23,6 +24,20 @@ import { QUESTION_KINDS, type GapKind, type QuestionKind } from "../db/schema/vo
 
 export const INSIGHT_PERIODS = [7, 30, 90] as const;
 export type InsightPeriod = (typeof INSIGHT_PERIODS)[number];
+
+/**
+ * The time zone the Insights reads use: `LAB_TIMEZONE`, or UTC when `Intl`
+ * does not recognise it. Shared by the page and MCP's `get_usage_summary`, so
+ * both put an event in the same lab day and hour.
+ */
+export function insightsTimeZone(timeZone: string = labTimezone()): string {
+  try {
+    new Intl.DateTimeFormat("en", { timeZone });
+    return timeZone;
+  } catch {
+    return "UTC";
+  }
+}
 
 export interface InsightsQuery {
   days: InsightPeriod;

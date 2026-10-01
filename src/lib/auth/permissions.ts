@@ -59,7 +59,12 @@ export const statement = {
   // `configure` sets the value report's assumptions (minutes per question,
   // hourly cost, staffed hours, terms) — its own grant so "directors only" is
   // one line; admins and super admins both today.
-  insights: ["view", "configure"],
+  // `export`: the same anonymous counts leaving the app through an MCP client
+  // (`get_usage_summary`, and `get_value_report` over MCP — usage insight spec
+  // amendment 2026-09-30). Directors only, like `catalog.export`: the owner
+  // decided super admins first, "admins too" is one line below. Counts and
+  // aggregates only; never the Unanswered queue's text.
+  insights: ["view", "configure", "export"],
 } as const;
 
 export const ac = createAccessControl(statement);
@@ -108,7 +113,7 @@ export const roles = {
     maintenance: ["manage"],
     feedback: ["manage"],
     mirror: ["manage"],
-    insights: ["view", "configure"],
+    insights: ["view", "configure", "export"],
     users: ["manage"],
     taxonomy: ["manage"],
     user: [...ACCOUNT_MANAGEMENT.user],

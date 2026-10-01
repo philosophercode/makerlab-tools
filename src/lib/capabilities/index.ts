@@ -11,6 +11,7 @@ import { staff } from "./staff";
 import { adminReads } from "./admin-reads";
 import { catalogReads } from "./catalog-reads";
 import { actions } from "./actions";
+import { insights } from "./insights";
 import type { Capability } from "./types";
 
 /**
@@ -52,6 +53,10 @@ import type { Capability } from "./types";
  *                    §3.4), and an MCP twin for each `mcp: "propose"` action
  *                    whose proposal waits in `/admin/proposals` (phase 7).
  *                    Each only proposes; the person's click commits.
+ *  - `insights`    — `get_usage_summary` and the MCP twin of
+ *                    `get_value_report`: anonymous usage counts, MCP only,
+ *                    super admins only (`insights.export`; usage insight spec
+ *                    amendment 2026-09-30).
  *
  * Not every tool reaches both surfaces: `chatOnly` tools are never registered
  * over MCP, and `mcpOnly` tools are never handed to the chat model.
@@ -73,10 +78,11 @@ export const CAPABILITIES: Capability[] = [
   adminReads,
   catalogReads,
   actions,
+  insights,
 ];
 
 // Re-export the individual capabilities for direct/selective use and testing.
-export { catalog, units, web, manuals, qr, maintenance, intake, flags, reports, staff, adminReads, catalogReads, actions };
+export { catalog, units, web, manuals, qr, maintenance, intake, flags, reports, staff, adminReads, catalogReads, actions, insights };
 
 // Re-export the surface adapters so consumers import from one place.
 export {

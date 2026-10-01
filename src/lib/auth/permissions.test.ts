@@ -31,6 +31,9 @@ const APP_PERMISSIONS = [
   "feedback.manage",
   "mirror.manage",
   "users.manage",
+  "insights.view",
+  "insights.configure",
+  "insights.export",
 ] as const satisfies readonly Permission[];
 
 /**
@@ -52,6 +55,8 @@ const EXPECTED: Record<Role, readonly Permission[]> = {
     "maintenance.manage",
     "feedback.manage",
     "mirror.manage",
+    "insights.view",
+    "insights.configure",
   ],
   super_admin: APP_PERMISSIONS,
 };

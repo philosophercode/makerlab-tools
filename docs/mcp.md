@@ -258,9 +258,20 @@ and marks the ones your account can use.
 | `propose_change` | — | — | ✓ (a proposal) | "Propose a clearer description for the Form 4" |
 | `list_corrections`, `list_project_queue`, `get_tool_units`, `list_imports` | — | — | ✓ | "Which units does the Prusa have?" |
 | The proposing tools (below) | — | — | ✓ (proposals) | "Publish the Form 4", "Retire Prusa #3", "Approve the two researched drills" |
+| `get_usage_summary`, `get_value_report` | — | — | Directors only (super admins) | "How is MakerLAB AI being used this month?", "How many staff hours did we save this fall?" |
 
 A read-only token or connection gets the reads in its column and none of the
 tools that file or change anything.
+
+**Usage numbers (directors only).** Signed in as a super admin, your assistant can
+read the lab's anonymous usage counts — the same numbers as the Insights page.
+`get_usage_summary` is the **Usage** tab for the last 7, 30 or 90 days: questions
+asked, MCP calls, page views, QR scans, kiosk visits, manual citations, how many
+questions went unanswered, the most- and never-asked-about tools, kinds of
+question, the busiest hours and the most-cited manuals. Staff activity is left out
+unless you ask it to include staff. `get_value_report` is the value report for a
+term or date range. Both are counts only: no question anybody asked, and nothing
+about any person. They only read.
 
 ### Changes are proposals you confirm in the app
 

@@ -734,3 +734,17 @@ seeded ticket as the signed-in person.
 harness gained `context.as` (`student` / `staff`, the demo accounts, composed through
 `capabilitiesForIdentity`), `history` (earlier turns), an eval-only open Form 4 ticket
 (`evals/ticket-fixture.ts`) and `EVAL_CASES` to run one file.
+
+### 2026-09-30 — Usage counts for super admins
+
+**Why.** The owner decided (2026-09-30) that super admins may pull the lab's anonymous usage data
+over MCP; admins maybe later. The detail is the usage insight spec's amendment of the same date.
+
+**What changes here.** Two reads join the MCP tool set, **`get_usage_summary`** (the Insights
+page's Usage tab for 7/30/90 days) and **`get_value_report`** (an MCP twin of the chat tool), both
+`mcpOnly` and gated by their `requiredPermission`, **`insights.export`**, which only `super_admin`
+holds. §3.2 is unchanged in shape: `mcpToolAllowed` asks `can()`, so a tool held by one role needs a
+permission held by one role, never a role check in MCP code. They are reads, so a read-only token or
+grant gets them. Counts only: no question text, nothing about a person. The `/mcp` page has three
+groups (Anyone, Signed-in, Staff); a super-admin-only tool is listed under Staff, marked for super
+admins only, and its description says "Super admins only."

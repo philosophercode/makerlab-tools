@@ -15,8 +15,7 @@ import { EmptyState } from "../../../components/system/EmptyState";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { isoDay } from "../../../lib/iso-day";
-import { labTimezone } from "../../../lib/lab-time";
-import { loadInsights, type InsightsData } from "../../../lib/usage/queries";
+import { insightsTimeZone, loadInsights, type InsightsData } from "../../../lib/usage/queries";
 import { dismissUnanswered, fileUnansweredAsCorrection } from "./actions";
 
 /**
@@ -36,22 +35,13 @@ export const metadata = {
   title: "Insights",
 };
 
-function validTimeZone(timeZone: string): string {
-  try {
-    new Intl.DateTimeFormat("en", { timeZone });
-    return timeZone;
-  } catch {
-    return "UTC";
-  }
-}
-
 export default async function AdminInsightsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const t = await getTranslations("admin.insights");
   const identity = await resolveIdentityFromHeaders();
   if (!can(identity, "insights.view")) return <AdminNotice kind="forbidden" />;
 
   const params = parseInsightsParams(await searchParams);
-  const timeZone = validTimeZone(labTimezone());
+  const timeZone = insightsTimeZone();
 
   let data: InsightsData | null;
   try {

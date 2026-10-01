@@ -25,6 +25,12 @@ MCP callers act as a person, with that person's role and never more
   (`capabilities/actions.ts`, parity spec phase 7 — see "The action layer": an
   `action_proposals` row with `surface = mcp`, confirmed by its creator on `/admin/proposals`).
   Nothing over MCP publishes or edits the catalogue (Article 5).
+- **Usage counts, super admins only** (usage insight spec amendment 2026-09-30):
+  `get_usage_summary` and the MCP twin of `get_value_report` (the `insights` capability,
+  `capabilities/insights.ts`, last in the registry), `mcpOnly` reads on `insights.export` — the one permission only
+  `super_admin` holds besides `catalog.export` and `users.manage` — so `mcpToolAllowed` lists them
+  for nobody else, read-only connections included. Counts only, no question text. `/mcp` lists them
+  under Staff, marked for super admins only.
 - **Staff queue tools, chat and MCP** (amendment 2026-09-25): `list_intake_queue`
   (`tools.approve`), `list_open_tickets` and `update_ticket` (`maintenance.manage`, through
   `lib/admin/ticket-write.ts`, the admin page's own path) in `capabilities/staff.ts`. The chat
