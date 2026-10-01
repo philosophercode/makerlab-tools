@@ -52,7 +52,7 @@ The project began on the Cornell Tech MakerLAB floor. An intern built the first 
 
 The system is built spec-first: each feature starts as a written design with open questions for the engineer and ships with several thousand automated tests, run on every change. Chat and research use OpenAI's GPT-6 Luna, with text-embedding-3-small embeddings and Cohere Rerank v4 Fast, through the Vercel AI Gateway. Model behavior is checked by an evaluation harness of 72 conversational cases (the three needs, citations, honest "I don't know" replies, staff actions, refusing unsafe changes). In a spot check of ten student questions on 30 Sep, eight got a complete, correct answer (four citing a manual page) and two were partial where the records lack the data (plywood settings, PPE); none was unsafe. Costs are in cents: about 0.25¢ for a chat turn that searches a manual (most of it the reranker), 2–5¢ to research a new tool, and 1.3¢ to index 20 manuals. Fig. 3 shows a *create* answer.
 
-![Fig. 3: The start of a create answer from the catalog page. MakerLAB AI plans a chair across the lab's own CNC routers and laser cutters, cites a manual page, and flags training.](fig-assistant-plan-v2.png "width=1.3in")
+![Fig. 3: The start of a create answer from the catalog page. MakerLAB AI plans a chair across the lab's own CNC routers and laser cutters, cites a manual page, and flags training.](fig-assistant-plan-v2.png "width=1.25in")
 
 ## 4. The Demonstration
 
@@ -64,7 +64,7 @@ The assistant is deployed; its benefits to students are not yet measured. The in
 
 ## Acknowledgements
 
-We thank the MakerLAB staff, the SuperMakers and interns at Cornell Tech and Cornell University, and the students who make the lab. **Use of generative AI (ISAM policy):** Isaac Steinberg designed and architected the system and directed its code generation with the AI coding assistants Claude Code (Anthropic) and Codex (OpenAI). This abstract was drafted and revised with Anthropic's Claude from the authors' notes and the project's specifications; the authors checked each claim and figure against the running system. The answers in Figs. 1 and 3 are unedited output of the deployed assistant (commercial models via the Vercel AI Gateway).
+We thank the MakerLAB staff, the SuperMakers and interns at Cornell Tech and Cornell University, and the students who make the lab a creative and ingenious place to make. **Use of generative AI (ISAM policy):** Isaac Steinberg designed and architected the system and directed its code generation with the AI coding assistants Claude Code (Anthropic) and Codex (OpenAI). This abstract was drafted and revised with Anthropic's Claude from the authors' notes and the project's specifications; the authors checked each claim and figure against the running system. The answers in Figs. 1 and 3 are unedited output of the deployed assistant (commercial models via the Vercel AI Gateway).
 
 ## References
 
