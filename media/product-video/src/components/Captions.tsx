@@ -1,11 +1,11 @@
 import { interpolate, spring, useCurrentFrame, useVideoConfig } from "remotion";
 import { FONTS } from "../brand";
 import type { Format } from "../layout";
-import { SCRIPT } from "../script";
+import { cues } from "../narration";
 
 /**
- * Burned-in captions of the voiceover script, revealed word by word across
- * each line's window. During `sideRanges` (frames) they sit in the left column,
+ * Burned-in captions of the narration, revealed word by word as each line is
+ * spoken (timing from src/narration.ts). During `sideRanges` (frames) they sit in the left column,
  * beside a phone.
  */
 export const Captions: React.FC<{ format: Format; sideRanges: [number, number][] }> = ({ format, sideRanges }) => {
@@ -13,7 +13,7 @@ export const Captions: React.FC<{ format: Format; sideRanges: [number, number][]
   const { fps } = useVideoConfig();
   const side = sideRanges.some(([a, b]) => frame >= a && frame < b);
   const t = frame / fps;
-  const line = SCRIPT.find((l) => t >= l.start - 0.1 && t <= l.end + 0.25);
+  const line = cues().find((l) => t >= l.start - 0.1 && t <= l.end + 0.25);
   if (!line || line.id === "end") return null;
   const words = line.text.split(" ");
   const span = Math.max(0.5, (line.end - line.start) * 0.82);

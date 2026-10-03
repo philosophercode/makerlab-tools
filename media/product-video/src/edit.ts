@@ -52,7 +52,7 @@ export const SCENES: Scene[] = [
         clip: "hook-qr",
         device: "desktop",
         path: "/admin/inventory/qr",
-        segments: [{ from: 0.9, to: 6.9, rate: 1.2 }],
+        segments: [{ from: 0.4, to: 7.3, rate: 1 }],
         cursor: true,
         camera: [
           { at: 0, s: 1.55, x: 760, y: 640, dur: 0 },
@@ -141,7 +141,7 @@ export const SCENES: Scene[] = [
         segments: [
           { from: 1.6, to: 4.3, rate: 1.35 },
           { from: 4.3, to: 8.3, rate: 2.2 },
-          { from: 8.3, to: 22.35, rate: 4 },
+          { from: 8.3, to: 22.35, rate: 5 },
           { from: 22.35, to: 25.0, rate: 1 },
         ],
         cursor: true,
@@ -209,10 +209,10 @@ export const SCENES: Scene[] = [
       {
         clip: "kiosk",
         device: "tv",
-        segments: [{ from: 0.5, to: 4.9, rate: 1 }],
+        segments: [{ from: 0.5, to: 3.9, rate: 1 }],
         camera: [
           { at: 0, s: 1, dur: 0 },
-          { at: 0.6, s: 1.18, x: 640, y: 560, dur: 3.8 },
+          { at: 0.6, s: 1.18, x: 640, y: 560, dur: 3.0 },
         ],
       },
       {
@@ -232,7 +232,7 @@ export const SCENES: Scene[] = [
 ];
 
 /** Seconds; the end card fills the rest of the minute. */
-export const END_CARD_SECONDS = 6.3;
+export const END_CARD_SECONDS = 6.0;
 export const FPS = 30;
 
 export const segmentSeconds = (s: Segment) => (s.to - s.from) / s.rate;

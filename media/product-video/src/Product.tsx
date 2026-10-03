@@ -1,5 +1,5 @@
 import { AbsoluteFill, Sequence, useVideoConfig } from "remotion";
-import { Soundtrack } from "./audio";
+import { Narration, Soundtrack } from "./audio";
 import { loadFonts } from "./brand";
 import { Background } from "./components/Background";
 import { Captions } from "./components/Captions";
@@ -27,7 +27,11 @@ export function plan(fps: number) {
   return { scenes, endFrom, total: Math.round((t + END_CARD_SECONDS) * fps) };
 }
 
-export const Product: React.FC<{ format: Format }> = ({ format }) => {
+/**
+ * `narration`: play the AI voice clips at their cues and leave the words to
+ * closed captions (a sidecar VTT / muxed track) instead of burning them in.
+ */
+export const Product: React.FC<{ format: Format; narration?: boolean }> = ({ format, narration = false }) => {
   const { fps } = useVideoConfig();
   const p = plan(fps);
   const sideFor = (scene: Scene) => format === "landscape" && Boolean(scene.headline) && scene.shots.some((s) => s.device === "phone");
@@ -55,7 +59,7 @@ export const Product: React.FC<{ format: Format }> = ({ format }) => {
       <Sequence from={p.endFrom} name="end card">
         <EndCard format={format} />
       </Sequence>
-      <Captions format={format} sideRanges={sideRanges} />
+      {narration ? <Narration /> : <Captions format={format} sideRanges={sideRanges} />}
       <Soundtrack />
     </AbsoluteFill>
   );

@@ -1,4 +1,5 @@
 import { Audio, getStaticFiles, interpolate, Sequence, staticFile, useVideoConfig } from "remotion";
+import { cues } from "./narration";
 
 /**
  * Sound, by configuration. Drop files into public/ and re-render:
@@ -44,6 +45,20 @@ export const Soundtrack: React.FC = () => {
           }
         />
       )}
+    </>
+  );
+};
+
+/** The AI narration: each line's clip at its cue (src/narration.ts). */
+export const Narration: React.FC = () => {
+  const { fps } = useVideoConfig();
+  return (
+    <>
+      {cues().map((c) => (
+        <Sequence key={c.id} from={Math.round(c.start * fps)} layout="none" name={`vo ${c.id}`}>
+          <Audio src={staticFile(c.file)} />
+        </Sequence>
+      ))}
     </>
   );
 };

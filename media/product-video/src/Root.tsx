@@ -17,6 +17,15 @@ export const Root: React.FC = () => {
         height={SIZE.landscape.height}
       />
       <Composition
+        id="Product16x9VO"
+        component={Product}
+        defaultProps={{ format: "landscape" as const, narration: true }}
+        durationInFrames={total}
+        fps={FPS}
+        width={SIZE.landscape.width}
+        height={SIZE.landscape.height}
+      />
+      <Composition
         id="Product9x16"
         component={Product}
         defaultProps={{ format: "portrait" as const }}
