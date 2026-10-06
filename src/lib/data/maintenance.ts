@@ -362,10 +362,15 @@ export async function createMaintenanceLog(
       })
       .returning({ id: maintenanceLogs.id });
 
-    const photosAttached = await claimAttachments(tx, input.photoAttachmentIds ?? [], {
-      ownerType: "maintenance_log",
-      ownerId: row.id,
-    });
+    // Only the reporter's own uploads (anonymous uploads for an anonymous
+    // report): the ids come from the model or an MCP client, and an unowned
+    // upload id is not a secret once it has been pasted anywhere.
+    const photosAttached = await claimAttachments(
+      tx,
+      input.photoAttachmentIds ?? [],
+      { ownerType: "maintenance_log", ownerId: row.id },
+      { uploadedBy: input.reportedByUserId || null }
+    );
 
     return {
       id: row.id,

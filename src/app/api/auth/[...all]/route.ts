@@ -80,17 +80,24 @@ async function handle(req: Request): Promise<Response> {
  * whoever holds a session. Registration is open (dynamic client registration
  * is how claude.ai and ChatGPT connect), so without this a page could send a
  * signed-in person's browser through `/mcp/authorize` to a redirect URI of its
- * own choosing and walk away with a grant. So an authorization request without
- * `consent` in its `prompt` is sent back to itself with it added — one
- * redirect, before the plugin ever sees it.
+ * own choosing and walk away with a grant. So an authorization request whose
+ * `prompt` is not exactly `consent` is sent back to itself with `prompt=consent`
+ * — one redirect, before the plugin ever sees it.
+ *
+ * **Exactly, not "contains".** The plugin tests `query.prompt === "consent"`;
+ * any other value — `none`, `CONSENT`, `login consent`, `none consent`, or the
+ * parameter given twice — skips its consent page and sends the code straight to
+ * the redirect URI. So every other value, and every repeat, is replaced rather
+ * than added to (security fix 2026-10-05).
  */
 function forceConsent(req: Request): Response | null {
   if (req.method !== "GET") return null;
   if (normalizedPath(req) !== `${AUTH_BASE_PATH}/mcp/authorize`) return null;
   const url = new URL(req.url);
-  const prompt = (url.searchParams.get("prompt") || "").split(/\s+/).filter(Boolean);
-  if (prompt.includes("consent")) return null;
-  url.searchParams.set("prompt", [...prompt, "consent"].join(" "));
+  const prompt = url.searchParams.getAll("prompt");
+  if (prompt.length === 1 && prompt[0] === "consent") return null;
+  url.searchParams.delete("prompt");
+  url.searchParams.set("prompt", "consent");
   return Response.redirect(url.toString(), 302);
 }
 

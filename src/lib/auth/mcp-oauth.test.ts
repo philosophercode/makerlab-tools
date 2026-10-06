@@ -12,7 +12,7 @@ import { GET as AUTHORIZATION_SERVER } from "../../app/.well-known/oauth-authori
 import { GET as PROTECTED_RESOURCE } from "../../app/.well-known/oauth-protected-resource/[[...resource]]/route";
 import { POST as MCP_POST } from "../../app/api/mcp/route";
 import { POST as SIGNED_IN_POST } from "../../app/api/mcp/signed-in/route";
-import { decideConsent } from "../account/oauth-consent";
+import { decideConsent, pendingConsentFor } from "../account/oauth-consent";
 import { getDb, resetDbForTests } from "../db/client";
 import { auditEvents, oauthAccessToken, oauthApplication, oauthConsent } from "../db/schema/index";
 import { signInAsNew, type SignedInSession } from "../../../test/utils/session";
@@ -54,11 +54,11 @@ function pkce() {
   return { verifier, challenge };
 }
 
-async function register(name = "Claude"): Promise<string> {
+async function register(name = "Claude", ip = "192.0.2.10"): Promise<string> {
   const res = await AUTH_POST(
     new Request(`${BASE}/api/auth/mcp/register`, {
       method: "POST",
-      headers: { "content-type": "application/json", "x-forwarded-for": "192.0.2.10" },
+      headers: { "content-type": "application/json", "x-forwarded-for": ip },
       body: JSON.stringify({ redirect_uris: [REDIRECT], token_endpoint_auth_method: "none", client_name: name }),
     })
   );
@@ -169,6 +169,44 @@ describe("authorizing an MCP client", () => {
     expect(new URL(res.headers.get("location") ?? "").searchParams.get("prompt")).toBe("consent");
   });
 
+  // Each case on its own address: the `auth` tier is per hashed IP, and this
+  // file already spends most of 192.0.2.10's minute.
+  it.each([
+    ["none", "198.51.100.1"],
+    ["CONSENT", "198.51.100.2"],
+    ["login consent", "198.51.100.3"],
+    ["none consent", "198.51.100.4"],
+    [" consent", "198.51.100.5"],
+  ])(
+    "never skips consent for a signed-in person: prompt=%j is replaced by exactly prompt=consent",
+    async (prompt, ip) => {
+      const person = await signInAsNew({ role: "user" });
+      const clientId = await register("Claude", ip);
+      const { challenge } = pkce();
+      const res = await AUTH_GET(
+        new Request(authorizeUrl(clientId, challenge, prompt), { headers: { cookie: person.cookie, "x-forwarded-for": ip } })
+      );
+      expect(res.status).toBe(302);
+      const location = new URL(res.headers.get("location") ?? "", BASE);
+      expect(location.origin).toBe(BASE);
+      expect(location.pathname).toBe("/api/auth/mcp/authorize");
+      expect(location.searchParams.getAll("prompt")).toEqual(["consent"]);
+      expect(location.searchParams.get("code")).toBeNull();
+    }
+  );
+
+  it("replaces a repeated prompt parameter with a single prompt=consent", async () => {
+    const person = await signInAsNew({ role: "user" });
+    const clientId = await register("Claude", "198.51.100.6");
+    const { challenge } = pkce();
+    const url = `${authorizeUrl(clientId, challenge, "consent")}&prompt=none`;
+    const res = await AUTH_GET(new Request(url, { headers: { cookie: person.cookie, "x-forwarded-for": "198.51.100.6" } }));
+    expect(res.status).toBe(302);
+    const location = new URL(res.headers.get("location") ?? "", BASE);
+    expect(location.pathname).toBe("/api/auth/mcp/authorize");
+    expect(location.searchParams.getAll("prompt")).toEqual(["consent"]);
+  });
+
   it("sends somebody who is not signed in to the sign-in page, carrying the request", async () => {
     const clientId = await register();
     const { challenge } = pkce();
@@ -223,6 +261,22 @@ describe("authorizing an MCP client", () => {
     expect(new URL(decision.redirectURI).searchParams.get("error")).toBe("access_denied");
     const db = await getDb();
     expect(await db.select().from(oauthAccessToken)).toHaveLength(0);
+  });
+
+  it("names the client and the redirect host from the pending row, only for its owner (security fix 2026-10-05)", async () => {
+    const owner = await signInAsNew({ role: "user" });
+    const clientId = await register("Claude", "198.51.100.20");
+    const { challenge } = pkce();
+    const res = await AUTH_GET(
+      new Request(authorizeUrl(clientId, challenge, "consent"), { headers: { cookie: owner.cookie, "x-forwarded-for": "198.51.100.20" } })
+    );
+    const consentCode = new URL(res.headers.get("location") ?? "", BASE).searchParams.get("consent_code") ?? "";
+
+    expect(await pendingConsentFor(consentCode, owner.user.id)).toEqual({ clientId, redirectHost: "claude.ai" });
+    const other = await signInAsNew({ role: "user" });
+    expect(await pendingConsentFor(consentCode, other.user.id)).toBeNull();
+    expect(await pendingConsentFor("not-a-code", owner.user.id)).toBeNull();
+    expect(await pendingConsentFor(consentCode, null)).toBeNull();
   });
 
   it("does not let somebody else answer a person's consent request", async () => {

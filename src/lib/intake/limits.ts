@@ -66,6 +66,13 @@ export const CHAT_MAX_EXA_SEARCHES = 5;
 export const CHAT_MAX_PAGE_READS = 5;
 
 /**
+ * `report_issue` tickets per chat turn (security fix 2026-10-05). Enforced like
+ * `read_page`: inside the tool, per turn, and by `prepareStep`. Two lets a
+ * student report two machines in one message; more is a script.
+ */
+export const CHAT_MAX_TICKETS_PER_TURN = 2;
+
+/**
  * The `AbortSignal` budget inside each research step. Hobby kills a function at
  * 300 seconds; stopping at 240 lets the step record why in `research_error`
  * instead of being killed mid-flight.

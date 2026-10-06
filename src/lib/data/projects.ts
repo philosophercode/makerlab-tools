@@ -180,10 +180,13 @@ async function insertSubmission(db: Db, input: NewProjectSubmission): Promise<Cr
       .returning({ id: projects.id });
 
     const toolsLinked = await linkTools(tx, row.id, input.toolIds ?? []);
-    const photosAttached = await claimAttachments(tx, input.photoAttachmentIds ?? [], {
-      ownerType: "project",
-      ownerId: row.id,
-    });
+    // Only the author's own uploads: the ids come from the request body.
+    const photosAttached = await claimAttachments(
+      tx,
+      input.photoAttachmentIds ?? [],
+      { ownerType: "project", ownerId: row.id },
+      { uploadedBy: authorUserId }
+    );
 
     return { id: row.id, slug, toolsLinked, photosAttached };
   });

@@ -1,0 +1,12 @@
+# Keeps the SHA-pinned actions in .github/workflows current (operational
+# hardening spec, amendment 2026-10-05). npm updates are not enabled here:
+# the lockfile is written with a pinned npm (see ci.yml).
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns: ["*"]

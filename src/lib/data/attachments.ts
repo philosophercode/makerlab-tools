@@ -46,7 +46,9 @@ export interface ClaimOwner {
  * caller whose ids come from text the person typed — the chat's
  * `[Attached photos: ...]` hint — passes it, because an unowned upload id is
  * not a secret once it has been pasted anywhere, and an unclaimed upload can
- * be a private photo of a person (§3.3).
+ * be a private photo of a person (§3.3). `null` means "uploaded by nobody
+ * signed in": an anonymous caller may claim only anonymous uploads, never a
+ * signed-in person's (security fix 2026-10-05).
  *
  * The count comes back so the caller can tell the difference between "no photos
  * were sent" and "photos were sent and none of them stuck", which is the
@@ -56,7 +58,7 @@ export async function claimAttachments(
   db: Db,
   ids: readonly string[],
   owner: ClaimOwner,
-  options: { uploadedBy?: string } = {}
+  options: { uploadedBy?: string | null } = {}
 ): Promise<number> {
   // Deduplicated so a repeated id cannot consume two positions.
   const candidates = [...new Set(ids.filter(isUuid))];
@@ -73,7 +75,11 @@ export async function claimAttachments(
         and(
           eq(attachments.id, id),
           isNull(attachments.ownerId),
-          options.uploadedBy === undefined ? undefined : eq(attachments.uploadedBy, options.uploadedBy)
+          options.uploadedBy === undefined
+            ? undefined
+            : options.uploadedBy === null
+              ? isNull(attachments.uploadedBy)
+              : eq(attachments.uploadedBy, options.uploadedBy)
         )
       )
       .returning({ id: attachments.id });
