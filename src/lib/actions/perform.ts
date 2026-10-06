@@ -5,6 +5,7 @@ import { authorizeAdminAction } from "../admin/action-gate";
 import type { AdminActionWarning } from "../admin/action-result";
 import { AUDIT_WARNING } from "../admin/audit-warning";
 import type { Identity } from "../auth/identity";
+import { describeDbError } from "../db/describe-error";
 import type { ActionContext, ActionDefinition, ActionResult, ActionSurface } from "./define";
 
 /**
@@ -80,7 +81,9 @@ export async function performAction<I, R extends object, E extends string, C>(
     // The data layer throws on a database failure because its callers must
     // tell "we declined" from "we do not know". An endpoint may not: a throw
     // reaches the browser as a digest, not a sentence beside the control.
-    console.error(`[${label}] the write failed`, err);
+    // The failure's kind, never Drizzle's message: it lists every bound value,
+    // and these writes carry people's names and emails (`describeDbError`).
+    console.error(`[${label}] the write failed`, describeDbError(err));
     return { ok: false, error: "failed" };
   }
   if (!outcome.ok) return outcome;

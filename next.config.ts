@@ -5,7 +5,7 @@ import {
   DEV_SIGN_IN_BUILD_MESSAGE,
   devSignInBuildVerdict,
 } from "./src/lib/auth/dev-sign-in-build-check";
-import { REMOTE_IMAGE_PATTERNS } from "./src/lib/images/remote-patterns";
+import { blobImagePatterns } from "./src/lib/images/remote-patterns";
 
 // Development-only sign-in (auth spec amendment 2026-09-24) must never be
 // configured on a deployment. The route refuses outside `next dev` regardless;
@@ -14,6 +14,14 @@ const devSignInVerdict = devSignInBuildVerdict(process.env);
 if (devSignInVerdict === "fail") throw new Error(DEV_SIGN_IN_BUILD_MESSAGE);
 if (devSignInVerdict === "warn") {
   console.warn(`[dev-sign-in] ${DEV_SIGN_IN_BUILD_MESSAGE} (Inert in this production build.)`);
+}
+
+// A deployment build with no Blob store id has no remote image host at all, so
+// every Blob photo would fail to optimize. Say so in the build log.
+if (process.env.VERCEL && blobImagePatterns(process.env).length === 0) {
+  console.warn(
+    "[images] No Blob store id at build time (BLOB_STORE_ID or BLOB_READ_WRITE_TOKEN): next/image will refuse Blob photos."
+  );
 }
 
 const withNextIntl = createNextIntlPlugin("./src/i18n/request.ts");
@@ -98,9 +106,16 @@ const nextConfig: NextConfig = {
         pathname: "/makerlab-logo-blackonly.png",
       },
     ],
-    // Production hosts in `src/lib/images/remote-patterns.ts`, each as narrow
-    // as the images it exists for.
-    remotePatterns: [...REMOTE_IMAGE_PATTERNS, ...devBlobPatterns],
+    // The lab's own public Blob store only (src/lib/images/remote-patterns.ts):
+    // the optimizer is unauthenticated and billed per source, so a wildcard
+    // over every Vercel Blob store or S3 bucket let anyone use it as a free
+    // image proxy. The Notion, S3, Unsplash and Airtable hosts went with it:
+    // the import copies bytes to Blob, and Notion's and Airtable's file URLs
+    // are signed and expire.
+    remotePatterns: [
+      ...blobImagePatterns(process.env),
+      ...devBlobPatterns,
+    ],
     // The local Blob store's files are served by this same dev server, and the
     // optimizer refuses loopback addresses unless told otherwise. Dev only.
     dangerouslyAllowLocalIP: isDev,

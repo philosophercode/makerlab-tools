@@ -497,6 +497,7 @@ decision:** `*.public.blob.vercel-storage.com` still matches every Vercel custom
 public store (narrowing it needs the production store's hostname and confirmation that no
 row points at another store), and `images.unsplash.com` / `v5.airtableusercontent.com`
 stay until the database is confirmed free of them.
+*Superseded the same day* by the data platform spec's 2026-10-05 amendment (security fixes, `security/web`): `remotePatterns` now names only the lab's own public Blob store, and the S3, Notion, Unsplash and Airtable hosts are gone; the live catalogue was checked to use only that store.
 
 **4. Previews get their own database and secrets** (`docs/deploy.md` steps 2 and 4). The
 guide said to connect Neon and copy variables to all environments, so a preview — branch

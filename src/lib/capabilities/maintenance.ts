@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { getCatalogTools } from "../catalog";
 import { createMaintenanceLog } from "../data/maintenance";
+import { describeDbError } from "../db/describe-error";
 import { CHAT_MAX_TICKETS_PER_TURN } from "../intake/limits";
 import { checkRateLimit } from "../rate-limit";
 import { invalidateMaintenance } from "../revalidate";
@@ -223,8 +224,9 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
     } catch (err) {
       // The database's own words never reach the model: a driver message can
       // carry a connection string, and nothing the student can do with it is
-      // useful. The detail stays in the server log.
-      console.error("[maintenance] filing a ticket failed", err);
+      // useful. The server log gets the failure's kind, never the row's values
+      // (the reporter's email, name and description — `describeDbError`).
+      console.error("[maintenance] filing a ticket failed", describeDbError(err));
       return {
         success: false,
         error:

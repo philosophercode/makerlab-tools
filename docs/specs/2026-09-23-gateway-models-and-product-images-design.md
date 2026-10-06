@@ -2406,3 +2406,30 @@ cleaned copy or a random id refused `invalid_field` with nothing read; no store 
 these** sends research's image over a photo, and the photo only when research found none.
 
 **Status.** Built on `v5/intake-uploaded-photo`, stacked on #95.
+
+### 2026-10-05 — The SSRF guard checks the connection too: DNS rebinding closed (§3.3, §8)
+
+**Why.** The "DNS-rebinding residual risk" above was accepted on the premise that a fetched body
+is only read by a model. It is not: `manuals/archive.ts` stores a downloaded manual as a public
+Blob attachment, and `intake/approval-image.ts` stores the fetched image as the tool's public
+cover. A host whose DNS answered a public address to `checkTarget`'s lookup and `10.x` /
+`169.254.x` to `fetch`'s own lookup could have an internal response published (security review,
+low severity on Vercel, where little internal is reachable).
+
+**What changed.** `guardedFetch` passes every request a `dispatcher`: one shared `undici`
+`Agent` (`pinnedDispatcher()`) whose `connect.lookup` (`guardedLookup`) resolves through the same
+seam as the check (`resolveHost`, so the test resolver applies) and refuses the connection when
+**any** answer is forbidden by `isForbiddenAddress`; it honours `family` and `all` as
+`net.connect` asks. Check and socket can no longer disagree, on every redirect hop. A refusal at
+connect time is `{ reason: "blocked", detail: "forbidden_address" }`, as at check time. The E2E
+stub origin (`READ_PAGE_TEST_ORIGIN`, never on Vercel) still connects without it, being on
+loopback by design. `undici` becomes a direct dependency (`^7.29.0`, the version already in the
+tree); Node's global `fetch` accepts its `Agent`.
+
+**Tests.** `guarded-fetch.test.ts`: `guardedLookup` answers public addresses (one, a family,
+`all`) and refuses a set containing a private one or `localhost`; a real local server reached
+through an unguarded agent and **refused** through `pinnedDispatcher()` for a name that resolves
+to loopback at connect time; `guardedFetch` passes the pinned dispatcher and maps a connect-time
+refusal to `blocked`.
+
+**Status.** Accepted. Security fix on `security/web`.

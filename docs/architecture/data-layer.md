@@ -62,9 +62,12 @@ variable list.
   draft (`createToolRecord`). See "Adding equipment" below.
 - **Files** (tool images, manuals, project photos, maintenance photos) live in
   **Vercel Blob**, recorded row-by-row in `attachments` — see
-  `next.config.ts`'s `images.remotePatterns` (production hosts in
-  `src/lib/images/remote-patterns.ts`). `POST /api/uploads` is the one
-  upload route; it writes the blob, inserts an **unowned** `attachments` row and
+  `next.config.ts`'s `images.remotePatterns`, which names only the lab's own
+  public store (`src/lib/images/remote-patterns.ts`, derived from
+  `BLOB_STORE_ID` / `BLOB_READ_WRITE_TOKEN` at build time). `POST /api/uploads` is the one
+  upload route; it reads an image's bytes (JPEG, PNG, WebP or GIF only, stored
+  under the detected type — `images/upload-type.ts`) and a resource's PDF magic,
+  writes the blob, inserts an **unowned** `attachments` row and
   returns `{ attachmentId, previewUrl }`. The write that follows *claims* those
   ids (`claimAttachments`), and `/api/cron/daily` deletes anything still
   unclaimed after 24 hours. **Both write paths say when a photo did not stick**

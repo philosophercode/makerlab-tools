@@ -1,43 +1,43 @@
 /**
- * The hosts `next/image` may fetch and optimize in a production build
- * (`next.config.ts` adds the dev-only local Blob patterns). Relative imports
- * only: `next.config.ts` loads it outside Next's bundler.
+ * The hosts `next/image` may fetch and optimize (`next.config.ts`'s
+ * `images.remotePatterns`).
  *
- * Every entry is a host anyone can make `/_next/image` fetch and transform at
- * this project's expense, so each is kept as narrow as the images it exists
- * for (operational hardening spec, amendment 2026-10-05).
+ * `/_next/image` is unauthenticated, and every distinct source URL, width and
+ * quality is a billed fetch and transform. So the list names the lab's own
+ * public Blob store and nothing else: a wildcard over
+ * `*.public.blob.vercel-storage.com` (every Vercel customer's store) or the
+ * path-style `s3.us-west-2.amazonaws.com` (every bucket in the region) let
+ * anyone run their own images through the lab's optimizer, on the lab's bill
+ * (security fix, 2026-10-05; data platform spec amendment of that date).
+ *
+ * The store's host is derived at build time from the credential that links it
+ * — `BLOB_STORE_ID` (`store_<id>`) or `BLOB_READ_WRITE_TOKEN`
+ * (`vercel_blob_rw_<id>_<secret>`) — the same way `@vercel/blob` builds its
+ * URLs (`https://<id>.public.blob.vercel-storage.com/…`). Only the id is read;
+ * the token's secret part is never kept. Private stores are left out: their
+ * URLs need a token, so the optimizer could not fetch them anyway.
+ *
+ * Plain Node, no imports: `next.config.ts` loads it.
  */
-export type ImageRemotePattern = {
-  protocol: "https" | "http";
-  hostname: string;
-  pathname?: string;
-};
 
-export const REMOTE_IMAGE_PATTERNS: ImageRemotePattern[] = [
-  {
-    protocol: "https",
-    hostname: "*.public.blob.vercel-storage.com",
-  },
-  {
-    protocol: "https",
-    hostname: "prod-files-secure.s3.us-west-2.amazonaws.com",
-  },
-  {
-    protocol: "https",
-    hostname: "s3.us-west-2.amazonaws.com",
-    // Path-style S3 serves every bucket in the region from this one host;
-    // only Notion's legacy file bucket is ours.
-    pathname: "/secure.notion-static.com/**",
-  },
-  {
-    protocol: "https",
-    hostname: "images.unsplash.com",
-  },
-  {
-    protocol: "https",
-    hostname: "v5.airtableusercontent.com",
-  },
-  // The Notion/S3/Airtable patterns above can go once every image has been
-  // re-imported to Vercel Blob; until then, rows imported before the switch
-  // may still reference them.
-];
+export interface BlobImagePattern {
+  protocol: "https";
+  hostname: string;
+}
+
+type Env = Record<string, string | undefined>;
+
+/** The store id a credential names, lower-cased for a hostname; null when none. */
+export function publicBlobStoreId(env: Env): string | null {
+  const storeId = env.BLOB_STORE_ID?.trim().replace(/^store_/, "");
+  if (storeId && /^[A-Za-z0-9]+$/.test(storeId)) return storeId.toLowerCase();
+  const token = env.BLOB_READ_WRITE_TOKEN?.trim();
+  const match = token ? /^vercel_blob_rw_([A-Za-z0-9]+)_/.exec(token) : null;
+  return match ? match[1].toLowerCase() : null;
+}
+
+/** The lab's public Blob store as a `remotePatterns` entry, or none when no store is linked. */
+export function blobImagePatterns(env: Env): BlobImagePattern[] {
+  const id = publicBlobStoreId(env);
+  return id ? [{ protocol: "https", hostname: `${id}.public.blob.vercel-storage.com` }] : [];
+}
