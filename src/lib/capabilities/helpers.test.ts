@@ -93,8 +93,18 @@ describe("buildUnitLookup", () => {
       toolSlug: "form-4",
       status: "In Use",
       condition: "Excellent",
-      serial: "ML-F4-001",
     });
+  });
+
+  it("never carries a whole serial, even from units that have one (amendment 2026-10-06)", () => {
+    for (const entry of buildUnitLookup(catalog)) expect(entry).not.toHaveProperty("serial");
+  });
+
+  it("carries a unit's masked last four when it has one", () => {
+    const [unit] = makeTool().units;
+    const [entry] = buildUnitLookup([makeTool({ units: [{ ...unit, serial: undefined, serialMasked: "•••• -001" }] })]);
+    expect(entry.serialMasked).toBe("•••• -001");
+    expect(buildUnitLookup(catalog)[0]).not.toHaveProperty("serialMasked");
   });
 
   it("is empty for a catalogue whose tools have no units", () => {

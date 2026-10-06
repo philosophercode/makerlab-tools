@@ -18,7 +18,12 @@ import type {
 
 // ── Unit lookup ────────────────────────────────────────────────────
 
-/** A flattened, label-addressable view of a single physical unit. */
+/**
+ * A flattened, label-addressable view of a single physical unit. No full
+ * serial: the catalogue's units carry only the masked last four
+ * (`serialMasked`), and a tool that may show the whole serial to staff reads
+ * it with `serialsForViewer` (amendment 2026-10-06).
+ */
 export interface UnitLookupEntry {
   id: string;
   label: string;
@@ -27,7 +32,8 @@ export interface UnitLookupEntry {
   status: MakerLabUnit["status"];
   condition: MakerLabUnit["condition"];
   location: string;
-  serial: string;
+  /** `•••• 9831`, when the unit has a serial longer than four characters. */
+  serialMasked?: string;
   dateAcquired: string | null;
 }
 
@@ -45,7 +51,7 @@ export function buildUnitLookup(tools: MakerLabTool[]): UnitLookupEntry[] {
       status: unit.status,
       condition: unit.condition,
       location: unit.location,
-      serial: unit.serial,
+      ...(unit.serialMasked ? { serialMasked: unit.serialMasked } : {}),
       dateAcquired: unit.dateAcquired,
     }))
   );

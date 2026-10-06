@@ -31,6 +31,16 @@ approval. Do not mint one.
 - **Capabilities declare `requiredPermission`**, enforced once by
   `capabilitiesForIdentity` in `src/lib/capabilities/access.ts` — never inside a
   tool's `run()`.
+- **Students see only the last four characters of a unit's serial**; whole
+  serials are staff-only (`catalog.view_serials`, admins and super admins;
+  data platform spec amendment 2026-10-06). The catalogue reads build units
+  with no `serial` field, only `serialMasked` (`•••• 9831`,
+  `src/lib/serial-mask.ts`; nothing for a serial of four characters or fewer),
+  so cached pages, the kiosk and every prompt carry no whole serial.
+  `src/lib/unit-serials.ts` swaps in the whole serial for staff on the tool
+  page, in the chat's focused tool and in `get_unit_details` /
+  `get_tool_details`. Like reporter names, that is a field narrowed in a
+  result, not a refused tool.
 - **`AUTH_STAFF_EMAILS` / `AUTH_ADMIN_EMAILS` are retired.** Nothing reads them.
   The one env list left is **`AUTH_SUPER_ADMIN_EMAILS`, a floor, not a roster**
   (`src/lib/auth/super-admins.ts`): a listed address is created as

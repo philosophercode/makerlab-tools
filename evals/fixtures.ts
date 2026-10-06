@@ -111,7 +111,9 @@ export const SPEC_FIELDS: Record<string, SpecField> = {
   },
   serial: {
     keywords: ["serial", "asset tag"],
-    values: (tool) => tool.units.map((unit) => unit.serial),
+    // Whole serials are staff-only since 2026-10-06; everyone else's units
+    // carry the masked last four ("•••• 9831").
+    values: (tool) => tool.units.flatMap((unit) => [unit.serial, unit.serialMasked].filter((v): v is string => Boolean(v))),
   },
   date_acquired: {
     keywords: ["acquired", "purchased", "bought"],

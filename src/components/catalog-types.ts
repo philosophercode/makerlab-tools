@@ -5,8 +5,23 @@ export type ToolStatus = "Available" | "In Use" | "Training Required" | "Offline
 
 export interface MakerLabUnit {
   id: string;
+  /** How everybody tells units apart ("Bambu X1C #1"). */
   name: string;
-  serial: string;
+  /**
+   * The serial number, else the asset tag, else "Unlisted". **Staff only**
+   * (`catalog.view_serials`, data platform spec amendment 2026-10-06): the
+   * catalogue reads leave it out, and a staff surface adds it with
+   * `lib/unit-serials.ts`. Absent, never empty, for everyone else.
+   */
+  serial?: string;
+  /**
+   * What everyone else sees of it: the last four characters behind a mask,
+   * `•••• 9831` (`lib/serial-mask.ts`), so a student can say "the one ending
+   * 9831". Absent when the serial number and asset tag are both missing, or
+   * four characters or fewer (showing them would show all of it). The
+   * catalogue reads set it; a unit carrying the full `serial` has none.
+   */
+  serialMasked?: string;
   status: ToolStatus;
   condition: "Excellent" | "Good" | "Service Soon" | "Offline";
   location: string;

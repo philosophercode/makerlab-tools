@@ -9,6 +9,8 @@ import { DetailShell } from "../../../components/DetailShell";
 import { FlagButton } from "../../../components/FlagButton";
 import { ToolChatStarters } from "../../../components/ToolChatStarters";
 import { ToolQrButton } from "../../../components/tool/ToolQrButton";
+import { UnitsForViewer } from "../../../components/tool/UnitsForViewer";
+import { UnitsTable } from "../../../components/tool/UnitsTable";
 import { qrSiteUrl } from "../../../lib/qr/site-url";
 import { toolPageUrl, toolQrTargetUrl } from "../../../lib/qr/urls";
 import { UsageBeacon } from "../../../components/usage/UsageBeacon";
@@ -183,6 +185,14 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
           // cached shell sent to everyone else carries no placement.
           <Suspense fallback={null}>
             <SignedInToolLocation tool={tool} />
+          </Suspense>
+        }
+        unitsTable={
+          // Whole serials for staff only (amendment 2026-10-06). The cached
+          // shell holds the public table, built from a catalogue that carries
+          // only the masked last four; the hole swaps in the staff table for staff.
+          <Suspense fallback={<UnitsTable units={tool.units} />}>
+            <UnitsForViewer units={tool.units} />
           </Suspense>
         }
       />

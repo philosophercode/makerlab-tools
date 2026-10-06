@@ -8,6 +8,7 @@ import { getDb, resetDbForTests } from "../db/client";
 import { maintenanceLogs, units as unitsTable } from "../db/schema/index";
 import type { CapabilityCtx, CapabilityTool } from "./types";
 import { units } from "./units";
+import { identityFor } from "../../../test/utils/identities";
 
 vi.mock("next/cache", () => nextCacheMock());
 
@@ -78,12 +79,65 @@ describe("get_unit_details", () => {
       // models have always carried.
       status: "In Use",
       condition: "Excellent",
-      serial: "ML-F4-001",
       date_acquired: "2024-08-12",
       detail_page: "/tools/form-4",
       maintenance_logs: [],
     });
     expect(result.unit_id).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  // Data platform spec amendment 2026-10-06: whole serials are staff-only, in
+  // chat and over MCP alike (both run this tool); everyone else gets the last
+  // four characters, masked.
+  it.each(["anonymous", "user"] as const)("gives %s only the masked last four", async (role) => {
+    const result = (await tool("get_unit_details").run(
+      { unit_label: "Form 4 // A" },
+      { identity: identityFor(role) }
+    )) as Record<string, unknown>;
+    expect(result).toMatchObject({ found: true, unit_label: "Form 4 // A", serial_masked: "•••• -001" });
+    expect(result).not.toHaveProperty("serial");
+    expect(JSON.stringify(result)).not.toContain("ML-F4-001");
+  });
+
+  it.each(["admin", "super_admin"] as const)("gives %s the unit's whole serial", async (role) => {
+    const result = (await tool("get_unit_details").run(
+      { unit_label: "Form 4 // A" },
+      { identity: identityFor(role) }
+    )) as Record<string, unknown>;
+    expect(result).toMatchObject({ found: true, unit_label: "Form 4 // A", serial: "ML-F4-001" });
+    expect(result).not.toHaveProperty("serial_masked");
+  });
+
+  describe("a serial of four characters or fewer", () => {
+    async function setFormSerial(serialNumber: string) {
+      const db = await getDb();
+      await db.update(unitsTable).set({ serialNumber }).where(eq(unitsTable.unitLabel, "Form 4 // A"));
+    }
+
+    afterEach(async () => {
+      await setFormSerial("ML-F4-001");
+    });
+
+    it.each(["anonymous", "user"] as const)("gives %s nothing of it", async (role) => {
+      await setFormSerial("QZ-7");
+      const result = (await tool("get_unit_details").run(
+        { unit_label: "Form 4 // A" },
+        { identity: identityFor(role) }
+      )) as Record<string, unknown>;
+      expect(result).toMatchObject({ found: true, unit_label: "Form 4 // A" });
+      expect(result).not.toHaveProperty("serial");
+      expect(result).not.toHaveProperty("serial_masked");
+      expect(JSON.stringify(result)).not.toContain("QZ-7");
+    });
+
+    it.each(["admin", "super_admin"] as const)("gives %s all of it", async (role) => {
+      await setFormSerial("QZ-7");
+      const result = (await tool("get_unit_details").run(
+        { unit_label: "Form 4 // A" },
+        { identity: identityFor(role) }
+      )) as Record<string, unknown>;
+      expect(result).toMatchObject({ found: true, serial: "QZ-7" });
+    });
   });
 
   it("matches a unit by a case-insensitive substring of its label", async () => {

@@ -138,6 +138,7 @@
     "status": "Status",
     "condition": "Condition",
     "serial": "Serial",
+    "serialEnding": "Serial ending {last4}",
     "acquired": "Acquired",
     "builtWithThis": "Built with this",
     "builtWithThisBy": "by {author}",

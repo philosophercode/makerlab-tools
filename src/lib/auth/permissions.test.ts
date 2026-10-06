@@ -22,6 +22,7 @@ const APP_PERMISSIONS = [
   "projects.submit",
   "projects.moderate",
   "catalog.view_drafts",
+  "catalog.view_serials",
   "catalog.export",
   "tools.add",
   "tools.approve",
@@ -48,6 +49,9 @@ const EXPECTED: Record<Role, readonly Permission[]> = {
     "projects.submit",
     "projects.moderate",
     "catalog.view_drafts",
+    // Whole unit serials are staff-only (amendment 2026-10-06); students hold
+    // nothing new and see only each serial's masked last four.
+    "catalog.view_serials",
     "tools.add",
     "tools.approve",
     "tools.edit",

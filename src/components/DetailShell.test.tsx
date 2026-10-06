@@ -121,6 +121,7 @@ describe("DetailShell", () => {
     });
 
     it("renders the units table with each unit's name, serial, status, and condition", () => {
+      // The fixture's units carry serials, as a staff viewer's do.
       render(<DetailShell tool={toolWithLinks} />);
       expect(
         screen.getByRole("heading", { name: "Physical Machines" })
@@ -129,11 +130,48 @@ describe("DetailShell", () => {
       // jsdom renders the phone list too; scope to the table (DataTable's rule).
       const table = within(screen.getByRole("table", { name: "Physical Machines" }));
       expect(table.getByText(unit.name)).toBeInTheDocument();
-      expect(table.getByText(unit.serial)).toBeInTheDocument();
+      expect(table.getByRole("columnheader", { name: "Serial" })).toBeInTheDocument();
+      expect(table.getByText(unit.serial as string)).toBeInTheDocument();
       // status + condition values are present in the table
       expect(screen.getAllByText("Available").length).toBeGreaterThanOrEqual(1);
       expect(screen.getByRole("table", { name: "Physical Machines" })).toBeInTheDocument();
       expect(table.getByText(unit.condition)).toBeInTheDocument();
+    });
+
+    // Data platform spec amendment 2026-10-06: the catalogue sends students
+    // and visitors only each serial's masked last four.
+    it("draws the masked last four, read as 'Serial ending', for units sent only that", () => {
+      const masked = {
+        ...toolWithLinks,
+        units: toolWithLinks.units.map(({ serial: _serial, ...unit }) => ({ ...unit, serialMasked: "•••• -001" })),
+      };
+      const { container } = render(<DetailShell tool={masked} />);
+      const table = within(screen.getByRole("table", { name: "Physical Machines" }));
+      expect(table.getByRole("columnheader", { name: "Serial" })).toBeInTheDocument();
+      expect(table.getByText("•••• -001")).toBeInTheDocument();
+      expect(table.getByText("Serial ending -001")).toBeInTheDocument();
+      // Neither the table nor the phone list carries the whole serial.
+      expect(container.textContent).not.toContain(toolWithLinks.units[0].serial as string);
+    });
+
+    // A serial of four characters or fewer, or none: nothing to show, so no column.
+    it("draws no serial column, and no serial, for units sent without one", () => {
+      const withoutSerials = {
+        ...toolWithLinks,
+        units: toolWithLinks.units.map(({ serial: _serial, ...unit }) => unit),
+      };
+      const { container } = render(<DetailShell tool={withoutSerials} />);
+      const table = within(screen.getByRole("table", { name: "Physical Machines" }));
+      expect(table.getByText(toolWithLinks.units[0].name)).toBeInTheDocument();
+      expect(table.queryByRole("columnheader", { name: "Serial" })).not.toBeInTheDocument();
+      // Neither the table nor the phone list carries it.
+      expect(container.textContent).not.toContain(toolWithLinks.units[0].serial as string);
+    });
+
+    it("draws the table the page hands it in place of its own", () => {
+      render(<DetailShell tool={toolWithLinks} unitsTable={<p>Viewer table</p>} />);
+      expect(screen.getByText("Viewer table")).toBeInTheDocument();
+      expect(screen.queryByRole("table", { name: "Physical Machines" })).not.toBeInTheDocument();
     });
 
     it("renders breadcrumbs Tools › tool name, with no Inventory step", () => {

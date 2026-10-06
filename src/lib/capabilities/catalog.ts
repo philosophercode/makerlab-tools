@@ -6,6 +6,7 @@ import { findTool, summarizeTool } from "./helpers";
 import { officialNameShown } from "../tool-names";
 import { mapFactsFor, type ToolMapFacts } from "../map/locate";
 import { canSeeMap } from "../map/access";
+import { unitsForViewer } from "../unit-serials";
 import type {
   Capability,
   CapabilityCtx,
@@ -280,7 +281,8 @@ const getToolDetails: CapabilityTool<GetToolDetailsInput, ToolDetailsResult> = {
       emergency_stop: tool.emergencyStop,
       notes: tool.notes,
       links: tool.links,
-      units: tool.units,
+      // Whole serials for staff only (amendment 2026-10-06); the catalogue's units carry the masked last four.
+      units: await unitsForViewer(ctx.identity, tool.units),
       detail_page: `/tools/${tool.slug}`,
       ...(canSeeMap(ctx.identity) ? { map: mapFactsFor(tool) } : {}),
       ...(view ? stateOf(view, tool.id) : {}),

@@ -74,8 +74,12 @@ test.describe("QR arrival", () => {
     const plain = await detailContent(page, "/tools/form-4");
     const scanned = await detailContent(page, "/tools/form-4?src=qr");
 
-    // Guard against two empty strings passing as "identical".
-    expect(plain).toContain("ML-F4-001");
+    // Guard against two empty strings passing as "identical". The unit by
+    // name and its serial's masked last four: the whole serial is for staff
+    // only (amendment 2026-10-06), and a QR scan by a visitor shows none.
+    expect(plain).toContain("Form 4 // A");
+    expect(plain).toContain("•••• -001");
+    expect(plain).not.toContain("ML-F4-001");
     expect(plain.length).toBeGreaterThan(200);
 
     expect(scanned).toBe(plain);

@@ -36,6 +36,13 @@ interface DetailShellProps {
    */
   heroMap?: React.ReactNode;
   /**
+   * The units table, when the page builds it per viewer (`tool/UnitsForViewer`
+   * in its own Suspense boundary: whole serials for staff only, the masked last
+   * four for everyone else). Absent, the table is drawn from `tool.units` as
+   * they are.
+   */
+  unitsTable?: React.ReactNode;
+  /**
    * Accessory links (taxonomy v2 facet): the tool this one is an accessory of,
    * and the published accessories of this one. Empty is absent.
    */
@@ -79,7 +86,7 @@ function maintenanceTone(status: string): StatusTone {
  *   box, no empty maintenance history. Safety is the exception: it always
  *   says what to do, falling back to the lab's standing guidance.
  */
-export function DetailShell({ tool, projects = [], manualContents = [], maintenance = [], location = null, heroMap = null, relations }: DetailShellProps) {
+export function DetailShell({ tool, projects = [], manualContents = [], maintenance = [], location = null, heroMap = null, unitsTable, relations }: DetailShellProps) {
   const t = useTranslations("detail");
   const tStatus = useTranslations("gallery.status");
   const tUi = useTranslations("ui");
@@ -306,7 +313,7 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
           {tool.units.length > 0 ? (
             <section aria-labelledby="tool-units" className="min-w-0">
               <SectionHeading id="tool-units">{t("physicalMachines")}</SectionHeading>
-              <UnitsTable units={tool.units} />
+              {unitsTable ?? <UnitsTable units={tool.units} />}
             </section>
           ) : null}
         </div>

@@ -229,8 +229,11 @@ export function describeTool(t: MakerLabTool): string {
   if (t.units.length) {
     lines.push("- Units:");
     for (const unit of t.units) {
+      // The whole serial for staff; everyone else's units carry only the
+      // masked last four, "•••• 9831" (data platform spec amendment 2026-10-06).
+      const serial = unit.serial && unit.serial !== "Unlisted" ? unit.serial : unit.serialMasked;
       lines.push(
-        `  - ${unit.name} — status: ${unit.status}, condition: ${unit.condition}${unit.serial && unit.serial !== "Unlisted" ? `, serial: ${unit.serial}` : ""}`
+        `  - ${unit.name} — status: ${unit.status}, condition: ${unit.condition}${serial ? `, serial: ${serial}` : ""}`
       );
     }
   }
