@@ -75,7 +75,9 @@
   the pages' `MARKDOWN_PROSE`. A link whose address one of the turn's
   `search_manual` passages returned is an inline citation, and the cited
   pages are the answer's Sources (`chat/manual-citations.ts`). Messages carry
-  `data-role` / `data-kind` for tests. The floating button is not drawn on
+  `data-role` / `data-kind` for tests. Under the composer, always, the
+`chat.aiNote` line ("MakerLAB AI can make mistakes…"), which also describes
+the text field (identity spec amendment 2026-10-06). The floating button is not drawn on
   `/admin/*`: the section bar's **Ask the assistant** and ⌘K (`onAsk`, from
   `HeaderSearch`) open it. `FlagButton` is a `Dialog`. The `.chat-*` CSS and
   `admin-import.css` are gone.

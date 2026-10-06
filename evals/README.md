@@ -122,6 +122,7 @@ file in `cases/` is loaded automatically):
 | `cases/staff-maintenance.yaml` | Staff reading the maintenance queue, and confirming before changing a ticket; students getting no staff tools |
 | `cases/honest-absence.yaml` | Saying "we don't have that" |
 | `cases/lab-identity.yaml` | Knowing where it is: the MakerLAB's location and people, what the assistant is for, and not inventing the rest |
+| `cases/lab-companion.yaml` | A companion, not a replacement: the lab's own notes before the manual, and a person (a SuperMaker, staff) suggested for first use and safety |
 | `cases/photo-identify.yaml` | Working out which catalogue machine is in a student's photo — or asking, when look-alikes leave it open — against the fuller lab (`catalog: lab`) |
 
 Append a case:
@@ -241,6 +242,7 @@ Kept small on purpose. Structural assertions do almost all the useful work.
 | `called_tool` | `value: get_unit_details` | That tool appears in the recorded tool calls |
 | `not_called_tool` | `value: propose_change` | That tool never appears in the recorded tool calls |
 | `contains_all` | `value: ["gloves"]` | Every literal is present (case-insensitive, ignoring markdown emphasis) |
+| `contains_any` | `value: ["staff", "SuperMaker"]` | At least one literal is present, matched as `contains_all` matches. For a behaviour with more than one fair wording |
 | `not_contains_any` | `value: ["yes, we have"]` | None of the literals is present |
 | `no_fabricated_specs` | `fields: [build_volume]` | Every number attributed to those fields matches the fixture |
 | `cites_resource` | `value: "Trotec Speedy 400 SOP"` (optional) | The answer references a document attached to the machine |

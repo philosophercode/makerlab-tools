@@ -22,7 +22,7 @@ import type { EvalFixture, EvalFixtureTool } from "./fixtures";
  * | `mentions_tool` | The named machine appears in the answer |
  * | `no_unknown_tools` | Every machine the answer offers exists in the fixture |
  * | `called_tool` | That tool appears in the recorded tool calls |
- * | `contains_all` / `not_contains_any` | Literal substrings |
+ * | `contains_all` / `contains_any` / `not_contains_any` | Literal substrings: every one, at least one, none |
  * | `no_fabricated_specs` | Numbers attributed to named fields match the fixture |
  * | `cites_resource` | The answer references one of the machine's documents |
  * | `cites_page` | The answer cites a manual page: a `#page=N` link or "p. N" (N = `value` when given; `file.pdf#page=N` pins the document) |
@@ -44,6 +44,7 @@ export const ASSERTION_KINDS = [
   "called_tool",
   "not_called_tool",
   "contains_all",
+  "contains_any",
   "not_contains_any",
   "no_fabricated_specs",
   "cites_resource",
@@ -332,6 +333,17 @@ export function containsAll(text: string, values: string[]): Check {
   return { ok: false, detail: `missing: ${missing.map((v) => `"${v}"`).join(", ")}` };
 }
 
+/**
+ * `contains_any` — at least one literal is present, normalized as
+ * `contains_all` is. For a behaviour with more than one fair wording ("ask a
+ * SuperMaker" or "ask staff").
+ */
+export function containsAny(text: string, values: string[]): Check {
+  const low = normalize(text);
+  if (values.some((value) => low.includes(normalize(value)))) return { ok: true };
+  return { ok: false, detail: `none of: ${values.map((v) => `"${v}"`).join(", ")}` };
+}
+
 /** `not_contains_any` — none of the literals is present. */
 export function notContainsAny(text: string, values: string[]): Check {
   const low = text.toLowerCase();
@@ -490,6 +502,13 @@ export function runAssertion(spec: AssertionSpec, input: AssertionInput): Assert
       return outcome(
         `the answer contains ${values.map((v) => `"${v}"`).join(", ")}`,
         containsAll(text, values)
+      );
+    }
+    case "contains_any": {
+      const values = asList(spec.value);
+      return outcome(
+        `the answer contains at least one of ${values.map((v) => `"${v}"`).join(", ")}`,
+        containsAny(text, values)
       );
     }
     case "not_contains_any": {

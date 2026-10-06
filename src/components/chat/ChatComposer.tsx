@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, type FormEvent, type Ref } from "react";
+import { useId, useRef, type FormEvent, type Ref } from "react";
 import type { ChatStatus } from "ai";
 import { FileTextIcon, MicIcon, PaperclipIcon, XIcon } from "lucide-react";
 import {
@@ -29,6 +29,10 @@ const CHAT_FILE_ACCEPT = ["image/*", ...IMPORT_FILE_EXTENSIONS.map((extension) =
  * thumbnails, each removable; an upload in flight; an upload's failure), the
  * text, then attach and dictate on the left and Send — the sheet's one
  * filled button — on the right. Enter sends, Shift+Enter is a new line.
+ *
+ * Under it, always shown, a quiet note that the AI can be wrong (identity
+ * spec amendment 2026-10-06; a form hint per DESIGN.md §8.7: 12px, muted).
+ * It also describes the text field, so a screen reader hears it there.
  *
  * It holds no state: the draft, the attachments and dictation are the chat's,
  * so closing the sheet keeps them.
@@ -72,99 +76,106 @@ export function ChatComposer({
   textareaRef?: Ref<HTMLTextAreaElement>;
 }) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const noteId = useId();
   const hasAttachments = photos.length > 0 || documents.length > 0 || uploadingCount > 0 || uploadError !== null;
   const canSend = (draft.trim().length > 0 || documents.length > 0) && !busy && uploadingCount === 0;
 
   return (
-    <PromptInput onSubmit={onSubmit}>
-      {hasAttachments ? (
-        <PromptInputHeader aria-live="polite">
-          {documents.map((doc) => (
-            <div
-              key={doc.key}
-              className="inline-flex h-8 max-w-56 items-center gap-1.5 border border-border bg-background ps-2 text-xs"
-            >
-              <FileTextIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
-              <span className="truncate">{doc.name}</span>
-              <RemoveButton label={t("removeDocumentAria", { name: doc.name })} onClick={() => onRemoveDocument(doc.key)} />
-            </div>
-          ))}
-          {photos.map((photo) => (
-            <div key={photo.key} className="relative size-14 border border-border bg-background">
-              {/* eslint-disable-next-line @next/next/no-img-element -- a local object URL, not an optimisable image */}
-              <img src={photo.previewUrl} alt={photo.name} className="size-full object-cover" />
-              <RemoveButton
-                label={t("removePhotoAria", { name: photo.name })}
-                onClick={() => onRemovePhoto(photo.key)}
-                className="absolute end-0 top-0 bg-card/90"
-              />
-            </div>
-          ))}
-          {uploadingCount > 0 ? (
-            <div
-              role="img"
-              aria-label={t("uploadingAria")}
-              className="inline-flex size-14 items-center justify-center border border-dashed border-border text-muted-foreground"
-            >
-              <Loader size={14} />
-            </div>
-          ) : null}
-          {uploadError ? (
-            <p role="alert" className="basis-full text-xs text-bad">
-              {uploadError}
-            </p>
-          ) : null}
-        </PromptInputHeader>
-      ) : null}
+    <>
+      <PromptInput onSubmit={onSubmit}>
+        {hasAttachments ? (
+          <PromptInputHeader aria-live="polite">
+            {documents.map((doc) => (
+              <div
+                key={doc.key}
+                className="inline-flex h-8 max-w-56 items-center gap-1.5 border border-border bg-background ps-2 text-xs"
+              >
+                <FileTextIcon aria-hidden="true" className="size-3.5 shrink-0 text-muted-foreground" />
+                <span className="truncate">{doc.name}</span>
+                <RemoveButton label={t("removeDocumentAria", { name: doc.name })} onClick={() => onRemoveDocument(doc.key)} />
+              </div>
+            ))}
+            {photos.map((photo) => (
+              <div key={photo.key} className="relative size-14 border border-border bg-background">
+                {/* eslint-disable-next-line @next/next/no-img-element -- a local object URL, not an optimisable image */}
+                <img src={photo.previewUrl} alt={photo.name} className="size-full object-cover" />
+                <RemoveButton
+                  label={t("removePhotoAria", { name: photo.name })}
+                  onClick={() => onRemovePhoto(photo.key)}
+                  className="absolute end-0 top-0 bg-card/90"
+                />
+              </div>
+            ))}
+            {uploadingCount > 0 ? (
+              <div
+                role="img"
+                aria-label={t("uploadingAria")}
+                className="inline-flex size-14 items-center justify-center border border-dashed border-border text-muted-foreground"
+              >
+                <Loader size={14} />
+              </div>
+            ) : null}
+            {uploadError ? (
+              <p role="alert" className="basis-full text-xs text-bad">
+                {uploadError}
+              </p>
+            ) : null}
+          </PromptInputHeader>
+        ) : null}
 
-      <PromptInputBody>
-        <PromptInputTextarea
-          ref={textareaRef}
-          value={draft}
-          onChange={(event) => onDraftChange(event.target.value)}
-          placeholder={t("composerPlaceholder")}
-          aria-label={t("composerAria")}
-        />
-      </PromptInputBody>
-
-      <PromptInputFooter>
-        <PromptInputTools>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={CHAT_FILE_ACCEPT}
-            multiple
-            hidden
-            onChange={(event) => {
-              onFiles(event.target.files);
-              // Allow re-selecting the same file.
-              event.target.value = "";
-            }}
+        <PromptInputBody>
+          <PromptInputTextarea
+            ref={textareaRef}
+            value={draft}
+            onChange={(event) => onDraftChange(event.target.value)}
+            placeholder={t("composerPlaceholder")}
+            aria-label={t("composerAria")}
+            aria-describedby={noteId}
           />
-          <PromptInputButton
-            aria-label={t("attachAria")}
-            title={t("attachTitle")}
-            onClick={() => fileInputRef.current?.click()}
-            disabled={busy}
-          >
-            <PaperclipIcon aria-hidden="true" />
-          </PromptInputButton>
-          {dictation.supported ? (
+        </PromptInputBody>
+
+        <PromptInputFooter>
+          <PromptInputTools>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept={CHAT_FILE_ACCEPT}
+              multiple
+              hidden
+              onChange={(event) => {
+                onFiles(event.target.files);
+                // Allow re-selecting the same file.
+                event.target.value = "";
+              }}
+            />
             <PromptInputButton
-              aria-label={t("dictate")}
-              aria-pressed={dictation.listening}
-              title={t("dictate")}
-              onClick={dictation.toggle}
+              aria-label={t("attachAria")}
+              title={t("attachTitle")}
+              onClick={() => fileInputRef.current?.click()}
               disabled={busy}
-              className={cn(dictation.listening && "border-primary-ink text-primary-ink")}
             >
-              <MicIcon aria-hidden="true" />
+              <PaperclipIcon aria-hidden="true" />
             </PromptInputButton>
-          ) : null}
-        </PromptInputTools>
-        <PromptInputSubmit status={status} aria-label={t("sendAria")} disabled={!canSend} />
-      </PromptInputFooter>
-    </PromptInput>
+            {dictation.supported ? (
+              <PromptInputButton
+                aria-label={t("dictate")}
+                aria-pressed={dictation.listening}
+                title={t("dictate")}
+                onClick={dictation.toggle}
+                disabled={busy}
+                className={cn(dictation.listening && "border-primary-ink text-primary-ink")}
+              >
+                <MicIcon aria-hidden="true" />
+              </PromptInputButton>
+            ) : null}
+          </PromptInputTools>
+          <PromptInputSubmit status={status} aria-label={t("sendAria")} disabled={!canSend} />
+        </PromptInputFooter>
+      </PromptInput>
+      <p id={noteId} data-slot="chat-ai-note" className="mt-2 text-xs text-pretty text-muted-foreground">
+        {t("aiNote")}
+      </p>
+    </>
   );
 }
 
