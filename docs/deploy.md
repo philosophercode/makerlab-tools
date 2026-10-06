@@ -408,8 +408,12 @@ it gives you a working address for Google sign-in.
 
 Project → **Storage**:
 
-- **Neon Postgres** (Marketplace) → connect to the project, all environments. Adds
-  `DATABASE_URL` (and `DATABASE_URL_UNPOOLED`, which `data:push` prefers).
+- **Neon Postgres** (Marketplace) → connect to the project for **Production**. Adds
+  `DATABASE_URL` (and `DATABASE_URL_UNPOOLED`, which `data:push` prefers). **Do not give
+  Preview the production `DATABASE_URL`:** a preview runs a branch's unreviewed code, so
+  it would read and write production rows. Either leave it unset on Preview (the preview
+  runs the in-memory demo database) or enable the integration's **database branch per
+  preview** and set `MIGRATE_ON_PREVIEW=1` for Preview (`scripts/db-migrate.ts`).
 - **Blob — two stores.** A Blob store is either all-public or all-private, and the app
   keeps both kinds of file, so it needs one of each:
   1. **Public store** → create it with access **Public**, connect it with the **default**
@@ -449,6 +453,9 @@ application* client) → **Authorized redirect URIs** → add
 ## 4 · Environment variables
 
 Project → Settings → Environment Variables (Production, and Preview if you use previews).
+Preview gets **its own** values, never production's: a separate `AUTH_SECRET`, cron and
+revalidate secrets, and a Google client of its own if previews need sign-in — branch code
+that can read production's secrets can forge production sessions.
 **Every value must be real** — not a placeholder from `.env.example`
 (`YourSecretHere`, `http://localhost:3000`) and not left blank:
 
