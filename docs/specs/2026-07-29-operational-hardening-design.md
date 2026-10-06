@@ -508,3 +508,33 @@ code before review — ran against production's `DATABASE_URL` and secrets;
 project's Vercel variables are the owner's to move.
 
 **Status.** Accepted.
+
+### 2026-10-06 — Deploys: E2E in CI, a post-deploy smoke test, production gated on CI (as-built)
+
+**Why.** `main` deployed to production the moment a merge landed, nothing checked the live
+site afterwards, and the E2E suite ran only on laptops. On 2026-10-06 five security PRs were
+merged one at a time with a hand-run smoke test after each deploy; this makes that routine.
+
+**What changed.**
+
+1. **E2E in CI.** `.github/workflows/ci.yml` gains a job, `e2e (playwright)`: Chromium,
+   then `npm run test:e2e` against the production build with the demo database and local
+   stubs (no network beyond the runner). Not a required check until it has proved stable.
+2. **Post-deploy smoke test.** `scripts/smoke-production.sh` (`npm run smoke:production`;
+   `SMOKE_BASE_URL` overrides the default `https://makerlab-ai.vercel.app`): read-only GETs
+   of `/api/health` (`status: ok`, `catalog: live`), the public pages, `/kiosk`, `/mcp`,
+   `/admin`, `/opengraph-image`, one optimized image from the lab's Blob store, and the
+   optimizer refusing an outside host with 400. No sign-in and no chat (a chat turn costs
+   money and counts as usage). `.github/workflows/deploy-smoke.yml` runs it on every
+   successful **Production** `deployment_status` Vercel reports, against the production
+   alias (deployment URLs are behind Vercel Authentication), three attempts 30 s apart; it
+   can also be run by hand (`workflow_dispatch`).
+3. **Production gated on CI** — a dashboard setting, not code: Vercel **Deployment Checks**
+   on the CI jobs, so a production build is promoted only when they pass
+   (`docs/deploy.md` §7).
+
+`test/ci-hardening.test.ts` now checks every workflow file (SHA pins, `persist-credentials:
+false`), not only `ci.yml`.
+
+**Status.** Accepted. Deployment Checks are the owner's to switch on in Vercel.
+

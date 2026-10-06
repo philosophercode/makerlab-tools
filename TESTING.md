@@ -233,8 +233,11 @@ diagnostic for developers, not a gate.
 
 `.github/workflows/ci.yml` runs on every PR and every push to `main`: one job
 for `npm run lint`, `npm run typecheck` and `npm run spec:coverage -- --ci`,
-and `npx vitest run` (both projects) split four ways with `--shard`. The E2E suite is not in CI yet; run `npm run test:e2e`
-locally before merging anything that changes a page.
+and `npx vitest run` (both projects) split four ways with `--shard`, and the E2E
+suite (`npm run test:e2e`) as its own job, `e2e (playwright)`, which is not a
+required check yet. After every production deployment,
+`.github/workflows/deploy-smoke.yml` runs `scripts/smoke-production.sh` against
+the live site (`npm run smoke:production` by hand; `docs/deploy.md` §7).
 
 Actions are pinned to full commit SHAs (with the version in a comment) and
 checkout runs with `persist-credentials: false`; `.github/dependabot.yml` opens

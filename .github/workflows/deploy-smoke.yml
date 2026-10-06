@@ -1,0 +1,40 @@
+# After every successful production deployment Vercel reports through GitHub,
+# check the live site (scripts/smoke-production.sh). A failure here means:
+# look, and roll back from the Vercel dashboard (Instant Rollback) if needed.
+# Operational hardening spec, amendment 2026-10-06.
+name: Deploy smoke test
+
+on:
+  deployment_status:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: smoke test (production)
+    # Only a finished, successful production deployment, or a manual run.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.deployment_status.state == 'success' &&
+       github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      # The production alias, not the per-deployment URL: deployment URLs sit
+      # behind Vercel Authentication. A deployment that is not yet aliased is
+      # caught by the retry below.
+      - name: Smoke test
+        env:
+          SMOKE_BASE_URL: https://makerlab-ai.vercel.app
+        run: |
+          for attempt in 1 2 3; do
+            if bash scripts/smoke-production.sh; then exit 0; fi
+            echo "attempt $attempt failed; retrying in 30 s"
+            sleep 30
+          done
+          exit 1

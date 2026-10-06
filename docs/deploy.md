@@ -578,6 +578,19 @@ What `npm run data:push` (`scripts/push-local-to-hosted.ts`) does:
 5. **Trigger the nightly job by hand** and confirm a backup appears in the **private**
    store:
    `curl -H "x-admin-secret: $ADMIN_REVALIDATE_SECRET" https://makerlab-ai.vercel.app/api/cron/daily`
+6. **The smoke test** — `npm run smoke:production` (or `SMOKE_BASE_URL=<url> npm run
+   smoke:production` for another deployment). Read-only GETs: health, the public pages,
+   the kiosk, `/mcp`, the admin shell, the share image, an optimized image from the lab's
+   store, and the optimizer refusing an outside host. GitHub runs it after every
+   production deployment (`.github/workflows/deploy-smoke.yml`); a red run means look,
+   and use **Instant Rollback** in the Vercel dashboard if the site is broken.
+
+### Gate production on CI (once, in the Vercel dashboard)
+
+**Settings → Deployment Checks:** add the GitHub checks `lint, typecheck, spec coverage`
+and `tests (1/4)` … `tests (4/4)` from the **CI** workflow. A production deployment is then
+built but not promoted to the live domain until those checks pass on its commit. Add
+`e2e (playwright)` too once it has run green for a while.
 
 ## 8 · Give people access
 

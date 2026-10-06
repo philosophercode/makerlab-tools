@@ -332,22 +332,24 @@ test.describe("Project submission — the real write path", () => {
     // route refuses, the message is translated, and the form still submits.
     await page.goto("/projects/new");
 
-    await page
-      .locator('input[type="file"]')
-      .setInputFiles({
-        name: "lamp.png",
-        mimeType: "image/png",
-        buffer: Buffer.from(
-          "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c489",
-          "hex"
-        ),
-      });
-
+    // A real 1×1 PNG. Picking it before React has hydrated the form fires no
+    // handler (the input is server-rendered), which a slow CI runner hits, so
+    // pick until the message shows, the way admin-navigation presses ⌘K.
+    const png = Buffer.from(
+      "89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c63f8cfc0f01f00050001ff89993d1d0000000049454e44ae426082",
+      "hex"
+    );
     // `[data-slot="form-error"]` rather than role=alert: Next's route announcer is
     // also a live region, and two matches is a strict-mode violation.
-    await expect(page.locator("[data-slot=\"form-error\"]")).toContainText(
-      "Photo uploads are unavailable"
-    );
+    await expect(async () => {
+      await page
+        .locator('input[type="file"]')
+        .setInputFiles({ name: "lamp.png", mimeType: "image/png", buffer: png });
+      await expect(page.locator("[data-slot=\"form-error\"]")).toContainText(
+        "Photo uploads are unavailable",
+        { timeout: 2_000 }
+      );
+    }).toPass({ timeout: 20_000 });
     await expect(
       page.getByRole("button", { name: "Submit project" })
     ).toBeEnabled();

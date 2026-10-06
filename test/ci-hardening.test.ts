@@ -4,13 +4,15 @@
  * 2026-10-05): every action pinned to a commit SHA, checkout without a
  * persisted token, and Dependabot keeping the pins current.
  */
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 const read = (p: string) => readFileSync(fileURLToPath(new URL(`../${p}`, import.meta.url)), "utf8");
 
-describe("CI workflow", () => {
-  const ci = read(".github/workflows/ci.yml");
+const workflows = readdirSync(fileURLToPath(new URL("../.github/workflows/", import.meta.url))).filter((f) => /\.ya?ml$/.test(f));
+
+describe.each(workflows)("workflow %s", (file) => {
+  const ci = read(`.github/workflows/${file}`);
   const steps = ci.split(/\n(?=\s*- )/);
 
   it("pins every action to a full commit SHA", () => {
@@ -23,6 +25,12 @@ describe("CI workflow", () => {
     const checkouts = steps.filter((step) => /uses:\s*actions\/checkout@/.test(step));
     expect(checkouts.length).toBeGreaterThan(0);
     for (const step of checkouts) expect(step).toMatch(/persist-credentials:\s*false/);
+  });
+});
+
+describe("CI hardening", () => {
+  it("covers more than one workflow", () => {
+    expect(workflows).toEqual(expect.arrayContaining(["ci.yml", "deploy-smoke.yml"]));
   });
 
   it("has Dependabot keep the pinned actions current", () => {
