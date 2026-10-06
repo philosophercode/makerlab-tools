@@ -55,6 +55,8 @@
   "detail": {
     "breadcrumbTools": "כלים",
     "toolStatusLabel": "מצב הכלי",
+    "labNotes": "הערות המעבדה",
+    "labNotesFrom": "מצוות המעבדה",
     "trainingChip": "הכשרה {level}",
     "ppeRequired": "נדרש ציוד מגן אישי",
     "viewSafetyDoc": "הצגת מסמך הבטיחות",
@@ -75,7 +77,6 @@
     "trainingRow": "הכשרה",
     "mapId": "מזהה מפה",
     "tags": "תגיות",
-    "notes": "הערות",
     "physicalMachines": "מכונות פיזיות",
     "unit": "יחידה",
     "status": "סטטוס",

@@ -15,6 +15,7 @@ import { EXEMPT, EXEMPT_KINDS, ROUTE_BACKED } from "./exempt";
 import * as imports from "./imports";
 import * as insights from "./insights";
 import * as intake from "./intake";
+import * as labNotes from "./lab-notes";
 import * as manuals from "./manuals";
 import * as mirror from "./mirror";
 import * as refresh from "./refresh";
@@ -66,6 +67,7 @@ const DEFINITION_MODULES = [
   mirror,
   taxonomy,
   insights,
+  labNotes,
 ];
 
 /** Export name → definition, for every registered definition. */

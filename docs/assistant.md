@@ -12,6 +12,11 @@ do"), linked from the chat, About, `/mcp` and the product page.
 
 - Find equipment ("what can cut acrylic?"), explain how a machine works from its
   manual, with page references, and say whether a unit is working.
+- Give the lab's own rules first. A tool's **Lab notes** (written by staff in the
+  tool editor, shown above the description on its page) and the **lab-wide
+  notes** (Inventory → Lab notes) come before the manual, win where they differ,
+  and are cited as "**Lab note:**", never as the manual. The assistant never
+  writes or proposes lab notes; staff do.
 - File a maintenance problem ("Prusa #1's nozzle is clogged") and report a
   mistake on a tool's page. It tries to help you fix the problem first.
 - Give you a tool's QR code ("can I have a QR code for this device?"): the code

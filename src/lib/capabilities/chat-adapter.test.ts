@@ -105,8 +105,66 @@ describe("citing sources", () => {
   it("has a third format for a resource with no link: its bold title", () => {
     const prompt = promptFor(trotec);
 
-    expect(prompt).toContain("Three formats:");
+    expect(prompt).toContain("Four formats:");
     expect(prompt).toContain('3. A resource with "no link on file": its exact title in bold, `**Trotec Speedy 400 SOP**`, with no link.');
+  });
+
+  it("has a fourth format for a lab note: bold Lab note, no link (identity spec amendment \"Lab notes\")", () => {
+    const citing = promptFor(trotec).slice(promptFor(trotec).indexOf("## Citing sources")).split("\n## ")[0];
+
+    expect(citing).toContain("4. A lab note: `**Lab note:**` in bold before it, with no link");
+  });
+});
+
+describe("lab notes (identity spec amendment \"Lab notes\", 2026-10-06)", () => {
+  const cutter = withLinks({ ...trotec, notes: "- Always put a cutting mat underneath so you don't scratch the table.\n\nReturn the blade to the drawer." }, []);
+  const plain = { ...trotec, notes: null };
+
+  it("puts the rules in the stable part, right after Where you are, even with no notes anywhere", () => {
+    const prompt = buildSystemPrompt([], { tools: mockTools, locale: "en" });
+    const rules = prompt.indexOf("## Lab notes");
+
+    expect(rules).toBeGreaterThan(prompt.indexOf("## Where you are"));
+    expect(rules).toBeLessThan(prompt.indexOf(CONVERSATION_HEADING));
+    expect(prompt).toContain("**They win.**");
+    expect(prompt).toContain("follow the lab note and say it is how this lab does it");
+    expect(prompt).toContain("Never attribute a lab note to a manual or a web page");
+    expect(prompt).toContain("**Never invent one.**");
+    expect(prompt).not.toContain("### Lab-wide notes");
+  });
+
+  it("does not seed a real-sounding rule the model could repeat for a tool that has none", () => {
+    const prompt = buildSystemPrompt([], { tools: [], locale: "en" });
+    const rules = prompt.slice(prompt.indexOf("## Lab notes")).split("\n## ")[0];
+
+    expect(rules).not.toMatch(/cutting mat/i);
+    expect(rules).toContain("**Lab note:** <what the note says>");
+  });
+
+  it("lists the lab-wide notes in the stable part, one bullet each, the same on every page and locale", () => {
+    const labNotes = ["Clean your station before you leave.", "Ask a SuperMaker before using a machine for the first time."];
+    const gallery = buildSystemPrompt([], { tools: mockTools, locale: "en", labNotes });
+    const onTool = buildSystemPrompt([], { tools: mockTools, focusedTool: cutter, locale: "fr", labNotes });
+    const stable = gallery.slice(0, gallery.indexOf(CONVERSATION_HEADING));
+
+    expect(stable).toContain("### Lab-wide notes\n\n- Clean your station before you leave.\n- Ask a SuperMaker before using a machine for the first time.");
+    expect(onTool.slice(0, onTool.indexOf(CONVERSATION_HEADING))).toBe(stable);
+  });
+
+  it("gives the focused tool's lab notes first in its description, one per line, list markers dropped", () => {
+    const prompt = buildSystemPrompt([], { tools: mockTools, focusedTool: cutter, locale: "en" });
+    const tail = prompt.slice(prompt.indexOf(CONVERSATION_HEADING));
+    const notes = tail.indexOf("- Lab notes (from the lab's staff; give these first and cite each as **Lab note:**):");
+
+    expect(notes).toBeGreaterThan(tail.indexOf(`**${cutter.name}**`));
+    expect(notes).toBeLessThan(tail.indexOf("- Category:"));
+    expect(tail).toContain("  - Always put a cutting mat underneath so you don't scratch the table.\n  - Return the blade to the drawer.");
+  });
+
+  it("says nothing about lab notes in the description of a tool that has none", () => {
+    const tail = buildSystemPrompt([], { tools: mockTools, focusedTool: plain, locale: "en" }).split(CONVERSATION_HEADING)[1];
+
+    expect(tail).not.toContain("- Lab notes");
   });
 });
 

@@ -22,6 +22,7 @@ import {
   PENDING_SAVE_IDENTITY,
 } from "./intake";
 import { INSIGHTS_DISMISS_GAP, INSIGHTS_FILE_CORRECTION, INSIGHTS_SET_VALUE_ASSUMPTIONS } from "./insights";
+import { LAB_SET_NOTES } from "./lab-notes";
 import { TICKETS_LOG_COMPLETED } from "./maintenance-log";
 import { MANUALS_REPROCESS, MANUALS_REPROCESS_LIBRARY } from "./manuals";
 import { MIRROR_DISCONNECT, MIRROR_SET_PAUSED, MIRROR_SYNC_NOW } from "./mirror";
@@ -119,6 +120,8 @@ const DEFINITIONS = [
   INSIGHTS_FILE_CORRECTION,
   // The value report's assumptions (usage insight spec amendment "Value report").
   INSIGHTS_SET_VALUE_ASSUMPTIONS,
+  // The lab-wide notes (identity spec amendment "Lab notes").
+  LAB_SET_NOTES,
 ];
 
 /** Every definition, runnable. */

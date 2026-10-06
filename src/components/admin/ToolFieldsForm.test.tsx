@@ -73,10 +73,21 @@ it("sends an empty patch when nothing was touched, which is a touch", async () =
 it("sends only the field that changed", async () => {
   const { onSave } = renderForm();
 
-  await userEvent.type(screen.getByLabelText("Notes"), "Tank replaced");
+  await userEvent.type(screen.getByLabelText("Lab notes"), "Tank replaced");
   await save();
 
   expect(onSave).toHaveBeenCalledWith({ notes: "Tank replaced" });
+});
+
+it("offers the tool's notes as Lab notes, right after the description, pointing to the lab-wide notes (identity spec amendment \"Lab notes\")", () => {
+  renderForm({ values: tool({ notes: "Always put a cutting mat underneath." }) });
+  const field = screen.getByLabelText("Lab notes");
+  const fields = Array.from(document.querySelectorAll("input, textarea, select")).map((el) => el.id);
+
+  expect(field).toHaveValue("Always put a cutting mat underneath.");
+  expect(fields.indexOf("tool-notes")).toBe(fields.indexOf("tool-description") + 1);
+  expect(field).toHaveAccessibleDescription(/one per line/);
+  expect(screen.getByRole("link", { name: "lab-wide notes" })).toHaveAttribute("href", "/admin/inventory/lab-notes");
 });
 
 it("splits a list field on commas and drops the blanks", async () => {
@@ -141,7 +152,7 @@ describe('assistant starter questions (amendment "Tool-specific starter question
 
   it("does not send them when nobody touched them", async () => {
     const { onSave } = renderForm({ values: tool({ starterQuestions: ["What resins can I print with?"] }) });
-    await userEvent.type(screen.getByLabelText("Notes"), "Tank replaced");
+    await userEvent.type(screen.getByLabelText("Lab notes"), "Tank replaced");
     await save();
     expect(onSave).toHaveBeenCalledWith({ notes: "Tank replaced" });
   });

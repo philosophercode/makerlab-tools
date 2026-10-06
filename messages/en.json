@@ -110,6 +110,8 @@
   "detail": {
     "breadcrumbTools": "Tools",
     "toolStatusLabel": "Tool status",
+    "labNotes": "Lab notes",
+    "labNotesFrom": "From the lab's staff",
     "trainingChip": "{level} training",
     "ppeRequired": "PPE Required",
     "viewSafetyDoc": "View Safety Doc",
@@ -132,7 +134,6 @@
     "trainingRow": "Training",
     "mapId": "Map ID",
     "tags": "Tags",
-    "notes": "Notes",
     "physicalMachines": "Physical Machines",
     "unit": "Unit",
     "status": "Status",
@@ -759,6 +760,9 @@
         "fieldOfficialName": "Official name",
         "officialNameHint": "The full product name with its model or part number, as the manufacturer writes it. Optional; used for search, manuals and research, and shown under the title.",
         "fieldDescription": "Description",
+        "fieldLabNotes": "Lab notes",
+        "labNotesPlaceholder": "Always put a cutting mat underneath so you don't scratch the table.",
+        "labNotesHint": "The lab's own rules and tips for this tool, one per line. They show above the description on its page, and the assistant gives them first and cites them as lab notes. Rules for the whole lab go in the <link>lab-wide notes</link>.",
         "fieldCategory": "Category",
         "fieldLocation": "Location",
         "field_materials": "Materials",
@@ -767,7 +771,6 @@
         "fieldTrainingRequired": "Training required before use",
         "fieldUseRestrictions": "Use restrictions",
         "fieldEmergencyStop": "Emergency stop",
-        "fieldNotes": "Notes",
         "fieldStarterQuestions": "Assistant starter questions",
         "starterQuestionsHint": "Up to three short questions the assistant offers on this tool's page. Leave them blank for the general ones.",
         "starterQuestionN": "Starter question {n}",
@@ -2414,6 +2417,27 @@
       "cutGuides": "Light cut guides",
       "labelPaperHint": "For a label printer: each page is one label, with no margin.",
       "reset": "Reset to defaults"
+    },
+    "labNotes": {
+      "open": "Lab notes",
+      "title": "Lab notes",
+      "lede": "The lab's own rules and tips, which no manual has. The assistant knows the lab-wide notes in every conversation, and a tool's notes whenever it is asked about that tool.",
+      "factsLabWide": "{count, plural, =0 {No lab-wide notes} one {# lab-wide note} other {# lab-wide notes}}",
+      "factsTools": "{count, plural, =0 {No tool has lab notes} one {# tool with lab notes} other {# tools with lab notes}}",
+      "factsChanged": "Changed {date} by {name}",
+      "someone": "a former member",
+      "labWideHeading": "Lab-wide notes",
+      "labWideLede": "Rules that apply to the whole lab, one per line. For example: \"Clean your station before you leave.\" The assistant gives them when they apply and cites them as lab notes.",
+      "fieldLabel": "Lab-wide notes",
+      "fieldHint": "One note per line. Keep them short: the assistant reads all of them on every turn. Rules for one tool go in that tool's editor.",
+      "count": "{notes, plural, =0 {No notes} one {# note} other {# notes}} · {chars} of {max} characters",
+      "placeholder": "Clean your station and put tools back before you leave.",
+      "save": "Save lab-wide notes",
+      "toolsHeading": "Tool lab notes",
+      "toolsLede": "Every tool whose editor has lab notes. Open a tool's page and use Edit to change them.",
+      "toolsEmpty": "No tool has lab notes yet. Add them in a tool's editor, under Lab notes.",
+      "draft": "Draft",
+      "unreadable": "The lab notes could not be read just now. Nothing was changed; reload the page to try again."
     }
   },
   "account": {
@@ -3421,14 +3445,16 @@
       "taxonomy_recategorize_tool": "Move tools to another category",
       "insights_dismiss_gap": "Dismiss an unanswered question",
       "insights_file_correction": "File an unanswered question as a correction",
-      "insights_set_value_assumptions": "Set the value report's assumptions"
+      "insights_set_value_assumptions": "Set the value report's assumptions",
+      "lab_set_notes": "Set the lab-wide notes"
     },
     "pageOnly": {
       "imports_confirm_columns": "A form of column choices made while looking at the file, not a sentence.",
       "manuals_reprocess_library": "The same run as “Re-process a manual”, which it does offer.",
       "insights_dismiss_gap": "The queue is students' own words; the assistant doesn't act on it yet.",
       "insights_file_correction": "The queue is students' own words; the assistant doesn't act on it yet.",
-      "insights_set_value_assumptions": "These are the numbers a dean is shown; they change on the report, beside the formulas."
+      "insights_set_value_assumptions": "These are the numbers a dean is shown; they change on the report, beside the formulas.",
+      "lab_set_notes": "The assistant reads these on every turn, so it never writes its own; staff write them on the Lab notes page."
     },
     "never": {
       "super_admin": "Make someone a super admin, or change a super admin's role",

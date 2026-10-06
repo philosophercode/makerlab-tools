@@ -17,6 +17,7 @@ import { CAPABILITIES, capabilitiesForIdentity, composeChat, type CapabilityCtx 
 import { describeCatalogEntry } from "../capabilities/catalog";
 import { describeTool, hasUsableUrl } from "../capabilities/chat-adapter";
 import { getCatalogTool, getCatalogTools } from "../catalog";
+import { getLabWideNotes } from "../lab-notes/read";
 import { appendManualSections } from "../chat/attached-manuals";
 import { stubLiveReads, stubWrites } from "../chat/headless-stubs";
 import { markOutsideReads, newTurnState } from "../chat/taint";
@@ -96,9 +97,11 @@ const DEFAULT_TIMEOUT_MS = 180_000;
 
 export async function runStarterAnswer(input: RunStarterAnswerInput): Promise<StarterAnswerRun> {
   const identity = systemAnonymousIdentity();
-  const [catalog, focused] = await Promise.all([
+  const [catalog, focused, labNotes] = await Promise.all([
     getCatalogTools(),
     input.toolId ? getCatalogTool(input.toolId) : Promise.resolve(null),
+    // The same lab-wide notes the live chat has (identity spec amendment "Lab notes").
+    getLabWideNotes(),
   ]);
   if (input.toolId && !focused) throw new Error(`tool ${input.toolId} is not in the published catalogue`);
   const toolManuals = focused ? await loadToolManualsForChat(focused.id, identity) : { outlines: [] };
@@ -122,6 +125,7 @@ export async function runStarterAnswer(input: RunStarterAnswerInput): Promise<St
         focusedTool: focused,
         locale: "en",
         manualOutlines: toolManuals.outlines,
+        labNotes,
       });
       const streamed = streamText({
         model: input.model ?? languageModelFor("chat"),
@@ -221,15 +225,22 @@ export function storableMessage(message: UIMessage): UIMessage {
 /**
  * The focused tool's block exactly as the chat's prompt gives it
  * (`describeTool`): what an answer could draw on, for the grader and the
- * question writer. Null for a tool that is not published.
+ * question writer. Null for a tool that is not published. The lab-wide notes
+ * follow it when there are any, so an answer that cites one is grounded
+ * (identity spec amendment "Lab notes").
  */
 export async function describeStarterTool(toolId: string): Promise<string | null> {
-  const tool = await getCatalogTool(toolId);
-  return tool ? describeTool(tool) : null;
+  const [tool, labNotes] = await Promise.all([getCatalogTool(toolId), getLabWideNotes()]);
+  return tool ? [describeTool(tool), ...labWideNotesRecord(labNotes)].join("\n") : null;
 }
 
-/** The catalogue listing exactly as the chat's prompt gives it — the general chips' record. */
+/** The catalogue listing exactly as the chat's prompt gives it, then the lab-wide notes — the general chips' record. */
 export async function describeStarterCatalog(): Promise<string> {
-  const catalog = await getCatalogTools();
-  return [`MakerLab catalog (${catalog.length} tools):`, ...catalog.map(describeCatalogEntry)].join("\n");
+  const [catalog, labNotes] = await Promise.all([getCatalogTools(), getLabWideNotes()]);
+  return [`MakerLab catalog (${catalog.length} tools):`, ...catalog.map(describeCatalogEntry), ...labWideNotesRecord(labNotes)].join("\n");
+}
+
+/** The lab-wide notes as record lines, or none. */
+function labWideNotesRecord(labNotes: readonly string[]): string[] {
+  return labNotes.length > 0 ? ["Lab-wide notes (from the lab's staff):", ...labNotes.map((line) => `- ${line}`)] : [];
 }

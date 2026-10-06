@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { QrCode } from "lucide-react";
+import { NotebookPen, QrCode } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
@@ -119,6 +119,13 @@ export default async function AdminInventoryPage({
               <Link href="/admin/inventory/qr">
                 <QrCode aria-hidden="true" />
                 {t("qrLabels.open")}
+              </Link>
+            </Button>
+            {/* Lab notes (`/admin/inventory/lab-notes`): the lab-wide notes and every tool's. Same permission as this page. */}
+            <Button asChild>
+              <Link href="/admin/inventory/lab-notes">
+                <NotebookPen aria-hidden="true" />
+                {t("labNotes.open")}
               </Link>
             </Button>
             <AddInventoryButton role={identity.role} />

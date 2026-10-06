@@ -182,3 +182,85 @@ guide: what's there, what to play with, how to use it, and what it costs."
   `components/SiteFooter.test.tsx`, `app/about/page.test.tsx` and
   `e2e/product.spec.ts` (footer and About links, every image decodes, video and
   captions served, no sideways scroll on a phone, no footer on the kiosk).
+
+## Amendment — Lab notes (2026-10-06)
+
+On 2026-10-06 the Director (Niti Parikh) and the Assistant Director (Luis
+Rodrigo Navarro) asked for hyper-local knowledge first: the lab's own protocol
+for a tool ("Box cutter: always put a cutting mat underneath so you don't
+scratch the table") and rules for the whole lab. No manual has them, and the
+assistant should prefer them. They are **lab notes**.
+
+**Reused, not a parallel system.**
+
+- A tool's lab notes are **`tools.notes`** (data platform spec §4.4, imported
+  from Notion's "Notes"). Research never reads it (refresh research's blind
+  inputs) and `propose_change` does not offer it, so only staff write it.
+  Renamed in the UI, not the schema.
+- The **lab-wide notes** are one **`lab_settings`** row: key `lab_notes`,
+  value `{ text }`, at most 4,000 characters (`lib/lab-notes/setting.ts`).
+  Migration `0024`'s table takes a new key without a migration.
+- Both are plain text, **one note per line**, read by one function
+  (`labNoteLines`, `lib/lab-notes/lines.ts`): blank lines and typed list
+  markers dropped, each line flattened to one line, at most 500 characters
+  and 30 lines.
+
+**Where they show.**
+
+- **Tool editor**: the field is "Lab notes", right after Description, with a
+  hint and a link to the lab-wide notes. It was "Notes", at the end.
+- **Tool page**: a Lab notes block in the hero, under the status line and
+  **above the description**, so the lab's word comes before the generic
+  text. Labelled "From the lab's staff"; one note is a sentence, several are a
+  list. Not tinted (Safety is the one tinted section) and not in the accent: an
+  ink rule down its start edge (DESIGN.md §8.17). The Details "Notes" row is
+  gone.
+- **`/admin/inventory/lab-notes`**, "Lab notes" (`tools.edit`): a button
+  beside QR labels on Inventory, not a new admin surface. The lab-wide notes'
+  form (`lab.set_notes`, GUI only: parity spec amendment 2026-10-06), then
+  every unarchived tool that has lab notes, drafts marked, each linking to its
+  page.
+
+**The assistant.**
+
+- **Rules**, in the stable prompt right after "Where you are"
+  (`lib/ai/lab-notes-prompt.ts`): read them first (call `get_tool_details`
+  for a tool the catalog marks), give them first, and follow them over a
+  manual, the manufacturer or general knowledge, keeping a manual's safety
+  warning. Cite each one as **Lab note:**, with no link, and never as the
+  manual. Never invent one. The rules' example is a placeholder, so the model
+  has no real-sounding rule to repeat for a tool that has none.
+- **Lab-wide notes** follow the rules in the stable prefix, one bullet each.
+  They are the same for every request until staff save new ones, so the
+  prefix cache still holds. Read cached with the catalogue
+  (`getLabWideNotes`, tag `catalog`); a save drops the tag. A failed read
+  leaves them out of that turn and logs it.
+- **A tool's notes** come first in the focused tool's description (Active
+  tool context). `get_tool_details` returns them as `lab_notes`, a list of
+  lines; the key was `notes`, the raw text, and MCP clients see the rename
+  too. The catalog list ends the line of a tool that has notes with
+  "· lab notes", so the model knows to look; the notes themselves would cost
+  every turn.
+- **Citing sources** gains a fourth format: a lab note.
+- **Starter answers** are made with the lab-wide notes too, and the grader's
+  record carries them, so an answer that cites one is grounded. Their source hash
+  includes the notes once there are any, so writing notes makes the stored
+  answers stale and the chips answer live until `starters:refresh` runs.
+  While there are none, every existing hash is unchanged. A tool's own notes
+  were already covered: an edit moves `tools.updated_at`.
+
+**Open.** Whether the lab-wide notes should also show to people (the About
+page, the kiosk), not only to the assistant. MCP clients get a tool's notes
+through `get_tool_details`, but not the lab-wide notes. An eval case for "cites
+the lab note before the manual" is not written yet.
+
+**Tests.** `lib/lab-notes/lines.test.ts`, `setting.test.ts`;
+`lib/ai/lab-notes-prompt.test.ts`; `capabilities/chat-adapter.test.ts` (the
+rules and lab-wide notes in the stable part, the same on every page; the
+focused tool's notes first; the fourth citation format; no seeded rule);
+`capabilities/catalog.test.ts` (`lab_notes`, the catalog mark);
+`api/chat/route.test.ts` (both reach the model); `DetailShell.test.tsx` (above
+the description, list or sentence, absent when blank, no Details row);
+`ToolFieldsForm.test.tsx`; `admin/lab-notes/LabNotesForm.test.tsx`;
+`app/admin/inventory/lab-notes/page.test.tsx` and `actions.test.ts` (gate,
+normalised save, cache tag, cap); `starters/hash.test.ts`.

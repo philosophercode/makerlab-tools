@@ -206,6 +206,12 @@ export interface PromptEnv {
   manualOutlines?: ManualOutlineForPrompt[];
   /** The record being curated, for the fenced "Curating" block (refresh research spec §12.1). */
   curation?: CurationContext;
+  /**
+   * The lab-wide notes, one per line (identity spec amendment "Lab notes"),
+   * read by the surface (`lib/lab-notes/read.ts`). The same for every request
+   * until staff change them, so they go in the prompt's stable prefix.
+   */
+  labNotes?: readonly string[];
 }
 
 /** One searchable manual of the focused tool, as the prompt lists it. */

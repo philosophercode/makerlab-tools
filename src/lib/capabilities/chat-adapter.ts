@@ -9,6 +9,7 @@ import { languageNameForLocale } from "../../i18n/config";
 import { newTurnState, readsOutsideContent } from "../chat/taint";
 import { siteConfig } from "../site-config";
 import { LAB_CONTEXT } from "../ai/lab-context";
+import { labNotesSection, toolLabNotesLines } from "../ai/lab-notes-prompt";
 import { CITE_HREF_PREFIX } from "../manuals/citation-ref";
 import type { MakerLabTool } from "../../components/catalog-types";
 
@@ -88,10 +89,12 @@ export const CONVERSATION_HEADING = "# This conversation";
 /**
  * Compose the chat system prompt, in two parts:
  *
- * 1. **Stable** — the intro, every capability's `promptFragment(env)` in
- *    registry order (the catalog capability's owns tool linking and the one
- *    catalog listing), then the reading and citing rules. Nothing here names
- *    the caller, the page or the locale.
+ * 1. **Stable** — the intro, "Where you are", the lab notes rules and the
+ *    lab-wide notes, every capability's `promptFragment(env)` in registry
+ *    order (the catalog capability's owns tool linking and the one catalog
+ *    listing), then the reading and citing rules. Nothing here names the
+ *    caller, the page or the locale; the lab-wide notes change only when
+ *    staff save them.
  * 2. **This conversation** — the response language, the focused tool and its
  *    resources, then every capability's `conversationFragment(env)` (who is
  *    signed in, the focused tool's manual contents, a curation record).
@@ -106,8 +109,9 @@ export function buildSystemPrompt(
 ): string {
   const { focusedTool, locale } = env;
   // The lab context is static: it goes right after the intro, in the prompt's
-  // cacheable prefix, before anything that varies by request.
-  const stable: string[] = [introSection(), LAB_CONTEXT];
+  // cacheable prefix, before anything that varies by request. The lab notes
+  // follow it: the same for every request until staff save new ones.
+  const stable: string[] = [introSection(), LAB_CONTEXT, labNotesSection(env.labNotes ?? [])];
   for (const capability of capabilities) {
     const fragment = capability.promptFragment(env).trim();
     if (fragment) stable.push(fragment);
@@ -210,13 +214,15 @@ function readingSection(): string {
 }
 
 function citingSection(): string {
-  return `## Citing sources\n\nCite every source you draw on inline. Three formats:\n\n1. A \`search_manual\` passage: a markdown link to \`${CITE_HREF_PREFIX}<ref>\` with the passage's \`ref\`, as "Searching manuals" says — never its web address and never a \`#page=\` link.\n2. A page read with \`read_page\`, an \`exa_search\` result, or a resource listed in this prompt: a markdown link to its exact URL, e.g. \`[Trotec Speedy 400 SOP](https://...)\`.\n3. A resource with "no link on file": its exact title in bold, \`**Trotec Speedy 400 SOP**\`, with no link.\n\nDo not invent page numbers or URLs. Cite only a \`ref\` a search returned.`;
+  return `## Citing sources\n\nCite every source you draw on inline. Four formats:\n\n1. A \`search_manual\` passage: a markdown link to \`${CITE_HREF_PREFIX}<ref>\` with the passage's \`ref\`, as "Searching manuals" says — never its web address and never a \`#page=\` link.\n2. A page read with \`read_page\`, an \`exa_search\` result, or a resource listed in this prompt: a markdown link to its exact URL, e.g. \`[Trotec Speedy 400 SOP](https://...)\`.\n3. A resource with "no link on file": its exact title in bold, \`**Trotec Speedy 400 SOP**\`, with no link.\n4. A lab note: \`**Lab note:**\` in bold before it, with no link, as "Lab notes" says.\n\nDo not invent page numbers or URLs. Cite only a \`ref\` a search returned.`;
 }
 
 /** Full multi-line description of the focused tool (parity with the route). Also the starter grader's record of it. */
 export function describeTool(t: MakerLabTool): string {
   const lines: string[] = [
     `**${t.name}**`,
+    // The lab's own rules first, where the model reads before the rest.
+    ...toolLabNotesLines(t.notes),
     `- Category: ${t.category}${t.categorySub ? ` / ${t.categorySub}` : ""}`,
     `- Location: ${t.location}${t.zone ? ` / ${t.zone}` : ""}`,
     `- Training: ${t.trainingLabel} (level: ${t.trainingLevel})`,

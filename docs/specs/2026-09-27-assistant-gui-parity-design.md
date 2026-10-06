@@ -1558,3 +1558,23 @@ highlighting, notes, the never list. `e2e/assistant-page.spec.ts`: visitor and s
 highlighting, the four links, no sideways scroll at 375px.
 
 No action, tool, permission or count changes.
+
+### 2026-10-06 — lab notes: one GUI-only action
+
+The identity spec's "Lab notes" amendment (`2026-09-28-makerlab-identity-design.md`) adds the
+lab-wide notes: the lab's own rules, one per line, which the assistant knows in every conversation.
+They are one `lab_settings` row (`lab_notes`), saved whole from `/admin/inventory/lab-notes` by one
+registered action, run by the page's server action (`app/admin/inventory/lab-notes/actions.ts`,
+`saveLabNotes`):
+
+| Action | Tool | Risk | Permission | Chat | MCP |
+|---|---|---|---|---|---|
+| `lab.set_notes` | `set_lab_notes` | catalog | `tools.edit` | never | never |
+
+`assistant: "never"`, no tool and no preview: the notes are instructions the assistant reads on
+every turn, so it never proposes its own, and a page or a manual it read could otherwise word them.
+A tool's lab notes are `tools.notes`, written by the editor's save (`saveTool`, already exempt:
+field edits stay on curation's `propose_change`, which does not offer `notes`). No new permission.
+No name matches the deny list. `/assistant` shows it as page-only, in the catalog area (`ACTION_AREAS`
+gains `lab`). **Counts:** action tools, chat tools and the MCP lists do not change. The registry
+holds 52 definitions. No migration: `lab_settings` (`0024`) takes a new key without one.

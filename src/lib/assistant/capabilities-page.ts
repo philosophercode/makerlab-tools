@@ -143,6 +143,8 @@ export const ACTION_AREAS: Readonly<Record<string, AreaId>> = {
   mirror: "mirror",
   taxonomy: "taxonomy",
   insights: "insights",
+  // The lab-wide notes (identity spec amendment "Lab notes"): what the assistant knows about the lab.
+  lab: "catalog",
 };
 
 /** The area of each capability tool that is not an action's, and of the chat's web search. */

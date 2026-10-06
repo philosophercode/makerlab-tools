@@ -14,6 +14,7 @@ import { Markdown } from "./system/Markdown";
 import { StatusGlyph, type StatusTone } from "./system/StatusGlyph";
 import { TOOL_STATUS_KEY, TOOL_STATUS_TONE } from "./ToolCard";
 import { ToolImage } from "./ToolImage";
+import { LabNotes } from "./tool/LabNotes";
 import { UnitsTable } from "./tool/UnitsTable";
 import type { ToolRelations } from "./tool/relations";
 
@@ -75,8 +76,10 @@ function maintenanceTone(status: string): StatusTone {
  *
  * - **Hero**: a small image plate (and, signed in, the mini-map — beside it
  *   on a phone, under it from `sm`) beside the name, official name, a status
- *   line on one line (status, training, PPE, units available), the
- *   description and the Safety doc / SOP buttons.
+ *   line on one line (status, training, PPE, units available), the lab's
+ *   own **Lab notes** when there are any (above the description: the lab's
+ *   word before the manufacturer's), the description and the Safety doc /
+ *   SOP buttons.
  * - **Two columns on desktop** (one on a phone): Safety & access — the one
  *   tinted block, compact rows — then Details as a dense `<dl>` on the left;
  *   Documents & resources (with each manual's Contents) and the machines on the
@@ -133,7 +136,7 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
     ...(tool.trainingLabel ? ([[t("trainingRow"), tool.trainingLabel]] as Row[]) : []),
     ...(tool.mapId ? ([[t("mapId"), <code key="map" className="font-mono text-xs">{tool.mapId}</code>]] as Row[]) : []),
     ...(tool.tags.length > 0 ? ([[t("tags"), tool.tags.join(", ")]] as Row[]) : []),
-    ...(tool.notes ? ([[t("notes"), tool.notes]] as Row[]) : []),
+    // The tool's notes are its Lab notes, in the hero (identity spec amendment "Lab notes"), not a row here.
   ];
 
   const safety: Row[] = [
@@ -218,6 +221,8 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
               <span className="text-muted-foreground tabular-nums">{t("unitsAvailable", { available, count: tool.units.length })}</span>
             ) : null}
           </p>
+          {/* The lab's own rules and tips, before the generic description (identity spec amendment "Lab notes"). */}
+          <LabNotes notes={tool.notes} />
           {/* Descriptions are Markdown (older ones may carry a spec list); no raw HTML, as for projects. */}
           <Markdown className="max-w-[72ch] text-[15px]">{tool.description}</Markdown>
           {safetyLink || sopLink ? (

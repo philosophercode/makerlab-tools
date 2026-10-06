@@ -55,6 +55,8 @@
   "detail": {
     "breadcrumbTools": "도구",
     "toolStatusLabel": "도구 상태",
+    "labNotes": "랩 노트",
+    "labNotesFrom": "랩 직원이 작성",
     "trainingChip": "{level} 교육",
     "ppeRequired": "보호장비 필수",
     "viewSafetyDoc": "안전 문서 보기",
@@ -75,7 +77,6 @@
     "trainingRow": "교육",
     "mapId": "지도 ID",
     "tags": "태그",
-    "notes": "메모",
     "physicalMachines": "실물 장비",
     "unit": "장치",
     "status": "상태",
