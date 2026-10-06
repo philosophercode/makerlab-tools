@@ -3,7 +3,7 @@ import { eq } from "drizzle-orm";
 import { nextCacheMock } from "../../../test/mocks/next-cache";
 import { getCatalogTools } from "../catalog";
 import { getDb, resetDbForTests } from "../db/client";
-import { attachments, maintenanceLogs } from "../db/schema/index";
+import { attachments, maintenanceLogs, tools, units } from "../db/schema/index";
 import { seedUser } from "../../../test/utils/session";
 import type { CapabilityCtx } from "./types";
 import type { Identity } from "../auth/identity";
@@ -150,6 +150,43 @@ describe("report_issue — the ticket that lands", () => {
   it("maps the default priority down to the stored value", async () => {
     const { row } = await file(issue());
     expect(row.priority).toBe("medium");
+  });
+});
+
+describe("report_issue — the unit a scanned label names (QR amendment 2026-10-06)", () => {
+  /** Two published tools whose units carry the same label, as two benches might. */
+  async function twoStations() {
+    const db = await getDb();
+    const suffix = Math.random().toString(36).slice(2, 8);
+    const [benchA, benchB] = await db
+      .insert(tools)
+      .values([
+        { slug: `bench-a-${suffix}`, name: `Bench A ${suffix}`, published: true },
+        { slug: `bench-b-${suffix}`, name: `Bench B ${suffix}`, published: true },
+      ])
+      .returning();
+    const [unitA, unitB] = await db
+      .insert(units)
+      .values([
+        { toolId: benchA.id, unitLabel: `Station ${suffix}` },
+        { toolId: benchB.id, unitLabel: `Station ${suffix}` },
+      ])
+      .returning();
+    return { benchA, benchB, unitA, unitB, label: `Station ${suffix}` };
+  }
+
+  it("files against the exact unit when given its id", async () => {
+    const { benchB, unitB } = await twoStations();
+    const { result, row } = await file(issue({ unit_label: unitB.id }));
+    expect(result.unit_resolved).toEqual({ id: unitB.id, label: unitB.unitLabel });
+    expect(row.unitId).toBe(unitB.id);
+    expect(row.toolId).toBe(benchB.id);
+  });
+
+  it("prefers the unit of the tool whose page the student is on", async () => {
+    const { benchA, benchB, unitA, unitB, label } = await twoStations();
+    expect((await file(issue({ unit_label: label }), { focusedToolId: benchB.id })).row.unitId).toBe(unitB.id);
+    expect((await file(issue({ unit_label: label }), { focusedToolId: benchA.id })).row.unitId).toBe(unitA.id);
   });
 });
 

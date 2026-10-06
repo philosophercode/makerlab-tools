@@ -44,10 +44,14 @@ its people (owner meeting with the Director and Assistant Director,
   (`get_tool_qr_code`, published tools only). Staff print sheets of labels from
   **Inventory → QR labels**.
 - Recognise a machine from a photo of its label: attach a photo with one of the
-  lab's QR codes in it and the assistant knows which tool it is. The server
+  lab's QR codes in it and the assistant knows which tool it is — and, for a
+  unit's own label, which unit, so a report lands on that machine. The server
   reads the code; only our own tool links are used (a code for a tool that is
   not published, or for another website, identifies nothing and is never
   followed).
+- Start a report from a machine's label: scanning a unit's label opens the
+  tool's page with **Report a problem with this unit**, which opens the chat
+  with the report started for that unit.
 
 ## Lab staff (SuperMakers and directors)
 

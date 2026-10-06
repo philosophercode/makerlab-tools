@@ -64,15 +64,21 @@ export const EXTRA_TEXT_MAX = 60;
 /** What one label says. */
 export interface LabelContent {
   name: string;
+  /**
+   * A unit's label only: which unit ("Prusa MK3S+ #4"), printed under the
+   * name whenever the name is. Never dropped for room: telling one machine
+   * from its neighbour is the point of the label. Absent or "" on a tool label.
+   */
+  unit?: string;
   /** "Room / Zone", or "" when the tool has none. */
   location: string;
-  /** What the code encodes (`toolQrTargetUrl`). */
+  /** What the code encodes (`toolQrTargetUrl`, or `unitQrTargetUrl` on a unit's label). */
   url: string;
   /** The address as printed under the code (`displayUrl`). */
   shortUrl: string;
 }
 
-export type LineKind = "name" | "location" | "extra" | "url";
+export type LineKind = "name" | "unit" | "location" | "extra" | "url";
 /** What can be left off a label that is too small for it, in the order it is dropped. */
 export type DroppableKind = LineKind | "brand";
 
@@ -190,6 +196,12 @@ interface Block {
    * tool's name wraps or not.
    */
   reserveLines?: number;
+  /**
+   * The type size the line box is measured at, when the text is drawn
+   * smaller to fit: a long name shrinks without moving the code, so every
+   * unit label on a sheet keeps the same code size.
+   */
+  boxPt?: number;
 }
 
 function lineHeightMm(sizePt: number): number {
@@ -198,7 +210,7 @@ function lineHeightMm(sizePt: number): number {
 
 function blockHeight(block: Block, reserve = false): number {
   const lines = reserve ? Math.max(block.lines.length, block.reserveLines ?? 0) : block.lines.length;
-  return lines * lineHeightMm(block.sizePt);
+  return lines * lineHeightMm(block.boxPt ?? block.sizePt);
 }
 
 /** Type sizes for a label whose short side is `shortMm`. */
@@ -241,7 +253,19 @@ export function layoutLabel(style: LabelStyle, content: LabelContent, measure: M
 function blocksFor(style: LabelStyle, content: LabelContent, widthPt: number, namePt: number, smallPt: number, measure: MeasureText, dropped: Set<DroppableKind>): Block[] {
   const blocks: Block[] = [];
   const name = content.name.trim().toUpperCase();
-  if (style.showName && name) blocks.push({ kind: "name", lines: wrapText(name, widthPt, namePt, true, 2, measure), sizePt: namePt, bold: true, reserveLines: 2 });
+  const unit = style.showName ? (content.unit ?? "").trim() : "";
+  if (style.showName && name && unit) {
+    // A unit's label: the name on one line, shrunk and then shortened to
+    // fit, and the unit under it in the room a second name line would take —
+    // so a 2-inch unit label keeps its code above the 25 mm floor. The unit
+    // line is bold in its own case, to read apart from the upper-case name,
+    // and is never dropped: telling one machine from its neighbour is the
+    // point of the label.
+    blocks.push(fittedLine("name", name, widthPt, namePt, smallPt, measure));
+    blocks.push(fittedLine("unit", unit, widthPt, Math.max(smallPt, namePt * 0.85), smallPt * 0.9, measure));
+  } else if (style.showName && name) {
+    blocks.push({ kind: "name", lines: wrapText(name, widthPt, namePt, true, 2, measure), sizePt: namePt, bold: true, reserveLines: 2 });
+  }
   if (style.showLocation && content.location.trim() && !dropped.has("location")) {
     blocks.push({ kind: "location", lines: [ellipsize(content.location.trim(), widthPt, smallPt, false, measure)], sizePt: smallPt, bold: false });
   }
@@ -256,6 +280,13 @@ function blocksFor(style: LabelStyle, content: LabelContent, widthPt: number, na
   return blocks.filter((block) => block.lines.length > 0);
 }
 
+/** One bold line drawn at `sizePt` or smaller (down to `minPt`) to fit, then shortened; its box stays `sizePt` tall. */
+function fittedLine(kind: LineKind, text: string, widthPt: number, sizePt: number, minPt: number, measure: MeasureText): Block {
+  let size = sizePt;
+  while (size > minPt && measure(text, size, true) > widthPt) size = Math.max(minPt, size - 0.25);
+  return { kind, lines: [ellipsize(text, widthPt, size, true, measure)], sizePt: size, bold: true, reserveLines: 1, boxPt: sizePt };
+}
+
 function droppable(style: LabelStyle, content: LabelContent, dropped: Set<DroppableKind>): DroppableKind | null {
   const present: Record<DroppableKind, boolean> = {
     url: style.showUrl && Boolean(content.shortUrl),
@@ -263,6 +294,7 @@ function droppable(style: LabelStyle, content: LabelContent, dropped: Set<Droppa
     extra: style.showExtra && Boolean(style.extraText.trim()),
     brand: style.showBrand,
     name: false,
+    unit: false,
   };
   return DROP_ORDER.find((kind) => present[kind] && !dropped.has(kind)) ?? null;
 }
@@ -302,7 +334,7 @@ function layoutStacked(style: LabelStyle, content: LabelContent, measure: Measur
     y += qrSize + gap;
     const lines: LayoutLine[] = [];
     for (const block of blocks) {
-      const lh = lineHeightMm(block.sizePt);
+      const lh = lineHeightMm(block.boxPt ?? block.sizePt);
       // A one-line name sits in the middle of the two lines kept for it.
       const spare = blockHeight(block, true) - blockHeight(block);
       y += spare / 2;
@@ -344,7 +376,7 @@ function layoutSide(style: LabelStyle, content: LabelContent, measure: MeasureTe
     const lines: LayoutLine[] = [];
     blocks.forEach((block, index) => {
       if (index > 0) y += gap * 0.5;
-      const lh = lineHeightMm(block.sizePt);
+      const lh = lineHeightMm(block.boxPt ?? block.sizePt);
       for (const text of block.lines) {
         lines.push({ kind: block.kind, text, x: textX, y: y + lh * 0.8, sizePt: block.sizePt, bold: block.bold, anchor: "start" });
         y += lh;
