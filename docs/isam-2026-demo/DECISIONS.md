@@ -39,7 +39,7 @@
 - **Authors (3), confirmed order:** Isaac (primary) → Niti → Miguel.
   - Isaac Steinberg — Johnson Cornell Tech MBA '26, Cornell Tech — ies22@cornell.edu
   - Niti Parikh — Director, Learning Spaces and MakerLABs, Cornell Tech — ntp27@cornell.edu
-  - Miguel Ramirez Peraza — Intern, Cornell Tech MakerLAB — ramirezperazamiguel@gmail.com
+  - Miguel Ramirez Peraza — Intern, Cornell Tech MakerLAB
     (built the first Streamlit inventory-search app that framed the problem)
 - **System demoed:** v5 (Notion-backed: gallery + tool detail + everywhere-chat overlay),
   framed around the §9 long-term vision in `docs/v5-plan.md`.
