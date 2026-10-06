@@ -38,6 +38,7 @@ import { loadPageContext, pageContextSection } from "../../../lib/actions/page-c
 import { loadProposalOutcomes } from "../../../lib/chat/proposal-outcomes";
 import { recordChatTurnUsage } from "../../../lib/usage/chat-turn";
 import { chatPrepareStep } from "./prepare-step";
+import { boundChatHistory, historyBudgetFor } from "../../../lib/chat/bound-history";
 import { photoQrHints, photoQrSection } from "../../../lib/chat/photo-qr";
 import {
   CAPABILITIES,
@@ -76,7 +77,7 @@ export async function POST(req: Request) {
   // Who is asking and what they sent, together: reading the body does not wait
   // on the session lookup (performance plan, quick win 8).
   const [identity, body] = await Promise.all([resolveIdentity(req), req.json() as Promise<ChatRequest>]);
-  const { messages, toolId, locale, pendingId, id: rawChatId, page } = body;
+  const { messages: rawMessages, toolId, locale, pendingId, id: rawChatId, page } = body;
   const chatId = typeof rawChatId === "string" && rawChatId.trim() ? rawChatId.slice(0, 200) : undefined;
 
   // How much they are allowed (auth design spec §8: anonymous visitors get a
@@ -89,6 +90,16 @@ export async function POST(req: Request) {
   if (!decision.allowed) {
     return rateLimitedResponse(decision);
   }
+  // The rate limit counts requests, so what one request may carry is bounded
+  // too: history length, characters and photos (security fix 2026-10-05).
+  const bounded = boundChatHistory(rawMessages, historyBudgetFor(identity.role));
+  if (!bounded.ok) {
+    return bounded.reason === "too_long"
+      ? Response.json({ error: "That message is too long. Please shorten it.", code: "message_too_long" }, { status: 413 })
+      : Response.json({ error: "Invalid request." }, { status: 400 });
+  }
+  const messages = bounded.messages;
+  if (bounded.dropped > 0) console.info(`[chat] history bounded: ${bounded.dropped} older message(s) not sent to the model`);
   const [pageContext, outcomes, tools, focused, curation] = await Promise.all([
     // What the page shows and what is selected, and what became of this chat's
     // cards — both read from the database as this caller may see them.

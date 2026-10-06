@@ -1,6 +1,8 @@
 import { z } from "zod";
 import { getCatalogTools } from "../catalog";
 import { createMaintenanceLog } from "../data/maintenance";
+import { CHAT_MAX_TICKETS_PER_TURN } from "../intake/limits";
+import { checkRateLimit } from "../rate-limit";
 import { invalidateMaintenance } from "../revalidate";
 import { buildUnitLookup, findUnit } from "./helpers";
 import type {
@@ -34,6 +36,19 @@ import type {
 
 const PRIORITIES = ["Critical", "High", "Medium", "Low"] as const;
 
+/**
+ * Bounds on what one ticket may carry (security fix 2026-10-05). Generous for
+ * a real report — a title is a line, a description a few paragraphs — and a
+ * ceiling for a script that would fill the queue with megabytes of text.
+ */
+export const TICKET_TITLE_MAX = 200;
+export const TICKET_DESCRIPTION_MAX = 4_000;
+export const TICKET_REPORTER_MAX = 100;
+const TICKET_PHOTOS_MAX = 8;
+
+/** The name `report_issue` is registered under, which the chat's per-turn cap is keyed on. */
+export const REPORT_ISSUE_TOOL = "report_issue";
+
 // ── report_issue ───────────────────────────────────────────────────
 
 interface ReportIssueInput {
@@ -54,10 +69,11 @@ interface ReportIssueResult {
 }
 
 const reportIssueInputSchema: z.ZodType<ReportIssueInput> = z.object({
-  title: z.string().describe("Short summary of the issue"),
-  description: z.string().describe("Full description of what's wrong"),
+  title: z.string().max(TICKET_TITLE_MAX).describe("Short summary of the issue"),
+  description: z.string().max(TICKET_DESCRIPTION_MAX).describe("Full description of what's wrong"),
   unit_label: z
     .string()
+    .max(TICKET_REPORTER_MAX)
     .optional()
     .describe("Unit label if the issue is tied to a specific unit"),
   priority: z
@@ -68,12 +84,14 @@ const reportIssueInputSchema: z.ZodType<ReportIssueInput> = z.object({
     ),
   reported_by: z
     .string()
+    .max(TICKET_REPORTER_MAX)
     .optional()
     .describe(
       "Student name or NetID if they gave one. Ignored when the student is signed in — the verified name from their session is recorded instead."
     ),
   photo_attachment_ids: z
-    .array(z.string())
+    .array(z.string().max(64))
+    .max(TICKET_PHOTOS_MAX)
     .optional()
     .describe(
       "Attachment ids of photos the student uploaded. Parse the attachment_id values out of the [Attached photos: ...] hint in their message."
@@ -91,8 +109,22 @@ const reportIssueInputSchema: z.ZodType<ReportIssueInput> = z.object({
 const PHOTOS_NOT_ATTACHED =
   "The photos could not be attached to this ticket — tell the student the report was filed without them and to describe what the photo showed if it matters.";
 
+/**
+ * Tickets filed per turn. Keyed on the `ctx` object, which the chat adapter
+ * builds once per turn and hands to every tool call of it — the same pattern
+ * as `read_page`'s budget — so parallel calls in one step are counted too.
+ */
+const ticketsThisTurn = new WeakMap<CapabilityCtx, number>();
+
+function takeTicketSlot(ctx: CapabilityCtx): boolean {
+  const taken = ticketsThisTurn.get(ctx) ?? 0;
+  if (taken >= CHAT_MAX_TICKETS_PER_TURN) return false;
+  ticketsThisTurn.set(ctx, taken + 1);
+  return true;
+}
+
 const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
-  name: "report_issue",
+  name: REPORT_ISSUE_TOOL,
   description:
     "File a maintenance ticket in the app when a student reports a problem with a tool or unit. Gather a short title and a clear description first. If they named a specific unit (like 'Prusa #1'), include it so the log is linked. Ask for the reporter's name only when nobody is signed in — a signed-in student's verified name is recorded automatically.",
   inputSchema: reportIssueInputSchema,
@@ -103,6 +135,28 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
     // data layer claims them onto the new ticket. Anything else is dropped
     // there rather than reaching a uuid column.
     const photoIds = input.photo_attachment_ids ?? [];
+
+    // Anonymous reporting stays open, but bounded (security fix 2026-10-05):
+    // a few tickets per turn for everybody, and a per-hour ceiling for a
+    // caller nobody signed in as, keyed on the hashed IP. Signed-in callers
+    // already carry their name on every ticket, and MCP writes pass
+    // `mcpWrite` on top.
+    if (!takeTicketSlot(ctx)) {
+      return {
+        success: false,
+        error: `report_issue has already filed ${CHAT_MAX_TICKETS_PER_TURN} tickets in this reply, its limit. Nothing more was recorded; tell the student to send the next report in a new message.`,
+      };
+    }
+    if (ctx.identity && !ctx.identity.userId) {
+      const limit = await checkRateLimit("anonTickets", ctx.identity);
+      if (!limit.allowed) {
+        return {
+          success: false,
+          error:
+            "Too many tickets have been filed from this connection without signing in. Nothing was recorded; tell the student to sign in to report more, or to find staff if it is urgent.",
+        };
+      }
+    }
 
     // The catalogue read is inside the try with the write: an unreachable
     // database fails the label lookup first, and a thrown tool call is a worse

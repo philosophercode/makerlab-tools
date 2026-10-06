@@ -1,7 +1,8 @@
 import { EXA_SEARCH_TOOL } from "../../../lib/ai/exa";
 import { activeToolsWithinCaps, type StepLike } from "../../../lib/ai/tool-caps";
+import { REPORT_ISSUE_TOOL } from "../../../lib/capabilities/maintenance";
 import { READ_PAGE_TOOL } from "../../../lib/capabilities/web";
-import { CHAT_MAX_EXA_SEARCHES, CHAT_MAX_PAGE_READS } from "../../../lib/intake/limits";
+import { CHAT_MAX_EXA_SEARCHES, CHAT_MAX_PAGE_READS, CHAT_MAX_TICKETS_PER_TURN } from "../../../lib/intake/limits";
 
 /**
  * The chat's per-turn web caps (gateway spec §3.2–3.3). Anthropic's server
@@ -23,6 +24,8 @@ import { CHAT_MAX_EXA_SEARCHES, CHAT_MAX_PAGE_READS } from "../../../lib/intake/
 export const CHAT_TOOL_CAPS: Readonly<Record<string, number>> = {
   [EXA_SEARCH_TOOL]: CHAT_MAX_EXA_SEARCHES,
   [READ_PAGE_TOOL]: CHAT_MAX_PAGE_READS,
+  // Counted inside the tool as well, like read_page (security fix 2026-10-05).
+  [REPORT_ISSUE_TOOL]: CHAT_MAX_TICKETS_PER_TURN,
 };
 
 /** `prepareStep` for a turn offering `toolNames`: every tool still under its cap. */
