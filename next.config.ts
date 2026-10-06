@@ -5,6 +5,7 @@ import {
   DEV_SIGN_IN_BUILD_MESSAGE,
   devSignInBuildVerdict,
 } from "./src/lib/auth/dev-sign-in-build-check";
+import { REMOTE_IMAGE_PATTERNS } from "./src/lib/images/remote-patterns";
 
 // Development-only sign-in (auth spec amendment 2026-09-24) must never be
 // configured on a deployment. The route refuses outside `next dev` regardless;
@@ -97,32 +98,9 @@ const nextConfig: NextConfig = {
         pathname: "/makerlab-logo-blackonly.png",
       },
     ],
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "*.public.blob.vercel-storage.com",
-      },
-      {
-        protocol: "https",
-        hostname: "prod-files-secure.s3.us-west-2.amazonaws.com",
-      },
-      {
-        protocol: "https",
-        hostname: "s3.us-west-2.amazonaws.com",
-      },
-      {
-        protocol: "https",
-        hostname: "images.unsplash.com",
-      },
-      {
-        protocol: "https",
-        hostname: "v5.airtableusercontent.com",
-      },
-      // The Notion/S3/Airtable patterns above can go once every image has been
-      // re-imported to Vercel Blob; until then, rows imported before the switch
-      // may still reference them.
-      ...devBlobPatterns,
-    ],
+    // Production hosts in `src/lib/images/remote-patterns.ts`, each as narrow
+    // as the images it exists for.
+    remotePatterns: [...REMOTE_IMAGE_PATTERNS, ...devBlobPatterns],
     // The local Blob store's files are served by this same dev server, and the
     // optimizer refuses loopback addresses unless told otherwise. Dev only.
     dangerouslyAllowLocalIP: isDev,

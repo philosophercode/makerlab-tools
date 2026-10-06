@@ -62,7 +62,8 @@ variable list.
   draft (`createToolRecord`). See "Adding equipment" below.
 - **Files** (tool images, manuals, project photos, maintenance photos) live in
   **Vercel Blob**, recorded row-by-row in `attachments` — see
-  `next.config.ts`'s `images.remotePatterns`. `POST /api/uploads` is the one
+  `next.config.ts`'s `images.remotePatterns` (production hosts in
+  `src/lib/images/remote-patterns.ts`). `POST /api/uploads` is the one
   upload route; it writes the blob, inserts an **unowned** `attachments` row and
   returns `{ attachmentId, previewUrl }`. The write that follows *claims* those
   ids (`claimAttachments`), and `/api/cron/daily` deletes anything still

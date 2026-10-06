@@ -235,3 +235,8 @@ diagnostic for developers, not a gate.
 for `npm run lint`, `npm run typecheck` and `npm run spec:coverage -- --ci`,
 and `npx vitest run` (both projects) split four ways with `--shard`. The E2E suite is not in CI yet; run `npm run test:e2e`
 locally before merging anything that changes a page.
+
+Actions are pinned to full commit SHAs (with the version in a comment) and
+checkout runs with `persist-credentials: false`; `.github/dependabot.yml` opens
+the monthly bump PRs. `test/ci-hardening.test.ts` fails if a step goes back to a
+tag or drops the setting.
