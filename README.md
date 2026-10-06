@@ -146,12 +146,17 @@ Dated specs in `docs/specs/` written before the move refer to paths under `v5/`.
 Every feature starts with a spec that merges **before** the implementation
 ([`docs/constitution.md`](docs/constitution.md), Article 1). Use
 [`docs/specs/TEMPLATE.md`](docs/specs/TEMPLATE.md), or `/spec` in Claude Code.
-`npm run test:all` must pass before any merge.
+`npm run test:all` must pass before any merge. Outside contributors sign the
+[Contributor License Agreement](CLA.md) once, before their first pull request merges.
 
 ## License
 
-This repository has no license file, so no open-source license applies and default
-copyright holds. Ask the owners below before reusing any part of it.
+Open source under the [GNU Affero General Public License v3.0](LICENSE) (`AGPL-3.0-only`).
+You may use, change and host it for any purpose; if you let others use a changed version
+over a network, you must offer them its source. Names, logos, product photos and project
+photos are not covered. [`LICENSING.md`](LICENSING.md) explains it in plain language.
+
+Copyright (C) 2026 Isaac Steinberg.
 
 ## Who owns it
 
