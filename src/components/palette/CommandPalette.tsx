@@ -113,6 +113,7 @@ export function CommandPalette(props: CommandPaletteProps) {
         onClick={() => setOpen(true)}
         onPointerEnter={preload}
         onFocus={preload}
+        data-slot="palette-trigger-icon"
         className="ui inline-flex size-8 cursor-pointer items-center justify-center border border-input text-muted-foreground transition-colors duration-150 hover:text-foreground md:hidden"
       >
         <Search aria-hidden="true" className="size-4" />

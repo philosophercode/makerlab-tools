@@ -6,6 +6,7 @@
     "tools": "FERRAMENTAS",
     "projects": "PROJETOS",
     "about": "SOBRE",
+    "menu": "MENU",
     "primaryNavLabel": "Navegação principal",
     "utilityControlsLabel": "Controles utilitários",
     "themeToggleAria": "Alternar tema de cores (sistema → claro → escuro)",

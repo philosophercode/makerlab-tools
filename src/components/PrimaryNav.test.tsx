@@ -1,6 +1,6 @@
 import { waitForElementToBeRemoved } from "@testing-library/react";
 import { PrimaryNav } from "./PrimaryNav";
-import { render, screen, userEvent } from "../../test/utils/render";
+import { act, render, screen, userEvent } from "../../test/utils/render";
 import type { ClientIdentity, SignInStart } from "../lib/auth/sign-in-client";
 
 // PrimaryNav is a client component that reads the active route from
@@ -288,10 +288,10 @@ describe("PrimaryNav — what the bar holds", () => {
       "PROJECTS",
       "ABOUT",
     ]);
-    expect(screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"))).toEqual([
-      "Report a problem",
-      `Signed in as ${first}`,
-    ]);
+    // MENU is in the DOM everywhere and drawn only on a short viewport (CSS).
+    expect(
+      screen.getAllByRole("button").map((b) => b.getAttribute("aria-label") ?? b.textContent)
+    ).toEqual(["MENU", "Report a problem", `Signed in as ${first}`]);
   });
 
   it("shows only links, Report and Sign in to an anonymous visitor", async () => {
@@ -300,6 +300,7 @@ describe("PrimaryNav — what the bar holds", () => {
     await screen.findByRole("button", { name: /Sign in/ });
     expect(screen.getAllByRole("link")).toHaveLength(4);
     expect(screen.getAllByRole("button").map((b) => b.textContent)).toEqual([
+      "MENU",
       "REPORT",
       "SIGN IN",
     ]);
@@ -343,5 +344,135 @@ describe("PrimaryNav — what the bar holds", () => {
 
     await screen.findByRole("button", { name: /Sign in with your/ });
     expect(screen.queryByRole("link", { name: "Sign in as (dev)" })).not.toBeInTheDocument();
+  });
+});
+
+// The short bar (a phone on its side, DESIGN.md §8.12): the links and Report
+// sit behind MENU, a disclosure button. CSS decides where MENU is drawn; these
+// tests cover what it does — jsdom applies no stylesheet.
+describe("PrimaryNav — the short bar's MENU", () => {
+  beforeEach(() => {
+    usePathname.mockReturnValue("/");
+    fetchIdentity.mockClear();
+    fetchIdentity.mockResolvedValue(null);
+  });
+
+  const menuButton = () => screen.getByRole("button", { name: "MENU" });
+  const panel = () => document.getElementById(menuButton().getAttribute("aria-controls")!)!;
+
+  it("is a disclosure button naming the panel that holds the links and Report", () => {
+    render(<PrimaryNav />);
+
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    expect(menuButton()).not.toHaveAttribute("aria-haspopup");
+    expect(panel()).not.toBeNull();
+    expect(panel()).not.toHaveAttribute("data-open");
+    expect(Array.from(panel().children).map((child) => child.textContent)).toEqual([
+      "TOOLS",
+      "MAP",
+      "PROJECTS",
+      "ABOUT",
+      "REPORT",
+    ]);
+  });
+
+  it("opens and closes from the button", async () => {
+    const user = userEvent.setup();
+    render(<PrimaryNav />);
+
+    await user.click(menuButton());
+    expect(menuButton()).toHaveAttribute("aria-expanded", "true");
+    expect(panel()).toHaveAttribute("data-open", "true");
+
+    await user.click(menuButton());
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    expect(panel()).not.toHaveAttribute("data-open");
+  });
+
+  it("walks the links with Tab, and Escape closes it with focus back on the button", async () => {
+    const user = userEvent.setup();
+    render(<PrimaryNav />);
+
+    menuButton().focus();
+    await user.keyboard("{Enter}");
+    expect(menuButton()).toHaveAttribute("aria-expanded", "true");
+
+    await user.tab();
+    expect(screen.getByRole("link", { name: "TOOLS" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("link", { name: "MAP" })).toHaveFocus();
+
+    await user.keyboard("{Escape}");
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    expect(menuButton()).toHaveFocus();
+  });
+
+  it("closes when a link is followed", async () => {
+    const user = userEvent.setup();
+    render(<PrimaryNav />);
+    // Keep jsdom from navigating; the link's own handler still runs.
+    const stop = (event: Event) => event.preventDefault();
+    window.addEventListener("click", stop, { capture: true });
+
+    await user.click(menuButton());
+    await user.click(screen.getByRole("link", { name: "PROJECTS" }));
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+
+    window.removeEventListener("click", stop, { capture: true });
+  });
+
+  it("closes on Report, which opens the assistant instead", async () => {
+    const user = userEvent.setup();
+    render(<PrimaryNav />);
+
+    await user.click(menuButton());
+    await user.click(screen.getByRole("button", { name: "Report a problem" }));
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("closes on a press outside, and when focus moves to anything else", async () => {
+    const user = userEvent.setup();
+    render(
+      <>
+        <PrimaryNav />
+        <p>Page</p>
+        <button type="button">Elsewhere</button>
+      </>
+    );
+
+    await user.click(menuButton());
+    await user.click(screen.getByText("Page"));
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(menuButton());
+    act(() => screen.getByRole("button", { name: "Elsewhere" }).focus());
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: "Elsewhere" })).toHaveFocus();
+  });
+
+  it("closes when the viewport stops being short — a phone turned upright", async () => {
+    const listeners = new Set<() => void>();
+    const list = {
+      matches: true,
+      addEventListener: (_: string, fn: () => void) => listeners.add(fn),
+      removeEventListener: (_: string, fn: () => void) => listeners.delete(fn),
+    };
+    const matchMedia = vi.fn(() => list);
+    Object.defineProperty(window, "matchMedia", { configurable: true, value: matchMedia });
+    try {
+      const user = userEvent.setup();
+      render(<PrimaryNav />);
+
+      await user.click(menuButton());
+      expect(matchMedia).toHaveBeenCalledWith("(orientation: landscape) and (max-height: 500px)");
+      expect(listeners.size).toBe(1);
+
+      list.matches = false;
+      act(() => listeners.forEach((fn) => fn()));
+      expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+      expect(listeners.size).toBe(0);
+    } finally {
+      Reflect.deleteProperty(window, "matchMedia");
+    }
   });
 });

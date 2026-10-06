@@ -7,6 +7,7 @@
     "projects": "PROJECTS",
     "map": "MAP",
     "about": "ABOUT",
+    "menu": "MENU",
     "primaryNavLabel": "Primary navigation",
     "utilityControlsLabel": "Utility controls",
     "themeToggleAria": "Cycle color theme (system → light → dark)",

@@ -22,7 +22,9 @@
 > return for things opened from many places and the frosted sheet and dialog
 > (§3, §8.8); the assistant's launchers (§8.12, §8.15). 2026-09-26: the
 > header fits every width from 390 to 1920 on the design's own breakpoints,
-> and a table wider than its column scrolls inside itself (§6, §8.3, §8.12).*
+> and a table wider than its column scrolls inside itself (§6, §8.3, §8.12).
+> 2026-10-05: a phone on its side gets the short bar — one 48px row, the links
+> behind MENU — and nothing sticks there (§6, §8.1, §8.12).*
 
 ## 1. Creative North Star: "The Blueprint Archive"
 
@@ -156,7 +158,9 @@ fonts happen to be installed is not a design.
   a wide thing (the section bar, a code block, a table wider than its
   column) scrolls inside itself. `e2e/header-stability.spec.ts` checks the
   main routes at 390, 1024 and 1440.
-- Breakpoints: `sm 640 · md 768 · lg 1024 · xl 1280`. Nothing else.
+- Breakpoints: `sm 640 · md 768 · lg 1024 · xl 1280`. Nothing else. One
+  height query beside them: the **short viewport**, landscape and at most
+  500px tall — a phone on its side — for the header alone (§8.12).
 - Controls: 32px default, 28px in toolbars, 24px for row actions; touch rows ≥ 40px.
 
 ## 7. Iconography
@@ -186,7 +190,8 @@ lede → **facts line** (`101 TOOLS · 86 PUBLISHED · 11 DRAFTS · 97 NEED ATTE
   focusing the header's actions with Tab, or following a `#` link, lands them
   below the strip instead of under it. Content scrolled past by hand goes
   under the opaque strip, which sits above it (`z-index: 20`); nothing in the
-  admin sets a z-index that competes with it.
+  admin sets a z-index that competes with it. On a short viewport nothing
+  sticks and `--sticky-chrome-height` is 0, so the same rules hold (§8.12).
 
 ![Header, section bar and facts line](screens/after-inventory-desktop.webp)
 
@@ -524,7 +529,24 @@ TO REPLACE THE RESIN TANK ON THE FORM 4:
   styled scrollbar takes space, and Chromium ignores `scrollbar-gutter` for
   one), the active link changes colour and underline only, never weight or
   size. `e2e/header-stability.spec.ts` measures it with scrollbars shown, at
-  390, 1024, 1280 and 1440.
+  390, 1024, 1280 and 1440, and at 844 × 390.
+- **A phone on its side gets the short bar** (amendment 2026-10-05). The
+  owner, on a phone held sideways: the bar and the strip took most of the
+  screen. They took 159px of 390 — the compact bar's two rows and the strip —
+  and the bar stayed pinned. On a short viewport (landscape, at most 500px
+  tall; §6) the bar is one 48px row: the wordmark at 24px with the name beside
+  it (the name only from `md`), then **MENU**, the account control, and the
+  utility controls with the search field down to its icon. MENU is a
+  disclosure button (`aria-expanded`, not a `menu` role): the links and Report
+  in a frosted plate under it, one 40px row each, the current page marked by
+  the accent rule at its start; Tab walks them, Escape closes it and returns
+  focus to MENU, and following a link, pressing outside, moving focus away or
+  turning the phone upright closes it. **Here, and only here, the bar does
+  move: nothing sticks.** The bar and the strip scroll away with the page,
+  `--sticky-chrome-height` is 0, and section headings stick at the top of the
+  screen — content is what a short screen is for. Every other width keeps its
+  bar exactly as above, links centred from `lg`; the tool page keeps its
+  breadcrumb.
 - **Admin**: a section bar under the top bar on every admin page:
   `OVERVIEW ┃ INTAKE ┃ INVENTORY · REFRESH · MANUALS ┃
   MAINTENANCE · CORRECTIONS · PROJECTS ┃ PEOPLE · NOTION MIRROR ┃ ▭ ASK THE ASSISTANT`

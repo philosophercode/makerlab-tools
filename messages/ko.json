@@ -6,6 +6,7 @@
     "tools": "도구",
     "projects": "프로젝트",
     "about": "소개",
+    "menu": "메뉴",
     "primaryNavLabel": "주요 내비게이션",
     "utilityControlsLabel": "유틸리티 컨트롤",
     "themeToggleAria": "색상 테마 전환 (시스템 → 라이트 → 다크)",

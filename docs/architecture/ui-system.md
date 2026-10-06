@@ -62,7 +62,10 @@
   (`lib/auth/identity-store.ts`), and on admin pages the server-resolved role
   and the drafts via `PaletteScope`, added to the published list. Floating menus use `FROSTED`
   (`system/frosted.ts`). The root always shows its scrollbar so the header
-  never moves (`e2e/header-stability.spec.ts`). Save-on-click controls report
+  never moves (`e2e/header-stability.spec.ts`). On a short viewport (a phone
+  on its side) the header is the short bar: the links behind MENU
+  (`use-nav-menu.ts`, the query repeated in `globals.css`), nothing sticky
+  (DESIGN.md §8.12). Save-on-click controls report
   "Saved" in a reserved `SaveSlot` (`admin/RowStatus.tsx`). The tool page is
   two columns on desktop and draws no empty section.
   **Chat** (phase 5b): AI Elements copied from `registry.ai-sdk.dev` into

@@ -346,13 +346,19 @@ export function cardImagePriority(index: number): ToolImagePriority {
 /**
  * Keep the section headings just under the sticky top bar, whose height
  * changes with the viewport (it wraps on a phone): measured, not guessed.
+ * On a short viewport the bar does not stick (DESIGN.md §8.12), so they stick
+ * at the top. Entering or leaving that layout changes the bar's height, so
+ * the observer sees it.
  */
 function useStickyOffset(ref: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
     const main = ref.current;
     const bar = document.querySelector<HTMLElement>(".top-nav");
     if (!main || !bar || typeof ResizeObserver === "undefined") return;
-    const update = () => main.style.setProperty("--gallery-sticky-top", `${bar.offsetHeight}px`);
+    const update = () => {
+      const sticks = getComputedStyle(bar).position === "sticky";
+      main.style.setProperty("--gallery-sticky-top", `${sticks ? bar.offsetHeight : 0}px`);
+    };
     update();
     const observer = new ResizeObserver(update);
     observer.observe(bar);

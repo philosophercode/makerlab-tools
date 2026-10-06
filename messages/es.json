@@ -6,6 +6,7 @@
     "tools": "HERRAMIENTAS",
     "projects": "PROYECTOS",
     "about": "ACERCA DE",
+    "menu": "MENÚ",
     "primaryNavLabel": "Navegación principal",
     "utilityControlsLabel": "Controles de utilidad",
     "themeToggleAria": "Alternar tema de color (sistema → claro → oscuro)",
