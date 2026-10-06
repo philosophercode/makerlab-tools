@@ -157,6 +157,6 @@ and the rules: `docs/architecture/testing.md`.
   "Saved" on `/admin/users` for a role that never changed. `RoleSelect` also
   sends nothing for a change to the value it holds, and treats an answer whose
   `role` differs from the choice as `failed`.
-- The in-memory rate limiter is a per-process singleton; it resets on cold start (fine for abuse prevention). Upstash backs it only when **both** `UPSTASH_REDIS_REST_*` vars are set.
+- The in-memory rate limiter is a per-process singleton; it resets on cold start (fine for abuse prevention). Upstash backs it only when **both** `UPSTASH_REDIS_REST_*` vars are set, and when Upstash cannot answer the limiter falls back to the in-memory counter rather than allowing the request.
 - Python scripts under `scripts/` use Node with `--experimental-strip-types`; they are migration/maintenance tools, not part of the app build.
 - **Agent worktrees sit inside the app root.** `.claude/worktrees/` holds full checkouts of this repo. `tsconfig.json`, ESLint, the vitest unit project and the build trace ignore `.claude/`, but `@workflow/vitest` scans the whole root (dot folders included, no exclude option), so finished worktrees should be pruned.

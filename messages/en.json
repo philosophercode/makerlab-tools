@@ -2567,6 +2567,7 @@
       "consentTitleGeneric": "Connect an app",
       "consentTitle": "{client} wants to access MakerLAB Tools as you",
       "consentBody": "It will act as {name}, with the tools your role ({role}) allows.",
+      "consentRedirect": "If you allow it, access goes to <strong>{host}</strong>. An app chooses its own name, so check that this is the address of the app you meant to connect.",
       "consentSafety": "Nothing it does publishes or edits the catalog without a person accepting it in the app. You can disconnect it at any time from Connect an AI assistant in your profile menu.",
       "consentSignedOut": "Sign in first, then start the connection again from the app.",
       "readOnly": "Read-only",

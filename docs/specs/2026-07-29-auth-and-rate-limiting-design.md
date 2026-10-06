@@ -679,3 +679,42 @@ queue component tests, `src/app/auth/blocked/page.test.tsx`, and the People scen
 self-removal lock, unblock).
 
 **Status.** Accepted.
+
+### 2026-10-05 — Security fixes: Upstash falls back, anonymous tickets and chat history are bounded
+
+**Why.** A security review (area auth-authz) found that the limits in §8 could be stepped
+around in three ways.
+
+**What changes here.**
+
+- **Upstash no longer fails open** (`rateLimitAsync`, `src/lib/rate-limit.ts`). A non-OK
+  answer, a network error or a malformed reply from Upstash used to allow the request (or,
+  for a network error, throw). It now falls back to the in-memory counter, so a Redis outage
+  or an exhausted quota leaves a per-process limit instead of none. Whether production sets
+  `UPSTASH_REDIS_REST_*` is an operating decision, not code.
+- **Anonymous maintenance tickets are bounded** (`report_issue`,
+  `src/lib/capabilities/maintenance.ts`). Anonymous reporting stays open. New: at most
+  `CHAT_MAX_TICKETS_PER_TURN` (2) tickets per turn for anybody, counted inside the tool like
+  `read_page` (parallel calls included) and withdrawn by the chat's `prepareStep`
+  (`CHAT_TOOL_CAPS`); a new tier `ROUTE_TIERS.anonTickets`, 5 per hour per hashed IP, for a
+  caller nobody is signed in as; and input bounds — title 200 characters, description 4,000,
+  `reported_by` and `unit_label` 100, at most 8 photo ids.
+- **One chat request's history is bounded** (`boundChatHistory`, `src/lib/chat/bound-history.ts`,
+  applied in `/api/chat` after the rate limit and before the model). The chat allowance counts
+  requests, and the client sends the whole conversation, so a request could carry megabytes
+  of fabricated history re-read on every step. Anonymous callers: the last 30 messages and
+  60,000 characters (photo bytes excluded), 8 photos on the latest message; signed-in
+  callers: 200 messages, 400,000 characters, 25 photos. Oldest messages are dropped first and
+  the kept history starts with a user message; a latest message that alone is over budget is
+  answered 413 `message_too_long`, never cut. File parts must be images carried as
+  `data:image/…` URLs (what the composer sends); remote URLs and other files are dropped.
+  Earlier messages keep the browser's `withRecentPhotos` allowance. Output tokens and the
+  step count are unchanged.
+
+**Covered by** `src/lib/rate-limit.test.ts` (non-OK and unreachable Upstash fall back to the
+in-memory limit), `src/lib/capabilities/maintenance.test.ts` (bounds, two per turn with
+parallel calls, the anonymous hourly ceiling), `src/app/api/chat/prepare-step.test.ts`,
+`src/lib/chat/bound-history.test.ts` and `src/app/api/chat/rate-limit.route.test.ts` (a 780k
+character history reaches the model bounded; an oversized message is a 413 before the model).
+
+**Status.** Built on `security/auth-authz`.

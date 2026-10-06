@@ -19,8 +19,8 @@ function active(steps: StepLike[]): string[] {
 }
 
 describe("chatPrepareStep", () => {
-  it("pins the caps at five Exa searches and five page reads per turn", () => {
-    expect(CHAT_TOOL_CAPS).toEqual({ exa_search: 5, read_page: 5 });
+  it("pins the caps at five Exa searches, five page reads and two tickets per turn", () => {
+    expect(CHAT_TOOL_CAPS).toEqual({ exa_search: 5, read_page: 5, report_issue: 2 });
   });
 
   it("offers every tool before anything has been called", () => {
@@ -45,9 +45,14 @@ describe("chatPrepareStep", () => {
     expect(active(five)).toEqual(["get_unit_details", "report_issue", "exa_search"]);
   });
 
-  it("never caps the capability tools", () => {
-    const busy = Array.from({ length: 9 }, () => step("get_unit_details", "report_issue"));
+  it("never caps the read-only capability tools", () => {
+    const busy = Array.from({ length: 9 }, () => step("get_unit_details"));
     expect(active(busy)).toEqual([...TOOLS]);
+  });
+
+  it("drops report_issue once two tickets were filed this turn (security fix 2026-10-05)", () => {
+    expect(active([step("report_issue")])).toContain("report_issue");
+    expect(active([step("report_issue"), step("report_issue")])).toEqual(["get_unit_details", "read_page", "exa_search"]);
   });
 
   it("drops both web tools once both are spent, keeping the order of the rest", () => {

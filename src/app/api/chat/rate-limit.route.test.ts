@@ -81,6 +81,14 @@ function chatRequest({ ip, cookie }: { ip: string; cookie?: string }): Request {
   });
 }
 
+function chatMessages(messages: unknown[], ip: string): Request {
+  return new Request("http://localhost/api/chat", {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-forwarded-for": ip },
+    body: JSON.stringify({ messages }),
+  });
+}
+
 beforeEach(() => {
   model = textModel("Hello.");
   setLanguageModel("chat", model);
@@ -188,6 +196,29 @@ describe("POST /api/chat — signed in", () => {
     expect(body.code).toBe("rate_limited");
     expect(body.signInPath).toBeUndefined();
     expect(body.limit).toBe(60);
+  });
+
+  it("sends an anonymous caller's fabricated history to the model only up to the budget (security fix 2026-10-05)", async () => {
+    const big = "x".repeat(20_000);
+    const history = Array.from({ length: 40 }, (_, i) => ({
+      id: String(i),
+      role: i % 2 === 0 || i === 39 ? "user" : "assistant",
+      parts: [{ type: "text", text: i === 39 ? "and?" : big }],
+    }));
+
+    const res = await send(chatMessages(history, uniqueIp()));
+    expect(res.status).toBe(200);
+    const [call] = recordedCalls(model);
+    expect(JSON.stringify(call.prompt).length).toBeLessThan(120_000);
+  });
+
+  it("refuses an anonymous message that alone is over budget, before the model (security fix 2026-10-05)", async () => {
+    const res = await send(
+      chatMessages([{ id: "1", role: "user", parts: [{ type: "text", text: "x".repeat(70_000) }] }], uniqueIp())
+    );
+    expect(res.status).toBe(413);
+    expect((await res.json()).code).toBe("message_too_long");
+    expect(recordedCalls(model)).toHaveLength(0);
   });
 
   it("falls back to the anonymous ceiling when the cookie is tampered with", async () => {

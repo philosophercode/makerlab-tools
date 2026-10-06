@@ -360,6 +360,23 @@ describe("rate limiting", () => {
     expect((await res.json()).error.message).toMatch(/too many requests/i);
   });
 
+  it("charges a JSON-RPC batch one unit per message (security fix 2026-10-05)", async () => {
+    const batch = Array.from({ length: 10 }, () => envelope("tools/list"));
+    for (let i = 0; i < 3; i += 1) {
+      expect((await POST(rpcRequest(batch))).status).toBe(200);
+    }
+    // 30 messages spent in three requests: the fourth batch is over the minute's allowance.
+    const res = await POST(rpcRequest(batch));
+    expect(res.status).toBe(429);
+  });
+
+  it("refuses a batch longer than the cap before running any of it (security fix 2026-10-05)", async () => {
+    const batch = Array.from({ length: 11 }, () => envelope("tools/call", { name: "search_manual", arguments: { query: "x" } }));
+    const res = await POST(rpcRequest(batch));
+    expect(res.status).toBe(413);
+    expect((await res.json()).error.code).toBe(-32600);
+  });
+
   it("allows a token 60 a minute, per token rather than per IP", async () => {
     const student = await bearerFor("user");
     for (let i = 0; i < 60; i += 1) {

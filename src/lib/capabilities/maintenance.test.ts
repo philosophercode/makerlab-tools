@@ -248,6 +248,47 @@ describe("report_issue — photos", () => {
   });
 });
 
+describe("report_issue — abuse bounds (security fix 2026-10-05)", () => {
+  it("refuses an oversized title, description or reporter name", () => {
+    const parse = (overrides: Record<string, unknown>) => reportIssue.inputSchema.safeParse(issue(overrides)).success;
+    expect(parse({ title: "x".repeat(200), description: "y".repeat(4_000), reported_by: "z".repeat(100) })).toBe(true);
+    expect(parse({ title: "x".repeat(201) })).toBe(false);
+    expect(parse({ description: "y".repeat(4_001) })).toBe(false);
+    expect(parse({ reported_by: "z".repeat(101) })).toBe(false);
+    expect(parse({ photo_attachment_ids: Array.from({ length: 9 }, () => crypto.randomUUID()) })).toBe(false);
+  });
+
+  it("files at most two tickets per turn, parallel calls included", async () => {
+    // One ctx is one turn: the chat adapter builds it once per request.
+    const ctx: CapabilityCtx = { identity: await signedInUser() };
+    const results = (await Promise.all([1, 2, 3].map(() => reportIssue.run(issue(), ctx)))) as TicketResult[];
+
+    expect(results.filter((r) => r.success)).toHaveLength(2);
+    const refused = results.find((r) => !r.success);
+    expect(refused?.error).toMatch(/limit/i);
+    expect(refused?.ticket_id).toBeUndefined();
+  });
+
+  it("stops an anonymous caller after five tickets an hour, and leaves signed-in callers alone", async () => {
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    const spammer: Identity = { ...anonymous(), rateLimitKey: `ip:${crypto.randomUUID()}` };
+    const filed: TicketResult[] = [];
+    for (let i = 0; i < 6; i++) {
+      filed.push((await reportIssue.run(issue(), { identity: spammer })) as TicketResult);
+    }
+
+    expect(filed.slice(0, 5).every((r) => r.success)).toBe(true);
+    expect(filed[5].success).toBe(false);
+    expect(filed[5].error).toMatch(/sign in/i);
+
+    const user = await signedInUser({ rateLimitKey: `user:${crypto.randomUUID()}` });
+    for (let i = 0; i < 6; i++) {
+      expect(((await reportIssue.run(issue(), { identity: user })) as TicketResult).success).toBe(true);
+    }
+    info.mockRestore();
+  });
+});
+
 describe("report_issue — validation and failure", () => {
   it("refuses a call with no title", async () => {
     const parsed = reportIssue.inputSchema.safeParse({

@@ -30,9 +30,41 @@ export type ConsentResult =
 
 interface PendingAuthorization {
   clientId: string;
+  redirectURI?: string;
   userId: string;
   scope: string[];
   requireConsent?: boolean;
+}
+
+/** What the consent page shows about a pending authorization. */
+export interface PendingConsent {
+  clientId: string;
+  /** The host the code goes to on Allow — what tells a real client from an impostor. */
+  redirectHost: string;
+}
+
+/**
+ * The pending authorization behind `consentCode`, when it is `userId`'s and
+ * still waiting (security fix 2026-10-05). The consent page names the client
+ * and the redirect host from this row, never from the query string: the
+ * client's name is whatever it registered itself as, so the address the grant
+ * will be sent to is the one thing on the page an impostor cannot choose to
+ * look like claude.ai.
+ */
+export async function pendingConsentFor(consentCode: string, userId: string | null): Promise<PendingConsent | null> {
+  if (!userId || !consentCode || consentCode.length > 200) return null;
+  const auth = await getAuth();
+  if (!auth) return null;
+  try {
+    const context = await auth.$context;
+    const verification = await context.internalAdapter.findVerificationValue(consentCode);
+    if (!verification || new Date(verification.expiresAt).getTime() <= Date.now()) return null;
+    const pending = JSON.parse(verification.value) as PendingAuthorization;
+    if (pending.userId !== userId || !pending.requireConsent || !pending.redirectURI) return null;
+    return { clientId: pending.clientId, redirectHost: new URL(pending.redirectURI).host };
+  } catch {
+    return null;
+  }
 }
 
 export async function decideConsent(

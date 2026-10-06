@@ -4,6 +4,7 @@ import { OAuthConsent } from "../../../components/account/OAuthConsent";
 import { EmptyState } from "../../../components/system/EmptyState";
 import { Prose, PublicPage } from "../../../components/system/PublicPage";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
+import { pendingConsentFor } from "../../../lib/account/oauth-consent";
 import { oauthClientName } from "../../../lib/data/api-tokens";
 import { decideConsentAction } from "./actions";
 
@@ -36,7 +37,6 @@ async function Consent({ searchParams }: { searchParams: SearchParams }) {
   const tRoles = await getTranslations("admin.roles");
   const params = await searchParams;
   const consentCode = typeof params.consent_code === "string" ? params.consent_code : "";
-  const clientId = typeof params.client_id === "string" ? params.client_id : "";
   const identity = await resolveIdentityFromHeaders();
 
   const crumbs = [{ label: t("eyebrow") }];
@@ -47,9 +47,13 @@ async function Consent({ searchParams }: { searchParams: SearchParams }) {
   );
 
   if (identity.role === "anonymous") return refusal(t("consentSignedOut"));
-  if (!consentCode || !clientId) return refusal(t("expired"));
+  // The client and where the code goes come from the pending authorization
+  // the consent code names, never from the query string (security fix
+  // 2026-10-05).
+  const pending = await pendingConsentFor(consentCode, identity.userId);
+  if (!pending) return refusal(t("expired"));
 
-  const registered = await oauthClientName(clientId).catch(() => undefined);
+  const registered = await oauthClientName(pending.clientId).catch(() => undefined);
   if (registered === undefined) return refusal(t("expired"));
   const client = (registered || t("unknownClient")).slice(0, 80);
 
@@ -57,6 +61,12 @@ async function Consent({ searchParams }: { searchParams: SearchParams }) {
     <PublicPage width="narrow" crumbs={crumbs} title={t("consentTitle", { client })}>
       <Prose className="pt-2">
         <p>{t("consentBody", { role: tRoles(identity.role), name: identity.name || identity.email || "" })}</p>
+        <p>
+          {t.rich("consentRedirect", {
+            host: pending.redirectHost,
+            strong: (chunks) => <strong>{chunks}</strong>,
+          })}
+        </p>
         <p>{t("consentSafety")}</p>
       </Prose>
       <OAuthConsent consentCode={consentCode} action={decideConsentAction} />

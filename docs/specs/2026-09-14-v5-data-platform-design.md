@@ -2010,3 +2010,21 @@ assertion kinds `identified_items` / `identified_count` (`evals/README.md`). Run
 2026-09-29 against `openai/gpt-6-luna`: 3/3 passed.
 
 **Status.** Built on `v5/multi-item-intake`.
+
+### 2026-10-05 — Tickets and projects claim only their author's uploads
+
+**Why.** A security review (area auth-authz) found that `createMaintenanceLog` and
+`createProjectSubmission` claimed any unowned upload by id, without the uploader check that
+bulk intake and imports already make. An upload id is not a secret once pasted, so a
+signed-in person could attach somebody else's private photo to their own ticket or project
+within the 24-hour unclaimed window (§3.3).
+
+**What changes here.** `claimAttachments` takes `uploadedBy: null` to mean "only uploads made
+by nobody signed in". A ticket claims only its reporter's uploads — anonymous uploads for an
+anonymous report — and a project only its author's.
+
+**Covered by** `src/lib/data/maintenance.test.ts` and `src/lib/data/projects.test.ts`
+(somebody else's upload is left unowned; the author's own, and an anonymous report's
+anonymous upload, are claimed).
+
+**Status.** Built on `security/auth-authz`.
