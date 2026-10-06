@@ -127,7 +127,8 @@ describe("recordUsage", () => {
   it("never throws: a failing database is a warning and a false", async () => {
     const broken = { insert: () => { throw new Error("db down"); }, execute: () => { throw new Error("db down"); } } as unknown as Db;
     await expect(recordUsage([{ kind: "chat_turn", surface: "chat", audience: "anonymous" }], [], { db: broken })).resolves.toBe(false);
-    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("[usage]"), "db down");
+    // Described by `describeDbError`: an app error keeps its words; a database one would lose its params.
+    expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("[usage]"), "Error: db down");
   });
 
   it("records nothing with USAGE_INSIGHT=off", async () => {

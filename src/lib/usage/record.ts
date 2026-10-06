@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { getDb } from "../db/client.ts";
+import { describeDbError } from "../db/describe-error.ts";
 import { rawRows } from "../db/raw.ts";
 import { usageEvents } from "../db/schema/usage.ts";
 import type { Db } from "../db/types.ts";
@@ -86,7 +87,8 @@ export async function recordUsage(events: readonly UsageEvent[], gaps: readonly 
     if (rows.length > 0) await db.insert(usageEvents).values(rows);
     return true;
   } catch (err) {
-    console.warn("[usage] could not record usage; the counts will be a little low", err instanceof Error ? err.message : err);
+    // Never the error's message: Drizzle's lists the bound values, and a gap's are a student's question.
+    console.warn("[usage] could not record usage; the counts will be a little low", describeDbError(err));
     return false;
   }
 }

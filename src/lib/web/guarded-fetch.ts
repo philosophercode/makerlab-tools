@@ -1,5 +1,6 @@
 import { lookup } from "node:dns/promises";
-import { isIP } from "node:net";
+import { isIP, type LookupFunction } from "node:net";
+import { Agent } from "undici";
 import { isForbiddenAddress } from "./address-guard.ts";
 
 /**
@@ -17,13 +18,16 @@ import { isForbiddenAddress } from "./address-guard.ts";
  *   is bigger is refused on its headers.
  * - **Expected failures are values**, never throws: a caller in a research step
  *   records the reason and moves on to the next page.
- *
- * **Known limitation: DNS rebinding.** The name is resolved here and then again
- * by `fetch`, with no pinned socket between them, so a host whose DNS answers a
- * public address to the check and a private one to the connection gets through.
- * Closing that needs a custom dispatcher pinned to the checked address; the
- * exposure is a model-proposed URL on a host an attacker controls, answered by
- * a GET whose body only a model reads.
+ * - **The connection is checked too (DNS rebinding).** The name is resolved
+ *   once for the check above and again when `fetch` opens the socket, and a
+ *   host whose DNS answers a public address to the first and a private one to
+ *   the second used to get through. Every request now goes through
+ *   {@link pinnedDispatcher}, whose `connect.lookup` applies the same
+ *   {@link isForbiddenAddress} check to the addresses the socket will actually
+ *   use, so check and connection can no longer disagree. That matters because
+ *   not every body is read only by a model: an archived manual and an approved
+ *   cover image are stored as public files (security fix, 2026-10-05; gateway
+ *   spec amendment of that date).
  *
  * **Test seams.** Resolution goes through
  * `globalThis[Symbol.for("makerlab.web.resolveHost")]` when that is a function —
@@ -105,7 +109,7 @@ export async function guardedFetch(url: string, opts: GuardedFetchOptions): Prom
 
       let response: Response;
       try {
-        response = await fetch(current, {
+        const init: RequestInit & { dispatcher?: Agent } = {
           method: "GET",
           redirect: "manual",
           signal: opts.signal,
@@ -113,8 +117,15 @@ export async function guardedFetch(url: string, opts: GuardedFetchOptions): Prom
             accept: opts.accept ?? "*/*",
             "user-agent": opts.userAgent ?? DEFAULT_USER_AGENT,
           },
-        });
+        };
+        // The E2E stub origin is on loopback by design; everything else
+        // connects only to addresses the guard allows.
+        if (!isTestOrigin(new URL(current))) init.dispatcher = pinnedDispatcher();
+        response = await fetch(current, init);
       } catch (error) {
+        if (isForbiddenAtConnect(error)) {
+          return { ok: false, url: current, reason: "blocked", detail: "forbidden_address" };
+        }
         return networkFailure(current, error, opts.signal);
       }
 
@@ -220,6 +231,54 @@ async function resolveHost(host: string): Promise<string[]> {
   }
   const found = await lookup(host, { all: true, verbatim: true });
   return found.map((entry) => entry.address);
+}
+
+/** The error code {@link guardedLookup} fails a connection with. */
+export const FORBIDDEN_AT_CONNECT = "EMAKERLAB_FORBIDDEN_ADDRESS";
+
+/**
+ * A `net.connect` lookup that resolves through the same seam as the check and
+ * refuses the connection when any address is forbidden — so the socket only
+ * ever opens to an address that passed {@link isForbiddenAddress}, whatever the
+ * name's DNS answered the first time.
+ */
+export const guardedLookup: LookupFunction = (hostname, options, callback) => {
+  const family = typeof options === "object" && options ? options.family : undefined;
+  const all = typeof options === "object" && options ? Boolean(options.all) : false;
+  const done = callback as (error: NodeJS.ErrnoException | null, address?: unknown, family?: number) => void;
+  resolveHost(hostname).then(
+    (found) => {
+      const wanted = family === 4 || family === 6 ? found.filter((address) => isIP(address) === family) : found;
+      if (wanted.length === 0) {
+        done(Object.assign(new Error(`no address for ${hostname}`), { code: "ENOTFOUND" }));
+        return;
+      }
+      if (wanted.some(isForbiddenAddress)) {
+        done(Object.assign(new Error(`forbidden address for ${hostname}`), { code: FORBIDDEN_AT_CONNECT }));
+        return;
+      }
+      const entries = wanted.map((address) => ({ address, family: isIP(address) }));
+      if (all) done(null, entries);
+      else done(null, entries[0].address, entries[0].family);
+    },
+    (error: unknown) => done(error as NodeJS.ErrnoException)
+  );
+};
+
+let dispatcher: Agent | null = null;
+
+/** One shared undici agent whose every connection resolves through {@link guardedLookup}. */
+export function pinnedDispatcher(): Agent {
+  dispatcher ??= new Agent({ connect: { lookup: guardedLookup } });
+  return dispatcher;
+}
+
+function isForbiddenAtConnect(error: unknown): boolean {
+  for (let current = error, depth = 0; current && depth < 5; depth += 1) {
+    if ((current as { code?: unknown }).code === FORBIDDEN_AT_CONNECT) return true;
+    current = (current as { cause?: unknown }).cause;
+  }
+  return false;
 }
 
 function isTestOrigin(url: URL): boolean {

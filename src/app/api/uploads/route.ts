@@ -7,6 +7,8 @@ import { resolveIdentity, type Identity } from "../../../lib/auth/identity";
 import { can, type Permission } from "../../../lib/auth/permissions";
 import { extensionOf, isImportFileName } from "../../../lib/import/detect";
 import { IMPORT_MAX_PDF_BYTES, IMPORT_MAX_TEXT_BYTES } from "../../../lib/import/limits";
+import { uploadImageType } from "../../../lib/images/upload-type";
+import { hasPdfMagic } from "../../../lib/web/pdf-magic";
 
 /**
  * `POST /api/uploads` — the one upload route (data platform design spec §3.3,
@@ -250,12 +252,36 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // The declared type above only says which kind of file was *claimed*; the
+  // bytes decide what is stored. An image must really be JPEG, PNG, WebP or GIF
+  // and is stored under the type its bytes show (an SVG, or HTML labelled as an
+  // image, would otherwise run script from a public Blob URL); a manual must
+  // open like a PDF. Security fix 2026-10-05 (data platform spec amendment).
+  let storedType = type;
+  if (isImage || isResourcePdf) {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    if (isImage) {
+      const detected = uploadImageType(bytes);
+      if (!detected) {
+        return Response.json(
+          { code: "unsupported_image", error: "Only JPEG, PNG, WebP or GIF images are supported" },
+          { status: 400 }
+        );
+      }
+      storedType = detected;
+    } else if (!hasPdfMagic(bytes)) {
+      return Response.json({ code: "unsupported_file", error: "That file is not a PDF" }, { status: 400 });
+    }
+  }
+  const upload =
+    storedType === type ? file : new File([file], file.name, { type: storedType, lastModified: file.lastModified });
+
   const access = KIND_POLICY[kind].access;
   const store = getBlobStore();
 
   let stored: { pathname: string; url: string };
   try {
-    stored = await store.putUpload(`uploads/${kind}/`, file, access);
+    stored = await store.putUpload(`uploads/${kind}/`, upload, access);
   } catch (err) {
     console.error("[uploads] blob write failed", err);
     return Response.json({ error: "Upload failed" }, { status: 502 });
@@ -271,7 +297,7 @@ export async function POST(req: NextRequest) {
       publicUrl: access === "public" ? stored.url : null,
       // An import file's type is what it was read as, so the reader later
       // needs no second guess (a CSV labelled as Excel, or unlabelled).
-      contentType: importFile === "pdf" ? "application/pdf" : importFile === "text" ? "text/plain" : type,
+      contentType: importFile === "pdf" ? "application/pdf" : importFile === "text" ? "text/plain" : storedType,
       sizeBytes: file.size,
       originalFilename: file.name || "upload",
       uploadedBy: identity.userId,
@@ -301,7 +327,7 @@ export async function POST(req: NextRequest) {
     attachmentId,
     previewUrl: access === "public" ? stored.url : null,
     name: file.name || "upload",
-    contentType: type,
+    contentType: storedType,
     size: file.size,
   });
 }

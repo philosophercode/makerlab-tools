@@ -2010,3 +2010,56 @@ assertion kinds `identified_items` / `identified_count` (`evals/README.md`). Run
 2026-09-29 against `openai/gpt-6-luna`: 3/3 passed.
 
 **Status.** Built on `v5/multi-item-intake`.
+
+### 2026-10-05 — Security fixes: the optimizer's hosts, upload bytes, database errors in logs (§3.3, §8)
+
+**Why.** A security review found three places where the platform trusted more than it should:
+
+1. **`images.remotePatterns` allowed every Vercel Blob store and every S3 bucket in us-west-2**
+   (`*.public.blob.vercel-storage.com`, path-style `s3.us-west-2.amazonaws.com`), plus Notion's
+   file bucket, Unsplash and Airtable, none with a path. `/_next/image` is unauthenticated, so
+   anyone could run their own images through the lab's optimizer, each distinct URL and width a
+   billed fetch and AVIF/WebP transform.
+2. **`POST /api/uploads` trusted the browser's type.** Any `image/*` passed — `image/svg+xml`
+   with a `<script>`, or HTML labelled `image/png` — and was stored under that type, so a
+   signed-in member could publish script at a permanent public URL on the lab's store (`project`
+   needs only `projects.submit`). A `resource` claiming `application/pdf` was not checked either.
+3. **Failed writes logged Drizzle's error**, whose message is `Failed query: <sql>\nparams:
+   <params>` and whose driver `cause` carries a `detail` such as `Key (email)=(…)`. A failed
+   ticket, flag, project submission, admin action or usage-gap upsert wrote emails, names, ticket
+   text or a student's question into the runtime logs — contrary to §8 and to "Emails still never
+   enter a model prompt or a log line" above.
+
+**What changed.**
+
+- **(1)** `remotePatterns` names exactly the lab's own public store:
+  `src/lib/images/remote-patterns.ts`'s `blobImagePatterns(process.env)` derives
+  `<id>.public.blob.vercel-storage.com` at build time from `BLOB_STORE_ID` (`store_<id>`) or the
+  id inside `BLOB_READ_WRITE_TOKEN` (`vercel_blob_rw_<id>_…`) — how `@vercel/blob` builds its own
+  URLs; the token's secret part is never kept. No new variable. The Notion, S3, Unsplash and
+  Airtable entries are removed (the import copies bytes; Notion's and Airtable's URLs are signed
+  and expire). A Vercel build with no store id warns in the build log. No `pathname` prefix is
+  set: every path in the lab's own store is the lab's file, and prefixes differ by writer
+  (`uploads/`, `thumbs/`, the import's folders, manuals).
+- **(2)** Every image upload is read: `src/lib/images/upload-type.ts`'s `uploadImageType`
+  accepts JPEG, PNG and WebP (`inspectImage`, header well formed) and GIF, and nothing else —
+  SVG, HEIC and anything unrecognised answer `400 unsupported_image`. The file is stored, recorded
+  and answered under the **detected** type, never the declared one. A `resource` must open like a
+  PDF (`hasPdfMagic`) or it is `400 unsupported_file`. All kinds, private ones too: a chat or
+  maintenance photo can later be promoted to public (`files/promote.ts`, `share-photo.ts`), and
+  the type it was stored with travels with it.
+- **(3)** `src/lib/db/describe-error.ts`'s `describeDbError(err)` describes a failure as its
+  name plus the SQLSTATE and the constraint, table and column Postgres names — never the message
+  of a database error, its params or its `detail`. Used by `capabilities/maintenance.ts`,
+  `capabilities/flags.ts`, `api/projects/route.ts`, `actions/perform.ts` (every registered
+  admin action) and `usage/record.ts`. Other catch sites that log a raw error remain; they are
+  a follow-up, migrated as they are touched.
+
+**Tests.** `remote-patterns.test.ts` (store id and token forms, secret never kept, no store → no
+host; `next.config.ts` has no wildcard or third-party host); `upload-type.test.ts`;
+`api/uploads/route.test.ts` (SVG and HTML-as-PNG refused for `project` and `chat` with nothing
+stored; a PNG declared as JPEG stored and recorded as PNG; a fake PDF resource refused);
+`describe-error.test.ts` (a real failed PGlite insert whose Drizzle message holds the email,
+described without it).
+
+**Status.** Accepted. Security fix on `security/web`.

@@ -185,7 +185,7 @@ describe("usage recorded from a chat turn", () => {
     setLanguageModel("chat", textModel("Wear safety glasses."));
     const broken = rendered(await send({ messages: [userMessage("what PPE for the laser?")] }));
     expect(broken).toEqual(healthy);
-    await vi.waitFor(() => expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("[usage]"), "db down"), { timeout: 5000 });
+    await vi.waitFor(() => expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("[usage]"), "Error: db down"), { timeout: 5000 });
     expect((await eventsNow()).length).toBe(1);
   });
 });
