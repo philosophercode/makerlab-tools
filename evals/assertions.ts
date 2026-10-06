@@ -1,7 +1,11 @@
 import { attachedCiteTarget, type AttachedManualLink } from "@/lib/manuals/attached-citations";
 import {
+  answerScopeOf,
+  attachedForHref,
   checkCitations,
   citationLinks,
+  citationTitle,
+  passageForHref,
   toolPassages,
   withAttachedMentionsLinked,
   type DocumentEvidence,
@@ -27,6 +31,7 @@ import type { EvalFixture, EvalFixtureTool } from "./fixtures";
  * | `cites_resource` | The answer references one of the machine's documents |
  * | `cites_page` | The answer cites a manual page: a `#page=N` link or "p. N" (N = `value` when given; `file.pdf#page=N` pins the document) |
  * | `says_not_covered` | The answer says the manual does not cover the question |
+ * | `cites_only_tool` | Every document the answer cites belongs to the machine `value` (a slug): each linked passage's `toolId` is that machine's, an attached manual's page counts only when the case is on that machine's page, a manual-looking link no tool returned fails, and so does naming another machine's searched document in the text. An answer that cites nothing passes |
  * | `citations_resolve` | Every manual link came from a `search_manual` result or a manual attached to the turn (`#cite-<ref>-<page>`, "(<title>, p. N)"), answers 200 `application/pdf`, opens a page the PDF has, and the passage is on that page (`src/lib/manuals/citation-check.ts`; the executor gathers the evidence) |
  * | `proposed_action` | That action tool was called — which only ever proposes a card (assistant–GUI parity spec §10.1) |
  * | `not_claimed_done` | The answer never says a change was made: nothing is done until the person confirms the card |
@@ -50,6 +55,7 @@ export const ASSERTION_KINDS = [
   "cites_resource",
   "cites_page",
   "says_not_covered",
+  "cites_only_tool",
   "citations_resolve",
   "proposed_action",
   "not_claimed_done",
@@ -541,6 +547,13 @@ export function runAssertion(spec: AssertionSpec, input: AssertionInput): Assert
     }
     case "says_not_covered":
       return outcome("the answer says the manual does not cover it", saysNotCovered(text));
+    case "cites_only_tool": {
+      const slug = asString(spec.value);
+      return outcome(
+        `every document the answer cites belongs to ${slug}`,
+        citesOnlyTool(text, toolCalls, fixture, slug, input.attachedManuals, toolId)
+      );
+    }
     case "citations_resolve":
       return outcome(
         "every manual link came from search_manual or an attached manual, resolves to the PDF, opens a page it has, and the passage is on that page",
@@ -834,13 +847,70 @@ export function citationsResolve(
       { ...e, pages: new Map(Object.entries(e.pages).map(([n, t]) => [Number(n), t])) },
     ])
   );
-  const report = checkCitations(text, recordedPassages(toolCalls), byUrl, attached);
+  // Rule 6: a passage of another machine than the searches were scoped to fails.
+  const scope = answerScopeOf(toolCalls.filter((call) => call.name === "search_manual").map((call) => call.output));
+  const report = checkCitations(text, recordedPassages(toolCalls), byUrl, attached, scope);
   if (report.ok) return { ok: true };
   const bad = report.citations.filter((c) => c.problems.length > 0);
   return {
     ok: false,
     detail: bad.map((c) => `${c.href}: ${c.problems.join(", ")} — ${c.detail.join("; ")}`).join("\n      "),
   };
+}
+
+/**
+ * `cites_only_tool` (manual text spec amendment 2026-10-06 "An answer cites
+ * only its machine's documents"): every document the answer cites belongs to
+ * the machine `slug`.
+ *
+ * - a linked search passage must carry that machine's `toolId` (or, from an
+ *   output that records no id, its name as `tool`);
+ * - a page of an attached manual counts only when the case is on that
+ *   machine's page (the route attaches only the focused tool's manuals);
+ * - a manual-looking link no search returned cannot be shown to be that
+ *   machine's, so it fails;
+ * - naming, in the text, the document of a searched passage that belongs to
+ *   another machine fails too ("the Prusa handbook says…").
+ *
+ * An answer that cites nothing passes: pair it with `not_contains_any` or
+ * `says_not_covered` when the answer must also hold back.
+ */
+export function citesOnlyTool(
+  text: string,
+  toolCalls: readonly RecordedToolCall[],
+  fixture: EvalFixture,
+  slug: string,
+  attached: readonly AttachedManualLink[] = [],
+  focusedSlug?: string
+): Check {
+  const tool = fixture.tools.find((t) => t.slug === slug);
+  if (!tool) return { ok: false, detail: `"${slug}" is not a catalog machine in this run` };
+  const passages = recordedPassages(toolCalls);
+  const belongs = (passage: ToolPassage) =>
+    passage.toolId !== undefined && passage.toolId !== null ? passage.toolId === tool.id : passage.tool === tool.name;
+  const linked = withAttachedMentionsLinked(text, attached);
+  for (const href of citationLinks(linked)) {
+    const passage = passageForHref(href, passages);
+    if (passage) {
+      if (!belongs(passage)) {
+        return { ok: false, detail: `cites ${passage.citation}, a document of ${passage.tool ?? "another machine"}`, excerpt: href };
+      }
+      continue;
+    }
+    if (attachedForHref(href, attached)) {
+      if (focusedSlug !== slug) return { ok: false, detail: `cites an attached manual of ${focusedSlug ?? "no focused machine"}`, excerpt: href };
+      continue;
+    }
+    return { ok: false, detail: `cites ${href}, which no search_manual result or attached manual backs`, excerpt: href };
+  }
+  const low = normalize(text);
+  const ownTitles = new Set(passages.filter(belongs).map((passage) => normalize(citationTitle(passage.citation))));
+  const named = passages.find((passage) => {
+    const title = normalize(citationTitle(passage.citation));
+    return !belongs(passage) && !ownTitles.has(title) && low.includes(title);
+  });
+  if (named) return { ok: false, detail: `names ${citationTitle(named.citation)}, a document of ${named.tool ?? "another machine"}` };
+  return { ok: true };
 }
 
 /** Phrases that say the manual has no answer — the honest-absence rule for manuals. */

@@ -13,7 +13,7 @@ import { attachManualsToFirstUserMessage } from "@/lib/chat/attached-manuals";
 import { evidenceUrls } from "@/lib/manuals/citation-check";
 import { gatherCitationEvidence } from "@/lib/manuals/citation-evidence";
 import { recordedPassages } from "./assertions";
-import { seedEvalManual, stopEvalManualServer } from "./manual-fixture";
+import { seedEvalLabManuals, seedEvalManual, stopEvalManualServer } from "./manual-fixture";
 import { seedEvalTickets } from "./ticket-fixture";
 import { formatReport, mergeReports, runSuite, type CaseExecution, type SuiteReport } from "./runner";
 import { seedEvalLabCatalog } from "./lab-catalog-fixture";
@@ -169,6 +169,9 @@ describe("agent evals", () => {
     }
     if (labCases.length > 0) {
       await seedEvalLabCatalog();
+      // The look-alikes' manuals (Prusa handbook, Epilog manual), searchable:
+      // the near-misses the tool-scoped citation cases must not cite.
+      await seedEvalLabManuals();
       phases.push(await runSuite(labCases, executeCase, buildFixture(await getCatalogTools()), { onCase }));
     }
     const report = mergeReports(phases);

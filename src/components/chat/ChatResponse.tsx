@@ -13,7 +13,7 @@ import {
   InlineCitationSource,
   InlineCitationText,
 } from "../ai-elements/inline-citation";
-import { citationPhrase, classifyLink, documentPhrase, pageMark, type ManualPassageRef } from "./manual-citations";
+import { citationMark, citationPhrase, classifyLink, documentPhrase, machineCitation, type ManualPassageRef } from "./manual-citations";
 import { stripCitations } from "./chat-text";
 
 const NO_DOCUMENTS: ReadonlyMap<string, string> = new Map();
@@ -27,7 +27,10 @@ const NO_DOCUMENTS: ReadonlyMap<string, string> = new Map();
  *   linked words (less the "(Form 4 Manual, p. 42)" the prompt has the model
  *   repeat in them, which the mark now says), then a mono `P. 42` mark that
  *   opens the **tool's** URL for the page, with a card (hover or focus) naming
- *   the manual, the section and the passage's words.
+ *   the manual, the section and the passage's words. A passage from another
+ *   machine's document, or any passage in an answer comparing machines, names
+ *   its machine in the mark and the card ("Prusa i3 MK3S+ · p. 25"; manual
+ *   text spec amendment 2026-10-06).
  * - **A page of an attached manual** (the route's `data-manual-links`), cited
  *   as `#cite-<ref>-<page>` at a page the PDF has, is a citation like the
  *   above, opening the **stored** address at `#page=N` (amendment
@@ -64,7 +67,7 @@ export function ChatResponse({
         const link = classifyLink(typeof href === "string" ? href : "", passages, documents);
         switch (link.kind) {
           case "citation":
-            return <Citation passage={link.passage} label={citationLabel(link.passage.citation)}>{children}</Citation>;
+            return <Citation passage={link.passage} label={citationLabel(machineCitation(link.passage))}>{children}</Citation>;
           case "internal":
             return (
               <Link href={link.href} onClick={onInternalNavigate}>
@@ -100,14 +103,14 @@ export function ChatResponse({
 
 function Citation({ passage, label, children }: { passage: ManualPassageRef; label: string; children: ReactNode }) {
   return (
-    <InlineCitation>
+    <InlineCitation data-other-machine={passage.otherMachine ? "" : undefined}>
       <InlineCitationText>{typeof children === "string" ? citationPhrase(children, passage.citation) : children}</InlineCitationText>
       <InlineCitationCard>
         <InlineCitationCardTrigger href={passage.url} aria-label={label}>
-          {pageMark(passage.citation)}
+          {citationMark(passage)}
         </InlineCitationCardTrigger>
         <InlineCitationCardBody>
-          <InlineCitationSource title={passage.citation} description={passage.section || undefined} />
+          <InlineCitationSource title={machineCitation(passage)} description={passage.section || undefined} />
           {passage.excerpt ? <InlineCitationQuote>{passage.excerpt}</InlineCitationQuote> : null}
         </InlineCitationCardBody>
       </InlineCitationCard>

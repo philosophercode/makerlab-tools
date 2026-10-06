@@ -166,6 +166,7 @@ export async function runStarterAnswer(input: RunStarterAnswerInput): Promise<St
     focusedToolId: focused?.id ?? null,
     passages: log.passages,
     scopedToolIds: log.scopedToolIds,
+    wideSearch: log.wideSearch,
     audience: "anonymous",
     locale: "en",
   });

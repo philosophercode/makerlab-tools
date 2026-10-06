@@ -100,13 +100,27 @@ export interface ManualsDueOptions {
 }
 
 /**
- * Manual resources with a link and no PDF for it yet — the daily cron's
+ * The resource types whose links the nightly backfill archives whatever the
+ * link looks like (any case). Other types are archived when the link names a
+ * PDF ({@link listManualsDueForArchive}).
+ */
+export const ARCHIVED_RESOURCE_TYPES = ["manual", "sop", "safety"] as const;
+
+/**
+ * PDF resources with a link and no PDF for it yet — the daily cron's
  * backfill (and backstop for a start that never happened).
  *
- * Due means: `type` is Manual (any case), `url` is an http(s) link short
- * enough to key, and the resource owns no `application/pdf` attachment that
- * is either its archive of *this* link or a file somebody uploaded or the
- * import copied. A stale archive (of a link since edited) does not count.
+ * Due means: the resource is a document worth searching — `type` is Manual,
+ * SOP or Safety (any case), or any other type except Video whose link names a
+ * `.pdf` (manual text spec amendment 2026-10-06: the X1-Carbon's guide was
+ * typed SOP, the Trotec's operating manual too, and neither was ever
+ * archived, indexed or searchable) — and not the lab's own carried-through
+ * material (`origin = 'lab_document'`, never fetched); `url` is an http(s)
+ * link short enough to key; and the resource owns no `application/pdf`
+ * attachment that is either its archive of *this* link or a file somebody
+ * uploaded or the import copied. A stale archive (of a link since edited)
+ * does not count. A link that turns out not to be a PDF is skipped by the
+ * archive step (`not_pdf`) unless it is typed Manual.
  *
  * **Oldest first, in a window that moves each night.** Nothing records that
  * an archive was refused — a manual whose link is an HTML product page stays
@@ -119,8 +133,14 @@ export async function listManualsDueForArchive(options: ManualsDueOptions): Prom
   const db = options.db ?? (await getDb());
   const limit = Math.max(0, Math.floor(options.limit));
 
+  const type = sql`lower(trim(coalesce(r.type, '')))`;
+  const types = sql.join(
+    ARCHIVED_RESOURCE_TYPES.map((t) => sql`${t}`),
+    sql`, `
+  );
   const where = sql`
-    lower(r.type) = 'manual'
+    (${type} in (${types}) or (${type} <> 'video' and r.url ~* '[.]pdf($|[?#])'))
+    and coalesce(r.origin, '') <> 'lab_document'
     and r.url ~* '^https?://'
     and length(r.url) <= ${MAX_ARCHIVABLE_URL_LENGTH}
     and not exists (

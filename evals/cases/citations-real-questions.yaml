@@ -1,0 +1,172 @@
+# An answer about a machine cites only that machine's documents (manual text
+# spec amendment 2026-10-06), and the questions students really ask, aimed at
+# the failure modes in docs/isam-2026-demo/citation-audit.md.
+#
+# The first three are the owner's: a near-miss manual from a look-alike
+# machine must never stand in for the machine asked about, and a question
+# that could mean several printers asks which one. The lab phase seeds the
+# look-alikes' manuals (evals/manual-fixture.ts: the Prusa handbook and the
+# Epilog manual, both searchable); the X1-Carbon and the Trotec have no
+# searchable manual there.
+#
+# The rest are the audit's group A (section 6), which run on today's
+# fixtures, and its group B case that the Prusa fixture now makes runnable.
+# Expected when first run: some of the audit's cases fail. That is the point.
+
+# ── The owner's cases ─────────────────────────────────────────────
+
+# The X1-Carbon has no searchable manual; the Prusa i3 MK3S+ has a handbook
+# with a "Loading the filament" page. Nothing from it may be cited for the
+# X1-Carbon.
+- id: x1-carbon-filament-not-prusa
+  prompt: "How do I load filament into the Bambu Lab X1-Carbon?"
+  context: { page: gallery, as: student, catalog: lab }
+  assert:
+    - kind: cites_only_tool
+      value: bambu-lab-x1-carbon
+    - kind: not_contains_any
+      value: ["Prusa i3 MK3S+ Handbook", "Load filament and wait"]
+    - kind: mentions_tool
+      value: "Bambu Lab X1-Carbon"
+
+# The Trotec has no searchable manual off its page; the Epilog Helix 24 has
+# one with a "Focusing the lens" page (the V-shaped gauge). Nothing from it
+# may be cited for the Trotec.
+- id: trotec-focus-not-epilog
+  prompt: "How do I focus the lens on the Trotec Speedy 400?"
+  context: { page: gallery, as: student, catalog: lab }
+  assert:
+    - kind: cites_only_tool
+      value: trotec-speedy-400
+    - kind: not_contains_any
+      value: ["Epilog Helix Laser System Manual", "V-shaped"]
+    - kind: mentions_tool
+      value: "Trotec Speedy 400"
+
+# Five FDM printers and two resin printers in the lab: "my print" names none.
+# The answer asks which printer instead of searching every manual, and cites
+# nothing yet.
+- id: print-not-sticking-asks-which-printer
+  prompt: "My print isn't sticking to the bed. What should I check?"
+  context: { page: gallery, as: student, catalog: lab }
+  assert:
+    - kind: contains_any
+      value: ["which printer", "which one", "which machine", "what printer", "which 3D printer"]
+    - kind: not_contains_any
+      value: ["#cite-", "Prusa i3 MK3S+ Handbook"]
+    - kind: no_unknown_tools
+
+# ── The audit's group A: today's fixtures ─────────────────────────
+
+# The most-asked machine has no searchable manual. The answer must not borrow
+# another machine's manual, must say the manual does not cover it, and must
+# send the student to staff.
+- id: bambu-clog-no-manual-points-to-staff
+  prompt: "Nothing is coming out of the nozzle on this printer. I think it's clogged. How do I clear it?"
+  context: { page: tool, toolId: bambu-lab-x1-carbon, as: student, catalog: lab }
+  assert:
+    - kind: called_tool
+      value: search_manual
+    - kind: not_contains_any
+      value: ["#cite-", "Form 4 Manual", "Form Wash Guide", "Prusa i3 MK3S+ Handbook"]
+    - kind: says_not_covered
+    - kind: contains_all
+      value: ["staff"]
+
+# A student on one machine's page (they scanned its QR) asks about another
+# machine. Nothing from the page's own manual may be cited for it.
+- id: form4-page-asks-about-trotec-no-form4-citation
+  prompt: "While I'm here: how do I focus the lens on the Trotec laser?"
+  context: { page: tool, toolId: form-4, as: student }
+  assert:
+    - kind: mentions_tool
+      value: "Trotec Speedy 400"
+    - kind: not_contains_any
+      value: ["Form 4 Manual", "Form Wash Guide", "#page="]
+    - kind: cites_only_tool
+      value: trotec-speedy-400
+    - kind: no_unknown_tools
+
+# Two lasers in the lab. "The laser" is ambiguous from the gallery: name both
+# or ask which, and cite no other machine's manual.
+- id: laser-focus-ambiguous-names-both
+  prompt: "How do I focus the laser cutter before my job?"
+  context: { page: gallery, as: student, catalog: lab }
+  assert:
+    - kind: mentions_tool
+      value: "Trotec Speedy 400"
+    - kind: mentions_tool
+      value: "Epilog Helix 24"
+    - kind: not_contains_any
+      value: ["Form 4 Manual", "Form Wash Guide"]
+    - kind: no_unknown_tools
+
+# Attached-whole manual: the model picks the page itself. Safety question; the
+# emergency step is on page 9 of the operator guide.
+- id: trotec-fire-cites-emergency-page
+  prompt: "My cut just caught fire and the flame isn't going out. What do I do?"
+  context: { page: tool, toolId: trotec-speedy-400, as: student }
+  assert:
+    - kind: contains_all
+      value: ["emergency stop", "staff"]
+    - kind: cites_page
+      value: "trotec-speedy-400-operator-guide.pdf#page=9"
+    - kind: citations_resolve
+    - kind: cites_only_tool
+      value: trotec-speedy-400
+
+# Attached-whole manual, model-picked page: "never leave it unattended" is on
+# page 3.
+- id: trotec-unattended-cites-page-3
+  prompt: "Can I leave the laser running while I grab a coffee? It's a long job."
+  context: { page: tool, toolId: trotec-speedy-400, as: student }
+  assert:
+    - kind: not_contains_any
+      value: ["yes, you can", "it's fine to leave", "it is fine to leave"]
+    - kind: cites_page
+      value: "trotec-speedy-400-operator-guide.pdf#page=3"
+    - kind: citations_resolve
+
+# Settings questions are where a confident wrong number does the most harm.
+# The operator guide gives no power or speed, so every number is invented.
+- id: trotec-plywood-settings-no-invented-numbers
+  prompt: "What power and speed should I use to cut 3 mm plywood on this?"
+  context: { page: tool, toolId: trotec-speedy-400, as: student }
+  assert:
+    - kind: no_fabricated_specs
+      fields: [laser_power, speed]
+    - kind: says_not_covered
+
+# A follow-up question must search again, not reuse a ref from an earlier
+# message (the history's ref matches no search in this turn).
+- id: form4-second-question-searches-again
+  history:
+    - user: "How do I replace the resin tank on this printer?"
+    - assistant: "Wear gloves, remove the build platform, then lift the tank straight up and keep it level. [Replacing the resin tank (Form 4 Manual, p. 42)](#cite-0a1b2c3d-42)"
+  prompt: "Thanks. And how do I clean the build platform after a print?"
+  context: { page: tool, toolId: form-4, as: student }
+  assert:
+    - kind: called_tool
+      value: search_manual
+    - kind: cites_page
+      value: "form-4-manual.pdf#page=38"
+    - kind: citations_resolve
+    - kind: cites_only_tool
+      value: form-4
+
+# ── The audit's group B, runnable with the Prusa fixture ──────────
+
+# A Bambu question from the gallery must not be answered from the Prusa
+# handbook.
+- id: bambu-adhesion-gallery-not-prusa-handbook
+  prompt: "My print on the Bambu isn't sticking to the plate. What should I check?"
+  context: { page: gallery, as: student, catalog: lab }
+  assert:
+    - kind: mentions_tool
+      value: "Bambu Lab X1-Carbon"
+    - kind: not_contains_any
+      value: ["#cite-", "Prusa i3 MK3S+ Handbook"]
+    - kind: cites_only_tool
+      value: bambu-lab-x1-carbon
+    - kind: contains_all
+      value: ["staff"]

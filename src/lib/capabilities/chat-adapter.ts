@@ -11,6 +11,7 @@ import { siteConfig } from "../site-config";
 import { LAB_CONTEXT } from "../ai/lab-context";
 import { LAB_COMPANION } from "../ai/lab-companion";
 import { labNotesSection, toolLabNotesLines } from "../ai/lab-notes-prompt";
+import { MANUAL_SILENCE, MANUAL_SILENCE_HEADING } from "../ai/manual-silence";
 import { CITE_HREF_PREFIX } from "../manuals/citation-ref";
 import type { MakerLabTool } from "../../components/catalog-types";
 
@@ -91,7 +92,8 @@ export const CONVERSATION_HEADING = "# This conversation";
  * Compose the chat system prompt, in two parts:
  *
  * 1. **Stable** — the intro, "Where you are", the companion rules ("The lab
- *    first, then its people"), the lab notes rules and the lab-wide notes,
+ *    first, then its people"), the one rule for silent documents ("When the
+ *    documents are silent"), the lab notes rules and the lab-wide notes,
  *    every capability's `promptFragment(env)` in registry order (the catalog
  *    capability's owns tool linking and the one catalog listing), then the
  *    reading and citing rules. Nothing here names the caller, the page or the
@@ -109,11 +111,11 @@ export function buildSystemPrompt(
   env: PromptEnv
 ): string {
   const { focusedTool, locale } = env;
-  // The lab context and the companion rules are static: they go right after
-  // the intro, in the prompt's cacheable prefix, before anything that varies
-  // by request. The lab notes follow them: the same for every request until
-  // staff save new ones.
-  const stable: string[] = [introSection(), LAB_CONTEXT, LAB_COMPANION, labNotesSection(env.labNotes ?? [])];
+  // The lab context, the companion rules and the one rule for silent
+  // documents are static: they go right after the intro, in the prompt's
+  // cacheable prefix, before anything that varies by request. The lab notes
+  // follow them: the same for every request until staff save new ones.
+  const stable: string[] = [introSection(), LAB_CONTEXT, LAB_COMPANION, MANUAL_SILENCE, labNotesSection(env.labNotes ?? [])];
   for (const capability of capabilities) {
     const fragment = capability.promptFragment(env).trim();
     if (fragment) stable.push(fragment);
@@ -165,7 +167,7 @@ export function composeChat(
 // ── Prompt sections (parity with the original chat route) ───────────
 
 function introSection(): string {
-  return `You are the ${siteConfig.chatAssistantName} — a friendly, knowledgeable helper for ${siteConfig.audience} using the ${siteConfig.institution} MakerLAB. Answer questions about lab tools, training requirements, safety, materials, and which machines are right for a given project. Be concise, accurate, and grounded only in the catalog and the lab context provided below. If the user asks about a tool that isn't in the catalog, say so honestly.`;
+  return `You are the ${siteConfig.chatAssistantName} — a friendly, knowledgeable helper for ${siteConfig.audience} using the ${siteConfig.institution} MakerLAB. Answer questions about lab tools, training requirements, safety, materials, and which machines are right for a given project. Be concise and accurate. Ground every answer in the catalog, the lab context and each machine's own documents provided below; when a machine's documents do not answer, follow "${MANUAL_SILENCE_HEADING}". If the user asks about a tool that isn't in the catalog, say so honestly.`;
 }
 
 function languageSection(locale: string): string {

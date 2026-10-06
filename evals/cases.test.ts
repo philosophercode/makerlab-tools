@@ -135,6 +135,17 @@ describe("parseCaseFile validation", () => {
     }
   });
 
+  it("takes cites_only_tool as one catalog slug", () => {
+    const [parsed] = parseCaseFile(`- id: a\n  prompt: "hi"\n  assert:\n    - kind: cites_only_tool\n      value: form-4\n`, "t.yaml");
+    expect(parsed.assert[0]).toEqual({ kind: "cites_only_tool", value: "form-4" });
+    expect(() => parseCaseFile(`- id: a\n  prompt: "hi"\n  assert:\n    - kind: cites_only_tool\n`, "t.yaml")).toThrow(/requires a "value"/);
+    for (const bad of ['"Form 4"', "[form-4, trotec-speedy-400]"]) {
+      expect(() => parseCaseFile(`- id: a\n  prompt: "hi"\n  assert:\n    - kind: cites_only_tool\n      value: ${bad}\n`, "t.yaml")).toThrow(
+        /cites_only_tool takes one catalog slug/
+      );
+    }
+  });
+
   it("takes photos from evals/fixtures/photos, and refuses one that is not there", () => {
     const [parsed] = parseCaseFile(
       `- id: a\n  prompt: "hi"\n  photos: [bench-three-tools.jpg]\n  assert:\n    - kind: identified_count\n      value: "3"\n`,
@@ -211,6 +222,7 @@ describe("the shipped case set", () => {
         "assistant-actions.yaml",
         "bulk-import.yaml",
         "catalog-lookup.yaml",
+        "citations-real-questions.yaml",
         "citations-resolve.yaml",
         "curation.yaml",
         "honest-absence.yaml",
@@ -226,11 +238,24 @@ describe("the shipped case set", () => {
     );
   });
 
-  it("only focuses machines that exist in the fixture catalog", async () => {
+  it("only focuses machines that exist in the fixture catalog (a lab case: the lab fixture's too)", async () => {
     const { evalFixture } = await import("./fixtures");
+    const { LAB_FIXTURE_SLUGS } = await import("./lab-catalog-fixture");
     for (const evalCase of loadCases()) {
       if (!evalCase.context.toolId) continue;
-      expect(evalFixture.slugs).toContain(evalCase.context.toolId);
+      const slugs = evalCase.context.catalog === "lab" ? [...evalFixture.slugs, ...LAB_FIXTURE_SLUGS] : evalFixture.slugs;
+      expect(slugs).toContain(evalCase.context.toolId);
+    }
+  });
+
+  it("names a machine of its own catalog in every cites_only_tool", async () => {
+    const { evalFixture } = await import("./fixtures");
+    const { LAB_FIXTURE_SLUGS } = await import("./lab-catalog-fixture");
+    for (const evalCase of loadCases()) {
+      const slugs = evalCase.context.catalog === "lab" ? [...evalFixture.slugs, ...LAB_FIXTURE_SLUGS] : evalFixture.slugs;
+      for (const spec of evalCase.assert.filter((a) => a.kind === "cites_only_tool")) {
+        expect(slugs, `${evalCase.id}`).toContain(spec.value);
+      }
     }
   });
 });

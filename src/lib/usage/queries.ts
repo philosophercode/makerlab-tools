@@ -55,6 +55,12 @@ export interface InsightTotals {
   kioskScans: number;
   gaps: number;
   citations: number;
+  /**
+   * Citations of another machine's document than the one the answer was about
+   * (`manual_cited` with `source = 'cross_tool'`; manual text spec amendment
+   * 2026-10-06). Counted in `citations` too.
+   */
+  crossToolCitations: number;
 }
 
 export interface ToolInsight {
@@ -182,7 +188,8 @@ export async function loadInsights(query: InsightsQuery, options: { db?: Db } = 
                  coalesce(sum(count) filter (where kind = 'kiosk_view' and source = 'screen'), 0) as kiosk_screens,
                  coalesce(sum(count) filter (where kind = 'kiosk_view' and source = 'qr'), 0) as kiosk_scans,
                  coalesce(sum(count) filter (where kind = 'gap'), 0) as gaps,
-                 coalesce(sum(count) filter (where kind = 'manual_cited'), 0) as citations
+                 coalesce(sum(count) filter (where kind = 'manual_cited'), 0) as citations,
+                 coalesce(sum(count) filter (where kind = 'manual_cited' and source = 'cross_tool'), 0) as cross_tool_citations
             from ${src} e`
     ),
     rawRows<Record<string, Num>>(
@@ -299,6 +306,7 @@ export async function loadInsights(query: InsightsQuery, options: { db?: Db } = 
       kioskScans: n(totals.kiosk_scans),
       gaps: n(totals.gaps),
       citations: n(totals.citations),
+      crossToolCitations: n(totals.cross_tool_citations),
     },
     tools: toolRows
       .map((row) => ({
