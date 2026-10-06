@@ -42,7 +42,7 @@ export interface LabelStyle {
   extraText: string;
   /** Whether the extra line is printed; the words are kept while it is off. */
   showExtra: boolean;
-  /** The MakerLAB wordmark. */
+  /** The lab's official logo (until 2026-10-06, the MakerLAB wordmark; the key kept its name). */
   showBrand: boolean;
   /** The short address under the code, for a camera that will not scan. */
   showUrl: boolean;
@@ -112,8 +112,13 @@ export interface LabelLayout {
 /** Quiet zone drawn inside the code's box, in modules; the label's padding adds to it. */
 export const QR_QUIET_MODULES = 2;
 
-/** The wordmark's aspect ratio (`public/makerlab-wordmark.png`, 475 × 79). */
-export const WORDMARK_ASPECT = 475 / 79;
+/**
+ * The brand image's aspect ratio: the lab's official logo, the Cornell Tech
+ * MakerLAB lockup (`public/brand/cornell-tech-makerlab-logo.svg`, 277.68 ×
+ * 76.13; its PNG is what the label draws). Until 2026-10-06 it was the
+ * MakerLAB wordmark, 475 × 79.
+ */
+export const BRAND_ASPECT = 277.68 / 76.13;
 
 /**
  * Text width in points. The PDF passes Helvetica's real metrics; the browser
@@ -213,13 +218,18 @@ function blockHeight(block: Block, reserve = false): number {
   return lines * lineHeightMm(block.boxPt ?? block.sizePt);
 }
 
-/** Type sizes for a label whose short side is `shortMm`. */
+/**
+ * Type sizes for a label whose short side is `shortMm`. The logo keeps the
+ * height the wordmark had on every preset (3.6 mm on 2″), so no code got
+ * smaller when it changed; only a custom label over 78.6 mm lets it grow past
+ * 5.5 mm, since its two lines of type are each about a quarter of its height.
+ */
 export function typeScale(shortMm: number) {
   const namePt = clamp(2.6 + 0.13 * shortMm, 5, 14);
   return {
     namePt,
     smallPt: clamp(namePt * 0.7, 4.2, 10),
-    brandHeightMm: clamp(shortMm * 0.07, 1.8, 5.5),
+    brandHeightMm: clamp(shortMm * 0.07, 1.8, 9),
     padMm: clamp(shortMm * 0.06, 1.2, 4),
   };
 }
@@ -236,7 +246,7 @@ export const MIN_QR_SHARE = 0.4;
 /**
  * Lay out one label. The code gets whatever the text leaves; when that is
  * under {@link MIN_QR_SHARE} of the label's short side, the least important text is dropped
- * (the address, then the location, the extra line, the wordmark — never the
+ * (the address, then the location, the extra line, the logo — never the
  * name) and the caller says so. A label at least 1.4 times as wide as it is
  * tall puts the text beside the code.
  */
@@ -315,7 +325,7 @@ function layoutStacked(style: LabelStyle, content: LabelContent, measure: Measur
   for (;;) {
     const blocks = blocksFor(style, content, innerW * PT_PER_MM, namePt, smallPt, measure, dropped);
     const showBrand = style.showBrand && !dropped.has("brand");
-    const brandH = showBrand ? Math.min(brandHeightMm, (innerW * 0.8) / WORDMARK_ASPECT) : 0;
+    const brandH = showBrand ? Math.min(brandHeightMm, (innerW * 0.8) / BRAND_ASPECT) : 0;
     const textH = blocks.reduce((sum, block) => sum + blockHeight(block, true), 0);
     const fixed = (showBrand ? brandH + gap : 0) + (blocks.length ? gap + textH : 0);
     const qrSize = Math.min(innerW, heightMm - padMm * 2 - fixed);
@@ -328,7 +338,7 @@ function layoutStacked(style: LabelStyle, content: LabelContent, measure: Measur
     const total = (showBrand ? brandH + gap : 0) + qrSize + (blocks.length ? gap + textH : 0);
     let y = (heightMm - total) / 2;
     const cx = widthMm / 2;
-    const brand = showBrand ? { x: cx - (brandH * WORDMARK_ASPECT) / 2, y, width: brandH * WORDMARK_ASPECT, height: brandH } : null;
+    const brand = showBrand ? { x: cx - (brandH * BRAND_ASPECT) / 2, y, width: brandH * BRAND_ASPECT, height: brandH } : null;
     if (showBrand) y += brandH + gap;
     const qr = { x: cx - qrSize / 2, y, size: qrSize };
     y += qrSize + gap;
@@ -362,7 +372,7 @@ function layoutSide(style: LabelStyle, content: LabelContent, measure: MeasureTe
   for (;;) {
     const blocks = blocksFor(style, content, textW * PT_PER_MM, namePt, smallPt, measure, dropped);
     const showBrand = style.showBrand && !dropped.has("brand");
-    const brandH = showBrand ? Math.min(brandHeightMm, (textW * 0.9) / WORDMARK_ASPECT) : 0;
+    const brandH = showBrand ? Math.min(brandHeightMm, (textW * 0.9) / BRAND_ASPECT) : 0;
     const textH = blocks.reduce((sum, block) => sum + blockHeight(block), 0) + Math.max(0, blocks.length - 1) * gap * 0.5;
     const total = (showBrand ? brandH + gap : 0) + textH;
     const next = droppable(style, content, dropped);
@@ -371,7 +381,7 @@ function layoutSide(style: LabelStyle, content: LabelContent, measure: MeasureTe
       continue;
     }
     let y = (heightMm - total) / 2;
-    const brand = showBrand ? { x: textX, y, width: brandH * WORDMARK_ASPECT, height: brandH } : null;
+    const brand = showBrand ? { x: textX, y, width: brandH * BRAND_ASPECT, height: brandH } : null;
     if (showBrand) y += brandH + gap;
     const lines: LayoutLine[] = [];
     blocks.forEach((block, index) => {

@@ -1,8 +1,11 @@
 // @vitest-environment node
-import { APPLE_ICON_SIZE, renderAppleIcon, renderSiteCard, SITE_CARD_SIZE } from "./site-card";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { siteConfig } from "../site-config";
+import { APPLE_ICON_SIZE, CARD_LOGO_SIZE, renderAppleIcon, renderSiteCard, SITE_CARD_SIZE } from "./site-card";
 
 /**
- * The site card and the apple icon actually draw — fonts, wordmark and all —
+ * The site card and the apple icon actually draw — fonts, logo and all —
  * as PNGs of the declared size. (`next/og` fails at request time, not build
  * time, on markup its renderer does not support, so this is the check.)
  */
@@ -27,6 +30,15 @@ describe("share images", () => {
       const { writeFile } = await import("node:fs/promises");
       await writeFile(process.env.SHARE_CARD_OUT, bytes);
     }
+  });
+
+  it("has the logo's PNG to draw, at the proportions the card gives it", () => {
+    // A missing file would not fail the card (it falls back to type), so this is the check.
+    const bytes = new Uint8Array(readFileSync(join(process.cwd(), "public", siteConfig.logoPng)));
+    expect([...bytes.slice(0, 4)]).toEqual(PNG_SIGNATURE);
+    const { width, height } = pngSize(bytes);
+    expect(width / height).toBeCloseTo(CARD_LOGO_SIZE.width / CARD_LOGO_SIZE.height, 1);
+    expect(width).toBeGreaterThanOrEqual(CARD_LOGO_SIZE.width);
   });
 
   it("draws the 180×180 apple icon", async () => {

@@ -11,12 +11,14 @@ import { siteUrl } from "./site-url";
  * Built once, at `next build`: nothing here reads the request or the
  * database, so Next prerenders the routes and serves the PNGs as static
  * files. Files are read from the project folder, which exists at build time;
- * each read is allowed to fail (a missing wordmark becomes the name set in
+ * each read is allowed to fail (a missing logo becomes the name set in
  * type, a missing font the renderer's own), so a card is always drawn.
  *
  * Thumbnail-first: a chat app shows this at ~300 px wide, so it is three
- * things at sizes that survive that — the wordmark, the site's name, the
- * tagline — on the site's paper colour with the brand orange as a rule.
+ * things at sizes that survive that — the lab's official logo (its PNG,
+ * `siteConfig.logoPng`; the header's wordmark until 2026-10-06), the site's
+ * name, the tagline — on the site's paper colour with the brand orange as a
+ * rule.
  */
 
 export const SITE_CARD_SIZE = { width: 1200, height: 630 } as const;
@@ -45,16 +47,19 @@ async function cardFonts() {
   return fonts;
 }
 
-/** The wordmark as a data URL, or null when the file is not there. */
-async function wordmarkDataUrl(): Promise<string | null> {
-  const path = siteConfig.wordmark.replace(/^\/+/, "");
+/** The lab's official logo, as drawn on the card: 540 px wide, the height at the lockup's 277.68 × 76.13. */
+export const CARD_LOGO_SIZE = { width: 540, height: Math.round((540 * 76.13) / 277.68) } as const;
+
+/** The logo's PNG (`siteConfig.logoPng`) as a data URL, or null when the file is not there. */
+async function logoDataUrl(): Promise<string | null> {
+  const path = siteConfig.logoPng.replace(/^\/+/, "");
   if (!path.endsWith(".png")) return null;
   const file = await readProjectFile(join("public", path));
   return file ? `data:image/png;base64,${file.toString("base64")}` : null;
 }
 
 export async function renderSiteCard(): Promise<ImageResponse> {
-  const [fonts, wordmark] = await Promise.all([cardFonts(), wordmarkDataUrl()]);
+  const [fonts, logo] = await Promise.all([cardFonts(), logoDataUrl()]);
   const host = siteUrl().host;
 
   return new ImageResponse(
@@ -79,9 +84,9 @@ export async function renderSiteCard(): Promise<ImageResponse> {
             padding: "84px 96px 72px 88px",
           }}
         >
-          {wordmark ? (
+          {logo ? (
             // eslint-disable-next-line @next/next/no-img-element -- drawn by next/og, not a page
-            <img src={wordmark} width={475} height={79} alt="" style={{ width: 475, height: 79 }} />
+            <img src={logo} {...CARD_LOGO_SIZE} alt="" style={{ ...CARD_LOGO_SIZE, objectFit: "contain", objectPosition: "left center" }} />
           ) : (
             <div style={{ display: "flex", fontFamily: "Display", fontSize: 72, fontWeight: 700 }}>MakerLAB</div>
           )}

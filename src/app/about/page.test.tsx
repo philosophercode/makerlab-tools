@@ -18,6 +18,16 @@ describe("/about", () => {
     expect(metadata.title).toBe("About");
   });
 
+  it("shows the lab's official logo under the title, before the first section", () => {
+    const { container } = render(<AboutPage />);
+
+    const logo = container.querySelector('[data-slot="brand-logo"]');
+    expect(logo).not.toBeNull();
+    expect(logo).toHaveAttribute("aria-hidden", "true");
+    const firstSection = screen.getByRole("region", { name: "The MakerLAB" });
+    expect(logo!.compareDocumentPosition(firstSection) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
   it("follows the official page's order, then About this project", () => {
     render(<AboutPage />);
 

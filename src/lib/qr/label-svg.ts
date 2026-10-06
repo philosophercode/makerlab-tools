@@ -1,11 +1,11 @@
-import { PT_PER_MM, QR_QUIET_MODULES, type LabelLayout } from "./label-layout.ts";
+import { PT_PER_MM, QR_QUIET_MODULES, estimateTextWidth, type LabelLayout } from "./label-layout.ts";
 import { qrMatrix, qrPathData } from "./matrix.ts";
 
 /**
  * One label as an SVG whose user unit is the millimetre and whose `width` /
  * `height` say so (`50.8mm`), so it prints at its real size from any program
  * that honours them. The admin preview draws exactly this, and the label's
- * SVG download is this with the wordmark inlined.
+ * SVG download is this with the logo inlined.
  *
  * Client-safe. Type is Helvetica, with Arial (metric-compatible) behind it, so
  * the lines the layout measured with Helvetica's metrics fit as measured.
@@ -14,10 +14,13 @@ import { qrMatrix, qrPathData } from "./matrix.ts";
 export const LABEL_FONT_FAMILY = "Helvetica, Arial, 'Liberation Sans', sans-serif";
 
 export interface LabelSvgOptions {
-  /** The wordmark image: a path for the preview, a data: URI for a file that travels. */
-  wordmarkHref?: string | null;
-  /** Written for the lab's own name when there is no wordmark image. */
-  wordmarkText?: string;
+  /**
+   * The brand image, the lab's logo as a PNG (`siteConfig.logoPng`): a path
+   * for the preview, a data: URI for a file that travels.
+   */
+  brandHref?: string | null;
+  /** Written for the lab's own name when there is no brand image. */
+  brandText?: string;
   /** Draw the label's edge (the preview on a page that is itself white). */
   outline?: boolean;
   /** Accessible name. */
@@ -53,16 +56,18 @@ export function labelSvgBody(layout: LabelLayout, qrText: string, options: Label
 
   if (layout.brand) {
     const { x, y, width, height } = layout.brand;
-    if (options.wordmarkHref) {
+    if (options.brandHref) {
       parts.push(
-        `<image href="${escapeXml(options.wordmarkHref)}" x="${round(x)}" y="${round(y)}" width="${round(width)}" height="${round(height)}" preserveAspectRatio="xMidYMid meet"/>`
+        `<image href="${escapeXml(options.brandHref)}" x="${round(x)}" y="${round(y)}" width="${round(width)}" height="${round(height)}" preserveAspectRatio="xMidYMid meet"/>`
       );
     } else {
-      const size = height * 0.95;
+      // The name, as tall as the box allows and never wider than it (estimated: no fonts here).
+      const text = options.brandText ?? "MakerLAB";
+      const size = Math.min(height * 0.95, width / Math.max(estimateTextWidth(text, 1, true), 1e-6));
       const anchor = layout.orientation === "side" ? "start" : "middle";
       const tx = anchor === "middle" ? x + width / 2 : x;
       parts.push(
-        `<text x="${round(tx)}" y="${round(y + height * 0.85)}" font-family="${LABEL_FONT_FAMILY}" font-weight="700" font-size="${round(size)}" text-anchor="${anchor}" fill="#000000">${escapeXml(options.wordmarkText ?? "MakerLAB")}</text>`
+        `<text x="${round(tx)}" y="${round(y + height * 0.85)}" font-family="${LABEL_FONT_FAMILY}" font-weight="700" font-size="${round(size)}" text-anchor="${anchor}" fill="#000000">${escapeXml(text)}</text>`
       );
     }
   }

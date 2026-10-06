@@ -30,7 +30,9 @@ The site's tagline is "Your digital guide to making at Cornell Tech"
    "MAKERLAB TOOLS // CORNELL TECH". The wordmark is cropped from the lab's
    own logo (`public/makerlab-logo-transparent.png` →
    `public/makerlab-wordmark.png`, `NEXT_PUBLIC_WORDMARK`) and drawn as a CSS
-   mask in the text colour, as the kiosk draws the full logo. The nav links
+   mask in the text colour, as the kiosk draws the full logo. (The full logo
+   it was cropped from is retired; the header keeps the wordmark. See the
+   amendment "The official Cornell Tech MakerLAB logo" below.) The nav links
    stay **centred** (the owner kept them there, over the mockup's move right).
    The wordmark is the mockup's size (amendment "Wordmark at the mockup's
    size" below).
@@ -312,3 +314,56 @@ manual badly, so the chat should say that the AI can make mistakes.
   suggests a SuperMaker, and a first-time resin question that gives the lab's
   PPE and suggests staff. The harness gained `contains_any` (at least one of
   several literals) for behaviour with more than one fair wording.
+
+## Amendment — The official Cornell Tech MakerLAB logo (2026-10-06)
+
+Niti Parikh (Director) sent the lab's official logo as a vector file
+(`MakerLAB_Logo_Black_CMYK.eps`): the Cornell seal beside "CORNELL TECH" over
+"MakerLAB", in one colour (#231f20). It replaces the old "MakerLAB@CORNELL
+TECH" logo everywhere the site drew a lab logo. The header keeps its striped
+MakerLAB wordmark (owner decision).
+
+- **Files.** `public/brand/cornell-tech-makerlab-logo.svg` (the EPS as SVG,
+  dark) and `public/brand/cornell-tech-makerlab-logo-white.svg` (the same in
+  white, for dark backgrounds outside the app such as slides or a poster).
+  `public/brand/cornell-tech-makerlab-logo.png` (1600 × 439, transparent) is
+  rendered from the dark SVG for what cannot draw an SVG. The EPS itself is not
+  in the repository: it is 1.3 MB and no browser can show it.
+- **Config.** `siteConfig.logo` (`NEXT_PUBLIC_LOGO`) now defaults to the SVG.
+  New `siteConfig.logoPng` is the logo itself when it is a PNG, else the same
+  path ending in `.png` (`pngTwin`). No new variable: a white-label SVG logo
+  ships with its PNG beside it.
+- **Dark mode.** One file. `BrandLogo` (`src/components/BrandLogo.tsx`, styled
+  by `.brand-logo` in `globals.css`) draws the SVG as a CSS mask filled with
+  the text colour, as the header draws its wordmark: #171717 on the light
+  theme, #F5F5F0 on the dark theme and on the kiosk. It prints
+  (`print-color-adjust: exact`) and turns `CanvasText` under forced colours.
+  The app does not use the white SVG. The logo is decoration (`aria-hidden`):
+  every place it appears also names the lab in words.
+- **Where it appears.**
+
+| Place | Before | Now |
+|---|---|---|
+| Kiosk top bar | old logo in a 4.6vmin box | official logo, `clamp(36px, 7vmin, 150px)` tall (76 px on a 1080p screen). Two lines of type and a seal need more height than the old single line |
+| Site footer | no logo | official logo first on the line, 40 px tall. It wraps first on a narrow window |
+| About | no logo | under the title, 56 px tall (64 px from `sm`) |
+| Link-preview card (`opengraph-image`, `twitter-image`) | the wordmark, 475 × 79 | the logo's PNG, 540 × 148 |
+| QR labels: the studio preview, PDF sheets, label SVG and PNG, `npm run qr:labels -- --pdf` | the wordmark | the logo's PNG (QR codes spec, amendment of the same date) |
+| Header | wordmark | unchanged |
+| Product page | no logo; its kiosk screenshots show the old logo | unchanged. Re-capture `public/product/kiosk-*` after the deploy |
+| Email | not built (notifications spec, draft) | the draft now names `siteConfig.logoPng`, since mail clients drop SVG |
+
+- **Retired.** Nothing references `public/makerlab-logo-transparent.png` or
+  `public/makerlab-logo-blackonly.png` any more, and their
+  `images.localPatterns` entries in `next.config.ts` are gone. The files stay
+  until the owner deletes them.
+- **Production.** If the Vercel project sets `NEXT_PUBLIC_LOGO` to the old
+  PNG, the kiosk keeps the old logo until the variable is removed or set to
+  `/brand/cornell-tech-makerlab-logo.svg`.
+- **Tested** in `components/BrandLogo.test.tsx`, `SiteFooter.test.tsx`,
+  `app/about/page.test.tsx`, `kiosk/KioskScreen.test.tsx`,
+  `lib/site-config.test.ts`, `lib/share/site-card.test.tsx` (the PNG exists,
+  at the card's proportions), and the QR tests listed in the QR codes spec's
+  amendment. Checked by hand against a dev server: the kiosk at 1920×1080,
+  3840×2160, 1280×720, 1180×820, 810×1080 and 390×844 has no sideways scroll,
+  nothing under the header and, in landscape, every panel on screen.

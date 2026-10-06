@@ -12,14 +12,14 @@ import { labelSvg } from "../../../lib/qr/label-svg";
  * content, and the published catalogue is public anyway.
  */
 
-let wordmarkBytes: Promise<Uint8Array | null> | null = null;
+let brandBytes: Promise<Uint8Array | null> | null = null;
 
-/** The wordmark PNG's bytes, fetched once. Null when it cannot be read: the lab's name is written instead. */
-export function loadWordmark(href: string): Promise<Uint8Array | null> {
-  wordmarkBytes ??= fetch(href)
+/** The brand image's bytes (the logo's PNG), fetched once. Null when it cannot be read: the lab's name is written instead. */
+export function loadBrandImage(href: string): Promise<Uint8Array | null> {
+  brandBytes ??= fetch(href)
     .then(async (response) => (response.ok ? new Uint8Array(await response.arrayBuffer()) : null))
     .catch(() => null);
-  return wordmarkBytes;
+  return brandBytes;
 }
 
 function toBase64(bytes: Uint8Array): string {
@@ -30,9 +30,9 @@ function toBase64(bytes: Uint8Array): string {
   return btoa(binary);
 }
 
-/** The wordmark as a data: URI, so a downloaded SVG (and the canvas a PNG is drawn on) carries it. */
-export async function wordmarkDataUri(href: string): Promise<string | null> {
-  const bytes = await loadWordmark(href);
+/** The brand image as a data: URI, so a downloaded SVG (and the canvas a PNG is drawn on) carries it. */
+export async function brandDataUri(href: string): Promise<string | null> {
+  const bytes = await loadBrandImage(href);
   return bytes ? `data:image/png;base64,${toBase64(bytes)}` : null;
 }
 
@@ -42,9 +42,9 @@ export async function loadMeasure(): Promise<MeasureText> {
   return loadHelveticaMeasure();
 }
 
-export async function buildPdf(labels: LabelContent[], settings: QrLabelSettings, wordmarkHref: string, title: string): Promise<Uint8Array> {
-  const [{ buildLabelSheetPdf }, wordmarkPng] = await Promise.all([import("../../../lib/qr/label-pdf"), loadWordmark(wordmarkHref)]);
-  return buildLabelSheetPdf({ labels, style: settings.style, sheet: settings.sheet, wordmarkPng, title });
+export async function buildPdf(labels: LabelContent[], settings: QrLabelSettings, brandHref: string, title: string): Promise<Uint8Array> {
+  const [{ buildLabelSheetPdf }, brandPng] = await Promise.all([import("../../../lib/qr/label-pdf"), loadBrandImage(brandHref)]);
+  return buildLabelSheetPdf({ labels, style: settings.style, sheet: settings.sheet, brandPng, title });
 }
 
 function pdfBlob(bytes: Uint8Array): Blob {
@@ -96,15 +96,15 @@ export function printPdf(bytes: Uint8Array): void {
   }, 120_000);
 }
 
-/** One label as a standalone SVG file, the wordmark inlined. */
-export async function labelSvgFile(layout: LabelLayout, label: LabelContent, wordmarkHref: string): Promise<Blob> {
-  const svg = labelSvg(layout, label.url, { wordmarkHref: await wordmarkDataUri(wordmarkHref), title: label.name });
+/** One label as a standalone SVG file, the logo inlined. */
+export async function labelSvgFile(layout: LabelLayout, label: LabelContent, brandHref: string): Promise<Blob> {
+  const svg = labelSvg(layout, label.url, { brandHref: await brandDataUri(brandHref), title: label.name });
   return new Blob([svg], { type: "image/svg+xml" });
 }
 
 /** One label as a PNG at `dpi` (300 by default: a printer's resolution at the label's real size). */
-export async function labelPngFile(layout: LabelLayout, label: LabelContent, wordmarkHref: string, dpi = 300): Promise<Blob> {
-  const svgBlob = await labelSvgFile(layout, label, wordmarkHref);
+export async function labelPngFile(layout: LabelLayout, label: LabelContent, brandHref: string, dpi = 300): Promise<Blob> {
+  const svgBlob = await labelSvgFile(layout, label, brandHref);
   const url = URL.createObjectURL(svgBlob);
   try {
     const image = new Image();

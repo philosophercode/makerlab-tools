@@ -90,8 +90,8 @@ export interface QrLabelStudioProps {
   rows: QrLabelRow[];
   /** The public origin every code points at (`qrSiteUrl`). */
   origin: string;
-  /** The wordmark image's path (`siteConfig.wordmark`). */
-  wordmarkHref: string;
+  /** The brand image's path: the lab's logo as a PNG (`siteConfig.logoPng`). */
+  brandHref: string;
 }
 
 type Busy = null | "print" | "pdf" | "svg" | "png";
@@ -114,7 +114,7 @@ type Outcome = null | { tone: "ok" | "bad"; text: string };
  * The style is remembered per browser (`lib/qr/settings.ts`). It is read after
  * mount, so the server's first paint is the defaults and nothing mismatches.
  */
-export function QrLabelStudio({ rows, origin, wordmarkHref }: QrLabelStudioProps) {
+export function QrLabelStudio({ rows, origin, brandHref }: QrLabelStudioProps) {
   const t = useTranslations("admin.qrLabels");
   // The stored style is read once the page has hydrated (the server paints
   // the defaults); an edit replaces it and is saved on the change itself.
@@ -199,12 +199,12 @@ export function QrLabelStudio({ rows, origin, wordmarkHref }: QrLabelStudioProps
 
   const printLabels = (keys: string[]) =>
     run("print", async () => {
-      printPdf(await buildPdf(labelsFor(keys), settings, wordmarkHref, t("pdfTitle")));
+      printPdf(await buildPdf(labelsFor(keys), settings, brandHref, t("pdfTitle")));
     });
 
   const downloadPdf = (keys: string[]) =>
     run("pdf", async () => {
-      savePdf(await buildPdf(labelsFor(keys), settings, wordmarkHref, t("pdfTitle")), kind === "units" ? "qr-unit-labels.pdf" : "qr-labels.pdf");
+      savePdf(await buildPdf(labelsFor(keys), settings, brandHref, t("pdfTitle")), kind === "units" ? "qr-unit-labels.pdf" : "qr-labels.pdf");
     });
 
   const nameHeader = kind === "units" ? t("columnUnit") : t("columnTool");
@@ -369,7 +369,7 @@ export function QrLabelStudio({ rows, origin, wordmarkHref }: QrLabelStudioProps
                   className="h-auto w-full max-w-60 shadow-sm"
                   style={{ aspectRatio: `${layout.widthMm} / ${layout.heightMm}` }}
                   data-qr-preview={previewContent.url}
-                  dangerouslySetInnerHTML={{ __html: labelSvgBody(layout, previewContent.url, { wordmarkHref, outline: true }) }}
+                  dangerouslySetInnerHTML={{ __html: labelSvgBody(layout, previewContent.url, { brandHref, outline: true }) }}
                 />
               </div>
               <p className="font-mono text-label text-muted-foreground">
@@ -391,7 +391,7 @@ export function QrLabelStudio({ rows, origin, wordmarkHref }: QrLabelStudioProps
                 <Button
                   size="sm"
                   disabled={busy !== null}
-                  onClick={() => run("svg", async () => saveBlob(await labelSvgFile(layout, previewContent, wordmarkHref), qrFileName(fileStem(preview!), "svg", "label")))}
+                  onClick={() => run("svg", async () => saveBlob(await labelSvgFile(layout, previewContent, brandHref), qrFileName(fileStem(preview!), "svg", "label")))}
                 >
                   <Download aria-hidden="true" />
                   {t("downloadSvg")}
@@ -399,7 +399,7 @@ export function QrLabelStudio({ rows, origin, wordmarkHref }: QrLabelStudioProps
                 <Button
                   size="sm"
                   disabled={busy !== null}
-                  onClick={() => run("png", async () => saveBlob(await labelPngFile(layout, previewContent, wordmarkHref), qrFileName(fileStem(preview!), "png", "label")))}
+                  onClick={() => run("png", async () => saveBlob(await labelPngFile(layout, previewContent, brandHref), qrFileName(fileStem(preview!), "png", "label")))}
                 >
                   <Download aria-hidden="true" />
                   {t("downloadPng")}

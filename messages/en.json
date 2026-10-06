@@ -2370,7 +2370,7 @@
         "url": "the address",
         "location": "the location",
         "extra": "the extra line",
-        "brand": "the wordmark",
+        "brand": "the logo",
         "name": "the name"
       },
       "printThis": "Print this one",
@@ -2417,7 +2417,7 @@
       "contentHeading": "On the label",
       "showName": "Tool name",
       "showLocation": "Location",
-      "showBrand": "MakerLAB wordmark",
+      "showBrand": "MakerLAB logo",
       "showUrl": "Short address under the code",
       "showExtra": "Extra line",
       "extraText": "Extra line wording",

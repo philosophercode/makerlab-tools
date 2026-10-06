@@ -24,7 +24,8 @@
 > header fits every width from 390 to 1920 on the design's own breakpoints,
 > and a table wider than its column scrolls inside itself (§6, §8.3, §8.12).
 > 2026-10-05: a phone on its side gets the short bar — one 48px row, the links
-> behind MENU — and nothing sticks there (§6, §8.1, §8.12).*
+> behind MENU — and nothing sticks there (§6, §8.1, §8.12).
+> 2026-10-06: brand marks, the wordmark and the official logo (§7.1).*
 
 ## 1. Creative North Star: "The Blueprint Archive"
 
@@ -168,6 +169,26 @@ fonts happen to be installed is not a design.
 `lucide-react`, 1.5–2px stroke, 14–16px, `currentColor`. Icons label *surfaces
 and controls*; they are not decoration and never appear inside data cells, where
 a status glyph (● ▲ ■ ○ ◆ –) does the job in a tenth of the ink.
+
+### 7.1 Brand marks
+
+Two marks, two jobs (identity spec, amendment 2026-10-06):
+
+| Mark | File | Where |
+|---|---|---|
+| MakerLAB wordmark (striped "Maker", bold "LAB") | `public/makerlab-wordmark.png` (`siteConfig.wordmark`) | The header only (`.brand-wordmark`) |
+| Official logo: the Cornell seal, "CORNELL TECH", "MakerLAB" | `public/brand/cornell-tech-makerlab-logo.svg` (`siteConfig.logo`) and its PNG (`siteConfig.logoPng`) | The kiosk's top bar, the footer and About (`BrandLogo`); the link-preview card and QR labels draw the PNG |
+
+- Both are one colour, drawn as a CSS mask in the text colour, so one file
+  serves the light and dark themes. Never fill either with orange or crimson,
+  stretch it, crop it or redraw it.
+- The official logo is decoration beside words that name the lab
+  (`aria-hidden`). Give it a height (`h-10` in the footer, `h-14 sm:h-16` on
+  About); the width follows at its own proportions.
+- `cornell-tech-makerlab-logo-white.svg` is for dark backgrounds outside the
+  app, such as slides or a poster. Inside the app the mask does that job.
+- The old "MakerLAB@CORNELL TECH" files (`public/makerlab-logo-transparent.png`,
+  `public/makerlab-logo-blackonly.png`) are retired.
 
 ## 8. Patterns
 

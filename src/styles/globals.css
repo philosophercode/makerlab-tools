@@ -211,6 +211,37 @@ body::selection {
   -webkit-mask-position: left center;
 }
 
+/* The institution's official logo (`BrandLogo`, siteConfig.logo: the Cornell
+   Tech MakerLAB lockup) on the kiosk, the footer and About. The wordmark's
+   technique: a mask painted in the text colour, so the one dark SVG reads
+   dark on light and light on dark. The caller sets the height; the width
+   follows at the lockup's own 277.68 × 76.13 (another logo is fitted inside
+   that box, at its left). It prints as drawn (a printout otherwise leaves
+   backgrounds out), and under forced colours it takes the system's text
+   colour, since a background there would be overridden. Unlayered, like
+   everything here: give it a height utility, never a display one. */
+.brand-logo {
+  display: block;
+  flex: none;
+  aspect-ratio: 277.68 / 76.13;
+  background-color: currentColor;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: left center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: left center;
+  print-color-adjust: exact;
+  -webkit-print-color-adjust: exact;
+}
+
+@media (forced-colors: active) {
+  .brand-logo {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+  }
+}
+
 .brand-text {
   display: flex;
   align-items: baseline;

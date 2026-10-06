@@ -51,7 +51,7 @@ beforeEach(() => {
 
 function setup() {
   const user = userEvent.setup();
-  render(<QrLabelStudio rows={rows} origin={origin} wordmarkHref="/makerlab-wordmark.png" />);
+  render(<QrLabelStudio rows={rows} origin={origin} brandHref="/brand/cornell-tech-makerlab-logo.png" />);
   return user;
 }
 
@@ -61,6 +61,8 @@ describe("QrLabelStudio", () => {
     const preview = screen.getByRole("img", { name: "Label preview for Form 4" });
     expect(preview).toHaveAttribute("data-qr-preview", "https://makerlab-ai.vercel.app/tools/form-4?src=qr");
     expect(preview.getAttribute("viewBox")).toBe("0 0 50.8 50.8");
+    // The lab's official logo heads the label.
+    expect(preview.querySelector("image")).toHaveAttribute("href", "/brand/cornell-tech-makerlab-logo.png");
     expect(screen.getByText("12 labels per US Letter page (3 × 4).")).toBeInTheDocument();
   });
 
@@ -117,10 +119,10 @@ describe("QrLabelStudio", () => {
     expect(screen.getByText(/The code is .* mm\. Under 25 mm/)).toBeInTheDocument();
     expect(JSON.parse(window.localStorage.getItem(SETTINGS_STORAGE_KEY)!).preset).toBe("1in");
     // The 1-inch default: the code gets the room, and either can go back on.
-    expect(screen.getByRole("checkbox", { name: "MakerLAB wordmark" })).not.toBeChecked();
+    expect(screen.getByRole("checkbox", { name: "MakerLAB logo" })).not.toBeChecked();
     expect(screen.getByRole("checkbox", { name: "Extra line" })).not.toBeChecked();
-    await user.click(screen.getByRole("checkbox", { name: "MakerLAB wordmark" }));
-    expect(screen.getByRole("checkbox", { name: "MakerLAB wordmark" })).toBeChecked();
+    await user.click(screen.getByRole("checkbox", { name: "MakerLAB logo" }));
+    expect(screen.getByRole("checkbox", { name: "MakerLAB logo" })).toBeChecked();
   });
 
   // Unit labels (QR codes spec amendment 2026-10-06): one label per machine.
@@ -165,7 +167,7 @@ describe("QrLabelStudio", () => {
 
   it("says how to add units when no published tool has any", async () => {
     const user = userEvent.setup();
-    render(<QrLabelStudio rows={rows.slice(0, 2)} origin={origin} wordmarkHref="/makerlab-wordmark.png" />);
+    render(<QrLabelStudio rows={rows.slice(0, 2)} origin={origin} brandHref="/brand/cornell-tech-makerlab-logo.png" />);
     await user.click(screen.getByRole("button", { name: "Units (0)" }));
     expect(screen.getAllByText("No published tool has units listed yet. Add them in a tool's editor.").length).toBeGreaterThan(0);
   });

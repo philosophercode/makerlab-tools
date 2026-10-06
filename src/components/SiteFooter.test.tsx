@@ -15,4 +15,14 @@ describe("SiteFooter", () => {
     ]);
     expect(within(footer).getByRole("link", { name: "The MakerLAB at Cornell Tech" })).toHaveAttribute("href", "https://tech.cornell.edu/research/makerlab/");
   });
+
+  it("starts with the lab's official logo, as decoration beside the words that name the lab", () => {
+    render(<SiteFooter />);
+
+    const footer = screen.getByRole("contentinfo");
+    const logo = footer.querySelector('[data-slot="brand-logo"]');
+    expect(logo).not.toBeNull();
+    expect(logo).toHaveAttribute("aria-hidden", "true");
+    expect(footer.querySelector("div")?.firstElementChild).toBe(logo);
+  });
 });

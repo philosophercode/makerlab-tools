@@ -244,7 +244,9 @@ parameter is what makes kiosk scans countable in Vercel Analytics.
 
 **Layout (landscape, 1920×1080 design size, scales with `clamp()`):**
 
-- Top bar: logo from `siteConfig.logo`, lab name, a large clock, and the hours.
+- Top bar: logo from `siteConfig.logo`, lab name, a large clock, and the hours. (Since
+  2026-10-06 the logo is the official Cornell Tech MakerLAB one, `clamp(36px, 7vmin, 150px)`
+  tall: identity spec, amendment "The official Cornell Tech MakerLAB logo".)
 - Left two-thirds:
   - **Down machines.** A grid of cards with image, name and "1 of 2 down". When nothing is
     down: "All machines running", with a count of machines.
