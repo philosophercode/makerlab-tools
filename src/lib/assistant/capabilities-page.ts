@@ -131,6 +131,7 @@ export interface AssistantCapabilities {
 export const ACTION_AREAS: Readonly<Record<string, AreaId>> = {
   people: "people",
   tickets: "maintenance",
+  schedules: "maintenance",
   corrections: "corrections",
   projects: "projects",
   tools: "catalog",
@@ -162,6 +163,7 @@ export const TOOL_AREAS: Readonly<Record<string, AreaId>> = {
   get_maintenance_history: "maintenance",
   report_issue: "maintenance",
   list_open_tickets: "maintenance",
+  list_maintenance_due: "maintenance",
   list_my_reports: "maintenance",
   report_correction: "corrections",
   list_corrections: "corrections",

@@ -303,6 +303,19 @@ Phase 5 extends both. The shape it sets:
   layer") — gate, write, record, refresh, each step only as far as the last
   one earned. (`queue-write.ts`'s `runQueueWrite` has no callers since and
   awaits deletion approval.)
+- **Recurring maintenance sits on top of the maintenance queue** (recurring
+  maintenance spec, amendment 2026-10-06). `/admin/maintenance` opens with
+  **Recurring tasks due** (`DueTasks`): overdue, due today and due within 7
+  days, each checked off with **Done** and an optional note
+  (`schedules.complete`, which logs a `maintenance_completions` row and moves
+  `next_due_on` to today + interval in one transaction). Tasks are set up on
+  `/admin/maintenance/schedules` (`ScheduleBoard`, `ScheduleForm`): per tool,
+  per unit, "each unit", or general lab upkeep with no tool; edit, pause,
+  resume, archive. Both pages and all four `schedules.*` actions are
+  `maintenance.manage`. No ticket is opened per occurrence, so the queue below
+  stays for reported problems. Dates are lab dates (`labToday()`); the maths is
+  `src/lib/maintenance/interval.ts`. The `/admin` Maintenance tile adds the
+  tasks due today and overdue as facts.
 - **Each queue checks its own permission, and a test proves it is its own.** No
   role holds `tools.edit` without `feedback.manage`, so each `actions.test.ts`
   mocks `can()` for one case and asserts the endpoint is refused to a caller

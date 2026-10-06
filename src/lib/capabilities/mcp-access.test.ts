@@ -31,6 +31,8 @@ const ADMIN_TOOLS = [
   "list_my_reports",
   "list_intake_queue",
   "list_open_tickets",
+  // Recurring maintenance v1 (amendment 2026-10-06): the due list, read-only.
+  "list_maintenance_due",
   "update_ticket",
   "propose_change",
   // The reads MCP proposals resolve ids with (assistant–GUI parity phase 7).
@@ -51,7 +53,7 @@ describe("the MCP tool list by identity", () => {
 
   it("offers a student reports, their own reports list, and no staff tool", () => {
     expect(names("user")).toEqual(USER_TOOLS);
-    for (const staffTool of ["create_tool", "list_intake_queue", "list_open_tickets", "update_ticket", "propose_change"]) {
+    for (const staffTool of ["create_tool", "list_intake_queue", "list_open_tickets", "list_maintenance_due", "update_ticket", "propose_change"]) {
       expect(names("user")).not.toContain(staffTool);
     }
   });
@@ -62,7 +64,7 @@ describe("the MCP tool list by identity", () => {
   });
 
   it("gives a read-only token its role's reads and no writes", () => {
-    expect(names("admin", true)).toEqual([...PUBLIC_READS, "list_my_reports", "list_intake_queue", "list_open_tickets", ...ADMIN_READS_FOR_PROPOSALS]);
+    expect(names("admin", true)).toEqual([...PUBLIC_READS, "list_my_reports", "list_intake_queue", "list_open_tickets", "list_maintenance_due", ...ADMIN_READS_FOR_PROPOSALS]);
     expect(names("user", true)).toEqual([...PUBLIC_READS, "list_my_reports"]);
   });
 

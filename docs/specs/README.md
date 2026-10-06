@@ -48,6 +48,7 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 
 | Spec | Built | Open |
 |---|---|---|
+| [Recurring Maintenance](2026-09-27-recurring-maintenance-design.md) — recurring tasks per tool, per unit or for general lab upkeep, checked off with Done | **v1** (amendment 2026-10-06, migration `0027`): a checklist, not tickets. Tasks on `/admin/maintenance/schedules`, the due list on `/admin/maintenance`, counts on the `/admin` tile, `list_maintenance_due` for staff | Assistant proposals for the four `schedules.*` actions; a Skip button; the tool page's staff panel; manual suggestions (phase 4) |
 | [v5 Data Platform](2026-09-14-v5-data-platform-design.md) — Postgres, Blob, roles, admin inventory, two-step intake, Notion mirror | Phases 1–6 and 8 | **Phase 7** (people load and validate the real inventory — not code) pending. **Phase 9** (translation pass) deferred until after launch |
 | [UI System](2026-09-25-ui-system-design.md) — shadcn/ui, Tufte density, admin IA, AI Elements chat | Phases 1–5 | **Phase 6** (delete legacy CSS): the repo flatten it waited for is done; needs a screenshot sweep, after the demo |
 | [Sign-in and Tiered Rate Limiting](2026-07-29-auth-and-rate-limiting-design.md) | Google sign-in, tiered rate limits as specced | The env-list role model is **superseded** by Better Auth and the `user` table (data platform phase 4) |
@@ -59,7 +60,6 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 | Spec | Notes |
 |---|---|
 | [Kiosk Mode](2026-09-27-kiosk-mode-design.md) — public read-only lab screen at `/kiosk`: down machines, ticket counts, hours, featured tool, QR to chat | **Phase 1 built** (#94, `/kiosk`); phases 2–3 awaiting review; phase 2 adds editable hours and pins |
-| [Recurring Maintenance](2026-09-27-recurring-maintenance-design.md) — per-tool or per-unit schedules; the nightly cron opens a preventive ticket when one falls due | Awaiting review. 4 phases; phase 4 suggests schedules from manuals. Open questions §13 Q1–Q4 gate phase 1 |
 | [Notifications](2026-09-27-notifications-design.md) — email on ticket, correction and project changes; a daily staff digest; Web Push later | Awaiting review. Sending domain and Cornell approval of the provider block phase 1 |
 
 All six 2026-09-27 feature specs build on the Assistant–GUI Parity action layer; each writes its

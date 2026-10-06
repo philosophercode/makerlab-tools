@@ -58,6 +58,21 @@ export type MaintenancePriority = (typeof MAINTENANCE_PRIORITY)[number];
 export const MAINTENANCE_STATUS = ["open", "in_progress", "resolved", "closed"] as const;
 export type MaintenanceStatus = (typeof MAINTENANCE_STATUS)[number];
 
+/**
+ * How often a recurring maintenance task comes round (recurring maintenance
+ * spec §4; migration `0027`). The usage spec may add `use_hours` later.
+ */
+export const SCHEDULE_INTERVAL_UNIT = ["day", "week", "month"] as const;
+export type ScheduleIntervalUnit = (typeof SCHEDULE_INTERVAL_UNIT)[number];
+
+/**
+ * A recurring task's state. `active` shows in the due list; `paused` keeps the
+ * task but takes it out of the list; `archived` is a task the lab stopped
+ * doing. Phase 4's manual suggestions would add `suggested`.
+ */
+export const SCHEDULE_STATUS = ["active", "paused", "archived"] as const;
+export type ScheduleStatus = (typeof SCHEDULE_STATUS)[number];
+
 export const FEEDBACK_STATUS = ["new", "reviewed", "fixed", "dismissed"] as const;
 export type FeedbackStatus = (typeof FEEDBACK_STATUS)[number];
 

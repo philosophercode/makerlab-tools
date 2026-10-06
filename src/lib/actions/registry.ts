@@ -24,6 +24,7 @@ import {
 import { INSIGHTS_DISMISS_GAP, INSIGHTS_FILE_CORRECTION, INSIGHTS_SET_VALUE_ASSUMPTIONS } from "./insights";
 import { LAB_SET_NOTES } from "./lab-notes";
 import { TICKETS_LOG_COMPLETED } from "./maintenance-log";
+import { SCHEDULES_COMPLETE, SCHEDULES_CREATE, SCHEDULES_SET_STATUS, SCHEDULES_UPDATE } from "./maintenance-schedules";
 import { MANUALS_REPROCESS, MANUALS_REPROCESS_LIBRARY } from "./manuals";
 import { MIRROR_DISCONNECT, MIRROR_SET_PAUSED, MIRROR_SYNC_NOW } from "./mirror";
 import { PEOPLE_SET_NAME, PEOPLE_SET_ROLE, PEOPLE_SET_TITLE } from "./people";
@@ -122,6 +123,11 @@ const DEFINITIONS = [
   INSIGHTS_SET_VALUE_ASSUMPTIONS,
   // The lab-wide notes (identity spec amendment "Lab notes").
   LAB_SET_NOTES,
+  // Recurring maintenance v1 (recurring maintenance spec, amendment 2026-10-06).
+  SCHEDULES_CREATE,
+  SCHEDULES_UPDATE,
+  SCHEDULES_SET_STATUS,
+  SCHEDULES_COMPLETE,
 ];
 
 /** Every definition, runnable. */

@@ -39,8 +39,9 @@ export interface TileResult {
   unreadable: boolean;
   /**
    * Work waiting for a person that the tile states as a fact rather than as
-   * its headline — Intake's imported lists ready for review — so the home's
-   * "items waiting on you" still counts it.
+   * its headline — Intake's imported lists ready for review, Maintenance's
+   * recurring tasks overdue or due today — so the home's "items waiting on
+   * you" still counts it.
    */
   alsoWaiting: number;
 }
@@ -53,11 +54,16 @@ export function tileContent<K extends SurfaceKey>(
 ): TileResult {
   if (!counts) return { content: { value: null, note: t("home.unavailable"), size: "half" }, unreadable: true, alsoWaiting: 0 };
   const content = BUILDERS[key](counts as never, t, extra);
-  const alsoWaiting = key === "intake" && extra.imports ? extra.imports.ready : 0;
+  const alsoWaiting = key === "intake" && extra.imports ? extra.imports.ready : key === "maintenance" ? maintenanceTasksWaiting(counts as OverviewCounts["maintenance"]) : 0;
   return { content, unreadable: false, alsoWaiting };
 }
 
 const sum = (values: readonly number[]) => values.reduce((a, b) => a + b, 0);
+
+/** Recurring tasks overdue or due today: work waiting on staff that the tile states as facts. */
+function maintenanceTasksWaiting(counts: OverviewCounts["maintenance"]): number {
+  return counts.tasksOverdue + counts.tasksDueToday;
+}
 
 /**
  * Each tile's size (DESIGN.md §8.2): **full** when it has facts or a trend to
@@ -126,6 +132,10 @@ const BUILDERS: { [K in SurfaceKey]: (counts: CountsFor[K], t: Translate, extra:
     facts: [
       fact(t("home.maintenanceInProgress"), c.inProgress),
       fact(t("home.maintenanceUrgent"), c.urgent, "bad"),
+      // Recurring tasks (recurring maintenance spec, amendment 2026-10-06):
+      // upkeep due today waits on staff; overdue upkeep is late.
+      fact(t("home.maintenanceTasksDueToday"), c.tasksDueToday, "active"),
+      fact(t("home.maintenanceTasksOverdue"), c.tasksOverdue, "bad"),
     ],
     series: {
       values: c.series,
