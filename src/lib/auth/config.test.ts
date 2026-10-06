@@ -226,6 +226,21 @@ describe("Google authorization URL", () => {
     const { authorizeUrl } = await signInThroughGoogle("student@example.edu");
     expect(authorizeUrl.searchParams.get("hd")).toBe("example.edu");
   });
+
+  it("always asks Google for the account chooser", async () => {
+    stubAuthEnv();
+    const { authorizeUrl } = await signInThroughGoogle("student@cornell.edu");
+    expect(authorizeUrl.searchParams.get("prompt")).toBe("select_account");
+  });
+
+  it("still asks for the chooser once named exceptions drop hd", async () => {
+    // The case that bit: a personal Gmail on the allowlist removes `hd`, and
+    // without `prompt` Google picked that account with no chance to switch.
+    stubAuthEnv({ AUTH_ALLOWED_EMAILS: "steinbergisaac@gmail.com" });
+    const { authorizeUrl } = await signInThroughGoogle("student@cornell.edu");
+    expect(authorizeUrl.searchParams.get("hd")).toBeNull();
+    expect(authorizeUrl.searchParams.get("prompt")).toBe("select_account");
+  });
 });
 
 describe("sign-in callback — institutional account", () => {

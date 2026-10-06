@@ -143,6 +143,11 @@ export function createAuth(db: Db) {
             // and do nothing. The picker gets wider; the two enforcement
             // points below do not move.
             ...(namedExceptions ? {} : { hd: domain }),
+            // Always show Google's account chooser. Without it Google silently
+            // reuses whichever account the browser is signed into, so somebody
+            // signed into a personal Gmail can never reach their institutional
+            // account — and once `hd` is dropped above, nothing narrows it.
+            prompt: "select_account",
             // A name somebody chose — typed at Add person, or edited on the
             // People page before the first sign-in — survives the account
             // link; only the address placeholder gives way to Google's. See
