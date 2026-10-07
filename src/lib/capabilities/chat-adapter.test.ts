@@ -243,7 +243,7 @@ describe("where you are (identity spec 2026-09-28 §5)", () => {
     const prompt = promptFor(null);
 
     expect(prompt).toContain("## Where you are");
-    expect(prompt).toContain("MakerLAB Assistant");
+    expect(prompt).toContain("MakerLAB AI");
     expect(prompt).toContain("**MakerLAB Tools**");
     expect(prompt).toContain("**first floor of the Tata Innovation Center**");
     expect(prompt).toContain("Roosevelt Island");

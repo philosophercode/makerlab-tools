@@ -16,7 +16,7 @@ description of itself:
 |---|---|
 | **MakerLAB** | The physical makerspace at Cornell Tech |
 | **MakerLAB Tools** | This website (`siteConfig.name`) |
-| **MakerLAB Assistant** | The AI inside it (`siteConfig.chatAssistantName`) |
+| **MakerLAB Assistant** | The AI inside it (`siteConfig.chatAssistantName`). Renamed **MakerLAB AI** on 2026-10-07, see the amendment "MakerLAB AI everywhere" |
 
 The site's tagline is "Your digital guide to making at Cornell Tech"
 (`siteConfig.tagline`).
@@ -378,3 +378,35 @@ only when "On shift now" lists them; without that section, name nobody ("ask a S
 still never invents a name, a schedule or who is on shift. So the line can now read "Alex M. is on
 shift, ask them to show you." Starter answers never carry the section. Tested in
 `chat-adapter.test.ts`, `on-shift-prompt.test.ts` and `app/api/chat/route.test.ts`.
+
+## Amendment — MakerLAB AI everywhere (2026-10-07)
+
+The owner's decisions on the design review (`docs/MakerLab_design/review-2026-10-06/decisions.md`):
+"The assistant is called **MakerLAB AI** everywhere." The review found the chat
+header said "MakerLAB Assistant" while the link under it said "What can
+MakerLAB AI do?".
+
+- **`siteConfig.chatAssistantName`** defaults to "MakerLAB AI"
+  (`NEXT_PUBLIC_CHAT_ASSISTANT_NAME` still overrides it). The chat prompt
+  (`chat-adapter.ts`), "Where you are" (`lab-context.ts`), the site
+  description (`share/metadata.ts`) and the value report's title read it, and
+  say "You are MakerLAB AI" rather than "You are the …".
+- **Strings, all 12 locales:** the chat's title, open and close labels, the
+  composer's placeholder and label, "MakerLAB AI is typing", the QR arrival
+  notice, and the palette's Ask rows. English also: the greeting, the
+  first-visit callout ("Meet MakerLAB AI"), About's project paragraph, the
+  admin bar's "Ask MakerLAB AI" and the kiosk's ask heading and link. The
+  name stays "MakerLAB AI" in every locale, as `chat.aiNote` does.
+- **Not changed:** prose that describes the assistant rather than naming it
+  ("the assistant can make mistakes" on the product page, "Assistant
+  proposals" in the admin). `CHAT_PROMPT_CACHE_KEY_DEFAULT` stays
+  `makerlab-chat-v1`; the starter-answer hash reads the key, not the text, so
+  cached starter answers stay valid (some may still call it "the MakerLAB
+  Assistant" until `npm run starters:refresh` runs).
+- **Production:** if the Vercel project sets `NEXT_PUBLIC_CHAT_ASSISTANT_NAME`,
+  the prompts keep that name until it is removed or changed.
+- **Home title.** §2's "Tools" stays as the heading of the home page's
+  categories (student home spec 2026-10-07); the full list is "All tools".
+- **Tested** in `site-config.test.ts`, `chat-adapter.test.ts`,
+  `ChatFab.test.tsx`, `about/page.test.tsx`, the value report tests and the
+  E2E chat, kiosk and actions specs.

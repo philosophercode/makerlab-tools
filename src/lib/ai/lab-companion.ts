@@ -1,5 +1,5 @@
 /**
- * "The lab first, then its people": how the MakerLAB Assistant answers as a
+ * "The lab first, then its people": how MakerLAB AI answers as a
  * companion to the lab's community, not a replacement for it (identity spec,
  * amendment "Companion, not a replacement", 2026-10-06).
  *

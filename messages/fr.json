@@ -35,7 +35,7 @@
   },
   "gallery": {
     "title": "Outils",
-    "searchPlaceholder": "rechercher dans l'inventaire...",
+    "allTitle": "Tous les outils",
     "searchAria": "Rechercher dans l'inventaire",
     "category": "CATÉGORIE :",
     "training": "FORMATION :",
@@ -52,7 +52,35 @@
     "columnTraining": "Formation",
     "trainingBeginner": "Débutant",
     "trainingIntermediate": "Intermédiaire",
-    "trainingAdvanced": "Avancé"
+    "trainingAdvanced": "Avancé",
+    "home": {
+      "searchSection": "Rechercher dans le labo",
+      "seeAll": "{count, plural, one {Voir # outil} other {Voir les # outils}}",
+      "toolCount": "{count, plural, one {# outil} other {# outils}}",
+      "unitsDown": "{count, plural, one {# unité hors service} other {# unités hors service}}",
+      "empty": "Aucun outil dans le catalogue pour l'instant."
+    },
+    "search": {
+      "landmark": "Rechercher des outils et interroger MakerLAB AI",
+      "label": "Recherchez un outil ou posez une question à MakerLAB AI",
+      "tools": "Outils",
+      "categories": "Catégories",
+      "categoryCount": "{count, plural, one {# outil} other {# outils}}",
+      "assistant": "MakerLAB AI",
+      "ask": "Demander à MakerLAB AI : « {query} »",
+      "askNote": "Ouvre le chat avec votre question. MakerLAB AI peut se tromper.",
+      "noMatch": "Aucun outil ni aucune catégorie ne correspond à « {query} ».",
+      "lines": {
+        "search": "{count, plural, one {Rechercher parmi # outil} other {Rechercher parmi # outils}}",
+        "build": "Qu'allez-vous fabriquer ?",
+        "findMachine": "Trouvez votre machine",
+        "ask": "Posez une question",
+        "x1Filament": "Comment charger le filament sur la X1-Carbon ?",
+        "x1Start": "Demandez comment lancer une impression 3D sur la X1-Carbon",
+        "trotecAcrylic": "Le laser Trotec peut-il découper l'acrylique ?",
+        "resinPpe": "Que porter pour imprimer en résine ?"
+      }
+    }
   },
   "detail": {
     "breadcrumbTools": "Outils",
@@ -143,16 +171,16 @@
     "browseTools": "Parcourir les outils"
   },
   "chat": {
-    "openAria": "Ouvrir l'assistant MakerLAB",
-    "title": "Assistant MakerLAB",
+    "openAria": "Ouvrir MakerLAB AI",
+    "title": "MakerLAB AI",
     "newChatAria": "Démarrer une nouvelle conversation",
     "newChatTitle": "Démarrer une nouvelle conversation",
-    "closeAria": "Fermer l'assistant",
+    "closeAria": "Fermer MakerLAB AI",
     "closeTitle": "Fermer (conserve la conversation)",
     "greetingTool": "Posez vos questions sur cet outil — j'ai ses caractéristiques, ses matériaux et ses liens vers les ressources.",
     "greetingGeneral": "Comment puis-je vous aider aujourd'hui ?",
-    "composerPlaceholder": "Demandez à la console du labo...",
-    "composerAria": "Demandez à la console du labo",
+    "composerPlaceholder": "Demandez à MakerLAB AI...",
+    "composerAria": "Demandez à MakerLAB AI",
     "aiNote": "MakerLAB AI peut se tromper. Vérifiez auprès de l'équipe tout ce qui touche à la sécurité.",
     "sendAria": "Envoyer",
     "attachAria": "Joindre des photos",
@@ -163,7 +191,7 @@
     "uploadFailed": "Échec du téléversement de la photo",
     "uploadsUnavailable": "L'envoi de photos est indisponible pour le moment. Vous pouvez envoyer votre message sans photo.",
     "toolRunningAria": "Outil en cours d'exécution",
-    "typingAria": "L'assistant est en train d'écrire",
+    "typingAria": "MakerLAB AI est en train d'écrire",
     "readingManualsAria": "Lecture des manuels",
     "reading": "Lecture : {titles}…",
     "error": "Une erreur s'est produite. Réessayez.",
@@ -178,7 +206,7 @@
     "arrivalLabel": "Scanné depuis cette machine",
     "arrivalEyebrow": "Scanné sur la machine",
     "arrivalTitle": "Poser une question sur {tool}",
-    "arrivalBody": "Vous avez scanné le code de cette machine. L'assistant peut répondre à vos questions, vous guider dans la configuration ou signaler un problème de maintenance.",
+    "arrivalBody": "Vous avez scanné le code de cette machine. MakerLAB AI peut répondre à vos questions, vous guider dans la configuration ou signaler un problème de maintenance.",
     "arrivalSeed": "Je suis devant {tool} et j'ai une question à son sujet.",
     "arrivalUnitLabel": "Scanné depuis l'étiquette de cette unité",
     "arrivalUnitOf": "Unité de {tool}",
@@ -318,5 +346,13 @@
     "rateLimitedTitle": "Trop de tentatives",
     "rateLimitedBody": "Trop de requêtes sont arrivées depuis cette connexion. Attendez une heure, puis rouvrez le lien.",
     "home": "Retour à {site}"
+  },
+  "palette": {
+    "page": {
+      "allTools": "Tous les outils"
+    },
+    "assistant": "MakerLAB AI",
+    "ask": "Demander à MakerLAB AI : « {query} »",
+    "askEmpty": "Demander à MakerLAB AI"
   }
 }

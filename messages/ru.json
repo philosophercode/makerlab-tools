@@ -35,7 +35,7 @@
   },
   "gallery": {
     "title": "Инструменты",
-    "searchPlaceholder": "поиск по инвентарю...",
+    "allTitle": "Все инструменты",
     "searchAria": "Поиск по инвентарю",
     "category": "КАТЕГОРИЯ:",
     "training": "ОБУЧЕНИЕ:",
@@ -52,7 +52,35 @@
     "columnTraining": "Обучение",
     "trainingBeginner": "Начальный",
     "trainingIntermediate": "Средний",
-    "trainingAdvanced": "Продвинутый"
+    "trainingAdvanced": "Продвинутый",
+    "home": {
+      "searchSection": "Поиск по лаборатории",
+      "seeAll": "Показать все инструменты ({count})",
+      "toolCount": "{count, plural, one {# инструмент} few {# инструмента} many {# инструментов} other {# инструмента}}",
+      "unitsDown": "{count, plural, one {# единица не работает} few {# единицы не работают} many {# единиц не работают} other {# единицы не работают}}",
+      "empty": "В каталоге пока нет инструментов."
+    },
+    "search": {
+      "landmark": "Поиск инструментов и вопросы MakerLAB AI",
+      "label": "Найдите инструмент или задайте вопрос MakerLAB AI",
+      "tools": "Инструменты",
+      "categories": "Категории",
+      "categoryCount": "{count, plural, one {# инструмент} few {# инструмента} many {# инструментов} other {# инструмента}}",
+      "assistant": "MakerLAB AI",
+      "ask": "Спросить MakerLAB AI: «{query}»",
+      "askNote": "Откроет чат с вашим вопросом. MakerLAB AI может ошибаться.",
+      "noMatch": "Ни один инструмент или категория не подходит под «{query}».",
+      "lines": {
+        "search": "{count, plural, one {Поиск по # инструменту} few {Поиск по # инструментам} many {Поиск по # инструментам} other {Поиск по # инструментам}}",
+        "build": "Что вы создадите?",
+        "findMachine": "Найдите свой станок",
+        "ask": "Задайте вопрос",
+        "x1Filament": "Как заправить филамент в X1-Carbon?",
+        "x1Start": "Спросите, как начать 3D-печать на X1-Carbon",
+        "trotecAcrylic": "Режет ли лазер Trotec акрил?",
+        "resinPpe": "Что надеть для печати смолой?"
+      }
+    }
   },
   "detail": {
     "breadcrumbTools": "Инструменты",
@@ -143,16 +171,16 @@
     "browseTools": "Просмотреть инструменты"
   },
   "chat": {
-    "openAria": "Открыть ассистента MakerLAB",
-    "title": "Ассистент MakerLAB",
+    "openAria": "Открыть MakerLAB AI",
+    "title": "MakerLAB AI",
     "newChatAria": "Начать новый чат",
     "newChatTitle": "Начать новый чат",
-    "closeAria": "Закрыть ассистента",
+    "closeAria": "Закрыть MakerLAB AI",
     "closeTitle": "Закрыть (диалог сохранится)",
     "greetingTool": "Спросите об этом инструменте — у меня есть его характеристики, материалы и ссылки на ресурсы.",
     "greetingGeneral": "Чем я могу помочь вам сегодня?",
-    "composerPlaceholder": "Спросите у консоли лаборатории...",
-    "composerAria": "Спросите у консоли лаборатории",
+    "composerPlaceholder": "Спросите MakerLAB AI...",
+    "composerAria": "Спросите MakerLAB AI",
     "aiNote": "MakerLAB AI может ошибаться. Всё, что касается безопасности, уточняйте у сотрудников.",
     "sendAria": "Отправить",
     "attachAria": "Прикрепить фото",
@@ -163,7 +191,7 @@
     "uploadFailed": "Не удалось загрузить фото",
     "uploadsUnavailable": "Загрузка фото сейчас недоступна. Вы можете отправить сообщение без фото.",
     "toolRunningAria": "Инструмент выполняется",
-    "typingAria": "Ассистент печатает",
+    "typingAria": "MakerLAB AI печатает",
     "readingManualsAria": "Чтение руководств",
     "reading": "Чтение: {titles}…",
     "error": "Что-то пошло не так. Попробуйте снова.",
@@ -178,7 +206,7 @@
     "arrivalLabel": "Отсканировано у этого станка",
     "arrivalEyebrow": "Отсканировано у станка",
     "arrivalTitle": "Спросить про {tool}",
-    "arrivalBody": "Вы отсканировали код на этом станке. Ассистент ответит на вопросы о нём, поможет с настройкой или оформит заявку на обслуживание.",
+    "arrivalBody": "Вы отсканировали код на этом станке. MakerLAB AI ответит на вопросы о нём, поможет с настройкой или оформит заявку на обслуживание.",
     "arrivalSeed": "Я стою у {tool}, и у меня есть вопрос по этому станку.",
     "arrivalUnitLabel": "Отсканировано с этикетки этой единицы",
     "arrivalUnitOf": "Единица оборудования: {tool}",
@@ -318,5 +346,13 @@
     "rateLimitedTitle": "Слишком много попыток",
     "rateLimitedBody": "С этого подключения пришло слишком много запросов. Подождите час и откройте ссылку снова.",
     "home": "Назад в {site}"
+  },
+  "palette": {
+    "page": {
+      "allTools": "Все инструменты"
+    },
+    "assistant": "MakerLAB AI",
+    "ask": "Спросить MakerLAB AI: «{query}»",
+    "askEmpty": "Спросить MakerLAB AI"
   }
 }

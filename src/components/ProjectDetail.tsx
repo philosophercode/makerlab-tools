@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { MakerLabProject } from "./catalog-types";
 import { PageSection, PublicPage } from "./system/PublicPage";
 import { Markdown } from "./system/Markdown";
+import { allToolsHref } from "../lib/gallery-links";
 
 interface ProjectDetailProps {
   project: MakerLabProject;
@@ -109,7 +110,7 @@ export async function ProjectDetail({ project, workMap = null, galleryMaterials 
               const known = galleryMaterial(material, galleryMaterials);
               return known ? (
                 <Badge asChild key={material} className="text-label">
-                  <Link href={`/?material=${encodeURIComponent(known)}`} title={t("materialTools", { material: known })}>
+                  <Link href={allToolsHref({ material: known })} title={t("materialTools", { material: known })}>
                     {material}
                   </Link>
                 </Badge>

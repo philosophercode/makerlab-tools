@@ -11,6 +11,7 @@ import { TOOL_STATUS_KEY, ToolCard } from "./ToolCard";
 import type { ToolImagePriority } from "./ToolImage";
 import { GALLERY_DEFAULT_HIDDEN, useGalleryColumns } from "./gallery-columns";
 import { GalleryHero } from "./GalleryHero";
+import { AskMakerlabRow, ListSearch } from "./search/ListSearch";
 import {
   GALLERY_STATUSES,
   availableUnits,
@@ -88,8 +89,11 @@ function narrowed(tools: readonly GalleryTool[], state: GalleryState, except?: F
 }
 
 /**
- * The gallery (UI system phase 5a; public polish): the display hero with a
- * facts line, then the shared `FilterBar` — search, Status / Category /
+ * The full tool list at `/tools` (UI system phase 5a; public polish; the
+ * home page until the student home spec of 2026-10-07): the display hero
+ * "All tools" with a facts line, then the shared `FilterBar` — the minimal
+ * search box (`ListSearch`, with "Ask MakerLAB AI" under it while it has
+ * text) and the count it leaves, Status / Category /
  * Material / Location facets with counts, **Group by** and (in the table)
  * **Columns**, **Sort** and the Grid / Table `SegmentedControl` — over the
  * card grid or the `DataTable`. One filter state, in the URL, drives both
@@ -130,12 +134,8 @@ export function GalleryShell({ tools, onShift = null }: GalleryShellProps) {
 
   const facts = useMemo(() => {
     const available = visible.filter((tool) => availableUnits(tool) > 0).length;
-    return [
-      t("facts.tools", { count: visible.length }),
-      t("facts.available", { count: available }),
-      t("facts.categories", { count: categories.length }),
-    ].join(" · ");
-  }, [visible, categories.length, t]);
+    return [t("facts.tools", { count: visible.length }), t("facts.available", { count: available })].join(" · ");
+  }, [visible, t]);
 
   const facet = (key: Facet, label: string, values: readonly string[], valueLabel?: (value: string) => string) => (
     <FacetFilter
@@ -178,16 +178,18 @@ export function GalleryShell({ tools, onShift = null }: GalleryShellProps) {
 
   return (
     <main ref={mainRef} className="ui mx-auto w-full max-w-[1440px] px-4 pb-16 sm:px-8">
-      <GalleryHero title={t("title")} facts={facts} aside={onShift} />
+      <GalleryHero title={t("allTitle")} facts={facts} aside={onShift} />
 
       <FilterBar
         label={t("filterLabel")}
-        search={{
-          value: state.query,
-          onChange: (value) => set({ query: value }),
-          label: t("searchAria"),
-          placeholder: t("searchPlaceholder"),
-        }}
+        searchSlot={
+          <ListSearch
+            value={state.query}
+            onChange={(value) => set({ query: value })}
+            label={t("searchAria")}
+            toolCount={visible.length}
+          />
+        }
         facets={
           <>
             {facet("status", t("statusFacet"), GALLERY_STATUSES, statusLabel)}
@@ -232,6 +234,8 @@ export function GalleryShell({ tools, onShift = null }: GalleryShellProps) {
           </>
         }
       />
+
+      <AskMakerlabRow query={state.query} />
 
       {shownTools.length === 0 ? (
         <section aria-label={t("toolGalleryLabel")}>

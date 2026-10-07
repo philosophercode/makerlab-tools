@@ -84,10 +84,10 @@ it.each(["admin", "super_admin"] as const)("shows %s the current term's report f
   const page = await render();
   expect(page.type).not.toBe(AdminNotice);
   const view = find<{ model: ValueReportViewModel }>(page, ValueReportView);
-  expect(view?.model.title).toMatch(/^MakerLAB Assistant — (Spring|Summer|Fall) \d{4} value report$/);
+  expect(view?.model.title).toMatch(/^MakerLAB AI — (Spring|Summer|Fall) \d{4} value report$/);
   expect(view?.model.cards.find((card) => card.key === "questionsAnswered")?.value).toMatch(/^\d/);
   const exportProps = find<{ csv: string; fileName: string }>(page, ValueReportExport);
-  expect(exportProps?.fileName).toMatch(/^makerlab-assistant-.*-value-report\.csv$/);
+  expect(exportProps?.fileName).toMatch(/^makerlab-ai-.*-value-report\.csv$/);
   expect(exportProps?.csv.split("\r\n")[0]).toMatch(/^Section,Metric,/);
   expect(find<{ canEdit: boolean }>(page, ValueAssumptionsForm)?.canEdit).toBe(true);
 });
@@ -96,7 +96,7 @@ it("reads a custom range from the query string", async () => {
   const person = await signInAsNew({ email: "admin-value-range@cornell.edu", role: "admin" });
   setMockHeaders({ cookie: person.cookie });
   const page = await render({ from: "2026-01-01", to: "2026-01-31" });
-  expect(find<{ model: ValueReportViewModel }>(page, ValueReportView)?.model.title).toBe("MakerLAB Assistant — Jan 1, 2026 – Jan 31, 2026 value report");
+  expect(find<{ model: ValueReportViewModel }>(page, ValueReportView)?.model.title).toBe("MakerLAB AI — Jan 1, 2026 – Jan 31, 2026 value report");
 });
 
 it("counts the demo seed's synthetic week over the last eight days", async () => {

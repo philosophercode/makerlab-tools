@@ -2,6 +2,7 @@ import { render, screen, within, userEvent } from "../../test/utils/render";
 import { GalleryShell } from "./GalleryShell";
 import { mockCatalog } from "../../test/fixtures/catalog";
 import type { MakerLabTool } from "./catalog-types";
+import { useChatLauncher } from "./ChatLauncherContext";
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -65,8 +66,8 @@ describe("GalleryShell — search and facets", () => {
   it("renders one card per tool, the title and a facts line", () => {
     render(<GalleryShell tools={mockCatalog} />);
     expect(cardNames()).toHaveLength(mockCatalog.length);
-    expect(screen.getByRole("heading", { level: 1, name: "Tools" })).toBeInTheDocument();
-    expect(screen.getByText(/4 tools · \d+ available now · 3 categories/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 1, name: "All tools" })).toBeInTheDocument();
+    expect(screen.getByText(/^4 tools · \d+ available now$/)).toBeInTheDocument();
     expect(searchBox()).toBeInTheDocument();
   });
 
@@ -78,6 +79,34 @@ describe("GalleryShell — search and facets", () => {
     expect(names[0]).toBe("Prusa MK4");
     expect(names).not.toContain("Bandsaw");
     expect(window.location.search).toBe("?q=Prusa");
+  });
+
+  it("offers Ask MakerLAB AI under the search while it has text, as a button that opens the chat (student home spec §5)", async () => {
+    const user = userEvent.setup();
+    function ChatProbe() {
+      const { isOpen, pendingSeed } = useChatLauncher();
+      return <output data-testid="chat">{isOpen ? `open|${pendingSeed?.text ?? ""}` : "closed"}</output>;
+    }
+    render(
+      <>
+        <GalleryShell tools={mockCatalog} />
+        <ChatProbe />
+      </>
+    );
+    expect(screen.queryByRole("button", { name: /Ask MakerLAB AI/ })).not.toBeInTheDocument();
+    await user.type(searchBox(), "resin safety{Enter}");
+    // Enter in the box asks nothing: the question is sent only by the button.
+    expect(screen.getByTestId("chat")).toHaveTextContent("closed");
+    await user.click(screen.getByRole("button", { name: /Ask MakerLAB AI: “resin safety”/ }));
+    expect(screen.getByTestId("chat")).toHaveTextContent("open|resin safety");
+  });
+
+  it("states the count it leaves as filters apply", async () => {
+    const user = userEvent.setup();
+    render(<GalleryShell tools={mockCatalog} />);
+    expect(screen.getByText("Showing 4 of 4")).toBeInTheDocument();
+    await pick(user, "Category", /^Laser/);
+    expect(screen.getByText("Showing 1 of 4")).toBeInTheDocument();
   });
 
   it("keeps a space typed into the search (the URL is not trimmed under the cursor)", async () => {

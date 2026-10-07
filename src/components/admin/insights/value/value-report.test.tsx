@@ -16,7 +16,7 @@ import { ValueReportView } from "./ValueReportView";
 const t = createTranslator({ locale: "en", messages: enMessages, namespace: "admin.insights" }) as unknown as Translate;
 const NY = "America/New_York";
 const assumptions = defaultAssumptions("LAB OPEN 8AM-8PM");
-const brand = { assistant: "MakerLAB Assistant", labName: "MakerLAB Tools · Cornell Tech" };
+const brand = { assistant: "MakerLAB AI", labName: "MakerLAB Tools · Cornell Tech" };
 
 function data(current: Partial<ValueCounts>, previous: Partial<ValueCounts> = {}): ValueReportData {
   const report = computeValueReport({ ...emptyCounts(), ...current }, assumptions, NY);
@@ -59,7 +59,7 @@ const busy = data(
 describe("ValueReportView", () => {
   it("titles the report with the assistant, the term and the lab, and says it is an estimate", () => {
     render(<ValueReportView model={valueReportViewModel(busy, t, brand)} />);
-    expect(screen.getByRole("heading", { level: 3, name: "MakerLAB Assistant — Fall 2026 value report" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 3, name: "MakerLAB AI — Fall 2026 value report" })).toBeInTheDocument();
     expect(screen.getByText("MakerLAB Tools · Cornell Tech")).toBeInTheDocument();
     expect(screen.getByText(/Aug 21, 2026 – Dec 31, 2026 · to date \(through Sep 28, 2026\)/)).toBeInTheDocument();
     expect(screen.getAllByText("Estimate")).toHaveLength(2);
@@ -109,8 +109,8 @@ describe("ValueReportView", () => {
 
 describe("the CSV", () => {
   it("carries the headline numbers for both terms, the formulas' inputs and the assumptions", () => {
-    const { csv, fileName } = valueReportCsv(busy, "MakerLAB Assistant — Fall 2026 value report", t);
-    expect(fileName).toBe("makerlab-assistant-fall-2026-value-report.csv");
+    const { csv, fileName } = valueReportCsv(busy, "MakerLAB AI — Fall 2026 value report", t);
+    expect(fileName).toBe("makerlab-ai-fall-2026-value-report.csv");
     const lines = csv.trim().split("\r\n");
     expect(lines[0]).toBe("Section,Metric,Fall 2026,Summer 2026,Note");
     expect(lines).toContain("Headline,Questions answered,52,10,");

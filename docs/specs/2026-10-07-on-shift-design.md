@@ -180,7 +180,8 @@ anyone; their grader already rejects answers that depend on who is on shift.
 - Kiosk spec: the payload gains `onShift`, amendment 2026-10-07.
 - The home redesign (option B) and the reporting branch both touch the home page and the tool
   hero. This adds one slot to each (`GalleryShell`'s `onShift`, `DetailShell`'s `onShift`), so a
-  rebase moves one line.
+  rebase moves one line. Stacked on the student home, the line sits under the home's search
+  (`HomeShell`'s `onShift`) and in the full list's hero on `/tools` (`GalleryShell`'s).
 - **Migration number.** `0029`: written as `0028`, renumbered when stacked after the manual eval
   questions' `0028_manual_eval_questions`.
 
