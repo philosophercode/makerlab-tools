@@ -399,3 +399,41 @@ MakerLAB AI do?".
 - **Tested** in `site-config.test.ts`, `chat-adapter.test.ts`,
   `ChatFab.test.tsx`, `about/page.test.tsx`, the value report tests and the
   E2E chat, kiosk and actions specs.
+
+## Amendment — The header reads MakerLAB AI (2026-10-07)
+
+Seeing the ISAM poster, the owner asked for the header to match it: "use the
+most recent logo … remove MakerLAB Tools and just write MakerLAB AI in the
+upper left corner, the logo + AI".
+
+- **The lockup** (`GlobalChrome`, `.brand-lockup`) is one line: the lettering
+  cropped from the official Cornell Tech MakerLAB lockup
+  (`public/brand/makerlab-wordmark-official.svg`, `siteConfig.wordmark`,
+  still a mask in the text colour), then "AI" in the accent (`.brand-ai`),
+  its caps as tall as the wordmark and on the same baseline. The striped
+  wordmark PNG is no longer the default.
+- **No site name or tagline** beside it. The link is named "MakerLAB AI"
+  (`aria-label`). `siteConfig.name` ("MakerLAB Tools") is unchanged
+  everywhere else: page titles, the footer, emails, the MCP server.
+- **Bar heights:** the compact bars lose the name row (104 px under 1024,
+  98 px under 560); the short landscape bar keeps its 48 px.
+- **Tested** in `GlobalChrome.test.tsx`, `site-config.test.ts` and
+  `e2e/header-stability.spec.ts`.
+
+## Amendment — The composer on one line (2026-10-07)
+
+The owner asked for the chat's composer to look like a typical chat app's:
+smaller, on one line.
+
+- **One line** (`ChatComposer`): a round + (attach), the text, and on the
+  right the microphone until there is something to send, then the orange
+  Send. While dictation runs the microphone stays, so it can be stopped.
+  Attachments still show above the line.
+- **Round controls:** the three buttons are circles, the one exception to
+  square corners (`[data-slot="prompt-input"] .composer-round` in
+  `globals.css`).
+- **The "can make mistakes" note** moves above the composer, as a small box
+  closed with its × (`chat.aiNoteDismiss`, 12 locales). The dismissal is
+  remembered in this browser (`ai-note-store.ts`, `localStorage`, try/catch);
+  while shown, the note still describes the text field.
+- **Tested** in `ChatFab.test.tsx`.
