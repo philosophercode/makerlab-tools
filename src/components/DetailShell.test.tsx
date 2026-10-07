@@ -268,4 +268,56 @@ describe("DetailShell", () => {
       expect(screen.getAllByText("Offline").length).toBeGreaterThanOrEqual(1);
     });
   });
+
+  describe("lab notes (identity spec amendment \"Lab notes\")", () => {
+    const cutter = {
+      ...toolWithLinks,
+      notes: "- Always put a cutting mat underneath so you don't scratch the table.\n\nReturn the blade to the drawer.",
+    };
+
+    it("shows them in the hero, above the description, as the lab staff's words", () => {
+      render(<DetailShell tool={cutter} />);
+      const hero = document.querySelector('[data-slot="tool-hero"]') as HTMLElement;
+      const notes = within(hero).getByRole("region", { name: /Lab notes/ });
+
+      expect(within(notes).getByText("From the lab's staff")).toBeInTheDocument();
+      const description = within(hero).getByText(cutter.description);
+      expect(notes.compareDocumentPosition(description) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it("lists one note per line, with typed list markers and blank lines dropped", () => {
+      render(<DetailShell tool={cutter} />);
+      const notes = screen.getByRole("region", { name: /Lab notes/ });
+
+      expect(within(notes).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
+        "Always put a cutting mat underneath so you don't scratch the table.",
+        "Return the blade to the drawer.",
+      ]);
+    });
+
+    it("shows a single note as a sentence, not a one-item list", () => {
+      render(<DetailShell tool={toolWithLinks} />);
+      const notes = screen.getByRole("region", { name: /Lab notes/ });
+
+      expect(within(notes).queryByRole("list")).not.toBeInTheDocument();
+      expect(within(notes).getByText(toolWithLinks.notes as string)).toBeInTheDocument();
+    });
+
+    it("is no longer a Details row", () => {
+      render(<DetailShell tool={cutter} />);
+      const specs = document.querySelector('[data-slot="tool-specs"]') as HTMLElement;
+
+      expect(within(specs).queryByText("Notes")).not.toBeInTheDocument();
+      expect(within(specs).queryByText(/cutting mat/)).not.toBeInTheDocument();
+    });
+
+    it("is absent when the tool has none, or only blank lines", () => {
+      const { unmount } = render(<DetailShell tool={{ ...toolWithLinks, notes: null }} />);
+      expect(document.querySelector('[data-slot="tool-lab-notes"]')).toBeNull();
+      unmount();
+
+      render(<DetailShell tool={{ ...toolWithLinks, notes: " \n  \n" }} />);
+      expect(document.querySelector('[data-slot="tool-lab-notes"]')).toBeNull();
+    });
+  });
 });

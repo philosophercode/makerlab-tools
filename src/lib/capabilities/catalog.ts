@@ -7,6 +7,8 @@ import { officialNameShown } from "../tool-names";
 import { mapFactsFor, type ToolMapFacts } from "../map/locate";
 import { canSeeMap } from "../map/access";
 import { unitsForViewer } from "../unit-serials";
+import { LAB_NOTES_MARK } from "../ai/lab-notes-prompt";
+import { hasLabNotes, labNoteLines } from "../lab-notes/lines";
 import type {
   Capability,
   CapabilityCtx,
@@ -77,7 +79,12 @@ interface ToolDetailsResult {
   tags?: string[];
   use_restrictions?: string | null;
   emergency_stop?: string | null;
-  notes?: string | null;
+  /**
+   * The lab staff's own rules and tips for this tool, one per line (identity
+   * spec amendment "Lab notes"): `tools.notes`, read with `labNoteLines`.
+   * Empty when it has none. Was `notes` (the raw text) before 2026-10-06.
+   */
+  lab_notes?: string[];
   links?: MakerLabTool["links"];
   units?: MakerLabTool["units"];
   detail_page?: string;
@@ -241,7 +248,7 @@ const searchTools: CapabilityTool<SearchToolsInput, SearchToolsResult> = {
 const getToolDetails: CapabilityTool<GetToolDetailsInput, ToolDetailsResult> = {
   name: "get_tool_details",
   description:
-    "Get full details for a tool by id, slug, or name. Includes description, materials, PPE, training, use restrictions, emergency stop, units, and resource links (SOPs, safety docs, manuals).",
+    "Get full details for a tool by id, slug, or name. Includes the lab staff's own lab notes for it (lab_notes: local rules and tips that come before the manual), description, materials, PPE, training, use restrictions, emergency stop, units, and resource links (SOPs, safety docs, manuals).",
   inputSchema: getToolDetailsInput,
   kind: "read",
   async run({ id_or_name }, ctx) {
@@ -279,7 +286,7 @@ const getToolDetails: CapabilityTool<GetToolDetailsInput, ToolDetailsResult> = {
       tags: tool.tags,
       use_restrictions: tool.useRestrictions,
       emergency_stop: tool.emergencyStop,
-      notes: tool.notes,
+      lab_notes: labNoteLines(tool.notes),
       links: tool.links,
       // Whole serials for staff only (amendment 2026-10-06); the catalogue's units carry the masked last four.
       units: await unitsForViewer(ctx.identity, tool.units),
@@ -295,12 +302,15 @@ const getToolDetails: CapabilityTool<GetToolDetailsInput, ToolDetailsResult> = {
 /**
  * Describe a single catalog tool in the compact bullet form the chat system
  * prompt uses (name + slug + category/location/training, then a units line).
+ * A tool with lab notes ends its first line with "· lab notes", so the model
+ * knows to read them with `get_tool_details` before saying how to use it (the
+ * notes themselves would cost every turn; the mark costs two words).
  */
 export function describeCatalogEntry(tool: MakerLabTool): string {
   const official = officialNameShown(tool);
   const head = `- **${tool.name}**${official ? ` (official: ${official})` : ""} — slug: \`${tool.slug}\` — ${tool.category}${
     tool.categorySub ? ` / ${tool.categorySub}` : ""
-  } · ${tool.location}${tool.zone ? ` / ${tool.zone}` : ""} · ${tool.trainingLevel}`;
+  } · ${tool.location}${tool.zone ? ` / ${tool.zone}` : ""} · ${tool.trainingLevel}${hasLabNotes(tool.notes) ? ` · ${LAB_NOTES_MARK}` : ""}`;
   if (!tool.units.length) return head;
   const units = tool.units
     .map((unit) => `${unit.name} [${unit.status}]`)
@@ -315,7 +325,7 @@ export function describeCatalogEntry(tool: MakerLabTool): string {
  * model step, about 1.5–2s before the first word (performance plan, quick
  * win 1).
  */
-export const BROWSING_SECTION = `## Browsing the catalog\n\nThe **MakerLab catalog** list at the end of this section is complete: every tool in the lab, with its category, location and training level. **Answer from it directly** — without calling a tool — when the student asks what the lab has, which tools of a kind there are ("what 3D printers do you have?", "show me the laser cutters") or what is in a room ("what's in the wood shop?").\n\nCall a catalog tool only when the answer needs more than that list shows:\n\n- \`search_tools\` — keyword search across names, descriptions, materials, and tags. Use this when the student describes a need ("something to cut acrylic", "a tool for sanding") and the names alone do not settle it.\n- \`get_tool_details\` — full details for one tool by id, slug, or name. Use this when the student asks about a specific tool's specs, description, training, PPE, restrictions, units, or resources, before answering with anything beyond the summary in the catalog list.\n- \`list_tools\` — the catalog with each tool's description, optionally filtered by category or location (partial match). Use it only when you need the descriptions of many tools at once.\n\nGround every answer in the catalog. If a student asks about a tool that isn't in the catalog, say so honestly rather than inventing one.`;
+export const BROWSING_SECTION = `## Browsing the catalog\n\nThe **MakerLab catalog** list at the end of this section is complete: every tool in the lab, with its category, location and training level. **Answer from it directly** — without calling a tool — when the student asks what the lab has, which tools of a kind there are ("what 3D printers do you have?", "show me the laser cutters") or what is in a room ("what's in the wood shop?").\n\nCall a catalog tool only when the answer needs more than that list shows:\n\n- \`search_tools\` — keyword search across names, descriptions, materials, and tags. Use this when the student describes a need ("something to cut acrylic", "a tool for sanding") and the names alone do not settle it.\n- \`get_tool_details\` — full details for one tool by id, slug, or name, its lab notes included. Use this when the student asks about a specific tool's specs, description, training, PPE, restrictions, units, or resources, before answering with anything beyond the summary in the catalog list.\n- \`list_tools\` — the catalog with each tool's description, optionally filtered by category or location (partial match). Use it only when you need the descriptions of many tools at once.\n\nGround every answer in the catalog. If a student asks about a tool that isn't in the catalog, say so honestly rather than inventing one.`;
 
 /**
  * A photo of a machine (photo identification eval, `evals/cases/

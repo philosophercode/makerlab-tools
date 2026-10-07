@@ -662,7 +662,9 @@ whitespace — an h2 in Space Grotesk and an optional muted lede.
 
 Facts, not panels, and only the facts the tool has: crumb `// TOOLS › FORM 4`
 → hero (a **small** image plate, ~16rem, beside the display title, the
-official name in mono, **one** status line of glyphs and words, the
+official name in mono, **one** status line of glyphs and words, the lab's
+**Lab notes** when it has any — an ink start rule, a mono `LAB NOTES · FROM
+THE LAB'S STAFF` label, one note a sentence and several a list — then the
 description, Safety doc / SOP) → **two columns on desktop**: **Safety**, the
 one tinted section (bad start rule, compact label/value rows), then **Details**
 as a dense `<dl>` on the left; **Documents & resources** as a ruled list (the

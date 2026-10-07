@@ -56,6 +56,8 @@
   "detail": {
     "breadcrumbTools": "Инструменты",
     "toolStatusLabel": "Статус инструмента",
+    "labNotes": "Заметки лаборатории",
+    "labNotesFrom": "От сотрудников лаборатории",
     "trainingChip": "обучение: {level}",
     "ppeRequired": "Требуются СИЗ",
     "viewSafetyDoc": "Открыть документ по безопасности",
@@ -76,7 +78,6 @@
     "trainingRow": "Обучение",
     "mapId": "ID на карте",
     "tags": "Теги",
-    "notes": "Заметки",
     "physicalMachines": "Физические станки",
     "unit": "Единица",
     "status": "Статус",

@@ -56,6 +56,8 @@
   "detail": {
     "breadcrumbTools": "ツール",
     "toolStatusLabel": "ツールの状態",
+    "labNotes": "ラボのメモ",
+    "labNotesFrom": "ラボのスタッフより",
     "trainingChip": "{level}トレーニング",
     "ppeRequired": "PPE 必須",
     "viewSafetyDoc": "安全文書を表示",
@@ -76,7 +78,6 @@
     "trainingRow": "トレーニング",
     "mapId": "マップ ID",
     "tags": "タグ",
-    "notes": "メモ",
     "physicalMachines": "実機",
     "unit": "ユニット",
     "status": "状態",

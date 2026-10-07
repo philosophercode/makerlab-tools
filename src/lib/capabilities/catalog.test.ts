@@ -158,6 +158,14 @@ describe("get_tool_details", () => {
     expect(result.found).toBe(false);
     expect(result.message).toMatch(/Tool not found: no-such-tool-id/);
   });
+
+  it("returns the tool's lab notes as lines, under a name that says whose they are (identity spec amendment \"Lab notes\")", async () => {
+    const result = (await tool("get_tool_details").run({ id_or_name: "trotec-speedy-400" }, ctx)) as Record<string, unknown>;
+
+    expect(result.lab_notes).toEqual(["Run exhaust for 60 seconds after cuts before opening the lid."]);
+    expect(result).not.toHaveProperty("notes");
+    expect(tool("get_tool_details").description).toContain("lab notes");
+  });
 });
 
 // ── Prompt fragment ────────────────────────────────────────────────
@@ -172,6 +180,16 @@ describe("promptFragment", () => {
     expect(fragment).toContain("**Form 4** (official: Formlabs Form 4 Resin 3D Printer) — slug: `form-4`");
     expect(fragment).toContain("**Trotec Speedy 400** — slug: `trotec-speedy-400`");
     expect(fragment).toContain("units: Form 4 // A [In Use]");
+  });
+
+  it("marks a tool that has lab notes, and only such a tool, without listing the notes themselves", async () => {
+    const [form4, trotec] = await getCatalogTools();
+    const fragment = catalog.promptFragment?.({ tools: [form4, { ...trotec, notes: "  \n " }] }) ?? "";
+    const lines = fragment.split("\n");
+
+    expect(lines.find((line) => line.includes("**Form 4**"))).toMatch(/· Intermediate · lab notes$/);
+    expect(lines.find((line) => line.includes("**Trotec Speedy 400**"))).toMatch(/· Advanced$/);
+    expect(fragment).not.toContain("nitrile gloves");
   });
 
   it("is the same on every page: the focused tool is the chat adapter's per-request tail", async () => {

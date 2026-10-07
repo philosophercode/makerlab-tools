@@ -66,6 +66,17 @@ describe("starterSourceHash", () => {
     expect(starterSourceHash(general, context)).not.toBe(starterSourceHash(tool, context));
   });
 
+  it("depends on the lab-wide notes once there are some, and is unchanged while there are none (identity spec amendment \"Lab notes\")", () => {
+    const general = { kind: "general" as const, tools: [{ id: "t-1", name: "Form 4" }], manuals: [manual] };
+    for (const inputs of [tool, general]) {
+      const base = starterSourceHash(inputs, context);
+      expect(starterSourceHash({ ...inputs, labNotes: "" }, context)).toBe(base);
+      const withNotes = starterSourceHash({ ...inputs, labNotes: "Clean your station." }, context);
+      expect(withNotes).not.toBe(base);
+      expect(starterSourceHash({ ...inputs, labNotes: "Clean your station.\nPut tools back." }, context)).not.toBe(withNotes);
+    }
+  });
+
   it("carries the pipeline version", () => {
     expect(canonicalInputs(tool, context)).toContain(STARTER_ANSWER_VERSION);
   });

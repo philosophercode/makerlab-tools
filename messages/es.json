@@ -56,6 +56,8 @@
   "detail": {
     "breadcrumbTools": "Herramientas",
     "toolStatusLabel": "Estado de la herramienta",
+    "labNotes": "Notas del laboratorio",
+    "labNotesFrom": "Del personal del laboratorio",
     "trainingChip": "formación {level}",
     "ppeRequired": "EPP obligatorio",
     "viewSafetyDoc": "Ver documento de seguridad",
@@ -76,7 +78,6 @@
     "trainingRow": "Formación",
     "mapId": "ID de mapa",
     "tags": "Etiquetas",
-    "notes": "Notas",
     "physicalMachines": "Máquinas físicas",
     "unit": "Unidad",
     "status": "Estado",

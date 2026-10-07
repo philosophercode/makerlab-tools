@@ -56,6 +56,8 @@
   "detail": {
     "breadcrumbTools": "उपकरण",
     "toolStatusLabel": "उपकरण की स्थिति",
+    "labNotes": "लैब नोट्स",
+    "labNotesFrom": "लैब स्टाफ़ की ओर से",
     "trainingChip": "{level} प्रशिक्षण",
     "ppeRequired": "PPE आवश्यक",
     "viewSafetyDoc": "सुरक्षा दस्तावेज़ देखें",
@@ -76,7 +78,6 @@
     "trainingRow": "प्रशिक्षण",
     "mapId": "मानचित्र आईडी",
     "tags": "टैग",
-    "notes": "नोट्स",
     "physicalMachines": "भौतिक मशीनें",
     "unit": "इकाई",
     "status": "स्थिति",

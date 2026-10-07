@@ -146,7 +146,7 @@ describe("opening the panel", () => {
     const actions = stubActions();
     await openPanel(actions);
 
-    await userEvent.type(screen.getByLabelText("Notes"), "Tank replaced");
+    await userEvent.type(screen.getByLabelText("Lab notes"), "Tank replaced");
     await userEvent.click(screen.getByRole("button", { name: "Save details" }));
 
     await waitFor(() => expect(actions.save).toHaveBeenCalled());

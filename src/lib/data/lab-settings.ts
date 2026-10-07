@@ -12,6 +12,9 @@ import type { Db } from "../db/types.ts";
 
 export const VALUE_REPORT_SETTING = "value_report";
 
+/** The lab-wide notes the assistant knows in every conversation (identity spec amendment "Lab notes"). */
+export const LAB_NOTES_SETTING = "lab_notes";
+
 export interface LabSetting {
   value: unknown;
   updatedAt: string;

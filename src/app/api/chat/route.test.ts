@@ -48,10 +48,12 @@ vi.mock("next/cache", () => ({
 import { eq, inArray } from "drizzle-orm";
 import { http, HttpResponse } from "msw";
 import { POST } from "@/app/api/chat/route";
+import { LAB_NOTES_SETTING, setLabSetting } from "@/lib/data/lab-settings";
 import { manualSourceKey } from "@/lib/data/manual-archives";
 import { getDb, resetDbForTests } from "@/lib/db/client";
 import {
   attachments,
+  labSettings,
   maintenanceLogs,
   resources,
   tools as toolsTable,
@@ -428,6 +430,29 @@ describe("POST /api/chat — tools wired", () => {
     expect(system.indexOf("# This conversation")).toBeGreaterThan(system.indexOf("## MakerLab catalog"));
     expect(system.indexOf("## Active tool context")).toBeGreaterThan(system.indexOf("# This conversation"));
     expect(system.match(/## MakerLab catalog \(/g)).toHaveLength(1);
+  });
+
+  it("knows the lab-wide notes in the stable part and the page's tool lab notes first in its description (identity spec amendment \"Lab notes\")", async () => {
+    const db = await getDb();
+    await setLabSetting(LAB_NOTES_SETTING, { text: "Clean your station before you leave.\n- Ask staff before your first cut." }, null);
+    try {
+      await send({ messages: [userMessage("how do I use it?")], toolId: "trotec-speedy-400" });
+      const system = systemOf();
+      const conversation = system.indexOf("# This conversation");
+
+      expect(system.indexOf("### Lab-wide notes\n\n- Clean your station before you leave.\n- Ask staff before your first cut.")).toBeGreaterThan(0);
+      expect(system.indexOf("### Lab-wide notes")).toBeLessThan(conversation);
+      expect(system.indexOf("  - Run exhaust for 60 seconds after cuts before opening the lid.")).toBeGreaterThan(conversation);
+      expect(system).toContain("4. A lab note: `**Lab note:**` in bold before it");
+    } finally {
+      await db.delete(labSettings);
+    }
+  });
+
+  it("returns a tool's lab notes from get_tool_details as lab_notes", async () => {
+    const result = await runTool("get_tool_details", { id_or_name: "form-4" });
+
+    expect(result.lab_notes).toEqual(["Always wear nitrile gloves when handling uncured resin. Ventilation must be running."]);
   });
 
   it("stops offering read_page after five calls in one turn, and keeps everything else", async () => {

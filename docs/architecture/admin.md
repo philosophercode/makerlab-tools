@@ -76,6 +76,13 @@ Phase 5 extends both. The shape it sets:
   outcomes of a review, so settled equipment stays out of the queue. Units that
   belong to no tool come back as their own list rather than being attached to a
   guessed tool.
+- **Lab notes sit beside QR labels, not in a new surface.** The inventory header's
+  **Lab notes** button opens `/admin/inventory/lab-notes` (`tools.edit`; identity
+  spec amendment "Lab notes"): the lab-wide notes the assistant knows in every
+  conversation (`lab_settings.lab_notes`, saved whole by `lab.set_notes`, GUI only),
+  then every unarchived tool with lab notes (`tools.notes`, edited in the tool
+  editor) linking to its page. Uncached; a read that fails says so instead of
+  showing an empty box somebody could save over the real notes.
 - **The filters are client-side and in the URL, both on purpose.** The server
   renders every row and `InventoryBoard` (on the shared `DataTable` +
   `FilterBar`, UI system phase 2) narrows them in the browser (the

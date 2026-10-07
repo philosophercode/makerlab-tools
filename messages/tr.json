@@ -56,6 +56,8 @@
   "detail": {
     "breadcrumbTools": "Araçlar",
     "toolStatusLabel": "Araç durumu",
+    "labNotes": "Laboratuvar notları",
+    "labNotesFrom": "Laboratuvar ekibinden",
     "trainingChip": "{level} eğitim",
     "ppeRequired": "KKD gerekli",
     "viewSafetyDoc": "Güvenlik belgesini görüntüle",
@@ -76,7 +78,6 @@
     "trainingRow": "Eğitim",
     "mapId": "Harita kimliği",
     "tags": "Etiketler",
-    "notes": "Notlar",
     "physicalMachines": "Fiziksel makineler",
     "unit": "Birim",
     "status": "Durum",

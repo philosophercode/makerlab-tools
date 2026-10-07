@@ -56,6 +56,8 @@
   "detail": {
     "breadcrumbTools": "工具",
     "toolStatusLabel": "工具状态",
+    "labNotes": "实验室须知",
+    "labNotesFrom": "由实验室工作人员提供",
     "trainingChip": "{level} 培训",
     "ppeRequired": "需要个人防护装备",
     "viewSafetyDoc": "查看安全文档",
@@ -76,7 +78,6 @@
     "trainingRow": "培训",
     "mapId": "地图编号",
     "tags": "标签",
-    "notes": "备注",
     "physicalMachines": "实体机器",
     "unit": "设备",
     "status": "状态",
