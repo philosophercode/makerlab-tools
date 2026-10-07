@@ -2433,3 +2433,16 @@ to loopback at connect time; `guardedFetch` passes the pinned dispatcher and map
 refusal to `blocked`.
 
 **Status.** Accepted. Security fix on `security/web`.
+
+### 2026-10-07 — The quick report's triage job (§3.1)
+
+The quick report form (`2026-10-07-quick-report-design.md`) adds one language job to
+`MODEL_JOBS`: **`reportTriage`**, Luna by default (`MODEL_REPORT_TRIAGE`), service tier **flex**
+(`MODEL_REPORT_TRIAGE_TIER`). One `generateText` call per report, no tools: the student's words
+fenced with `fenceUntrusted`, the tool's units listed by short keys, and a JSON answer (title,
+category, severity, unit) checked against closed lists. A 12-second wait and one retry at most.
+Any failure, timeout or unreadable answer files the report as written, so a missing Gateway key
+never stops a report. A student waits on this call; flex is the owner's choice, and the quick
+report spec's open question 2 covers moving it if flex is slow. Each call logs its cost and the
+tier that served it (`describeGatewayCall`), never the report's words. Tests stub it at the
+registry (`setLanguageModel("reportTriage", …)`) or pass a model directly.

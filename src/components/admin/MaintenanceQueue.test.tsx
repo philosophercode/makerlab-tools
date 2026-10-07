@@ -76,6 +76,19 @@ describe("MaintenanceQueue", () => {
     );
   });
 
+  it("shows each ticket's short reference, and finds a ticket by the one a student was given (quick report spec §5)", async () => {
+    const user = userEvent.setup();
+    renderQueue([
+      ticket({ id: "3f2a9c1d-0000-4000-8000-000000000001", title: "Laser bed out of focus" }),
+      ticket({ id: "77aa00bb-0000-4000-8000-000000000002", title: "Exhaust fan rattles" }),
+    ]);
+    expect(screen.getByText("#3F2A9C1D")).toBeInTheDocument();
+
+    await user.type(screen.getByRole("searchbox", { name: "Search tickets" }), "#3f2a9c1d");
+    expect(screen.getByText("Laser bed out of focus")).toBeInTheDocument();
+    expect(screen.queryByText("Exhaust fan rattles")).not.toBeInTheDocument();
+  });
+
   it("keeps a removed reporter's name, marked removed (auth spec amendment 2026-09-25)", () => {
     renderQueue([ticket({ reporterRemoved: true })]);
     expect(screen.getByText("Reported by Casey Rivera (removed)")).toBeInTheDocument();

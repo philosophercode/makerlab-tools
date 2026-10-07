@@ -63,7 +63,8 @@ export async function DraftToolView({
 
   return (
     <>
-      <DetailShell tool={tool} />
+      {/* No Report a problem on a draft: a report files only against a published tool. */}
+      <DetailShell tool={tool} reportActions={false} />
       {actions ? <EditToolControl slug={tool.slug} toolName={tool.name} actions={actions} /> : null}
     </>
   );

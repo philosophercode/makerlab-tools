@@ -95,6 +95,7 @@
 | `src/components/chat/ActionProposalCard.tsx` / `page-selection.tsx` | The confirmation card; the page selection the chat sends |
 | `src/lib/admin/queue-write.ts` | `QueueActionResult`; `runQueueWrite` has no callers since the action layer (awaiting deletion approval) |
 | `src/app/admin/maintenance/`, `corrections/`, `projects/` | The three queues: one page, one result module and one action apiece |
+| `src/app/api/report/route.ts`, `src/lib/maintenance/quick-report*.ts`, `file-ticket.ts`, `ticket-ref.ts`, `src/components/tool/report/` | The quick report form (spec 2026-10-07): `POST /api/report`, the `reportTriage` call, the one ticket write shared with `report_issue` (`fileProblemTicket`), the short reference, the form and the hero's Report + Ask pair |
 | `src/app/admin/maintenance/schedules/`, `schedule-actions.ts`, `src/lib/data/maintenance-schedules.ts`, `src/lib/maintenance/interval.ts` | Recurring maintenance (spec amendment 2026-10-06): the task list, the four `schedules.*` wrappers, the queries and the due-date maths |
 | `src/components/admin/use-row-action.ts` | What every queue control does around its action — optimistic, refusal restores, warning keeps |
 | `src/components/admin/MaintenanceQueue.tsx` / `CorrectionsQueue.tsx` / `ProjectQueue.tsx` | The three card lists, each with its own small island |

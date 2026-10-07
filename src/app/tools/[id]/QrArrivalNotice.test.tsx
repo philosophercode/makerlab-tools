@@ -27,7 +27,7 @@ function renderNotice(query: string) {
   searchParams.value = new URLSearchParams(query);
   return render(
     <>
-      <QrArrivalNotice toolName="Form 4" />
+      <QrArrivalNotice toolSlug="form-4" toolName="Form 4" />
       <LauncherProbe />
     </>
   );
@@ -37,7 +37,7 @@ describe("QrArrivalNotice", () => {
   it("surfaces the assistant when ?src=qr is present", () => {
     renderNotice("src=qr");
     expect(
-      screen.getByRole("button", { name: "Ask about this machine" })
+      screen.getByRole("button", { name: "Ask MakerLAB AI about this machine" })
     ).toBeInTheDocument();
     expect(screen.getByText("Ask about the Form 4")).toBeInTheDocument();
   });
@@ -45,14 +45,14 @@ describe("QrArrivalNotice", () => {
   it("renders nothing without ?src=qr", () => {
     renderNotice("");
     expect(
-      screen.queryByRole("button", { name: "Ask about this machine" })
+      screen.queryByRole("button", { name: "Ask MakerLAB AI about this machine" })
     ).not.toBeInTheDocument();
   });
 
   it("renders nothing for a different ?src value", () => {
     renderNotice("src=email");
     expect(
-      screen.queryByRole("button", { name: "Ask about this machine" })
+      screen.queryByRole("button", { name: "Ask MakerLAB AI about this machine" })
     ).not.toBeInTheDocument();
   });
 
@@ -69,11 +69,11 @@ describe("QrArrivalNotice", () => {
     const encoded = new URL(toolPageUrl("https://tools.example.edu", "form-4"));
 
     searchParams.value = encoded.searchParams;
-    render(<QrArrivalNotice toolName="Form 4" />);
+    render(<QrArrivalNotice toolSlug="form-4" toolName="Form 4" />);
 
     expect(encoded.pathname).toBe("/tools/form-4");
     expect(
-      screen.getByRole("button", { name: "Ask about this machine" })
+      screen.getByRole("button", { name: "Ask MakerLAB AI about this machine" })
     ).toBeInTheDocument();
   });
 
@@ -81,7 +81,7 @@ describe("QrArrivalNotice", () => {
     const user = userEvent.setup();
     renderNotice("src=qr");
 
-    await user.click(screen.getByRole("button", { name: "Ask about this machine" }));
+    await user.click(screen.getByRole("button", { name: "Ask MakerLAB AI about this machine" }));
 
     expect(screen.getByTestId("chat-open")).toHaveTextContent("true");
     expect(screen.getByTestId("chat-seed")).toHaveTextContent(
@@ -89,14 +89,16 @@ describe("QrArrivalNotice", () => {
     );
   });
 
-  it("offers to report a problem from a tool's label too", async () => {
+  it("offers to report a problem from a tool's label too: the quick report form, not the chat", async () => {
     const user = userEvent.setup();
     renderNotice("src=qr");
 
     await user.click(screen.getByRole("button", { name: "Report a problem" }));
 
-    expect(screen.getByTestId("chat-open")).toHaveTextContent("true");
-    expect(screen.getByTestId("chat-seed")).toHaveTextContent("I'd like to report a problem with the Form 4.");
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveAccessibleName("Form 4");
+    expect(screen.getByLabelText("Tell us what's wrong with this machine")).toBeInTheDocument();
+    expect(screen.getByTestId("chat-open")).toHaveTextContent("false");
   });
 });
 
@@ -112,7 +114,7 @@ describe("QrArrivalNotice — a unit's label", () => {
     searchParams.value = new URLSearchParams(query);
     return render(
       <>
-        <QrArrivalNotice toolName="Form 4" units={units} />
+        <QrArrivalNotice toolSlug="form-4" toolName="Form 4" units={units} />
         <LauncherProbe />
       </>
     );
@@ -129,21 +131,24 @@ describe("QrArrivalNotice — a unit's label", () => {
     expect(screen.getByTestId("chat-open")).toHaveTextContent("false");
   });
 
-  it("starts a report for that unit in one tap", async () => {
+  it("opens the quick report form with that unit preselected, in one tap", async () => {
     const user = userEvent.setup();
     renderUnitNotice("src=qr&unit=194e4406");
 
     await user.click(screen.getByRole("button", { name: "Report a problem with this unit" }));
 
-    expect(screen.getByTestId("chat-open")).toHaveTextContent("true");
-    expect(screen.getByTestId("chat-seed")).toHaveTextContent("I'd like to report a problem with Form 4 // B (Form 4).");
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: /Form 4 \/\/ B/ })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /Form 4 \/\/ A/ })).not.toBeChecked();
+    expect(screen.getByText("Chosen from the label you scanned.")).toBeInTheDocument();
+    expect(screen.getByTestId("chat-open")).toHaveTextContent("false");
   });
 
   it("still lets them ask about the machine instead", async () => {
     const user = userEvent.setup();
     renderUnitNotice("src=qr&unit=adf75899");
     expect(screen.getByRole("heading", { name: "Form 4 // A" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Ask about this machine" }));
+    await user.click(screen.getByRole("button", { name: "Ask MakerLAB AI about this machine" }));
     expect(screen.getByTestId("chat-seed")).toHaveTextContent("I'm standing at the Form 4 and I have a question about it.");
   });
 

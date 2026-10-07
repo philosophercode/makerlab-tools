@@ -32,6 +32,8 @@ export const PUBLIC_CLIENT_MESSAGES = [
   "detail",
   "chat",
   "flag",
+  // The quick report form on the tool page and the QR arrival notice.
+  "report",
   "palette",
   "errors",
   "qr",

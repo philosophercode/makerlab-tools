@@ -1,7 +1,7 @@
 # QR Codes on Machines — Design Spec
 
 **Date:** 2026-07-29
-**Status:** Implemented — `npm run qr:labels` (status audit 2026-09-27, [`README.md`](README.md)); amended 2026-09-29, "QR labels in the app" (§12); amended 2026-10-06, "Unit labels and reporting from a unit" (§13) and "The lab's official logo on the labels" (§14)
+**Status:** Implemented — `npm run qr:labels` (status audit 2026-09-27, [`README.md`](README.md)); amended 2026-09-29, "QR labels in the app" (§12); amended 2026-10-06, "Unit labels and reporting from a unit" (§13) and "The lab's official logo on the labels" (§14); amended 2026-10-07, "Report a problem opens the quick report form" (§15)
 **Target:** `v5/`
 **Branch:** `v5/qr-labels`
 
@@ -396,3 +396,24 @@ because `pdf-lib` embeds PNG and not SVG.
 **Still open.** Print one sheet of 2″ labels with the logo and check it in the
 lab before printing a hundred. Decide whether wide side-by-side labels get a
 taller logo.
+
+## 15. Amendment 2026-10-07 — Report a problem opens the quick report form
+
+Open question 2 of §13 is answered: the owner chose a form (design review decisions,
+2026-10-07, "Reporting"), and it is the quick report spec (`2026-10-07-quick-report-design.md`).
+
+- **A unit's label.** **Report a problem with this unit** opens the quick report form with that unit
+  preselected ("Chosen from the label you scanned."), not the chat. The student types what is wrong
+  in one box and may add a photo; the ticket lands on the unit.
+- **A tool's label.** Its secondary **Report a problem** opens the same form, with the unit to
+  choose when the tool has several.
+- **Ask** reads **Ask MakerLAB AI about this machine** (`report.ask`) and opens the chat seeded as
+  before. `qr.arrivalAction`, `qr.reportUnitSeed` and `qr.reportToolSeed` are removed.
+- **The tool page** carries Report a problem and Ask MakerLAB AI in its hero too, for people who did
+  not scan (§13 open question 3, in part: one Report for the page, not one per unit row).
+- The chat's handling of a unit (`findUnit` with the focused tool, unit ids in photo hints) is
+  unchanged; it still serves reports made in the chat.
+
+`QrArrivalNotice` takes the tool's slug (`toolSlug`), which the form files against.
+**Tests:** `app/tools/[id]/QrArrivalNotice.test.tsx` (both labels open the form, not the chat; a
+unit's label preselects it).

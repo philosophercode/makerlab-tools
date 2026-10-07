@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import type { MaintenanceQueueEntry } from "../../lib/data/maintenance";
 import { MAINTENANCE_PRIORITY, MAINTENANCE_STATUS } from "../../lib/db/schema/vocabulary";
 import type { UpdateTicketAction } from "../../app/admin/maintenance/action-result";
+import { ticketRef } from "../../lib/maintenance/ticket-ref";
 import { QueueList } from "../system/queue/QueueList";
 import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
 import { ReviewCard } from "../system/review/ReviewCard";
@@ -60,7 +61,8 @@ export function MaintenanceQueue({ tickets, staff, action }: MaintenanceQueuePro
       isOpen={(ticket) => OPEN_STATUSES.has(ticket.status)}
       selectable={{ kind: "maintenance_log", name: (ticket) => ticket.title }}
       searchText={(ticket) =>
-        [ticket.title, ticket.toolName, ticket.unitLabel, ticket.description, ticket.reportedByName, ticket.assignedToName].join(" ")
+        // The short reference a student was given (quick report spec §5) finds its ticket.
+        [`#${ticketRef(ticket.id)}`, ticket.title, ticket.toolName, ticket.unitLabel, ticket.description, ticket.reportedByName, ticket.assignedToName].join(" ")
       }
       facets={[
         {
@@ -133,6 +135,10 @@ function TicketCard({
           )}
           {ticket.unitLabel ? <span>{ticket.unitLabel}</span> : null}
           {ticket.type ? <span>{t(`type.${ticket.type}`)}</span> : null}
+          {/* The short reference the reporter was shown (quick report spec §5). Data, not a string. */}
+          <span className="font-mono tabular-nums" data-slot="ticket-ref">
+            #{ticketRef(ticket.id)}
+          </span>
           {/* ISO, locale-neutral, identical on the server and the client. */}
           <span className="tabular-nums">{t("reportedOn", { date: ticket.dateReported || isoDay(ticket.createdAt) })}</span>
           {ticket.dateResolved ? <span className="tabular-nums">{t("resolvedOn", { date: ticket.dateResolved })}</span> : null}

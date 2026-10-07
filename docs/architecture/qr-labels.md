@@ -63,8 +63,10 @@ no new permission, no model call.
   puts the tool's name on one line and the unit's under it, in the room a
   second name line takes, so the 2″ code stays above 25 mm.
   `QrArrivalNotice` names the unit and offers **Report a problem with this
-  unit**, which opens the chat seeded with the unit's name: the report form
-  is the assistant's `report_issue`. `findUnit` resolves a unit id exactly
+  unit**, which opens the quick report form with that unit preselected
+  (`components/tool/report/ReportProblemButton`, quick report spec
+  2026-10-07; QR spec amendment §15). A tool's label opens the same form with
+  the unit to choose. `findUnit` resolves a unit id exactly
   and prefers the focused tool's units for a shared label, and the photo hint
   names the unit and its id for a unit code. `/api/qr/[slug]`, the tool
   page's dialog and `get_tool_qr_code` stay tool-only.

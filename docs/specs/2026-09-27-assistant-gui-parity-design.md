@@ -400,7 +400,7 @@ least role holding the permission: *anyone* (no sign-in), *user* (signed in), *a
 | # | Action | Page | Route / server action | Permission · role | Assistant today |
 |---|---|---|---|---|---|
 | 1 | Report a correction | `/tools/[id]` (FlagButton) | `POST /api/flags` | — · anyone | **yes** — `report_correction` |
-| 2 | Report a maintenance problem | *(no GUI form; chat only)* | — | — · anyone (chat), user (MCP) | **yes** — `report_issue` |
+| 2 | Report a maintenance problem | `/tools/[id]` and the QR arrival notice (quick report form, amendment 2026-10-07); before that chat only | `POST /api/report` | — · anyone (form, chat), user (MCP) | **yes** — `report_issue` |
 | 3 | Submit a project | `/projects/new` | `POST /api/projects` (+ `POST /api/uploads`, kind `project`) | `projects.submit` · user | **no** |
 | 4 | Change language | header | `changeLocale` (`src/i18n/actions.ts`) | — · anyone | **no** — non-goal (client preference) |
 | 5 | Upload a photo | chat, project form | `POST /api/uploads` | per kind | **partial** — chat attachments only |
@@ -1687,3 +1687,24 @@ tool in one POST), `lib/actions/manual-triage.test.ts`, `lib/data/manual-triage-
 `components/admin/manual-triage-state.test.ts`, `components/admin/ManualTriage.test.tsx` (grouping,
 before and after, one request per tool, chosen rows, keys, the dialog, modifier keys and Tab, conflict
 and request failure). No migration, no new route, no new env var.
+
+### 2026-10-07 — quick report: a public form over `report_issue`'s write
+
+The quick report spec (`2026-10-07-quick-report-design.md`) gives §4.1 row 2 its GUI: **Report a
+problem** on the tool page and the QR arrival notice opens a form with one box, and
+`POST /api/report` files the ticket. It is a GUI write the parity guard sees, and it is an
+**"Already shared"** entry in `EXEMPT`, like `POST /api/flags` over `report_correction`: the route
+and `report_issue` call one write, `fileProblemTicket` (`lib/maintenance/file-ticket.ts`), which
+writes an open issue report through `createMaintenanceLog` and drops the ticket-count caches.
+`report_issue` moved onto it without a change in behaviour.
+
+| GUI write | Shared with | Permission | Chat | MCP |
+|---|---|---|---|---|
+| `POST /api/report` (quick report form) | `report_issue` (`fileProblemTicket`) | — · anyone | `report_issue`, unchanged | `report_issue`, unchanged (signed in) |
+
+No registered action, no generated tool and no preview: the assistant already files tickets, so
+parity holds in both directions. What the form adds on top of `report_issue` is presentation and
+bounds: a model guess of the title, category, severity and unit (job `reportTriage`, the words fenced,
+closed lists), its own limiter tier (`quickReport`, 8 an hour per person or hashed IP) and, for an
+anonymous caller, a slot of `anonTickets`, the budget `report_issue` already spends. **Counts:** the
+registry, action tools, chat tools and the MCP lists do not change.

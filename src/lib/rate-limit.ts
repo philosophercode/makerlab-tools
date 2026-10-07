@@ -210,6 +210,11 @@ export const ROUTE_TIERS = {
   // Maintenance tickets filed by a caller nobody is signed in as, per hashed
   // IP (security fix 2026-10-05): anonymous reporting stays open, bounded.
   anonTickets: { limit: 5, windowMs: HOUR_MS },
+  // The quick report form (`POST /api/report`, quick report spec §8), per
+  // person or hashed IP: the anonymous chat's eight an hour, for everybody.
+  // An anonymous report also spends one of `anonTickets`, shared with the
+  // chat's `report_issue`, so the two doors together file at most five.
+  quickReport: { limit: 8, windowMs: HOUR_MS },
   // Creating and revoking tokens and connected apps on /account/tokens, and
   // answering the OAuth consent page, per person.
   account: { limit: 30, windowMs: 60_000 },

@@ -137,6 +137,17 @@ export const MODEL_JOBS = {
     serviceTier: "flex",
     tierEnv: "MODEL_EVAL_QUESTIONS_TIER",
   },
+  // The quick report form (quick report spec §3.3): one small call per
+  // report that guesses a title, a category, a severity and the unit from the
+  // student's words. No tools; the words are fenced as untrusted data. Flex,
+  // as the owner asked; a slow or missing answer files the report as written.
+  reportTriage: {
+    kind: "language",
+    env: "MODEL_REPORT_TRIAGE",
+    default: "openai/gpt-6-luna",
+    serviceTier: "flex",
+    tierEnv: "MODEL_REPORT_TRIAGE_TIER",
+  },
   // Manual passages and search queries (manual text spec §3.4). An embedding
   // job, not a language one: `embeddingModelFor`, never `languageModelFor`.
   // No tier hint — embeddings are cheap and a search is waited on.

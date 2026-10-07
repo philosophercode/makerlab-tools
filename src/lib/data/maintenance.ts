@@ -288,6 +288,12 @@ export interface NewMaintenanceLog {
   status?: string | null;
   /** The catalogue unit the report is about, when one resolved. */
   unitId?: string | null;
+  /**
+   * The tool the report is about, for a report that names a machine but no
+   * unit (the quick report form, quick report spec §4). Used only when
+   * {@link unitId} does not resolve: a unit's own tool always wins.
+   */
+  toolId?: string | null;
   reportedByName?: string | null;
   /** **Session only.** There is deliberately no request field that reaches this. */
   reportedByEmail?: string | null;
@@ -333,7 +339,7 @@ export async function createMaintenanceLog(
   options: MaintenanceWriteOptions = {}
 ): Promise<CreatedMaintenanceLog> {
   const db = options.db ?? (await getDb());
-  const target = await findUnitTarget(db, input.unitId);
+  const target = (await findUnitTarget(db, input.unitId)) ?? (await findToolTarget(db, input.toolId));
   const dateReported = labToday();
 
   return db.transaction(async (tx) => {
@@ -384,7 +390,8 @@ export async function createMaintenanceLog(
 }
 
 interface UnitTarget {
-  unitId: string;
+  /** Null for a tool-only target ({@link findToolTarget}). */
+  unitId: string | null;
   toolId: string | null;
   toolName: string | null;
   unitLabel: string | null;
@@ -407,6 +414,13 @@ async function findUnitTarget(db: Db, unitId: string | null | undefined): Promis
     .limit(1);
 
   return row ?? null;
+}
+
+/** A tool with no unit: the tool and its name, or null for anything unresolvable. */
+async function findToolTarget(db: Db, toolId: string | null | undefined): Promise<UnitTarget | null> {
+  if (!toolId || !isUuid(toolId)) return null;
+  const [row] = await db.select({ toolId: tools.id, toolName: tools.name }).from(tools).where(eq(tools.id, toolId)).limit(1);
+  return row ? { unitId: null, unitLabel: null, ...row } : null;
 }
 
 // ── The queue (spec §5.6, §9) ───────────────────────────────────────
