@@ -249,9 +249,13 @@ body::selection {
 
 /* Space Grotesk's caps are 0.70 em, so this font size makes them as tall as
    the wordmark; a 0.8 line box puts the baseline on the box's bottom edge,
-   level with the wordmark's. */
+   level with the wordmark's. The box is held to the wordmark's height (the
+   line's empty top overflows it), so "AI" never makes the bar taller. */
 .brand-ai {
   flex: none;
+  display: flex;
+  align-items: flex-end;
+  height: var(--wordmark-height);
   color: var(--primary);
   font-family: var(--font-display);
   font-size: calc(var(--wordmark-height) / 0.7);
