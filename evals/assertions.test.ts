@@ -6,6 +6,7 @@ import {
   notCalledTool,
   citesResource,
   containsAll,
+  containsAny,
   isAssertionKind,
   mentionsTool,
   noFabricatedSpecs,
@@ -121,6 +122,25 @@ describe("contains_all / not_contains_any", () => {
   });
 });
 
+describe("contains_any", () => {
+  it("passes when any one literal is present, case and emphasis ignored", () => {
+    expect(containsAny("Ask a **SuperMaker** to show you.", ["staff", "SuperMaker"]).ok).toBe(true);
+    expect(containsAny("Check with lab Staff first.", ["staff", "SuperMaker"]).ok).toBe(true);
+  });
+
+  it("fails when none is present, naming them all", () => {
+    const result = containsAny("Just press start.", ["staff", "SuperMaker"]);
+    expect(result.ok).toBe(false);
+    expect(result.detail).toBe('none of: "staff", "SuperMaker"');
+  });
+
+  it("runs from a case file's spec", () => {
+    const input = { text: "Ask a Super Maker on shift.", toolCalls: [], fixture: evalFixture };
+    expect(runAssertion({ kind: "contains_any", value: ["SuperMaker", "Super Maker"] }, input).ok).toBe(true);
+    expect(runAssertion({ kind: "contains_any", value: ["staff"] }, input).ok).toBe(false);
+  });
+});
+
 describe("no_fabricated_specs", () => {
   it("passes when the answer states no number for an unknown field", () => {
     const text =
@@ -206,7 +226,7 @@ describe("says_not_covered", () => {
 
 describe("runAssertion dispatch", () => {
   it("handles every declared kind", () => {
-    expect(ASSERTION_KINDS).toHaveLength(16);
+    expect(ASSERTION_KINDS).toHaveLength(17);
     for (const kind of ASSERTION_KINDS) {
       const outcome = runAssertion(
         {

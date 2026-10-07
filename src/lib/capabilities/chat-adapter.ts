@@ -9,6 +9,7 @@ import { languageNameForLocale } from "../../i18n/config";
 import { newTurnState, readsOutsideContent } from "../chat/taint";
 import { siteConfig } from "../site-config";
 import { LAB_CONTEXT } from "../ai/lab-context";
+import { LAB_COMPANION } from "../ai/lab-companion";
 import { labNotesSection, toolLabNotesLines } from "../ai/lab-notes-prompt";
 import { CITE_HREF_PREFIX } from "../manuals/citation-ref";
 import type { MakerLabTool } from "../../components/catalog-types";
@@ -89,12 +90,12 @@ export const CONVERSATION_HEADING = "# This conversation";
 /**
  * Compose the chat system prompt, in two parts:
  *
- * 1. **Stable** — the intro, "Where you are", the lab notes rules and the
- *    lab-wide notes, every capability's `promptFragment(env)` in registry
- *    order (the catalog capability's owns tool linking and the one catalog
- *    listing), then the reading and citing rules. Nothing here names the
- *    caller, the page or the locale; the lab-wide notes change only when
- *    staff save them.
+ * 1. **Stable** — the intro, "Where you are", the companion rules ("The lab
+ *    first, then its people"), the lab notes rules and the lab-wide notes,
+ *    every capability's `promptFragment(env)` in registry order (the catalog
+ *    capability's owns tool linking and the one catalog listing), then the
+ *    reading and citing rules. Nothing here names the caller, the page or the
+ *    locale; the lab-wide notes change only when staff save them.
  * 2. **This conversation** — the response language, the focused tool and its
  *    resources, then every capability's `conversationFragment(env)` (who is
  *    signed in, the focused tool's manual contents, a curation record).
@@ -108,10 +109,11 @@ export function buildSystemPrompt(
   env: PromptEnv
 ): string {
   const { focusedTool, locale } = env;
-  // The lab context is static: it goes right after the intro, in the prompt's
-  // cacheable prefix, before anything that varies by request. The lab notes
-  // follow it: the same for every request until staff save new ones.
-  const stable: string[] = [introSection(), LAB_CONTEXT, labNotesSection(env.labNotes ?? [])];
+  // The lab context and the companion rules are static: they go right after
+  // the intro, in the prompt's cacheable prefix, before anything that varies
+  // by request. The lab notes follow them: the same for every request until
+  // staff save new ones.
+  const stable: string[] = [introSection(), LAB_CONTEXT, LAB_COMPANION, labNotesSection(env.labNotes ?? [])];
   for (const capability of capabilities) {
     const fragment = capability.promptFragment(env).trim();
     if (fragment) stable.push(fragment);

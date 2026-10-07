@@ -8,6 +8,25 @@ The full list, by role — generated from the same definitions the assistant
 runs on — is the public page **`/assistant`** ("What MakerLAB AI can and can't
 do"), linked from the chat, About, `/mcp` and the product page.
 
+## A companion, not a replacement
+
+The assistant is there to strengthen the lab's community, not to stand in for
+its people (owner meeting with the Director and Assistant Director,
+2026-10-06):
+
+- **The lab's own knowledge first.** It leads with what the lab itself says
+  about a tool: its notes (for example "run the exhaust for 60 seconds before
+  opening the lid"), the SOP and safety documents, PPE, restrictions and
+  training. Then it adds what the manual or the manufacturer says, cited as
+  usual. Where the two differ, it follows the lab's rule and says so.
+- **It points you to people.** For first use, safety and hands-on technique it
+  also suggests a person: a SuperMaker or other staff ("ask a SuperMaker to
+  show you the first time"), the training the tool requires, or another maker
+  who has used it. It never invents a name or says who is on shift.
+- **It can be wrong.** Under the chat's text box, always: "MakerLAB AI can make
+  mistakes. Check anything safety-related with staff." It still cites its
+  sources and says when it does not know.
+
 ## Everybody
 
 - Find equipment ("what can cut acrylic?"), explain how a machine works from its

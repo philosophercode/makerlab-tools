@@ -418,6 +418,7 @@ function validateAssertion(raw: YamlValue, file: string, caseId: string): Assert
     "called_tool",
     "not_called_tool",
     "contains_all",
+    "contains_any",
     "not_contains_any",
     "identified_items",
     "identified_count",

@@ -79,6 +79,9 @@ describe("parseCaseFile validation", () => {
       parseCaseFile(`- id: a\n  prompt: "hi"\n  assert:\n    - kind: mentions_tool\n`, "t.yaml")
     ).toThrow(/requires a "value"/);
     expect(() =>
+      parseCaseFile(`- id: a\n  prompt: "hi"\n  assert:\n    - kind: contains_any\n`, "t.yaml")
+    ).toThrow(/requires a "value"/);
+    expect(() =>
       parseCaseFile(
         `- id: a\n  prompt: "hi"\n  assert:\n    - kind: no_fabricated_specs\n`,
         "t.yaml"
@@ -201,7 +204,7 @@ describe("the shipped case set", () => {
     expect(new Set(cases.map((c) => c.id)).size).toBe(cases.length);
   });
 
-  it("covers bulk import, catalog lookup, citations, curation, lab identity, manual grounding, manual search, photo identification, staff maintenance, tool calling and honest absence", () => {
+  it("covers bulk import, catalog lookup, citations, curation, lab companion, lab identity, manual grounding, manual search, photo identification, staff maintenance, tool calling and honest absence", () => {
     const files = new Set(loadCases().map((c) => c.file));
     expect(files).toEqual(
       new Set([
@@ -211,6 +214,7 @@ describe("the shipped case set", () => {
         "citations-resolve.yaml",
         "curation.yaml",
         "honest-absence.yaml",
+        "lab-companion.yaml",
         "lab-identity.yaml",
         "manual-grounding.yaml",
         "manual-search.yaml",

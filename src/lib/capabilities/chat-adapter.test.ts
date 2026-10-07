@@ -276,3 +276,54 @@ describe("where you are (identity spec 2026-09-28 §5)", () => {
     expect(onTool.slice(0, onTool.indexOf(CONVERSATION_HEADING))).toBe(general.slice(0, general.indexOf(CONVERSATION_HEADING)));
   });
 });
+
+describe("the lab first, then its people (identity spec amendment 2026-10-06)", () => {
+  it("leads with the lab's own knowledge, then the manual, and says when they differ", () => {
+    const prompt = promptFor(null);
+
+    expect(prompt).toContain("## The lab first, then its people");
+    expect(prompt).toContain("a companion to the MakerLAB community, not a replacement for its people");
+    expect(prompt).toContain("the tool's lab notes, its SOP and safety documents");
+    expect(prompt).toContain("searched and cited as usual");
+    expect(prompt).toContain("follow the lab's rule and say they differ");
+  });
+
+  it("points students to people for first use, safety and technique, and invents nobody", () => {
+    const prompt = promptFor(null);
+
+    expect(prompt).toContain("For first use, safety and hands-on technique");
+    expect(prompt).toContain('"ask a SuperMaker to show you the first time"');
+    expect(prompt).toContain("Never invent a name, a schedule or who is on shift.");
+  });
+
+  it("never weakens citations or the honest 'I don't know'", () => {
+    expect(promptFor(null)).toContain("It never replaces the steps, a citation, or saying you don't know.");
+  });
+
+  it("sits in the static prefix, right after 'Where you are'", () => {
+    const general = promptFor(null);
+    const onTool = buildSystemPrompt([], { tools: mockTools, focusedTool: trotec, locale: "fr" });
+    const where = general.indexOf("## Where you are");
+    const companion = general.indexOf("## The lab first, then its people");
+
+    expect(companion).toBeGreaterThan(where);
+    expect(companion).toBeLessThan(general.indexOf(CONVERSATION_HEADING));
+    expect(onTool.slice(0, onTool.indexOf(CONVERSATION_HEADING))).toBe(general.slice(0, general.indexOf(CONVERSATION_HEADING)));
+  });
+
+  it("comes before the lab notes rules and leaves citing a lab note to them", () => {
+    const prompt = promptFor(trotec);
+
+    expect(prompt.indexOf("## The lab first, then its people")).toBeLessThan(prompt.indexOf("## Lab notes"));
+    expect(prompt).toContain('cite a lab note as the "Lab notes" section says');
+  });
+
+  it("adds no notes line of its own: the focused tool's lab notes come once, from the lab notes block", () => {
+    const prompt = promptFor(trotec);
+    const tail = prompt.slice(prompt.indexOf(CONVERSATION_HEADING));
+
+    expect(tail).toContain("  - Run exhaust for 60 seconds after cuts before opening the lid.");
+    expect(tail.split("Run exhaust for 60 seconds").length - 1).toBe(1);
+    expect(tail).not.toContain("- Lab notes: ");
+  });
+});

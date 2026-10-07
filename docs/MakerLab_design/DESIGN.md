@@ -475,7 +475,9 @@ table, import card) span the full width. `Suggestions` stack as sentences on
 the empty state, each with a small icon. `PromptInput` at the foot:
 attachments above the text, attach and dictate on the left, **Send** — the
 sheet's one filled button — on the right; Enter sends, Shift+Enter is a new
-line.
+line. Under it, always, one quiet line in the form-hint style (§8.7: 12px,
+muted): "MakerLAB AI can make mistakes. Check anything safety-related with
+staff." It is the text field's accessible description.
 
 ```
 TO REPLACE THE RESIN TANK ON THE FORM 4:

@@ -1116,6 +1116,27 @@ describe("ChatFab — the sheet (UI system phase 5b)", () => {
     expect(screen.getByRole("button", FAB)).toBeInTheDocument();
   });
 
+  // Identity spec amendment 2026-10-06: always visible, quiet, and read with the field.
+  const AI_NOTE = "MakerLAB AI can make mistakes. Check anything safety-related with staff.";
+
+  it("shows the 'can make mistakes' note under the composer and describes the field with it", async () => {
+    const user = userEvent.setup();
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", FAB));
+
+    expect(screen.getByText(AI_NOTE)).toHaveClass("text-xs", "text-muted-foreground");
+    expect(screen.getByRole("textbox", { name: "Ask the MakerLAB Assistant" })).toHaveAccessibleDescription(AI_NOTE);
+  });
+
+  it("keeps the note once a conversation is under way", async () => {
+    const user = userEvent.setup();
+    useChatReturn = baseReturn({ messages: [userMsg("u1", "How do I use the laser?"), assistantMsg("a1", "Follow the SOP.")] });
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", FAB));
+
+    expect(screen.getByText(AI_NOTE)).toBeVisible();
+  });
+
   it("marks the conversation as a live log", async () => {
     const user = userEvent.setup();
     useChatReturn = baseReturn({ messages: [userMsg("u1", "hi"), assistantMsg("a1", "hello")] });

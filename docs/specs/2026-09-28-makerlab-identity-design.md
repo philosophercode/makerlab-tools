@@ -264,3 +264,51 @@ the description, list or sentence, absent when blank, no Details row);
 `ToolFieldsForm.test.tsx`; `admin/lab-notes/LabNotesForm.test.tsx`;
 `app/admin/inventory/lab-notes/page.test.tsx` and `actions.test.ts` (gate,
 normalised save, cache tag, cap); `starters/hash.test.ts`.
+
+## Amendment — Companion, not a replacement (2026-10-06)
+
+At the owner's meeting with Niti Parikh (Director) and Luis Rodrigo Navarro
+(Assistant Director) on 2026-10-06: the assistant should strengthen the lab's
+community, not replace its people. It should know the lab first (their
+example: a box cutter's lab note says to put a cutting mat underneath so the
+table is not scratched). And answers are still sometimes wrong or cite the
+manual badly, so the chat should say that the AI can make mistakes.
+
+- **"The lab first, then its people"** (`src/lib/ai/lab-companion.ts`). A
+  short static block right after "Where you are" (§5), in the prompt's
+  cacheable prefix, and before the "Lab notes" rules (amendment above): it is
+  wholly static, so it sits ahead of the lab-wide notes, which change when
+  staff save them. The lab's own record comes first: a tool's lab notes, its
+  SOP and safety documents, PPE, restrictions, emergency stop and training.
+  A lab note is cited as the "Lab notes" rules say (**Lab note:**); this
+  block does not set a format of its own. The manual or manufacturer follows,
+  searched and cited as before. Where they differ, the lab's rule wins and
+  the answer says so. For first use, safety and hands-on technique the answer
+  adds one line pointing the student to a person: a SuperMaker or other
+  staff, the tool's training, or another maker.
+  It names only people the prompt names and never says who is on shift (it
+  knows no rota). The block ends by saying it never replaces the steps, a
+  citation or an honest "I don't know".
+- **Lab notes reach the prompt** through the "Lab notes" amendment above:
+  the focused tool's notes come first in its block (`describeTool`), and
+  other tools' through `get_tool_details`. The starter grader reads the same
+  block, so it sees them too. This amendment adds no notes line of its own.
+- **"MakerLAB AI can make mistakes. Check anything safety-related with
+  staff."** (`chat.aiNote`, translated in all 12 locales). One line under the
+  composer, always shown, styled as a form hint (DESIGN.md §8.7: 12px,
+  muted). It is the text field's accessible description, so a screen reader
+  reads it there. The product name stays "MakerLAB AI" in every locale, as in
+  `chat.capabilitiesLink`.
+- **Not done:** `CHAT_PROMPT_CACHE_KEY_DEFAULT` stays `makerlab-chat-v1`.
+  Bumping it would mark every cached starter answer stale until
+  `npm run starters:refresh` is run again (paid). Open item for the owner.
+- **Tested** in `chat-adapter.test.ts` (the block's rules, its place after
+  "Where you are" and before "Lab notes" in the static prefix, the focused
+  tool's lab notes given once) and
+  `ChatFab.test.tsx` (the note shows before and during a conversation and
+  describes the text field). **Evals** (paid, not in CI):
+  `evals/cases/lab-companion.yaml`: the Trotec's lab note ("60 seconds")
+  before the lid is opened, a first laser cut that still cites the SOP and
+  suggests a SuperMaker, and a first-time resin question that gives the lab's
+  PPE and suggests staff. The harness gained `contains_any` (at least one of
+  several literals) for behaviour with more than one fair wording.
