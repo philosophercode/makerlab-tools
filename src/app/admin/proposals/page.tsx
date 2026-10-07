@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
+import { buttonVariants } from "@/components/ui/button";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
 import { DecidedProposals } from "../../../components/admin/DecidedProposals";
@@ -18,8 +19,12 @@ import { listOpenAssistantProposals, MCP_PROPOSAL_CHAT_ID } from "../../../lib/d
 import { loadTriageTools } from "../../../lib/data/manual-triage-tools";
 
 /**
- * `/admin/proposals` — the **Assistant proposals** inbox (assistant–GUI parity
- * spec §3.8, §6; owner's §11 answers 4, 7 and 11).
+ * `/admin/proposals` — the Settings section's **MCP** tab (admin sections spec
+ * 2026-10-07: "Connected assistants" becomes MCP), which holds the **Assistant
+ * proposals** inbox (assistant–GUI parity spec §3.8, §6; owner's §11 answers
+ * 4, 7 and 11) and links to how to connect an assistant (`/mcp`) and the
+ * viewer's access tokens (`/account/tokens`). The address is unchanged: the
+ * MCP server's own instructions name it.
  *
  * An AI assistant connected over MCP (Claude Code, ChatGPT…) cannot draw a
  * confirmation card, so a change it asks for is stored as a proposal with
@@ -48,7 +53,7 @@ import { loadTriageTools } from "../../../lib/data/manual-triage-tools";
  */
 
 export const metadata = {
-  title: "Assistant proposals",
+  title: "MCP",
 };
 
 const MANUALS_HREF = "/admin/proposals?view=manuals";
@@ -57,6 +62,7 @@ const ALL_HREF = "/admin/proposals";
 export default async function AdminProposalsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const t = await getTranslations("actions.inbox");
   const tt = await getTranslations("actions.triage");
+  const tm = await getTranslations("admin.mcp");
   const identity = await resolveIdentityFromHeaders();
 
   if (!identity.userId || !mayOpen(identity, surface("proposals"))) return <AdminNotice kind="forbidden" />;
@@ -83,10 +89,25 @@ export default async function AdminProposalsPage({ searchParams }: { searchParam
     <section className="flex flex-col gap-4">
       <AdminPageHeader
         surface="proposals"
-        title={t("title")}
-        lede={t("lede")}
+        title={tm("title")}
+        lede={tm("lede")}
         facts={view ? [t("factsWaiting", { count: view.waiting }), t("factsDecided", { count: view.decided.length })] : []}
+        actions={
+          <>
+            <Link href="/mcp" className={buttonVariants({ variant: "outline" })}>
+              {tm("guide")}
+            </Link>
+            <Link href="/account/tokens" className={buttonVariants({ variant: "outline" })}>
+              {tm("tokens")}
+            </Link>
+          </>
+        }
       />
+
+      <div className="ui flex flex-col gap-1">
+        <h3 className="m-0 font-heading text-lg font-medium uppercase">{t("title")}</h3>
+        <p className="m-0 max-w-[72ch] text-sm text-muted-foreground">{t("lede")}</p>
+      </div>
 
       {view && triageTools.length > 0 ? (
         <LinkTabs

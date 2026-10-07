@@ -13,7 +13,7 @@ The app emails staff. Two things, nothing else:
   `/admin/maintenance#ticket-<id>`.
 - **Recurring maintenance is due.** At 08:00 lab time, on days when something is due today
   or overdue, the same people get one email listing it, with a link to the Shift checklist
-  (`/admin/maintenance#due-tasks`). Nothing due, nothing sent.
+  (`/admin/maintenance/checklist`). Nothing due, nothing sent.
 
 Both carry the official logo (`siteConfig.logoPng`) on a white band and a one-click
 unsubscribe. Neither the assistant nor an MCP client can send mail or change who gets it

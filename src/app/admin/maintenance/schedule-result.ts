@@ -8,8 +8,14 @@ import type { AdminActionWarning, AdminGateError } from "../../../lib/admin/acti
  * pulling `next/headers` into their graph.
  */
 
-/** Where recurring tasks are set up. The due list sits on `/admin/maintenance`. */
+/** Where recurring tasks are set up. */
 export const SCHEDULES_PATH = "/admin/maintenance/schedules";
+
+/**
+ * The Shift checklist, where the tasks due are checked off (admin sections
+ * spec 2026-10-07). The overview (`/admin`) shows the same list.
+ */
+export const CHECKLIST_PATH = "/admin/maintenance/checklist";
 
 /**
  * Why a recurring-task write did not land. Every code has an

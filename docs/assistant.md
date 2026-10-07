@@ -1,7 +1,7 @@
 # What the MakerLab assistant can do
 
-The assistant is the chat button on every page (on admin pages, **Ask the
-assistant** in the section bar). What it can do depends on who is signed in:
+The assistant is the chat button on every page (on admin pages, **Ask
+MakerLAB AI** in the section bar). What it can do depends on who is signed in:
 it is offered exactly what your account could do by hand, never more.
 
 The full list, by role — generated from the same definitions the assistant
@@ -119,7 +119,7 @@ since the card was drawn, nothing is saved and the card says what it is now.
 
 Claude Code, ChatGPT and other assistants can connect to MakerLab as you (see
 [`mcp.md`](mcp.md)). They can prepare the same queue and catalogue changes, but
-those wait in **Assistant proposals** (`/admin/proposals`) for up to 7 days,
+those wait in **Assistant proposals** on **Admin → Settings → MCP** (`/admin/proposals`) for up to 7 days,
 where only you can confirm them. Many changes to manuals and links are easiest
 to decide on the inbox's **Manuals** tab, one machine at a time. Changes to people, anything that cannot be
 undone, and anything that spends research budget are never available to them.

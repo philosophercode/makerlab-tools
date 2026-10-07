@@ -248,7 +248,8 @@ async function render(db: Db, row: OutboxRow, origin: string, unsubscribeUrl: st
   return renderMaintenanceDue({
     due,
     origin,
-    checklistUrl: `${origin}/admin/maintenance#due-tasks`,
+    // The Shift checklist's own tab (admin sections spec 2026-10-07).
+    checklistUrl: `${origin}/admin/maintenance/checklist`,
     unsubscribeUrl,
     dateLabel: labDateLabel(due.labDate),
   });

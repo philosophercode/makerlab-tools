@@ -30,7 +30,7 @@ import { personLabel } from "../../../components/admin/person-label";
  */
 
 export const metadata = {
-  title: "Refresh research",
+  title: "Check for updates",
 };
 
 /** Where a status sorts when it has no proposals to rank by. */

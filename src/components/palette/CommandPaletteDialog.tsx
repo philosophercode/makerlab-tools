@@ -134,9 +134,9 @@ export function CommandPaletteDialog({
 
           {staff ? (
           <CommandGroup heading={t("surfaces")}>
-            <CommandItem value="surface:overview" keywords={[tNav("overview"), t("home")]} onSelect={() => go(ADMIN_HOME)}>
+            <CommandItem value="surface:overview" keywords={[tNav("section.overview"), t("home")]} onSelect={() => go(ADMIN_HOME)}>
               <LayoutGrid aria-hidden="true" />
-              {tNav("overview")}
+              {tNav("section.overview")}
             </CommandItem>
             {surfaces.map((surface) => {
               const Icon = surface.icon;
@@ -145,12 +145,12 @@ export function CommandPaletteDialog({
                 <CommandItem
                   key={surface.key}
                   value={`surface:${surface.key}`}
-                  keywords={[title, tNav(`group.${surface.group}`)]}
+                  keywords={[title, tNav(`section.${surface.section}`)]}
                   onSelect={() => go(surface.href)}
                 >
                   <Icon aria-hidden="true" />
                   <span>{title}</span>
-                  <CommandShortcut>{tNav(`group.${surface.group}`)}</CommandShortcut>
+                  <CommandShortcut>{tNav(`section.${surface.section}`)}</CommandShortcut>
                 </CommandItem>
               );
             })}

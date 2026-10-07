@@ -849,7 +849,8 @@ planned). Recurring maintenance spec, amendment 2026-10-07, points here.
   recipients rule, same re-checks, same idempotency, same unsubscribe. A second start the same
   day finds the row and sends nothing.
 - **Subject and links.** "Shift checklist: 2 overdue, 3 due today"; one link, "Open the Shift
-  checklist", to `/admin/maintenance#due-tasks`. The official logo heads it like the ticket email.
+  checklist", to `/admin/maintenance/checklist` (the Shift checklist tab since the admin sections
+  spec; first written as `/admin/maintenance#due-tasks`). The official logo heads it like the ticket email.
 - **Offline.** With email not configured, the cron stage records the day's reminder at once as
   `not_configured` instead of starting a sleeping workflow.
 - **No new environment variables.**

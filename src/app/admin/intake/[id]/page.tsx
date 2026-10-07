@@ -62,7 +62,7 @@ import {
  */
 
 export const metadata = {
-  title: "Intake",
+  title: "Add equipment",
 };
 
 /** The actions `PreliminaryToolPage` receives — a `"use server"` module can export only functions. */

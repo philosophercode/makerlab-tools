@@ -104,10 +104,12 @@ would change, field by field, to accept or reject. Nothing changes until someone
 
 ### Handle a maintenance ticket
 
-Tickets from the assistant and the report form land on **Admin → Maintenance**, with photos
-if the student attached any. Corrections students report land on **Admin → Corrections**,
-and project submissions on **Admin → Projects** (unpublished until someone publishes them).
-The admin home shows how many are waiting.
+Tickets from the assistant and the report form land on **Admin → Maintenance → Tickets**,
+with photos if the student attached any. Corrections students report land on **Admin →
+Inventory → Page corrections**, and project submissions on **Admin → People → Student
+projects** (unpublished until someone publishes them). The admin **Overview** says what is
+urgent (Need to know), what recurring checks are due (Shift checklist) and how many items are
+waiting for a decision.
 
 Once email is set up (`RESEND_API_KEY`, `EMAIL_FROM`; [`deploy.md`](deploy.md) step 4),
 everyone who can work tickets gets an email when one is filed, with a link straight to it,
@@ -233,7 +235,7 @@ Body:   {"tag": "catalog"}
 | Uptime monitor on `/api/health` | Emails when the site or database is down | Automatic — [`operations.md`](operations.md#monitoring) |
 | Heartbeat monitor | Emails when the nightly backup fails or does not run | Automatic — [`operations.md`](operations.md#monitoring) |
 | Vercel → AI Gateway → Budgets | **Spend**, against a limit with an alert | Weekly, at minimum |
-| Admin home | Waiting tickets, corrections, projects, intake | Per §3 |
+| Admin Overview | Need to know, the Shift checklist, items waiting for a decision | Per §3 |
 | Vercel logs | `DbUnavailableError` (Postgres unreachable), failed functions | When something looks wrong |
 | Vercel → Cron Jobs | The nightly backup ran green | When the heartbeat or `/admin` says otherwise — see §3 |
 

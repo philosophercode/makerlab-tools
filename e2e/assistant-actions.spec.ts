@@ -222,8 +222,11 @@ test("an MCP proposal waits in its owner's Assistant proposals inbox (phase 7)",
   expect(proposed).toMatchObject({ proposed: true, inbox: "/admin/proposals" });
 
   await page.goto("/admin");
+  // The inbox is Settings › MCP since the admin sections spec (2026-10-07).
   const bar = page.getByRole("navigation", { name: "Admin sections" });
-  await bar.getByRole("link", { name: "Assistant proposals", exact: true }).click();
+  await bar.getByRole("link", { name: "Settings", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/settings$/);
+  await page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: "MCP", exact: true }).click();
   await expect(page).toHaveURL(/\/admin\/proposals$/);
 
   // The card is drawn from the stored proposal. Dismissing it changes nothing

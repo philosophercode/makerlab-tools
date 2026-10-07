@@ -131,7 +131,7 @@ function renderDue(subject: DueSubject = due()) {
   return renderMaintenanceDue({
     due: subject,
     origin: ORIGIN,
-    checklistUrl: `${ORIGIN}/admin/maintenance#due-tasks`,
+    checklistUrl: `${ORIGIN}/admin/maintenance/checklist`,
     unsubscribeUrl: `${ORIGIN}/notifications/unsubscribe?t=v1.abc.def`,
     dateLabel: "Wednesday, October 7",
   });
@@ -150,7 +150,7 @@ describe("maintenance.due email", () => {
     expect(email.text).toContain("- Clean the lens · Trotec Speedy 400 · Laser A · 3 days overdue");
     expect(email.text).toContain("Due today (2)");
     expect(email.text).toContain("- Empty the dust bin · General lab upkeep");
-    expect(email.text).toContain(`Open the Shift checklist: ${ORIGIN}/admin/maintenance#due-tasks`);
+    expect(email.text).toContain(`Open the Shift checklist: ${ORIGIN}/admin/maintenance/checklist`);
     expect(email.text).toContain("Wednesday, October 7");
     expect(email.html).toContain("Check the &lt;resin&gt; tank");
     expect(email.html).toContain(`src="${ORIGIN}${siteConfig.logoPng}"`);

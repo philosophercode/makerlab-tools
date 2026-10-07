@@ -44,8 +44,8 @@ test.describe("/admin/inventory — who may open it", () => {
     await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
     await page.goto("/admin");
 
-    // The home's tile, one of the surfaces this account's permissions open.
-    await page.getByRole("region", { name: "Keep data fresh" }).getByRole("link", { name: "Inventory", exact: true }).click();
+    // The overview's quick action, one of the pages this account's permissions open.
+    await page.getByRole("group", { name: "Admin actions" }).getByRole("link", { name: "All tools", exact: true }).click();
 
     // Headroom, the way `admin-users.spec.ts` gives its saves some: this is
     // often the first request this server sees for the route, and the table
