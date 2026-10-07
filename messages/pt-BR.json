@@ -74,11 +74,9 @@
         "search": "{count, plural, one {Pesquise entre # ferramenta} other {Pesquise entre # ferramentas}}",
         "build": "O que você vai construir?",
         "findMachine": "Encontre sua máquina",
-        "ask": "Faça uma pergunta",
         "x1Filament": "Como coloco filamento na X1-Carbon?",
         "x1Start": "Pergunte como iniciar uma impressão 3D na X1-Carbon",
-        "trotecAcrylic": "O laser Trotec corta acrílico?",
-        "resinPpe": "O que devo usar para imprimir com resina?"
+        "trotecAcrylic": "O laser Trotec corta acrílico?"
       }
     }
   },

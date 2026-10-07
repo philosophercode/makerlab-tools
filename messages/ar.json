@@ -74,11 +74,9 @@
         "search": "ابحث بين الأدوات ({count})",
         "build": "ماذا ستصنع؟",
         "findMachine": "اعثر على جهازك",
-        "ask": "اطرح سؤالًا",
         "x1Filament": "كيف أركّب الخيط في X1-Carbon؟",
         "x1Start": "اسأل كيف تبدأ طباعة ثلاثية الأبعاد على X1-Carbon",
-        "trotecAcrylic": "هل يقطع ليزر Trotec الأكريليك؟",
-        "resinPpe": "ماذا أرتدي لطباعة الراتنج؟"
+        "trotecAcrylic": "هل يقطع ليزر Trotec الأكريليك؟"
       }
     }
   },

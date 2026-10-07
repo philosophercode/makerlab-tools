@@ -74,11 +74,9 @@
         "search": "{count}件のツールを検索",
         "build": "何をつくりますか？",
         "findMachine": "使う機械を探す",
-        "ask": "質問する",
         "x1Filament": "X1-Carbon にフィラメントを入れるには？",
         "x1Start": "X1-Carbon で3Dプリントを始める方法を聞く",
-        "trotecAcrylic": "Trotec のレーザーでアクリルは切れますか？",
-        "resinPpe": "レジン印刷では何を身につければいい？"
+        "trotecAcrylic": "Trotec のレーザーでアクリルは切れますか？"
       }
     }
   },

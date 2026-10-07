@@ -74,11 +74,9 @@
         "search": "חיפוש בין {count} כלים",
         "build": "מה תבנו?",
         "findMachine": "מצאו את המכונה שלכם",
-        "ask": "שאלו שאלה",
         "x1Filament": "איך טוענים פילמנט ב-X1-Carbon?",
         "x1Start": "שאלו איך מתחילים הדפסת תלת-ממד ב-X1-Carbon",
-        "trotecAcrylic": "האם הלייזר של Trotec חותך אקריליק?",
-        "resinPpe": "מה ללבוש להדפסה בשרף?"
+        "trotecAcrylic": "האם הלייזר של Trotec חותך אקריליק?"
       }
     }
   },
