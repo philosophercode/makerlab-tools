@@ -24,6 +24,14 @@ describe("openIssues", () => {
     ];
     expect(openIssues(rows).map((row) => row.id)).toEqual(["a", "b"]);
   });
+
+  it("leaves out a demo pass's ticket (demo pass spec 2026-10-07 §5.4)", () => {
+    const rows = [
+      { id: "lab", title: "Lab", status: "open", toolId: "t", unitId: null, priority: null, demo: false },
+      { id: "demo", title: "Demo", status: "open", toolId: "t", unitId: null, priority: "high", demo: true },
+    ];
+    expect(openIssues(rows).map((row) => row.id)).toEqual(["lab"]);
+  });
 });
 
 describe("issuesForTask", () => {

@@ -3,6 +3,7 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { BrandLogo } from "../../components/BrandLogo";
 import { PageSection, Prose, PublicPage } from "../../components/system/PublicPage";
+import { DEMO_PASS_DAYS, demoPassEnabled } from "../../lib/demo-pass/config";
 import { siteConfig } from "../../lib/site-config";
 import { ABOUT_LINKS, ABOUT_PEOPLE } from "./about-content";
 
@@ -110,6 +111,20 @@ export default function AboutPage() {
           </p>
         </Prose>
       </PageSection>
+
+      {/* Demo pass spec 2026-10-07 §6: the sign-up, for visitors from elsewhere. */}
+      {demoPassEnabled() ? (
+        <PageSection keepCase id="about-demo" title={t("demoHeading")}>
+          <Prose>
+            <p>{t("demoBody", { days: DEMO_PASS_DAYS, institution: siteConfig.institution })}</p>
+          </Prose>
+          <div>
+            <Button asChild variant="default">
+              <Link href="/demo">{t("demoCta")}</Link>
+            </Button>
+          </div>
+        </PageSection>
+      ) : null}
 
       {/* MCP access spec §7, open question 4: list the MCP endpoint here; the
           link goes to the public /mcp page (amendment 2026-09-25). */}

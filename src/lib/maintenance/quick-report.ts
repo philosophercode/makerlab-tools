@@ -112,7 +112,7 @@ export interface FileQuickReportOptions {
 
 export async function fileQuickReport(
   report: QuickReport,
-  identity: Pick<Identity, "userId" | "name" | "email">,
+  identity: Pick<Identity, "userId" | "name" | "email" | "demoPass">,
   options: FileQuickReportOptions = {}
 ): Promise<{ ok: true; value: QuickReportFiled } | { ok: false; code: QuickReportError }> {
   let tool: Awaited<ReturnType<typeof getCatalogTool>>;
@@ -156,6 +156,9 @@ export async function fileQuickReport(
       // The form is a page, not the chat or a connected app (email
       // notifications spec §5.1).
       surface: "gui",
+      // A demo pass's report lands flagged, as `report_issue` files it (demo
+      // pass spec 2026-10-07 §5.4): from the server-resolved pass only.
+      demo: Boolean(identity.demoPass),
     });
     if (report.photoIds.length > 0 && record.photosAttached === 0) {
       console.warn(`[quick-report] ticket ${record.id} filed without its ${report.photoIds.length} photo(s): no upload matched`);

@@ -375,6 +375,23 @@ Phase 5 extends both. The shape it sets:
   (`/admin/maintenance#ticket-<id>`); the browser scrolls there and `:target`
   outlines it, with no script. The 08:00 recurring-maintenance reminder links to
   the Shift checklist tab, `/admin/maintenance/checklist`.
+- **Demo passes' tickets are in the queue, apart** (demo pass spec 2026-10-07
+  §5.4; `maintenance_logs.demo`). A **Demo** badge, a **Filed by** facet (The
+  lab / Demo pass) and their own count in the facts; the open, in-progress and
+  urgent figures are the lab's. Everywhere else they are left out: the kiosk
+  and the overview's counts (`countOpenTickets`), the staff email (no
+  `ticket.filed` notification is queued for one), the inventory's open-ticket flags,
+  the tool page's history, `get_unit_details` / `get_maintenance_history`,
+  `list_open_tickets`, the value report and the Notion mirror.
+- **People → Demo sign-ups** (`/admin/users/demo-signups`, `users.manage`, a
+  page under the People section's Roster;
+  demo pass spec §5.6): every visitor who signed up for a demo pass, newest
+  first — answers, **May contact**, the pass's end and its spend — read only
+  from `listDemoSignups`, never cached. **Download CSV** is
+  `GET /api/admin/demo-signups/export` (`users.manage` again, 10 a minute,
+  `no-store`, formula-safe), audited as `demo_signups.exported` before the file
+  goes. The People header links to it with the count. Not an assistant or MCP
+  action, and no capability reads the table.
 - **Each queue checks its own permission, and a test proves it is its own.** No
   role holds `tools.edit` without `feedback.manage`, so each `actions.test.ts`
   mocks `can()` for one case and asserts the endpoint is refused to a caller

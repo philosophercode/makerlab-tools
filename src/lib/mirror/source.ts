@@ -435,6 +435,8 @@ async function resourceRows(query: SourceQuery): Promise<ResourceSourceRow[]> {
 async function maintenanceRows(query: SourceQuery): Promise<MaintenanceSourceRow[]> {
   const rows = await pageOf<Record<string, unknown>>("maintenance", "maintenance_logs", query, {
     joins: sql`${JOIN_TOOL} left join "user" assignee on assignee.id = s.assigned_to_user_id`,
+    // A demo pass's tickets never leave the app (demo pass spec 2026-10-07 §5.4).
+    filter: sql`not s.demo`,
     columns: sql`
       s.title as "title",
       s.type as "type",

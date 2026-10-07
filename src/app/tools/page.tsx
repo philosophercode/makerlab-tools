@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { DemoSignupCallout } from "../../components/demo/DemoSignupCallout";
 import { GalleryFallback } from "../../components/GalleryFallback";
 import { GalleryShell } from "../../components/GalleryShell";
 import { OnShiftNow } from "../../components/on-shift/OnShiftNow";
@@ -17,9 +18,14 @@ export const metadata = {
  */
 export default function AllToolsPage() {
   return (
-    <Suspense fallback={<GalleryFallback />}>
-      <GalleryData />
-    </Suspense>
+    <>
+      {/* The demo pass's way in, above the full list (demo pass spec
+          2026-10-07 §6), as it sat above the gallery on the old home page. */}
+      <DemoSignupCallout />
+      <Suspense fallback={<GalleryFallback />}>
+        <GalleryData />
+      </Suspense>
+    </>
   );
 }
 

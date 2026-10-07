@@ -75,6 +75,14 @@ its people (owner meeting with the Director and Assistant Director,
   for staff (quick report spec 2026-10-07). Reporting in the chat works as
   before.
 
+**Visitors with a demo pass** (signed up at `/demo`; demo pass spec 2026-10-07)
+can do everything above, with 60 messages an hour instead of a visitor's 8,
+until the pass's AI allowance (about $0.50) is spent; then they carry on at the
+visitor limit. Their reports are filed as **demo** tickets — in the queue,
+badged, but not counted, not on the tool page and not in the assistant's unit
+history — and the assistant tells them so. The assistant never sees what they
+typed when signing up.
+
 ## Lab staff (SuperMakers and directors)
 
 The assistant can prepare almost anything you do in `/admin`, in a sentence:

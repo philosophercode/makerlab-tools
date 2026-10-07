@@ -35,11 +35,14 @@ export interface UsageGapInput {
 /**
  * The coarse bucket an event records instead of a person (§4): a visitor who
  * is not signed in, a signed-in member (`user`), or lab staff (`admin`,
- * `super_admin`) — whom the page leaves out by default.
+ * `super_admin`) — whom the page leaves out by default. A visitor holding a
+ * demo pass (`demo`) is `demo`, which every count leaves out (demo pass spec
+ * 2026-10-07 §5.5); a signed-in caller never holds one.
  */
-export function audienceFor(role: Role | null | undefined): UsageAudience {
+export function audienceFor(role: Role | null | undefined, options: { demo?: boolean } = {}): UsageAudience {
   if (role === "admin" || role === "super_admin") return "staff";
   if (role === "user") return "member";
+  if (options.demo) return "demo";
   return "anonymous";
 }
 

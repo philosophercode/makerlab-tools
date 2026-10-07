@@ -225,6 +225,13 @@
       "when": 1791351498547,
       "tag": "0031_chat_illustrations",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1791353091055,
+      "tag": "0032_demo_pass",
+      "breakpoints": true
     }
   ]
 }

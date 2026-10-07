@@ -166,7 +166,10 @@
   },
   "about": {
     "eyebrow": "À propos",
-    "browseTools": "Parcourir les outils"
+    "browseTools": "Parcourir les outils",
+    "demoHeading": "Essayez la démo complète",
+    "demoBody": "Vous venez d'une autre école ou d'un autre laboratoire ? Un pass démo gratuit vous permet d'utiliser l'assistant comme un étudiant d'ici pendant {days} jours, sans compte {institution}.",
+    "demoCta": "Inscrivez-vous pour essayer la démo complète"
   },
   "chat": {
     "openAria": "Ouvrir MakerLAB AI",
@@ -199,6 +202,12 @@
     "rateLimitSignIn": "Vous avez atteint la limite de messages pour les visiteurs non connectés. Connectez-vous avec votre compte {institution} pour continuer la conversation — la consultation du catalogue reste ouverte dans tous les cas.",
     "rateLimitSignInCta": "Se connecter",
     "rateLimited": "Vous avez atteint la limite horaire de messages. Réessayez dans un moment.",
+    "demoPassLeft": "Pass démo · {amount} restants",
+    "demoPassUsedUp": "Pass démo · épuisé",
+    "demoPassSpent": "Vous avez utilisé le crédit IA de ce pass démo. Merci d'avoir essayé MakerLAB AI ! Vous pouvez continuer à poser quelques questions par heure, comme tout visiteur.",
+    "demoPassLimited": "Vous avez utilisé le crédit IA de ce pass démo et la limite visiteurs de cette heure. Merci d'avoir essayé MakerLAB AI ! Réessayez dans un moment.",
+    "demoPassContactLead": "Envie d'en parler ?",
+    "demoPassContactTeam": "Contactez l'équipe MakerLAB",
     "showingTool": "▣ Récupération de la photo de l'outil…",
     "toolCard": {
       "label": "Outils dans cette réponse",
@@ -330,6 +339,63 @@
   "demoBanner": {
     "label": "Données de démonstration",
     "body": "Ce catalogue contient des données d'exemple intégrées, et non l'inventaire réel de {institution}. Notion n'est pas configuré."
+  },
+  "demoPass": {
+    "eyebrow": "Pass démo",
+    "title": "Essayez la démo complète",
+    "lede": "Obtenez un pass démo gratuit pour utiliser {site} comme un étudiant d'ici : interrogez l'assistant sur les machines du laboratoire, avec des réponses citées de leurs manuels, et signalez un problème. Aucun compte {institution} nécessaire.",
+    "passFacts": "Votre pass fonctionne sur cet appareil pendant {days} jours et couvre environ {budget} d'utilisation de l'IA.",
+    "required": "Obligatoire",
+    "optional": "Facultatif",
+    "nameLabel": "Nom",
+    "emailLabel": "E-mail",
+    "emailHint": "Uniquement pour un suivi. L'assistant ne le voit jamais.",
+    "institutionLabel": "Établissement ou affiliation",
+    "institutionHint": "Une université, une entreprise, un laboratoire ou un makerspace.",
+    "roleLabel": "Rôle",
+    "roleChoose": "Choisissez",
+    "role": {
+      "student": "Étudiant",
+      "staff_technician": "Personnel ou technicien",
+      "faculty": "Enseignant-chercheur",
+      "lab_manager": "Directeur ou responsable de laboratoire",
+      "other": "Autre"
+    },
+    "makerspaceLabel": "Dirigez-vous un makerspace ou y travaillez-vous ?",
+    "yes": "Oui",
+    "no": "Non",
+    "useCaseLabel": "À quoi vous servirait-il ?",
+    "useCaseHint": "Une ou deux phrases suffisent.",
+    "consentLabel": "Vous pouvez me contacter au sujet de MakerLAB AI.",
+    "honeypotLabel": "Laissez ce champ vide",
+    "privacy": "Nous conservons les inscriptions 12 mois. Seule la direction du laboratoire peut les voir, et rien de ce que vous saisissez ici n'est communiqué à l'IA. Pour être supprimé plus tôt, contactez le laboratoire.",
+    "submit": "Obtenir mon pass",
+    "submitting": "Inscription…",
+    "browseTools": "Parcourir les outils",
+    "askAssistant": "Interroger l'assistant",
+    "errors": {
+      "required": "Veuillez remplir ce champ.",
+      "tooLong": "C'est trop long.",
+      "invalidEmail": "Veuillez saisir une adresse e-mail valide.",
+      "invalid": "Veuillez choisir l'une des options.",
+      "summary": "Veuillez vérifier les champs signalés ci-dessus.",
+      "rateLimited": "Trop d'inscriptions depuis ce réseau pour le moment. Réessayez dans quelques minutes.",
+      "unavailable": "L'inscription n'est pas disponible pour le moment. Réessayez bientôt.",
+      "failed": "Une erreur s'est produite. Veuillez réessayer."
+    },
+    "thanksTitle": "C'est fait",
+    "thanksBody": "Merci pour votre inscription. Votre pass démo fonctionne sur cet appareil jusqu'au {date} et couvre environ {budget} d'utilisation de l'IA.",
+    "thanksReturning": "Bon retour. Votre pass démo est de nouveau actif sur cet appareil, avec {remaining} restants, jusqu'au {date}.",
+    "thanksNext": "Ouvrez l'assistant depuis n'importe quelle page avec le bouton du chat, ou commencez ici.",
+    "thanksExpired": "Merci de vous être réinscrit. Le pass démo de cette adresse a expiré, mais nous avons vos coordonnées.",
+    "thanksReceived": "Merci pour votre inscription.",
+    "closedTitle": "Les inscriptions à la démo sont closes",
+    "closedBody": "Merci de votre intérêt. Vous pouvez toujours parcourir les outils et poser quelques questions à l'assistant.",
+    "callout": {
+      "label": "Pass démo",
+      "text": "De passage ? Obtenez un pass démo gratuit pour discuter avec l'assistant du laboratoire et signaler un problème. Aucun compte {institution} nécessaire.",
+      "cta": "Inscrivez-vous pour essayer la démo complète"
+    }
   },
   "kiosk": {
     "onShiftLabel": "De service maintenant"

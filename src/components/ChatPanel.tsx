@@ -25,6 +25,8 @@ import { useChatAttachments } from "./chat/use-chat-attachments";
 import { useDictation } from "./chat/use-dictation";
 import { newMessageId, useStarterAnswers, type StarterScope } from "./chat/use-starter-answers";
 import { usePageSelectionReader, type PageSelection } from "./chat/page-selection";
+import { useDemoPass } from "./chat/use-demo-pass";
+import { DemoPassIndicator, DemoPassSpentNotice } from "./chat/DemoPassStatus";
 import { FROSTED } from "./system/frosted";
 import { cn } from "@/lib/utils";
 
@@ -191,18 +193,25 @@ export function ChatPanel() {
   // The stream ended without a finish (the function timed out or the network
   // dropped): say so instead of leaving a half answer that looks complete.
   const [cutOff, setCutOff] = useState(false);
+  // A visitor's demo pass (demo pass spec 2026-10-07 §6): the balance under
+  // the title, and the thank-you once it is spent.
+  const demoPass = useDemoPass(isOpen);
   const { messages, sendMessage, setMessages, status, error } = useChat({
     transport,
     // At most one render per 50ms while an answer streams, instead of one per
     // chunk (performance plan, quick win 9); with ChatMessage memoised, only
     // the streaming message re-renders.
     experimental_throttle: 50,
-    onFinish: (finish) => setCutOff(isCutOff(finish)),
+    onFinish: (finish) => {
+      setCutOff(isCutOff(finish));
+      demoPass.afterTurn();
+    },
     onData: ({ type, data }) => {
       if (type === "data-manuals-attached") {
         const titles = (data as { titles?: string[] })?.titles;
         if (Array.isArray(titles) && titles.length > 0) setReadingManuals(titles);
       }
+      if (type === "data-demo-pass") demoPass.fromStream(data);
     },
   });
   const isLoading = status === "streaming" || status === "submitted";
@@ -351,10 +360,13 @@ export function ChatPanel() {
           className={cn(FROSTED, "w-full gap-0 overflow-hidden border-0 p-0 sm:w-[440px] sm:border-s")}
         >
           <header className="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3">
-            <SheetTitle className="flex items-center gap-2 font-heading text-sm font-medium normal-case">
-              <BotMessageSquareIcon aria-hidden="true" className="size-4 text-primary-ink" />
-              {t("title")}
-            </SheetTitle>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <SheetTitle className="flex items-center gap-2 font-heading text-sm font-medium normal-case">
+                <BotMessageSquareIcon aria-hidden="true" className="size-4 text-primary-ink" />
+                {t("title")}
+              </SheetTitle>
+              {demoPass.pass ? <DemoPassIndicator pass={demoPass.pass} /> : null}
+            </div>
             <div className="flex items-center gap-1">
               {messages.length > 0 ? (
                 <Button variant="ghost" size="icon-sm" onClick={clearChat} aria-label={t("newChatAria")} title={t("newChatTitle")}>
@@ -393,6 +405,9 @@ export function ChatPanel() {
                   <Link href="/assistant" onClick={close} className="w-fit text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground">
                     {t("capabilitiesLink")}
                   </Link>
+                  {demoPass.pass?.exhausted ? (
+                    <DemoPassSpentNotice contactEmail={demoPass.pass.contactEmail} limited={false} onNavigate={close} />
+                  ) : null}
                 </div>
               ) : (
                 <>
@@ -413,7 +428,9 @@ export function ChatPanel() {
                       </MessageContent>
                     </Message>
                   ) : null}
-                  {ceiling ? (
+                  {ceiling === "demo-pass" ? (
+                    <DemoPassSpentNotice contactEmail={demoPass.pass?.contactEmail ?? null} limited onNavigate={close} />
+                  ) : ceiling ? (
                     <Message from="assistant" kind="notice">
                       <MessageContent>
                         <p>
@@ -442,6 +459,10 @@ export function ChatPanel() {
                         <p>{t("cutOff")}</p>
                       </MessageContent>
                     </Message>
+                  ) : null}
+                  {/* A spent demo pass: thanked once, under the conversation (demo pass spec §5.3). */}
+                  {!ceiling && !isLoading && demoPass.pass?.exhausted ? (
+                    <DemoPassSpentNotice contactEmail={demoPass.pass.contactEmail} limited={false} onNavigate={close} />
                   ) : null}
                 </>
               )}

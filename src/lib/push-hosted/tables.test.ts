@@ -18,8 +18,9 @@ describe("planTables", () => {
     // spec §4): a local database's test events never land in the hosted one.
     // starter_answers carry the local database's own addresses and hashes;
     // staff_shifts is somebody being at this lab now (on-shift spec 2026-10-07);
-    // chat_illustrations name private blobs data:push does not copy.
-    expect(plan.skipped).toEqual(["chat_illustrations", "oauth_access_token", "session", "staff_shifts", "starter_answers", "usage_events", "usage_gaps", "verification"]);
+    // chat_illustrations name private blobs data:push does not copy;
+    // demo_signups are visitors' details, kept where they were collected.
+    expect(plan.skipped).toEqual(["chat_illustrations", "demo_signups", "oauth_access_token", "session", "staff_shifts", "starter_answers", "usage_events", "usage_gaps", "verification"]);
     const all = schemaTables().map(getTableName).sort();
     expect([...plan.tables.map((t) => t.name), ...plan.skipped].sort()).toEqual(all);
     expect(position.has("user")).toBe(true);

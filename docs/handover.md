@@ -120,6 +120,24 @@ a couple of unanswered reports. Decide who checks it and how often, and write th
 
 > **Ticket owner:** ⬜ **TBD** · **Checked:** ⬜ **TBD**
 
+Tickets marked **Demo** were filed by a visitor with a demo pass. They are not counted in the
+open tickets, the kiosk or the tool page; use the queue's **Filed by** filter to see only the
+lab's, or only the demo ones, and close demo tickets when you have read them.
+
+### Demo passes (conferences and visitors)
+
+Visitors who cannot sign in with Google sign up at **/demo** (the front page and About link
+to it) and get a 14-day pass with about $0.50 of AI use (`DEMO_PASS_BUDGET_USD`). Who signed
+up is on **Admin → People → Demo sign-ups**, super admins only, with **Download CSV**. Email
+only the people whose **May contact** says yes.
+
+- **After the event:** set `DEMO_PASS=off` and redeploy to close sign-ups (existing passes
+  stop working too), or leave it on as a standing way to try the assistant.
+- **Retention:** delete sign-ups 12 months after they were made, or sooner when someone asks.
+  There is no Delete button yet (spec §11); a maintainer deletes the rows. Old nightly backups
+  keep them until those backups age out.
+- Every CSV download is recorded in the audit trail as `demo_signups.exported`.
+
 ### Fix something the assistant got wrong
 
 Almost always a data problem, not an AI problem. The assistant answers from the inventory,

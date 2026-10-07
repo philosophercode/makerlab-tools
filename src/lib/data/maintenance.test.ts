@@ -1,11 +1,12 @@
 // @vitest-environment node
 import { eq, inArray } from "drizzle-orm";
 import { createPgliteDb } from "../db/pglite";
-import { attachments, maintenanceLogs, tools, units } from "../db/schema/index";
+import { attachments, maintenanceLogs, notifications, tools, units } from "../db/schema/index";
 import { MAINTENANCE_PRIORITY, MAINTENANCE_TYPE } from "../db/schema/vocabulary";
 import { insertUserRow } from "../../../test/utils/session";
 import type { Db } from "../db/types";
 import {
+  countOpenTickets,
   createMaintenanceLog,
   listMaintenanceHistoryForTool,
   listMaintenanceHistoryForUnit,
@@ -450,6 +451,43 @@ describe("createMaintenanceLog", () => {
     expect(history[0].priority).toBe("High");
     // And only on that unit.
     expect(await listMaintenanceHistoryForUnit(otherUnitId, { db })).toEqual([]);
+  });
+});
+
+// ── Demo passes' tickets (demo pass spec 2026-10-07 §5.4) ───────────
+
+describe("a demo pass's tickets", () => {
+  it("are stored flagged, only when the write says so", async () => {
+    const lab = await createMaintenanceLog({ title: "Real fault", unitId }, { db });
+    const demo = await createMaintenanceLog({ title: "Demo fault", unitId, demo: true }, { db });
+    const rows = await db.select({ id: maintenanceLogs.id, demo: maintenanceLogs.demo }).from(maintenanceLogs);
+    expect(new Map(rows.map((row) => [row.id, row.demo]))).toEqual(new Map([[lab.id, false], [demo.id, true]]));
+  });
+
+  it("email nobody: only the lab's own ticket queues a ticket.filed notification", async () => {
+    const lab = await createMaintenanceLog({ title: "Real fault", unitId }, { db });
+    const demo = await createMaintenanceLog({ title: "Demo fault", unitId, demo: true }, { db });
+    expect(lab.notificationId).not.toBeNull();
+    expect(demo.notificationId).toBeNull();
+    const queued = await db
+      .select({ subjectId: notifications.subjectId })
+      .from(notifications)
+      .where(inArray(notifications.subjectId, [lab.id, demo.id]));
+    expect(queued.map((row) => row.subjectId)).toEqual([lab.id]);
+  });
+
+  it("stay in the queue, flagged, and out of the counts, the tool page and the unit's history", async () => {
+    await createMaintenanceLog({ title: "Real fault", unitId, priority: "High" }, { db });
+    await createMaintenanceLog({ title: "Demo fault", unitId, priority: "Critical", demo: true }, { db });
+
+    expect(await countOpenTickets(db)).toEqual({ open: 1, inProgress: 0, urgent: 1 });
+    expect((await listMaintenanceHistoryForTool(toolId, { db })).map((entry) => entry.title)).toEqual(["Real fault"]);
+    expect((await listMaintenanceHistoryForUnit(unitId, { db })).map((entry) => entry.title)).toEqual(["Real fault"]);
+    const queue = await listMaintenanceQueue({ db });
+    expect(queue.map((entry) => [entry.title, entry.demo]).sort()).toEqual([
+      ["Demo fault", true],
+      ["Real fault", false],
+    ]);
   });
 });
 

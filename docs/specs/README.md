@@ -46,6 +46,7 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 | [MakerLAB Identity](2026-09-28-makerlab-identity-design.md) | MakerLAB / MakerLAB Tools / MakerLAB AI naming (renamed from MakerLAB Assistant, amendment 2026-10-07), the wordmark header, the assistant's first-visit callout and operate/debug/create starters, the "Where you are" prompt block (`src/lib/ai/lab-context.ts`), the About page; amendment 2026-10-06 "Lab notes": a tool's lab notes above its description and first in the assistant's context, lab-wide notes at `/admin/inventory/lab-notes`; amendment 2026-10-06 "Companion, not a replacement": the lab's own knowledge first and people suggested (`src/lib/ai/lab-companion.ts`), the "can make mistakes" note under the composer; amendment 2026-10-06: the official Cornell Tech MakerLAB logo on the kiosk, footer, About, link-preview card and QR labels (`BrandLogo`, `public/brand/`) |
 | [Who's On Shift](2026-10-07-on-shift-design.md) | Staff mark themselves on shift until a time (default the end of today, lab time) on `/admin` or `/account`; it ends by itself. "On shift now: Alex M." on the home page, tool pages and the kiosk, nothing when nobody is; the names in the chat's per-request context. Migration `0029`, permission `shifts.set`, action `shifts.set` (GUI only) |
 | [Admin Sections](2026-10-07-admin-sections-design.md) | Six sections (Overview, Maintenance, Inventory, People, Insights, Settings) and Ask MakerLAB AI; section tabs under each header; the Overview with Need to know, the Shift checklist, quick actions, Waiting for a decision and Inventory health; MCP and AI agents (research budget) under Settings; no route moved, new names redirect |
+| [Demo Pass](2026-10-07-demo-pass-design.md) — visitors without a Cornell account sign up at `/demo` for a 14-day pass with a $0.50 AI budget; demo-flagged usage and tickets; People → Demo sign-ups | Built on `v5/demo-pass` for ISAM (11 October), approved by the owner 2026-10-07 (spec and build in one PR). Migration `0032` (written as `0028`, renumbered when stacked). On the calm home the sign-up is one small line under the search; above the full list on `/tools`; a quick report filed with a pass is a demo ticket and emails nobody. Open: automatic deletion after 12 months, renewal, the contact address (spec §11) |
 | [Operational Hardening](2026-07-29-operational-hardening-design.md) | Health endpoint, demo banner, nightly backup with tiered retention, staff refresh, backup heartbeat. Phase 2 (uptime monitor) is account setup in [`operations.md`](../operations.md); phase 6 (Notion webhook) superseded |
 
 ### Mostly implemented — open work named
@@ -115,7 +116,8 @@ These gate work and none of them are code:
    backup and any Notion mirror: acceptable to the university?
 3. **Photo consent** for student work in the public gallery.
 4. **ISAM rate limit** — conference wifi puts every visitor behind one IP;
-   `RATE_LIMIT_ANON_CHAT` exists for this. **Hard deadline.**
+   `RATE_LIMIT_ANON_CHAT` exists for this, and the demo pass (`/demo`) gives a
+   signed-up visitor their own 60-an-hour allowance. **Hard deadline.**
 5. **Sending domain and mail processor**: which domain the lab can put SPF, DKIM and DMARC
    on (Email Notifications §11 Q1), and whether Resend may process staff addresses under
    Cornell policy (Q2).

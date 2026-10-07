@@ -303,8 +303,11 @@ export type UsageKind = (typeof USAGE_KINDS)[number];
  * The only thing an event records about the person: a coarse bucket from their
  * role (`user` → member; `admin`, `super_admin` → staff). Staff are excluded
  * from the Insights page by default, so testing does not inflate the counts.
+ * `demo` is a visitor holding a demo pass (demo pass spec 2026-10-07 §5.5,
+ * migration `0032`): always left out, so a conference keeps the lab's own
+ * numbers clean.
  */
-export const USAGE_AUDIENCE = ["anonymous", "member", "staff"] as const;
+export const USAGE_AUDIENCE = ["anonymous", "member", "staff", "demo"] as const;
 export type UsageAudience = (typeof USAGE_AUDIENCE)[number];
 
 /** Where an event happened: a page (the beacon, the kiosk), the app's chat, or MCP. */
@@ -430,3 +433,11 @@ export type IllustrationKind = (typeof ILLUSTRATION_KIND)[number];
 /** `pending` while the model draws, `ready` once stored, `failed` when no image came of it. */
 export const ILLUSTRATION_STATUS = ["pending", "ready", "failed"] as const;
 export type IllustrationStatus = (typeof ILLUSTRATION_STATUS)[number];
+
+/**
+ * What a demo-pass visitor says they do (demo pass spec 2026-10-07 §4): the
+ * sign-up form's optional role. Stored snake_case; the form and the admin list
+ * translate it. Null when they did not say.
+ */
+export const DEMO_SIGNUP_ROLES = ["student", "staff_technician", "faculty", "lab_manager", "other"] as const;
+export type DemoSignupRole = (typeof DEMO_SIGNUP_ROLES)[number];

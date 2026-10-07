@@ -19,16 +19,21 @@ import { ALL_TOOLS_PATH } from "../../lib/gallery-links";
  *
  * `onShift` is "On shift now: Alex M." under the search (on-shift spec
  * 2026-10-07), a dynamic hole the page passes in its own Suspense boundary;
- * nobody on shift renders nothing.
+ * nobody on shift renders nothing. `demoCallout` is the demo pass's one line
+ * (demo pass spec 2026-10-07 §6), between the search and the categories: a
+ * server component the page passes in, which renders nothing when the demo
+ * pass is off.
  */
 export function HomeShell({
   tools,
   categoryOrder,
   onShift = null,
+  demoCallout = null,
 }: {
   tools: readonly HomeTool[];
   categoryOrder: readonly string[];
   onShift?: ReactNode;
+  demoCallout?: ReactNode;
 }) {
   const t = useTranslations("gallery.home");
   const tGallery = useTranslations("gallery");
@@ -45,6 +50,8 @@ export function HomeShell({
         <HomeSearch tools={tools} toolCount={count} />
         {onShift}
       </section>
+
+      {demoCallout}
 
       <div className="mb-4 flex flex-wrap items-end justify-between gap-x-6 gap-y-2 border-b border-rule pb-3">
         <h1 id="home-title" className="font-heading text-[clamp(36px,5vw,64px)] leading-[0.92] font-medium tracking-tight normal-case">

@@ -286,7 +286,10 @@
     "usageBody": "To improve the lab, we keep anonymous usage counts — which tools and manuals are asked about and which questions go unanswered — never who asked.",
     "productLink": "What MakerLAB Tools can do",
     "quickStartLink": "Quick start guide",
-    "assistantPageLink": "What MakerLAB AI can and can't do"
+    "assistantPageLink": "What MakerLAB AI can and can't do",
+    "demoHeading": "Try the full demo",
+    "demoBody": "Visiting from another school or lab? A free demo pass lets you use the assistant like a student here for {days} days, with no {institution} account.",
+    "demoCta": "Sign up to try the full demo"
   },
   "chat": {
     "openAria": "Open MakerLAB AI",
@@ -371,6 +374,12 @@
       "downloadPng": "Download PNG",
       "downloadSvg": "Download SVG"
     },
+    "demoPassLeft": "Demo pass · {amount} left",
+    "demoPassUsedUp": "Demo pass · used up",
+    "demoPassSpent": "You've used this demo pass's AI allowance. Thank you for trying MakerLAB AI! You can keep asking a few questions an hour, like any visitor.",
+    "demoPassLimited": "You've used this demo pass's AI allowance and this hour's visitor limit. Thank you for trying MakerLAB AI! Please try again in a little while.",
+    "demoPassContactLead": "Want to talk about it?",
+    "demoPassContactTeam": "Contact the MakerLAB team",
     "showingTool": "▣ Getting the tool's photo…",
     "toolCard": {
       "label": "Tools in this answer",
@@ -1115,7 +1124,14 @@
         "saved": "Logged. It is in the resolved list below.",
         "needTool": "Choose the tool.",
         "needText": "Say what was done, in a line and in detail."
-      }
+      },
+      "fieldSource": "Filed by",
+      "source": {
+        "lab": "The lab",
+        "demo": "Demo pass"
+      },
+      "demoTicket": "Demo",
+      "demoTicketHint": "Filed with a demo pass: not counted in the lab's open tickets, not on the tool page, and not sent anywhere."
     },
     "corrections": {
       "queueLabel": "Corrections waiting to be handled",
@@ -2081,6 +2097,7 @@
       "tasksOverdue": "{count, plural, one {# task overdue} other {# tasks overdue}}",
       "tasksDueToday": "{count, plural, one {# task due today} other {# tasks due today}}",
       "tasksPaused": "{count, plural, one {# paused} other {# paused}}",
+      "demoTickets": "{count, plural, one {# demo ticket} other {# demo tickets}}",
       "tasksSoon": "{count, plural, one {# task due this week} other {# tasks due this week}}"
     },
     "addEquipment": {
@@ -2181,7 +2198,8 @@
         "since": "Counting since {date}",
         "staffIncluded": "Staff included",
         "staffExcluded": "Staff left out",
-        "approximate": "Counts are approximate"
+        "approximate": "Counts are approximate",
+        "demoExcluded": "Demo passes left out"
       },
       "controls": {
         "label": "Period and audience",
@@ -2644,6 +2662,40 @@
         "needTitle": "Give the task a name.",
         "needInterval": "Repeat every 1 to 730 days, weeks or months.",
         "needDate": "Choose a due date."
+      }
+    },
+    "demoSignups": {
+      "link": "Demo sign-ups ({count})",
+      "title": "Demo sign-ups",
+      "lede": "Visitors who signed up for a demo pass. Only super admins see this page. Email only the people who said you may contact them, and delete sign-ups after 12 months.",
+      "factSignups": "{count, plural, one {# sign-up} other {# sign-ups}}",
+      "factConsented": "{count} may be contacted",
+      "factSpent": "{amount} spent",
+      "download": "Download CSV",
+      "tableLabel": "Demo sign-ups",
+      "empty": "Nobody has signed up for a demo pass yet. The form is at /demo.",
+      "columnSignedUp": "Signed up",
+      "columnName": "Visitor",
+      "columnInstitution": "Institution",
+      "columnRole": "Role",
+      "columnMakerspace": "Makerspace",
+      "columnUseCase": "Would use it for",
+      "columnConsent": "May contact",
+      "columnPass": "Pass",
+      "columnSpent": "Spent",
+      "turns": "{count, plural, one {# turn} other {# turns}}",
+      "yes": "Yes",
+      "no": "No",
+      "passActive": "Until {date}",
+      "passEnded": "Ended",
+      "spentOf": "{spent} of {budget}",
+      "mayContact": "may contact",
+      "role": {
+        "student": "Student",
+        "staff_technician": "Staff or technician",
+        "faculty": "Faculty",
+        "lab_manager": "Lab director or manager",
+        "other": "Other"
       }
     },
     "onShift": {
@@ -3896,6 +3948,63 @@
       "category_exportWhy": "Addresses stay masked; nothing exports them in bulk.",
       "category_people": "Block, ban or grant allowances under any other name",
       "category_peopleWhy": "The words themselves are refused, so a new tool can't slip through."
+    }
+  },
+  "demoPass": {
+    "eyebrow": "Demo pass",
+    "title": "Try the full demo",
+    "lede": "Get a free demo pass to use {site} like a student here: ask the assistant about the lab's machines, with answers cited from their manuals, and report a problem. No {institution} account needed.",
+    "passFacts": "Your pass works on this device for {days} days and covers about {budget} of AI use.",
+    "required": "Required",
+    "optional": "Optional",
+    "nameLabel": "Name",
+    "emailLabel": "Email",
+    "emailHint": "For follow-up only. The assistant never sees it.",
+    "institutionLabel": "Institution or affiliation",
+    "institutionHint": "A university, company, lab or makerspace.",
+    "roleLabel": "Role",
+    "roleChoose": "Choose one",
+    "role": {
+      "student": "Student",
+      "staff_technician": "Staff or technician",
+      "faculty": "Faculty",
+      "lab_manager": "Lab director or manager",
+      "other": "Other"
+    },
+    "makerspaceLabel": "Do you run or work in a makerspace?",
+    "yes": "Yes",
+    "no": "No",
+    "useCaseLabel": "What would you use it for?",
+    "useCaseHint": "A sentence or two is plenty.",
+    "consentLabel": "You may contact me about MakerLAB AI.",
+    "honeypotLabel": "Leave this field empty",
+    "privacy": "We keep sign-ups for 12 months. Only the lab's directors can see them, and nothing you enter here is shared with the AI. To be removed sooner, contact the lab.",
+    "submit": "Get my demo pass",
+    "submitting": "Signing up…",
+    "browseTools": "Browse the tools",
+    "askAssistant": "Ask the assistant",
+    "errors": {
+      "required": "Please fill this in.",
+      "tooLong": "That is too long.",
+      "invalidEmail": "Please enter a valid email address.",
+      "invalid": "Please choose one of the options.",
+      "summary": "Please check the fields marked above.",
+      "rateLimited": "Too many sign-ups from this network just now. Please try again in a few minutes.",
+      "unavailable": "Sign-up isn't available right now. Please try again shortly.",
+      "failed": "Something went wrong. Please try again."
+    },
+    "thanksTitle": "You're in",
+    "thanksBody": "Thanks for signing up. Your demo pass works on this device until {date} and covers about {budget} of AI use.",
+    "thanksReturning": "Welcome back. Your demo pass is active on this device again, with {remaining} left, until {date}.",
+    "thanksNext": "Open the assistant from any page with the chat button, or start below.",
+    "thanksExpired": "Thanks for signing up again. The demo pass for this email has ended, but we have your details.",
+    "thanksReceived": "Thanks for signing up.",
+    "closedTitle": "Demo sign-ups are closed",
+    "closedBody": "Thanks for your interest. You can still browse the tools and ask the assistant a few questions.",
+    "callout": {
+      "label": "Demo pass",
+      "text": "Visiting? Get a free demo pass to chat with the lab's assistant and report a problem. No {institution} account needed.",
+      "cta": "Sign up to try the full demo"
     }
   },
   "unsubscribe": {

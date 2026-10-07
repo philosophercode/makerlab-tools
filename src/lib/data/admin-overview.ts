@@ -168,7 +168,8 @@ export const COUNT_LOADER_READS: { [K in CountLoader]: (ctx: OverviewContext) =>
     // The counts are shared with the kiosk's open-ticket figure (kiosk spec §4.1).
     const [counts, series, tasks] = await Promise.all([
       countOpenTickets(db),
-      dailySeries(ctx, sql`coalesce(date_reported, ${labDay(ctx, sql`created_at`)})`, sql`maintenance_logs`),
+      // A demo pass's tickets are not the lab's (demo pass spec 2026-10-07 §5.4).
+      dailySeries(ctx, sql`coalesce(date_reported, ${labDay(ctx, sql`created_at`)})`, sql`(select * from maintenance_logs where not demo) as lab_tickets`),
       // The lab's today, as the due list on /admin/maintenance reads it.
       countDueSchedules(ctx.today, { db }),
     ]);

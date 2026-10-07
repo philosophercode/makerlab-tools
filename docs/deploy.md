@@ -670,7 +670,10 @@ all of this: [`operations.md` → Monitoring](operations.md#monitoring).
 
 **One with a deadline:** `RATE_LIMIT_ANON_CHAT` for ISAM. Conference wifi puts every visitor
 behind one NAT'd IP, so the default of 8/hour would be exhausted minutes after the demo
-opens. Raise it, or use a shared demo account.
+opens. Raise it, or point visitors at the **demo pass** (`/demo`, on by default; spec
+2026-10-07): each sign-up gets its own 60 messages an hour and a `DEMO_PASS_BUDGET_USD`
+(default $0.50) AI budget, and needs only `AUTH_SECRET`. Set `DEMO_PASS_CONTACT_EMAIL` for the
+spent pass's contact line, and `DEMO_PASS=off` after the event if the lab wants it closed.
 
 ---
 

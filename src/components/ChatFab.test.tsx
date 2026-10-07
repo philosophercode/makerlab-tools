@@ -1,4 +1,6 @@
 import { act, render, screen, userEvent, waitFor, within } from "../../test/utils/render";
+import { http, HttpResponse } from "msw";
+import { server } from "../../test/msw/server";
 
 // ── Mocks ──────────────────────────────────────────────────────────
 //
@@ -936,6 +938,16 @@ describe("ChatFab — rate-limit ceiling", () => {
     expect(message.closest("[data-role]")).toHaveAttribute("data-kind", "error");
   });
 
+  it("thanks a spent demo pass at the visitor limit, and offers no sign-in its address cannot use (demo pass spec §5.3)", async () => {
+    await openWith(new Error(JSON.stringify({ code: "rate_limited_demo_pass", limit: 8, windowMs: 3600000, retryAfterSeconds: 3600 })));
+
+    const message = screen.getByText(/this hour's visitor limit/i);
+    expect(message.closest("[data-role]")).toHaveAttribute("data-role", "assistant");
+    expect(message.closest("[data-role]")).not.toHaveAttribute("data-kind", "error");
+    expect(screen.queryByRole("button", { name: "Sign in" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Contact the MakerLAB team" })).toHaveAttribute("href", "/about#about-people");
+  });
+
   describe('tool-specific starter chips (amendment "Tool-specific starter questions")', () => {
     const FORM_4 = ["What resins can I print with?", "How do I wash and cure a print?", "How big can a part be?"];
 
@@ -1487,5 +1499,57 @@ describe("MakerLAB AI's identity (identity spec 2026-09-28 §3–4)", () => {
 
     await userEvent.setup().click(chips[1]);
     expect(sendMessage).toHaveBeenCalledWith({ text: "My print is stringing — what should I check?" });
+  });
+});
+
+/**
+ * A visitor's demo pass in the chat (demo pass spec 2026-10-07 §6): the
+ * balance under the title, kept current by each turn's `data-demo-pass` part,
+ * and the thank-you once it is spent. The pass itself comes from
+ * `GET /api/demo-pass`, answered here by MSW.
+ */
+describe("ChatFab — demo pass", () => {
+  const ENDS = "2026-10-25T15:00:00.000Z";
+
+  function withPass(pass: Record<string, unknown> | null) {
+    server.use(http.get(/\/api\/demo-pass$/, () => HttpResponse.json(pass ? { active: true, pass } : { active: false })));
+  }
+
+  async function openChat() {
+    render(<ChatFab />);
+    await userEvent.setup().click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
+  }
+
+  it("shows what is left on the pass under the title", async () => {
+    withPass({ remainingUsd: 0.42, budgetUsd: 0.5, exhausted: false, expiresAt: ENDS, contactEmail: null });
+    await openChat();
+    expect(await within(screen.getByRole("dialog")).findByText("Demo pass · $0.42 left")).toBeInTheDocument();
+    expect(screen.queryByText(/used this demo pass's AI allowance/)).not.toBeInTheDocument();
+  });
+
+  it("shows nothing for a visitor without a pass", async () => {
+    withPass(null);
+    await openChat();
+    await waitFor(() => expect(screen.getByRole("dialog")).toBeInTheDocument());
+    expect(screen.queryByText(/Demo pass ·/)).not.toBeInTheDocument();
+  });
+
+  it("follows each turn's balance from the stream", async () => {
+    withPass({ remainingUsd: 0.5, budgetUsd: 0.5, exhausted: false, expiresAt: ENDS, contactEmail: null });
+    await openChat();
+    await screen.findByText("Demo pass · $0.50 left");
+    const { onData } = lastUseChatOptions as { onData: (part: { type: string; data: unknown }) => void };
+    act(() => onData({ type: "data-demo-pass", data: { remainingUsd: 0.3712, budgetUsd: 0.5, exhausted: false, expiresAt: ENDS, contactEmail: null } }));
+    expect(screen.getByText("Demo pass · $0.37 left")).toBeInTheDocument();
+  });
+
+  it("thanks the visitor once the pass is spent, with the contact address when one is set", async () => {
+    withPass({ remainingUsd: 0, budgetUsd: 0.5, exhausted: true, expiresAt: ENDS, contactEmail: "makerlab@example.edu" });
+    useChatReturn = baseReturn({ messages: [userMsg("u1", "hi"), assistantMsg("a1", "Hello.")] });
+    await openChat();
+    expect(await screen.findByText("Demo pass · used up")).toBeInTheDocument();
+    const thanks = screen.getByText(/You've used this demo pass's AI allowance\. Thank you for trying MakerLAB AI!/);
+    expect(thanks.closest("[data-role]")).toHaveAttribute("data-role", "assistant");
+    expect(screen.getByRole("link", { name: "makerlab@example.edu" })).toHaveAttribute("href", "mailto:makerlab@example.edu");
   });
 });

@@ -19,7 +19,9 @@ import { QUESTION_KINDS, type GapKind, type QuestionKind } from "../db/schema/vo
  * cell on either side of a DST change.
  *
  * **Staff are left out unless asked** (`includeStaff`), so a SuperMaker
- * testing the assistant does not top "most asked about".
+ * testing the assistant does not top "most asked about". **Demo passes are
+ * always left out** (demo pass spec 2026-10-07 §5.5): a conference's visitors
+ * are not the lab's usage.
  */
 
 export const INSIGHT_PERIODS = [7, 30, 90] as const;
@@ -143,7 +145,9 @@ export function usageSourceBetween(query: { start: Date; end: Date; includeStaff
 }
 
 function sourceWithin(from: SQL, to: SQL, endInclusive: boolean, includeStaff: boolean): SQL {
-  const audience = includeStaff ? sql`true` : sql`audience <> 'staff'`;
+  // Demo passes are never the lab's numbers (demo pass spec 2026-10-07 §5.5);
+  // staff are left out unless asked.
+  const audience = includeStaff ? sql`audience <> 'demo'` : sql`audience not in ('staff', 'demo')`;
   const rawEnd = endInclusive ? sql`occurred_at <= ${to}` : sql`occurred_at < ${to}`;
   const rollupEnd = endInclusive ? sql`true` : sql`hour_start < ${to}`;
   return sql`(
