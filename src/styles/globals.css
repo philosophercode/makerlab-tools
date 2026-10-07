@@ -752,8 +752,10 @@ body::selection {
    then the links across the width. (The compact switch used to be 860px,
    and from there to ~1180px the brand ran into the links and "Sign in"
    wrapped.) The wordmark steps down with the width — 48px from 1440, 40
-   from xl, 32 from lg — so the longest translation of the links (Spanish)
-   still fits between it and the controls with the scrollbar showing. */
+   from xl, 30 from lg — so the longest translation of the links (Spanish)
+   still fits between it and the controls with the scrollbar showing. From
+   lg the links close up to 16px too: the "MakerLAB AI" lockup is wider than
+   the wordmark alone was. */
 @media (min-width: 1280px) and (max-width: 1439.98px) {
   :root {
     --nav-height: 88px;
@@ -764,7 +766,7 @@ body::selection {
 @media (max-width: 1279.98px) {
   :root {
     --nav-height: 80px;
-    --wordmark-height: 32px;
+    --wordmark-height: 30px;
   }
 
   .top-nav {
@@ -773,7 +775,7 @@ body::selection {
   }
 
   .primary-nav {
-    gap: 20px;
+    gap: 16px;
   }
 }
 
