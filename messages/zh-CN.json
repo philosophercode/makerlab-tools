@@ -73,11 +73,9 @@
         "search": "搜索 {count} 件工具",
         "build": "你想做点什么？",
         "findMachine": "找到你的设备",
-        "ask": "提个问题",
         "x1Filament": "如何给 X1-Carbon 装耗材？",
         "x1Start": "问问如何在 X1-Carbon 上开始 3D 打印",
-        "trotecAcrylic": "Trotec 激光能切亚克力吗？",
-        "resinPpe": "树脂打印需要穿戴什么？"
+        "trotecAcrylic": "Trotec 激光能切亚克力吗？"
       }
     }
   },

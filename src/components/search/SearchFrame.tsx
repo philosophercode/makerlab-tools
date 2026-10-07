@@ -15,20 +15,19 @@ export const SEARCH_INPUT_CLASS =
 
 /**
  * The lines the placeholder rotates through (student home spec 2026-10-07
- * §6): prompts and real questions, the live tool count among them. The first
- * is the one that shows under reduced motion, so it is the plainest.
+ * §6, the owner's addendum): the four prompts the addendum names, the live
+ * tool count among them, then two real questions. The first is the one that
+ * shows under reduced motion, so it is the plainest.
  */
 export function useSearchLines(toolCount: number): string[] {
   const t = useTranslations("gallery.search.lines");
   return [
     t("search", { count: toolCount }),
     t("build"),
+    t("x1Start"),
     t("findMachine"),
     t("x1Filament"),
-    t("ask"),
-    t("x1Start"),
     t("trotecAcrylic"),
-    t("resinPpe"),
   ];
 }
 

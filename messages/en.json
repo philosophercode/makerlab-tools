@@ -127,11 +127,9 @@
         "search": "{count, plural, one {Search # tool} other {Search # tools}}",
         "build": "What will you build?",
         "findMachine": "Find your machine",
-        "ask": "Ask a question",
         "x1Filament": "How do I load filament on the X1-Carbon?",
         "x1Start": "Ask how to start a 3D print on the X1-Carbon",
-        "trotecAcrylic": "Can the Trotec laser cut acrylic?",
-        "resinPpe": "What do I wear for resin printing?"
+        "trotecAcrylic": "Can the Trotec laser cut acrylic?"
       }
     }
   },

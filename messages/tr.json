@@ -73,11 +73,9 @@
         "search": "{count, plural, one {# araç arasında arayın} other {# araç arasında arayın}}",
         "build": "Ne üreteceksiniz?",
         "findMachine": "Makinenizi bulun",
-        "ask": "Bir soru sorun",
         "x1Filament": "X1-Carbon'a filament nasıl takılır?",
         "x1Start": "X1-Carbon'da 3D baskının nasıl başlatıldığını sorun",
-        "trotecAcrylic": "Trotec lazer akrilik kesebilir mi?",
-        "resinPpe": "Reçine baskı için ne giymeliyim?"
+        "trotecAcrylic": "Trotec lazer akrilik kesebilir mi?"
       }
     }
   },

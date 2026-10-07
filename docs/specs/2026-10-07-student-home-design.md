@@ -174,10 +174,11 @@ available now".
   has a steady label ("Search tools, or ask MakerLAB AI a question"). Fade is
   `motion-safe` only; under `prefers-reduced-motion` the first line shows and
   never changes.
-- **Lines**, in order: "Search {count} tools", "What will you build?", "Find
-  your machine", "How do I load filament on the X1-Carbon?", "Ask a
-  question", "Ask how to start a 3D print on the X1-Carbon", "Can the Trotec
-  laser cut acrylic?", "What do I wear for resin printing?".
+- **Lines**, in order: "Search {count} tools", "What will you build?", "Ask
+  how to start a 3D print on the X1-Carbon", "Find your machine", then two
+  real questions, "How do I load filament on the X1-Carbon?" and "Can the
+  Trotec laser cut acrylic?". The addendum's four prompts and one or two real
+  questions, no more: a box that cycles through eight lines reads as busy.
 - **List** under the box: a popover, tool rows with a 40 px photo, the
   official name and the status; category rows with a count; the Ask row with
   the "can make mistakes" line.
