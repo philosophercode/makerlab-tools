@@ -30,7 +30,8 @@
   },
   "status": {
     "labStatusLabel": "Статус лаборатории",
-    "toolsInInventory": "ИНСТРУМЕНТОВ НА СКЛАДЕ: {count}"
+    "toolsInInventory": "ИНСТРУМЕНТОВ НА СКЛАДЕ: {count}",
+    "onShiftNow": "Сейчас на смене: {names}"
   },
   "gallery": {
     "title": "Инструменты",
@@ -290,5 +291,8 @@
   "demoBanner": {
     "label": "Демонстрационные данные",
     "body": "Этот каталог — встроенные образцы данных, а не реальный инвентарь {institution}. Notion не настроен."
+  },
+  "kiosk": {
+    "onShiftLabel": "Сейчас на смене"
   }
 }

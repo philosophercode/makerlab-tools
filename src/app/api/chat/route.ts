@@ -15,6 +15,7 @@ import {
 import { getCatalogTool, getCatalogTools } from "../../../lib/catalog";
 import { toolForViewer } from "../../../lib/unit-serials";
 import { loadLabWideNotes } from "../../../lib/lab-notes/read";
+import { loadOnShiftNames } from "../../../lib/on-shift/read";
 import {
   listResourcesForTool,
   type ToolResource,
@@ -102,7 +103,7 @@ export async function POST(req: Request) {
   }
   const messages = bounded.messages;
   if (bounded.dropped > 0) console.info(`[chat] history bounded: ${bounded.dropped} older message(s) not sent to the model`);
-  const [pageContext, outcomes, tools, focused, curation, labNotes] = await Promise.all([
+  const [pageContext, outcomes, tools, focused, curation, labNotes, onShift] = await Promise.all([
     // What the page shows and what is selected, and what became of this chat's
     // cards — both read from the database as this caller may see them.
     loadPageContext(identity, page),
@@ -118,6 +119,9 @@ export async function POST(req: Request) {
     // The lab-wide notes (identity spec amendment "Lab notes"), cached with
     // the catalogue; a failed read leaves them out rather than the answer.
     loadLabWideNotes(),
+    // Who is on shift now (on-shift spec 2026-10-07), from a cached roster;
+    // a failed read names nobody rather than failing the answer.
+    loadOnShiftNames(),
   ]);
 
   // Searchable manuals are answered through `search_manual` and listed in the
@@ -219,7 +223,7 @@ export async function POST(req: Request) {
       const { tools: capabilityTools, system } = composeChat(
         capabilitiesForIdentity(capabilities, identity),
         ctx,
-        { tools, focusedTool: focused, locale, manualOutlines: toolManuals.outlines, labNotes, ...(curation ? { curation } : {}) }
+        { tools, focusedTool: focused, locale, manualOutlines: toolManuals.outlines, labNotes, onShift, ...(curation ? { curation } : {}) }
       );
 
       const chatTools: Record<string, Tool> = {

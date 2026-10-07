@@ -410,3 +410,15 @@ Four layers, all offline (Article 3).
 | 7 | Does the QR code open the **catalogue with chat**, or a dedicated `/ask` page sized for phones? | Catalogue with chat for phase 1. Revisit after seeing booth behaviour | Isaac | — |
 
 Q1, Q3 and Q4 are answered; phase 1 is unblocked. The rest travel with the spec.
+
+## Amendment 2026-10-07 — who is on shift on the screen
+
+Open question 2 asked whether a screen would ever show who is on shift. The owner decided yes
+(design review decisions, 2026-10-07), as part of the on-shift spec (`2026-10-07-on-shift-design.md`):
+staff opt in, and the screen shows first name and last initial only. `KioskSnapshot` gains
+`onShift: string[]`. It is read beside the snapshot by the page and `/api/kiosk`
+(`loadOnShiftNames`), never inside the snapshot's cache, so a shift leaves the screen on the first
+poll after it ends. The top bar shows "On shift now" over the names beside the hours, and nothing
+when nobody is on shift. A payload without the field (a screen open across a deploy) shows nobody.
+Tested in `app/api/kiosk/route.test.ts` (short names only, gone after the end) and
+`components/kiosk/KioskScreen.test.tsx`.

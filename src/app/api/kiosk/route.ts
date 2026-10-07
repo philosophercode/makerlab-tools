@@ -1,5 +1,6 @@
 import { hashIp } from "../../../lib/auth/identity";
 import { loadKioskSnapshot, withAskUrl } from "../../../lib/kiosk/snapshot";
+import { loadOnShiftNames } from "../../../lib/on-shift/read";
 import type { KioskResponse } from "../../../lib/kiosk/types";
 import { getClientIp, rateLimitAsync, ROUTE_TIERS } from "../../../lib/rate-limit";
 import { authBaseUrl } from "../../../lib/auth/config";
@@ -17,7 +18,7 @@ import { requestOrigin } from "../../../lib/request-origin";
  * (Article 4).
  *
  * - **200** — the snapshot, cached behind invalidation (`loadKioskSnapshot`),
- *   plus `servedAt`.
+ *   plus `servedAt` and who is on shift now (`onShift`, short names only).
  * - **429** — past `ROUTE_TIERS.kiosk`; the screen keeps what it has.
  * - **503** — the database could not be read. Never a zeroed snapshot: the
  *   screen keeps its last good one and says how old it is.
@@ -33,9 +34,10 @@ export async function GET(req: Request) {
   }
 
   try {
-    const snapshot = await loadKioskSnapshot();
+    // Who is on shift is read beside the snapshot, never inside its cache (on-shift spec 2026-10-07).
+    const [snapshot, onShift] = await Promise.all([loadKioskSnapshot(), loadOnShiftNames()]);
     const body: KioskResponse = {
-      ...withAskUrl(snapshot, requestOrigin(req.headers) ?? authBaseUrl()),
+      ...withAskUrl(snapshot, requestOrigin(req.headers) ?? authBaseUrl(), onShift),
       servedAt: new Date().toISOString(),
     };
     return Response.json(body, { headers: { "Cache-Control": "no-store" } });

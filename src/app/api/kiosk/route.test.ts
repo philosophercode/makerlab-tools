@@ -9,7 +9,10 @@ vi.mock("../../../lib/kiosk/snapshot", async (importOriginal) => {
   return { ...actual, loadKioskSnapshot: vi.fn(actual.loadKioskSnapshot) };
 });
 
-import { resetDbForTests } from "../../../lib/db/client";
+import { startShift } from "../../../lib/data/staff-shifts";
+import { getDb, resetDbForTests } from "../../../lib/db/client";
+import { staffShifts } from "../../../lib/db/schema/index";
+import { insertUserRow } from "../../../../test/utils/session";
 import { loadKioskSnapshot } from "../../../lib/kiosk/snapshot";
 import type { KioskResponse } from "../../../lib/kiosk/types";
 import { ROUTE_TIERS } from "../../../lib/rate-limit";
@@ -49,12 +52,31 @@ describe("GET /api/kiosk", () => {
     expect(res.headers.get("cache-control")).toBe("no-store");
     const body = (await res.json()) as KioskResponse;
     expect(Object.keys(body).sort()).toEqual(
-      ["askUrl", "demo", "down", "featured", "generatedAt", "lab", "servedAt", "tickets", "unitsInService"].sort()
+      ["askUrl", "demo", "down", "featured", "generatedAt", "lab", "onShift", "servedAt", "tickets", "unitsInService"].sort()
     );
     expect(body.askUrl).toBe("https://makerlab-ai.vercel.app/?src=kiosk&ask=1");
     expect(body.demo).toBe(true);
     expect(body.tickets).toEqual({ open: 1, inProgress: 0 });
     expect(Number.isNaN(Date.parse(body.servedAt))).toBe(false);
+  });
+
+  it("says who is on shift by first name and initial, and nobody once the shift has ended (on-shift spec 2026-10-07)", async () => {
+    const db = await getDb();
+    const alex = await insertUserRow(db, { name: "Alex Morgan", role: "admin", email: "alex.kiosk@cornell.edu" });
+    const sam = await insertUserRow(db, { name: "Sam Lee", role: "admin", email: "sam.kiosk@cornell.edu" });
+    await startShift(alex.id, new Date(Date.now() + 3_600_000), { db });
+    await startShift(sam.id, new Date(Date.now() - 60_000), { db });
+    try {
+      const body = (await (await GET(makeRequest())).json()) as KioskResponse;
+      expect(body.onShift).toEqual(["Alex M."]);
+      // The full name and the address never reach the screen.
+      expect(JSON.stringify(body)).not.toContain("Morgan");
+      expect(JSON.stringify(body)).not.toContain("alex.kiosk@");
+    } finally {
+      await db.delete(staffShifts);
+    }
+    const after = (await (await GET(makeRequest())).json()) as KioskResponse;
+    expect(after.onShift).toEqual([]);
   });
 
   it("reads no cookie and sets none", async () => {

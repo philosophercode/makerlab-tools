@@ -76,6 +76,14 @@ Phase 5 extends both. The shape it sets:
   outcomes of a review, so settled equipment stays out of the queue. Units that
   belong to no tool come back as their own list rather than being attached to a
   guessed tool.
+- **On shift sits on the overview, above the tiles** (on-shift spec
+  2026-10-07). For anyone holding `shifts.set`, `/admin` opens with an **On
+  shift** card (`components/on-shift/OnShiftPanel.tsx`): who students see on
+  shift right now, then the control to go on shift until a time today (lab
+  time, default 23:59), change it or end it. `/account` has the same section
+  for staff. Both use one server action, `setMyShift`
+  (`app/account/shift-actions.ts`, action `shifts.set`, GUI only), which only
+  ever changes the caller's own row in `staff_shifts` (migration `0029`).
 - **Lab notes sit beside QR labels, not in a new surface.** The inventory header's
   **Lab notes** button opens `/admin/inventory/lab-notes` (`tools.edit`; identity
   spec amendment "Lab notes"): the lab-wide notes the assistant knows in every

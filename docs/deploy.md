@@ -551,6 +551,10 @@ What `npm run data:push` (`scripts/push-local-to-hosted.ts`) does:
 - **It ends every hosted sign-in.** Sessions, OAuth handshakes and MCP access tokens are
   never copied; people sign in again. Users, roles, titles and blocks are copied; Google's
   OAuth tokens, the Notion mirror's token and OAuth client secrets are blanked.
+- **Some rows belong to the deployment that made them** and are never copied: pre-run
+  starter answers (the hosted site makes its own with `npm run starters:refresh`) and who
+  is on shift (`staff_shifts`), so a test shift on your laptop never puts a name on the
+  live home page.
 - **Schema check.** It never migrates. The checkout, the local database and the hosted one
   must all be at the same latest migration; otherwise it refuses and says which is behind
   (redeploy the matching commit, or `npm run db:migrate` locally).

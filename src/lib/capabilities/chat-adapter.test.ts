@@ -296,6 +296,14 @@ describe("the lab first, then its people (identity spec amendment 2026-10-06)", 
     expect(prompt).toContain("Never invent a name, a schedule or who is on shift.");
   });
 
+  it("names a person only from the 'On shift now' section, and nobody without it (on-shift spec 2026-10-07)", () => {
+    const prompt = promptFor(null);
+
+    expect(prompt).toContain('Name a person only when the "On shift now" section lists them');
+    expect(prompt).toContain('without that section, name nobody ("ask a SuperMaker")');
+    expect(prompt).not.toContain("## On shift now");
+  });
+
   it("never weakens citations or the honest 'I don't know'", () => {
     expect(promptFor(null)).toContain("It never replaces the steps, a citation, or saying you don't know.");
   });
@@ -355,5 +363,28 @@ describe("one rule for silent documents (manual text spec amendment 2026-10-06)"
     expect(prompt).not.toContain("grounded only in the catalog and the lab context");
     expect(prompt).toContain('when a machine\'s documents do not answer, follow "When the documents are silent"');
     expect(prompt).toContain('For a question about a machine that its own documents do not answer, follow "When the documents are silent".');
+  });
+});
+
+describe("On shift now (on-shift spec 2026-10-07)", () => {
+  it("lists who is on shift in the per-request tail, never the cached prefix", () => {
+    const prompt = buildSystemPrompt([], { tools: mockTools, focusedTool: trotec, onShift: ["Alex M.", "Jordan P."] });
+    const section = prompt.indexOf("## On shift now");
+
+    expect(section).toBeGreaterThan(prompt.indexOf(CONVERSATION_HEADING));
+    expect(prompt).toContain('- "Alex M."\n- "Jordan P."');
+    expect(prompt).toContain('"Alex M. is on shift, ask them to show you."');
+    expect(prompt).toContain("Name only people in this list, exactly as written.");
+  });
+
+  it("leaves the cached prefix the same whoever is on shift", () => {
+    const nobody = buildSystemPrompt([], { tools: mockTools });
+    const somebody = buildSystemPrompt([], { tools: mockTools, onShift: ["Alex M."] });
+    expect(somebody.slice(0, somebody.indexOf(CONVERSATION_HEADING))).toBe(nobody.slice(0, nobody.indexOf(CONVERSATION_HEADING)));
+  });
+
+  it("has no section at all when nobody is on shift", () => {
+    expect(buildSystemPrompt([], { tools: mockTools, onShift: [] })).not.toContain("## On shift now");
+    expect(buildSystemPrompt([], { tools: mockTools })).not.toContain("## On shift now");
   });
 });

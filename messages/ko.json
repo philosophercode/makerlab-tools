@@ -30,7 +30,8 @@
   },
   "status": {
     "labStatusLabel": "랩 상태",
-    "toolsInInventory": "재고 도구 {count}개"
+    "toolsInInventory": "재고 도구 {count}개",
+    "onShiftNow": "지금 근무 중: {names}"
   },
   "gallery": {
     "title": "도구",
@@ -290,5 +291,8 @@
   "demoBanner": {
     "label": "데모 데이터",
     "body": "이 카탈로그는 내장된 샘플 데이터이며 {institution}의 실제 재고가 아닙니다. Notion이 구성되지 않았습니다."
+  },
+  "kiosk": {
+    "onShiftLabel": "지금 근무 중"
   }
 }

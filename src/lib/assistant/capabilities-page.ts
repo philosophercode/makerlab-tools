@@ -146,6 +146,8 @@ export const ACTION_AREAS: Readonly<Record<string, AreaId>> = {
   insights: "insights",
   // The lab-wide notes (identity spec amendment "Lab notes"): what the assistant knows about the lab.
   lab: "catalog",
+  // Who's on shift (on-shift spec 2026-10-07): the lab's people.
+  shifts: "people",
 };
 
 /** The area of each capability tool that is not an action's, and of the chat's web search. */

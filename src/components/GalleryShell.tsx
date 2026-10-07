@@ -1,6 +1,6 @@
 "use client";
 
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
 import { matchSorter } from "match-sorter";
 import { LayoutGrid, Rows3 } from "lucide-react";
@@ -36,6 +36,12 @@ import { facetOptions, uniqueValues } from "./system/data-table/facet-options";
 
 interface GalleryShellProps {
   tools: GalleryTool[];
+  /**
+   * "On shift now: Alex M." under the title (on-shift spec 2026-10-07): a
+   * server-rendered dynamic hole the page passes in its own `Suspense`, so
+   * the gallery stays one cached prerender.
+   */
+  onShift?: ReactNode;
 }
 
 // The table view (TanStack Table under `DataTable`) loads when somebody
@@ -94,7 +100,7 @@ function narrowed(tools: readonly GalleryTool[], state: GalleryState, except?: F
  * choice is in the URL (`gallery-filters.ts`, `useUrlSearch`), so a view is a
  * link; the page stays one cached prerender for everybody.
  */
-export function GalleryShell({ tools }: GalleryShellProps) {
+export function GalleryShell({ tools, onShift = null }: GalleryShellProps) {
   const t = useTranslations("gallery");
   const [search, writeSearch] = useUrlSearch();
   const state = useMemo(() => parseGalleryState(new URLSearchParams(search)), [search]);
@@ -172,7 +178,7 @@ export function GalleryShell({ tools }: GalleryShellProps) {
 
   return (
     <main ref={mainRef} className="ui mx-auto w-full max-w-[1440px] px-4 pb-16 sm:px-8">
-      <GalleryHero title={t("title")} facts={facts} />
+      <GalleryHero title={t("title")} facts={facts} aside={onShift} />
 
       <FilterBar
         label={t("filterLabel")}

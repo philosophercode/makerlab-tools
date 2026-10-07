@@ -30,7 +30,8 @@
   },
   "status": {
     "labStatusLabel": "Laboratuvar durumu",
-    "toolsInInventory": "ENVANTERDE {count} ARAÇ"
+    "toolsInInventory": "ENVANTERDE {count} ARAÇ",
+    "onShiftNow": "Şu an vardiyada: {names}"
   },
   "gallery": {
     "title": "Araçlar",
@@ -290,5 +291,8 @@
   "demoBanner": {
     "label": "Demo verileri",
     "body": "Bu katalog yerleşik örnek verilerdir, {institution} kurumunun gerçek envanteri değildir. Notion yapılandırılmamış."
+  },
+  "kiosk": {
+    "onShiftLabel": "Şu an vardiyada"
   }
 }

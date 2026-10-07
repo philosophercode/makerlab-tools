@@ -30,7 +30,8 @@
   },
   "status": {
     "labStatusLabel": "حالة المختبر",
-    "toolsInInventory": "{count} أداة في المخزون"
+    "toolsInInventory": "{count} أداة في المخزون",
+    "onShiftNow": "في المناوبة الآن: {names}"
   },
   "gallery": {
     "title": "الأدوات",
@@ -290,5 +291,8 @@
   "demoBanner": {
     "label": "بيانات تجريبية",
     "body": "هذا الفهرس بيانات عينة مدمجة، وليس المخزون الفعلي لـ {institution}. لم يتم إعداد Notion."
+  },
+  "kiosk": {
+    "onShiftLabel": "في المناوبة الآن"
   }
 }

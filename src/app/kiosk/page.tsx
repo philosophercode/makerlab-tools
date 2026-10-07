@@ -7,6 +7,7 @@ import { authBaseUrl } from "../../lib/auth/config";
 import { kioskAskUrl } from "../../lib/kiosk/params";
 import { kioskQrSvg } from "../../lib/kiosk/qr";
 import { loadKioskSnapshot, withAskUrl } from "../../lib/kiosk/snapshot";
+import { loadOnShiftNames } from "../../lib/on-shift/read";
 import type { KioskSnapshot } from "../../lib/kiosk/types";
 import { labTimezone } from "../../lib/lab-time";
 import { requestOrigin } from "../../lib/request-origin";
@@ -79,7 +80,8 @@ export default async function KioskPage({ searchParams }: { searchParams: Promis
 /** The first snapshot, or null when it could not be read, and the server's clock when it was asked. */
 async function readSnapshot(origin: string): Promise<{ snapshot: KioskSnapshot | null; renderedAt: number }> {
   try {
-    const snapshot = withAskUrl(await loadKioskSnapshot(), origin);
+    const [cached, onShift] = await Promise.all([loadKioskSnapshot(), loadOnShiftNames()]);
+    const snapshot = withAskUrl(cached, origin, onShift);
     return { snapshot, renderedAt: Date.now() };
   } catch (err) {
     console.error("[kiosk] first render without a snapshot", err);

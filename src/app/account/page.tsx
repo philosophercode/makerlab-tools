@@ -4,12 +4,15 @@ import { getTranslations } from "next-intl/server";
 import { OwnNameEditor } from "../../components/account/OwnNameEditor";
 import { EmptyState } from "../../components/system/EmptyState";
 import { PageSection, Prose, PublicPage } from "../../components/system/PublicPage";
+import { OnShiftPanel } from "../../components/on-shift/OnShiftPanel";
 import { resolveIdentityFromHeaders } from "../../lib/auth/identity";
+import { can } from "../../lib/auth/permissions";
 import { updateOwnNameAction } from "./actions";
 
 /**
  * `/account` — "Your account": your name, which you may change, and your
- * address, which you may not. Reached from the profile menu. Everybody signed
+ * address, which you may not. Staff also mark themselves on shift here
+ * (on-shift spec 2026-10-07). Reached from the profile menu. Everybody signed
  * in may rename themselves (`updateOwnName`, audited as `user.name_changed`);
  * a super admin renames anybody else on the People page. A name set here is
  * not overwritten by Google at a later sign-in (`lib/auth/provider-name.ts`).
@@ -36,6 +39,7 @@ export default async function AccountPage() {
 
 async function AccountProfile() {
   const t = await getTranslations("account.profile");
+  const tShift = await getTranslations("admin.onShift");
   const identity = await resolveIdentityFromHeaders();
 
   if (identity.role === "anonymous" || !identity.userId) {
@@ -56,6 +60,13 @@ async function AccountProfile() {
           <dd className="m-0 text-xs text-muted-foreground">{t("emailNote")}</dd>
         </dl>
       </PageSection>
+      {/* Staff only (on-shift spec 2026-10-07): mark yourself on shift, the
+          same control as on the admin overview. */}
+      {can(identity, "shifts.set") ? (
+        <PageSection id="on-shift-heading" title={tShift("title")} lede={tShift("lede")}>
+          <OnShiftPanel identity={identity} nameHref="#name-heading" />
+        </PageSection>
+      ) : null}
       <PageSection id="assistant-heading" title={t("assistantHeading")}>
         <Prose className="text-sm">
           <p>

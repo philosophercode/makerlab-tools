@@ -22,7 +22,10 @@ its people (owner meeting with the Director and Assistant Director,
 - **It points you to people.** For first use, safety and hands-on technique it
   also suggests a person: a SuperMaker or other staff ("ask a SuperMaker to
   show you the first time"), the training the tool requires, or another maker
-  who has used it. It never invents a name or says who is on shift.
+  who has used it. When staff have marked themselves on shift, it may name one
+  ("Alex M. is on shift, ask them to show you"): first name and last initial,
+  only people on shift right now. Otherwise it names nobody. It never invents
+  a name.
 - **It can be wrong.** Under the chat's text box, always: "MakerLAB AI can make
   mistakes. Check anything safety-related with staff." It still cites its
   sources and says when it does not know.

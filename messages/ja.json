@@ -30,7 +30,8 @@
   },
   "status": {
     "labStatusLabel": "ラボの状況",
-    "toolsInInventory": "在庫ツール {count} 件"
+    "toolsInInventory": "在庫ツール {count} 件",
+    "onShiftNow": "現在シフト中：{names}"
   },
   "gallery": {
     "title": "ツール",
@@ -290,5 +291,8 @@
   "demoBanner": {
     "label": "デモデータ",
     "body": "このカタログは組み込みのサンプルデータであり、{institution} の実際の在庫ではありません。Notion が設定されていません。"
+  },
+  "kiosk": {
+    "onShiftLabel": "現在シフト中"
   }
 }

@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { GalleryFallback } from "../components/GalleryFallback";
 import { GalleryShell } from "../components/GalleryShell";
+import { OnShiftNow } from "../components/on-shift/OnShiftNow";
 import { getCatalogTools } from "../lib/catalog";
 import { toGalleryTool } from "../components/catalog-types";
 
@@ -15,5 +16,16 @@ export default function GalleryPage() {
 async function GalleryData() {
   const tools = await getCatalogTools();
   // Only what the gallery reads travels to the browser (`toGalleryTool`).
-  return <GalleryShell tools={tools.map(toGalleryTool)} />;
+  // Who is on shift is its own dynamic hole (on-shift spec 2026-10-07), so
+  // the gallery itself stays cached.
+  return (
+    <GalleryShell
+      tools={tools.map(toGalleryTool)}
+      onShift={
+        <Suspense fallback={null}>
+          <OnShiftNow />
+        </Suspense>
+      }
+    />
+  );
 }

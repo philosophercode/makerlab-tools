@@ -49,12 +49,14 @@ import { eq, inArray } from "drizzle-orm";
 import { http, HttpResponse } from "msw";
 import { POST } from "@/app/api/chat/route";
 import { LAB_NOTES_SETTING, setLabSetting } from "@/lib/data/lab-settings";
+import { startShift } from "@/lib/data/staff-shifts";
 import { manualSourceKey } from "@/lib/data/manual-archives";
 import { getDb, resetDbForTests } from "@/lib/db/client";
 import {
   attachments,
   labSettings,
   maintenanceLogs,
+  staffShifts,
   resources,
   tools as toolsTable,
   units,
@@ -62,7 +64,7 @@ import {
 import { resetAuthForTests } from "@/lib/auth/config";
 import { clearManualPdfCache } from "@/lib/chat/manual-pdf-cache";
 import { server } from "../../../../test/msw/server";
-import { signInAsNew } from "../../../../test/utils/session";
+import { insertUserRow, signInAsNew } from "../../../../test/utils/session";
 import {
   recordedCalls,
   resetModelStubs,
@@ -447,6 +449,26 @@ describe("POST /api/chat — tools wired", () => {
     } finally {
       await db.delete(labSettings);
     }
+  });
+
+  it("tells the model who is on shift, by first name and initial, in the per-request part only (on-shift spec 2026-10-07)", async () => {
+    const db = await getDb();
+    const alex = await insertUserRow(db, { name: "Alex Morgan", role: "admin", email: "alex.chat@cornell.edu" });
+    await startShift(alex.id, new Date(Date.now() + 3_600_000), { db });
+    try {
+      await send({ messages: [userMessage("first time on the laser, can someone help?")], toolId: "trotec-speedy-400" });
+      const system = systemOf();
+      expect(system.indexOf("## On shift now")).toBeGreaterThan(system.indexOf("# This conversation"));
+      expect(system).toContain('- "Alex M."');
+      expect(system).not.toContain("Alex Morgan");
+    } finally {
+      await db.delete(staffShifts);
+    }
+  });
+
+  it("names nobody on shift when nobody is", async () => {
+    await send({ messages: [userMessage("hi")] });
+    expect(systemOf()).not.toContain("## On shift now");
   });
 
   it("returns a tool's lab notes from get_tool_details as lab_notes", async () => {

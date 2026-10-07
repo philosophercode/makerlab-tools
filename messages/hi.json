@@ -30,7 +30,8 @@
   },
   "status": {
     "labStatusLabel": "लैब की स्थिति",
-    "toolsInInventory": "इन्वेंटरी में {count} उपकरण"
+    "toolsInInventory": "इन्वेंटरी में {count} उपकरण",
+    "onShiftNow": "अभी शिफ़्ट पर: {names}"
   },
   "gallery": {
     "title": "उपकरण",
@@ -290,5 +291,8 @@
   "demoBanner": {
     "label": "डेमो डेटा",
     "body": "यह कैटलॉग अंतर्निहित नमूना डेटा है, {institution} की वास्तविक इन्वेंटरी नहीं। Notion कॉन्फ़िगर नहीं है।"
+  },
+  "kiosk": {
+    "onShiftLabel": "अभी शिफ़्ट पर"
   }
 }

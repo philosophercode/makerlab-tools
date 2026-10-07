@@ -35,6 +35,7 @@ const APP_PERMISSIONS = [
   "insights.view",
   "insights.configure",
   "insights.export",
+  "shifts.set",
 ] as const satisfies readonly Permission[];
 
 /**
@@ -61,6 +62,8 @@ const EXPECTED: Record<Role, readonly Permission[]> = {
     "mirror.manage",
     "insights.view",
     "insights.configure",
+    // Who's on shift (on-shift spec 2026-10-07): staff mark themselves.
+    "shifts.set",
   ],
   super_admin: APP_PERMISSIONS,
 };

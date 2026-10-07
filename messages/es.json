@@ -30,7 +30,8 @@
   },
   "status": {
     "labStatusLabel": "Estado del laboratorio",
-    "toolsInInventory": "{count} HERRAMIENTAS EN INVENTARIO"
+    "toolsInInventory": "{count} HERRAMIENTAS EN INVENTARIO",
+    "onShiftNow": "De turno ahora: {names}"
   },
   "gallery": {
     "title": "Herramientas",
@@ -290,5 +291,8 @@
   "demoBanner": {
     "label": "Datos de demostración",
     "body": "Este catálogo son datos de muestra integrados, no el inventario real de {institution}. Notion no está configurado."
+  },
+  "kiosk": {
+    "onShiftLabel": "De turno ahora"
   }
 }

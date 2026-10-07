@@ -33,6 +33,7 @@ import { PEOPLE_ADD, PEOPLE_REMOVE, PEOPLE_UNBLOCK_EMAIL } from "./people-roster
 import { PROJECTS_SET_PUBLISHED } from "./projects";
 import { REFRESH_QUEUE } from "./refresh";
 import { RESOURCES_ADD, RESOURCES_EDIT, RESOURCES_REMOVE } from "./resources";
+import { SHIFTS_SET } from "./shifts";
 import {
   TAXONOMY_DECIDE_PROPOSAL,
   TAXONOMY_EDIT_CATEGORY,
@@ -128,6 +129,8 @@ const DEFINITIONS = [
   SCHEDULES_UPDATE,
   SCHEDULES_SET_STATUS,
   SCHEDULES_COMPLETE,
+  // Who's on shift (on-shift spec 2026-10-07): staff mark themselves.
+  SHIFTS_SET,
 ];
 
 /** Every definition, runnable. */

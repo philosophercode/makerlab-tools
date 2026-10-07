@@ -20,6 +20,7 @@ import * as manuals from "./manuals";
 import * as mirror from "./mirror";
 import * as refresh from "./refresh";
 import * as resources from "./resources";
+import * as shifts from "./shifts";
 import * as units from "./units";
 import { endpointsInSource, type GuiEndpoint } from "./parity";
 import * as people from "./people";
@@ -70,6 +71,7 @@ const DEFINITION_MODULES = [
   taxonomy,
   insights,
   labNotes,
+  shifts,
 ];
 
 /** Export name → definition, for every registered definition. */

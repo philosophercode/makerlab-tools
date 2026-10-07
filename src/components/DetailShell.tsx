@@ -54,6 +54,13 @@ interface DetailShellProps {
    * Off for a draft: the report files only against a published tool.
    */
   reportActions?: boolean;
+  /**
+   * "On shift now: Alex M." (on-shift spec 2026-10-07), under the hero's
+   * buttons, where a student about to use the machine or report a problem
+   * looks for somebody to ask. The page passes it in its own Suspense
+   * boundary; nobody on shift renders nothing.
+   */
+  onShift?: React.ReactNode;
 }
 
 function resourceLabel(link: MakerLabTool["links"][number], fallback: string): string {
@@ -95,7 +102,7 @@ function maintenanceTone(status: string): StatusTone {
  *   box, no empty maintenance history. Safety is the exception: it always
  *   says what to do, falling back to the lab's standing guidance.
  */
-export function DetailShell({ tool, projects = [], manualContents = [], maintenance = [], location = null, heroMap = null, unitsTable, relations, reportActions = true }: DetailShellProps) {
+export function DetailShell({ tool, projects = [], manualContents = [], maintenance = [], location = null, heroMap = null, unitsTable, relations, reportActions = true, onShift = null }: DetailShellProps) {
   const t = useTranslations("detail");
   const tStatus = useTranslations("gallery.status");
   const tUi = useTranslations("ui");
@@ -260,6 +267,7 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
               ) : null}
             </div>
           ) : null}
+          {onShift}
         </div>
       </section>
 

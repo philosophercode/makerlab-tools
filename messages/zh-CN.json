@@ -30,7 +30,8 @@
   },
   "status": {
     "labStatusLabel": "实验室状态",
-    "toolsInInventory": "库存中有 {count} 件工具"
+    "toolsInInventory": "库存中有 {count} 件工具",
+    "onShiftNow": "当前值班：{names}"
   },
   "gallery": {
     "title": "工具",
@@ -290,5 +291,8 @@
   "demoBanner": {
     "label": "演示数据",
     "body": "此目录为内置示例数据，并非 {institution} 的真实库存。Notion 尚未配置。"
+  },
+  "kiosk": {
+    "onShiftLabel": "当前值班"
   }
 }

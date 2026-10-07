@@ -367,3 +367,14 @@ MakerLAB wordmark (owner decision).
   amendment. Checked by hand against a dev server: the kiosk at 1920×1080,
   3840×2160, 1280×720, 1180×820, 810×1080 and 390×844 has no sideways scroll,
   nothing under the header and, in landscape, every panel on screen.
+
+## Amendment 2026-10-07 — the companion names who is on shift
+
+The on-shift spec (`2026-10-07-on-shift-design.md`) gives the assistant the staff who marked
+themselves on shift, as students see them ("Alex M."), in a per-request **On shift now** section
+(`src/lib/ai/on-shift-prompt.ts`), only when somebody is. The companion rule in
+`src/lib/ai/lab-companion.ts` changes from "Name only people named in this prompt" to: name a person
+only when "On shift now" lists them; without that section, name nobody ("ask a SuperMaker"). It
+still never invents a name, a schedule or who is on shift. So the line can now read "Alex M. is on
+shift, ask them to show you." Starter answers never carry the section. Tested in
+`chat-adapter.test.ts`, `on-shift-prompt.test.ts` and `app/api/chat/route.test.ts`.

@@ -212,6 +212,13 @@ export interface PromptEnv {
    * until staff change them, so they go in the prompt's stable prefix.
    */
   labNotes?: readonly string[];
+  /**
+   * Who is on shift now, as students see them ("Alex M."), read by the
+   * surface (`lib/on-shift/read.ts`; on-shift spec 2026-10-07). Per request,
+   * so it goes in the "This conversation" tail. Absent or empty: nobody is
+   * named.
+   */
+  onShift?: readonly string[];
 }
 
 /** One searchable manual of the focused tool, as the prompt lists it. */

@@ -30,7 +30,8 @@
   },
   "status": {
     "labStatusLabel": "מצב המעבדה",
-    "toolsInInventory": "{count} כלים במלאי"
+    "toolsInInventory": "{count} כלים במלאי",
+    "onShiftNow": "במשמרת עכשיו: {names}"
   },
   "gallery": {
     "title": "כלים",
@@ -290,5 +291,8 @@
   "demoBanner": {
     "label": "נתוני הדגמה",
     "body": "קטלוג זה מכיל נתוני דוגמה מובנים, לא המלאי האמיתי של {institution}. Notion אינו מוגדר."
+  },
+  "kiosk": {
+    "onShiftLabel": "במשמרת עכשיו"
   }
 }
