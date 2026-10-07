@@ -19,8 +19,14 @@ function active(steps: StepLike[]): string[] {
 }
 
 describe("chatPrepareStep", () => {
-  it("pins the caps at five Exa searches, five page reads and two tickets per turn", () => {
-    expect(CHAT_TOOL_CAPS).toEqual({ exa_search: 5, read_page: 5, report_issue: 2 });
+  it("pins the caps at five Exa searches, five page reads, two tickets, one row of tool cards and one illustration per turn", () => {
+    expect(CHAT_TOOL_CAPS).toEqual({ exa_search: 5, read_page: 5, report_issue: 2, show_tool: 1, make_illustration: 1 });
+  });
+
+  it("withdraws show_tool and make_illustration after their one call (amendment 2026-10-07)", () => {
+    const tools = ["get_tool_details", "show_tool", "make_illustration"];
+    expect(chatPrepareStep(tools)({ steps: [] }).activeTools).toEqual(tools);
+    expect(chatPrepareStep(tools)({ steps: [step("show_tool"), step("make_illustration")] }).activeTools).toEqual(["get_tool_details"]);
   });
 
   it("offers every tool before anything has been called", () => {

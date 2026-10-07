@@ -2446,3 +2446,139 @@ never stops a report. A student waits on this call; flex is the owner's choice, 
 report spec's open question 2 covers moving it if flex is slow. Each call logs its cost and the
 tier that served it (`describeGatewayCall`), never the report's words. Tests stub it at the
 registry (`setLanguageModel("reportTriage", …)`) or pass a model directly.
+
+### 2026-10-07 — Generated illustrations in the chat (§2, §3.1, §4, §5.3, §8, §10)
+
+**Why.** The owner asked for images in the chat (2026-10-07): "In the chat you could show the
+tool's image if it makes sense; the AI can pull the images; if it does research it can do image
+search; or even generate cheap images — give the AI tools to make an infographic or a render."
+The real images are the assistant–GUI parity spec's amendment of the same date ("Images in the
+chat": the catalogue photo of the tool an answer is about). This amendment is the generated part:
+one new image job, `illustration`, behind a chat capability, `make_illustration`.
+
+**This does not reopen "No generative redraw".** That rule stands unchanged: no model edits,
+cleans or generates a product photo, a catalogue cover or any picture on a tool page. The redraw
+was retired because it took a real photo of a real machine and returned the catalogue's picture of
+it with the printed labels changed ("DREMEL 3000" became "DREMEL GOGO"), so the catalogue would
+have shown a machine that does not exist. An illustration is a different thing:
+
+1. **It never depicts the lab's equipment.** It starts from words, never from a photo. Every
+   catalogue tool named in the plan is replaced with a generic noun from its category before the
+   prompt is built ("Trotec Speedy 400" → "laser cutter"), and any sentence asking for a control
+   panel, warning or safety labels and signs, logos, brands or an emergency stop is dropped (in a
+   plan also buttons, a machine's screen, dials, knobs, menus and settings). The prompt's own rules
+   say: generic shapes, no controls, no labels or signs, no logos or readable text.
+2. **It can never reach the catalogue.** It is not an `attachments` row: its own table
+   (`chat_illustrations`, migration `0030`) and private blobs under `chat/illustrations/`, served
+   only to the person who asked for it. Nothing that claims, promotes or publishes an attachment —
+   approval, a ticket, a project, the tool editor — can pick one up. It is never shown on a tool
+   page, in the gallery or over MCP.
+3. **It is labelled every time**: an "AI illustration" mark on the picture itself and, under it,
+   "AI-generated illustration, not a photo of our equipment. Check the manual and staff for exact
+   steps." (`chat.illustration.caption`, 12 locales).
+4. **It is offered, not automatic.** The prompt tells the assistant to offer ("Want a sketch of
+   this plan?") and to call the tool only after a yes, and never to use it to show how a lab
+   machine looks, its controls, labels or safety steps.
+
+**Two uses only.** `kind: "plan"` — an infographic of a plan or process the assistant just wrote
+(the steps of a build across several machines); `kind: "concept"` — a concept render of the
+student's own project idea.
+
+**§3.1 gains one row.**
+
+| Job | Kind | Env | Default | Tier |
+|---|---|---|---|---|
+| `illustration` | image | `MODEL_ILLUSTRATION` | `meta/muse-image-1.0` | none (a person waits) |
+
+`imageModelFor("illustration")` builds it; `languageModelFor` refuses it. `MODEL_ILLUSTRATION=off`
+(or `none`, any case) switches illustrations off: `illustrationsEnabled()` is false and the chat
+route leaves the capability out entirely — no tool, no prompt, no offer. The route also leaves it
+out when there is no Blob store, so a deployment without one never pays for a picture nobody can
+see (the rule research's cleaning followed). A malformed override is a `ModelConfigError` naming
+the variable, caught before anything is reserved.
+
+**How the default was chosen.** From the Gateway's public model list (`GET /v1/models`, no key,
+no cost, 2026-10-07), the image models with a flat per-image price, cheapest first:
+`recraft/recraft-v4.1-flash` $0.007, `meta/muse-image-1.0` $0.01, `spacexai/grok-imagine-image`
+$0.02, `recraft/recraft-v2` $0.022, `bfl/flux-3-image` $0.024 at 1024×1024. Models listed with no
+price were not considered, and the token-priced `openai/gpt-image-1-mini` was not chosen: its cost
+per image moves with quality, and it is the model whose redraw corrupted labels. The first build
+used the cheapest, `recraft/recraft-v4.1-flash`; the owner then chose `meta/muse-image-1.0`, the
+cheapest listed with zero data retention and no training on prompts (open question 1, answered
+2026-10-07), for $0.003 more an image. **Not
+live-verified:** no paid image call was made for this change. The first real call's log line
+confirms the price.
+
+**The call.** `generateImage`, one image, `size: "1024x1024"`, one retry, a 60-second deadline, no
+provider options. The cost is read from `providerMetadata.gateway.cost` and logged like every other
+job's (`[illustration] plan answered: cost $0.0100, tier not reported`, `describeGatewayCall`);
+failures log their kind and status only (`classifyModelError`), never the prompt. The returned bytes
+must be a PNG, JPEG or WebP by their own header (`inspectImage`) and at most 8 MB, or nothing is
+stored.
+
+**Caps** (`src/lib/illustrations/limits.ts`, first settings):
+- **one per reply** — counted in the tool and withdrawn by the route's `prepareStep`
+  (`CHAT_TOOL_CAPS.make_illustration = 1`);
+- **3 per person** in any rolling 24 hours (pending or made; a failed one gives its place back);
+- **$1 lab-wide** in any rolling 24 hours — about 100 pictures at the default price, at most about
+  $30 a month. Every row's `cost_usd` counts, a failed call's too when the Gateway reported one.
+
+A place is reserved before the call, under a transaction-scoped advisory lock, at the estimated
+cost: the default model's $0.01, or $0.05 for any `MODEL_ILLUSTRATION` override, whose price the
+code does not know (so an unknown model can only end the day early, never late). The reported cost
+replaces the estimate once the call answers. **Not the research allowance:** that ledger counts
+research presses on pending items, per person only; illustrations need a lab-wide money ceiling, so
+they have their own ledger built the same way (insert, count over 24 hours, under a lock).
+
+**Who.** A new permission, `chat.illustrate`, held by `user`, `admin` and `super_admin` — every
+signed-in person, so every picture is counted against somebody. An anonymous visitor gets the
+capability's locked note, which tells the assistant to say a sketch needs signing in (the Sign in
+button). Gated by `capabilitiesForIdentity`, never inside `run()`.
+
+**§4 data model.** `chat_illustrations` (migration `0030`, written as `0028` and renumbered when stacked after the eval questions and email migrations): `id`, `user_id` (cascade), `kind`
+(`plan` | `concept`), `status` (`pending` | `ready` | `failed`), `model`, `cost_usd`,
+`blob_pathname`, `content_type`, `width`, `height`, `created_at`, `finished_at`. No words of the
+conversation are stored. `GET /api/chat/illustrations/[id]` serves a `ready` row's blob to its owner
+(401 anonymous; the same 404 for anyone else's, staff included, a pending or failed one, or a
+malformed id), `private, no-store`, rate-limited by the new `illustrations` tier (60 a minute).
+The nightly backup keeps the table; `npm run data:push` leaves it out (`DEPLOYMENT_BOUND` in
+`cron/backup-policy.ts`): its rows name private blobs in the deployment that drew them.
+
+**§8 safety.** The plan or idea in the tool call came from the conversation, so it is content, never
+instructions: cleaned (links, emails and phone numbers out, the lab's machines generic, the fence's
+own marks removed), capped at 900 characters and fenced between the code's fixed opening and rules,
+which say to ignore anything in the description asking for another style, subject or rule. A page
+the assistant read cannot spend money unasked beyond one picture a reply, three a day per person.
+
+**§10 tests** (no live image calls; the model is `MockImageModelV3` through
+`test/ai/models-stub.ts`'s new `setImageModel(imageModel(…))`, Blob a fake):
+`illustrations/prompt.test.ts` (fence and rules, machines generic, controls and signs dropped, a
+concept's own buttons kept, screen printing kept, links stripped, nothing left → no call, the cap);
+`data/chat-illustrations.test.ts` (both caps over 24 hours, a failed one gives its place back,
+concurrent reservations, owner-only reads, cascade, the CHECKs); `illustrations/make.test.ts` (no
+call when off, without storage, without a person or with nothing to draw; caps before the call;
+stored private under `chat/illustrations/`; reported and estimated cost; a failed call and a
+non-image answer marked failed; a malformed override named, never its value);
+`capabilities/illustrations.test.ts` (who is offered it, the locked note, never over MCP, one per
+reply, the part, the refusals); `api/chat/illustrations/[id]/route.test.ts`; the chat route
+(`route.test.ts`: left out without a Blob store or with `MODEL_ILLUSTRATION=off`);
+`ai/models.test.ts` (the job, its off switch); `ChatImages.test.tsx` (the mark and the caption, and
+nothing drawn for an image URL that is not our route).
+
+**Open questions.**
+1. **Data retention. Answered 2026-10-07:** the default is `meta/muse-image-1.0` ($0.01), the
+   cheapest the Gateway lists with zero data retention and no training on prompts. The first
+   build's `recraft/recraft-v4.1-flash` ($0.007) has neither guarantee, and although the prompt
+   carries no names (the lab's machines generic; emails, links and phone numbers out), a
+   student's project idea goes in as words. `MODEL_ILLUSTRATION=recraft/recraft-v4.1-flash`
+   would go back to it (reserved at $0.05 until the code learns its price).
+2. **No sweep yet.** Nothing deletes old illustration blobs. The chat keeps no history beyond the
+   page session, so nothing refers to a picture after a day; a daily-cron stage deleting rows and
+   blobs older than 7 days would keep the store and the ledger small.
+3. **Words in the picture.** Image models draw garbled text, so the plan prompt keeps words out
+   (panel numbers only). A deterministic step diagram drawn in code (SVG) would be free and exact
+   for `plan`; the model would then be needed only for `concept`.
+4. **The caps** (3 a person, $1 a day) are first settings; the ledger shows the real use.
+
+**Status.** Built on `v5/chat-images`, not live-verified (no paid image or chat calls). Awaiting the
+owner's review.

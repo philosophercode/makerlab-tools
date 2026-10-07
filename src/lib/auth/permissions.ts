@@ -69,6 +69,11 @@ export const statement = {
   // decided super admins first, "admins too" is one line below. Counts and
   // aggregates only; never the Unanswered queue's text.
   insights: ["view", "configure", "export"],
+  // `illustrate`: ask the assistant for a generated illustration — a sketch of
+  // a plan or a concept render of a project idea (gateway spec amendment
+  // 2026-10-07). Every signed-in person: it spends the lab's money, so it
+  // needs someone to count it against; anonymous visitors are offered sign-in.
+  chat: ["illustrate"],
 } as const;
 
 export const ac = createAccessControl(statement);
@@ -91,7 +96,8 @@ const ACCOUNT_MANAGEMENT = {
  * The grants, least- to most-privileged.
  *
  * - `user` — a student, or anyone signed in with an allowed address. Submitting
- *   a project is the whole of it; browsing and chatting never needed an account.
+ *   a project and asking the assistant for an illustration are the whole of
+ *   it; browsing and chatting never needed an account.
  * - `admin` — a SuperMaker. Runs the catalogue and the lab's day-to-day
  *   records, but cannot change who is who.
  * - `super_admin` — a director. Everything, including roles and removing people.
@@ -99,9 +105,11 @@ const ACCOUNT_MANAGEMENT = {
 export const roles = {
   user: ac.newRole({
     projects: ["submit"],
+    chat: ["illustrate"],
   }),
   admin: ac.newRole({
     projects: ["submit", "moderate"],
+    chat: ["illustrate"],
     catalog: ["view_drafts", "view_serials"],
     tools: ["add", "approve", "edit", "publish"],
     maintenance: ["manage"],
@@ -112,6 +120,7 @@ export const roles = {
   }),
   super_admin: ac.newRole({
     projects: ["submit", "moderate"],
+    chat: ["illustrate"],
     catalog: ["view_drafts", "view_serials", "export"],
     tools: ["add", "approve", "edit", "publish"],
     maintenance: ["manage"],

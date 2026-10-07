@@ -418,3 +418,16 @@ export type DeliveryReason = (typeof DELIVERY_REASON)[number];
 /** How a person takes an event (§4.3): now, in a digest (v1.1), or not at all. */
 export const NOTIFICATION_DELIVERIES = ["immediate", "digest", "off"] as const;
 export type NotificationDelivery = (typeof NOTIFICATION_DELIVERIES)[number];
+
+/**
+ * What a chat illustration shows (gateway spec amendment 2026-10-07
+ * "Generated illustrations in the chat", migration `0030`): an infographic of
+ * a plan the assistant wrote, or a concept render of a student's project idea.
+ * Never one of the lab's machines.
+ */
+export const ILLUSTRATION_KIND = ["plan", "concept"] as const;
+export type IllustrationKind = (typeof ILLUSTRATION_KIND)[number];
+
+/** `pending` while the model draws, `ready` once stored, `failed` when no image came of it. */
+export const ILLUSTRATION_STATUS = ["pending", "ready", "failed"] as const;
+export type IllustrationStatus = (typeof ILLUSTRATION_STATUS)[number];

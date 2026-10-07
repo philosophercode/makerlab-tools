@@ -3,6 +3,8 @@ import { units } from "./units";
 import { web } from "./web";
 import { manuals } from "./manuals";
 import { qr } from "./qr";
+import { toolCards } from "./tool-cards";
+import { illustrations } from "./illustrations";
 import { maintenance } from "./maintenance";
 import { intake } from "./intake";
 import { flags } from "./flags";
@@ -34,6 +36,14 @@ import type { Capability } from "./types";
  *                    on MCP too, public manuals only.
  *  - `qr`          — `get_tool_qr_code`: a published tool's QR code as a chat
  *                    card with download links (read, chat only, everyone).
+ *  - `tool-cards`  — `show_tool`: the catalogue photo, status and page link of
+ *                    the tool an answer is about, as small chat cards (read,
+ *                    chat only, everyone).
+ *  - `illustrations` — `make_illustration`: one labelled AI illustration of a
+ *                    plan or a project idea, never of the lab's equipment
+ *                    (chat only, signed-in people: `chat.illustrate`; the
+ *                    route leaves it out when `MODEL_ILLUSTRATION=off` or
+ *                    there is no Blob store).
  *  - `maintenance` — file maintenance tickets (write).
  *  - `intake`      — `identify_tools` records equipment as pending rows (chat
  *                    only; research and approval happen off the chat), and
@@ -70,6 +80,8 @@ export const CAPABILITIES: Capability[] = [
   web,
   manuals,
   qr,
+  toolCards,
+  illustrations,
   maintenance,
   intake,
   flags,
@@ -82,7 +94,7 @@ export const CAPABILITIES: Capability[] = [
 ];
 
 // Re-export the individual capabilities for direct/selective use and testing.
-export { catalog, units, web, manuals, qr, maintenance, intake, flags, reports, staff, adminReads, catalogReads, actions, insights };
+export { catalog, units, web, manuals, qr, toolCards, illustrations, maintenance, intake, flags, reports, staff, adminReads, catalogReads, actions, insights };
 
 // Re-export the surface adapters so consumers import from one place.
 export {

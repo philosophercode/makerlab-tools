@@ -198,7 +198,20 @@
     "working": "正在处理…",
     "rateLimitSignIn": "您已达到未登录访客的消息上限。使用您的 {institution} 账号登录即可继续对话——无论是否登录，浏览目录始终开放。",
     "rateLimitSignInCta": "登录",
-    "rateLimited": "您已达到每小时消息上限，请稍后再试。"
+    "rateLimited": "您已达到每小时消息上限，请稍后再试。",
+    "showingTool": "▣ 正在获取工具照片…",
+    "toolCard": {
+      "label": "本回答中的工具",
+      "open": "打开"
+    },
+    "drawingIllustration": "✎ 正在绘制插图…",
+    "illustration": {
+      "badge": "AI 插图",
+      "caption": "AI 生成的插图，不是我们设备的照片。具体步骤请查阅手册并咨询工作人员。",
+      "altPlan": "AI 生成的计划信息图",
+      "altConcept": "AI 生成的项目创意概念渲染图",
+      "unavailable": "此插图已不可用。"
+    }
   },
   "qr": {
     "arrivalLabel": "从这台设备扫码进入",

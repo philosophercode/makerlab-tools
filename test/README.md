@@ -331,8 +331,9 @@ inline (as above) is safe — its import is hoisted alongside the mock. The
 
 Every model call in the app goes through one place, `src/lib/ai/models.ts`'s
 job registry (`MODEL_JOBS`: `chat`, `researchSearch`, `researchRead`,
-`imageRank` — every one a language job; background removal is a deterministic
-cutout that calls no model) — there is no direct-provider path, so a test never
+`imageRank` and the rest are language jobs, `embed` and `rerank` are not, and the
+one image job, `illustration`, draws chat illustrations only; background removal
+is a deterministic cutout that calls no model) — there is no direct-provider path, so a test never
 mocks `@ai-sdk/gateway`. Two seams, chosen by what the code under test can be reached from:
 
 ### `test/ai/models-stub.ts` — for anything that imports the registry
@@ -356,6 +357,10 @@ afterEach(resetModelStubs);
   `scriptedModel(turns)` build a `MockLanguageModelV3` (from `ai/test`).
   `recordedCalls(model)` returns every call's `{ prompt, tools, providerOptions, options }`, across
   both `generateText` and `streamText`.
+- `setImageModel(imageModel(images, { cost?, error? }))` stubs job `illustration`
+  with a `MockImageModelV3` that answers `images` (their bytes) and, given
+  `cost`, the Gateway's `providerMetadata.gateway.cost`; its calls are on
+  `.doGenerateCalls`. Unstubbed, `imageModelFor` throws like any other job.
 - Everything else in the module stays real — `modelIdFor`, `MODEL_JOBS`, the
   Exa tools' `gatewayProvider()` — so a `MODEL_*` misconfiguration still
   throws the way it would in production. A job nobody stubbed throws `"no
