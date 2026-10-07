@@ -98,7 +98,15 @@
   the pages' `MARKDOWN_PROSE`. A link whose address one of the turn's
   `search_manual` passages returned is an inline citation, and the cited
   pages are the answer's Sources (`chat/manual-citations.ts`). Messages carry
-  `data-role` / `data-kind` for tests. Under the composer, always, the
+  `data-role` / `data-kind` for tests. **Images in the chat** (amendment
+  2026-10-07) are cards like the QR card, all loaded lazily: `ChatToolCards`
+  (`data-tool-cards`, from `show_tool`) draws the tools an answer is about —
+  the catalogue photo through `ToolImage` on a 72 px plate, name, category and
+  `StatusGlyph`, the card a link that closes the chat; a turn's cards are one
+  list, each tool once. `ChatIllustration` (`data-illustration`, from
+  `make_illustration`) draws a generated illustration from our own route only,
+  with an "AI illustration" mark on the picture and the fixed caption
+  `chat.illustration.caption` under it. Under the composer, always, the
 `chat.aiNote` line ("MakerLAB AI can make mistakes…"), which also describes
 the text field (identity spec amendment 2026-10-06). The floating button is not drawn on
   `/admin/*`: the section bar's **Ask MakerLAB AI** and ⌘K (`onAsk`, from

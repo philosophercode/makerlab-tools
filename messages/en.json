@@ -370,6 +370,19 @@
       "opens": "Scanning it opens {url}",
       "downloadPng": "Download PNG",
       "downloadSvg": "Download SVG"
+    },
+    "showingTool": "▣ Getting the tool's photo…",
+    "toolCard": {
+      "label": "Tools in this answer",
+      "open": "Open"
+    },
+    "drawingIllustration": "✎ Drawing an illustration…",
+    "illustration": {
+      "badge": "AI illustration",
+      "caption": "AI-generated illustration, not a photo of our equipment. Check the manual and staff for exact steps.",
+      "altPlan": "AI-generated infographic of the plan",
+      "altConcept": "AI-generated concept render of the project idea",
+      "unavailable": "This illustration is no longer available."
     }
   },
   "qr": {
@@ -3762,6 +3775,8 @@
       "get_value_report": "Read the value report's numbers",
       "get_usage_summary": "Read the Insights page's usage counts",
       "get_tool_qr_code": "Show a tool's QR code, ready to download",
+      "show_tool": "Show the catalogue photo, status and page of the tool it is talking about",
+      "make_illustration": "Draw a labelled AI sketch of a plan or of your project idea, when you ask for one",
       "list_maintenance_due": "Read the recurring maintenance tasks that are due"
     },
     "actions": {

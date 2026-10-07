@@ -10,6 +10,8 @@ import type { IntakeTablePayload } from "../../lib/intake/types";
 import type { ImportCardPayload } from "../../lib/import/view";
 import type { ActionProposalCardPayload } from "../../lib/capabilities/actions";
 import type { ToolQrCardPayload } from "../../lib/capabilities/qr";
+import type { ChatToolCard, ToolCardsPayload } from "../../lib/capabilities/tool-cards";
+import type { IllustrationPayload } from "../../lib/capabilities/illustrations";
 import {
   attachedManualLinks,
   attachedManuals,
@@ -46,6 +48,8 @@ const ImportCard = lazy(() => import("../ImportCard").then((m) => ({ default: m.
 const ChatProposalCards = lazy(() => import("../ChatProposalCards").then((m) => ({ default: m.ChatProposalCards })));
 const ActionProposalCard = lazy(() => import("./ActionProposalCard").then((m) => ({ default: m.ActionProposalCard })));
 const ToolQrCard = lazy(() => import("./ToolQrCard").then((m) => ({ default: m.ToolQrCard })));
+const ChatToolCards = lazy(() => import("./ChatToolCards").then((m) => ({ default: m.ChatToolCards })));
+const ChatIllustration = lazy(() => import("./ChatIllustration").then((m) => ({ default: m.ChatIllustration })));
 
 const RUNNING = new Set(["input-streaming", "input-available"]);
 
@@ -62,8 +66,12 @@ const RUNNING = new Set(["input-streaming", "input-available"]);
  *   turn's in one `ChatProposalCards` where the first arrived), an
  *   import's hand-off (`data-import-card`) and the assistant's proposed
  *   actions (`data-action-proposal`, one `ActionProposalCard` each —
- *   assistant–GUI parity spec §6) and a tool's QR code (`data-tool-qr`,
- *   `ToolQrCard`, written by `get_tool_qr_code`);
+ *   assistant–GUI parity spec §6), a tool's QR code (`data-tool-qr`,
+ *   `ToolQrCard`, written by `get_tool_qr_code`) and the catalogue photos of
+ *   the tools an answer is about (`data-tool-cards`, all of a turn's in one
+ *   `ChatToolCards` where the first arrived, written by `show_tool`), and a
+ *   generated illustration of a plan or an idea, always labelled as one
+ *   (`data-illustration`, `ChatIllustration`, written by `make_illustration`);
  * - then, for an answer that cited the manual, its **Sources**: the pages it
  *   linked, each opening the PDF there.
  *
@@ -91,6 +99,11 @@ export const ChatMessage = memo(function ChatMessage({
   const proposals = message.parts
     .filter((p): p is Part & { data: ChatProposalItem } => p.type === "data-proposal" && isKind(p, "proposal"))
     .map((p) => p.data);
+  const toolCards = uniqueBySlug(
+    message.parts
+      .filter((p): p is Part & { data: ToolCardsPayload } => p.type === "data-tool-cards" && isKind(p, "tool-cards"))
+      .flatMap((p) => (Array.isArray(p.data.tools) ? p.data.tools : []))
+  );
   // A page of an attached manual written as plain text is linked before
   // anything reads the answer, so the Sources and the prose agree.
   const assistantText = message.role === "assistant" ? linkAttachedPageMentions(textOf(message.parts), attached) : "";
@@ -99,6 +112,7 @@ export const ChatMessage = memo(function ChatMessage({
   const blocks: ReactNode[] = [];
   let hasCard = false;
   let proposalsPlaced = false;
+  let toolCardsPlaced = false;
   message.parts.forEach((part, index) => {
     if (part.type === "text") {
       if (!part.text.trim()) return;
@@ -173,6 +187,31 @@ export const ChatMessage = memo(function ChatMessage({
       );
       return;
     }
+    if (part.type === "data-tool-cards" && isKind(part, "tool-cards")) {
+      if (!toolCardsPlaced && toolCards.length > 0) {
+        toolCardsPlaced = true;
+        hasCard = true;
+        blocks.push(
+          <Suspense key={`tool-cards-${index}`} fallback={null}>
+            <ChatToolCards tools={toolCards} onNavigate={onInternalNavigate} />
+          </Suspense>
+        );
+      }
+      return;
+    }
+    if (part.type === "data-illustration" && isKind(part, "illustration")) {
+      const data = (part as { data: IllustrationPayload }).data;
+      // Only our own image route: the payload is the server's, but a stored
+      // message is data, and nothing else may become an image here.
+      if (typeof data.url !== "string" || !data.url.startsWith("/api/chat/illustrations/")) return;
+      hasCard = true;
+      blocks.push(
+        <Suspense key={`illustration-${data.id}`} fallback={null}>
+          <ChatIllustration payload={data} />
+        </Suspense>
+      );
+      return;
+    }
     if (part.type === "data-import-card" && isKind(part, "import-card")) {
       hasCard = true;
       const data = (part as { data: ImportCardPayload }).data;
@@ -207,6 +246,16 @@ export const ChatMessage = memo(function ChatMessage({
 
 function isKind(part: Part, kind: string): boolean {
   return (part as { data?: { kind?: unknown } }).data?.kind === kind;
+}
+
+/** A turn's tool cards, each tool once, in the order they arrived. */
+function uniqueBySlug(cards: readonly ChatToolCard[]): ChatToolCard[] {
+  const seen = new Set<string>();
+  return cards.filter((card) => {
+    if (typeof card?.slug !== "string" || seen.has(card.slug)) return false;
+    seen.add(card.slug);
+    return true;
+  });
 }
 
 function textOf(parts: readonly Part[]): string {

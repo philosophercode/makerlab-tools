@@ -16,6 +16,7 @@ import {
 } from "../db/schema/index";
 import { DEPLOYMENT_BOUND, EXCLUDED_TABLES, isDeploymentBound, isExcludedFromBackup, isRebuiltAfterRestore, isRetentionBound, REBUILT_AFTER_RESTORE, RETENTION_BOUND, redactRows } from "./backup-policy";
 import { starterAnswers } from "../db/schema/starter-answers";
+import { chatIllustrations } from "../db/schema/illustrations";
 import { usageEvents, usageGaps, usageRollups } from "../db/schema/usage";
 
 /**
@@ -38,13 +39,19 @@ describe("RETENTION_BOUND (usage insight spec §4, §8)", () => {
   });
 });
 
-describe("DEPLOYMENT_BOUND (starter answers)", () => {
+describe("DEPLOYMENT_BOUND (starter answers, chat illustrations)", () => {
   it("keeps pre-run starter answers out of data:push but in the nightly backup", () => {
     expect(isDeploymentBound(starterAnswers)).toBe(true);
-    expect(DEPLOYMENT_BOUND.size).toBe(1);
+    expect(DEPLOYMENT_BOUND.size).toBe(2);
     expect(isExcludedFromBackup(starterAnswers)).toBe(false);
     expect(isRetentionBound(starterAnswers)).toBe(false);
     expect(isRebuiltAfterRestore(starterAnswers)).toBe(false);
+  });
+
+  it("keeps chat illustrations out of data:push (their blobs are the deployment's own) but in the nightly backup", () => {
+    expect(isDeploymentBound(chatIllustrations)).toBe(true);
+    expect(isExcludedFromBackup(chatIllustrations)).toBe(false);
+    expect(isRetentionBound(chatIllustrations)).toBe(false);
   });
 });
 
