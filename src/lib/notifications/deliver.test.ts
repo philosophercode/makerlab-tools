@@ -4,12 +4,13 @@ import { server } from "../../../test/msw/server";
 import { useResendFake } from "../../../test/msw/resend";
 import { insertUserRow } from "../../../test/utils/session";
 import { createMaintenanceLog, logCompletedMaintenance } from "../data/maintenance";
-import { createSchedules } from "../data/maintenance-schedules";
+import { completeSchedule, createSchedules } from "../data/maintenance-schedules";
 import { createPgliteDb } from "../db/pglite";
 import { rawRows } from "../db/raw";
 import {
   auditEvents,
   maintenanceLogs,
+  maintenanceReminderItems,
   maintenanceSchedules,
   notificationDeliveries,
   notificationPreferences,
@@ -371,22 +372,32 @@ describe("with email configured", () => {
   });
 });
 
-describe("the daily maintenance reminder", () => {
-  async function schedule(title: string, firstDueOn: string) {
-    await createSchedules(
-      [{ toolId, unitId: null, title, instructions: null, interval: { count: 1, unit: "week" }, firstDueOn }],
+describe("the maintenance reminder (each task's cadence)", () => {
+  const TOMORROW = "2026-10-08";
+
+  async function schedule(title: string, firstDueOn: string, interval: { count: number; unit: "day" | "week" } = { count: 1, unit: "week" }) {
+    const [id] = await createSchedules(
+      [{ toolId, unitId: null, title, instructions: null, interval, firstDueOn }],
       { userId: STAFF.niti.id, name: STAFF.niti.name },
       { db }
     );
+    return id;
+  }
+
+  async function remind(labDate: string) {
+    const queued = await enqueueMaintenanceReminder(labDate, { db });
+    if (queued.queued) await runOnce(queued.id);
+    return queued;
   }
 
   it("queues nothing when nothing is due today or overdue", async () => {
     await schedule("Next week's task", "2026-10-12");
     expect(await enqueueMaintenanceReminder(TODAY, { db })).toEqual({ queued: false, reason: "nothing_due" });
     expect(await db.select().from(notifications)).toHaveLength(0);
+    expect(await db.select().from(maintenanceReminderItems)).toHaveLength(0);
   });
 
-  it("queues one row per lab day, and emails staff the overdue and due-today tasks", async () => {
+  it("emails staff once about the tasks that came due, today's first, and records each task's due date", async () => {
     configure();
     const fake = useResendFake(server);
     await schedule("Clean the lens", "2026-10-04");
@@ -394,21 +405,77 @@ describe("the daily maintenance reminder", () => {
     await schedule("Next week's task", "2026-10-12");
 
     const queued = await enqueueMaintenanceReminder(TODAY, { db });
-    expect(queued).toMatchObject({ queued: true });
-    expect(await enqueueMaintenanceReminder(TODAY, { db })).toEqual({ queued: false, reason: "already_queued" });
+    expect(queued).toMatchObject({ queued: true, tasks: 2 });
+    expect(await enqueueMaintenanceReminder(TODAY, { db })).toEqual({ queued: false, reason: "nothing_due" });
     if (!queued.queued) throw new Error("unreachable");
 
     await runOnce(queued.id);
     expect(fake.requests.map((r) => r.body.to?.[0]).sort()).toEqual([STAFF.isaac.email, STAFF.niti.email]);
     const [email] = fake.requests;
-    expect(email.body.subject).toBe("Shift checklist: 1 overdue, 1 due today");
-    expect(email.body.text).toContain("Clean the lens · Trotec Speedy 400 · 3 days overdue");
+    expect(email.body.subject).toBe("Shift checklist: 2 recurring tasks came due");
+    expect(email.body.text).toContain("Due today (1)");
     expect(email.body.text).toContain("Empty the dust bin");
+    expect(email.body.text).toContain("Came due earlier (1)");
+    expect(email.body.text).toContain("Clean the lens · Trotec Speedy 400 · 3 days overdue");
     expect(email.body.text).not.toContain("Next week's task");
     expect(email.body.text).toContain(`${ORIGIN}/admin/maintenance#due-tasks`);
     expect(verifyUnsubscribeToken(new URL((email.body.headers?.["List-Unsubscribe"] ?? "").slice(1, -1)).searchParams.get("t"), SECRET)?.event).toBe(
       "maintenance.due"
     );
+    const items = await db.select().from(maintenanceReminderItems);
+    expect(items.map((item) => item.dueOn).sort()).toEqual(["2026-10-04", TODAY]);
+    expect(items.every((item) => item.notificationId === queued.id)).toBe(true);
+  });
+
+  it("does not email a task again while it stays overdue, and emails only what came due the next day", async () => {
+    configure();
+    const fake = useResendFake(server);
+    await schedule("Clean the lens", TODAY);
+    expect(await remind(TODAY)).toMatchObject({ queued: true, tasks: 1 });
+    const sentToday = fake.requests.length;
+
+    // Still overdue tomorrow, and nothing else came due: no email.
+    expect(await remind(TOMORROW)).toEqual({ queued: false, reason: "nothing_due" });
+    expect(fake.requests).toHaveLength(sentToday);
+
+    // A task that comes due tomorrow is emailed alone; the overdue lens is not named again.
+    await schedule("Empty the dust bin", TOMORROW);
+    expect(await remind(TOMORROW)).toMatchObject({ queued: true, tasks: 1 });
+    const tomorrow = fake.requests.slice(sentToday);
+    expect(tomorrow[0].body.subject).toBe("Shift checklist: 1 recurring task came due");
+    expect(tomorrow[0].body.text).toContain("Empty the dust bin");
+    expect(tomorrow[0].body.text).not.toContain("Clean the lens");
+  });
+
+  it("emails a task again when its next due date arrives after it was checked off", async () => {
+    configure();
+    const fake = useResendFake(server);
+    const id = await schedule("Wipe the benches", TODAY, { count: 1, unit: "day" });
+    expect(await remind(TODAY)).toMatchObject({ queued: true, tasks: 1 });
+    const done = await completeSchedule(
+      { id, note: null, expectedDueOn: TODAY, today: TODAY, actor: { userId: STAFF.niti.id, name: STAFF.niti.name } },
+      { db }
+    );
+    expect(done).toMatchObject({ ok: true });
+
+    expect(await remind(TOMORROW)).toMatchObject({ queued: true, tasks: 1 });
+    expect(fake.requests.at(-1)?.body.text).toContain("Wipe the benches");
+  });
+
+  it("leaves out a task checked off before the email went, and skips an email left with nothing", async () => {
+    configure();
+    const fake = useResendFake(server);
+    const id = await schedule("Wipe the benches", TODAY, { count: 1, unit: "day" });
+    const queued = await enqueueMaintenanceReminder(TODAY, { db });
+    if (!queued.queued) throw new Error("expected a reminder");
+    await completeSchedule(
+      { id, note: null, expectedDueOn: TODAY, today: TODAY, actor: { userId: STAFF.niti.id, name: STAFF.niti.name } },
+      { db }
+    );
+    await runOnce(queued.id);
+    expect(fake.requests).toHaveLength(0);
+    const [row] = await db.select().from(notifications).where(eq(notifications.id, queued.id));
+    expect(row).toMatchObject({ status: "skipped", skipReason: "subject_gone" });
   });
 
   it("skips the reminder for someone who turned it off, but keeps their ticket emails", async () => {

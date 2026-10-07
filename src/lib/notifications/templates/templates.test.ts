@@ -138,17 +138,18 @@ function renderDue(subject: DueSubject = due()) {
 }
 
 describe("maintenance.due email", () => {
-  it("counts what is overdue and due today in the subject", () => {
-    expect(renderDue().subject).toBe("Shift checklist: 1 overdue, 2 due today");
-    expect(renderDue(due({ overdue: [] })).subject).toBe("Shift checklist: 2 due today");
-    expect(renderDue(due({ dueToday: [] })).subject).toBe("Shift checklist: 1 overdue");
+  it("counts the tasks that came due in the subject", () => {
+    expect(renderDue().subject).toBe("Shift checklist: 3 recurring tasks came due");
+    expect(renderDue(due({ overdue: [], dueToday: due().dueToday.slice(0, 1) })).subject).toBe("Shift checklist: 1 recurring task came due");
   });
 
-  it("lists each task with its machine, lab-wide upkeep and lateness, and links to the Shift checklist", () => {
+  it("lists each task with its machine, lab-wide upkeep and lateness, today's first, and links to the Shift checklist", () => {
     const email = renderDue();
-    expect(email.text).toContain("Overdue (1)");
-    expect(email.text).toContain("- Clean the lens · Trotec Speedy 400 · Laser A · 3 days overdue");
     expect(email.text).toContain("Due today (2)");
+    expect(email.text).toContain("Came due earlier (1)");
+    expect(email.text.indexOf("Due today (2)")).toBeLessThan(email.text.indexOf("Came due earlier (1)"));
+    expect(email.text).toContain("- Clean the lens · Trotec Speedy 400 · Laser A · 3 days overdue");
+    expect(email.text).toContain("once for each due date");
     expect(email.text).toContain("- Empty the dust bin · General lab upkeep");
     expect(email.text).toContain(`Open the Shift checklist: ${ORIGIN}/admin/maintenance#due-tasks`);
     expect(email.text).toContain("Wednesday, October 7");

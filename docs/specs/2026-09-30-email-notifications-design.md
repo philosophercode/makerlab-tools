@@ -3,7 +3,7 @@
 **Date:** 2026-09-30
 **Status:** Approved by the owner on 2026-10-07. **v1 implemented** on `v5/email-notifications`
 (ticket filed → staff email, outbox, unsubscribe, cron backstop), with the dated amendment
-"2026-10-07 — The daily recurring-maintenance reminder". See "Amendments" at the end for how the
+"2026-10-07 — The recurring-maintenance reminder, on each task's cadence". See "Amendments" at the end for how the
 build differs from the text above. v1.1 (§9 phase 2) is open. Going live waits on §9 phase 0
 (the sending domain and the Resend integration), which is not code.
 **Target:** the app (repository root)
@@ -809,7 +809,8 @@ nothing breaks (Article 3). How it works, file by file:
    the CHECK constraint, when they are built. `notifications.subject_id` is `text` (the reminder's
    subject is a lab date), and two columns were added: `skip_reason` (`capped`, `subject_gone`)
    and `restarted_at` (the backstop restarts a row once). The delivery reasons add
-   `preview_blocked`.
+   `preview_blocked`. The reminder below adds a fourth table, `maintenance_reminder_items`, in
+   the same migration.
 10. **Retries.** The attempt count lives on the delivery row. The send step retries 3 times (4
     attempts); the fourth records `failed` / `provider_error` instead of throwing. A 409
     (Resend's concurrent request with the same idempotency key) is retryable like 429 and 5xx.
@@ -824,38 +825,58 @@ nothing breaks (Article 3). How it works, file by file:
     stand-in is `test/msw/resend.ts`, installed per test; there is deliberately no default
     handler in `test/msw/handlers.ts`, so a test that sends without the fake fails loudly.
 
-### 2026-10-07 — The daily recurring-maintenance reminder
+### 2026-10-07 — The recurring-maintenance reminder, on each task's cadence
 
 **Why.** The owner's design review decisions (2026-10-07): recurring maintenance "must email: a
 reminder of what is due and overdue". This is the `maintenance.due` email §7 left to "its own
 amendment", built as its own email rather than a digest section (the v1.1 digest is still
 planned). Recurring maintenance spec, amendment 2026-10-07, points here.
 
+**Revised the same day.** The first build sent a daily list of everything due and overdue. The
+owner asked for the reminder to follow each task's own cadence instead: email staff when a task
+comes due, once for that due date, and not again every day while it stays overdue. What follows
+is the revised design; the daily list is gone.
+
 **What.**
 
 - **Event `maintenance.due`.** Audience `maintenance.manage`, default `immediate`, its own
   unsubscribe (turning it off keeps ticket emails, and the reverse).
-- **When.** 08:00 in `LAB_TIMEZONE`, every day. The daily cron (07:17 UTC) starts the
-  `maintenanceReminder` workflow. A step computes today's lab date and the wait until 08:00
-  (`labInstant`, which handles daylight saving), the workflow sleeps, and a second step reads the
-  due list at 08:00, so a task checked off overnight is not in the email. A late or manual cron
-  run after 08:00 sends at once.
-- **What it lists.** `listDueSchedules(today, { withinDays: 0 })`: active tasks overdue, then due
-  today. Paused and archived tasks never appear. Each line is the task, its machine (or "General
-  lab upkeep") and unit, and how many days overdue. At most 25 lines a section, then "and N more
-  on the checklist".
-- **Nothing due, nothing sent.** No outbox row is written. Otherwise one row,
+- **Once per task and due date.** A task is named in one email for each due date it reaches.
+  While it stays overdue its `next_due_on` does not move, so it is not named again. Checked off
+  with **Done**, its next due date is new, and it is emailed when that date arrives. Paused and
+  archived tasks are never named.
+- **Tracked per task and due date.** `maintenance_reminder_items` (`schedule_id`, `due_on`,
+  primary key on the two; `notification_id`, set null when that reminder ages out of the outbox)
+  records what a reminder already named. "Newly due" is an active task with
+  `next_due_on <= today` and no row for that `next_due_on` (`listNewlyDue`). The outbox row and
+  its items are written in one transaction.
+- **When.** The daily cron (07:17 UTC) starts the `maintenanceReminder` workflow. A step computes
+  today's lab date and the wait until 08:00 in `LAB_TIMEZONE` (`labInstant`, which handles
+  daylight saving), the workflow sleeps, and a second step reads what is newly due at 08:00. A
+  late or manual cron run after 08:00 sends at once. So a task is usually emailed at 08:00 on its
+  due date; one that came due on a day the cron missed, or that was set up already overdue, is
+  named by the next run.
+- **One email a day at most.** The day's newly due tasks share one email, one outbox row keyed
   `maintenance.due:<lab date>` (unique), delivered by the same steps as a ticket alert: same
-  recipients rule, same re-checks, same idempotency, same unsubscribe. A second start the same
-  day finds the row and sends nothing.
-- **Subject and links.** "Shift checklist: 2 overdue, 3 due today"; one link, "Open the Shift
+  recipients rule, same idempotency, same unsubscribe. A second start the same day finds nothing
+  new, or finds the day's row and sends nothing; a task that comes due after the day's email is
+  named the next day. Nothing newly due, no row.
+- **What it lists.** The tasks the reminder named, as they stand at send time: one checked off,
+  paused or archived in between drops out, and an email left with nothing is skipped
+  (`subject_gone`). "Due today", then "Came due earlier" (with days overdue). Each line is the
+  task, its machine (or "General lab upkeep") and unit. At most 25 lines a section, then "and N
+  more on the checklist".
+- **Subject and links.** "Shift checklist: 2 recurring tasks came due"; one link, "Open the Shift
   checklist", to `/admin/maintenance#due-tasks`. The official logo heads it like the ticket email.
-- **Offline.** With email not configured, the cron stage records the day's reminder at once as
-  `not_configured` instead of starting a sleeping workflow.
+- **Retention.** The cron stage deletes an item once its task's cycle is over (`due_on` before the
+  task's `next_due_on`): nothing can name that date again.
+- **Offline.** With email not configured, the cron stage records the reminder at once as
+  `not_configured` instead of starting a sleeping workflow, and records the items the same way.
 - **No new environment variables.**
 
 **Tests.** `src/lib/notifications/reminder.test.ts` (the wait, both sides of daylight saving),
 `src/lib/lab-time.test.ts` (`labInstant`), the reminder cases in
-`src/lib/notifications/deliver.test.ts` and `templates/templates.test.ts`,
-`src/lib/cron/notifications.test.ts`, the cron route test, and the in-process run in
-`src/workflows/notifications.workflow.test.ts`.
+`src/lib/notifications/deliver.test.ts` (named once while overdue, the next day's task alone, the
+next cycle after **Done**, a task done before the send), `templates/templates.test.ts`,
+`src/lib/cron/notifications.test.ts` (offline recording, retention of finished cycles), the cron
+route test, and the in-process run in `src/workflows/notifications.workflow.test.ts`.

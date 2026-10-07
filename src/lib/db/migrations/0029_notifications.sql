@@ -1,7 +1,18 @@
 -- Email notifications v1 (email notifications spec §4, approved 2026-10-07):
 -- the outbox, one delivery row per recipient (its id is the provider's
 -- idempotency key), and per-person preferences. No email address and no
--- rendered body is stored in any of the three; removing a person cascades.
+-- rendered body is stored in any of them; removing a person cascades.
+-- maintenance_reminder_items records which recurring task, on which due date,
+-- a reminder already named (amendment "The reminder follows each task's
+-- cadence"), so a task that stays overdue is never emailed again.
+CREATE TABLE "maintenance_reminder_items" (
+	"schedule_id" uuid NOT NULL,
+	"due_on" date NOT NULL,
+	"notification_id" uuid,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "maintenance_reminder_items_schedule_id_due_on_pk" PRIMARY KEY("schedule_id","due_on")
+);
+--> statement-breakpoint
 CREATE TABLE "notification_deliveries" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"notification_id" uuid NOT NULL,
@@ -45,10 +56,13 @@ CREATE TABLE "notifications" (
 	CONSTRAINT "notifications_skip_reason_check" CHECK ("skip_reason" in ('capped', 'subject_gone'))
 );
 --> statement-breakpoint
+ALTER TABLE "maintenance_reminder_items" ADD CONSTRAINT "maintenance_reminder_items_schedule_id_maintenance_schedules_id_fk" FOREIGN KEY ("schedule_id") REFERENCES "public"."maintenance_schedules"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "maintenance_reminder_items" ADD CONSTRAINT "maintenance_reminder_items_notification_id_notifications_id_fk" FOREIGN KEY ("notification_id") REFERENCES "public"."notifications"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notification_deliveries" ADD CONSTRAINT "notification_deliveries_notification_id_notifications_id_fk" FOREIGN KEY ("notification_id") REFERENCES "public"."notifications"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notification_deliveries" ADD CONSTRAINT "notification_deliveries_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notification_preferences" ADD CONSTRAINT "notification_preferences_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "notifications" ADD CONSTRAINT "notifications_audience_user_id_user_id_fk" FOREIGN KEY ("audience_user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "maintenance_reminder_items_notification_idx" ON "maintenance_reminder_items" USING btree ("notification_id");--> statement-breakpoint
 CREATE INDEX "notification_deliveries_status_created_idx" ON "notification_deliveries" USING btree ("status","created_at");--> statement-breakpoint
 CREATE INDEX "notifications_status_created_idx" ON "notifications" USING btree ("status","created_at");--> statement-breakpoint
 CREATE TRIGGER notifications_set_updated_at BEFORE UPDATE ON "notifications" FOR EACH ROW EXECUTE FUNCTION set_updated_at();--> statement-breakpoint

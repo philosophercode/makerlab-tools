@@ -18,7 +18,7 @@ import { eq, sql } from "drizzle-orm";
 import { insertUserRow } from "../../../test/utils/session";
 import { createSchedules } from "../data/maintenance-schedules";
 import { createPgliteDb } from "../db/pglite";
-import { maintenanceSchedules, notificationDeliveries, notifications, tools, user } from "../db/schema/index";
+import { maintenanceReminderItems, maintenanceSchedules, notificationDeliveries, notifications, tools, user } from "../db/schema/index";
 import type { Db } from "../db/types";
 import { runNotificationStage } from "./notifications";
 
@@ -115,7 +115,7 @@ describe("runNotificationStage", () => {
     expect(failed).toMatchObject({ reminder: "failed", failed: 1 });
   });
 
-  it("offline, records the reminder in process when something is due, and nothing when nothing is", async () => {
+  it("offline, records the reminder in process when a task came due, and nothing when none did", async () => {
     expect((await runNotificationStage({ db, today: TODAY })).reminder).toBe("nothing_due");
     await createSchedules(
       [{ toolId, unitId: null, title: "Clean the lens", instructions: null, interval: { count: 1, unit: "week" }, firstDueOn: TODAY }],
@@ -125,7 +125,24 @@ describe("runNotificationStage", () => {
     expect((await runNotificationStage({ db, today: TODAY })).reminder).toBe("recorded");
     const deliveries = await db.select().from(notificationDeliveries);
     expect(deliveries).toEqual([expect.objectContaining({ userId: "u-niti", status: "failed", reason: "not_configured" })]);
-    expect((await runNotificationStage({ db, today: TODAY })).reminder).toBe("already_queued");
+    // The lens was named for its due date: not again today, nor tomorrow while it waits.
+    expect((await runNotificationStage({ db, today: TODAY })).reminder).toBe("nothing_due");
+    expect((await runNotificationStage({ db, today: "2026-10-08" })).reminder).toBe("nothing_due");
     expect(starter.startMaintenanceReminder).not.toHaveBeenCalled();
+  });
+
+  it("deletes a reminder's record of a due date once the task's cycle is over", async () => {
+    const [id] = await createSchedules(
+      [{ toolId, unitId: null, title: "Clean the lens", instructions: null, interval: { count: 1, unit: "week" }, firstDueOn: TODAY }],
+      { userId: "u-niti", name: "Niti Parikh" },
+      { db }
+    );
+    await db.insert(maintenanceReminderItems).values([
+      { scheduleId: id, dueOn: "2026-09-30" },
+      { scheduleId: id, dueOn: TODAY },
+    ]);
+    const result = await runNotificationStage({ db, today: TODAY });
+    expect(result.pruned).toBe(1);
+    expect((await db.select().from(maintenanceReminderItems)).map((item) => item.dueOn)).toEqual([TODAY]);
   });
 });

@@ -368,8 +368,9 @@ export type CategoryProposalStatus = (typeof CATEGORY_PROPOSAL_STATUS)[number];
  *
  * The events the app emails about. `ticket.filed` is v1: a ticket filed from
  * the chat (the Report button and a unit's QR label open it) or an MCP
- * client. `maintenance.due` is the daily recurring-maintenance reminder
- * (amendment 2026-10-07). v1.1's events (`ticket.resolved`,
+ * client. `maintenance.due` is the recurring-maintenance reminder, sent when
+ * tasks come due, once per task and due date (amendment 2026-10-07, revised
+ * by "The reminder follows each task's cadence"). v1.1's events (`ticket.resolved`,
  * `correction.filed`, `intake.ready`, `staff.digest`) join this list when
  * they are built.
  */

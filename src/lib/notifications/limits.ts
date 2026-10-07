@@ -4,7 +4,7 @@
  * workflow bundle must not pull a database client into the sandbox.
  */
 
-/** The daily reminder's hour on the lab's clock: 08:00. */
+/** The maintenance reminder's hour on the lab's clock: 08:00. */
 export const REMINDER_HOUR = 8;
 
 /** How many times a send is attempted before a retryable failure becomes `failed` / `provider_error`. */

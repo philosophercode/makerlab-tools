@@ -9,7 +9,8 @@ import { enqueueMaintenanceReminder } from "../notifications/reminder.ts";
 
 /**
  * The daily cron's notification stage (email notifications spec §3.6; the
- * reminder is amendment 2026-10-07). Runs after the mirror and manual stages,
+ * reminder is amendment 2026-10-07, revised by "The reminder follows each
+ * task's cadence"). Runs after the mirror and manual stages,
  * before the heartbeat.
  *
  * 1. **Stuck sends.** A delivery still `pending` or `sending` 20 hours after
@@ -21,10 +22,13 @@ import { enqueueMaintenanceReminder } from "../notifications/reminder.ts";
  *    **Once**: `restarted_at` is set by the same statement that picks it, so
  *    a second night never restarts it.
  * 3. **Retention.** Outbox rows older than 180 days are deleted, and their
- *    deliveries with them.
+ *    deliveries with them. A reminder's record of a task's due date is
+ *    deleted once that cycle is over (the task was checked off and its due
+ *    date moved on), since nothing can name that date again.
  * 4. **The maintenance reminder.** Starts `maintenanceReminder`, which sleeps
- *    until 08:00 lab time and emails staff the recurring tasks due today and
- *    overdue (nothing due, nothing sent).
+ *    until 08:00 lab time and emails staff the recurring tasks that came due
+ *    since the last reminder, each once per due date (none newly due,
+ *    nothing sent).
  *
  * With email not configured, steps 2 and 4 run in this process and record
  * `not_configured` deliveries, with no workflow and no network. With it
@@ -50,6 +54,8 @@ export interface NotificationStageResult {
   restarted: number;
   /** Outbox rows deleted for age. */
   deleted: number;
+  /** Reminder records deleted because their task's cycle is over. */
+  pruned: number;
   /** `started` (a run), `recorded` (inline, email not configured), `nothing_due`, `already_queued` or `failed`. */
   reminder: "started" | "recorded" | "nothing_due" | "already_queued" | "failed";
   /** Starts that failed, the reminder's included. */
@@ -109,6 +115,15 @@ export async function runNotificationStage(options: NotificationStageOptions = {
     sql`delete from notifications where created_at < now() - make_interval(days => ${RETENTION_DAYS}) returning id`
   );
 
+  const prunedRows = await rawRows<{ schedule_id: string }>(
+    db,
+    sql`delete from maintenance_reminder_items i
+         using maintenance_schedules s
+         where s.id = i.schedule_id
+           and i.due_on < s.next_due_on
+     returning i.schedule_id`
+  );
+
   let reminder: NotificationStageResult["reminder"];
   if (start) {
     if (await start.startMaintenanceReminder()) reminder = "started";
@@ -126,10 +141,10 @@ export async function runNotificationStage(options: NotificationStageOptions = {
     }
   }
 
-  const result = { stuck: stuckRows.length, restarted, deleted: deletedRows.length, reminder, failed };
-  if (result.stuck > 0 || restartRows.length > 0 || result.deleted > 0 || failed > 0) {
+  const result = { stuck: stuckRows.length, restarted, deleted: deletedRows.length, pruned: prunedRows.length, reminder, failed };
+  if (result.stuck > 0 || restartRows.length > 0 || result.deleted > 0 || result.pruned > 0 || failed > 0) {
     console.info(
-      `[cron] notifications: stuck=${result.stuck} restarted=${restarted} deleted=${result.deleted} reminder=${reminder} failed=${failed}`
+      `[cron] notifications: stuck=${result.stuck} restarted=${restarted} deleted=${result.deleted} pruned=${result.pruned} reminder=${reminder} failed=${failed}`
     );
   }
   return result;

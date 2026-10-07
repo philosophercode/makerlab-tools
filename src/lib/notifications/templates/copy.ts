@@ -36,19 +36,16 @@ export const copy = {
     unsubscribe: "Turn off these emails",
   },
   maintenanceDue: {
-    subject: (overdue: number, dueToday: number) => {
-      const parts = [overdue > 0 ? `${overdue} overdue` : "", dueToday > 0 ? `${dueToday} due today` : ""].filter(Boolean);
-      return `Shift checklist: ${parts.join(", ")}`;
-    },
-    heading: "Recurring maintenance due",
-    intro: (date: string) => `What the Shift checklist holds for ${date}.`,
-    overdue: (count: number) => `Overdue (${count})`,
+    subject: (total: number) => `Shift checklist: ${total === 1 ? "1 recurring task" : `${total} recurring tasks`} came due`,
+    heading: "Recurring maintenance came due",
+    intro: (date: string) => `These recurring tasks came due and are on the Shift checklist for ${date}.`,
     dueToday: (count: number) => `Due today (${count})`,
+    overdue: (count: number) => `Came due earlier (${count})`,
     daysOverdue: (days: number) => (days === 1 ? "1 day overdue" : `${days} days overdue`),
     labWide: "General lab upkeep",
     more: (count: number) => `and ${count} more on the checklist`,
     open: "Open the Shift checklist",
-    why: "You get this because you work maintenance. It comes at 8:00 on days when something is due.",
+    why: "You get this because you work maintenance. It comes at 8:00 when a recurring task comes due, once for each due date: a task that stays overdue is not emailed again.",
     unsubscribe: "Turn off this reminder",
   },
 } as const;

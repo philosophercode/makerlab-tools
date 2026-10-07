@@ -15,8 +15,9 @@ import {
  * - `ticket.filed` (v1): a ticket filed from the chat, the report form (the
  *   Report button and a unit's QR label open the chat with the report
  *   started) or an MCP client.
- * - `maintenance.due` (amendment 2026-10-07): the daily reminder of
- *   recurring tasks due today and overdue, at 08:00 lab time.
+ * - `maintenance.due` (amendment 2026-10-07, revised by "The reminder
+ *   follows each task's cadence"): recurring tasks that came due, each named
+ *   once per due date, at 08:00 lab time on the day they come due.
  *
  * Defaults are per event, not per role: moving a permission between roles in
  * `permissions.ts` moves the recipients, with no migration.

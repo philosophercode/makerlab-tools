@@ -36,7 +36,7 @@ unsubscribe. Neither the assistant nor an MCP client can send mail or change who
 | `src/lib/notifications/unsubscribe.ts`, `unsubscribe-write.ts`, `unsubscribe-limit.ts` | The HMAC token (`AUTH_SECRET`), the write (audited `notification.unsubscribed`), the limiter |
 | `src/app/api/notifications/unsubscribe/route.ts` | `POST` only: RFC 8058 one-click, and the confirm page's form |
 | `src/app/notifications/unsubscribe/page.tsx`, `src/components/notifications/UnsubscribeView.tsx` | The confirm page; opening it never changes anything. Public, in all 12 locales (`unsubscribe` namespace) |
-| `src/lib/notifications/reminder.ts`, `src/lib/cron/notifications.ts` | The daily reminder and the cron stage (backstop, retention, reminder start) |
+| `src/lib/notifications/reminder.ts`, `src/lib/cron/notifications.ts` | The maintenance reminder (tasks newly due, each once per due date) and the cron stage (backstop, retention, reminder start) |
 
 ## A ticket, end to end
 
@@ -66,14 +66,18 @@ A retry, a replayed step, a duplicate run or the cron backstop cannot send twice
 rows are unique per person, sends claim their row first, and Resend answers a repeated
 idempotency key (kept 24 hours) with the first result.
 
-## The daily reminder
+## The maintenance reminder
 
-The one daily cron (07:17 UTC) ends with `runNotificationStage()`. With email configured it
-starts `maintenanceReminder()`, which computes today's lab date and the wait until 08:00 in
-`LAB_TIMEZONE` (`labInstant`) in a step, sleeps, then queues `maintenance.due:<lab date>`
-only if `listDueSchedules(today, { withinDays: 0 })` has something, and delivers it the same
-way. Paused and archived tasks never appear. A second start the same day finds the row and
-sends nothing. Without email configured, the stage records the reminder at once as
+A recurring task is emailed when it comes due, **once per due date**: never again while it stays
+overdue, and again when its next due date arrives after **Done**. The one daily cron (07:17 UTC)
+ends with `runNotificationStage()`. With email configured it starts `maintenanceReminder()`,
+which computes today's lab date and the wait until 08:00 in `LAB_TIMEZONE` (`labInstant`) in a
+step, sleeps, then (`enqueueMaintenanceReminder`) lists the active tasks due by today that no
+reminder has named for their current due date (`listNewlyDue`), and, if there are any, writes one
+`maintenance.due:<lab date>` outbox row and a `maintenance_reminder_items` row per task
+(`schedule_id`, `due_on`) in one transaction, then delivers it the same way. The email is
+rendered from those items, leaving out any task checked off since. A second start the same day
+finds nothing new. Without email configured, the stage records the reminder at once as
 `not_configured`.
 
 ## The cron stage
@@ -85,6 +89,7 @@ sends nothing. Without email configured, the stage records the reminder at once 
 - outbox rows `queued` for 15 minutes, or with sends left over an hour, are restarted
   **once** (`restarted_at`);
 - outbox rows older than 180 days are deleted with their deliveries;
+- reminder items whose task has moved past their due date (the cycle is over) are deleted;
 - the reminder is started. A start that fails fails the stage, like the mirror's.
 
 ## Unsubscribe

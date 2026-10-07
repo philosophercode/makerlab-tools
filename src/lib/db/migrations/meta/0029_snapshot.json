@@ -1,5 +1,5 @@
 {
-  "id": "8db18948-24f2-4899-826c-36df090ce080",
+  "id": "81f77efb-044f-4a0b-a622-c783475bfea8",
   "prevId": "42b4dbb1-3415-4bd3-b5dd-c16dcd5ed224",
   "version": "7",
   "dialect": "postgresql",
@@ -6525,6 +6525,95 @@
           ]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.maintenance_reminder_items": {
+      "name": "maintenance_reminder_items",
+      "schema": "",
+      "columns": {
+        "schedule_id": {
+          "name": "schedule_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "due_on": {
+          "name": "due_on",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "notification_id": {
+          "name": "notification_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "maintenance_reminder_items_notification_idx": {
+          "name": "maintenance_reminder_items_notification_idx",
+          "columns": [
+            {
+              "expression": "notification_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "maintenance_reminder_items_schedule_id_maintenance_schedules_id_fk": {
+          "name": "maintenance_reminder_items_schedule_id_maintenance_schedules_id_fk",
+          "tableFrom": "maintenance_reminder_items",
+          "tableTo": "maintenance_schedules",
+          "columnsFrom": [
+            "schedule_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "maintenance_reminder_items_notification_id_notifications_id_fk": {
+          "name": "maintenance_reminder_items_notification_id_notifications_id_fk",
+          "tableFrom": "maintenance_reminder_items",
+          "tableTo": "notifications",
+          "columnsFrom": [
+            "notification_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "maintenance_reminder_items_schedule_id_due_on_pk": {
+          "name": "maintenance_reminder_items_schedule_id_due_on_pk",
+          "columns": [
+            "schedule_id",
+            "due_on"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
