@@ -6,6 +6,7 @@
     "tools": "OUTILS",
     "projects": "PROJETS",
     "about": "À PROPOS",
+    "menu": "MENU",
     "primaryNavLabel": "Navigation principale",
     "utilityControlsLabel": "Contrôles utilitaires",
     "themeToggleAria": "Changer le thème de couleur (système → clair → sombre)",

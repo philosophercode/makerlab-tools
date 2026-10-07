@@ -21,7 +21,9 @@
   --font-mono: var(--font-jetbrains-mono-latin, "JetBrains Mono"), var(--font-jetbrains-mono, "JetBrains Mono"), "SFMono-Regular", Consolas, monospace;
   /* The top bar's height, and the wordmark's (identity spec, amendment
      "Wordmark at the mockup's size"). The bar is exactly --nav-height, so the
-     status strip and every sticky offset below it line up. */
+     status strip and every sticky offset below it line up. On a short
+     viewport nothing sticks and --sticky-chrome-height is 0 (the short bar,
+     at the end of the header rules). */
   --nav-height: 96px;
   --wordmark-height: 48px;
   --status-strip-height: 33px;
@@ -245,10 +247,23 @@ body::selection {
   font-size: 12px;
 }
 
+/* The links and Report sit in a wrapper that is the short bar's MENU panel
+   (below) and, everywhere else, no box at all: its children lay out in the
+   bar as the nav's own. The MENU button is drawn on a short viewport only. */
+.primary-nav-links {
+  display: contents;
+}
+
+.primary-nav-menu-toggle {
+  display: none;
+}
+
 /* The one-row bar never wraps a label (the compact bar below lg may). The
    profile menu's own items are not in the bar and keep wrapping. */
 .primary-nav > a,
 .primary-nav > button,
+.primary-nav-links > a,
+.primary-nav-links > button,
 .primary-nav-profile {
   white-space: nowrap;
 }
@@ -781,7 +796,9 @@ body::selection {
 
   /* Across the full width a long translation may take two lines. */
   .primary-nav > a,
-  .primary-nav > button {
+  .primary-nav > button,
+  .primary-nav-links > a,
+  .primary-nav-links > button {
     white-space: normal;
   }
 
@@ -823,6 +840,167 @@ body::selection {
 
   h1 {
     font-size: 36px;
+  }
+}
+
+/* The short bar: a phone on its side, or any window as short (DESIGN.md
+   §8.12, amendment "A phone on its side"). At 844 × 390 the compact bar and
+   the status strip took 159px — 41% of the screen — and the bar stayed pinned
+   while scrolling. Here the bar is one 48px row — the wordmark at 24px, then
+   MENU (the links and Report, in a frosted panel), the account control and
+   the utility controls, with the search field down to its icon — and
+   nothing sticks: the bar and the strip scroll away with the page, so
+   --sticky-chrome-height is 0 and every offset built on it follows. The
+   same query is SHORT_VIEWPORT_QUERY in components/use-nav-menu.ts, which
+   closes the panel when the viewport stops matching; keep the two the same. */
+@media (orientation: landscape) and (max-height: 500px) {
+  :root {
+    --nav-height: 48px;
+    --wordmark-height: 24px;
+    --sticky-chrome-height: 0px;
+  }
+
+  .top-nav {
+    /* Not sticky. Relative, and above the assistant's fixed button and
+       callout (z-index 40), so the MENU and profile panels open over them;
+       dialogs (50) stay above it. */
+    position: relative;
+    z-index: 45;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    height: var(--nav-height);
+    min-height: 0;
+    padding: 8px 16px;
+  }
+
+  /* The lockup on one line: the wordmark, then the name beside it. */
+  .brand-lockup {
+    flex: 0 1 auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 12px;
+    margin-inline-end: auto;
+  }
+
+  .brand-name {
+    font-size: 14px;
+  }
+
+  .primary-nav {
+    flex: none;
+    width: auto;
+    min-height: 0;
+    gap: 8px;
+  }
+
+  /* MENU and Sign in at the controls' 32px, beside the 32px squares. */
+  .primary-nav-menu-toggle,
+  .primary-nav .primary-nav-auth {
+    display: inline-flex;
+    align-items: center;
+    height: 32px;
+    padding: 0 10px;
+  }
+
+  .primary-nav-menu-toggle {
+    gap: 6px;
+    border: 1px solid var(--outline-strong);
+    background: transparent;
+    color: var(--on-surface);
+    font: inherit;
+    cursor: pointer;
+    transition: color 160ms ease-in, border-color 160ms ease-in;
+  }
+
+  .primary-nav-menu-toggle svg {
+    flex: none;
+    width: 14px;
+    height: 14px;
+  }
+
+  .primary-nav-menu-toggle:hover,
+  .primary-nav-menu-toggle[aria-expanded="true"] {
+    border-color: var(--primary-ink);
+    color: var(--primary-ink);
+  }
+
+  .primary-nav .primary-nav-dev-sign-in {
+    flex: none;
+    padding: 4px 0;
+  }
+
+  /* The panel: under MENU, one 40px touch row per link, the current page
+     marked by the accent rule at its start. A frosted plate (FROSTED, §3). */
+  .primary-nav-links {
+    display: none;
+  }
+
+  .primary-nav-links[data-open="true"] {
+    position: absolute;
+    top: calc(100% + 9px);
+    inset-inline-start: 0;
+    z-index: 40;
+    display: flex;
+    flex-direction: column;
+    min-width: 220px;
+    max-height: calc(100dvh - var(--nav-height) - 16px);
+    padding: 8px 0;
+    overflow-y: auto;
+    font-size: 12px;
+  }
+
+  .primary-nav-links > a,
+  .primary-nav-links > button {
+    display: flex;
+    flex: none;
+    align-items: center;
+    width: 100%;
+    min-height: 40px;
+    padding: 0 16px;
+    border: none;
+    border-inline-start: 2px solid transparent;
+    text-align: start;
+    white-space: nowrap;
+    transition: background-color 160ms ease-in, color 160ms ease-in, border-color 160ms ease-in;
+  }
+
+  .primary-nav-links > a:hover,
+  .primary-nav-links > a:focus-visible,
+  .primary-nav-links > button:hover,
+  .primary-nav-links > button:focus-visible {
+    background: var(--surface-container-high);
+  }
+
+  .nav-actions {
+    min-height: 0;
+  }
+
+  /* The ⌘K field gives way to its icon button, as on a phone. */
+  .nav-actions [data-slot="palette-trigger"] {
+    display: none;
+  }
+
+  .nav-actions [data-slot="palette-trigger-icon"] {
+    display: inline-flex;
+  }
+
+  .status-strip {
+    position: static;
+    padding: 4px 16px;
+  }
+}
+
+/* Below md the name gives its room to the controls; it stays the link's
+   accessible name, and the wordmark still says MakerLAB. */
+@media (orientation: landscape) and (max-height: 500px) and (max-width: 767.98px) {
+  .brand-text {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
   }
 }
 

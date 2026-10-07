@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { useTranslations } from "next-intl";
+import { MenuIcon, XIcon } from "lucide-react";
 import { useChatLauncher } from "./ChatLauncherContext";
 import { ProfileMenu } from "./ProfileMenu";
+import { FROSTED } from "./system/frosted";
+import { useNavMenu } from "./use-nav-menu";
 import { siteConfig } from "../lib/site-config";
 import {
   DEV_SIGN_IN_ENDPOINT,
@@ -30,6 +33,8 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
   const pathname = usePathname() || "/";
   const t = useTranslations("nav");
   const { open } = useChatLauncher();
+  const { isOpen: menuOpen, toggle: toggleMenu, close: closeMenu, toggleRef, panelRef } = useNavMenu();
+  const linksId = useId();
 
   // Who is signed in is request state, and this header renders inside a
   // statically-shelled layout — so the control resolves itself after mount
@@ -80,23 +85,50 @@ export function PrimaryNav({ noticeDurationMs = SIGN_IN_NOTICE_MS }: { noticeDur
 
   return (
     <nav className="primary-nav" aria-label={t("primaryNavLabel")}>
-      {LINKS.map((link) => (
-        <Link
-          key={link.href}
-          href={link.href}
-          className={link.match(pathname) ? "is-active" : undefined}
-        >
-          {t(link.key)}
-        </Link>
-      ))}
+      {/* MENU, on a short viewport only (a phone on its side, DESIGN.md
+          §8.12) — CSS draws it there and nowhere else. Elsewhere the links'
+          wrapper is `display: contents`, so they sit in the bar exactly as
+          they did before it existed. */}
       <button
+        ref={toggleRef}
         type="button"
-        className="primary-nav-report"
-        onClick={() => open(t("reportSeed"))}
-        aria-label={t("reportAria")}
+        className="primary-nav-menu-toggle"
+        aria-expanded={menuOpen}
+        aria-controls={linksId}
+        onClick={toggleMenu}
       >
-        {t("report")}
+        {menuOpen ? <XIcon aria-hidden="true" /> : <MenuIcon aria-hidden="true" />}
+        {t("menu")}
       </button>
+      <div
+        ref={panelRef}
+        id={linksId}
+        className={`primary-nav-links ${FROSTED}`}
+        data-open={menuOpen ? "true" : undefined}
+      >
+        {LINKS.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            className={link.match(pathname) ? "is-active" : undefined}
+            onClick={() => closeMenu(false)}
+          >
+            {t(link.key)}
+          </Link>
+        ))}
+        <button
+          type="button"
+          className="primary-nav-report"
+          onClick={() => {
+            // The chat sheet takes focus when it opens, so the button does not.
+            closeMenu(false);
+            open(t("reportSeed"));
+          }}
+          aria-label={t("reportAria")}
+        >
+          {t("report")}
+        </button>
+      </div>
       {/* Everything a signed-in person can do beyond browsing — Admin, Add
           equipment, Sign out — lives in their profile menu, not the bar
           (Isaac, 2026-09-23). Refresh moved to `/admin`.

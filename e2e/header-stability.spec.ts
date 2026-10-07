@@ -35,14 +35,16 @@ async function headerBoxes(page: Page): Promise<string> {
 }
 
 // 1024 and 1280 are the two ends of the tighter one-row bar (lg to xl,
-// DESIGN.md §8.12); 390 is the compact bar, 1440 the full one.
+// DESIGN.md §8.12); 390 is the compact bar, 1440 the full one, 844 × 390 the
+// short bar (a phone on its side).
 for (const [width, height] of [
   [1440, 900],
   [1280, 800],
   [1024, 768],
   [390, 844],
+  [844, 390],
 ] as const) {
-  test(`the header's boxes are identical on every page at ${width}px`, async ({ page, context, baseURL }) => {
+  test(`the header's boxes are identical on every page at ${width}×${height}`, async ({ page, context, baseURL }) => {
     await page.setViewportSize({ width, height });
     await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
 
@@ -82,7 +84,11 @@ async function headerFits(page: Page): Promise<string[]> {
     // tagline); its text line must stay one line.
     const brandText = header.querySelector<HTMLElement>(".brand-text")!;
     if (brandText.offsetHeight > 24) problems.push(`the brand's name line wraps (${brandText.offsetHeight}px tall)`);
-    for (const el of Array.from(header.querySelectorAll<HTMLElement>(".brand-lockup, .primary-nav > a, .primary-nav > button, .primary-nav-profile"))) {
+    // The links and Report sit in `.primary-nav-links` (the short bar's MENU
+    // panel, `display: contents` everywhere else); on the short bar they are
+    // hidden until MENU opens, so they measure nothing here.
+    const controls = ".brand-lockup, .primary-nav > a, .primary-nav > button, .primary-nav-links > a, .primary-nav-links > button, .primary-nav-profile";
+    for (const el of Array.from(header.querySelectorAll<HTMLElement>(controls))) {
       const label = el.getAttribute("aria-label") ?? el.textContent?.trim();
       // One line: a wrapped label is taller than its own line height allows.
       const tallest = el.classList.contains("brand-lockup") ? 76 : 44;
@@ -93,9 +99,16 @@ async function headerFits(page: Page): Promise<string[]> {
   });
 }
 
-for (const width of [1024, 1280, 1440]) {
-  test(`the one-row bar fits at ${width}px, signed in and not`, async ({ page, context, baseURL }) => {
-    await page.setViewportSize({ width, height: 800 });
+const FIT_SIZES = [
+  ["one-row", 1024, 800],
+  ["one-row", 1280, 800],
+  ["one-row", 1440, 800],
+  ["short", 844, 390],
+] as const;
+
+for (const [bar, width, height] of FIT_SIZES) {
+  test(`the ${bar} bar fits at ${width}×${height}, signed in and not`, async ({ page, context, baseURL }) => {
+    await page.setViewportSize({ width, height });
     await page.goto("/");
     await expect(page.getByRole("button", { name: /sign in with/i })).toBeVisible({ timeout: 15_000 });
     expect(await headerFits(page), "anonymous").toEqual([]);
@@ -120,8 +133,9 @@ for (const [width, height, wordmarkHeight] of [
   [1024, 768, 32],
   [810, 1080, 36],
   [390, 844, 30],
+  [844, 390, 24],
 ] as const) {
-  test(`the wordmark is ${wordmarkHeight}px tall at ${width}px and the bar fits it`, async ({ page }) => {
+  test(`the wordmark is ${wordmarkHeight}px tall at ${width}×${height} and the bar fits it`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     await page.goto("/");
     await expect(page.locator(".primary-nav-auth")).toBeVisible({ timeout: 15_000 });
@@ -149,9 +163,9 @@ for (const [width, height, wordmarkHeight] of [
 // Every language, because the long ones are what broke it: at 1280 the
 // language select, as wide as "Português (Brasil)", pushed the bar past the
 // window in Spanish and Russian (DESIGN.md §8.12).
-for (const width of [1024, 1280, 1440]) {
-  test(`the one-row bar fits at ${width}px in every language`, async ({ page, context, baseURL }) => {
-    await page.setViewportSize({ width, height: 800 });
+for (const [bar, width, height] of FIT_SIZES) {
+  test(`the ${bar} bar fits at ${width}×${height} in every language`, async ({ page, context, baseURL }) => {
+    await page.setViewportSize({ width, height });
     const failures: string[] = [];
     for (const locale of LOCALE_CODES) {
       await context.addCookies([{ name: "NEXT_LOCALE", value: locale, url: baseURL! }]);
@@ -186,11 +200,12 @@ const OVERFLOW_ROUTES = [
 
 for (const [width, height] of [
   [390, 844],
+  [844, 390],
   [1024, 768],
   [1440, 900],
 ] as const) {
   for (const route of OVERFLOW_ROUTES) {
-    test(`${route} does not scroll sideways at ${width}px`, async ({ page, context, baseURL }) => {
+    test(`${route} does not scroll sideways at ${width}×${height}`, async ({ page, context, baseURL }) => {
       await page.setViewportSize({ width, height });
       await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
       await page.goto(route);
@@ -202,6 +217,84 @@ for (const [width, height] of [
     });
   }
 }
+
+/**
+ * A phone on its side (DESIGN.md §8.12, amendment "A phone on its side"). The
+ * compact bar and the status strip took 159px of a 390px screen, and the bar
+ * stayed pinned. On a short viewport the bar is one 48px row with the links
+ * behind MENU, and nothing sticks: the bar and the strip scroll away.
+ */
+for (const [width, height] of [
+  [844, 390],
+  [932, 430],
+] as const) {
+  test(`at ${width}×${height} the bar is one short row that scrolls away`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto("/tools/form-4");
+    await expect(page.locator(".primary-nav-auth")).toBeVisible({ timeout: 15_000 });
+
+    const top = await page.evaluate(() => {
+      const header = document.querySelector<HTMLElement>("header.top-nav")!;
+      const strip = document.querySelector<HTMLElement>(".status-strip")!;
+      return {
+        header: Math.round(header.getBoundingClientRect().height),
+        headerPosition: getComputedStyle(header).position,
+        stripPosition: getComputedStyle(strip).position,
+        stickyChrome: getComputedStyle(document.documentElement).getPropertyValue("--sticky-chrome-height").trim(),
+      };
+    });
+    expect(top).toEqual({ header: 48, headerPosition: "relative", stripPosition: "static", stickyChrome: "0px" });
+    // The breadcrumb stays (owner decision).
+    await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toBeVisible();
+
+    await page.evaluate(() => window.scrollTo(0, 400));
+    await expect
+      .poll(() => page.evaluate(() => document.querySelector(".status-strip")!.getBoundingClientRect().bottom))
+      .toBeLessThanOrEqual(0);
+  });
+}
+
+test("on a phone on its side MENU holds the links: Tab walks them, Escape returns to the button", async ({ page }) => {
+  await page.setViewportSize({ width: 844, height: 390 });
+  await page.goto("/tools/form-4");
+  const nav = page.getByRole("navigation", { name: "Primary navigation" });
+  const menu = nav.getByRole("button", { name: "MENU" });
+  await expect(menu).toBeVisible({ timeout: 15_000 });
+  await expect(menu).toHaveAttribute("aria-expanded", "false");
+  await expect(nav.getByRole("link", { name: "PROJECTS" })).toBeHidden();
+
+  await menu.focus();
+  await page.keyboard.press("Enter");
+  await expect(menu).toHaveAttribute("aria-expanded", "true");
+  for (const name of ["TOOLS", "MAP", "PROJECTS", "ABOUT"]) {
+    await page.keyboard.press("Tab");
+    await expect(nav.getByRole("link", { name, exact: true })).toBeFocused();
+  }
+  // Every row inside the screen, and a touch row tall.
+  const rows = await nav.locator(".primary-nav-links > *").evaluateAll((els) =>
+    els.map((el) => {
+      const r = el.getBoundingClientRect();
+      return { inside: r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, tall: r.height >= 40 };
+    })
+  );
+  expect(rows).toEqual(Array(5).fill({ inside: true, tall: true }));
+
+  await page.keyboard.press("Escape");
+  await expect(menu).toHaveAttribute("aria-expanded", "false");
+  await expect(menu).toBeFocused();
+  await expect(nav.getByRole("link", { name: "PROJECTS" })).toBeHidden();
+
+  // Following a link closes it.
+  await menu.click();
+  await nav.getByRole("link", { name: "PROJECTS" }).click();
+  await expect(page).toHaveURL(/\/projects$/);
+  await expect(menu).toHaveAttribute("aria-expanded", "false");
+
+  // Upright, the links are back in the bar and MENU is gone.
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(menu).toBeHidden();
+  await expect(nav.getByRole("link", { name: "PROJECTS" })).toBeVisible();
+});
 
 test("a table wider than its column scrolls inside itself; one that fits keeps its sticky header", async ({
   page,
