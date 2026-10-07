@@ -298,6 +298,14 @@ assistant's words; confirming checks your permission and every rule again, as
 the button on the page would. A token can never confirm anything: the confirm
 button works with your browser session only.
 
+When an assistant proposes many changes to manuals and links, the **Manuals**
+tab of the inbox groups them by machine: the machine's documents now, then each
+change with its before and after and an **Open PDF** button. Decide a machine
+with **Confirm all for this tool** (or the `y` key) and the next one comes up;
+`?` lists the keys. A machine's changes are confirmed together, oldest first, so
+they do not conflict with each other. If someone edited that machine in the
+meantime, the change is not applied and the row says so.
+
 At most 50 proposals from MCP wait at once (counted apart from the assistant in
 the site, so a busy client never blocks it). The inbox does not yet say which
 token or app made a proposal, and revoking a token does not withdraw what it

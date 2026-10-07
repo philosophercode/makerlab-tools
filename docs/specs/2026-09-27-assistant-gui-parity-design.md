@@ -1602,3 +1602,88 @@ matches the deny list. **Counts:** action tools unchanged (42 / 38); chat tools 
 director and 59 → **60** for a SuperMaker; the MCP lists gain `list_maintenance_due` for both staff
 roles. The registry holds 56 definitions (with `lab.set_notes` above). Migration
 `0027_recurring_maintenance`.
+
+### 2026-10-07 — manual triage: the Manuals view and confirming a tool's proposals in one step
+
+**Why.** An AI connected over MCP proposed 36 resource changes in one sitting: 5 new manuals, 7
+replaced links, 15 kind or title fixes, 7 hides and 2 archive re-runs, across about 30 tools. The
+inbox showed them as 36 cards in one "Resources" area, one card per call, in no useful order. Worse,
+every tool-editor proposal stores the tool's revision when it is proposed, and a confirmed write
+moves that revision. So on the five tools with two or three proposals, confirming one made the
+others answer `conflict`, though nobody else had touched the tool.
+
+**What was built.**
+
+| Where | What |
+|---|---|
+| `app/admin/proposals/page.tsx` | Two views of the same inbox, as tabs that are links (`LinkTabs`, which now takes a `current` href for tabs that differ only by query): **All proposals** (the cards, unchanged) and **Manuals · N tools** (`?view=manuals`). The tabs show only when a resource proposal is open |
+| `lib/actions/manual-triage.ts` | `buildManualTriage`: the viewer's open, unexpired `resources.add` and `resources.edit` rows, grouped by tool, sorted by tool name, oldest proposal first inside a tool. Each row is described from its **stored input** (what will run) and **stored preview** (the "before" the assistant saw): a label for what it does (Add manual, Add link, Replace link, Retype, Retitle, Hide, Show, Edit note, Re-archive), the document's kind, title, link and visibility before and after, the link's host, and what **Open PDF** opens. A field the row changes whose value moved since it was proposed is marked (confirming will answer `conflict`), and so is an edit whose document is gone. Only `http(s)` links become links |
+| `lib/data/manual-triage-tools.ts` | The named tools' names, cover thumbnails (`selectCoverPhotos`, now exported from `inventory.ts`) and every document now, hidden ones included (`listResourcesForEditor`), read together |
+| `components/admin/ManualTriage.tsx`, `ManualTriageTool.tsx`, `ManualTriageRow.tsx`, `manual-triage-state.ts` | The view: one section per tool (name, picture, documents now, its rows), per-row **Open PDF**, **Confirm** and **Dismiss**, and **Confirm all for this tool** / **Dismiss all**. A progress line ("12 of 30 tools decided", announced politely), keys, and focus that moves to the next undecided tool after a decision |
+| `lib/actions/revision-chain.ts`, `proposals.ts` | The same-tool rule, below, inside `decideActionProposals` |
+
+**The same-tool rule.** Inside **one** confirm request, rows run in the order they were proposed (as
+before). When a row for tool T confirms, its write checked T's revision A and answered T's new
+revision B **in the same statement** (`touchTool` inside `withTouchedTool`). So T went from A to B
+through that write alone. A later row of the same request for T that **stored A** runs with B
+instead. Its own write checks B in the database, so it lands only if nothing else wrote to T since
+our last write. The chain continues (A to B to C) for as many rows as the request holds.
+
+- **Only `resources.add` and `resources.edit` take part** (`CHAINED_ACTIONS`): the actions whose
+  write checks and returns the tool's revision atomically. Every other action runs with the revision
+  it stored. A confirmed row of another action on T stops the chain for T.
+- **Never across requests.** Nothing is remembered between clicks. Confirming one row of a tool now
+  and another later still answers `conflict`, as before: the second card was drawn before the first
+  change, and only a single step can prove that nothing else happened in between.
+- **Any row of T that does not confirm** (refused, failed, conflict) **stops the chain for T** for
+  the rest of the request: the rows after it run with what they stored and come back as `conflict`
+  for the person to look at. So does a confirmed write that reports no revision, or one that
+  confirmed from a revision our last write did not leave.
+- **Every other rule still runs per row** in `performAction`: the permission, the action's `check`,
+  and the field-by-field drift check (`staleness.ts`). A row whose shown "before" was changed by an
+  earlier row of the same step (two retitles of one document) still answers `conflict`, with the
+  value now. Only the revision token moves; the input is otherwise the stored one.
+- **The trail says so.** A row that ran on a moved revision has `chained: true` on its stored
+  result. The audit event is the action's own, as for any confirm.
+- **Someone else's edit in between is a conflict, always.** If the editor saved T between two rows,
+  T's revision is no longer the one our last write left, the next write matches no row, and the
+  card shows the conflict.
+
+**§6 amended: bulk confirm across groups, within one tool.** §6 said bulk confirm is not offered
+across groups (a group is what one MCP call proposed). The Manuals view crosses groups, but only
+within one tool and only for rows that are all on screen in that tool's section, each with its
+before and after. The cards view is unchanged.
+
+**How the view decides.** **Dismiss** sends at once: a dismissal never changes the tool, so it
+cannot make another row conflict. **Confirm** on a row sends at once when it is the tool's only
+open row; otherwise it marks the row **chosen** (with **Undo**), and the chosen rows are sent
+together, in one request, once no row of the tool is left open. **Confirm all for this tool** (or
+`y`) sends every open and chosen row in one request; **Dismiss all** (or `n`) dismisses them. At most
+20 ids go in one request (the route's limit). A confirm refreshes the page so each tool's documents
+are current; the list itself stays as loaded, with each row's outcome.
+
+**Keys and accessibility.** `j` / `k` move to the next / previous tool, `y` confirms the tool's open
+rows, `n` dismisses them, `o` opens the focused row's PDF (or the tool's first) in a new tab with no
+opener, `?` lists the keys in a dialog. The keys work only while focus is inside the view (WCAG 2.1.4,
+"active only on focus"), never while typing in a field, never with Ctrl, Alt or Cmd held, and not
+while the keys dialog is open. Every key has a real button that does the same. Tab moves as usual
+and nothing traps it. Each tool is a labelled section that takes focus when the view opens, on
+`j` / `k`, and after a decision; the focused tool also carries a thick accent rule on its leading
+edge. Rows are labelled lists, before and after is a table with row and column headers, and a
+changed value says "changed" to screen readers.
+
+**Page count and size.** The view shows a document's page count when the manual archive already
+processed its PDF and the row keeps its link. It never fetches a PDF, and it makes no HEAD request
+on page load: a new link's size and page count are unknown until it is confirmed and archived.
+
+**Strings.** `actions.triage.*`, English only like the rest of `actions.*` (§6: other locales fall
+back). The view is admin UI.
+
+**Tests.** `lib/actions/revision-chain.test.ts` (the rule, pure), `lib/actions/same-tool-confirm.test.ts`
+(PGlite: three MCP proposals for one tool confirm in one request; an editor save between two requests
+still conflicts; the chain does not carry between clicks; two retitles of one document conflict on the
+second; a drifted row stops the chain), `api/action-proposals/route.test.ts` (two proposals for one
+tool in one POST), `lib/actions/manual-triage.test.ts`, `lib/data/manual-triage-tools.test.ts`,
+`components/admin/manual-triage-state.test.ts`, `components/admin/ManualTriage.test.tsx` (grouping,
+before and after, one request per tool, chosen rows, keys, the dialog, modifier keys and Tab, conflict
+and request failure). No migration, no new route, no new env var.

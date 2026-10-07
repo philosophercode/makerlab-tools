@@ -111,7 +111,8 @@ since the card was drawn, nothing is saved and the card says what it is now.
 Claude Code, ChatGPT and other assistants can connect to MakerLab as you (see
 [`mcp.md`](mcp.md)). They can prepare the same queue and catalogue changes, but
 those wait in **Assistant proposals** (`/admin/proposals`) for up to 7 days,
-where only you can confirm them. Changes to people, anything that cannot be
+where only you can confirm them. Many changes to manuals and links are easiest
+to decide on the inbox's **Manuals** tab, one machine at a time. Changes to people, anything that cannot be
 undone, and anything that spends research budget are never available to them.
 
 ## What it will not do
