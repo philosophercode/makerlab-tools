@@ -111,7 +111,7 @@ The admin home shows how many are waiting.
 
 Once email is set up (`RESEND_API_KEY`, `EMAIL_FROM`; [`deploy.md`](deploy.md) step 4),
 everyone who can work tickets gets an email when one is filed, with a link straight to it,
-and a reminder at 08:00 on days when recurring maintenance is due or overdue. Each email has
+and a reminder at 08:00 when a recurring task comes due (once per due date). Each email has
 a one-click "Turn off" link for that person. Email helps, but it does not replace an owner.
 **A ticket queue nobody reads is worse than no ticket queue**: students stop reporting after
 a couple of unanswered reports. Decide who checks it and how often, and write that down here:
