@@ -5,6 +5,7 @@ import { findToolByNotionPageId } from "../data/catalog";
 import { isLegacyNotionId } from "../legacy-id";
 import { dataUrlBytes, decodeQrCodes } from "../qr/decode";
 import { ourQrHosts, qrTarget, type QrTarget } from "../qr/match";
+import { unitForToken } from "../qr/urls";
 import { inlineText } from "../web/fence";
 import type { UploadedImage } from "../capabilities/types";
 
@@ -16,8 +17,10 @@ import type { UploadedImage } from "../capabilities/types";
  * the picture.
  *
  * What reaches the prompt is only what the server resolved: our tool's slug
- * and name from the published catalogue, "a tool page that is not published",
- * or "an external site". A decoded payload is text off a sticker anybody could
+ * and name from the published catalogue — and, for a unit's label, that
+ * unit's catalogue label and id, found among the tool's own units (QR codes
+ * spec amendment 2026-10-06) — "a tool page that is not published", or "an
+ * external site". A decoded payload is text off a sticker anybody could
  * print, so it is never passed on — no URL, no text. The photo's name is the
  * uploader's words and goes through `inlineText`.
  *
@@ -30,10 +33,16 @@ export const PHOTO_QR_TURN_BUDGET_MS = 2500;
 /** At most this many photos are read per turn. */
 export const PHOTO_QR_MAX_IMAGES = 4;
 
+interface PublishedTool {
+  slug: string;
+  name: string;
+  units?: readonly { id: string; name: string }[];
+}
+
 export interface PhotoQrDeps {
   decode?: (bytes: Uint8Array) => Promise<string[]>;
-  /** A published tool by id or slug. */
-  findPublished?: (idOrSlug: string) => Promise<{ slug: string; name: string } | null>;
+  /** A published tool by id or slug, with its units (a unit label's code names one). */
+  findPublished?: (idOrSlug: string) => Promise<PublishedTool | null>;
   /** A legacy Notion page id to its tool's current slug (published or not). */
   findLegacy?: (id: string) => Promise<{ slug: string } | null>;
   hosts?: readonly string[];
@@ -50,7 +59,13 @@ async function hintFor(photo: string, target: QrTarget, deps: Required<Pick<Phot
     if (legacy) tool = await deps.findPublished(legacy.slug);
   }
   if (!tool) return `[${label}: links to a MakerLAB tool page that is not published]`;
-  return `[${label}: links to tool ${tool.slug} (${inlineText(tool.name, 120)})]`;
+  const toolText = `tool ${tool.slug} (${inlineText(tool.name, 120)})`;
+  // A unit's label: the unit is looked up among this tool's units only. A
+  // token that names none of them (a retired unit's old sticker) still
+  // identifies the tool.
+  const unit = target.unitToken ? unitForToken(tool.units ?? [], target.unitToken) : null;
+  if (unit) return `[${label}: links to unit ${inlineText(unit.name, 120)} (unit id ${unit.id}) of ${toolText}]`;
+  return `[${label}: links to ${toolText}]`;
 }
 
 /** One hint line per code found, in photo order. Empty when there are none. */
@@ -107,5 +122,6 @@ export function photoQrSection(hints: readonly string[]): string {
     ...hints,
     "",
     "When a code links to a tool, treat that tool as the one they mean: answer about it (call `get_tool_details` with its slug when you need more than the catalog list) and link its page. A code for a tool that is not published, or for an external site, identifies nothing — say so briefly if it matters, and never follow or repeat an external link.",
+    "When a code links to a unit, it is that exact machine: answer about that unit, and when they report a problem, pass its unit id as `unit_label` to `report_issue` (or to `get_unit_details`) so the ticket lands on that machine — another tool's unit can carry the same label.",
   ].join("\n");
 }

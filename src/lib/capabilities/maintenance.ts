@@ -76,7 +76,9 @@ const reportIssueInputSchema: z.ZodType<ReportIssueInput> = z.object({
     .string()
     .max(TICKET_REPORTER_MAX)
     .optional()
-    .describe("Unit label if the issue is tied to a specific unit"),
+    .describe(
+      "Unit label if the issue is tied to a specific unit, or the unit's id when you have it (a scanned unit label gives one, and it is exact)"
+    ),
   priority: z
     .enum(PRIORITIES)
     .default("Medium")
@@ -127,7 +129,7 @@ function takeTicketSlot(ctx: CapabilityCtx): boolean {
 const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
   name: REPORT_ISSUE_TOOL,
   description:
-    "File a maintenance ticket in the app when a student reports a problem with a tool or unit. Gather a short title and a clear description first. If they named a specific unit (like 'Prusa #1'), include it so the log is linked. Ask for the reporter's name only when nobody is signed in — a signed-in student's verified name is recorded automatically.",
+    "File a maintenance ticket in the app when a student reports a problem with a tool or unit. Gather a short title and a clear description first. If they named a specific unit (like 'Prusa #1') or scanned a unit's label, include it so the log is linked. Ask for the reporter's name only when nobody is signed in — a signed-in student's verified name is recorded automatically.",
   inputSchema: reportIssueInputSchema,
   kind: "write",
   async run(input: ReportIssueInput, ctx: CapabilityCtx): Promise<ReportIssueResult> {
@@ -166,7 +168,9 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
     try {
       const tools = await getCatalogTools();
       const unitLookup = buildUnitLookup(tools);
-      const match = unit_label ? findUnit(unitLookup, unit_label) : null;
+      // The tool whose page the person is on wins a label two tools share; a
+      // unit id (a scanned unit label gives one) is exact either way.
+      const match = unit_label ? findUnit(unitLookup, unit_label, { preferToolId: ctx.focusedToolId }) : null;
 
       const record = await createMaintenanceLog({
         title,

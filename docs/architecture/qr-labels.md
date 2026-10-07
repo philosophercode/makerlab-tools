@@ -46,6 +46,21 @@ no new permission, no model call.
   message's photos" section of server-resolved hints — a published tool's
   slug and name, "not published", or "an external site". **A decoded payload
   never reaches the prompt**: it is text off a sticker anybody could print.
+- **Unit labels** (amendment 2026-10-06, spec §13). A unit's code is the
+  tool's with `&unit=<token>` (`unitQrTargetUrl`; the token is the unit
+  uuid's first eight hex characters, `unitQrToken`). The token is resolved
+  only among that tool's own units (`unitForToken`, after `parseUnitToken`
+  validates it); no match, or two, names no unit. The studio's **Tools /
+  Units** switch lists every non-retired unit of every published tool (the
+  page hands each row its units from `listToolUnitOptions`); a unit's label
+  puts the tool's name on one line and the unit's under it, in the room a
+  second name line takes, so the 2″ code stays above 25 mm.
+  `QrArrivalNotice` names the unit and offers **Report a problem with this
+  unit**, which opens the chat seeded with the unit's name: the report form
+  is the assistant's `report_issue`. `findUnit` resolves a unit id exactly
+  and prefers the focused tool's units for a shared label, and the photo hint
+  names the unit and its id for a unit code. `/api/qr/[slug]`, the tool
+  page's dialog and `get_tool_qr_code` stay tool-only.
 - **Size defaults.** The 1″ preset, and a custom size whose code would fall
   under 25 mm, start with the wordmark and the extra line off
   (`withSizeDefaults`, applied only when the size changes; `showExtra` keeps

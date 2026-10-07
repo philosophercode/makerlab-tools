@@ -32,6 +32,59 @@ export function toolQrTargetUrl(origin: string, slug: string): string {
 }
 
 /**
+ * Names one unit of the tool on a unit's own label (QR codes spec amendment
+ * 2026-10-06, "Unit labels"). Like `src`, it changes presentation only: the
+ * tool page already lists every unit, and the parameter picks which one the
+ * arrival notice names and reports against.
+ */
+export const QR_UNIT_PARAM = "unit";
+
+/**
+ * Hex characters of a unit's id that a label carries. The first eight of a
+ * uuid are unique among one tool's handful of units (a clash is about one in
+ * four billion per pair), and they keep the code small: a full uuid would add
+ * 28 characters and two QR versions, so smaller modules on a sticker that
+ * gets scuffed. A token that matches no unit, or two, names none.
+ */
+export const UNIT_TOKEN_LENGTH = 8;
+
+/** The token a unit's label carries: its id's first eight hex characters. */
+export function unitQrToken(unitId: string): string {
+  return unitId.replace(/[^0-9a-f]/gi, "").slice(0, UNIT_TOKEN_LENGTH).toLowerCase();
+}
+
+/**
+ * `<origin>/tools/<slug>?src=qr&unit=<token>` — what a unit's label encodes:
+ * the same tool page as the tool's label, with the unit named. No new route,
+ * so a unit label keeps working wherever the tool label does.
+ */
+export function unitQrTargetUrl(origin: string, slug: string, unitId: string): string {
+  return `${toolQrTargetUrl(origin, slug)}&${QR_UNIT_PARAM}=${unitQrToken(unitId)}`;
+}
+
+/**
+ * A `?unit=` value as a token, or null for anything else. Accepts the
+ * eight-character token and anything longer up to a whole uuid (with or
+ * without dashes), so a hand-made link with the full id works too.
+ */
+export function parseUnitToken(value: string | null | undefined): string | null {
+  if (typeof value !== "string") return null;
+  const token = value.trim().replace(/-/g, "").toLowerCase();
+  return /^[0-9a-f]{8,32}$/.test(token) ? token : null;
+}
+
+/**
+ * The one unit of `units` whose id starts with `token`, or null when none or
+ * more than one does. Resolved only among the tool's own units, never across
+ * the catalogue.
+ */
+export function unitForToken<T extends { id: string }>(units: readonly T[], token: string | null): T | null {
+  if (!token) return null;
+  const matches = units.filter((unit) => unit.id.replace(/-/g, "").toLowerCase().startsWith(token));
+  return matches.length === 1 ? matches[0] : null;
+}
+
+/**
  * The address as a person reads it under a code: no scheme, no query —
  * `makerlab-ai.vercel.app/tools/form-4`. For somebody whose camera will not scan.
  */

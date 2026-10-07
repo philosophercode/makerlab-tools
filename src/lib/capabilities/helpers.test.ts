@@ -127,6 +127,23 @@ describe("findUnit", () => {
     expect(findUnit(lookup, "no-such-unit")).toBeNull();
     expect(findUnit(lookup, "   ")).toBeNull();
   });
+
+  it("resolves a unit id exactly — what a scanned unit label hands the assistant", () => {
+    expect(findUnit(lookup, "3b7f0d1e-0000-4000-8000-000000000002")?.label).toBe("Trotec Speedy 400");
+    expect(findUnit(lookup, " 3B7F0D1E-0000-4000-8000-000000000001 ")?.toolSlug).toBe("form-4");
+  });
+
+  it("prefers the units of the tool being looked at for a label two tools share", () => {
+    const shared = buildUnitLookup([
+      makeTool({ units: [{ ...makeTool().units[0], id: "3b7f0d1e-0000-4000-8000-0000000000a1", name: "Station 1" }] }),
+      { ...trotec, units: [{ ...trotec.units[0], id: "3b7f0d1e-0000-4000-8000-0000000000b1", name: "Station 1" }] },
+    ]);
+    expect(findUnit(shared, "station 1")?.toolSlug).toBe("form-4");
+    expect(findUnit(shared, "station 1", { preferToolId: trotec.id })?.toolSlug).toBe("trotec-speedy-400");
+    // A label the preferred tool lacks still resolves across the catalogue.
+    expect(findUnit(lookup, "form 4", { preferToolId: trotec.id })?.label).toBe("Form 4 // A");
+    expect(lookup[0].toolId).toBe(catalog[0].id);
+  });
 });
 
 // ── Tool lookup / summaries ─────────────────────────────────────────

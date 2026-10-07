@@ -29,7 +29,13 @@ import {
 import { labelSvgBody } from "../../../lib/qr/label-svg";
 import { labelContentFor } from "../../../lib/qr/labels";
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, type QrLabelSettings } from "../../../lib/qr/settings";
-import { qrFileName } from "../../../lib/qr/urls";
+import { QR_UNIT_PARAM, qrFileName, unitQrToken } from "../../../lib/qr/urls";
+
+/** One physical unit of a tool (retired ones are not listed). */
+export interface QrLabelUnit {
+  id: string;
+  name: string;
+}
 
 /** One published tool, as the label page lists it. */
 export interface QrLabelRow {
@@ -39,6 +45,45 @@ export interface QrLabelRow {
   category: string | null;
   room: string | null;
   zone: string | null;
+  /** Its units, for unit labels (QR codes spec amendment 2026-10-06). */
+  units?: QrLabelUnit[];
+}
+
+/** What the list prints labels for: each tool, or each unit of each tool. */
+export type QrLabelKind = "tools" | "units";
+
+/**
+ * One row of the list: a tool, or one unit of a tool. `key` is the tool's
+ * slug or the unit's id, which is what the selection and the preview hold.
+ */
+interface LabelEntry {
+  key: string;
+  slug: string;
+  /** What the row is called: the tool's name, or the unit's. */
+  name: string;
+  toolName: string;
+  unit: QrLabelUnit | null;
+  category: string | null;
+  room: string | null;
+  zone: string | null;
+}
+
+function entriesFor(rows: QrLabelRow[], kind: QrLabelKind): LabelEntry[] {
+  if (kind === "tools") {
+    return rows.map((row) => ({ key: row.slug, slug: row.slug, name: row.name, toolName: row.name, unit: null, category: row.category, room: row.room, zone: row.zone }));
+  }
+  return rows.flatMap((row) =>
+    (row.units ?? []).map((unit) => ({
+      key: unit.id,
+      slug: row.slug,
+      name: unit.name,
+      toolName: row.name,
+      unit,
+      category: row.category,
+      room: row.room,
+      zone: row.zone,
+    }))
+  );
 }
 
 export interface QrLabelStudioProps {
@@ -60,6 +105,12 @@ type Outcome = null | { tone: "ok" | "bad"; text: string };
  * PDF uses; **Print selected**, **Print all** and **Print this one** build
  * the PDF in the browser and open the print dialog in one click.
  *
+ * **Tools or units.** By default the list is the tools; **Units** lists
+ * every unit of every published tool instead, and each label then carries
+ * the unit's name under the tool's and a code that names the unit
+ * (`unitQrTargetUrl`). Scanning one opens the tool page with that unit named
+ * and **Report a problem with this unit** first. The style is the same for both.
+ *
  * The style is remembered per browser (`lib/qr/settings.ts`). It is read after
  * mount, so the server's first paint is the defaults and nothing mismatches.
  */
@@ -78,8 +129,9 @@ export function QrLabelStudio({ rows, origin, wordmarkHref }: QrLabelStudioProps
   const [measure, setMeasure] = useState<MeasureText>(() => estimateTextWidth);
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState<string | null>(null);
+  const [kind, setKind] = useState<QrLabelKind>("tools");
   const [selection, setSelection] = useState<RowSelectionState>({});
-  const [previewSlug, setPreviewSlug] = useState<string | null>(rows[0]?.slug ?? null);
+  const [previewKey, setPreviewKey] = useState<string | null>(rows[0]?.slug ?? null);
   const [busy, setBusy] = useState<Busy>(null);
   const [outcome, setOutcome] = useState<Outcome>(null);
 
@@ -90,23 +142,43 @@ export function QrLabelStudio({ rows, origin, wordmarkHref }: QrLabelStudioProps
       .catch(() => undefined);
   }, []);
 
-  const bySlug = useMemo(() => new Map(rows.map((row) => [row.slug, row])), [rows]);
-  const content = (row: QrLabelRow): LabelContent => labelContentFor(row, origin);
+  const unitCount = useMemo(() => rows.reduce((sum, row) => sum + (row.units?.length ?? 0), 0), [rows]);
+  const entries = useMemo(() => entriesFor(rows, kind), [rows, kind]);
+  const byKey = useMemo(() => new Map(entries.map((entry) => [entry.key, entry])), [entries]);
+  const content = (entry: LabelEntry): LabelContent =>
+    labelContentFor({ slug: entry.slug, name: entry.toolName, room: entry.room, zone: entry.zone, unit: entry.unit }, origin);
 
   const searched = useMemo(
-    () => (query.trim() ? matchSorter(rows, query.trim(), { keys: ["name", "category", "room", "zone"], threshold: matchSorter.rankings.CONTAINS }) : rows),
-    [rows, query]
+    () =>
+      query.trim()
+        ? matchSorter(entries, query.trim(), { keys: ["name", "toolName", "category", "room", "zone"], threshold: matchSorter.rankings.CONTAINS })
+        : entries,
+    [entries, query]
   );
-  const visible = useMemo(() => (category ? searched.filter((row) => row.category === category) : searched), [searched, category]);
+  const visible = useMemo(() => (category ? searched.filter((entry) => entry.category === category) : searched), [searched, category]);
   const categoryOptions = useMemo(
-    () => facetOptions(searched, uniqueValues(rows.map((row) => row.category)), (row, value) => row.category === value),
-    [rows, searched]
+    () => facetOptions(searched, uniqueValues(entries.map((entry) => entry.category)), (entry, value) => entry.category === value),
+    [entries, searched]
   );
 
-  const selectedSlugs = rows.filter((row) => selection[row.slug]).map((row) => row.slug);
+  const selectedKeys = entries.filter((entry) => selection[entry.key]).map((entry) => entry.key);
   const grid = packSheet(settings.sheet, settings.style.widthMm, settings.style.heightMm);
-  const preview = (previewSlug && bySlug.get(previewSlug)) || rows[0] || null;
+  const preview = (previewKey && byKey.get(previewKey)) || entries[0] || null;
   const previewContent = preview ? content(preview) : null;
+
+  /** Tools or units: the selection and the preview belong to one list, so both start over. */
+  function chooseKind(next: QrLabelKind) {
+    if (next === kind) return;
+    setKind(next);
+    setSelection({});
+    setPreviewKey(entriesFor(rows, next)[0]?.key ?? null);
+  }
+
+  /** `form-4-label.svg`, or `prusa-mk4-adf75899-label.svg` for a unit. */
+  const fileStem = (entry: LabelEntry) => (entry.unit ? `${entry.slug}-${unitQrToken(entry.unit.id)}` : entry.slug);
+  /** Where a row's name links: the page its code opens, without the `src=qr` marker. */
+  const pageHref = (entry: LabelEntry) =>
+    entry.unit ? `/tools/${entry.slug}?${QR_UNIT_PARAM}=${unitQrToken(entry.unit.id)}` : `/tools/${entry.slug}`;
   const layout = previewContent ? layoutLabel(settings.style, previewContent, measure) : null;
 
   async function run(kind: Busy, work: () => Promise<void>) {
@@ -121,42 +193,53 @@ export function QrLabelStudio({ rows, origin, wordmarkHref }: QrLabelStudioProps
     }
   }
 
-  function labelsFor(slugs: string[]): LabelContent[] {
-    return slugs.map((slug) => bySlug.get(slug)).filter((row): row is QrLabelRow => Boolean(row)).map(content);
+  function labelsFor(keys: string[]): LabelContent[] {
+    return keys.map((key) => byKey.get(key)).filter((entry): entry is LabelEntry => Boolean(entry)).map(content);
   }
 
-  const printLabels = (slugs: string[]) =>
+  const printLabels = (keys: string[]) =>
     run("print", async () => {
-      printPdf(await buildPdf(labelsFor(slugs), settings, wordmarkHref, t("pdfTitle")));
+      printPdf(await buildPdf(labelsFor(keys), settings, wordmarkHref, t("pdfTitle")));
     });
 
-  const downloadPdf = (slugs: string[]) =>
+  const downloadPdf = (keys: string[]) =>
     run("pdf", async () => {
-      savePdf(await buildPdf(labelsFor(slugs), settings, wordmarkHref, t("pdfTitle")), "qr-labels.pdf");
+      savePdf(await buildPdf(labelsFor(keys), settings, wordmarkHref, t("pdfTitle")), kind === "units" ? "qr-unit-labels.pdf" : "qr-labels.pdf");
     });
 
-  const columns = useMemo<ColumnDef<QrLabelRow, unknown>[]>(
+  const nameHeader = kind === "units" ? t("columnUnit") : t("columnTool");
+  const columns = useMemo<ColumnDef<LabelEntry, unknown>[]>(
     () => [
       {
         id: "name",
         accessorFn: (row) => row.name,
-        header: t("columnTool"),
+        header: nameHeader,
         sortingFn: "text",
-        meta: { label: t("columnTool"), rowHeader: true },
+        meta: { label: nameHeader, rowHeader: true },
         cell: ({ row }) => (
-          <Link href={`/tools/${row.original.slug}`} className="font-medium hover:underline">
+          <Link href={pageHref(row.original)} className="font-medium hover:underline">
             {row.original.name}
           </Link>
         ),
       },
-      {
-        id: "category",
-        accessorFn: (row) => row.category ?? "",
-        header: t("columnCategory"),
-        sortingFn: "text",
-        meta: { label: t("columnCategory") },
-        cell: ({ row }) => row.original.category ?? <span className="text-muted-foreground">—</span>,
-      },
+      // A unit's row names its tool where a tool's row names its category:
+      // the same width, and the category facet still filters either list.
+      kind === "units"
+        ? {
+            id: "tool",
+            accessorFn: (row) => row.toolName,
+            header: t("columnTool"),
+            sortingFn: "text",
+            meta: { label: t("columnTool") },
+          }
+        : {
+            id: "category",
+            accessorFn: (row) => row.category ?? "",
+            header: t("columnCategory"),
+            sortingFn: "text",
+            meta: { label: t("columnCategory") },
+            cell: ({ row }) => row.original.category ?? <span className="text-muted-foreground">—</span>,
+          },
       {
         id: "location",
         accessorFn: (row) => row.room ?? "",
@@ -172,10 +255,10 @@ export function QrLabelStudio({ rows, origin, wordmarkHref }: QrLabelStudioProps
         meta: { className: "w-40 text-end" },
         cell: ({ row }) => (
           <span className="inline-flex gap-1">
-            <Button variant="ghost" size="xs" aria-pressed={preview?.slug === row.original.slug} onClick={() => setPreviewSlug(row.original.slug)}>
+            <Button variant="ghost" size="xs" aria-pressed={preview?.key === row.original.key} onClick={() => setPreviewKey(row.original.key)}>
               {t("previewRow")}
             </Button>
-            <Button variant="ghost" size="xs" disabled={busy !== null || grid.perPage === 0} onClick={() => printLabels([row.original.slug])}>
+            <Button variant="ghost" size="xs" disabled={busy !== null || grid.perPage === 0} onClick={() => printLabels([row.original.key])}>
               <Printer aria-hidden="true" />
               {t("printRow")}
             </Button>
@@ -184,7 +267,7 @@ export function QrLabelStudio({ rows, origin, wordmarkHref }: QrLabelStudioProps
       },
     ],
     // eslint-disable-next-line react-hooks/exhaustive-deps -- the row actions read the current settings through closures rebuilt with them
-    [t, preview?.slug, busy, grid.perPage, settings, origin]
+    [t, preview?.key, busy, grid.perPage, settings, origin, kind, nameHeader]
   );
 
   const labelCount = (count: number) => t("labelsAndPages", { count, pages: pageCount(count, grid.perPage) });
@@ -192,37 +275,57 @@ export function QrLabelStudio({ rows, origin, wordmarkHref }: QrLabelStudioProps
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
       <div className="flex min-w-0 flex-col gap-3">
+        {/* Tools or units: a row of pressed/unpressed buttons, words rather than icons (as the styler's sizes). */}
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div role="group" aria-label={t("kindLabel")} className="flex flex-wrap gap-1">
+            <Button size="sm" variant={kind === "tools" ? "default" : "quiet"} aria-pressed={kind === "tools"} onClick={() => chooseKind("tools")}>
+              {t("kindTools", { count: rows.length })}
+            </Button>
+            <Button size="sm" variant={kind === "units" ? "default" : "quiet"} aria-pressed={kind === "units"} onClick={() => chooseKind("units")}>
+              {t("kindUnits", { count: unitCount })}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">{kind === "units" ? t("kindUnitsHint") : t("kindToolsHint")}</p>
+        </div>
         <FilterBar
           label={t("filtersLabel")}
           search={{ value: query, onChange: setQuery, label: t("search"), placeholder: t("searchPlaceholder") }}
           facets={<FacetFilter label={t("filterCategory")} value={category} options={categoryOptions} onChange={setCategory} />}
           shown={visible.length}
-          total={rows.length}
+          total={entries.length}
           onClear={query || category ? () => (setQuery(""), setCategory(null)) : null}
           activeCount={category ? 1 : 0}
         />
         <div className="flex flex-wrap items-center gap-2">
-          <Button size="sm" onClick={() => setSelection(Object.fromEntries(rows.map((row) => [row.slug, true])))}>
-            {t("selectAll", { count: rows.length })}
+          <Button size="sm" disabled={entries.length === 0} onClick={() => setSelection(Object.fromEntries(entries.map((entry) => [entry.key, true])))}>
+            {t("selectAll", { count: entries.length })}
           </Button>
-          <Button size="sm" disabled={visible.length === rows.length} onClick={() => setSelection((current) => ({ ...current, ...Object.fromEntries(visible.map((row) => [row.slug, true])) }))}>
+          <Button
+            size="sm"
+            disabled={visible.length === entries.length}
+            onClick={() => setSelection((current) => ({ ...current, ...Object.fromEntries(visible.map((entry) => [entry.key, true])) }))}
+          >
             {t("selectFiltered", { count: visible.length })}
           </Button>
-          <Button size="sm" variant="ghost" disabled={selectedSlugs.length === 0} onClick={() => setSelection({})}>
+          <Button size="sm" variant="ghost" disabled={selectedKeys.length === 0} onClick={() => setSelection({})}>
             {t("clearSelection")}
           </Button>
         </div>
         <DataTable
           data={visible}
           columns={columns}
-          getRowId={(row) => row.slug}
-          getRowName={(row) => row.name}
-          labels={{ table: t("tableLabel"), selected: (count) => t("selectedCount", { count }), selectAll: t("selectShown") }}
-          empty={<EmptyState>{rows.length === 0 ? t("emptyCatalogue") : t("emptyFiltered")}</EmptyState>}
+          getRowId={(row) => row.key}
+          getRowName={(row) => (row.unit ? `${row.name} (${row.toolName})` : row.name)}
+          labels={{
+            table: kind === "units" ? t("tableLabelUnits") : t("tableLabel"),
+            selected: (count) => (kind === "units" ? t("selectedUnitsCount", { count }) : t("selectedCount", { count })),
+            selectAll: t("selectShown"),
+          }}
+          empty={<EmptyState>{entries.length === 0 ? (kind === "units" ? t("emptyUnits") : t("emptyCatalogue")) : t("emptyFiltered")}</EmptyState>}
           selectable
           selection={selection}
           onSelectionChange={setSelection}
-          onActivate={(row) => setPreviewSlug(row.slug)}
+          onActivate={(row) => setPreviewKey(row.key)}
           initialSorting={[{ id: "name", desc: false }]}
           bulkActions={(ids) => (
             <Button variant="default" size="sm" disabled={busy !== null || grid.perPage === 0} onClick={() => printLabels(ids)}>
@@ -233,11 +336,13 @@ export function QrLabelStudio({ rows, origin, wordmarkHref }: QrLabelStudioProps
           mobileRow={(row, { selected, toggle }) => (
             <div className="flex items-center gap-3 px-1 py-2.5">
               <Checkbox checked={selected} onCheckedChange={toggle} aria-label={t("selectRow", { name: row.name })} />
-              <button type="button" className="min-w-0 flex-1 text-start" onClick={() => setPreviewSlug(row.slug)}>
+              <button type="button" className="min-w-0 flex-1 text-start" onClick={() => setPreviewKey(row.key)}>
                 <span className="block truncate text-sm font-medium">{row.name}</span>
-                <span className="block truncate text-xs text-muted-foreground">{[row.category, content(row).location].filter(Boolean).join(" · ")}</span>
+                <span className="block truncate text-xs text-muted-foreground">
+                  {[row.unit ? row.toolName : null, row.category, content(row).location].filter(Boolean).join(" · ")}
+                </span>
               </button>
-              <Button variant="quiet" size="xs" disabled={busy !== null || grid.perPage === 0} onClick={() => printLabels([row.slug])}>
+              <Button variant="quiet" size="xs" disabled={busy !== null || grid.perPage === 0} onClick={() => printLabels([row.key])}>
                 {t("printRow")}
               </Button>
             </div>
@@ -259,7 +364,7 @@ export function QrLabelStudio({ rows, origin, wordmarkHref }: QrLabelStudioProps
               <div className="grid place-items-center bg-muted p-4">
                 <svg
                   role="img"
-                  aria-label={t("previewAlt", { tool: previewContent.name })}
+                  aria-label={t("previewAlt", { tool: preview?.name ?? previewContent.name })}
                   viewBox={`0 0 ${layout.widthMm} ${layout.heightMm}`}
                   className="h-auto w-full max-w-60 shadow-sm"
                   style={{ aspectRatio: `${layout.widthMm} / ${layout.heightMm}` }}
@@ -279,14 +384,14 @@ export function QrLabelStudio({ rows, origin, wordmarkHref }: QrLabelStudioProps
                 <RowStatus tone="warn">{t("dropped", { items: layout.dropped.map((kind) => t(`droppable.${kind}`)).join(", ") })}</RowStatus>
               ) : null}
               <div className="flex flex-wrap gap-2">
-                <Button variant="default" size="sm" disabled={busy !== null || grid.perPage === 0} onClick={() => printLabels([preview!.slug])}>
+                <Button variant="default" size="sm" disabled={busy !== null || grid.perPage === 0} onClick={() => printLabels([preview!.key])}>
                   <Printer aria-hidden="true" />
                   {t("printThis")}
                 </Button>
                 <Button
                   size="sm"
                   disabled={busy !== null}
-                  onClick={() => run("svg", async () => saveBlob(await labelSvgFile(layout, previewContent, wordmarkHref), qrFileName(preview!.slug, "svg", "label")))}
+                  onClick={() => run("svg", async () => saveBlob(await labelSvgFile(layout, previewContent, wordmarkHref), qrFileName(fileStem(preview!), "svg", "label")))}
                 >
                   <Download aria-hidden="true" />
                   {t("downloadSvg")}
@@ -294,7 +399,7 @@ export function QrLabelStudio({ rows, origin, wordmarkHref }: QrLabelStudioProps
                 <Button
                   size="sm"
                   disabled={busy !== null}
-                  onClick={() => run("png", async () => saveBlob(await labelPngFile(layout, previewContent, wordmarkHref), qrFileName(preview!.slug, "png", "label")))}
+                  onClick={() => run("png", async () => saveBlob(await labelPngFile(layout, previewContent, wordmarkHref), qrFileName(fileStem(preview!), "png", "label")))}
                 >
                   <Download aria-hidden="true" />
                   {t("downloadPng")}
@@ -302,7 +407,7 @@ export function QrLabelStudio({ rows, origin, wordmarkHref }: QrLabelStudioProps
               </div>
             </>
           ) : (
-            <EmptyState>{t("emptyCatalogue")}</EmptyState>
+            <EmptyState>{kind === "units" ? t("emptyUnits") : t("emptyCatalogue")}</EmptyState>
           )}
         </section>
 
@@ -318,25 +423,25 @@ export function QrLabelStudio({ rows, origin, wordmarkHref }: QrLabelStudioProps
                 : t("perPage", { count: grid.perPage, cols: grid.cols, rows: grid.rows, paper: t(`paperOption.${settings.sheet.paper}`) })}
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button variant="default" size="sm" disabled={busy !== null || grid.perPage === 0 || selectedSlugs.length === 0} onClick={() => printLabels(selectedSlugs)}>
+            <Button variant="default" size="sm" disabled={busy !== null || grid.perPage === 0 || selectedKeys.length === 0} onClick={() => printLabels(selectedKeys)}>
               <Printer aria-hidden="true" />
-              {t("printSelected", { count: selectedSlugs.length })}
+              {t("printSelected", { count: selectedKeys.length })}
             </Button>
-            <Button size="sm" disabled={busy !== null || grid.perPage === 0 || rows.length === 0} onClick={() => printLabels(rows.map((row) => row.slug))}>
+            <Button size="sm" disabled={busy !== null || grid.perPage === 0 || entries.length === 0} onClick={() => printLabels(entries.map((entry) => entry.key))}>
               <Printer aria-hidden="true" />
-              {t("printAll", { count: rows.length })}
+              {t("printAll", { count: entries.length })}
             </Button>
             <Button
               size="sm"
-              disabled={busy !== null || grid.perPage === 0 || rows.length === 0}
-              onClick={() => downloadPdf(selectedSlugs.length > 0 ? selectedSlugs : rows.map((row) => row.slug))}
+              disabled={busy !== null || grid.perPage === 0 || entries.length === 0}
+              onClick={() => downloadPdf(selectedKeys.length > 0 ? selectedKeys : entries.map((entry) => entry.key))}
             >
               <Download aria-hidden="true" />
               {t("downloadPdf")}
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            {labelCount(selectedSlugs.length > 0 ? selectedSlugs.length : rows.length)} · {t("printHint")}
+            {labelCount(selectedKeys.length > 0 ? selectedKeys.length : entries.length)} · {t("printHint")}
           </p>
           {busy ? <RowStatus tone="muted">{t(`busy.${busy}`)}</RowStatus> : null}
           {outcome ? (

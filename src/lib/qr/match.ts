@@ -1,4 +1,5 @@
 import { DEFAULT_SITE_URL, qrSiteUrl } from "./site-url.ts";
+import { QR_UNIT_PARAM, parseUnitToken } from "./urls.ts";
 
 /**
  * What a QR code read out of a photo points at (QR labels amendment, "codes in
@@ -11,8 +12,12 @@ import { DEFAULT_SITE_URL, qrSiteUrl } from "./site-url.ts";
  */
 
 export type QrTarget =
-  /** `/tools/<segment>` on one of our hosts — a slug, a tool id or a legacy Notion page id. */
-  | { kind: "tool"; idOrSlug: string }
+  /**
+   * `/tools/<segment>` on one of our hosts — a slug, a tool id or a legacy
+   * Notion page id — and, on a unit's label, the `?unit=` token naming one of
+   * the tool's units (resolved against that tool only, by the caller).
+   */
+  | { kind: "tool"; idOrSlug: string; unitToken?: string }
   /** One of our hosts, not a tool page. */
   | { kind: "site" }
   /** A link somewhere else. */
@@ -62,5 +67,7 @@ export function qrTarget(payload: string, hosts: readonly string[]): QrTarget {
   } catch {
     return { kind: "site" };
   }
-  return SEGMENT.test(segment) ? { kind: "tool", idOrSlug: segment } : { kind: "site" };
+  if (!SEGMENT.test(segment)) return { kind: "site" };
+  const unitToken = parseUnitToken(url.searchParams.get(QR_UNIT_PARAM));
+  return unitToken ? { kind: "tool", idOrSlug: segment, unitToken } : { kind: "tool", idOrSlug: segment };
 }

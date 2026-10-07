@@ -162,10 +162,14 @@ export default async function ToolDetailPage({ params, searchParams }: ToolDetai
   return (
     <>
       {/* Arrivals from a QR label on a machine get the assistant surfaced above
-          the specs. Suspended so reading `?src=qr` stays a dynamic hole and the
-          prerendered detail shell below is untouched. */}
+          the specs, and a unit's label (`?unit=`) names that unit with Report
+          a problem first. Suspended so reading the query stays a dynamic hole
+          and the prerendered detail shell below is untouched. */}
       <Suspense fallback={null}>
-        <QrArrivalNotice toolName={tool.name} />
+        <QrArrivalNotice
+          toolName={tool.name}
+          units={tool.units.map((unit) => ({ id: unit.id, name: unit.name, status: unit.status }))}
+        />
       </Suspense>
       <DetailShell
         tool={tool}

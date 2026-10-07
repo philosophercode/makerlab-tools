@@ -59,7 +59,7 @@ type GetUnitDetailsResult =
 const getUnitDetailsInputSchema: z.ZodType<GetUnitDetailsInput> = z.object({
   unit_label: z
     .string()
-    .describe("The unit label, e.g. 'Prusa #1' or 'Form 2 #1'."),
+    .describe("The unit label, e.g. 'Prusa #1' or 'Form 2 #1', or the unit's id when you have it."),
 });
 
 const getUnitDetails: CapabilityTool<
@@ -74,7 +74,7 @@ const getUnitDetails: CapabilityTool<
   run: async ({ unit_label }: GetUnitDetailsInput, ctx: CapabilityCtx): Promise<GetUnitDetailsResult> => {
     const tools = await getCatalogTools();
     const lookup = buildUnitLookup(tools);
-    const match = findUnit(lookup, unit_label);
+    const match = findUnit(lookup, unit_label, { preferToolId: ctx.focusedToolId });
     if (!match) {
       const sample = lookup
         .slice(0, 8)
@@ -157,7 +157,7 @@ const getMaintenanceHistory: CapabilityTool<
   ): Promise<GetMaintenanceHistoryResult> => {
     const tools = await getCatalogTools();
     const lookup = buildUnitLookup(tools);
-    const match = findUnit(lookup, unit_label);
+    const match = findUnit(lookup, unit_label, { preferToolId: ctx.focusedToolId });
     if (!match) {
       return {
         found: false,
