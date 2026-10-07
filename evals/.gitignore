@@ -1,2 +1,5 @@
 # The JSON artifact of the last `npm run eval` — a local record, not source.
 .last-run.json
+
+# One report per `npm run eval:manual-questions` run: local records, not source.
+.manual-questions/

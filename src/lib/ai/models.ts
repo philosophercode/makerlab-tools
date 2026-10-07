@@ -126,6 +126,17 @@ export const MODEL_JOBS = {
     serviceTier: "flex",
     tierEnv: "MODEL_STARTER_GRADE_TIER",
   },
+  // Eval questions from manuals (manual text spec amendment 2026-10-07): a
+  // few questions a student could ask, each answered on one page of a newly
+  // indexed manual, kept as evals. Passages in, JSON out, no tools. Runs in
+  // the archive workflow and `npm run manuals:eval-questions`; nobody waits.
+  evalQuestions: {
+    kind: "language",
+    env: "MODEL_EVAL_QUESTIONS",
+    default: "openai/gpt-6-luna",
+    serviceTier: "flex",
+    tierEnv: "MODEL_EVAL_QUESTIONS_TIER",
+  },
   // Manual passages and search queries (manual text spec §3.4). An embedding
   // job, not a language one: `embeddingModelFor`, never `languageModelFor`.
   // No tier hint — embeddings are cheap and a search is waited on.

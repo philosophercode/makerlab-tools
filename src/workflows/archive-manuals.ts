@@ -1,5 +1,6 @@
 import {
   archiveManualStep,
+  evalQuestionsStep,
   finishManualArchive,
   indexManualStep,
   type ManualArchiveCounts,
@@ -15,7 +16,9 @@ import {
  *
  * After each archive, {@link indexManualStep} processes the resource's stored
  * PDFs into text (manual text spec §3.1, phase 1). Its outcome is counted
- * apart and can never turn an archive into a failure.
+ * apart and can never turn an archive into a failure. Then, for each document
+ * whose passages that step built, {@link evalQuestionsStep} writes its eval
+ * questions (manual text spec amendment 2026-10-07), counted apart again.
  *
  * **Sequential, in the order given.** The body is replayed from the run's
  * event log after every step, and a replay must issue the same step calls in
@@ -33,6 +36,8 @@ export async function archiveManuals(resourceIds: string[]): Promise<ManualArchi
     indexFailed: 0,
     passagesBuilt: 0,
     passagesFailed: 0,
+    questionsWritten: 0,
+    questionsFailed: 0,
   };
   for (const id of resourceIds) {
     let archived: Awaited<ReturnType<typeof archiveManualStep>> | null = null;
@@ -44,15 +49,29 @@ export async function archiveManuals(resourceIds: string[]): Promise<ManualArchi
     }
     if (!archived || !shouldIndex(archived)) continue;
     // Processing into text never changes what the archive counted.
+    const built: string[] = [];
     try {
       for (const outcome of await indexManualStep(id)) {
         if (outcome.status === "indexed") counts.indexed += 1;
         else if (outcome.status === "failed") counts.indexFailed += 1;
-        if (outcome.status !== "failed" && outcome.passages?.status === "built") counts.passagesBuilt += 1;
+        if (outcome.status !== "failed" && outcome.passages?.status === "built") {
+          counts.passagesBuilt += 1;
+          built.push(outcome.passages.documentId);
+        }
         if (outcome.status !== "failed" && outcome.passages?.status === "failed") counts.passagesFailed += 1;
       }
     } catch {
       counts.indexFailed += 1;
+    }
+    if (built.length === 0) continue;
+    // Eval questions for the documents just built: never changes the counts above.
+    try {
+      for (const outcome of await evalQuestionsStep(built)) {
+        if (outcome.status === "written" || outcome.status === "copied") counts.questionsWritten += 1;
+        else if (outcome.status === "failed") counts.questionsFailed += 1;
+      }
+    } catch {
+      counts.questionsFailed += built.length;
     }
   }
   await finishManualArchive(counts);
