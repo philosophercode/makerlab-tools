@@ -18,6 +18,7 @@ export * from "./units.ts";
 export * from "./resources.ts";
 export * from "./attachments.ts";
 export * from "./maintenance.ts";
+export * from "./maintenance-schedules.ts";
 export * from "./feedback.ts";
 export * from "./projects.ts";
 export * from "./audit.ts";

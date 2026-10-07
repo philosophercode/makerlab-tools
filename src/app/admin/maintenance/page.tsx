@@ -1,17 +1,23 @@
 import { getTranslations } from "next-intl/server";
 import { AdminNotice } from "../../../components/admin/AdminNotice";
 import { AdminPageHeader } from "../../../components/admin/AdminPageHeader";
+import { DueTasks } from "../../../components/admin/DueTasks";
 import { LogCompletedForm } from "../../../components/admin/LogCompletedForm";
 import { MaintenanceQueue } from "../../../components/admin/MaintenanceQueue";
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { listMaintenanceQueue } from "../../../lib/data/maintenance";
+import { countDueSchedules, listDueSchedules } from "../../../lib/data/maintenance-schedules";
 import { listToolUnitOptions } from "../../../lib/data/tool-options";
 import { listAssignableStaff } from "../../../lib/data/users";
+import { labToday } from "../../../lib/lab-time";
 import { logCompletedMaintenance, updateTicket } from "./actions";
+import { completeSchedule } from "./schedule-actions";
+import { SCHEDULES_PATH } from "./schedule-result";
 
 /**
- * `/admin/maintenance` — the ticket queue (spec §5.6, §6).
+ * `/admin/maintenance` — the recurring tasks due (recurring maintenance spec,
+ * amendment 2026-10-06), then the ticket queue (spec §5.6, §6).
  *
  * Requires `maintenance.manage`. The layout above answered the coarse question
  * and let anyone holding an admin permission through; the exact refusal happens
@@ -43,7 +49,15 @@ export default async function AdminMaintenancePage() {
 
   // The roster read is the assignee list, not an authorization input: assigning
   // a ticket grants nobody anything (see `listAssignableStaff`).
-  const [tickets, staff, toolOptions] = await Promise.all([listMaintenanceQueue(), listAssignableStaff(), listToolUnitOptions()]);
+  const today = labToday();
+  const [tickets, staff, toolOptions, dueTasks, taskCounts] = await Promise.all([
+    listMaintenanceQueue(),
+    listAssignableStaff(),
+    listToolUnitOptions(),
+    // Recurring tasks overdue or due this week (recurring maintenance spec, amendment 2026-10-06).
+    listDueSchedules(today),
+    countDueSchedules(today),
+  ]);
 
   const open = tickets.filter((ticket) => ticket.status === "open").length;
   const inProgress = tickets.filter((ticket) => ticket.status === "in_progress").length;
@@ -62,8 +76,13 @@ export default async function AdminMaintenancePage() {
           t("facts.inProgress", { count: inProgress }),
           t("facts.urgent", { count: urgent }),
           t("facts.tickets", { count: tickets.length }),
+          taskCounts.overdue > 0 && t("facts.tasksOverdue", { count: taskCounts.overdue }),
+          taskCounts.dueToday > 0 && t("facts.tasksDueToday", { count: taskCounts.dueToday }),
         ]}
       />
+
+      {/* Routine upkeep first: it is the work staff can plan for. Reported problems follow. */}
+      <DueTasks items={dueTasks} today={today} hasSchedules={taskCounts.active > 0} action={completeSchedule} schedulesHref={SCHEDULES_PATH} />
 
       {/* Work already done, recorded as a resolved ticket (parity spec §11 answer 5). */}
       <LogCompletedForm tools={toolOptions} action={logCompletedMaintenance} />

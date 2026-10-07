@@ -254,6 +254,7 @@ and marks the ones your account can use.
 | `create_tool` | — | — | ✓ (draft only) | "Add a draft for our new drill press" |
 | `list_intake_queue` | — | — | ✓ | "What's waiting in intake?" |
 | `list_open_tickets` | — | — | ✓ | "What maintenance is open, worst first?" |
+| `list_maintenance_due` | — | — | ✓ | "What recurring maintenance is due today?" |
 | `update_ticket` | — | — | ✓ | "Mark the Trotec focus ticket resolved" |
 | `propose_change` | — | — | ✓ (a proposal) | "Propose a clearer description for the Form 4" |
 | `list_corrections`, `list_project_queue`, `get_tool_units`, `list_imports` | — | — | ✓ | "Which units does the Prusa have?" |

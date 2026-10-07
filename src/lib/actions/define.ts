@@ -205,6 +205,7 @@ export interface ActionSubject {
     | "user"
     | "email"
     | "maintenance_log"
+    | "maintenance_schedule"
     | "feedback"
     | "project"
     | "tool"

@@ -45,6 +45,7 @@ it("groups every tool under Anyone, Signed-in lab members and Staff", () => {
     "create_tool",
     "list_intake_queue",
     "list_open_tickets",
+    "list_maintenance_due",
     "update_ticket",
     "propose_change",
     // Assistant–GUI parity phase 7: the id reads and the proposing tools.
@@ -64,8 +65,8 @@ it("says read or write for each tool", () => {
 it.each([
   ["anonymous", 6, "report_issue"],
   ["user", 9, "update_ticket"],
-  ["admin", 44, "get_usage_summary"],
-  ["super_admin", 46, null],
+  ["admin", 45, "get_usage_summary"],
+  ["super_admin", 47, null],
 ] as const)("marks the tools a %s viewer can use", (role, count, notUsable) => {
   renderAs(role);
   expect(screen.getAllByText("You can use this")).toHaveLength(count);

@@ -32,7 +32,9 @@ MCP callers act as a person, with that person's role and never more
   for nobody else, read-only connections included. Counts only, no question text. `/mcp` lists them
   under Staff, marked for super admins only.
 - **Staff queue tools, chat and MCP** (amendment 2026-09-25): `list_intake_queue`
-  (`tools.approve`), `list_open_tickets` and `update_ticket` (`maintenance.manage`, through
+  (`tools.approve`), `list_maintenance_due` (`maintenance.manage`, read-only: the recurring tasks
+  overdue or due soon, recurring maintenance spec amendment 2026-10-06), `list_open_tickets` and
+  `update_ticket` (`maintenance.manage`, through
   `lib/admin/ticket-write.ts`, the admin page's own path) in `capabilities/staff.ts`. The chat
   offers them only through `capabilitiesForIdentity` (never to anonymous or students). **Since
   the parity spec's phase 2 `staff.ts`'s `update_ticket` is MCP only** (the one direct MCP write,

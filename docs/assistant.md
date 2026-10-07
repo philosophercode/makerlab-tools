@@ -61,6 +61,7 @@ The assistant can prepare almost anything you do in `/admin`, in a sentence:
 |---|---|
 | "Resolve these: replaced the belt" (tickets ticked on Maintenance) | Resolve each ticket with that note |
 | "Log maintenance on the WEN: replaced the belt" | A completed maintenance record (work already done) |
+| "What's due today?", "Is any upkeep overdue?" | Nothing: it reads the recurring tasks that are due. You check one off with **Done** on Maintenance |
 | "Dismiss that correction", "Publish Casey's lamp project" | The correction's status; the project in the gallery |
 | "Publish the Glowforge", "Mark the Form 4 as reviewed" | The tool's catalogue state |
 | "Retire Prusa #3", "Add a unit to the Trotec", "Add the SOP link" | Units and links |

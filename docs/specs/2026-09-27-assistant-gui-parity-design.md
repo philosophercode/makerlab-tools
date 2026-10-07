@@ -1578,3 +1578,27 @@ field edits stay on curation's `propose_change`, which does not offer `notes`). 
 No name matches the deny list. `/assistant` shows it as page-only, in the catalog area (`ACTION_AREAS`
 gains `lab`). **Counts:** action tools, chat tools and the MCP lists do not change. The registry
 holds 52 definitions. No migration: `lab_settings` (`0024`) takes a new key without one.
+
+### 2026-10-06 — recurring maintenance v1: four GUI-only actions and one read
+
+The recurring maintenance spec's v1 amendment (2026-10-06) adds recurring tasks: set up on
+`/admin/maintenance/schedules`, checked off with **Done** on `/admin/maintenance`. Four registered
+actions, each run by a one-line server action in `app/admin/maintenance/schedule-actions.ts`
+(`createSchedule`, `editSchedule`, `setScheduleStatus`, `completeSchedule`):
+
+| Action | Tool | Risk | Permission | Chat | MCP |
+|---|---|---|---|---|---|
+| `schedules.create` | `create_maintenance_task` | operational | `maintenance.manage` | never | never |
+| `schedules.update` | `edit_maintenance_task` | operational | `maintenance.manage` | never | never |
+| `schedules.set_status` | `set_maintenance_task_status` | operational | `maintenance.manage` | never | never |
+| `schedules.complete` | `complete_maintenance_task` | operational | `maintenance.manage` | never | never |
+
+`assistant: "never"` for now, no tool and no preview: proposing a task or checking one off from the
+chat needs a card and its strings, which the recurring maintenance spec lists as a follow-up. One read
+joins the staff capability on both surfaces: `list_maintenance_due` (`maintenance.manage`) — the
+recurring tasks overdue or due within N days, with where, how often, due date, days overdue, last done
+and the lab's instructions. Staff wrote all of that text, so it does not taint the turn. No name
+matches the deny list. **Counts:** action tools unchanged (42 / 38); chat tools 64 → **65** for a
+director and 59 → **60** for a SuperMaker; the MCP lists gain `list_maintenance_due` for both staff
+roles. The registry holds 56 definitions (with `lab.set_notes` above). Migration
+`0027_recurring_maintenance`.

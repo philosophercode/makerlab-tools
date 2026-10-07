@@ -1,8 +1,8 @@
 # Recurring Maintenance: Preventive Schedules That Open Their Own Tickets — Design Spec
 
 **Date:** 2026-09-27
-**Status:** Draft
-**Target:** `v5/`
+**Status:** v1 implemented (approved by the owner 2026-10-06, after Niti and Luis asked for it). v1 is a checklist, not tickets: staff set up recurring tasks and check them off with **Done**; see the amendment "2026-10-06 — v1 as built" at the end, which records how v1 differs from §3–§6 and the answers to §13. The ticket-opening cron, assistant proposals (§9 phase 3's writes) and manual suggestions (phase 4) are open
+**Target:** the app (repository root); written when it lived under `v5/`
 **Branch:** `docs/feature-specs`
 **Spec PR:** — · **Implementation PR:** — (one per phase, §9)
 
@@ -434,3 +434,123 @@ boundary (Article 3).
 | 8 | Is `schedules.suggest` charged to the research allowance, or free for `maintenance.manage`? | Charge it. One pool of paid model work per person is simpler to reason about | Isaac |
 
 Q1–Q4 block phase 1's form defaults. Q8 blocks phase 4. The rest can travel with the spec.
+
+## Amendments
+
+### 2026-10-06 — v1 as built: a checklist, not tickets
+
+**Why now.** On 2026-10-06 Isaac met Niti (Director) and Luis (Assistant Director). They asked for
+recurring maintenance tasks that a SuperMaker checks off. The owner approved building v1 the same
+day. The brief: staff define a task per tool, per unit, or for general lab upkeep ("Clean the laser
+cutter lens" weekly, "Empty the dust collector" monthly, "Wipe down workbenches" daily); there is a
+clear list of what is due and overdue; **Done** with an optional note logs it and schedules the next
+due date. Simple and obvious, and shown where staff already look.
+
+**The one design change: no ticket per occurrence.** §3 and §5.2 had the nightly cron open a
+`maintenance_logs` ticket for each occurrence, and resolving the ticket rolled the schedule forward.
+v1 does not. A daily task would open a ticket every day and bury the reported problems the queue
+exists for. Reporting an issue is the lab's main use case, so the queue stays for problems. Instead:
+
+- A task is checked off directly. **Done** writes one `maintenance_completions` row (done on, the due
+  date it answered, the note, who did it) and moves `next_due_on` forward, in one transaction with the
+  schedule row locked (`completeSchedule`, `src/lib/data/maintenance-schedules.ts`).
+- There is no cron stage, no `open_log_id`, no `maintenance_logs.schedule_id` or `due_on`, and
+  `updateMaintenanceLog` is unchanged. The `schedule.ticket_opened` event §7 reserved is not emitted.
+- "Overdue" is still derived, never stored: `next_due_on < labToday()` on an active schedule.
+
+**Data model as built** (migration `0027_recurring_maintenance`):
+
+| Spec §4 | v1 |
+|---|---|
+| `tool_id not null` | **nullable**: null is general lab upkeep. `on delete cascade` (a deleted tool takes its tasks) |
+| `unit_id ... on delete set null` | `on delete cascade`; CHECK `unit_id is null or tool_id is not null` |
+| `title ≤ 120`, `instructions ≤ 4000` | `title ≤ 120`, `instructions ≤ 2000` (checked by the action) |
+| `type`, `priority`, `lead_days`, `paused_reason`, `source`, `source_citation`, `open_log_id` | not built (they serve tickets and manual suggestions) |
+| `status ∈ suggested, active, paused, archived` | `active, paused, archived`; phase 4 adds `suggested` |
+| `interval_count 1–730`, `interval_unit ∈ day, week, month` | as specced, both CHECKed |
+| — | new `maintenance_completions`: `schedule_id` (cascade), `done_on`, `due_on`, `note ≤ 1000`, `done_by_user_id` (set null), `done_by_name` (snapshot), `created_at` |
+
+Indexes `(status, next_due_on)` and `(tool_id)` as specced, plus `(schedule_id, done_on)` on the log.
+`maintenance_schedules` has the `updated_at` trigger. Rows existing before the migration: none (new
+tables). The nightly backup and `data:push` pick both tables up from the schema; neither holds
+student data.
+
+**Date maths** (`src/lib/maintenance/interval.ts`, pure): `addInterval` (month steps clamp to the
+month's end, leap years), `daysBetween`, `overdueDays` (0 on the due day, 1 the day after),
+`dueState` (`overdue`, `today`, `soon` within 7 days, `later`), `nextDueAfterDone`. All on calendar
+dates; "today" is `labToday()` in `LAB_TIMEZONE`, so a task done at 11pm in New York is done that
+day, and daylight saving cannot move a due date.
+
+**Answers to §13, as decided for v1** (the spec's recommendations, adapted where tickets were removed):
+
+| # | Decision |
+|---|---|
+| 1 | **Floating.** The next due date counts from the day it was done: `next_due_on = done_on + interval`. No "fixed cadence" toggle until Luis names a task that needs one |
+| 2 | **No `closed` ticket exists in v1.** Skipping an occurrence is done by editing the next due date (the edit form says the log stays as it is). A "Skip" button is a follow-up if staff ask for it |
+| 3 | **No `lead_days` in v1.** With no ticket to open early, the due list shows the next 7 days instead, so upcoming work is visible before it is due |
+| 4 | **Per unit when the tool has several.** The form's Unit field offers "Each unit (N tasks)" and chooses it by default for a tool with more than one active unit; it creates one task per unit in one transaction. Edit changes one task |
+| 5 | **Students see nothing.** No "last serviced" on the tool page; every page and action is `maintenance.manage` |
+| 6 | **No automatic escalation.** Overdue days are shown in the bad tone; nudges wait for the notifications spec |
+| 7 | **Luis enters the lab's list** from existing practice. Manual suggestions (phase 4) fill gaps later |
+| 8 | Not reached in v1 (phase 4). The recommendation stands: charge the research allowance |
+
+One default changed from §5.1: the **first due date defaults to today**, not today + interval. The
+queue-flooding risk behind that default came from tickets, and a new task showing in the due list at
+once is the obvious confirmation that it worked. Staff can pick any date.
+
+**Permissions.** Every read and write is `maintenance.manage` (admin = SuperMaker, super_admin =
+director). Four action definitions in `src/lib/actions/maintenance-schedules.ts`, all `operational`
+and run through `performAction`: `schedules.create`, `schedules.update`, `schedules.set_status`,
+`schedules.complete`. Each refuses an anonymous caller (`not_signed_in`) and a student
+(`not_permitted`) before anything is read. **Done** carries the due date the person saw; a task
+somebody else already checked off, paused or edited answers `conflict`, so work is never logged twice.
+
+**UI.**
+
+- `/admin/maintenance`: **Recurring tasks due** sits above the ticket queue (`DueTasks`): overdue,
+  due today and due in the next 7 days, oldest first, each with where it lives, how often, its due
+  date, when it was last done, the lab's instructions, and **Done** / **Add a note**. Three empty
+  states: no tasks yet (with a link to set them up), nothing due this week, or the list. The header
+  facts add "N tasks overdue" and "N tasks due today" when non-zero.
+- `/admin/maintenance/schedules` (new sub-route of the Maintenance surface, no nav entry, crumb back
+  to Maintenance): **New recurring task**, the active tasks oldest-due first, paused and archived ones
+  behind a disclosure. Each card has **Done**, **Edit**, **Pause** / **Resume**, **Archive**, and the
+  last five check-offs (date, who, "was due …" when late, the note) behind a disclosure.
+- `/admin`: the Maintenance tile's facts add "Recurring tasks due today" (waiting-on-you tone) and
+  "Recurring tasks overdue" (bad tone), and both count toward the home's "items waiting on you". The
+  tile's headline stays open tickets.
+- Not built: the tool page's staff panel (§6) and the Overdue filter in the ticket queue (no
+  schedule tickets exist to filter).
+- Strings are English in `messages/en.json` (`admin.schedules.*`, `admin.facts.tasks*`,
+  `admin.home.maintenanceTasks*`). No other locale file has an `admin` namespace today, so admin
+  strings fall back to English everywhere until the translation pass (constitution Article 6 as
+  amended 2026-09-14). Task titles and notes are written in English, like ticket text.
+
+**Assistant.** One read joins the staff capability on chat and MCP: `list_maintenance_due`
+(`maintenance.manage`; input `within_days` 0–90, default 7, and an optional `tool`). It answers
+"what's due today?" from the same query as the due list. Staff wrote every field it returns, so it
+does not taint the turn. The prompt tells staff that the assistant cannot check a task off and sends
+them to **Done**. The four write actions are `assistant: "never"` (so never MCP) for v1: proposing a
+task or a check-off needs a confirmation card, a preview and their strings. The parity spec's
+amendment of the same date lists them.
+
+**Tests.** `src/lib/maintenance/interval.test.ts` (month-end clamping, leap years, both DST changes
+in `LAB_TIMEZONE`, the 11:30pm "dated tomorrow because of UTC" case, overdue on the due day and the
+day after, floating roll-forward); `src/lib/data/maintenance-schedules.test.ts` (PGlite: create,
+due list and counts, paused tasks left out, Done logs and rolls forward atomically, a second click is
+`conflict`, last five check-offs, the log outliving the account, CHECKs, cascade, trigger);
+`src/app/admin/maintenance/schedule-actions.test.ts` (every action refuses anonymous and `user`,
+admin and super_admin pass, "each unit", general upkeep, invalid input, archived tools);
+`src/lib/capabilities/maintenance-due.test.ts`; `src/lib/db/schema/recurring-maintenance-migration.test.ts`;
+component tests for `DueTasks` and `ScheduleForm`; the admin tile test.
+
+**Follow-ups (not in v1).**
+
+1. Assistant proposals: `create_maintenance_task` and `complete_maintenance_task` as cards ("I
+   cleaned the laser lens" → a Done card), then MCP proposals.
+2. A **Skip** button that advances from the due date without logging work (old Q2).
+3. Show a task's check-offs in the tool's maintenance history, and the tool page's staff panel (§6).
+4. A QR label per task location, or "scan a unit → its due tasks", tied to the issue-reporting QR flow.
+5. Notifications: a daily digest of what is due (the notifications spec), using `countDueSchedules`.
+6. Phase 4, suggestions from manuals, as specced (adds `suggested`, `source`, `source_citation`).
+7. Whether a recurring task should ever open a ticket (for example, when it is a week overdue).
