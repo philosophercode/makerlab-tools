@@ -160,7 +160,9 @@ Copyright (C) 2026 Isaac Steinberg.
 
 ## Who owns it
 
-The **Cornell Tech MakerLAB**:
+**Isaac Steinberg** ([@philosophercode](https://github.com/philosophercode)) owns this
+software and holds its copyright. It was built for use at the **Cornell Tech MakerLAB**,
+which runs the live deployment:
 
 - **Niti Parikh** — Director
 - **Luis Rodrigo Navarro** — Assistant Director

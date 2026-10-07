@@ -12,6 +12,9 @@ MakerLAB Tools is **open source** under the
 Copyright (C) 2026 Isaac Steinberg (https://github.com/philosophercode)
 ```
 
+Isaac Steinberg owns MakerLAB Tools. It was built for use at the Cornell Tech MakerLAB,
+which runs the live deployment at https://makerlab-ai.vercel.app.
+
 ## In one paragraph
 
 Anyone may use, study, run, fork and change this software, for any purpose, including
