@@ -85,13 +85,13 @@
 | `src/components/account/RefusedSignIn.tsx` / `UseDifferentAccount.tsx` | The two refusal pages' shared view and its "Use a different Google account" button |
 | `src/lib/data/users.ts` | The `/admin/users` roster, read straight from Postgres; `markFirstSignIn` |
 | `src/lib/data/user-add.ts` | Add person: the pre-added `user` row and its `user.added` event, one transaction |
-| `src/lib/actions/*` | The action layer: `performAction`, `defineAction`, `ACTIONS` / `ACTION_DEFINITIONS`, the People, queue, log-completed, catalogue, intake, import, spend and mirror definitions, `proposals.ts` (propose / confirm), `page-context.ts`, `typed-confirm.ts`, `inbox.ts` (the MCP inbox's cards), the parity guard (`parity.ts`, `exempt.ts`) and the spec drift check (`spec-drift.test.ts`) |
+| `src/lib/actions/*` | The action layer: `performAction`, `defineAction`, `ACTIONS` / `ACTION_DEFINITIONS`, the People, queue, log-completed, catalogue, intake, import, spend and mirror definitions, `proposals.ts` (propose / confirm), `page-context.ts`, `typed-confirm.ts`, `inbox.ts` (the MCP inbox's cards), `manual-triage.ts` (the inbox's Manuals view, by tool), `revision-chain.ts` (a tool's proposals confirmed in one step), the parity guard (`parity.ts`, `exempt.ts`) and the spec drift check (`spec-drift.test.ts`) |
 | `src/lib/chat/taint.ts` | Whether a chat turn read outside content (§8.4) |
 | `src/lib/intake/research-start.ts` / `approval-draft.ts` | The one research start (route and card); the review page's default approval (page and card) |
 | `src/lib/data/action-proposals.ts` / `action-subjects.ts` | `action_proposals` (claim once, creator only, TTLs); the id → name reads previews and page context use |
 | `src/lib/capabilities/actions.ts` / `admin-reads.ts` | The generated proposing tools (chat, and MCP for `mcp: "propose"`) and their prompt; `find_people`, `list_corrections`, `list_project_queue` |
 | `src/app/api/action-proposals/route.ts` | Confirm / cancel an assistant proposal (cookie only), and re-read the caller's proposals by id or chat |
-| `src/app/admin/proposals/page.tsx` | **Assistant proposals**: the viewer's own MCP proposals as confirmation cards, and the last week's decided ones |
+| `src/app/admin/proposals/page.tsx` | **Assistant proposals**: the viewer's own MCP proposals as confirmation cards, and the last week's decided ones; `?view=manuals` groups the resource proposals by tool (`components/admin/ManualTriage*.tsx`, `manual-triage-state.ts`, `lib/data/manual-triage-tools.ts`) |
 | `src/components/chat/ActionProposalCard.tsx` / `page-selection.tsx` | The confirmation card; the page selection the chat sends |
 | `src/lib/admin/queue-write.ts` | `QueueActionResult`; `runQueueWrite` has no callers since the action layer (awaiting deletion approval) |
 | `src/app/admin/maintenance/`, `corrections/`, `projects/` | The three queues: one page, one result module and one action apiece |

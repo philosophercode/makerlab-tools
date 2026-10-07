@@ -201,6 +201,26 @@ for people is in `docs/assistant.md`.
   `ADMIN_SURFACE_PERMISSIONS` holder, and shows only the viewer's own rows.
   Field changes proposed over MCP (`propose_change`) stay on `/admin/refresh`;
   each page links to the other.
+- **The inbox's Manuals view** (parity spec amendment 2026-10-07 "manual
+  triage"): `/admin/proposals?view=manuals`, a tab beside **All proposals**
+  when a resource proposal is open. `lib/actions/manual-triage.ts`
+  (`buildManualTriage`) groups the open `resources.add` / `resources.edit`
+  rows by tool and describes each from its stored input and preview (a label
+  such as Add manual, Replace link, Retype, Retitle, Hide, Re-archive; the
+  document before and after; the link's host); `data/manual-triage-tools.ts`
+  reads the tools' names, thumbnails and documents now. The view
+  (`components/admin/ManualTriage.tsx`, `ManualTriageTool.tsx`,
+  `ManualTriageRow.tsx`, `manual-triage-state.ts`) confirms through the same
+  route, sends a tool's rows in **one** request, and has keys (j/k, y, n, o,
+  ?) that work only while focus is inside it. No PDF is fetched for it.
+- **A tool's proposals confirm in one step** (`revision-chain.ts`, same
+  amendment). Each tool-editor proposal stores the tool's revision. Inside one
+  confirm request, after a `resources.add` / `resources.edit` row for tool T
+  confirms (its write checked revision A and answered B in one statement), a
+  later row of that request for T that stored A runs with B. Its write checks B,
+  so someone else's save in between is still `conflict`. Any row of T that does
+  not confirm stops the chain for T; nothing carries between requests; the drift
+  check still runs per row. Such a row's stored result has `chained: true`.
 - **Exemptions are decisions** (phase 8): each `EXEMPT` reason starts with one
   of `EXEMPT_KINDS` ("Never", "Not a write", "Account gate…", "Route-backed"…);
   a "Later" fails `parity.test.ts`. **`spec-drift.test.ts`** reads the spec's
