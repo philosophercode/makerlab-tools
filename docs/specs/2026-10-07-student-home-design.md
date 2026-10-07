@@ -14,8 +14,7 @@ search on one screen. The owner chose concept B, the calmer gallery, and wrote
 his decisions in `review-2026-10-06/decisions.md`, with an addendum after
 seeing mock-up B.
 
-The home page (`/`) now has generous space, a big striped MakerLAB wordmark and
-**one smart search box**. Under it, titled **Tools**, are the lab's categories
+The home page (`/`) now has generous space and **one smart search box**. Under it, titled **Tools**, are the lab's categories
 as large tiles. **See all tools** opens the full list at `/tools`, which is the
 old gallery with the same search box, the filters and a count that follows
 them. The smart search lists matching tools first, then categories, then
@@ -32,10 +31,11 @@ variable. One new route (`/tools`) and redirects for old links.
 
 ### Goals
 
-1. `/` is the categories: the big wordmark, the smart search, the heading
+1. `/` is the categories: the smart search, the heading
    "Tools", one tile per category the public gallery shows, and a way to the
    full list. "What do you want to make?", "eight kinds of making" and the
-   "Start here" band are gone.
+   "Start here" band are gone, and so is the big wordmark the first build put
+   above the search (amendment "The logo once").
 2. One smart search box whose placeholder rotates, fading out and in about
    every three seconds, through prompts and real questions, the live tool
    count among them. It is still under reduced motion and while the box has
@@ -123,7 +123,7 @@ photo.
 
 ## 5. Behavior / flow
 
-**Home.** The visitor sees the wordmark and the box. The tiles link to
+**Home.** The visitor sees the box. The tiles link to
 `/tools?category=<name>`. "See all N tools" (twice: beside the heading and
 under the tiles) links to `/tools`. N is the gallery's own count, the same
 number the box says ("Search 77 tools").
@@ -160,10 +160,7 @@ available now".
 
 ## 6. UI
 
-- **Home** (`HomeShell`): the wordmark (`HomeWordmark`, `clamp(280px, 56vw,
-  720px)` wide, from `siteConfig.wordmarkLarge`, a vector trace at
-  `public/brand/makerlab-wordmark.svg`; the header keeps its PNG), the box at
-  up to 768 px, the h1 "Tools", tiles 2 / 3 / 4 across (phone / `lg` / `xl`),
+- **Home** (`HomeShell`): the box at up to 768 px, with nothing above it, the h1 "Tools", tiles 2 / 3 / 4 across (phone / `lg` / `xl`),
   a "See all" button. Loading: `HomeFallback`, the same spacing.
 - **Tile** (`CategoryTileCard`): photo plate, name in display type, a mono
   line "10 tools · FDM Printers, Resin Printers…" (kinds from `sm` up), and
@@ -230,8 +227,8 @@ rename, tests and docs.
   nothing is highlighted**, arrow then Enter asks, a click asks, Escape.
 - `search/SearchFrame.test.tsx`: rotation and fade, wrap-round, pause on
   focus, hidden with text, static under reduced motion.
-- `home/HomeShell.test.tsx`: title, one search, removed copy, tiles and their
-  links, "See all" count.
+- `home/HomeShell.test.tsx`: title, one search, no second wordmark, removed
+  copy, tiles and their links, "See all" count.
 - `GalleryShell.test.tsx`: "All tools", the facts line, the Ask button row
   (Enter does not ask), the count following a filter.
 - `palette/CommandPalette.test.tsx`: hidden trigger, `/` focuses a combobox,
@@ -248,3 +245,22 @@ rename, tests and docs.
    (owner).
 3. Should the header show the official logo small beside the wordmark? The
    decisions allow it; this branch keeps the footer placement (owner).
+
+## Amendment — The logo once (2026-10-07)
+
+The first build put a big striped MakerLAB wordmark (`HomeWordmark`,
+`clamp(280px, 56vw, 720px)` wide) above the smart search, in the manner of a
+search engine's front page. Seeing it, the owner asked for the logo only once:
+the header's wordmark in the upper-left corner, unchanged.
+
+- **The home** (`HomeShell`) has nothing above the smart search box: the box,
+  then "Tools" and the tiles. The space above the box is smaller to match
+  (`pt-8`, `pt-14` from `sm`, `pt-16` from `lg`), and so is the loading
+  skeleton's (`HomeFallback`).
+- **Unchanged:** the header wordmark (`.brand-wordmark`, the PNG), and the
+  official Cornell Tech MakerLAB logo where it already appears (the footer,
+  About, the kiosk, the QR labels).
+- `HomeWordmark`, `siteConfig.wordmarkLarge`, the `.home-wordmark` rule and
+  `public/brand/makerlab-wordmark.svg` are no longer used anywhere; they stay
+  in the tree until their removal is approved.
+- Tests: `HomeShell.test.tsx` asserts no second wordmark on the page.

@@ -45,7 +45,9 @@ test.describe("Tool detail", () => {
   test("clicking a gallery card navigates to the detail page", async ({
     page,
   }) => {
-    await page.goto("/");
+    // The cards are the full list's, at /tools; the home shows categories
+    // (student home spec 2026-10-07).
+    await page.goto("/tools");
 
     await page
       .getByRole("link")

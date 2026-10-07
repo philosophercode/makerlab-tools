@@ -49,8 +49,7 @@
   the island reads the query string itself); grouped, it is sticky-headed
   sections with counts. Since the student home spec (2026-10-07) the gallery
   is **`/tools`** ("All tools") and **`/`** is the student home
-  (`home/HomeShell`): the big wordmark (`HomeWordmark`, the vector trace
-  `public/brand/makerlab-wordmark.svg`), the smart search (`home/HomeSearch`,
+  (`home/HomeShell`): the smart search (`home/HomeSearch`,
   cmdk inline, tools then categories then "Ask MakerLAB AI", ranked by the
   palette's `paletteScore` through `palette/palette-search.ts`; Enter never
   asks by accident), and category tiles (`home/home-tools.ts`,

@@ -7,15 +7,15 @@ import { ArrowRight } from "lucide-react";
 import { HomeSearch } from "./HomeSearch";
 import { CategoryTileCard } from "./CategoryTileCard";
 import { categoryTiles, galleryToolCount, type HomeTool } from "./home-tools";
-import { HomeWordmark } from "./HomeWordmark";
 import { ALL_TOOLS_PATH } from "../../lib/gallery-links";
 
 /**
  * The student home (student home spec 2026-10-07; design review option B,
- * the calmer gallery, with the owner's addendum): generous space, a big
- * MakerLAB wordmark and the smart search box; then **Tools**, the categories
- * as large tiles; then the way to the full list. Nothing else: no "Start
- * here" band, no filters (they are the full list's).
+ * the calmer gallery, with the owner's addendum): the smart search box on
+ * its own, then **Tools**, the categories as large tiles; then the way to the
+ * full list. Nothing else: no "Start here" band, no filters (they are the
+ * full list's), and no big wordmark — the logo appears once, in the header
+ * (amendment "The logo once").
  */
 export function HomeShell({
   tools,
@@ -33,9 +33,8 @@ export function HomeShell({
     <main className="ui mx-auto w-full max-w-[1440px] px-4 pb-16 sm:px-8" data-slot="home">
       <section
         aria-label={t("searchSection")}
-        className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8 pt-12 pb-14 sm:gap-10 sm:pt-20 sm:pb-20 lg:pt-24"
+        className="mx-auto flex w-full max-w-3xl flex-col items-center gap-6 pt-8 pb-10 sm:pt-14 sm:pb-14 lg:pt-16"
       >
-        <HomeWordmark />
         <HomeSearch tools={tools} toolCount={count} />
       </section>
 

@@ -5,8 +5,9 @@ import { toHomeTool } from "./home-tools";
 
 /**
  * The student home (student home spec 2026-10-07; review option B with the
- * owner's addendum): the big wordmark and the smart search, then "Tools"
- * and the category tiles, then the way to the full list.
+ * owner's addendum): the smart search, then "Tools" and the category tiles,
+ * then the way to the full list. No big wordmark: the logo is the header's
+ * alone (amendment "The logo once").
  */
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: vi.fn() }) }));
@@ -26,10 +27,10 @@ vi.mock("next/link", () => ({
 
 const tools = mockCatalog.map(toHomeTool);
 
-it("is titled Tools, with the wordmark and one search box above it", () => {
+it("is titled Tools, with one search box above it and no second wordmark", () => {
   render(<HomeShell tools={tools} categoryOrder={[]} />);
   expect(screen.getByRole("heading", { level: 1, name: "Tools" })).toBeInTheDocument();
-  expect(document.querySelector('[data-slot="home-wordmark"]')).toHaveAttribute("aria-hidden", "true");
+  expect(document.querySelector('[data-slot="home-wordmark"]')).toBeNull();
   expect(screen.getAllByRole("search")).toHaveLength(1);
   expect(screen.getAllByRole("combobox")).toHaveLength(1);
 });

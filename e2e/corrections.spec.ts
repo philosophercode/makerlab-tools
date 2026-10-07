@@ -20,9 +20,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 test.describe("Report a correction", () => {
   test("the control is reachable from a tool detail page", async ({ page }) => {
-    await page.goto("/");
-
-    // Arrive the way a student does: from the catalog, not a deep link.
+    // Arrive the way a student does: from the catalog, not a deep link. The
+    // tool cards are the full list's, at /tools (student home spec 2026-10-07).
+    await page.goto("/tools");
     await page
       .getByRole("link")
       .filter({

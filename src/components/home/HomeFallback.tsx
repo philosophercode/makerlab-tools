@@ -1,9 +1,8 @@
 import { useTranslations } from "next-intl";
-import { HomeWordmark } from "./HomeWordmark";
 
 /**
  * The home page while the catalogue loads (DESIGN.md §8.9: skeletons in the
- * content's shape, no spinner): the wordmark, a search-box-high bar, the
+ * content's shape, no spinner): a search-box-high bar, the
  * title and four tile plates, pulsing only when motion is allowed. The same
  * spacing as `HomeShell`, so nothing jumps when it arrives.
  */
@@ -11,8 +10,7 @@ export function HomeFallback() {
   const t = useTranslations("gallery");
   return (
     <main className="ui mx-auto w-full max-w-[1440px] px-4 pb-16 sm:px-8" aria-busy="true">
-      <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-8 pt-12 pb-14 sm:gap-10 sm:pt-20 sm:pb-20 lg:pt-24">
-        <HomeWordmark />
+      <div className="mx-auto flex w-full max-w-3xl flex-col items-center gap-6 pt-8 pb-10 sm:pt-14 sm:pb-14 lg:pt-16">
         <div aria-hidden="true" className="h-14 w-full border border-border bg-card sm:h-16" />
       </div>
       <div className="mb-4 flex items-end justify-between border-b border-rule pb-3">

@@ -10,6 +10,10 @@ import { siteConfig } from "../../lib/site-config";
  *
  * Decoration: the header's link already names the site, and the page's
  * heading is "Tools".
+ *
+ * Unused since the student home spec's amendment "The logo once"
+ * (2026-10-07): the logo appears once, in the header. Kept until its removal
+ * is approved.
  */
 export function HomeWordmark() {
   return (
