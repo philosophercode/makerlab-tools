@@ -2115,6 +2115,7 @@
         "kioskScreens": "Kiosk screen loads",
         "kioskScans": "Kiosk QR arrivals",
         "citations": "Manual citations",
+        "crossToolCitations": "Citations of another machine's document",
         "gaps": "Unanswered",
         "answered": "Answered",
         "answeredValue": "{percent}%"

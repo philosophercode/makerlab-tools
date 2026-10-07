@@ -1,8 +1,8 @@
 // @vitest-environment node
 
 /**
- * The daily cron's manual stage against PGlite: which manuals are due (Manual,
- * a link, no PDF copy of that link), the moving oldest-first window, and the
+ * The daily cron's manual stage against PGlite: which manuals are due (a
+ * Manual, SOP or Safety resource or a PDF link, no PDF copy of that link), the moving oldest-first window, and the
  * counts the route reports. Starting the workflow is mocked at `start.ts`.
  */
 
@@ -70,12 +70,28 @@ describe("listManualsDueForArchive", () => {
     await pdf(stale, manualSourceKey(stale, "https://maker.test/old.pdf"));
     await pdf(uploaded, null);
     await db.insert(resources).values([
-      { toolId, title: "SOP", type: "SOP", url: "https://maker.test/sop.pdf" },
       { toolId, title: "No link", type: "manual", url: null },
       { toolId, title: "Placeholder", type: "Manual", url: "#" },
     ]);
 
     expect(await listManualsDueForArchive({ db, limit: 10, day: 0 })).toEqual({ due: 2, ids: [stale, due] });
+  });
+
+  it("picks every PDF resource, not only Manuals: SOP and Safety always, other types when the link is a PDF (amendment 2026-10-06)", async () => {
+    const at = (minute: number) => new Date(Date.UTC(2026, 0, 1) + minute * 60_000);
+    const rows = await db
+      .insert(resources)
+      .values([
+        { toolId, title: "Bambu guide typed SOP", type: "SOP", url: "https://maker.test/quick-start.pdf", createdAt: at(0) },
+        { toolId, title: "Safety sheet", type: "safety", url: "https://maker.test/safety", createdAt: at(1) },
+        { toolId, title: "Datasheet", type: "Other", url: "https://maker.test/datasheet.PDF?v=2", createdAt: at(2) },
+        { toolId, title: "Product page", type: "Other", url: "https://maker.test/product", createdAt: at(3) },
+        { toolId, title: "Video", type: "Video", url: "https://maker.test/video.pdf", createdAt: at(4) },
+        { toolId, title: "Lab binder", type: "SOP", url: "https://maker.test/binder.pdf", origin: "lab_document", createdAt: at(5) },
+      ])
+      .returning({ id: resources.id });
+
+    expect(await listManualsDueForArchive({ db, limit: 10, day: 0 })).toEqual({ due: 3, ids: [rows[0].id, rows[1].id, rows[2].id] });
   });
 
   it("moves the window each night and wraps, so every manual is tried", async () => {

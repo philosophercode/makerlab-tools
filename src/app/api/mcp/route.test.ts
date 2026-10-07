@@ -556,13 +556,22 @@ describe("search_manual", () => {
     expect((await buildDocumentPassages(db, seeded.documentId, { target })).status).toBe("built");
     vi.spyOn(console, "info").mockImplementation(() => {});
 
+    const query = { query: "resin heater breaker panel", tool: "Form 4" };
     for (const headers of [{}, (await bearerFor("user")).headers]) {
-      const text = resultText((await callTool("search_manual", { query: "resin heater breaker panel" }, headers)).json);
+      const text = resultText((await callTool("search_manual", query, headers)).json);
+      expect(JSON.parse(text).status).toBe("no_results");
       expect(text).not.toContain("panel C");
     }
     const admin = await bearerFor("admin");
-    const staff = resultText((await callTool("search_manual", { query: "resin heater breaker panel" }, admin.headers)).json);
+    const staff = resultText((await callTool("search_manual", query, admin.headers)).json);
     expect(staff).toContain("panel C");
+  });
+
+  it("asks an MCP client to name the machine rather than searching every manual (amendment 2026-10-06)", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const admin = await bearerFor("admin");
+    const text = resultText((await callTool("search_manual", { query: "resin heater breaker panel" }, admin.headers)).json);
+    expect(JSON.parse(text)).toMatchObject({ status: "needs_tool" });
   });
 });
 

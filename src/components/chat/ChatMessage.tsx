@@ -10,7 +10,14 @@ import type { IntakeTablePayload } from "../../lib/intake/types";
 import type { ImportCardPayload } from "../../lib/import/view";
 import type { ActionProposalCardPayload } from "../../lib/capabilities/actions";
 import type { ToolQrCardPayload } from "../../lib/capabilities/qr";
-import { attachedManualLinks, attachedManuals, citedPassages, linkAttachedPageMentions, manualPassages } from "./manual-citations";
+import {
+  attachedManualLinks,
+  attachedManuals,
+  citedPassages,
+  linkAttachedPageMentions,
+  machineCitation,
+  manualPassages,
+} from "./manual-citations";
 import { stripCitations, toolStatusLabel, type ChatT } from "./chat-text";
 
 type Part = UIMessage["parts"][number];
@@ -188,7 +195,7 @@ export const ChatMessage = memo(function ChatMessage({
             <SourcesTrigger>{t("sourcesCount", { count: cited.length })}</SourcesTrigger>
             <SourcesContent>
               {cited.map((passage) => (
-                <Source key={passage.url} href={passage.url} title={passage.citation} />
+                <Source key={passage.url} href={passage.url} title={machineCitation(passage)} />
               ))}
             </SourcesContent>
           </Sources>

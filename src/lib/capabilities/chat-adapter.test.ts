@@ -327,3 +327,33 @@ describe("the lab first, then its people (identity spec amendment 2026-10-06)", 
     expect(tail).not.toContain("- Lab notes: ");
   });
 });
+
+describe("one rule for silent documents (manual text spec amendment 2026-10-06)", () => {
+  it("is written once, in the static prefix, after the companion rules and before the lab notes", () => {
+    const prompt = promptFor(trotec);
+    const silence = prompt.indexOf("## When the documents are silent");
+
+    expect(prompt.split("## When the documents are silent").length - 1).toBe(1);
+    expect(silence).toBeGreaterThan(prompt.indexOf("## The lab first, then its people"));
+    expect(silence).toBeLessThan(prompt.indexOf("## Lab notes"));
+    expect(silence).toBeLessThan(prompt.indexOf(CONVERSATION_HEADING));
+  });
+
+  it("says the machine's documents do not cover it, never borrows another machine's, labels general guidance and sends safety to staff", () => {
+    const prompt = promptFor(null);
+
+    expect(prompt).toContain("**Say so plainly, for that machine.**");
+    expect(prompt).toContain("**Never use another machine's document instead**");
+    expect(prompt).toContain('"General guidance, not from the <machine>\'s documents:"');
+    expect(prompt).toContain("Never give settings, temperatures, power, speeds or other figures as general guidance.");
+    expect(prompt).toContain("send the student to MakerLAB staff or a SuperMaker");
+  });
+
+  it("is what the intro and 'Where you are' point to, instead of rules of their own", () => {
+    const prompt = promptFor(null);
+
+    expect(prompt).not.toContain("grounded only in the catalog and the lab context");
+    expect(prompt).toContain('when a machine\'s documents do not answer, follow "When the documents are silent"');
+    expect(prompt).toContain('For a question about a machine that its own documents do not answer, follow "When the documents are silent".');
+  });
+});

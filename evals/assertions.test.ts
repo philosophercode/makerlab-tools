@@ -226,7 +226,7 @@ describe("says_not_covered", () => {
 
 describe("runAssertion dispatch", () => {
   it("handles every declared kind", () => {
-    expect(ASSERTION_KINDS).toHaveLength(17);
+    expect(ASSERTION_KINDS).toHaveLength(18);
     for (const kind of ASSERTION_KINDS) {
       const outcome = runAssertion(
         {

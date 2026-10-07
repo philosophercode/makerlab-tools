@@ -118,6 +118,7 @@ file in `cases/` is loaded automatically):
 | `cases/manual-grounding.yaml` | Answering from the record, citing the document, inventing nothing |
 | `cases/manual-search.yaml` | Answering from `search_manual` passages with page citations |
 | `cases/citations-resolve.yaml` | Every manual citation came from a search or an attached manual, opens the real PDF at a page it has, with the passage on it |
+| `cases/citations-real-questions.yaml` | An answer about a machine cites only that machine's documents: no near-miss from a look-alike's manual, and "my print" asks which printer (manual text spec amendment 2026-10-06), plus the citation audit's cases |
 | `cases/tool-calling.yaml` | Calling a capability instead of guessing |
 | `cases/staff-maintenance.yaml` | Staff reading the maintenance queue, and confirming before changing a ticket; students getting no staff tools |
 | `cases/honest-absence.yaml` | Saying "we don't have that" |
@@ -252,7 +253,8 @@ Kept small on purpose. Structural assertions do almost all the useful work.
 | `identified_items` | `value: ["drill press", "battery x2"]` | The last `identify_tools` call has a different item for each entry: alternatives joined by `\|`, matched in brand + name; a trailing ` xN` needs quantity ≥ N |
 | `identified_count` | `value: "3"` or `"3-4"` | The last `identify_tools` call recorded that many items |
 | `identified_tool` | `value: "form-4"`, `"ultimaker-3\|ask"` or `"none"` | The machine in the photo: the first catalogue machine the answer names (plain, bold, linked or by a unique alias) is that slug. `\|ask` also passes an answer that asks or says it cannot tell, with that machine among the candidates it names. `none`: no sentence claims a catalogue machine is the one pictured, and the answer says the lab lacks it |
-| `citations_resolve` | — | At least one manual link, and every one came from a `search_manual` result or a manual attached to the turn, answers 200 `application/pdf` (`%PDF-`), opens a page the PDF has, cites words on that page (searched passages only), and is labelled with the document it opens |
+| `citations_resolve` | — | At least one manual link, and every one came from a `search_manual` result or a manual attached to the turn, answers 200 `application/pdf` (`%PDF-`), opens a page the PDF has, cites words on that page (searched passages only), is labelled with the document it opens, and belongs to a machine the turn's searches were scoped to |
+| `cites_only_tool` | `value: bambu-lab-x1-carbon` | Every document the answer cites belongs to that machine: each linked search passage carries its `toolId`, an attached manual's page counts only on that machine's page, a manual link no tool returned fails, and so does naming another machine's searched document in the text. An answer that cites nothing passes, so pair it with `not_contains_any` or `says_not_covered` |
 
 `citations_resolve` needs evidence a pure function cannot fetch, so the executor
 (`run.eval.ts`) gathers it after the answer — a GET of each cited PDF and its
@@ -320,6 +322,10 @@ and **Trotec Speedy 400** (CO2 laser). Write cases against those; anything else
 is, correctly, a machine the lab does not have. The one exception is a
 `catalog: lab` case, which runs last against those two plus the machines in
 `lab-catalog-fixture.ts` (see "Identifying a machine from a photo" above).
+The lab phase also seeds two searchable look-alike manuals
+(`seedEvalLabManuals`, `manual-fixture.ts`): a Prusa i3 MK3S+ handbook and an
+Epilog Helix manual, the near-misses an X1-Carbon or Trotec answer must not
+cite.
 
 **It exercises the real path.** The runner composes the system prompt and the
 tool set through the same `CAPABILITIES` registry and `composeChat` that
@@ -364,6 +370,7 @@ should be revisited, not worked around.
 | `harness.ts` | `composeCase` (the real prompt + tool set for one case, and the manuals the route would attach), `stubWrites`, `stubLiveReads`, `caseMessages` (history + prompt), `evalIdentity` (`as:`) |
 | `ticket-fixture.ts` | `seedEvalTickets` — the open Form 4 ticket the staff cases read |
 | `lab-catalog-fixture.ts` | `seedEvalLabCatalog` — the look-alike machines the `catalog: lab` (photo) cases run against |
+| `manual-fixture.ts` | `seedEvalManual` (the Form 4's manual and scan, the Trotec's attached guide) and `seedEvalLabManuals` (the Prusa and Epilog manuals for the lab phase) |
 | `fixtures/photos/` | Photo fixtures and the scripts that make them (`make-photos.mjs`, `make-identify-photos.mjs`) |
 | `runner.ts` | Control flow: execute → assert → retry → classify → report |
 | `run.eval.ts` | `npm run eval` entrypoint: the real model call and safety rails |

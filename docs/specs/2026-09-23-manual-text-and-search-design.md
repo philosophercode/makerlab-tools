@@ -947,3 +947,95 @@ plain text, not a link; the same on the Form 4.
   X1-Carbon Quick Start Guide* and retyped `Manual`, and Bambu's English *AMS Quick Start
   Guide* (3.8 MB, 10 pages, mostly drawings — read by OCR) is added as a Manual. The Combo
   guide (46.7 MB) stays a link: over the archive's 25 MB.
+
+### 2026-10-06 — An answer cites only its machine's documents (§2, §3.1, §3.5, §3.6, §8, §10)
+
+**Why.** Niti Parikh (Director) reported at the 2026-10-06 meeting that many answers were
+wrong or cited the manual wrongly. The citation audit
+(`docs/isam-2026-demo/citation-audit.md`) found the main causes: questions asked off a
+tool page were answered from another machine's manual (F2: FDM questions from the Prusa
+handbook, Trotec questions from the Epilog manual); four prompt places gave different rules
+for a silent manual (F3); the Prusa handbook was stored twice and filled every slot, and
+nothing dropped a weak match (F8); and the X1-Carbon's guide and the Trotec's operating
+manual were typed SOP, so the nightly archive never indexed them (F1, F4). The owner's rule:
+an answer about a machine cites only that machine's own documents, enforced in code, not
+only in the prompt.
+
+**As built.**
+
+- **Scope is decided by `search_manual`, not the model** (§3.6). On a tool page the search
+  is pinned to the focused tool whatever the model passes; a `note` says so when it asked
+  for another machine. Off a tool page the model must name the machine (`tool`). A name
+  that fits several machines is refused with the candidates (`ambiguous_tool`), and a call
+  that names no machine is refused (`needs_tool`), so the model asks the student which
+  machine ("my print isn't sticking" with five FDM printers) instead of searching every
+  manual. Only a question that compares machines searches more than one: `compare_tools`
+  (the named machines) or `all_machines` (the whole lab). The prompt line "leave it out
+  elsewhere to search every manual" is gone; the new one says one machine per search, and
+  that a passage is evidence only for its own machine.
+- **Every passage names its machine.** Each result records its scope (`machines`,
+  `toolIds`, `comparing`); each passage its machine (`tool`, `toolId`), in its fence note
+  too ("a document for the Form 4. It is evidence for the Form 4 only"), and its resource
+  type (`kind`). A passage's machine is now its **resource's** tool, not the chunk's copy,
+  so a resource moved to another tool is labelled correctly. A passage whose `kind` is SOP
+  is the lab's operating reference and comes before a manufacturer's manual, as the
+  identity spec's "The lab first, then its people" says.
+- **Citations are checked against the machine** (`manuals/citation-scope.ts`). An answer
+  is about the focused tool, else the machines this turn's searches were scoped to, else
+  (a lab-wide comparison) any machine. A cited passage of another machine is **relabelled,
+  not dropped**: the chat draws it with that machine's name ("Prusa i3 MK3S+ · p. 25") in
+  the mark, the card and Sources, and in a comparison every citation names its machine.
+  Usage Insight records it as `manual_cited` with `source = 'cross_tool'` (no migration:
+  `source` is free text on that kind), counted as "Citations of another machine's document"
+  on `/admin/insights` and `cross_tool_citations` in `get_usage_summary`. `checkCitations`
+  gains rule 6, `other_machine`, which `citations_resolve` applies.
+  *Why relabel and not drop:* dropping a citation leaves its sentence standing with no
+  source, and it then reads as a fact about this machine, which is the harm. Relabelling
+  keeps the sentence honest: the student sees whose document it came from and can judge
+  it. With the scope pinned in code, a cross-tool citation should be rare; when one
+  appears, the label and the counter make it visible instead of hiding it.
+- **Near misses are dropped** (§3.5). Passages with the same page and words are one
+  (`dropDuplicates`, before the reranker sees them; the fused list is fetched at twice the
+  limit so copies cannot leave it short). With `minRerankScore`, a reranked passage under
+  the floor is dropped; `search_manual` passes `rerankMinScore()`, which reads
+  `MANUAL_RERANK_MIN_SCORE` (a number from 0 to 1, `0` turns it off), default **0.05**.
+  Conservative on purpose: only a passage the reranker judged unrelated goes. Fused scores
+  are ranks, not relevance, so the floor applies only when the reranker ran. When every
+  passage is dropped the result is `no_results` ("nothing … answers this closely enough").
+- **Every PDF resource is archived and indexed** (§3.1). The nightly backfill
+  (`listManualsDueForArchive`) now takes a resource typed Manual, SOP or Safety, or of any
+  other type except Video whose link names a `.pdf`; never `lab_document` material. The
+  archive step was already type-blind for a link that answers a PDF.
+- **One rule for silence** (`src/lib/ai/manual-silence.ts`, "When the documents are
+  silent"), in the chat prompt's static prefix after "The lab first, then its people" and
+  before "Lab notes". It replaces the four rules that disagreed (the `no_results` message,
+  the manuals prompt's "you may then offer general guidance", the intro's "grounded only
+  in the catalog", and "Where you are"'s "say you don't know"): say this machine's
+  documents do not cover it; never use another machine's document; general guidance only
+  if safe, under its own line "General guidance, not from the <machine>'s documents:", and
+  never figures; safety, first use and risky steps go to staff or a SuperMaker. A lab note
+  or the lab's SOP that covers the question counts as an answer. The others now point to
+  it. The `no_results` message also says to read an attached manual for the machine first.
+- **Evals** (§10). New assertion `cites_only_tool` (every cited document belongs to the
+  named machine; an attached manual counts only on its own page; a link no tool returned
+  fails; naming another machine's searched document fails). New case file
+  `evals/cases/citations-real-questions.yaml`: the owner's three (an X1-Carbon filament
+  question must not cite the Prusa; a Trotec focus question must not cite the Epilog;
+  "my print isn't sticking" asks which printer), the audit's group A cases, and its
+  group B Bambu-adhesion case. The lab phase seeds two searchable look-alike manuals
+  (`seedEvalLabManuals`: a Prusa i3 MK3S+ handbook, an Epilog Helix manual), written for
+  the eval. **Not run** (paid); run `EVAL_CASES=citations-real-questions npm run eval`.
+
+**Not done / open.**
+
+- **The floor is not calibrated.** 0.05 is a guess at "unrelated" for Cohere's scores;
+  calibrate it on the retrieval eval before raising it.
+- **A vendor PDF typed SOP is read as the lab's SOP.** The prompt cannot tell a
+  staff-written SOP from Bambu's quick-start guide typed SOP. The data fix (audit §4,
+  fix 1) retypes vendor PDFs as Manual.
+- **On a tool page, another machine's documents cannot be searched.** By design the
+  answer sends the student to that machine's page or the gallery.
+- **Starter answers** replay their `manual_cited` events without `source`; a pre-run
+  starter answer is never counted as cross-tool.
+- The audit's other group B cases (printed page labels, an index page, a lab protocol)
+  need fixture work and are not added.

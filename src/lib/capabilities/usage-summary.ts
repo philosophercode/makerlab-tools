@@ -65,6 +65,7 @@ export function usageSummary(data: InsightsData, query: { days: InsightPeriod; i
       kiosk_screen_loads: t.kioskScreens,
       kiosk_qr_arrivals: t.kioskScans,
       manual_citations: t.citations,
+      cross_tool_citations: t.crossToolCitations,
       unanswered: t.gaps,
       answered_share: answered === null ? null : `${answered}%`,
     },
@@ -103,6 +104,7 @@ export function usageSummary(data: InsightsData, query: { days: InsightPeriod; i
       query.includeStaff ? "Staff activity is included." : "Staff activity is left out (include_staff: true counts it).",
       "unanswered = assistant turns that could not answer; answered_share = 1 − unanswered ÷ assistant questions in the app.",
       "busiest_times counts assistant questions and tool page views, in lab time.",
+      "cross_tool_citations = manual citations of another machine's document than the one the answer was about (included in manual_citations).",
     ],
     page: insightsHref({ days: query.days, includeStaff: query.includeStaff }),
   };

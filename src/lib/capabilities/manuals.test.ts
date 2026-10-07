@@ -1,4 +1,45 @@
-import { MANUAL_OUTLINE_MAX_CHARS, manuals, OCR_NOTE, outlineSection, passageCitation, SEARCH_MANUAL_TOOL, toModelPassage } from "./manuals";
+import type { MakerLabTool } from "../../components/catalog-types";
+import {
+  findTool,
+  MANUAL_OUTLINE_MAX_CHARS,
+  manuals,
+  OCR_NOTE,
+  outlineSection,
+  passageCitation,
+  passageNote,
+  SEARCH_MANUAL_TOOL,
+  toModelPassage,
+} from "./manuals";
+
+describe("findTool", () => {
+  const tool = (slug: string, name: string, officialName?: string) => ({ id: slug, slug, name, officialName }) as MakerLabTool;
+  const lab = [
+    tool("bambu-lab-x1-carbon", "Bambu Lab X1-Carbon", "Bambu Lab X1-Carbon Combo 3D Printer"),
+    tool("prusa-i3-mk3s-plus", "Prusa i3 MK3S+"),
+    tool("ultimaker-3", "Ultimaker 3"),
+    tool("ultimaker-3-extended", "Ultimaker 3 Extended"),
+    tool("trotec-speedy-400", "Trotec Speedy 400"),
+  ];
+
+  it("finds a machine by slug, name, official name, or a unique part of its name", () => {
+    expect(findTool(lab, "prusa-i3-mk3s-plus")).toEqual({ tool: lab[1] });
+    expect(findTool(lab, "trotec speedy 400")).toEqual({ tool: lab[4] });
+    expect(findTool(lab, "Bambu Lab X1-Carbon Combo 3D Printer")).toEqual({ tool: lab[0] });
+    expect(findTool(lab, "X1-Carbon")).toEqual({ tool: lab[0] });
+    expect(findTool(lab, "the Trotec Speedy 400 laser")).toEqual({ tool: lab[4] });
+  });
+
+  it("returns the candidates when the words fit several machines, so the model asks which", () => {
+    expect(findTool(lab, "Ultimaker")).toEqual({ candidates: [lab[2], lab[3]] });
+    // A name holding a shorter one is not ambiguous: the longer wins.
+    expect(findTool(lab, "my Ultimaker 3 Extended print")).toEqual({ tool: lab[3] });
+  });
+
+  it("finds nothing for a machine the lab does not have", () => {
+    expect(findTool(lab, "Glowforge Pro")).toBeNull();
+    expect(findTool(lab, "   ")).toBeNull();
+  });
+});
 
 /**
  * The `manuals` capability's pure parts (manual text spec §3.6): how a passage
@@ -33,6 +74,7 @@ describe("toModelPassage", () => {
     score: 1,
     ordinals: [0],
     ocr: false,
+    resourceType: null as string | null,
   };
 
   it("fences the text and carries the citation and the page link", () => {
@@ -45,6 +87,15 @@ describe("toModelPassage", () => {
     });
     expect(out.text).toContain("<untrusted-page");
     expect(out.transcribed).toBeUndefined();
+    expect(out.kind).toBeUndefined();
+  });
+
+  it("names the passage's machine, in its fields and in the fence note (amendment 2026-10-06)", () => {
+    const out = toModelPassage({ ...passage, toolId: "t-x2d", resourceType: "SOP" });
+    expect(out).toMatchObject({ tool: "X2D", toolId: "t-x2d", kind: "SOP" });
+    expect(out.text.split("\n")[1]).toBe(passageNote("X2D"));
+    expect(passageNote("X2D")).toContain("evidence for the X2D only");
+    expect(passageNote(null)).toContain("a lab document");
   });
 
   it("says when the page was read by OCR from a scan (phase 3), keeping its own page", () => {
@@ -90,6 +141,17 @@ describe("the capability", () => {
     expect(tool).toMatchObject({ name: SEARCH_MANUAL_TOOL, kind: "read" });
     expect(tool.chatOnly).toBeFalsy();
     expect(tool.mcpOnly).toBeFalsy();
+  });
+
+  it("tells the model to search one machine, ask when several fit, and never answer from another machine's document", () => {
+    const prompt = manuals.promptFragment({ tools: [], locale: "en" });
+    expect(prompt).toContain("**One machine per search.**");
+    expect(prompt).toContain("ask the student which one first");
+    expect(prompt).toContain("A passage is evidence only for its own machine");
+    expect(prompt).toContain('follow "When the documents are silent"');
+    // The old line that sent every off-page question to every manual is gone.
+    expect(prompt).not.toContain("to search every manual");
+    expect(prompt).not.toContain("You may then offer general guidance");
   });
 
   it("adds the outline section only on a tool page with searchable manuals", () => {

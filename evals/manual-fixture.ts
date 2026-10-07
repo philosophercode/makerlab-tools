@@ -106,6 +106,44 @@ const ATTACHED_PAGES: Record<number, string> = {
 
 const ATTACHED_PAGE_COUNT = 10;
 
+/**
+ * Two searchable manuals for the **lab** phase (manual text spec amendment
+ * 2026-10-06 "An answer cites only its machine's documents"): another FDM
+ * printer's handbook and another laser's manual, so a question about the
+ * X1-Carbon or the Trotec has a near-miss from a look-alike machine to
+ * avoid. Production has both: unscoped searches answered FDM questions from
+ * the Prusa handbook and Trotec questions from the Epilog manual (citation
+ * audit 2026-10-06, F2). Written for the eval, not copied from Prusa or
+ * Epilog, and free of figures.
+ */
+export const EVAL_PRUSA_TITLE = "Original Prusa i3 MK3S+ Handbook";
+export const EVAL_PRUSA_PATHNAME = "manuals/prusa-i3-mk3s-plus-handbook.pdf";
+
+const PRUSA_PAGES: Record<number, string> = {
+  1: "Original Prusa i3 MK3S+ Handbook",
+  25: "Loading the filament\nPreheat the nozzle from the LCD menu and choose the material. Push the filament into the extruder until the gears grab it, then select Load filament and wait until plastic comes out of the nozzle.",
+  40: "First layer adhesion\nClean the spring steel sheet with isopropyl alcohol before every print. Run First Layer Calibration from the LCD menu and adjust Live Z until the first layer is slightly squished onto the sheet.",
+};
+
+const PRUSA_OUTLINE = [
+  { title: "Loading the filament", page: 25, level: 1 },
+  { title: "First layer adhesion", page: 40, level: 1 },
+];
+
+const PRUSA_PAGE_COUNT = 44;
+
+export const EVAL_EPILOG_TITLE = "Epilog Helix Laser System Manual";
+export const EVAL_EPILOG_PATHNAME = "manuals/epilog-helix-manual.pdf";
+
+const EPILOG_PAGES: Record<number, string> = {
+  1: "Epilog Helix Laser System Manual",
+  52: "Focusing the lens\nPlace the V-shaped manual focus gauge on the lens carriage. Raise the table with the Up key until the material touches the gauge, then take the gauge away. Or press Focus on the keypad to use Auto Focus.",
+};
+
+const EPILOG_OUTLINE = [{ title: "Focusing the lens", page: 52, level: 1 }];
+
+const EPILOG_PAGE_COUNT = 60;
+
 let server: LocalBlobServer | null = null;
 
 /**
@@ -176,6 +214,43 @@ export async function seedEvalAttachedManual(files: LocalBlobServer): Promise<st
     origin: "upload",
   });
   return resource.id;
+}
+
+/**
+ * Store the lab phase's look-alike manuals (the Prusa handbook, the Epilog
+ * manual) on their machines, searchable. Call after `seedEvalLabCatalog()`
+ * and `seedEvalManual()`; idempotent per process. One sub-cent embedding call.
+ */
+export async function seedEvalLabManuals(): Promise<void> {
+  if (!server) throw new Error("seedEvalManual() starts the eval's file server; call it first");
+  const db = await getDb();
+  const toolBySlug = async (slug: string) => {
+    const [row] = await db.select({ id: tools.id }).from(tools).where(eq(tools.slug, slug));
+    if (!row) throw new Error(`the lab fixture has no ${slug} tool; seed it first`);
+    return row.id;
+  };
+  const stored = async (pathname: string) =>
+    (await db.select({ id: attachments.id }).from(attachments).where(eq(attachments.blobPathname, pathname))).length > 0;
+  if (!(await stored(EVAL_PRUSA_PATHNAME))) {
+    await seedDocument(server, await toolBySlug("prusa-i3-mk3s-plus"), {
+      title: EVAL_PRUSA_TITLE,
+      pathname: EVAL_PRUSA_PATHNAME,
+      pageCount: PRUSA_PAGE_COUNT,
+      pages: PRUSA_PAGES,
+      outline: PRUSA_OUTLINE,
+      ocr: false,
+    });
+  }
+  if (!(await stored(EVAL_EPILOG_PATHNAME))) {
+    await seedDocument(server, await toolBySlug("epilog-helix-24"), {
+      title: EVAL_EPILOG_TITLE,
+      pathname: EVAL_EPILOG_PATHNAME,
+      pageCount: EPILOG_PAGE_COUNT,
+      pages: EPILOG_PAGES,
+      outline: EPILOG_OUTLINE,
+      ocr: false,
+    });
+  }
 }
 
 /** Stop the eval's file server. */
