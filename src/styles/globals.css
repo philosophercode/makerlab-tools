@@ -211,6 +211,31 @@ body::selection {
   -webkit-mask-position: left center;
 }
 
+/* The home page's big wordmark (`HomeWordmark`, student home spec
+   2026-10-07): the header's mark at display size, from the vector trace
+   (1422.56 x 234.5). Wide enough to lead the page, never wider than it. */
+.home-wordmark {
+  display: block;
+  flex: none;
+  width: clamp(280px, 56vw, 720px);
+  max-width: 100%;
+  aspect-ratio: 1422.56 / 234.5;
+  background-color: currentColor;
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+}
+
+@media (forced-colors: active) {
+  .home-wordmark {
+    forced-color-adjust: none;
+    background-color: CanvasText;
+  }
+}
+
 /* The institution's official logo (`BrandLogo`, siteConfig.logo: the Cornell
    Tech MakerLAB lockup) on the kiosk, the footer and About. The wordmark's
    technique: a mask painted in the text colour, so the one dark SVG reads

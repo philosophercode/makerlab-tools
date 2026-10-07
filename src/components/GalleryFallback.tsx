@@ -11,7 +11,7 @@ export function GalleryFallback() {
 
   return (
     <main className="ui mx-auto w-full max-w-[1440px] px-4 pb-16 sm:px-8" aria-busy="true">
-      <GalleryHero title={t("title")} facts={<span role="status">{t("loading")}</span>} />
+      <GalleryHero title={t("allTitle")} facts={<span role="status">{t("loading")}</span>} />
       <div aria-hidden="true" className="mb-3 h-7 w-full max-w-72 bg-muted motion-safe:animate-pulse" />
       <section
         aria-label={t("toolGalleryLabel")}

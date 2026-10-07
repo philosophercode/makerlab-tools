@@ -358,10 +358,10 @@ test("opening the assistant does not push the page sideways (UI system phase 5b)
     // Public pages open it from the floating button; admin pages from the section bar.
     const opener =
       route === "/"
-        ? page.getByRole("button", { name: "Open the MakerLAB Assistant" })
-        : page.getByRole("navigation", { name: "Admin sections" }).getByRole("button", { name: "Ask the assistant" });
+        ? page.getByRole("button", { name: "Open MakerLAB AI" })
+        : page.getByRole("navigation", { name: "Admin sections" }).getByRole("button", { name: "Ask MakerLAB AI" });
     await opener.click();
-    const sheet = page.getByRole("dialog", { name: "MakerLAB Assistant" });
+    const sheet = page.getByRole("dialog", { name: "MakerLAB AI" });
     await expect(sheet).toBeVisible();
     expect(await page.evaluate(() => getComputedStyle(document.body).paddingRight)).toBe("0px");
     expect(await headerBoxes(page), `header with the assistant open on ${route}`).toBe(before);

@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 
-// GalleryShell has a search input (aria-label from gallery.searchAria) that
+// The full list (/tools since the student home spec 2026-10-07) has a search input (aria-label from gallery.searchAria) that
 // fuzzy-ranks tools via match-sorter, plus single-select facet chips for
 // category / materials / location. Mock catalog: "Form 4" (3D Printing,
 // Standard resin) and "Trotec Speedy 400" (Laser, Acrylic).
@@ -9,7 +9,7 @@ test.describe("Search and filter", () => {
   test("typing a query narrows the grid to the matching tool", async ({
     page,
   }) => {
-    await page.goto("/");
+    await page.goto("/tools");
 
     const form = page.getByRole("heading", { name: "Form 4", level: 2 });
     const trotec = page.getByRole("heading", {
@@ -32,7 +32,7 @@ test.describe("Search and filter", () => {
   });
 
   test("a no-match query shows the empty state", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/tools");
 
     await page
       .getByRole("searchbox", { name: "Search inventory" })
@@ -48,7 +48,7 @@ test.describe("Search and filter", () => {
   });
 
   test("a category facet filters the grid", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/tools");
 
     // Category is a FilterBar facet (UI system phase 5a): a menu button whose
     // values are radio items with the count each would leave. Selecting
@@ -65,7 +65,7 @@ test.describe("Search and filter", () => {
   });
 
   test("group by category shows labelled sections with counts, kept in the URL", async ({ page }) => {
-    await page.goto("/");
+    await page.goto("/tools");
     await page.getByRole("search").getByRole("button", { name: /^Group by/ }).click();
     await page.getByRole("menuitemradio", { name: /^Category group/ }).click();
     await expect(page).toHaveURL(/group=categoryGroup/);

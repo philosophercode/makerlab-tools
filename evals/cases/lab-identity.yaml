@@ -1,5 +1,5 @@
 # Where you are (identity spec 2026-09-28 §5): the assistant knows it is the
-# MakerLAB Assistant inside MakerLAB Tools, where the lab is, who runs it and
+# MakerLAB AI inside MakerLAB Tools, where the lab is, who runs it and
 # what it is for — from the "Where you are" block of the system prompt
 # (src/lib/ai/lab-context.ts) — and does not invent what that block leaves out.
 

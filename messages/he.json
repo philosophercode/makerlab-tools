@@ -34,7 +34,7 @@
   },
   "gallery": {
     "title": "כלים",
-    "searchPlaceholder": "חיפוש במלאי...",
+    "allTitle": "כל הכלים",
     "searchAria": "חיפוש במלאי",
     "category": "קטגוריה:",
     "training": "הכשרה:",
@@ -51,7 +51,35 @@
     "columnTraining": "הכשרה",
     "trainingBeginner": "מתחיל",
     "trainingIntermediate": "בינוני",
-    "trainingAdvanced": "מתקדם"
+    "trainingAdvanced": "מתקדם",
+    "home": {
+      "searchSection": "חיפוש במעבדה",
+      "seeAll": "לכל הכלים ({count})",
+      "toolCount": "{count, plural, one {כלי אחד} two {# כלים} other {# כלים}}",
+      "unitsDown": "{count, plural, one {יחידה אחת מושבתת} two {# יחידות מושבתות} other {# יחידות מושבתות}}",
+      "empty": "אין עדיין כלים בקטלוג."
+    },
+    "search": {
+      "landmark": "חיפוש כלים ושאלות ל-MakerLAB AI",
+      "label": "חפשו כלי, או שאלו את MakerLAB AI",
+      "tools": "כלים",
+      "categories": "קטגוריות",
+      "categoryCount": "{count, plural, one {כלי אחד} two {# כלים} other {# כלים}}",
+      "assistant": "MakerLAB AI",
+      "ask": "שאלו את MakerLAB AI: “{query}”",
+      "askNote": "פותח את הצ׳אט עם השאלה שלכם. MakerLAB AI עלול לטעות.",
+      "noMatch": "אין כלי או קטגוריה שתואמים ל-“{query}”.",
+      "lines": {
+        "search": "חיפוש בין {count} כלים",
+        "build": "מה תבנו?",
+        "findMachine": "מצאו את המכונה שלכם",
+        "ask": "שאלו שאלה",
+        "x1Filament": "איך טוענים פילמנט ב-X1-Carbon?",
+        "x1Start": "שאלו איך מתחילים הדפסת תלת-ממד ב-X1-Carbon",
+        "trotecAcrylic": "האם הלייזר של Trotec חותך אקריליק?",
+        "resinPpe": "מה ללבוש להדפסה בשרף?"
+      }
+    }
   },
   "detail": {
     "breadcrumbTools": "כלים",
@@ -142,16 +170,16 @@
     "browseTools": "עיון בכלים"
   },
   "chat": {
-    "openAria": "פתיחת עוזר MakerLAB",
-    "title": "עוזר MakerLAB",
+    "openAria": "פתיחת MakerLAB AI",
+    "title": "MakerLAB AI",
     "newChatAria": "התחלת צ'אט חדש",
     "newChatTitle": "התחלת צ'אט חדש",
-    "closeAria": "סגירת העוזר",
+    "closeAria": "סגירת MakerLAB AI",
     "closeTitle": "סגירה (השיחה נשמרת)",
     "greetingTool": "שאלו על הכלי הזה — יש לי את המפרטים, החומרים וקישורי המשאבים שלו.",
     "greetingGeneral": "כיצד אוכל לעזור לך היום?",
-    "composerPlaceholder": "שאלו את קונסולת המעבדה...",
-    "composerAria": "שאלו את קונסולת המעבדה",
+    "composerPlaceholder": "שאלו את MakerLAB AI...",
+    "composerAria": "שאלו את MakerLAB AI",
     "aiNote": "MakerLAB AI עלול לטעות. בדקו עם הצוות כל דבר שקשור לבטיחות.",
     "sendAria": "שליחה",
     "attachAria": "צירוף תמונות",
@@ -162,7 +190,7 @@
     "uploadFailed": "העלאת התמונה נכשלה",
     "uploadsUnavailable": "העלאת תמונות אינה זמינה כרגע. עדיין אפשר לשלוח את ההודעה בלי תמונה.",
     "toolRunningAria": "הכלי פועל",
-    "typingAria": "העוזר מקליד",
+    "typingAria": "MakerLAB AI מקליד",
     "readingManualsAria": "קורא מדריכים",
     "reading": "קורא: {titles}…",
     "error": "משהו השתבש. נסו שוב.",
@@ -177,7 +205,7 @@
     "arrivalLabel": "נסרק מהמכונה הזו",
     "arrivalEyebrow": "נסרק ליד המכונה",
     "arrivalTitle": "שאל על {tool}",
-    "arrivalBody": "סרקת את הקוד שעל המכונה הזו. העוזר יכול לענות על שאלות לגביה, להדריך אותך בהתקנה או לפתוח דיווח תחזוקה.",
+    "arrivalBody": "סרקת את הקוד שעל המכונה הזו. MakerLAB AI יכול לענות על שאלות לגביה, להדריך אותך בהתקנה או לפתוח דיווח תחזוקה.",
     "arrivalSeed": "אני עומד ליד {tool} ויש לי שאלה עליה.",
     "arrivalUnitLabel": "נסרק מהתווית של היחידה הזו",
     "arrivalUnitOf": "יחידה של {tool}",
@@ -314,5 +342,13 @@
     "rateLimitedTitle": "יותר מדי ניסיונות",
     "rateLimitedBody": "הגיעו יותר מדי בקשות מהחיבור הזה. המתינו שעה ופתחו שוב את הקישור.",
     "home": "חזרה אל {site}"
+  },
+  "palette": {
+    "page": {
+      "allTools": "כל הכלים"
+    },
+    "assistant": "MakerLAB AI",
+    "ask": "שאלו את MakerLAB AI: “{query}”",
+    "askEmpty": "שאלו את MakerLAB AI"
   }
 }

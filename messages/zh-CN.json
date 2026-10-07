@@ -34,7 +34,7 @@
   },
   "gallery": {
     "title": "工具",
-    "searchPlaceholder": "搜索库存…",
+    "allTitle": "全部工具",
     "searchAria": "搜索库存",
     "category": "类别：",
     "training": "培训：",
@@ -51,7 +51,35 @@
     "columnTraining": "培训",
     "trainingBeginner": "初级",
     "trainingIntermediate": "中级",
-    "trainingAdvanced": "高级"
+    "trainingAdvanced": "高级",
+    "home": {
+      "searchSection": "搜索实验室",
+      "seeAll": "查看全部 {count} 件工具",
+      "toolCount": "{count} 件工具",
+      "unitsDown": "{count} 台停用",
+      "empty": "目录中还没有工具。"
+    },
+    "search": {
+      "landmark": "搜索工具并向 MakerLAB AI 提问",
+      "label": "搜索工具，或向 MakerLAB AI 提问",
+      "tools": "工具",
+      "categories": "类别",
+      "categoryCount": "{count} 件工具",
+      "assistant": "MakerLAB AI",
+      "ask": "向 MakerLAB AI 提问：“{query}”",
+      "askNote": "带着你的问题打开聊天。MakerLAB AI 可能会出错。",
+      "noMatch": "没有与“{query}”匹配的工具或类别。",
+      "lines": {
+        "search": "搜索 {count} 件工具",
+        "build": "你想做点什么？",
+        "findMachine": "找到你的设备",
+        "ask": "提个问题",
+        "x1Filament": "如何给 X1-Carbon 装耗材？",
+        "x1Start": "问问如何在 X1-Carbon 上开始 3D 打印",
+        "trotecAcrylic": "Trotec 激光能切亚克力吗？",
+        "resinPpe": "树脂打印需要穿戴什么？"
+      }
+    }
   },
   "detail": {
     "breadcrumbTools": "工具",
@@ -142,16 +170,16 @@
     "browseTools": "浏览工具"
   },
   "chat": {
-    "openAria": "打开 MakerLAB 助手",
-    "title": "MakerLAB 助手",
+    "openAria": "打开 MakerLAB AI",
+    "title": "MakerLAB AI",
     "newChatAria": "开始新对话",
     "newChatTitle": "开始新对话",
-    "closeAria": "关闭助手",
+    "closeAria": "关闭 MakerLAB AI",
     "closeTitle": "关闭（保留对话）",
     "greetingTool": "询问有关此工具的问题——我掌握它的规格、材料和资源链接。",
     "greetingGeneral": "今天我能帮您什么？",
-    "composerPlaceholder": "向实验室控制台提问…",
-    "composerAria": "向实验室控制台提问",
+    "composerPlaceholder": "向 MakerLAB AI 提问…",
+    "composerAria": "向 MakerLAB AI 提问",
     "aiNote": "MakerLAB AI 可能会出错。凡涉及安全的问题，请向工作人员确认。",
     "sendAria": "发送",
     "attachAria": "附加照片",
@@ -162,7 +190,7 @@
     "uploadFailed": "照片上传失败",
     "uploadsUnavailable": "照片上传当前不可用。您仍可以不带照片发送消息。",
     "toolRunningAria": "工具运行中",
-    "typingAria": "助手正在输入",
+    "typingAria": "MakerLAB AI 正在输入",
     "readingManualsAria": "正在阅读手册",
     "reading": "正在阅读：{titles}…",
     "error": "出错了，请重试。",
@@ -177,7 +205,7 @@
     "arrivalLabel": "从这台设备扫码进入",
     "arrivalEyebrow": "在设备旁扫码",
     "arrivalTitle": "咨询关于 {tool} 的问题",
-    "arrivalBody": "你扫描了这台设备上的二维码。助手可以解答相关问题、指导你完成设置，或帮你提交维修报告。",
+    "arrivalBody": "你扫描了这台设备上的二维码。MakerLAB AI 可以解答相关问题、指导你完成设置，或帮你提交维修报告。",
     "arrivalSeed": "我正站在 {tool} 旁边，有一个关于它的问题。",
     "arrivalUnitLabel": "从这台设备的标签扫码",
     "arrivalUnitOf": "{tool} 的一台设备",
@@ -314,5 +342,13 @@
     "rateLimitedTitle": "尝试次数过多",
     "rateLimitedBody": "来自此连接的请求过多。请等待一小时后再打开链接。",
     "home": "返回 {site}"
+  },
+  "palette": {
+    "page": {
+      "allTools": "全部工具"
+    },
+    "assistant": "MakerLAB AI",
+    "ask": "向 MakerLAB AI 提问：“{query}”",
+    "askEmpty": "向 MakerLAB AI 提问"
   }
 }

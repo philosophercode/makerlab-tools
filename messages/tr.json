@@ -34,7 +34,7 @@
   },
   "gallery": {
     "title": "Araçlar",
-    "searchPlaceholder": "envanterde ara...",
+    "allTitle": "Tüm araçlar",
     "searchAria": "Envanterde ara",
     "category": "KATEGORİ:",
     "training": "EĞİTİM:",
@@ -51,7 +51,35 @@
     "columnTraining": "Eğitim",
     "trainingBeginner": "Başlangıç",
     "trainingIntermediate": "Orta",
-    "trainingAdvanced": "İleri"
+    "trainingAdvanced": "İleri",
+    "home": {
+      "searchSection": "Laboratuvarda ara",
+      "seeAll": "Tüm araçları gör ({count})",
+      "toolCount": "{count, plural, one {# araç} other {# araç}}",
+      "unitsDown": "{count, plural, one {# ünite hizmet dışı} other {# ünite hizmet dışı}}",
+      "empty": "Katalogda henüz araç yok."
+    },
+    "search": {
+      "landmark": "Araç arayın ve MakerLAB AI'ya sorun",
+      "label": "Araç arayın veya MakerLAB AI'ya bir soru sorun",
+      "tools": "Araçlar",
+      "categories": "Kategoriler",
+      "categoryCount": "{count, plural, one {# araç} other {# araç}}",
+      "assistant": "MakerLAB AI",
+      "ask": "MakerLAB AI'ya sor: “{query}”",
+      "askNote": "Sohbeti sorunuzla açar. MakerLAB AI hata yapabilir.",
+      "noMatch": "“{query}” ile eşleşen araç veya kategori yok.",
+      "lines": {
+        "search": "{count, plural, one {# araç arasında arayın} other {# araç arasında arayın}}",
+        "build": "Ne üreteceksiniz?",
+        "findMachine": "Makinenizi bulun",
+        "ask": "Bir soru sorun",
+        "x1Filament": "X1-Carbon'a filament nasıl takılır?",
+        "x1Start": "X1-Carbon'da 3D baskının nasıl başlatıldığını sorun",
+        "trotecAcrylic": "Trotec lazer akrilik kesebilir mi?",
+        "resinPpe": "Reçine baskı için ne giymeliyim?"
+      }
+    }
   },
   "detail": {
     "breadcrumbTools": "Araçlar",
@@ -142,16 +170,16 @@
     "browseTools": "Araçlara göz at"
   },
   "chat": {
-    "openAria": "MakerLAB asistanını aç",
-    "title": "MakerLAB Asistanı",
+    "openAria": "MakerLAB AI'yı aç",
+    "title": "MakerLAB AI",
     "newChatAria": "Yeni sohbet başlat",
     "newChatTitle": "Yeni sohbet başlat",
-    "closeAria": "Asistanı kapat",
+    "closeAria": "MakerLAB AI'yı kapat",
     "closeTitle": "Kapat (sohbeti korur)",
     "greetingTool": "Bu araç hakkında soru sorun — özelliklerine, malzemelerine ve kaynak bağlantılarına sahibim.",
     "greetingGeneral": "Bugün size nasıl yardımcı olabilirim?",
-    "composerPlaceholder": "Laboratuvar konsoluna sorun...",
-    "composerAria": "Laboratuvar konsoluna sorun",
+    "composerPlaceholder": "MakerLAB AI'ya sorun...",
+    "composerAria": "MakerLAB AI'ya sorun",
     "aiNote": "MakerLAB AI hata yapabilir. Güvenlikle ilgili her şeyi ekiple teyit edin.",
     "sendAria": "Gönder",
     "attachAria": "Fotoğraf ekle",
@@ -162,7 +190,7 @@
     "uploadFailed": "Fotoğraf yüklenemedi",
     "uploadsUnavailable": "Fotoğraf yükleme şu anda kullanılamıyor. Mesajınızı fotoğrafsız da gönderebilirsiniz.",
     "toolRunningAria": "Araç çalışıyor",
-    "typingAria": "Asistan yazıyor",
+    "typingAria": "MakerLAB AI yazıyor",
     "readingManualsAria": "Kılavuzlar okunuyor",
     "reading": "Okunuyor: {titles}…",
     "error": "Bir şeyler ters gitti. Tekrar deneyin.",
@@ -177,7 +205,7 @@
     "arrivalLabel": "Bu makineden tarandı",
     "arrivalEyebrow": "Makinenin başında tarandı",
     "arrivalTitle": "{tool} hakkında soru sor",
-    "arrivalBody": "Bu makinedeki kodu taradınız. Asistan makineyle ilgili sorularınızı yanıtlayabilir, kurulumda yol gösterebilir veya bakım kaydı açabilir.",
+    "arrivalBody": "Bu makinedeki kodu taradınız. MakerLAB AI makineyle ilgili sorularınızı yanıtlayabilir, kurulumda yol gösterebilir veya bakım kaydı açabilir.",
     "arrivalSeed": "{tool} başındayım ve bu makineyle ilgili bir sorum var.",
     "arrivalUnitLabel": "Bu birimin etiketinden tarandı",
     "arrivalUnitOf": "{tool} birimi",
@@ -314,5 +342,13 @@
     "rateLimitedTitle": "Çok fazla deneme",
     "rateLimitedBody": "Bu bağlantıdan çok fazla istek geldi. Bir saat bekleyip bağlantıyı yeniden açın.",
     "home": "{site} sayfasına dön"
+  },
+  "palette": {
+    "page": {
+      "allTools": "Tüm araçlar"
+    },
+    "assistant": "MakerLAB AI",
+    "ask": "MakerLAB AI'ya sor: “{query}”",
+    "askEmpty": "MakerLAB AI'ya sor"
   }
 }
