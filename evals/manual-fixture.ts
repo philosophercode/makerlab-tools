@@ -8,6 +8,7 @@ import { attachments, resources, tools } from "@/lib/db/schema/index";
 import type { ManualOutlineEntry } from "@/lib/db/schema/index";
 import { EXTRACTOR_VERSION } from "@/lib/manuals/extract";
 import { ocrKey } from "@/lib/manuals/ocr";
+import type { EmbeddingTarget } from "@/lib/manuals/embed";
 import { buildDocumentPassages } from "@/lib/manuals/passages";
 import { buildPdf, type PdfPage } from "../test/fixtures/manuals/build-pdf";
 import { startLocalBlobServer, type LocalBlobServer } from "./local-blob-server";
@@ -150,9 +151,10 @@ let server: LocalBlobServer | null = null;
  * Store the fixture manuals on the demo Form 4 — real PDFs in the eval's local
  * Blob store, served on 127.0.0.1 — and build their passages. Idempotent per
  * process; returns the file server (its origin is the eval's "local blob
- * origin").
+ * origin"). `target` embeds the passages with another model (the manual
+ * question eval's offline run passes a fake one); default: job `embed`.
  */
-export async function seedEvalManual(): Promise<LocalBlobServer> {
+export async function seedEvalManual(options: { target?: EmbeddingTarget } = {}): Promise<LocalBlobServer> {
   server ??= await startLocalBlobServer(mkdtempSync(join(tmpdir(), "makerlab-eval-blob-")));
   const db = await getDb();
   const [form4] = await db.select({ id: tools.id }).from(tools).where(eq(tools.slug, "form-4"));
@@ -168,6 +170,7 @@ export async function seedEvalManual(): Promise<LocalBlobServer> {
     pages: PAGES,
     outline: OUTLINE,
     ocr: false,
+    target: options.target,
   });
   if (!(await stored(EVAL_SCAN_PATHNAME))) await seedDocument(server, form4.id, {
     title: EVAL_SCAN_TITLE,
@@ -176,6 +179,7 @@ export async function seedEvalManual(): Promise<LocalBlobServer> {
     pages: SCAN_PAGES,
     outline: SCAN_OUTLINE,
     ocr: true,
+    target: options.target,
   });
   await seedEvalAttachedManual(server);
   return server;
@@ -281,6 +285,8 @@ async function seedDocument(
     outline: ManualOutlineEntry[];
     /** Stored as an OCR'd scan: pages marked `ocr`, `ocr_version` set. */
     ocr: boolean;
+    /** The embedding model for its passages; job `embed` by default. */
+    target?: EmbeddingTarget;
   }
 ): Promise<void> {
   await files.store.put(doc.pathname, fixturePdf(doc.pageCount, doc.pages), {
@@ -324,6 +330,6 @@ async function seedDocument(
       source: doc.ocr && doc.pages[i + 1] ? ("ocr" as const) : ("text" as const),
     })),
   });
-  const built = await buildDocumentPassages(db, documentId);
+  const built = await buildDocumentPassages(db, documentId, doc.target ? { target: doc.target } : {});
   if (built.status !== "built") throw new Error(`the eval manual's passages were not built: ${JSON.stringify(built)}`);
 }

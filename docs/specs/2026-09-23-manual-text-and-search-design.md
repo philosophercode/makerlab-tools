@@ -1039,3 +1039,95 @@ only in the prompt.
   starter answer is never counted as cross-tool.
 - The audit's other group B cases (printed page labels, an index page, a lab protocol)
   need fixture work and are not added.
+
+### 2026-10-07 — Eval questions from the lab's own manuals (§4, §9, §10)
+
+**Why.** The retrieval eval of §10 ran once, on three manuals and 30 hand-written
+questions, and the chat evals use two small fixture manuals. Neither follows the ~50
+manuals the lab actually has. The owner asked, after the 2026-10-06 meeting, that indexing a
+manual also write a few questions a student could ask whose answer is on a known page, and
+that the evals use them: the search should find that page, and the assistant should cite
+that manual there. It costs a little per manual and makes the evals reflect the real library.
+
+**As built.**
+
+- **Generation** (`src/lib/manuals/eval-questions.ts`). After the archive workflow builds a
+  document's passages, a new step, `evalQuestionsStep`, writes its questions. Only documents
+  whose passages this run built are asked about. Job **`evalQuestions`** (Luna, flex,
+  `MODEL_EVAL_QUESTIONS`, `MODEL_EVAL_QUESTIONS_TIER`) gets up to
+  `MANUAL_EVAL_QUESTIONS` + 2 passages (default 4 questions; `0` turns generation off; at
+  most 10) and returns JSON: one question per passage it chose, with a one-line answer and
+  whether the passage alone answers it.
+- **Which passages** (`eval-questions-pick.ts`). Never a contents page, an index, legal,
+  warranty or regulatory text, a page of dot leaders, a passage under 250 characters, or one
+  spanning more than two pages. The rest are spread evenly through the document, preferring
+  a top-level section and a page not used yet. A short manual gets fewer questions: at most
+  one for every two askable passages, at least one.
+- **Which questions survive** (`eval-questions-model.ts`). The model must say the passage
+  answers it and give the answer. The question must be 12 to 200 characters, name no page,
+  section, chapter, figure, table or step number, and never say "the passage" or "the text".
+  Repeats and a second question on one passage are dropped. The kept set prefers one
+  question per top-level section.
+- **Once per text.** Each question records a SHA-256 of the document's page texts
+  (`source_hash`). A document whose text hashes the same is skipped, so a passage rebuild
+  for a new chunker or embedding model asks nothing. A changed text replaces the questions
+  in one transaction. The same text on another document (one PDF on two machines) is
+  copied with no model call. A model failure or an unreadable answer leaves earlier
+  questions untouched.
+- **Storage.** Migration **`0028_manual_eval_questions`**: `manual_eval_questions` (document,
+  tool, question, `expected_pages` = the source passage's pages, `chunk_ordinal` and
+  `section_path` of the passage, `expected_answer`, `source_hash`, `model`, `created_at`).
+  Cascades with its document. Eval data only: the app never reads it and no student sees it.
+- **The step.** Retries only the model's bad minute (rate limit, 5xx, timeout) and an
+  unreachable database; on a retry the written documents are `up_to_date`. An unreadable
+  answer is not retried. It never changes the archive's or the index's counts; the run adds
+  `questionsWritten` and `questionsFailed`. Each document logs its tokens and the
+  Gateway-reported cost and tier, like the other jobs.
+- **Backfill.** `npm run manuals:eval-questions -- [--apply] [--tool <slug>] [--limit N]
+  [--force]` (`scripts/manual-eval-questions.ts`). A dry run by default: it reads the real
+  manuals, says how many questions each would get and prints the estimate at Luna's list
+  price. `--apply` writes. `manuals:index` does not write questions; OCR'd scans get theirs
+  from this backfill.
+- **The eval.** `npm run eval:manual-questions` (`evals/manual-questions.eval.ts`), options
+  as environment variables like `npm run eval`:
+  - **Retrieval** (always): the question is searched as `search_manual` searches on its
+    machine's page (scoped to the tool, hybrid, reranked with the floor, merged, top
+    `EVAL_MQ_K`, default 8), as staff so private manuals count. A hit is the question's
+    document on an expected page. recall@1, @3 and @k are reported per machine and overall,
+    with "wrong page" and "missed" counts. Reported, never failed.
+  - **End to end** (`EVAL_MQ_E2E=1`, paid): the question is asked on its machine's page
+    through the real chat pipeline as a visitor (`runStarterAnswer`, every write stubbed).
+    It passes when the answer cites the question's document at an expected page plus or
+    minus one (read from the turn's `manual_cited` events) and `cites_only_tool` holds. A
+    question on a private document is skipped. A failure fails the run.
+  - It reads `DATABASE_URL`, else `PGLITE_DATA_DIR`, and refuses the demo seed unless
+    `EVAL_MQ_FIXTURES=1`, which seeds the eval's Form 4 manual and scan with seven
+    hand-written questions (`evals/manual-questions-fixture.ts`). `EVAL_MQ_OFFLINE=1`
+    (fixtures only) uses the hashed bag-of-words embedding and no reranker: no network.
+    One JSON report per run in `evals/.manual-questions/` (ignored).
+- **Tests** (free, offline): picking and hashing, parsing and filtering, generation against
+  PGlite with a stub model (written, up to date, replaced, copied, disabled, nothing to ask,
+  dry run, rate limit, unreadable), the step's retry rule, the workflow's counts, the
+  workflow tier with the Gateway's language endpoint stubbed, the backfill, the migration,
+  and the whole eval offline on the fixtures (`evals/manual-questions.test.ts`).
+
+**Cost.** One call per manual: about 4,300 input and 1,000 output tokens (six passages of up
+to 2,400 characters, four questions, reasoning). At Luna's list price ($0.10 / $0.50 per
+million) that is under $0.001 a manual, so **about $0.05 for all ~50 production manuals**, an
+upper bound since flex is cheaper. The end-to-end run is one chat turn per public question:
+at most ~200 questions, at `starters:refresh`'s measured $0.003 a turn upper bound (about a
+third of that reported, with caching), **about $0.60 at most, likely ~$0.20**, plus one rerank
+per search. A retrieval-only run costs a query embedding and a rerank per question.
+
+**Not done / open.**
+
+- **Not run on real manuals.** No question has been generated for a production manual and
+  no paid run was made. Next: `npm run manuals:eval-questions` (dry run) against a local copy,
+  then `--apply`, then `npm run eval:manual-questions`.
+- **A generated question is not reviewed by a person.** The filters catch the common
+  failures; a vague question that several pages answer will read as a retrieval miss. The
+  report lists every miss with its question, for a quick look.
+- **Expected pages are the passage's pages.** A passage spanning two pages counts either.
+  The end-to-end check allows one page either side.
+- **A document the model found nothing to ask about stores no rows**, so a later passage
+  rebuild asks again (a fraction of a cent).

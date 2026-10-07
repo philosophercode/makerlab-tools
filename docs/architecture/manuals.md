@@ -214,3 +214,42 @@ the fallback for a manual that is `no_text`, `failed` or not processed yet.
   tier stubs the Gateway's `/embedding-model` endpoint (`gatewayHandlers({
   embedding })`). The live retrieval eval is a `.livecheck` script (results in
   the spec's phase-2 amendment).
+
+## Eval questions (`manual_eval_questions`; amendment 2026-10-07, migration `0028`)
+
+When a manual is indexed, a few questions a student could ask are written from
+its passages, each tied to the page it is answered on. The manual evals use them,
+so they follow the lab's real manuals rather than two fixtures.
+
+- **When.** The archive workflow's `evalQuestionsStep` runs after
+  `indexManualStep`, only for the documents whose passages that run built. One
+  call to job **`evalQuestions`** (Luna, flex, `MODEL_EVAL_QUESTIONS`) per
+  document. `MANUAL_EVAL_QUESTIONS` sets how many (default 4, at most 10, `0`
+  off). The run counts `questionsWritten` / `questionsFailed`; the archive's and
+  the index's counts never change.
+- **Which passages** (`manuals/eval-questions-pick.ts`): no contents page,
+  index, legal, warranty or regulatory text, dot leaders, passage under 250
+  characters, or passage over two pages. An even spread through the document,
+  a new top-level section and page where it can, plus two spares. A short
+  manual gets fewer: one per two askable passages, at least one.
+- **Which questions** (`manuals/eval-questions-model.ts`): the passages are
+  fenced; the model must say its passage answers the question and give the
+  answer in a line. A question naming a page, section, chapter, figure, table
+  or step number, talking about "the passage", too short or long, repeated, or
+  a second one on a passage is dropped.
+- **Once per text.** Rows record a SHA-256 of the page texts (`source_hash`).
+  The same text is `up_to_date` (a passage rebuild asks nothing), a changed
+  text is replaced in one transaction, and the same text on another document is
+  copied with no call. Failures are values: the model's bad minute is
+  transient and the step retries it; an unreadable answer is not retried.
+- **Backfill:** `npm run manuals:eval-questions -- [--apply] [--tool <slug>]
+  [--limit N] [--force]` (`scripts/manual-eval-questions.ts`). Dry run by
+  default: what each manual would get and the cost at Luna's list price. Same
+  target order as `manuals:index`. `manuals:index` itself writes no questions.
+- **The eval:** `npm run eval:manual-questions` (`evals/manual-questions.eval.ts`,
+  `evals/README.md`). Retrieval recall@k per machine with `search_manual`'s own
+  search, and with `EVAL_MQ_E2E=1` a real chat turn per public question that
+  must cite the document at the page (±1) and only its machine. Reads only.
+- **Tests** seed passages with the fake embedding and pass a stub model;
+  `evals/manual-questions.test.ts` runs the whole eval offline on the fixtures.
+

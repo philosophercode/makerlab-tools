@@ -309,6 +309,51 @@ the subset throws with a file and line number — it is never silently misread.
 
 ---
 
+## The manual question eval
+
+The cases above use two small fixture manuals. This eval uses the lab's own
+manuals: when a manual is indexed, job `evalQuestions` writes a few questions a
+student could ask whose answer is on a known page (`manual_eval_questions`,
+manual text spec amendment 2026-10-07). The eval asks them back.
+
+```bash
+npm run manuals:eval-questions               # dry run: which manuals, how many questions, the estimated cost
+npm run manuals:eval-questions -- --apply    # write them (under $0.001 a manual)
+npm run eval:manual-questions                # retrieval recall, per machine
+EVAL_MQ_E2E=1 npm run eval:manual-questions  # plus one real chat turn per question (paid)
+```
+
+- **Retrieval** (always). Each question is searched the way `search_manual`
+  searches on its machine's page: scoped to that tool, hybrid, reranked with
+  the floor, merged, top `EVAL_MQ_K` (8). It is a hit when a passage of the
+  question's document on an expected page comes back. The table gives
+  recall@1, @3 and @k per machine and overall, with "wrong page" (the document
+  came back, another page) and "missed" (it did not). Recall is reported, never
+  failed. Each question costs one query embedding and one rerank.
+- **End to end** (`EVAL_MQ_E2E=1`). Each question on a public manual is asked
+  on its machine's page through the real chat pipeline as a visitor who is not
+  signed in (`runStarterAnswer`, every write stubbed). It passes when the answer
+  cites that document at an expected page, plus or minus one, and cites no other
+  machine's document (`cites_only_tool`). A question on a private manual is
+  skipped. A failure fails the run, as `npm run eval` does. About $0.001 to
+  $0.003 a question.
+- **Where the questions come from.** `DATABASE_URL`, else `PGLITE_DATA_DIR`
+  (it loads `.env.local`). It only reads. It refuses the demo seed unless
+  `EVAL_MQ_FIXTURES=1`, which runs on this folder's Form 4 manual and scan with
+  seven hand-written questions (`manual-questions-fixture.ts`).
+  `EVAL_MQ_FIXTURES=1 EVAL_MQ_OFFLINE=1` uses a hashed bag-of-words embedding
+  and no reranker, so it needs no network and no key.
+- **Options:** `EVAL_MQ_TOOL=<slug>` (one machine), `EVAL_MQ_LIMIT=N`,
+  `EVAL_MQ_K=N`, `EVAL_MQ_RERANK=0`.
+- **Output:** the recall table, every miss with its question, the end-to-end
+  totals and failures, and one JSON report per run in `evals/.manual-questions/`
+  (gitignored).
+
+A miss is not always the search's fault: a generated question can be vague
+enough that several pages answer it. Read the misses before tuning anything.
+
+---
+
 ## What it runs against
 
 **Fixtures replace Notion, not the model.** Every `NOTION_*` variable is blanked
@@ -373,6 +418,9 @@ should be revisited, not worked around.
 | `manual-fixture.ts` | `seedEvalManual` (the Form 4's manual and scan, the Trotec's attached guide) and `seedEvalLabManuals` (the Prusa and Epilog manuals for the lab phase) |
 | `fixtures/photos/` | Photo fixtures and the scripts that make them (`make-photos.mjs`, `make-identify-photos.mjs`) |
 | `runner.ts` | Control flow: execute → assert → retry → classify → report |
+| `manual-questions.ts` | The manual question eval: its options, the end-to-end check (`assessAnswer`), the run and its report |
+| `manual-questions.eval.ts` / `manual-questions.vitest.config.ts` | `npm run eval:manual-questions` entrypoint and its config |
+| `manual-questions-fixture.ts` | Hand-written eval questions for the fixture manuals (`EVAL_MQ_FIXTURES=1`) |
 | `run.eval.ts` | `npm run eval` entrypoint: the real model call and safety rails |
 | `vitest.config.ts` | Config for `npm run eval` only — never picked up by `npm test` |
 

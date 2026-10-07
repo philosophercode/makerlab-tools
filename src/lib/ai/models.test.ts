@@ -49,6 +49,7 @@ describe("MODEL_JOBS", () => {
     expect(modelIdFor("nameSuggest")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("descriptionShorten")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("starterGrade")).toBe("openai/gpt-6-luna");
+    expect(modelIdFor("evalQuestions")).toBe("openai/gpt-6-luna");
     // The generative background redraw was retired (amendment "No generative redraw").
     expect(Object.keys(MODEL_JOBS)).not.toContain("imageClean");
   });
@@ -64,6 +65,7 @@ describe("MODEL_JOBS", () => {
       "MODEL_DISPLAY_NAME",
       "MODEL_DESCRIPTION_SHORTEN",
       "MODEL_STARTER_GRADE",
+      "MODEL_EVAL_QUESTIONS",
       "MODEL_EMBED",
       "MODEL_OCR",
       "MODEL_RERANK",

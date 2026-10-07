@@ -10,9 +10,11 @@ const archive = vi.hoisted(() => ({ archiveManual: vi.fn() }));
 vi.mock("./archive", () => archive);
 const indexer = vi.hoisted(() => ({ indexResourceManuals: vi.fn() }));
 vi.mock("./index-document", () => indexer);
+const questions = vi.hoisted(() => ({ generateDocumentQuestions: vi.fn() }));
+vi.mock("./eval-questions", () => questions);
 
 import { FatalError, RetryableError } from "workflow";
-import { archiveManualStep, indexManualStep, MANUAL_STEP_MAX_RETRIES } from "./steps";
+import { archiveManualStep, evalQuestionsStep, indexManualStep, MANUAL_STEP_MAX_RETRIES } from "./steps";
 
 const ID = "675596a3-081a-41a5-88e2-91353a18f759";
 
@@ -98,5 +100,37 @@ describe("indexManualStep (manual text spec §3.1)", () => {
 
   it("sets maxRetries as a property on the step", () => {
     expect((indexManualStep as unknown as { maxRetries: number }).maxRetries).toBe(MANUAL_STEP_MAX_RETRIES);
+  });
+});
+
+describe("evalQuestionsStep (manual text spec amendment 2026-10-07)", () => {
+  beforeEach(() => {
+    questions.generateDocumentQuestions.mockReset();
+  });
+
+  it("writes each document's questions in turn and returns the outcomes, a permanent failure included", async () => {
+    questions.generateDocumentQuestions
+      .mockResolvedValueOnce({ status: "written", documentId: "a", questions: 4 })
+      .mockResolvedValueOnce({ status: "skipped", documentId: "b", reason: "up_to_date" })
+      .mockResolvedValueOnce({ status: "failed", documentId: "c", reason: "unreadable", kind: null, transient: false });
+    const outcomes = await evalQuestionsStep(["a", "b", "c"]);
+    expect(outcomes.map((o) => o.status)).toEqual(["written", "skipped", "failed"]);
+    expect(questions.generateDocumentQuestions.mock.calls.map(([, id]) => id)).toEqual(["a", "b", "c"]);
+  });
+
+  it("retries the model's bad minute", async () => {
+    questions.generateDocumentQuestions.mockResolvedValue({ status: "failed", documentId: "a", reason: "model", kind: "rate_limited", transient: true });
+    expect(RetryableError.is(await evalQuestionsStep(["a"]).catch((e: unknown) => e))).toBe(true);
+  });
+
+  it("retries an unreachable database and gives up on anything else", async () => {
+    questions.generateDocumentQuestions.mockRejectedValueOnce(Object.assign(new Error("x"), { code: "ECONNREFUSED" }));
+    expect(RetryableError.is(await evalQuestionsStep(["a"]).catch((e: unknown) => e))).toBe(true);
+    questions.generateDocumentQuestions.mockRejectedValueOnce(new Error("syntax error at or near"));
+    expect(FatalError.is(await evalQuestionsStep(["a"]).catch((e: unknown) => e))).toBe(true);
+  });
+
+  it("sets maxRetries as a property on the step", () => {
+    expect((evalQuestionsStep as unknown as { maxRetries: number }).maxRetries).toBe(MANUAL_STEP_MAX_RETRIES);
   });
 });
