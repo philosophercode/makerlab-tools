@@ -1156,3 +1156,50 @@ describe("POST /api/chat — QR codes in photos", () => {
     expect(systemOf()).not.toContain("QR codes in this message's photos");
   });
 });
+
+// ── Images in the chat (parity spec amendment 2026-10-07; gateway spec amendment) ──
+describe("POST /api/chat — tool cards and illustrations", () => {
+  const SECRET = "chat-route-test-secret";
+
+  async function postAs(role: "user" | "admin") {
+    vi.stubEnv("AUTH_SECRET", SECRET);
+    resetAuthForTests();
+    const { cookie } = await signInAsNew({ role, name: "Ada Lovelace" });
+    await send({ messages: [userMessage("Can you sketch my lamp idea?")] }, { cookie });
+  }
+
+  it("offers show_tool to everybody, anonymous visitors included", async () => {
+    await send({ messages: [userMessage("what does the Form 4 look like?")] });
+    expect(toolNamesOf()).toContain("show_tool");
+    expect(systemOf()).toContain("## Showing a tool");
+  });
+
+  it("offers no illustrations at all without a Blob store: no tool, no offer", async () => {
+    // The suite has no store (BLOB_LOCAL_DISABLE=1).
+    await postAs("user");
+    expect(toolNamesOf()).not.toContain("make_illustration");
+    expect(systemOf()).not.toContain("## Illustrations");
+  });
+
+  it("gives a signed-in person make_illustration once there is somewhere to keep the picture", async () => {
+    vi.stubEnv("BLOB_LOCAL_DISABLE", "");
+    await postAs("user");
+    expect(toolNamesOf()).toContain("make_illustration");
+    expect(systemOf()).toContain("Offer it; do not make it unasked");
+  });
+
+  it("gives an anonymous visitor only the sign-in note", async () => {
+    vi.stubEnv("BLOB_LOCAL_DISABLE", "");
+    await send({ messages: [userMessage("Can you sketch my lamp idea?")] });
+    expect(toolNamesOf()).not.toContain("make_illustration");
+    expect(systemOf()).toMatch(/This person is not signed in: if they ask for a sketch/);
+  });
+
+  it("leaves illustrations out when MODEL_ILLUSTRATION=off", async () => {
+    vi.stubEnv("BLOB_LOCAL_DISABLE", "");
+    vi.stubEnv("MODEL_ILLUSTRATION", "off");
+    await postAs("admin");
+    expect(toolNamesOf()).not.toContain("make_illustration");
+    expect(systemOf()).not.toContain("## Illustrations");
+  });
+});

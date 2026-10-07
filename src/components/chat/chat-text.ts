@@ -28,6 +28,8 @@ export function toolStatusLabel(partType: string, t: ChatT, input?: unknown): st
   if (partType === "tool-get_record") return t("readingRecord");
   if (partType === "tool-propose_change") return t("proposingChange");
   if (partType === "tool-get_tool_qr_code") return t("makingQrCode");
+  if (partType === "tool-show_tool") return t("showingTool");
+  if (partType === "tool-make_illustration") return t("drawingIllustration");
   return t("working");
 }
 

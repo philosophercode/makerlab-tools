@@ -37,6 +37,7 @@ import { loadToolManualsForChat } from "../../../lib/chat/tool-manuals";
 import { curationForChat, recordSearchResults } from "../../../lib/chat/curation";
 import { markOutsideReads, newTurnState } from "../../../lib/chat/taint";
 import { curationCapability } from "../../../lib/capabilities/curation";
+import { ILLUSTRATIONS_CAPABILITY_ID, illustrationsAvailable } from "../../../lib/capabilities/illustrations";
 import { loadPageContext, pageContextSection } from "../../../lib/actions/page-context";
 import { loadProposalOutcomes } from "../../../lib/chat/proposal-outcomes";
 import { recordChatTurnUsage } from "../../../lib/usage/chat-turn";
@@ -219,7 +220,13 @@ export async function POST(req: Request) {
       // The registry is composed as this caller may use it: a capability whose
       // required permission they do not hold contributes no tools, only a note
       // on why (spec §3.5).
-      const capabilities = curation ? [...CAPABILITIES, curationCapability(curation.kind)] : CAPABILITIES;
+      //
+      // Illustrations are left out entirely — no tool, no prompt, no offer —
+      // when `MODEL_ILLUSTRATION=off` or there is nowhere to keep one.
+      const offered = illustrationsAvailable()
+        ? CAPABILITIES
+        : CAPABILITIES.filter((capability) => capability.id !== ILLUSTRATIONS_CAPABILITY_ID);
+      const capabilities = curation ? [...offered, curationCapability(curation.kind)] : offered;
       const { tools: capabilityTools, system } = composeChat(
         capabilitiesForIdentity(capabilities, identity),
         ctx,

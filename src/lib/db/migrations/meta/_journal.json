@@ -218,6 +218,13 @@
       "when": 1791350921299,
       "tag": "0030_notifications",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1791351498547,
+      "tag": "0031_chat_illustrations",
+      "breakpoints": true
     }
   ]
 }

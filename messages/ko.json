@@ -198,7 +198,20 @@
     "working": "처리 중…",
     "rateLimitSignIn": "로그인하지 않은 방문자의 메시지 한도에 도달했습니다. {institution} 계정으로 로그인하면 대화를 계속할 수 있습니다. 카탈로그 둘러보기는 어느 쪽이든 계속 열려 있습니다.",
     "rateLimitSignInCta": "로그인",
-    "rateLimited": "시간당 메시지 한도에 도달했습니다. 잠시 후 다시 시도해 주세요."
+    "rateLimited": "시간당 메시지 한도에 도달했습니다. 잠시 후 다시 시도해 주세요.",
+    "showingTool": "▣ 도구 사진을 가져오는 중…",
+    "toolCard": {
+      "label": "이 답변의 도구",
+      "open": "열기"
+    },
+    "drawingIllustration": "✎ 일러스트를 그리는 중…",
+    "illustration": {
+      "badge": "AI 일러스트",
+      "caption": "AI가 생성한 일러스트이며 저희 장비의 사진이 아닙니다. 정확한 단계는 매뉴얼과 스태프에게 확인하세요.",
+      "altPlan": "AI가 생성한 계획 인포그래픽",
+      "altConcept": "AI가 생성한 프로젝트 아이디어 콘셉트 렌더",
+      "unavailable": "이 일러스트는 더 이상 볼 수 없습니다."
+    }
   },
   "qr": {
     "arrivalLabel": "이 장비에서 스캔함",

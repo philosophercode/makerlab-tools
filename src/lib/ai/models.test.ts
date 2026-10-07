@@ -8,6 +8,8 @@ import {
   ModelConfigError,
   gatewayLanguageModel,
   gatewayProvider,
+  illustrationsEnabled,
+  imageModelFor,
   languageModelFor,
   modelIdFor,
   providerOptionsFor,
@@ -39,7 +41,7 @@ function clearOverrides() {
 beforeEach(clearOverrides);
 
 describe("MODEL_JOBS", () => {
-  it("defaults every job to Luna — chat passed the eval gate after its prompt was tuned — and there is no image job", () => {
+  it("defaults every language job to Luna — chat passed the eval gate after its prompt was tuned — and no image job touches product photos", () => {
     expect(modelIdFor("chat")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("researchSearch")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("researchRead")).toBe("openai/gpt-6-luna");
@@ -54,6 +56,8 @@ describe("MODEL_JOBS", () => {
     expect(modelIdFor("reportTriage")).toBe("openai/gpt-6-luna");
     // The generative background redraw was retired (amendment "No generative redraw").
     expect(Object.keys(MODEL_JOBS)).not.toContain("imageClean");
+    // The one image job draws chat illustrations, never a catalogue image (amendment 2026-10-07).
+    expect((Object.keys(MODEL_JOBS) as ModelJob[]).filter((job) => MODEL_JOBS[job].kind === "image")).toEqual(["illustration"]);
   });
 
   it("names one MODEL_<JOB> variable per job, and every default is a Gateway id", () => {
@@ -72,6 +76,7 @@ describe("MODEL_JOBS", () => {
       "MODEL_EMBED",
       "MODEL_OCR",
       "MODEL_RERANK",
+      "MODEL_ILLUSTRATION",
     ]);
     for (const job of JOBS) expect(MODEL_JOBS[job].default).toMatch(GATEWAY_MODEL_ID_PATTERN);
   });
@@ -279,6 +284,34 @@ describe("the model factories", () => {
     expect(() => languageModelFor("imageClean" as never)).toThrow(ModelConfigError);
   });
 
+  it("draws chat illustrations with the cheapest flat-priced Gateway image model (amendment 2026-10-07)", () => {
+    expect(modelIdFor("illustration")).toBe("recraft/recraft-v4.1-flash");
+    expect(imageModelFor("illustration")).toMatchObject({ provider: "gateway", modelId: "recraft/recraft-v4.1-flash" });
+    vi.stubEnv("MODEL_ILLUSTRATION", "meta/muse-image-1.0");
+    expect(imageModelFor()).toMatchObject({ modelId: "meta/muse-image-1.0" });
+    expect(() => imageModelFor("chat" as never)).toThrow(/not an image job/);
+    expect(() => languageModelFor("illustration" as never)).toThrow(/not a language job/);
+  });
+
+  it.each([
+    ["", true],
+    ["   ", true],
+    ["meta/muse-image-1.0", true],
+    ["off", false],
+    [" OFF ", false],
+    ["none", false],
+  ] as const)("MODEL_ILLUSTRATION=%j leaves illustrations on: %j", (value, on) => {
+    vi.stubEnv("MODEL_ILLUSTRATION", value);
+    expect(illustrationsEnabled()).toBe(on);
+  });
+
+  it("names MODEL_ILLUSTRATION, never its value, for a malformed override", () => {
+    vi.stubEnv("MODEL_ILLUSTRATION", "sk-live-abc123secret");
+    expect(illustrationsEnabled()).toBe(true);
+    expect(() => imageModelFor()).toThrow(/MODEL_ILLUSTRATION/);
+    expect(() => imageModelFor()).not.toThrow(/sk-live/);
+  });
+
   it("surfaces a malformed override when the model is built", () => {
     vi.stubEnv("MODEL_IMAGE_RANK", "gpt-6-luna");
     expect(() => languageModelFor("imageRank")).toThrow(/MODEL_IMAGE_RANK/);
@@ -289,6 +322,7 @@ describe("the model factories", () => {
 
     languageModelFor("chat");
     languageModelFor("imageRank");
+    imageModelFor("illustration");
     gatewayLanguageModel("openai/gpt-6-sol", "EVAL_MODEL");
 
     expect(fetchSpy).not.toHaveBeenCalled();

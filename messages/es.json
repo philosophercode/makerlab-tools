@@ -198,7 +198,20 @@
     "working": "Trabajando en ello…",
     "rateLimitSignIn": "Has alcanzado el límite de mensajes para visitantes sin sesión iniciada. Inicia sesión con tu cuenta de {institution} para seguir conversando; explorar el catálogo sigue abierto de todos modos.",
     "rateLimitSignInCta": "Iniciar sesión",
-    "rateLimited": "Has alcanzado el límite de mensajes por hora. Inténtalo de nuevo dentro de un rato."
+    "rateLimited": "Has alcanzado el límite de mensajes por hora. Inténtalo de nuevo dentro de un rato.",
+    "showingTool": "▣ Buscando la foto de la herramienta…",
+    "toolCard": {
+      "label": "Herramientas en esta respuesta",
+      "open": "Abrir"
+    },
+    "drawingIllustration": "✎ Dibujando una ilustración…",
+    "illustration": {
+      "badge": "Ilustración IA",
+      "caption": "Ilustración generada por IA, no es una foto de nuestro equipo. Consulta el manual y al personal para los pasos exactos.",
+      "altPlan": "Infografía del plan generada por IA",
+      "altConcept": "Render conceptual de la idea del proyecto generado por IA",
+      "unavailable": "Esta ilustración ya no está disponible."
+    }
   },
   "qr": {
     "arrivalLabel": "Escaneado desde esta máquina",

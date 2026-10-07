@@ -108,6 +108,18 @@ describe("storableMessage", () => {
     expect(JSON.stringify(stored)).not.toMatch(/providerMetadata|callProviderMetadata|itemId/);
     expect(stored.id).toBe("starter-answer");
   });
+
+  it("drops tool cards, whose status is the moment's, and keeps the text naming the tool", () => {
+    const message = {
+      id: "m",
+      role: "assistant",
+      parts: [
+        { type: "data-tool-cards", id: "cards", data: { kind: "tool-cards", tools: [{ slug: "form-4", status: "Available" }] } },
+        { type: "text", text: "The [Form 4](/tools/form-4) prints in resin." },
+      ],
+    } as unknown as UIMessage;
+    expect(storableMessage(message).parts.map((part) => part.type)).toEqual(["text"]);
+  });
 });
 
 describe("describeStarterTool", () => {

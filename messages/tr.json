@@ -198,7 +198,20 @@
     "working": "Üzerinde çalışılıyor…",
     "rateLimitSignIn": "Oturum açmamış ziyaretçiler için mesaj sınırına ulaştınız. Sohbete devam etmek için {institution} hesabınızla oturum açın — katalogda gezinmek her durumda açık kalır.",
     "rateLimitSignInCta": "Oturum aç",
-    "rateLimited": "Saatlik mesaj sınırına ulaştınız. Lütfen biraz sonra tekrar deneyin."
+    "rateLimited": "Saatlik mesaj sınırına ulaştınız. Lütfen biraz sonra tekrar deneyin.",
+    "showingTool": "▣ Aracın fotoğrafı getiriliyor…",
+    "toolCard": {
+      "label": "Bu yanıttaki araçlar",
+      "open": "Aç"
+    },
+    "drawingIllustration": "✎ Çizim hazırlanıyor…",
+    "illustration": {
+      "badge": "Yapay zekâ çizimi",
+      "caption": "Yapay zekâ ile oluşturulmuş bir çizimdir, ekipmanımızın fotoğrafı değildir. Kesin adımlar için kılavuza ve personele danışın.",
+      "altPlan": "Planın yapay zekâ ile oluşturulmuş infografiği",
+      "altConcept": "Proje fikrinin yapay zekâ ile oluşturulmuş konsept görseli",
+      "unavailable": "Bu çizim artık mevcut değil."
+    }
   },
   "qr": {
     "arrivalLabel": "Bu makineden tarandı",

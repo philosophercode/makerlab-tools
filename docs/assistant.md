@@ -49,6 +49,19 @@ its people (owner meeting with the Director and Assistant Director,
   the tool's page — the same code the lab's machine labels carry
   (`get_tool_qr_code`, published tools only). Staff print sheets of labels from
   **Inventory → QR labels**.
+- Show you the machine it is talking about: when an answer is about one tool,
+  or compares two or three, the chat shows each one's catalogue photo, status
+  and a link to its page as a small card (`show_tool`, published tools only;
+  not for the tool whose page you are on). These are the lab's own photos;
+  the assistant never fetches pictures from the web into the chat.
+- **Signed in:** draw a sketch when you ask for one. After a plan with several
+  steps, or when you describe a project idea, the assistant may offer "Want a
+  sketch of this plan?"; say yes and it draws one picture — an infographic of
+  the plan, or a concept render of your idea (`make_illustration`). Every
+  sketch is labelled "AI-generated illustration, not a photo of our equipment.
+  Check the manual and staff for exact steps.", and it never shows how one of
+  the lab's machines looks, its controls, labels or safety steps. Three a day
+  per person; if you are not signed in, it asks you to sign in first.
 - Recognise a machine from a photo of its label: attach a photo with one of the
   lab's QR codes in it and the assistant knows which tool it is — and, for a
   unit's own label, which unit, so a report lands on that machine. The server

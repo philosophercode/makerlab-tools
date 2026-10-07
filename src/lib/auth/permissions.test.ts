@@ -36,6 +36,9 @@ const APP_PERMISSIONS = [
   "insights.configure",
   "insights.export",
   "shifts.set",
+  // Asking the assistant for an illustration (gateway spec amendment 2026-10-07):
+  // every signed-in person, never an anonymous visitor.
+  "chat.illustrate",
 ] as const satisfies readonly Permission[];
 
 /**
@@ -45,7 +48,7 @@ const APP_PERMISSIONS = [
  */
 const EXPECTED: Record<Role, readonly Permission[]> = {
   anonymous: [],
-  user: ["projects.submit"],
+  user: ["projects.submit", "chat.illustrate"],
   admin: [
     "projects.submit",
     "projects.moderate",
@@ -64,6 +67,7 @@ const EXPECTED: Record<Role, readonly Permission[]> = {
     "insights.configure",
     // Who's on shift (on-shift spec 2026-10-07): staff mark themselves.
     "shifts.set",
+    "chat.illustrate",
   ],
   super_admin: APP_PERMISSIONS,
 };
