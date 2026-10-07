@@ -140,15 +140,20 @@ test.describe("Sign-in", () => {
     await page.goto("/");
 
     const nav = page.getByRole("navigation", { name: "Primary navigation" });
-    // Add and Admin are in the profile menu; Refresh is on /admin (2026-09-23).
+    // Add and Admin are in the profile menu (2026-09-23).
     await nav.getByRole("button", { name: /signed in as/i }).click();
     await expect(nav.getByRole("menuitem", { name: /add equipment/i })).toBeVisible();
     await expect(nav.getByRole("menuitem", { name: /^admin$/i })).toBeVisible();
 
+    // Add is among the overview's quick actions; Refresh catalog moved to
+    // Settings › General (admin sections spec 2026-10-07).
     await page.goto("/admin");
     const actions = page.getByRole("group", { name: "Admin actions" });
     await expect(actions.getByRole("button", { name: /add equipment/i })).toBeVisible();
-    await expect(actions.getByRole("button", { name: "Refresh catalog" })).toBeVisible();
+
+    await page.goto("/admin/settings");
+    const catalog = page.getByRole("region", { name: "Catalog", exact: true });
+    await expect(catalog.getByRole("button", { name: "Refresh catalog" })).toBeVisible();
   });
 
   test("a cookie signed with the wrong secret is nobody", async ({

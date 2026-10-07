@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -45,9 +46,26 @@ export function LinkTabs({
       .filter((href) => pathname === href || pathname.startsWith(`${href}/`))
       .sort((a, b) => b.length - a.length)[0] ??
     null;
+  const scroller = useRef<HTMLElement>(null);
+
+  // On a phone, eight Inventory tabs overflow: bring the current one into
+  // view, sideways only (admin sections spec 2026-10-07).
+  useEffect(() => {
+    const box = scroller.current;
+    const link = box?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!box || !link) return;
+    const overflowRight = link.offsetLeft + link.offsetWidth - (box.scrollLeft + box.clientWidth);
+    if (overflowRight > 0) box.scrollLeft += overflowRight + 16;
+    else if (link.offsetLeft < box.scrollLeft) box.scrollLeft = Math.max(0, link.offsetLeft - 16);
+  }, [current]);
 
   return (
-    <nav aria-label={label} data-slot="link-tabs" className={cn("ui -mx-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0", className)}>
+    <nav
+      ref={scroller}
+      aria-label={label}
+      data-slot="link-tabs"
+      className={cn("ui relative -mx-4 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0", className)}
+    >
       <ul className="m-0 flex min-w-max list-none gap-5 border-b border-border p-0 font-mono text-label tracking-[0.08em] uppercase">
         {tabs.map((tab) => (
           <li key={tab.href}>

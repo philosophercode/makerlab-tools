@@ -290,8 +290,8 @@ change itself**. Each of these tools stores a **proposal** and answers
 | Intake | `approve_pending_items`, `add_pending_as_unit`, `rename_pending_item`, `edit_pending_items` |
 | Imported lists | `edit_import_row`, `set_import_hints`, `merge_import_row`, `decide_import_suggestions` |
 
-The proposal waits in **Assistant proposals** (`/admin/proposals`, in the admin
-section bar) for **7 days**. Only you — the person the token or connection acts
+The proposal waits in **Assistant proposals** (`/admin/proposals`, the
+**MCP** tab under the admin's Settings) for **7 days**. Only you — the person the token or connection acts
 as — see it there, and only you can press **Confirm**, signed in to the site.
 The card shows exactly what will change, read from the database, not from the
 assistant's words; confirming checks your permission and every rule again, as

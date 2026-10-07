@@ -34,8 +34,10 @@ test("⌘K works on a public page, and offers an admin their admin pages there",
     await page.keyboard.press("ControlOrMeta+k");
     await expect(palette).toBeVisible({ timeout: 1_000 });
   }).toPass({ timeout: 15_000 });
-  await expect(palette.getByRole("option", { name: /^Maintenance/ })).toBeVisible();
-  await expect(palette.getByRole("option", { name: /^People/ })).toHaveCount(0);
+  // Admin pages are named by tab, with their section beside them (admin sections spec 2026-10-07).
+  await expect(palette.getByRole("option", { name: /^Tickets\s*Maintenance/ })).toBeVisible();
+  await expect(palette.getByRole("option", { name: /^QR labels/ })).toBeVisible();
+  await expect(palette.getByRole("option", { name: /^Roster/ })).toHaveCount(0);
 
   await palette.getByRole("combobox").fill("about");
   await page.keyboard.press("Enter");

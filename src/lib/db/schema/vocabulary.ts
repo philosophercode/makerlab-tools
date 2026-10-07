@@ -364,7 +364,7 @@ export const CATEGORY_PROPOSAL_STATUS = ["pending", "accepted", "rejected", "mer
 export type CategoryProposalStatus = (typeof CATEGORY_PROPOSAL_STATUS)[number];
 
 /**
- * Email notifications (email notifications spec §4; migration `0030`).
+ * Email notifications (email notifications spec §4; migration `0029`).
  *
  * The events the app emails about. `ticket.filed` is v1: a ticket filed from
  * the chat (the Report button and a unit's QR label open it) or an MCP

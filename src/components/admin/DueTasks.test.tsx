@@ -3,9 +3,10 @@ import type { DueItem } from "../../lib/data/maintenance-schedules";
 import { DueTasks } from "./DueTasks";
 
 /**
- * **Recurring tasks due** on `/admin/maintenance` (recurring maintenance spec
- * §6, amendment 2026-10-06): the overdue tone and words, the three empty
- * states, and **Done** with and without a note.
+ * The **Shift checklist** (was "Recurring tasks due"; recurring maintenance
+ * spec §6, amendments 2026-10-06 and 2026-10-07): the overdue tone and words,
+ * the three empty states, **Done** with and without a note, and **Mark
+ * resolved** on an open issue of the same machine.
  */
 
 const TODAY = "2026-10-06";
@@ -88,4 +89,41 @@ it("sends a note with Done, and keeps it when the check-off is refused", async (
   expect(action).toHaveBeenCalledWith({ scheduleId: "s-1", note: "Lens was smoky.", expectedDueOn: "2026-10-03" });
   expect(await screen.findByRole("alert")).toHaveTextContent("Somebody else changed this");
   expect(screen.getByLabelText("Note for Clean the laser lens")).toHaveValue("Lens was smoky.");
+});
+
+describe("open issues on the task's machine (amendment 2026-10-07)", () => {
+  const issues = [
+    { id: "log-1", title: "Lens is smudged", toolId: "t-1", unitId: null, priority: "high" },
+    { id: "log-2", title: "Printer jam", toolId: "t-9", unitId: null, priority: null },
+  ];
+
+  it("lists the machine's open issues under the task and resolves one in a click", async () => {
+    const resolve = vi.fn(async () => ({ ok: true as const }));
+    render(<DueTasks items={[item()]} today={TODAY} hasSchedules action={vi.fn()} schedulesHref={HREF} issues={issues} resolveIssue={resolve} />);
+    const card = screen.getByRole("article", { name: "Clean the laser lens" });
+    const list = within(card).getByRole("list", { name: "Open issues on this machine" });
+    expect(within(list).getByText("Lens is smudged")).toBeInTheDocument();
+    expect(within(card).queryByText("Printer jam")).not.toBeInTheDocument();
+    await userEvent.click(within(card).getByRole("button", { name: "Mark Lens is smudged resolved" }));
+    expect(resolve).toHaveBeenCalledWith({ logId: "log-1", patch: { status: "resolved" } });
+    expect(await within(card).findByText("Resolved: Lens is smudged")).toBeInTheDocument();
+  });
+
+  it("says why a resolve was refused and offers the button again", async () => {
+    const resolve = vi.fn(async () => ({ ok: false as const, error: "not_permitted" as const }));
+    render(<DueTasks items={[item()]} today={TODAY} hasSchedules action={vi.fn()} schedulesHref={HREF} issues={issues} resolveIssue={resolve} />);
+    await userEvent.click(screen.getByRole("button", { name: "Mark Lens is smudged resolved" }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Mark Lens is smudged resolved" })).toBeInTheDocument();
+  });
+
+  it("offers no issues without the resolve action", () => {
+    render(<DueTasks items={[item()]} today={TODAY} hasSchedules action={vi.fn()} schedulesHref={HREF} issues={issues} />);
+    expect(screen.queryByRole("list", { name: "Open issues on this machine" })).not.toBeInTheDocument();
+  });
+
+  it("is titled Shift checklist", () => {
+    render(<DueTasks items={[item()]} today={TODAY} hasSchedules action={vi.fn()} schedulesHref={HREF} />);
+    expect(screen.getByRole("heading", { name: "Shift checklist", level: 3 })).toBeInTheDocument();
+  });
 });

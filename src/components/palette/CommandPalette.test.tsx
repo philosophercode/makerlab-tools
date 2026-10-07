@@ -86,19 +86,21 @@ it("jumps to a category as the filtered gallery, and to a page", async () => {
   expect(router.push).toHaveBeenCalledWith("/projects");
 });
 
-it("lists a SuperMaker's surfaces and not People", async () => {
+it("lists a SuperMaker's surfaces, each with its section, and not the roster", async () => {
   const user = userEvent.setup();
   render(<CommandPalette role="admin" tools={TOOLS} />);
   const dialog = await openPalette(user);
-  expect(within(dialog).getByRole("option", { name: /Maintenance/ })).toBeInTheDocument();
-  expect(within(dialog).queryByRole("option", { name: /^People/ })).not.toBeInTheDocument();
+  expect(within(dialog).getByRole("option", { name: /^Tickets\s*Maintenance/ })).toBeInTheDocument();
+  expect(within(dialog).getByRole("option", { name: /^QR labels\s*Inventory/ })).toBeInTheDocument();
+  expect(within(dialog).getByRole("option", { name: /^Shift checklist/ })).toBeInTheDocument();
+  expect(within(dialog).queryByRole("option", { name: /^Roster/ })).not.toBeInTheDocument();
 });
 
-it("lists People for a super admin, and jumps there", async () => {
+it("lists the roster for a super admin, and jumps there", async () => {
   const user = userEvent.setup();
   render(<CommandPalette role="super_admin" tools={TOOLS} />);
   const dialog = await openPalette(user);
-  await user.click(within(dialog).getByRole("option", { name: /^People/ }));
+  await user.click(within(dialog).getByRole("option", { name: /^Roster/ }));
   expect(router.push).toHaveBeenCalledWith("/admin/users");
   await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
 });

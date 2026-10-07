@@ -32,8 +32,12 @@
   `aria-describedby`). Refresh and chat proposals, the intake queue and approve
   page, import review and the chat's intake table are all on them (UI system
   phase 3); `admin-intake.css` and `intake-table.css` are gone.
-  **Admin navigation** (phase 4): `Tile`/`TileGroup`, `LinkTabs` (tabs that
-  are URLs: links with `aria-current`, never `role="tab"`) and `queue/QueueList`
+  **Admin navigation** (phase 4; six sections since the admin sections spec
+  2026-10-07): `LinkTabs` (tabs that are URLs: links with `aria-current`,
+  never `role="tab"`; the section tabs under every admin header are
+  `admin/SectionTabs` over the layout's `AdminSurfacesProvider`), the overview's
+  blocks in `admin/overview/` (`Tile`/`TileGroup` have no callers since and
+  await deletion approval) and `queue/QueueList`
   (search + facets over a queue, open work on the page, settled behind a
   disclosure) in `system/`; `AdminNav`, `AdminPageHeader` and `CommandPalette`
   (shadcn `Command` over `cmdk` in `ui/dialog`; since public polish in
@@ -97,6 +101,6 @@
   `data-role` / `data-kind` for tests. Under the composer, always, the
 `chat.aiNote` line ("MakerLAB AI can make mistakes…"), which also describes
 the text field (identity spec amendment 2026-10-06). The floating button is not drawn on
-  `/admin/*`: the section bar's **Ask the assistant** and ⌘K (`onAsk`, from
+  `/admin/*`: the section bar's **Ask MakerLAB AI** and ⌘K (`onAsk`, from
   `HeaderSearch`) open it. `FlagButton` is a `Dialog`. The `.chat-*` CSS and
   `admin-import.css` are gone.

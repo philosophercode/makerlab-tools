@@ -71,7 +71,8 @@ test.describe("/admin/users — who may open it", () => {
     // `tools.edit` gets them through the layout…
     await page.goto("/admin");
     await expect(page.getByRole("heading", { name: "Overview", level: 2 })).toBeVisible();
-    await expect(page.getByRole("link", { name: "People", exact: true })).toHaveCount(0);
+    // Their People section opens Student projects; the roster is never offered.
+    await expect(page.getByRole("link", { name: "Roster", exact: true })).toHaveCount(0);
 
     // …and `users.manage`, which only a director holds, stops them here.
     await page.goto("/admin/users");

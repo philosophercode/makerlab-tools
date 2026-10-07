@@ -559,13 +559,38 @@ component tests for `DueTasks` and `ScheduleForm`; the admin tile test.
 
 The owner's design review decisions (2026-10-07) say recurring maintenance "must email: a reminder of
 what is due and overdue". That is follow-up 5, built as a dated amendment to the
-[Email Notifications](2026-09-30-email-notifications-design.md) spec ("2026-10-07 — The
-recurring-maintenance reminder, on each task's cadence"): when a task comes due, everyone who can
-work maintenance (`maintenance.manage`) is emailed about it at 08:00 lab time, once for that due
-date, with a link to the Shift checklist (`/admin/maintenance#due-tasks`). A task that stays
-overdue is not emailed again; after **Done**, its next due date is emailed when it arrives. The
-day's newly due tasks share one email. Nothing newly due, nothing sent. Paused and archived tasks
-never appear.
+[Email Notifications](2026-09-30-email-notifications-design.md) spec ("2026-10-07 — The daily
+recurring-maintenance reminder"): at 08:00 lab time, everyone who can work maintenance
+(`maintenance.manage`) gets one email listing the active tasks due today and overdue, from
+`listDueSchedules(today, { withinDays: 0 })`, with links to the Shift checklist
+(`/admin/maintenance/checklist`, the Shift checklist tab, since the admin sections below). Nothing due, nothing sent. Paused and archived tasks never appear.
 It rides the existing daily cron (a workflow that sleeps until 08:00), so no second cron. Each
 person can turn it off with the one-click unsubscribe, separately from ticket emails. It stays
 equipment-bound and is not a general task manager.
+
+### 2026-10-07 — The Shift checklist
+
+The owner's decisions of 2026-10-07 name the due list the **Shift checklist**: the
+recurring tasks a SuperMaker works through on shift. With the admin sections spec
+([`2026-10-07-admin-sections-design.md`](2026-10-07-admin-sections-design.md)):
+
+- **Where.** On the `/admin` overview under Need to know, and as the Maintenance
+  section's **Shift checklist** tab (`/admin/maintenance/checklist`,
+  `maintenance.manage`). It left the top of `/admin/maintenance`, which is now the
+  ticket queue alone; that page's facts line still counts overdue and due-today
+  tasks. Recurring tasks are set up on the **Recurring tasks** tab, as before.
+- **Mark an issue resolved.** Under each task, the open tickets on the same machine
+  (`components/admin/checklist-issues.ts`): for a task on one unit, that unit's
+  tickets and the tool's tickets that name no unit; for a whole-tool task, every
+  ticket on the tool; for general upkeep, none. Each has **Mark resolved**, which
+  sets the ticket to `resolved` through `updateTicket` (`tickets.update`). It does
+  not check the task off: the task and the issue are separate records, and the
+  person may resolve one without the other.
+- **Done and Add a note** are unchanged.
+- **Overdue on the overview.** Need to know says "N recurring tasks are overdue" in
+  the bad tone, with a link to the checklist.
+- `tickets.update`, `tickets.log_completed` and the four `schedules.*` actions now
+  also refresh `/admin` and `/admin/maintenance/checklist`.
+
+Still open from the 2026-10-06 list: a Skip button and the tool page's staff panel. The
+email reminder of what is due and overdue is follow-up 5, above; its link opens this tab.
