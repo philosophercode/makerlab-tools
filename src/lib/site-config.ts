@@ -34,9 +34,9 @@ export interface SiteConfig {
   logoPng: string;
   /**
    * Path to the wordmark alone in /public ("MakerLAB"), shown as a mask in the
-   * site header so it takes the theme's text colour. Cropped from the lab's
-   * earlier "MakerLAB@CORNELL TECH" logo. The header keeps it (owner
-   * decision, 2026-10-06).
+   * site header so it takes the theme's text colour. The lettering cropped
+   * from the official Cornell Tech MakerLAB lockup (owner decision,
+   * 2026-10-07: the header reads "MakerLAB AI", this mark plus "AI").
    */
   wordmark: string;
   /**
@@ -70,7 +70,7 @@ export const siteConfig: SiteConfig = {
   audience: process.env.AUDIENCE ?? "students who may be beginners",
   logo: LOGO,
   logoPng: pngTwin(LOGO),
-  wordmark: process.env.NEXT_PUBLIC_WORDMARK ?? "/makerlab-wordmark.png",
+  wordmark: process.env.NEXT_PUBLIC_WORDMARK ?? "/brand/makerlab-wordmark-official.svg",
   labHours: process.env.NEXT_PUBLIC_LAB_HOURS || "LAB OPEN 8AM-8PM",
   colors: {
     primary: process.env.NEXT_PUBLIC_COLOR_PRIMARY ?? "#ff6b35",

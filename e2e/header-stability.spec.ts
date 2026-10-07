@@ -80,10 +80,6 @@ async function headerFits(page: Page): Promise<string[]> {
     if (apart(brand, nav) < 8) problems.push(`brand meets the links (${apart(brand, nav)}px apart)`);
     if (apart(nav, actions) < 8) problems.push(`links meet the controls (${apart(nav, actions)}px apart)`);
     if (header.scrollWidth > header.clientWidth) problems.push(`header is ${header.scrollWidth}px in ${header.clientWidth}px`);
-    // The lockup is two lines by design (the wordmark, then the name and
-    // tagline); its text line must stay one line.
-    const brandText = header.querySelector<HTMLElement>(".brand-text")!;
-    if (brandText.offsetHeight > 24) problems.push(`the brand's name line wraps (${brandText.offsetHeight}px tall)`);
     // The links and Report sit in `.primary-nav-links` (the short bar's MENU
     // panel, `display: contents` everywhere else); on the short bar they are
     // hidden until MENU opens, so they measure nothing here.
