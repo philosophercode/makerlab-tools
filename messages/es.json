@@ -244,9 +244,16 @@
   "auth": {
     "eyebrow": "Inicio de sesión",
     "title": "Esa cuenta no es una cuenta de {institution}",
-    "body": "{site} solo permite iniciar sesión con cuentas de {institution}, así que esta no se puede usar.",
+    "refusedAddress": "<address>{email}</address> no se puede usar: {site} solo acepta cuentas de {institution} (direcciones que terminan en @{domain}).",
+    "refusedUnknown": "Esta cuenta de Google no se puede usar: {site} solo acepta cuentas de {institution} (direcciones que terminan en @{domain}).",
+    "blockedAddress": "<address>{email}</address> no se puede usar: un administrador de {site} bloqueó esta dirección. Si crees que es un error, pregunta al personal del laboratorio.",
     "stillWorks": "No hay nada bloqueado. Puedes explorar todo el catálogo y hacerle preguntas al asistente sin iniciar sesión; iniciar sesión solo aumenta el límite de mensajes por hora y añade tu nombre verificado a lo que envíes.",
-    "browseTools": "Explorar el catálogo"
+    "browseTools": "Explorar el catálogo",
+    "useDifferentAccount": "Usar otra cuenta de Google",
+    "switchUnconfigured": "El inicio de sesión no está configurado en esta implementación.",
+    "switchFailed": "No se pudo iniciar sesión con Google. Inténtalo de nuevo.",
+    "blockedTitle": "Esta cuenta no puede iniciar sesión en {site}",
+    "blockedBody": "Un administrador de {site} bloqueó esta dirección para registrarse, así que no se creó ninguna cuenta. Si crees que es un error, pregunta al personal del laboratorio."
   },
   "demoBanner": {
     "label": "Datos de demostración",

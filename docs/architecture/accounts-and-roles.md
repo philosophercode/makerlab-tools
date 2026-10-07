@@ -67,6 +67,20 @@ approval. Do not mint one.
   without them `/api/auth/sign-in/social` answers 503 and the header says
   sign-in is not set up. With neither, nobody is signed in and the catalogue and
   chat are unchanged. **Sign-in unlocks; it never gates the front door.**
+- **A refused sign-in is a page with a way out** (auth spec amendment 2026-10-07).
+  Every Google sign-in sends `prompt=select_account`, so Google shows its account
+  chooser instead of reusing whichever account the browser holds. When the create
+  hook refuses an address (outside the domain, or blocked) it leaves a ten-minute,
+  HttpOnly, `AUTH_SECRET`-signed cookie, `makerlab.refused_sign_in`, naming the
+  address and the page the sign-in started from (`src/lib/auth/refused-sign-in.ts`).
+  `/auth/rejected` and `/auth/blocked` read it (`readRefusedSignIn`, inside Suspense)
+  and say "<address> can't be used: <why>", then offer **Use a different Google
+  account**: sign out, then Google sign-in again back to that page
+  (`switchGoogleAccount`). The address is never put in a URL. The after-hook's
+  refusal of an existing out-of-domain row deletes the session it was given, row and
+  cookie, before redirecting. With `hd` in force (no `AUTH_ALLOWED_EMAILS`), Better
+  Auth's claim check refuses a personal account first with `unable_to_get_user_info`,
+  and the auth route sends that to `/auth/rejected` too.
 - **Testing a role needs no Google.** `test/utils/session.ts` seeds a `user` and
   a `session` row and mints the cookie Better Auth would have set; the demo seed
   ships one account per role for E2E. See `test/README.md`.

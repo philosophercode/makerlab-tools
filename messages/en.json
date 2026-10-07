@@ -530,9 +530,14 @@
   "auth": {
     "eyebrow": "Sign-in",
     "title": "That account isn't a {institution} account",
-    "body": "{site} signs in with {institution} accounts only (addresses ending in @{domain}), so this one can't be used. Sign in again and pick your {institution} Google account.",
-    "stillWorks": "Nothing is locked. You can browse the whole catalog and ask the assistant questions without signing in — signing in only raises the hourly message limit and puts your verified name on anything you file.",
+    "refusedAddress": "<address>{email}</address> can't be used: {site} only accepts {institution} accounts (addresses ending in @{domain}).",
+    "refusedUnknown": "This Google account can't be used: {site} only accepts {institution} accounts (addresses ending in @{domain}).",
+    "blockedAddress": "<address>{email}</address> can't be used: a {site} administrator has blocked this address. If that's a mistake, ask the lab's staff.",
+    "stillWorks": "Nothing is locked. You can browse the whole catalog and ask the assistant questions without signing in. Signing in only raises the hourly message limit and puts your verified name on anything you file.",
     "browseTools": "Browse the catalog",
+    "useDifferentAccount": "Use a different Google account",
+    "switchUnconfigured": "Sign-in isn't set up on this deployment.",
+    "switchFailed": "Couldn't start Google sign-in. Try again.",
     "blockedTitle": "This account can't sign in to {site}",
     "blockedBody": "A {site} administrator has blocked this address from signing up, so no account was created. If you think that's a mistake, ask the lab's staff."
   },

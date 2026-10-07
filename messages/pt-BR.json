@@ -244,9 +244,16 @@
   "auth": {
     "eyebrow": "Entrada",
     "title": "Essa conta não é uma conta {institution}",
-    "body": "O {site} só permite entrar com contas {institution}, portanto esta não pode ser usada.",
+    "refusedAddress": "<address>{email}</address> não pode ser usado: o {site} só aceita contas da {institution} (endereços terminados em @{domain}).",
+    "refusedUnknown": "Esta conta do Google não pode ser usada: o {site} só aceita contas da {institution} (endereços terminados em @{domain}).",
+    "blockedAddress": "<address>{email}</address> não pode ser usado: um administrador do {site} bloqueou este endereço. Se for um engano, fale com a equipe do laboratório.",
     "stillWorks": "Nada fica bloqueado. Você pode navegar por todo o catálogo e fazer perguntas ao assistente sem entrar; entrar apenas aumenta o limite de mensagens por hora e registra seu nome verificado no que você enviar.",
-    "browseTools": "Navegar pelo catálogo"
+    "browseTools": "Navegar pelo catálogo",
+    "useDifferentAccount": "Usar outra conta do Google",
+    "switchUnconfigured": "O login não está configurado nesta implantação.",
+    "switchFailed": "Não foi possível iniciar o login com o Google. Tente novamente.",
+    "blockedTitle": "Esta conta não pode entrar no {site}",
+    "blockedBody": "Um administrador do {site} bloqueou o cadastro deste endereço, então nenhuma conta foi criada. Se for um engano, fale com a equipe do laboratório."
   },
   "demoBanner": {
     "label": "Dados de demonstração",

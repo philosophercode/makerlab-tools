@@ -244,9 +244,16 @@
   "auth": {
     "eyebrow": "התחברות",
     "title": "החשבון הזה אינו חשבון {institution}",
-    "body": "{site} מאפשר התחברות רק עם חשבונות {institution}, ולכן אי אפשר להשתמש בחשבון הזה.",
+    "refusedAddress": "לא ניתן להשתמש ב-<address>{email}</address>: {site} מקבל רק חשבונות {institution} (כתובות שמסתיימות ב-@{domain}).",
+    "refusedUnknown": "לא ניתן להשתמש בחשבון Google הזה: {site} מקבל רק חשבונות {institution} (כתובות שמסתיימות ב-@{domain}).",
+    "blockedAddress": "לא ניתן להשתמש ב-<address>{email}</address>: מנהל של {site} חסם את הכתובת הזו. אם זו טעות, פנו לצוות המעבדה.",
     "stillWorks": "שום דבר לא נעול. אפשר לעיין בקטלוג המלא ולשאול את העוזר שאלות בלי להתחבר; ההתחברות רק מגדילה את מכסת ההודעות לשעה ומוסיפה את שמך המאומת לכל מה שאתה שולח.",
-    "browseTools": "עיון בקטלוג"
+    "browseTools": "עיון בקטלוג",
+    "useDifferentAccount": "שימוש בחשבון Google אחר",
+    "switchUnconfigured": "הכניסה לא הוגדרה בפריסה הזו.",
+    "switchFailed": "לא ניתן להתחיל כניסה עם Google. נסו שוב.",
+    "blockedTitle": "החשבון הזה לא יכול להיכנס ל-{site}",
+    "blockedBody": "מנהל של {site} חסם את הכתובת הזו מהרשמה, ולכן לא נוצר חשבון. אם זו טעות, פנו לצוות המעבדה."
   },
   "demoBanner": {
     "label": "נתוני הדגמה",

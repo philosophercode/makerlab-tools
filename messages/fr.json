@@ -244,9 +244,16 @@
   "auth": {
     "eyebrow": "Connexion",
     "title": "Ce compte n'est pas un compte {institution}",
-    "body": "{site} n'accepte que les comptes {institution} pour la connexion, celui-ci ne peut donc pas être utilisé.",
+    "refusedAddress": "<address>{email}</address> ne peut pas être utilisé : {site} n'accepte que les comptes {institution} (adresses se terminant par @{domain}).",
+    "refusedUnknown": "Ce compte Google ne peut pas être utilisé : {site} n'accepte que les comptes {institution} (adresses se terminant par @{domain}).",
+    "blockedAddress": "<address>{email}</address> ne peut pas être utilisé : un administrateur de {site} a bloqué cette adresse. Si c'est une erreur, adressez-vous à l'équipe du lab.",
     "stillWorks": "Rien n'est verrouillé. Vous pouvez parcourir tout le catalogue et poser des questions à l'assistant sans vous connecter ; la connexion ne fait qu'augmenter la limite horaire de messages et associer votre nom vérifié à ce que vous envoyez.",
-    "browseTools": "Parcourir le catalogue"
+    "browseTools": "Parcourir le catalogue",
+    "useDifferentAccount": "Utiliser un autre compte Google",
+    "switchUnconfigured": "La connexion n'est pas configurée sur ce déploiement.",
+    "switchFailed": "Impossible de lancer la connexion Google. Réessayez.",
+    "blockedTitle": "Ce compte ne peut pas se connecter à {site}",
+    "blockedBody": "Un administrateur de {site} a empêché cette adresse de s'inscrire, aucun compte n'a donc été créé. Si c'est une erreur, adressez-vous à l'équipe du lab."
   },
   "demoBanner": {
     "label": "Données de démonstration",
