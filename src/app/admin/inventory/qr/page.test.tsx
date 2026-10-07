@@ -72,7 +72,8 @@ it.each(["admin", "super_admin"] as const)("gives %s the published tools, never 
   const studio = elements(page).find((el) => el.type === QrLabelStudio)?.props as QrLabelStudioProps;
   expect(studio.rows.map((row) => row.slug).sort()).toEqual(["form-4", "trotec-speedy-400"]);
   expect(studio.origin).toBe("https://tools.example.edu");
-  expect(studio.wordmarkHref).toBe("/makerlab-wordmark.png");
+  // The lab's official logo, as the PNG pdf-lib can embed.
+  expect(studio.brandHref).toBe("/brand/cornell-tech-makerlab-logo.png");
 });
 
 it("hands each tool its units for unit labels, never a retired one (amendment 2026-10-06)", async () => {

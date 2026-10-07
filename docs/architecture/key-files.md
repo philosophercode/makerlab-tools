@@ -7,7 +7,8 @@
 
 | Path | Purpose |
 |---|---|
-| `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults), including `labHours` and the header `wordmark`. Names: **MakerLAB** is the lab, **MakerLAB Tools** the site, **MakerLAB Assistant** the AI (identity spec 2026-09-28) |
+| `src/lib/site-config.ts` | White-label branding (env-driven, all have defaults), including `labHours`, the header `wordmark`, and the official `logo` with its PNG `logoPng`. Names: **MakerLAB** is the lab, **MakerLAB Tools** the site, **MakerLAB Assistant** the AI (identity spec 2026-09-28) |
+| `src/components/BrandLogo.tsx` / `public/brand/` | The lab's official logo (the Cornell Tech MakerLAB lockup) as a mask in the text colour, on the kiosk, the footer and About; the SVGs (dark and white) and the PNG the QR labels and the link-preview card draw (identity spec amendment 2026-10-06) |
 | `src/lib/ai/lab-context.ts` | The assistant's "Where you are" block — the lab, its people, Cornell Tech, and its operate / debug / create purpose — placed after the intro in the static prompt prefix. Sourced facts only; sources in its comments |
 | `src/lib/lab-notes/*` / `src/lib/ai/lab-notes-prompt.ts` / `src/app/admin/inventory/lab-notes/` / `src/components/tool/LabNotes.tsx` | Lab notes (identity spec amendment "Lab notes"): a tool's are `tools.notes`, the lab-wide ones the `lab_settings` key `lab_notes`; both one note per line (`labNoteLines`). The prompt's rules and lab-wide notes (stable prefix), the cached chat read (`getLabWideNotes`, tag `catalog`), the admin page and `lab.set_notes`, the tool page's block above the description |
 | `src/lib/ai/lab-companion.ts` | The assistant's "The lab first, then its people" block, right after "Where you are": the lab's own notes, SOPs and PPE before the manual, and a person (a SuperMaker, staff, a training) suggested for first use, safety and technique. Never weakens citations or "I don't know" (identity spec amendment 2026-10-06) |

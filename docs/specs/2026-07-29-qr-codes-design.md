@@ -1,7 +1,7 @@
 # QR Codes on Machines — Design Spec
 
 **Date:** 2026-07-29
-**Status:** Implemented — `npm run qr:labels` (status audit 2026-09-27, [`README.md`](README.md)); amended 2026-09-29, "QR labels in the app" (§12); amended 2026-10-06, "Unit labels and reporting from a unit" (§13)
+**Status:** Implemented — `npm run qr:labels` (status audit 2026-09-27, [`README.md`](README.md)); amended 2026-09-29, "QR labels in the app" (§12); amended 2026-10-06, "Unit labels and reporting from a unit" (§13) and "The lab's official logo on the labels" (§14)
 **Target:** `v5/`
 **Branch:** `v5/qr-labels`
 
@@ -356,3 +356,43 @@ handed down, retired ones not).
 3. **Units on the tool page itself.** The units table could carry a Report button per row
    for people who did not scan. Not built here, to keep this change to the scan path.
 4. **Print and scan a unit sheet in the lab** before labelling every machine (§9 step 3).
+
+## 14. Amendment 2026-10-06 — The lab's official logo on the labels
+
+The MakerLAB wordmark on a label (§12's styler, the PDF, the label SVG and PNG,
+`npm run qr:labels -- --pdf`) is now the lab's official logo: the Cornell seal
+beside "CORNELL TECH" over "MakerLAB" (identity spec, amendment "The official
+Cornell Tech MakerLAB logo"). The label draws its PNG, `siteConfig.logoPng`,
+because `pdf-lib` embeds PNG and not SVG.
+
+- **Same height, so no code got smaller.** The logo is drawn at the height the
+  wordmark had on every preset (`typeScale`: 3.6 mm on 2″, 2.7 mm on 1.5″,
+  5.3 mm on 3″), at its own proportions (`BRAND_ASPECT`, 277.68 × 76.13, so
+  13 mm wide on 2″ where the wordmark was 21 mm). The default 2″ code stays
+  25.4 mm, just over §6's floor; a taller logo would have pushed it under. At
+  300 dpi "CORNELL TECH" and "MakerLAB" read on 2″ and 3″ labels and are small
+  on 1.5″. Only a custom label over 78.6 mm on its short side draws the logo
+  taller than before: the cap rose from 5.5 to 9 mm.
+- **Unit labels** (§13) draw the same logo at the same height, so a 2″ unit
+  label's code is unchanged (26 mm with the defaults, above the floor).
+- **Labels for wide stickers** (text beside the code) size the logo from the
+  label's height, as before. A 1″-tall one draws it 1.8 mm tall, too small to
+  read its type. Owner's call whether to give that layout a taller logo; the
+  room is there beside the code (open question below).
+- **Fallback.** When the image cannot be read, or the file is not a PNG, the
+  lab's name is written instead of failing the PDF, sized to fit the box.
+- **Words.** The checkbox reads "MakerLAB logo" and the "not enough room" list
+  says "the logo" (English; the other locales fall back to it, Article 6).
+  The saved style keeps its `showBrand` key, so nobody's choice is lost.
+- **Identifiers.** `wordmarkHref`, `wordmarkPng` and `wordmarkText` became
+  `brandHref`, `brandPng` and `brandText`, matching the layout's `brand` box;
+  `WORDMARK_ASPECT` became `BRAND_ASPECT`.
+- **Tests.** `lib/qr/label-pdf.test.ts` (the logo embedded once per sheet; a
+  file that is not a PNG still makes a PDF), `lib/qr/matrix.test.ts` (the
+  label SVG names the logo's PNG; the fallback name fits its box),
+  `components/admin/qr/QrLabelStudio.test.tsx` (the preview draws the logo),
+  `app/admin/inventory/qr/page.test.tsx` (the page hands the studio the PNG).
+
+**Still open.** Print one sheet of 2″ labels with the logo and check it in the
+lab before printing a hundred. Decide whether wide side-by-side labels get a
+taller logo.

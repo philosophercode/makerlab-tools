@@ -302,7 +302,10 @@ Q3).
   this changes"; an anonymous one sees "Sign in to be told when this is fixed". These are
   new `next-intl` strings (Article 6).
 - **Email templates** are react-email, with branding from `siteConfig`, plain-text
-  alternatives, no tracking pixels and no click tracking (Resend's are off).
+  alternatives, no tracking pixels and no click tracking (Resend's are off). The
+  header image is the lab's official logo as a PNG (`siteConfig.logoPng`, an absolute
+  URL on `siteUrl()`), since most mail clients do not show SVG (identity spec amendment
+  2026-10-06).
 
 ## 7. Relationship to existing work
 

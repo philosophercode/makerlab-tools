@@ -29,6 +29,13 @@ no new permission, no model call.
   through a hidden frame, SVG/PNG of one label. Printing writes nothing — no
   server action, no audit, nothing for the parity guard. The style lives in
   `localStorage` (try/catch), read after hydration (`useHydrated`).
+- **The brand image** on a label is the lab's official logo as a PNG
+  (`siteConfig.logoPng`, `public/brand/cornell-tech-makerlab-logo.png`;
+  `pdf-lib` embeds PNG, not SVG), passed to the studio as `brandHref` and to
+  the PDF as `brandPng`. It is drawn at the height the wordmark had
+  (`typeScale`) and the logo's own proportions (`BRAND_ASPECT`). When it
+  cannot be read, or is not a PNG, the lab's name is written in its box
+  (QR codes spec §14, amendment 2026-10-06).
 - **`GET /api/qr/[slug]`** is public, published-only (draft, archived and
   unknown are one 404), limited per hashed IP (`ROUTE_TIERS.qr`, no cookie),
   CDN-cached. The tool page's `ToolQrButton` (beside `FlagButton`, which takes
@@ -62,7 +69,7 @@ no new permission, no model call.
   names the unit and its id for a unit code. `/api/qr/[slug]`, the tool
   page's dialog and `get_tool_qr_code` stay tool-only.
 - **Size defaults.** The 1″ preset, and a custom size whose code would fall
-  under 25 mm, start with the wordmark and the extra line off
+  under 25 mm, start with the logo and the extra line off
   (`withSizeDefaults`, applied only when the size changes; `showExtra` keeps
   the words while the line is off).
 - **Tests:** `lib/qr/*.test.ts`, `app/api/qr/[slug]/route.test.ts`,

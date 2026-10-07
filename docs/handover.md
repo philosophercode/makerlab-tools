@@ -310,7 +310,9 @@ is the repository root.
 Nothing about Cornell is hardcoded. Follow [`deploy.md`](deploy.md) Part 2, then:
 
 1. Set the `NEXT_PUBLIC_*` branding variables and `AUTH_ALLOWED_EMAIL_DOMAIN` for your
-   institution, and replace the logo in `public/`.
+   institution, and replace the logo in `public/`: a one-colour SVG for `NEXT_PUBLIC_LOGO`
+   with a PNG of it beside it under the same name (the QR labels and the link-preview
+   card draw the PNG), and the header's wordmark (`NEXT_PUBLIC_WORDMARK`).
 2. **Only if migrating an existing Notion catalogue:** run `npm run import:notion` once
    ([`deploy.md`](deploy.md) Stage 2). A new lab skips this and adds equipment through
    intake.

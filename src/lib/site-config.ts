@@ -18,11 +18,25 @@ export interface SiteConfig {
   chatAssistantName: string;
   /** Audience description used in the AI system prompt (server-only). */
   audience: string;
-  /** Path to the logo image in /public (the full lockup, e.g. "MakerLAB@CORNELL TECH"). */
+  /**
+   * Path to the institution's official logo in /public: one colour, vector
+   * (the Cornell Tech MakerLAB lockup: the Cornell seal, "CORNELL TECH",
+   * "MakerLAB"). `BrandLogo` draws it as a mask in the text colour (the
+   * kiosk, the footer, About), so one file reads dark on light and light on
+   * dark.
+   */
   logo: string;
   /**
+   * The same logo as a PNG, for what cannot draw an SVG: the QR label sheets
+   * (`pdf-lib` embeds PNG), the link-preview card, email. An SVG logo's PNG
+   * sits beside it under the same name (`pngTwin`); a PNG logo is its own.
+   */
+  logoPng: string;
+  /**
    * Path to the wordmark alone in /public ("MakerLAB"), shown as a mask in the
-   * site header so it takes the theme's text colour. Cropped from `logo`.
+   * site header so it takes the theme's text colour. Cropped from the lab's
+   * earlier "MakerLAB@CORNELL TECH" logo. The header keeps it (owner
+   * decision, 2026-10-06); nothing else uses it.
    */
   wordmark: string;
   /**
@@ -38,6 +52,13 @@ export interface SiteConfig {
   };
 }
 
+/** An SVG's PNG twin: the same path ending in `.png`. Any other file is its own. */
+export function pngTwin(path: string): string {
+  return path.replace(/\.svg$/i, ".png");
+}
+
+const LOGO = process.env.NEXT_PUBLIC_LOGO ?? "/brand/cornell-tech-makerlab-logo.svg";
+
 export const siteConfig: SiteConfig = {
   name: process.env.NEXT_PUBLIC_SITE_NAME ?? "MakerLAB Tools",
   institution: process.env.NEXT_PUBLIC_INSTITUTION ?? "Cornell Tech",
@@ -47,7 +68,8 @@ export const siteConfig: SiteConfig = {
   chatAssistantName:
     process.env.NEXT_PUBLIC_CHAT_ASSISTANT_NAME ?? "MakerLAB Assistant",
   audience: process.env.AUDIENCE ?? "students who may be beginners",
-  logo: process.env.NEXT_PUBLIC_LOGO ?? "/makerlab-logo-transparent.png",
+  logo: LOGO,
+  logoPng: pngTwin(LOGO),
   wordmark: process.env.NEXT_PUBLIC_WORDMARK ?? "/makerlab-wordmark.png",
   labHours: process.env.NEXT_PUBLIC_LAB_HOURS || "LAB OPEN 8AM-8PM",
   colors: {

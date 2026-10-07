@@ -30,9 +30,12 @@ export interface LabelSheetInput {
   labels: LabelContent[];
   style: LabelStyle;
   sheet: SheetSetup;
-  /** `public/makerlab-wordmark.png`'s bytes; without them the lab's name is written instead. */
-  wordmarkPng?: Uint8Array | ArrayBuffer | null;
-  wordmarkText?: string;
+  /**
+   * The brand image's bytes: the lab's logo as a PNG (`siteConfig.logoPng`).
+   * Without them, or when they are not a PNG, the lab's name is written instead.
+   */
+  brandPng?: Uint8Array | ArrayBuffer | null;
+  brandText?: string;
   /** The document title. */
   title?: string;
 }
@@ -83,8 +86,8 @@ function drawLabel(
   qrText: string,
   origin: { x: number; y: number },
   fonts: HelveticaFonts,
-  wordmark: PDFImage | null,
-  wordmarkText: string
+  brandImage: PDFImage | null,
+  brandText: string
 ) {
   const pageHeight = page.getHeight();
   const px = (mm: number) => (origin.x + mm) * PT_PER_MM;
@@ -104,11 +107,12 @@ function drawLabel(
 
   if (layout.brand) {
     const { x, y, width, height } = layout.brand;
-    if (wordmark) {
-      page.drawImage(wordmark, { x: px(x), y: py(y + height), width: width * PT_PER_MM, height: height * PT_PER_MM });
+    if (brandImage) {
+      page.drawImage(brandImage, { x: px(x), y: py(y + height), width: width * PT_PER_MM, height: height * PT_PER_MM });
     } else {
-      const size = height * PT_PER_MM * 0.95;
-      const text = pdfSafeText(wordmarkText, fonts.bold);
+      // The name, as tall as the box allows and never wider than it.
+      const text = pdfSafeText(brandText, fonts.bold);
+      const size = Math.min(height * PT_PER_MM * 0.95, (width * PT_PER_MM) / Math.max(fonts.bold.widthOfTextAtSize(text, 1), 1e-6));
       const textWidth = fonts.bold.widthOfTextAtSize(text, size);
       const left = layout.orientation === "side" ? px(x) : px(x + width / 2) - textWidth / 2;
       page.drawText(text, { x: left, y: py(y + height * 0.85), size, font: fonts.bold, color: rgb(0, 0, 0) });
@@ -136,8 +140,9 @@ export async function buildLabelSheetPdf(input: LabelSheetInput): Promise<Uint8A
   doc.setProducer("MakerLAB Tools");
   const fonts = await embedHelvetica(doc);
   const measure = helveticaMeasure(fonts);
-  const wordmark = input.wordmarkPng ? await doc.embedPng(input.wordmarkPng) : null;
-  const wordmarkText = input.wordmarkText ?? "MakerLAB";
+  // A file that is not a PNG (a logo set to a JPEG, an HTML error page) is the missing-image case.
+  const brandImage = input.brandPng ? await doc.embedPng(input.brandPng).catch(() => null) : null;
+  const brandText = input.brandText ?? "MakerLAB";
 
   // To a thousandth of a point, so Letter is exactly 612 × 792 (a printer
   // matching paper by size should not see 612.0000000000001).
@@ -160,7 +165,7 @@ export async function buildLabelSheetPdf(input: LabelSheetInput): Promise<Uint8A
         borderDashArray: [2, 2],
       });
     }
-    drawLabel(current, layoutLabel(style, label, measure), label.url, cell, fonts, wordmark, wordmarkText);
+    drawLabel(current, layoutLabel(style, label, measure), label.url, cell, fonts, brandImage, brandText);
   });
   if (labels.length === 0) doc.addPage(pageSize);
   return doc.save();

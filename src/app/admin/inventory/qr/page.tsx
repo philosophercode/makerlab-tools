@@ -25,7 +25,9 @@ import { siteConfig } from "../../../../lib/site-config";
  *
  * Everything after the list is the browser's: the styler, the preview and the
  * PDF (`QrLabelStudio`), so choosing a size costs no round trip. Printing
- * writes nothing, so there is no server action and nothing to audit.
+ * writes nothing, so there is no server action and nothing to audit. The
+ * label's brand image is the lab's official logo as a PNG (`pdf-lib` embeds
+ * PNG, not SVG).
  */
 
 export const metadata = {
@@ -60,7 +62,7 @@ export default async function AdminQrLabelsPage() {
         lede={t("qrLabels.lede")}
         facts={[t("facts.published", { count: rows.length })]}
       />
-      <QrLabelStudio rows={rows} origin={qrSiteUrl()} wordmarkHref={siteConfig.wordmark} />
+      <QrLabelStudio rows={rows} origin={qrSiteUrl()} brandHref={siteConfig.logoPng} />
     </section>
   );
 }

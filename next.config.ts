@@ -99,12 +99,8 @@ const nextConfig: NextConfig = {
         // Photos for the demo seed's sample project (src/lib/db/demo-seed.ts).
         pathname: "/sample-projects/**",
       },
-      {
-        pathname: "/makerlab-logo-transparent.png",
-      },
-      {
-        pathname: "/makerlab-logo-blackonly.png",
-      },
+      // The lab's logos are not drawn with next/image: the official logo is
+      // an SVG mask (`BrandLogo`) and the header's wordmark a PNG mask.
     ],
     // The lab's own public Blob store only (src/lib/images/remote-patterns.ts):
     // the optimizer is unauthenticated and billed per source, so a wildcard
