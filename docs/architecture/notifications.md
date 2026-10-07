@@ -23,7 +23,7 @@ unsubscribe. Neither the assistant nor an MCP client can send mail or change who
 
 | File | What it does |
 |---|---|
-| `src/lib/db/schema/notifications.ts`, migration `0030` | `notifications` (the outbox: one row per event, unique `dedupe_key`), `notification_deliveries` (one row per recipient; its id is the provider's `Idempotency-Key`; unique `(notification_id, user_id)`), `notification_preferences` (per person; no row = defaults), `maintenance_reminder_items` (which task and due date a reminder named; primary key `(schedule_id, due_on)`). **No address and no rendered body in any of them.** Removing a person cascades |
+| `src/lib/db/schema/notifications.ts`, migration `0029` | `notifications` (the outbox: one row per event, unique `dedupe_key`), `notification_deliveries` (one row per recipient; its id is the provider's `Idempotency-Key`; unique `(notification_id, user_id)`), `notification_preferences` (per person; no row = defaults), `maintenance_reminder_items` (which task and due date a reminder named; primary key `(schedule_id, due_on)`). **No address and no rendered body in any of them.** Removing a person cascades |
 | `src/lib/notifications/events.ts` | `NOTIFICATION_EVENT_DEFS`: each event's permission and default |
 | `src/lib/notifications/enqueue.ts` | `enqueueNotification(tx, …)`: one outbox row inside the caller's transaction, `ON CONFLICT DO NOTHING` |
 | `src/lib/notifications/recipients.ts` | `resolveRecipients` (roles that `can()` the permission, not banned, preference `immediate`) and `checkRecipient` (the send-time re-check). Reads `id` and `role`, never the address |

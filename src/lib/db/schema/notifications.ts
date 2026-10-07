@@ -14,7 +14,7 @@ import {
 } from "./vocabulary.ts";
 
 /**
- * Email notifications (email notifications spec §4; migration `0030`).
+ * Email notifications (email notifications spec §4; migration `0029`).
  *
  * Four tables, and **none of them holds an email address or a rendered
  * body.** The address is read from `user` inside the send step and handed
