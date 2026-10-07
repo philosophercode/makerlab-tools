@@ -31,7 +31,10 @@ describe("withEnglishFallback", () => {
     for (const code of LOCALE_CODES) {
       const locale = (await import(`../../messages/${code}.json`)).default as Messages;
       const merged = withEnglishFallback(en as Messages, locale);
-      expect(flatKeys(merged)).toEqual(expect.arrayContaining(flatKeys(en as Messages)));
+      // A set, not `arrayContaining`: that matcher is quadratic, and with a few
+      // thousand keys in twelve files it outgrew the test timeout.
+      const have = new Set(flatKeys(merged));
+      expect(flatKeys(en as Messages).filter((key) => !have.has(key))).toEqual([]);
     }
     // Twelve large catalogues transformed and compared: past the 5 s default
     // on a busy machine, though nothing is wrong.

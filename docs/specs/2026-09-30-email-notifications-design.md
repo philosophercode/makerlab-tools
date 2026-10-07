@@ -803,8 +803,8 @@ nothing breaks (Article 3). How it works, file by file:
    `siteUrl()`) on a white band, so the black mark stays readable in a dark-mode client, with alt
    text for clients that block images. §6's "no images" otherwise holds: no tracking, system
    fonts, text part first.
-9. **Vocabulary and schema.** Migration `0030` (written as `0028`; renumbered after the manual
-   eval questions' `0028` and on-shift's `0029` when the branches were stacked).
+9. **Vocabulary and schema.** Migration `0029` (written as `0028`; renumbered after the manual
+   eval questions' `0028` when the branches were stacked).
    `NOTIFICATION_EVENTS` is `ticket.filed` and `maintenance.due` only; v1.1's events join it, and
    the CHECK constraint, when they are built. `notifications.subject_id` is `text` (the reminder's
    subject is a lab date), and two columns were added: `skip_reason` (`capped`, `subject_gone`)
@@ -858,20 +858,13 @@ is the revised design; the daily list is gone.
   named by the next run.
 - **One email a day at most.** The day's newly due tasks share one email, one outbox row keyed
   `maintenance.due:<lab date>` (unique), delivered by the same steps as a ticket alert: same
-  recipients rule, same idempotency, same unsubscribe. A second start the same day finds nothing
-  new, or finds the day's row and sends nothing; a task that comes due after the day's email is
-  named the next day. Nothing newly due, no row.
-- **What it lists.** The tasks the reminder named, as they stand at send time: one checked off,
-  paused or archived in between drops out, and an email left with nothing is skipped
-  (`subject_gone`). "Due today", then "Came due earlier" (with days overdue). Each line is the
-  task, its machine (or "General lab upkeep") and unit. At most 25 lines a section, then "and N
-  more on the checklist".
-- **Subject and links.** "Shift checklist: 2 recurring tasks came due"; one link, "Open the Shift
-  checklist", to `/admin/maintenance#due-tasks`. The official logo heads it like the ticket email.
-- **Retention.** The cron stage deletes an item once its task's cycle is over (`due_on` before the
-  task's `next_due_on`): nothing can name that date again.
-- **Offline.** With email not configured, the cron stage records the reminder at once as
-  `not_configured` instead of starting a sleeping workflow, and records the items the same way.
+  recipients rule, same re-checks, same idempotency, same unsubscribe. A second start the same
+  day finds the row and sends nothing.
+- **Subject and links.** "Shift checklist: 2 overdue, 3 due today"; one link, "Open the Shift
+  checklist", to `/admin/maintenance/checklist` (the Shift checklist tab since the admin sections
+  spec; first written as `/admin/maintenance#due-tasks`). The official logo heads it like the ticket email.
+- **Offline.** With email not configured, the cron stage records the day's reminder at once as
+  `not_configured` instead of starting a sleeping workflow.
 - **No new environment variables.**
 
 **Tests.** `src/lib/notifications/reminder.test.ts` (the wait, both sides of daylight saving),

@@ -125,18 +125,6 @@ const nextConfig: NextConfig = {
     // re-billing) it every hour.
     minimumCacheTTL: 2_678_400,
   },
-  // The full tool list moved from the home page to `/tools` (student home
-  // spec 2026-10-07 §5). An old link to `/` that carries a list filter
-  // (`/?category=Laser`, a shared search) lands on the list, query and all.
-  // `/?ask=1` and `/?src=kiosk` are not list filters and stay on the home page.
-  async redirects() {
-    return GALLERY_QUERY_KEYS.map((key) => ({
-      source: "/",
-      has: [{ type: "query" as const, key }],
-      destination: ALL_TOOLS_PATH,
-      permanent: false,
-    }));
-  },
   async headers() {
     return [
       {
@@ -145,6 +133,33 @@ const nextConfig: NextConfig = {
         source: "/tool-images/thumbs/:file*",
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
       },
+    ];
+  },
+  async redirects() {
+    return [
+      // The full tool list moved from the home page to `/tools` (student home
+      // spec 2026-10-07 §5). An old link to `/` that carries a list filter
+      // (`/?category=Laser`, a shared search) lands on the list, query and all.
+      // `/?ask=1` and `/?src=kiosk` are not list filters and stay on the home page.
+      ...GALLERY_QUERY_KEYS.map((key) => ({
+        source: "/",
+        has: [{ type: "query" as const, key }],
+        destination: ALL_TOOLS_PATH,
+        permanent: false,
+      })),
+      // Admin sections spec 2026-10-07: every admin page kept its address, so no
+      // old link breaks. These are the names the design review and the new
+      // sections use, sent to the page that holds them. Temporary (307), so a
+      // later move of the page itself is not stuck in browsers' caches.
+      // `/admin/people` is a page, not a redirect here: where it goes depends on
+      // who is asking (`app/admin/people/page.tsx`).
+      { source: "/admin/overview", destination: "/admin", permanent: false },
+      { source: "/admin/today", destination: "/admin", permanent: false },
+      { source: "/admin/mcp", destination: "/admin/proposals", permanent: false },
+      { source: "/admin/settings/mcp", destination: "/admin/proposals", permanent: false },
+      { source: "/admin/settings/notion", destination: "/admin/mirror", permanent: false },
+      { source: "/admin/inventory/add", destination: "/admin/intake", permanent: false },
+      { source: "/admin/checklist", destination: "/admin/maintenance/checklist", permanent: false },
     ];
   },
 };

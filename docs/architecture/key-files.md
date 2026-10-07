@@ -76,8 +76,11 @@
 | `src/lib/auth/permissions.ts` | `statement` / `ac` / `roles` / `can()` — what each role may do |
 | `src/lib/auth/super-admins.ts` | `AUTH_SUPER_ADMIN_EMAILS`, the lock-out floor |
 | `src/lib/auth/floor-role.ts` | `reconcileSuperAdminFloor` — writes the floor's role and lifts its ban onto the row, because the admin plugin reads the row and not `can()` |
-| `src/app/admin/layout.tsx` | The `/admin` front door — signed in? holds an admin permission? — then the section bar on every admin page, and `PaletteScope` telling the header's ⌘K who this is |
-| `src/lib/admin/surfaces.ts` / `src/lib/data/admin-overview.ts` | Every admin surface once (tiles, bar, palette, each with its permission) / the home's count loaders |
+| `src/app/admin/layout.tsx` | The `/admin` front door — signed in? holds an admin permission? — then the six-section bar on every admin page, the viewer's surfaces for the section tabs (`AdminSurfacesProvider`), and `PaletteScope` telling the header's ⌘K who this is |
+| `src/lib/admin/surfaces.ts` / `src/lib/data/admin-overview.ts` | Every admin surface once, in its section (bar, tabs, overview, palette, each with its permission) / the overview's count loaders |
+| `src/app/admin/page.tsx` / `src/components/admin/overview/` | The Overview: Need to know, the Shift checklist, quick actions, Waiting for a decision, Inventory health (rows from `overview-model.ts`) |
+| `src/app/admin/maintenance/checklist/page.tsx` / `src/components/admin/DueTasks.tsx` | The Shift checklist: recurring tasks due, Done, a note, Mark resolved on the machine's open issues |
+| `src/app/admin/settings/page.tsx` / `src/app/admin/settings/ai-agents/page.tsx` | Settings › General (lab screen, Refresh catalog, tokens) / AI agents (research and intake agents, the research budget) |
 | `src/components/palette/*` | The ⌘K palette on every page: `CommandPalette`, `HeaderSearch`, `PaletteScope`, `palette-match` |
 | `src/app/admin/inventory/page.tsx` | The review table (`tools.edit`), uncached, filtered from the URL |
 | `src/app/admin/users/actions.ts` | `setUserRole` / `setUserTitle` / `setUserName` / `addPerson` / `removeUser` / `unblockBlockedEmail` — the People page's server actions (Ban retired 2026-09-25), wrappers over `lib/actions/people*.ts` |
@@ -93,7 +96,7 @@
 | `src/lib/data/action-proposals.ts` / `action-subjects.ts` | `action_proposals` (claim once, creator only, TTLs); the id → name reads previews and page context use |
 | `src/lib/capabilities/actions.ts` / `admin-reads.ts` | The generated proposing tools (chat, and MCP for `mcp: "propose"`) and their prompt; `find_people`, `list_corrections`, `list_project_queue` |
 | `src/app/api/action-proposals/route.ts` | Confirm / cancel an assistant proposal (cookie only), and re-read the caller's proposals by id or chat |
-| `src/app/admin/proposals/page.tsx` | **Assistant proposals**: the viewer's own MCP proposals as confirmation cards, and the last week's decided ones; `?view=manuals` groups the resource proposals by tool (`components/admin/ManualTriage*.tsx`, `manual-triage-state.ts`, `lib/data/manual-triage-tools.ts`) |
+| `src/app/admin/proposals/page.tsx` | Settings › **MCP**, holding **Assistant proposals**: the viewer's own MCP proposals as confirmation cards, and the last week's decided ones; `?view=manuals` groups the resource proposals by tool (`components/admin/ManualTriage*.tsx`, `manual-triage-state.ts`, `lib/data/manual-triage-tools.ts`) |
 | `src/components/chat/ActionProposalCard.tsx` / `page-selection.tsx` | The confirmation card; the page selection the chat sends |
 | `src/lib/admin/queue-write.ts` | `QueueActionResult`; `runQueueWrite` has no callers since the action layer (awaiting deletion approval) |
 | `src/app/admin/maintenance/`, `corrections/`, `projects/` | The three queues: one page, one result module and one action apiece |

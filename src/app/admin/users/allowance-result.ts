@@ -1,6 +1,14 @@
 import type { AdminActionWarning, AdminGateError } from "../../../lib/admin/action-result";
 
 /**
+ * Where setup allowances are granted, and the page a grant refreshes: the
+ * research budget sits under Settings › AI agents since the admin sections
+ * spec (2026-10-07), no longer on the People roster. The action stays here,
+ * beside the roster's, because it is a change to a person.
+ */
+export const AI_AGENTS_PATH = "/admin/settings/ai-agents";
+
+/**
  * **Grant a setup allowance**'s answer (bulk intake spec §4.2). Apart from the
  * action because a `"use server"` module may export only async functions.
  */

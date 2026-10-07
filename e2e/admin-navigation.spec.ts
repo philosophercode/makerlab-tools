@@ -3,8 +3,9 @@ import { DEMO_ACCOUNTS } from "../src/lib/db/demo-seed";
 import { signIn } from "./utils/session";
 
 /**
- * Admin navigation, end to end (UI system spec §8.1, phase 4): the section bar
- * on every admin page, Intake's tabs, and the ⌘K palette — each
+ * Admin navigation, end to end (UI system spec §8.1, phase 4; admin sections
+ * spec 2026-10-07): the six-section bar on every admin page, the section's
+ * tabs under each header, Add equipment's own tabs, and the ⌘K palette — each
  * offering only what the viewer's permissions open.
  */
 
@@ -26,7 +27,34 @@ test.describe("the section bar", () => {
     await expect(bar.getByRole("link", { name: "Maintenance", exact: true })).toHaveAttribute("aria-current", "page");
     // A director sees People; the bar carries no waiting counts.
     await expect(bar.getByRole("link", { name: "People", exact: true })).toBeVisible();
-    await expect(bar.getByRole("list", { name: "Queues" })).not.toContainText(/\d/);
+    await expect(bar).not.toContainText(/\d/);
+    // The section's other pages are tabs under the header.
+    const tabs = page.getByRole("navigation", { name: "Maintenance pages" });
+    await expect(tabs.getByRole("link", { name: "Tickets" })).toHaveAttribute("aria-current", "page");
+    await tabs.getByRole("link", { name: "Shift checklist" }).click();
+    await expect(page).toHaveURL(/\/admin\/maintenance\/checklist$/);
+    await expect(page.getByRole("heading", { name: "Shift checklist", level: 2 })).toBeVisible({ timeout: 15_000 });
+    await expect(bar.getByRole("link", { name: "Maintenance", exact: true })).toHaveAttribute("aria-current", "page");
+  });
+
+  test("keeps QR labels one click from Inventory and from the overview", async ({ page, context, baseURL }) => {
+    await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
+    await page.goto("/admin");
+    await expect(page.getByRole("heading", { name: "Overview", level: 2 })).toBeVisible({ timeout: 15_000 });
+    await page.getByRole("group", { name: "Admin actions" }).getByRole("link", { name: /Print QR labels/ }).click();
+    await expect(page).toHaveURL(/\/admin\/inventory\/qr$/);
+    await expect(page.getByRole("heading", { name: "QR labels", level: 2 })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("navigation", { name: "Inventory pages" }).getByRole("link", { name: "QR labels" })).toHaveAttribute(
+      "aria-current",
+      "page"
+    );
+  });
+
+  test("sends /admin/people to the People page the viewer may open", async ({ page, context, baseURL }) => {
+    await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
+    await page.goto("/admin/people");
+    await expect(page).toHaveURL(/\/admin\/projects$/, { timeout: 15_000 });
+    await expect(page.getByRole("heading", { name: "Student projects", level: 2 })).toBeVisible({ timeout: 15_000 });
   });
 
   test("is not shown to a signed-in student, who is refused in words", async ({ page, context, baseURL }) => {
@@ -44,12 +72,12 @@ test.describe("the section bar", () => {
   });
 });
 
-test("Intake is one surface: Queue and Imports tabs, and Import a list as its action", async ({ page, context, baseURL }) => {
+test("Add equipment is one surface: Queue and Imports tabs, and Import a list as its action", async ({ page, context, baseURL }) => {
   await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
   await page.goto("/admin/intake");
 
-  await expect(page.getByRole("heading", { name: "Intake", level: 2 })).toBeVisible({ timeout: 15_000 });
-  const tabs = page.getByRole("navigation", { name: "Intake" });
+  await expect(page.getByRole("heading", { name: "Add equipment", level: 2 })).toBeVisible({ timeout: 15_000 });
+  const tabs = page.getByRole("navigation", { name: "Add equipment" });
   await expect(tabs.getByRole("link", { name: "Queue" })).toHaveAttribute("aria-current", "page");
   // Importing a list is part of Intake (2026-09-25): not a tab, not a surface.
   await expect(tabs.getByRole("link", { name: "Import a list" })).toHaveCount(0);
@@ -63,12 +91,12 @@ test("Intake is one surface: Queue and Imports tabs, and Import a list as its ac
 
   await page.getByRole("link", { name: "Import a list", exact: true }).first().click();
   await expect(page).toHaveURL(/\/admin\/intake\/imports\/new$/);
-  // The import page is Intake's: the bar marks Intake, the tabs mark Imports.
-  await expect(bar.getByRole("link", { name: "Intake", exact: true })).toHaveAttribute("aria-current", "page", { timeout: 15_000 });
+  // The import page is Add equipment's: the bar marks Inventory, the tabs mark Imports.
+  await expect(bar.getByRole("link", { name: "Inventory", exact: true })).toHaveAttribute("aria-current", "page", { timeout: 15_000 });
   await expect(tabs.getByRole("link", { name: "Imports" })).toHaveAttribute("aria-current", "page");
 });
 
-test("⌘K jumps to a tool by name, and offers a SuperMaker no People", async ({ page, context, baseURL }) => {
+test("⌘K jumps to a tool by name, and offers a SuperMaker no roster", async ({ page, context, baseURL }) => {
   await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
   await page.goto("/admin/maintenance");
   await expect(page.getByRole("heading", { name: "Maintenance", level: 2 })).toBeVisible({ timeout: 15_000 });
@@ -79,7 +107,7 @@ test("⌘K jumps to a tool by name, and offers a SuperMaker no People", async ({
     await page.keyboard.press("ControlOrMeta+k");
     await expect(palette).toBeVisible({ timeout: 1_000 });
   }).toPass({ timeout: 15_000 });
-  await expect(palette.getByRole("option", { name: /^People/ })).toHaveCount(0);
+  await expect(palette.getByRole("option", { name: /^Roster/ })).toHaveCount(0);
 
   await palette.getByRole("combobox").fill("form 4");
   await expect(palette.getByRole("option", { name: /Form 4/ })).toBeVisible();

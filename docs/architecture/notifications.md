@@ -11,10 +11,9 @@ The app emails staff. Two things, nothing else:
   client emails everyone whose role `can()` `maintenance.manage`: the machine, the unit, the
   title, the priority, the reporter's display name, an excerpt, and a link to the ticket on
   `/admin/maintenance#ticket-<id>`.
-- **A recurring task came due.** At 08:00 lab time on the day a task comes due, the same
-  people get one email naming it (the day's newly due tasks together), with a link to the
-  Shift checklist (`/admin/maintenance#due-tasks`). Each task is emailed once per due date,
-  never again while it stays overdue. Nothing newly due, nothing sent.
+- **Recurring maintenance is due.** At 08:00 lab time, on days when something is due today
+  or overdue, the same people get one email listing it, with a link to the Shift checklist
+  (`/admin/maintenance/checklist`). Nothing due, nothing sent.
 
 Both carry the official logo (`siteConfig.logoPng`) on a white band and a one-click
 unsubscribe. Neither the assistant nor an MCP client can send mail or change who gets it

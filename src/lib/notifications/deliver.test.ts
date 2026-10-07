@@ -418,7 +418,7 @@ describe("the maintenance reminder (each task's cadence)", () => {
     expect(email.body.text).toContain("Came due earlier (1)");
     expect(email.body.text).toContain("Clean the lens · Trotec Speedy 400 · 3 days overdue");
     expect(email.body.text).not.toContain("Next week's task");
-    expect(email.body.text).toContain(`${ORIGIN}/admin/maintenance#due-tasks`);
+    expect(email.body.text).toContain(`${ORIGIN}/admin/maintenance/checklist`);
     expect(verifyUnsubscribeToken(new URL((email.body.headers?.["List-Unsubscribe"] ?? "").slice(1, -1)).searchParams.get("t"), SECRET)?.event).toBe(
       "maintenance.due"
     );

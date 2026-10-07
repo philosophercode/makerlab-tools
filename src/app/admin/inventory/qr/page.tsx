@@ -31,7 +31,7 @@ import { siteConfig } from "../../../../lib/site-config";
  */
 
 export const metadata = {
-  title: `QR labels — ${siteConfig.name}`,
+  title: "QR labels",
 };
 
 export default async function AdminQrLabelsPage() {
@@ -56,8 +56,7 @@ export default async function AdminQrLabelsPage() {
   return (
     <section className="flex flex-col gap-4">
       <AdminPageHeader
-        surface="inventory"
-        item
+        surface="qr"
         title={t("qrLabels.title")}
         lede={t("qrLabels.lede")}
         facts={[t("facts.published", { count: rows.length })]}

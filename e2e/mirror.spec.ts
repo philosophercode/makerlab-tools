@@ -47,8 +47,10 @@ test("an admin connects a mirror, creates its databases, syncs, and sees when it
 
   // ── Step 1: the page, reached from /admin ─────────────────────────────────
   await page.goto("/admin");
+  // Settings › Notion mirror since the admin sections spec (2026-10-07).
   const surfaces = page.getByRole("navigation", { name: "Admin sections" });
-  await surfaces.getByRole("link", { name: "Notion mirror" }).click({ timeout: 15_000 });
+  await surfaces.getByRole("link", { name: "Settings" }).click({ timeout: 15_000 });
+  await page.getByRole("navigation", { name: "Settings pages" }).getByRole("link", { name: "Notion mirror" }).click({ timeout: 15_000 });
   await expect(page).toHaveURL(/\/admin\/mirror$/);
   await expect(page.getByRole("heading", { name: "Notion mirror", level: 2 })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Before you connect" })).toBeVisible();

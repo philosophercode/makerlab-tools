@@ -18,7 +18,7 @@ import { decideCategoryProposal, editCategory, mergeCategories, proposeCategory,
  */
 
 export const metadata = {
-  title: "Taxonomy",
+  title: "Categories",
 };
 
 export default async function AdminTaxonomyPage() {

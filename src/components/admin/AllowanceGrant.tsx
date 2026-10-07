@@ -17,7 +17,9 @@ import { NativeSelect } from "@/components/ui/native-select";
 import { StatusGlyph } from "../system/StatusGlyph";
 
 /**
- * **Setup allowances** on `/admin/users` (bulk intake spec §4.2): a super admin
+ * **Setup allowances** under Settings › AI agents (`/admin/settings/ai-agents`;
+ * on `/admin/users` until the admin sections spec, 2026-10-07; bulk intake
+ * spec §4.2): a super admin
  * gives whoever is loading the inventory extra research items for a while —
  * +400 for 7 days by default — on top of the daily 100. The people listed are
  * the ones who may add equipment; each shows what they hold now. The action
@@ -50,10 +52,10 @@ export function AllowanceGrant({ candidates, grant }: { candidates: AllowanceCan
   }
 
   return (
-    <section className="ui mt-8 flex flex-col gap-3" aria-labelledby="allowance-title">
-      <h3 id="allowance-title" className="font-heading text-lg font-medium uppercase">
+    <section className="ui flex flex-col gap-3" aria-labelledby="allowance-title">
+      <h4 id="allowance-title" className="m-0 font-mono text-label font-medium tracking-[0.08em] uppercase">
         {t("title")}
-      </h3>
+      </h4>
       <p className="max-w-[72ch] text-sm text-muted-foreground">{t("lede", { base: RESEARCH_DAILY_ITEM_LIMIT })}</p>
       <ul className="flex flex-col">
         {candidates

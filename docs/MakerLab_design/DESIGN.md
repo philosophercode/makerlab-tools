@@ -197,9 +197,10 @@ Each pattern names its component (`src/components/system/*`, `ui/*`,
 
 ### 8.1 Page header — `PageHeader`
 
-`// ADMIN / KEEP DATA FRESH` crumb (mono, the `//` in accent) → title → one-line
-lede → **facts line** (`101 TOOLS · 86 PUBLISHED · 11 DRAFTS · 97 NEED ATTENTION`)
-→ actions on the right.
+`// ADMIN / INVENTORY` crumb (mono, the `//` in accent; the section's name) →
+title → one-line lede → **facts line** (`101 TOOLS · 86 PUBLISHED · 11 DRAFTS ·
+97 NEED ATTENTION`) → actions on the right → on an admin page, the section's
+tabs (§8.12).
 
 - **Use** on every working page (admin, account, projects, mcp).
 - **Don't** stack a display heading above it (the old 88px "ADMIN"); don't put
@@ -217,6 +218,11 @@ lede → **facts line** (`101 TOOLS · 86 PUBLISHED · 11 DRAFTS · 97 NEED ATTE
 ![Header, section bar and facts line](screens/after-inventory-desktop.webp)
 
 ### 8.2 Tiles — `Tile`, `TileGroup`, `TileGrid`
+
+> **Not used since 2026-10-07.** The admin sections spec replaced the tiles home
+> with the Overview (§8.12): Need to know, the Shift checklist, and side plates of
+> rows. The components remain until their deletion is approved; what follows
+> describes them as they were.
 
 Whole tile is the link. Every tile has the same anatomy, in the same places:
 **label row** (mono title left, icon right) → **headline** (40px tabular
@@ -520,7 +526,7 @@ TO REPLACE THE RESIN TANK ON THE FORM 4:
   cited, one ruled row each. A page that was read but not cited is not listed.
 - **Where it opens.** Public pages: a square Safety Orange `>_` block at the
   inline-end corner. Admin pages: no floating block (it collided with bulk
-  bars) — the section bar's `ASK THE ASSISTANT` and ⌘K.
+  bars) — the section bar's `ASK MAKERLAB AI` and ⌘K.
 - **Don't** use rounded bubbles or avatars; don't strip citations; don't show
   a tool's JSON to a student; don't open a floating card that can't fit the
   cards it contains; don't push the page aside under the sheet (the page
@@ -570,15 +576,35 @@ TO REPLACE THE RESIN TANK ON THE FORM 4:
   screen — content is what a short screen is for. Every other width keeps its
   bar exactly as above, links centred from `lg`; the tool page keeps its
   breadcrumb.
-- **Admin**: a section bar under the top bar on every admin page:
-  `OVERVIEW ┃ INTAKE ┃ INVENTORY · REFRESH · MANUALS ┃
-  MAINTENANCE · CORRECTIONS · PROJECTS ┃ PEOPLE · NOTION MIRROR ┃ ▭ ASK THE ASSISTANT`
-  (the icon alone on a phone, the words still its name),
-  dividers between jobs, the most specific current page underlined in the
-  accent (an item's page marks its surface), only surfaces the viewer's
-  permissions open, **no counts**. On a phone it scrolls inside itself. The
-  one list behind the bar, the home and the palette is
-  `src/lib/admin/surfaces.ts` — a page added there appears in all three.
+- **Admin: six sections** (admin sections spec 2026-10-07, the owner's
+  decisions). A section bar under the top bar on every admin page:
+  `OVERVIEW · MAINTENANCE · INVENTORY · PEOPLE · INSIGHTS · SETTINGS ┃ ▭ ASK MAKERLAB AI`
+  (the icon alone on a phone, the words still its name). Grouped by the job a
+  person came to do, in the order a shift meets them. The section of the page
+  you are on is underlined in the accent. A section opens the first of its
+  pages the viewer may open (People is the roster for a director, Student
+  projects for a SuperMaker); a section with nothing open to the viewer is not
+  shown. **No counts.** On a phone it scrolls inside itself.
+- **Section tabs.** Under each page header, the section's other pages as
+  `LinkTabs` named "<Section> pages" (`SectionTabs`): Maintenance is `TICKETS ·
+  SHIFT CHECKLIST · RECURRING TASKS`; Inventory `ALL TOOLS · ADD EQUIPMENT · QR
+  LABELS · LAB NOTES · MANUALS · CHECK FOR UPDATES · CATEGORIES · PAGE
+  CORRECTIONS`; People `ROSTER · STUDENT PROJECTS`; Settings `GENERAL · NOTION
+  MIRROR · MCP · AI AGENTS`. A section with one page open to the viewer draws
+  no tabs. Every page is one click from the bar and in ⌘K. The one list behind
+  the bar, the tabs, the overview and the palette is
+  `src/lib/admin/surfaces.ts`.
+- **Name pages in the lab's words**: Add equipment (not Intake), Check for
+  updates (not Refresh research), Categories (not Taxonomy), Page corrections,
+  Student projects, MCP (connected AI, not "Assistant proposals"), AI agents,
+  Shift checklist, Need to know. A section's landing page keeps the section's
+  name as its title (Maintenance, Inventory, People).
+- **The overview** (`/admin`): **Need to know** first (urgent tickets with
+  **Take it**, overdue checks, tickets naming no machine; bad and warn glyphs),
+  then the **Shift checklist**; beside them on desktop, below on a phone, three
+  plates: **Quick actions** (Print QR labels first and largest), **Waiting for
+  a decision** and **Inventory health** (glyph · label · number rows, a muted
+  0, an unreadable count said in words). Waiting counts live here only.
 - **Admin navigation never waits on a hole.** A click in the section bar, a
   tab or a row link commits at once: the section bar stays, the page area
   shows the one `EmptyState` loading line (`AdminPageLoading`), and the page
@@ -594,18 +620,20 @@ TO REPLACE THE RESIN TANK ON THE FORM 4:
   the production build.
 - **Page header**: `// ADMIN / GROUP` (plus `/ SURFACE` as a link on an item's
   page) → title → lede → facts line → actions (`AdminPageHeader`).
-- **Tabs that are pages** (`LinkTabs`): Intake's `QUEUE · IMPORTS` under one
-  header. Links with `aria-current`, not `role="tab"` — each tab is a URL; a
+- **Tabs that are pages** (`LinkTabs`): the section tabs above, and Add
+  equipment's own `QUEUE · IMPORTS` under them. Links with `aria-current`, not `role="tab"` — each tab is a URL; a
   tab the viewer cannot open is not shown.
 - **One surface per job's page, actions in the header.** Adding equipment is
-  one surface, **Intake**: importing a list is its header action (`IMPORT A
-  LIST`), not a surface, tile or palette entry of its own. A page's primary
-  action sits in its header's actions — Inventory's `ADD INVENTORY`, Refresh's
-  `REFRESH RESEARCH…` (a dialog that picks the tools), Intake's `IMPORT A LIST`.
+  one surface, **Add equipment**: importing a list is its header action
+  (`IMPORT A LIST`), not a surface or palette entry of its own. A page's
+  primary action sits in its header's actions — All tools' `ADD EQUIPMENT`
+  (with `QR LABELS` beside it, outlined, so labels stay easy to find), Check
+  for updates' `REFRESH RESEARCH…` (a dialog that picks the tools), Add
+  equipment's `IMPORT A LIST`, MCP's `HOW TO CONNECT`.
 - **⌘K palette** (`palette/CommandPalette`, on every page from the header):
   `PAGES` (Tools, Projects, About, MCP), `CATEGORIES` (the gallery filtered to
-  one, with its count), `ADMIN PAGES` and `ACTIONS` only for a role that opens
-  them, `TOOLS` (display name, the official name muted, the category or `DRAFT`
+  one, with its count), `ADMIN PAGES` (Overview, then every tab, its section in
+  the shortcut column) and `ACTIONS` only for a role that opens them, `TOOLS` (display name, the official name muted, the category or `DRAFT`
   at the end). Every word typed must match; nothing fuzzy. A frosted plate.
   `/` jumps to the page's own filter search. `ASSISTANT` is the **last**
   group, for everybody: "Ask the assistant" with nothing typed, "Ask the
