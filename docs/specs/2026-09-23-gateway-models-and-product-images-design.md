@@ -2488,7 +2488,7 @@ student's own project idea.
 
 | Job | Kind | Env | Default | Tier |
 |---|---|---|---|---|
-| `illustration` | image | `MODEL_ILLUSTRATION` | `recraft/recraft-v4.1-flash` | none (a person waits) |
+| `illustration` | image | `MODEL_ILLUSTRATION` | `meta/muse-image-1.0` | none (a person waits) |
 
 `imageModelFor("illustration")` builds it; `languageModelFor` refuses it. `MODEL_ILLUSTRATION=off`
 (or `none`, any case) switches illustrations off: `illustrationsEnabled()` is false and the chat
@@ -2502,13 +2502,16 @@ no cost, 2026-10-07), the image models with a flat per-image price, cheapest fir
 `recraft/recraft-v4.1-flash` $0.007, `meta/muse-image-1.0` $0.01, `spacexai/grok-imagine-image`
 $0.02, `recraft/recraft-v2` $0.022, `bfl/flux-3-image` $0.024 at 1024×1024. Models listed with no
 price were not considered, and the token-priced `openai/gpt-image-1-mini` was not chosen: its cost
-per image moves with quality, and it is the model whose redraw corrupted labels. **Not
+per image moves with quality, and it is the model whose redraw corrupted labels. The first build
+used the cheapest, `recraft/recraft-v4.1-flash`; the owner then chose `meta/muse-image-1.0`, the
+cheapest listed with zero data retention and no training on prompts (open question 1, answered
+2026-10-07), for $0.003 more an image. **Not
 live-verified:** no paid image call was made for this change. The first real call's log line
 confirms the price.
 
 **The call.** `generateImage`, one image, `size: "1024x1024"`, one retry, a 60-second deadline, no
 provider options. The cost is read from `providerMetadata.gateway.cost` and logged like every other
-job's (`[illustration] plan answered: cost $0.0070, tier not reported`, `describeGatewayCall`);
+job's (`[illustration] plan answered: cost $0.0100, tier not reported`, `describeGatewayCall`);
 failures log their kind and status only (`classifyModelError`), never the prompt. The returned bytes
 must be a PNG, JPEG or WebP by their own header (`inspectImage`) and at most 8 MB, or nothing is
 stored.
@@ -2517,11 +2520,11 @@ stored.
 - **one per reply** — counted in the tool and withdrawn by the route's `prepareStep`
   (`CHAT_TOOL_CAPS.make_illustration = 1`);
 - **3 per person** in any rolling 24 hours (pending or made; a failed one gives its place back);
-- **$1 lab-wide** in any rolling 24 hours — about 140 pictures at the default price, at most about
+- **$1 lab-wide** in any rolling 24 hours — about 100 pictures at the default price, at most about
   $30 a month. Every row's `cost_usd` counts, a failed call's too when the Gateway reported one.
 
 A place is reserved before the call, under a transaction-scoped advisory lock, at the estimated
-cost: the default model's $0.007, or $0.05 for any `MODEL_ILLUSTRATION` override, whose price the
+cost: the default model's $0.01, or $0.05 for any `MODEL_ILLUSTRATION` override, whose price the
 code does not know (so an unknown model can only end the day early, never late). The reported cost
 replaces the estimate once the call answers. **Not the research allowance:** that ledger counts
 research presses on pending items, per person only; illustrations need a lab-wide money ceiling, so
@@ -2563,11 +2566,12 @@ reply, the part, the refusals); `api/chat/illustrations/[id]/route.test.ts`; the
 nothing drawn for an image URL that is not our route).
 
 **Open questions.**
-1. **Data retention.** The Gateway lists `recraft/recraft-v4.1-flash` with no zero-data-retention
-   and no no-training guarantee. The prompt carries no names (the lab's machines generic; emails,
-   links and phone numbers out), but a student's project idea goes in as words.
-   `meta/muse-image-1.0` ($0.01) is the cheapest listed with both guarantees; switching is
-   `MODEL_ILLUSTRATION=meta/muse-image-1.0` (reserved at $0.05 until the code learns its price).
+1. **Data retention. Answered 2026-10-07:** the default is `meta/muse-image-1.0` ($0.01), the
+   cheapest the Gateway lists with zero data retention and no training on prompts. The first
+   build's `recraft/recraft-v4.1-flash` ($0.007) has neither guarantee, and although the prompt
+   carries no names (the lab's machines generic; emails, links and phone numbers out), a
+   student's project idea goes in as words. `MODEL_ILLUSTRATION=recraft/recraft-v4.1-flash`
+   would go back to it (reserved at $0.05 until the code learns its price).
 2. **No sweep yet.** Nothing deletes old illustration blobs. The chat keeps no history beyond the
    page session, so nothing refers to a picture after a day; a daily-cron stage deleting rows and
    blobs older than 7 days would keep the store and the ledger small.

@@ -87,7 +87,7 @@ async function illustration(userId: string, status: "pending" | "ready" | "faile
     .values({
       userId,
       kind: "plan",
-      model: "recraft/recraft-v4.1-flash",
+      model: "meta/muse-image-1.0",
       costUsd: 0.007,
       status,
       blobPathname: status === "ready" ? pathname : null,

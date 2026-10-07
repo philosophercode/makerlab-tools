@@ -277,10 +277,10 @@ chat) until the next run. The chat's `search_manual` now **reranks** its candida
 
 **Chat illustrations** (gateway spec amendment 2026-10-07) need nothing new: a signed-in
 person who says yes to "Want a sketch of this plan?" gets one picture from job
-`illustration` (`recraft/recraft-v4.1-flash`, a flat $0.007 an image), stored in the
+`illustration` (`meta/muse-image-1.0`, zero data retention, a flat $0.01 an image), stored in the
 **private** Blob store. Without a Blob store the assistant never offers one. Each person may
 have 3 a day and the whole lab $1 a day (`src/lib/illustrations/limits.ts`). Every call's
-cost is in the log as `[illustration] … answered: cost $0.0070`. `MODEL_ILLUSTRATION=off`
+cost is in the log as `[illustration] … answered: cost $0.0100`. `MODEL_ILLUSTRATION=off`
 switches illustrations off; another Gateway image model id replaces the default (it is then
 reserved at $0.05 an image until the Gateway reports its real cost).
 

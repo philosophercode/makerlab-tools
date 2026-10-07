@@ -182,10 +182,12 @@ export const MODEL_JOBS = {
   // illustrations in the chat"): an infographic of a plan the assistant wrote,
   // or a concept render of a student's project idea — offered, labelled, and
   // never a picture of the lab's equipment. An image job: `imageModelFor`,
-  // never `languageModelFor`. The default is the cheapest capable Gateway image
-  // model with a flat price ($0.007 an image on 2026-10-07). A person waits,
-  // so no tier hint. `MODEL_ILLUSTRATION=off` switches illustrations off
-  // (`illustrationsEnabled`).
+  // never `languageModelFor`. The default is the cheapest flat-priced Gateway
+  // image model listed with zero data retention and no training on prompts
+  // ($0.01 an image on 2026-10-07; the owner chose it over the $0.007 model
+  // with neither guarantee, because a student's project idea goes in as
+  // words). A person waits, so no tier hint. `MODEL_ILLUSTRATION=off`
+  // switches illustrations off (`illustrationsEnabled`).
   //
   // Not a product-photo job: the `imageClean` redraw (gpt-image-1-mini) was
   // retired on 2026-09-23 because it altered product labels, and background
@@ -194,7 +196,7 @@ export const MODEL_JOBS = {
   illustration: {
     kind: "image",
     env: "MODEL_ILLUSTRATION",
-    default: "recraft/recraft-v4.1-flash",
+    default: "meta/muse-image-1.0",
     serviceTier: "default",
     tierEnv: "MODEL_ILLUSTRATION_TIER",
   },

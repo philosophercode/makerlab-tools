@@ -28,7 +28,7 @@ const CAPS = { perPersonLimit: 3, labBudgetUsd: 1, windowMs: DAY };
 
 function reserve(userId: string, overrides: Partial<Parameters<typeof reserveIllustration>[0]> = {}) {
   return reserveIllustration(
-    { userId, kind: "plan", model: "recraft/recraft-v4.1-flash", estimatedCostUsd: 0.007, ...CAPS, ...overrides },
+    { userId, kind: "plan", model: "meta/muse-image-1.0", estimatedCostUsd: 0.01, ...CAPS, ...overrides },
     { db }
   );
 }
@@ -43,7 +43,7 @@ describe("reserveIllustration", () => {
     const result = await reserve(userId);
     expect(result.ok).toBe(true);
     const [row] = await db.select().from(chatIllustrations).where(eq(chatIllustrations.id, (result as { id: string }).id));
-    expect(row).toMatchObject({ userId, kind: "plan", status: "pending", model: "recraft/recraft-v4.1-flash", costUsd: 0.007, blobPathname: null });
+    expect(row).toMatchObject({ userId, kind: "plan", status: "pending", model: "meta/muse-image-1.0", costUsd: 0.01, blobPathname: null });
   });
 
   it("refuses a person's fourth in 24 hours, and not somebody else's first", async () => {

@@ -5,7 +5,7 @@
  * dependency-free.
  *
  * The caps are first settings, chosen to keep illustrations a cheap extra:
- * at the default model's $0.007 an image, the lab-wide budget is about 140
+ * at the default model's $0.01 an image, the lab-wide budget is about 100
  * pictures a day and at most about $30 a month. Raise them here.
  */
 
@@ -16,11 +16,11 @@ export const ILLUSTRATION_DAILY_PER_PERSON = 3;
 export const ILLUSTRATION_LAB_DAILY_BUDGET_USD = 1;
 
 /**
- * What one image costs on the default model (`recraft/recraft-v4.1-flash`, a
- * flat $0.007 on the Gateway's price list, 2026-10-07). Reserved against the
+ * What one image costs on the default model (`meta/muse-image-1.0`, a flat
+ * $0.01 on the Gateway's price list, 2026-10-07). Reserved against the
  * budget before the call, and kept as the cost when the Gateway reports none.
  */
-export const ILLUSTRATION_DEFAULT_MODEL_COST_USD = 0.007;
+export const ILLUSTRATION_DEFAULT_MODEL_COST_USD = 0.01;
 
 /**
  * The reservation for a `MODEL_ILLUSTRATION` override, whose price this code

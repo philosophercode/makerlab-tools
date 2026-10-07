@@ -284,11 +284,11 @@ describe("the model factories", () => {
     expect(() => languageModelFor("imageClean" as never)).toThrow(ModelConfigError);
   });
 
-  it("draws chat illustrations with the cheapest flat-priced Gateway image model (amendment 2026-10-07)", () => {
-    expect(modelIdFor("illustration")).toBe("recraft/recraft-v4.1-flash");
-    expect(imageModelFor("illustration")).toMatchObject({ provider: "gateway", modelId: "recraft/recraft-v4.1-flash" });
-    vi.stubEnv("MODEL_ILLUSTRATION", "meta/muse-image-1.0");
-    expect(imageModelFor()).toMatchObject({ modelId: "meta/muse-image-1.0" });
+  it("draws chat illustrations with the cheapest zero-retention Gateway image model (amendment 2026-10-07)", () => {
+    expect(modelIdFor("illustration")).toBe("meta/muse-image-1.0");
+    expect(imageModelFor("illustration")).toMatchObject({ provider: "gateway", modelId: "meta/muse-image-1.0" });
+    vi.stubEnv("MODEL_ILLUSTRATION", "recraft/recraft-v4.1-flash");
+    expect(imageModelFor()).toMatchObject({ modelId: "recraft/recraft-v4.1-flash" });
     expect(() => imageModelFor("chat" as never)).toThrow(/not an image job/);
     expect(() => languageModelFor("illustration" as never)).toThrow(/not a language job/);
   });
@@ -296,7 +296,7 @@ describe("the model factories", () => {
   it.each([
     ["", true],
     ["   ", true],
-    ["meta/muse-image-1.0", true],
+    ["recraft/recraft-v4.1-flash", true],
     ["off", false],
     [" OFF ", false],
     ["none", false],
