@@ -5,6 +5,7 @@ import type { ToolEditorActions } from "../../../components/admin/tool-editor-ac
 import { resolveIdentityFromHeaders } from "../../../lib/auth/identity";
 import { can } from "../../../lib/auth/permissions";
 import { findToolByIdOrSlug } from "../../../lib/data/catalog";
+import { canSeeSerials } from "../../../lib/unit-serials";
 import { EditToolControl } from "./EditToolControl";
 
 /**
@@ -51,7 +52,9 @@ export async function DraftToolView({
 
   // Uncached and draft-inclusive — the opposite of `getCatalogTool` in both
   // respects, which is why it is a separate read rather than a flag on that one.
-  const tool = await findToolByIdOrSlug(idOrSlug, { includeDrafts: true });
+  // Whole serials only for a viewer who may see them; the masked last four
+  // for anyone else (amendment 2026-10-06).
+  const tool = await findToolByIdOrSlug(idOrSlug, { includeDrafts: true, includeSerials: canSeeSerials(identity) });
   if (!tool) {
     const archived = await findToolByIdOrSlug(idOrSlug, { includeDrafts: true, includeArchived: true });
     if (archived) redirect(archivedToolHref(archived.name));

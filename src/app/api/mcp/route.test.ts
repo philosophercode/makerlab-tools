@@ -458,6 +458,41 @@ describe("tools/call: the catalogue", () => {
   });
 });
 
+// Data platform spec amendment 2026-10-06: whole unit serials are staff-only,
+// on the public endpoint and for signed-in tokens alike; everyone else gets
+// the last four characters, masked.
+describe("unit serials", () => {
+  const SERIAL = "ML-F4-001";
+  const MASKED = "•••• -001";
+
+  async function unitAndTool(headers: Record<string, string>) {
+    const unit = resultText((await callTool("get_unit_details", { unit_label: "Form 4 // A" }, headers)).json);
+    const tool = resultText((await callTool("get_tool_details", { id_or_name: "form-4" }, headers)).json);
+    return { unit, tool };
+  }
+
+  it("gives the public endpoint and a student units by name, with only the masked last four", async () => {
+    for (const headers of [{}, (await bearerFor("user")).headers]) {
+      const { unit, tool } = await unitAndTool(headers);
+      expect(JSON.parse(unit)).toMatchObject({ found: true, unit_label: "Form 4 // A", serial_masked: MASKED });
+      expect(JSON.parse(unit)).not.toHaveProperty("serial");
+      expect(JSON.parse(tool).units.map((u: { name: string }) => u.name)).toEqual(["Form 4 // A"]);
+      expect(JSON.parse(tool).units[0]).not.toHaveProperty("serial");
+      expect(JSON.parse(tool).units[0].serialMasked).toBe(MASKED);
+      expect(unit).not.toContain(SERIAL);
+      expect(tool).not.toContain(SERIAL);
+    }
+  });
+
+  it.each(["admin", "super_admin"] as const)("gives a %s token each unit's whole serial", async (role) => {
+    const { unit, tool } = await unitAndTool((await bearerFor(role)).headers);
+    expect(JSON.parse(unit).serial).toBe(SERIAL);
+    expect(JSON.parse(unit)).not.toHaveProperty("serial_masked");
+    expect(JSON.parse(tool).units[0].serial).toBe(SERIAL);
+    expect(JSON.parse(tool).units[0]).not.toHaveProperty("serialMasked");
+  });
+});
+
 describe("maintenance history names (§3.2 fix)", () => {
   async function seedLog() {
     const db = await getDb();

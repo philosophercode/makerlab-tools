@@ -13,6 +13,7 @@ import {
   type UserModelMessage,
 } from "ai";
 import { getCatalogTool, getCatalogTools } from "../../../lib/catalog";
+import { toolForViewer } from "../../../lib/unit-serials";
 import {
   listResourcesForTool,
   type ToolResource,
@@ -106,7 +107,10 @@ export async function POST(req: Request) {
     loadPageContext(identity, page),
     loadProposalOutcomes(chatId, identity),
     getCatalogTools(),
-    toolId ? getCatalogTool(toolId) : Promise.resolve(null),
+    // The focused tool's units carry whole serials only for staff (amendment
+    // 2026-10-06), so only their prompt names them; everyone else's names the
+    // masked last four.
+    toolId ? getCatalogTool(toolId).then((tool) => (tool ? toolForViewer(identity, tool) : null)) : Promise.resolve(null),
     // Curation (refresh research spec §12): the record the page shows, only for
     // a caller who may curate it — never composed for anyone else.
     curationForChat(identity, { toolId, pendingId }),

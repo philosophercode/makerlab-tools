@@ -192,6 +192,43 @@ describe("promptFragment", () => {
   });
 });
 
+// ── Unit serials (amendment 2026-10-06): whole for staff, last four for everyone else ──
+
+describe("get_tool_details unit serials", () => {
+  it.each(["anonymous", "user"] as const)("gives %s the units by name, with only the masked last four", async (role) => {
+    const result = (await tool("get_tool_details").run(
+      { id_or_name: "form-4" },
+      { identity: identityFor(role) }
+    )) as { units: Record<string, unknown>[] };
+    expect(result.units.map((unit) => unit.name)).toEqual(["Form 4 // A"]);
+    expect(result.units[0]).not.toHaveProperty("serial");
+    expect(result.units[0].serialMasked).toBe("•••• -001");
+    expect(JSON.stringify(result)).not.toContain("ML-F4-001");
+  });
+
+  it("gives a caller with no identity no whole serial either", async () => {
+    const result = (await tool("get_tool_details").run({ id_or_name: "form-4" }, ctx)) as { units: Record<string, unknown>[] };
+    expect(result.units[0]).not.toHaveProperty("serial");
+    expect(result.units[0].serialMasked).toBe("•••• -001");
+  });
+
+  it.each(["admin", "super_admin"] as const)("gives %s each unit's whole serial", async (role) => {
+    const result = (await tool("get_tool_details").run(
+      { id_or_name: "form-4" },
+      { identity: identityFor(role) }
+    )) as { units: Record<string, unknown>[] };
+    expect(result.units).toEqual([expect.objectContaining({ name: "Form 4 // A", serial: "ML-F4-001" })]);
+    expect(result.units[0]).not.toHaveProperty("serialMasked");
+  });
+
+  it("keeps serials out of the catalogue listing in every prompt", async () => {
+    const tools = await getCatalogTools();
+    for (const role of ["anonymous", "user", "admin", "super_admin"] as const) {
+      expect(catalog.promptFragment?.({ tools, identity: identityFor(role) }) ?? "").not.toMatch(/ML-F4-001|ML-LSR-400/);
+    }
+  });
+});
+
 // ── Map access (PR #98): signed-in callers only ───────────────────
 
 describe("get_tool_details map field", () => {

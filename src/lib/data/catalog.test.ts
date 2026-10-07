@@ -21,6 +21,7 @@ import {
   findToolBySlug,
   indexAttachments,
   listCatalogTools,
+  listUnitSerials,
   localToolImage,
   resourceLinks,
   toCondition,
@@ -170,11 +171,13 @@ describe("listCatalogTools", () => {
       notes: "Ventilation must be running.",
     });
     expect(tool.id).toMatch(/^[0-9a-f-]{36}$/);
+    // No `serial` key at all, only the masked last four: the catalogue is
+    // public (amendment 2026-10-06).
     expect(tool.units).toEqual([
       {
         id: expect.any(String),
         name: "Form 4 // A",
-        serial: "ML-F4-001",
+        serialMasked: "•••• -001",
         status: "In Use",
         condition: "Excellent",
         location: "Resin Bench",
@@ -447,8 +450,75 @@ describe("unit status and condition from stored values", () => {
     await insertUnit({ toolId, unitLabel: "A", assetTag: "ASSET-9", status: "available" });
     await insertUnit({ toolId, unitLabel: "B", status: "available" });
 
-    const [tool] = await listCatalogTools({ db });
+    const [tool] = await listCatalogTools({ db, includeSerials: true });
     expect(tool.units.map((unit) => unit.serial)).toEqual(["ASSET-9", "Unlisted"]);
+  });
+
+  // Data platform spec amendment 2026-10-06: whole serials are staff-only, so
+  // the reads the public pages, the kiosk and the assistant share carry only
+  // the masked last four.
+  it("leaves every unit's whole serial out unless the caller asks for serials", async () => {
+    await seedForm4();
+    const toolId = await insertTool({ slug: "sn", name: "Serial tool" });
+    await insertUnit({ toolId, unitLabel: "A", assetTag: "ASSET-9", status: "available" });
+
+    const reads = [
+      ...(await listCatalogTools({ db })),
+      await findToolBySlug("form-4", { db }),
+      await findToolByIdOrSlug("sn", { db }),
+    ];
+    for (const tool of reads) {
+      expect(tool?.units.length).toBeGreaterThan(0);
+      for (const unit of tool?.units ?? []) {
+        expect(unit).not.toHaveProperty("serial");
+        expect(unit.serialMasked).toMatch(/^•••• .{4}$/);
+      }
+    }
+    expect(JSON.stringify(reads)).not.toMatch(/ML-F4-001|ASSET-9/);
+    expect((await findToolByIdOrSlug("sn", { db }))?.units[0].serialMasked).toBe("•••• ET-9");
+
+    // Staff get the whole serial in place of the masked one.
+    const staff = await findToolBySlug("form-4", { db, includeSerials: true });
+    expect(staff?.units.map((unit) => unit.serial)).toEqual(["ML-F4-001"]);
+    expect(staff?.units[0]).not.toHaveProperty("serialMasked");
+  });
+
+  it("shows nothing of a serial of four characters or fewer, or of none", async () => {
+    const toolId = await insertTool({ slug: "sn", name: "Serial tool" });
+    await insertUnit({ toolId, unitLabel: "A", serialNumber: "9831", status: "available" });
+    await insertUnit({ toolId, unitLabel: "B", assetTag: "T-1", status: "available" });
+    await insertUnit({ toolId, unitLabel: "C", status: "available" });
+    await insertUnit({ toolId, unitLabel: "D", serialNumber: "SN-2024-9831", assetTag: "T-1", status: "available" });
+
+    const [tool] = await listCatalogTools({ db });
+    const byName = Object.fromEntries(tool.units.map((unit) => [unit.name, unit]));
+    for (const name of ["A", "B", "C"]) {
+      expect(byName[name]).not.toHaveProperty("serialMasked");
+      expect(byName[name]).not.toHaveProperty("serial");
+    }
+    // The serial number wins over the asset tag, as it does for staff.
+    expect(byName.D.serialMasked).toBe("•••• 9831");
+    expect(JSON.stringify(tool)).not.toMatch(/SN-2024|"9831"|T-1/);
+  });
+});
+
+describe("listUnitSerials", () => {
+  it("answers each asked unit's serial, asset tag or Unlisted, by unit id", async () => {
+    const toolId = await insertTool({ slug: "sn", name: "Serial tool" });
+    await insertUnit({ toolId, unitLabel: "A", serialNumber: "SN-1", assetTag: "ASSET-1", status: "available" });
+    await insertUnit({ toolId, unitLabel: "B", assetTag: "ASSET-2", status: "available" });
+    await insertUnit({ toolId, unitLabel: "C", status: "available" });
+    await insertUnit({ toolId, unitLabel: "D", serialNumber: "SN-4", status: "available" });
+    const [tool] = await listCatalogTools({ db });
+    const [a, b, c] = tool.units;
+
+    const serials = await listUnitSerials([a.id, b.id, c.id, a.id], { db });
+    expect(Object.fromEntries(serials)).toEqual({ [a.id]: "SN-1", [b.id]: "ASSET-2", [c.id]: "Unlisted" });
+  });
+
+  it("asks nothing for no ids, and ignores ids that are not uuids", async () => {
+    expect((await listUnitSerials([], { db })).size).toBe(0);
+    expect((await listUnitSerials(["Prusa #1", "11111111-2222-3333-4444-555555555555"], { db })).size).toBe(0);
   });
 });
 
@@ -659,6 +729,21 @@ describe("toMakerLabUnit", () => {
   it("falls back to the room, then to Unknown, when there is no zone", () => {
     expect(toMakerLabUnit(unitRow, { ...toolRow, zone: null }).location).toBe("MakerLab");
     expect(toMakerLabUnit(unitRow, { ...toolRow, zone: null, room: null }).location).toBe("Unknown");
+  });
+
+  it("sets the whole serial only when asked, else the masked last four (amendment 2026-10-06)", () => {
+    const row = { ...unitRow, serialNumber: "SN-2024-9831" };
+    expect(toMakerLabUnit(row, toolRow)).not.toHaveProperty("serial");
+    expect(toMakerLabUnit(row, toolRow).serialMasked).toBe("•••• 9831");
+    expect(toMakerLabUnit(row, toolRow, { includeSerial: false })).not.toHaveProperty("serial");
+    expect(toMakerLabUnit(row, toolRow, { includeSerial: true }).serial).toBe("SN-2024-9831");
+    expect(toMakerLabUnit(row, toolRow, { includeSerial: true })).not.toHaveProperty("serialMasked");
+    // Four characters or fewer: nothing of it, and not the asset tag instead,
+    // which is not the serial staff see.
+    expect(toMakerLabUnit({ ...unitRow, serialNumber: "SN-1" }, toolRow)).not.toHaveProperty("serialMasked");
+    expect(toMakerLabUnit({ ...unitRow, serialNumber: "SN-1", assetTag: "ASSET-1234" }, toolRow)).not.toHaveProperty("serialMasked");
+    // No serial number: the asset tag's last four, as staff see the asset tag.
+    expect(toMakerLabUnit({ ...unitRow, assetTag: "ASSET-1234" }, toolRow).serialMasked).toBe("•••• 1234");
   });
 });
 

@@ -44,7 +44,11 @@ export const statement = {
   // `export`: the tools CSV on /admin/inventory (all tools or the selected
   // ones, every state). Directors only — the whole catalogue leaving the app in
   // one file is a super admin's call; "admins too" is one line below.
-  catalog: ["view_drafts", "export"],
+  // `view_serials`: units' whole serial numbers (or asset tags) on the tool
+  // page, in the assistant's answers and over MCP. Staff only (owner meeting,
+  // 2026-10-06). Everyone else gets units by name and only the last four
+  // characters, masked ("•••• 9831"). See `lib/unit-serials.ts`.
+  catalog: ["view_drafts", "view_serials", "export"],
   tools: ["add", "approve", "edit", "publish"],
   maintenance: ["manage"],
   feedback: ["manage"],
@@ -98,7 +102,7 @@ export const roles = {
   }),
   admin: ac.newRole({
     projects: ["submit", "moderate"],
-    catalog: ["view_drafts"],
+    catalog: ["view_drafts", "view_serials"],
     tools: ["add", "approve", "edit", "publish"],
     maintenance: ["manage"],
     feedback: ["manage"],
@@ -108,7 +112,7 @@ export const roles = {
   }),
   super_admin: ac.newRole({
     projects: ["submit", "moderate"],
-    catalog: ["view_drafts", "export"],
+    catalog: ["view_drafts", "view_serials", "export"],
     tools: ["add", "approve", "edit", "publish"],
     maintenance: ["manage"],
     feedback: ["manage"],

@@ -970,6 +970,53 @@ describe("POST /api/chat — who may add equipment", () => {
   });
 });
 
+// ── Unit serials (data platform spec amendment 2026-10-06) ───────────
+describe("POST /api/chat — whole unit serials are for staff, the last four for everyone", () => {
+  const SECRET = "chat-route-test-secret";
+
+  async function postAs(role: "user" | "admin" | "super_admin", body: Record<string, unknown>) {
+    vi.stubEnv("AUTH_SECRET", SECRET);
+    resetAuthForTests();
+    const { cookie } = await signInAsNew({ role, name: `Test ${role}` });
+    await send(body, { cookie });
+  }
+
+  it("gives an anonymous visitor's prompt only the focused tool's masked last four", async () => {
+    await send({ messages: [userMessage("what is the serial number?")], toolId: "form-4" });
+    const system = systemOf();
+    expect(system).toContain("## Active tool context");
+    expect(system).toContain("Form 4 // A — status: In Use, condition: Excellent, serial: •••• -001");
+    expect(system).not.toContain("ML-F4-001");
+  });
+
+  it("gives a student's prompt only the masked last four too", async () => {
+    await postAs("user", { messages: [userMessage("what is the serial number?")], toolId: "form-4" });
+    expect(systemOf()).toContain("Form 4 // A — status: In Use, condition: Excellent, serial: •••• -001");
+    expect(systemOf()).not.toContain("ML-F4-001");
+  });
+
+  it.each(["admin", "super_admin"] as const)("names the whole serial in the %s's prompt", async (role) => {
+    await postAs(role, { messages: [userMessage("what is the serial number?")], toolId: "form-4" });
+    expect(systemOf()).toContain("Form 4 // A — status: In Use, condition: Excellent, serial: ML-F4-001");
+    expect(systemOf()).not.toContain("•••• -001");
+  });
+
+  it("gives a student get_unit_details with the masked last four, and an admin the whole serial", async () => {
+    vi.stubEnv("AUTH_SECRET", SECRET);
+    resetAuthForTests();
+    const student = await signInAsNew({ role: "user", name: "Ada Lovelace" });
+    const asStudent = await runTool("get_unit_details", { unit_label: "Form 4 // A" }, { cookie: student.cookie });
+    expect(asStudent.found).toBe(true);
+    expect(asStudent).not.toHaveProperty("serial");
+    expect(asStudent.serial_masked).toBe("•••• -001");
+
+    const admin = await signInAsNew({ role: "admin", name: "Niti Parikh" });
+    const asAdmin = await runTool("get_unit_details", { unit_label: "Form 4 // A" }, { cookie: admin.cookie });
+    expect(asAdmin.serial).toBe("ML-F4-001");
+    expect(asAdmin).not.toHaveProperty("serial_masked");
+  });
+});
+
 // ── Photos reach the model (intake spec §6.1) ────────────────────────
 describe("POST /api/chat — photos reach the model", () => {
   it("passes an attached photo to the model on the user message", async () => {

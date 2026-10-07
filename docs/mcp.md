@@ -244,8 +244,8 @@ and marks the ones your account can use.
 
 | Tool | No account | Student | Staff (SuperMaker, Director) | Try asking |
 |---|---|---|---|---|
-| `list_tools`, `search_tools`, `get_tool_details` | ✓ | ✓ | ✓ (also drafts and archived tools, marked) | "What can cut acrylic?" |
-| `get_unit_details` | ✓ | ✓ | ✓ | "Is Prusa #2 working?" |
+| `list_tools`, `search_tools`, `get_tool_details` | ✓ (units by name, serials as their last four: `•••• 9831`) | ✓ (units by name, serials as their last four: `•••• 9831`) | ✓ (also drafts and archived tools, marked; whole unit serials) | "What can cut acrylic?" |
+| `get_unit_details` | ✓ (serial's last four only) | ✓ (serial's last four only) | ✓ (whole serial) | "Is Prusa #2 working?" |
 | `get_maintenance_history` | ✓ (no names) | ✓ (no names) | ✓ (reporter names) | "Has the Trotec been repaired lately?" |
 | `search_manual` | ✓ (public manuals) | ✓ (public manuals) | ✓ (staff SOPs too) | "How do I replace the Form 4 resin tank?" |
 | `report_issue` | — | ✓ | ✓ | "Report that Prusa #1's nozzle is clogged" |

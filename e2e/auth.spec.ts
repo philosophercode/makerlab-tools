@@ -47,12 +47,17 @@ test.describe("Sign-in", () => {
       })
       .click();
 
-    // The full detail page, not a sign-in wall: name, units and serial all render.
+    // The full detail page, not a sign-in wall: name and units render. A
+    // student sees each serial's last four only, masked; the whole serial is
+    // staff-only (data platform spec amendment 2026-10-06).
     await expect(page).toHaveURL(/\/tools\/form-4$/);
     await expect(
       page.getByRole("heading", { name: "Form 4", level: 1 })
     ).toBeVisible();
-    await expect(page.getByText("ML-F4-001")).toBeVisible();
+    const units = page.getByRole("table", { name: "Physical Machines" });
+    await expect(units.getByText("Form 4 // A")).toBeVisible();
+    await expect(units.getByText("•••• -001")).toBeVisible();
+    await expect(page.getByText("ML-F4-001")).toHaveCount(0);
 
     // Nothing redirected to the rejected-domain page or any sign-in route.
     await expect(page).not.toHaveURL(/\/auth\//);

@@ -61,6 +61,8 @@
 | `src/lib/cron/backup-retention.ts` | Pure tiered retention: every day for 7 days, newest per ISO week to 1 month, per month to 1 year, per quarter to 3 years |
 | `src/lib/cron/heartbeat.ts`, `src/lib/cron/backup-freshness.ts` | Failure visibility: the nightly run pings `CRON_HEARTBEAT_URL` (`/fail` on failure); `/admin` warns a super admin when the newest backup is over 36 hours old (`docs/operations.md`) |
 | `src/lib/catalog.ts` | Catalog orchestration + cache, reading Postgres |
+| `src/lib/unit-serials.ts` | Whole unit serials are staff-only (`catalog.view_serials`): the catalogue reads carry only each unit's masked last four (`serialMasked`), and `canSeeSerials` / `unitsForViewer` / `toolForViewer` swap in the whole serial for staff. Used by `src/components/tool/UnitsForViewer.tsx` (the tool page's units table, its own Suspense hole), the chat's focused tool, `get_unit_details` and `get_tool_details` |
+| `src/lib/serial-mask.ts` | What students and visitors see of a serial: `•••• 9831`, the last four characters behind a mask (nothing for four characters or fewer). Pure, so the units table can use it; screen readers hear "Serial ending 9831" |
 | `src/lib/rate-limit.ts` | In-memory (or Upstash) sliding-window limiter, tiered by role |
 | `src/lib/auth/config.ts` | The Better Auth instance: Drizzle adapter, database sessions, admin plugin, domain enforcement |
 | `src/lib/auth/identity.ts` | `resolveIdentity(req)` — the one way to learn who is calling. Never throws |

@@ -2081,3 +2081,64 @@ anonymous report — and a project only its author's.
 anonymous upload, are claimed).
 
 **Status.** Built on `security/auth-authz`.
+
+### 2026-10-06 — Students see only the last four characters of a unit's serial (§3.5, §4.5)
+
+**Why.** At the owner meeting of 2026-10-06, Niti and Luis said students do not need whole serial
+numbers. Only admins (SuperMakers) and super admins (directors) do. Until now every surface
+showed a unit's serial to anyone: the tool page's units table, the assistant's focused-tool
+context, `get_unit_details` and `get_tool_details` in chat and over the public MCP endpoint.
+A student still needs to tell staff which machine they mean, so everyone else sees the last
+four characters behind a mask: "the one ending 9831" points at one unit while the serial stays
+fairly anonymous.
+
+**What changes here.**
+
+- **A new permission, `catalog.view_serials`**, held by `admin` and `super_admin`. `user` and
+  `anonymous` do not hold it. §3.5's declaration gains it beside `catalog.view_drafts`.
+- **The masked form, one format everywhere** (`src/lib/serial-mask.ts`): four bullets, a
+  space and the last four characters, `•••• 9831`. Screen readers hear "Serial ending 9831"
+  (`detail.serialEnding`; the bullets are `aria-hidden`). A serial of **four characters or
+  fewer is not shown at all**: its last four would be all of it. No serial number and no asset
+  tag shows nothing, as before ("Unlisted" is not a serial).
+- **The catalogue reads carry only the masked form.** `listCatalogTools`, `findToolBySlug` and
+  `findToolByIdOrSlug` build each unit with `serialMasked` (the last four of the serial number,
+  else of the asset tag) and no `serial` field, unless the caller passes `includeSerials`. So
+  the cached `getCatalogTools` and `getCatalogTool`, the gallery, the kiosk, the map, the
+  starter answers and every prompt built from them hold no whole serial. Both fields are
+  absent, not empty, when there is nothing to show; both are optional on `MakerLabUnit`, and a
+  unit carrying the whole `serial` carries no `serialMasked`.
+- **Staff surfaces swap in the whole serial after one check**, in `src/lib/unit-serials.ts`
+  (`canSeeSerials`, `serialsForViewer`, `unitsForViewer`, `toolForViewer`), which reads it
+  with `listUnitSerials` (one statement, by unit id):
+  - the tool page and its QR landing: a `UnitsForViewer` hole in its own Suspense boundary.
+    The cached shell holds the public table (masked endings); staff get the whole serials
+    streamed in;
+  - a draft's page (`DraftToolView`), for a viewer who also holds `catalog.view_serials`;
+  - the chat's focused-tool context (`serial: ML-F4-001` for staff, `serial: •••• -001` for
+    everyone else);
+  - `get_unit_details` (`serial` for staff, else `serial_masked`) and `get_tool_details`
+    (each unit's `serial` for staff, else `serialMasked`), in chat and over MCP, like the
+    reporter-name rule in `units.ts`.
+- **The units table draws the Serial column for everyone again**: whole serials for staff,
+  masked endings for students and visitors, a dash for a unit with nothing to show. The
+  column is left out only when no unit has anything to show.
+- **What a serial is does not change** (§4.5): the serial number, else the asset tag, else
+  "Unlisted". Units stay identifiable by their label ("Bambu X1C #1"), which every surface
+  already shows to everyone.
+- **Unchanged:** the admin surfaces (`/admin/inventory`, the editor's Units section, intake,
+  imports, the CSV export, the Notion mirror) read their own queries and still show whole
+  serials to the staff who can open them. `get_tool_units` stays `tools.edit`.
+
+**Covered by** `src/lib/serial-mask.test.ts` (the format; four characters or fewer; none);
+`src/lib/auth/permissions.test.ts` (the grant table); `src/lib/data/catalog.test.ts` (the
+masked form unless whole serials are asked for, the short-serial case; `listUnitSerials`);
+`src/lib/unit-serials.test.ts` (each role); `src/components/tool/UnitsForViewer.test.tsx` and
+`src/components/DetailShell.test.tsx` (the masked column, read as "Serial ending", for visitors
+and students, a dash for a short serial, whole serials for staff);
+`src/lib/capabilities/units.test.ts` (each role, the short-serial case), `catalog.test.ts` and
+`helpers.test.ts`; `src/app/api/chat/route.test.ts` (the prompt and `get_unit_details` by
+role); `src/app/api/mcp/route.test.ts` (the public endpoint, a student token and staff tokens);
+`src/lib/kiosk/snapshot.test.ts`; and the E2E specs `tool-detail`, `auth` and `qr-arrival`.
+
+**Status.** Built on `v5/hide-serials`.
