@@ -20,9 +20,11 @@ import {
   CommandShortcut,
 } from "@/components/ui/command";
 import { paletteScore } from "./palette-match";
+import { categoryEntries, categoryKeywords, toolKeywords } from "./palette-search";
 import { RowStatus } from "../admin/RowStatus";
 import { FROSTED } from "../system/frosted";
 import { cn } from "@/lib/utils";
+import { ALL_TOOLS_PATH, categoryHref } from "../../lib/gallery-links";
 
 /**
  * The ⌘K palette's dialog — everything but its triggers and shortcut, which
@@ -31,6 +33,7 @@ import { cn } from "@/lib/utils";
  */
 const PAGES = [
   { key: "tools", href: "/", icon: Wrench },
+  { key: "allTools", href: ALL_TOOLS_PATH, icon: LayoutGrid },
   { key: "projects", href: "/projects", icon: Folder },
   { key: "about", href: "/about", icon: Info },
   { key: "mcp", href: "/mcp", icon: Plug },
@@ -55,12 +58,8 @@ export function CommandPaletteDialog({
 
   const surfaces = useMemo(() => surfacesFor({ role }), [role]);
   const staff = surfaces.length > 0;
-  // The category groups the tools fall in, each with its count — a link to the gallery filtered to it.
-  const categories = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const tool of tools ?? []) if (tool.category) counts.set(tool.category, (counts.get(tool.category) ?? 0) + 1);
-    return Array.from(counts.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [tools]);
+  // The category groups the tools fall in, each with its count — a link to the full list filtered to it.
+  const categories = useMemo(() => categoryEntries(tools ?? []), [tools]);
   const canAdd = canAddEquipment({ role });
   const canRefresh = can({ role }, "tools.edit");
 
@@ -118,16 +117,16 @@ export function CommandPaletteDialog({
 
           {categories.length > 0 ? (
             <CommandGroup heading={t("categories")}>
-              {categories.map(([category, count]) => (
+              {categories.map((category) => (
                 <CommandItem
-                  key={category}
-                  value={`category:${category}`}
-                  keywords={[category]}
-                  onSelect={() => go(`/?${new URLSearchParams({ category }).toString()}`)}
+                  key={category.name}
+                  value={`category:${category.name}`}
+                  keywords={categoryKeywords(category)}
+                  onSelect={() => go(categoryHref(category.name))}
                 >
                   <LayoutGrid aria-hidden="true" />
-                  <span>{category}</span>
-                  <CommandShortcut>{t("categoryCount", { count })}</CommandShortcut>
+                  <span>{category.name}</span>
+                  <CommandShortcut>{t("categoryCount", { count: category.count })}</CommandShortcut>
                 </CommandItem>
               ))}
             </CommandGroup>
@@ -188,7 +187,7 @@ export function CommandPaletteDialog({
                 <CommandItem
                   key={tool.id}
                   value={`tool:${tool.id}`}
-                  keywords={[tool.name, tool.officialName ?? "", tool.slug]}
+                  keywords={toolKeywords(tool)}
                   onSelect={() => go(`/tools/${tool.slug}`)}
                 >
                   <span className="truncate">{tool.name}</span>

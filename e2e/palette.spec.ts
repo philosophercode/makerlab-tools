@@ -42,8 +42,20 @@ test("⌘K works on a public page, and offers an admin their admin pages there",
   await expect(page).toHaveURL(/\/about$/, { timeout: 15_000 });
 });
 
-test("/ focuses the gallery's own search, not the palette", async ({ page }) => {
+test("/ focuses the home page's smart search, not the palette", async ({ page }) => {
   await page.goto("/");
+  const search = page.getByRole("combobox", { name: "Search tools, or ask MakerLAB AI a question" });
+  await expect(search).toBeVisible();
+  await expect(async () => {
+    await page.locator("body").click({ position: { x: 5, y: 300 } });
+    await page.keyboard.press("/");
+    await expect(search).toBeFocused({ timeout: 1_000 });
+  }).toPass({ timeout: 15_000 });
+  await expect(page.getByRole("dialog", { name: "Command palette" })).toHaveCount(0);
+});
+
+test("/ focuses the full list's own search, not the palette", async ({ page }) => {
+  await page.goto("/tools");
   const search = page.getByRole("searchbox", { name: "Search inventory" });
   await expect(search).toBeVisible();
   await expect(async () => {

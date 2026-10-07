@@ -40,6 +40,16 @@ test.describe("Sign-in", () => {
       page.getByRole("heading", { name: "Tools", exact: true })
     ).toBeVisible();
 
+    // The home shows the categories (student home spec 2026-10-07): a tile
+    // opens the full list filtered to it, and the card there opens the tool.
+    await page
+      .getByRole("link")
+      .filter({
+        has: page.getByRole("heading", { name: "3D Printing", level: 2 }),
+      })
+      .click();
+    await expect(page).toHaveURL(/\/tools\?category=3D\+Printing$/);
+
     await page
       .getByRole("link")
       .filter({

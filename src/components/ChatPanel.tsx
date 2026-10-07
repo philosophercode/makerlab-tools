@@ -55,7 +55,7 @@ function pageContext(path: string, selection: PageSelection | null): { path: str
 }
 
 /**
- * The MakerLAB Assistant (UI system spec §9; phase 5b; identity spec
+ * The MakerLAB AI (UI system spec §9; phase 5b; identity spec
  * 2026-09-28): a docked side sheet on AI Elements. `ChatFab` loads this module the first time the chat opens —
  * it carries the AI SDK, the sheet and the composer, which no page needs
  * before then — and keeps it mounted from then on, so a conversation survives

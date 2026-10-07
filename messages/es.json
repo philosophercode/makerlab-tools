@@ -34,7 +34,7 @@
   },
   "gallery": {
     "title": "Herramientas",
-    "searchPlaceholder": "buscar en el inventario...",
+    "allTitle": "Todas las herramientas",
     "searchAria": "Buscar en el inventario",
     "category": "CATEGORÍA:",
     "training": "FORMACIÓN:",
@@ -51,7 +51,33 @@
     "columnTraining": "Formación",
     "trainingBeginner": "Principiante",
     "trainingIntermediate": "Intermedio",
-    "trainingAdvanced": "Avanzado"
+    "trainingAdvanced": "Avanzado",
+    "home": {
+      "searchSection": "Buscar en el laboratorio",
+      "seeAll": "{count, plural, one {Ver la # herramienta} other {Ver las # herramientas}}",
+      "toolCount": "{count, plural, one {# herramienta} other {# herramientas}}",
+      "unitsDown": "{count, plural, one {# unidad fuera de servicio} other {# unidades fuera de servicio}}",
+      "empty": "Todavía no hay herramientas en el catálogo."
+    },
+    "search": {
+      "landmark": "Buscar herramientas y preguntar a MakerLAB AI",
+      "label": "Busca herramientas o hazle una pregunta a MakerLAB AI",
+      "tools": "Herramientas",
+      "categories": "Categorías",
+      "categoryCount": "{count, plural, one {# herramienta} other {# herramientas}}",
+      "assistant": "MakerLAB AI",
+      "ask": "Preguntar a MakerLAB AI: “{query}”",
+      "askNote": "Abre el chat con tu pregunta. MakerLAB AI puede equivocarse.",
+      "noMatch": "Ninguna herramienta ni categoría coincide con “{query}”.",
+      "lines": {
+        "search": "{count, plural, one {Busca entre # herramienta} other {Busca entre # herramientas}}",
+        "build": "¿Qué vas a construir?",
+        "findMachine": "Encuentra tu máquina",
+        "x1Filament": "¿Cómo cargo filamento en la X1-Carbon?",
+        "x1Start": "Pregunta cómo empezar una impresión 3D en la X1-Carbon",
+        "trotecAcrylic": "¿El láser Trotec corta acrílico?"
+      }
+    }
   },
   "detail": {
     "breadcrumbTools": "Herramientas",
@@ -142,16 +168,16 @@
     "browseTools": "Explorar herramientas"
   },
   "chat": {
-    "openAria": "Abrir el asistente del MakerLAB",
-    "title": "Asistente MakerLAB",
+    "openAria": "Abrir MakerLAB AI",
+    "title": "MakerLAB AI",
     "newChatAria": "Iniciar nuevo chat",
     "newChatTitle": "Iniciar nuevo chat",
-    "closeAria": "Cerrar asistente",
+    "closeAria": "Cerrar MakerLAB AI",
     "closeTitle": "Cerrar (conserva la conversación)",
     "greetingTool": "Pregúntame sobre esta herramienta: tengo sus especificaciones, materiales y enlaces a recursos.",
     "greetingGeneral": "¿En qué puedo ayudarte hoy?",
-    "composerPlaceholder": "Pregunta a la consola del laboratorio...",
-    "composerAria": "Pregunta a la consola del laboratorio",
+    "composerPlaceholder": "Pregunta a MakerLAB AI...",
+    "composerAria": "Pregunta a MakerLAB AI",
     "aiNote": "MakerLAB AI puede equivocarse. Consulta con el personal todo lo relacionado con la seguridad.",
     "sendAria": "Enviar",
     "attachAria": "Adjuntar fotos",
@@ -162,7 +188,7 @@
     "uploadFailed": "Error al subir la foto",
     "uploadsUnavailable": "La subida de fotos no está disponible en este momento. Puedes enviar tu mensaje sin foto.",
     "toolRunningAria": "Herramienta en ejecución",
-    "typingAria": "El asistente está escribiendo",
+    "typingAria": "MakerLAB AI está escribiendo",
     "readingManualsAria": "Leyendo manuales",
     "reading": "Leyendo: {titles}…",
     "error": "Algo salió mal. Inténtalo de nuevo.",
@@ -177,7 +203,7 @@
     "arrivalLabel": "Escaneado desde esta máquina",
     "arrivalEyebrow": "Escaneado en la máquina",
     "arrivalTitle": "Pregunta sobre la {tool}",
-    "arrivalBody": "Escaneaste el código de esta máquina. El asistente puede responder preguntas sobre ella, guiarte en la configuración o registrar un aviso de mantenimiento.",
+    "arrivalBody": "Escaneaste el código de esta máquina. MakerLAB AI puede responder preguntas sobre ella, guiarte en la configuración o registrar un aviso de mantenimiento.",
     "arrivalSeed": "Estoy frente a la {tool} y tengo una pregunta sobre ella.",
     "arrivalUnitLabel": "Escaneado desde la etiqueta de esta unidad",
     "arrivalUnitOf": "Unidad de {tool}",
@@ -314,5 +340,13 @@
     "rateLimitedTitle": "Demasiados intentos",
     "rateLimitedBody": "Llegaron demasiadas solicitudes desde esta conexión. Espera una hora y vuelve a abrir el enlace.",
     "home": "Volver a {site}"
+  },
+  "palette": {
+    "page": {
+      "allTools": "Todas las herramientas"
+    },
+    "assistant": "MakerLAB AI",
+    "ask": "Preguntar a MakerLAB AI: “{query}”",
+    "askEmpty": "Preguntar a MakerLAB AI"
   }
 }

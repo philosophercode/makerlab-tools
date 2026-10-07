@@ -34,7 +34,7 @@
   },
   "gallery": {
     "title": "ツール",
-    "searchPlaceholder": "在庫を検索...",
+    "allTitle": "すべてのツール",
     "searchAria": "在庫を検索",
     "category": "カテゴリ：",
     "training": "トレーニング：",
@@ -51,7 +51,33 @@
     "columnTraining": "トレーニング",
     "trainingBeginner": "初級",
     "trainingIntermediate": "中級",
-    "trainingAdvanced": "上級"
+    "trainingAdvanced": "上級",
+    "home": {
+      "searchSection": "ラボを検索",
+      "seeAll": "すべてのツールを見る（{count}件）",
+      "toolCount": "{count}件のツール",
+      "unitsDown": "{count}台が使用停止中",
+      "empty": "カタログにはまだツールがありません。"
+    },
+    "search": {
+      "landmark": "ツールを検索して MakerLAB AI に質問",
+      "label": "ツールを検索、または MakerLAB AI に質問",
+      "tools": "ツール",
+      "categories": "カテゴリ",
+      "categoryCount": "{count}件のツール",
+      "assistant": "MakerLAB AI",
+      "ask": "MakerLAB AI に質問：「{query}」",
+      "askNote": "質問を入れてチャットを開きます。MakerLAB AI は間違えることがあります。",
+      "noMatch": "「{query}」に一致するツールやカテゴリはありません。",
+      "lines": {
+        "search": "{count}件のツールを検索",
+        "build": "何をつくりますか？",
+        "findMachine": "使う機械を探す",
+        "x1Filament": "X1-Carbon にフィラメントを入れるには？",
+        "x1Start": "X1-Carbon で3Dプリントを始める方法を聞く",
+        "trotecAcrylic": "Trotec のレーザーでアクリルは切れますか？"
+      }
+    }
   },
   "detail": {
     "breadcrumbTools": "ツール",
@@ -142,16 +168,16 @@
     "browseTools": "ツールを閲覧"
   },
   "chat": {
-    "openAria": "MakerLAB アシスタントを開く",
-    "title": "MakerLAB アシスタント",
+    "openAria": "MakerLAB AI を開く",
+    "title": "MakerLAB AI",
     "newChatAria": "新しいチャットを開始",
     "newChatTitle": "新しいチャットを開始",
-    "closeAria": "アシスタントを閉じる",
+    "closeAria": "MakerLAB AI を閉じる",
     "closeTitle": "閉じる（会話は保持されます）",
     "greetingTool": "このツールについて質問してください。仕様、素材、リソースリンクを把握しています。",
     "greetingGeneral": "本日はどのようなご用件でしょうか？",
-    "composerPlaceholder": "ラボコンソールに質問...",
-    "composerAria": "ラボコンソールに質問",
+    "composerPlaceholder": "MakerLAB AI に質問...",
+    "composerAria": "MakerLAB AI に質問",
     "aiNote": "MakerLAB AI は間違えることがあります。安全に関わることは必ずスタッフに確認してください。",
     "sendAria": "送信",
     "attachAria": "写真を添付",
@@ -162,7 +188,7 @@
     "uploadFailed": "写真のアップロードに失敗しました",
     "uploadsUnavailable": "写真のアップロードは現在利用できません。写真なしでもメッセージを送信できます。",
     "toolRunningAria": "ツール実行中",
-    "typingAria": "アシスタントが入力中です",
+    "typingAria": "MakerLAB AI が入力中です",
     "readingManualsAria": "マニュアルを読み込み中",
     "reading": "読み込み中：{titles}…",
     "error": "問題が発生しました。もう一度お試しください。",
@@ -177,7 +203,7 @@
     "arrivalLabel": "この機械から読み取りました",
     "arrivalEyebrow": "機械の前で読み取り",
     "arrivalTitle": "{tool} について質問する",
-    "arrivalBody": "この機械のコードを読み取りました。アシスタントが機械に関する質問に答えたり、セットアップを案内したり、メンテナンス報告を登録したりできます。",
+    "arrivalBody": "この機械のコードを読み取りました。MakerLAB AI が機械に関する質問に答えたり、セットアップを案内したり、メンテナンス報告を登録したりできます。",
     "arrivalSeed": "{tool} の前にいます。この機械について質問があります。",
     "arrivalUnitLabel": "このユニットのラベルから読み取り",
     "arrivalUnitOf": "{tool} のユニット",
@@ -314,5 +340,13 @@
     "rateLimitedTitle": "試行回数が多すぎます",
     "rateLimitedBody": "この接続からのリクエストが多すぎます。1時間待ってから、もう一度リンクを開いてください。",
     "home": "{site}に戻る"
+  },
+  "palette": {
+    "page": {
+      "allTools": "すべてのツール"
+    },
+    "assistant": "MakerLAB AI",
+    "ask": "MakerLAB AI に質問：「{query}」",
+    "askEmpty": "MakerLAB AI に質問"
   }
 }

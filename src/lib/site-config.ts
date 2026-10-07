@@ -36,7 +36,7 @@ export interface SiteConfig {
    * Path to the wordmark alone in /public ("MakerLAB"), shown as a mask in the
    * site header so it takes the theme's text colour. Cropped from the lab's
    * earlier "MakerLAB@CORNELL TECH" logo. The header keeps it (owner
-   * decision, 2026-10-06); nothing else uses it.
+   * decision, 2026-10-06).
    */
   wordmark: string;
   /**
@@ -66,7 +66,7 @@ export const siteConfig: SiteConfig = {
     process.env.NEXT_PUBLIC_TAGLINE ??
     "Your digital guide to making at Cornell Tech",
   chatAssistantName:
-    process.env.NEXT_PUBLIC_CHAT_ASSISTANT_NAME ?? "MakerLAB Assistant",
+    process.env.NEXT_PUBLIC_CHAT_ASSISTANT_NAME ?? "MakerLAB AI",
   audience: process.env.AUDIENCE ?? "students who may be beginners",
   logo: LOGO,
   logoPng: pngTwin(LOGO),

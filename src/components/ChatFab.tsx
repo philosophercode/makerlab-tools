@@ -46,7 +46,7 @@ function savesData(): boolean {
 const LazyPanel = lazy(() => preloadChatPanel().then((panel) => ({ default: panel })));
 
 /**
- * The MakerLAB Assistant's floating button (identity spec 2026-09-28), its
+ * The MakerLAB AI's floating button (identity spec 2026-09-28), its
  * one-time introduction, and the assistant itself once it has been opened
  * (performance: the panel is not part of any page's first load).
  *

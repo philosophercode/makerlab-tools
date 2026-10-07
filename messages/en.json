@@ -44,7 +44,7 @@
   },
   "gallery": {
     "title": "Tools",
-    "searchPlaceholder": "search inventory...",
+    "allTitle": "All tools",
     "searchAria": "Search inventory",
     "filterLabel": "Filter the tools",
     "category": "Category",
@@ -60,8 +60,7 @@
     "loading": "Loading the inventory…",
     "facts": {
       "tools": "{count, plural, one {# tool} other {# tools}}",
-      "available": "{count} available now",
-      "categories": "{count, plural, one {# category} other {# categories}}"
+      "available": "{count} available now"
     },
     "sort": {
       "label": "Sort",
@@ -106,6 +105,32 @@
       "accessory": "Accessory",
       "consumable": "Consumable",
       "fixture": "Fixture"
+    },
+    "home": {
+      "searchSection": "Search the lab",
+      "seeAll": "{count, plural, one {See the # tool} other {See all # tools}}",
+      "toolCount": "{count, plural, one {# tool} other {# tools}}",
+      "unitsDown": "{count, plural, one {# unit out of service} other {# units out of service}}",
+      "empty": "No tools in the catalog yet."
+    },
+    "search": {
+      "landmark": "Search tools and ask MakerLAB AI",
+      "label": "Search tools, or ask MakerLAB AI a question",
+      "tools": "Tools",
+      "categories": "Categories",
+      "categoryCount": "{count, plural, one {# tool} other {# tools}}",
+      "assistant": "MakerLAB AI",
+      "ask": "Ask MakerLAB AI: “{query}”",
+      "askNote": "Opens the chat with your question. MakerLAB AI can make mistakes.",
+      "noMatch": "No tool or category matches “{query}”.",
+      "lines": {
+        "search": "{count, plural, one {Search # tool} other {Search # tools}}",
+        "build": "What will you build?",
+        "findMachine": "Find your machine",
+        "x1Filament": "How do I load filament on the X1-Carbon?",
+        "x1Start": "Ask how to start a 3D print on the X1-Carbon",
+        "trotecAcrylic": "Can the Trotec laser cut acrylic?"
+      }
     }
   },
   "detail": {
@@ -242,7 +267,7 @@
     "youtubeLink": "How-to videos on YouTube",
     "instagramLink": "@cornelltechmakerlab on Instagram",
     "projectHeading": "About this project",
-    "projectBody": "MakerLAB Tools is the lab's digital guide: every machine and hand tool in one catalog, with which units are free, the manuals, the safety requirements and the training each one needs. Inside it is the MakerLAB Assistant, an AI that knows the lab's real inventory. Ask it to help you:",
+    "projectBody": "MakerLAB Tools is the lab's digital guide: every machine and hand tool in one catalog, with which units are free, the manuals, the safety requirements and the training each one needs. Inside it is MakerLAB AI, an AI that knows the lab's real inventory. Ask it to help you:",
     "operateLabel": "Operate",
     "operateBody": "How do I use this machine?",
     "debugLabel": "Debug",
@@ -263,27 +288,27 @@
     "assistantPageLink": "What MakerLAB AI can and can't do"
   },
   "chat": {
-    "openAria": "Open the MakerLAB Assistant",
-    "title": "MakerLAB Assistant",
+    "openAria": "Open MakerLAB AI",
+    "title": "MakerLAB AI",
     "newChatAria": "Start new chat",
     "newChatTitle": "Start new chat",
-    "closeAria": "Close assistant",
+    "closeAria": "Close MakerLAB AI",
     "closeTitle": "Close (keeps conversation)",
     "greetingTool": "Ask about this tool — I have its specs, materials, and resource links.",
-    "greetingGeneral": "I'm the MakerLAB Assistant. I can help you operate a machine, debug a problem or plan a build with the tools the lab has.",
+    "greetingGeneral": "I'm MakerLAB AI. I can help you operate a machine, debug a problem or plan a build with the tools the lab has.",
     "starterOperateLabel": "Operate",
     "starterOperate": "How do I start a print on a 3D printer?",
     "starterDebugLabel": "Debug",
     "starterDebug": "My print is stringing — what should I check?",
     "starterCreateLabel": "Create",
     "starterCreate": "I want to make a lamp — which machines could I use?",
-    "introLabel": "About the MakerLAB Assistant",
-    "introTitle": "Meet the MakerLAB Assistant",
+    "introLabel": "About MakerLAB AI",
+    "introTitle": "Meet MakerLAB AI",
     "introBody": "Ask how to operate a machine, debug a problem, or plan a build.",
     "introOpen": "Ask a question",
     "introDismiss": "Dismiss",
-    "composerPlaceholder": "Ask the MakerLAB Assistant...",
-    "composerAria": "Ask the MakerLAB Assistant",
+    "composerPlaceholder": "Ask MakerLAB AI...",
+    "composerAria": "Ask MakerLAB AI",
     "aiNote": "MakerLAB AI can make mistakes. Check anything safety-related with staff.",
     "sendAria": "Send",
     "attachAria": "Attach photos",
@@ -294,7 +319,7 @@
     "uploadFailed": "Photo upload failed",
     "uploadsUnavailable": "Photo uploads are unavailable right now. You can still send your message without a photo.",
     "toolRunningAria": "Tool running",
-    "typingAria": "Assistant is typing",
+    "typingAria": "MakerLAB AI is typing",
     "readingManualsAria": "Reading manuals",
     "reading": "Reading: {titles}…",
     "error": "Something went wrong. Try again.",
@@ -329,7 +354,7 @@
       "failed": "The list could not be read.",
       "review": "Review import"
     },
-    "askAssistant": "Ask the assistant",
+    "askAssistant": "Ask MakerLAB AI",
     "scrollToLatest": "Scroll to the latest message",
     "dictate": "Dictate",
     "sourcesCount": "{count, plural, one {# manual page} other {# manual pages}}",
@@ -350,7 +375,7 @@
     "arrivalLabel": "Scanned from this machine",
     "arrivalEyebrow": "Scanned at the machine",
     "arrivalTitle": "Ask about the {tool}",
-    "arrivalBody": "You scanned the code on this machine. The assistant can answer questions about it, walk you through setup, or file a maintenance report.",
+    "arrivalBody": "You scanned the code on this machine. MakerLAB AI can answer questions about it, walk you through setup, or file a maintenance report.",
     "arrivalSeed": "I'm standing at the {tool} and I have a question about it.",
     "arrivalUnitLabel": "Scanned from this unit's label",
     "arrivalUnitOf": "A unit of the {tool}",
@@ -2872,6 +2897,7 @@
     "pages": "Pages",
     "page": {
       "tools": "Tools",
+      "allTools": "All tools",
       "projects": "Projects",
       "about": "About",
       "mcp": "Connect an AI assistant (MCP)"
@@ -2887,9 +2913,9 @@
     "draft": "Draft",
     "hint": "↑ ↓ to move · Enter to open · Esc to close",
     "toolsUnavailable": "The tool list could not be read.",
-    "assistant": "Assistant",
-    "ask": "Ask the assistant: “{query}”",
-    "askEmpty": "Ask the assistant"
+    "assistant": "MakerLAB AI",
+    "ask": "Ask MakerLAB AI: “{query}”",
+    "askEmpty": "Ask MakerLAB AI"
   },
   "actions": {
     "summary": {
@@ -3212,8 +3238,8 @@
     "ticketsWorking": "{count} being worked on",
     "ticketsWaiting": "{count} waiting",
     "ticketsUnavailable": "Not available",
-    "askHeading": "Ask the assistant on your phone",
-    "openAssistant": "Open the assistant",
+    "askHeading": "Ask MakerLAB AI on your phone",
+    "openAssistant": "Open MakerLAB AI",
     "qrLabel": "QR code that opens {url}",
     "featuredHeading": "Featured",
     "featuredTool": "Tool",

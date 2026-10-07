@@ -78,7 +78,7 @@ it("jumps to a category as the filtered gallery, and to a page", async () => {
   let dialog = await openPalette(user);
   await user.type(within(dialog).getByRole("combobox"), "laser");
   await user.click(within(dialog).getByRole("option", { name: /^Laser2 tools/ }));
-  expect(router.push).toHaveBeenCalledWith("/?category=Laser");
+  expect(router.push).toHaveBeenCalledWith("/tools?category=Laser");
 
   dialog = await openPalette(user);
   await user.type(within(dialog).getByRole("combobox"), "projects");
@@ -161,13 +161,13 @@ it("offers the assistant only when it is given onAsk (phase 5's hook)", async ()
   const { unmount } = render(<CommandPalette role="admin" tools={TOOLS} />);
   let dialog = await openPalette(user);
   await user.type(within(dialog).getByRole("combobox"), "how do I");
-  expect(within(dialog).queryByRole("option", { name: /Ask the assistant/ })).not.toBeInTheDocument();
+  expect(within(dialog).queryByRole("option", { name: /Ask MakerLAB AI/ })).not.toBeInTheDocument();
   unmount();
 
   render(<CommandPalette role="admin" tools={TOOLS} onAsk={onAsk} />);
   dialog = await openPalette(user);
   await user.type(within(dialog).getByRole("combobox"), "how do I");
-  await user.click(within(dialog).getByRole("option", { name: /Ask the assistant: “how do I”/ }));
+  await user.click(within(dialog).getByRole("option", { name: /Ask MakerLAB AI: “how do I”/ }));
   expect(onAsk).toHaveBeenCalledWith("how do I");
 });
 
@@ -176,14 +176,14 @@ it("opens the assistant with nothing typed, and keeps it last so Enter opens the
   const onAsk = vi.fn();
   render(<CommandPalette role="admin" tools={TOOLS} onAsk={onAsk} />);
   let dialog = await openPalette(user);
-  await user.click(within(dialog).getByRole("option", { name: "Ask the assistant" }));
+  await user.click(within(dialog).getByRole("option", { name: "Ask MakerLAB AI" }));
   expect(onAsk).toHaveBeenCalledWith("");
 
   dialog = await openPalette(user);
   await user.type(within(dialog).getByRole("combobox"), "form 4");
   const options = within(dialog).getAllByRole("option");
   expect(options[0]).toHaveAccessibleName(/Form 4/);
-  expect(options[options.length - 1]).toHaveAccessibleName("Ask the assistant: “form 4”");
+  expect(options[options.length - 1]).toHaveAccessibleName("Ask MakerLAB AI: “form 4”");
   await user.keyboard("{Enter}");
   expect(router.push).toHaveBeenCalledWith("/tools/form-4");
   expect(onAsk).toHaveBeenCalledTimes(1);
@@ -217,6 +217,39 @@ it("focuses the page's filter search on /, but not while typing", async () => {
   await user.click(screen.getByRole("textbox", { name: "Other" }));
   await user.keyboard("/");
   expect(screen.getByRole("textbox", { name: "Other" })).toHaveValue("/");
+});
+
+it("keeps its header field in place but hidden on a page with its own search, and still opens on Ctrl-K (student home spec §6)", async () => {
+  const user = userEvent.setup();
+  render(<CommandPalette role="anonymous" tools={TOOLS} triggerHidden />);
+  const trigger = document.querySelector('[data-slot="palette-trigger"]')!;
+  expect(trigger).toHaveClass("invisible");
+  expect(trigger).toHaveAttribute("aria-hidden", "true");
+  expect(trigger).toHaveAttribute("tabindex", "-1");
+  expect(screen.queryByRole("button", { name: "Search tools and pages" })).not.toBeInTheDocument();
+  await openPalette(user);
+});
+
+it("focuses the home page's smart search (a combobox) on /", async () => {
+  const user = userEvent.setup();
+  render(
+    <>
+      <CommandPalette role="anonymous" tools={TOOLS} />
+      <div role="search">
+        <input role="combobox" aria-expanded="false" aria-controls="x" aria-label="Smart search" />
+      </div>
+    </>
+  );
+  await user.keyboard("/");
+  expect(screen.getByRole("combobox", { name: "Smart search" })).toHaveFocus();
+});
+
+it("lists the full tool list as a page", async () => {
+  const user = userEvent.setup();
+  render(<CommandPalette role="anonymous" tools={TOOLS} />);
+  const dialog = await openPalette(user);
+  await user.click(within(dialog).getByRole("option", { name: "All tools" }));
+  expect(router.push).toHaveBeenCalledWith("/tools");
 });
 
 describe("paletteScore", () => {

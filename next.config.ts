@@ -6,6 +6,7 @@ import {
   devSignInBuildVerdict,
 } from "./src/lib/auth/dev-sign-in-build-check";
 import { blobImagePatterns } from "./src/lib/images/remote-patterns";
+import { ALL_TOOLS_PATH, GALLERY_QUERY_KEYS } from "./src/lib/gallery-links";
 
 // Development-only sign-in (auth spec amendment 2026-09-24) must never be
 // configured on a deployment. The route refuses outside `next dev` regardless;
@@ -123,6 +124,18 @@ const nextConfig: NextConfig = {
     // cannot go stale: keep it for 31 days rather than re-optimizing (and
     // re-billing) it every hour.
     minimumCacheTTL: 2_678_400,
+  },
+  // The full tool list moved from the home page to `/tools` (student home
+  // spec 2026-10-07 §5). An old link to `/` that carries a list filter
+  // (`/?category=Laser`, a shared search) lands on the list, query and all.
+  // `/?ask=1` and `/?src=kiosk` are not list filters and stay on the home page.
+  async redirects() {
+    return GALLERY_QUERY_KEYS.map((key) => ({
+      source: "/",
+      has: [{ type: "query" as const, key }],
+      destination: ALL_TOOLS_PATH,
+      permanent: false,
+    }));
   },
   async headers() {
     return [

@@ -1595,3 +1595,17 @@ URL scheme, the renderer, both scripts, `toolImage` selection, `ToolImage`,
 the lazy chat panel and table, the sweep deleting thumbnails, `data:push`
 nulling them and the maintenance tag; the intake E2E now sees the approved
 image's thumbnails written after approval.
+
+### 2026-10-07 — The gallery moves to `/tools`
+
+The student home spec ([2026-10-07](2026-10-07-student-home-design.md)) makes
+`/` the categories with one smart search box, and moves the gallery described
+here to **`/tools`**, titled "All tools". Its filters, sort, grouping, views
+and URL state are unchanged; its search is now the minimal box
+(`search/ListSearch.tsx`, through `FilterBar`'s new `searchSlot`) with an
+"Ask MakerLAB AI" button row under the filters while it has text. Its facts
+line drops the category count. An old `/?category=…` link redirects to
+`/tools` (`next.config.ts`). The ⌘K palette (§7.5) shares its matching with
+the home page's smart search (`palette/palette-search.ts`), lists "All tools"
+as a page, links categories to `/tools?category=…`, and hides its header field
+on `/` and `/tools`, where the page has its own box.

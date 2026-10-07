@@ -47,7 +47,18 @@
   `ChoiceMenu` (Sort, Group by), its state in the URL through
   `gallery-filters.ts` and `useUrlSearch` (the page is one cached prerender, so
   the island reads the query string itself); grouped, it is sticky-headed
-  sections with counts. The tool page is one column (`DetailShell`, units as
+  sections with counts. Since the student home spec (2026-10-07) the gallery
+  is **`/tools`** ("All tools") and **`/`** is the student home
+  (`home/HomeShell`): the smart search (`home/HomeSearch`,
+  cmdk inline, tools then categories then "Ask MakerLAB AI", ranked by the
+  palette's `paletteScore` through `palette/palette-search.ts`; Enter never
+  asks by accident), and category tiles (`home/home-tools.ts`,
+  `CategoryTileCard`) in the taxonomy's order (`getCategoryOrder`). Both pages
+  use the minimal box (`search/SearchFrame`, a placeholder line that rotates
+  every 3 s, still under reduced motion and while focused); the list's is
+  `search/ListSearch` in `FilterBar`'s `searchSlot`. Links to the list go
+  through `lib/gallery-links.ts`; `next.config.ts` redirects old
+  `/?category=…` links. The tool page is one column (`DetailShell`, units as
   `tool/UnitsTable`, the maintenance history from `getToolMaintenanceHistory` —
   no names). `app/not-found.tsx` / `app/error.tsx` exist. `account.css`,
   `mcp.css`, the `.tool-detail` palette and the gallery/projects legacy rules
@@ -57,7 +68,8 @@
   `Sheet`, `ui/sheet.tsx`); view switches are `system/SegmentedControl`; the
   gallery table has a Status facet, Columns and sorting on every column
   (`useGalleryColumns`). The ⌘K palette (`palette/CommandPalette`) is in the
-  header on every page (`HeaderSearch`): published tools from the root layout
+  header on every page (`HeaderSearch`; its field is hidden but kept in place
+  on `/` and `/tools`, which have their own box): published tools from the root layout
   (`getPaletteTools`), the role from `PrimaryNav`'s identity
   (`lib/auth/identity-store.ts`), and on admin pages the server-resolved role
   and the drafts via `PaletteScope`, added to the published list. Floating menus use `FROSTED`
