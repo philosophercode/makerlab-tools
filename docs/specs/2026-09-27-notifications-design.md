@@ -1,7 +1,7 @@
 # Notifications: Email First, Web Push Later — Design Spec
 
 **Date:** 2026-09-27
-**Status:** Draft
+**Status:** Superseded by [Email Notifications](2026-09-30-email-notifications-design.md) (2026-09-30). Do not implement against this.
 **Target:** `v5/`
 **Branch:** `docs/feature-specs`
 **Spec PR:** — · **Implementation PR:** — (one per phase, §9)

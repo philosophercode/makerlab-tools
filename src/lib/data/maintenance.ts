@@ -12,6 +12,7 @@ import {
 import type { CompletedMaintenanceType } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
 import { labToday } from "../lab-time.ts";
+import { enqueueNotification } from "../notifications/enqueue.ts";
 import { accountRemoved } from "./account-removed.ts";
 import { claimAttachments } from "./attachments.ts";
 import { rankByVocabulary } from "./rank.ts";
@@ -300,6 +301,13 @@ export interface NewMaintenanceLog {
   reportedByUserId?: string | null;
   /** `attachments.id`s uploaded for this report, in display order. */
   photoAttachmentIds?: readonly string[];
+  /**
+   * Where the report came from: the chat or an MCP client (`ctx.surface`),
+   * or the quick report form (`gui`). Recorded on the `ticket.filed`
+   * notification so the staff email can say "via a connected app" (email
+   * notifications spec §5.1).
+   */
+  surface?: "chat" | "mcp" | "gui" | null;
 }
 
 export interface CreatedMaintenanceLog {
@@ -312,6 +320,12 @@ export interface CreatedMaintenanceLog {
   dateReported: string;
   /** How many of {@link NewMaintenanceLog.photoAttachmentIds} actually attached. */
   photosAttached: number;
+  /**
+   * The `ticket.filed` outbox row written with the ticket (email notifications
+   * spec §3.2). The caller hands it to `requestNotificationDelivery` after the
+   * commit.
+   */
+  notificationId: string | null;
 }
 
 export interface MaintenanceWriteOptions {
@@ -329,7 +343,15 @@ export interface MaintenanceWriteOptions {
  * ticket.
  *
  * The insert and the photo claim share one transaction, so a ticket that fails
- * to write cannot leave its photos pointing at a row nobody has.
+ * to write cannot leave its photos pointing at a row nobody has. So does the
+ * `ticket.filed` notification (email notifications spec §3.2, §11 Q6): every
+ * path that files a ticket (chat, the report form, MCP) comes through here, so
+ * all of them email staff alike, and a ticket that did not land notifies
+ * nobody. An outbox insert that fails rolls the ticket back too.
+ *
+ * `logCompletedMaintenance` (staff recording work they already did) is a
+ * separate function and emits nothing: nobody needs telling about their own
+ * work.
  *
  * Throws on a database failure. The caller reports that to the student as a
  * failure to file — never as a filed ticket (Article 4).
@@ -378,6 +400,12 @@ export async function createMaintenanceLog(
       { uploadedBy: input.reportedByUserId || null }
     );
 
+    const notification = await enqueueNotification(tx, {
+      event: "ticket.filed",
+      subject: { type: "maintenance_log", id: row.id },
+      surface: input.surface ?? null,
+    });
+
     return {
       id: row.id,
       toolId: target?.toolId ?? null,
@@ -385,6 +413,7 @@ export async function createMaintenanceLog(
       unitLabel: target?.unitLabel ?? null,
       dateReported,
       photosAttached,
+      notificationId: notification?.id ?? null,
     };
   });
 }

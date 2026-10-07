@@ -290,5 +290,29 @@
   "demoBanner": {
     "label": "Dados de demonstração",
     "body": "Este catálogo contém dados de exemplo integrados, não o inventário real de {institution}. O Notion não está configurado."
+  },
+  "unsubscribe": {
+    "loading": "Carregando…",
+    "eyebrow": "E-mail",
+    "confirmTitle": "Desativar estes e-mails?",
+    "confirm": {
+      "ticketFiled": "Você deixará de receber um e-mail sempre que alguém relatar um problema com uma máquina.",
+      "maintenanceDue": "Você deixará de receber o lembrete matinal da manutenção periódica pendente."
+    },
+    "confirmScope": "Só este e-mail para. Nada mais muda na sua conta.",
+    "turnOff": "Desativar",
+    "keep": "Continuar recebendo",
+    "failed": "Não foi possível salvar. Tente de novo em instantes.",
+    "doneTitle": "Desativado",
+    "done": {
+      "ticketFiled": "Você não receberá um e-mail quando alguém relatar um problema com uma máquina.",
+      "maintenanceDue": "Você não receberá o lembrete matinal de manutenção."
+    },
+    "doneUndo": "Os chamados e as tarefas continuam aparecendo no app. Para voltar a receber estes e-mails, peça à direção do laboratório.",
+    "invalidTitle": "Este link não funciona",
+    "invalidBody": "Ele pode estar incompleto ou desatualizado. Nada foi alterado. Se continuar recebendo e-mails indesejados, avise a equipe do laboratório.",
+    "rateLimitedTitle": "Tentativas demais",
+    "rateLimitedBody": "Chegaram solicitações demais desta conexão. Espere uma hora e abra o link de novo.",
+    "home": "Voltar para {site}"
   }
 }

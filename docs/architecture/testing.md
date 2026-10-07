@@ -24,6 +24,12 @@ first), `npm run test:coverage`.
   store"; the local-store tests opt in and write to a temp folder.
   Only the mirror writes Notion; its tests talk to an in-memory Notion
   (`test/fakes/notion-fake.ts`) through MSW, never to `api.notion.com`.
+  Email goes to Resend only when `RESEND_API_KEY` and `EMAIL_FROM` are set;
+  unset, every delivery is recorded `not_configured` in process. Tests that
+  send install `useResendFake(server)` (`test/msw/resend.ts`), which records
+  each request and, like Resend, answers a repeated idempotency key with the
+  first email, so "one per person" holds across retries. There is no default
+  Resend handler: a send without the fake fails on MSW's unhandled request.
 - **Every model call is stubbed, at one of two seams, and never with a
   provider-specific mock** (never `vi.mock("@ai-sdk/gateway")`):
   - **`test/ai/models-stub.ts`** — `vi.mock("@/lib/ai/models", …)` swaps

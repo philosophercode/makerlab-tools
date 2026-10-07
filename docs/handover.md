@@ -66,6 +66,7 @@ Director) and Isaac Steinberg (Tech Lead).
 | `CRON_SECRET` | Vercel env vars | ⬜ **TBD** | Lets the nightly cron prove it is Vercel (§3) |
 | `CRON_HEARTBEAT_URL` + heartbeat monitor | Vercel env vars; Healthchecks.io or Better Stack | ⬜ **TBD** | Emails the shared address when the nightly backup fails or does not run ([`operations.md`](operations.md)) |
 | Uptime monitor on `/api/health` | UptimeRobot or Better Stack | ⬜ **TBD** | Emails the shared address when the site or database is down |
+| Resend (staff email) + sending domain | Vercel Marketplace → Resend; the domain's DNS | ⬜ **TBD** | `RESEND_API_KEY` (injected), `EMAIL_FROM`, `EMAIL_REPLY_TO`. Ticket alerts and the 08:00 maintenance reminder. Resend processes staff addresses ([`architecture/notifications.md`](architecture/notifications.md)) |
 
 > [!WARNING]
 > **Inference is a live bill and the only cost here that scales with use.** Every question a
@@ -108,9 +109,12 @@ if the student attached any. Corrections students report land on **Admin → Cor
 and project submissions on **Admin → Projects** (unpublished until someone publishes them).
 The admin home shows how many are waiting.
 
-Nothing in the app makes anyone look. **A ticket queue nobody reads is worse than no ticket
-queue** — students stop reporting after a couple of unanswered reports. Decide who checks it
-and how often, and write that down here:
+Once email is set up (`RESEND_API_KEY`, `EMAIL_FROM`; [`deploy.md`](deploy.md) step 4),
+everyone who can work tickets gets an email when one is filed, with a link straight to it,
+and a reminder at 08:00 when a recurring task comes due (once per due date). Each email has
+a one-click "Turn off" link for that person. Email helps, but it does not replace an owner.
+**A ticket queue nobody reads is worse than no ticket queue**: students stop reporting after
+a couple of unanswered reports. Decide who checks it and how often, and write that down here:
 
 > **Ticket owner:** ⬜ **TBD** · **Checked:** ⬜ **TBD**
 

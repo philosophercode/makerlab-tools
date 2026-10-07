@@ -89,6 +89,13 @@ describe("MaintenanceQueue", () => {
     expect(screen.queryByText("Exhaust fan rattles")).not.toBeInTheDocument();
   });
 
+  it("gives each ticket the anchor a new-ticket email links to (email notifications spec §5.1)", () => {
+    renderQueue([ticket({ id: "0d6c1a8e-1111-2222-3333-444455556666" })]);
+    const anchor = document.getElementById("ticket-0d6c1a8e-1111-2222-3333-444455556666");
+    expect(anchor).not.toBeNull();
+    expect(within(anchor!).getByRole("heading", { name: "Laser bed out of focus" })).toBeInTheDocument();
+  });
+
   it("keeps a removed reporter's name, marked removed (auth spec amendment 2026-09-25)", () => {
     renderQueue([ticket({ reporterRemoved: true })]);
     expect(screen.getByText("Reported by Casey Rivera (removed)")).toBeInTheDocument();

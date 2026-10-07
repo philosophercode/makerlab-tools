@@ -554,3 +554,18 @@ component tests for `DueTasks` and `ScheduleForm`; the admin tile test.
 5. Notifications: a daily digest of what is due (the notifications spec), using `countDueSchedules`.
 6. Phase 4, suggestions from manuals, as specced (adds `suggested`, `source`, `source_citation`).
 7. Whether a recurring task should ever open a ticket (for example, when it is a week overdue).
+
+### 2026-10-07 — Follow-up 5 built: the email reminder
+
+The owner's design review decisions (2026-10-07) say recurring maintenance "must email: a reminder of
+what is due and overdue". That is follow-up 5, built as a dated amendment to the
+[Email Notifications](2026-09-30-email-notifications-design.md) spec ("2026-10-07 — The
+recurring-maintenance reminder, on each task's cadence"): when a task comes due, everyone who can
+work maintenance (`maintenance.manage`) is emailed about it at 08:00 lab time, once for that due
+date, with a link to the Shift checklist (`/admin/maintenance#due-tasks`). A task that stays
+overdue is not emailed again; after **Done**, its next due date is emailed when it arrives. The
+day's newly due tasks share one email. Nothing newly due, nothing sent. Paused and archived tasks
+never appear.
+It rides the existing daily cron (a workflow that sleeps until 08:00), so no second cron. Each
+person can turn it off with the one-click unsubscribe, separately from ticket emails. It stays
+equipment-bound and is not a general task manager.

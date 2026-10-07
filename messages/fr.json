@@ -290,5 +290,29 @@
   "demoBanner": {
     "label": "Données de démonstration",
     "body": "Ce catalogue contient des données d'exemple intégrées, et non l'inventaire réel de {institution}. Notion n'est pas configuré."
+  },
+  "unsubscribe": {
+    "loading": "Chargement…",
+    "eyebrow": "E-mail",
+    "confirmTitle": "Désactiver ces e-mails ?",
+    "confirm": {
+      "ticketFiled": "Vous ne recevrez plus d'e-mail chaque fois que quelqu'un signale un problème sur une machine.",
+      "maintenanceDue": "Vous ne recevrez plus le rappel du matin sur la maintenance périodique à faire."
+    },
+    "confirmScope": "Seul cet e-mail s'arrête. Rien d'autre ne change sur votre compte.",
+    "turnOff": "Désactiver",
+    "keep": "Continuer à les recevoir",
+    "failed": "L'enregistrement a échoué. Réessayez dans un instant.",
+    "doneTitle": "Désactivé",
+    "done": {
+      "ticketFiled": "Vous ne recevrez plus d'e-mail quand quelqu'un signale un problème sur une machine.",
+      "maintenanceDue": "Vous ne recevrez plus le rappel de maintenance du matin."
+    },
+    "doneUndo": "Les tickets et les tâches restent visibles dans l'application. Pour recevoir à nouveau ces e-mails, demandez à la direction du lab.",
+    "invalidTitle": "Ce lien ne fonctionne pas",
+    "invalidBody": "Il est peut-être incomplet ou périmé. Rien n'a été modifié. Si vous recevez encore des e-mails non souhaités, prévenez l'équipe du lab.",
+    "rateLimitedTitle": "Trop de tentatives",
+    "rateLimitedBody": "Trop de requêtes sont arrivées depuis cette connexion. Attendez une heure, puis rouvrez le lien.",
+    "home": "Retour à {site}"
   }
 }
