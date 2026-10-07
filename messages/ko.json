@@ -244,9 +244,16 @@
   "auth": {
     "eyebrow": "로그인",
     "title": "이 계정은 {institution} 계정이 아닙니다",
-    "body": "{site}은(는) {institution} 계정으로만 로그인할 수 있어 이 계정은 사용할 수 없습니다.",
+    "refusedAddress": "<address>{email}</address>은(는) 사용할 수 없습니다. {site}은(는) {institution} 계정(@{domain}으로 끝나는 주소)만 허용합니다.",
+    "refusedUnknown": "이 Google 계정은 사용할 수 없습니다. {site}은(는) {institution} 계정(@{domain}으로 끝나는 주소)만 허용합니다.",
+    "blockedAddress": "<address>{email}</address>은(는) 사용할 수 없습니다. {site} 관리자가 이 주소를 차단했습니다. 실수라고 생각되면 랩 직원에게 문의하세요.",
     "stillWorks": "잠긴 것은 없습니다. 로그인하지 않아도 전체 카탈로그를 둘러보고 어시스턴트에게 질문할 수 있습니다. 로그인하면 시간당 메시지 한도가 늘어나고 제출한 내용에 확인된 이름이 기록됩니다.",
-    "browseTools": "카탈로그 둘러보기"
+    "browseTools": "카탈로그 둘러보기",
+    "useDifferentAccount": "다른 Google 계정 사용",
+    "switchUnconfigured": "이 배포에는 로그인이 설정되어 있지 않습니다.",
+    "switchFailed": "Google 로그인을 시작하지 못했습니다. 다시 시도하세요.",
+    "blockedTitle": "이 계정은 {site}에 로그인할 수 없습니다",
+    "blockedBody": "{site} 관리자가 이 주소의 가입을 차단했기 때문에 계정이 만들어지지 않았습니다. 실수라고 생각되면 랩 직원에게 문의하세요."
   },
   "demoBanner": {
     "label": "데모 데이터",

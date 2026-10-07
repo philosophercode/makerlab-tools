@@ -1,8 +1,9 @@
 import "server-only";
 
 import { betterAuth } from "better-auth";
-import { createAuthMiddleware } from "better-auth/api";
+import { createAuthMiddleware, getOAuthState } from "better-auth/api";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { deleteSessionCookie } from "better-auth/cookies";
 import { nextCookies } from "better-auth/next-js";
 import { admin } from "better-auth/plugins/admin";
 import { mcp } from "better-auth/plugins";
@@ -14,6 +15,7 @@ import { emailBlockedError, emailNotAllowedError, isSignUpBlocked } from "./bloc
 import { devSignInPlugin } from "./dev-sign-in-plugin";
 import { keepChosenName } from "./provider-name";
 import { ac, roles } from "./permissions";
+import { forgetRefusedSignIn, rememberRefusedSignIn, REFUSED_SIGN_IN_COOKIE, safeRetryPath } from "./refused-sign-in";
 import { allowedEmailDomain, allowedEmails, isAllowedEmail } from "./roles";
 import { isSuperAdminFloor } from "./super-admins";
 import type { Db } from "../db/types";
@@ -119,10 +121,29 @@ export function createAuth(db: Db) {
   const secret = process.env.AUTH_SECRET || "";
   const domain = allowedEmailDomain();
   const namedExceptions = allowedEmails().length > 0;
+  const baseURL = authBaseUrl();
+  const refusedCookie = { secret, secure: baseURL.startsWith("https://") };
+
+  // Name the refused address for the page that explains the refusal, and keep
+  // the page the sign-in started from so "Use a different Google account"
+  // returns there (auth spec amendment 2026-10-07; `refused-sign-in.ts`).
+  // Never allowed to turn a refusal into a different error.
+  async function rememberRefusal(
+    ctx: Parameters<typeof rememberRefusedSignIn>[0],
+    email: string
+  ): Promise<void> {
+    try {
+      const state = await getOAuthState().catch(() => null);
+      const retryPath = safeRetryPath(state?.callbackURL, baseURL);
+      rememberRefusedSignIn(ctx, { email, retryPath }, refusedCookie);
+    } catch (err) {
+      console.error("[auth] could not record a refused sign-in", err);
+    }
+  }
 
   return betterAuth({
     secret,
-    baseURL: authBaseUrl(),
+    baseURL,
     basePath: AUTH_BASE_PATH,
     database: drizzleAdapter(db, { provider: "pg", schema }),
     // Registered only when the client exists, so `/sign-in/social` answers a
@@ -209,17 +230,25 @@ export function createAuth(db: Db) {
     databaseHooks: {
       user: {
         create: {
-          before: async (user) => {
+          before: async (user, ctx) => {
             // Enforcement #1: refuse to even create a user outside the domain.
             // Thrown, not `false`: `false` surfaces as Better Auth's generic
             // `unable_to_create_user`, while this code lands on /auth/rejected.
-            if (!isAllowedEmail(user.email)) throw emailNotAllowedError();
+            // The page names the address, so it is left in a cookie first
+            // (`ctx` is null when no request is in flight: then nothing is left).
+            if (!isAllowedEmail(user.email)) {
+              await rememberRefusal(ctx, user.email);
+              throw emailNotAllowedError();
+            }
             // A blocked address (auth spec amendment 2026-09-25): refused
             // before any row exists, like the domain. Thrown rather than
             // `false` so the OAuth callback can say *why* — its error redirect
             // carries this code, and the auth route sends it to `/auth/blocked`.
             // The floor is never blocked (`blocked-sign-in.ts`).
-            if (await isSignUpBlocked(user.email, db)) throw emailBlockedError();
+            if (await isSignUpBlocked(user.email, db)) {
+              await rememberRefusal(ctx, user.email);
+              throw emailBlockedError();
+            }
             // The floor (§3.4). No user row exists before the first sign-in,
             // so there is no admin to promote anybody: the listed address
             // arrives already a super admin, and that is how the first one
@@ -248,12 +277,25 @@ export function createAuth(db: Db) {
     },
     hooks: {
       after: createAuthMiddleware(async (ctx) => {
+        // Starting sign-in again, or signing out, ends the last refusal: the
+        // page that named it has done its job (auth spec amendment 2026-10-07).
+        if (
+          (ctx.path === "/sign-in/social" || ctx.path === "/sign-out") &&
+          ctx.getCookie(REFUSED_SIGN_IN_COOKIE) !== null
+        ) {
+          forgetRefusedSignIn(ctx, refusedCookie);
+        }
         const newSession = ctx.context.newSession;
         if (!newSession) return;
         // Enforcement #2. Belt and braces: an address that is somehow already a
         // row — a domain reconfigured after the fact, a restored backup — does
-        // not get to carry a session out of here.
+        // not get to carry a session out of here. The session the callback
+        // just wrote is revoked, row and cookie, before the redirect: a
+        // refused person holds nothing, so trying another account starts clean.
         if (!isAllowedEmail(newSession.user.email)) {
+          await ctx.context.internalAdapter.deleteSession(newSession.session.token);
+          deleteSessionCookie(ctx);
+          await rememberRefusal(ctx, newSession.user.email);
           throw ctx.redirect(DOMAIN_REJECTED_PATH);
         }
       }),
@@ -276,7 +318,7 @@ export function createAuth(db: Db) {
       // route enforces (`forceConsent` in `app/api/auth/[...all]/route.ts`).
       mcp({
         loginPage: OAUTH_LOGIN_PATH,
-        resource: `${authBaseUrl()}/api/mcp/signed-in`,
+        resource: `${baseURL}/api/mcp/signed-in`,
         oidcConfig: {
           loginPage: OAUTH_LOGIN_PATH,
           consentPage: OAUTH_CONSENT_PATH,

@@ -244,9 +244,16 @@
   "auth": {
     "eyebrow": "サインイン",
     "title": "このアカウントは {institution} のアカウントではありません",
-    "body": "{site} は {institution} のアカウントでのみサインインできるため、このアカウントは使用できません。",
+    "refusedAddress": "<address>{email}</address> は使用できません。{site} は {institution} のアカウント（@{domain} で終わるアドレス）のみ受け付けます。",
+    "refusedUnknown": "この Google アカウントは使用できません。{site} は {institution} のアカウント（@{domain} で終わるアドレス）のみ受け付けます。",
+    "blockedAddress": "<address>{email}</address> は使用できません。{site} の管理者がこのアドレスをブロックしています。間違いだと思われる場合は、ラボのスタッフにお問い合わせください。",
     "stillWorks": "何もロックされていません。サインインしなくてもカタログ全体を閲覧し、アシスタントに質問できます。サインインすると 1 時間あたりのメッセージ上限が増え、提出内容に確認済みの名前が記録されます。",
-    "browseTools": "カタログを閲覧"
+    "browseTools": "カタログを閲覧",
+    "useDifferentAccount": "別の Google アカウントを使う",
+    "switchUnconfigured": "このデプロイではサインインが設定されていません。",
+    "switchFailed": "Google サインインを開始できませんでした。もう一度お試しください。",
+    "blockedTitle": "このアカウントは {site} にサインインできません",
+    "blockedBody": "{site} の管理者がこのアドレスの登録をブロックしているため、アカウントは作成されませんでした。間違いだと思われる場合は、ラボのスタッフにお問い合わせください。"
   },
   "demoBanner": {
     "label": "デモデータ",

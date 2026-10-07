@@ -244,9 +244,16 @@
   "auth": {
     "eyebrow": "登录",
     "title": "该账号不是 {institution} 账号",
-    "body": "{site} 只能使用 {institution} 账号登录，因此无法使用该账号。",
+    "refusedAddress": "无法使用 <address>{email}</address>：{site} 只接受 {institution} 账号（以 @{domain} 结尾的地址）。",
+    "refusedUnknown": "无法使用此 Google 账号：{site} 只接受 {institution} 账号（以 @{domain} 结尾的地址）。",
+    "blockedAddress": "无法使用 <address>{email}</address>：{site} 管理员已屏蔽此地址。如果你认为这是误会，请联系实验室工作人员。",
     "stillWorks": "没有任何内容被锁定。无需登录即可浏览完整目录并向助手提问；登录只会提高每小时消息上限，并在您提交的内容上记录经过验证的姓名。",
-    "browseTools": "浏览目录"
+    "browseTools": "浏览目录",
+    "useDifferentAccount": "使用其他 Google 账号",
+    "switchUnconfigured": "此部署未设置登录。",
+    "switchFailed": "无法启动 Google 登录，请重试。",
+    "blockedTitle": "此账号无法登录 {site}",
+    "blockedBody": "{site} 管理员已禁止此地址注册，因此未创建账号。如果你认为这是误会，请联系实验室工作人员。"
   },
   "demoBanner": {
     "label": "演示数据",

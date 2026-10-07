@@ -244,9 +244,16 @@
   "auth": {
     "eyebrow": "Oturum açma",
     "title": "Bu hesap bir {institution} hesabı değil",
-    "body": "{site} yalnızca {institution} hesaplarıyla oturum açar, bu yüzden bu hesap kullanılamaz.",
+    "refusedAddress": "<address>{email}</address> kullanılamaz: {site} yalnızca {institution} hesaplarını kabul eder (@{domain} ile biten adresler).",
+    "refusedUnknown": "Bu Google hesabı kullanılamaz: {site} yalnızca {institution} hesaplarını kabul eder (@{domain} ile biten adresler).",
+    "blockedAddress": "<address>{email}</address> kullanılamaz: bir {site} yöneticisi bu adresi engelledi. Bunun bir hata olduğunu düşünüyorsanız laboratuvar personeline sorun.",
     "stillWorks": "Hiçbir şey kilitli değil. Oturum açmadan katalogun tamamına göz atabilir ve asistana soru sorabilirsiniz; oturum açmak yalnızca saatlik mesaj sınırını yükseltir ve gönderdiklerinize doğrulanmış adınızı ekler.",
-    "browseTools": "Kataloga göz at"
+    "browseTools": "Kataloga göz at",
+    "useDifferentAccount": "Farklı bir Google hesabı kullan",
+    "switchUnconfigured": "Bu dağıtımda oturum açma ayarlanmamış.",
+    "switchFailed": "Google ile oturum açma başlatılamadı. Tekrar deneyin.",
+    "blockedTitle": "Bu hesap {site} uygulamasında oturum açamaz",
+    "blockedBody": "Bir {site} yöneticisi bu adresin kaydolmasını engelledi, bu yüzden hesap oluşturulmadı. Bunun bir hata olduğunu düşünüyorsanız laboratuvar personeline sorun."
   },
   "demoBanner": {
     "label": "Demo verileri",
