@@ -179,6 +179,7 @@
     "composerPlaceholder": "Demandez à MakerLAB AI...",
     "composerAria": "Demandez à MakerLAB AI",
     "aiNote": "MakerLAB AI peut se tromper. Vérifiez auprès de l'équipe tout ce qui touche à la sécurité.",
+    "aiNoteDismiss": "Fermer la note",
     "sendAria": "Envoyer",
     "attachAria": "Joindre des photos",
     "attachTitle": "Joindre des photos",

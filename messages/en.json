@@ -310,6 +310,7 @@
     "composerPlaceholder": "Ask MakerLAB AI...",
     "composerAria": "Ask MakerLAB AI",
     "aiNote": "MakerLAB AI can make mistakes. Check anything safety-related with staff.",
+    "aiNoteDismiss": "Dismiss note",
     "sendAria": "Send",
     "attachAria": "Attach photos",
     "attachTitle": "Attach photos",

@@ -62,6 +62,12 @@
   box-shadow: none !important;
 }
 
+/* The one exception to square corners: the chat composer's three controls
+   (attach, dictate, send) are circles (owner decision 2026-10-07). */
+[data-slot="prompt-input"] .composer-round {
+  border-radius: 9999px !important;
+}
+
 html {
   min-height: 100%;
   /* The scrollbar is always there, so a page that does not scroll lays the

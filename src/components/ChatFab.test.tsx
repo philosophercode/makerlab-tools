@@ -91,6 +91,7 @@ import { CurateChatStarter } from "./CurateChatStarter";
 import { AskAssistantButton } from "./chat/AskAssistantButton";
 import type { IntakeTablePayload } from "../lib/intake/types";
 import { ASSISTANT_INTRO_KEY, resetAssistantIntroForTests } from "./chat/assistant-intro-store";
+import { AI_NOTE_KEY, resetAiNoteForTests } from "./chat/ai-note-store";
 
 // The panel is loaded on first open in the app (`ChatFab`'s lazy path, which
 // e2e/chat.spec.ts exercises); loading it up front here lets every test query
@@ -109,6 +110,7 @@ beforeEach(() => {
   pathnameMock.mockReturnValue("/");
   useChatReturn = baseReturn();
   lastUseChatOptions = undefined;
+  resetAiNoteForTests();
 });
 
 describe("ChatFab", () => {
@@ -1119,13 +1121,45 @@ describe("ChatFab — the sheet (UI system phase 5b)", () => {
   // Identity spec amendment 2026-10-06: always visible, quiet, and read with the field.
   const AI_NOTE = "MakerLAB AI can make mistakes. Check anything safety-related with staff.";
 
-  it("shows the 'can make mistakes' note under the composer and describes the field with it", async () => {
+  it("shows the 'can make mistakes' note above the composer and describes the field with it", async () => {
     const user = userEvent.setup();
     render(<ChatFab />);
     await user.click(screen.getByRole("button", FAB));
 
-    expect(screen.getByText(AI_NOTE)).toHaveClass("text-xs", "text-muted-foreground");
+    const note = screen.getByText(AI_NOTE).closest('[data-slot="chat-ai-note"]') as HTMLElement;
+    expect(note).toHaveClass("text-xs", "text-muted-foreground");
+    // Above the composer, not under it.
+    const form = document.querySelector('[data-slot="prompt-input"]')!;
+    expect(note.compareDocumentPosition(form) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.getByRole("textbox", { name: "Ask MakerLAB AI" })).toHaveAccessibleDescription(AI_NOTE);
+  });
+
+  it("closes the note with its × and remembers that in this browser", async () => {
+    const user = userEvent.setup();
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", FAB));
+
+    await user.click(screen.getByRole("button", { name: "Dismiss note" }));
+
+    expect(screen.queryByText(AI_NOTE)).not.toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Ask MakerLAB AI" })).not.toHaveAccessibleDescription(AI_NOTE);
+    expect(window.localStorage.getItem(AI_NOTE_KEY)).toBe("1");
+  });
+
+  it("lays the composer out on one line: attach, the text, then Send (no dictation here)", async () => {
+    const user = userEvent.setup();
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", FAB));
+
+    const attach = screen.getByRole("button", { name: "Attach photos" });
+    const field = screen.getByRole("textbox", { name: "Ask MakerLAB AI" });
+    const send = screen.getByRole("button", { name: "Send" });
+    const row = send.parentElement!;
+    expect(row).toContainElement(attach);
+    expect(row).toContainElement(field);
+    expect(send).toBeDisabled();
+    await user.type(field, "hi");
+    expect(send).toBeEnabled();
   });
 
   it("keeps the note once a conversation is under way", async () => {
