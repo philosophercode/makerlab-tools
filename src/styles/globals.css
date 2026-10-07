@@ -62,6 +62,12 @@
   box-shadow: none !important;
 }
 
+/* The one exception to square corners: the chat composer's three controls
+   (attach, dictate, send) are circles (owner decision 2026-10-07). */
+[data-slot="prompt-input"] .composer-round {
+  border-radius: 9999px !important;
+}
+
 html {
   min-height: 100%;
   /* The scrollbar is always there, so a page that does not scroll lays the
@@ -176,16 +182,15 @@ body::selection {
   text-transform: uppercase;
 }
 
-/* The MakerLAB lockup (identity spec 2026-09-28 §2): the wordmark, large as
-   in the Director's mockup, and under it the site's name and tagline on one
-   line. Names keep their own case — "MakerLAB Tools", never "MAKERLAB TOOLS".
-   48 + 4 + 20 = 72px, inside the 96px bar's 12px padding. */
+/* The lockup (identity spec 2026-09-28 §2, amended 2026-10-07): "MakerLAB AI"
+   on one line — the official wordmark, then "AI" in the accent with its caps
+   as tall as the wordmark and on the same baseline. */
 .brand-lockup {
   justify-self: start;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
+  flex-direction: row;
+  align-items: flex-end;
+  gap: calc(var(--wordmark-height) * 0.2);
   min-width: 0;
   /* In the one-row bar the brand keeps its width; the compact bar lets it
      ellipsize (below). */
@@ -194,13 +199,13 @@ body::selection {
   color: var(--on-surface);
 }
 
-/* The wordmark PNG as a mask, painted in the text colour: black on light,
-   white on dark, from the one asset (as the kiosk draws the full logo). Its
-   width follows the height at the crop's own 475 × 79. */
+/* The wordmark as a mask, painted in the text colour: black on light, white
+   on dark, from the one asset (as the kiosk draws the full logo). Its width
+   follows the height at the crop's own 112.5 × 19.4. */
 .brand-wordmark {
   display: block;
   flex: none;
-  width: calc(var(--wordmark-height) * 475 / 79);
+  width: calc(var(--wordmark-height) * 112.5 / 19.4);
   height: var(--wordmark-height);
   background-color: currentColor;
   mask-size: contain;
@@ -242,24 +247,21 @@ body::selection {
   }
 }
 
-.brand-text {
+/* Space Grotesk's caps are 0.70 em, so this font size makes them as tall as
+   the wordmark; a 0.8 line box puts the baseline on the box's bottom edge,
+   level with the wordmark's. The box is held to the wordmark's height (the
+   line's empty top overflows it), so "AI" never makes the bar taller. */
+.brand-ai {
+  flex: none;
   display: flex;
-  align-items: baseline;
-  gap: 12px;
-  max-width: 100%;
-  line-height: 20px;
-}
-
-.brand-name {
+  align-items: flex-end;
+  height: var(--wordmark-height);
+  color: var(--primary);
   font-family: var(--font-display);
-  font-size: 20px;
+  font-size: calc(var(--wordmark-height) / 0.7);
   font-weight: 700;
-}
-
-.brand-tagline {
-  color: var(--on-surface-muted);
-  font-size: 13px;
-  font-weight: 400;
+  line-height: 0.8;
+  letter-spacing: -0.01em;
 }
 
 .primary-nav {
@@ -754,8 +756,10 @@ body::selection {
    then the links across the width. (The compact switch used to be 860px,
    and from there to ~1180px the brand ran into the links and "Sign in"
    wrapped.) The wordmark steps down with the width — 48px from 1440, 40
-   from xl, 32 from lg — so the longest translation of the links (Spanish)
-   still fits between it and the controls with the scrollbar showing. */
+   from xl, 30 from lg — so the longest translation of the links (Spanish)
+   still fits between it and the controls with the scrollbar showing. From
+   lg the links close up to 16px too: the "MakerLAB AI" lockup is wider than
+   the wordmark alone was. */
 @media (min-width: 1280px) and (max-width: 1439.98px) {
   :root {
     --nav-height: 88px;
@@ -766,7 +770,7 @@ body::selection {
 @media (max-width: 1279.98px) {
   :root {
     --nav-height: 80px;
-    --wordmark-height: 32px;
+    --wordmark-height: 30px;
   }
 
   .top-nav {
@@ -775,23 +779,15 @@ body::selection {
   }
 
   .primary-nav {
-    gap: 20px;
-  }
-}
-
-/* The tagline needs the room: from 1440 only (at 1280 it pushed the bar past
-   the window in Spanish). Below, the lockup is the wordmark and the name. */
-@media (max-width: 1439.98px) {
-  .brand-tagline {
-    display: none;
+    gap: 16px;
   }
 }
 
 @media (max-width: 1023.98px) {
-  /* 12 + (36 + 4 + 20) + 10 + 36 (the links) + 10. A translation that wraps
-     a link grows the bar past it (min-height); the gallery measures. */
+  /* 12 + 36 (the lockup) + 10 + 36 (the links) + 10. A translation that
+     wraps a link grows the bar past it (min-height); the gallery measures. */
   :root {
-    --nav-height: 128px;
+    --nav-height: 104px;
     --wordmark-height: 36px;
   }
 
@@ -806,12 +802,6 @@ body::selection {
   .brand-lockup {
     max-width: 100%;
     overflow: hidden;
-  }
-
-  .brand-name {
-    overflow: hidden;
-    font-size: 16px;
-    text-overflow: ellipsis;
   }
 
   .primary-nav {
@@ -851,18 +841,10 @@ body::selection {
 }
 
 @media (max-width: 560px) {
-  /* 12 + (30 + 4 + 18) + 10 + 36 + 10. */
+  /* 12 + 30 + 10 + 36 + 10. */
   :root {
-    --nav-height: 120px;
+    --nav-height: 98px;
     --wordmark-height: 30px;
-  }
-
-  .brand-text {
-    line-height: 18px;
-  }
-
-  .brand-name {
-    font-size: 15px;
   }
 
   .status-strip {
@@ -905,17 +887,9 @@ body::selection {
     padding: 8px 16px;
   }
 
-  /* The lockup on one line: the wordmark, then the name beside it. */
   .brand-lockup {
     flex: 0 1 auto;
-    flex-direction: row;
-    align-items: center;
-    gap: 12px;
     margin-inline-end: auto;
-  }
-
-  .brand-name {
-    font-size: 14px;
   }
 
   .primary-nav {
@@ -1019,19 +993,6 @@ body::selection {
   .status-strip {
     position: static;
     padding: 4px 16px;
-  }
-}
-
-/* Below md the name gives its room to the controls; it stays the link's
-   accessible name, and the wordmark still says MakerLAB. */
-@media (orientation: landscape) and (max-height: 500px) and (max-width: 767.98px) {
-  .brand-text {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
 }
 

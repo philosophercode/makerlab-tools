@@ -179,6 +179,7 @@
     "composerPlaceholder": "MakerLAB AI に質問...",
     "composerAria": "MakerLAB AI に質問",
     "aiNote": "MakerLAB AI は間違えることがあります。安全に関わることは必ずスタッフに確認してください。",
+    "aiNoteDismiss": "お知らせを閉じる",
     "sendAria": "送信",
     "attachAria": "写真を添付",
     "attachTitle": "写真を添付",

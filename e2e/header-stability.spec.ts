@@ -80,10 +80,6 @@ async function headerFits(page: Page): Promise<string[]> {
     if (apart(brand, nav) < 8) problems.push(`brand meets the links (${apart(brand, nav)}px apart)`);
     if (apart(nav, actions) < 8) problems.push(`links meet the controls (${apart(nav, actions)}px apart)`);
     if (header.scrollWidth > header.clientWidth) problems.push(`header is ${header.scrollWidth}px in ${header.clientWidth}px`);
-    // The lockup is two lines by design (the wordmark, then the name and
-    // tagline); its text line must stay one line.
-    const brandText = header.querySelector<HTMLElement>(".brand-text")!;
-    if (brandText.offsetHeight > 24) problems.push(`the brand's name line wraps (${brandText.offsetHeight}px tall)`);
     // The links and Report sit in `.primary-nav-links` (the short bar's MENU
     // panel, `display: contents` everywhere else); on the short bar they are
     // hidden until MENU opens, so they measure nothing here.
@@ -130,7 +126,7 @@ for (const [bar, width, height] of FIT_SIZES) {
 for (const [width, height, wordmarkHeight] of [
   [1440, 900, 48],
   [1280, 800, 40],
-  [1024, 768, 32],
+  [1024, 768, 30],
   [810, 1080, 36],
   [390, 844, 30],
   [844, 390, 24],
@@ -152,8 +148,8 @@ for (const [width, height, wordmarkHeight] of [
       };
     });
     expect(m.wordmark.height).toBe(wordmarkHeight);
-    // The crop's own aspect ratio, 475 × 79.
-    expect(Math.abs(m.wordmark.width - Math.round((wordmarkHeight * 475) / 79))).toBeLessThanOrEqual(1);
+    // The official lettering's own aspect ratio, 112.5 × 19.4.
+    expect(Math.abs(m.wordmark.width - Math.round((wordmarkHeight * 112.5) / 19.4))).toBeLessThanOrEqual(1);
     expect(m.headerHeight).toBe(m.navHeight);
     expect(m.clipped).toBe(false);
     if (width >= 1024) expect(Math.abs(m.navCentre)).toBeLessThanOrEqual(1);

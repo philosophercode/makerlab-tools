@@ -35,30 +35,29 @@ const stats: CatalogStats = {
 };
 
 describe("GlobalChrome", () => {
-  it("renders the MakerLAB lockup from siteConfig: wordmark, site name and tagline, linking home", () => {
+  it("renders the lockup as MakerLAB AI: the wordmark, then AI, linking home", () => {
     render(<GlobalChrome stats={stats} />);
 
-    // Defaults from site-config.ts (env unset) — identity spec 2026-09-28 §1.
-    expect(siteConfig.name).toBe("MakerLAB Tools");
-    expect(siteConfig.tagline).toBe("Your digital guide to making at Cornell Tech");
-    const brand = screen.getByRole("link", { name: /MakerLAB Tools/ });
+    const brand = screen.getByRole("link", { name: "MakerLAB AI" });
     expect(brand).toHaveAttribute("href", "/");
     expect(brand).toHaveClass("brand-lockup");
-    expect(brand).toHaveTextContent("MakerLAB Tools");
-    expect(brand).toHaveTextContent("Your digital guide to making at Cornell Tech");
+    // No site name or tagline beside it any more (owner decision 2026-10-07).
+    expect(brand).not.toHaveTextContent("MakerLAB Tools");
+    expect(brand).not.toHaveTextContent(siteConfig.tagline);
+    expect(brand.querySelector(".brand-ai")).toHaveTextContent("AI");
     // The old lockup is gone.
     expect(screen.queryByText("// CORNELL TECH")).not.toBeInTheDocument();
   });
 
-  it("draws the wordmark from the lab's own logo asset, as decoration", () => {
+  it("draws the wordmark from the official lettering, as decoration", () => {
     render(<GlobalChrome stats={stats} />);
 
-    const brand = screen.getByRole("link", { name: /MakerLAB Tools/ });
+    const brand = screen.getByRole("link", { name: "MakerLAB AI" });
     const wordmark = brand.querySelector('[data-slot="brand-wordmark"]') as HTMLElement;
     expect(wordmark).not.toBeNull();
     expect(wordmark).toHaveAttribute("aria-hidden", "true");
-    expect(siteConfig.wordmark).toBe("/makerlab-wordmark.png");
-    expect(wordmark.style.maskImage || wordmark.getAttribute("style")).toContain("/makerlab-wordmark.png");
+    expect(siteConfig.wordmark).toBe("/brand/makerlab-wordmark-official.svg");
+    expect(wordmark.style.maskImage || wordmark.getAttribute("style")).toContain("/brand/makerlab-wordmark-official.svg");
   });
 
   it("renders PrimaryNav with its links", () => {

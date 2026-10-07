@@ -39,7 +39,7 @@ describe("site-config", () => {
       expect(siteConfig.audience).toBe("students who may be beginners");
       expect(siteConfig.logo).toBe("/brand/cornell-tech-makerlab-logo.svg");
       expect(siteConfig.logoPng).toBe("/brand/cornell-tech-makerlab-logo.png");
-      expect(siteConfig.wordmark).toBe("/makerlab-wordmark.png");
+      expect(siteConfig.wordmark).toBe("/brand/makerlab-wordmark-official.svg");
       expect(siteConfig.labHours).toBe("LAB OPEN 8AM-8PM");
       expect(siteConfig.colors).toEqual({
         primary: "#ff6b35",

@@ -179,6 +179,7 @@
     "composerPlaceholder": "Pregunta a MakerLAB AI...",
     "composerAria": "Pregunta a MakerLAB AI",
     "aiNote": "MakerLAB AI puede equivocarse. Consulta con el personal todo lo relacionado con la seguridad.",
+    "aiNoteDismiss": "Cerrar aviso",
     "sendAria": "Enviar",
     "attachAria": "Adjuntar fotos",
     "attachTitle": "Adjuntar fotos",
