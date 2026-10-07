@@ -290,5 +290,29 @@
   "demoBanner": {
     "label": "演示数据",
     "body": "此目录为内置示例数据，并非 {institution} 的真实库存。Notion 尚未配置。"
+  },
+  "unsubscribe": {
+    "loading": "加载中…",
+    "eyebrow": "邮件",
+    "confirmTitle": "关闭这些邮件？",
+    "confirm": {
+      "ticketFiled": "以后有人报告设备问题时，你将不再收到邮件。",
+      "maintenanceDue": "你将不再收到关于到期定期维护的早间提醒。"
+    },
+    "confirmScope": "只会停止这一类邮件。你账户的其他设置不变。",
+    "turnOff": "关闭",
+    "keep": "继续接收",
+    "failed": "没有保存成功。请稍后再试。",
+    "doneTitle": "已关闭",
+    "done": {
+      "ticketFiled": "有人报告设备问题时，你不会再收到邮件。",
+      "maintenanceDue": "你不会再收到早间维护提醒。"
+    },
+    "doneUndo": "工单和任务仍会显示在应用中。如需重新接收这些邮件，请联系实验室负责人。",
+    "invalidTitle": "此链接无效",
+    "invalidBody": "链接可能不完整或已过期。没有做任何更改。如果你仍然收到不想要的邮件，请告诉实验室工作人员。",
+    "rateLimitedTitle": "尝试次数过多",
+    "rateLimitedBody": "来自此连接的请求过多。请等待一小时后再打开链接。",
+    "home": "返回 {site}"
   }
 }

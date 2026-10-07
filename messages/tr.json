@@ -290,5 +290,29 @@
   "demoBanner": {
     "label": "Demo verileri",
     "body": "Bu katalog yerleşik örnek verilerdir, {institution} kurumunun gerçek envanteri değildir. Notion yapılandırılmamış."
+  },
+  "unsubscribe": {
+    "loading": "Yükleniyor…",
+    "eyebrow": "E-posta",
+    "confirmTitle": "Bu e-postalar kapatılsın mı?",
+    "confirm": {
+      "ticketFiled": "Biri bir makinede sorun bildirdiğinde artık e-posta almayacaksınız.",
+      "maintenanceDue": "Zamanı gelen periyodik bakım için sabah hatırlatmasını artık almayacaksınız."
+    },
+    "confirmScope": "Yalnızca bu e-posta durur. Hesabınızda başka hiçbir şey değişmez.",
+    "turnOff": "Kapat",
+    "keep": "Almaya devam et",
+    "failed": "Kaydedilemedi. Biraz sonra yeniden deneyin.",
+    "doneTitle": "Kapatıldı",
+    "done": {
+      "ticketFiled": "Biri bir makinede sorun bildirdiğinde e-posta almayacaksınız.",
+      "maintenanceDue": "Sabah bakım hatırlatmasını almayacaksınız."
+    },
+    "doneUndo": "Kayıtlar ve görevler uygulamada görünmeye devam eder. Bu e-postaları yeniden almak için laboratuvar yönetimine başvurun.",
+    "invalidTitle": "Bu bağlantı çalışmıyor",
+    "invalidBody": "Eksik ya da eski olabilir. Hiçbir şey değiştirilmedi. İstemediğiniz e-postalar gelmeye devam ederse laboratuvar ekibine haber verin.",
+    "rateLimitedTitle": "Çok fazla deneme",
+    "rateLimitedBody": "Bu bağlantıdan çok fazla istek geldi. Bir saat bekleyip bağlantıyı yeniden açın.",
+    "home": "{site} sayfasına dön"
   }
 }

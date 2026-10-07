@@ -97,6 +97,35 @@ add a log drain (Pro) or a Marketplace logging integration and send it the `[cro
 
 ---
 
+## An email didn't arrive
+
+Staff email ([`architecture/notifications.md`](architecture/notifications.md)) records every
+send in Postgres: `notifications` (one row per event) and `notification_deliveries` (one row
+per person, with a status and our own reason code). Neither holds an address. To see what
+happened to a ticket's email, find its outbox row by the ticket id (`subject_id`) and read
+its deliveries' `status` and `reason`:
+
+| What you see | Meaning | What to do |
+|---|---|---|
+| No outbox row | The ticket was logged as completed work, not reported | Nothing: completed work is never emailed |
+| Outbox `queued` for more than 15 minutes | The delivery run never started | The nightly cron restarts it once; check the logs for `[notifications] could not start` |
+| Outbox `skipped` / `capped` | More than `NOTIFY_TICKET_HOURLY_CAP` tickets in an hour | The ticket is in the queue; raise the cap if this was real traffic |
+| Outbox `skipped` / `subject_gone` | The ticket was resolved or closed before the email went | Nothing |
+| Delivery `failed` / `not_configured` | `RESEND_API_KEY`, `EMAIL_FROM` or `AUTH_SECRET` is unset | Set them and redeploy |
+| Delivery `failed` / `rejected` | Resend refused the key or the sender: often an unverified domain | Check the domain and key in Resend |
+| Delivery `failed` / `invalid_recipient` | Resend refused that address | Check the person's address on People |
+| Delivery `failed` / `provider_error` | Resend failed four times in a row | Check Resend's status; a later ticket sends normally |
+| Delivery `failed` / `stuck` | A send did not finish within 20 hours | Never re-sent automatically, so nobody gets a duplicate |
+| Delivery `skipped` / `pref_off` | The person turned this email off | They can ask a director to turn it back on |
+| Delivery `skipped` / `preview_blocked` | A preview deployment, and the person is not in `EMAIL_PREVIEW_RECIPIENTS` | Expected on previews |
+| Delivery `sent` | Resend accepted it (`provider_message_id` is its id) | Look in junk; Cornell may need the sender marked "not junk" once |
+
+A failed send never fails the ticket: the student is told it was filed either way. The daily
+08:00 maintenance reminder is the same kind of row, keyed `maintenance.due:<lab date>`; no row
+for a day means nothing was due.
+
+---
+
 ## Backups
 
 ### What the nightly file holds

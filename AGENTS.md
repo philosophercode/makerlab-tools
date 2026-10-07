@@ -68,6 +68,7 @@ Read the file for the area you are changing before you change it.
 | [`docs/architecture/performance.md`](docs/architecture/performance.md) | **Performance.** Images and thumbnails, caching, page weight, performance conventions |
 | [`docs/architecture/kiosk.md`](docs/architecture/kiosk.md) | **The lab status screen.** `/kiosk` |
 | [`docs/architecture/qr-labels.md`](docs/architecture/qr-labels.md) | **QR labels.** Print sheets at `/admin/inventory/qr`, `/api/qr/[slug]`, the tool page's QR dialog, `get_tool_qr_code` |
+| [`docs/architecture/notifications.md`](docs/architecture/notifications.md) | **Email notifications.** Staff emailed when a ticket is filed, the 08:00 recurring-maintenance reminder, the outbox, Resend, one-click unsubscribe |
 | [`docs/architecture/usage-insight.md`](docs/architecture/usage-insight.md) | **Usage insight.** `/admin/insights`: anonymous usage events, value report |
 | [`docs/architecture/starter-answers.md`](docs/architecture/starter-answers.md) | **Starter answers.** `starter_answers`: pre-run, graded and cached answers to the starter questions |
 | [`docs/architecture/key-files.md`](docs/architecture/key-files.md) | **Key files.** Where things live, file by file |

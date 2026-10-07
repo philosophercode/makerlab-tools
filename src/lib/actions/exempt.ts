@@ -71,6 +71,8 @@ export const EXEMPT: Readonly<Record<string, string>> = {
     "Account gate, not an admin permission: a person manages their own credentials on /account/tokens beside the list, and performAction gates on a permission; revoking a credential from a model that may have read outside text is not offered (§4.9 #7, stage 4)",
   "src/app/account/tokens/actions.ts#revokeAppAction": "Account gate, not an admin permission: as revokeTokenAction, for OAuth grants (§4.9 #7, stage 4)",
   "src/app/account/actions.ts#updateOwnNameAction": "Account gate, not an admin permission: people rename themselves on /account; the admin rename is people.set_name",
+  "src/app/api/notifications/unsubscribe/route.ts#POST":
+    "Account gate, not an admin permission: one-click unsubscribe from an email, authorised by a signed token that names the person and can only turn their own email off; it works signed out (RFC 8058), so performAction, which gates on a session's permission, cannot run it; the assistant never changes who is emailed (deny list: messaging; email notifications spec §3.7, amendment 2026-10-07)",
   "src/app/oauth/consent/actions.ts#decideConsentAction": "Never: consent must be the person's own act (§2)",
   "src/i18n/actions.ts#changeLocale": "Never: a client preference (§4.1 #4)",
   "src/i18n/locale.ts#resolveLocale": "Not a write: reads the locale cookie",
