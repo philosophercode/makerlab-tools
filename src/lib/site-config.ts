@@ -40,13 +40,6 @@ export interface SiteConfig {
    */
   wordmark: string;
   /**
-   * The same wordmark for large sizes: the home page's big mark (student home
-   * spec 2026-10-07). By default a vector trace of it
-   * (`/brand/makerlab-wordmark.svg`), since the 79 px PNG blurs at 120 px.
-   * A deployment that sets `NEXT_PUBLIC_WORDMARK` uses its own file for both.
-   */
-  wordmarkLarge: string;
-  /**
    * The lab's opening hours as one line of text, shown in the header's status
    * strip and on the kiosk screen (`/kiosk`). Free text until hours are
    * structured (kiosk spec phase 2); `NEXT_PUBLIC_LAB_HOURS` overrides it.
@@ -78,7 +71,6 @@ export const siteConfig: SiteConfig = {
   logo: LOGO,
   logoPng: pngTwin(LOGO),
   wordmark: process.env.NEXT_PUBLIC_WORDMARK ?? "/makerlab-wordmark.png",
-  wordmarkLarge: process.env.NEXT_PUBLIC_WORDMARK ?? "/brand/makerlab-wordmark.svg",
   labHours: process.env.NEXT_PUBLIC_LAB_HOURS || "LAB OPEN 8AM-8PM",
   colors: {
     primary: process.env.NEXT_PUBLIC_COLOR_PRIMARY ?? "#ff6b35",

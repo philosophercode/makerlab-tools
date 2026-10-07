@@ -261,6 +261,6 @@ the header's wordmark in the upper-left corner, unchanged.
   official Cornell Tech MakerLAB logo where it already appears (the footer,
   About, the kiosk, the QR labels).
 - `HomeWordmark`, `siteConfig.wordmarkLarge`, the `.home-wordmark` rule and
-  `public/brand/makerlab-wordmark.svg` are no longer used anywhere; they stay
-  in the tree until their removal is approved.
+  `public/brand/makerlab-wordmark.svg` were removed (owner approval
+  2026-10-07).
 - Tests: `HomeShell.test.tsx` asserts no second wordmark on the page.
