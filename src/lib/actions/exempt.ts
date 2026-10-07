@@ -63,6 +63,8 @@ export const EXEMPT: Readonly<Record<string, string>> = {
   "src/app/api/projects/route.ts#POST":
     "Never through the assistant: a project is a student's own write-up with its photo uploads, and files through a generated action are §2's non-goal; students are offered no action tools (§4.9 #3, stage 4)",
   "src/app/api/flags/route.ts#POST": "Already shared: the `flags` capability behind report_correction (§1)",
+  "src/app/api/report/route.ts#POST":
+    "Already shared: the quick report form files through fileProblemTicket (lib/maintenance/file-ticket.ts), the one write behind report_issue (amendment 2026-10-07, quick report spec §3.2)",
   "src/app/api/uploads/route.ts#POST": "Never: uploading a file is not a sentence; photos reach the chat as attachments (§2)",
   "src/app/account/tokens/actions.ts#createTokenAction": "Never: creates a secret (§2)",
   "src/app/account/tokens/actions.ts#revokeTokenAction":

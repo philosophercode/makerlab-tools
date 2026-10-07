@@ -67,7 +67,11 @@
   (`use-nav-menu.ts`, the query repeated in `globals.css`), nothing sticky
   (DESIGN.md §8.12). Save-on-click controls report
   "Saved" in a reserved `SaveSlot` (`admin/RowStatus.tsx`). The tool page is
-  two columns on desktop and draws no empty section.
+  two columns on desktop and draws no empty section. Its hero carries **Report
+  a problem** (the one filled button) and **Ask MakerLAB AI about this
+  machine** (`tool/report/ToolReportActions`); Report opens the quick report
+  form, a `Dialog` on the frosted plate like Report a correction
+  (`tool/report/ReportProblemButton`, quick report spec 2026-10-07).
   **Chat** (phase 5b): AI Elements copied from `registry.ai-sdk.dev` into
   `src/components/ai-elements/` (Conversation, Message, PromptInput, Tool,
   Sources, InlineCitation, Suggestion, Loader), trimmed to what the chat uses

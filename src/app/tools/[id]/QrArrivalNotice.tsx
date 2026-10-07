@@ -7,6 +7,7 @@ import type { ToolStatus } from "../../../components/catalog-types";
 import { useChatLauncher } from "../../../components/ChatLauncherContext";
 import { StatusGlyph } from "../../../components/system/StatusGlyph";
 import { TOOL_STATUS_KEY, TOOL_STATUS_TONE } from "../../../components/ToolCard";
+import { ReportProblemButton } from "../../../components/tool/report/ReportProblemButton";
 // One definition of the markers a label carries, shared with everything that
 // makes a code (`lib/qr/urls.ts`), so old and new labels land the same way.
 import { QR_SOURCE_PARAM, QR_SOURCE_VALUE, QR_UNIT_PARAM, parseUnitToken, unitForToken } from "../../../lib/qr/urls";
@@ -19,6 +20,8 @@ export interface ArrivalUnit {
 }
 
 interface QrArrivalNoticeProps {
+  /** The tool's slug, which the quick report form files against. */
+  toolSlug: string;
   toolName: string;
   /** The tool's units, so a unit label's `?unit=` can name one (QR codes spec amendment 2026-10-06). */
   units?: ArrivalUnit[];
@@ -35,18 +38,19 @@ interface QrArrivalNoticeProps {
  *
  * A **unit's label** (`?unit=<token>`) names one machine. The notice then
  * leads with that unit and its status, and its main action is **Report a
- * problem with this unit**: the chat opens with the report already started
- * for that unit, so the ticket lands on it (`report_issue` prefers the units
- * of the tool on screen). Reporting is the main reason anyone scans a
- * machine (owner meeting 2026-10-06), so a tool label offers it too.
+ * problem with this unit**: the quick report form opens with that unit
+ * preselected, so the ticket lands on it (quick report spec §6). Reporting is
+ * the main reason anyone scans a machine (owner meeting 2026-10-06), so a
+ * tool label offers it too, with the unit left to choose.
  *
  * `?src=qr` and `?unit=` change presentation only — never what data the page
  * shows. The unit is picked from the tool's own units, already on the page; a
  * token that matches none of them shows the tool's notice.
  */
-export function QrArrivalNotice({ toolName, units = [] }: QrArrivalNoticeProps) {
+export function QrArrivalNotice({ toolSlug, toolName, units = [] }: QrArrivalNoticeProps) {
   const searchParams = useSearchParams();
   const t = useTranslations("qr");
+  const tReport = useTranslations("report");
   const tStatus = useTranslations("gallery.status");
   const { open } = useChatLauncher();
 
@@ -56,7 +60,7 @@ export function QrArrivalNotice({ toolName, units = [] }: QrArrivalNoticeProps) 
 
   const askAction = (
     <Button variant={unit ? "quiet" : "default"} onClick={() => open(t("arrivalSeed", { tool: toolName }))}>
-      {t("arrivalAction")}
+      {tReport("ask")}
     </Button>
   );
 
@@ -80,9 +84,14 @@ export function QrArrivalNotice({ toolName, units = [] }: QrArrivalNoticeProps) 
             <p className="text-sm text-muted-foreground">{t("arrivalUnitBody")}</p>
           </div>
           <div className="flex flex-col gap-2 self-start sm:shrink-0 sm:items-stretch sm:self-auto">
-            <Button variant="default" onClick={() => open(t("reportUnitSeed", { unit: unit.name, tool: toolName }))}>
-              {t("reportUnitAction")}
-            </Button>
+            <ReportProblemButton
+              toolSlug={toolSlug}
+              toolName={toolName}
+              units={units}
+              initialUnitId={unit.id}
+              label={t("reportUnitAction")}
+              variant="default"
+            />
             {askAction}
           </div>
         </section>
@@ -98,9 +107,7 @@ export function QrArrivalNotice({ toolName, units = [] }: QrArrivalNoticeProps) 
           </div>
           <div className="flex flex-wrap gap-2 self-start sm:shrink-0 sm:self-auto">
             {askAction}
-            <Button variant="quiet" onClick={() => open(t("reportToolSeed", { tool: toolName }))}>
-              {t("reportToolAction")}
-            </Button>
+            <ReportProblemButton toolSlug={toolSlug} toolName={toolName} units={units} label={t("reportToolAction")} variant="quiet" />
           </div>
         </section>
       )}

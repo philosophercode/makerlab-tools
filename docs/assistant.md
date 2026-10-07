@@ -49,9 +49,12 @@ its people (owner meeting with the Director and Assistant Director,
   reads the code; only our own tool links are used (a code for a tool that is
   not published, or for another website, identifies nothing and is never
   followed).
-- Start a report from a machine's label: scanning a unit's label opens the
-  tool's page with **Report a problem with this unit**, which opens the chat
-  with the report started for that unit.
+- Report a problem without the chat: **Report a problem** on a tool's page,
+  or **Report a problem with this unit** after scanning a unit's label, opens
+  a short form with one box. MakerLAB AI reads the words into a ticket's
+  title, priority and unit, and the same ticket `report_issue` files lands
+  for staff (quick report spec 2026-10-07). Reporting in the chat works as
+  before.
 
 ## Lab staff (SuperMakers and directors)
 

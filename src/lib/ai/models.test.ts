@@ -50,6 +50,8 @@ describe("MODEL_JOBS", () => {
     expect(modelIdFor("descriptionShorten")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("starterGrade")).toBe("openai/gpt-6-luna");
     expect(modelIdFor("evalQuestions")).toBe("openai/gpt-6-luna");
+    // The quick report form's triage (quick report spec §3.3).
+    expect(modelIdFor("reportTriage")).toBe("openai/gpt-6-luna");
     // The generative background redraw was retired (amendment "No generative redraw").
     expect(Object.keys(MODEL_JOBS)).not.toContain("imageClean");
   });
@@ -66,6 +68,7 @@ describe("MODEL_JOBS", () => {
       "MODEL_DESCRIPTION_SHORTEN",
       "MODEL_STARTER_GRADE",
       "MODEL_EVAL_QUESTIONS",
+      "MODEL_REPORT_TRIAGE",
       "MODEL_EMBED",
       "MODEL_OCR",
       "MODEL_RERANK",
@@ -147,6 +150,7 @@ describe('service tiers (amendment "Manuals as text and flex tier for research")
     expect(serviceTierFor("nameSuggest")).toBe("flex");
     expect(serviceTierFor("descriptionShorten")).toBe("flex");
     expect(serviceTierFor("starterGrade")).toBe("flex");
+    expect(serviceTierFor("reportTriage")).toBe("flex");
     expect(serviceTierFor("ocr")).toBe("flex");
     expect(serviceTierFor("chat")).toBeNull();
     // A student waits on a reranked search.

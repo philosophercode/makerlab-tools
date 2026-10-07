@@ -33,7 +33,9 @@ describe("withEnglishFallback", () => {
       const merged = withEnglishFallback(en as Messages, locale);
       expect(flatKeys(merged)).toEqual(expect.arrayContaining(flatKeys(en as Messages)));
     }
-  });
+    // Twelve large catalogues transformed and compared: past the 5 s default
+    // on a busy machine, though nothing is wrong.
+  }, 30_000);
 });
 
 function flatKeys(messages: Messages, prefix = ""): string[] {

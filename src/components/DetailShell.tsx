@@ -15,6 +15,7 @@ import { StatusGlyph, type StatusTone } from "./system/StatusGlyph";
 import { TOOL_STATUS_KEY, TOOL_STATUS_TONE } from "./ToolCard";
 import { ToolImage } from "./ToolImage";
 import { LabNotes } from "./tool/LabNotes";
+import { ToolReportActions } from "./tool/report/ToolReportActions";
 import { UnitsTable } from "./tool/UnitsTable";
 import type { ToolRelations } from "./tool/relations";
 
@@ -48,6 +49,11 @@ interface DetailShellProps {
    * and the published accessories of this one. Empty is absent.
    */
   relations?: ToolRelations;
+  /**
+   * Report a problem and Ask MakerLAB AI in the hero (quick report spec §6).
+   * Off for a draft: the report files only against a published tool.
+   */
+  reportActions?: boolean;
 }
 
 function resourceLabel(link: MakerLabTool["links"][number], fallback: string): string {
@@ -89,7 +95,7 @@ function maintenanceTone(status: string): StatusTone {
  *   box, no empty maintenance history. Safety is the exception: it always
  *   says what to do, falling back to the lab's standing guidance.
  */
-export function DetailShell({ tool, projects = [], manualContents = [], maintenance = [], location = null, heroMap = null, unitsTable, relations }: DetailShellProps) {
+export function DetailShell({ tool, projects = [], manualContents = [], maintenance = [], location = null, heroMap = null, unitsTable, relations, reportActions = true }: DetailShellProps) {
   const t = useTranslations("detail");
   const tStatus = useTranslations("gallery.status");
   const tUi = useTranslations("ui");
@@ -221,6 +227,15 @@ export function DetailShell({ tool, projects = [], manualContents = [], maintena
               <span className="text-muted-foreground tabular-nums">{t("unitsAvailable", { available, count: tool.units.length })}</span>
             ) : null}
           </p>
+          {/* Report a problem, front and centre, with Ask MakerLAB AI beside
+              it (quick report spec §6). */}
+          {reportActions ? (
+            <ToolReportActions
+              toolSlug={tool.slug}
+              toolName={tool.name}
+              units={tool.units.map((unit) => ({ id: unit.id, name: unit.name, status: unit.status }))}
+            />
+          ) : null}
           {/* The lab's own rules and tips, before the generic description (identity spec amendment "Lab notes"). */}
           <LabNotes notes={tool.notes} />
           {/* Descriptions are Markdown (older ones may carry a spec list); no raw HTML, as for projects. */}

@@ -1,10 +1,9 @@
 import { z } from "zod";
 import { getCatalogTools } from "../catalog";
-import { createMaintenanceLog } from "../data/maintenance";
 import { describeDbError } from "../db/describe-error";
 import { CHAT_MAX_TICKETS_PER_TURN } from "../intake/limits";
+import { fileProblemTicket } from "../maintenance/file-ticket";
 import { checkRateLimit } from "../rate-limit";
-import { invalidateMaintenance } from "../revalidate";
 import { buildUnitLookup, findUnit } from "./helpers";
 import type {
   Capability,
@@ -30,7 +29,8 @@ import type {
  * - **The ticket lands in Postgres** (data platform spec §3.10, §4.8), not in
  *   a Notion page. The capability no longer knows anything about Notion: it
  *   resolves the unit against the catalogue, hands a validated ticket to
- *   `src/lib/data/maintenance.ts`, and reports what came back. A write that
+ *   `fileProblemTicket` (`src/lib/maintenance/file-ticket.ts`, the write the
+ *   quick report form shares), and reports what came back. A write that
  *   throws is reported to the student as a ticket that did **not** land — the
  *   one thing this path may never get wrong (Article 4).
  */
@@ -172,15 +172,15 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
       // unit id (a scanned unit label gives one) is exact either way.
       const match = unit_label ? findUnit(unitLookup, unit_label, { preferToolId: ctx.focusedToolId }) : null;
 
-      const record = await createMaintenanceLog({
+      // The one ticket write, shared with the quick report form (quick report
+      // spec §3.2): an open issue report, then the ticket-count caches.
+      const record = await fileProblemTicket({
         title,
         description,
         // The capability speaks Notion's display casing because that is what
         // the input schema was written against; the data module maps it down to
-        // the stored vocabulary (`issue_report`, `medium`, `open`).
-        type: "Issue Report",
+        // the stored vocabulary (`medium`).
         priority,
-        status: "Open",
         // The catalogue id is a Postgres uuid, and so is `unit_id` — no
         // translation left to do. An unresolved label files an unlinked
         // ticket, which is normal: most live logs have no unit at all.
@@ -195,15 +195,6 @@ const reportIssue: CapabilityTool<ReportIssueInput, ReportIssueResult> = {
         reportedByUserId: ctx.identity?.userId || null,
         photoAttachmentIds: photoIds,
       });
-
-      // The kiosk's open-ticket count (kiosk spec §3.1) and the tool page's
-      // maintenance history. A cache that cannot
-      // be dropped is a screen a poll behind, never a lost ticket.
-      try {
-        invalidateMaintenance();
-      } catch (err) {
-        console.warn(`[maintenance] ticket ${record.id} filed; the ticket-count cache could not be cleared`, err);
-      }
 
       // Photos offered but none claimed: say so rather than let the student
       // believe staff can see the picture they took (Article 4). Until the
