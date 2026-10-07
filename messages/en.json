@@ -3754,5 +3754,29 @@
       "category_people": "Block, ban or grant allowances under any other name",
       "category_peopleWhy": "The words themselves are refused, so a new tool can't slip through."
     }
+  },
+  "unsubscribe": {
+    "loading": "Loading…",
+    "eyebrow": "Email",
+    "confirmTitle": "Turn off these emails?",
+    "confirm": {
+      "ticketFiled": "You will stop getting an email each time someone reports a problem with a machine.",
+      "maintenanceDue": "You will stop getting the morning reminder of recurring maintenance that is due."
+    },
+    "confirmScope": "Only this email stops. Nothing else about your account changes.",
+    "turnOff": "Turn off",
+    "keep": "Keep getting them",
+    "failed": "That didn't save. Try again in a moment.",
+    "doneTitle": "Turned off",
+    "done": {
+      "ticketFiled": "You won't get an email when someone reports a problem with a machine.",
+      "maintenanceDue": "You won't get the morning maintenance reminder."
+    },
+    "doneUndo": "Tickets and tasks still show in the app. To get these emails again, ask a lab director.",
+    "invalidTitle": "This link doesn't work",
+    "invalidBody": "It may be incomplete or out of date. Nothing was changed. If you keep getting emails you don't want, ask the lab's staff.",
+    "rateLimitedTitle": "Too many tries",
+    "rateLimitedBody": "Too many requests came from this connection. Wait an hour, then open the link again.",
+    "home": "Back to {site}"
   }
 }

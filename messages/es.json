@@ -294,5 +294,29 @@
   },
   "kiosk": {
     "onShiftLabel": "De turno ahora"
+  },
+  "unsubscribe": {
+    "loading": "Cargando…",
+    "eyebrow": "Correo",
+    "confirmTitle": "¿Desactivar estos correos?",
+    "confirm": {
+      "ticketFiled": "Dejarás de recibir un correo cada vez que alguien informe de un problema con una máquina.",
+      "maintenanceDue": "Dejarás de recibir el recordatorio matutino del mantenimiento periódico pendiente."
+    },
+    "confirmScope": "Solo se detiene este correo. Nada más cambia en tu cuenta.",
+    "turnOff": "Desactivar",
+    "keep": "Seguir recibiéndolos",
+    "failed": "No se pudo guardar. Inténtalo de nuevo en un momento.",
+    "doneTitle": "Desactivado",
+    "done": {
+      "ticketFiled": "No recibirás un correo cuando alguien informe de un problema con una máquina.",
+      "maintenanceDue": "No recibirás el recordatorio matutino de mantenimiento."
+    },
+    "doneUndo": "Los tickets y las tareas siguen apareciendo en la aplicación. Para volver a recibir estos correos, pídeselo a la dirección del laboratorio.",
+    "invalidTitle": "Este enlace no funciona",
+    "invalidBody": "Puede estar incompleto o caducado. No se ha cambiado nada. Si sigues recibiendo correos que no quieres, avisa al personal del laboratorio.",
+    "rateLimitedTitle": "Demasiados intentos",
+    "rateLimitedBody": "Llegaron demasiadas solicitudes desde esta conexión. Espera una hora y vuelve a abrir el enlace.",
+    "home": "Volver a {site}"
   }
 }

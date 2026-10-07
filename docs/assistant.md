@@ -40,7 +40,10 @@ its people (owner meeting with the Director and Assistant Director,
   and are cited as "**Lab note:**", never as the manual. The assistant never
   writes or proposes lab notes; staff do.
 - File a maintenance problem ("Prusa #1's nozzle is clogged") and report a
-  mistake on a tool's page. It tries to help you fix the problem first.
+  mistake on a tool's page. It tries to help you fix the problem first. Once
+  the lab's email is set up, a filed ticket emails the staff who work tickets,
+  whether it came from the chat, a machine's label or an MCP client. The
+  assistant itself never sends email and cannot change who gets it.
 - Give you a tool's QR code ("can I have a QR code for this device?"): the code
   appears in the chat with Download PNG and SVG links, and scanning it opens
   the tool's page — the same code the lab's machine labels carry

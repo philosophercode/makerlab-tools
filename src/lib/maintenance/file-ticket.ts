@@ -1,12 +1,13 @@
 import { createMaintenanceLog, type CreatedMaintenanceLog, type NewMaintenanceLog } from "../data/maintenance";
+import { requestNotificationDeliveryAfterResponse } from "../notifications/after-response";
 import { invalidateMaintenance } from "../revalidate";
 
 /**
  * Filing one problem report as a maintenance ticket: the one write behind the
  * assistant's `report_issue` and the quick report form (quick report spec
  * §3.2). Both hand it a validated ticket; it writes the row (and claims the
- * photos) through `createMaintenanceLog`, then drops the caches that count
- * tickets.
+ * photos, and queues the `ticket.filed` email) through `createMaintenanceLog`,
+ * then drops the caches that count tickets and hands the email to delivery.
  *
  * Always an open **issue report**, so staff see the same kind of ticket
  * whichever door it came through. Throws when the write fails: each caller
@@ -32,5 +33,11 @@ export async function fileProblemTicket(ticket: ProblemTicket): Promise<CreatedM
   } catch (err) {
     console.warn(`[maintenance] ticket ${record.id} filed; the ticket-count cache could not be cleared`, err);
   }
+
+  // Email the staff who work tickets (email notifications spec §3.2), after
+  // the answer is on its way. Never throws, and a failed send never un-files
+  // the ticket: the outbox row committed with it, and the daily backstop
+  // retries anything that did not start.
+  await requestNotificationDeliveryAfterResponse([record.notificationId]);
   return record;
 }

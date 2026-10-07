@@ -50,7 +50,8 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 
 | Spec | Built | Open |
 |---|---|---|
-| [Recurring Maintenance](2026-09-27-recurring-maintenance-design.md) — recurring tasks per tool, per unit or for general lab upkeep, checked off with Done | **v1** (amendment 2026-10-06, migration `0027`): a checklist, not tickets. Tasks on `/admin/maintenance/schedules`, the due list on `/admin/maintenance`, counts on the `/admin` tile, `list_maintenance_due` for staff | Assistant proposals for the four `schedules.*` actions; a Skip button; the tool page's staff panel; manual suggestions (phase 4) |
+| [Recurring Maintenance](2026-09-27-recurring-maintenance-design.md) — recurring tasks per tool, per unit or for general lab upkeep, checked off with Done | **v1** (amendment 2026-10-06, migration `0027`): a checklist, not tickets. Tasks on `/admin/maintenance/schedules`, the due list on `/admin/maintenance`, counts on the `/admin` tile, `list_maintenance_due` for staff. Amendment 2026-10-07: the 08:00 email reminder of what is due and overdue (built with Email Notifications) | Assistant proposals for the four `schedules.*` actions; a Skip button; the tool page's staff panel; manual suggestions (phase 4) |
+| [Email Notifications](2026-09-30-email-notifications-design.md) — staff emailed when a ticket is filed; outbox + Workflow + Resend, exactly once per recipient | **v1** (approved 2026-10-07, migration `0030`): a ticket from the chat, the report form or MCP emails every `maintenance.manage` holder; one-click signed unsubscribe (`/notifications/unsubscribe`, `/api/notifications/unsubscribe`); cron backstop and retention. Amendment 2026-10-07: the daily 08:00 recurring-maintenance reminder. Offline (no `RESEND_API_KEY`) deliveries are recorded `not_configured`. Architecture: [`notifications.md`](../architecture/notifications.md) | **Going live:** a sending domain verified in Resend and the integration (§9 phase 0, §11 Q1). **v1.1:** preferences on `/account`, the staff digest, the reporter's "resolved" email, the delivery log, the bounce webhook. The E2E email stub and evals |
 | [v5 Data Platform](2026-09-14-v5-data-platform-design.md) — Postgres, Blob, roles, admin inventory, two-step intake, Notion mirror | Phases 1–6 and 8 | **Phase 7** (people load and validate the real inventory — not code) pending. **Phase 9** (translation pass) deferred until after launch |
 | [UI System](2026-09-25-ui-system-design.md) — shadcn/ui, Tufte density, admin IA, AI Elements chat | Phases 1–5 | **Phase 6** (delete legacy CSS): the repo flatten it waited for is done; needs a screenshot sweep, after the demo |
 | [Sign-in and Tiered Rate Limiting](2026-07-29-auth-and-rate-limiting-design.md) | Google sign-in, tiered rate limits as specced | The env-list role model is **superseded** by Better Auth and the `user` table (data platform phase 4) |
@@ -62,9 +63,8 @@ The audit behind this table was re-verified on 2026-09-27 against `main` at `875
 | Spec | Notes |
 |---|---|
 | [Kiosk Mode](2026-09-27-kiosk-mode-design.md) — public read-only lab screen at `/kiosk`: down machines, ticket counts, hours, featured tool, QR to chat | **Phase 1 built** (#94, `/kiosk`); phases 2–3 awaiting review; phase 2 adds editable hours and pins |
-| [Notifications](2026-09-27-notifications-design.md) — email on ticket, correction and project changes; a daily staff digest; Web Push later | Awaiting review. Sending domain and Cornell approval of the provider block phase 1 |
 
-All six 2026-09-27 feature specs build on the Assistant–GUI Parity action layer; each writes its
+The 2026-09-27 feature specs build on the Assistant–GUI Parity action layer; each writes its
 migration as `00NN` and takes the next free number when it lands.
 
 ### Ideas — not decided
@@ -82,6 +82,7 @@ The owner has considered these but has not decided to build them. Do not impleme
 |---|---|
 | [Chat Inventory Intake](2026-06-01-chat-inventory-intake-design.md) | [v5 Data Platform](2026-09-14-v5-data-platform-design.md) phase 6 — the two-step intake (`identify_tools`, background research, approval) |
 | [AI Gateway Migration](2026-07-29-ai-gateway-migration-design.md) | [Gateway-First Models and a Product Image Finder](2026-09-23-gateway-models-and-product-images-design.md) |
+| [Notifications (2026-09-27)](2026-09-27-notifications-design.md) | [Email Notifications](2026-09-30-email-notifications-design.md): immediate staff mail on new tickets; Web Push dropped |
 | [Gallery Projects (2026-05-29)](../superpowers/specs/2026-05-29-gallery-projects-design.md) | [Student Projects Gallery](2026-07-29-projects-gallery-design.md) — an older duplicate |
 
 ---
@@ -98,6 +99,9 @@ Everything open, in one place:
    in person, and file what breaks.
 5. **Data platform phase 9** — the translation pass, after launch.
 6. **Refresh research** — its first run over the real inventory (built; not yet used).
+7. **Staff email going live**: a sending domain verified in Resend (SPF, DKIM, DMARC), the
+   Resend integration on the Vercel project, `EMAIL_FROM`, and a test send to Niti and Luis
+   (Email Notifications §9 phase 0). Then v1.1.
 
 ## Open questions for a person
 
@@ -110,6 +114,9 @@ These gate work and none of them are code:
 3. **Photo consent** for student work in the public gallery.
 4. **ISAM rate limit** — conference wifi puts every visitor behind one IP;
    `RATE_LIMIT_ANON_CHAT` exists for this. **Hard deadline.**
+5. **Sending domain and mail processor**: which domain the lab can put SPF, DKIM and DMARC
+   on (Email Notifications §11 Q1), and whether Resend may process staff addresses under
+   Cornell policy (Q2).
 
 ---
 

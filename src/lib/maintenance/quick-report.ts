@@ -153,6 +153,9 @@ export async function fileQuickReport(
       reportedByEmail: identity.email || null,
       reportedByUserId: identity.userId || null,
       photoAttachmentIds: report.photoIds,
+      // The form is a page, not the chat or a connected app (email
+      // notifications spec §5.1).
+      surface: "gui",
     });
     if (report.photoIds.length > 0 && record.photosAttached === 0) {
       console.warn(`[quick-report] ticket ${record.id} filed without its ${report.photoIds.length} photo(s): no upload matched`);

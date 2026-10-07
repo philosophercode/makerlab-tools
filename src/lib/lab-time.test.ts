@@ -1,4 +1,4 @@
-import { DEFAULT_LAB_TIMEZONE, labTimezone, labToday } from "./lab-time";
+import { DEFAULT_LAB_TIMEZONE, labDateLabel, labInstant, labTimeOfDay, labTimezone, labToday } from "./lab-time";
 
 /**
  * Pure `Intl`: no env beyond the stub under test, no database, no network.
@@ -62,5 +62,38 @@ describe("labTimezone", () => {
   it("trims a configured value", () => {
     vi.stubEnv("LAB_TIMEZONE", "  Europe/Berlin  ");
     expect(labTimezone()).toBe("Europe/Berlin");
+  });
+});
+
+// The daily maintenance reminder goes at 08:00 lab time (email notifications
+// spec, amendment 2026-10-07), so a wall-clock time must become the right
+// instant on either side of a daylight-saving change.
+describe("labInstant", () => {
+  it("is 08:00 New York time in summer (UTC-4) and in winter (UTC-5)", () => {
+    vi.stubEnv("LAB_TIMEZONE", "");
+    expect(labInstant("2026-10-07", 8).toISOString()).toBe("2026-10-07T12:00:00.000Z");
+    expect(labInstant("2026-01-15", 8).toISOString()).toBe("2026-01-15T13:00:00.000Z");
+  });
+
+  it("lands on the right side of the spring and autumn changes", () => {
+    vi.stubEnv("LAB_TIMEZONE", "America/New_York");
+    // 2026-03-08: clocks go forward at 02:00. 2026-11-01: back at 02:00.
+    expect(labInstant("2026-03-08", 8).toISOString()).toBe("2026-03-08T12:00:00.000Z");
+    expect(labInstant("2026-11-01", 8).toISOString()).toBe("2026-11-01T13:00:00.000Z");
+  });
+
+  it("follows the configured timezone, and falls back to UTC for one Intl does not know", () => {
+    vi.stubEnv("LAB_TIMEZONE", "Europe/Berlin");
+    expect(labInstant("2026-10-07", 8).toISOString()).toBe("2026-10-07T06:00:00.000Z");
+    vi.stubEnv("LAB_TIMEZONE", "Mars/Olympus_Mons");
+    expect(labInstant("2026-10-07", 8).toISOString()).toBe("2026-10-07T08:00:00.000Z");
+  });
+});
+
+describe("labTimeOfDay and labDateLabel", () => {
+  it("writes the lab's clock time and a calendar date out for an email", () => {
+    vi.stubEnv("LAB_TIMEZONE", "");
+    expect(labTimeOfDay(new Date("2026-10-07T20:12:00Z"))).toBe("4:12 PM");
+    expect(labDateLabel("2026-10-07")).toBe("Wednesday, October 7");
   });
 });

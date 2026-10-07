@@ -324,6 +324,12 @@ Phase 5 extends both. The shape it sets:
   stays for reported problems. Dates are lab dates (`labToday()`); the maths is
   `src/lib/maintenance/interval.ts`. The `/admin` Maintenance tile adds the
   tasks due today and overdue as facts.
+- **Email lands on the queue** (email notifications spec,
+  [`notifications.md`](notifications.md)). Each ticket card is wrapped in
+  `id="ticket-<id>"`, which a new-ticket email links to
+  (`/admin/maintenance#ticket-<id>`); the browser scrolls there and `:target`
+  outlines it, with no script. The 08:00 recurring-maintenance reminder links to
+  `#due-tasks`, the Shift checklist.
 - **Each queue checks its own permission, and a test proves it is its own.** No
   role holds `tools.edit` without `feedback.manage`, so each `actions.test.ts`
   mocks `can()` for one case and asserts the endpoint is refused to a caller

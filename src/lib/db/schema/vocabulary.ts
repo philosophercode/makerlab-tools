@@ -362,3 +362,58 @@ export type CategoryProposalSource = (typeof CATEGORY_PROPOSAL_SOURCE)[number];
  */
 export const CATEGORY_PROPOSAL_STATUS = ["pending", "accepted", "rejected", "merged"] as const;
 export type CategoryProposalStatus = (typeof CATEGORY_PROPOSAL_STATUS)[number];
+
+/**
+ * Email notifications (email notifications spec §4; migration `0030`).
+ *
+ * The events the app emails about. `ticket.filed` is v1: a ticket filed from
+ * the chat (the Report button and a unit's QR label open it) or an MCP
+ * client. `maintenance.due` is the daily recurring-maintenance reminder
+ * (amendment 2026-10-07). v1.1's events (`ticket.resolved`,
+ * `correction.filed`, `intake.ready`, `staff.digest`) join this list when
+ * they are built.
+ */
+export const NOTIFICATION_EVENTS = ["ticket.filed", "maintenance.due"] as const;
+export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
+
+/** Where an outbox row is (§4.1): waiting for its run, recipients written, finished, or not sent at all. */
+export const NOTIFICATION_STATUS = ["queued", "fanned_out", "done", "skipped"] as const;
+export type NotificationStatus = (typeof NOTIFICATION_STATUS)[number];
+
+/**
+ * Where the write that caused a notification came from, for the template's
+ * "via a connected app" line. `system` is the cron's own reminder.
+ */
+export const NOTIFICATION_SURFACE = ["chat", "mcp", "gui", "system"] as const;
+export type NotificationSurface = (typeof NOTIFICATION_SURFACE)[number];
+
+/** Why an outbox row was not sent to anybody (§5.3): over the hourly cap, or its subject was handled first. */
+export const NOTIFICATION_SKIP_REASON = ["capped", "subject_gone"] as const;
+export type NotificationSkipReason = (typeof NOTIFICATION_SKIP_REASON)[number];
+
+/** One recipient's send (§4.2). */
+export const DELIVERY_STATUS = ["pending", "sending", "sent", "skipped", "failed"] as const;
+export type DeliveryStatus = (typeof DELIVERY_STATUS)[number];
+
+/**
+ * Why a delivery was skipped or failed — our own codes, never the provider's
+ * words, which can echo an address (§3.3 step 5).
+ */
+export const DELIVERY_REASON = [
+  // skipped
+  "pref_off",
+  "no_permission",
+  "subject_gone",
+  "preview_blocked",
+  // failed
+  "not_configured",
+  "invalid_recipient",
+  "rejected",
+  "stuck",
+  "provider_error",
+] as const;
+export type DeliveryReason = (typeof DELIVERY_REASON)[number];
+
+/** How a person takes an event (§4.3): now, in a digest (v1.1), or not at all. */
+export const NOTIFICATION_DELIVERIES = ["immediate", "digest", "off"] as const;
+export type NotificationDelivery = (typeof NOTIFICATION_DELIVERIES)[number];
