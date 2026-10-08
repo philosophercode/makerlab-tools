@@ -70,7 +70,7 @@ export function GalleryShell({ tools, state, set, view, categoryOrder }: Gallery
   const rootRef = useRef<HTMLDivElement>(null);
   useStickyOffset(rootRef);
 
-  const { visible, shown, sections, searching } = view;
+  const { visible, total, shown, sections, searching } = view;
   const query = state.query.trim();
   const materials = useMemo(() => uniqueValues(visible.flatMap((tool) => tool.materials)), [visible]);
   const locations = useMemo(() => uniqueValues(visible.map((tool) => tool.location)), [visible]);
@@ -140,7 +140,7 @@ export function GalleryShell({ tools, state, set, view, categoryOrder }: Gallery
         }
         activeCount={activeCount}
         shown={shown.length}
-        total={visible.length}
+        total={total}
         onClear={narrowing ? clear : null}
         secondary={
           <>

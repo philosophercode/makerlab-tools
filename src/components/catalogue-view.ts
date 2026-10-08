@@ -43,8 +43,10 @@ export function narrowed<T extends GalleryTool>(tools: readonly T[], state: Gall
 }
 
 export interface CatalogueView<T extends GalleryTool = GalleryTool> {
-  /** What the list holds before any filter: hidden-by-default categories out unless chosen. The count's "of N". */
+  /** What the list holds before any filter: hidden-by-default categories out unless chosen. */
   visible: T[];
+  /** The count's "of N": the list's tools at rest, every tool while searching (the search reaches them all). */
+  total: number;
   /** The tools on the page, in order: every section's, or the results. */
   shown: T[];
   /** At rest, the sections (one unlabelled one when ungrouped); searching, one section of results. */
@@ -71,11 +73,11 @@ export function catalogueView<T extends GalleryTool>(
       ...rankToolsInPlace(faceted.filter((tool) => tool.galleryHidden), query, byKind),
     ];
     const shown = sortTools(ranked, state.sort);
-    return { visible, shown, sections: [{ key: "results", label: "", tools: shown }], searching: true };
+    return { visible, total: tools.length, shown, sections: [{ key: "results", label: "", tools: shown }], searching: true };
   }
   const shown = sortTools(narrowed(visible, state), state.sort);
   const sections = groupTools(shown, resolvedGroup(state.group), { categoryOrder });
-  return { visible, shown: sections.flatMap((section) => section.tools), sections, searching: false };
+  return { visible, total: visible.length, shown: sections.flatMap((section) => section.tools), sections, searching: false };
 }
 
 /** On an equal match: equipment, then fixtures, then what goes with a machine (accessories, consumables). */

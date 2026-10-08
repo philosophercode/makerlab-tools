@@ -53,9 +53,9 @@ test.describe("Language switch", () => {
       .selectOption("es");
 
     // Server re-render after router.refresh() localizes the visible chrome:
-    // Spanish gallery title from messages/es.json => "Herramientas".
+    // the home page's search label from messages/es.json.
     await expect(
-      page.getByRole("heading", { name: "Herramientas", exact: true })
+      page.getByRole("combobox", { name: "Busca herramientas o hazle una pregunta a MakerLAB AI" })
     ).toBeVisible();
 
     // <html lang>/<dir> are corrected from the NEXT_LOCALE cookie by

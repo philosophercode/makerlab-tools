@@ -48,11 +48,15 @@ describe("catalogueView searching", () => {
     expect(names(catalogueView(withMat, state({ query: "cutting" }), []).shown)).toEqual(["Cutting mat", "Bandsaw", "Trotec Speedy 400"]);
   });
 
-  it("reaches a hidden-by-default category, after the list's own tools", () => {
+  it("reaches a hidden-by-default category, after the list's own tools, and counts out of every tool", () => {
     const hidden: GalleryTool[] = tools.map((tool) =>
       tool.slug === "bandsaw" ? { ...tool, name: "Prusa spare nozzle", category: "Supplies", galleryHidden: true } : tool
     );
-    expect(names(catalogueView(hidden, state({ query: "prusa" }), []).shown)).toEqual(["Prusa MK4", "Prusa spare nozzle"]);
+    const view = catalogueView(hidden, state({ query: "prusa" }), []);
+    expect(names(view.shown)).toEqual(["Prusa MK4", "Prusa spare nozzle"]);
+    // "Showing 2 of 4": never more shown than the total.
+    expect(view.total).toBe(4);
+    expect(catalogueView(hidden, state(), []).total).toBe(3);
   });
 
   it("puts equipment before an accessory on an equal match", () => {
