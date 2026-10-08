@@ -1,7 +1,13 @@
 import { z } from "zod";
 import { getDb, DbUnavailableError } from "../db/client";
 import { IDENTIFY_CONFIDENCE, UNIT_CONDITION, UNIT_STATUS, type UnitCondition, type UnitStatus } from "../db/schema/vocabulary";
-import { createPendingBatch, listPendingTools, type NewPendingTool, type PendingTool } from "../data/pending-tools";
+import {
+  createPendingBatch,
+  listPendingTools,
+  PlaceholderItemNameError,
+  type NewPendingTool,
+  type PendingTool,
+} from "../data/pending-tools";
 import { createCategoryProposal, matchExistingCategory } from "../data/category-admin";
 import { findOrCreateLocation } from "../data/taxonomy";
 import { createToolRecord, type NewToolRecord } from "../data/tool-create";
@@ -10,6 +16,7 @@ import { promoteAttachmentsToPublic } from "../files/promote";
 import { sharePhotosWithItems, type ShareRequest } from "../files/share-photo";
 import { researchAllowanceLeft } from "../intake/allowance";
 import { mergeIdentifiedItems, type MergedItem } from "../intake/identify-items";
+import { itemNameProblem } from "../intake/item-name";
 import { IMPORT_MAX_QUANTITY } from "../import/limits";
 import { IDENTIFY_MAX_ITEMS, IDENTIFY_MAX_MODEL_NAME_SEARCHES, RESEARCH_MAX_ITEMS_PER_REQUEST } from "../intake/limits";
 import type { DuplicateOf, IntakeTablePayload, IntakeTableWarning } from "../intake/types";
@@ -62,7 +69,7 @@ const identifyItemSchema = z.object({
     .min(1)
     .max(200)
     .describe(
-      'The full make and model you settled on, e.g. "Bambu Lab X1-Carbon Combo". Never a guess dressed up as a model.'
+      'The full make and model you settled on, e.g. "Bambu Lab X1-Carbon Combo". Never a guess dressed up as a model, and never a placeholder ("Equipment not specified", "Unknown", "Item"): a name with no specific word is refused and nothing is saved.'
     ),
   brand: hintSchema.describe('The manufacturer, e.g. "Bambu Lab".'),
   categoryHint: hintSchema.describe('The general kind of equipment, e.g. "3D Printing".'),
@@ -103,7 +110,7 @@ const identifyInputSchema = z.object({
     .min(1)
     .max(IDENTIFY_MAX_ITEMS)
     .describe(
-      `Every item you identified in this turn, in ONE call (at most ${IDENTIFY_MAX_ITEMS}). Leave out anything you could not identify — ask about it instead.`
+      `Every item you identified in this turn, in ONE call (at most ${IDENTIFY_MAX_ITEMS}). Leave out anything you could not identify — ask about it instead. Never call this when the person has not said or shown what the item is.`
     ),
 });
 type IdentifyInput = z.infer<typeof identifyInputSchema>;
@@ -132,6 +139,21 @@ const SIGN_IN_REQUIRED =
 
 const DB_UNAVAILABLE =
   "The inventory database is unreachable right now, so nothing was saved. Tell the person in one sentence and suggest trying again in a few minutes.";
+
+/**
+ * The refusal for entries whose names say nothing — "Equipment not specified",
+ * "Unknown", "Item" (data platform spec amendment "No empty items"). Worded so
+ * the model's next move is the right one: ask, and call again with real names.
+ */
+export function placeholderNamesError(names: readonly string[]): string {
+  const shown = names.map((name) => (name.trim() ? `"${name.trim().slice(0, 80)}"` : "an entry with no name"));
+  const list = shown.length === 1 ? shown[0] : `${shown.slice(0, -1).join(", ")} and ${shown[shown.length - 1]}`;
+  return [
+    `Nothing was saved: ${list} ${shown.length === 1 ? "does" : "do"} not name a piece of equipment, and a placeholder like "Equipment not specified" or "Unknown" is never recorded.`,
+    `Ask the person what they want to add — its name (make and model), a photo of it or its label, or a list or spreadsheet — and create nothing until you have one.`,
+    `Then call identify_tools again with only items you can name; something you can see but not name gets a plain descriptive name such as "Cordless drill, brand not visible".`,
+  ].join(" ");
+}
 
 /**
  * Which photos each item shows, which of those it claims and which it gets a
@@ -205,6 +227,11 @@ const identifyTools: CapabilityTool<IdentifyInput, IdentifyResult | IdentifyErro
     // quantity, and the same object seen twice becomes one item (amendment
     // "Many items at once"). The inventory's duplicate check runs below.
     const { items: merged } = mergeIdentifiedItems(input.items);
+    // Every name must say what the item is — checked before anything is
+    // written, so a turn with one placeholder saves none of its rows and the
+    // model asks instead (amendment "No empty items").
+    const placeholders = merged.filter((item) => itemNameProblem(item.name) !== null).map((item) => item.name);
+    if (placeholders.length > 0) return { card_rendered: false, error: placeholderNamesError(placeholders) };
     const turnIds = (ctx.attachments ?? []).map((a) => a.attachmentId);
     const { own, shared, unassigned } = photosPerItem(merged, turnIds);
     const items: NewPendingTool[] = merged.map((item, index) => ({
@@ -225,6 +252,7 @@ const identifyTools: CapabilityTool<IdentifyInput, IdentifyResult | IdentifyErro
     try {
       batch = await createPendingBatch({ createdBy: userId, items });
     } catch (err) {
+      if (err instanceof PlaceholderItemNameError) return { card_rendered: false, error: placeholderNamesError(err.names) };
       console.error("[intake] identify_tools could not save the batch", err);
       if (err instanceof DbUnavailableError) return { card_rendered: false, error: DB_UNAVAILABLE };
       return {
@@ -504,6 +532,13 @@ const createToolTool: CapabilityTool<CreateInput, CreateResult> = {
       warnings: [...warnings, reason],
     });
 
+    // A name that says nothing is no tool (amendment "No empty items").
+    if (itemNameProblem(candidate.name) !== null) {
+      return failed(
+        `"${candidate.name.trim().slice(0, 80)}" does not name a piece of equipment, so nothing was saved. Give the tool's make and model (for example "Bambu Lab X1-Carbon") or a plain description, then call create_tool again.`
+      );
+    }
+
     // MCP carries no uploads, and no session that could have made them. An id
     // here names somebody's chat photo at best, so it is never claimed.
     if (candidate.image_upload_ids.length > 0) {
@@ -690,6 +725,7 @@ function promptFragment(): string {
   return [
     `## Adding equipment to the inventory (intake)`,
     `When someone wants to add equipment — from photos, a description, dictated notes, or all of these — act as an intake agent. Your job in the chat is **identification only**: work out what each item is and record it with \`identify_tools\`. Research (manuals, specs, links) happens later in the background, after the person chooses which items to research, and a person approves every new tool.`,
+    `**Nothing named, nothing created.** If the person says they want to add equipment but has not said or shown what it is ("I'd like to add new equipment to the inventory."), do not call \`identify_tools\` — ask what it is, in one short line: its name (make and model), a photo of it or its label, or a list or spreadsheet. Create nothing until you have one. Never record a placeholder such as "Equipment not specified", "Unknown", "New equipment" or "Item": \`identify_tools\` refuses a name with no specific word and saves nothing.`,
     `1. **Identify every item.** From the photos and the words, settle each item's full make and model — "a Bambu X-something" plus a photo of the front becomes "Bambu Lab X1-Carbon Combo". Read model and serial plates in the photos when you can. **Look for every distinct piece of equipment**: one photo of a bench may show a drill press, a Cricut and two batteries — that is three items, not one. A typed list ("a drill press, two Ryobi batteries and a Cricut") is one item per thing named.`,
     `2. **Search only to settle a model name.** You may use \`exa_search\` at most ${IDENTIFY_MAX_MODEL_NAME_SEARCHES} times in the whole turn, and only when a model name is genuinely unclear. Never look up manuals, specs, videos or links, and never \`read_page\` a manual — that is the background research's job, and doing it here spends the person's budget for nothing.`,
     `3. **Call \`identify_tools\` once, with every item.** Put all the items from this turn — from every photo and every line — in a single call. Map photos to items using the \`[Attached photos: attachment_id=... name=...]\` hint in the message: pass the \`attachment_id\` of **every** photo that shows an item as its \`attachmentIds\`. One photo may be on several items (it shows several things); **the same object in two photos is ONE item** listing both photos, never two. Identical copies are one item with \`quantity\` ("two Ryobi batteries" → quantity 2), never one entry per copy. Set \`seenIn\` to where you saw it ("photo 2, left — the orange drill", or "listed"), and \`confidence\`: \`sure\` (read or told), \`likely\`, or \`unsure\`. Add \`brand\`, \`categoryHint\`, \`locationHint\` and \`serialNumber\` when you know them; never invent a serial number.`,

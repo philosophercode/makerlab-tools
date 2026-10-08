@@ -38,3 +38,19 @@
       value: ["drill press", "ryobi|battery x2", "cricut|maker"]
     - kind: not_called_tool
       value: start_import
+
+# No empty items (data platform spec amendment "No empty items"): asking to add
+# equipment without naming any creates nothing. The assistant asks what it is —
+# a name, a photo or a list — and records no placeholder row.
+- id: intake-nothing-named-asks-first
+  prompt: "I'd like to add new equipment to the inventory."
+  context: { page: gallery, as: staff }
+  assert:
+    - kind: not_called_tool
+      value: identify_tools
+    - kind: not_called_tool
+      value: start_import
+    - kind: contains_any
+      value: ["photo", "name", "model", "list", "spreadsheet"]
+    - kind: not_contains_any
+      value: ["equipment not specified", "i've added", "i have added"]

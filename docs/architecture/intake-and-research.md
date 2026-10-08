@@ -19,6 +19,16 @@ creates a tool (Article 5).
   — data-platform spec amendment 2026-09-24) and emits one `data-intake-table` part. `research_tool` and
   `propose_listing` are gone; the intake prompt allows two web searches, only
   to settle a model name.
+- **No empty items** (data-platform spec amendment "No empty items",
+  2026-10-07). A pending item's name must have one specific word
+  (`intake/item-name.ts`): "Equipment not specified", "Unknown", "Item", "N/A"
+  are refused everywhere a pending item is made or renamed — `identify_tools`
+  (one placeholder saves none of the turn's rows; the error tells the model to
+  ask for a name, a photo or a list), `createPendingBatch`
+  (`PlaceholderItemNameError`), `updatePendingTool` (`placeholder_name`, 422
+  on the PATCH route), the rename proposals, MCP `create_tool`, and an import's
+  rows (skipped as `placeholder_name`). The prompt: when nothing is named, ask
+  what it is and create nothing.
 - **Many items at once** (data-platform spec amendment "Many items at once",
   migration `0025`). The prompt asks for every distinct object in every photo
   and every line of a list, one entry each, with `quantity`, `seenIn` and

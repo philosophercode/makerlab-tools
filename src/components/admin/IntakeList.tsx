@@ -97,6 +97,7 @@ const API_ERROR_CODES: Record<PendingApiErrorCode, true> = {
   not_researchable: true,
   start_failed: true,
   image_retry_running: true,
+  placeholder_name: true,
   failed: true,
 };
 

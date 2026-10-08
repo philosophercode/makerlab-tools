@@ -79,6 +79,7 @@ const ERROR_CODES: readonly PendingApiErrorCode[] = [
   "unresolved_duplicate",
   "not_researchable",
   "start_failed",
+  "placeholder_name",
   "failed",
 ];
 

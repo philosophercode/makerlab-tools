@@ -157,6 +157,7 @@ export type PendingApiErrorCode =
   | "not_researchable"
   | "start_failed"
   | "image_retry_running"
+  | "placeholder_name"
   | "failed";
 
 /** Every refusal body from the pending-tools routes. */

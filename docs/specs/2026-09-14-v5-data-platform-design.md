@@ -2142,3 +2142,58 @@ role); `src/app/api/mcp/route.test.ts` (the public endpoint, a student token and
 `src/lib/kiosk/snapshot.test.ts`; and the E2E specs `tool-detail`, `auth` and `qr-arrival`.
 
 **Status.** Built on `v5/hide-serials`.
+
+### 2026-10-07 — No empty items: a pending item must say what it is (§5.4)
+
+**Asked by Isaac.** He typed "I'd like to add new equipment to the inventory." in the chat and
+the assistant recorded a row called **"Equipment not specified"** (seen: listed, "Not sure —
+check it"), which then sat in the Add equipment queue. Make that impossible.
+
+**The rule** (`src/lib/intake/item-name.ts`, pure, one module). A pending item's name is refused
+when it is empty or whitespace, or when it has **no specific word**: every word is generic —
+"equipment", "item", "tool", "device", "unknown", "not specified", "n/a", "tbd", "untitled",
+"new", "placeholder" and the like (`GENERIC_WORDS`, English plus the generic words of the
+Latin-script locales), filler ("the", "to", "add"), a lone letter or a bare number. Case, accents
+and punctuation are ignored. One specific word is enough, so the prompt's plain description of an
+item the model can see but not name still passes ("Cordless drill, brand not visible", "3D
+printer"), and so does a bare make ("Makita") — research and the display-name rules deal with
+that later.
+
+**Where it is enforced.** Every way a pending item is made or renamed:
+
+- **The chat's `identify_tools`** checks every merged entry before anything is written. One
+  placeholder in a turn saves **none** of its rows, and the tool answers an `error` the model can
+  act on: nothing was saved, which entries name nothing, ask the person for a name, a photo or a
+  list, then call again with only items it can name. The schema's descriptions say the same.
+- **`createPendingBatch`** (under the chat and every import) throws `PlaceholderItemNameError`
+  before its transaction opens — the backstop whatever the path.
+- **`updatePendingTool`** (under `PATCH /api/pending-tools/[id]`, the preliminary page's
+  name/brand Save, `rename_pending_item`, `edit_pending_items`, `edit_import_row` and accepting
+  a suggested name) refuses `placeholder_name`, a new `WRITE_REFUSALS` code; an empty name stays
+  `invalid_field`. The route answers **422 `placeholder_name`**; the card, the intake list, the
+  preliminary page and the import page render `intake.table.errors.placeholder_name`,
+  `admin.intake.errors.…`, `admin.errors.…` and `admin.import.errors.…` (English only, like the
+  rest of those namespaces).
+- **The assistant's proposals** (`rename_pending_item`, `edit_pending_items`, `edit_import_row`,
+  in the chat and over MCP) refuse `placeholder_name` before any card is drawn; the refusal line
+  (`capabilities/actions.ts`) tells the model to ask for a make and model.
+- **MCP's `create_tool`** refuses a placeholder name and writes nothing.
+- **Imports**: a row whose name is a placeholder is skipped as `placeholder_name` (beside
+  `no_name`), never written (`import/items.ts`).
+
+**The prompt** (`capabilities/intake.ts`): "**Nothing named, nothing created.** If the person says
+they want to add equipment but has not said or shown what it is ("I'd like to add new equipment
+to the inventory."), do not call `identify_tools` — ask what it is, in one short line: its name
+(make and model), a photo of it or its label, or a list or spreadsheet. Create nothing until you
+have one. Never record a placeholder such as "Equipment not specified", "Unknown", "New
+equipment" or "Item": `identify_tools` refuses a name with no specific word and saves nothing."
+
+**Tests.** `intake/item-name.test.ts` (the placeholder that was written and its relatives, real
+names that must pass); `capabilities/intake.test.ts` (the refusal, nothing saved, no card; one
+placeholder in a turn saves none; a descriptive name passes; `create_tool`; the prompt);
+`data/pending-tools.test.ts` (the batch throws, the rename is `placeholder_name`);
+`api/pending-tools/[id]/route.test.ts` (422); `actions/intake.test.ts` (no card);
+`import/items.test.ts` (skipped rows). Eval: `evals/cases/multi-item-intake.yaml`
+`intake-nothing-named-asks-first` — not run (it needs the Gateway).
+
+**Status.** Built on the intake-and-images branch, 2026-10-07.

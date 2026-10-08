@@ -335,6 +335,45 @@ describe("identify_tools — the rows it writes", () => {
   });
 });
 
+describe("identify_tools — no empty items (amendment \"No empty items\")", () => {
+  async function pendingNamed(name: string) {
+    const db = await getDb();
+    return db.select().from(pendingTools).where(eq(pendingTools.name, name));
+  }
+
+  it("refuses the placeholder the assistant once wrote, saves nothing and tells the model to ask", async () => {
+    const context = ctx();
+    const result = await runIdentify([{ name: "Equipment not specified", confidence: "unsure", seenIn: "listed" }], context);
+
+    expect(result.card_rendered).toBe(false);
+    expect(result.error).toContain('"Equipment not specified" does not name a piece of equipment');
+    expect(result.error).toContain("Nothing was saved");
+    expect(result.error).toContain("its name (make and model), a photo of it or its label, or a list or spreadsheet");
+    expect(result.error).toContain("call identify_tools again");
+    expect(result.batchId).toBeUndefined();
+    expect((context.writer as ReturnType<typeof fakeWriter>).write).not.toHaveBeenCalled();
+    expect(await pendingNamed("Equipment not specified")).toEqual([]);
+  });
+
+  it("saves none of a turn's items when one of them is a placeholder", async () => {
+    const result = await runIdentify([
+      { name: "Zorbex Placeholder-Guard Laminator ZL-7" },
+      { name: "Unknown" },
+      { name: "  new item  " },
+    ]);
+
+    expect(result.card_rendered).toBe(false);
+    expect(result.error).toContain('"Unknown" and "new item" do not name a piece of equipment');
+    expect(await pendingNamed("Zorbex Placeholder-Guard Laminator ZL-7")).toEqual([]);
+  });
+
+  it("accepts a plain descriptive name for an item it can see but not name", async () => {
+    const result = await runIdentify([{ name: "Cordless drill, brand not visible", confidence: "unsure" }]);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].name).toBe("Cordless drill, brand not visible");
+  });
+});
+
 describe("identify_tools — the card and the model's answer", () => {
   it("emits exactly one data-intake-table part with the payload shape", async () => {
     const context = ctx();
@@ -641,6 +680,19 @@ describe("splitCandidateNames — create_tool's two names (tool display names sp
   });
 });
 
+describe("create_tool — a name that says nothing (amendment \"No empty items\")", () => {
+  it("refuses a placeholder name and writes nothing", async () => {
+    const db = await getDb();
+    const before = await db.select({ id: tools.id }).from(tools);
+    const result = await runCreate(candidate({ name: "Equipment not specified" }));
+
+    expect(result.success).toBe(false);
+    expect(result.tool_id).toBeNull();
+    expect(result.warnings.at(-1)).toContain('"Equipment not specified" does not name a piece of equipment, so nothing was saved');
+    expect(await db.select({ id: tools.id }).from(tools)).toHaveLength(before.length);
+  });
+});
+
 describe("create_tool — an MCP draft on Postgres", () => {
   beforeEach(() => {
     server.use(
@@ -911,6 +963,15 @@ describe("the intake prompt", () => {
     ]) {
       expect(prompt).not.toContain(gone);
     }
+  });
+
+  it("asks what the item is when nothing was named, and never records a placeholder", () => {
+    expect(prompt).toContain("**Nothing named, nothing created.**");
+    expect(prompt).toContain("I'd like to add new equipment to the inventory.");
+    expect(prompt).toContain("do not call " + "`identify_tools`" + " — ask what it is");
+    expect(prompt).toContain("its name (make and model), a photo of it or its label, or a list or spreadsheet");
+    expect(prompt).toContain("Create nothing until you have one.");
+    expect(prompt).toContain('Never record a placeholder such as "Equipment not specified"');
   });
 
   it("resolves duplicates on the table, not in chat", () => {
