@@ -158,33 +158,54 @@ for (const [width, height, wordmarkHeight] of [
 
 // Every language, because the long ones are what broke it: at 1280 the
 // language select, as wide as "Português (Brasil)", pushed the bar past the
-// window in Spanish and Russian (DESIGN.md §8.12). Signed in as a director
-// too, since 2026-10-07: ADMIN and the profile control take the place of
-// REPORT and SIGN IN (identity spec amendment "ADMIN in the bar").
+// window in Spanish and Russian (DESIGN.md §8.12).
 for (const [bar, width, height] of FIT_SIZES) {
-  test(`the ${bar} bar fits at ${width}×${height} in every language, signed in and not`, async ({ page, context, baseURL }) => {
+  test(`the ${bar} bar fits at ${width}×${height} in every language`, async ({ page, context, baseURL }) => {
     await page.setViewportSize({ width, height });
     const failures: string[] = [];
-    for (const signedIn of [false, true]) {
-      if (signedIn) await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
-      for (const locale of LOCALE_CODES) {
-        await context.addCookies([{ name: "NEXT_LOCALE", value: locale, url: baseURL! }]);
-        await page.goto("/");
-        await expect(page.locator("html")).toHaveAttribute("lang", locale);
-        if (signedIn) {
-          await expect(page.locator(".primary-nav-profile")).toBeVisible({ timeout: 15_000 });
-          // In the bar from lg; behind MENU on the short bar, where it measures nothing.
-          await expect(page.locator(".primary-nav-admin")).toHaveCount(1);
-        } else {
-          await expect(page.locator(".primary-nav-auth")).toBeVisible({ timeout: 15_000 });
-        }
-        const problems = await headerFits(page);
-        if (problems.length) failures.push(`${locale}${signedIn ? " signed in" : ""}: ${problems.join("; ")}`);
-      }
+    for (const locale of LOCALE_CODES) {
+      await context.addCookies([{ name: "NEXT_LOCALE", value: locale, url: baseURL! }]);
+      await page.goto("/");
+      await expect(page.locator("html")).toHaveAttribute("lang", locale);
+      await expect(page.locator(".primary-nav-auth")).toBeVisible({ timeout: 15_000 });
+      const problems = await headerFits(page);
+      if (problems.length) failures.push(`${locale}: ${problems.join("; ")}`);
     }
     expect(failures).toEqual([]);
   });
 }
+
+// And signed in, since 2026-10-07: ADMIN and the profile control take the
+// place of REPORT and SIGN IN (identity spec amendment "ADMIN in the bar").
+// A SuperMaker is the least role that sees ADMIN. One load per language, then
+// every size by resizing: the bar is laid out by CSS alone, and twelve loads
+// rather than forty-eight keep this account's identity calls well inside
+// `/api/identity`'s limit while the rest of the suite runs beside it.
+test("the bar fits in every language signed in as a SuperMaker, at every one-row width and the short bar", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
+  const failures: string[] = [];
+  for (const locale of LOCALE_CODES) {
+    await page.setViewportSize({ width: FIT_SIZES[0][1], height: FIT_SIZES[0][2] });
+    await context.addCookies([{ name: "NEXT_LOCALE", value: locale, url: baseURL! }]);
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("lang", locale);
+    await expect(page.locator(".primary-nav-profile")).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator(".primary-nav-admin")).toBeVisible();
+    for (const [bar, width, height] of FIT_SIZES) {
+      await page.setViewportSize({ width, height });
+      await page.waitForFunction((w) => window.innerWidth === w, width);
+      // On the short bar ADMIN is behind MENU and measures nothing.
+      if (bar === "one-row") await expect(page.locator(".primary-nav-admin")).toBeVisible();
+      const problems = await headerFits(page);
+      if (problems.length) failures.push(`${locale} at ${width}×${height}: ${problems.join("; ")}`);
+    }
+  }
+  expect(failures).toEqual([]);
+});
 
 /**
  * No horizontal page scroll, at any width (DESIGN.md §6, §8.15): a wide thing

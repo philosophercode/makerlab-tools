@@ -482,9 +482,9 @@ menu.
   demo-data banner's lighter red in dark mode (6.1:1), checked in
   `tokens.test.ts`. Admin left the menu. `nav.admin`, `nav.account` and
   `nav.connectAssistant` are translated in all 12 locales.
-- **The fit** (DESIGN.md §8.12) is checked signed in as a director in every
-  language at 1024, 1280 and 1440 and on the short bar, as well as signed
-  out (`e2e/header-stability.spec.ts`).
+- **The fit** (DESIGN.md §8.12) is checked signed in as a SuperMaker (the
+  least role that sees ADMIN) in every language at 1024, 1280 and 1440 and
+  on the short bar, as well as signed out (`e2e/header-stability.spec.ts`).
 - **Tested** in `PrimaryNav.test.tsx`, `ProfileMenu.test.tsx`,
   `AdminLink.test.tsx`, `GlobalChrome.test.tsx`, `SiteFooter.test.tsx`,
   `tokens.test.ts`, and the `auth`, `admin-users` and `header-stability` E2E
