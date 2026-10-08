@@ -15,10 +15,11 @@ import { displayNameClashes } from "../data/tool-name-clash";
 import { promoteAttachmentsToPublic } from "../files/promote";
 import { sharePhotosWithItems, type ShareRequest } from "../files/share-photo";
 import { researchAllowanceLeft } from "../intake/allowance";
+import { startFoundPhotos, type FoundPhotoStart } from "../intake/found-photo-start";
 import { mergeIdentifiedItems, type MergedItem } from "../intake/identify-items";
 import { itemNameProblem } from "../intake/item-name";
 import { IMPORT_MAX_QUANTITY } from "../import/limits";
-import { IDENTIFY_MAX_ITEMS, IDENTIFY_MAX_MODEL_NAME_SEARCHES, RESEARCH_MAX_ITEMS_PER_REQUEST } from "../intake/limits";
+import { IDENTIFY_MAX_ITEMS, IDENTIFY_MAX_MODEL_NAME_SEARCHES, IDENTIFY_PHOTO_MAX_ITEMS, RESEARCH_MAX_ITEMS_PER_REQUEST } from "../intake/limits";
 import type { DuplicateOf, IntakeTablePayload, IntakeTableWarning } from "../intake/types";
 import { toPendingToolView } from "../intake/view";
 import { IMPORT_CHAT_LINE_THRESHOLD } from "../import/limits";
@@ -122,6 +123,12 @@ interface IdentifyResult {
   items: { id: string; name: string; quantity: number; certainty: string | null; duplicateOf: DuplicateOf | null }[];
   /** Entries that named an object another entry already had, folded into it. */
   mergedEntries?: number;
+  /**
+   * Photos being looked up for items named without one (amendment "A photo
+   * for a name"), and how many such items got none: past the per-call cap or
+   * past today's research allowance. Absent when no item needed one.
+   */
+  photoSearch?: { searching: number; skippedOverCap?: number; skippedForAllowance?: number; startFailed?: true };
   warnings: IntakeTableWarning[];
 }
 
@@ -203,6 +210,20 @@ export function photosPerItem(
     }
   });
   return { own, shared, unassigned: turn.filter((id) => !holder.has(id)) };
+}
+
+/** What the model is told about the photo lookups, or nothing when no item needed one. */
+function photoSearchResult(start: FoundPhotoStart): Pick<IdentifyResult, "photoSearch"> | Record<string, never> {
+  const { searching, skipped, startFailed } = start;
+  if (searching === 0 && skipped.cap === 0 && skipped.allowance === 0 && !startFailed) return {};
+  return {
+    photoSearch: {
+      searching,
+      ...(skipped.cap > 0 ? { skippedOverCap: skipped.cap } : {}),
+      ...(skipped.allowance > 0 ? { skippedForAllowance: skipped.allowance } : {}),
+      ...(startFailed ? { startFailed } : {}),
+    },
+  };
 }
 
 /** Every photo now on these rows that a browser still cannot load. */
@@ -318,6 +339,18 @@ const identifyTools: CapabilityTool<IdentifyInput, IdentifyResult | IdentifyErro
     // is public when its row has a URL, and not otherwise.
     if (privatePhotoIds(rows).length > 0) warnings.push("photos_not_public");
 
+    // One candidate product photo for each item named without one, looked up
+    // in the background with research's image finder and charged a quarter
+    // item each (amendment "A photo for a name"). Never a reason to fail the
+    // identification: the rows are saved whatever happens here.
+    let photoSearch: FoundPhotoStart | null = null;
+    try {
+      photoSearch = await startFoundPhotos(userId, rows);
+      if (photoSearch.searching > 0 || photoSearch.startFailed) rows = await listPendingTools({ ids });
+    } catch (err) {
+      console.error("[intake] identify_tools could not start the photo lookups", err);
+    }
+
     // Read for the card's confirmation line only; the route checks at the click.
     const researchLeft = await researchAllowanceLeft(userId);
     const payload: IntakeTablePayload = {
@@ -340,6 +373,7 @@ const identifyTools: CapabilityTool<IdentifyInput, IdentifyResult | IdentifyErro
         duplicateOf: row.duplicateOf,
       })),
       ...(merged.length < input.items.length ? { mergedEntries: input.items.length - merged.length } : {}),
+      ...(photoSearch ? photoSearchResult(photoSearch) : {}),
       warnings,
     };
   },
@@ -727,6 +761,7 @@ function promptFragment(): string {
     `When someone wants to add equipment — from photos, a description, dictated notes, or all of these — act as an intake agent. Your job in the chat is **identification only**: work out what each item is and record it with \`identify_tools\`. Research (manuals, specs, links) happens later in the background, after the person chooses which items to research, and a person approves every new tool.`,
     `**Nothing named, nothing created.** If the person says they want to add equipment but has not said or shown what it is ("I'd like to add new equipment to the inventory."), do not call \`identify_tools\` — ask what it is, in one short line: its name (make and model), a photo of it or its label, or a list or spreadsheet. Create nothing until you have one. Never record a placeholder such as "Equipment not specified", "Unknown", "New equipment" or "Item": \`identify_tools\` refuses a name with no specific word and saves nothing.`,
     `1. **Identify every item.** From the photos and the words, settle each item's full make and model — "a Bambu X-something" plus a photo of the front becomes "Bambu Lab X1-Carbon Combo". Read model and serial plates in the photos when you can. **Look for every distinct piece of equipment**: one photo of a bench may show a drill press, a Cricut and two batteries — that is three items, not one. A typed list ("a drill press, two Ryobi batteries and a Cricut") is one item per thing named.`,
+    `**Named without a photo?** Settle the most likely official product name — make, model and generation ("Apple iPad (6th generation)" for "an iPad 6") — and give it as the \`name\`, with \`confidence\` \`likely\` when you are not sure. After the table appears, one candidate product photo is looked up for each such item in the background (at most ${IDENTIFY_PHOTO_MAX_ITEMS} per call, from today's research allowance) and shown marked "Found online" until someone approves the item. Never look for photos yourself; if the result's \`photoSearch\` says some were skipped, you may say so in a few words.`,
     `2. **Search only to settle a model name.** You may use \`exa_search\` at most ${IDENTIFY_MAX_MODEL_NAME_SEARCHES} times in the whole turn, and only when a model name is genuinely unclear. Never look up manuals, specs, videos or links, and never \`read_page\` a manual — that is the background research's job, and doing it here spends the person's budget for nothing.`,
     `3. **Call \`identify_tools\` once, with every item.** Put all the items from this turn — from every photo and every line — in a single call. Map photos to items using the \`[Attached photos: attachment_id=... name=...]\` hint in the message: pass the \`attachment_id\` of **every** photo that shows an item as its \`attachmentIds\`. One photo may be on several items (it shows several things); **the same object in two photos is ONE item** listing both photos, never two. Identical copies are one item with \`quantity\` ("two Ryobi batteries" → quantity 2), never one entry per copy. Set \`seenIn\` to where you saw it ("photo 2, left — the orange drill", or "listed"), and \`confidence\`: \`sure\` (read or told), \`likely\`, or \`unsure\`. Add \`brand\`, \`categoryHint\`, \`locationHint\` and \`serialNumber\` when you know them; never invent a serial number.`,
     `4. **An item you cannot name is still included, as \`unsure\`.** Give it a plain descriptive name — "Filament 3D printer, model not visible" — never an invented make or model; it starts unticked on the table. Then ask one short question the person can answer in five seconds, e.g. "I can't read the model on the printer at the back — could you photograph the label on the side?" A thing you only glimpse and that is clearly not equipment (a mug, a chair) is left out.`,

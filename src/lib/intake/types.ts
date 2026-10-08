@@ -37,6 +37,29 @@ export interface PendingToolPhotoView {
   filename: string | null;
 }
 
+/**
+ * The photo looked up for an item named without one (data platform spec
+ * amendment "A photo for a name"), as a browser may show it: a picture found
+ * online, unconfirmed until approval — never one of the item's `photos`.
+ */
+export interface FoundPhotoView {
+  /** `searching` until the lookup lands; a lookup gone stale reads `failed`. */
+  status: "searching" | "found" | "none" | "failed";
+  /**
+   * Where a browser loads it, only when `found`: our route for the private
+   * background-removed copy, else the picture's own URL on its own host.
+   */
+  src: string | null;
+  /** `src` is somebody else's host: load it sending no referrer. */
+  external: boolean;
+  /** The host it was found on — its page's, else its own — for "Found online · host". */
+  host: string | null;
+  /** The page it was declared on, for attribution; null when the search gave none. */
+  pageUrl: string | null;
+  /** The background was removed (deterministic cutout, never a redraw). */
+  cleaned: boolean;
+}
+
 /** A pending item as a browser sees it. Dates are ISO strings; no ids of people. */
 export interface PendingToolView {
   id: string;
@@ -62,6 +85,11 @@ export interface PendingToolView {
   identifyConfidence?: IdentifyConfidence | null;
   /** Where the chat saw the item — "photo 1, left" — shown under its name. */
   seenIn?: string | null;
+  /**
+   * The photo looked up because the item was named without one; absent or
+   * null when there was no lookup, and once the item is approved or discarded.
+   */
+  foundPhoto?: FoundPhotoView | null;
   /** The research grade, once there is research. Null before, and for add-unit items. */
   confidenceLevel: IntakeConfidenceLevel | null;
   researchError: string | null;

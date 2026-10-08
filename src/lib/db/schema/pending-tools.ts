@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { check, index, integer, jsonb, pgTable, text, timestamp, uuid, type AnyPgColumn } from "drizzle-orm/pg-core";
 import type { ImportLink, LabDoc, NameSuggestion } from "../../import/types.ts";
+import type { FoundPhoto } from "../../intake/found-photo.ts";
 import type { ResearchResult } from "../../research/result.ts";
 import { user } from "./auth.ts";
 import { inListCheck, timestamps, userReference } from "./helpers.ts";
@@ -46,6 +47,12 @@ import { DUPLICATE_RESOLUTION, IDENTIFY_CONFIDENCE, PENDING_STATUS } from "./voc
  *   item (`sure` / `likely` / `unsure`) and `seen_in` where it was seen ("photo
  *   1, left — the orange drill"), both only for the chat's rows. A chat item's
  *   `quantity` is the count the person gave ("two Ryobi batteries").
+ * - **A photo for a name** (data platform spec amendment "A photo for a name",
+ *   migration `0032`): `found_photo` is the one candidate product photo looked
+ *   up for an item the chat recorded from its name alone — the lookup's state
+ *   and, when found, the ranked picture and its private cleaned copy
+ *   (`intake/found-photo.ts`). Shown "Found online" until approval; never one
+ *   of the item's photos. Null for everything else.
  */
 export const pendingTools = pgTable(
   "pending_tools",
@@ -96,6 +103,7 @@ export const pendingTools = pgTable(
     nameSuggestion: jsonb("name_suggestion").$type<NameSuggestion>(),
     identifyConfidence: text("identify_confidence"),
     seenIn: text("seen_in"),
+    foundPhoto: jsonb("found_photo").$type<FoundPhoto>(),
     ...timestamps(),
   },
   (t) => [

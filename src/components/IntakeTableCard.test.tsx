@@ -1,4 +1,4 @@
-import { render, screen, userEvent, within } from "../../test/utils/render";
+import { act, render, screen, userEvent, within } from "../../test/utils/render";
 import { IntakeTableCard } from "./IntakeTableCard";
 import type {
   DuplicateOf,
@@ -627,5 +627,63 @@ describe("IntakeTableCard — many items at once (amendment \"Many items at once
 
     expect(screen.getByText("RYOBI Drill Press")).toBeInTheDocument();
     expect(screen.getByRole("alert")).toHaveTextContent("This item has moved on");
+  });
+});
+
+describe("IntakeTableCard — a photo for a name (amendment \"A photo for a name\")", () => {
+  const FOUND = {
+    status: "found" as const,
+    src: "https://cdn.maker.example/img/x2d-front.png",
+    external: true,
+    host: "maker.example",
+    pageUrl: "https://www.maker.example/x2d",
+    cleaned: false,
+  };
+
+  it("shows a looked-up photo marked found online and unconfirmed, loaded sending no referrer", () => {
+    render(<IntakeTableCard payload={payload([row(A, "Bambu Lab X2D", { foundPhoto: FOUND })])} />);
+    const [image] = screen.getAllByRole("img", { name: "Bambu Lab X2D — photo found online, not confirmed" });
+    expect(image).toHaveAttribute("src", FOUND.src);
+    expect(image).toHaveAttribute("referrerpolicy", "no-referrer");
+    expect(screen.getAllByText("Found online").length).toBeGreaterThan(0);
+    expect(image.parentElement).toHaveAttribute("title", "Found online at maker.example — not confirmed until the item is approved");
+    expect(screen.queryByText("No photo")).not.toBeInTheDocument();
+  });
+
+  it("says it is finding a photo, asks for the rows, and shows the photo when it lands", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      const searching = { status: "searching" as const, src: null, external: false, host: null, pageUrl: null, cleaned: false };
+      fetchMock.mockResolvedValue(
+        json(200, { items: [row(A, "Bambu Lab X2D", { foundPhoto: { ...FOUND, src: `/api/pending-tools/${A}/found-photo`, external: false, cleaned: true } })] })
+      );
+      render(<IntakeTableCard payload={payload([row(A, "Bambu Lab X2D", { foundPhoto: searching }), row(B, "Glowforge Pro")])} />);
+      expect(screen.getAllByText("Finding a photo…").length).toBeGreaterThan(0);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_100);
+      });
+      expect(fetchMock).toHaveBeenCalledWith(`/api/pending-tools?ids=${A}`, { cache: "no-store" });
+      const [image] = await screen.findAllByRole("img", { name: "Bambu Lab X2D — photo found online, not confirmed" });
+      expect(image).toHaveAttribute("src", `/api/pending-tools/${A}/found-photo`);
+      expect(image).not.toHaveAttribute("referrerpolicy");
+      expect(screen.queryByText("Finding a photo…")).not.toBeInTheDocument();
+
+      // Landed: no more asking.
+      const calls = fetchMock.mock.calls.length;
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(15_000);
+      });
+      expect(fetchMock.mock.calls.length).toBe(calls);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("shows No photo when the lookup found nothing, and asks for nothing", () => {
+    const none = { status: "none" as const, src: null, external: false, host: null, pageUrl: null, cleaned: false };
+    render(<IntakeTableCard payload={payload([row(A, "Bambu Lab X2D", { foundPhoto: none })])} />);
+    expect(screen.getAllByText("No photo").length).toBeGreaterThan(0);
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });

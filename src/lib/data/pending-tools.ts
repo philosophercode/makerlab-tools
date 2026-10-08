@@ -21,6 +21,7 @@ import {
   type PendingStatus,
 } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
+import { parseFoundPhoto, type FoundPhoto } from "../intake/found-photo.ts";
 import { itemNameProblem } from "../intake/item-name.ts";
 import { RESEARCH_START_STALE_MS } from "../intake/limits.ts";
 import type { ResearchFocus, ResearchFocusField } from "../intake/research-focus.ts";
@@ -116,6 +117,12 @@ export interface PendingToolRecord {
   identifyConfidence: IdentifyConfidence | null;
   /** Where the chat saw the item — "photo 1, left" — or null. */
   seenIn: string | null;
+  /**
+   * The photo looked up for an item named without one (amendment "A photo for
+   * a name"), parsed on every read; null when there is none or it no longer
+   * parses.
+   */
+  foundPhoto: FoundPhoto | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -468,6 +475,7 @@ export interface IntakeQueueSummary {
   quantity: number;
   identifyConfidence: IdentifyConfidence | null;
   seenIn: string | null;
+  foundPhoto: FoundPhoto | null;
   confidenceLevel: "high" | "medium" | "low" | null;
   researchError: string | null;
   researchRequestedAt: Date | null;
@@ -519,6 +527,7 @@ export async function listIntakeQueueSummaries(
         quantity: pendingTools.quantity,
         identifyConfidence: pendingTools.identifyConfidence,
         seenIn: pendingTools.seenIn,
+        foundPhoto: pendingTools.foundPhoto,
         hasResearch: sql<boolean>`${pendingTools.research} is not null`,
         confidenceLevel: sql<string | null>`${pendingTools.research}->'confidence'->>'level'`,
         researchError: pendingTools.researchError,
@@ -563,6 +572,7 @@ export async function listIntakeQueueSummaries(
       quantity: row.quantity,
       identifyConfidence: isOneOf(IDENTIFY_CONFIDENCE, row.identifyConfidence) ? row.identifyConfidence : null,
       seenIn: row.seenIn ?? null,
+      foundPhoto: parseFoundPhoto(row.foundPhoto),
       confidenceLevel: level as IntakeQueueSummary["confidenceLevel"],
       researchError: row.researchError ?? (row.hasResearch && level === null ? INVALID_STORED_RESEARCH : null),
       researchRequestedAt: row.researchRequestedAt,
@@ -1800,6 +1810,7 @@ async function readPendingTools(db: Db, where: SQL | undefined, limit: number | 
       nameSuggestion: row.nameSuggestion ?? null,
       identifyConfidence: isOneOf(IDENTIFY_CONFIDENCE, row.identifyConfidence) ? row.identifyConfidence : null,
       seenIn: row.seenIn ?? null,
+      foundPhoto: parseFoundPhoto(row.foundPhoto),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       duplicateOf,

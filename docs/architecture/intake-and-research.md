@@ -29,6 +29,19 @@ creates a tool (Article 5).
   on the PATCH route), the rename proposals, MCP `create_tool`, and an import's
   rows (skipped as `placeholder_name`). The prompt: when nothing is named, ask
   what it is and create nothing.
+- **A photo for a name** (data-platform spec amendment "A photo for a name",
+  migration `0032`). After `identify_tools` saves its rows, each item named
+  without a photo (not `unsure`, not an undecided duplicate; at most 10 a call)
+  gets one candidate product photo looked up in the background
+  (`intake/found-photo-start.ts` → `src/workflows/found-photos.ts` →
+  `intake/found-photo-steps.ts`): one Exa search, `rankAndClean`, rank 1 kept
+  with its private cutout, stored as `pending_tools.found_photo`. A quarter
+  research item each, charged under the research lock
+  (`data/found-photo.ts`). The card and `/admin/intake` show it in a dashed
+  frame tagged "Found online" (`FoundPhotoThumb`); the private copy loads from
+  `GET /api/pending-tools/[id]/found-photo`, and the card polls
+  `GET /api/pending-tools?ids=…` while a lookup runs. Never one of the item's
+  photos; research keeps it, approval releases it.
 - **Many items at once** (data-platform spec amendment "Many items at once",
   migration `0025`). The prompt asks for every distinct object in every photo
   and every line of a list, one entry each, with `quantity`, `seenIn` and

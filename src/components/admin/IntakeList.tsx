@@ -26,6 +26,7 @@ import { PENDING_STATUS_TONE } from "./pending-status-tone";
 import { ResearchSpendConfirm } from "../ResearchSpendConfirm";
 import { personLabel } from "./person-label";
 import { usePoll } from "./use-poll";
+import { FoundPhotoThumb } from "../system/review/FoundPhoto";
 
 /**
  * The review queue on `/admin/intake` (spec §5.4 step 10, §6).
@@ -206,7 +207,8 @@ export function IntakeList({ items, filters = true, researchLeft = null }: Intak
   const t = useTranslations("admin.intake");
   const tStatus = useTranslations("intake.status");
   const router = useRouter();
-  const polling = items.some((item) => isInFlight(item));
+  // Research under way, or a photo still being looked up for an item named without one.
+  const polling = items.some((item) => isInFlight(item) || item.foundPhoto?.status === "searching");
 
   usePoll(() => router.refresh(), INTAKE_POLL_INTERVAL_MS, polling);
 
@@ -327,6 +329,9 @@ function IntakeRow({ item }: { item: PendingToolView }) {
                 nobody browses for pleasure. */}
             <Image src={photo} alt="" fill sizes="40px" style={{ objectFit: "cover" }} unoptimized />
           </span>
+        ) : item.foundPhoto?.status === "found" ? (
+          // Looked up because it was named without a photo: found online, not confirmed.
+          <FoundPhotoThumb photo={item.foundPhoto} name={item.name} className="size-10" quiet />
         ) : null
       }
       marks={

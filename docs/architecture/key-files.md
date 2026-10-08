@@ -96,6 +96,8 @@
 | `src/lib/actions/*` | The action layer: `performAction`, `defineAction`, `ACTIONS` / `ACTION_DEFINITIONS`, the People, queue, log-completed, catalogue, intake, import, spend and mirror definitions, `proposals.ts` (propose / confirm), `page-context.ts`, `typed-confirm.ts`, `inbox.ts` (the MCP inbox's cards), `manual-triage.ts` (the inbox's Manuals view, by tool), `revision-chain.ts` (a tool's proposals confirmed in one step), the parity guard (`parity.ts`, `exempt.ts`) and the spec drift check (`spec-drift.test.ts`) |
 | `src/lib/chat/taint.ts` | Whether a chat turn read outside content (§8.4) |
 | `src/lib/intake/research-start.ts` / `approval-draft.ts` | The one research start (route and card); the review page's default approval (page and card) |
+| `src/lib/intake/item-name.ts` | The one rule for a pending item's name: empty and placeholder names ("Equipment not specified") are refused everywhere (amendment "No empty items") |
+| `src/lib/intake/found-photo*.ts`, `src/lib/data/found-photo.ts`, `src/workflows/found-photos.ts` | A photo for an item named without one: shape and view, the start and charge, the lookup step, the workflow (amendment "A photo for a name") |
 | `src/lib/data/action-proposals.ts` / `action-subjects.ts` | `action_proposals` (claim once, creator only, TTLs); the id → name reads previews and page context use |
 | `src/lib/capabilities/actions.ts` / `admin-reads.ts` | The generated proposing tools (chat, and MCP for `mcp: "propose"`) and their prompt; `find_people`, `list_corrections`, `list_project_queue` |
 | `src/app/api/action-proposals/route.ts` | Confirm / cancel an assistant proposal (cookie only), and re-read the caller's proposals by id or chat |

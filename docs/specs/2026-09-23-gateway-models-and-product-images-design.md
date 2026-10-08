@@ -2690,3 +2690,13 @@ no cover, unreadable).
 
 **Status.** Built on the intake-and-images branch, 2026-10-07. The thresholds are tuned on the
 real iPad and synthetic tablets; watch the first research runs' `cleanNote`s.
+
+### 2026-10-07 — The image finder also runs at identification (pointer)
+
+An item the chat records from its name alone now gets **one** candidate product photo before
+research, found by this stage's own pieces — one Exa search (`searchProductPictures`, now in
+`research/image-stage.ts`, shared with Find a different image), `rankAndClean` (probe, the
+`imageRank` subject verdict, the deterministic cutout of rank 1) — charged a quarter item each
+against the research allowance. Research keeps that photo's cleaned copy (`releaseCleanedImages`
+takes a `keep`); approval releases it. See the data platform spec's amendment "A photo for a
+name" (migration `0032`).

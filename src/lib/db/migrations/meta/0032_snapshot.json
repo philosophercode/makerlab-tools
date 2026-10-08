@@ -1,6 +1,6 @@
 {
-  "id": "8e08587b-2115-4895-9d73-779f057bc8ae",
-  "prevId": "8c88dc11-5cfb-4868-82f5-d1889428221b",
+  "id": "b934a8d5-0680-4853-978f-a9e29df462a8",
+  "prevId": "8e08587b-2115-4895-9d73-779f057bc8ae",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -3589,6 +3589,12 @@
         "seen_in": {
           "name": "seen_in",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "found_photo": {
+          "name": "found_photo",
+          "type": "jsonb",
           "primaryKey": false,
           "notNull": false
         },

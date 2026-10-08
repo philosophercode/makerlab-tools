@@ -30,6 +30,13 @@ vi.mock("../files/share-photo", () => ({
   sharePhotosWithItems: (requests: unknown[], options: Record<string, unknown>) => share.fn(requests, options),
 }));
 
+// The photo lookups' workflow start (amendment "A photo for a name"): the step
+// has its own tests (`intake/found-photo-steps.test.ts`); here the start is a
+// seam whose calls are observed.
+const wf = vi.hoisted(() => ({ start: vi.fn() }));
+vi.mock("workflow/api", () => ({ start: wf.start }));
+vi.mock("../../workflows/found-photos", () => ({ findFoundPhotos: vi.fn() }));
+
 // `createPendingBatch` is wrapped so one test can make the database go away.
 const pendingHook = vi.hoisted(() => ({ failWith: null as null | Error }));
 vi.mock("../data/pending-tools", async (importOriginal) => {
@@ -53,6 +60,7 @@ import {
   categoryProposals,
   locations,
   pendingTools,
+  researchRequests,
   resources,
   tools,
   units,
@@ -128,6 +136,7 @@ interface IdentifyResult {
   batchId: string;
   items: { id: string; name: string; quantity: number; certainty: string | null; duplicateOf: { kind: string; name: string } | null }[];
   mergedEntries?: number;
+  photoSearch?: { searching: number; skippedOverCap?: number; skippedForAllowance?: number; startFailed?: true };
   warnings: string[];
   error?: string;
 }
@@ -172,6 +181,8 @@ function copyingStore() {
 beforeEach(() => {
   vi.stubEnv("DATABASE_URL", "");
   pendingHook.failWith = null;
+  wf.start.mockReset();
+  wf.start.mockResolvedValue({ runId: "wrun_photos" });
   share.fn.mockReset().mockImplementation(async (requests, options) => {
     const actual = await vi.importActual<typeof import("../files/share-photo")>("../files/share-photo");
     return actual.sharePhotosWithItems(requests as Parameters<typeof actual.sharePhotosWithItems>[0], {
@@ -374,6 +385,56 @@ describe("identify_tools — no empty items (amendment \"No empty items\")", () 
   });
 });
 
+describe("identify_tools — a photo for a name (amendment \"A photo for a name\")", () => {
+  it("looks up one photo for each item named without one, charged a quarter item each, and shows it searching", async () => {
+    const db = await getDb();
+    const before = await db.select({ id: researchRequests.id }).from(researchRequests);
+    const context = ctx();
+    const result = await runIdentify(
+      [
+        { name: "Zorbex Photo-Lookup Laminator ZL-9", brand: "Zorbex" },
+        { name: "Quillon Photo-Lookup Grinder QG-2" },
+        { name: "Cordless drill, brand not visible", confidence: "unsure" },
+      ],
+      context
+    );
+
+    // Two named items, one `unsure` left without a lookup.
+    expect(result.photoSearch).toEqual({ searching: 2 });
+    expect(wf.start).toHaveBeenCalledTimes(1);
+    const [, [requestId, ids]] = wf.start.mock.calls[0] as [unknown, [string, string[]]];
+    expect(ids).toEqual(result.items.slice(0, 2).map((item) => item.id));
+
+    const payload = writtenPayload(context);
+    expect(payload.items.map((item) => item.foundPhoto?.status ?? null)).toEqual(["searching", "searching", null]);
+    for (const id of ids) {
+      const [row] = await db.select({ foundPhoto: pendingTools.foundPhoto }).from(pendingTools).where(eq(pendingTools.id, id));
+      expect(row.foundPhoto).toMatchObject({ requestId, status: "searching" });
+    }
+    // Two lookups, a quarter item each: one ledger row, under the request's id.
+    const after = await db.select({ requestId: researchRequests.requestId }).from(researchRequests);
+    expect(after.length - before.length).toBe(1);
+    expect(after.filter((row) => row.requestId === requestId)).toHaveLength(1);
+  });
+
+  it("looks nothing up for an item that came with a photo", async () => {
+    const mine = await upload();
+    const result = await runIdentify([{ name: "Zorbex Photo-Given Extruder 7", attachmentIds: [mine] }], ctx({ attachments: [photo(mine)] }));
+    expect(result.photoSearch).toBeUndefined();
+    expect(wf.start).not.toHaveBeenCalled();
+  });
+
+  it("marks the lookups failed when the workflow will not start, and still saves the items", async () => {
+    wf.start.mockRejectedValue(new Error("no world"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const context = ctx();
+    const result = await runIdentify([{ name: "Zorbex Photo-Start Laminator ZL-11" }], context);
+    expect(result.items).toHaveLength(1);
+    expect(result.photoSearch).toEqual({ searching: 0, startFailed: true });
+    expect(writtenPayload(context).items[0].foundPhoto?.status).toBe("failed");
+  });
+});
+
 describe("identify_tools — the card and the model's answer", () => {
   it("emits exactly one data-intake-table part with the payload shape", async () => {
     const context = ctx();
@@ -408,7 +469,10 @@ describe("identify_tools — the card and the model's answer", () => {
   it("hands the model a compact result with no research and no confidence", async () => {
     const result = await runIdentify([{ name: "Zorbex Filament Extruder 9000" }]);
 
-    expect(Object.keys(result).sort()).toEqual(["batchId", "card_rendered", "items", "warnings"]);
+    // `photoSearch` too when the item gets a photo looked up (amendment "A photo for a name").
+    const { photoSearch, ...rest } = result;
+    expect(Object.keys(rest).sort()).toEqual(["batchId", "card_rendered", "items", "warnings"]);
+    if (photoSearch) expect(Object.keys(photoSearch)).toEqual(["searching"]);
     expect(result.card_rendered).toBe(true);
     expect(Object.keys(result.items[0]).sort()).toEqual(["certainty", "duplicateOf", "id", "name", "quantity"]);
     const text = JSON.stringify(result);
@@ -963,6 +1027,13 @@ describe("the intake prompt", () => {
     ]) {
       expect(prompt).not.toContain(gone);
     }
+  });
+
+  it("settles the official name for an item named without a photo, and leaves the photo to the table", () => {
+    expect(prompt).toContain("**Named without a photo?**");
+    expect(prompt).toContain('"Apple iPad (6th generation)" for "an iPad 6"');
+    expect(prompt).toContain('marked "Found online" until someone approves the item');
+    expect(prompt).toContain("Never look for photos yourself");
   });
 
   it("asks what the item is when nothing was named, and never records a placeholder", () => {
