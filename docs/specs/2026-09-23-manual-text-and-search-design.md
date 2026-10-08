@@ -1165,3 +1165,16 @@ on this check alone, and they were good answers: each cited the right page throu
 record gives. That link is the machine's own document — what the rule ("an answer cites only its
 machine's documents", 2026-10-06) is there to allow — so failing it measured the harness, not the
 chat.
+
+### 2026-10-08 — A judge for the answer (`EVAL_MQ_JUDGE=1`)
+
+**What changed.** With `EVAL_MQ_E2E=1`, `EVAL_MQ_JUDGE=1` has job `evalQuestions` (Opus — the
+writer that read the passage and wrote the expected answer) grade each chat answer against the
+manual's answer: **correct**, **partial**, **wrong** or **declined**, with a one-line reason
+(`evals/manual-answer-judge.ts`; the answer is fenced as untrusted data). The report counts the
+verdicts beside the page checks and lists every answer not judged correct. It never fails the run.
+
+**Why.** The page checks say where an answer points, not whether it is right. Reading the
+production misses, most were right: an answer from the lab's SOP (which the chat puts first by
+design), or from another page or section that says the same. A judged "correct" is the number a
+person can quote; the page checks stay as the stricter measure of citation precision.
