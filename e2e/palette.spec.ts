@@ -56,14 +56,20 @@ test("/ focuses the home page's smart search, not the palette", async ({ page })
   await expect(page.getByRole("dialog", { name: "Command palette" })).toHaveCount(0);
 });
 
-test("/ focuses the full list's own search, not the palette", async ({ page }) => {
-  await page.goto("/tools");
-  const search = page.getByRole("searchbox", { name: "Search inventory" });
-  await expect(search).toBeVisible();
+test("a category in the palette filters the home page's list in place", async ({ page }) => {
+  // The list is the home page (student home spec, amendment "One page: the list at rest"):
+  // choosing a category there must change the list, not only the address.
+  await page.goto("/");
+  await expect(page.getByRole("list", { name: "Categories" }).getByRole("link", { name: /3D Printing/ })).toBeVisible();
+  const palette = page.getByRole("dialog", { name: "Command palette" });
   await expect(async () => {
-    await page.locator("body").click({ position: { x: 5, y: 300 } });
-    await page.keyboard.press("/");
-    await expect(search).toBeFocused({ timeout: 1_000 });
+    await page.keyboard.press("ControlOrMeta+k");
+    await expect(palette).toBeVisible({ timeout: 1_000 });
   }).toPass({ timeout: 15_000 });
-  await expect(page.getByRole("dialog", { name: "Command palette" })).toHaveCount(0);
+  await palette.getByRole("combobox").fill("3d printing");
+  await palette.getByRole("option", { name: /^3D Printing/ }).click();
+  await expect(page).toHaveURL(/\/\?category=3D\+Printing$/);
+  await expect(page.getByRole("heading", { name: "3D Printing", level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Form 4", level: 3 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Trotec Speedy 400", level: 3 })).toHaveCount(0);
 });

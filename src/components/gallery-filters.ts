@@ -19,6 +19,15 @@ export const GALLERY_VIEWS = ["grid", "table"] as const;
 export type GalleryView = (typeof GALLERY_VIEWS)[number];
 
 /**
+ * What the home page browses (student home spec, amendment "One page: the
+ * list at rest", revised): the **categories** as tiles — the default, nothing
+ * in the URL — or **all** tools. Not to be confused with `view`, which is how
+ * a list of tools is drawn (grid or table).
+ */
+export const GALLERY_SHOWS = ["categories", "all"] as const;
+export type GalleryShow = (typeof GALLERY_SHOWS)[number];
+
+/**
  * The sort keys. The default (`null`) is the catalogue's own order, name A–Z —
  * or, while searching, best match first. `name` is offered as an explicit
  * choice only while searching, where it differs from the default.
@@ -30,10 +39,24 @@ export type GallerySort = (typeof GALLERY_SORTS)[number];
  * The groupings. `category` is the catalogue's category (`categories.name`,
  * e.g. "FDM"), ordered and labelled within its group ("3D Printing › FDM");
  * `categoryGroup` is the group itself ("3D Printing") — the gallery cards'
- * tag; `location` is the room.
+ * tag; `location` is the room; `none` is one list.
+ *
+ * Since the list became the home page (student home spec, amendment "One
+ * page: the list at rest", 2026-10-07) it rests **grouped by category group,
+ * in the lab's order** (`DEFAULT_GALLERY_GROUP`): `group: null` in the state,
+ * and nothing in the URL. `?group=none` asks for one list.
  */
-export const GALLERY_GROUPS = ["category", "categoryGroup", "location"] as const;
+export const GALLERY_GROUPS = ["category", "categoryGroup", "location", "none"] as const;
 export type GalleryGroup = (typeof GALLERY_GROUPS)[number];
+
+/** The grouping the list rests in when the URL names none. */
+export const DEFAULT_GALLERY_GROUP = "categoryGroup" satisfies GalleryGroup;
+
+/** The grouping `groupTools` draws for a state's `group`: the default for `null`, none for `"none"`. */
+export function resolvedGroup(group: GalleryGroup | null): Exclude<GalleryGroup, "none"> | null {
+  if (group === null) return DEFAULT_GALLERY_GROUP;
+  return group === "none" ? null : group;
+}
 
 /** The tool statuses a Status facet offers, in the order they read. */
 export const GALLERY_STATUSES: readonly ToolStatus[] = ["Available", "In Use", "Training Required", "Offline"];
@@ -49,8 +72,11 @@ export interface GalleryState {
   location: string | null;
   /** `GalleryTool.itemKind` (taxonomy v2 facet): equipment, accessory, consumable or fixture. */
   kind: ToolItemKind | null;
+  /** Categories (tiles) or all tools; see `GALLERY_SHOWS`. */
+  show: GalleryShow;
   view: GalleryView;
   sort: GallerySort | null;
+  /** `null` is the default grouping (`DEFAULT_GALLERY_GROUP`); see `resolvedGroup`. */
   group: GalleryGroup | null;
 }
 
@@ -61,6 +87,7 @@ export const DEFAULT_GALLERY_STATE: GalleryState = {
   material: null,
   location: null,
   kind: null,
+  show: "categories",
   view: "grid",
   sort: null,
   group: null,
@@ -86,15 +113,23 @@ export function parseGalleryState(params: Params): GalleryState {
     material: read(params, "material") || null,
     location: read(params, "location") || null,
     kind: oneOf(TOOL_ITEM_KIND, read(params, "kind")),
+    show: oneOf(GALLERY_SHOWS, read(params, "show")) ?? "categories",
     view: oneOf(GALLERY_VIEWS, read(params, "view")) ?? "grid",
     sort: oneOf(GALLERY_SORTS, read(params, "sort")),
-    group: oneOf(GALLERY_GROUPS, read(params, "group")),
+    group: defaultAsNull(oneOf(GALLERY_GROUPS, read(params, "group"))),
   };
+}
+
+/** An old link's explicit `?group=categoryGroup` is the default now, kept out of the URL. */
+function defaultAsNull(group: GalleryGroup | null): GalleryGroup | null {
+  return group === DEFAULT_GALLERY_GROUP ? null : group;
 }
 
 /** The state as a query string; defaults are left out, never sent blank. */
 export function toGallerySearchParams(state: GalleryState): URLSearchParams {
   const params = new URLSearchParams();
+  // What is browsed first: `/?show=all&material=Plywood` reads as it is.
+  if (state.show !== "categories") params.set("show", state.show);
   // Not trimmed: the search box is controlled by the URL, and trimming would eat the space being typed.
   if (state.query) params.set("q", state.query);
   if (state.status) params.set("status", state.status);
@@ -182,7 +217,25 @@ export interface ToolSection<T extends GalleryTool = GalleryTool> {
 /** Values the catalogue uses for "not recorded", which group last. */
 const UNKNOWN = new Set(["Uncategorized", "Unknown", "Other", ""]);
 
-function groupKeyOf(tool: GalleryTool, group: GalleryGroup): { key: string; label: string; order: string[] } {
+/**
+ * Top-level category names in the lab's own order (`order`: the taxonomy's
+ * `sort_order`, from `getCategoryOrder`), then any name the order does not
+ * know alphabetically, "not recorded" last. The list's groups, its category
+ * chips and the category tiles all use it.
+ */
+export function compareCategoryNames(order: readonly string[]): (a: string, b: string) => number {
+  const rank = new Map(order.map((name, index) => [name, index]));
+  return (a, b) => {
+    const unknown = Number(UNKNOWN.has(a)) - Number(UNKNOWN.has(b));
+    if (unknown !== 0) return unknown;
+    const ra = rank.get(a) ?? Number.POSITIVE_INFINITY;
+    const rb = rank.get(b) ?? Number.POSITIVE_INFINITY;
+    if (ra !== rb) return ra - rb;
+    return collator.compare(a, b);
+  };
+}
+
+function groupKeyOf(tool: GalleryTool, group: Exclude<GalleryGroup, "none">): { key: string; label: string; order: string[] } {
   switch (group) {
     case "categoryGroup":
       return { key: tool.category, label: tool.category, order: [tool.category] };
@@ -213,8 +266,16 @@ function compareOrder(a: string[], b: string[]): number {
  * The tools as labelled sections, in order (alphabetical, "not recorded"
  * last), each keeping the order the tools arrived in — so the sort applies
  * inside every section. `null` is one unlabelled section.
+ *
+ * With `categoryOrder` (the taxonomy's top-level order, `getCategoryOrder`),
+ * the category groupings follow the lab's order rather than the alphabet:
+ * the sections of `categoryGroup`, and the groups `category` sits within.
  */
-export function groupTools<T extends GalleryTool>(tools: readonly T[], group: GalleryGroup | null): ToolSection<T>[] {
+export function groupTools<T extends GalleryTool>(
+  tools: readonly T[],
+  group: Exclude<GalleryGroup, "none"> | null,
+  options: { categoryOrder?: readonly string[] } = {}
+): ToolSection<T>[] {
   if (!group) return [{ key: "all", label: "", tools: tools.slice() }];
   const sections = new Map<string, ToolSection<T> & { order: string[] }>();
   for (const tool of tools) {
@@ -223,7 +284,8 @@ export function groupTools<T extends GalleryTool>(tools: readonly T[], group: Ga
     if (section) section.tools.push(tool);
     else sections.set(key, { key, label, order, tools: [tool] });
   }
+  const byCategory = options.categoryOrder && group !== "location" ? compareCategoryNames(options.categoryOrder) : null;
   return Array.from(sections.values())
-    .sort((a, b) => compareOrder(a.order, b.order))
+    .sort((a, b) => (byCategory ? byCategory(a.order[0], b.order[0]) : 0) || compareOrder(a.order, b.order))
     .map(({ key, label, tools: members }) => ({ key, label, tools: members }));
 }

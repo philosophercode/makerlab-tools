@@ -31,7 +31,10 @@ async function openPalette(user: ReturnType<typeof userEvent.setup>) {
   return screen.findByRole("dialog", { name: "Command palette" });
 }
 
-beforeEach(() => router.push.mockReset());
+beforeEach(() => {
+  router.push.mockReset();
+  window.history.replaceState(null, "", "/");
+});
 
 it("opens on Ctrl-K and on its button, and closes on Escape", async () => {
   const user = userEvent.setup();
@@ -72,13 +75,14 @@ it("a student sees no admin pages either", async () => {
   expect(within(dialog).queryByRole("option", { name: /Maintenance|Inventory/ })).not.toBeInTheDocument();
 });
 
-it("jumps to a category as the filtered gallery, and to a page", async () => {
+it("jumps to a category as the filtered list, and to a page", async () => {
+  window.history.replaceState(null, "", "/about");
   const user = userEvent.setup();
   render(<CommandPalette role="anonymous" tools={TOOLS} />);
   let dialog = await openPalette(user);
   await user.type(within(dialog).getByRole("combobox"), "laser");
   await user.click(within(dialog).getByRole("option", { name: /^Laser2 tools/ }));
-  expect(router.push).toHaveBeenCalledWith("/tools?category=Laser");
+  expect(router.push).toHaveBeenCalledWith("/?category=Laser");
 
   dialog = await openPalette(user);
   await user.type(within(dialog).getByRole("combobox"), "projects");
@@ -246,12 +250,29 @@ it("focuses the home page's smart search (a combobox) on /", async () => {
   expect(screen.getByRole("combobox", { name: "Smart search" })).toHaveFocus();
 });
 
-it("lists the full tool list as a page", async () => {
+it("lists the tool list once, as Tools: the home page (amendment 'One page: the list at rest')", async () => {
+  window.history.replaceState(null, "", "/about");
   const user = userEvent.setup();
   render(<CommandPalette role="anonymous" tools={TOOLS} />);
   const dialog = await openPalette(user);
-  await user.click(within(dialog).getByRole("option", { name: "All tools" }));
-  expect(router.push).toHaveBeenCalledWith("/tools");
+  expect(within(dialog).queryByRole("option", { name: "All tools" })).not.toBeInTheDocument();
+  await user.click(within(dialog).getByRole("option", { name: "Tools" }));
+  expect(router.push).toHaveBeenCalledWith("/");
+});
+
+it("on the home page, filters the list in place rather than pushing the same page", async () => {
+  window.history.replaceState(null, "", "/?q=x");
+  const reread = vi.fn();
+  window.addEventListener("makerlab:urlstate", reread);
+  const user = userEvent.setup();
+  render(<CommandPalette role="anonymous" tools={TOOLS} />);
+  const dialog = await openPalette(user);
+  await user.type(within(dialog).getByRole("combobox"), "laser");
+  await user.click(within(dialog).getByRole("option", { name: /^Laser2 tools/ }));
+  expect(router.push).not.toHaveBeenCalled();
+  expect(window.location.pathname + window.location.search).toBe("/?category=Laser");
+  expect(reread).toHaveBeenCalled();
+  window.removeEventListener("makerlab:urlstate", reread);
 });
 
 describe("paletteScore", () => {

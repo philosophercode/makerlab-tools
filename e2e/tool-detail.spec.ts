@@ -45,14 +45,14 @@ test.describe("Tool detail", () => {
   test("clicking a gallery card navigates to the detail page", async ({
     page,
   }) => {
-    // The cards are the full list's, at /tools; the home shows categories
-    // (student home spec 2026-10-07).
-    await page.goto("/tools");
+    // The cards are the home page's All tools view, grouped by category
+    // (student home spec 2026-10-07, amendment "One page: the list at rest").
+    await page.goto("/?show=all");
 
     await page
       .getByRole("link")
       .filter({
-        has: page.getByRole("heading", { name: "Trotec Speedy 400", level: 2 }),
+        has: page.getByRole("heading", { name: "Trotec Speedy 400", level: 3 }),
       })
       .click();
 

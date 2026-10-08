@@ -50,9 +50,10 @@ export interface CommandPaletteProps {
   /** Open the assistant; `query` (possibly empty) is what was typed, sent as the first message. */
   onAsk?: (query: string) => void;
   /**
-   * The page has its own search box (the home page and `/tools`, student home
-   * spec 2026-10-07 §6): the header's field keeps its place but is not
-   * shown or reachable, so the page has one box. ⌘K still opens the palette.
+   * The page has its own search box (the home page, which is the tool list,
+   * student home spec 2026-10-07 §6): the header's field keeps its place but
+   * is not shown or reachable, so the page has one box. ⌘K still opens the
+   * palette.
    */
   triggerHidden?: boolean;
 }

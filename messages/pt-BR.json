@@ -33,9 +33,6 @@
     "toolsInInventory": "{count} FERRAMENTAS NO INVENTÁRIO"
   },
   "gallery": {
-    "title": "Ferramentas",
-    "allTitle": "Todas as ferramentas",
-    "searchAria": "Buscar no inventário",
     "category": "CATEGORIA:",
     "training": "TREINAMENTO:",
     "materials": "MATERIAIS:",
@@ -54,21 +51,20 @@
     "trainingAdvanced": "Avançado",
     "home": {
       "searchSection": "Pesquisar no laboratório",
-      "seeAll": "{count, plural, one {Ver a # ferramenta} other {Ver as # ferramentas}}",
       "toolCount": "{count, plural, one {# ferramenta} other {# ferramentas}}",
-      "unitsDown": "{count, plural, one {# unidade fora de serviço} other {# unidades fora de serviço}}",
-      "empty": "Ainda não há ferramentas no catálogo."
+      "unitsDown": "{count, plural, one {# unidade fora de serviço} other {# unidades fora de serviço}}"
     },
     "search": {
       "landmark": "Pesquisar ferramentas e perguntar ao MakerLAB AI",
       "label": "Pesquise ferramentas ou faça uma pergunta ao MakerLAB AI",
-      "tools": "Ferramentas",
       "categories": "Categorias",
       "categoryCount": "{count, plural, one {# ferramenta} other {# ferramentas}}",
       "assistant": "MakerLAB AI",
       "ask": "Perguntar ao MakerLAB AI: “{query}”",
       "askNote": "Abre o chat com a sua pergunta. O MakerLAB AI pode cometer erros.",
+      "clear": "Limpar a pesquisa",
       "noMatch": "Nenhuma ferramenta ou categoria corresponde a “{query}”.",
+      "enterOpens": "Enter abre {name}",
       "lines": {
         "search": "{count, plural, one {Pesquise entre # ferramenta} other {Pesquise entre # ferramentas}}",
         "build": "O que você vai construir?",
@@ -77,7 +73,15 @@
         "x1Start": "Pergunte como iniciar uma impressão 3D na X1-Carbon",
         "trotecAcrylic": "O laser Trotec corta acrílico?"
       }
-    }
+    },
+    "results": {
+      "heading": "Resultados para “{query}”"
+    },
+    "browse": {
+      "label": "Explorar",
+      "all": "Todas as ferramentas"
+    },
+    "backToCategories": "Todas as categorias"
   },
   "detail": {
     "breadcrumbTools": "Ferramentas",
@@ -361,9 +365,6 @@
     "home": "Voltar para {site}"
   },
   "palette": {
-    "page": {
-      "allTools": "Todas as ferramentas"
-    },
     "assistant": "MakerLAB AI",
     "ask": "Perguntar ao MakerLAB AI: “{query}”",
     "askEmpty": "Perguntar ao MakerLAB AI"

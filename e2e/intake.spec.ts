@@ -219,8 +219,9 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   // server's local Blob store: not research's copy, not the photo as taken,
   // not the placeholder. The cards are the full list's, at /tools; the home
   // shows categories (student home spec 2026-10-07).
-  await page.goto("/tools");
-  const heading = page.getByRole("heading", { name: domino.name, level: 2 });
+  // The list is the home page's All tools view, its cards under category headings (student home spec, amendment "One page: the list at rest").
+  await page.goto("/?show=all");
+  const heading = page.getByRole("heading", { name: domino.name, level: 3 });
   await expect(heading).toBeVisible({ timeout: 15_000 });
   const cover = page.locator('a[data-slot="tool-card"]').filter({ has: heading }).locator("img");
   // The PNG itself until approval's thumbnails land (written after it

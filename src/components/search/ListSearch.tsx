@@ -1,57 +1,21 @@
 "use client";
 
-import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import { MessageSquare } from "lucide-react";
 import { useChatLauncher } from "../ChatLauncherContext";
-import { SEARCH_INPUT_CLASS, SearchFrame, useSearchLines } from "./SearchFrame";
 
 /**
- * The full list's search (student home spec 2026-10-07 §5): the home page's
- * minimal box, filtering the list below it as you type. The matching tools
- * are the list itself, so there is no dropdown; asking MakerLAB AI is the
- * row under the box (`AskMakerlabRow`), never Enter.
+ * The tool list's part of the search (student home spec 2026-10-07 §5): the
+ * list once had its own box here, which went when the list became the home
+ * page (amendment "One page: the list at rest") and the page's one box
+ * (`home/HomeSearch`) took over. What stays is the Ask row the results end
+ * with.
  */
-export function ListSearch({
-  value,
-  onChange,
-  label,
-  toolCount,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  label: string;
-  toolCount: number;
-}) {
-  const id = useId();
-  const lines = useSearchLines(toolCount);
-  const [focused, setFocused] = useState(false);
-  return (
-    <>
-      <label htmlFor={id} className="sr-only">
-        {label}
-      </label>
-      <SearchFrame lines={lines} empty={value === ""} focused={focused}>
-        <input
-          id={id}
-          type="search"
-          value={value}
-          autoComplete="off"
-          onChange={(event) => onChange(event.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          className={SEARCH_INPUT_CLASS}
-          data-slot="list-search-input"
-        />
-      </SearchFrame>
-    </>
-  );
-}
 
 /**
- * "Ask MakerLAB AI: “…”" under the full list's search while it has text: a
- * button, so the question goes to the model only when somebody presses it.
- * It opens the chat with the text as the first message.
+ * "Ask MakerLAB AI: “…”" after the home page's results, and in their place
+ * when nothing matches: a button, so the question goes to the model only when
+ * somebody presses it. It opens the chat with the text as the first message.
  */
 export function AskMakerlabRow({ query }: { query: string }) {
   const t = useTranslations("gallery.search");

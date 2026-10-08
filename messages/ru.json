@@ -33,9 +33,6 @@
     "toolsInInventory": "ИНСТРУМЕНТОВ НА СКЛАДЕ: {count}"
   },
   "gallery": {
-    "title": "Инструменты",
-    "allTitle": "Все инструменты",
-    "searchAria": "Поиск по инвентарю",
     "category": "КАТЕГОРИЯ:",
     "training": "ОБУЧЕНИЕ:",
     "materials": "МАТЕРИАЛЫ:",
@@ -54,21 +51,20 @@
     "trainingAdvanced": "Продвинутый",
     "home": {
       "searchSection": "Поиск по лаборатории",
-      "seeAll": "Показать все инструменты ({count})",
       "toolCount": "{count, plural, one {# инструмент} few {# инструмента} many {# инструментов} other {# инструмента}}",
-      "unitsDown": "{count, plural, one {# единица не работает} few {# единицы не работают} many {# единиц не работают} other {# единицы не работают}}",
-      "empty": "В каталоге пока нет инструментов."
+      "unitsDown": "{count, plural, one {# единица не работает} few {# единицы не работают} many {# единиц не работают} other {# единицы не работают}}"
     },
     "search": {
       "landmark": "Поиск инструментов и вопросы MakerLAB AI",
       "label": "Найдите инструмент или задайте вопрос MakerLAB AI",
-      "tools": "Инструменты",
       "categories": "Категории",
       "categoryCount": "{count, plural, one {# инструмент} few {# инструмента} many {# инструментов} other {# инструмента}}",
       "assistant": "MakerLAB AI",
       "ask": "Спросить MakerLAB AI: «{query}»",
       "askNote": "Откроет чат с вашим вопросом. MakerLAB AI может ошибаться.",
+      "clear": "Очистить поиск",
       "noMatch": "Ни один инструмент или категория не подходит под «{query}».",
+      "enterOpens": "Enter откроет {name}",
       "lines": {
         "search": "{count, plural, one {Поиск по # инструменту} few {Поиск по # инструментам} many {Поиск по # инструментам} other {Поиск по # инструментам}}",
         "build": "Что вы создадите?",
@@ -77,7 +73,15 @@
         "x1Start": "Спросите, как начать 3D-печать на X1-Carbon",
         "trotecAcrylic": "Режет ли лазер Trotec акрил?"
       }
-    }
+    },
+    "results": {
+      "heading": "Результаты по запросу «{query}»"
+    },
+    "browse": {
+      "label": "Просмотр",
+      "all": "Все инструменты"
+    },
+    "backToCategories": "Все категории"
   },
   "detail": {
     "breadcrumbTools": "Инструменты",
@@ -361,9 +365,6 @@
     "home": "Назад в {site}"
   },
   "palette": {
-    "page": {
-      "allTools": "Все инструменты"
-    },
     "assistant": "MakerLAB AI",
     "ask": "Спросить MakerLAB AI: «{query}»",
     "askEmpty": "Спросить MakerLAB AI"

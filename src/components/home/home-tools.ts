@@ -1,5 +1,5 @@
 import type { MakerLabTool, MakerLabUnit } from "../catalog-types";
-import { visibleInGallery } from "../gallery-filters";
+import { compareCategoryNames, visibleInGallery } from "../gallery-filters";
 
 /**
  * What the home page reads of a tool (student home spec 2026-10-07 §4): the
@@ -45,7 +45,6 @@ export interface CategoryTile {
   cover: Pick<HomeTool, "name" | "imageSrc" | "thumbnails"> | null;
 }
 
-const UNKNOWN = new Set(["", "Uncategorized", "Unknown", "Other"]);
 const MAX_SUBS = 3;
 
 /**
@@ -67,15 +66,7 @@ export function categoryTiles(tools: readonly HomeTool[], order: readonly string
     list.push(tool);
     byCategory.set(tool.category, list);
   }
-  const rank = new Map(order.map((name, index) => [name, index]));
-  const names = Array.from(byCategory.keys()).sort((a, b) => {
-    const unknown = Number(UNKNOWN.has(a)) - Number(UNKNOWN.has(b));
-    if (unknown !== 0) return unknown;
-    const ra = rank.get(a) ?? Number.POSITIVE_INFINITY;
-    const rb = rank.get(b) ?? Number.POSITIVE_INFINITY;
-    if (ra !== rb) return ra - rb;
-    return a.localeCompare(b);
-  });
+  const names = Array.from(byCategory.keys()).sort(compareCategoryNames(order));
   return names.map((name) => {
     const members = byCategory.get(name)!;
     const subs: string[] = [];

@@ -33,9 +33,6 @@
     "toolsInInventory": "{count} أداة في المخزون"
   },
   "gallery": {
-    "title": "الأدوات",
-    "allTitle": "كل الأدوات",
-    "searchAria": "البحث في المخزون",
     "category": "الفئة:",
     "training": "التدريب:",
     "materials": "المواد:",
@@ -54,21 +51,20 @@
     "trainingAdvanced": "متقدم",
     "home": {
       "searchSection": "البحث في المختبر",
-      "seeAll": "عرض كل الأدوات ({count})",
       "toolCount": "{count, plural, zero {لا أدوات} one {أداة واحدة} two {أداتان} few {# أدوات} many {# أداة} other {# أداة}}",
-      "unitsDown": "{count, plural, zero {لا وحدات خارج الخدمة} one {وحدة واحدة خارج الخدمة} two {وحدتان خارج الخدمة} few {# وحدات خارج الخدمة} many {# وحدة خارج الخدمة} other {# وحدة خارج الخدمة}}",
-      "empty": "لا توجد أدوات في الكتالوج بعد."
+      "unitsDown": "{count, plural, zero {لا وحدات خارج الخدمة} one {وحدة واحدة خارج الخدمة} two {وحدتان خارج الخدمة} few {# وحدات خارج الخدمة} many {# وحدة خارج الخدمة} other {# وحدة خارج الخدمة}}"
     },
     "search": {
       "landmark": "ابحث عن الأدوات واسأل MakerLAB AI",
       "label": "ابحث عن أداة، أو اطرح سؤالًا على MakerLAB AI",
-      "tools": "الأدوات",
       "categories": "الفئات",
       "categoryCount": "{count, plural, zero {لا أدوات} one {أداة واحدة} two {أداتان} few {# أدوات} many {# أداة} other {# أداة}}",
       "assistant": "MakerLAB AI",
       "ask": "اسأل MakerLAB AI: “{query}”",
       "askNote": "يفتح المحادثة بسؤالك. قد يخطئ MakerLAB AI.",
+      "clear": "مسح البحث",
       "noMatch": "لا توجد أداة أو فئة تطابق “{query}”.",
+      "enterOpens": "مفتاح Enter يفتح {name}",
       "lines": {
         "search": "ابحث بين الأدوات ({count})",
         "build": "ماذا ستصنع؟",
@@ -77,7 +73,15 @@
         "x1Start": "اسأل كيف تبدأ طباعة ثلاثية الأبعاد على X1-Carbon",
         "trotecAcrylic": "هل يقطع ليزر Trotec الأكريليك؟"
       }
-    }
+    },
+    "results": {
+      "heading": "نتائج “{query}”"
+    },
+    "browse": {
+      "label": "تصفّح",
+      "all": "كل الأدوات"
+    },
+    "backToCategories": "كل الفئات"
   },
   "detail": {
     "breadcrumbTools": "الأدوات",
@@ -361,9 +365,6 @@
     "home": "العودة إلى {site}"
   },
   "palette": {
-    "page": {
-      "allTools": "كل الأدوات"
-    },
     "assistant": "MakerLAB AI",
     "ask": "اسأل MakerLAB AI: “{query}”",
     "askEmpty": "اسأل MakerLAB AI"

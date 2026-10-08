@@ -1,9 +1,12 @@
 import { mockCatalog } from "../../test/fixtures/catalog";
 import { toGalleryTool } from "./catalog-types";
 import {
+  DEFAULT_GALLERY_GROUP,
   DEFAULT_GALLERY_STATE,
   availableUnits,
+  compareCategoryNames,
   groupTools,
+  resolvedGroup,
   parseGalleryState,
   sortTools,
   toGallerySearchParams,
@@ -22,6 +25,7 @@ describe("parseGalleryState / toGallerySearchParams", () => {
       material: "Acrylic",
       location: "Laser Room",
       kind: "accessory" as const,
+      show: "all" as const,
       view: "table" as const,
       sort: "recent" as const,
       group: "location" as const,
@@ -42,6 +46,14 @@ describe("parseGalleryState / toGallerySearchParams", () => {
     expect(parseGalleryState({ status: "In Use" }).status).toBe("In Use");
     expect(parseGalleryState({ kind: "gadget" }).kind).toBeNull();
     expect(parseGalleryState({ kind: "consumable" }).kind).toBe("consumable");
+    expect(parseGalleryState({ show: "everything" }).show).toBe("categories");
+  });
+
+  it("browses the categories by default, all tools with ?show=all, written first", () => {
+    expect(parseGalleryState({}).show).toBe("categories");
+    expect(parseGalleryState({ show: "all" }).show).toBe("all");
+    expect(toGallerySearchParams({ ...DEFAULT_GALLERY_STATE, show: "all", material: "PLA" }).toString()).toBe("show=all&material=PLA");
+    expect(toGallerySearchParams({ ...DEFAULT_GALLERY_STATE, show: "categories" }).toString()).toBe("");
   });
 });
 
@@ -93,6 +105,49 @@ describe("groupTools", () => {
       "Laser › CO2",
       "Woodworking › Cutting",
     ]);
+  });
+
+  it("follows the lab's category order when given one, for both category groupings but not rooms", () => {
+    const categoryOrder = ["Woodworking", "Laser", "3D Printing"];
+    expect(groupTools(mockCatalog, "categoryGroup", { categoryOrder }).map((section) => section.label)).toEqual([
+      "Woodworking",
+      "Laser",
+      "3D Printing",
+    ]);
+    expect(groupTools(mockCatalog, "category", { categoryOrder }).map((section) => section.label)).toEqual([
+      "Woodworking › Cutting",
+      "Laser › CO2",
+      "3D Printing › FDM",
+      "3D Printing › Resin",
+    ]);
+    expect(groupTools(mockCatalog, "location", { categoryOrder }).map((section) => section.label)).toEqual([
+      "Laser Room",
+      "MakerLab",
+      "Wood Shop",
+    ]);
+  });
+});
+
+describe("the default grouping (amendment \"One page: the list at rest\")", () => {
+  it("rests on category group: null in the state, nothing in the URL; none is one list", () => {
+    expect(DEFAULT_GALLERY_GROUP).toBe("categoryGroup");
+    expect(resolvedGroup(null)).toBe("categoryGroup");
+    expect(resolvedGroup("none")).toBeNull();
+    expect(resolvedGroup("location")).toBe("location");
+    expect(parseGalleryState({ group: "none" }).group).toBe("none");
+    expect(toGallerySearchParams({ ...DEFAULT_GALLERY_STATE, group: "none" }).toString()).toBe("group=none");
+  });
+
+  it("reads an old link's explicit ?group=categoryGroup as the default, and never writes it", () => {
+    expect(parseGalleryState({ group: "categoryGroup" }).group).toBeNull();
+    expect(toGallerySearchParams(parseGalleryState({ group: "categoryGroup" })).toString()).toBe("");
+  });
+});
+
+describe("compareCategoryNames", () => {
+  it("orders by the lab's order, then any other name alphabetically, 'not recorded' last", () => {
+    const names = ["Zebra", "Uncategorized", "Laser", "Alpha", "3D Printing"];
+    expect(names.sort(compareCategoryNames(["Laser", "3D Printing"]))).toEqual(["Laser", "3D Printing", "Alpha", "Zebra", "Uncategorized"]);
   });
 });
 

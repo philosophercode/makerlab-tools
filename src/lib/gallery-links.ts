@@ -1,29 +1,44 @@
 /**
- * Where the full tool list lives, and how a link reaches it filtered (student
- * home spec 2026-10-07 §5). The home page (`/`) browses by category; the full
- * list with its search and filters is `/tools`.
+ * Where the tool list lives, and how a link reaches it filtered (student home
+ * spec 2026-10-07, amendment "One page: the list at rest"). The list is the
+ * home page (`/`): every tool grouped by category, with the search, the
+ * category chips and the filters. A filter is a query parameter on `/`.
  *
  * Plain TypeScript with no imports: `next.config.ts` reads it for the
- * redirects that keep old `/?category=…` links working.
+ * redirect that keeps old `/tools?category=…` links working.
  */
 
-export const ALL_TOOLS_PATH = "/tools";
+/** The list: the home page. */
+export const ALL_TOOLS_PATH = "/";
 
 /**
- * The query keys the full list reads (`components/gallery-filters.ts`). A
- * link to `/` carrying any of them is an old link to the list, which lived on
- * the home page until 2026-10-07; `next.config.ts` redirects it to `/tools`
- * with its query string.
+ * Where the list lived from the first student home build until the one-page
+ * amendment (2026-10-07). `next.config.ts` redirects it to `/`, query and all,
+ * so a bookmarked or shared `/tools?category=Laser` lands on the same view.
+ * Tool pages stay at `/tools/<slug>`.
  */
-export const GALLERY_QUERY_KEYS = ["q", "status", "category", "material", "location", "kind", "view", "sort", "group"] as const;
+export const FORMER_LIST_PATH = "/tools";
 
-/** The full list narrowed by the given filters (`{ material: "Plywood" }`). */
-export function allToolsHref(filters: Partial<Record<(typeof GALLERY_QUERY_KEYS)[number], string>>): string {
-  const query = new URLSearchParams(filters as Record<string, string>).toString();
-  return query ? `${ALL_TOOLS_PATH}?${query}` : ALL_TOOLS_PATH;
+/**
+ * The query keys the list reads (`components/gallery-filters.ts`). They are
+ * what a link to a filtered list carries, on `/` (and on an old `/tools`
+ * link, which the redirect forwards unchanged).
+ */
+export const GALLERY_QUERY_KEYS = ["q", "show", "status", "category", "material", "location", "kind", "view", "sort", "group"] as const;
+
+type ListFilters = Partial<Record<Exclude<(typeof GALLERY_QUERY_KEYS)[number], "show">, string>>;
+
+/**
+ * All tools, narrowed by the given filters (`{ material: "Plywood" }`): the
+ * home page's All tools view (`show=all`), since the resting Categories view
+ * shows tiles, not tools.
+ */
+export function allToolsHref(filters: ListFilters): string {
+  const query = new URLSearchParams({ show: "all", ...filters } as Record<string, string>).toString();
+  return `${ALL_TOOLS_PATH}?${query}`;
 }
 
-/** The full list filtered to one top-level category. */
+/** One top-level category's tools: the Categories view opened on it, with its way back to the tiles. */
 export function categoryHref(category: string): string {
-  return allToolsHref({ category });
+  return `${ALL_TOOLS_PATH}?${new URLSearchParams({ category })}`;
 }
