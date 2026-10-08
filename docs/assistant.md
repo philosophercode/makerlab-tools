@@ -51,6 +51,12 @@ its people (owner meeting with the Director and Assistant Director,
   and a link to its page as a small card (`show_tool`, published tools only;
   not for the tool whose page you are on). These are the lab's own photos;
   the assistant never fetches pictures from the web into the chat.
+- Offer two or three short replies to tap, now and then: when an answer ends
+  by asking you to choose between a few easy options ("What are you cutting?"),
+  bubbles such as "Acrylic sign" and "Engraved wood" appear under it, and
+  tapping one sends it as your message (`suggest_replies`). It is used
+  sparingly, never for safety questions, and you can always type your own
+  answer instead.
 - **Signed in:** draw a sketch when you ask for one. After a plan with several
   steps, or when you describe a project idea, the assistant may offer "Want a
   sketch of this plan?"; say yes and it draws one picture — an infographic of

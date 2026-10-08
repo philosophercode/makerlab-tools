@@ -62,9 +62,14 @@
   box-shadow: none !important;
 }
 
-/* The one exception to square corners: the chat composer's three controls
-   (attach, dictate, send) are circles (owner decision 2026-10-07). */
+/* The exceptions to square corners, both in the chat (owner decisions
+   2026-10-07): the composer's three controls (attach, dictate, send) are
+   circles, and the suggested replies under the latest answer are pill
+   bubbles (parity spec amendment "Suggested replies"). */
 [data-slot="prompt-input"] .composer-round {
+  border-radius: 9999px !important;
+}
+#makerlab-chat-sheet .chat-reply-chip {
   border-radius: 9999px !important;
 }
 

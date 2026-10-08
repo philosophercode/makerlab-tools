@@ -2,7 +2,6 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   readUIMessageStream,
-  stepCountIs,
   streamText,
   type LanguageModel,
   type StepResult,
@@ -10,6 +9,7 @@ import {
   type UIMessage,
 } from "ai";
 import { chatPrepareStep } from "../../app/api/chat/prepare-step";
+import { chatStopWhen } from "../../app/api/chat/stop-when";
 import { chatProviderOptions, languageModelFor, modelIdFor } from "../ai/models";
 import { gatewayCallReport } from "../ai/gateway-usage";
 import { systemAnonymousIdentity } from "../auth/identity";
@@ -135,7 +135,8 @@ export async function runStarterAnswer(input: RunStarterAnswerInput): Promise<St
         tools,
         prepareStep: chatPrepareStep(Object.keys(tools)),
         onStepFinish: (step) => markOutsideReads(ctx.turn, step),
-        stopWhen: stepCountIs(10),
+        // As the live chat stops: suggested replies end the turn (parity spec amendment 2026-10-07).
+        stopWhen: chatStopWhen(),
         abortSignal: AbortSignal.timeout(input.timeoutMs ?? DEFAULT_TIMEOUT_MS),
         onError: ({ error }) => {
           failure = error;

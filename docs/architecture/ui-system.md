@@ -106,7 +106,12 @@
   list, each tool once. `ChatIllustration` (`data-illustration`, from
   `make_illustration`) draws a generated illustration from our own route only,
   with an "AI illustration" mark on the picture and the fixed caption
-  `chat.illustration.caption` under it. Under the composer, always, the
+  `chat.illustration.caption` under it. **Suggested replies** (amendment
+  2026-10-07): `SuggestedReplies` draws a `suggest_replies` call's two or
+  three replies as a wrapping row of pill bubbles (AI Elements `Suggestion`,
+  `.chat-reply-chip`, the second round exception after the composer's),
+  last in the latest assistant message and only once its turn has finished;
+  a tap sends the text through `handleSuggestion`, always live. Under the composer, always, the
 `chat.aiNote` line ("MakerLAB AI can make mistakes…"), which also describes
 the text field (identity spec amendment 2026-10-06). The floating button is not drawn on
   `/admin/*`: the section bar's **Ask MakerLAB AI** and ⌘K (`onAsk`, from

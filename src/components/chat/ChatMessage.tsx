@@ -21,6 +21,8 @@ import {
   manualPassages,
 } from "./manual-citations";
 import { stripCitations, toolStatusLabel, type ChatT } from "./chat-text";
+import { SUGGEST_REPLIES_PART, suggestedRepliesOf } from "../../lib/chat/suggested-replies";
+import { SuggestedReplies } from "./SuggestedReplies";
 
 type Part = UIMessage["parts"][number];
 
@@ -73,7 +75,11 @@ const RUNNING = new Set(["input-streaming", "input-available"]);
  *   generated illustration of a plan or an idea, always labelled as one
  *   (`data-illustration`, `ChatIllustration`, written by `make_illustration`);
  * - then, for an answer that cited the manual, its **Sources**: the pages it
- *   linked, each opening the PDF there.
+ *   linked, each opening the PDF there;
+ * - last, when `ChatPanel` passes `onReply` (the latest answer, its turn
+ *   finished), the **suggested replies** its `suggest_replies` call offered,
+ *   as round bubbles that send their text (`SuggestedReplies`). That call
+ *   never draws a status line while it runs.
  *
  * A turn with nothing to show yet renders nothing; the chat's loader covers it.
  *
@@ -85,10 +91,19 @@ export const ChatMessage = memo(function ChatMessage({
   message,
   t,
   onInternalNavigate,
+  onReply,
+  repliesDisabled = false,
 }: {
   message: UIMessage;
   t: ChatT;
   onInternalNavigate: () => void;
+  /**
+   * Set only on the latest assistant message once its turn has finished:
+   * its suggested replies are drawn, and a tap sends one through this.
+   */
+  onReply?: (reply: string) => void;
+  /** A turn is starting: the bubbles stay drawn but do nothing. */
+  repliesDisabled?: boolean;
 }) {
   const passages = useMemo(() => manualPassages(message.parts), [message.parts]);
   const documents = useMemo(() => attachedManualLinks(message.parts), [message.parts]);
@@ -108,6 +123,10 @@ export const ChatMessage = memo(function ChatMessage({
   // anything reads the answer, so the Sources and the prose agree.
   const assistantText = message.role === "assistant" ? linkAttachedPageMentions(textOf(message.parts), attached) : "";
   const cited = citedPassages(assistantText, passages);
+  const replies = useMemo(
+    () => (onReply && message.role === "assistant" ? suggestedRepliesOf(message.parts) : []),
+    [onReply, message.role, message.parts]
+  );
 
   const blocks: ReactNode[] = [];
   let hasCard = false;
@@ -135,6 +154,8 @@ export const ChatMessage = memo(function ChatMessage({
       return;
     }
     if (part.type.startsWith("tool-") && RUNNING.has((part as { state?: string }).state ?? "")) {
+      // Suggested replies are display only and shown when the turn ends.
+      if (part.type === SUGGEST_REPLIES_PART) return;
       blocks.push(
         <Tool key={index} aria-label={t("toolRunningAria")}>
           <ToolHeader
@@ -238,6 +259,9 @@ export const ChatMessage = memo(function ChatMessage({
               ))}
             </SourcesContent>
           </Sources>
+        ) : null}
+        {replies.length > 0 && onReply ? (
+          <SuggestedReplies replies={replies} label={t("suggestedReplies")} onPick={onReply} disabled={repliesDisabled} />
         ) : null}
       </MessageContent>
     </Message>

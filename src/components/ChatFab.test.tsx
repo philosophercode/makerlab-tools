@@ -1523,3 +1523,68 @@ describe("MakerLAB AI's identity (identity spec 2026-09-28 §3–4)", () => {
     expect(sendMessage).toHaveBeenCalledWith({ text: "My print is stringing — what should I check?" });
   });
 });
+
+// ── Suggested replies (parity spec amendment 2026-10-07) ───────────
+describe("ChatFab — suggested replies", () => {
+  type ChatMessageShape = UseChatReturn["messages"][number];
+
+  /** An answer whose suggest_replies call has finished with `replies`. */
+  function answerWithReplies(id: string, text: string, replies: string[]): ChatMessageShape {
+    return {
+      id,
+      role: "assistant",
+      parts: [
+        { type: "text", text },
+        { type: "tool-suggest_replies", toolCallId: `${id}-replies`, state: "output-available", input: { replies }, output: { ok: true, replies } },
+      ],
+    } as unknown as ChatMessageShape;
+  }
+
+  async function openWith(overrides: Partial<UseChatReturn>) {
+    const user = userEvent.setup();
+    useChatReturn = baseReturn(overrides);
+    render(<ChatFab />);
+    await user.click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
+    return user;
+  }
+
+  const replies = () => screen.queryByRole("group", { name: "Suggested replies" });
+  const laserAnswer = () => answerWithReplies("a1", "The lab has two laser cutters. What are you looking to cut?", ["Acrylic sign", "Engraved wood"]);
+
+  it("shows the latest answer's replies as a named row, and sends exactly the tapped text", async () => {
+    const user = await openWith({ messages: [userMsg("u1", "Laser cut"), laserAnswer()] });
+
+    const group = replies();
+    expect(group).toBeInTheDocument();
+    expect(within(group as HTMLElement).getAllByRole("button").map((b) => b.textContent)).toEqual(["Acrylic sign", "Engraved wood"]);
+
+    await user.click(screen.getByRole("button", { name: "Engraved wood" }));
+    expect(sendMessage).toHaveBeenCalledExactlyOnceWith({ text: "Engraved wood" });
+  });
+
+  it("shows none on an older answer", async () => {
+    await openWith({
+      messages: [userMsg("u1", "Laser cut"), laserAnswer(), userMsg("u2", "Acrylic sign"), assistantMsg("a2", "Use the Trotec Speedy 400.")],
+    });
+    expect(screen.getByText("Use the Trotec Speedy 400.")).toBeInTheDocument();
+    expect(replies()).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Engraved wood" })).not.toBeInTheDocument();
+  });
+
+  it("shows none while the answer is still streaming", async () => {
+    await openWith({ status: "streaming", messages: [userMsg("u1", "Laser cut"), laserAnswer()] });
+    expect(screen.getByText(/two laser cutters/)).toBeInTheDocument();
+    expect(replies()).not.toBeInTheDocument();
+  });
+
+  it("hides them as soon as the student sends something", async () => {
+    // The student's message is now the latest, and the turn is submitted.
+    await openWith({ status: "submitted", messages: [userMsg("u1", "Laser cut"), laserAnswer(), userMsg("u2", "Actually, plywood")] });
+    expect(replies()).not.toBeInTheDocument();
+  });
+
+  it("shows none after a failed turn", async () => {
+    await openWith({ status: "error", error: new Error("boom"), messages: [userMsg("u1", "Laser cut"), laserAnswer()] });
+    expect(replies()).not.toBeInTheDocument();
+  });
+});

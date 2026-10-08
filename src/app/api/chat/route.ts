@@ -2,7 +2,6 @@ import {
   convertToModelMessages,
   createUIMessageStream,
   createUIMessageStreamResponse,
-  stepCountIs,
   streamText,
   type FilePart,
   type ImagePart,
@@ -41,6 +40,7 @@ import { loadPageContext, pageContextSection } from "../../../lib/actions/page-c
 import { loadProposalOutcomes } from "../../../lib/chat/proposal-outcomes";
 import { recordChatTurnUsage } from "../../../lib/usage/chat-turn";
 import { chatPrepareStep } from "./prepare-step";
+import { chatStopWhen } from "./stop-when";
 import { boundChatHistory, historyBudgetFor } from "../../../lib/chat/bound-history";
 import { photoQrHints, photoQrSection } from "../../../lib/chat/photo-qr";
 import {
@@ -255,7 +255,9 @@ export async function POST(req: Request) {
           recordSearchResults(ctx, step);
           markOutsideReads(ctx.turn, step);
         },
-        stopWhen: stepCountIs(10),
+        // Ten steps at most, and a step that only offered suggested replies
+        // after the answer ends the turn (parity spec amendment 2026-10-07).
+        stopWhen: chatStopWhen(),
         // Usage insight (usage insight spec §5.1): what this turn was about,
         // counted with no one in it and written after the response. Never
         // throws; a failed insert costs the student nothing.

@@ -377,6 +377,7 @@
       "open": "Open"
     },
     "drawingIllustration": "✎ Drawing an illustration…",
+    "suggestedReplies": "Suggested replies",
     "illustration": {
       "badge": "AI illustration",
       "caption": "AI-generated illustration, not a photo of our equipment. Check the manual and staff for exact steps.",
@@ -3777,6 +3778,7 @@
       "get_tool_qr_code": "Show a tool's QR code, ready to download",
       "show_tool": "Show the catalogue photo, status and page of the tool it is talking about",
       "make_illustration": "Draw a labelled AI sketch of a plan or of your project idea, when you ask for one",
+      "suggest_replies": "Offer two or three short replies to tap when it asks you to choose",
       "list_maintenance_due": "Read the recurring maintenance tasks that are due"
     },
     "actions": {
