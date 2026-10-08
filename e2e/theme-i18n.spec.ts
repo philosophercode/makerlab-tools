@@ -73,9 +73,9 @@ test.describe("Language switch", () => {
       .getByRole("combobox", { name: "Select language" })
       .selectOption("ar");
 
-    // Arabic gallery title from messages/ar.json.
+    // The home page's search, labelled from messages/ar.json.
     await expect(
-      page.getByRole("heading", { name: "الأدوات", exact: true })
+      page.getByRole("combobox", { name: "ابحث عن أداة، أو اطرح سؤالًا على MakerLAB AI" })
     ).toBeVisible();
 
     // Reload so LocaleHtmlScript applies lang/dir from the cookie before paint.
