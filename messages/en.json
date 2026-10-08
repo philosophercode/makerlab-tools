@@ -384,7 +384,8 @@
       "altPlan": "AI-generated infographic of the plan",
       "altConcept": "AI-generated concept render of the project idea",
       "unavailable": "This illustration is no longer available."
-    }
+    },
+    "readingToolSkill": "📘 Reading the machine's guide…"
   },
   "qr": {
     "arrivalLabel": "Scanned from this machine",
@@ -965,7 +966,10 @@
         },
         "fieldAccessoryOf": "Accessory of",
         "accessoryOfHint": "The tool this one attaches to or upgrades. Leave empty when it serves many tools (a battery for a whole platform).",
-        "parentUnlisted": "(a tool no longer offered)"
+        "parentUnlisted": "(a tool no longer offered)",
+        "sectionSkill": "Tool skill",
+        "skillLede": "The cited operating guide AI assistants read for this machine, in the chat and over MCP.",
+        "skillOpen": "Open the tool skill"
       },
       "edit": "Edit",
       "refreshOpen": "Refresh open",
@@ -1038,7 +1042,9 @@
       "has_children": "This category still has categories under it. Move or merge those first.",
       "not_empty": "Tools are still in this category. Merge it into another so they have somewhere to go.",
       "retired_target": "That category is retired. Choose a live one, or restore it first.",
-      "invalid_decision": "That decision does not apply here: an audit flag can be merged or dismissed, and a merge needs a category."
+      "invalid_decision": "That decision does not apply here: an audit flag can be merged or dismissed, and a merge needs a category.",
+      "nothing_to_write": "There is nothing to write a skill from yet: this machine has no searchable public manual, no research and no lab notes. Add one, then try again.",
+      "skill_daily_limit": "The lab has written today's limit of tool skills. More can be written over the next 24 hours."
     },
     "warnings": {
       "audit_unavailable": "Saved, but this change could not be written to the audit log. Tell whoever runs the deployment.",
@@ -2726,13 +2732,70 @@
       "budgetLede": "Research costs money, so each person can research {daily} items a day. While someone loads an inventory, a director can give them more for a few days.",
       "budgetDirectorsOnly": "Directors (super admins) grant extra research items. Ask one if you are loading a large inventory.",
       "budgetUnreadable": "The research budget could not be read. Try again in a moment.",
-      "budgetNobody": "Nobody who may add equipment is on the roster yet."
+      "budgetNobody": "Nobody who may add equipment is on the roster yet.",
+      "skillsTitle": "Skill writer",
+      "skillsBody": "Writes each tool's skill: a cited operating guide that AI assistants read in the chat and over MCP. With this on, a skill is written once a researched tool is approved and its manuals are indexed, and refreshed when a manual is added. Staff can also write one from a tool's skill page.",
+      "skillsLimits": "Up to {daily} skills a day for the lab, at about ${low} to ${high} a skill.",
+      "skillsSetting": "Write a tool skill after research",
+      "skillsOn": "On: a skill is written after research.",
+      "skillsOff": "Off: no skill is written after research.",
+      "skillsTurnOn": "Turn on",
+      "skillsTurnOff": "Turn off",
+      "skillsSaved": "Saved",
+      "skillsDirectorsOnly": "Directors (super admins) turn this on or off.",
+      "skillsUnreadable": "The setting could not be read. Try again in a moment."
     },
     "mcp": {
       "title": "MCP",
       "lede": "AI assistants connected to MakerLAB over MCP, such as Claude, ChatGPT or Codex. A change one of them asks for waits here until you confirm it.",
       "guide": "How to connect",
       "tokens": "Your access tokens"
+    },
+    "skills": {
+      "title": "Tool skill",
+      "lede": "The operating guide AI assistants read for this machine, in the chat and over MCP. AI-written from the lab's sources; every fact cites one.",
+      "factsVersion": "Version {version}",
+      "factsWritten": "Written {date}",
+      "factsCost": "${cost}",
+      "factsUpToDate": "Up to date",
+      "factsOutOfDate": "Out of date",
+      "factsNone": "No skill yet",
+      "trigger": {
+        "research": "After research",
+        "manual": "From Write skill",
+        "backfill": "From the backfill"
+      },
+      "write": "Write skill",
+      "rewrite": "Rewrite skill",
+      "started": "Started",
+      "writing": "Writing. The skill appears here in a minute or two.",
+      "outOfDate": "Out of date: something it was written from has changed since. Rewrite it to catch up.",
+      "lastFailed": "The last attempt failed on {date}: {reason}",
+      "empty": "No skill yet. Write one to give AI assistants a cited guide for this machine.",
+      "nothingToWrite": "Nothing to write from yet: this machine has no searchable public manual, no research and no lab notes.",
+      "notFound": "That tool is not in the inventory, or it was archived.",
+      "unreadable": "The skill could not be read. Try again in a moment.",
+      "skillHeading": "The skill",
+      "sourcesHeading": "Sources",
+      "sourcesLede": "What the skill cites. Manuals by page; links are the maker's.",
+      "sourceKind": {
+        "catalog": "Lab record",
+        "lab_note": "Lab note",
+        "manual": "Manual",
+        "research": "Research",
+        "link": "Linked document"
+      },
+      "removedHeading": "Removed by the checks ({count})",
+      "removedLede": "Lines the model wrote that the checks took out before the skill was stored.",
+      "removedReason": {
+        "uncited_number": "A number with no source",
+        "uncited_claim": "A claim with no source",
+        "weakens_safety": "Weakened a safety rule"
+      },
+      "openTool": "Open the tool's page",
+      "backToInventory": "Back to inventory",
+      "afterResearchOn": "Skills are written after research for this lab.",
+      "afterResearchOff": "Skills are not written after research for this lab; a director can turn that on in Settings › AI agents."
     }
   },
   "account": {
@@ -3779,7 +3842,8 @@
       "show_tool": "Show the catalogue photo, status and page of the tool it is talking about",
       "make_illustration": "Draw a labelled AI sketch of a plan or of your project idea, when you ask for one",
       "suggest_replies": "Offer two or three short replies to tap when it asks you to choose",
-      "list_maintenance_due": "Read the recurring maintenance tasks that are due"
+      "list_maintenance_due": "Read the recurring maintenance tasks that are due",
+      "get_tool_skill": "Read a tool's operating guide: cited steps, settings, troubleshooting and safety"
     },
     "actions": {
       "people_set_role": "Move someone between User and Admin",
@@ -3833,7 +3897,9 @@
       "schedules_create": "Set up a recurring maintenance task",
       "schedules_update": "Change a recurring maintenance task",
       "schedules_set_status": "Pause, resume or archive a recurring task",
-      "schedules_complete": "Check off a recurring task as done"
+      "schedules_complete": "Check off a recurring task as done",
+      "skills_write": "Write or rewrite a tool's operating guide",
+      "skills_set_after_research": "Turn on writing a tool's guide after research"
     },
     "pageOnly": {
       "imports_confirm_columns": "A form of column choices made while looking at the file, not a sentence.",
@@ -3845,7 +3911,9 @@
       "schedules_create": "Recurring tasks are new; they are set up and checked off on the maintenance page for now.",
       "schedules_update": "Recurring tasks are new; they are set up and checked off on the maintenance page for now.",
       "schedules_set_status": "Recurring tasks are new; they are set up and checked off on the maintenance page for now.",
-      "schedules_complete": "Recurring tasks are new; they are set up and checked off on the maintenance page for now."
+      "schedules_complete": "Recurring tasks are new; they are set up and checked off on the maintenance page for now.",
+      "skills_write": "The guide is what the assistant itself reads on a tool's page, so it never writes its own; staff do, on the tool's skill page.",
+      "skills_set_after_research": "It spends the lab's money with nobody pressing a button; directors set it on Settings › AI agents."
     },
     "never": {
       "super_admin": "Make someone a super admin, or change a super admin's role",

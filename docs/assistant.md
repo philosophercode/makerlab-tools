@@ -36,6 +36,11 @@ its people (owner meeting with the Director and Assistant Director,
   notes** (Inventory → Lab notes) come before the manual, win where they differ,
   and are cited as "**Lab note:**", never as the manual. The assistant never
   writes or proposes lab notes; staff do.
+- Follow a machine's **tool skill**: the lab's operating guide for it, written by
+  AI from the lab's own sources, every fact cited, the lab's notes, training and
+  PPE first. On a machine's page the assistant has it already; anywhere else,
+  and over MCP, it reads it with `get_tool_skill`. Staff write and rewrite skills
+  on the tool's skill page; the assistant never writes its own.
 - File a maintenance problem ("Prusa #1's nozzle is clogged") and report a
   mistake on a tool's page. It tries to help you fix the problem first. Once
   the lab's email is set up, a filed ticket emails the staff who work tickets,

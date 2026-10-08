@@ -1853,3 +1853,37 @@ not after the student sent, not after an error; the tap sends the text);
 `capabilities/actions.test.ts` (the counts above).
 
 **Status.** Built 2026-10-07. Awaiting the owner's review.
+
+### 2026-10-07 — Tool skills: two GUI-only actions and one read
+
+The tool skills spec (`2026-10-07-tool-skills-design.md`) gives each tool a cited operating guide
+written by AI after research. Two registered actions, each run by a one-line server action:
+`writeSkill` (`app/admin/inventory/[tool]/skill/actions.ts`) and `setSkillWriting`
+(`app/admin/settings/ai-agents/actions.ts`):
+
+| Action | Tool | Risk | Permission | Chat | MCP |
+|---|---|---|---|---|---|
+| `skills.write` | `write_tool_skill` | spend | `tools.edit` | never | never |
+| `skills.set_after_research` | `set_skills_after_research` | operational | `users.manage` | never | never |
+
+`assistant: "never"`, no tool and no preview. A skill is the operating guide the assistant itself
+reads on a tool's page, so it never asks for its own (the lab-wide notes' reason). The setting spends
+the lab's money with nobody pressing a button each time, so it is a director's, beside the research
+budget on Settings › AI agents. `skills.write` starts the skill workflow, forced. It honours the lab's
+daily cap in its `check` and again in the step, and refuses a tool with nothing to write from
+(`nothing_to_write`). No audit event, like `lab.set_notes`: the skill's row records its trigger, and the
+setting's row records who set it. No new permission. No name matches the deny list. `/assistant` shows
+both as page-only, in the catalog area (`ACTION_AREAS` gains `skills`).
+
+One read joins the registry in its own capability, `skills`, on both surfaces and for everybody:
+`get_tool_skill` (the tool skill as fenced markdown, with its sources, version, date, model and a note
+to check the manual and staff for anything safety-related). It is model-written from manuals and web
+pages, so it is in `OUTSIDE_CONTENT_TOOLS` and taints the turn. On a tool's page the chat route also
+puts that tool's skill into the prompt, and the turn starts tainted, as with an attached manual.
+`get_tool_details` gains a `skill` pointer when one exists.
+
+**Counts:** action tools unchanged (42 / 38). Chat tools go from 68 to **69** for a director, 63 to
+**64** for a SuperMaker and 13 to **14** for a signed-in student (after suggested replies, above),
+and an anonymous visitor gains `get_tool_skill`. The MCP lists gain `get_tool_skill` for every audience: it is one of the public reads
+(`PUBLIC_READS` in the MCP route, access and catalog tests). The registry holds 58 definitions.
+Migration `0031_tool_skills`.

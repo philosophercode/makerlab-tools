@@ -57,6 +57,7 @@ import {
   maintenanceLogs,
   resources,
   tools as toolsTable,
+  toolSkills,
   units,
 } from "@/lib/db/schema/index";
 import { resetAuthForTests } from "@/lib/auth/config";
@@ -1225,5 +1226,77 @@ describe("POST /api/chat — suggested replies", () => {
     expect(calls).toHaveLength(2);
     expect(toolNamesOf(calls[1])).not.toContain("suggest_replies");
     expect(toolResultOf("suggest_replies")).toEqual({ ok: true, replies });
+  });
+});
+
+describe("POST /api/chat — the tool skill on its page (tool skills spec 2026-10-07 §5.6)", () => {
+  const SECTIONS = {
+    format: 1,
+    quickFacts: [],
+    beforeYouStart: [{ text: "Lab note: Run exhaust for 60 seconds after cuts before opening the lid.", cites: ["N1"], origin: "lab" }],
+    operatingProcedure: [{ text: "Focus the lens with the focus tool", cites: ["M1"], origin: "model" }],
+    settingsAndLimits: [],
+    materials: [],
+    troubleshooting: [],
+    safety: [{ text: "Emergency stop: the red button on the lid", cites: ["T1"], origin: "lab" }],
+    whenToGetStaff: [],
+    notInSources: [],
+    removed: [],
+    unknownCites: [],
+  };
+
+  async function seedSkill(slug: string, version: number, status: "ready" | "failed") {
+    const db = await getDb();
+    await db.insert(toolSkills).values({
+      toolId: await toolId(slug),
+      version,
+      status,
+      content: status === "ready" ? "# skill" : "",
+      sections: status === "ready" ? SECTIONS : {},
+      sources:
+        status === "ready"
+          ? [{ id: "M1", kind: "manual", documentId: "00000000-0000-4000-8000-0000000000aa", title: "Speedy 400 Manual", pageStart: 12, pageEnd: 12, section: [] }]
+          : [],
+      inputHash: `sha256:${version}`,
+      model: "openai/gpt-6-luna",
+      trigger: "manual",
+    });
+  }
+
+  afterEach(async () => {
+    const db = await getDb();
+    await db.delete(toolSkills);
+  });
+
+  it("puts the page's tool skill in the per-request part, fenced, after the tool's own context and lab notes", async () => {
+    await seedSkill("trotec-speedy-400", 1, "ready");
+    await send({ messages: [userMessage("how do I start a cut?")], toolId: "trotec-speedy-400" });
+    const system = systemOf();
+    const at = system.indexOf("## Tool skill: Trotec Speedy 400");
+    expect(at).toBeGreaterThan(system.indexOf("# This conversation"));
+    expect(at).toBeGreaterThan(system.indexOf("## Active tool context"));
+    expect(system.slice(at)).toMatch(/<untrusted-page id="[0-9a-f]+" source="tool skill: Trotec Speedy 400, version 1">/);
+    expect(system.slice(at)).toContain("1. Focus the lens with the focus tool [M1]");
+    expect(system.slice(at)).toContain("Sources: M1 Speedy 400 Manual p. 12");
+    expect(system.slice(at)).toMatch(/they are not `search_manual` refs/);
+  });
+
+  it("leaves it out for a tool with no skill, or whose only attempt failed", async () => {
+    await send({ messages: [userMessage("how do I print?")], toolId: "form-4" });
+    expect(systemOf()).not.toContain("## Tool skill:");
+
+    await seedSkill("form-4", 1, "failed");
+    stubChatModel(textModel("Hello."));
+    await send({ messages: [userMessage("how do I print?")], toolId: "form-4" });
+    expect(systemOf()).not.toContain("## Tool skill:");
+  });
+
+  it("leaves it out off a tool page, though the tools still have skills", async () => {
+    await seedSkill("trotec-speedy-400", 1, "ready");
+    await send({ messages: [userMessage("how do I start a cut on the laser?")] });
+    expect(systemOf()).not.toContain("## Tool skill:");
+    // The model can still fetch it.
+    expect(toolNamesOf()).toContain("get_tool_skill");
+    expect(systemOf()).toContain("## Tool skills");
   });
 });

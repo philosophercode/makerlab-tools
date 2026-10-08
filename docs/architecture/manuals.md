@@ -253,3 +253,14 @@ so they follow the lab's real manuals rather than two fixtures.
 - **Tests** seed passages with the fake embedding and pass a stub model;
   `evals/manual-questions.test.ts` runs the whole eval offline on the fixtures.
 
+
+## Tool skills after indexing (tool skills spec 2026-10-07)
+
+When the lab writes tool skills after research, the archive workflow gains a
+last step: `toolSkillTargetsStep` (the tools an intake approval just handed
+over as `afterResearch`, then the tools whose passages this run built; none
+when the setting is off), then one `writeToolSkillStep` per tool, skipped when
+nothing it reads changed. Counted as `skillsWritten` / `skillsFailed`; the
+archive's, the index's and the eval questions' counts never change. A skill
+reads only public manual files, by full-text search (`searchManuals({ mode:
+"fts", publicFilesOnly: true })`). See `docs/architecture/tool-skills.md`.

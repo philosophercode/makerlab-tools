@@ -431,3 +431,18 @@ export type IllustrationKind = (typeof ILLUSTRATION_KIND)[number];
 /** `pending` while the model draws, `ready` once stored, `failed` when no image came of it. */
 export const ILLUSTRATION_STATUS = ["pending", "ready", "failed"] as const;
 export type IllustrationStatus = (typeof ILLUSTRATION_STATUS)[number];
+
+/**
+ * A tool skill's row (tool skills spec 2026-10-07, migration `0031`): `ready`
+ * is a written, checked skill; `failed` records an attempt that did not give
+ * one, with its reason. A tool's current skill is its latest `ready` row.
+ */
+export const TOOL_SKILL_STATUS = ["ready", "failed"] as const;
+export type ToolSkillStatus = (typeof TOOL_SKILL_STATUS)[number];
+
+/**
+ * What wrote a tool skill: the pass after research (intake approval, or a
+ * manual indexed), staff's Write skill, or `npm run tools:skills`.
+ */
+export const TOOL_SKILL_TRIGGER = ["research", "manual", "backfill"] as const;
+export type ToolSkillTrigger = (typeof TOOL_SKILL_TRIGGER)[number];

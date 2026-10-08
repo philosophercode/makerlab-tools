@@ -135,6 +135,13 @@ export const RETENTION_BOUND: ReadonlySet<string> = new Set([getTableName(usageE
  * a private blob in the store of the deployment that drew it, which `data:push`
  * does not copy, and a person's daily ledger means nothing on another
  * deployment.
+ *
+ * Deliberately **not** `tool_skills` (tool skills spec 2026-10-07 §4.3),
+ * though it too is AI-written and cached: a skill names its manual sources by
+ * document id and page (ids survive `data:push`) and its links by the
+ * manufacturer's URL, never a stored file's address, and its input hash covers
+ * the same rows on both sides. A skill written on a local copy is valid on the
+ * hosted one, so it travels, like `manual_eval_questions`.
  */
 export const DEPLOYMENT_BOUND: ReadonlySet<string> = new Set([getTableName(starterAnswers), getTableName(chatIllustrations)]);
 

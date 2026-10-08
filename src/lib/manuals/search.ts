@@ -118,6 +118,14 @@ export interface SearchManualsInput {
    * only when the reranker ran. Default: no floor.
    */
   minRerankScore?: number;
+  /**
+   * Only public files on published resources, whoever the viewer is and
+   * whatever the tool's own state (a draft's manuals included): what a visitor
+   * may read once the tool is published. The tool skill writer's inputs (tool
+   * skills spec 2026-10-07 §5.1) — a skill is served to everyone, so a
+   * staff-only SOP must never reach one. Archived tools stay out.
+   */
+  publicFilesOnly?: boolean;
 }
 
 export interface ManualPassage {
@@ -213,12 +221,21 @@ export async function searchManuals(db: Db, input: SearchManualsInput): Promise<
     rerankTarget = input.rerank;
   }
 
-  const includePrivate = canSearchPrivateManuals(input.viewer);
+  const includePrivate = !input.publicFilesOnly && canSearchPrivateManuals(input.viewer);
   const lexical = mode !== "vector" || vectorFailed;
   // Twice the limit at least, so copies dropped by `dropDuplicates` leave
   // enough distinct passages to fill it.
   const fusedLimit = Math.max(limit * 2, rerankTarget ? RERANK_CANDIDATES : 0);
-  const fused = fusedQuery({ query, toolIds, includePrivate, vector, lexical, tokens: partNumberTokens(query), limit: fusedLimit });
+  const fused = fusedQuery({
+    query,
+    toolIds,
+    includePrivate,
+    publicFilesOnly: Boolean(input.publicFilesOnly),
+    vector,
+    lexical,
+    tokens: partNumberTokens(query),
+    limit: fusedLimit,
+  });
   // An unscoped vector leg reads the HNSW index: widen its beam for this one
   // statement (`set_config(…, true)` lasts until the transaction ends).
   const rows =
@@ -346,6 +363,7 @@ function fusedQuery(args: {
   query: string;
   toolIds: readonly string[] | undefined;
   includePrivate: boolean;
+  publicFilesOnly: boolean;
   vector: string | null;
   lexical: boolean;
   tokens: string[];
@@ -353,7 +371,9 @@ function fusedQuery(args: {
 }): SQL {
   const access = args.includePrivate
     ? sql``
-    : sql` and a.access = 'public' and r.published = true and t.published = true`;
+    : args.publicFilesOnly
+      ? sql` and a.access = 'public' and r.published = true`
+      : sql` and a.access = 'public' and r.published = true and t.published = true`;
   const scope = args.toolIds
     ? sql` and r.tool_id in (${sql.join(args.toolIds.map((id) => sql`${id}::uuid`), sql`, `)})`
     : sql``;
