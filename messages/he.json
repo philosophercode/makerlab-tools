@@ -74,13 +74,14 @@
         "trotecAcrylic": "האם הלייזר של Trotec חותך אקריליק?"
       }
     },
-    "chips": {
-      "label": "קטגוריות",
-      "all": "הכול"
-    },
     "results": {
       "heading": "תוצאות עבור “{query}”"
-    }
+    },
+    "browse": {
+      "label": "עיון",
+      "all": "כל הכלים"
+    },
+    "backToCategories": "כל הקטגוריות"
   },
   "detail": {
     "breadcrumbTools": "כלים",

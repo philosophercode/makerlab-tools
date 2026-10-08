@@ -74,13 +74,14 @@
         "trotecAcrylic": "Режет ли лазер Trotec акрил?"
       }
     },
-    "chips": {
-      "label": "Категории",
-      "all": "Все"
-    },
     "results": {
       "heading": "Результаты по запросу «{query}»"
-    }
+    },
+    "browse": {
+      "label": "Просмотр",
+      "all": "Все инструменты"
+    },
+    "backToCategories": "Все категории"
   },
   "detail": {
     "breadcrumbTools": "Инструменты",

@@ -78,7 +78,7 @@ describe("DetailShell", () => {
       );
       expect(container.querySelector('[data-slot="location-link"]')).toHaveAttribute(
         "href",
-        `/?${new URLSearchParams({ location: toolWithLinks.location })}`
+        `/?${new URLSearchParams({ show: "all", location: toolWithLinks.location })}`
       );
     });
 

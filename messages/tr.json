@@ -74,13 +74,14 @@
         "trotecAcrylic": "Trotec lazer akrilik kesebilir mi?"
       }
     },
-    "chips": {
-      "label": "Kategoriler",
-      "all": "Tümü"
-    },
     "results": {
       "heading": "“{query}” için sonuçlar"
-    }
+    },
+    "browse": {
+      "label": "Göz at",
+      "all": "Tüm araçlar"
+    },
+    "backToCategories": "Tüm kategoriler"
   },
   "detail": {
     "breadcrumbTools": "Araçlar",

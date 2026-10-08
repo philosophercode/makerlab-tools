@@ -74,13 +74,14 @@
         "trotecAcrylic": "Trotec のレーザーでアクリルは切れますか？"
       }
     },
-    "chips": {
-      "label": "カテゴリ",
-      "all": "すべて"
-    },
     "results": {
       "heading": "「{query}」の検索結果"
-    }
+    },
+    "browse": {
+      "label": "表示",
+      "all": "すべてのツール"
+    },
+    "backToCategories": "すべてのカテゴリ"
   },
   "detail": {
     "breadcrumbTools": "ツール",

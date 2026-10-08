@@ -19,6 +19,15 @@ export const GALLERY_VIEWS = ["grid", "table"] as const;
 export type GalleryView = (typeof GALLERY_VIEWS)[number];
 
 /**
+ * What the home page browses (student home spec, amendment "One page: the
+ * list at rest", revised): the **categories** as tiles — the default, nothing
+ * in the URL — or **all** tools. Not to be confused with `view`, which is how
+ * a list of tools is drawn (grid or table).
+ */
+export const GALLERY_SHOWS = ["categories", "all"] as const;
+export type GalleryShow = (typeof GALLERY_SHOWS)[number];
+
+/**
  * The sort keys. The default (`null`) is the catalogue's own order, name A–Z —
  * or, while searching, best match first. `name` is offered as an explicit
  * choice only while searching, where it differs from the default.
@@ -63,6 +72,8 @@ export interface GalleryState {
   location: string | null;
   /** `GalleryTool.itemKind` (taxonomy v2 facet): equipment, accessory, consumable or fixture. */
   kind: ToolItemKind | null;
+  /** Categories (tiles) or all tools; see `GALLERY_SHOWS`. */
+  show: GalleryShow;
   view: GalleryView;
   sort: GallerySort | null;
   /** `null` is the default grouping (`DEFAULT_GALLERY_GROUP`); see `resolvedGroup`. */
@@ -76,6 +87,7 @@ export const DEFAULT_GALLERY_STATE: GalleryState = {
   material: null,
   location: null,
   kind: null,
+  show: "categories",
   view: "grid",
   sort: null,
   group: null,
@@ -101,6 +113,7 @@ export function parseGalleryState(params: Params): GalleryState {
     material: read(params, "material") || null,
     location: read(params, "location") || null,
     kind: oneOf(TOOL_ITEM_KIND, read(params, "kind")),
+    show: oneOf(GALLERY_SHOWS, read(params, "show")) ?? "categories",
     view: oneOf(GALLERY_VIEWS, read(params, "view")) ?? "grid",
     sort: oneOf(GALLERY_SORTS, read(params, "sort")),
     group: defaultAsNull(oneOf(GALLERY_GROUPS, read(params, "group"))),
@@ -115,6 +128,8 @@ function defaultAsNull(group: GalleryGroup | null): GalleryGroup | null {
 /** The state as a query string; defaults are left out, never sent blank. */
 export function toGallerySearchParams(state: GalleryState): URLSearchParams {
   const params = new URLSearchParams();
+  // What is browsed first: `/?show=all&material=Plywood` reads as it is.
+  if (state.show !== "categories") params.set("show", state.show);
   // Not trimmed: the search box is controlled by the URL, and trimming would eat the space being typed.
   if (state.query) params.set("q", state.query);
   if (state.status) params.set("status", state.status);

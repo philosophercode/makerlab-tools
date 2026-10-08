@@ -74,13 +74,14 @@
         "trotecAcrylic": "Trotec 激光能切亚克力吗？"
       }
     },
-    "chips": {
-      "label": "类别",
-      "all": "全部"
-    },
     "results": {
       "heading": "“{query}”的搜索结果"
-    }
+    },
+    "browse": {
+      "label": "浏览",
+      "all": "全部工具"
+    },
+    "backToCategories": "所有类别"
   },
   "detail": {
     "breadcrumbTools": "工具",

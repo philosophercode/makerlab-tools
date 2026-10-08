@@ -40,12 +40,12 @@ test.describe("Sign-in", () => {
       page.getByRole("heading", { name: "MakerLAB AI", level: 1 })
     ).toBeVisible();
 
-    // The home is the tool list (student home spec 2026-10-07, amendment
-    // "One page: the list at rest"): a category chip narrows it, and a card
-    // opens the tool.
+    // The home rests on the category tiles (student home spec 2026-10-07,
+    // amendment "One page: the list at rest", revised): a tile opens its
+    // tools on the same page, and a card opens the tool.
     await page
-      .getByRole("group", { name: "Categories" })
-      .getByRole("button", { name: /^3D Printing/ })
+      .getByRole("list", { name: "Categories" })
+      .getByRole("link", { name: /3D Printing/ })
       .click();
     await expect(page).toHaveURL(/\/\?category=3D\+Printing$/);
 

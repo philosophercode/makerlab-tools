@@ -74,13 +74,14 @@
         "trotecAcrylic": "Le laser Trotec peut-il découper l'acrylique ?"
       }
     },
-    "chips": {
-      "label": "Catégories",
-      "all": "Toutes"
-    },
     "results": {
       "heading": "Résultats pour « {query} »"
-    }
+    },
+    "browse": {
+      "label": "Parcourir",
+      "all": "Tous les outils"
+    },
+    "backToCategories": "Toutes les catégories"
   },
   "detail": {
     "breadcrumbTools": "Outils",

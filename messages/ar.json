@@ -74,13 +74,14 @@
         "trotecAcrylic": "هل يقطع ليزر Trotec الأكريليك؟"
       }
     },
-    "chips": {
-      "label": "الفئات",
-      "all": "الكل"
-    },
     "results": {
       "heading": "نتائج “{query}”"
-    }
+    },
+    "browse": {
+      "label": "تصفّح",
+      "all": "كل الأدوات"
+    },
+    "backToCategories": "كل الفئات"
   },
   "detail": {
     "breadcrumbTools": "الأدوات",

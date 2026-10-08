@@ -74,13 +74,14 @@
         "trotecAcrylic": "Trotec 레이저로 아크릴을 자를 수 있나요?"
       }
     },
-    "chips": {
-      "label": "카테고리",
-      "all": "전체"
-    },
     "results": {
       "heading": "“{query}” 검색 결과"
-    }
+    },
+    "browse": {
+      "label": "보기",
+      "all": "모든 도구"
+    },
+    "backToCategories": "모든 카테고리"
   },
   "detail": {
     "breadcrumbTools": "도구",

@@ -74,13 +74,14 @@
         "trotecAcrylic": "क्या Trotec लेज़र एक्रिलिक काट सकता है?"
       }
     },
-    "chips": {
-      "label": "श्रेणियाँ",
-      "all": "सभी"
-    },
     "results": {
       "heading": "“{query}” के परिणाम"
-    }
+    },
+    "browse": {
+      "label": "ब्राउज़ करें",
+      "all": "सभी उपकरण"
+    },
+    "backToCategories": "सभी श्रेणियाँ"
   },
   "detail": {
     "breadcrumbTools": "उपकरण",

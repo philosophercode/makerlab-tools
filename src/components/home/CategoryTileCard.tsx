@@ -9,17 +9,32 @@ import type { CategoryTile } from "./home-tools";
 const TILE_IMAGE_SIZES = "(min-width: 1440px) 330px, (min-width: 1280px) 23vw, (min-width: 1024px) 30vw, 46vw";
 
 /**
- * One category on the home page: a photo from it, its name, how many tools
- * and its kinds, and, only when some are down, how many units are out of
- * service. The whole tile links to the full list filtered to the category.
- * Category names are data (English), as on the full list's filter.
+ * One category on the home page's Categories view: a photo from it, its
+ * name, how many tools and its kinds, and, only when some are down, how many
+ * units are out of service. The whole tile links to the category's tools
+ * (`/?category=…`); with `onSelect`, a plain click opens them in place (a
+ * modified click still opens a new tab). Category names are data (English),
+ * as on the Category filter.
  */
-export function CategoryTileCard({ tile, imagePriority = "lazy" }: { tile: CategoryTile; imagePriority?: ToolImagePriority }) {
+export function CategoryTileCard({
+  tile,
+  imagePriority = "lazy",
+  onSelect,
+}: {
+  tile: CategoryTile;
+  imagePriority?: ToolImagePriority;
+  onSelect?: (name: string) => void;
+}) {
   const t = useTranslations("gallery.home");
   const kinds = tile.subs.length > 0 ? `${tile.subs.join(", ")}${tile.moreSubs ? "…" : ""}` : null;
   return (
     <Link
       href={categoryHref(tile.name)}
+      onClick={(event) => {
+        if (!onSelect || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        onSelect(tile.name);
+      }}
       data-slot="category-tile"
       className="group flex h-full flex-col border border-border bg-card transition-colors duration-150 hover:border-primary-ink/60"
     >

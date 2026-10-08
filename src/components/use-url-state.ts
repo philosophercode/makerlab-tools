@@ -57,11 +57,16 @@ export function openClientQueryPage(href: string, push: (href: string) => void):
   window.dispatchEvent(new Event(EVENT));
 }
 
-export function useUrlSearch(): [string, (next: URLSearchParams) => void] {
+/** `push`: a new history entry, so Back returns (opening a category from its tile). Otherwise the entry is replaced. */
+export type UrlWriteOptions = { push?: boolean };
+
+export function useUrlSearch(): [string, (next: URLSearchParams, options?: UrlWriteOptions) => void] {
   const search = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
-  const write = useCallback((next: URLSearchParams) => {
+  const write = useCallback((next: URLSearchParams, options?: UrlWriteOptions) => {
     const query = next.toString();
-    window.history.replaceState(window.history.state, "", query ? `?${query}` : window.location.pathname);
+    const url = query ? `?${query}` : window.location.pathname;
+    if (options?.push) window.history.pushState(null, "", url);
+    else window.history.replaceState(window.history.state, "", url);
     window.dispatchEvent(new Event(EVENT));
   }, []);
   return [search, write];

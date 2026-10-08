@@ -74,13 +74,14 @@
         "trotecAcrylic": "¿El láser Trotec corta acrílico?"
       }
     },
-    "chips": {
-      "label": "Categorías",
-      "all": "Todas"
-    },
     "results": {
       "heading": "Resultados para “{query}”"
-    }
+    },
+    "browse": {
+      "label": "Explorar",
+      "all": "Todas las herramientas"
+    },
+    "backToCategories": "Todas las categorías"
   },
   "detail": {
     "breadcrumbTools": "Herramientas",

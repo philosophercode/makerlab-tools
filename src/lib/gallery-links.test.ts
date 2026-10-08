@@ -9,18 +9,18 @@ import { ALL_TOOLS_PATH, FORMER_LIST_PATH, GALLERY_QUERY_KEYS, allToolsHref, cat
  */
 
 describe("gallery links", () => {
-  it("point at the home page with the filter in the query", () => {
+  it("point at the home page: a category opens in the Categories view, other filters in All tools", () => {
     expect(ALL_TOOLS_PATH).toBe("/");
     expect(categoryHref("3D Printing")).toBe("/?category=3D+Printing");
-    expect(allToolsHref({ material: "Plywood", location: "Wood Shop" })).toBe("/?material=Plywood&location=Wood+Shop");
-    expect(allToolsHref({})).toBe("/");
+    expect(allToolsHref({ material: "Plywood", location: "Wood Shop" })).toBe("/?show=all&material=Plywood&location=Wood+Shop");
+    expect(allToolsHref({})).toBe("/?show=all");
   });
 
   it("name every key the list reads", () => {
     const params = new URLSearchParams(GALLERY_QUERY_KEYS.map((key) => [key, "x"]));
     const parsed = parseGalleryState(params);
     // Each key is one the list understands (a nonsense value may fall back, but the key is read).
-    expect(GALLERY_QUERY_KEYS).toEqual(["q", "status", "category", "material", "location", "kind", "view", "sort", "group"]);
+    expect(GALLERY_QUERY_KEYS).toEqual(["q", "show", "status", "category", "material", "location", "kind", "view", "sort", "group"]);
     expect(parsed.query).toBe("x");
     expect(parsed.category).toBe("x");
   });

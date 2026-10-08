@@ -96,10 +96,6 @@
       "consumable": "Consumable",
       "fixture": "Fixture"
     },
-    "chips": {
-      "label": "Categories",
-      "all": "All"
-    },
     "results": {
       "heading": "Results for “{query}”"
     },
@@ -127,7 +123,12 @@
         "x1Start": "Ask how to start a 3D print on the X1-Carbon",
         "trotecAcrylic": "Can the Trotec laser cut acrylic?"
       }
-    }
+    },
+    "browse": {
+      "label": "Browse",
+      "all": "All tools"
+    },
+    "backToCategories": "All categories"
   },
   "detail": {
     "breadcrumbTools": "Tools",

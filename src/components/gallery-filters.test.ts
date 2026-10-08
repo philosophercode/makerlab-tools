@@ -25,6 +25,7 @@ describe("parseGalleryState / toGallerySearchParams", () => {
       material: "Acrylic",
       location: "Laser Room",
       kind: "accessory" as const,
+      show: "all" as const,
       view: "table" as const,
       sort: "recent" as const,
       group: "location" as const,
@@ -45,6 +46,14 @@ describe("parseGalleryState / toGallerySearchParams", () => {
     expect(parseGalleryState({ status: "In Use" }).status).toBe("In Use");
     expect(parseGalleryState({ kind: "gadget" }).kind).toBeNull();
     expect(parseGalleryState({ kind: "consumable" }).kind).toBe("consumable");
+    expect(parseGalleryState({ show: "everything" }).show).toBe("categories");
+  });
+
+  it("browses the categories by default, all tools with ?show=all, written first", () => {
+    expect(parseGalleryState({}).show).toBe("categories");
+    expect(parseGalleryState({ show: "all" }).show).toBe("all");
+    expect(toGallerySearchParams({ ...DEFAULT_GALLERY_STATE, show: "all", material: "PLA" }).toString()).toBe("show=all&material=PLA");
+    expect(toGallerySearchParams({ ...DEFAULT_GALLERY_STATE, show: "categories" }).toString()).toBe("");
   });
 });
 

@@ -8,20 +8,23 @@ import {
   type GalleryState,
   type ToolSection,
 } from "./gallery-filters";
+import { categoryTiles, type CategoryTile } from "./home/home-tools";
 import { rankToolsInPlace } from "./palette/palette-search";
 
 /**
- * What the home page's list shows for a state (student home spec 2026-10-07,
- * amendment "One page: the list at rest"). Directive-free, like
+ * What the home page shows for a state (student home spec 2026-10-07,
+ * amendment "One page: the list at rest", revised). Directive-free, like
  * `gallery-filters.ts`, so the page island and the tests share it.
  *
- * - **At rest** (nothing typed): the tools the gallery shows, narrowed by the
- *   facets, in sections — by category group in the lab's order unless the
- *   URL asks for another grouping.
- * - **Searching**: the matching tools, ranked (`rankToolsInPlace`, the ⌘K
- *   palette's matcher), as one list in place of the sections. The search
- *   reaches every tool, a category hidden from the gallery by default
+ * - **Searching** (something typed), whatever the view: the matching tools,
+ *   ranked (`rankToolsInPlace`, the ⌘K palette's matcher), as one list. The
+ *   search reaches every tool, a category hidden from the gallery by default
  *   included, as the smart search did.
+ * - **Categories** (the default): the category tiles; with a category chosen
+ *   (a tile, `?category=`), that category's tools.
+ * - **All tools** (`?show=all`): the tools the gallery shows, narrowed by the
+ *   filters, in sections — by category group in the lab's order unless the
+ *   URL asks for another grouping.
  */
 
 export type Facet = "status" | "category" | "material" | "location" | "kind";
@@ -42,16 +45,22 @@ export function narrowed<T extends GalleryTool>(tools: readonly T[], state: Gall
   );
 }
 
+/** What the content area draws. */
+export type CatalogueMode = "results" | "tiles" | "category" | "groups";
+
 export interface CatalogueView<T extends GalleryTool = GalleryTool> {
+  mode: CatalogueMode;
   /** What the list holds before any filter: hidden-by-default categories out unless chosen. */
   visible: T[];
   /** The count's "of N": the list's tools at rest, every tool while searching (the search reaches them all). */
   total: number;
-  /** The tools on the page, in order: every section's, or the results. */
+  /** The tools the filters leave, in order: the results, the category's tools or every section's. Counted on tiles too. */
   shown: T[];
-  /** At rest, the sections (one unlabelled one when ungrouped); searching, one section of results. */
+  /** Results: one section; a category: one section; all tools: the sections (one unlabelled one when ungrouped); tiles: none. */
   sections: ToolSection<T>[];
-  /** Something is typed: the results replace the sections. */
+  /** The Categories view's tiles, under the other filters (`mode: "tiles"` only; otherwise empty). */
+  tiles: CategoryTile[];
+  /** Something is typed: the results replace the view. */
   searching: boolean;
 }
 
@@ -73,11 +82,27 @@ export function catalogueView<T extends GalleryTool>(
       ...rankToolsInPlace(faceted.filter((tool) => tool.galleryHidden), query, byKind),
     ];
     const shown = sortTools(ranked, state.sort);
-    return { visible, total: tools.length, shown, sections: [{ key: "results", label: "", tools: shown }], searching: true };
+    return { mode: "results", visible, total: tools.length, shown, sections: [{ key: "results", label: "", tools: shown }], tiles: [], searching: true };
   }
   const shown = sortTools(narrowed(visible, state), state.sort);
+  if (state.show === "categories") {
+    if (!state.category) {
+      const tiles = categoryTiles(narrowed(tools, state, "category"), categoryOrder);
+      return { mode: "tiles", visible, total: visible.length, shown, sections: [], tiles, searching: false };
+    }
+    const sections = [{ key: state.category, label: state.category, tools: shown }];
+    return { mode: "category", visible, total: visible.length, shown, sections, tiles: [], searching: false };
+  }
   const sections = groupTools(shown, resolvedGroup(state.group), { categoryOrder });
-  return { visible, total: visible.length, shown: sections.flatMap((section) => section.tools), sections, searching: false };
+  return {
+    mode: "groups",
+    visible,
+    total: visible.length,
+    shown: sections.flatMap((section) => section.tools),
+    sections,
+    tiles: [],
+    searching: false,
+  };
 }
 
 /** On an equal match: equipment, then fixtures, then what goes with a machine (accessories, consumables). */
@@ -94,11 +119,11 @@ export interface CategoryChip {
 }
 
 /**
- * The category chips under the search: every top-level category in the
- * lab's order, each with the count the other facets leave (so the numbers
- * agree with the list a chip would show). A category the gallery hides by
- * default (Shop Infrastructure & Supplies) comes last: it is one tap away,
- * never gone. The search text does not change the counts.
+ * Every top-level category in the lab's order, each with the count the other
+ * facets leave (so the numbers agree with the list choosing it would show): the
+ * Filters panel's Category options. A category the gallery hides by default
+ * (Shop Infrastructure & Supplies) comes last: one choice away, never gone. The
+ * search text does not change the counts.
  */
 export function categoryChips(tools: readonly GalleryTool[], state: GalleryState, categoryOrder: readonly string[]): CategoryChip[] {
   const counts = new Map<string, number>();
@@ -113,4 +138,14 @@ export function categoryChips(tools: readonly GalleryTool[], state: GalleryState
   return Array.from(counts.keys())
     .sort((a, b) => Number(!shownByDefault.has(a)) - Number(!shownByDefault.has(b)) || compare(a, b))
     .map((name) => ({ name, count: counts.get(name) ?? 0 }));
+}
+
+/**
+ * How many filters narrow the list: the Filters button's count, and what
+ * opens the panel when a link arrives with one. The facets — but in the
+ * Categories view the category is the tile somebody opened (it has its own
+ * way back), not a filter.
+ */
+export function activeFilterCount(state: GalleryState): number {
+  return FACETS.filter((facet) => state[facet] && !(facet === "category" && state.show === "categories")).length;
 }

@@ -1,7 +1,7 @@
 import { mockCatalog } from "../../test/fixtures/catalog";
 import { toGalleryTool, type GalleryTool } from "./catalog-types";
 import { DEFAULT_GALLERY_STATE, type GalleryState } from "./gallery-filters";
-import { catalogueView, categoryChips, narrowed } from "./catalogue-view";
+import { activeFilterCount, catalogueView, categoryChips, narrowed } from "./catalogue-view";
 
 /**
  * What the home page's list shows (student home spec 2026-10-07, amendment
@@ -13,9 +13,28 @@ const tools = mockCatalog.map(toGalleryTool);
 const state = (patch: Partial<GalleryState> = {}): GalleryState => ({ ...DEFAULT_GALLERY_STATE, ...patch });
 const names = (list: readonly { name: string }[]) => list.map((tool) => tool.name);
 
-describe("catalogueView at rest", () => {
-  it("groups by category group in the lab's order, the shown list following the sections", () => {
+describe("catalogueView: Categories (the default)", () => {
+  it("is the tiles, in the lab's order, under the other filters", () => {
     const view = catalogueView(tools, state(), ["Woodworking", "3D Printing", "Laser"]);
+    expect(view.mode).toBe("tiles");
+    expect(view.tiles.map((tile) => tile.name)).toEqual(["Woodworking", "3D Printing", "Laser"]);
+    expect(view.sections).toEqual([]);
+    expect(catalogueView(tools, state({ status: "Offline" }), []).tiles.map((tile) => tile.name)).toEqual(["Laser"]);
+  });
+
+  it("is one category's tools once one is chosen", () => {
+    const view = catalogueView(tools, state({ category: "3D Printing" }), []);
+    expect(view.mode).toBe("category");
+    expect(view.sections).toEqual([{ key: "3D Printing", label: "3D Printing", tools: view.shown }]);
+    expect(names(view.shown)).toEqual(["Prusa MK4", "Form 4"]);
+    expect(view.tiles).toEqual([]);
+  });
+});
+
+describe("catalogueView: All tools", () => {
+  it("groups by category group in the lab's order, the shown list following the sections", () => {
+    const view = catalogueView(tools, state({ show: "all" }), ["Woodworking", "3D Printing", "Laser"]);
+    expect(view.mode).toBe("groups");
     expect(view.searching).toBe(false);
     expect(view.sections.map((section) => section.label)).toEqual(["Woodworking", "3D Printing", "Laser"]);
     expect(names(view.shown)).toEqual(["Bandsaw", "Prusa MK4", "Form 4", "Trotec Speedy 400"]);
@@ -23,20 +42,22 @@ describe("catalogueView at rest", () => {
   });
 
   it("is one unlabelled list when grouping is none", () => {
-    const view = catalogueView(tools, state({ group: "none" }), []);
+    const view = catalogueView(tools, state({ show: "all", group: "none" }), []);
     expect(view.sections).toEqual([{ key: "all", label: "", tools: view.shown }]);
   });
 
   it("leaves a hidden-by-default category out unless it is the one chosen", () => {
     const hidden = tools.map((tool) => (tool.slug === "bandsaw" ? { ...tool, category: "Supplies", galleryHidden: true } : tool));
-    expect(names(catalogueView(hidden, state(), []).shown)).not.toContain("Bandsaw");
-    expect(names(catalogueView(hidden, state({ category: "Supplies" }), []).shown)).toEqual(["Bandsaw"]);
+    expect(names(catalogueView(hidden, state({ show: "all" }), []).shown)).not.toContain("Bandsaw");
+    expect(names(catalogueView(hidden, state({ show: "all", category: "Supplies" }), []).shown)).toEqual(["Bandsaw"]);
   });
 });
 
 describe("catalogueView searching", () => {
-  it("is one section of the matches, best first", () => {
+  it("is one section of the matches, best first, in either view", () => {
     const view = catalogueView(tools, state({ query: "form" }), []);
+    expect(view.mode).toBe("results");
+    expect(catalogueView(tools, state({ query: "form", show: "all" }), []).mode).toBe("results");
     expect(view.searching).toBe(true);
     expect(view.sections).toHaveLength(1);
     expect(names(view.shown)).toEqual(["Form 4"]);
@@ -75,7 +96,18 @@ describe("catalogueView searching", () => {
   });
 });
 
-describe("categoryChips", () => {
+describe("activeFilterCount", () => {
+  it("counts the facets set, the category only in All tools (in Categories it is the opened tile)", () => {
+    expect(activeFilterCount(state())).toBe(0);
+    expect(activeFilterCount(state({ status: "Available", location: "MakerLab" }))).toBe(2);
+    expect(activeFilterCount(state({ category: "Laser" }))).toBe(0);
+    expect(activeFilterCount(state({ category: "Laser", show: "all" }))).toBe(1);
+    // The search, the sort, the grouping and the grid/table are not filters.
+    expect(activeFilterCount(state({ query: "x", sort: "recent", group: "none", view: "table" }))).toBe(0);
+  });
+});
+
+describe("categoryChips (the Category filter's options)", () => {
   it("lists every category in the lab's order, hidden-by-default ones last, counted under the other facets", () => {
     const hidden = tools.map((tool) => (tool.slug === "bandsaw" ? { ...tool, category: "Supplies", galleryHidden: true } : tool));
     expect(categoryChips(hidden, state(), ["Supplies", "Laser", "3D Printing"])).toEqual([
