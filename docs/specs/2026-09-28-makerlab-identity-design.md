@@ -454,3 +454,38 @@ with the suggested answers only when there's 2-3 choices easy to respond."
   the assistant–GUI parity spec's amendment of the same date
   ("Suggested replies").
 - **Tested** in `SuggestedReplies.test.tsx` and `ChatFab.test.tsx`.
+
+## Amendment — ADMIN in the bar (2026-10-07)
+
+The owner asked: remove REPORT from the top bar ("it's a weird thing to put up
+there"), give admins ADMIN there instead of in the profile menu, and tidy the
+menu.
+
+- **The bar** (`PrimaryNav`): TOOLS · MAP · PROJECTS · ABOUT, then **ADMIN**
+  (`AdminLink`, `/admin`) for anyone who can reach `/admin` — the same
+  `canReachAdmin` the menu used — then the profile control or SIGN IN. ADMIN
+  is a link like the others: muted, underlined in the accent ink on any
+  `/admin` page, behind MENU on the short bar. Hiding it is presentation;
+  `/admin` checks again on the server. The bar's only accent is now the
+  current page's underline.
+- **REPORT is gone from the bar.** Reporting stays one press away: **Report a
+  problem** on every tool page (the quick report form) and on a unit's QR
+  arrival notice, and a new **Report a problem** in the site footer
+  (`FooterReportButton`), which does what the header's button did — opens the
+  assistant with "I'd like to report a problem." The kiosk has no report
+  control of its own; its QR code opens the assistant, which files reports.
+  `nav.report*` moved to `footer.report` and `footer.reportSeed` (12 locales).
+- **The profile menu**: Add equipment (for `tools.add`), **Account**
+  (`/account`, was "Your account"), **Connect AI assistant (MCP)**
+  (`/account/tokens`, was "Connect an AI assistant") and **Sign out**, drawn
+  in a new `--secondary-ink` token: Cornell crimson on paper (6.2:1), the
+  demo-data banner's lighter red in dark mode (6.1:1), checked in
+  `tokens.test.ts`. Admin left the menu. `nav.admin`, `nav.account` and
+  `nav.connectAssistant` are translated in all 12 locales.
+- **The fit** (DESIGN.md §8.12) is checked signed in as a SuperMaker (the
+  least role that sees ADMIN) in every language at 1024, 1280 and 1440 and
+  on the short bar, as well as signed out (`e2e/header-stability.spec.ts`).
+- **Tested** in `PrimaryNav.test.tsx`, `ProfileMenu.test.tsx`,
+  `AdminLink.test.tsx`, `GlobalChrome.test.tsx`, `SiteFooter.test.tsx`,
+  `tokens.test.ts`, and the `auth`, `admin-users` and `header-stability` E2E
+  specs.

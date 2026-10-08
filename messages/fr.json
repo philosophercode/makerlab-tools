@@ -1,8 +1,5 @@
 {
   "nav": {
-    "report": "SIGNALER",
-    "reportAria": "Signaler un problème",
-    "reportSeed": "Je voudrais signaler un problème.",
     "tools": "OUTILS",
     "projects": "PROJETS",
     "about": "À PROPOS",
@@ -19,7 +16,10 @@
     "signIn": "SE CONNECTER",
     "signInAria": "Connectez-vous avec votre compte {institution}",
     "signOut": "SE DÉCONNECTER",
-    "signedInAria": "Connecté en tant que {name}"
+    "signedInAria": "Connecté en tant que {name}",
+    "admin": "ADMIN",
+    "account": "COMPTE",
+    "connectAssistant": "CONNECTER UN ASSISTANT IA (MCP)"
   },
   "catalogRefresh": {
     "action": "Actualiser le catalogue",
@@ -331,6 +331,10 @@
   "demoBanner": {
     "label": "Données de démonstration",
     "body": "Ce catalogue contient des données d'exemple intégrées, et non l'inventaire réel de {institution}. Notion n'est pas configuré."
+  },
+  "footer": {
+    "report": "Signaler un problème",
+    "reportSeed": "Je voudrais signaler un problème."
   },
   "unsubscribe": {
     "loading": "Chargement…",

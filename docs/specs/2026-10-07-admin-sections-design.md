@@ -282,3 +282,10 @@ tasks.
 - `AdminActions.test.tsx`: the quick actions per role.
 - E2E: `admin-navigation`, `admin-client-navigation` (walks sections and tabs),
   `admin-queues`, `taxonomy`, `mirror`, `assistant-actions` updated.
+
+## Amendment — ADMIN in the header bar (2026-10-07)
+
+The way into `/admin` is **ADMIN** in the site's top bar again, for anyone
+who can reach it (`canReachAdmin`), in place of the old REPORT; it left the
+profile menu. ADMIN is marked as the current page anywhere under `/admin`.
+Details in the identity spec's amendment "ADMIN in the bar" (2026-10-07).

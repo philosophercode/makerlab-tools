@@ -1,8 +1,5 @@
 {
   "nav": {
-    "report": "REPORT",
-    "reportAria": "Report a problem",
-    "reportSeed": "I'd like to report a problem.",
     "tools": "TOOLS",
     "projects": "PROJECTS",
     "map": "MAP",
@@ -28,8 +25,8 @@
     "admin": "ADMIN",
     "addEquipment": "ADD EQUIPMENT",
     "accountMenuLabel": "Account menu",
-    "connectAssistant": "CONNECT AN AI ASSISTANT",
-    "yourAccount": "YOUR ACCOUNT"
+    "connectAssistant": "CONNECT AI ASSISTANT (MCP)",
+    "account": "ACCOUNT"
   },
   "catalogRefresh": {
     "action": "Refresh catalog",
@@ -277,7 +274,7 @@
     "assistantLimits": "It answers from the catalog and each tool's manuals, says so when it doesn't know, and sends you to MakerLAB staff for safety questions, access and training sign-offs.",
     "whyBody": "It was built so that anyone can find the right machine and learn how to use it safely before they walk over, in their own language.",
     "creditsBody": "Built by Isaac Steinberg (Tech Lead, Johnson Cornell Tech MBA '26) for the MakerLAB, which Niti Parikh (Director) and Luis Rodrigo Navarro (Assistant Director) run.",
-    "feedbackBody": "If you spot a mistake, use \"Report a correction\" on the tool's page — corrections go to the staff queue and are fixed in the app. For a broken machine, use Report in the header.",
+    "feedbackBody": "If you spot a mistake, use \"Report a correction\" on the tool's page — corrections go to the staff queue and are fixed in the app. For a broken machine, use Report a problem on its page, or at the foot of any page.",
     "browseTools": "Browse tools",
     "mcpHeading": "Connect an AI assistant",
     "mcpBody": "The catalog is also available to AI assistants such as Claude, ChatGPT and Codex over MCP, at this site's /api/mcp address. Browsing needs no account. To let an assistant file reports as you, with your role's permissions and nothing more, sign in with Google from the assistant; a personal access token is there for clients that can't.",
@@ -3671,7 +3668,7 @@
         },
         "report": {
           "title": "Report a problem",
-          "body": "Tell the assistant what's wrong, or press Report in the header. It suggests the obvious checks first, then files a ticket for the right machine. Sign in so staff know who reported it.",
+          "body": "Tell the assistant what's wrong, or press Report a problem at the foot of any page. It suggests the obvious checks first, then files a ticket for the right machine. Sign in so staff know who reported it.",
           "alt": "The assistant files a maintenance ticket for the Trotec Speedy 400."
         },
         "intake": {
@@ -3714,6 +3711,8 @@
     "quickStart": "Quick start",
     "about": "About",
     "mcp": "Connect an AI",
+    "report": "Report a problem",
+    "reportSeed": "I'd like to report a problem.",
     "official": "The MakerLAB at Cornell Tech"
   },
   "assistantPage": {

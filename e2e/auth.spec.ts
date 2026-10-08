@@ -121,9 +121,11 @@ test.describe("Sign-in", () => {
     await expect(nav.getByRole("menuitem", { name: /sign out/i })).toBeVisible();
 
     // `tools.add` and any admin-surface permission are not granted to `user`
-    // (auth/permissions), so the profile menu holds Sign out alone.
+    // (auth/permissions): no ADMIN in the bar (2026-10-07), and the profile
+    // menu holds Account, Connect AI assistant (MCP) and Sign out.
+    await expect(nav.getByRole("link", { name: /^admin$/i })).toHaveCount(0);
     await expect(nav.getByRole("menuitem", { name: /add equipment/i })).toHaveCount(0);
-    await expect(nav.getByRole("menuitem", { name: /^admin$/i })).toHaveCount(0);
+    await expect(nav.getByRole("menuitem", { name: /admin/i })).toHaveCount(0);
     // Refresh left the header for /admin on 2026-09-23.
     await expect(nav.getByRole("button", { name: "Refresh catalog" })).toHaveCount(0);
   });
@@ -140,10 +142,11 @@ test.describe("Sign-in", () => {
     await page.goto("/");
 
     const nav = page.getByRole("navigation", { name: "Primary navigation" });
-    // Add and Admin are in the profile menu (2026-09-23).
+    // ADMIN is in the bar (2026-10-07); Add is in the profile menu.
+    await expect(nav.getByRole("link", { name: /^admin$/i })).toHaveAttribute("href", "/admin");
     await nav.getByRole("button", { name: /signed in as/i }).click();
     await expect(nav.getByRole("menuitem", { name: /add equipment/i })).toBeVisible();
-    await expect(nav.getByRole("menuitem", { name: /^admin$/i })).toBeVisible();
+    await expect(nav.getByRole("menuitem", { name: /admin/i })).toHaveCount(0);
 
     // Add is among the overview's quick actions; Refresh catalog moved to
     // Settings › General (admin sections spec 2026-10-07).

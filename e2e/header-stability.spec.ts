@@ -80,7 +80,7 @@ async function headerFits(page: Page): Promise<string[]> {
     if (apart(brand, nav) < 8) problems.push(`brand meets the links (${apart(brand, nav)}px apart)`);
     if (apart(nav, actions) < 8) problems.push(`links meet the controls (${apart(nav, actions)}px apart)`);
     if (header.scrollWidth > header.clientWidth) problems.push(`header is ${header.scrollWidth}px in ${header.clientWidth}px`);
-    // The links and Report sit in `.primary-nav-links` (the short bar's MENU
+    // The links (and ADMIN) sit in `.primary-nav-links` (the short bar's MENU
     // panel, `display: contents` everywhere else); on the short bar they are
     // hidden until MENU opens, so they measure nothing here.
     const controls = ".brand-lockup, .primary-nav > a, .primary-nav > button, .primary-nav-links > a, .primary-nav-links > button, .primary-nav-profile";
@@ -174,6 +174,38 @@ for (const [bar, width, height] of FIT_SIZES) {
     expect(failures).toEqual([]);
   });
 }
+
+// And signed in, since 2026-10-07: ADMIN and the profile control take the
+// place of REPORT and SIGN IN (identity spec amendment "ADMIN in the bar").
+// A SuperMaker is the least role that sees ADMIN. One load per language, then
+// every size by resizing: the bar is laid out by CSS alone, and twelve loads
+// rather than forty-eight keep this account's identity calls well inside
+// `/api/identity`'s limit while the rest of the suite runs beside it.
+test("the bar fits in every language signed in as a SuperMaker, at every one-row width and the short bar", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
+  const failures: string[] = [];
+  for (const locale of LOCALE_CODES) {
+    await page.setViewportSize({ width: FIT_SIZES[0][1], height: FIT_SIZES[0][2] });
+    await context.addCookies([{ name: "NEXT_LOCALE", value: locale, url: baseURL! }]);
+    await page.goto("/");
+    await expect(page.locator("html")).toHaveAttribute("lang", locale);
+    await expect(page.locator(".primary-nav-profile")).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator(".primary-nav-admin")).toBeVisible();
+    for (const [bar, width, height] of FIT_SIZES) {
+      await page.setViewportSize({ width, height });
+      await page.waitForFunction((w) => window.innerWidth === w, width);
+      // On the short bar ADMIN is behind MENU and measures nothing.
+      if (bar === "one-row") await expect(page.locator(".primary-nav-admin")).toBeVisible();
+      const problems = await headerFits(page);
+      if (problems.length) failures.push(`${locale} at ${width}×${height}: ${problems.join("; ")}`);
+    }
+  }
+  expect(failures).toEqual([]);
+});
 
 /**
  * No horizontal page scroll, at any width (DESIGN.md §6, §8.15): a wide thing
@@ -273,7 +305,9 @@ test("on a phone on its side MENU holds the links: Tab walks them, Escape return
       return { inside: r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, tall: r.height >= 40 };
     })
   );
-  expect(rows).toEqual(Array(5).fill({ inside: true, tall: true }));
+  // TOOLS, MAP, PROJECTS, ABOUT — REPORT left the bar on 2026-10-07, and ADMIN
+  // is only for those who can reach /admin.
+  expect(rows).toEqual(Array(4).fill({ inside: true, tall: true }));
 
   await page.keyboard.press("Escape");
   await expect(menu).toHaveAttribute("aria-expanded", "false");

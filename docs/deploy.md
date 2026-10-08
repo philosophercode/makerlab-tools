@@ -86,7 +86,7 @@ catalogue, which is enough to exercise most of the product:
 | From the gallery: *"I need to cut 6mm plywood"* | `search_tools`, project scoping |
 | From a tool page: *"How do I replace the filament?"* | Manual-grounded answers |
 | Ask in Spanish | Replies in the language asked |
-| **REPORT** in the nav | Troubleshoots first, then offers to file |
+| **Report a problem** in the footer | Troubleshoots first, then offers to file |
 | *"Do you have a waterjet?"* | Honest absence — it must not invent one |
 | **ADD**, signed in as an admin (Stage 3b), paste a product URL | Intake: identify, then background research into a draft |
 

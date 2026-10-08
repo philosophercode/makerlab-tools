@@ -1,8 +1,5 @@
 {
   "nav": {
-    "report": "СООБЩИТЬ",
-    "reportAria": "Сообщить о проблеме",
-    "reportSeed": "Я хочу сообщить о проблеме.",
     "tools": "ИНСТРУМЕНТЫ",
     "projects": "ПРОЕКТЫ",
     "about": "О ПРОЕКТЕ",
@@ -19,7 +16,10 @@
     "signIn": "ВОЙТИ",
     "signInAria": "Войдите с помощью аккаунта {institution}",
     "signOut": "ВЫЙТИ",
-    "signedInAria": "Вы вошли как {name}"
+    "signedInAria": "Вы вошли как {name}",
+    "admin": "АДМИН",
+    "account": "АККАУНТ",
+    "connectAssistant": "ПОДКЛЮЧИТЬ ИИ-АССИСТЕНТА (MCP)"
   },
   "catalogRefresh": {
     "action": "Обновить каталог",
@@ -331,6 +331,10 @@
   "demoBanner": {
     "label": "Демонстрационные данные",
     "body": "Этот каталог — встроенные образцы данных, а не реальный инвентарь {institution}. Notion не настроен."
+  },
+  "footer": {
+    "report": "Сообщить о проблеме",
+    "reportSeed": "Я хочу сообщить о проблеме."
   },
   "unsubscribe": {
     "loading": "Загрузка…",

@@ -1,8 +1,5 @@
 {
   "nav": {
-    "report": "रिपोर्ट करें",
-    "reportAria": "समस्या की रिपोर्ट करें",
-    "reportSeed": "मैं एक समस्या की रिपोर्ट करना चाहता हूँ।",
     "tools": "उपकरण",
     "projects": "परियोजनाएँ",
     "about": "परिचय",
@@ -19,7 +16,10 @@
     "signIn": "साइन इन करें",
     "signInAria": "अपने {institution} खाते से साइन इन करें",
     "signOut": "साइन आउट",
-    "signedInAria": "{name} के रूप में साइन इन"
+    "signedInAria": "{name} के रूप में साइन इन",
+    "admin": "एडमिन",
+    "account": "खाता",
+    "connectAssistant": "AI सहायक कनेक्ट करें (MCP)"
   },
   "catalogRefresh": {
     "action": "कैटलॉग रीफ़्रेश करें",
@@ -331,6 +331,10 @@
   "demoBanner": {
     "label": "डेमो डेटा",
     "body": "यह कैटलॉग अंतर्निहित नमूना डेटा है, {institution} की वास्तविक इन्वेंटरी नहीं। Notion कॉन्फ़िगर नहीं है।"
+  },
+  "footer": {
+    "report": "समस्या की रिपोर्ट करें",
+    "reportSeed": "मैं एक समस्या की रिपोर्ट करना चाहता हूँ।"
   },
   "unsubscribe": {
     "loading": "लोड हो रहा है…",

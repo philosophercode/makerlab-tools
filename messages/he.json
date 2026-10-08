@@ -1,8 +1,5 @@
 {
   "nav": {
-    "report": "דיווח",
-    "reportAria": "דיווח על תקלה",
-    "reportSeed": "אני רוצה לדווח על תקלה.",
     "tools": "כלים",
     "projects": "פרויקטים",
     "about": "אודות",
@@ -19,7 +16,10 @@
     "signIn": "התחברות",
     "signInAria": "התחבר עם חשבון {institution} שלך",
     "signOut": "התנתקות",
-    "signedInAria": "מחובר בתור {name}"
+    "signedInAria": "מחובר בתור {name}",
+    "admin": "ניהול",
+    "account": "חשבון",
+    "connectAssistant": "חיבור עוזר AI (MCP)"
   },
   "catalogRefresh": {
     "action": "רענון הקטלוג",
@@ -331,6 +331,10 @@
   "demoBanner": {
     "label": "נתוני הדגמה",
     "body": "קטלוג זה מכיל נתוני דוגמה מובנים, לא המלאי האמיתי של {institution}. Notion אינו מוגדר."
+  },
+  "footer": {
+    "report": "דיווח על תקלה",
+    "reportSeed": "אני רוצה לדווח על תקלה."
   },
   "unsubscribe": {
     "loading": "טוען…",

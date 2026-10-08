@@ -1,8 +1,5 @@
 {
   "nav": {
-    "report": "BİLDİR",
-    "reportAria": "Sorun bildir",
-    "reportSeed": "Bir sorun bildirmek istiyorum.",
     "tools": "ARAÇLAR",
     "projects": "PROJELER",
     "about": "HAKKINDA",
@@ -19,7 +16,10 @@
     "signIn": "OTURUM AÇ",
     "signInAria": "{institution} hesabınızla oturum açın",
     "signOut": "OTURUMU KAPAT",
-    "signedInAria": "{name} olarak oturum açıldı"
+    "signedInAria": "{name} olarak oturum açıldı",
+    "admin": "YÖNETİM",
+    "account": "HESAP",
+    "connectAssistant": "YAPAY ZEKÂ ASİSTANI BAĞLA (MCP)"
   },
   "catalogRefresh": {
     "action": "Kataloğu yenile",
@@ -331,6 +331,10 @@
   "demoBanner": {
     "label": "Demo verileri",
     "body": "Bu katalog yerleşik örnek verilerdir, {institution} kurumunun gerçek envanteri değildir. Notion yapılandırılmamış."
+  },
+  "footer": {
+    "report": "Sorun bildir",
+    "reportSeed": "Bir sorun bildirmek istiyorum."
   },
   "unsubscribe": {
     "loading": "Yükleniyor…",

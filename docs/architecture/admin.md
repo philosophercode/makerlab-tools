@@ -271,7 +271,7 @@ Phase 5 extends both. The shape it sets:
 - **Names** (`lib/people/name.ts`): trimmed, whitespace collapsed, 1–80
   characters (`PERSON_NAME_MAX_LENGTH`, Add person included). A super admin
   renames anybody on the roster (`setUserName`, `users.manage`); anybody signed
-  in renames themselves on **`/account`** ("Your account" in the profile menu;
+  in renames themselves on **`/account`** ("Account" in the profile menu;
   `updateOwnName` in `lib/account/name-actions.ts`, account gate, always the
   caller's own row). Both go through `renamePerson` (`lib/people/rename.ts`) and
   record `user.name_changed` `{ from, to }`; a lost event is a warning, not a

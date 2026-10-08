@@ -1,8 +1,5 @@
 {
   "nav": {
-    "report": "신고",
-    "reportAria": "문제 신고",
-    "reportSeed": "문제를 신고하고 싶어요.",
     "tools": "도구",
     "projects": "프로젝트",
     "about": "소개",
@@ -19,7 +16,10 @@
     "signIn": "로그인",
     "signInAria": "{institution} 계정으로 로그인",
     "signOut": "로그아웃",
-    "signedInAria": "{name}(으)로 로그인됨"
+    "signedInAria": "{name}(으)로 로그인됨",
+    "admin": "관리",
+    "account": "계정",
+    "connectAssistant": "AI 어시스턴트 연결 (MCP)"
   },
   "catalogRefresh": {
     "action": "카탈로그 새로 고침",
@@ -331,6 +331,10 @@
   "demoBanner": {
     "label": "데모 데이터",
     "body": "이 카탈로그는 내장된 샘플 데이터이며 {institution}의 실제 재고가 아닙니다. Notion이 구성되지 않았습니다."
+  },
+  "footer": {
+    "report": "문제 신고",
+    "reportSeed": "문제를 신고하고 싶어요."
   },
   "unsubscribe": {
     "loading": "불러오는 중…",

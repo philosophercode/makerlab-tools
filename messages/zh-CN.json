@@ -1,8 +1,5 @@
 {
   "nav": {
-    "report": "报告",
-    "reportAria": "报告问题",
-    "reportSeed": "我想报告一个问题。",
     "tools": "工具",
     "projects": "项目",
     "about": "关于",
@@ -19,7 +16,10 @@
     "signIn": "登录",
     "signInAria": "使用您的 {institution} 账号登录",
     "signOut": "退出登录",
-    "signedInAria": "已以 {name} 身份登录"
+    "signedInAria": "已以 {name} 身份登录",
+    "admin": "管理",
+    "account": "账户",
+    "connectAssistant": "连接 AI 助手（MCP）"
   },
   "catalogRefresh": {
     "action": "刷新目录",
@@ -331,6 +331,10 @@
   "demoBanner": {
     "label": "演示数据",
     "body": "此目录为内置示例数据，并非 {institution} 的真实库存。Notion 尚未配置。"
+  },
+  "footer": {
+    "report": "报告问题",
+    "reportSeed": "我想报告一个问题。"
   },
   "unsubscribe": {
     "loading": "加载中…",

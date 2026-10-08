@@ -118,18 +118,19 @@ describe("GlobalChrome", () => {
     expect(screen.getByLabelText("Lab status")).toBeInTheDocument();
   });
 
-  // Isaac, 2026-09-23: links, REPORT, then the profile control or SIGN IN.
-  it("keeps the header to links, Report and Sign in for a visitor", async () => {
+  // Isaac, 2026-10-07: links, ADMIN for those who can reach /admin, then the
+  // profile control or SIGN IN. REPORT left the bar.
+  it("keeps the header to links and Sign in for a visitor", async () => {
     render(<GlobalChrome stats={stats} />);
 
     const nav = screen.getByRole("navigation", { name: "Primary navigation" });
     expect(await screen.findByRole("button", { name: /Sign in/ })).toBeInTheDocument();
     // TOOLS, MAP (floor map spike), PROJECTS, ABOUT.
     expect(nav.querySelectorAll("a")).toHaveLength(4);
-    expect(screen.getByRole("button", { name: "Report a problem" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Report a problem" })).not.toBeInTheDocument();
   });
 
-  it("gives a director the profile control and nothing else new in the bar", async () => {
+  it("gives a director ADMIN and the profile control, and nothing else new in the bar", async () => {
     fetchIdentity.mockResolvedValue({
       role: "super_admin",
       name: "Isaac Steinberg",
@@ -141,7 +142,7 @@ describe("GlobalChrome", () => {
     expect(
       await screen.findByRole("button", { name: "Signed in as Isaac" })
     ).toHaveAttribute("aria-haspopup", "menu");
-    expect(screen.queryByRole("link", { name: "ADMIN" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "ADMIN" })).toHaveAttribute("href", "/admin");
     expect(screen.queryByRole("button", { name: /Add new equipment/ })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Refresh catalog" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "SIGN OUT" })).not.toBeInTheDocument();
