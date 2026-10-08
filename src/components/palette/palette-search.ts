@@ -1,11 +1,11 @@
 import { paletteScore } from "./palette-match";
 
 /**
- * What the ⌘K palette and the home page's smart search share (student home
- * spec 2026-10-07 §3): the words a tool is found by, the category list with
+ * What the ⌘K palette and the home page's search share (student home spec
+ * 2026-10-07 §3): the words a tool is found by, the category list with
  * counts, and ranking by the palette's matcher. One search, two places to
- * type it: the palette in a dialog on every page, the smart search inline on
- * the home page.
+ * type it: the palette in a dialog on every page, the home page's box, whose
+ * matches replace the list in place (amendment "One page: the list at rest").
  */
 
 /** A tool as either search sees it. */
@@ -72,4 +72,59 @@ export function rankByPaletteScore<T>(
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .slice(0, limit)
     .map((entry) => entry.item);
+}
+
+/** A tool as the home page's in-place search sees it: the palette's words, then what the list shows of it. */
+export interface CatalogueSearchableTool extends SearchableTool {
+  materials?: readonly string[];
+  tags?: readonly string[];
+  location?: string | null;
+  zone?: string | null;
+}
+
+/**
+ * The words the in-place search falls back on when a tool's name does not
+ * match (amendment "One page: the list at rest"): its name words again, so a
+ * query may mix the two ("prusa pla"), then its categories, materials, tags
+ * and room — what the full list's search found before it joined the home
+ * page. Never the description: with every word required, a long paragraph
+ * matches almost any question.
+ */
+export function toolDetailKeywords(tool: CatalogueSearchableTool): string[] {
+  return [
+    ...toolKeywords(tool),
+    tool.category ?? "",
+    tool.categorySub ?? "",
+    ...(tool.materials ?? []),
+    ...(tool.tags ?? []),
+    tool.location ?? "",
+    tool.zone ?? "",
+  ];
+}
+
+/**
+ * Every tool matching `query`, best first: the home page's results, drawn in
+ * place of the list. The palette's matcher (`paletteScore`: every word must
+ * appear, no fuzzy guesses) in two tiers — tools whose **name** matches
+ * (`toolKeywords`, ranked as the palette ranks them), then tools that match
+ * only on their **details** (`toolDetailKeywords`: category, material, tag,
+ * room). Equal scores go by `tieBreak` when given, then keep the order the
+ * tools arrived in; an empty query matches nothing.
+ */
+export function rankToolsInPlace<T extends CatalogueSearchableTool>(
+  tools: readonly T[],
+  query: string,
+  tieBreak?: (a: T, b: T) => number
+): T[] {
+  if (!query.trim()) return [];
+  return tools
+    .map((tool, index) => {
+      const byName = paletteScore(query, toolKeywords(tool));
+      // A name match always outranks a details match (a score is at most 1).
+      const score = byName > 0 ? 2 + byName : paletteScore(query, toolDetailKeywords(tool));
+      return { tool, index, score };
+    })
+    .filter((entry) => entry.score > 0)
+    .sort((a, b) => b.score - a.score || (tieBreak ? tieBreak(a.tool, b.tool) : 0) || a.index - b.index)
+    .map((entry) => entry.tool);
 }

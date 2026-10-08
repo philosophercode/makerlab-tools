@@ -206,7 +206,7 @@ describe("ProjectDetail tool links", () => {
     render(
       await ProjectDetail({ project: project({ materials: ["plywood", "Unobtainium"] }), galleryMaterials: ["Plywood", "PLA"] })
     );
-    expect(screen.getByRole("link", { name: "plywood" })).toHaveAttribute("href", "/tools?material=Plywood");
+    expect(screen.getByRole("link", { name: "plywood" })).toHaveAttribute("href", "/?material=Plywood");
     expect(screen.queryByRole("link", { name: "Unobtainium" })).toBeNull();
     expect(screen.getByText("Unobtainium")).toBeInTheDocument();
   });

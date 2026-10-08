@@ -1,12 +1,11 @@
-import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { CatalogStats } from "./catalog-types";
+import { HeaderBrand } from "./HeaderBrand";
 import { PrimaryNav } from "./PrimaryNav";
 import { ThemeToggle } from "./ThemeToggle";
 import { LanguageSelector } from "./LanguageSelector";
 import { HeaderSearch } from "./palette/HeaderSearch";
 import type { PaletteTool } from "./palette/palette-types";
-import { siteConfig } from "../lib/site-config";
 
 interface GlobalChromeProps {
   stats: CatalogStats;
@@ -20,18 +19,8 @@ export function GlobalChrome({ stats, paletteTools = [] }: GlobalChromeProps) {
   return (
     <>
       <header className="top-nav">
-        {/* The lockup reads "MakerLAB AI": the wordmark (a mask, so it takes
-            the theme's text colour), then "AI" in the accent. The wordmark is
-            decoration, so the link is named in full. */}
-        <Link className="brand-lockup" href="/" aria-label="MakerLAB AI">
-          <span
-            aria-hidden="true"
-            data-slot="brand-wordmark"
-            className="brand-wordmark"
-            style={{ maskImage: `url(${siteConfig.wordmark})`, WebkitMaskImage: `url(${siteConfig.wordmark})` }}
-          />
-          <span className="brand-ai">AI</span>
-        </Link>
+        {/* "MakerLAB AI"; on `/` it steps aside for the page's big lockup. */}
+        <HeaderBrand />
         <PrimaryNav />
         <div className="nav-actions" aria-label={t("nav.utilityControlsLabel")}>
           <HeaderSearch tools={paletteTools} />

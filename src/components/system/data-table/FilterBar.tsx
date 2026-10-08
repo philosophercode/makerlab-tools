@@ -37,6 +37,12 @@ export interface FilterBarProps {
    * still finds it.
    */
   searchSlot?: ReactNode;
+  /**
+   * A row of the page's own in the search's place, for a list whose search
+   * box sits above the bar (the home page's category chips, student home
+   * spec amendment "One page: the list at rest"). The count stays at its end.
+   */
+  lead?: ReactNode;
   /** `FacetFilter`s. */
   facets?: ReactNode;
   shown: number;
@@ -51,7 +57,7 @@ export interface FilterBarProps {
   activeCount?: number;
 }
 
-export function FilterBar({ label, search, searchSlot, facets, shown, total, onClear, secondary, end, activeCount = 0 }: FilterBarProps) {
+export function FilterBar({ label, search, searchSlot, lead, facets, shown, total, onClear, secondary, end, activeCount = 0 }: FilterBarProps) {
   const t = useTranslations("ui.filters");
   const searchId = useId();
   const [sheetOpen, setSheetOpen] = useState(false);
@@ -73,8 +79,8 @@ export function FilterBar({ label, search, searchSlot, facets, shown, total, onC
       // phone — search / controls / count; from `sm` — search·count / controls.
       className="ui grid grid-cols-1 items-center gap-x-3 gap-y-2 pb-3 [grid-template-areas:'search'_'controls'_'count'] sm:grid-cols-[minmax(0,1fr)_auto] sm:[grid-template-areas:'search_count'_'controls_controls']"
     >
-      {searchSlot ? (
-        <div className="min-w-0 [grid-area:search]">{searchSlot}</div>
+      {searchSlot || lead ? (
+        <div className="min-w-0 [grid-area:search]">{searchSlot ?? lead}</div>
       ) : search ? (
         <div className="relative flex min-w-0 items-center [grid-area:search]">
           <label htmlFor={searchId} className="sr-only">

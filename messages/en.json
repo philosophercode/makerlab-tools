@@ -40,9 +40,6 @@
     "toolsInInventory": "{count} TOOLS IN INVENTORY"
   },
   "gallery": {
-    "title": "Tools",
-    "allTitle": "All tools",
-    "searchAria": "Search inventory",
     "filterLabel": "Filter the tools",
     "category": "Category",
     "materials": "Material",
@@ -55,10 +52,6 @@
     "emptyFiltered": "No tools match {filters}.",
     "clearFilters": "Clear filters",
     "loading": "Loading the inventory…",
-    "facts": {
-      "tools": "{count, plural, one {# tool} other {# tools}}",
-      "available": "{count} available now"
-    },
     "sort": {
       "label": "Sort",
       "name": "Name A–Z",
@@ -72,8 +65,8 @@
     "group": {
       "label": "Group by",
       "none": "None",
-      "category": "Category",
-      "categoryGroup": "Category group",
+      "category": "Subcategory",
+      "categoryGroup": "Category",
       "location": "Location"
     },
     "sectionCount": "{count, plural, one {# tool} other {# tools}}",
@@ -103,23 +96,29 @@
       "consumable": "Consumable",
       "fixture": "Fixture"
     },
+    "chips": {
+      "label": "Categories",
+      "all": "All"
+    },
+    "results": {
+      "heading": "Results for “{query}”"
+    },
     "home": {
       "searchSection": "Search the lab",
-      "seeAll": "{count, plural, one {See the # tool} other {See all # tools}}",
       "toolCount": "{count, plural, one {# tool} other {# tools}}",
-      "unitsDown": "{count, plural, one {# unit out of service} other {# units out of service}}",
-      "empty": "No tools in the catalog yet."
+      "unitsDown": "{count, plural, one {# unit out of service} other {# units out of service}}"
     },
     "search": {
       "landmark": "Search tools and ask MakerLAB AI",
       "label": "Search tools, or ask MakerLAB AI a question",
-      "tools": "Tools",
       "categories": "Categories",
       "categoryCount": "{count, plural, one {# tool} other {# tools}}",
       "assistant": "MakerLAB AI",
       "ask": "Ask MakerLAB AI: “{query}”",
       "askNote": "Opens the chat with your question. MakerLAB AI can make mistakes.",
+      "clear": "Clear the search",
       "noMatch": "No tool or category matches “{query}”.",
+      "enterOpens": "Enter opens {name}",
       "lines": {
         "search": "{count, plural, one {Search # tool} other {Search # tools}}",
         "build": "What will you build?",
@@ -3074,7 +3073,6 @@
     "pages": "Pages",
     "page": {
       "tools": "Tools",
-      "allTools": "All tools",
       "projects": "Projects",
       "about": "About",
       "mcp": "Connect an AI assistant (MCP)"

@@ -2,7 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useTranslations } from "next-intl";
-import { Search } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useRotatingLine } from "./use-rotating-line";
 
@@ -48,6 +48,7 @@ export function SearchFrame({
   empty,
   focused,
   className,
+  clear,
 }: {
   children: ReactNode;
   lines: readonly string[];
@@ -56,6 +57,11 @@ export function SearchFrame({
   /** The field has focus: the line stops on the one showing. */
   focused: boolean;
   className?: string;
+  /**
+   * Empties the field: an × at its end while it has text. The home page's
+   * box has it, since emptying the box brings the list back.
+   */
+  clear?: { label: string; onClear: () => void };
 }) {
   const { index, visible } = useRotatingLine(lines.length, { paused: focused || !empty });
   return (
@@ -81,6 +87,19 @@ export function SearchFrame({
         >
           <span className="truncate">{lines[index]}</span>
         </span>
+      ) : clear ? (
+        <button
+          type="button"
+          aria-label={clear.label}
+          title={clear.label}
+          data-slot="search-clear"
+          // Keep the focus in the field: a press must not blur it first.
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={clear.onClear}
+          className="absolute end-2 inline-flex size-10 cursor-pointer items-center justify-center text-muted-foreground transition-colors duration-150 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring focus-visible:outline-solid"
+        >
+          <X aria-hidden="true" className="size-5" />
+        </button>
       ) : null}
     </div>
   );

@@ -2,7 +2,6 @@
 
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { matchSorter } from "match-sorter";
 import { LayoutGrid, Rows3 } from "lucide-react";
 import type { ColumnDef, VisibilityState } from "@tanstack/react-table";
 import type { GalleryTool } from "./catalog-types";
@@ -10,22 +9,16 @@ import { TOOL_ITEM_KIND } from "../lib/db/schema/vocabulary";
 import { TOOL_STATUS_KEY, ToolCard } from "./ToolCard";
 import type { ToolImagePriority } from "./ToolImage";
 import { GALLERY_DEFAULT_HIDDEN, useGalleryColumns } from "./gallery-columns";
-import { GalleryHero } from "./GalleryHero";
-import { AskMakerlabRow, ListSearch } from "./search/ListSearch";
+import { AskMakerlabRow } from "./search/ListSearch";
+import { CategoryChips } from "./home/CategoryChips";
 import {
   GALLERY_STATUSES,
-  availableUnits,
-  groupTools,
   hasFacetFilters,
-  parseGalleryState,
-  sortTools,
-  toGallerySearchParams,
-  visibleInGallery,
   type GalleryGroup,
   type GallerySort,
   type GalleryState,
 } from "./gallery-filters";
-import { useUrlSearch } from "./use-url-state";
+import { categoryChips, matchesFacet, narrowed, type CatalogueView, type Facet } from "./catalogue-view";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "./system/EmptyState";
 import { FilterBar } from "./system/data-table/FilterBar";
@@ -36,106 +29,59 @@ import { SegmentedControl } from "./system/SegmentedControl";
 import { facetOptions, uniqueValues } from "./system/data-table/facet-options";
 
 interface GalleryShellProps {
-  tools: GalleryTool[];
+  tools: readonly GalleryTool[];
+  /** The list's state (`useCatalogueState`: the URL) and what it shows. */
+  state: GalleryState;
+  set: (patch: Partial<GalleryState>) => void;
+  view: CatalogueView;
+  /** The taxonomy's top-level order, for the chips. */
+  categoryOrder: readonly string[];
 }
 
 // The table view (TanStack Table under `DataTable`) loads when somebody
 // switches to it; the grid everybody lands on does not carry it.
 const GalleryTable = lazy(() => import("./GalleryTable").then((mod) => ({ default: mod.GalleryTable })));
 
-// Ranked, typo-tolerant search keys. match-sorter ranks earlier keys above
-// later ones when match quality ties, so key order doubles as relevance
-// weight: name first, then the structured metadata (category / tags /
-// materials), then the free-text description last.
-const SEARCH_KEYS: ReadonlyArray<keyof GalleryTool> = [
-  "name",
-  // The official name, with its model or part number (tool display names spec §5.6).
-  "officialName",
-  "category",
-  "categorySub",
-  "tags",
-  "materials",
-  "location",
-  "zone",
-  "ppe",
-  "trainingLevel",
-  "description",
-];
-
-type Facet = "status" | "category" | "material" | "location" | "kind";
-const FACETS: readonly Facet[] = ["status", "category", "material", "location", "kind"];
-
-function matchesFacet(tool: GalleryTool, facet: Facet, value: string): boolean {
-  if (facet === "status") return tool.status === value;
-  if (facet === "category") return tool.category === value;
-  if (facet === "material") return tool.materials.includes(value);
-  if (facet === "kind") return (tool.itemKind ?? "equipment") === value;
-  return tool.location === value;
-}
-
-/** The rows every facet but `except` leaves — what a facet's counts are taken over. */
-function narrowed(tools: readonly GalleryTool[], state: GalleryState, except?: Facet): GalleryTool[] {
-  return tools.filter((tool) =>
-    FACETS.every(
-      (facet) => facet === except || !state[facet] || matchesFacet(tool, facet, state[facet]!)
-    )
-  );
-}
+/** The facets in the bar; Category is the chips above it. */
+const BAR_FACETS: readonly Facet[] = ["status", "material", "location", "kind"];
 
 /**
- * The full tool list at `/tools` (UI system phase 5a; public polish; the
- * home page until the student home spec of 2026-10-07): the display hero
- * "All tools" with a facts line, then the shared `FilterBar` — the minimal
- * search box (`ListSearch`, with "Ask MakerLAB AI" under it while it has
- * text) and the count it leaves, Status / Category /
- * Material / Location facets with counts, **Group by** and (in the table)
- * **Columns**, **Sort** and the Grid / Table `SegmentedControl` — over the
- * card grid or the `DataTable`. One filter state, in the URL, drives both
- * views; the table view is the inventory's controls for the public list.
+ * The tool list under the home page's search (UI system phase 5a; public
+ * polish; student home spec 2026-10-07, amendment "One page: the list at
+ * rest"). It holds no state: the home page (`HomeShell`) reads the URL and
+ * hands over what to show (`catalogueView`).
  *
- * Grouped, the gallery is labelled sections in order, each heading sticky
- * under the top bar with its count (small multiples), in both views. Every
- * choice is in the URL (`gallery-filters.ts`, `useUrlSearch`), so a view is a
- * link; the page stays one cached prerender for everybody.
+ * - **The bar** (`FilterBar`): the category chips (`CategoryChips`, the
+ *   Category filter) with the count they leave, then Status / Material /
+ *   Location / Item kind with counts, **Group by** and (in the table)
+ *   **Columns**, **Sort** and the Grid / Table `SegmentedControl`.
+ * - **At rest** the tools are in sections — by category group in the lab's
+ *   order unless another grouping is chosen — each heading sticky under the
+ *   top bar with its count, in both views.
+ * - **Searching** the sections give way to the matching tools, best first,
+ *   under a heading that says what was searched; Ask MakerLAB AI is offered
+ *   after them, and in place of them when nothing matches.
  */
-export function GalleryShell({ tools }: GalleryShellProps) {
+export function GalleryShell({ tools, state, set, view, categoryOrder }: GalleryShellProps) {
   const t = useTranslations("gallery");
-  const [search, writeSearch] = useUrlSearch();
-  const state = useMemo(() => parseGalleryState(new URLSearchParams(search)), [search]);
-  const set = (patch: Partial<GalleryState>) => writeSearch(toGallerySearchParams({ ...state, ...patch }));
-
   const columns = useGalleryColumns();
   const [visibility, setVisibility] = useState<VisibilityState>(GALLERY_DEFAULT_HIDDEN);
 
-  const mainRef = useRef<HTMLElement>(null);
-  useStickyOffset(mainRef);
+  const rootRef = useRef<HTMLDivElement>(null);
+  useStickyOffset(rootRef);
 
-  // Hidden-by-default categories stay out unless the Category facet names one
-  // (taxonomy v2); the Category facet itself still lists them, with counts.
-  const visible = useMemo(() => visibleInGallery(tools, state), [tools, state]);
-  const categories = useMemo(() => uniqueValues(tools.map((tool) => tool.category)), [tools]);
+  const { visible, shown, sections, searching } = view;
+  const query = state.query.trim();
   const materials = useMemo(() => uniqueValues(visible.flatMap((tool) => tool.materials)), [visible]);
   const locations = useMemo(() => uniqueValues(visible.map((tool) => tool.location)), [visible]);
-
-  const query = state.query.trim();
-  const shownTools = useMemo(() => {
-    const faceted = narrowed(visible, state);
-    // Empty query keeps the catalogue's order; a query ranks by fuzzy match.
-    const ranked = query ? matchSorter(faceted, query, { keys: SEARCH_KEYS.slice() }) : faceted;
-    return sortTools(ranked, state.sort);
-  }, [visible, state, query]);
-  const sections = useMemo(() => groupTools(shownTools, state.group), [shownTools, state.group]);
-
-  const facts = useMemo(() => {
-    const available = visible.filter((tool) => availableUnits(tool) > 0).length;
-    return [t("facts.tools", { count: visible.length }), t("facts.available", { count: available })].join(" · ");
-  }, [visible, t]);
+  const chips = useMemo(() => categoryChips(tools, state, categoryOrder), [tools, state, categoryOrder]);
+  const allCount = useMemo(() => narrowed(visible.filter((tool) => !tool.galleryHidden), state, "category").length, [visible, state]);
 
   const facet = (key: Facet, label: string, values: readonly string[], valueLabel?: (value: string) => string) => (
     <FacetFilter
       label={label}
       value={state[key]}
-      options={facetOptions(narrowed(key === "category" ? tools : visible, state, key), values, (tool, value) => matchesFacet(tool, key, value), valueLabel)}
+      options={facetOptions(narrowed(visible, state, key), values, (tool, value) => matchesFacet(tool, key, value), valueLabel)}
       onChange={(value) => set({ [key]: value })}
     />
   );
@@ -151,11 +97,12 @@ export function GalleryShell({ tools }: GalleryShellProps) {
     { value: "recent", label: t("sort.recent") },
     { value: "available", label: t("sort.available") },
   ];
-  const groupOptions: ChoiceOption<"none" | GalleryGroup>[] = [
-    { value: "none", label: t("group.none") },
+  // The default (`null`) is by category group, in the lab's order.
+  const groupOptions: ChoiceOption<"default" | Exclude<GalleryGroup, "categoryGroup">>[] = [
+    { value: "default", label: t("group.categoryGroup") },
     { value: "category", label: t("group.category") },
-    { value: "categoryGroup", label: t("group.categoryGroup") },
     { value: "location", label: t("group.location") },
+    { value: "none", label: t("group.none") },
   ];
 
   const activeWords = [
@@ -168,42 +115,40 @@ export function GalleryShell({ tools }: GalleryShellProps) {
   ].filter(Boolean);
   const narrowing = Boolean(query) || hasFacetFilters(state);
   const clear = () => set({ query: "", status: null, category: null, material: null, location: null, kind: null });
-  const activeCount = FACETS.filter((key) => state[key]).length;
+  // The phone's Filters button counts what is in its sheet: not the chips.
+  const activeCount = BAR_FACETS.filter((key) => state[key]).length;
 
   return (
-    <main ref={mainRef} className="ui mx-auto w-full max-w-[1440px] px-4 pb-16 sm:px-8">
-      <GalleryHero title={t("allTitle")} facts={facts} />
-
+    <div ref={rootRef} data-slot="tool-list">
       <FilterBar
         label={t("filterLabel")}
-        searchSlot={
-          <ListSearch
-            value={state.query}
-            onChange={(value) => set({ query: value })}
-            label={t("searchAria")}
-            toolCount={visible.length}
+        lead={
+          <CategoryChips
+            chips={chips}
+            value={state.category}
+            total={allCount}
+            onChange={(category) => set({ category })}
           />
         }
         facets={
           <>
             {facet("status", t("statusFacet"), GALLERY_STATUSES, statusLabel)}
-            {facet("category", t("category"), categories)}
             {facet("material", t("materials"), materials)}
             {facet("location", t("location"), locations)}
             {facet("kind", t("itemKindFacet"), TOOL_ITEM_KIND, kindLabel)}
           </>
         }
         activeCount={activeCount}
-        shown={shownTools.length}
+        shown={shown.length}
         total={visible.length}
         onClear={narrowing ? clear : null}
         secondary={
           <>
             <ChoiceMenu
               label={t("group.label")}
-              value={state.group ?? "none"}
+              value={state.group ?? "default"}
               options={groupOptions}
-              onChange={(value) => set({ group: value === "none" ? null : value })}
+              onChange={(value) => set({ group: value === "default" ? null : value })}
             />
             {state.view === "table" ? <ColumnsMenu columns={columns} visibility={visibility} onChange={setVisibility} /> : null}
           </>
@@ -219,7 +164,7 @@ export function GalleryShell({ tools }: GalleryShellProps) {
             <SegmentedControl
               label={t("viewModeLabel")}
               value={state.view}
-              onChange={(view) => set({ view })}
+              onChange={(next) => set({ view: next })}
               options={[
                 { value: "grid", label: t("grid"), content: <LayoutGrid aria-hidden="true" /> },
                 { value: "table", label: t("table"), content: <Rows3 aria-hidden="true" /> },
@@ -229,10 +174,8 @@ export function GalleryShell({ tools }: GalleryShellProps) {
         }
       />
 
-      <AskMakerlabRow query={state.query} />
-
-      {shownTools.length === 0 ? (
-        <section aria-label={t("toolGalleryLabel")}>
+      {shown.length === 0 ? (
+        <section aria-label={t("toolGalleryLabel")} data-slot="tool-list-empty">
           <EmptyState
             action={
               narrowing ? (
@@ -244,8 +187,25 @@ export function GalleryShell({ tools }: GalleryShellProps) {
           >
             {narrowing ? t("emptyFiltered", { filters: activeWords.join(" · ") }) : t("empty")}
           </EmptyState>
+          <AskMakerlabRow query={state.query} />
         </section>
-      ) : state.group === null ? (
+      ) : searching ? (
+        <section aria-labelledby="tool-results-heading" data-slot="tool-results">
+          <SectionHeading id="tool-results-heading" label={t("results.heading", { query })} count={t("sectionCount", { count: shown.length })} />
+          <Tools
+            tools={shown}
+            view={state.view}
+            headingLevel={3}
+            tableLabel={t("results.heading", { query })}
+            columns={columns}
+            visibility={visibility}
+            leading
+          />
+          <div className="mt-6">
+            <AskMakerlabRow query={state.query} />
+          </div>
+        </section>
+      ) : sections.length === 1 && sections[0].label === "" ? (
         <section aria-label={t("toolGalleryLabel")}>
           <Tools
             tools={sections[0].tools}
@@ -263,13 +223,7 @@ export function GalleryShell({ tools }: GalleryShellProps) {
             const id = `gallery-section-${index}`;
             return (
               <section key={section.key} aria-labelledby={id} data-slot="gallery-section">
-                <h2
-                  id={id}
-                  className="sticky top-[var(--gallery-sticky-top,var(--nav-height))] z-10 mb-3 flex items-baseline justify-between gap-3 border-b border-rule bg-background py-2 font-mono text-label tracking-[0.08em] uppercase"
-                >
-                  <span>{section.label}</span>
-                  <span className="text-muted-foreground tabular-nums">{t("sectionCount", { count: section.tools.length })}</span>
-                </h2>
+                <SectionHeading id={id} label={section.label} count={t("sectionCount", { count: section.tools.length })} />
                 <Tools
                   tools={section.tools}
                   view={state.view}
@@ -286,7 +240,20 @@ export function GalleryShell({ tools }: GalleryShellProps) {
           })}
         </div>
       )}
-    </main>
+    </div>
+  );
+}
+
+/** A group's heading, or the results': sticky under the top bar, the label and the count. */
+function SectionHeading({ id, label, count }: { id: string; label: string; count: string }) {
+  return (
+    <h2
+      id={id}
+      className="sticky top-[var(--gallery-sticky-top,var(--nav-height))] z-10 mb-3 flex items-baseline justify-between gap-3 border-b border-rule bg-background py-2 font-mono text-label tracking-[0.08em] uppercase"
+    >
+      <span className="min-w-0 truncate">{label}</span>
+      <span className="shrink-0 text-muted-foreground tabular-nums">{count}</span>
+    </h2>
   );
 }
 
@@ -348,24 +315,28 @@ export function cardImagePriority(index: number): ToolImagePriority {
 }
 
 /**
- * Keep the section headings just under the sticky top bar, whose height
- * changes with the viewport (it wraps on a phone): measured, not guessed.
- * On a short viewport the bar does not stick (DESIGN.md §8.12), so they stick
- * at the top. Entering or leaving that layout changes the bar's height, so
- * the observer sees it.
+ * Keep the section headings just under the sticky chrome — the top bar and
+ * the status strip under it — whose height changes with the viewport (the bar
+ * wraps on a phone): measured, not guessed. On a short viewport nothing
+ * sticks (DESIGN.md §8.12), so they stick at the top. Entering or leaving
+ * that layout changes the bar's height, so the observer sees it.
  */
 function useStickyOffset(ref: React.RefObject<HTMLElement | null>) {
   useEffect(() => {
-    const main = ref.current;
+    const root = ref.current;
     const bar = document.querySelector<HTMLElement>(".top-nav");
-    if (!main || !bar || typeof ResizeObserver === "undefined") return;
+    if (!root || !bar || typeof ResizeObserver === "undefined") return;
+    const strip = document.querySelector<HTMLElement>(".status-strip");
     const update = () => {
-      const sticks = getComputedStyle(bar).position === "sticky";
-      main.style.setProperty("--gallery-sticky-top", `${sticks ? bar.offsetHeight : 0}px`);
+      const barSticks = getComputedStyle(bar).position === "sticky";
+      const stripSticks = strip ? getComputedStyle(strip).position === "sticky" : false;
+      const top = (barSticks ? bar.offsetHeight : 0) + (barSticks && stripSticks && strip ? strip.offsetHeight : 0);
+      root.style.setProperty("--gallery-sticky-top", `${top}px`);
     };
     update();
     const observer = new ResizeObserver(update);
     observer.observe(bar);
+    if (strip) observer.observe(strip);
     return () => observer.disconnect();
   }, [ref]);
 }

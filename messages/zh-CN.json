@@ -33,9 +33,6 @@
     "toolsInInventory": "库存中有 {count} 件工具"
   },
   "gallery": {
-    "title": "工具",
-    "allTitle": "全部工具",
-    "searchAria": "搜索库存",
     "category": "类别：",
     "training": "培训：",
     "materials": "材料：",
@@ -54,21 +51,20 @@
     "trainingAdvanced": "高级",
     "home": {
       "searchSection": "搜索实验室",
-      "seeAll": "查看全部 {count} 件工具",
       "toolCount": "{count} 件工具",
-      "unitsDown": "{count} 台停用",
-      "empty": "目录中还没有工具。"
+      "unitsDown": "{count} 台停用"
     },
     "search": {
       "landmark": "搜索工具并向 MakerLAB AI 提问",
       "label": "搜索工具，或向 MakerLAB AI 提问",
-      "tools": "工具",
       "categories": "类别",
       "categoryCount": "{count} 件工具",
       "assistant": "MakerLAB AI",
       "ask": "向 MakerLAB AI 提问：“{query}”",
       "askNote": "带着你的问题打开聊天。MakerLAB AI 可能会出错。",
+      "clear": "清除搜索",
       "noMatch": "没有与“{query}”匹配的工具或类别。",
+      "enterOpens": "按 Enter 打开 {name}",
       "lines": {
         "search": "搜索 {count} 件工具",
         "build": "你想做点什么？",
@@ -77,6 +73,13 @@
         "x1Start": "问问如何在 X1-Carbon 上开始 3D 打印",
         "trotecAcrylic": "Trotec 激光能切亚克力吗？"
       }
+    },
+    "chips": {
+      "label": "类别",
+      "all": "全部"
+    },
+    "results": {
+      "heading": "“{query}”的搜索结果"
     }
   },
   "detail": {
@@ -361,9 +364,6 @@
     "home": "返回 {site}"
   },
   "palette": {
-    "page": {
-      "allTools": "全部工具"
-    },
     "assistant": "MakerLAB AI",
     "ask": "向 MakerLAB AI 提问：“{query}”",
     "askEmpty": "向 MakerLAB AI 提问"

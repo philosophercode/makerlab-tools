@@ -33,9 +33,6 @@
     "toolsInInventory": "इन्वेंटरी में {count} उपकरण"
   },
   "gallery": {
-    "title": "उपकरण",
-    "allTitle": "सभी उपकरण",
-    "searchAria": "इन्वेंटरी खोजें",
     "category": "श्रेणी:",
     "training": "प्रशिक्षण:",
     "materials": "सामग्री:",
@@ -54,21 +51,20 @@
     "trainingAdvanced": "उन्नत",
     "home": {
       "searchSection": "लैब में खोजें",
-      "seeAll": "सभी {count} उपकरण देखें",
       "toolCount": "{count, plural, one {# उपकरण} other {# उपकरण}}",
-      "unitsDown": "{count, plural, one {# यूनिट बंद है} other {# यूनिट बंद हैं}}",
-      "empty": "कैटलॉग में अभी कोई उपकरण नहीं है।"
+      "unitsDown": "{count, plural, one {# यूनिट बंद है} other {# यूनिट बंद हैं}}"
     },
     "search": {
       "landmark": "उपकरण खोजें और MakerLAB AI से पूछें",
       "label": "उपकरण खोजें, या MakerLAB AI से सवाल पूछें",
-      "tools": "उपकरण",
       "categories": "श्रेणियाँ",
       "categoryCount": "{count, plural, one {# उपकरण} other {# उपकरण}}",
       "assistant": "MakerLAB AI",
       "ask": "MakerLAB AI से पूछें: “{query}”",
       "askNote": "आपके सवाल के साथ चैट खोलता है। MakerLAB AI गलती कर सकता है।",
+      "clear": "खोज साफ़ करें",
       "noMatch": "“{query}” से कोई उपकरण या श्रेणी मेल नहीं खाती।",
+      "enterOpens": "Enter दबाने पर {name} खुलेगा",
       "lines": {
         "search": "{count} उपकरणों में खोजें",
         "build": "आप क्या बनाएँगे?",
@@ -77,6 +73,13 @@
         "x1Start": "पूछें कि X1-Carbon पर 3D प्रिंट कैसे शुरू करें",
         "trotecAcrylic": "क्या Trotec लेज़र एक्रिलिक काट सकता है?"
       }
+    },
+    "chips": {
+      "label": "श्रेणियाँ",
+      "all": "सभी"
+    },
+    "results": {
+      "heading": "“{query}” के परिणाम"
     }
   },
   "detail": {
@@ -361,9 +364,6 @@
     "home": "{site} पर वापस जाएँ"
   },
   "palette": {
-    "page": {
-      "allTools": "सभी उपकरण"
-    },
     "assistant": "MakerLAB AI",
     "ask": "MakerLAB AI से पूछें: “{query}”",
     "askEmpty": "MakerLAB AI से पूछें"

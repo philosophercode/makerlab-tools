@@ -204,6 +204,42 @@ body::selection {
   color: var(--on-surface);
 }
 
+/* On `/` the header's lockup steps aside while the page's big one is on
+   screen (student home spec, amendment "One page: the list at rest";
+   `HeaderBrand`): the logo shows once. Transparent, not hidden — it keeps its
+   box, so the bar does not move between pages, and stays a link a keyboard
+   reaches; focused, it shows. It fades back once the page's lockup has
+   scrolled away. */
+.brand-lockup[data-concealed] {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.brand-lockup[data-concealed]:focus-visible {
+  opacity: 1;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .brand-lockup {
+    transition: opacity 150ms ease;
+  }
+}
+
+/* The landing lockup: the same lettering and "AI" at display size, centred
+   above the home page's search (`LandingLockup`, identity spec amendment "The
+   landing lockup"). The header's rules draw it; only the height changes. */
+.landing-lockup {
+  --wordmark-height: clamp(40px, 7vw, 84px);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: calc(var(--wordmark-height) * 0.2);
+  margin: 0;
+  color: var(--on-surface);
+  line-height: 1;
+  white-space: nowrap;
+}
+
 /* The wordmark as a mask, painted in the text colour: black on light, white
    on dark, from the one asset (as the kiosk draws the full logo). Its width
    follows the height at the crop's own 112.5 × 19.4. */
