@@ -1150,3 +1150,16 @@ passages are not English. Search and chat are unchanged: a student may ask in an
 **Rerun.** The questions are regenerated once with `--force` (the passages offered changed, not the
 text or the model). Skills need no `--force`: their input hash covers the passages, so
 `tools:skills -- --apply` rewrites only the tools whose passages changed.
+
+### 2026-10-08 — Links from the machine's own record (`cites_only_tool`)
+
+**What changed.** `cites_only_tool` also accepts a link the machine's own `get_tool_details`
+returned in the turn — its manual, SOP or product page — compared without the `#page=` fragment.
+A link from another machine's record, or one no tool returned, still fails.
+
+**Why.** After the English-passages fix, 32 of the 58 failed answers in the production eval failed
+on this check alone, and they were good answers: each cited the right page through
+`search_manual`, then added "see the full manual" or "follow the SOP" with the link the tool's
+record gives. That link is the machine's own document — what the rule ("an answer cites only its
+machine's documents", 2026-10-06) is there to allow — so failing it measured the harness, not the
+chat.

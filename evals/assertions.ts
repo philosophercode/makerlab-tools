@@ -31,7 +31,7 @@ import type { EvalFixture, EvalFixtureTool } from "./fixtures";
  * | `cites_resource` | The answer references one of the machine's documents |
  * | `cites_page` | The answer cites a manual page: a `#page=N` link or "p. N" (N = `value` when given; `file.pdf#page=N` pins the document) |
  * | `says_not_covered` | The answer says the manual does not cover the question |
- * | `cites_only_tool` | Every document the answer cites belongs to the machine `value` (a slug): each linked passage's `toolId` is that machine's, an attached manual's page counts only when the case is on that machine's page, a manual-looking link no tool returned fails, and so does naming another machine's searched document in the text. An answer that cites nothing passes |
+ * | `cites_only_tool` | Every document the answer cites belongs to the machine `value` (a slug): each linked passage's `toolId` is that machine's, an attached manual's page counts only when the case is on that machine's page, a link from that machine's own `get_tool_details` (its manuals, SOPs, product page) counts, any other manual-looking link no tool returned fails, and so does naming another machine's searched document in the text. An answer that cites nothing passes |
  * | `citations_resolve` | Every manual link came from a `search_manual` result or a manual attached to the turn (`#cite-<ref>-<page>`, "(<title>, p. N)"), answers 200 `application/pdf`, opens a page the PDF has, and the passage is on that page (`src/lib/manuals/citation-check.ts`; the executor gathers the evidence) |
  * | `proposed_action` | That action tool was called — which only ever proposes a card (assistant–GUI parity spec §10.1) |
  * | `not_claimed_done` | The answer never says a change was made: nothing is done until the person confirms the card |
@@ -867,8 +867,11 @@ export function citationsResolve(
  *   output that records no id, its name as `tool`);
  * - a page of an attached manual counts only when the case is on that
  *   machine's page (the route attaches only the focused tool's manuals);
- * - a manual-looking link no search returned cannot be shown to be that
- *   machine's, so it fails;
+ * - a link the machine's own `get_tool_details` returned (its manual, SOP or
+ *   product page, "see the full manual") is that machine's, so it counts
+ *   (amendment "Links from the machine's own record", 2026-10-08);
+ * - any other manual-looking link no search returned cannot be shown to be
+ *   that machine's, so it fails;
  * - naming, in the text, the document of a searched passage that belongs to
  *   another machine fails too ("the Prusa handbook says…").
  *
@@ -889,6 +892,7 @@ export function citesOnlyTool(
   const belongs = (passage: ToolPassage) =>
     passage.toolId !== undefined && passage.toolId !== null ? passage.toolId === tool.id : passage.tool === tool.name;
   const linked = withAttachedMentionsLinked(text, attached);
+  const ownLinks = ownRecordLinks(toolCalls, tool);
   for (const href of citationLinks(linked)) {
     const passage = passageForHref(href, passages);
     if (passage) {
@@ -901,7 +905,8 @@ export function citesOnlyTool(
       if (focusedSlug !== slug) return { ok: false, detail: `cites an attached manual of ${focusedSlug ?? "no focused machine"}`, excerpt: href };
       continue;
     }
-    return { ok: false, detail: `cites ${href}, which no search_manual result or attached manual backs`, excerpt: href };
+    if (ownLinks.has(withoutFragment(href))) continue;
+    return { ok: false, detail: `cites ${href}, which no search_manual result, attached manual or the machine's own record backs`, excerpt: href };
   }
   const low = normalize(text);
   const ownTitles = new Set(passages.filter(belongs).map((passage) => normalize(citationTitle(passage.citation))));
@@ -911,6 +916,30 @@ export function citesOnlyTool(
   });
   if (named) return { ok: false, detail: `names ${citationTitle(named.citation)}, a document of ${named.tool ?? "another machine"}` };
   return { ok: true };
+}
+
+/** The links the machine's own `get_tool_details` gave the turn — its manuals, SOPs, product page — without fragments. */
+function ownRecordLinks(toolCalls: readonly RecordedToolCall[], tool: { id: string; slug: string }): Set<string> {
+  const out = new Set<string>();
+  const collect = (value: unknown): void => {
+    if (typeof value === "string") {
+      if (/^https?:\/\//i.test(value)) out.add(withoutFragment(value));
+    } else if (Array.isArray(value)) {
+      value.forEach(collect);
+    } else if (value && typeof value === "object") {
+      Object.values(value).forEach(collect);
+    }
+  };
+  for (const call of toolCalls) {
+    if (call.name !== "get_tool_details") continue;
+    const output = call.output as { id?: unknown; slug?: unknown } | null | undefined;
+    if (output && (output.id === tool.id || output.slug === tool.slug)) collect(output);
+  }
+  return out;
+}
+
+function withoutFragment(href: string): string {
+  return href.split("#")[0];
 }
 
 /** Phrases that say the manual has no answer — the honest-absence rule for manuals. */
