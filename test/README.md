@@ -23,6 +23,7 @@ your `*.test.ts(x)` files and import from here.
 | `test/gateway/wire.ts` | Dependency-free builders/parsers for the Gateway's own wire format — shared by `test/gateway/msw.ts` (Vitest) and `e2e/stubs/gateway-stub.ts` (Playwright, under `node --experimental-strip-types`) |
 | `test/gateway/msw.ts` | `gatewayHandlers({ language?, image? })` — MSW handlers over `wire.ts`, for the workflow tier where `vi.mock` cannot reach step code |
 | `test/gateway/png.ts` | `makePng` / `makePngBase64` — a real decodable PNG, with or without alpha, no deps |
+| `test/workflow/serial-event-log.ts` | Workflow project setup file: the local world's `events.create` one call at a time, so its event log stays append-only and concurrent steps cannot swap results on replay |
 | `test/web/resolver.ts` | The DNS stand-in `src/lib/web/guarded-fetch.ts` resolves hosts through; `setResolvedAddresses` / `resetResolver` |
 | `playwright.config.ts` | E2E config; dev server boots with `DATABASE_URL` unset (PGlite demo seed) |
 
