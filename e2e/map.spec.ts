@@ -57,3 +57,41 @@ test("a project page shows a signed-in visitor where its tools are, and nobody e
   await expect(work.getByText("Not on the map")).toBeVisible();
   await expect(work.getByRole("link", { name: /Form 4/ })).toHaveAttribute("href", "/tools/form-4");
 });
+
+/**
+ * The map above the fold (floor map spec amendment 2026-10-07): at the
+ * owner's laptop sizes the whole map is in the first screen, under a compact
+ * header, with the search and the zone bar beside it; on a phone the map's
+ * top is in the first screen, under the search and the zone bar. Before the
+ * change it started at y = 490 at 1440 × 900, half of it below the fold.
+ */
+for (const [width, height, whole] of [
+  [1440, 900, true],
+  [1280, 800, true],
+  [390, 844, false],
+] as const) {
+  test(`at ${width}×${height} the map starts in the first screen${whole ? ", all of it visible" : ""}`, async ({ page, context, baseURL }) => {
+    await page.setViewportSize({ width, height });
+    await signIn(context, DEMO_ACCOUNTS.user, baseURL);
+    await page.goto("/map");
+    const map = page.locator("svg.floor-map");
+    await expect(map).toBeVisible();
+
+    const box = await map.evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      return { top: r.top, bottom: r.bottom, width: r.width };
+    });
+    expect(box.top).toBeGreaterThan(0);
+    expect(box.top).toBeLessThan(height * (whole ? 0.35 : 0.6));
+    if (whole) {
+      expect(box.bottom).toBeLessThanOrEqual(height);
+      // Big enough to read: the window's height decides its size, not a thumbnail.
+      expect(box.width).toBeGreaterThan(height * 0.6);
+    }
+
+    // Every control is still there, and in the first screen.
+    await expect(page.getByRole("searchbox")).toBeInViewport();
+    await expect(page.getByRole("navigation", { name: "Zones" }).getByRole("link", { name: /All zones/ })).toBeInViewport();
+    await expect(page.getByRole("navigation", { name: "Places" })).toBeAttached();
+  });
+}
