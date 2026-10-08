@@ -68,7 +68,15 @@ variable list.
   upload route; it reads an image's bytes (JPEG, PNG, WebP or GIF only, stored
   under the detected type — `images/upload-type.ts`) and a resource's PDF magic,
   writes the blob, inserts an **unowned** `attachments` row and
-  returns `{ attachmentId, previewUrl }`. The write that follows *claims* those
+  returns `{ attachmentId, previewUrl }`. A **HEIC/HEIF** photo (an iPhone's,
+  from a browser that cannot read it) is converted, not refused: decoded by
+  `heic-decode` (libheif in WebAssembly, loaded on the first HEIC only —
+  `images/heif.ts`), stored as a JPEG of at most 2048 px under a `.jpg` name
+  (`images/convert-photo.ts`, the same rules as the browser's,
+  `images/photo-rules.ts`), and a `chat` upload's answer carries
+  `visionDataUrl`, the 1568 px copy the model sees. The chat downsizes every
+  photo it can read before uploading (`lib/chat/downscale-image.ts`), so the
+  conversion is the fallback (data platform spec amendment 2026-10-08). The write that follows *claims* those
   ids (`claimAttachments`), and `/api/cron/daily` deletes anything still
   unclaimed after 24 hours. **Both write paths say when a photo did not stick**
   — `report_issue` appends it to the message the assistant paraphrases, and

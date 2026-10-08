@@ -2142,3 +2142,104 @@ role); `src/app/api/mcp/route.test.ts` (the public endpoint, a student token and
 `src/lib/kiosk/snapshot.test.ts`; and the E2E specs `tool-detail`, `auth` and `qr-arrival`.
 
 **Status.** Built on `v5/hide-serials`.
+
+### 2026-10-08 — Photos from any phone: downsized in the browser, HEIC converted on the server (§3.3)
+
+**Why.** The owner's request (Isaac, 2026-10-08): a photo added to the chat should be taken as
+JPEG, PNG or HEIC from an iPhone or an Android phone, converted or downsized under the hood to a
+sensible upload size, without sending a heavy dependency to the browser. Before this:
+
+- The chat uploaded the **original as picked** — 2–5 MB from a phone, its EXIF block (GPS
+  position included) intact — and drew a 1568 px copy beside it for the model (intake spec §6.1,
+  amendment 2026-09-14).
+- On Vercel a request body over **4.5 MB** is refused before the route runs, so a large original
+  failed with an untranslated platform error, whatever §3.3's 18 MB says.
+- **HEIC was refused** by the 2026-10-05 byte check (`400 unsupported_image`). iOS Safari
+  usually transcodes to JPEG for `accept="image/*"`, so most iPhone photos got through; an iPhone
+  photo from Chrome on a desktop, a Samsung HEIF, or a `.heic` picked on Windows (which Chrome
+  gives no type, so the chat called it "not an image") did not, and the model saw none of them.
+
+**What changed.**
+
+1. **The browser downsizes before it uploads** (the chat composer; `preparePhoto` in
+   `src/lib/chat/downscale-image.ts`, canvas steps in `photo-canvas.ts`, rules in
+   `src/lib/images/photo-rules.ts`). Native APIs only — no new client dependency, nothing lazy
+   loaded.
+   - **Decoded once**, upright: `createImageBitmap(file, { imageOrientation: "from-image" })`
+     (asked again without options in a browser that rejects them as a `TypeError`). JPEG, PNG and
+     WebP decode everywhere; HEIC/HEIF in Safari (iOS, and macOS Safari 17+).
+   - **The stored copy** is at most **2048 px** on the long edge, **JPEG at 0.85** painted on
+     white — or a **PNG** only when the source is PNG, WebP or GIF, has a transparent pixel, and
+     the PNG comes out at most 1.5 MB. It is named `<stem>.jpg`/`.png` and uploaded **instead of
+     the original**. Re-encoding drops the EXIF block, GPS included, after its orientation has
+     been applied to the pixels. Drawn on an `OffscreenCanvas` where there is one, else a
+     `<canvas>`.
+   - **The model's copy** is the 1568 px JPEG drawn from the same bitmap (the stored JPEG itself
+     when that is already small enough), sent on the message as before.
+   - **One photo is prepared at a time** (a 12 MP photo is ~48 MB decoded; five picked at once on
+     a phone would hold them all); the uploads still overlap.
+   - **A photo the browser cannot read** (HEIC outside Safari) is uploaded **as it is**, an
+     untyped `.heic`/`.heif` typed from its name, for the route to convert.
+   - **Limits**: over **25 MB** is refused before decoding; an unreadable original over **4 MB**
+     is refused before uploading (Vercel's 4.5 MB body, less the multipart framing). The platform's
+     413, if it comes, reads the same.
+   - The chip and the `[Attached photos: …]` hint keep the **name the photo was picked under**
+     (`IMG_0412.HEIC`); the stored file is named for what it is (`IMG_0412.jpg`).
+2. **The route converts HEIC** (`POST /api/uploads`, every kind; `src/lib/images/heif.ts`,
+   `convert-photo.ts`). §3.3's "an image must really be JPEG, PNG, WebP or GIF" still holds for
+   what is **stored**:
+   - A file whose `ftyp` major brand is an HEVC brand (`heic`, `heix`, `heim`, `heis`, `hevc`,
+     `hevx`), or `mif1`/`msf1` beside one, is decoded with **`heic-decode`** (ISC) →
+     **`libheif-js`** (LGPL-3.0: libheif and libde265 compiled to WebAssembly, ~2 MB with the
+     wasm inlined, no native binary). AVIF, which shares the container, is not taken. libheif
+     applies the `irot`/`imir` transforms an iPhone records, so a portrait comes out upright.
+     `sharp` alone cannot do this: its prebuilt libvips carries libheif for AVIF only, with no
+     HEVC decoder.
+   - `sharp` then resizes and encodes from the raw pixels by the same rules: at most 2048 px,
+     JPEG quality 85, flattened on white, no metadata. The file is stored, recorded and answered
+     as `image/jpeg` under `<stem>.jpg`; `sizeBytes` and `originalFilename` describe what was
+     stored. More than 64 MP is refused before any pixel is allocated; a HEIC that cannot be read
+     is `400 unsupported_image`, with nothing stored.
+   - **A `chat` upload's answer carries `visionDataUrl`**: the 1568 px JPEG the browser would
+     have made. The chat uses it as the model's copy and as the preview (a browser that cannot
+     read HEIC cannot show its object URL either). The model's view of a photo therefore stays
+     where it always was — a file part on the user message, which `collectAttachments`,
+     `photo-qr` and `withRecentPhotos` already handle — rather than a new server-side read of a
+     private blob by attachment id on every turn.
+   - The decoder is in `serverExternalPackages` and imported on the **first HEIC** only, so no
+     other upload loads it. A 12 MP photo takes about 0.7 s and ~350 MB, inside the route's
+     30 s and the function's memory.
+   - An upload with no useful type (`""`, `application/octet-stream`) whose name ends `.heic` or
+     `.heif` counts as an image claim; its bytes decide, as for every image.
+   - The size refusal gains `code: "file_too_large"`, which the chat translates.
+3. **What the picker offers.** The composer's input accepts
+   `image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif` and the import list
+   extensions; no `capture` attribute, so a phone offers the camera and the library. iOS hands a
+   HEIC over as it is when the list names HEIC (and transcodes to JPEG when it does not); Safari
+   reads either, and an older iOS that cannot falls back to the route.
+4. **Two messages, all twelve locales:** `chat.photoUnsupported` ("This photo format isn't
+   supported — try a JPEG or PNG.") for `unsupported_image`, and `chat.photoTooLarge` for either
+   limit and for a 413.
+
+**Who benefits.** The chat composer gets all of it. The quick report form
+(`use-report-photo.ts`), the project form and the admin photo editor upload with their own code:
+they get the route's conversion (a HEIC is now stored as a JPEG rather than refused) but not the
+browser's downsizing, so a phone original over 4.5 MB still fails there. Moving them onto
+`preparePhoto` is a follow-up, not part of this change.
+
+**Licences.** `heic-decode` is ISC; `libheif-js` and the libheif and libde265 it wraps are
+LGPL-3.0, compatible with the app's AGPL-3.0, used unmodified from npm and loaded at runtime.
+
+**Covered by** `src/lib/images/photo-rules.test.ts` (sizes, PNG with transparency against JPEG,
+names, HEIC by name, the accept list); `src/lib/chat/downscale-image.test.ts` (the orientation
+option and its retry, 2048 and 1568 px from one decode, PNG kept or dropped, the original when the
+browser cannot read it, an untyped `.heic`, both limits, the `<canvas>` fallback);
+`src/lib/images/heif.test.ts` and `convert-photo.test.ts` (two real HEVC-coded files made with
+macOS `sips` in `test/fixtures/photos/` — one with an `irot` rotation — through the real decoder
+and `sharp`; AVIF brands refused; the pixel limit; a corrupt file); `api/uploads/route.test.ts` (a
+chat HEIC stored as a JPEG with `visionDataUrl`, a maintenance one without it, an untyped `.heic`,
+a corrupt one refused with nothing stored, `file_too_large`); `ChatFab.test.tsx` (the accept list
+and no `capture`, the downsized copy uploaded, the route's copy sent to the model and shown, an
+untyped `.heic`, one photo prepared at a time, both translated errors).
+
+**Status.** Built; not yet merged.
