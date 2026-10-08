@@ -510,8 +510,8 @@ page: the list at rest").
   stays a link named "MakerLAB AI" that a keyboard reaches and that shows when
   focused. It fades back once the landing lockup has scrolled away under the
   bar. On every other page it is as before.
-- **§2's home title "Tools"** is retired with the categories home: the home
-  page's heading is the lockup, and the list's groups are headed by category.
+- **§2's home title "Tools"** is retired: the home page's heading is the
+  lockup, and the category tiles and groups below it are headed by category.
 - **Tested** in `HeaderBrand.test.tsx`, `home/HomeShell.test.tsx`,
   `GlobalChrome.test.tsx`, `e2e/gallery.spec.ts` and
   `e2e/header-stability.spec.ts`.

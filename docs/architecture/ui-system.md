@@ -56,18 +56,21 @@
   `home/HomeShell`): "MakerLAB AI" at display size (`home/LandingLockup`; the
   header's lockup, `HeaderBrand`, steps aside on `/` while it is on screen),
   the one search box (`home/HomeSearch`: cmdk inline, the minimal box
-  `search/SearchFrame` with its rotating line), then the list
-  (`GalleryShell`, stateless: `use-catalogue-state.ts` reads the URL and
-  `catalogue-view.ts` decides what shows) — grouped by category in the
-  taxonomy's order (`getCategoryOrder`) at rest, category chips
-  (`home/CategoryChips`, `FilterBar`'s `lead`) and the facets. Typing swaps the
-  groups for the ranked matches (`rankToolsInPlace`, the palette's
-  `paletteScore` via `palette/palette-search.ts`); the box's own list keeps
-  the matching categories and "Ask MakerLAB AI" (Enter opens the first
-  result, never asks). Links to the list go through `lib/gallery-links.ts`
-  (`/?category=…`); `next.config.ts` redirects `/tools` to `/`; same-page
-  links reach the list through `openClientQueryPage` and the Navigation API
-  listener in `use-url-state.ts`. The tool page is one column (`DetailShell`, units as
+  `search/SearchFrame` with its rotating line), a quiet row
+  (`home/HomeControls`: Categories | All tools, and Filters), the Filters
+  panel (`home/FiltersPanel`, closed until asked for: every facet, Group by,
+  Sort, Grid / Table), then the content (`GalleryShell`, stateless:
+  `use-catalogue-state.ts` reads the URL and `catalogue-view.ts` decides what
+  shows) — the category tiles (`CategoryTileCard`) in the taxonomy's order
+  (`getCategoryOrder`) by default, a category's tools, or all tools grouped by
+  category (`?show=all`). Typing swaps the content for the ranked matches
+  (`rankToolsInPlace`, the palette's `paletteScore` via
+  `palette/palette-search.ts`); the box's own list keeps the matching
+  categories and "Ask MakerLAB AI" (Enter opens the first result, never
+  asks). Links to the list go through `lib/gallery-links.ts`; `next.config.ts`
+  redirects `/tools` to `/`; same-page links reach the list through
+  `openClientQueryPage` and the Navigation API listener in
+  `use-url-state.ts`. The tool page is one column (`DetailShell`, units as
   `tool/UnitsTable`, the maintenance history from `getToolMaintenanceHistory` —
   no names). `app/not-found.tsx` / `app/error.tsx` exist. `account.css`,
   `mcp.css`, the `.tool-detail` palette and the gallery/projects legacy rules
