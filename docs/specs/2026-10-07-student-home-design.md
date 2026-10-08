@@ -1,7 +1,8 @@
 # Student Home — Design Spec
 
 **Date:** 2026-10-07
-**Status:** Implemented
+**Status:** Implemented — the categories home and `/tools` are superseded by
+amendment "One page: the list at rest" (end of this file)
 **Target:** the app (repository root)
 **Branch:** `v5/home-calm-gallery`
 **Spec PR:** with the implementation · **Implementation PR:** with the spec
@@ -264,3 +265,156 @@ the header's wordmark in the upper-left corner, unchanged.
   `public/brand/makerlab-wordmark.svg` were removed (owner approval
   2026-10-07).
 - Tests: `HomeShell.test.tsx` asserts no second wordmark on the page.
+
+## Amendment — One page: the list at rest (2026-10-07)
+
+**Supersedes** §1's categories home and `/tools`, Goals 1, 3, 5 and 6, §5's
+"Home" and "Smart search" steps 2–3, the tiles of §6, and amendment "The logo
+once" where it puts the logo in the header on `/`. The rotating placeholder,
+"Enter never asks", the Ask row, the redirect idea and the rename stand.
+
+The owner, seeing the build (2026-10-07, from speech): "On the main page, above
+the search box, just put MakerLAB AI and remove the logo on that first landing
+page … I'm trying to harmonize the tools with the all tools page because I
+think they could really just be one, and the tools page itself could just be
+all tools grouped by the tool category … While you're searching, instead of
+just showing the dropdown it could show the top tools". The design review had
+recommended the same ("B — the list at rest"): the home page *is* the list
+before you type.
+
+### What the page is
+
+- **One page at `/`** (`HomeShell`): "MakerLAB AI" at display size, the one
+  search box, then **every tool grouped by top-level category in the lab's
+  order** (`getCategoryOrder`, the taxonomy's `sort_order`), each group a
+  sticky heading with its count over the gallery's own cards (`ToolCard`). No
+  tiles, no "See all", no second list.
+- **The landing lockup** (`home/LandingLockup`, the page's `h1`): the header's
+  lockup drawn large — the official lettering as a mask in the text colour
+  (`.brand-wordmark`, `siteConfig.wordmark`) and "AI" in the accent
+  (`.brand-ai`) — sized by `--wordmark-height: clamp(40px, 7vw, 84px)` on
+  `.landing-lockup`. Identity spec amendment "The landing lockup".
+- **The header's lockup steps aside on `/`** (`HeaderBrand`): while the
+  landing lockup is on screen the header's is `data-concealed` — transparent,
+  not hidden, so it keeps its box (`e2e/header-stability.spec.ts` sees the
+  same header on every page) and stays a link a keyboard reaches; focused, it
+  shows. **Deviation from the brief** ("hidden on `/`"): once the landing
+  lockup has scrolled away under the bar it fades back
+  (`home/landing-lockup-store`, an `IntersectionObserver`), so a long list is
+  never unbranded and the logo is still on screen once. One effect to remove
+  if the owner wants it hidden for good. Every other page is unchanged.
+- **Category chips** (`home/CategoryChips`) under the search: **All**, then
+  each category in the lab's order with the count the other filters leave; a
+  hidden-by-default category (Shop Infrastructure & Supplies) last. A chip is
+  a toggle for the list's Category filter (`?category=`): pressed, the list
+  shows that group alone, so the chip is also the jump to it. They replace
+  the Category facet in the bar and sit in the bar's first row (`FilterBar`'s
+  new `lead` slot), the count at its end. One line that scrolls sideways on a
+  phone; wrapping from `sm`.
+- **The list's own controls stay, compact:** Status, Material, Location and
+  Item kind facets (a Filters sheet on a phone), Group by (Category — the
+  default, nothing in the URL — Subcategory, Location, None, `?group=none`),
+  Columns in the table, Sort, Grid / Table. "Category group" and "Category"
+  in Group by are now "Category" and "Subcategory"; an old
+  `?group=categoryGroup` reads as the default.
+
+### Search: results on the page, the box's list for the rest
+
+- **Typing swaps the groups for the matching tools**, ranked, as you type
+  (`catalogueView` in `components/catalogue-view.ts`), under a heading
+  "Results for “…”" with the count, the facets still applying. Emptying the
+  box (its new ×, a second Escape) brings the groups back. The text is the
+  URL's `?q=`, so a search is a link and Back from a tool returns to it. The
+  box, the chips and the bar stay where they are: only the list below changes.
+- **Ranking** (`rankToolsInPlace`, `palette/palette-search.ts`) is the ⌘K
+  palette's `paletteScore` — every word must appear, never fuzzy — in two
+  tiers: tools whose name, official name or slug match, then tools that match
+  only on their details (category, subcategory, materials, tags, room). Never
+  the description: with every word required, a paragraph matches nearly any
+  question. The gallery's own tools come before a hidden-by-default
+  category's (the search reaches those too, as the smart search did), and on
+  an equal match equipment comes before fixtures, accessories and
+  consumables. The full list's old match-sorter search is gone.
+- **The box's list** (`HomeSearch`) keeps only what the page cannot show: the
+  **categories** the text matches (up to three; choosing one filters the list
+  to it and empties the box) and, last, **Ask MakerLAB AI: “…”**. It no
+  longer lists tools. A line at its top says what Enter will open ("Enter
+  opens Epilog Helix 24 Laser Cutter"), or that nothing matches.
+- **Keyboard.** Nothing in the box's list is selected as you type. Enter with
+  nothing selected — or with the list closed — opens the **first result the
+  page shows**; with no result, the first matching category; with neither,
+  nothing. Arrow keys move into the list; Enter there takes the row chosen.
+  **Enter never asks.** An input method's Enter (Japanese, Chinese, Korean
+  composition) is never a choice. Escape closes the list, a second empties the
+  box. The rotating placeholder is unchanged.
+- **Ask** is also a button after the results, and in their place when nothing
+  matches (`AskMakerlabRow`), so a student whose keyboard has closed still has
+  it.
+
+### `/tools` merges into `/`
+
+- **Redirect**, not a second render: `next.config.ts` sends `/tools` to `/`
+  (307; Next forwards the query, so `/tools?category=Laser` lands filtered).
+  Tool pages stay at `/tools/[id]` (the source matches `/tools` exactly). The
+  old `/`-with-a-filter → `/tools` redirect is gone (it would loop).
+  `src/app/tools/page.tsx` re-exports the home page in case the redirect is
+  ever removed.
+- **Links** (`lib/gallery-links.ts`): `ALL_TOOLS_PATH` is `/`, so the tool
+  page's category and room links, the project page's materials and the
+  palette's categories are `/?category=…` and the like. The palette drops its
+  "All tools" page ("Tools" is the list). The header's ⌘K field is hidden on
+  `/` only.
+- **Same-page links.** The page is one cached prerender that reads its query
+  on the client (`useUrlSearch`), so a router push to `/` from `/` changes the
+  address and nothing on it. The palette's category rows therefore open the
+  list through `openClientQueryPage` (a history entry the page reads in
+  place), and `useUrlSearch` also listens to the Navigation API's
+  `currententrychange`, so the header's TOOLS link or lockup followed on
+  `/?q=laser` brings back the groups.
+
+### Data, performance and strings
+
+- The home page sends `GalleryTool` (what the list's cards, table and facets
+  read) instead of `HomeTool`; the page stays one cached prerender, the
+  catalogue read cached under the `catalog` tag. ~100 tools are ranked in the
+  browser on each keystroke. The loading skeleton (`HomeFallback` with
+  `GalleryFallback`) draws the lockup and the box at the same spacing.
+- The sticky group headings now sit under the status strip too where it
+  sticks (they slid under it before).
+- **Strings (12 locales):** `gallery.chips.label` / `.all`,
+  `gallery.results.heading`, `gallery.search.clear`,
+  `gallery.search.enterOpens`. Removed: `gallery.title`, `gallery.allTitle`,
+  `gallery.searchAria`, `gallery.facts.*`, `gallery.home.seeAll` / `.empty`,
+  `gallery.search.tools`, `palette.page.allTools`. English `gallery.group`
+  relabelled (Category / Subcategory).
+- **Awaiting deletion approval** (no longer imported anywhere):
+  `home/CategoryTileCard.tsx`, `home/home-tools.ts` (+ its test, and the
+  `gallery.home.toolCount` / `.unitsDown` strings only the tile reads) and
+  `GalleryHero.tsx`.
+
+### Tests
+
+- `catalogue-view.test.ts`: groups in the lab's order, none, hidden categories,
+  results ranking (name before details, the gallery's own before hidden,
+  equipment first, facets kept, questions match nothing), chips and counts.
+- `palette/palette-search.test.ts`: `rankToolsInPlace` and
+  `toolDetailKeywords`. `gallery-filters.test.ts`: the default grouping,
+  `none`, the old `categoryGroup` link, `groupTools` in the lab's order,
+  `compareCategoryNames`.
+- `home/HomeSearch.test.tsx`: categories then Ask, no tool rows, nothing
+  selected, the Enter hint, Enter opens the first result / the first category
+  / nothing, arrows then Enter, click to ask, Escape twice, the ×.
+- `home/HomeShell.test.tsx`: the `h1` lockup, one box, groups at rest,
+  results in place and back, nothing above the list redrawn, Enter, hidden
+  categories ranked last, category from the box's list, Ask in place of
+  results, a search restored from the URL.
+- `GalleryShell.test.tsx`: groups, chips, facets, results, sort, group by,
+  table. `HeaderBrand.test.tsx`: concealed on `/` only, back once scrolled,
+  transparent not hidden. `palette/CommandPalette.test.tsx`: no "All tools",
+  categories to `/?category=`, in place on `/`. `lib/gallery-links.test.ts`:
+  links and the `/tools` → `/` redirect.
+- E2E: `gallery.spec.ts` (the list at rest, the header lockup, chips, search
+  in place, Enter, old links), `search.spec.ts`, `palette.spec.ts` (a palette
+  category filters in place), and the card-clicking specs moved from `/tools`
+  to `/` (`auth`, `corrections`, `tool-detail`, `intake`, `tool-facets`,
+  `theme-i18n`).

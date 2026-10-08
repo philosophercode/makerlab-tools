@@ -396,6 +396,7 @@ MakerLAB AI do?".
   the prompts keep that name until it is removed or changed.
 - **Home title.** §2's "Tools" stays as the heading of the home page's
   categories (student home spec 2026-10-07); the full list is "All tools".
+  (Both retired the same day: amendment "The landing lockup".)
 - **Tested** in `site-config.test.ts`, `chat-adapter.test.ts`,
   `ChatFab.test.tsx`, `about/page.test.tsx`, the value report tests and the
   E2E chat, kiosk and actions specs.
@@ -489,3 +490,28 @@ menu.
   `AdminLink.test.tsx`, `GlobalChrome.test.tsx`, `SiteFooter.test.tsx`,
   `tokens.test.ts`, and the `auth`, `admin-users` and `header-stability` E2E
   specs.
+
+## Amendment — The landing lockup (2026-10-07)
+
+The owner asked for "MakerLAB AI" above the search box on the home page, and
+for the logo to go from that page's header (student home spec, amendment "One
+page: the list at rest").
+
+- **On `/`**, "MakerLAB AI" stands above the search at display size
+  (`home/LandingLockup`, the page's `h1`): the same lockup as the header's —
+  the official lettering as a mask in the text colour (`.brand-wordmark`,
+  `siteConfig.wordmark`), then "AI" in the accent (`.brand-ai`) on the same
+  baseline — drawn by the same rules, with only `--wordmark-height` changed
+  (`.landing-lockup`, `clamp(40px, 7vw, 84px)`), centred. Its name is the
+  text "MakerLAB AI" (visually hidden); the drawing is `aria-hidden`.
+- **The header's lockup** (`HeaderBrand`, in `GlobalChrome`) is transparent on
+  `/` while the landing lockup is on screen (`data-concealed`), so the logo
+  shows once. It keeps its box — the header does not move between pages — and
+  stays a link named "MakerLAB AI" that a keyboard reaches and that shows when
+  focused. It fades back once the landing lockup has scrolled away under the
+  bar. On every other page it is as before.
+- **§2's home title "Tools"** is retired with the categories home: the home
+  page's heading is the lockup, and the list's groups are headed by category.
+- **Tested** in `HeaderBrand.test.tsx`, `home/HomeShell.test.tsx`,
+  `GlobalChrome.test.tsx`, `e2e/gallery.spec.ts` and
+  `e2e/header-stability.spec.ts`.
