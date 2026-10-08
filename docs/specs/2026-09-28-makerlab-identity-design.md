@@ -431,9 +431,26 @@ smaller, on one line.
   Attachments still show above the line.
 - **Round controls:** the three buttons are circles, the one exception to
   square corners (`[data-slot="prompt-input"] .composer-round` in
-  `globals.css`).
+  `globals.css`). The suggested replies became the second (amendment below).
 - **The "can make mistakes" note** moves above the composer, as a small box
   closed with its × (`chat.aiNoteDismiss`, 12 locales). The dismissal is
   remembered in this browser (`ai-note-store.ts`, `localStorage`, try/catch);
   while shown, the note still describes the text field.
 - **Tested** in `ChatFab.test.tsx`.
+
+## Amendment — Suggested replies (2026-10-07)
+
+The owner asked for "text suggestions to click in bubbles" under answers
+like "What material or project are you looking to cut?", then: "Be sparing
+with the suggested answers only when there's 2-3 choices easy to respond."
+
+- **The look:** two or three short replies as a wrapping row of pill bubbles
+  under the latest answer, after its cards and Sources; a tap sends the
+  bubble's text as the student's next message. The bubbles are the second
+  exception to square corners, scoped to the chat sheet
+  (`#makerlab-chat-sheet .chat-reply-chip` in `globals.css`), in the theme's
+  tokens for light and dark.
+- **The tool, the prompt rules, when the bubbles show and the counts** are
+  the assistant–GUI parity spec's amendment of the same date
+  ("Suggested replies").
+- **Tested** in `SuggestedReplies.test.tsx` and `ChatFab.test.tsx`.

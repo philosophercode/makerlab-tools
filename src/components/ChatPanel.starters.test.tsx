@@ -113,6 +113,39 @@ describe("starter chips with a pre-run answer", () => {
     expect(gets[0].searchParams.has("toolId")).toBe(false);
   });
 
+  it("asks a suggested reply live, even one that matches a chip with a cached answer (parity spec amendment 2026-10-07)", async () => {
+    const page = () => (
+      <>
+        <ToolChatStarters slug="form-4" id="tool-uuid" questions={QUESTIONS} />
+        <ChatFab />
+      </>
+    );
+    const { rerender } = render(page());
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Open MakerLAB AI" }));
+    await waitFor(() => expect(gets).toHaveLength(1));
+
+    // The conversation moves on, and its latest answer offers the chip's question as a reply.
+    const replies = [QUESTIONS[0], "Something else"];
+    messages = [
+      { id: "u1", role: "user", parts: [{ type: "text", text: "I'm new to resin printing" }] },
+      {
+        id: "a1",
+        role: "assistant",
+        parts: [
+          { type: "text", text: "Happy to help. Where do you want to start?" },
+          { type: "tool-suggest_replies", toolCallId: "c1", state: "output-available", input: { replies }, output: { ok: true, replies } },
+        ],
+      } as Msg,
+    ];
+    rerender(page());
+
+    await user.click(screen.getByRole("button", { name: QUESTIONS[0] }));
+    expect(sendMessage).toHaveBeenCalledWith({ text: QUESTIONS[0] });
+    expect(setMessages).not.toHaveBeenCalled();
+    expect(posts).toEqual([]);
+  });
+
   it("continues live: a follow-up is sent through the normal route with the cached answer in the history", async () => {
     messages = [
       { id: "u1", role: "user", parts: [{ type: "text", text: QUESTIONS[0] }] },

@@ -4,6 +4,7 @@ import { MAKE_ILLUSTRATION_TOOL } from "../../../lib/capabilities/illustrations"
 import { REPORT_ISSUE_TOOL } from "../../../lib/capabilities/maintenance";
 import { SHOW_TOOL_TOOL } from "../../../lib/capabilities/tool-cards";
 import { READ_PAGE_TOOL } from "../../../lib/capabilities/web";
+import { SUGGEST_REPLIES_TOOL } from "../../../lib/chat/suggested-replies";
 import { CHAT_MAX_EXA_SEARCHES, CHAT_MAX_PAGE_READS, CHAT_MAX_TICKETS_PER_TURN } from "../../../lib/intake/limits";
 
 /**
@@ -34,6 +35,9 @@ export const CHAT_TOOL_CAPS: Readonly<Record<string, number>> = {
   // One illustration per reply (gateway spec amendment 2026-10-07): it costs
   // money. Counted inside the tool as well, for parallel calls in one step.
   [MAKE_ILLUSTRATION_TOOL]: 1,
+  // One row of suggested replies per reply (parity spec amendment 2026-10-07
+  // "Suggested replies"); the chat draws only the last call's anyway.
+  [SUGGEST_REPLIES_TOOL]: 1,
 };
 
 /** `prepareStep` for a turn offering `toolNames`: every tool still under its cap. */

@@ -1181,3 +1181,49 @@ describe("POST /api/chat — tool cards and illustrations", () => {
     expect(systemOf()).not.toContain("## Illustrations");
   });
 });
+
+// ── Suggested replies (parity spec amendment 2026-10-07) ───────────
+describe("POST /api/chat — suggested replies", () => {
+  const replies = ["Acrylic sign", "Engraved wood"];
+
+  function repliesCall(i: number) {
+    return { type: "tool-call" as const, toolCallId: `replies_${i}`, toolName: "suggest_replies", input: JSON.stringify({ replies }) };
+  }
+
+  it("offers suggest_replies and its rules to everybody, anonymous visitors included", async () => {
+    await send({ messages: [userMessage("Laser cut")] });
+    expect(toolNamesOf()).toContain("suggest_replies");
+    expect(systemOf()).toContain("## Suggested replies");
+  });
+
+  it("ends the turn on a step that only offered replies after the answer: no second model call", async () => {
+    stubChatModel(
+      scriptedModel((i) => ({
+        content: [{ type: "text", text: "The lab has two laser cutters. What are you looking to cut?" }, repliesCall(i)],
+        finishReason: "tool-calls",
+      }))
+    );
+    const { text } = await send({ messages: [userMessage("Laser cut")] });
+
+    expect(recordedCalls(model)).toHaveLength(1);
+    // The replies reach the chat as the call's output, as the tool returned them.
+    expect(text).toContain('"type":"tool-output-available"');
+    expect(text).toContain('"output":{"ok":true,"replies":["Acrylic sign","Engraved wood"]}');
+  });
+
+  it("carries on when the replies came before any answer, and withdraws the tool for the rest of the turn", async () => {
+    stubChatModel(
+      scriptedModel((i) =>
+        i === 0
+          ? { content: [repliesCall(i)], finishReason: "tool-calls" }
+          : { content: [{ type: "text", text: "What are you looking to cut?" }], finishReason: "stop" }
+      )
+    );
+    await send({ messages: [userMessage("Laser cut")] });
+
+    const calls = recordedCalls(model);
+    expect(calls).toHaveLength(2);
+    expect(toolNamesOf(calls[1])).not.toContain("suggest_replies");
+    expect(toolResultOf("suggest_replies")).toEqual({ ok: true, replies });
+  });
+});

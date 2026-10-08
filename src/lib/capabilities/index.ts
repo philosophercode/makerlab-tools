@@ -5,6 +5,7 @@ import { manuals } from "./manuals";
 import { qr } from "./qr";
 import { toolCards } from "./tool-cards";
 import { illustrations } from "./illustrations";
+import { suggestedReplies } from "./suggest-replies";
 import { maintenance } from "./maintenance";
 import { intake } from "./intake";
 import { flags } from "./flags";
@@ -44,6 +45,10 @@ import type { Capability } from "./types";
  *                    (chat only, signed-in people: `chat.illustrate`; the
  *                    route leaves it out when `MODEL_ILLUSTRATION=off` or
  *                    there is no Blob store).
+ *  - `suggested-replies` — `suggest_replies`: two or three short replies the
+ *                    student can tap under an answer that asks them to pick
+ *                    between a few easy options; display only (read, chat
+ *                    only, everyone).
  *  - `maintenance` — file maintenance tickets (write).
  *  - `intake`      — `identify_tools` records equipment as pending rows (chat
  *                    only; research and approval happen off the chat), and
@@ -82,6 +87,7 @@ export const CAPABILITIES: Capability[] = [
   qr,
   toolCards,
   illustrations,
+  suggestedReplies,
   maintenance,
   intake,
   flags,
@@ -94,7 +100,7 @@ export const CAPABILITIES: Capability[] = [
 ];
 
 // Re-export the individual capabilities for direct/selective use and testing.
-export { catalog, units, web, manuals, qr, toolCards, illustrations, maintenance, intake, flags, reports, staff, adminReads, catalogReads, actions, insights };
+export { catalog, units, web, manuals, qr, toolCards, illustrations, suggestedReplies, maintenance, intake, flags, reports, staff, adminReads, catalogReads, actions, insights };
 
 // Re-export the surface adapters so consumers import from one place.
 export {
