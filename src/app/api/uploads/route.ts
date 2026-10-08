@@ -8,6 +8,9 @@ import { can, type Permission } from "../../../lib/auth/permissions";
 import { extensionOf, isImportFileName } from "../../../lib/import/detect";
 import { IMPORT_MAX_PDF_BYTES, IMPORT_MAX_TEXT_BYTES } from "../../../lib/import/limits";
 import { uploadImageType } from "../../../lib/images/upload-type";
+import { isHeif } from "../../../lib/images/heif";
+import { convertHeifPhoto, type ConvertedPhoto } from "../../../lib/images/convert-photo";
+import { heifTypeForName, photoUploadName } from "../../../lib/images/photo-rules";
 import { hasPdfMagic } from "../../../lib/web/pdf-magic";
 
 /**
@@ -35,6 +38,14 @@ import { hasPdfMagic } from "../../../lib/web/pdf-magic";
  * 4). It does not invent an id, and it does not pretend the file was stored:
  * a student who is told their photo is attached, and whose photo is not, is
  * worse off than one who is told photos are unavailable today.
+ *
+ * **A HEIC photo is converted, not refused** (data platform spec amendment
+ * 2026-10-08). The chat downsizes a photo in the browser before it uploads,
+ * but a browser that cannot read HEIC (anything but Safari) sends the
+ * original; so does every other photo form. It is stored as a JPEG at most
+ * 2048 px on the long edge (`lib/images/convert-photo.ts`), under a `.jpg`
+ * name, and a chat upload also gets back `visionDataUrl` — the 1568 px copy
+ * the browser would have made for the model.
  */
 
 // `runtime` cannot be set when nextConfig.cacheComponents is enabled.
@@ -216,7 +227,11 @@ export async function POST(req: NextRequest) {
   }
 
   const type = file.type || "";
-  const isImage = type.startsWith("image/");
+  // An iPhone photo picked on Windows (or sent by a client that types nothing)
+  // arrives untyped; its `.heic` name is the claim, and the bytes decide below.
+  const isImage =
+    type.startsWith("image/") ||
+    ((!type || type === "application/octet-stream") && heifTypeForName(file.name) !== null);
   // PDFs are for resources only — a manual. Accepting one on a chat or
   // maintenance upload would put an arbitrary document behind a public URL for
   // no feature that asks for it (§3.3).
@@ -247,7 +262,7 @@ export async function POST(req: NextRequest) {
           : MAX_PDF_BYTES;
   if (file.size > maxBytes) {
     return Response.json(
-      { error: `File too large (max ${Math.round(maxBytes / (1024 * 1024))}MB)` },
+      { code: "file_too_large", error: `File too large (max ${Math.round(maxBytes / (1024 * 1024))}MB)` },
       { status: 400 }
     );
   }
@@ -257,24 +272,43 @@ export async function POST(req: NextRequest) {
   // and is stored under the type its bytes show (an SVG, or HTML labelled as an
   // image, would otherwise run script from a public Blob URL); a manual must
   // open like a PDF. Security fix 2026-10-05 (data platform spec amendment).
+  // A HEIC is decoded and re-encoded as a JPEG, so what is stored is still one
+  // of those four (amendment 2026-10-08).
   let storedType = type;
+  let converted: ConvertedPhoto | null = null;
   if (isImage || isResourcePdf) {
     const bytes = new Uint8Array(await file.arrayBuffer());
     if (isImage) {
       const detected = uploadImageType(bytes);
-      if (!detected) {
+      if (detected) {
+        storedType = detected;
+      } else if (isHeif(bytes)) {
+        converted = await convertHeifPhoto(bytes, { vision: kind === "chat" });
+        if (!converted) {
+          return Response.json(
+            { code: "unsupported_image", error: "That HEIC photo could not be read" },
+            { status: 400 }
+          );
+        }
+        storedType = converted.type;
+      } else {
         return Response.json(
-          { code: "unsupported_image", error: "Only JPEG, PNG, WebP or GIF images are supported" },
+          { code: "unsupported_image", error: "Only JPEG, PNG, WebP, GIF or HEIC images are supported" },
           { status: 400 }
         );
       }
-      storedType = detected;
     } else if (!hasPdfMagic(bytes)) {
       return Response.json({ code: "unsupported_file", error: "That file is not a PDF" }, { status: 400 });
     }
   }
-  const upload =
-    storedType === type ? file : new File([file], file.name, { type: storedType, lastModified: file.lastModified });
+  const upload = converted
+    ? new File([converted.bytes as Uint8Array<ArrayBuffer>], photoUploadName(file.name, converted.type), {
+        type: converted.type,
+        lastModified: file.lastModified,
+      })
+    : storedType === type
+      ? file
+      : new File([file], file.name, { type: storedType, lastModified: file.lastModified });
 
   const access = KIND_POLICY[kind].access;
   const store = getBlobStore();
@@ -298,8 +332,9 @@ export async function POST(req: NextRequest) {
       // An import file's type is what it was read as, so the reader later
       // needs no second guess (a CSV labelled as Excel, or unlabelled).
       contentType: importFile === "pdf" ? "application/pdf" : importFile === "text" ? "text/plain" : storedType,
-      sizeBytes: file.size,
-      originalFilename: file.name || "upload",
+      // What was stored: a converted HEIC is a smaller JPEG named `.jpg`.
+      sizeBytes: upload.size,
+      originalFilename: upload.name || "upload",
       uploadedBy: identity.userId,
       // A person's own file — what tells it apart from a research image owned
       // by the same pending item (gateway spec §4.2).
@@ -326,8 +361,11 @@ export async function POST(req: NextRequest) {
   return Response.json({
     attachmentId,
     previewUrl: access === "public" ? stored.url : null,
-    name: file.name || "upload",
+    name: upload.name || "upload",
     contentType: storedType,
-    size: file.size,
+    size: upload.size,
+    // The model's copy of a chat photo converted here; the browser makes it
+    // for every photo it could read itself.
+    ...(converted?.visionDataUrl ? { visionDataUrl: converted.visionDataUrl } : {}),
   });
 }
