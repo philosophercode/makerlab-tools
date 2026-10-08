@@ -94,7 +94,12 @@ creates a tool (Article 5).
   `cleaned.kind` `cropped_and_cut` / `cropped` — amendment "Composites and
   product crop"). Otherwise a `plain` rank 1 is cut out by a flood fill from the frame
   that keeps the original's pixels (`images/clean.ts` — validated, feathered,
-  trimmed; a rejected cut records `images.cleanNote`); a `transparent` rank 1
+  trimmed; a rejected cut records `images.cleanNote`; edge-aware since the
+  amendment "Thin margins and white bezels": outright only within 24 of the
+  backdrop, a blended fringe taken two rings deep, a thin margin round a
+  frame-filling product kept as a cut, and a product crowding the border band
+  still `plain` from the outermost ring — `npm run images:recut -- --tool <slug>`
+  re-runs it on a stored cover); a `transparent` rank 1
   *is* the clean version and gets no copy; a `busy` one gets none either
   (`cleanNote: "busy_background"`). `sharp` does the decoding, loaded through
   `images/downscale.ts`'s guarded `loadSharp` (Next's own dependency; without

@@ -60,7 +60,7 @@
 | `src/app/admin/inventory/actions.ts` + `unit-`/`resource-`/`photo-actions.ts` | The editor's server actions, one module per section, each checking its own permission |
 | `src/components/admin/ToolEditorPanel.tsx` | The editor itself: the revision token, the conflict, and the five sections beside it |
 | `src/app/tools/[id]/EditToolControl.tsx` / `DraftToolView.tsx` | Edit mode on a tool page (phone-first), and drafts at their slug for `catalog.view_drafts` |
-| `src/lib/images/*` | Thumbnails: `thumbnail-urls` (names, `srcset`, client-safe), `thumbnails` (the `sharp` render), `bundled-thumbnails` (`npm run thumbnails:bundled`), `attachment-thumbnails` (Blob rows; `npm run thumbnails:backfill`), `schedule-thumbnails` (after the response) |
+| `src/lib/images/*` | Thumbnails: `thumbnail-urls` (names, `srcset`, client-safe), `thumbnails` (the `sharp` render), `bundled-thumbnails` (`npm run thumbnails:bundled`), `attachment-thumbnails` (Blob rows; `npm run thumbnails:backfill`), `schedule-thumbnails` (after the response), `recut-cover` (the cutout again on one tool's cover; `npm run images:recut`) |
 | `src/components/ToolImage.tsx` | Every tool photo: the thumbnail `<picture>`, the `next/image` fallback, the empty plate |
 | `src/lib/revalidate.ts` | `invalidateCatalog()` / `invalidateProjects()` / `invalidateMaintenance()` (the kiosk's ticket count, a tool page's maintenance history) — the one home for the cache tag strings, and `{ expire: 0 }`, because `revalidateTag` with a *named* profile is stale-while-revalidate and would serve the pre-publish page to one more reader |
 | `src/lib/blob.ts` | The Blob seam — `put` (private backups, fixed pathname) and `putUpload` (random pathname, caller's access) |
