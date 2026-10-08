@@ -107,6 +107,18 @@ test("an admin identifies three tools in the chat, researches two, and approves 
   for (const item of [domino, sawstop, shapeoko]) {
     await expect(card.getByRole("checkbox", { name: `Select ${item.identifiedAs}` })).toBeChecked();
   }
+
+  // Named without a photo (data platform spec amendment "A photo for a name"):
+  // one is looked up in the background — the stub's product shot, ranked and
+  // cut out — and lands on the card, marked found online. The Domino came with
+  // a photo, so it gets none.
+  const found = card.getByRole("img", { name: `${sawstop.identifiedAs} — photo found online, not confirmed` }).first();
+  await expect(found).toBeVisible({ timeout: 30_000 });
+  await expect(found).toHaveAttribute("src", /^\/api\/pending-tools\/[0-9a-f-]{36}\/found-photo$/);
+  await expect
+    .poll(() => found.evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth), { timeout: 15_000 })
+    .toBeGreaterThan(0);
+  await expect(card.getByRole("img", { name: `${domino.identifiedAs} — photo found online, not confirmed` })).toHaveCount(0);
   await expect(card.getByRole("button", { name: "Add to research (3)" })).toBeEnabled();
 
   // Deselect one: it stays `identified` and waits on the Intake page.

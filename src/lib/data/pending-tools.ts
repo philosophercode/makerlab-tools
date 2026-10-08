@@ -21,6 +21,8 @@ import {
   type PendingStatus,
 } from "../db/schema/vocabulary.ts";
 import type { Db } from "../db/types.ts";
+import { parseFoundPhoto, type FoundPhoto } from "../intake/found-photo.ts";
+import { itemNameProblem } from "../intake/item-name.ts";
 import { RESEARCH_START_STALE_MS } from "../intake/limits.ts";
 import type { ResearchFocus, ResearchFocusField } from "../intake/research-focus.ts";
 import type { DuplicateOf } from "../intake/types.ts";
@@ -115,6 +117,12 @@ export interface PendingToolRecord {
   identifyConfidence: IdentifyConfidence | null;
   /** Where the chat saw the item — "photo 1, left" — or null. */
   seenIn: string | null;
+  /**
+   * The photo looked up for an item named without one (amendment "A photo for
+   * a name"), parsed on every read; null when there is none or it no longer
+   * parses.
+   */
+  foundPhoto: FoundPhoto | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -229,7 +237,21 @@ export interface PendingToolPatch {
 
 export type PendingToolWriteResult =
   | { ok: true; item: PendingTool }
-  | Refused<"not_found" | "not_editable" | "invalid_field">;
+  | Refused<"not_found" | "not_editable" | "invalid_field" | "placeholder_name">;
+
+/**
+ * `createPendingBatch` was handed an item whose name is empty or a placeholder
+ * ("Equipment not specified", "Unknown" — `intake/item-name.ts`). Nothing was
+ * written. Every caller checks names first and answers in its own words; this
+ * is the backstop that keeps a placeholder out of the table whatever the path
+ * (data platform spec amendment "No empty items").
+ */
+export class PlaceholderItemNameError extends Error {
+  constructor(readonly names: string[]) {
+    super(`createPendingBatch: not an item name — ${names.map((name) => JSON.stringify(name)).join(", ")}`);
+    this.name = "PlaceholderItemNameError";
+  }
+}
 
 export type DiscardResult =
   | { ok: true; item: PendingTool; released: number }
@@ -453,6 +475,7 @@ export interface IntakeQueueSummary {
   quantity: number;
   identifyConfidence: IdentifyConfidence | null;
   seenIn: string | null;
+  foundPhoto: FoundPhoto | null;
   confidenceLevel: "high" | "medium" | "low" | null;
   researchError: string | null;
   researchRequestedAt: Date | null;
@@ -504,6 +527,7 @@ export async function listIntakeQueueSummaries(
         quantity: pendingTools.quantity,
         identifyConfidence: pendingTools.identifyConfidence,
         seenIn: pendingTools.seenIn,
+        foundPhoto: pendingTools.foundPhoto,
         hasResearch: sql<boolean>`${pendingTools.research} is not null`,
         confidenceLevel: sql<string | null>`${pendingTools.research}->'confidence'->>'level'`,
         researchError: pendingTools.researchError,
@@ -548,6 +572,7 @@ export async function listIntakeQueueSummaries(
       quantity: row.quantity,
       identifyConfidence: isOneOf(IDENTIFY_CONFIDENCE, row.identifyConfidence) ? row.identifyConfidence : null,
       seenIn: row.seenIn ?? null,
+      foundPhoto: parseFoundPhoto(row.foundPhoto),
       confidenceLevel: level as IntakeQueueSummary["confidenceLevel"],
       researchError: row.researchError ?? (row.hasResearch && level === null ? INVALID_STORED_RESEARCH : null),
       researchRequestedAt: row.researchRequestedAt,
@@ -565,6 +590,10 @@ export async function listIntakeQueueSummaries(
 /**
  * Create one batch of identified items (§5.4 step 4), in one transaction.
  *
+ * Every name must say what the item is (`intake/item-name.ts`): an empty name
+ * or a placeholder throws {@link PlaceholderItemNameError} before anything is
+ * written (amendment "No empty items").
+ *
  * Each item is checked for duplicates against tools and against *other*
  * batches' pending items — the batch's own siblings are not candidates, since
  * they are the table the person is looking at — and the match is stored on the
@@ -580,7 +609,9 @@ export async function createPendingBatch(
   options: CreatePendingBatchOptions = {}
 ): Promise<CreatedPendingBatch> {
   const names = input.items.map((item) => item.name.trim());
-  if (names.some((name) => !name)) throw new Error("createPendingBatch: every item needs a name");
+  // Empty and placeholder names alike: nothing can be researched from them.
+  const refused = names.filter((name) => itemNameProblem(name) !== null);
+  if (refused.length > 0) throw new PlaceholderItemNameError(refused);
 
   const db = options.db ?? (await getDb());
   const batchId = options.batchId ?? crypto.randomUUID();
@@ -667,6 +698,8 @@ export async function createPendingBatch(
  *   something else (or nothing), the stored match changes and the old
  *   decision is cleared — it answered a question nobody is asking any more.
  * - `add_unit` needs a matched **tool**; without one it is `invalid_field`.
+ * - A name that says nothing — empty, "Unknown", "Equipment not specified" —
+ *   is `placeholder_name` (`intake/item-name.ts`; amendment "No empty items").
  */
 export async function updatePendingTool(
   id: string,
@@ -680,7 +713,7 @@ export async function updatePendingTool(
   }
 
   const values = toPatchValues(patch);
-  if (!values) return { ok: false, reason: "invalid_field" };
+  if (values === "invalid_field" || values === "placeholder_name") return { ok: false, reason: values };
 
   const db = options.db ?? (await getDb());
   const outcome = await db.transaction(async (tx): Promise<{ ok: true } | Refused<"not_found" | "not_editable" | "invalid_field">> => {
@@ -1777,6 +1810,7 @@ async function readPendingTools(db: Db, where: SQL | undefined, limit: number | 
       nameSuggestion: row.nameSuggestion ?? null,
       identifyConfidence: isOneOf(IDENTIFY_CONFIDENCE, row.identifyConfidence) ? row.identifyConfidence : null,
       seenIn: row.seenIn ?? null,
+      foundPhoto: parseFoundPhoto(row.foundPhoto),
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       duplicateOf,
@@ -1876,29 +1910,34 @@ type PatchValues = {
   clearNameSuggestion?: true;
 };
 
-/** The patch as column values, or null when a value is not one a field accepts. */
-function toPatchValues(patch: PendingToolPatch): PatchValues | null {
+/**
+ * The patch as column values — or `invalid_field` when a value is not one a
+ * field accepts (an empty name included, as always), `placeholder_name` when
+ * the name says nothing ("Unknown", "Equipment not specified").
+ */
+function toPatchValues(patch: PendingToolPatch): PatchValues | "invalid_field" | "placeholder_name" {
   const values: PatchValues = {};
   if (patch.name !== undefined) {
     const name = patch.name.trim();
-    if (!name || name.length > MAX_FIELD_LENGTH) return null;
+    if (!name || name.length > MAX_FIELD_LENGTH) return "invalid_field";
+    if (itemNameProblem(name) === "placeholder") return "placeholder_name";
     values.name = name;
   }
   for (const key of ["brand", "categoryHint", "locationHint", "serialNumber"] as const) {
     const value = patch[key];
     if (value === undefined) continue;
     const cleaned = emptyToNull(value);
-    if (cleaned !== null && cleaned.length > MAX_FIELD_LENGTH) return null;
+    if (cleaned !== null && cleaned.length > MAX_FIELD_LENGTH) return "invalid_field";
     values[key] = cleaned;
   }
   if (patch.duplicateResolution !== undefined) {
     if (patch.duplicateResolution !== null && !isOneOf(DUPLICATE_RESOLUTION, patch.duplicateResolution)) {
-      return null;
+      return "invalid_field";
     }
     values.duplicateResolution = patch.duplicateResolution;
   }
   if (patch.quantity !== undefined) {
-    if (!Number.isInteger(patch.quantity) || patch.quantity < 1 || patch.quantity > IMPORT_MAX_QUANTITY) return null;
+    if (!Number.isInteger(patch.quantity) || patch.quantity < 1 || patch.quantity > IMPORT_MAX_QUANTITY) return "invalid_field";
     values.quantity = patch.quantity;
   }
   if (patch.clearNameSuggestion === true) values.clearNameSuggestion = true;

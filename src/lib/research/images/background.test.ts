@@ -32,6 +32,31 @@ describe("classifyBackground", () => {
     expect(await classifyBackground(await image.png())).toBe("plain");
   });
 
+  it("calls a product that comes within two pixels of the frame plain (amendment \"Thin margins and white bezels\")", async () => {
+    // A dark tablet filling all but a 2 px white hairline: its edge is inside the band, the ring is clean.
+    const image = new Canvas(400, 560, [254, 254, 254, 255]).rect(2, 2, 396, 556, [28, 28, 30, 255]);
+    expect(await classifyBackground(await image.png())).toBe("plain");
+  });
+
+  it("keeps a busy picture with a light 1 px keyline busy", async () => {
+    const random = seeded(13);
+    const image = new Canvas(500, 400).paint(() => [
+      Math.round(random() * 255),
+      Math.round(random() * 255),
+      Math.round(random() * 255),
+      255,
+    ]);
+    for (let x = 0; x < 500; x += 1) {
+      image.set(x, 0, [255, 255, 255, 255]);
+      image.set(x, 399, [255, 255, 255, 255]);
+    }
+    for (let y = 0; y < 400; y += 1) {
+      image.set(0, y, [255, 255, 255, 255]);
+      image.set(499, y, [255, 255, 255, 255]);
+    }
+    expect(await classifyBackground(await image.png())).toBe("busy");
+  });
+
   it("calls an already cut-out PNG transparent", async () => {
     const image = new Canvas(500, 500, [0, 0, 0, 0]).rect(100, 100, 300, 300, RED);
     expect(await classifyBackground(await image.png({ alpha: true }))).toBe("transparent");

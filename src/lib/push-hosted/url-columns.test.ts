@@ -110,6 +110,9 @@ describe("url-named columns (pinned: a new one is a reviewed change)", () => {
       "attachments.public_url",
       "attachments.source_url",
       "oauth_application.redirect_urls",
+      // A photo for a name (migration 0032): the looked-up picture's own URL and page —
+      // somebody else's host — rewritten like every jsonb string all the same.
+      "pending_tools.found_photo",
       "pending_tools.links",
       "projects.link",
       "resources.url",

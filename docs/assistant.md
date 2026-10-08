@@ -127,6 +127,13 @@ since the card was drawn, nothing is saved and the card says what it is now.
   "Not sure". Tick what you want and press **Add to research** (it shows how
   much of today's allowance that uses and about what it costs, and asks first),
   **Just add to intake** for later, or **Discard**.
+- **Say what it is.** "I'd like to add new equipment" alone adds nothing: the
+  assistant asks for a name, a photo or a list. A row is never called
+  "Equipment not specified" or "Unknown" — those names are refused everywhere.
+- **Named without a photo?** The assistant settles the most likely official
+  name, and the card looks up one product photo for it in the background,
+  shown in a dashed frame marked **Found online** — not confirmed until the
+  item is approved. Each lookup costs a quarter of a research item.
 - **Research costs money.** Research, a different image, name suggestions,
   re-processing a manual and refreshing research come as cards that show how
   much of today's allowance is left.

@@ -15,23 +15,41 @@ import { borderBand, colourDistance, forEachBorderPixel, loadRgba, medianColour,
  * 1. **Flood fill from the frame.** The backdrop colour is the median of the
  *    border band. Every border pixel within {@link FILL_TOLERANCE} of it seeds
  *    a 4-connected fill, which spreads into a neighbour that is within
- *    {@link FILL_TOLERANCE} of the backdrop — or, to follow a soft gradient or
- *    shadow, within {@link FILL_STEP_TOLERANCE} of the pixel it came from and
- *    never more than {@link FILL_MAX_DRIFT} from the backdrop. A product edge is
- *    a jump bigger than a step, so the fill stops there. Only what is
- *    **connected to the frame** becomes transparent: a white panel enclosed by
- *    the product stays.
- * 2. **Specks go.** A foreground island smaller than {@link SPECK_SHARE} of the
+ *    {@link FILL_CORE_TOLERANCE} of the backdrop — a pixel nobody could tell
+ *    from it — or, to follow a soft gradient or shadow, within
+ *    {@link FILL_STEP_TOLERANCE} of the pixel it came from and never more than
+ *    {@link FILL_MAX_DRIFT} from the backdrop. A product edge is a jump bigger
+ *    than a step, so the fill stops there — **even a faint one**: the light
+ *    outline of a white bezel, 30-odd levels below a white backdrop, stops it,
+ *    where the old outright tolerance of {@link FILL_TOLERANCE} walked straight
+ *    through and ate the bezel (amendment "Thin margins and white bezels").
+ *    Only what is **connected to the frame** becomes transparent: a white
+ *    panel enclosed by the product stays.
+ * 2. **Fringe goes** ({@link takeFringe}). Up to {@link FRINGE_RINGS} rings of
+ *    near-backdrop pixels touching the cut — within {@link FILL_TOLERANCE} of
+ *    the backdrop and lighter than a product pixel just inside them, i.e. a
+ *    blend between the backdrop and a darker edge (anti-aliasing, a JPEG halo)
+ *    — join the backdrop. An outline darker than what it encloses, and a flat
+ *    white bezel, are never a blend, so they stay.
+ * 3. **Specks go.** A foreground island smaller than {@link SPECK_SHARE} of the
  *    frame is backdrop noise (JPEG blocks), and joins the backdrop.
- * 3. **Validated, or dropped** ({@link validateCutout}) — a cut that removed
+ * 4. **Validated, or dropped** ({@link validateCutout}) — a cut that removed
  *    less than {@link MIN_REMOVED_SHARE} (there was no backdrop) or more than
  *    {@link MAX_REMOVED_SHARE} (it ate the product), that leaves more than
  *    {@link MAX_LARGE_PIECES} large pieces, or whose product box is tiny, is
  *    not kept. The reason is a {@link CleanNote}; the admin sees the originals.
- * 4. **Feathered and trimmed.** The two pixel rings of the product nearest the
- *    cut get a short alpha ramp (softened further where their colour is close
- *    to the backdrop, which is what a halo is); RGB is untouched. The result is
- *    trimmed to the product's box plus a small margin and encoded as PNG.
+ *    **A thin margin is a backdrop too**: a cut under the minimum is kept when
+ *    every pixel it removed lies within {@link MARGIN_MAX_DEPTH} of the frame
+ *    and it removed at least {@link MIN_MARGIN_SHARE} — a product that fills
+ *    the frame, with white corners round its rounded corners and a hairline of
+ *    white along its sides (the iPad that kept its white corners because 3% is
+ *    under 15%).
+ * 5. **Feathered and trimmed.** The two pixel rings of the product nearest the
+ *    cut get a short alpha ramp; a ring pixel that is a blend toward the
+ *    backdrop is softened further, by how close its colour is to it (that is
+ *    what a halo is), and one that is not — an outline, a white bezel — keeps
+ *    the ramp alone. RGB is untouched. The result is trimmed to the product's
+ *    box plus a small margin and encoded as PNG.
  *
  * Works on a copy at most {@link CUTOUT_LONG_EDGE} px long — a cover, not a
  * print. Never throws: a failure is `{ ok: false, note }`.
@@ -42,12 +60,26 @@ import { borderBand, colourDistance, forEachBorderPixel, loadRgba, medianColour,
 /** The cutout's working and output size (long edge, px). */
 export const CUTOUT_LONG_EDGE = 1024;
 
-/** RGB distance from the backdrop median that is backdrop outright. */
+/**
+ * RGB distance from the backdrop median that is backdrop outright, wherever
+ * the fill meets it. Between this and {@link FILL_MAX_DRIFT} a pixel is taken
+ * only as a gradient step.
+ */
+export const FILL_CORE_TOLERANCE = 24;
+/**
+ * RGB distance from the backdrop median that seeds the fill at the frame, and
+ * the most a fringe pixel ({@link takeFringe}) may differ from the backdrop.
+ */
 export const FILL_TOLERANCE = 40;
 /** RGB distance from the neighbour it came from that a gradient-following step may take. */
 export const FILL_STEP_TOLERANCE = 10;
 /** Gradient following never reaches a pixel further than this from the backdrop median. */
 export const FILL_MAX_DRIFT = 72;
+
+/** Rings of blended fringe the fringe pass may take beside the cut. */
+export const FRINGE_RINGS = 2;
+/** A fringe pixel is at least this much closer to the backdrop than the product pixel inside it. */
+export const FRINGE_MARGIN = 6;
 
 /** A foreground island smaller than this share of the frame is noise. */
 export const SPECK_SHARE = 0.0005;
@@ -55,6 +87,13 @@ export const SPECK_SHARE = 0.0005;
 export const MIN_REMOVED_SHARE = 0.15;
 /** A cut that removed more than this share took the product with it. */
 export const MAX_REMOVED_SHARE = 0.92;
+/**
+ * A cut under {@link MIN_REMOVED_SHARE} is still kept when it is a margin: it
+ * removed at least this share of the frame…
+ */
+export const MIN_MARGIN_SHARE = 0.01;
+/** …and no removed pixel lies further from the frame than this share of the short edge. */
+export const MARGIN_MAX_DEPTH = 0.08;
 /** A foreground piece at least this share of the frame is "large". */
 export const LARGE_PIECE_SHARE = 0.01;
 /** More large pieces than this and the product fell apart. */
@@ -94,6 +133,13 @@ export interface Cutout {
   /** The backdrop colour the fill measured against. */
   backdropColour: [number, number, number];
   removedShare: number;
+  /**
+   * How far the removed region reaches into the frame: the deepest removed
+   * pixel's distance from the nearest edge, as a share of the short edge
+   * (specks folded in afterwards are not counted). Absent: not measured, and
+   * the cut is never treated as a margin.
+   */
+  marginDepth?: number;
   largePieces: number;
   /** The product's bounding box (inclusive), or null when nothing is left. */
   box: { left: number; top: number; right: number; bottom: number } | null;
@@ -130,7 +176,7 @@ export async function cleanImage(
   return encoded ? { ok: true, image: encoded } : { ok: false, note: "failed" };
 }
 
-/** Steps 1 and 2: which pixels are backdrop, and what is left. Pure. */
+/** Steps 1–3: which pixels are backdrop, and what is left. Pure. */
 export function floodFillCutout(
   { data, width, height }: RgbaImage,
   opts: { protect?: { left: number; top: number; right: number; bottom: number } } = {}
@@ -141,7 +187,9 @@ export function floodFillCutout(
     if (data[i * 4 + 3] >= CLEAR_ALPHA) border.push(i);
   });
   const [br, bg, bb] = border.length > 0 ? medianColour(data, border) : [255, 255, 255];
-  const drift = (i: number) => colourDistance(data[i * 4], data[i * 4 + 1], data[i * 4 + 2], br, bg, bb);
+  // Every pixel's distance from the backdrop, once: the fill, the fringe and the feather all read it.
+  const drift = new Float32Array(n);
+  for (let i = 0; i < n; i += 1) drift[i] = colourDistance(data[i * 4], data[i * 4 + 1], data[i * 4 + 2], br, bg, bb);
   const { protect } = opts;
   const guarded = (i: number) => {
     if (!protect) return false;
@@ -158,7 +206,7 @@ export function floodFillCutout(
   // Seeds: every pixel of the outermost ring that looks like the backdrop.
   const seed = (i: number) => {
     if (backdrop[i]) return;
-    if (data[i * 4 + 3] < CLEAR_ALPHA || drift(i) <= (guarded(i) ? PROTECTED_FILL_TOLERANCE : FILL_TOLERANCE)) {
+    if (data[i * 4 + 3] < CLEAR_ALPHA || drift[i] <= (guarded(i) ? PROTECTED_FILL_TOLERANCE : FILL_TOLERANCE)) {
       backdrop[i] = 1;
       queue[tail++] = i;
     }
@@ -169,11 +217,10 @@ export function floodFillCutout(
     if (backdrop[to]) return;
     const p = to * 4;
     let take = data[p + 3] < CLEAR_ALPHA;
-    if (!take && guarded(to)) {
-      take = drift(to) <= PROTECTED_FILL_TOLERANCE;
-    } else if (!take) {
-      const d = drift(to);
-      if (d <= FILL_TOLERANCE) take = true;
+    if (!take) {
+      const d = drift[to];
+      if (guarded(to)) take = d <= PROTECTED_FILL_TOLERANCE;
+      else if (d <= FILL_CORE_TOLERANCE) take = true;
       else if (d <= FILL_MAX_DRIFT) {
         const q = from * 4;
         take = colourDistance(data[p], data[p + 1], data[p + 2], data[q], data[q + 1], data[q + 2]) <= FILL_STEP_TOLERANCE;
@@ -194,13 +241,71 @@ export function floodFillCutout(
     if (i < n - width) accept(i, i + width);
   }
 
+  takeFringe(backdrop, drift, width, height);
+  const marginDepth = deepestRemoved(backdrop, width, height) / Math.max(1, Math.min(width, height));
+
   const { largePieces, box, removed } = sweepPieces(backdrop, width, height);
-  return { backdrop, backdropColour: [br, bg, bb], removedShare: removed / n, largePieces, box };
+  return { backdrop, backdropColour: [br, bg, bb], removedShare: removed / n, marginDepth, largePieces, box };
 }
 
-/** Step 3: why this cut must not be kept, or null when it may. */
+/**
+ * Step 2: up to {@link FRINGE_RINGS} rings of blended fringe beside the cut
+ * join the backdrop. A fringe pixel touches the backdrop, is within
+ * {@link FILL_TOLERANCE} of it, and is at least {@link FRINGE_MARGIN} closer to
+ * it than some product pixel beside it — a blend between the backdrop and a
+ * darker edge, which is what anti-aliasing and a JPEG halo leave. An outline
+ * darker than what it encloses is no blend (what is inside is lighter), and a
+ * flat white bezel is none either (what is inside is the same), so both stay.
+ * Ring by ring, so a ring's verdict is read from the cut as it stood. Mutates
+ * `backdrop`.
+ */
+export function takeFringe(backdrop: Uint8Array, drift: Float32Array, width: number, height: number): void {
+  const n = width * height;
+  for (let ring = 0; ring < FRINGE_RINGS; ring += 1) {
+    const taken: number[] = [];
+    for (let i = 0; i < n; i += 1) {
+      if (backdrop[i] || drift[i] > FILL_TOLERANCE) continue;
+      const x = i % width;
+      const left = x > 0 ? i - 1 : -1;
+      const right = x < width - 1 ? i + 1 : -1;
+      const up = i >= width ? i - width : -1;
+      const down = i < n - width ? i + width : -1;
+      let touches = false;
+      let blend = false;
+      for (const j of [left, right, up, down]) {
+        if (j < 0) continue;
+        if (backdrop[j]) touches = true;
+        else if (drift[j] >= drift[i] + FRINGE_MARGIN) blend = true;
+      }
+      if (touches && blend) taken.push(i);
+    }
+    if (taken.length === 0) return;
+    for (const i of taken) backdrop[i] = 1;
+  }
+}
+
+/** The removed pixel furthest from the frame: its distance to the nearest edge, in pixels (0 when nothing was removed). */
+function deepestRemoved(backdrop: Uint8Array, width: number, height: number): number {
+  let deepest = 0;
+  for (let y = 0; y < height; y += 1) {
+    const fromEdgeY = Math.min(y, height - 1 - y);
+    if (fromEdgeY <= deepest) {
+      // Every pixel of this row is within `deepest` of the frame already.
+      continue;
+    }
+    const row = y * width;
+    for (let x = 0; x < width; x += 1) {
+      if (!backdrop[row + x]) continue;
+      const depth = Math.min(fromEdgeY, x, width - 1 - x);
+      if (depth > deepest) deepest = depth;
+    }
+  }
+  return deepest;
+}
+
+/** Step 4: why this cut must not be kept, or null when it may. */
 export function validateCutout(cutout: Cutout, width: number, height: number): CleanNote | null {
-  if (cutout.removedShare < MIN_REMOVED_SHARE) return "little_background";
+  if (cutout.removedShare < MIN_REMOVED_SHARE && !isMarginCut(cutout)) return "little_background";
   if (cutout.removedShare > MAX_REMOVED_SHARE || !cutout.box) return "product_removed";
   const boxWidth = cutout.box.right - cutout.box.left + 1;
   const boxHeight = cutout.box.bottom - cutout.box.top + 1;
@@ -213,6 +318,15 @@ export function validateCutout(cutout: Cutout, width: number, height: number): C
   }
   if (cutout.largePieces > MAX_LARGE_PIECES) return "fragmented";
   return null;
+}
+
+/**
+ * A cut under the minimum that is still worth keeping: a margin hugging the
+ * frame — at least {@link MIN_MARGIN_SHARE} removed, none of it deeper than
+ * {@link MARGIN_MAX_DEPTH} of the short edge.
+ */
+export function isMarginCut(cutout: Pick<Cutout, "removedShare" | "marginDepth">): boolean {
+  return cutout.marginDepth !== undefined && cutout.removedShare >= MIN_MARGIN_SHARE && cutout.marginDepth <= MARGIN_MAX_DEPTH;
 }
 
 /**
@@ -278,7 +392,7 @@ function sweepPieces(
   return { largePieces, box, removed };
 }
 
-/** Step 4: the product's pixels with an alpha channel, feathered, trimmed, as PNG. */
+/** Step 5: the product's pixels with an alpha channel, feathered, trimmed, as PNG. */
 async function encodeCutout(image: RgbaImage, cutout: Cutout, load: SharpLoader): Promise<CleanedImage | null> {
   const { width, height, data } = image;
   const { backdrop, backdropColour, box } = cutout;
@@ -299,7 +413,17 @@ async function encodeCutout(image: RgbaImage, cutout: Cutout, load: SharpLoader)
   }
 
   const span = FILL_TOLERANCE * 2;
-  for (let i = 0; i < width * height; i += 1) {
+  const n = width * height;
+  const drift = (i: number) => colourDistance(data[i * 4], data[i * 4 + 1], data[i * 4 + 2], br, bg, bb);
+  // A blend toward the backdrop: some product pixel beside it is clearly further from it.
+  const isBlend = (i: number, d: number) => {
+    const x = i % width;
+    for (const j of [x > 0 ? i - 1 : -1, x < width - 1 ? i + 1 : -1, i >= width ? i - width : -1, i < n - width ? i + width : -1]) {
+      if (j >= 0 && !backdrop[j] && drift(j) >= d + FRINGE_MARGIN) return true;
+    }
+    return false;
+  };
+  for (let i = 0; i < n; i += 1) {
     const p = i * 4;
     if (backdrop[i]) {
       // Invisible, and the backdrop's colour keeps a resampled edge from darkening.
@@ -311,7 +435,9 @@ async function encodeCutout(image: RgbaImage, cutout: Cutout, load: SharpLoader)
     }
     const r = ring[i];
     if (!r) continue;
-    const likeBackdrop = Math.min(1, colourDistance(data[p], data[p + 1], data[p + 2], br, bg, bb) / span);
+    const d = drift(i);
+    // Softened by likeness only where it is a halo; an outline or a white bezel keeps the ramp.
+    const likeBackdrop = isBlend(i, d) ? Math.min(1, d / span) : 1;
     out[p + 3] = Math.min(data[p + 3], FEATHER_ALPHA[r - 1], Math.round(255 * likeBackdrop));
   }
 
