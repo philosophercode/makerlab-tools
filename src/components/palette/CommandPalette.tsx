@@ -78,7 +78,8 @@ export function CommandPalette({ triggerHidden = false, ...props }: CommandPalet
   // would remount the dialog): directly when already loaded, else via `lazy`.
   const [mount, setMount] = useState<{ Dialog: Dialog | null } | null>(null);
   if (open && mount === null) setMount({ Dialog: LoadedDialog });
-  const preload = useCallback(() => void preloadPaletteDialog(), []);
+  // A warm-up only: `lazy` imports it again on open and reports a failure there.
+  const preload = useCallback(() => void preloadPaletteDialog().catch(() => undefined), []);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {

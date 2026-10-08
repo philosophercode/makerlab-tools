@@ -36,7 +36,10 @@ const loadChatResponse = () => import("./ChatResponse");
 const ChatResponse = lazy(() => loadChatResponse().then((module) => ({ default: module.ChatResponse })));
 
 export function preloadChatResponse(): void {
-  void loadChatResponse();
+  // A warm-up only: `lazy` imports it again when an answer renders and reports
+  // a failure there. Unhandled, a load cut short (a dropped chunk, or a test's
+  // environment torn down mid-import) was an unhandled rejection.
+  void loadChatResponse().catch(() => undefined);
 }
 
 /**
