@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { looksEnglish } from "./language.ts";
 
 /**
  * Which passages of a manual the eval questions are written from (manual text
@@ -96,12 +97,17 @@ function looksLikeListing(content: string): boolean {
   return listing / lines.length > 0.5;
 }
 
-/** Whether a passage can carry a question: enough words, one page or two, not boilerplate. */
+/**
+ * Whether a passage can carry a question: enough words, one page or two, not
+ * boilerplate, and in English — a multilingual manual's other sections repeat
+ * the English one on pages the chat does not cite.
+ */
 export function isAskable(passage: PassageForQuestions): boolean {
   return (
     passage.content.trim().length >= MIN_PASSAGE_CHARS &&
     passage.pageEnd - passage.pageStart + 1 <= MAX_PAGE_SPAN &&
-    !isBoilerplate(passage)
+    !isBoilerplate(passage) &&
+    looksEnglish(passage.content)
   );
 }
 

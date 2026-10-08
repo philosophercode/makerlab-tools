@@ -1131,3 +1131,22 @@ per search. A retrieval-only run costs a query embedding and a rerank per questi
   The end-to-end check allows one page either side.
 - **A document the model found nothing to ask about stores no rows**, so a later passage
   rebuild asks again (a fraction of a cent).
+
+### 2026-10-08 — English passages only (eval questions and tool skills)
+
+**What changed.** The eval questions and the tool skill writer are given **English passages only**
+(`looksEnglish`, `src/lib/manuals/language.ts`: common English words against common French,
+Spanish, Portuguese, Italian, German and Dutch ones, and non-Latin scripts; no model). The eval
+question prompt also says to write in English and skip a passage that is not.
+
+**Why.** The first production eval run (2026-10-08, 199 Opus-written questions on 49 machines)
+found the right document first for 97% of questions and the expected page in the top 8 for 93%,
+but only 89 of 188 chat answers cited the expected page. Reading the misses: most were right
+answers citing the English page, scored against a question written from the French or Spanish
+section of a multilingual manual (Ryobi, Festool, Dremel, DeWalt, Singer) — sometimes a French or
+Spanish question, sometimes an English question translated from one. 1,525 of 4,135 production
+passages are not English. Search and chat are unchanged: a student may ask in any language.
+
+**Rerun.** The questions are regenerated once with `--force` (the passages offered changed, not the
+text or the model). Skills need no `--force`: their input hash covers the passages, so
+`tools:skills -- --apply` rewrites only the tools whose passages changed.

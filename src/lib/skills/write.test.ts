@@ -16,6 +16,7 @@ import { assembleSkillInputs } from "./inputs";
 import { SKILL_DAILY_LIMIT } from "./limits";
 import { SKILL_PROMPT_VERSION } from "./prompt";
 import { writeToolSkill } from "./write";
+import type { ManualPassage } from "../manuals/search";
 
 /**
  * Writing a tool skill (tool skills spec 2026-10-07 §5.1–§5.3): the sources
@@ -221,6 +222,19 @@ describe("writeToolSkill", () => {
     void hidden;
     const inputs = await assembleSkillInputs(db, toolId);
     expect(inputs!.passages.every((passage) => passage.title === "Speedy 400 Manual")).toBe(true);
+  });
+
+  it("gives the writer only English passages — a multilingual manual's other sections repeat them on pages nobody cites", async () => {
+    const passage = (ordinal: number, pageStart: number, content: string) =>
+      ({ toolId, documentId: "doc-1", documentTitle: "Speedy 400 Manual", ordinals: [ordinal], pageStart, pageEnd: pageStart, sectionPath: [], content }) as unknown as ManualPassage;
+    const search = async () => ({
+      passages: [
+        passage(1, 4, "Before you clean the lens, switch the laser off and wait for it to cool. Use the cleaning cloth that is supplied with the machine."),
+        passage(2, 30, "Avant de nettoyer la lentille, éteignez le laser et attendez qu'il refroidisse. Utilisez le chiffon de nettoyage fourni avec la machine."),
+      ],
+    });
+    const inputs = await assembleSkillInputs(db, toolId, { search: search as never });
+    expect(inputs!.passages.map((p) => p.pageStart)).toEqual([4]);
   });
 
   it("finds a draft tool's public manual too", async () => {
