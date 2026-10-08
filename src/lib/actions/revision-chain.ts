@@ -64,7 +64,11 @@ export class RevisionChain {
   private readonly links = new Map<string, Link>();
   private readonly stopped = new Set<string>();
 
-  constructor(private readonly actions: ReadonlySet<string> = CHAINED_ACTIONS) {}
+  private readonly actions: ReadonlySet<string>;
+
+  constructor(actions: ReadonlySet<string> = CHAINED_ACTIONS) {
+    this.actions = actions;
+  }
 
   /**
    * The input to run for a row: the stored one, or the stored one with its

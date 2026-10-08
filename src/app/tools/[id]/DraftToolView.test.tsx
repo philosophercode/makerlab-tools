@@ -7,8 +7,10 @@ vi.mock("next/headers", () => nextHeadersMock());
 // "the visitor gets the 404 page" is an assertion rather than an absence.
 class NotFound extends Error {}
 class Redirect extends Error {
-  constructor(readonly to: string) {
+  readonly to: string;
+  constructor(to: string) {
     super(`redirect ${to}`);
+    this.to = to;
   }
 }
 vi.mock("next/navigation", () => ({
