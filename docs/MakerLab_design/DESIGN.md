@@ -86,6 +86,7 @@ hex values.
 | `--ink-on-primary` | text on orange | #0F0F0F | #0F0F0F | `primary-foreground` |
 | `--primary-ink` | orange **text, marks, focus** | #B8431A | #FF6B35 | `primary-ink`, `ring` |
 | `--secondary` | Cornell Crimson, heritage stamp | #B31B1B | #B31B1B | `brand` |
+| `--secondary-ink` | crimson **words** (the profile menu's Sign out) | #B31B1B | #F0645A | — |
 | `--outline` | hairlines | #CFC6B8 | #2A2A2A | `border` |
 | `--outline-strong` | control boundaries (3:1) | #8A8171 | #6E6A64 | `input` |
 | `--rule` | table row rules | ink 10% | ink 10% | `rule` |
@@ -101,7 +102,9 @@ same colour. On the light `muted` plate (#EEE8DE) the ink is 4.47:1, a hair
 under AA: orange text belongs on the page or a card, not on `muted`.
 
 **Crimson is a stamp, not a signal.** It marks heritage (the brand lockup), never
-errors in dark mode (2.8:1 there). Errors use `--status-bad`.
+errors in dark mode (2.8:1 there). Errors use `--status-bad`. Crimson *words*
+(Sign out in the profile menu, 2026-10-07) use `--secondary-ink`: crimson on
+paper, the lighter red in dark mode, AA in both.
 
 **The No-Line rule.** Do not separate major page sections with 1px lines; use a
 tonal shift (`surface-container-low` against `background`). Hairlines are for
@@ -536,12 +539,16 @@ TO REPLACE THE RESIN TANK ON THE FORM 4:
 
 ### 8.12 Navigation and IA
 
-- **Public**: `TOOLS · PROJECTS · ABOUT · REPORT` in the top bar, then
-  `[⌕ Search tools… ⌘K]` beside the language and theme controls (an icon
-  button on a phone); status strip below (`86 TOOLS IN INVENTORY · LAB OPEN
-  9AM–9PM`). Report is the bar's one accent; **Sign in** is a hairline box in
-  ink; the local-only **Sign in as (dev)** is muted and dashed and shortens to
-  `DEV` below `xl`. The profile menu is a frosted plate (§3).
+- **Public**: `TOOLS · MAP · PROJECTS · ABOUT` in the top bar, then `ADMIN`
+  for anyone who can reach `/admin` (2026-10-07: it replaced `REPORT`, which
+  moved to the footer's **Report a problem**; the tool page and the QR arrival
+  notice keep theirs), then `[⌕ Search tools… ⌘K]` beside the language and
+  theme controls (an icon button on a phone); status strip below (`86 TOOLS IN
+  INVENTORY · LAB OPEN 9AM–9PM`). The bar's only accent is the current page's
+  underline; **Sign in** is a hairline box in ink; the local-only **Sign in as
+  (dev)** is muted and dashed and shortens to `DEV` below `xl`. The profile
+  menu is a frosted plate (§3) holding Add equipment (for `tools.add`),
+  Account, Connect AI assistant (MCP) and Sign out, the last in crimson ink.
 - **The bar fits every width, on the design's breakpoints.** From `xl` it is
   one row with the `// CORNELL TECH` tagline. From `lg` to `xl` it is still
   one row, tighter (24px between groups, 20px between links), without the

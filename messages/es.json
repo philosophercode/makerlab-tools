@@ -1,8 +1,5 @@
 {
   "nav": {
-    "report": "REPORTAR",
-    "reportAria": "Reportar un problema",
-    "reportSeed": "Quiero reportar un problema.",
     "tools": "HERRAMIENTAS",
     "projects": "PROYECTOS",
     "about": "ACERCA DE",
@@ -19,7 +16,10 @@
     "signIn": "INICIAR SESIÓN",
     "signInAria": "Inicia sesión con tu cuenta de {institution}",
     "signOut": "CERRAR SESIÓN",
-    "signedInAria": "Sesión iniciada como {name}"
+    "signedInAria": "Sesión iniciada como {name}",
+    "admin": "ADMIN",
+    "account": "CUENTA",
+    "connectAssistant": "CONECTAR ASISTENTE DE IA (MCP)"
   },
   "catalogRefresh": {
     "action": "Actualizar catálogo",
@@ -331,6 +331,10 @@
   "demoBanner": {
     "label": "Datos de demostración",
     "body": "Este catálogo son datos de muestra integrados, no el inventario real de {institution}. Notion no está configurado."
+  },
+  "footer": {
+    "report": "Reportar un problema",
+    "reportSeed": "Quiero reportar un problema."
   },
   "unsubscribe": {
     "loading": "Cargando…",

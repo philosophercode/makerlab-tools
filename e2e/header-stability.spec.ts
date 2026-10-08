@@ -80,7 +80,7 @@ async function headerFits(page: Page): Promise<string[]> {
     if (apart(brand, nav) < 8) problems.push(`brand meets the links (${apart(brand, nav)}px apart)`);
     if (apart(nav, actions) < 8) problems.push(`links meet the controls (${apart(nav, actions)}px apart)`);
     if (header.scrollWidth > header.clientWidth) problems.push(`header is ${header.scrollWidth}px in ${header.clientWidth}px`);
-    // The links and Report sit in `.primary-nav-links` (the short bar's MENU
+    // The links (and ADMIN) sit in `.primary-nav-links` (the short bar's MENU
     // panel, `display: contents` everywhere else); on the short bar they are
     // hidden until MENU opens, so they measure nothing here.
     const controls = ".brand-lockup, .primary-nav > a, .primary-nav > button, .primary-nav-links > a, .primary-nav-links > button, .primary-nav-profile";
@@ -158,18 +158,29 @@ for (const [width, height, wordmarkHeight] of [
 
 // Every language, because the long ones are what broke it: at 1280 the
 // language select, as wide as "Português (Brasil)", pushed the bar past the
-// window in Spanish and Russian (DESIGN.md §8.12).
+// window in Spanish and Russian (DESIGN.md §8.12). Signed in as a director
+// too, since 2026-10-07: ADMIN and the profile control take the place of
+// REPORT and SIGN IN (identity spec amendment "ADMIN in the bar").
 for (const [bar, width, height] of FIT_SIZES) {
-  test(`the ${bar} bar fits at ${width}×${height} in every language`, async ({ page, context, baseURL }) => {
+  test(`the ${bar} bar fits at ${width}×${height} in every language, signed in and not`, async ({ page, context, baseURL }) => {
     await page.setViewportSize({ width, height });
     const failures: string[] = [];
-    for (const locale of LOCALE_CODES) {
-      await context.addCookies([{ name: "NEXT_LOCALE", value: locale, url: baseURL! }]);
-      await page.goto("/");
-      await expect(page.locator("html")).toHaveAttribute("lang", locale);
-      await expect(page.locator(".primary-nav-auth")).toBeVisible({ timeout: 15_000 });
-      const problems = await headerFits(page);
-      if (problems.length) failures.push(`${locale}: ${problems.join("; ")}`);
+    for (const signedIn of [false, true]) {
+      if (signedIn) await signIn(context, DEMO_ACCOUNTS.superAdmin, baseURL);
+      for (const locale of LOCALE_CODES) {
+        await context.addCookies([{ name: "NEXT_LOCALE", value: locale, url: baseURL! }]);
+        await page.goto("/");
+        await expect(page.locator("html")).toHaveAttribute("lang", locale);
+        if (signedIn) {
+          await expect(page.locator(".primary-nav-profile")).toBeVisible({ timeout: 15_000 });
+          // In the bar from lg; behind MENU on the short bar, where it measures nothing.
+          await expect(page.locator(".primary-nav-admin")).toHaveCount(1);
+        } else {
+          await expect(page.locator(".primary-nav-auth")).toBeVisible({ timeout: 15_000 });
+        }
+        const problems = await headerFits(page);
+        if (problems.length) failures.push(`${locale}${signedIn ? " signed in" : ""}: ${problems.join("; ")}`);
+      }
     }
     expect(failures).toEqual([]);
   });
@@ -273,7 +284,9 @@ test("on a phone on its side MENU holds the links: Tab walks them, Escape return
       return { inside: r.left >= 0 && r.right <= innerWidth && r.bottom <= innerHeight, tall: r.height >= 40 };
     })
   );
-  expect(rows).toEqual(Array(5).fill({ inside: true, tall: true }));
+  // TOOLS, MAP, PROJECTS, ABOUT — REPORT left the bar on 2026-10-07, and ADMIN
+  // is only for those who can reach /admin.
+  expect(rows).toEqual(Array(4).fill({ inside: true, tall: true }));
 
   await page.keyboard.press("Escape");
   await expect(menu).toHaveAttribute("aria-expanded", "false");

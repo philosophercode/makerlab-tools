@@ -272,7 +272,7 @@ body::selection {
 .primary-nav {
   position: relative; /* anchors .primary-nav-notice */
   display: flex;
-  /* One center line for every item — links, Report, the profile control and
+  /* One center line for every item — links, ADMIN, the profile control and
      Sign in. Without it the row stretched, and a child with no padding of its
      own (the old name label) sat at the top of the row, above the rest. */
   align-items: center;
@@ -285,7 +285,7 @@ body::selection {
   font-size: 12px;
 }
 
-/* The links and Report sit in a wrapper that is the short bar's MENU panel
+/* The links (and ADMIN) sit in a wrapper that is the short bar's MENU panel
    (below) and, everywhere else, no box at all: its children lay out in the
    bar as the nav's own. The MENU button is drawn on a short viewport only. */
 .primary-nav-links {
@@ -318,27 +318,28 @@ body::selection {
   border-color: var(--primary-ink);
 }
 
-/* "Report" is an action, not a page — accent-colored to stand out, but it
-   inherits the nav's mono/uppercase/size so it sits inline with the links. */
-.primary-nav-report {
+/* The bar's controls that are not pages (Sign in, the dev sign-in) inherit
+   the nav's mono/uppercase/size so they sit inline with the links. REPORT,
+   the bar's one accent, left on 2026-10-07 (identity spec amendment "ADMIN in
+   the bar"); the accent now marks only the current page. */
+.primary-nav-button {
   padding-block: 8px;
   border: none;
   border-bottom: 2px solid transparent;
   background: transparent;
-  color: var(--primary-ink);
+  color: inherit;
   font: inherit;
   cursor: pointer;
   transition: color 160ms ease-in, border-color 160ms ease-in;
 }
 
-.primary-nav-report:hover,
-.primary-nav-report:focus-visible {
+.primary-nav-button:hover,
+.primary-nav-button:focus-visible {
   border-color: var(--primary-ink);
 }
 
-/* Sign in is a control, not a page: a hairline box in ink, so the bar keeps
-   one accent (Report). The dev sign-in is local-only plumbing: muted, dashed,
-   never wrapping (UI system phase 5a). */
+/* Sign in is a control, not a page: a hairline box in ink. The dev sign-in is
+   local-only plumbing: muted, dashed, never wrapping (UI system phase 5a). */
 .primary-nav .primary-nav-auth {
   padding: 5px 10px;
   border: 1px solid var(--outline-strong);
@@ -393,8 +394,9 @@ body::selection {
 }
 
 /* ── Profile control and menu (Isaac, 2026-09-23) ─────────────────────────
-   Square Google photo + first name + caret; the menu holds Admin, Add
-   equipment and Sign out. 0 radius throughout, per the Blueprint system. */
+   Square Google photo + first name + caret; the menu holds Add equipment,
+   Account, Connect AI assistant (MCP) and Sign out (Admin is in the bar
+   since 2026-10-07). 0 radius throughout, per the Blueprint system. */
 .profile-menu {
   position: relative; /* anchors .profile-menu-panel */
   display: flex;
@@ -406,7 +408,7 @@ body::selection {
   align-items: center;
   gap: 8px;
   /* Same box as a nav link — 2px of transparent underline under the content —
-     so its text sits on the same line as TOOLS, REPORT and the rest. */
+     so its text sits on the same line as TOOLS, ADMIN and the rest. */
   padding: 2px 0;
   border: none;
   border-bottom: 2px solid transparent;
@@ -546,6 +548,15 @@ body::selection {
 .primary-nav .profile-menu-item:disabled {
   opacity: 0.6;
   cursor: progress;
+}
+
+/* Sign out leaves; it is drawn in the crimson ink so it reads apart from the
+   entries that go somewhere (Isaac, 2026-10-07). AA in both themes on the
+   frosted plate and on the hover fill. */
+.primary-nav .profile-menu-signout,
+.primary-nav .profile-menu-signout:hover,
+.primary-nav .profile-menu-signout:focus-visible {
+  color: var(--secondary-ink);
 }
 
 @media (max-width: 480px) {
@@ -865,7 +876,7 @@ body::selection {
    §8.12, amendment "A phone on its side"). At 844 × 390 the compact bar and
    the status strip took 159px — 41% of the screen — and the bar stayed pinned
    while scrolling. Here the bar is one 48px row — the wordmark at 24px, then
-   MENU (the links and Report, in a frosted panel), the account control and
+   MENU (the links and ADMIN, in a frosted panel), the account control and
    the utility controls, with the search field down to its icon — and
    nothing sticks: the bar and the strip scroll away with the page, so
    --sticky-chrome-height is 0 and every offset built on it follows. The

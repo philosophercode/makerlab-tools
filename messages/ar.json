@@ -1,8 +1,5 @@
 {
   "nav": {
-    "report": "إبلاغ",
-    "reportAria": "الإبلاغ عن مشكلة",
-    "reportSeed": "أريد الإبلاغ عن مشكلة.",
     "tools": "الأدوات",
     "projects": "المشاريع",
     "about": "حول",
@@ -19,7 +16,10 @@
     "signIn": "تسجيل الدخول",
     "signInAria": "سجّل الدخول بحساب {institution} الخاص بك",
     "signOut": "تسجيل الخروج",
-    "signedInAria": "مسجّل الدخول باسم {name}"
+    "signedInAria": "مسجّل الدخول باسم {name}",
+    "admin": "الإدارة",
+    "account": "الحساب",
+    "connectAssistant": "ربط مساعد ذكاء اصطناعي (MCP)"
   },
   "catalogRefresh": {
     "action": "تحديث الفهرس",
@@ -331,6 +331,10 @@
   "demoBanner": {
     "label": "بيانات تجريبية",
     "body": "هذا الفهرس بيانات عينة مدمجة، وليس المخزون الفعلي لـ {institution}. لم يتم إعداد Notion."
+  },
+  "footer": {
+    "report": "الإبلاغ عن مشكلة",
+    "reportSeed": "أريد الإبلاغ عن مشكلة."
   },
   "unsubscribe": {
     "loading": "جارٍ التحميل…",

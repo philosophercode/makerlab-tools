@@ -63,9 +63,10 @@ beforeEach(() => {
   signOutAndReload.mockClear();
 });
 
-// en.json: nav.signedInAria = "Signed in as {name}", nav.admin = "ADMIN",
-// nav.addEquipment = "ADD EQUIPMENT", nav.signOut = "SIGN OUT",
-// admin.titles.* = Student / Supermaker / Super Admin.
+// en.json: nav.signedInAria = "Signed in as {name}", nav.addEquipment = "ADD
+// EQUIPMENT", nav.account = "ACCOUNT", nav.connectAssistant = "CONNECT AI
+// ASSISTANT (MCP)", nav.signOut = "SIGN OUT", admin.titles.* = Student /
+// Supermaker / Super Admin. ADMIN left the menu for the bar on 2026-10-07.
 describe("ProfileMenu — the control", () => {
   it("shows the Google photo, square and without a referrer, beside the first name", () => {
     const { container } = renderMenu();
@@ -136,9 +137,9 @@ describe("ProfileMenu — the menu", () => {
   });
 
   it.each([
-    ["user", "Student", ["YOUR ACCOUNT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]],
-    ["admin", "Supermaker", ["ADMIN", "ADD EQUIPMENT", "YOUR ACCOUNT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]],
-    ["super_admin", "Super Admin", ["ADMIN", "ADD EQUIPMENT", "YOUR ACCOUNT", "CONNECT AN AI ASSISTANT", "SIGN OUT"]],
+    ["user", "Student", ["ACCOUNT", "CONNECT AI ASSISTANT (MCP)", "SIGN OUT"]],
+    ["admin", "Supermaker", ["ADD EQUIPMENT", "ACCOUNT", "CONNECT AI ASSISTANT (MCP)", "SIGN OUT"]],
+    ["super_admin", "Super Admin", ["ADD EQUIPMENT", "ACCOUNT", "CONNECT AI ASSISTANT (MCP)", "SIGN OUT"]],
   ] as const)("offers %s exactly the entries the role holds", async (role, label, expected) => {
     const user = userEvent.setup();
     renderMenu({ ...NITI, role });
@@ -149,22 +150,47 @@ describe("ProfileMenu — the menu", () => {
     expect(screen.getByText(label)).toBeInTheDocument();
   });
 
-  it("links Admin to /admin", async () => {
+  it("holds no Admin entry — ADMIN is in the bar (2026-10-07)", async () => {
     const user = userEvent.setup();
-    renderMenu();
+    renderMenu({ ...NITI, role: "super_admin" });
 
     await user.click(trigger());
 
-    expect(screen.getByRole("menuitem", { name: "ADMIN" })).toHaveAttribute("href", "/admin");
+    expect(screen.queryByRole("menuitem", { name: /admin/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "ADMIN" })).not.toBeInTheDocument();
   });
 
-  it("links Your account to /account, where the name is edited", async () => {
+  it("links Account to /account, where the name is edited", async () => {
     const user = userEvent.setup();
     renderMenu();
 
     await user.click(trigger());
 
-    expect(screen.getByRole("menuitem", { name: "YOUR ACCOUNT" })).toHaveAttribute("href", "/account");
+    expect(screen.getByRole("menuitem", { name: "ACCOUNT" })).toHaveAttribute("href", "/account");
+  });
+
+  it("links Connect AI assistant (MCP) to /account/tokens", async () => {
+    const user = userEvent.setup();
+    renderMenu();
+
+    await user.click(trigger());
+
+    expect(screen.getByRole("menuitem", { name: "CONNECT AI ASSISTANT (MCP)" })).toHaveAttribute(
+      "href",
+      "/account/tokens"
+    );
+  });
+
+  it("draws Sign out apart from the rest, in the crimson ink (globals.css)", async () => {
+    const user = userEvent.setup();
+    renderMenu();
+
+    await user.click(trigger());
+
+    expect(screen.getByRole("menuitem", { name: "SIGN OUT" })).toHaveClass("profile-menu-signout");
+    for (const name of ["ADD EQUIPMENT", "ACCOUNT", "CONNECT AI ASSISTANT (MCP)"]) {
+      expect(screen.getByRole("menuitem", { name })).not.toHaveClass("profile-menu-signout");
+    }
   });
 
   it("signs out through the shared helper", async () => {
@@ -240,11 +266,9 @@ describe("ProfileMenu — dismissal and keyboard", () => {
     renderMenu();
 
     await user.click(trigger());
-    const [admin, add, account, connect, signOut] = screen.getAllByRole("menuitem");
-    expect(admin).toHaveFocus();
-
-    await user.keyboard("{ArrowDown}");
+    const [add, account, connect, signOut] = screen.getAllByRole("menuitem");
     expect(add).toHaveFocus();
+
     await user.keyboard("{ArrowDown}");
     expect(account).toHaveFocus();
     await user.keyboard("{ArrowDown}");
@@ -252,11 +276,11 @@ describe("ProfileMenu — dismissal and keyboard", () => {
     await user.keyboard("{ArrowDown}");
     expect(signOut).toHaveFocus();
     await user.keyboard("{ArrowDown}");
-    expect(admin).toHaveFocus();
+    expect(add).toHaveFocus();
     await user.keyboard("{ArrowUp}");
     expect(signOut).toHaveFocus();
     await user.keyboard("{Home}");
-    expect(admin).toHaveFocus();
+    expect(add).toHaveFocus();
     await user.keyboard("{End}");
     expect(signOut).toHaveFocus();
   });
@@ -283,7 +307,7 @@ describe("ProfileMenu — dismissal and keyboard", () => {
 
     trigger().focus();
     await user.keyboard("{Enter}");
-    expect(screen.getByRole("menuitem", { name: "YOUR ACCOUNT" })).toHaveFocus();
+    expect(screen.getByRole("menuitem", { name: "ACCOUNT" })).toHaveFocus();
 
     await user.keyboard("{ArrowDown}{ArrowDown}");
     expect(screen.getByRole("menuitem", { name: "SIGN OUT" })).toHaveFocus();

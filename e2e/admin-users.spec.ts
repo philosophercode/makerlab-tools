@@ -93,9 +93,9 @@ test.describe("/admin/users — who may open it", () => {
 
     await signIn(context, DEMO_ACCOUNTS.admin, baseURL);
     await page.reload();
-    // The way into /admin is in the profile menu (2026-09-23).
-    await nav.getByRole("button", { name: /signed in as/i }).click();
-    await expect(nav.getByRole("menuitem", { name: "ADMIN" })).toBeVisible();
+    // The way into /admin is ADMIN in the bar (2026-10-07; it was in the
+    // profile menu from 2026-09-23).
+    await expect(nav.getByRole("link", { name: "ADMIN" })).toHaveAttribute("href", "/admin");
   });
 });
 
@@ -175,9 +175,9 @@ test.describe("/admin/users — changing a role", () => {
     await page.goto("/");
 
     const nav = page.getByRole("navigation", { name: "Primary navigation" });
+    await expect(nav.getByRole("link", { name: "ADMIN" })).toBeVisible();
     await nav.getByRole("button", { name: /signed in as/i }).click();
     await expect(nav.getByRole("menuitem", { name: /add equipment/i })).toBeVisible();
-    await expect(nav.getByRole("menuitem", { name: "ADMIN" })).toBeVisible();
   });
 });
 

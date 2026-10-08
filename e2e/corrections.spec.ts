@@ -34,8 +34,8 @@ test.describe("Report a correction", () => {
       page.getByRole("heading", { name: "Form 4", level: 1 })
     ).toBeVisible();
 
-    // flag.trigger => "Report a correction". Distinct from the nav's REPORT
-    // control, whose accessible name is "Report a problem".
+    // flag.trigger => "Report a correction". Distinct from the hero's and the
+    // footer's "Report a problem" (the header's REPORT left on 2026-10-07).
     await expect(
       page.getByRole("button", { name: "Report a correction" })
     ).toBeVisible();
