@@ -204,6 +204,14 @@ describe("cites_only_tool and rule 6", () => {
     expect(other.detail).toContain("own record");
   });
 
+  it("judges a link to a searched passage's whole document as that passage's document", () => {
+    const calls = [scoped([], "all", [form4, trotec])];
+    expect(onlyTool(`See the [whole manual](${TROTEC_DOC}).`, calls, "trotec-speedy-400").ok).toBe(true);
+    const other = onlyTool(`See the [whole manual](${DOC}).`, calls, "trotec-speedy-400");
+    expect(other.ok).toBe(false);
+    expect(other.detail).toContain("a document of Form 4");
+  });
+
   it("counts an attached manual's page only on that machine's page", () => {
     const text = "[Focus (Trotec Speedy 400 Operator Guide, p. 5)](#cite-5d2e7b41-5)";
     expect(onlyTool(text, [], "trotec-speedy-400", { attachedManuals: [guide], toolId: "trotec-speedy-400" }).ok).toBe(true);

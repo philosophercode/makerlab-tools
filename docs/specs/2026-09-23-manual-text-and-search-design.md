@@ -1153,9 +1153,11 @@ text or the model). Skills need no `--force`: their input hash covers the passag
 
 ### 2026-10-08 — Links from the machine's own record (`cites_only_tool`)
 
-**What changed.** `cites_only_tool` also accepts a link the machine's own `get_tool_details`
-returned in the turn — its manual, SOP or product page — compared without the `#page=` fragment.
-A link from another machine's record, or one no tool returned, still fails.
+**What changed.** `cites_only_tool` also accepts a link from the machine's own record — its
+resources, the manufacturer's original behind an archived copy (`sourceHref`), or what its
+`get_tool_details` returned in the turn — and judges a link to a searched passage's whole document
+(its address without `#page=`) as that passage's document. Links are compared without the
+fragment. A link to another machine's documents, or one nothing backs, still fails.
 
 **Why.** After the English-passages fix, 32 of the 58 failed answers in the production eval failed
 on this check alone, and they were good answers: each cited the right page through

@@ -867,8 +867,11 @@ export function citationsResolve(
  *   output that records no id, its name as `tool`);
  * - a page of an attached manual counts only when the case is on that
  *   machine's page (the route attaches only the focused tool's manuals);
- * - a link the machine's own `get_tool_details` returned (its manual, SOP or
- *   product page, "see the full manual") is that machine's, so it counts
+ * - a link to a searched passage's whole document (its address without the
+ *   `#page=`, or at another page) is that passage's document: judged as it;
+ * - a link from the machine's own record — its resources, the manufacturer's
+ *   original behind an archived copy, or what its `get_tool_details`
+ *   returned ("see the full manual") — is that machine's, so it counts
  *   (amendment "Links from the machine's own record", 2026-10-08);
  * - any other manual-looking link no search returned cannot be shown to be
  *   that machine's, so it fails;
@@ -894,7 +897,7 @@ export function citesOnlyTool(
   const linked = withAttachedMentionsLinked(text, attached);
   const ownLinks = ownRecordLinks(toolCalls, tool);
   for (const href of citationLinks(linked)) {
-    const passage = passageForHref(href, passages);
+    const passage = passageForHref(href, passages) ?? passages.find((p) => p.url && withoutFragment(p.url) === withoutFragment(href));
     if (passage) {
       if (!belongs(passage)) {
         return { ok: false, detail: `cites ${passage.citation}, a document of ${passage.tool ?? "another machine"}`, excerpt: href };
@@ -918,9 +921,17 @@ export function citesOnlyTool(
   return { ok: true };
 }
 
-/** The links the machine's own `get_tool_details` gave the turn — its manuals, SOPs, product page — without fragments. */
-function ownRecordLinks(toolCalls: readonly RecordedToolCall[], tool: { id: string; slug: string }): Set<string> {
+/**
+ * The links of the machine's own record, without fragments: its resources (and
+ * the manufacturer's original behind an archived copy) and whatever its
+ * `get_tool_details` gave the turn.
+ */
+function ownRecordLinks(toolCalls: readonly RecordedToolCall[], tool: EvalFixtureTool): Set<string> {
   const out = new Set<string>();
+  for (const resource of tool.resources) {
+    out.add(withoutFragment(resource.href));
+    if (resource.sourceHref) out.add(withoutFragment(resource.sourceHref));
+  }
   const collect = (value: unknown): void => {
     if (typeof value === "string") {
       if (/^https?:\/\//i.test(value)) out.add(withoutFragment(value));
