@@ -248,6 +248,7 @@ and marks the ones your account can use.
 | `get_unit_details` | ✓ (serial's last four only) | ✓ (serial's last four only) | ✓ (whole serial) | "Is Prusa #2 working?" |
 | `get_maintenance_history` | ✓ (no names) | ✓ (no names) | ✓ (reporter names) | "Has the Trotec been repaired lately?" |
 | `search_manual` (one named machine; several only to compare) | ✓ (public manuals) | ✓ (public manuals) | ✓ (staff SOPs too) | "How do I replace the Form 4 resin tank?" |
+| `get_tool_skill` (the lab's cited operating guide for one machine, AI-written from its sources) | ✓ | ✓ | ✓ (drafts too) | "Walk me through a first cut on the Trotec" |
 | `report_issue` | — | ✓ | ✓ | "Report that Prusa #1's nozzle is clogged" |
 | `report_correction` | — | ✓ | ✓ | "The Trotec's bed size on its page is wrong" |
 | `list_my_reports` | — | ✓ | ✓ | "What happened to the tickets I filed?" |

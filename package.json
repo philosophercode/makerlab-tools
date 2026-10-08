@@ -25,6 +25,7 @@
     "verify:import": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/verify-import.ts",
     "manuals:index": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/index-manuals.ts",
     "manuals:eval-questions": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/manual-eval-questions.ts",
+    "tools:skills": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/tool-skills.ts",
     "names:backfill": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/backfill-display-names.ts",
     "descriptions:shorten": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/shorten-descriptions.ts",
     "resources:language": "node --env-file-if-exists=.env.local --experimental-strip-types scripts/resource-language.ts",

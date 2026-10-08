@@ -15,6 +15,11 @@ import { ALLOWANCE_PERMISSION, IMPORT_PERMISSION } from "../../../../lib/import/
 import { RESEARCH_DAILY_ITEM_LIMIT, RESEARCH_ESTIMATED_USD_PER_ITEM, RESEARCH_MAX_ITEMS_PER_REQUEST } from "../../../../lib/intake/limits";
 import { grantSetupAllowance } from "../../users/allowance-actions";
 import type { AllowanceCandidate } from "../../users/allowance-result";
+import { SkillWritingControl } from "../../../../components/admin/skills/SkillWritingControl";
+import { getLabSetting, TOOL_SKILLS_SETTING } from "../../../../lib/data/lab-settings";
+import { SKILL_DAILY_LIMIT, SKILL_ESTIMATED_USD } from "../../../../lib/skills/limits";
+import { readToolSkillsSetting } from "../../../../lib/skills/setting";
+import { setSkillWriting } from "./actions";
 
 /**
  * `/admin/settings/ai-agents` — the Settings section's **AI agents** tab
@@ -29,6 +34,10 @@ import type { AllowanceCandidate } from "../../users/allowance-result";
  *   published until a person approves it.
  * - **Intake agent**: reads an imported list, matches rows to tools the lab
  *   already has and suggests names (`importParse`, `nameSuggest`).
+ * - **Skill writer** (tool skills spec 2026-10-07): writes each tool's cited
+ *   operating guide (`skillWrite`). "Write a tool skill after research" is off
+ *   by default; a director turns it on or off here (`skills.set_after_research`,
+ *   `users.manage`), with the daily cap and the cost per skill beside it.
  *
  * Open to `tools.edit` (SuperMakers and directors). The budget's grant form is
  * shown only to `users.manage` holders, and its action checks that again; a
@@ -46,7 +55,7 @@ export default async function AdminAiAgentsPage() {
   if (!mayOpen(identity, surface("agents"))) return <AdminNotice kind="forbidden" />;
 
   const canGrant = can(identity, ALLOWANCE_PERMISSION);
-  const candidates = canGrant ? await loadCandidates() : null;
+  const [candidates, skillsSetting] = await Promise.all([canGrant ? loadCandidates() : Promise.resolve(null), loadSkillsSetting()]);
   const low = RESEARCH_ESTIMATED_USD_PER_ITEM.low.toFixed(2);
   const high = RESEARCH_ESTIMATED_USD_PER_ITEM.high.toFixed(3);
 
@@ -89,6 +98,31 @@ export default async function AdminAiAgentsPage() {
             </Link>
           ) : null}
         </SettingsBlock>
+
+        {/* Tool skills (tool skills spec 2026-10-07 §6): the pass after research, off by default. */}
+        <SettingsBlock
+          id="agent-skills"
+          title={t("skillsTitle")}
+          body={
+            <>
+              <p className="m-0">{t("skillsBody")}</p>
+              <p className="m-0 mt-2">
+                {t("skillsLimits", {
+                  daily: SKILL_DAILY_LIMIT,
+                  low: SKILL_ESTIMATED_USD.low.toFixed(3),
+                  high: SKILL_ESTIMATED_USD.high.toFixed(3),
+                })}
+              </p>
+              <p className="m-0 mt-2 text-foreground" data-slot="skill-writing-state">
+                <span className="font-medium">{t("skillsSetting")}:</span>{" "}
+                {skillsSetting === null ? t("skillsUnreadable") : skillsSetting ? t("skillsOn") : t("skillsOff")}
+              </p>
+              {canGrant ? null : <p className="m-0 mt-2">{t("skillsDirectorsOnly")}</p>}
+            </>
+          }
+        >
+          {canGrant && skillsSetting !== null ? <SkillWritingControl on={skillsSetting} set={setSkillWriting} /> : null}
+        </SettingsBlock>
       </div>
 
       <section id="research-budget" aria-labelledby="research-budget-heading" className="ui flex flex-col gap-2">
@@ -111,6 +145,20 @@ export default async function AdminAiAgentsPage() {
       </section>
     </section>
   );
+}
+
+/**
+ * Whether tool skills are written after research (tool skills spec 2026-10-07
+ * §4.4). A read that fails is null, said as such, never "off".
+ */
+async function loadSkillsSetting(): Promise<boolean | null> {
+  try {
+    const setting = await getLabSetting(TOOL_SKILLS_SETTING);
+    return readToolSkillsSetting(setting?.value).afterResearch;
+  } catch (err) {
+    console.error("[admin/settings/ai-agents] could not read the skill writer setting", err);
+    return null;
+  }
 }
 
 /**

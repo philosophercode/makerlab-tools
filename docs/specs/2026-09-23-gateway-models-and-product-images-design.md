@@ -2582,3 +2582,17 @@ nothing drawn for an image URL that is not our route).
 
 **Status.** Built on `v5/chat-images`, not live-verified (no paid image or chat calls). Awaiting the
 owner's review.
+
+### 2026-10-07 — The tool skill writer's job (§3.1)
+
+Tool skills (`2026-10-07-tool-skills-design.md`) add one language job to `MODEL_JOBS`:
+**`skillWrite`**, Luna by default (`MODEL_SKILL_WRITE`), service tier **flex**
+(`MODEL_SKILL_WRITE_TIER`), on the same family as `researchRead` and `evalQuestions`. One
+`generateText` call per tool, no tools: the catalogue record and lab notes as written, the research
+summary and manual passages fenced with `fenceUntrusted`, and a JSON answer read item by item against
+zod, then checked by code (the numbers guard, cites required in the safety sections, weakening
+language removed). 180-second timeout, two SDK retries; the workflow step retries a transient failure
+twice more, a minute apart. Nobody waits on it. Each call logs its tokens, cost and tier
+(`describeGatewayCall`), never the prompt or the skill; the cost is stored on the skill's row
+(`tool_skills.cost_usd`). Tests pass a stub model to the writer, or stub the Gateway's wire in the
+workflow tier.

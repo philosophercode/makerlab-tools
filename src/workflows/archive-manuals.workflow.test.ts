@@ -84,7 +84,7 @@ describe("archiveManuals (in process)", () => {
       .returning({ id: resources.id });
 
     const first = await (await start(archiveManuals, [[resource.id]])).returnValue;
-    expect(first).toEqual({ archived: 1, skipped: 0, failed: 0, indexed: 1, indexFailed: 0, passagesBuilt: 1, passagesFailed: 0, questionsWritten: 1, questionsFailed: 0 });
+    expect(first).toEqual({ archived: 1, skipped: 0, failed: 0, indexed: 1, indexFailed: 0, passagesBuilt: 1, passagesFailed: 0, questionsWritten: 1, questionsFailed: 0, skillsWritten: 0, skillsFailed: 0 });
 
     const docs = await db.select().from(manualDocuments).where(eq(manualDocuments.toolId, tool.id));
     expect(docs).toHaveLength(1);
@@ -102,7 +102,7 @@ describe("archiveManuals (in process)", () => {
     expect(embedded.flat()).toHaveLength(chunks.length);
 
     const second = await (await start(archiveManuals, [[resource.id]])).returnValue;
-    expect(second).toEqual({ archived: 0, skipped: 1, failed: 0, indexed: 0, indexFailed: 0, passagesBuilt: 0, passagesFailed: 0, questionsWritten: 0, questionsFailed: 0 });
+    expect(second).toEqual({ archived: 0, skipped: 1, failed: 0, indexed: 0, indexFailed: 0, passagesBuilt: 0, passagesFailed: 0, questionsWritten: 0, questionsFailed: 0, skillsWritten: 0, skillsFailed: 0 });
     expect(await db.select().from(manualDocuments).where(eq(manualDocuments.toolId, tool.id))).toHaveLength(1);
     // Idempotent: nothing embedded twice.
     expect(embedded.flat()).toHaveLength(chunks.length);

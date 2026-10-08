@@ -14,6 +14,8 @@ import { isValidElement, type ReactElement } from "react";
 import { AdminNotice } from "../../../../components/admin/AdminNotice";
 import { AdminPageHeader, type AdminPageHeaderProps } from "../../../../components/admin/AdminPageHeader";
 import { AllowanceGrant } from "../../../../components/admin/AllowanceGrant";
+import { SkillWritingControl } from "../../../../components/admin/skills/SkillWritingControl";
+import { setLabSetting, TOOL_SKILLS_SETTING } from "../../../../lib/data/lab-settings";
 import { resetAuthForTests } from "../../../../lib/auth/config";
 import { resetDbForTests } from "../../../../lib/db/client";
 import { signInAsNew } from "../../../../../test/utils/session";
@@ -77,6 +79,27 @@ it("shows a SuperMaker the agents and says directors grant the budget, with no g
   expect(words).toContain("Research agent");
   expect(words).toContain("Intake agent");
   expect(words).toContain("Directors (super admins) grant extra research items.");
+});
+
+it("shows the skill writer, off by default, with its cap and cost; a SuperMaker reads that directors set it", async () => {
+  await signIn("admin", "luis-skills-page@cornell.edu");
+  const page = await render();
+  const words = text(page);
+  expect(words).toContain("Skill writer");
+  expect(words).toContain("Up to 50 skills a day for the lab, at about $0.002 to $0.006 a skill.");
+  expect(words).toContain("Off: no skill is written after research.");
+  expect(words).toContain("Directors (super admins) turn this on or off.");
+  expect(elements(page).some((el) => el.type === SkillWritingControl)).toBe(false);
+});
+
+it("gives a director the skill writer's control, saying the stored value", async () => {
+  const director = await signInAsNew({ email: "niti-skills-page@cornell.edu", role: "super_admin" });
+  setMockHeaders({ cookie: director.cookie });
+  await setLabSetting(TOOL_SKILLS_SETTING, { afterResearch: true }, director.user.id);
+  const page = await render();
+  const control = elements(page).find((el) => el.type === SkillWritingControl);
+  expect((control?.props as { on: boolean }).on).toBe(true);
+  expect(text(page)).toContain("On: a skill is written after research.");
 });
 
 it("gives a director the research budget's grant form", async () => {

@@ -146,6 +146,8 @@ export const ACTION_AREAS: Readonly<Record<string, AreaId>> = {
   insights: "insights",
   // The lab-wide notes (identity spec amendment "Lab notes"): what the assistant knows about the lab.
   lab: "catalog",
+  // Tool skills (tool skills spec 2026-10-07): a tool's operating guide.
+  skills: "catalog",
 };
 
 /** The area of each capability tool that is not an action's, and of the chat's web search. */
@@ -153,6 +155,7 @@ export const TOOL_AREAS: Readonly<Record<string, AreaId>> = {
   list_tools: "catalog",
   search_tools: "catalog",
   get_tool_details: "catalog",
+  get_tool_skill: "catalog",
   get_tool_qr_code: "catalog",
   show_tool: "catalog",
   make_illustration: "projects",

@@ -137,6 +137,18 @@ export const MODEL_JOBS = {
     serviceTier: "flex",
     tierEnv: "MODEL_EVAL_QUESTIONS_TIER",
   },
+  // Tool skills (tool skills spec 2026-10-07): one tool's cited operating
+  // guide, written from its catalogue record, research, lab notes and manual
+  // passages (fenced). JSON out, no tools; code checks it (the numbers guard)
+  // and renders the markdown. Research-type work in a workflow or a script,
+  // on the same family as `researchRead` / `evalQuestions`; nobody waits: flex.
+  skillWrite: {
+    kind: "language",
+    env: "MODEL_SKILL_WRITE",
+    default: "openai/gpt-6-luna",
+    serviceTier: "flex",
+    tierEnv: "MODEL_SKILL_WRITE_TIER",
+  },
   // The quick report form (quick report spec §3.3): one small call per
   // report that guesses a title, a category, a severity and the unit from the
   // student's words. No tools; the words are fenced as untrusted data. Flex,

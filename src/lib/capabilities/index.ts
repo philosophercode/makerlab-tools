@@ -2,6 +2,7 @@ import { catalog } from "./catalog";
 import { units } from "./units";
 import { web } from "./web";
 import { manuals } from "./manuals";
+import { skills } from "./skills";
 import { qr } from "./qr";
 import { toolCards } from "./tool-cards";
 import { illustrations } from "./illustrations";
@@ -35,6 +36,10 @@ import type { Capability } from "./types";
  *  - `manuals`     — `search_manual`: hybrid search over processed manual
  *                    passages, with page citations (manual text spec §3.6);
  *                    on MCP too, public manuals only.
+ *  - `skills`      — `get_tool_skill`: one machine's tool skill, the lab's
+ *                    cited operating guide (tool skills spec 2026-10-07); a
+ *                    read for everybody, on MCP too. On a tool page the chat
+ *                    has that tool's skill in its prompt already.
  *  - `qr`          — `get_tool_qr_code`: a published tool's QR code as a chat
  *                    card with download links (read, chat only, everyone).
  *  - `tool-cards`  — `show_tool`: the catalogue photo, status and page link of
@@ -84,6 +89,7 @@ export const CAPABILITIES: Capability[] = [
   units,
   web,
   manuals,
+  skills,
   qr,
   toolCards,
   illustrations,
@@ -100,7 +106,7 @@ export const CAPABILITIES: Capability[] = [
 ];
 
 // Re-export the individual capabilities for direct/selective use and testing.
-export { catalog, units, web, manuals, qr, toolCards, illustrations, suggestedReplies, maintenance, intake, flags, reports, staff, adminReads, catalogReads, actions, insights };
+export { catalog, units, web, manuals, skills, qr, toolCards, illustrations, suggestedReplies, maintenance, intake, flags, reports, staff, adminReads, catalogReads, actions, insights };
 
 // Re-export the surface adapters so consumers import from one place.
 export {

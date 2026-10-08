@@ -23,6 +23,9 @@ describe("planTables", () => {
     expect([...plan.tables.map((t) => t.name), ...plan.skipped].sort()).toEqual(all);
     expect(position.has("user")).toBe(true);
     expect(position.has("account")).toBe(true);
+    // Tool skills travel (tool skills spec §4.3): manual sources are document
+    // ids and pages, links the manufacturer's URLs — nothing deployment-local.
+    expect(position.get("tool_skills")).toBeGreaterThan(position.get("tools")!);
   });
 
   it("puts every referenced table before the table that references it", () => {
