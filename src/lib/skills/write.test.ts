@@ -115,7 +115,8 @@ describe("writeToolSkill", () => {
     // One call, on flex, with the manual fenced and the hard rules in the system prompt.
     const calls = recordedCalls(model);
     expect(calls).toHaveLength(1);
-    expect(calls[0].providerOptions).toEqual({ gateway: { serviceTier: "flex" } });
+    // Opus takes no tier hint (amendment "Opus writes from the manuals").
+    expect(calls[0].providerOptions).toBeUndefined();
     expect(promptOf(model)).toContain("untrusted-page");
     expect(promptOf(model)).toContain("not in the lab's sources");
   });

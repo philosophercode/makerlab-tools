@@ -67,13 +67,13 @@ describe("writeToolSkills (in process)", () => {
     expect(asked).toEqual([]);
     expect(await currentToolSkill(db, form.id)).toBeNull();
 
-    // On: one call to job skillWrite on flex, and a checked skill stored.
+    // On: one call to job skillWrite (Opus, no tier hint), and a checked skill stored.
     await setLabSetting(TOOL_SKILLS_SETTING, { afterResearch: true }, null);
     const on = await (await start(writeToolSkills, [[form.id], "research", false])).returnValue;
     expect(on).toEqual({ written: 1, skipped: 0, failed: 0 });
-    expect(asked).toEqual([{ modelId: "openai/gpt-6-luna", tier: "flex" }]);
+    expect(asked).toEqual([{ modelId: "anthropic/claude-opus-5.5", tier: undefined }]);
     const row = await currentToolSkill(db, form.id);
-    expect(row).toMatchObject({ version: 1, status: "ready", trigger: "research", model: "openai/gpt-6-luna" });
+    expect(row).toMatchObject({ version: 1, status: "ready", trigger: "research", model: "anthropic/claude-opus-5.5" });
     expect(row!.content).toContain("# Form 4: operating guide");
     // The numbers guard took out the uncited figure.
     expect(row!.content).not.toContain("25 microns");

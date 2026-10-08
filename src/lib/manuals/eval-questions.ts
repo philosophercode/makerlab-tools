@@ -27,17 +27,19 @@ import {
  * Eval questions from a manual (manual text spec amendment 2026-10-07).
  *
  * When a document's passages are built, a few questions a student could ask
- * are written from its passages by job `evalQuestions` (Luna, flex), each tied
+ * are written from its passages by job `evalQuestions` (Opus), each tied
  * to the page its passage is on, and stored (`manual_eval_questions`). The
  * manual evals then check that `search_manual` finds that page and that the
  * assistant cites that document there, so the evals follow the lab's real
  * manuals instead of two fixtures.
  *
- * - **Once per text.** The questions record the digest of the document's page
- *   texts. A document whose text hashes the same is `up_to_date` (passages
- *   rebuilt for a new chunker or embedding model ask nothing); one whose text
- *   changed has its questions replaced. The same text on another document
- *   (one PDF on two machines) is **copied**, with no model call.
+ * - **Once per text and model.** The questions record the digest of the
+ *   document's page texts and the model that wrote them. A document whose text
+ *   hashes the same, asked by the same model, is `up_to_date` (passages rebuilt
+ *   for a new chunker or embedding model ask nothing, and a backfill that
+ *   stopped part-way resumes); one whose text or model changed has its
+ *   questions replaced. The same text on another document (one PDF on two
+ *   machines), by the same model, is **copied**, with no model call.
  * - **Off switch.** `MANUAL_EVAL_QUESTIONS=0` (`evalQuestionCount`).
  * - **Outcomes are values.** A model failure is `failed`, `transient` for what
  *   a retry could fix (rate limit, a provider's bad minute, a timeout, no
@@ -115,10 +117,15 @@ export async function generateDocumentQuestions(
   const doc = await loadDocumentForQuestions(db, documentId);
   if (!doc) return { status: "skipped", documentId, reason: "not_searchable" };
 
+  // Up to date is the same text asked by the same model: a model change writes
+  // them again, and a run that stopped part-way resumes where it stopped.
+  const modelId = options.model ? labelOf(options.model) : modelIdFor("evalQuestions");
   const sourceHash = documentTextHash(doc.pages);
-  if (!options.force && doc.questionsHash === sourceHash) return { status: "skipped", documentId, reason: "up_to_date" };
+  if (!options.force && doc.questionsHash === sourceHash && doc.questionsModel === modelId) {
+    return { status: "skipped", documentId, reason: "up_to_date" };
+  }
   if (!options.force) {
-    const copied = await copyQuestionsForSameText(db, documentId, { toolId: doc.toolId, sourceHash, dryRun: options.dryRun });
+    const copied = await copyQuestionsForSameText(db, documentId, { toolId: doc.toolId, sourceHash, model: modelId, dryRun: options.dryRun });
     if (copied > 0) return { status: "copied", documentId, questions: copied };
   }
 
@@ -145,7 +152,6 @@ export async function generateDocumentQuestions(
   }
 
   const started = Date.now();
-  const modelId = options.model ? labelOf(options.model) : modelIdFor("evalQuestions");
   let result;
   try {
     result = await generateText({

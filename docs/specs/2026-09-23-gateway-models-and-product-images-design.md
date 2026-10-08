@@ -2700,3 +2700,27 @@ research, found by this stage's own pieces — one Exa search (`searchProductPic
 against the research allowance. Research keeps that photo's cleaned copy (`releaseCleanedImages`
 takes a `keep`); approval releases it. See the data platform spec's amendment "A photo for a
 name" (migration `0032`).
+
+### 2026-10-08 — Opus writes from the manuals (§3.1)
+
+**What changed.** The two jobs that write text *from* the manuals for later use —
+**`evalQuestions`** (the eval questions) and **`skillWrite`** (each tool's operating guide) — default
+to **`anthropic/claude-opus-5.5`** instead of Luna, with **no service-tier hint** (flex is OpenAI's;
+`MODEL_<JOB>_TIER` still sets one). `MODEL_EVAL_QUESTIONS` / `MODEL_SKILL_WRITE` switch either back
+without a deploy. Chat, research and every other job stay on Luna.
+
+**Why.** Both are written once and read many times: the eval questions are the yardstick the chat
+is graded against, and a skill is loaded into every chat on its tool's page. The owner asked for
+the stronger writer here (2026-10-08). At Opus's list price ($4 / $20 per million tokens) a manual's
+questions cost about a cent and a skill a few cents; the whole catalogue is a few dollars, once.
+Anthropic's half-price batch API is not reachable through the Gateway, and at this size it is not
+worth a second path.
+
+**Resuming.** Both backfills (`manuals:eval-questions`, `tools:skills`) store each item as it
+finishes and skip what is up to date, so after a failure or an interrupted run the same command
+picks up where it stopped, and says so in its summary. A skill's input hash already includes its
+model. Eval questions now do too: a document is up to date only when the same text was asked by
+the same model (`manual_eval_questions.model`), and questions are copied between documents only
+from the same model — so the switch rewrites the Luna questions once, and a rerun resumes rather
+than starting over (`--force` is no longer needed for a model change). The dry runs price their
+estimate at the job's model (`src/lib/ai/list-prices.ts`), not at Luna.
