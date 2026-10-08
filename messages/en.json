@@ -316,6 +316,8 @@
     "onlyImages": "Only image files are supported.",
     "uploadFailed": "Photo upload failed",
     "uploadsUnavailable": "Photo uploads are unavailable right now. You can still send your message without a photo.",
+    "photoUnsupported": "This photo format isn't supported — try a JPEG or PNG.",
+    "photoTooLarge": "This photo is too large to upload — try a smaller one, or a JPEG.",
     "toolRunningAria": "Tool running",
     "typingAria": "MakerLAB AI is typing",
     "readingManualsAria": "Reading manuals",

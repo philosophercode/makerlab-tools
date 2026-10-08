@@ -188,6 +188,8 @@
     "onlyImages": "이미지 파일만 지원됩니다.",
     "uploadFailed": "사진 업로드 실패",
     "uploadsUnavailable": "사진 업로드를 현재 사용할 수 없습니다. 사진 없이도 메시지를 보낼 수 있습니다.",
+    "photoUnsupported": "지원되지 않는 사진 형식입니다. JPEG 또는 PNG로 시도해 보세요.",
+    "photoTooLarge": "사진이 너무 커서 업로드할 수 없습니다. 더 작은 사진이나 JPEG로 시도해 보세요.",
     "toolRunningAria": "도구 실행 중",
     "typingAria": "MakerLAB AI가 입력 중입니다",
     "readingManualsAria": "매뉴얼 읽는 중",

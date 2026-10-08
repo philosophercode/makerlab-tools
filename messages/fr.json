@@ -188,6 +188,8 @@
     "onlyImages": "Seuls les fichiers image sont pris en charge.",
     "uploadFailed": "Échec du téléversement de la photo",
     "uploadsUnavailable": "L'envoi de photos est indisponible pour le moment. Vous pouvez envoyer votre message sans photo.",
+    "photoUnsupported": "Ce format de photo n'est pas pris en charge — essayez un JPEG ou un PNG.",
+    "photoTooLarge": "Cette photo est trop volumineuse — essayez une photo plus petite ou un JPEG.",
     "toolRunningAria": "Outil en cours d'exécution",
     "typingAria": "MakerLAB AI est en train d'écrire",
     "readingManualsAria": "Lecture des manuels",

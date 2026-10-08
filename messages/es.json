@@ -188,6 +188,8 @@
     "onlyImages": "Solo se admiten archivos de imagen.",
     "uploadFailed": "Error al subir la foto",
     "uploadsUnavailable": "La subida de fotos no está disponible en este momento. Puedes enviar tu mensaje sin foto.",
+    "photoUnsupported": "Este formato de foto no es compatible: prueba con un JPEG o PNG.",
+    "photoTooLarge": "Esta foto es demasiado grande para subirla: prueba con una más pequeña o con un JPEG.",
     "toolRunningAria": "Herramienta en ejecución",
     "typingAria": "MakerLAB AI está escribiendo",
     "readingManualsAria": "Leyendo manuales",
