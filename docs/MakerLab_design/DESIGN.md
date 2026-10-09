@@ -723,7 +723,10 @@ Facts, not panels, and only the facts the tool has: crumb `// TOOLS › FORM 4`
 official name in mono, **one** status line of glyphs and words, the lab's
 **Lab notes** when it has any — an ink start rule, a mono `LAB NOTES · FROM
 THE LAB'S STAFF` label, one note a sentence and several a list — then the
-description, Safety doc / SOP) → **two columns on desktop**: **Safety**, the
+description, Safety doc / SOP, then **On shift now** when somebody is: the
+status strip's live dot and `ON SHIFT NOW: ALEX M.` in the mono label type,
+the same line the gallery shows under its facts and nothing at all when nobody
+is on shift) → **two columns on desktop**: **Safety**, the
 one tinted section (bad start rule, compact label/value rows), then **Details**
 as a dense `<dl>` on the left; **Documents & resources** as a ruled list (the
 kind as a mono word, the manual's Contents under it) and **Physical machines**

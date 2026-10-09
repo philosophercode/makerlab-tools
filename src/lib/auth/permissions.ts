@@ -74,6 +74,11 @@ export const statement = {
   // 2026-10-07). Every signed-in person: it spends the lab's money, so it
   // needs someone to count it against; anonymous visitors are offered sign-in.
   chat: ["illustrate"],
+  // Who's on shift (on-shift spec 2026-10-07): mark yourself "On shift" until
+  // a time you pick, so students see "On shift now: Alex M." Staff only,
+  // SuperMakers and directors both. It is also who may *appear*: a row whose
+  // person no longer holds it is never shown.
+  shifts: ["set"],
 } as const;
 
 export const ac = createAccessControl(statement);
@@ -117,6 +122,7 @@ export const roles = {
     mirror: ["manage"],
     taxonomy: ["manage"],
     insights: ["view", "configure"],
+    shifts: ["set"],
   }),
   super_admin: ac.newRole({
     projects: ["submit", "moderate"],
@@ -129,6 +135,7 @@ export const roles = {
     insights: ["view", "configure", "export"],
     users: ["manage"],
     taxonomy: ["manage"],
+    shifts: ["set"],
     user: [...ACCOUNT_MANAGEMENT.user],
     session: [...ACCOUNT_MANAGEMENT.session],
   }),

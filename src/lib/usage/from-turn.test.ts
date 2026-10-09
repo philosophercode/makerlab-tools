@@ -202,6 +202,12 @@ describe("audienceFor", () => {
     expect(audienceFor("admin")).toBe("staff");
     expect(audienceFor("super_admin")).toBe("staff");
   });
+
+  it("puts a demo pass's visitor in the demo bucket — never a signed-in role (demo pass spec 2026-10-07 §5.5)", () => {
+    expect(audienceFor("anonymous", { demo: true })).toBe("demo");
+    expect(audienceFor("user", { demo: true })).toBe("member");
+    expect(audienceFor("super_admin", { demo: true })).toBe("staff");
+  });
 });
 
 describe("usageLocale", () => {

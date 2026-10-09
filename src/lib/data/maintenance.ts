@@ -1,4 +1,4 @@
-import { desc, eq, or, sql } from "drizzle-orm";
+import { and, desc, eq, or, sql } from "drizzle-orm";
 import type { PgUpdateSetSource } from "drizzle-orm/pg-core";
 import { getDb } from "../db/client.ts";
 import { rawRows } from "../db/raw.ts";
@@ -66,12 +66,14 @@ export interface OpenTicketCounts {
 
 export async function countOpenTickets(db?: Db): Promise<OpenTicketCounts> {
   const handle = db ?? (await getDb());
+  // A demo pass's tickets are not the lab's work (demo pass spec 2026-10-07 §5.4).
   const [row] = await rawRows<Record<string, number | string | null>>(
     handle,
     sql`select count(*) filter (where status = 'open') as open,
                count(*) filter (where status = 'in_progress') as in_progress,
                count(*) filter (where status in ('open', 'in_progress') and priority in ('high', 'critical')) as urgent
-          from maintenance_logs`
+          from maintenance_logs
+         where not demo`
   );
   return {
     open: Number(row?.open ?? 0),
@@ -140,7 +142,9 @@ export async function listMaintenanceHistoryForUnit(
       reportedByName: maintenanceLogs.reportedByName,
     })
     .from(maintenanceLogs)
-    .where(eq(maintenanceLogs.unitId, unitId))
+    // A demo pass's report is not the unit's history (demo pass spec 2026-10-07 §5.4):
+    // the assistant would otherwise tell the next student a working machine has a fault.
+    .where(and(eq(maintenanceLogs.unitId, unitId), eq(maintenanceLogs.demo, false)))
     // `date_reported` is nullable and most imported logs have one; a log with
     // no date sorts last rather than ahead of everything, which is where a
     // descending sort would otherwise put it.
@@ -194,7 +198,8 @@ export async function listMaintenanceHistoryForTool(
     })
     .from(maintenanceLogs)
     .leftJoin(units, eq(maintenanceLogs.unitId, units.id))
-    .where(or(eq(maintenanceLogs.toolId, toolId), eq(units.toolId, toolId)))
+    // Demo passes' reports stay off the public page (demo pass spec 2026-10-07 §5.4).
+    .where(and(or(eq(maintenanceLogs.toolId, toolId), eq(units.toolId, toolId)), eq(maintenanceLogs.demo, false)))
     .orderBy(sql`${maintenanceLogs.dateReported} desc nulls last`, desc(maintenanceLogs.createdAt))
     .limit(options.limit ?? 10);
   return rows.map((row) => ({
@@ -308,6 +313,12 @@ export interface NewMaintenanceLog {
    * notifications spec §5.1).
    */
   surface?: "chat" | "mcp" | "gui" | null;
+  /**
+   * Filed by a demo pass (demo pass spec 2026-10-07 §5.4): stored flagged, so
+   * the queue badges it and every count, public history and the mirror leave
+   * it out. Set from the server-resolved pass only, never from input.
+   */
+  demo?: boolean;
 }
 
 export interface CreatedMaintenanceLog {
@@ -347,7 +358,11 @@ export interface MaintenanceWriteOptions {
  * `ticket.filed` notification (email notifications spec §3.2, §11 Q6): every
  * path that files a ticket (chat, the report form, MCP) comes through here, so
  * all of them email staff alike, and a ticket that did not land notifies
- * nobody. An outbox insert that fails rolls the ticket back too.
+ * nobody. An outbox insert that fails rolls the ticket back too. A demo
+ * pass's ticket emails nobody: like the counts, the kiosk and the mirror, the
+ * staff inbox is the lab's work, and a conference booth would flood it (demo
+ * pass spec §5.4, as stacked on email notifications). It is still in the
+ * queue, badged.
  *
  * `logCompletedMaintenance` (staff recording work they already did) is a
  * separate function and emits nothing: nobody needs telling about their own
@@ -383,6 +398,7 @@ export async function createMaintenanceLog(
         reportedByEmail: input.reportedByEmail || null,
         reportedByUserId: input.reportedByUserId || null,
         dateReported,
+        demo: input.demo === true,
         // Who filed it, for the audit columns every table carries. Null for an
         // anonymous report, which stays a first-class path.
         createdBy: input.reportedByUserId || null,
@@ -400,11 +416,14 @@ export async function createMaintenanceLog(
       { uploadedBy: input.reportedByUserId || null }
     );
 
-    const notification = await enqueueNotification(tx, {
-      event: "ticket.filed",
-      subject: { type: "maintenance_log", id: row.id },
-      surface: input.surface ?? null,
-    });
+    const notification =
+      input.demo === true
+        ? null
+        : await enqueueNotification(tx, {
+            event: "ticket.filed",
+            subject: { type: "maintenance_log", id: row.id },
+            surface: input.surface ?? null,
+          });
 
     return {
       id: row.id,
@@ -504,6 +523,8 @@ export interface MaintenanceQueueEntry {
   dateReported: string;
   dateResolved: string;
   createdAt: Date;
+  /** Filed by a demo pass (demo pass spec 2026-10-07 §5.4): badged, and filterable. */
+  demo: boolean;
 }
 
 /**
@@ -574,6 +595,7 @@ export async function listMaintenanceQueue(
       dateReported: maintenanceLogs.dateReported,
       dateResolved: maintenanceLogs.dateResolved,
       createdAt: maintenanceLogs.createdAt,
+      demo: maintenanceLogs.demo,
     })
     .from(maintenanceLogs)
     .leftJoin(tools, eq(maintenanceLogs.toolId, tools.id))
@@ -609,6 +631,7 @@ export async function listMaintenanceQueue(
     dateReported: row.dateReported || "",
     dateResolved: row.dateResolved || "",
     createdAt: row.createdAt,
+    demo: row.demo === true,
   }));
 }
 

@@ -32,6 +32,7 @@ function ticket(overrides: Partial<MaintenanceQueueEntry>): MaintenanceQueueEntr
     dateReported: "2026-02-26",
     dateResolved: "",
     createdAt: new Date("2026-02-26T12:00:00Z"),
+    demo: false,
     ...overrides,
   };
 }
@@ -50,6 +51,19 @@ describe("needToKnow", () => {
     );
     expect(need.urgent?.map((row) => row.id)).toEqual(["critical-free", "high-free", "high-assigned"]);
     expect(need.urgent?.[2]).toMatchObject({ assigned: true, assignedToName: "Isaac S." });
+  });
+
+  it("leaves a demo pass's tickets out: they are in the queue, not the lab's work", () => {
+    const need = needToKnow(
+      [
+        ticket({ id: "lab", priority: "high" }),
+        ticket({ id: "demo-critical", priority: "critical", demo: true }),
+        ticket({ id: "demo-unlinked", priority: "low", toolId: null, toolName: "", demo: true }),
+      ],
+      0
+    );
+    expect(need.urgent?.map((row) => row.id)).toEqual(["lab"]);
+    expect(need.unlinked).toBe(0);
   });
 
   it("caps the list and says how many more there are", () => {

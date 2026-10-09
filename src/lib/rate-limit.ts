@@ -169,6 +169,15 @@ export function chatTierFor(role: Role): RateLimitTier {
 }
 
 /**
+ * Chat messages per hour for a visitor holding an unspent demo pass (demo pass
+ * spec 2026-10-07 §5.3), keyed by the pass (`demo:<id>`), so a conference
+ * behind one address is not one allowance. The same as a signed-in student;
+ * what the pass may *spend* is bounded separately, by its ledger. A spent pass
+ * is back on the anonymous tier.
+ */
+export const DEMO_PASS_CHAT_TIER: RateLimitTier = { limit: 60, windowMs: HOUR_MS };
+
+/**
  * Administrative actions per minute, per signed-in admin (spec §8).
  *
  * A server action is a POST like any other, so `/admin/*` needs a ceiling too.
@@ -256,6 +265,11 @@ export const ROUTE_TIERS = {
   // A chat illustration's image (`/api/chat/illustrations/[id]`), per person:
   // a chat shows a handful; what makes one is capped in `illustrations/limits.ts`.
   illustrations: { limit: 60, windowMs: 60_000 },
+  // Demo pass sign-ups (demo pass spec 2026-10-07 §8), per hashed IP: a
+  // conference's Wi-Fi is one address, so a burst of sixty an hour is a busy
+  // booth, not an attack. And the chat's balance check, per pass or IP.
+  demoSignup: { limit: 60, windowMs: HOUR_MS },
+  demoPassStatus: { limit: 120, windowMs: 60_000 },
 } as const;
 
 export type RouteScope = keyof typeof ROUTE_TIERS;
@@ -289,7 +303,9 @@ export async function checkRateLimit(
   scope: RateLimitScope,
   identity: Identity
 ): Promise<RateLimitDecision> {
-  const tier = tierFor(scope, identity.role);
+  // An unspent demo pass chats on its own tier, keyed by the pass (§5.3).
+  const tier =
+    scope === "chat" && identity.demoPass && !identity.demoPass.exhausted ? DEMO_PASS_CHAT_TIER : tierFor(scope, identity.role);
   const { allowed, remaining } = await rateLimitAsync(
     `${scope}:${identity.rateLimitKey}`,
     tier

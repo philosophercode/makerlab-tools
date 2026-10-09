@@ -14,6 +14,12 @@ and its 2026-09-28 amendment are the detail.
   recorded about who caused an event is `audience` (`anonymous` | `member` |
   `staff`, from the role — `lib/usage/events.ts`). A test asserts the column
   names. Do not add one; do not pass an identity or a chat id into `lib/usage/`.
+- **`demo` is a fourth audience** (demo pass spec 2026-10-07 §5.5, migration
+  `0034`): a visitor's chat turns while they hold a demo pass. `usageSource`
+  leaves it out **always** — Insights, the value report and `get_usage_summary`
+  count the lab only, with or without staff — and the Insights facts line says
+  "Demo passes left out". A demo turn's unanswered question is counted (a
+  `gap` event) but never upserted into the Unanswered queue.
 - **What is counted** (`USAGE_KINDS`): `tool_view` (beacon; `source` `qr` |
   `direct`), `kiosk_view` (`screen` from `/kiosk`'s render, `qr` from an
   arrival with `?src=kiosk`), `chat_turn` (with `question_kind` operate /

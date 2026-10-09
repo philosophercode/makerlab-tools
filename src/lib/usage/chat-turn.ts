@@ -15,18 +15,23 @@ import { turnUsage } from "./turn-log";
  * reach the student's answer.
  *
  * Only the role is read from the identity, to pick the audience bucket; the
- * user id, the chat id and the address never reach an event.
+ * user id, the chat id and the address never reach an event. `demo` marks a
+ * demo pass's turn (demo pass spec 2026-10-07 §5.5): its events are the `demo`
+ * audience, and a question it could not answer is counted but kept out of the
+ * Unanswered queue, which is the lab's to work.
  */
 export function recordChatTurnUsage(input: {
   steps: readonly (TurnStep & { text?: string })[];
   messages: readonly UIMessage[];
   role: Role | null | undefined;
+  demo?: boolean;
   focusedToolId?: string | null;
   locale?: unknown;
   turn?: object;
 }): void {
   try {
     const log = turnUsage(input.turn);
+    const audience = audienceFor(input.role, { demo: input.demo });
     const { events, gap } = fromTurn({
       steps: input.steps,
       text: input.steps.map((step) => step.text ?? "").join("\n"),
@@ -35,10 +40,10 @@ export function recordChatTurnUsage(input: {
       passages: log.passages,
       scopedToolIds: log.scopedToolIds,
       wideSearch: log.wideSearch,
-      audience: audienceFor(input.role),
+      audience,
       locale: usageLocale(input.locale),
     });
-    scheduleUsage(events, gap ? [gap] : []);
+    scheduleUsage(events, gap && audience !== "demo" ? [gap] : []);
   } catch (err) {
     console.warn("[usage] could not read the finished turn", err instanceof Error ? err.message : err);
   }

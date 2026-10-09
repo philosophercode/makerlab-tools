@@ -232,6 +232,20 @@
       "when": 1791433817708,
       "tag": "0032_found_photo",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1791582670536,
+      "tag": "0033_staff_shifts",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1791582939790,
+      "tag": "0034_demo_pass",
+      "breakpoints": true
     }
   ]
 }

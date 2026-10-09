@@ -30,7 +30,8 @@
   },
   "status": {
     "labStatusLabel": "Status do laboratório",
-    "toolsInInventory": "{count} FERRAMENTAS NO INVENTÁRIO"
+    "toolsInInventory": "{count} FERRAMENTAS NO INVENTÁRIO",
+    "onShiftNow": "De plantão agora: {names}"
   },
   "gallery": {
     "category": "CATEGORIA:",
@@ -169,7 +170,10 @@
   },
   "about": {
     "eyebrow": "Sobre",
-    "browseTools": "Explorar ferramentas"
+    "browseTools": "Explorar ferramentas",
+    "demoHeading": "Experimente a demo completa",
+    "demoBody": "Vem de outra universidade ou laboratório? Um passe de demonstração gratuito permite usar o assistente como um estudante daqui por {days} dias, sem uma conta de {institution}.",
+    "demoCta": "Cadastre-se para experimentar a demo completa"
   },
   "chat": {
     "openAria": "Abrir o MakerLAB AI",
@@ -192,6 +196,8 @@
     "onlyImages": "Somente arquivos de imagem são aceitos.",
     "uploadFailed": "Falha ao enviar a foto",
     "uploadsUnavailable": "O envio de fotos está indisponível no momento. Você ainda pode enviar sua mensagem sem foto.",
+    "photoUnsupported": "Este formato de foto não é compatível — tente um JPEG ou PNG.",
+    "photoTooLarge": "Esta foto é grande demais para enviar — tente uma menor ou um JPEG.",
     "toolRunningAria": "Ferramenta em execução",
     "typingAria": "O MakerLAB AI está digitando",
     "readingManualsAria": "Lendo manuais",
@@ -216,7 +222,13 @@
       "altPlan": "Infográfico do plano gerado por IA",
       "altConcept": "Render conceitual da ideia do projeto gerado por IA",
       "unavailable": "Esta ilustração não está mais disponível."
-    }
+    },
+    "demoPassLeft": "Passe de demonstração · restam {amount}",
+    "demoPassUsedUp": "Passe de demonstração · esgotado",
+    "demoPassSpent": "Você usou o crédito de IA deste passe de demonstração. Obrigado por experimentar o MakerLAB AI! Você pode continuar fazendo algumas perguntas por hora, como qualquer visitante.",
+    "demoPassLimited": "Você usou o crédito de IA deste passe e o limite de visitantes desta hora. Obrigado por experimentar o MakerLAB AI! Tente de novo daqui a pouco.",
+    "demoPassContactLead": "Quer conversar sobre isso?",
+    "demoPassContactTeam": "Fale com a equipe do MakerLAB"
   },
   "qr": {
     "arrivalLabel": "Escaneado nesta máquina",
@@ -368,5 +380,65 @@
     "assistant": "MakerLAB AI",
     "ask": "Perguntar ao MakerLAB AI: “{query}”",
     "askEmpty": "Perguntar ao MakerLAB AI"
+  },
+  "kiosk": {
+    "onShiftLabel": "De plantão agora"
+  },
+  "demoPass": {
+    "eyebrow": "Passe de demonstração",
+    "title": "Experimente a demo completa",
+    "lede": "Ganhe um passe de demonstração gratuito para usar o {site} como um estudante daqui: pergunte ao assistente sobre as máquinas do laboratório, com respostas citadas dos manuais, e relate um problema. Não é preciso ter uma conta de {institution}.",
+    "passFacts": "Seu passe funciona neste dispositivo por {days} dias e cobre cerca de {budget} de uso de IA.",
+    "required": "Obrigatório",
+    "optional": "Opcional",
+    "nameLabel": "Nome",
+    "emailLabel": "E-mail",
+    "emailHint": "Apenas para contato posterior. O assistente nunca o vê.",
+    "institutionLabel": "Instituição ou afiliação",
+    "institutionHint": "Uma universidade, empresa, laboratório ou makerspace.",
+    "roleLabel": "Função",
+    "roleChoose": "Escolha uma",
+    "role": {
+      "student": "Estudante",
+      "staff_technician": "Funcionário ou técnico",
+      "faculty": "Docente",
+      "lab_manager": "Diretor ou gerente de laboratório",
+      "other": "Outro"
+    },
+    "makerspaceLabel": "Você administra ou trabalha em um makerspace?",
+    "yes": "Sim",
+    "no": "Não",
+    "useCaseLabel": "Para que você o usaria?",
+    "useCaseHint": "Uma ou duas frases bastam.",
+    "consentLabel": "Vocês podem entrar em contato comigo sobre o MakerLAB AI.",
+    "honeypotLabel": "Deixe este campo em branco",
+    "privacy": "Guardamos os cadastros por 12 meses. Só a direção do laboratório pode vê-los, e nada do que você digitar aqui é compartilhado com a IA. Para ser removido antes, fale com o laboratório.",
+    "submit": "Quero meu passe",
+    "submitting": "Cadastrando…",
+    "browseTools": "Ver as ferramentas",
+    "askAssistant": "Perguntar ao assistente",
+    "errors": {
+      "required": "Preencha este campo.",
+      "tooLong": "Está longo demais.",
+      "invalidEmail": "Digite um e-mail válido.",
+      "invalid": "Escolha uma das opções.",
+      "summary": "Confira os campos indicados acima.",
+      "rateLimited": "Muitos cadastros desta rede agora. Tente de novo em alguns minutos.",
+      "unavailable": "O cadastro não está disponível agora. Tente de novo em instantes.",
+      "failed": "Algo deu errado. Tente de novo."
+    },
+    "thanksTitle": "Tudo certo",
+    "thanksBody": "Obrigado pelo cadastro. Seu passe de demonstração funciona neste dispositivo até {date} e cobre cerca de {budget} de uso de IA.",
+    "thanksReturning": "Bem-vindo de volta. Seu passe de demonstração está ativo de novo neste dispositivo, com {remaining} restantes, até {date}.",
+    "thanksNext": "Abra o assistente em qualquer página pelo botão do chat, ou comece aqui.",
+    "thanksExpired": "Obrigado por se cadastrar de novo. O passe de demonstração deste e-mail terminou, mas temos seus dados.",
+    "thanksReceived": "Obrigado pelo cadastro.",
+    "closedTitle": "As inscrições para a demo estão encerradas",
+    "closedBody": "Obrigado pelo interesse. Você ainda pode ver as ferramentas e fazer algumas perguntas ao assistente.",
+    "callout": {
+      "label": "Passe de demonstração",
+      "text": "De visita? Ganhe um passe de demonstração gratuito para conversar com o assistente do laboratório e relatar um problema. Não é preciso ter uma conta de {institution}.",
+      "cta": "Cadastre-se para experimentar a demo completa"
+    }
   }
 }

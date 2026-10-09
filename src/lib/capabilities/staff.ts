@@ -113,14 +113,16 @@ interface OpenTicket {
 const listOpenTicketsTool: CapabilityTool<Record<string, never>, { count: number; tickets: OpenTicket[] }> = {
   name: "list_open_tickets",
   description:
-    "List the maintenance tickets still open or in progress, most urgent first — the queue on /admin/maintenance — with each ticket's id, tool, unit, status, priority, reporter's name and assignee, and the description fenced as untrusted text. Staff only. To answer about one machine, filter the list by its tool. Use update_ticket with a ticket's id to work it.",
+    "List the maintenance tickets still open or in progress, most urgent first — the queue on /admin/maintenance, without demo-pass tickets — with each ticket's id, tool, unit, status, priority, reporter's name and assignee, and the description fenced as untrusted text. Staff only. To answer about one machine, filter the list by its tool. Use update_ticket with a ticket's id to work it.",
   inputSchema: z.object({}) as unknown as z.ZodType<Record<string, never>>,
   kind: "read",
   requiredPermission: "maintenance.manage",
   run: async () => {
     const queue = await listMaintenanceQueue();
+    // The lab's queue: a demo pass's tickets stay on /admin/maintenance, badged
+    // (demo pass spec 2026-10-07 §5.4), and out of "what's open on the Form 4?".
     const tickets = queue
-      .filter((ticket) => ticket.status === "open" || ticket.status === "in_progress")
+      .filter((ticket) => !ticket.demo && (ticket.status === "open" || ticket.status === "in_progress"))
       .map(
         (ticket): OpenTicket => ({
           id: ticket.id,

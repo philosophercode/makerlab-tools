@@ -39,8 +39,21 @@ describe("/about", () => {
       "Community",
       "Learn more",
       "About this project",
+      // The demo pass (demo pass spec 2026-10-07 §6).
+      "Try the full demo",
       "Connect an AI assistant",
     ]);
+  });
+
+  it("links the demo pass sign-up, and leaves it out when DEMO_PASS is off", () => {
+    const { unmount } = render(<AboutPage />);
+    expect(within(section("Try the full demo")).getByRole("link", { name: "Sign up to try the full demo" })).toHaveAttribute("href", "/demo");
+    unmount();
+
+    vi.stubEnv("DEMO_PASS", "off");
+    render(<AboutPage />);
+    expect(screen.queryByRole("heading", { level: 2, name: "Try the full demo" })).not.toBeInTheDocument();
+    vi.unstubAllEnvs();
   });
 
   it("says where the lab is and links the official page for hours and access", () => {

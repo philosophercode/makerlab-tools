@@ -8,6 +8,7 @@ import type { UpdateTicketAction } from "../../app/admin/maintenance/action-resu
 import { ticketRef } from "../../lib/maintenance/ticket-ref";
 import { QueueList } from "../system/queue/QueueList";
 import { StatusGlyph, type StatusTone } from "../system/StatusGlyph";
+import { Badge } from "@/components/ui/badge";
 import { ReviewCard } from "../system/review/ReviewCard";
 import { TicketControls } from "./TicketControls";
 import { personLabel } from "./person-label";
@@ -36,6 +37,9 @@ export interface MaintenanceQueueProps {
 
 /** The two statuses that mean "somebody still has to do something". */
 const OPEN_STATUSES = new Set(["open", "in_progress"]);
+
+/** Who filed a ticket: the lab's own people and visitors, or a demo pass. */
+const TICKET_SOURCES = ["lab", "demo"] as const;
 
 export const TICKET_STATUS_TONE: Record<string, StatusTone> = {
   open: "active",
@@ -78,6 +82,14 @@ export function MaintenanceQueue({ tickets, staff, action }: MaintenanceQueuePro
           values: MAINTENANCE_PRIORITY,
           valueLabel: (value) => t(`priority.${value}`),
           matches: (ticket, value) => ticket.priority === value,
+        },
+        // The lab's own reports, or a demo pass's (demo pass spec 2026-10-07 §5.4).
+        {
+          id: "source",
+          label: t("fieldSource"),
+          values: TICKET_SOURCES,
+          valueLabel: (value) => t(`source.${value}`),
+          matches: (ticket, value) => (value === "demo") === ticket.demo,
         },
       ]}
       labels={{
@@ -123,6 +135,12 @@ function TicketCard({
             <StatusGlyph tone={TICKET_STATUS_TONE[ticket.status] ?? "idle"} label={t(`status.${ticket.status}`)} />
             {ticket.priority ? (
               <StatusGlyph tone={PRIORITY_TONE[ticket.priority] ?? "idle"} label={t(`priority.${ticket.priority}`)} />
+            ) : null}
+            {/* A label, not a status: who filed it (demo pass spec 2026-10-07 §5.4). */}
+            {ticket.demo ? (
+              <Badge variant="secondary" title={t("demoTicketHint")}>
+                {t("demoTicket")}
+              </Badge>
             ) : null}
           </>
         }

@@ -6,6 +6,7 @@ import { rerankMinScore, searchManuals, type ManualPassage } from "../manuals/se
 import { CITE_HREF_PREFIX, citationRef } from "../manuals/citation-ref";
 import { recordTurnText } from "../chat/turn-sources";
 import { logManualPassages, logScopedTool, logWideSearch } from "../usage/turn-log";
+import { logTurnSpend } from "../chat/turn-spend";
 import { fenceUntrusted } from "../web/fence";
 import type { MakerLabTool } from "../../components/catalog-types";
 import type { Capability, CapabilityTool, ManualOutlineForPrompt, PromptEnv } from "./types";
@@ -163,6 +164,9 @@ const searchManualTool: CapabilityTool<SearchManualInput, SearchManualResult> = 
       rerank: true,
       minRerankScore: rerankMinScore(),
     });
+    // The embedding and reranking calls' cost, for a demo pass's ledger (demo
+    // pass spec 2026-10-07 §5.3): the step's Gateway figure does not include them.
+    logTurnSpend(ctx.turn, result.cost);
     console.info(
       `[manuals] search_manual: scope=${comparing === "all" ? "all" : tools.map((tool) => tool.id).join(",")} passages=${result.passages.length}` +
         `${result.vectorFailed ? " (full text only)" : ""}${result.reranked ? " reranked" : ""}` +

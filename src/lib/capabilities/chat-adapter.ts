@@ -13,6 +13,7 @@ import { siteConfig } from "../site-config";
 import { LAB_CONTEXT } from "../ai/lab-context";
 import { LAB_COMPANION } from "../ai/lab-companion";
 import { labNotesSection, toolLabNotesLines } from "../ai/lab-notes-prompt";
+import { onShiftSection } from "../ai/on-shift-prompt";
 import { MANUAL_SILENCE, MANUAL_SILENCE_HEADING } from "../ai/manual-silence";
 import { CITE_HREF_PREFIX } from "../manuals/citation-ref";
 import type { MakerLabTool } from "../../components/catalog-types";
@@ -102,6 +103,7 @@ export const CONVERSATION_HEADING = "# This conversation";
  *    locale; the lab-wide notes change only when staff save them.
  * 2. **This conversation** — the response language, the focused tool and its
  *    resources, its tool skill when it has one (tool skills spec 2026-10-07),
+ *    who is on shift now ("On shift now", only when somebody is),
  *    then every capability's `conversationFragment(env)` (who is signed in,
  *    the focused tool's manual contents, a curation record).
  *
@@ -142,6 +144,8 @@ export function buildSystemPrompt(
   if (focusedTool && env.toolSkill) {
     conversation.push(toolSkillSection(env.toolSkill));
   }
+  const onShift = onShiftSection(env.onShift ?? []);
+  if (onShift) conversation.push(onShift);
   for (const capability of capabilities) {
     const fragment = capability.conversationFragment?.(env).trim();
     if (fragment) conversation.push(fragment);

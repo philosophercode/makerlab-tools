@@ -117,6 +117,32 @@ export function countExaCalls(steps: readonly StepLike[]): number {
 }
 
 /**
+ * What one Exa search costs when its result does not say: the price every
+ * measured call reported (`costDollars.total` = $0.007, gateway spec Phase 0
+ * and the "Search text fallback" amendment).
+ */
+export const EXA_SEARCH_FALLBACK_USD = 0.007;
+
+/**
+ * Dollars the Exa searches in `steps` cost (demo pass spec 2026-10-07 §5.3):
+ * each result's own `costDollars.total`, which Exa reports apart from the
+ * model step's Gateway cost, and {@link EXA_SEARCH_FALLBACK_USD} for each
+ * search that reported none.
+ */
+export function exaSearchCost(steps: readonly StepLike[]): number {
+  let reported = 0;
+  let reportedCalls = 0;
+  for (const output of exaOutputs(steps)) {
+    const total = Number((output as { costDollars?: { total?: unknown } } | null)?.costDollars?.total);
+    if (Number.isFinite(total) && total >= 0) {
+      reported += total;
+      reportedCalls += 1;
+    }
+  }
+  return reported + Math.max(0, countExaCalls(steps) - reportedCalls) * EXA_SEARCH_FALLBACK_USD;
+}
+
+/**
  * The images Exa reported across `steps`: each result's own `image`, then its
  * `extras.imageLinks`, in the order the results came back. http(s) only,
  * de-duplicated, each attributed to the page it came from.

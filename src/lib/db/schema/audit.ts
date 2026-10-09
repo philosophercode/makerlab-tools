@@ -61,6 +61,10 @@ export const AUDIT_ACTIONS = [
   // `{ event, from, to }` and never an address. Individual sends are not
   // audited: the delivery table is their log.
   "notification.unsubscribed",
+  // A super admin downloaded the demo sign-ups CSV (demo pass spec 2026-10-07
+  // §5.6): visitors' names and emails left the app. `subject_type` is
+  // "demo_signups", `subject_id` "all", `detail` `{ rows }`.
+  "demo_signups.exported",
 ] as const;
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
 

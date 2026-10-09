@@ -28,6 +28,11 @@ data; the QR code opens the catalogue with the chat.
   available"); anything else throws, so `/api/kiosk` answers 503 and the page
   renders "Lab status is unavailable right now" with the QR code. Never a zeroed
   snapshot.
+- **Who is on shift** (on-shift spec 2026-10-07): `onShift: string[]` ("Alex
+  M."), read by the page and `/api/kiosk` beside the cached snapshot with
+  `loadOnShiftNames()` (`lib/on-shift/read.ts`), never inside it, so a shift
+  leaves the screen on the first poll after its end. Shown beside the hours as
+  "On shift now" over the names; nothing when nobody is on shift.
 - **Privacy.** `KioskSnapshot` (`lib/kiosk/types.ts`) has no field for an email,
   a ticket's text, a draft or a full name; the loader maps field by field.
   `shortAuthorName` ("Maya Rodriguez" → "Maya R.", anything with `@` → null) runs

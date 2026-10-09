@@ -219,6 +219,13 @@ export interface PromptEnv {
    * skill, or when the read failed.
    */
   toolSkill?: ToolSkillForPrompt | null;
+  /**
+   * Who is on shift now, as students see them ("Alex M."), read by the
+   * surface (`lib/on-shift/read.ts`; on-shift spec 2026-10-07). Per request,
+   * so it goes in the "This conversation" tail. Absent or empty: nobody is
+   * named.
+   */
+  onShift?: readonly string[];
 }
 
 /** The focused tool's skill, as the prompt carries it. */

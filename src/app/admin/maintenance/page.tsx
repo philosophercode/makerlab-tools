@@ -58,9 +58,13 @@ export default async function AdminMaintenancePage() {
     countDueSchedules(today),
   ]);
 
-  const open = tickets.filter((ticket) => ticket.status === "open").length;
-  const inProgress = tickets.filter((ticket) => ticket.status === "in_progress").length;
-  const urgent = tickets.filter(
+  // The facts are the lab's: a demo pass's tickets are listed, badged, and
+  // counted apart (demo pass spec 2026-10-07 §5.4).
+  const lab = tickets.filter((ticket) => !ticket.demo);
+  const demo = tickets.length - lab.length;
+  const open = lab.filter((ticket) => ticket.status === "open").length;
+  const inProgress = lab.filter((ticket) => ticket.status === "in_progress").length;
+  const urgent = lab.filter(
     (ticket) => (ticket.status === "open" || ticket.status === "in_progress") && (ticket.priority === "high" || ticket.priority === "critical")
   ).length;
 
@@ -74,7 +78,8 @@ export default async function AdminMaintenancePage() {
           t("facts.open", { count: open }),
           t("facts.inProgress", { count: inProgress }),
           t("facts.urgent", { count: urgent }),
-          t("facts.tickets", { count: tickets.length }),
+          t("facts.tickets", { count: lab.length }),
+          demo > 0 && t("facts.demoTickets", { count: demo }),
           taskCounts.overdue > 0 && t("facts.tasksOverdue", { count: taskCounts.overdue }),
           taskCounts.dueToday > 0 && t("facts.tasksDueToday", { count: taskCounts.dueToday }),
         ]}

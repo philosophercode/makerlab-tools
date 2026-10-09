@@ -30,7 +30,8 @@
   },
   "status": {
     "labStatusLabel": "实验室状态",
-    "toolsInInventory": "库存中有 {count} 件工具"
+    "toolsInInventory": "库存中有 {count} 件工具",
+    "onShiftNow": "当前值班：{names}"
   },
   "gallery": {
     "category": "类别：",
@@ -169,7 +170,10 @@
   },
   "about": {
     "eyebrow": "关于",
-    "browseTools": "浏览工具"
+    "browseTools": "浏览工具",
+    "demoHeading": "试用完整演示",
+    "demoBody": "来自其他学校或实验室？免费的演示通行证让您在 {days} 天内像这里的学生一样使用助手，无需 {institution} 账号。",
+    "demoCta": "报名试用完整演示"
   },
   "chat": {
     "openAria": "打开 MakerLAB AI",
@@ -192,6 +196,8 @@
     "onlyImages": "仅支持图片文件。",
     "uploadFailed": "照片上传失败",
     "uploadsUnavailable": "照片上传当前不可用。您仍可以不带照片发送消息。",
+    "photoUnsupported": "不支持此照片格式，请尝试 JPEG 或 PNG。",
+    "photoTooLarge": "照片太大，无法上传，请尝试更小的照片或 JPEG。",
     "toolRunningAria": "工具运行中",
     "typingAria": "MakerLAB AI 正在输入",
     "readingManualsAria": "正在阅读手册",
@@ -216,7 +222,13 @@
       "altPlan": "AI 生成的计划信息图",
       "altConcept": "AI 生成的项目创意概念渲染图",
       "unavailable": "此插图已不可用。"
-    }
+    },
+    "demoPassLeft": "演示通行证 · 剩余 {amount}",
+    "demoPassUsedUp": "演示通行证 · 已用完",
+    "demoPassSpent": "您已用完此演示通行证的 AI 额度。感谢试用 MakerLAB AI！您仍可像其他访客一样每小时提几个问题。",
+    "demoPassLimited": "您已用完此通行证的 AI 额度和本小时的访客限额。感谢试用 MakerLAB AI！请稍后再试。",
+    "demoPassContactLead": "想聊聊吗？",
+    "demoPassContactTeam": "联系 MakerLAB 团队"
   },
   "qr": {
     "arrivalLabel": "从这台设备扫码进入",
@@ -368,5 +380,65 @@
     "assistant": "MakerLAB AI",
     "ask": "向 MakerLAB AI 提问：“{query}”",
     "askEmpty": "向 MakerLAB AI 提问"
+  },
+  "kiosk": {
+    "onShiftLabel": "当前值班"
+  },
+  "demoPass": {
+    "eyebrow": "演示通行证",
+    "title": "试用完整演示",
+    "lede": "免费领取演示通行证，像这里的学生一样使用 {site}：向助手询问实验室的设备，回答附有手册引用；还可以报告问题。无需 {institution} 账号。",
+    "passFacts": "通行证在此设备上有效 {days} 天，包含约 {budget} 的 AI 用量。",
+    "required": "必填",
+    "optional": "选填",
+    "nameLabel": "姓名",
+    "emailLabel": "电子邮箱",
+    "emailHint": "仅用于后续联系，助手永远看不到。",
+    "institutionLabel": "机构或单位",
+    "institutionHint": "大学、公司、实验室或创客空间。",
+    "roleLabel": "身份",
+    "roleChoose": "请选择",
+    "role": {
+      "student": "学生",
+      "staff_technician": "职员或技术人员",
+      "faculty": "教师",
+      "lab_manager": "实验室主任或负责人",
+      "other": "其他"
+    },
+    "makerspaceLabel": "您是否管理或任职于某个创客空间？",
+    "yes": "是",
+    "no": "否",
+    "useCaseLabel": "您会用它做什么？",
+    "useCaseHint": "一两句话即可。",
+    "consentLabel": "可以就 MakerLAB AI 与我联系。",
+    "honeypotLabel": "请勿填写此字段",
+    "privacy": "我们会保留报名信息 12 个月。只有实验室主任可以查看，您在此填写的任何内容都不会提供给 AI。如需提前删除，请联系实验室。",
+    "submit": "领取演示通行证",
+    "submitting": "正在报名…",
+    "browseTools": "浏览设备",
+    "askAssistant": "询问助手",
+    "errors": {
+      "required": "请填写此项。",
+      "tooLong": "内容过长。",
+      "invalidEmail": "请输入有效的电子邮箱地址。",
+      "invalid": "请从选项中选择一项。",
+      "summary": "请检查上方标出的字段。",
+      "rateLimited": "此网络刚才的报名次数过多，请几分钟后再试。",
+      "unavailable": "报名暂时不可用，请稍后再试。",
+      "failed": "出了点问题，请重试。"
+    },
+    "thanksTitle": "报名成功",
+    "thanksBody": "感谢报名。您的演示通行证在此设备上有效期至 {date}，包含约 {budget} 的 AI 用量。",
+    "thanksReturning": "欢迎回来。您的演示通行证已在此设备上重新启用，剩余 {remaining}，有效期至 {date}。",
+    "thanksNext": "在任意页面点击聊天按钮即可打开助手，也可以从这里开始。",
+    "thanksExpired": "感谢再次报名。此邮箱的演示通行证已过期，但我们已记下您的信息。",
+    "thanksReceived": "感谢报名。",
+    "closedTitle": "演示报名已结束",
+    "closedBody": "感谢您的关注。您仍可浏览设备，并向助手提几个问题。",
+    "callout": {
+      "label": "演示通行证",
+      "text": "来参观？免费领取演示通行证，与实验室助手对话并报告问题。无需 {institution} 账号。",
+      "cta": "报名试用完整演示"
+    }
   }
 }

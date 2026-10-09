@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 import { resolveIdentity } from "../../../lib/auth/identity";
+import { identityWithDemoPass } from "../../../lib/demo-pass/identity";
+import { resolveDemoPass } from "../../../lib/demo-pass/resolve";
 import { QUICK_REPORT_BODY_MAX } from "../../../lib/maintenance/quick-report-limits";
 import { fileQuickReport, parseQuickReport, type QuickReportError } from "../../../lib/maintenance/quick-report";
 import { checkRateLimit, type RateLimitDecision } from "../../../lib/rate-limit";
@@ -12,8 +14,9 @@ import { checkRateLimit, type RateLimitDecision } from "../../../lib/rate-limit"
  *
  * In order, before anything costs a model call or a row:
  *
- * 1. The caller's identity, then the `quickReport` tier (eight an hour per
- *    person or hashed IP).
+ * 1. The caller's identity, with the demo pass an anonymous visitor holds
+ *    (demo pass spec 2026-10-07 §5.4, as the chat reads it), then the
+ *    `quickReport` tier (eight an hour per person, pass or hashed IP).
  * 2. The body's size, its shape and the bot check (`parseQuickReport`).
  * 3. For a caller nobody is signed in as, one of the `anonTickets` slots
  *    shared with `report_issue`.
@@ -42,7 +45,11 @@ function fail(code: RouteCode, limit?: RateLimitDecision) {
 }
 
 export async function POST(req: NextRequest) {
-  const identity = await resolveIdentity(req);
+  // A demo pass is read beside the session, exactly as the chat does: a forged
+  // cookie costs an HMAC, never a query, and only an anonymous caller's pass
+  // counts. A pass holder's report is filed as a demo ticket.
+  const [session, demoPass] = await Promise.all([resolveIdentity(req), resolveDemoPass(req.headers)]);
+  const identity = identityWithDemoPass(session, demoPass);
   const limit = await checkRateLimit("quickReport", identity);
   if (!limit.allowed) return fail("rate_limited", limit);
 
